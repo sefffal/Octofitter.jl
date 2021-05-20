@@ -33,9 +33,9 @@ function make_ln_like(priors, images, contrasts, times, platescale)
     # static is named tuple of values
 
 
-    if !(all(size(images)  == size(times) == size(contrasts) == size(planet.epochs) for planet in priors.planets))
-        error("All values must have the same length")
-    end
+    # if !(all(size(images)  == size(times) == size(contrasts) == size(planet.epochs) for planet in priors.planets))
+    #     error("All values must have the same length")
+    # end
 
     fi = MVector{length(images)}(zeros(length(images)))
 
@@ -44,8 +44,9 @@ function make_ln_like(priors, images, contrasts, times, platescale)
 
         # The ln likelihood:
         ll = 0.0
-        for (priors_planet, θ_planet) in zip(priors.planets, θ.planets)
-            for i in eachindex(priors_planet.epochs)
+        for θ_planet in θ.planets
+            # for (priors_planet_band, θ_planet_band) in zip(priors_planet.photometry, θ_planet.photometry, photometry.)
+            for i in eachindex(θ_planet.epochs)
 
                 # TODO: this merging needs to be worked out at compile time, or at least when building the function!
                 # TODO: see ComponentArrays.label2index
@@ -88,18 +89,9 @@ function make_ln_like(priors, images, contrasts, times, platescale)
 
             end
 
-            # Spread in flux between epochs
-            # ll += 
-            # *exp(-0.5*(K0/L0 - Model_ratio)^2/model_spread^2)
-
-            # exp(-0.5*sum[(Ki-K0)^2]/(0.1*<Ki>)^2)*exp(-0.5*sum[(Li-L0)^2]/(0.1*<Li>)^2)*exp(-0.5*(K0/L0 - Model_ratio)^2/model_spread^2)
-
-            # if mean(fi) != 0
-                ll += -1/2 * sum(
-                    fi .- θ_planet.f
-                ) / (0.1 * mean(fi)^2)
-            # end
-            # @show fi θ_planet.f
+            ll += -1/2 * sum(
+                (fi .- θ_planet.f).^2
+            ) / (0.1mean(fi))^2
         end
 
         # At this point, a NaN or Inf log-likelihood implies
