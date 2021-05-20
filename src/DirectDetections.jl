@@ -14,123 +14,114 @@ using StaticArrays
 
 # This is a straight forward implementation that unfortunately is not type stable.
 # This is because we are looping over a heterogeneous tuple
-function make_ln_prior(priors)
-    function ln_prior(params)
-        lp = zero(first(params))
-        for i in eachindex(params)
-            pd = priors[i]
-            param = params[i]
-            lp += logpdf(pd, param)
-        end
-        return lp 
+function ln_prior(priors, params)
+    lp = zero(first(params))
+    for i in eachindex(params)
+        pd = priors[i]
+        param = params[i]
+        lp += logpdf(pd, param)
     end
-    return ln_prior
+    return lp 
+end
+
+function ln_photometric_likelihood(θ_planet, θ_band, phot_observations)
+    ll = 0.0
+    for (θ_epoch_f, obs) in zip(θ_band.epochs, phot_observations)
+        elements = KeplerianElements((;θ_planet.μ, θ_planet.plx, θ_planet.i, θ_planet.Ω, θ_planet.ω, θ_planet.e, θ_planet.τ, θ_planet.a))
+        # Calculate position at this epoch
+        ra, dec = kep2cart(elements, obs.epoch)
+        x = -ra
+        y = dec
+
+        # Get the photometry in this image at that location
+        # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
+        f̃ₓ = lookup_coord(obs.image, x,y, obs.platescale)
+        
+        # Find the uncertainty in that photometry value (i.e. the contrast)
+        r = √(x^2 + y^2)
+        σₓ = obs.contrast(r/obs.platescale)
+
+        # When we get a position that falls outside of our available
+        # data (e.g. under the coronagraph) we cannot say anything
+        # about the likelihood. This is equivalent to σₓ→∞ or log likelihood 
+        # of zero.
+        if !isfinite(σₓ) || !isfinite(f̃ₓ)
+            continue
+        end
+
+        # Ruffio et al 2017, eqn 31
+        ll += -1/(2σₓ^2) * (θ_epoch_f^2 - 2θ_epoch_f*f̃ₓ)
+    end
+
+    fᵢ = θ_band.epochs
+    ll += -1/2 * sum(
+        (fᵢ .- θ_band.f).^2
+    ) / (θ_band.σ_f² * mean(fᵢ)^2)
+    return ll
+end
+
+
+function ln_astrometric_likelihood(observations, θ_planet)
+
+    elements = KeplerianElements((;θ_planet.μ, θ_planet.plx, θ_planet.i, θ_planet.Ω, θ_planet.ω, θ_planet.e, θ_planet.τ, θ_planet.a))
+
+    ll = 0.0
+    for obs in observations
+        x, y = kep2cart(elements, obs.epoch)
+        residx = obs.ra - x
+        residy = obs.dec - y
+        σ²x = obs.σ_ra^2
+        σ²y = obs.σ_dec^2
+        χ²x = -0.5residx^2 / σ²x - log(sqrt(2π*σ²x))
+        χ²y = -0.5residy^2 / σ²y - log(sqrt(2π*σ²y))
+        ll += χ²x + χ²y
+    end
+
+    return ll
 end
 
     
-function make_ln_like(priors, images, contrasts, times, platescale)
-    # props is tuple of symbols
-    # static is named tuple of values
+function ln_likelihood(data, θ)
 
+    # The ln likelihood:
+    ll = 0.0
 
-    # if !(all(size(images)  == size(times) == size(contrasts) == size(planet.epochs) for planet in priors.planets))
-    #     error("All values must have the same length")
-    # end
-
-    fi = MVector{length(images)}(zeros(length(images)))
-
-    # Return our
-    return function ln_like(θ)
-
-        # The ln likelihood:
-        ll = 0.0
-        for θ_planet in θ.planets
-            # for (priors_planet_band, θ_planet_band) in zip(priors_planet.photometry, θ_planet.photometry, photometry.)
-            for i in eachindex(θ_planet.epochs)
-
-                # TODO: this merging needs to be worked out at compile time, or at least when building the function!
-                # TODO: see ComponentArrays.label2index
-                # We already know the layout, can even just look up by index.                # Merge the three levels together. This gives us the deepest nested value for any given variable.
-                θ_planet_epoch = θ_planet.epochs[i]
-
-                fi[i] = θ_planet_epoch.f
-
-                # @time elements = KeplerianElements(merge(NamedTuple(θ), NamedTuple(θ_planet), NamedTuple(θ_planet_epoch)))
-                elements = KeplerianElements((;θ.μ, θ.plx, θ_planet.i, θ_planet.Ω, θ_planet.ω, θ_planet.e, θ_planet.τ, θ_planet.a))
-                f = θ_planet_epoch.f
-
-                image = images[i]
-                contrast = contrasts[i]
-                t = times[i]
-
-                # Calculate position at this epoch
-                ra, dec = kep2cart(elements, t)
-                x = -ra
-                y = dec
-
-                # Get the photometry in this image at that location
-                # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
-                f̃ₓ = lookup_coord(image, x,y, platescale)
-                
-                # Find the uncertainty in that photometry value (i.e. the contrast)
-                r = √(x^2 + y^2)
-                σₓ = contrast(r/platescale)
-
-                # When we get a position that falls outside of our available
-                # data (e.g. under the coronagraph) we cannot say anything
-                # about the likelihood. This is equivalent to σₓ→∞ or log likelihood 
-                # of zero.
-                if !isfinite(σₓ) || !isfinite(f̃ₓ)
-                    continue
-                end
-
-                # Ruffio et al 2017, eqn 31
-                ll += -1/(2σₓ^2) * (f^2 - 2f*f̃ₓ)
-
-            end
-
-            ll += -1/2 * sum(
-                (fi .- θ_planet.f).^2
-            ) / (0.1mean(fi))^2
+    # The model can support multiple planets
+    for θ_planet in θ.planets
+        # We can have observations from multiple bands
+        for band in keys(data.phot)
+            ll += ln_photometric_likelihood(θ_planet, θ_planet.phot[band], data.phot[band])
         end
 
-        # At this point, a NaN or Inf log-likelihood implies
-        # an error in preparing the inputs or in this code.
-        if !isfinite(ll)
-            # @show r σₓ f f̃ₓ l
-            error("Non-finite log-likelihood encountered")
-        end
-        return ll
+        # TODO: RV likelihood
+        # TODO: Astrom. likelihood
+
+        ll += ln_astrometric_likelihood(data.astrom, θ_planet)
+
     end
+
+
+    # At this point, a NaN or Inf log-likelihood implies
+    # an error in preparing the datas or in this code.
+    if !isfinite(ll)
+        error("Non-finite log-likelihood encountered")
+    end
+    return ll
 end
-
-
-
-function make_ln_post(priors, images, contrasts, times, platescale)
-    ln_prior = make_ln_prior(priors)
-    ln_like = make_ln_like(priors, images, contrasts, times, platescale)
-    ln_post(params) = ln_prior(params) + ln_like(params)
-    return ln_post
-end
-
 
 function mcmc(
-    priors, images, contrasts, times;
-    platescale,
+    priors, data;
     burnin,
-    numwalkers=10,
-    thinning = 1,
+    numwalkers,
     numsamples_perwalker,
+    thinning=1,
     squash=true
-    )
-    # column_names = string.(collect(keys(priors)))
+)
     column_names = ComponentArrays.labels(priors)
 
-    ln_post = make_ln_post(priors, images, contrasts, times, platescale)
+    ln_post(θ) = ln_prior(priors, θ) + ln_likelihood(data, θ)
 
-    
     @info "Finding starting point"
-    # TODO: kissmcmc has a better method for creating the ball and rejecting some starting points
     initial_walkers = find_starting_walkers(ln_post, priors, numwalkers)
 
     # Convert the initial walkers into static arrays for stack allocation.
@@ -139,8 +130,8 @@ function mcmc(
         ComponentVector{SVector{length(cv)}}(;NamedTuple(cv)...)
         for cv in initial_walkers
     ]
-    # initial_walkers = SVector{length(priors),Float64}.(initial_walkers)
 
+    # Run the MCMC
     thetase, _accept_ratioe = KissMCMC.emcee(
         ln_post,
         initial_walkers_static;
@@ -150,6 +141,8 @@ function mcmc(
         niter=numsamples_perwalker*numwalkers
     )
 
+    # Convert the output into an MCMCChains.Chain.
+    # Use reinterpret to avoid re-allocating all that memory
     if squash
         thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
         reinterptted = reinterpret(reshape, eltype(thetase′), thetase′)
@@ -164,6 +157,8 @@ function mcmc(
 
     return Chains(reinterptted, column_names)
 end
+
+
 
 function find_starting_point(ln_post, priors)
     initial_guess = rand.(priors)
@@ -183,18 +178,19 @@ end
 # Start walkers in a gaussian ball around the MLE, while ensuring we don't
 # step outside the ranges defined by the priors
 function find_starting_walkers(ln_post, priors, numwalkers)
-    # initial_walkers = mapreduce(hcat, 1:numwalkers) do _
-    initial_walkers = map(1:numwalkers) do _
-        return initial_position = find_starting_point(ln_post, priors)
-        # This used to intiialize the walkers in a Gaussian ball around the MAP.
-        # But now we just draw starting points randomly from the priors, this isn't needed.
-        # @showprogress "Finding initial positions" map(eachindex(initial_position)) do i
+    # initial_position = find_starting_point(ln_post, priors)
+    initial_walkers = map(1:numwalkers) do i
+        initial_position = find_starting_point(ln_post, priors)
+        # # This used to intiialize the walkers in a Gaussian ball around the MAP.
+        # # But now we just draw starting points randomly from the priors, this isn't needed.
+        # map(eachindex(initial_position)) do i
         #     p = NaN
         #     while !(minimum(priors[i]) < p < maximum(priors[i]))
         #         p = initial_position[i] + 0.01randn()*initial_position[i]
         #     end
         #     p
         # end
+        # initial_position .* (1 .+ randn(length(initial_position)))
     end
     return initial_walkers
 end

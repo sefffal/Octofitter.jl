@@ -27,7 +27,7 @@ truth = (; # ComponentVector{SVector{7,Float64}}
 truth_elements = KeplerianElements(truth)
 # truth_elements = KeplerianElements(ComponentArray(truth, static))
 
-times = range(0, period(truth_elements)*3/4, length=4, )
+times = range(0, period(truth_elements)*4/5, length=9, )
 points = hcat(
     raoff.(truth_elements, times),
     decoff.(truth_elements, times)
@@ -35,11 +35,9 @@ points = hcat(
 
 # Create synthetic images at each time with those points
 Random.seed!(1234)
-images_contrasts = map(zip(eachrow(points),eachrow(points2))) do ((ra,dec),(ra2,dec2))
+images_contrasts = map(eachrow(points)) do (ra,dec)
     x = -ra
     y = dec
-    x2 = -ra2
-    y2 = dec2
 
     img = zeros(201,201)
     r = imgsep(img)
@@ -57,7 +55,7 @@ images_contrasts = map(zip(eachrow(points),eachrow(points2))) do ((ra,dec),(ra2,
     img_for_contrast = imfilter(img, Kernel.gaussian(5), "replicate")
     contrast = contrast_interp(img_for_contrast)
 
-    img[round(Int,x/10), round(Int,y/10)] += 5000 + 800randn()
+    img[round(Int,x/10), round(Int,y/10)] += 5000 + 300randn()
     # img[round(Int,x2/10), round(Int,y2/10)] += 5000
 
     img = imfilter(img, Kernel.gaussian(5), "replicate")
@@ -69,41 +67,42 @@ contrasts = [contrast for (img,contrast) in images_contrasts]
 display.(imshow2.(images, cmap=:turbo, clims=(-35,35)));
 
 ##
-# photometry = (;
-#     L′ = (;
-#         images=images,
-#         times=times,
-#         contrasts=contrast
-#     ),
-#     Ks = (;
-#         images=images,
-#         times=times,
-#         contrasts=contrast
-#     )
-# )
-
-photometry = (;
-    L′ = [
-        (phot=images[1], epoch=times[1], contrast=contrasts[1]),
-        (phot=images[2], epoch=times[2], contrast=contrasts[2]),
-        (phot=images[3], epoch=times[3], contrast=contrasts[3]),
-        (phot=images[4], epoch=times[4], contrast=contrasts[4]),
-    ],
-    Ks = [
-        (phot=images[1], epoch=times[1], contrast=contrasts[1]),
-        (phot=images[2], epoch=times[2], contrast=contrasts[2]),
-        (phot=images[3], epoch=times[3], contrast=contrasts[3]),
-        (phot=images[4], epoch=times[4], contrast=contrasts[4]),
+input = (;
+    phot = (;
+        Keck_L′ = [
+            (image=images[1], platescale=10.0, epoch=times[1], contrast=contrasts[1]),
+            (image=images[2], platescale=10.0, epoch=times[2], contrast=contrasts[2]),
+            (image=images[3], platescale=10.0, epoch=times[3], contrast=contrasts[3]),
+            (image=images[5], platescale=10.0, epoch=times[5], contrast=contrasts[5]),
+            (image=images[6], platescale=10.0, epoch=times[6], contrast=contrasts[6]),
+            (image=images[7], platescale=10.0, epoch=times[7], contrast=contrasts[7]),
+            (image=images[8], platescale=10.0, epoch=times[8], contrast=contrasts[8]),
+            (image=images[9], platescale=10.0, epoch=times[9], contrast=contrasts[9]),
+        ],
+        # Ks = [
+        #     (image=images[1], platescale=10.0, epoch=times[1], contrast=contrasts[1]),
+        #     (image=images[2], platescale=10.0, epoch=times[2], contrast=contrasts[2]),
+        #     (image=images[3], platescale=10.0, epoch=times[3], contrast=contrasts[3]),
+        #     (image=images[4], platescale=10.0, epoch=times[4], contrast=contrasts[4]),
+        # ]
+    ),
+    astrom = [
+        # (; 
+        #     epoch=mean(times),
+        #     ra=raoff(truth_elements, mean(times)),
+        #     dec=decoff(truth_elements, mean(times)),
+        #     σ_ra=5.,
+        #     σ_dec=5.,
+        # )
     ]
 )
 
 ##
-using ComponentArrays
 priors = ComponentVector(
     # i = Normal(0.6, 0.3),
     # Ω = Normal(0.0, 0.3),
-    μ = Normal(1.0, 0.01),
-    plx = Normal(45., 0.0001),
+    # μ = Normal(1.0, 0.01),
+    # plx = Normal(45., 0.0001),
     planets = [
         (
             a = Uniform(8, 25),
@@ -112,81 +111,67 @@ priors = ComponentVector(
             ω = Normal(0.0, 0.3),
             i = Normal(0.5, 0.3),
             Ω = Normal(0.0, 0.3),
+
+            μ = Normal(1.0, 0.01),
+            plx = Normal(45., 0.0001),
+
             Teff = TruncatedNormal(1500, 800, 0, Inf),
             logg = TruncatedNormal(4, 1, 0, Inf),
             
-            f = Uniform(0., 100.),
+            # f = Uniform(0., 100.),
             # f_spread = TruncatedNormal(0, 1, 0., Inf),
             # TODO: rename f_i? Or do I want to allow astrometric offsets to be fit? North angle?
 
             # The flux in each epoch is separate, but these flux parameters are drawn
             # from a common distribution for this planet.
-            epochs = [
-                (;f = Uniform(0., 100.)),
-                (;f = Uniform(0., 100.)),
-                (;f = Uniform(0., 100.)),
-                (;f = Uniform(0., 100.)),
-            ]
+            # epochs = [
+            #     (;f = Uniform(0., 100.)),
+            #     (;f = Uniform(0., 100.)),
+            #     (;f = Uniform(0., 100.)),
+            #     (;f = Uniform(0., 100.)),
+            # ]
 
-            # photometry = (;
-            #     L′ = (
-            #         model = Uniform(0., 100.),
-            #         model_spread = Normal(0.1, 0.1),
-            #         epochs = [
-            #             Uniform(0., 100.),
-            #             Uniform(0., 100.),
-            #             Uniform(0., 100.),
-            #             Uniform(0., 100.),
-            #     ],
-            #     Ks = (
-            #         model = Uniform(0., 100.),
-            #         model_spread = Normal(0.1, 0.1),
-            #         epochs = [
-            #             Uniform(0., 100.),
-            #             Uniform(0., 100.),
-            #         ]
-            #     )
-            # ),
-            # rv = Distribution{Univariate, Continuous}[],
-            # astrometry = Distribution{Univariate, Continuous}[],
+            phot = (;
+                Keck_L′ = (
+                    f = Uniform(0., 100.),
+                    σ_f² = Truncated(InverseGamma(2,0.1), 0, 10),#InverseGamma(2,0.5), 0, 1),
+                    epochs = [
+                        Uniform(0., 100.),
+                        Uniform(0., 100.),
+                        Uniform(0., 100.),
+                        Uniform(0., 100.),
+                        Uniform(0., 100.),
+                        Uniform(0., 100.),
+                        Uniform(0., 100.),
+                        Uniform(0., 100.),
+                        Uniform(0., 100.),
+                    ],
+                ),
+                # Ks = (
+                #     f = Uniform(0., 100.),
+                #     σ_f = Normal(0.1, 0.1),
+                #     epochs = [
+                #         Uniform(0., 100.),
+                #         Uniform(0., 100.),
+                #     ]
+                # )
+            ),
         ),
-        # CV(
-        #     a = TruncatedNormal(16, 8, 4., Inf),
-        #     e = TruncatedNormal(0.21, 0.2, 0.0, 0.9999),
-        #     τ = Uniform(0,1),
-        #     ω = Normal(0.0, 0.3),
-        #     i = Normal(0.6, 0.3),
-        #     Ω = Normal(0.0, 0.3),
-        #     f = TruncatedNormal(28, 5, 0., Inf),
-        #     f_spread = TruncatedNormal(0, 1, 0., Inf),
-        #     epochs = [
-        #         CV(f = TruncatedNormal(28, 5, 0., Inf)),
-        #         CV(f = TruncatedNormal(28, 5, 0., Inf)),
-        #         CV(f = TruncatedNormal(28, 5, 0., Inf)),
-        #         CV(f = TruncatedNormal(28, 5, 0., Inf)),
-        #         CV(f = TruncatedNormal(28, 5, 0., Inf)),
-        #         CV(f = TruncatedNormal(28, 5, 0., Inf)),
-        #         CV(f = TruncatedNormal(28, 5, 0., Inf)),
-        #         CV(f = TruncatedNormal(28, 5, 0., Inf)),
-        #         CV(f = TruncatedNormal(28, 5, 0., Inf)),
-        #         CV(f = TruncatedNormal(28, 5, 0., Inf)),
-        #     ]
-        # )
     ]
 
 )
 
-
-sum(logpdf.(priors, rand.(priors)))
+# test:
+θ = rand.(priors)
+logpdf.(priors, θ) |> sum
 
 
 ##
 @time chains = DirectDetections.mcmc(
-    priors, images, contrasts, times;
-    platescale=10.,
-    burnin=4_000,
-    numwalkers=5000,
-    numsamples_perwalker=5_000,
+    priors, input;
+    burnin=20_000,
+    numwalkers=3000,
+    numsamples_perwalker=25_000,
     squash = true
 );
 nothing
@@ -194,27 +179,29 @@ nothing
 ##
 corner(
     (;
-        f=chains["planets[1].f"][:],
+        f=chains["planets[1].phot.Keck_L′.f"][:],
+        σ=chains["planets[1].phot.Keck_L′.σ_f²"][:],
         a=chains["planets[1].a"][:],
         e=chains["planets[1].e"][:],
         tau=chains["planets[1].τ"][:]
     ),
-    ["f_0", "a", "e", "\\tau",],
-    hist_kwargs=(;nbins=15),
-    hist2d_kwargs=(;nbins=15),
+    ["f_0", "\\sigma_f^2", "a", "e", "\\tau",],
+    # hist_kwargs=(;nbins=15),
+    # hist2d_kwargs=(;nbins=15),
     plotscatter=false
 )
 
 ##
 corner(
     (;
-        f=chains["planets[1].f"][:],
-        f₁=chains["planets[1].epochs[1].f"][:],
-        f₂=chains["planets[1].epochs[2].f"][:],
-        f₃=chains["planets[1].epochs[3].f"][:],
-        f₄=chains["planets[1].epochs[4].f"][:],
+        f =chains["planets[1].phot.Keck_L′.f"][:],
+        f₁=chains["planets[1].phot.Keck_L′.epochs[1]"][:],
+        f₂=chains["planets[1].phot.Keck_L′.epochs[2]"][:],
+        f₃=chains["planets[1].phot.Keck_L′.epochs[3]"][:],
+        f₄=chains["planets[1].phot.Keck_L′.epochs[4]"][:],
+        σ_f =chains["planets[1].phot.Keck_L′.σ_f"][:],
     ),
-    ["f_0", "f_1", "f_2", "f_3", "f_4"],
+    ["f_0", "f_1", "f_2", "f_3", "f_4", "\\sigma_f"],
     hist_kwargs=(;nbins=15),
     hist2d_kwargs=(;nbins=15),
     plotscatter=false
@@ -222,28 +209,30 @@ corner(
 
 ##
 using StatsBase
-bins = 23:1:40
-f=fit(Histogram, chains["planets[1].f"][:], bins)
-f₁=fit(Histogram, chains["planets[1].epochs[1].f"][:], bins)
-f₂=fit(Histogram, chains["planets[1].epochs[2].f"][:], bins)
-f₃=fit(Histogram, chains["planets[1].epochs[3].f"][:], bins)
-f₄=fit(Histogram, chains["planets[1].epochs[4].f"][:], bins)
+bins = 0:1:100
+f₀=fit(Histogram, chains["planets[1].phot.Keck_L′.f"][:], bins)
+f₁=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[1]"][:], bins)
+f₂=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[2]"][:], bins)
+f₃=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[3]"][:], bins)
+f₄=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[4]"][:], bins)
 plot(fontfamily="", background=:black, grid=:none, minorgrid=:none)
 for (f,l) in zip((f₁, f₂, f₃, f₄), ("f₁", "f₂", "f₃", "f₄"))
     plot!(f.edges[1][1:end-1].+step(f.edges[1])/2, f.weights, label=l)
 end
-plot!(f.edges[1][1:end-1].+step(f.edges[1])/2, f.weights, color=:white, lw=3, label="f")
+plot!(f₀.edges[1][1:end-1].+step(f₀.edges[1])/2, f₀.weights, color=:white, lw=3, label="f")
 ylabel!("Posterior density")
 xlabel!("Flux - arb.")
 vline!([mean(maximum.(filter.(isfinite, images)))], label="truth", color=:white)
 
 ##
-sampled = map(rand(1:size(chains,1),500)) do i
+using ColorSchemes
+# sampled = map(rand(1:size(chains,1),500)) do i
+sampled = map(round.(Int, range(1, size(chains,1), length=500))) do i
     el = KeplerianElements(
-        # i=chains[:i][i],
-        # Ω=chains[:Ω][i],
-        μ=chains[i,:μ,1],
-        plx=chains[i,:plx,1],
+        # μ=chains[i,:μ,1],
+        # plx=chains[i,:plx,1],
+        μ=chains[i,"planets[1].μ",1],
+        plx=chains[i,"planets[1].plx",1],
         a=chains[i,"planets[1].a",1],
         e=chains[i,"planets[1].e",1],
         τ=chains[i,"planets[1].τ",1],
@@ -254,10 +243,23 @@ sampled = map(rand(1:size(chains,1),500)) do i
 end
 i = DirectImage(
     sum(images),
+    # images[1]
 )
 i.PLATESCALE = 10.
 imshow(i, skyconvention=true, clims=(-10,40))
-plot!(sampled, color=:white, alpha=0.005, label="")
+# plot(xflip=true, background=:black, grid=:none)
+# plot!(sampled, color=:white, alpha=0.05, label="")
+for (j,s) in enumerate(sampled)
+    plot!(s, color=:white, alpha=0.01, label="")
+end
+
+
+ras = map(obs->obs.ra, input.astrom)
+decs = map(obs->obs.dec, input.astrom)
+σ_ras = map(obs->obs.σ_ra, input.astrom)
+σ_decs = map(obs->obs.σ_dec, input.astrom)
+scatter!(ras, decs, xerr=σ_ras, yerr=σ_decs, marker=(0, :square,:white), markerstrokecolor=:white, markerstrokewidth=1, label="")
+
 xlims!(extrema(axes(i,1)).*i.PLATESCALE)
 ylims!(extrema(axes(i,2)).*i.PLATESCALE)
 
