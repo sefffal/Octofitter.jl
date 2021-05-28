@@ -204,14 +204,15 @@ keys(chains)
 corner(
     (;
         L=chains["planets[1].phot.Keck_L′.f"][:],
-        σ=chains["planets[1].phot.Keck_L′.σ_f²"][:],
+        K=chains["planets[1].phot.Keck_Ks.f"][:],
+        # σ=chains["planets[1].phot.Keck_L′.σ_f²"][:],
         T=chains["planets[1].Teff"][:],
         m=chains["planets[1].mass"][:],
         a=chains["planets[1].a"][:],
         e=chains["planets[1].e"][:],
         tau=chains["planets[1].τ"][:]
     ),
-    ["L\\prime", "\\sigma_{L\\prime}^2", "\\mathrm{T_{eff}}", "\\mathrm{mass}", "a", "e", "\\tau",],
+    ["L\\prime", "Ks", "\\mathrm{T_{eff}}", "\\mathrm{mass}", "a", "i", "e", "\\tau",],
     # hist_kwargs=(;nbins=15),
     # hist2d_kwargs=(;nbins=15),
     plotscatter=false
