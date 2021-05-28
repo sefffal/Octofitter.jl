@@ -4,7 +4,8 @@ using Distributions: mode, logpdf
 
 import KissMCMC
 
-using MCMCChains
+using Statistics
+# using MCMCChains
 using NamedTupleTools
 using DirectImages: lookup_coord
 using DirectOrbits
@@ -128,7 +129,7 @@ function mcmc(
     thinning=1,
     squash=true
 )
-    column_names = ComponentArrays.labels(priors)
+    # column_names = ComponentArrays.labels(priors)
 
     # Prepare interpolators for any different bands we want to model
     bands = unique(reduce(vcat, (keys(planet.phot) for planet in priors.planets)))
@@ -164,17 +165,20 @@ function mcmc(
     # Use reinterpret to avoid re-allocating all that memory
     if squash
         thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
-        reinterptted = reinterpret(reshape, eltype(thetase′), thetase′)
+        reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′);
+        chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]));
     else
         # We can reinterpret the vector of SVectors as a matrix directly without copying!
         # This can save massive amounts of memory and time on large changes
         reinterptted = cat(
-            [transpose(reinterpret(reshape, eltype(first(θ)), θ)) for θ in thetase]...,
+            [reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]...,
             dims=3
         )
+        chains = ComponentArray(collect(eachslice(reinterptted,dims=1)), getaxes(thetase[1][1]))
     end
 
-    return Chains(reinterptted, column_names)
+    # return Chains(reinterptted, column_names)
+    return chains
 end
 
 
@@ -216,5 +220,5 @@ end
 
 
 
-include("analysis.jl")
+# include("analysis.jl")
 end

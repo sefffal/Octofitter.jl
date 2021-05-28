@@ -8,7 +8,6 @@ using Distributions
 using DirectImages
 
 
-using MCMCChains: Chains
 using ImageFiltering
 
 using ComponentArrays
@@ -67,7 +66,10 @@ images_contrasts = map(eachrow(points)) do (ra,dec)
 end
 images = [img for (img,contrast) in images_contrasts]
 contrasts = [contrast for (img,contrast) in images_contrasts]
-display.(imshow2.(images, cmap=:turbo, clims=(-35,35)));
+nothing
+
+##
+# display.(imshow2.(images, cmap=:turbo, clims=(-35,35)));
 
 ##
 input = (;
@@ -98,6 +100,7 @@ input = (;
         # )
     ]
 )
+nothing
 
 ##
 priors = ComponentVector(
@@ -118,7 +121,7 @@ priors = ComponentVector(
             plx = Normal(45., 0.0001),
 
             Teff = TruncatedNormal(1200, 800, 200, 2400),
-            mass = Uniform(0.55, 15),
+            mass = Uniform(0.55, 25),
             
             # f = Uniform(0., 100.),
             # f_spread = TruncatedNormal(0, 1, 0., Inf),
@@ -162,7 +165,6 @@ priors = ComponentVector(
             ),
         ),
     ]
-
 )
 
 # test:
@@ -173,32 +175,44 @@ logpdf.(priors, θ) |> sum
 ##
 @time chains = DirectDetections.mcmc(
     priors, input;
-    numwalkers=3000,
+    # numwalkers=3000,
     # burnin=20_000,
     # numsamples_perwalker=25_000,
     
+    numwalkers=300,
     burnin=20_00,
     numsamples_perwalker=25_00,
     squash = true
 );
 nothing
 
-## Single threaded
 ##
-Threads.@threads for _ in 1
-    @time chains = DirectDetections.mcmc(
-        priors, input;
-        numwalkers=3000,
-        # burnin=20_000,
-        # numsamples_perwalker=25_000,
-        
-        burnin=20_00,
-        numsamples_perwalker=25_00,
-        squash = true
-    )
-end
+thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
+nothing
+
 ##
-keys(chains)
+reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′);
+chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]));
+nothing
+
+
+## What do we want?
+chains.planets[1].a # -> matrix of chains concatenated together
+
+
+
+
+
+##
+table = (;
+    chains.planets[1].a,
+    chains.planets[1].mass,
+    chains.planets[1].Teff,
+)
+corner(table,plotscatter=false)
+
+
+
 
 ##
 corner(
