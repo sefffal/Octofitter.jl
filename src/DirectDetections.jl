@@ -11,6 +11,9 @@ using DirectOrbits
 using Base.Threads: @threads
 using StaticArrays
 
+# We use a sonora model grid to tie fluxes to physical properties
+include("sonora.jl")
+
 
 # This is a straight forward implementation that unfortunately is not type stable.
 # This is because we are looping over a heterogeneous tuple
@@ -24,7 +27,7 @@ function ln_prior(priors, params)
     return lp 
 end
 
-function ln_photometric_likelihood(θ_planet, θ_band, phot_observations)
+function ln_photometric_likelihood(θ_planet, θ_band, phot_observations, model_interpolator)
     ll = 0.0
     for (θ_epoch_f, obs) in zip(θ_band.epochs, phot_observations)
         elements = KeplerianElements((;θ_planet.μ, θ_planet.plx, θ_planet.i, θ_planet.Ω, θ_planet.ω, θ_planet.e, θ_planet.τ, θ_planet.a))
@@ -53,10 +56,18 @@ function ln_photometric_likelihood(θ_planet, θ_band, phot_observations)
         ll += -1/(2σₓ^2) * (θ_epoch_f^2 - 2θ_epoch_f*f̃ₓ)
     end
 
+    # Connect the flux at each epoch to an overall flux in this band for this planet
     fᵢ = θ_band.epochs
     ll += -1/2 * sum(
         (fᵢ .- θ_band.f).^2
     ) / (θ_band.σ_f² * mean(fᵢ)^2)
+
+    # And connect that flux to a modelled Teff and mass
+    # @show θ_planet.Teff θ_planet.mass
+    f_model = model_interpolator(θ_planet.Teff, θ_planet.mass)
+    # @show f_model
+    ll += -1/2 * (f_model - θ_band.f)^2 /  (θ_band.σ_f_model² * f_model^2)
+
     return ll
 end
 
@@ -81,7 +92,7 @@ function ln_astrometric_likelihood(observations, θ_planet)
 end
 
     
-function ln_likelihood(data, θ)
+function ln_likelihood(data, interpolators, θ)
 
     # The ln likelihood:
     ll = 0.0
@@ -90,7 +101,7 @@ function ln_likelihood(data, θ)
     for θ_planet in θ.planets
         # We can have observations from multiple bands
         for band in keys(data.phot)
-            ll += ln_photometric_likelihood(θ_planet, θ_planet.phot[band], data.phot[band])
+            ll += ln_photometric_likelihood(θ_planet, θ_planet.phot[band], data.phot[band], interpolators[band])
         end
 
         # TODO: RV likelihood
@@ -103,9 +114,9 @@ function ln_likelihood(data, θ)
 
     # At this point, a NaN or Inf log-likelihood implies
     # an error in preparing the datas or in this code.
-    if !isfinite(ll)
-        error("Non-finite log-likelihood encountered")
-    end
+    # if !isfinite(ll)
+    #     error("Non-finite log-likelihood encountered")
+    # end
     return ll
 end
 
@@ -119,7 +130,15 @@ function mcmc(
 )
     column_names = ComponentArrays.labels(priors)
 
-    ln_post(θ) = ln_prior(priors, θ) + ln_likelihood(data, θ)
+    # Prepare interpolators for any different bands we want to model
+    bands = unique(reduce(vcat, (keys(planet.phot) for planet in priors.planets)))
+    
+    interpolators = namedtuple(bands, [sonora_interpolator(band) for band in bands])
+    #     itp = ScatteredInterpolation.interpolate(ScatteredInterpolation.ThinPlate(), points, getproperty(sonora, key))
+    #     return make_itp(itp)
+    # end
+
+    ln_post(θ) = ln_prior(priors, θ) + ln_likelihood(data, interpolators, θ)
 
     @info "Finding starting point"
     initial_walkers = find_starting_walkers(ln_post, priors, numwalkers)

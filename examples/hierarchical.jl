@@ -1,9 +1,12 @@
+# using Plots, PairPlots
+# theme(:dao)
+
+##
 import Random
 using DirectDetections
 using Distributions
 using DirectImages
-using Plots, PairPlots
-theme(:dao)
+
 
 using MCMCChains: Chains
 using ImageFiltering
@@ -75,16 +78,15 @@ input = (;
             (image=images[3], platescale=10.0, epoch=times[3], contrast=contrasts[3]),
             (image=images[5], platescale=10.0, epoch=times[5], contrast=contrasts[5]),
             (image=images[6], platescale=10.0, epoch=times[6], contrast=contrasts[6]),
+            # (image=images[7], platescale=10.0, epoch=times[7], contrast=contrasts[7]),
+            # (image=images[8], platescale=10.0, epoch=times[8], contrast=contrasts[8]),
+            # (image=images[9], platescale=10.0, epoch=times[9], contrast=contrasts[9]),
+        ],
+        Keck_Ks = [ 
             (image=images[7], platescale=10.0, epoch=times[7], contrast=contrasts[7]),
             (image=images[8], platescale=10.0, epoch=times[8], contrast=contrasts[8]),
             (image=images[9], platescale=10.0, epoch=times[9], contrast=contrasts[9]),
-        ],
-        # Ks = [
-        #     (image=images[1], platescale=10.0, epoch=times[1], contrast=contrasts[1]),
-        #     (image=images[2], platescale=10.0, epoch=times[2], contrast=contrasts[2]),
-        #     (image=images[3], platescale=10.0, epoch=times[3], contrast=contrasts[3]),
-        #     (image=images[4], platescale=10.0, epoch=times[4], contrast=contrasts[4]),
-        # ]
+        ]
     ),
     astrom = [
         # (; 
@@ -115,8 +117,8 @@ priors = ComponentVector(
             μ = Normal(1.0, 0.01),
             plx = Normal(45., 0.0001),
 
-            Teff = TruncatedNormal(1500, 800, 0, Inf),
-            logg = TruncatedNormal(4, 1, 0, Inf),
+            Teff = TruncatedNormal(1200, 800, 200, 2400),
+            mass = Uniform(0.55, 15),
             
             # f = Uniform(0., 100.),
             # f_spread = TruncatedNormal(0, 1, 0., Inf),
@@ -134,7 +136,8 @@ priors = ComponentVector(
             phot = (;
                 Keck_L′ = (
                     f = Uniform(0., 100.),
-                    σ_f² = Truncated(InverseGamma(2,0.1), 0, 10),#InverseGamma(2,0.5), 0, 1),
+                    σ_f² = Truncated(InverseGamma(4,0.01), 0, 1),
+                    σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1),
                     epochs = [
                         Uniform(0., 100.),
                         Uniform(0., 100.),
@@ -147,14 +150,15 @@ priors = ComponentVector(
                         Uniform(0., 100.),
                     ],
                 ),
-                # Ks = (
-                #     f = Uniform(0., 100.),
-                #     σ_f = Normal(0.1, 0.1),
-                #     epochs = [
-                #         Uniform(0., 100.),
-                #         Uniform(0., 100.),
-                #     ]
-                # )
+                Keck_Ks = (
+                    f = Uniform(0., 100.),
+                    σ_f² = Truncated(InverseGamma(4,0.01), 0, 1),
+                    σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1),
+                    epochs = [
+                        Uniform(0., 100.),
+                        Uniform(0., 100.),
+                    ]
+                )
             ),
         ),
     ]
@@ -169,23 +173,45 @@ logpdf.(priors, θ) |> sum
 ##
 @time chains = DirectDetections.mcmc(
     priors, input;
-    burnin=20_000,
     numwalkers=3000,
-    numsamples_perwalker=25_000,
+    # burnin=20_000,
+    # numsamples_perwalker=25_000,
+    
+    burnin=20_00,
+    numsamples_perwalker=25_00,
     squash = true
 );
 nothing
 
+## Single threaded
+##
+Threads.@threads for _ in 1
+    @time chains = DirectDetections.mcmc(
+        priors, input;
+        numwalkers=3000,
+        # burnin=20_000,
+        # numsamples_perwalker=25_000,
+        
+        burnin=20_00,
+        numsamples_perwalker=25_00,
+        squash = true
+    )
+end
+##
+keys(chains)
+
 ##
 corner(
     (;
-        f=chains["planets[1].phot.Keck_L′.f"][:],
+        L=chains["planets[1].phot.Keck_L′.f"][:],
         σ=chains["planets[1].phot.Keck_L′.σ_f²"][:],
+        T=chains["planets[1].Teff"][:],
+        m=chains["planets[1].mass"][:],
         a=chains["planets[1].a"][:],
         e=chains["planets[1].e"][:],
         tau=chains["planets[1].τ"][:]
     ),
-    ["f_0", "\\sigma_f^2", "a", "e", "\\tau",],
+    ["L\\prime", "\\sigma_{L\\prime}^2", "\\mathrm{T_{eff}}", "\\mathrm{mass}", "a", "e", "\\tau",],
     # hist_kwargs=(;nbins=15),
     # hist2d_kwargs=(;nbins=15),
     plotscatter=false
@@ -199,7 +225,7 @@ corner(
         f₂=chains["planets[1].phot.Keck_L′.epochs[2]"][:],
         f₃=chains["planets[1].phot.Keck_L′.epochs[3]"][:],
         f₄=chains["planets[1].phot.Keck_L′.epochs[4]"][:],
-        σ_f =chains["planets[1].phot.Keck_L′.σ_f"][:],
+        σ_f =chains["planets[1].phot.Keck_L′.σ_f²"][:],
     ),
     ["f_0", "f_1", "f_2", "f_3", "f_4", "\\sigma_f"],
     hist_kwargs=(;nbins=15),
@@ -208,6 +234,8 @@ corner(
 )
 
 ##
+histogram(chains["planets[1].phot.Keck_L′.σ_f²"][:])
+##
 using StatsBase
 bins = 0:1:100
 f₀=fit(Histogram, chains["planets[1].phot.Keck_L′.f"][:], bins)
@@ -215,14 +243,20 @@ f₁=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[1]"][:], bins)
 f₂=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[2]"][:], bins)
 f₃=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[3]"][:], bins)
 f₄=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[4]"][:], bins)
-plot(fontfamily="", background=:black, grid=:none, minorgrid=:none)
-for (f,l) in zip((f₁, f₂, f₃, f₄), ("f₁", "f₂", "f₃", "f₄"))
+f5=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[5]"][:], bins)
+f6=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[6]"][:], bins)
+f7=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[7]"][:], bins)
+f8=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[8]"][:], bins)
+f9=fit(Histogram, chains["planets[1].phot.Keck_L′.epochs[9]"][:], bins)
+# plot(fontfamily="", background=:black, grid=:none, minorgrid=:none)
+plot(fontfamily="")
+for (f,l) in zip((f₁, f₂, f₃, f₄, f5, f6, f7, f8, f9), ("f₁", "f₂", "f₃", "f₄", "f₅", "f₆", "f₇", "f₈", "f₉"))
     plot!(f.edges[1][1:end-1].+step(f.edges[1])/2, f.weights, label=l)
 end
-plot!(f₀.edges[1][1:end-1].+step(f₀.edges[1])/2, f₀.weights, color=:white, lw=3, label="f")
+plot!(f₀.edges[1][1:end-1].+step(f₀.edges[1])/2, f₀.weights, color=:black, lw=3, label="f", ls=:dash)
 ylabel!("Posterior density")
 xlabel!("Flux - arb.")
-vline!([mean(maximum.(filter.(isfinite, images)))], label="truth", color=:white)
+# vline!([mean(maximum.(filter.(isfinite, images)))], label="truth", color=:black, ls=:solid)
 
 ##
 using ColorSchemes

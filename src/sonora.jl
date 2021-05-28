@@ -2,7 +2,7 @@
 # function sonora()
 
 # end
-using DelimitedFiles, NamedTupleTools, Interpolations
+using DelimitedFiles, NamedTupleTools, ScatteredInterpolation
 function load_table(fname=joinpath(@__DIR__, "sonora_flux_table.txt"))
 
     headers = open(fname, lock=false, read=true) do f
@@ -49,76 +49,106 @@ function load_table(fname=joinpath(@__DIR__, "sonora_flux_table.txt"))
     return namedtuple(headers, eachcol(data));
 end
 
-##
-sonora = load_table()
+# Prepare a set of 2D interpolations from Teff, mass -> flux in all the different bands
+# in the sonora models table.
+# The results are returned in mJy at 10px (not logged)
 
-##
-using Plots
-theme(:dao)
-scatter(sonora.mass, sonora.Keck_L′, marker_z=sonora.Teff, colorbar_title=raw"$\mathrm{T_{eff}}$", label="")
-xlabel!("mass")
-ylabel!("L′")
-##
-scatter(sonora.logg, sonora.Keck_L′, marker_z=sonora.Teff, colorbar_title=raw"$\mathrm{T_{eff}}$", label="")
-xlabel!("log g")
-ylabel!("L′")
 
-##
-
-##
-itp = LinearInterpolation((sonora.logg, sonora.Teff), sonora.Keck_L′)
-
-plot(itp.(3.5))
-
-##
-using ScatteredInterpolation
-samples = [0.0; 0.5; 0.5; 0.5; 1.0];
-points = [0.0 0.0; 0.0 1.0; 1.0 0.0; 0.5 0.5; 1.0 1.0]';
-itp = ScatteredInterpolation.interpolate(Multiquadratic(), points, samples);
-interpolated = evaluate(itp, [0.6; 0.6])
-
-##
-points = vcat(
-    sonora.logg',
-    log10.((sonora.Teff))'
-)
-itp_Ks = ScatteredInterpolation.interpolate(ScatteredInterpolation.ThinPlate(), points, sonora.Keck_Ks);
-itp_L′ = ScatteredInterpolation.interpolate(ScatteredInterpolation.ThinPlate(), points, sonora.Keck_L′);
-function sonora_flux_interp(itp, logg, Teff)
-    return only(evaluate(itp, [logg; log10(Teff)]))
+local sonora_table
+function __init__()
+    @info "Loading Sonora model table"
+    global sonora_table = load_table()
 end
 
+function make_itp(itp)
+    function (Teff,mass)
+        if 0.53 ≤ mass ≤ 98 && 200 ≤ Teff ≤ 2400
+            in = @SArray[log10(Teff),mass]
+            return 10^only(evaluate(itp, in))
+        else
+            return NaN
+        end
+    end
+end
+
+export sonora_interpolator
+function sonora_interpolator(key)
+
+    points = vcat(
+        log10.((sonora_table.Teff))',
+        sonora_table.mass',
+    )
+
+    # filtered_keys = filter(keys(sonora)) do key
+    #     key ∉ (:Teff, :logg, :mass, :R_Rsun, :Y, :logKzz)
+    # end
+
+    # interpolators = map(filtered_keys) do key
+    #     itp = ScatteredInterpolation.interpolate(ScatteredInterpolation.ThinPlate(), points, getproperty(sonora, key))
+    #     return make_itp(itp)
+    # end
+
+    itp = ScatteredInterpolation.interpolate(ScatteredInterpolation.ThinPlate(), points, getproperty(sonora_table, key))
+    return make_itp(itp)
+
+    # global sonora_flux_interp = namedtuple(filtered_keys, interpolators)
+end
+
+
+
 # ##
-# points = vcat(
-#     sonora.logg',
-#     log10.((sonora.Teff))'
+
+# ##
+# using Plots
+# theme(:dao)
+# scatter(sonora.mass, sonora.Keck_L′, marker_z=sonora.Teff, colorbar_title=raw"$\mathrm{T_{eff}}$", label="")
+# xlabel!("mass")
+# ylabel!("L′")
+# ##
+# scatter(sonora.logg, sonora.Keck_L′, marker_z=sonora.Teff, colorbar_title=raw"$\mathrm{T_{eff}}$", label="")
+# xlabel!("log g")
+# ylabel!("L′")
+
+# ##
+
+# ##
+# itp = LinearInterpolation((sonora.logg, sonora.Teff), sonora.Keck_L′)
+
+# plot(itp.(3.5))
+
+# ##
+
+# # ##
+# # points = vcat(
+# #     sonora.logg',
+# #     log10.((sonora.Teff))'
+# # )
+# # samples = sonora.Keck_Ks
+# # itp = ScatteredInterpolation.interpolate(ScatteredInterpolation.ThinPlate(), points, samples);
+# # interpolated = evaluate(itp, [4.2; 1200])
+
+# ##
+# gs = 3:0.05:5.5
+# ts = 200:5:2500
+# heatmap(
+#     gs, ts, sonora_flux_interp.(Ref(itp_L′), gs, ts')', colorbar_title="L′", label="",
+#     background=:black,
+#     foreground=:white,
+#     fontfamily="",
+#     color=:turbo
 # )
-# samples = sonora.Keck_Ks
-# itp = ScatteredInterpolation.interpolate(ScatteredInterpolation.ThinPlate(), points, samples);
-# interpolated = evaluate(itp, [4.2; 1200])
-
-##
-gs = 3:0.05:5.5
-ts = 200:5:2500
-heatmap(
-    gs, ts, sonora_flux_interp.(Ref(itp_L′), gs, ts')', colorbar_title="L′", label="",
-    background=:black,
-    foreground=:white,
-    fontfamily="",
-    color=:turbo
-)
-xlabel!("log g")
-ylabel!("T_eff")
-scatter!(sonora.logg, sonora.Teff, marker_z=sonora.Keck_L′, color=:turbo, colorbar_title="Ks", label="", markerstrokewidth=1, markerstrokecolor=:white)
+# xlabel!("log g")
+# ylabel!("T_eff")
+# scatter!(sonora.logg, sonora.Teff, marker_z=sonora.Keck_L′, color=:turbo, colorbar_title="Ks", label="", markerstrokewidth=1, markerstrokecolor=:white)
 
 
-##
+# ##
 
-#=
-So, we have flux in log Jy.
+# #=
+# So, we have flux in log Jy.
 
-We ultimately have images in contrast. Wait? Or do we?
-We have the planet brightness already in each band. Should we put th images in terms of Jy??
+# We ultimately have images in contrast. Wait? Or do we?
+# We have the planet brightness already in each band. Should we put th images in terms of Jy??
 
 
-=#
+# =#
