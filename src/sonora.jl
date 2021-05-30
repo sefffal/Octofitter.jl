@@ -1,8 +1,11 @@
 
 # function sonora()
 
+
 # end
-using DelimitedFiles, NamedTupleTools, ScatteredInterpolation
+using DelimitedFiles, NamedTupleTools 
+import Interpolations
+import ScatteredInterpolation
 function load_table(fname=joinpath(@__DIR__, "sonora_flux_table.txt"))
 
     headers = open(fname, lock=false, read=true) do f
@@ -61,10 +64,11 @@ function __init__()
 end
 
 function make_itp(itp)
-    function (Teff,mass)
+    return function (Teff,mass)
         if 0.53 ≤ mass ≤ 98 && 200 ≤ Teff ≤ 2400
-            in = @SArray[log10(Teff),mass]
-            return 10^only(evaluate(itp, in))
+            in = @SArray[log10(Teff).*20,mass]
+            out = only(ScatteredInterpolation.evaluate(itp, in))
+            return 10^out
         else
             return NaN
         end
@@ -75,21 +79,30 @@ export sonora_interpolator
 function sonora_interpolator(key)
 
     points = vcat(
-        log10.((sonora_table.Teff))',
+        log10.((sonora_table.Teff))'.*20,
         sonora_table.mass',
     )
 
-    # filtered_keys = filter(keys(sonora)) do key
-    #     key ∉ (:Teff, :logg, :mass, :R_Rsun, :Y, :logKzz)
-    # end
-
-    # interpolators = map(filtered_keys) do key
-    #     itp = ScatteredInterpolation.interpolate(ScatteredInterpolation.ThinPlate(), points, getproperty(sonora, key))
-    #     return make_itp(itp)
-    # end
-
-    itp = ScatteredInterpolation.interpolate(ScatteredInterpolation.ThinPlate(), points, getproperty(sonora_table, key))
+    itp = ScatteredInterpolation.interpolate(ScatteredInterpolation.ThinPlate(), points, sonora_table[key])
     return make_itp(itp)
+
+    # global sonora_flux_interp = namedtuple(filtered_keys, interpolators)
+end
+
+
+# Use the standard, slow ScatteredInterpolation to precompute a fine grid.
+# Then use a linear interpolator from this grid which is much faster.
+function sonora_interpolator_grid(key)
+
+    itp = sonora_interpolator(key)
+    T_eff = 200:10:2400
+    mass = 0.53:0.1:25
+
+    grid = itp.(T_eff, mass')
+
+    itpl = Interpolations.LinearInterpolation((T_eff, mass), grid, extrapolation_bc=eltype(grid)(NaN))
+
+    # return itpl
 
     # global sonora_flux_interp = namedtuple(filtered_keys, interpolators)
 end
