@@ -192,6 +192,8 @@ nothing
 ##
 table = (;
     chains.planets[1].a,
+    chains.planets[1].i,
+    chains.planets[1].e,
     chains.planets[1].mass,
     chains.planets[1].Teff,
 )
