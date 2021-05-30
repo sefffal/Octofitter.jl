@@ -139,28 +139,28 @@ priors = ComponentVector(
             phot = (;
                 Keck_L′ = (
                     f = Uniform(0., 100.),
-                    σ_f² = Truncated(InverseGamma(4,0.01), 0, 1),
+                    # σ_f² = Truncated(InverseGamma(4,0.01), 0, 1),
                     σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1),
-                    epochs = [
-                        Uniform(0., 100.),
-                        Uniform(0., 100.),
-                        Uniform(0., 100.),
-                        Uniform(0., 100.),
-                        Uniform(0., 100.),
-                        Uniform(0., 100.),
-                        Uniform(0., 100.),
-                        Uniform(0., 100.),
-                        Uniform(0., 100.),
-                    ],
+                    # epochs = [
+                    #     Uniform(0., 100.),
+                    #     Uniform(0., 100.),
+                    #     Uniform(0., 100.),
+                    #     Uniform(0., 100.),
+                    #     Uniform(0., 100.),
+                    #     Uniform(0., 100.),
+                    #     Uniform(0., 100.),
+                    #     Uniform(0., 100.),
+                    #     Uniform(0., 100.),
+                    # ],
                 ),
                 Keck_Ks = (
                     f = Uniform(0., 100.),
-                    σ_f² = Truncated(InverseGamma(4,0.01), 0, 1),
+                    # σ_f² = Truncated(InverseGamma(4,0.01), 0, 1),
                     σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1),
-                    epochs = [
-                        Uniform(0., 100.),
-                        Uniform(0., 100.),
-                    ]
+                    # epochs = [
+                    #     Uniform(0., 100.),
+                    #     Uniform(0., 100.),
+                    # ]
                 )
             ),
         ),
@@ -187,20 +187,6 @@ logpdf.(priors, θ) |> sum
 nothing
 
 ##
-thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
-nothing
-
-##
-reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′);
-chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]));
-nothing
-
-
-## What do we want?
-chains.planets[1].a # -> matrix of chains concatenated together
-
-
-
 
 
 ##
@@ -209,7 +195,12 @@ table = (;
     chains.planets[1].mass,
     chains.planets[1].Teff,
 )
-corner(table,plotscatter=false)
+corner(
+    table,
+    plotscatter=false,
+    hist_kwargs=(;nbins=8),
+    hist2d_kwargs=(;nbins=8),
+)
 
 
 

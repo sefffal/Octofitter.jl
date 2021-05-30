@@ -30,8 +30,10 @@ end
 
 function ln_photometric_likelihood(θ_planet, θ_band, phot_observations, model_interpolator)
     ll = 0.0
-    for (θ_epoch_f, obs) in zip(θ_band.epochs, phot_observations)
-        elements = KeplerianElements((;θ_planet.μ, θ_planet.plx, θ_planet.i, θ_planet.Ω, θ_planet.ω, θ_planet.e, θ_planet.τ, θ_planet.a))
+    elements = KeplerianElements((;θ_planet.μ, θ_planet.plx, θ_planet.i, θ_planet.Ω, θ_planet.ω, θ_planet.e, θ_planet.τ, θ_planet.a))
+    # for (θ_epoch_f, obs) in zip(θ_band.epochs, phot_observations)
+    for obs in phot_observations
+
         # Calculate position at this epoch
         ra, dec = kep2cart(elements, obs.epoch)
         x = -ra
@@ -54,14 +56,15 @@ function ln_photometric_likelihood(θ_planet, θ_band, phot_observations, model_
         end
 
         # Ruffio et al 2017, eqn 31
-        ll += -1/(2σₓ^2) * (θ_epoch_f^2 - 2θ_epoch_f*f̃ₓ)
+        # ll += -1/(2σₓ^2) * (θ_epoch_f^2 - 2θ_epoch_f*f̃ₓ)
+        ll += -1/(2σₓ^2) * (θ_band.f^2 - 2θ_band.f*f̃ₓ)
     end
 
     # Connect the flux at each epoch to an overall flux in this band for this planet
-    fᵢ = θ_band.epochs
-    ll += -1/2 * sum(
-        (fᵢ .- θ_band.f).^2
-    ) / (θ_band.σ_f² * mean(fᵢ)^2)
+    # fᵢ = θ_band.epochs
+    # ll += -1/2 * sum(
+    #     (fᵢ .- θ_band.f).^2
+    # ) / (θ_band.σ_f² * mean(fᵢ)^2)
 
     # And connect that flux to a modelled Teff and mass
     # @show θ_planet.Teff θ_planet.mass
