@@ -1,4 +1,5 @@
 module DirectDetections
+using ComponentArrays: haskey
 using ComponentArrays
 using Distributions: mode, logpdf
 
@@ -56,12 +57,10 @@ function make_ln_prior(θ)
     return ln_prior
 end
 
-
-function ln_photometric_likelihood(θ_planet, θ_band, phot_observations, model_interpolator)
+function ln_like_phot(phot_observations, model_interpolator, elements, θ_planet, θ_band)
     ll = 0.0
-    elements = KeplerianElements((;θ_planet.μ, θ_planet.plx, θ_planet.i, θ_planet.Ω, θ_planet.ω, θ_planet.e, θ_planet.τ, θ_planet.a))
-    # for (θ_epoch_f, obs) in zip(θ_band.epochs, phot_observations)
     for obs in phot_observations
+
 
         # Calculate position at this epoch
         ra, dec = kep2cart(elements, obs.epoch)
@@ -70,7 +69,7 @@ function ln_photometric_likelihood(θ_planet, θ_band, phot_observations, model_
 
         # Get the photometry in this image at that location
         # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
-        f̃ₓ = lookup_coord(obs.image, x,y, obs.platescale)
+        f̃ₓ = lookup_coord(obs.image, (x,y), obs.platescale)
         
         # Find the uncertainty in that photometry value (i.e. the contrast)
         r = √(x^2 + y^2)
@@ -89,76 +88,21 @@ function ln_photometric_likelihood(θ_planet, θ_band, phot_observations, model_
         ll += -1/(2σₓ^2) * (θ_band.f^2 - 2θ_band.f*f̃ₓ)
     end
 
-    # Connect the flux at each epoch to an overall flux in this band for this planet
-    # fᵢ = θ_band.epochs
-    # ll += -1/2 * sum(
-    #     (fᵢ .- θ_band.f).^2
-    # ) / (θ_band.σ_f² * mean(fᵢ)^2)
+    # # Connect the flux at each epoch to an overall flux in this band for this planet
+    # # fᵢ = θ_band.epochs
+    # # ll += -1/2 * sum(
+    # #     (fᵢ .- θ_band.f).^2
+    # # ) / (θ_band.σ_f² * mean(fᵢ)^2)
 
-    # And connect that flux to a modelled Teff and mass
-    # @show θ_planet.Teff θ_planet.mass
+    # # And connect that flux to a modelled Teff and mass
     f_model = model_interpolator(θ_planet.Teff, θ_planet.mass)
-    # @show f_model
     ll += -1/2 * (f_model - θ_band.f)^2 /  (θ_band.σ_f_model² * f_model^2)
 
     return ll
 end
 
 
-
-function make_ln_photometric_likelihood(phot_observations, model_interpolator)
-    
-    :(function ln_photometric_likelihood(θ_planet, θ_band)
-        ll = 0.0
-        elements = KeplerianElements((;θ_planet.μ, θ_planet.plx, θ_planet.i, θ_planet.Ω, θ_planet.ω, θ_planet.e, θ_planet.τ, θ_planet.a))
-        # for (θ_epoch_f, obs) in zip(θ_band.epochs, phot_observations)
-        for obs in phot_observations
-
-            # Calculate position at this epoch
-            ra, dec = kep2cart(elements, obs.epoch)
-            x = -ra
-            y = dec
-
-            # Get the photometry in this image at that location
-            # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
-            f̃ₓ = lookup_coord(obs.image, x,y, obs.platescale)
-            
-            # Find the uncertainty in that photometry value (i.e. the contrast)
-            r = √(x^2 + y^2)
-            σₓ = obs.contrast(r/obs.platescale)
-
-            # When we get a position that falls outside of our available
-            # data (e.g. under the coronagraph) we cannot say anything
-            # about the likelihood. This is equivalent to σₓ→∞ or log likelihood 
-            # of zero.
-            if !isfinite(σₓ) || !isfinite(f̃ₓ)
-                continue
-            end
-
-            # Ruffio et al 2017, eqn 31
-            # ll += -1/(2σₓ^2) * (θ_epoch_f^2 - 2θ_epoch_f*f̃ₓ)
-            ll += -1/(2σₓ^2) * (θ_band.f^2 - 2θ_band.f*f̃ₓ)
-        end
-
-        # Connect the flux at each epoch to an overall flux in this band for this planet
-        # fᵢ = θ_band.epochs
-        # ll += -1/2 * sum(
-        #     (fᵢ .- θ_band.f).^2
-        # ) / (θ_band.σ_f² * mean(fᵢ)^2)
-
-        # And connect that flux to a modelled Teff and mass
-        f_model = model_interpolator(θ_planet.Teff, θ_planet.mass)
-        ll += -1/2 * (f_model - θ_band.f)^2 /  (θ_band.σ_f_model² * f_model^2)
-
-        return ll
-    end)
-
-end
-
-
-function ln_astrometric_likelihood(observations, θ_planet)
-
-    elements = KeplerianElements((;θ_planet.μ, θ_planet.plx, θ_planet.i, θ_planet.Ω, θ_planet.ω, θ_planet.e, θ_planet.τ, θ_planet.a))
+function ln_astrometric_likelihood(elements, observations)
 
     ll = 0.0
     for obs in observations
@@ -175,33 +119,52 @@ function ln_astrometric_likelihood(observations, θ_planet)
     return ll
 end
 
-    
-function ln_likelihood(data, interpolators, θ)
+function make_ln_like(data,interpolators)
 
-    # The ln likelihood:
-    ll = 0.0
+    # Prepare photometric likelihood functions for each band
 
-    # The model can support multiple planets
-    for θ_planet in θ.planets
-        # We can have observations from multiple bands
-        for band in keys(data.phot)
-            ll += ln_photometric_likelihood(θ_planet, θ_planet.phot[band], data.phot[band], interpolators[band])
-        end
+    phot_likes = Expr[]
+    for band in keys(data.phot)
+        ex = :(ll += ln_like_phot(data.$band, interpolators.$band, elements, θ_planet, θ_planet.phot.$band))
+        push!(phot_likes, ex)
+    end
 
-        # TODO: RV likelihood
-        # TODO: Astrom. likelihood
-
-        ll += ln_astrometric_likelihood(data.astrom, θ_planet)
-
+    if haskey(data, :astrom) && length(data.astrom) > 0
+        astrom_like = :(ll += ln_astrometric_likelihood(elements, $(data.astrom)))
+    else
+        astrom_like =  nothing
     end
 
 
-    # At this point, a NaN or Inf log-likelihood implies
-    # an error in preparing the datas or in this code.
-    # if !isfinite(ll)
-    #     error("Non-finite log-likelihood encountered")
-    # end
-    return ll
+    ex = :(function (data, interpolators, θ)
+
+        # The ln likelihood:
+        ll = 0.0
+
+        # The model can support multiple planets
+        for θ_planet in θ.planets
+
+            elements = KeplerianElements((;θ_planet.μ, θ_planet.plx, θ_planet.i, θ_planet.Ω, θ_planet.ω, θ_planet.e, θ_planet.τ, θ_planet.a))
+
+            # We can have observations from multiple bands
+            $(phot_likes...)
+
+            # TODO: RV likelihood
+            # TODO: Astrom. likelihood
+
+            $astrom_like
+
+        end
+
+        # At this point, a NaN or Inf log-likelihood implies
+        # an error in preparing the datas or in this code.
+        # if !isfinite(ll)
+        #     error("Non-finite log-likelihood encountered")
+        # end
+        return ll
+    end)
+
+    return @RuntimeGeneratedFunction(ex)
 end
 
 function mcmc(
@@ -220,7 +183,12 @@ function mcmc(
     interpolators = namedtuple(bands, [sonora_interpolator_grid(band) for band in bands])
 
     ln_prior = make_ln_prior(priors)
-    ln_post(θ) = ln_prior(θ) + ln_likelihood(data, interpolators, θ)
+    
+    ln_like_0 = make_ln_like(data, interpolators)
+    ln_like(θ) = ln_like_0(data.phot, interpolators, θ)
+
+
+    ln_post(θ) = ln_prior(θ) + ln_like(θ)
 
     @info "Finding starting point"
     initial_walkers = find_starting_walkers(ln_post, priors, numwalkers)
