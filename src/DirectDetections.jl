@@ -301,5 +301,5 @@ end
 
 
 
-# include("analysis.jl")
+include("analysis.jl")
 end
