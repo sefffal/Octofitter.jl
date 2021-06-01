@@ -19,7 +19,7 @@
 # end
 
 
-function projectchains(chains,times)
+function projectpositions(chains,times)
     N = size(chains,1)*size(chains,3)
     ras = zeros(N)
     decs = zeros(N)
@@ -45,10 +45,11 @@ function projectchains(chains,times)
             decs[i] = dec
         end
     end
-    return ras, decs,i
+    return ras, decs
 end
+export projectpositions
 
-function sample_chain(planet,N)
+function sampleorbits(planet,N)
     return map(rand(eachindex(planet.a),N)) do i
         return KeplerianElements(;
             a=planet.a[i],
@@ -62,3 +63,4 @@ function sample_chain(planet,N)
         )
     end
 end
+export sampleorbits

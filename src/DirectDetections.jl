@@ -37,17 +37,17 @@ include("sonora.jl")
 # It uses metaprogramming to unroll the loop over the different
 # prior types. Note that this also ensures the priors can't be modified
 # after building the ln_prior function.
-function make_ln_prior(priors)
+function make_ln_prior(θ)
 
     body = Expr[]
-    for i in eachindex(priors)
-        pd = priors[i]
-        ex = :(lp += logpdf($pd, θ[$i]))
+    for i in eachindex(θ)
+        pd = θ[i]
+        ex = :(lp += logpdf($pd, params[$i]))
         push!(body, ex)
     end
 
-    ex = :(function(θ)
-        lp = zero(first(θ))
+    ex = :(function(params)
+        lp = zero(first(params))
         $(body...)
         return lp
     end)

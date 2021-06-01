@@ -204,6 +204,12 @@ corner(
     hist2d_kwargs=(;nbins=8),
 )
 
+##
+ras,decs = projectpositions(chains,mean(times))
+histogram2d(ras, decs)
+
+
+##
 
 
 
