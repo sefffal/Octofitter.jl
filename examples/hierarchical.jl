@@ -2,6 +2,7 @@
 # theme(:dao)
 
 ##
+using Revise
 import Random
 using DirectDetections
 using Distributions
@@ -90,15 +91,15 @@ input = (;
             (image=images[9], platescale=10.0, epoch=times[9], contrast=contrasts[9]),
         ]
     ),
-    astrom = [
-        # (; 
-        #     epoch=mean(times),
-        #     ra=raoff(truth_elements, mean(times)),
-        #     dec=decoff(truth_elements, mean(times)),
-        #     σ_ra=5.,
-        #     σ_dec=5.,
-        # )
-    ]
+    # astrom = [
+    #     # (; 
+    #     #     epoch=mean(times),
+    #     #     ra=raoff(truth_elements, mean(times)),
+    #     #     dec=decoff(truth_elements, mean(times)),
+    #     #     σ_ra=5.,
+    #     #     σ_dec=5.,
+    #     # )
+    # ]
 )
 nothing
 
@@ -136,32 +137,10 @@ priors = ComponentVector(
             #     (;f = Uniform(0., 100.)),
             # ]
 
+            σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1),
             phot = (;
-                Keck_L′ = (
-                    f = Uniform(0., 100.),
-                    # σ_f² = Truncated(InverseGamma(4,0.01), 0, 1),
-                    σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1),
-                    # epochs = [
-                    #     Uniform(0., 100.),
-                    #     Uniform(0., 100.),
-                    #     Uniform(0., 100.),
-                    #     Uniform(0., 100.),
-                    #     Uniform(0., 100.),
-                    #     Uniform(0., 100.),
-                    #     Uniform(0., 100.),
-                    #     Uniform(0., 100.),
-                    #     Uniform(0., 100.),
-                    # ],
-                ),
-                Keck_Ks = (
-                    f = Uniform(0., 100.),
-                    # σ_f² = Truncated(InverseGamma(4,0.01), 0, 1),
-                    σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1),
-                    # epochs = [
-                    #     Uniform(0., 100.),
-                    #     Uniform(0., 100.),
-                    # ]
-                )
+                Keck_L′ = Uniform(0., 100.),
+                Keck_Ks = Uniform(0., 100.),
             ),
         ),
     ]
@@ -182,13 +161,23 @@ logpdf.(priors, θ) |> sum
     numwalkers=300,
     burnin=20_00,
     numsamples_perwalker=25_00,
-    squash = true
+    squash = false
 );
 nothing
 
 ##
+using NamedTupleTools
+bands = unique(reduce(vcat, (keys(planet.phot) for planet in priors.planets)))
+interpolators = namedtuple(bands, [DirectDetections.sonora_interpolator_grid(band) for band in bands])
+ln_like = DirectDetections.make_ln_like(input, interpolators);
+
+@time ln_like(input.phot, interpolators, θ);
+
+##
+@btime DirectDetections.ln_like_phot($(input.phot.Keck_L′), $(interpolators.Keck_L′), $elements, $(θ.planets[1]), $(θ.planets[1].phot.Keck_L′))
 
 
+@code_warntype DirectDetections.ln_like_phot($(input.phot.Keck_L′), $(interpolators.Keck_L′), $elements, $(θ.planets[1]), $(θ.planets[1].phot.Keck_L′))
 ##
 table = (;
     chains.planets[1].a,
