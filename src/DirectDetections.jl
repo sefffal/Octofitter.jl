@@ -94,7 +94,7 @@ function ln_like_phot(phot_observations, model_interpolator, elements, θ_planet
     # #     (fᵢ .- θ_band.f).^2
     # # ) / (θ_band.σ_f² * mean(fᵢ)^2)
 
-    # # And connect that flux to a modelled Teff and mass
+    # And connect that flux to a modelled Teff and mass
     f_model = model_interpolator(θ_planet.Teff, θ_planet.mass)
     ll += -1/2 * (f_model - θ_band)^2 /  (θ_planet.σ_f_model² * f_model^2)
 
@@ -122,6 +122,9 @@ end
 function make_ln_like(data,interpolators)
 
     # Prepare photometric likelihood functions for each band
+
+    # We use RuntimeGeneratedFunctions to unroll the loop
+    # over the different bands directly
 
     phot_likes = Expr[]
     for band in keys(data.phot)
@@ -178,8 +181,8 @@ function mcmc(
     # column_names = ComponentArrays.labels(priors)
 
     # Prepare interpolators for any different bands we want to model
-    bands = unique(reduce(vcat, (keys(planet.phot) for planet in priors.planets)))
-    
+    bands = unique(reduce(vcat, [collect(keys(planet.phot)) for planet in priors.planets]))
+
     interpolators = namedtuple(bands, [sonora_interpolator_grid(band) for band in bands])
 
     ln_prior = make_ln_prior(priors)
@@ -230,19 +233,31 @@ function mcmc(
     return chains
 end
 
-
+# using Optim, ForwardDiff
 
 function find_starting_point(ln_post, priors)
-    initial_guess = rand.(priors)
+    θ₀ = rand.(priors)
     i = 0
-    while !isfinite(ln_post(initial_guess))
+    while !isfinite(ln_post(θ₀))
         i+=1
-        initial_guess = rand.(priors)
+        θ₀ = rand.(priors)
         if i > 1000
             error("Could not find a starting point in the posterior that is finite by drawing from the priors after 1000 attempts")
         end
     end
-    return initial_guess
+    return θ₀
+
+    # goal(θ) = -ln_post(θ)
+
+    # m = optimize(goal, θ₀, BFGS(), Optim.Options(show_trace=true,x_tol=-1,g_tol=1e-1,f_tol=-1); autodiff = :forward)
+    # # m = optimize(goal, θ₀, Newton(), Optim.Options(show_trace=true,); autodiff = :forward)
+    # # m = optimize(goal, θ₀, NelderMead(), Optim.Options(show_trace=true,); autodiff = :forward)
+    # # m = optimize(goal, θ₀, Optim.SimulatedAnnealing(), Optim.Options(show_trace=true,iterations=1_000_000); autodiff = :forward)
+    # # m = optimize(goal, θ₀, Optim.ParticleSwarm(), Optim.Options(show_trace=true,iterations=100_000); autodiff = :forward)
+
+    # display(m)
+    # return Optim.minimizer(m)
+
 end
 
 
@@ -250,20 +265,22 @@ end
 # Start walkers in a gaussian ball around the MLE, while ensuring we don't
 # step outside the ranges defined by the priors
 function find_starting_walkers(ln_post, priors, numwalkers)
-    # initial_position = find_starting_point(ln_post, priors)
     initial_walkers = map(1:numwalkers) do i
         initial_position = find_starting_point(ln_post, priors)
-        # # This used to intiialize the walkers in a Gaussian ball around the MAP.
-        # # But now we just draw starting points randomly from the priors, this isn't needed.
-        # map(eachindex(initial_position)) do i
-        #     p = NaN
-        #     while !(minimum(priors[i]) < p < maximum(priors[i]))
-        #         p = initial_position[i] + 0.01randn()*initial_position[i]
-        #     end
-        #     p
-        # end
-        # initial_position .* (1 .+ randn(length(initial_position)))
     end
+        #     initial_position
+    # end
+    #     # # This used to intiialize the walkers in a Gaussian ball around the MAP.
+    #     # # But now we just draw starting points randomly from the priors, this isn't needed.
+    #     # map(eachindex(initial_position)) do i
+    #     #     p = NaN
+    #     #     while !(minimum(priors[i]) < p < maximum(priors[i]))
+    #     #         p = initial_position[i] + 0.01randn()*initial_position[i]
+    #     #     end
+    #     #     p
+    #     # end
+    #     # initial_position .* (1 .+ randn(length(initial_position)))
+    # end
     return initial_walkers
 end
 
