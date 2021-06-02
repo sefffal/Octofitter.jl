@@ -25,8 +25,7 @@ function projectpositions(chains,times)
     decs = zeros(N)
     ras = zeros(length(first(chains))*length(times))
     decs = zeros(length(first(chains))*length(times))
-    i = 0
-    for j=1:length(first(chains))
+    @threads for j=1:length(first(chains))
         
         a = chains.planets[1].a[j]
         inc = chains.planets[1].i[j]
@@ -38,8 +37,8 @@ function projectpositions(chains,times)
         plx = chains.planets[1].plx[j]
         
         el = KeplerianElements(;a, i=inc, e, τ, ω, Ω, μ, plx)
-        for t = times
-            i+=1
+        for (k,t) = enumerate(times)
+            i = j*length(times) + k - 1
             ra, dec, _ = kep2cart(el, t)
             ras[i] = ra
             decs[i] = dec
