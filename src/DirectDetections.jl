@@ -85,7 +85,10 @@ function ln_like_phot(phot_observations, model_interpolator, elements, θ_planet
 
         # Ruffio et al 2017, eqn 31
         # ll += -1/(2σₓ^2) * (θ_epoch_f^2 - 2θ_epoch_f*f̃ₓ)
-        ll += -1/(2σₓ^2) * (θ_band^2 - 2θ_band*f̃ₓ)
+        # ll += -1/(2σₓ^2) * (θ_band^2 - 2θ_band*f̃ₓ)
+
+        σₓ² = σₓ^2
+        ll += -1/(2σₓ²) * (θ_band^2 - 2θ_band*f̃ₓ) - log(sqrt(2π*σₓ²))
     end
 
     # # Connect the flux at each epoch to an overall flux in this band for this planet
@@ -95,8 +98,8 @@ function ln_like_phot(phot_observations, model_interpolator, elements, θ_planet
     # # ) / (θ_band.σ_f² * mean(fᵢ)^2)
 
     # And connect that flux to a modelled Teff and mass
-    f_model = model_interpolator(θ_planet.Teff, θ_planet.mass)
-    ll += -1/2 * (f_model - θ_band)^2 /  (θ_planet.σ_f_model² * f_model^2)
+    # f_model = model_interpolator(θ_planet.Teff, θ_planet.mass)
+    # ll += -1/2 * (f_model - θ_band)^2 /  (θ_planet.σ_f_model² * f_model^2)
 
     return ll
 end
