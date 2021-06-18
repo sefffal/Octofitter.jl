@@ -99,18 +99,24 @@ with a particular planet from the posterior. The samples are automatically
 converted into `KeplerianElements` from DirectOrbits.jl. That package defines
 a plot recipe, so you can plot samples from the chain directly:
 ```julia
+using DirectOrbits
+using Plots
 # Sample 300 orbits randomly from the posterior.
 sampled_orbits = DirectDetections.sampleorbits(chains.planets[1], 300)
 
 plot(sampled_orbits)
 ```
+<img src="images/readme-orbits.png" width=350/>
 
 It can be useful to overplot sampled orbits on one of the input images. This is easy
 using the `imshow` function from the DirectImages package in conjunction with `sample_chain`.
 ```julia
-imshow(images[1], skyconvention=true) # Flip the x-axis ticks to match RA coordinates from this package
-plot(sampled_orbits)
+i = DirectImage(image)
+i.PLATESCALE = 10.
+imshow(i, skyconvention=true)
+plot!(sampled_orbits,color=:white,label="")
 ```
+<img src="images/readme-overplot.png" width=350/>
 
 There is also a plotting function for colouring the orbits based on any parameter from the posterior:
 ```julia
@@ -129,9 +135,6 @@ DirectDetections.plotposterior(chains.planets[1], :e, 5000, colorbartitle="eccen
 This package uses a precomputed Sonora model grid. You can specify direct imaging observations in any of the following filters:
 
 `:MKO_Y, :MKO_Z, :MKO_J, :MKO_H, :MKO_K, :MKO_L′, :MKO_M′, :TwoMASS_J, :TwoMASS_H, :TwoMASS_Ks, :Keck_Ks, :Keck_L′, :Keck_Ms, :SDSS_g′, :SDSS_r′, :SDSS_i′, :SDSS_z′, :IRAC_36, :IRAC_45, :IRAC_57, :IRAC_79, :WISE_W1, :WISE_W2, :WISE_W3, :WISE_W4`
-
-## Suggestions
-- I recommend you use counter-rotated images containing no planets for the contrast calculations. This prevents any planets from biasing the contrast lower.
 
 
 ## Position Plots
@@ -155,6 +158,7 @@ histogram2d(
 You can use the registered PairPlots.jl package to display the posterior in a pair plot (aka corner plot):
 
 ```julia
+using PairPlots
 table = (;
     a=chains.planets[1].a,
     L=chains.planets[1].phot.Keck_L′,
@@ -165,3 +169,6 @@ corner(table, plotscatter=false)
 ```
 
 ![](images/readme-pairplot.png)
+
+## Suggestions
+- I recommend you use counter-rotated images containing no planets for the contrast calculations. This prevents any planets from biasing the contrast lower.
