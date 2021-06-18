@@ -122,7 +122,7 @@ DirectDetections.plotposterior(chains.planets[1], (:phot, :Keck_L′), 5000, col
 
 DirectDetections.plotposterior(chains.planets[1], :e, 5000, colorbartitle="eccentricity", cmap=:plasma, rev=false,)
 ```
-<img src="images/readme-post-f.png" style="width:50%"/><img src="images/readme-post-e.png" style="width:50%"/>
+<img src="images/readme-post-f.png" width=350/><img src="images/readme-post-e2.png" width=350/>
 
 
 ## Available filters
