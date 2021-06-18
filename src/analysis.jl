@@ -128,7 +128,7 @@ function init_plots()
             clims = (minc, dc+minc)
 
             cmap= Plots.cgrad(cmap; rev)
-            for i in sortperm(colours, rev=true)
+            for i in sortperm(colours, rev=false)
                 c = colours[i]
                 Plots.plot!(elements[i], label="",color=cmap[(c-minc)/dc], lw=0.3, alpha=0.1,)
             end

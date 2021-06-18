@@ -172,5 +172,9 @@ corner(table, plotscatter=false)
 
 ![](images/readme-pairplot.png)
 
+Or, isolating only a single planet from the posterior:
+![](images/readme-pairplot-single.png)
+
+
 ## Suggestions
 - I recommend you use counter-rotated images containing no planets for the contrast calculations. This prevents any planets from biasing the contrast lower.
