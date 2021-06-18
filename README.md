@@ -94,13 +94,13 @@ chains_2 = Chains(ComponentArrays.getdata(chains), ComponentArrays.labels(chains
 Displaying this object will print a summary with several convergence metrics.
 
 ### Visualizing the posterior
-You can draw samples from the posterior using the `sample_chain` function
+You can draw samples from the posterior using the `sampleorbits` function
 with a particular planet from the posterior. The samples are automatically
 converted into `KeplerianElements` from DirectOrbits.jl. That package defines
 a plot recipe, so you can plot samples from the chain directly:
 ```julia
 # Sample 300 orbits randomly from the posterior.
-sampled_orbits = DirectDetections.sample_chain(chains.planets[1], 300)
+sampled_orbits = DirectDetections.sampleorbits(chains.planets[1], 300)
 
 plot(sampled_orbits)
 ```
@@ -111,6 +111,18 @@ using the `imshow` function from the DirectImages package in conjunction with `s
 imshow(images[1], skyconvention=true) # Flip the x-axis ticks to match RA coordinates from this package
 plot(sampled_orbits)
 ```
+
+There is also a plotting function for colouring the orbits based on any parameter from the posterior:
+```julia
+# Shown at top of README!
+DirectDetections.plotposterior(chains.planets[1], :a, 5000)
+
+
+DirectDetections.plotposterior(chains.planets[1], (:phot, :Keck_L′), 5000, colorbartitle="flux", cmap=:plasma, rev=false, clims=(0,30))
+
+DirectDetections.plotposterior(chains.planets[1], :e, 5000, colorbartitle="eccentricity", cmap=:plasma, rev=false,)
+```
+<img src="images/readme-post-f.png" style="width:50%"/><img src="images/readme-post-e.png" style="width:50%"/>
 
 
 ## Available filters
