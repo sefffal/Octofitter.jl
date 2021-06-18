@@ -81,6 +81,8 @@ priors = ComponentVector(
 
 The resulting chains object has the same shape as the priors, only each element has a matrix of samples from the posterior with columns corresponding to the different chains. If `squash=true`, then each element is just a vector of samples.
 
+The code is quite performant. Running the sampler with those parameters takes less than three minutes on my older laptop. No need to use a compute cluster!
+
 ## Analysis
 Once you have run the MCMC sampler, there are many interesting things you can learn from the posterior.
 
