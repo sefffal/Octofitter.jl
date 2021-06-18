@@ -205,14 +205,17 @@ plot!(truths, color=:black, lw=2, ls=:dash)
 ##
 
 ra, dec = projectpositions(chains.planets[1], mean(times))
-histogram2d(ra,dec,aspectratio=1, color=:plasma, background_inside=:black, framestyle=:box)
+histogram2d(ra,dec,aspectratio=1, color=:plasma, background_inside=:black, framestyle=:box,xflip=true,dpi=200, colorbartitle=".\n\nposterior density")
 xlims!(1.25.*(-1,+1).*max(abs.(extrema(ra))...))
 ylims!(1.25.*(-1,+1).*max(abs.(extrema(dec))...))
+xlabel!("Δ right ascension (as)")
+ylabel!("Δ declination (as)")
+
 ##
 mask = (-100 .< ra .< 150) .& (200 .< dec .< 700)
 snr(chains.planets[1].phot.Keck_L′)
 snr(chains.planets[1].phot.Keck_L′[mask])
-histogram2d(ra[mask],dec[mask],aspectratio=1, color=:plasma, background_inside=:black, framestyle=:box, cscale=:log10)
+histogram2d(ra[mask],dec[mask],aspectratio=1, color=:plasma, background_inside=:black, framestyle=:box, cscale=:log10kep2cart,dpi=200)
 xlims!(1.25.*(-1,+1).*max(abs.(extrema(ra))...))
 ylims!(1.25.*(-1,+1).*max(abs.(extrema(dec))...))
 ##

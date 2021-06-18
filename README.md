@@ -122,6 +122,23 @@ This package uses a precomputed Sonora model grid. You can specify direct imagin
 - I recommend you use counter-rotated images containing no planets for the contrast calculations. This prevents any planets from biasing the contrast lower.
 
 
+## Position Plots
+Once you have the posterior, you can plot the most likely position of the planet(s) at a given epoch.
+
+```julia
+# Pick a time in MJD to see where the planets were/would be
+t = mean(times)
+ra, dec = projectpositions(chains.planets[1], t)
+
+# Plot a histogram. This gives the posterior density.
+histogram2d(
+    ra,dec,
+    aspectratio=1,
+    xflip=true,
+)
+```
+![](images/readme-planetloc.png)
+
 ## Corner Plots
 You can use the registered PairPlots.jl package to display the posterior in a pair plot (aka corner plot):
 
