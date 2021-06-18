@@ -6,6 +6,8 @@ This in development package uses hierarchical Bayesian modelling to detect exopl
 Simply specify your priors on physical and orbital parameters, provide any direct images of the system from any bands in the Sonora grids, as well as any RV or astrometry measurements. This package will then generate a posterior distribution which can be used to assess a detection and/or constrain these parameters.
 
 
+![](images/readme-example.png)
+
 ## Usage
 
 Starting from a set of convolved images in units of mJy at 10pc, the steps are 
@@ -59,23 +61,21 @@ priors = ComponentVector(
         Ω = Normal(0.0, 0.3),
         μ = Normal(1.0, 0.01),
         plx = Normal(45., 0.0001),
-        Teff = TruncatedNormal(1200, 800, 200, 2400),
-        mass = Uniform(0.55, 25),
         phot = (;
-            MKO_J = (f = Uniform(0., 100.), σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1)),
-            MKO_H = (f = Uniform(0., 100.), σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1)),
+            MKO_J = Uniform(0., 100.),
+            MKO_H = Uniform(0., 100.),
         ),
     )]
 )
 
 # Step 5
-chains = DirectDetections.mcmc(
+@time chains = DirectDetections.mcmc(
     priors, input;
-    numwalkers=3000,
-    burnin=20_000,
-    numsamples_perwalker=25_000,
-    thinning=1,
-    squash = true
+    numwalkers=1600,
+    burnin=62_000,
+    numsamples_perwalker=70_000,
+    thinning=250,
+    squash = false
 );
 ```
 
@@ -120,3 +120,19 @@ This package uses a precomputed Sonora model grid. You can specify direct imagin
 
 ## Suggestions
 - I recommend you use counter-rotated images containing no planets for the contrast calculations. This prevents any planets from biasing the contrast lower.
+
+
+## Corner Plots
+You can use the registered PairPlots.jl package to display the posterior in a pair plot (aka corner plot):
+
+```julia
+table = (;
+    a=chains.planets[1].a,
+    L=chains.planets[1].phot.Keck_L′,
+    i=chains.planets[1].i,
+    e=chains.planets[1].e,
+)
+corner(table, plotscatter=false)
+```
+
+![](images/readme-pairplot.png)

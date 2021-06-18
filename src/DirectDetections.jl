@@ -1,4 +1,6 @@
 module DirectDetections
+using Base: Symbol
+using StaticArrays: getproperty
 using ComponentArrays: haskey
 using ComponentArrays
 using Distributions: mode, logpdf
@@ -192,6 +194,7 @@ function make_ln_like(data, interpolators)
     return @RuntimeGeneratedFunction(ex)
 end
 
+
 function mcmc(
     priors,
     data;
@@ -256,6 +259,71 @@ function mcmc(
     return chains
 end
 
+
+using AdvancedHMC
+using NamedTupleTools
+using ForwardDiff
+using Logging
+function hmc(
+    priors,
+    data;
+    numwalkers=1,
+    burnin,
+    numsamples_perwalker,
+)
+    
+    # Choose parameter dimensionality and initial parameter value
+    initial_θ_0 = rand.(priors)
+    D = length(initial_θ_0)
+
+    # Define the target distribution
+    bands = unique(reduce(vcat, [collect(keys(planet.phot)) for planet in priors.planets]))
+    interpolators = namedtuple(bands, [DirectDetections.sonora_interpolator_grid(band) for band in bands])
+    ln_prior = DirectDetections.make_ln_prior(priors)
+    ln_like_0 = DirectDetections.make_ln_like(data, interpolators)
+    ln_like(θ) = ln_like_0(data.phot, interpolators, θ)
+
+    ax = getaxes(initial_θ_0)
+    ℓπ = let ax=ax
+        function (θ)
+            θ_cv = ComponentArray(θ, ax)
+            ln_prior(θ_cv) + ln_like(θ_cv)
+        end
+    end
+
+    chains = []
+    stats = []
+    Threads.@threads for _ in 1:numwalkers
+        initial_θ = rand.(priors)
+
+        # Define a Hamiltonian system
+        # metric = DiagEuclideanMetric(D)
+        metric = DenseEuclideanMetric(D)
+        hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
+
+        # Define a leapfrog solver, with initial step size chosen heuristically
+        # initial_ϵ = find_good_stepsize(hamiltonian, getdata(initial_θ))
+        initial_ϵ = 0.02
+        integrator = Leapfrog(initial_ϵ)
+
+        proposal = NUTS{MultinomialTS, GeneralisedNoUTurn}(integrator, 10)
+        adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(0.8, integrator)) #0.08
+
+        logger = SimpleLogger(stdout, Logging.Error)
+        samples, stat = with_logger(logger) do
+            sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=true)
+        end
+
+        sample_grid = reduce(hcat, samples);
+        chain = ComponentArray(collect(eachrow(sample_grid)), ax)
+        
+        push!(chains,chain)
+        push!(stats,stat)
+    end
+    return chains, stats
+end
+
+
 # using Optim, ForwardDiff
 
 function find_starting_point(ln_post, priors)
@@ -310,6 +378,12 @@ function find_starting_walkers(ln_post, priors, numwalkers)
 end
 
 
-
 include("analysis.jl")
+
+function __init__()
+    init_models()
+    init_plots()
+    return
+end
+
 end

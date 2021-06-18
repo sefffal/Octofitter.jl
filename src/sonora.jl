@@ -54,7 +54,7 @@ end
 
 
 local sonora_table
-function __init__()
+function init_models()
     @info "Loading Sonora models table"
     global sonora_table = load_table()
 end
