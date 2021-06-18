@@ -3,12 +3,12 @@
 
 
 # end
-using DelimitedFiles, NamedTupleTools 
+using DelimitedFiles, NamedTupleTools
 import Interpolations
 import ScatteredInterpolation
-function load_table(fname=joinpath(@__DIR__, "sonora_flux_table.txt"))
+function load_table(fname = joinpath(@__DIR__, "sonora_flux_table.txt"))
 
-    headers = open(fname, lock=false, read=true) do f
+    headers = open(fname, lock = false, read = true) do f
         readline(f)
         readline(f)
         readline(f)
@@ -20,36 +20,32 @@ function load_table(fname=joinpath(@__DIR__, "sonora_flux_table.txt"))
         headers_2 = strip.(split(h2, r"  +"))
 
         # Starting after 6
-        headers_2_1_indices = [
-            2, 2, 2, 2, 2, 2, 2,
-            3, 3, 3, 
-            4, 4, 4,
-            5, 5, 5, 5,
-            6,6,6,6,
-            7, 7, 7, 7,
-        ]
+        headers_2_1_indices =
+            [2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7]
 
-        combined = vcat(headers_2[1:6], headers_1[headers_2_1_indices] .* '_' .*  headers_2[7:end])
+        combined = vcat(
+            headers_2[1:6],
+            headers_1[headers_2_1_indices] .* '_' .* headers_2[7:end],
+        )
         # Normalize headers
-        combined = replace.(combined, '\''=>'′')
-        combined = replace.(combined, ' '=>"")
-        combined = replace.(combined, "/"=>'_')
-        combined = replace.(combined, "2MASS"=>"TwoMASS")
-        combined = replace.(combined, r"[^\w′_]"=>"")
+        combined = replace.(combined, '\'' => '′')
+        combined = replace.(combined, ' ' => "")
+        combined = replace.(combined, "/" => '_')
+        combined = replace.(combined, "2MASS" => "TwoMASS")
+        combined = replace.(combined, r"[^\w′_]" => "")
         return combined
     end
 
-    data = readdlm(fname, String, skipstart=7, header=false)
+    data = readdlm(fname, String, skipstart = 7, header = false)
     data = [
         try
-            typeof(d) <:AbstractString ? parse(Float64, replace(d, '*'=>"")) : d
+            typeof(d) <: AbstractString ? parse(Float64, replace(d, '*' => "")) : d
         catch err
             NaN
-        end
-        for d in data
+        end for d in data
     ]
     # Return simple table
-    return namedtuple(headers, eachcol(data));
+    return namedtuple(headers, eachcol(data))
 end
 
 # Prepare a set of 2D interpolations from Teff, mass -> flux in all the different bands
@@ -64,9 +60,9 @@ function __init__()
 end
 
 function make_itp(itp)
-    return function (Teff,mass)
+    return function (Teff, mass)
         if 0.53 ≤ mass ≤ 98 && 200 ≤ Teff ≤ 2400
-            in = @SArray[log10(Teff).*20,mass]
+            in = @SArray [log10(Teff) .* 20, mass]
             out = only(ScatteredInterpolation.evaluate(itp, in))
             return 10^out
         else
@@ -78,12 +74,13 @@ end
 export sonora_interpolator
 function sonora_interpolator(key)
 
-    points = vcat(
-        log10.((sonora_table.Teff))'.*20,
-        sonora_table.mass',
-    )
+    points = vcat(log10.((sonora_table.Teff))' .* 20, sonora_table.mass')
 
-    itp = ScatteredInterpolation.interpolate(ScatteredInterpolation.ThinPlate(), points, sonora_table[key])
+    itp = ScatteredInterpolation.interpolate(
+        ScatteredInterpolation.ThinPlate(),
+        points,
+        sonora_table[key],
+    )
     return make_itp(itp)
 
     # global sonora_flux_interp = namedtuple(filtered_keys, interpolators)
@@ -100,7 +97,11 @@ function sonora_interpolator_grid(key)
 
     grid = itp.(T_eff, mass')
 
-    itpl = Interpolations.LinearInterpolation((T_eff, mass), grid, extrapolation_bc=eltype(grid)(NaN))
+    itpl = Interpolations.LinearInterpolation(
+        (T_eff, mass),
+        grid,
+        extrapolation_bc = eltype(grid)(NaN),
+    )
 
     # return itpl
 

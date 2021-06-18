@@ -47,13 +47,13 @@ function make_ln_prior(θ)
         push!(body, ex)
     end
 
-    ex = :(function(params)
+    ex = :(function (params)
         lp = zero(first(params))
         $(body...)
         return lp
     end)
-    
-    ln_prior =  @RuntimeGeneratedFunction(ex)
+
+    ln_prior = @RuntimeGeneratedFunction(ex)
     return ln_prior
 end
 
@@ -69,11 +69,11 @@ function ln_like_phot(phot_observations, model_interpolator, elements, θ_planet
 
         # Get the photometry in this image at that location
         # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
-        f̃ₓ = lookup_coord(obs.image, (x,y), obs.platescale)
-        
+        f̃ₓ = lookup_coord(obs.image, (x, y), obs.platescale)
+
         # Find the uncertainty in that photometry value (i.e. the contrast)
         r = √(x^2 + y^2)
-        σₓ = obs.contrast(r/obs.platescale)
+        σₓ = obs.contrast(r / obs.platescale)
 
         # When we get a position that falls outside of our available
         # data (e.g. under the coronagraph) we cannot say anything
@@ -88,7 +88,7 @@ function ln_like_phot(phot_observations, model_interpolator, elements, θ_planet
         # ll += -1/(2σₓ^2) * (θ_band^2 - 2θ_band*f̃ₓ)
 
         σₓ² = σₓ^2
-        ll += -1/(2σₓ²) * (θ_band^2 - 2θ_band*f̃ₓ) - log(sqrt(2π*σₓ²))
+        ll += -1 / (2σₓ²) * (θ_band^2 - 2θ_band * f̃ₓ) - log(sqrt(2π * σₓ²))
     end
 
     # # Connect the flux at each epoch to an overall flux in this band for this planet
@@ -114,15 +114,15 @@ function ln_astrometric_likelihood(elements, observations)
         residy = obs.dec - y
         σ²x = obs.σ_ra^2
         σ²y = obs.σ_dec^2
-        χ²x = -0.5residx^2 / σ²x - log(sqrt(2π*σ²x))
-        χ²y = -0.5residy^2 / σ²y - log(sqrt(2π*σ²y))
+        χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
+        χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
         ll += χ²x + χ²y
     end
 
     return ll
 end
 
-function make_ln_like(data,interpolators)
+function make_ln_like(data, interpolators)
 
     # Prepare photometric likelihood functions for each band
 
@@ -131,55 +131,75 @@ function make_ln_like(data,interpolators)
 
     phot_likes = Expr[]
     for band in keys(data.phot)
-        ex = :(ll += ln_like_phot(data.$band, interpolators.$band, elements, θ_planet, θ_planet.phot.$band))
+        ex = :(
+            ll += ln_like_phot(
+                data.$band,
+                interpolators.$band,
+                elements,
+                θ_planet,
+                θ_planet.phot.$band,
+            )
+        )
         push!(phot_likes, ex)
     end
 
     if haskey(data, :astrom) && length(data.astrom) > 0
         astrom_like = :(ll += ln_astrometric_likelihood(elements, $(data.astrom)))
     else
-        astrom_like =  nothing
+        astrom_like = nothing
     end
 
 
-    ex = :(function (data, interpolators, θ)
+    ex = :(
+        function (data, interpolators, θ)
 
-        # The ln likelihood:
-        ll = 0.0
+            # The ln likelihood:
+            ll = 0.0
 
-        # The model can support multiple planets
-        for θ_planet in θ.planets
+            # The model can support multiple planets
+            for θ_planet in θ.planets
 
-            elements = KeplerianElements((;θ_planet.μ, θ_planet.plx, θ_planet.i, θ_planet.Ω, θ_planet.ω, θ_planet.e, θ_planet.τ, θ_planet.a))
+                elements = KeplerianElements((;
+                    θ_planet.μ,
+                    θ_planet.plx,
+                    θ_planet.i,
+                    θ_planet.Ω,
+                    θ_planet.ω,
+                    θ_planet.e,
+                    θ_planet.τ,
+                    θ_planet.a,
+                ))
 
-            # We can have observations from multiple bands
-            $(phot_likes...)
+                # We can have observations from multiple bands
+                $(phot_likes...)
 
-            # TODO: RV likelihood
-            # TODO: Astrom. likelihood
+                # TODO: RV likelihood
+                # TODO: Astrom. likelihood
 
-            $astrom_like
+                $astrom_like
 
+            end
+
+            # At this point, a NaN or Inf log-likelihood implies
+            # an error in preparing the datas or in this code.
+            # if !isfinite(ll)
+            #     error("Non-finite log-likelihood encountered")
+            # end
+            return ll
         end
-
-        # At this point, a NaN or Inf log-likelihood implies
-        # an error in preparing the datas or in this code.
-        # if !isfinite(ll)
-        #     error("Non-finite log-likelihood encountered")
-        # end
-        return ll
-    end)
+    )
 
     return @RuntimeGeneratedFunction(ex)
 end
 
 function mcmc(
-    priors, data;
+    priors,
+    data;
     burnin,
     numwalkers,
     numsamples_perwalker,
-    thinning=1,
-    squash=true
+    thinning = 1,
+    squash = true,
 )
     # column_names = ComponentArrays.labels(priors)
 
@@ -202,34 +222,34 @@ function mcmc(
     # Convert the initial walkers into static arrays for stack allocation.
     # This messy line should have no impact on the semantics of the code.
     initial_walkers_static = [
-        ComponentVector{SVector{length(cv)}}(;NamedTuple(cv)...)
-        for cv in initial_walkers
+        ComponentVector{SVector{length(cv)}}(; NamedTuple(cv)...) for cv in initial_walkers
     ]
 
     # Run the MCMC
     thetase, _accept_ratioe = KissMCMC.emcee(
         ln_post,
         initial_walkers_static;
-        nburnin=burnin*numwalkers,
-        use_progress_meter=true,
-        nthin=thinning,
-        niter=numsamples_perwalker*numwalkers
+        nburnin = burnin * numwalkers,
+        use_progress_meter = true,
+        nthin = thinning,
+        niter = numsamples_perwalker * numwalkers,
     )
 
     # Convert the output into an MCMCChains.Chain.
     # Use reinterpret to avoid re-allocating all that memory
     if squash
         thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
-        reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′);
-        chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]));
+        reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′)
+        chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]))
     else
         # We can reinterpret the vector of SVectors as a matrix directly without copying!
         # This can save massive amounts of memory and time on large changes
-        reinterptted = cat(
-            [reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]...,
-            dims=3
+        reinterptted =
+            cat([reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]..., dims = 3)
+        chains = ComponentArray(
+            collect(eachslice(reinterptted, dims = 1)),
+            getaxes(thetase[1][1]),
         )
-        chains = ComponentArray(collect(eachslice(reinterptted,dims=1)), getaxes(thetase[1][1]))
     end
 
     # return Chains(reinterptted, column_names)
@@ -242,10 +262,12 @@ function find_starting_point(ln_post, priors)
     θ₀ = rand.(priors)
     i = 0
     while !isfinite(ln_post(θ₀))
-        i+=1
+        i += 1
         θ₀ = rand.(priors)
         if i > 1000
-            error("Could not find a starting point in the posterior that is finite by drawing from the priors after 1000 attempts")
+            error(
+                "Could not find a starting point in the posterior that is finite by drawing from the priors after 1000 attempts",
+            )
         end
     end
     return θ₀
@@ -271,7 +293,7 @@ function find_starting_walkers(ln_post, priors, numwalkers)
     initial_walkers = map(1:numwalkers) do i
         initial_position = find_starting_point(ln_post, priors)
     end
-        #     initial_position
+    #     initial_position
     # end
     #     # # This used to intiialize the walkers in a Gaussian ball around the MAP.
     #     # # But now we just draw starting points randomly from the priors, this isn't needed.

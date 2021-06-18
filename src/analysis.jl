@@ -1,44 +1,29 @@
+"""
+    projectpositions(chains.planets[1], mjd("2020-02-02"))
 
-# The stats base sample function makes it easy to get values from Chains
-# but converting these values into KeplerianElements along with any static
-# paramters takes a bit of work.
-# Here we overload the sample function with a method just for this.
-# function sample(::Type{KeplerianElements}, chains::Chains, static, N=1)
-#     sampled = sample(chains, ceil(Int, N/size(chains,2)))
-#     out = KeplerianElements{Float64}[]
-
-#     proto = namedtuple(keys(chains))
-
-#     sizehint!(out, size(sampled,1)*size(sampled,2))
-#     for i in 1:size(sampled,1), j in 1:size(sampled,3)
-#         nt = proto(Array(sampled[i,:,j]))
-#         el = KeplerianElements(merge(nt, static))
-#         push!(out, el)
-#     end
-#     return out[begin:min(N,end)]
-# end
-
-
-function projectpositions(chains,times)
-    N = size(chains,1)*size(chains,3)
+Given the posterior for a particular planet in the model and a modified julian date(s),
+return `ra` and `dec` offsets in mas for each sampling in the posterior.
+"""
+function projectpositions(planet, times)
+    N = size(planet, 1) * size(planet, 3)
     ras = zeros(N)
     decs = zeros(N)
-    ras = zeros(length(first(chains))*length(times))
-    decs = zeros(length(first(chains))*length(times))
-    @threads for j=1:length(first(chains))
-        
-        a = chains.planets[1].a[j]
-        inc = chains.planets[1].i[j]
-        e = chains.planets[1].e[j]
-        τ = chains.planets[1].τ[j]
-        ω = chains.planets[1].ω[j]
-        Ω = chains.planets[1].Ω[j]
-        μ = chains.planets[1].μ[j]
-        plx = chains.planets[1].plx[j]
-        
-        el = KeplerianElements(;a, i=inc, e, τ, ω, Ω, μ, plx)
-        for (k,t) = enumerate(times)
-            i = j*length(times) + k - 1
+    ras = zeros(length(first(planet)) * length(times))
+    decs = zeros(length(first(planet)) * length(times))
+    @threads for j = 1:length(first(planet))
+
+        a = planet.a[j]
+        inc = planet.i[j]
+        e = planet.e[j]
+        τ = planet.τ[j]
+        ω = planet.ω[j]
+        Ω = planet.Ω[j]
+        μ = planet.μ[j]
+        plx = planet.plx[j]
+
+        el = KeplerianElements(; a, i = inc, e, τ, ω, Ω, μ, plx)
+        for (k, t) in enumerate(times)
+            i = j * length(times) + k - 1
             ra, dec, _ = kep2cart(el, t)
             ras[i] = ra
             decs[i] = dec
@@ -48,18 +33,25 @@ function projectpositions(chains,times)
 end
 export projectpositions
 
-function sampleorbits(planet,N)
-    return map(rand(eachindex(planet.a),N)) do i
+"""
+    sampleorbits(chains.planets[1], 100)
+
+Given the posterior for a particular planet in the model, and the number of orbits to sample,
+return a random subset of length N.
+"""
+function sampleorbits(planet, N)
+    return map(rand(eachindex(planet.a), N)) do i
         return KeplerianElements(;
-            a=planet.a[i],
-            i=planet.i[i],
-            e=planet.e[i],
-            ω=planet.ω[i],
-            Ω=planet.Ω[i],
-            μ=planet.μ[i],
-            plx=planet.plx[i],
-            τ=planet.τ[i],
+            a = planet.a[i],
+            i = planet.i[i],
+            e = planet.e[i],
+            ω = planet.ω[i],
+            Ω = planet.Ω[i],
+            μ = planet.μ[i],
+            plx = planet.plx[i],
+            τ = planet.τ[i],
         )
     end
 end
 export sampleorbits
+
