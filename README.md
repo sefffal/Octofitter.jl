@@ -1,7 +1,7 @@
 # DirectDetections.jl
 
 
-This in development package uses hierarchical Bayesian modelling to detect exoplanets and other sub-stellar companions by jointly modelling their orbit and atmosphere. Orbit modelling is handled using DirectOrbits.jl and atmospheres via grids of Sonora models.
+This in development package uses Bayesian modelling to detect exoplanets and other sub-stellar companions by jointly modelling a planet's flux and orbit. Using this tool, the SNR of a planet can grow with roughly the square root of the number of images.
 
 Simply specify your priors on physical and orbital parameters, provide any direct images of the system from any bands in the Sonora grids, as well as any RV or astrometry measurements. This package will then generate a posterior distribution which can be used to assess a detection and/or constrain these parameters.
 
@@ -82,7 +82,7 @@ priors = ComponentVector(
 
 The resulting chains object has the same shape as the priors, only each element has a matrix of samples from the posterior with columns corresponding to the different chains. If `squash=true`, then each element is just a vector of samples.
 
-The code is quite performant. Running the sampler with those parameters takes less than three minutes on my older laptop. No need to use a compute cluster! I do suggest however that you start Julia with multiple threads, e.g. `julia -t 4` or `julia -t auto`.
+The code is quite performant. Running the sampler with those parameters takes less than three minutes on my older laptop. No need to use a compute cluster! I do suggest however that you start Julia with multiple threads, e.g. `julia -t 4` or `julia -t auto`. The runtime scales with close to linearly with the number of epochs.
 
 ## Analysis
 Once you have run the MCMC sampler, there are many interesting things you can learn from the posterior.
