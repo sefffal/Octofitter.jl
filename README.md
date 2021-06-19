@@ -5,6 +5,7 @@ This in development package uses hierarchical Bayesian modelling to detect exopl
 
 Simply specify your priors on physical and orbital parameters, provide any direct images of the system from any bands in the Sonora grids, as well as any RV or astrometry measurements. This package will then generate a posterior distribution which can be used to assess a detection and/or constrain these parameters.
 
+If the distance (paralax) of the host star and its mass are known reasonably well, the remaining priors can be left wide open and the code will usually converge. If you know other details, like the inclination of the system, narrowing down the priors on those parameters helps the code find physically plausible orbits rather than any orbits that happen to connect the planet between images.
 
 ![](images/readme-example.png)
 
