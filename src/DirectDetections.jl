@@ -21,6 +21,8 @@ RuntimeGeneratedFunctions.init(@__MODULE__)
 # We use a sonora model grid to tie fluxes to physical properties
 include("sonora.jl")
 
+include("types.jl")
+
 
 # This is a straight forward implementation that unfortunately is not type stable.
 # This is because we are looping over a heterogeneous container
@@ -107,7 +109,7 @@ function ln_like_phot(phot_observations, model_interpolator, elements, θ_planet
 end
 
 
-function ln_astrometric_likelihood(elements, observations)
+function ln_like_astrom(elements, observations)
 
     ll = 0.0
     for obs in observations
@@ -124,6 +126,44 @@ function ln_astrometric_likelihood(elements, observations)
     return ll
 end
 
+
+function ln_like_propmotionanom(θ, elements, observations)
+    # raoffel = t -> raoff(elements, t)
+    # decoffel = t -> decoff(elements, t)
+
+    ll = 0.0
+    for obs in observations
+
+        pmra_star = 0.0
+        pmdec_star = 0.0
+        
+        # The model can support multiple planets
+        for θ_planet in θ.planets
+
+            # pmra_planet = -ForwardDiff.derivative(raoffel, obs.ra_epoch) * 365.25 # mas/day -> mas/yr
+            # pmdec_planet = -ForwardDiff.derivative(decoffel, obs.dec_epoch) * 365.25 # mas/day -> mas/yr
+            # pmra_star = pmra_planet .* planet_mass ./ elements.μ
+            # pmdec_star = pmdec_planet .* planet_mass ./ elements.μ
+
+            # RA and dec epochs are usually slightly different
+            pmra_star += propmotionanom(elements, obs.ra_epoch, elements.μ, θ_planet.mass)[1]
+            pmdec_star += propmotionanom(elements, obs.dec_epoch, elements.μ, θ_planet.mass)[2]
+        end
+
+        residx = pmra_star - obs.pmra
+        residy = pmdec_star - obs.pmdec
+        σ²x = obs.σ_pmra^2
+        σ²y = obs.σ_pmdec^2
+        χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
+        χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
+
+        ll += χ²x + χ²y
+    end
+
+    # return 0.0
+    return ll
+end
+
 function make_ln_like(data, interpolators)
 
     # Prepare photometric likelihood functions for each band
@@ -132,23 +172,32 @@ function make_ln_like(data, interpolators)
     # over the different bands directly
 
     phot_likes = Expr[]
-    for band in keys(data.phot)
-        ex = :(
-            ll += ln_like_phot(
-                data.$band,
-                interpolators.$band,
-                elements,
-                θ_planet,
-                θ_planet.phot.$band,
+    if haskey(data, :phot)
+        for band in keys(data.phot)
+            ex = :(
+                ll += ln_like_phot(
+                    data.phot.$band,
+                    interpolators.$band,
+                    elements,
+                    θ_planet,
+                    θ_planet.phot.$band,
+                )
             )
-        )
-        push!(phot_likes, ex)
+            push!(phot_likes, ex)
+        end
     end
 
     if haskey(data, :astrom) && length(data.astrom) > 0
-        astrom_like = :(ll += ln_astrometric_likelihood(elements, $(data.astrom)))
+        astrom_like = :(ll += ln_like_astrom(elements, $(data.astrom)))
     else
         astrom_like = nothing
+    end
+
+
+    if haskey(data, :propmotionanom)
+        propmotionanom_like = :(ll += ln_like_propmotionanom(θ, elements, $(data.propmotionanom)))
+    else
+        propmotionanom_like = nothing
     end
 
 
@@ -176,9 +225,9 @@ function make_ln_like(data, interpolators)
                 $(phot_likes...)
 
                 # TODO: RV likelihood
-                # TODO: Astrom. likelihood
 
                 $astrom_like
+                $propmotionanom_like
 
             end
 
@@ -207,14 +256,18 @@ function mcmc(
     # column_names = ComponentArrays.labels(priors)
 
     # Prepare interpolators for any different bands we want to model
-    bands = unique(reduce(vcat, [collect(keys(planet.phot)) for planet in priors.planets]))
+    if haskey(data, :phot)
+        bands = unique(reduce(vcat, [collect(keys(planet.phot)) for planet in priors.planets]))
+        interpolators = namedtuple(bands, [sonora_interpolator_grid(band) for band in bands])
+    else
+        interpolators = nothing
+    end
 
-    interpolators = namedtuple(bands, [sonora_interpolator_grid(band) for band in bands])
 
     ln_prior = make_ln_prior(priors)
 
     ln_like_0 = make_ln_like(data, interpolators)
-    ln_like(θ) = ln_like_0(data.phot, interpolators, θ)
+    ln_like(θ) = ln_like_0(data, interpolators, θ)
 
 
     ln_post(θ) = ln_prior(θ) + ln_like(θ)
@@ -297,13 +350,13 @@ function hmc(
         initial_θ = rand.(priors)
 
         # Define a Hamiltonian system
-        # metric = DiagEuclideanMetric(D)
-        metric = DenseEuclideanMetric(D)
+        metric = DiagEuclideanMetric(D)
+        # metric = DenseEuclideanMetric(D)
         hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
 
         # Define a leapfrog solver, with initial step size chosen heuristically
-        # initial_ϵ = find_good_stepsize(hamiltonian, getdata(initial_θ))
-        initial_ϵ = 0.02
+        initial_ϵ = find_good_stepsize(hamiltonian, getdata(initial_θ))
+        # initial_ϵ = 0.02
         integrator = Leapfrog(initial_ϵ)
 
         proposal = NUTS{MultinomialTS, GeneralisedNoUTurn}(integrator, 10)
@@ -359,7 +412,7 @@ end
 # step outside the ranges defined by the priors
 function find_starting_walkers(ln_post, priors, numwalkers)
     initial_walkers = map(1:numwalkers) do i
-        initial_position = find_starting_point(ln_post, priors)
+        return initial_position = find_starting_point(ln_post, priors)
     end
     #     initial_position
     # end

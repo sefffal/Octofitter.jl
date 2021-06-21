@@ -73,6 +73,7 @@ function init_plots()
             rev=true,
             colorbartitle="semi-major axis (au)",
             clims=nothing,
+            lw=0.3,
             kwargs...
         )
             # sampled = sampleorbits(planet, N);
@@ -130,7 +131,7 @@ function init_plots()
             cmap= Plots.cgrad(cmap; rev)
             for i in sortperm(colours, rev=false)
                 c = colours[i]
-                Plots.plot!(elements[i], label="",color=cmap[(c-minc)/dc], lw=0.3, alpha=0.1,)
+                Plots.plot!(elements[i], label="",color=cmap[(c-minc)/dc], lw=lw, alpha=0.1,)
             end
             Plots.scatter!([0],[0], marker=(:star,:black, 5), label="")
             Plots.scatter!([0],[0]; marker_z=[0], ms=0, clims=clims, color=cmap, label="", colorbartitle)

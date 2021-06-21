@@ -13,18 +13,21 @@ using Plots
 # Generate astrometry points using this template
 # and we will try to fit the results
 truths = [
-    KeplerianElements(;a = 12,τ = 0.25,ω = 0,Ω = 0,e = 0.1,i = 0.5,μ = 1.,plx = 45.,),
-    KeplerianElements(;a = 18, τ = 0.75,ω = 0,Ω = 0,e = 0.15, i = 0.5,μ = 1.,plx = 45.,),
+    # KeplerianElements(;a = 12,τ = 0.25,ω = 0,Ω = 0,e = 0.1,i = 0.5,μ = 1.,plx = 45.,),
+    KeplerianElements(;a = 12,τ = 0.65,ω = 0,Ω = 0,e = 0.1,i = 0.5,μ = 1.,plx = 45.,),
+    # KeplerianElements(;a = 18, τ = 0.75,ω = 0,Ω = 0,e = 0.15, i = 0.5,μ = 1.,plx = 45.,),
 ]
 intensities = [
     1800,
-    3000,
+    # 3000,
+    # 650,
+    # 1000,
 ]
 
 # truth_elements = KeplerianElements(ComponentArray(truth, static))
 
 # times = range(0, period(truth_elements)*4/5, length=9, )
-times = range(0, period(first(truths))/3, length=4,)
+times = range(0, period(first(truths))/2, length=10,)
 
 
 # Create synthetic images at each time with those points
@@ -49,7 +52,7 @@ contrasts = [contrast for (img,contrast) in images_contrasts]
 nothing
 
 ##
-imshow2(reduce(hcat, images), cmap=:turbo, clims=(-35,35));
+# imshow2(reduce(hcat, images), clims=(-35,35))
 
 ##
 input = (;
@@ -103,20 +106,24 @@ priors = ComponentVector(
         #     ),
         # ),
         (
-            a = Uniform(3, 25),
+            a = Uniform(7, 16),
             e = TruncatedNormal(0.1, 0.1, 0.0, 0.4),
             τ = Uniform(0,1),
+            # τ = Uniform(0.4,0.8),
             ω = Uniform(-π,π),
-            # i = Uniform(0,2π),
-            i = TruncatedNormal(0, 0.2, -π,π),
+            # ω = Uniform(-π/4,π/4),
+            i = Uniform(-π,π),
+            # i = Uniform(-π/4,π/4),
+            # i = TruncatedNormal(0, 0.2, -π,π),
             Ω = Uniform(-π,π),
+            # Ω = Uniform(-π/4,π/4),
 
-            μ = Normal(1.0, 0.1),
-            plx = Normal(45., 0.0001),
+            μ = TruncatedNormal(1.0, 0.01, 0, 10),
+            plx = TruncatedNormal(45., 0.0001, 0, 100),
 
             # σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1),
             phot = (;
-                Keck_L′ = Uniform(0., 100.),
+                Keck_L′ = Uniform(0.0, 100.),
                 # Keck_Ks = Uniform(0., 100.),
             ),
         ),
@@ -142,40 +149,63 @@ nothing
 ##
 @time chainsh, stats = DirectDetections.hmc(
     priors, input;
-    burnin=2_000,
+    burnin=60_000,
     numwalkers=4,
-    numsamples_perwalker=4_000,
+    numsamples_perwalker=100_000,
+);
+nothing
+
+##
+@time chainsh, stats = DirectDetections.hmc(
+    priors, input;
+    burnin=10_000,
+    numwalkers=10,
+    numsamples_perwalker=15_000,
 );
 nothing
 
 ##
 [count(getproperty.(s, :numerical_error)) for s in stats]
 ##
-function orbsonimg(planet, images, N=100)
+function orbsonimg(args...; kwargs...)
+    plot()
+    orbsonimg!(args...;kwargs...)
+end
+function orbsonimg!(planet, image, N=100; kwargs...)
     sampled = sampleorbits(planet, N);
-    i = DirectImage(sum(images))
+    i = DirectImage(image)
     i.PLATESCALE = 10.
-    imshow(i,skyconvention=true)
-    plot!(sampled,color=:white,alpha=5/N,label="")
+    imshow!(i;skyconvention=true,kwargs...)
+    # plot!(sampled,color=:white,alpha=5/N,label="")
+    plot!(sampled,color=:white,label="",)
     xlims!(i.PLATESCALE.*extrema(axes(i,1)))
     ylims!(i.PLATESCALE.*extrema(axes(i,2)))
+
 end
 
-##
-orbsonimg(chains.planets[1],images)
-# orbsonimg(chainsh[2].planets[1],images)
 
+##
+imshow(images[3],clims=(-2,10))
+# orbsonimg(chains.planets[1],images[2],clims=(-2,10))
+orbsonimg(chains.planets[1],mean(images), 500,legend=nothing, clims=(-0.2,1),color=:magma,dpi=200)
+plot!(truths, color=:black, lw=2, ls=:dash, label="")
+# orbsonimg(chainsh[2].planets[1],images)
+# writefits("tmp.fits", images[2])
 ##
 plot()
+orbsonimg!(chainsh[1].planets[1],mean(images),1,legend=nothing, clims=(-0.2,1),color=:magma,dpi=200,)
 for c in chainsh
-    histogram!(c.planets[1].phot.Keck_L′, alpha=0.5)
+    plot!(sampleorbits(c.planets[1],125),color=:white,label="",alpha=0.1)
 end
-current()
+    plot!(truths, color=:black, lw=2, ls=:dash, label="",colorbar=nothing)
+
 ##
 
+
 function snr(phot)
-    med,up = quantile(reshape(phot,:),(0.5, 0.67))
-    return med/(up-med)
+    low,med,up = quantile(reshape(phot,:),(0.33, 0.5, 0.67))
+    st = std(reshape(phot,:))
+    return med/(up-low)
 end
 
 ##
@@ -186,21 +216,30 @@ end
 snr(chains.planets[1].phot.Keck_L′[:])
 ##
 histogram(chains.planets[1].phot.Keck_L′[:])
+histogram(chainsh[1].planets[1].phot.Keck_L′[:])
 ##
-DirectDetections.plotposterior(chains.planets[1], :a, 5000)
+DirectDetections.plotposterior(chains.planets[1], :a, 500)
 plot!(truths, color=:black, lw=2, ls=:dash, label="", alpha=0.5)
-savefig("images/readme-orbits.png")
+# savefig("images/readme-orbits.png")
 
 ##
-DirectDetections.plotposterior(chains.planets[1], :i, colorbartitle="inclination (rad)")
+DirectDetections.plotposterior(chains.planets[1], :i, 500, colorbartitle="inclination (rad)",dpi=200)
+# savefig("images/readme-post-i.png")
 
 ##
-DirectDetections.plotposterior(chains.planets[1], (:phot, :Keck_L′), 500, colorbartitle="flux", cmap=:plasma, rev=false, clims=(0,30))
+DirectDetections.plotposterior(chains.planets[1], (:phot, :Keck_L′), 500, colorbartitle="flux", cmap=:plasma, rev=false, clims=(0,12),dpi=200)
 plot!(truths, color=:black, lw=2, ls=:dash, label="")
+# savefig("images/readme-post-f.png")
 
 ##
-DirectDetections.plotposterior(chains.planets[1], :e, 500, colorbartitle="eccentricity")
+DirectDetections.plotposterior(chains.planets[1], :e, 500, colorbartitle="eccentricity",dpi=200)
 plot!(truths, color=:black, lw=2, ls=:dash)
+# savefig("images/readme-post-e.png")
+
+##
+DirectDetections.plotposterior(chains.planets[1],  lw=3, :e, 500, colorbartitle="eccentricity",dpi=200, cmap=:plasma, rev=false,)
+plot!(truths, color=:black, lw=2, ls=:dash)
+# savefig("images/readme-post-e2.png")
 
 ##
 
@@ -212,19 +251,18 @@ xlabel!("Δ right ascension (as)")
 ylabel!("Δ declination (as)")
 
 ##
-mask = (-100 .< ra .< 150) .& (200 .< dec .< 700)
+mask = (-200 .< ra .< 250) .& (300 .< dec .< 800)
 snr(chains.planets[1].phot.Keck_L′)
 snr(chains.planets[1].phot.Keck_L′[mask])
 histogram2d(ra[mask],dec[mask],aspectratio=1, color=:plasma, background_inside=:black, framestyle=:box, cscale=:log10kep2cart,dpi=200)
-xlims!(1.25.*(-1,+1).*max(abs.(extrema(ra))...))
-ylims!(1.25.*(-1,+1).*max(abs.(extrema(dec))...))
+histogram2d(ra[mask],dec[mask],aspectratio=1, color=:plasma, background_inside=:black, framestyle=:box, cscale=:log10kep2cart,dpi=200)
+# xlims!(1.25.*(-1,+1).*max(abs.(extrema(ra))...))
+# ylims!(1.25.*(-1,+1).*max(abs.(extrema(dec))...))
 ##
 ras,decs = projectpositions(chains.planets[1],mean(times))
 # histogram2d(ras[5end÷6:end], decs[5end÷6:end])
-histogram2d(ras, decs)
+histogram2d(ras, decs,aspectratio=1,xflip=true,color=:plasma)
 
-##
-plot(chains.planets[1].a,legend=nothing,lw=0.1)
 ##
 mask = 7 .< chains.planets[1].a .< 15
 snr(chains.planets[1].phot.Keck_L′[mask])
@@ -235,22 +273,87 @@ snr(chains.planets[1].phot.Keck_L′[mask])
 
 ##
 table = (;
-    chains.planets[1].a,
     L=chains.planets[1].phot.Keck_L′,
+    chains.planets[1].a,
     chains.planets[1].i,
     chains.planets[1].e,
     tau=chains.planets[1].τ,
 )
 corner(
     table,
-    split(raw"a \mathrm{flux} i e \tau"),
-    plotscatter=true,
+    split(raw"\mathrm{flux} a i e \tau"),
+    plotscatter=false,
     hist2d_kwargs=(;ylims=(0,NaN),xlims=(0,NaN)),
     scatter_kwargs=(;markersize=0.5),
     dpi=200,
     # lim_factor=2,
     # hist2d_kwargs=(;nbins=8),
 )
-nothing
-##
 
+##
+ra, dec = projectpositions(chains.planets[1], mean(times))
+pa = atan.(dec,ra)
+# mask = (pa .< 0.5) .& 
+#     (600 .< ra .< 800) .&
+#     (-200 .< dec .< -100)
+mask = vec((chains.planets[1].phot.Keck_L′ .< 6))
+table = (;
+    ra=ra[mask],
+    dec=dec[mask],
+    # pa=rad2deg.(pa[mask]),
+    a=(chains.planets[1].a)[mask],
+    L=(chains.planets[1].phot.Keck_L′)[mask],
+    i=rad2deg.((chains.planets[1].i))[mask],
+    e=(chains.planets[1].e)[mask],
+)
+corner(
+    table,
+    # split(raw"a \mathrm{flux} i e \tau"),
+    plotscatter=false,
+    # hist2d_kwargs=(;ylims=(0,NaN),xlims=(0,NaN)),
+    # scatter_kwargs=(;markersize=0.5),
+    # dpi=200,
+    # lim_factor=2,
+    hist_kwargs=(;nbins=50),
+    hist2d_kwargs=(;nbins=50),
+)
+
+
+
+## Chains
+table = (;
+    a=(chains.planets[1].a),
+    L=(chains.planets[1].phot.Keck_L′),
+    i=rad2deg.((chains.planets[1].i)),
+    e=(chains.planets[1].e),
+)
+corner(
+    table,
+    # split(raw"a \mathrm{flux} i e \tau"),
+    plotscatter=false,
+    # hist2d_kwargs=(;ylims=(0,NaN),xlims=(0,NaN)),
+    # scatter_kwargs=(;markersize=0.5),
+    # dpi=200,
+    # lim_factor=2,
+    hist_kwargs=(;nbins=50),
+    hist2d_kwargs=(;nbins=50),
+)
+
+## Chainsh
+table = (;
+    a=reduce(vcat, [c.planets[1].a for c in chainsh]),
+    L=reduce(vcat, [c.planets[1].phot.Keck_L′ for c in chainsh]),
+    i=rad2deg.(reduce(vcat, [c.planets[1].i for c in chainsh])),
+    e=reduce(vcat, [c.planets[1].e for c in chainsh]),
+)
+corner(
+    table,
+    # split(raw"a \mathrm{flux} i e \tau"),
+    plotscatter=false,
+    # hist2d_kwargs=(;ylims=(0,NaN),xlims=(0,NaN)),
+    # scatter_kwargs=(;markersize=0.5),
+    # dpi=200,
+    # lim_factor=2,
+    hist_kwargs=(;nbins=25),
+    hist2d_kwargs=(;nbins=25),
+)
