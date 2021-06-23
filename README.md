@@ -20,6 +20,8 @@ You can then analyse the posterior to constrain these parameters, and/or asses a
 
 Sampling can be performed by MCMC (KissMCMC.jl) or HMC with the No U-Turn sampler (NUTS, AdvancedHMC.jl). Finally, the performance of the package is quite good even on personal laptops. Using a cluster, it would be reasonable to model many hundreds of systems.
 
+This code draws inspiration and shares conventions with [Orbitize!](https://orbitize.readthedocs.io/en/latest/), a fantastic Python package for fitting astrometry & RV curves by Blunt et al. Unlike DirectDetections.jl, that package is mature and well documented.
+
 
 ## Example 1: Fitting Astrometry
 This example shows how to fit orbits to astrometric measurements of the planet 51 Eri b, taken from the Gemini Planet Image [De Rosa et al, 2019](https://arxiv.org/abs/1910.10169).
@@ -32,7 +34,7 @@ This example shows how to fit orbits to astrometric measurements of the planet 5
 
 # Data from De Rosa et al, 2019. See above arXiv link.
 planet_b_astrometry = Astrometry(
-    (;epoch=57009.13,  ra=454.24sind(171.22), dec=454.24cosd(171.22), σ_ra=2., σ_dec=2.),
+    (epoch=57009.13,  ra=454.24sind(171.22), dec=454.24cosd(171.22), σ_ra=2., σ_dec=2.),
     (epoch=57052.06,  ra=451.81sind(170.01), dec=451.81cosd(170.01), σ_ra=2., σ_dec=2.),
     (epoch=57053.06,  ra=456.80sind(170.19), dec=456.80cosd(170.19), σ_ra=2.5, σ_dec=2.5),
     (epoch=57266.41,  ra=455.10sind(167.30), dec=455.10cosd(167.30), σ_ra=2., σ_dec=2.),
@@ -50,20 +52,17 @@ planet_b_astrometry = Astrometry(
 planet_b_priors = Priors(
     a = Uniform(0, 20),
     e = Uniform(0, 0.8),
-    τ = Uniform(0,1),
-    ω = Uniform(-π,π),
-    i = Uniform(-π,π),
-    Ω = Uniform(-π,π),
+    τ = Uniform(0, 1),
+    ω = Uniform(-π, π),
+    i = Uniform(-π, π),
+    Ω = Uniform(-π, π),
 )
 planet_b = DirectDetections.Planet(planet_b_priors, planet_b_astrometry)
 
 system_priors = Priors(
     μ = TruncatedNormal(1.75, 0.01, 0., Inf),
     plx =TruncatedNormal(33.439034, 0.07770842, 0., Inf), # From GAIA EDR3
-    i = Uniform(-π,π),
-    Ω = Uniform(-π,π),
-    σ_i² = truncated(InverseGamma(7), 0, Inf),
-    σ_Ω² = truncated(InverseGamma(7), 0, Inf),
+    # priors on i, Ω, and their expected variance between planets can also be specified for multi-planet models.
 )
 
 system = System(system_priors, system_pma, planet_b, )
@@ -146,45 +145,38 @@ images = centered.(readfits.(fnames))
 contrasts = contrast_interp.(images)
 
 # Step 3
-input = (;
-    # List any direct imaging observations
-    phot = (;
-        # List the observations by filter (see below for options).
-        # You can easily build this list from the headers of your FITS files.
-        # The order is not important.
-        MKO_J = [
-            (image=images[1], platescale=10.0, epoch=12354.0, contrast=contrasts[1]),
-            (image=images[2], platescale=10.0, epoch=12410.0, contrast=contrasts[2]),
-            (image=images[3], platescale=10.0, epoch=11235.0, contrast=contrasts[3]),
-        ],
-        MKO_H = [ 
-            (image=images[4], platescale=10.0, epoch=11235.0, contrast=contrasts[4]),
-            (image=images[5], platescale=10.0, epoch=53423.0, contrast=contrasts[5]),
-        ]
-    ),
-    # List any astrometric points
-    astrom = [],
+planet_priors = Priors(
+    a = Uniform(7, 16),
+    e = TruncatedNormal(0.1, 0.1, 0.0, 0.4),
+    τ = Uniform(0,1),
+    ω = Uniform(-π,π),
+    i = Uniform(-π,π),
+    Ω = Uniform(-π,π),
+    J = Uniform(0,20)
+)
+  
+planet = DirectDetections.Planet(planet_priors)
+  
+system_images = DirectDetections.Images(
+    # You can specify a contrast curve yourself from a backwards-rotated ADI sequence, or they will be calculated for you. 
+    # The difference should be negligible for faint planets near the level of the noise, but could underestimate the
+    # likelihood of very strongly detected planets.
+    (band=:J, image=images[1], platescale=10.0, epoch=times[1]),#, contrast=contrasts[1]),
+    (band=:J, image=images[2], platescale=10.0, epoch=times[2]),#, contrast=contrasts[2]),
+    (band=:J, image=images[3], platescale=10.0, epoch=times[3]),#, contrast=contrasts[3]),
+    (band=:J, image=images[4], platescale=10.0, epoch=times[4]),#, contrast=contrasts[4]),
 )
 
 # Step 4
-priors = ComponentVector(
-    planets = [(
-        a = Uniform(8, 25),
-        e = TruncatedNormal(0.0, 0.4, 0.0, 0.9999),
-        τ = Uniform(0,1),
-        ω = Normal(0.0, 0.3),
-        i = Normal(0.5, 0.3),
-        Ω = Normal(0.0, 0.3),
-        μ = Normal(1.0, 0.01),
-        plx = Normal(45., 0.0001),
-        phot = (;
-            MKO_J = Uniform(0., 100.),
-            MKO_H = Uniform(0., 100.),
-        ),
-    )]
+system_priors = Priors(
+    μ = TruncatedNormal(1.0, 0.01, 0, 10),
+    plx = TruncatedNormal(45., 0.0001, 0, 100),
 )
 
+system = System(system_priors, system_pma, system_images, planet)
+  
 # Step 5
+# MCMC with many walkers is recomended over NUTS when sampling from images
 @time chains = DirectDetections.mcmc(
     priors, input;
     numwalkers=1600,
@@ -196,8 +188,7 @@ priors = ComponentVector(
 ```
 
 The resulting chains object has the same shape as the priors, only each element has a matrix of samples from the posterior with columns corresponding to the different chains. If `squash=true`, then each element is just a vector of samples.
-
-The code is quite performant. Running the sampler with those parameters takes less than three minutes on my older laptop. No need to use a compute cluster! I do suggest however that you start Julia with multiple threads, e.g. `julia -t 4` or `julia -t auto`. The runtime scales with close to linearly with the number of epochs.
+E.g.: `chains.planets[1].a` is a vector sampled semi-major axes.
 
 ## Analysis
 Once you have run the MCMC sampler, there are many interesting things you can learn from the posterior.
@@ -305,3 +296,4 @@ Or, isolating only a single planet from the posterior:
 
 ## Suggestions
 - I recommend you use counter-rotated images containing no planets for the contrast calculations. This prevents any planets from biasing the contrast lower.
+- Running the samplers with multiple threads, e.g. `julia -t 4` or `julia -t auto`. The runtime scales with close to linearly with the number of epochs.
