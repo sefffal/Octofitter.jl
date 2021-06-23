@@ -179,12 +179,13 @@ function init_plots()
             Plots.xlabel!("Δ right ascension (as)")
             Plots.ylabel!("Δ declination (as)")
 
-            # if keys isa Symbol
-            #     colours = getproperty(planet, keys)[ii]
-            # else
-            #     colours = nestedkey(planet, keys...)[ii]
-            # end
-            colours = property[ii]
+            if property isa Symbol
+                colours = getproperty(planet, property)[ii]
+            elseif property isa Tuple
+                colours = nestedkey(planet, property...)[ii]
+            else # Assume they passed in the values directly
+                colours = property[ii]
+            end
 
             if isnothing(clims)
                 clims = extrema(colours)

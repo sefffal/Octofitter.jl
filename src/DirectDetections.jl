@@ -1,8 +1,5 @@
 module DirectDetections
-using NamedTupleTools: retuple
 using Base: Symbol, throw_setindex_mismatch
-using StaticArrays: getproperty
-using ComponentArrays: haskey
 using ComponentArrays
 using Distributions
 
