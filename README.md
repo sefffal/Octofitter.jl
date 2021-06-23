@@ -1,15 +1,130 @@
 # DirectDetections.jl
 
-
-This in development package uses Bayesian modelling to detect exoplanets and other sub-stellar companions by jointly modelling a planet's flux and orbit. Using this tool, the SNR of a planet can grow with roughly the square root of the number of images.
-
-Simply specify your priors on physical and orbital parameters, provide any direct images of the system from any bands in the Sonora grids, as well as any RV or astrometry measurements. This package will then generate a posterior distribution which can be used to assess a detection and/or constrain these parameters.
-
-If the distance (paralax) of the host star and its mass are known reasonably well, the remaining priors can be left wide open and the code will usually converge. If you know other details, like the inclination of the system, narrowing down the priors on those parameters helps the code find physically plausible orbits rather than any orbits that happen to connect the planet between images.
-
 ![](images/readme-example.png)
 
-## Usage
+This in-development package allows you to jointly model a system of exoplanets using any combinations of supported input data. In particular, it's able to model the flux and orbital motion of planets using a sequence of image(s) without any obvious detections. Using this tool, the SNR of a planet can grow with roughly the square root of the number of images.
+
+The code currently supports:
+- direct images (multiple bands / instruments)
+- planet astrometry
+- astrometric acceleration
+- multiple planets
+- priors from any univariate distribution from Distributions.jl
+
+And in the near future:
+- radial velocity curves
+- planetary radial velocity measurements
+
+Simply build up a model of your system using pluggable components and any data you might have. The resulting model then automatically builds an efficient and differentiable hierarchical Bayesian model, from which you can sample the posterior.
+You can then analyse the posterior to constrain these parameters, and/or asses a detection.
+
+Sampling can be performed by MCMC (KissMCMC.jl) or HMC with the No U-Turn sampler (NUTS, AdvancedHMC.jl). Finally, the performance of the package is quite good even on personal laptops. Using a cluster, it would be reasonable to model many hundreds of systems.
+
+
+## Example 1: Fitting Astrometry
+This example shows how to fit orbits to astrometric measurements of the planet 51 Eri b, taken from the Gemini Planet Image [De Rosa et al, 2019](https://arxiv.org/abs/1910.10169).
+
+<details>
+  <summary>Click to expand!</summary>
+
+**Step 1: specify model & data**
+```julia
+
+# Data from De Rosa et al, 2019. See above arXiv link.
+planet_b_astrometry = Astrometry(
+    (;epoch=57009.13,  ra=454.24sind(171.22), dec=454.24cosd(171.22), σ_ra=2., σ_dec=2.),
+    (epoch=57052.06,  ra=451.81sind(170.01), dec=451.81cosd(170.01), σ_ra=2., σ_dec=2.),
+    (epoch=57053.06,  ra=456.80sind(170.19), dec=456.80cosd(170.19), σ_ra=2.5, σ_dec=2.5),
+    (epoch=57266.41,  ra=455.10sind(167.30), dec=455.10cosd(167.30), σ_ra=2., σ_dec=2.),
+    (epoch=57332.23,  ra=452.88sind(167.30), dec=452.88cosd(167.30), σ_ra=5.4, σ_dec=5.4),
+    (epoch=57374.19,  ra=455.91sind(165.66), dec=455.91cosd(165.66), σ_ra=6.3, σ_dec=6.3),
+    (epoch=57376.17,  ra=455.01sind(165.69), dec=455.01cosd(165.69), σ_ra=3., σ_dec=3.),
+    (epoch=57415.05,  ra=454.46sind(165.94), dec=454.46cosd(165.94), σ_ra=6., σ_dec=6.),
+    (epoch=57649.39,  ra=454.81sind(161.80), dec=454.81cosd(161.80), σ_ra=2., σ_dec=2.),
+    (epoch=57652.38,  ra=451.43sind(161.73), dec=451.43cosd(161.73), σ_ra=2.7, σ_dec=2.7),
+    (epoch=57739.13,  ra=449.39sind(160.06), dec=449.39cosd(160.06), σ_ra=2.5, σ_dec=2.5),
+    (epoch=58068.26,  ra=447.54sind(155.23), dec=447.54cosd(155.23), σ_ra=3., σ_dec=3.),
+    (epoch=58442.21,  ra=434.22sind(149.64), dec=434.22cosd(149.64), σ_ra=2., σ_dec=2.),
+)
+
+planet_b_priors = Priors(
+    a = Uniform(0, 20),
+    e = Uniform(0, 0.8),
+    τ = Uniform(0,1),
+    ω = Uniform(-π,π),
+    i = Uniform(-π,π),
+    Ω = Uniform(-π,π),
+)
+planet_b = DirectDetections.Planet(planet_b_priors, planet_b_astrometry)
+
+system_priors = Priors(
+    μ = TruncatedNormal(1.75, 0.01, 0., Inf),
+    plx =TruncatedNormal(33.439034, 0.07770842, 0., Inf), # From GAIA EDR3
+    i = Uniform(-π,π),
+    Ω = Uniform(-π,π),
+    σ_i² = truncated(InverseGamma(7), 0, Inf),
+    σ_Ω² = truncated(InverseGamma(7), 0, Inf),
+)
+
+system = System(system_priors, system_pma, planet_b, )
+```
+
+**Step 2: sample from the model**
+
+In this example, we sample from the model using NUTS (AdvancedHMC.jl). 
+```julia
+chains, _ = DirectDetections.hmc(
+    system;
+    burnin=2_000,
+    numwalkers=1,
+    numsamples_perwalker=15_000,
+);
+chains = chains[1];
+```
+
+```
+Sampling 35%|███████████                    |  ETA: 0:00:16
+  iterations:                    5287
+  n_steps:                       6
+  is_accept:                     true
+  acceptance_rate:               0.8333333331647736
+  log_density:                   -19446.616930344586
+  hamiltonian_energy:            19460.79112295783
+  hamiltonian_energy_error:      1.673470251262188e-10
+  max_hamiltonian_energy_error:  Inf
+  tree_depth:                    2
+  numerical_error:               true
+  step_size:                     3.991526096499091e-5
+  nom_step_size:                 3.991526096499091e-5
+  is_adapt:                      false
+  mass_matrix:                   DiagEuclideanMetric([4.526572319817907e-6, 4.53 ...])
+```
+
+**Step 3+: visualize the results**
+```julia
+using Plots
+clims=(8,20)
+
+sampled_priors = sample_priors(system,1000)
+p_priors = plotposterior(sampled_priors, 1, sampled_priors.planets[1].a, 500,  lw=1, alpha=0.25, colorbartitle="semi-major axis (au)", cmap=:plasma, rev=false, colorbar=nothing, clims=clims)
+title!("priors")
+
+p_post = plotposterior(chains, 1, chains.planets[1].a, 500,  lw=1, alpha=0.25, colorbartitle="semi-major axis (au)", cmap=:plasma, rev=false, clims=clims)
+scatter!(planet_b.astrometry,marker=(:black,:circle,3),label="")
+title!("posterior")
+
+plot(p_priors, p_post, size=(1200,400))
+xlims!(-700,700)
+ylims!(-700,700)
+```
+</details>
+
+![](https://user-images.githubusercontent.com/7330605/123161629-7d3d1b80-d424-11eb-9fb3-c214af918991.png)
+
+
+## Example 2: Fitting Images
+<details>
+  <summary>Click to expand!</summary>
 
 Starting from a set of convolved images in units of mJy at 10pc, the steps are 
 as follows:
@@ -111,17 +226,9 @@ plot(sampled_orbits)
 ```
 <img src="images/readme-orbits.png" width=350/>
 
-It can be useful to overplot sampled orbits on one of the input images. This is easy
-using the `imshow` function from the DirectImages package in conjunction with `sample_chain`.
-```julia
-i = DirectImage(image)
-i.PLATESCALE = 10.
-imshow(i, skyconvention=true)
-plot!(sampled_orbits,color=:white,label="")
-```
-<img src="images/readme-overplot.png" width=350/>
 
-There is also a plotting function for colouring the orbits based on any parameter from the posterior:
+
+There a plotting function for colouring the orbits based on any parameter from the posterior:
 ```julia
 # Shown at top of README!
 DirectDetections.plotposterior(chains.planets[1], :a, 5000)
@@ -132,6 +239,17 @@ DirectDetections.plotposterior(chains.planets[1], (:phot, :Keck_L′), 5000, col
 DirectDetections.plotposterior(chains.planets[1], :e, 5000, colorbartitle="eccentricity", cmap=:plasma, rev=false,)
 ```
 <img src="images/readme-post-f.png" width=350/><img src="images/readme-post-e2.png" width=350/>
+    
+It can be useful to overplot sampled orbits on one of the input images. This is easy
+using the `imshow` function from the DirectImages package in conjunction with `sample_chain`.
+```julia
+i = DirectImage(image)
+i.PLATESCALE = 10.
+imshow(i, skyconvention=true)
+plot!(sampled_orbits,color=:white,label="")
+```
+</details>
+<img src="images/readme-overplot.png" width=350/>
 
 
 ## Available filters
@@ -142,6 +260,8 @@ This package uses a precomputed Sonora model grid. You can specify direct imagin
 
 ## Position Plots
 Once you have the posterior, you can plot the most likely position of the planet(s) at a given epoch.
+<details>
+  <summary>Click to expand!</summary>
 
 ```julia
 # Pick a time in MJD to see where the planets were/would be
@@ -155,10 +275,14 @@ histogram2d(
     xflip=true,
 )
 ```
+</details>
+
 ![](images/readme-planetloc.png)
 
 ## Corner Plots
 You can use the registered PairPlots.jl package to display the posterior in a pair plot (aka corner plot):
+<details>
+  <summary>Click to expand!</summary>
 
 ```julia
 using PairPlots
@@ -174,6 +298,8 @@ corner(table, plotscatter=false)
 ![](images/readme-pairplot.png)
 
 Or, isolating only a single planet from the posterior:
+</details>
+
 ![](images/readme-pairplot-single.png)
 
 
