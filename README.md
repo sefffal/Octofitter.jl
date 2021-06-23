@@ -122,6 +122,7 @@ ylims!(-700,700)
 
 
 ## Example 2: Fitting Images
+This example shows how to fit orbits / photometry from a sequence of images with two planets undergoing orbital motion, and no previously extracted astrometry. The inputs are simulated images. The planets are quite obvious here, but in general, this works with planets as faint as SNR 2-2.5 per image.
 <details>
   <summary>Click to expand!</summary>
 
