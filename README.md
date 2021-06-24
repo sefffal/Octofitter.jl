@@ -291,9 +291,11 @@ You can use the registered PairPlots.jl package to display the posterior in a pa
 using PairPlots
 table = (;
     a=chains.planets[1].a,
-    L=chains.planets[1].phot.Keck_L′,
+    flux=chains.planets[1].H,
     i=chains.planets[1].i,
     e=chains.planets[1].e,
+    # e2=chains.planets[2].e,
+    # μ=chains.μ, etc.
 )
 corner(table, plotscatter=false)
 ```
