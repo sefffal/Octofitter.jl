@@ -1,25 +1,15 @@
 
 
-function ln_like(θ, pma::ProperMotionAnom)
+function ln_like_pma(θ_system, pma::ProperMotionAnom)
     ll = 0.0
     for i in eachindex(pma.ra_epoch, pma.dec_epoch)
         pm_ra_star = 0.0
         pm_dec_star = 0.0
         
         # The model can support multiple planets
-        for θ_planet in θ.planets
-            
-            # TODO, we are creating these from scratch for each observation instead of sharing them
-            elements = KeplerianElements((;
-                θ.μ,
-                θ.plx,
-                θ_planet.i,
-                θ_planet.Ω,
-                θ_planet.ω,
-                θ_planet.e,
-                θ_planet.τ,
-                θ_planet.a,
-            ))
+        for θ_planet in θ_system.planets
+            # TODO: we are creating these from scratch for each observation instead of sharing them
+            elements = construct_elements(θ_system, θ_planet)
 
             # RA and dec epochs are usually slightly different
             pm_ra_star += propmotionanom(elements, pma.ra_epoch[i], elements.μ, θ_planet.mass)[1]
@@ -39,25 +29,32 @@ function ln_like(θ, pma::ProperMotionAnom)
     return ll
 end
 
-
-
-function ln_like(θ, images::Images)
+# TODO: image modelling for multi planet systems do not consider how "removing" one planet
+# might increase the contrast of another.
+function ln_like_images(θ_system, images::Images)
     ll = 0.0
-    for i in eachindex(images.epoch), θ_planet in θ.planets
-            
-        # TODO, we are creating these from scratch for each observation instead of sharing them
-        elements = KeplerianElements((;
-            θ.μ,
-            θ.plx,
-            θ_planet.i,
-            θ_planet.Ω,
-            θ_planet.ω,
-            θ_planet.e,
-            θ_planet.τ,
-            θ_planet.a,
-        ))
+    for θ_planet in θ_system.planets
+        elements = construct_elements(θ_system, θ_planet)
+        ll += ln_like_images_element(elements, θ_planet, images::Images)
+    end
 
+    # # Connect the flux at each epoch to an overall flux in this band for this planet
+    # # fᵢ = θ_band.epochs
+    # # ll += -1/2 * sum(
+    # #     (fᵢ .- θ_band.f).^2
+    # # ) / (θ_band.σ_f² * mean(fᵢ)^2)
 
+    # And connect that flux to a modelled Teff and mass
+    # f_model = model_interpolator(θ_planet.Teff, θ_planet.mass)
+    # ll += -1/2 * (f_model - θ_band)^2 /  (θ_planet.σ_f_model² * f_model^2)
+
+    return ll
+end
+
+function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_planet, images::Images)
+    ll = 0.0
+    for i in eachindex(images.epoch)
+       
         # Calculate position at this epoch
         ra, dec = kep2cart(elements, images.epoch[i])
         x = -ra
@@ -89,49 +86,21 @@ function ln_like(θ, images::Images)
         σₓ² = σₓ^2
         ll += -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) - log(sqrt(2π * σₓ²))
     end
-
-    # # Connect the flux at each epoch to an overall flux in this band for this planet
-    # # fᵢ = θ_band.epochs
-    # # ll += -1/2 * sum(
-    # #     (fᵢ .- θ_band.f).^2
-    # # ) / (θ_band.σ_f² * mean(fᵢ)^2)
-
-    # And connect that flux to a modelled Teff and mass
-    # f_model = model_interpolator(θ_planet.Teff, θ_planet.mass)
-    # ll += -1/2 * (f_model - θ_band)^2 /  (θ_planet.σ_f_model² * f_model^2)
-
     return ll
+end
+
+
+function ln_like_astrom(θ, θ_planet, planet::AbstractPlanet{Nothing})
+    return 0.0
 end
 
 # Astrometry
-function ln_like(θ, planets, ::Type{Planet})
-    ll = 0.0
-    
-    for (planet, θ_planet) in zip(planets, θ.planets)
-        if !isnothing(planet.astrometry)
-            ll += ln_like_one_planet_astrom(θ, planet, θ_planet)
-        end
-    end
-    return ll
-end
-
-
-function ln_like_one_planet_astrom(θ, planet, θ_planet)
+function ln_like_astrom(θ_system, θ_planet, planet::AbstractPlanet{<:Astrometry})
     ll = 0.0
     
     # TODO, we are creating these from scratch for each observation instead of sharing them
-    elements = KeplerianElements((;
-        θ.μ,
-        θ.plx,
-        θ_planet.i,
-        θ_planet.Ω,
-        θ_planet.ω,
-        θ_planet.e,
-        θ_planet.τ,
-        θ_planet.a,
-    ))
-    
-    astrom = planet.astrometry
+    elements = construct_elements(θ_system, θ_planet)
+    astrom = astrometry(planet)
     for i in eachindex(astrom.epoch)
 
         x, y = kep2cart(elements, astrom.epoch[i])
@@ -151,12 +120,14 @@ end
 function ln_like(θ, system::System)
     ll = 0.0
     if !isnothing(system.images)
-        ll += ln_like(θ, system.images)
+        ll += ln_like_images(θ, system.images)
     end
     if !isnothing(system.propermotionanom)
-        ll += ln_like(θ, system.propermotionanom)
+        ll += ln_like_pma(θ, system.propermotionanom)
     end
-    ll += ln_like(θ, system.planets, Planet) # astrometry
+    for (θ_planet, planet) in zip(θ.planets, system.planets)
+        ll += ln_like_astrom(θ, θ_planet, planet)
+    end
 
     if haskey(system.priors.priors, :i)
         # hierarchical priors here
@@ -226,12 +197,12 @@ function make_ln_prior(θ)
     for i in eachindex(θ)
         pd = θ[i]
         key = keys(θ)[i]
-        ex = :(lp += logpdf($pd, params.$key))
+        ex = :(lp += $logpdf($pd, params.$key))
         push!(body, ex)
     end
 
     ex = :(function (params)
-        lp = zero(first(params))
+        lp = zero(eltype(params))
         $(body...)
         return lp
     end)
@@ -241,20 +212,20 @@ function make_ln_prior(θ)
 end
 
 
-function make_ln_prior(θ, system::System)
-    body = Expr[]
-    for (planet, θ_planet) in zip(system.planets, θ.planets)
-        ex = :(lp += $planet.priors.ln_prior($θ_planet))
-        push!(body, ex)
-    end
-    ex = :(function (params, system)
-        lp = system.priors.ln_prior(params)
-        $(body...)
-        return lp
-    end)
-    ln_prior = @RuntimeGeneratedFunction(ex)
-    return ln_prior
-end
+# function make_ln_prior(θ, system::System)
+#     body = Expr[]
+#     for (planet, θ_planet) in zip(system.planets, θ.planets)
+#         ex = :(lp += $planet.priors.ln_prior($θ_planet))
+#         push!(body, ex)
+#     end
+#     ex = :(function (params, system)
+#         lp = system.priors.ln_prior(params)
+#         $(body...)
+#         return lp
+#     end)
+#     ln_prior = @RuntimeGeneratedFunction(ex)
+#     return ln_prior
+# end
 
 
 

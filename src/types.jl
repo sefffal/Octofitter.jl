@@ -132,7 +132,8 @@ function Base.show(io::IO, mime::MIME"text/plain", priors::Priors)
     end
 end
 
-struct Planet{T}
+abstract type AbstractPlanet{T} end
+struct Planet{T} <: AbstractPlanet{T}
     priors::Priors
     astrometry::T
 end
@@ -150,6 +151,38 @@ function Base.show(io::IO, mime::MIME"text/plain", p::Planet{T}) where T
     println(io)
 end
 
+struct ReparameterizedPlanet3{T} <: AbstractPlanet{T}
+    planet::Planet{T}
+    priors::Priors
+end
+astrometry(planet::Planet) = planet.astrometry
+astrometry(planet::ReparameterizedPlanet3) = planet.planet.astrometry
+
+
+function reparameterize(planet::Planet)
+    function reparameterized_ln_prior(θ_cv)
+        # τ2pi = θ_cv.Φ + θ_cv.Φω⁻ + θ_cv.ΦΩ⁻
+        return planet.priors.ln_prior(merge(
+            NamedTuple(θ_cv), (;
+                ω = θ_cv.ωΩ⁺ + θ_cv.ωΩ⁻,
+                Ω = θ_cv.ωΩ⁺ - θ_cv.ωΩ⁻
+            )
+             
+            
+
+            # NamedTuple(θ_cv), (;
+            #     ω = θ_cv.Φ - τ2pi + θ_cv.ΦΩ⁻,
+            #     Ω = θ_cv.Φ - τ2pi + θ_cv.Φω⁻,
+            #     τ = τ2pi/2π,
+            # )
+
+        ))
+    end
+    priors = Priors{length(planet.priors.priors)}(planet.priors.priors, reparameterized_ln_prior)
+    return ReparameterizedPlanet3(planet, priors)
+end
+export reparameterize
+
 struct System{TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Images},TPlanet}
     priors::Priors
     propermotionanom::TPMA
@@ -157,23 +190,23 @@ struct System{TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Imag
     planets::TPlanet
 end
 export System
-System(system_priors::Priors, propermotionanom::ProperMotionAnom, images::Images, planets::Planet...) = 
+System(system_priors::Priors, propermotionanom::ProperMotionAnom, images::Images, planets::AbstractPlanet...) = 
     System{ typeof(propermotionanom), typeof(images), typeof(planets)}(
         system_priors, propermotionanom, images, planets
     )
-System(system_priors::Priors, images::Images, propermotionanom::ProperMotionAnom, planets::Planet...) = 
+System(system_priors::Priors, images::Images, propermotionanom::ProperMotionAnom, planets::AbstractPlanet...) = 
     System{ typeof(propermotionanom), typeof(images), typeof(planets)}(
         system_priors, propermotionanom, images, planets
     )
-System(system_priors::Priors, propermotionanom::ProperMotionAnom, planets::Planet...) =
+System(system_priors::Priors, propermotionanom::ProperMotionAnom, planets::AbstractPlanet...) =
     System{ typeof(propermotionanom), Nothing, typeof(planets)}(
         system_priors, propermotionanom, nothing, planets
     )
-System(system_priors::Priors, images::Images, planets::Planet...) = 
+System(system_priors::Priors, images::Images, planets::AbstractPlanet...) = 
     System{ Nothing, typeof(images), typeof(planets)}(
         system_priors, nothing, images, planets
     )
-System(system_priors::Priors, planets::Planet...) = 
+System(system_priors::Priors, planets::AbstractPlanet...) = 
     System{Nothing, Nothing, typeof(planets)}(system_priors, nothing, nothing, planets)
 
 function Base.show(io::IO, mime::MIME"text/plain", sys::System)

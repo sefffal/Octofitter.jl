@@ -34,22 +34,22 @@ end
 export projectpositions
 
 """
-    sampleorbits(chains.planets[1], 100)
+    sampleorbits(chains, planet_num, 100)
 
 Given the posterior for a particular planet in the model, and the number of orbits to sample,
 return a random subset of length N.
 """
-function sampleorbits(planet, N)
-    return map(rand(eachindex(planet.a), N)) do i
+function sampleorbits(chains, planetnum, N)
+    return map(rand(eachindex(chains.planets[planetnum].a), N)) do i
         return KeplerianElements(;
-            a = planet.a[i],
-            i = planet.i[i],
-            e = planet.e[i],
-            ω = planet.ω[i],
-            Ω = planet.Ω[i],
-            μ = planet.μ[i],
-            plx = planet.plx[i],
-            τ = planet.τ[i],
+            a = chains.planets[planetnum].a[i],
+            i = chains.planets[planetnum].i[i],
+            e = chains.planets[planetnum].e[i],
+            ω = chains.planets[planetnum].ω[i],
+            Ω = chains.planets[planetnum].Ω[i],
+            μ = chains.μ[i],
+            plx = chains.plx[i],
+            τ = chains.planets[planetnum].τ[i],
         )
     end
 end
@@ -90,16 +90,7 @@ function init_plots()
             # sampled = sampleorbits(planet, N);
             ii = rand(eachindex(planet.a),N)
             elements = map(ii) do j
-                KeplerianElements(;
-                    a = planet.a[j],
-                    i = planet.i[j],
-                    e = planet.e[j],
-                    ω = planet.ω[j],
-                    Ω = planet.Ω[j],
-                    μ = system.μ[j],
-                    plx = system.plx[j],
-                    τ = planet.τ[j],
-                )
+                construct_elements(system, planet, j)
             end
 
             Plots.plot!(;
@@ -144,16 +135,7 @@ function init_plots()
             # sampled = sampleorbits(planet, N);
             ii = rand(eachindex(planet.a),N)
             elements = map(ii) do j
-                KeplerianElements(;
-                    a = planet.a[j],
-                    i = planet.i[j],
-                    e = planet.e[j],
-                    ω = planet.ω[j],
-                    Ω = planet.Ω[j],
-                    μ = system.μ[j],
-                    plx = system.plx[j],
-                    τ = planet.τ[j],
-                )
+                construct_elements(system, planet, j)
             end
 
             Plots.plot!(;
