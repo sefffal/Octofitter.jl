@@ -45,14 +45,22 @@ end
 function sample_priors(system::System)
     sampled = ComponentVector(
         merge(NamedTuple(rand.(system.priors.priors)),
-        (;planets=[sample_priors(planet) for planet in system.planets])
+        # (;planets=[sample_priors(planet) for planet in system.planets])
+        (;planets=[
+            ComponentArray(NamedTuple([k=>v for (k,v) in pairs(NamedTuple(sample_priors(planet)))]))
+            for planet in system.planets
+        ])
     ))
     return sampled
 end
 function sample_priors(system::System,N)
     sampled = ComponentVector(
         merge(NamedTuple(rand.(system.priors.priors,N)),
-        (;planets=[sample_priors(planet,N) for planet in system.planets])
+        # (;planets=[sample_priors(planet,N) for planet in system.planets])
+        (;planets=[
+            ComponentArray(NamedTuple([k=>v for (k,v) in pairs(NamedTuple(sample_priors(planet,N)))]))
+            for planet in system.planets
+        ])
     ))
     return sampled
 end
@@ -70,12 +78,12 @@ export mean_priors
 # end
 # mean_priors(planet::Planet) = Statistics.mean.(Statistics.rand.(planet.priors.priors,1000))
 function mean_priors(system::System)
-    N = 5
+    N = 5000
     sampled = ComponentVector(
         merge(NamedTuple(mean.(rand.(system.priors.priors,N))),
         # (;planets=[mean.(sample_priors(planet,N)) for planet in system.planets])
         (;planets=[
-            ComponentArray(NamedTuple([k=>mean(v) for (k,v) in pairs(NamedTuple(sample_priors(planet,5)))]))
+            ComponentArray(NamedTuple([k=>mean(v) for (k,v) in pairs(NamedTuple(sample_priors(planet,N)))]))
             for planet in system.planets
         ])
     ))
@@ -83,6 +91,25 @@ function mean_priors(system::System)
 end
 
 
+function guess_starting_position(system, N=500_000)
+
+    @info "Guessing a good starting location by sampling from priors" N
+
+    θ0 = sample_priors(system)
+    θ = sample_priors(system, N)
+    ax = getaxes(θ0)
+    l = length(θ0)
+    A = reshape(getdata(θ), :, l)
+    posts = map(eachrow(A)) do c
+        DirectDetections.ln_post(ComponentVector(c, ax), system)
+    end
+    mapv,mapi = findmax(posts)
+    best = ComponentArray(reshape(getdata(θ), :, l)[mapi,:], ax)
+    
+    @info "Found good location" mapv a=best.planets[1].a
+
+    return best
+end
 
 function construct_elements(θ_system, θ_planet)
     # Handle re-parameterized models
@@ -192,21 +219,22 @@ function mcmc(
         reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′)
         chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]))
     else
-        # We can reinterpret the vector of SVectors as a matrix directly without copying!
-        # This can save massive amounts of memory and time on large changes
-        reinterptted =
-            cat([reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]..., dims = 3)
-        chains = ComponentArray(
-            collect(eachslice(reinterptted, dims = 1)),
-            getaxes(thetase[1][1]),
+        matrix_paramxstep_per_walker = [reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]
+        A = reshape(
+            mapreduce(θ->reinterpret(reshape, eltype(first(θ)), θ), hcat, thetase),
+            (length(thetase[1][1]), :, numwalkers,)
         )
+        ax = getaxes(thetase[1][1])
+        chains = ComponentArray(collect(eachslice(A,dims=1)), ax)
     end
 
     # return Chains(reinterptted, column_names)
     return chains
 end
 
-
+# using Zygote
+# https://github.com/FluxML/Zygote.jl/issues/570
+# @Zygote.adjoint (T::Type{<:SArray})(x::Number...) = T(x...), y->(nothing, y...)
 function hmc(
     system::System;
     numwalkers=1,
@@ -236,23 +264,34 @@ function hmc(
     # Threads.@threads
      for _ in 1:numwalkers
         # initial_θ = sample_priors(system)
-        initial_θ = mean_priors(system)
+        # initial_θ = mean_priors(system)
+        initial_θ = guess_starting_position(system,100_000)
+
 
         # Define a Hamiltonian system
-        metric = DiagEuclideanMetric(D)
-        # metric = DenseEuclideanMetric(D)
+        # metric = DiagEuclideanMetric(D)
+        metric = DenseEuclideanMetric(D)
         hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
+        # hamiltonian = Hamiltonian(metric, ℓπ, Zygote)
 
         # Define a leapfrog solver, with initial step size chosen heuristically
         initial_ϵ = find_good_stepsize(hamiltonian, getdata(initial_θ))
-        # initial_ϵ = 0.02
+        # initial_ϵ = 0.001
         integrator = Leapfrog(initial_ϵ)
         # integrator = TemperedLeapfrog(initial_ϵ, 31.0)
 
+        # proposal = Trajectory{MultinomialTS}(integrator, GeneralisedNoUTurn())
+        proposal = NUTS(integrator) 
 
-        proposal = NUTS{MultinomialTS, GeneralisedNoUTurn}(integrator, 10)
+        # target_accept = 0.8
+        target_accept = 0.8
+        adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(target_accept, integrator)) #0.08
 
-        adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(0.8, integrator)) #0.08
+        # We have change some parameters when running with image data
+        if !isnothing(system.images)
+            target_accept = 0.4
+            # adaptor = MassMatrixAdaptor(metric)
+        end
         # adaptor = AdvancedHMC.NoAdaptation()
 
 

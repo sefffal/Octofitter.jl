@@ -55,109 +55,67 @@ nothing
 # imshow2(reduce(hcat, images), clims=(-35,35))
 
 ##
-input = (;
-    phot = (;
-        Keck_L′ = [
-            (image=images[1], platescale=10.0, epoch=times[1], contrast=contrasts[1]),
-            (image=images[2], platescale=10.0, epoch=times[2], contrast=contrasts[2]),
-            (image=images[3], platescale=10.0, epoch=times[3], contrast=contrasts[3]),
-            (image=images[4], platescale=10.0, epoch=times[4], contrast=contrasts[4]),
-        ],
-        # Keck_Ks = [ 
-        #     (image=images[7], platescale=10.0, epoch=times[7], contrast=contrasts[7]),
-        #     (image=images[8], platescale=10.0, epoch=times[8], contrast=contrasts[8]),
-        #     (image=images[9], platescale=10.0, epoch=times[9], contrast=contrasts[9]),
-        # ]
-    ),
-    # astrom = [
-    #     # (; 
-    #     #     epoch=mean(times),
-    #     #     ra=raoff(truth_elements, mean(times)),
-    #     #     dec=decoff(truth_elements, mean(times)),
-    #     #     σ_ra=5.,
-    #     #     σ_dec=5.,
-    #     # )
-    # ]
+
+planet_priors = Priors(
+    a = Uniform(7, 16),
+    e = TruncatedNormal(0.1, 0.1, 0.0, 0.4),
+    τ = Uniform(0,1),
+    # τ = Uniform(0.4,0.8),
+    ω = Uniform(-π,π),
+    # ω = Uniform(-π/4,π/4),
+    i = Uniform(-π,π),
+    # i = Uniform(-π/4,π/4),
+    # i = TruncatedNormal(0, 0.2, -π,π),
+    Ω = Uniform(-π,π),
+    # Ω = Uniform(-π/4,π/4),
+
+    # mass = Uniform(0mjup2msol,70mjup2msol),
+
+    J = Uniform(0,20)
 )
+planet = reparameterize(DirectDetections.Planet(planet_priors))
+nothing
+##
+
+
+system_images = DirectDetections.Images(
+    (band=:J, image=images[1], platescale=10.0, epoch=times[1]),#, contrast=contrasts[1]),
+    (band=:J, image=images[2], platescale=10.0, epoch=times[2]),#, contrast=contrasts[2]),
+    (band=:J, image=images[3], platescale=10.0, epoch=times[3]),#, contrast=contrasts[3]),
+    (band=:J, image=images[4], platescale=10.0, epoch=times[4]),#, contrast=contrasts[4]),
+)
+
+
+system_priors = Priors(
+    μ = TruncatedNormal(1.0, 0.01, 0, 10),
+    plx = TruncatedNormal(45., 0.0001, 0, 100),
+)
+
+# system = System(system_priors, system_pma, system_images, planet_b)
+system = System(system_priors, system_images, planet,)
 nothing
 
 ##
-priors = ComponentVector(
-    # i = Normal(0.6, 0.3),
-    # Ω = Normal(0.0, 0.3),
-    # μ = Normal(1.0, 0.01),
-    # plx = Normal(45., 0.0001),
-    planets = [
-        # (
-        #     a = Uniform(3, 25),
-        #     e = TruncatedNormal(0.1, 0.1, 0.0, 0.4),
-        #     τ = Uniform(0,1),
-        #     ω = Normal(0.0, 0.1),
-        #     i = Normal(0.5, 0.1),
-        #     Ω = Normal(0.0, 0.1),
+@time chains_img = DirectDetections.mcmc(
+    system;
+    # numwalkers=800,
+    # burnin=62_000,
+    # numsamples_perwalker=100_000,
+    # thinning=250,
 
-        #     μ = Normal(1.0, 0.01),
-        #     plx = Normal(45., 0.0001),
-
-        #     # σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1),
-        #     phot = (;
-        #         Keck_L′ = Uniform(0., 100.),
-        #         # Keck_Ks = Uniform(0., 100.),
-        #     ),
-        # ),
-        (
-            a = Uniform(7, 16),
-            e = TruncatedNormal(0.1, 0.1, 0.0, 0.4),
-            τ = Uniform(0,1),
-            # τ = Uniform(0.4,0.8),
-            ω = Uniform(-π,π),
-            # ω = Uniform(-π/4,π/4),
-            i = Uniform(-π,π),
-            # i = Uniform(-π/4,π/4),
-            # i = TruncatedNormal(0, 0.2, -π,π),
-            Ω = Uniform(-π,π),
-            # Ω = Uniform(-π/4,π/4),
-
-            μ = TruncatedNormal(1.0, 0.01, 0, 10),
-            plx = TruncatedNormal(45., 0.0001, 0, 100),
-
-            # σ_f_model² = Truncated(InverseGamma(4,0.01), 0, 1),
-            phot = (;
-                Keck_L′ = Uniform(0.0, 100.),
-                # Keck_Ks = Uniform(0., 100.),
-            ),
-        ),
-    ]
-)
-
-# test:
-# θ = rand.(priors)
-# logpdf.(priors, θ) |> sum
-
-
-##
-@time chains = DirectDetections.mcmc(
-    priors, input;
-    numwalkers=1600,
-    burnin=62_000,
-    numsamples_perwalker=100_000,
-    thinning=250,
+    numwalkers=50,
+    burnin=1000,
+    numsamples_perwalker=5_000,
+    thinning=1,
+    
+    
     squash = false
 );
 nothing
 
 ##
 @time chainsh, stats = DirectDetections.hmc(
-    priors, input;
-    burnin=60_000,
-    numwalkers=4,
-    numsamples_perwalker=100_000,
-);
-nothing
-
-##
-@time chainsh, stats = DirectDetections.hmc(
-    priors, input;
+    system;
     burnin=10_000,
     numwalkers=10,
     numsamples_perwalker=15_000,
@@ -218,16 +176,16 @@ snr(chains.planets[1].phot.Keck_L′[:])
 histogram(chains.planets[1].phot.Keck_L′[:])
 histogram(chainsh[1].planets[1].phot.Keck_L′[:])
 ##
-DirectDetections.plotposterior(chains.planets[1], :a, 500)
+DirectDetections.plotposterior(chains_img, 1, :a, 500)
 plot!(truths, color=:black, lw=2, ls=:dash, label="", alpha=0.5)
 # savefig("images/readme-orbits.png")
 
 ##
-DirectDetections.plotposterior(chains.planets[1], :i, 500, colorbartitle="inclination (rad)",dpi=200)
+DirectDetections.plotposterior(chains_img, chains_img.planets[1], :i, 500, colorbartitle="inclination (rad)",dpi=200)
 # savefig("images/readme-post-i.png")
 
 ##
-DirectDetections.plotposterior(chains.planets[1], (:phot, :Keck_L′), 500, colorbartitle="flux", cmap=:plasma, rev=false, clims=(0,12),dpi=200)
+DirectDetections.plotposterior(chains_img, chains_img.planets[1], (:phot, :Keck_L′), 500, colorbartitle="flux", cmap=:plasma, rev=false, clims=(0,12),dpi=200)
 plot!(truths, color=:black, lw=2, ls=:dash, label="")
 # savefig("images/readme-post-f.png")
 

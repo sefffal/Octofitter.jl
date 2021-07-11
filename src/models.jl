@@ -137,10 +137,7 @@ function ln_like(θ, system::System)
             sum_iᵢ += θ_planet.i
             sum_iᵢθi² += (θ_planet.i .- θ.i)^2
         end
-        ll += -1/2 * sum_iᵢθi² / θ.σ_i² # TODO: missing sqrt pi factor?
-        # ll += -1/2 * sum(
-        #     (iᵢ .- θ.i).^2
-        # ) / (θ.σ_i² * mean(iᵢ)^2)
+        ll += -1/2 * sum_iᵢθi² / θ.σ_i²  - log(sqrt(2π * θ.σ_i²))
     end
 
     if haskey(system.priors.priors, :Ω)
@@ -151,10 +148,7 @@ function ln_like(θ, system::System)
             sum_Ωᵢ += θ_planet.Ω
             sum_ΩᵢθΩ² += (θ_planet.Ω .- θ.Ω)^2
         end
-        ll += -1/2 * sum_ΩᵢθΩ² / θ.σ_Ω² # TODO: missing sqrt pi factor?
-        # ll += -1/2 * sum(
-        #     (Ωᵢ .- θ.Ω).^2
-        # ) / (θ.σ_Ω² * mean(Ωᵢ)^2)
+        ll += -1/2 * sum_ΩᵢθΩ² / θ.σ_Ω²  - log(sqrt(2π * θ.σ_Ω²))
     end
     
 
@@ -193,7 +187,7 @@ function make_ln_prior(θ)
     #     push!(body, ex)
     # end
 
-    # Vrsion using symbolic keys more robust against reordering the parameters for some reason
+    # Version using symbolic keys more robust against reordering the parameters for some reason
     for i in eachindex(θ)
         pd = θ[i]
         key = keys(θ)[i]

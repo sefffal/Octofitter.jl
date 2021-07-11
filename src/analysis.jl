@@ -4,12 +4,13 @@
 Given the posterior for a particular planet in the model and a modified julian date(s),
 return `ra` and `dec` offsets in mas for each sampling in the posterior.
 """
-function projectpositions(planet, times)
+function projectpositions(chains, planet_num, times)
     N = size(planet, 1) * size(planet, 3)
     ras = zeros(N)
     decs = zeros(N)
     ras = zeros(length(first(planet)) * length(times))
     decs = zeros(length(first(planet)) * length(times))
+    planet = chains[planet_num]
     @threads for j = 1:length(first(planet))
 
         a = planet.a[j]
@@ -18,8 +19,8 @@ function projectpositions(planet, times)
         τ = planet.τ[j]
         ω = planet.ω[j]
         Ω = planet.Ω[j]
-        μ = planet.μ[j]
-        plx = planet.plx[j]
+        μ = chains.μ[j]
+        plx = chains.plx[j]
 
         el = KeplerianElements(; a, i = inc, e, τ, ω, Ω, μ, plx)
         for (k, t) in enumerate(times)
@@ -199,6 +200,98 @@ function init_plots()
             Plots.xlims!(img.PLATESCALE.*extrema(axes(img,1)))
             Plots.ylims!(img.PLATESCALE.*extrema(axes(img,2)))
 
+        end
+
+        function plotmodel!(chains, system, N=1500, alpha=0.02; pma_scatter=nothing, kwargs...)
+
+            # Plot orbits
+            p_orbits = Plots.plot(
+                xlims=:symmetric,
+                ylims=:symmetric,
+            )
+            for planet_num in eachindex(system.planets)
+                plotposterior!(
+                    chains, planet_num, :a, N; lw=1, alpha=alpha, colorbartitle="semi-major axis (au)",
+                    cmap=:plasma, rev=false,
+                    kwargs...
+                )
+
+                # Planet astrometry?
+                astrom = DirectDetections.astrometry(system.planets[planet_num])
+                if !isnothing(astrom)
+                    Plots.scatter!(astrom,marker=(:black,:circle,3),label="")
+                end
+            end
+            # We will override this if we have more information available further down
+            final_plot = p_orbits
+
+            # astrometric acceleration?
+            if !isnothing(system.propermotionanom)
+
+                ii = eachindex(chains.μ)
+                elements = map(ii) do j
+                    DirectDetections.construct_elements(chains, chains.planets[1], j)
+                end
+                titles=["GAIA EDR3", "Hiparcos",]
+                system_pma = system.propermotionanom
+                pma_plots = map(sortperm(system_pma.ra_epoch)) do i
+                    vx = zeros(length(ii))
+                    vy = zeros(length(ii))
+                    for j in eachindex(chains.planets)
+                        mass = chains.planets[j].mass[ii]
+                        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], chains.μ[ii], mass),1)
+                        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], chains.μ[ii], mass),2)
+                    end
+                    Plots.plot(
+                        framestyle=:box,
+                        minorticks=true,
+                        aspectratio=1,
+                        grid=false,
+                    )
+                    if !isnothing(pma_scatter)
+                        if length(system.planets) > 1
+                            @warn "Multiplanet PMA scatter plots not yet implemented"
+                        end
+                        prop = getproperty(chains.planets[1], pma_scatter)[ii]
+                        if pma_scatter == :mass
+                            prop ./=mjup2msol
+                        end
+                        ii_sub = rand(ii, 4000)
+                        Plots.scatter!(vx[ii_sub], vy[ii_sub], marker_z=prop[ii_sub], alpha=1, color=:plasma, colorbar=true, label="", markerstrokewidth=0, ms=1)
+                    else
+                        h = fit(Histogram, (vx, vy), (-1:0.05:1, -1:0.05:1))
+                        Plots.plot!(h, color=Plots.cgrad([Plots.RGBA(0,0,0,0), Plots.RGBA(0,0,0,1)]), colorbar=false)
+                    end
+                    Plots.scatter!(
+                        [system_pma.pm_ra[i]],
+                        [system_pma.pm_dec[i]],
+                        xerror=[system_pma.σ_pm_ra[i]],
+                        yerror=[system_pma.σ_pm_dec[i]],
+                        label="",
+                        color=1,
+                        markerstrokecolor=1
+                    )
+                    # Plots.scatter!([0], [0], marker=(5, :circle, :red),label="")
+                    Plots.hline!([0], color=:black, label="")
+                    Plots.vline!([0], color=:black, label="")
+                    Plots.title!(titles[i])
+                    Plots.xlims!(-1,1)
+                    Plots.ylims!(-1,1)
+                    Plots.xlabel!("Δμ ra - mas/yr")
+                    Plots.ylabel!("Δμ dec - mas/yr")
+                end     
+                # pma_plot = plot(pma_plots..., size=(700,300),margin=5Plots.mm, guidefontsize=9, titlefontsize=9, top_margin=0Plots.mm)
+
+                # Crete new final plot
+                l = eval(:(Plots.@layout [
+                    A{0.65h}
+                    B C
+                ]))
+                final_plot = Plots.plot(p_orbits, pma_plots..., layout=l, size=(550,750),
+                    margin=5Plots.mm, guidefontsize=9, titlefontsize=9, top_margin=0Plots.mm)
+            end
+
+            return final_plot
         end
     end
 end

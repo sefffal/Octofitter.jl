@@ -1,5 +1,4 @@
 module DirectDetections
-using Base: Symbol, throw_setindex_mismatch
 using ComponentArrays
 using Distributions
 
@@ -10,6 +9,7 @@ using ForwardDiff
 using Logging
 
 using Statistics
+using StatsBase
 using NamedTupleTools
 using DirectImages
 using DirectOrbits
@@ -20,6 +20,8 @@ using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
 using RecipesBase
+
+const mjup2msol = 0.0009543
 
 # We use a sonora model grid to tie fluxes to physical properties
 include("sonora.jl")
