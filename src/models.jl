@@ -73,6 +73,10 @@ function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_plan
         # about the likelihood. This is equivalent to σₓ→∞ or log likelihood 
         # of zero.
         if !isfinite(σₓ) || !isfinite(f̃ₓ)
+            # if typeof(σₓ) <: AbstractFloat
+                # println("$x $y")
+                # println("$elements: $(round(x)) $(round(y)) $f̃ₓ $σₓ")
+            # end
             continue
         end
 
@@ -84,8 +88,10 @@ function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_plan
         f_band = getproperty(θ_planet, band)
 
         σₓ² = σₓ^2
-        ll += -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) - log(sqrt(2π * σₓ²))
+        l = -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) - log(sqrt(2π * σₓ²))
+        ll += l
     end
+
     return ll
 end
 
@@ -112,7 +118,6 @@ function ln_like_astrom(θ_system, θ_planet, planet::AbstractPlanet{<:Astrometr
         χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
         ll += χ²x + χ²y
     end
-
     return ll
 end
 
@@ -145,8 +150,9 @@ function ln_like(θ, system::System)
         sum_Ωᵢ = zero(θ.Ω)
         sum_ΩᵢθΩ² = zero(θ.Ω)
         for θ_planet in θ.planets
-            sum_Ωᵢ += θ_planet.Ω
-            sum_ΩᵢθΩ² += (θ_planet.Ω .- θ.Ω)^2
+            _, Ωᵢ, _  = get_ωΩτ(θ_planet)
+            sum_Ωᵢ += Ωᵢ
+            sum_ΩᵢθΩ² += (Ωᵢ .- θ.Ω)^2
         end
         ll += -1/2 * sum_ΩᵢθΩ² / θ.σ_Ω²  - log(sqrt(2π * θ.σ_Ω²))
     end
@@ -154,6 +160,8 @@ function ln_like(θ, system::System)
 
     return ll
 end
+
+
 
 
 
@@ -191,8 +199,12 @@ function make_ln_prior(θ)
     for i in eachindex(θ)
         pd = θ[i]
         key = keys(θ)[i]
-        ex = :(lp += $logpdf($pd, params.$key))
-        push!(body, ex)
+        if typeof(pd) <: Real
+            # If the user just passes a number, it is held constant and has no effect on the priors
+        else
+            ex = :(lp += $logpdf($pd, params.$key))
+            push!(body, ex)
+        end
     end
 
     ex = :(function (params)
@@ -229,6 +241,15 @@ function ln_prior(θ, system::System)
     for (planet, θ_planet) in zip(system.planets, θ.planets)
         lp += planet.priors.ln_prior(θ_planet)
     end
+
+
+    # if !isfinite(lp)
+    #         println("Not finite lp $lp \n$θ\n\n")
+    # end
+    # if lp == 0.0
+    #         println("zero lp $lp \n$θ\n\n")
+    # end
+
     return lp
 end
 

@@ -80,7 +80,7 @@ function init_plots()
             Plots.plot()
             plotposterior!(args...;kwargs...)
         end
-        function plotposterior!(system, planet_num, keys::Nothing, N=500;
+        function plotposterior!(system, planet_num, keys::Nothing, N=1500;alpha=0.02,
             colorbartitle="",#"semi-major axis (au)",
             lw=0.3,
             color=1,
@@ -119,17 +119,16 @@ function init_plots()
 
         
             for i in eachindex(elements)
-                Plots.plot!(elements[i], label="",color=color, lw=lw, alpha=0.1,)
+                Plots.plot!(elements[i], label="",color=color, lw=lw, alpha=alpha,)
             end
             Plots.scatter!([0],[0], marker=(:star,:black, 5), label="")
         end
-        function plotposterior!(system, planet_num, property, N=500;
+        function plotposterior!(system, planet_num, property, N=1500;alpha=0.02,
             cmap=:turbo,
             rev=true,
             colorbartitle="",#"semi-major axis (au)",
             clims=nothing,
             lw=0.3,
-            alpha=0.1,
             kwargs...
         )
             planet = system.planets[planet_num]
@@ -202,17 +201,33 @@ function init_plots()
 
         end
 
-        function plotmodel!(chains, system, N=1500, alpha=0.02; pma_scatter=nothing, kwargs...)
+        function plotmodel!(
+            chains,
+            system,
+            N=1500,
+            alpha=0.02;
+            plotpma=true,
+            cmap=:plasma,
+            pma_scatter=nothing,
+            clims= extrema(Iterators.flatten(
+                extrema(planet.a)
+                for planet in chains.planets
+            )),
+            kwargs...
+        )
 
             # Plot orbits
             p_orbits = Plots.plot(
                 xlims=:symmetric,
                 ylims=:symmetric,
             )
+            
             for planet_num in eachindex(system.planets)
                 plotposterior!(
                     chains, planet_num, :a, N; lw=1, alpha=alpha, colorbartitle="semi-major axis (au)",
-                    cmap=:plasma, rev=false,
+                    cmap=cmap, rev=false,
+                    # cmap=:turbo,
+                    clims=clims,
                     kwargs...
                 )
 
@@ -226,7 +241,7 @@ function init_plots()
             final_plot = p_orbits
 
             # astrometric acceleration?
-            if !isnothing(system.propermotionanom)
+            if !isnothing(system.propermotionanom) && plotpma
 
                 ii = eachindex(chains.μ)
                 elements = map(ii) do j

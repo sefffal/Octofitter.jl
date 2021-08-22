@@ -113,7 +113,7 @@ function Priors(;priors...)
     ln_prior = make_ln_prior(priors_cv)
 
     # Compile and test result
-    𝓁prior = ln_prior(rand.(priors_cv))
+    𝓁prior = ln_prior(mean.(priors_cv))
     if !isfinite(𝓁prior)
         error("Test of ln_prior calculation returned $𝓁prior")
     end
@@ -139,7 +139,7 @@ struct Planet{T} <: AbstractPlanet{T}
 end
 export Planet
 Planet(priors::Priors) = Planet(priors, nothing)
-function Base.show(io::IO, mime::MIME"text/plain", p::Planet{T}) where T
+function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet{T}) where T
     print(io, typeof(p), " model")
     if T == Nothing
         print(io, " with no associated astrometry")
@@ -188,26 +188,30 @@ struct System{TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Imag
     propermotionanom::TPMA
     images::TImages
     planets::TPlanet
+    function System(system_priors, propermotionanom, images, planets::AbstractPlanet...)
+        if length(planets) > 1 && !all(==(keys(first(planets).priors.priors)), [keys(planet.priors.priors) for planet in planets])
+            error("All planets in the system model must have priors for the same properties defined")
+        end
+        return new{ typeof(propermotionanom), typeof(images), typeof(planets)}(
+            system_priors, propermotionanom, images, planets
+        )
+    end
 end
 export System
-System(system_priors::Priors, propermotionanom::ProperMotionAnom, images::Images, planets::AbstractPlanet...) = 
-    System{ typeof(propermotionanom), typeof(images), typeof(planets)}(
-        system_priors, propermotionanom, images, planets
-    )
 System(system_priors::Priors, images::Images, propermotionanom::ProperMotionAnom, planets::AbstractPlanet...) = 
-    System{ typeof(propermotionanom), typeof(images), typeof(planets)}(
-        system_priors, propermotionanom, images, planets
+    System(
+        system_priors, propermotionanom, images, planets...
     )
 System(system_priors::Priors, propermotionanom::ProperMotionAnom, planets::AbstractPlanet...) =
-    System{ typeof(propermotionanom), Nothing, typeof(planets)}(
-        system_priors, propermotionanom, nothing, planets
+    System(
+        system_priors, propermotionanom, nothing, planets...
     )
 System(system_priors::Priors, images::Images, planets::AbstractPlanet...) = 
-    System{ Nothing, typeof(images), typeof(planets)}(
-        system_priors, nothing, images, planets
+    System(
+        system_priors, nothing, images, planets...
     )
 System(system_priors::Priors, planets::AbstractPlanet...) = 
-    System{Nothing, Nothing, typeof(planets)}(system_priors, nothing, nothing, planets)
+    System(system_priors, nothing, nothing, planets...)
 
 function Base.show(io::IO, mime::MIME"text/plain", sys::System)
     # print(io, "System model with $(length(sys.planets)) planets:\n")
@@ -223,7 +227,7 @@ function Base.show(io::IO, mime::MIME"text/plain", sys::System)
         show(io, mime, sys.propermotionanom)
     end
     if !isnothing(sys.images)
-        print(io, "- associated images")
+        print(io, "- associated images\n")
         show(io, mime, sys.images)
     end
 
