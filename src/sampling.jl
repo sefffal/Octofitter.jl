@@ -1,7 +1,9 @@
 
 export sample_priors
-sample_priors(planet::Planet) = rand.(planet.priors.priors)
-sample_priors(planet::Planet,N) = rand.(planet.priors.priors,N)
+sample_priors(planet::Planet) = ourrand.(planet.priors.priors)
+sample_priors(planet::Planet,N) = ourrand.(planet.priors.priors,N)
+
+priors_fixed(planet::Planet) = typeof.(planet.priors.priors) .<: Real
 
 function sample_priors(planet::ReparameterizedPlanet3)
     sample = NamedTuple(sample_priors(planet.planet))
@@ -42,9 +44,14 @@ function sample_priors(planet::ReparameterizedPlanet3, N)
     return ComponentVector(reparameterized)
 end
 
+ourrand(n::Real) = n
+ourrand(n::Real,N) = fill(n,N)
+ourrand(d::Any) = rand(d)
+ourrand(d::Any,N) = rand(d,N)
+
 function sample_priors(system::System)
     sampled = ComponentVector(
-        merge(NamedTuple(rand.(system.priors.priors)),
+        merge(NamedTuple(ourrand.(system.priors.priors)),
         # (;planets=[sample_priors(planet) for planet in system.planets])
         (;planets=[
             ComponentArray(NamedTuple([k=>v for (k,v) in pairs(NamedTuple(sample_priors(planet)))]))
@@ -55,10 +62,20 @@ function sample_priors(system::System)
 end
 function sample_priors(system::System,N)
     sampled = ComponentVector(
-        merge(NamedTuple(rand.(system.priors.priors,N)),
+        merge(NamedTuple(ourrand.(system.priors.priors,N)),
         # (;planets=[sample_priors(planet,N) for planet in system.planets])
         (;planets=[
             ComponentArray(NamedTuple([k=>v for (k,v) in pairs(NamedTuple(sample_priors(planet,N)))]))
+            for planet in system.planets
+        ])
+    ))
+    return sampled
+end
+function priors_fixed(system)
+    sampled = ComponentVector(merge(
+        NamedTuple(typeof.(system.priors.priors) .<: Real),
+        (;planets=[
+            ComponentArray(NamedTuple([k=>v for (k,v) in pairs(NamedTuple(priors_fixed(planet)))]))
             for planet in system.planets
         ])
     ))
@@ -94,15 +111,19 @@ end
 function guess_starting_position(system, N=500_000)
 
     @info "Guessing a good starting location by sampling from priors" N
-
+    # TODO: this shouldn't have to allocate anything, we can just loop keeping the best.
     θ0 = sample_priors(system)
     θ = sample_priors(system, N)
     ax = getaxes(θ0)
     l = length(θ0)
     A = reshape(getdata(θ), :, l)
-    posts = map(eachrow(A)) do c
-        DirectDetections.ln_post(ComponentVector(c, ax), system)
+    posts = zeros(size(A,1))
+    Threads.@threads for i in eachindex(posts)
+        posts[i] = DirectDetections.ln_post(ComponentVector(view(A,i,:), ax), system)
     end
+    # posts = map(eachrow(A)) do c
+    #     DirectDetections.ln_post(ComponentVector(c, ax), system)
+    # end
     mapv,mapi = findmax(posts)
     best = ComponentArray(reshape(getdata(θ), :, l)[mapi,:], ax)
     
@@ -111,8 +132,7 @@ function guess_starting_position(system, N=500_000)
     return best
 end
 
-function construct_elements(θ_system, θ_planet)
-    # Handle re-parameterized models
+function get_ωΩτ(θ_planet)
     if haskey(θ_planet, :ωΩ⁺)
         
         # Derivation:
@@ -139,6 +159,13 @@ function construct_elements(θ_system, θ_planet)
         Ω = θ_planet.Ω
         τ = θ_planet.τ
     end
+    return ω, Ω, τ
+end
+
+
+function construct_elements(θ_system, θ_planet)
+    # Handle re-parameterized models
+    ω, Ω, τ = get_ωΩτ(θ_planet)
     return KeplerianElements((;
         θ_system.μ,
         θ_system.plx,
@@ -232,11 +259,25 @@ function mcmc(
     return chains
 end
 
+"""
+Given a component vector and a matching component vector that is a boolean mask,
+return only the values that are true
+"""
+function select_cv(cv, mask)
+    dat = getdata(cv)
+    ax = getaxes(cv)
+    dat, ax
+    # ComponentArray(dat[mask],ax[1][mask])
+    ax[1][mask]
+end
+
+using FiniteDiff
+
 # using Zygote
 # https://github.com/FluxML/Zygote.jl/issues/570
 # @Zygote.adjoint (T::Type{<:SArray})(x::Number...) = T(x...), y->(nothing, y...)
 function hmc(
-    system::System;
+    system::System, target_accept=0.8;
     numwalkers=1,
     burnin,
     numsamples_perwalker,
@@ -244,56 +285,88 @@ function hmc(
 
     # Choose parameter dimensionality and initial parameter value
     initial_θ_0 = sample_priors(system)
+    fixed = priors_fixed(system)
     D = length(initial_θ_0)
 
     # AdvancedHMC doesn't play well with component arrays by default, so we pass in just the underlying data
     # array and reconstruct the component array on each invocation (this get's compiled out, no perf affects)
     ax = getaxes(initial_θ_0)
     # Capture the axis into the closure for performance via the let binding.
-    ℓπ = let ax=ax, system=system
+    ℓπ = let ax=ax, system=system, initial_θ_0=initial_θ_0, fixed=fixed, notfixed = .! fixed
         function (θ)
             θ_cv = ComponentArray(θ, ax)
-            return ln_post(θ_cv, system)
-            # return ln_prior(θ_cv, system)
-            # return ln_like(θ_cv, system)
+
+            # Correct fixed parameters
+            θ_cv_merged = θ_cv .* notfixed .+ initial_θ_0 .* fixed
+
+            # TODO: verify that this is still a static array
+            ll = ln_post(θ_cv_merged, system)
+
+            return ll
         end
     end
+
+    # ℓπ_grad = let ax=ax, system=system, initial_θ_0=initial_θ_0, fixed=fixed, notfixed = .! fixed
+    #     f(θ) = ln_post(θ, system)
+    #     function (θ)
+    #         θ_cv = ComponentArray(θ, ax)
+
+    #         # Correct fixed parameters
+    #         θ_cv_merged = θ_cv .* notfixed .+ initial_θ_0 .* fixed
+
+    #         # TODO: verify that this is still a static array
+    #         ll = ln_post(θ_cv_merged, system)
+
+    #         ll_grad = FiniteDiff.finite_difference_gradient(f,θ_cv_merged)
+
+    #         return ll, getdata(ll_grad)
+    #     end
+    # end
 
     chains = []
     stats = []
     # Threads.@threads
      for _ in 1:numwalkers
         # initial_θ = sample_priors(system)
-        # initial_θ = mean_priors(system)
-        initial_θ = guess_starting_position(system,100_000)
+        # initial_θ_cv = mean_priors(system)
+        # initial_θ_cv = guess_starting_position(system,100_000)
+        initial_θ_cv = guess_starting_position(system,10_000)
 
+
+        # Use a static comopnent array for efficiency
+        # initial_θ = ComponentVector{SVector{length(initial_θ_cv)}}(; NamedTuple(initial_θ_cv)...)
+        initial_θ = initial_θ_cv
 
         # Define a Hamiltonian system
-        # metric = DiagEuclideanMetric(D)
         metric = DenseEuclideanMetric(D)
         hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
-        # hamiltonian = Hamiltonian(metric, ℓπ, Zygote)
+        # hamiltonian = Hamiltonian(metric, ℓπ, ℓπ_grad)
+
 
         # Define a leapfrog solver, with initial step size chosen heuristically
-        initial_ϵ = find_good_stepsize(hamiltonian, getdata(initial_θ))
-        # initial_ϵ = 0.001
+        # if !isnothing(system.images)
+        #     initial_ϵ = 0.002
+        # else
+            initial_ϵ = find_good_stepsize(hamiltonian, getdata(initial_θ))
+            # initial_ϵ = 0.002
+        # end
+
+
         integrator = Leapfrog(initial_ϵ)
-        # integrator = TemperedLeapfrog(initial_ϵ, 31.0)
+        # 1.05 improves the sampling over standard leapfrog, but 4.0 is too much. It just stays stuck.
+        # 1.5 seems better but seems to favour certain trajectories.
+        # integrator = TemperedLeapfrog(initial_ϵ, 1.05)
+        proposal = NUTS(integrator, max_depth=12) 
 
-        # proposal = Trajectory{MultinomialTS}(integrator, GeneralisedNoUTurn())
-        proposal = NUTS(integrator) 
 
-        # target_accept = 0.8
-        target_accept = 0.8
-        adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(target_accept, integrator)) #0.08
+        # # We have change some parameters when running with image data
+        # if !isnothing(system.images) && target_accept > 0.4
+        #     target_accept = 0.2
+        #     @info "Sampling from images, lowering target_accept to 0.2"
+        # end
 
-        # We have change some parameters when running with image data
-        if !isnothing(system.images)
-            target_accept = 0.4
-            # adaptor = MassMatrixAdaptor(metric)
-        end
-        # adaptor = AdvancedHMC.NoAdaptation()
-
+        adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(target_accept, integrator)) 
+        # adaptor = MassMatrixAdaptor(metric)
 
         logger = SimpleLogger(stdout, Logging.Error)
         samples, stat = with_logger(logger) do
@@ -302,6 +375,9 @@ function hmc(
 
         sample_grid = reduce(hcat, samples);
         chain = ComponentArray(collect(eachrow(sample_grid)), ax)
+
+        # notfixed = .! fixed
+        # chain_merged = chain .* notfixed .+ initial_θ_0' .* fixed
         
         push!(chains,chain)
         push!(stats,stat)
