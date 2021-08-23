@@ -137,23 +137,17 @@ end
 using Optim
 function find_starting_position(system, N=500_000)
 
-    @info "Guessing a good starting location by sampling from priors" N
-    # TODO: this shouldn't have to allocate anything, we can just loop keeping the best.
-    θ0 = sample_priors(system)
-    θ = sample_priors(system, N)
-    ax = getaxes(θ0)
-    l = length(θ0)
-    A = reshape(getdata(θ), :, l)
-    posts = zeros(size(A,1))
-    Threads.@threads for i in eachindex(posts)
-        # posts[i] = DirectDetections.ln_post(ComponentVector(view(A,i,:), ax), system)
-        posts[i] = DirectDetections.ln_post(ComponentVector(view(A,i,:), ax), system)
+    initial = guess_starting_position(system, 10_000)
+
+    function objective(θ)
+        return -DirectDetections.ln_post(θ, system)
     end
-    # posts = map(eachrow(A)) do c
-    #     DirectDetections.ln_post(ComponentVector(c, ax), system)
-    # end
-    mapv,mapi = findmax(posts)
-    best = ComponentArray(reshape(getdata(θ), :, l)[mapi,:], ax)
+    
+    result = optimize(objective, initial, LBFGS(); autodiff = :forward)
+
+    display(result)
+
+    best = Optim.minimizer(result)
     
     @info "Found good location" mapv a=getproperty.(best.planets, :a)
 

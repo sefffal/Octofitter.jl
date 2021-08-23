@@ -1,7 +1,7 @@
 name = "DirectDetections"
 uuid = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
-version = "0.1.0"
 authors = ["William Thompson <will.thompson@outlook.com>"]
+version = "0.1.0"
 
 [deps]
 AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
@@ -16,6 +16,7 @@ Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 KissMCMC = "79d62d8d-4dfd-5781-bc85-ce78e0ac132a"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 NamedTupleTools = "d9ec5142-1e00-5aa0-9d6a-321866360f50"
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
