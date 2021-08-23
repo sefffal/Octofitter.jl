@@ -30,7 +30,7 @@ This package is not registered in the Julia General registry, but a private regi
  From a julia prompt, type `]` to enter package mode. Then:
  ```julia
  pkg> registry add https://github.com/sefffal/DirectRegistry
- pkg> add DirectOrbits
+ pkg> add DirectDetections
  ```
 
    Some other packages like Plots.jl are used in the examples below, but are not stricly necessary.
