@@ -1,5 +1,7 @@
 name = "DirectDetections"
 uuid = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
+version = "0.1.0"
+authors = ["William Thompson <will.thompson@outlook.com>"]
 
 [deps]
 AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
