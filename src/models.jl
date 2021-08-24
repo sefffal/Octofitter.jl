@@ -91,8 +91,8 @@ function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_plan
             f_band = getproperty(θ_planet, band)
         elseif hasproperty(θ_planet, :mass)
             mass = θ_planet.mass
-            if hasproperty(system.phot_models, band)
-                f_band = system.phot_models[band](mass)
+            if hasproperty(system.models, band)
+                f_band = system.models[band](mass)
             else
                 error("Mass prior specified, but photometry prior for $band was not, and no matching atmosphere model found.")
             end
