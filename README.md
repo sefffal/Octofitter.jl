@@ -23,15 +23,17 @@ Sampling can be performed by MCMC (KissMCMC.jl) or HMC with the No U-Turn sample
 This code draws inspiration and shares conventions with [Orbitize!](https://orbitize.readthedocs.io/en/latest/), a fantastic Python package for fitting astrometry & RV curves by Blunt et al. Unlike DirectDetections.jl, that package is mature and well documented.
 
 ## Installation
-This package is not yet registered; you can add it directly from GitHub as follows:
+This package is not registered in the Julia General registry, but a private registry called DirectRegistry; you can add it directly from GitHub as follows:
 <details>
   <summary>Click to expand!</summary>
  
- From a julia prompt, type `]` to enter package mode.
- Then install this package and two as-yet unregistered depdendencies:
- `add http://github.com/sefffal/DirectImages.jl.git http://github.com/sefffal/DirectOrbits.jl.git http://github.com/sefffal/DirectDetections.jl.git`
- 
- Some other packages like Plots.jl are used in the examples below, but are not stricly necessary.
+ From a julia prompt, type `]` to enter package mode. Then:
+ ```julia
+ pkg> registry add https://github.com/sefffal/DirectRegistry
+ pkg> add DirectDetections
+ ```
+
+   Some other packages like Plots.jl are used in the examples below, but are not stricly necessary.
  </details>
 
 ## Example 1: Fitting Astrometry
