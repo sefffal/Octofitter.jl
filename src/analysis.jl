@@ -5,24 +5,19 @@ Given the posterior for a particular planet in the model and a modified julian d
 return `ra` and `dec` offsets in mas for each sampling in the posterior.
 """
 function projectpositions(chains, planet_num, times)
+    planet = chains.planets[planet_num]
     N = size(planet, 1) * size(planet, 3)
     ras = zeros(N)
     decs = zeros(N)
     ras = zeros(length(first(planet)) * length(times))
     decs = zeros(length(first(planet)) * length(times))
-    planet = chains[planet_num]
-    @threads for j = 1:length(first(planet))
+    
+    # sampled = sampleorbits(planet, N);
+    # @threads 
+    for j = 1:length(planet.a)
 
-        a = planet.a[j]
-        inc = planet.i[j]
-        e = planet.e[j]
-        τ = planet.τ[j]
-        ω = planet.ω[j]
-        Ω = planet.Ω[j]
-        μ = chains.μ[j]
-        plx = chains.plx[j]
+        el = construct_elements(chains, planet, j)
 
-        el = KeplerianElements(; a, i = inc, e, τ, ω, Ω, μ, plx)
         for (k, t) in enumerate(times)
             i = j * length(times) + k - 1
             ra, dec, _ = kep2cart(el, t)

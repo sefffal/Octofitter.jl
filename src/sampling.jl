@@ -119,6 +119,7 @@ function guess_starting_position(system, N=500_000)
     A = reshape(getdata(θ), :, l)
     posts = zeros(size(A,1))
     Threads.@threads for i in eachindex(posts)
+        # posts[i] = DirectDetections.ln_post(ComponentVector(view(A,i,:), ax), system)
         posts[i] = DirectDetections.ln_post(ComponentVector(view(A,i,:), ax), system)
     end
     # posts = map(eachrow(A)) do c
@@ -127,12 +128,37 @@ function guess_starting_position(system, N=500_000)
     mapv,mapi = findmax(posts)
     best = ComponentArray(reshape(getdata(θ), :, l)[mapi,:], ax)
     
-    @info "Found good location" mapv a=best.planets[1].a
+    @info "Found good location" mapv a=getproperty.(best.planets, :a)
 
     return best
 end
 
-function get_ωΩτ(θ_planet)
+
+using Optim
+function find_starting_position(system)
+
+    initial = guess_starting_position(system, 10_000)
+
+    ax = getaxes(initial)
+    function objective(θ_dat)
+        θ = ComponentArray(θ_dat, ax)
+        return -DirectDetections.ln_post(θ, system)
+    end
+    
+    result = optimize(objective, getdata(initial), GradientDescent(), Optim.Options(show_trace=true, show_every=1000, iterations=100_000), autodiff=:forward)
+
+    display(result)
+
+    best = ComponentArray(Optim.minimizer(result), ax)
+    
+    @info "Found good location" a=getproperty.(best.planets, :a)
+
+    return best
+end
+
+
+
+function get_ωΩτ(θ_system, θ_planet)
     if haskey(θ_planet, :ωΩ⁺)
         
         # Derivation:
@@ -156,8 +182,16 @@ function get_ωΩτ(θ_planet)
 
     else
         ω = θ_planet.ω
-        Ω = θ_planet.Ω
         τ = θ_planet.τ
+
+        
+        if hasproperty(θ_planet,:Ω)
+            Ω = θ_planet.Ω
+        elseif hasproperty(θ_system,:Ω)
+            Ω = θ_system.Ω
+        else
+            error("property `Ω` not specified for planet or system")
+        end
     end
     return ω, Ω, τ
 end
@@ -165,11 +199,20 @@ end
 
 function construct_elements(θ_system, θ_planet)
     # Handle re-parameterized models
-    ω, Ω, τ = get_ωΩτ(θ_planet)
+    ω, Ω, τ = get_ωΩτ(θ_system, θ_planet)
+
+    if hasproperty(θ_planet,:i)
+        i = θ_planet.i
+    elseif hasproperty(θ_system,:i)
+        i = θ_system.i
+    else
+        error("property `i` not specified for planet or system")
+    end
+
     return KeplerianElements((;
         θ_system.μ,
         θ_system.plx,
-        θ_planet.i,
+        i,
         Ω,
         ω,
         θ_planet.e,
@@ -190,13 +233,27 @@ function construct_elements(θ_system, θ_planet, i)
         τ = τ2pi/2π
     else
         ω = θ_planet.ω[i]
-        Ω = θ_planet.Ω[i]
+        if hasproperty(θ_planet,:Ω)
+            Ω = θ_planet.Ω[i]
+        elseif hasproperty(θ_system,:Ω)
+            Ω = θ_system.Ω[i]
+        else
+            error("property `Ω` not specified for planet or system")
+        end
         τ = θ_planet.τ[i]
     end
+    if hasproperty(θ_planet,:i)
+        inc = θ_planet.i[i]
+    elseif hasproperty(θ_system,:i)
+        inc = θ_system.i[i]
+    else
+        error("property `i` not specified for planet or system")
+    end
+
     return KeplerianElements((;
         μ=θ_system.μ[i],
         plx=θ_system.plx[i],
-        i=θ_planet.i[i],
+        i=inc,
         Ω,
         ω,
         e=θ_planet.e[i],
@@ -271,7 +328,6 @@ function select_cv(cv, mask)
     ax[1][mask]
 end
 
-using FiniteDiff
 
 # using Zygote
 # https://github.com/FluxML/Zygote.jl/issues/570
@@ -281,6 +337,8 @@ function hmc(
     numwalkers=1,
     burnin,
     numsamples_perwalker,
+    initial_samples=100_000,
+    initial_parameters=nothing
 )
 
     # Choose parameter dimensionality and initial parameter value
@@ -330,8 +388,12 @@ function hmc(
         # initial_θ = sample_priors(system)
         # initial_θ_cv = mean_priors(system)
         # initial_θ_cv = guess_starting_position(system,100_000)
-        initial_θ_cv = guess_starting_position(system,10_000)
 
+        if isnothing(initial_parameters)
+            initial_θ_cv = guess_starting_position(system,initial_samples)
+        else
+            initial_θ_cv = initial_parameters
+        end
 
         # Use a static comopnent array for efficiency
         # initial_θ = ComponentVector{SVector{length(initial_θ_cv)}}(; NamedTuple(initial_θ_cv)...)

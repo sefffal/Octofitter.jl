@@ -137,6 +137,42 @@ end
 
 function ln_like(θ, system::System)
     ll = 0.0
+
+    # Hierarchical parameters over multiple planets
+    if haskey(system.priors.priors, :σ_i²)
+        # If the sampler wanders into negative variances, return early to prevent
+        # taking square roots of negative values later on
+        if θ.σ_i² < 0
+            return -Inf
+        end
+
+        # hierarchical priors here
+        sum_iᵢ = zero(θ.i)
+        sum_iᵢθi² = zero(θ.i)
+        for θ_planet in θ.planets
+            sum_iᵢ += θ_planet.i
+            sum_iᵢθi² += (θ_planet.i .- θ.i)^2
+        end
+        ll += -1/2 * sum_iᵢθi² / θ.σ_i²  - log(sqrt(2π * θ.σ_i²))
+    end
+    if haskey(system.priors.priors, :σ_Ω²)
+        # If the sampler wanders into negative variances, return early to prevent
+        # taking square roots of negative values later on
+        if θ.σ_Ω² < 0
+            return -Inf
+        end
+
+        # hierarchical priors here
+        sum_Ωᵢ = zero(θ.Ω)
+        sum_ΩᵢθΩ² = zero(θ.Ω)
+        for θ_planet in θ.planets
+            _, Ωᵢ, _  = get_ωΩτ(θ_system, θ_planet)
+            sum_Ωᵢ += Ωᵢ
+            sum_ΩᵢθΩ² += (Ωᵢ .- θ.Ω)^2
+        end
+        ll += -1/2 * sum_ΩᵢθΩ² / θ.σ_Ω²  - log(sqrt(2π * θ.σ_Ω²))
+    end
+
     if !isnothing(system.images)
         ll += ln_like_images(θ, system)
     end
@@ -147,30 +183,7 @@ function ln_like(θ, system::System)
         ll += ln_like_astrom(θ, θ_planet, planet)
     end
 
-    if haskey(system.priors.priors, :i)
-        # hierarchical priors here
-        sum_iᵢ = zero(θ.i)
-        sum_iᵢθi² = zero(θ.i)
-        for θ_planet in θ.planets
-            sum_iᵢ += θ_planet.i
-            sum_iᵢθi² += (θ_planet.i .- θ.i)^2
-        end
-        ll += -1/2 * sum_iᵢθi² / θ.σ_i²  - log(sqrt(2π * θ.σ_i²))
-    end
-
-    if haskey(system.priors.priors, :Ω)
-        # hierarchical priors here
-        sum_Ωᵢ = zero(θ.Ω)
-        sum_ΩᵢθΩ² = zero(θ.Ω)
-        for θ_planet in θ.planets
-            _, Ωᵢ, _  = get_ωΩτ(θ_planet)
-            sum_Ωᵢ += Ωᵢ
-            sum_ΩᵢθΩ² += (Ωᵢ .- θ.Ω)^2
-        end
-        ll += -1/2 * sum_ΩᵢθΩ² / θ.σ_Ω²  - log(sqrt(2π * θ.σ_Ω²))
-    end
     
-
     return ll
 end
 

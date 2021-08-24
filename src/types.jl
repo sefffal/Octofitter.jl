@@ -113,7 +113,7 @@ function Priors(;priors...)
     ln_prior = make_ln_prior(priors_cv)
 
     # Compile and test result
-    𝓁prior = ln_prior(mean.(priors_cv))
+    𝓁prior = ln_prior(rand.(priors_cv))
     if !isfinite(𝓁prior)
         error("Test of ln_prior calculation returned $𝓁prior")
     end
