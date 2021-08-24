@@ -135,21 +135,23 @@ end
 
 
 using Optim
-function find_starting_position(system, N=500_000)
+function find_starting_position(system)
 
     initial = guess_starting_position(system, 10_000)
 
-    function objective(θ)
+    ax = getaxes(initial)
+    function objective(θ_dat)
+        θ = ComponentArray(θ_dat, ax)
         return -DirectDetections.ln_post(θ, system)
     end
     
-    result = optimize(objective, initial, LBFGS(); autodiff = :forward)
+    result = optimize(objective, getdata(initial), GradientDescent(), Optim.Options(show_trace=true, show_every=1000, iterations=100_000), autodiff=:forward)
 
     display(result)
 
-    best = Optim.minimizer(result)
+    best = ComponentArray(Optim.minimizer(result), ax)
     
-    @info "Found good location" mapv a=getproperty.(best.planets, :a)
+    @info "Found good location" a=getproperty.(best.planets, :a)
 
     return best
 end
