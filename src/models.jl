@@ -31,11 +31,11 @@ end
 
 # TODO: image modelling for multi planet systems do not consider how "removing" one planet
 # might increase the contrast of another.
-function ln_like_images(θ_system, images::Images)
+function ln_like_images(θ_system, system)
     ll = 0.0
     for θ_planet in θ_system.planets
         elements = construct_elements(θ_system, θ_planet)
-        ll += ln_like_images_element(elements, θ_planet, images::Images)
+        ll += ln_like_images_element(elements, θ_planet, system)
     end
 
     # # Connect the flux at each epoch to an overall flux in this band for this planet
@@ -51,7 +51,8 @@ function ln_like_images(θ_system, images::Images)
     return ll
 end
 
-function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_planet, images::Images)
+function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_planet, system)
+    images = system.images
     ll = 0.0
     for i in eachindex(images.epoch)
        
@@ -85,7 +86,19 @@ function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_plan
         # ll += -1/(2σₓ^2) * (θ_band^2 - 2θ_band*f̃ₓ)
 
         band = images.band[i]
-        f_band = getproperty(θ_planet, band)
+        # If we are doing inference directly on the photometry
+        if hasproperty(θ_planet, band)
+            f_band = getproperty(θ_planet, band)
+        elseif hasproperty(θ_planet, :mass)
+            mass = θ_planet.mass
+            if hasproperty(system.phot_models, band)
+                f_band = system.phot_models[band](mass)
+            else
+                error("Mass prior specified, but photometry prior for $band was not, and no matching atmosphere model found.")
+            end
+        else
+            error("No photometry prior for the band $band was specified, and neither was mass.")
+        end
 
         σₓ² = σₓ^2
         l = -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) - log(sqrt(2π * σₓ²))
@@ -125,7 +138,7 @@ end
 function ln_like(θ, system::System)
     ll = 0.0
     if !isnothing(system.images)
-        ll += ln_like_images(θ, system.images)
+        ll += ln_like_images(θ, system)
     end
     if !isnothing(system.propermotionanom)
         ll += ln_like_pma(θ, system.propermotionanom)
@@ -183,19 +196,13 @@ end
 # end
 
 # This implementation is ~5x faster for the same result.
-# It uses metaprogramming to unroll the loop over the different
+# It uses meta-programming to unroll the loop over the different
 # prior types. Note that this also ensures the priors can't be modified
 # after building the ln_prior function.
 function make_ln_prior(θ)
 
     body = Expr[]
-    # for i in eachindex(θ)
-    #     pd = θ[i]
-    #     ex = :(lp += logpdf($pd, params[$i]))
-    #     push!(body, ex)
-    # end
 
-    # Version using symbolic keys more robust against reordering the parameters for some reason
     for i in eachindex(θ)
         pd = θ[i]
         key = keys(θ)[i]
@@ -217,38 +224,12 @@ function make_ln_prior(θ)
     return ln_prior
 end
 
-
-# function make_ln_prior(θ, system::System)
-#     body = Expr[]
-#     for (planet, θ_planet) in zip(system.planets, θ.planets)
-#         ex = :(lp += $planet.priors.ln_prior($θ_planet))
-#         push!(body, ex)
-#     end
-#     ex = :(function (params, system)
-#         lp = system.priors.ln_prior(params)
-#         $(body...)
-#         return lp
-#     end)
-#     ln_prior = @RuntimeGeneratedFunction(ex)
-#     return ln_prior
-# end
-
-
-
 function ln_prior(θ, system::System)
     lp = 0.0
-    lp += system.priors.ln_prior(θ) # TODO
+    lp += system.priors.ln_prior(θ)
     for (planet, θ_planet) in zip(system.planets, θ.planets)
         lp += planet.priors.ln_prior(θ_planet)
     end
-
-
-    # if !isfinite(lp)
-    #         println("Not finite lp $lp \n$θ\n\n")
-    # end
-    # if lp == 0.0
-    #         println("zero lp $lp \n$θ\n\n")
-    # end
 
     return lp
 end
