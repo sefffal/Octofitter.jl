@@ -448,6 +448,199 @@ function hmc(
 end
 
 
+using TransformVariables
+# using Zygote
+# https://github.com/FluxML/Zygote.jl/issues/570
+# @Zygote.adjoint (T::Type{<:SArray})(x::Number...) = T(x...), y->(nothing, y...)
+function hmctf(
+    system::System, target_accept=0.8;
+    numwalkers=1,
+    burnin,
+    numsamples_perwalker,
+    initial_samples=100_000,
+    initial_parameters=nothing
+)
+
+    # Choose parameter dimensionality and initial parameter value
+    initial_θ_0 = sample_priors(system)
+    fixed = priors_fixed(system)
+    D = length(initial_θ_0)
+
+    # # TODO: how can we construct this programatically?
+    # system_t = as((μ=asℝ₊, plx=asℝ₊, ))
+    # planet_t = as((
+    #     a=asℝ₊,
+    #     e=asℝ₊,
+    #     τ=as𝕀,
+    #     ω=asℝ,
+    #     i=asℝ,
+    #     Ω=asℝ,
+    #     mass=as(Real, 0, 16mjup2msol),
+    # ))
+
+    # List transformations for all supported variables.
+    # We then build a TransformVariables object using whichever
+    # are actually in use.
+    transformations = Dict(
+        :μ=>asℝ₊,
+        :plx=>asℝ₊,
+
+        :a=>asℝ₊,
+        :e=>asℝ₊,
+        :τ=>as𝕀,
+        :ω=>asℝ,
+        :i=>asℝ,
+        :Ω=>asℝ,
+        :mass=>as(Real, 0, 16mjup2msol),
+
+        # TODO.. different flux bands? We can get these from the system images!
+        :Keck_L′=>asℝ₊,
+
+        :σ_i²=>asℝ₊,
+        :σ_Ω²=>asℝ₊,
+    )
+
+    system_t = map(keys(system.priors.priors)) do k
+        return k => transformations[k]
+    end |> collect |> namedtuple |> as
+    planet_t = map(keys(system.planets[1].priors.priors)) do k
+        return k => transformations[k]
+    end |> collect |> namedtuple |> as
+
+
+
+    
+    function tvinverse(θ)
+        system = NamedTupleTools.select(NamedTuple(θ), (:μ, :plx))
+        sys = TransformVariables.inverse(system_t, system)
+        pl = map(θ.planets) do planet
+            TransformVariables.inverse(planet_t, NamedTuple(planet))
+        end
+        ComponentVector([sys; pl...], getaxes(θ))
+    end
+    function tvtransform(θ)
+        system = [θ.μ, θ.plx]
+        sys = TransformVariables.transform(system_t, system)
+        pl = map(θ.planets) do planet
+            TransformVariables.transform(planet_t, planet)
+        end
+        ComponentVector([collect(sys); collect.(pl)...], getaxes(θ))
+    end
+    
+    # out = tvinverse(θ)
+    # back = tvtransform(out)
+
+    # AdvancedHMC doesn't play well with component arrays by default, so we pass in just the underlying data
+    # array and reconstruct the component array on each invocation (this get's compiled out, no perf affects)
+    ax = getaxes(initial_θ_0)
+    # Capture the axis into the closure for performance via the let binding.
+    ℓπ = let ax=ax, system=system, initial_θ_0=initial_θ_0, fixed=fixed, notfixed = .! fixed
+        function (θ)
+            θ_cv = ComponentArray(θ, ax)
+
+            # Correct fixed parameters
+            θ_cv_merged = θ_cv .* notfixed .+ initial_θ_0 .* fixed
+
+            θ_cv_transformed = tvtransform(θ_cv_merged)
+
+            # TODO: verify that this is still a static array
+            ll = ln_post(θ_cv_transformed, system)
+
+            return ll
+        end
+    end
+
+    # ℓπ_grad = let ax=ax, system=system, initial_θ_0=initial_θ_0, fixed=fixed, notfixed = .! fixed
+    #     f(θ) = ln_post(θ, system)
+    #     function (θ)
+    #         θ_cv = ComponentArray(θ, ax)
+
+    #         # Correct fixed parameters
+    #         θ_cv_merged = θ_cv .* notfixed .+ initial_θ_0 .* fixed
+
+    #         # TODO: verify that this is still a static array
+    #         ll = ln_post(θ_cv_merged, system)
+
+    #         ll_grad = FiniteDiff.finite_difference_gradient(f,θ_cv_merged)
+
+    #         return ll, getdata(ll_grad)
+    #     end
+    # end
+
+    chains = []
+    stats = []
+    # Threads.@threads
+     for _ in 1:numwalkers
+        # initial_θ = sample_priors(system)
+        # initial_θ_cv = mean_priors(system)
+        # initial_θ_cv = guess_starting_position(system,100_000)
+
+        if isnothing(initial_parameters)
+            initial_θ_cv = guess_starting_position(system,initial_samples)
+        else
+            initial_θ_cv = initial_parameters
+        end
+
+        # Use a static comopnent array for efficiency
+        # initial_θ = ComponentVector{SVector{length(initial_θ_cv)}}(; NamedTuple(initial_θ_cv)...)
+        initial_θ = tvinverse(initial_θ_cv)
+
+        # Define a Hamiltonian system
+        metric = DenseEuclideanMetric(D)
+        hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
+        # hamiltonian = Hamiltonian(metric, ℓπ, ℓπ_grad)
+
+
+        # Define a leapfrog solver, with initial step size chosen heuristically
+        # if !isnothing(system.images)
+        #     initial_ϵ = 0.002
+        # else
+            initial_ϵ = find_good_stepsize(hamiltonian, getdata(initial_θ))
+            # initial_ϵ = 0.002
+        # end
+
+
+        integrator = Leapfrog(initial_ϵ)
+        # 1.05 improves the sampling over standard leapfrog, but 4.0 is too much. It just stays stuck.
+        # 1.5 seems better but seems to favour certain trajectories.
+        # integrator = TemperedLeapfrog(initial_ϵ, 1.05)
+        proposal = NUTS(integrator, max_depth=12) 
+
+
+        # # We have change some parameters when running with image data
+        # if !isnothing(system.images) && target_accept > 0.4
+        #     target_accept = 0.2
+        #     @info "Sampling from images, lowering target_accept to 0.2"
+        # end
+
+        adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(target_accept, integrator)) 
+        # adaptor = MassMatrixAdaptor(metric)
+
+        logger = SimpleLogger(stdout, Logging.Error)
+        samples_transformed, stat = with_logger(logger) do
+            sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation))
+        end
+
+        function tvtransform_out(θ)
+            sys = collect(TransformVariables.transform(system_t, @view(θ[1:2])))
+            planet = collect(TransformVariables.transform(planet_t, @view(θ[3:end])))
+            return vcat(sys, planet)
+        end
+        samples = map(tvtransform_out, samples_transformed)
+
+        sample_grid = reduce(hcat, samples);
+        chain = ComponentArray(collect(eachrow(sample_grid)), ax)
+
+        # notfixed = .! fixed
+        # chain_merged = chain .* notfixed .+ initial_θ_0' .* fixed
+        
+        push!(chains,chain)
+        push!(stats,stat)
+    end
+    return chains, stats
+end
+
+
 
 
 

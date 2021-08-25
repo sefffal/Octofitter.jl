@@ -136,9 +136,10 @@ abstract type AbstractPlanet{T} end
 struct Planet{T} <: AbstractPlanet{T}
     priors::Priors
     astrometry::T
+    name::Symbol
 end
 export Planet
-Planet(priors::Priors) = Planet(priors, nothing)
+Planet(priors::Priors; name) = Planet(priors, nothing, name)
 function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet{T}) where T
     print(io, typeof(p), " model")
     if T == Nothing
@@ -155,6 +156,7 @@ struct ReparameterizedPlanet3{T} <: AbstractPlanet{T}
     planet::Planet{T}
     priors::Priors
 end
+
 astrometry(planet::Planet) = planet.astrometry
 astrometry(planet::ReparameterizedPlanet3) = planet.planet.astrometry
 
@@ -189,12 +191,13 @@ struct System{TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Imag
     images::TImages
     models::TModels
     planets::TPlanet
-    function System(system_priors, propermotionanom, images, planets::AbstractPlanet...; models)
+    name::Symbol
+    function System(system_priors, propermotionanom, images, planets::AbstractPlanet...; models, name)
         if length(planets) > 1 && !all(==(keys(first(planets).priors.priors)), [keys(planet.priors.priors) for planet in planets])
             error("All planets in the system model must have priors for the same properties defined")
         end
         return new{ typeof(propermotionanom), typeof(images), typeof(models),typeof(planets)}(
-            system_priors, propermotionanom, images, models, planets
+            system_priors, propermotionanom, images, models, planets, name
         )
     end
 end
@@ -248,7 +251,79 @@ end
 
 
 
+# Copied from ModellingToolkit.
+
+export @named 
+
+macro named(expr)
+    name, call = split_assign(expr)
+    if Meta.isexpr(name, :ref)
+        name, idxs = name.args
+        check_name(name)
+        esc(_named_idxs(name, idxs, :($(gensym()) -> $call)))
+    else
+        check_name(name)
+        esc(:($name = $(_named(name, call))))
+    end
+end
+
+macro named(name::Symbol, idxs, call)
+    esc(_named_idxs(name, idxs, call))
+end
+
+function _named(name, call, runtime=false)
+    has_kw = false
+    call isa Expr || throw(Meta.ParseError("The rhs must be an Expr. Got $call."))
+    if length(call.args) >= 2 && call.args[2] isa Expr
+        # canonicalize to use `:parameters`
+        if call.args[2].head === :kw
+            call.args[2] = Expr(:parameters, Expr(:kw, call.args[2].args...))
+            has_kw = true
+        elseif call.args[2].head === :parameters
+            has_kw = true
+        end
+    end
+
+    if !has_kw
+        param = Expr(:parameters)
+        if length(call.args) == 1
+            push!(call.args, param)
+        else
+            insert!(call.args, 2, param)
+        end
+    end
+
+    kws = call.args[2].args
+
+    if !any(kw->(kw isa Symbol ? kw : kw.args[1]) == :name, kws) # don't overwrite `name` kwarg
+        pushfirst!(kws, Expr(:kw, :name, runtime ? name : Meta.quot(name)))
+    end
+    call
+end
+
+function _named_idxs(name::Symbol, idxs, call)
+    if call.head !== :->
+        throw(ArgumentError("Not an anonymous function"))
+    end
+    if !isa(call.args[1], Symbol)
+        throw(ArgumentError("not a single-argument anonymous function"))
+    end
+    sym, ex = call.args
+    ex = Base.Cartesian.poplinenum(ex)
+    ex = _named(:(Symbol($(Meta.quot(name)), :_, $sym)), ex, true)
+    ex = Base.Cartesian.poplinenum(ex)
+    :($name = $map($sym->$ex, $idxs))
+end
+
+check_name(name) = name isa Symbol || throw(Meta.ParseError("The lhs must be a symbol (a) or a ref (a[1:10]). Got $name."))
 
 
 
 
+
+function split_assign(expr)
+    if !(expr isa Expr && expr.head === :(=) && expr.args[2].head === :call)
+        throw(ArgumentError("expression should be of the form `sys = foo(a, b)`"))
+    end
+    name, call = expr.args
+end
