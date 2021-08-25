@@ -139,7 +139,7 @@ struct Planet{T} <: AbstractPlanet{T}
     name::Symbol
 end
 export Planet
-Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}; name) = Planet(priors, astrometry, name)
+Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(priors, astrometry, name)
 function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet{T}) where T
     print(io, typeof(p), " model")
     if T == Nothing
