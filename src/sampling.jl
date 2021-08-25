@@ -2,6 +2,7 @@
 export sample_priors
 sample_priors(planet::Planet) = ourrand.(planet.priors.priors)
 sample_priors(planet::Planet,N) = ourrand.(planet.priors.priors,N)
+sample_priors(planet::ReparameterizedPlanet) = ourrand.(planet.planet.priors.priors)
 sample_priors(planet::ReparameterizedPlanet,N) = ourrand.(planet.planet.priors.priors,N)
 
 priors_fixed(planet::Planet) = typeof.(planet.priors.priors) .<: Real
