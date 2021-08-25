@@ -2,8 +2,10 @@
 export sample_priors
 sample_priors(planet::Planet) = ourrand.(planet.priors.priors)
 sample_priors(planet::Planet,N) = ourrand.(planet.priors.priors,N)
+sample_priors(planet::ReparameterizedPlanet,N) = ourrand.(planet.planet.priors.priors,N)
 
 priors_fixed(planet::Planet) = typeof.(planet.priors.priors) .<: Real
+priors_fixed(planet::ReparameterizedPlanet) = typeof.(planet.planet.priors.priors) .<: Real
 
 function sample_priors(planet::ReparameterizedPlanet3)
     sample = NamedTuple(sample_priors(planet.planet))
@@ -71,7 +73,7 @@ function sample_priors(system::System,N)
     ))
     return sampled
 end
-function priors_fixed(system)
+function priors_fixed(system::System)
     sampled = ComponentVector(merge(
         NamedTuple(typeof.(system.priors.priors) .<: Real),
         (;planets=[
@@ -466,18 +468,6 @@ function hmctf(
     fixed = priors_fixed(system)
     D = length(initial_θ_0)
 
-    # # TODO: how can we construct this programatically?
-    # system_t = as((μ=asℝ₊, plx=asℝ₊, ))
-    # planet_t = as((
-    #     a=asℝ₊,
-    #     e=asℝ₊,
-    #     τ=as𝕀,
-    #     ω=asℝ,
-    #     i=asℝ,
-    #     Ω=asℝ,
-    #     mass=as(Real, 0, 16mjup2msol),
-    # ))
-
     # List transformations for all supported variables.
     # We then build a TransformVariables object using whichever
     # are actually in use.
@@ -604,7 +594,7 @@ function hmctf(
         # 1.05 improves the sampling over standard leapfrog, but 4.0 is too much. It just stays stuck.
         # 1.5 seems better but seems to favour certain trajectories.
         # integrator = TemperedLeapfrog(initial_ϵ, 1.05)
-        proposal = NUTS(integrator, max_depth=12) 
+        proposal = NUTS(integrator, max_depth=15) # 12
 
 
         # # We have change some parameters when running with image data
@@ -616,10 +606,10 @@ function hmctf(
         adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(target_accept, integrator)) 
         # adaptor = MassMatrixAdaptor(metric)
 
-        logger = SimpleLogger(stdout, Logging.Error)
-        samples_transformed, stat = with_logger(logger) do
+        # logger = SimpleLogger(stdout, Logging.Error)
+        # samples_transformed, stat = with_logger(logger) do
             sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation))
-        end
+        # end
 
         function tvtransform_out(θ)
             sys = collect(TransformVariables.transform(system_t, @view(θ[1:2])))

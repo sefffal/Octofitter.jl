@@ -141,7 +141,7 @@ end
 export Planet
 Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(priors, astrometry, name)
 function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet{T}) where T
-    print(io, typeof(p), " model")
+    print(io, typeof(p), " model $(p.name)")
     if T == Nothing
         print(io, " with no associated astrometry")
     else
@@ -152,13 +152,13 @@ function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet{T}) where T
     println(io)
 end
 
-struct ReparameterizedPlanet3{T} <: AbstractPlanet{T}
+struct ReparameterizedPlanet{T} <: AbstractPlanet{T}
     planet::Planet{T}
     priors::Priors
 end
 
 astrometry(planet::Planet) = planet.astrometry
-astrometry(planet::ReparameterizedPlanet3) = planet.planet.astrometry
+astrometry(planet::ReparameterizedPlanet) = planet.planet.astrometry
 
 
 function reparameterize(planet::Planet)
@@ -181,7 +181,7 @@ function reparameterize(planet::Planet)
         ))
     end
     priors = Priors{length(planet.priors.priors)}(planet.priors.priors, reparameterized_ln_prior)
-    return ReparameterizedPlanet3(planet, priors)
+    return ReparameterizedPlanet(planet, priors)
 end
 export reparameterize
 
@@ -202,24 +202,24 @@ struct System{TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Imag
     end
 end
 export System
-System(system_priors::Priors, images::Images, propermotionanom::ProperMotionAnom, planets::AbstractPlanet...; models=nothing) = 
+System(system_priors::Priors, images::Images, propermotionanom::ProperMotionAnom, planets::AbstractPlanet...; models=nothing, name) = 
     System(
-        system_priors, propermotionanom, images, planets...;models
+        system_priors, propermotionanom, images, planets...;models, name
     )
-System(system_priors::Priors, propermotionanom::ProperMotionAnom, planets::AbstractPlanet...; models=nothing) =
+System(system_priors::Priors, propermotionanom::ProperMotionAnom, planets::AbstractPlanet...; models=nothing, name) =
     System(
-        system_priors, propermotionanom, nothing, planets...; models
+        system_priors, propermotionanom, nothing, planets...; models, name
     )
-System(system_priors::Priors, images::Images, planets::AbstractPlanet...; models=nothing) = 
+System(system_priors::Priors, images::Images, planets::AbstractPlanet...; models=nothing, name) = 
     System(
-        system_priors, nothing, images, planets...; models
+        system_priors, nothing, images, planets...; models, name
     )
-System(system_priors::Priors, planets::AbstractPlanet...; models=nothing) = 
-    System(system_priors, nothing, nothing, planets...; models)
+System(system_priors::Priors, planets::AbstractPlanet...; models=nothing, name) = 
+    System(system_priors, nothing, nothing, planets...; models, name)
 
 function Base.show(io::IO, mime::MIME"text/plain", sys::System)
     # print(io, "System model with $(length(sys.planets)) planets:\n")
-    print(io, "System model:\n")
+    print(io, "System model $(sys.name):\n")
     show(io, mime, sys.priors)
     print(io, "with $(length(sys.planets)) planets:\n")
     for planet in sys.planets
@@ -235,8 +235,8 @@ function Base.show(io::IO, mime::MIME"text/plain", sys::System)
         show(io, mime, sys.images)
     end
     if !isnothing(sys.models)
-        print(io, "- atmosphere models")
-        show(io, mime, sys.models)
+        print(io, "- atmosphere models: ")
+        show(io, mime, keys(sys.models))
     end
 
     # if T == Nothing
