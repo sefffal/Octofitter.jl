@@ -2,13 +2,11 @@
 export sample_priors
 sample_priors(planet::Planet) = ourrand.(planet.priors.priors)
 sample_priors(planet::Planet,N) = ourrand.(planet.priors.priors,N)
-sample_priors(planet::ReparameterizedPlanet) = ourrand.(planet.planet.priors.priors)
-sample_priors(planet::ReparameterizedPlanet,N) = ourrand.(planet.planet.priors.priors,N)
 
 priors_fixed(planet::Planet) = typeof.(planet.priors.priors) .<: Real
 priors_fixed(planet::ReparameterizedPlanet) = typeof.(planet.planet.priors.priors) .<: Real
 
-function sample_priors(planet::ReparameterizedPlanet3)
+function sample_priors(planet::ReparameterizedPlanet)
     sample = NamedTuple(sample_priors(planet.planet))
 
     plus = sample.ω + sample.Ω
@@ -28,7 +26,7 @@ function sample_priors(planet::ReparameterizedPlanet3)
 
     return ComponentVector(reparameterized)
 end
-function sample_priors(planet::ReparameterizedPlanet3, N)
+function sample_priors(planet::ReparameterizedPlanet, N)
     sample = NamedTuple(sample_priors(planet.planet, N))
     plus = sample.ω .+ sample.Ω
     minus = sample.ω .- sample.Ω
@@ -609,7 +607,7 @@ function hmctf(
 
         # logger = SimpleLogger(stdout, Logging.Error)
         # samples_transformed, stat = with_logger(logger) do
-            sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation))
+        samples_transformed, stat = sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation))
         # end
 
         function tvtransform_out(θ)
