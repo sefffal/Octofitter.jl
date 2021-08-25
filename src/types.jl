@@ -155,6 +155,7 @@ end
 struct ReparameterizedPlanet{T} <: AbstractPlanet{T}
     planet::Planet{T}
     priors::Priors
+    name::Symbol
 end
 
 astrometry(planet::Planet) = planet.astrometry
@@ -181,7 +182,7 @@ function reparameterize(planet::Planet)
         ))
     end
     priors = Priors{length(planet.priors.priors)}(planet.priors.priors, reparameterized_ln_prior)
-    return ReparameterizedPlanet(planet, priors)
+    return ReparameterizedPlanet(planet, priors, planet.name)
 end
 export reparameterize
 
