@@ -4,6 +4,9 @@
 
 This in-development package allows you to jointly model a system of exoplanets using any combinations of supported input data. In particular, it's able to model the flux and orbital motion of planets using a sequence of image(s) without any obvious detections. Using this tool, the SNR of a planet can grow with roughly the square root of the number of images.
 
+<!-- [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://sefffal.github.io/DirectDetections.jl/stable) -->
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/DirectDetections.jl/dev)
+
 The code currently supports:
 - direct images (multiple bands / instruments)
 - planet astrometry
