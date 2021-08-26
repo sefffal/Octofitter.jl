@@ -20,4 +20,5 @@ makedocs(
 
 deploydocs(
     repo = "github.com/sefffal/DirectDetections.jl.git",
+    devbranch = "main"
 )
