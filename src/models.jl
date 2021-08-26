@@ -253,6 +253,13 @@ function ln_prior(θ, system::System)
 end
 
 function ln_post(θ, system::System)
-    return ln_prior(θ, system) + ln_like(θ, system)
+    lp = ln_prior(θ, system) + ln_like(θ, system)
+    
+    # if !isfinite(lp)
+    #     println("nonfinite log posterior: $θ")
+
+    #     error()
+    # end
+    return lp
 end
 

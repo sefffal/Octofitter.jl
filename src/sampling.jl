@@ -459,7 +459,8 @@ function hmctf(
     burnin,
     numsamples_perwalker,
     initial_samples=100_000,
-    initial_parameters=nothing
+    initial_parameters=nothing,
+    tree_depth=12
 )
 
     # Choose parameter dimensionality and initial parameter value
@@ -511,7 +512,7 @@ function hmctf(
         end |> collect |> namedtuple
     end
     planet_t = as(planet_t_nt)
-    @info "Mapping continuous variables to the following domains" system=system_t_nt planet=planet_t_nt
+    @info "Mapping parameters to the following domains" system=system_t_nt planet=planet_t_nt
 
     function tvinverse(θ)
         system = NamedTupleTools.delete(NamedTuple(θ), :planets)
@@ -612,7 +613,7 @@ function hmctf(
         # 1.05 improves the sampling over standard leapfrog, but 4.0 is too much. It just stays stuck.
         # 1.5 seems better but seems to favour certain trajectories.
         # integrator = TemperedLeapfrog(initial_ϵ, 1.05)
-        proposal = NUTS(integrator, max_depth=15) # 12
+        proposal = NUTS(integrator, max_depth=tree_depth) # 12
 
 
         # # We have change some parameters when running with image data
@@ -685,6 +686,13 @@ function find_starting_point(ln_post, priors)
     # return Optim.minimizer(m)
 
 end
+
+
+
+
+
+
+
 
 
 

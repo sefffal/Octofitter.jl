@@ -4,7 +4,7 @@ Here is a worked example of a basic model. It contains a star with a single plan
 
 Start by loading the DirectDetections and Plots packages:
 ```julia
-using DirectDetections, Plots
+using DirectDetections, Distributions, Plots
 ```
 
 ## Creating a planet
@@ -15,14 +15,14 @@ Create our first planet. Let's name it planet X.
     Priors(
         a = TruncatedNormal(15, 2, 0, Inf),
         e = TruncatedNormal(0.1, 0.1, 0, 0.5),
-        τ = Normal(0.5,0.5),
+        τ = TruncatedNormal(0.5, 0.5, 0, 1),
         ω = Normal(1π, 1π),
         i = Normal(1π, 1π),
         Ω = Normal(1π, 1π),
     ),
     Astrometry(
-        (epoch=5123.,  ra=531.0, dec=542, σ_ra=2., σ_dec=2.),
-        (epoch=5832.,  ra=489.1, dec=752., σ_ra=2., σ_dec=2.),
+        (epoch=5000.,  ra=1000.0, dec=250, σ_ra=20., σ_dec=29.),
+        (epoch=5172.,  ra=-900.1, dec=-100., σ_ra=20., σ_dec=20.),
     )
 )
 ```
@@ -44,6 +44,17 @@ The parameters can be specified in any order.
 
 The `Astrometry` block is optional. This is where you can list the position of a planet at different epochs if it known. `epoch` is a modified Julian date that the observation was taken. the `ra`, `dec`, `σ_ra`, and `σ_dec` parameters are the position of the planet at that epoch, relative to the star. All values in milliarcseconds (mas).
 
+
+### Valid priors
+Internally, the domains of several parameters are re-mapped to improve sampling. This means that your priors must obey the following criteria:
+* `τ` must be restricted to (0,1)
+* `e` must be restricted to (0,1)
+* `a` must be restricted to (0, Inf)
+* `μ` must be restricted to (0, Inf)
+* `plx` must be restricted to (0, Inf)
+
+
+
 ## Creating a system
 
 A system represents a host star with one or more planets. Properties of the whole system are specified here, like parallax distance and mass of the star. This is also where you will supply data like images and astrometric acceleration in later tutorials, since those don't belong to any planet in particular.
@@ -51,8 +62,8 @@ A system represents a host star with one or more planets. Properties of the whol
 ```julia
 @named HD82134 = System(
     Priors(
-        μ = Normal(1.53, 0.01),
-        plx =Normal(24.2, 0.02),
+        μ = TruncatedNormal(1.0, 0.01, 0, Inf),
+        plx = TruncatedNormal(1000.2, 0.02, 0, Inf),
     ),  
     X,
 )

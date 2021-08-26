@@ -24,6 +24,9 @@ Any and all combinations also work together.
 * hierarchical models
 * link mass to photometry via an atmosphere model
 
+
+The package supports only bound, 2-body Keplerian orbits. Support for hyperbolic orbits and multi-body physics are not currently planned.
+
 ## Table of Contents
 ```@contents
 ```
