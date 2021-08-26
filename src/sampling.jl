@@ -480,6 +480,9 @@ function hmctf(
         :ω=>asℝ,
         :i=>asℝ,
         :Ω=>asℝ,
+        :ωΩ⁺=>asℝ,
+        :ωΩ⁻=>asℝ,
+
         :mass=>as(Real, 0, 16mjup2msol),
 
         # TODO.. different flux bands? We can get these from the system images!
@@ -489,35 +492,50 @@ function hmctf(
         :σ_Ω²=>asℝ₊,
     )
 
-    system_t = map(keys(system.priors.priors)) do k
+    system_t_nt = map(keys(system.priors.priors)) do k
         return k => transformations[k]
-    end |> collect |> namedtuple |> as
-    planet_t = map(keys(system.planets[1].priors.priors)) do k
-        return k => transformations[k]
-    end |> collect |> namedtuple |> as
-
-
-
+    end |> collect |> namedtuple
+    system_t = as(system_t_nt)
     
+    if eltype(system.planets) <: ReparameterizedPlanet
+        # Do some fixing up for reparameterized planets. TODO: handle this more elegantly.
+        planet_t_nt_0 = map(keys(system.planets[1].priors.priors)) do k
+            return k => transformations[k]
+        end |> collect |> namedtuple
+        planet_t_nt_1 = delete(planet_t_nt_0, (:ω, :Ω))
+        planet_t_nt_2 = (;ωΩ⁺=transformations[:ωΩ⁺], ωΩ⁻=transformations[:ωΩ⁻])
+        planet_t_nt = merge(planet_t_nt_1, planet_t_nt_2)
+    else
+        planet_t_nt = map(keys(system.planets[1].priors.priors)) do k
+            return k => transformations[k]
+        end |> collect |> namedtuple
+    end
+    planet_t = as(planet_t_nt)
+    @info "Mapping continuous variables to the following domains" system=system_t_nt planet=planet_t_nt
+
     function tvinverse(θ)
-        system = NamedTupleTools.select(NamedTuple(θ), (:μ, :plx))
+        system = NamedTupleTools.delete(NamedTuple(θ), :planets)
         sys = TransformVariables.inverse(system_t, system)
         pl = map(θ.planets) do planet
             TransformVariables.inverse(planet_t, NamedTuple(planet))
         end
         ComponentVector([sys; pl...], getaxes(θ))
     end
+    t = NamedTupleTools.delete(NamedTuple(initial_θ_0), :planets)
     function tvtransform(θ)
-        system = [θ.μ, θ.plx]
+        system = @view θ[1:length(t)]
         sys = TransformVariables.transform(system_t, system)
         pl = map(θ.planets) do planet
             TransformVariables.transform(planet_t, planet)
         end
+        # TODO: this is likely a bottleneck
         ComponentVector([collect(sys); collect.(pl)...], getaxes(θ))
     end
     
-    # out = tvinverse(θ)
+    # out = tvinverse(initial_θ_0)
     # back = tvtransform(out)
+
+    # return out, back
 
     # AdvancedHMC doesn't play well with component arrays by default, so we pass in just the underlying data
     # array and reconstruct the component array on each invocation (this get's compiled out, no perf affects)
@@ -571,8 +589,9 @@ function hmctf(
         end
 
         # Use a static comopnent array for efficiency
-        # initial_θ = ComponentVector{SVector{length(initial_θ_cv)}}(; NamedTuple(initial_θ_cv)...)
-        initial_θ = tvinverse(initial_θ_cv)
+        initial_θ = tvinverse(ComponentVector{SVector{length(initial_θ_cv)}}(; NamedTuple(initial_θ_cv)...))
+        # initial_θ = tvinverse(initial_θ_cv)
+
 
         # Define a Hamiltonian system
         metric = DenseEuclideanMetric(D)
@@ -610,10 +629,15 @@ function hmctf(
         samples_transformed, stat = sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation))
         # end
 
+        @info "Formatting chains for output"
+
         function tvtransform_out(θ)
             sys = collect(TransformVariables.transform(system_t, @view(θ[1:2])))
-            planet = collect(TransformVariables.transform(planet_t, @view(θ[3:end])))
-            return vcat(sys, planet)
+            planet_vars = @view(θ[3:end])
+            planets = mapreduce(vcat, Iterators.partition(planet_vars, length(planet_t_nt))) do planetvar
+                collect(TransformVariables.transform(planet_t,planetvar))
+            end
+            return vcat(sys, planets)
         end
         samples = map(tvtransform_out, samples_transformed)
 
