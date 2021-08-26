@@ -1,6 +1,6 @@
 # Getting Started
 
-The first step to using DirectDetections.jl is to install Julia. If you're used to Python, don't worry --- Julia is easy to install, and you won't need to code anything other than changing your input values.
+The first step to using DirectDetections.jl is to install Julia. If you're used to Python, don't worry --- Julia is easy to install, and you won't need to code anything other than changing your input data.
 
 
 ## Installing Julia
