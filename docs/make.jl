@@ -2,11 +2,14 @@ using Documenter, DirectDetections
 
 
 makedocs(
-    sitename="Direct Detections",
+    sitename="DirectDetections.jl",
     pages = [
+        "Home" => "index.md",
         "Getting Started" => "getting-started.md",
         "Tutorials" => [
-            "Basic Model" => "modelling.md",
+            "Fit Astrometry" => "modelling.md",
+            # "Multiple Planets" => "multi-planets.md",
+            # "" => "multi-planets.md",
         ]
     ],
     format = Documenter.HTML(
@@ -15,3 +18,6 @@ makedocs(
 )
 
 
+deploydocs(
+    repo = "github.com/sefffal/DirectDetections.jl.git",
+)

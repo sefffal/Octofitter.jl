@@ -24,3 +24,7 @@ For loading images to sample, add the DirectImages package
 Note: it's possible to use this package without DirectImages. This just simplifies the process of loading FITS files, and creating a centered OffsetArray with the star at index (0,0).
 
 This will take a little while to download all the required packages and precompile for your system.
+
+
+## Fitting your first model
+Start with the [Fit Astrometry](@ref fit-astrometry) tutorial which shows how to model of one planet with some astrometry points.

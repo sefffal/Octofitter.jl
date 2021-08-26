@@ -1,4 +1,4 @@
-# Basic Model
+# [Basic Model](@id fit-astrometry)
 
 Here is a worked example of a basic model. It contains a star with a single planet, and several astrometry points.
 
