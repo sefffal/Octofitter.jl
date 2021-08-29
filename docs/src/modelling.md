@@ -70,7 +70,7 @@ A system represents a host star with one or more planets. Properties of the whol
 ```
 
 The `Priors` block works just like it does for planets. Here, the two parameters you must provide are:
-* `μ`: Graviataion parameter of the central body, expressed in units of Solar mass.
+* `μ`: Gravitational parameter of the central body, expressed in units of Solar mass.
 * `plx`: Distance to the system expressed in milliarcseconds of parallax.
 
 After that, just list any planets that you want orbiting the star. Here, we pass planet X.
