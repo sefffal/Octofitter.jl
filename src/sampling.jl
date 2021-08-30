@@ -290,28 +290,30 @@ function mcmc(
     # Run the MCMC
     thetase, _accept_ratioe = KissMCMC.emcee(
         ln_post,
-        initial_walkers_static;
+        initial_walkers;#initial_walkers_static;
         nburnin = burnin * numwalkers,
         use_progress_meter = true,
         nthin = thinning,
         niter = numsamples_perwalker * numwalkers,
     )
 
+    return thetase
+
     # Convert the output into an MCMCChains.Chain.
-    # Use reinterpret to avoid re-allocating all that memory
-    if squash
-        thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
-        reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′)
-        chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]))
-    else
-        matrix_paramxstep_per_walker = [reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]
-        A = reshape(
-            mapreduce(θ->reinterpret(reshape, eltype(first(θ)), θ), hcat, thetase),
-            (length(thetase[1][1]), :, numwalkers,)
-        )
-        ax = getaxes(thetase[1][1])
-        chains = ComponentArray(collect(eachslice(A,dims=1)), ax)
-    end
+    # # Use reinterpret to avoid re-allocating all that memory
+    # if squash
+    #     thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
+    #     reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′)
+    #     chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]))
+    # else
+    #     matrix_paramxstep_per_walker = [reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]
+    #     A = reshape(
+    #         mapreduce(θ->reinterpret(reshape, eltype(first(θ)), θ), hcat, thetase),
+    #         (length(thetase[1][1]), :, numwalkers,)
+    #     )
+    #     ax = getaxes(thetase[1][1])
+    #     chains = ComponentArray(collect(eachslice(A,dims=1)), ax)
+    # end
 
     # return Chains(reinterptted, column_names)
     return chains
@@ -334,12 +336,13 @@ end
 # https://github.com/FluxML/Zygote.jl/issues/570
 # @Zygote.adjoint (T::Type{<:SArray})(x::Number...) = T(x...), y->(nothing, y...)
 function hmc(
-    system::System, target_accept=0.8;
+    system::System, target_accept=0.65;
     numwalkers=1,
     burnin,
     numsamples_perwalker,
     initial_samples=100_000,
-    initial_parameters=nothing
+    initial_parameters=nothing,
+    tree_depth=10
 )
 
     # Choose parameter dimensionality and initial parameter value
@@ -356,10 +359,13 @@ function hmc(
             θ_cv = ComponentArray(θ, ax)
 
             # Correct fixed parameters
-            θ_cv_merged = θ_cv .* notfixed .+ initial_θ_0 .* fixed
+            # θ_cv_merged = θ_cv .* notfixed .+ initial_θ_0 .* fixed
 
             # TODO: verify that this is still a static array
-            ll = ln_post(θ_cv_merged, system)
+            # ll = ln_post(θ_cv_merged, system)
+
+            ll = ln_post(θ_cv, system)
+            # ll = ln_prior(θ_cv, system)
 
             return ll
         end
@@ -402,6 +408,7 @@ function hmc(
 
         # Define a Hamiltonian system
         metric = DenseEuclideanMetric(D)
+        # metric = DiagEuclideanMetric(D)
         hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
         # hamiltonian = Hamiltonian(metric, ℓπ, ℓπ_grad)
 
@@ -411,7 +418,7 @@ function hmc(
         #     initial_ϵ = 0.002
         # else
             initial_ϵ = find_good_stepsize(hamiltonian, getdata(initial_θ))
-            # initial_ϵ = 0.002
+            # initial_ϵ = 0.001
         # end
 
 
@@ -419,14 +426,14 @@ function hmc(
         # 1.05 improves the sampling over standard leapfrog, but 4.0 is too much. It just stays stuck.
         # 1.5 seems better but seems to favour certain trajectories.
         # integrator = TemperedLeapfrog(initial_ϵ, 1.05)
-        proposal = NUTS(integrator, max_depth=12) 
+        proposal = NUTS(integrator, max_depth=tree_depth) 
 
 
         # # We have change some parameters when running with image data
-        # if !isnothing(system.images) && target_accept > 0.4
-        #     target_accept = 0.2
-        #     @info "Sampling from images, lowering target_accept to 0.2"
-        # end
+        if !isnothing(system.images) && target_accept > 0.6
+            target_accept = 0.6
+            @info "Sampling from images, lowering target_accept to 0.6"
+        end
 
         adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(target_accept, integrator)) 
         # adaptor = MassMatrixAdaptor(metric)
@@ -625,10 +632,10 @@ function hmctf(
         adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(target_accept, integrator)) 
         # adaptor = MassMatrixAdaptor(metric)
 
-        # logger = SimpleLogger(stdout, Logging.Error)
-        # samples_transformed, stat = with_logger(logger) do
-        samples_transformed, stat = sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation))
-        # end
+        logger = SimpleLogger(stdout, Logging.Error)
+        samples_transformed, stat = with_logger(logger) do
+            sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation))
+        end
 
         @info "Formatting chains for output"
 

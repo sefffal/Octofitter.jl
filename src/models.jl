@@ -35,6 +35,16 @@ function ln_like_images(θ_system, system)
     ll = 0.0
     for θ_planet in θ_system.planets
         elements = construct_elements(θ_system, θ_planet)
+
+        if (elements.a <= 0 ||
+            elements.e < 0 ||
+            elements.plx < 0 ||
+            elements.μ <= 0)
+            ll += NaN
+            continue
+        end
+
+
         ll += ln_like_images_element(elements, θ_planet, system)
     end
 
@@ -53,7 +63,8 @@ end
 
 function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_planet, system)
     images = system.images
-    ll = 0.0
+    T = eltype(θ_planet)
+    ll = zero(T)
     for i in eachindex(images.epoch)
        
         # Calculate position at this epoch
@@ -87,17 +98,13 @@ function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_plan
 
         band = images.band[i]
         # If we are doing inference directly on the photometry
+        f_band::T = 0
         if hasproperty(θ_planet, band)
             f_band = getproperty(θ_planet, band)
         elseif hasproperty(θ_planet, :mass)
             mass = θ_planet.mass
             if hasproperty(system.models, band)
                 f_band = system.models[band](mass)
-                if !isfinite(f_band)
-                    @show f_band
-                    error()
-
-                end
             else
                 error("Mass prior specified, but photometry prior for $band was not, and no matching atmosphere model found.")
             end
@@ -114,12 +121,12 @@ function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_plan
 end
 
 
-function ln_like_astrom(θ, θ_planet, planet::AbstractPlanet{Nothing})
+function ln_like_astrom(θ, θ_planet, planet::Planet{<:Any,Nothing})
     return 0.0
 end
 
 # Astrometry
-function ln_like_astrom(θ_system, θ_planet, planet::AbstractPlanet{<:Astrometry})
+function ln_like_astrom(θ_system, θ_planet, planet::Planet{<:Any,<:Astrometry})
     ll = 0.0
     
     # TODO, we are creating these from scratch for each observation instead of sharing them
@@ -144,39 +151,39 @@ function ln_like(θ, system::System)
     ll = 0.0
 
     # Hierarchical parameters over multiple planets
-    if haskey(system.priors.priors, :σ_i²)
-        # If the sampler wanders into negative variances, return early to prevent
-        # taking square roots of negative values later on
-        if θ.σ_i² < 0
-            return -Inf
-        end
+    # if haskey(system.priors.priors, :σ_i²)
+    #     # If the sampler wanders into negative variances, return early to prevent
+    #     # taking square roots of negative values later on
+    #     if θ.σ_i² < 0
+    #         return -Inf
+    #     end
 
-        # hierarchical priors here
-        sum_iᵢ = zero(θ.i)
-        sum_iᵢθi² = zero(θ.i)
-        for θ_planet in θ.planets
-            sum_iᵢ += θ_planet.i
-            sum_iᵢθi² += (θ_planet.i .- θ.i)^2
-        end
-        ll += -1/2 * sum_iᵢθi² / θ.σ_i²  - log(sqrt(2π * θ.σ_i²))
-    end
-    if haskey(system.priors.priors, :σ_Ω²)
-        # If the sampler wanders into negative variances, return early to prevent
-        # taking square roots of negative values later on
-        if θ.σ_Ω² < 0
-            return -Inf
-        end
+    #     # hierarchical priors here
+    #     sum_iᵢ = zero(θ.i)
+    #     sum_iᵢθi² = zero(θ.i)
+    #     for θ_planet in θ.planets
+    #         sum_iᵢ += θ_planet.i
+    #         sum_iᵢθi² += (θ_planet.i .- θ.i)^2
+    #     end
+    #     ll += -1/2 * sum_iᵢθi² / θ.σ_i²  - log(sqrt(2π * θ.σ_i²))
+    # end
+    # if haskey(system.priors.priors, :σ_Ω²)
+    #     # If the sampler wanders into negative variances, return early to prevent
+    #     # taking square roots of negative values later on
+    #     if θ.σ_Ω² < 0
+    #         return -Inf
+    #     end
 
-        # hierarchical priors here
-        sum_Ωᵢ = zero(θ.Ω)
-        sum_ΩᵢθΩ² = zero(θ.Ω)
-        for θ_planet in θ.planets
-            _, Ωᵢ, _  = get_ωΩτ(θ_system, θ_planet)
-            sum_Ωᵢ += Ωᵢ
-            sum_ΩᵢθΩ² += (Ωᵢ .- θ.Ω)^2
-        end
-        ll += -1/2 * sum_ΩᵢθΩ² / θ.σ_Ω²  - log(sqrt(2π * θ.σ_Ω²))
-    end
+    #     # hierarchical priors here
+    #     sum_Ωᵢ = zero(θ.Ω)
+    #     sum_ΩᵢθΩ² = zero(θ.Ω)
+    #     for θ_planet in θ.planets
+    #         _, Ωᵢ, _  = get_ωΩτ(θ_system, θ_planet)
+    #         sum_Ωᵢ += Ωᵢ
+    #         sum_ΩᵢθΩ² += (Ωᵢ .- θ.Ω)^2
+    #     end
+    #     ll += -1/2 * sum_ΩᵢθΩ² / θ.σ_Ω²  - log(sqrt(2π * θ.σ_Ω²))
+    # end
 
     if !isnothing(system.images)
         ll += ln_like_images(θ, system)

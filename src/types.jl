@@ -68,12 +68,12 @@ Base.show(io::IO, ::MIME"text/plain", pma::ProperMotionAnom) = print(
 
 
 
-struct Images
+struct Images{TImg,TCont}
     band::Vector{Symbol}
-    image::Vector
+    image::Vector{TImg}
     epoch::Vector{Float64}
     platescale::Vector{Float64}
-    contrast::Vector
+    contrast::Vector{TCont}
 end
 export Images
 function Images(observations::NamedTuple...)
@@ -103,8 +103,8 @@ Base.show(io::IO, ::MIME"text/plain", is::Images) = print(
         """)
 
 
-struct Priors{N}
-    priors::ComponentVector#TODO
+struct Priors{T}
+    priors::T
     ln_prior::Function
 end
 export Priors 
@@ -117,9 +117,9 @@ function Priors(;priors...)
     if !isfinite(𝓁prior)
         error("Test of ln_prior calculation returned $𝓁prior")
     end
-    return Priors{length(priors)}(
+    return Priors{typeof(priors_cv)}(
         priors_cv,
-        ln_prior
+        ln_prior,
     )
 end
 
@@ -132,28 +132,28 @@ function Base.show(io::IO, mime::MIME"text/plain", priors::Priors)
     end
 end
 
-abstract type AbstractPlanet{T} end
-struct Planet{T} <: AbstractPlanet{T}
-    priors::Priors
+abstract type AbstractPlanet end
+struct Planet{T1,T} <: AbstractPlanet
+    priors::Priors{T1}
     astrometry::T
     name::Symbol
 end
 export Planet
 Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(priors, astrometry, name)
-function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet{T}) where T
+function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet)
     print(io, typeof(p), " model $(p.name)")
-    if T == Nothing
-        print(io, " with no associated astrometry")
-    else
+    if hasproperty(p, :astrometry) && !isnothing(p.astrometry)
         print(io, " with associated astrometry")
+    else
+        print(io, " with no associated astrometry")
     end
     print(io, "\n")
     show(io, mime, p.priors)
     println(io)
 end
 
-struct ReparameterizedPlanet{T} <: AbstractPlanet{T}
-    planet::Planet{T}
+struct ReparameterizedPlanet{TPlanet} <: AbstractPlanet
+    planet::TPlanet
     priors::Priors
     name::Symbol
 end
@@ -181,13 +181,13 @@ function reparameterize(planet::Planet)
 
         ))
     end
-    priors = Priors{length(planet.priors.priors)}(planet.priors.priors, reparameterized_ln_prior)
+    priors = Priors(planet.priors.priors, reparameterized_ln_prior)
     return ReparameterizedPlanet(planet, priors, planet.name)
 end
 export reparameterize
 
-struct System{TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Images},TModels,TPlanet}
-    priors::Priors
+struct System{TPriors<:Priors,TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Images},TModels,TPlanet}
+    priors::TPriors
     propermotionanom::TPMA
     images::TImages
     models::TModels
@@ -197,7 +197,7 @@ struct System{TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Imag
         if length(planets) > 1 && !all(==(keys(first(planets).priors.priors)), [keys(planet.priors.priors) for planet in planets])
             error("All planets in the system model must have priors for the same properties defined")
         end
-        return new{ typeof(propermotionanom), typeof(images), typeof(models),typeof(planets)}(
+        return new{ typeof(system_priors), typeof(propermotionanom), typeof(images), typeof(models),typeof(planets)}(
             system_priors, propermotionanom, images, models, planets, name
         )
     end
