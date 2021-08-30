@@ -4,10 +4,10 @@ using DirectDetections, Distributions, Plots
     Priors(
         a = Normal(1, 0.5),
         e = TruncatedNormal(0.0, 0.2, 0, 1.0),
-        τ = Normal(0.5, 0.5,),
-        ω = Normal(0., 2π),
+        τ = Normal(0.5, 1),
+        ω = Normal(deg2rad(250.), deg2rad(80.)),
         i = Normal(deg2rad(20.), deg2rad(10.)),
-        Ω = Normal(0., 2π),
+        Ω = Normal(deg2rad(200.), deg2rad(30.)),
     ),
     Astrometry(
         (epoch=5000.,  ra=-364., dec=-1169., σ_ra=70., σ_dec=30.),
