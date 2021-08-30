@@ -1,4 +1,4 @@
-# [Basic Model](@id fit-astrometry)
+# [Fitting Astrometry](@id fit-astrometry)
 
 Here is a worked example of a basic model. It contains a star with a single planet, and several astrometry points.
 
@@ -13,16 +13,16 @@ Create our first planet. Let's name it planet X.
 ```julia
 @named X = DirectDetections.Planet(
     Priors(
-        a = TruncatedNormal(15, 2, 0, Inf),
-        e = TruncatedNormal(0.1, 0.1, 0, 0.5),
-        τ = TruncatedNormal(0.5, 0.5, 0, 1),
-        ω = Normal(1π, 1π),
-        i = Normal(1π, 1π),
-        Ω = Normal(1π, 1π),
+        a = Normal(1, 0.2),
+        e = TruncatedNormal(0.0, 0.2, 0, 1.0),
+        τ = Normal(0.5, 0.5,),
+        ω = Normal(0., 2π),
+        i = Normal(deg2rad(20.), deg2rad(10.)),
+        Ω = Normal(0., 2π),
     ),
     Astrometry(
-        (epoch=5000.,  ra=1000.0, dec=250, σ_ra=20., σ_dec=29.),
-        (epoch=5172.,  ra=-900.1, dec=-100., σ_ra=20., σ_dec=20.),
+        (epoch=5000.,  ra=1000.0, dec=250, σ_ra=100., σ_dec=100.),
+        (epoch=5172.,  ra=-900.1, dec=-100., σ_ra=100., σ_dec=100.),
     )
 )
 ```
@@ -62,8 +62,8 @@ A system represents a host star with one or more planets. Properties of the whol
 ```julia
 @named HD82134 = System(
     Priors(
-        μ = TruncatedNormal(1.0, 0.01, 0, Inf),
-        plx = TruncatedNormal(1000.2, 0.02, 0, Inf),
+        μ = Normal(1.0, 0.01),
+        plx =Normal(1000.2, 0.02),
     ),  
     X,
 )
@@ -83,9 +83,9 @@ Great! Now we are ready to draw samples from the posterior.
 
 Start sampling:
 ```julia
-chains, stats = DirectDetections.hmctf(
+chains, stats = DirectDetections.hmc(
     HD82134;
-    burnin=2_000,
+    burnin=3_000,
     numwalkers=1,
     numsamples_perwalker=10_000
 );
@@ -96,28 +96,63 @@ You will get an output that looks something like with a progress bar that update
 ┌ Info: Guessing a good starting location by sampling from priors
 └   N = 100000
 ┌ Info: Found good location
-│   mapv = 298.85965496281216
+│   mapv = -19.122603160402743
 │   a =
 │    1-element Vector{Float64}:
-└     17.526543775440597
-Sampling 28%|█████████                      |  ETA: 0:11:32
-  iterations:                    422
-  n_steps:                       8191
+└     0.980248998995009
+Sampling100%|███████████████████████████████| Time: 0:00:17
+  iterations:                    10000
+  n_steps:                       127
   is_accept:                     true
-  acceptance_rate:               0.8361569510892266
-  log_density:                   335.34337289077916
-  hamiltonian_energy:            -333.56163860438176
-  hamiltonian_energy_error:      0.6794974484806744
-  max_hamiltonian_energy_error:  1.0270049717873349
-  tree_depth:                    13
+  acceptance_rate:               0.9031073149395293
+  log_density:                   -21.90932090154022
+  hamiltonian_energy:            24.267264910177598
+  hamiltonian_energy_error:      0.26307038334474697
+  max_hamiltonian_energy_error:  0.3004188626463993
+  tree_depth:                    6
   numerical_error:               false
-  step_size:                     0.00024442197084181946
-  nom_step_size:                 0.00024442197084181946
-  is_adapt:                      true
-  mass_matrix:                   DenseEuclideanMetric(diag=[7.836792441654134e-5, 5.04...])
+  step_size:                     0.03800188985345344
+  nom_step_size:                 0.03800188985345344
+  is_adapt:                      false
+  mass_matrix:                   DenseEuclideanMetric(diag=[0.00010036425642114922, 0. ...])
 ```
 
 A few things to watch out for: check that you aren't getting many (any, really) `numerical_error=true`. This likely indicates that the priors are too restrictive, and the sampler keeps taking steps outside of their valid range. It could also indicate a problem with DirectDetections, e.g. if the sampler is picking negative eccentricities.
+
+## Diagnostics
+The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.
+
+You can check that the acceptance rate was reasonably high (0.4-0.95):
+```julia
+mean(getproperty.(stats[1], :acceptance_rate))
+```
+
+Check the mean tree depth (5-9):
+```julia
+mean(getproperty.(stats[1], :tree_depth))
+```
+Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than 10 and it might be being too conservative. The default maximum tree depth is 16. It should not averaging anything close to this value.
+
+Check the maximum tree depth reached (often 11-12, can be more):
+```julia
+maximum(getproperty.(stats[1], :tree_depth))
+```
+
+You can make a trace plot:
+```julia
+plot(chains[1].planets[1].a)
+```
+![trace plot](./assets/astrometry-trace-plot.png)
+
+And an auto-correlation plot:
+```julia
+using StatsBase
+plot(
+    autocor(chains[1].planets[1].e, 1:500)
+)
+```
+This plot shows that these samples are not correlated after only above 5 steps. No thinning is necessary.
+![autocorrelation plot](./assets/astrometry-autocor-plot.png)
 
 ## Analysis
 As a first pass, let's plot a sample of orbits drawn from the posterior.
@@ -126,9 +161,11 @@ As a first pass, let's plot a sample of orbits drawn from the posterior.
 using Plots
 plotmodel(chains[1], HD82134)
 ```
+This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. If other data like astrometric acceleration is provided, additional panels will appear.
+![model plot](./assets/astrometry-model-plot.png)
 
 ## Notes on Hamiltonian Monte Carlo
-Traditional Affine Invariant MCMC is supported (similar to the python `emcee` package), but it is recommended that you use Hamiltonian Monte Carlo. This sampling method makes use of derivative information, and is much more efficient. 
+Traditional Affine Invariant MCMC is supported (similar to the python `emcee` package), but it is recommended that you use Hamiltonian Monte Carlo. This sampling method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.
 
 Derviatives for a complex model are usualy tedious to code, but DirectDetections uses ForwardDiff.jl to generate them automatically.
 
