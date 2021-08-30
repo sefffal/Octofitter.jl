@@ -13,7 +13,7 @@ Create our first planet. Let's name it planet X.
 ```julia
 @named X = DirectDetections.Planet(
     Priors(
-        a = Normal(1, 0.2),
+        a = Normal(1, 0.5),
         e = TruncatedNormal(0.0, 0.2, 0, 1.0),
         τ = Normal(0.5, 0.5,),
         ω = Normal(0., 2π),
@@ -21,8 +21,8 @@ Create our first planet. Let's name it planet X.
         Ω = Normal(0., 2π),
     ),
     Astrometry(
-        (epoch=5000.,  ra=1000.0, dec=250, σ_ra=100., σ_dec=100.),
-        (epoch=5172.,  ra=-900.1, dec=-100., σ_ra=100., σ_dec=100.),
+        (epoch=5000.,  ra=-364., dec=-1169., σ_ra=70., σ_dec=30.),
+        (epoch=5072.,  ra=-899., dec=-629., σ_ra=10., σ_dec=50.),
     )
 )
 ```
@@ -96,28 +96,33 @@ You will get an output that looks something like with a progress bar that update
 ┌ Info: Guessing a good starting location by sampling from priors
 └   N = 100000
 ┌ Info: Found good location
-│   mapv = -19.122603160402743
+│   mapv = -20.324754631163707
 │   a =
 │    1-element Vector{Float64}:
-└     0.980248998995009
-Sampling100%|███████████████████████████████| Time: 0:00:17
+└     0.8654035807041643
+Sampling100%|███████████████████████████████| Time: 0:00:28
   iterations:                    10000
   n_steps:                       127
   is_accept:                     true
-  acceptance_rate:               0.9031073149395293
-  log_density:                   -21.90932090154022
-  hamiltonian_energy:            24.267264910177598
-  hamiltonian_energy_error:      0.26307038334474697
-  max_hamiltonian_energy_error:  0.3004188626463993
-  tree_depth:                    6
+  acceptance_rate:               0.8180374343838878
+  log_density:                   -23.143935219558447
+  hamiltonian_energy:            26.11485114016116
+  hamiltonian_energy_error:      -0.018896367693340466
+  max_hamiltonian_energy_error:  0.48247553326913106
+  tree_depth:                    7
   numerical_error:               false
-  step_size:                     0.03800188985345344
-  nom_step_size:                 0.03800188985345344
+  step_size:                     0.016869744021891637
+  nom_step_size:                 0.016869744021891637
   is_adapt:                      false
-  mass_matrix:                   DenseEuclideanMetric(diag=[0.00010036425642114922, 0. ...])
+  mass_matrix:                   DenseEuclideanMetric(diag=[0.00011095386901753932, 0. ...])
 ```
 
+The sampler will begin by drawing orbits randomly from the priors (100,000 by default). It will then pick the orbit with the highest posterior density as a starting point for HMC adaptation. This recipe is a good way to find a point somewhat close to the typical set. Starting at the global maximum on the other hand, has at times not led to good sampling.
+
+For a basic model like this, sampling should take less than a minute on a typical laptop.
+
 A few things to watch out for: check that you aren't getting many (any, really) `numerical_error=true`. This likely indicates that the priors are too restrictive, and the sampler keeps taking steps outside of their valid range. It could also indicate a problem with DirectDetections, e.g. if the sampler is picking negative eccentricities.
+You may see some warnings during initial step-size adaptation. These are probably nothing to worry about if sampling proceeds normally afterwards.
 
 ## Diagnostics
 The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.
@@ -153,6 +158,8 @@ plot(
 ```
 This plot shows that these samples are not correlated after only above 5 steps. No thinning is necessary.
 ![autocorrelation plot](./assets/astrometry-autocor-plot.png)
+
+It's recommened that you run multiple chains for more steps to verify converge of your final results.
 
 ## Analysis
 As a first pass, let's plot a sample of orbits drawn from the posterior.
