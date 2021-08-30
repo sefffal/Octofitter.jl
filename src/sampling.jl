@@ -342,7 +342,8 @@ function hmc(
     numsamples_perwalker,
     initial_samples=100_000,
     initial_parameters=nothing,
-    tree_depth=10
+    tree_depth=10,
+    include_warmup=false
 )
 
     # Choose parameter dimensionality and initial parameter value
@@ -440,7 +441,7 @@ function hmc(
 
         logger = SimpleLogger(stdout, Logging.Error)
         samples, stat = with_logger(logger) do
-            sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=false)#!(adaptor isa AdvancedHMC.NoAdaptation))
+            sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation) || include_warmup)
         end
 
         sample_grid = reduce(hcat, samples);
