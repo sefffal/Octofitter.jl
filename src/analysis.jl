@@ -208,6 +208,7 @@ function init_plots()
                 extrema(planet.a)
                 for planet in chains.planets
             )),
+            lims=nothing,
             kwargs...
         )
 
@@ -216,6 +217,24 @@ function init_plots()
                 xlims=:symmetric,
                 ylims=:symmetric,
             )
+
+            # plot images?
+            if !isnothing(system.images)
+                if length(unique(system.images.platescale)) != 1
+                    @warn "Plotmodel does not yet support images with multiple platescales"
+                    img = DirectImages.DirectImage(first(system.images.image))
+                else
+                    img = DirectImages.DirectImage(
+                        DirectImages.stack(maximum,system.images.image)
+                    )
+                end
+                img.PLATESCALE = system.images.platescale[1]
+                # To get the colour scales to work out
+                img ./= only(quantile(filter(isfinite, arraydata(img)), [0.9995]))
+                img .*= maximum(clims) - minimum(clims)
+                img .+= minimum(clims)
+                imshow!(img; color=:Greys, skyconvention=true, lims)
+            end
             
             for planet_num in eachindex(system.planets)
                 plotposterior!(
@@ -232,6 +251,7 @@ function init_plots()
                     Plots.scatter!(astrom,marker=(:black,:circle,3),label="")
                 end
             end
+            return p_orbits
             # We will override this if we have more information available further down
             final_plot = p_orbits
 
