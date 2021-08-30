@@ -189,7 +189,7 @@ corner(table, labels, units, plotscatter=false)
 ```
 You can read more about the syntax for creating pair plots in the PairPlots.jl documentation page.
 ![corner plot](assets/astrometry-corner-plot.png)
-In this case, the sampler was able to resolve the multi-modal posterior resulting from the interplay between the longitude of the ascending node, argument of periapsis, and epoch of periastron passage.
+In this case, the sampler was able to resolve the multi-modal posterior resulting from the interplay between the longitude of the ascending node, argument of periapsis, and eccentricity.
 
 ## Notes on Hamiltonian Monte Carlo
 Traditional Affine Invariant MCMC is supported (similar to the python `emcee` package), but it is recommended that you use Hamiltonian Monte Carlo. This sampling method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.
