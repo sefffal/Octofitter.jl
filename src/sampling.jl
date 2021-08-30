@@ -440,7 +440,7 @@ function hmc(
 
         logger = SimpleLogger(stdout, Logging.Error)
         samples, stat = with_logger(logger) do
-            sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation))
+            sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=false)#!(adaptor isa AdvancedHMC.NoAdaptation))
         end
 
         sample_grid = reduce(hcat, samples);
