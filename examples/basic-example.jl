@@ -11,6 +11,7 @@ using DirectDetections, Distributions, Plots
     ),
     Astrometry(
         (epoch=5000.,  ra=-364., dec=-1169., σ_ra=70., σ_dec=30.),
+        (epoch=5014.,  ra=-493., dec=-1104., σ_ra=70., σ_dec=30.),
         (epoch=5072.,  ra=-899., dec=-629., σ_ra=10., σ_dec=50.),
     )
 )
@@ -25,11 +26,43 @@ using DirectDetections, Distributions, Plots
 
 chains, stats = DirectDetections.hmc(
     HD82134;
-    burnin=3_000,
+    burnin=8_000,
     numwalkers=1,
-    numsamples_perwalker=100_000
+    numsamples_perwalker=100_000,
 );
 
 ##
-p = plotmodel(chains[1], HD82134)
-plot(p,fmt=:png)
+plotmodel(chains[1], HD82134)
+
+##
+using PairPlots
+table = (;
+    a=chains[1].planets[1].a,
+    e=chains[1].planets[1].e,
+    i=rad2deg.(chains[1].planets[1].i),
+    Ω=rad2deg.(chains[1].planets[1].Ω),
+    ω=rad2deg.(chains[1].planets[1].ω),
+    t=(chains[1].planets[1].τ),
+)
+labels=[
+    "a",
+    "e",
+    "i",
+    "\\Omega",
+    "\\omega",
+    "\\tau",
+]
+units = [
+    "(au)",
+    "",
+    "(\\degree)",
+    "(\\degree)",
+    "(\\degree)",
+    "",
+]
+corner(table, labels, units, plotscatter=false)#, hist2d_kwargs=(;nbins=15))
+
+##
+corner(table, labels, units)#, hist2d_kwargs=(;nbins=15))
+cd(@__DIR__)
+savefig("../docs/src/assets/astrometry-corner-plot.png")
