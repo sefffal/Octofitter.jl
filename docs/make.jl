@@ -8,6 +8,9 @@ makedocs(
         "Getting Started" => "getting-started.md",
         "Tutorials" => [
             "Fit Astrometry" => "modelling.md",
+            "Fit Images" => "images.md",
+            "Fit Astrometric Acceleration" => "pma.md",
+            "Connecting Mass with Photometry" => "mass-photometry.md",
             # "Multiple Planets" => "multi-planets.md",
             # "" => "multi-planets.md",
         ]

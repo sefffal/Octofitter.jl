@@ -2,7 +2,7 @@
 
 Here is a worked example of a basic model. It contains a star with a single planet, and several astrometry points.
 
-The full code is available on [GitHub](github.com/sefffal/DirectDetections.jl/examples/basic-example.jl)
+The full code is available on [GitHub](https://github.com/sefffal/DirectDetections.jl/examples/basic-example.jl)
 
 Start by loading the DirectDetections and Plots packages:
 ```julia
@@ -13,7 +13,7 @@ using DirectDetections, Distributions, Plots
 
 Create our first planet. Let's name it planet X.
 ```julia
-@named X = DirectDetections.Planet(
+@named X = Planet(
     Priors(
         a = Normal(1, 0.5),
         e = TruncatedNormal(0.0, 0.2, 0, 1.0),
@@ -129,7 +129,7 @@ Check the mean tree depth (5-9):
 ```julia
 mean(getproperty.(stats[1], :tree_depth))
 ```
-Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than 10 and it might be being too conservative. The default maximum tree depth is 16. It should not averaging anything close to this value.
+Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than 10 and it might be being too conservative. The default maximum tree depth is 16. It should not average anything close to this value, but occasional high values are okay.
 
 Check the maximum tree depth reached (often 11-12, can be more):
 ```julia
@@ -141,7 +141,7 @@ You can make a trace plot:
 plot(
     chains[1].planets[1].a,
     xlabel="iteration",
-    ylabel="semi-major axis (aU)")
+    ylabel="semi-major axis (aU)"
 )
 ```
 ![trace plot](assets/astrometry-trace-plot.png)
@@ -158,7 +158,7 @@ plot(
 This plot shows that these samples are not correlated after only above 5 steps. No thinning is necessary.
 ![autocorrelation plot](assets/astrometry-autocor-plot.png)
 
-It's recommened that you run multiple chains for more steps to verify converge of your final results.
+It's recommened that you run multiple chains for more steps to verify the convergance of your final results.
 
 ## Analysis
 As a first pass, let's plot a sample of orbits drawn from the posterior.
@@ -192,7 +192,7 @@ corner(table, labels, units, plotscatter=false)
 ```
 You can read more about the syntax for creating pair plots in the PairPlots.jl documentation page.
 ![corner plot](assets/astrometry-corner-plot.png)
-In this case, the sampler was able to resolve the multi-modal posterior resulting from the interplay between the longitude of the ascending node, argument of periapsis, and eccentricity.
+In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.
 
 ## Notes on Hamiltonian Monte Carlo
 Traditional Affine Invariant MCMC is supported (similar to the python `emcee` package), but it is recommended that you use Hamiltonian Monte Carlo. This sampling method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.
