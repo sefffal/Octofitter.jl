@@ -251,7 +251,6 @@ function init_plots()
                     Plots.scatter!(astrom,marker=(:black,:circle,3),label="")
                 end
             end
-            return p_orbits
             # We will override this if we have more information available further down
             final_plot = p_orbits
 
