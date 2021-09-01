@@ -166,7 +166,7 @@ plotmodel(chains[1], HD82134)
 In this case, the model is shown overtop a stack of the input images to help you visualize which peaks contributed to the fit.
 The images are stacked using the `maximum` function, so that bright spots from all images appear at once. The colour scale is inverted, so that the brightest peaks are shown in black.
 
-You can also specify a `lims=1000` parameter to set limits of the images to +/- 1000 mas, in this example.
+You can also specify a `lims=1000` parameter to set limits of the images to +/- 1000 mas, as in this example.
 
 ## Pair Plot
 We can show the relationships between variables on a pair plot (aka corner plot) using PairPlots.jl

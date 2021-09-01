@@ -290,30 +290,28 @@ function mcmc(
     # Run the MCMC
     thetase, _accept_ratioe = KissMCMC.emcee(
         ln_post,
-        initial_walkers;#initial_walkers_static;
+        initial_walkers_static;
         nburnin = burnin * numwalkers,
         use_progress_meter = true,
         nthin = thinning,
         niter = numsamples_perwalker * numwalkers,
     )
 
-    return thetase
-
     # Convert the output into an MCMCChains.Chain.
-    # # Use reinterpret to avoid re-allocating all that memory
-    # if squash
-    #     thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
-    #     reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′)
-    #     chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]))
-    # else
-    #     matrix_paramxstep_per_walker = [reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]
-    #     A = reshape(
-    #         mapreduce(θ->reinterpret(reshape, eltype(first(θ)), θ), hcat, thetase),
-    #         (length(thetase[1][1]), :, numwalkers,)
-    #     )
-    #     ax = getaxes(thetase[1][1])
-    #     chains = ComponentArray(collect(eachslice(A,dims=1)), ax)
-    # end
+    # Use reinterpret to avoid re-allocating all that memory
+    if squash
+        thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
+        reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′)
+        chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]))
+    else
+        matrix_paramxstep_per_walker = [reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]
+        A = reshape(
+            mapreduce(θ->reinterpret(reshape, eltype(first(θ)), θ), hcat, thetase),
+            (length(thetase[1][1]), :, numwalkers,)
+        )
+        ax = getaxes(thetase[1][1])
+        chains = ComponentArray(collect(eachslice(A,dims=1)), ax)
+    end
 
     # return Chains(reinterptted, column_names)
     return chains

@@ -13,6 +13,10 @@ makedocs(
             "Connecting Mass with Photometry" => "mass-photometry.md",
             # "Multiple Planets" => "multi-planets.md",
             # "" => "multi-planets.md",
+        ],
+        "Documentation" => [
+            "Samplers" => "samplers.md",
+            "Chains" => "chains.md"
         ]
     ],
     format = Documenter.HTML(
