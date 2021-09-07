@@ -19,22 +19,18 @@ Similarily, fewer samples are required. This is because unlike Affine Invariant 
 
 The method signature of `DirectDetections.hmc` is as follows:
 ```julia
-hmc(
-    system::System,
-    target_accept=0.65;
-    numwalkers=1,
-    burnin,
-    numsamples_perwalker,
+function hmc(
+    system::System, target_accept=0.85;
+    adaptation,
+    iterations,
+    tree_depth=10,
+    include_adapatation=false,
     initial_samples=100_000,
     initial_parameters=nothing,
-    tree_depth=10,
-    include_warmup=false
 )
 ```
-The two positional arguments  are `system`, the model you wish to sample; and `target_accept`, the acceptance rate that should be targeted during windowed adaptation. During this time, the step size and mass matrix will be adapted (see AdvancedHMC.jl for more information). The number of steps taken during adaptation is controlled by `burnin`. You can prevent these samples from being dropped by pasing `include_warmup=false`.
+The two positional arguments  are `system`, the model you wish to sample; and `target_accept`, the acceptance rate that should be targeted during windowed adaptation. During this time, the step size and mass matrix will be adapted (see AdvancedHMC.jl for more information). The number of steps taken during adaptation is controlled by `adaptation`. You can prevent these samples from being dropped by pasing `include_adaptation=false`. The total number of posterior samples produced are given by `iterations`. These include the adaptation steps that may be discarded.
 `tree_depth` controls the maximum tree depth of the sampler. `initial_parameters` is an optional way to pass a starting point for the chain. If you don't pass a default position, one will be selected by drawing `initial_samples` from the priors. The sample with the highest posterior value will be used as the starting point.
-
-If you want to sample more than one chain in parallel, you can adjust `numwalkers`. This will use multiple threads. Due to garbage collection, it might be more efficient to instead sample one chain in multiple separate Julia processes.
 
 ## Affine Invariant MCMC
 Affine Invariant MCMC is the sampling method used in the ever-popular `emcee` Python package. It is included here to aid in reproducing results from papers using that method.

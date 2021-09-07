@@ -8,12 +8,10 @@ function projectpositions(chain, planet_key, times)
 
     ras = zeros(size(chain,1) * length(times))
     decs = zeros(size(chain,1) * length(times))
-    
-    # sampled = sampleorbits(planet, N);
-    # @threads 
-    for j = 1:size(chain,1)
 
-        el = construct_elements(chain, planet_key, j)
+    els = construct_elements(chain, planet_key, 1:size(chain,1))
+    
+    for el in els
 
         for (k, t) in enumerate(times)
             i = j * length(times) + k - 1
@@ -79,9 +77,7 @@ function init_plots()
             kwargs...
         )
             ii = rand(1:size(chain,1), N)
-            elements = map(ii) do j
-                construct_elements(chain, planet_key, j)
-            end
+            elements = construct_elements(chain, planet_key, ii)
 
             Plots.plot!(;
                 size=(700,700),
@@ -118,9 +114,7 @@ function init_plots()
             kwargs...
         )
             ii = rand(1:size(chain,1), N)
-            elements = map(ii) do j
-                construct_elements(chain, planet_key, j)
-            end
+            elements = construct_elements(chain, planet_key, ii)
 
             Plots.plot!(;
                 size=(700,700),
@@ -247,9 +241,7 @@ function init_plots()
                     vy = zeros(length(chain))
                     for j in eachindex(system.planets)
                         ii = rand(eachindex(chain), N)
-                        elements = map(chain) do sample
-                            construct_elements(sample, sample.planets[j])
-                        end
+                        elements = construct_elements(sample, j, 1:size(chain,1))
                         mass = [sample.planets[j].mass for sample in chain]
                         vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], getproperty.(elements, :μ), mass),1)
                         vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], getproperty.(elements, :μ), mass),2)

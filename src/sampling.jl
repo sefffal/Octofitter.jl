@@ -335,7 +335,7 @@ function construct_elements(θ_system, θ_planet, i)
     ))
 end
 
-function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i)
+function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Integer)
     pk = string(planet_key)
     return KeplerianElements((;
         μ=chain["μ"][i],
@@ -347,6 +347,30 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i)
         τ=chain[pk*"[τ]"][i],
         a=chain[pk*"[a]"][i],
     ))
+end
+
+function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Integer})
+    pk = string(planet_key)
+    μs=chain["μ"][ii],
+    plxs=chain["plx"][ii],
+    is=chain[pk*"[i]"][ii],
+    Ωs=chain[pk*"[Ω]"][ii],
+    ωs=chain[pk*"[ω]"][ii],
+    es=chain[pk*"[e]"][ii],
+    τs=chain[pk*"[τ]"][ii],
+    as=chain[pk*"[a]"][ii],
+    return map(ii) do i
+        KeplerianElements((;
+            μ=μs[i],
+            plx=plxs[i],
+            i=is[i],
+            Ω=Ωs[i],
+            ω=ωs[i],
+            e=es[i],
+            τ=τs[i],
+            a=as[i],
+        ))
+    end
 end
 
 
@@ -425,7 +449,7 @@ function hmc(
     adaptation,
     iterations,
     tree_depth=10,
-    include_adapataion=false,
+    include_adapatation=false,
     initial_samples=100_000,
     initial_parameters=nothing,
 )
@@ -519,7 +543,7 @@ function hmc(
             adaptor,
             adaptation;
             progress=true,
-            drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation) || include_adapataion
+            drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation) || include_adapatation
         )
     end
 

@@ -76,11 +76,11 @@ Great! Now we are ready to draw samples from the posterior.
 
 Start sampling:
 ```julia
-chains, stats = DirectDetections.hmc(
-    HD82134;
-    burnin=3_000,
-    numwalkers=1,
-    numsamples_perwalker=100_000
+chain, stats = DirectDetections.hmc(
+    HD82134,
+    adaptation =   8_000,
+    iterations = 100_000,
+    tree_depth =     12,
 );
 ```
 
@@ -122,24 +122,24 @@ The first thing you should do with your results is check a few diagnostics to ma
 
 You can check that the acceptance rate was reasonably high (0.4-0.95):
 ```julia
-mean(getproperty.(stats[1], :acceptance_rate))
+mean(getproperty.(stats, :acceptance_rate))
 ```
 
 Check the mean tree depth (5-9):
 ```julia
-mean(getproperty.(stats[1], :tree_depth))
+mean(getproperty.(stats, :tree_depth))
 ```
 Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than 10 and it might be being too conservative. The default maximum tree depth is 16. It should not average anything close to this value, but occasional high values are okay.
 
 Check the maximum tree depth reached (often 11-12, can be more):
 ```julia
-maximum(getproperty.(stats[1], :tree_depth))
+maximum(getproperty.(stats, :tree_depth))
 ```
 
 You can make a trace plot:
 ```julia
 plot(
-    chains[1].planets[1].a,
+    chain["X[a]"],
     xlabel="iteration",
     ylabel="semi-major axis (aU)"
 )
@@ -150,7 +150,7 @@ And an auto-correlation plot:
 ```julia
 using StatsBase
 plot(
-    autocor(chains[1].planets[1].e, 1:500),
+    autocor(chain["X[e]", 1:500),
     xlabel="lag",
     ylabel="autocorrelation",
 )
@@ -165,7 +165,7 @@ As a first pass, let's plot a sample of orbits drawn from the posterior.
 
 ```julia 
 using Plots
-plotmodel(chains[1], HD82134)
+plotmodel(chain, HD82134)
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. If other data like astrometric acceleration is provided, additional panels will appear.
 ![model plot](assets/astrometry-model-plot.png)
@@ -176,22 +176,22 @@ A very useful visualization of our results is a pair-plot, or corner plot. We ca
 ```julia
 using Plots, PairPlots
 
+using PairPlots
 
 table = (;
-    a=chains[1].planets[1].a,
-    e=chains[1].planets[1].e,
-    i=rad2deg.(chains[1].planets[1].i),
-    Ω=rad2deg.(chains[1].planets[1].Ω),
-    ω=rad2deg.(chains[1].planets[1].ω),
-    τ=(chains[1].planets[1].τ),
-);
+    a=         chn["X[a]"],
+    e=         chn["X[e]"],
+    i=rad2deg.(chn["X[i]"]),
+    Ω=rad2deg.(chn["X[Ω]"]),
+    ω=rad2deg.(chn["X[ω]"]),
+    τ=         chn["X[τ]"],
+)
 labels=["a", "e", "i", "\\Omega", "\\omega", "\\tau"]
 units = ["(au)", "", "(\\degree)", "(\\degree)", "(\\degree)", ""]
-
-corner(table, labels, units, plotscatter=false)
+corner(table, labels, units)
 ```
 You can read more about the syntax for creating pair plots in the PairPlots.jl documentation page.
-![corner plot](assets/astrometry-corner-plot.png)
+![corner plot](assets/astrometry-corner-plot.svg)
 In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.
 
 ## Notes on Hamiltonian Monte Carlo

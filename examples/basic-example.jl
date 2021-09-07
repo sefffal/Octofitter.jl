@@ -24,28 +24,32 @@ using DirectDetections, Distributions, Plots
     X,
 )
 
-chains, stats = DirectDetections.hmc(
-    HD82134;
-    burnin=8_000,
-    numwalkers=1,
-    numsamples_perwalker=100_000,
+##
+
+chain, stats = DirectDetections.hmc(
+    HD82134,
+    adaptation =   8_000,
+    iterations = 100_000,
+    tree_depth =     12,
 );
 
 ##
-plotmodel(chains[1], HD82134)
+plotmodel(chain, HD82134)
 
 ##
 using PairPlots
 table = (;
-    a=chains[1].planets[1].a,
-    e=chains[1].planets[1].e,
-    i=rad2deg.(chains[1].planets[1].i),
-    Ω=rad2deg.(chains[1].planets[1].Ω),
-    ω=rad2deg.(chains[1].planets[1].ω),
-    t=(chains[1].planets[1].τ),
+    a=         chain["X[a]"],
+    H=         chain["X[GPI_H]"],
+    e=         chain["X[e]"],
+    i=rad2deg.(chain["X[i]"]),
+    Ω=rad2deg.(chain["X[Ω]"]),
+    ω=rad2deg.(chain["X[ω]"]),
+    τ=         chain["X[τ]"],
 )
 labels=[
     "a",
+    "H",
     "e",
     "i",
     "\\Omega",
@@ -54,15 +58,15 @@ labels=[
 ]
 units = [
     "(au)",
+    "(arb.)",
     "",
     "(\\degree)",
     "(\\degree)",
     "(\\degree)",
     "",
 ]
-corner(table, labels, units, plotscatter=false)#, hist2d_kwargs=(;nbins=15))
+corner(table, labels, units)
 
 ##
-corner(table, labels, units)#, hist2d_kwargs=(;nbins=15))
 cd(@__DIR__)
-savefig("../docs/src/assets/astrometry-corner-plot.png")
+savefig("../docs/src/assets/astrometry-corner-plot.svg")

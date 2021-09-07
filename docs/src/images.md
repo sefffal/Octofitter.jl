@@ -105,11 +105,11 @@ By default, the sampler will lower the target acceptance ratio when sampling fro
 Start the NUTS sampler as usual:
 
 ```julia
-chains, stats = DirectDetections.hmc(
-    HD82134;
-    burnin=8_000,
-    numwalkers=1,
-    numsamples_perwalker=100_000,
+chain, stats = DirectDetections.hmc(
+    HD82134,
+    adaptation =   8_000,
+    iterations = 100_000,
+    tree_depth =     12,
 );
 ```
 Sampling directly from images is somewhat slower than from astrometry. This example takes roughly 7 minutes on my laptop.
@@ -120,23 +120,23 @@ The first thing you should do with your results is check a few diagnostics to ma
 
 The acceptance rate should be somewhat lower than when fitting just astrometry, e.g. around the 0.6 target:
 ```julia
-mean(getproperty.(stats[1], :acceptance_rate))
+mean(getproperty.(stats, :acceptance_rate))
 ```
 
 Check the mean tree depth (5-9):
 ```julia
-mean(getproperty.(stats[1], :tree_depth))
+mean(getproperty.(stats, :tree_depth))
 ```
 
 Check the maximum tree depth reached (often 11-12, can be more):
 ```julia
-maximum(getproperty.(stats[1], :tree_depth))
+maximum(getproperty.(stats, :tree_depth))
 ```
 
 You can make a trace plot:
 ```julia
 plot(
-    chains[1].planets[1].a,
+    chain["X[a]"],
     xlabel="iteration",
     ylabel="semi-major axis (aU)"
 )
@@ -146,7 +146,7 @@ And an auto-correlation plot:
 ```julia
 using StatsBase
 plot(
-    autocor(chains[1].planets[1].e, 1:500),
+    autocor(chain["X[e]"], 1:500),
     xlabel="lag",
     ylabel="autocorrelation",
 )
@@ -159,9 +159,9 @@ For this model, there is somewhat higher correlation between samples. Some thinn
 You can plot the model as usual:
 ```julia
 using Plots
-plotmodel(chains[1], HD82134)
+plotmodel(chain, HD82134)
 ```
-![images](assets/images-model-plot.png)
+![images](assets/images-model-plot.svg)
 
 In this case, the model is shown overtop a stack of the input images to help you visualize which peaks contributed to the fit.
 The images are stacked using the `maximum` function, so that bright spots from all images appear at once. The colour scale is inverted, so that the brightest peaks are shown in black.
@@ -174,13 +174,13 @@ We can show the relationships between variables on a pair plot (aka corner plot)
 ```julia
 using PairPlots
 table = (;
-    a=chains[1].planets[1].a,
-    H=chains[1].planets[1].GPI_H,
-    e=chains[1].planets[1].e,
-    i=rad2deg.(chains[1].planets[1].i),
-    Ω=rad2deg.(chains[1].planets[1].Ω),
-    ω=rad2deg.(chains[1].planets[1].ω),
-    τ=(chains[1].planets[1].τ),
+    a=         chain["X[a]"],
+    H=         chain["X[GPI_H]"],
+    e=         chain["X[e]"],
+    i=rad2deg.(chain["X[i]"]),
+    Ω=rad2deg.(chain["X[Ω]"]),
+    ω=rad2deg.(chain["X[ω]"]),
+    τ=         chain["X[τ]"],
 )
 labels=[
     "a",
@@ -205,7 +205,7 @@ corner(table, labels, units)
 
 Note that this time, we also show the recovered photometry in the corner plot.
 
-![corner plot](assets/images-corner-plot.png)
+![corner plot](assets/images-corner-plot.svg)
 
 
 ## Assessing Detections
@@ -214,14 +214,14 @@ We start by plotting the marginal distribution of the flux parameter, `GPI_H`:
 
 
 ```julia
-histogram(chains[1].planets[1].GPI_H, xlabel="GPI_H", label="")
+histogram(chain["X[GPI_H]"], xlabel="GPI_H", label="")
 ```
 ![corner plot](assets/images-flux-hist.png)
 
 
 We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:
 ```julia
-flux = chains[1].planets[1].GPI_H
+flux = chain["X[GPI_H]"]
 snr = mean(flux)/std(flux) # 13.35 in this example
 ```
 It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.

@@ -16,8 +16,9 @@ using DirectDetections, Distributions, Plots
 
 ##
 using DirectImages
+cd(@__DIR__)
 images = map(centered, readfits("image-examples-1.fits",:))
-
+pwd()
 imshow2([
     images[1]
     images[2]
@@ -46,51 +47,54 @@ system_images = DirectDetections.Images(
     X,
 )
 
-chains, stats = DirectDetections.hmc(
-    HD82134;
-    burnin=8_000,
-    numwalkers=1,
-    numsamples_perwalker=20_000,
+chain, stats = DirectDetections.hmc(
+    HD82134,
+    adaptation =   8_000,
+    iterations = 100_000,
+    tree_depth =     12,
 );
 
 ##
-plotmodel(chains[1], HD82134)
-
+plotmodel(chain, HD82134, lims=1000)
 ##
-using PairPlots
+savefig("../docs/src/assets/images-model-plot.svg")
+
+##using PairPlots
 table = (;
-    a=chains[1].planets[1].a,
-    H=chains[1].planets[1].GPI_H,
-    e=chains[1].planets[1].e,
-    i=rad2deg.(chains[1].planets[1].i),
-    Ω=rad2deg.(chains[1].planets[1].Ω),
-    ω=rad2deg.(chains[1].planets[1].ω),
-    τ=(chains[1].planets[1].τ),
+a=         chain["X[a]"],
+H=         chain["X[GPI_H]"],
+e=         chain["X[e]"],
+i=rad2deg.(chain["X[i]"]),
+Ω=rad2deg.(chain["X[Ω]"]),
+ω=rad2deg.(chain["X[ω]"]),
+τ=         chain["X[τ]"],
 )
 labels=[
-    "a",
-    "H",
-    "e",
-    "i",
-    "\\Omega",
-    "\\omega",
-    "\\tau",
+"a",
+"H",
+"e",
+"i",
+"\\Omega",
+"\\omega",
+"\\tau",
 ]
 units = [
-    "(au)",
-    "(arb.)",
-    "",
-    "(\\degree)",
-    "(\\degree)",
-    "(\\degree)",
-    "",
+"(au)",
+"(arb.)",
+"",
+"(\\degree)",
+"(\\degree)",
+"(\\degree)",
+"",
 ]
 corner(table, labels, units)#, hist2d_kwargs=(;nbins=15))
+##
 cd(@__DIR__)
-savefig("../docs/src/assets/images-corner-plot.png")
+savefig("../docs/src/assets/images-corner-plot.svg")
 
 
 ## This block generates the images we used for the example
+using Random
 Random.seed!(1234)
 
 truth = (;
