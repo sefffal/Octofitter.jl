@@ -75,18 +75,22 @@ function init_plots()
             Plots.plot()
             plotposterior!(args...;kwargs...)
         end
-        function plotposterior!(system, planet_num, keys::Nothing, N=1500;alpha=0.02,
+        function plotposterior!(chain, planet_num, keys::Nothing, N=1500;alpha=0.02,
             colorbartitle="",#"semi-major axis (au)",
             lw=0.3,
             color=1,
             kwargs...
         )
-            planet = system.planets[planet_num]
+            # planet = chain.planets[planet_num]
 
-            # sampled = sampleorbits(planet, N);
-            ii = rand(eachindex(planet.a),N)
+            # # sampled = sampleorbits(planet, N);
+            # ii = rand(eachindex(planet.a),N)
+            # elements = map(ii) do j
+            #     construct_elements(chain, planet, j)
+            # end
+            ii = rand(eachindex(chain), N)
             elements = map(ii) do j
-                construct_elements(system, planet, j)
+                construct_elements(chain[j], chain[j].planets[planet_num])
             end
 
             Plots.plot!(;
@@ -118,7 +122,7 @@ function init_plots()
             end
             Plots.scatter!([0],[0], marker=(:star,:black, 5), label="")
         end
-        function plotposterior!(system, planet_num, property, N=1500;alpha=0.02,
+        function plotposterior!(chain, planet_num, property, N=1500;alpha=0.02,
             cmap=:turbo,
             rev=true,
             colorbartitle="",#"semi-major axis (au)",
@@ -126,11 +130,9 @@ function init_plots()
             lw=0.3,
             kwargs...
         )
-            planet = system.planets[planet_num]
-            # sampled = sampleorbits(planet, N);
-            ii = rand(eachindex(planet.a),N)
+            ii = rand(eachindex(chain), N)
             elements = map(ii) do j
-                construct_elements(system, planet, j)
+                construct_elements(chain[j], chain[j].planets[planet_num])
             end
 
             Plots.plot!(;
@@ -157,9 +159,13 @@ function init_plots()
             Plots.ylabel!("Δ declination (as)")
 
             if property isa Symbol
-                colours = getproperty(planet, property)[ii]
-            elseif property isa Tuple
-                colours = nestedkey(planet, property...)[ii]
+                # colours = getproperty(planet, property)[ii]
+                colours = [
+                    getproperty(sample.planets[planet_num], property)
+                    for sample in chain[ii]
+                ]
+            # elseif property isa Tuple
+            #     colours = nestedkey(planet, property...)[ii]
             else # Assume they passed in the values directly
                 colours = property[ii]
             end
@@ -197,16 +203,17 @@ function init_plots()
         end
 
         function plotmodel!(
-            chains,
+            chain,
             system,
             N=1500,
             alpha=0.02;
             plotpma=true,
             cmap=:plasma,
             pma_scatter=nothing,
-            clims= extrema(Iterators.flatten(
-                extrema(planet.a)
-                for planet in chains.planets
+            clims=extrema(Iterators.flatten(
+                # extrema(planet.a)
+                extrema([sample.planets[key].a for sample in chain])
+                for key in keys(chain[1].planets)
             )),
             lims=nothing,
             kwargs...
@@ -238,7 +245,7 @@ function init_plots()
             
             for planet_num in eachindex(system.planets)
                 plotposterior!(
-                    chains, planet_num, :a, N; lw=1, alpha=alpha, colorbartitle="semi-major axis (au)",
+                    chain, planet_num, :a, N; lw=1, alpha=alpha, colorbartitle="semi-major axis (au)",
                     cmap=cmap, rev=false,
                     # cmap=:turbo,
                     clims=clims,
@@ -257,19 +264,20 @@ function init_plots()
             # astrometric acceleration?
             if !isnothing(system.propermotionanom) && plotpma
 
-                ii = eachindex(chains.μ)
-                elements = map(ii) do j
-                    DirectDetections.construct_elements(chains, chains.planets[1], j)
-                end
+
                 titles=["GAIA EDR3", "Hiparcos",]
                 system_pma = system.propermotionanom
                 pma_plots = map(sortperm(system_pma.ra_epoch)) do i
-                    vx = zeros(length(ii))
-                    vy = zeros(length(ii))
-                    for j in eachindex(chains.planets)
-                        mass = chains.planets[j].mass[ii]
-                        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], chains.μ[ii], mass),1)
-                        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], chains.μ[ii], mass),2)
+                    vx = zeros(length(chain))
+                    vy = zeros(length(chain))
+                    for j in eachindex(system.planets)
+                        ii = rand(eachindex(chain), N)
+                        elements = map(chain) do sample
+                            construct_elements(sample, sample.planets[j])
+                        end
+                        mass = [sample.planets[j].mass for sample in chain]
+                        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], getproperty.(elements, :μ), mass),1)
+                        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], getproperty.(elements, :μ), mass),2)
                     end
                     Plots.plot(
                         framestyle=:box,

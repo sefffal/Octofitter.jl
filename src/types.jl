@@ -132,14 +132,33 @@ function Base.show(io::IO, mime::MIME"text/plain", priors::Priors)
     end
 end
 
+struct Deterministic{T}
+    variables::T
+end
+export Deterministic 
+function Deterministic(;variables...)
+    # Basically just wrap a named tuple
+    return Deterministic(
+        NamedTuple(variables),
+    )
+end
+function Base.show(io::IO, mime::MIME"text/plain", det::Deterministic)
+    print(io, "Deterministic:")
+    for k in keys(det.variables)
+        print(io, "\t- ", k, "\n")
+    end
+end
+
 abstract type AbstractPlanet end
-struct Planet{T1,T} <: AbstractPlanet
-    priors::Priors{T1}
-    astrometry::T
+struct Planet{TD<:Union{Deterministic,Nothing},TP<:Union{Priors,Nothing},TA<:Union{Astrometry,Nothing}} <: AbstractPlanet
+    deterministic::TD
+    priors::TP
+    astrometry::TA
     name::Symbol
 end
 export Planet
-Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(priors, astrometry, name)
+Planet(det::Deterministic,priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(det,priors, astrometry, name)
+Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(nothing,priors, astrometry, name)
 function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet)
     print(io, typeof(p), " model $(p.name)")
     if hasproperty(p, :astrometry) && !isnothing(p.astrometry)
@@ -148,6 +167,7 @@ function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet)
         print(io, " with no associated astrometry")
     end
     print(io, "\n")
+    show(io, mime, p.deterministic)
     show(io, mime, p.priors)
     println(io)
 end
@@ -186,37 +206,62 @@ function reparameterize(planet::Planet)
 end
 export reparameterize
 
-struct System{TPriors<:Priors,TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Images},TModels,TPlanet}
+struct System{TDet<:Union{Deterministic,Nothing}, TPriors<:Priors,TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Images},TModels,TPlanet}
+    deterministic::TDet
     priors::TPriors
     propermotionanom::TPMA
     images::TImages
     models::TModels
     planets::TPlanet
     name::Symbol
-    function System(system_priors, propermotionanom, images, planets::AbstractPlanet...; models, name)
+    function System(
+        system_det::Union{Deterministic,Nothing},
+        system_priors::Union{Priors,Nothing},
+        propermotionanom::Union{ProperMotionAnom,Nothing},
+        images::Union{Images,Nothing},
+        planets::AbstractPlanet...;
+        models=nothing,
+        name
+    )
         if length(planets) > 1 && !all(==(keys(first(planets).priors.priors)), [keys(planet.priors.priors) for planet in planets])
             error("All planets in the system model must have priors for the same properties defined")
         end
-        return new{ typeof(system_priors), typeof(propermotionanom), typeof(images), typeof(models),typeof(planets)}(
-            system_priors, propermotionanom, images, models, planets, name
+        planets_nt = namedtuple(
+            getproperty.(planets, :name),
+            planets
+        )
+        return new{typeof(system_det), typeof(system_priors), typeof(propermotionanom), typeof(images), typeof(models),typeof(planets_nt)}(
+            system_det, system_priors, propermotionanom, images, models, planets_nt, name
         )
     end
 end
 export System
-System(system_priors::Priors, images::Images, propermotionanom::ProperMotionAnom, planets::AbstractPlanet...; models=nothing, name) = 
-    System(
-        system_priors, propermotionanom, images, planets...;models, name
-    )
-System(system_priors::Priors, propermotionanom::ProperMotionAnom, planets::AbstractPlanet...; models=nothing, name) =
-    System(
-        system_priors, propermotionanom, nothing, planets...; models, name
-    )
-System(system_priors::Priors, images::Images, planets::AbstractPlanet...; models=nothing, name) = 
-    System(
-        system_priors, nothing, images, planets...; models, name
-    )
-System(system_priors::Priors, planets::AbstractPlanet...; models=nothing, name) = 
-    System(system_priors, nothing, nothing, planets...; models, name)
+Base.broadcastable(sys::System) = Ref(sys)
+# Argument standardization:
+
+Trest = Union{ProperMotionAnom,Images,Planet}
+System(priors::Priors, args...; kwargs...) =
+    System(nothing, priors, args...,; kwargs...)
+System(priors::Priors, planets::Planet...; kwargs...) =
+    System(nothing, priors, nothing, nothing, planets...,; kwargs...)
+System(det::Deterministic, priors::Priors, planets::Planet...; kwargs...) =
+    System(det, priors, nothing, nothing, planets...; kwargs...)
+
+
+Trest = Union{Images,Planet}
+System(det::Union{Deterministic,Nothing}, priors::Union{Priors,Nothing}, propermotionanom::ProperMotionAnom, planets::Planet...; kwargs...) =
+    System(det, priors, propermotionanom, nothing, planets...; kwargs...)
+
+System(det::Union{Deterministic,Nothing}, priors::Union{Priors,Nothing}, images::Images, planets::Planet...; kwargs...) =
+    System(det, priors, nothing, images, planets...; kwargs...)
+
+System(det::Union{Deterministic,Nothing}, priors::Union{Priors,Nothing}, images::Images, propermotionanom::ProperMotionAnom, planets::Planet...; kwargs...) =
+    System(det, priors, propermotionanom, images, planets...; kwargs...)
+
+# System(det::Union{Deterministic,Nothing}, priors::Union{Priors,Nothing}, propermotionanom::Union{ProperMotionAnom,Nothing}, images::Union{Images,Nothing}, planets::AbstractPlanet...; kwargs...)    = (println("D"); true) &&
+#     System(det, priors, propermotionanom, images, planets...; kwargs...)
+
+
 
 function Base.show(io::IO, mime::MIME"text/plain", sys::System)
     # print(io, "System model with $(length(sys.planets)) planets:\n")

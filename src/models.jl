@@ -7,7 +7,8 @@ function ln_like_pma(θ_system, pma::ProperMotionAnom)
         pm_dec_star = 0.0
         
         # The model can support multiple planets
-        for θ_planet in θ_system.planets
+        for key in keys(θ_system.planets)
+            θ_planet = θ_system.planets[key]
             # TODO: we are creating these from scratch for each observation instead of sharing them
             elements = construct_elements(θ_system, θ_planet)
 
@@ -33,7 +34,8 @@ end
 # might increase the contrast of another.
 function ln_like_images(θ_system, system)
     ll = 0.0
-    for θ_planet in θ_system.planets
+    for key in keys(θ_system.planets)
+        θ_planet = θ_system.planets[key]
         elements = construct_elements(θ_system, θ_planet)
 
         if (elements.a <= 0 ||
@@ -120,13 +122,13 @@ function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_plan
     return ll
 end
 
-
-function ln_like_astrom(θ, θ_planet, planet::Planet{<:Any,Nothing})
+# If there is no astrometry atached to the planet, it does not contribute anything to the likelihood function
+function ln_like_astrom(θ, θ_planet, planet::Planet{<:Any,<:Any,Nothing})
     return 0.0
 end
 
 # Astrometry
-function ln_like_astrom(θ_system, θ_planet, planet::Planet{<:Any,<:Astrometry})
+function ln_like_astrom(θ_system, θ_planet, planet::Planet{<:Any,<:Any,<:Astrometry})
     ll = 0.0
     
     # TODO, we are creating these from scratch for each observation instead of sharing them
@@ -191,8 +193,11 @@ function ln_like(θ, system::System)
     if !isnothing(system.propermotionanom)
         ll += ln_like_pma(θ, system.propermotionanom)
     end
-    for (θ_planet, planet) in zip(θ.planets, system.planets)
-        ll += ln_like_astrom(θ, θ_planet, planet)
+    # for (θ_planet, planet) in zip(θ.planets, system.planets)
+        # ll += ln_like_astrom(θ, θ_planet, planet)
+        
+    for key in eachindex(system.planets)
+        ll += ln_like_astrom(θ, θ.planets[key], system.planets[key])
     end
 
     
@@ -252,8 +257,10 @@ end
 function ln_prior(θ, system::System)
     lp = 0.0
     lp += system.priors.ln_prior(θ)
-    for (planet, θ_planet) in zip(system.planets, θ.planets)
-        lp += planet.priors.ln_prior(θ_planet)
+    # for (planet, θ_planet) in zip(system.planets, θ.planets)
+    # for (planet, θ_planet) in zip(Tuple(system.planets), Tuple(θ.planets))
+    for key in keys(system.planets)
+        lp += system.planets[key].priors.ln_prior(θ.planets[key])
     end
 
     return lp
