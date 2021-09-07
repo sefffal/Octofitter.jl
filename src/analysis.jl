@@ -4,19 +4,16 @@
 Given the posterior for a particular planet in the model and a modified julian date(s),
 return `ra` and `dec` offsets in mas for each sampling in the posterior.
 """
-function projectpositions(chains, planet_num, times)
-    planet = chains.planets[planet_num]
-    N = size(planet, 1) * size(planet, 3)
-    ras = zeros(N)
-    decs = zeros(N)
-    ras = zeros(length(first(planet)) * length(times))
-    decs = zeros(length(first(planet)) * length(times))
+function projectpositions(chain, planet_key, times)
+
+    ras = zeros(size(chain,1) * length(times))
+    decs = zeros(size(chain,1) * length(times))
     
     # sampled = sampleorbits(planet, N);
     # @threads 
-    for j = 1:length(planet.a)
+    for j = 1:size(chain,1)
 
-        el = construct_elements(chains, planet, j)
+        el = construct_elements(chain, planet_key, j)
 
         for (k, t) in enumerate(times)
             i = j * length(times) + k - 1
@@ -30,7 +27,7 @@ end
 export projectpositions
 
 """
-    sampleorbits(chains, planet_num, 100)
+    sampleorbits(chains, planet_key, 100)
 
 Given the posterior for a particular planet in the model, and the number of orbits to sample,
 return a random subset of length N.
@@ -50,10 +47,6 @@ function sampleorbits(chains, planetnum, N)
     end
 end
 export sampleorbits
-
-# Utility function for access a nested object via a vector or tuple of keys
-nestedkey(obj, key::Symbol) = getproperty(obj, key)
-nestedkey(obj, key::Symbol, remainingkeys...) = nestedkey(getproperty(obj,key), remainingkeys...)
 
 
 function plotposterior end
@@ -75,22 +68,19 @@ function init_plots()
             Plots.plot()
             plotposterior!(args...;kwargs...)
         end
-        function plotposterior!(chain, planet_num, keys::Nothing, N=1500;alpha=0.02,
-            colorbartitle="",#"semi-major axis (au)",
+        function plotposterior!(
+            chain,
+            planet_key,
+            keys::Nothing,
+            N=1500;
+            alpha=0.02,
             lw=0.3,
             color=1,
             kwargs...
         )
-            # planet = chain.planets[planet_num]
-
-            # # sampled = sampleorbits(planet, N);
-            # ii = rand(eachindex(planet.a),N)
-            # elements = map(ii) do j
-            #     construct_elements(chain, planet, j)
-            # end
-            ii = rand(eachindex(chain), N)
+            ii = rand(1:size(chain,1), N)
             elements = map(ii) do j
-                construct_elements(chain[j], chain[j].planets[planet_num])
+                construct_elements(chain, planet_key, j)
             end
 
             Plots.plot!(;
@@ -102,19 +92,11 @@ function init_plots()
                 minorticks=true,
                 aspectratio=1,
                 fontfamily="Arial",
-            # #     xlims=(-2000,2000),
-            # #     ylims=(-2000,2000),
-            # #     xticks=(-2000:1000:2000, ["-2", "-1", "0", "1", "2",]),
-            # #     yticks=(-2000:1000:2000, ["-2", "-1", "0", "1", "2",]),
-            #     xlims=(-500,500),
-            #     ylims=(-500,500),
-            #     xticks=(-500:500:500, ["-.5", "0", ".5",]),
-            #     yticks=(-500:500:500, ["-.5", "0", ".5",]),
                 margin=8Plots.mm,
                 kwargs...
             )
-            Plots.xlabel!("Δ right ascension (as)")
-            Plots.ylabel!("Δ declination (as)")
+            Plots.xlabel!("Δ right ascension (mas)")
+            Plots.ylabel!("Δ declination (mas)")
 
         
             for i in eachindex(elements)
@@ -122,7 +104,12 @@ function init_plots()
             end
             Plots.scatter!([0],[0], marker=(:star,:black, 5), label="")
         end
-        function plotposterior!(chain, planet_num, property, N=1500;alpha=0.02,
+        function plotposterior!(
+            chain,
+            planet_key,
+            property,
+            N=1500;
+            alpha=0.02,
             cmap=:turbo,
             rev=true,
             colorbartitle="",#"semi-major axis (au)",
@@ -130,9 +117,9 @@ function init_plots()
             lw=0.3,
             kwargs...
         )
-            ii = rand(eachindex(chain), N)
+            ii = rand(1:size(chain,1), N)
             elements = map(ii) do j
-                construct_elements(chain[j], chain[j].planets[planet_num])
+                construct_elements(chain, planet_key, j)
             end
 
             Plots.plot!(;
@@ -144,28 +131,15 @@ function init_plots()
                 minorticks=true,
                 aspectratio=1,
                 fontfamily="Arial",
-            # #     xlims=(-2000,2000),
-            # #     ylims=(-2000,2000),
-            # #     xticks=(-2000:1000:2000, ["-2", "-1", "0", "1", "2",]),
-            # #     yticks=(-2000:1000:2000, ["-2", "-1", "0", "1", "2",]),
-            #     xlims=(-500,500),
-            #     ylims=(-500,500),
-            #     xticks=(-500:500:500, ["-.5", "0", ".5",]),
-            #     yticks=(-500:500:500, ["-.5", "0", ".5",]),
                 margin=8Plots.mm,
                 kwargs...
             )
-            Plots.xlabel!("Δ right ascension (as)")
-            Plots.ylabel!("Δ declination (as)")
+            Plots.xlabel!("Δ right ascension (mas)")
+            Plots.ylabel!("Δ declination (mas)")
 
             if property isa Symbol
-                # colours = getproperty(planet, property)[ii]
-                colours = [
-                    getproperty(sample.planets[planet_num], property)
-                    for sample in chain[ii]
-                ]
-            # elseif property isa Tuple
-            #     colours = nestedkey(planet, property...)[ii]
+                k = string(planet_key)*"[$property]"
+                colours = chain[k][ii]
             else # Assume they passed in the values directly
                 colours = property[ii]
             end
@@ -212,8 +186,9 @@ function init_plots()
             pma_scatter=nothing,
             clims=extrema(Iterators.flatten(
                 # extrema(planet.a)
-                extrema([sample.planets[key].a for sample in chain])
-                for key in keys(chain[1].planets)
+                # extrema([sample.planets[key].a for sample in chain])
+                # for key in keys(chain[1].planets)
+                extrema(chain["$pk[a]"] for pk in keys(system.planets))
             )),
             lims=nothing,
             kwargs...
@@ -243,9 +218,9 @@ function init_plots()
                 imshow!(img; color=:Greys, skyconvention=true, lims)
             end
             
-            for planet_num in eachindex(system.planets)
+            for planet_key in eachindex(system.planets)
                 plotposterior!(
-                    chain, planet_num, :a, N; lw=1, alpha=alpha, colorbartitle="semi-major axis (au)",
+                    chain, planet_key, :a, N; lw=1, alpha=alpha, colorbartitle="semi-major axis (au)",
                     cmap=cmap, rev=false,
                     # cmap=:turbo,
                     clims=clims,
@@ -253,7 +228,7 @@ function init_plots()
                 )
 
                 # Planet astrometry?
-                astrom = DirectDetections.astrometry(system.planets[planet_num])
+                astrom = DirectDetections.astrometry(system.planets[planet_key])
                 if !isnothing(astrom)
                     Plots.scatter!(astrom,marker=(:black,:circle,3),label="")
                 end

@@ -1,3 +1,5 @@
+using MCMCChains: Chains
+
 
 export sample_priors
 sample_priors(planet::Planet) = rand.(planet.priors.priors)
@@ -333,6 +335,22 @@ function construct_elements(θ_system, θ_planet, i)
     ))
 end
 
+function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i)
+    pk = string(planet_key)
+    return KeplerianElements((;
+        μ=chain["μ"][i],
+        plx=chain["plx"][i],
+        i=chain[pk*"[i]"][i],
+        Ω=chain[pk*"[Ω]"][i],
+        ω=chain[pk*"[ω]"][i],
+        e=chain[pk*"[e]"][i],
+        τ=chain[pk*"[τ]"][i],
+        a=chain[pk*"[a]"][i],
+    ))
+end
+
+
+
 
 function mcmc(
     system::System;
@@ -348,7 +366,6 @@ function mcmc(
     # ln_post(θ) = ln_prior_system_specialized(θ, system) + ln_like(θ, system)
 
     @info "Finding starting point"
-    # initial_walkers = find_starting_walkers(ln_post, priors, numwalkers)
     initial_walkers = [sample_priors(system) for _ in 1:numwalkers]
 
     # Convert the initial walkers into static arrays for stack allocation.
@@ -517,14 +534,20 @@ function hmc(
     # This is to ease analysis. If it becomes too slow down the line, we could put this behind a flag.
     # chain_res = resolve_deterministic_chains(system, chain)
     chain_res = resolve_deterministic.(system, chain)
+
+    mcmcchain = DirectDetections.result2mcmcchain(system, chain)
         
-    return chain_res, stat
+    return mcmcchain, stat
 end
 
 
-export result2mcmcchain
-using MCMCChains: Chains
+"""
+Convert a vector of component arrays returned from sampling into an MCMCChains.Chains
+object.
+"""
 function result2mcmcchain(system, chains_in)
+    # `system` not currently used, but a more efficient/robust mapping in future might require it.
+
     # There is a specific column name convention used by MCMCChains to indicate
     # that multiple parameters form a group. Instead of planets.X.a, we adapt our to X[a] 
     # accordingly
@@ -535,271 +558,35 @@ function result2mcmcchain(system, chains_in)
     )
 end
 
+"""
+    planet_keys(system, key)
 
-using TransformVariables
-# using Zygote
-# https://github.com/FluxML/Zygote.jl/issues/570
-# @Zygote.adjoint (T::Type{<:SArray})(x::Number...) = T(x...), y->(nothing, y...)
-function hmctf(
-    system::System, target_accept=0.8;
-    numwalkers=1,
-    burnin,
-    numsamples_perwalker,
-    initial_samples=100_000,
-    initial_parameters=nothing,
-    tree_depth=12
-)
+For planet `key`, return the column names used in the output chains.
 
-    # Choose parameter dimensionality and initial parameter value
-    initial_θ_0 = sample_priors(system)
-    D = length(initial_θ_0)
-
-    # List transformations for all supported variables.
-    # We then build a TransformVariables object using whichever
-    # are actually in use.
-    transformations = Dict(
-        :μ=>asℝ₊,
-        :plx=>asℝ₊,
-
-        :a=>asℝ₊,
-        :e=>asℝ₊,
-        :τ=>as𝕀,
-        :ω=>asℝ,
-        :i=>asℝ,
-        :Ω=>asℝ,
-        :ωΩ⁺=>asℝ,
-        :ωΩ⁻=>asℝ,
-
-        :mass=>as(Real, 0, 16mjup2msol),
-
-        # TODO.. different flux bands? We can get these from the system images!
-        :Keck_L′=>asℝ₊,
-
-        :σ_i²=>asℝ₊,
-        :σ_Ω²=>asℝ₊,
-    )
-
-    system_t_nt = map(keys(system.priors.priors)) do k
-        return k => transformations[k]
-    end |> collect |> namedtuple
-    system_t = as(system_t_nt)
+Examples:
+```julia-repl
+julia> planet_keys(system, :X)
+7-element Vector{String}:
+ "f[a]"
+ "f[e]"
+ "f[τ]"
+ "f[ω]"
+ "f[i]"
+ "f[Ω]"
+ "f[Keck_L′]"
+```
+"""
+function planet_keys(system, key)
+    # There is a specific column name convention used by MCMCChains to indicate
+    # that multiple parameters form a group. Instead of planets.X.a, we adapt our to X[a] 
+    # accordingly
     
-    if eltype(system.planets) <: ReparameterizedPlanet
-        # Do some fixing up for reparameterized planets. TODO: handle this more elegantly.
-        planet_t_nt_0 = map(keys(system.planets[1].priors.priors)) do k
-            return k => transformations[k]
-        end |> collect |> namedtuple
-        planet_t_nt_1 = delete(planet_t_nt_0, (:ω, :Ω))
-        planet_t_nt_2 = (;ωΩ⁺=transformations[:ωΩ⁺], ωΩ⁻=transformations[:ωΩ⁻])
-        planet_t_nt = merge(planet_t_nt_1, planet_t_nt_2)
-    else
-        planet_t_nt = map(keys(system.planets[1].priors.priors)) do k
-            return k => transformations[k]
-        end |> collect |> namedtuple
-    end
-    planet_t = as(planet_t_nt)
-    @info "Mapping parameters to the following domains" system=system_t_nt planet=planet_t_nt
+    θ = sample_priors(system)
+    θ_r = resolve_deterministic(system, θ)
 
-    function tvinverse(θ)
-        system = NamedTupleTools.delete(NamedTuple(θ), :planets)
-        sys = TransformVariables.inverse(system_t, system)
-        pl = map(θ.planets) do planet
-            TransformVariables.inverse(planet_t, NamedTuple(planet))
-        end
-        ComponentVector([sys; pl...], getaxes(θ))
-    end
-    t = NamedTupleTools.delete(NamedTuple(initial_θ_0), :planets)
-    function tvtransform(θ)
-        system = @view θ[1:length(t)]
-        sys = TransformVariables.transform(system_t, system)
-        pl = map(θ.planets) do planet
-            TransformVariables.transform(planet_t, planet)
-        end
-        # TODO: this is likely a bottleneck
-        ComponentVector([collect(sys); collect.(pl)...], getaxes(θ))
-    end
-    
-    # out = tvinverse(initial_θ_0)
-    # back = tvtransform(out)
+    flattened_labels = replace.(labels(θ_r), r"planets\.([^\.]+).([^\.]+)" => s"\1[\2]")
 
-    # return out, back
-
-    # AdvancedHMC doesn't play well with component arrays by default, so we pass in just the underlying data
-    # array and reconstruct the component array on each invocation (this get's compiled out, no perf affects)
-    ax = getaxes(initial_θ_0)
-    # Capture the axis into the closure for performance via the let binding.
-    ℓπ = let ax=ax, system=system, initial_θ_0=initial_θ_0, fixed=fixed, notfixed = .! fixed
-        function (θ)
-            θ_cv = ComponentArray(θ, ax)
-
-            # Correct fixed parameters
-            θ_cv_merged = θ_cv .* notfixed .+ initial_θ_0 .* fixed
-
-            θ_cv_transformed = tvtransform(θ_cv_merged)
-
-            # TODO: verify that this is still a static array
-            ll = ln_post(θ_cv_transformed, system)
-
-            return ll
-        end
-    end
-
-    # ℓπ_grad = let ax=ax, system=system, initial_θ_0=initial_θ_0, fixed=fixed, notfixed = .! fixed
-    #     f(θ) = ln_post(θ, system)
-    #     function (θ)
-    #         θ_cv = ComponentArray(θ, ax)
-
-    #         # Correct fixed parameters
-    #         θ_cv_merged = θ_cv .* notfixed .+ initial_θ_0 .* fixed
-
-    #         # TODO: verify that this is still a static array
-    #         ll = ln_post(θ_cv_merged, system)
-
-    #         ll_grad = FiniteDiff.finite_difference_gradient(f,θ_cv_merged)
-
-    #         return ll, getdata(ll_grad)
-    #     end
-    # end
-
-    chains = []
-    stats = []
-    # Threads.@threads
-     for _ in 1:numwalkers
-        # initial_θ = sample_priors(system)
-        # initial_θ_cv = mean_priors(system)
-        # initial_θ_cv = guess_starting_position(system,100_000)
-
-        if isnothing(initial_parameters)
-            initial_θ_cv = guess_starting_position(system,initial_samples)
-        else
-            initial_θ_cv = initial_parameters
-        end
-
-        # Use a static comopnent array for efficiency
-        initial_θ = tvinverse(ComponentVector{SVector{length(initial_θ_cv)}}(; NamedTuple(initial_θ_cv)...))
-        # initial_θ = tvinverse(initial_θ_cv)
-
-
-        # Define a Hamiltonian system
-        metric = DenseEuclideanMetric(D)
-        hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
-        # hamiltonian = Hamiltonian(metric, ℓπ, ℓπ_grad)
-
-
-        # Define a leapfrog solver, with initial step size chosen heuristically
-        # if !isnothing(system.images)
-        #     initial_ϵ = 0.002
-        # else
-            initial_ϵ = find_good_stepsize(hamiltonian, getdata(initial_θ))
-            # initial_ϵ = 0.002
-        # end
-
-
-        integrator = Leapfrog(initial_ϵ)
-        # 1.05 improves the sampling over standard leapfrog, but 4.0 is too much. It just stays stuck.
-        # 1.5 seems better but seems to favour certain trajectories.
-        # integrator = TemperedLeapfrog(initial_ϵ, 1.05)
-        proposal = NUTS(integrator, max_depth=tree_depth) # 12
-
-
-        # # We have change some parameters when running with image data
-        # if !isnothing(system.images) && target_accept > 0.4
-        #     target_accept = 0.2
-        #     @info "Sampling from images, lowering target_accept to 0.2"
-        # end
-
-        adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(target_accept, integrator)) 
-        # adaptor = MassMatrixAdaptor(metric)
-
-        logger = SimpleLogger(stdout, Logging.Error)
-        samples_transformed, stat = with_logger(logger) do
-            sample(hamiltonian, proposal, getdata(initial_θ), numsamples_perwalker, adaptor, burnin; progress=(numwalkers==1), drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation))
-        end
-
-        @info "Formatting chains for output"
-
-        function tvtransform_out(θ)
-            sys = collect(TransformVariables.transform(system_t, @view(θ[1:2])))
-            planet_vars = @view(θ[3:end])
-            planets = mapreduce(vcat, Iterators.partition(planet_vars, length(planet_t_nt))) do planetvar
-                collect(TransformVariables.transform(planet_t,planetvar))
-            end
-            return vcat(sys, planets)
-        end
-        samples = map(tvtransform_out, samples_transformed)
-
-        sample_grid = reduce(hcat, samples);
-        chain = ComponentArray(collect(eachrow(sample_grid)), ax)
-
-        # notfixed = .! fixed
-        # chain_merged = chain .* notfixed .+ initial_θ_0' .* fixed
-        
-        push!(chains,chain)
-        push!(stats,stat)
-    end
-    return chains, stats
+    planet_key_start = string(key) * "["
+    return filter(startswith(planet_key_start), flattened_labels)
 end
-
-
-
-
-
-# using Optim, ForwardDiff
-
-function find_starting_point(ln_post, priors)
-    θ₀ = rand.(priors)
-    i = 0
-    while !isfinite(ln_post(θ₀))
-        i += 1
-        θ₀ = rand.(priors)
-        if i > 1000
-            error(
-                "Could not find a starting point in the posterior that is finite by drawing from the priors after 1000 attempts",
-            )
-        end
-    end
-    return θ₀
-
-    # goal(θ) = -ln_post(θ)
-
-    # m = optimize(goal, θ₀, BFGS(), Optim.Options(show_trace=true,x_tol=-1,g_tol=1e-1,f_tol=-1); autodiff = :forward)
-    # # m = optimize(goal, θ₀, Newton(), Optim.Options(show_trace=true,); autodiff = :forward)
-    # # m = optimize(goal, θ₀, NelderMead(), Optim.Options(show_trace=true,); autodiff = :forward)
-    # # m = optimize(goal, θ₀, Optim.SimulatedAnnealing(), Optim.Options(show_trace=true,iterations=1_000_000); autodiff = :forward)
-    # # m = optimize(goal, θ₀, Optim.ParticleSwarm(), Optim.Options(show_trace=true,iterations=100_000); autodiff = :forward)
-
-    # display(m)
-    # return Optim.minimizer(m)
-
-end
-
-
-
-
-
-
-
-
-
-
-# Start walkers in a gaussian ball around the MLE, while ensuring we don't
-# step outside the ranges defined by the priors
-function find_starting_walkers(ln_post, priors, numwalkers)
-    initial_walkers = map(1:numwalkers) do i
-        return initial_position = find_starting_point(ln_post, priors)
-    end
-    #     initial_position
-    # end
-    #     # # This used to intiialize the walkers in a Gaussian ball around the MAP.
-    #     # # But now we just draw starting points randomly from the priors, this isn't needed.
-    #     # map(eachindex(initial_position)) do i
-    #     #     p = NaN
-    #     #     while !(minimum(priors[i]) < p < maximum(priors[i]))
-    #     #         p = initial_position[i] + 0.01randn()*initial_position[i]
-    #     #     end
-    #     #     p
-    #     # end
-    #     # initial_position .* (1 .+ randn(length(initial_position)))
-    # end
-    return initial_walkers
-end
+export planet_keys
