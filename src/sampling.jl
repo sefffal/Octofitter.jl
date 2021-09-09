@@ -351,14 +351,14 @@ end
 
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Integer})
     pk = string(planet_key)
-    μs=chain["μ"][ii]
-    plxs=chain["plx"][ii]
-    is=chain[pk*"[i]"][ii]
-    Ωs=chain[pk*"[Ω]"][ii]
-    ωs=chain[pk*"[ω]"][ii]
-    es=chain[pk*"[e]"][ii]
-    τs=chain[pk*"[τ]"][ii]
-    as=chain[pk*"[a]"][ii]
+    μs=chain["μ"]
+    plxs=chain["plx"]
+    is=chain[pk*"[i]"]
+    Ωs=chain[pk*"[Ω]"]
+    ωs=chain[pk*"[ω]"]
+    es=chain[pk*"[e]"]
+    τs=chain[pk*"[τ]"]
+    as=chain[pk*"[a]"]
     return map(ii) do i
         KeplerianElements((;
             μ=μs[i],
