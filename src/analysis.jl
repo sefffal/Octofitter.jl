@@ -11,7 +11,7 @@ function projectpositions(chain, planet_key, times)
 
     els = construct_elements(chain, planet_key, 1:size(chain,1))
     
-    for el in els
+    for (j,el) in enumerate(els)
 
         for (k, t) in enumerate(times)
             i = j * length(times) + k - 1
