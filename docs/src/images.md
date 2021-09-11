@@ -42,7 +42,7 @@ imshow2([
 ```
 ![images](assets/images-input.png)
 
-Your images should either be convolved with a gaussian of diameter one λ/D, or be matched filtered. This is so that DirectDetections the values of the pixels in the image approximate the photometry at that location. 
+Your images should either be convolved with a gaussian of diameter one λ/D, or be matched filtered. This is so that the values of the pixels in the image represent the photometry at that location. 
 
 If you want to perform the convolution in Julia, see ImageFiltering.jl.
 
