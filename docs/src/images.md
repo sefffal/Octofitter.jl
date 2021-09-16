@@ -161,7 +161,8 @@ You can plot the model as usual:
 using Plots
 plotmodel(chain, HD82134)
 ```
-![images](assets/images-model-plot.svg)
+[![images](assets/images-model-plot.png)](assets/images-model-plot.svg)
+
 
 In this case, the model is shown overtop a stack of the input images to help you visualize which peaks contributed to the fit.
 The images are stacked using the `maximum` function, so that bright spots from all images appear at once. The colour scale is inverted, so that the brightest peaks are shown in black.
@@ -205,7 +206,7 @@ corner(table, labels, units)
 
 Note that this time, we also show the recovered photometry in the corner plot.
 
-![corner plot](assets/images-corner-plot.svg)
+[![corner plot](assets/images-corner-plot.png)](assets/images-corner-plot.svg))
 
 
 ## Assessing Detections
