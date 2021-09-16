@@ -168,7 +168,7 @@ using Plots
 plotmodel(chain, HD82134)
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. If other data like astrometric acceleration is provided, additional panels will appear.
-![model plot](assets/astrometry-model-plot.png)
+[![model plot](assets/astrometry-model-plot.png)](assets/astrometry-model-plot.svg)
 
 
 ## Pair Plot
@@ -191,7 +191,7 @@ units = ["(au)", "", "(\\degree)", "(\\degree)", "(\\degree)", ""]
 corner(table, labels, units)
 ```
 You can read more about the syntax for creating pair plots in the PairPlots.jl documentation page.
-![corner plot](assets/astrometry-corner-plot.svg)
+[![corner plot](assets/astrometry-corner-plot.png)](assets/astrometry-corner-plot.svg)
 In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.
 
 ## Notes on Hamiltonian Monte Carlo
