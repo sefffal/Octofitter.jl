@@ -252,6 +252,8 @@ function init_plots()
                         minorticks=true,
                         aspectratio=1,
                         grid=false,
+                        xlims=:symmetric,
+                        ylims=:symmetric,
                     )
                     if !isnothing(pma_scatter)
                         if length(system.planets) > 1
@@ -264,7 +266,7 @@ function init_plots()
                         ii_sub = rand(ii, 4000)
                         Plots.scatter!(vx[ii_sub], vy[ii_sub], marker_z=prop[ii_sub], alpha=1, color=:plasma, colorbar=true, label="", markerstrokewidth=0, ms=1)
                     else
-                        h = fit(Histogram, (vx, vy), (-1:0.05:1, -1:0.05:1))
+                        h = fit(Histogram, (vx, vy))#, (-1:0.05:1, -1:0.05:1))
                         Plots.plot!(h, color=Plots.cgrad([Plots.RGBA(0,0,0,0), Plots.RGBA(0,0,0,1)]), colorbar=false)
                     end
                     Plots.scatter!(
@@ -280,8 +282,8 @@ function init_plots()
                     Plots.hline!([0], color=:black, label="")
                     Plots.vline!([0], color=:black, label="")
                     Plots.title!(titles[i])
-                    Plots.xlims!(-1,1)
-                    Plots.ylims!(-1,1)
+                    # Plots.xlims!(-1,1)
+                    # Plots.ylims!(-1,1)
                     Plots.xlabel!("Δμ ra - mas/yr")
                     Plots.ylabel!("Δμ dec - mas/yr")
                 end     
