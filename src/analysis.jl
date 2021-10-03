@@ -234,7 +234,7 @@ function init_plots()
             if !isnothing(system.propermotionanom) && plotpma
 
 
-                titles=["GAIA EDR3", "Hiparcos",]
+                titles=["GAIA EDR3", "Hipparcos",]
                 system_pma = system.propermotionanom
                 pma_plots = map(sortperm(system_pma.ra_epoch)) do i
                     vx = zeros(length(chain))

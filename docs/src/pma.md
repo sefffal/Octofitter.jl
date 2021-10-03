@@ -5,9 +5,9 @@ These data points are typically calculated by finding the difference between a l
 
 For Hipparcos/GAIA this gives four data points that can constrain the dynamical mass & orbits of planetary companions (assuming we subtract out the net trend).
 
-You can specify these quantities manually, but the easiest way is to use the Hipparcos-GAIA Catalog of Accelerations (HGCA, https://arxiv.org/abs/2105.11662). Support for loading this catalog is built into DirectDetections.jl.
+You can specify these quantities manually, but the easiest way is to use the Hipparcos-GAIA Catalog of Accelerations (HGCA, [https://arxiv.org/abs/2105.11662](https://arxiv.org/abs/2105.11662)). Support for loading this catalog is built into DirectDetections.jl.
 
-Let's look at the star and companion HD 91312 A & B, discovered by SCExAO (https://arxiv.org/abs/2109.12124). We will use their published astrometry and proper motion anomaly extracted from the HGCA.
+Let's look at the star and companion [HD 91312 A & B](https://arxiv.org/abs/2109.12124), discovered by SCExAO. We will use their published astrometry and proper motion anomaly extracted from the HGCA.
 
 The first step is to find the GAIA source ID for your object. For HD 91312, SIMBAD tells us the GAIA DR2 ID is `756291174721509376` (which we will assume is the same in eDR3).
 

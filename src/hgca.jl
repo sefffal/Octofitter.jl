@@ -22,7 +22,7 @@ function init_datadeps()
     ))
 end
 
-# ## Load the Hiparcos-GAIA catalog of accelerations
+# ## Load the Hipparcos-GAIA catalog of accelerations
 # hgca = FITS(raw"C:\Users\William\Downloads\HGCA_vEDR3.fits") do hdu
 #     DataFrame(hdu[2])
 # end
@@ -38,7 +38,7 @@ end
 
 # ## Proper motion anomaly
 # # The difference between the ~instant proper motion measured by GAIA compared to the 
-# # long term trend between Hiparcos and GAIA
+# # long term trend between Hipparcos and GAIA
 # Δμ_gaia_ra = @. (hgca.pmra_hg ± hgca.pmra_hg_error) - (hgca.pmra_gaia ± hgca.pmra_gaia_error)
 # Δμ_gaia_dec = @. (hgca.pmdec_hg ± hgca.pmdec_hg_error) - (hgca.pmdec_gaia ± hgca.pmdec_gaia_error)
 # Δμ_gaia = @. √(Δμ_gaia_ra^2 + Δμ_gaia_dec^2)
@@ -50,7 +50,7 @@ end
 
 function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
 
-    ## Load the Hiparcos-GAIA catalog of accelerations
+    ## Load the Hipparcos-GAIA catalog of accelerations
     hgca = FITS(catalog) do hdu
         Tables.columntable(hdu[2])
     end
@@ -59,7 +59,7 @@ function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3
 
     # Proper motion anomaly
     # The difference between the ~instant proper motion measured by GAIA compared to the 
-    # long term trend between Hiparcos and GAIA
+    # long term trend between Hipparcos and GAIA
     Δμ_gaia_ra = (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx]) - (hgca.pmra_gaia[idx] ± hgca.pmra_gaia_error[idx])
     Δμ_gaia_dec = (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx]) - (hgca.pmdec_gaia[idx] ± hgca.pmdec_gaia_error[idx])
 
@@ -79,7 +79,7 @@ function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3
             σ_pm_dec=Measurements.uncertainty(Δμ_gaia_dec),
             
         ),
-        # Hiparcos epoch
+        # Hipparcos epoch
         (;
             ra_epoch=years2mjd(hgca.epoch_ra_hip[idx]),
             dec_epoch=years2mjd(hgca.epoch_dec_hip[idx]),
@@ -97,7 +97,7 @@ export ProperMotionAnomHGCA
 
 function gaia_plx(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits") 
     
-    ## Load the Hiparcos-GAIA catalog of accelerations
+    ## Load the Hipparcos-GAIA catalog of accelerations
     hgca = FITS(catalog) do hdu
         Tables.columntable(hdu[2])
     end
