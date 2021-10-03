@@ -23,15 +23,14 @@ using RecipesBase
 
 const mjup2msol = 0.0009543
 
-# We use a sonora model grid to tie fluxes to physical properties
-include("sonora.jl")
 include("types.jl")
 include("models.jl")
 include("sampling.jl")
 include("analysis.jl")
+include("hgca.jl")
 
 function __init__()
-    init_models()
+    init_datadeps()
     init_plots()
     return
 end
