@@ -74,15 +74,18 @@ sample_priors(system::System,N) = [sample_priors(system) for _ in 1:N]
 
 
 # This function takes a set of parameters and resolves any deterministic variables
-resolve_deterministic(system::System{Nothing}, θ) = θ
+# resolve_deterministic(system::System{Nothing}, θ) = θ
 
 # TODO: there should be a more efficient way to do this.
 # Worst case, can unroll using (runtime) generated function?
-function resolve_deterministic(system::System{<:Deterministic}, θ)
+# function resolve_deterministic(system::System{<:Deterministic}, θ)
+function resolve_deterministic(system::System, θ)
     θ_resolved = NamedTuple()
-    for (key, func) in pairs(system.deterministic.variables)
-        val = func(θ)
-        θ_resolved = merge(θ_resolved, NamedTuple{(key,), Tuple{eltype(θ)}}(val))
+    if !isnothing(system.deterministic)
+        for (key, func) in pairs(system.deterministic.variables)
+            val = func(θ)
+            θ_resolved = merge(θ_resolved, NamedTuple{(key,), Tuple{eltype(θ)}}(val))
+        end
     end
     θ_resolved = merge(θ_resolved, NamedTuple(θ))
     # resolved_planets = map(zip(θ.planets, system.planets)) do (θ_planet, planet_model)
@@ -559,7 +562,7 @@ function hmc(
     # chain_res = resolve_deterministic_chains(system, chain)
     chain_res = resolve_deterministic.(system, chain)
 
-    mcmcchain = DirectDetections.result2mcmcchain(system, chain)
+    mcmcchain = DirectDetections.result2mcmcchain(system, chain_res)
         
     return mcmcchain, stat
 end

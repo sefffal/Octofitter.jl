@@ -239,10 +239,11 @@ function init_plots()
                 pma_plots = map(sortperm(system_pma.ra_epoch)) do i
                     vx = zeros(length(chain))
                     vy = zeros(length(chain))
-                    for j in eachindex(system.planets)
+                    for j in keys(system.planets)
                         ii = rand(eachindex(chain), N)
-                        elements = construct_elements(sample, j, 1:size(chain,1))
-                        mass = [sample.planets[j].mass for sample in chain]
+                        elements = construct_elements(chain, j, 1:size(chain,1))
+                        # mass = [sample.planets[j].mass for sample in chain]
+                        mass = chain["$j[mass]"]
                         vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], getproperty.(elements, :μ), mass),1)
                         vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], getproperty.(elements, :μ), mass),2)
                     end
