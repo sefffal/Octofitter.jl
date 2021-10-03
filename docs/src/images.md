@@ -63,7 +63,7 @@ Start by specifying a planet:
     ),
 )
 ```
-Note how we also provided a prior on the photometry called `GPI_H`. We can put any name we want here, as long as it's used consistently throughput the model specification.
+Note how we also provided a prior on the photometry called `GPI_H`. We can put any name we want here, as long as it's used consistently throughout the model specification.
 
 See [Fit Astrometry](@ref fit-astrometry) for a description of the different orbital parameters, and conventions used.
 
@@ -206,7 +206,7 @@ corner(table, labels, units)
 
 Note that this time, we also show the recovered photometry in the corner plot.
 
-[![corner plot](assets/images-corner-plot.png)](assets/images-corner-plot.svg))
+[![corner plot](assets/images-corner-plot.png)](assets/images-corner-plot.svg)
 
 
 ## Assessing Detections
