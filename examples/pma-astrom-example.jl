@@ -70,7 +70,7 @@ table = (;
     i=rad2deg.(rem2pi.(chain["B[i]"],RoundDown)),
     Ω=rad2deg.(rem2pi.(chain["B[Ω]"],RoundDown)),
     ω=rad2deg.(rem2pi.(chain["B[ω]"],RoundDown)),
-    τ=     rem.(chain["B[τ]"],1),
+    τ=     rem.(chain["B[τ]"],1,RoundDown),
 )
 labels=[
     "a",
