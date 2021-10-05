@@ -67,10 +67,10 @@ table = (;
     μ=         chain["μ"],
     m=         chain["B[mass]"],
     e=         chain["B[e]"],
-    i=rad2deg.(chain["B[i]"]),
-    Ω=rad2deg.(chain["B[Ω]"]),
-    ω=rad2deg.(chain["B[ω]"]),
-    τ=         chain["B[τ]"],
+    i=rad2deg.(rem2pi.(chain["B[i]"],RoundDown)),
+    Ω=rad2deg.(rem2pi.(chain["B[Ω]"],RoundDown)),
+    ω=rad2deg.(rem2pi.(chain["B[ω]"],RoundDown)),
+    τ=     rem.(chain["B[τ]"],1),
 )
 labels=[
     "a",
