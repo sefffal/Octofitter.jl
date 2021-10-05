@@ -211,8 +211,8 @@ end
 
 
 
-# This is a straight forward implementation that unfortunately is not type stable.
-# This is because we are looping over a heterogeneous container
+# # This is a straight forward implementation that unfortunately is not type stable.
+# # This is because we are looping over a heterogeneous container
 # function make_ln_prior(priors)
 #     return function ln_prior(params)
 #         lp = zero(first(params))
@@ -236,12 +236,8 @@ function make_ln_prior(θ)
     for i in eachindex(θ)
         pd = θ[i]
         key = keys(θ)[i]
-        if typeof(pd) <: Real
-            # If the user just passes a number, it is held constant and has no effect on the priors
-        else
-            ex = :(lp += $logpdf($pd, params.$key))
-            push!(body, ex)
-        end
+        ex = :(lp += $logpdf($pd, params.$key))
+        push!(body, ex)
     end
 
     ex = :(function (params)

@@ -3,21 +3,26 @@ using DirectOrbits: mjd
 
 @named B = DirectDetections.Planet(
     Deterministic(
+        e = (sys, pl) -> 10^pl.loge,
         a = (sys, pl) -> 10^pl.loga,
         mass = (sys, pl) -> 10^pl.logm,
     ),
     Priors(
-        e = TruncatedNormal(0.0, 0.2, 0, 1.0),
+        # a = Uniform(0, 25),
+        # e = TruncatedNormal(0.0, 0.2, 0, 1.0),
         # Note: priors with sharp edges (e.g. Uniform priors) are challenging for HMC samplers.
         # An alternative could be wide Gaussians, for example.
-        τ = Uniform(0, 1),
-        ω = Uniform(0, 2pi),
-        i = Uniform(0, 2pi),
-        Ω = Uniform(0, 2pi),
+        τ = Normal(0.5, 1),
+        ω = Normal(pi, 2pi),
+        i = Normal(pi, 2pi),
+        Ω = Normal(pi, 2pi),
+        # mass = Uniform(0, 1),
 
         # Reparameterize a few properties for better sampling
+        loge = TruncatedNormal(-2, 1.5, -Inf, 0),
         loga = Uniform(-1, 1.5),
-        logm = Uniform(-4, -0.5),
+        logm = Uniform(-2, 0),
+
     ),
     Astrometry(
         (epoch=mjd("2016-12-15"), ra=0.133*1e3, dec=-0.174*1e3, σ_ra=0.007*1e3, σ_dec=0.007*1e3),
@@ -30,6 +35,10 @@ using DirectOrbits: mjd
 )
 
 @named HD82134 = System(
+    # Deterministic(
+    #     j = Returns(1),
+    #     k = Returns(1)
+    # ),
     Priors(
         μ = Normal(1.61, 0.05),
         plx = gaia_plx(gaia_id=756291174721509376),
@@ -42,13 +51,13 @@ using DirectOrbits: mjd
 
 chain, stats = DirectDetections.hmc(
     HD82134,
-    adaptation =   6_000,
-    iterations =  50_000,
+    adaptation =  1_000,
+    iterations = 50_000,
     tree_depth =     12,
 );
 
 ## Plot the input data and samples from the posterior
-plotmodel(chain, HD82134, clims=(7, 7.8))
+plotmodel(chain, HD82134, clims=(5, 20))
 
 ## Create a corner plot / pair plot.
 # We can access any property from the chain specified in Priors or in Deterministic.
@@ -83,8 +92,6 @@ units = [
     "(\\degree)",
     "",
 ]
-corner(table, labels, units)
+corner(table, labels, units);
+nothing
 
-##
-cd(@__DIR__)
-savefig("../docs/src/assets/astrometry-corner-plot.svg")

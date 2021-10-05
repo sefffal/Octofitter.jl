@@ -41,23 +41,25 @@ If you try this you may find that the sampler hits a lot of numerical errors. Th
 
 Let's use `Deterministic` to reparameterize both `mass` and `a` using logarithmic variables:
 ```julia
+
 @named B = DirectDetections.Planet(
     Deterministic(
+        e = (sys, pl) -> 10^pl.loge,
         a = (sys, pl) -> 10^pl.loga,
         mass = (sys, pl) -> 10^pl.logm,
     ),
     Priors(
-        e = TruncatedNormal(0.0, 0.2, 0, 1.0),
-        # Note: these priors also have sharp edges that could lower efficiency.
-        # An alternative could be wide Gaussians centered around pi.
-        τ = Uniform(0, 1),
-        ω = Uniform(0, 2pi),
-        i = Uniform(0, 2pi),
-        Ω = Uniform(0, 2pi),
+        # Note: priors with sharp edges (e.g. Uniform priors) are challenging for HMC samplers.
+        # Using wide Gaussians can be better than uniform priors, for example.
+        τ = Normal(0.5, 1),
+        ω = Normal(pi, 2pi),
+        i = Normal(pi, 2pi),
+        Ω = Normal(pi, 2pi),
 
         # Reparameterize a few properties for better sampling
+        loge = TruncatedNormal(-2, 1.5, -Inf, 0),
         loga = Uniform(-1, 1.5),
-        logm = Uniform(-4, -0.5),
+        logm = Uniform(-2, 0),
     ),
     Astrometry(
         (epoch=mjd("2016-12-15"), ra=0.133*1e3, dec=-0.174*1e3, σ_ra=0.007*1e3, σ_dec=0.007*1e3),
@@ -115,7 +117,7 @@ Let's start by plotting a histogram of the companion mass.
 mass_B = chain["B[mass]"]
 histogram(vec(mass_B), xlabel="mass (M⊙)", ylabel="", legend=false)
 ```
-[![mass histogram](assets/pma-astrometry-mass-hist.png)](assets/pma-astrometry-mass-hist.svg)
+[![mass histogram](assets/pma-astrometry-mass-hist.svg)](assets/pma-astrometry-mass-hist.svg)
 
 ### Orbits
 

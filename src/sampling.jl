@@ -73,22 +73,112 @@ sample_priors(system::System,N) = [sample_priors(system) for _ in 1:N]
 
 
 
-# This function takes a set of parameters and resolves any deterministic variables
-# resolve_deterministic(system::System{Nothing}, θ) = θ
-
 # TODO: there should be a more efficient way to do this.
 # Worst case, can unroll using (runtime) generated function?
-# function resolve_deterministic(system::System{<:Deterministic}, θ)
+# It appears that the bottleneck is actually converting back and forth to NamedTuples
+# Can we do this another way? Do we really need component arrays?
+# They do make the API quite nice but we're using them in fewer and fewer spots.
+# They are basically an implementation detail at this point.
+# We could write our own function to go from input array to named tuple?
+
+
+# _determinekeysvals(::Type{Deterministic{NamedTuple{Keys,Vals}}}) where {Keys,Vals} = Keys, Vals
+# _determinekeysvals(::Type{Priors{NamedTuple{Keys,Vals}}}) where {Keys,Vals} = Keys, Vals
+# function array_to_nt(system::System) where {TDetermine, TPriors}
+
+#     i = 0
+#     body_sys_priors = Expr[]
+
+#     # Priors
+#     for key in keys(system.priors.priors)
+#         i += 1
+#         ex = :(
+#             $key = arr[$i]
+#         )
+#         push!(body_sys_priors,ex)
+#     end
+
+#     # Deterministic variables
+#     body_sys_determ = Expr[]
+#     for (key,func) in zip(keys(system.deterministic.variables), values(system.deterministic.variables))
+#         ex = :(
+#             $key = $func(sys)
+#         )
+#         push!(body_sys_determ,ex)
+#     end
+
+
+#     # TODO: Planets, priors & deterministic
+#     i += 1
+#     body_planets = Expr[]
+#     for planet in system.planets
+#         ex = :(
+#             $key = $func(sys)
+#         )
+#         push!(body_sys_determ,ex)
+#     end
+
+#     ex = @RuntimeGeneratedFunction(:(function (arr)
+#         sys = (;$(body_sys_priors...))
+#         sys_res = (;
+#             sys...,
+#             $(body_sys_determ...)
+#         )
+
+#         pln = (;$(body_planets))
+
+#     end))
+
+#     # if TDetermine != Nothing
+#     #     keys, funcs = _determinekeysvals(TDetermine)
+        
+#     #     body = Expr[]
+#     #     for key in keys
+#     #         # ex = :($key = system.deterministic.variables.$key(θ))
+#     #         ex = :(system.deterministic.variables.$key(θ))
+#     #         push!(body, ex)
+#     #     end
+
+#     #     # Now need to expand out each planet as well.
+#     #     # Need to pass in (planet, θ_sys, θ_pl)
+#     #     planets = 
+
+#     #     NTType = NamedTuple{keys}
+#     #     ex = :(
+#     #         merge(
+#     #             $NTType($(body...)),
+#     #             NamedTuple(θ),
+#     #             planets = 
+#     #         )
+#     #     )
+
+#     #     return ex
+
+#     # end
+# end
+
+
+
+
+
 function resolve_deterministic(system::System, θ)
-    θ_resolved = NamedTuple()
-    if !isnothing(system.deterministic)
-        for (key, func) in pairs(system.deterministic.variables)
+    if isnothing(system.deterministic)
+        θ_resolved = NamedTuple(θ)
+    else
+        resolved_values = map(values(system.deterministic.variables)) do func
             val = func(θ)
-            θ_resolved = merge(θ_resolved, NamedTuple{(key,), Tuple{eltype(θ)}}(val))
         end
+        # for (key, func) in pairs(system.deterministic.variables)
+        #     val = func(θ)
+        #     θ_resolved = merge(θ_resolved, NamedTuple{(key,), Tuple{eltype(θ)}}(val))
+        # end
+        θ_resolved = merge(
+            NamedTuple(θ),
+            namedtuple(keys(system.deterministic.variables), resolved_values)
+        )
     end
-    θ_resolved = merge(θ_resolved, NamedTuple(θ))
-    # resolved_planets = map(zip(θ.planets, system.planets)) do (θ_planet, planet_model)
+    # return θ_resolved
+
     resolved_planets = map(keys(system.planets)) do key
         θ_planet = θ.planets[key]
         planet_model = system.planets[key]
@@ -103,93 +193,131 @@ function resolve_deterministic(system::System, θ)
         return merge(θ_planet_resolved, NamedTuple(θ_planet))
     end
     resolved_planets_nt = namedtuple([pl.name for pl in system.planets], resolved_planets)
-    θ_resolved = merge(θ_resolved, (;planets=resolved_planets_nt))
-    return ComponentVector(θ_resolved)
+    θ_resolved_complete = merge(θ_resolved, (;planets=resolved_planets_nt))
+    return ComponentVector(θ_resolved_complete)
+    # return θ_resolved_complete
 end
-# function resolve_deterministic!(θ_resolved, system::System{<:Deterministic}, θ)
-#     for (key, func) in pairs(system.deterministic.variables)
-#         val = func(θ)
-#         θ_resolved[key] = val 
-#     end
-#     return θ_resolved
+
+# # _ntkeys(nt::Type{NamedTuple{TKeys,<:Any}}) where TKeys = TKeys
+
+# _determinekeysvals(::Type{Deterministic{NamedTuple{Keys,Vals}}}) where {Keys,Vals} = Keys, Vals
+
+# function _planetkeysvals(::Type{NamedTuple{Keys,Vals}}) where {Keys,Vals} 
+#     Keys, Vals, findfirst(==(:planets), Keys)
 # end
 
-# # Version for filling out chains instead of a single set of parameters
-# function resolve_deterministic_array(system::System{<:Deterministic}, θs)
-#     θ_resolved = NamedTuple()
-#     # s = length(getproperty(θs, first(keys(θs))))
-#     θ0 = sample_priors(system)
-#     s = length(θ0)
-#     for (key, func) in pairs(system.deterministic.variables)
-#         vals = map(eachrow(reshape(θs, :, s))) do row
-#             θ_cv = ComponentArray(row, getaxes(θ0))
-#             θ_res = DirectDetections.resolve_deterministic(system, θ_cv)
-#             func(θ_res)
+# @generated function resolve_deterministic(system::System{TDetermine}, θ) where TDetermine
+
+
+#     if TDetermine != Nothing
+#         keys, funcs = _determinekeysvals(TDetermine)
+        
+#         body = Expr[]
+#         for key in keys
+#             # ex = :($key = system.deterministic.variables.$key(θ))
+#             ex = :(system.deterministic.variables.$key(θ))
+#             push!(body, ex)
 #         end
-#         θ_resolved = merge(θ_resolved, NamedTuple{(key,)}((vals,)))
+
+#         # Now need to expand out each planet as well.
+#         # Need to pass in (planet, θ_sys, θ_pl)
+#         planets = 
+
+#         NTType = NamedTuple{keys}
+#         ex = :(
+#             merge(
+#                 $NTType($(body...)),
+#                 NamedTuple(θ),
+#                 planets = 
+#             )
+#         )
+
+#         return ex
+
 #     end
-#     θ_resolved = merge(θ_resolved,NamedTuple(θs))
-    
-#     resolved_planets = map(zip(θ_resolved.planets, system.planets)) do (θ_planet, planet_model)
-#         θ_planet_resolved = NamedTuple(θ_planet)
+#     return θ
+#     # resolved_planets = map(zip(θ.planets, system.planets)) do (θ_planet, planet_model)
+#     # resolved_planets = map(keys(system.planets)) do key
+#     #     θ_planet = θ.planets[key]
+#     #     planet_model = system.planets[key]
 
-
-#         for (key, func) in pairs(planet_model.deterministic.variables)
-#             vals = map(eachrow(reshape(θs, :, s))) do row
-#                 θ_cv = ComponentArray(row, getaxes(θ0))
-#                 θ_res = DirectDetections.resolve_deterministic(system, θ_cv)
-#                 func(θ_res)
-#             end
-#             θ_resolved = merge(θ_resolved, NamedTuple{(key,)}((vals,)))
-#         end
-
-
-#         for (key, func) in pairs(planet_model.deterministic.variables)
-#             val = func(θ_resolved, θ_planet)
-#             θ_planet_resolved = merge(θ_planet_resolved, NamedTuple{(key,), Tuple{eltype(θ)}}(val))
-#         end
-#         return θ_planet_resolved
-#     end
-#     θ_resolved = merge(θ_resolved, (;planets=resolved_planets))
-
-#     return ComponentVector(θ_resolved)
-# end
-
-
-# # Version for filling out chains instead of a single set of parameters
-# function resolve_deterministic_chains(system::System{<:Deterministic}, θs)
-#     θ_resolved = NamedTuple()
-#     # s = length(getproperty(θs, first(keys(θs))))
-#     θ0 = sample_priors(system)
-
-#     first_var = Symbol(first(labels(θ0)))
-
-#     # Resolve each variable one at a time, appending the column to the chain structure.
-#     for (key, func) in pairs(system.deterministic.variables)
-
-#         # Go through each sample index
-#         vals = map(eachindex(θs[first_var])) do i
-#         # vals = map(getdata(θs)) do row
-#             row = getindex.(getdata(θs), i)
-
-#             θ_cv = ComponentArray(row, getaxes(θ0))
-#             θ_res = DirectDetections.resolve_deterministic(system, θ_cv)
-#             func(θ_res)
-
-#         end
-#         θ_resolved = merge(θ_resolved, NamedTuple{(key,)}((vals,)))
-#     end
-#     θ_resolved = merge(θ_resolved,NamedTuple(θs))
-#     return ComponentVector(θ_resolved)
+#     #     θ_planet_resolved = NamedTuple()
+#     #     if !isnothing(planet_model.deterministic)
+#     #         for (key, func) in pairs(planet_model.deterministic.variables)
+#     #             val = func(θ_resolved, θ_planet)
+#     #             θ_planet_resolved = merge(θ_planet_resolved, NamedTuple{(key,), Tuple{eltype(θ)}}(val))
+#     #         end
+#     #     end
+#     #     return merge(θ_planet_resolved, NamedTuple(θ_planet))
+#     # end
+#     # resolved_planets_nt = namedtuple([pl.name for pl in system.planets], resolved_planets)
+#     # θ_resolved = merge(θ_resolved, (;planets=resolved_planets_nt))
+#     # return ComponentVector(θ)
 # end
 
 
-## Okay, still worming out big problems with resolveing the determistic variables
-# into the chains at the end of the sampling. I got this working for what gets
-# returned by sample_priors(sys, N) but not what gets returns by hmc... What's the difference?
-# Must be relying on internal storage
-# Priors is one big array.
-# chains are vector of "vectors" (not exactly, but close)
+@generated function resolve_deterministic(planet::Planet{TDetermine}, θ_sys, θ_pl) where TDetermine
+    if TDetermine != Nothing
+        keys, funcs = _determinekeysvals(TDetermine)
+        body = Expr[]
+        for key in keys
+            ex = :(planet.deterministic.variables.$key(θ_sys,θ_pl))
+            push!(body, ex)
+        end
+        NTType = NamedTuple{keys}
+        ex = :(
+            merge($NTType($(body...)), NamedTuple(θ))
+        )
+        return ex
+    end
+    return θ
+end
+
+
+function make_resolve_deterministic(planet::Planet)
+
+    body = Expr[]
+
+    dkeys = keys(planet.deterministic.variables)
+    funcs = values(planet.deterministic.variables)
+    for (key,func) in zip(dkeys, funcs)
+        ex = :($key = $func(θ_sys, θ_pl))
+        push!(body, ex)
+    end
+
+    ex = :(function (θ_sys, θ_pl)
+        return merge(
+            (;$(body...)),
+            NamedTuple(θ_pl)
+        )
+    end)
+
+    ln_prior = @RuntimeGeneratedFunction(ex)
+    return ln_prior
+end
+function make_resolve_deterministic(system::System)
+
+    body = Expr[]
+
+    dkeys = keys(system.deterministic.variables)
+    funcs = values(system.deterministic.variables)
+    for (key,func) in zip(dkeys, funcs)
+        ex = :($key = $func(θ))
+        push!(body, ex)
+    end
+
+    ex = :(function (θ)
+        return merge(
+            (;$(body...)),
+            NamedTuple(θ)
+        )
+    end)
+
+    ln_prior = @RuntimeGeneratedFunction(ex)
+    return ln_prior
+end
+
+
 
 
 # Instead of just calling mean for the distributions, we sample and then take the mean of the data.
@@ -468,17 +596,8 @@ function hmc(
     ℓπ = let ax=ax, system=system
         function (θ)
             θ_cv = ComponentArray(θ, ax)
-
             θ_res = resolve_deterministic(system, θ_cv, )
-
-            # Correct fixed parameters
-            # θ_cv_merged = θ_cv .* notfixed .+ initial_θ_0 .* fixed
-
-            # TODO: verify that this is still a static array
-            # ll = ln_post(θ_cv_merged, system)
-
             ll = ln_post(θ_res, system)
-
             return ll
         end
     end
