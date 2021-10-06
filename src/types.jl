@@ -20,7 +20,7 @@ function Astrometry(observations::NamedTuple...)
 end
 Base.show(io::IO, ::MIME"text/plain", astrom::Astrometry) = print(
     io, """
-        $(typeof(astrom))
+        Astrometry[$(length(astrom.epoch))]
         epoch   \tra\tdec\tσ_ra\tσ_dec
         ────────────────────────────────────────────────
         $(join(["$(round(astrom.epoch[i],digits=2))\t$(round(astrom.ra[i],digits=2))\t$(round(astrom.dec[i],digits=2))\t$(round(astrom.σ_ra[i],digits=2))\t$(round(astrom.σ_dec[i],digits=2))\t"
@@ -58,7 +58,7 @@ end
 
 Base.show(io::IO, ::MIME"text/plain", pma::ProperMotionAnom) = print(
     io, """
-        $(typeof(pma))
+        ProperMotionAnom[$(length(pma.ra_epoch))]
         ra_epoch   \tdec_epoch   \tpm_ra\tpm_dec\tσ_pm_ra\tσ_pm_dec
         ──────────────────────────────────────────────────────────────────
         $(join(["$(round(pma.ra_epoch[i],digits=2)) \t$(round(pma.dec_epoch[i],digits=2))   \t$(round(pma.pm_ra[i],digits=2))\t$(round(pma.pm_dec[i],digits=2))\t$(round(pma.σ_pm_ra[i],digits=2))\t$(round(pma.σ_pm_dec[i],digits=2))\t"
@@ -95,7 +95,7 @@ function Images(observations::NamedTuple...)
 end
 Base.show(io::IO, ::MIME"text/plain", is::Images) = print(
     io, """
-        $(typeof(is))
+        Images[$(length(is.images))]
         epoch\tband\tplatescale
         ───────────────────────────
         $(join(["$(round(is.epoch[i],digits=2))\t$(is.band[i])\t$(round(is.platescale[i],digits=2))" for i in eachindex(is.epoch)],"\n"))
@@ -105,26 +105,25 @@ Base.show(io::IO, ::MIME"text/plain", is::Images) = print(
 
 struct Priors{T}
     priors::T
-    ln_prior::Function
 end
 export Priors 
-function Priors(;priors...)
-    priors_cv = ComponentVector(priors)
-    ln_prior = make_ln_prior(priors_cv)
+# function Priors(;priors...)
+#     ln_prior = make_ln_prior(priors)
 
-    # Compile and test result
-    𝓁prior = ln_prior(rand.(priors_cv))
-    if !isfinite(𝓁prior)
-        error("Test of ln_prior calculation returned $𝓁prior")
-    end
-    return Priors{typeof(priors_cv)}(
-        priors_cv,
-        ln_prior,
-    )
-end
+#     # Compile and test result
+#     𝓁prior = ln_prior(rand.(priors_cv))
+#     if !isfinite(𝓁prior)
+#         error("Test of ln_prior calculation returned $𝓁prior")
+#     end
+#     return Priors{typeof(priors)}(
+#         priors,
+#         ln_prior,
+#     )
+# end
+Priors(;priors...) = Priors{typeof(priors)}(priors)
 
 function Base.show(io::IO, mime::MIME"text/plain", priors::Priors)
-    print(io, "Priors:")
+    println(io, "Priors:")
     for (k,prior) in zip(keys(priors.priors), priors.priors)
         print(io, "\t- ", k, ":\t")
         show(io, mime, prior)
@@ -135,7 +134,8 @@ end
 struct Deterministic{T}
     variables::T
 end
-export Deterministic 
+const Derived = Deterministic
+export Deterministic, Derived
 function Deterministic(;variables...)
     # Basically just wrap a named tuple
     return Deterministic(
@@ -143,7 +143,7 @@ function Deterministic(;variables...)
     )
 end
 function Base.show(io::IO, mime::MIME"text/plain", det::Deterministic)
-    print(io, "Deterministic:")
+    println(io, "Deterministic:")
     for k in keys(det.variables)
         print(io, "\t- ", k, "\n")
     end
@@ -160,15 +160,13 @@ export Planet
 Planet(det::Deterministic,priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(det,priors, astrometry, name)
 Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(nothing,priors, astrometry, name)
 function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet)
-    print(io, typeof(p), " model $(p.name)")
-    if hasproperty(p, :astrometry) && !isnothing(p.astrometry)
-        print(io, " with associated astrometry")
-    else
-        print(io, " with no associated astrometry")
-    end
-    print(io, "\n")
+    print(io, "Planet $(p.name)\n")
     show(io, mime, p.deterministic)
     show(io, mime, p.priors)
+    if hasproperty(p, :astrometry) && !isnothing(p.astrometry)
+        show(io, mime, p.astrometry)
+    end
+    print(io, "\n")
     println(io)
 end
 
@@ -236,9 +234,7 @@ struct System{TDet<:Union{Deterministic,Nothing}, TPriors<:Priors,TPMA<:Union{Pr
     end
 end
 export System
-Base.broadcastable(sys::System) = Ref(sys)
 # Argument standardization:
-
 Trest = Union{ProperMotionAnom,Images,Planet}
 System(priors::Priors, args...; kwargs...) =
     System(nothing, priors, args...,; kwargs...)
@@ -264,32 +260,20 @@ System(det::Union{Deterministic,Nothing}, priors::Union{Priors,Nothing}, images:
 
 
 function Base.show(io::IO, mime::MIME"text/plain", sys::System)
-    # print(io, "System model with $(length(sys.planets)) planets:\n")
-    print(io, "System model $(sys.name):\n")
+    print(io, "System model $(sys.name)\n")
     show(io, mime, sys.priors)
-    print(io, "with $(length(sys.planets)) planets:\n")
     for planet in sys.planets
-        print(io, "- ")
         show(io, mime, planet)
     end
     if !isnothing(sys.propermotionanom)
-        print(io, "- associated proper motion anomaly:")
         show(io, mime, sys.propermotionanom)
     end
     if !isnothing(sys.images)
-        print(io, "- associated images\n")
         show(io, mime, sys.images)
     end
     if !isnothing(sys.models)
-        print(io, "- atmosphere models: ")
         show(io, mime, keys(sys.models))
     end
-
-    # if T == Nothing
-    #     print(io, " with no associated astrometry")
-    # else
-    #     print(io, " with associated astrometry")
-    # end
     println(io)
 end
 

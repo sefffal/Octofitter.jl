@@ -237,13 +237,13 @@ function init_plots()
                 titles=["GAIA EDR3", "Hipparcos",]
                 system_pma = system.propermotionanom
                 pma_plots = map(sortperm(system_pma.ra_epoch)) do i
-                    vx = zeros(length(chain))
-                    vy = zeros(length(chain))
+                    vx = zeros(prod(size(chain,[1,3])))
+                    vy = zeros(prod(size(chain,[1,3])))
                     for j in keys(system.planets)
                         ii = rand(eachindex(chain), N)
-                        elements = construct_elements(chain, j, 1:size(chain,1))
+                        elements = construct_elements(chain, j, 1:prod(size(chain,[1,3])))
                         # mass = [sample.planets[j].mass for sample in chain]
-                        mass = chain["$j[mass]"]
+                        mass = reshape(chain["$j[mass]"],:)
                         vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], getproperty.(elements, :μ), mass),1)
                         vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], getproperty.(elements, :μ), mass),2)
                     end
