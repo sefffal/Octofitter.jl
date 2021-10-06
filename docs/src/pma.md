@@ -100,12 +100,13 @@ Ssample from our model as usual:
 ```julia
 chain, stats = DirectDetections.hmc(
     HD91312,
-    adaptation =   6_000,
-    iterations =  50_000,
+    adaptation =  10_000,
+    iterations = 100_000,
     tree_depth =     12,
 );
 ```
 
+This took 35s on an older laptop, single core.
 ## Analysis
 
 ### Mass

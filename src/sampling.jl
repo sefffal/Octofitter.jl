@@ -490,12 +490,11 @@ function select_cv(cv, mask)
     ax[1][mask]
 end
 
-
 # using Zygote
 # https://github.com/FluxML/Zygote.jl/issues/570
 # @Zygote.adjoint (T::Type{<:SArray})(x::Number...) = T(x...), y->(nothing, y...)
 function hmc(
-    system::System, target_accept=0.85;
+    system::System, target_accept=0.9;
     adaptation,
     iterations,
     tree_depth=10,
@@ -577,9 +576,9 @@ function hmc(
     # adaptor = MassMatrixAdaptor(metric)
 
     logger = SimpleLogger(stdout, Logging.Error)
+    start_time = time()
     samples, stat = with_logger(logger) do
         drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation) || include_adapatation
-        @show drop_warmup
         sample(
             hamiltonian,
             proposal,
@@ -591,11 +590,16 @@ function hmc(
             drop_warmup=drop_warmup
         )
     end
+    stop_time = time()
     @info "Resolving deterministic variables"
     chain_res = arr2nt.(samples)
     @info "Constructing chains"
     mcmcchain = DirectDetections.result2mcmcchain(system, chain_res)
-    return mcmcchain, stat
+    mcmcchain_with_info = MCMCChains.setinfo(
+        mcmcchain,
+        (;start_time, stop_time)
+    )
+    return mcmcchain_with_info, stat
 end
 
 
