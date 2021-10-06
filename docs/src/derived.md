@@ -11,7 +11,7 @@ Derived variables allow you to mark certain properties as constants, reparameter
 Derived variables for the system as a whole can be created as follows:
 
 ```julia
-@named HD82134 = System(
+@named HD12345 = System(
     Derived(
         μ = sys -> 1.0
     ),
@@ -24,7 +24,7 @@ In this case, instead of including `μ` as a variable in the model, we define it
 
 In the following case, let's define `μ` as being calculated based on another variable in the model. This is how you can do reparameterizations in DirectDetections.jl
 ```julia
-@named HD82134 = System(
+@named HD12345 = System(
     Derived(
         μ = sys -> 10^sys.logμ
     ),
@@ -44,7 +44,7 @@ Derived variables for an individual planet are similar, but have access to both 
 
 Here is an example of reparameterizing `e` and `a` on a planet to be logarithmic quantities:
 ```julia
-@named B = DirectDetections.Planet(
+@named b = DirectDetections.Planet(
     Deterministic(
         e = (sys, pl) -> 10^pl.loge,
         a = (sys, pl) -> 10^pl.loga,
@@ -67,7 +67,7 @@ Planets can have Derived variables that are calculated from variables defined on
 This makes it easy to, for example, create a system of two planets that are co-planar.
 
 ```julia
-@named B = DirectDetections.Planet(
+@named b = DirectDetections.Planet(
     Deterministic(
         i = (sys, pl) -> sys.i,
         Ω = (sys, pl) -> sys.Ω,
@@ -79,7 +79,7 @@ This makes it easy to, for example, create a system of two planets that are co-p
         τ = Normal(0.5, 1),
     ),
 )
-@named C = DirectDetections.Planet(
+@named c = DirectDetections.Planet(
     Deterministic(
         i = (sys, pl) -> sys.i,
         Ω = (sys, pl) -> sys.Ω,
@@ -97,7 +97,8 @@ This makes it easy to, for example, create a system of two planets that are co-p
         μ = Normal(45., 0.02),
         i = Normal(0.1, deg2rad(30.)),
         Ω = Normal(0.0, deg2rad(30.)),
-    )
+    ),
+    b, c
 )
 ```
 Notice how `i` and `Ω` are defined as variables on the System. The two planets B & C omit those two variables from their priors, and instead just take their values from the System.
