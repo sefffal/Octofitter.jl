@@ -1,3 +1,4 @@
+using MCMCChains: MCMCChains
 using MCMCChains: Chains
 
 
