@@ -223,9 +223,9 @@ struct System{TDet<:Union{Deterministic,Nothing}, TPriors<:Priors,TPMA<:Union{Pr
         models=nothing,
         name
     )
-        if length(planets) > 1 && !all(==(keys(first(planets).priors.priors)), [keys(planet.priors.priors) for planet in planets])
-            error("All planets in the system model must have priors for the same properties defined")
-        end
+        #if length(planets) > 1 && !all(==(keys(first(planets).priors.priors)), [keys(planet.priors.priors) for planet in planets])
+        #    error("All planets in the system model must have priors for the same properties defined")
+        #end
         planets_nt = namedtuple(
             getproperty.(planets, :name),
             planets
