@@ -229,47 +229,184 @@ end
 # It uses meta-programming to unroll the loop over the different
 # prior types. Note that this also ensures the priors can't be modified
 # after building the ln_prior function.
-function make_ln_prior(θ)
+# function make_ln_prior(θ)
 
-    body = Expr[]
+#     body = Expr[]
 
-    for i in eachindex(θ)
-        pd = θ[i]
-        key = keys(θ)[i]
-        ex = :(lp += $logpdf($pd, params.$key))
-        push!(body, ex)
+#     for i in eachindex(θ)
+#         pd = θ[i]
+#         key = keys(θ)[i]
+#         ex = :(lp += $logpdf($pd, params.$key))
+#         push!(body, ex)
+#     end
+
+#     ex = :(function (params)
+#         lp = zero(eltype(params))
+#         $(body...)
+#         return lp
+#     end)
+
+#     ln_prior = @RuntimeGeneratedFunction(ex)
+#     return ln_prior
+# end
+
+
+function make_ln_prior(system::System)
+
+    i = 0
+    prior_evaluations = Expr[]
+
+    # System priors
+    for prior_distribution in values(system.priors.priors)
+        i += 1
+        ex = :(
+            lp += $logpdf($prior_distribution, arr[$i])
+        )
+        push!(prior_evaluations,ex)
     end
 
-    ex = :(function (params)
-        lp = zero(eltype(params))
-        $(body...)
+    # Planet priors
+    for planet in system.planets
+        for prior_distribution in values(planet.priors.priors)
+            i += 1
+            ex = :(
+                lp += $logpdf($prior_distribution, arr[$i])
+            )
+            push!(prior_evaluations,ex)
+        end
+    end
+
+    # Here is the function we return.
+    # It maps an array of parameters into our nested named tuple structure
+    return @RuntimeGeneratedFunction(:(function (arr)
+        lp = zero(first(arr))
+        # Add contributions from planet priors
+        $(prior_evaluations...)
         return lp
-    end)
-
-    ln_prior = @RuntimeGeneratedFunction(ex)
-    return ln_prior
+    end))
 end
 
-function ln_prior(θ, system::System)
-    lp = 0.0
-    lp += system.priors.ln_prior(θ)
-    # for (planet, θ_planet) in zip(system.planets, θ.planets)
-    # for (planet, θ_planet) in zip(Tuple(system.planets), Tuple(θ.planets))
-    for key in keys(system.planets)
-        lp += system.planets[key].priors.ln_prior(θ.planets[key])
-    end
 
-    return lp
-end
+# function ln_prior(θ, system::System)
+#     lp = 0.0
+#     lp += system.priors.ln_prior(θ)
+#     # for (planet, θ_planet) in zip(system.planets, θ.planets)
+#     # for (planet, θ_planet) in zip(Tuple(system.planets), Tuple(θ.planets))
+#     for key in keys(system.planets)
+#         lp += system.planets[key].priors.ln_prior(θ.planets[key])
+#     end
+
+#     return lp
+# end
 
 function ln_post(θ, system::System)
-    lp = ln_prior(θ, system) + ln_like(θ, system)
-    
-    # if !isfinite(lp)
-    #     println("nonfinite log posterior: $θ")
-
-    #     error()
-    # end
-    return lp
+    return ln_prior(θ, system) + ln_like(θ, system)
 end
+
+
+"""
+    make_arr2nt(system::System)
+
+Returns a function that maps an array of parameter values (e.g. sampled from priors,
+sampled from posterior, dual numbers, etc.) to a nested named tuple structure suitable
+for passing into `ln_like`.
+In the process, this evaluates all Deterministic variables defined in the model.
+
+Example:
+```julia
+julia> arr2nt = DirectDetections.make_arr2nt(system);
+julia> params = DirectDetections.sample_priors(system)
+9-element Vector{Float64}:
+  1.581678216418196
+ 29.019567489624023
+  1.805551918844831
+  4.527607604709967
+ -2.4432825071288837
+ 10.165695048003027
+ -2.8667829383306063
+  0.0006589349005787781
+ -1.2600092725864576
+julia> arr2nt(params)
+(μ = 1.581678216418196, plx = 29.019567489624023, planets = (B = (τ = 1.805551918844831, ω = 4.527607604709967, i = -2.4432825071288837, Ω = 10.165695048003027, loge = -2.8667829383306063, loga = 0.0006589349005787781, logm = -1.2600092725864576, e = 0.001358992505357737, a = 1.0015184052910453, mass = 0.054952914078000334),))
+```
+"""
+function make_arr2nt(system::System)
+
+    # Roll flat vector of variables e.g. drawn from priors or posterior
+    # into a nested NamedTuple structure for e.g. ln_like
+    i = 0
+    body_sys_priors = Expr[]
+
+    # Priors
+    for key in keys(system.priors.priors)
+        i += 1
+        ex = :(
+            $key = arr[$i]
+        )
+        push!(body_sys_priors,ex)
+    end
+
+    # Deterministic variables
+    body_sys_determ = Expr[]
+    if !isnothing(system.deterministic)
+        for (key,func) in zip(keys(system.deterministic.variables), values(system.deterministic.variables))
+            ex = :(
+                $key = $func(sys)
+            )
+            push!(body_sys_determ,ex)
+        end
+    end
+
+    # Planets: priors & deterministic variables
+    body_planets = Expr[]
+    for planet in system.planets
+        
+        # Priors
+        body_planet_priors = Expr[]
+        for key in keys(planet.priors.priors)
+            i += 1
+            ex = :(
+                $key = arr[$i]
+            )
+            push!(body_planet_priors,ex)
+        end
+
+        # Deterministic
+        body_planet_determ = Expr[]
+        for (key,func) in zip(keys(planet.deterministic.variables), values(planet.deterministic.variables))
+            ex = :(
+                $key = $func(sys_res, (;$(body_planet_priors...)))
+            )
+            push!(body_planet_determ,ex)
+        end
+
+        ex = :(
+            $(planet.name) = (;
+                $(body_planet_priors...),
+                $(body_planet_determ...)
+            )
+        )
+        push!(body_planets,ex)
+    end
+
+    # Here is the function we return.
+    # It maps an array of parameters into our nested named tuple structure
+    func = @RuntimeGeneratedFunction(:(function (arr)
+        # Expand system variables from priors
+        sys = (;$(body_sys_priors...))
+        # Resolve deterministic system variables
+        sys_res = (;
+            sys...,
+            $(body_sys_determ...)
+        )
+        # Get resolved planets
+        pln = (;$(body_planets...))
+        # Merge planets into resolved system
+        sys_res_pln = (;sys..., planets=pln)
+        return sys_res_pln
+    end))
+
+    return func
+end
+
 

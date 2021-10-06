@@ -2,7 +2,7 @@ using MCMCChains: Chains
 
 
 export sample_priors
-sample_priors(planet::Planet) = rand.(planet.priors.priors)
+sample_priors(planet::Planet) = rand.(ComponentArray(planet.priors.priors))
 # sample_priors(planet::Planet,N) = rand.(planet.priors.priors,N)
 sample_priors(planet::Planet,N) = [sample_priors(planet) for _ in 1:N]
 
@@ -48,14 +48,14 @@ sample_priors(planet::Planet,N) = [sample_priors(planet) for _ in 1:N]
 
 function sample_priors(system::System)
     sampled = ComponentVector(
-        merge(NamedTuple(rand.(system.priors.priors)),
+        merge(NamedTuple(rand.(ComponentArray(system.priors.priors))),
         # (;planets=[sample_priors(planet) for planet in system.planets])
         (;planets=namedtuple(collect(keys(system.planets)), [
             ComponentArray(NamedTuple([k=>v for (k,v) in pairs(NamedTuple(sample_priors(planet)))]))
             for planet in system.planets
         ]))
     ))
-    return sampled
+    return getdata(sampled)
 end
 # function sample_priors(system::System,N)
 #     sampled = ComponentVector(
@@ -80,83 +80,6 @@ sample_priors(system::System,N) = [sample_priors(system) for _ in 1:N]
 # They do make the API quite nice but we're using them in fewer and fewer spots.
 # They are basically an implementation detail at this point.
 # We could write our own function to go from input array to named tuple?
-
-
-# _determinekeysvals(::Type{Deterministic{NamedTuple{Keys,Vals}}}) where {Keys,Vals} = Keys, Vals
-# _determinekeysvals(::Type{Priors{NamedTuple{Keys,Vals}}}) where {Keys,Vals} = Keys, Vals
-# function array_to_nt(system::System) where {TDetermine, TPriors}
-
-#     i = 0
-#     body_sys_priors = Expr[]
-
-#     # Priors
-#     for key in keys(system.priors.priors)
-#         i += 1
-#         ex = :(
-#             $key = arr[$i]
-#         )
-#         push!(body_sys_priors,ex)
-#     end
-
-#     # Deterministic variables
-#     body_sys_determ = Expr[]
-#     for (key,func) in zip(keys(system.deterministic.variables), values(system.deterministic.variables))
-#         ex = :(
-#             $key = $func(sys)
-#         )
-#         push!(body_sys_determ,ex)
-#     end
-
-
-#     # TODO: Planets, priors & deterministic
-#     i += 1
-#     body_planets = Expr[]
-#     for planet in system.planets
-#         ex = :(
-#             $key = $func(sys)
-#         )
-#         push!(body_sys_determ,ex)
-#     end
-
-#     ex = @RuntimeGeneratedFunction(:(function (arr)
-#         sys = (;$(body_sys_priors...))
-#         sys_res = (;
-#             sys...,
-#             $(body_sys_determ...)
-#         )
-
-#         pln = (;$(body_planets))
-
-#     end))
-
-#     # if TDetermine != Nothing
-#     #     keys, funcs = _determinekeysvals(TDetermine)
-        
-#     #     body = Expr[]
-#     #     for key in keys
-#     #         # ex = :($key = system.deterministic.variables.$key(θ))
-#     #         ex = :(system.deterministic.variables.$key(θ))
-#     #         push!(body, ex)
-#     #     end
-
-#     #     # Now need to expand out each planet as well.
-#     #     # Need to pass in (planet, θ_sys, θ_pl)
-#     #     planets = 
-
-#     #     NTType = NamedTuple{keys}
-#     #     ex = :(
-#     #         merge(
-#     #             $NTType($(body...)),
-#     #             NamedTuple(θ),
-#     #             planets = 
-#     #         )
-#     #     )
-
-#     #     return ex
-
-#     # end
-# end
-
 
 
 
@@ -352,19 +275,15 @@ function guess_starting_position(system, N=500_000)
     @info "Guessing a good starting location by sampling from priors" N
     # TODO: this shouldn't have to allocate anything, we can just loop keeping the best.
     θ = sample_priors(system, N)
-    θr = resolve_deterministic.(system, θ)
+    arr2nt = DirectDetections.make_arr2nt(system) 
+    θr = arr2nt.(θ)
 
-    # ax = getaxes(θ0)
-    # axr = getaxes(θ0r)
-
-    # l = length(θ0)
-    # lr = length(θ0r)
-    # Ar = reshape(getdata(θr), :, lr)
-    # posts = zeros(size(Ar,1))
     posts = zeros(N)
+    ln_prior = make_ln_prior(system)
+    arr2nt = DirectDetections.make_arr2nt(system) 
     Threads.@threads for i in eachindex(posts)
-        # posts[i] = DirectDetections.ln_post(ComponentVector(view(A,i,:), ax), system)
-        posts[i] = DirectDetections.ln_post(θr[i], system)
+        θ_res = arr2nt(θ[i])
+        posts[i] = ln_prior(θ[i]) + ln_like(θ_res, system)
     end
     # posts = map(eachrow(A)) do c
     #     DirectDetections.ln_post(ComponentVector(c, ax), system)
@@ -372,33 +291,33 @@ function guess_starting_position(system, N=500_000)
     mapv,mapi = findmax(posts)
     best = θ[mapi]
     
-    @info "Found good location" mapv best=NamedTuple(best)
+    # @info "Found good location" mapv best=NamedTuple(best)
 
     return best
 end
 
 
-using Optim
-function find_starting_position(system)
+# using Optim
+# function find_starting_position(system)
 
-    initial = guess_starting_position(system, 10_000)
+#     initial = guess_starting_position(system, 10_000)
 
-    ax = getaxes(initial)
-    function objective(θ_dat)
-        θ = ComponentArray(θ_dat, ax)
-        return -DirectDetections.ln_post(θ, system)
-    end
+#     ax = getaxes(initial)
+#     function objective(θ_dat)
+#         θ = ComponentArray(θ_dat, ax)
+#         return -DirectDetections.ln_post(θ, system)
+#     end
     
-    result = optimize(objective, getdata(initial), GradientDescent(), Optim.Options(show_trace=true, show_every=1000, iterations=100_000), autodiff=:forward)
+#     result = optimize(objective, getdata(initial), GradientDescent(), Optim.Options(show_trace=true, show_every=1000, iterations=100_000), autodiff=:forward)
 
-    display(result)
+#     display(result)
 
-    best = ComponentArray(Optim.minimizer(result), ax)
+#     best = ComponentArray(Optim.minimizer(result), ax)
     
-    @info "Found good location" a=getproperty.(best.planets, :a)
+#     @info "Found good location" a=getproperty.(best.planets, :a)
 
-    return best
-end
+#     return best
+# end
 
 
 
@@ -589,15 +508,17 @@ function hmc(
     initial_θ_0 = sample_priors(system)
     D = length(initial_θ_0)
 
+    ln_prior = make_ln_prior(system)
+    arr2nt = DirectDetections.make_arr2nt(system) 
+
     # AdvancedHMC doesn't play well with component arrays by default, so we pass in just the underlying data
     # array and reconstruct the component array on each invocation (this get's compiled out, no perf affects)
     ax = getaxes(initial_θ_0)
     # Capture the axis into the closure for performance via the let binding.
-    ℓπ = let ax=ax, system=system
+    ℓπ = let ax=ax, system=system, ln_prior=ln_prior, arr2nt=arr2nt
         function (θ)
-            θ_cv = ComponentArray(θ, ax)
-            θ_res = resolve_deterministic(system, θ_cv, )
-            ll = ln_post(θ_res, system)
+            θ_res = arr2nt(θ)
+            ll = ln_prior(θ) + ln_like(θ_res, system)
             return ll
         end
     end
@@ -657,6 +578,8 @@ function hmc(
 
     logger = SimpleLogger(stdout, Logging.Error)
     samples, stat = with_logger(logger) do
+        drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation) || include_adapatation
+        @show drop_warmup
         sample(
             hamiltonian,
             proposal,
@@ -665,24 +588,13 @@ function hmc(
             adaptor,
             adaptation;
             progress=true,
-            drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation) || include_adapatation
+            drop_warmup=drop_warmup
         )
     end
-
-    # sample_grid = reduce(hcat, samples);
-    # chain = ComponentArray(collect(eachrow(sample_grid)), ax)
-
-    chain = map(samples) do sample
-        ComponentArray(sample, ax)
-    end
-
-    # Resolve any computed properties so that the chains contain sampled variables, and deterministic variables.
-    # This is to ease analysis. If it becomes too slow down the line, we could put this behind a flag.
-    # chain_res = resolve_deterministic_chains(system, chain)
-    chain_res = resolve_deterministic.(system, chain)
-
+    @info "Resolving deterministic variables"
+    chain_res = arr2nt.(samples)
+    @info "Constructing chains"
     mcmcchain = DirectDetections.result2mcmcchain(system, chain_res)
-        
     return mcmcchain, stat
 end
 
@@ -691,7 +603,8 @@ end
 Convert a vector of component arrays returned from sampling into an MCMCChains.Chains
 object.
 """
-function result2mcmcchain(system, chains_in)
+function result2mcmcchain(system, chains_in_0)
+    chains_in = ComponentArray.(chains_in_0)
     # `system` not currently used, but a more efficient/robust mapping in future might require it.
 
     # There is a specific column name convention used by MCMCChains to indicate
