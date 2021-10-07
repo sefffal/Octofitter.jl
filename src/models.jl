@@ -267,11 +267,21 @@ function make_ln_prior(system::System)
 
     # Planet priors
     for planet in system.planets
-        for prior_distribution in values(planet.priors.priors)
+        # for prior_distribution in values(planet.priors.priors)
+        for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
             i += 1
-            ex = :(
-                lp += $logpdf($prior_distribution, arr[$i])
-            )
+            # Work around for Beta distributions.
+            # Outside of the range [0,1] logpdf returns -Inf.
+            # This works fine, but AutoDiff outside this range causes a DomainError.
+            if typeof(prior_distribution) <: Beta
+                ex = :(
+                    lp += 0 <= arr[$i] < 1 ? $logpdf($prior_distribution, arr[$i]) : -Inf
+                )
+            else
+                ex = :(
+                    lp += $logpdf($prior_distribution, arr[$i])
+                )
+            end
             push!(prior_evaluations,ex)
         end
     end
