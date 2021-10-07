@@ -3,41 +3,21 @@
 This page describes the format of the Monte Carlo chains created by DirectDetections.jl
 
 
-The output of the samplers in DirectDetections is a vector of chains. For example:
+The output of the samplers in DirectDetections is an MCMCChains.Chains object
+
+A column will be present for each variable in your model, both defined in the Priors blocks or as Derived variables. 
+
+Variables defined for the System as a whole can be accessed directly. For example:
 ```julia
-chains, stats = DirectDetections.hmc(system, numwalkers=5, ...)
+chain["μ"]
 ```
+This will return an array of μ values from the posterior. The format is a matrix of N-samples by N-walkers.
 
-In this example, 5 chains will be returned. `chains[1]` accesses the first chain, `chains[2]` the second, and so on.
-
-
-Each chain is a ComponentArray from the [ComponentArrays.jl](https://jonniedie.github.io/ComponentArrays.jl/stable/) package. The stucture follows the definition of your model.
-
-You can access them by name or index as follows.
-In all of these cases, you will get an array of samples from the posterior. If you used MCMC via `DirectDetections.mcmc` this will be a matrix of N samples × N walkers, unless `squash_=true` was passed to the sampler. For HMC via `DirectDetections.hmc`, it will be a vector.
-
-## Properties of the System
-You can access parameters belonging to the system via:
+Variables defined for an individual Planet are grouped according to the standard MCMCChains format. For example:
 ```julia
-chains[1].μ
-chains[1].plx
+chain["b[a]"]
 ```
+This returns an array of semi-major axis values (`a`) for the planet `b` sampled from the posterior.
 
-If you defined a co-planar model, or a model with hierarchical inclination, you can access inclination and longitude of the ascending node in a similar way:
-```julia
-chains[1].i
-chains[1].Ω
-```
-
-
-
-## Propeties of Planets
-You can access parameters belonging to planets by index via:
-```julia
-chains[1].planets[1].a
-chains[1].planets[1].i
-chains[1].planets[1].e
-# etc
-```
-
-Planets are indexed in the order they were passed to create the `System` model.
+## Diagnostics
+Printing the chains will display a number of useful summaries for each quantity, like the mean, 0.25, 0.5, and 0.75 quantiles, and convergence metrics. See MCMCChains documentation for more details.

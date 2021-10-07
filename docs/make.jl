@@ -10,6 +10,7 @@ makedocs(
             "Fit Astrometry" => "modelling.md",
             "Fit Images" => "images.md",
             "Fit Astrometric Acceleration" => "pma.md",
+            "Derived Variables" => "derived.md",
             "Connecting Mass with Photometry" => "mass-photometry.md",
             # "Multiple Planets" => "multi-planets.md",
             # "" => "multi-planets.md",
