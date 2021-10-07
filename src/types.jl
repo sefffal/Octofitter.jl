@@ -95,7 +95,7 @@ function Images(observations::NamedTuple...)
 end
 Base.show(io::IO, ::MIME"text/plain", is::Images) = print(
     io, """
-        Images[$(length(is.images))]
+        Images[$(length(is.image))]
         epoch\tband\tplatescale
         ───────────────────────────
         $(join(["$(round(is.epoch[i],digits=2))\t$(is.band[i])\t$(round(is.platescale[i],digits=2))" for i in eachindex(is.epoch)],"\n"))
