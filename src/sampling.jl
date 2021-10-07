@@ -298,29 +298,6 @@ function guess_starting_position(system, N=500_000)
 end
 
 
-# using Optim
-# function find_starting_position(system)
-
-#     initial = guess_starting_position(system, 10_000)
-
-#     ax = getaxes(initial)
-#     function objective(θ_dat)
-#         θ = ComponentArray(θ_dat, ax)
-#         return -DirectDetections.ln_post(θ, system)
-#     end
-    
-#     result = optimize(objective, getdata(initial), GradientDescent(), Optim.Options(show_trace=true, show_every=1000, iterations=100_000), autodiff=:forward)
-
-#     display(result)
-
-#     best = ComponentArray(Optim.minimizer(result), ax)
-    
-#     @info "Found good location" a=getproperty.(best.planets, :a)
-
-#     return best
-# end
-
-
 
 function get_ωΩτ(θ_system, θ_planet)
     if haskey(θ_planet, :ωΩ⁺)
@@ -511,11 +488,8 @@ function hmc(
     ln_prior = make_ln_prior(system)
     arr2nt = DirectDetections.make_arr2nt(system) 
 
-    # AdvancedHMC doesn't play well with component arrays by default, so we pass in just the underlying data
-    # array and reconstruct the component array on each invocation (this get's compiled out, no perf affects)
-    ax = getaxes(initial_θ_0)
-    # Capture the axis into the closure for performance via the let binding.
-    ℓπ = let ax=ax, system=system, ln_prior=ln_prior, arr2nt=arr2nt
+    # Capture these variables in a let binding to improve performance
+    ℓπ = let system=system, ln_prior=ln_prior, arr2nt=arr2nt
         function (θ)
             θ_res = arr2nt(θ)
             ll = ln_prior(θ) + ln_like(θ_res, system)
@@ -523,33 +497,15 @@ function hmc(
         end
     end
 
-    # ℓπ_grad = let ax=ax, system=system, initial_θ_0=initial_θ_0, fixed=fixed, notfixed = .! fixed
-    #     f(θ) = ln_post(θ, system)
-    #     function (θ)
-    #         θ_cv = ComponentArray(θ, ax)
-
-    #         # Correct fixed parameters
-    #         θ_cv_merged = θ_cv .* notfixed .+ initial_θ_0 .* fixed
-
-    #         # TODO: verify that this is still a static array
-    #         ll = ln_post(θ_cv_merged, system)
-
-    #         ll_grad = FiniteDiff.finite_difference_gradient(f,θ_cv_merged)
-
-    #         return ll, getdata(ll_grad)
-    #     end
-    # end
-
-
     if isnothing(initial_parameters)
-        initial_θ_cv = guess_starting_position(system,initial_samples)
+        initial_θ_mut = guess_starting_position(system,initial_samples)
     else
-        initial_θ_cv = initial_parameters
+        initial_θ_mut = initial_parameters
     end
 
     # Use a static comopnent array for efficiency
-    # initial_θ = ComponentVector{SVector{length(initial_θ_cv)}}(; NamedTuple(initial_θ_cv)...)
-    initial_θ = initial_θ_cv
+    # initial_θ = SVector{length(initial_θ_mut)}(initial_θ_mut)
+    initial_θ = initial_θ_mut
 
     # Define a Hamiltonian system
     metric = DenseEuclideanMetric(D)
@@ -598,7 +554,7 @@ function hmc(
     mcmcchain = DirectDetections.result2mcmcchain(system, chain_res)
     mcmcchain_with_info = MCMCChains.setinfo(
         mcmcchain,
-        (;start_time, stop_time)
+        (;start_time, stop_time, model=system)
     )
     return mcmcchain_with_info, stat
 end
