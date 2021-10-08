@@ -299,45 +299,6 @@ end
 
 
 
-function get_ωΩτ(θ_system, θ_planet)
-    if haskey(θ_planet, :ωΩ⁺)
-        
-        # Derivation:
-        # ωΩ⁺ = ω+Ω
-        # ωΩ⁻ = ω-Ω
-        # ωΩ⁺ + ωΩ⁻ = ω+Ω + ω-Ω = ω
-        # ωΩ⁺ - ωΩ⁻ = ω+Ω - ω+Ω = Ω
-        ω = θ_planet.ωΩ⁺ + θ_planet.ωΩ⁻ 
-        Ω = θ_planet.ωΩ⁺ - θ_planet.ωΩ⁻
-        τ = θ_planet.τ
-    elseif haskey(θ_planet, :Φ)
-    
-        # Φ = sample.ω .+ sample.Ω .+ 2π*sample.τ
-        # Φω⁻ = Φ .- sample.ω
-        # ΦΩ⁻ = Φ .- sample.Ω
-    
-        τ2pi = θ_planet.Φ + θ_planet.Φω⁻ + θ_planet.ΦΩ⁻
-        ω = θ_planet.Φ - τ2pi + θ_planet.ΦΩ⁻
-        Ω = θ_planet.Φ - τ2pi + θ_planet.Φω⁻
-        τ = τ2pi/2π
-
-    else
-        ω = θ_planet.ω
-        τ = θ_planet.τ
-
-        
-        if hasproperty(θ_planet,:Ω)
-            Ω = θ_planet.Ω
-        elseif hasproperty(θ_system,:Ω)
-            Ω = θ_system.Ω
-        else
-            error("property `Ω` not specified for planet or system")
-        end
-    end
-    return ω, Ω, τ
-end
-
-
 function construct_elements(θ_system, θ_planet)
     return KeplerianElements((;
         θ_system.μ,
@@ -479,6 +440,7 @@ function hmc(
     include_adapatation=false,
     initial_samples=100_000,
     initial_parameters=nothing,
+    progress=true
 )
 
     # Choose parameter dimensionality and initial parameter value
@@ -543,7 +505,7 @@ function hmc(
             iterations,
             adaptor,
             adaptation;
-            progress=true,
+            progress=progress,
             drop_warmup=drop_warmup
         )
     end
