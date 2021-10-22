@@ -6,10 +6,11 @@ return `ra` and `dec` offsets in mas for each sampling in the posterior.
 """
 function projectpositions(chain, planet_key, times)
 
-    ras = zeros(size(chain,1) * length(times))
-    decs = zeros(size(chain,1) * length(times))
+    els = construct_elements(chain, planet_key, 1:(size(chain,1)*size(chain,3)))
 
-    els = construct_elements(chain, planet_key, 1:size(chain,1))
+    ras = zeros(size(chain,1) * length(els))
+    decs = zeros(size(chain,1) * length(els))
+
     
     for (j,el) in enumerate(els)
 
