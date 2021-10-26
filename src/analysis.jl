@@ -6,14 +6,13 @@ return `ra` and `dec` offsets in mas for each sampling in the posterior.
 """
 function projectpositions(chain, planet_key, times)
 
-    els = construct_elements(chain, planet_key, 1:(size(chain,1)*size(chain,3)))
+    L = size(chain,1)*size(chain,3)
 
     ras = zeros(size(chain,1) * length(els))
     decs = zeros(size(chain,1) * length(els))
-
     
-    for (j,el) in enumerate(els)
-
+    Threads.@threads for j in 1:L
+        el = construct_elements(chain, planet_key, j)
         for (k, t) in enumerate(times)
             i = j * length(times) + k - 1
             ra, dec, _ = kep2cart(el, t)
