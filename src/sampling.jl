@@ -487,8 +487,7 @@ function hmc(
 
     # # We have change some parameters when running with image data
     if !isnothing(system.images) && target_accept > 0.6
-        target_accept = 0.6
-        @info "Sampling from images, lowering target_accept to 0.6"
+        @warn "Sampling from images with target accept greater than 0.6. This may lead to insufficient exploration."
     end
 
     adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(target_accept, integrator)) 
@@ -518,6 +517,19 @@ function hmc(
         mcmcchain,
         (;start_time, stop_time, model=system)
     )
+
+    # Report some warnings if sampling did not work well
+    num_err_frac = mean(getproperty.(stat, :numerical_error))
+    if num_err_frac == 1.0
+        @error "Numerical errors encountered in ALL iterations. Check model and priors."
+    elseif num_err_frac > 0.1
+        @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
+    end
+    max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
+    if max_tree_depth_frac > 0.1
+        @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
+    end
+
     return mcmcchain_with_info, stat
 end
 
