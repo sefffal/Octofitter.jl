@@ -533,6 +533,158 @@ function hmc(
     return mcmcchain_with_info, stat
 end
 
+using AbstractMCMC
+using MCMCTempering
+
+struct Joint{Tℓprior, Tℓll} <: Function
+    ℓprior      :: Tℓprior
+    ℓlikelihood :: Tℓll
+end
+
+function (joint::Joint)(θ)
+    return joint.ℓprior(θ) .+ joint.ℓlikelihood(θ)
+end
+
+
+struct TemperedJoint{Tℓprior, Tℓll, T<:Real} <: Function
+    ℓprior      :: Tℓprior
+    ℓlikelihood :: Tℓll
+    β           :: Real
+end
+
+function (tj::TemperedJoint)(θ)
+    return tj.ℓprior(θ) .+ (tj.ℓlikelihood(θ) .* tj.β)
+end
+
+
+function MCMCTempering.make_tempered_model(
+    model::DifferentiableDensityModel,
+    β::Real
+)
+    ℓπ_β = TemperedJoint(model.ℓπ.ℓprior, model.ℓπ.ℓlikelihood, β)
+    ∂ℓπ∂θ_β = TemperedJoint(model.∂ℓπ∂θ.ℓprior, model.∂ℓπ∂θ.ℓlikelihood, β)
+    model_β = DifferentiableDensityModel(ℓπ_β, ∂ℓπ∂θ_β)
+    return model_β
+end
+# function MCMCTempering.make_tempered_loglikelihood(
+#     model::DifferentiableDensityModel,
+#     β::Real
+# )
+#     function logπ(z)
+#         return model.ℓπ.ℓlikelihood(z) * β
+#     end
+#     return logπ
+# end
+# function MCMCTempering.get_params(trans::Transition)
+#     return trans.z.θ
+# end
+
+function temperedhmc(
+    system::System, target_accept=0.9, temperatures=4;
+    adaptation,
+    iterations,
+    tree_depth=10,
+    include_adapatation=false,
+    initial_samples=100_000,
+    initial_parameters=nothing,
+    progress=true
+)
+
+    # Choose parameter dimensionality and initial parameter value
+    initial_θ_0 = sample_priors(system)
+    D = length(initial_θ_0)
+
+    ln_prior = make_ln_prior(system)
+    arr2nt = DirectDetections.make_arr2nt(system) 
+
+    # Capture these variables in a let binding to improve performance
+    ℓπ = let system=system, ln_prior=ln_prior, arr2nt=arr2nt
+        function (θ)
+            θ_res = arr2nt(θ)
+            ll = ln_prior(θ) + ln_like(θ_res, system)
+            return ll
+        end
+    end
+
+    if isnothing(initial_parameters)
+        initial_θ_mut = guess_starting_position(system,initial_samples)
+    else
+        initial_θ_mut = initial_parameters
+    end
+
+    # Use a static comopnent array for efficiency
+    # initial_θ = SVector{length(initial_θ_mut)}(initial_θ_mut)
+    initial_θ = initial_θ_mut
+
+    # Define a Hamiltonian system
+    metric = DenseEuclideanMetric(D)
+    # metric = DiagEuclideanMetric(D)
+    
+    # model = DensityModel(ℓπ)
+    hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
+    # hamiltonian = Hamiltonian(metric, ℓπ, ℓπ_grad)
+
+    initial_ϵ = find_good_stepsize(hamiltonian, getdata(initial_θ))
+    # initial_ϵ = 0.005
+
+    integrator = Leapfrog(initial_ϵ)
+    # 1.05 improves the sampling over standard leapfrog, but 4.0 is too much. It just stays stuck.
+    # 1.5 seems better but seems to favour certain trajectories.
+    # integrator = TemperedLeapfrog(initial_ϵ, 1.05)
+    proposal = NUTS(integrator, max_depth=tree_depth) 
+
+    
+    tempered_sampler = tempered(proposal, temperatures, swap_strategy=MCMCTempering.NonReversibleSwap())
+
+    # # We have change some parameters when running with image data
+    if !isnothing(system.images) && target_accept > 0.6
+        @warn "Sampling from images with target accept greater than 0.6. This may lead to insufficient exploration."
+    end
+
+    adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(target_accept, integrator)) 
+    # adaptor = MassMatrixAdaptor(metric)
+
+    logger = SimpleLogger(stdout, Logging.Error)
+    start_time = time()
+    samples, stat = with_logger(logger) do
+        drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation) || include_adapatation
+        sample(
+            hamiltonian,
+            tempered_sampler,
+            getdata(initial_θ),
+            iterations,
+            adaptor,
+            adaptation;
+            # progress=progress,
+            # drop_warmup=drop_warmup
+        )
+    end
+    stop_time = time()
+    @info "Resolving deterministic variables"
+    chain_res = arr2nt.(samples)
+    @info "Constructing chains"
+    mcmcchain = DirectDetections.result2mcmcchain(system, chain_res)
+    mcmcchain_with_info = MCMCChains.setinfo(
+        mcmcchain,
+        (;start_time, stop_time, model=system)
+    )
+
+    # Report some warnings if sampling did not work well
+    num_err_frac = mean(getproperty.(stat, :numerical_error))
+    if num_err_frac == 1.0
+        @error "Numerical errors encountered in ALL iterations. Check model and priors."
+    elseif num_err_frac > 0.1
+        @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
+    end
+    max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
+    if max_tree_depth_frac > 0.1
+        @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
+    end
+
+    return mcmcchain_with_info, stat
+end
+
+
 
 """
 Convert a vector of component arrays returned from sampling into an MCMCChains.Chains
