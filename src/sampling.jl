@@ -4,47 +4,7 @@ using MCMCChains: Chains
 
 export sample_priors
 sample_priors(planet::Planet) = rand.(ComponentArray(planet.priors.priors))
-# sample_priors(planet::Planet,N) = rand.(planet.priors.priors,N)
 sample_priors(planet::Planet,N) = [sample_priors(planet) for _ in 1:N]
-
-# function sample_priors(planet::ReparameterizedPlanet)
-#     sample = NamedTuple(sample_priors(planet.planet))
-
-#     plus = sample.ω + sample.Ω
-#     minus = sample.ω - sample.Ω
-#     reparameterized = merge(
-#         delete(sample,  (:ω, :Ω)),
-#         (ωΩ⁺ = plus, ωΩ⁻=minus)
-#     )
-    
-#     # Φ = sample.ω + sample.Ω + 2π*sample.τ
-#     # Φω⁻ = Φ - sample.ω
-#     # ΦΩ⁻ = Φ - sample.Ω
-#     # reparameterized = merge(
-#     #     delete(sample,  (:τ, :ω, :Ω)),
-#     #     (;Φ, Φω⁻, ΦΩ⁻)
-#     # )
-
-#     return ComponentVector(reparameterized)
-# end
-# function sample_priors(planet::ReparameterizedPlanet, N)
-#     sample = NamedTuple(sample_priors(planet.planet, N))
-#     plus = sample.ω .+ sample.Ω
-#     minus = sample.ω .- sample.Ω
-#     reparameterized = merge(
-#         delete(sample,  (:ω, :Ω)),
-#         (ωΩ⁺ = plus, ωΩ⁻=minus)
-#     )
-
-#     # Φ = sample.ω .+ sample.Ω .+ 2π*sample.τ
-#     # Φω⁻ = Φ .- sample.ω
-#     # ΦΩ⁻ = Φ .- sample.Ω
-#     # reparameterized = merge(
-#     #     delete(sample,  (:τ, :ω, :Ω)),
-#     #     (;Φ, Φω⁻, ΦΩ⁻)
-#     # )
-#     return ComponentVector(reparameterized)
-# end
 
 
 function sample_priors(system::System)
@@ -58,29 +18,8 @@ function sample_priors(system::System)
     ))
     return getdata(sampled)
 end
-# function sample_priors(system::System,N)
-#     sampled = ComponentVector(
-#         merge(NamedTuple(rand.(system.priors.priors,N)),
-#         # (;planets=[sample_priors(planet,N) for planet in system.planets])
-#         (;planets=[
-#             ComponentArray(NamedTuple([k=>v for (k,v) in pairs(NamedTuple(sample_priors(planet,N)))]))
-#             for planet in system.planets
-#         ])
-#     ))
-#     return sampled
-# end
 
 sample_priors(system::System,N) = [sample_priors(system) for _ in 1:N]
-
-
-
-# TODO: there should be a more efficient way to do this.
-# Worst case, can unroll using (runtime) generated function?
-# It appears that the bottleneck is actually converting back and forth to NamedTuples
-# Can we do this another way? Do we really need component arrays?
-# They do make the API quite nice but we're using them in fewer and fewer spots.
-# They are basically an implementation detail at this point.
-# We could write our own function to go from input array to named tuple?
 
 
 
@@ -92,16 +31,11 @@ function resolve_deterministic(system::System, θ)
         resolved_values = map(values(system.deterministic.variables)) do func
             val = func(θ)
         end
-        # for (key, func) in pairs(system.deterministic.variables)
-        #     val = func(θ)
-        #     θ_resolved = merge(θ_resolved, NamedTuple{(key,), Tuple{eltype(θ)}}(val))
-        # end
         θ_resolved = merge(
             NamedTuple(θ),
             namedtuple(keys(system.deterministic.variables), resolved_values)
         )
     end
-    # return θ_resolved
 
     resolved_planets = map(keys(system.planets)) do key
         θ_planet = θ.planets[key]
@@ -119,127 +53,68 @@ function resolve_deterministic(system::System, θ)
     resolved_planets_nt = namedtuple([pl.name for pl in system.planets], resolved_planets)
     θ_resolved_complete = merge(θ_resolved, (;planets=resolved_planets_nt))
     return ComponentVector(θ_resolved_complete)
-    # return θ_resolved_complete
 end
 
-# # _ntkeys(nt::Type{NamedTuple{TKeys,<:Any}}) where TKeys = TKeys
-
-# _determinekeysvals(::Type{Deterministic{NamedTuple{Keys,Vals}}}) where {Keys,Vals} = Keys, Vals
-
-# function _planetkeysvals(::Type{NamedTuple{Keys,Vals}}) where {Keys,Vals} 
-#     Keys, Vals, findfirst(==(:planets), Keys)
-# end
-
-# @generated function resolve_deterministic(system::System{TDetermine}, θ) where TDetermine
-
-
+# @generated function resolve_deterministic(planet::Planet{TDetermine}, θ_sys, θ_pl) where TDetermine
 #     if TDetermine != Nothing
 #         keys, funcs = _determinekeysvals(TDetermine)
-        
 #         body = Expr[]
 #         for key in keys
-#             # ex = :($key = system.deterministic.variables.$key(θ))
-#             ex = :(system.deterministic.variables.$key(θ))
+#             ex = :(planet.deterministic.variables.$key(θ_sys,θ_pl))
 #             push!(body, ex)
 #         end
-
-#         # Now need to expand out each planet as well.
-#         # Need to pass in (planet, θ_sys, θ_pl)
-#         planets = 
-
 #         NTType = NamedTuple{keys}
 #         ex = :(
-#             merge(
-#                 $NTType($(body...)),
-#                 NamedTuple(θ),
-#                 planets = 
-#             )
+#             merge($NTType($(body...)), NamedTuple(θ))
 #         )
-
 #         return ex
-
 #     end
 #     return θ
-#     # resolved_planets = map(zip(θ.planets, system.planets)) do (θ_planet, planet_model)
-#     # resolved_planets = map(keys(system.planets)) do key
-#     #     θ_planet = θ.planets[key]
-#     #     planet_model = system.planets[key]
-
-#     #     θ_planet_resolved = NamedTuple()
-#     #     if !isnothing(planet_model.deterministic)
-#     #         for (key, func) in pairs(planet_model.deterministic.variables)
-#     #             val = func(θ_resolved, θ_planet)
-#     #             θ_planet_resolved = merge(θ_planet_resolved, NamedTuple{(key,), Tuple{eltype(θ)}}(val))
-#     #         end
-#     #     end
-#     #     return merge(θ_planet_resolved, NamedTuple(θ_planet))
-#     # end
-#     # resolved_planets_nt = namedtuple([pl.name for pl in system.planets], resolved_planets)
-#     # θ_resolved = merge(θ_resolved, (;planets=resolved_planets_nt))
-#     # return ComponentVector(θ)
 # end
 
 
-@generated function resolve_deterministic(planet::Planet{TDetermine}, θ_sys, θ_pl) where TDetermine
-    if TDetermine != Nothing
-        keys, funcs = _determinekeysvals(TDetermine)
-        body = Expr[]
-        for key in keys
-            ex = :(planet.deterministic.variables.$key(θ_sys,θ_pl))
-            push!(body, ex)
-        end
-        NTType = NamedTuple{keys}
-        ex = :(
-            merge($NTType($(body...)), NamedTuple(θ))
-        )
-        return ex
-    end
-    return θ
-end
+# function make_resolve_deterministic(planet::Planet)
 
+#     body = Expr[]
 
-function make_resolve_deterministic(planet::Planet)
+#     dkeys = keys(planet.deterministic.variables)
+#     funcs = values(planet.deterministic.variables)
+#     for (key,func) in zip(dkeys, funcs)
+#         ex = :($key = $func(θ_sys, θ_pl))
+#         push!(body, ex)
+#     end
 
-    body = Expr[]
+#     ex = :(function (θ_sys, θ_pl)
+#         return merge(
+#             (;$(body...)),
+#             NamedTuple(θ_pl)
+#         )
+#     end)
 
-    dkeys = keys(planet.deterministic.variables)
-    funcs = values(planet.deterministic.variables)
-    for (key,func) in zip(dkeys, funcs)
-        ex = :($key = $func(θ_sys, θ_pl))
-        push!(body, ex)
-    end
+#     ln_prior = @RuntimeGeneratedFunction(ex)
+#     return ln_prior
+# end
+# function make_resolve_deterministic(system::System)
 
-    ex = :(function (θ_sys, θ_pl)
-        return merge(
-            (;$(body...)),
-            NamedTuple(θ_pl)
-        )
-    end)
+#     body = Expr[]
 
-    ln_prior = @RuntimeGeneratedFunction(ex)
-    return ln_prior
-end
-function make_resolve_deterministic(system::System)
+#     dkeys = keys(system.deterministic.variables)
+#     funcs = values(system.deterministic.variables)
+#     for (key,func) in zip(dkeys, funcs)
+#         ex = :($key = $func(θ))
+#         push!(body, ex)
+#     end
 
-    body = Expr[]
+#     ex = :(function (θ)
+#         return merge(
+#             (;$(body...)),
+#             NamedTuple(θ)
+#         )
+#     end)
 
-    dkeys = keys(system.deterministic.variables)
-    funcs = values(system.deterministic.variables)
-    for (key,func) in zip(dkeys, funcs)
-        ex = :($key = $func(θ))
-        push!(body, ex)
-    end
-
-    ex = :(function (θ)
-        return merge(
-            (;$(body...)),
-            NamedTuple(θ)
-        )
-    end)
-
-    ln_prior = @RuntimeGeneratedFunction(ex)
-    return ln_prior
-end
+#     ln_prior = @RuntimeGeneratedFunction(ex)
+#     return ln_prior
+# end
 
 
 
@@ -256,19 +131,6 @@ function mean_priors(system::System)
     # return Statistics.mean.(Statistics.rand.(priors_all,1000))
     return Statistics.mean.(priors_all)
 end
-# mean_priors(planet::Planet) = Statistics.mean.(Statistics.rand.(planet.priors.priors,1000))
-# function mean_priors(system::System)
-#     N = 5000
-#     sampled = ComponentVector(
-#         merge(NamedTuple(mean.(rand.(system.priors.priors,N))),
-#         # (;planets=[mean.(sample_priors(planet,N)) for planet in system.planets])
-#         (;planets=[
-#             ComponentArray(NamedTuple([k=>mean(v) for (k,v) in pairs(NamedTuple(sample_priors(planet,N)))]))
-#             for planet in system.planets
-#         ])
-#     ))
-#     return sampled
-# end
 
 
 function guess_starting_position(system, N=500_000)
@@ -413,7 +275,6 @@ function mcmc(
         chains = ComponentArray(collect(eachslice(A,dims=1)), ax)
     end
 
-    # return Chains(reinterptted, column_names)
     return chains
 end
 
@@ -425,7 +286,6 @@ function select_cv(cv, mask)
     dat = getdata(cv)
     ax = getaxes(cv)
     dat, ax
-    # ComponentArray(dat[mask],ax[1][mask])
     ax[1][mask]
 end
 
@@ -470,8 +330,8 @@ function hmc(
     initial_θ = initial_θ_mut
 
     # Define a Hamiltonian system
-    metric = DenseEuclideanMetric(D)
-    # metric = DiagEuclideanMetric(D)
+    # metric = DenseEuclideanMetric(D)
+    metric = DiagEuclideanMetric(D)
     hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
     # hamiltonian = Hamiltonian(metric, ℓπ, ℓπ_grad)
 
@@ -490,7 +350,9 @@ function hmc(
         @warn "Sampling from images with target accept greater than 0.6. This may lead to insufficient exploration."
     end
 
-    adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(target_accept, integrator)) 
+    mma = MassMatrixAdaptor(metric)
+    ssa = StepSizeAdaptor(target_accept, integrator)
+    adaptor = StanHMCAdaptor(mma, ssa) 
     # adaptor = MassMatrixAdaptor(metric)
 
     logger = SimpleLogger(stdout, Logging.Error)
@@ -530,7 +392,7 @@ function hmc(
         @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
     end
 
-    return mcmcchain_with_info, stat
+    return mcmcchain_with_info, stat, (;mma, ssa, adaptor)
 end
 
 
