@@ -381,21 +381,29 @@ function make_arr2nt(system::System)
             push!(body_planet_priors,ex)
         end
 
-        # Deterministic
-        body_planet_determ = Expr[]
-        for (key,func) in zip(keys(planet.deterministic.variables), values(planet.deterministic.variables))
+        if isnothing(planet.deterministic)
             ex = :(
-                $key = $func(sys_res, (;$(body_planet_priors...)))
+                $(planet.name) = (;
+                    $(body_planet_priors...)
+                )
             )
-            push!(body_planet_determ,ex)
-        end
+        # Resolve deterministic vars.
+        else
+            body_planet_determ = Expr[]
+            for (key,func) in zip(keys(planet.deterministic.variables), values(planet.deterministic.variables))
+                ex = :(
+                    $key = $func(sys_res, (;$(body_planet_priors...)))
+                )
+                push!(body_planet_determ,ex)
+            end
 
-        ex = :(
-            $(planet.name) = (;
-                $(body_planet_priors...),
-                $(body_planet_determ...)
+            ex = :(
+                $(planet.name) = (;
+                    $(body_planet_priors...),
+                    $(body_planet_determ...)
+                )
             )
-        )
+        end
         push!(body_planets,ex)
     end
 
