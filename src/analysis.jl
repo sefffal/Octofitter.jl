@@ -4,20 +4,22 @@
 Given the posterior for a particular planet in the model and a modified julian date(s),
 return `ra` and `dec` offsets in mas for each sampling in the posterior.
 """
-function projectpositions(chain, planet_key, times)
+function DirectDetections.projectpositions(chain, planet_key, times)
 
     L = size(chain,1)*size(chain,3)
 
-    ras = zeros(size(chain,1) * length(els))
-    decs = zeros(size(chain,1) * length(els))
+    ras = zeros(L)
+    decs = zeros(L)
     
-    Threads.@threads for j in 1:L
-        el = construct_elements(chain, planet_key, j)
-        for (k, t) in enumerate(times)
-            i = j * length(times) + k - 1
-            ra, dec, _ = kep2cart(el, t)
-            ras[i] = ra
-            decs[i] = dec
+    Threads.@threads for js in collect(Iterators.partition(1:L, 10000))
+        els = DirectDetections.construct_elements(chain, planet_key, js)
+        for (el,j) in zip(els, js)
+            for (k, t) in enumerate(times)
+                i = j * length(times) + k - 1
+                ra, dec, _ = kep2cart(el, t)
+                ras[i] = ra
+                decs[i] = dec
+            end
         end
     end
     return ras, decs
