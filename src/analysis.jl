@@ -4,7 +4,7 @@
 Given the posterior for a particular planet in the model and a modified julian date(s),
 return `ra` and `dec` offsets in mas for each sampling in the posterior.
 """
-function DirectDetections.projectpositions(chain, planet_key, times)
+function projectpositions(chain, planet_key, times)
 
     L = size(chain,1)*size(chain,3)
 
