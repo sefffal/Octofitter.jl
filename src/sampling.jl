@@ -1,5 +1,3 @@
-using MCMCChains: MCMCChains
-using MCMCChains: Chains
 
 
 export sample_priors
@@ -278,28 +276,25 @@ function mcmc(
     return chains
 end
 
-"""
-Given a component vector and a matching component vector that is a boolean mask,
-return only the values that are true
-"""
-function select_cv(cv, mask)
-    dat = getdata(cv)
-    ax = getaxes(cv)
-    dat, ax
-    ax[1][mask]
+
+
+
+# Fallback when no random number generator is provided (as is usually the case)
+function hmc(system::System, target_accept=0.9; kwargs...)
+    return hmc(Random.default_rng(), system, target_accept; kwargs...)
 end
 
-# using Zygote
-# https://github.com/FluxML/Zygote.jl/issues/570
-# @Zygote.adjoint (T::Type{<:SArray})(x::Number...) = T(x...), y->(nothing, y...)
 function hmc(
-    system::System, target_accept=0.9;
+    rng::Random.AbstractRNG,
+    system::System, target_accept=0.75;
     adaptation,
     iterations,
     tree_depth=10,
     include_adapatation=false,
-    initial_samples=100_000,
+    burnin=0,
+    initial_samples=50_000,
     initial_parameters=nothing,
+    step_size=nothing,
     progress=true
 )
 
@@ -307,70 +302,125 @@ function hmc(
     initial_θ_0 = sample_priors(system)
     D = length(initial_θ_0)
 
-    ln_prior = make_ln_prior(system)
+    ln_prior_transformed = make_ln_prior_transformed(system)
     arr2nt = DirectDetections.make_arr2nt(system) 
 
+    priors_vec = _list_priors(system)
+
+    # # Capture these variables in a let binding to improve performance
+    # ℓπ = let system=system, ln_prior=ln_prior, arr2nt=arr2nt
+    #     function (θ)
+    #         θ_res = arr2nt(θ)
+    #         ll = ln_prior(θ) + ln_like(θ_res, system)
+    #         return ll
+    #     end
+    # end
     # Capture these variables in a let binding to improve performance
-    ℓπ = let system=system, ln_prior=ln_prior, arr2nt=arr2nt
-        function (θ)
+    ℓπ = let system=system, ln_prior_transformed=ln_prior_transformed, arr2nt=arr2nt, priors_vec=priors_vec
+        function (θ_t)
+            # Transform back from the unconstrained support to constrained support for the likelihood function
+            θ = Bijectors.invlink.(priors_vec, θ_t)
             θ_res = arr2nt(θ)
-            ll = ln_prior(θ) + ln_like(θ_res, system)
+            ll = ln_prior_transformed(θ) + ln_like(θ_res, system)
             return ll
         end
     end
 
     if isnothing(initial_parameters)
-        initial_θ_mut = guess_starting_position(system,initial_samples)
+        initial_θ = guess_starting_position(system,initial_samples)
     else
-        initial_θ_mut = initial_parameters
+        initial_θ = initial_parameters
     end
 
-    # Use a static comopnent array for efficiency
-    # initial_θ = SVector{length(initial_θ_mut)}(initial_θ_mut)
-    initial_θ = initial_θ_mut
+
+    # Transform from constrained support to unconstrained support
+    initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
 
     # Define a Hamiltonian system
-    # metric = DenseEuclideanMetric(D)
-    metric = DiagEuclideanMetric(D)
+    metric = DenseEuclideanMetric(D)
     hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
     # hamiltonian = Hamiltonian(metric, ℓπ, ℓπ_grad)
 
-    initial_ϵ = find_good_stepsize(hamiltonian, getdata(initial_θ))
-    # initial_ϵ = 0.005
+
+    if !isnothing(step_size)
+        initial_ϵ = step_size
+    else
+        initial_ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
+        @info "Found initial stepsize" initial_ϵ
+    end
+
 
     integrator = Leapfrog(initial_ϵ)
-    # 1.05 improves the sampling over standard leapfrog, but 4.0 is too much. It just stays stuck.
-    # 1.5 seems better but seems to favour certain trajectories.
     # integrator = TemperedLeapfrog(initial_ϵ, 1.05)
-    proposal = NUTS(integrator, max_depth=tree_depth) 
 
 
     # # We have change some parameters when running with image data
-    if !isnothing(system.images) && target_accept > 0.6
+    if !isnothing(system.images) && target_accept > 0.6 && isnothing(step_size)
         @warn "Sampling from images with target accept greater than 0.6. This may lead to insufficient exploration."
     end
 
     mma = MassMatrixAdaptor(metric)
-    ssa = StepSizeAdaptor(target_accept, integrator)
-    adaptor = StanHMCAdaptor(mma, ssa) 
-    # adaptor = MassMatrixAdaptor(metric)
-
-    logger = SimpleLogger(stdout, Logging.Error)
-    start_time = time()
-    samples, stat = with_logger(logger) do
-        drop_warmup=!(adaptor isa AdvancedHMC.NoAdaptation) || include_adapatation
-        sample(
-            hamiltonian,
-            proposal,
-            getdata(initial_θ),
-            iterations,
-            adaptor,
-            adaptation;
-            progress=progress,
-            drop_warmup=drop_warmup
-        )
+    if isnothing(step_size)
+        @info "Will adapt step size and mass matrix"
+        ssa = StepSizeAdaptor(target_accept, integrator)
+        adaptor = StanHMCAdaptor(mma, ssa) 
+    else
+        @info "Will adapt mass matrix only"
+        adaptor = MassMatrixAdaptor(metric)
     end
+
+    model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ForwardDiff)
+
+    # κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth) 
+    # κ = NUTS{SliceTS, StrictGeneralisedNoUTurn}(integrator, max_depth=tree_depth) 
+    
+
+    # Had some good results with this one:
+    # κ = NUTS{MultinomialTS, StrictGeneralisedNoUTurn}(integrator, max_depth=tree_depth) 
+
+    κ = NUTS(integrator, max_depth=tree_depth) 
+    sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
+
+
+    # logger = SimpleLogger(stdout, Logging.Error)
+
+    AbstractMCMC.setprogress!(true)
+    start_time = time()
+    # mc_samples = with_logger(logger) do
+        mc_samples = sample(
+            rng, model, κ, metric, adaptor, iterations;
+            nadapts = adaptation,
+            init_params = initial_θ_t,
+            progress=progress,
+            verbose=false,
+            discard_initial = adaptation + burnin,
+        )
+        # mc_samples =sample(
+        #     rng,
+        #     model,
+        #     sampler,
+        #     iterations;
+        #     nadapts = adaptation,
+        #     init_params = initial_θ_t,
+        #     discard_initial = adaptation,
+        #     progress=progress,
+        #     verbose=false
+        # )
+    # end
     stop_time = time()
+
+    stat = map(s->s.stat, mc_samples)
+    logpost = map(s->s.z.ℓπ.value, mc_samples)
+    # samples = map(s->s.z.θ, mc_samples)
+
+    # Transform samples back to constrained support
+    samples = map(mc_samples) do s
+        θ_t = s.z.θ
+        θ = Bijectors.invlink.(priors_vec, θ_t)
+        return θ
+    end
+
+
     @info "Resolving deterministic variables"
     chain_res = arr2nt.(samples)
     @info "Constructing chains"
@@ -380,20 +430,36 @@ function hmc(
         (;start_time, stop_time, model=system)
     )
 
-    # Report some warnings if sampling did not work well
+    mean_accept = mean(getproperty.(stat, :acceptance_rate))
     num_err_frac = mean(getproperty.(stat, :numerical_error))
+    mean_tree_depth = mean(getproperty.(stat, :tree_depth))
+    max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
+
+    println("Sampling report:")
+    @show mean_accept
+    @show num_err_frac
+    @show mean_tree_depth
+    @show max_tree_depth_frac
+
+    # Report some warnings if sampling did not work well
     if num_err_frac == 1.0
         @error "Numerical errors encountered in ALL iterations. Check model and priors."
     elseif num_err_frac > 0.1
         @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
     end
-    max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
     if max_tree_depth_frac > 0.1
         @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
     end
 
-    return mcmcchain_with_info, stat, (;mma, ssa, adaptor)
+    return (;
+        chain=mcmcchain_with_info,
+        stats=stat,
+        logpost,
+        adaptor
+    )
 end
+
+include("tempered-sampling.jl")
 
 
 """

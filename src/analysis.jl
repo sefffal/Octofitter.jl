@@ -177,7 +177,7 @@ function init_plots()
             system,
             N=1500,
             alpha=0.02;
-            plotpma=true,
+            plotpma=!isnothing(system.propermotionanom),
             cmap=:plasma,
             pma_scatter=nothing,
             clims=extrema(Iterators.flatten(
@@ -199,7 +199,7 @@ function init_plots()
             # plot images?
             if !isnothing(system.images)
                 if length(unique(system.images.platescale)) != 1
-                    @warn "Plotmodel does not yet support images with multiple platescales"
+                    @warn "Plotmodel does not yet support images with multiple platescales. Taking first image only."
                     img = DirectImages.DirectImage(first(system.images.image))
                 else
                     img = DirectImages.DirectImage(
@@ -208,7 +208,7 @@ function init_plots()
                 end
                 img.PLATESCALE = system.images.platescale[1]
                 # To get the colour scales to work out
-                img ./= only(quantile(filter(isfinite, arraydata(img)), [0.9995]))
+                img ./= only(quantile(filter(isfinite, arraydata(img)), [0.98]))#[0.9995]))
                 img .*= maximum(clims) - minimum(clims)
                 img .+= minimum(clims)
                 imshow!(img; color=:Greys, skyconvention=true, lims)
@@ -233,7 +233,7 @@ function init_plots()
             final_plot = p_orbits
 
             # astrometric acceleration?
-            if !isnothing(system.propermotionanom) && plotpma
+            if plotpma
 
 
                 titles=["GAIA EDR3", "Hipparcos",]
@@ -246,8 +246,8 @@ function init_plots()
                         elements = construct_elements(chain, j, 1:prod(size(chain,[1,3])))
                         # mass = [sample.planets[j].mass for sample in chain]
                         mass = reshape(chain["$j[mass]"],:)
-                        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], getproperty.(elements, :μ), mass),1)
-                        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], getproperty.(elements, :μ), mass),2)
+                        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], mass),1)
+                        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], mass),2)
                     end
                     Plots.plot(
                         framestyle=:box,
@@ -277,9 +277,9 @@ function init_plots()
                         xerror=[system_pma.σ_pm_ra[i]],
                         yerror=[system_pma.σ_pm_dec[i]],
                         label="",
-                        color=1,
-                        markercolor=1,
-                        markerstrokecolor=1,
+                        color=:red,
+                        markercolor=:red,
+                        markerstrokecolor=:red,
                     )
                     # Plots.scatter!([0], [0], marker=(5, :circle, :red),label="")
                     Plots.hline!([0], color=:black, label="")

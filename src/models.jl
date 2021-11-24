@@ -13,8 +13,8 @@ function ln_like_pma(θ_system, pma::ProperMotionAnom)
             elements = construct_elements(θ_system, θ_planet)
 
             # RA and dec epochs are usually slightly different
-            pm_ra_star += propmotionanom(elements, pma.ra_epoch[i], elements.μ, θ_planet.mass)[1]
-            pm_dec_star += propmotionanom(elements, pma.dec_epoch[i], elements.μ, θ_planet.mass)[2]
+            pm_ra_star += propmotionanom(elements, pma.ra_epoch[i], θ_planet.mass)[1]
+            pm_dec_star += propmotionanom(elements, pma.dec_epoch[i], θ_planet.mass)[2]
         end
 
         residx = pm_ra_star - pma.pm_ra[i]
@@ -115,8 +115,12 @@ function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_plan
         end
 
         σₓ² = σₓ^2
-        l = -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) - log(sqrt(2π * σₓ²))
+        # l = -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) - log(sqrt(2π * σₓ²))
+        l = -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ)
+        # l = -1 / (2σₓ²) * (f_band - f̃ₓ)^2 - log(sqrt(2π * σₓ²))
         ll += l
+        # n = Normal(f̃ₓ, σₓ)
+        # ll += logpdf(n, f_band)
     end
 
     return ll
@@ -152,6 +156,25 @@ end
 function ln_like(θ, system::System)
     ll = 0.0
 
+    if !isnothing(system.images)
+        ll += ln_like_images(θ, system)
+    end
+    if !isnothing(system.propermotionanom)
+        ll += ln_like_pma(θ, system.propermotionanom)
+    end
+    # for (θ_planet, planet) in zip(θ.planets, system.planets)
+        # ll += ln_like_astrom(θ, θ_planet, planet)
+        
+    for key in eachindex(system.planets)
+        ll += ln_like_astrom(θ, θ.planets[key], system.planets[key])
+    end
+
+    
+    return ll
+end
+
+
+
     # Hierarchical parameters over multiple planets
     # if haskey(system.priors.priors, :σ_i²)
     #     # If the sampler wanders into negative variances, return early to prevent
@@ -186,25 +209,6 @@ function ln_like(θ, system::System)
     #     end
     #     ll += -1/2 * sum_ΩᵢθΩ² / θ.σ_Ω²  - log(sqrt(2π * θ.σ_Ω²))
     # end
-
-    if !isnothing(system.images)
-        ll += ln_like_images(θ, system)
-    end
-    if !isnothing(system.propermotionanom)
-        ll += ln_like_pma(θ, system.propermotionanom)
-    end
-    # for (θ_planet, planet) in zip(θ.planets, system.planets)
-        # ll += ln_like_astrom(θ, θ_planet, planet)
-        
-    for key in eachindex(system.planets)
-        ll += ln_like_astrom(θ, θ.planets[key], system.planets[key])
-    end
-
-    
-    return ll
-end
-
-
 
 
 
@@ -294,6 +298,65 @@ function make_ln_prior(system::System)
         $(prior_evaluations...)
         return lp
     end))
+end
+
+# Same as above, but assumes the input to the log prior was sampled
+# using transformed distributions from Bijectors.jl
+# Uses logpdf_with_trans() instead of logpdf to make the necessary corrections.
+function make_ln_prior_transformed(system::System)
+
+    i = 0
+    prior_evaluations = Expr[]
+
+    # System priors
+    for prior_distribution in values(system.priors.priors)
+        i += 1
+        ex = :(
+            lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
+        )
+        push!(prior_evaluations,ex)
+    end
+
+    # Planet priors
+    for planet in system.planets
+        # for prior_distribution in values(planet.priors.priors)
+        for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
+            i += 1
+            ex = :(
+                lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
+            )
+            push!(prior_evaluations,ex)
+        end
+    end
+
+    # Here is the function we return.
+    # It maps an array of parameters into our nested named tuple structure
+    return @RuntimeGeneratedFunction(:(function (arr)
+        lp = zero(first(arr))
+        # Add contributions from planet priors
+        $(prior_evaluations...)
+        return lp
+    end))
+end
+
+function _list_priors(system::System)
+
+    priors_vec = []
+    # System priors
+    for prior_distribution in values(system.priors.priors)
+        push!(priors_vec,prior_distribution)
+    end
+
+    # Planet priors
+    for planet in system.planets
+        # for prior_distribution in values(planet.priors.priors)
+        for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
+            push!(priors_vec, prior_distribution)
+        end
+    end
+
+    # narrow the type
+    return map(identity, priors_vec)
 end
 
 

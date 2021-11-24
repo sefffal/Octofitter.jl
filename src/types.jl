@@ -10,6 +10,10 @@ end
 export Astrometry
 
 function Astrometry(observations::NamedTuple...)
+    if any(<(1), abs.(getproperty.(observations, :ra))) ||
+        any(<(1), abs.(getproperty.(observations, :dec)))
+        @warn "Confirm that astrometry is entered in milliarcseconds (very small values detected)"
+    end
     return Astrometry(
         SVector(getproperty.(observations, :epoch)),
         SVector(getproperty.(observations, :ra)),
@@ -31,6 +35,8 @@ Base.show(io::IO, ::MIME"text/plain", astrom::Astrometry) = print(
     xerror := astrom.σ_ra
     yerror := astrom.σ_dec
     xflip --> true
+    xlabel --> "Δ right ascension (mas)"
+    ylabel --> "Δ declination (mas)"
     return astrom.ra, astrom.dec
 end
 
@@ -65,8 +71,6 @@ Base.show(io::IO, ::MIME"text/plain", pma::ProperMotionAnom) = print(
              for i in eachindex(pma.ra_epoch)],"\n"))
         ──────────────────────────────────────────────────────────────────
         """)
-
-
 
 struct Images{TImg,TCont}
     band::Vector{Symbol}
@@ -124,7 +128,7 @@ Priors(;priors...) = Priors{typeof(priors)}(priors)
 
 function Base.show(io::IO, mime::MIME"text/plain", priors::Priors)
     println(io, "Priors:")
-    for (k,prior) in zip(keys(priors.priors), priors.priors)
+    for (k,prior) in zip(keys(priors.priors), values(priors.priors))
         print(io, "\t- ", k, ":\t")
         show(io, mime, prior)
         print(io, "\n")
@@ -161,7 +165,9 @@ Planet(det::Deterministic,priors::Priors,astrometry::Union{Astrometry,Nothing}=n
 Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(nothing,priors, astrometry, name)
 function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet)
     print(io, "Planet $(p.name)\n")
-    show(io, mime, p.deterministic)
+    if !isnothing(p.deterministic)
+        show(io, mime, p.deterministic)
+    end
     show(io, mime, p.priors)
     if hasproperty(p, :astrometry) && !isnothing(p.astrometry)
         show(io, mime, p.astrometry)
