@@ -22,36 +22,36 @@ sample_priors(system::System,N) = [sample_priors(system) for _ in 1:N]
 
 
 
-function resolve_deterministic(system::System, θ)
-    if isnothing(system.deterministic)
-        θ_resolved = NamedTuple(θ)
-    else
-        resolved_values = map(values(system.deterministic.variables)) do func
-            val = func(θ)
-        end
-        θ_resolved = merge(
-            NamedTuple(θ),
-            namedtuple(keys(system.deterministic.variables), resolved_values)
-        )
-    end
+# function resolve_deterministic(system::System, θ)
+#     if isnothing(system.deterministic)
+#         θ_resolved = NamedTuple(θ)
+#     else
+#         resolved_values = map(values(system.deterministic.variables)) do func
+#             val = func(θ)
+#         end
+#         θ_resolved = merge(
+#             NamedTuple(θ),
+#             namedtuple(keys(system.deterministic.variables), resolved_values)
+#         )
+#     end
 
-    resolved_planets = map(keys(system.planets)) do key
-        θ_planet = θ.planets[key]
-        planet_model = system.planets[key]
+#     resolved_planets = map(keys(system.planets)) do key
+#         θ_planet = θ.planets[key]
+#         planet_model = system.planets[key]
 
-        θ_planet_resolved = NamedTuple()
-        if !isnothing(planet_model.deterministic)
-            for (key, func) in pairs(planet_model.deterministic.variables)
-                val = func(θ_resolved, θ_planet)
-                θ_planet_resolved = merge(θ_planet_resolved, NamedTuple{(key,), Tuple{eltype(θ)}}(val))
-            end
-        end
-        return merge(θ_planet_resolved, NamedTuple(θ_planet))
-    end
-    resolved_planets_nt = namedtuple([pl.name for pl in system.planets], resolved_planets)
-    θ_resolved_complete = merge(θ_resolved, (;planets=resolved_planets_nt))
-    return ComponentVector(θ_resolved_complete)
-end
+#         θ_planet_resolved = NamedTuple()
+#         if !isnothing(planet_model.deterministic)
+#             for (key, func) in pairs(planet_model.deterministic.variables)
+#                 val = func(θ_resolved, θ_planet)
+#                 θ_planet_resolved = merge(θ_planet_resolved, NamedTuple{(key,), Tuple{eltype(θ)}}(val))
+#             end
+#         end
+#         return merge(θ_planet_resolved, NamedTuple(θ_planet))
+#     end
+#     resolved_planets_nt = namedtuple([pl.name for pl in system.planets], resolved_planets)
+#     θ_resolved_complete = merge(θ_resolved, (;planets=resolved_planets_nt))
+#     return ComponentVector(θ_resolved_complete)
+# end
 
 # @generated function resolve_deterministic(planet::Planet{TDetermine}, θ_sys, θ_pl) where TDetermine
 #     if TDetermine != Nothing
@@ -424,7 +424,7 @@ function hmc(
     @info "Resolving deterministic variables"
     chain_res = arr2nt.(samples)
     @info "Constructing chains"
-    mcmcchain = DirectDetections.result2mcmcchain(system, chain_res)
+    mcmcchain = result2mcmcchain(system, chain_res)
     mcmcchain_with_info = MCMCChains.setinfo(
         mcmcchain,
         (;start_time, stop_time, model=system)
@@ -478,37 +478,38 @@ function result2mcmcchain(system, chains_in_0)
         reduce(vcat, getdata.(chains_in)'),
         flattened_labels
     )
+    return c
 end
 
-"""
-    planet_keys(system, key)
+# """
+#     planet_keys(system, key)
 
-For planet `key`, return the column names used in the output chains.
+# For planet `key`, return the column names used in the output chains.
 
-Examples:
-```julia-repl
-julia> planet_keys(system, :X)
-7-element Vector{String}:
- "f[a]"
- "f[e]"
- "f[τ]"
- "f[ω]"
- "f[i]"
- "f[Ω]"
- "f[Keck_L′]"
-```
-"""
-function planet_keys(system, key)
-    # There is a specific column name convention used by MCMCChains to indicate
-    # that multiple parameters form a group. Instead of planets.X.a, we adapt our to X[a] 
-    # accordingly
+# Examples:
+# ```julia-repl
+# julia> planet_keys(system, :X)
+# 7-element Vector{String}:
+#  "f[a]"
+#  "f[e]"
+#  "f[τ]"
+#  "f[ω]"
+#  "f[i]"
+#  "f[Ω]"
+#  "f[Keck_L′]"
+# ```
+# """
+# function planet_keys(system, key)
+#     # There is a specific column name convention used by MCMCChains to indicate
+#     # that multiple parameters form a group. Instead of planets.X.a, we adapt our to X[a] 
+#     # accordingly
     
-    θ = sample_priors(system)
-    θ_r = resolve_deterministic(system, θ)
+#     θ = sample_priors(system)
+#     θ_r = resolve_deterministic(system, θ)
 
-    flattened_labels = replace.(labels(θ_r), r"planets\.([^\.]+).([^\.]+)" => s"\1[\2]")
+#     flattened_labels = replace.(labels(θ_r), r"planets\.([^\.]+).([^\.]+)" => s"\1[\2]")
 
-    planet_key_start = string(key) * "["
-    return filter(startswith(planet_key_start), flattened_labels)
-end
-export planet_keys
+#     planet_key_start = string(key) * "["
+#     return filter(startswith(planet_key_start), flattened_labels)
+# end
+# export planet_keys

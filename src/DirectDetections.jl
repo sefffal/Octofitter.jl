@@ -34,6 +34,7 @@ include("distributions.jl")
 include("models.jl")
 include("sampling.jl")
 include("analysis.jl")
+include("macros.jl")
 include("hgca.jl")
 
 function __init__()
