@@ -127,7 +127,7 @@ function init_plots()
             elements = construct_elements(chain, planet_key, ii)
 
             Plots.plot!(;
-                size=(700,700),
+                size=(550,550),
                 dpi=200,
                 fmt=:png,
                 framestyle=:box,
@@ -272,10 +272,6 @@ function init_plots()
                         vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], mass),1)
                         vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], mass),2)
                     end
-                    pma_extrema_x[1] = min(pma_extrema_x[1], minimum(vx))
-                    pma_extrema_x[2] = max(pma_extrema_x[2], maximum(vx))
-                    pma_extrema_y[1] = min(pma_extrema_y[1], minimum(vy))
-                    pma_extrema_y[2] = max(pma_extrema_y[2], maximum(vy))
                     Plots.plot(
                         framestyle=:box,
                         minorticks=true,
@@ -298,7 +294,7 @@ function init_plots()
                         h = fit(Histogram, (vx, vy))#, (-1:0.05:1, -1:0.05:1))
                         Plots.plot!(h, color=Plots.cgrad([Plots.RGBA(0,0,0,0), Plots.RGBA(0,0,0,1)]), colorbar=false)
                     end
-                    Plots.scatter!(
+                    pma_plot = Plots.scatter!(
                         [system_pma.pm_ra[i]],
                         [system_pma.pm_dec[i]],
                         xerror=[system_pma.σ_pm_ra[i]],
@@ -309,13 +305,18 @@ function init_plots()
                         markerstrokecolor=:red,
                     )
                     # Plots.scatter!([0], [0], marker=(5, :circle, :red),label="")
-                    Plots.hline!([0], color=:black, label="")
-                    Plots.vline!([0], color=:black, label="")
-                    Plots.title!(titles[i])
+                    Plots.hline!(pma_plot, [0], color=:black, label="")
+                    Plots.vline!(pma_plot, [0], color=:black, label="")
+                    Plots.title!(pma_plot, titles[i])
                     # Plots.xlims!(-1,1)
                     # Plots.ylims!(-1,1)
-                    Plots.xlabel!("Δμ ra - mas/yr")
-                    Plots.ylabel!("Δμ dec - mas/yr")
+                    Plots.xlabel!(pma_plot, "Δμ ra - mas/yr")
+                    Plots.ylabel!(pma_plot, "Δμ dec - mas/yr")
+                    pma_extrema_x[1] = min(pma_extrema_x[1], minimum(vx), system_pma.pm_ra[i] - system_pma.σ_pm_ra[i], system_pma.pm_ra[i] + system_pma.σ_pm_ra[i])
+                    pma_extrema_x[2] = max(pma_extrema_x[2], maximum(vx), system_pma.pm_ra[i] - system_pma.σ_pm_ra[i], system_pma.pm_ra[i] + system_pma.σ_pm_ra[i])
+                    pma_extrema_y[1] = min(pma_extrema_y[1], minimum(vy), system_pma.pm_dec[i] - system_pma.σ_pm_dec[i], system_pma.pm_dec[i] + system_pma.σ_pm_dec[i])
+                    pma_extrema_y[2] = max(pma_extrema_y[2], maximum(vy), system_pma.pm_dec[i] - system_pma.σ_pm_dec[i], system_pma.pm_dec[i] + system_pma.σ_pm_dec[i])
+                    return pma_plot
                 end
                 for plot in pma_plots
                     # Plots.xlims!(plot, (pma_extrema_x...,))
@@ -337,9 +338,15 @@ function init_plots()
             end
 
             if plotmass
-                h = fit(Histogram, vec(chain["b[mass]"]./mjup), nbins=100)
-                plot(h.edges[1][begin:end-1], h.weights, st=:step, xlabel="Mjup", linewidth=3, label="")
+                h = fit(Histogram, vec(chain["b[mass]"]./mjup2msol), nbins=100)
+                p = Plots.plot(h.edges[1][begin:end-1], h.weights, st=:step, xlabel="Mjup", linewidth=3, label="")
 
+                layout = eval(:(Plots.@layout [
+                    A{0.8h}
+                    B
+                ]))
+                final_plot = Plots.plot(final_plot, p, layout=layout, size=(550,850))
+            end
 
             return final_plot
         end

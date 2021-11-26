@@ -13,10 +13,14 @@ using Statistics
 using StatsBase
 using NamedTupleTools
 using DirectImages
+
 using DirectOrbits
+# Re-export the mjd helper. It's useful!
+export mjd
+
 using Base.Threads: @threads
 using StaticArrays
-
+ 
 using MCMCChains: MCMCChains
 using MCMCChains: Chains
 using Random
@@ -42,5 +46,7 @@ function __init__()
     init_plots()
     return
 end
+
+include("precompile.jl")
 
 end
