@@ -225,56 +225,56 @@ end
 
 
 
-function mcmc(
-    system::System;
-    burnin,
-    numwalkers,
-    numsamples_perwalker,
-    thinning = 1,
-    squash = true,
-)
-    ln_post(θ) = ln_prior(θ, system) + ln_like(θ, system)
+# function mcmc(
+#     system::System;
+#     burnin,
+#     numwalkers,
+#     numsamples_perwalker,
+#     thinning = 1,
+#     squash = true,
+# )
+#     ln_post(θ) = ln_prior(θ, system) + ln_like(θ, system)
  
-    # ln_prior_system_specialized = make_ln_prior(θ, system)
-    # ln_post(θ) = ln_prior_system_specialized(θ, system) + ln_like(θ, system)
+#     # ln_prior_system_specialized = make_ln_prior(θ, system)
+#     # ln_post(θ) = ln_prior_system_specialized(θ, system) + ln_like(θ, system)
 
-    @info "Finding starting point"
-    initial_walkers = [sample_priors(system) for _ in 1:numwalkers]
+#     @info "Finding starting point"
+#     initial_walkers = [sample_priors(system) for _ in 1:numwalkers]
 
-    # Convert the initial walkers into static arrays for stack allocation.
-    # This messy line should have no impact on the semantics of the code.
-    initial_walkers_static = [
-        ComponentVector{SVector{length(cv)}}(; NamedTuple(cv)...) for cv in initial_walkers
-    ]
+#     # Convert the initial walkers into static arrays for stack allocation.
+#     # This messy line should have no impact on the semantics of the code.
+#     initial_walkers_static = [
+#         ComponentVector{SVector{length(cv)}}(; NamedTuple(cv)...) for cv in initial_walkers
+#     ]
 
-    # Run the MCMC
-    thetase, _accept_ratioe = KissMCMC.emcee(
-        ln_post,
-        initial_walkers_static;
-        nburnin = burnin * numwalkers,
-        use_progress_meter = true,
-        nthin = thinning,
-        niter = numsamples_perwalker * numwalkers,
-    )
+#     # Run the MCMC
+#     thetase, _accept_ratioe = KissMCMC.emcee(
+#         ln_post,
+#         initial_walkers_static;
+#         nburnin = burnin * numwalkers,
+#         use_progress_meter = true,
+#         nthin = thinning,
+#         niter = numsamples_perwalker * numwalkers,
+#     )
 
-    # Convert the output into an MCMCChains.Chain.
-    # Use reinterpret to avoid re-allocating all that memory
-    if squash
-        thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
-        reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′)
-        chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]))
-    else
-        matrix_paramxstep_per_walker = [reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]
-        A = reshape(
-            mapreduce(θ->reinterpret(reshape, eltype(first(θ)), θ), hcat, thetase),
-            (length(thetase[1][1]), :, numwalkers,)
-        )
-        ax = getaxes(thetase[1][1])
-        chains = ComponentArray(collect(eachslice(A,dims=1)), ax)
-    end
+#     # Convert the output into an MCMCChains.Chain.
+#     # Use reinterpret to avoid re-allocating all that memory
+#     if squash
+#         thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
+#         reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′)
+#         chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]))
+#     else
+#         matrix_paramxstep_per_walker = [reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]
+#         A = reshape(
+#             mapreduce(θ->reinterpret(reshape, eltype(first(θ)), θ), hcat, thetase),
+#             (length(thetase[1][1]), :, numwalkers,)
+#         )
+#         ax = getaxes(thetase[1][1])
+#         chains = ComponentArray(collect(eachslice(A,dims=1)), ax)
+#     end
 
-    return chains
-end
+#     return chains
+# end
 
 
 

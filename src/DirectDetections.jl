@@ -3,7 +3,6 @@ using ComponentArrays # TODO: remove last uses of component arrays
 using Distributions
 using Bijectors
 
-import KissMCMC
 using AdvancedHMC
 using NamedTupleTools
 using ForwardDiff
