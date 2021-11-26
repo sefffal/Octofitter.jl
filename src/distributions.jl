@@ -35,5 +35,5 @@ Distributions.mean(d::Sine) = π/2
 
 # See https://stats.libretexts.org/Bookshelves/Probability_Theory/Probability_Mathematical_Statistics_and_Stochastic_Processes_(Siegrist)/05%3A_Special_Distributions/5.27%3A_The_Sine_Distribution
 Distributions.var(d::Sine) = 1/4 - 2/pi^2 
-Distributions.cdf(d::Sine, x::Real)= 1/2*(1−cos(x))
-Distributions.quantile(d::Sine, p::Real) = acos(1−2p)
+Distributions.cdf(d::Sine, x::Real)= 1/2*(1-cos(x))
+Distributions.quantile(d::Sine, p::Real) = acos(1-2p)
