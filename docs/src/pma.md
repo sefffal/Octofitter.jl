@@ -15,8 +15,12 @@ The first step is to find the GAIA source ID for your object. For HD 91312, SIMB
 For this model, we will have to add the variable `mass` as a prior.
 The units used on this variable are Jupiter masses, in contrast to `μ`, the primary's mass, in solar masses.  A reasonable uninformative prior for `mass` is `Uniform(0,1000)` or `LogUniform(1,1000)` depending on the situation.
 
+```@setup
+using DirectDetections, Distributions, Plots
+```
 
-```julia
+
+```@example
 @named B = DirectDetections.Planet(
     Priors(
         a = Uniform(1, 25),
@@ -38,14 +42,14 @@ The units used on this variable are Jupiter masses, in contrast to `μ`, the pri
         (epoch=mjd("2018-11-28"), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.),
         (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.),
     )
-)
+);
 ```
 
 
 ## System Model & Specifying Proper Motion Anomaly
 Now that we have our planet model, we create a system model to contain it.
 
-```julia
+```@example
 @named HD91312 = System(
     Priors(
         μ = Normal(1.61, 0.05),
@@ -64,7 +68,7 @@ After the priors, we add the proper motion anomaly measurements from the HGCA. I
 ## Sampling from the posterior
 Ssample from our model as usual:
 
-```@repl
+```@example
 chain, stats = DirectDetections.hmc(
     HD91312, 0.65,
     adaptation =  1_000,
@@ -79,10 +83,10 @@ This is quite quick even on an older laptop, single core.
 We can use the `plotmodel` helper to summarize the results.
 
 
-```julia
-plotmodel(chain, chain.info.model, 1500, color=:mass, pma_scatter=:mass, clims=(0.0, 75), alpha=0.025)
+```@example
+plotmodel(chain, HD91312, color=:mass, pma_scatter=:mass)
 ```
-[![mass histogram](assets/pma-astrometry-posterior.png)](assets/pma-astrometry-posterior.svg)
+<!-- [![mass histogram](assets/pma-astrometry-posterior.png)](assets/pma-astrometry-posterior.svg) -->
 
 
 ### Pair Plot
