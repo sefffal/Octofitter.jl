@@ -42,7 +42,7 @@ function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3
     # Δμ_hip_dec = (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx]) - (hgca.pmdec_hip[idx] ± hgca.pmdec_hip_error[idx])
 
 
-    # TODO: was I doing this backwards??
+    # The above was backwards. We want to subtract the long term trend from each of the "instant" measurements
     Δμ_gaia_ra = (hgca.pmra_gaia[idx] ± hgca.pmra_gaia_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
     Δμ_gaia_dec = (hgca.pmdec_gaia[idx] ± hgca.pmdec_gaia_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
 

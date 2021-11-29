@@ -290,7 +290,6 @@ function hmc(
     adaptation,
     iterations,
     tree_depth=10,
-    include_adapatation=false,
     burnin=0,
     initial_samples=50_000,
     initial_parameters=nothing,

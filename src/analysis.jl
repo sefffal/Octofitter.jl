@@ -118,7 +118,7 @@ function init_plots()
             alpha=0.02,
             cmap=:turbo,
             rev=true,
-            colorbartitle="",#"semi-major axis (au)",
+            colorbartitle= property isa Symbol ? "$planet_key[$property]" : "",#"semi-major axis (au)",
             clims=nothing,
             lw=0.3,
             kwargs...
@@ -227,7 +227,7 @@ function init_plots()
             
             for planet_key in eachindex(system.planets)
                 plotposterior!(
-                    chain, planet_key, color, N; lw=1, alpha=alpha, colorbartitle="semi-major axis (au)",
+                    chain, planet_key, color, N; lw=1, alpha=alpha,
                     cmap=cmap, rev=false,
                     # cmap=:turbo,
                     clims=clims,
@@ -265,12 +265,11 @@ function init_plots()
                     vx = zeros(prod(size(chain,[1,3])))
                     vy = zeros(prod(size(chain,[1,3])))
                     for j in keys(system.planets)
-                        ii = rand(eachindex(chain), N)
                         elements = construct_elements(chain, j, 1:prod(size(chain,[1,3])))
                         # mass = [sample.planets[j].mass for sample in chain]
                         mass = reshape(chain["$j[mass]"],:)
-                        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], mass),1)
-                        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], mass),2)
+                        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], mass.*mjup2msol),1)
+                        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], mass.*mjup2msol),2)
                     end
                     Plots.plot(
                         framestyle=:box,
@@ -284,12 +283,18 @@ function init_plots()
                         if length(system.planets) > 1
                             @warn "Multiplanet PMA scatter plots not yet implemented"
                         end
-                        prop = getproperty(chains.planets[1], pma_scatter)[ii]
-                        if pma_scatter == :mass
-                            prop ./=mjup2msol
+                        ii = rand(1:size(chain,1), N)
+                        planet_key = first(system.planets).name
+                        prop = chain["$planet_key[$pma_scatter]"][ii]
+                        # if pma_scatter == :mass
+                        #     prop ./=mjup2msol
+                        # end
+                        if color == pma_scatter
+                            clims_pma = clims
+                        else
+                            clims_pma = quantile(prop, (0.01, 0.99))
                         end
-                        ii_sub = rand(ii, 4000)
-                        Plots.scatter!(vx[ii_sub], vy[ii_sub], marker_z=prop[ii_sub], alpha=1, color=:plasma, colorbar=true, label="", markerstrokewidth=0, ms=1)
+                        Plots.scatter!(vx[ii], vy[ii], marker_z=prop, alpha=1, color=:plasma, legend=false, colorbar=false, label="", markerstrokewidth=0, ms=1, clims=clims_pma)
                     else
                         h = fit(Histogram, (vx, vy))#, (-1:0.05:1, -1:0.05:1))
                         Plots.plot!(h, color=Plots.cgrad([Plots.RGBA(0,0,0,0), Plots.RGBA(0,0,0,1)]), colorbar=false)
@@ -338,8 +343,12 @@ function init_plots()
             end
 
             if plotmass
-                h = fit(Histogram, vec(chain["b[mass]"]./mjup2msol), nbins=100)
-                p = Plots.plot(h.edges[1][begin:end-1], h.weights, st=:step, xlabel="Mjup", linewidth=3, label="")
+                p = Plots.plot(;xlabel="", linewidth=3, label="")
+                for p in keys(system.planets)
+                    m = vec(chain["$p[mass]"])
+                    h = fit(Histogram, m, nbins=round(Int,sqrt(length(m))))#, nbins=100)
+                    Plots.plot!(h.edges[1][begin:end-1],seriestype=:step, h.weights, label="$p[mass]")
+                end
 
                 layout = eval(:(Plots.@layout [
                     A{0.8h}

@@ -60,14 +60,15 @@ end
 
 function temperedhmc(
     rng::Random.AbstractRNG,
-    system::System, target_accept=0.9;
+    system::System,
+    target_accept=0.9,
+    num_temperatures=4;
     adaptation,
     iterations,
     tree_depth=10,
-    include_adapatation=false,
-    initial_samples=100_000,
+    burnin=0,
+    initial_samples=50_000,
     initial_parameters=nothing,
-
     step_size=nothing,
     progress=true
 )
@@ -157,7 +158,7 @@ function temperedhmc(
     κ = NUTS(integrator, max_depth=tree_depth) 
     spl = AdvancedHMC.HMCSampler(κ, metric, adaptor)
 
-    tempered_sampler = tempered(spl, 4)
+    tempered_sampler = tempered(spl, num_temperatures)
     start_time = time()
 
     AbstractMCMC.setprogress!(true)
@@ -176,7 +177,7 @@ function temperedhmc(
         iterations;
         nadapts = adaptation,
         init_params = initial_θ_t,
-        discard_initial = adaptation,
+        discard_initial = adaptation + burnin,
         progress=progress,
         verbose=false
     )
@@ -219,7 +220,7 @@ function temperedhmc(
     return (;
         chain=mcmcchain_with_info,
         stats=stat,
-        logposterior,
+        logpost=logposterior,
         adaptor
     )
 end

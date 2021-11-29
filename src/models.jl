@@ -10,11 +10,13 @@ function ln_like_pma(θ_system, pma::ProperMotionAnom)
         for key in keys(θ_system.planets)
             θ_planet = θ_system.planets[key]
             # TODO: we are creating these from scratch for each observation instead of sharing them
-            elements = construct_elements(θ_system, θ_planet)
+            orbit = construct_elements(θ_system, θ_planet)
 
             # RA and dec epochs are usually slightly different
-            pm_ra_star += propmotionanom(elements, pma.ra_epoch[i], θ_planet.mass)[1]
-            pm_dec_star += propmotionanom(elements, pma.dec_epoch[i], θ_planet.mass)[2]
+            # Note the unit conversion here from jupiter masses to solar masses to 
+            # make it the same unit as the stellar mass (element.mu)
+            pm_ra_star += propmotionanom(orbit, pma.ra_epoch[i], θ_planet.mass*mjup2msol)[1]
+            pm_dec_star += propmotionanom(orbit, pma.dec_epoch[i], θ_planet.mass*mjup2msol)[2]
         end
 
         residx = pm_ra_star - pma.pm_ra[i]
