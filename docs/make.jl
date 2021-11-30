@@ -18,6 +18,7 @@ makedocs(
         "Documentation" => [
             "Samplers" => "samplers.md",
             "Chains" => "chains.md"
+            "Kepler Solver" => "kepler.md"
         ]
     ],
     format = Documenter.HTML(

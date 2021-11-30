@@ -54,7 +54,7 @@ Now that we have our planet model, we create a system model to contain it.
 ```julia
 @named HD91312 = System(
     Priors(
-        μ = Normal(1.61, 0.05),
+        μ = LogNormal(1.61, 1),
         plx = gaia_plx(gaia_id=756291174721509376),
     ),  
     ProperMotionAnomHGCA(gaia_id=756291174721509376),
@@ -72,7 +72,7 @@ Ssample from our model as usual:
 
 ```julia
 chain, stats = DirectDetections.hmc(
-    HD91312, 0.65,
+    HD91312, 0.85,
     adaptation =  1_000,
     iterations = 10_000,
 );
