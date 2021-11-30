@@ -5,12 +5,12 @@ Welcome to the documentation page for DirectDetections.jl.
 This page includes tutorial and an API reference for using this package.
 
 DirectDetections is a Julia package for performing Bayesian inference
-against direct images of exoplanets, exoplanet astrometry, astrometric acceleration
+against direct images of exoplanets, relative astrometry, astrometric acceleration
 of the host star, and radial velocity (future).
 
-You build a model of the system using the functions described below, list any
-data you might have, and start the sampler. The package also contains analysis
-and visualization tools for understanding your results.
+The package provides a simple but powerful modelling language which is used to generate
+efficient, differentiable code for your system.
+The package also contains analysis and visualization tools for understanding your results.
 
 **Supported data:**
 * sample directly from images
@@ -21,11 +21,18 @@ Any and all combinations also work together.
 **Modelling features:**
 * multiple planets (one or more)
 * co-planar, and non-coplanar systems
-* hierarchical models
-* link mass to photometry via an atmosphere model
+* arbitrary priors and parameterizations
+* link mass to photometry via atmosphere models
 
+**Speed:**
+<p>Fit astrometry on your laptop in seconds!</p>
+
+* Highly optimized code and derivatives are generated from your model
+* Higher order sampler (No U-Turn sampler) which explores the parameter space very efficiently 
 
 The package supports only bound, 2-body Keplerian orbits. Support for hyperbolic orbits and multi-body physics are not currently planned.
+
+See also: [Orbitize!](https://orbitize.readthedocs.io/en/latest/), [orvara](https://github.com/t-brandt/orvara), and [exoplanet](https://docs.exoplanet.codes/en/latest/).
 
 ## Table of Contents
 ```@contents
