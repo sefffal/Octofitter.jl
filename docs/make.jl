@@ -17,8 +17,9 @@ makedocs(
         ],
         "Documentation" => [
             "Samplers" => "samplers.md",
-            "Chains" => "chains.md"
-            "Kepler Solver" => "kepler.md"
+            "Chains" => "chains.md",
+            "Kepler Solver" => "kepler.md",
+            "API" => "api.md"
         ]
     ],
     format = Documenter.HTML(

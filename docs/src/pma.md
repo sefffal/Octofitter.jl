@@ -177,7 +177,7 @@ For a quick look, you can just run `corner(chain)`, but for more professional ou
 
 ```julia
 ##Create a corner plot / pair plot.
-# We can access any property from the chain specified in Priors or in Deterministic.
+# We can access any property from the chain specified in Priors or in Derived.
 using PairPlots
 table = (;
     a=         chain["B[a]"],

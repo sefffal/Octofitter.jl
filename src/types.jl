@@ -9,6 +9,7 @@ struct Astrometry{N,T<:Number}
 end
 export Astrometry
 
+
 function Astrometry(observations::NamedTuple...)
     if any(<(1), abs.(getproperty.(observations, :ra))) ||
         any(<(1), abs.(getproperty.(observations, :dec)))
@@ -46,7 +47,28 @@ function ProperMotionAnom(observations::NamedTuple...)
     )
 end
 
+"""
+    Images(...)
 
+A block of images of a system. Pass a vector of named tuples with the following fields:
+* band
+* image 
+* epoch 
+* platescale 
+* contrast 
+
+For example:
+```julia
+Images([
+    (; epoch=1234.0, band=:J, image=readfits("abc.fits"), platescale=19.4)
+])
+```
+Contrast can be a function that returns the 1 sigma contrast of the image from a separation in mas to the same units as the image file.
+Or, simply leave it out and it will be calculated for you.
+Epoch is in MJD.
+Band is a symbol which matches the one used in the planet's `Priors()` block.
+Platescale is in mas/px.
+"""
 struct Images{TImg,TCont}
     band::Vector{Symbol}
     image::Vector{TImg}
@@ -73,7 +95,13 @@ function Images(observations::NamedTuple...)
     )
 end
 
+"""
+    Priors(key=dist, ...)
 
+A group of zero or more priors passed by keyword arguments.
+The priors must be univariate distributions from the Distributions.jl 
+package.
+"""
 struct Priors{T}
     priors::T
 end
@@ -90,40 +118,67 @@ function Base.show(io::IO, mime::MIME"text/plain", priors::Priors)
     end
 end
 
-struct Deterministic{T}
+"""
+    Derived(key=func, ...)
+
+A group of zero or more functions that resolve to a parameter for the model.
+Derived parameters must be functions accepting one argument if applied to a System,
+or two arguments if applied to a Planet.
+Must always return the same value for the same input (be a pure function) and 
+support autodifferentiation.
+"""
+struct Derived{T}
     variables::T
 end
-const Derived = Deterministic
-export Deterministic, Derived
-function Deterministic(;variables...)
+const Deterministic = Derived
+export Derived, Deterministic
+function Derived(;variables...)
     # Basically just wrap a named tuple
-    return Deterministic(
+    return Derived(
         NamedTuple(variables),
     )
 end
-function Base.show(io::IO, mime::MIME"text/plain", det::Deterministic)
-    println(io, "Deterministic:")
+function Base.show(io::IO, mime::MIME"text/plain", det::Derived)
+    println(io, "Derived:")
     for k in keys(det.variables)
         print(io, "\t- ", k, "\n")
     end
 end
 
 abstract type AbstractPlanet end
-struct Planet{TD<:Union{Deterministic,Nothing},TP<:Union{Priors,Nothing},TA<:Union{Astrometry,Nothing}} <: AbstractPlanet
+"""
+    Planet([derived,] priors, [astrometry,], name=:symbol)
+
+A planet (or substellar companion) part of a model.
+Must be constructed with a block of priors, and optionally
+additional derived parameters and/or astrometry.
+`name` must be a symbol, e.g. `:b`.
+"""
+struct Planet{TD<:Union{Derived,Nothing},TP<:Union{Priors,Nothing},TA<:Union{Astrometry,Nothing}} <: AbstractPlanet
     deterministic::TD
     priors::TP
     astrometry::TA
     name::Symbol
 end
 export Planet
-Planet(det::Deterministic,priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(det,priors, astrometry, name)
+Planet(det::Derived,priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(det,priors, astrometry, name)
 Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(nothing,priors, astrometry, name)
 
 
 astrometry(planet::Planet) = planet.astrometry
 
 
-struct System{TDet<:Union{Deterministic,Nothing}, TPriors<:Priors,TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Images},TModels,TPlanet}
+"""
+    System([derived,] priors, [images,] [propermotionanom,] planets..., name=:symbol)
+
+Construct a model of a system.
+Must be constructed with a block of priors, and optionally
+additional derived parameters.
+You may provide `ProperMotionAnom()` and/or `Images()` of the system.
+Finally, planet models are listed last.
+`name` must be a symbol e.g. `:HD56441`.
+"""
+struct System{TDet<:Union{Derived,Nothing}, TPriors<:Priors,TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Images},TModels,TPlanet}
     deterministic::TDet
     priors::TPriors
     propermotionanom::TPMA
@@ -132,7 +187,7 @@ struct System{TDet<:Union{Deterministic,Nothing}, TPriors<:Priors,TPMA<:Union{Pr
     planets::TPlanet
     name::Symbol
     function System(
-        system_det::Union{Deterministic,Nothing},
+        system_det::Union{Derived,Nothing},
         system_priors::Union{Priors,Nothing},
         propermotionanom::Union{ProperMotionAnom,Nothing},
         images::Union{Images,Nothing},
@@ -158,14 +213,14 @@ System(priors::Priors, args...; kwargs...) =
     System(nothing, priors, args...,; kwargs...)
 System(priors::Priors, planets::Planet...; kwargs...) =
     System(nothing, priors, nothing, nothing, planets...,; kwargs...)
-System(det::Deterministic, priors::Priors, planets::Planet...; kwargs...) =
+System(det::Derived, priors::Priors, planets::Planet...; kwargs...) =
     System(det, priors, nothing, nothing, planets...; kwargs...)
 Trest = Union{Images,Planet}
-System(det::Union{Deterministic,Nothing}, priors::Union{Priors,Nothing}, propermotionanom::ProperMotionAnom, planets::Planet...; kwargs...) =
+System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, propermotionanom::ProperMotionAnom, planets::Planet...; kwargs...) =
     System(det, priors, propermotionanom, nothing, planets...; kwargs...)
-System(det::Union{Deterministic,Nothing}, priors::Union{Priors,Nothing}, images::Images, planets::Planet...; kwargs...) =
+System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, images::Images, planets::Planet...; kwargs...) =
     System(det, priors, nothing, images, planets...; kwargs...)
-System(det::Union{Deterministic,Nothing}, priors::Union{Priors,Nothing}, images::Images, propermotionanom::ProperMotionAnom, planets::Planet...; kwargs...) =
+System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, images::Images, propermotionanom::ProperMotionAnom, planets::Planet...; kwargs...) =
     System(det, priors, propermotionanom, images, planets...; kwargs...)
 
 #### Show methods

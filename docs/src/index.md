@@ -35,6 +35,22 @@ The package supports only bound, 2-body Keplerian orbits. Support for hyperbolic
 
 See also: [Orbitize!](https://orbitize.readthedocs.io/en/latest/), [orvara](https://github.com/t-brandt/orvara), and [exoplanet](https://docs.exoplanet.codes/en/latest/).
 
-## Table of Contents
+
+## Getting Started
 ```@contents
+Pages = ["getting-started.md"]
+Depth = 5
 ```
+
+## Tutorials
+```@contents
+Pages = ["images.md", "pma.md", "derived.nd", "mass-photometry.md"]
+Depth = 5
+```
+
+## Documentation
+```@contents
+Pages = ["samplers.md", "chains.md", "kepler.md", "api.md"]
+Depth = 5
+```
+
