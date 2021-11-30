@@ -26,14 +26,13 @@ using DirectDetections, Distributions, Plots
     Priors(
         a = Uniform(1, 25),
         e = Beta(2,15),
-        # Note: priors with sharp edges (e.g. Uniform priors) are challenging for HMC samplers.
-        # An alternative could be wide Gaussians, for example.
-        τ = Normal(0.5, 1),
-        ω = Normal(pi, 2pi),
-        i = Normal(pi, 2pi),
-        Ω = Normal(pi, 2pi),
-        # mass = LogUniform(0.5, 2000),
+        τ = Uniform(0, 1),
+        ω = Uniform(0, 2pi),
+        i = Sine(), # The Sine() distribution is defined by DirectDetections
+        Ω = Uniform(0, pi),
         mass = Uniform(0.5, 2000),
+        # Anoter option would be:
+        # mass = LogUniform(0.5, 2000),
     ),
     Astrometry(
         (epoch=mjd("2016-12-15"), ra=133., dec=-174., σ_ra=07.0, σ_dec=07.),
@@ -43,8 +42,10 @@ using DirectDetections, Distributions, Plots
         (epoch=mjd("2018-11-28"), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.),
         (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.),
     )
-);
+)
 ```
+
+The `@named` macro simply passes the variable name you give as an arugment to the function i.e. `Planet(..., name=:B)`. This ensures the parameter names in the output are consistent with the code.
 
 
 ## System Model & Specifying Proper Motion Anomaly
@@ -79,55 +80,87 @@ display(chain)
 ```
 
 Output:
-```
+```        
+┌ Info: Guessing a good starting location by sampling from priors
+└   N = 50000
+┌ Info: Found initial stepsize
+└   initial_ϵ = 0.0125
+[ Info: Will adapt step size and mass matrix
+[ Info: progress logging is enabled globally
+Sampling100%|███████████████████████████████| Time: 0:00:24
+  iterations:                    30000
+  n_steps:                       7
+  is_accept:                     true
+  acceptance_rate:               0.863239872503996
+  log_density:                   -51.71436291701389
+  hamiltonian_energy:            54.325211045874674
+  hamiltonian_energy_error:      0.19872154840668088
+  max_hamiltonian_energy_error:  0.3162241419617615
+  tree_depth:                    3
+  numerical_error:               false
+  step_size:                     0.5200876630871248
+  nom_step_size:                 0.5200876630871248
+  is_adapt:                      false
+  mass_matrix:                   DenseEuclideanMetric(diag=[0.002497517511145372, 0.02 ...])
+[ Info: Resolving deterministic variables
+[ Info: Constructing chains
 Sampling report:
-mean_accept = 0.8538973684799083
-num_err_frac = 0.0102
-mean_tree_depth = 3.2545
+mean_accept = 0.7834391801902499
+num_err_frac = 0.017433333333333332
+mean_tree_depth = 2.8884666666666665
 max_tree_depth_frac = 0.0
-Chains MCMC chain (10000×9×1 Array{Float64, 3}):
+Chains MCMC chain (30000×9×1 Array{Float64, 3}):
 
-Iterations        = 1:1:10000
+Iterations        = 1:1:30000
 Number of chains  = 1
-Samples per chain = 10000
-Wall duration     = 11.43 seconds
-Compute duration  = 11.43 seconds
+Samples per chain = 30000
+Wall duration     = 24.15 seconds
+Compute duration  = 24.15 seconds
 parameters        = μ, plx, B[a], B[e], B[τ], B[ω], B[i], B[Ω], B[mass]
 
 Summary Statistics
-  parameters       mean       std   naive_se      mcse         ess      rhat   ess_per_sec ⋯
-      Symbol    Float64   Float64    Float64   Float64     Float64   Float64       Float64 ⋯
+  parameters       mean       std   naive_se      mcse          ess      rhat   ess_per_sec 
+      Symbol    Float64   Float64    Float64   Float64      Float64   Float64       Float64
 
-           μ     1.6123    0.0496     0.0005    0.0006   6567.9890    1.0001      574.5769 ⋯
-         plx    29.1438    0.1411     0.0014    0.0015   8176.9434    0.9999      715.3305 ⋯
-        B[a]     6.7216    0.0928     0.0009    0.0017   3061.4284    1.0002      267.8181 ⋯
-        B[e]     0.2056    0.0440     0.0004    0.0008   3378.2624    1.0003      295.5352 ⋯
-        B[τ]    -0.8507    0.0265     0.0003    0.0005   3789.5866    0.9999      331.5184 ⋯
-        B[ω]    -6.6247    0.1028     0.0010    0.0019   3071.5674    1.0009      268.7050 ⋯
-        B[i]     1.4768    0.0292     0.0003    0.0005   3296.3292    1.0001      288.3675 ⋯
-        B[Ω]    11.9009    0.0147     0.0001    0.0002   5376.1724    1.0000      470.3151 ⋯
-     B[mass]   271.7459   92.4623     0.9246    2.4161   1195.0382    1.0022      104.5436 ⋯
+           μ     1.6107    0.0499     0.0003    0.0003   21449.1180    1.0000      888.1255
+         plx    29.1444    0.1396     0.0008    0.0010   23713.4280    1.0000      981.8818
+        B[a]     6.7402    0.0890     0.0005    0.0010    7643.8317    1.0000      316.5017
+        B[e]     0.2043    0.0449     0.0003    0.0005    5958.7172    1.0000      246.7276
+        B[τ]     1.1459    0.0254     0.0001    0.0003    9732.8386    1.0000      402.9994
+        B[ω]    -0.3675    0.0984     0.0006    0.0011    8379.4363    1.0000      346.9602
+        B[i]     1.4706    0.0280     0.0002    0.0003   10928.8907    1.0000      452.5233
+        B[Ω]    -0.6672    0.0147     0.0001    0.0001   19642.2568    1.0001      813.3103
+     B[mass]   245.0888   69.1839     0.3994    1.2972    2404.3514    1.0000       99.5549
 
 Quantiles
   parameters       2.5%      25.0%      50.0%      75.0%      97.5% 
       Symbol    Float64    Float64    Float64    Float64    Float64
 
-           μ     1.5160     1.5786     1.6120     1.6462     1.7085
-         plx    28.8621    29.0483    29.1438    29.2381    29.4209
-        B[a]     6.5367     6.6589     6.7218     6.7851     6.9002
-        B[e]     0.1241     0.1753     0.2034     0.2352     0.2973
-        B[τ]    -0.8941    -0.8695    -0.8538    -0.8351    -0.7918
-        B[ω]    -6.8125    -6.6942    -6.6294    -6.5626    -6.4023
-        B[i]     1.4156     1.4579     1.4775     1.4967     1.5310
-        B[Ω]    11.8709    11.8911    11.9012    11.9110    11.9284
-     B[mass]   165.5598   209.0807   246.8737   306.0517   536.6443
+           μ     1.5131     1.5777     1.6109     1.6441     1.7083
+         plx    28.8718    29.0491    29.1440    29.2396    29.4166
+        B[a]     6.5706     6.6794     6.7398     6.7994     6.9165
+        B[e]     0.1229     0.1730     0.2023     0.2332     0.2989
+        B[τ]     1.1036     1.1281     1.1433     1.1608     1.2032
+        B[ω]    -0.5503    -0.4335    -0.3705    -0.3075    -0.1589
+        B[i]     1.4133     1.4525     1.4715     1.4902     1.5217
+        B[Ω]    -0.6967    -0.6769    -0.6670    -0.6573    -0.6390
+     B[mass]   159.7716   196.9441   228.3291   274.9650   431.3844
 ```
 
-This is quite quick even on an older laptop, single core.
+This takes about a minute on the first run due to JIT startup latency; subsequent runs are very quick even on e.g. an older laptop.
 
 ## Analysis
 
-We can use the `plotmodel` helper to summarize the results.
+The first step is to look at the table output above generated by MCMCChains.jl.
+The `rhat` column gives a convergence measure. Each parameter should have an `rhat` very close to 1.000.
+If not, you may need to run the model for more iterations or tweak the parameterization of the model to improve sampling.
+The `ess` column gives an estimate of the effective sample size.
+The `mean` and `std` columns give the mean and standard deviation of each parameter.
+
+The second table summarizes the 2.5, 25, 50, 75, and 97.5 percentiles of each parameter in the model.
+
+Since this chain is well converged, we can begin examining the results.
+Use the `plotmodel` function to display orbits from the posterior against the input data:
 
 
 ```julia
@@ -137,7 +170,10 @@ plotmodel(chain, HD91312, color=:mass, pma_scatter=:mass)
 
 
 ### Pair Plot
-Visualize all the parameters as a pair-plot:
+If we wish to examine the covariance between parameters in more detail, we can construct a pair-plot (aka. corner plot).
+
+For a quick look, you can just run `corner(chain)`, but for more professional output you may wish to customize the labels, units, unit labels, etc:
+
 
 ```julia
 ##Create a corner plot / pair plot.
