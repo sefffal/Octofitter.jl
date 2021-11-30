@@ -201,8 +201,8 @@ labels=[
 ]
 units = [
     "(au)",
-    "(_\\odot)",
-    "(_\\odot)",
+    "(M_\\odot)",
+    "(M_{jup})",
     "",
     "(\\degree)",
     "(\\degree)",
