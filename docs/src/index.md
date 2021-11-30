@@ -25,7 +25,8 @@ Any and all combinations also work together.
 * link mass to photometry via atmosphere models
 
 **Speed:**
-<p>Fit astrometry on your laptop in seconds!</p>
+
+Fit astrometry on your laptop in seconds!
 
 * Highly optimized code and derivatives are generated from your model
 * Higher order sampler (No U-Turn sampler) which explores the parameter space very efficiently 
