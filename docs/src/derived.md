@@ -44,8 +44,8 @@ Derived variables for an individual planet are similar, but have access to both 
 
 Here is an example of reparameterizing `e` and `a` on a planet to be logarithmic quantities:
 ```julia
-@named b = DirectDetections.Planet(
-    Deterministic(
+@named b = Planet(
+    Derived(
         e = (sys, pl) -> 10^pl.loge,
         a = (sys, pl) -> 10^pl.loga,
     ),
@@ -67,8 +67,8 @@ Planets can have Derived variables that are calculated from variables defined on
 This makes it easy to, for example, create a system of two planets that are co-planar.
 
 ```julia
-@named b = DirectDetections.Planet(
-    Deterministic(
+@named b = Planet(
+    Derived(
         i = (sys, pl) -> sys.i,
         Ω = (sys, pl) -> sys.Ω,
     ),
@@ -79,8 +79,8 @@ This makes it easy to, for example, create a system of two planets that are co-p
         τ = Normal(0.5, 1),
     ),
 )
-@named c = DirectDetections.Planet(
-    Deterministic(
+@named c = Planet(
+    Derived(
         i = (sys, pl) -> sys.i,
         Ω = (sys, pl) -> sys.Ω,
     ),
