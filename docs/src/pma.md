@@ -11,69 +11,42 @@ Let's look at the star and companion [HD 91312 A & B](https://arxiv.org/abs/2109
 
 The first step is to find the GAIA source ID for your object. For HD 91312, SIMBAD tells us the GAIA DR2 ID is `756291174721509376` (which we will assume is the same in eDR3).
 
-## Planet Model & Reparameterization
-For this model, we will have to add the variable `mass` as a prior. A reasonable uninformative prior for `mass` is `Uniform(0,1)`.
+## Planet Model
+For this model, we will have to add the variable `mass` as a prior.
+The units used on this variable are Jupiter masses, in contrast to `μ`, the primary's mass, in solar masses.  A reasonable uninformative prior for `mass` is `Uniform(0,1000)` or `LogUniform(1,1000)` depending on the situation.
+
+Initial setup:
+```julia
+using DirectDetections, Distributions, Plots
+```
 
 
 ```julia
 @named B = DirectDetections.Planet(
     Priors(
-        a = Uniform(0, 35),
-        e = TruncatedNormal(0.0, 0.2, 0, 1.0),
+        a = Uniform(1, 25),
+        e = Beta(2,15),
         τ = Uniform(0, 1),
         ω = Uniform(0, 2pi),
-        i = Uniform(0, 2pi),
-        Ω = Uniform(0, 2pi),
-        mass = Uniform(0,1)
+        i = Sine(), # The Sine() distribution is defined by DirectDetections
+        Ω = Uniform(0, pi),
+        mass = Uniform(0.5, 2000),
+        # Anoter option would be:
+        # mass = LogUniform(0.5, 2000),
     ),
     Astrometry(
-        (epoch=mjd("2016-12-15"), ra=0.133*1e3, dec=-0.174*1e3, σ_ra=0.007*1e3, σ_dec=0.007*1e3),
-        (epoch=mjd("2017-03-12"), ra=0.126*1e3, dec=-0.176*1e3, σ_ra=0.004*1e3, σ_dec=0.004*1e3),
-        (epoch=mjd("2017-03-13"), ra=0.127*1e3, dec=-0.172*1e3, σ_ra=0.004*1e3, σ_dec=0.004*1e3),
-        (epoch=mjd("2018-02-08"), ra=0.083*1e3, dec=-0.133*1e3, σ_ra=0.010*1e3, σ_dec=0.010*1e3),
-        (epoch=mjd("2018-11-28"), ra=0.058*1e3, dec=-0.122*1e3, σ_ra=0.010*1e3, σ_dec=0.020*1e3),
-        (epoch=mjd("2018-12-15"), ra=0.056*1e3, dec=-0.104*1e3, σ_ra=0.008*1e3, σ_dec=0.008*1e3),
+        (epoch=mjd("2016-12-15"), ra=133., dec=-174., σ_ra=07.0, σ_dec=07.),
+        (epoch=mjd("2017-03-12"), ra=126., dec=-176., σ_ra=04.0, σ_dec=04.),
+        (epoch=mjd("2017-03-13"), ra=127., dec=-172., σ_ra=04.0, σ_dec=04.),
+        (epoch=mjd("2018-02-08"), ra=083., dec=-133., σ_ra=10.0, σ_dec=10.),
+        (epoch=mjd("2018-11-28"), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.),
+        (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.),
     )
 )
 ```
 
-If you try this you may find that the sampler hits a lot of numerical errors. This is because it will often try to push `mass` to zero or below, which falls outside the bounds of our prior. This is okay if it happens occaisionally, but on some models this can really lower our efficienty.
+The `@named` macro simply passes the variable name you give as an arugment to the function i.e. `Planet(..., name=:B)`. This ensures the parameter names in the output are consistent with the code.
 
-Let's use `Deterministic` to reparameterize both `mass` and `a` using logarithmic variables:
-```julia
-
-@named B = DirectDetections.Planet(
-    Deterministic(
-        e = (sys, pl) -> 10^pl.loge,
-        a = (sys, pl) -> 10^pl.loga,
-        mass = (sys, pl) -> 10^pl.logm,
-    ),
-    Priors(
-        # Note: priors with sharp edges (e.g. Uniform priors) are challenging for HMC samplers.
-        # Using wide Gaussians can be better than uniform priors, for example.
-        τ = Normal(0.5, 1),
-        ω = Normal(pi, 2pi),
-        i = Normal(pi, 2pi),
-        Ω = Normal(pi, 2pi),
-
-        # Reparameterize a few properties for better sampling
-        loge = TruncatedNormal(-2, 1.5, -Inf, 0),
-        loga = Uniform(-1, 1.5),
-        logm = Uniform(-2, 0),
-    ),
-    Astrometry(
-        (epoch=mjd("2016-12-15"), ra=0.133*1e3, dec=-0.174*1e3, σ_ra=0.007*1e3, σ_dec=0.007*1e3),
-        (epoch=mjd("2017-03-12"), ra=0.126*1e3, dec=-0.176*1e3, σ_ra=0.004*1e3, σ_dec=0.004*1e3),
-        (epoch=mjd("2017-03-13"), ra=0.127*1e3, dec=-0.172*1e3, σ_ra=0.004*1e3, σ_dec=0.004*1e3),
-        (epoch=mjd("2018-02-08"), ra=0.083*1e3, dec=-0.133*1e3, σ_ra=0.010*1e3, σ_dec=0.010*1e3),
-        (epoch=mjd("2018-11-28"), ra=0.058*1e3, dec=-0.122*1e3, σ_ra=0.010*1e3, σ_dec=0.020*1e3),
-        (epoch=mjd("2018-12-15"), ra=0.056*1e3, dec=-0.104*1e3, σ_ra=0.008*1e3, σ_dec=0.008*1e3),
-    )
-)
-```
-
-We specified `loga` and `logm` under priors, but our model still needs the variables `a` and `mass`. For these, we specify functions in the Deterministic block.
-Each deterministic variable for a planet should be a function accepting the system parameters, and planet parameters. In this case, we will access the `loga` and `logm` parameters and use them to calculate `a` and `mass`.
 
 ## System Model & Specifying Proper Motion Anomaly
 Now that we have our planet model, we create a system model to contain it.
@@ -81,7 +54,7 @@ Now that we have our planet model, we create a system model to contain it.
 ```julia
 @named HD91312 = System(
     Priors(
-        μ = Normal(1.61, 0.05),
+        μ = LogNormal(1.61, 1),
         plx = gaia_plx(gaia_id=756291174721509376),
     ),  
     ProperMotionAnomHGCA(gaia_id=756291174721509376),
@@ -99,43 +72,112 @@ Ssample from our model as usual:
 
 ```julia
 chain, stats = DirectDetections.hmc(
-    HD91312,
-    adaptation =  10_000,
-    iterations = 100_000,
-    tree_depth =     12,
+    HD91312, 0.85,
+    adaptation =  1_000,
+    iterations = 10_000,
 );
+display(chain)
 ```
 
-This took 35s on an older laptop, single core.
+Output:
+```        
+┌ Info: Guessing a good starting location by sampling from priors
+└   N = 50000
+┌ Info: Found initial stepsize
+└   initial_ϵ = 0.0125
+[ Info: Will adapt step size and mass matrix
+[ Info: progress logging is enabled globally
+Sampling100%|███████████████████████████████| Time: 0:00:24
+  iterations:                    30000
+  n_steps:                       7
+  is_accept:                     true
+  acceptance_rate:               0.863239872503996
+  log_density:                   -51.71436291701389
+  hamiltonian_energy:            54.325211045874674
+  hamiltonian_energy_error:      0.19872154840668088
+  max_hamiltonian_energy_error:  0.3162241419617615
+  tree_depth:                    3
+  numerical_error:               false
+  step_size:                     0.5200876630871248
+  nom_step_size:                 0.5200876630871248
+  is_adapt:                      false
+  mass_matrix:                   DenseEuclideanMetric(diag=[0.002497517511145372, 0.02 ...])
+[ Info: Resolving deterministic variables
+[ Info: Constructing chains
+Sampling report:
+mean_accept = 0.7834391801902499
+num_err_frac = 0.017433333333333332
+mean_tree_depth = 2.8884666666666665
+max_tree_depth_frac = 0.0
+Chains MCMC chain (30000×9×1 Array{Float64, 3}):
+
+Iterations        = 1:1:30000
+Number of chains  = 1
+Samples per chain = 30000
+Wall duration     = 24.15 seconds
+Compute duration  = 24.15 seconds
+parameters        = μ, plx, B[a], B[e], B[τ], B[ω], B[i], B[Ω], B[mass]
+
+Summary Statistics
+  parameters       mean       std   naive_se      mcse          ess      rhat   ess_per_sec 
+      Symbol    Float64   Float64    Float64   Float64      Float64   Float64       Float64
+
+           μ     1.6107    0.0499     0.0003    0.0003   21449.1180    1.0000      888.1255
+         plx    29.1444    0.1396     0.0008    0.0010   23713.4280    1.0000      981.8818
+        B[a]     6.7402    0.0890     0.0005    0.0010    7643.8317    1.0000      316.5017
+        B[e]     0.2043    0.0449     0.0003    0.0005    5958.7172    1.0000      246.7276
+        B[τ]     1.1459    0.0254     0.0001    0.0003    9732.8386    1.0000      402.9994
+        B[ω]    -0.3675    0.0984     0.0006    0.0011    8379.4363    1.0000      346.9602
+        B[i]     1.4706    0.0280     0.0002    0.0003   10928.8907    1.0000      452.5233
+        B[Ω]    -0.6672    0.0147     0.0001    0.0001   19642.2568    1.0001      813.3103
+     B[mass]   245.0888   69.1839     0.3994    1.2972    2404.3514    1.0000       99.5549
+
+Quantiles
+  parameters       2.5%      25.0%      50.0%      75.0%      97.5% 
+      Symbol    Float64    Float64    Float64    Float64    Float64
+
+           μ     1.5131     1.5777     1.6109     1.6441     1.7083
+         plx    28.8718    29.0491    29.1440    29.2396    29.4166
+        B[a]     6.5706     6.6794     6.7398     6.7994     6.9165
+        B[e]     0.1229     0.1730     0.2023     0.2332     0.2989
+        B[τ]     1.1036     1.1281     1.1433     1.1608     1.2032
+        B[ω]    -0.5503    -0.4335    -0.3705    -0.3075    -0.1589
+        B[i]     1.4133     1.4525     1.4715     1.4902     1.5217
+        B[Ω]    -0.6967    -0.6769    -0.6670    -0.6573    -0.6390
+     B[mass]   159.7716   196.9441   228.3291   274.9650   431.3844
+```
+
+This takes about a minute on the first run due to JIT startup latency; subsequent runs are very quick even on e.g. an older laptop.
+
 ## Analysis
 
-### Mass
-Let's start by plotting a histogram of the companion mass.
+The first step is to look at the table output above generated by MCMCChains.jl.
+The `rhat` column gives a convergence measure. Each parameter should have an `rhat` very close to 1.000.
+If not, you may need to run the model for more iterations or tweak the parameterization of the model to improve sampling.
+The `ess` column gives an estimate of the effective sample size.
+The `mean` and `std` columns give the mean and standard deviation of each parameter.
 
-`chain["B[mass]"]` may be a matrix if multiple indepdendent chains were run, so we call `vec` to reshape it into a column vector.
+The second table summarizes the 2.5, 25, 50, 75, and 97.5 percentiles of each parameter in the model.
+
+Since this chain is well converged, we can begin examining the results.
+Use the `plotmodel` function to display orbits from the posterior against the input data:
+
 
 ```julia
-mass_B = chain["B[mass]"]
-histogram(vec(mass_B), xlabel="mass (M⊙)", ylabel="", legend=false)
+plotmodel(chain, HD91312, color=:mass, pma_scatter=:mass)
 ```
-[![mass histogram](assets/pma-astrometry-mass-hist.svg)](assets/pma-astrometry-mass-hist.svg)
-
-### Orbits
-
-Now plot a sample of orbits from the posterior to see how well they 
-fit the astrometry and proper motion anomaly.
-```julia
-plotmodel(chain, HD91312, clims=(7.2, 7.4))
-```
-[![orbits](assets/pma-astrometry-mass-model.png)](assets/pma-astrometry-mass-model.svg)
+[![mass histogram](assets/pma-astrometry-posterior.png)](assets/pma-astrometry-posterior.svg)
 
 
 ### Pair Plot
-Visualize all the parameters as a pair-plot:
+If we wish to examine the covariance between parameters in more detail, we can construct a pair-plot (aka. corner plot).
+
+For a quick look, you can just run `corner(chain)`, but for more professional output you may wish to customize the labels, units, unit labels, etc:
+
 
 ```julia
 ##Create a corner plot / pair plot.
-# We can access any property from the chain specified in Priors or in Deterministic.
+# We can access any property from the chain specified in Priors or in Derived.
 using PairPlots
 table = (;
     a=         chain["B[a]"],
@@ -159,8 +201,8 @@ labels=[
 ]
 units = [
     "(au)",
-    "(_\\odot)",
-    "(_\\odot)",
+    "(M_\\odot)",
+    "(M_{jup})",
     "",
     "(\\degree)",
     "(\\degree)",

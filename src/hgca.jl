@@ -22,31 +22,6 @@ function init_datadeps()
     ))
 end
 
-# ## Load the Hipparcos-GAIA catalog of accelerations
-# hgca = FITS(raw"C:\Users\William\Downloads\HGCA_vEDR3.fits") do hdu
-#     DataFrame(hdu[2])
-# end
-
-# # sort!(hgca, :chisq)
-
-# ## Include all stars in the catalog closer than this paralax cut:
-# # # Projection
-# # xy = aitoff.(hgca.gaia_ra, hgca.gaia_dec)
-# # x,y = eachrow(reinterpret(reshape, Float64, xy))
-
-# # a_star = @. hgca.gaia_ra * cosd(hgca.gaia_dec)
-
-# ## Proper motion anomaly
-# # The difference between the ~instant proper motion measured by GAIA compared to the 
-# # long term trend between Hipparcos and GAIA
-# Δμ_gaia_ra = @. (hgca.pmra_hg ± hgca.pmra_hg_error) - (hgca.pmra_gaia ± hgca.pmra_gaia_error)
-# Δμ_gaia_dec = @. (hgca.pmdec_hg ± hgca.pmdec_hg_error) - (hgca.pmdec_gaia ± hgca.pmdec_gaia_error)
-# Δμ_gaia = @. √(Δμ_gaia_ra^2 + Δμ_gaia_dec^2)
-
-# Δμ_hip_ra = @. (hgca.pmra_hg ± hgca.pmra_hg_error) - (hgca.pmra_hip ± hgca.pmra_hip_error)
-# Δμ_hip_dec = @. (hgca.pmdec_hg ± hgca.pmdec_hg_error) - (hgca.pmdec_hip ± hgca.pmdec_hip_error)
-# Δμ_hip = @. √(Δμ_hip_ra^2 + Δμ_hip_dec^2)
-
 
 function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
 
@@ -60,13 +35,33 @@ function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3
     # Proper motion anomaly
     # The difference between the ~instant proper motion measured by GAIA compared to the 
     # long term trend between Hipparcos and GAIA
-    Δμ_gaia_ra = (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx]) - (hgca.pmra_gaia[idx] ± hgca.pmra_gaia_error[idx])
-    Δμ_gaia_dec = (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx]) - (hgca.pmdec_gaia[idx] ± hgca.pmdec_gaia_error[idx])
+    # Δμ_gaia_ra = (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx]) - (hgca.pmra_gaia[idx] ± hgca.pmra_gaia_error[idx])
+    # Δμ_gaia_dec = (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx]) - (hgca.pmdec_gaia[idx] ± hgca.pmdec_gaia_error[idx])
 
-    Δμ_hip_ra = (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx]) - (hgca.pmra_hip[idx] ± hgca.pmra_hip_error[idx])
-    Δμ_hip_dec = (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx]) - (hgca.pmdec_hip[idx] ± hgca.pmdec_hip_error[idx])
+    # Δμ_hip_ra = (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx]) - (hgca.pmra_hip[idx] ± hgca.pmra_hip_error[idx])
+    # Δμ_hip_dec = (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx]) - (hgca.pmdec_hip[idx] ± hgca.pmdec_hip_error[idx])
+
+
+    # The above was backwards. We want to subtract the long term trend from each of the "instant" measurements
+    Δμ_gaia_ra = (hgca.pmra_gaia[idx] ± hgca.pmra_gaia_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
+    Δμ_gaia_dec = (hgca.pmdec_gaia[idx] ± hgca.pmdec_gaia_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
+
+    Δμ_hip_ra = (hgca.pmra_hip[idx] ± hgca.pmra_hip_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
+    Δμ_hip_dec = (hgca.pmdec_hip[idx] ± hgca.pmdec_hip_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
+
 
     return ProperMotionAnom(
+        # Hipparcos epoch
+        (;
+            ra_epoch=years2mjd(hgca.epoch_ra_hip[idx]),
+            dec_epoch=years2mjd(hgca.epoch_dec_hip[idx]),
+
+            pm_ra=Measurements.value(Δμ_hip_ra),
+            σ_pm_ra=Measurements.uncertainty(Δμ_hip_ra),
+
+            pm_dec=Measurements.value(Δμ_hip_dec),
+            σ_pm_dec=Measurements.uncertainty(Δμ_hip_dec),  
+        ),
         # GAIA epoch
         (;
             ra_epoch=years2mjd(hgca.epoch_ra_gaia[idx]),
@@ -78,17 +73,6 @@ function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3
             pm_dec=Measurements.value(Δμ_gaia_dec),
             σ_pm_dec=Measurements.uncertainty(Δμ_gaia_dec),
             
-        ),
-        # Hipparcos epoch
-        (;
-            ra_epoch=years2mjd(hgca.epoch_ra_hip[idx]),
-            dec_epoch=years2mjd(hgca.epoch_dec_hip[idx]),
-
-            pm_ra=Measurements.value(Δμ_hip_ra),
-            σ_pm_ra=Measurements.uncertainty(Δμ_hip_ra),
-
-            pm_dec=Measurements.value(Δμ_hip_dec),
-            σ_pm_dec=Measurements.uncertainty(Δμ_hip_dec),  
         ),
     )
 end

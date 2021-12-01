@@ -6,46 +6,56 @@ return `ra` and `dec` offsets in mas for each sampling in the posterior.
 """
 function projectpositions(chain, planet_key, times)
 
-    ras = zeros(size(chain,1) * length(times))
-    decs = zeros(size(chain,1) * length(times))
+    L = size(chain,1)*size(chain,3)
 
-    els = construct_elements(chain, planet_key, 1:size(chain,1))
+    ras = zeros(L)
+    decs = zeros(L)
     
-    for (j,el) in enumerate(els)
-
-        for (k, t) in enumerate(times)
-            i = j * length(times) + k - 1
-            ra, dec, _ = kep2cart(el, t)
-            ras[i] = ra
-            decs[i] = dec
+    Threads.@threads for js in collect(Iterators.partition(1:L, 10000))
+        els = DirectDetections.construct_elements(chain, planet_key, js)
+        for (el,j) in zip(els, js)
+            for (k, t) in enumerate(times)
+                i = j * length(times) + k - 1
+                ra, dec, _ = kep2cart(el, t)
+                ras[i] = ra
+                decs[i] = dec
+            end
         end
     end
     return ras, decs
 end
 export projectpositions
 
-"""
-    sampleorbits(chains, planet_key, 100)
+# """
+#     sampleorbits(chains, planet_key, 100)
 
-Given the posterior for a particular planet in the model, and the number of orbits to sample,
-return a random subset of length N.
-"""
-function sampleorbits(chains, planetnum, N)
-    return map(rand(eachindex(chains.planets[planetnum].a), N)) do i
-        return KeplerianElements(;
-            a = chains.planets[planetnum].a[i],
-            i = chains.planets[planetnum].i[i],
-            e = chains.planets[planetnum].e[i],
-            ω = chains.planets[planetnum].ω[i],
-            Ω = chains.planets[planetnum].Ω[i],
-            μ = chains.μ[i],
-            plx = chains.plx[i],
-            τ = chains.planets[planetnum].τ[i],
-        )
-    end
+# Given the posterior for a particular planet in the model, and the number of orbits to sample,
+# return a random subset of length N.
+# """
+# function sampleorbits(chains, planetnum, N)
+#     return map(rand(eachindex(chains.planets[planetnum].a), N)) do i
+#         return KeplerianElements(;
+#             a = chains.planets[planetnum].a[i],
+#             i = chains.planets[planetnum].i[i],
+#             e = chains.planets[planetnum].e[i],
+#             ω = chains.planets[planetnum].ω[i],
+#             Ω = chains.planets[planetnum].Ω[i],
+#             μ = chains.μ[i],
+#             plx = chains.plx[i],
+#             τ = chains.planets[planetnum].τ[i],
+#         )
+#     end
+# end
+# export sampleorbits
+
+@recipe function f(astrom::Astrometry) where T
+    xerror := astrom.σ_ra
+    yerror := astrom.σ_dec
+    xflip --> true
+    xlabel --> "Δ right ascension (mas)"
+    ylabel --> "Δ declination (mas)"
+    return astrom.ra, astrom.dec
 end
-export sampleorbits
-
 
 function plotposterior end
 export plotposterior
@@ -108,7 +118,7 @@ function init_plots()
             alpha=0.02,
             cmap=:turbo,
             rev=true,
-            colorbartitle="",#"semi-major axis (au)",
+            colorbartitle= property isa Symbol ? "$planet_key[$property]" : "",#"semi-major axis (au)",
             clims=nothing,
             lw=0.3,
             kwargs...
@@ -117,7 +127,7 @@ function init_plots()
             elements = construct_elements(chain, planet_key, ii)
 
             Plots.plot!(;
-                size=(700,700),
+                size=(550,550),
                 dpi=200,
                 fmt=:png,
                 framestyle=:box,
@@ -175,14 +185,17 @@ function init_plots()
             system,
             N=1500,
             alpha=0.02;
-            plotpma=true,
+            color=:a,
+            plotpma=!isnothing(system.propermotionanom),
+            # TODO: ideally this is based on if there is a mass variable
+            plotmass=!isnothing(system.propermotionanom),
             cmap=:plasma,
             pma_scatter=nothing,
             clims=extrema(Iterators.flatten(
                 # extrema(planet.a)
                 # extrema([sample.planets[key].a for sample in chain])
                 # for key in keys(chain[1].planets)
-                extrema(chain["$pk[a]"] for pk in keys(system.planets))
+                extrema(chain["$pk[$color]"] for pk in keys(system.planets))
             )),
             lims=nothing,
             kwargs...
@@ -197,7 +210,7 @@ function init_plots()
             # plot images?
             if !isnothing(system.images)
                 if length(unique(system.images.platescale)) != 1
-                    @warn "Plotmodel does not yet support images with multiple platescales"
+                    @warn "Plotmodel does not yet support images with multiple platescales. Taking first image only."
                     img = DirectImages.DirectImage(first(system.images.image))
                 else
                     img = DirectImages.DirectImage(
@@ -206,7 +219,7 @@ function init_plots()
                 end
                 img.PLATESCALE = system.images.platescale[1]
                 # To get the colour scales to work out
-                img ./= only(quantile(filter(isfinite, arraydata(img)), [0.9995]))
+                img ./= only(quantile(filter(isfinite, arraydata(img)), [0.98]))#[0.9995]))
                 img .*= maximum(clims) - minimum(clims)
                 img .+= minimum(clims)
                 imshow!(img; color=:Greys, skyconvention=true, lims)
@@ -214,7 +227,7 @@ function init_plots()
             
             for planet_key in eachindex(system.planets)
                 plotposterior!(
-                    chain, planet_key, :a, N; lw=1, alpha=alpha, colorbartitle="semi-major axis (au)",
+                    chain, planet_key, color, N; lw=1, alpha=alpha,
                     cmap=cmap, rev=false,
                     # cmap=:turbo,
                     clims=clims,
@@ -231,21 +244,32 @@ function init_plots()
             final_plot = p_orbits
 
             # astrometric acceleration?
-            if !isnothing(system.propermotionanom) && plotpma
+            if plotpma
 
 
-                titles=["GAIA EDR3", "Hipparcos",]
+                lpma =length(system.propermotionanom.ra_epoch)
+                pma_ii = sortperm(system.propermotionanom.ra_epoch)
+                if lpma == 2 && 
+                    isapprox(minimum(system.propermotionanom.ra_epoch), mjd("1991"), atol=365) &&
+                    isapprox(maximum(system.propermotionanom.ra_epoch), mjd("2016"), atol=365)
+
+                    titles=["Hipparcos", "GAIA EDR3"]
+                else
+                    titles = string.(system.propermotionanom.ra_epoch)
+                end
                 system_pma = system.propermotionanom
+                
+                pma_extrema_x = [-0.0,0.0]
+                pma_extrema_y = [-0.0,0.0]
                 pma_plots = map(sortperm(system_pma.ra_epoch)) do i
                     vx = zeros(prod(size(chain,[1,3])))
                     vy = zeros(prod(size(chain,[1,3])))
                     for j in keys(system.planets)
-                        ii = rand(eachindex(chain), N)
                         elements = construct_elements(chain, j, 1:prod(size(chain,[1,3])))
                         # mass = [sample.planets[j].mass for sample in chain]
                         mass = reshape(chain["$j[mass]"],:)
-                        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], getproperty.(elements, :μ), mass),1)
-                        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], getproperty.(elements, :μ), mass),2)
+                        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], mass.*mjup2msol),1)
+                        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], mass.*mjup2msol),2)
                     end
                     Plots.plot(
                         framestyle=:box,
@@ -259,44 +283,78 @@ function init_plots()
                         if length(system.planets) > 1
                             @warn "Multiplanet PMA scatter plots not yet implemented"
                         end
-                        prop = getproperty(chains.planets[1], pma_scatter)[ii]
-                        if pma_scatter == :mass
-                            prop ./=mjup2msol
+                        ii = rand(1:size(chain,1), N)
+                        planet_key = first(system.planets).name
+                        prop = chain["$planet_key[$pma_scatter]"][ii]
+                        # if pma_scatter == :mass
+                        #     prop ./=mjup2msol
+                        # end
+                        if color == pma_scatter
+                            clims_pma = clims
+                        else
+                            clims_pma = quantile(prop, (0.01, 0.99))
                         end
-                        ii_sub = rand(ii, 4000)
-                        Plots.scatter!(vx[ii_sub], vy[ii_sub], marker_z=prop[ii_sub], alpha=1, color=:plasma, colorbar=true, label="", markerstrokewidth=0, ms=1)
+                        Plots.scatter!(vx[ii], vy[ii], marker_z=prop, alpha=1, color=:plasma, legend=false, colorbar=false, label="", markerstrokewidth=0, ms=1, clims=clims_pma)
                     else
                         h = fit(Histogram, (vx, vy))#, (-1:0.05:1, -1:0.05:1))
                         Plots.plot!(h, color=Plots.cgrad([Plots.RGBA(0,0,0,0), Plots.RGBA(0,0,0,1)]), colorbar=false)
                     end
-                    Plots.scatter!(
+                    pma_plot = Plots.scatter!(
                         [system_pma.pm_ra[i]],
                         [system_pma.pm_dec[i]],
                         xerror=[system_pma.σ_pm_ra[i]],
                         yerror=[system_pma.σ_pm_dec[i]],
                         label="",
-                        color=1,
-                        markercolor=1,
-                        markerstrokecolor=1,
+                        color=:red,
+                        markercolor=:red,
+                        markerstrokecolor=:red,
                     )
                     # Plots.scatter!([0], [0], marker=(5, :circle, :red),label="")
-                    Plots.hline!([0], color=:black, label="")
-                    Plots.vline!([0], color=:black, label="")
-                    Plots.title!(titles[i])
+                    Plots.hline!(pma_plot, [0], color=:black, label="")
+                    Plots.vline!(pma_plot, [0], color=:black, label="")
+                    Plots.title!(pma_plot, titles[i])
                     # Plots.xlims!(-1,1)
                     # Plots.ylims!(-1,1)
-                    Plots.xlabel!("Δμ ra - mas/yr")
-                    Plots.ylabel!("Δμ dec - mas/yr")
-                end     
+                    Plots.xlabel!(pma_plot, "Δμ ra - mas/yr")
+                    Plots.ylabel!(pma_plot, "Δμ dec - mas/yr")
+                    pma_extrema_x[1] = min(pma_extrema_x[1], minimum(vx), system_pma.pm_ra[i] - system_pma.σ_pm_ra[i], system_pma.pm_ra[i] + system_pma.σ_pm_ra[i])
+                    pma_extrema_x[2] = max(pma_extrema_x[2], maximum(vx), system_pma.pm_ra[i] - system_pma.σ_pm_ra[i], system_pma.pm_ra[i] + system_pma.σ_pm_ra[i])
+                    pma_extrema_y[1] = min(pma_extrema_y[1], minimum(vy), system_pma.pm_dec[i] - system_pma.σ_pm_dec[i], system_pma.pm_dec[i] + system_pma.σ_pm_dec[i])
+                    pma_extrema_y[2] = max(pma_extrema_y[2], maximum(vy), system_pma.pm_dec[i] - system_pma.σ_pm_dec[i], system_pma.pm_dec[i] + system_pma.σ_pm_dec[i])
+                    return pma_plot
+                end
+                for plot in pma_plots
+                    # Plots.xlims!(plot, (pma_extrema_x...,))
+                    # Plots.ylims!(plot, (pma_extrema_y...,))
+                    lim = maximum(abs, ([pma_extrema_x; pma_extrema_y]))
+                    Plots.xlims!(plot, -lim, lim)
+                    Plots.ylims!(plot, -lim, lim)
+                end
                 # pma_plot = plot(pma_plots..., size=(700,300),margin=5Plots.mm, guidefontsize=9, titlefontsize=9, top_margin=0Plots.mm)
+                # pma_plot = Plots.plot(pma_plots, link=:both)
 
                 # Crete new final plot
                 l = eval(:(Plots.@layout [
                     A{0.65h}
-                    B C
+                    Plots.grid(1, $lpma)
                 ]))
                 final_plot = Plots.plot(p_orbits, pma_plots..., layout=l, size=(550,750),
                     margin=5Plots.mm, guidefontsize=9, titlefontsize=9, top_margin=0Plots.mm)
+            end
+
+            if plotmass
+                p = Plots.plot(;xlabel="", linewidth=3, label="")
+                for p in keys(system.planets)
+                    m = vec(chain["$p[mass]"])
+                    h = fit(Histogram, m, nbins=round(Int,sqrt(length(m))))#, nbins=100)
+                    Plots.plot!(h.edges[1][begin:end-1],seriestype=:step, h.weights, label="$p[mass]")
+                end
+
+                layout = eval(:(Plots.@layout [
+                    A{0.8h}
+                    B
+                ]))
+                final_plot = Plots.plot(final_plot, p, layout=layout, size=(550,850))
             end
 
             return final_plot

@@ -8,8 +8,8 @@ makedocs(
         "Getting Started" => "getting-started.md",
         "Tutorials" => [
             "Fit Astrometry" => "modelling.md",
-            "Fit Images" => "images.md",
             "Fit Astrometric Acceleration" => "pma.md",
+            "Fit Images" => "images.md",
             "Derived Variables" => "derived.md",
             "Connecting Mass with Photometry" => "mass-photometry.md",
             # "Multiple Planets" => "multi-planets.md",
@@ -17,7 +17,9 @@ makedocs(
         ],
         "Documentation" => [
             "Samplers" => "samplers.md",
-            "Chains" => "chains.md"
+            "Chains" => "chains.md",
+            "Kepler Solver" => "kepler.md",
+            "API" => "api.md"
         ]
     ],
     format = Documenter.HTML(

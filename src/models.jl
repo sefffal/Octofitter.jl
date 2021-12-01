@@ -10,11 +10,13 @@ function ln_like_pma(θ_system, pma::ProperMotionAnom)
         for key in keys(θ_system.planets)
             θ_planet = θ_system.planets[key]
             # TODO: we are creating these from scratch for each observation instead of sharing them
-            elements = construct_elements(θ_system, θ_planet)
+            orbit = construct_elements(θ_system, θ_planet)
 
             # RA and dec epochs are usually slightly different
-            pm_ra_star += propmotionanom(elements, pma.ra_epoch[i], elements.μ, θ_planet.mass)[1]
-            pm_dec_star += propmotionanom(elements, pma.dec_epoch[i], elements.μ, θ_planet.mass)[2]
+            # Note the unit conversion here from jupiter masses to solar masses to 
+            # make it the same unit as the stellar mass (element.mu)
+            pm_ra_star += propmotionanom(orbit, pma.ra_epoch[i], θ_planet.mass*mjup2msol)[1]
+            pm_dec_star += propmotionanom(orbit, pma.dec_epoch[i], θ_planet.mass*mjup2msol)[2]
         end
 
         residx = pm_ra_star - pma.pm_ra[i]
@@ -32,38 +34,38 @@ end
 
 # TODO: image modelling for multi planet systems do not consider how "removing" one planet
 # might increase the contrast of another.
-function ln_like_images(θ_system, system)
-    ll = 0.0
-    for key in keys(θ_system.planets)
-        θ_planet = θ_system.planets[key]
-        elements = construct_elements(θ_system, θ_planet)
+# function ln_like_images(θ_system, system)
+#     ll = 0.0
+#     for key in keys(θ_system.planets)
+#         θ_planet = θ_system.planets[key]
+#         elements = construct_elements(θ_system, θ_planet)
 
-        if (elements.a <= 0 ||
-            elements.e < 0 ||
-            elements.plx < 0 ||
-            elements.μ <= 0)
-            ll += NaN
-            continue
-        end
+#         if (elements.a <= 0 ||
+#             elements.e < 0 ||
+#             elements.plx < 0 ||
+#             elements.μ <= 0)
+#             ll += NaN
+#             continue
+#         end
 
 
-        ll += ln_like_images_element(elements, θ_planet, system)
-    end
+#         ll += ln_like_images_element(elements, θ_planet, system)
+#     end
 
-    # # Connect the flux at each epoch to an overall flux in this band for this planet
-    # # fᵢ = θ_band.epochs
-    # # ll += -1/2 * sum(
-    # #     (fᵢ .- θ_band.f).^2
-    # # ) / (θ_band.σ_f² * mean(fᵢ)^2)
+#     # # Connect the flux at each epoch to an overall flux in this band for this planet
+#     # # fᵢ = θ_band.epochs
+#     # # ll += -1/2 * sum(
+#     # #     (fᵢ .- θ_band.f).^2
+#     # # ) / (θ_band.σ_f² * mean(fᵢ)^2)
 
-    # And connect that flux to a modelled Teff and mass
-    # f_model = model_interpolator(θ_planet.Teff, θ_planet.mass)
-    # ll += -1/2 * (f_model - θ_band)^2 /  (θ_planet.σ_f_model² * f_model^2)
+#     # And connect that flux to a modelled Teff and mass
+#     # f_model = model_interpolator(θ_planet.Teff, θ_planet.mass)
+#     # ll += -1/2 * (f_model - θ_band)^2 /  (θ_planet.σ_f_model² * f_model^2)
 
-    return ll
-end
+#     return ll
+# end
 
-function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_planet, system)
+function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, system)
     images = system.images
     T = eltype(θ_planet)
     ll = zero(T)
@@ -115,42 +117,72 @@ function ln_like_images_element(elements::DirectOrbits.AbstractElements, θ_plan
         end
 
         σₓ² = σₓ^2
-        l = -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) - log(sqrt(2π * σₓ²))
+        # l = -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) - log(sqrt(2π * σₓ²))
+        l = -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ)
+        # l = -1 / (2σₓ²) * (f_band - f̃ₓ)^2 - log(sqrt(2π * σₓ²))
         ll += l
+        # n = Normal(f̃ₓ, σₓ)
+        # ll += logpdf(n, f_band)
     end
 
     return ll
 end
 
-# If there is no astrometry atached to the planet, it does not contribute anything to the likelihood function
-function ln_like_astrom(θ, θ_planet, planet::Planet{<:Any,<:Any,Nothing})
-    return 0.0
-end
+# # If there is no astrometry atached to the planet, it does not contribute anything to the likelihood function
+# function ln_like_astrom(elements, planet::Planet{<:Any,<:Any,Nothing})
+#     return 0.0
+# end
 
 # Astrometry
-function ln_like_astrom(θ_system, θ_planet, planet::Planet{<:Any,<:Any,<:Astrometry})
+function ln_like_astrom(elements, planet::Planet{<:Any,<:Any,<:Astrometry})
     ll = 0.0
     
-    # TODO, we are creating these from scratch for each observation instead of sharing them
-    elements = construct_elements(θ_system, θ_planet)
     astrom = astrometry(planet)
     for i in eachindex(astrom.epoch)
-
         x, y = kep2cart(elements, astrom.epoch[i])
-        residx = astrom.ra[i] - x
+        residx = astrom.ra[i ] - x
         residy = astrom.dec[i] - y
-        σ²x = astrom.σ_ra[i]^2
+        σ²x = astrom.σ_ra[i ]^2
         σ²y = astrom.σ_dec[i]^2
-        χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
-        χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
+        χ²x = -(1/2)*residx^2 / σ²x - log(sqrt(2π * σ²x))
+        χ²y = -(1/2)*residy^2 / σ²y - log(sqrt(2π * σ²y))
         ll += χ²x + χ²y
     end
     return ll
 end
 
 
-function ln_like(θ, system::System)
+function ln_like(θ_system, system::System)
     ll = 0.0
+
+    # Go through each planet in the model and add its contribution
+    # to the ln-likelihood.
+    for (θ_planet, planet) in zip(θ_system.planets, system.planets)
+        # Resolve the combination of system and planet parameters
+        # as a KeplerianElements object. This pre-computes
+        # some factors used in various calculations.
+        kep_elements = construct_elements(θ_system, θ_planet)
+
+        if !isnothing(planet.astrometry)
+            ll += ln_like_astrom(kep_elements, planet)
+        end
+
+        if !isnothing(system.images)
+            ll += ln_like_images(kep_elements, θ_planet, system)
+        end
+
+    end
+
+    # TODO: PMA is re-calculating some factores used in kep_elements.
+    # Should think of a way to integrate it into the loop above
+    if !isnothing(system.propermotionanom)
+        ll += ln_like_pma(θ_system, system.propermotionanom)
+    end
+
+    return ll
+end
+
+
 
     # Hierarchical parameters over multiple planets
     # if haskey(system.priors.priors, :σ_i²)
@@ -187,25 +219,6 @@ function ln_like(θ, system::System)
     #     ll += -1/2 * sum_ΩᵢθΩ² / θ.σ_Ω²  - log(sqrt(2π * θ.σ_Ω²))
     # end
 
-    if !isnothing(system.images)
-        ll += ln_like_images(θ, system)
-    end
-    if !isnothing(system.propermotionanom)
-        ll += ln_like_pma(θ, system.propermotionanom)
-    end
-    # for (θ_planet, planet) in zip(θ.planets, system.planets)
-        # ll += ln_like_astrom(θ, θ_planet, planet)
-        
-    for key in eachindex(system.planets)
-        ll += ln_like_astrom(θ, θ.planets[key], system.planets[key])
-    end
-
-    
-    return ll
-end
-
-
-
 
 
 
@@ -225,33 +238,13 @@ end
 #     end
 # end
 
-# This implementation is ~5x faster for the same result.
-# It uses meta-programming to unroll the loop over the different
-# prior types. Note that this also ensures the priors can't be modified
-# after building the ln_prior function.
-# function make_ln_prior(θ)
-
-#     body = Expr[]
-
-#     for i in eachindex(θ)
-#         pd = θ[i]
-#         key = keys(θ)[i]
-#         ex = :(lp += $logpdf($pd, params.$key))
-#         push!(body, ex)
-#     end
-
-#     ex = :(function (params)
-#         lp = zero(eltype(params))
-#         $(body...)
-#         return lp
-#     end)
-
-#     ln_prior = @RuntimeGeneratedFunction(ex)
-#     return ln_prior
-# end
-
-
 function make_ln_prior(system::System)
+
+    # This function uses meta-programming to unroll all the code at compile time.
+    # This is a big performance win, since it avoids looping over all the different
+    # types of distributions that might be specified as priors.
+    # Otherwise we would have to loop through an abstract vector and do runtime dispatch!
+    # This way all the code gets inlined into a single tight numberical function in most cases.
 
     i = 0
     prior_evaluations = Expr[]
@@ -288,12 +281,87 @@ function make_ln_prior(system::System)
 
     # Here is the function we return.
     # It maps an array of parameters into our nested named tuple structure
+    # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
+    # The RuntimeGeneratedFunctions package avoids these in all cases.
     return @RuntimeGeneratedFunction(:(function (arr)
+        l = $i
+        @boundscheck if length(arr) != l
+            error("Expected exactly $l elements in array (got $(length(arr)))")
+        end
         lp = zero(first(arr))
         # Add contributions from planet priors
-        $(prior_evaluations...)
+        @inbounds begin
+           $(prior_evaluations...) 
+        end
         return lp
     end))
+end
+
+# Same as above, but assumes the input to the log prior was sampled
+# using transformed distributions from Bijectors.jl
+# Uses logpdf_with_trans() instead of logpdf to make the necessary corrections.
+function make_ln_prior_transformed(system::System)
+
+    i = 0
+    prior_evaluations = Expr[]
+
+    # System priors
+    for prior_distribution in values(system.priors.priors)
+        i += 1
+        ex = :(
+            lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
+        )
+        push!(prior_evaluations,ex)
+    end
+
+    # Planet priors
+    for planet in system.planets
+        # for prior_distribution in values(planet.priors.priors)
+        for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
+            i += 1
+            ex = :(
+                lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
+            )
+            push!(prior_evaluations,ex)
+        end
+    end
+
+    # Here is the function we return.
+    # It maps an array of parameters into our nested named tuple structure
+    # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
+    # The RuntimeGeneratedFunctions package avoids these in all cases.
+    return @RuntimeGeneratedFunction(:(function (arr)
+        l = $i
+        @boundscheck if length(arr) != l
+            error("Expected exactly $l elements in array (got $(length(arr)))")
+        end
+        lp = zero(first(arr))
+        # Add contributions from planet priors
+        @inbounds begin
+           $(prior_evaluations...) 
+        end
+        return lp
+    end))
+end
+
+function _list_priors(system::System)
+
+    priors_vec = []
+    # System priors
+    for prior_distribution in values(system.priors.priors)
+        push!(priors_vec,prior_distribution)
+    end
+
+    # Planet priors
+    for planet in system.planets
+        # for prior_distribution in values(planet.priors.priors)
+        for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
+            push!(priors_vec, prior_distribution)
+        end
+    end
+
+    # narrow the type
+    return map(identity, priors_vec)
 end
 
 
@@ -347,6 +415,10 @@ function make_arr2nt(system::System)
     i = 0
     body_sys_priors = Expr[]
 
+    # This function uses meta-programming to unroll all the code at compile time.
+    # This is a big performance win, since it avoids looping over all the functions
+    # etc. In fact, most user defined e.g. Derived callbacks can get inlined right here.
+
     # Priors
     for key in keys(system.priors.priors)
         i += 1
@@ -356,7 +428,7 @@ function make_arr2nt(system::System)
         push!(body_sys_priors,ex)
     end
 
-    # Deterministic variables
+    # Deterministic variables for the system
     body_sys_determ = Expr[]
     if !isnothing(system.deterministic)
         for (key,func) in zip(keys(system.deterministic.variables), values(system.deterministic.variables))
@@ -381,27 +453,41 @@ function make_arr2nt(system::System)
             push!(body_planet_priors,ex)
         end
 
-        # Deterministic
-        body_planet_determ = Expr[]
-        for (key,func) in zip(keys(planet.deterministic.variables), values(planet.deterministic.variables))
+        if isnothing(planet.deterministic)
             ex = :(
-                $key = $func(sys_res, (;$(body_planet_priors...)))
+                $(planet.name) = (;
+                    $(body_planet_priors...)
+                )
             )
-            push!(body_planet_determ,ex)
-        end
+        # Resolve deterministic vars.
+        else
+            body_planet_determ = Expr[]
+            for (key,func) in zip(keys(planet.deterministic.variables), values(planet.deterministic.variables))
+                ex = :(
+                    $key = $func(sys_res, (;$(body_planet_priors...)))
+                )
+                push!(body_planet_determ,ex)
+            end
 
-        ex = :(
-            $(planet.name) = (;
-                $(body_planet_priors...),
-                $(body_planet_determ...)
+            ex = :(
+                $(planet.name) = (;
+                    $(body_planet_priors...),
+                    $(body_planet_determ...)
+                )
             )
-        )
+        end
         push!(body_planets,ex)
     end
 
     # Here is the function we return.
     # It maps an array of parameters into our nested named tuple structure
+    # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
+    # The RuntimeGeneratedFunctions package avoids these in all cases.
     func = @RuntimeGeneratedFunction(:(function (arr)
+        l = $i
+        @boundscheck if length(arr) != l
+            error("Expected exactly $l elements in array (got $(length(arr)))")
+        end
         # Expand system variables from priors
         sys = (;$(body_sys_priors...))
         # Resolve deterministic system variables

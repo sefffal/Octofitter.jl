@@ -1,8 +1,8 @@
 module DirectDetections
-using ComponentArrays
+using ComponentArrays # TODO: remove last uses of component arrays
 using Distributions
+using Bijectors
 
-import KissMCMC
 using AdvancedHMC
 using NamedTupleTools
 using ForwardDiff
@@ -12,9 +12,18 @@ using Statistics
 using StatsBase
 using NamedTupleTools
 using DirectImages
+
 using DirectOrbits
+# Re-export the mjd helper. It's useful!
+export mjd
+
 using Base.Threads: @threads
 using StaticArrays
+ 
+using MCMCChains: MCMCChains
+using MCMCChains: Chains
+using Random
+
 
 using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
@@ -24,9 +33,11 @@ using RecipesBase
 const mjup2msol = 0.0009543
 
 include("types.jl")
+include("distributions.jl")
 include("models.jl")
 include("sampling.jl")
 include("analysis.jl")
+include("macros.jl")
 include("hgca.jl")
 
 function __init__()
@@ -34,5 +45,7 @@ function __init__()
     init_plots()
     return
 end
+
+include("precompile.jl")
 
 end

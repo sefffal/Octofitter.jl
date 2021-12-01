@@ -168,8 +168,7 @@ using Plots
 plotmodel(chain, HD82134)
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. If other data like astrometric acceleration is provided, additional panels will appear.
-[![model plot](assets/astrometry-model-plot.png)](assets/astrometry-model-plot.svg)
-
+![model plot](assets/astrometry-model-plot.png)
 
 ## Pair Plot
 A very useful visualization of our results is a pair-plot, or corner plot. We can use our PairPlots.jl package for this purpose:
