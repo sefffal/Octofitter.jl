@@ -54,16 +54,17 @@ function MCMCTempering.get_params(trans::AdvancedHMC.Transition)
 end
 
 # Fallback when no random number generator is provided (as is usually the case)
-function temperedhmc(system::System, target_accept=0.9; kwargs...)
-    return temperedhmc(Random.default_rng(), system, target_accept; kwargs...)
+function temperedhmc(system::System, target_accept=0.85, ensemble=MCMCSerial(); kwargs...)
+    return temperedhmc(Random.default_rng(), system, target_accept, ensemble; kwargs...)
 end
 
 function temperedhmc(
     rng::Random.AbstractRNG,
     system::System,
-    target_accept=0.9,
-    num_temperatures=4;
-    adaptation,
+    target_accept=0.85,
+    ensemble=MCMCSerial();
+    num_temperatures=4,
+    num_chains=1,   adaptation,
     iterations,
     tree_depth=10,
     burnin=0,
@@ -77,7 +78,8 @@ function temperedhmc(
     initial_θ_0 = sample_priors(system)
     D = length(initial_θ_0)
 
-    ln_prior = make_ln_prior(system)
+    #ln_prior = make_ln_prior(system)
+    ln_prior_transformed = make_ln_prior_transformed(system)
     arr2nt = DirectDetections.make_arr2nt(system) 
     priors_vec = _list_priors(system)
 
@@ -91,20 +93,28 @@ function temperedhmc(
     # end
     ℓlikelihood = let system=system, arr2nt=arr2nt, priors_vec=priors_vec
         function (θ_t)
+	    #return 0
             # Transform back from the unconstrained support to constrained support for the likelihood function
             θ = Bijectors.invlink.(priors_vec, θ_t)
-            θ_res = arr2nt(θ)
+
+	#    for i in eachindex(θ)
+	#        if !insupport(priors_vec[i], θ[i])
+	#	    @warn "likelihood call with value outside the support of the priors"
+	#	    return -Inf
+	#	end
+            #end
+
+	    θ_res = arr2nt(θ)
             return ln_like(θ_res, system)
         end
     end
     
-    # model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ForwardDiff)
+    # model ii= AdvancedHMC.DifferentiableDensityModel(ℓπ, ForwardDiff)
 
     # Define the target distribution
-    # ℓprior(θ) = ln_prior(θ)
     function ℓprior(θ_t)
         θ = Bijectors.invlink.(priors_vec, θ_t)
-        ln_prior(θ)
+        ln_prior_transformed(θ)
     end
     ∂ℓprior∂θ(θ) = (ℓprior(θ), ForwardDiff.gradient(ℓprior, θ))
     ∂ℓlikelihood∂θ(θ) = (ℓlikelihood(θ), ForwardDiff.gradient(ℓlikelihood, θ))
@@ -157,8 +167,13 @@ function temperedhmc(
     # κ = NUTS{MultinomialTS, GeneralisedNoUTurn}(integrator)
     κ = NUTS(integrator, max_depth=tree_depth) 
     spl = AdvancedHMC.HMCSampler(κ, metric, adaptor)
-
-    tempered_sampler = tempered(spl, num_temperatures)
+    tempered_sampler = tempered(
+        spl,
+        num_temperatures,
+        swap_strategy=:nonrev,
+        N_swap=5
+        # see for more options: https://github.com/TuringLang/MCMCTempering.jl/blob/67ca10916fc9949014475ae2df93488f37dd9d1a/src/tempered.jl#L27 
+    )
     start_time = time()
 
     AbstractMCMC.setprogress!(true)
@@ -170,11 +185,12 @@ function temperedhmc(
     #     progress=progress,
     #     verbose=false
     # )
-    mc_samples = sample(
+    mc_samples_all_chains = sample(
         rng,
         model,
         tempered_sampler,
-        iterations;
+        ensemble,
+        iterations, num_chains;
         nadapts = adaptation,
         init_params = initial_θ_t,
         discard_initial = adaptation + burnin,
@@ -183,44 +199,58 @@ function temperedhmc(
     )
     stop_time = time()
 
-    stat = map(s->s.stat, mc_samples)
-    samples = map(s->s.z.θ, mc_samples)
-    logposterior = map(s->s.z.ℓπ.value, mc_samples)
+    
+    @info "Sampling compete. Building chains."
+    # Go through each chain and repackage results
+    chains = map(mc_samples_all_chains) do mc_samples
+        stat = map(s->s.stat, mc_samples)
+     
+        mean_accept = mean(getproperty.(stat, :acceptance_rate))
+        num_err_frac = mean(getproperty.(stat, :numerical_error))
+        mean_tree_depth = mean(getproperty.(stat, :tree_depth))
+        max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
+    
+        println("Sampling report:")
+        @show mean_accept
+        @show num_err_frac
+        @show mean_tree_depth
+        @show max_tree_depth_frac
 
-    @info "Resolving deterministic variables"
-    chain_res = arr2nt.(samples)
-    @info "Constructing chains"
-    mcmcchain = DirectDetections.result2mcmcchain(system, chain_res)
-    mcmcchain_with_info = MCMCChains.setinfo(
-        mcmcchain,
+        # Report some warnings if sampling did not work well
+        if num_err_frac == 1.0
+            @error "Numerical errors encountered in ALL iterations. Check model and priors."
+        elseif num_err_frac > 0.1
+            @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
+        end
+        if max_tree_depth_frac > 0.1
+            @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
+        end
+
+        logpost = map(s->s.z.ℓπ.value, mc_samples)
+    
+        # Transform samples back to constrained support
+        samples = map(mc_samples) do s
+            θ_t = s.z.θ
+            θ = Bijectors.invlink.(priors_vec, θ_t)
+            return θ
+        end
+        chain_res = arr2nt.(samples)
+        return DirectDetections.result2mcmcchain(system, chain_res)
+    end
+    mcmcchains = cat(chains..., dims=3);
+    mcmcchains_with_info = MCMCChains.setinfo(
+        mcmcchains,
         (;start_time, stop_time, model=system)
     )
-
-    mean_accept = mean(getproperty.(stat, :acceptance_rate))
-    num_err_frac = mean(getproperty.(stat, :numerical_error))
-    mean_tree_depth = mean(getproperty.(stat, :tree_depth))
-    max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
-
-    println("Sampling report:")
-    @show mean_accept
-    @show num_err_frac
-    @show mean_tree_depth
-    @show max_tree_depth_frac
-
-    # Report some warnings if sampling did not work well
-    if num_err_frac == 1.0
-        @error "Numerical errors encountered in ALL iterations. Check model and priors."
-    elseif num_err_frac > 0.1
-        @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
-    end
-    if max_tree_depth_frac > 0.1
-        @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
-    end
-
     return (;
-        chain=mcmcchain_with_info,
-        stats=stat,
-        logpost=logposterior,
-        adaptor
+        chains=mcmcchains_with_info,
+        #stats=stat,
+        #logpost,
+        adaptor,
+	mc_samples=mc_samples_all_chains,
+	tempered_sampler
     )
 end
+
+
+export MCMCSerial, MCMCThreads, MCMCDistributed
