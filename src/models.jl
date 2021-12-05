@@ -2,6 +2,7 @@
 
 function ln_like_pma(θ_system, pma::ProperMotionAnom)
     ll = 0.0
+    
     for i in eachindex(pma.ra_epoch, pma.dec_epoch)
         pm_ra_star = 0.0
         pm_dec_star = 0.0
@@ -9,6 +10,11 @@ function ln_like_pma(θ_system, pma::ProperMotionAnom)
         # The model can support multiple planets
         for key in keys(θ_system.planets)
             θ_planet = θ_system.planets[key]
+
+            if θ_planet.mass < 0
+                return -Inf
+            end
+
             # TODO: we are creating these from scratch for each observation instead of sharing them
             orbit = construct_elements(θ_system, θ_planet)
 
@@ -154,10 +160,16 @@ end
 
 function ln_like(θ_system, system::System)
     ll = 0.0
-
+    if θ_system.μ <= 0
+        return -Inf
+    end
     # Go through each planet in the model and add its contribution
     # to the ln-likelihood.
     for (θ_planet, planet) in zip(θ_system.planets, system.planets)
+        if θ_planet.a <= 0 || θ_planet.e < 0 || θ_planet.e >= 1
+            return -Inf
+        end
+
         # Resolve the combination of system and planet parameters
         # as a KeplerianElements object. This pre-computes
         # some factors used in various calculations.
