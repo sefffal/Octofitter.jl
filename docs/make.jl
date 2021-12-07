@@ -16,6 +16,7 @@ makedocs(
             # "" => "multi-planets.md",
         ],
         "Documentation" => [
+            "Priors" => "priors.md",
             "Samplers" => "samplers.md",
             "Chains" => "chains.md",
             "Kepler Solver" => "kepler.md",

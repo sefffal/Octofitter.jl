@@ -59,11 +59,11 @@ Start by specifying a planet:
         ω = Normal(0.1, deg2rad(30.)),
         i = Normal(0.6, deg2rad(10.)),
         Ω = Normal(0.0, deg2rad(30.)),
-        GPI_H = Normal(3.8, 0.5)
+        H = Normal(3.8, 0.5)
     ),
 )
 ```
-Note how we also provided a prior on the photometry called `GPI_H`. We can put any name we want here, as long as it's used consistently throughout the model specification.
+Note how we also provided a prior on the photometry called `H`. We can put any name we want here, as long as it's used consistently throughout the model specification.
 
 See [Fit Astrometry](@ref fit-astrometry) for a description of the different orbital parameters, and conventions used.
 
@@ -71,11 +71,11 @@ Now, we create a table of images that will be passed to the `System`:
 
 ```julia
 system_images = DirectDetections.Images(
-    (band=:GPI_H, image=centered(images[1]), platescale=10.0, epoch=1238.6),
-    (band=:GPI_H, image=centered(images[2]), platescale=10.0, epoch=1584.7),
-    (band=:GPI_H, image=centered(images[3]), platescale=10.0, epoch=3220.0),
-    (band=:GPI_H, image=centered(images[4]), platescale=10.0, epoch=7495.9),
-    (band=:GPI_H, image=centered(images[5]), platescale=10.0, epoch=7610.4),
+    (band=:H, image=centered(images[1]), platescale=10.0, epoch=1238.6),
+    (band=:H, image=centered(images[2]), platescale=10.0, epoch=1584.7),
+    (band=:H, image=centered(images[3]), platescale=10.0, epoch=3220.0),
+    (band=:H, image=centered(images[4]), platescale=10.0, epoch=7495.9),
+    (band=:H, image=centered(images[5]), platescale=10.0, epoch=7610.4),
 )
 ```
 Provide one entry for each image you want to sample from. Ensure that each image has been re-centered so that index `[0,0]` is the position of the star. Areas of the image where there is no data should be filled with `NaN` and will not contribute to the likelihood of your model. `platescale` should be the pixel scale of your images, in milliarseconds / pixel. `epoch` should be the Modified Julian Day (MJD) that your image was taken. You can use the `mjd("2021-09-09")` function to calcualte this for you.
@@ -100,16 +100,19 @@ Finally, create the system and pass in your table of images.
 ```
 
 ## Sampling
-By default, the sampler will lower the target acceptance ratio when sampling from images. This allows the sampler more freedom to explore the "bumpy" posterior of the images.
+Sampling from images is much more challenging than relative astrometry or proper motion anomaly, so the fitting process tends to take longer.
 
-Start the NUTS sampler as usual:
+This is because the posterior is much "bumpier" with images.
+One way this manifests is very high tree depths. You might see a sampling report that says `max_tree_depth_frac = 0.9` or even `1.0`.
+To encourage the sampler to take larger steps and explore the images,
+it's recommended to lower the target acceptance ratio to around 0.5±0.2 and also increase the number of adapataion steps.
 
 ```julia
 chain, stats = DirectDetections.hmc(
-    HD82134,
+    HD82134, 0.25,
     adaptation =   8_000,
-    iterations = 100_000,
-    tree_depth =     12,
+    iterations =  10_000,
+    tree_depth =      10,
 );
 ```
 Sampling directly from images is somewhat slower than from astrometry. This example takes roughly 7 minutes on my laptop.
@@ -176,7 +179,7 @@ We can show the relationships between variables on a pair plot (aka corner plot)
 using PairPlots
 table = (;
     a=         chain["X[a]"],
-    H=         chain["X[GPI_H]"],
+    H=         chain["X[H]"],
     e=         chain["X[e]"],
     i=rad2deg.(chain["X[i]"]),
     Ω=rad2deg.(chain["X[Ω]"]),
@@ -211,18 +214,18 @@ Note that this time, we also show the recovered photometry in the corner plot.
 
 ## Assessing Detections
 To assess a detection, we can treat all the orbital variables as nuisance parameters. 
-We start by plotting the marginal distribution of the flux parameter, `GPI_H`:
+We start by plotting the marginal distribution of the flux parameter, `H`:
 
 
 ```julia
-histogram(chain["X[GPI_H]"], xlabel="GPI_H", label="")
+histogram(chain["X[H]"], xlabel="H", label="")
 ```
 ![corner plot](assets/images-flux-hist.png)
 
 
 We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:
 ```julia
-flux = chain["X[GPI_H]"]
+flux = chain["X[H]"]
 snr = mean(flux)/std(flux) # 13.35 in this example
 ```
 It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.

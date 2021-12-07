@@ -157,6 +157,22 @@ function guess_starting_position(system, N=500_000)
     return best
 end
 
+using Optim
+function optimize_starting_position(ℓπ, initial_θ_t)
+
+    @info "Optimizing starting location "
+    results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, LBFGS(), autodiff = :forward, Optim.Options(iterations=100_000, time_limit=5, allow_f_increases=true))
+    # results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, NelderMead(), Optim.Options(iterations=100_000, time_limit=5))
+    # results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, ParticleSwarm(), Optim.Options(iterations=100_000, time_limit=5))
+
+    intial_objective = ℓπ(initial_θ_t)
+
+    minimizer = Optim.minimizer(results)
+
+    @info "Starting location improved" logimprovement=(ℓπ(minimizer) - intial_objective)
+    return minimizer
+end
+
 
 
 function construct_elements(θ_system, θ_planet)
@@ -171,20 +187,20 @@ function construct_elements(θ_system, θ_planet)
         θ_planet.a,
     ))
 end
-function construct_elements(θ_system, θ_planet, i)
-    return KeplerianElements((;
-        μ=θ_system.μ[i],
-        plx=θ_system.plx[i],
-        i=θ_planet.i[i],
-        Ω=θ_planet.Ω[i],
-        ω=θ_planet.ω[i],
-        e=θ_planet.e[i],
-        τ=θ_planet.τ[i],
-        a=θ_planet.a[i],
-    ))
-end
+# function construct_elements(θ_system, θ_planet, i)
+#     return KeplerianElements((;
+#         μ=θ_system.μ[i],
+#         plx=θ_system.plx[i],
+#         i=θ_planet.i[i],
+#         Ω=θ_planet.Ω[i],
+#         ω=θ_planet.ω[i],
+#         e=θ_planet.e[i],
+#         τ=θ_planet.τ[i],
+#         a=θ_planet.a[i],
+#     ))
+# end
 
-function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Integer)
+function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Union{Integer,CartesianIndex})
     pk = string(planet_key)
     return KeplerianElements((;
         μ=chain["μ"][i],
@@ -280,17 +296,19 @@ end
 
 
 # Fallback when no random number generator is provided (as is usually the case)
-function hmc(system::System, target_accept=0.9; kwargs...)
-    return hmc(Random.default_rng(), system, target_accept; kwargs...)
+function hmc(system::System, target_accept=0.9, ensemble=MCMCSerial(); kwargs...)
+    return hmc(Random.default_rng(), system, target_accept, ensemble; kwargs...)
 end
 
 function hmc(
     rng::Random.AbstractRNG,
-    system::System, target_accept=0.75;
+    system::System, target_accept=0.75,
+    ensemble=MCMCSerial();
+    num_chains=1,
     adaptation,
     iterations,
+    discard_initial=adaptation,
     tree_depth=10,
-    burnin=0,
     initial_samples=50_000,
     initial_parameters=nothing,
     step_size=nothing,
@@ -326,14 +344,29 @@ function hmc(
     end
 
     if isnothing(initial_parameters)
-        initial_θ = guess_starting_position(system,initial_samples)
+        # initial_θ = guess_starting_position(system,initial_samples)
+        # # Transform from constrained support to unconstrained support
+        # initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
+
+        initial_θ_guess = guess_starting_position(system,1000)
+        # Transform from constrained support to unconstrained support
+        initial_θ_guess_t = Bijectors.link.(priors_vec, initial_θ_guess)
+
+        # @show initial_θ_guess
+        initial_θ_t = optimize_starting_position(ℓπ, initial_θ_guess_t)
+        
+        # Just for display
+        initial_θ = Bijectors.invlink.(priors_vec, initial_θ_t)
+
+        # @show initial_θ_guess initial_θ
+        # @show priors_vec
+
     else
         initial_θ = initial_parameters
+        # Transform from constrained support to unconstrained support
+        initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
     end
 
-
-    # Transform from constrained support to unconstrained support
-    initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
 
     # Define a Hamiltonian system
     metric = DenseEuclideanMetric(D)
@@ -381,81 +414,106 @@ function hmc(
     sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
 
 
-    # logger = SimpleLogger(stdout, Logging.Error)
-
     AbstractMCMC.setprogress!(true)
     start_time = time()
-    # mc_samples = with_logger(logger) do
-        mc_samples = sample(
-            rng, model, κ, metric, adaptor, iterations;
-            nadapts = adaptation,
-            init_params = initial_θ_t,
-            progress=progress,
-            verbose=false,
-            discard_initial = adaptation + burnin,
-        )
-        # mc_samples =sample(
-        #     rng,
-        #     model,
-        #     sampler,
-        #     iterations;
-        #     nadapts = adaptation,
-        #     init_params = initial_θ_t,
-        #     discard_initial = adaptation,
-        #     progress=progress,
-        #     verbose=false
-        # )
+
+    # Neat: it's possible to return a live iterator
+    # We could use this to build e.g. live plotting while the code is running
+    # once the analysis code is ported to Makie.
+    # return  AbstractMCMC.steps(
+    #     rng,
+    #     model,
+    #     sampler,
+    #     nadapts = adaptation,
+    #     init_params = initial_θ_t,
+    #     discard_initial = adaptation,
+    #     progress=progress,
+    #     verbose=false
+    # )
+
+
+    # function callback(rng, model, sampler, transition, state, iteration; kwargs...)
+    #     # nadapts init_params
+    #     @show propertynames(kwargs)
+    #     @show iteration
     # end
+
+
+    mc_samples_all_chains = sample(
+        rng,
+        model,
+        sampler,
+        ensemble,
+        iterations+adaptation, num_chains;
+        nadapts = adaptation,
+        init_params = initial_θ_t,
+        discard_initial,
+        progress=progress,
+        # callback
+    )
     stop_time = time()
+    
+    @info "Sampling compete. Building chains."
+    # Go through each chain and repackage results
+    chains = MCMCChains.Chains[]
+    logposts = Vector{Float64}[]
+    for mc_samples in mc_samples_all_chains
+        stat = map(s->s.stat, mc_samples)
+        logpost = map(s->s.z.ℓπ.value, mc_samples)
+     
+        mean_accept = mean(getproperty.(stat, :acceptance_rate))
+        num_err_frac = mean(getproperty.(stat, :numerical_error))
+        mean_tree_depth = mean(getproperty.(stat, :tree_depth))
+        max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
+    
+        println("Sampling report:")
+        @show mean_accept
+        @show num_err_frac
+        @show mean_tree_depth
+        @show max_tree_depth_frac
 
-    stat = map(s->s.stat, mc_samples)
-    logpost = map(s->s.z.ℓπ.value, mc_samples)
-    # samples = map(s->s.z.θ, mc_samples)
+        # Report some warnings if sampling did not work well
+        if num_err_frac == 1.0
+            @error "Numerical errors encountered in ALL iterations. Check model and priors."
+        elseif num_err_frac > 0.1
+            @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
+        end
+        if max_tree_depth_frac > 0.1
+            @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
+        end
 
-    # Transform samples back to constrained support
-    samples = map(mc_samples) do s
-        θ_t = s.z.θ
-        θ = Bijectors.invlink.(priors_vec, θ_t)
-        return θ
+        logpost = map(s->s.z.ℓπ.value, mc_samples)
+    
+        # Transform samples back to constrained support
+        samples = map(mc_samples) do s
+            θ_t = s.z.θ
+            θ = Bijectors.invlink.(priors_vec, θ_t)
+            return θ
+        end
+        chain_res = arr2nt.(samples)
+        push!(chains, DirectDetections.result2mcmcchain(system, chain_res))
+        push!(logposts, logpost)
     end
 
+    # Concatenate the independent chains now that we have remapped / resolved the variables.
+    mcmcchains = AbstractMCMC.chainscat(chains...)
 
-    @info "Resolving deterministic variables"
-    chain_res = arr2nt.(samples)
-    @info "Constructing chains"
-    mcmcchain = result2mcmcchain(system, chain_res)
-    mcmcchain_with_info = MCMCChains.setinfo(
-        mcmcchain,
-        (;start_time, stop_time, model=system)
+    # Concatenate the log posteriors and make them the same shape as the chains (N_iters,N_vars,N_chains)
+    logposts_mat = reshape(reduce(hcat, logposts),size(mcmcchains,1),1,size(mcmcchains,3))
+    mcmcchains_with_info = MCMCChains.setinfo(
+        mcmcchains,
+        (;
+            start_time,
+            stop_time,
+            model=system,
+            adaptor,
+            mc_samples=mc_samples_all_chains,
+            sampler,
+            logpost=logposts_mat,
+            initial_ϵ
+        )
     )
-
-    mean_accept = mean(getproperty.(stat, :acceptance_rate))
-    num_err_frac = mean(getproperty.(stat, :numerical_error))
-    mean_tree_depth = mean(getproperty.(stat, :tree_depth))
-    max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
-
-    println("Sampling report:")
-    @show mean_accept
-    @show num_err_frac
-    @show mean_tree_depth
-    @show max_tree_depth_frac
-
-    # Report some warnings if sampling did not work well
-    if num_err_frac == 1.0
-        @error "Numerical errors encountered in ALL iterations. Check model and priors."
-    elseif num_err_frac > 0.1
-        @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
-    end
-    if max_tree_depth_frac > 0.1
-        @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
-    end
-
-    return (;
-        chain=mcmcchain_with_info,
-        stats=stat,
-        logpost,
-        adaptor
-    )
+    return mcmcchains_with_info
 end
 
 include("tempered-sampling.jl")

@@ -52,8 +52,8 @@ export projectpositions
     xerror := astrom.σ_ra
     yerror := astrom.σ_dec
     xflip --> true
-    xlabel --> "Δ right ascension (mas)"
-    ylabel --> "Δ declination (mas)"
+    xguide --> "Δ right ascension (mas)"
+    yguide --> "Δ declination (mas)"
     return astrom.ra, astrom.dec
 end
 
@@ -182,10 +182,10 @@ function init_plots()
 
         function plotmodel!(
             chain,
-            system,
             N=1500,
-            alpha=0.02;
-            color=:a,
+            system=chain.info.model;
+            alpha=(N <= 15 ? 1 : 30/N),
+            color= isnothing(system.propermotionanom) ? :a : :mass,
             plotpma=!isnothing(system.propermotionanom),
             # TODO: ideally this is based on if there is a mass variable
             plotmass=!isnothing(system.propermotionanom),
@@ -237,7 +237,10 @@ function init_plots()
                 # Planet astrometry?
                 astrom = DirectDetections.astrometry(system.planets[planet_key])
                 if !isnothing(astrom)
-                    Plots.scatter!(astrom,marker=(:black,:circle,3),label="")
+                    # Put black error bars over thicker white error bars to make them easier to see
+                    # when plotted over e.g. images, orbits.
+                    Plots.scatter!(astrom,marker=(:white,:circle,0),label="",linewidth=0,color=:white,markerstrokewidth=3, markerstrokecolor=:white)
+                    Plots.scatter!(astrom,marker=(:black,:circle,0),label="",linewidth=0,color=:black,markerstrokewidth=1, markerstrokecolor=:black)
                 end
             end
             # We will override this if we have more information available further down

@@ -64,10 +64,11 @@ function temperedhmc(
     target_accept=0.85,
     ensemble=MCMCSerial();
     num_temperatures=4,
-    num_chains=1,   adaptation,
+    num_chains=1,
+    adaptation,
     iterations,
     tree_depth=10,
-    burnin=0,
+    discard_initial=adaptation,
     initial_samples=50_000,
     initial_parameters=nothing,
     step_size=nothing,
@@ -116,6 +117,7 @@ function temperedhmc(
         θ = Bijectors.invlink.(priors_vec, θ_t)
         ln_prior_transformed(θ)
     end
+    # TODO: These can be more efficient by retrieving the value and gradients in a single shot.
     ∂ℓprior∂θ(θ) = (ℓprior(θ), ForwardDiff.gradient(ℓprior, θ))
     ∂ℓlikelihood∂θ(θ) = (ℓlikelihood(θ), ForwardDiff.gradient(ℓlikelihood, θ))
     
@@ -143,6 +145,7 @@ function temperedhmc(
         initial_ϵ = step_size
     else
         initial_ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
+        @info "Found initial stepsize" initial_ϵ
     end
 
     integrator = Leapfrog(initial_ϵ)
@@ -185,15 +188,16 @@ function temperedhmc(
     #     progress=progress,
     #     verbose=false
     # )
+
     mc_samples_all_chains = sample(
         rng,
         model,
         tempered_sampler,
         ensemble,
-        iterations, num_chains;
+        iterations+adaptation, num_chains;
         nadapts = adaptation,
         init_params = initial_θ_t,
-        discard_initial = adaptation + burnin,
+        discard_initial,
         progress=progress,
         verbose=false
     )
@@ -202,8 +206,11 @@ function temperedhmc(
     
     @info "Sampling compete. Building chains."
     # Go through each chain and repackage results
-    chains = map(mc_samples_all_chains) do mc_samples
+    chains = MCMCChains.Chains[]
+    logposts = Vector{Float64}[]
+    for mc_samples in mc_samples_all_chains
         stat = map(s->s.stat, mc_samples)
+        logpost = map(s->s.z.ℓπ.value, mc_samples)
      
         mean_accept = mean(getproperty.(stat, :acceptance_rate))
         num_err_frac = mean(getproperty.(stat, :numerical_error))
@@ -235,21 +242,25 @@ function temperedhmc(
             return θ
         end
         chain_res = arr2nt.(samples)
-        return DirectDetections.result2mcmcchain(system, chain_res)
+        push!(chains, DirectDetections.result2mcmcchain(system, chain_res))
+        push!(logposts, logpost)
     end
-    mcmcchains = cat(chains..., dims=3);
+    # mcmcchains = cat(chains..., dims=3);
+    mcmcchains = AbstractMCMC.chainscat(chains...)
+    logposts_mat = reduce(hcat, logposts)
     mcmcchains_with_info = MCMCChains.setinfo(
         mcmcchains,
-        (;start_time, stop_time, model=system)
+        (;
+            start_time,
+            stop_time,
+            model=system,
+            adaptor,
+            mc_samples=mc_samples_all_chains,
+            tempered_sampler,
+            logpost=logposts_mat
+        )
     )
-    return (;
-        chains=mcmcchains_with_info,
-        #stats=stat,
-        #logpost,
-        adaptor,
-	mc_samples=mc_samples_all_chains,
-	tempered_sampler
-    )
+    return mcmcchains_with_info
 end
 
 
