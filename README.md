@@ -14,7 +14,8 @@ The package also contains analysis and visualization tools for understanding you
 * sample directly from images
 * exoplanet astrometry 
 * stellar astrometric acceleration
-Any and all combinations also work together.
+
+Any combination of the above.
 
 **Modelling features:**
 * multiple planets (one or more)
