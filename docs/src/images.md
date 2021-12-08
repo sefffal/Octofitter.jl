@@ -78,7 +78,7 @@ system_images = DirectDetections.Images(
     (band=:H, image=centered(images[5]), platescale=10.0, epoch=7610.4),
 )
 ```
-Provide one entry for each image you want to sample from. Ensure that each image has been re-centered so that index `[0,0]` is the position of the star. Areas of the image where there is no data should be filled with `NaN` and will not contribute to the likelihood of your model. `platescale` should be the pixel scale of your images, in milliarseconds / pixel. `epoch` should be the Modified Julian Day (MJD) that your image was taken. You can use the `mjd("2021-09-09")` function to calcualte this for you.
+Provide one entry for each image you want to sample from. Ensure that each image has been re-centered so that index `[0,0]` is the position of the star. Areas of the image where there is no data should be filled with `NaN` and will not contribute to the likelihood of your model. `platescale` should be the pixel scale of your images, in milliarseconds / pixel. `epoch` should be the Modified Julian Day (MJD) that your image was taken. You can use the `mjd("2021-09-09")` function to calculate this for you.
 `band` should be a symbol that matches the name you supplied when you created the `Planet`.
 
 By default, the contrast of the images is calculated automatically, but you can supply your own contrast curve as well by also passing `contrast=contrast_interp(centered(my_image))`.
