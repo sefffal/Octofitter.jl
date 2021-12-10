@@ -4,21 +4,20 @@
 Given the posterior for a particular planet in the model and a modified julian date(s),
 return `ra` and `dec` offsets in mas for each sampling in the posterior.
 """
-function projectpositions(chain, planet_key, times)
+function projectpositions(chains, planet_key, times)
 
-    L = size(chain,1)*size(chain,3)
-
-    ras = zeros(L)
-    decs = zeros(L)
+    ras = zeros(size(chains,1),size(chains,3),length(times))
+    decs = zeros(size(chains,1),size(chains,3),length(times))
     
-    Threads.@threads for js in collect(Iterators.partition(1:L, 10000))
-        els = DirectDetections.construct_elements(chain, planet_key, js)
-        for (el,j) in zip(els, js)
-            for (k, t) in enumerate(times)
-                i = j * length(times) + k - 1
-                ra, dec, _ = kep2cart(el, t)
-                ras[i] = ra
-                decs[i] = dec
+    for is in collect(Iterators.partition(1:size(chains,1), 5000))
+        for j in 1:size(chains,3)
+            els = DirectDetections.construct_elements(chains, planet_key, is .* j)
+            for (i,el) in zip(is,els)
+                for (k, t) in enumerate(times)
+                    ra, dec, _ = kep2cart(el, t)
+                    ras[i,j,k] = ra
+                    decs[i,j,k] = dec
+                end
             end
         end
     end
@@ -86,7 +85,7 @@ function init_plots()
             color=1,
             kwargs...
         )
-            ii = rand(1:size(chain,1), N)
+            ii = rand(1:size(chain,1)*size(chain,3), N)
             elements = construct_elements(chain, planet_key, ii)
 
             Plots.plot!(;
@@ -123,7 +122,7 @@ function init_plots()
             lw=0.3,
             kwargs...
         )
-            ii = rand(1:size(chain,1), N)
+            ii = rand(1:size(chain,1)*size(chain,3), N)
             elements = construct_elements(chain, planet_key, ii)
 
             Plots.plot!(;
@@ -190,6 +189,7 @@ function init_plots()
             # TODO: ideally this is based on if there is a mass variable
             plotmass=!isnothing(system.propermotionanom),
             cmap=:plasma,
+            imagecmap=:Greys,
             pma_scatter=nothing,
             clims=extrema(Iterators.flatten(
                 # extrema(planet.a)
@@ -222,7 +222,7 @@ function init_plots()
                 img ./= only(quantile(filter(isfinite, arraydata(img)), [0.98]))#[0.9995]))
                 img .*= maximum(clims) - minimum(clims)
                 img .+= minimum(clims)
-                imshow!(img; color=:Greys, skyconvention=true, lims)
+                imshow!(img; color=imagecmap, skyconvention=true, lims)
             end
             
             for planet_key in eachindex(system.planets)
