@@ -109,10 +109,10 @@ export Priors
 # Basically just wrap a named tuple
 Priors(;priors...) = Priors{typeof(priors)}(priors)
 
-function Base.show(io::IO, mime::MIME"text/plain", priors::Priors)
+function Base.show(io::IO, mime::MIME"text/plain", @nospecialize priors::Priors)
     println(io, "Priors:")
     for (k,prior) in zip(keys(priors.priors), values(priors.priors))
-        print(io, "\t- ", k, ":\t")
+        print(io, "  ", k, "\t")
         show(io, mime, prior)
         print(io, "\n")
     end
@@ -138,11 +138,12 @@ function Derived(;variables...)
         NamedTuple(variables),
     )
 end
-function Base.show(io::IO, mime::MIME"text/plain", det::Derived)
-    println(io, "Derived:")
+function Base.show(io::IO, mime::MIME"text/plain", @nospecialize det::Derived)
+    print(io, "Derived:\n  ")
     for k in keys(det.variables)
-        print(io, "\t- ", k, "\n")
+        print(io, k, ", ")
     end
+    print(io, "\n")
 end
 
 abstract type AbstractPlanet end
@@ -225,7 +226,7 @@ System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, images::Image
 
 #### Show methods
 
-Base.show(io::IO, ::MIME"text/plain", astrom::Astrometry) = print(
+Base.show(io::IO, ::MIME"text/plain", @nospecialize astrom::Astrometry) = print(
     io, """
         Astrometry[$(length(astrom.epoch))]
         epoch   \tra\tdec\tσ_ra\tσ_dec
@@ -234,7 +235,7 @@ Base.show(io::IO, ::MIME"text/plain", astrom::Astrometry) = print(
              for i in eachindex(astrom.epoch)],"\n"))
         ────────────────────────────────────────────────
         """)
-Base.show(io::IO, ::MIME"text/plain", pma::ProperMotionAnom) = print(
+Base.show(io::IO, ::MIME"text/plain", @nospecialize pma::ProperMotionAnom) = print(
     io, """
         ProperMotionAnom[$(length(pma.ra_epoch))]
         ra_epoch   \tdec_epoch   \tpm_ra\tpm_dec\tσ_pm_ra\tσ_pm_dec
@@ -243,7 +244,7 @@ Base.show(io::IO, ::MIME"text/plain", pma::ProperMotionAnom) = print(
              for i in eachindex(pma.ra_epoch)],"\n"))
         ──────────────────────────────────────────────────────────────────
         """)
-Base.show(io::IO, ::MIME"text/plain", is::Images) = print(
+Base.show(io::IO, ::MIME"text/plain", @nospecialize is::Images) = print(
     io, """
         Images[$(length(is.image))]
         epoch\tband\tplatescale
@@ -251,34 +252,31 @@ Base.show(io::IO, ::MIME"text/plain", is::Images) = print(
         $(join(["$(round(is.epoch[i],digits=2))\t$(is.band[i])\t$(round(is.platescale[i],digits=2))" for i in eachindex(is.epoch)],"\n"))
         ───────────────────────────
         """)
-function Base.show(io::IO, mime::MIME"text/plain", p::AbstractPlanet)
+function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::AbstractPlanet)
     print(io, "Planet $(p.name)\n")
-    if !isnothing(p.deterministic)
-        show(io, mime, p.deterministic)
-    end
-    show(io, mime, p.priors)
-    if hasproperty(p, :astrometry) && !isnothing(p.astrometry)
-        show(io, mime, p.astrometry)
-    end
-    print(io, "\n")
-    println(io)
+    # if !isnothing(p.deterministic)
+    #     show(io, mime, p.deterministic)
+    # end
+    # show(io, mime, p.priors)
+    # if hasproperty(p, :astrometry) && !isnothing(p.astrometry)
+    #     show(io, mime, p.astrometry)
+    # end
+    # print(io, "\n")
+    # println(io)
 end
-function Base.show(io::IO, mime::MIME"text/plain", sys::System)
+function Base.show(io::IO, mime::MIME"text/plain", @nospecialize sys::System)
     print(io, "System model $(sys.name)\n")
-    show(io, mime, sys.priors)
-    for planet in sys.planets
-        show(io, mime, planet)
-    end
-    if !isnothing(sys.propermotionanom)
-        show(io, mime, sys.propermotionanom)
-    end
-    if !isnothing(sys.images)
-        show(io, mime, sys.images)
-    end
-    if !isnothing(sys.models)
-        show(io, mime, keys(sys.models))
-    end
-    println(io)
+    # show(io, mime, sys.priors)
+    # for planet in sys.planets
+    #     show(io, mime, planet)
+    # end
+    # if !isnothing(sys.propermotionanom)
+    #     show(io, mime, sys.propermotionanom)
+    # end
+    # if !isnothing(sys.images)
+    #     show(io, mime, sys.images)
+    # end
+    # println(io)
 end
 
 
