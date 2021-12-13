@@ -344,22 +344,22 @@ function hmc(
     end
 
     if isnothing(initial_parameters)
-        # initial_θ = guess_starting_position(system,initial_samples)
-        # # Transform from constrained support to unconstrained support
-        # initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
-
-        initial_θ_guess = guess_starting_position(system,1000)
+        initial_θ = guess_starting_position(system,initial_samples)
         # Transform from constrained support to unconstrained support
-        initial_θ_guess_t = Bijectors.link.(priors_vec, initial_θ_guess)
+        initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
 
-        # @show initial_θ_guess
-        initial_θ_t = optimize_starting_position(ℓπ, initial_θ_guess_t)
+        # initial_θ_guess = guess_starting_position(system,initial_samples)
+        # # Transform from constrained support to unconstrained support
+        # initial_θ_guess_t = Bijectors.link.(priors_vec, initial_θ_guess)
+
+        # # @show initial_θ_guess
+        # initial_θ_t = optimize_starting_position(ℓπ, initial_θ_guess_t)
         
-        # Just for display
-        initial_θ = Bijectors.invlink.(priors_vec, initial_θ_t)
+        # # Just for display
+        # initial_θ = Bijectors.invlink.(priors_vec, initial_θ_t)
 
-        # @show initial_θ_guess initial_θ
-        # @show priors_vec
+        # # @show initial_θ_guess initial_θ
+        # # @show priors_vec
 
     else
         initial_θ = initial_parameters
@@ -499,7 +499,7 @@ function hmc(
     mcmcchains = AbstractMCMC.chainscat(chains...)
 
     # Concatenate the log posteriors and make them the same shape as the chains (N_iters,N_vars,N_chains)
-    logposts_mat = reshape(reduce(hcat, logposts),size(mcmcchains,1),1,size(mcmcchains,3))
+    logposts_mat = reduce(hcat, logposts)
     mcmcchains_with_info = MCMCChains.setinfo(
         mcmcchains,
         (;
