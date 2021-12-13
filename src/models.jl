@@ -79,6 +79,7 @@ function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, syst
        
         # Calculate position at this epoch
         ra, dec = kep2cart(elements, images.epoch[i])
+        # x must be negated to go from sky coordinates (ra increasing to left) to image coordinates (ra increasing to right).
         x = -ra
         y = dec
 
@@ -95,38 +96,35 @@ function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, syst
         # about the likelihood. This is equivalent to σₓ→∞ or log likelihood 
         # of zero.
         if !isfinite(σₓ) || !isfinite(f̃ₓ)
-            # if typeof(σₓ) <: AbstractFloat
-                # println("$x $y")
-                # println("$elements: $(round(x)) $(round(y)) $f̃ₓ $σₓ")
-            # end
             continue
         end
 
-        # Ruffio et al 2017, eqn 31
-        # ll += -1/(2σₓ^2) * (θ_epoch_f^2 - 2θ_epoch_f*f̃ₓ)
-        # ll += -1/(2σₓ^2) * (θ_band^2 - 2θ_band*f̃ₓ)
-
         band = images.band[i]
-        # If we are doing inference directly on the photometry
-        f_band::T = 0
-        if hasproperty(θ_planet, band)
-            f_band = getproperty(θ_planet, band)
-        elseif hasproperty(θ_planet, :mass)
-            mass = θ_planet.mass
-            if hasproperty(system.models, band)
-                f_band = system.models[band](mass)
-            else
-                error("Mass prior specified, but photometry prior for $band was not, and no matching atmosphere model found.")
-            end
-        else
+
+        # Verify the user has specified a prior or model for this band.
+        if !hasproperty(θ_planet, band)
             error("No photometry prior for the band $band was specified, and neither was mass.")
         end
+        f_band = getproperty(θ_planet, band)
+
+        # Direct imaging likelihood.
+        # Notes: we are assuming that the different images fed in are not correlated.
+        # The general multivariate Gaussian likleihood is exp(-1/2 (x⃗-μ⃗)ᵀ𝚺⁻¹(x⃗-μ⃗)) + √((2π)ᵏ|𝚺|)
+        # Because the images are uncorrelated, 𝚺 is diagonal and we can separate the equation
+        # into a a product of univariate Gaussian likelihoods or sum of log-likelihoods.
+        # That term for each image is given below.
+
+        # Ruffio et al 2017, eqn (31)
+        # Mawet et al 2019, eqn (8)
+
 
         σₓ² = σₓ^2
+        ll += -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) 
+
+
+
         # l = -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) - log(sqrt(2π * σₓ²))
-        l = -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ)
-        # l = -1 / (2σₓ²) * (f_band - f̃ₓ)^2 - log(sqrt(2π * σₓ²))
-        ll += l
+        # ll += -1 / (2σₓ²) * (f_band - f̃ₓ)^2 - log(sqrt(2π * σₓ²))
         # n = Normal(f̃ₓ, σₓ)
         # ll += logpdf(n, f_band)
     end
