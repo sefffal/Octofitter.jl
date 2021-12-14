@@ -1,26 +1,10 @@
 
-using DataDeps
+
 using FITSIO
 using Tables
 using Measurements
 
-function init_datadeps()
-    register(DataDep("HGCA_eDR3",
-        """
-        Dataset: Hipparcos Gaia Catalog of Accelerations
-        Author: Brandt et al
-        License: arXiv.org Non-exclusive license to distribute
-        Website: https://arxiv.org/abs/2105.11662
 
-        A catalog by Brandt et al containing cross calibrated proper motions
-        between Hipparcos and GAIA eDR3.
-
-        File size: 19MiB
-        """,
-        "http://physics.ucsb.edu/~tbrandt/HGCA_vEDR3.fits",
-        "23684d583baaa236775108b360c650e79770a695e16914b1201f290c1826065c"
-    ))
-end
 
 
 function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")

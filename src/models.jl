@@ -105,6 +105,7 @@ function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, syst
         if !hasproperty(θ_planet, band)
             error("No photometry prior for the band $band was specified, and neither was mass.")
         end
+        # TODO: verify this is type stablej
         f_band = getproperty(θ_planet, band)
 
         # Direct imaging likelihood.
@@ -138,13 +139,12 @@ end
 # end
 
 # Astrometry
-function ln_like_astrom(elements, planet::Planet{<:Any,<:Any,<:Astrometry})
+function ln_like_astrom(elements, astrom::Astrometry)
     ll = 0.0
     
-    astrom = astrometry(planet)
     for i in eachindex(astrom.epoch)
         x, y = kep2cart(elements, astrom.epoch[i])
-        residx = astrom.ra[i ] - x
+        residx = astrom.ra[i] - x
         residy = astrom.dec[i] - y
         σ²x = astrom.σ_ra[i ]^2
         σ²y = astrom.σ_dec[i]^2
@@ -155,15 +155,43 @@ function ln_like_astrom(elements, planet::Planet{<:Any,<:Any,<:Astrometry})
     return ll
 end
 
+# Photometry
+function ln_like_phot(photometry, θ_planet)
+    ll = 0.0
+    for i in eachindex(photometry.band)
+        band = photometry.band[i]
+        phot_param = getproperty(θ_planet, band)
+        phot_meas = photometry.phot[i]
+        σ_phot = photometry.σ_phot[i]
+        resid = phot_param - phot_meas
+        σ² = σ_phot^2
+        χ² = -(1/2)*resid^2 / σ² - log(sqrt(2π * σ²))
+        ll += χ²
+    end
+    return ll
+end
+
 
 function ln_like(θ_system, system::System)
     ll = 0.0
-    if θ_system.μ <= 0
+    if hasproperty(θ_system, :μ) && θ_system.μ <= 0
         return -Inf
     end
     # Go through each planet in the model and add its contribution
     # to the ln-likelihood.
     for (θ_planet, planet) in zip(θ_system.planets, system.planets)
+
+        if !isnothing(planet.photometry)
+            ll += ln_like_phot(planet.photometry, θ_planet)
+        end
+    
+        # We don't construct the elements object if there is no data requiring it.
+        # This also means we can model e.g. photometry directly without specifying 
+        # all the orbital parameters.
+        if isnothing(planet.astrometry) && isnothing(system.images)
+            continue
+        end
+
         if θ_planet.a <= 0 || θ_planet.e < 0 || θ_planet.e >= 1
             return -Inf
         end
@@ -174,7 +202,7 @@ function ln_like(θ_system, system::System)
         kep_elements = construct_elements(θ_system, θ_planet)
 
         if !isnothing(planet.astrometry)
-            ll += ln_like_astrom(kep_elements, planet)
+            ll += ln_like_astrom(kep_elements, planet.astrometry)
         end
 
         if !isnothing(system.images)
@@ -354,25 +382,7 @@ function make_ln_prior_transformed(system::System)
     end))
 end
 
-function _list_priors(system::System)
 
-    priors_vec = []
-    # System priors
-    for prior_distribution in values(system.priors.priors)
-        push!(priors_vec,prior_distribution)
-    end
-
-    # Planet priors
-    for planet in system.planets
-        # for prior_distribution in values(planet.priors.priors)
-        for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
-            push!(priors_vec, prior_distribution)
-        end
-    end
-
-    # narrow the type
-    return map(identity, priors_vec)
-end
 
 
 # function ln_prior(θ, system::System)
@@ -390,129 +400,3 @@ end
 function ln_post(θ, system::System)
     return ln_prior(θ, system) + ln_like(θ, system)
 end
-
-
-"""
-    make_arr2nt(system::System)
-
-Returns a function that maps an array of parameter values (e.g. sampled from priors,
-sampled from posterior, dual numbers, etc.) to a nested named tuple structure suitable
-for passing into `ln_like`.
-In the process, this evaluates all Deterministic variables defined in the model.
-
-Example:
-```julia
-julia> arr2nt = DirectDetections.make_arr2nt(system);
-julia> params = DirectDetections.sample_priors(system)
-9-element Vector{Float64}:
-  1.581678216418196
- 29.019567489624023
-  1.805551918844831
-  4.527607604709967
- -2.4432825071288837
- 10.165695048003027
- -2.8667829383306063
-  0.0006589349005787781
- -1.2600092725864576
-julia> arr2nt(params)
-(μ = 1.581678216418196, plx = 29.019567489624023, planets = (B = (τ = 1.805551918844831, ω = 4.527607604709967, i = -2.4432825071288837, Ω = 10.165695048003027, loge = -2.8667829383306063, loga = 0.0006589349005787781, logm = -1.2600092725864576, e = 0.001358992505357737, a = 1.0015184052910453, mass = 0.054952914078000334),))
-```
-"""
-function make_arr2nt(system::System)
-
-    # Roll flat vector of variables e.g. drawn from priors or posterior
-    # into a nested NamedTuple structure for e.g. ln_like
-    i = 0
-    body_sys_priors = Expr[]
-
-    # This function uses meta-programming to unroll all the code at compile time.
-    # This is a big performance win, since it avoids looping over all the functions
-    # etc. In fact, most user defined e.g. Derived callbacks can get inlined right here.
-
-    # Priors
-    for key in keys(system.priors.priors)
-        i += 1
-        ex = :(
-            $key = arr[$i]
-        )
-        push!(body_sys_priors,ex)
-    end
-
-    # Deterministic variables for the system
-    body_sys_determ = Expr[]
-    if !isnothing(system.deterministic)
-        for (key,func) in zip(keys(system.deterministic.variables), values(system.deterministic.variables))
-            ex = :(
-                $key = $func(sys)
-            )
-            push!(body_sys_determ,ex)
-        end
-    end
-
-    # Planets: priors & deterministic variables
-    body_planets = Expr[]
-    for planet in system.planets
-        
-        # Priors
-        body_planet_priors = Expr[]
-        for key in keys(planet.priors.priors)
-            i += 1
-            ex = :(
-                $key = arr[$i]
-            )
-            push!(body_planet_priors,ex)
-        end
-
-        if isnothing(planet.deterministic)
-            ex = :(
-                $(planet.name) = (;
-                    $(body_planet_priors...)
-                )
-            )
-        # Resolve deterministic vars.
-        else
-            body_planet_determ = Expr[]
-            for (key,func) in zip(keys(planet.deterministic.variables), values(planet.deterministic.variables))
-                ex = :(
-                    $key = $func(sys_res, (;$(body_planet_priors...)))
-                )
-                push!(body_planet_determ,ex)
-            end
-
-            ex = :(
-                $(planet.name) = (;
-                    $(body_planet_priors...),
-                    $(body_planet_determ...)
-                )
-            )
-        end
-        push!(body_planets,ex)
-    end
-
-    # Here is the function we return.
-    # It maps an array of parameters into our nested named tuple structure
-    # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
-    # The RuntimeGeneratedFunctions package avoids these in all cases.
-    func = @RuntimeGeneratedFunction(:(function (arr)
-        l = $i
-        @boundscheck if length(arr) != l
-            error("Expected exactly $l elements in array (got $(length(arr)))")
-        end
-        # Expand system variables from priors
-        sys = (;$(body_sys_priors...))
-        # Resolve deterministic system variables
-        sys_res = (;
-            sys...,
-            $(body_sys_determ...)
-        )
-        # Get resolved planets
-        pln = (;$(body_planets...))
-        # Merge planets into resolved system
-        sys_res_pln = (;sys..., planets=pln)
-        return sys_res_pln
-    end))
-
-    return func
-end
-
-

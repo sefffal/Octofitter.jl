@@ -1,6 +1,5 @@
 
 struct Astrometry{N,T<:Number}
-    # observations::NamedTuple{(:epoch, :ra, :dec, :σ_ra, :σ_dec), NTuple{5, T}}
     epoch::SVector{N,T}
     ra::SVector{N,T}
     dec::SVector{N,T}
@@ -25,8 +24,24 @@ function Astrometry(observations::NamedTuple...)
 end
 
 
+struct Photometry{N,T<:Number}
+    band::SVector{N,Symbol}
+    phot::SVector{N,T}
+    σ_phot::SVector{N,T}
+end
+export Photometry
+
+
+function Photometry(observations::NamedTuple...)
+    return Photometry(
+        SVector(getproperty.(observations, :band)),
+        SVector(getproperty.(observations, :phot)),
+        SVector(getproperty.(observations, :σ_phot)),
+    )
+end
+
+
 struct ProperMotionAnom{N,T<:Number}
-    # observations::NamedTuple{(:epoch, :ra, :dec, :σ_ra, :σ_dec), NTuple{5, T}}
     ra_epoch::SVector{N,T}
     dec_epoch::SVector{N,T}
     pm_ra::SVector{N,T}
@@ -155,15 +170,19 @@ Must be constructed with a block of priors, and optionally
 additional derived parameters and/or astrometry.
 `name` must be a symbol, e.g. `:b`.
 """
-struct Planet{TD<:Union{Derived,Nothing},TP<:Union{Priors,Nothing},TA<:Union{Astrometry,Nothing}} <: AbstractPlanet
+struct Planet{TD<:Union{Derived,Nothing},TP<:Union{Priors,Nothing},TA<:Union{Astrometry,Nothing},TPhot<:Union{Photometry,Nothing}} <: AbstractPlanet
     deterministic::TD
     priors::TP
     astrometry::TA
+    photometry::TPhot
     name::Symbol
 end
 export Planet
-Planet(det::Derived,priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(det,priors, astrometry, name)
-Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(nothing,priors, astrometry, name)
+# There has got to be a better way...
+Planet(det::Derived,priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing, photometry::Union{Photometry,Nothing}=nothing; name) = Planet(det,priors, astrometry, photometry, name)
+Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing, photometry::Union{Photometry,Nothing}=nothing; name) = Planet(nothing,priors, astrometry,photometry, name)
+Planet(det::Derived,priors::Priors, photometry::Photometry, astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(det,priors, astrometry, photometry, name)
+Planet(priors::Priors, photometry::Photometry, astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(nothing,priors, astrometry,photometry, name)
 
 
 astrometry(planet::Planet) = planet.astrometry
@@ -179,12 +198,11 @@ You may provide `ProperMotionAnom()` and/or `Images()` of the system.
 Finally, planet models are listed last.
 `name` must be a symbol e.g. `:HD56441`.
 """
-struct System{TDet<:Union{Derived,Nothing}, TPriors<:Priors,TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Images},TModels,TPlanet}
+struct System{TDet<:Union{Derived,Nothing}, TPriors<:Priors, TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Images},TPlanet}
     deterministic::TDet
     priors::TPriors
     propermotionanom::TPMA
     images::TImages
-    models::TModels
     planets::TPlanet
     name::Symbol
     function System(
@@ -193,15 +211,18 @@ struct System{TDet<:Union{Derived,Nothing}, TPriors<:Priors,TPMA<:Union{ProperMo
         propermotionanom::Union{ProperMotionAnom,Nothing},
         images::Union{Images,Nothing},
         planets::AbstractPlanet...;
-        models=nothing,
         name
     )
-        planets_nt = namedtuple(
-            getproperty.(planets, :name),
-            planets
-        )
-        return new{typeof(system_det), typeof(system_priors), typeof(propermotionanom), typeof(images), typeof(models),typeof(planets_nt)}(
-            system_det, system_priors, propermotionanom, images, models, planets_nt, name
+        if isempty(planets)
+            planets_nt = (;)
+        else
+            planets_nt = namedtuple(
+                getproperty.(planets, :name),
+                planets
+            )
+        end
+        return new{typeof(system_det), typeof(system_priors), typeof(propermotionanom), typeof(images), typeof(planets_nt)}(
+            system_det, system_priors, propermotionanom, images, planets_nt, name
         )
     end
 end
@@ -209,14 +230,13 @@ export System
 
 # Argument standardization / method cascade.
 # Allows users to pass arguments to System in any convenient order.
-Trest = Union{ProperMotionAnom,Images,Planet}
+System(planets::Planet...; kwargs...) = System(Priors(), planets...; kwargs...)
 System(priors::Priors, args...; kwargs...) =
     System(nothing, priors, args...,; kwargs...)
 System(priors::Priors, planets::Planet...; kwargs...) =
     System(nothing, priors, nothing, nothing, planets...,; kwargs...)
 System(det::Derived, priors::Priors, planets::Planet...; kwargs...) =
     System(det, priors, nothing, nothing, planets...; kwargs...)
-Trest = Union{Images,Planet}
 System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, propermotionanom::ProperMotionAnom, planets::Planet...; kwargs...) =
     System(det, priors, propermotionanom, nothing, planets...; kwargs...)
 System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, images::Images, planets::Planet...; kwargs...) =
@@ -225,7 +245,15 @@ System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, images::Image
     System(det, priors, propermotionanom, images, planets...; kwargs...)
 
 #### Show methods
-
+Base.show(io::IO, ::MIME"text/plain", @nospecialize phot::Photometry) = print(
+    io, """
+        Astrometry[$(length(phot.band))]
+        band\tphot\tσ_phot
+        ──────────────────────
+        $(join(["$(phot.band[i])\t$(phot.phot[i])\t$(phot.σ_phot[i])"
+             for i in eachindex(phot.band)],"\n"))
+        ──────────────────────
+        """)
 Base.show(io::IO, ::MIME"text/plain", @nospecialize astrom::Astrometry) = print(
     io, """
         Astrometry[$(length(astrom.epoch))]
@@ -280,29 +308,152 @@ function Base.show(io::IO, mime::MIME"text/plain", @nospecialize sys::System)
 end
 
 
+"""
+    _list_priors(system::System)
+
+Given a System, return a flat vector of prior distributions for all parameters in the System and 
+any Planets, according to the same order as `make_arr2nt`.
+"""
+function _list_priors(system::System)
+
+    priors_vec = []
+    # System priors
+    for prior_distribution in values(system.priors.priors)
+        push!(priors_vec,prior_distribution)
+    end
+
+    # Planet priors
+    for planet in system.planets
+        # for prior_distribution in values(planet.priors.priors)
+        for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
+            push!(priors_vec, prior_distribution)
+        end
+    end
+
+    # narrow the type
+    return map(identity, priors_vec)
+end
 
 
+"""
+    make_arr2nt(system::System)
 
-# function reparameterize(planet::Planet)
-#     function reparameterized_ln_prior(θ_cv)
-#         # τ2pi = θ_cv.Φ + θ_cv.Φω⁻ + θ_cv.ΦΩ⁻
-#         return planet.priors.ln_prior(merge(
-#             NamedTuple(θ_cv), (;
-#                 ω = θ_cv.ωΩ⁺ + θ_cv.ωΩ⁻,
-#                 Ω = θ_cv.ωΩ⁺ - θ_cv.ωΩ⁻
-#             )
-             
-            
+Returns a function that maps an array of parameter values (e.g. sampled from priors,
+sampled from posterior, dual numbers, etc.) to a nested named tuple structure suitable
+for passing into `ln_like`.
+In the process, this evaluates all Deterministic variables defined in the model.
 
-#             # NamedTuple(θ_cv), (;
-#             #     ω = θ_cv.Φ - τ2pi + θ_cv.ΦΩ⁻,
-#             #     Ω = θ_cv.Φ - τ2pi + θ_cv.Φω⁻,
-#             #     τ = τ2pi/2π,
-#             # )
+Example:
+```julia
+julia> arr2nt = DirectDetections.make_arr2nt(system);
+julia> params = DirectDetections.sample_priors(system)
+9-element Vector{Float64}:
+  1.581678216418196
+ 29.019567489624023
+  1.805551918844831
+  4.527607604709967
+ -2.4432825071288837
+ 10.165695048003027
+ -2.8667829383306063
+  0.0006589349005787781
+ -1.2600092725864576
+julia> arr2nt(params)
+(μ = 1.581678216418196, plx = 29.019567489624023, planets = (B = (τ = 1.805551918844831, ω = 4.527607604709967, i = -2.4432825071288837, Ω = 10.165695048003027, loge = -2.8667829383306063, loga = 0.0006589349005787781, logm = -1.2600092725864576, e = 0.001358992505357737, a = 1.0015184052910453, mass = 0.054952914078000334),))
+```
+"""
+function make_arr2nt(system::System)
 
-#         ))
-#     end
-#     priors = Priors(planet.priors.priors, reparameterized_ln_prior)
-#     return ReparameterizedPlanet(planet, priors, planet.name)
-# end
-# export reparameterize
+    # Roll flat vector of variables e.g. drawn from priors or posterior
+    # into a nested NamedTuple structure for e.g. ln_like
+    i = 0
+    body_sys_priors = Expr[]
+
+    # This function uses meta-programming to unroll all the code at compile time.
+    # This is a big performance win, since it avoids looping over all the functions
+    # etc. In fact, most user defined e.g. Derived callbacks can get inlined right here.
+
+    # Priors
+    for key in keys(system.priors.priors)
+        i += 1
+        ex = :(
+            $key = arr[$i]
+        )
+        push!(body_sys_priors,ex)
+    end
+
+    # Deterministic variables for the system
+    body_sys_determ = Expr[]
+    if !isnothing(system.deterministic)
+        for (key,func) in zip(keys(system.deterministic.variables), values(system.deterministic.variables))
+            ex = :(
+                $key = $func(sys)
+            )
+            push!(body_sys_determ,ex)
+        end
+    end
+
+    # Planets: priors & deterministic variables
+    body_planets = Expr[]
+    for planet in system.planets
+        
+        # Priors
+        body_planet_priors = Expr[]
+        for key in keys(planet.priors.priors)
+            i += 1
+            ex = :(
+                $key = arr[$i]
+            )
+            push!(body_planet_priors,ex)
+        end
+
+        if isnothing(planet.deterministic)
+            ex = :(
+                $(planet.name) = (;
+                    $(body_planet_priors...)
+                )
+            )
+        # Resolve deterministic vars.
+        else
+            body_planet_determ = Expr[]
+            for (key,func) in zip(keys(planet.deterministic.variables), values(planet.deterministic.variables))
+                ex = :(
+                    $key = $func(sys_res, (;$(body_planet_priors...)))
+                )
+                push!(body_planet_determ,ex)
+            end
+
+            ex = :(
+                $(planet.name) = (;
+                    $(body_planet_priors...),
+                    $(body_planet_determ...)
+                )
+            )
+        end
+        push!(body_planets,ex)
+    end
+
+    # Here is the function we return.
+    # It maps an array of parameters into our nested named tuple structure
+    # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
+    # The RuntimeGeneratedFunctions package avoids these in all cases.
+    func = @RuntimeGeneratedFunction(:(function (arr)
+        l = $i
+        @boundscheck if length(arr) != l
+            error("Expected exactly $l elements in array (got $(length(arr)))")
+        end
+        # Expand system variables from priors
+        sys = (;$(body_sys_priors...))
+        # Resolve deterministic system variables
+        sys_res = (;
+            sys...,
+            $(body_sys_determ...)
+        )
+        # Get resolved planets
+        pln = (;$(body_planets...))
+        # Merge planets into resolved system
+        sys_res_pln = (;sys..., planets=pln)
+        return sys_res_pln
+    end))
+
+    return func
+end

@@ -174,7 +174,12 @@ function optimize_starting_position(ℓπ, initial_θ_t)
 end
 
 
+"""
+    construct_elements(θ_system, θ_planet)
 
+Given a named tuple for of parameters from a System (θ_system) and Planet (θ_planet),
+return a `KeplerianElements` from DirectOrbits.jl.
+"""
 function construct_elements(θ_system, θ_planet)
     return KeplerianElements((;
         θ_system.μ,
@@ -187,19 +192,15 @@ function construct_elements(θ_system, θ_planet)
         θ_planet.a,
     ))
 end
-# function construct_elements(θ_system, θ_planet, i)
-#     return KeplerianElements((;
-#         μ=θ_system.μ[i],
-#         plx=θ_system.plx[i],
-#         i=θ_planet.i[i],
-#         Ω=θ_planet.Ω[i],
-#         ω=θ_planet.ω[i],
-#         e=θ_planet.e[i],
-#         τ=θ_planet.τ[i],
-#         a=θ_planet.a[i],
-#     ))
-# end
 
+
+"""
+    construct_elements(chains, :b, 4)
+
+Given a Chains object, a symbol matching the name of a planet, and an index,
+construct a `KeplerianElements` from DirectOrbits of that planet from that
+index of the chains.
+"""
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Union{Integer,CartesianIndex})
     pk = string(planet_key)
     return KeplerianElements((;
@@ -214,7 +215,14 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
     ))
 end
 
-function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Integer})
+"""
+    construct_elements(chains, :b, [4,5,10])
+
+Given a Chains object, a symbol matching the name of a planet, and an array of indices,
+construct a `KeplerianElements` from DirectOrbits of that planet from those indices
+of the chains.
+"""
+function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
     pk = string(planet_key)
     μs=chain["μ"]
     plxs=chain["plx"]
