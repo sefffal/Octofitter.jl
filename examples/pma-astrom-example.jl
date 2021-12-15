@@ -48,7 +48,6 @@ using DirectOrbits: mjd
 )
 
 ## Sampling from the posterior
-
 chain = DirectDetections.hmc(
     HD82134,  0.95,
     MCMCThreads(),

@@ -1,4 +1,4 @@
-using MCMCTempering, AbstractMCMC
+using MCMCTempering
 
 
 

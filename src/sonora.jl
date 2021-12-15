@@ -18,18 +18,6 @@ Supported metalicities:
 """
 function sonora_photometry_interpolator(band, metalicity="+0.0";catalog=datadep"SonoraBobcatEvoPhot")
 
-    # ## Load Sonora cooling track 
-    # valid_lines = filter(readlines(joinpath(datadep"SonoraBobcatEvoPhot", "evolution_tables", "evo_tables+0.0", "nc+0.0_co1.0_age"))) do line
-    #     length(line) > 10
-    # end
-    # headers = split(valid_lines[1], r"  +")[2:7]
-    # headers = lowercase.(replace.(headers, r"\W"=>""))
-    # grid= mapreduce(vcat, valid_lines[2:end]) do line
-    #     permutedims(parse.(Float64, split(line, r"  +")[2:7]))
-    # end
-    ##
-    # cooling_grid = DataFrame(grid, headers)
-
 
     #  Load Sonora magnitude table
     mag_table = load_table(joinpath(catalog, "photometry_tables", "mag_table"*metalicity))
@@ -78,21 +66,46 @@ function sonora_cooling_interpolator(metalicity="+0.0";catalog=datadep"SonoraBob
         permutedims(parse.(Float64, split(line, r"  +")[2:7]))
     end
     # cooling_grid = DataFrame(grid, headers)
-    return grid, headers
+    # return grid, headers
 
     iteffk = findfirst(==("teffk"), headers)
-    immsun = findfirst(==("teffk"), headers)
-    teffk = grid[iteffk]
-    mmsun = grid[immsun]
+    immsun = findfirst(==("mmsun"), headers)
+    iagegyr = findfirst(==("agegyr"), headers)
+    agegyr = grid[:,iagegyr]
+    agemyr = agegyr .* 1e3
+    mmsun = grid[:,immsun]
+    mmjup = mmsun ./ mjup2msol
+    teffk = grid[:,iteffk]
 
     points = [ 
-        teffk/10 mmsun
+        log.(agemyr) mmjup
     ]
-    samples = collect(mag_table[band])
+    samples = collect(teffk)
 
-    sitp = RBFInterpolator(points, samples, 2)
-    litp = LinearInterpolation(teffk, grid[], extrapolation_bc=NaN)
+    sitplog = RBFInterpolator(points, samples, 0.5)
 
+    sitp = (agemyr, mmjup) -> sitplog(log(agemyr), mmjup)
+    # return (;sitp, agemyr, mmjup, teffk)
+    
+    # Now build a fast linear interpolator over this grid.
+    minmmjup, maxmmjup = extrema(mmjup)
+    minagemyr, maxagemyr = extrema(agemyr)
+    agemyrrange = range(minagemyr, maxagemyr,length=2000)
+    mmjuprange = range(minmmjup, maxmmjup,length=500)
+    gridded = sitp.(agemyrrange, mmjuprange')
+
+    # Now build linear interpolator
+    litp = LinearInterpolation((agemyrrange, mmjuprange), gridded, extrapolation_bc=NaN)
+    function model_interpolator(agemyr, mmjup)
+        if minagemyr <= agemyr <= maxagemyr && minmmjup < mmjup < maxmmjup
+            return litp(agemyr, mmjup)
+        else
+            return NaN
+        end
+    end
+
+    return model_interpolator
+    # return sitp
 
     # Want (age, mass) -> teffk. This can be combined with the others to get specific fluxes.
 
