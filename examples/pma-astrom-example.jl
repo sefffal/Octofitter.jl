@@ -49,7 +49,7 @@ using DirectOrbits: mjd
 
 ## Sampling from the posterior
 
-chain, stats = DirectDetections.hmc(
+chains = DirectDetections.hmc(
     HD82134,
     adaptation =  1_000,
     iterations = 50_000,

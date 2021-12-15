@@ -304,14 +304,14 @@ end
 
 
 # Fallback when no random number generator is provided (as is usually the case)
-function hmc(system::System, target_accept=0.9, ensemble=MCMCSerial(); kwargs...)
+function hmc(system::System, target_accept::Number=0.8, ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial(); kwargs...)
     return hmc(Random.default_rng(), system, target_accept, ensemble; kwargs...)
 end
 
 function hmc(
     rng::Random.AbstractRNG,
-    system::System, target_accept=0.75,
-    ensemble=MCMCSerial();
+    system::System, target_accept::Number=0.8,
+    ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
     num_chains=1,
     adaptation,
     iterations,
@@ -465,7 +465,7 @@ function hmc(
     # Go through each chain and repackage results
     chains = MCMCChains.Chains[]
     logposts = Vector{Float64}[]
-    for mc_samples in mc_samples_all_chains
+    for (i,mc_samples) in enumerate(mc_samples_all_chains)
         stat = map(s->s.stat, mc_samples)
         logpost = map(s->s.z.ℓπ.value, mc_samples)
      
@@ -474,11 +474,13 @@ function hmc(
         mean_tree_depth = mean(getproperty.(stat, :tree_depth))
         max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
     
-        println("Sampling report:")
-        @show mean_accept
-        @show num_err_frac
-        @show mean_tree_depth
-        @show max_tree_depth_frac
+        println("""\
+        Sampling report for chain $i:
+        mean_accept =         $mean_accept
+        num_err_frac =        $num_err_frac
+        mean_tree_depth =     $mean_tree_depth
+        max_tree_depth_frac = $max_tree_depth_frac
+        """)
 
         # Report some warnings if sampling did not work well
         if num_err_frac == 1.0

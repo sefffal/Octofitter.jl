@@ -162,6 +162,9 @@ function ln_like_phot(photometry, θ_planet)
         band = photometry.band[i]
         phot_param = getproperty(θ_planet, band)
         phot_meas = photometry.phot[i]
+        if !isfinite(phot_param)
+            return -Inf
+        end
         σ_phot = photometry.σ_phot[i]
         resid = phot_param - phot_meas
         σ² = σ_phot^2

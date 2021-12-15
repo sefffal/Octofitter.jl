@@ -183,6 +183,7 @@ Planet(det::Derived,priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing
 Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing, photometry::Union{Photometry,Nothing}=nothing; name) = Planet(nothing,priors, astrometry,photometry, name)
 Planet(det::Derived,priors::Priors, photometry::Photometry, astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(det,priors, astrometry, photometry, name)
 Planet(priors::Priors, photometry::Photometry, astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(nothing,priors, astrometry,photometry, name)
+Planet(priors::Priors, det::Derived, args...; name) = Planet(det, priors, args...; name)
 
 
 astrometry(planet::Planet) = planet.astrometry
@@ -235,6 +236,7 @@ System(priors::Priors, args...; kwargs...) =
     System(nothing, priors, args...,; kwargs...)
 System(priors::Priors, planets::Planet...; kwargs...) =
     System(nothing, priors, nothing, nothing, planets...,; kwargs...)
+System(priors::Priors, det::Derived, args...; kwargs...) = System(det, priors, args...; kwargs...)
 System(det::Derived, priors::Priors, planets::Planet...; kwargs...) =
     System(det, priors, nothing, nothing, planets...; kwargs...)
 System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, propermotionanom::ProperMotionAnom, planets::Planet...; kwargs...) =
