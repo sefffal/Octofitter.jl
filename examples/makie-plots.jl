@@ -33,8 +33,12 @@ function plot_orbits!(gp::GridPosition, args...; kwargs...)
     )
     plot_orbits!(ax_sky, args...; kwargs...)
 end
-function plot_orbits!(ax::Axis, chains, planet_key; color, N=500, colorrange=quantile(filter(isfinite, color),(0.05,0.95)))
-    ii = rand(1:size(chains,1) * size(chains,3), N)
+function plot_orbits!(ax::Axis, chains, planet_key;
+    color,
+    N=500,
+    ii = rand(1:size(chains,1) * size(chains,3), N),
+    colorrange=quantile(filter(isfinite, color),(0.05,0.95))
+)
     orbits = DirectDetections.construct_elements(chains, planet_key, ii)
     posns = DirectOrbits.kep2cart_ν.(orbits, range(0, 2π, length=90)')
     ras = getproperty.(posns, :x)
@@ -121,11 +125,15 @@ function plot_pma_epoch!(ax::Axis, system::System, ind::Integer)
     Makie.vlines!(ax, 0; color=:black, label="")
 end
 
-function plot_pma_epoch!(ax::Axis, chains, ind::Integer; color=:black, N=500, colorrange=quantile(filter(isfinite, color),(0.05,0.95)))
+function plot_pma_epoch!(ax::Axis, chains, ind::Integer;
+    color=:black,
+    N=500,
+    ii = rand(1:size(chains,1) * size(chains,3), N),
+    colorrange=quantile(filter(isfinite, color),(0.05,0.95))
+)
     system_pma = chains.info.model.propermotionanom
-    vx = zeros(N)
-    vy = zeros(N)
-    ii = rand(1:size(chains,1)*size(chains,3), N)
+    vx = zeros(size(ii))
+    vy = zeros(size(ii))
     for j in keys(chains.info.model.planets)
         elements = DirectDetections.construct_elements(chains, j, ii)
         mass = vec(chains["$j[mass]"][ii])
@@ -159,7 +167,15 @@ function plot_pma_time!(ax::Axis, system::System, direction; orientation=:horizo
         Makie.errorbars!(ax, y, epoch, σ, direction=:x, color=:red)
     end
 end
-function plot_pma_time!(ax::Axis, chains, direction; orientation=:horizontal, color, N=100, colormap=:plasma, colorrange=quantile(filter(isfinite, color),(0.05,0.95)))
+function plot_pma_time!(ax::Axis, chains, direction;
+    orientation=:horizontal,
+    color,
+    N=100,
+    ii = rand(1:size(chains,1)*size(chains,3), N),
+    colormap=:plasma,
+    colorrange=quantile(filter(isfinite, color),(0.05,0.95)),
+    linewidth=0.5
+)
     system_pma = chains.info.model.propermotionanom
     if direction == :ra
         dir_ind = 1
@@ -172,10 +188,9 @@ function plot_pma_time!(ax::Axis, chains, direction; orientation=:horizontal, co
     epoch_min = minimum([system_pma.ra_epoch; system_pma.dec_epoch;])
     epoch_max = maximum([system_pma.ra_epoch; system_pma.dec_epoch;])
     epoch_dt = epoch_max - epoch_min
-    epoch = range(epoch_min - 0.2epoch_dt, epoch_max + 0.2epoch_dt, length=90)
+    epoch = range(epoch_min - 0.2epoch_dt, epoch_max + 0.2epoch_dt, length=200)
 
-    vy = zeros(N, length(epoch))
-    ii = rand(1:size(chains,1)*size(chains,3), N)
+    vy = zeros(length(ii), length(epoch))
     for j in keys(chains.info.model.planets)
         elements = DirectDetections.construct_elements(chains, j, ii)
         mass = vec(chains["$j[mass]"][ii])
@@ -186,11 +201,11 @@ function plot_pma_time!(ax::Axis, chains, direction; orientation=:horizontal, co
     # end
     if orientation == :horizontal
         for (row,c) in zip(eachrow(vy), color)
-            Makie.lines!(ax, epoch, row; color=fill(c, size(epoch)), colormap, colorrange)
+            Makie.lines!(ax, epoch, row; color=fill(c, size(epoch)), colormap, colorrange,  linewidth)
         end
     else
         for (row,c) in zip(eachrow(vy), color)
-            Makie.lines!(ax, row, epoch; color=fill(c, size(epoch)), colormap, colorrange)
+            Makie.lines!(ax, row, epoch; color=fill(c, size(epoch)), colormap, colorrange,  linewidth)
         end
     end
 end
@@ -221,80 +236,119 @@ function plot_phot!(ax::Axis, planet::Planet)
     )
 end
 
+# TODO
+function plot_phot!(ax::Axis, chains, planet_key;
+    N,
+    ii = rand(1:size(chains,1)*size(chains,3), N),
+    color=:black
+)
+    planet = chains.info.model.planets[planet_key]
+    bands = string.(planet.photometry.band)
+    Makie.errorbars!(ax, 
+        eachindex(bands),
+        collect(planet.photometry.phot),
+        collect(planet.photometry.σ_phot),
+        color=:red,
+    )
+end
+
+# N= 1500
+# ii = rand(1:size(chain,1)*size(chain,3),N)
+# Zs = chain["b[Z]"][ii]
+# Js = chain["b[J]"][ii]
+# Ls = chain["b[L]"][ii]
+# plot!(vcat(Zs', Js', Ls'), color=:black, lw=1,  alpha=0.05, label="")
+# # scatter!(Ls', color=:black, lw=1,  alpha=0.05, label="")
+# scatter!(vcat(Zs', Js', Ls'), color=:black, lw=1, ms=4, alpha=0.01, label="")
+# s
+
 ##
 
-fig =  Figure(resolution=(800,800))
-plot_phot!(fig[1,1], chains.info.model.planets[1])
-
-fig
-
-##
 
 N = 500
+ii = rand(1:size(chains,1)*size(chains,3), N)
 
-fig =  Figure(resolution=(800,800))
-ax_sky = Axis(fig[1:2,1], xreversed=true,autolimitaspect=1, xlabel="ΔRA (mas)", ylabel="ΔDEC (mas)")
+fig =  Figure(resolution=(1600,1400))
+ax_sky = Axis(fig[1,1:2], xreversed=true,autolimitaspect=1, xlabel="ΔRA (mas)", ylabel="ΔDEC (mas)")
 
 if !isnothing(chains.info.model.images)
     plot_image!(ax_sky, chains.info.model.images.image[end], chains.info.model.images.platescale[end])
 end
 
-plot_orbits!(ax_sky, chains, :b, color=chains["b[mass]"], N=N)
+plot_orbits!(ax_sky, chains, :b; color=chains["b[mass]"], ii)
 plot_astrom!(ax_sky, chains.info.model)
 
-pma_grid = GridLayout()
-fig.layout[3,1] = pma_grid
+# pma_grid = GridLayout()
+# fig.layout[2,1:3] = pma_grid
 
-ax_pma1 = Axis(pma_grid[1:2,1], xlabel="Δv_ra (mas/yr)", ylabel="Δv_dec (mas/yr)", autolimitaspect=1,)
-plot_pma_epoch!(ax_pma1, chains, 1, color=chains["b[mass]"],  N=N)
+# ax_pma1 = Axis(pma_grid[1:2,1], xlabel="Δv_ra (mas/yr)", ylabel="Δv_dec (mas/yr)", title="HIPPARCOS", autolimitaspect=1,)
+# plot_pma_epoch!(ax_pma1, chains, 1, color=chains["b[mass]"],  N=N)
+# plot_pma_epoch!(ax_pma1, chains.info.model, 1)
+
+# ax_pma_time_ra = Axis(pma_grid[1,2], xlabel="epoch (mjd)", ylabel="Δv_ra (mas/yr)")
+# plot_pma_time!(ax_pma_time_ra, chains, :ra, color=chains["b[mass]"], N=N)
+# plot_pma_time!(ax_pma_time_ra, chains.info.model, :ra)
+
+# ax_pma_time_dec = Axis(pma_grid[2,2], xlabel="epoch (mjd)", ylabel="Δv_dec (mas/yr)")
+# plot_pma_time!(ax_pma_time_dec, chains, :dec, color=chains["b[mass]"], N=N)
+# plot_pma_time!(ax_pma_time_dec, chains.info.model, :dec)
+
+# ax_pma2 = Axis(pma_grid[1:2,3],xlabel="Δv_ra (mas/yr)", ylabel="Δv_dec (mas/yr)", title="GAIA", autolimitaspect=1,)
+# plot_pma_epoch!(ax_pma2, chains, 2, color=chains["b[mass]"], N=N)
+# plot_pma_epoch!(ax_pma2, chains.info.model, 2)
+
+ax_pma1 = Axis(fig[2,1], xlabel="Δv_ra (mas/yr)", ylabel="Δv_dec (mas/yr)", title="HIPPARCOS", autolimitaspect=1,)
+plot_pma_epoch!(ax_pma1, chains, 1; color=chains["b[mass]"], ii)
 plot_pma_epoch!(ax_pma1, chains.info.model, 1)
 
-ax_pma_time_ra = Axis(pma_grid[1,2], xlabel="epoch (mjd)", ylabel="Δv_ra (mas/yr)")
-plot_pma_time!(ax_pma_time_ra, chains, :ra, color=chains["b[mass]"], N=N)
-plot_pma_time!(ax_pma_time_ra, chains.info.model, :ra)
-
-ax_pma_time_dec = Axis(pma_grid[2,2], xlabel="epoch (mjd)", ylabel="Δv_dec (mas/yr)")
-plot_pma_time!(ax_pma_time_dec, chains, :dec, color=chains["b[mass]"], N=N)
-plot_pma_time!(ax_pma_time_dec, chains.info.model, :dec)
-
-ax_pma2 = Axis(pma_grid[1:2,3],xlabel="Δv_ra (mas/yr)", ylabel="Δv_dec (mas/yr)", autolimitaspect=1,)
-plot_pma_epoch!(ax_pma2, chains, 2, color=chains["b[mass]"], N=N)
+ax_pma2 = Axis(fig[2,2],xlabel="Δv_ra (mas/yr)", ylabel="Δv_dec (mas/yr)", title="GAIA", autolimitaspect=1,)
+plot_pma_epoch!(ax_pma2, chains, 2; color=chains["b[mass]"], ii)
 plot_pma_epoch!(ax_pma2, chains.info.model, 2)
 
+ax_pma_time_ra = Axis(fig[3,1:2], xlabel="epoch (mjd)", ylabel="Δv_ra (mas/yr)")
+plot_pma_time!(ax_pma_time_ra, chains, :ra; color=chains["b[mass]"], ii)
+plot_pma_time!(ax_pma_time_ra, chains.info.model, :ra)
+
+ax_pma_time_dec = Axis(fig[4,1:2], xlabel="epoch (mjd)", ylabel="Δv_dec (mas/yr)")
+plot_pma_time!(ax_pma_time_dec, chains, :dec; color=chains["b[mass]"], ii)
+plot_pma_time!(ax_pma_time_dec, chains.info.model, :dec)
+
 # Histograms
+
 ax_hist = Axis(
-    fig[1,2],
+    fig[1,3],
+    ylabel="posterior density",
+    xlabel="mass (Mjup)",
+)
+hideydecorations!(ax_hist)
+hist_prop!(ax_hist, chains["b[mass]"], color=:black)
+
+ax_hist = Axis(
+    fig[2,3],
     ylabel="posterior density",
     xlabel="a (au)",
 )
 hideydecorations!(ax_hist)
-hist_prop!(ax_hist, chains["b[a]"], color=:red)
+hist_prop!(ax_hist, chains["b[a]"], color=:black)
 
 ax_hist = Axis(
-    fig[2,2],
+    fig[3,3],
     ylabel="posterior density",
     xlabel="e",
 )
 hideydecorations!(ax_hist)
-hist_prop!(ax_hist, chains["b[e]"], color=:red)
+hist_prop!(ax_hist, chains["b[e]"], color=:black)
 
-plot_phot!(fig[3,2], chains.info.model.planets[1])
+plot_phot!(fig[4,3], chains.info.model.planets[1])
 
 linkaxes!(ax_pma1, ax_pma2)
 linkaxes!(ax_pma_time_ra, ax_pma_time_dec)
 
-# rowsize!(fig.layout, 1, Auto(1))
-colsize!(fig.layout, 1, Auto(2/3))
-colsize!(fig.layout, 2, Auto(1/3))
+rowsize!(fig.layout, 1, Auto(2))
+# rowsize!(fig.layout, 2, Auto(2))
+# rowsize!(fig.layout, 3, Auto(1))
+# colsize!(fig.layout, 1, Auto(2/3))
+# colsize!(fig.layout, 2, Auto(1/3))
 
 fig
-##
-# colsize!(fig.layout, 1, Fixed(800))
-# rowsize!(fig.layout, 1, Auto(4))
-# rowsize!(fig.layout, 1, Aspect(1,1))
-
-# colsize!(fig.layout, 1, Aspect(2,2.0))
-
-fig
-
 ##
