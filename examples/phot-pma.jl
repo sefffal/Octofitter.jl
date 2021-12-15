@@ -58,13 +58,15 @@ const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
 ##
 chains = DirectDetections.hmc(
     HD12345, 0.85,
+    MCMCThreads(),
+    num_chains=2,
     adaptation =   1_000,
     iterations = 20_000,
 )
 
 
 ##
-gelmandiag(chain)
+gelmandiag(chains)
 ##
 plotmodel(chain,color=:mass,pmascatter=:mass)
 ##
