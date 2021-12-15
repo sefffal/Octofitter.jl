@@ -1,4 +1,4 @@
-using DirectDetections, Distributions, Plots
+using DirectDetections, Distributions, Plots, MCMCChains
 using DirectOrbits: mjd
 
 @named B = DirectDetections.Planet(
@@ -49,15 +49,28 @@ using DirectOrbits: mjd
 
 ## Sampling from the posterior
 
-chain, stats = DirectDetections.hmc(
-    HD82134,
-    adaptation =  1_000,
-    iterations = 50_000,
-    tree_depth =     12,
+chain = DirectDetections.hmc(
+    HD82134,  0.95,
+    MCMCThreads(),
+    num_chains=4,
+    adaptation =    500,
+    iterations =  2_000,
+    tree_depth =     10,
 );
 
+# chain = DirectDetections.temperedhmc(
+#     HD82134, 0.95,
+#     num_temperatures=4,
+#     adaptation =    500,
+#     iterations =  2_000,
+#     tree_depth =     10,
+# )
+
+##
+gelmandiag(chain)
+
 ## Plot the input data and samples from the posterior
-plotmodel(chain, HD82134, clims=(5, 20))
+plotmodel(chain, clims=(5, 20))
 
 ## Create a corner plot / pair plot.
 # We can access any property from the chain specified in Priors or in Deterministic.
