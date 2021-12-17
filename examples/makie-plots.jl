@@ -18,6 +18,7 @@ Spectra/photometry
 function to generate all.
 =#
 
+import Contour as Contourlib
 # using CairoMakie
 using GLMakie
 using DirectOrbits
@@ -274,6 +275,132 @@ function plot_phot!(ax::Axis, chains, planet_key;
         color=:red,
     )
 end
+
+function compute_levels(H)
+    # Calculate levels for contours
+   levels = 1 .- exp.(-0.5 .* (0.5:0.5:2.1).^2)
+   ii = sortperm(reshape(H,:))
+   h2flat = H[ii]
+   sm = cumsum(h2flat)
+   sm /= sm[end]
+   if all(isnan, sm) || length(H) <= 1
+       @warn "Could not compute valid contours"
+       plotcontours = false
+       V = [0]
+   else
+       V = sort(map(v0 -> h2flat[sm .≤ v0][end], levels))
+       if any(==(0), diff(V))
+           @warn "Too few points to create valid contours"
+       end
+   end
+   return V
+end
+function margin_hist(
+    chains,
+    key1,
+    key2,
+    range1=range(extrema(chains[key1])...,length=30),
+    range2=range(extrema(chains[key2])...,length=30);
+    color=:black
+)
+
+    # TODO: this needs to be generalized somehow
+    priors = NamedTuple(chains.info.model.planets[1].priors.priors)    
+    
+    ha = fit(Histogram, vec(chains[key1]), range1)
+    hl = fit(Histogram, vec(chains[key2]), range2)
+
+    ## Main 2D histogram
+    hla = fit(
+        Histogram,
+        (vec(chains[key1]), vec(chains[key2])),
+        (range1, range2)
+    )
+
+    fig = Figure(
+        resolution = (650*2, 400*2),
+        figure_padding=1,
+        font="Arial",
+        fontsize=20,
+    )
+    
+    ax = Axis(
+        fig[2,1],
+        xlabel=key1,
+        ylabel=key2,
+
+    )
+    heatmap!(ax, hla, colormap=cgrad([:white, color]))
+
+    l = compute_levels(hla.weights)[1:1]
+    ax1 = hla.edges[1][1:end-1] .+ step(hla.edges[1])/2
+    ax2 = hla.edges[2][1:end-1] .+ step(hla.edges[2])/2
+    for cl in Contourlib.levels(Contourlib.contours(ax2, ax1, hla.weights', l))
+        lvl = Contourlib.level(cl) # the z-value of this contour level
+        thefirst=true
+        for line in Contourlib.lines(cl)
+            xs, ys = coordinates(line) # coordinates of this line segment
+#             p = Makie.GeometryBasics.Polygon(
+#                 Makie.GeometryBasics.Point2.(zip(ys, xs)),
+#             )
+#             poly!(ax, p, color=RGBAf0(model_colours[cnum],0.4))
+            lines!(ax, ys, xs; color)
+
+            thefirst=false
+        end
+    end
+
+
+    # Maginal histograms
+    ax_l = Axis(
+        fig[2,2],
+    )
+    hidexdecorations!(ax_l)
+    hideydecorations!(ax_l)
+    
+    # Also plot the prior pdf scaled to the same height
+    # x = range(extrema(range2)..., length=250)
+    # prior_pdf = pdf.(priors.mass,x)
+    # Makie.lines!(ax_l,  prior_pdf ./ maximum(prior_pdf) .* maximum(hl.weights),x;color=:black, label="prior",linewidth=1)
+
+    stairs!(ax_l, hl.weights, hl.edges[1][1:end-1].+step(hl.edges[1]); color)
+
+
+    ax_a = Axis(
+        fig[1,1],
+    )
+    hideydecorations!(ax_a)
+    hidexdecorations!(ax_a)
+
+    # Also plot the prior pdf scaled to the same height
+    # x = range(extrema(range1)..., length=250)
+    # prior_pdf = pdf.(priors.a, x)
+    # Makie.lines!(ax_a, x, prior_pdf ./ maximum(prior_pdf) .* maximum(ha.weights), color=:black, label="prior",linewidth=1)
+    
+    stairs!(ax_a, ha; color)
+
+    linkxaxes!(ax, ax_a)
+    linkyaxes!(ax, ax_l)
+    xlims!(ax, extrema(range1))
+    ylims!(ax, extrema(range2))
+    xlims!(ax_l, low=0, high=maximum(hl.weights)*1.1)
+    ylims!(ax_a, low=0, high=maximum(ha.weights)*1.1)
+    hidedecorations!(ax, label=false, ticks=false, ticklabels=false)
+
+    rowgap!(fig.layout,0)
+    colgap!(fig.layout,0)
+
+    # colsize!(fig.layout, 2, )
+    # rowsize!(fig.layout, 1, 60)
+    rowsize!(fig.layout, 2, Auto(3))
+    colsize!(fig.layout, 2, Aspect(1,1.0))
+    
+    
+    # Legend(fig[1,2], ax_a, tellheight=false, tellwidth=false, valign=:top, halign=:right, patchsize=(10,10), framevisible=false)
+    return fig
+end
+
+
 
 # N= 1500
 # ii = rand(1:size(chain,1)*size(chain,3),N)
