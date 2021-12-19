@@ -17,8 +17,19 @@ jobs:
           version: '1.7'
       - name: Install dependencies
         run: julia --project=docs/ -e 'using Pkg; pkg"registry add General https://github.com/sefffal/DirectRegistry.git"; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+      - uses: actions/cache@v1
+        env:
+          cache-name: cache-artifacts
+        with:
+          path: ~/.julia/artifacts
+          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-test-${{ env.cache-name }}-
+            ${{ runner.os }}-test-
+            ${{ runner.os }}-
       - name: Build and deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
           # DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key
         run: julia --project=docs/ docs/make.jl
+      
