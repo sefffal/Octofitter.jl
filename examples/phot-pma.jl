@@ -62,47 +62,49 @@ chains = DirectDetections.hmc(
     iterations = 20_000,
 )
 
+##
+##
 
-##
-gelmandiag(chain)
-##
-plotmodel(chain,color=:mass,pmascatter=:mass)
-##
-using PairPlots
-PairPlots.corner(chain)
+# ##
+# gelmandiag(chain)
+# ##
+# plotmodel(chain,color=:mass,pmascatter=:mass)
+# ##
+# using PairPlots
+# PairPlots.corner(chain)
 
-##
-table = (
-    age=chain["age"],
-    mass=chain["b[mass]"],
-    sma=chain["b[a]"],
-    Z=chain["b[Z]"],
-    J=chain["b[J]"],
-    L=chain["b[L]"],
-)
-PairPlots.corner(table)
-# PairPlots.corner(table, filterscatter=false, plotcontours=false)
+# ##
+# table = (
+#     age=chain["age"],
+#     mass=chain["b[mass]"],
+#     sma=chain["b[a]"],
+#     Z=chain["b[Z]"],
+#     J=chain["b[J]"],
+#     L=chain["b[L]"],
+# )
+# PairPlots.corner(table)
+# # PairPlots.corner(table, filterscatter=false, plotcontours=false)
 
 
-##
-p = plot(yflip=true,yguide="abs. mag")
-for planet in chain.info.model.planets
-    phot = planet.photometry
-    N= 1500
-    ii = rand(1:size(chain,1)*size(chain,3),N)
-    Zs = chain["b[Z]"][ii]
-    Js = chain["b[J]"][ii]
-    Ls = chain["b[L]"][ii]
-    plot!(vcat(Zs', Js', Ls'), color=:black, lw=1,  alpha=0.05, label="")
-    # scatter!(Ls', color=:black, lw=1,  alpha=0.05, label="")
-    scatter!(vcat(Zs', Js', Ls'), color=:black, lw=1, ms=4, alpha=0.01, label="")
-    scatter!(
-        collect(phot.phot),
-        yerr=collect(phot.σ_phot),
-        xticks=(collect(eachindex(phot.phot)), string.(phot.band)),
-        color=:red,
-        markerstrokecolor=:red,
-        label="Measured"
-    )
-end
-p 
+# ##
+# p = plot(yflip=true,yguide="abs. mag")
+# for planet in chain.info.model.planets
+#     phot = planet.photometry
+#     N= 1500
+#     ii = rand(1:size(chain,1)*size(chain,3),N)
+#     Zs = chain["b[Z]"][ii]
+#     Js = chain["b[J]"][ii]
+#     Ls = chain["b[L]"][ii]
+#     plot!(vcat(Zs', Js', Ls'), color=:black, lw=1,  alpha=0.05, label="")
+#     # scatter!(Ls', color=:black, lw=1,  alpha=0.05, label="")
+#     scatter!(vcat(Zs', Js', Ls'), color=:black, lw=1, ms=4, alpha=0.01, label="")
+#     scatter!(
+#         collect(phot.phot),
+#         yerr=collect(phot.σ_phot),
+#         xticks=(collect(eachindex(phot.phot)), string.(phot.band)),
+#         color=:red,
+#         markerstrokecolor=:red,
+#         label="Measured"
+#     )
+# end
+# p 
