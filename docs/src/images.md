@@ -108,7 +108,7 @@ To encourage the sampler to take larger steps and explore the images,
 it's recommended to lower the target acceptance ratio to around 0.5±0.2 and also increase the number of adapataion steps.
 
 ```julia
-chain, stats = DirectDetections.hmc(
+chain = DirectDetections.hmc(
     HD82134, 0.25,
     adaptation =   8_000,
     iterations =  10_000,
@@ -121,20 +121,7 @@ Sampling directly from images is somewhat slower than from astrometry. This exam
 ## Diagnostics
 The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.
 
-The acceptance rate should be somewhat lower than when fitting just astrometry, e.g. around the 0.6 target:
-```julia
-mean(getproperty.(stats, :acceptance_rate))
-```
-
-Check the mean tree depth (5-9):
-```julia
-mean(getproperty.(stats, :tree_depth))
-```
-
-Check the maximum tree depth reached (often 11-12, can be more):
-```julia
-maximum(getproperty.(stats, :tree_depth))
-```
+The acceptance rate should be somewhat lower than when fitting just astrometry, e.g. around the 0.6 target.
 
 You can make a trace plot:
 ```julia
@@ -162,7 +149,7 @@ For this model, there is somewhat higher correlation between samples. Some thinn
 You can plot the model as usual:
 ```julia
 using Plots
-plotmodel(chain, HD82134)
+plotmodel(chain)
 ```
 [![images](assets/images-model-plot.png)](assets/images-model-plot.svg)
 

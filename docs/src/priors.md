@@ -1,4 +1,4 @@
-# Priors
+# [Priors](@id priors)
 
 All parameters to your model must have a prior defined.
 You may provide any continuous, univariate distribution from the Distributions.jl.

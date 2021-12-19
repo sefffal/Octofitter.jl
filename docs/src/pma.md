@@ -71,12 +71,11 @@ After the priors, we add the proper motion anomaly measurements from the HGCA. I
 Ssample from our model as usual:
 
 ```julia
-chain, stats = DirectDetections.hmc(
+chain = DirectDetections.hmc(
     HD91312, 0.85,
     adaptation =  1_000,
     iterations = 10_000,
-);
-display(chain)
+)
 ```
 
 Output:
@@ -164,7 +163,7 @@ Use the `plotmodel` function to display orbits from the posterior against the in
 
 
 ```julia
-plotmodel(chain, HD91312, color=:mass, pma_scatter=:mass)
+plotmodel(chain, color=:mass, pma_scatter=:mass)
 ```
 [![mass histogram](assets/pma-astrometry-posterior.png)](assets/pma-astrometry-posterior.svg)
 

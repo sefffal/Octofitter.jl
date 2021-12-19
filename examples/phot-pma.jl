@@ -9,6 +9,21 @@ const sonora_temp_mass_Z = sonora_photometry_interpolator(:MKO_Z)
 const sonora_temp_mass_J = sonora_photometry_interpolator(:MKO_J)
 const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
 
+# We then need to convert from absolute magnitude to relative magnitude vs star, and then
+# to contrast in linear units.
+# N.B. the package doesn't actually care about any of these units or details. Just make sure
+# the units of your data (photometry/images) are the same as your models.
+
+# You could just as easily use apparent magnitudes and 
+# m - M = 5log(d/10)
+d = 43
+M = 5.3 - 5log(d/10)
+
+const star_abs_mag_Z = 5.0
+const star_abs_mag_J = 5.1
+const star_abs_mag_L = 5.2
+
+
 ##
 @named b = DirectDetections.Planet(
     Priors(

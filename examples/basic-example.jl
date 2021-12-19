@@ -12,7 +12,7 @@ using DirectDetections, Distributions, Plots
     Astrometry(
         (epoch=5000.,  ra=-364., dec=-1169., σ_ra=70., σ_dec=30.),
         (epoch=5014.,  ra=-493., dec=-1104., σ_ra=70., σ_dec=30.),
-        (epoch=5072.,  ra=-899., dec=-629., σ_ra=10., σ_dec=50.),
+        (epoch=5072.,  ra=-899., dec=-629., σ_ra=20., σ_dec=50.),
     )
 )
 
@@ -26,17 +26,20 @@ using DirectDetections, Distributions, Plots
 
 ##
 
-chain, stats = DirectDetections.hmc(
+chain = DirectDetections.hmc(
     HD82134,
-    adaptation =   8_000,
+    adaptation =   5_000,
     iterations = 100_000,
-    tree_depth =     12,
 );
 
 ##
-plotmodel(chain, HD82134)
+plotmodel(chain, color=:e)
 
 ##
+using PairPlots
+corner(chain)
+
+## Or for more customized output:
 using PairPlots
 table = (;
     a=         chain["X[a]"],

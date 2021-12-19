@@ -191,12 +191,12 @@ function init_plots()
             cmap=:plasma,
             imagecmap=:Greys,
             pma_scatter=nothing,
-            clims=extrema(Iterators.flatten(
+            clims=quantile(Iterators.flatten(
                 # extrema(planet.a)
                 # extrema([sample.planets[key].a for sample in chain])
                 # for key in keys(chain[1].planets)
                 extrema(chain["$pk[$color]"] for pk in keys(system.planets))
-            )),
+            ), (0.01,0.99)),
             lims=nothing,
             kwargs...
         )

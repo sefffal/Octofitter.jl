@@ -4,7 +4,7 @@ The first step to using DirectDetections.jl is to install Julia. If you're used 
 
 
 ## Installing Julia
-Visit the [julialang.org](https://julialang.org/downloads/) Downloads page, and select the latest stable version for your operating system. Currently, this is 1.6.2. Click the `[help]` links next to your operating system if you require more detailed instructions.
+Visit the [julialang.org](https://julialang.org/downloads/) Downloads page, and select the latest stable version for your operating system. Currently, this is 1.7.0. Click the `[help]` links next to your operating system if you require more detailed instructions.
 
 ## Installing DirectDetections
 Normally, Julia packages are installed from the General registry. Since DirectDetections isn't quite ready for prime time, it requires one extra step to add an additional registry.
