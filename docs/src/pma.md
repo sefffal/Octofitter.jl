@@ -22,7 +22,7 @@ using DirectDetections, Distributions, Plots
 
 
 ```julia
-@named B = DirectDetections.Planet(
+@named B = Planet(
     Priors(
         a = Uniform(1, 25),
         e = Beta(2,15),
@@ -211,3 +211,139 @@ units = [
 corner(table, labels, units)
 ```
 [![pair plot](assets/pma-astrometry-mass-corner.png)](assets/pma-astrometry-mass-corner.svg)
+
+
+## Fitting Astrometric Acceleration Only
+If you wish to look at the possible locations/masses of a planet around a star using onnly GAIA/HIPPARCOS,
+you can follow a simplified approach.
+
+As a start, you can restrict the orbital parameters to just semi-major axis, epoch of periastron passage, and mass.
+
+```julia
+@named b = Planet(
+    Priors(
+        a = LogUniform(0.1, 100),
+        τ = Uniform(0, 1),
+        mass = LogUniform(1, 2000),
+    ),
+    Derived(
+        i = Returns(0),
+        e = Returns(0),
+        Ω = Returns(0),
+        ω = Returns(0),
+    )
+)
+@named HD91312 = System(
+    Priors(
+        μ = TruncatedNormal(1.61, 0.2, 0, Inf),
+        plx = gaia_plx(gaia_id=756291174721509376),
+    ),  
+    ProperMotionAnomHGCA(gaia_id=756291174721509376),
+    b,
+)
+```
+
+This models assumes a circular, face-on orbit.
+
+The Julia helper function `Returns(x)` is just a function that always returns the same value no matter the arguments. It  is equivalent to `(args...; kwargs...) -> x`.
+
+```julia
+chains = DirectDetections.hmc(
+    HD91312, 0.85,
+    MCMCThreads(),
+    num_chains=4,
+    adaptation =  1_000,
+    iterations = 50_000,
+)
+```
+```
+┌ Info: Guessing a good starting location by sampling from priors
+└   N = 50000
+┌ Warning: The current proposal will be rejected due to numerical error(s).
+│   isfinite.((θ, r, ℓπ, ℓκ)) = (true, false, false, false)
+└ @ AdvancedHMC ~/.julia/packages/AdvancedHMC/HQHnm/src/hamiltonian.jl:47
+┌ Warning: The current proposal will be rejected due to numerical error(s).
+│   isfinite.((θ, r, ℓπ, ℓκ)) = (true, false, false, false)
+└ @ AdvancedHMC ~/.julia/packages/AdvancedHMC/HQHnm/src/hamiltonian.jl:47
+┌ Info: Found initial stepsize
+└   initial_ϵ = 0.0001953125
+[ Info: Will adapt step size and mass matrix
+[ Info: progress logging is enabled globally
+[ Info: Sampling compete. Building chains.
+Sampling report for chain 1:
+mean_accept =         0.9386094717407892
+num_err_frac =        0.0
+mean_tree_depth =     5.732058823529412
+max_tree_depth_frac = 0.0
+
+Sampling report for chain 2:
+mean_accept =         0.9562432650363307
+num_err_frac =        0.0
+mean_tree_depth =     5.930529411764706
+max_tree_depth_frac = 0.0
+
+Sampling report for chain 3:
+mean_accept =         0.941867350117908
+num_err_frac =        0.0
+mean_tree_depth =     5.783862745098039
+max_tree_depth_frac = 0.0
+
+Sampling report for chain 4:
+mean_accept =         0.9504366454930078
+num_err_frac =        0.0
+mean_tree_depth =     5.86243137254902
+max_tree_depth_frac = 0.0
+
+Chains MCMC chain (51000×9×4 Array{Float64, 3}):
+
+Iterations        = 1:1:51000
+Number of chains  = 4
+Samples per chain = 51000
+Wall duration     = 64.1 seconds
+Compute duration  = 64.1 seconds
+parameters        = μ, plx, b[a], b[τ], b[mass], b[i], b[e], b[Ω], b[ω]
+
+Summary Statistics
+  parameters      mean       std   naive_se      mcse           ess      rhat   ess_per_sec 
+      Symbol   Float64   Float64    Float64   Float64       Float64   Float64       Float64 
+
+           μ    1.6085    0.2006     0.0004    0.0005   132909.5151    1.0000     2073.3743
+         plx   29.1452    0.1408     0.0003    0.0004   123574.6795    1.0000     1927.7519
+        b[a]    1.1321    0.0477     0.0001    0.0001   128054.3813    1.0000     1997.6348
+        b[τ]    0.8804    0.0027     0.0000    0.0000   129890.5148    1.0000     2026.2783
+     b[mass]   74.0519    7.6350     0.0169    0.0208   124168.8358    1.0000     1937.0207
+        b[i]    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
+        b[e]    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
+        b[Ω]    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
+        b[ω]    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
+
+Quantiles
+  parameters      2.5%     25.0%     50.0%     75.0%     97.5% 
+      Symbol   Float64   Float64   Float64   Float64   Float64 
+
+           μ    1.2152    1.4730    1.6086    1.7439    2.0012
+         plx   28.8705   29.0501   29.1454   29.2403   29.4210
+        b[a]    1.0329    1.1013    1.1342    1.1651    1.2198
+        b[τ]    0.8751    0.8786    0.8804    0.8822    0.8856
+     b[mass]   59.3819   68.8615   73.9459   79.1446   89.3102
+        b[i]    0.0000    0.0000    0.0000    0.0000    0.0000
+        b[e]    0.0000    0.0000    0.0000    0.0000    0.0000
+        b[Ω]    0.0000    0.0000    0.0000    0.0000    0.0000
+        b[ω]    0.0000    0.0000    0.0000    0.0000    0.0000
+
+```
+
+With such simple models, the mean tree depth is often very low and sampling proceeds very quickly.
+
+A good place to start is a histogram of planet mass vs. semi-major axis:
+```julia
+histogram2d(chains["b[a]"], chains["b[mass]"], color=:plasma, xguide="sma (au)", yguide="mass (Mjup)")
+```
+[![2d histogram](assets/pma-a-vs-mass.png)](assets/pma-a-vs-mass.svg)
+
+
+You can also visualize the orbits and proper motion:
+```julia
+plotmodel(chains)
+```
+[![2d histogram](assets/pma-model.png)](assets/pma-model.svg)
