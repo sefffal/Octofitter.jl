@@ -339,7 +339,7 @@ A good place to start is a histogram of planet mass vs. semi-major axis:
 ```julia
 histogram2d(chains["b[a]"], chains["b[mass]"], color=:plasma, xguide="sma (au)", yguide="mass (Mjup)")
 ```
-[![2d histogram](assets/pma-a-vs-mass.png)](assets/pma-a-vs-mass.svg)
+[![2d histogram](assets/pma-a-vs-mass.svg)](assets/pma-a-vs-mass.svg)
 
 
 You can also visualize the orbits and proper motion:
