@@ -331,6 +331,7 @@ function hmc(
     arr2nt = DirectDetections.make_arr2nt(system) 
 
     priors_vec = _list_priors(system)
+    Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
 
     # # Capture these variables in a let binding to improve performance
     # ℓπ = let system=system, ln_prior=ln_prior, arr2nt=arr2nt
@@ -341,10 +342,10 @@ function hmc(
     #     end
     # end
     # Capture these variables in a let binding to improve performance
-    ℓπ = let system=system, ln_prior_transformed=ln_prior_transformed, arr2nt=arr2nt, priors_vec=priors_vec
+    ℓπ = let system=system, ln_prior_transformed=ln_prior_transformed, arr2nt=arr2nt, Bijector_invlinkvec=Bijector_invlinkvec
         function (θ_t)
             # Transform back from the unconstrained support to constrained support for the likelihood function
-            θ = Bijectors.invlink.(priors_vec, θ_t)
+            θ = Bijector_invlinkvec(θ_t)
             θ_res = arr2nt(θ)
             ll = ln_prior_transformed(θ) + ln_like(θ_res, system)
             return ll
@@ -375,12 +376,9 @@ function hmc(
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
     end
 
-
     # Define a Hamiltonian system
     metric = DenseEuclideanMetric(D)
     hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
-    # hamiltonian = Hamiltonian(metric, ℓπ, ℓπ_grad)
-
 
     if !isnothing(step_size)
         initial_ϵ = step_size

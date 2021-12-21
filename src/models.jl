@@ -107,7 +107,6 @@ function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, syst
         end
         # TODO: verify this is type stablej
         f_band = getproperty(θ_planet, band)
-
         # Direct imaging likelihood.
         # Notes: we are assuming that the different images fed in are not correlated.
         # The general multivariate Gaussian likleihood is exp(-1/2 (x⃗-μ⃗)ᵀ𝚺⁻¹(x⃗-μ⃗)) + √((2π)ᵏ|𝚺|)
@@ -117,7 +116,6 @@ function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, syst
 
         # Ruffio et al 2017, eqn (31)
         # Mawet et al 2019, eqn (8)
-
 
         σₓ² = σₓ^2
         ll += -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) 
@@ -377,11 +375,47 @@ function make_ln_prior_transformed(system::System)
             error("Expected exactly $l elements in array (got $(length(arr)))")
         end
         lp = zero(first(arr))
-        # Add contributions from planet priors
+        # Add unrolled prior evaluations
         @inbounds begin
            $(prior_evaluations...) 
         end
         return lp
+    end))
+end
+
+
+# Replaces `θ = Bijectors.invlink.(priors_vec, θ_t)` with a type stable
+# unrolled version.
+function make_Bijector_invlinkvec(priors_vec)
+
+    i = 0
+    parameter_transformations = Expr[]
+
+    # System priors
+    for prior_distribution in priors_vec
+        i += 1
+        ex = :(
+            theta_out[$i] = $(Bijectors.invlink)($prior_distribution, arr[$i])
+        )
+        push!(parameter_transformations, ex)
+    end
+
+    # Here is the function we return.
+    # It maps an array of parameters into our nested named tuple structure
+    # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
+    # The RuntimeGeneratedFunctions package avoids these in all cases.
+    return @RuntimeGeneratedFunction(:(function (arr)
+        l = $i
+        theta_out = @MVector zeros(eltype(arr), l)
+        # theta_out = zeros(eltype(arr), l)
+        @boundscheck if length(arr) != l
+            error("Expected exactly $l elements in array (got $(length(arr)))")
+        end
+        # Add unrolled parameter transformations to fill theta_out
+        @inbounds begin
+           $(parameter_transformations...) 
+        end
+        return theta_out
     end))
 end
 
