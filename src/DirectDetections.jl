@@ -81,22 +81,6 @@ function __init__()
         "https://zenodo.org/record/5063476/files/evolution_and_photometery.tar.gz?download=1",
         "2198426d1ca0e410fda7b63c3b7f45f3890a8d9f2fcf0a3a1e36e14185283ca5",
         post_fetch_method=unpack
-        # [
-        #     function (archive)
-        #         # tarball = joinpath(datadep"SonoraBobcatEvoPhot", "evolution_and_photometery.tar.gz")
-
-        #         println("postfetch method!")
-        #         @show archive
-        #         return
-        #         tar_gz = open(archive)
-        #         tar = GzipDecompressorStream(tar_gz)
-        #         # dir = Tar.extract(tar, archve))
-        #         l = Tar.list(tar)
-        #         close(tar)
-        #         close(tar_gz)
-        #         println("Extracted.")
-        #     end
-        # ]
     ))
 
     return

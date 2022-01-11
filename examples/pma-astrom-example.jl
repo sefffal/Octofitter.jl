@@ -1,5 +1,4 @@
 using DirectDetections, Distributions, Plots, MCMCChains
-using DirectOrbits: mjd
 
 @named B = DirectDetections.Planet(
     Deterministic(
@@ -47,23 +46,18 @@ using DirectOrbits: mjd
     B,
 )
 
+##
+plot(B.astrometry)
+
 ## Sampling from the posterior
 chain = DirectDetections.hmc(
-    HD82134,  0.95,
-    MCMCThreads(),
-    num_chains=4,
+    HD82134,  0.90,
+    # MCMCThreads(),
+    # num_chains=4,
     adaptation =    500,
     iterations =  2_000,
     tree_depth =     10,
-);
-
-# chain = DirectDetections.temperedhmc(
-#     HD82134, 0.95,
-#     num_temperatures=4,
-#     adaptation =    500,
-#     iterations =  2_000,
-#     tree_depth =     10,
-# )
+)
 
 ##
 gelmandiag(chain)
