@@ -74,9 +74,9 @@ A block of images of a system. Pass a vector of named tuples with the following 
 
 For example:
 ```julia
-Images([
+Images(
     (; epoch=1234.0, band=:J, image=readfits("abc.fits"), platescale=19.4)
-])
+)
 ```
 Contrast can be a function that returns the 1 sigma contrast of the image from a separation in mas to the same units as the image file.
 Or, simply leave it out and it will be calculated for you.
