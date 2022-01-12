@@ -105,7 +105,7 @@ function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, syst
         if !hasproperty(θ_planet, band)
             error("No photometry prior for the band $band was specified, and neither was mass.")
         end
-        # TODO: verify this is type stablej
+        # TODO: verify this is type stable
         f_band = getproperty(θ_planet, band)
         # Direct imaging likelihood.
         # Notes: we are assuming that the different images fed in are not correlated.
@@ -119,22 +119,10 @@ function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, syst
 
         σₓ² = σₓ^2
         ll += -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) 
-
-
-
-        # l = -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) - log(sqrt(2π * σₓ²))
-        # ll += -1 / (2σₓ²) * (f_band - f̃ₓ)^2 - log(sqrt(2π * σₓ²))
-        # n = Normal(f̃ₓ, σₓ)
-        # ll += logpdf(n, f_band)
     end
 
     return ll
 end
-
-# # If there is no astrometry atached to the planet, it does not contribute anything to the likelihood function
-# function ln_like_astrom(elements, planet::Planet{<:Any,<:Any,Nothing})
-#     return 0.0
-# end
 
 # Astrometry
 function ln_like_astrom(elements, astrom::Astrometry)
@@ -172,9 +160,12 @@ function ln_like_phot(photometry, θ_planet)
     return ll
 end
 
-
+# Overall log likelihood of the system given the parameters θ_system
 function ln_like(θ_system, system::System)
     ll = 0.0
+    # Fail fast if we have a negative stellar mass.
+    # Users should endeavour to use priors on e.g. stellar mass
+    # that are strictly positive.
     if hasproperty(θ_system, :μ) && θ_system.μ <= 0
         return -Inf
     end
@@ -193,6 +184,10 @@ function ln_like(θ_system, system::System)
             continue
         end
 
+        # Like negative stellar mass, users should use priors with supports
+        # that do not include these invalid values. But if we see them,
+        # give zero likelihood right away instead of an inscrutable error
+        # from some code expecting these invariants.
         if θ_planet.a <= 0 || θ_planet.e < 0 || θ_planet.e >= 1
             return -Inf
         end
@@ -212,7 +207,7 @@ function ln_like(θ_system, system::System)
 
     end
 
-    # TODO: PMA is re-calculating some factores used in kep_elements.
+    # TODO: PMA is re-calculating some factors used in kep_elements.
     # Should think of a way to integrate it into the loop above
     if !isnothing(system.propermotionanom)
         ll += ln_like_pma(θ_system, system.propermotionanom)
@@ -263,8 +258,8 @@ end
 
 
 
-# # This is a straight forward implementation that unfortunately is not type stable.
-# # This is because we are looping over a heterogeneous container
+# This is a straight forward implementation that unfortunately is not type stable.
+# This is because we are looping over a heterogeneous container
 # function make_ln_prior(priors)
 #     return function ln_prior(params)
 #         lp = zero(first(params))
@@ -419,20 +414,6 @@ function make_Bijector_invlinkvec(priors_vec)
     end))
 end
 
-
-
-
-# function ln_prior(θ, system::System)
-#     lp = 0.0
-#     lp += system.priors.ln_prior(θ)
-#     # for (planet, θ_planet) in zip(system.planets, θ.planets)
-#     # for (planet, θ_planet) in zip(Tuple(system.planets), Tuple(θ.planets))
-#     for key in keys(system.planets)
-#         lp += system.planets[key].priors.ln_prior(θ.planets[key])
-#     end
-
-#     return lp
-# end
 
 function ln_post(θ, system::System)
     return ln_prior(θ, system) + ln_like(θ, system)

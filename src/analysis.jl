@@ -1,3 +1,5 @@
+# This file contains funtions for analysing results from chains.
+
 """
     projectpositions(chains.planets[1], mjd("2020-02-02"))
 

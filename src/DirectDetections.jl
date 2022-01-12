@@ -2,13 +2,11 @@ module DirectDetections
 using ComponentArrays # TODO: remove last uses of component arrays
 using Distributions
 using Bijectors
-
 using AbstractMCMC
 using AdvancedHMC
 using NamedTupleTools
 using ForwardDiff
 using Logging
-
 using Statistics
 using StatsBase
 using NamedTupleTools
@@ -19,18 +17,13 @@ using DirectOrbits
 export mjd, KeplerianElements, KeplerianElementsDeg
 
 using Base.Threads: @threads
-using StaticArrays
- 
-using MCMCChains: MCMCChains
-using MCMCChains: Chains
+using StaticArrays 
+using MCMCChains: MCMCChains, Chains
 using Random
 using DataDeps
-
-
+using RecipesBase
 using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
-
-using RecipesBase
 
 const mjup2msol = 0.0009543
 

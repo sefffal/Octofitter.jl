@@ -1,4 +1,4 @@
-
+# This file contains additional custom distibutions using the interface of Distibutions.jl
 
 """
     Sine()

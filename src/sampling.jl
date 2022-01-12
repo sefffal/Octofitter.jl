@@ -333,14 +333,6 @@ function hmc(
     priors_vec = _list_priors(system)
     Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
 
-    # # Capture these variables in a let binding to improve performance
-    # ℓπ = let system=system, ln_prior=ln_prior, arr2nt=arr2nt
-    #     function (θ)
-    #         θ_res = arr2nt(θ)
-    #         ll = ln_prior(θ) + ln_like(θ_res, system)
-    #         return ll
-    #     end
-    # end
     # Capture these variables in a let binding to improve performance
     ℓπ = let system=system, ln_prior_transformed=ln_prior_transformed, arr2nt=arr2nt, Bijector_invlinkvec=Bijector_invlinkvec
         function (θ_t)
