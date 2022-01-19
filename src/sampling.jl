@@ -39,15 +39,12 @@ end
 
 function guess_starting_position(system, N=500_000)
 
-    @info "Guessing a good starting location by sampling from priors" N
     # TODO: this shouldn't have to allocate anything, we can just loop keeping the best.
     θ = sample_priors(system, N)
     arr2nt = DirectDetections.make_arr2nt(system) 
-    θr = arr2nt.(θ)
 
     posts = zeros(N)
     ln_prior = make_ln_prior(system)
-    arr2nt = DirectDetections.make_arr2nt(system) 
     Threads.@threads for i in eachindex(posts)
         θ_res = arr2nt(θ[i])
         posts[i] = ln_prior(θ[i]) + ln_like(θ_res, system)
@@ -197,6 +194,7 @@ function hmc(
     end
 
     if isnothing(initial_parameters)
+        progress && @info "Guessing a good starting location by sampling from priors" initial_samples
         initial_θ = guess_starting_position(system,initial_samples)
         # Transform from constrained support to unconstrained support
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
@@ -228,7 +226,7 @@ function hmc(
         initial_ϵ = step_size
     else
         initial_ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
-        @info "Found initial stepsize" initial_ϵ
+        progress && @info "Found initial stepsize" initial_ϵ
     end
 
 
@@ -243,11 +241,11 @@ function hmc(
 
     mma = MassMatrixAdaptor(metric)
     if isnothing(step_size)
-        @info "Will adapt step size and mass matrix"
+        progress && @info "Will adapt step size and mass matrix"
         ssa = StepSizeAdaptor(target_accept, integrator)
         adaptor = StanHMCAdaptor(mma, ssa) 
     else
-        @info "Will adapt mass matrix only"
+        progress && @info "Will adapt mass matrix only"
         adaptor = MassMatrixAdaptor(metric)
     end
 
@@ -264,8 +262,8 @@ function hmc(
     sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
 
 
-    AbstractMCMC.setprogress!(true)
-    start_time = time()
+    AbstractMCMC.setprogress!(false)
+    start_time = fill(time(), num_chains)
 
     # Neat: it's possible to return a live iterator
     # We could use this to build e.g. live plotting while the code is running
@@ -288,7 +286,6 @@ function hmc(
     #     @show iteration
     # end
 
-
     mc_samples_all_chains = sample(
         rng,
         model,
@@ -301,7 +298,7 @@ function hmc(
         progress=progress,
         # callback
     )
-    stop_time = time()
+    stop_time = fill(time(), num_chains)
     
     @info "Sampling compete. Building chains."
     # Go through each chain and repackage results
@@ -316,7 +313,7 @@ function hmc(
         mean_tree_depth = mean(getproperty.(stat, :tree_depth))
         max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
     
-        println("""\
+        progress && println("""\
         Sampling report for chain $i:
         mean_accept =         $mean_accept
         num_err_frac =        $num_err_frac
@@ -358,15 +355,18 @@ function hmc(
             start_time,
             stop_time,
             model=system,
-            adaptor,
-            mc_samples=mc_samples_all_chains,
-            sampler,
             logpost=logposts_mat,
-            initial_ϵ
+            _restart=(;
+                model,
+                sampler,
+                adaptor,
+                state = last.(mc_samples_all_chains)
+            )
         )
     )
     return mcmcchains_with_info
 end
+
 
 include("tempered-sampling.jl")
 
