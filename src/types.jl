@@ -453,7 +453,7 @@ function make_arr2nt(system::System)
         # Get resolved planets
         pln = (;$(body_planets...))
         # Merge planets into resolved system
-        sys_res_pln = (;sys..., planets=pln)
+        sys_res_pln = (;sys_res..., planets=pln)
         return sys_res_pln
     end))
 
