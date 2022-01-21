@@ -262,7 +262,7 @@ function hmc(
     sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
 
 
-    AbstractMCMC.setprogress!(false)
+    AbstractMCMC.setprogress!(progess)
     start_time = fill(time(), num_chains)
 
     # Neat: it's possible to return a live iterator
