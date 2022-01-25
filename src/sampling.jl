@@ -22,100 +22,6 @@ sample_priors(system::System,N) = [sample_priors(system) for _ in 1:N]
 
 
 
-# function resolve_deterministic(system::System, θ)
-#     if isnothing(system.deterministic)
-#         θ_resolved = NamedTuple(θ)
-#     else
-#         resolved_values = map(values(system.deterministic.variables)) do func
-#             val = func(θ)
-#         end
-#         θ_resolved = merge(
-#             NamedTuple(θ),
-#             namedtuple(keys(system.deterministic.variables), resolved_values)
-#         )
-#     end
-
-#     resolved_planets = map(keys(system.planets)) do key
-#         θ_planet = θ.planets[key]
-#         planet_model = system.planets[key]
-
-#         θ_planet_resolved = NamedTuple()
-#         if !isnothing(planet_model.deterministic)
-#             for (key, func) in pairs(planet_model.deterministic.variables)
-#                 val = func(θ_resolved, θ_planet)
-#                 θ_planet_resolved = merge(θ_planet_resolved, NamedTuple{(key,), Tuple{eltype(θ)}}(val))
-#             end
-#         end
-#         return merge(θ_planet_resolved, NamedTuple(θ_planet))
-#     end
-#     resolved_planets_nt = namedtuple([pl.name for pl in system.planets], resolved_planets)
-#     θ_resolved_complete = merge(θ_resolved, (;planets=resolved_planets_nt))
-#     return ComponentVector(θ_resolved_complete)
-# end
-
-# @generated function resolve_deterministic(planet::Planet{TDetermine}, θ_sys, θ_pl) where TDetermine
-#     if TDetermine != Nothing
-#         keys, funcs = _determinekeysvals(TDetermine)
-#         body = Expr[]
-#         for key in keys
-#             ex = :(planet.deterministic.variables.$key(θ_sys,θ_pl))
-#             push!(body, ex)
-#         end
-#         NTType = NamedTuple{keys}
-#         ex = :(
-#             merge($NTType($(body...)), NamedTuple(θ))
-#         )
-#         return ex
-#     end
-#     return θ
-# end
-
-
-# function make_resolve_deterministic(planet::Planet)
-
-#     body = Expr[]
-
-#     dkeys = keys(planet.deterministic.variables)
-#     funcs = values(planet.deterministic.variables)
-#     for (key,func) in zip(dkeys, funcs)
-#         ex = :($key = $func(θ_sys, θ_pl))
-#         push!(body, ex)
-#     end
-
-#     ex = :(function (θ_sys, θ_pl)
-#         return merge(
-#             (;$(body...)),
-#             NamedTuple(θ_pl)
-#         )
-#     end)
-
-#     ln_prior = @RuntimeGeneratedFunction(ex)
-#     return ln_prior
-# end
-# function make_resolve_deterministic(system::System)
-
-#     body = Expr[]
-
-#     dkeys = keys(system.deterministic.variables)
-#     funcs = values(system.deterministic.variables)
-#     for (key,func) in zip(dkeys, funcs)
-#         ex = :($key = $func(θ))
-#         push!(body, ex)
-#     end
-
-#     ex = :(function (θ)
-#         return merge(
-#             (;$(body...)),
-#             NamedTuple(θ)
-#         )
-#     end)
-
-#     ln_prior = @RuntimeGeneratedFunction(ex)
-#     return ln_prior
-# end
-
-
-
 
 # Instead of just calling mean for the distributions, we sample and then take the mean of the data.
 # This does add a little jitter, but some distributions do not directly define the mean function!
@@ -133,15 +39,12 @@ end
 
 function guess_starting_position(system, N=500_000)
 
-    @info "Guessing a good starting location by sampling from priors" N
     # TODO: this shouldn't have to allocate anything, we can just loop keeping the best.
     θ = sample_priors(system, N)
     arr2nt = DirectDetections.make_arr2nt(system) 
-    θr = arr2nt.(θ)
 
     posts = zeros(N)
     ln_prior = make_ln_prior(system)
-    arr2nt = DirectDetections.make_arr2nt(system) 
     Threads.@threads for i in eachindex(posts)
         θ_res = arr2nt(θ[i])
         posts[i] = ln_prior(θ[i]) + ln_like(θ_res, system)
@@ -249,60 +152,6 @@ end
 
 
 
-# function mcmc(
-#     system::System;
-#     burnin,
-#     numwalkers,
-#     numsamples_perwalker,
-#     thinning = 1,
-#     squash = true,
-# )
-#     ln_post(θ) = ln_prior(θ, system) + ln_like(θ, system)
- 
-#     # ln_prior_system_specialized = make_ln_prior(θ, system)
-#     # ln_post(θ) = ln_prior_system_specialized(θ, system) + ln_like(θ, system)
-
-#     @info "Finding starting point"
-#     initial_walkers = [sample_priors(system) for _ in 1:numwalkers]
-
-#     # Convert the initial walkers into static arrays for stack allocation.
-#     # This messy line should have no impact on the semantics of the code.
-#     initial_walkers_static = [
-#         ComponentVector{SVector{length(cv)}}(; NamedTuple(cv)...) for cv in initial_walkers
-#     ]
-
-#     # Run the MCMC
-#     thetase, _accept_ratioe = KissMCMC.emcee(
-#         ln_post,
-#         initial_walkers_static;
-#         nburnin = burnin * numwalkers,
-#         use_progress_meter = true,
-#         nthin = thinning,
-#         niter = numsamples_perwalker * numwalkers,
-#     )
-
-#     # Convert the output into an MCMCChains.Chain.
-#     # Use reinterpret to avoid re-allocating all that memory
-#     if squash
-#         thetase′, _ = KissMCMC.squash_walkers(thetase, _accept_ratioe)
-#         reinterptted = reinterpret(reshape, eltype(first(thetase′)), thetase′)
-#         chains = ComponentArray(collect(eachrow(reinterptted)), getaxes(thetase′[1]))
-#     else
-#         matrix_paramxstep_per_walker = [reinterpret(reshape, eltype(first(θ)), θ) for θ in thetase]
-#         A = reshape(
-#             mapreduce(θ->reinterpret(reshape, eltype(first(θ)), θ), hcat, thetase),
-#             (length(thetase[1][1]), :, numwalkers,)
-#         )
-#         ax = getaxes(thetase[1][1])
-#         chains = ComponentArray(collect(eachslice(A,dims=1)), ax)
-#     end
-
-#     return chains
-# end
-
-
-
-
 # Fallback when no random number generator is provided (as is usually the case)
 function hmc(system::System, target_accept::Number=0.8, ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial(); kwargs...)
     return hmc(Random.default_rng(), system, target_accept, ensemble; kwargs...)
@@ -331,20 +180,13 @@ function hmc(
     arr2nt = DirectDetections.make_arr2nt(system) 
 
     priors_vec = _list_priors(system)
+    Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
 
-    # # Capture these variables in a let binding to improve performance
-    # ℓπ = let system=system, ln_prior=ln_prior, arr2nt=arr2nt
-    #     function (θ)
-    #         θ_res = arr2nt(θ)
-    #         ll = ln_prior(θ) + ln_like(θ_res, system)
-    #         return ll
-    #     end
-    # end
     # Capture these variables in a let binding to improve performance
-    ℓπ = let system=system, ln_prior_transformed=ln_prior_transformed, arr2nt=arr2nt, priors_vec=priors_vec
+    ℓπ = let system=system, ln_prior_transformed=ln_prior_transformed, arr2nt=arr2nt, Bijector_invlinkvec=Bijector_invlinkvec
         function (θ_t)
             # Transform back from the unconstrained support to constrained support for the likelihood function
-            θ = Bijectors.invlink.(priors_vec, θ_t)
+            θ = Bijector_invlinkvec(θ_t)
             θ_res = arr2nt(θ)
             ll = ln_prior_transformed(θ) + ln_like(θ_res, system)
             return ll
@@ -352,6 +194,7 @@ function hmc(
     end
 
     if isnothing(initial_parameters)
+        progress && @info "Guessing a good starting location by sampling from priors" initial_samples
         initial_θ = guess_starting_position(system,initial_samples)
         # Transform from constrained support to unconstrained support
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
@@ -375,18 +218,15 @@ function hmc(
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
     end
 
-
     # Define a Hamiltonian system
     metric = DenseEuclideanMetric(D)
     hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
-    # hamiltonian = Hamiltonian(metric, ℓπ, ℓπ_grad)
-
 
     if !isnothing(step_size)
         initial_ϵ = step_size
     else
         initial_ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
-        @info "Found initial stepsize" initial_ϵ
+        progress && @info "Found initial stepsize" initial_ϵ
     end
 
 
@@ -401,11 +241,11 @@ function hmc(
 
     mma = MassMatrixAdaptor(metric)
     if isnothing(step_size)
-        @info "Will adapt step size and mass matrix"
+        progress && @info "Will adapt step size and mass matrix"
         ssa = StepSizeAdaptor(target_accept, integrator)
         adaptor = StanHMCAdaptor(mma, ssa) 
     else
-        @info "Will adapt mass matrix only"
+        progress && @info "Will adapt mass matrix only"
         adaptor = MassMatrixAdaptor(metric)
     end
 
@@ -422,8 +262,7 @@ function hmc(
     sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
 
 
-    AbstractMCMC.setprogress!(true)
-    start_time = time()
+    start_time = fill(time(), num_chains)
 
     # Neat: it's possible to return a live iterator
     # We could use this to build e.g. live plotting while the code is running
@@ -446,7 +285,6 @@ function hmc(
     #     @show iteration
     # end
 
-
     mc_samples_all_chains = sample(
         rng,
         model,
@@ -459,7 +297,7 @@ function hmc(
         progress=progress,
         # callback
     )
-    stop_time = time()
+    stop_time = fill(time(), num_chains)
     
     @info "Sampling compete. Building chains."
     # Go through each chain and repackage results
@@ -474,7 +312,7 @@ function hmc(
         mean_tree_depth = mean(getproperty.(stat, :tree_depth))
         max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
     
-        println("""\
+        progress && println("""\
         Sampling report for chain $i:
         mean_accept =         $mean_accept
         num_err_frac =        $num_err_frac
@@ -516,15 +354,18 @@ function hmc(
             start_time,
             stop_time,
             model=system,
-            adaptor,
-            mc_samples=mc_samples_all_chains,
-            sampler,
             logpost=logposts_mat,
-            initial_ϵ
+            _restart=(;
+                model,
+                sampler,
+                adaptor,
+                state = last.(mc_samples_all_chains)
+            )
         )
     )
     return mcmcchains_with_info
 end
+
 
 include("tempered-sampling.jl")
 
@@ -547,36 +388,3 @@ function result2mcmcchain(system, chains_in_0)
     )
     return c
 end
-
-# """
-#     planet_keys(system, key)
-
-# For planet `key`, return the column names used in the output chains.
-
-# Examples:
-# ```julia-repl
-# julia> planet_keys(system, :X)
-# 7-element Vector{String}:
-#  "f[a]"
-#  "f[e]"
-#  "f[τ]"
-#  "f[ω]"
-#  "f[i]"
-#  "f[Ω]"
-#  "f[Keck_L′]"
-# ```
-# """
-# function planet_keys(system, key)
-#     # There is a specific column name convention used by MCMCChains to indicate
-#     # that multiple parameters form a group. Instead of planets.X.a, we adapt our to X[a] 
-#     # accordingly
-    
-#     θ = sample_priors(system)
-#     θ_r = resolve_deterministic(system, θ)
-
-#     flattened_labels = replace.(labels(θ_r), r"planets\.([^\.]+).([^\.]+)" => s"\1[\2]")
-
-#     planet_key_start = string(key) * "["
-#     return filter(startswith(planet_key_start), flattened_labels)
-# end
-# export planet_keys

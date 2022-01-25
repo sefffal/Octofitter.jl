@@ -44,7 +44,7 @@ Depth = 5
 
 ### Tutorials
 ```@contents
-Pages = ["images.md", "pma.md", "derived.nd", "mass-photometry.md"]
+Pages = ["modelling.md", "pma.md",  "images.md", "derived.md", "mass-photometry.md"]
 Depth = 5
 ```
 

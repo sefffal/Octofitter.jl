@@ -9,6 +9,21 @@ const sonora_temp_mass_Z = sonora_photometry_interpolator(:MKO_Z)
 const sonora_temp_mass_J = sonora_photometry_interpolator(:MKO_J)
 const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
 
+# We then need to convert from absolute magnitude to relative magnitude vs star, and then
+# to contrast in linear units.
+# N.B. the package doesn't actually care about any of these units or details. Just make sure
+# the units of your data (photometry/images) are the same as your models.
+
+# You could just as easily use apparent magnitudes and 
+# m - M = 5log(d/10)
+d = 43
+M = 5.3 - 5log(d/10)
+
+const star_abs_mag_Z = 5.0
+const star_abs_mag_J = 5.1
+const star_abs_mag_L = 5.2
+
+
 ##
 @named b = DirectDetections.Planet(
     Priors(
@@ -68,43 +83,48 @@ chains = DirectDetections.hmc(
 ##
 gelmandiag(chains)
 ##
-plotmodel(chain,color=:mass,pmascatter=:mass)
 ##
-using PairPlots
-PairPlots.corner(chain)
 
-##
-table = (
-    age=chain["age"],
-    mass=chain["b[mass]"],
-    sma=chain["b[a]"],
-    Z=chain["b[Z]"],
-    J=chain["b[J]"],
-    L=chain["b[L]"],
-)
-PairPlots.corner(table)
-# PairPlots.corner(table, filterscatter=false, plotcontours=false)
+# ##
+# gelmandiag(chain)
+# ##
+# plotmodel(chain,color=:mass,pmascatter=:mass)
+# ##
+# using PairPlots
+# PairPlots.corner(chain)
+
+# ##
+# table = (
+#     age=chain["age"],
+#     mass=chain["b[mass]"],
+#     sma=chain["b[a]"],
+#     Z=chain["b[Z]"],
+#     J=chain["b[J]"],
+#     L=chain["b[L]"],
+# )
+# PairPlots.corner(table)
+# # PairPlots.corner(table, filterscatter=false, plotcontours=false)
 
 
-##
-p = plot(yflip=true,yguide="abs. mag")
-for planet in chain.info.model.planets
-    phot = planet.photometry
-    N= 1500
-    ii = rand(1:size(chain,1)*size(chain,3),N)
-    Zs = chain["b[Z]"][ii]
-    Js = chain["b[J]"][ii]
-    Ls = chain["b[L]"][ii]
-    plot!(vcat(Zs', Js', Ls'), color=:black, lw=1,  alpha=0.05, label="")
-    # scatter!(Ls', color=:black, lw=1,  alpha=0.05, label="")
-    scatter!(vcat(Zs', Js', Ls'), color=:black, lw=1, ms=4, alpha=0.01, label="")
-    scatter!(
-        collect(phot.phot),
-        yerr=collect(phot.σ_phot),
-        xticks=(collect(eachindex(phot.phot)), string.(phot.band)),
-        color=:red,
-        markerstrokecolor=:red,
-        label="Measured"
-    )
-end
-p 
+# ##
+# p = plot(yflip=true,yguide="abs. mag")
+# for planet in chain.info.model.planets
+#     phot = planet.photometry
+#     N= 1500
+#     ii = rand(1:size(chain,1)*size(chain,3),N)
+#     Zs = chain["b[Z]"][ii]
+#     Js = chain["b[J]"][ii]
+#     Ls = chain["b[L]"][ii]
+#     plot!(vcat(Zs', Js', Ls'), color=:black, lw=1,  alpha=0.05, label="")
+#     # scatter!(Ls', color=:black, lw=1,  alpha=0.05, label="")
+#     scatter!(vcat(Zs', Js', Ls'), color=:black, lw=1, ms=4, alpha=0.01, label="")
+#     scatter!(
+#         collect(phot.phot),
+#         yerr=collect(phot.σ_phot),
+#         xticks=(collect(eachindex(phot.phot)), string.(phot.band)),
+#         color=:red,
+#         markerstrokecolor=:red,
+#         label="Measured"
+#     )
+# end
+# p 

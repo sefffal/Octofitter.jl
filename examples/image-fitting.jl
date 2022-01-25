@@ -5,8 +5,7 @@ using DirectDetections
 using Distributions
 using DirectImages
 using ImageFiltering
-using ComponentArrays
-using DirectOrbits: KeplerianElements, period, raoff, decoff, kep2cart
+using DirectOrbits
 using Plots
 ##
 

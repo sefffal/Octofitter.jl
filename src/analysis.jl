@@ -1,3 +1,5 @@
+# This file contains funtions for analysing results from chains.
+
 """
     projectpositions(chains.planets[1], mjd("2020-02-02"))
 
@@ -53,6 +55,7 @@ export projectpositions
     xflip --> true
     xguide --> "Δ right ascension (mas)"
     yguide --> "Δ declination (mas)"
+
     return astrom.ra, astrom.dec
 end
 
@@ -191,12 +194,12 @@ function init_plots()
             cmap=:plasma,
             imagecmap=:Greys,
             pma_scatter=nothing,
-            clims=extrema(Iterators.flatten(
+            clims=quantile(Iterators.flatten(
                 # extrema(planet.a)
                 # extrema([sample.planets[key].a for sample in chain])
                 # for key in keys(chain[1].planets)
                 extrema(chain["$pk[$color]"] for pk in keys(system.planets))
-            )),
+            ), (0.01,0.99)),
             lims=nothing,
             kwargs...
         )

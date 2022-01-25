@@ -1,19 +1,16 @@
 using DirectDetections, Distributions, Plots
 
 
-
-
-##
 using DirectImages
 cd(@__DIR__)
-images = map(centered, readfits("image-examples-1.fits",:))
+imagesc = map(centered, readfits("image-examples-1.fits",:))
 pwd()
 imshow2([
-    images[1]
-    images[2]
-    images[3]
-    images[4]
-    images[5]
+    imagesc[1]
+    imagesc[2]
+    imagesc[3]
+    imagesc[4]
+    imagesc[5]
 ], cmap=:magma, clims=(-1.0, 6.0))
 ##
 
@@ -23,43 +20,54 @@ imshow2([
         a = Normal(16, 3),
         e = Beta(5, 25),
         τ = Normal(0.5, 1),
-        ω = Normal(0.1, deg2rad(30.)),
-        i = Normal(0.55, deg2rad(10.)),
-        Ω = Normal(0.0, deg2rad(30.)),
+        ω = VonMises(0,1),
+        i = VonMises(0,1),
+        Ω = VonMises(0,1),
         H = Normal(5.5, 1)
     ),
+)
+
+system_images = DirectDetections.Images(
+    (band=:H, image=imagesc[1], platescale=10.0, epoch=times[1], contrast=contrasts[1]),
+    (band=:H, image=imagesc[2], platescale=10.0, epoch=times[2], contrast=contrasts[2]),
+    (band=:H, image=imagesc[3], platescale=10.0, epoch=times[3], contrast=contrasts[3]),
+    (band=:H, image=imagesc[4], platescale=10.0, epoch=times[4], contrast=contrasts[4]),
+    (band=:H, image=imagesc[5], platescale=10.0, epoch=times[5], contrast=contrasts[5]),
 )
 
 ##
 
 @named HD82134 = System(
     Priors(
-        μ = Normal(2.0, 0.1),
-        plx =Normal(45., 0.02),
+        μ = TruncatedNormal(2.0, 0.1, 0, Inf),
+        plx = TruncatedNormal(45., 0.02, 0, Inf),
     ),
-    Images(
-        (band=:H, image=images[1], platescale=10.0, epoch=1238.6),
-        (band=:H, image=images[2], platescale=10.0, epoch=1584.7),
-        (band=:H, image=images[3], platescale=10.0, epoch=3220.0),
-        (band=:H, image=images[4], platescale=10.0, epoch=7495.9),
-        (band=:H, image=images[5], platescale=10.0, epoch=7610.4),
-    ),
+    system_images,
     b,
 )
 
-chain, stats, extra = DirectDetections.hmc(
-    HD82134,
-    adaptation =  4_000,
-    iterations =  6_000,
-    tree_depth =     10,
-);
+chain = DirectDetections.hmc(
+    HD82134, .60,
+    MCMCThreads(),
+    num_chains=4,
+    adaptation =  1_000,
+    iterations = 10_000,
+    tree_depth =     12,
+)
 
 ##
-plotmodel(chain, HD82134, lims=1000)
+@show snr = mean(chain["X[H]"]) / std(chain["X[H]"])
+##
+DirectDetections.MCMCChains.gelmandiag(chain)
+##
+plot(chain)
+##
+plotmodel(chain, alpha=0.05,  lims=1000)
 ##
 savefig("../docs/src/assets/images-model-plot.svg")
 
-##using PairPlots
+##
+using PairPlots
 table = (;
 a=         chain["b[a]"],
 H=         chain["b[H]"],
@@ -87,7 +95,7 @@ units = [
 "(\\degree)",
 "",
 ]
-corner(table, labels, units)#, hist2d_kwargs=(;nbins=15))
+corner(table, labels, units)
 ##
 cd(@__DIR__)
 savefig("../docs/src/assets/images-corner-plot.svg")
@@ -104,7 +112,7 @@ truth = (;
     ω = 0.1,
     Ω = 0.0,
     e = 0.25,
-    i = 0.55,
+    i = 0.1,
     μ = 2.0,
     plx = 45.
 )
@@ -143,5 +151,13 @@ images_contrasts = map(eachrow(points)) do (ra,dec)
     img, contrast
 end
 images = [img for (img,contrast) in images_contrasts]
-# contrasts = [contrast for (img,contrast) in images_contrasts]
+contrasts = [contrast for (img,contrast) in images_contrasts]
 writefits("image-examples-1.fits", images...)
+
+##
+
+imshow(
+    reduce(hcat, snrmap.(images, contrasts)),
+    cmap=:magma,
+    clims=(-1.0, 6.0)
+)

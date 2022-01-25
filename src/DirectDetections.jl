@@ -2,13 +2,11 @@ module DirectDetections
 using ComponentArrays # TODO: remove last uses of component arrays
 using Distributions
 using Bijectors
-
 using AbstractMCMC
 using AdvancedHMC
 using NamedTupleTools
 using ForwardDiff
 using Logging
-
 using Statistics
 using StatsBase
 using NamedTupleTools
@@ -19,18 +17,13 @@ using DirectOrbits
 export mjd, KeplerianElements, KeplerianElementsDeg
 
 using Base.Threads: @threads
-using StaticArrays
- 
-using MCMCChains: MCMCChains
-using MCMCChains: Chains
+using StaticArrays 
+using MCMCChains: MCMCChains, Chains
 using Random
 using DataDeps
-
-
+using RecipesBase
 using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
-
-using RecipesBase
 
 const mjup2msol = 0.0009543
 
@@ -81,22 +74,6 @@ function __init__()
         "https://zenodo.org/record/5063476/files/evolution_and_photometery.tar.gz?download=1",
         "2198426d1ca0e410fda7b63c3b7f45f3890a8d9f2fcf0a3a1e36e14185283ca5",
         post_fetch_method=unpack
-        # [
-        #     function (archive)
-        #         # tarball = joinpath(datadep"SonoraBobcatEvoPhot", "evolution_and_photometery.tar.gz")
-
-        #         println("postfetch method!")
-        #         @show archive
-        #         return
-        #         tar_gz = open(archive)
-        #         tar = GzipDecompressorStream(tar_gz)
-        #         # dir = Tar.extract(tar, archve))
-        #         l = Tar.list(tar)
-        #         close(tar)
-        #         close(tar_gz)
-        #         println("Extracted.")
-        #     end
-        # ]
     ))
 
     return

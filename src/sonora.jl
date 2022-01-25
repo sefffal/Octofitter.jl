@@ -1,3 +1,6 @@
+# This fille contains functions for loading atmosphere model
+# curves from the Sonora Bobcat models
+
 using DelimitedFiles
 using NamedTupleTools
 using BasicInterpolators
