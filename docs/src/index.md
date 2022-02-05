@@ -30,6 +30,7 @@ Fit astrometry on your laptop in seconds!
 
 * Highly optimized code and derivatives are generated from your model
 * Higher order sampler (No U-Turn sampler) which explores the parameter space very efficiently 
+* Run on a single core, multiple threads, or hundreds of nodes by changing just a single line of code
 
 The package supports only bound, 2-body Keplerian orbits. Support for hyperbolic orbits and multi-body physics are not currently planned.
 
