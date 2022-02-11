@@ -85,7 +85,7 @@ return a `KeplerianElements` from DirectOrbits.jl.
 """
 function construct_elements(θ_system, θ_planet)
     return KeplerianElements((;
-        θ_system.μ,
+        θ_system.M,
         θ_system.plx,
         θ_planet.i,
         θ_planet.Ω,
@@ -107,7 +107,7 @@ index of the chains.
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Union{Integer,CartesianIndex})
     pk = string(planet_key)
     return KeplerianElements((;
-        μ=chain["μ"][i],
+        M=chain["M"][i],
         plx=chain["plx"][i],
         i=chain[pk*"[i]"][i],
         Ω=chain[pk*"[Ω]"][i],
@@ -127,7 +127,7 @@ of the chains.
 """
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
     pk = string(planet_key)
-    μs=chain["μ"]
+    Ms=chain["M"]
     plxs=chain["plx"]
     is=chain[pk*"[i]"]
     Ωs=chain[pk*"[Ω]"]
@@ -137,7 +137,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
     as=chain[pk*"[a]"]
     return map(ii) do i
         KeplerianElements((;
-            μ=μs[i],
+            M=Ms[i],
             plx=plxs[i],
             i=is[i],
             Ω=Ωs[i],

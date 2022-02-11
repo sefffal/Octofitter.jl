@@ -36,7 +36,7 @@ let
         )
         system = System(
             Priors(
-                μ = TruncatedNormal(1.0, 0.2, 0.1, Inf),
+            M = TruncatedNormal(1.0, 0.2, 0.1, Inf),
                 plx = TruncatedNormal(12.0, 0.2, 0.1, Inf),
             ),
             pma,  

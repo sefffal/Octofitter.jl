@@ -21,8 +21,8 @@ function ln_like_pma(θ_system, pma::ProperMotionAnom)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
             # make it the same unit as the stellar mass (element.mu)
-            pm_ra_star += propmotionanom(orbit, pma.ra_epoch[i], θ_planet.mass*mjup2msol)[1]
-            pm_dec_star += propmotionanom(orbit, pma.dec_epoch[i], θ_planet.mass*mjup2msol)[2]
+            pm_ra_star += pmra(orbit, pma.ra_epoch[i], θ_planet.mass*mjup2msol)
+            pm_dec_star += pmdec(orbit, pma.dec_epoch[i], θ_planet.mass*mjup2msol)
         end
 
         residx = pm_ra_star - pma.pm_ra[i]
@@ -78,10 +78,10 @@ function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, syst
     for i in eachindex(images.epoch)
        
         # Calculate position at this epoch
-        ra, dec = kep2cart(elements, images.epoch[i])
+        o = orbitsolve(elements, images.epoch[i])
         # x must be negated to go from sky coordinates (ra increasing to left) to image coordinates (ra increasing to right).
-        x = -ra
-        y = dec
+        x = -raoff(o)
+        y = decoff(o)
 
         # Get the photometry in this image at that location
         # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
@@ -129,7 +129,9 @@ function ln_like_astrom(elements, astrom::Astrometry)
     ll = 0.0
     
     for i in eachindex(astrom.epoch)
-        x, y = kep2cart(elements, astrom.epoch[i])
+        o = orbitsolve(elements, astrom.epoch[i])
+        x = raoff(o)
+        y = decoff(o)
         residx = astrom.ra[i] - x
         residy = astrom.dec[i] - y
         σ²x = astrom.σ_ra[i ]^2
@@ -166,7 +168,7 @@ function ln_like(θ_system, system::System)
     # Fail fast if we have a negative stellar mass.
     # Users should endeavour to use priors on e.g. stellar mass
     # that are strictly positive.
-    if hasproperty(θ_system, :μ) && θ_system.μ <= 0
+    if hasproperty(θ_system, :M) && θ_system.M <= 0
         return -Inf
     end
     # Go through each planet in the model and add its contribution

@@ -360,7 +360,7 @@ julia> params = DirectDetections.sample_priors(system)
   0.0006589349005787781
  -1.2600092725864576
 julia> arr2nt(params)
-(μ = 1.581678216418196, plx = 29.019567489624023, planets = (B = (τ = 1.805551918844831, ω = 4.527607604709967, i = -2.4432825071288837, Ω = 10.165695048003027, loge = -2.8667829383306063, loga = 0.0006589349005787781, logm = -1.2600092725864576, e = 0.001358992505357737, a = 1.0015184052910453, mass = 0.054952914078000334),))
+(M = 1.581678216418196, plx = 29.019567489624023, planets = (B = (τ = 1.805551918844831, ω = 4.527607604709967, i = -2.4432825071288837, Ω = 10.165695048003027, loge = -2.8667829383306063, loga = 0.0006589349005787781, logm = -1.2600092725864576, e = 0.001358992505357737, a = 1.0015184052910453, mass = 0.054952914078000334),))
 ```
 """
 function make_arr2nt(system::System)
@@ -441,7 +441,7 @@ function make_arr2nt(system::System)
     func = @RuntimeGeneratedFunction(:(function (arr)
         l = $i
         @boundscheck if length(arr) != l
-            error("Expected exactly $l elements in array (got $(length(arr)))")
+            error("Expected exactly $l elements in array. Got ", length(arr))
         end
         # Expand system variables from priors
         sys = (;$(body_sys_priors...))

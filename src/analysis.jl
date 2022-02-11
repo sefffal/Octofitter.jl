@@ -16,9 +16,9 @@ function projectpositions(chains, planet_key, times)
             els = DirectDetections.construct_elements(chains, planet_key, is .* j)
             for (i,el) in zip(is,els)
                 for (k, t) in enumerate(times)
-                    ra, dec, _ = kep2cart(el, t)
-                    ras[i,j,k] = ra
-                    decs[i,j,k] = dec
+                    o = kep2cart(el, t)
+                    ras[i,j,k] = raoff(o)
+                    decs[i,j,k] = decoff(o)
                 end
             end
         end
@@ -274,8 +274,8 @@ function init_plots()
                         elements = construct_elements(chain, j, 1:prod(size(chain,[1,3])))
                         # mass = [sample.planets[j].mass for sample in chain]
                         mass = reshape(chain["$j[mass]"],:)
-                        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[i], mass.*mjup2msol),1)
-                        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[i], mass.*mjup2msol),2)
+                        vx .+= pmra.(elements, system_pma.ra_epoch[i], mass.*mjup2msol)
+                        vy .+= pmdec.(elements, system_pma.dec_epoch[i], mass.*mjup2msol)
                     end
                     Plots.plot(
                         framestyle=:box,
@@ -364,6 +364,104 @@ function init_plots()
             end
 
             return final_plot
+        end
+
+
+        """
+        Plot a parameter against time.
+
+        Example:
+        ```
+        plot(
+            mplot(chains_pma, :b, :mass, :ra),
+            mplot(chains_pma, :b, :mass, :dec),
+            mplot(chains_pma, :b, :mass, :rv),
+            mplot(chains_pma, :b, :mass, :pmra),
+            mplot(chains_pma, :b, :mass, :pmdec),
+            layout = @layout([
+                A
+                B
+                C
+                D E
+            ]),
+            framestyle=:box,
+            size=(500,700)
+        )
+        ```
+        """
+        function timeplot(chain, planet_key, color, prop)
+            planet = chain.info.model.planets[planet_key]
+            if prop == :ra
+                ylabel = "RA"
+            elseif prop == :dec
+                ylabel = "DEC"
+            elseif prop == :rv
+                ylabel = "RV"
+            elseif prop == :pmra
+                ylabel = "RA/yr"
+            elseif prop == :pmdec
+                ylabel = "DEC/yr"
+            end
+            p1 = Plots.plot(;
+                ylabel,
+                legend=:none
+            )
+            N = 500
+            ii = rand(1:size(chain,1)*size(chain,3), N)
+            elements = DirectDetections.construct_elements(chain, planet_key, ii)
+            y = nothing
+            if prop == :ra
+                t = range((extrema(planet.astrometry.epoch) .+ [-300, 300])..., length=100)
+                y = planet.astrometry.ra
+                yerr = planet.astrometry.σ_ra
+                fit = raoff.(elements, t')'
+                x = planet.astrometry.epoch
+            elseif prop == :dec
+                t = range((extrema(planet.astrometry.epoch) .+ [-300, 300])..., length=100)
+                y = planet.astrometry.dec
+                yerr = planet.astrometry.σ_dec
+                fit = decoff.(elements, t')'
+                x = planet.astrometry.epoch
+            elseif prop == :pmra
+                t = range((extrema(chain.info.model.propermotionanom.ra_epoch) .+ [-300, 300])..., length=100)
+                y = chain.info.model.propermotionanom.pm_ra
+                yerr = chain.info.model.propermotionanom.σ_pm_ra
+                fit = getindex.(
+                    propmotionanom.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol),
+                    1
+                )'
+                x = chain.info.model.propermotionanom.ra_epoch
+            elseif prop == :pmdec
+                t = range((extrema(chain.info.model.propermotionanom.dec_epoch) .+ [-300, 300])..., length=100)
+                y = chain.info.model.propermotionanom.pm_dec
+                yerr = chain.info.model.propermotionanom.σ_pm_dec
+                fit = getindex.(
+                    propmotionanom.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol),
+                    2
+                )'
+                x = chain.info.model.propermotionanom.dec_epoch
+            elseif prop == :rv
+                # TODO
+                t = range((extrema(planet.astrometry.epoch) .+ [-300, 300])..., length=100)
+                x = planet.astrometry.epoch
+                fit = radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]))'
+            end
+            Plots.plot!(
+                t, fit,
+                line_z=repeat(
+                    collect(chain["$planet_key[$color]"][ii]),
+                    1, length(t)
+                )',
+                alpha=0.05
+            )
+            if !isnothing(y)
+                Plots.scatter!(
+                    p1,
+                    x,
+                    y; yerr
+                )
+            end
+            p1
         end
     end
 end
