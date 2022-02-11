@@ -173,7 +173,10 @@ function ln_like(θ_system, system::System)
     end
     # Go through each planet in the model and add its contribution
     # to the ln-likelihood.
-    for (θ_planet, planet) in zip(θ_system.planets, system.planets)
+    # for (θ_planet, planet) in zip(θ_system.planets, system.planets)
+    for i in eachindex(system.planets)
+        planet = system.planets[i]
+        θ_planet = θ_system.planets[i]
 
         if !isnothing(planet.photometry)
             ll += ln_like_phot(planet.photometry, θ_planet)
@@ -381,6 +384,42 @@ function make_ln_prior_transformed(system::System)
 end
 
 
+# # Replaces `θ = Bijectors.invlink.(priors_vec, θ_t)` with a type stable
+# # unrolled version.
+# function make_Bijector_invlinkvec(priors_vec)
+
+#     i = 0
+#     parameter_transformations = Expr[]
+
+#     # System priors
+#     for prior_distribution in priors_vec
+#         i += 1
+#         ex = :(
+#             theta_out[$i] = $(Bijectors.invlink)($prior_distribution, arr[$i])
+#         )
+#         push!(parameter_transformations, ex)
+#     end
+
+#     # Here is the function we return.
+#     # It maps an array of parameters into our nested named tuple structure
+#     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
+#     # The RuntimeGeneratedFunctions package avoids these in all cases.
+#     return @RuntimeGeneratedFunction(:(function (arr)
+#         l = $i
+#         theta_out = @MVector zeros(eltype(arr), l)
+#         # theta_out = zeros(eltype(arr), l)
+#         @boundscheck if length(arr) != l
+#             error("Expected exactly $l elements in array (got $(length(arr)))")
+#         end
+#         # Add unrolled parameter transformations to fill theta_out
+#         @inbounds begin
+#            $(parameter_transformations...) 
+#         end
+#         return theta_out
+#     end))
+# end
+
+
 # Replaces `θ = Bijectors.invlink.(priors_vec, θ_t)` with a type stable
 # unrolled version.
 function make_Bijector_invlinkvec(priors_vec)
@@ -392,7 +431,7 @@ function make_Bijector_invlinkvec(priors_vec)
     for prior_distribution in priors_vec
         i += 1
         ex = :(
-            theta_out[$i] = $(Bijectors.invlink)($prior_distribution, arr[$i])
+            $(Bijectors.invlink)($prior_distribution, arr[$i])
         )
         push!(parameter_transformations, ex)
     end
@@ -403,14 +442,17 @@ function make_Bijector_invlinkvec(priors_vec)
     # The RuntimeGeneratedFunctions package avoids these in all cases.
     return @RuntimeGeneratedFunction(:(function (arr)
         l = $i
-        theta_out = @MVector zeros(eltype(arr), l)
         # theta_out = zeros(eltype(arr), l)
         @boundscheck if length(arr) != l
             error("Expected exactly $l elements in array (got $(length(arr)))")
         end
         # Add unrolled parameter transformations to fill theta_out
         @inbounds begin
-           $(parameter_transformations...) 
+            # theta_out = SVector{l,eltype(arr)}(
+            # theta_out = MVector{l,eltype(arr)}(
+            theta_out = tuple(
+                $(parameter_transformations...) 
+            )
         end
         return theta_out
     end))

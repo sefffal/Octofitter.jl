@@ -150,8 +150,6 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
 end
 
 
-
-
 # Fallback when no random number generator is provided (as is usually the case)
 function hmc(system::System, target_accept::Number=0.8, ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial(); kwargs...)
     return hmc(Random.default_rng(), system, target_accept, ensemble; kwargs...)
@@ -169,7 +167,8 @@ function hmc(
     initial_samples=50_000,
     initial_parameters=nothing,
     step_size=nothing,
-    progress=true
+    progress=true,
+    autodiff=ForwardDiff
 )
 
     # Choose parameter dimensionality and initial parameter value
@@ -220,7 +219,7 @@ function hmc(
 
     # Define a Hamiltonian system
     metric = DenseEuclideanMetric(D)
-    hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
+    hamiltonian = Hamiltonian(metric, ℓπ, autodiff)
 
     if !isnothing(step_size)
         initial_ϵ = step_size
@@ -249,7 +248,7 @@ function hmc(
         adaptor = MassMatrixAdaptor(metric)
     end
 
-    model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ForwardDiff)
+    model = AdvancedHMC.DifferentiableDensityModel(ℓπ, autodiff)
 
     # κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth) 
     # κ = NUTS{SliceTS, StrictGeneralisedNoUTurn}(integrator, max_depth=tree_depth) 
