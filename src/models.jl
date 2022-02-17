@@ -21,14 +21,14 @@ function ln_like_pma(θ_system, pma::ProperMotionAnom)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
             # make it the same unit as the stellar mass (element.mu)
-            pm_ra_star += pmra(orbit, pma.ra_epoch[i], θ_planet.mass*mjup2msol)
-            pm_dec_star += pmdec(orbit, pma.dec_epoch[i], θ_planet.mass*mjup2msol)
+            pm_ra_star += pmra(orbit, pma.table.ra_epoch[i], θ_planet.mass*mjup2msol)
+            pm_dec_star += pmdec(orbit, pma.table.dec_epoch[i], θ_planet.mass*mjup2msol)
         end
 
-        residx = pm_ra_star - pma.pm_ra[i]
-        residy = pm_dec_star - pma.pm_dec[i]
-        σ²x = pma.σ_pm_ra[i]^2
-        σ²y = pma.σ_pm_dec[i]^2
+        residx = pm_ra_star - pma.table.pm_ra[i]
+        residy = pm_dec_star - pma.table.pm_dec[i]
+        σ²x = pma.table.σ_pm_ra[i]^2
+        σ²y = pma.table.σ_pm_dec[i]^2
         χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
         χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
 
@@ -72,24 +72,24 @@ end
 # end
 
 function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, system)
-    images = system.images
+    imgtable = system.images.table
     T = eltype(θ_planet)
     ll = zero(T)
-    for i in eachindex(images.epoch)
+    for i in eachindex(imgtable.epoch)
        
         # Calculate position at this epoch
-        o = orbitsolve(elements, images.epoch[i])
+        o = orbitsolve(elements, imgtable.epoch[i])
         # x must be negated to go from sky coordinates (ra increasing to left) to image coordinates (ra increasing to right).
         x = -raoff(o)
         y = decoff(o)
 
         # Get the photometry in this image at that location
         # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
-        f̃ₓ = lookup_coord(images.image[i], (x, y), images.platescale[i])
+        f̃ₓ = lookup_coord(imgtable.image[i], (x, y), imgtable.platescale[i])
 
         # Find the uncertainty in that photometry value (i.e. the contrast)
         r = √(x^2 + y^2)
-        σₓ = images.contrast[i](r / images.platescale[i])
+        σₓ = imgtable.contrast[i](r / imgtable.platescale[i])
 
         # When we get a position that falls outside of our available
         # data (e.g. under the coronagraph) we cannot say anything
@@ -99,7 +99,7 @@ function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, syst
             continue
         end
 
-        band = images.band[i]
+        band = imgtable.band[i]
 
         # Verify the user has specified a prior or model for this band.
         if !hasproperty(θ_planet, band)
@@ -128,14 +128,14 @@ end
 function ln_like_astrom(elements, astrom::Astrometry)
     ll = 0.0
     
-    for i in eachindex(astrom.epoch)
-        o = orbitsolve(elements, astrom.epoch[i])
+    for i in eachindex(astrom.table.epoch)
+        o = orbitsolve(elements, astrom.table.epoch[i])
         x = raoff(o)
         y = decoff(o)
-        residx = astrom.ra[i] - x
-        residy = astrom.dec[i] - y
-        σ²x = astrom.σ_ra[i ]^2
-        σ²y = astrom.σ_dec[i]^2
+        residx = astrom.table.ra[i] - x
+        residy = astrom.table.dec[i] - y
+        σ²x = astrom.table.σ_ra[i ]^2
+        σ²y = astrom.table.σ_dec[i]^2
         χ²x = -(1/2)*residx^2 / σ²x - log(sqrt(2π * σ²x))
         χ²y = -(1/2)*residy^2 / σ²y - log(sqrt(2π * σ²y))
         ll += χ²x + χ²y
@@ -146,14 +146,14 @@ end
 # Photometry
 function ln_like_phot(photometry, θ_planet)
     ll = 0.0
-    for i in eachindex(photometry.band)
-        band = photometry.band[i]
+    for i in eachindex(photometry.table.band)
+        band = photometry.table.band[i]
         phot_param = getproperty(θ_planet, band)
-        phot_meas = photometry.phot[i]
+        phot_meas = photometry.table.phot[i]
         if !isfinite(phot_param)
             return -Inf
         end
-        σ_phot = photometry.σ_phot[i]
+        σ_phot = photometry.table.σ_phot[i]
         resid = phot_param - phot_meas
         σ² = σ_phot^2
         χ² = -(1/2)*resid^2 / σ² - log(sqrt(2π * σ²))

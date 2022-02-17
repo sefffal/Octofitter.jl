@@ -1,5 +1,7 @@
 module DirectDetections
+using Printf
 using ComponentArrays # TODO: remove last uses of component arrays
+using Tables, TypedTables
 using Distributions
 using Bijectors
 using AbstractMCMC
@@ -11,10 +13,12 @@ using Statistics
 using StatsBase
 using NamedTupleTools
 using DirectImages
-
 using DirectOrbits
-# Re-export the mjd helper. It's useful!
+
+# Re-export these from DirectOrbits
 export mjd, KeplerianElements, KeplerianElementsDeg
+# Re-export from TypedTables
+export Table
 
 using Base.Threads: @threads
 using StaticArrays 

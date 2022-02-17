@@ -1,76 +1,60 @@
 
-struct Astrometry{N,T<:Number}
-    epoch::SVector{N,T}
-    ra::SVector{N,T}
-    dec::SVector{N,T}
-    σ_ra::SVector{N,T}
-    σ_dec::SVector{N,T}
+
+const astrom_cols = (:epoch, :ra, :dec, :σ_ra, :σ_dec)
+struct Astrometry{TTable<:Table}
+    table::TTable
+    function Astrometry(observations...)
+        table = Table(observations...)
+        if !issubset(astrom_cols, Tables.columnnames(table))
+            error("Expected columns $astrom_cols")
+        end
+        return new{typeof(table)}(table)
+    end
 end
+Astrometry(observations::NamedTuple...) = Astrometry(observations)
+TypedTables.Table(obs::Astrometry) = obs.table
 export Astrometry
 
 
-function Astrometry(observations::NamedTuple...)
-    if any(<(1), abs.(getproperty.(observations, :ra))) ||
-        any(<(1), abs.(getproperty.(observations, :dec)))
-        @warn "Confirm that astrometry is entered in milliarcseconds (very small values detected)"
+const phot_cols = (:band, :phot, :σ_phot)
+struct Photometry{TTable<:Table}
+    table::TTable
+    function Photometry(observations...)
+        table = Table(observations...)
+        if !issubset(phot_cols, Tables.columnnames(table))
+            error("Expected columns $phot_cols")
+        end
+        return new{typeof(table)}(table)
     end
-    return Astrometry(
-        SVector(getproperty.(observations, :epoch)),
-        SVector(getproperty.(observations, :ra)),
-        SVector(getproperty.(observations, :dec)),
-        SVector(getproperty.(observations, :σ_ra)),
-        SVector(getproperty.(observations, :σ_dec)),
-    )
 end
-
-
-struct Photometry{N,T<:Number}
-    band::SVector{N,Symbol}
-    phot::SVector{N,T}
-    σ_phot::SVector{N,T}
-end
+Photometry(observations::NamedTuple...) = Photometry(observations)
+TypedTables.Table(obs::Photometry) = obs.table
 export Photometry
 
 
-function Photometry(observations::NamedTuple...)
-    return Photometry(
-        SVector(getproperty.(observations, :band)),
-        SVector(getproperty.(observations, :phot)),
-        SVector(getproperty.(observations, :σ_phot)),
-    )
-end
 
+const pma_cols = (:ra_epoch, :dec_epoch, :pm_ra, :pm_dec, :σ_pm_ra, :σ_pm_dec)
+struct ProperMotionAnom{TTable<:Table}
+    table::TTable
+    function ProperMotionAnom(observations...)
+        table = Table(observations...)
+        if !issubset(pma_cols, Tables.columnnames(table))
+            error("Expected columns $pma_cols")
+        end
+        return new{typeof(table)}(table)
+    end
+end
+ProperMotionAnom(observations::NamedTuple...) = ProperMotionAnom(observations)
+TypedTables.Table(obs::ProperMotionAnom) = obs.table
+export ProperMotionAnom
 
-struct ProperMotionAnom{N,T<:Number}
-    ra_epoch::SVector{N,T}
-    dec_epoch::SVector{N,T}
-    pm_ra::SVector{N,T}
-    pm_dec::SVector{N,T}
-    σ_pm_ra::SVector{N,T}
-    σ_pm_dec::SVector{N,T}
-end
-export ProperMotionAnom 
-function ProperMotionAnom(observations::NamedTuple...)
-    T = promote_type(typeof.(values(first(observations)))...)
-    return ProperMotionAnom{length(observations),T}(
-        SVector(getproperty.(observations, :ra_epoch)),
-        SVector(getproperty.(observations, :dec_epoch)),
-        SVector(getproperty.(observations, :pm_ra)),
-        SVector(getproperty.(observations, :pm_dec)),
-        SVector(getproperty.(observations, :σ_pm_ra)),
-        SVector(getproperty.(observations, :σ_pm_dec)),
-    )
-end
+const images_cols = (:band, :image, :epoch, :platescale, :contrast, )
 
 """
     Images(...)
 
 A block of images of a system. Pass a vector of named tuples with the following fields:
-* band
-* image 
-* epoch 
-* platescale 
-* contrast 
+$images_cols
 
 For example:
 ```julia
@@ -84,31 +68,26 @@ Epoch is in MJD.
 Band is a symbol which matches the one used in the planet's `Priors()` block.
 Platescale is in mas/px.
 """
-struct Images{TImg,TCont}
-    band::Vector{Symbol}
-    image::Vector{TImg}
-    epoch::Vector{Float64}
-    platescale::Vector{Float64}
-    contrast::Vector{TCont}
-end
-export Images
-function Images(observations::NamedTuple...)
-    observations_prepared = map(observations) do obs
-        if !hasproperty(obs, :contrast)
+struct Images{TTable<:Table}
+    table::TTable
+    function Images(observations...)
+        table = Table(observations...)
+        # Fallback to calculating contrast automatically
+        if !in(:contrast, columnnames(table))
             @info "Measuring contrast from image"
             contrast = contrast_interp(obs.image)
-            obs = merge(obs, (;contrast))
+            table = Table(table, contrast=contrast)
         end
-        return obs
+        if !issubset(images_cols, columnnames(table))
+            error("Expected columns $images_cols")
+        end
+        return new{typeof(table)}(table)
     end
-    return Images(
-        collect(getproperty.(observations_prepared, :band)),
-        collect(getproperty.(observations_prepared, :image)),
-        collect(getproperty.(observations_prepared, :epoch)),
-        collect(getproperty.(observations_prepared, :platescale)),
-        collect(getproperty.(observations_prepared, :contrast)),
-    )
 end
+Images(observations::NamedTuple...) = Images(observations)
+TypedTables.Table(obs::Images) = obs.table
+export Images
+
 
 """
     Priors(key=dist, ...)
@@ -247,41 +226,14 @@ System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, images::Image
     System(det, priors, propermotionanom, images, planets...; kwargs...)
 
 #### Show methods
-Base.show(io::IO, ::MIME"text/plain", @nospecialize phot::Photometry) = print(
-    io, """
-        Astrometry[$(length(phot.band))]
-        band\tphot\tσ_phot
-        ──────────────────────
-        $(join(["$(phot.band[i])\t$(phot.phot[i])\t$(phot.σ_phot[i])"
-             for i in eachindex(phot.band)],"\n"))
-        ──────────────────────
-        """)
-Base.show(io::IO, ::MIME"text/plain", @nospecialize astrom::Astrometry) = print(
-    io, """
-        Astrometry[$(length(astrom.epoch))]
-        epoch   \tra\tdec\tσ_ra\tσ_dec
-        ────────────────────────────────────────────────
-        $(join(["$(round(astrom.epoch[i],digits=2))\t$(round(astrom.ra[i],digits=2))\t$(round(astrom.dec[i],digits=2))\t$(round(astrom.σ_ra[i],digits=2))\t$(round(astrom.σ_dec[i],digits=2))\t"
-             for i in eachindex(astrom.epoch)],"\n"))
-        ────────────────────────────────────────────────
-        """)
-Base.show(io::IO, ::MIME"text/plain", @nospecialize pma::ProperMotionAnom) = print(
-    io, """
-        ProperMotionAnom[$(length(pma.ra_epoch))]
-        ra_epoch   \tdec_epoch   \tpm_ra\tpm_dec\tσ_pm_ra\tσ_pm_dec
-        ──────────────────────────────────────────────────────────────────
-        $(join(["$(round(pma.ra_epoch[i],digits=2)) \t$(round(pma.dec_epoch[i],digits=2))   \t$(round(pma.pm_ra[i],digits=2))\t$(round(pma.pm_dec[i],digits=2))\t$(round(pma.σ_pm_ra[i],digits=2))\t$(round(pma.σ_pm_dec[i],digits=2))\t"
-             for i in eachindex(pma.ra_epoch)],"\n"))
-        ──────────────────────────────────────────────────────────────────
-        """)
-Base.show(io::IO, ::MIME"text/plain", @nospecialize is::Images) = print(
-    io, """
-        Images[$(length(is.image))]
-        epoch\tband\tplatescale
-        ───────────────────────────
-        $(join(["$(round(is.epoch[i],digits=2))\t$(is.band[i])\t$(round(is.platescale[i],digits=2))" for i in eachindex(is.epoch)],"\n"))
-        ───────────────────────────
-        """)
+for ObsType in (Astrometry, Photometry, ProperMotionAnom, Images)
+    @eval function Base.show(io::IO, mime::MIME"text/plain", @nospecialize obs::($ObsType))
+        print(io, "$($ObsType) ")
+        Base.show(io::IO, mime, Table(obs))
+    end
+end
+
+
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::AbstractPlanet)
     print(io, "Planet $(p.name)\n")
     # if !isnothing(p.deterministic)

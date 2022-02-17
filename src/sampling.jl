@@ -278,11 +278,43 @@ function hmc(
     # )
 
 
-    # function callback(rng, model, sampler, transition, state, iteration; kwargs...)
-    #     # nadapts init_params
-    #     @show propertynames(kwargs)
-    #     @show iteration
-    # end
+    last_output_time = time()
+    function callback(rng, model, sampler, transition, state, iteration; kwargs...)
+        if !progress || !(last_output_time + 2 > time())
+            return
+        end
+        note = " "
+        if transition.stat.numerical_error
+            note = "X"
+        elseif iteration <= adaptation
+            note = "A"
+        end
+        if transition.z.ℓπ isa AdvancedHMC.DualValue
+            ℓπ = transition.z.ℓπ.value
+        else
+            ℓπ = transition.z.ℓπ
+        end
+        # θ = Bijector_invlinkvec(transition.z.θ)
+        # θ_res = arr2nt(θ)
+        
+        @printf("%1s%6d(%2d) ℓπ=%6.0f. td=%2d\n", note, iteration, Threads.threadid(), ℓπ, transition.stat.tree_depth,)
+    
+        # for p_i in keys(system.planets)
+        #     kep_elements = construct_elements(θ_res, θ_res.planets[p_i])
+        #     color = if transition.stat.numerical_error
+        #         :red
+        #     elseif iteration <= adaptation
+        #         :blue
+        #     else
+        #         :black
+        #     end
+        #     Main.plot!(kep_elements,color=color, label="")
+        # end
+        # display(Main.Plots.current())
+
+        last_output_time = time()
+        return
+    end
 
     mc_samples_all_chains = sample(
         rng,
@@ -294,7 +326,7 @@ function hmc(
         init_params = initial_θ_t,
         discard_initial,
         progress=progress,
-        # callback
+        callback
     )
     stop_time = fill(time(), num_chains)
     
@@ -311,12 +343,12 @@ function hmc(
         mean_tree_depth = mean(getproperty.(stat, :tree_depth))
         max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
     
-        progress && println("""\
+        progress && println("""
         Sampling report for chain $i:
         mean_accept =         $mean_accept
         num_err_frac =        $num_err_frac
         mean_tree_depth =     $mean_tree_depth
-        max_tree_depth_frac = $max_tree_depth_frac
+        max_tree_depth_frac = $max_tree_depth_frac\
         """)
 
         # Report some warnings if sampling did not work well
