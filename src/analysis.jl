@@ -50,13 +50,13 @@ export projectpositions
 # export sampleorbits
 
 @recipe function f(astrom::Astrometry) where T
-    xerror := astrom.σ_ra
-    yerror := astrom.σ_dec
+    xerror := astrom.table.σ_ra
+    yerror := astrom.table.σ_dec
     xflip --> true
     xguide --> "Δ right ascension (mas)"
     yguide --> "Δ declination (mas)"
 
-    return astrom.ra, astrom.dec
+    return astrom.table.ra, astrom.table.dec
 end
 
 function plotposterior end
@@ -212,15 +212,15 @@ function init_plots()
 
             # plot images?
             if !isnothing(system.images)
-                if length(unique(system.images.platescale)) != 1
+                if length(unique(system.images.table.platescale)) != 1
                     @warn "Plotmodel does not yet support images with multiple platescales. Taking first image only."
                     img = DirectImages.DirectImage(first(system.images.image))
                 else
                     img = DirectImages.DirectImage(
-                        DirectImages.stack(maximum,system.images.image)
+                        DirectImages.stack(maximum,system.images.table.image)
                     )
                 end
-                img.PLATESCALE = system.images.platescale[1]
+                img.PLATESCALE = system.images.table.platescale[1]
                 # To get the colour scales to work out
                 img ./= only(quantile(filter(isfinite, arraydata(img)), [0.98]))#[0.9995]))
                 img .*= maximum(clims) - minimum(clims)

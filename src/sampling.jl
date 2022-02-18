@@ -162,6 +162,7 @@ function hmc(
     num_chains=1,
     adaptation,
     iterations,
+    thinning=1,
     discard_initial=adaptation,
     tree_depth=10,
     initial_samples=50_000,
@@ -280,7 +281,7 @@ function hmc(
 
     last_output_time = time()
     function callback(rng, model, sampler, transition, state, iteration; kwargs...)
-        if !progress || !(last_output_time + 2 > time())
+        if !progress || last_output_time + 2 > time()
             return
         end
         note = " "
@@ -316,6 +317,7 @@ function hmc(
         return
     end
 
+    @show discard_initial
     mc_samples_all_chains = sample(
         rng,
         model,
@@ -323,6 +325,7 @@ function hmc(
         ensemble,
         iterations+adaptation, num_chains;
         nadapts = adaptation,
+        thinning,
         init_params = initial_θ_t,
         discard_initial,
         progress=progress,
