@@ -12,6 +12,7 @@ makedocs(
             "Fit Images" => "images.md",
             "Derived Variables" => "derived.md",
             "Connecting Mass with Photometry" => "mass-photometry.md",
+            "Loading and Saving Data" => "loading-saving.md",
             # "Multiple Planets" => "multi-planets.md",
             # "" => "multi-planets.md",
         ],
