@@ -253,29 +253,29 @@ function init_plots()
             if plotpma
 
 
-                lpma =length(system.propermotionanom.ra_epoch)
-                pma_ii = sortperm(system.propermotionanom.ra_epoch)
+                lpma =length(system.propermotionanom.table.ra_epoch)
+                pma_ii = sortperm(system.propermotionanom.table.ra_epoch)
                 if lpma == 2 && 
-                    isapprox(minimum(system.propermotionanom.ra_epoch), mjd("1991"), atol=365) &&
-                    isapprox(maximum(system.propermotionanom.ra_epoch), mjd("2016"), atol=365)
+                    isapprox(minimum(system.propermotionanom.table.ra_epoch), mjd("1991"), atol=365) &&
+                    isapprox(maximum(system.propermotionanom.table.ra_epoch), mjd("2016"), atol=365)
 
                     titles=["Hipparcos", "GAIA EDR3"]
                 else
-                    titles = string.(system.propermotionanom.ra_epoch)
+                    titles = string.(system.propermotionanom.table.ra_epoch)
                 end
                 system_pma = system.propermotionanom
                 
                 pma_extrema_x = [-0.0,0.0]
                 pma_extrema_y = [-0.0,0.0]
-                pma_plots = map(sortperm(system_pma.ra_epoch)) do i
+                pma_plots = map(sortperm(system_pma.table.ra_epoch)) do i
                     vx = zeros(prod(size(chain,[1,3])))
                     vy = zeros(prod(size(chain,[1,3])))
                     for j in keys(system.planets)
                         elements = construct_elements(chain, j, 1:prod(size(chain,[1,3])))
                         # mass = [sample.planets[j].mass for sample in chain]
                         mass = reshape(chain["$j[mass]"],:)
-                        vx .+= pmra.(elements, system_pma.ra_epoch[i], mass.*mjup2msol)
-                        vy .+= pmdec.(elements, system_pma.dec_epoch[i], mass.*mjup2msol)
+                        vx .+= pmra.(elements, system_pma.table.ra_epoch[i], mass.*mjup2msol)
+                        vy .+= pmdec.(elements, system_pma.table.dec_epoch[i], mass.*mjup2msol)
                     end
                     Plots.plot(
                         framestyle=:box,
@@ -306,10 +306,10 @@ function init_plots()
                         Plots.plot!(h, color=Plots.cgrad([Plots.RGBA(0,0,0,0), Plots.RGBA(0,0,0,1)]), colorbar=false)
                     end
                     pma_plot = Plots.scatter!(
-                        [system_pma.pm_ra[i]],
-                        [system_pma.pm_dec[i]],
-                        xerror=[system_pma.σ_pm_ra[i]],
-                        yerror=[system_pma.σ_pm_dec[i]],
+                        [system_pma.table.pm_ra[i]],
+                        [system_pma.table.pm_dec[i]],
+                        xerror=[system_pma.table.σ_pm_ra[i]],
+                        yerror=[system_pma.table.σ_pm_dec[i]],
                         label="",
                         color=:red,
                         markercolor=:red,
@@ -323,10 +323,10 @@ function init_plots()
                     # Plots.ylims!(-1,1)
                     Plots.xlabel!(pma_plot, "Δμ ra - mas/yr")
                     Plots.ylabel!(pma_plot, "Δμ dec - mas/yr")
-                    pma_extrema_x[1] = min(pma_extrema_x[1], minimum(vx), system_pma.pm_ra[i] - system_pma.σ_pm_ra[i], system_pma.pm_ra[i] + system_pma.σ_pm_ra[i])
-                    pma_extrema_x[2] = max(pma_extrema_x[2], maximum(vx), system_pma.pm_ra[i] - system_pma.σ_pm_ra[i], system_pma.pm_ra[i] + system_pma.σ_pm_ra[i])
-                    pma_extrema_y[1] = min(pma_extrema_y[1], minimum(vy), system_pma.pm_dec[i] - system_pma.σ_pm_dec[i], system_pma.pm_dec[i] + system_pma.σ_pm_dec[i])
-                    pma_extrema_y[2] = max(pma_extrema_y[2], maximum(vy), system_pma.pm_dec[i] - system_pma.σ_pm_dec[i], system_pma.pm_dec[i] + system_pma.σ_pm_dec[i])
+                    pma_extrema_x[1] = min(pma_extrema_x[1], minimum(vx), system_pma.table.pm_ra[i] - system_pma.table.σ_pm_ra[i], system_pma.table.pm_ra[i] + system_pma.table.σ_pm_ra[i])
+                    pma_extrema_x[2] = max(pma_extrema_x[2], maximum(vx), system_pma.table.pm_ra[i] - system_pma.table.σ_pm_ra[i], system_pma.table.pm_ra[i] + system_pma.table.σ_pm_ra[i])
+                    pma_extrema_y[1] = min(pma_extrema_y[1], minimum(vy), system_pma.table.pm_dec[i] - system_pma.table.σ_pm_dec[i], system_pma.table.pm_dec[i] + system_pma.table.σ_pm_dec[i])
+                    pma_extrema_y[2] = max(pma_extrema_y[2], maximum(vy), system_pma.table.pm_dec[i] - system_pma.table.σ_pm_dec[i], system_pma.table.pm_dec[i] + system_pma.table.σ_pm_dec[i])
                     return pma_plot
                 end
                 for plot in pma_plots
