@@ -3,7 +3,7 @@
 function ln_like_pma(θ_system, pma::ProperMotionAnom)
     ll = 0.0
     
-    for i in eachindex(pma.ra_epoch, pma.dec_epoch)
+    for i in eachindex(pma.table.ra_epoch, pma.table.dec_epoch)
         pm_ra_star = 0.0
         pm_dec_star = 0.0
         
