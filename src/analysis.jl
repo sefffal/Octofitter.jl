@@ -67,6 +67,7 @@ function plotmodel end
 export plotmodel
 function plotmodel! end
 export plotmodel!
+export timeplot
 
 # Optionally depend on Plots. If the user imports it, this code will be run to set up
 # our `imshow` function.
@@ -373,11 +374,11 @@ function init_plots()
         Example:
         ```
         plot(
-            mplot(chains_pma, :b, :mass, :ra),
-            mplot(chains_pma, :b, :mass, :dec),
-            mplot(chains_pma, :b, :mass, :rv),
-            mplot(chains_pma, :b, :mass, :pmra),
-            mplot(chains_pma, :b, :mass, :pmdec),
+            timeplot(chains_pma, :b, :mass, :ra),
+            timeplot(chains_pma, :b, :mass, :dec),
+            timeplot(chains_pma, :b, :mass, :rv),
+            timeplot(chains_pma, :b, :mass, :pmra),
+            timeplot(chains_pma, :b, :mass, :pmdec),
             layout = @layout([
                 A
                 B
@@ -411,39 +412,39 @@ function init_plots()
             elements = DirectDetections.construct_elements(chain, planet_key, ii)
             y = nothing
             if prop == :ra
-                t = range((extrema(planet.astrometry.epoch) .+ [-300, 300])..., length=100)
-                y = planet.astrometry.ra
-                yerr = planet.astrometry.σ_ra
+                t = range((extrema(planet.astrometry.table.epoch) .+ [-300, 300])..., length=100)
+                y = planet.astrometry.table.ra
+                yerr = planet.astrometry.table.σ_ra
                 fit = raoff.(elements, t')'
-                x = planet.astrometry.epoch
+                x = planet.astrometry.table.epoch
             elseif prop == :dec
-                t = range((extrema(planet.astrometry.epoch) .+ [-300, 300])..., length=100)
-                y = planet.astrometry.dec
-                yerr = planet.astrometry.σ_dec
+                t = range((extrema(planet.astrometry.table.epoch) .+ [-300, 300])..., length=100)
+                y = planet.astrometry.table.dec
+                yerr = planet.astrometry.table.σ_dec
                 fit = decoff.(elements, t')'
-                x = planet.astrometry.epoch
+                x = planet.astrometry.table.epoch
             elseif prop == :pmra
-                t = range((extrema(chain.info.model.propermotionanom.ra_epoch) .+ [-300, 300])..., length=100)
-                y = chain.info.model.propermotionanom.pm_ra
-                yerr = chain.info.model.propermotionanom.σ_pm_ra
+                t = range((extrema(chain.info.model.propermotionanom.table.ra_epoch) .+ [-300, 300])..., length=100)
+                y = chain.info.model.propermotionanom.table.pm_ra
+                yerr = chain.info.model.propermotionanom.table.σ_pm_ra
                 fit = getindex.(
                     propmotionanom.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol),
                     1
                 )'
-                x = chain.info.model.propermotionanom.ra_epoch
+                x = chain.info.model.propermotionanom.table.ra_epoch
             elseif prop == :pmdec
-                t = range((extrema(chain.info.model.propermotionanom.dec_epoch) .+ [-300, 300])..., length=100)
-                y = chain.info.model.propermotionanom.pm_dec
-                yerr = chain.info.model.propermotionanom.σ_pm_dec
+                t = range((extrema(chain.info.model.propermotionanom.table.dec_epoch) .+ [-300, 300])..., length=100)
+                y = chain.info.model.propermotionanom.table.pm_dec
+                yerr = chain.info.model.propermotionanom.table.σ_pm_dec
                 fit = getindex.(
                     propmotionanom.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol),
                     2
                 )'
-                x = chain.info.model.propermotionanom.dec_epoch
+                x = chain.info.model.propermotionanom.table.dec_epoch
             elseif prop == :rv
                 # TODO
-                t = range((extrema(planet.astrometry.epoch) .+ [-300, 300])..., length=100)
-                x = planet.astrometry.epoch
+                t = range((extrema(planet.astrometry.table.epoch) .+ [-300, 300])..., length=100)
+                x = planet.astrometry.table.epoch
                 fit = radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]))'
             end
             Plots.plot!(
