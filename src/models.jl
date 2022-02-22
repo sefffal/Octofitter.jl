@@ -1,32 +1,44 @@
 
 
-function ln_like_pma(θ_system, pma::ProperMotionAnom)
+function ln_like(pma::ProperMotionAnom, θ_system, elements)
     ll = 0.0
+
+    # How many points over Δt should we average the proper motion at each
+    # epoch? This is because the PM is not an instantaneous measurement.
+    N_ave = 5
     
     for i in eachindex(pma.table.ra_epoch, pma.table.dec_epoch)
         pm_ra_star = 0.0
         pm_dec_star = 0.0
         
         # The model can support multiple planets
-        for key in keys(θ_system.planets)
-            θ_planet = θ_system.planets[key]
+        # for key in keys(θ_system.planets)
+        for i in eachindex(elements)
+            θ_planet = θ_system.planets[i]
+            orbit = elements[i]
 
             if θ_planet.mass < 0
                 return -Inf
             end
 
-            # TODO: we are creating these from scratch for each observation instead of sharing them
-            orbit = construct_elements(θ_system, θ_planet)
+            # Average multiple observations over a timescale +- dt
+            # to approximate what HIPPARCOS and GAIA would have measured.
+            for δt = range(-pma.table.dt[i]/2, pma.table.dt[i]/2, N_ave)
 
-            # RA and dec epochs are usually slightly different
-            # Note the unit conversion here from jupiter masses to solar masses to 
-            # make it the same unit as the stellar mass (element.mu)
-            pm_ra_star += pmra(orbit, pma.table.ra_epoch[i], θ_planet.mass*mjup2msol)
-            pm_dec_star += pmdec(orbit, pma.table.dec_epoch[i], θ_planet.mass*mjup2msol)
+                # RA and dec epochs are usually slightly different
+                # Note the unit conversion here from jupiter masses to solar masses to 
+                # make it the same unit as the stellar mass (element.mu)
+                pm_ra_star += pmra(orbit, pma.table.ra_epoch[i]+δt, θ_planet.mass*mjup2msol)
+                pm_dec_star += pmdec(orbit, pma.table.dec_epoch[i]+δt, θ_planet.mass*mjup2msol)
+            end
+
         end
+        
+        pm_ra_star/=N_ave
+        pm_dec_star/=N_ave
 
-        residx = pm_ra_star - pma.table.pm_ra[i]
-        residy = pm_dec_star - pma.table.pm_dec[i]
+        residx = pm_ra_star + θ_system.pmra - pma.table.pm_ra[i]
+        residy = pm_dec_star + θ_system.pmdec - pma.table.pm_dec[i]
         σ²x = pma.table.σ_pm_ra[i]^2
         σ²y = pma.table.σ_pm_dec[i]^2
         χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
@@ -71,8 +83,15 @@ end
 #     return ll
 # end
 
-function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, system)
-    imgtable = system.images.table
+# function ln_like(images::Images, elements::DirectOrbits.AbstractElements, θ_planet)
+function ln_like(images::Images, θ_system, θ_planet)
+    
+    # Resolve the combination of system and planet parameters
+    # as a KeplerianElements object. This pre-computes
+    # some factors used in various calculations.
+    elements = construct_elements(θ_system, θ_planet)
+
+    imgtable = images.table
     T = eltype(θ_planet)
     ll = zero(T)
     for i in eachindex(imgtable.epoch)
@@ -125,26 +144,36 @@ function ln_like_images(elements::DirectOrbits.AbstractElements, θ_planet, syst
 end
 
 # Astrometry
-function ln_like_astrom(elements, astrom::Astrometry)
+function ln_like(astrom::Astrometry, θ_planet, elements)
     ll = 0.0
-    
     for i in eachindex(astrom.table.epoch)
         o = orbitsolve(elements, astrom.table.epoch[i])
-        x = raoff(o)
-        y = decoff(o)
-        residx = astrom.table.ra[i] - x
-        residy = astrom.table.dec[i] - y
-        σ²x = astrom.table.σ_ra[i ]^2
-        σ²y = astrom.table.σ_dec[i]^2
-        χ²x = -(1/2)*residx^2 / σ²x - log(sqrt(2π * σ²x))
-        χ²y = -(1/2)*residy^2 / σ²y - log(sqrt(2π * σ²y))
-        ll += χ²x + χ²y
+        # PA and Sep specified
+        if haskey(astrom.table, :pa) && haskey(astrom.table, :ρ)
+            ρ = projectedseparation(o)
+            pa = posangle(o)
+            resid1 = astrom.table.pa[i] - pa
+            resid2 = astrom.table.ρ[i] - ρ
+        # RA and DEC specifoied
+        else
+            x = raoff(o)
+            y = decoff(o)
+            resid1 = astrom.table.ra[i] - x
+            resid2 = astrom.table.dec[i] - y
+            σ²1 = astrom.table.σ_ra[i ]^2
+            σ²2 = astrom.table.σ_dec[i]^2
+        end
+        σ²1 = astrom.table.σ_ra[i ]^2
+        σ²2 = astrom.table.σ_dec[i]^2
+        χ²1 = -(1/2)*resid1^2 / σ²1 - log(sqrt(2π * σ²1))
+        χ²2 = -(1/2)*resid2^2 / σ²2 - log(sqrt(2π * σ²2))
+        ll += χ²1 + χ²2
     end
     return ll
 end
 
 # Photometry
-function ln_like_phot(photometry, θ_planet)
+function ln_like(photometry::Photometry, θ_planet, elements=nothing)
     ll = 0.0
     for i in eachindex(photometry.table.band)
         band = photometry.table.band[i]
@@ -163,38 +192,31 @@ function ln_like_phot(photometry, θ_planet)
 end
 
 # Overall log likelihood of the system given the parameters θ_system
-function ln_like(θ_system, system::System)
-    ll = 0.0
+function ln_like(system::System, θ_system)
+    # We box ll directly to avoid annoying Core.Box due to the map closure below.
+    ll = Ref{typeof(first(θ_system))}(0.0)
     # Fail fast if we have a negative stellar mass.
     # Users should endeavour to use priors on e.g. stellar mass
     # that are strictly positive.
     if hasproperty(θ_system, :M) && θ_system.M <= 0
         return -Inf
     end
+
     # Go through each planet in the model and add its contribution
     # to the ln-likelihood.
     # for (θ_planet, planet) in zip(θ_system.planets, system.planets)
-    for i in eachindex(system.planets)
+    # for i in eachindex(system.planets)
+    elements = map(eachindex(system.planets)) do i
         planet = system.planets[i]
         θ_planet = θ_system.planets[i]
-
-        if !isnothing(planet.photometry)
-            ll += ln_like_phot(planet.photometry, θ_planet)
-        end
-    
-        # We don't construct the elements object if there is no data requiring it.
-        # This also means we can model e.g. photometry directly without specifying 
-        # all the orbital parameters.
-        if isnothing(planet.astrometry) && isnothing(system.images)
-            continue
-        end
 
         # Like negative stellar mass, users should use priors with supports
         # that do not include these invalid values. But if we see them,
         # give zero likelihood right away instead of an inscrutable error
-        # from some code expecting these invariants.
-        if θ_planet.a <= 0 || θ_planet.e < 0 || θ_planet.e >= 1
-            return -Inf
+        # from some code expecting these invariants to hold.
+        if (hasproperty(θ_planet, :a) && θ_planet.a <= 0) ||
+            (hasproperty(θ_planet, :e) && !(0 <= θ_planet.e < 1))
+            ll[] += -Inf
         end
 
         # Resolve the combination of system and planet parameters
@@ -202,23 +224,25 @@ function ln_like(θ_system, system::System)
         # some factors used in various calculations.
         kep_elements = construct_elements(θ_system, θ_planet)
 
-        if !isnothing(planet.astrometry)
-            ll += ln_like_astrom(kep_elements, planet.astrometry)
+        for obs in planet.observations
+            ll[] += ln_like(obs, θ_planet, kep_elements)
         end
 
-        if !isnothing(system.images)
-            ll += ln_like_images(kep_elements, θ_planet, system)
-        end
-
+        return kep_elements
     end
 
-    # TODO: PMA is re-calculating some factors used in kep_elements.
-    # Should think of a way to integrate it into the loop above
-    if !isnothing(system.propermotionanom)
-        ll += ln_like_pma(θ_system, system.propermotionanom)
+    if !isfinite(ll[])
+        return ll[]
     end
 
-    return ll
+    # Loop through and add contribution of all observation types associated with this system as a whole
+    for obs in system.observations
+        ll[] += ln_like(obs, θ_system, elements)
+    end
+
+
+
+    return ll[]
 end
 
 

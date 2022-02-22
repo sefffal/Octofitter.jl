@@ -47,7 +47,7 @@ function guess_starting_position(system, N=500_000)
     ln_prior = make_ln_prior(system)
     Threads.@threads for i in eachindex(posts)
         θ_res = arr2nt(θ[i])
-        posts[i] = ln_prior(θ[i]) + ln_like(θ_res, system)
+        posts[i] = ln_prior(θ[i]) + ln_like(system, θ_res)
     end
     # posts = map(eachrow(A)) do c
     #     DirectDetections.ln_post(ComponentVector(c, ax), system)
@@ -177,41 +177,33 @@ function hmc(
     D = length(initial_θ_0)
 
     ln_prior_transformed = make_ln_prior_transformed(system)
+    # ln_prior = make_ln_prior(system)
     arr2nt = DirectDetections.make_arr2nt(system) 
 
     priors_vec = _list_priors(system)
     Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
 
     # Capture these variables in a let binding to improve performance
-    ℓπ = let system=system, ln_prior_transformed=ln_prior_transformed, arr2nt=arr2nt, Bijector_invlinkvec=Bijector_invlinkvec
+    ℓπ = let system=system, ln_prior_transformed=ln_prior_transformed, arr2nt=arr2nt#, ln_prior=ln_prior
         function (θ_t)
             # Transform back from the unconstrained support to constrained support for the likelihood function
             θ = Bijector_invlinkvec(θ_t)
+            # θ = θ_t
             θ_res = arr2nt(θ)
-            ll = ln_prior_transformed(θ) + ln_like(θ_res, system)
+            ll = ln_prior_transformed(θ) + ln_like(system, θ_res)
+            # ll = ln_prior(θ) + ln_like(θ_res, system)
             return ll
         end
     end
+
+    @warn "Not using bijectors"
 
     if isnothing(initial_parameters)
         progress && @info "Guessing a good starting location by sampling from priors" initial_samples
         initial_θ = guess_starting_position(system,initial_samples)
         # Transform from constrained support to unconstrained support
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
-
-        # initial_θ_guess = guess_starting_position(system,initial_samples)
-        # # Transform from constrained support to unconstrained support
-        # initial_θ_guess_t = Bijectors.link.(priors_vec, initial_θ_guess)
-
-        # # @show initial_θ_guess
-        # initial_θ_t = optimize_starting_position(ℓπ, initial_θ_guess_t)
-        
-        # # Just for display
-        # initial_θ = Bijectors.invlink.(priors_vec, initial_θ_t)
-
-        # # @show initial_θ_guess initial_θ
-        # # @show priors_vec
-
+        # initial_θ_t = initial_θ
     else
         initial_θ = initial_parameters
         # Transform from constrained support to unconstrained support
@@ -233,11 +225,6 @@ function hmc(
     integrator = Leapfrog(initial_ϵ)
     # integrator = TemperedLeapfrog(initial_ϵ, 1.05)
 
-
-    # # We have change some parameters when running with image data
-    if !isnothing(system.images) && target_accept > 0.6 && isnothing(step_size)
-        @warn "Sampling from images with target accept greater than 0.6. This may lead to insufficient exploration."
-    end
 
     mma = MassMatrixAdaptor(metric)
     if isnothing(step_size)
@@ -317,7 +304,6 @@ function hmc(
         return
     end
 
-    @show discard_initial
     mc_samples_all_chains = sample(
         rng,
         model,

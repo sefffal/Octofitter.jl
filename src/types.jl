@@ -1,7 +1,8 @@
-
+abstract type AbstractObs end
+TypedTables.Table(obs::AbstractObs) = obs.table
 
 const astrom_cols = (:epoch, :ra, :dec, :σ_ra, :σ_dec)
-struct Astrometry{TTable<:Table}
+struct Astrometry{TTable<:Table} <: AbstractObs
     table::TTable
     function Astrometry(observations...)
         table = Table(observations...)
@@ -12,12 +13,11 @@ struct Astrometry{TTable<:Table}
     end
 end
 Astrometry(observations::NamedTuple...) = Astrometry(observations)
-TypedTables.Table(obs::Astrometry) = obs.table
 export Astrometry
 
 
 const phot_cols = (:band, :phot, :σ_phot)
-struct Photometry{TTable<:Table}
+struct Photometry{TTable<:Table} <: AbstractObs
     table::TTable
     function Photometry(observations...)
         table = Table(observations...)
@@ -28,13 +28,12 @@ struct Photometry{TTable<:Table}
     end
 end
 Photometry(observations::NamedTuple...) = Photometry(observations)
-TypedTables.Table(obs::Photometry) = obs.table
 export Photometry
 
 
 
-const pma_cols = (:ra_epoch, :dec_epoch, :pm_ra, :pm_dec, :σ_pm_ra, :σ_pm_dec)
-struct ProperMotionAnom{TTable<:Table}
+const pma_cols = (:ra_epoch, :dec_epoch, :dt, :pm_ra, :pm_dec, :σ_pm_ra, :σ_pm_dec)
+struct ProperMotionAnom{TTable<:Table} <: AbstractObs
     table::TTable
     function ProperMotionAnom(observations...)
         table = Table(observations...)
@@ -45,7 +44,6 @@ struct ProperMotionAnom{TTable<:Table}
     end
 end
 ProperMotionAnom(observations::NamedTuple...) = ProperMotionAnom(observations)
-TypedTables.Table(obs::ProperMotionAnom) = obs.table
 export ProperMotionAnom
 
 const images_cols = (:band, :image, :epoch, :platescale, :contrast, )
@@ -68,7 +66,7 @@ Epoch is in MJD.
 Band is a symbol which matches the one used in the planet's `Priors()` block.
 Platescale is in mas/px.
 """
-struct Images{TTable<:Table}
+struct Images{TTable<:Table} <: AbstractObs
     table::TTable
     function Images(observations...)
         table = Table(observations...)
@@ -85,7 +83,6 @@ struct Images{TTable<:Table}
     end
 end
 Images(observations::NamedTuple...) = Images(observations)
-TypedTables.Table(obs::Images) = obs.table
 export Images
 
 
@@ -140,7 +137,6 @@ function Base.show(io::IO, mime::MIME"text/plain", @nospecialize det::Derived)
     print(io, "\n")
 end
 
-abstract type AbstractPlanet end
 """
     Planet([derived,] priors, [astrometry,], name=:symbol)
 
@@ -149,23 +145,16 @@ Must be constructed with a block of priors, and optionally
 additional derived parameters and/or astrometry.
 `name` must be a symbol, e.g. `:b`.
 """
-struct Planet{TD<:Union{Derived,Nothing},TP<:Union{Priors,Nothing},TA<:Union{Astrometry,Nothing},TPhot<:Union{Photometry,Nothing}} <: AbstractPlanet
-    deterministic::TD
+struct Planet{TP<:Priors,TD<:Union{Derived,Nothing},TObs<:NTuple{N,<:AbstractObs} where N}
     priors::TP
-    astrometry::TA
-    photometry::TPhot
+    deterministic::TD
+    observations::TObs
     name::Symbol
 end
 export Planet
-# There has got to be a better way...
-Planet(det::Derived,priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing, photometry::Union{Photometry,Nothing}=nothing; name) = Planet(det,priors, astrometry, photometry, name)
-Planet(priors::Priors,astrometry::Union{Astrometry,Nothing}=nothing, photometry::Union{Photometry,Nothing}=nothing; name) = Planet(nothing,priors, astrometry,photometry, name)
-Planet(det::Derived,priors::Priors, photometry::Photometry, astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(det,priors, astrometry, photometry, name)
-Planet(priors::Priors, photometry::Photometry, astrometry::Union{Astrometry,Nothing}=nothing; name) = Planet(nothing,priors, astrometry,photometry, name)
-Planet(priors::Priors, det::Derived, args...; name) = Planet(det, priors, args...; name)
 
-
-astrometry(planet::Planet) = planet.astrometry
+Planet(priors::Priors, obs::AbstractObs...; name) = Planet(priors, nothing, obs, name)
+Planet(priors::Priors, det::Derived, obs::AbstractObs...; name) = Planet(priors, det, obs, name)
 
 
 """
@@ -178,19 +167,17 @@ You may provide `ProperMotionAnom()` and/or `Images()` of the system.
 Finally, planet models are listed last.
 `name` must be a symbol e.g. `:HD56441`.
 """
-struct System{TDet<:Union{Derived,Nothing}, TPriors<:Priors, TPMA<:Union{ProperMotionAnom,Nothing}, TImages<:Union{Nothing,Images},TPlanet}
-    deterministic::TDet
+struct System{TPriors<:Priors, TDet<:Union{Derived,Nothing},TObs<:NTuple{N,<:AbstractObs} where N,TPlanet}
     priors::TPriors
-    propermotionanom::TPMA
-    images::TImages
+    deterministic::TDet
+    observations::TObs
     planets::TPlanet
     name::Symbol
     function System(
+        system_priors::Priors,
         system_det::Union{Derived,Nothing},
-        system_priors::Union{Priors,Nothing},
-        propermotionanom::Union{ProperMotionAnom,Nothing},
-        images::Union{Images,Nothing},
-        planets::AbstractPlanet...;
+        observations::NTuple{N,AbstractObs} where N,
+        planets::NTuple{M,Planet} where M;
         name
     )
         if isempty(planets)
@@ -201,8 +188,8 @@ struct System{TDet<:Union{Derived,Nothing}, TPriors<:Priors, TPMA<:Union{ProperM
                 planets
             )
         end
-        return new{typeof(system_det), typeof(system_priors), typeof(propermotionanom), typeof(images), typeof(planets_nt)}(
-            system_det, system_priors, propermotionanom, images, planets_nt, name
+        return new{typeof(system_priors), typeof(system_det), typeof(observations), typeof(planets_nt)}(
+            system_priors, system_det, observations, planets_nt, name
         )
     end
 end
@@ -210,20 +197,43 @@ export System
 
 # Argument standardization / method cascade.
 # Allows users to pass arguments to System in any convenient order.
-System(planets::Planet...; kwargs...) = System(Priors(), planets...; kwargs...)
-System(priors::Priors, args...; kwargs...) =
-    System(nothing, priors, args...,; kwargs...)
-System(priors::Priors, planets::Planet...; kwargs...) =
-    System(nothing, priors, nothing, nothing, planets...,; kwargs...)
-System(priors::Priors, det::Derived, args...; kwargs...) = System(det, priors, args...; kwargs...)
-System(det::Derived, priors::Priors, planets::Planet...; kwargs...) =
-    System(det, priors, nothing, nothing, planets...; kwargs...)
-System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, propermotionanom::ProperMotionAnom, planets::Planet...; kwargs...) =
-    System(det, priors, propermotionanom, nothing, planets...; kwargs...)
-System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, images::Images, planets::Planet...; kwargs...) =
-    System(det, priors, nothing, images, planets...; kwargs...)
-System(det::Union{Derived,Nothing}, priors::Union{Priors,Nothing}, images::Images, propermotionanom::ProperMotionAnom, planets::Planet...; kwargs...) =
-    System(det, priors, propermotionanom, images, planets...; kwargs...)
+System(planets::Planet...; kwargs...) = System(Priors(), nothing, planets...; kwargs...)
+System(priors::Priors, args::Union{AbstractObs,Planet}...; kwargs...) = System(priors, nothing, args...; kwargs...)
+System(priors::Priors, det::Union{Derived,Nothing}, args::Union{AbstractObs,Planet}...; kwargs...) = System(priors, det, group_obs_planets(args)...; kwargs...)
+
+function group_obs_planets(args)
+    observations = filter(o->typeof(o) <: AbstractObs, args)
+    planets = filter(p->p isa Planet, args)
+    return observations, planets
+end
+
+## Helpers for accessing the first observation of a certain type in a planet or system
+function astrometry(planet::Planet)
+    for obs in planet.observations
+        if obs isa Astrometry
+            return obs
+        end
+    end
+    return nothing
+end
+export astrometry
+function propermotionanom(system::System)
+    for obs in system.observations
+        if obs isa ProperMotionAnom
+            return obs
+        end
+    end
+    return nothing
+end
+function images(system::System)
+    for obs in system.observations
+        if obs isa Images
+            return obs
+        end
+    end
+    return nothing
+end
+
 
 #### Show methods
 for ObsType in (Astrometry, Photometry, ProperMotionAnom, Images)
@@ -234,7 +244,7 @@ for ObsType in (Astrometry, Photometry, ProperMotionAnom, Images)
 end
 
 
-function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::AbstractPlanet)
+function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::Planet)
     print(io, "Planet $(p.name)\n")
     # if !isnothing(p.deterministic)
     #     show(io, mime, p.deterministic)

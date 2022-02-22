@@ -21,14 +21,14 @@ function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3
 
     idx = findfirst(==(gaia_id), hgca.gaia_source_id)
 
-    # Proper motion anomaly
-    # The difference between the ~instant proper motion measured by GAIA compared to the 
-    # long term trend between Hipparcos and GAIA
-    Δμ_gaia_ra = (hgca.pmra_gaia[idx] ± hgca.pmra_gaia_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
-    Δμ_gaia_dec = (hgca.pmdec_gaia[idx] ± hgca.pmdec_gaia_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
+    # # Proper motion anomaly
+    # # The difference between the ~instant proper motion measured by GAIA compared to the 
+    # # long term trend between Hipparcos and GAIA
+    # Δμ_gaia_ra = (hgca.pmra_gaia[idx] ± hgca.pmra_gaia_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
+    # Δμ_gaia_dec = (hgca.pmdec_gaia[idx] ± hgca.pmdec_gaia_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
 
-    Δμ_hip_ra = (hgca.pmra_hip[idx] ± hgca.pmra_hip_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
-    Δμ_hip_dec = (hgca.pmdec_hip[idx] ± hgca.pmdec_hip_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
+    # Δμ_hip_ra = (hgca.pmra_hip[idx] ± hgca.pmra_hip_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
+    # Δμ_hip_dec = (hgca.pmdec_hip[idx] ± hgca.pmdec_hip_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
 
 
     return ProperMotionAnom(
@@ -36,26 +36,75 @@ function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3
         (;
             ra_epoch=years2mjd(hgca.epoch_ra_hip[idx]),
             dec_epoch=years2mjd(hgca.epoch_dec_hip[idx]),
+            dt=4*365,
+            
+            pm_ra=hgca.pmra_hip[idx],
+            σ_pm_ra=hgca.pmra_hip_error[idx],
 
-            pm_ra=Measurements.value(Δμ_hip_ra),
-            σ_pm_ra=Measurements.uncertainty(Δμ_hip_ra),
+            pm_dec=hgca.pmdec_hip[idx],
+            σ_pm_dec=hgca.pmdec_hip_error[idx],
+        ),
+        # Hipparcos - GAIA
+        (;
+            ra_epoch=(years2mjd(hgca.epoch_ra_hip[idx]) + years2mjd(hgca.epoch_ra_gaia[idx]))/2,
+            dec_epoch=(years2mjd(hgca.epoch_dec_hip[idx]) + years2mjd(hgca.epoch_dec_gaia[idx]))/2,
+            dt=years2mjd(hgca.epoch_ra_gaia[idx]) - years2mjd(hgca.epoch_ra_hip[idx]),
 
-            pm_dec=Measurements.value(Δμ_hip_dec),
-            σ_pm_dec=Measurements.uncertainty(Δμ_hip_dec),  
+            pm_ra=hgca.pmra_hg[idx],
+            σ_pm_ra=hgca.pmra_hg_error[idx],
+
+            pm_dec=hgca.pmdec_hg[idx],
+            σ_pm_dec=hgca.pmdec_hg_error[idx],
         ),
         # GAIA epoch
         (;
             ra_epoch=years2mjd(hgca.epoch_ra_gaia[idx]),
             dec_epoch=years2mjd(hgca.epoch_dec_gaia[idx]),
-
-            pm_ra=Measurements.value(Δμ_gaia_ra),
-            σ_pm_ra=Measurements.uncertainty(Δμ_gaia_ra),
-
-            pm_dec=Measurements.value(Δμ_gaia_dec),
-            σ_pm_dec=Measurements.uncertainty(Δμ_gaia_dec),
-            
+            dt=3*365,
+            pm_ra=hgca.pmra_gaia[idx],
+            σ_pm_ra=hgca.pmra_gaia_error[idx],
+            pm_dec=hgca.pmdec_gaia[idx],
+            σ_pm_dec=hgca.pmdec_gaia_error[idx],
         ),
     )
+
+    # # Proper motion anomaly
+    # # The difference between the ~instant proper motion measured by GAIA compared to the 
+    # # long term trend between Hipparcos and GAIA
+    # Δμ_gaia_ra = (hgca.pmra_gaia[idx] ± hgca.pmra_gaia_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
+    # Δμ_gaia_dec = (hgca.pmdec_gaia[idx] ± hgca.pmdec_gaia_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
+
+    # Δμ_hip_ra = (hgca.pmra_hip[idx] ± hgca.pmra_hip_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
+    # Δμ_hip_dec = (hgca.pmdec_hip[idx] ± hgca.pmdec_hip_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
+
+
+    # return ProperMotionAnom(
+    #     # Hipparcos epoch
+    #     (;
+    #         ra_epoch=years2mjd(hgca.epoch_ra_hip[idx]),
+    #         dec_epoch=years2mjd(hgca.epoch_dec_hip[idx]),
+    #         dt=4,
+
+    #         pm_ra=Measurements.value(Δμ_hip_ra),
+    #         σ_pm_ra=Measurements.uncertainty(Δμ_hip_ra),
+
+    #         pm_dec=Measurements.value(Δμ_hip_dec),
+    #         σ_pm_dec=Measurements.uncertainty(Δμ_hip_dec),  
+    #     ),
+    #     # GAIA epoch
+    #     (;
+    #         ra_epoch=years2mjd(hgca.epoch_ra_gaia[idx]),
+    #         dec_epoch=years2mjd(hgca.epoch_dec_gaia[idx]),
+    #         dt=3,
+
+    #         pm_ra=Measurements.value(Δμ_gaia_ra),
+    #         σ_pm_ra=Measurements.uncertainty(Δμ_gaia_ra),
+
+    #         pm_dec=Measurements.value(Δμ_gaia_dec),
+    #         σ_pm_dec=Measurements.uncertainty(Δμ_gaia_dec),
+            
+    #     ),
+    # )
 end
 export ProperMotionAnomHGCA
 
@@ -77,3 +126,6 @@ function gaia_plx(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
     return TruncatedNormal(hgca.parallax_gaia[idx,], hgca.parallax_gaia_error[idx,], 0, Inf)
 end
 export gaia_plx
+
+
+# function ghca_pmra(;gaia_id)

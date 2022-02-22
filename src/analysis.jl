@@ -188,10 +188,10 @@ function init_plots()
             N=1500,
             system=chain.info.model;
             alpha=(N <= 15 ? 1 : 30/N),
-            color= isnothing(system.propermotionanom) ? :a : :mass,
-            plotpma=!isnothing(system.propermotionanom),
+            color= isnothing(propermotionanom(system)) ? :a : :mass,
+            plotpma=!isnothing(propermotionanom(system)),
             # TODO: ideally this is based on if there is a mass variable
-            plotmass=!isnothing(system.propermotionanom),
+            plotmass=!isnothing(propermotionanom(system)),
             cmap=:plasma,
             imagecmap=:Greys,
             pma_scatter=nothing,
@@ -212,16 +212,16 @@ function init_plots()
             )
 
             # plot images?
-            if !isnothing(system.images)
-                if length(unique(system.images.table.platescale)) != 1
+            if !isnothing(images(system))
+                if length(unique(images(system).table.platescale)) != 1
                     @warn "Plotmodel does not yet support images with multiple platescales. Taking first image only."
-                    img = DirectImages.DirectImage(first(system.images.image))
+                    img = DirectImages.DirectImage(first(images(system).image))
                 else
                     img = DirectImages.DirectImage(
-                        DirectImages.stack(maximum,system.images.table.image)
+                        DirectImages.stack(maximum,images(system).table.image)
                     )
                 end
-                img.PLATESCALE = system.images.table.platescale[1]
+                img.PLATESCALE = images(system).table.platescale[1]
                 # To get the colour scales to work out
                 img ./= only(quantile(filter(isfinite, arraydata(img)), [0.98]))#[0.9995]))
                 img .*= maximum(clims) - minimum(clims)
@@ -254,17 +254,23 @@ function init_plots()
             if plotpma
 
 
-                lpma =length(system.propermotionanom.table.ra_epoch)
-                pma_ii = sortperm(system.propermotionanom.table.ra_epoch)
+                lpma =length(propermotionanom(system).table.ra_epoch)
+                # pma_ii = sortperm(propermotionanom(system).table.ra_epoch)
                 if lpma == 2 && 
-                    isapprox(minimum(system.propermotionanom.table.ra_epoch), mjd("1991"), atol=365) &&
-                    isapprox(maximum(system.propermotionanom.table.ra_epoch), mjd("2016"), atol=365)
+                    isapprox(minimum(propermotionanom(system).table.ra_epoch), mjd("1991"), atol=365) &&
+                    isapprox(maximum(propermotionanom(system).table.ra_epoch), mjd("2016"), atol=365)
 
-                    titles=["Hipparcos", "GAIA EDR3"]
+                    titles=["Hipparcos", "GAIA"]
+                elseif lpma == 3 && 
+                    isapprox(minimum(propermotionanom(system).table.ra_epoch), mjd("1991"), atol=365) &&
+                    isapprox(minimum(propermotionanom(system).table.ra_epoch), (mjd("1991")+mjd("2016"))/2, atol=365) &&
+                    isapprox(maximum(propermotionanom(system).table.ra_epoch), mjd("2016"), atol=365)
+
+                    titles=["Hipparcos", "GAIA-Hipparcos", "GAIA"]
                 else
-                    titles = string.(system.propermotionanom.table.ra_epoch)
+                    titles = string.(round.(Int, propermotionanom(system).table.ra_epoch))
                 end
-                system_pma = system.propermotionanom
+                system_pma = propermotionanom(system)
                 
                 pma_extrema_x = [-0.0,0.0]
                 pma_extrema_y = [-0.0,0.0]
@@ -275,16 +281,16 @@ function init_plots()
                         elements = construct_elements(chain, j, 1:prod(size(chain,[1,3])))
                         # mass = [sample.planets[j].mass for sample in chain]
                         mass = reshape(chain["$j[mass]"],:)
-                        vx .+= pmra.(elements, system_pma.table.ra_epoch[i], mass.*mjup2msol)
-                        vy .+= pmdec.(elements, system_pma.table.dec_epoch[i], mass.*mjup2msol)
+                        vx .+= pmra.(elements, system_pma.table.ra_epoch[i], mass.*mjup2msol) .+ vec(chain["pmra"])
+                        vy .+= pmdec.(elements, system_pma.table.dec_epoch[i], mass.*mjup2msol) .+ vec(chain["pmdec"])
                     end
                     Plots.plot(
                         framestyle=:box,
                         minorticks=true,
                         aspectratio=1,
                         grid=false,
-                        xlims=:symmetric,
-                        ylims=:symmetric,
+                        # xlims=:symmetric,
+                        # ylims=:symmetric,
                     )
                     if !isnothing(pma_scatter)
                         if length(system.planets) > 1
@@ -317,26 +323,23 @@ function init_plots()
                         markerstrokecolor=:red,
                     )
                     # Plots.scatter!([0], [0], marker=(5, :circle, :red),label="")
-                    Plots.hline!(pma_plot, [0], color=:black, label="")
-                    Plots.vline!(pma_plot, [0], color=:black, label="")
+                    # Plots.hline!(pma_plot, [0], color=:black, label="")
+                    # Plots.vline!(pma_plot, [0], color=:black, label="")
                     Plots.title!(pma_plot, titles[i])
                     # Plots.xlims!(-1,1)
                     # Plots.ylims!(-1,1)
                     Plots.xlabel!(pma_plot, "Δμ ra - mas/yr")
                     Plots.ylabel!(pma_plot, "Δμ dec - mas/yr")
-                    pma_extrema_x[1] = min(pma_extrema_x[1], minimum(vx), system_pma.table.pm_ra[i] - system_pma.table.σ_pm_ra[i], system_pma.table.pm_ra[i] + system_pma.table.σ_pm_ra[i])
-                    pma_extrema_x[2] = max(pma_extrema_x[2], maximum(vx), system_pma.table.pm_ra[i] - system_pma.table.σ_pm_ra[i], system_pma.table.pm_ra[i] + system_pma.table.σ_pm_ra[i])
-                    pma_extrema_y[1] = min(pma_extrema_y[1], minimum(vy), system_pma.table.pm_dec[i] - system_pma.table.σ_pm_dec[i], system_pma.table.pm_dec[i] + system_pma.table.σ_pm_dec[i])
-                    pma_extrema_y[2] = max(pma_extrema_y[2], maximum(vy), system_pma.table.pm_dec[i] - system_pma.table.σ_pm_dec[i], system_pma.table.pm_dec[i] + system_pma.table.σ_pm_dec[i])
+                    pma_extrema_x[1] = min(minimum(vx), system_pma.table.pm_ra[i] - system_pma.table.σ_pm_ra[i], system_pma.table.pm_ra[i] + system_pma.table.σ_pm_ra[i])
+                    pma_extrema_x[2] = max(maximum(vx), system_pma.table.pm_ra[i] - system_pma.table.σ_pm_ra[i], system_pma.table.pm_ra[i] + system_pma.table.σ_pm_ra[i])
+                    pma_extrema_y[1] = min(minimum(vy), system_pma.table.pm_dec[i] - system_pma.table.σ_pm_dec[i], system_pma.table.pm_dec[i] + system_pma.table.σ_pm_dec[i])
+                    pma_extrema_y[2] = max(maximum(vy), system_pma.table.pm_dec[i] - system_pma.table.σ_pm_dec[i], system_pma.table.pm_dec[i] + system_pma.table.σ_pm_dec[i])
                     return pma_plot
                 end
-                for plot in pma_plots
-                    # Plots.xlims!(plot, (pma_extrema_x...,))
-                    # Plots.ylims!(plot, (pma_extrema_y...,))
-                    lim = maximum(abs, ([pma_extrema_x; pma_extrema_y]))
-                    Plots.xlims!(plot, -lim, lim)
-                    Plots.ylims!(plot, -lim, lim)
-                end
+                # for plot in pma_plots
+                #     Plots.xlims!(plot, pma_extrema_x...)
+                #     Plots.ylims!(plot, pma_extrema_y...)
+                # end
                 # pma_plot = plot(pma_plots..., size=(700,300),margin=5Plots.mm, guidefontsize=9, titlefontsize=9, top_margin=0Plots.mm)
                 # pma_plot = Plots.plot(pma_plots, link=:both)
 
@@ -390,61 +393,86 @@ function init_plots()
         )
         ```
         """
-        function timeplot(chain, planet_key, color, prop)
+        function timeplot(chain, planet_key, color, prop; kwargs...)
             planet = chain.info.model.planets[planet_key]
             if prop == :ra
                 ylabel = "RA"
             elseif prop == :dec
                 ylabel = "DEC"
+            elseif prop == :sep
+                ylabel = "SEP (mas)"
+            elseif prop == :pa
+                ylabel = "PA (°)"
             elseif prop == :rv
                 ylabel = "RV"
             elseif prop == :pmra
                 ylabel = "RA/yr"
             elseif prop == :pmdec
                 ylabel = "DEC/yr"
+            else
+                error("Unsupported property. Choose :ra, :dec, :sep, :pa, :rv, :pmra, or :pmdec")
             end
             p1 = Plots.plot(;
                 ylabel,
                 legend=:none
             )
             N = 500
+            xerr = nothing
             ii = rand(1:size(chain,1)*size(chain,3), N)
             elements = DirectDetections.construct_elements(chain, planet_key, ii)
             y = nothing
             if prop == :ra
-                t = range((extrema(planet.astrometry.table.epoch) .+ [-300, 300])..., length=100)
-                y = planet.astrometry.table.ra
-                yerr = planet.astrometry.table.σ_ra
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-300, 300])..., length=100)
+                y = astrometry(planet).table.ra
+                yerr = astrometry(planet).table.σ_ra
                 fit = raoff.(elements, t')'
-                x = planet.astrometry.table.epoch
+                x = astrometry(planet).table.epoch
             elseif prop == :dec
-                t = range((extrema(planet.astrometry.table.epoch) .+ [-300, 300])..., length=100)
-                y = planet.astrometry.table.dec
-                yerr = planet.astrometry.table.σ_dec
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-300, 300])..., length=100)
+                y = astrometry(planet).table.dec
+                yerr = astrometry(planet).table.σ_dec
                 fit = decoff.(elements, t')'
-                x = planet.astrometry.table.epoch
+                x = astrometry(planet).table.epoch
+            elseif prop == :sep
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-300, 300])..., length=100)
+                xx = astrometry(planet).table.ra
+                yy = astrometry(planet).table.dec
+                xxerr = astrometry(planet).table.σ_ra
+                yyerr = astrometry(planet).table.σ_dec
+                y = sqrt.(xx.^2 .+ yy.^2)
+                # TODO
+                yerr = zeros(size(y))
+                fit = projectedseparation.(elements, t')'
+                x = astrometry(planet).table.epoch
+            elseif prop == :pa
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-300, 300])..., length=100)
+                xx = astrometry(planet).table.ra
+                yy = astrometry(planet).table.dec
+                xxerr = astrometry(planet).table.σ_ra
+                yyerr = astrometry(planet).table.σ_dec
+                y = atand.(xx, yy)
+                # TODO
+                yerr = zeros(size(y))
+                fit = rad2deg.(posangle.(elements, t')')
+                x = astrometry(planet).table.epoch
             elseif prop == :pmra
-                t = range((extrema(chain.info.model.propermotionanom.table.ra_epoch) .+ [-300, 300])..., length=100)
-                y = chain.info.model.propermotionanom.table.pm_ra
-                yerr = chain.info.model.propermotionanom.table.σ_pm_ra
-                fit = getindex.(
-                    propmotionanom.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol),
-                    1
-                )'
-                x = chain.info.model.propermotionanom.table.ra_epoch
+                t = range((extrema(propermotionanom(chain.info.model).table.ra_epoch) .+ [-300, 300])..., length=100)
+                y = propermotionanom(chain.info.model).table.pm_ra
+                yerr = propermotionanom(chain.info.model).table.σ_pm_ra
+                fit = chain["pmra"][ii]' .+ pmra.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol)'
+                x = propermotionanom(chain.info.model).table.ra_epoch
+                xerr = propermotionanom(chain.info.model).table.dt/2
             elseif prop == :pmdec
-                t = range((extrema(chain.info.model.propermotionanom.table.dec_epoch) .+ [-300, 300])..., length=100)
-                y = chain.info.model.propermotionanom.table.pm_dec
-                yerr = chain.info.model.propermotionanom.table.σ_pm_dec
-                fit = getindex.(
-                    propmotionanom.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol),
-                    2
-                )'
-                x = chain.info.model.propermotionanom.table.dec_epoch
+                t = range((extrema(propermotionanom(chain.info.model).table.dec_epoch) .+ [-300, 300])..., length=100)
+                y = propermotionanom(chain.info.model).table.pm_dec
+                yerr = propermotionanom(chain.info.model).table.σ_pm_dec
+                fit = chain["pmdec"][ii]' .+ pmdec.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol)'
+                x = propermotionanom(chain.info.model).table.dec_epoch
+                xerr = propermotionanom(chain.info.model).table.dt/2
             elseif prop == :rv
                 # TODO
-                t = range((extrema(planet.astrometry.table.epoch) .+ [-300, 300])..., length=100)
-                x = planet.astrometry.table.epoch
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-300, 300])..., length=100)
+                x = astrometry(planet).table.epoch
                 fit = radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]))'
             end
             Plots.plot!(
@@ -453,13 +481,14 @@ function init_plots()
                     collect(chain["$planet_key[$color]"][ii]),
                     1, length(t)
                 )',
-                alpha=0.05
+                alpha=0.05,
+                kwargs
             )
             if !isnothing(y)
                 Plots.scatter!(
                     p1,
                     x,
-                    y; yerr
+                    y; yerr, xerr
                 )
             end
             p1

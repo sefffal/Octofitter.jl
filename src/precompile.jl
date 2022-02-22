@@ -32,6 +32,7 @@ let
                 σ_pm_ra=.34,
                 pm_dec=12.,
                 σ_pm_dec=.34,
+                dt = 365.
             ),
         )
         system = System(
