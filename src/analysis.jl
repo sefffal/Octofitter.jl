@@ -482,7 +482,7 @@ function init_plots()
                     1, length(t)
                 )',
                 alpha=0.05,
-                kwargs
+                kwargs...
             )
             if !isnothing(y)
                 Plots.scatter!(
