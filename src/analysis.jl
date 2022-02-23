@@ -191,7 +191,7 @@ function init_plots()
             system=chain.info.model;
             alpha=(N <= 15 ? 1 : 30/N),
             color= isnothing(propermotionanom(system)) ? :a : :mass,
-            plotpma=!isnothing(propermotionanom(system)),
+            plotpma=false,#!isnothing(propermotionanom(system)),
             # TODO: ideally this is based on if there is a mass variable
             plotmass=!isnothing(propermotionanom(system)),
             cmap=:plasma,
@@ -430,19 +430,19 @@ function init_plots()
             elements = DirectDetections.construct_elements(chain, planet_key, ii)
             y = nothing
             if prop == :ra
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365*2, 365*2])..., length=100)
                 y = astrometry(planet).table.ra
                 yerr = astrometry(planet).table.σ_ra
                 fit = raoff.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :dec
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365*2, 365*2])..., length=100)
                 y = astrometry(planet).table.dec
                 yerr = astrometry(planet).table.σ_dec
                 fit = decoff.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :sep
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365*2, 365*2])..., length=100)
                 xx = astrometry(planet).table.ra
                 yy = astrometry(planet).table.dec
                 xxerr = astrometry(planet).table.σ_ra
@@ -453,7 +453,7 @@ function init_plots()
                 fit = projectedseparation.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :pa
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365*2, 365*2])..., length=100)
                 xx = astrometry(planet).table.ra
                 yy = astrometry(planet).table.dec
                 xxerr = astrometry(planet).table.σ_ra
@@ -464,22 +464,25 @@ function init_plots()
                 fit = rad2deg.(posangle.(elements, t')')
                 x = astrometry(planet).table.epoch
             elseif prop == :pmra
-                t = range((extrema(propermotionanom(chain.info.model).table.ra_epoch) .+ [-365*2, 365*2])..., length=100)
-                y = propermotionanom(chain.info.model).table.pm_ra
-                yerr = propermotionanom(chain.info.model).table.σ_pm_ra
+                hgca = propermotionanom(chain.info.model).table[1]
+                t = range(years2mjd(hgca.epoch_ra_hip)-365*5, years2mjd(hgca.epoch_ra_gaia)+365*5, length=100)
+                y = [hgca.pmra_hip, hgca.pmra_hg, hgca.pmra_gaia]
+                yerr = [hgca.pmra_hip_error, hgca.pmra_hg_error, hgca.pmra_gaia_error]
                 fit = chain["pmra"][ii]' .+ pmra.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol)'
-                x = propermotionanom(chain.info.model).table.ra_epoch
-                xerr = propermotionanom(chain.info.model).table.dt/2
+                x = years2mjd.([hgca.epoch_ra_hip, (hgca.epoch_ra_hip + hgca.epoch_ra_gaia)/2, hgca.epoch_ra_gaia])
+                xerr = [4*365/2, 25*365/2, 3*365/2]
             elseif prop == :pmdec
-                t = range((extrema(propermotionanom(chain.info.model).table.dec_epoch) .+ [-365*2, 365*2])..., length=100)
-                y = propermotionanom(chain.info.model).table.pm_dec
-                yerr = propermotionanom(chain.info.model).table.σ_pm_dec
+                hgca = propermotionanom(chain.info.model).table[1]
+                t = range(years2mjd(hgca.epoch_dec_hip)-365*5, years2mjd(hgca.epoch_dec_gaia)+365*5, length=100)
+                y = [hgca.pmdec_hip, hgca.pmdec_hg, hgca.pmdec_gaia]
+                yerr = [hgca.pmdec_hip_error, hgca.pmdec_hg_error, hgca.pmdec_gaia_error]
+                yerr = [0,0,0]
                 fit = chain["pmdec"][ii]' .+ pmdec.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol)'
-                x = propermotionanom(chain.info.model).table.dec_epoch
-                xerr = propermotionanom(chain.info.model).table.dt/2
+                x = years2mjd.([hgca.epoch_dec_hip, (hgca.epoch_dec_hip + hgca.epoch_dec_gaia)/2, hgca.epoch_dec_gaia])
+                xerr = [4*365/2, 25*365/2, 3*365/2]
             elseif prop == :rv
                 # TODO
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365*2, 365*2])..., length=100)
                 x = astrometry(planet).table.epoch
                 fit = radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]))'
             end

@@ -8,8 +8,8 @@ function ln_like(pma::ProperMotionAnom, θ_system, elements)
     N_ave = 5
     
     for i in eachindex(pma.table.ra_epoch, pma.table.dec_epoch)
-        pm_ra_star = 0.0
-        pm_dec_star = 0.0
+        pmra_star = 0.0
+        pmdec_star = 0.0
         
         # The model can support multiple planets
         # for key in keys(θ_system.planets)
@@ -28,19 +28,19 @@ function ln_like(pma::ProperMotionAnom, θ_system, elements)
                 # RA and dec epochs are usually slightly different
                 # Note the unit conversion here from jupiter masses to solar masses to 
                 # make it the same unit as the stellar mass (element.mu)
-                pm_ra_star += pmra(orbit, pma.table.ra_epoch[i]+δt, θ_planet.mass*mjup2msol)
-                pm_dec_star += pmdec(orbit, pma.table.dec_epoch[i]+δt, θ_planet.mass*mjup2msol)
+                pmra_star += pmra(orbit, pma.table.ra_epoch[i]+δt, θ_planet.mass*mjup2msol)
+                pmdec_star += pmdec(orbit, pma.table.dec_epoch[i]+δt, θ_planet.mass*mjup2msol)
             end
 
         end
         
-        pm_ra_star/=N_ave
-        pm_dec_star/=N_ave
+        pmra_star/=N_ave
+        pmdec_star/=N_ave
 
-        residx = pm_ra_star + θ_system.pmra - pma.table.pm_ra[i]
-        residy = pm_dec_star + θ_system.pmdec - pma.table.pm_dec[i]
-        σ²x = pma.table.σ_pm_ra[i]^2
-        σ²y = pma.table.σ_pm_dec[i]^2
+        residx = pmra_star + θ_system.pmra - pma.table.pmra[i]
+        residy = pmdec_star + θ_system.pmdec - pma.table.pmdec[i]
+        σ²x = pma.table.σ_pmra[i]^2
+        σ²y = pma.table.σ_pmdec[i]^2
         χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
         χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
 
@@ -54,18 +54,23 @@ end
 function ln_like(pma::ProperMotionAnomHGCA2, θ_system, elements)
     ll = 0.0
 
+    # This observation type just wraps one row from the HGCA (see hgca.jl)
+    hgca = pma.table
+    # Roughly over what time period were the observations made?
+    dt_gaia = 3*365
+    dt_hip = 4*365
     # How many points over Δt should we average the proper motion and stellar position
     # at each epoch? This is because the PM is not an instantaneous measurement.
     N_ave = 5
 
     # Look at the position of the star around both epochs to calculate 
-    # a delta-position proper motion
+    # our modelled delta-position proper motion
 
     # First epoch: Hipparcos
-    ra_star_1 = 0.0
-    dec_star_1 = 0.0
-    pm_ra_star_1 = 0.0
-    pm_dec_star_1 = 0.0
+    ra_hip_model = 0.0
+    dec_hip_model = 0.0
+    pmra_hip_model = 0.0
+    pmdec_hip_model = 0.0
     # The model can support multiple planets
     for i in eachindex(elements)
         θ_planet = θ_system.planets[i]
@@ -75,28 +80,28 @@ function ln_like(pma::ProperMotionAnomHGCA2, θ_system, elements)
         end
         # Average multiple observations over a timescale +- dt/2
         # to approximate what HIPPARCOS would have measured.
-        for δt = range(-pma.table.dt[1]/2, pma.table.dt[1]/2, N_ave)
+        for δt = range(-dt_hip/2, dt_hip/2, N_ave)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
             # make it the same unit as the stellar mass (element.mu)
             # TODO: we can't yet use the orbitsolve interface here for the pmra calls,
             # meaning we calculate the orbit 2x as much as we need.
-            ra_star_1 += -raoff(orbit, pma.table.ra_epoch[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
-            dec_star_1 += -decoff(orbit, pma.table.dec_epoch[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
-            pm_ra_star_1 += pmra(orbit, pma.table.ra_epoch[1]+δt, θ_planet.mass*mjup2msol)
-            pm_dec_star_1 += pmdec(orbit, pma.table.dec_epoch[1]+δt, θ_planet.mass*mjup2msol)
+            ra_hip_model += -raoff(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt) * θ_planet.mass*mjup2msol/orbit.M
+            dec_hip_model += -decoff(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt) * θ_planet.mass*mjup2msol/orbit.M
+            pmra_hip_model += pmra(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt, θ_planet.mass*mjup2msol)
+            pmdec_hip_model += pmdec(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt, θ_planet.mass*mjup2msol)
         end
     end
-    ra_star_1/=N_ave
-    dec_star_1/=N_ave
-    pm_ra_star_1/=N_ave
-    pm_dec_star_1/=N_ave
+    ra_hip_model/=N_ave
+    dec_hip_model/=N_ave
+    pmra_hip_model/=N_ave
+    pmdec_hip_model/=N_ave
 
     # Last epoch: GAIA
-    ra_star_3 = 0.0
-    dec_star_3 = 0.0
-    pm_ra_star_3 = 0.0
-    pm_dec_star_3 = 0.0
+    ra_gaia_model = 0.0
+    dec_gaia_model = 0.0
+    pmra_gaia_model = 0.0
+    pmdec_gaia_model = 0.0
     # The model can support multiple planets
     for i in eachindex(elements)
         θ_planet = θ_system.planets[i]
@@ -106,33 +111,38 @@ function ln_like(pma::ProperMotionAnomHGCA2, θ_system, elements)
         end
         # Average multiple observations over a timescale +- dt
         # to approximate what HIPPARCOS and GAIA would have measured.
-        for δt = range(-pma.table.dt[3]/2, pma.table.dt[3]/2, N_ave)
+        for δt = range(-dt_gaia/2, dt_gaia/2, N_ave)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
             # make it the same unit as the stellar mass (element.mu)
-            ra_star_3 += -raoff(orbit, pma.table.ra_epoch[3]+δt) * θ_planet.mass*mjup2msol/orbit.M
-            dec_star_3 += -decoff(orbit, pma.table.dec_epoch[3]+δt) * θ_planet.mass*mjup2msol/orbit.M
-            pm_ra_star_3 += pmra(orbit, pma.table.ra_epoch[3]+δt, θ_planet.mass*mjup2msol)
-            pm_dec_star_3 += pmdec(orbit, pma.table.dec_epoch[3]+δt, θ_planet.mass*mjup2msol)
+            ra_gaia_model += -raoff(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt) * θ_planet.mass*mjup2msol/orbit.M
+            dec_gaia_model += -decoff(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt) * θ_planet.mass*mjup2msol/orbit.M
+            pmra_gaia_model += pmra(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt, θ_planet.mass*mjup2msol)
+            pmdec_gaia_model += pmdec(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt, θ_planet.mass*mjup2msol)
         end
     end
-    ra_star_3/=N_ave
-    dec_star_3/=N_ave
-    pm_ra_star_3/=N_ave
-    pm_dec_star_3/=N_ave
+    ra_gaia_model/=N_ave
+    dec_gaia_model/=N_ave
+    pmra_gaia_model/=N_ave
+    pmdec_gaia_model/=N_ave
+
 
     # Model the GAIA-Hipparcos delta-position velocity
-    pm_ra_star_hg = (ra_star_3 - ra_star_1)/(pma.table.ra_epoch[3] - pma.table.ra_epoch[1])
-    pm_dec_star_hg = (dec_star_3 - dec_star_1)/(pma.table.dec_epoch[3] - pma.table.dec_epoch[1])
+    pmra_hg_model = (ra_gaia_model - ra_hip_model)/(years2mjd(hgca.epoch_ra_gaia[1]) - years2mjd(hgca.epoch_ra_hip[1]))
+    pmdec_hg_model = (dec_gaia_model - dec_hip_model)/(years2mjd(hgca.epoch_dec_gaia[1]) - years2mjd(hgca.epoch_dec_hip[1]))
 
     # Compute the likelihood at all three epochs (Hipparcos, GAIA-Hip, GAIA)
-    pm_ra_model = (pm_ra_star_1, pm_ra_star_hg, pm_ra_star_3)
-    pm_dec_model = (pm_dec_star_1, pm_dec_star_hg, pm_dec_star_3)
+    pmra_model = (pmra_hip_model, pmra_hg_model, pmra_gaia_model)
+    pmdec_model = (pmdec_hip_model, pmdec_hg_model, pmdec_gaia_model)
+    pmra_meas = (hgca.pmra_hip[1], hgca.pmra_hg[1], hgca.pmra_gaia[1])
+    pmdec_meas = (hgca.pmdec_hip[1], hgca.pmdec_hg[1], hgca.pmdec_gaia[1])
+    σ_pmra = (hgca.pmra_hip_error[1], hgca.pmra_hg_error[1], hgca.pmra_gaia[1])
+    σ_pmdec = (hgca.pmdec_hip_error[1], hgca.pmdec_hg_error[1], hgca.pmdec_gaia[1])
     for i in 1:3
-        residx = pm_ra_model[i] + θ_system.pmra - pma.table.pm_ra[i]
-        residy = pm_dec_model[i] + θ_system.pmdec - pma.table.pm_dec[i]
-        σ²x = pma.table.σ_pm_ra[i]^2
-        σ²y = pma.table.σ_pm_dec[i]^2
+        residx = pmra_model[i] + θ_system.pmra - pmra_meas[i]
+        residy = pmdec_model[i] + θ_system.pmdec - pmdec_meas[i]
+        σ²x = σ_pmra[i]^2
+        σ²y = σ_pmdec[i]^2
         χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
         χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
         ll += χ²x + χ²y
