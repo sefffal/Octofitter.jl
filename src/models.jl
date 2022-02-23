@@ -13,9 +13,9 @@ function ln_like(pma::ProperMotionAnom, θ_system, elements)
         
         # The model can support multiple planets
         # for key in keys(θ_system.planets)
-        for i in eachindex(elements)
-            θ_planet = θ_system.planets[i]
-            orbit = elements[i]
+        for j in eachindex(elements)
+            θ_planet = θ_system.planets[j]
+            orbit = elements[j]
 
             if θ_planet.mass < 0
                 return -Inf
@@ -46,6 +46,75 @@ function ln_like(pma::ProperMotionAnom, θ_system, elements)
 
         ll += χ²x + χ²y
     end
+
+    return ll
+end
+
+
+function ln_like(pma::ProperMotionAnomHG, θ_system, elements)
+    ll = 0.0
+
+    # How many points over Δt should we average the proper motion at each
+    # epoch? This is because the PM is not an instantaneous measurement.
+    N_ave = 5
+
+    # Look at the position of the star around both epochs to calculate 
+    # a delta-position proper motion
+    ra_star_1 = 0.0
+    dec_star_1 = 0.0
+    # The model can support multiple planets
+    for i in eachindex(elements)
+        θ_planet = θ_system.planets[i]
+        orbit = elements[i]
+        if θ_planet.mass < 0
+            return -Inf
+        end
+        # Average multiple observations over a timescale +- dt
+        # to approximate what HIPPARCOS and GAIA would have measured.
+        for δt = range(-pma.table.dt_1[1]/2, pma.table.dt_1[1]/2, N_ave)
+            # RA and dec epochs are usually slightly different
+            # Note the unit conversion here from jupiter masses to solar masses to 
+            # make it the same unit as the stellar mass (element.mu)
+            ra_star_1 += -raoff(orbit, pma.table.ra_epoch_1[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
+            dec_star_1 += -decoff(orbit, pma.table.dec_epoch_1[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
+        end
+    end
+    ra_star_1/=N_ave
+    dec_star_1/=N_ave
+
+    ra_star_2 = 0.0
+    dec_star_2 = 0.0
+    # The model can support multiple planets
+    for i in eachindex(elements)
+        θ_planet = θ_system.planets[i]
+        orbit = elements[i]
+        if θ_planet.mass < 0
+            return -Inf
+        end
+        # Average multiple observations over a timescale +- dt
+        # to approximate what HIPPARCOS and GAIA would have measured.
+        for δt = range(-pma.table.dt_2[1]/2, pma.table.dt_2[1]/2, N_ave)
+            # RA and dec epochs are usually slightly different
+            # Note the unit conversion here from jupiter masses to solar masses to 
+            # make it the same unit as the stellar mass (element.mu)
+            ra_star_2 += -raoff(orbit, pma.table.ra_epoch_2[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
+            dec_star_2 += -decoff(orbit, pma.table.dec_epoch_2[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
+        end
+    end
+    ra_star_2/=N_ave
+    dec_star_2/=N_ave
+
+    pm_ra_star = ra_star_2 - ra_star_1
+    pm_dec_star = dec_star_2 - dec_star_1
+
+    residx = pm_ra_star + θ_system.pmra - pma.table.pm_ra[1]
+    residy = pm_dec_star + θ_system.pmdec - pma.table.pm_dec[1]
+    σ²x = pma.table.σ_pm_ra[1]^2
+    σ²y = pma.table.σ_pm_dec[1]^2
+    χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
+    χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
+
+    ll += χ²x + χ²y
 
     return ll
 end

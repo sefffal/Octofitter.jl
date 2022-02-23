@@ -196,8 +196,6 @@ function hmc(
         end
     end
 
-    @warn "Not using bijectors"
-
     if isnothing(initial_parameters)
         progress && @info "Guessing a good starting location by sampling from priors" initial_samples
         initial_θ = guess_starting_position(system,initial_samples)
@@ -273,7 +271,11 @@ function hmc(
         end
         note = " "
         if transition.stat.numerical_error
-            note = "X"
+            if !isfinite(transition.z.ℓπ)
+                note = "∞" 
+            else
+                note = "X"
+            end
         elseif iteration <= adaptation
             note = "A"
         end

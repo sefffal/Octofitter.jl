@@ -1,4 +1,5 @@
 # This file contains funtions for analysing results from chains.
+using Dates
 
 """
     projectpositions(chains.planets[1], mjd("2020-02-02"))
@@ -392,23 +393,31 @@ function init_plots()
             size=(500,700)
         )
         ```
-        """
-        function timeplot(chain, planet_key, color, prop; kwargs...)
+        """  
+        function timeplot(
+            chain,
+            planet_key,
+            color,
+            prop, 
+            N = 500;
+            ii = rand(1:size(chain,1)*size(chain,3), N),
+            kwargs...
+        )
             planet = chain.info.model.planets[planet_key]
             if prop == :ra
-                ylabel = "RA"
+                ylabel = "RA (mas)"
             elseif prop == :dec
-                ylabel = "DEC"
+                ylabel = "DEC (mas)"
             elseif prop == :sep
                 ylabel = "SEP (mas)"
             elseif prop == :pa
                 ylabel = "PA (°)"
             elseif prop == :rv
-                ylabel = "RV"
+                ylabel = "RV m/s"
             elseif prop == :pmra
-                ylabel = "RA/yr"
+                ylabel = "∂RA mas/yr"
             elseif prop == :pmdec
-                ylabel = "DEC/yr"
+                ylabel = "∂DEC mas/yr"
             else
                 error("Unsupported property. Choose :ra, :dec, :sep, :pa, :rv, :pmra, or :pmdec")
             end
@@ -416,9 +425,7 @@ function init_plots()
                 ylabel,
                 legend=:none
             )
-            N = 500
             xerr = nothing
-            ii = rand(1:size(chain,1)*size(chain,3), N)
             elements = DirectDetections.construct_elements(chain, planet_key, ii)
             y = nothing
             if prop == :ra
@@ -476,19 +483,19 @@ function init_plots()
                 fit = radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]))'
             end
             Plots.plot!(
-                t, fit,
+                mjd2date.(t), fit,
                 line_z=repeat(
                     collect(chain["$planet_key[$color]"][ii]),
                     1, length(t)
                 )',
-                alpha=0.05,
+                alpha=0.05;
                 kwargs...
             )
             if !isnothing(y)
                 Plots.scatter!(
                     p1,
-                    x,
-                    y; yerr, xerr
+                    mjd2date.(x),
+                    y; yerr, xerr= isnothing(xerr) ? nothing : xerr#Day.(round.(Int, xerr))
                 )
             end
             p1

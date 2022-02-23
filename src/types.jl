@@ -46,6 +46,19 @@ end
 ProperMotionAnom(observations::NamedTuple...) = ProperMotionAnom(observations)
 export ProperMotionAnom
 
+struct ProperMotionAnomHG{TTable<:Table} <: AbstractObs
+    table::TTable
+    function ProperMotionAnomHG(observations...)
+        table = Table(observations...)
+        # if !issubset(pma_cols, Tables.columnnames(table))
+        #     error("Expected columns $pma_cols")
+        # end
+        return new{typeof(table)}(table)
+    end
+end
+ProperMotionAnomHG(observations::NamedTuple...) = ProperMotionAnomHG(observations)
+export ProperMotionAnomHG
+
 const images_cols = (:band, :image, :epoch, :platescale, :contrast, )
 
 """
@@ -167,7 +180,7 @@ You may provide `ProperMotionAnom()` and/or `Images()` of the system.
 Finally, planet models are listed last.
 `name` must be a symbol e.g. `:HD56441`.
 """
-struct System{TPriors<:Priors, TDet<:Union{Derived,Nothing},TObs<:NTuple{N,<:AbstractObs} where N,TPlanet}
+struct System{TPriors<:Priors, TDet<:Union{Derived,Nothing},TObs<:NTuple{N,AbstractObs} where N, TPlanet}
     priors::TPriors
     deterministic::TDet
     observations::TObs
