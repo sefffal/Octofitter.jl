@@ -476,7 +476,6 @@ function init_plots()
                 t = range(years2mjd(hgca.epoch_dec_hip)-365*5, years2mjd(hgca.epoch_dec_gaia)+365*5, length=100)
                 y = [hgca.pmdec_hip, hgca.pmdec_hg, hgca.pmdec_gaia]
                 yerr = [hgca.pmdec_hip_error, hgca.pmdec_hg_error, hgca.pmdec_gaia_error]
-                yerr = [0,0,0]
                 fit = chain["pmdec"][ii]' .+ pmdec.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol)'
                 x = years2mjd.([hgca.epoch_dec_hip, (hgca.epoch_dec_hip + hgca.epoch_dec_gaia)/2, hgca.epoch_dec_gaia])
                 xerr = [4*365/2, 25*365/2, 3*365/2]

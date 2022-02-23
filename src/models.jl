@@ -1,5 +1,9 @@
 
 
+"""
+General proper motion likelihood at any number of epochs.
+Each epoch is averaged over 5 measurements at +-dt/2.
+"""
 function ln_like(pma::ProperMotionAnom, θ_system, elements)
     ll = 0.0
 
@@ -51,6 +55,10 @@ function ln_like(pma::ProperMotionAnom, θ_system, elements)
 end
 
 
+"""
+Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
+using 5 position measurements averaged at each of their epochs.
+"""
 function ln_like(pma::ProperMotionAnomHGCA2, θ_system, elements)
     ll = 0.0
 
@@ -184,7 +192,9 @@ end
 #     return ll
 # end
 
-# function ln_like(images::Images, elements::DirectOrbits.AbstractElements, θ_planet)
+"""
+Likelihood of there being planets in a sequence of images.
+"""
 function ln_like(images::Images, θ_system, θ_planet)
     
     # Resolve the combination of system and planet parameters
@@ -345,46 +355,9 @@ function ln_like(system::System, θ_system)
     end
 
 
-
     return ll[]
 end
 
-
-
-    # Hierarchical parameters over multiple planets
-    # if haskey(system.priors.priors, :σ_i²)
-    #     # If the sampler wanders into negative variances, return early to prevent
-    #     # taking square roots of negative values later on
-    #     if θ.σ_i² < 0
-    #         return -Inf
-    #     end
-
-    #     # hierarchical priors here
-    #     sum_iᵢ = zero(θ.i)
-    #     sum_iᵢθi² = zero(θ.i)
-    #     for θ_planet in θ.planets
-    #         sum_iᵢ += θ_planet.i
-    #         sum_iᵢθi² += (θ_planet.i .- θ.i)^2
-    #     end
-    #     ll += -1/2 * sum_iᵢθi² / θ.σ_i²  - log(sqrt(2π * θ.σ_i²))
-    # end
-    # if haskey(system.priors.priors, :σ_Ω²)
-    #     # If the sampler wanders into negative variances, return early to prevent
-    #     # taking square roots of negative values later on
-    #     if θ.σ_Ω² < 0
-    #         return -Inf
-    #     end
-
-    #     # hierarchical priors here
-    #     sum_Ωᵢ = zero(θ.Ω)
-    #     sum_ΩᵢθΩ² = zero(θ.Ω)
-    #     for θ_planet in θ.planets
-    #         _, Ωᵢ, _  = get_ωΩτ(θ_system, θ_planet)
-    #         sum_Ωᵢ += Ωᵢ
-    #         sum_ΩᵢθΩ² += (Ωᵢ .- θ.Ω)^2
-    #     end
-    #     ll += -1/2 * sum_ΩᵢθΩ² / θ.σ_Ω²  - log(sqrt(2π * θ.σ_Ω²))
-    # end
 
 
 
