@@ -51,17 +51,21 @@ function ln_like(pma::ProperMotionAnom, θ_system, elements)
 end
 
 
-function ln_like(pma::ProperMotionAnomHG, θ_system, elements)
+function ln_like(pma::ProperMotionAnomHGCA2, θ_system, elements)
     ll = 0.0
 
-    # How many points over Δt should we average the proper motion at each
-    # epoch? This is because the PM is not an instantaneous measurement.
+    # How many points over Δt should we average the proper motion and stellar position
+    # at each epoch? This is because the PM is not an instantaneous measurement.
     N_ave = 5
 
     # Look at the position of the star around both epochs to calculate 
     # a delta-position proper motion
+
+    # First epoch: Hipparcos
     ra_star_1 = 0.0
     dec_star_1 = 0.0
+    pm_ra_star_1 = 0.0
+    pm_dec_star_1 = 0.0
     # The model can support multiple planets
     for i in eachindex(elements)
         θ_planet = θ_system.planets[i]
@@ -69,21 +73,30 @@ function ln_like(pma::ProperMotionAnomHG, θ_system, elements)
         if θ_planet.mass < 0
             return -Inf
         end
-        # Average multiple observations over a timescale +- dt
-        # to approximate what HIPPARCOS and GAIA would have measured.
-        for δt = range(-pma.table.dt_1[1]/2, pma.table.dt_1[1]/2, N_ave)
+        # Average multiple observations over a timescale +- dt/2
+        # to approximate what HIPPARCOS would have measured.
+        for δt = range(-pma.table.dt[1]/2, pma.table.dt[1]/2, N_ave)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
             # make it the same unit as the stellar mass (element.mu)
-            ra_star_1 += -raoff(orbit, pma.table.ra_epoch_1[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
-            dec_star_1 += -decoff(orbit, pma.table.dec_epoch_1[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
+            # TODO: we can't yet use the orbitsolve interface here for the pmra calls,
+            # meaning we calculate the orbit 2x as much as we need.
+            ra_star_1 += -raoff(orbit, pma.table.ra_epoch[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
+            dec_star_1 += -decoff(orbit, pma.table.dec_epoch[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
+            pm_ra_star_1 += pmra(orbit, pma.table.ra_epoch[1]+δt, θ_planet.mass*mjup2msol)
+            pm_dec_star_1 += pmdec(orbit, pma.table.dec_epoch[1]+δt, θ_planet.mass*mjup2msol)
         end
     end
     ra_star_1/=N_ave
     dec_star_1/=N_ave
+    pm_ra_star_1/=N_ave
+    pm_dec_star_1/=N_ave
 
-    ra_star_2 = 0.0
-    dec_star_2 = 0.0
+    # Last epoch: GAIA
+    ra_star_3 = 0.0
+    dec_star_3 = 0.0
+    pm_ra_star_3 = 0.0
+    pm_dec_star_3 = 0.0
     # The model can support multiple planets
     for i in eachindex(elements)
         θ_planet = θ_system.planets[i]
@@ -93,28 +106,37 @@ function ln_like(pma::ProperMotionAnomHG, θ_system, elements)
         end
         # Average multiple observations over a timescale +- dt
         # to approximate what HIPPARCOS and GAIA would have measured.
-        for δt = range(-pma.table.dt_2[1]/2, pma.table.dt_2[1]/2, N_ave)
+        for δt = range(-pma.table.dt[3]/2, pma.table.dt[3]/2, N_ave)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
             # make it the same unit as the stellar mass (element.mu)
-            ra_star_2 += -raoff(orbit, pma.table.ra_epoch_2[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
-            dec_star_2 += -decoff(orbit, pma.table.dec_epoch_2[1]+δt) * θ_planet.mass*mjup2msol/orbit.M
+            ra_star_3 += -raoff(orbit, pma.table.ra_epoch[3]+δt) * θ_planet.mass*mjup2msol/orbit.M
+            dec_star_3 += -decoff(orbit, pma.table.dec_epoch[3]+δt) * θ_planet.mass*mjup2msol/orbit.M
+            pm_ra_star_3 += pmra(orbit, pma.table.ra_epoch[3]+δt, θ_planet.mass*mjup2msol)
+            pm_dec_star_3 += pmdec(orbit, pma.table.dec_epoch[3]+δt, θ_planet.mass*mjup2msol)
         end
     end
-    ra_star_2/=N_ave
-    dec_star_2/=N_ave
+    ra_star_3/=N_ave
+    dec_star_3/=N_ave
+    pm_ra_star_3/=N_ave
+    pm_dec_star_3/=N_ave
 
-    pm_ra_star = ra_star_2 - ra_star_1
-    pm_dec_star = dec_star_2 - dec_star_1
+    # Model the GAIA-Hipparcos delta-position velocity
+    pm_ra_star_hg = (ra_star_3 - ra_star_1)/(pma.table.ra_epoch[3] - pma.table.ra_epoch[1])
+    pm_dec_star_hg = (dec_star_3 - dec_star_1)/(pma.table.dec_epoch[3] - pma.table.dec_epoch[1])
 
-    residx = pm_ra_star + θ_system.pmra - pma.table.pm_ra[1]
-    residy = pm_dec_star + θ_system.pmdec - pma.table.pm_dec[1]
-    σ²x = pma.table.σ_pm_ra[1]^2
-    σ²y = pma.table.σ_pm_dec[1]^2
-    χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
-    χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
-
-    ll += χ²x + χ²y
+    # Compute the likelihood at all three epochs (Hipparcos, GAIA-Hip, GAIA)
+    pm_ra_model = (pm_ra_star_1, pm_ra_star_hg, pm_ra_star_3)
+    pm_dec_model = (pm_dec_star_1, pm_dec_star_hg, pm_dec_star_3)
+    for i in 1:3
+        residx = pm_ra_model[i] + θ_system.pmra - pma.table.pm_ra[i]
+        residy = pm_dec_model[i] + θ_system.pmdec - pma.table.pm_dec[i]
+        σ²x = pma.table.σ_pm_ra[i]^2
+        σ²y = pma.table.σ_pm_dec[i]^2
+        χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
+        χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
+        ll += χ²x + χ²y
+    end
 
     return ll
 end
@@ -215,6 +237,9 @@ end
 # Astrometry
 function ln_like(astrom::Astrometry, θ_planet, elements)
     ll = 0.0
+    # Astrometry is measured relative to the star.
+    # Account for the relative position of the star due to the current
+    # planet and all interior planets.
     for i in eachindex(astrom.table.epoch)
         o = orbitsolve(elements, astrom.table.epoch[i])
         # PA and Sep specified
@@ -223,7 +248,7 @@ function ln_like(astrom::Astrometry, θ_planet, elements)
             pa = posangle(o)
             resid1 = astrom.table.pa[i] - pa
             resid2 = astrom.table.ρ[i] - ρ
-        # RA and DEC specifoied
+        # RA and DEC specified
         else
             x = raoff(o)
             y = decoff(o)

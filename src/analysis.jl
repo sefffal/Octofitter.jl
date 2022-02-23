@@ -69,6 +69,7 @@ export plotmodel
 function plotmodel! end
 export plotmodel!
 export timeplot
+export timeplotgrid
 
 # Optionally depend on Plots. If the user imports it, this code will be run to set up
 # our `imshow` function.
@@ -429,48 +430,48 @@ function init_plots()
             elements = DirectDetections.construct_elements(chain, planet_key, ii)
             y = nothing
             if prop == :ra
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-300, 300])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 y = astrometry(planet).table.ra
                 yerr = astrometry(planet).table.σ_ra
                 fit = raoff.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :dec
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-300, 300])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 y = astrometry(planet).table.dec
                 yerr = astrometry(planet).table.σ_dec
                 fit = decoff.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :sep
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-300, 300])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 xx = astrometry(planet).table.ra
                 yy = astrometry(planet).table.dec
                 xxerr = astrometry(planet).table.σ_ra
                 yyerr = astrometry(planet).table.σ_dec
-                y = sqrt.(xx.^2 .+ yy.^2)
-                # TODO
-                yerr = zeros(size(y))
+                y_unc = sqrt.((xx .± xxerr).^2 .+ (yy .± yyerr).^2)
+                y = Measurements.value.(y_unc)
+                yerr = Measurements.uncertainty.(y_unc)
                 fit = projectedseparation.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :pa
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-300, 300])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 xx = astrometry(planet).table.ra
                 yy = astrometry(planet).table.dec
                 xxerr = astrometry(planet).table.σ_ra
                 yyerr = astrometry(planet).table.σ_dec
-                y = atand.(xx, yy)
-                # TODO
-                yerr = zeros(size(y))
+                y_unc = atand.((xx .± xxerr), (yy .± yyerr))
+                y = Measurements.value.(y_unc)
+                yerr = Measurements.uncertainty.(y_unc)
                 fit = rad2deg.(posangle.(elements, t')')
                 x = astrometry(planet).table.epoch
             elseif prop == :pmra
-                t = range((extrema(propermotionanom(chain.info.model).table.ra_epoch) .+ [-300, 300])..., length=100)
+                t = range((extrema(propermotionanom(chain.info.model).table.ra_epoch) .+ [-365*2, 365*2])..., length=100)
                 y = propermotionanom(chain.info.model).table.pm_ra
                 yerr = propermotionanom(chain.info.model).table.σ_pm_ra
                 fit = chain["pmra"][ii]' .+ pmra.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol)'
                 x = propermotionanom(chain.info.model).table.ra_epoch
                 xerr = propermotionanom(chain.info.model).table.dt/2
             elseif prop == :pmdec
-                t = range((extrema(propermotionanom(chain.info.model).table.dec_epoch) .+ [-300, 300])..., length=100)
+                t = range((extrema(propermotionanom(chain.info.model).table.dec_epoch) .+ [-365*2, 365*2])..., length=100)
                 y = propermotionanom(chain.info.model).table.pm_dec
                 yerr = propermotionanom(chain.info.model).table.σ_pm_dec
                 fit = chain["pmdec"][ii]' .+ pmdec.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol)'
@@ -478,7 +479,7 @@ function init_plots()
                 xerr = propermotionanom(chain.info.model).table.dt/2
             elseif prop == :rv
                 # TODO
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-300, 300])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 x = astrometry(planet).table.epoch
                 fit = radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]))'
             end
@@ -495,10 +496,48 @@ function init_plots()
                 Plots.scatter!(
                     p1,
                     mjd2date.(x),
-                    y; yerr, xerr= isnothing(xerr) ? nothing : xerr#Day.(round.(Int, xerr))
+                    y; yerr, xerr= isnothing(xerr) ? nothing : xerr,
+                    # markersize=1.5,
+                    # color=:black,
+                    color=1,
+                    # markerstrokewidth=3,
                 )
             end
             p1
+        end
+
+        function timeplotgrid(
+            chains;
+            color="b[e]",
+            clims = quantile(vec(chains[color]),(0.01, 0.99)),
+            N=1500,
+            ii = rand(1:size(chains,1)*size(chains,3), N)
+        )
+            kwargs = (; 
+                ii,
+                clims,
+                cmap=:plasma,
+                alpha=0.1
+            )
+            ppost = plotposterior(chains, :b, :e; rev=false, colorbar=nothing, kwargs...)
+            for (i,planet_key) in enumerate(keys(chains.info.model.planets))
+                astrom = astrometry(chains.info.model.planets[planet_key])
+                if !isnothing(astrom)
+                    Plots.scatter!(ppost, astrom, label="", color=i)
+                end
+            end
+            Plots.plot(
+                timeplot(chains, :b, :e, :sep; kwargs...),
+                timeplot(chains, :b, :e, :pa; kwargs...),
+                timeplot(chains, :b, :e, :pmra; kwargs...),
+                timeplot(chains, :b, :e, :pmdec; kwargs...),
+                ppost,
+                timeplot(chains, :b, :e, :rv; kwargs...),
+                layout = (3,2),
+                framestyle=:box,
+                grid=false,
+                size=(1000,1200),
+            )
         end
     end
 end

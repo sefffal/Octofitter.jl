@@ -46,9 +46,9 @@ end
 ProperMotionAnom(observations::NamedTuple...) = ProperMotionAnom(observations)
 export ProperMotionAnom
 
-struct ProperMotionAnomHG{TTable<:Table} <: AbstractObs
+struct ProperMotionAnomHGCA2{TTable<:Table} <: AbstractObs
     table::TTable
-    function ProperMotionAnomHG(observations...)
+    function ProperMotionAnomHGCA2(observations...)
         table = Table(observations...)
         # if !issubset(pma_cols, Tables.columnnames(table))
         #     error("Expected columns $pma_cols")
@@ -56,8 +56,8 @@ struct ProperMotionAnomHG{TTable<:Table} <: AbstractObs
         return new{typeof(table)}(table)
     end
 end
-ProperMotionAnomHG(observations::NamedTuple...) = ProperMotionAnomHG(observations)
-export ProperMotionAnomHG
+ProperMotionAnomHGCA2(observations::NamedTuple...) = ProperMotionAnomHGCA2(observations)
+export ProperMotionAnomHGCA2
 
 const images_cols = (:band, :image, :epoch, :platescale, :contrast, )
 
@@ -232,7 +232,7 @@ end
 export astrometry
 function propermotionanom(system::System)
     for obs in system.observations
-        if obs isa ProperMotionAnom
+        if obs isa ProperMotionAnom || obs isa ProperMotionAnomHGCA2
             return obs
         end
     end
@@ -249,7 +249,7 @@ end
 
 
 #### Show methods
-for ObsType in (Astrometry, Photometry, ProperMotionAnom, Images)
+for ObsType in (Astrometry, Photometry, ProperMotionAnom, ProperMotionAnomHGCA2, Images)
     @eval function Base.show(io::IO, mime::MIME"text/plain", @nospecialize obs::($ObsType))
         print(io, "$($ObsType) ")
         Base.show(io::IO, mime, Table(obs))

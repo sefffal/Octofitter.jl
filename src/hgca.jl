@@ -12,13 +12,14 @@ for a star with catalog id `gaia_id`.
 The resulting velocities are in mas/yr and have the long term trend between HIPPARCOS and GAIA
 already subtracted out. e.g. we would expect 0 pma if there is no companion.
 """
-function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
+function ProperMotionAnomHGCA2(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
 
     ## Load the Hipparcos-GAIA catalog of accelerations
     hgca = FITS(catalog) do hdu
-        Tables.columntable(hdu[2])
+        Table(hdu[2])
     end
 
+    # Find the row with a 
     idx = findfirst(==(gaia_id), hgca.gaia_source_id)
 
     # # Proper motion anomaly
@@ -30,8 +31,10 @@ function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3
     # Δμ_hip_ra = (hgca.pmra_hip[idx] ± hgca.pmra_hip_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
     # Δμ_hip_dec = (hgca.pmdec_hip[idx] ± hgca.pmdec_hip_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
 
+    return ProperMotionAnomHGCA2(hgca[idx])
 
-    return ProperMotionAnom(
+
+    return ProperMotionAnomHGCA2(
         # Hipparcos epoch
         (;
             ra_epoch=years2mjd(hgca.epoch_ra_hip[idx]),

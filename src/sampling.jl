@@ -168,7 +168,7 @@ function hmc(
     initial_samples=50_000,
     initial_parameters=nothing,
     step_size=nothing,
-    progress=true,
+    verbosity=2,
     autodiff=ForwardDiff
 )
 
@@ -197,7 +197,7 @@ function hmc(
     end
 
     if isnothing(initial_parameters)
-        progress && @info "Guessing a good starting location by sampling from priors" initial_samples
+        verbosity >= 1 && @info "Guessing a good starting location by sampling from priors" initial_samples
         initial_θ = guess_starting_position(system,initial_samples)
         # Transform from constrained support to unconstrained support
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
@@ -216,7 +216,7 @@ function hmc(
         initial_ϵ = step_size
     else
         initial_ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
-        progress && @info "Found initial stepsize" initial_ϵ
+        verbosity >= 1 && @info "Found initial stepsize" initial_ϵ
     end
 
 
@@ -226,11 +226,11 @@ function hmc(
 
     mma = MassMatrixAdaptor(metric)
     if isnothing(step_size)
-        progress && @info "Will adapt step size and mass matrix"
+        verbosity >= 1 && @info "Will adapt step size and mass matrix"
         ssa = StepSizeAdaptor(target_accept, integrator)
         adaptor = StanHMCAdaptor(mma, ssa) 
     else
-        progress && @info "Will adapt mass matrix only"
+        verbosity >= 1 && @info "Will adapt mass matrix only"
         adaptor = MassMatrixAdaptor(metric)
     end
 
@@ -264,18 +264,18 @@ function hmc(
     # )
 
 
-    last_output_time = time()
+    last_output_time = Ref(time())
     function callback(rng, model, sampler, transition, state, iteration; kwargs...)
-        if !progress || last_output_time + 2 > time()
+        if verbosity < 2 || last_output_time[] + 2 > time()
             return
         end
         note = " "
-        if transition.stat.numerical_error
-            if !isfinite(transition.z.ℓπ)
-                note = "∞" 
-            else
-                note = "X"
-            end
+        # Give different messages if the log-density is non-finite,
+        # or if there was a divergent transition.
+        if !isfinite(transition.z.ℓπ)
+            note = "∞" 
+        elseif transition.stat.numerical_error
+            note = "X"
         elseif iteration <= adaptation
             note = "A"
         end
@@ -284,11 +284,20 @@ function hmc(
         else
             ℓπ = transition.z.ℓπ
         end
-        # θ = Bijector_invlinkvec(transition.z.θ)
-        # θ_res = arr2nt(θ)
+
+        θ_message = ""
+        if verbosity >= 3
+            θ = Bijector_invlinkvec(transition.z.θ)
+            θ_res = arr2nt(θ)
+            # Fill the remaining width of the terminal with info
+            θ_message = "θ="*string(θ_res)[begin:min(end,displaysize(stdout)[2]-34)]*"..."
+        end
         
-        @printf("%1s%6d(%2d) ℓπ=%6.0f. td=%2d\n", note, iteration, Threads.threadid(), ℓπ, transition.stat.tree_depth,)
+        @printf("%1s%6d(%2d) td=%2d ℓπ=%6.0f. %s\n", note, iteration, Threads.threadid(), transition.stat.tree_depth, ℓπ, θ_message)
     
+        # Support for live plotting orbits as we go.
+        # This code works but I found it slows down a lot as we go. Maybe it would
+        # work better with Makie.
         # for p_i in keys(system.planets)
         #     kep_elements = construct_elements(θ_res, θ_res.planets[p_i])
         #     color = if transition.stat.numerical_error
@@ -302,7 +311,7 @@ function hmc(
         # end
         # display(Main.Plots.current())
 
-        last_output_time = time()
+        last_output_time[] = time()
         return
     end
 
@@ -316,7 +325,7 @@ function hmc(
         thinning,
         init_params = initial_θ_t,
         discard_initial,
-        progress=progress,
+        progress=verbosity >= 1,
         callback
     )
     stop_time = fill(time(), num_chains)
@@ -334,7 +343,7 @@ function hmc(
         mean_tree_depth = mean(getproperty.(stat, :tree_depth))
         max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
     
-        progress && println("""
+        verbosity >= 1 && println("""
         Sampling report for chain $i:
         mean_accept =         $mean_accept
         num_err_frac =        $num_err_frac
