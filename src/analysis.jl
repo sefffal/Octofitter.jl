@@ -161,15 +161,15 @@ function init_plots()
             dc = last(clims) - minc
             clims = (minc, dc+minc)
 
+            # Lines to periastron
+            xs = hcat(zeros(1500), raoff.(elements, periastron.(elements)), fill(NaN, 1500))'[:]
+            ys = hcat(zeros(1500), decoff.(elements, periastron.(elements)), fill(NaN, 1500))'[:]
+            Plots.plot!(xs, ys; lw, alpha, color="#777", label="")
             cmap= Plots.cgrad(cmap; rev)
             for i in eachindex(colours)#sortperm(colours, rev=false)
                 c = colours[i]
                 Plots.plot!(elements[i]; label="",color=cmap[(c-minc)/dc], lw, alpha)
             end
-            # Lines to periastron
-            xs = hcat(zeros(1500), raoff.(elements, periastron.(elements)), fill(NaN, 1500))'[:]
-            ys = hcat(zeros(1500), decoff.(elements, periastron.(elements)), fill(NaN, 1500))'[:]
-            Plots.plot!(xs, ys; lw, alpha, color="#777", label="")
             # Star at centre
             Plots.scatter!([0],[0], marker=(:star, :black, 5), markerstrokewidth=1, markerstrokecolor=:white,  label="")
             # Colorbar
