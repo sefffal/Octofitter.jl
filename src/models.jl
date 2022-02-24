@@ -65,7 +65,7 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
     # This observation type just wraps one row from the HGCA (see hgca.jl)
     hgca = pma.table
     # Roughly over what time period were the observations made?
-    dt_gaia = 3*365
+    dt_gaia = 1038 # EDR3: days between  Date("2017-05-28") - Date("2014-07-25")
     dt_hip = 4*365
     # How many points over Δt should we average the proper motion and stellar position
     # at each epoch? This is because the PM is not an instantaneous measurement.
@@ -307,21 +307,21 @@ end
 
 # Overall log likelihood of the system given the parameters θ_system
 function ln_like(system::System, θ_system)
-    # We box ll directly to avoid annoying Core.Box due to the map closure below.
-    ll = Ref{typeof(first(θ_system))}(0.0)
+    # Take some care to ensure type stability when using e.g. ForwardDiffJ
+    ll = zero(typeof(first(θ_system)))
+
     # Fail fast if we have a negative stellar mass.
     # Users should endeavour to use priors on e.g. stellar mass
-    # that are strictly positive.
+    # that are strictly positive, otherwise we are reduced to rejection sampling!
     if hasproperty(θ_system, :M) && θ_system.M <= 0
-        return -Inf
+        return oftype(ll, -Inf)
     end
 
     # Go through each planet in the model and add its contribution
     # to the ln-likelihood.
-    # for (θ_planet, planet) in zip(θ_system.planets, system.planets)
-    # for i in eachindex(system.planets)
+    out_of_bounds = Ref(false)
     elements = map(eachindex(system.planets)) do i
-        planet = system.planets[i]
+        # planet = system.planets[i]
         θ_planet = θ_system.planets[i]
 
         # Like negative stellar mass, users should use priors with supports
@@ -330,7 +330,7 @@ function ln_like(system::System, θ_system)
         # from some code expecting these invariants to hold.
         if (hasproperty(θ_planet, :a) && θ_planet.a <= 0) ||
             (hasproperty(θ_planet, :e) && !(0 <= θ_planet.e < 1))
-            ll[] += -Inf
+            out_of_bounds[] = true
         end
 
         # Resolve the combination of system and planet parameters
@@ -338,11 +338,32 @@ function ln_like(system::System, θ_system)
         # some factors used in various calculations.
         kep_elements = construct_elements(θ_system, θ_planet)
 
-        for obs in planet.observations
-            ll[] += ln_like(obs, θ_planet, kep_elements)
-        end
-
         return kep_elements
+    end
+    # Fail fast if out of bounds for one of the planets
+    if out_of_bounds[]
+        return oftype(ll, -Inf) # Ensure type stability
+    end
+
+    # Loop through the planets from the outside in. 
+    # Try to do this sorting in a non-allocating way.
+    # This way we have the option to account for each planets influence on the outer planets
+    sma = map(elements) do elem
+        return elem.a
+    end
+    planet_sma_asc_ii = sortperm(SVector(sma))
+
+    # planet_sma_asc_ii = sortperm(SVector(sma))
+
+    # Handle all observations attached to planets
+    for i in planet_sma_asc_ii
+        planet = system.planets[i]
+        θ_planet = θ_system.planets[i]
+        kep_elements = elements[i]
+
+        for obs in planet.observations
+            ll += ln_like(obs, θ_planet, kep_elements)
+        end
     end
 
     if !isfinite(ll[])
@@ -351,11 +372,11 @@ function ln_like(system::System, θ_system)
 
     # Loop through and add contribution of all observation types associated with this system as a whole
     for obs in system.observations
-        ll[] += ln_like(obs, θ_system, elements)
+        ll += ln_like(obs, θ_system, elements)
     end
 
 
-    return ll[]
+    return ll
 end
 
 

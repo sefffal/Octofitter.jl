@@ -18,7 +18,7 @@ using DirectOrbits
 # Re-export these from DirectOrbits
 export mjd, KeplerianElements, KeplerianElementsDeg
 # Re-export from TypedTables
-export Table
+export Table, FlexTable
 
 using Base.Threads: @threads
 using StaticArrays 
