@@ -122,7 +122,7 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
         for δt = range(-dt_gaia/2, dt_gaia/2, N_ave)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
-            # make it the same unit as the stellar mass (element.mu)
+            # make it the same unit as the stellar mass (element.M)
             ra_gaia_model += -raoff(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt) * θ_planet.mass*mjup2msol/orbit.M
             dec_gaia_model += -decoff(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt) * θ_planet.mass*mjup2msol/orbit.M
             pmra_gaia_model += pmra(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt, θ_planet.mass*mjup2msol)
@@ -144,8 +144,8 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
     pmdec_model = (pmdec_hip_model, pmdec_hg_model, pmdec_gaia_model)
     pmra_meas = (hgca.pmra_hip[1], hgca.pmra_hg[1], hgca.pmra_gaia[1])
     pmdec_meas = (hgca.pmdec_hip[1], hgca.pmdec_hg[1], hgca.pmdec_gaia[1])
-    σ_pmra = (hgca.pmra_hip_error[1], hgca.pmra_hg_error[1], hgca.pmra_gaia[1])
-    σ_pmdec = (hgca.pmdec_hip_error[1], hgca.pmdec_hg_error[1], hgca.pmdec_gaia[1])
+    σ_pmra = (hgca.pmra_hip_error[1], hgca.pmra_hg_error[1], hgca.pmra_gaia_error[1])
+    σ_pmdec = (hgca.pmdec_hip_error[1], hgca.pmdec_hg_error[1], hgca.pmdec_gaia_error[1])
     for i in 1:3
         residx = pmra_model[i] + θ_system.pmra - pmra_meas[i]
         residy = pmdec_model[i] + θ_system.pmdec - pmdec_meas[i]
