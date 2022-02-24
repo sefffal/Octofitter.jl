@@ -166,9 +166,14 @@ function init_plots()
                 c = colours[i]
                 Plots.plot!(elements[i]; label="",color=cmap[(c-minc)/dc], lw, alpha)
             end
-            Plots.scatter!([0],[0], marker=(:star,:black, 5), markerstrokewidth=1, markerstrokecolor=:white,  label="")
+            # Lines to periastron
+            xs = hcat(zeros(1500), raoff.(elements, periastron.(elements)), fill(NaN, 1500))'[:]
+            ys = hcat(zeros(1500), decoff.(elements, periastron.(elements)), fill(NaN, 1500))'[:]
+            Plots.plot!(xs, ys; lw, alpha, color="#777", label="")
+            # Star at centre
+            Plots.scatter!([0],[0], marker=(:star, :black, 5), markerstrokewidth=1, markerstrokecolor=:white,  label="")
+            # Colorbar
             Plots.scatter!([0],[0]; marker_z=[0], ms=0, clims=clims, color=cmap, label="", colorbartitle)
-
         end
         
         function plotmodel(args...; kwargs...)
