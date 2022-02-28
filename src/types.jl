@@ -59,6 +59,20 @@ end
 ProperMotionAnomHGCA(observations::NamedTuple...) = ProperMotionAnomHGCA(observations)
 export ProperMotionAnomHGCA
 
+const rv_cols = (:epoch, :rv, :σ_rv)
+struct RadialVelocity{TTable<:Table} <: AbstractObs
+    table::TTable
+    function RadialVelocity(observations...)
+        table = Table(observations...)
+        if !issubset(rv_cols, Tables.columnnames(table))
+            error("Ecpected columns $rv_cols")
+        end
+        return new{typeof(table)}(table)
+    end
+end
+RadialVelocity(observations::NamedTuple...) = RadialVelocity(observations)
+export RadialVelocity
+
 const images_cols = (:band, :image, :epoch, :platescale, :contrast, )
 
 """
@@ -249,7 +263,7 @@ end
 
 
 #### Show methods
-for ObsType in (Astrometry, Photometry, ProperMotionAnom, ProperMotionAnomHGCA, Images)
+for ObsType in (Astrometry, Photometry, ProperMotionAnom, ProperMotionAnomHGCA, RadialVelocity, Images)
     @eval function Base.show(io::IO, mime::MIME"text/plain", @nospecialize obs::($ObsType))
         print(io, "$($ObsType) ")
         Base.show(io::IO, mime, Table(obs))
