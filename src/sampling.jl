@@ -266,18 +266,22 @@ function hmc(
 
     last_output_time = Ref(time())
     function callback(rng, model, sampler, transition, state, iteration; kwargs...)
+        if verbosity >= 1 && iteration == 1
+            # Show adapted step size and mass matrix
+            @info "Completed adaptation."
+        end
         if verbosity < 2 || last_output_time[] + 2 > time()
             return
         end
-        note = " "
         # Give different messages if the log-density is non-finite,
         # or if there was a divergent transition.
         if !isfinite(transition.z.ℓπ)
+            # TODO: this never runs since any non-finite proposal is rejected during sampling.
             note = "∞" 
         elseif transition.stat.numerical_error
             note = "X"
-        elseif iteration <= adaptation
-            note = "A"
+        else
+            note = " "
         end
         if transition.z.ℓπ isa AdvancedHMC.DualValue
             ℓπ = transition.z.ℓπ.value
@@ -315,12 +319,22 @@ function hmc(
         return
     end
 
+    if verbosity >= 1
+        if adaptation > 0
+            @info "Sampling, starting with adaptation"
+        else 
+            @info "Sampling"
+        end
+    end
+
+
     mc_samples_all_chains = sample(
         rng,
         model,
         sampler,
         ensemble,
-        iterations+adaptation, num_chains;
+        iterations,
+        num_chains;
         nadapts = adaptation,
         thinning,
         init_params = initial_θ_t,
@@ -330,7 +344,7 @@ function hmc(
     )
     stop_time = fill(time(), num_chains)
     
-    @info "Sampling compete. Building chains."
+    verbosity >= 1 && @info "Sampling compete. Building chains."
     # Go through each chain and repackage results
     chains = MCMCChains.Chains[]
     logposts = Vector{Float64}[]

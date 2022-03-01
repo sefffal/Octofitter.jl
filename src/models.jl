@@ -69,7 +69,7 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
     dt_hip = 4*365
     # How many points over Δt should we average the proper motion and stellar position
     # at each epoch? This is because the PM is not an instantaneous measurement.
-    N_ave = 5
+    N_ave = 25 #5
 
     # Look at the position of the star around both epochs to calculate 
     # our modelled delta-position proper motion
@@ -94,10 +94,12 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
             # make it the same unit as the stellar mass (element.mu)
             # TODO: we can't yet use the orbitsolve interface here for the pmra calls,
             # meaning we calculate the orbit 2x as much as we need.
-            ra_hip_model += -raoff(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt) * θ_planet.mass*mjup2msol/orbit.M
-            dec_hip_model += -decoff(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt) * θ_planet.mass*mjup2msol/orbit.M
-            pmra_hip_model += pmra(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt, θ_planet.mass*mjup2msol)
-            pmdec_hip_model += pmdec(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt, θ_planet.mass*mjup2msol)
+            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt)
+            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt)
+            ra_hip_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
+            dec_hip_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
+            pmra_hip_model += pmra(o_ra, θ_planet.mass*mjup2msol)
+            pmdec_hip_model += pmdec(o_dec, θ_planet.mass*mjup2msol)
         end
     end
     ra_hip_model/=N_ave
@@ -123,10 +125,12 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
             # make it the same unit as the stellar mass (element.M)
-            ra_gaia_model += -raoff(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt) * θ_planet.mass*mjup2msol/orbit.M
-            dec_gaia_model += -decoff(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt) * θ_planet.mass*mjup2msol/orbit.M
-            pmra_gaia_model += pmra(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt, θ_planet.mass*mjup2msol)
-            pmdec_gaia_model += pmdec(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt, θ_planet.mass*mjup2msol)
+            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt)
+            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt)
+            ra_gaia_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
+            dec_gaia_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
+            pmra_gaia_model += pmra(o_ra, θ_planet.mass*mjup2msol)
+            pmdec_gaia_model += pmdec(o_dec, θ_planet.mass*mjup2msol)
         end
     end
     ra_gaia_model/=N_ave
@@ -158,39 +162,6 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
 
     return ll
 end
-
-# TODO: image modelling for multi planet systems do not consider how "removing" one planet
-# might increase the contrast of another.
-# function ln_like_images(θ_system, system)
-#     ll = 0.0
-#     for key in keys(θ_system.planets)
-#         θ_planet = θ_system.planets[key]
-#         elements = construct_elements(θ_system, θ_planet)
-
-#         if (elements.a <= 0 ||
-#             elements.e < 0 ||
-#             elements.plx < 0 ||
-#             elements.μ <= 0)
-#             ll += NaN
-#             continue
-#         end
-
-
-#         ll += ln_like_images_element(elements, θ_planet, system)
-#     end
-
-#     # # Connect the flux at each epoch to an overall flux in this band for this planet
-#     # # fᵢ = θ_band.epochs
-#     # # ll += -1/2 * sum(
-#     # #     (fᵢ .- θ_band.f).^2
-#     # # ) / (θ_band.σ_f² * mean(fᵢ)^2)
-
-#     # And connect that flux to a modelled Teff and mass
-#     # f_model = model_interpolator(θ_planet.Teff, θ_planet.mass)
-#     # ll += -1/2 * (f_model - θ_band)^2 /  (θ_planet.σ_f_model² * f_model^2)
-
-#     return ll
-# end
 
 """
 Likelihood of there being planets in a sequence of images.
@@ -255,30 +226,56 @@ function ln_like(images::Images, θ_system, θ_planet)
 end
 
 # Astrometry
-function ln_like(astrom::Astrometry, θ_planet, elements)
+function ln_like(astrom::Astrometry, θ_planet, orbit, all_θ_planets, all_orbits,)
+# function ln_like(astrom::Astrometry, θ_planet, orbit, all_orbits)
     ll = 0.0
-    # Astrometry is measured relative to the star.
-    # Account for the relative position of the star due to the current
-    # planet and all interior planets.
     for i in eachindex(astrom.table.epoch)
-        o = orbitsolve(elements, astrom.table.epoch[i])
-        # PA and Sep specified
-        if haskey(astrom.table, :pa) && haskey(astrom.table, :ρ)
-            ρ = projectedseparation(o)
-            pa = posangle(o)
-            resid1 = astrom.table.pa[i] - pa
-            resid2 = astrom.table.ρ[i] - ρ
-        # RA and DEC specified
-        else
-            x = raoff(o)
-            y = decoff(o)
-            resid1 = astrom.table.ra[i] - x
-            resid2 = astrom.table.dec[i] - y
-            σ²1 = astrom.table.σ_ra[i ]^2
-            σ²2 = astrom.table.σ_dec[i]^2
+        # o = orbitsolve(orbit, astrom.table.epoch[i])
+
+        # Astrometry is measured relative to the star.
+        # Account for the relative position of the star due to
+        # this planet
+        # if hasproperty(θ_planet, :mass)
+        #     star_δra = -raoff(o) * θ_planet.mass*mjup2msol/orbit.M
+        #     star_δdec = -decoff(o) * θ_planet.mass*mjup2msol/orbit.M
+        # else
+        #     star_δra =  0
+        #     star_δdec = 0
+        # end
+
+        # Astrometry is measured relative to the star.
+        # Account for the relative position of the star due to
+        # *all* planets
+        local o
+        star_δra =  0
+        star_δdec = 0
+        for (θ_planet_i, orbit_i) in zip(all_θ_planets, all_orbits)
+            o_i = orbitsolve(orbit, astrom.table.epoch[i])
+            if orbit_i == orbit
+                o = o_i
+            end
+            star_δra = -raoff(o) * θ_planet_i.mass * mjup2msol / orbit.M
+            star_δdec = -decoff(o) * θ_planet_i.mass * mjup2msol / orbit.M
         end
+
+        # # PA and Sep specified
+        # if haskey(astrom.table, :pa) && haskey(astrom.table, :ρ)
+        #     ρ = projectedseparation(o)
+        #     pa = posangle(o)
+        #     resid1 = rem2pi(astrom.table.pa[i] - pa, RoundNearest) # TODO: confirm this works at the wrap point
+        #     resid2 = astrom.table.ρ[i] - ρ
+        #     σ²1 = astrom.table.σ_pa[i ]^2
+        #     σ²2 = astrom.table.σ_ρ[i]^2
+        # # RA and DEC specified
+        # else
+
+        x = raoff(o)
+        y = decoff(o)
+        resid1 = astrom.table.ra[i] - star_δra - x
+        resid2 = astrom.table.dec[i] - star_δdec - y
         σ²1 = astrom.table.σ_ra[i ]^2
         σ²2 = astrom.table.σ_dec[i]^2
+
         χ²1 = -(1/2)*resid1^2 / σ²1 - log(sqrt(2π * σ²1))
         χ²2 = -(1/2)*resid2^2 / σ²2 - log(sqrt(2π * σ²2))
         ll += χ²1 + χ²2
@@ -287,7 +284,7 @@ function ln_like(astrom::Astrometry, θ_planet, elements)
 end
 
 # Photometry
-function ln_like(photometry::Photometry, θ_planet, elements=nothing)
+function ln_like(photometry::Photometry, θ_planet, _elements=nothing, _interior_planets=nothing)
     ll = 0.0
     for i in eachindex(photometry.table.band)
         band = photometry.table.band[i]
@@ -355,14 +352,21 @@ function ln_like(system::System, θ_system)
 
     # planet_sma_asc_ii = sortperm(SVector(sma))
 
-    # Handle all observations attached to planets
-    for i in planet_sma_asc_ii
+    # Handle all observations attached to planets in order of semi-major axis
+    for j in eachindex(planet_sma_asc_ii)
+        i = planet_sma_asc_ii[j]
+        # Planet model
         planet = system.planets[i]
+        # Parameters specific to this planet
         θ_planet = θ_system.planets[i]
-        kep_elements = elements[i]
+        # Cached KeplerianElements with precomputed factors, etc.
+        planet_elements = elements[i]
+        # kep_elements, but for all planets interior to this one (given the current parameters)
+        # interior_planets = kep_elements[begin:min(end,i)]
 
+        # Loop through observations
         for obs in planet.observations
-            ll += ln_like(obs, θ_planet, kep_elements)
+            ll += ln_like(obs, θ_planet, planet_elements, θ_system.planets, elements)
         end
     end
 
