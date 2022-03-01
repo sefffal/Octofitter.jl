@@ -433,21 +433,20 @@ function init_plots()
             )
             xerr = nothing
             elements = DirectDetections.construct_elements(chain, planet_key, ii)
+            all_epochs = reduce(vcat, Any[t.table.epoch for t in planet.observations if haskey(t.table, :epoch)], init=[mjd()])
+            t = range((extrema(all_epochs) .+ [-365, 365])..., length=100)
             y = nothing
             if prop == :ra
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 y = astrometry(planet).table.ra
                 yerr = astrometry(planet).table.σ_ra
                 fit = raoff.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :dec
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 y = astrometry(planet).table.dec
                 yerr = astrometry(planet).table.σ_dec
                 fit = decoff.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :sep
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 xx = astrometry(planet).table.ra
                 yy = astrometry(planet).table.dec
                 xxerr = astrometry(planet).table.σ_ra
@@ -458,7 +457,6 @@ function init_plots()
                 fit = projectedseparation.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :pa
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 xx = astrometry(planet).table.ra
                 yy = astrometry(planet).table.dec
                 xxerr = astrometry(planet).table.σ_ra
@@ -485,10 +483,16 @@ function init_plots()
                 x = years2mjd.([hgca.epoch_dec_hip, (hgca.epoch_dec_hip + hgca.epoch_dec_gaia)/2, hgca.epoch_dec_gaia])
                 xerr = [4*365/2, 25*365/2, 3*365/2]
             elseif prop == :rv
-                # TODO
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
-                x = astrometry(planet).table.epoch
+                # model lines
                 fit = radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]))'
+                for obs in planet.observations
+                    if obs isa RadialVelocity
+                        # plot rv data over model
+                        y = obs.table.rv
+                        yerr = obs.table.σ_rv
+                        x = obs.table.epoch
+                    end
+                end
             end
             Plots.plot!(
                 mjd2date.(t), fit,
@@ -503,7 +507,7 @@ function init_plots()
                 Plots.scatter!(
                     p1,
                     mjd2date.(x),
-                    y; yerr, xerr= isnothing(xerr) ? nothing : xerr,
+                    y; yerr, xerr,
                     # markersize=1.5,
                     # color=:black,
                     color=1,
