@@ -226,11 +226,11 @@ function hmc(
 
     mma = MassMatrixAdaptor(metric)
     if isnothing(step_size)
-        verbosity >= 1 && @info "Will adapt step size and mass matrix"
+        verbosity >= 1 && @info "Adapting step size and mass matrix"
         ssa = StepSizeAdaptor(target_accept, integrator)
         adaptor = StanHMCAdaptor(mma, ssa) 
     else
-        verbosity >= 1 && @info "Will adapt mass matrix only"
+        verbosity >= 1 && @info "Adapting adapt mass matrix only" step_size
         adaptor = MassMatrixAdaptor(metric)
     end
 
@@ -267,8 +267,19 @@ function hmc(
     last_output_time = Ref(time())
     function callback(rng, model, sampler, transition, state, iteration; kwargs...)
         if verbosity >= 1 && iteration == 1
+            @info "Adaptation complete."
+
             # Show adapted step size and mass matrix
-            @info "Completed adaptation."
+            if verbosity >= 3
+                adapted_ss = AdvancedHMC.getϵ(adaptor)
+                println("Adapated stepsize ϵ=", adapted_ss)
+                adapted_mm = AdvancedHMC.getM⁻¹(adaptor)
+                print("Adapted mass matrix M⁻¹ ")
+                display(adapted_mm)
+            end
+            
+            @info "Sampling..."
+            verbosity >= 2 && println("Progress legend: divergence iter(thread) td=tree-depth ℓπ=log-posterior-density ")
         end
         if verbosity < 2 || last_output_time[] + 2 > time()
             return
@@ -318,15 +329,6 @@ function hmc(
         last_output_time[] = time()
         return
     end
-
-    if verbosity >= 1
-        if adaptation > 0
-            @info "Sampling, starting with adaptation"
-        else 
-            @info "Sampling"
-        end
-    end
-
 
     mc_samples_all_chains = sample(
         rng,

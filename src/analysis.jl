@@ -435,19 +435,19 @@ function init_plots()
             elements = DirectDetections.construct_elements(chain, planet_key, ii)
             y = nothing
             if prop == :ra
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365*2, 365*2])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 y = astrometry(planet).table.ra
                 yerr = astrometry(planet).table.σ_ra
                 fit = raoff.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :dec
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365*2, 365*2])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 y = astrometry(planet).table.dec
                 yerr = astrometry(planet).table.σ_dec
                 fit = decoff.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :sep
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365*2, 365*2])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 xx = astrometry(planet).table.ra
                 yy = astrometry(planet).table.dec
                 xxerr = astrometry(planet).table.σ_ra
@@ -458,7 +458,7 @@ function init_plots()
                 fit = projectedseparation.(elements, t')'
                 x = astrometry(planet).table.epoch
             elseif prop == :pa
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365*2, 365*2])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 xx = astrometry(planet).table.ra
                 yy = astrometry(planet).table.dec
                 xxerr = astrometry(planet).table.σ_ra
@@ -486,7 +486,7 @@ function init_plots()
                 xerr = [4*365/2, 25*365/2, 3*365/2]
             elseif prop == :rv
                 # TODO
-                t = range((extrema(astrometry(planet).table.epoch) .+ [-365*2, 365*2])..., length=100)
+                t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=100)
                 x = astrometry(planet).table.epoch
                 fit = radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]))'
             end
