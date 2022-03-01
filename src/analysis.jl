@@ -123,7 +123,7 @@ function init_plots()
             alpha=0.02,
             cmap=:turbo,
             rev=true,
-            colorbartitle= property isa Symbol ? "$planet_key[$property]" : "",#"semi-major axis (au)",
+            colorbartitle= property isa Symbol ? string(property) : "",#"semi-major axis (au)",
             clims=nothing,
             lw=0.3,
             kwargs...
@@ -146,8 +146,9 @@ function init_plots()
             Plots.xlabel!("Δ right ascension (mas)")
             Plots.ylabel!("Δ declination (mas)")
 
-            if property isa Symbol
-                k = string(planet_key)*"[$property]"
+            if typeof(property) <: Union{Symbol,AbstractString}
+                # k = string(planet_key)*"[$property]"
+                k = property
                 colours = chain[k][ii]
             else # Assume they passed in the values directly
                 colours = property[ii]
@@ -433,7 +434,7 @@ function init_plots()
             )
             xerr = nothing
             elements = DirectDetections.construct_elements(chain, planet_key, ii)
-            all_epochs = reduce(vcat, Any[t.table.epoch for t in planet.observations if haskey(t.table, :epoch)], init=[mjd()])
+            all_epochs = reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch)], init=[mjd()])
             t = range((extrema(all_epochs) .+ [-365, 365])..., length=100)
             y = nothing
             if prop == :ra
@@ -494,10 +495,14 @@ function init_plots()
                     end
                 end
             end
+            if haskey(kwargs, :cmap)
+                kwargs = (;kwargs..., color=kwargs[:cmap])
+            end
+
             Plots.plot!(
                 mjd2date.(t), fit,
                 line_z=repeat(
-                    collect(chain["$planet_key[$color]"][ii]),
+                    collect(chain[color][ii]),
                     1, length(t)
                 )',
                 alpha=0.05;
@@ -521,16 +526,18 @@ function init_plots()
             chains;
             color="b[e]",
             clims = quantile(vec(chains[color]),(0.01, 0.99)),
+            cmap = :plasma,
+            alpha=0.1,
             N=1500,
             ii = rand(1:size(chains,1)*size(chains,3), N)
         )
             kwargs = (; 
                 ii,
                 clims,
-                cmap=:plasma,
-                alpha=0.1
+                cmap,
+                alpha
             )
-            ppost = plotposterior(chains, :b, :e; rev=false, colorbar=nothing, kwargs...)
+            ppost = plotposterior(chains, :b, color; rev=false, colorbar=nothing, kwargs...)
             for (i,planet_key) in enumerate(keys(chains.info.model.planets))
                 astrom = astrometry(chains.info.model.planets[planet_key])
                 if !isnothing(astrom)
@@ -538,12 +545,12 @@ function init_plots()
                 end
             end
             Plots.plot(
-                timeplot(chains, :b, :e, :sep; kwargs...),
-                timeplot(chains, :b, :e, :pa; kwargs...),
-                timeplot(chains, :b, :e, :pmra; kwargs...),
-                timeplot(chains, :b, :e, :pmdec; kwargs...),
+                timeplot(chains, :b, color, :sep; kwargs...),
+                timeplot(chains, :b, color, :pa; kwargs...),
+                timeplot(chains, :b, color, :pmra; kwargs...),
+                timeplot(chains, :b, color, :pmdec; kwargs...),
                 ppost,
-                timeplot(chains, :b, :e, :rv; kwargs...),
+                timeplot(chains, :b, color, :rv; kwargs...),
                 layout = (3,2),
                 framestyle=:box,
                 grid=false,
