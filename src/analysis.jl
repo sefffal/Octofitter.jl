@@ -196,18 +196,19 @@ function init_plots()
             N=1500,
             system=chain.info.model;
             alpha=(N <= 15 ? 1 : 30/N),
-            color= isnothing(propermotionanom(system)) ? :a : :mass,
-            plotpma=false,#!isnothing(propermotionanom(system)),
+            color=length(system.planets) == 0 ? nothing : string(first(keys(system.planets)))*"[a]",
+            colorbartitle=color,
+            plotpma=!isnothing(propermotionanom(system)),
             # TODO: ideally this is based on if there is a mass variable
             plotmass=!isnothing(propermotionanom(system)),
             cmap=:plasma,
             imagecmap=:Greys,
             pma_scatter=nothing,
-            clims=quantile(Iterators.flatten(
+            clims=isnothing(color) ? nothing : quantile(Iterators.flatten(
                 # extrema(planet.a)
                 # extrema([sample.planets[key].a for sample in chain])
                 # for key in keys(chain[1].planets)
-                extrema(chain["$pk[$color]"] for pk in keys(system.planets))
+                extrema(chain["$color"] for pk in keys(system.planets))
             ), (0.01,0.99)),
             lims=nothing,
             kwargs...
@@ -243,6 +244,7 @@ function init_plots()
                     cmap=cmap, rev=false,
                     # cmap=:turbo,
                     clims=clims,
+                    colorbartitle=colorbartitle,
                     kwargs...
                 )
 
@@ -259,10 +261,9 @@ function init_plots()
             final_plot = p_orbits
 
             # astrometric acceleration?
-            if plotpma
+            if plotpma && propermotionanom(system) isa ProperMotionAnom
 
-
-                lpma =length(propermotionanom(system).table.ra_epoch)
+                lpma =size(propermotionanom(system).table,1)
                 # pma_ii = sortperm(propermotionanom(system).table.ra_epoch)
                 if lpma == 2 && 
                     isapprox(minimum(propermotionanom(system).table.ra_epoch), mjd("1991"), atol=365) &&
@@ -282,6 +283,7 @@ function init_plots()
                 
                 pma_extrema_x = [-0.0,0.0]
                 pma_extrema_y = [-0.0,0.0]
+                ## TODO: instantaneous PM is used instead of time averaged.
                 pma_plots = map(sortperm(system_pma.table.ra_epoch)) do i
                     vx = zeros(prod(size(chain,[1,3])))
                     vy = zeros(prod(size(chain,[1,3])))
@@ -358,6 +360,7 @@ function init_plots()
                 ]))
                 final_plot = Plots.plot(p_orbits, pma_plots..., layout=l, size=(550,750),
                     margin=5Plots.mm, guidefontsize=9, titlefontsize=9, top_margin=0Plots.mm)
+            elseif plotpma && propermotionanom(system) isa ProperMotionAnomHGCA
             end
 
             if plotmass
@@ -556,6 +559,283 @@ function init_plots()
                 grid=false,
                 size=(1000,1200),
             )
+        end
+
+        function pmaplot(chains; kwargs...)
+            pmaplot(chains, propermotionanom(chains.info.model); kwargs...)
+        end
+        function pmaplot(chains, pma::ProperMotionAnomHGCA; color, kwargs...)
+            
+            hgca = pma.table
+
+            # Roughly over what time period were the observations made?
+            dt_gaia = 1038 # EDR3: days between  Date("2017-05-28") - Date("2014-07-25")
+            dt_hip = 4*365
+            # How many points over Δt should we average the proper motion and stellar position
+            # at each epoch? This is because the PM is not an instantaneous measurement.
+            N_ave = 25 #5
+        
+            # Look at the position of the star around both epochs to calculate 
+            # our modelled delta-position proper motion
+            ii = rand(1:size(chains,1)*size(chains,3), 1500)
+            # ii = 1:size(chains,1)*size(chains,3)
+
+            ra_gaia_model = zeros(size(ii))
+            dec_gaia_model = zeros(size(ii))
+            pmra_gaia_model = zeros(size(ii))
+            pmdec_gaia_model = zeros(size(ii))
+            ra_hip_model = zeros(size(ii))
+            dec_hip_model = zeros(size(ii))
+            pmra_hip_model = zeros(size(ii))
+            pmdec_hip_model = zeros(size(ii))
+            pmra_hg_model = zeros(size(ii))
+            pmdec_hg_model = zeros(size(ii))
+
+            planets = keys(chains.info.model.planets)
+        
+            for (j,jj) in enumerate(ii)
+                elements = [
+                    DirectDetections.construct_elements(chains, p, j)
+                    for p in planets
+                ]
+
+                # First epoch: Hipparcos
+                for i in eachindex(elements)
+                    orbit = elements[i]
+                    p = planets[i]
+                    # Average multiple observations over a timescale +- dt/2
+                    # to approximate what HIPPARCOS would have measured.
+                    for δt = range(-dt_hip/2, dt_hip/2, N_ave)
+                        # RA and dec epochs are usually slightly different
+                        # Note the unit conversion here from jupiter masses to solar masses to 
+                        # make it the same unit as the stellar mass (element.mu)
+                        # TODO: we can't yet use the orbitsolve interface here for the pmra calls,
+                        # meaning we calculate the orbit 2x as much as we need.
+                        o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt)
+                        o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt)
+                        ra_hip_model[j] += -raoff(o_ra) * chains["$p[mass]"][jj]*mjup2msol/orbit.M
+                        dec_hip_model[j] += -decoff(o_dec) * chains["$p[mass]"][jj]*mjup2msol/orbit.M
+                        pmra_hip_model[j] += pmra(o_ra, chains["$p[mass]"][jj]*mjup2msol)
+                        pmdec_hip_model[j] += pmdec(o_dec, chains["$p[mass]"][jj]*mjup2msol)
+                    end
+                end
+                ra_hip_model[j]/=N_ave
+                dec_hip_model[j]/=N_ave
+                pmra_hip_model[j]/=N_ave
+                pmdec_hip_model[j]/=N_ave
+            
+                # First epoch: Hipparcos
+                for i in eachindex(elements)
+                    orbit = elements[i]
+                    p = planets[i]
+                    # Average multiple observations over a timescale +- dt/2
+                    # to approximate what HIPPARCOS would have measured.
+                    for δt = range(-dt_gaia/2, dt_gaia/2, N_ave)
+                        # RA and dec epochs are usually slightly different
+                        # Note the unit conversion here from jupiter masses to solar masses to 
+                        # make it the same unit as the stellar mass (element.mu)
+                        # TODO: we can't yet use the orbitsolve interface here for the pmra calls,
+                        # meaning we calculate the orbit 2x as much as we need.
+                        o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt)
+                        o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt)
+                        ra_gaia_model[j] += -raoff(o_ra) * chains["$p[mass]"][jj]*mjup2msol/orbit.M
+                        dec_gaia_model[j] += -decoff(o_dec) * chains["$p[mass]"][jj]*mjup2msol/orbit.M
+                        pmra_gaia_model[j] += pmra(o_ra, chains["$p[mass]"][jj]*mjup2msol)
+                        pmdec_gaia_model[j] += pmdec(o_dec, chains["$p[mass]"][jj]*mjup2msol)
+                    end
+                end
+                ra_gaia_model[j]/=N_ave
+                dec_gaia_model[j]/=N_ave
+                pmra_gaia_model[j]/=N_ave
+                pmdec_gaia_model[j]/=N_ave
+            
+            
+                # Model the GAIA-Hipparcos delta-position velocity
+                pmra_hg_model[j] = (ra_gaia_model[j] - ra_hip_model[j])/(years2mjd(hgca.epoch_ra_gaia[1]) - years2mjd(hgca.epoch_ra_hip[1]))
+                pmdec_hg_model[j] = (dec_gaia_model[j] - dec_hip_model[j])/(years2mjd(hgca.epoch_dec_gaia[1]) - years2mjd(hgca.epoch_dec_hip[1]))
+            end
+            # # Compute the likelihood at all three epochs (Hipparcos, GAIA-Hip, GAIA)
+            # pmra_model = (pmra_hip_model, pmra_hg_model, pmra_gaia_model)
+            # pmdec_model = (pmdec_hip_model, pmdec_hg_model, pmdec_gaia_model)
+            # pmra_meas = (hgca.pmra_hip[1], hgca.pmra_hg[1], hgca.pmra_gaia[1])
+            # pmdec_meas = (hgca.pmdec_hip[1], hgca.pmdec_hg[1], hgca.pmdec_gaia[1])
+            # σ_pmra = (hgca.pmra_hip_error[1], hgca.pmra_hg_error[1], hgca.pmra_gaia_error[1])
+            # σ_pmdec = (hgca.pmdec_hip_error[1], hgca.pmdec_hg_error[1], hgca.pmdec_gaia_error[1])
+            
+            # return Plots.plot(
+            #     Plots.histogram2d(pmra_hip_model, pmdec_hip_model),
+            #     Plots.histogram2d(pmra_hg_model, pmdec_hg_model),
+            #     Plots.histogram2d(pmra_gaia_model, pmdec_gaia_model),
+            # )
+
+            pma_extrema_x = extrema(vcat(pmra_hip_model, pmra_hg_model, pmra_gaia_model, ))
+            pma_extrema_y = extrema(vcat(pmdec_hip_model, pmdec_hg_model, pmdec_gaia_model, ))
+
+            if !isnothing(color)
+                subplots = [
+                    Plots.scatter(
+                        pmra_hip_model,
+                        pmdec_hip_model,
+                        marker_z=chains[color],
+                        title="Hipparcos",
+                    ),
+                    Plots.scatter(
+                        pmra_hg_model,
+                        pmdec_hg_model,
+                        marker_z=chains[color],
+                        title="Gaia-Hipparcos",
+                    ),
+                    Plots.scatter(
+                        pmra_gaia_model,
+                        pmdec_gaia_model,
+                        marker_z=chains[color],
+                        title="Gaia",
+                    ),
+                ]
+            else
+                error("Not implemented")
+            end
+
+            for p in subplots
+                # Plots.scatter!(p, [0], [0], marker=(5, :circle, :red),label="")
+                Plots.hline!(p, [0], color=:black, label="", linewidth=1)
+                Plots.vline!(p, [0], color=:black, label="", linewidth=1)
+                Plots.xlabel!(p, "Δμ ra - mas/yr")
+            end
+            Plots.ylabel!(subplots[1], "Δμ dec - mas/yr")
+
+
+            pmra_meas = (hgca.pmra_hip[1], hgca.pmra_hg[1], hgca.pmra_gaia[1])
+            pmdec_meas = (hgca.pmdec_hip[1], hgca.pmdec_hg[1], hgca.pmdec_gaia[1])
+            σ_pmra = (hgca.pmra_hip_error[1], hgca.pmra_hg_error[1], hgca.pmra_gaia_error[1])
+            σ_pmdec = (hgca.pmdec_hip_error[1], hgca.pmdec_hg_error[1], hgca.pmdec_gaia_error[1])
+            for i in 1:3
+                @show pmra_meas[i:i] pmdec_meas[i:i] σ_pmra[i:i] σ_pmdec[i:i]
+                Plots.scatter!(pmra_meas[i:i], pmdec_meas[i:i], xerr=σ_pmra[i:i], yerr=σ_pmdec[i:i])
+            end
+            
+
+
+            pma_plot =  Plots.plot(
+                subplots...,
+                alpha=1,
+                color=:plasma,
+                legend=false,
+                colorbar=false,
+                label="",
+                markerstrokewidth=0,
+                ms=1,
+                aspectratio=1,
+                layout=(1,3),
+                framestyle=:box,
+                minorticks=true,
+                grid=false,
+                xlims=pma_extrema_x,
+                ylims=pma_extrema_y,
+                # clims=clims_pma
+            )
+
+            return pma_plot
+
+
+            # lpma =size(propermotionanom(system).table,1)
+            # # pma_ii = sortperm(propermotionanom(system).table.ra_epoch)
+            # if lpma == 2 && 
+            #     isapprox(minimum(propermotionanom(system).table.ra_epoch), mjd("1991"), atol=365) &&
+            #     isapprox(maximum(propermotionanom(system).table.ra_epoch), mjd("2016"), atol=365)
+
+            #     titles=["Hipparcos", "GAIA"]
+            # elseif lpma == 3 && 
+            #     isapprox(minimum(propermotionanom(system).table.ra_epoch), mjd("1991"), atol=365) &&
+            #     isapprox(minimum(propermotionanom(system).table.ra_epoch), (mjd("1991")+mjd("2016"))/2, atol=365) &&
+            #     isapprox(maximum(propermotionanom(system).table.ra_epoch), mjd("2016"), atol=365)
+
+            #     titles=["Hipparcos", "GAIA-Hipparcos", "GAIA"]
+            # else
+            #     titles = string.(round.(Int, propermotionanom(system).table.ra_epoch))
+            # end
+            # system_pma = propermotionanom(system)
+            
+            # pma_extrema_x = [-0.0,0.0]
+            # pma_extrema_y = [-0.0,0.0]
+            # ## TODO: instantaneous PM is used instead of time averaged.
+            # pma_plots = map(sortperm(system_pma.table.ra_epoch)) do i
+            #     vx = zeros(prod(size(chain,[1,3])))
+            #     vy = zeros(prod(size(chain,[1,3])))
+            #     for j in keys(system.planets)
+            #         elements = construct_elements(chain, j, 1:prod(size(chain,[1,3])))
+            #         # mass = [sample.planets[j].mass for sample in chain]
+            #         mass = reshape(chain["$j[mass]"],:)
+            #         vx .+= pmra.(elements, system_pma.table.ra_epoch[i], mass.*mjup2msol) .+ vec(chain["pmra"])
+            #         vy .+= pmdec.(elements, system_pma.table.dec_epoch[i], mass.*mjup2msol) .+ vec(chain["pmdec"])
+            #     end
+            #     Plots.plot(
+            #         framestyle=:box,
+            #         minorticks=true,
+            #         aspectratio=1,
+            #         grid=false,
+            #         # xlims=:symmetric,
+            #         # ylims=:symmetric,
+            #     )
+            #     if !isnothing(pma_scatter)
+            #         if length(system.planets) > 1
+            #             @warn "Multiplanet PMA scatter plots not yet implemented"
+            #         end
+            #         ii = rand(1:size(chain,1), N)
+            #         planet_key = first(system.planets).name
+            #         prop = chain["$planet_key[$pma_scatter]"][ii]
+            #         # if pma_scatter == :mass
+            #         #     prop ./=mjup2msol
+            #         # end
+            #         if color == pma_scatter
+            #             clims_pma = clims
+            #         else
+            #             clims_pma = quantile(prop, (0.01, 0.99))
+            #         end
+            #         Plots.scatter!(vx[ii], vy[ii], marker_z=prop, alpha=1, color=:plasma, legend=false, colorbar=false, label="", markerstrokewidth=0, ms=1, clims=clims_pma)
+            #     else
+            #         h = fit(Histogram, (vx, vy))#, (-1:0.05:1, -1:0.05:1))
+            #         Plots.plot!(h, color=Plots.cgrad([Plots.RGBA(0,0,0,0), Plots.RGBA(0,0,0,1)]), colorbar=false)
+            #     end
+            #     pma_plot = Plots.scatter!(
+            #         [system_pma.table.pm_ra[i]],
+            #         [system_pma.table.pm_dec[i]],
+            #         xerror=[system_pma.table.σ_pm_ra[i]],
+            #         yerror=[system_pma.table.σ_pm_dec[i]],
+            #         label="",
+            #         color=:red,
+            #         markercolor=:red,
+            #         markerstrokecolor=:red,
+            #     )
+            #     # Plots.scatter!([0], [0], marker=(5, :circle, :red),label="")
+            #     # Plots.hline!(pma_plot, [0], color=:black, label="")
+            #     # Plots.vline!(pma_plot, [0], color=:black, label="")
+            #     Plots.title!(pma_plot, titles[i])
+            #     # Plots.xlims!(-1,1)
+            #     # Plots.ylims!(-1,1)
+            #     Plots.xlabel!(pma_plot, "Δμ ra - mas/yr")
+            #     Plots.ylabel!(pma_plot, "Δμ dec - mas/yr")
+            #     pma_extrema_x[1] = min(minimum(vx), system_pma.table.pm_ra[i] - system_pma.table.σ_pm_ra[i], system_pma.table.pm_ra[i] + system_pma.table.σ_pm_ra[i])
+            #     pma_extrema_x[2] = max(maximum(vx), system_pma.table.pm_ra[i] - system_pma.table.σ_pm_ra[i], system_pma.table.pm_ra[i] + system_pma.table.σ_pm_ra[i])
+            #     pma_extrema_y[1] = min(minimum(vy), system_pma.table.pm_dec[i] - system_pma.table.σ_pm_dec[i], system_pma.table.pm_dec[i] + system_pma.table.σ_pm_dec[i])
+            #     pma_extrema_y[2] = max(maximum(vy), system_pma.table.pm_dec[i] - system_pma.table.σ_pm_dec[i], system_pma.table.pm_dec[i] + system_pma.table.σ_pm_dec[i])
+            #     return pma_plot
+            # end
+            # # for plot in pma_plots
+            # #     Plots.xlims!(plot, pma_extrema_x...)
+            # #     Plots.ylims!(plot, pma_extrema_y...)
+            # # end
+            # # pma_plot = plot(pma_plots..., size=(700,300),margin=5Plots.mm, guidefontsize=9, titlefontsize=9, top_margin=0Plots.mm)
+            # # pma_plot = Plots.plot(pma_plots, link=:both)
+
+            # # Crete new final plot
+            # l = eval(:(Plots.@layout [
+            #     A{0.65h}
+            #     Plots.grid(1, $lpma)
+            # ]))
+            # final_plot = Plots.plot(p_orbits, pma_plots..., layout=l, size=(550,750),
+            #     margin=5Plots.mm, guidefontsize=9, titlefontsize=9, top_margin=0Plots.mm)
+            return Base.@locals
         end
     end
 end
