@@ -39,6 +39,9 @@ RuntimeGeneratedFunctions.init(@__MODULE__)
 
 const mjup2msol = 0.0009543
 
+# Re-export the Chains constructor.
+export Chains 
+
 include("types.jl")
 include("distributions.jl")
 include("models.jl")
