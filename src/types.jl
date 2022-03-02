@@ -134,8 +134,7 @@ support autodifferentiation.
 struct Derived{T}
     variables::T
 end
-const Deterministic = Derived
-export Derived, Deterministic
+export Derived
 function Derived(;variables...)
     # Basically just wrap a named tuple
     return Derived(
@@ -149,6 +148,43 @@ function Base.show(io::IO, mime::MIME"text/plain", @nospecialize det::Derived)
     end
     print(io, "\n")
 end
+
+"""
+A list of variables drawn from prior distributions or functions thereof.
+
+Example:
+```julia
+    Variables(
+        a = Uniform(1, 100),
+        e = Uniform(0, 1),
+        i = Sine(),
+        τ = Uniform(0, 1),
+        mass = Uniform(0, 100),
+        Ωpω = Uniform(0, 2π),
+        Ωmω = Normal(0, π/2),
+        Ω = (sys, pl) -> (pl.Ωpω + pl.Ωmω)/2,
+        ω = (sys, pl) -> (pl.Ωpω - pl.Ωmω)/2,
+    )
+```
+"""
+function Variables(; kwargs...)
+    isdist(v) = typeof(v) <: Distribution
+    priors = filter(isdist ∘ last, kwargs)
+    derived = filter(!(isdist ∘ last), kwargs)
+    # Convert anything <: Number to a function that returns that number
+    map!(values(derived)) do v
+        if typeof(v) <: Number
+            Returns(v)
+        else
+            # Assume it's callable. We check if it's
+            # <: Function but this excludes callable objects.
+            v
+        end
+    end
+    return Priors(priors), Derived(derived)
+end
+export Variables
+
 
 """
     Planet([derived,] priors, [astrometry,], name=:symbol)
@@ -165,7 +201,7 @@ struct Planet{TP<:Priors,TD<:Union{Derived,Nothing},TObs<:NTuple{N,<:AbstractObs
     name::Symbol
 end
 export Planet
-
+Planet((priors,det)::Tuple{Priors,Derived}, args...; kwargs...) = Planet(priors, det, args...; kwargs...)
 Planet(priors::Priors, obs::AbstractObs...; name) = Planet(priors, nothing, obs, name)
 Planet(priors::Priors, det::Derived, obs::AbstractObs...; name) = Planet(priors, det, obs, name)
 
