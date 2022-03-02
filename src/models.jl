@@ -164,6 +164,33 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
 end
 
 """
+Radial velocity likelihood.
+"""
+function ln_like(rv::RadialVelocity, θ_system, elements)
+    ll = 0.0
+
+    for i in eachindex(rv.table.epoch)
+        rv_star = 0.0
+        for j in eachindex(elements)
+            θ_planet = θ_system.planets[j]
+            orbit = elements[j]
+
+            if θ_planet.mass < 0
+                return -Inf 
+            end
+
+            rv_star += radvel(orbit, rv.table.epoch[i], θ_planet.mass*mjup2msol)
+        end
+        resid = rv_star + θ_system.rv - rv.table.rv[i]
+        σ² = rv.table.σ_rv[i]^2 + θ_system.jitter^2
+        χ² = -0.5resid^2 / σ² - log(sqrt(2π * σ²))
+        ll += χ²
+    end
+
+    return ll
+end
+
+"""
 Likelihood of there being planets in a sequence of images.
 """
 function ln_like(images::Images, θ_system, θ_planet)
