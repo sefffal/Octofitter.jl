@@ -246,6 +246,7 @@ export System
 
 # Argument standardization / method cascade.
 # Allows users to pass arguments to System in any convenient order.
+System((priors,det)::Tuple{Priors,Derived}, args...; kwargs...) = System(priors, det, args...; kwargs...)
 System(planets::Planet...; kwargs...) = System(Priors(), nothing, planets...; kwargs...)
 System(priors::Priors, args::Union{AbstractObs,Planet}...; kwargs...) = System(priors, nothing, args...; kwargs...)
 System(priors::Priors, det::Union{Derived,Nothing}, args::Union{AbstractObs,Planet}...; kwargs...) = System(priors, det, group_obs_planets(args)...; kwargs...)
