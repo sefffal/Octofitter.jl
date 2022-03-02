@@ -400,7 +400,7 @@ function init_plots()
             elseif prop == :rv
                 # model lines
                 fit = radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]))'
-                for obs in planet.observations
+                for obs in chain.info.model.observations
                     if obs isa RadialVelocity
                         # plot rv data over model
                         y = obs.table.rv
