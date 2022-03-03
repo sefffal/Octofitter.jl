@@ -348,7 +348,7 @@ function init_plots()
             )
             xerr = nothing
             elements = DirectDetections.construct_elements(chain, planet_key, ii)
-            all_epochs = reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch)], init=[mjd()])
+            all_epochs = reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch)], init=[])
             t = range((extrema(all_epochs) .+ [-365, 365])..., length=100)
             y = nothing
             if prop == :ra
@@ -399,7 +399,7 @@ function init_plots()
                 xerr = [4*365/2, 25*365/2, 3*365/2]
             elseif prop == :rv
                 # model lines
-                fit = radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]))'
+                fit = radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]).*mjup2msol)'
                 for obs in chain.info.model.observations
                     if obs isa RadialVelocity
                         # plot rv data over model
@@ -443,13 +443,15 @@ function init_plots()
             cmap = :plasma,
             alpha=0.1,
             N=1500,
-            ii = rand(1:size(chains,1)*size(chains,3), N)
+            ii = rand(1:size(chains,1)*size(chains,3), N),
+            kwargs...
         )
             kwargs = (; 
                 ii,
                 clims,
                 cmap,
-                alpha
+                alpha,
+                kwargs...
             )
             ppost = plotposterior(chains, :b, color; rev=false, colorbar=nothing, kwargs...)
             for (i,planet_key) in enumerate(keys(chains.info.model.planets))
