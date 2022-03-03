@@ -305,7 +305,10 @@ function hmc(
             θ = Bijector_invlinkvec(transition.z.θ)
             θ_res = arr2nt(θ)
             # Fill the remaining width of the terminal with info
-            θ_message = "θ="*string(θ_res)[begin:min(end,displaysize(stdout)[2]-34)]*"..."
+            max_width = displaysize(stdout)[2]-34
+            θ_str = string(θ_res)
+            θ_str_trunc = θ_str[begin:prevind(θ_str, min(end,max_width))]
+            θ_message = "θ="*θ_str_trunc*"..."
         end
         
         @printf("%1s%6d(%2d) td=%2d ℓπ=%6.0f. %s\n", note, iteration, Threads.threadid(), transition.stat.tree_depth, ℓπ, θ_message)
