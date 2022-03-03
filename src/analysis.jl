@@ -17,7 +17,7 @@ function projectpositions(chains, planet_key, times)
             els = DirectDetections.construct_elements(chains, planet_key, is .* j)
             for (i,el) in zip(is,els)
                 for (k, t) in enumerate(times)
-                    o = kep2cart(el, t)
+                    o = orbitsolve(el, t)
                     ras[i,j,k] = raoff(o)
                     decs[i,j,k] = decoff(o)
                 end
@@ -208,7 +208,7 @@ function init_plots()
                 # extrema(planet.a)
                 # extrema([sample.planets[key].a for sample in chain])
                 # for key in keys(chain[1].planets)
-                extrema(chain["$color"] for pk in keys(system.planets))
+                extrema(chain[color])
             ), (0.01,0.99)),
             lims=nothing,
             kwargs...
@@ -314,8 +314,12 @@ function init_plots()
             size=(500,700)
         )
         ```
-        """  
-        function timeplot(
+        """
+        function timeplot(args...; kwargs...)
+            Plots.plot()
+            timeplot!(args...; kwargs...)
+        end
+        function timeplot!(
             chain,
             planet_key,
             color,
@@ -345,46 +349,60 @@ function init_plots()
             else
                 error("Unsupported property. Choose :ra, :dec, :sep, :pa, :rv, :pmra, or :pmdec")
             end
-            p1 = Plots.plot(;
+            p1 = Plots.plot!(;
                 ylabel,
                 legend=:none
             )
             xerr = nothing
             elements = DirectDetections.construct_elements(chain, planet_key, ii)
-            all_epochs = reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch)], init=[])
+            all_epochs = mapreduce(vcat, keys(chain.info.model.planets)) do planet_key
+                planet = chain.info.model.planets[planet_key]
+                reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch)], init=[])
+            end
+            if isempty(all_epochs) 
+                all_epochs = mjd() .+ [-365*2, +365*2]
+            end
             t = range((extrema(all_epochs) .+ [-365, 365])..., length=100)
             y = nothing
             ribbon = nothing
             if prop == :ra
-                y = astrometry(planet).table.ra
-                yerr = astrometry(planet).table.σ_ra
+                if !isnothing(astrometry(planet))
+                    y = astrometry(planet).table.ra
+                    yerr = astrometry(planet).table.σ_ra
+                    x = astrometry(planet).table.epoch
+                end
                 fit = raoff.(elements, t')
-                x = astrometry(planet).table.epoch
             elseif prop == :dec
-                y = astrometry(planet).table.dec
-                yerr = astrometry(planet).table.σ_dec
+                if !isnothing(astrometry(planet))
+                    y = astrometry(planet).table.dec
+                    yerr = astrometry(planet).table.σ_dec
+                    x = astrometry(planet).table.epoch
+                end
                 fit = decoff.(elements, t')
-                x = astrometry(planet).table.epoch
             elseif prop == :sep
-                xx = astrometry(planet).table.ra
-                yy = astrometry(planet).table.dec
-                xxerr = astrometry(planet).table.σ_ra
-                yyerr = astrometry(planet).table.σ_dec
-                y_unc = sqrt.((xx .± xxerr).^2 .+ (yy .± yyerr).^2)
-                y = Measurements.value.(y_unc)
-                yerr = Measurements.uncertainty.(y_unc)
+                if !isnothing(astrometry(planet))
+                    xx = astrometry(planet).table.ra
+                    yy = astrometry(planet).table.dec
+                    xxerr = astrometry(planet).table.σ_ra
+                    yyerr = astrometry(planet).table.σ_dec
+                    y_unc = sqrt.((xx .± xxerr).^2 .+ (yy .± yyerr).^2)
+                    y = Measurements.value.(y_unc)
+                    yerr = Measurements.uncertainty.(y_unc)
+                    x = astrometry(planet).table.epoch
+                end
                 fit = projectedseparation.(elements, t')
-                x = astrometry(planet).table.epoch
             elseif prop == :pa
-                xx = astrometry(planet).table.ra
-                yy = astrometry(planet).table.dec
-                xxerr = astrometry(planet).table.σ_ra
-                yyerr = astrometry(planet).table.σ_dec
-                y_unc = atand.((xx .± xxerr), (yy .± yyerr))
-                y = Measurements.value.(y_unc)
-                yerr = Measurements.uncertainty.(y_unc)
+                if !isnothing(astrometry(planet))
+                    xx = astrometry(planet).table.ra
+                    yy = astrometry(planet).table.dec
+                    xxerr = astrometry(planet).table.σ_ra
+                    yyerr = astrometry(planet).table.σ_dec
+                    y_unc = atand.((xx .± xxerr), (yy .± yyerr))
+                    y = Measurements.value.(y_unc)
+                    yerr = Measurements.uncertainty.(y_unc)
+                    x = astrometry(planet).table.epoch
+                end
                 fit = rad2deg.(posangle.(elements, t'))
-                x = astrometry(planet).table.epoch
             elseif prop == :pmra
                 hgca = propermotionanom(chain.info.model).table[1]
                 t = range(years2mjd(hgca.epoch_ra_hip)-365*5, years2mjd(hgca.epoch_ra_gaia)+365*5, length=100)
@@ -403,8 +421,15 @@ function init_plots()
                 xerr = [4*365/2, 25*365/2, 3*365/2]
             elseif prop == :rv
                 # TODO: how do we indicate jitter?
-                fit = chain["rv"][ii] .+ radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]).*mjup2msol)
-                ribbon = chain["jitter"][ii]
+                if :rv in keys(chain)
+                    sys_rv = chain["rv"][ii]
+                else
+                    sys_rv = 0
+                end
+                fit = sys_rv .+ radvel.(elements, t', collect(chain["$planet_key[mass]"][ii]).*mjup2msol)
+                if :jitter in keys(chain)
+                    ribbon = chain["jitter"][ii]
+                end
                 for obs in chain.info.model.observations
                     if obs isa RadialVelocity
                         # plot rv data over model
@@ -472,20 +497,44 @@ function init_plots()
                 alpha,
                 kwargs...
             )
-            ppost = plotposterior(chains, :b, color; rev=false, colorbar=nothing, kwargs...)
+
+            ppost = Plots.plot()
             for (i,planet_key) in enumerate(keys(chains.info.model.planets))
+                plotposterior!(chains, planet_key, color; rev=false, colorbar=nothing, kwargs...)
                 astrom = astrometry(chains.info.model.planets[planet_key])
                 if !isnothing(astrom)
                     Plots.scatter!(ppost, astrom, label="", color=i)
                 end
             end
+            psep = Plots.plot()
+            for planet_key in keys(chains.info.model.planets)
+                timeplot!(chains, planet_key, color, :sep; kwargs...)
+            end
+            ppa = Plots.plot()
+            for planet_key in keys(chains.info.model.planets)
+                timeplot!(chains, planet_key, color, :pa; kwargs...)
+            end
+            ppmra = Plots.plot()
+            for planet_key in keys(chains.info.model.planets)
+                timeplot!(chains, planet_key, color, :pmra; kwargs...)
+            end
+            ppmdec = Plots.plot()
+            for planet_key in keys(chains.info.model.planets)
+                timeplot!(chains, planet_key, color, :pmdec; kwargs...)
+            end
+            prv = Plots.plot()
+            for planet_key in keys(chains.info.model.planets)
+                timeplot!(chains, planet_key, color, :rv; kwargs...)
+            end
+
+
             Plots.plot(
-                timeplot(chains, :b, color, :sep; kwargs...),
-                timeplot(chains, :b, color, :pa; kwargs...),
-                timeplot(chains, :b, color, :pmra; kwargs...),
-                timeplot(chains, :b, color, :pmdec; kwargs...),
+                psep,
+                ppa,
+                ppmra,
+                ppmdec,
                 ppost,
-                timeplot(chains, :b, color, :rv; kwargs...),
+                prv,
                 layout = (3,2),
                 framestyle=:box,
                 grid=false,
