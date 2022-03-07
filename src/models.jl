@@ -193,60 +193,80 @@ end
 """
 Likelihood of there being planets in a sequence of images.
 """
-function ln_like(images::Images, θ_system, θ_planet)
+function ln_like(images::Images, θ_system, all_elements)
     
-    # Resolve the combination of system and planet parameters
-    # as a KeplerianElements object. This pre-computes
-    # some factors used in various calculations.
-    elements = construct_elements(θ_system, θ_planet)
+    # # Resolve the combination of system and planet parameters
+    # # as a KeplerianElements object. This pre-computes
+    # # some factors used in various calculations.
+    # elements = construct_elements(θ_system, θ_planet)
+    
 
     imgtable = images.table
-    T = eltype(θ_planet)
+    T = eltype(first(θ_system))
     ll = zero(T)
     for i in eachindex(imgtable.epoch)
-       
-        # Calculate position at this epoch
-        o = orbitsolve(elements, imgtable.epoch[i])
-        # x must be negated to go from sky coordinates (ra increasing to left) to image coordinates (ra increasing to right).
-        x = -raoff(o)
-        y = decoff(o)
-
-        # Get the photometry in this image at that location
-        # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
-        f̃ₓ = lookup_coord(imgtable.image[i], (x, y), imgtable.platescale[i])
-
-        # Find the uncertainty in that photometry value (i.e. the contrast)
-        r = √(x^2 + y^2)
-        σₓ = imgtable.contrast[i](r / imgtable.platescale[i])
-
-        # When we get a position that falls outside of our available
-        # data (e.g. under the coronagraph) we cannot say anything
-        # about the likelihood. This is equivalent to σₓ→∞ or log likelihood 
-        # of zero.
-        if !isfinite(σₓ) || !isfinite(f̃ₓ)
-            continue
-        end
-
+        
         band = imgtable.band[i]
 
-        # Verify the user has specified a prior or model for this band.
-        if !hasproperty(θ_planet, band)
-            error("No photometry prior for the band $band was specified, and neither was mass.")
+        # Images are centered on the *star's* position. Large companions
+        # effectively shift the images around as they orbit the star.
+        # Account for the relative position of the star due to
+        # *all* planets
+        star_δra =  0
+        star_δdec = 0
+        for (θ_planet_i, orbit_i) in zip(θ_system.planets, all_elements)
+            o_i = orbitsolve(orbit_i, imgtable.epoch[i])
+            star_δra = -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
+            star_δdec = -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
         end
-        # TODO: verify this is type stable
-        f_band = getproperty(θ_planet, band)
-        # Direct imaging likelihood.
-        # Notes: we are assuming that the different images fed in are not correlated.
-        # The general multivariate Gaussian likleihood is exp(-1/2 (x⃗-μ⃗)ᵀ𝚺⁻¹(x⃗-μ⃗)) + √((2π)ᵏ|𝚺|)
-        # Because the images are uncorrelated, 𝚺 is diagonal and we can separate the equation
-        # into a a product of univariate Gaussian likelihoods or sum of log-likelihoods.
-        # That term for each image is given below.
 
-        # Ruffio et al 2017, eqn (31)
-        # Mawet et al 2019, eqn (8)
+        # Once we have the star's reflex motion, go through and look
+        # for each planet
+        for (θ_planet_i, orbit_i) in zip(θ_system.planets, all_elements)
+            # TODO: avoid calculating the orbit solution twice.
+            # In 1.8 escape anlaysis might let us keep these in a list.
+            o_i = orbitsolve(orbit_i, imgtable.epoch[i])
 
-        σₓ² = σₓ^2
-        ll += -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ) 
+            # Note the x reversal between RA and image coordinates
+            x = -(raoff(o_i) + star_δra)
+            y = +(decoff(o_i) + star_δdec)
+
+            # Get the photometry in this image at that location
+            # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
+            f̃ₓ = lookup_coord(imgtable.image[i], (x, y), imgtable.platescale[i])
+
+            # Find the uncertainty in that photometry value (i.e. the contrast)
+            r = √(x^2 + y^2)
+            σₓ = imgtable.contrast[i](r / imgtable.platescale[i])
+
+            # Verify the user has specified a prior or model for this band.
+            if !hasproperty(θ_planet_i, band)
+                error("No photometry prior for the band $band was specified, and neither was mass.")
+            end
+            # TODO: verify this is type stable
+            f_band = getproperty(θ_planet_i, band)
+
+            # When we get a position that falls outside of our available
+            # data (e.g. under the coronagraph) we cannot say anything
+            # about the likelihood. This is equivalent to σₓ→∞ or log likelihood 
+            # of zero.
+            if !isfinite(σₓ) || !isfinite(f̃ₓ)
+                continue
+            end
+
+            # Direct imaging likelihood.
+            # Notes: we are assuming that the different images fed in are not correlated.
+            # The general multivariate Gaussian likleihood is exp(-1/2 (x⃗-μ⃗)ᵀ𝚺⁻¹(x⃗-μ⃗)) + √((2π)ᵏ|𝚺|)
+            # Because the images are uncorrelated, 𝚺 is diagonal and we can separate the equation
+            # into a a product of univariate Gaussian likelihoods or sum of log-likelihoods.
+            # That term for each image is given below.
+
+            # Ruffio et al 2017, eqn (31)
+            # Mawet et al 2019, eqn (8)
+
+            σₓ² = σₓ^2
+            ll += -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ)
+        end
     end
 
     return ll
@@ -277,12 +297,12 @@ function ln_like(astrom::Astrometry, θ_planet, orbit, all_θ_planets, all_orbit
         star_δra =  0
         star_δdec = 0
         for (θ_planet_i, orbit_i) in zip(all_θ_planets, all_orbits)
-            o_i = orbitsolve(orbit, astrom.table.epoch[i])
+            o_i = orbitsolve(orbit_i, astrom.table.epoch[i])
             if orbit_i == orbit
                 o = o_i
             end
-            star_δra = -raoff(o) * θ_planet_i.mass * mjup2msol / orbit.M
-            star_δdec = -decoff(o) * θ_planet_i.mass * mjup2msol / orbit.M
+            star_δra = -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
+            star_δdec = -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
         end
 
         # # PA and Sep specified
@@ -296,10 +316,10 @@ function ln_like(astrom::Astrometry, θ_planet, orbit, all_θ_planets, all_orbit
         # # RA and DEC specified
         # else
 
-        x = raoff(o)
-        y = decoff(o)
-        resid1 = astrom.table.ra[i] - star_δra - x
-        resid2 = astrom.table.dec[i] - star_δdec - y
+        x = raoff(o) + star_δra
+        y = decoff(o) + star_δdec
+        resid1 = astrom.table.ra[i] - x
+        resid2 = astrom.table.dec[i] - y
         σ²1 = astrom.table.σ_ra[i ]^2
         σ²2 = astrom.table.σ_dec[i]^2
 
@@ -345,7 +365,7 @@ function ln_like(system::System, θ_system)
     # to the ln-likelihood.
     out_of_bounds = Ref(false)
     elements = map(eachindex(system.planets)) do i
-        # planet = system.planets[i]
+        planet = system.planets[i]
         θ_planet = θ_system.planets[i]
 
         # Like negative stellar mass, users should use priors with supports
@@ -358,9 +378,9 @@ function ln_like(system::System, θ_system)
         end
 
         # Resolve the combination of system and planet parameters
-        # as a KeplerianElements object. This pre-computes
-        # some factors used in various calculations.
-        kep_elements = construct_elements(θ_system, θ_planet)
+        # as a orbit object. The type of orbitobject is stored in the 
+        # Planet type. This pre-computes some factors used in various calculations.
+        kep_elements = construct_elements(orbittype(planet), θ_system, θ_planet)
 
         return kep_elements
     end
@@ -397,8 +417,8 @@ function ln_like(system::System, θ_system)
         end
     end
 
-    if !isfinite(ll[])
-        return ll[]
+    if !isfinite(ll)
+        return ll
     end
 
     # Loop through and add contribution of all observation types associated with this system as a whole
@@ -406,212 +426,5 @@ function ln_like(system::System, θ_system)
         ll += ln_like(obs, θ_system, elements)
     end
 
-
     return ll
-end
-
-
-
-
-
-
-
-# This is a straight forward implementation that unfortunately is not type stable.
-# This is because we are looping over a heterogeneous container
-# function make_ln_prior(priors)
-#     return function ln_prior(params)
-#         lp = zero(first(params))
-#         for i in eachindex(params)
-#             pd = priors[i]
-#             param = params[i]
-#             lp += logpdf(pd, param)
-#         end
-#         return lp 
-#     end
-# end
-
-function make_ln_prior(system::System)
-
-    # This function uses meta-programming to unroll all the code at compile time.
-    # This is a big performance win, since it avoids looping over all the different
-    # types of distributions that might be specified as priors.
-    # Otherwise we would have to loop through an abstract vector and do runtime dispatch!
-    # This way all the code gets inlined into a single tight numberical function in most cases.
-
-    i = 0
-    prior_evaluations = Expr[]
-
-    # System priors
-    for prior_distribution in values(system.priors.priors)
-        i += 1
-        ex = :(
-            lp += $logpdf($prior_distribution, arr[$i])
-        )
-        push!(prior_evaluations,ex)
-    end
-
-    # Planet priors
-    for planet in system.planets
-        # for prior_distribution in values(planet.priors.priors)
-        for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
-            i += 1
-            # Work around for Beta distributions.
-            # Outside of the range [0,1] logpdf returns -Inf.
-            # This works fine, but AutoDiff outside this range causes a DomainError.
-            if typeof(prior_distribution) <: Beta
-                ex = :(
-                    lp += 0 <= arr[$i] < 1 ? $logpdf($prior_distribution, arr[$i]) : -Inf
-                )
-            else
-                ex = :(
-                    lp += $logpdf($prior_distribution, arr[$i])
-                )
-            end
-            push!(prior_evaluations,ex)
-        end
-    end
-
-    # Here is the function we return.
-    # It maps an array of parameters into our nested named tuple structure
-    # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
-    # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (arr)
-        l = $i
-        @boundscheck if length(arr) != l
-            error("Expected exactly $l elements in array (got $(length(arr)))")
-        end
-        lp = zero(first(arr))
-        # Add contributions from planet priors
-        @inbounds begin
-           $(prior_evaluations...) 
-        end
-        return lp
-    end))
-end
-
-# Same as above, but assumes the input to the log prior was sampled
-# using transformed distributions from Bijectors.jl
-# Uses logpdf_with_trans() instead of logpdf to make the necessary corrections.
-function make_ln_prior_transformed(system::System)
-
-    i = 0
-    prior_evaluations = Expr[]
-
-    # System priors
-    for prior_distribution in values(system.priors.priors)
-        i += 1
-        ex = :(
-            lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
-        )
-        push!(prior_evaluations,ex)
-    end
-
-    # Planet priors
-    for planet in system.planets
-        # for prior_distribution in values(planet.priors.priors)
-        for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
-            i += 1
-            ex = :(
-                lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
-            )
-            push!(prior_evaluations,ex)
-        end
-    end
-
-    # Here is the function we return.
-    # It maps an array of parameters into our nested named tuple structure
-    # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
-    # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (arr)
-        l = $i
-        @boundscheck if length(arr) != l
-            error("Expected exactly $l elements in array (got $(length(arr)))")
-        end
-        lp = zero(first(arr))
-        # Add unrolled prior evaluations
-        @inbounds begin
-           $(prior_evaluations...) 
-        end
-        return lp
-    end))
-end
-
-
-# # Replaces `θ = Bijectors.invlink.(priors_vec, θ_t)` with a type stable
-# # unrolled version.
-# function make_Bijector_invlinkvec(priors_vec)
-
-#     i = 0
-#     parameter_transformations = Expr[]
-
-#     # System priors
-#     for prior_distribution in priors_vec
-#         i += 1
-#         ex = :(
-#             theta_out[$i] = $(Bijectors.invlink)($prior_distribution, arr[$i])
-#         )
-#         push!(parameter_transformations, ex)
-#     end
-
-#     # Here is the function we return.
-#     # It maps an array of parameters into our nested named tuple structure
-#     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
-#     # The RuntimeGeneratedFunctions package avoids these in all cases.
-#     return @RuntimeGeneratedFunction(:(function (arr)
-#         l = $i
-#         theta_out = @MVector zeros(eltype(arr), l)
-#         # theta_out = zeros(eltype(arr), l)
-#         @boundscheck if length(arr) != l
-#             error("Expected exactly $l elements in array (got $(length(arr)))")
-#         end
-#         # Add unrolled parameter transformations to fill theta_out
-#         @inbounds begin
-#            $(parameter_transformations...) 
-#         end
-#         return theta_out
-#     end))
-# end
-
-
-# Replaces `θ = Bijectors.invlink.(priors_vec, θ_t)` with a type stable
-# unrolled version.
-function make_Bijector_invlinkvec(priors_vec)
-
-    i = 0
-    parameter_transformations = Expr[]
-
-    # System priors
-    for prior_distribution in priors_vec
-        i += 1
-        ex = :(
-            $(Bijectors.invlink)($prior_distribution, arr[$i])
-        )
-        push!(parameter_transformations, ex)
-    end
-
-    # Here is the function we return.
-    # It maps an array of parameters into our nested named tuple structure
-    # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
-    # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (arr)
-        l = $i
-        # theta_out = zeros(eltype(arr), l)
-        @boundscheck if length(arr) != l
-            error("Expected exactly $l elements in array (got $(length(arr)))")
-        end
-        # Add unrolled parameter transformations to fill theta_out
-        @inbounds begin
-            # theta_out = SVector{l,eltype(arr)}(
-            # theta_out = MVector{l,eltype(arr)}(
-            theta_out = tuple(
-                $(parameter_transformations...) 
-            )
-        end
-        return theta_out
-    end))
-end
-
-
-function ln_post(θ, system::System)
-    return ln_prior(θ, system) + ln_like(θ, system)
 end

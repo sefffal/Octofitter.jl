@@ -130,6 +130,7 @@ function init_plots()
             kwargs...
         )
             elements = construct_elements(chain, planet_key, ii)
+            N = length(ii)
 
             Plots.plot!(;
                 size=(550,550),
@@ -163,8 +164,8 @@ function init_plots()
             clims = (minc, dc+minc)
 
             # Lines to periastron
-            xs = hcat(zeros(1500), raoff.(elements, periastron.(elements)), fill(NaN, 1500))'[:]
-            ys = hcat(zeros(1500), decoff.(elements, periastron.(elements)), fill(NaN, 1500))'[:]
+            xs = hcat(zeros(N), raoff.(elements, periastron.(elements)), fill(NaN, N))'[:]
+            ys = hcat(zeros(N), decoff.(elements, periastron.(elements)), fill(NaN, N))'[:]
             Plots.plot!(xs, ys; lw, alpha, color="#777", label="")
             cmap= Plots.cgrad(cmap; rev)
             for i in eachindex(colours)#sortperm(colours, rev=false)
@@ -391,6 +392,9 @@ function init_plots()
                     x = astrometry(planet).table.epoch
                 end
                 fit = projectedseparation.(elements, t')
+                if Symbol("$planet_key[mass]") in keys(chain)
+                    fit  = fit .+ projectedseparation.(elements, t').*DirectDetections.mjup2msol
+                end
             elseif prop == :pa
                 if !isnothing(astrometry(planet))
                     xx = astrometry(planet).table.ra
@@ -404,21 +408,31 @@ function init_plots()
                 end
                 fit = rad2deg.(posangle.(elements, t'))
             elseif prop == :pmra
-                hgca = propermotionanom(chain.info.model).table[1]
-                t = range(years2mjd(hgca.epoch_ra_hip)-365*5, years2mjd(hgca.epoch_ra_gaia)+365*5, length=100)
-                y = [hgca.pmra_hip, hgca.pmra_hg, hgca.pmra_gaia]
-                yerr = [hgca.pmra_hip_error, hgca.pmra_hg_error, hgca.pmra_gaia_error]
-                fit = chain["pmra"][ii] .+ pmra.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol)
-                x = years2mjd.([hgca.epoch_ra_hip, (hgca.epoch_ra_hip + hgca.epoch_ra_gaia)/2, hgca.epoch_ra_gaia])
-                xerr = [4*365/2, 25*365/2, 3*365/2]
+                if !isnothing(propermotionanom(chain.info.model))
+                    hgca = propermotionanom(chain.info.model).table[1]
+                    t = range(years2mjd(hgca.epoch_ra_hip)-365*5, years2mjd(hgca.epoch_ra_gaia)+365*5, length=100)
+                    y = [hgca.pmra_hip, hgca.pmra_hg, hgca.pmra_gaia]
+                    yerr = [hgca.pmra_hip_error, hgca.pmra_hg_error, hgca.pmra_gaia_error]
+                    x = years2mjd.([hgca.epoch_ra_hip, (hgca.epoch_ra_hip + hgca.epoch_ra_gaia)/2, hgca.epoch_ra_gaia])
+                    xerr = [4*365/2, 25*365/2, 3*365/2]
+                end
+                fit = pmra.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol)
+                if :pmra in keys(chain)
+                    fit = fit .+ chain["pmra"][ii]
+                end
             elseif prop == :pmdec
-                hgca = propermotionanom(chain.info.model).table[1]
-                t = range(years2mjd(hgca.epoch_dec_hip)-365*5, years2mjd(hgca.epoch_dec_gaia)+365*5, length=100)
-                y = [hgca.pmdec_hip, hgca.pmdec_hg, hgca.pmdec_gaia]
-                yerr = [hgca.pmdec_hip_error, hgca.pmdec_hg_error, hgca.pmdec_gaia_error]
-                fit = chain["pmdec"][ii] .+ pmdec.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol)
-                x = years2mjd.([hgca.epoch_dec_hip, (hgca.epoch_dec_hip + hgca.epoch_dec_gaia)/2, hgca.epoch_dec_gaia])
-                xerr = [4*365/2, 25*365/2, 3*365/2]
+                if !isnothing(propermotionanom(chain.info.model))
+                    hgca = propermotionanom(chain.info.model).table[1]
+                    t = range(years2mjd(hgca.epoch_dec_hip)-365*5, years2mjd(hgca.epoch_dec_gaia)+365*5, length=100)
+                    y = [hgca.pmdec_hip, hgca.pmdec_hg, hgca.pmdec_gaia]
+                    yerr = [hgca.pmdec_hip_error, hgca.pmdec_hg_error, hgca.pmdec_gaia_error]
+                    x = years2mjd.([hgca.epoch_dec_hip, (hgca.epoch_dec_hip + hgca.epoch_dec_gaia)/2, hgca.epoch_dec_gaia])
+                    xerr = [4*365/2, 25*365/2, 3*365/2]
+                end
+                fit = pmdec.(elements, t', collect(chain["$planet_key[mass]"][ii]).*DirectDetections.mjup2msol)
+                if :pmdec in keys(chain)
+                    fit = fit .+ chain["pmdec"][ii]
+                end
             elseif prop == :rv
                 # TODO: how do we indicate jitter?
                 if :rv in keys(chain)
@@ -691,14 +705,22 @@ function init_plots()
                     [pmra_meas[i]], [pmdec_meas[i]],
                     xerr=[σ_pmra[i]], yerr=[σ_pmdec[i]],
                     markersize=6,
-                    lw=2,
+                    markerstrokewidth=3,
+                    color=:white
+                )
+                Plots.scatter!(
+                    subplots[i],
+                    [pmra_meas[i]], [pmdec_meas[i]],
+                    xerr=[σ_pmra[i]], yerr=[σ_pmdec[i]],
+                    markersize=6,
+                    markerstrokewidth=1,
+                    color=:black
                 )
             end
 
             pma_plot =  Plots.plot(
                 subplots...,
                 alpha=1,
-                color=:plasma,
                 legend=false,
                 colorbar=false,
                 label="",

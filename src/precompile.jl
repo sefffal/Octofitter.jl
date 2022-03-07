@@ -9,7 +9,8 @@ let
     with_logger(logger) do
     
         planet = DirectDetections.Planet(
-            Priors(
+            KeplerianElements,
+            Variables(
                 a = Uniform(1, 50),
                 e = Beta(1.2, 5),
                 τ = Uniform(0, 1),
@@ -36,8 +37,8 @@ let
             ),
         )
         system = System(
-            Priors(
-            M = TruncatedNormal(1.0, 0.2, 0.1, Inf),
+            Variables(
+                M = TruncatedNormal(1.0, 0.2, 0.1, Inf),
                 plx = TruncatedNormal(12.0, 0.2, 0.1, Inf),
             ),
             pma,  
@@ -46,7 +47,7 @@ let
         )
 
         # This can't actually start since AdvancedHMC uses
-        # Revise to load in ForwardDiff. It's not available
+        # Requires to load in ForwardDiff. It's not available
         # during precompile.
 
         # DirectDetections.hmc(

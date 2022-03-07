@@ -60,21 +60,22 @@ function guess_starting_position(system, N=500_000)
     return best
 end
 
-using Optim
-function optimize_starting_position(ℓπ, initial_θ_t)
+# This code works but I have not found it useful. Commenting out to remove Optim.jl dependency.
+# using Optim
+# function optimize_starting_position(ℓπ, initial_θ_t)
 
-    @info "Optimizing starting location "
-    results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, LBFGS(), autodiff = :forward, Optim.Options(iterations=100_000, time_limit=5, allow_f_increases=true))
-    # results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, NelderMead(), Optim.Options(iterations=100_000, time_limit=5))
-    # results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, ParticleSwarm(), Optim.Options(iterations=100_000, time_limit=5))
+#     @info "Optimizing starting location "
+#     results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, LBFGS(), autodiff = :forward, Optim.Options(iterations=100_000, time_limit=5, allow_f_increases=true))
+#     # results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, NelderMead(), Optim.Options(iterations=100_000, time_limit=5))
+#     # results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, ParticleSwarm(), Optim.Options(iterations=100_000, time_limit=5))
 
-    intial_objective = ℓπ(initial_θ_t)
+#     intial_objective = ℓπ(initial_θ_t)
 
-    minimizer = Optim.minimizer(results)
+#     minimizer = Optim.minimizer(results)
 
-    @info "Starting location improved" logimprovement=(ℓπ(minimizer) - intial_objective)
-    return minimizer
-end
+#     @info "Starting location improved" logimprovement=(ℓπ(minimizer) - intial_objective)
+#     return minimizer
+# end
 
 
 """
@@ -83,7 +84,7 @@ end
 Given a named tuple for of parameters from a System (θ_system) and Planet (θ_planet),
 return a `KeplerianElements` from DirectOrbits.jl.
 """
-function construct_elements(θ_system, θ_planet)
+function construct_elements(::Type{KeplerianElements}, θ_system, θ_planet)
     return KeplerianElements((;
         θ_system.M,
         θ_system.plx,
