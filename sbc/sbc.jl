@@ -49,7 +49,9 @@ function newobs(obs::RadialVelocity, elems::Vector{<:KeplerianElements}, θ_syst
     σ_rvs = obs.table.σ_rv 
     planet_masses = [θ_planet.mass for θ_planet in θ_system.planets] .* 0.000954588 # Mjup -> Msun
     rvs = DirectOrbits.radvel.(reshape(elems, :, 1), epochs, transpose(planet_masses))
-    rvs = sum(rvs, dims=2)[:,1]
+
+    noise = randn(length(epochs)) .* θ_system.jitter
+    rvs = sum(rvs, dims=2)[:,1] .+ θ_system.rv .+ noise
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
     return RadialVelocity(radvel_table)
 end
