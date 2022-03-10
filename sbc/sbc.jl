@@ -4,6 +4,7 @@
 
 ## General
 using Plots
+using StatsBase
 using Distributions
 using StaticArrays
 using TypedTables
@@ -26,6 +27,7 @@ function drawfrompriors(system::System)
 end
 
 ## New data
+# Generate new astrometry observations
 function newobs(obs::Astrometry, elem::KeplerianElements)
     epochs = obs.table.epoch
     σ_ras = obs.table.σ_ra 
@@ -36,6 +38,7 @@ function newobs(obs::Astrometry, elem::KeplerianElements)
     return Astrometry(astrometry_table)
 end
 
+# Generate new radial velocity observations for a planet
 function newobs(obs::RadialVelocity, elem::KeplerianElements)
     epochs = obs.table.epoch 
     σ_rvs = obs.table.σ_rv 
@@ -44,56 +47,83 @@ function newobs(obs::RadialVelocity, elem::KeplerianElements)
     return RadialVelocity(radvel_table)
 end
 
+# Generate new radial velocity observations for a star
 function newobs(obs::RadialVelocity, elems::Vector{<:KeplerianElements}, θ_system)
     epochs = obs.table.epoch 
     σ_rvs = obs.table.σ_rv 
     planet_masses = [θ_planet.mass for θ_planet in θ_system.planets] .* 0.000954588 # Mjup -> Msun
     rvs = DirectOrbits.radvel.(reshape(elems, :, 1), epochs, transpose(planet_masses))
-
     noise = randn(length(epochs)) .* θ_system.jitter
     rvs = sum(rvs, dims=2)[:,1] .+ θ_system.rv .+ noise
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
     return RadialVelocity(radvel_table)
 end
 
-# images stuff 
+# Generate new images
+# Need images function
 
 ## Generate calibration data
-function getcalibrationdata(system::System)
-    θ_system = drawfrompriors(system)
+function calibrationsystem(system::System)
+    θ_newsystem = drawfrompriors(system)
 
     elements = map(eachindex(system.planets)) do i
         planet = system.planets[i]
-        θ_planet = θ_system.planets[i]
+        θ_newplanet = θ_newsystem.planets[i]
 
-        if (hasproperty(θ_planet, :a) && θ_planet.a <= 0) ||
-            (hasproperty(θ_planet, :e) && !(0 <= θ_planet.e < 1))
+        if (hasproperty(θ_newplanet, :a) && θ_newplanet.a <= 0) ||
+            (hasproperty(θ_newplanet, :e) && !(0 <= θ_newplanet.e < 1))
             out_of_bounds[] = true
         end
 
-        orbit = DirectDetections.construct_elements(DirectDetections.orbittype(planet), θ_system, θ_planet)
+        neworbit = DirectDetections.construct_elements(DirectDetections.orbittype(planet), θ_newsystem, θ_newplanet)
 
-        return orbit
+        return neworbit
     end
 
     newplanets = map(1:length(system.planets)) do i
         planet = system.planets[i]
-        θ_planet = θ_system.planets[i]
         elem = elements[i]
 
-        new_planet_obs = map(planet.observations) do obs
+        newplanet_obs = map(planet.observations) do obs
             return newobs(obs, elem)
         end
-        newplanet = Planet{DirectDetections.orbittype(planet)}(planet.priors, planet.derived, new_planet_obs..., name=planet.name)
+        newplanet = Planet{DirectDetections.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
     end
 
-    new_star_obs = map(system.observations) do obs
-        return newobs(obs, collect(elements), θ_system)
+    newstar_obs = map(system.observations) do obs
+        return newobs(obs, collect(elements), θ_newsystem)
     end
 
-    newsystem = System(system.priors, system.derived, new_star_obs..., newplanets..., name=system.name)
+    newsystem = System(system.priors, system.derived, newstar_obs..., newplanets..., name=system.name)
 
-    return θ_system, newsystem
+    return θ_newsystem, newsystem
+end
+
+## Run chains on new model
+function calibrationhmc(system::System; accept=0.65, adapt=1000, iter=25000, td=13, v=2)
+    θ_newsystem, newsystem = calibrationsystem(system)
+    θ_array = DirectDetections.result2mcmcchain(newsystem, [θ_newsystem])
+
+    @time chains = DirectDetections.hmc(
+        newsystem, accept,
+        adaptation = adapt,
+        iterations = iter,
+        tree_depth = td,
+        verbosity = v
+    )
+
+    chainkeys = string.(keys(chains))
+    cdfdict = Dict()
+
+    for key in chainkeys
+        paramdist = vec(chains[key])
+        paramcdf = ecdf(paramdist)
+        trueval = θ_array[key][1]
+        cdfval = paramcdf(trueval)
+        cdfdict[key] = cdfval
+    end
+
+    return chains, cdfdict
 end
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -154,9 +184,12 @@ end
 )
 
 ## Draw from priors
-θ_system, newsystem = getcalibrationdata(HD984)
-println(θ_system)
-rv = newsystem.observations[1]
-scatter(rv.table.epoch, rv.table.rv)
-# p = first(newplanets)
-# plot(astrometry(p))
+chains, cdfdict = calibrationhmc(
+    HD984,
+    accept = 0.80,
+    adapt = 2500,
+    iter = 10000
+)
+
+## Results
+display(cdfdict)
