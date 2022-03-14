@@ -4,6 +4,7 @@
 
 ## General
 using Plots
+using PairPlots
 using StatsBase
 using Distributions
 using StaticArrays
@@ -186,10 +187,45 @@ end
 ## Draw from priors
 chains, cdfdict = calibrationhmc(
     HD984,
-    accept = 0.80,
+    accept = 0.65,
     adapt = 2500,
-    iter = 10000
+    iter = 25000,
+    td = 13
 )
 
 ## Results
 display(cdfdict)
+
+## Chain summary
+display(chains)
+
+## Model plot
+plotmodel(chains, alpha=0.1)
+
+## Corner plot: just the highlights
+table = (
+    M_pri = chains["M"],
+    M_sec = chains["b[mass]"],
+    a = chains["b[a]"],
+    e = chains["b[e]"],
+    i = rad2deg.(chains["b[i]"]),
+)
+corner(table)
+
+## Full corner plot
+corner(chains)
+
+## Parameters against time
+timeplotgrid(chains)
+
+## a histogram
+histogram(chains["b[a]"])
+
+## e histogram
+histogram(chains["b[e]"])
+
+## i histogram
+histogram(chains["b[i]"])
+
+## mass histogram
+histogram(chains["b[mass]"])
