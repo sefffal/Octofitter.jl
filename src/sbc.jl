@@ -235,12 +235,12 @@ function calibrationplots(datadir::String, plotsdir::String; histdpi::Int=300,
         data = cdfdata[!,name]
         hist = histogram(data, label="", dpi=histdpi, color=histcolour)
         xlabel!(name)
-        savefig(hist, saveas * "$name.$filetype")
+        savefig(hist, plotsdir * "$name.$filetype")
     end
 
     # Plot corner plot 
     c = corner(cdfdata, hist_kwargs=(;nbins=10), hist2d_kwargs=(;nbins=10))
-    savefig(c, saveas * "corner.$filetype")
+    savefig(c, plotsdir * "corner.$filetype")
 
     return nothing 
 end
