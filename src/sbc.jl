@@ -233,7 +233,8 @@ function calibrationplots(datadir::String, plotsdir::String; histdpi::Int=300,
     # Plot histograms
     for name in colnames
         data = cdfdata[!,name]
-        hist = histogram(data, label="", dpi=histdpi, color=histcolour)
+        nbins = floor(Int, sqrt(length(data)))
+        hist = histogram(data, label="", dpi=histdpi, color=histcolour, bins=range(0, 1, length=nbins+1))
         xlabel!(name)
         savefig(hist, plotsdir * "$name.$filetype")
     end
