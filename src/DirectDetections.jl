@@ -51,6 +51,7 @@ include("analysis.jl")
 include("macros.jl")
 include("hgca.jl")
 include("sonora.jl")
+include("sbc.jl")
 
 function __init__()
     init_plots()
