@@ -7,8 +7,8 @@ using StatsBase
 using StaticArrays
 
 # Data
+using CSV
 using JSON
-using JLD2
 using TypedTables
 using DataFrames 
 
@@ -202,7 +202,7 @@ function calibrate(system::System, chainparams::Dict, saveas::String)
     end
 
     # Save chains
-    jldsave("$(saveas)_chains.jld2"; chains)
+    CSV.write("$(saveas)_chains.csv", chains)
 
     return nothing
 end
