@@ -134,7 +134,7 @@ function calibrationsystem(system::System)
 end
 
 # Run chains on new model
-function calibrationhmc(system::System, acceptance, num_chains, adaptation, iterations, tree_depth, verbosity)
+function calibrationhmc(system::System, target_accept, num_chains, adaptation, iterations, thinning, tree_depth, verbosity)
 
     # Get parameter values sampled from priors and generate a new system
     θ_newsystem, newsystem = calibrationsystem(system)
@@ -142,50 +142,46 @@ function calibrationhmc(system::System, acceptance, num_chains, adaptation, iter
 
     # Run chains
     @time chains = DirectDetections.hmc(
-        newsystem, acceptance,
+        newsystem, target_accept,
         num_chains = num_chains,
         adaptation = adaptation,
         iterations = iterations,
+        thinning = thinning,
         tree_depth = tree_depth,
         verbosity = verbosity
     )
 
-    # Calculate cumulative probabilities of sampled values w.r.t. the chains
+    # Compute rank statistic of each parameter in the chains
     chainkeys = string.(keys(chains))
-    sampleddict = Dict()
-    cdfdict = Dict()
+    priorsampledict = Dict()
+    rdict = Dict()
 
     for key in chainkeys
-
-        # Generate empirical CDF using chains
-        paramdist = vec(chains[key])
-        paramcdf = ecdf(paramdist)
-
-        # Get cumulative probability of sampled value
-        sampledval = θ_array[key][1]
-        cdfval = paramcdf(sampledval)
-
-        # Set dictionary elements
-        sampleddict[key] = sampledval
-        cdfdict[key] = cdfval
+        posteriorsamples = vec(chains[key])
+        priorsample = θ_array[key][1]
+        r = sum(posteriorsamples .< priorsample)
+        priorsampledict[key] = priorsample
+        rdict[key] = r
     end
 
-    return sampleddict, cdfdict, chains
+    return priorsampledict, rdict, chains
 end
 
 # Calibrate model by running chains and save results 
 function calibrate(system::System, chainparams::Dict, saveas::String)
 
     # Get chain parameters 
-    acceptance = chainparams["acceptance"]
+    target_accept = chainparams["target_accept"]
     num_chains = chainparams["num_chains"]
     adaptation = chainparams["adaptation"]
     iterations = chainparams["iterations"]
+    thinning = chainparams["thinning"]
     tree_depth = chainparams["tree_depth"]
     verbosity = chainparams["verbosity"]
 
     # Run chains
-    sampleddict, cdfdict, chains = calibrationhmc(system, acceptance, num_chains, adaptation, iterations, tree_depth, verbosity)
+    calib = calibrationhmc(system, target_accept, num_chains, adaptation, iterations, thinning, tree_depth, verbosity)
+    priorsampledict, rdict, chains = calib
     
     # Save chain parameters
     chainparams_data = JSON.json(chainparams)
@@ -194,15 +190,15 @@ function calibrate(system::System, chainparams::Dict, saveas::String)
     end
 
     # Save sampled parameter values
-    sampleddict_data = JSON.json(sampleddict)
-    open("$(saveas)_sampled_vals.json", "w") do f
-        write(f, sampleddict_data)
+    priorsampledict_data = JSON.json(priorsampledict)
+    open("$(saveas)_prior_samples.json", "w") do f
+        write(f, priorsampledict_data)
     end
 
     # Save cumulative probabilities of sampled values w.r.t. the chains
-    cdfdict_data = JSON.json(cdfdict)
-    open("$(saveas)_cdf_vals.json", "w") do f
-        write(f, cdfdict_data)
+    rdict_data = JSON.json(rdict)
+    open("$(saveas)_rank_stats.json", "w") do f
+        write(f, rdict_data)
     end
 
     # Save chains
@@ -216,31 +212,31 @@ export calibrate
 function calibrationplots(datadir::String, plotsdir::String; histdpi::Int=300,
                           histcolour::Union{Symbol,String}="#1E90FF", filetype::String="png")
 
-    # Get all files with CDF values
+    # Get all files with r values
     files = readdir(datadir)
-    cdffiles = datadir .* [i for i ∈ files if occursin("cdf_vals", i)]
+    rankfiles = datadir .* [i for i ∈ files if occursin("rank_stats", i)]
 
     # Get named tuples of CDF values from files
-    cdfarr = map(cdffiles) do i
+    rankarr = map(rankfiles) do i
         dict = loadJSON(i)
         return (; (Symbol(k) => v for (k,v) in dict)...)
     end
 
     # Convert to data frame
-    cdfdata = DataFrame(cdfarr)
-    colnames = names(cdfdata)
+    rankdata = DataFrame(rankarr)
+    colnames = names(rankdata)
 
     # Plot histograms
     for name in colnames
-        data = cdfdata[!,name]
+        data = rankdata[!,name]
         nbins = floor(Int, sqrt(length(data)))
-        hist = histogram(data, label="", dpi=histdpi, color=histcolour, bins=range(0, 1, length=nbins+1))
+        hist = histogram(data, label="", dpi=histdpi, color=histcolour)
         xlabel!(name)
         savefig(hist, plotsdir * "$name.$filetype")
     end
 
     # Plot corner plot 
-    c = corner(cdfdata, hist_kwargs=(;nbins=5), hist2d_kwargs=(;nbins=5))
+    c = corner(rankdata, hist_kwargs=(;nbins=5), hist2d_kwargs=(;nbins=5))
     savefig(c, plotsdir * "corner.$filetype")
 
     return nothing 
