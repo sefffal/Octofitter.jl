@@ -20,10 +20,12 @@ using PairPlots
 using DirectOrbits
 using DirectDetections
 
+using ImageTransformations
+using CoordinateTransformations
+
 # ----------------------------------------------------------------------------------------------------------------------
 # Functions
 # ----------------------------------------------------------------------------------------------------------------------
-
 # Load data in .json file to dictionary 
 function loadJSON(filepath::String)
     dict = open(filepath, "r") do f
@@ -41,7 +43,7 @@ function drawfrompriors(system::System)
 end
 
 # Generate new astrometry observations
-function newobs(obs::Astrometry, elem::KeplerianElements)
+function newobs(obs::Astrometry, elem::KeplerianElements, θ_planet)
 
     # Get epochs and uncertainties from observations
     epochs = obs.table.epoch
@@ -57,7 +59,7 @@ function newobs(obs::Astrometry, elem::KeplerianElements)
 end
 
 # Generate new radial velocity observations for a planet
-function newobs(obs::RadialVelocity, elem::KeplerianElements)
+function newobs(obs::RadialVelocity, elem::KeplerianElements, θ_planet)
 
     # Get epochs and uncertainties from observations
     epochs = obs.table.epoch 
@@ -87,7 +89,38 @@ function newobs(obs::RadialVelocity, elems::Vector{<:KeplerianElements}, θ_syst
     return RadialVelocity(radvel_table)
 end
 
+
 # Generate new images
+function newobs(obs::Images, elem::KeplerianElements, θ_planet)
+
+
+    newrows = map(obs.table) do row
+        (;band, image, platescale, epoch, psf) = row
+
+        # Generate new astrometry point
+        os = DirectOrbits.orbitsolve(elem, epoch)
+        ra = DirectOrbits.raoff(os)
+        dec = DirectOrbits.decoff(os)
+
+        phot = θ_planet[band]
+
+        dx = ra/platescale
+        dy = -dec/platescale
+        translation_tform = Translation(dx + mean(axes(psf,1)), dy + mean(axes(psf,2)))
+        # TBD if we want to support rotations for handling negative sidelobes.
+
+        psf_positioned = warp(psf, translation_tform, axes(image), fillvalue=0)
+
+        psf_scaled = psf_positioned .* phot ./ maximum(psf)
+        
+        injected = image .- psf_scaled
+
+        return merge(row, (;image=injected))
+    end
+
+    return Images(newrows)
+end
+
 # Need images function
 
 # Generate calibration data
@@ -117,7 +150,7 @@ function calibrationsystem(system::System)
         elem = elements[i]
 
         newplanet_obs = map(planet.observations) do obs
-            return newobs(obs, elem)
+            return newobs(obs, elem, planet)
         end
         newplanet = Planet{DirectDetections.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
     end
