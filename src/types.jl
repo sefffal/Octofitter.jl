@@ -100,7 +100,7 @@ struct Images{TTable<:Table} <: AbstractObs
         # Fallback to calculating contrast automatically
         if !in(:contrast, columnnames(table))
             @info "Measuring contrast from image"
-            contrast = contrast_interp(obs.image)
+            contrast = contrast_interp.(table.image)
             table = Table(table, contrast=contrast)
         end
         if !issubset(images_cols, columnnames(table))
