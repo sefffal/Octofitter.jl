@@ -41,6 +41,7 @@ function drawfrompriors(system::System)
     θnt = arr2nt(θ)
     return θnt
 end
+export drawfrompriors
 
 # Generate new astrometry observations
 function newobs(obs::Astrometry, elem::KeplerianElements, θ_planet)
@@ -119,9 +120,12 @@ function newobs(obs::Images, elements::Vector{<:KeplerianElements}, θ_system)
 
             psf_positioned = warp(psf, translation_tform, axes(image), fillvalue=0)
 
-            psf_scaled = psf_positioned .* phot ./ maximum(psf)
+            @show maximum(psf_positioned)
+            psf_scaled = psf_positioned .* phot ./ maximum(filter(isfinite, psf_positioned))
+            @show maximum(psf_scaled)
+            @show phot
             
-            injected .+= image .+ psf_scaled
+            injected .+= psf_scaled
         end
 
         return merge(row, (;image=injected))
