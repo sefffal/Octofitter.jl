@@ -91,29 +91,38 @@ end
 
 
 # Generate new images
-function newobs(obs::Images, elem::KeplerianElements, θ_planet)
+function newobs(obs::Images, elements::Vector{<:KeplerianElements}, θ_system)
 
 
     newrows = map(obs.table) do row
         (;band, image, platescale, epoch, psf) = row
 
-        # Generate new astrometry point
-        os = DirectOrbits.orbitsolve(elem, epoch)
-        ra = DirectOrbits.raoff(os)
-        dec = DirectOrbits.decoff(os)
-
-        phot = θ_planet[band]
-
-        dx = ra/platescale
-        dy = -dec/platescale
-        translation_tform = Translation(dx + mean(axes(psf,1)), dy + mean(axes(psf,2)))
-        # TBD if we want to support rotations for handling negative sidelobes.
-
-        psf_positioned = warp(psf, translation_tform, axes(image), fillvalue=0)
-
-        psf_scaled = psf_positioned .* phot ./ maximum(psf)
+        injected = copy(image)
         
-        injected = image .+ psf_scaled
+        for i in eachindex(elements)
+            θ_planet = θ_system.planets[i]
+            elem = elements[i]
+            # Generate new astrometry point
+            os = DirectOrbits.orbitsolve(elem, epoch)
+
+            # TODO: this does not consider the shift to the images due to the motion of the star
+            ra = DirectOrbits.raoff(os)
+            dec = DirectOrbits.decoff(os)
+
+            phot = θ_planet[band]
+
+            # TODO: verify signs
+            dx = ra/platescale
+            dy = -dec/platescale
+            translation_tform = Translation(dx + mean(axes(psf,1)), dy + mean(axes(psf,2)))
+            # TBD if we want to support rotations for handling negative sidelobes.
+
+            psf_positioned = warp(psf, translation_tform, axes(image), fillvalue=0)
+
+            psf_scaled = psf_positioned .* phot ./ maximum(psf)
+            
+            injected .+= image .+ psf_scaled
+        end
 
         return merge(row, (;image=injected))
     end
@@ -121,13 +130,111 @@ function newobs(obs::Images, elem::KeplerianElements, θ_planet)
     return Images(newrows)
 end
 
+
+    
+"""
+Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
+using 5 position measurements averaged at each of their epochs.
+"""
+function newobs(obs::ProperMotionAnomHGCA, elements, θ_system)
+    ll = 0.0
+
+    # This observation type just wraps one row from the HGCA (see hgca.jl)
+    hgca = obs.table
+    # Roughly over what time period were the observations made?
+    dt_gaia = 1038 # EDR3: days between  Date("2017-05-28") - Date("2014-07-25")
+    dt_hip = 4*365
+    # How many points over Δt should we average the proper motion and stellar position
+    # at each epoch? This is because the PM is not an instantaneous measurement.
+    N_ave = 25 #5
+
+    # Look at the position of the star around both epochs to calculate 
+    # our modelled delta-position proper motion
+
+    # First epoch: Hipparcos
+    ra_hip_model = 0.0
+    dec_hip_model = 0.0
+    pmra_hip_model = 0.0
+    pmdec_hip_model = 0.0
+    # The model can support multiple planets
+    for i in eachindex(elements)
+        θ_planet = θ_system.planets[i]
+        orbit = elements[i]
+        if θ_planet.mass < 0
+            return -Inf
+        end
+        # Average multiple observations over a timescale +- dt/2
+        # to approximate what HIPPARCOS would have measured.
+        for δt = range(-dt_hip/2, dt_hip/2, N_ave)
+            # RA and dec epochs are usually slightly different
+            # Note the unit conversion here from jupiter masses to solar masses to 
+            # make it the same unit as the stellar mass (element.mu)
+            # TODO: we can't yet use the orbitsolve interface here for the pmra calls,
+            # meaning we calculate the orbit 2x as much as we need.
+            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt)
+            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt)
+            ra_hip_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
+            dec_hip_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
+            pmra_hip_model += pmra(o_ra, θ_planet.mass*mjup2msol)
+            pmdec_hip_model += pmdec(o_dec, θ_planet.mass*mjup2msol)
+        end
+    end
+    ra_hip_model/=N_ave
+    dec_hip_model/=N_ave
+    pmra_hip_model/=N_ave
+    pmdec_hip_model/=N_ave
+
+    # Last epoch: GAIA
+    ra_gaia_model = 0.0
+    dec_gaia_model = 0.0
+    pmra_gaia_model = 0.0
+    pmdec_gaia_model = 0.0
+    # The model can support multiple planets
+    for i in eachindex(elements)
+        θ_planet = θ_system.planets[i]
+        orbit = elements[i]
+        if θ_planet.mass < 0
+            return -Inf
+        end
+        # Average multiple observations over a timescale +- dt
+        # to approximate what HIPPARCOS and GAIA would have measured.
+        for δt = range(-dt_gaia/2, dt_gaia/2, N_ave)
+            # RA and dec epochs are usually slightly different
+            # Note the unit conversion here from jupiter masses to solar masses to 
+            # make it the same unit as the stellar mass (element.M)
+            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt)
+            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt)
+            ra_gaia_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
+            dec_gaia_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
+            pmra_gaia_model += pmra(o_ra, θ_planet.mass*mjup2msol)
+            pmdec_gaia_model += pmdec(o_dec, θ_planet.mass*mjup2msol)
+        end
+    end
+    ra_gaia_model/=N_ave
+    dec_gaia_model/=N_ave
+    pmra_gaia_model/=N_ave
+    pmdec_gaia_model/=N_ave
+
+
+    # Model the GAIA-Hipparcos delta-position velocity
+    pmra_hg_model = (ra_gaia_model - ra_hip_model)/(years2mjd(hgca.epoch_ra_gaia[1]) - years2mjd(hgca.epoch_ra_hip[1]))
+    pmdec_hg_model = (dec_gaia_model - dec_hip_model)/(years2mjd(hgca.epoch_dec_gaia[1]) - years2mjd(hgca.epoch_dec_hip[1]))
+
+    return ProperMotionAnomHGCA(merge(hgca[1], (;
+        pmra_hip=pmra_hip_model,
+        pmdec_hip=pmdec_hip_model,
+        pmra_gaia=pmra_gaia_model,
+        pmdec_gaia=pmdec_gaia_model,
+        pmra_hg=pmra_hg_model,
+        pmdec_hg=pmdec_hg_model,
+    )))
+
+end
 # Need images function
 
 # Generate calibration data
-function calibrationsystem(system::System)
+function generate(system::System, θ_newsystem = drawfrompriors(system))
 
-    # Get parameter values sampled from priors
-    θ_newsystem = drawfrompriors(system)
 
     # Generate new orbits for each planet in the system
     elements = map(eachindex(system.planets)) do i
@@ -163,14 +270,16 @@ function calibrationsystem(system::System)
     # Generate new system
     newsystem = System(system.priors, system.derived, newstar_obs..., newplanets..., name=system.name)
 
-    return θ_newsystem, newsystem
+    return newsystem
 end
+export generate
 
 # Run chains on new model
 function calibrationhmc(system::System, target_accept, num_chains, adaptation, iterations, thinning, tree_depth, verbosity)
 
     # Get parameter values sampled from priors and generate a new system
-    θ_newsystem, newsystem = calibrationsystem(system)
+    θ_newsystem = drawfrompriors(system)
+    newsystem = generate(system, θ_newsystem)
     θ_array = DirectDetections.result2mcmcchain(newsystem, [θ_newsystem])
 
     # Run chains

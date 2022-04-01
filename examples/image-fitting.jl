@@ -1,6 +1,5 @@
 ##
-using Revise
-import Random
+using Random: Random
 using DirectDetections
 using Distributions
 using DirectImages
@@ -12,21 +11,20 @@ using Plots
 # Generate astrometry points using this template
 # and we will try to fit the results
 truths = [
-    KeplerianElements(; a = 12, τ = 0.15, ω = 0.5, Ω = 0, e = 0.2, i = 0.65pi, μ = 1.0, plx = 45.0),
-
-    # KeplerianElements(;a = 12,τ = 0.65,ω = 0,Ω = 0,e = 0.1, i = deg2rad(90), μ = 1.,plx = 45.,),
+    KeplerianElements(; a = 12, τ = 0.15, ω = 0.5, Ω = 0, e = 0.2, i = 0.15pi, M = 1.0, plx = 45.0),
 
 ]
 intensities = [
-    1800,
-    # 3500,
+    # 1800,
+    # 3500*3,
+    0
 ]
 
 # truth_elements = KeplerianElements(ComponentArray(truth, static))
 
 # times = range(0, period(truth_elements)*4/5, length=9, )
 # times = range(0, 0.6period(first(truths)), length = 2,)
-times = range(0, 0.3period(first(truths)), length = 2,)
+times = range(0, 0.3period(first(truths)), length = 4,)
 
 
 # Create synthetic images at each time with those points
@@ -36,12 +34,11 @@ images_contrasts = map(times) do t
     img = centered(img)
     img_copy = copy(img)
     for (inten, truth) in zip(intensities, truths)
-        ra, dec = kep2cart(truth, t)
-        x = -ra
-        y = dec
+        o = orbitsolve(truth, t)
+        x = -raoff(o)
+        y = decoff(o)
         img[round(Int, x / 10), round(Int, y / 10)] += inten #2500 #+ 300randn()
     end
-
 
     img = imfilter(img, Kernel.gaussian(5), "replicate")
     img_copy = imfilter(img_copy, Kernel.gaussian(5), "replicate")
@@ -55,47 +52,39 @@ images_contrasts = map(times) do t
 end
 images = [img for (img, contrast) in images_contrasts]
 contrasts = [contrast for (img, contrast) in images_contrasts]
-nothing
+
+
+psf = let 
+    image = copy(first(images))
+    fill!(image, 0)
+    cx,cy = round.(Int, mean.(axes(image)))
+    image[cx, cy] = 1
+    p = centered(imfilter(image, Kernel.gaussian(5), "replicate")[-10:10,-10:10])
+    p ./maximum(p)
+end
 
 ##
 imshow2(reduce(vcat, images), clims = (-35, 35))
 
 ##
 
-@named b = Planet(
-    Deterministic(
-        J = (sys, pl) -> 10^pl.logJ,
-    ),
-    Priors(
-        # a = Uniform(7, 16),
-        # e = TruncatedNormal(0.1, 0.1, 0.0, 0.4),
-        # τ = Uniform(0,1),
-        # # τ = Uniform(0.4,0.8),
-        # ω = Uniform(-π,π),
-        # # ω = Uniform(-π/4,π/4),
-        # i = Uniform(-π,π),
-        # # i = Uniform(-π/4,π/4),
-        # # i = TruncatedNormal(0, 0.2, -π,π),
-        # Ω = Uniform(-π,π),
-        # # Ω = Uniform(-π/4,π/4),
-
-        # # mass = Uniform(0mjup2msol,70mjup2msol),
-
-        a = Normal(12, 1),
+@named b = Planet{KeplerianElements}(
+    Variables(
+        a = Normal(12, 3),
         e = Beta(10, 70),
         τ = Normal(0.5, 1),
         ω = Normal(1pi, 1pi),
-        i = Normal(0.6pi, 0.3pi),
+        i = 0.15π,
         Ω = Normal(0.5pi, 0.5pi),
-        logJ = Normal(1, 0.5)
-        # J = Normal(0, 20)
+        J = LogUniform(0.1, 100),
+        mass = 2
     )
 )
 
 
 system_images = DirectDetections.Images(
     [
-        (band = :J, image = images[i], platescale = 10.0, epoch = times[i], contrast = contrasts[i])
+        (;band = :J, image = images[i], platescale = 10.0, epoch = times[i], contrast = contrasts[i], psf)
         for i in eachindex(images)
     ]...
     # (band=:J, image=images[1], platescale=10.0, epoch=times[1]),#, contrast=contrasts[1]),
@@ -105,21 +94,24 @@ system_images = DirectDetections.Images(
 )
 
 
-system_priors = Priors(
-    μ = Normal(1.0, 0.01),
+system_vars = Variables(
+    M = Normal(1.0, 0.01),
     plx = Normal(45.0, 0.0001),
 )
 
 
-@named system = System(system_priors, system_images, b)
-# @named system = System(system_priors, b)
+@named system = System(system_vars, system_images, b)
 
+
+##
+newimgs = DirectDetections.newobs(system.observations[1], truths[1], (;J=25))
+@named system = System(system_vars, newimgs, b)
 ##
 out = DirectDetections.hmc(
     system, 0.65;
     # adaptation = 5_000,
-    adaptation = 200,
-    iterations = 5_000,
+    adaptation =  2_000,
+    iterations = 25_000,
     initial_samples=5_000,
     # step_size=7e-4,
 );

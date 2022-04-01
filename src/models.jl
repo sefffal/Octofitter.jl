@@ -195,9 +195,9 @@ Likelihood of there being planets in a sequence of images.
 """
 function ln_like(images::Images, θ_system, all_elements)
     
-    # # Resolve the combination of system and planet parameters
-    # # as a KeplerianElements object. This pre-computes
-    # # some factors used in various calculations.
+    # Resolve the combination of system and planet parameters
+    # as a KeplerianElements object. This pre-computes
+    # some factors used in various calculations.
     # elements = construct_elements(θ_system, θ_planet)
     
 
@@ -214,11 +214,11 @@ function ln_like(images::Images, θ_system, all_elements)
         # *all* planets
         star_δra =  0
         star_δdec = 0
-        for (θ_planet_i, orbit_i) in zip(θ_system.planets, all_elements)
-            o_i = orbitsolve(orbit_i, imgtable.epoch[i])
-            star_δra = -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
-            star_δdec = -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
-        end
+        # for (θ_planet_i, orbit_i) in zip(θ_system.planets, all_elements)
+        #     o_i = orbitsolve(orbit_i, imgtable.epoch[i])
+        #     star_δra = -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
+        #     star_δdec = -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
+        # end
 
         # Once we have the star's reflex motion, go through and look
         # for each planet
