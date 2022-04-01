@@ -113,7 +113,7 @@ function newobs(obs::Images, elem::KeplerianElements, θ_planet)
 
         psf_scaled = psf_positioned .* phot ./ maximum(psf)
         
-        injected = image .- psf_scaled
+        injected = image .+ psf_scaled
 
         return merge(row, (;image=injected))
     end
