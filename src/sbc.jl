@@ -119,12 +119,7 @@ function newobs(obs::Images, elements::Vector{<:KeplerianElements}, θ_system)
             # TBD if we want to support rotations for handling negative sidelobes.
 
             psf_positioned = warp(psf, translation_tform, axes(image), fillvalue=0)
-
-            @show maximum(psf_positioned)
             psf_scaled = psf_positioned .* phot ./ maximum(filter(isfinite, psf_positioned))
-            @show maximum(psf_scaled)
-            @show phot
-            
             injected .+= psf_scaled
         end
 
@@ -299,8 +294,8 @@ function calibrationhmc(system::System, target_accept, num_chains, adaptation, i
 
     # Compute rank statistic of each parameter in the chains
     chainkeys = string.(keys(chains))
-    priorsampledict = Dict()
-    rdict = Dict()
+    priorsampledict = OrderedDict()
+    rdict = OrderedDict()
 
     for key in chainkeys
         posteriorsamples = vec(chains[key])
@@ -314,7 +309,7 @@ function calibrationhmc(system::System, target_accept, num_chains, adaptation, i
 end
 
 # Calibrate model by running chains and save results 
-function calibrate(system::System, chainparams::Dict, saveas::String)
+function calibrate(system::System, chainparams::OrderedDict, saveas::String)
 
     # Get chain parameters 
     target_accept = chainparams["target_accept"]
