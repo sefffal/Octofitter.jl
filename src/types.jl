@@ -228,6 +228,7 @@ end
 UniformCircular() = UniformCircular(2π)
 export UniformCircular
 expandparam(var, n::Number) = OrderedDict(var => Return(n))
+expandparam(var, f::Base.Callable) = OrderedDict(var => f)
 expandparam(var, d::Distribution) = OrderedDict(var => d)
 expandparam(var, p::UniformCircular) = OrderedDict(
     Symbol("$(var)x") => Normal(),
