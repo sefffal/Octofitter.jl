@@ -309,7 +309,7 @@ function calibrationhmc(system::System, target_accept, num_chains, adaptation, i
 end
 
 # Calibrate model by running chains and save results 
-function calibrate(system::System, chainparams::OrderedDict, saveas::String)
+function calibrate(system::System, chainparams::AbstractDict, saveas::AbstractString)
 
     # Get chain parameters 
     target_accept = chainparams["target_accept"]
