@@ -378,7 +378,7 @@ function calibrationplots(datadir::String, plotsdir::String, maxval::Int; histdp
     end
 
     # Plot corner plot 
-    c = corner(rankdata, hist_kwargs=(;nbins=5), hist2d_kwargs=(;nbins=5))
+    c = corner(rankdata, hist_kwargs=(;nbins=5), hist2d_kwargs=(;nbins=5), plotcontours=false)
     savefig(c, plotsdir * "corner.$filetype")
 
     return nothing 
