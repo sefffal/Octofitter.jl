@@ -350,7 +350,7 @@ end
 export calibrate
 
 # Generates histograms and corner plot of calibration results
-function calibrationplots(datadir::String, plotsdir::String; histdpi::Int=300,
+function calibrationplots(datadir::String, plotsdir::String, maxval::Int; histdpi::Int=300,
                           histcolour::Union{Symbol,String}="#1E90FF", filetype::String="png")
 
     # Get all files with r values
@@ -371,7 +371,8 @@ function calibrationplots(datadir::String, plotsdir::String; histdpi::Int=300,
     for name in colnames
         data = rankdata[!,name]
         nbins = floor(Int, sqrt(length(data)))
-        hist = histogram(data, label="", dpi=histdpi, color=histcolour)
+        histvals = fit(StatsBase.Histogram(), vec(data), range(0, stop=maxval, length=nbins+1))
+        hist = plot(histvals, label="", dpi=histdpi, color=histcolour, bins=())
         xlabel!(name)
         savefig(hist, plotsdir * "$name.$filetype")
     end
