@@ -371,7 +371,7 @@ function calibrationplots(datadir::String, plotsdir::String, maxval::Int; histdp
     for name in colnames
         data = rankdata[!,name]
         nbins = floor(Int, sqrt(length(data)))
-        histvals = fit(StatsBase.Histogram(), vec(data), range(0, stop=maxval, length=nbins+1))
+        histvals = fit(StatsBase.Histogram, vec(data), range(0, stop=maxval, length=nbins+1))
         hist = plot(histvals, label="", dpi=histdpi, color=histcolour, bins=())
         xlabel!(name)
         savefig(hist, plotsdir * "$name.$filetype")
