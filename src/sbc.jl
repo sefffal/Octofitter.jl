@@ -394,6 +394,10 @@ function getplotdata(datadir::String, plotsdir::String, grmax)
         write(f, "Total: $(length(usablerankfiles))/$(length(rankfiles))")
     end
 
+    # Get maximum histogram values
+    m = Matrix(CSV.read(chainfiles[1], DataFrame))
+    maxval = Int(m[:,1][end])
+
     return maxval, usablerankfiles
 end
 
