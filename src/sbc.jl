@@ -396,7 +396,7 @@ function getplotdata(datadir::String, plotsdir::String, grmax)
 
     # Get maximum histogram values
     m = Matrix(CSV.read(chainfiles[1], DataFrame))
-    maxval = Int(m[:,1][end])
+    maxval = Int(m[:,1][end] * Int(m[:,2][end]))
 
     return maxval, usablerankfiles
 end
