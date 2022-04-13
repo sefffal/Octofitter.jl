@@ -149,6 +149,29 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         ))
     end
 end
+function construct_elements(chain, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
+    pk = string(planet_key)
+    Ms=chain[:,"M"]
+    plxs=chain[:,"plx"]
+    is=chain[:,pk*"[i]"]
+    Ωs=chain[:,pk*"[Ω]"]
+    ωs=chain[:,pk*"[ω]"]
+    es=chain[:,pk*"[e]"]
+    τs=chain[:,pk*"[τ]"]
+    as=chain[:,pk*"[a]"]
+    return map(ii) do i
+        KeplerianElements((;
+            M=Ms[i],
+            plx=plxs[i],
+            i=is[i],
+            Ω=Ωs[i],
+            ω=ωs[i],
+            e=es[i],
+            τ=τs[i],
+            a=as[i],
+        ))
+    end
+end
 
 
 # Fallback when no random number generator is provided (as is usually the case)
