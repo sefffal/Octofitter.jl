@@ -203,6 +203,7 @@ function init_plots()
             plotpma=!isnothing(propermotionanom(system)),
             # TODO: ideally this is based on if there is a mass variable
             plotmass=!isnothing(propermotionanom(system)),
+            plotimages=!isnothing(images(system)),
             cmap=:plasma,
             imagecmap=:Greys,
             clims=isnothing(color) ? nothing : quantile(Iterators.flatten(
@@ -222,7 +223,7 @@ function init_plots()
             )
 
             # plot images?
-            if !isnothing(images(system))
+            if plotimages
                 if length(unique(images(system).table.platescale)) != 1
                     @warn "Plotmodel does not yet support images with multiple platescales. Taking first image only."
                     img = DirectImages.DirectImage(first(images(system).image))
