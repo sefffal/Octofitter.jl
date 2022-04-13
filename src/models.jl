@@ -214,11 +214,13 @@ function ln_like(images::Images, θ_system, all_elements)
         # *all* planets
         star_δra =  0
         star_δdec = 0
-        # for (θ_planet_i, orbit_i) in zip(θ_system.planets, all_elements)
-        #     o_i = orbitsolve(orbit_i, imgtable.epoch[i])
-        #     star_δra = -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
-        #     star_δdec = -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
-        # end
+        for (θ_planet_i, orbit_i) in zip(θ_system.planets, all_elements)
+            if hasproperty(θ_planet_i, :mass)
+                o_i = orbitsolve(orbit_i, imgtable.epoch[i])
+                star_δra += -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
+                star_δdec += -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
+            end
+        end
 
         # Once we have the star's reflex motion, go through and look
         # for each planet
@@ -277,18 +279,6 @@ function ln_like(astrom::Astrometry, θ_planet, orbit, all_θ_planets, all_orbit
 # function ln_like(astrom::Astrometry, θ_planet, orbit, all_orbits)
     ll = 0.0
     for i in eachindex(astrom.table.epoch)
-        # o = orbitsolve(orbit, astrom.table.epoch[i])
-
-        # Astrometry is measured relative to the star.
-        # Account for the relative position of the star due to
-        # this planet
-        # if hasproperty(θ_planet, :mass)
-        #     star_δra = -raoff(o) * θ_planet.mass*mjup2msol/orbit.M
-        #     star_δdec = -decoff(o) * θ_planet.mass*mjup2msol/orbit.M
-        # else
-        #     star_δra =  0
-        #     star_δdec = 0
-        # end
 
         # Astrometry is measured relative to the star.
         # Account for the relative position of the star due to
@@ -301,8 +291,8 @@ function ln_like(astrom::Astrometry, θ_planet, orbit, all_θ_planets, all_orbit
             if orbit_i == orbit
                 o = o_i
             end
-            star_δra = -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
-            star_δdec = -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
+            star_δra += -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
+            star_δdec += -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
         end
 
         # # PA and Sep specified
