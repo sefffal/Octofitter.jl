@@ -121,11 +121,11 @@ The priors must be univariate distributions from the Distributions.jl
 package.
 """
 struct Priors
-    priors::Dict{Symbol,Distribution}
+    priors::OrderedDict{Symbol,Distribution}
 end
 export Priors
 # Basically just wrap a named tuple
-Priors(;priors...) = Priors(Dict(priors))
+Priors(;priors...) = Priors(OrderedDict(priors))
 
 function Base.show(io::IO, mime::MIME"text/plain", priors::Priors)
     println(io, "Priors:")
@@ -146,10 +146,10 @@ Must always return the same value for the same input (be a pure function) and
 support autodifferentiation.
 """
 struct Derived
-    variables::Dict{Symbol,Base.Callable}
+    variables::OrderedDict{Symbol,Base.Callable}
 end
 export Derived
-Derived(;variables...) = Derived(Dict(variables))
+Derived(;variables...) = Derived(OrderedDict(variables))
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize det::Derived)
     print(io, "Derived:\n  ")
     for k in keys(det.variables)
@@ -166,33 +166,75 @@ Example:
     Variables(
         a = Uniform(1, 100),
         e = Uniform(0, 1),
+        M = 1.0,
         i = Sine(),
-        τ = Uniform(0, 1),
+        τ = UniformCircular(1.0),
         mass = Uniform(0, 100),
         Ωpω = Uniform(0, 2π),
         Ωmω = Normal(0, π/2),
         Ω = (sys, pl) -> (pl.Ωpω + pl.Ωmω)/2,
         ω = (sys, pl) -> (pl.Ωpω - pl.Ωmω)/2,
+
     )
 ```
 """
 function Variables(; kwargs...)
-    isdist(v) = typeof(v) <: Distribution
-    priors = filter(isdist ∘ last, kwargs)
-    derived = filter(!(isdist ∘ last), kwargs)
-    # Convert anything <: Number to a function that returns that number
-    map!(values(derived)) do v
-        if typeof(v) <: Number
-            Returns(v)
-        else
-            # Assume it's callable. We check if it's
-            # <: Function but this excludes callable objects.
-            v
+    # Start by expaning parameterizations.
+    # Users can make anything they want using functions, but we
+    # have a nice mechanism for pre-canned parameterizations
+    # that can introduce auxillary variables without much fuss.
+    kwargs_expanded = Pair[]
+    for (k,v) in pairs(kwargs)
+        # Each input can expand to any number of inputs.
+        for (k,v) in pairs(expandparam(k,v))
+            push!(kwargs_expanded, k => v)
         end
     end
+    kwargs_dict = OrderedDict(kwargs_expanded)
+    # Now divide the list into priors (random variables) and derived (functions of random variables)
+    isdist(v) = typeof(v) <: Distribution
+    priors = filter(isdist ∘ last, kwargs_dict)
+    derived = filter(!(isdist ∘ last), kwargs_dict)
+    
     return Priors(priors), Derived(derived)
 end
 export Variables
+
+
+
+abstract type Parameterization end
+"""
+    UniformCircular(domain=2π)
+
+Creates a variable parameterized on a continuous, periodic domain.
+Creates two normally diastributed random variables :Ωx and :Ωy 
+and maps them to a circular domain using a derived variable 
+according to `atan(:Ωy, :Ωx)`.
+This may be more efficient than using e.g. `Ω = Uniform(-pi, pi)`
+because the sampler can wrap around freely.
+
+Example:
+```julia
+Variables(;
+    a = Uniform(1, 10),
+    e = Uniform(0, 1),
+    UniformCircular(:Ω)...,
+)
+```
+"""
+struct UniformCircular <: Parameterization
+    domain::Float64
+end
+UniformCircular() = UniformCircular(2π)
+export UniformCircular
+expandparam(var, n::Number) = OrderedDict(var => Returns(n))
+expandparam(var, f::Base.Callable) = OrderedDict(var => f)
+expandparam(var, d::Distribution) = OrderedDict(var => d)
+expandparam(var, p::UniformCircular) = OrderedDict(
+    Symbol("$(var)x") => Normal(),
+    Symbol("$(var)y") => Normal(),
+    var  => (args...) -> atan(args[end][Symbol("$(var)y")], args[end][ Symbol("$(var)x")])/2pi*p.domain,
+)
 
 
 """
