@@ -22,8 +22,8 @@ using Statistics
 using StatsBase
 using NamedTupleTools
 using OrderedCollections
-using DirectImages
 using DirectOrbits
+using AstroImages
 
 # Re-export these from DirectOrbits
 export mjd, KeplerianElements, KeplerianElementsDeg
@@ -48,6 +48,7 @@ include("types.jl")
 include("distributions.jl")
 include("models.jl")
 include("sampling.jl")
+include("images.jl")
 include("analysis.jl")
 include("macros.jl")
 include("hgca.jl")
