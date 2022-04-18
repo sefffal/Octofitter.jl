@@ -25,8 +25,8 @@ deviations.
 value.
 """
 function contrast(image::AstroImage; step=2)
-    dx = dims(image,1)
-    dy = dims(image,2)
+    dx = dims(image,X)
+    dy = collect(dims(image,Y))
     dr = sqrt.(
         dx.^2 .+ (dy').^2
     )

@@ -235,11 +235,18 @@ function ln_like(images::Images, θ_system, all_elements)
 
             # Get the photometry in this image at that location
             # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
-            f̃ₓ = lookup_coord(imgtable.image[i], (x, y), imgtable.platescale[i])
+            platescale = imgtable.platescale[i]
+            f̃ₓ = imgtable.image[i](x/platescale, y/platescale)
 
             # Find the uncertainty in that photometry value (i.e. the contrast)
-            r = √(x^2 + y^2)
-            σₓ = imgtable.contrast[i](r / imgtable.platescale[i])
+            if hasproperty(imgtable, :contrastmap)
+                # If we have a 2D map
+                σₓ = imgtable.contrastmap[i](x/platescale, y/platescale)
+            else
+                # We have a 1D contrast curve
+                r = √(x^2 + y^2)
+                σₓ = imgtable.contrast[i](r / platescale)
+            end
 
             # Verify the user has specified a prior or model for this band.
             if !hasproperty(θ_planet_i, band)

@@ -73,7 +73,7 @@ end
 RadialVelocity(observations::NamedTuple...) = RadialVelocity(observations)
 export RadialVelocity
 
-const images_cols = (:band, :image, :epoch, :platescale, :contrast, )
+const images_cols = (:band, :image, :epoch, :platescale,)
 
 """
     Images(...)
@@ -98,13 +98,25 @@ struct Images{TTable<:Table} <: AbstractObs
     function Images(observations...)
         table = Table(observations...)
         # Fallback to calculating contrast automatically
-        if !in(:contrast, columnnames(table))
+        if !in(:contrast, columnnames(table)) || !in(:contrastmap, columnnames(table))
             @info "Measuring contrast from image"
             contrast = contrast_interp.(table.image)
             table = Table(table, contrast=contrast)
         end
         if !issubset(images_cols, columnnames(table))
             error("Expected columns $images_cols")
+        end
+        # Create linear interpolators over the input images
+        image = map(table.image) do img
+            LinearInterpolation(parent.(dims(img)), img, extrapolation_bc=convert(eltype(img), NaN))
+        end
+        table = Table(table, image=image)
+        if hasproperty(table, :contrastmap)
+            # Create linear interpolators over the input contrastmaps
+            contrastmap = map(table.contrastmap) do img
+                LinearInterpolation(parent.(dims(img)), img, extrapolation_bc=convert(eltype(img), NaN))
+            end
+            table = Table(table, contrastmap=contrastmap)
         end
         return new{typeof(table)}(table)
     end
