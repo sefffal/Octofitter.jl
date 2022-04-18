@@ -6,6 +6,7 @@ version = "0.6.1"
 [deps]
 AbstractMCMC = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
 AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
+AstroImages = "fe3fc30c-9b16-11e9-1c73-17dabf39f4ad"
 AstroLib = "c7932e45-9af1-51e7-9da9-f004cd3a462b"
 BasicInterpolators = "26cce99e-4866-4b6d-ab74-862489e035e0"
 Bijectors = "76274a88-744f-5084-9051-94815aaf08c4"
