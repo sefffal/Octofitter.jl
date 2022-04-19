@@ -98,7 +98,7 @@ struct Images{TTable<:Table} <: AbstractObs
     function Images(observations...)
         table = Table(observations...)
         # Fallback to calculating contrast automatically
-        if !in(:contrast, columnnames(table)) || !in(:contrastmap, columnnames(table))
+        if !in(:contrast, columnnames(table)) && !in(:contrastmap, columnnames(table))
             @info "Measuring contrast from image"
             contrast = contrast_interp.(table.image)
             table = Table(table, contrast=contrast)
@@ -107,16 +107,16 @@ struct Images{TTable<:Table} <: AbstractObs
             error("Expected columns $images_cols")
         end
         # Create linear interpolators over the input images
-        image = map(table.image) do img
+        imageinterp = map(table.image) do img
             LinearInterpolation(parent.(dims(img)), img, extrapolation_bc=convert(eltype(img), NaN))
         end
-        table = Table(table, image=image)
+        table = Table(table; imageinterp)
         if hasproperty(table, :contrastmap)
             # Create linear interpolators over the input contrastmaps
-            contrastmap = map(table.contrastmap) do img
+            contrastmapinterp = map(table.contrastmap) do img
                 LinearInterpolation(parent.(dims(img)), img, extrapolation_bc=convert(eltype(img), NaN))
             end
-            table = Table(table, contrastmap=contrastmap)
+            table = Table(table; contrastmapinterp)
         end
         return new{typeof(table)}(table)
     end

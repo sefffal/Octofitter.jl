@@ -113,10 +113,13 @@ function newobs(obs::Images, elements::Vector{<:KeplerianElements}, θ_system)
             # TODO: verify signs
             dx = ra/platescale
             dy = -dec/platescale
-            translation_tform = Translation(dx + mean(axes(psf,1)), dy + mean(axes(psf,2)))
+            translation_tform = Translation(
+                mean(axes(psf,1))-mean(axes(image,1))+dx,
+                mean(axes(psf,2))-mean(axes(image,2))+dy
+            )
             # TBD if we want to support rotations for handling negative sidelobes.
 
-            psf_positioned = warp(psf, translation_tform, axes(image), fillvalue=0)
+            psf_positioned = warp(arraydata(psf), translation_tform, axes(image), fillvalue=0)
             psf_positioned[.! isfinite.(psf_positioned)] .= 0
             psf_scaled = psf_positioned .* phot ./ maximum(filter(isfinite, psf_positioned))
             injected .+= psf_scaled
