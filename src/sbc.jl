@@ -114,9 +114,10 @@ function newobs(obs::Images, elements::Vector{<:KeplerianElements}, θ_system)
             dx = ra/platescale
             dy = -dec/platescale
             translation_tform = Translation(
-                mean(axes(psf,1))-mean(axes(image,1))+dx,
-                mean(axes(psf,2))-mean(axes(image,2))+dy
+                mean(axes(psf,1))-mean(axes(image,1))+mean(dims(image,1))+dx,
+                mean(axes(psf,2))-mean(axes(image,2))+mean(dims(image,2))+dy
             )
+            @show mean(dims(psf,1)) mean(dims(image,1)) translation_tform
             # TBD if we want to support rotations for handling negative sidelobes.
 
             psf_positioned = warp(arraydata(psf), translation_tform, axes(image), fillvalue=0)
