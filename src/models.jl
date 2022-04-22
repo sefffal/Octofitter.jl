@@ -428,7 +428,7 @@ function ln_like(system::System, θ_system)
 
         # Loop through observations
         for obs in planet.observations
-            ll += ln_like(obs, θ_planet, planet_elements, θ_system.planets, elements)
+            ll += ln_like(obs, θ_planet, planet_elements, θ_system, elements)
         end
     end
 
