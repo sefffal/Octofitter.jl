@@ -190,6 +190,20 @@ function ln_like(rv::RadialVelocity, θ_system, elements)
     return ll
 end
 
+function ln_like(rv::RadialVelocity, θ_planet, orbit, θ_system, all_orbits)
+    ll = 0.0
+    
+    for i in eachindex(rv.table.epoch)
+        rv_planet = radvel(orbit, rv.table.epoch[i])
+        resid = rv_planet + θ_system.rv - rv.table.rv[i]
+        σ² = rv.table.σ_rv[i]^2 + θ_system.jitter^2
+        χ² = -0.5resid^2 / σ² - log(sqrt(2π * σ²))
+        ll += χ²
+    end
+    
+    return ll
+end
+
 """
 Likelihood of there being planets in a sequence of images.
 """
@@ -273,8 +287,9 @@ function ln_like(images::Images, θ_system, all_elements)
 end
 
 # Astrometry
-function ln_like(astrom::Astrometry, θ_planet, orbit, all_θ_planets, all_orbits,)
+function ln_like(astrom::Astrometry, θ_planet, orbit, θ_system, all_orbits,)
 # function ln_like(astrom::Astrometry, θ_planet, orbit, all_orbits)
+    all_θ_planets = θ_system.planets
     ll = 0.0
     for i in eachindex(astrom.table.epoch)
         # o = orbitsolve(orbit, astrom.table.epoch[i])
