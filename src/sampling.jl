@@ -97,6 +97,16 @@ function construct_elements(::Type{KeplerianElements}, θ_system, θ_planet)
     ))
 end
 
+function construct_elements(::Type{RadialVelocityElements}, θ_system, θ_planet)
+    return RadialVelocityElements((;
+        θ_system.M,
+        θ_planet.ω,
+        θ_planet.e,
+        θ_planet.τ,
+        θ_planet.a,
+    ))
+end
+
 
 """
     construct_elements(chains, :b, 4)
@@ -107,16 +117,28 @@ index of the chains.
 """
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Union{Integer,CartesianIndex})
     pk = string(planet_key)
-    return KeplerianElements((;
-        M=chain["M"][i],
-        plx=chain["plx"][i],
-        i=chain[pk*"[i]"][i],
-        Ω=chain[pk*"[Ω]"][i],
-        ω=chain[pk*"[ω]"][i],
-        e=chain[pk*"[e]"][i],
-        τ=chain[pk*"[τ]"][i],
-        a=chain[pk*"[a]"][i],
-    ))
+    if haskey(chain, :plx) && haskey(chain, Symbol(pk*"[i]")) && haskey(chain, Symbol(pk*"[Ω]"))
+        return KeplerianElements((;
+            M=chain["M"][i],
+            plx=chain["plx"][i],
+            i=chain[pk*"[i]"][i],
+            Ω=chain[pk*"[Ω]"][i],
+            ω=chain[pk*"[ω]"][i],
+            e=chain[pk*"[e]"][i],
+            τ=chain[pk*"[τ]"][i],
+            a=chain[pk*"[a]"][i],
+        ))
+    elseif haskey(chain, :M) && haskey(chain, :rv)
+        return KeplerianElements((;
+            M=chain["M"][i],
+            ω=chain[pk*"[ω]"][i],
+            e=chain[pk*"[e]"][i],
+            τ=chain[pk*"[τ]"][i],
+            a=chain[pk*"[a]"][i],
+        ))
+    else
+        error("Unrecognized columns")
+    end
 end
 
 """
@@ -128,25 +150,44 @@ of the chains.
 """
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
     pk = string(planet_key)
-    Ms=chain["M"]
-    plxs=chain["plx"]
-    is=chain[pk*"[i]"]
-    Ωs=chain[pk*"[Ω]"]
-    ωs=chain[pk*"[ω]"]
-    es=chain[pk*"[e]"]
-    τs=chain[pk*"[τ]"]
-    as=chain[pk*"[a]"]
-    return map(ii) do i
-        KeplerianElements((;
-            M=Ms[i],
-            plx=plxs[i],
-            i=is[i],
-            Ω=Ωs[i],
-            ω=ωs[i],
-            e=es[i],
-            τ=τs[i],
-            a=as[i],
-        ))
+    if haskey(chain, :plx) && haskey(chain, Symbol(pk*"[i]")) && haskey(chain, Symbol(pk*"[Ω]"))
+        Ms=chain["M"]
+        plxs=chain["plx"]
+        is=chain[pk*"[i]"]
+        Ωs=chain[pk*"[Ω]"]
+        ωs=chain[pk*"[ω]"]
+        es=chain[pk*"[e]"]
+        τs=chain[pk*"[τ]"]
+        as=chain[pk*"[a]"]
+        return map(ii) do i
+            KeplerianElements((;
+                M=Ms[i],
+                plx=plxs[i],
+                i=is[i],
+                Ω=Ωs[i],
+                ω=ωs[i],
+                e=es[i],
+                τ=τs[i],
+                a=as[i],
+            ))
+        end
+    elseif haskey(chain, Symbol("M")) && haskey(chain, Symbol("rv"))
+        Ms=chain["M"]
+        ωs=chain[pk*"[ω]"]
+        es=chain[pk*"[e]"]
+        τs=chain[pk*"[τ]"]
+        as=chain[pk*"[a]"]
+        return map(ii) do i
+            RadialVelocityElements((;
+                M=Ms[i],
+                ω=ωs[i],
+                e=es[i],
+                τ=τs[i],
+                a=as[i],
+            ))
+        end
+    else
+        error("Unrecognized chain format")
     end
 end
 function construct_elements(chain, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})

@@ -60,11 +60,14 @@ psf = let
     cx,cy = round.(Int, mean.(axes(image)))
     image[cx, cy] = 1
     p = centered(imfilter(image, Kernel.gaussian(5), "replicate")[-10:10,-10:10])
-    p ./maximum(p)
+    p ./= maximum(p)
+    p
 end
 
 ##
 imshow2(reduce(vcat, images), clims = (-35, 35))
+##
+imshow2(psf, clims = (-1, 1))
 
 ##
 
@@ -72,12 +75,17 @@ imshow2(reduce(vcat, images), clims = (-35, 35))
     Variables(
         a = Normal(12, 3),
         e = Beta(10, 70),
-        τ = Normal(0.5, 1),
-        ω = Normal(1pi, 1pi),
         i = 0.15π,
-        Ω = Normal(0.5pi, 0.5pi),
-        J = LogUniform(0.1, 100),
-        mass = 2
+        ωx = Normal(),
+        ωy = Normal(),
+        ω = (sys, pl) -> atan(pl.ωy, pl.ωx),
+        Ωx = Normal(),
+        Ωy = Normal(),
+        Ω = (sys, pl) -> atan(pl.Ωy, pl.Ωx),
+        τx = Normal(),
+        τy = Normal(),
+        τ = (sys, pl) -> atan(pl.τy, pl.τx)/2π,
+        J = LogUniform(1, 100),
     )
 )
 
@@ -104,15 +112,17 @@ system_vars = Variables(
 
 
 ##
-newimgs = DirectDetections.newobs(system.observations[1], truths[1], (;J=25))
-@named system = System(system_vars, newimgs, b)
+θ = drawfrompriors(system)
+sysg = generate(system, θ)
+sysg.observations[1].table.image[1]|>imshow2
+##
+imshow2(snrmap((sysg.observations[1].table.image[4])))
 ##
 out = DirectDetections.hmc(
-    system, 0.65;
+    sysg, 0.65;
     # adaptation = 5_000,
-    adaptation =  2_000,
-    iterations = 25_000,
-    initial_samples=5_000,
+    adaptation =  4_000,
+    iterations = 15_000,
     # step_size=7e-4,
 );
 

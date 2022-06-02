@@ -212,8 +212,8 @@ function ln_like(images::Images, θ_system, all_elements)
         # effectively shift the images around as they orbit the star.
         # Account for the relative position of the star due to
         # *all* planets
-        star_δra =  0
-        star_δdec = 0
+        star_δra =  0.0
+        star_δdec = 0.0
         for (θ_planet_i, orbit_i) in zip(θ_system.planets, all_elements)
             if hasproperty(θ_planet_i, :mass)
                 o_i = orbitsolve(orbit_i, imgtable.epoch[i])
@@ -292,15 +292,17 @@ function ln_like(astrom::Astrometry, θ_planet, orbit, all_θ_planets, all_orbit
         # Account for the relative position of the star due to
         # *all* planets
         local o
-        star_δra =  0
-        star_δdec = 0
+        star_δra =  0.
+        star_δdec = 0.
         for (θ_planet_i, orbit_i) in zip(all_θ_planets, all_orbits)
             o_i = orbitsolve(orbit_i, astrom.table.epoch[i])
             if orbit_i == orbit
                 o = o_i
             end
-            star_δra += -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
-            star_δdec += -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
+            if hasproperty(θ_planet_i, :mass)
+                star_δra += -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
+                star_δdec += -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
+            end
         end
 
         # # PA and Sep specified

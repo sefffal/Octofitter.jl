@@ -101,7 +101,7 @@ Sampling100%|██████████████████████�
   nom_step_size:                 0.5200876630871248
   is_adapt:                      false
   mass_matrix:                   DenseEuclideanMetric(diag=[0.002497517511145372, 0.02 ...])
-[ Info: Resolving deterministic variables
+[ Info: Resolving derived variables
 [ Info: Constructing chains
 Sampling report:
 mean_accept = 0.7834391801902499

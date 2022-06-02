@@ -26,7 +26,7 @@ using DirectOrbits
 using AstroImages
 
 # Re-export these from DirectOrbits
-export mjd, KeplerianElements, KeplerianElementsDeg
+export mjd, KeplerianElements, KeplerianElementsDeg, RadialVelocityElements
 # Re-export from TypedTables
 export Table, FlexTable
 
