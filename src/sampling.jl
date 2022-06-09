@@ -82,7 +82,7 @@ end
     construct_elements(θ_system, θ_planet)
 
 Given a named tuple for of parameters from a System (θ_system) and Planet (θ_planet),
-return a `KeplerianElements` from DirectOrbits.jl.
+return a `KeplerianElements` from PlanetOrbits.jl.
 """
 function construct_elements(::Type{KeplerianElements}, θ_system, θ_planet)
     return KeplerianElements((;

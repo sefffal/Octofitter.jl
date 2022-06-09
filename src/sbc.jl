@@ -18,7 +18,7 @@ using PairPlots
 
 # Orbit fitting
 using MCMCChains
-using DirectOrbits
+using PlanetOrbits
 using DirectDetections
 using ImageTransformations
 using CoordinateTransformations
@@ -52,8 +52,8 @@ function newobs(obs::Astrometry, elem::KeplerianElements, θ_planet)
     σ_decs = obs.table.σ_dec
 
     # Generate now astrometry data
-    ras = DirectOrbits.raoff.(elem, epochs)
-    decs = DirectOrbits.decoff.(elem, epochs)
+    ras = raoff.(elem, epochs)
+    decs = decoff.(elem, epochs)
     astrometry_table = Table(epoch=epochs, ra=ras, dec=decs, σ_ra=σ_ras, σ_dec=σ_decs)
 
     return Astrometry(astrometry_table)
@@ -82,7 +82,7 @@ function newobs(obs::RadialVelocity, elems::Vector{<:KeplerianElements}, θ_syst
     planet_masses = [θ_planet.mass for θ_planet in θ_system.planets] .* 0.000954588 # Mjup -> Msun
 
     # Generate new star radial velocity data
-    rvs = DirectOrbits.radvel.(reshape(elems, :, 1), epochs, transpose(planet_masses))
+    rvs = radvel.(reshape(elems, :, 1), epochs, transpose(planet_masses))
     noise = randn(length(epochs)) .* θ_system.jitter
     rvs = sum(rvs, dims=2)[:,1] .+ θ_system.rv .+ noise
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
@@ -102,11 +102,11 @@ function newobs(obs::Images, elements::Vector{<:KeplerianElements}, θ_system)
             θ_planet = θ_system.planets[i]
             elem = elements[i]
             # Generate new astrometry point
-            os = DirectOrbits.orbitsolve(elem, epoch)
+            os = orbitsolve(elem, epoch)
 
             # TODO: this does not consider the shift to the images due to the motion of the star
-            ra = DirectOrbits.raoff(os)
-            dec = DirectOrbits.decoff(os)
+            ra = raoff(os)
+            dec = decoff(os)
 
             phot = θ_planet[band]
 

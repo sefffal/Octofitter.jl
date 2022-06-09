@@ -1,7 +1,7 @@
 # Kepler Solver
 
 The heart of this package is being able to take a set of Keplerian elements and output relative positions, velocities, etc.
-For this, we use DirectOrbits.jl which adopts the same conventions as Orbitize!.
+For this, we use PlanetOrbits.jl which adopts the same conventions as Orbitize!.
 
 The Kepler solver used to go from mean anomaly to eccentric anomaly is a tweaked version copied from [AstroLib.jl](http://juliaastro.github.io/AstroLib.jl/stable/ref/#AstroLib.kepler_solver).
 

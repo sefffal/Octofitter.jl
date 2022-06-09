@@ -22,7 +22,7 @@ using Statistics
 using StatsBase
 using NamedTupleTools
 using OrderedCollections
-using DirectOrbits
+using PlanetOrbits
 using AstroImages
 
 # Re-export these from DirectOrbits
