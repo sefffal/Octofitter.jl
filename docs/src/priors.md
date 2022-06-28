@@ -11,7 +11,7 @@ A few useful distributions include:
 * `TrucatedNormal`
 * `VonMises`
 
-This pacakge also defined the `Sine()` distribution for e.g. inclination priors.
+This pacakge also defines the `Sine()` distribution for e.g. inclination priors and `UniformCircular()` for periodic variables.
 
 The VonMise distribution is notable but not commonly used. It is the analog of a normal distribution defined on a circular domain (-π, +π). If you have a Gaussian prior on an angular parameter, a Von Mises distribution is probably more appropriate.
 
