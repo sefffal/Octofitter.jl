@@ -13,8 +13,8 @@ using DirectDetections, Distributions, Plots
 
 Create our first planet. Let's name it planet X.
 ```julia
-@named X = Planet(
-    Priors(
+@named X = Planet{KeplerianElements}(
+    Variables(
         a = TruncatedNormal(1, 0.5, 0, Inf),
         e = TruncatedNormal(0.0, 0.2, 0, 1.0),
         τ = Normal(0.5, 1),
@@ -56,8 +56,8 @@ A system represents a host star with one or more planets. Properties of the whol
 
 ```julia
 @named HD82134 = System(
-    Priors(
-        μ = Normal(1.0, 0.01),
+    Variables(
+        M = Normal(1.0, 0.01),
         plx =Normal(1000.2, 0.02),
     ),  
     X,
@@ -114,7 +114,7 @@ Summary Statistics
   parameters        mean       std   naive_se      mcse          ess      rhat   ess_per_sec 
       Symbol     Float64   Float64    Float64   Float64      Float64   Float64       Float64 
 
-           μ      0.9991    0.0100     0.0000    0.0000   73497.2356    1.0000      341.4109
+           M      0.9991    0.0100     0.0000    0.0000   73497.2356    1.0000      341.4109
          plx   1000.2001    0.0201     0.0001    0.0001   71398.1409    1.0000      331.6602
         X[a]      1.1400    0.0073     0.0000    0.0000   73252.1068    1.0000      340.2722
         X[e]      0.1300    0.0715     0.0002    0.0005   22658.1132    1.0005      105.2519
@@ -127,7 +127,7 @@ Quantiles
   parameters        2.5%       25.0%       50.0%       75.0%       97.5% 
       Symbol     Float64     Float64     Float64     Float64     Float64 
 
-           μ      0.9795      0.9924      0.9991      1.0059      1.0188
+           M      0.9795      0.9924      0.9991      1.0059      1.0188
          plx   1000.1607   1000.1865   1000.2000   1000.2136   1000.2395
         X[a]      1.1257      1.1350      1.1399      1.1449      1.1544
         X[e]      0.0419      0.0793      0.1090      0.1636      0.3154
