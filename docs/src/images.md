@@ -51,8 +51,8 @@ Then, create a system with one or more planets. In this case, we will not provid
 
 Start by specifying a planet:
 ```julia
-@named X = DirectDetections.Planet(
-    Priors(
+@named X = Planet{KeplerianElements}(
+    Variables(
         a = Normal(13, 3),
         e = TruncatedNormal(0.2, 0.2, 0, 1.0),
         τ = Normal(0.5, 1),
@@ -70,7 +70,7 @@ See [Fit Astrometry](@ref fit-astrometry) for a description of the different orb
 Now, we create a table of images that will be passed to the `System`:
 
 ```julia
-system_images = DirectDetections.Images(
+system_images = Images(
     (band=:H, image=centered(images[1]), platescale=10.0, epoch=1238.6),
     (band=:H, image=centered(images[2]), platescale=10.0, epoch=1584.7),
     (band=:H, image=centered(images[3]), platescale=10.0, epoch=3220.0),
@@ -90,8 +90,8 @@ You can also provide images from multiple bands and they will be sampled indepen
 Finally, create the system and pass in your table of images.
 ```julia
 @named HD82134 = System(
-    Priors(
-        μ = Normal(2.0, 0.1),
+    Variables(
+        M = Normal(2.0, 0.1),
         plx =Normal(45., 0.02),
     ),
     system_images,
