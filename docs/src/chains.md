@@ -9,7 +9,7 @@ A column will be present for each variable in your model, both defined in the Pr
 
 Variables defined for the System as a whole can be accessed directly. For example:
 ```julia
-chain["μ"]
+chain["M"]
 ```
 This will return an array of μ values from the posterior. The format is a matrix of N-samples by N-walkers.
 

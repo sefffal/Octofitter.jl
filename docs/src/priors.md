@@ -12,6 +12,7 @@ A few useful distributions include:
 * `VonMises`
 
 This pacakge also defines the `Sine()` distribution for e.g. inclination priors and `UniformCircular()` for periodic variables.
+Internally, `UniformCircular()` creates two standard normal variables and finds the angle between them using `arctan`. This allows the sampler to smoothly cycle past the ends of the domain. You can specify a different circular domain than (0,2pi) by passing the size of the domain e.g. `τ = UniformCircular(1.0)`.
 
 The VonMise distribution is notable but not commonly used. It is the analog of a normal distribution defined on a circular domain (-π, +π). If you have a Gaussian prior on an angular parameter, a Von Mises distribution is probably more appropriate.
 

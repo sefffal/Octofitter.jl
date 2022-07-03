@@ -13,7 +13,7 @@ The first step is to find the GAIA source ID for your object. For HD 91312, SIMB
 
 ## Planet Model
 For this model, we will have to add the variable `mass` as a prior.
-The units used on this variable are Jupiter masses, in contrast to `μ`, the primary's mass, in solar masses.  A reasonable uninformative prior for `mass` is `Uniform(0,1000)` or `LogUniform(1,1000)` depending on the situation.
+The units used on this variable are Jupiter masses, in contrast to `M`, the primary's mass, in solar masses.  A reasonable uninformative prior for `mass` is `Uniform(0,1000)` or `LogUniform(1,1000)` depending on the situation.
 
 Initial setup:
 ```julia
@@ -22,8 +22,8 @@ using DirectDetections, Distributions, Plots
 
 
 ```julia
-@named B = Planet(
-    Priors(
+@named B = Planet{KeplerianELements}(
+    Variables(
         a = Uniform(1, 25),
         e = Beta(2,15),
         τ = Uniform(0, 1),
@@ -53,8 +53,8 @@ Now that we have our planet model, we create a system model to contain it.
 
 ```julia
 @named HD91312 = System(
-    Priors(
-        μ = LogNormal(1.61, 1),
+    Variables(
+        M = LogNormal(1.61, 1),
         plx = gaia_plx(gaia_id=756291174721509376),
     ),  
     ProperMotionAnomHGCA(gaia_id=756291174721509376),
@@ -62,7 +62,7 @@ Now that we have our planet model, we create a system model to contain it.
 )
 ```
 
-We specify priors on `μ` and `plx` as usual, but here we use the `gaia_plx` helper function to read the parallax and uncertainty directly from the HGCA using its source ID.
+We specify priors on `M` and `plx` as usual, but here we use the `gaia_plx` helper function to read the parallax and uncertainty directly from the HGCA using its source ID.
 
 After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.
 
@@ -115,13 +115,13 @@ Number of chains  = 1
 Samples per chain = 30000
 Wall duration     = 24.15 seconds
 Compute duration  = 24.15 seconds
-parameters        = μ, plx, B[a], B[e], B[τ], B[ω], B[i], B[Ω], B[mass]
+parameters        = M, plx, B[a], B[e], B[τ], B[ω], B[i], B[Ω], B[mass]
 
 Summary Statistics
   parameters       mean       std   naive_se      mcse          ess      rhat   ess_per_sec 
       Symbol    Float64   Float64    Float64   Float64      Float64   Float64       Float64
 
-           μ     1.6107    0.0499     0.0003    0.0003   21449.1180    1.0000      888.1255
+           M     1.6107    0.0499     0.0003    0.0003   21449.1180    1.0000      888.1255
          plx    29.1444    0.1396     0.0008    0.0010   23713.4280    1.0000      981.8818
         B[a]     6.7402    0.0890     0.0005    0.0010    7643.8317    1.0000      316.5017
         B[e]     0.2043    0.0449     0.0003    0.0005    5958.7172    1.0000      246.7276
@@ -135,7 +135,7 @@ Quantiles
   parameters       2.5%      25.0%      50.0%      75.0%      97.5% 
       Symbol    Float64    Float64    Float64    Float64    Float64
 
-           μ     1.5131     1.5777     1.6109     1.6441     1.7083
+           M     1.5131     1.5777     1.6109     1.6441     1.7083
          plx    28.8718    29.0491    29.1440    29.2396    29.4166
         B[a]     6.5706     6.6794     6.7398     6.7994     6.9165
         B[e]     0.1229     0.1730     0.2023     0.2332     0.2989
@@ -176,11 +176,11 @@ For a quick look, you can just run `corner(chain)`, but for more professional ou
 
 ```julia
 ##Create a corner plot / pair plot.
-# We can access any property from the chain specified in Priors or in Derived.
+# We can access any property from the chain specified in Variables
 using PairPlots
 table = (;
     a=         chain["B[a]"],
-    μ=         chain["μ"],
+    M=         chain["M"],
     m=         chain["B[mass]"],
     e=         chain["B[e]"],
     i=rad2deg.(chain["B[i]"]),
@@ -220,13 +220,11 @@ you can follow a simplified approach.
 As a start, you can restrict the orbital parameters to just semi-major axis, epoch of periastron passage, and mass.
 
 ```julia
-@named b = Planet(
-    Priors(
+@named b = Planet{KeplerianElements}(
+    Variables(
         a = LogUniform(0.1, 100),
         τ = Uniform(0, 1),
         mass = LogUniform(1, 2000),
-    ),
-    Derived(
         i = Returns(0),
         e = Returns(0),
         Ω = Returns(0),
@@ -234,8 +232,8 @@ As a start, you can restrict the orbital parameters to just semi-major axis, epo
     )
 )
 @named HD91312 = System(
-    Priors(
-        μ = TruncatedNormal(1.61, 0.2, 0, Inf),
+    Variables(
+        M = TruncatedNormal(1.61, 0.2, 0, Inf),
         plx = gaia_plx(gaia_id=756291174721509376),
     ),  
     ProperMotionAnomHGCA(gaia_id=756291174721509376),
@@ -301,13 +299,13 @@ Number of chains  = 4
 Samples per chain = 51000
 Wall duration     = 64.1 seconds
 Compute duration  = 64.1 seconds
-parameters        = μ, plx, b[a], b[τ], b[mass], b[i], b[e], b[Ω], b[ω]
+parameters        = M, plx, b[a], b[τ], b[mass], b[i], b[e], b[Ω], b[ω]
 
 Summary Statistics
   parameters      mean       std   naive_se      mcse           ess      rhat   ess_per_sec 
       Symbol   Float64   Float64    Float64   Float64       Float64   Float64       Float64 
 
-           μ    1.6085    0.2006     0.0004    0.0005   132909.5151    1.0000     2073.3743
+           M    1.6085    0.2006     0.0004    0.0005   132909.5151    1.0000     2073.3743
          plx   29.1452    0.1408     0.0003    0.0004   123574.6795    1.0000     1927.7519
         b[a]    1.1321    0.0477     0.0001    0.0001   128054.3813    1.0000     1997.6348
         b[τ]    0.8804    0.0027     0.0000    0.0000   129890.5148    1.0000     2026.2783
@@ -321,7 +319,7 @@ Quantiles
   parameters      2.5%     25.0%     50.0%     75.0%     97.5% 
       Symbol   Float64   Float64   Float64   Float64   Float64 
 
-           μ    1.2152    1.4730    1.6086    1.7439    2.0012
+           M    1.2152    1.4730    1.6086    1.7439    2.0012
          plx   28.8705   29.0501   29.1454   29.2403   29.4210
         b[a]    1.0329    1.1013    1.1342    1.1651    1.2198
         b[τ]    0.8751    0.8786    0.8804    0.8822    0.8856

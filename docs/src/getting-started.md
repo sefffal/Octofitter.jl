@@ -20,9 +20,9 @@ You will need the Distributions package added above so that you can specify prio
 If you would like to visualize your results, you can also install the Plots package:
 4. Type `add Plots`
 
-For loading images to sample, add the DirectImages package 
-4. Type `add DirectImages`
-Note: it's possible to use this package without DirectImages. This just simplifies the process of loading FITS files, and creating a centered OffsetArray with the star at index (0,0).
+For loading images to sample, add the AstroImages package 
+4. Type `add AstroImages`
+Note: it's possible to use this package without AstroImages. This just simplifies the process of loading FITS files and preparing them for sampling.
 
 Finally, you may wish to `add PairPlots` to examine the correlation between variables in more detail.
 

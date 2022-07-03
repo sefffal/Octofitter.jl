@@ -12,19 +12,17 @@ J_band_contrast_interp(mass) = sqrt(mass)
 
 Then, list your physical variable `mass` under priors. List the model functions under Derived. This way, the H and J band flux variables will be calculated off of your models mass parameter before getting compared to the images.
 ```julia
-@named b = Planet(
-    Derived(
-        H = (sys, pl) -> H_band_contrast_interp(pl.mass),
-        J = (sys, pl) -> J_band_contrast_interp(pl.mass),
-    ),
-    Priors(
+@named b = Planet{KeplerianElements}(
+    Variables(
         a = Normal(16, 3),
         e = TruncatedNormal(0.2, 0.2, 0, 1.0),
         τ = Normal(0.5, 1),
         ω = Normal(0.6, 0.2),
         i = Normal(0.5, 0.2),
         Ω = Normal(0.0, 0.2),
-        mass = Uniform(0, 1)
+        mass = Uniform(0, 1),
+        H = (sys, pl) -> H_band_contrast_interp(pl.mass),
+        J = (sys, pl) -> J_band_contrast_interp(pl.mass),
     ),
 )
 ```
@@ -34,11 +32,8 @@ If your model grids contain more independent variables, like age, surface gravit
 This might look a little like this:
 models mass parameter before getting compared to the images.
 ```julia
-@named b = Planet(
-    Derived(
-        K = (sys, pl) -> K_band_contrast_interp(pl.mass, sys.age, pl.temp),
-    ),
-    Priors(
+@named b = Planet{KeplerianElements}(
+    Variables(
         a = Normal(16, 3),
         e = TruncatedNormal(0.2, 0.2, 0, 1.0),
         τ = Normal(0.5, 1),
@@ -47,11 +42,12 @@ models mass parameter before getting compared to the images.
         Ω = Normal(0.0, 0.2),
         mass = Uniform(0, 1),
         temp = Normal(1200, 500),
+        K = (sys, pl) -> K_band_contrast_interp(pl.mass, sys.age, pl.temp),
     ),
 )
 @named HD12345 = System(
-    Priors(
-        μ = Normal(1.0, 0.1),
+    Variables(
+        M = Normal(1.0, 0.1),
         plx = Normal(12, 0.01),
         age = Normal(15, 1),
     ),

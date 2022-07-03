@@ -20,40 +20,26 @@ Similarily, fewer samples are required. This is because unlike Affine Invariant 
 The method signature of `DirectDetections.hmc` is as follows:
 ```julia
 function hmc(
-    system::System, target_accept=0.85;
+    rng::Random.AbstractRNG,
+    system::System,
+    target_accept::Number=0.8,
+    ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
+    num_chains=1,
     adaptation,
     iterations,
+    thinning=1,
+    discard_initial=adaptation,
     tree_depth=10,
-    include_adapatation=false,
-    initial_samples=100_000,
+    initial_samples=50_000,
     initial_parameters=nothing,
+    step_size=nothing,
+    verbosity=2,
+    autodiff=ForwardDiff
 )
 ```
+The only required arguments are `system`, `adaptation`, and `iterations`.
 The two positional arguments  are `system`, the model you wish to sample; and `target_accept`, the acceptance rate that should be targeted during windowed adaptation. During this time, the step size and mass matrix will be adapted (see AdvancedHMC.jl for more information). The number of steps taken during adaptation is controlled by `adaptation`. You can prevent these samples from being dropped by pasing `include_adaptation=false`. The total number of posterior samples produced are given by `iterations`. These include the adaptation steps that may be discarded.
 `tree_depth` controls the maximum tree depth of the sampler. `initial_parameters` is an optional way to pass a starting point for the chain. If you don't pass a default position, one will be selected by drawing `initial_samples` from the priors. The sample with the highest posterior value will be used as the starting point.
-
-## Affine Invariant MCMC
-Affine Invariant MCMC is the sampling method used in the ever-popular `emcee` Python package. It is included here to aid in reproducing results from papers using that method.
-
-This method is very robust, and does not require gradient information to sample the posterior. However, DirectDetections calculates gradients automatically using ForwardDiff.jl.
-
-One limitation of Affine Invariant MCMC is that it performs very poorly on posteriors with high curvature. Unfortuantely, fitting orbits of planets using Keplerian elements often produces just such a posterior. In these situations, the sampling will reduce to a random walk around the mode. This is hard to diagnose, and results in inflated uncertainty estimates.
-
-This can be partially mitigated using tempering, as in the `ptemcee` Python package. 
-
-One application where Affine Invariant MCMC is useful, is if you require completely flat/uniform priors and/or priors that have a sharp discontinuity. These are very challenging for HMC.
-
-The method signature of `DirectDetections.mcmc` is:
-```julia
-mcmc(
-    system::System;
-    burnin,
-    numwalkers,
-    numsamples_perwalker,
-    thinning = 1,
-    squash = true,
-)
-```
 
 
 ## Nested Sampling

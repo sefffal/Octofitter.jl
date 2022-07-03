@@ -11,28 +11,28 @@ If you have a clear detection in one epoch, but no detection in another, DirectD
 Sampling from images can be freely combined with any known astrometry points, as well as astrometric acceleration. See advanced models for more details.
 
 ## Preparing images
-The first step will be to load your images. For this, we will use our DirectImages.jl package; however, all that is really necessary is to load your image(s) into an array and adjust the axes so that the star is at index `[0,0]` (see OffsetArrays.jl if you want to do this yourself).
+The first step will be to load your images. For this, we will use our AstroImages.jl package.
 
 Start by loading your images:
 ```julia
-using DirectImages
+using AstroImages
 
 # Load individual iamges
-# image1 = readfits("image1.fits")
-# image2 = readfits("image2.fits")
+# image1 = load("image1.fits")
+# image2 = load("image2.fits")
 
 # Or slices from a cube:
-# cube = readfits("cube1.fits")
+# cube = load("cube1.fits")
 # image1 = cube[:,:,1] 
 
 # Or multi-extension FITS (this example)
-images = readfits("image-examples-1.fits",:)
+images = load("image-examples-1.fits",:)
 ```
 
-You can preview the image using `imshow2` from DirectImages:
+You can preview the image using `imshow2` from AstroImages:
 ```julia
 # imshow2(image1, cmap=:magma) # for a single image
-imshow2([
+imview([
     images[1]
     images[2]
     images[3]
