@@ -9,7 +9,7 @@ if is_developed()
 end
 
 using Printf
-using ComponentArrays # TODO: remove last uses of component arrays
+# using ComponentArrays # TODO: remove last uses of component arrays
 using Tables, TypedTables
 using Distributions
 using Bijectors

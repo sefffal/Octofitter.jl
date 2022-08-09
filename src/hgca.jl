@@ -1,8 +1,7 @@
 # This code provides helpers for loading data from the HIPPARCOS GAIA Catalog of Accelerations.
 # 
 
-using FITSIO
-using Measurements
+# using Measurements
 
 """
     ProperMotionAnomHGCA(;gaia_id=1234)
@@ -15,9 +14,7 @@ already subtracted out. e.g. we would expect 0 pma if there is no companion.
 function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
 
     ## Load the Hipparcos-GAIA catalog of accelerations
-    hgca = FITS(catalog) do hdu
-        Table(hdu[2])
-    end
+    hgca = Table(load(catalog, 2))
 
     # Find the row with a 
     idx = findfirst(==(gaia_id), hgca.gaia_source_id)
@@ -100,10 +97,8 @@ GAIA catalog id `gaia_id`.
 """
 function gaia_plx(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits") 
     
-    # Load the Hipparcos-GAIA catalog of accelerations as a basic column table
-    hgca = FITS(catalog) do hdu
-        Tables.columntable(hdu[2])
-    end
+    # Load the Hipparcos-GAIA catalog of accelerations as a table
+    hgca = Table(load(catalog, 2))
 
     idx = findfirst(==(gaia_id), hgca.gaia_source_id)
     return TruncatedNormal(hgca.parallax_gaia[idx,], hgca.parallax_gaia_error[idx,], 0, Inf)

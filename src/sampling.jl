@@ -5,17 +5,27 @@ sample_priors(planet::Planet) = rand.(ComponentArray(planet.priors.priors))
 sample_priors(planet::Planet,N) = [sample_priors(planet) for _ in 1:N]
 
 
+# function sample_priors(system::System)
+#     sampled = ComponentVector(
+#         merge(NamedTuple(rand.(ComponentArray(system.priors.priors))),
+#         # (;planets=[sample_priors(planet) for planet in system.planets])
+#         (;planets=namedtuple(collect(keys(system.planets)), [
+#             ComponentArray(NamedTuple([k=>v for (k,v) in pairs(NamedTuple(sample_priors(planet)))]))
+#             for planet in system.planets
+#         ]))
+#     ))
+#     return getdata(sampled)
+# end
+
+
 function sample_priors(system::System)
-    sampled = ComponentVector(
-        merge(NamedTuple(rand.(ComponentArray(system.priors.priors))),
-        # (;planets=[sample_priors(planet) for planet in system.planets])
-        (;planets=namedtuple(collect(keys(system.planets)), [
-            ComponentArray(NamedTuple([k=>v for (k,v) in pairs(NamedTuple(sample_priors(planet)))]))
-            for planet in system.planets
-        ]))
-    ))
-    return getdata(sampled)
+    priors_flat = map(((k,v),)->rand(v), Iterators.flatten([
+        system.priors.priors,
+        [planet.priors.priors for planet in system.planets]...
+    ]))
+    # return rand.(priors_flat)
 end
+
 
 sample_priors(system::System,N) = [sample_priors(system) for _ in 1:N]
 
@@ -23,18 +33,18 @@ sample_priors(system::System,N) = [sample_priors(system) for _ in 1:N]
 
 
 
-# Instead of just calling mean for the distributions, we sample and then take the mean of the data.
-# This does add a little jitter, but some distributions do not directly define the mean function!
-# Specifically, truncated(InverseGamma()) does not work, and this is very useful.
-# mean_priors(planet::Planet) = Statistics.mean.(Statistics.rand.(planet.priors.priors,1000))
-function mean_priors(system::System)
-    priors_all = ComponentVector(;
-        NamedTuple(system.priors.priors)...,
-        planets=[planet.priors.priors for planet in system.planets]
-    )
-    # return Statistics.mean.(Statistics.rand.(priors_all,1000))
-    return Statistics.mean.(priors_all)
-end
+# # Instead of just calling mean for the distributions, we sample and then take the mean of the data.
+# # This does add a little jitter, but some distributions do not directly define the mean function!
+# # Specifically, truncated(InverseGamma()) does not work, and this is very useful.
+# # mean_priors(planet::Planet) = Statistics.mean.(Statistics.rand.(planet.priors.priors,1000))
+# function mean_priors(system::System)
+#     priors_all = ComponentVector(;
+#         NamedTuple(system.priors.priors)...,
+#         planets=[planet.priors.priors for planet in system.planets]
+#     )
+#     # return Statistics.mean.(Statistics.rand.(priors_all,1000))
+#     return Statistics.mean.(priors_all)
+# end
 
 
 function guess_starting_position(system, N=500_000)
@@ -482,24 +492,46 @@ function hmc(
 end
 
 
-include("tempered-sampling.jl")
+# include("tempered-sampling.jl")
 
 
 """
 Convert a vector of component arrays returned from sampling into an MCMCChains.Chains
 object.
 """
-function result2mcmcchain(system, chains_in_0)
-    chains_in = ComponentArray.(chains_in_0)
+function result2mcmcchain(system, chain_in)
     # `system` not currently used, but a more efficient/robust mapping in future might require it.
 
     # There is a specific column name convention used by MCMCChains to indicate
     # that multiple parameters form a group. Instead of planets.X.a, we adapt our to X[a] 
     # accordingly
-    flattened_labels = replace.(labels(first(chains_in)), r"planets\.([^\.]+).([^\.]+)" => s"\1[\2]")
-    c = Chains(
-        reduce(vcat, getdata.(chains_in)'),
-        flattened_labels
-    )
+    flattened_labels = keys(flatten_named_tuple(first(chain_in)))
+    data = zeros(length(chain_in), length(flattened_labels))
+    for (i, sample) in enumerate(chain_in)
+        for (j, val) in enumerate(Iterators.flatten(Iterators.flatten(sample)))
+            data[i,j] = val
+        end
+    end
+    c = Chains(data, [string(l) for l in flattened_labels])
     return c
+end
+
+
+
+# Used for flattening a nested named tuple posterior sample into a flat named tuple
+# suitable to be used as a Tables.jl table row.
+function flatten_named_tuple(nt)
+    pairs = Pair{Symbol, Float64}[]
+    for key in keys(nt)
+        if key != :planets
+            push!(pairs, key => nt[key])
+        end
+    end
+    for pl in keys(get(nt, :planets, (;)))
+        for key in keys(nt.planets[pl])
+            push!(pairs, Symbol("$pl[$key]") =>  nt.planets[pl][key])
+        end
+    end
+    return namedtuple(pairs)
+
 end
