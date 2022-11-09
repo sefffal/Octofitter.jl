@@ -22,7 +22,7 @@ using DirectDetections, Distributions, Plots
 
 
 ```julia
-@named B = Planet{KeplerianELements}(
+@named B = Planet{VisualOrbit}(
     Variables(
         a = Uniform(1, 25),
         e = Beta(2,15),
@@ -220,7 +220,7 @@ you can follow a simplified approach.
 As a start, you can restrict the orbital parameters to just semi-major axis, epoch of periastron passage, and mass.
 
 ```julia
-@named b = Planet{KeplerianElements}(
+@named b = Planet{VisualOrbit}(
     Variables(
         a = LogUniform(0.1, 100),
         τ = Uniform(0, 1),

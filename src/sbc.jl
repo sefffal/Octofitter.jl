@@ -44,7 +44,7 @@ end
 export drawfrompriors
 
 # Generate new astrometry observations
-function newobs(obs::Astrometry, elem::KeplerianElements, θ_planet)
+function newobs(obs::Astrometry, elem::VisualOrbit, θ_planet)
 
     # Get epochs and uncertainties from observations
     epochs = obs.table.epoch
@@ -60,7 +60,7 @@ function newobs(obs::Astrometry, elem::KeplerianElements, θ_planet)
 end
 
 # Generate new radial velocity observations for a planet
-function newobs(obs::RadialVelocity, elem::KeplerianElements, θ_planet)
+function newobs(obs::RadialVelocity, elem::VisualOrbit, θ_planet)
 
     # Get epochs and uncertainties from observations
     epochs = obs.table.epoch 
@@ -74,7 +74,7 @@ function newobs(obs::RadialVelocity, elem::KeplerianElements, θ_planet)
 end
 
 # Generate new radial velocity observations for a star
-function newobs(obs::RadialVelocity, elems::Vector{<:KeplerianElements}, θ_system)
+function newobs(obs::RadialVelocity, elems::Vector{<:VisualOrbit}, θ_system)
 
     # Get epochs, uncertainties, and planet masses from observations and parameters
     epochs = obs.table.epoch 
@@ -91,7 +91,7 @@ function newobs(obs::RadialVelocity, elems::Vector{<:KeplerianElements}, θ_syst
 end
 
 # Generate new images
-function newobs(obs::Images, elements::Vector{<:KeplerianElements}, θ_system)
+function newobs(obs::Images, elements::Vector{<:VisualOrbit}, θ_system)
 
     newrows = map(obs.table) do row
         (;band, image, platescale, epoch, psf) = row

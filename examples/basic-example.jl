@@ -1,7 +1,7 @@
 using DirectDetections, Distributions, Plots
 
 
-@named b = Planet{KeplerianElements}(
+@named b = Planet{VisualOrbit
     Variables(
         a = TruncatedNormal(1, 0.5, 0, Inf),
         e = TruncatedNormal(0.0, 0.2, 0, 1.0),

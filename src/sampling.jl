@@ -1,4 +1,7 @@
-
+using DiffResults
+using AbstractDifferentiation
+AD = AbstractDifferentiation
+using LinearAlgebra
 
 export sample_priors
 sample_priors(planet::Planet) = rand.(ComponentArray(planet.priors.priors))
@@ -59,15 +62,11 @@ function guess_starting_position(system, N=500_000)
         θ_res = arr2nt(θ[i])
         posts[i] = ln_prior(θ[i]) + ln_like(system, θ_res)
     end
-    # posts = map(eachrow(A)) do c
-    #     DirectDetections.ln_post(ComponentVector(c, ax), system)
-    # end
     mapv,mapi = findmax(posts)
     best = θ[mapi]
     
-    # @info "Found good location" mapv best=NamedTuple(best)
 
-    return best
+    return best, mapv
 end
 
 # This code works but I have not found it useful. Commenting out to remove Optim.jl dependency.
@@ -92,10 +91,10 @@ end
     construct_elements(θ_system, θ_planet)
 
 Given a named tuple for of parameters from a System (θ_system) and Planet (θ_planet),
-return a `KeplerianElements` from PlanetOrbits.jl.
+return a `VisualOrbit PlanetOrbits.jl.
 """
-function construct_elements(::Type{KeplerianElements}, θ_system, θ_planet)
-    return KeplerianElements((;
+function construct_elements(::Type{VisualOrbit}, θ_system, θ_planet)
+    return VisualOrbit((;
         θ_system.M,
         θ_system.plx,
         θ_planet.i,
@@ -106,9 +105,31 @@ function construct_elements(::Type{KeplerianElements}, θ_system, θ_planet)
         θ_planet.a,
     ))
 end
-
-function construct_elements(::Type{RadialVelocityElements}, θ_system, θ_planet)
-    return RadialVelocityElements((;
+function construct_elements(::Type{KepOrbit}, θ_system, θ_planet)
+    return KepOrbit((;
+        θ_system.M,
+        θ_planet.i,
+        θ_planet.Ω,
+        θ_planet.ω,
+        θ_planet.e,
+        θ_planet.τ,
+        θ_planet.a,
+    ))
+end
+function construct_elements(::Type{ThieleInnesOrbit}, θ_system, θ_planet)
+    return ThieleInnesOrbit((;
+        θ_system.M,
+        θ_system.plx,
+        θ_planet.A,
+        θ_planet.B,
+        θ_planet.F,
+        θ_planet.G,
+        θ_planet.e,
+        θ_planet.τ,
+    ))
+end
+function construct_elements(::Type{RadialVelocityOrbit}, θ_system, θ_planet)
+    return RadialVelocityOrbit((;
         θ_system.M,
         θ_planet.ω,
         θ_planet.e,
@@ -122,29 +143,50 @@ end
     construct_elements(chains, :b, 4)
 
 Given a Chains object, a symbol matching the name of a planet, and an index,
-construct a `KeplerianElements` from DirectOrbits of that planet from that
+construct a `VisualOrbit DirectOrbits of that planet from that
 index of the chains.
 """
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Union{Integer,CartesianIndex})
     pk = string(planet_key)
-    if haskey(chain, :plx) && haskey(chain, Symbol(pk*"[i]")) && haskey(chain, Symbol(pk*"[Ω]"))
-        return KeplerianElements((;
+    if haskey(chain, :plx) && haskey(chain, Symbol(pk*".i")) && haskey(chain, Symbol(pk*".Ω"))
+        return VisualOrbit((;
             M=chain["M"][i],
             plx=chain["plx"][i],
-            i=chain[pk*"[i]"][i],
-            Ω=chain[pk*"[Ω]"][i],
-            ω=chain[pk*"[ω]"][i],
-            e=chain[pk*"[e]"][i],
-            τ=chain[pk*"[τ]"][i],
-            a=chain[pk*"[a]"][i],
+            i=chain[pk*".i"][i],
+            Ω=chain[pk*".Ω"][i],
+            ω=chain[pk*".ω"][i],
+            e=chain[pk*".e"][i],
+            τ=chain[pk*".τ"][i],
+            a=chain[pk*".a"][i],
+        ))
+    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*".A")) && haskey(chain, Symbol(pk*".B")) && haskey(chain, Symbol(pk*".G"))&& haskey(chain, Symbol(pk*".F"))
+        return ThieleInnesOrbit((;
+            M=chain["M"][i],
+            plx=chain["plx"][i],
+            e=chain[pk*".e"][i],
+            τ=chain[pk*".τ"][i],
+            A=chain[pk*".A"][i],
+            B=chain[pk*".B"][i],
+            F=chain[pk*".F"][i],
+            G=chain[pk*".G"][i],
+        ))
+    elseif haskey(chain, Symbol(pk*".i")) && haskey(chain, Symbol(pk*".Ω"))
+        return KepOrbit((;
+            M=chain["M"][i],
+            i=chain[pk*".i"][i],
+            Ω=chain[pk*".Ω"][i],
+            ω=chain[pk*".ω"][i],
+            e=chain[pk*".e"][i],
+            τ=chain[pk*".τ"][i],
+            a=chain[pk*".a"][i],
         ))
     elseif haskey(chain, :M) && haskey(chain, :rv)
-        return KeplerianElements((;
+        return RadialVelocityOrbit((;
             M=chain["M"][i],
-            ω=chain[pk*"[ω]"][i],
-            e=chain[pk*"[e]"][i],
-            τ=chain[pk*"[τ]"][i],
-            a=chain[pk*"[a]"][i],
+            ω=chain[pk*".ω"][i],
+            e=chain[pk*".e"][i],
+            τ=chain[pk*".τ"][i],
+            a=chain[pk*".a"][i],
         ))
     else
         error("Unrecognized columns")
@@ -155,22 +197,22 @@ end
     construct_elements(chains, :b, [4,5,10])
 
 Given a Chains object, a symbol matching the name of a planet, and an array of indices,
-construct a `KeplerianElements` from DirectOrbits of that planet from those indices
+construct a `VisualOrbit DirectOrbits of that planet from those indices
 of the chains.
 """
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
     pk = string(planet_key)
-    if haskey(chain, :plx) && haskey(chain, Symbol(pk*"[i]")) && haskey(chain, Symbol(pk*"[Ω]"))
+    if haskey(chain, :plx) && haskey(chain, Symbol(pk*".i")) && haskey(chain, Symbol(pk*".Ω"))
         Ms=chain["M"]
         plxs=chain["plx"]
-        is=chain[pk*"[i]"]
-        Ωs=chain[pk*"[Ω]"]
-        ωs=chain[pk*"[ω]"]
-        es=chain[pk*"[e]"]
-        τs=chain[pk*"[τ]"]
-        as=chain[pk*"[a]"]
+        is=chain[pk*".i"]
+        Ωs=chain[pk*".Ω"]
+        ωs=chain[pk*".ω"]
+        es=chain[pk*".e"]
+        τs=chain[pk*".τ"]
+        as=chain[pk*".a"]
         return map(ii) do i
-            KeplerianElements((;
+            VisualOrbit((;
                 M=Ms[i],
                 plx=plxs[i],
                 i=is[i],
@@ -181,14 +223,54 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                 a=as[i],
             ))
         end
+    elseif haskey(chain, Symbol(pk*".i")) && haskey(chain, Symbol(pk*".Ω"))
+        Ms=chain["M"]
+        is=chain[pk*".i"]
+        Ωs=chain[pk*".Ω"]
+        ωs=chain[pk*".ω"]
+        es=chain[pk*".e"]
+        τs=chain[pk*".τ"]
+        as=chain[pk*".a"]
+        return map(ii) do i
+            KepOrbit((;
+                M=Ms[i],
+                i=is[i],
+                Ω=Ωs[i],
+                ω=ωs[i],
+                e=es[i],
+                τ=τs[i],
+                a=as[i],
+            ))
+        end
+    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*".A")) && haskey(chain, Symbol(pk*".B"))
+        Ms=chain["M"]
+        plxs=chain["plx"]
+        As=chain[pk*".A"]
+        Bs=chain[pk*".B"]
+        Fs=chain[pk*".F"]
+        Gs=chain[pk*".G"]
+        es=chain[pk*".e"]
+        τs=chain[pk*".τ"]
+        return map(ii) do i
+            ThieleInnesOrbit((;
+                M=Ms[i],
+                plx=plxs[i],
+                e=es[i],
+                τ=τs[i],
+                A=As[i],
+                B=Bs[i],
+                F=Fs[i],
+                G=Gs[i],
+            ))
+        end
     elseif haskey(chain, Symbol("M")) && haskey(chain, Symbol("rv"))
         Ms=chain["M"]
-        ωs=chain[pk*"[ω]"]
-        es=chain[pk*"[e]"]
-        τs=chain[pk*"[τ]"]
-        as=chain[pk*"[a]"]
+        ωs=chain[pk*".ω"]
+        es=chain[pk*".e"]
+        τs=chain[pk*".τ"]
+        as=chain[pk*".a"]
         return map(ii) do i
-            RadialVelocityElements((;
+            RadialVelocityOrbit((;
                 M=Ms[i],
                 ω=ωs[i],
                 e=es[i],
@@ -200,18 +282,19 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         error("Unrecognized chain format")
     end
 end
+construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::Colon) = construct_elements(chain, planet_key, 1:size(chain,1))
 function construct_elements(chain, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
     pk = string(planet_key)
     Ms=chain[:,"M"]
     plxs=chain[:,"plx"]
-    is=chain[:,pk*"[i]"]
-    Ωs=chain[:,pk*"[Ω]"]
-    ωs=chain[:,pk*"[ω]"]
-    es=chain[:,pk*"[e]"]
-    τs=chain[:,pk*"[τ]"]
-    as=chain[:,pk*"[a]"]
+    is=chain[:,pk*".i"]
+    Ωs=chain[:,pk*".Ω"]
+    ωs=chain[:,pk*".ω"]
+    es=chain[:,pk*".e"]
+    τs=chain[:,pk*".τ"]
+    as=chain[:,pk*".a"]
     return map(ii) do i
-        KeplerianElements((;
+        VisualOrbit((;
             M=Ms[i],
             plx=plxs[i],
             i=is[i],
@@ -223,7 +306,7 @@ function construct_elements(chain, planet_key::Union{String,Symbol}, ii::Abstrac
         ))
     end
 end
-
+construct_elements(chain::Chains, planet::Planet, args...; kwargs...) = construct_elements(chain, planet.name, args...; kwargs...) 
 
 # Fallback when no random number generator is provided (as is usually the case)
 function hmc(system::System, target_accept::Number=0.8, ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial(); kwargs...)
@@ -242,10 +325,12 @@ function hmc(
     tree_depth=10,
     initial_samples=50_000,
     initial_parameters=nothing,
-    step_size=nothing,
     verbosity=2,
-    autodiff=ForwardDiff
 )
+
+    if ensemble != MCMCSerial()
+        @warn "TODO: In-place model gradients currently not supported with MCMCThreads"
+    end
 
     # Choose parameter dimensionality and initial parameter value
     initial_θ_0 = sample_priors(system)
@@ -257,86 +342,224 @@ function hmc(
 
     priors_vec = _list_priors(system)
     Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
+    initial_θ_0_t = Bijectors.link.(priors_vec, initial_θ_0)
+    arr2nt = DirectDetections.make_arr2nt(system)
 
+    # Test out model likelihood and prior computations. This way, if they throw
+    # an error, we'll see it right away instead of burried in some deep stack
+    # trace from the sampler, autodiff, etc.
+    ln_like(system, arr2nt(initial_θ_0))
+    ln_prior_transformed(initial_θ_0_t)
+
+
+    verbosity >= 1 && @info "Preparing model"
     # Capture these variables in a let binding to improve performance
-    ℓπ = let system=system, ln_prior_transformed=ln_prior_transformed, arr2nt=arr2nt#, ln_prior=ln_prior
-        function (θ_t)
+    # We also set up temporary storage to reduce allocations
+    # ForwardDiff is used to compute the likelihood gradients using the in-place 
+    # API. This ensures type stability.
+    ℓπ,∇ℓπ = let system=system,
+                 ln_prior_transformed=ln_prior_transformed,
+                 arr2nt=arr2nt,
+                 Bijector_invlinkvec=Bijector_invlinkvec,
+                 initial_θ_0_t=initial_θ_0_t
+        function ℓπcallback(θ_transformed)
             # Transform back from the unconstrained support to constrained support for the likelihood function
-            θ = Bijector_invlinkvec(θ_t)
-            # θ = θ_t
-            θ_res = arr2nt(θ)
-            ll = ln_prior_transformed(θ) + ln_like(system, θ_res)
-            # ll = ln_prior(θ) + ln_like(θ_res, system)
+            θ_natural = Bijector_invlinkvec(θ_transformed)
+            θ_structured = arr2nt(θ_natural)
+            ll = ln_prior_transformed(θ_natural)
+            ll += ln_like(system, θ_structured)#*θ_structured.γ # WIP: ad-hoc tempering scheme
             return ll
         end
+
+        # # Enzyme mode:
+        # diffresult = copy(initial_θ_0_t)
+        # function ∇ℓπcallback(θ_t)
+        #     primal = ℓπcallback(θ_t)
+        #     fill!(diffresult,0)
+        #     Main.Enzyme.autodiff(ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
+        #     Main.Enzyme.autodiff(Main.Enzyme.Reverse, ℓπcallback, Main.Enzyme.Active, Main.Enzyme.Duplicated(θ_t,diffresult))
+        #     return primal, diffresult
+        # end
+
+        # # Zygote mode:
+        # function ∇ℓπcallback(θ_t)
+        #     Main.Zygote.gradient(ℓπ, θ_t)
+        # end
+
+
+        # ForwardDiff mode:
+        # Create temporary storage space for gradient computations
+        diffresult = DiffResults.GradientResult(initial_θ_0_t)
+
+        # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
+        # We're going to call this thousands of times so worth a few calls
+        # to get this optimized.
+        chunk_sizes = unique([1; 2:2:D; D])
+        ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
+            cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
+            ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
+            t = minimum(
+                @elapsed ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
+                for _ in 1:10
+            )
+
+            verbosity >= 3 && @info "Timing autodiff" chunk_size t
+            return t
+        end)
+        ideal_chunk_size =  chunk_sizes[ideal_chunk_size_i]
+        verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
+
+        cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
+        ∇ℓπcallback = let cfg=cfg
+            function (θ_transformed)
+                result = ForwardDiff.gradient!(diffresult, ℓπcallback, θ_transformed, cfg)
+                return DiffResults.value(result), DiffResults.gradient(result)
+            end
+        end
+        
+        ℓπcallback, ∇ℓπcallback
     end
 
+        
+    # Display their run time. If something is egregously wrong we'll notice something
+    # here in the output logs.
+    ℓπ(initial_θ_0_t)
+    ∇ℓπ(initial_θ_0_t) 
+    verbosity >= 1 && @showtime ℓπ(initial_θ_0_t)
+    verbosity >= 1 && @showtime ∇ℓπ(initial_θ_0_t)
+
+    # # Uncomment for debugging model type-stability
+    # Main.InteractiveUtils.@code_warntype ℓπ(initial_θ_0_t)
+    # Main.InteractiveUtils.@code_warntype ∇ℓπ(initial_θ_0_t)
+    # return
+
+    # Guess initial starting positions by drawing from priors a bunch of times
+    # and picking the best one (highest likelihood).
+    # Then transform that guess into our unconstrained support
     if isnothing(initial_parameters)
-        verbosity >= 1 && @info "Guessing a good starting location by sampling from priors" initial_samples
-        initial_θ = guess_starting_position(system,initial_samples)
+        verbosity >= 1 && @info "Guessing a starting location by sampling from prior" initial_samples
+        initial_θ, mapv = guess_starting_position(system,initial_samples)
+        verbosity > 2 && @info "Found starting location" ℓπ(θ)=mapv θ=arr2nt(initial_θ)
         # Transform from constrained support to unconstrained support
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
-        # initial_θ_t = initial_θ
     else
         initial_θ = initial_parameters
         # Transform from constrained support to unconstrained support
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
     end
 
-    # Define a Hamiltonian system
-    metric = DenseEuclideanMetric(D)
-    hamiltonian = Hamiltonian(metric, ℓπ, autodiff)
+    # verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
+    # # Use Pathfinder to initialize HMC.
+    # # It seems to hit a PosDefException sometimes when factoring a matrix.
+    # # When that happens, the next try usually succeeds.
+    # start_time = time()
+    # local result_pf = nothing
+    # for retry in 1:5
+    #     try
+    #         result_pf = pathfinder(
+    #             ℓπ;
+    #             # ad_backend=AD.FiniteDifferencesBackend(),
+    #             ad_backend=AD.ForwardDiffBackend(),
+    #             init=collect(initial_θ_t),
+    #             progress=true,
+    #             # maxiters=5,
+    #             # maxtime=5.0,
+    #             # reltol=1e-4,
+    #         ) 
+    #         break
+    #     catch ex
+    #         if ex isa LinearAlgebra.PosDefException
+    #             @warn "pathfinder hit a PosDefException. Retrying" exception=ex retry
+    #             continue
+    #         elseif ex isa InterruptException
+    #             rethrow(ex)
+    #         else
+    #             @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
+    #             rethrow(ex)
+    #         end
+    #     end
+    # end
+    # if isnothing(result_pf)
+    #     error("Warm up failed: pathfinder failed 5 times")
+    # end
+    # stop_time = time()
 
-    if !isnothing(step_size)
-        initial_ϵ = step_size
-    else
-        initial_ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
-        verbosity >= 1 && @info "Found initial stepsize" initial_ϵ
-    end
+    # @info(
+    #     "Pathfinder results",
+    #     mode=arr2nt(Bijectors.invlink.(priors_vec, result_pf.fit_distribution.μ)),
+    #     inv_metric=Matrix(result_pf.fit_distribution.Σ)
+    # )
 
+    # # Return a chains object with the resampled pathfinder draws
+    # # Transform samples back to constrained support
+    # pathfinder_samples = map(eachcol(result_pf.draws)) do θ_t
+    #     Bijectors.invlink.(priors_vec, θ_t)
+    # end
+    # pathfinder_chain =  DirectDetections.result2mcmcchain(system, arr2nt.(pathfinder_samples))
+    # pathfinder_chain_with_info = MCMCChains.setinfo(
+    #     pathfinder_chain,
+    #     (;
+    #         start_time,
+    #         stop_time,
+    #         model=system,
+    #         result_pf,
+    #     )
+    # )
 
-    integrator = Leapfrog(initial_ϵ)
-    # integrator = TemperedLeapfrog(initial_ϵ, 1.05)
+    # # Start using a draw from the typical set as estimated by Pathfinder
+    # initial_θ_t = result_pf.draws[:, end]
 
-
-    mma = MassMatrixAdaptor(metric)
-    if isnothing(step_size)
-        verbosity >= 1 && @info "Adapting step size and mass matrix"
-        ssa = StepSizeAdaptor(target_accept, integrator)
-        adaptor = StanHMCAdaptor(mma, ssa) 
-    else
-        verbosity >= 1 && @info "Adapting adapt mass matrix only" step_size
-        adaptor = MassMatrixAdaptor(metric)
-    end
-
-    model = AdvancedHMC.DifferentiableDensityModel(ℓπ, autodiff)
-
-    # κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth) 
-    # κ = NUTS{SliceTS, StrictGeneralisedNoUTurn}(integrator, max_depth=tree_depth) 
+    # # Use the metric found by Pathfinder for HMC sampling
+    # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.fit_distribution.Σ)
     
+    # Start with found pathfinder metric then adapt a dense metric:
+    # metric = DenseEuclideanMetric(Matrix(result_pf.fit_distribution.Σ))
 
-    # Had some good results with this one:
-    # κ = NUTS{MultinomialTS, StrictGeneralisedNoUTurn}(integrator, max_depth=tree_depth) 
+    # Fit a dense metric from scratch
+    verbosity >= 3 && @info "Creating metric"
+    metric = DenseEuclideanMetric(D)
 
-    κ = NUTS(integrator, max_depth=tree_depth) 
+    verbosity >= 3 && @info "Creating model" 
+    model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ∇ℓπ)
+
+    verbosity >= 3 && @info "Creating hamiltonian"
+    hamiltonian = Hamiltonian(metric, ℓπ, ∇ℓπ)
+    verbosity >= 3 && @info "Finding good stepsize"
+    ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
+    verbosity >= 3 && @info "Found initial stepsize" ϵ 
+    integrator = Leapfrog(ϵ)
+    # integrator = JitteredLeapfrog(ϵ, 0.1) # 10% normal distribution on step size to help in areas of high curvature. 
+    verbosity >= 3 && @info "Creating kernel"
+    # κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
+    κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
+    
+    verbosity >= 3 && @info "Creating adaptor"
+    mma = MassMatrixAdaptor(metric)
+    ssa = StepSizeAdaptor(target_accept, integrator)
+    adaptor = StanHMCAdaptor(mma, ssa) 
+    # adaptor = StepSizeAdaptor(target_accept, integrator)
+
+    # κ = NUTS(integrator, max_depth=tree_depth) 
+    verbosity >= 3 && @info "Creating sampler"
     sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
 
 
+    verbosity >= 1 && @info "Adapting sampler..."
     start_time = fill(time(), num_chains)
 
-    # Neat: it's possible to return a live iterator
-    # We could use this to build e.g. live plotting while the code is running
-    # once the analysis code is ported to Makie.
-    # return  AbstractMCMC.steps(
-    #     rng,
-    #     model,
-    #     sampler,
-    #     nadapts = adaptation,
-    #     init_params = initial_θ_t,
-    #     discard_initial = adaptation,
-    #     progress=progress,
-    #     verbose=false
-    # )
+    # # Neat: it's possible to return a live iterator
+    # # We could use this to build e.g. live plotting while the code is running
+    # # once the analysis code is ported to Makie.
+    # # return  AbstractMCMC.steps(
+    # #     rng,
+    # #     model,
+    # #     sampler,
+    # #     nadapts = adaptation,
+    # #     init_params = initial_θ_t,
+    # #     discard_initial = adaptation,
+    # #     progress=progress,
+    # #     verbose=false
+    # # )
 
 
     last_output_time = Ref(time())
@@ -348,15 +571,15 @@ function hmc(
             if verbosity >= 3
                 adapted_ss = AdvancedHMC.getϵ(adaptor)
                 println("Adapated stepsize ϵ=", adapted_ss)
-                adapted_mm = AdvancedHMC.getM⁻¹(adaptor)
-                print("Adapted mass matrix M⁻¹ ")
-                display(adapted_mm)
+                # adapted_mm = AdvancedHMC.getM⁻¹(adaptor)
+                # print("Adapted mass matrix M⁻¹ ")
+                # display(adapted_mm)
             end
             
             @info "Sampling..."
             verbosity >= 2 && println("Progress legend: divergence iter(thread) td=tree-depth ℓπ=log-posterior-density ")
         end
-        if verbosity < 2 || last_output_time[] + 2 > time()
+        if verbosity < 2 || last_output_time[] + 1 > time()
             return
         end
         # Give different messages if the log-density is non-finite,
@@ -408,6 +631,24 @@ function hmc(
         return
     end
 
+    # # For N chains, use the last N pathfinder draws as initial parameters
+    # if isnothing(initial_parameters)
+    #     if num_chains <= size(result_pf.draws,2)
+    #         initial_parameters = [
+    #             result_pf.draws[:, end-i+1]
+    #             for i in 1:num_chains
+    #         ]
+    #     # If we have more chains to inialize than pathfinder draws, pick from them at random
+    #     else
+    #         initial_parameters = [
+    #             result_pf.draws[:, rand(axes(result_pf.draws,2))]
+    #             for _ in 1:num_chains
+    #         ]
+    #     end
+    # else
+        initial_parameters = fill(initial_θ_t, num_chains)
+    # end
+
     mc_samples_all_chains = sample(
         rng,
         model,
@@ -417,14 +658,18 @@ function hmc(
         num_chains;
         nadapts = adaptation,
         thinning,
-        init_params = initial_θ_t,
+        init_params=initial_parameters,
         discard_initial,
         progress=verbosity >= 1,
-        callback
+        callback,
+        verbose=verbosity>=4
     )
     stop_time = fill(time(), num_chains)
+
     
     verbosity >= 1 && @info "Sampling compete. Building chains."
+
+
     # Go through each chain and repackage results
     chains = MCMCChains.Chains[]
     logposts = Vector{Float64}[]
@@ -439,9 +684,9 @@ function hmc(
     
         verbosity >= 1 && println("""
         Sampling report for chain $i:
-        mean_accept =         $mean_accept
-        num_err_frac =        $num_err_frac
-        mean_tree_depth =     $mean_tree_depth
+        mean_accept         = $mean_accept
+        num_err_frac        = $num_err_frac
+        mean_tree_depth     = $mean_tree_depth
         max_tree_depth_frac = $max_tree_depth_frac\
         """)
 
@@ -480,6 +725,8 @@ function hmc(
             stop_time,
             model=system,
             logpost=logposts_mat,
+            states=mc_samples_all_chains,
+            # pathfinder=pathfinder_chain_with_info,
             _restart=(;
                 model,
                 sampler,
@@ -491,8 +738,8 @@ function hmc(
     return mcmcchains_with_info
 end
 
-
 # include("tempered-sampling.jl")
+# include("zigzag.jl")
 
 
 """
@@ -529,7 +776,7 @@ function flatten_named_tuple(nt)
     end
     for pl in keys(get(nt, :planets, (;)))
         for key in keys(nt.planets[pl])
-            push!(pairs, Symbol("$pl[$key]") =>  nt.planets[pl][key])
+            push!(pairs, Symbol(pl, '.', key) =>  nt.planets[pl][key])
         end
     end
     return namedtuple(pairs)

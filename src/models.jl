@@ -167,10 +167,11 @@ end
 Radial velocity likelihood.
 """
 function ln_like(rv::RadialVelocity, θ_system, elements)
-    ll = 0.0
+    T = Float64
+    ll = zero(T)
 
     for i in eachindex(rv.table.epoch)
-        rv_star = 0.0
+        rv_star = zero(T)
         for j in eachindex(elements)
             θ_planet = θ_system.planets[j]
             orbit = elements[j]
@@ -181,8 +182,34 @@ function ln_like(rv::RadialVelocity, θ_system, elements)
 
             rv_star += radvel(orbit, rv.table.epoch[i], θ_planet.mass*mjup2msol)
         end
-        resid = rv_star + θ_system.rv - rv.table.rv[i]
-        σ² = rv.table.σ_rv[i]^2 + θ_system.jitter^2
+        # Each measurement is tagged with a jitter and rv zero point variable.
+        # We then query the system variables for them.
+        # A previous implementation used symbols instead of indices but it was too slow.
+        # barycentric_rv_inst = getproperty(θ_system, rv.table.rv0[i])::Float64
+        # jitter_inst = getproperty(θ_system, rv.table.jitter[i])::Float64
+        if !hasproperty(rv.table, :inst_idx)
+            barycentric_rv_inst = θ_system.rv0
+            jitter_inst = θ_system.jitter
+        else
+            inst_idx = rv.table.inst_idx[i]
+            if inst_idx == 1
+                barycentric_rv_inst = θ_system.rv0_1
+                jitter_inst = θ_system.jitter_1
+            elseif inst_idx == 2
+                barycentric_rv_inst = θ_system.rv0_2
+                jitter_inst = θ_system.jitter_2
+            elseif inst_idx == 3
+                barycentric_rv_inst = θ_system.rv0_3
+                jitter_inst = θ_system.jitter_3
+            elseif inst_idx == 4
+                barycentric_rv_inst = θ_system.rv0_4
+                jitter_inst = θ_system.jitter_4
+            else
+                error("More than four radial velocity instruments are not yet supported for performance reasons")
+            end
+        end
+        resid = rv_star + barycentric_rv_inst - rv.table.rv[i]
+        σ² = rv.table.σ_rv[i]^2 + jitter_inst^2
         χ² = -0.5resid^2 / σ² - log(sqrt(2π * σ²))
         ll += χ²
     end
@@ -196,7 +223,7 @@ Likelihood of there being planets in a sequence of images.
 function ln_like(images::Images, θ_system, all_elements)
     
     # Resolve the combination of system and planet parameters
-    # as a KeplerianElements object. This pre-computes
+    # as a VisualOrbit object. This pre-computes
     # some factors used in various calculations.
     # elements = construct_elements(θ_system, θ_planet)
     
@@ -208,19 +235,19 @@ function ln_like(images::Images, θ_system, all_elements)
         
         band = imgtable.band[i]
 
-        # Images are centered on the *star's* position. Large companions
-        # effectively shift the images around as they orbit the star.
-        # Account for the relative position of the star due to
-        # *all* planets
+        # # Images are centered on the *star's* position. Large companions
+        # # effectively shift the images around as they orbit the star.
+        # # Account for the relative position of the star due to
+        # # *all* planets
         star_δra =  0.0
         star_δdec = 0.0
-        for (θ_planet_i, orbit_i) in zip(θ_system.planets, all_elements)
-            if hasproperty(θ_planet_i, :mass)
-                o_i = orbitsolve(orbit_i, imgtable.epoch[i])
-                star_δra += -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
-                star_δdec += -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
-            end
-        end
+        # for (θ_planet_i, orbit_i) in zip(θ_system.planets, all_elements)
+        #     if hasproperty(θ_planet_i, :mass)
+        #         o_i = orbitsolve(orbit_i, imgtable.epoch[i])
+        #         star_δra += raoff(o_i, θ_planet_i.mass * mjup2msol)
+        #         star_δdec += decoff(o_i, θ_planet_i.mass * mjup2msol)
+        #     end
+        # end
 
         # Once we have the star's reflex motion, go through and look
         # for each planet
@@ -247,7 +274,8 @@ function ln_like(images::Images, θ_system, all_elements)
                 r = √(x^2 + y^2)
                 σₓ = imgtable.contrast[i](r / platescale)
             end
-            # @show platescale x y x/platescale y/platescale f̃ₓ σₓ  
+
+            # σₓ = θ_planet_i.σ
 
             # Verify the user has specified a prior or model for this band.
             if !hasproperty(θ_planet_i, band)
@@ -255,6 +283,7 @@ function ln_like(images::Images, θ_system, all_elements)
             end
             # TODO: verify this is type stable
             f_band = getproperty(θ_planet_i, band)
+
 
             # When we get a position that falls outside of our available
             # data (e.g. under the coronagraph) we cannot say anything
@@ -275,7 +304,7 @@ function ln_like(images::Images, θ_system, all_elements)
             # Mawet et al 2019, eqn (8)
 
             σₓ² = σₓ^2
-            ll += -1 / (2σₓ²) * (f_band^2 - 2f_band * f̃ₓ)
+            ll += -1 / (2*σₓ²) * (f_band^2 - 2f_band * f̃ₓ)
         end
     end
 
@@ -284,44 +313,50 @@ end
 
 # Astrometry
 function ln_like(astrom::Astrometry, θ_planet, orbit, all_θ_planets, all_orbits,)
-# function ln_like(astrom::Astrometry, θ_planet, orbit, all_orbits)
     ll = 0.0
     for i in eachindex(astrom.table.epoch)
 
-        # Astrometry is measured relative to the star.
-        # Account for the relative position of the star due to
-        # *all* planets
-        local o
+        # # Astrometry is measured relative to the star.
+        # # Account for the relative position of the star due to
+        # # *all* planets
+        # local o
         star_δra =  0.
         star_δdec = 0.
         for (θ_planet_i, orbit_i) in zip(all_θ_planets, all_orbits)
             o_i = orbitsolve(orbit_i, astrom.table.epoch[i])
             if orbit_i == orbit
                 o = o_i
+                continue
+                # Our positions are measured relative to the primary.
+                # We don't have to account for the star's position from the current planet under consideration,
+                # only the others. 
             end
-            if hasproperty(θ_planet_i, :mass)
-                star_δra += -raoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
-                star_δdec += -decoff(o_i) * θ_planet_i.mass * mjup2msol / orbit_i.M
-            end
+            # if hasproperty(θ_planet_i, :mass)
+            #     star_δra += raoff(o_i, θ_planet_i.mass * mjup2msol)
+            #     star_δdec += decoff(o_i, θ_planet_i.mass * mjup2msol)
+            # end
         end
+        o = orbitsolve(orbit, astrom.table.epoch[i])
+        # PA and Sep specified
+        if hasproperty(astrom.table, :pa) && hasproperty(astrom.table, :sep)
+            ρ = projectedseparation(o)
+            pa = posangle(o)
 
-        # # PA and Sep specified
-        # if haskey(astrom.table, :pa) && haskey(astrom.table, :ρ)
-        #     ρ = projectedseparation(o)
-        #     pa = posangle(o)
-        #     resid1 = rem2pi(astrom.table.pa[i] - pa, RoundNearest) # TODO: confirm this works at the wrap point
-        #     resid2 = astrom.table.ρ[i] - ρ
-        #     σ²1 = astrom.table.σ_pa[i ]^2
-        #     σ²2 = astrom.table.σ_ρ[i]^2
-        # # RA and DEC specified
-        # else
-
-        x = raoff(o) + star_δra
-        y = decoff(o) + star_δdec
-        resid1 = astrom.table.ra[i] - x
-        resid2 = astrom.table.dec[i] - y
-        σ²1 = astrom.table.σ_ra[i ]^2
-        σ²2 = astrom.table.σ_dec[i]^2
+            pa_diff = ( astrom.table.pa[i] - pa + π) % 2π - π;
+            pa_diff = pa_diff < -π ? pa_diff + 2π : pa_diff;
+            resid1 = pa_diff # TODO: confirm this works at the wrap point
+            resid2 = astrom.table.sep[i] - ρ
+            σ²1 = astrom.table.σ_pa[i ]^2
+            σ²2 = astrom.table.σ_sep[i]^2
+        # RA and DEC specified
+        else
+            x = raoff(o)# + star_δra
+            y = decoff(o)# + star_δdec
+            resid1 = astrom.table.ra[i] - x
+            resid2 = astrom.table.dec[i] - y
+            σ²1 = astrom.table.σ_ra[i ]^2
+            σ²2 = astrom.table.σ_dec[i]^2
+        end
 
         χ²1 = -(1/2)*resid1^2 / σ²1 - log(sqrt(2π * σ²1))
         χ²2 = -(1/2)*resid2^2 / σ²2 - log(sqrt(2π * σ²2))
@@ -340,7 +375,10 @@ function ln_like(photometry::Photometry, θ_planet, _elements=nothing, _interior
         if !isfinite(phot_param)
             return -Inf
         end
+        # Experimenting with fitting sigma phot
         σ_phot = photometry.table.σ_phot[i]
+        # σₓ = θ_planet_i.σ
+
         resid = phot_param - phot_meas
         σ² = σ_phot^2
         χ² = -(1/2)*resid^2 / σ² - log(sqrt(2π * σ²))
@@ -351,7 +389,7 @@ end
 
 # Overall log likelihood of the system given the parameters θ_system
 function ln_like(system::System, θ_system)
-    # Take some care to ensure type stability when using e.g. ForwardDiffJ
+    # Take some care to ensure type stability when using e.g. ForwardDiff
     ll = zero(typeof(first(θ_system)))
 
     # Fail fast if we have a negative stellar mass.
@@ -363,7 +401,7 @@ function ln_like(system::System, θ_system)
 
     # Go through each planet in the model and add its contribution
     # to the ln-likelihood.
-    out_of_bounds = Ref(false)
+    out_of_bounds = Base.RefValue{Bool}(false)
     elements = map(eachindex(system.planets)) do i
         planet = system.planets[i]
         θ_planet = θ_system.planets[i]
@@ -392,12 +430,14 @@ function ln_like(system::System, θ_system)
     # Loop through the planets from the outside in. 
     # Try to do this sorting in a non-allocating way.
     # This way we have the option to account for each planets influence on the outer planets
-    sma = map(elements) do elem
-        return elem.a
-    end
-    planet_sma_asc_ii = sortperm(SVector(sma))
-
+    # sma = map(elements) do elem
+    #     return elem.a
+    # end
     # planet_sma_asc_ii = sortperm(SVector(sma))
+
+    # The above sorting is not currently used, so need to perform it.
+    planet_sma_asc_ii = 1:length(elements)
+
 
     # Handle all observations attached to planets in order of semi-major axis
     for j in eachindex(planet_sma_asc_ii)
@@ -406,7 +446,7 @@ function ln_like(system::System, θ_system)
         planet = system.planets[i]
         # Parameters specific to this planet
         θ_planet = θ_system.planets[i]
-        # Cached KeplerianElements with precomputed factors, etc.
+        # Cached VisualOrbit with precomputed factors, etc.
         planet_elements = elements[i]
         # kep_elements, but for all planets interior to this one (given the current parameters)
         # interior_planets = kep_elements[begin:min(end,i)]

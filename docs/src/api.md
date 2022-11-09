@@ -15,7 +15,7 @@ System
 mjd
 gaia_plx
 DirectDetections.hmc
-KeplerianElements
+VisualOrbit
 sonora_photometry_interpolator
 sonora_cooling_interpolator
 plotmodel

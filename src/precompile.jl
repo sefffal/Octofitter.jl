@@ -8,7 +8,7 @@ let
     logger = SimpleLogger(stdout, Logging.Error)
     with_logger(logger) do
     
-        planet = DirectDetections.Planet{KeplerianElements}(
+        planet = DirectDetections.Planet{VisualOrbit}(
             Variables(
                 a = Uniform(1, 50),
                 e = Beta(1.2, 5),

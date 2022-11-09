@@ -12,7 +12,7 @@ J_band_contrast_interp(mass) = sqrt(mass)
 
 Then, list your physical variable `mass` under priors. List the model functions under Derived. This way, the H and J band flux variables will be calculated off of your models mass parameter before getting compared to the images.
 ```julia
-@named b = Planet{KeplerianElements}(
+@named b = Planet{VisualOrbit}(
     Variables(
         a = Normal(16, 3),
         e = TruncatedNormal(0.2, 0.2, 0, 1.0),
@@ -32,7 +32,7 @@ If your model grids contain more independent variables, like age, surface gravit
 This might look a little like this:
 models mass parameter before getting compared to the images.
 ```julia
-@named b = Planet{KeplerianElements}(
+@named b = Planet{VisualOrbit}(
     Variables(
         a = Normal(16, 3),
         e = TruncatedNormal(0.2, 0.2, 0, 1.0),

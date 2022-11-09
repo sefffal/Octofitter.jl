@@ -15,6 +15,7 @@ using Distributions
 using Bijectors
 using AbstractMCMC
 using AdvancedHMC
+using Pathfinder
 using NamedTupleTools
 using ForwardDiff
 using Logging
@@ -26,7 +27,7 @@ using PlanetOrbits
 using AstroImages
 
 # Re-export these from DirectOrbits
-export mjd, KeplerianElements, KeplerianElementsDeg, RadialVelocityElements
+export mjd, VisualOrbit, VisualOrbitDeg, RadialVelocityElements
 # Re-export from TypedTables
 export Table, FlexTable
 
@@ -53,6 +54,7 @@ include("analysis.jl")
 include("macros.jl")
 include("hgca.jl")
 include("sonora.jl")
+include("generative.jl")
 # include("sbc.jl")
 
 function __init__()

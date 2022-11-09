@@ -1,13 +1,15 @@
 abstract type AbstractObs end
 TypedTables.Table(obs::AbstractObs) = obs.table
 
-const astrom_cols = (:epoch, :ra, :dec, :σ_ra, :σ_dec)
+const astrom_cols1 = (:epoch, :ra, :dec, :σ_ra, :σ_dec)
+const astrom_cols3 = (:epoch, :pa, :sep, :σ_pa, :σ_sep)
 struct Astrometry{TTable<:Table} <: AbstractObs
     table::TTable
     function Astrometry(observations...)
         table = Table(observations...)
-        if !issubset(astrom_cols, Tables.columnnames(table))
-            error("Expected columns $astrom_cols")
+        if !issubset(astrom_cols1, Tables.columnnames(table)) && 
+           !issubset(astrom_cols3, Tables.columnnames(table))
+            error("Expected columns $astrom_cols1 or $astrom_cols3")
         end
         return new{typeof(table)}(table)
     end
@@ -242,11 +244,30 @@ export UniformCircular
 expandparam(var, n::Number) = OrderedDict(var => Returns(n))
 expandparam(var, f::Base.Callable) = OrderedDict(var => f)
 expandparam(var, d::Distribution) = OrderedDict(var => d)
-expandparam(var, p::UniformCircular) = OrderedDict(
-    Symbol("$(var)x") => Normal(),
-    Symbol("$(var)y") => Normal(),
-    var  => (args...) -> atan(args[end][Symbol("$(var)y")], args[end][ Symbol("$(var)x")])/2pi*p.domain,
-)
+# expandparam(var, p::UniformCircular) = OrderedDict(
+#     Symbol("$(var)x") => Normal(),
+#     Symbol("$(var)y") => Normal(),
+#     var  => (args...) -> atan(args[end][Symbol("$(var)y")], args[end][ Symbol("$(var)x")])/2pi*p.domain,
+#     var  => (sys) -> atan(args[end][Symbol("$(var)y")], args[end][ Symbol("$(var)x")])/2pi*p.domain,
+# )
+
+function expandparam(var, p::UniformCircular)
+
+    varx = Symbol("$(var)y")
+    vary = Symbol("$(var)x")
+
+    callback = @RuntimeGeneratedFunction(:(
+        function (sys, pl)
+            atan(pl.$vary, pl.$varx)/2pi*$(p.domain)
+        end
+    ))
+
+    return OrderedDict(
+        varx => Normal(),
+        vary => Normal(),
+        var  => callback,
+    )
+end
 
 
 """
@@ -281,10 +302,10 @@ Returns the type of orbital elements that should be used to represent this plane
 
 Example:
 ```julia
-julia> d = Planet(KeplerianElements, Variables(), name=:test)
+julia> d = Planet(VisualElements, Variables(), name=:test)
 Planet test
 julia> DirectDetections.orbittype(d)
-KeplerianElements
+VisualElements
 ```
 """
 orbittype(::Planet{TElem}) where TElem = TElem

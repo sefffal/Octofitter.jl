@@ -51,7 +51,7 @@ Then, create a system with one or more planets. In this case, we will not provid
 
 Start by specifying a planet:
 ```julia
-@named X = Planet{KeplerianElements}(
+@named X = Planet{VisualOrbit}(
     Variables(
         a = Normal(13, 3),
         e = TruncatedNormal(0.2, 0.2, 0, 1.0),
