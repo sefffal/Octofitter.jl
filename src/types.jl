@@ -664,8 +664,9 @@ function make_ln_prior_transformed(system::System)
     # System priors
     for prior_distribution in values(system.priors.priors)
         i += 1
+        prior_unconstrained = Bijectors.transformed(prior_distribution)
         ex = :(
-            lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
+            lp += $logpdf_with_trans($prior_unconstrained, arr[$i], true)
         )
         push!(prior_evaluations,ex)
     end
@@ -675,12 +676,33 @@ function make_ln_prior_transformed(system::System)
         # for prior_distribution in values(planet.priors.priors)
         for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
             i += 1
+            prior_unconstrained = Bijectors.transformed(prior_distribution)
             ex = :(
-                lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
+                lp += $logpdf_with_trans($prior_unconstrained, arr[$i], true)
             )
             push!(prior_evaluations,ex)
         end
     end
+    # # System priors
+    # for prior_distribution in values(system.priors.priors)
+    #     i += 1
+    #     ex = :(
+    #         lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
+    #     )
+    #     push!(prior_evaluations,ex)
+    # end
+
+    # # Planet priors
+    # for planet in system.planets
+    #     # for prior_distribution in values(planet.priors.priors)
+    #     for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
+    #         i += 1
+    #         ex = :(
+    #             lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
+    #         )
+    #         push!(prior_evaluations,ex)
+    #     end
+    # end
 
     # Here is the function we return.
     # It maps an array of parameters into our nested named tuple structure
@@ -765,8 +787,6 @@ function make_Bijector_invlinkvec(priors_vec)
         end
         # Add unrolled parameter transformations to fill theta_out
         @inbounds begin
-            # theta_out = SVector{l,eltype(arr)}(
-            # theta_out = MVector{l,eltype(arr)}(
             theta_out = tuple(
                 $(parameter_transformations...) 
             )
