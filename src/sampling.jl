@@ -326,6 +326,8 @@ function hmc(
     initial_samples=50_000,
     initial_parameters=nothing,
     verbosity=2,
+    autodiff=:ForwardDiff,
+    debug=false
 )
 
     if ensemble != MCMCSerial()
@@ -362,59 +364,85 @@ function hmc(
                  arr2nt=arr2nt,
                  Bijector_invlinkvec=Bijector_invlinkvec,
                  initial_θ_0_t=initial_θ_0_t
+        # function ℓπcallback(θ_transformed)
+        #     # Transform back from the unconstrained support to constrained support for the likelihood function
+        #     θ_natural = Bijector_invlinkvec(θ_transformed)
+        #     θ_structured = arr2nt(θ_natural)
+        #     lp = ln_prior_transformed(θ_transformed)
+        #     ll = ln_like(system, θ_structured)#*θ_structured.γ # WIP: ad-hoc tempering scheme
+        #     @show ll
+        #     return lp+ll
+        # end
         function ℓπcallback(θ_transformed)
             # Transform back from the unconstrained support to constrained support for the likelihood function
             θ_natural = Bijector_invlinkvec(θ_transformed)
             θ_structured = arr2nt(θ_natural)
-            ll = ln_prior_transformed(θ_natural)
-            ll += ln_like(system, θ_structured)#*θ_structured.γ # WIP: ad-hoc tempering scheme
-            return ll
+            lp = ln_prior_transformed(θ_transformed)
+            ll = ln_like(system, θ_structured)#*θ_structured.γ # WIP: ad-hoc tempering scheme
+            return lp+ll
         end
 
-        # # Enzyme mode:
-        # diffresult = copy(initial_θ_0_t)
-        # function ∇ℓπcallback(θ_t)
-        #     primal = ℓπcallback(θ_t)
-        #     fill!(diffresult,0)
-        #     Main.Enzyme.autodiff(ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
-        #     Main.Enzyme.autodiff(Main.Enzyme.Reverse, ℓπcallback, Main.Enzyme.Active, Main.Enzyme.Duplicated(θ_t,diffresult))
-        #     return primal, diffresult
-        # end
-
-        # # Zygote mode:
-        # function ∇ℓπcallback(θ_t)
-        #     Main.Zygote.gradient(ℓπ, θ_t)
-        # end
-
-
-        # ForwardDiff mode:
-        # Create temporary storage space for gradient computations
-        diffresult = DiffResults.GradientResult(initial_θ_0_t)
-
-        # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
-        # We're going to call this thousands of times so worth a few calls
-        # to get this optimized.
-        chunk_sizes = unique([1; 2:2:D; D])
-        ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
-            cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
-            ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
-            t = minimum(
-                @elapsed ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
-                for _ in 1:10
-            )
-
-            verbosity >= 3 && @info "Timing autodiff" chunk_size t
-            return t
-        end)
-        ideal_chunk_size =  chunk_sizes[ideal_chunk_size_i]
-        verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
-
-        cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
-        ∇ℓπcallback = let cfg=cfg
-            function (θ_transformed)
-                result = ForwardDiff.gradient!(diffresult, ℓπcallback, θ_transformed, cfg)
-                return DiffResults.value(result), DiffResults.gradient(result)
+        if autodiff == :Enzyme
+            # Enzyme mode:
+            ∇ℓπcallback = let diffresult = copy(initial_θ_0_t)
+                function (θ_t)
+                    primal = ℓπcallback(θ_t)
+                    fill!(diffresult,0)
+                    # Main.Enzyme.autodiff(ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
+                    Main.Enzyme.autodiff(Main.Enzyme.Reverse, ℓπcallback, Main.Enzyme.Active, Main.Enzyme.Duplicated(θ_t,diffresult))
+                    return primal, diffresult
+                end
             end
+
+        elseif autodiff == :FiniteDiff
+                ∇ℓπcallback = let diffresult = copy(initial_θ_0_t)
+                    function (θ_t)
+                        primal = ℓπcallback(θ_t)
+                        Main.FiniteDiff.finite_difference_gradient!(diffresult, ℓπcallback, θ_t)
+                        return primal, diffresult
+                    end
+                end
+        
+        elseif autodiff == :Zygote
+
+            # Zygote mode:
+            ∇ℓπcallback = function (θ_t)
+                Main.Zygote.gradient(ℓπ, θ_t)
+            end
+
+        elseif autodiff == :ForwardDiff
+
+            # ForwardDiff mode:
+            # Create temporary storage space for gradient computations
+            diffresult = DiffResults.GradientResult(initial_θ_0_t)
+
+            # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
+            # We're going to call this thousands of times so worth a few calls
+            # to get this optimized.
+            chunk_sizes = unique([1; 2:2:D; D])
+            ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
+                cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
+                ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
+                t = minimum(
+                    @elapsed ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
+                    for _ in 1:10
+                )
+
+                verbosity >= 3 && @info "Timing autodiff" chunk_size t
+                return t
+            end)
+            ideal_chunk_size =  chunk_sizes[ideal_chunk_size_i]
+            verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
+
+            cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
+            ∇ℓπcallback = let cfg=cfg, diffresult=diffresult
+                function (θ_transformed)
+                    result = ForwardDiff.gradient!(diffresult, ℓπcallback, θ_transformed, cfg)
+                    return DiffResults.value(result), DiffResults.gradient(result)
+                end
+            end
+        else
+            error("Unsupported option for autodiff: $autodiff. Valid options are :ForwardDiff (default), :Enzyme, and :Zygote.")
         end
         
         ℓπcallback, ∇ℓπcallback
@@ -427,6 +455,10 @@ function hmc(
     ∇ℓπ(initial_θ_0_t) 
     verbosity >= 1 && @showtime ℓπ(initial_θ_0_t)
     verbosity >= 1 && @showtime ∇ℓπ(initial_θ_0_t)
+
+    if debug
+        return ℓπ, ∇ℓπ, initial_θ_0_t
+    end
 
     # # Uncomment for debugging model type-stability
     # Main.InteractiveUtils.@code_warntype ℓπ(initial_θ_0_t)
