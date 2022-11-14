@@ -555,7 +555,8 @@ function hmc(
 
     # Fit a dense metric from scratch
     verbosity >= 3 && @info "Creating metric"
-    metric = DenseEuclideanMetric(D)
+    # metric = DenseEuclideanMetric(D)
+    metric = DiagEuclideanMetric(D)
 
     verbosity >= 3 && @info "Creating model" 
     model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ∇ℓπ)
