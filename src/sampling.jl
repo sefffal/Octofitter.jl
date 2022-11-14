@@ -55,6 +55,7 @@ function guess_starting_position(system, N=500_000)
     # TODO: this shouldn't have to allocate anything, we can just loop keeping the best.
     θ = sample_priors(system, N)
     arr2nt = DirectDetections.make_arr2nt(system) 
+    ln_like = DirectDetections.make_ln_like(system, arr2nt(sample_priors(system)))
 
     posts = zeros(N)
     ln_prior = make_ln_prior(system)
@@ -341,6 +342,7 @@ function hmc(
     ln_prior_transformed = make_ln_prior_transformed(system)
     # ln_prior = make_ln_prior(system)
     arr2nt = DirectDetections.make_arr2nt(system) 
+    ln_like_generated = make_ln_like(system, arr2nt(initial_θ_0))
 
     priors_vec = _list_priors(system)
     Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
@@ -350,7 +352,7 @@ function hmc(
     # Test out model likelihood and prior computations. This way, if they throw
     # an error, we'll see it right away instead of burried in some deep stack
     # trace from the sampler, autodiff, etc.
-    ln_like(system, arr2nt(initial_θ_0))
+    ln_like_generated(system, arr2nt(initial_θ_0))
     ln_prior_transformed(initial_θ_0_t)
 
 
@@ -363,36 +365,40 @@ function hmc(
                  ln_prior_transformed=ln_prior_transformed,
                  arr2nt=arr2nt,
                  Bijector_invlinkvec=Bijector_invlinkvec,
-                 initial_θ_0_t=initial_θ_0_t
-        # function ℓπcallback(θ_transformed)
-        #     # Transform back from the unconstrained support to constrained support for the likelihood function
-        #     θ_natural = Bijector_invlinkvec(θ_transformed)
-        #     θ_structured = arr2nt(θ_natural)
-        #     lp = ln_prior_transformed(θ_transformed)
-        #     ll = ln_like(system, θ_structured)#*θ_structured.γ # WIP: ad-hoc tempering scheme
-        #     @show ll
-        #     return lp+ll
-        # end
-        function ℓπcallback(θ_transformed)
+                 initial_θ_0_t=initial_θ_0_t,
+                 ln_like=ln_like_generated
+        function ℓπcallback(θ_transformed, system=system)
             # Transform back from the unconstrained support to constrained support for the likelihood function
             θ_natural = Bijector_invlinkvec(θ_transformed)
             θ_structured = arr2nt(θ_natural)
             lp = ln_prior_transformed(θ_transformed)
-            ll = ln_like(system, θ_structured)#*θ_structured.γ # WIP: ad-hoc tempering scheme
+            ll = ln_like(system, θ_structured)
             return lp+ll
         end
 
         if autodiff == :Enzyme
             # Enzyme mode:
-            ∇ℓπcallback = let diffresult = copy(initial_θ_0_t)
+            ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
+                system_tmp = deepcopy(system)
                 function (θ_t)
-                    primal = ℓπcallback(θ_t)
+                    likelihood = ℓπcallback(θ_t)
                     fill!(diffresult,0)
-                    # Main.Enzyme.autodiff(ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
-                    Main.Enzyme.autodiff(Main.Enzyme.Reverse, ℓπcallback, Main.Enzyme.Active, Main.Enzyme.Duplicated(θ_t,diffresult))
-                    return primal, diffresult
+                    out= Main.Enzyme.autodiff(
+                        Main.Enzyme.Reverse,
+                        ℓπcallback,
+                        Main.Enzyme.Active,
+                        Main.Enzyme.Duplicated(θ_t,diffresult),
+                        Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
+                    )
+                    return likelihood, diffresult
                 end
             end
+
+
+            ## Main.Enzyme.autodiff(ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
+            ## Main.Enzyme.autodiff(Main.Enzyme.Reverse, ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
+            ## Main.Enzyme.autodiff(Main.Enzyme.Forward, ℓπcallback, Main.Enzyme.Duplicated, Main.Enzyme.Duplicated(θ_t,diffresult))
+
 
         elseif autodiff == :FiniteDiff
                 ∇ℓπcallback = let diffresult = copy(initial_θ_0_t)
@@ -435,7 +441,7 @@ function hmc(
             verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
 
             cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
-            ∇ℓπcallback = let cfg=cfg, diffresult=diffresult
+            ∇ℓπcallback = let cfg=cfg, diffresult=diffresult, ℓπcallback=ℓπcallback
                 function (θ_transformed)
                     result = ForwardDiff.gradient!(diffresult, ℓπcallback, θ_transformed, cfg)
                     return DiffResults.value(result), DiffResults.gradient(result)
