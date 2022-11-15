@@ -51,14 +51,22 @@ export projectpositions
 # end
 # export sampleorbits
 
-@recipe function f(astrom::Astrometry) where T
-    xerror := astrom.table.σ_ra
-    yerror := astrom.table.σ_dec
+@recipe function f(astrom::Astrometry)
+   
     xflip --> true
     xguide --> "Δ right ascension (mas)"
     yguide --> "Δ declination (mas)"
 
-    return astrom.table.ra, astrom.table.dec
+    if hasproperty(astrom.table, :pa)
+        x = astrom.table.sep .* cosd.(astrom.table.pa)
+        y = astrom.table.sep .* sind.(astrom.table.pa)
+        return -y, -x
+    else
+        xerror := astrom.table.σ_ra
+        yerror := astrom.table.σ_dec
+
+        return astrom.table.ra, astrom.table.dec
+    end
 end
 
 
