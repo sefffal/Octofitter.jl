@@ -1,22 +1,6 @@
 abstract type AbstractObs end
 TypedTables.Table(obs::AbstractObs) = obs.table
 
-const astrom_cols1 = (:epoch, :ra, :dec, :σ_ra, :σ_dec)
-const astrom_cols3 = (:epoch, :pa, :sep, :σ_pa, :σ_sep)
-struct Astrometry{TTable<:Table} <: AbstractObs
-    table::TTable
-    function Astrometry(observations...)
-        table = Table(observations...)
-        if !issubset(astrom_cols1, Tables.columnnames(table)) && 
-           !issubset(astrom_cols3, Tables.columnnames(table))
-            error("Expected columns $astrom_cols1 or $astrom_cols3")
-        end
-        return new{typeof(table)}(table)
-    end
-end
-Astrometry(observations::NamedTuple...) = Astrometry(observations)
-export Astrometry
-
 
 const phot_cols = (:band, :phot, :σ_phot)
 struct Photometry{TTable<:Table} <: AbstractObs
@@ -33,98 +17,6 @@ Photometry(observations::NamedTuple...) = Photometry(observations)
 export Photometry
 
 
-
-const pma_cols = (:ra_epoch, :dec_epoch, :dt, :pm_ra, :pm_dec, :σ_pm_ra, :σ_pm_dec)
-struct ProperMotionAnom{TTable<:Table} <: AbstractObs
-    table::TTable
-    function ProperMotionAnom(observations...)
-        table = Table(observations...)
-        if !issubset(pma_cols, Tables.columnnames(table))
-            error("Expected columns $pma_cols")
-        end
-        return new{typeof(table)}(table)
-    end
-end
-ProperMotionAnom(observations::NamedTuple...) = ProperMotionAnom(observations)
-export ProperMotionAnom
-
-struct ProperMotionAnomHGCA{TTable<:Table} <: AbstractObs
-    table::TTable
-    function ProperMotionAnomHGCA(observations...)
-        table = Table(observations...)
-        # if !issubset(pma_cols, Tables.columnnames(table))
-        #     error("Expected columns $pma_cols")
-        # end
-        return new{typeof(table)}(table)
-    end
-end
-ProperMotionAnomHGCA(observations::NamedTuple...) = ProperMotionAnomHGCA(observations)
-export ProperMotionAnomHGCA
-
-const rv_cols = (:epoch, :rv, :σ_rv)
-struct RadialVelocity{TTable<:Table} <: AbstractObs
-    table::TTable
-    function RadialVelocity(observations...)
-        table = Table(observations...)
-        if !issubset(rv_cols, Tables.columnnames(table))
-            error("Ecpected columns $rv_cols")
-        end
-        return new{typeof(table)}(table)
-    end
-end
-RadialVelocity(observations::NamedTuple...) = RadialVelocity(observations)
-export RadialVelocity
-
-const images_cols = (:band, :image, :epoch, :platescale,)
-
-"""
-    Images(...)
-
-A block of images of a system. Pass a vector of named tuples with the following fields:
-$images_cols
-
-For example:
-```julia
-Images(
-    (; epoch=1234.0, band=:J, image=readfits("abc.fits"), platescale=19.4)
-)
-```
-Contrast can be a function that returns the 1 sigma contrast of the image from a separation in mas to the same units as the image file.
-Or, simply leave it out and it will be calculated for you.
-Epoch is in MJD.
-Band is a symbol which matches the one used in the planet's `Priors()` block.
-Platescale is in mas/px.
-"""
-struct Images{TTable<:Table} <: AbstractObs
-    table::TTable
-    function Images(observations...)
-        table = Table(observations...)
-        # Fallback to calculating contrast automatically
-        if !in(:contrast, columnnames(table)) && !in(:contrastmap, columnnames(table))
-            @info "Measuring contrast from image"
-            contrast = contrast_interp.(table.image)
-            table = Table(table, contrast=contrast)
-        end
-        if !issubset(images_cols, columnnames(table))
-            error("Expected columns $images_cols")
-        end
-        # Create linear interpolators over the input images
-        imageinterp = map(table.image) do img
-            LinearInterpolation(parent.(dims(img)), img, extrapolation_bc=convert(eltype(img), NaN))
-        end
-        table = Table(table; imageinterp)
-        if hasproperty(table, :contrastmap)
-            # Create linear interpolators over the input contrastmaps
-            contrastmapinterp = map(table.contrastmap) do img
-                LinearInterpolation(parent.(dims(img)), img, extrapolation_bc=convert(eltype(img), NaN))
-            end
-            table = Table(table; contrastmapinterp)
-        end
-        return new{typeof(table)}(table)
-    end
-end
-Images(observations::NamedTuple...) = Images(observations)
-export Images
 
 
 """
@@ -278,12 +170,12 @@ Must be constructed with a block of priors, and optionally
 additional derived parameters and/or sastrometry.
 `name` must be a symbol, e.g. `:b`.
 """
-struct Planet{TElem<:AbstractOrbit, TP<:Priors,TD<:Union{Derived,Nothing},TObs<:NTuple{N,<:AbstractObs} where N}
+struct Planet{TElem<:AbstractOrbit, TP<:Priors,TD<:Union{Derived,Nothing},TObs<:Tuple}
     priors::TP
     derived::TD
     observations::TObs
     name::Symbol
-    Planet{O}(priors::Priors, det::Derived, obs::NTuple{N,<:AbstractObs}, name::Symbol) where {O<:AbstractOrbit,N} = new{O,typeof(priors),typeof(det),typeof(obs)}(priors,det,obs,name)
+    Planet{O}(priors::Priors, det::Derived, obs::Tuple; name::Symbol) where {O<:AbstractOrbit} = new{O,typeof(priors),typeof(det),typeof(obs)}(priors,det,obs,name)
 end
 export Planet
 # Planet(O::Type{<:AbstractOrbit}, (priors,det)::Tuple{Priors,Derived}, args...; kwargs...) = Planet(O, priors, det, args...; kwargs...)
@@ -291,8 +183,8 @@ export Planet
 # Planet(O::Type{<:AbstractOrbit}, priors::Priors, det::Derived, obs::AbstractObs...; name) = Planet(O, priors, det, obs, name)
 
 Planet{O}((priors,det)::Tuple{Priors,Derived}, args...; kwargs...) where {O<:AbstractOrbit} = Planet{O}(priors, det, args...; kwargs...)
-Planet{O}(priors::Priors, obs::AbstractObs...; name) where {O<:AbstractOrbit} = Planet{O}(priors, nothing, obs, name)
-Planet{O}(priors::Priors, det::Derived, obs::AbstractObs...; name) where {O<:AbstractOrbit} = Planet{O}(priors, det, obs, name)
+Planet{O}(priors::Priors, obs::AbstractObs...; name) where {O<:AbstractOrbit} = Planet{O}(priors, nothing, obs; name)
+Planet{O}(priors::Priors, det::Derived, obs::AbstractObs...; name) where {O<:AbstractOrbit} = Planet{O}(priors, det, obs; name)
 
 
 """
@@ -371,6 +263,7 @@ function astrometry(planet::Planet)
     return nothing
 end
 export astrometry
+
 function propermotionanom(system::System)
     for obs in system.observations
         if obs isa ProperMotionAnom || obs isa ProperMotionAnomHGCA
@@ -390,39 +283,39 @@ end
 
 
 #### Show methods
-for ObsType in (Astrometry, Photometry, ProperMotionAnom, ProperMotionAnomHGCA, RadialVelocity, Images)
-    @eval function Base.show(io::IO, mime::MIME"text/plain", @nospecialize obs::($ObsType))
-        print(io, "$($ObsType) ")
-        Base.show(io::IO, mime, Table(obs))
-    end
+function Base.show(io::IO, mime::MIME"text/plain", @nospecialize obs::AbstractObs)
+    ObsType = supertype(typeof(obs))
+    print(io, "$(ObsType) ")
+    Base.show(io::IO, mime, Table(obs))
 end
 
 
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::Planet)
     println(io, "Planet $(p.name)")
-    # if !isnothing(p.derived)
-    #     show(io, mime, p.derived)
-    # end
-    # show(io, mime, p.priors)
-    # if hasproperty(p, :astrometry) && !isnothing(p.astrometry)
-    #     show(io, mime, p.astrometry)
-    # end
-    # print(io, "\n")
-    # println(io)
+    if !isnothing(p.derived)
+        show(io, mime, p.derived)
+    end
+    show(io, mime, p.priors)
+    for obs in p.observations
+        show(io, mime, obs)
+    end
+    print(io, "\n")
+    println(io)
 end
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize sys::System)
     println(io, "System model $(sys.name)")
-    # show(io, mime, sys.priors)
-    # for planet in sys.planets
-    #     show(io, mime, planet)
-    # end
-    # if !isnothing(sys.propermotionanom)
-    #     show(io, mime, sys.propermotionanom)
-    # end
-    # if !isnothing(sys.images)
-    #     show(io, mime, sys.images)
-    # end
-    # println(io)
+    if !isnothing(sys.derived)
+        show(io, mime, sys.derived)
+    end
+    show(io, mime, sys.priors)
+    for planet in sys.planets
+        show(io, mime, planet)
+    end
+    for obs in sys.observations
+        show(io, mime, obs)
+    end
+    print(io, "\n")
+    println(io)
 end
 
 
@@ -794,3 +687,18 @@ function make_Bijector_invlinkvec(priors_vec)
         return theta_out
     end))
 end
+
+
+
+
+"""
+Sample system parameters from prior distributions.
+"""
+function drawfrompriors(system::System)
+    θ = DirectDetections.sample_priors(system)
+    arr2nt = DirectDetections.make_arr2nt(system)
+    θnt = arr2nt(θ)
+    return θnt
+end
+export drawfrompriors
+

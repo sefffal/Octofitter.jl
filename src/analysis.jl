@@ -51,24 +51,6 @@ export projectpositions
 # end
 # export sampleorbits
 
-@recipe function f(astrom::Astrometry)
-   
-    xflip --> true
-    xguide --> "Δ right ascension (mas)"
-    yguide --> "Δ declination (mas)"
-
-    if hasproperty(astrom.table, :pa)
-        x = astrom.table.sep .* cosd.(astrom.table.pa)
-        y = astrom.table.sep .* sind.(astrom.table.pa)
-        return -y, -x
-    else
-        xerror := astrom.table.σ_ra
-        yerror := astrom.table.σ_dec
-
-        return astrom.table.ra, astrom.table.dec
-    end
-end
-
 
 
 function bayesfactor(chain, planet, property)
@@ -624,7 +606,11 @@ function init_plots()
                 legend=:none
             )
             xerr = nothing
-            elements = DirectDetections.construct_elements(chain, planet_key, ii)
+            if planet_key isa String || planet_key isa Symbol
+                planet_keys = tuple(planet_key)
+            else
+                planet_keys = planet_key
+            end
             all_epochs_planet = mapreduce(vcat, keys(chain.info.model.planets)) do planet_key
                 planet = chain.info.model.planets[planet_key]
                 reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch)], init=[])
@@ -650,6 +636,7 @@ function init_plots()
                     yerr = astrometry(planet).table.σ_ra
                     x = astrometry(planet).table.epoch
                 end
+                elements = DirectDetections.construct_elements(chain, planet_key, ii)
                 fit = raoff.(elements, t')
             elseif prop == :dec
                 if !isnothing(astrometry(planet))
@@ -657,6 +644,7 @@ function init_plots()
                     yerr = astrometry(planet).table.σ_dec
                     x = astrometry(planet).table.epoch
                 end
+                elements = DirectDetections.construct_elements(chain, planet_key, ii)
                 fit = decoff.(elements, t')
             elseif prop == :sep
                 if !isnothing(astrometry(planet))
@@ -674,6 +662,7 @@ function init_plots()
                     end
                     x = astrometry(planet).table.epoch
                 end
+                elements = DirectDetections.construct_elements(chain, planet_key, ii)
                 fit = projectedseparation.(elements, t')
                 if Symbol("$planet_key.mass") in keys(chain)
                     fit  = fit# .- projectedseparation.(elements, t', chain["$planet_key.mass"][ii].*DirectDetections.mjup2msol)
@@ -694,6 +683,7 @@ function init_plots()
                     end
                     x = astrometry(planet).table.epoch
                 end
+                elements = DirectDetections.construct_elements(chain, planet_key, ii)
                 fit = rad2deg.(posangle.(elements, t'))
             elseif prop == :pmra
                 if !isnothing(propermotionanom(chain.info.model))
@@ -704,7 +694,11 @@ function init_plots()
                     x = years2mjd.([hgca.epoch_ra_hip, (hgca.epoch_ra_hip + hgca.epoch_ra_gaia)/2, hgca.epoch_ra_gaia])
                     xerr = [4*365/2, 25*365/2, 3*365/2]
                 end
-                fit = pmra.(elements, t', collect(chain["$planet_key.mass"][ii]).*DirectDetections.mjup2msol)
+                fit = 0
+                for planet_key in planet_keys
+                    elements = DirectDetections.construct_elements(chain, planet_key, ii)
+                    fit = fit .+ pmra.(elements, t', collect(chain["$planet_key.mass"][ii]).*DirectDetections.mjup2msol)
+                end
                 if :pmra in keys(chain)
                     fit = fit .+ chain["pmra"][ii]
                 end
@@ -717,13 +711,21 @@ function init_plots()
                     x = years2mjd.([hgca.epoch_dec_hip, (hgca.epoch_dec_hip + hgca.epoch_dec_gaia)/2, hgca.epoch_dec_gaia])
                     xerr = [4*365/2, 25*365/2, 3*365/2]
                 end
-                fit = pmdec.(elements, t', collect(chain["$planet_key.mass"][ii]).*DirectDetections.mjup2msol)
+                fit = 0
+                for planet_key in planet_keys
+                    elements = DirectDetections.construct_elements(chain, planet_key, ii)
+                    fit = fit .+ pmdec.(elements, t', collect(chain["$planet_key.mass"][ii]).*DirectDetections.mjup2msol)
+                end
                 if :pmdec in keys(chain)
                     fit = fit .+ chain["pmdec"][ii]
                 end
             elseif prop == :rv
                 # ribbon = chain[jitter_inst][ii]
-                fit = radvel.(elements, t', collect(chain["$planet_key.mass"][ii]).*mjup2msol)
+                fit = 0
+                for planet_key in planet_keys
+                    elements = DirectDetections.construct_elements(chain, planet_key, ii)
+                    fit = fit .+ radvel.(elements, t', collect(chain["$planet_key.mass"][ii]).*mjup2msol)
+                end
                 for obs in chain.info.model.observations
                     if obs isa RadialVelocity
                         if haskey(chain,:rv0_1)
@@ -819,9 +821,10 @@ function init_plots()
                 alpha,
                 kwargs...
             )
+            planet_keys = keys(chains.info.model.planets)
 
             ppost = Plots.plot()
-            for (i,planet_key) in enumerate(keys(chains.info.model.planets))
+            for (i,planet_key) in enumerate(planet_keys)
                 # plotchains!(ppost, chains, planet_key; color, body=:primary, mass=chains["$planet_key.mass"], rev=false, colorbar=nothing, kwargs...)
                 plotchains!(ppost, chains, planet_key; color, rev=false, colorbar=nothing, kwargs...)
                 Plots.scatter!([0],[0],marker=(:star, :white, :black, 5),label="")
@@ -844,25 +847,23 @@ function init_plots()
                 end
             end
             psep = Plots.plot()
-            for planet_key in keys(chains.info.model.planets)
+            for planet_key in planet_keys
                 timeplot!(chains, planet_key, color, :sep; clims, kwargs...)
             end
             ppa = Plots.plot()
-            for planet_key in keys(chains.info.model.planets)
+            for planet_key in planet_keys
                 timeplot!(chains, planet_key, color, :pa; clims, kwargs...)
             end
+            
             ppmra = Plots.plot()
-            for planet_key in keys(chains.info.model.planets)
-                timeplot!(chains, planet_key, color, :pmra;clims,  kwargs...)
-            end
+            timeplot!(chains, planet_keys, color, :pmra;clims,  kwargs...)
+            
             ppmdec = Plots.plot()
-            for planet_key in keys(chains.info.model.planets)
-                timeplot!(chains, planet_key, color, :pmdec;clims,  kwargs...)
-            end
+            timeplot!(chains, planet_keys, color, :pmdec;clims,  kwargs...)
+            
             prv = Plots.plot()
-            for planet_key in keys(chains.info.model.planets)
-                timeplot!(chains, planet_key, color, :rv; clims, kwargs...)
-            end
+            timeplot!(chains, planet_keys, color, :rv; clims, kwargs...)
+            
 
             # Vertical
             # Plots.plot(

@@ -1,12 +1,12 @@
 module DirectDetections
 
 
-const __SOURCE_DIR__ = dirname(Base.source_path())
-is_developed() = occursin(joinpath(".julia", "dev"), __SOURCE_DIR__)
-if is_developed()
-    @info "Packaged is dev'd, skipping precompilation and include(\"precompile.jl\")" maxlog=1
-    __precompile__(false)
-end
+# const __SOURCE_DIR__ = dirname(Base.source_path())
+# is_developed() = occursin(joinpath(".julia", "dev"), __SOURCE_DIR__)
+# if is_developed()
+#     @info "Packaged is dev'd, skipping precompilation and include(\"precompile.jl\")" maxlog=1
+#     __precompile__(false)
+# end
 
 using Printf
 # using ComponentArrays # TODO: remove last uses of component arrays
@@ -27,7 +27,8 @@ using PlanetOrbits
 using AstroImages
 
 # Re-export these from DirectOrbits
-export mjd, VisualOrbit, VisualOrbitDeg, RadialVelocityElements
+export mjd, VisualOrbit, VisualOrbitDeg, RadialVelocityOrbit, ThieleInnesOrbit, orbit
+
 # Re-export from TypedTables
 export Table, FlexTable
 
@@ -45,16 +46,22 @@ const mjup2msol = 0.0009543
 # Re-export the Chains constructor.
 export Chains 
 
-include("types.jl")
 include("distributions.jl")
-include("models.jl")
+include("variables.jl")
+
+include("observations/system.jl")
+include("observations/astrometry.jl")
+include("observations/images.jl")
+include("observations/photometry.jl")
+include("observations/astrometric-motion.jl")
+include("observations/radial-velocity.jl")
+
 include("sampling.jl")
-include("images.jl")
+
 include("analysis.jl")
 include("macros.jl")
-include("hgca.jl")
 include("sonora.jl")
-include("generative.jl")
+
 # include("sbc.jl")
 
 function __init__()
@@ -98,10 +105,6 @@ function __init__()
     ))
 
     return
-end
-
-if !is_developed()
-    include("precompile.jl")
 end
 
 end

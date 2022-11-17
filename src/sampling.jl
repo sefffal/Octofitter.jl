@@ -486,47 +486,48 @@ function hmc(
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
     end
 
-    # verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
-    # # Use Pathfinder to initialize HMC.
-    # # It seems to hit a PosDefException sometimes when factoring a matrix.
-    # # When that happens, the next try usually succeeds.
-    # start_time = time()
-    # local result_pf = nothing
-    # for retry in 1:5
-    #     try
-    #         result_pf = pathfinder(
-    #             ℓπ;
-    #             # ad_backend=AD.FiniteDifferencesBackend(),
-    #             ad_backend=AD.ForwardDiffBackend(),
-    #             init=collect(initial_θ_t),
-    #             progress=true,
-    #             # maxiters=5,
-    #             # maxtime=5.0,
-    #             # reltol=1e-4,
-    #         ) 
-    #         break
-    #     catch ex
-    #         if ex isa LinearAlgebra.PosDefException
-    #             @warn "pathfinder hit a PosDefException. Retrying" exception=ex retry
-    #             continue
-    #         elseif ex isa InterruptException
-    #             rethrow(ex)
-    #         else
-    #             @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
-    #             rethrow(ex)
-    #         end
-    #     end
-    # end
-    # if isnothing(result_pf)
-    #     error("Warm up failed: pathfinder failed 5 times")
-    # end
-    # stop_time = time()
+    verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
+    # Use Pathfinder to initialize HMC.
+    # It seems to hit a PosDefException sometimes when factoring a matrix.
+    # When that happens, the next try usually succeeds.
+    start_time = time()
+    local result_pf = nothing
+    for retry in 1:5
+        try
+            result_pf = pathfinder(
+                ℓπ;
+                # ad_backend=AD.FiniteDifferencesBackend(),
+                ad_backend=AD.ForwardDiffBackend(),
+                init=collect(initial_θ_t),
+                progress=true,
+                # maxiters=5,
+                # maxtime=5.0,
+                # reltol=1e-4,
+            ) 
+            break
+        catch ex
+            if ex isa LinearAlgebra.PosDefException
+                @warn "pathfinder hit a PosDefException. Retrying" exception=ex retry
+                continue
+            elseif ex isa InterruptException
+                rethrow(ex)
+            else
+                @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
+                rethrow(ex)
+            end
+        end
+    end
+    if isnothing(result_pf)
+        error("Warm up failed: pathfinder failed 5 times")
+    end
+    stop_time = time()
 
-    # @info(
-    #     "Pathfinder results",
-    #     mode=arr2nt(Bijectors.invlink.(priors_vec, result_pf.fit_distribution.μ)),
-    #     inv_metric=Matrix(result_pf.fit_distribution.Σ)
-    # )
+    verbosity >= 3 && @info(
+        "Pathfinder results",
+        ℓπ(θ)=ℓπ(result_pf.fit_distribution.μ),
+        mode=arr2nt(Bijectors.invlink.(priors_vec, result_pf.fit_distribution.μ)),
+        inv_metric=Matrix(result_pf.fit_distribution.Σ)
+    )
 
     # # Return a chains object with the resampled pathfinder draws
     # # Transform samples back to constrained support
@@ -545,18 +546,21 @@ function hmc(
     # )
 
     # # Start using a draw from the typical set as estimated by Pathfinder
-    # initial_θ_t = result_pf.draws[:, end]
+    initial_θ_t = result_pf.draws[:, end]
+
+    verbosity >= 3 && @info "Creating metric"
 
     # # Use the metric found by Pathfinder for HMC sampling
     # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.fit_distribution.Σ)
     
     # Start with found pathfinder metric then adapt a dense metric:
     # metric = DenseEuclideanMetric(Matrix(result_pf.fit_distribution.Σ))
+    # metric = DiagEuclideanMetric(diag(Matrix(result_pf.fit_distribution.Σ)))
+    metric = DenseEuclideanMetric(collect(Diagonal(Matrix(result_pf.fit_distribution.Σ))))
 
     # Fit a dense metric from scratch
-    verbosity >= 3 && @info "Creating metric"
     # metric = DenseEuclideanMetric(D)
-    metric = DiagEuclideanMetric(D)
+    # metric = DiagEuclideanMetric(D)
 
     verbosity >= 3 && @info "Creating model" 
     model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ∇ℓπ)
@@ -566,11 +570,11 @@ function hmc(
     verbosity >= 3 && @info "Finding good stepsize"
     ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
     verbosity >= 3 && @info "Found initial stepsize" ϵ 
-    integrator = Leapfrog(ϵ)
-    # integrator = JitteredLeapfrog(ϵ, 0.1) # 10% normal distribution on step size to help in areas of high curvature. 
+    # integrator = Leapfrog(ϵ)
+    integrator = JitteredLeapfrog(ϵ, 0.1) # 10% normal distribution on step size to help in areas of high curvature. 
     verbosity >= 3 && @info "Creating kernel"
-    # κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
-    κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
+    κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
+    # κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
     
     verbosity >= 3 && @info "Creating adaptor"
     mma = MassMatrixAdaptor(metric)
@@ -776,6 +780,7 @@ function hmc(
     )
     return mcmcchains_with_info
 end
+
 
 # include("tempered-sampling.jl")
 # include("zigzag.jl")
