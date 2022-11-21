@@ -730,15 +730,19 @@ function init_plots()
                     if obs isa RadialVelocity
                         if haskey(chain,:rv0_1)
                             barycentric_rv_inst_1 = median(vec(chain["rv0_1"]))
+                            jitter = barycentric_rv_inst_1 = median(vec(chain["jitter_1"]))
                         end
                         if haskey(chain,:rv0_2)
                             barycentric_rv_inst_2 = median(vec(chain["rv0_2"]))
+                            jitter = barycentric_rv_inst_2 = median(vec(chain["jitter_2"]))
                         end
                         if haskey(chain,:rv0_3)
                             barycentric_rv_inst_3 = median(vec(chain["rv0_3"]))
+                            jitter = barycentric_rv_inst_3 = median(vec(chain["jitter_3"]))
                         end
                         if haskey(chain,:rv0_4)
                             barycentric_rv_inst_4 = median(vec(chain["rv0_4"]))
+                            jitter = barycentric_rv_inst_4 = median(vec(chain["jitter_4"]))
                         end
 
                         idxes = length(unique(obs.table.inst_idx))
@@ -757,7 +761,7 @@ function init_plots()
                             end
                             push!(x[row.inst_idx], row.epoch)
                             push!(y[row.inst_idx], row.rv - barycentric_rv_inst)
-                            push!(yerr[row.inst_idx], row.σ_rv)
+                            push!(yerr[row.inst_idx], row.σ_rv + jitter)
                         end
                     end
                 end
@@ -890,7 +894,7 @@ function init_plots()
                 layout = (2,3),
                 framestyle=:box,
                 grid=false,
-                size=(1200,800),
+                size=(1400,900),
                 margin=4Plots.mm
             )
         end
