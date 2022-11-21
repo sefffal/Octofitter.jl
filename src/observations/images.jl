@@ -119,7 +119,7 @@ function ln_like(images::Images, θ_planet, orbit)
     # as a VisualOrbit object. This pre-computes
     # some factors used in various calculations.
     # elements = construct_elements(θ_system, θ_planet)
-    
+
 
     imgtable = images.table
     T = eltype(first(θ_planet))

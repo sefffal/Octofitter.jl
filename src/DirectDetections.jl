@@ -55,6 +55,7 @@ include("observations/images.jl")
 include("observations/photometry.jl")
 include("observations/astrometric-motion.jl")
 include("observations/radial-velocity.jl")
+include("observations/transits.jl")
 
 include("sampling.jl")
 
