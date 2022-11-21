@@ -151,7 +151,6 @@ function make_ln_like(system::System, θ_system)
         end
         push!(planet_exprs, planet_contruction)
         push!(planet_keys, key)
-        break
     end
 
 
