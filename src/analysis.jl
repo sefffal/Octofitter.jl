@@ -851,7 +851,7 @@ function init_plots()
 
         function timeplotgrid(
             chains;
-            color="b.e",
+            color = "$(first(keys(chains.info.model.planets))).e",
             clims = quantile(vec(chains[color]),(0.01, 0.99)),
             cmap = :plasma,
             alpha=0.1,
