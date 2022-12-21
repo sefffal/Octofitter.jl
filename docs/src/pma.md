@@ -22,26 +22,27 @@ using DirectDetections, Distributions, Plots
 
 
 ```julia
+astrom = Astrometry(
+    (epoch=mjd("2016-12-15"), ra=133., dec=-174., σ_ra=07.0, σ_dec=07.),
+    (epoch=mjd("2017-03-12"), ra=126., dec=-176., σ_ra=04.0, σ_dec=04.),
+    (epoch=mjd("2017-03-13"), ra=127., dec=-172., σ_ra=04.0, σ_dec=04.),
+    (epoch=mjd("2018-02-08"), ra=083., dec=-133., σ_ra=10.0, σ_dec=10.),
+    (epoch=mjd("2018-11-28"), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.),
+    (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.),
+)
 @named B = Planet{VisualOrbit}(
     Variables(
-        a = Uniform(1, 25),
-        e = Beta(2,15),
-        τ = Uniform(0, 1),
-        ω = Uniform(0, 2pi),
+        a = TruncatedNormal(9,3,0,Inf),
+        e = Uniform(0,1),
+        τ = UniformCircular(1.0),
+        ω = UniformCircular(),
         i = Sine(), # The Sine() distribution is defined by DirectDetections
-        Ω = Uniform(0, pi),
-        mass = Uniform(0.5, 2000),
+        Ω = UniformCircular(),
+        mass = LogUniform(0.5, 2000),
         # Anoter option would be:
-        # mass = LogUniform(0.5, 2000),
+        # mass = Uniform(0.5, 2000),
     ),
-    Astrometry(
-        (epoch=mjd("2016-12-15"), ra=133., dec=-174., σ_ra=07.0, σ_dec=07.),
-        (epoch=mjd("2017-03-12"), ra=126., dec=-176., σ_ra=04.0, σ_dec=04.),
-        (epoch=mjd("2017-03-13"), ra=127., dec=-172., σ_ra=04.0, σ_dec=04.),
-        (epoch=mjd("2018-02-08"), ra=083., dec=-133., σ_ra=10.0, σ_dec=10.),
-        (epoch=mjd("2018-11-28"), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.),
-        (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.),
-    )
+    astrom
 )
 ```
 
@@ -79,9 +80,9 @@ Sample from our model as usual:
 
 ```julia
 chain = DirectDetections.hmc(
-    HD91312, 0.85,
+    HD91312, 0.65,
     adaptation =  1_000,
-    iterations = 10_000,
+    iterations =  6_000,
 )
 ```
 
@@ -166,13 +167,21 @@ The `mean` and `std` columns give the mean and standard deviation of each parame
 The second table summarizes the 2.5, 25, 50, 75, and 97.5 percentiles of each parameter in the model.
 
 Since this chain is well converged, we can begin examining the results.
-Use the `plotmodel` function to display orbits from the posterior against the input data:
+Use the `plotchains` function to display orbits from the posterior against the input data:
 
 
 ```julia
-plotmodel(chain, color=:mass, pma_scatter=:mass)
+plotchains(chain, :B, kind=:astrometry, color="B.mass")
+scatter!(astrom, label="astrometry")
 ```
-[![mass histogram](assets/pma-astrometry-posterior.png)](assets/pma-astrometry-posterior.svg)
+[![orbit posterior](assets/pma-astrometry-posterior.png)](assets/pma-astrometry-posterior.svg)
+
+Another useful plotting function is `timeplotgrid` which takes similar arguments and produces a 6 panel plot:
+```julia
+timeplotgrid(chain)
+```
+[![orbit posterior grid](assets/pma-astrometry-posterior-grid.png)](assets/pma-astrometry-posterior-grid.svg)
+
 
 
 ### Pair Plot
@@ -186,14 +195,14 @@ For a quick look, you can just run `corner(chain)`, but for more professional ou
 # We can access any property from the chain specified in Variables
 using PairPlots
 table = (;
-    a=         chain["B.a"],
-    M=         chain["M"],
-    m=         chain["B.mass"],
-    e=         chain["B.e"],
-    i=rad2deg.(chain["B.i"]),
-    Ω=rad2deg.(chain["B.Ω"]),
-    ω=rad2deg.(chain["B.ω"]),
-    τ=         chain["B.τ"],
+    a=         vec(chain["B.a"]),
+    M=         vec(chain["M"]),
+    m=         vec(chain["B.mass"]),
+    e=         vec(chain["B.e"]),
+    i=rad2deg.(vec(chain["B.i"])),
+    Ω=rad2deg.(vec(chain["B.Ω"])),
+    ω=rad2deg.(vec(chain["B.ω"])),
+    τ=         vec(chain["B.τ"]),
 )
 labels=[
     "a",
@@ -215,7 +224,7 @@ units = [
     "(\\degree)",
     "",
 ]
-corner(table, labels, units)
+PairPlots.corner(table, labels, units)
 ```
 [![pair plot](assets/pma-astrometry-mass-corner.png)](assets/pma-astrometry-mass-corner.svg)
 
@@ -230,7 +239,7 @@ As a start, you can restrict the orbital parameters to just semi-major axis, epo
 @named b = Planet{VisualOrbit}(
     Variables(
         a = LogUniform(0.1, 100),
-        τ = Uniform(0, 1),
+        τ = UniformCircular(1.0),
         mass = LogUniform(1, 2000),
         i = 0,
         e = 0,
