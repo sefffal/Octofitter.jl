@@ -56,6 +56,10 @@ Now that we have our planet model, we create a system model to contain it.
     Variables(
         M = LogNormal(1.61, 1),
         plx = gaia_plx(gaia_id=756291174721509376),
+                
+        # Priors on the centre of mass proper motion
+        pmra = Normal(0, 500),
+        pmdec = Normal(0,  500),
     ),  
     ProperMotionAnomHGCA(gaia_id=756291174721509376),
     B,
@@ -63,6 +67,9 @@ Now that we have our planet model, we create a system model to contain it.
 ```
 
 We specify priors on `M` and `plx` as usual, but here we use the `gaia_plx` helper function to read the parallax and uncertainty directly from the HGCA using its source ID.
+
+We also add parameters for the long term system's proper motion. This is usually
+close to the long term trend between the Hipparcos and GAIA measurements.
 
 After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.
 
@@ -225,16 +232,20 @@ As a start, you can restrict the orbital parameters to just semi-major axis, epo
         a = LogUniform(0.1, 100),
         τ = Uniform(0, 1),
         mass = LogUniform(1, 2000),
-        i = Returns(0),
-        e = Returns(0),
-        Ω = Returns(0),
-        ω = Returns(0),
+        i = 0,
+        e = 0,
+        Ω = 0,
+        ω = 0,
     )
 )
 @named HD91312 = System(
     Variables(
         M = TruncatedNormal(1.61, 0.2, 0, Inf),
         plx = gaia_plx(gaia_id=756291174721509376),
+        
+        # Priors on the centre of mass proper motion
+        pmra = Normal(0, 500),
+        pmdec = Normal(0,  500),
     ),  
     ProperMotionAnomHGCA(gaia_id=756291174721509376),
     b,
@@ -242,8 +253,6 @@ As a start, you can restrict the orbital parameters to just semi-major axis, epo
 ```
 
 This models assumes a circular, face-on orbit.
-
-The Julia helper function `Returns(x)` is just a function that always returns the same value no matter the arguments. It  is equivalent to `(args...; kwargs...) -> x`.
 
 ```julia
 chains = DirectDetections.hmc(

@@ -126,7 +126,7 @@ The acceptance rate should be somewhat lower than when fitting just astrometry, 
 You can make a trace plot:
 ```julia
 plot(
-    chain["X[a]"],
+    chain["X.a"],
     xlabel="iteration",
     ylabel="semi-major axis (aU)"
 )
@@ -136,7 +136,7 @@ And an auto-correlation plot:
 ```julia
 using StatsBase
 plot(
-    autocor(chain["X[e]"], 1:500),
+    autocor(chain["X.e"], 1:500),
     xlabel="lag",
     ylabel="autocorrelation",
 )
@@ -165,13 +165,13 @@ We can show the relationships between variables on a pair plot (aka corner plot)
 ```julia
 using PairPlots
 table = (;
-    a=         chain["X[a]"],
-    H=         chain["X[H]"],
-    e=         chain["X[e]"],
-    i=rad2deg.(chain["X[i]"]),
-    Ω=rad2deg.(chain["X[Ω]"]),
-    ω=rad2deg.(chain["X[ω]"]),
-    τ=         chain["X[τ]"],
+    a=         chain["X.a"],
+    H=         chain["X.H"],
+    e=         chain["X.e"],
+    i=rad2deg.(chain["X.i"]),
+    Ω=rad2deg.(chain["X.Ω"]),
+    ω=rad2deg.(chain["X.ω"]),
+    τ=         chain["X.τ"],
 )
 labels=[
     "a",
@@ -205,14 +205,14 @@ We start by plotting the marginal distribution of the flux parameter, `H`:
 
 
 ```julia
-histogram(chain["X[H]"], xlabel="H", label="")
+histogram(chain["X.H"], xlabel="H", label="")
 ```
 ![corner plot](assets/images-flux-hist.png)
 
 
 We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:
 ```julia
-flux = chain["X[H]"]
+flux = chain["X.H"]
 snr = mean(flux)/std(flux) # 13.35 in this example
 ```
 It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.
