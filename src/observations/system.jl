@@ -180,6 +180,11 @@ end
 
 
 # Generate calibration data
+"""
+    generate(system, newparameters=drawfrompriors(system))
+
+Generate a new system and observations from an existing model.
+"""
 function generate(system::System, θ_newsystem = drawfrompriors(system))
 
     # Generate new orbits for each planet in the system

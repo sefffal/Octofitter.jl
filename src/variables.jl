@@ -284,7 +284,7 @@ end
 
 #### Show methods
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize obs::AbstractObs)
-    ObsType = supertype(typeof(obs))
+    ObsType = typeof(obs)
     print(io, "$(ObsType) ")
     Base.show(io::IO, mime, Table(obs))
 end
@@ -575,6 +575,9 @@ function make_ln_prior_transformed(system::System)
             )
             push!(prior_evaluations,ex)
         end
+    end
+    if isempty(prior_evaluations)
+        error("Model includes no free variables")
     end
     # # System priors
     # for prior_distribution in values(system.priors.priors)

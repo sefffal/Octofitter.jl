@@ -2,25 +2,32 @@ using Transits
 
 const light_curve_cols = (:epoch, :phot, :σ_phot)
 
-struct LightCurve3{TLimbDark, TTable<:Table} <: AbstractObs
-    limbdark::TLimbDark
+"""
+    LightCurve(AbstractLimbDark, observation_table) <: AbstractObs
+
+Construct a LightCuve observation using a limb darkening type from 
+Tranits.jl and a table of observations.
+"""
+struct LightCurve4{TLimbDark, TTable<:Table} <: AbstractObs
     table::TTable
-    function LightCurve3(ld, observations...)
+    function LightCurve4(ld::Type{<:AbstractLimbDark}, observations...)
         table = Table(observations...)
         if !issubset(light_curve_cols, Tables.columnnames(table))
             error("Ecpected columns $light_curve_cols")
         end
-        return new{typeof(ld), typeof(table)}(ld, table)
+        return new{ld, typeof(table)}(table)
     end
 end
-LightCurve3(observations::NamedTuple...) = LightCurve3(observations)
-export LightCurve3
+LightCurve4(observations::NamedTuple...) = LightCurve4(observations)
+export LightCurve4
+
+limbdarkfunc(lightcurve::LightCurve4{limbdark}) where limbdark = limbdark
 
 
 """
 Transit likelihood. Uses Transits.jl QuadLimbDark.
 """
-function ln_like(lc::LightCurve3, θ_system, elements)
+function ln_like(lc::LightCurve4, θ_system, elements)
     T = Float64
     ll = zero(T)
 
@@ -38,7 +45,8 @@ function ln_like(lc::LightCurve3, θ_system, elements)
         end
     end
 
-    ld = lc.limbdark(SVector(params))
+    # Construct the limb darkening type/function
+    ld = limbdarkfunc(lc)(SVector(params))
 
     Rₛₜₐᵣ = θ_system.R
 

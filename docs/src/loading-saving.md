@@ -26,29 +26,32 @@ This pattern also allows you to load data directly from remote databases using a
 Once loaded, you can access the underlying table using e.g. `astrom.table`.
 
 ## Saving Chains
-The easiest way to save your chains is using the `JLD2` package. This saves the chains as well as the model for future reference, but is only compatible with the same Julia version. That is, chains saved with JLD2 in Julia 1.7 may not be loadable in Julia 1.8.
 
-Saving chains with JLD2:
+You can save your chains using any Tables.jl compatible data package. I recommend Arrow.jl since it is a binary table format that takes up less space but is still cross compatible with other languages like Python. Another good choice is CSV.jl.
+
+
+### Examples
+
+Converting chain to a TypedTables.jl Table (re-exported by this package)
 ```julia
-using JLD2
-JLD2.jldsave("chains.jld2"; chains)
+tbl = Table(chain)
 ```
 
-Other forward-compatible ways to save your chains are to convert them into a table using DataFrames:
+Converting chain to a DataFrames.jl DataFrame:
 ```julia
-using DataFrames
-df = DataFrame(chains)
+df = DataFrame(Chain)
 ```
-which can then be saved to any Tables.jl compatible format:
+
+Saving chains:
 ```julia
 using CSV
-CSV.write("chains.csv", df)
+CSV.write("chains.csv", tbl) # or df
 
 using Arrow
-Arrow.write("chains.arrow", df)
+Arrow.write("chains.arrow", tbl) # or df
 ```
 
-Or a general Array which you can save in any format you wish:
+You can also convert a chain object to general Array which you can save in any format you wish:
 ```julia
 arr = Array(chains)
 ```

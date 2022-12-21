@@ -10,7 +10,7 @@ makedocs(
             "Fit Astrometry" => "modelling.md",
             "Fit Astrometric Acceleration" => "pma.md",
             "Fit Images" => "images.md",
-            "Derived Variables" => "derived.md",
+            "Fit Radial Velocity" => "rv.md",
             "Connecting Mass with Photometry" => "mass-photometry.md",
             "Loading and Saving Data" => "loading-saving.md",
             # "Multiple Planets" => "multi-planets.md",
@@ -18,7 +18,8 @@ makedocs(
         ],
         "Documentation" => [
             "Priors" => "priors.md",
-            "Samplers" => "samplers.md",
+            "Derived Variables" => "derived.md",
+            "Sampler" => "samplers.md",
             "Chains" => "chains.md",
             "Kepler Solver" => "kepler.md",
             "API" => "api.md"

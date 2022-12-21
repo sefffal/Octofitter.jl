@@ -39,11 +39,9 @@ end
 
 # Astrometry likelihood function
 function ln_like(astrom::Astrometry, θ_planet, orbit,)
+
     ll = 0.0
     for i in eachindex(astrom.table.epoch)
-
-        star_δra =  0.
-        star_δdec = 0.
 
         o = orbitsolve(orbit, astrom.table.epoch[i])
         # PA and Sep specified
@@ -59,8 +57,8 @@ function ln_like(astrom::Astrometry, θ_planet, orbit,)
             σ²2 = astrom.table.σ_sep[i]^2
         # RA and DEC specified
         else
-            x = raoff(o)# + star_δra
-            y = decoff(o)# + star_δdec
+            x = raoff(o)
+            y = decoff(o)
             resid1 = astrom.table.ra[i] - x
             resid2 = astrom.table.dec[i] - y
             σ²1 = astrom.table.σ_ra[i ]^2
@@ -72,4 +70,20 @@ function ln_like(astrom::Astrometry, θ_planet, orbit,)
         ll += χ²1 + χ²2
     end
     return ll
+end
+
+# Generate new astrometry observations
+function genobs(obs::Astrometry, elem::VisualOrbit, θ_planet)
+
+    # Get epochs and uncertainties from observations
+    epochs = obs.table.epoch
+    σ_ras = obs.table.σ_ra 
+    σ_decs = obs.table.σ_dec
+
+    # Generate now astrometry data
+    ras = raoff.(elem, epochs)
+    decs = decoff.(elem, epochs)
+    astrometry_table = Table(epoch=epochs, ra=ras, dec=decs, σ_ra=σ_ras, σ_dec=σ_decs)
+
+    return Astrometry(astrometry_table)
 end

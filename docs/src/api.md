@@ -18,7 +18,7 @@ DirectDetections.hmc
 VisualOrbit
 sonora_photometry_interpolator
 sonora_cooling_interpolator
-plotmodel
+plotchains
 projectpositions
-plotposterior
+generate
 ```

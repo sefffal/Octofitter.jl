@@ -486,81 +486,88 @@ function hmc(
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
     end
 
-    verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
-    # Use Pathfinder to initialize HMC.
-    # It seems to hit a PosDefException sometimes when factoring a matrix.
-    # When that happens, the next try usually succeeds.
-    start_time = time()
-    local result_pf = nothing
-    for retry in 1:5
-        try
-            result_pf = pathfinder(
-                ℓπ;
-                # ad_backend=AD.FiniteDifferencesBackend(),
-                ad_backend=AD.ForwardDiffBackend(),
-                init=collect(initial_θ_t),
-                progress=true,
-                # maxiters=5,
-                # maxtime=5.0,
-                # reltol=1e-4,
-            ) 
-            break
-        catch ex
-            if ex isa LinearAlgebra.PosDefException
-                @warn "pathfinder hit a PosDefException. Retrying" exception=ex retry
-                continue
-            elseif ex isa InterruptException
-                rethrow(ex)
-            else
-                @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
-                rethrow(ex)
-            end
-        end
-    end
-    if isnothing(result_pf)
-        error("Warm up failed: pathfinder failed 5 times")
-    end
-    stop_time = time()
-
-    verbosity >= 3 && @info(
-        "Pathfinder results",
-        ℓπ(θ)=ℓπ(result_pf.fit_distribution.μ),
-        mode=arr2nt(Bijectors.invlink.(priors_vec, result_pf.fit_distribution.μ)),
-        inv_metric=Matrix(result_pf.fit_distribution.Σ)
-    )
-
-    # # Return a chains object with the resampled pathfinder draws
-    # # Transform samples back to constrained support
-    # pathfinder_samples = map(eachcol(result_pf.draws)) do θ_t
-    #     Bijectors.invlink.(priors_vec, θ_t)
+    # verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
+    # # Use Pathfinder to initialize HMC.
+    # # It seems to hit a PosDefException sometimes when factoring a matrix.
+    # # When that happens, the next try usually succeeds.
+    # start_time = time()
+    # local result_pf = nothing
+    # for retry in 1:5
+    #     try
+    #         result_pf = pathfinder(
+    #             ℓπ;
+    #             # ad_backend=AD.FiniteDifferencesBackend(),
+    #             ad_backend=AD.ForwardDiffBackend(),
+    #             init=collect(initial_θ_t),
+    #             progress=true,
+    #             # maxiters=5,
+    #             # maxtime=5.0,
+    #             # reltol=1e-4,
+    #         ) 
+    #         break
+    #     catch ex
+    #         if ex isa LinearAlgebra.PosDefException
+    #             @warn "pathfinder hit a PosDefException. Retrying" exception=ex retry
+    #             continue
+    #         elseif ex isa InterruptException
+    #             rethrow(ex)
+    #         else
+    #             @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
+    #             rethrow(ex)
+    #         end
+    #     end
     # end
-    # pathfinder_chain =  DirectDetections.result2mcmcchain(system, arr2nt.(pathfinder_samples))
-    # pathfinder_chain_with_info = MCMCChains.setinfo(
-    #     pathfinder_chain,
-    #     (;
-    #         start_time,
-    #         stop_time,
-    #         model=system,
-    #         result_pf,
-    #     )
+    # if isnothing(result_pf)
+    #     error("Warm up failed: pathfinder failed 5 times")
+    # end
+    # stop_time = time()
+
+    # verbosity >= 3 && @info(
+    #     "Pathfinder results",
+    #     ℓπ(θ)=ℓπ(result_pf.fit_distribution.μ),
+    #     mode=arr2nt(Bijectors.invlink.(priors_vec, result_pf.fit_distribution.μ)),
+    #     inv_metric=Matrix(result_pf.fit_distribution.Σ)
     # )
 
+    # # # Return a chains object with the resampled pathfinder draws
+    # # # Transform samples back to constrained support
+    # # pathfinder_samples = map(eachcol(result_pf.draws)) do θ_t
+    # #     Bijectors.invlink.(priors_vec, θ_t)
+    # # end
+    # # pathfinder_chain =  DirectDetections.result2mcmcchain(system, arr2nt.(pathfinder_samples))
+    # # pathfinder_chain_with_info = MCMCChains.setinfo(
+    # #     pathfinder_chain,
+    # #     (;
+    # #         start_time,
+    # #         stop_time,
+    # #         model=system,
+    # #         result_pf,
+    # #     )
+    # # )
+
     # # Start using a draw from the typical set as estimated by Pathfinder
-    initial_θ_t = result_pf.draws[:, end]
+    # finite_pathfinder_draws = filter(row->all(isfinite, row), collect(eachrow(result_pf.draws)))
+    # if length(finite_pathfinder_draws) > 0 && all(isfinite, Matrix(result_pf.fit_distribution.Σ))
+        
+    #     # initial_θ_t = last(finite_pathfinder_draws)
 
-    verbosity >= 3 && @info "Creating metric"
+    #     verbosity >= 3 && @info "Creating metric"
 
-    # # Use the metric found by Pathfinder for HMC sampling
-    # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.fit_distribution.Σ)
-    
-    # Start with found pathfinder metric then adapt a dense metric:
-    # metric = DenseEuclideanMetric(Matrix(result_pf.fit_distribution.Σ))
-    # metric = DiagEuclideanMetric(diag(Matrix(result_pf.fit_distribution.Σ)))
-    metric = DenseEuclideanMetric(collect(Diagonal(Matrix(result_pf.fit_distribution.Σ))))
+    #     # # Use the metric found by Pathfinder for HMC sampling
+    #     # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.fit_distribution.Σ)
+        
+    #     # Start with found pathfinder metric then adapt a dense metric:
+    #     # metric = DenseEuclideanMetric(Matrix(result_pf.fit_distribution.Σ))
+    #     # metric = DiagEuclideanMetric(diag(Matrix(result_pf.fit_distribution.Σ)))
 
-    # Fit a dense metric from scratch
-    # metric = DenseEuclideanMetric(D)
-    # metric = DiagEuclideanMetric(D)
+    #     metric = DenseEuclideanMetric(collect(Diagonal(Matrix(result_pf.fit_distribution.Σ))))
+
+    # else
+    #     @warn "Pathfinder failed to provide a finite initial draw and metric. Check your model. Starting from initial guess instead."
+        # Fit a dense metric from scratch
+        metric = DenseEuclideanMetric(D)
+        # metric = DiagEuclideanMetric(D)
+    # end
 
     verbosity >= 3 && @info "Creating model" 
     model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ∇ℓπ)
@@ -752,7 +759,8 @@ function hmc(
             return θ
         end
         chain_res = arr2nt.(samples)
-        push!(chains, DirectDetections.result2mcmcchain(system, chain_res))
+        push!(chains, DirectDetections.result2mcmcchain(chain_res))
+        # push!(chains, Strapping.deconstruct(chain_res))
         push!(logposts, logpost)
     end
 
@@ -790,8 +798,7 @@ end
 Convert a vector of component arrays returned from sampling into an MCMCChains.Chains
 object.
 """
-function result2mcmcchain(system, chain_in)
-    # `system` not currently used, but a more efficient/robust mapping in future might require it.
+function result2mcmcchain(chain_in)
 
     # There is a specific column name convention used by MCMCChains to indicate
     # that multiple parameters form a group. Instead of planets.X.a, we adapt our to X[a] 

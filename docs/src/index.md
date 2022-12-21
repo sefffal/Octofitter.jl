@@ -17,6 +17,9 @@ The package also contains analysis and visualization tools for understanding you
 * sample directly from images
 * exoplanet astrometry 
 * stellar astrometric acceleration
+* radial velocity
+* experimental support for transit data based on Transits.jl
+
 Any and all combinations also work together.
 
 **Modelling features:**
@@ -27,15 +30,15 @@ Any and all combinations also work together.
 
 **Speed:**
 
-Fit astrometry on your laptop in seconds!
+Fit astrometry on your laptop in minutes!
 
 * Highly optimized code and derivatives are generated from your model
 * Higher order sampler (No U-Turn sampler) which explores the parameter space very efficiently 
 * Run on a single core, multiple threads, or hundreds of nodes by changing just a single line of code
 
-The package supports only bound, 2-body Keplerian orbits. Support for hyperbolic orbits and multi-body physics are not currently planned.
+The package supports only bound, 2-body Keplerian orbits. Support for hyperbolic orbits and multi-body physics are not currently planned. Pull-requests to PlanetOrbits implementing this functionality would be welcome.
 
-See also: [Orbitize!](https://orbitize.readthedocs.io/en/latest/), [orvara](https://github.com/t-brandt/orvara), and [exoplanet](https://docs.exoplanet.codes/en/latest/).
+See also: the python libraries [Orbitize!](https://orbitize.readthedocs.io/en/latest/), [orvara](https://github.com/t-brandt/orvara), and [exoplanet](https://docs.exoplanet.codes/en/latest/).
 
 
 ### Getting Started
