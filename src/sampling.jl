@@ -4,58 +4,35 @@ AD = AbstractDifferentiation
 using LinearAlgebra
 
 export sample_priors
-sample_priors(planet::Planet) = rand.(ComponentArray(planet.priors.priors))
-sample_priors(planet::Planet,N) = [sample_priors(planet) for _ in 1:N]
 
 
-# function sample_priors(system::System)
-#     sampled = ComponentVector(
-#         merge(NamedTuple(rand.(ComponentArray(system.priors.priors))),
-#         # (;planets=[sample_priors(planet) for planet in system.planets])
-#         (;planets=namedtuple(collect(keys(system.planets)), [
-#             ComponentArray(NamedTuple([k=>v for (k,v) in pairs(NamedTuple(sample_priors(planet)))]))
-#             for planet in system.planets
-#         ]))
-#     ))
-#     return getdata(sampled)
-# end
+sample_priors(arg::Union{Planet,System}, args...; kwargs...) = sample_priors(Random.default_rng(), args...; kwargs...)
+sample_priors(rng::Random.AbstractRNG, planet::Planet) = rand.(rng, ComponentArray(planet.priors.priors))
+sample_priors(rng::Random.AbstractRNG, planet::Planet, N::Number) = [sample_priors(rng, planet) for _ in 1:N]
 
-
-function sample_priors(system::System)
-    priors_flat = map(((k,v),)->rand(v), Iterators.flatten([
+function sample_priors(rng::Random.AbstractRNG, system::System)
+    priors_flat_sampled = map(((k,v),)->rand(rng, v), Iterators.flatten([
         system.priors.priors,
         [planet.priors.priors for planet in system.planets]...
     ]))
-    # return rand.(priors_flat)
+    return priors_flat_sampled
 end
 
 
-sample_priors(system::System,N) = [sample_priors(system) for _ in 1:N]
+sample_priors(rng::Random.AbstractRNG, system::System, N::Number) = [sample_priors(rng, system) for _ in 1:N]
 
 
 
 
-
-# # Instead of just calling mean for the distributions, we sample and then take the mean of the data.
-# # This does add a little jitter, but some distributions do not directly define the mean function!
-# # Specifically, truncated(InverseGamma()) does not work, and this is very useful.
-# # mean_priors(planet::Planet) = Statistics.mean.(Statistics.rand.(planet.priors.priors,1000))
-# function mean_priors(system::System)
-#     priors_all = ComponentVector(;
-#         NamedTuple(system.priors.priors)...,
-#         planets=[planet.priors.priors for planet in system.planets]
-#     )
-#     # return Statistics.mean.(Statistics.rand.(priors_all,1000))
-#     return Statistics.mean.(priors_all)
-# end
-
-
-function guess_starting_position(system, N=500_000)
+function guess_starting_position(system::System, args...; kwargs...)
+    return guess_starting_position(Random.default_rng(), system, args...; kwargs...)
+end
+function guess_starting_position(rng::Random.AbstractRNG, system::System, N=500_000)
 
     # TODO: this shouldn't have to allocate anything, we can just loop keeping the best.
-    θ = sample_priors(system, N)
+    θ = sample_priors(rng, system, N)
     arr2nt = DirectDetections.make_arr2nt(system) 
-    ln_like = DirectDetections.make_ln_like(system, arr2nt(sample_priors(system)))
+    ln_like = DirectDetections.make_ln_like(system, arr2nt(sample_priors(rng, system)))
 
     posts = zeros(N)
     ln_prior = make_ln_prior(system)
@@ -314,6 +291,43 @@ function hmc(system::System, target_accept::Number=0.8, ensemble::AbstractMCMC.A
     return hmc(Random.default_rng(), system, target_accept, ensemble; kwargs...)
 end
 
+
+"""
+The method signature of DirectDetections.hmc is as follows:
+
+    hmc(
+        [rng::Random.AbstractRNG],
+        system::System,
+        target_accept::Number=0.8,
+        ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
+        num_chains=1,
+        adaptation,
+        iterations,
+        thinning=1,
+        discard_initial=adaptation,
+        tree_depth=10,
+        initial_samples=50_000,
+        initial_parameters=nothing,
+        step_size=nothing,
+        verbosity=2,
+        autodiff=ForwardDiff
+    )
+
+The only required arguments are system, adaptation, and iterations.
+The two positional arguments are system, the model you wish to sample;
+and target_accept, the acceptance rate that should be targeted during
+windowed adaptation. During this time, the step size and mass matrix
+will be adapted (see AdvancedHMC.jl for more information). The number
+of steps taken during adaptation is controlled by adaptation. You can
+prevent these samples from being dropped by pasing include_adaptation=false.
+The total number of posterior samples produced are given by iterations.
+These include the adaptation steps that may be discarded.
+tree_depth controls the maximum tree depth of the sampler.
+initial_parameters is an optional way to pass a starting point for the chain.
+If you don't pass a default position, one will be selected by drawing
+initial_samples from the priors.
+The sample with the highest posterior value will be used as the starting point.
+"""
 function hmc(
     rng::Random.AbstractRNG,
     system::System, target_accept::Number=0.8,
@@ -336,7 +350,7 @@ function hmc(
     end
 
     # Choose parameter dimensionality and initial parameter value
-    initial_θ_0 = sample_priors(system)
+    initial_θ_0 = sample_priors(rng, system)
     D = length(initial_θ_0)
 
     ln_prior_transformed = make_ln_prior_transformed(system)
@@ -476,7 +490,7 @@ function hmc(
     # Then transform that guess into our unconstrained support
     if isnothing(initial_parameters)
         verbosity >= 1 && @info "Guessing a starting location by sampling from prior" initial_samples
-        initial_θ, mapv = guess_starting_position(system,initial_samples)
+        initial_θ, mapv = guess_starting_position(rng,system,initial_samples)
         verbosity > 2 && @info "Found starting location" ℓπ(θ)=mapv θ=arr2nt(initial_θ)
         # Transform from constrained support to unconstrained support
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)

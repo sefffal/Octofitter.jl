@@ -94,13 +94,12 @@ Great! Now we are ready to draw samples from the posterior.
 
 Start sampling:
 ```julia
-# Seed the default random number generator. 
-# Only for reproducibility of this example, not needed in general.
-using Random; Random.seed!(1)
-
+# Provide a seeded random number generator for reproducibility of this example.
+# Not needed in general: simply omit the RNG parameter.
+rng = Random.Xoshiro(0)
 
 chain = DirectDetections.hmc(
-    HD82134, 0.85;
+    rng, HD82134, 0.85;
     adaptation =  1000,
     iterations =  5000,
     verbosity = 4,
