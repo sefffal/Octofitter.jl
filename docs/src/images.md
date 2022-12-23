@@ -47,30 +47,11 @@ Your images should either be convolved with a gaussian of diameter one λ/D, or 
 If you want to perform the convolution in Julia, see ImageFiltering.jl.
 
 ## Build the model
-Then, create a system with one or more planets. In this case, we will not provide any astrometry measurements for the planet, but they are supported with the same syntax as shown in the [Fit Astrometry](@ref fit-astrometry) tutorial.
 
-Start by specifying a planet:
-```julia
-@named X = Planet{VisualOrbit}(
-    Variables(
-        a = Normal(13, 3),
-        e = TruncatedNormal(0.2, 0.2, 0, 1.0),
-        τ = Normal(0.5, 1),
-        ω = Normal(0.1, deg2rad(30.)),
-        i = Normal(0.6, deg2rad(10.)),
-        Ω = Normal(0.0, deg2rad(30.)),
-        H = Normal(3.8, 0.5)
-    ),
-)
-```
-Note how we also provided a prior on the photometry called `H`. We can put any name we want here, as long as it's used consistently throughout the model specification.
-
-See [Fit Astrometry](@ref fit-astrometry) for a description of the different orbital parameters, and conventions used.
-
-Now, we create a table of images that will be passed to the `System`:
+First, we create a table of our image data that will be attached to the `Planet`:
 
 ```julia
-system_images = Images(
+image_data = Images(
     (band=:H, image=centered(images[1]), platescale=10.0, epoch=1238.6),
     (band=:H, image=centered(images[2]), platescale=10.0, epoch=1584.7),
     (band=:H, image=centered(images[3]), platescale=10.0, epoch=3220.0),
@@ -87,17 +68,40 @@ You can freely mix and match images from different instruments as long as you sp
 You can also provide images from multiple bands and they will be sampled independently. If you wish to tie them together, see [Connecting Mass with Photometry](@ref mass-photometry).
 
 
-Finally, create the system and pass in your table of images.
+Now specify the planet:
+```julia
+@named X = Planet{VisualOrbit}(
+    Variables(
+        a = Normal(13, 3),
+        e = TruncatedNormal(0.2, 0.2, 0, 1.0),
+        τ = Normal(0.5, 1),
+        ω = Normal(0.1, deg2rad(30.)),
+        i = Normal(0.6, deg2rad(10.)),
+        Ω = Normal(0.0, deg2rad(30.)),
+        H = Normal(3.8, 0.5)
+    ),
+    image_data
+)
+```
+Note how we also provided a prior on the photometry called `H`. We can put any name we want here, as long as it's used consistently throughout the model specification.
+
+See [Fit Astrometry](@ref fit-astrometry) for a description of the different orbital parameters, and conventions used.
+
+
+Finally, create the system and pass in the planet.
 ```julia
 @named HD82134 = System(
     Variables(
         M = Normal(2.0, 0.1),
         plx =Normal(45., 0.02),
     ),
-    system_images,
     X,
 )
 ```
+
+If you want to search for two or more planets in the same images, just create multiple `Planet`s and pass the same images to each. You'll need to adjust the priors in some way to prevent overlap.
+
+You can also do some very clever things like searching for planets that are co-planar and/or have a specific resonance between their periods. To do this, put the planet of the system or base period as variables of the system and derive the planet variables from those values of the system. 
 
 ## Sampling
 Sampling from images is much more challenging than relative astrometry or proper motion anomaly, so the fitting process tends to take longer.
