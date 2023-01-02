@@ -1,7 +1,7 @@
 
 # DirectDetections.jl
 
-[![GitHub](https://img.shields.io/badge/Code-GitHub-black.svg)](https://github.com/sefffal/PairPlots.jl)
+[![GitHub](https://img.shields.io/badge/Code-GitHub-black.svg)](https://github.com/sefffal/DirectDetections.jl)
 
 Welcome to the documentation page for DirectDetections.jl. 
 This page includes tutorial and an API reference for using this package.
