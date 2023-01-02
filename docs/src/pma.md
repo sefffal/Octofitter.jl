@@ -193,7 +193,7 @@ For a quick look, you can just run `corner(chain)`, but for more professional ou
 ```julia
 ##Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
-using PairPlots
+using CairoMakie, PairPlots
 table = (;
     a=         vec(chain["B.a"]),
     M=         vec(chain["M"]),
@@ -204,27 +204,7 @@ table = (;
     ω=rad2deg.(vec(chain["B.ω"])),
     τ=         vec(chain["B.τ"]),
 )
-labels=[
-    "a",
-    "\\mu",
-    "m",
-    "e",
-    "i",
-    "\\Omega",
-    "\\omega",
-    "\\tau",
-]
-units = [
-    "(au)",
-    "(M_\\odot)",
-    "(M_{jup})",
-    "",
-    "(\\degree)",
-    "(\\degree)",
-    "(\\degree)",
-    "",
-]
-PairPlots.corner(table, labels, units)
+pairplot(table)
 ```
 [![pair plot](assets/pma-astrometry-mass-corner.png)](assets/pma-astrometry-mass-corner.svg)
 

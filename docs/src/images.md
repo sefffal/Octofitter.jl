@@ -167,7 +167,7 @@ You can also specify a `lims=1000` parameter to set limits of the images to +/- 
 We can show the relationships between variables on a pair plot (aka corner plot) using PairPlots.jl
 
 ```julia
-using PairPlots
+using CairoMakie, PairPlots
 table = (;
     a=         chain["X.a"],
     H=         chain["X.H"],
@@ -177,25 +177,16 @@ table = (;
     ω=rad2deg.(chain["X.ω"]),
     τ=         chain["X.τ"],
 )
-labels=[
-    "a",
-    "H",
-    "e",
-    "i",
-    "\\Omega",
-    "\\omega",
-    "\\tau",
-]
-units = [
-    "(au)",
-    "(arb.)",
-    "",
-    "(\\degree)",
-    "(\\degree)",
-    "(\\degree)",
-    "",
-]
-corner(table, labels, units)
+labels=Dict(
+    :a => "a (au)",
+    :H => "H (arb.)",
+    :e => "e ",
+    :i => "i (\\degree)",
+    :Ω => "\\Omega (\\degree)",
+    :ω => "\\omega (\\degree)",
+    :τ => "\\tau ",
+)
+pairplot(table; labels)
 ```
 
 Note that this time, we also show the recovered photometry in the corner plot.

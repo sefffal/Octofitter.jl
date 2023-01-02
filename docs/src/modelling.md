@@ -289,7 +289,7 @@ plot!(astrom, label="astrometry", markersize=8)
 ## Pair Plot
 A very useful visualization of our results is a pair-plot, or corner plot. We can use our PairPlots.jl package for this purpose:
 ```julia
-using Plots, PairPlots
+using Makie, PairPlots
 table = (;
     a=         vec(chain["X.a"]),
     e=         vec(chain["X.e"]),
@@ -298,9 +298,7 @@ table = (;
     ω=rad2deg.(vec(chain["X.ω"])),
     τ=         vec(chain["X.τ"]),
 )
-labels=["a", "e", "i", "\\Omega", "\\omega", "\\tau"]
-units = ["(au)", "", "(\\degree)", "(\\degree)", "(\\degree)", ""]
-PairPlots.corner(table, labels, units)
+pairplot(table)
 ```
 You can read more about the syntax for creating pair plots in the PairPlots.jl documentation page.
 [![corner plot](assets/astrometry-corner-plot.png)](assets/astrometry-corner-plot.svg)
