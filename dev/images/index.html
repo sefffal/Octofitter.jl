@@ -55,7 +55,7 @@ plot(
     xlabel=&quot;lag&quot;,
     ylabel=&quot;autocorrelation&quot;,
 )</code></pre><p>For this model, there is somewhat higher correlation between samples. Some thinning to remove this correlation is recommended. <img src="../assets/images-autocor-plot.png" alt="autocorrelation plot"/></p><h2 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h2><p>You can plot the model as usual:</p><pre><code class="language-julia hljs">using Plots
-plotmodel(chain)</code></pre><p><a href="../assets/images-model-plot.svg"><img src="../assets/images-model-plot.png" alt="images"/></a></p><p>In this case, the model is shown overtop a stack of the input images to help you visualize which peaks contributed to the fit. The images are stacked using the <code>maximum</code> function, so that bright spots from all images appear at once. The colour scale is inverted, so that the brightest peaks are shown in black.</p><p>You can also specify a <code>lims=1000</code> parameter to set limits of the images to +/- 1000 mas, as in this example.</p><h2 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h2><p>We can show the relationships between variables on a pair plot (aka corner plot) using PairPlots.jl</p><pre><code class="language-julia hljs">using PairPlots
+plotmodel(chain)</code></pre><p><a href="../assets/images-model-plot.svg"><img src="../assets/images-model-plot.png" alt="images"/></a></p><p>In this case, the model is shown overtop a stack of the input images to help you visualize which peaks contributed to the fit. The images are stacked using the <code>maximum</code> function, so that bright spots from all images appear at once. The colour scale is inverted, so that the brightest peaks are shown in black.</p><p>You can also specify a <code>lims=1000</code> parameter to set limits of the images to +/- 1000 mas, as in this example.</p><h2 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h2><p>We can show the relationships between variables on a pair plot (aka corner plot) using PairPlots.jl</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 table = (;
     a=         chain[&quot;X.a&quot;],
     H=         chain[&quot;X.H&quot;],
@@ -65,23 +65,14 @@ table = (;
     ω=rad2deg.(chain[&quot;X.ω&quot;]),
     τ=         chain[&quot;X.τ&quot;],
 )
-labels=[
-    &quot;a&quot;,
-    &quot;H&quot;,
-    &quot;e&quot;,
-    &quot;i&quot;,
-    &quot;\\Omega&quot;,
-    &quot;\\omega&quot;,
-    &quot;\\tau&quot;,
-]
-units = [
-    &quot;(au)&quot;,
-    &quot;(arb.)&quot;,
-    &quot;&quot;,
-    &quot;(\\degree)&quot;,
-    &quot;(\\degree)&quot;,
-    &quot;(\\degree)&quot;,
-    &quot;&quot;,
-]
-corner(table, labels, units)</code></pre><p>Note that this time, we also show the recovered photometry in the corner plot.</p><p><a href="../assets/images-corner-plot.svg"><img src="../assets/images-corner-plot.png" alt="corner plot"/></a></p><h2 id="Assessing-Detections"><a class="docs-heading-anchor" href="#Assessing-Detections">Assessing Detections</a><a id="Assessing-Detections-1"></a><a class="docs-heading-anchor-permalink" href="#Assessing-Detections" title="Permalink"></a></h2><p>To assess a detection, we can treat all the orbital variables as nuisance parameters.  We start by plotting the marginal distribution of the flux parameter, <code>H</code>:</p><pre><code class="language-julia hljs">histogram(chain[&quot;X.H&quot;], xlabel=&quot;H&quot;, label=&quot;&quot;)</code></pre><p><img src="../assets/images-flux-hist.png" alt="corner plot"/></p><p>We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:</p><pre><code class="language-julia hljs">flux = chain[&quot;X.H&quot;]
-snr = mean(flux)/std(flux) # 13.35 in this example</code></pre><p>It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../pma/">« Fit Astrometric Acceleration</a><a class="docs-footer-nextpage" href="../rv/">Fit Radial Velocity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Friday 23 December 2022 18:53">Friday 23 December 2022</span>. Using Julia version 1.8.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+labels=Dict(
+    :a =&gt; &quot;a (au)&quot;,
+    :H =&gt; &quot;H (arb.)&quot;,
+    :e =&gt; &quot;e &quot;,
+    :i =&gt; &quot;i (\\degree)&quot;,
+    :Ω =&gt; &quot;\\Omega (\\degree)&quot;,
+    :ω =&gt; &quot;\\omega (\\degree)&quot;,
+    :τ =&gt; &quot;\\tau &quot;,
+)
+pairplot(table; labels)</code></pre><p>Note that this time, we also show the recovered photometry in the corner plot.</p><p><a href="../assets/images-corner-plot.svg"><img src="../assets/images-corner-plot.png" alt="corner plot"/></a></p><h2 id="Assessing-Detections"><a class="docs-heading-anchor" href="#Assessing-Detections">Assessing Detections</a><a id="Assessing-Detections-1"></a><a class="docs-heading-anchor-permalink" href="#Assessing-Detections" title="Permalink"></a></h2><p>To assess a detection, we can treat all the orbital variables as nuisance parameters.  We start by plotting the marginal distribution of the flux parameter, <code>H</code>:</p><pre><code class="language-julia hljs">histogram(chain[&quot;X.H&quot;], xlabel=&quot;H&quot;, label=&quot;&quot;)</code></pre><p><img src="../assets/images-flux-hist.png" alt="corner plot"/></p><p>We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:</p><pre><code class="language-julia hljs">flux = chain[&quot;X.H&quot;]
+snr = mean(flux)/std(flux) # 13.35 in this example</code></pre><p>It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../pma/">« Fit Astrometric Acceleration</a><a class="docs-footer-nextpage" href="../rv/">Fit Radial Velocity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Monday 2 January 2023 14:39">Monday 2 January 2023</span>. Using Julia version 1.8.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
