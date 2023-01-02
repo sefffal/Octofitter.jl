@@ -1,7 +1,7 @@
 using DirectDetections, Distributions, Plots
 
 
-@named b = Planet{VisualOrbit
+@named b = Planet{VisualOrbit}
     Variables(
         a = TruncatedNormal(1, 0.5, 0, Inf),
         e = TruncatedNormal(0.0, 0.2, 0, 1.0),
@@ -45,33 +45,6 @@ plotmodel(chain[3end÷4:end], color="b[i]")
 xlims!(-1500,1500)
 ylims!(-1500,1500)
 
-## Or for more customized output:
-using PairPlots
-table = (;
-    a=         chain["b[a]"],
-    e=         chain["b[e]"],
-    i=rad2deg.(chain["b[i]"]),
-    Ω=rad2deg.(chain["b[Ω]"]),
-    ω=rad2deg.(chain["b[ω]"]),
-    τ=         chain["b[τ]"],
-)
-labels=[
-    "a",
-    "e",
-    "i",
-    "\\Omega",
-    "\\omega",
-    "\\tau",
-]
-units = [
-    "(au)",
-    "",
-    "(\\degree)",
-    "(\\degree)",
-    "(\\degree)",
-    "",
-]
-PairPlots.corner(table, labels, units)
 
 ##
 cd(@__DIR__)
