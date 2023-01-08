@@ -96,6 +96,7 @@ Start sampling:
 ```julia
 # Provide a seeded random number generator for reproducibility of this example.
 # Not needed in general: simply omit the RNG parameter.
+using Random
 rng = Random.Xoshiro(0)
 
 chain = DirectDetections.hmc(
@@ -289,7 +290,7 @@ plot!(astrom, label="astrometry", markersize=8)
 ## Pair Plot
 A very useful visualization of our results is a pair-plot, or corner plot. We can use our PairPlots.jl package for this purpose:
 ```julia
-using Makie, PairPlots
+using CairoMakie, PairPlots
 table = (;
     a=         vec(chain["X.a"]),
     e=         vec(chain["X.e"]),

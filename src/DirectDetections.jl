@@ -1,13 +1,6 @@
 module DirectDetections
 
 
-# const __SOURCE_DIR__ = dirname(Base.source_path())
-# is_developed() = occursin(joinpath(".julia", "dev"), __SOURCE_DIR__)
-# if is_developed()
-#     @info "Packaged is dev'd, skipping precompilation and include(\"precompile.jl\")" maxlog=1
-#     __precompile__(false)
-# end
-
 using Printf
 # using ComponentArrays # TODO: remove last uses of component arrays
 using Tables, TypedTables
@@ -108,4 +101,5 @@ function __init__()
     return
 end
 
+# include("precompile.jl")
 end

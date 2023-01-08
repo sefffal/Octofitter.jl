@@ -2,11 +2,12 @@ using DiffResults
 using AbstractDifferentiation
 AD = AbstractDifferentiation
 using LinearAlgebra
+using Preferences
 
 export sample_priors
 
 
-sample_priors(arg::Union{Planet,System}, args...; kwargs...) = sample_priors(Random.default_rng(), args...; kwargs...)
+sample_priors(arg::Union{Planet,System}, args...; kwargs...) = sample_priors(Random.default_rng(), arg, args...; kwargs...)
 sample_priors(rng::Random.AbstractRNG, planet::Planet) = rand.(rng, ComponentArray(planet.priors.priors))
 sample_priors(rng::Random.AbstractRNG, planet::Planet, N::Number) = [sample_priors(rng, planet) for _ in 1:N]
 
@@ -126,45 +127,45 @@ index of the chains.
 """
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Union{Integer,CartesianIndex})
     pk = string(planet_key)
-    if haskey(chain, :plx) && haskey(chain, Symbol(pk*".i")) && haskey(chain, Symbol(pk*".Ω"))
+    if haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
         return VisualOrbit((;
             M=chain["M"][i],
             plx=chain["plx"][i],
-            i=chain[pk*".i"][i],
-            Ω=chain[pk*".Ω"][i],
-            ω=chain[pk*".ω"][i],
-            e=chain[pk*".e"][i],
-            τ=chain[pk*".τ"][i],
-            a=chain[pk*".a"][i],
+            i=chain[pk*"_i"][i],
+            Ω=chain[pk*"_Ω"][i],
+            ω=chain[pk*"_ω"][i],
+            e=chain[pk*"_e"][i],
+            τ=chain[pk*"_τ"][i],
+            a=chain[pk*"_a"][i],
         ))
-    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*".A")) && haskey(chain, Symbol(pk*".B")) && haskey(chain, Symbol(pk*".G"))&& haskey(chain, Symbol(pk*".F"))
+    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*"_A")) && haskey(chain, Symbol(pk*"_B")) && haskey(chain, Symbol(pk*"_G"))&& haskey(chain, Symbol(pk*"_F"))
         return ThieleInnesOrbit((;
             M=chain["M"][i],
             plx=chain["plx"][i],
-            e=chain[pk*".e"][i],
-            τ=chain[pk*".τ"][i],
-            A=chain[pk*".A"][i],
-            B=chain[pk*".B"][i],
-            F=chain[pk*".F"][i],
-            G=chain[pk*".G"][i],
+            e=chain[pk*"_e"][i],
+            τ=chain[pk*"_τ"][i],
+            A=chain[pk*"_A"][i],
+            B=chain[pk*"_B"][i],
+            F=chain[pk*"_F"][i],
+            G=chain[pk*"_G"][i],
         ))
-    elseif haskey(chain, Symbol(pk*".i")) && haskey(chain, Symbol(pk*".Ω"))
+    elseif haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
         return KepOrbit((;
             M=chain["M"][i],
-            i=chain[pk*".i"][i],
-            Ω=chain[pk*".Ω"][i],
-            ω=chain[pk*".ω"][i],
-            e=chain[pk*".e"][i],
-            τ=chain[pk*".τ"][i],
-            a=chain[pk*".a"][i],
+            i=chain[pk*"_i"][i],
+            Ω=chain[pk*"_Ω"][i],
+            ω=chain[pk*"_ω"][i],
+            e=chain[pk*"_e"][i],
+            τ=chain[pk*"_τ"][i],
+            a=chain[pk*"_a"][i],
         ))
     elseif haskey(chain, :M) && haskey(chain, :rv)
         return RadialVelocityOrbit((;
             M=chain["M"][i],
-            ω=chain[pk*".ω"][i],
-            e=chain[pk*".e"][i],
-            τ=chain[pk*".τ"][i],
-            a=chain[pk*".a"][i],
+            ω=chain[pk*"_ω"][i],
+            e=chain[pk*"_e"][i],
+            τ=chain[pk*"_τ"][i],
+            a=chain[pk*"_a"][i],
         ))
     else
         error("Unrecognized columns")
@@ -180,15 +181,15 @@ of the chains.
 """
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
     pk = string(planet_key)
-    if haskey(chain, :plx) && haskey(chain, Symbol(pk*".i")) && haskey(chain, Symbol(pk*".Ω"))
+    if haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
         Ms=chain["M"]
         plxs=chain["plx"]
-        is=chain[pk*".i"]
-        Ωs=chain[pk*".Ω"]
-        ωs=chain[pk*".ω"]
-        es=chain[pk*".e"]
-        τs=chain[pk*".τ"]
-        as=chain[pk*".a"]
+        is=chain[pk*"_i"]
+        Ωs=chain[pk*"_Ω"]
+        ωs=chain[pk*"_ω"]
+        es=chain[pk*"_e"]
+        τs=chain[pk*"_τ"]
+        as=chain[pk*"_a"]
         return map(ii) do i
             VisualOrbit((;
                 M=Ms[i],
@@ -201,14 +202,14 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                 a=as[i],
             ))
         end
-    elseif haskey(chain, Symbol(pk*".i")) && haskey(chain, Symbol(pk*".Ω"))
+    elseif haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
         Ms=chain["M"]
-        is=chain[pk*".i"]
-        Ωs=chain[pk*".Ω"]
-        ωs=chain[pk*".ω"]
-        es=chain[pk*".e"]
-        τs=chain[pk*".τ"]
-        as=chain[pk*".a"]
+        is=chain[pk*"_i"]
+        Ωs=chain[pk*"_Ω"]
+        ωs=chain[pk*"_ω"]
+        es=chain[pk*"_e"]
+        τs=chain[pk*"_τ"]
+        as=chain[pk*"_a"]
         return map(ii) do i
             KepOrbit((;
                 M=Ms[i],
@@ -220,15 +221,15 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                 a=as[i],
             ))
         end
-    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*".A")) && haskey(chain, Symbol(pk*".B"))
+    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*"_A")) && haskey(chain, Symbol(pk*"_B"))
         Ms=chain["M"]
         plxs=chain["plx"]
-        As=chain[pk*".A"]
-        Bs=chain[pk*".B"]
-        Fs=chain[pk*".F"]
-        Gs=chain[pk*".G"]
-        es=chain[pk*".e"]
-        τs=chain[pk*".τ"]
+        As=chain[pk*"_A"]
+        Bs=chain[pk*"_B"]
+        Fs=chain[pk*"_F"]
+        Gs=chain[pk*"_G"]
+        es=chain[pk*"_e"]
+        τs=chain[pk*"_τ"]
         return map(ii) do i
             ThieleInnesOrbit((;
                 M=Ms[i],
@@ -243,10 +244,10 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         end
     elseif haskey(chain, Symbol("M")) && haskey(chain, Symbol("rv"))
         Ms=chain["M"]
-        ωs=chain[pk*".ω"]
-        es=chain[pk*".e"]
-        τs=chain[pk*".τ"]
-        as=chain[pk*".a"]
+        ωs=chain[pk*"_ω"]
+        es=chain[pk*"_e"]
+        τs=chain[pk*"_τ"]
+        as=chain[pk*"_a"]
         return map(ii) do i
             RadialVelocityOrbit((;
                 M=Ms[i],
@@ -265,12 +266,12 @@ function construct_elements(chain, planet_key::Union{String,Symbol}, ii::Abstrac
     pk = string(planet_key)
     Ms=chain[:,"M"]
     plxs=chain[:,"plx"]
-    is=chain[:,pk*".i"]
-    Ωs=chain[:,pk*".Ω"]
-    ωs=chain[:,pk*".ω"]
-    es=chain[:,pk*".e"]
-    τs=chain[:,pk*".τ"]
-    as=chain[:,pk*".a"]
+    is=chain[:,pk*"_i"]
+    Ωs=chain[:,pk*"_Ω"]
+    ωs=chain[:,pk*"_ω"]
+    es=chain[:,pk*"_e"]
+    τs=chain[:,pk*"_τ"]
+    as=chain[:,pk*"_a"]
     return map(ii) do i
         VisualOrbit((;
             M=Ms[i],
@@ -291,6 +292,150 @@ function hmc(system::System, target_accept::Number=0.8, ensemble::AbstractMCMC.A
     return hmc(Random.default_rng(), system, target_accept, ensemble; kwargs...)
 end
 
+using LogDensityProblems
+
+# Define the target distribution using the `LogDensityProblem` interface
+struct LogModelDensity1{T,TT}
+    D::Int
+    ℓπcallback::T
+    ∇ℓπcallback::TT
+    function LogModelDensity1(system::System; autodiff=:ForwardDiff, verbosity=0)
+
+        # Choose parameter dimensionality and initial parameter value
+        initial_θ_0 = sample_priors(system)
+        D = length(initial_θ_0)
+
+        ln_prior_transformed = make_ln_prior_transformed(system)
+        # ln_prior = make_ln_prior(system)
+        arr2nt = DirectDetections.make_arr2nt(system) 
+        ln_like_generated = make_ln_like(system, arr2nt(initial_θ_0))
+
+        priors_vec = _list_priors(system)
+        Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
+        initial_θ_0_t = Bijectors.link.(priors_vec, initial_θ_0)
+        arr2nt = DirectDetections.make_arr2nt(system)
+
+        # Test out model likelihood and prior computations. This way, if they throw
+        # an error, we'll see it right away instead of burried in some deep stack
+        # trace from the sampler, autodiff, etc.
+        ln_like_generated(system, arr2nt(initial_θ_0))
+        ln_prior_transformed(initial_θ_0_t)
+
+
+        verbosity >= 1 && @info "Preparing model"
+        # Capture these variables in a let binding to improve performance
+        # We also set up temporary storage to reduce allocations
+        # ForwardDiff is used to compute the likelihood gradients using the in-place 
+        # API. This ensures type stability.
+        function ℓπcallback(θ_transformed, system=system)
+            # Transform back from the unconstrained support to constrained support for the likelihood function
+            θ_natural = Bijector_invlinkvec(θ_transformed)
+            θ_structured = arr2nt(θ_natural)
+            lp = ln_prior_transformed(θ_transformed)
+            ll = ln_like_generated(system, θ_structured)
+            return lp+ll
+        end
+
+        if autodiff == :Enzyme
+            # Enzyme mode:
+            ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
+                system_tmp = deepcopy(system)
+                function (θ_t)
+                    likelihood = ℓπcallback(θ_t)
+                    fill!(diffresult,0)
+                    out= Main.Enzyme.autodiff(
+                        Main.Enzyme.Reverse,
+                        ℓπcallback,
+                        Main.Enzyme.Active,
+                        Main.Enzyme.Duplicated(θ_t,diffresult),
+                        Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
+                    )
+                    return likelihood, diffresult
+                end
+            end
+
+
+            ## Main.Enzyme.autodiff(ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
+            ## Main.Enzyme.autodiff(Main.Enzyme.Reverse, ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
+            ## Main.Enzyme.autodiff(Main.Enzyme.Forward, ℓπcallback, Main.Enzyme.Duplicated, Main.Enzyme.Duplicated(θ_t,diffresult))
+
+
+        elseif autodiff == :FiniteDiff
+        
+            ∇ℓπcallback = let diffresult = copy(initial_θ_0_t)
+                function (θ_t)
+                    primal = ℓπcallback(θ_t)
+                    Main.FiniteDiff.finite_difference_gradient!(diffresult, ℓπcallback, θ_t)
+                    return primal, diffresult
+                end
+            end
+        
+        elseif autodiff == :Zygote
+
+            # Zygote mode:
+            ∇ℓπcallback = function (θ_t)
+                Main.Zygote.gradient(ℓπ, θ_t)
+            end
+
+        elseif autodiff == :ForwardDiff
+
+            # https://juliadiff.org/ForwardDiff.jl/stable/user/advanced/#Fixing-NaN/Inf-Issues
+            set_preferences!(ForwardDiff, "nansafe_mode" => true)
+
+            # ForwardDiff mode:
+            # Create temporary storage space for gradient computations
+            diffresult = DiffResults.GradientResult(initial_θ_0_t)
+
+            # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
+            # We're going to call this thousands of times so worth a few calls
+            # to get this optimized.
+            chunk_sizes = unique([1; 2:2:D; D])
+            ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
+                cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
+                ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
+                t = minimum(
+                    @elapsed ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
+                    for _ in 1:10
+                )
+
+                verbosity >= 3 && @info "Timing autodiff" chunk_size t
+                return t
+            end)
+            ideal_chunk_size =  chunk_sizes[ideal_chunk_size_i]
+            verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
+
+            cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
+            ∇ℓπcallback = let cfg=cfg, diffresult=diffresult, ℓπcallback=ℓπcallback
+                function (θ_transformed)
+                    result = ForwardDiff.gradient!(diffresult, ℓπcallback, θ_transformed, cfg)
+                    # return DiffResults.value(result), DiffResults.gradient(result)
+                    return DiffResults.gradient(result)
+                end
+            end
+        else
+            error("Unsupported option for autodiff: $autodiff. Valid options are :ForwardDiff (default), :Enzyme, and :Zygote.")
+        end
+        
+            
+        # Display their run time. If something is egregously wrong we'll notice something
+        # here in the output logs.
+        ℓπcallback(initial_θ_0_t)
+        ∇ℓπcallback(initial_θ_0_t) 
+        verbosity >= 1 && @showtime ℓπcallback(initial_θ_0_t)
+        verbosity >= 1 && @showtime ∇ℓπcallback(initial_θ_0_t)
+    
+        
+        new{typeof(ℓπcallback),typeof(∇ℓπcallback)}(D,ℓπcallback, ∇ℓπcallback)
+    end
+end
+LogDensityProblems.logdensity(p::LogModelDensity1, θ) = p.ℓπcallback(θ)
+LogDensityProblems.logdensity_and_gradient(p::LogModelDensity1, θ) = (p.ℓπcallback(θ), p.∇ℓπcallback(θ)) # TODO: may need to copy vector
+LogDensityProblems.dimension(p::LogModelDensity1) = p.D
+LogDensityProblems.capabilities(::Type{<:LogModelDensity1}) = LogDensityProblems.LogDensityOrder{1}()
+
+
+
+
 
 """
 The method signature of DirectDetections.hmc is as follows:
@@ -305,7 +450,7 @@ The method signature of DirectDetections.hmc is as follows:
         iterations,
         thinning=1,
         discard_initial=adaptation,
-        tree_depth=10,
+        tree_depth=12,
         initial_samples=50_000,
         initial_parameters=nothing,
         step_size=nothing,
@@ -337,12 +482,11 @@ function hmc(
     iterations,
     thinning=1,
     discard_initial=adaptation,
-    tree_depth=10,
+    tree_depth=12,
     initial_samples=50_000,
     initial_parameters=nothing,
     verbosity=2,
     autodiff=:ForwardDiff,
-    debug=false
 )
 
     if ensemble != MCMCSerial()
@@ -363,122 +507,13 @@ function hmc(
     initial_θ_0_t = Bijectors.link.(priors_vec, initial_θ_0)
     arr2nt = DirectDetections.make_arr2nt(system)
 
-    # Test out model likelihood and prior computations. This way, if they throw
-    # an error, we'll see it right away instead of burried in some deep stack
-    # trace from the sampler, autodiff, etc.
-    ln_like_generated(system, arr2nt(initial_θ_0))
-    ln_prior_transformed(initial_θ_0_t)
+    # # Test out model likelihood and prior computations. This way, if they throw
+    # # an error, we'll see it right away instead of burried in some deep stack
+    # # trace from the sampler, autodiff, etc.
+    # ln_like_generated(system, arr2nt(initial_θ_0))
+    # ln_prior_transformed(initial_θ_0_t)
 
 
-    verbosity >= 1 && @info "Preparing model"
-    # Capture these variables in a let binding to improve performance
-    # We also set up temporary storage to reduce allocations
-    # ForwardDiff is used to compute the likelihood gradients using the in-place 
-    # API. This ensures type stability.
-    ℓπ,∇ℓπ = let system=system,
-                 ln_prior_transformed=ln_prior_transformed,
-                 arr2nt=arr2nt,
-                 Bijector_invlinkvec=Bijector_invlinkvec,
-                 initial_θ_0_t=initial_θ_0_t,
-                 ln_like=ln_like_generated
-        function ℓπcallback(θ_transformed, system=system)
-            # Transform back from the unconstrained support to constrained support for the likelihood function
-            θ_natural = Bijector_invlinkvec(θ_transformed)
-            θ_structured = arr2nt(θ_natural)
-            lp = ln_prior_transformed(θ_transformed)
-            ll = ln_like(system, θ_structured)
-            return lp+ll
-        end
-
-        if autodiff == :Enzyme
-            # Enzyme mode:
-            ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
-                system_tmp = deepcopy(system)
-                function (θ_t)
-                    likelihood = ℓπcallback(θ_t)
-                    fill!(diffresult,0)
-                    out= Main.Enzyme.autodiff(
-                        Main.Enzyme.Reverse,
-                        ℓπcallback,
-                        Main.Enzyme.Active,
-                        Main.Enzyme.Duplicated(θ_t,diffresult),
-                        Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
-                    )
-                    return likelihood, diffresult
-                end
-            end
-
-
-            ## Main.Enzyme.autodiff(ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
-            ## Main.Enzyme.autodiff(Main.Enzyme.Reverse, ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
-            ## Main.Enzyme.autodiff(Main.Enzyme.Forward, ℓπcallback, Main.Enzyme.Duplicated, Main.Enzyme.Duplicated(θ_t,diffresult))
-
-
-        elseif autodiff == :FiniteDiff
-                ∇ℓπcallback = let diffresult = copy(initial_θ_0_t)
-                    function (θ_t)
-                        primal = ℓπcallback(θ_t)
-                        Main.FiniteDiff.finite_difference_gradient!(diffresult, ℓπcallback, θ_t)
-                        return primal, diffresult
-                    end
-                end
-        
-        elseif autodiff == :Zygote
-
-            # Zygote mode:
-            ∇ℓπcallback = function (θ_t)
-                Main.Zygote.gradient(ℓπ, θ_t)
-            end
-
-        elseif autodiff == :ForwardDiff
-
-            # ForwardDiff mode:
-            # Create temporary storage space for gradient computations
-            diffresult = DiffResults.GradientResult(initial_θ_0_t)
-
-            # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
-            # We're going to call this thousands of times so worth a few calls
-            # to get this optimized.
-            chunk_sizes = unique([1; 2:2:D; D])
-            ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
-                cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
-                ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
-                t = minimum(
-                    @elapsed ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
-                    for _ in 1:10
-                )
-
-                verbosity >= 3 && @info "Timing autodiff" chunk_size t
-                return t
-            end)
-            ideal_chunk_size =  chunk_sizes[ideal_chunk_size_i]
-            verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
-
-            cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
-            ∇ℓπcallback = let cfg=cfg, diffresult=diffresult, ℓπcallback=ℓπcallback
-                function (θ_transformed)
-                    result = ForwardDiff.gradient!(diffresult, ℓπcallback, θ_transformed, cfg)
-                    return DiffResults.value(result), DiffResults.gradient(result)
-                end
-            end
-        else
-            error("Unsupported option for autodiff: $autodiff. Valid options are :ForwardDiff (default), :Enzyme, and :Zygote.")
-        end
-        
-        ℓπcallback, ∇ℓπcallback
-    end
-
-        
-    # Display their run time. If something is egregously wrong we'll notice something
-    # here in the output logs.
-    ℓπ(initial_θ_0_t)
-    ∇ℓπ(initial_θ_0_t) 
-    verbosity >= 1 && @showtime ℓπ(initial_θ_0_t)
-    verbosity >= 1 && @showtime ∇ℓπ(initial_θ_0_t)
-
-    if debug
-        return ℓπ, ∇ℓπ, initial_θ_0_t
-    end
 
     # # Uncomment for debugging model type-stability
     # Main.InteractiveUtils.@code_warntype ℓπ(initial_θ_0_t)
@@ -491,7 +526,7 @@ function hmc(
     if isnothing(initial_parameters)
         verbosity >= 1 && @info "Guessing a starting location by sampling from prior" initial_samples
         initial_θ, mapv = guess_starting_position(rng,system,initial_samples)
-        verbosity > 2 && @info "Found starting location" ℓπ(θ)=mapv θ=arr2nt(initial_θ)
+        verbosity > 2 && @info "Found starting location" θ=arr2nt(initial_θ)
         # Transform from constrained support to unconstrained support
         initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
     else
@@ -579,15 +614,19 @@ function hmc(
     # else
     #     @warn "Pathfinder failed to provide a finite initial draw and metric. Check your model. Starting from initial guess instead."
         # Fit a dense metric from scratch
-        metric = DenseEuclideanMetric(D)
         # metric = DiagEuclideanMetric(D)
     # end
 
     verbosity >= 3 && @info "Creating model" 
-    model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ∇ℓπ)
+    # model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ∇ℓπ)
+    model = LogModelDensity1(system; autodiff, verbosity)
+
+    metric = DenseEuclideanMetric(D)
+
 
     verbosity >= 3 && @info "Creating hamiltonian"
-    hamiltonian = Hamiltonian(metric, ℓπ, ∇ℓπ)
+    # hamiltonian = Hamiltonian(metric, model.ℓπcallback, model.∇ℓπcallback)
+    hamiltonian = Hamiltonian(metric, model)
     verbosity >= 3 && @info "Finding good stepsize"
     ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
     verbosity >= 3 && @info "Found initial stepsize" ϵ 
@@ -608,7 +647,7 @@ function hmc(
     sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
 
 
-    verbosity >= 1 && @info "Adapting sampler..."
+    verbosity >= 1 && @info "Sampling, beginning with adaptation phase..."
     start_time = fill(time(), num_chains)
 
     # # Neat: it's possible to return a live iterator
@@ -670,7 +709,7 @@ function hmc(
             max_width = displaysize(stdout)[2]-34
             θ_str = string(θ_res)
             θ_str_trunc = θ_str[begin:prevind(θ_str, min(end,max_width))]
-            θ_message = "θ="*θ_str_trunc*"..."
+            θ_message = "θ="*θ_str_trunc*"_.."
         end
         
         @printf("%1s%6d(%2d) td=%2d ℓπ=%6.0f. %s\n", note, iteration, Threads.threadid(), transition.stat.tree_depth, ℓπ, θ_message)
@@ -713,9 +752,9 @@ function hmc(
         initial_parameters = fill(initial_θ_t, num_chains)
     # end
 
-    mc_samples_all_chains = sample(
+    mc_samples_all_chains = AbstractMCMC.sample(
         rng,
-        model,
+        AbstractMCMC.LogDensityModel(model),
         sampler,
         ensemble,
         iterations,
@@ -841,7 +880,7 @@ function flatten_named_tuple(nt)
     end
     for pl in keys(get(nt, :planets, (;)))
         for key in keys(nt.planets[pl])
-            push!(pairs, Symbol(pl, '.', key) =>  nt.planets[pl][key])
+            push!(pairs, Symbol(pl, '_', key) =>  nt.planets[pl][key])
         end
     end
     return namedtuple(pairs)
