@@ -1,6 +1,6 @@
 #  [Derived Variables] (@id derived)
 
-DirectDetections has a concept called "derived variables" that are inspired by PyMC3.
+Octofitter has a concept called "derived variables" that are inspired by PyMC3.
 Derived variables are quantities that either have a fixed value, or a fixed mathematical relationship with the main variables in a model.
 
 This concept is extremely powerful, as it lets you quickly create very sophisticated models.
@@ -20,7 +20,7 @@ Derived variables for the system as a whole can be created as follows:
 ```
 In this case, instead of including `M` as a variable in the model, we define it as a function that always returns `1.0`. This is equivalent to passing `M=1.0`.
 
-In the following case, let's define `M` as being calculated based on another variable in the model. This is how you can do reparameterizations in DirectDetections.jl
+In the following case, let's define `M` as being calculated based on another variable in the model. This is how you can do reparameterizations in Octofitter.jl
 ```julia
 @named HD12345 = System(
     Variables(

@@ -75,9 +75,9 @@ end
 function transit_depth(orbit, t,  r, Rₛₜₐᵣ, ld=QuadLimbDark(Float64[]))
     soln = orbitsolve(orbit, t)
 
-    x = PlanetOrbits.posx(soln)*DirectDetections.PlanetOrbits.au2m
-    y = PlanetOrbits.posy(soln)*DirectDetections.PlanetOrbits.au2m
-    z = PlanetOrbits.posz(soln)*DirectDetections.PlanetOrbits.au2m
+    x = PlanetOrbits.posx(soln)*Octofitter.PlanetOrbits.au2m
+    y = PlanetOrbits.posy(soln)*Octofitter.PlanetOrbits.au2m
+    z = PlanetOrbits.posz(soln)*Octofitter.PlanetOrbits.au2m
 
     
     # TODO: at the moment this only supports VisualOrbit

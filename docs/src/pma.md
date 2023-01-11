@@ -1,11 +1,11 @@
 # [Fit Astrometric Acceleration](@id fit-pma)
 
-One of the features of DirectDetections.jl is support for proper motion anomaly / astrometric acceleration.
+One of the features of Octofitter.jl is support for proper motion anomaly / astrometric acceleration.
 These data points are typically calculated by finding the difference between a long term proper motion of a star between the Hipparcos and GAIA catalogs, and their proper motion calculated within the windows of each catalog.
 
 For Hipparcos/GAIA this gives four data points that can constrain the dynamical mass & orbits of planetary companions (assuming we subtract out the net trend).
 
-You can specify these quantities manually, but the easiest way is to use the Hipparcos-GAIA Catalog of Accelerations (HGCA, [https://arxiv.org/abs/2105.11662](https://arxiv.org/abs/2105.11662)). Support for loading this catalog is built into DirectDetections.jl.
+You can specify these quantities manually, but the easiest way is to use the Hipparcos-GAIA Catalog of Accelerations (HGCA, [https://arxiv.org/abs/2105.11662](https://arxiv.org/abs/2105.11662)). Support for loading this catalog is built into Octofitter.jl.
 
 Let's look at the star and companion [HD 91312 A & B](https://arxiv.org/abs/2109.12124), discovered by SCExAO. We will use their published astrometry and proper motion anomaly extracted from the HGCA.
 
@@ -17,7 +17,7 @@ The units used on this variable are Jupiter masses, in contrast to `M`, the prim
 
 Initial setup:
 ```julia
-using DirectDetections, Distributions, Plots
+using Octofitter, Distributions, Plots
 ```
 
 
@@ -36,7 +36,7 @@ astrom = Astrometry(
         e = Uniform(0,1),
         τ = UniformCircular(1.0),
         ω = UniformCircular(),
-        i = Sine(), # The Sine() distribution is defined by DirectDetections
+        i = Sine(), # The Sine() distribution is defined by Octofitter
         Ω = UniformCircular(),
         mass = LogUniform(0.5, 2000),
         # Anoter option would be:
@@ -79,7 +79,7 @@ After the priors, we add the proper motion anomaly measurements from the HGCA. I
 Sample from our model as usual:
 
 ```julia
-chain = DirectDetections.hmc(
+chain = Octofitter.hmc(
     HD91312, 0.65,
     adaptation =  1_000,
     iterations =  6_000,
@@ -244,7 +244,7 @@ As a start, you can restrict the orbital parameters to just semi-major axis, epo
 This models assumes a circular, face-on orbit.
 
 ```julia
-chains = DirectDetections.hmc(
+chains = Octofitter.hmc(
     HD91312, 0.85,
     MCMCThreads(),
     num_chains=4,

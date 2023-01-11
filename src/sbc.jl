@@ -19,7 +19,7 @@ using PairPlots
 # Orbit fitting
 using MCMCChains
 using PlanetOrbits
-using DirectDetections
+using Octofitter
 using ImageTransformations
 using CoordinateTransformations
 
@@ -36,8 +36,8 @@ end
 
 # Sample system parameters from prior distributions
 function drawfrompriors(system::System)
-    θ = DirectDetections.sample_priors(system)
-    arr2nt = DirectDetections.make_arr2nt(system)
+    θ = Octofitter.sample_priors(system)
+    arr2nt = Octofitter.make_arr2nt(system)
     θnt = arr2nt(θ)
     return θnt
 end
@@ -242,7 +242,7 @@ function generate(system::System, θ_newsystem = drawfrompriors(system))
             out_of_bounds[] = true
         end
 
-        neworbit = DirectDetections.construct_elements(DirectDetections.orbittype(planet), θ_newsystem, θ_newplanet)
+        neworbit = Octofitter.construct_elements(Octofitter.orbittype(planet), θ_newsystem, θ_newplanet)
 
         return neworbit
     end
@@ -255,7 +255,7 @@ function generate(system::System, θ_newsystem = drawfrompriors(system))
         newplanet_obs = map(planet.observations) do obs
             return genobs(obs, elem, planet)
         end
-        newplanet = Planet{DirectDetections.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
+        newplanet = Planet{Octofitter.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
     end
 
     # Generate new observations for the star
@@ -276,10 +276,10 @@ function calibrationhmc(system::System, target_accept, num_chains, adaptation, i
     # Get parameter values sampled from priors and generate a new system
     θ_newsystem = drawfrompriors(system)
     newsystem = generate(system, θ_newsystem)
-    θ_array = DirectDetections.result2mcmcchain(newsystem, [θ_newsystem])
+    θ_array = Octofitter.result2mcmcchain(newsystem, [θ_newsystem])
 
     # Run chains
-    @time chains = DirectDetections.hmc(
+    @time chains = Octofitter.hmc(
         newsystem, target_accept,
         num_chains = num_chains,
         adaptation = adaptation,

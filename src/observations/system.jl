@@ -197,7 +197,7 @@ function generate(system::System, θ_newsystem = drawfrompriors(system))
             out_of_bounds[] = true
         end
 
-        neworbit = DirectDetections.construct_elements(DirectDetections.orbittype(planet), θ_newsystem, θ_newplanet)
+        neworbit = Octofitter.construct_elements(Octofitter.orbittype(planet), θ_newsystem, θ_newplanet)
 
         return neworbit
     end
@@ -210,7 +210,7 @@ function generate(system::System, θ_newsystem = drawfrompriors(system))
         newplanet_obs = map(planet.observations) do obs
             return genobs(obs, elem, planet)
         end
-        newplanet = Planet{DirectDetections.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
+        newplanet = Planet{Octofitter.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
     end
 
     # Generate new observations for the star

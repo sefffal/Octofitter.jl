@@ -2,11 +2,11 @@
 
 Here is a worked example of a basic model. It contains a star with a single planet, and several astrometry points.
 
-The full code is available on [GitHub](https://github.com/sefffal/DirectDetections.jl/examples/basic-example.jl)
+The full code is available on [GitHub](https://github.com/sefffal/Octofitter.jl/examples/basic-example.jl)
 
-Start by loading the DirectDetections and Plots packages:
+Start by loading the Octofitter and Plots packages:
 ```julia
-using DirectDetections, Distributions, Plots
+using Octofitter, Distributions, Plots
 ```
 
 ## Creating a planet
@@ -99,12 +99,12 @@ Start sampling:
 using Random
 rng = Random.Xoshiro(0)
 
-chain = DirectDetections.hmc(
+chain = Octofitter.hmc(
     rng, HD82134, 0.85;
-    adaptation =  1000,
-    iterations =  5000,
+    adaptation =   500,
+    iterations =  1000,
     verbosity = 4,
-    tree_depth = 12
+    tree_depth = 15
 )
 ```
 
@@ -306,9 +306,9 @@ You can read more about the syntax for creating pair plots in the PairPlots.jl d
 In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.
 
 ## Notes on Hamiltonian Monte Carlo
-Unlike most other astrometry modelling code, DirectDetections uses Hamiltonian Monte Carlo instead of Affine Invariant MCMC (e.g. emcee in Python) This sampling method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.
+Unlike most other astrometry modelling code, Octofitter uses Hamiltonian Monte Carlo instead of Affine Invariant MCMC (e.g. emcee in Python) This sampling method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.
 
-Derviatives for a complex model are usualy tedious to code, but DirectDetections uses ForwardDiff.jl to generate them automatically.
+Derviatives for a complex model are usualy tedious to code, but Octofitter uses ForwardDiff.jl to generate them automatically.
 
 When using HMC, only a few chains are necessary. This is in contrast to Affine Invariant MCMC based packages where hundreds or thousands of walkers are required.
 One chain should be enough to cover the whole posterior, but you can run a few different chains to make sure each has converged to the same distribution.

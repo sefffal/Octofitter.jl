@@ -1,7 +1,7 @@
 # [Fit Radial Velocity](@id fit-pma)
 Note: This section is a work in progress.
 
-You can use DirectDetections as a basic tool for fitting radial velocity data, by itself, or in combination with other kinds of data.
+You can use Octofitter as a basic tool for fitting radial velocity data, by itself, or in combination with other kinds of data.
 Multiple instruments (up to five) are supported.
 
 The following is an example of jointly fitting the radial velocity and astrometric motion of the star $\epsilon$ Eridani using some of the radial velocity data collated in Mawet et al.
@@ -14,7 +14,7 @@ For the purposes of this quick example, a fixed semi-major axis, eccentricity, a
 ```julia
 
 
-using DirectDetections, Distributions, PlanetOrbits, Plots
+using Octofitter, Distributions, PlanetOrbits, Plots
 
 gaia_id = 5164707970261890560 
 
@@ -269,7 +269,7 @@ rvs = RadialVelocity(
 
 ## Sample from chains
 
-results = DirectDetections.hmc(
+results = Octofitter.hmc(
     ϵEri, 0.65;
     adaptation =  2000,
     iterations =  5000,

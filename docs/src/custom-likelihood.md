@@ -1,9 +1,9 @@
 # Adding a Custom Likelihood Function
 
-It's fairly straightforward to add supprot for a new kind of observation to DirectDetections.jl
+It's fairly straightforward to add supprot for a new kind of observation to Octofitter.jl
 You can also follow the same workflow if you want to handle an existing kind of observation in a new way—say, tweaking a calculation, or using Gaussian processes to better model noise in radial velocity data.
 
-All the existing observation types are listed in  [`src/observations`](https://github.com/sefffal/DirectDetections.jl/tree/main/src/observations)
+All the existing observation types are listed in  [`src/observations`](https://github.com/sefffal/Octofitter.jl/tree/main/src/observations)
 and can be used as examples.
 
 Note that these examples won't run if you copy and paste them, you'll need to modify them to suite your purposes.
@@ -28,11 +28,11 @@ Try to follow the advice in the Julia Manual's performance tips section to ensur
 
 ## Create likelihood functions
 
-Now, create a method that extends `DirectDetections.ln_like` for your custom observation type. 
+Now, create a method that extends `Octofitter.ln_like` for your custom observation type. 
 If the likelihood function is specific to a planet (like astrometry, where the data is attached to a planet instead of the system) then the method signature should look like:
 
 ```julia
-function DirectDetections.ln_like(obs::MyObsType, θ_planet, orbit,)
+function Octofitter.ln_like(obs::MyObsType, θ_planet, orbit,)
 
     # Access your data
     # obs.table.col1[1]
@@ -52,7 +52,7 @@ end
 
 If the data is attached to the system as a whole, like radial velocity, the method signature should look like:
 ```julia
-function DirectDetections.ln_like(obs::MyObsType, θ_system, orbits)
+function Octofitter.ln_like(obs::MyObsType, θ_system, orbits)
 
     # Access your data
     # obs.table.col1[1]
@@ -79,7 +79,7 @@ If the parameter has a restricted domain where it is valid, ensure the prior pas
 ## Bonus: Generative model
 The above is sufficient to start sampling from the posterior. Ideally, you will also add a function that does the reverse: generate observations from a set of parameters. This is useful for a variety of statistical tests.
 
-Simpling extend the `DirectDetections.genobs` function for your data type in much the same way:
+Simpling extend the `Octofitter.genobs` function for your data type in much the same way:
 
 ```julia
 # Generate new astrometry observations

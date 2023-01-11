@@ -1,9 +1,9 @@
 # [Chains](@id chains)
 
-This page describes the format of the Monte Carlo chains created by DirectDetections.jl
+This page describes the format of the Monte Carlo chains created by Octofitter.jl
 
 
-The output of the samplers in DirectDetections is an MCMCChains.Chains object
+The output of the samplers in Octofitter is an MCMCChains.Chains object
 
 A column will be present for each variable in your model, both defined in the Priors blocks or as Derived variables. 
 

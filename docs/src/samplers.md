@@ -1,14 +1,14 @@
 # [Samplers](@id samplers)
 
-DirectDetections.jl includes support for three Monte Carlo samplers: Affine Invariant MCMC (KissMCMC.jl), the No U-Turn Sampler (NUTS) which is Hamiltonian Monte Carlo (AdvancedHMC.jl), and finally, nested sampling (NestedSamplers.jl).
+Octofitter.jl includes support for three Monte Carlo samplers: Affine Invariant MCMC (KissMCMC.jl), the No U-Turn Sampler (NUTS) which is Hamiltonian Monte Carlo (AdvancedHMC.jl), and finally, nested sampling (NestedSamplers.jl).
 
 ## Hamiltonian Monte Carlo
 
-The recommended choice for almost all problems is Hamiltonian Monte Carlo. It can be run using the `DirectDetections.hmc` function.
+The recommended choice for almost all problems is Hamiltonian Monte Carlo. It can be run using the `Octofitter.hmc` function.
 This sampling
  method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.
 
-Derviatives for a complex model are usualy tedious to code, but DirectDetections uses ForwardDiff.jl to generate them automatically.
+Derviatives for a complex model are usualy tedious to code, but Octofitter uses ForwardDiff.jl to generate them automatically.
 
 When using HMC, only a few chains are necessary. This is in contrast to Affine Invariant MCMC based packages where hundreds or thousands of walkers are required.
 One chain should be enough to cover the whole posterior, but you can run a few different chains to make sure each has converged to the same distribution.
@@ -17,7 +17,7 @@ Similarily, fewer samples are required. This is because unlike Affine Invariant 
 
 ### Usage
 
-The method signature of `DirectDetections.hmc` is as follows:
+The method signature of `Octofitter.hmc` is as follows:
 ```julia
 function hmc(
     rng::Random.AbstractRNG,

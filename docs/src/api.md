@@ -14,7 +14,7 @@ Planet
 System
 mjd
 gaia_plx
-DirectDetections.hmc
+Octofitter.hmc
 VisualOrbit
 sonora_photometry_interpolator
 sonora_cooling_interpolator

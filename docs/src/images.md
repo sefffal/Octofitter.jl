@@ -1,12 +1,12 @@
 # [Fitting Images](@id fit-images)
 
-One of the key features of DirectDetections.jl is the ability to search for planets directly from images of the system. Sampling from images is much more computationally demanding than sampling from astrometry, but it allows for a few very powerful results:
+One of the key features of Octofitter.jl is the ability to search for planets directly from images of the system. Sampling from images is much more computationally demanding than sampling from astrometry, but it allows for a few very powerful results:
 
 1. You can search for a planet that is not well detected in a single image
 By this, we mean you can feed in images of a system with no clear detections, and see if a planet is hiding in the noise based off of its Kepelerian motion.
 
 2. Not detecting a planet in a given image can be almost as useful as a detection for constraining its orbit. 
-If you have a clear detection in one epoch, but no detection in another, DirectDetections can use the image from the second epoch to rule out large swathes of possible orbits.
+If you have a clear detection in one epoch, but no detection in another, Octofitter can use the image from the second epoch to rule out large swathes of possible orbits.
 
 Sampling from images can be freely combined with any known astrometry points, as well as astrometric acceleration. See advanced models for more details.
 
@@ -112,7 +112,7 @@ To encourage the sampler to take larger steps and explore the images,
 it's recommended to lower the target acceptance ratio to around 0.5±0.2 and also increase the number of adapataion steps.
 
 ```julia
-chain = DirectDetections.hmc(
+chain = Octofitter.hmc(
     HD82134, 0.25,
     adaptation =   8_000,
     iterations =  10_000,

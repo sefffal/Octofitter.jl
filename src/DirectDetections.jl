@@ -1,4 +1,4 @@
-module DirectDetections
+module Octofitter
 
 
 using Printf
@@ -48,7 +48,7 @@ include("observations/images.jl")
 include("observations/photometry.jl")
 include("observations/astrometric-motion.jl")
 include("observations/radial-velocity.jl")
-include("observations/transits.jl")
+# include("observations/transits.jl")
 
 include("sampling.jl")
 

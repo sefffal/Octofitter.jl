@@ -16,7 +16,7 @@ Internally, `UniformCircular()` creates two standard normal variables and finds 
 
 The VonMise distribution is notable but not commonly used. It is the analog of a normal distribution defined on a circular domain (-π, +π). If you have a Gaussian prior on an angular parameter, a Von Mises distribution is probably more appropriate.
 
-Behind the scenes, DirectDetections remaps your parameters to unconstrained domains using the Bijectors.jl (and corrects the priors accordingly). This is essential for good sampling efficiency with HMC based samplers.
+Behind the scenes, Octofitter remaps your parameters to unconstrained domains using the Bijectors.jl (and corrects the priors accordingly). This is essential for good sampling efficiency with HMC based samplers.
 
 This means that e.g. if you define the eccentricity prior as `e=Uniform(0,0.5)`, the sampler will actually generate values across the whole real line and transform them back into the `[0,0.5]` range before evaluating the orbit.
 **It is therefore essential that your priors do not include invalid domains.**

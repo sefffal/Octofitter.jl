@@ -15,7 +15,7 @@ function projectpositions(chains, planet_key, times)
     
     for is in collect(Iterators.partition(1:size(chains,1), 5000))
         for j in 1:size(chains,3)
-            els = DirectDetections.construct_elements(chains, planet_key, is .* j)
+            els = Octofitter.construct_elements(chains, planet_key, is .* j)
             for (i,el) in zip(is,els)
                 for (k, t) in enumerate(times)
                     o = orbitsolve(el, t)
@@ -162,7 +162,7 @@ function init_plots()
             kwargs...,
         )
             # Construct orbits from chain
-            orbits = DirectDetections.construct_elements(chain, planet_key, ii)
+            orbits = Octofitter.construct_elements(chain, planet_key, ii)
             if !isnothing(attime)
                 orbits = orbitsolve.(orbits, attime)
             end
@@ -415,7 +415,7 @@ function init_plots()
         #         kwargs...
         #     )
         #     if length(chain.info.model.planets[planet_key].observations) > 0 && chain.info.model.planets[planet_key].observations[1] isa Astrometry
-        #         el = DirectDetections.construct_elements(chain, :b, 1)
+        #         el = Octofitter.construct_elements(chain, :b, 1)
         #         scalefacty = PlanetOrbits.posy(el,0) / decoff(el, 0)
         #         scalefactx = PlanetOrbits.posx(el,0) / raoff(el, 0)
         #         Plots.scatter!(
@@ -437,7 +437,7 @@ function init_plots()
         #         kwargs...
         #     )
         #     if length(chain.info.model.planets[planet_key].observations) > 0 && chain.info.model.planets[planet_key].observations[1] isa Astrometry
-        #         el = DirectDetections.construct_elements(chain, :b, 1)
+        #         el = Octofitter.construct_elements(chain, :b, 1)
         #         Plots.hline!(p2, scalefacty .* chain.info.model.planets[planet_key].observations[1].table.dec, color=:black,label="")
         #     end
         #     p3 = plotposterior(
@@ -451,7 +451,7 @@ function init_plots()
         #         kwargs...
         #     )
         #     if length(chain.info.model.planets[planet_key].observations) > 0 && chain.info.model.planets[planet_key].observations[1] isa Astrometry
-        #         el = DirectDetections.construct_elements(chain, :b, 1)
+        #         el = Octofitter.construct_elements(chain, :b, 1)
         #         Plots.vline!(p3, scalefactx .* chain.info.model.planets[planet_key].observations[1].table.ra, color=:black,label="")
         #     end
         #     # Set limits correctly
@@ -533,7 +533,7 @@ function init_plots()
         #         )
 
         #         # Planet astrometry?
-        #         astrom = DirectDetections.astrometry(system.planets[planet_key])
+        #         astrom = Octofitter.astrometry(system.planets[planet_key])
         #         if !isnothing(astrom)
         #             # Put black error bars over thicker white error bars to make them easier to see
         #             # when plotted over e.g. images, orbits.
@@ -674,7 +674,7 @@ function init_plots()
                     yerr = astrometry(planet).table.σ_ra
                     x = astrometry(planet).table.epoch
                 end
-                elements = DirectDetections.construct_elements(chain, planet_key, ii)
+                elements = Octofitter.construct_elements(chain, planet_key, ii)
                 fit = raoff.(elements, t')
             elseif prop == :dec
                 if !isnothing(astrometry(planet))
@@ -682,7 +682,7 @@ function init_plots()
                     yerr = astrometry(planet).table.σ_dec
                     x = astrometry(planet).table.epoch
                 end
-                elements = DirectDetections.construct_elements(chain, planet_key, ii)
+                elements = Octofitter.construct_elements(chain, planet_key, ii)
                 fit = decoff.(elements, t')
             elseif prop == :sep
                 if !isnothing(astrometry(planet))
@@ -700,10 +700,10 @@ function init_plots()
                     end
                     x = astrometry(planet).table.epoch
                 end
-                elements = DirectDetections.construct_elements(chain, planet_key, ii)
+                elements = Octofitter.construct_elements(chain, planet_key, ii)
                 fit = projectedseparation.(elements, t')
                 if Symbol("$planet_key.mass") in keys(chain)
-                    fit  = fit# .- projectedseparation.(elements, t', chain["$planet_key.mass"][ii].*DirectDetections.mjup2msol)
+                    fit  = fit# .- projectedseparation.(elements, t', chain["$planet_key.mass"][ii].*Octofitter.mjup2msol)
                 end
             elseif prop == :pa
                 if !isnothing(astrometry(planet))
@@ -721,7 +721,7 @@ function init_plots()
                     end
                     x = astrometry(planet).table.epoch
                 end
-                elements = DirectDetections.construct_elements(chain, planet_key, ii)
+                elements = Octofitter.construct_elements(chain, planet_key, ii)
                 fit = rad2deg.(posangle.(elements, t'))
                 # Avoid ugly wrapping
                 diffs = diff(fit, dims=1)
@@ -737,8 +737,8 @@ function init_plots()
                 end
                 fit = 0
                 for planet_key in planet_keys
-                    elements = DirectDetections.construct_elements(chain, planet_key, ii)
-                    fit = fit .+ pmra.(elements, t', collect(chain["$planet_key.mass"][ii]).*DirectDetections.mjup2msol)
+                    elements = Octofitter.construct_elements(chain, planet_key, ii)
+                    fit = fit .+ pmra.(elements, t', collect(chain["$planet_key.mass"][ii]).*Octofitter.mjup2msol)
                 end
                 if :pmra in keys(chain)
                     fit = fit .+ chain["pmra"][ii]
@@ -754,8 +754,8 @@ function init_plots()
                 end
                 fit = 0
                 for planet_key in planet_keys
-                    elements = DirectDetections.construct_elements(chain, planet_key, ii)
-                    fit = fit .+ pmdec.(elements, t', collect(chain["$planet_key.mass"][ii]).*DirectDetections.mjup2msol)
+                    elements = Octofitter.construct_elements(chain, planet_key, ii)
+                    fit = fit .+ pmdec.(elements, t', collect(chain["$planet_key.mass"][ii]).*Octofitter.mjup2msol)
                 end
                 if :pmdec in keys(chain)
                     fit = fit .+ chain["pmdec"][ii]
@@ -764,7 +764,7 @@ function init_plots()
                 # ribbon = chain[jitter_inst][ii]
                 fit = 0
                 for planet_key in planet_keys
-                    elements = DirectDetections.construct_elements(chain, planet_key, ii)
+                    elements = Octofitter.construct_elements(chain, planet_key, ii)
                     fit = fit .+ radvel.(elements, t', collect(chain["$planet_key.mass"][ii]).*mjup2msol)
                 end
                 for obs in chain.info.model.observations
@@ -969,7 +969,7 @@ function init_plots()
         
             for (j,jj) in enumerate(ii)
                 elements = [
-                    DirectDetections.construct_elements(chains, p, jj)
+                    Octofitter.construct_elements(chains, p, jj)
                     for p in planets
                 ]
 

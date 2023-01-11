@@ -196,7 +196,7 @@ Example:
 ```julia
 julia> d = Planet(VisualElements, Variables(), name=:test)
 Planet test
-julia> DirectDetections.orbittype(d)
+julia> Octofitter.orbittype(d)
 VisualElements
 ```
 """
@@ -356,8 +356,8 @@ In the process, this evaluates all Deterministic variables defined in the model.
 
 Example:
 ```julia
-julia> arr2nt = DirectDetections.make_arr2nt(system);
-julia> params = DirectDetections.sample_priors(system)
+julia> arr2nt = Octofitter.make_arr2nt(system);
+julia> params = Octofitter.sample_priors(system)
 9-element Vector{Float64}:
   1.581678216418196
  29.019567489624023
@@ -698,8 +698,8 @@ end
 Sample system parameters from prior distributions.
 """
 function drawfrompriors(system::System)
-    θ = DirectDetections.sample_priors(system)
-    arr2nt = DirectDetections.make_arr2nt(system)
+    θ = Octofitter.sample_priors(system)
+    arr2nt = Octofitter.make_arr2nt(system)
     θnt = arr2nt(θ)
     return θnt
 end

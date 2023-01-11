@@ -16,7 +16,7 @@ using SnoopPrecompile
     with_logger(logger) do
         @precompile_all_calls begin
         
-            planet = DirectDetections.Planet{VisualOrbit}(
+            planet = Octofitter.Planet{VisualOrbit}(
                 Variables(
                     a = Uniform(1, 50),
                     e = Beta(1.2, 5),
@@ -48,7 +48,7 @@ using SnoopPrecompile
             # Requires to load in ForwardDiff. It's not available
             # during precompile.
 
-            output = DirectDetections.hmc(
+            output = Octofitter.hmc(
                 system, 0.85,
                 adaptation = 5,
                 iterations = 10,

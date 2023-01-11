@@ -86,13 +86,13 @@ function hmctempered(
 
     ln_prior_transformed = make_ln_prior_transformed(system)
     # ln_prior = make_ln_prior(system)
-    arr2nt = DirectDetections.make_arr2nt(system) 
+    arr2nt = Octofitter.make_arr2nt(system) 
     ln_like_generated = make_ln_like(system, arr2nt(initial_θ_0))
 
     priors_vec = _list_priors(system)
     Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
     initial_θ_0_t = Bijectors.link.(priors_vec, initial_θ_0)
-    arr2nt = DirectDetections.make_arr2nt(system)
+    arr2nt = Octofitter.make_arr2nt(system)
 
     # Test out model likelihood and prior computations. This way, if they throw
     # an error, we'll see it right away instead of burried in some deep stack
@@ -289,7 +289,7 @@ function hmctempered(
     # pathfinder_samples = map(eachcol(result_pf.draws)) do θ_t
     #     Bijectors.invlink.(priors_vec, θ_t)
     # end
-    # pathfinder_chain =  DirectDetections.result2mcmcchain(system, arr2nt.(pathfinder_samples))
+    # pathfinder_chain =  Octofitter.result2mcmcchain(system, arr2nt.(pathfinder_samples))
     # pathfinder_chain_with_info = MCMCChains.setinfo(
     #     pathfinder_chain,
     #     (;
@@ -527,7 +527,7 @@ function hmctempered(
             return θ
         end
         chain_res = arr2nt.(samples)
-        push!(chains, DirectDetections.result2mcmcchain(system, chain_res))
+        push!(chains, Octofitter.result2mcmcchain(system, chain_res))
         push!(logposts, logpost)
     end
 

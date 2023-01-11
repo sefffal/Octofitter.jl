@@ -1,12 +1,12 @@
 
-# DirectDetections.jl
+# *Octofitter*
 
-[![GitHub](https://img.shields.io/badge/Code-GitHub-black.svg)](https://github.com/sefffal/DirectDetections.jl)
+[![GitHub](https://img.shields.io/badge/Code-GitHub-black.svg)](https://github.com/sefffal/Octofitter.jl)
 
-Welcome to the documentation page for DirectDetections.jl. 
+Welcome to the documentation page for Octofitter.jl. 
 This page includes tutorial and an API reference for using this package.
 
-DirectDetections is a Julia package for performing Bayesian inference
+Octofitter is a Julia package for performing Bayesian inference
 against direct images of exoplanets, relative astrometry, astrometric acceleration
 of the host star, and radial velocity (future).
 
@@ -14,7 +14,7 @@ The package provides a simple but powerful modelling language which is used to g
 efficient, differentiable code for your system.
 The package also contains analysis and visualization tools for understanding your results.
 
-Try DirectDetections in your browser in seconds! Click below to launch an example in GitHub Codespaces. 
+Try Octofitter in your browser in seconds! Click below to launch an example in GitHub Codespaces. 
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=584480871)
 

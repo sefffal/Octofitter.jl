@@ -32,8 +32,8 @@ function guess_starting_position(rng::Random.AbstractRNG, system::System, N=500_
 
     # TODO: this shouldn't have to allocate anything, we can just loop keeping the best.
     θ = sample_priors(rng, system, N)
-    arr2nt = DirectDetections.make_arr2nt(system) 
-    ln_like = DirectDetections.make_ln_like(system, arr2nt(sample_priors(rng, system)))
+    arr2nt = Octofitter.make_arr2nt(system) 
+    ln_like = Octofitter.make_ln_like(system, arr2nt(sample_priors(rng, system)))
 
     posts = zeros(N)
     ln_prior = make_ln_prior(system)
@@ -307,13 +307,13 @@ struct LogModelDensity1{T,TT}
 
         ln_prior_transformed = make_ln_prior_transformed(system)
         # ln_prior = make_ln_prior(system)
-        arr2nt = DirectDetections.make_arr2nt(system) 
+        arr2nt = Octofitter.make_arr2nt(system) 
         ln_like_generated = make_ln_like(system, arr2nt(initial_θ_0))
 
         priors_vec = _list_priors(system)
         Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
         initial_θ_0_t = Bijectors.link.(priors_vec, initial_θ_0)
-        arr2nt = DirectDetections.make_arr2nt(system)
+        arr2nt = Octofitter.make_arr2nt(system)
 
         # Test out model likelihood and prior computations. This way, if they throw
         # an error, we'll see it right away instead of burried in some deep stack
@@ -438,7 +438,7 @@ LogDensityProblems.capabilities(::Type{<:LogModelDensity1}) = LogDensityProblems
 
 
 """
-The method signature of DirectDetections.hmc is as follows:
+The method signature of Octofitter.hmc is as follows:
 
     hmc(
         [rng::Random.AbstractRNG],
@@ -499,13 +499,13 @@ function hmc(
 
     ln_prior_transformed = make_ln_prior_transformed(system)
     # ln_prior = make_ln_prior(system)
-    arr2nt = DirectDetections.make_arr2nt(system) 
+    arr2nt = Octofitter.make_arr2nt(system) 
     ln_like_generated = make_ln_like(system, arr2nt(initial_θ_0))
 
     priors_vec = _list_priors(system)
     Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
     initial_θ_0_t = Bijectors.link.(priors_vec, initial_θ_0)
-    arr2nt = DirectDetections.make_arr2nt(system)
+    arr2nt = Octofitter.make_arr2nt(system)
 
     # # Test out model likelihood and prior computations. This way, if they throw
     # # an error, we'll see it right away instead of burried in some deep stack
@@ -583,7 +583,7 @@ function hmc(
     # # pathfinder_samples = map(eachcol(result_pf.draws)) do θ_t
     # #     Bijectors.invlink.(priors_vec, θ_t)
     # # end
-    # # pathfinder_chain =  DirectDetections.result2mcmcchain(system, arr2nt.(pathfinder_samples))
+    # # pathfinder_chain =  Octofitter.result2mcmcchain(system, arr2nt.(pathfinder_samples))
     # # pathfinder_chain_with_info = MCMCChains.setinfo(
     # #     pathfinder_chain,
     # #     (;
@@ -812,7 +812,7 @@ function hmc(
             return θ
         end
         chain_res = arr2nt.(samples)
-        push!(chains, DirectDetections.result2mcmcchain(chain_res))
+        push!(chains, Octofitter.result2mcmcchain(chain_res))
         # push!(chains, Strapping.deconstruct(chain_res))
         push!(logposts, logpost)
     end
