@@ -1,7 +1,7 @@
-name = "DirectDetections"
+name = "Octofitter"
 uuid = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
 authors = ["William Thompson <will.thompson@outlook.com>"]
-version = "0.7.0"
+version = "0.7.1"
 
 [deps]
 AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"

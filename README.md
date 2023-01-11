@@ -1,10 +1,10 @@
-# DirectDetections.jl
+# Octofitter.jl
 
-DirectDetections is a Julia package for performing Bayesian inference
+Octofitter is a Julia package for performing Bayesian inference
 against direct images of exoplanets, relative astrometry, astrometric acceleration
 of the host star, and radial velocity (future).
 
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/DirectDetections.jl/dev)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/Octofitter.jl/dev)
 
 The package provides a simple but powerful modelling language which is used to generate
 efficient, differentiable code for your system.
@@ -35,7 +35,7 @@ See also: [Orbitize!](https://orbitize.readthedocs.io/en/latest/), [orvara](http
 
 For instructions, see the documentation page:
 
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/DirectDetections.jl/dev)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/Octofitter.jl/dev)
 
 A particularily unique feature of this package is that you can model the flux and orbital motion of planets using a sequence of image(s) without any obvious detections. Using this tool, the SNR of a planet can grow with roughly the square root of the number of images. You can spot planets even if there is orbtial motion between the images, or constrain orbits using images with no detection.
 

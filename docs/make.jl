@@ -1,8 +1,8 @@
-using Documenter, DirectDetections
+using Documenter, Octofitter
 
 
 makedocs(
-    sitename="DirectDetections.jl",
+    sitename="Octofitter.jl",
     pages = [
         "Home" => "index.md",
         "Getting Started" => "getting-started.md",
@@ -33,6 +33,6 @@ makedocs(
 
 
 deploydocs(
-    repo = "github.com/sefffal/DirectDetections.jl.git",
+    repo = "github.com/sefffal/Octofitter.jl.git",
     devbranch = "main"
 )

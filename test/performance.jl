@@ -1,4 +1,4 @@
-using DirectDetections, Distributions, CSV
+using Octofitter, Distributions, CSV
 ##
 ## Create a 1-planet model
 @named b = Planet{VisualOrbit}(
@@ -63,12 +63,12 @@ system = cEri
 initial_θ_0 = sample_priors(system)
 D = length(initial_θ_0)
 
-ln_prior_transformed = DirectDetections.make_ln_prior_transformed(system)
+ln_prior_transformed = Octofitter.make_ln_prior_transformed(system)
 # ln_prior = make_ln_prior(system)
-arr2nt = DirectDetections.make_arr2nt(system) 
+arr2nt = Octofitter.make_arr2nt(system) 
 
-priors_vec = DirectDetections._list_priors(system)
-Bijector_invlinkvec = DirectDetections.make_Bijector_invlinkvec(priors_vec)
+priors_vec = Octofitter._list_priors(system)
+Bijector_invlinkvec = Octofitter.make_Bijector_invlinkvec(priors_vec)
 
 # Capture these variables in a let binding to improve performance
 lnp = let system=system, ln_prior_transformed=ln_prior_transformed, arr2nt=arr2nt#, ln_prior=ln_prior
@@ -77,14 +77,14 @@ lnp = let system=system, ln_prior_transformed=ln_prior_transformed, arr2nt=arr2n
         θ = Bijector_invlinkvec(θ_t)
         # θ = θ_t
         θ_res = arr2nt(θ)
-        ll = ln_prior_transformed(θ) + DirectDetections.ln_like(system, θ_res)
+        ll = ln_prior_transformed(θ) + Octofitter.ln_like(system, θ_res)
         return ll
     end
 end
 
 ##
 θ = sample_priors(system)
-θ_t = DirectDetections.Bijectors.link.(priors_vec, θ)
+θ_t = Octofitter.Bijectors.link.(priors_vec, θ)
 
 
 ##
@@ -118,9 +118,9 @@ using JET
 ##
 @report_opt Bijector_invlinkvec(θ_t)
 @report_opt ln_prior_transformed(θ)
-@report_opt DirectDetections.ln_like(system, θ_res)
+@report_opt Octofitter.ln_like(system, θ_res)
 
 
 @report_opt Bijector_invlinkvec(θ_t)
 @report_opt arr2nt(θ)
-@report_opt ln_prior_transformed(θ) + DirectDetections.ln_like(system, θ_res)
+@report_opt ln_prior_transformed(θ) + Octofitter.ln_like(system, θ_res)
