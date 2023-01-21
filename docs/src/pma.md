@@ -79,7 +79,7 @@ After the priors, we add the proper motion anomaly measurements from the HGCA. I
 Sample from our model as usual:
 
 ```julia
-chain = Octofitter.hmc(
+chain = Octofitter.advancedhmc(
     HD91312, 0.65,
     adaptation =  1_000,
     iterations =  6_000,
@@ -244,8 +244,10 @@ As a start, you can restrict the orbital parameters to just semi-major axis, epo
 This models assumes a circular, face-on orbit.
 
 ```julia
-chains = Octofitter.hmc(
-    HD91312, 0.85,
+model = Octofitter.LogDensityModel(HD91312; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+
+chains = Octofitter.advancedhmc(
+    model, 0.85,
     MCMCThreads(),
     num_chains=4,
     adaptation =  1_000,

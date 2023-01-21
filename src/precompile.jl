@@ -43,18 +43,19 @@ using SnoopPrecompile
             show(io, "text/plain", planet)
             show(io, "text/plain", system)
 
+            model = Octofitter.LogDensityModel(system)
 
             # This can't actually start since AdvancedHMC uses
             # Requires to load in ForwardDiff. It's not available
             # during precompile.
 
-            output = Octofitter.hmc(
-                system, 0.85,
+            output = Octofitter.advancedhmc(
+                model, 0.85,
                 adaptation = 5,
                 iterations = 10,
                 tree_depth = 5,
                 initial_samples = 5,
-                verbosity=4
+                verbosity=0
             )
 
             # This would precompile the chain display,

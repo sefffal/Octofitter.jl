@@ -118,7 +118,7 @@ sysg.observations[1].table.image[1]|>imshow2
 ##
 imshow2(snrmap((sysg.observations[1].table.image[4])))
 ##
-out = DirectDetections.hmc(
+out = DirectDetectionsadvancedhmc(
     sysg, 0.65;
     # adaptation = 5_000,
     adaptation =  4_000,

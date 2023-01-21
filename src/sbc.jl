@@ -279,7 +279,7 @@ function calibrationhmc(system::System, target_accept, num_chains, adaptation, i
     θ_array = Octofitter.result2mcmcchain(newsystem, [θ_newsystem])
 
     # Run chains
-    @time chains = Octofitter.hmc(
+    @time chains = Octofitter.advancedhmc(
         newsystem, target_accept,
         num_chains = num_chains,
         adaptation = adaptation,

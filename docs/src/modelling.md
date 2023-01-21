@@ -4,9 +4,9 @@ Here is a worked example of a basic model. It contains a star with a single plan
 
 The full code is available on [GitHub](https://github.com/sefffal/Octofitter.jl/examples/basic-example.jl)
 
-Start by loading the Octofitter and Plots packages:
+Start by loading the Octofitter and Distributions packages:
 ```julia
-using Octofitter, Distributions, Plots
+using Octofitter, Distributions
 ```
 
 ## Creating a planet
@@ -25,7 +25,7 @@ astrom = Astrometry(
     (epoch = 5840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10),
 )
 
-@named X = Planet{VisualOrbit}(
+@named B = Planet{VisualOrbit}(
     Variables(
         a = TruncatedNormal(10, 4, 0, 100),
         e = Uniform(0.0, 0.5),
@@ -76,7 +76,7 @@ A system represents a host star with one or more planets. Properties of the whol
         M = TruncatedNormal(1.2, 0.1, 0, Inf),
         plx = TruncatedNormal(50.0, 0.02, 0, Inf),
     ),  
-    X,
+    B,
 )
 ```
 
@@ -89,6 +89,15 @@ You can name the system and planets whatever you like.
 
 Note: the `@named` convenience macro just passes in the name as a keyword argument, e.g. `name=:HD82134`. This makes sure that the variable name matches what gets displayed in the package output, and saved a few keystrokes. (taken from ModellingToolkit.jl)
 
+## Prepare model
+We now convert our declarative model into efficient, compiled code.
+
+```julia
+model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+```
+
+This type implements the LogDensityProblems interface and can be passed to a wide variety of samplers.
+
 ## Sampling
 Great! Now we are ready to draw samples from the posterior.
 
@@ -99,8 +108,8 @@ Start sampling:
 using Random
 rng = Random.Xoshiro(0)
 
-chain = Octofitter.hmc(
-    rng, HD82134, 0.85;
+chain = Octofitter.advancedhmc(
+    rng, model, 0.85;
     adaptation =   500,
     iterations =  1000,
     verbosity = 4,

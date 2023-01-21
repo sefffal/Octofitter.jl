@@ -267,10 +267,13 @@ rvs = RadialVelocity(
     b
 )
 
+## Build model
+model = Octofitter.LogDensityModel(ϵEri; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+
 ## Sample from chains
 
-results = Octofitter.hmc(
-    ϵEri, 0.65;
+results = Octofitter.advancedhmc(
+    model, 0.65;
     adaptation =  2000,
     iterations =  5000,
     verbosity = 4,

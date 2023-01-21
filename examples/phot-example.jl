@@ -38,7 +38,7 @@ const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
 )
 
 ##
-chain = DirectDetections.hmc(
+chain = DirectDetectionsadvancedhmc(
     HD12345, 0.85,
     adaptation =   1_000,
     iterations =  50_000,

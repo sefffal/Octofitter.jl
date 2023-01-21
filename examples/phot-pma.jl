@@ -68,7 +68,7 @@ const star_abs_mag_L = 5.2
 )
 
 ##
-chains = DirectDetections.hmc(
+chains = DirectDetectionsadvancedhmc(
     HD12345, 0.85,
     MCMCThreads(),
     num_chains=2,

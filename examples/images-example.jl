@@ -46,7 +46,7 @@ system_images = DirectDetections.Images(
     b,
 )
 
-chain = DirectDetections.hmc(
+chain = DirectDetectionsadvancedhmc(
     HD82134, .60,
     MCMCThreads(),
     num_chains=4,

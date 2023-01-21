@@ -2,21 +2,6 @@ abstract type AbstractObs end
 TypedTables.Table(obs::AbstractObs) = obs.table
 
 
-const phot_cols = (:band, :phot, :σ_phot)
-struct Photometry{TTable<:Table} <: AbstractObs
-    table::TTable
-    function Photometry(observations...)
-        table = Table(observations...)
-        if !issubset(phot_cols, Tables.columnnames(table))
-            error("Expected columns $phot_cols")
-        end
-        return new{typeof(table)}(table)
-    end
-end
-Photometry(observations::NamedTuple...) = Photometry(observations)
-export Photometry
-
-
 
 
 """
@@ -178,10 +163,6 @@ struct Planet{TElem<:AbstractOrbit, TP<:Priors,TD<:Union{Derived,Nothing},TObs<:
     Planet{O}(priors::Priors, det::Derived, obs::Tuple; name::Symbol) where {O<:AbstractOrbit} = new{O,typeof(priors),typeof(det),typeof(obs)}(priors,det,obs,name)
 end
 export Planet
-# Planet(O::Type{<:AbstractOrbit}, (priors,det)::Tuple{Priors,Derived}, args...; kwargs...) = Planet(O, priors, det, args...; kwargs...)
-# Planet(O::Type{<:AbstractOrbit}, priors::Priors, obs::AbstractObs...; name) = Planet(O, priors, nothing, obs, name)
-# Planet(O::Type{<:AbstractOrbit}, priors::Priors, det::Derived, obs::AbstractObs...; name) = Planet(O, priors, det, obs, name)
-
 Planet{O}((priors,det)::Tuple{Priors,Derived}, args...; kwargs...) where {O<:AbstractOrbit} = Planet{O}(priors, det, args...; kwargs...)
 Planet{O}(priors::Priors, obs::AbstractObs...; name) where {O<:AbstractOrbit} = Planet{O}(priors, nothing, obs; name)
 Planet{O}(priors::Priors, det::Derived, obs::AbstractObs...; name) where {O<:AbstractOrbit} = Planet{O}(priors, det, obs; name)

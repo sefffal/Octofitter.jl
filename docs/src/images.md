@@ -112,8 +112,10 @@ To encourage the sampler to take larger steps and explore the images,
 it's recommended to lower the target acceptance ratio to around 0.5±0.2 and also increase the number of adapataion steps.
 
 ```julia
-chain = Octofitter.hmc(
-    HD82134, 0.25,
+model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+
+chain = Octofitter.advancedhmc(
+    model, 0.25,
     adaptation =   8_000,
     iterations =  10_000,
     tree_depth =      10,

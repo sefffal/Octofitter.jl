@@ -1,12 +1,16 @@
 # [Samplers](@id samplers)
 
-Octofitter.jl includes support for three Monte Carlo samplers: Affine Invariant MCMC (KissMCMC.jl), the No U-Turn Sampler (NUTS) which is Hamiltonian Monte Carlo (AdvancedHMC.jl), and finally, nested sampling (NestedSamplers.jl).
+Octofitter converts your model specification into an `Octofitter.LogDensityModel` which implements the [LogDensityProblems.jl interface](https://www.tamaspapp.eu/LogDensityProblems.jl/dev/).
 
-## Hamiltonian Monte Carlo
+That way, you can sample from your model using a wide variety of Julia based samplers.
+These samplers may return results in less convenient formats, and for example, may need you to map their results back to the natural domain of your variables using `model.link` or `model.invlink`.
 
-The recommended choice for almost all problems is Hamiltonian Monte Carlo. It can be run using the `Octofitter.hmc` function.
-This sampling
- method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.
+For convenience, Octofitter bundles special support for the No U-Turn Sampler (NUTS) as implemented by AdvancedHMC.jl.
+
+## Hamiltonian Monte Carlo (NUTS)
+
+The recommended choice for almost all problems is Hamiltonian Monte Carlo. It can be run using the `Octofitter.advancedhmc` function.
+This sampling  method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.
 
 Derviatives for a complex model are usualy tedious to code, but Octofitter uses ForwardDiff.jl to generate them automatically.
 
@@ -17,9 +21,9 @@ Similarily, fewer samples are required. This is because unlike Affine Invariant 
 
 ### Usage
 
-The method signature of `Octofitter.hmc` is as follows:
+The method signature of `Octofitter.advancedhmc` is as follows:
 ```julia
-function hmc(
+function advancedhmc(
     rng::Random.AbstractRNG,
     system::System,
     target_accept::Number=0.8,
@@ -43,4 +47,4 @@ The two positional arguments  are `system`, the model you wish to sample; and `t
 
 
 ## Nested Sampling
-Support for nested sampling is still work in progress.
+The image likelihood that is implemented in this package is not suitable for use with nested sampling. Other observation types should work fine.

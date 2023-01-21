@@ -1,5 +1,20 @@
 
 
+const phot_cols = (:band, :phot, :σ_phot)
+struct Photometry{TTable<:Table} <: AbstractObs
+    table::TTable
+    function Photometry(observations...)
+        table = Table(observations...)
+        if !issubset(phot_cols, Tables.columnnames(table))
+            error("Expected columns $phot_cols")
+        end
+        return new{typeof(table)}(table)
+    end
+end
+Photometry(observations::NamedTuple...) = Photometry(observations)
+export Photometry
+
+
 # Photometry
 function ln_like(photometry::Photometry, θ_planet, _elements=nothing, _interior_planets=nothing)
     ll = 0.0

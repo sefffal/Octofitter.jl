@@ -31,7 +31,7 @@ xlims!(-1500,1500)
 ylims!(-1500,1500)
 ##
 
-chain = DirectDetections.hmc(
+chain = DirectDetectionsadvancedhmc(
     HD82134, 0.65,# MCMCThreads(),
     num_chains=1,
     adaptation =   5_000,

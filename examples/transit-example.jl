@@ -65,7 +65,7 @@ lightcurvedata = LightCurve4(
 
 ## Sample from chains
 
-results = DirectDetections.hmc(
+results = DirectDetectionsadvancedhmc(
     system, 0.65;
 
 

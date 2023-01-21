@@ -287,19 +287,19 @@ function construct_elements(chain, planet_key::Union{String,Symbol}, ii::Abstrac
 end
 construct_elements(chain::Chains, planet::Planet, args...; kwargs...) = construct_elements(chain, planet.name, args...; kwargs...) 
 
-# Fallback when no random number generator is provided (as is usually the case)
-function hmc(system::System, target_accept::Number=0.8, ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial(); kwargs...)
-    return hmc(Random.default_rng(), system, target_accept, ensemble; kwargs...)
-end
-
 using LogDensityProblems
 
 # Define the target distribution using the `LogDensityProblem` interface
-struct LogModelDensity1{T,TT}
+# TODO: in future, just roll this all into the System type.
+struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
     D::Int
-    ℓπcallback::T
-    ∇ℓπcallback::TT
-    function LogModelDensity1(system::System; autodiff=:ForwardDiff, verbosity=0)
+    ℓπcallback::Tℓπ
+    ∇ℓπcallback::T∇ℓπ
+    system::TSys
+    link::TLink
+    invlink::TInvLink
+    arr2nt::TArr2nt
+    function LogDensityModel(system::System; autodiff=:ForwardDiff, verbosity=0)
 
         # Choose parameter dimensionality and initial parameter value
         initial_θ_0 = sample_priors(system)
@@ -312,7 +312,12 @@ struct LogModelDensity1{T,TT}
 
         priors_vec = _list_priors(system)
         Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
-        initial_θ_0_t = Bijectors.link.(priors_vec, initial_θ_0)
+        # TODO : this could be unrolled like invlink if used anywhere performance sensitive. Currently
+        # it just transforms things back after all sampling is done.
+        Bijector_linkvec = let priors_vec=priors_vec
+            (θ) -> Bijectors.link.(priors_vec, θ)
+        end
+        initial_θ_0_t = Bijector_linkvec(initial_θ_0)
         arr2nt = Octofitter.make_arr2nt(system)
 
         # Test out model likelihood and prior computations. This way, if they throw
@@ -424,25 +429,47 @@ struct LogModelDensity1{T,TT}
         verbosity >= 1 && @showtime ℓπcallback(initial_θ_0_t)
         verbosity >= 1 && @showtime ∇ℓπcallback(initial_θ_0_t)
     
-        
-        new{typeof(ℓπcallback),typeof(∇ℓπcallback)}(D,ℓπcallback, ∇ℓπcallback)
+        # Return fully concrete type wrapping all these functions
+        new{
+            typeof(ℓπcallback),
+            typeof(∇ℓπcallback),
+            typeof(system),
+            typeof(Bijector_linkvec),
+            typeof(Bijector_invlinkvec),
+            typeof(arr2nt),
+        }(
+            D,
+            ℓπcallback,
+            ∇ℓπcallback,
+            system,
+            Bijector_linkvec,
+            Bijector_invlinkvec,
+            arr2nt
+        )
     end
 end
-LogDensityProblems.logdensity(p::LogModelDensity1, θ) = p.ℓπcallback(θ)
-LogDensityProblems.logdensity_and_gradient(p::LogModelDensity1, θ) = (p.ℓπcallback(θ), p.∇ℓπcallback(θ)) # TODO: may need to copy vector
-LogDensityProblems.dimension(p::LogModelDensity1) = p.D
-LogDensityProblems.capabilities(::Type{<:LogModelDensity1}) = LogDensityProblems.LogDensityOrder{1}()
+LogDensityProblems.logdensity(p::LogDensityModel, θ) = p.ℓπcallback(θ)
+# TODO: use diff results API to avoid calculating primal twice!
+LogDensityProblems.logdensity_and_gradient(p::LogDensityModel, θ) = (p.ℓπcallback(θ), p.∇ℓπcallback(θ)) # TODO: may need to copy vector
+LogDensityProblems.dimension(p::LogDensityModel) = p.D
+LogDensityProblems.capabilities(::Type{<:LogDensityModel}) = LogDensityProblems.LogDensityOrder{1}()
+
+function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::LogDensityModel)
+    println(io, "LogDensityModel for System $(p.system.name) of dimension $(p.D) with fields .ℓπcallback and .∇ℓπcallback")
+end
 
 
-
-
+# Fallback when no random number generator is provided (as is usually the case)
+function advancedhmc(model::LogDensityModel, target_accept::Number=0.8, ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial(); kwargs...)
+    return advancedhmc(Random.default_rng(), model, target_accept, ensemble; kwargs...)
+end
 
 """
 The method signature of Octofitter.hmc is as follows:
 
-    hmc(
+    advancedhmc(
         [rng::Random.AbstractRNG],
-        system::System,
+        model::Octofitter.LogDensityModel
         target_accept::Number=0.8,
         ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
         num_chains=1,
@@ -455,7 +482,6 @@ The method signature of Octofitter.hmc is as follows:
         initial_parameters=nothing,
         step_size=nothing,
         verbosity=2,
-        autodiff=ForwardDiff
     )
 
 The only required arguments are system, adaptation, and iterations.
@@ -473,9 +499,10 @@ If you don't pass a default position, one will be selected by drawing
 initial_samples from the priors.
 The sample with the highest posterior value will be used as the starting point.
 """
-function hmc(
+function advancedhmc(
     rng::Random.AbstractRNG,
-    system::System, target_accept::Number=0.8,
+    model::LogDensityModel,
+    target_accept::Number=0.8,
     ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
     num_chains=1,
     adaptation,
@@ -494,18 +521,18 @@ function hmc(
     end
 
     # Choose parameter dimensionality and initial parameter value
-    initial_θ_0 = sample_priors(rng, system)
+    initial_θ_0 = sample_priors(rng, model.system)
     D = length(initial_θ_0)
 
-    ln_prior_transformed = make_ln_prior_transformed(system)
-    # ln_prior = make_ln_prior(system)
-    arr2nt = Octofitter.make_arr2nt(system) 
-    ln_like_generated = make_ln_like(system, arr2nt(initial_θ_0))
+    # ln_prior_transformed = make_ln_prior_transformed(system)
+    # # ln_prior = make_ln_prior(system)
+    # arr2nt = Octofitter.make_arr2nt(system) 
+    # ln_like_generated = make_ln_like(system, arr2nt(initial_θ_0))
 
-    priors_vec = _list_priors(system)
-    Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
-    initial_θ_0_t = Bijectors.link.(priors_vec, initial_θ_0)
-    arr2nt = Octofitter.make_arr2nt(system)
+    # priors_vec = _list_priors(system)
+    # Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
+    initial_θ_0_t = model.link(initial_θ_0)
+    # arr2nt = Octofitter.make_arr2nt(system)
 
     # # Test out model likelihood and prior computations. This way, if they throw
     # # an error, we'll see it right away instead of burried in some deep stack
@@ -525,14 +552,14 @@ function hmc(
     # Then transform that guess into our unconstrained support
     if isnothing(initial_parameters)
         verbosity >= 1 && @info "Guessing a starting location by sampling from prior" initial_samples
-        initial_θ, mapv = guess_starting_position(rng,system,initial_samples)
-        verbosity > 2 && @info "Found starting location" θ=arr2nt(initial_θ)
+        initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
+        verbosity > 2 && @info "Found starting location" θ=model.arr2nt(initial_θ)
         # Transform from constrained support to unconstrained support
-        initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
+        initial_θ_t = model.link(initial_θ)
     else
         initial_θ = initial_parameters
         # Transform from constrained support to unconstrained support
-        initial_θ_t = Bijectors.link.(priors_vec, initial_θ)
+        initial_θ_t = model.link(initial_θ)
     end
 
     # verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
@@ -617,11 +644,11 @@ function hmc(
         # metric = DiagEuclideanMetric(D)
     # end
 
-    verbosity >= 3 && @info "Creating model" 
-    # model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ∇ℓπ)
-    model = LogModelDensity1(system; autodiff, verbosity)
+    # verbosity >= 3 && @info "Creating model" 
+    # # model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ∇ℓπ)
+    # model = LogDensityModel(system; autodiff, verbosity)
 
-    metric = DenseEuclideanMetric(D)
+    metric = DenseEuclideanMetric(model.D)
 
 
     verbosity >= 3 && @info "Creating hamiltonian"
@@ -666,7 +693,7 @@ function hmc(
 
 
     last_output_time = Ref(time())
-    function callback(rng, model, sampler, transition, state, iteration; kwargs...)
+    function callback(rng, logdensitymodel, sampler, transition, state, iteration; kwargs...)
         if verbosity >= 1 && iteration == 1
             @info "Adaptation complete."
 
@@ -703,8 +730,8 @@ function hmc(
 
         θ_message = ""
         if verbosity >= 3
-            θ = Bijector_invlinkvec(transition.z.θ)
-            θ_res = arr2nt(θ)
+            θ = model.invlink(transition.z.θ)
+            θ_res = model.arr2nt(θ)
             # Fill the remaining width of the terminal with info
             max_width = displaysize(stdout)[2]-34
             θ_str = string(θ_res)
@@ -754,7 +781,7 @@ function hmc(
 
     mc_samples_all_chains = AbstractMCMC.sample(
         rng,
-        AbstractMCMC.LogDensityModel(model),
+        model,
         sampler,
         ensemble,
         iterations,
@@ -808,10 +835,10 @@ function hmc(
         # Transform samples back to constrained support
         samples = map(mc_samples) do s
             θ_t = s.z.θ
-            θ = Bijectors.invlink.(priors_vec, θ_t)
+            θ = model.invlink(θ_t)
             return θ
         end
-        chain_res = arr2nt.(samples)
+        chain_res = model.arr2nt.(samples)
         push!(chains, Octofitter.result2mcmcchain(chain_res))
         # push!(chains, Strapping.deconstruct(chain_res))
         push!(logposts, logpost)
@@ -827,16 +854,16 @@ function hmc(
         (;
             start_time,
             stop_time,
-            model=system,
+            model=model.system,
             logpost=logposts_mat,
             states=mc_samples_all_chains,
             # pathfinder=pathfinder_chain_with_info,
-            _restart=(;
-                model,
-                sampler,
-                adaptor,
-                state = last.(mc_samples_all_chains)
-            )
+            # _restart=(;
+            #     model,
+            #     sampler,
+            #     adaptor,
+            #     state = last.(mc_samples_all_chains)
+            # )
         )
     )
     return mcmcchains_with_info
