@@ -1,5 +1,4 @@
-using DirectDetections, Distributions
-using MCMCChains
+using Octofitter, Distributions
 
 # Create a function mapping (age_Myr, mass_Mjup) -> temp_K
 const cooling_tracks = sonora_cooling_interpolator()
@@ -25,8 +24,8 @@ const star_abs_mag_L = 5.2
 
 
 ##
-@named b = DirectDetections.Planet(
-    Priors(
+@named b = Planet{VisualOrbit}(
+    Variables(
         mass = Uniform(0.6, 75),
         a = Uniform(1, 30),
         e = Beta(1.2, 10),
@@ -34,9 +33,7 @@ const star_abs_mag_L = 5.2
         ω = Uniform(0, 2pi),
         Ω = Uniform(0, pi),
         τ = Uniform(0, 1),
-    ),
-    # Flux will be calculated from planet mass and system age
-    Derived(
+        # Flux will be calculated from planet mass and system age
         Z = (sys, pl) -> sonora_temp_mass_Z(cooling_tracks(sys.age, pl.mass), pl.mass),
         J = (sys, pl) -> sonora_temp_mass_J(cooling_tracks(sys.age, pl.mass), pl.mass),
         L = (sys, pl) -> sonora_temp_mass_L(cooling_tracks(sys.age, pl.mass), pl.mass),

@@ -1,6 +1,6 @@
 
 ###
-using DirectDetections, Distributions, PlanetOrbits, Plots
+using Octofitter, Distributions, PlanetOrbits, Plots
 
 ## Generate synthetic transit event
 u = [0.1, 0.4] # quad limb dark

@@ -275,7 +275,7 @@ As a first pass, let's plot a sample of orbits drawn from the posterior.
 
 ```julia 
 using Plots
-plotchains(chain, :X, kind=:astrometry, color="X.a")
+plotchains(chain, :X, kind=:astrometry, color="X_a")
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
 ![model plot](assets/astrometry-model-plot.png)
@@ -292,12 +292,12 @@ A very useful visualization of our results is a pair-plot, or corner plot. We ca
 ```julia
 using CairoMakie, PairPlots
 table = (;
-    a=         vec(chain["X.a"]),
-    e=         vec(chain["X.e"]),
-    i=rad2deg.(vec(chain["X.i"])),
-    Ω=rad2deg.(vec(chain["X.Ω"])),
-    ω=rad2deg.(vec(chain["X.ω"])),
-    τ=         vec(chain["X.τ"]),
+    a=         vec(chain["X_a"]),
+    e=         vec(chain["X_e"]),
+    i=rad2deg.(vec(chain["X_i"])),
+    Ω=rad2deg.(vec(chain["X_Ω"])),
+    ω=rad2deg.(vec(chain["X_ω"])),
+    τ=         vec(chain["X_τ"]),
 )
 pairplot(table)
 ```

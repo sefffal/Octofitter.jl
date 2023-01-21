@@ -82,7 +82,7 @@ end
         chain, planet_key;
         N=1500,
         ii = rand(1:size(chain,1)*size(chain,3), N),
-        color=length(chain.info.model.planets) == 0 || !haskey(chain, string(planet_key)*".a") ? nothing : string(planet_key)*".a",
+        color=length(chain.info.model.planets) == 0 || !haskey(chain, string(planet_key)*"_a") ? nothing : string(planet_key)*"_a",
         colorbartitle=color,
         clims=nothing,
         cmap=:plasma,
@@ -101,7 +101,7 @@ Inputs:
 * N=1500                  Number of samples to draw for the plot 
 * kind=nothing            Specify what kind of plot to make. 
 * ii=...                  Specific row numbers to use, if you want to e.g. plot the same 100 samples in a few different plots
-* color="\$planet_key.a"   Column name to to map colors to. Semi-major axis by default but can be any column or an arbitrary array.
+* color="\$planet_key_a"   Column name to to map colors to. Semi-major axis by default but can be any column or an arbitrary array.
 * colorbartitle=color     Name for colourbar
 * clims=nothing           Tuple of colour limits (min and max)
 * cmap=:plasma            Colormap
@@ -152,7 +152,7 @@ function init_plots()
             p, chain, planet_key;
             N=1500,
             ii = rand(1:size(chain,1)*size(chain,3), N),
-            color=length(chain.info.model.planets) == 0 || !haskey(chain, string(planet_key)*".a") ? nothing : string(planet_key)*".a",
+            color=length(chain.info.model.planets) == 0 || !haskey(chain, string(planet_key)*"_a") ? nothing : string(planet_key)*"_a",
             colorbartitle=color,
             clims=nothing,
             cmap=:plasma,
@@ -395,7 +395,7 @@ function init_plots()
         #     N=1500,
         #     alpha=(N <= 15 ? 1 : 30/N),
         #     ii = rand(1:size(chain,1)*size(chain,3), N),
-        #     color=length(chain.info.model.planets) == 0 ? nothing : string(planet_key)*".a",
+        #     color=length(chain.info.model.planets) == 0 ? nothing : string(planet_key)*"_a",
         #     colorbartitle=color,
         #     cmap=:plasma,
         #     clims=isnothing(color) ? nothing : quantile(Iterators.flatten(
@@ -483,7 +483,7 @@ function init_plots()
         #     system=chain.info.model;
         #     alpha=(N <= 15 ? 1 : 30/N),
         #     ii = rand(1:size(chain,1)*size(chain,3), N),
-        #     color=length(system.planets) == 0 ? nothing : string(first(keys(system.planets)))*".a",
+        #     color=length(system.planets) == 0 ? nothing : string(first(keys(system.planets)))*"_a",
         #     colorbartitle=color,
         #     plotpma=!isnothing(propermotionanom(system)),
         #     # TODO: ideally this is based on if there is a mass variable
@@ -561,9 +561,9 @@ function init_plots()
         #     if plotmass
         #         p = Plots.plot(;xlabel="", linewidth=3, label="")
         #         for p in keys(system.planets)
-        #             m = vec(chain["$p.mass"])
+        #             m = vec(chain["$p_mass"])
         #             h = fit(Histogram, m, nbins=round(Int,sqrt(length(m))))#, nbins=100)
-        #             Plots.plot!(h.edges[1][begin:end-1],seriestype=:step, h.weights, label="$p.mass",color=1,lw=2)
+        #             Plots.plot!(h.edges[1][begin:end-1],seriestype=:step, h.weights, label="$p_mass",color=1,lw=2)
         #         end
 
         #         layout = eval(:(Plots.@layout [
@@ -702,8 +702,8 @@ function init_plots()
                 end
                 elements = Octofitter.construct_elements(chain, planet_key, ii)
                 fit = projectedseparation.(elements, t')
-                if Symbol("$planet_key.mass") in keys(chain)
-                    fit  = fit# .- projectedseparation.(elements, t', chain["$planet_key.mass"][ii].*Octofitter.mjup2msol)
+                if Symbol("$(planet_key)_mass") in keys(chain)
+                    fit  = fit# .- projectedseparation.(elements, t', chain["$(planet_key)_mass"][ii].*Octofitter.mjup2msol)
                 end
             elseif prop == :pa
                 if !isnothing(astrometry(planet))
@@ -738,7 +738,7 @@ function init_plots()
                 fit = 0
                 for planet_key in planet_keys
                     elements = Octofitter.construct_elements(chain, planet_key, ii)
-                    fit = fit .+ pmra.(elements, t', collect(chain["$planet_key.mass"][ii]).*Octofitter.mjup2msol)
+                    fit = fit .+ pmra.(elements, t', collect(chain["$(planet_key)_mass"][ii]).*Octofitter.mjup2msol)
                 end
                 if :pmra in keys(chain)
                     fit = fit .+ chain["pmra"][ii]
@@ -755,7 +755,7 @@ function init_plots()
                 fit = 0
                 for planet_key in planet_keys
                     elements = Octofitter.construct_elements(chain, planet_key, ii)
-                    fit = fit .+ pmdec.(elements, t', collect(chain["$planet_key.mass"][ii]).*Octofitter.mjup2msol)
+                    fit = fit .+ pmdec.(elements, t', collect(chain["$(planet_key)_mass"][ii]).*Octofitter.mjup2msol)
                 end
                 if :pmdec in keys(chain)
                     fit = fit .+ chain["pmdec"][ii]
@@ -765,7 +765,7 @@ function init_plots()
                 fit = 0
                 for planet_key in planet_keys
                     elements = Octofitter.construct_elements(chain, planet_key, ii)
-                    fit = fit .+ radvel.(elements, t', collect(chain["$planet_key.mass"][ii]).*mjup2msol)
+                    fit = fit .+ radvel.(elements, t', collect(chain["$(planet_key)_mass"][ii]).*mjup2msol)
                 end
                 for obs in chain.info.model.observations
                     if obs isa RadialVelocity
@@ -851,7 +851,7 @@ function init_plots()
 
         function timeplotgrid(
             chains;
-            color = "$(first(keys(chains.info.model.planets))).e",
+            color = "$(first(keys(chains.info.model.planets)))_e",
             clims = quantile(vec(chains[color]),(0.01, 0.99)),
             cmap = :plasma,
             alpha=0.1,
@@ -870,15 +870,15 @@ function init_plots()
 
             ppost = Plots.plot()
             for (i,planet_key) in enumerate(planet_keys)
-                # plotchains!(ppost, chains, planet_key; color, body=:primary, mass=chains["$planet_key.mass"], rev=false, colorbar=nothing, kwargs...)
+                # plotchains!(ppost, chains, planet_key; color, body=:primary, mass=chains["$(planet_key)_mass"], rev=false, colorbar=nothing, kwargs...)
                 plotchains!(ppost, chains, planet_key; color, rev=false, colorbar=nothing, kwargs...)
                 Plots.scatter!([0],[0],marker=(:star, :white, :black, 5),label="")
                 astrom = astrometry(chains.info.model.planets[planet_key])
                 if !isnothing(astrom) && hasproperty(astrom.table, :ra)
                     els = construct_elements(chains, planet_key, :)
                     sols = orbitsolve.(els, astrom.table.epoch')
-                    xs = median(raoff.(sols,chains["$planet_key.mass"].*mjup2msol), dims=1)'
-                    ys = median(decoff.(sols,chains["$planet_key.mass"].*mjup2msol), dims=1)'
+                    xs = median(raoff.(sols,chains["$(planet_key)_mass"].*mjup2msol), dims=1)'
+                    ys = median(decoff.(sols,chains["$(planet_key)_mass"].*mjup2msol), dims=1)'
                     Plots.scatter!(
                         ppost,
                         astrom.table.ra  .- xs,
@@ -987,10 +987,10 @@ function init_plots()
                         # meaning we calculate the orbit 2x as much as we need.
                         o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt)
                         o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt)
-                        ra_hip_model[j] += -raoff(o_ra) * chains["$p.mass"][jj]*mjup2msol/orbit.M
-                        dec_hip_model[j] += -decoff(o_dec) * chains["$p.mass"][jj]*mjup2msol/orbit.M
-                        pmra_hip_model[j] += pmra(o_ra, chains["$p.mass"][jj]*mjup2msol)
-                        pmdec_hip_model[j] += pmdec(o_dec, chains["$p.mass"][jj]*mjup2msol)
+                        ra_hip_model[j] += -raoff(o_ra) * chains["$(p)_mass"][jj]*mjup2msol/orbit.M
+                        dec_hip_model[j] += -decoff(o_dec) * chains["$(p)_mass"][jj]*mjup2msol/orbit.M
+                        pmra_hip_model[j] += pmra(o_ra, chains["$(p)_mass"][jj]*mjup2msol)
+                        pmdec_hip_model[j] += pmdec(o_dec, chains["$(p)_mass"][jj]*mjup2msol)
                     end
                 end
                 ra_hip_model[j]/=N_ave
@@ -1012,10 +1012,10 @@ function init_plots()
                         # meaning we calculate the orbit 2x as much as we need.
                         o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt)
                         o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt)
-                        ra_gaia_model[j] += -raoff(o_ra) * chains["$p.mass"][jj]*mjup2msol/orbit.M
-                        dec_gaia_model[j] += -decoff(o_dec) * chains["$p.mass"][jj]*mjup2msol/orbit.M
-                        pmra_gaia_model[j] += pmra(o_ra, chains["$p.mass"][jj]*mjup2msol)
-                        pmdec_gaia_model[j] += pmdec(o_dec, chains["$p.mass"][jj]*mjup2msol)
+                        ra_gaia_model[j] += -raoff(o_ra) * chains["$(p)_mass"][jj]*mjup2msol/orbit.M
+                        dec_gaia_model[j] += -decoff(o_dec) * chains["$(p)_mass"][jj]*mjup2msol/orbit.M
+                        pmra_gaia_model[j] += pmra(o_ra, chains["$(p)_mass"][jj]*mjup2msol)
+                        pmdec_gaia_model[j] += pmdec(o_dec, chains["$(p)_mass"][jj]*mjup2msol)
                     end
                 end
                 ra_gaia_model[j]/=N_ave

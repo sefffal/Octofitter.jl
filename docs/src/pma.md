@@ -123,7 +123,7 @@ Number of chains  = 1
 Samples per chain = 30000
 Wall duration     = 24.15 seconds
 Compute duration  = 24.15 seconds
-parameters        = M, plx, B.a, B.e, B.τ, B.ω, B.i, B.Ω, B.mass
+parameters        = M, plx, B_a, B_e, B_τ, B_ω, B_i, B_Ω, B_mass
 
 Summary Statistics
   parameters       mean       std   naive_se      mcse          ess      rhat   ess_per_sec 
@@ -131,13 +131,13 @@ Summary Statistics
 
            M     1.6107    0.0499     0.0003    0.0003   21449.1180    1.0000      888.1255
          plx    29.1444    0.1396     0.0008    0.0010   23713.4280    1.0000      981.8818
-        B.a     6.7402    0.0890     0.0005    0.0010    7643.8317    1.0000      316.5017
-        B.e     0.2043    0.0449     0.0003    0.0005    5958.7172    1.0000      246.7276
-        B.τ     1.1459    0.0254     0.0001    0.0003    9732.8386    1.0000      402.9994
-        B.ω    -0.3675    0.0984     0.0006    0.0011    8379.4363    1.0000      346.9602
-        B.i     1.4706    0.0280     0.0002    0.0003   10928.8907    1.0000      452.5233
-        B.Ω    -0.6672    0.0147     0.0001    0.0001   19642.2568    1.0001      813.3103
-     B.mass   245.0888   69.1839     0.3994    1.2972    2404.3514    1.0000       99.5549
+        B_a     6.7402    0.0890     0.0005    0.0010    7643.8317    1.0000      316.5017
+        B_e     0.2043    0.0449     0.0003    0.0005    5958.7172    1.0000      246.7276
+        B_τ     1.1459    0.0254     0.0001    0.0003    9732.8386    1.0000      402.9994
+        B_ω    -0.3675    0.0984     0.0006    0.0011    8379.4363    1.0000      346.9602
+        B_i     1.4706    0.0280     0.0002    0.0003   10928.8907    1.0000      452.5233
+        B_Ω    -0.6672    0.0147     0.0001    0.0001   19642.2568    1.0001      813.3103
+     B_mass   245.0888   69.1839     0.3994    1.2972    2404.3514    1.0000       99.5549
 
 Quantiles
   parameters       2.5%      25.0%      50.0%      75.0%      97.5% 
@@ -145,13 +145,13 @@ Quantiles
 
            M     1.5131     1.5777     1.6109     1.6441     1.7083
          plx    28.8718    29.0491    29.1440    29.2396    29.4166
-        B.a     6.5706     6.6794     6.7398     6.7994     6.9165
-        B.e     0.1229     0.1730     0.2023     0.2332     0.2989
-        B.τ     1.1036     1.1281     1.1433     1.1608     1.2032
-        B.ω    -0.5503    -0.4335    -0.3705    -0.3075    -0.1589
-        B.i     1.4133     1.4525     1.4715     1.4902     1.5217
-        B.Ω    -0.6967    -0.6769    -0.6670    -0.6573    -0.6390
-     B.mass   159.7716   196.9441   228.3291   274.9650   431.3844
+        B_a     6.5706     6.6794     6.7398     6.7994     6.9165
+        B_e     0.1229     0.1730     0.2023     0.2332     0.2989
+        B_τ     1.1036     1.1281     1.1433     1.1608     1.2032
+        B_ω    -0.5503    -0.4335    -0.3705    -0.3075    -0.1589
+        B_i     1.4133     1.4525     1.4715     1.4902     1.5217
+        B_Ω    -0.6967    -0.6769    -0.6670    -0.6573    -0.6390
+     B_mass   159.7716   196.9441   228.3291   274.9650   431.3844
 ```
 
 This takes about a minute on the first run due to JIT startup latency; subsequent runs are very quick even on e.g. an older laptop.
@@ -171,7 +171,7 @@ Use the `plotchains` function to display orbits from the posterior against the i
 
 
 ```julia
-plotchains(chain, :B, kind=:astrometry, color="B.mass")
+plotchains(chain, :B, kind=:astrometry, color="B_mass")
 scatter!(astrom, label="astrometry")
 ```
 [![orbit posterior](assets/pma-astrometry-posterior.png)](assets/pma-astrometry-posterior.svg)
@@ -195,14 +195,14 @@ For a quick look, you can just run `corner(chain)`, but for more professional ou
 # We can access any property from the chain specified in Variables
 using CairoMakie, PairPlots
 table = (;
-    a=         vec(chain["B.a"]),
+    a=         vec(chain["B_a"]),
     M=         vec(chain["M"]),
-    m=         vec(chain["B.mass"]),
-    e=         vec(chain["B.e"]),
-    i=rad2deg.(vec(chain["B.i"])),
-    Ω=rad2deg.(vec(chain["B.Ω"])),
-    ω=rad2deg.(vec(chain["B.ω"])),
-    τ=         vec(chain["B.τ"]),
+    m=         vec(chain["B_mass"]),
+    e=         vec(chain["B_e"]),
+    i=rad2deg.(vec(chain["B_i"])),
+    Ω=rad2deg.(vec(chain["B_Ω"])),
+    ω=rad2deg.(vec(chain["B_ω"])),
+    τ=         vec(chain["B_τ"]),
 )
 pairplot(table)
 ```
@@ -333,7 +333,7 @@ With such simple models, the mean tree depth is often very low and sampling proc
 
 A good place to start is a histogram of planet mass vs. semi-major axis:
 ```julia
-histogram2d(chains["b.a"], chains["b.mass"], color=:plasma, xguide="sma (au)", yguide="mass (Mjup)")
+histogram2d(chains["b_a"], chains["b_mass"], color=:plasma, xguide="sma (au)", yguide="mass (Mjup)")
 ```
 [![2d histogram](assets/pma-a-vs-mass.svg)](assets/pma-a-vs-mass.svg)
 

@@ -15,7 +15,7 @@ This will return an array of μ values from the posterior. The format is a matri
 
 Variables defined for an individual Planet are grouped according to the standard MCMCChains format. For example:
 ```julia
-chain["b.a"]
+chain["b_a"]
 ```
 This returns an array of semi-major axis values (`a`) for the planet `b` sampled from the posterior.
 

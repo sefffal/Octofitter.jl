@@ -1,4 +1,4 @@
-using DirectDetections, Distributions, Plots
+using Octofitter, Distributions, Plots
 using MCMCChains
 
 # Create a function mapping (age_Myr, mass_Mjup) -> temp_K
@@ -10,8 +10,8 @@ const sonora_temp_mass_J = sonora_photometry_interpolator(:MKO_J)
 const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
 
 ##
-@named b = DirectDetections.Planet(
-    Derived(
+@named b = Planet{VisualOrbit}(
+    Variables(
         Z = (sys, pl) -> sonora_temp_mass_Z(cooling_tracks(sys.age, pl.mass), pl.mass),
         J = (sys, pl) -> sonora_temp_mass_J(cooling_tracks(sys.age, pl.mass), pl.mass),
         L = (sys, pl) -> sonora_temp_mass_L(cooling_tracks(sys.age, pl.mass), pl.mass),
