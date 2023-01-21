@@ -25,7 +25,7 @@ The method signature of `Octofitter.advancedhmc` is as follows:
 ```julia
 function advancedhmc(
     rng::Random.AbstractRNG,
-    system::System,
+    model::Octofitter.LogDensityModel,
     target_accept::Number=0.8,
     ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
     num_chains=1,
@@ -41,8 +41,8 @@ function advancedhmc(
     autodiff=ForwardDiff
 )
 ```
-The only required arguments are `system`, `adaptation`, and `iterations`.
-The two positional arguments  are `system`, the model you wish to sample; and `target_accept`, the acceptance rate that should be targeted during windowed adaptation. During this time, the step size and mass matrix will be adapted (see AdvancedHMC.jl for more information). The number of steps taken during adaptation is controlled by `adaptation`. You can prevent these samples from being dropped by pasing `include_adaptation=false`. The total number of posterior samples produced are given by `iterations`. These include the adaptation steps that may be discarded.
+The only required arguments are `model`, `adaptation`, and `iterations`.
+The two positional arguments are `model`, the model you wish to sample; and `target_accept`, the acceptance rate that should be targeted during windowed adaptation. During this time, the step size and mass matrix will be adapted (see AdvancedHMC.jl for more information). The number of steps taken during adaptation is controlled by `adaptation`. You can prevent these samples from being dropped by pasing `include_adaptation=false`. The total number of posterior samples produced are given by `iterations`. These include the adaptation steps that may be discarded.
 `tree_depth` controls the maximum tree depth of the sampler. `initial_parameters` is an optional way to pass a starting point for the chain. If you don't pass a default position, one will be selected by drawing `initial_samples` from the priors. The sample with the highest posterior value will be used as the starting point.
 
 
