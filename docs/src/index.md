@@ -18,6 +18,9 @@ Try Octofitter in your browser in seconds! Click below to launch an example in G
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=584480871)
 
+!!! note
+    Octofitter is under active development and is only tested against Julia 1.9
+
 **Supported data:**
 * sample directly from images
 * exoplanet astrometry 

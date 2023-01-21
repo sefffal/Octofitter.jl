@@ -48,3 +48,25 @@ The two positional arguments  are `system`, the model you wish to sample; and `t
 
 ## Nested Sampling
 The image likelihood that is implemented in this package is not suitable for use with nested sampling. Other observation types should work fine.
+
+
+## AdvancedHM
+Here is an example of using a separate package to sample from a model---in this case, AdvancedHM. For other packages, see their documentation for full details.
+
+```julia
+using AdvancedMH
+using MCMCChains: Chains
+
+# Construct model from a system (see elsewhere in docs)
+model = Octofitter.LogDensityModel(<system>)
+
+using LinearAlgebra
+
+# Set up our sampler with a joint multivariate Normal proposal.
+spl = RWMH(MvNormal(zeros(model.D), I))
+
+# Sample from the posterior.
+chn = sample(model, spl, 100_000; chain_type=Chains)
+
+# Map the samples back with model.invlink.(eachrow(Array(chn)))
+```

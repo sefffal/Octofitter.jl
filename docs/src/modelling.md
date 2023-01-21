@@ -96,29 +96,8 @@ We now convert our declarative model into efficient, compiled code.
 model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 ```
 
-This type implements the LogDensityProblems interface and can be passed to a wide variety of samplers.
-
-## Sampling
-Great! Now we are ready to draw samples from the posterior.
-
-Start sampling:
-```julia
-# Provide a seeded random number generator for reproducibility of this example.
-# Not needed in general: simply omit the RNG parameter.
-using Random
-rng = Random.Xoshiro(0)
-
-chain = Octofitter.advancedhmc(
-    rng, model, 0.85;
-    adaptation =   500,
-    iterations =  1000,
-    verbosity = 4,
-    tree_depth = 15
-)
 ```
 
-You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the `verbosity` value down to 0.
-```
 [ Info: Preparing model
 ┌ Info: Timing autodiff
 │   chunk_size = 1
@@ -142,6 +121,32 @@ You will get an output that looks something like this with a progress bar that u
 └   ideal_chunk_size = 10
 ℓπ(initial_θ_0_t): 0.003915 seconds (1 allocation: 16 bytes)
 ∇ℓπ(initial_θ_0_t): 0.013444 seconds (1 allocation: 32 bytes)
+```
+You can hide this output by adjusting `verbosity`.
+
+This type implements the LogDensityProblems interface and can be passed to a wide variety of samplers.
+
+## Sampling
+Great! Now we are ready to draw samples from the posterior.
+
+Start sampling:
+```julia
+# Provide a seeded random number generator for reproducibility of this example.
+# Not needed in general: simply omit the RNG parameter.
+using Random
+rng = Random.Xoshiro(0)
+
+chain = Octofitter.advancedhmc(
+    rng, model, 0.85;
+    adaptation =   500,
+    iterations =  1000,
+    verbosity = 4,
+    tree_depth = 15
+)
+```
+
+You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the `verbosity` value down to 0.
+```
 ┌ Info: Guessing a starting location by sampling from prior
 └   initial_samples = 50000
 ┌ Info: Found starting location
