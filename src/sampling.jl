@@ -282,6 +282,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
     invlink::TInvLink
     arr2nt::TArr2nt
     function LogDensityModel(system::System; autodiff=:ForwardDiff, verbosity=0)
+        verbosity >= 1 && @info "Preparing model"
 
         # Choose parameter dimensionality and initial parameter value
         initial_θ_0 = sample_priors(system)
@@ -309,107 +310,118 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
         ln_prior_transformed(initial_θ_0_t)
 
 
-        verbosity >= 1 && @info "Preparing model"
-        # Capture these variables in a let binding to improve performance
-        # We also set up temporary storage to reduce allocations
-        # ForwardDiff is used to compute the likelihood gradients using the in-place 
-        # API. This ensures type stability.
-        function ℓπcallback(θ_transformed, system=system)
-            # Transform back from the unconstrained support to constrained support for the likelihood function
-            θ_natural = Bijector_invlinkvec(θ_transformed)
-            θ_structured = arr2nt(θ_natural)
-            lp = ln_prior_transformed(θ_transformed)
-            ll = ln_like_generated(system, θ_structured)
-            return lp+ll
-        end
+        # We use let blocks to prevent type instabilities from closures
+        # A function barrier would also work.
+        ℓπcallback, ∇ℓπcallback = let arr2nt=arr2nt,
+                                      system=system,
+                                      Bijector_invlinkvec=Bijector_invlinkvec,
+                                      ln_prior_transformed=ln_prior_transformed,
+                                      ln_like_generated=ln_like_generated
 
-        if autodiff == :Enzyme
-            # Enzyme mode:
-            ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
-                system_tmp = deepcopy(system)
-                function (θ_t)
-                    likelihood = ℓπcallback(θ_t)
-                    fill!(diffresult,0)
-                    out= Main.Enzyme.autodiff(
-                        Main.Enzyme.Reverse,
-                        ℓπcallback,
-                        Main.Enzyme.Active,
-                        Main.Enzyme.Duplicated(θ_t,diffresult),
-                        Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
-                    )
-                    return likelihood, diffresult
+            # Capture these variables in a let binding to improve performance
+            # We also set up temporary storage to reduce allocations
+            # ForwardDiff is used to compute the likelihood gradients using the in-place 
+            # API. This ensures type stability.
+            function ℓπcallback(θ_transformed, system=system)
+                # Transform back from the unconstrained support to constrained support for the likelihood function
+                θ_natural = Bijector_invlinkvec(θ_transformed)
+                θ_structured = arr2nt(θ_natural)
+                lp = ln_prior_transformed(θ_transformed)
+                ll = ln_like_generated(system, θ_structured)
+                return lp+ll
+            end
+
+            if autodiff == :Enzyme
+                # Enzyme mode:
+                ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
+                    system_tmp = deepcopy(system)
+                    function (θ_t)
+                        likelihood = ℓπcallback(θ_t)
+                        fill!(diffresult,0)
+                        out= Main.Enzyme.autodiff(
+                            Main.Enzyme.Reverse,
+                            ℓπcallback,
+                            Main.Enzyme.Active,
+                            Main.Enzyme.Duplicated(θ_t,diffresult),
+                            Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
+                        )
+                        return likelihood, diffresult
+                    end
                 end
-            end
 
 
-            ## Main.Enzyme.autodiff(ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
-            ## Main.Enzyme.autodiff(Main.Enzyme.Reverse, ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
-            ## Main.Enzyme.autodiff(Main.Enzyme.Forward, ℓπcallback, Main.Enzyme.Duplicated, Main.Enzyme.Duplicated(θ_t,diffresult))
+                ## Main.Enzyme.autodiff(ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
+                ## Main.Enzyme.autodiff(Main.Enzyme.Reverse, ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
+                ## Main.Enzyme.autodiff(Main.Enzyme.Forward, ℓπcallback, Main.Enzyme.Duplicated, Main.Enzyme.Duplicated(θ_t,diffresult))
 
 
-        elseif autodiff == :FiniteDiff
-        
-            ∇ℓπcallback = let diffresult = copy(initial_θ_0_t)
-                function (θ_t)
-                    primal = ℓπcallback(θ_t)
-                    Main.FiniteDiff.finite_difference_gradient!(diffresult, ℓπcallback, θ_t)
-                    return primal, diffresult
-                end
-            end
-        
-        elseif autodiff == :Zygote
-
-            # Zygote mode:
-            ∇ℓπcallback = function (θ_t)
-                Main.Zygote.gradient(ℓπ, θ_t)
-            end
-
-        elseif autodiff == :ForwardDiff
-
-            # https://juliadiff.org/ForwardDiff.jl/stable/user/advanced/#Fixing-NaN/Inf-Issues
-            set_preferences!(ForwardDiff, "nansafe_mode" => true)
-
-            # ForwardDiff mode:
-            # Create temporary storage space for gradient computations
-            diffresult = DiffResults.GradientResult(initial_θ_0_t)
-
-            # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
-            # We're going to call this thousands of times so worth a few calls
-            # to get this optimized.
-            chunk_sizes = unique([1; 2:2:D; D])
-            ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
-                cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
-                ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
-                t = minimum(
-                    @elapsed ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
-                    for _ in 1:10
-                )
-
-                verbosity >= 3 && @info "Timing autodiff" chunk_size t
-                return t
-            end)
-            ideal_chunk_size =  chunk_sizes[ideal_chunk_size_i]
-            verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
-
-            cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
-            ∇ℓπcallback = let cfg=cfg, diffresult=diffresult, ℓπcallback=ℓπcallback
-                function (θ_transformed)
-                    result = ForwardDiff.gradient!(diffresult, ℓπcallback, θ_transformed, cfg)
-                    # return DiffResults.value(result), DiffResults.gradient(result)
-                    return DiffResults.gradient(result)
-                end
-            end
-        else
-            error("Unsupported option for autodiff: $autodiff. Valid options are :ForwardDiff (default), :Enzyme, and :Zygote.")
-        end
-        
+            elseif autodiff == :FiniteDiff
             
-        # Display their run time. If something is egregously wrong we'll notice something
-        # here in the output logs.
-        ℓπcallback(initial_θ_0_t)
-        ∇ℓπcallback(initial_θ_0_t) 
-        verbosity >= 1 && @showtime ℓπcallback(initial_θ_0_t)
-        verbosity >= 1 && @showtime ∇ℓπcallback(initial_θ_0_t)
+                ∇ℓπcallback = let diffresult = copy(initial_θ_0_t)
+                    function (θ_t)
+                        primal = ℓπcallback(θ_t)
+                        Main.FiniteDiff.finite_difference_gradient!(diffresult, ℓπcallback, θ_t)
+                        return primal, diffresult
+                    end
+                end
+            
+            elseif autodiff == :Zygote
+
+                # Zygote mode:
+                ∇ℓπcallback = function (θ_t)
+                    Main.Zygote.gradient(ℓπ, θ_t)
+                end
+
+            elseif autodiff == :ForwardDiff
+
+                # https://juliadiff.org/ForwardDiff.jl/stable/user/advanced/#Fixing-NaN/Inf-Issues
+                set_preferences!(ForwardDiff, "nansafe_mode" => true)
+
+                # ForwardDiff mode:
+                # Create temporary storage space for gradient computations
+                diffresult = DiffResults.GradientResult(initial_θ_0_t)
+
+                # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
+                # We're going to call this thousands of times so worth a few calls
+                # to get this optimized.
+                chunk_sizes = unique([1; 2:2:D; D])
+                ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
+                    cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
+                    ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
+                    t = minimum(
+                        @elapsed ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
+                        for _ in 1:10
+                    )
+
+                    verbosity >= 3 && @info "Tuning autodiff" chunk_size t
+                    return t
+                end)
+                ideal_chunk_size =  chunk_sizes[ideal_chunk_size_i]
+                verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
+
+                cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
+                ∇ℓπcallback = let cfg=cfg, diffresult=diffresult, ℓπcallback=ℓπcallback
+                    function (θ_transformed)
+                        result = ForwardDiff.gradient!(diffresult, ℓπcallback, θ_transformed, cfg)
+                        return DiffResults.value(result), DiffResults.gradient(result)
+                        # return DiffResults.gradient(result)
+                    end
+                end
+            else
+                error("Unsupported option for autodiff: $autodiff. Valid options are :ForwardDiff (default), :Enzyme, and :Zygote.")
+            end
+
+            # Display their run time. If something is egregously wrong we'll notice something
+            # here in the output logs.
+            ℓπcallback(initial_θ_0_t)
+            ∇ℓπcallback(initial_θ_0_t) 
+            verbosity >= 1 && @showtime ℓπcallback(initial_θ_0_t)
+            verbosity >= 1 && @showtime ∇ℓπcallback(initial_θ_0_t)
+
+            ℓπcallback, ∇ℓπcallback
+        end
+        
+
     
         # Return fully concrete type wrapping all these functions
         new{
@@ -432,7 +444,8 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
 end
 LogDensityProblems.logdensity(p::LogDensityModel, θ) = p.ℓπcallback(θ)
 # TODO: use diff results API to avoid calculating primal twice!
-LogDensityProblems.logdensity_and_gradient(p::LogDensityModel, θ) = (p.ℓπcallback(θ), p.∇ℓπcallback(θ)) # TODO: may need to copy vector
+# LogDensityProblems.logdensity_and_gradient(p::LogDensityModel, θ) = (p.ℓπcallback(θ), p.∇ℓπcallback(θ)) # TODO: may need to copy vector
+LogDensityProblems.logdensity_and_gradient(p::LogDensityModel, θ) = p.∇ℓπcallback(θ) # TODO: may need to copy vector
 LogDensityProblems.dimension(p::LogDensityModel) = p.D
 LogDensityProblems.capabilities(::Type{<:LogDensityModel}) = LogDensityProblems.LogDensityOrder{1}()
 
