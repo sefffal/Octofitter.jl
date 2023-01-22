@@ -8,7 +8,7 @@ export sample_priors
 
 
 sample_priors(arg::Union{Planet,System}, args...; kwargs...) = sample_priors(Random.default_rng(), arg, args...; kwargs...)
-sample_priors(rng::Random.AbstractRNG, planet::Planet) = rand.(rng, ComponentArray(planet.priors.priors))
+# sample_priors(rng::Random.AbstractRNG, planet::Planet) = rand.(rng, ComponentArray(planet.priors.priors))
 sample_priors(rng::Random.AbstractRNG, planet::Planet, N::Number) = [sample_priors(rng, planet) for _ in 1:N]
 
 function sample_priors(rng::Random.AbstractRNG, system::System)
@@ -47,24 +47,6 @@ function guess_starting_position(rng::Random.AbstractRNG, system::System, N=500_
 
     return best, mapv
 end
-
-# This code works but I have not found it useful. Commenting out to remove Optim.jl dependency.
-# using Optim
-# function optimize_starting_position(ℓπ, initial_θ_t)
-
-#     @info "Optimizing starting location "
-#     results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, LBFGS(), autodiff = :forward, Optim.Options(iterations=100_000, time_limit=5, allow_f_increases=true))
-#     # results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, NelderMead(), Optim.Options(iterations=100_000, time_limit=5))
-#     # results = optimize(θ_t-> -ℓπ(θ_t), initial_θ_t, ParticleSwarm(), Optim.Options(iterations=100_000, time_limit=5))
-
-#     intial_objective = ℓπ(initial_θ_t)
-
-#     minimizer = Optim.minimizer(results)
-
-#     @info "Starting location improved" logimprovement=(ℓπ(minimizer) - intial_objective)
-#     return minimizer
-# end
-
 
 """
     construct_elements(θ_system, θ_planet)
@@ -830,8 +812,6 @@ function advancedhmc(
             @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
         end
 
-        logpost = map(s->s.z.ℓπ.value, mc_samples)
-    
         # Transform samples back to constrained support
         samples = map(mc_samples) do s
             θ_t = s.z.θ
@@ -856,7 +836,7 @@ function advancedhmc(
             stop_time,
             model=model.system,
             logpost=logposts_mat,
-            states=mc_samples_all_chains,
+            # states=mc_samples_all_chains,
             # pathfinder=pathfinder_chain_with_info,
             # _restart=(;
             #     model,
