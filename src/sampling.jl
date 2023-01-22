@@ -379,7 +379,10 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
 
                 # ForwardDiff mode:
                 # Create temporary storage space for gradient computations
-                diffresult = DiffResults.GradientResult(initial_θ_0_t)
+                diffresults = [
+                    DiffResults.GradientResult(collect(initial_θ_0_t))
+                    for _ in 1:Threads.nthreads()
+                ]
 
                 # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
                 # We're going to call this thousands of times so worth a few calls
@@ -387,9 +390,9 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 chunk_sizes = unique([1; 2:2:D; D])
                 ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
                     cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
-                    ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
+                    ForwardDiff.gradient!(diffresults[Threads.threadid()], ℓπcallback, initial_θ_0_t, cfg)
                     t = minimum(
-                        @elapsed ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg)
+                        @elapsed ForwardDiff.gradient!(diffresults[Threads.threadid()], ℓπcallback, initial_θ_0_t, cfg)
                         for _ in 1:10
                     )
 
@@ -400,9 +403,9 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
 
                 cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
-                ∇ℓπcallback = let cfg=cfg, diffresult=diffresult, ℓπcallback=ℓπcallback
+                ∇ℓπcallback = let cfg=cfg, diffresults=diffresults, ℓπcallback=ℓπcallback
                     function (θ_transformed)
-                        result = ForwardDiff.gradient!(diffresult, ℓπcallback, θ_transformed, cfg)
+                        result = ForwardDiff.gradient!(diffresults[Threads.threadid()], ℓπcallback, θ_transformed, cfg)
                         return DiffResults.value(result), DiffResults.gradient(result)
                         # return DiffResults.gradient(result)
                     end
@@ -511,8 +514,8 @@ function advancedhmc(
     autodiff=:ForwardDiff,
 )
 
-    if ensemble != MCMCSerial()
-        @warn "TODO: In-place model gradients currently not supported with MCMCThreads"
+    if ensemble == MCMCThreads()
+        @warn "TODO: In-place model gradients may not be safe during task migration"
     end
 
     # Choose parameter dimensionality and initial parameter value
@@ -655,8 +658,8 @@ function advancedhmc(
     # integrator = Leapfrog(ϵ)
     integrator = JitteredLeapfrog(ϵ, 0.1) # 10% normal distribution on step size to help in areas of high curvature. 
     verbosity >= 3 && @info "Creating kernel"
-    κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
-    # κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
+    # κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
+    κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
     
     verbosity >= 3 && @info "Creating adaptor"
     mma = MassMatrixAdaptor(metric)
@@ -711,11 +714,11 @@ function advancedhmc(
         # or if there was a divergent transition.
         if !isfinite(transition.z.ℓπ)
             # TODO: this never runs since any non-finite proposal is rejected during sampling.
-            note = "∞" 
+            note = "∞ " 
         elseif transition.stat.numerical_error
-            note = "X"
+            note = "❗" # "X"
         else
-            note = " "
+            note = "  "
         end
         if transition.z.ℓπ isa AdvancedHMC.DualValue
             ℓπ = transition.z.ℓπ.value
@@ -734,7 +737,7 @@ function advancedhmc(
             θ_message = "θ="*θ_str_trunc*"_.."
         end
         
-        @printf("%1s%6d(%2d) td=%2d ℓπ=%6.0f. %s\n", note, iteration, Threads.threadid(), transition.stat.tree_depth, ℓπ, θ_message)
+        @printf("%2s%6d(%2d) td=%2d ℓπ=%6.0f. %s\n", note, iteration, Threads.threadid(), transition.stat.tree_depth, ℓπ, θ_message)
     
         # Support for live plotting orbits as we go.
         # This code works but I found it slows down a lot as we go. Maybe it would

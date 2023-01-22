@@ -21,6 +21,7 @@ makedocs(
             "Priors" => "priors.md",
             "Derived Variables" => "derived.md",
             "Sampler" => "samplers.md",
+            "Parallel Sampling" => "parallel-sampling.md",
             "Chains" => "chains.md",
             "Kepler Solver" => "kepler.md",
             "API" => "api.md"
