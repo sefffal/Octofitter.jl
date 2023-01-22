@@ -7,11 +7,10 @@ Welcome to the documentation page for Octofitter.jl.
 This page includes tutorial and an API reference for using this package.
 
 Octofitter is a Julia package for performing Bayesian inference
-against direct images of exoplanets, relative astrometry, astrometric acceleration
-of the host star, and radial velocity (future).
+against a wide variety of exoplanet / binary star data.
 
 The package provides a simple but powerful modelling language which is used to generate
-efficient, differentiable code for your system.
+efficient, differentiable code. You can then plug it into a variety of samplers.
 The package also contains analysis and visualization tools for understanding your results.
 
 Try Octofitter in your browser in seconds! Click below to launch an example in GitHub Codespaces. 
