@@ -11,7 +11,7 @@ using Octofitter, Distributions
 
 ## Creating a planet
 
-Create our first planet. Let's name it planet X. 
+Create our first planet. Let's name it planet B. 
 ```julia
 
 astrom = Astrometry(
@@ -84,7 +84,7 @@ The `Variables` block works just like it does for planets. Here, the two paramet
 * `M`: Gravitational parameter of the central body, expressed in units of Solar mass.
 * `plx`: Distance to the system expressed in milliarcseconds of parallax.
 
-After that, just list any planets that you want orbiting the star. Here, we pass planet X.
+After that, just list any planets that you want orbiting the star. Here, we pass planet B.
 You can name the system and planets whatever you like.
 
 Note: the `@named` convenience macro just passes in the name as a keyword argument, e.g. `name=:HD82134`. This makes sure that the variable name matches what gets displayed in the package output, and saved a few keystrokes. (taken from ModellingToolkit.jl)
@@ -193,7 +193,7 @@ Number of chains  = 1
 Samples per chain = 5000
 Wall duration     = 537.41 seconds
 Compute duration  = 537.41 seconds
-parameters        = M, plx, X.e, X.i, X.ωy, X.ωx, X.Ωy, X.Ωx, X.τy, X.τx, X.a, X.ω, X.Ω, X.τ
+parameters        = M, plx, B_e, B_i, B_ωy, B_ωx, B_Ωy, B_Ωx, B_τy, B_τx, B_a, B_ω, B_Ω, B_τ
 
 Summary Statistics
   parameters        mean       std   naive_se      mcse         ess      rhat   ess_per_sec 
@@ -201,18 +201,18 @@ Summary Statistics
 
            M      1.1770    0.0643     0.0009    0.0074     13.6286    1.3228        0.0254
          plx   1000.1999    0.0200     0.0003    0.0003   5106.1567    0.9998        9.5014
-         X.e      0.0896    0.0720     0.0010    0.0027    452.4981    1.0177        0.8420
-         X.i      0.6654    0.0865     0.0012    0.0037    118.3149    1.0328        0.2202
-        X.ωy      0.0438    1.0324     0.0146    0.0387    729.2747    1.0037        1.3570
-        X.ωx      0.1143    0.9379     0.0133    0.0566    123.0589    1.0065        0.2290
-        X.Ωy      0.2000    1.1830     0.0167    0.1106     40.3880    1.0443        0.0752
-        X.Ωx      0.1078    0.7360     0.0104    0.0572     63.0293    1.0176        0.1173
-        X.τy      0.0033    1.0146     0.0143    0.0225   2225.1564    1.0000        4.1405
-        X.τx      0.0351    1.0049     0.0142    0.0203   2625.0771    1.0004        4.8847
-         X.a      1.1500    0.0000     0.0000    0.0000     10.5465    0.9998        0.0196
-         X.ω      0.0442    1.8056     0.0255    0.0995    156.0941    1.0061        0.2905
-         X.Ω     -0.5663    1.6501     0.0233    0.1377     51.8761    1.0282        0.0965
-         X.τ      0.0062    0.2906     0.0041    0.0052   2653.3396    1.0000        4.9373
+         B_e      0.0896    0.0720     0.0010    0.0027    452.4981    1.0177        0.8420
+         B_i      0.6654    0.0865     0.0012    0.0037    118.3149    1.0328        0.2202
+        B_ωy      0.0438    1.0324     0.0146    0.0387    729.2747    1.0037        1.3570
+        B_ωx      0.1143    0.9379     0.0133    0.0566    123.0589    1.0065        0.2290
+        B_Ωy      0.2000    1.1830     0.0167    0.1106     40.3880    1.0443        0.0752
+        B_Ωx      0.1078    0.7360     0.0104    0.0572     63.0293    1.0176        0.1173
+        B_τy      0.0033    1.0146     0.0143    0.0225   2225.1564    1.0000        4.1405
+        B_τx      0.0351    1.0049     0.0142    0.0203   2625.0771    1.0004        4.8847
+         B_a      1.1500    0.0000     0.0000    0.0000     10.5465    0.9998        0.0196
+         B_ω      0.0442    1.8056     0.0255    0.0995    156.0941    1.0061        0.2905
+         B_Ω     -0.5663    1.6501     0.0233    0.1377     51.8761    1.0282        0.0965
+         B_τ      0.0062    0.2906     0.0041    0.0052   2653.3396    1.0000        4.9373
 
 Quantiles
   parameters        2.5%       25.0%       50.0%       75.0%       97.5% 
@@ -220,18 +220,18 @@ Quantiles
 
            M      1.0751      1.1343      1.1663      1.2071      1.3184
          plx   1000.1613   1000.1863   1000.1999   1000.2135   1000.2388
-         X.e      0.0033      0.0337      0.0720      0.1271      0.2709
-         X.i      0.4805      0.6157      0.6695      0.7227      0.8190
-        X.ωy     -1.9748     -0.6966      0.0558      0.7736      2.0343
-        X.ωx     -1.7283     -0.5112      0.1333      0.7312      1.9565
-        X.Ωy     -2.0398     -0.8199      0.4805      1.0963      2.1772
-        X.Ωx     -1.4038     -0.3779      0.1416      0.5949      1.5423
-        X.τy     -1.9671     -0.6951      0.0032      0.6845      2.0126
-        X.τx     -1.9379     -0.6503      0.0492      0.6978      2.0343
-         X.a      1.1500      1.1500      1.1500      1.1500      1.1500
-         X.ω     -2.9700     -1.5517      0.3106      1.4407      2.9686
-         X.Ω     -2.9958     -2.5080      0.2512      0.5978      2.8679
-         X.τ     -0.4774     -0.2444      0.0168      0.2535      0.4746
+         B_e      0.0033      0.0337      0.0720      0.1271      0.2709
+         B_i      0.4805      0.6157      0.6695      0.7227      0.8190
+        B_ωy     -1.9748     -0.6966      0.0558      0.7736      2.0343
+        B_ωx     -1.7283     -0.5112      0.1333      0.7312      1.9565
+        B_Ωy     -2.0398     -0.8199      0.4805      1.0963      2.1772
+        B_Ωx     -1.4038     -0.3779      0.1416      0.5949      1.5423
+        B_τy     -1.9671     -0.6951      0.0032      0.6845      2.0126
+        B_τx     -1.9379     -0.6503      0.0492      0.6978      2.0343
+         B_a      1.1500      1.1500      1.1500      1.1500      1.1500
+         B_ω     -2.9700     -1.5517      0.3106      1.4407      2.9686
+         B_Ω     -2.9958     -2.5080      0.2512      0.5978      2.8679
+         B_τ     -0.4774     -0.2444      0.0168      0.2535      0.4746
 ```
 
 The sampler will begin by drawing orbits randomly from the priors (50,000 by default). It will then pick the orbit with the highest posterior density as a starting point. These are then passed to AdvancedHMC to adapt following the Stan windowed adaption scheme.
@@ -256,7 +256,7 @@ Lower than this and the sampler is taking steps that are too large and encounter
 Next, you can make a trace plot of different variabes to visually inspect the chain:
 ```julia
 plot(
-    chain["X.a"],
+    chain["B_a"],
     xlabel="iteration",
     ylabel="semi-major axis (AU)"
 )
@@ -267,7 +267,7 @@ And an auto-correlation plot:
 ```julia
 using StatsBase
 plot(
-    autocor(chain["X.e"], 1:500),
+    autocor(chain["B_e"], 1:500),
     xlabel="lag",
     ylabel="autocorrelation",
 )
