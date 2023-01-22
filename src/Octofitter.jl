@@ -4,7 +4,7 @@ module Octofitter
 using Printf
 # using ComponentArrays # TODO: remove last uses of component arrays
 using Tables, TypedTables
-using Distributions
+using Distributions, DistributionsAD
 using Bijectors
 using AbstractMCMC
 using AdvancedHMC
