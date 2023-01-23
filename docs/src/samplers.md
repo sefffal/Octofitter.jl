@@ -260,18 +260,18 @@ Combine the above AdvancedHMC example with the following:
     For this sampler to work well, a more careful adapation scheme is likely necessary.
 
 ```julia
+using AdvancedHMC
 using MCMCTempering
 MCMCTempering.getparams(transition::AdvancedHMC.Transition) = transition.z.θ
-
 
 sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
 tempered_sampler = tempered(sampler, 10);
 
 # Sample from the posterior.
 chn_norm = sample(
-    model, tempered_sampler, 500;
-    nadapts = 250,
-    discard_initial=250, chain_type=Any,
+    model, tempered_sampler, 1000;
+    nadapts = 500,
+    discard_initial=0, chain_type=Any,
     init_params=initial_θ_t
 )
 chn_tempered = remapchain(chn_norm)

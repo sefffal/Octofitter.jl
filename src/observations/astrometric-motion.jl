@@ -8,7 +8,7 @@
 """
     gaia_plx(gaia_id=12123)
 
-Get a distribution (TruncatedNormal) of parallax distance in mas of a source with 
+Get a distribution (truncated Normal) of parallax distance in mas of a source with 
 GAIA catalog id `gaia_id`.
 """
 function gaia_plx(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits") 
@@ -17,7 +17,7 @@ function gaia_plx(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
     hgca = Table(load(catalog, 2))
 
     idx = findfirst(==(gaia_id), hgca.gaia_source_id)
-    return TruncatedNormal(hgca.parallax_gaia[idx,], hgca.parallax_gaia_error[idx,], 0, Inf)
+    return truncated(Normal(hgca.parallax_gaia[idx,], hgca.parallax_gaia_error[idx,]), lower=0)
 end
 export gaia_plx
 

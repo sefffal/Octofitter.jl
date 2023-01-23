@@ -257,9 +257,9 @@ rvs = RadialVelocity(
         pmdec = Normal(20,  10),
 
         rv0_1 = Normal(0,10),
-        jitter_1 =  TruncatedNormal(0,10,0,Inf),
         rv0_2 = Normal(0,10),
-        jitter_2 =  TruncatedNormal(0,10,0,Inf),
+        jitter_1 = truncated(Normal(0,10),lower=0),
+        jitter_2 = truncated(Normal(0,10),lower=0),
 
     ),
     ProperMotionAnomHGCA(;gaia_id),

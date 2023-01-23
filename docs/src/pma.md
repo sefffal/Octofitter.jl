@@ -32,7 +32,7 @@ astrom = Astrometry(
 )
 @named B = Planet{VisualOrbit}(
     Variables(
-        a = TruncatedNormal(9,3,0,Inf),
+        a = truncated(Normal(9,3),lower=0),
         e = Uniform(0,1),
         τ = UniformCircular(1.0),
         ω = UniformCircular(),
@@ -79,8 +79,9 @@ After the priors, we add the proper motion anomaly measurements from the HGCA. I
 Sample from our model as usual:
 
 ```julia
+model = Octofitter.LogDensityModel(HD91312)
 chain = Octofitter.advancedhmc(
-    HD91312, 0.65,
+    model, 0.65,
     adaptation =  1_000,
     iterations =  6_000,
 )
@@ -229,7 +230,7 @@ As a start, you can restrict the orbital parameters to just semi-major axis, epo
 )
 @named HD91312 = System(
     Variables(
-        M = TruncatedNormal(1.61, 0.2, 0, Inf),
+        M = truncated(Normal(1.61, 0.2), lower=0),
         plx = gaia_plx(gaia_id=756291174721509376),
         
         # Priors on the centre of mass proper motion

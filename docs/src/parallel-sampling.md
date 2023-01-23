@@ -19,6 +19,9 @@ chain = Octofitter.advancedhmc(
 )
 ```
 
+!!! note
+    Chains sampled in parallel using threads by default begin with the same initial parameter values. In practice, they  rapidly diffuse duing the adapataion phase; hoever, it may be worth running at least one separate chain to ensure your all your results aren't stuck in one tight local maximum.
+
 ## Independent Copies
 The best way to scale up Octofitter to run on a larger cluster is to write out your model as a script that samples a single chain. Then, write out the chain using e.g. `CSV.write(Table(chain))` at the end.
 Simply start the script N times to sample from N independent chains.

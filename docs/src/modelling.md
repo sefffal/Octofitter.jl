@@ -27,7 +27,7 @@ astrom = Astrometry(
 
 @named B = Planet{VisualOrbit}(
     Variables(
-        a = TruncatedNormal(10, 4, 0, 100),
+        a = truncated(Normal(10, 4), lower=0, upper=100),
         e = Uniform(0.0, 0.5),
         i = Sine(),
         ω = UniformCircular(),
@@ -73,8 +73,8 @@ A system represents a host star with one or more planets. Properties of the whol
 ```julia
 @named HD82134 = System(
     Variables(
-        M = TruncatedNormal(1.2, 0.1, 0, Inf),
-        plx = TruncatedNormal(50.0, 0.02, 0, Inf),
+        M = truncated(Normal(1.2, 0.1), lower=0),
+        plx = truncated(Normal(50.0, 0.02), lower=0),
     ),  
     B,
 )
@@ -246,7 +246,7 @@ The first thing you should do with your results is check a few diagnostics to ma
 A few things to watch out for: check that you aren't getting many (any, really) numerical errors (`num_err_frac`). 
 This likely indicates a problem with your model: either invalid values of one or more parameters are encountered (e.g. the prior on semi-major axis includes negative values) or that there is a region of very high curvature that is failing to sample properly. This latter issue can lead to a bias in your results.
 
-One common mistake is to use a distribution like `Normal(10,3)` for semi-major axis. This left hand side of this distribution includes negative values which are not physically possible. A better choice is a `TruncatedNormal(10,3,0,Inf)` distribution.
+One common mistake is to use a distribution like `Normal(10,3)` for semi-major axis. This left hand side of this distribution includes negative values which are not physically possible. A better choice is a `truncated(Normal(10,3), lower=0)` distribution.
 
 You may see some warnings during initial step-size adaptation. These are probably nothing to worry about if sampling proceeds normally afterwards.
 
@@ -289,14 +289,14 @@ As a first pass, let's plot a sample of orbits drawn from the posterior.
 
 ```julia 
 using Plots
-plotchains(chain, :X, kind=:astrometry, color="X_a")
+plotchains(chain, :B, kind=:astrometry, color="B_a")
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
 ![model plot](assets/astrometry-model-plot.png)
 
 We can overplot the astrometry data like so:
 ```julia
-plot!(astrom, label="astrometry", markersize=8)
+plot!(astrom, label="astrometry")
 ```
 ![model plot with astrometry](assets/astrometry-model-plot-data.png)
 
@@ -304,14 +304,15 @@ plot!(astrom, label="astrometry", markersize=8)
 ## Pair Plot
 A very useful visualization of our results is a pair-plot, or corner plot. We can use our PairPlots.jl package for this purpose:
 ```julia
-using CairoMakie, PairPlots
+using CairoMakie: Makie
+using PairPlots
 table = (;
-    a=         vec(chain["X_a"]),
-    e=         vec(chain["X_e"]),
-    i=rad2deg.(vec(chain["X_i"])),
-    Ω=rad2deg.(vec(chain["X_Ω"])),
-    ω=rad2deg.(vec(chain["X_ω"])),
-    τ=         vec(chain["X_τ"]),
+    a=         vec(chain["B_a"]),
+    e=         vec(chain["B_e"]),
+    i=rad2deg.(vec(chain["B_i"])),
+    Ω=rad2deg.(vec(chain["B_Ω"])),
+    ω=rad2deg.(vec(chain["B_ω"])),
+    τ=         vec(chain["B_τ"]),
 )
 pairplot(table)
 ```
