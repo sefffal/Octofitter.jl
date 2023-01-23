@@ -165,18 +165,18 @@ function remapchain(mc_samples::AbstractArray{&lt;:AdvancedHMC.Transition})
 end
 
 chn = remapchain(chn_norm)
-</code></pre><h3 id="Tempered-NUTS"><a class="docs-heading-anchor" href="#Tempered-NUTS">Tempered NUTS</a><a id="Tempered-NUTS-1"></a><a class="docs-heading-anchor-permalink" href="#Tempered-NUTS" title="Permalink"></a></h3><p>Combine the above AdvancedHMC example with the following:</p><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p>For this sampler to work well, a more careful adapation scheme is likely necessary.</p></div></div><pre><code class="language-julia hljs">using MCMCTempering
+</code></pre><h3 id="Tempered-NUTS"><a class="docs-heading-anchor" href="#Tempered-NUTS">Tempered NUTS</a><a id="Tempered-NUTS-1"></a><a class="docs-heading-anchor-permalink" href="#Tempered-NUTS" title="Permalink"></a></h3><p>Combine the above AdvancedHMC example with the following:</p><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p>For this sampler to work well, a more careful adapation scheme is likely necessary.</p></div></div><pre><code class="language-julia hljs">using AdvancedHMC
+using MCMCTempering
 MCMCTempering.getparams(transition::AdvancedHMC.Transition) = transition.z.θ
-
 
 sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
 tempered_sampler = tempered(sampler, 10);
 
 # Sample from the posterior.
 chn_norm = sample(
-    model, tempered_sampler, 500;
-    nadapts = 250,
-    discard_initial=250, chain_type=Any,
+    model, tempered_sampler, 1000;
+    nadapts = 500,
+    discard_initial=0, chain_type=Any,
     init_params=initial_θ_t
 )
 chn_tempered = remapchain(chn_norm)</code></pre><h2 id="Hamiltonian-Monte-Carlo-on-the-GPU"><a class="docs-heading-anchor" href="#Hamiltonian-Monte-Carlo-on-the-GPU">Hamiltonian Monte Carlo on the GPU</a><a id="Hamiltonian-Monte-Carlo-on-the-GPU-1"></a><a class="docs-heading-anchor-permalink" href="#Hamiltonian-Monte-Carlo-on-the-GPU" title="Permalink"></a></h2><p>This example shows how one might deploy Octofitter with AdvancedHMC on a GPU. The No U-Turn Sampler is not well suited since it includes a dynamically chosen path length, but we can use a variant of static HMC.</p><p>Further work is likely necessary to ensure all observations are also stored on the GPU.</p><pre><code class="language-julia hljs">using AdvancedHMC, CUDA
@@ -254,4 +254,4 @@ end
 
 chn = remapchain(chn_norm)
 </code></pre><pre><code class="language-julia hljs">using Plots
-plotchains(chn, :B, kind=:astrometry)</code></pre><pre><code class="language-julia hljs">plotchains(chn, :B, kind=:radvel)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../derived/">« Derived Variables</a><a class="docs-footer-nextpage" href="../parallel-sampling/">Parallel Sampling »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Sunday 22 January 2023 19:24">Sunday 22 January 2023</span>. Using Julia version 1.10.0-DEV.421.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plotchains(chn, :B, kind=:astrometry)</code></pre><pre><code class="language-julia hljs">plotchains(chn, :B, kind=:radvel)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../derived/">« Derived Variables</a><a class="docs-footer-nextpage" href="../parallel-sampling/">Parallel Sampling »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Monday 23 January 2023 17:12">Monday 23 January 2023</span>. Using Julia version 1.10.0-DEV.423.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -9,7 +9,7 @@
 )
 @named B = Planet{VisualOrbit}(
     Variables(
-        a = TruncatedNormal(9,3,0,Inf),
+        a = truncated(Normal(9,3),lower=0),
         e = Uniform(0,1),
         τ = UniformCircular(1.0),
         ω = UniformCircular(),
@@ -31,8 +31,9 @@
     ),  
     ProperMotionAnomHGCA(gaia_id=756291174721509376),
     B,
-)</code></pre><p>We specify priors on <code>M</code> and <code>plx</code> as usual, but here we use the <code>gaia_plx</code> helper function to read the parallax and uncertainty directly from the HGCA using its source ID.</p><p>We also add parameters for the long term system&#39;s proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements.</p><p>After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.</p><h2 id="Sampling-from-the-posterior"><a class="docs-heading-anchor" href="#Sampling-from-the-posterior">Sampling from the posterior</a><a id="Sampling-from-the-posterior-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling-from-the-posterior" title="Permalink"></a></h2><p>Sample from our model as usual:</p><pre><code class="language-julia hljs">chain = Octofitter.advancedhmc(
-    HD91312, 0.65,
+)</code></pre><p>We specify priors on <code>M</code> and <code>plx</code> as usual, but here we use the <code>gaia_plx</code> helper function to read the parallax and uncertainty directly from the HGCA using its source ID.</p><p>We also add parameters for the long term system&#39;s proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements.</p><p>After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.</p><h2 id="Sampling-from-the-posterior"><a class="docs-heading-anchor" href="#Sampling-from-the-posterior">Sampling from the posterior</a><a id="Sampling-from-the-posterior-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling-from-the-posterior" title="Permalink"></a></h2><p>Sample from our model as usual:</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(HD91312)
+chain = Octofitter.advancedhmc(
+    model, 0.65,
     adaptation =  1_000,
     iterations =  6_000,
 )</code></pre><p>Output:</p><pre><code class="nohighlight hljs">┌ Info: Guessing a good starting location by sampling from priors
@@ -125,7 +126,7 @@ pairplot(table)</code></pre><p><a href="../assets/pma-astrometry-mass-corner.svg
 )
 @named HD91312 = System(
     Variables(
-        M = TruncatedNormal(1.61, 0.2, 0, Inf),
+        M = truncated(Normal(1.61, 0.2), lower=0),
         plx = gaia_plx(gaia_id=756291174721509376),
         
         # Priors on the centre of mass proper motion
@@ -215,4 +216,4 @@ Quantiles
         b.e    0.0000    0.0000    0.0000    0.0000    0.0000
         b.Ω    0.0000    0.0000    0.0000    0.0000    0.0000
         b.ω    0.0000    0.0000    0.0000    0.0000    0.0000
-</code></pre><p>With such simple models, the mean tree depth is often very low and sampling proceeds very quickly.</p><p>A good place to start is a histogram of planet mass vs. semi-major axis:</p><pre><code class="language-julia hljs">histogram2d(chains[&quot;b_a&quot;], chains[&quot;b_mass&quot;], color=:plasma, xguide=&quot;sma (au)&quot;, yguide=&quot;mass (Mjup)&quot;)</code></pre><p><a href="../assets/pma-a-vs-mass.svg"><img src="../assets/pma-a-vs-mass.svg" alt="2d histogram"/></a></p><p>You can also visualize the orbits and proper motion:</p><pre><code class="language-julia hljs">plotmodel(chains)</code></pre><p><a href="../assets/pma-model.svg"><img src="../assets/pma-model.png" alt="2d histogram"/></a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../modelling/">« Fit Astrometry</a><a class="docs-footer-nextpage" href="../images/">Fit Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Sunday 22 January 2023 19:24">Sunday 22 January 2023</span>. Using Julia version 1.10.0-DEV.421.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre><p>With such simple models, the mean tree depth is often very low and sampling proceeds very quickly.</p><p>A good place to start is a histogram of planet mass vs. semi-major axis:</p><pre><code class="language-julia hljs">histogram2d(chains[&quot;b_a&quot;], chains[&quot;b_mass&quot;], color=:plasma, xguide=&quot;sma (au)&quot;, yguide=&quot;mass (Mjup)&quot;)</code></pre><p><a href="../assets/pma-a-vs-mass.svg"><img src="../assets/pma-a-vs-mass.svg" alt="2d histogram"/></a></p><p>You can also visualize the orbits and proper motion:</p><pre><code class="language-julia hljs">plotmodel(chains)</code></pre><p><a href="../assets/pma-model.svg"><img src="../assets/pma-model.png" alt="2d histogram"/></a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../modelling/">« Fit Astrometry</a><a class="docs-footer-nextpage" href="../images/">Fit Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Monday 23 January 2023 17:12">Monday 23 January 2023</span>. Using Julia version 1.10.0-DEV.423.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
