@@ -1,23 +1,23 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Fit Astrometric Acceleration · Octofitter.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../getting-started/">Getting Started</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../modelling/">Fit Astrometry</a></li><li class="is-active"><a class="tocitem" href>Fit Astrometric Acceleration</a><ul class="internal"><li><a class="tocitem" href="#Planet-Model"><span>Planet Model</span></a></li><li><a class="tocitem" href="#System-Model-and-Specifying-Proper-Motion-Anomaly"><span>System Model &amp; Specifying Proper Motion Anomaly</span></a></li><li><a class="tocitem" href="#Sampling-from-the-posterior"><span>Sampling from the posterior</span></a></li><li><a class="tocitem" href="#Analysis"><span>Analysis</span></a></li><li><a class="tocitem" href="#Fitting-Astrometric-Acceleration-Only"><span>Fitting Astrometric Acceleration Only</span></a></li></ul></li><li><a class="tocitem" href="../images/">Fit Images</a></li><li><a class="tocitem" href="../rv/">Fit Radial Velocity</a></li><li><a class="tocitem" href="../mass-photometry/">Connecting Mass with Photometry</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Parallel Sampling</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../api/">API</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Fit Astrometric Acceleration</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Fit Astrometric Acceleration</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/pma.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="fit-pma"><a class="docs-heading-anchor" href="#fit-pma">Fit Astrometric Acceleration</a><a id="fit-pma-1"></a><a class="docs-heading-anchor-permalink" href="#fit-pma" title="Permalink"></a></h1><p>One of the features of Octofitter.jl is support for proper motion anomaly / astrometric acceleration. These data points are typically calculated by finding the difference between a long term proper motion of a star between the Hipparcos and GAIA catalogs, and their proper motion calculated within the windows of each catalog.</p><p>For Hipparcos/GAIA this gives four data points that can constrain the dynamical mass &amp; orbits of planetary companions (assuming we subtract out the net trend).</p><p>You can specify these quantities manually, but the easiest way is to use the Hipparcos-GAIA Catalog of Accelerations (HGCA, <a href="https://arxiv.org/abs/2105.11662">https://arxiv.org/abs/2105.11662</a>). Support for loading this catalog is built into Octofitter.jl.</p><p>Let&#39;s look at the star and companion <a href="https://arxiv.org/abs/2109.12124">HD 91312 A &amp; B</a>, discovered by SCExAO. We will use their published astrometry and proper motion anomaly extracted from the HGCA.</p><p>The first step is to find the GAIA source ID for your object. For HD 91312, SIMBAD tells us the GAIA DR2 ID is <code>756291174721509376</code> (which we will assume is the same in eDR3).</p><h2 id="Planet-Model"><a class="docs-heading-anchor" href="#Planet-Model">Planet Model</a><a id="Planet-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Planet-Model" title="Permalink"></a></h2><p>For this model, we will have to add the variable <code>mass</code> as a prior. The units used on this variable are Jupiter masses, in contrast to <code>M</code>, the primary&#39;s mass, in solar masses.  A reasonable uninformative prior for <code>mass</code> is <code>Uniform(0,1000)</code> or <code>LogUniform(1,1000)</code> depending on the situation.</p><p>Initial setup:</p><pre><code class="language-julia hljs">using Octofitter, Distributions, Plots</code></pre><pre><code class="language-julia hljs">astrom = Astrometry(
-    (epoch=mjd(&quot;2016-12-15&quot;), ra=133., dec=-174., σ_ra=07.0, σ_dec=07.),
-    (epoch=mjd(&quot;2017-03-12&quot;), ra=126., dec=-176., σ_ra=04.0, σ_dec=04.),
-    (epoch=mjd(&quot;2017-03-13&quot;), ra=127., dec=-172., σ_ra=04.0, σ_dec=04.),
-    (epoch=mjd(&quot;2018-02-08&quot;), ra=083., dec=-133., σ_ra=10.0, σ_dec=10.),
-    (epoch=mjd(&quot;2018-11-28&quot;), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.),
-    (epoch=mjd(&quot;2018-12-15&quot;), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.),
+    (epoch=mjd(&quot;2016-12-15&quot;), ra=133., dec=-174., σ_ra=07.0, σ_dec=07.,),# cor=0.2),
+    (epoch=mjd(&quot;2017-03-12&quot;), ra=126., dec=-176., σ_ra=04.0, σ_dec=04.,),# cor=0.3),
+    (epoch=mjd(&quot;2017-03-13&quot;), ra=127., dec=-172., σ_ra=04.0, σ_dec=04.,),# cor=0.1),
+    (epoch=mjd(&quot;2018-02-08&quot;), ra=083., dec=-133., σ_ra=10.0, σ_dec=10.,),# cor=0.4),
+    (epoch=mjd(&quot;2018-11-28&quot;), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.,),# cor=0.3),
+    (epoch=mjd(&quot;2018-12-15&quot;), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.,),# cor=0.2),
 )
 @named B = Planet{VisualOrbit}(
     Variables(
-        a = truncated(Normal(9,3),lower=0),
+        a = truncated(LogNormal(9,3),lower=0),
         e = Uniform(0,1),
         τ = UniformCircular(1.0),
         ω = UniformCircular(),
         i = Sine(), # The Sine() distribution is defined by Octofitter
         Ω = UniformCircular(),
-        mass = LogUniform(0.5, 2000),
+        # mass = LogNormal(300, 18),
         # Anoter option would be:
-        # mass = Uniform(0.5, 2000),
+        mass = Uniform(0.5, 1000),
     ),
     astrom
 )</code></pre><p>The <code>@named</code> macro simply passes the variable name you give as an arugment to the function i.e. <code>Planet(..., name=:B)</code>. This ensures the parameter names in the output are consistent with the code.</p><h2 id="System-Model-and-Specifying-Proper-Motion-Anomaly"><a class="docs-heading-anchor" href="#System-Model-and-Specifying-Proper-Motion-Anomaly">System Model &amp; Specifying Proper Motion Anomaly</a><a id="System-Model-and-Specifying-Proper-Motion-Anomaly-1"></a><a class="docs-heading-anchor-permalink" href="#System-Model-and-Specifying-Proper-Motion-Anomaly" title="Permalink"></a></h2><p>Now that we have our planet model, we create a system model to contain it.</p><pre><code class="language-julia hljs">@named HD91312 = System(
@@ -33,9 +33,11 @@
     B,
 )</code></pre><p>We specify priors on <code>M</code> and <code>plx</code> as usual, but here we use the <code>gaia_plx</code> helper function to read the parallax and uncertainty directly from the HGCA using its source ID.</p><p>We also add parameters for the long term system&#39;s proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements.</p><p>After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.</p><h2 id="Sampling-from-the-posterior"><a class="docs-heading-anchor" href="#Sampling-from-the-posterior">Sampling from the posterior</a><a id="Sampling-from-the-posterior-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling-from-the-posterior" title="Permalink"></a></h2><p>Sample from our model as usual:</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(HD91312)
 chain = Octofitter.advancedhmc(
-    model, 0.65,
-    adaptation =  1_000,
-    iterations =  6_000,
+    model, 0.85,
+    Octofitter.MCMCThreads(),
+    num_chains=Threads.nthreads(),
+    adaptation =  5_000,
+    iterations =  5_000,
 )</code></pre><p>Output:</p><pre><code class="nohighlight hljs">┌ Info: Guessing a good starting location by sampling from priors
 └   N = 50000
 ┌ Info: Found initial stepsize
@@ -100,9 +102,10 @@ Quantiles
         B_i     1.4133     1.4525     1.4715     1.4902     1.5217
         B_Ω    -0.6967    -0.6769    -0.6670    -0.6573    -0.6390
      B_mass   159.7716   196.9441   228.3291   274.9650   431.3844</code></pre><p>This takes about a minute on the first run due to JIT startup latency; subsequent runs are very quick even on e.g. an older laptop.</p><h2 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h2><p>The first step is to look at the table output above generated by MCMCChains.jl. The <code>rhat</code> column gives a convergence measure. Each parameter should have an <code>rhat</code> very close to 1.000. If not, you may need to run the model for more iterations or tweak the parameterization of the model to improve sampling. The <code>ess</code> column gives an estimate of the effective sample size. The <code>mean</code> and <code>std</code> columns give the mean and standard deviation of each parameter.</p><p>The second table summarizes the 2.5, 25, 50, 75, and 97.5 percentiles of each parameter in the model.</p><p>Since this chain is well converged, we can begin examining the results. Use the <code>plotchains</code> function to display orbits from the posterior against the input data:</p><pre><code class="language-julia hljs">plotchains(chain, :B, kind=:astrometry, color=&quot;B_mass&quot;)
-scatter!(astrom, label=&quot;astrometry&quot;)</code></pre><p><a href="../assets/pma-astrometry-posterior.svg"><img src="../assets/pma-astrometry-posterior.png" alt="orbit posterior"/></a></p><p>Another useful plotting function is <code>timeplotgrid</code> which takes similar arguments and produces a 6 panel plot:</p><pre><code class="language-julia hljs">timeplotgrid(chain)</code></pre><p><a href="../assets/pma-astrometry-posterior-grid.svg"><img src="../assets/pma-astrometry-posterior-grid.png" alt="orbit posterior grid"/></a></p><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>If we wish to examine the covariance between parameters in more detail, we can construct a pair-plot (aka. corner plot).</p><p>For a quick look, you can just run <code>corner(chain)</code>, but for more professional output you may wish to customize the labels, units, unit labels, etc:</p><pre><code class="language-julia hljs">##Create a corner plot / pair plot.
+scatter!(astrom, label=&quot;astrometry&quot;, markersize=0)</code></pre><p><a href="../assets/pma-astrometry-posterior.svg"><img src="../assets/pma-astrometry-posterior.png" alt="orbit posterior"/></a></p><p>Another useful plotting function is <code>timeplotgrid</code> which takes similar arguments and produces a 6 panel plot:</p><pre><code class="language-julia hljs">timeplotgrid(chain)</code></pre><p><a href="../assets/pma-astrometry-posterior-grid.svg"><img src="../assets/pma-astrometry-posterior-grid.png" alt="orbit posterior grid"/></a></p><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>If we wish to examine the covariance between parameters in more detail, we can construct a pair-plot (aka. corner plot).</p><p>For a quick look, you can just run <code>corner(chain)</code>, but for more professional output you may wish to customize the labels, units, unit labels, etc:</p><pre><code class="language-julia hljs">##Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
-using CairoMakie, PairPlots
+using CairoMakie: Makie
+using PairPlots
 table = (;
     a=         vec(chain[&quot;B_a&quot;]),
     M=         vec(chain[&quot;M&quot;]),
@@ -113,7 +116,7 @@ table = (;
     ω=rad2deg.(vec(chain[&quot;B_ω&quot;])),
     τ=         vec(chain[&quot;B_τ&quot;]),
 )
-pairplot(table)</code></pre><p><a href="../assets/pma-astrometry-mass-corner.svg"><img src="../assets/pma-astrometry-mass-corner.png" alt="pair plot"/></a></p><h2 id="Fitting-Astrometric-Acceleration-Only"><a class="docs-heading-anchor" href="#Fitting-Astrometric-Acceleration-Only">Fitting Astrometric Acceleration Only</a><a id="Fitting-Astrometric-Acceleration-Only-1"></a><a class="docs-heading-anchor-permalink" href="#Fitting-Astrometric-Acceleration-Only" title="Permalink"></a></h2><p>If you wish to look at the possible locations/masses of a planet around a star using onnly GAIA/HIPPARCOS, you can follow a simplified approach.</p><p>As a start, you can restrict the orbital parameters to just semi-major axis, epoch of periastron passage, and mass.</p><pre><code class="language-julia hljs">@named b = Planet{VisualOrbit}(
+fig = pairplot(table; figure=(;resolution=(1200,1200)))</code></pre><p><a href="../assets/pma-astrometry-mass-corner.svg"><img src="../assets/pma-astrometry-mass-corner.png" alt="pair plot"/></a></p><h2 id="Fitting-Astrometric-Acceleration-Only"><a class="docs-heading-anchor" href="#Fitting-Astrometric-Acceleration-Only">Fitting Astrometric Acceleration Only</a><a id="Fitting-Astrometric-Acceleration-Only-1"></a><a class="docs-heading-anchor-permalink" href="#Fitting-Astrometric-Acceleration-Only" title="Permalink"></a></h2><p>If you wish to look at the possible locations/masses of a planet around a star using onnly GAIA/HIPPARCOS, you can follow a simplified approach.</p><p>As a start, you can restrict the orbital parameters to just semi-major axis, epoch of periastron passage, and mass.</p><pre><code class="language-julia hljs">@named b = Planet{VisualOrbit}(
     Variables(
         a = LogUniform(0.1, 100),
         τ = UniformCircular(1.0),
@@ -138,82 +141,96 @@ pairplot(table)</code></pre><p><a href="../assets/pma-astrometry-mass-corner.svg
 )</code></pre><p>This models assumes a circular, face-on orbit.</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(HD91312; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 
 chains = Octofitter.advancedhmc(
-    model, 0.85,
-    MCMCThreads(),
-    num_chains=4,
-    adaptation =  1_000,
-    iterations = 50_000,
-)</code></pre><pre><code class="nohighlight hljs">┌ Info: Guessing a good starting location by sampling from priors
-└   N = 50000
+    model, 0.75,
+    # Octofitter.MCMCThreads(),
+    # num_chains=4,
+    adaptation =  2_000,
+    iterations =  2_000, #50_000
+)</code></pre><pre><code class="nohighlight hljs">
+[ Info: Preparing model
+┌ Info: Tuning autodiff
+│   chunk_size = 1
+└   t = 0.000184293
+┌ Info: Tuning autodiff
+│   chunk_size = 2
+└   t = 0.000102274
+┌ Info: Tuning autodiff
+│   chunk_size = 4
+└   t = 5.4869e-5
+┌ Info: Tuning autodiff
+│   chunk_size = 6
+└   t = 6.416e-5
+┌ Info: Tuning autodiff
+│   chunk_size = 8
+└   t = 3.512e-5
+┌ Info: Selected auto-diff chunk size
+└   ideal_chunk_size = 8
+ℓπcallback(initial_θ_0_t): 0.000026 seconds (76 allocations: 2.375 KiB)
+∇ℓπcallback(initial_θ_0_t): 0.000066 seconds (76 allocations: 2.391 KiB)
+┌ Info: Guessing a starting location by sampling from prior
+└   initial_samples = 50000
+[ Info: Sampling, beginning with adaptation phase...
 ┌ Warning: The current proposal will be rejected due to numerical error(s).
 │   isfinite.((θ, r, ℓπ, ℓκ)) = (true, false, false, false)
-└ @ AdvancedHMC ~/.julia/packages/AdvancedHMC/HQHnm/src/hamiltonian.jl:47
+└ @ AdvancedHMC ~/.julia/packages/AdvancedHMC/4fByY/src/hamiltonian.jl:49
 ┌ Warning: The current proposal will be rejected due to numerical error(s).
 │   isfinite.((θ, r, ℓπ, ℓκ)) = (true, false, false, false)
-└ @ AdvancedHMC ~/.julia/packages/AdvancedHMC/HQHnm/src/hamiltonian.jl:47
-┌ Info: Found initial stepsize
-└   initial_ϵ = 0.0001953125
-[ Info: Will adapt step size and mass matrix
-[ Info: progress logging is enabled globally
+└ @ AdvancedHMC ~/.julia/packages/AdvancedHMC/4fByY/src/hamiltonian.jl:49
+[ Info: Adaptation complete.
+[ Info: Sampling...
+Progress legend: divergence iter(thread) td=tree-depth ℓπ=log-posterior-density 
+       1( 1) td= 5 ℓπ=   -41. 
+     838( 1) td= 5 ℓπ=   -37. 
+    1650( 1) td= 5 ℓπ=   -40. 
 [ Info: Sampling compete. Building chains.
 Sampling report for chain 1:
-mean_accept =         0.9386094717407892
-num_err_frac =        0.0
-mean_tree_depth =     5.732058823529412
+mean_accept         = 0.8628791796894713
+num_err_frac        = 0.067
+mean_tree_depth     = 4.119
 max_tree_depth_frac = 0.0
+Chains MCMC chain (2000×13×1 Array{Float64, 3}):
 
-Sampling report for chain 2:
-mean_accept =         0.9562432650363307
-num_err_frac =        0.0
-mean_tree_depth =     5.930529411764706
-max_tree_depth_frac = 0.0
-
-Sampling report for chain 3:
-mean_accept =         0.941867350117908
-num_err_frac =        0.0
-mean_tree_depth =     5.783862745098039
-max_tree_depth_frac = 0.0
-
-Sampling report for chain 4:
-mean_accept =         0.9504366454930078
-num_err_frac =        0.0
-mean_tree_depth =     5.86243137254902
-max_tree_depth_frac = 0.0
-
-Chains MCMC chain (51000×9×4 Array{Float64, 3}):
-
-Iterations        = 1:1:51000
-Number of chains  = 4
-Samples per chain = 51000
-Wall duration     = 64.1 seconds
-Compute duration  = 64.1 seconds
-parameters        = M, plx, b.a, b.τ, b.mass, b.i, b.e, b.Ω, b.ω
+Iterations        = 1:1:2000
+Number of chains  = 1
+Samples per chain = 2000
+Wall duration     = 20.56 seconds
+Compute duration  = 20.56 seconds
+parameters        = M, plx, pmra, pmdec, b_a, b_τy, b_τx, b_mass, b_τ, b_i, b_e, b_Ω, b_ω
 
 Summary Statistics
-  parameters      mean       std   naive_se      mcse           ess      rhat   ess_per_sec 
-      Symbol   Float64   Float64    Float64   Float64       Float64   Float64       Float64 
+  parameters        mean       std   naive_se      mcse         ess      rhat   ess_per_sec 
+      Symbol     Float64   Float64    Float64   Float64     Float64   Float64       Float64 
 
-           M    1.6085    0.2006     0.0004    0.0005   132909.5151    1.0000     2073.3743
-         plx   29.1452    0.1408     0.0003    0.0004   123574.6795    1.0000     1927.7519
-        b.a    1.1321    0.0477     0.0001    0.0001   128054.3813    1.0000     1997.6348
-        b.τ    0.8804    0.0027     0.0000    0.0000   129890.5148    1.0000     2026.2783
-     b.mass   74.0519    7.6350     0.0169    0.0208   124168.8358    1.0000     1937.0207
-        b.i    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
-        b.e    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
-        b.Ω    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
-        b.ω    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
+           M      1.6075    0.1954     0.0044    0.0050   1486.7663    0.9995       72.3171
+         plx     29.1524    0.1368     0.0031    0.0038   1610.2294    1.0003       78.3224
+        pmra   -137.6625    0.0196     0.0004    0.0006   1293.2684    0.9998       62.9052
+       pmdec      1.8893    0.0127     0.0003    0.0004   1373.6978    1.0046       66.8173
+         b_a      1.2721    0.0520     0.0012    0.0013   1444.7449    0.9995       70.2731
+        b_τy     -0.1191    0.0736     0.0016    0.0027    680.9847    1.0013       33.1234
+        b_τx      1.2082    0.6403     0.0143    0.0249    590.1177    1.0018       28.7036
+      b_mass    614.6158   63.3446     1.4164    1.2606   1588.0401    0.9996       77.2431
+         b_τ      0.2657    0.0048     0.0001    0.0001   1314.3761    0.9995       63.9319
+         b_i      0.0000    0.0000     0.0000    0.0000         NaN       NaN           NaN
+         b_e      0.0000    0.0000     0.0000    0.0000         NaN       NaN           NaN
+         b_Ω      0.0000    0.0000     0.0000    0.0000         NaN       NaN           NaN
+         b_ω      0.0000    0.0000     0.0000    0.0000         NaN       NaN           NaN
 
 Quantiles
-  parameters      2.5%     25.0%     50.0%     75.0%     97.5% 
-      Symbol   Float64   Float64   Float64   Float64   Float64 
+  parameters        2.5%       25.0%       50.0%       75.0%       97.5% 
+      Symbol     Float64     Float64     Float64     Float64     Float64 
 
-           M    1.2152    1.4730    1.6086    1.7439    2.0012
-         plx   28.8705   29.0501   29.1454   29.2403   29.4210
-        b.a    1.0329    1.1013    1.1342    1.1651    1.2198
-        b.τ    0.8751    0.8786    0.8804    0.8822    0.8856
-     b.mass   59.3819   68.8615   73.9459   79.1446   89.3102
-        b.i    0.0000    0.0000    0.0000    0.0000    0.0000
-        b.e    0.0000    0.0000    0.0000    0.0000    0.0000
-        b.Ω    0.0000    0.0000    0.0000    0.0000    0.0000
-        b.ω    0.0000    0.0000    0.0000    0.0000    0.0000
-</code></pre><p>With such simple models, the mean tree depth is often very low and sampling proceeds very quickly.</p><p>A good place to start is a histogram of planet mass vs. semi-major axis:</p><pre><code class="language-julia hljs">histogram2d(chains[&quot;b_a&quot;], chains[&quot;b_mass&quot;], color=:plasma, xguide=&quot;sma (au)&quot;, yguide=&quot;mass (Mjup)&quot;)</code></pre><p><a href="../assets/pma-a-vs-mass.svg"><img src="../assets/pma-a-vs-mass.svg" alt="2d histogram"/></a></p><p>You can also visualize the orbits and proper motion:</p><pre><code class="language-julia hljs">plotmodel(chains)</code></pre><p><a href="../assets/pma-model.svg"><img src="../assets/pma-model.png" alt="2d histogram"/></a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../modelling/">« Fit Astrometry</a><a class="docs-footer-nextpage" href="../images/">Fit Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Monday 23 January 2023 17:12">Monday 23 January 2023</span>. Using Julia version 1.10.0-DEV.423.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+           M      1.2321      1.4744      1.6046      1.7340      2.0030
+         plx     28.8919     29.0589     29.1508     29.2470     29.4229
+        pmra   -137.7004   -137.6755   -137.6625   -137.6504   -137.6223
+       pmdec      1.8635      1.8811      1.8892      1.8975      1.9150
+         b_a      1.1663      1.2383      1.2736      1.3069      1.3709
+        b_τy     -0.2881     -0.1609     -0.1081     -0.0642     -0.0126
+        b_τx      0.1992      0.7274      1.1270      1.6199      2.6172
+      b_mass    495.0310    571.2174    613.4512    656.2661    742.1851
+         b_τ      0.2560      0.2623      0.2658      0.2690      0.2744
+         b_i      0.0000      0.0000      0.0000      0.0000      0.0000
+         b_e      0.0000      0.0000      0.0000      0.0000      0.0000
+         b_Ω      0.0000      0.0000      0.0000      0.0000      0.0000
+         b_ω      0.0000      0.0000      0.0000      0.0000      0.0000
+
+</code></pre><p>With such simple models, the mean tree depth is often very low and sampling proceeds very quickly.</p><p>A good place to start is a histogram of planet mass vs. semi-major axis:</p><pre><code class="language-julia hljs">histogram2d(chains[&quot;b_a&quot;], chains[&quot;b_mass&quot;], color=:plasma, xguide=&quot;sma (au)&quot;, yguide=&quot;mass (Mjup)&quot;)</code></pre><p><a href="../assets/pma-a-vs-mass.svg"><img src="../assets/pma-a-vs-mass.svg" alt="2d histogram"/></a></p><p>You can also visualize the orbits and proper motion:</p><pre><code class="language-julia hljs">plotmodel(chains)</code></pre><p><a href="../assets/pma-model.svg"><img src="../assets/pma-model.png" alt="2d histogram"/></a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../modelling/">« Fit Astrometry</a><a class="docs-footer-nextpage" href="../images/">Fit Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Monday 30 January 2023 22:19">Monday 30 January 2023</span>. Using Julia version 1.10.0-DEV.459.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
