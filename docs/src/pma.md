@@ -23,24 +23,24 @@ using Octofitter, Distributions, Plots
 
 ```julia
 astrom = Astrometry(
-    (epoch=mjd("2016-12-15"), ra=133., dec=-174., σ_ra=07.0, σ_dec=07.),
-    (epoch=mjd("2017-03-12"), ra=126., dec=-176., σ_ra=04.0, σ_dec=04.),
-    (epoch=mjd("2017-03-13"), ra=127., dec=-172., σ_ra=04.0, σ_dec=04.),
-    (epoch=mjd("2018-02-08"), ra=083., dec=-133., σ_ra=10.0, σ_dec=10.),
-    (epoch=mjd("2018-11-28"), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.),
-    (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.),
+    (epoch=mjd("2016-12-15"), ra=133., dec=-174., σ_ra=07.0, σ_dec=07.,),# cor=0.2),
+    (epoch=mjd("2017-03-12"), ra=126., dec=-176., σ_ra=04.0, σ_dec=04.,),# cor=0.3),
+    (epoch=mjd("2017-03-13"), ra=127., dec=-172., σ_ra=04.0, σ_dec=04.,),# cor=0.1),
+    (epoch=mjd("2018-02-08"), ra=083., dec=-133., σ_ra=10.0, σ_dec=10.,),# cor=0.4),
+    (epoch=mjd("2018-11-28"), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.,),# cor=0.3),
+    (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.,),# cor=0.2),
 )
 @named B = Planet{VisualOrbit}(
     Variables(
-        a = truncated(Normal(9,3),lower=0),
+        a = truncated(LogNormal(9,3),lower=0),
         e = Uniform(0,1),
         τ = UniformCircular(1.0),
         ω = UniformCircular(),
         i = Sine(), # The Sine() distribution is defined by Octofitter
         Ω = UniformCircular(),
-        mass = LogUniform(0.5, 2000),
+        # mass = LogNormal(300, 18),
         # Anoter option would be:
-        # mass = Uniform(0.5, 2000),
+        mass = Uniform(0.5, 1000),
     ),
     astrom
 )
@@ -81,9 +81,11 @@ Sample from our model as usual:
 ```julia
 model = Octofitter.LogDensityModel(HD91312)
 chain = Octofitter.advancedhmc(
-    model, 0.65,
-    adaptation =  1_000,
-    iterations =  6_000,
+    model, 0.85,
+    Octofitter.MCMCThreads(),
+    num_chains=Threads.nthreads(),
+    adaptation =  5_000,
+    iterations =  5_000,
 )
 ```
 
@@ -173,7 +175,7 @@ Use the `plotchains` function to display orbits from the posterior against the i
 
 ```julia
 plotchains(chain, :B, kind=:astrometry, color="B_mass")
-scatter!(astrom, label="astrometry")
+scatter!(astrom, label="astrometry", markersize=0)
 ```
 [![orbit posterior](assets/pma-astrometry-posterior.png)](assets/pma-astrometry-posterior.svg)
 
@@ -194,7 +196,8 @@ For a quick look, you can just run `corner(chain)`, but for more professional ou
 ```julia
 ##Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
-using CairoMakie, PairPlots
+using CairoMakie: Makie
+using PairPlots
 table = (;
     a=         vec(chain["B_a"]),
     M=         vec(chain["M"]),
@@ -205,7 +208,7 @@ table = (;
     ω=rad2deg.(vec(chain["B_ω"])),
     τ=         vec(chain["B_τ"]),
 )
-pairplot(table)
+fig = pairplot(table; figure=(;resolution=(1200,1200)))
 ```
 [![pair plot](assets/pma-astrometry-mass-corner.png)](assets/pma-astrometry-mass-corner.svg)
 
@@ -248,87 +251,101 @@ This models assumes a circular, face-on orbit.
 model = Octofitter.LogDensityModel(HD91312; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 
 chains = Octofitter.advancedhmc(
-    model, 0.85,
-    MCMCThreads(),
-    num_chains=4,
-    adaptation =  1_000,
-    iterations = 50_000,
+    model, 0.75,
+    # Octofitter.MCMCThreads(),
+    # num_chains=4,
+    adaptation =  2_000,
+    iterations =  2_000, #50_000
 )
 ```
 ```
-┌ Info: Guessing a good starting location by sampling from priors
-└   N = 50000
+
+[ Info: Preparing model
+┌ Info: Tuning autodiff
+│   chunk_size = 1
+└   t = 0.000184293
+┌ Info: Tuning autodiff
+│   chunk_size = 2
+└   t = 0.000102274
+┌ Info: Tuning autodiff
+│   chunk_size = 4
+└   t = 5.4869e-5
+┌ Info: Tuning autodiff
+│   chunk_size = 6
+└   t = 6.416e-5
+┌ Info: Tuning autodiff
+│   chunk_size = 8
+└   t = 3.512e-5
+┌ Info: Selected auto-diff chunk size
+└   ideal_chunk_size = 8
+ℓπcallback(initial_θ_0_t): 0.000026 seconds (76 allocations: 2.375 KiB)
+∇ℓπcallback(initial_θ_0_t): 0.000066 seconds (76 allocations: 2.391 KiB)
+┌ Info: Guessing a starting location by sampling from prior
+└   initial_samples = 50000
+[ Info: Sampling, beginning with adaptation phase...
 ┌ Warning: The current proposal will be rejected due to numerical error(s).
 │   isfinite.((θ, r, ℓπ, ℓκ)) = (true, false, false, false)
-└ @ AdvancedHMC ~/.julia/packages/AdvancedHMC/HQHnm/src/hamiltonian.jl:47
+└ @ AdvancedHMC ~/.julia/packages/AdvancedHMC/4fByY/src/hamiltonian.jl:49
 ┌ Warning: The current proposal will be rejected due to numerical error(s).
 │   isfinite.((θ, r, ℓπ, ℓκ)) = (true, false, false, false)
-└ @ AdvancedHMC ~/.julia/packages/AdvancedHMC/HQHnm/src/hamiltonian.jl:47
-┌ Info: Found initial stepsize
-└   initial_ϵ = 0.0001953125
-[ Info: Will adapt step size and mass matrix
-[ Info: progress logging is enabled globally
+└ @ AdvancedHMC ~/.julia/packages/AdvancedHMC/4fByY/src/hamiltonian.jl:49
+[ Info: Adaptation complete.
+[ Info: Sampling...
+Progress legend: divergence iter(thread) td=tree-depth ℓπ=log-posterior-density 
+       1( 1) td= 5 ℓπ=   -41. 
+     838( 1) td= 5 ℓπ=   -37. 
+    1650( 1) td= 5 ℓπ=   -40. 
 [ Info: Sampling compete. Building chains.
 Sampling report for chain 1:
-mean_accept =         0.9386094717407892
-num_err_frac =        0.0
-mean_tree_depth =     5.732058823529412
+mean_accept         = 0.8628791796894713
+num_err_frac        = 0.067
+mean_tree_depth     = 4.119
 max_tree_depth_frac = 0.0
+Chains MCMC chain (2000×13×1 Array{Float64, 3}):
 
-Sampling report for chain 2:
-mean_accept =         0.9562432650363307
-num_err_frac =        0.0
-mean_tree_depth =     5.930529411764706
-max_tree_depth_frac = 0.0
-
-Sampling report for chain 3:
-mean_accept =         0.941867350117908
-num_err_frac =        0.0
-mean_tree_depth =     5.783862745098039
-max_tree_depth_frac = 0.0
-
-Sampling report for chain 4:
-mean_accept =         0.9504366454930078
-num_err_frac =        0.0
-mean_tree_depth =     5.86243137254902
-max_tree_depth_frac = 0.0
-
-Chains MCMC chain (51000×9×4 Array{Float64, 3}):
-
-Iterations        = 1:1:51000
-Number of chains  = 4
-Samples per chain = 51000
-Wall duration     = 64.1 seconds
-Compute duration  = 64.1 seconds
-parameters        = M, plx, b.a, b.τ, b.mass, b.i, b.e, b.Ω, b.ω
+Iterations        = 1:1:2000
+Number of chains  = 1
+Samples per chain = 2000
+Wall duration     = 20.56 seconds
+Compute duration  = 20.56 seconds
+parameters        = M, plx, pmra, pmdec, b_a, b_τy, b_τx, b_mass, b_τ, b_i, b_e, b_Ω, b_ω
 
 Summary Statistics
-  parameters      mean       std   naive_se      mcse           ess      rhat   ess_per_sec 
-      Symbol   Float64   Float64    Float64   Float64       Float64   Float64       Float64 
+  parameters        mean       std   naive_se      mcse         ess      rhat   ess_per_sec 
+      Symbol     Float64   Float64    Float64   Float64     Float64   Float64       Float64 
 
-           M    1.6085    0.2006     0.0004    0.0005   132909.5151    1.0000     2073.3743
-         plx   29.1452    0.1408     0.0003    0.0004   123574.6795    1.0000     1927.7519
-        b.a    1.1321    0.0477     0.0001    0.0001   128054.3813    1.0000     1997.6348
-        b.τ    0.8804    0.0027     0.0000    0.0000   129890.5148    1.0000     2026.2783
-     b.mass   74.0519    7.6350     0.0169    0.0208   124168.8358    1.0000     1937.0207
-        b.i    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
-        b.e    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
-        b.Ω    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
-        b.ω    0.0000    0.0000     0.0000    0.0000           NaN       NaN           NaN
+           M      1.6075    0.1954     0.0044    0.0050   1486.7663    0.9995       72.3171
+         plx     29.1524    0.1368     0.0031    0.0038   1610.2294    1.0003       78.3224
+        pmra   -137.6625    0.0196     0.0004    0.0006   1293.2684    0.9998       62.9052
+       pmdec      1.8893    0.0127     0.0003    0.0004   1373.6978    1.0046       66.8173
+         b_a      1.2721    0.0520     0.0012    0.0013   1444.7449    0.9995       70.2731
+        b_τy     -0.1191    0.0736     0.0016    0.0027    680.9847    1.0013       33.1234
+        b_τx      1.2082    0.6403     0.0143    0.0249    590.1177    1.0018       28.7036
+      b_mass    614.6158   63.3446     1.4164    1.2606   1588.0401    0.9996       77.2431
+         b_τ      0.2657    0.0048     0.0001    0.0001   1314.3761    0.9995       63.9319
+         b_i      0.0000    0.0000     0.0000    0.0000         NaN       NaN           NaN
+         b_e      0.0000    0.0000     0.0000    0.0000         NaN       NaN           NaN
+         b_Ω      0.0000    0.0000     0.0000    0.0000         NaN       NaN           NaN
+         b_ω      0.0000    0.0000     0.0000    0.0000         NaN       NaN           NaN
 
 Quantiles
-  parameters      2.5%     25.0%     50.0%     75.0%     97.5% 
-      Symbol   Float64   Float64   Float64   Float64   Float64 
+  parameters        2.5%       25.0%       50.0%       75.0%       97.5% 
+      Symbol     Float64     Float64     Float64     Float64     Float64 
 
-           M    1.2152    1.4730    1.6086    1.7439    2.0012
-         plx   28.8705   29.0501   29.1454   29.2403   29.4210
-        b.a    1.0329    1.1013    1.1342    1.1651    1.2198
-        b.τ    0.8751    0.8786    0.8804    0.8822    0.8856
-     b.mass   59.3819   68.8615   73.9459   79.1446   89.3102
-        b.i    0.0000    0.0000    0.0000    0.0000    0.0000
-        b.e    0.0000    0.0000    0.0000    0.0000    0.0000
-        b.Ω    0.0000    0.0000    0.0000    0.0000    0.0000
-        b.ω    0.0000    0.0000    0.0000    0.0000    0.0000
+           M      1.2321      1.4744      1.6046      1.7340      2.0030
+         plx     28.8919     29.0589     29.1508     29.2470     29.4229
+        pmra   -137.7004   -137.6755   -137.6625   -137.6504   -137.6223
+       pmdec      1.8635      1.8811      1.8892      1.8975      1.9150
+         b_a      1.1663      1.2383      1.2736      1.3069      1.3709
+        b_τy     -0.2881     -0.1609     -0.1081     -0.0642     -0.0126
+        b_τx      0.1992      0.7274      1.1270      1.6199      2.6172
+      b_mass    495.0310    571.2174    613.4512    656.2661    742.1851
+         b_τ      0.2560      0.2623      0.2658      0.2690      0.2744
+         b_i      0.0000      0.0000      0.0000      0.0000      0.0000
+         b_e      0.0000      0.0000      0.0000      0.0000      0.0000
+         b_Ω      0.0000      0.0000      0.0000      0.0000      0.0000
+         b_ω      0.0000      0.0000      0.0000      0.0000      0.0000
+
 
 ```
 

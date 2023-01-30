@@ -40,8 +40,14 @@ end
 # Astrometry likelihood function
 function ln_like(astrom::Astrometry, θ_planet, orbit,)
 
+    # Note: since astrometry data is stored in a typed-table, the column name
+    # checks using `hasproperty` ought to be compiled out completely.
+
     ll = 0.0
     for i in eachindex(astrom.table.epoch)
+
+        # Covariance between the two dimensions
+        cor = 0.0
 
         o = orbitsolve(orbit, astrom.table.epoch[i])
         # PA and Sep specified
@@ -53,21 +59,44 @@ function ln_like(astrom::Astrometry, θ_planet, orbit,)
             pa_diff = pa_diff < -π ? pa_diff + 2π : pa_diff;
             resid1 = pa_diff
             resid2 = astrom.table.sep[i] - ρ
-            σ²1 = astrom.table.σ_pa[i ]^2
-            σ²2 = astrom.table.σ_sep[i]^2
+            σ₁ = astrom.table.σ_pa[i ]
+            σ₂ = astrom.table.σ_sep[i]
+
+            if hasproperty(astrom.table, :cor)
+                @error "Correlation between PA and SEP may not be handled correctly yet. If you need this, verify this calculation first." maxlog=1
+            end
         # RA and DEC specified
         else
             x = raoff(o)
             y = decoff(o)
             resid1 = astrom.table.ra[i] - x
             resid2 = astrom.table.dec[i] - y
-            σ²1 = astrom.table.σ_ra[i ]^2
-            σ²2 = astrom.table.σ_dec[i]^2
+            σ₁ = astrom.table.σ_ra[i ]
+            σ₂ = astrom.table.σ_dec[i]
+
+            # Add non-zero correlation if present
+            if hasproperty(astrom.table, :cor)
+                cor = astrom.table.cor[i]
+            end
         end
 
-        χ²1 = -(1/2)*resid1^2 / σ²1 - log(sqrt(2π * σ²1))
-        χ²2 = -(1/2)*resid2^2 / σ²2 - log(sqrt(2π * σ²2))
-        ll += χ²1 + χ²2
+        # Manual definition:
+        # χ²1 = -(1/2)*resid1^2 / σ²1 - log(sqrt(2π * σ²1))
+        # χ²2 = -(1/2)*resid2^2 / σ²2 - log(sqrt(2π * σ²2))
+        # ll += χ²1 + χ²2
+
+        # Leveraging Distributions.jl to make this clearer:
+        # χ²1 = logpdf(Normal(0, sqrt(σ²1)), resid1)
+        # χ²2 = logpdf(Normal(0, sqrt(σ²2)), resid2)
+        # ll += χ²1 + χ²2
+
+        # Same as above, with support for covariance:
+        dist = MvNormal(@SArray[
+            σ₁^2        cor*σ₁*σ₂
+            cor*σ₁*σ₂   σ₂^2
+        ])
+        ll += logpdf(dist, @SArray[resid1, resid2])
+
     end
     return ll
 end

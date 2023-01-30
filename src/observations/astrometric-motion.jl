@@ -25,7 +25,7 @@ export gaia_plx
 # function ghca_pmra(;gaia_id)
 
 
-const pma_cols = (:ra_epoch, :dec_epoch, :dt, :pm_ra, :pm_dec, :σ_pm_ra, :σ_pm_dec)
+const pma_cols = (:ra_epoch, :dec_epoch, :dt, :pm_ra, :pm_dec, :σ_pm_ra, :σ_pm_dec,)
 struct ProperMotionAnom{TTable<:Table} <: AbstractObs
     table::TTable
     function ProperMotionAnom(observations...)
@@ -63,60 +63,20 @@ already subtracted out. e.g. we would expect 0 pma if there is no companion.
 """
 function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
 
-    ## Load the Hipparcos-GAIA catalog of accelerations
+    # Load the Hipparcos-GAIA catalog of accelerations (downloaded automatically with datadeps)
     hgca = Table(load(catalog, 2))
 
-    # Find the row with a 
+    # Available columns (for reference)
+    # chisq            crosscal_pmdec_hg  crosscal_pmdec_hip   crosscal_pmra_hg   crosscal_pmra_hip  epoch_dec_gaia          epoch_dec_hip
+    # epoch_ra_gaia    epoch_ra_hip       gaia_dec             gaia_ra            gaia_source_id     hip_id                  nonlinear_dpmdec
+    # nonlinear_dpmra  parallax_gaia      parallax_gaia_error  pmdec_gaia         pmdec_gaia_error   pmdec_hg                pmdec_hg_error
+    # pmdec_hip        pmdec_hip_error    pmra_gaia            pmra_gaia_error    pmra_hg            pmra_hg_error           pmra_hip
+    # pmra_hip_error   pmra_pmdec_gaia    pmra_pmdec_hg        pmra_pmdec_hip     radial_velocity    radial_velocity_error   radial_velocity_source
+
+    # Find the row with a GAIA source id match
     idx = findfirst(==(gaia_id), hgca.gaia_source_id)
 
-    # # Proper motion anomaly
-    # # The difference between the ~instant proper motion measured by GAIA compared to the 
-    # # long term trend between Hipparcos and GAIA
-    # Δμ_gaia_ra = (hgca.pmra_gaia[idx] ± hgca.pmra_gaia_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
-    # Δμ_gaia_dec = (hgca.pmdec_gaia[idx] ± hgca.pmdec_gaia_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
-
-    # Δμ_hip_ra = (hgca.pmra_hip[idx] ± hgca.pmra_hip_error[idx]) - (hgca.pmra_hg[idx] ± hgca.pmra_hg_error[idx])
-    # Δμ_hip_dec = (hgca.pmdec_hip[idx] ± hgca.pmdec_hip_error[idx]) - (hgca.pmdec_hg[idx] ± hgca.pmdec_hg_error[idx])
-
     return ProperMotionAnomHGCA(hgca[idx])
-
-
-    return ProperMotionAnomHGCA(
-        # Hipparcos epoch
-        (;
-            ra_epoch=years2mjd(hgca.epoch_ra_hip[idx]),
-            dec_epoch=years2mjd(hgca.epoch_dec_hip[idx]),
-            dt=4*365,
-            
-            pm_ra=hgca.pmra_hip[idx],
-            σ_pm_ra=hgca.pmra_hip_error[idx],
-
-            pm_dec=hgca.pmdec_hip[idx],
-            σ_pm_dec=hgca.pmdec_hip_error[idx],
-        ),
-        # Hipparcos - GAIA
-        (;
-            ra_epoch=(years2mjd(hgca.epoch_ra_hip[idx]) + years2mjd(hgca.epoch_ra_gaia[idx]))/2,
-            dec_epoch=(years2mjd(hgca.epoch_dec_hip[idx]) + years2mjd(hgca.epoch_dec_gaia[idx]))/2,
-            dt=years2mjd(hgca.epoch_ra_gaia[idx]) - years2mjd(hgca.epoch_ra_hip[idx]),
-
-            pm_ra=hgca.pmra_hg[idx],
-            σ_pm_ra=hgca.pmra_hg_error[idx],
-
-            pm_dec=hgca.pmdec_hg[idx],
-            σ_pm_dec=hgca.pmdec_hg_error[idx],
-        ),
-        # GAIA epoch
-        (;
-            ra_epoch=years2mjd(hgca.epoch_ra_gaia[idx]),
-            dec_epoch=years2mjd(hgca.epoch_dec_gaia[idx]),
-            dt=3*365,
-            pm_ra=hgca.pmra_gaia[idx],
-            σ_pm_ra=hgca.pmra_gaia_error[idx],
-            pm_dec=hgca.pmdec_gaia[idx],
-            σ_pm_dec=hgca.pmdec_gaia_error[idx],
-        ),
-    )
 
 end
 export ProperMotionAnomHGCA
@@ -187,7 +147,7 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
     ll = 0.0
 
     # This observation type just wraps one row from the HGCA (see hgca.jl)
-    hgca = pma.table
+    hgca = pma.table[1]
     # Roughly over what time period were the observations made?
     dt_gaia = 1038 # EDR3: days between  Date("2017-05-28") - Date("2014-07-25")
     dt_hip = 4*365
@@ -218,8 +178,8 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
             # make it the same unit as the stellar mass (element.mu)
             # TODO: we can't yet use the orbitsolve interface here for the pmra calls,
             # meaning we calculate the orbit 2x as much as we need.
-            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt)
-            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt)
+            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip)+δt)
+            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip)+δt)
             ra_hip_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
             dec_hip_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
             pmra_hip_model += pmra(o_ra, θ_planet.mass*mjup2msol)
@@ -249,8 +209,8 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
             # make it the same unit as the stellar mass (element.M)
-            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt)
-            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt)
+            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia)+δt)
+            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia)+δt)
             ra_gaia_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
             dec_gaia_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
             pmra_gaia_model += pmra(o_ra, θ_planet.mass*mjup2msol)
@@ -262,27 +222,64 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
     pmra_gaia_model/=N_ave
     pmdec_gaia_model/=N_ave
 
-
     # Model the GAIA-Hipparcos delta-position velocity
-    pmra_hg_model = (ra_gaia_model - ra_hip_model)/(years2mjd(hgca.epoch_ra_gaia[1]) - years2mjd(hgca.epoch_ra_hip[1]))
-    pmdec_hg_model = (dec_gaia_model - dec_hip_model)/(years2mjd(hgca.epoch_dec_gaia[1]) - years2mjd(hgca.epoch_dec_hip[1]))
+    pmra_hg_model = (ra_gaia_model - ra_hip_model)/(years2mjd(hgca.epoch_ra_gaia) - years2mjd(hgca.epoch_ra_hip))
+    pmdec_hg_model = (dec_gaia_model - dec_hip_model)/(years2mjd(hgca.epoch_dec_gaia) - years2mjd(hgca.epoch_dec_hip))
 
-    # Compute the likelihood at all three epochs (Hipparcos, GAIA-Hip, GAIA)
-    pmra_model = (pmra_hip_model, pmra_hg_model, pmra_gaia_model)
-    pmdec_model = (pmdec_hip_model, pmdec_hg_model, pmdec_gaia_model)
-    pmra_meas = (hgca.pmra_hip[1], hgca.pmra_hg[1], hgca.pmra_gaia[1])
-    pmdec_meas = (hgca.pmdec_hip[1], hgca.pmdec_hg[1], hgca.pmdec_gaia[1])
-    σ_pmra = (hgca.pmra_hip_error[1], hgca.pmra_hg_error[1], hgca.pmra_gaia_error[1])
-    σ_pmdec = (hgca.pmdec_hip_error[1], hgca.pmdec_hg_error[1], hgca.pmdec_gaia_error[1])
-    for i in 1:3
-        residx = pmra_model[i] + θ_system.pmra - pmra_meas[i]
-        residy = pmdec_model[i] + θ_system.pmdec - pmdec_meas[i]
-        σ²x = σ_pmra[i]^2
-        σ²y = σ_pmdec[i]^2
-        χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
-        χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
-        ll += χ²x + χ²y
-    end
+    # Hipparcos epoch
+    c = hgca.pmra_pmdec_hip*hgca.pmra_hip_error*hgca.pmdec_hip_error
+    dist_hip = MvNormal(@SArray[
+        hgca.pmra_hip_error^2   c
+        c                       hgca.pmdec_hip_error^2 
+    ])
+    resids_hip = @SArray[
+        pmra_hip_model  +  θ_system.pmra  - hgca.pmra_hip,
+        pmdec_hip_model +  θ_system.pmdec - hgca.pmdec_hip
+    ]
+    ll += logpdf(dist_hip, resids_hip)
+
+    # Hipparcos - GAIA epoch
+    c = hgca.pmra_pmdec_hg*hgca.pmra_hg_error*hgca.pmdec_hg_error
+    dist_hg = MvNormal(@SArray[
+        hgca.pmra_hg_error^2   c
+        c                      hgca.pmdec_hg_error^2 
+    ])
+    resids_hg = @SArray[
+        pmra_hg_model  +  θ_system.pmra  - hgca.pmra_hg,
+        pmdec_hg_model +  θ_system.pmdec - hgca.pmdec_hg
+    ]
+    ll += logpdf(dist_hg, resids_hg)
+
+    # GAIA epoch
+    c = hgca.pmra_pmdec_gaia*hgca.pmra_gaia_error*hgca.pmdec_gaia_error
+    dist_gaia = MvNormal(@SArray[
+        hgca.pmra_gaia_error^2   c
+        c                        hgca.pmdec_gaia_error^2 
+    ])
+    resids_gaia = @SArray[
+        pmra_gaia_model  +  θ_system.pmra  - hgca.pmra_gaia,
+        pmdec_gaia_model +  θ_system.pmdec - hgca.pmdec_gaia
+    ]
+    ll += logpdf(dist_gaia, resids_gaia)
+
+    # # Old manual version not support covariance
+    # # Compute the likelihood at all three epochs (Hipparcos, GAIA-Hip, GAIA)
+    # pmra_model = @SVector[pmra_hip_model, pmra_hg_model, pmra_gaia_model]
+    # pmdec_model = @SVector[pmdec_hip_model, pmdec_hg_model, pmdec_gaia_model]
+    # pmra_meas = @SVector[hgca.pmra_hip, hgca.pmra_hg, hgca.pmra_gaia]
+    # pmdec_meas = @SVector[hgca.pmdec_hip, hgca.pmdec_hg, hgca.pmdec_gaia]
+    # σ_pmra = @SVector[hgca.pmra_hip_error, hgca.pmra_hg_error, hgca.pmra_gaia_error]
+    # σ_pmdec = @SVector[hgca.pmdec_hip_error, hgca.pmdec_hg_error, hgca.pmdec_gaia_error]
+    # # Loop through epochs
+    # for i in 1:3
+    #     residx = pmra_model[i] + θ_system.pmra - pmra_meas[i]
+    #     residy = pmdec_model[i] + θ_system.pmdec - pmdec_meas[i]
+    #     σ²x = σ_pmra[i]^2
+    #     σ²y = σ_pmdec[i]^2
+    #     χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
+    #     χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
+    #     ll += χ²x + χ²y
+    # end
 
     return ll
 end
@@ -292,7 +289,7 @@ end
 
 """
 Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
-using 5 position measurements averaged at each of their epochs.
+using 25 position measurements averaged at each of their epochs.
 """
 function genobs(obs::ProperMotionAnomHGCA, elements, θ_system)
     ll = 0.0
