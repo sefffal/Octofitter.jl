@@ -147,7 +147,7 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
     ll = 0.0
 
     # This observation type just wraps one row from the HGCA (see hgca.jl)
-    hgca = pma.table[1]
+    hgca = pma.table
     # Roughly over what time period were the observations made?
     dt_gaia = 1038 # EDR3: days between  Date("2017-05-28") - Date("2014-07-25")
     dt_hip = 4*365
@@ -178,8 +178,8 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
             # make it the same unit as the stellar mass (element.mu)
             # TODO: we can't yet use the orbitsolve interface here for the pmra calls,
             # meaning we calculate the orbit 2x as much as we need.
-            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip)+δt)
-            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip)+δt)
+            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt)
+            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt)
             ra_hip_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
             dec_hip_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
             pmra_hip_model += pmra(o_ra, θ_planet.mass*mjup2msol)
@@ -209,8 +209,8 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
             # make it the same unit as the stellar mass (element.M)
-            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia)+δt)
-            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia)+δt)
+            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt)
+            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt)
             ra_gaia_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
             dec_gaia_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
             pmra_gaia_model += pmra(o_ra, θ_planet.mass*mjup2msol)
@@ -223,42 +223,42 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
     pmdec_gaia_model/=N_ave
 
     # Model the GAIA-Hipparcos delta-position velocity
-    pmra_hg_model = (ra_gaia_model - ra_hip_model)/(years2mjd(hgca.epoch_ra_gaia) - years2mjd(hgca.epoch_ra_hip))
-    pmdec_hg_model = (dec_gaia_model - dec_hip_model)/(years2mjd(hgca.epoch_dec_gaia) - years2mjd(hgca.epoch_dec_hip))
+    pmra_hg_model = (ra_gaia_model - ra_hip_model)/(years2mjd(hgca.epoch_ra_gaia[1]) - years2mjd(hgca.epoch_ra_hip[1]))
+    pmdec_hg_model = (dec_gaia_model - dec_hip_model)/(years2mjd(hgca.epoch_dec_gaia[1]) - years2mjd(hgca.epoch_dec_hip[1]))
 
     # Hipparcos epoch
-    c = hgca.pmra_pmdec_hip*hgca.pmra_hip_error*hgca.pmdec_hip_error
+    c = hgca.pmra_pmdec_hip[1]*hgca.pmra_hip_error[1]*hgca.pmdec_hip_error[1]
     dist_hip = MvNormal(@SArray[
-        hgca.pmra_hip_error^2   c
-        c                       hgca.pmdec_hip_error^2 
+        hgca.pmra_hip_error[1]^2   c
+        c                       hgca.pmdec_hip_error[1]^2 
     ])
     resids_hip = @SArray[
-        pmra_hip_model  +  θ_system.pmra  - hgca.pmra_hip,
-        pmdec_hip_model +  θ_system.pmdec - hgca.pmdec_hip
+        pmra_hip_model  +  θ_system.pmra  - hgca.pmra_hip[1],
+        pmdec_hip_model +  θ_system.pmdec - hgca.pmdec_hip[1]
     ]
     ll += logpdf(dist_hip, resids_hip)
 
     # Hipparcos - GAIA epoch
-    c = hgca.pmra_pmdec_hg*hgca.pmra_hg_error*hgca.pmdec_hg_error
+    c = hgca.pmra_pmdec_hg[1]*hgca.pmra_hg_error[1]*hgca.pmdec_hg_error[1]
     dist_hg = MvNormal(@SArray[
-        hgca.pmra_hg_error^2   c
-        c                      hgca.pmdec_hg_error^2 
+        hgca.pmra_hg_error[1]^2   c
+        c                      hgca.pmdec_hg_error[1]^2 
     ])
     resids_hg = @SArray[
-        pmra_hg_model  +  θ_system.pmra  - hgca.pmra_hg,
-        pmdec_hg_model +  θ_system.pmdec - hgca.pmdec_hg
+        pmra_hg_model  +  θ_system.pmra  - hgca.pmra_hg[1],
+        pmdec_hg_model +  θ_system.pmdec - hgca.pmdec_hg[1]
     ]
     ll += logpdf(dist_hg, resids_hg)
 
     # GAIA epoch
-    c = hgca.pmra_pmdec_gaia*hgca.pmra_gaia_error*hgca.pmdec_gaia_error
+    c = hgca.pmra_pmdec_gaia[1]*hgca.pmra_gaia_error[1]*hgca.pmdec_gaia_error[1]
     dist_gaia = MvNormal(@SArray[
-        hgca.pmra_gaia_error^2   c
-        c                        hgca.pmdec_gaia_error^2 
+        hgca.pmra_gaia_error[1]^2   c
+        c                        hgca.pmdec_gaia_error[1]^2 
     ])
     resids_gaia = @SArray[
-        pmra_gaia_model  +  θ_system.pmra  - hgca.pmra_gaia,
-        pmdec_gaia_model +  θ_system.pmdec - hgca.pmdec_gaia
+        pmra_gaia_model  +  θ_system.pmra  - hgca.pmra_gaia[1],
+        pmdec_gaia_model +  θ_system.pmdec - hgca.pmdec_gaia[1]
     ]
     ll += logpdf(dist_gaia, resids_gaia)
 
@@ -266,10 +266,10 @@ function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
     # # Compute the likelihood at all three epochs (Hipparcos, GAIA-Hip, GAIA)
     # pmra_model = @SVector[pmra_hip_model, pmra_hg_model, pmra_gaia_model]
     # pmdec_model = @SVector[pmdec_hip_model, pmdec_hg_model, pmdec_gaia_model]
-    # pmra_meas = @SVector[hgca.pmra_hip, hgca.pmra_hg, hgca.pmra_gaia]
-    # pmdec_meas = @SVector[hgca.pmdec_hip, hgca.pmdec_hg, hgca.pmdec_gaia]
-    # σ_pmra = @SVector[hgca.pmra_hip_error, hgca.pmra_hg_error, hgca.pmra_gaia_error]
-    # σ_pmdec = @SVector[hgca.pmdec_hip_error, hgca.pmdec_hg_error, hgca.pmdec_gaia_error]
+    # pmra_meas = @SVector[hgca.pmra_hip[1], hgca.pmra_hg[1], hgca.pmra_gaia[1]]
+    # pmdec_meas = @SVector[hgca.pmdec_hip[1], hgca.pmdec_hg[1], hgca.pmdec_gaia[1]]
+    # σ_pmra = @SVector[hgca.pmra_hip_error[1], hgca.pmra_hg_error[1], hgca.pmra_gaia_error[1]]
+    # σ_pmdec = @SVector[hgca.pmdec_hip_error[1], hgca.pmdec_hg_error[1], hgca.pmdec_gaia_error[1]]
     # # Loop through epochs
     # for i in 1:3
     #     residx = pmra_model[i] + θ_system.pmra - pmra_meas[i]
