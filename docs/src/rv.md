@@ -1,4 +1,4 @@
-# [Fit Radial Velocity](@id fit-pma)
+# [Fit RV and Astrometry](@id fit-rv-pma)
 
 You can use Octofitter as a basic tool for fitting radial velocity data, by itself, or in combination with other kinds of data.
 Multiple instruments (up to five) are supported.

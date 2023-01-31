@@ -112,22 +112,12 @@ function Octofitter.genobs(obs::RadialVelocity, elems::Vector{<:VisualOrbit}, θ
     return RadialVelocity(radvel_table)
 end
 
+mjd2jd(mjd) = mjd - 2400000.5
+jd2mjd(jd) = jd + 2400000.5
 
 
 
-
-function HARPS_search(target, catalog=datadep"HARPS_RVBank")
-
-    
-    rvbank = CSV.read(catalog, Table)
-
-    # GJ436
-
-    # open(joinpath(catalog, "list.dat"), read=true) do io
-    #     map(readlines) 
-    return filter(row->row.target==target, eachrow(rvbank))
-end
-
+include("harps.jl")
 
 
 # Plot recipe for astrometry data

@@ -665,6 +665,7 @@ function init_plots()
                 all_epochs = mjd() .+ [-365*2, +365*2]
             end
             t = range((extrema(all_epochs) .+ [-365, 365])..., length=100)
+            # t = range((extrema(all_epochs) .+ [-365, 365])..., length=500)
             y = nothing
             ribbon = nothing
             zcolor = nothing

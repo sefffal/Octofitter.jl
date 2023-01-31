@@ -1,4 +1,4 @@
-# [Fitting Astrometry](@id fit-astrometry)
+# [Fit Relative Astrometry](@id fit-astrometry)
 
 Here is a worked example of a basic model. It contains a star with a single planet, and several astrometry points.
 
