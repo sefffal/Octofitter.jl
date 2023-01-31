@@ -1,3 +1,10 @@
+using Pkg
+cd(@__DIR__)
+Pkg.activate(".")
+pkg"dev .. ../Octofitter ../OctofitterRadialVelocity"
+Pkg.instantiate()
+Pkg.precompile()
+
 using Documenter, Octofitter
 
 

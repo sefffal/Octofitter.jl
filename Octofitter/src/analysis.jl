@@ -768,7 +768,8 @@ function init_plots()
                     fit = fit .+ radvel.(elements, t', collect(chain["$(planet_key)_mass"][ii]).*mjup2msol)
                 end
                 for obs in chain.info.model.observations
-                    if obs isa RadialVelocity
+                    # TODO: make this pluggable instead of this hacky workaround
+                    if startswith(string(typeof(obs)), "RadialVelocity")
                         if haskey(chain,:rv0_1)
                             barycentric_rv_inst_1 = median(vec(chain["rv0_1"]))
                             jitter = barycentric_rv_inst_1 = median(vec(chain["jitter_1"]))

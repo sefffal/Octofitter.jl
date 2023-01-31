@@ -276,7 +276,7 @@ model = Octofitter.LogDensityModel(ϵEri; autodiff=:ForwardDiff, verbosity=4) # 
 ## Sample from chains
 
 results = Octofitter.advancedhmc(
-    model, 0.65;
+    model, 0.75;
     adaptation =  2000,
     iterations =  5000,
     verbosity = 4,
