@@ -390,9 +390,9 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 chunk_sizes = unique([1; 2:2:D; D])
                 ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
                     cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
-                    ForwardDiff.gradient!(diffresults[Threads.threadid()], ℓπcallback, initial_θ_0_t, cfg)
+                    ForwardDiff.gradient!(diffresults[1], ℓπcallback, initial_θ_0_t, cfg)
                     t = minimum(
-                        @elapsed ForwardDiff.gradient!(diffresults[Threads.threadid()], ℓπcallback, initial_θ_0_t, cfg)
+                        @elapsed ForwardDiff.gradient!(diffresults[1], ℓπcallback, initial_θ_0_t, cfg)
                         for _ in 1:10
                     )
 
@@ -508,7 +508,7 @@ function advancedhmc(
     thinning=1,
     discard_initial=adaptation,
     tree_depth=12,
-    initial_samples=50_000,
+    initial_samples=250_000,
     initial_parameters=nothing,
     verbosity=2,
     autodiff=:ForwardDiff,
@@ -774,8 +774,9 @@ function advancedhmc(
     #         ]
     #     end
     # else
+    if isnothing(initial_parameters)
         initial_parameters = fill(initial_θ_t, num_chains)
-    # end
+    end
 
     mc_samples_all_chains = AbstractMCMC.sample(
         rng,
