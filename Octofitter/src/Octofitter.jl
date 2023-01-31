@@ -3,7 +3,7 @@ module Octofitter
 
 using Printf
 using Tables, TypedTables
-using Distributions
+using Distributions, DistributionsAD
 using Bijectors
 using AbstractMCMC
 using AdvancedHMC
@@ -19,7 +19,7 @@ using PlanetOrbits
 using AstroImages
 
 # Re-export these from DirectOrbits
-export mjd, VisualOrbit, VisualOrbitDeg, RadialVelocityOrbit, ThieleInnesOrbit, orbit
+export mjd, VisualOrbit, VisualOrbitDeg, KepOrbit, RadialVelocityOrbit, ThieleInnesOrbit, orbit
 
 # Re-export from TypedTables
 export Table, FlexTable
@@ -46,7 +46,7 @@ include("observations/astrometry.jl")
 include("observations/images.jl")
 include("observations/photometry.jl")
 include("observations/astrometric-motion.jl")
-include("observations/radial-velocity.jl")
+# include("observations/radial-velocity.jl")
 # include("observations/transits.jl")
 
 include("sampling.jl")
@@ -100,5 +100,5 @@ function __init__()
     return
 end
 
-# include("precompile.jl")
+include("precompile.jl")
 end

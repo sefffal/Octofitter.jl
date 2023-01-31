@@ -106,3 +106,19 @@ function genobs(obs::RadialVelocity, elems::Vector{<:VisualOrbit}, θ_system)
 
     return RadialVelocity(radvel_table)
 end
+
+
+
+
+
+function HARPS_search(target, catalog=datadep"HARPS_RVBank")
+
+    
+    rvbank = CSV.read(catalog, Table)
+
+    # GJ436
+
+    # open(joinpath(catalog, "list.dat"), read=true) do io
+    #     map(readlines) 
+    return filter(row->row.target==target, eachrow(rvbank))
+end

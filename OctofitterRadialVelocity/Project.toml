@@ -1,0 +1,13 @@
+authors = ["William Thompson <will.thompson@outlook.com>"]
+name = "OctofitterRadialVelocity"
+uuid = "c6a353d9-c9c1-48aa-9c23-64f4679bd07d"
+version = "0.7.1"
+
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Octofitter = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
+TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
+
+[extras]
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"

@@ -16,7 +16,7 @@ jobs:
         with:
           version: 'nightly'
       - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; pkg"registry add General https://github.com/sefffal/DirectRegistry.git"; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=joinpath(pwd(),"Octofitter"))); Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")));'
       - uses: actions/cache@v1
         env:
           cache-name: cache-artifacts
