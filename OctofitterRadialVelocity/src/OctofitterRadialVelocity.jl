@@ -118,6 +118,7 @@ jd2mjd(jd) = jd + 2400000.5
 
 
 include("harps.jl")
+include("hires.jl")
 
 
 # Plot recipe for astrometry data
@@ -145,6 +146,25 @@ function __init__()
         # "42916f0008b8dd9ead18f8e793c009800b2dcf02b523d219463e1ecf021af6d1",
         "https://www2.mpia-hd.mpg.de/homes/trifonov/HARPS_RVBank_v1.csv",
     ))
+
+    register(DataDep("HIRES_rvs",
+        """
+        Dataset:     A public HARPS radial velocity database corrected for systematic errors
+        Author:      Butler et al.
+        License:     
+        Publication: https://ui.adsabs.harvard.edu/abs/2017yCat..51530208B/abstract
+        Website:     https://ebps.carnegiescience.edu/data/hireskeck-data
+
+        File size: 3.7MiB
+        """,
+        "https://drive.google.com/uc?id=10xCy8UIH8wUAnNJ8zCN8kfFzazWnw-f_&export=download",
+        "ad68c2edb69150318e8d47e34189fe104f2a5194a4fcd363c78c741755893251",
+        post_fetch_method=unpack
+    ))
+
+
+
+
     return
 end
 
