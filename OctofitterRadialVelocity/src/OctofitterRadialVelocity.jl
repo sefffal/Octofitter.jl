@@ -1,8 +1,10 @@
 module OctofitterRadialVelocity
 
 using Octofitter
-using TypedTables
+using PlanetOrbits
+using Tables, TypedTables
 using Distributions
+using DataDeps
 
 # Radial Velocity data type
 const rv_cols = (:epoch, :rv, :σ_rv)
@@ -36,7 +38,7 @@ function Octofitter.ln_like(rv::RadialVelocity, θ_system, elements)
                 return -Inf 
             end
 
-            rv_star += radvel(orbit, rv.table.epoch[i], θ_planet.mass*mjup2msol)
+            rv_star += radvel(orbit, rv.table.epoch[i], θ_planet.mass*Octofitter.mjup2msol)
         end
         # Each measurement is tagged with a jitter and rv zero point variable.
         # We then query the system variables for them.
