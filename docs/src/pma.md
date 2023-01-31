@@ -81,11 +81,11 @@ Sample from our model as usual:
 ```julia
 model = Octofitter.LogDensityModel(HD91312)
 chain = Octofitter.advancedhmc(
-    model, 0.85,
-    Octofitter.MCMCThreads(),
-    num_chains=Threads.nthreads(),
-    adaptation =  5_000,
-    iterations =  5_000,
+    # Note: start the target acceptance at around 0.7 and increase if you see numerical errors. That indicates a tricky posterior and that therefore smaller steps are required.
+    model, 0.92, 
+    adaptation =  1_000,
+    iterations =  4_000,
+    initial_samples = 500_000
 )
 ```
 
@@ -175,7 +175,7 @@ Use the `plotchains` function to display orbits from the posterior against the i
 
 ```julia
 plotchains(chain, :B, kind=:astrometry, color="B_mass")
-scatter!(astrom, label="astrometry", markersize=0)
+scatter!(astrom, label="astrometry", markersize=0, linecolor=1)
 ```
 [![orbit posterior](assets/pma-astrometry-posterior.png)](assets/pma-astrometry-posterior.svg)
 
@@ -199,9 +199,9 @@ For a quick look, you can just run `corner(chain)`, but for more professional ou
 using CairoMakie: Makie
 using PairPlots
 table = (;
-    a=         vec(chain["B_a"]),
     M=         vec(chain["M"]),
     m=         vec(chain["B_mass"]),
+    a=         vec(chain["B_a"]),
     e=         vec(chain["B_e"]),
     i=rad2deg.(vec(chain["B_i"])),
     Ω=rad2deg.(vec(chain["B_Ω"])),
