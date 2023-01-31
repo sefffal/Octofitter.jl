@@ -129,6 +129,15 @@ function HARPS_search(target, catalog=datadep"HARPS_RVBank")
 end
 
 
+
+# Plot recipe for astrometry data
+# @recipe function f(rv::RadialVelocity)
+
+# end
+
+
+
+
 function __init__()
 
     register(DataDep("HARPS_RVBank",
