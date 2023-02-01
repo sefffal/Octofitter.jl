@@ -133,11 +133,26 @@ function expandparam(var, p::UniformCircular)
     varx = Symbol("$(var)y")
     vary = Symbol("$(var)x")
 
-    callback = @RuntimeGeneratedFunction(:(
-        function (sys, pl)
-            atan(pl.$vary, pl.$varx)/2pi*$(p.domain)
-        end
-    ))
+    # callback = @RuntimeGeneratedFunction(:(
+    #     # This parameterization needs to work for either a planet
+    #     # or a system as a whole. Therefore, use the first
+    #     # non-nothing argument
+    #     function (arg1, arg2)
+    #         if isnothing(arg2)
+    #             atan(arg1.$vary, arg1.$varx)/2pi*$(p.domain)
+    #         else
+    #             atan(arg2.$vary, arg2.$varx)/2pi*$(p.domain)
+    #         end
+    #     end
+    # ))
+    callback = let varx=varx, vary=vary, domain=p.domain
+        callback(sys) = atan(
+            getproperty(sys, vary),
+            getproperty(sys, varx))/2pi*domain
+        callback(sys,pl) = atan(
+            getproperty(pl, vary),
+            getproperty(pl, varx))/2pi*domain
+    end
 
     return OrderedDict(
         varx => Normal(),
