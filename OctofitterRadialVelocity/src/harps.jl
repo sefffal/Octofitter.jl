@@ -22,7 +22,7 @@ function HARPS_rvs(target, catalog=datadep"HARPS_RVBank")
     return RadialVelocity(Table(;
         epoch=mjd2jd.(table.BJD),
         inst_idx=ones(Int,size(table,1)),
-        rv=table.RV_mlc_nzp,
+        rv=-table.RV_mlc_nzp,
         σ_rv=table.e_RV_mlc_nzp,
     ))
 end
