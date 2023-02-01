@@ -62,9 +62,6 @@ function ln_like(astrom::Astrometry, θ_planet, orbit,)
             σ₁ = astrom.table.σ_pa[i ]
             σ₂ = astrom.table.σ_sep[i]
 
-            if hasproperty(astrom.table, :cor)
-                @error "Correlation between PA and SEP may not be handled correctly yet. If you need this, verify this calculation first." maxlog=1
-            end
         # RA and DEC specified
         else
             x = raoff(o)
