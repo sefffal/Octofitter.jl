@@ -20,7 +20,7 @@ jobs:
         with:
           version: 'nightly'
       - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=joinpath(pwd(),"Octofitter"))); Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")));'
+        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")));Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterImages")));'
       - uses: actions/cache@v1
         env:
           cache-name: cache-artifacts
