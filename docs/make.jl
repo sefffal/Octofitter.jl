@@ -1,7 +1,7 @@
 using Pkg
 cd(@__DIR__)
 Pkg.activate(".")
-pkg"dev ../Octofitter ../OctofitterRadialVelocity ../OctofitterWhereistheplanet"
+pkg"dev ../Octofitter ../OctofitterRadialVelocity ../OctofitterImages ../OctofitterWhereistheplanet"
 Pkg.instantiate()
 Pkg.precompile()
 
