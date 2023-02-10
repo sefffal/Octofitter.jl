@@ -16,7 +16,6 @@ using StatsBase
 using NamedTupleTools
 using OrderedCollections
 using PlanetOrbits
-using AstroImages
 
 # Re-export these from DirectOrbits
 export mjd, VisualOrbit, VisualOrbitDeg, KepOrbit, RadialVelocityOrbit, ThieleInnesOrbit, orbit

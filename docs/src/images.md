@@ -19,6 +19,8 @@ The first step will be to load your images. For this, we will use our AstroImage
 
 Start by loading your images:
 ```julia
+using Octofitter
+using OctofitterImages
 using AstroImages
 
 # Load individual iamges

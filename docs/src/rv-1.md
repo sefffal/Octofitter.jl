@@ -12,7 +12,7 @@ Load the packages we'll need:
 using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, Plots
 ```
 
-We can specify a table of radial velocity data manually by creating a [`RadialVelocity`](@ref). An example of this is in [the other RV tutorial](@ref (@id fit-rv-pma).
+We can specify a table of radial velocity data manually by creating a [`RadialVelocity`](@ref). An example of this is in [the other RV tutorial](@ref fit-rv-pma).
 
 We can also directly load in data from the HARPS RVBank dataset:
 ```julia
