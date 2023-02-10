@@ -11,23 +11,25 @@ Normally, Julia packages are installed from the General registry. Since Octofitt
 
 1. Start julia in a terminal by running `julia`
 2. Type `]` to enter package-mode (see Julia documentation for more details)
-3. Type `up` to setup the General registry if this is your first time using Julia.
-4. Type `add https://github.com/sefffal/Octofitter.jl.git`
-5. Type `add Distributions`
+3. Type `add https://github.com/sefffal/Octofitter.jl Distributions`
 
-You will need the Distributions package added above so that you can specify priors for different parameters in your models.
+You will need the Distributions package so that you can specify priors for different parameters in your models.
 
 If you would like to visualize your results, you can also install the Plots package:
 4. Type `add Plots`
 
-For loading images to sample, add the AstroImages package 
-4. Type `add AstroImages`
-Note: it's possible to use this package without AstroImages. This just simplifies the process of loading FITS files and preparing them for sampling.
-
-Finally, you may wish to `add PairPlots` to examine the correlation between variables in more detail.
-
 This will take a little while to download all the required packages and precompile for your system.
 
+## Extension Packages
+Some Octofitter functionality exists in extension packages, including radial velocity fitting.
+If you need one of these packages you can install them like so:
+```
+pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterImages
+pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterRadialVelocity
+```
+That is, specify the extension package you want to install after the colon (`:`).
+
+These aren't included by default since they may include a number of heavier dependencies that aren't needed by all users.
 
 ## Fitting your first model
 Start with the [Fit Astrometry](@ref fit-astrometry) tutorial which shows how to model of one planet with some astrometry points.

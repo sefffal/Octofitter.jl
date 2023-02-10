@@ -4,8 +4,8 @@ You can use Octofitter as a basic tool for fitting radial velocity data, by itse
 Multiple instruments (up to five) are supported.
 
 !!! tip
-    Radial velocity modelling is supported in Octofitter via the extension package OctofitterRadialVelocity. You'll need
-    to add both packaged to continue.
+    Radial velocity modelling is supported in Octofitter via the extension package OctofitterRadialVelocity. To install it, run 
+    `pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterRadialVelocity`
 
 Load the packages we'll need:
 ```julia

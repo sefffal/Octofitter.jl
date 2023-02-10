@@ -1,6 +1,14 @@
+module OctofitterImages
+
+using Octofitter
+using PlanetOrbits
+using Tables, TypedTables
+
 
 using ImageTransformations
 using CoordinateTransformations
+using Interpolations
+using AstroImages
 
 
 const images_cols = (:band, :image, :epoch, :platescale,)
@@ -23,7 +31,7 @@ Epoch is in MJD.
 Band is a symbol which matches the one used in the planet's `Priors()` block.
 Platescale is in mas/px.
 """
-struct Images{TTable<:Table} <: AbstractObs
+struct Images{TTable<:Table} <: Octofitter.AbstractObs
     table::TTable
     function Images(observations...)
         table = Table(observations...)
@@ -113,7 +121,7 @@ end
 """
 Likelihood of there being planets in a sequence of images.
 """
-function ln_like(images::Images, θ_planet, orbit)
+function Octofitter.ln_like(images::Images, θ_planet, orbit)
     
     # Resolve the combination of system and planet parameters
     # as a VisualOrbit object. This pre-computes
@@ -189,7 +197,7 @@ end
 
 
 # Generate new images
-function genobs(obs::Images, elements::Vector{<:VisualOrbit}, θ_system)
+function Octofitter.genobs(obs::Images, elements::Vector{<:VisualOrbit}, θ_system)
 
     newrows = map(obs.table) do row
         (;band, image, platescale, epoch, psf) = row
@@ -227,4 +235,14 @@ function genobs(obs::Images, elements::Vector{<:VisualOrbit}, θ_system)
     end
 
     return Images(newrows)
+end
+
+
+function __init__()
+
+
+
+    return
+end
+
 end

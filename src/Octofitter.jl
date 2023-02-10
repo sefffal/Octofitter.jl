@@ -43,7 +43,7 @@ include("variables.jl")
 
 include("observations/system.jl")
 include("observations/astrometry.jl")
-include("observations/images.jl")
+# include("observations/images.jl")
 include("observations/photometry.jl")
 include("observations/astrometric-motion.jl")
 # include("observations/radial-velocity.jl")

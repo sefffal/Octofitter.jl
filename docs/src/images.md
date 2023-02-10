@@ -10,6 +10,10 @@ If you have a clear detection in one epoch, but no detection in another, Octofit
 
 Sampling from images can be freely combined with any known astrometry points, as well as astrometric acceleration. See advanced models for more details.
 
+!!! tip
+    Image modelling is supported in Octofitter via the extension package OctofitterImages. To install it, run 
+    `pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterImages`
+
 ## Preparing images
 The first step will be to load your images. For this, we will use our AstroImages.jl package.
 
