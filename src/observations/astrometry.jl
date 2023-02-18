@@ -18,22 +18,137 @@ export Astrometry
 
 
 # Plot recipe for astrometry data
+using LinearAlgebra
 @recipe function f(astrom::Astrometry)
    
     xflip --> true
     xguide --> "Δ right ascension (mas)"
     yguide --> "Δ declination (mas)"
+    color --> :black
 
     if hasproperty(astrom.table, :pa)
-        x = astrom.table.sep .* cosd.(astrom.table.pa)
-        y = astrom.table.sep .* sind.(astrom.table.pa)
-        return -y, -x
-    else
-        xerror := astrom.table.σ_ra
-        yerror := astrom.table.σ_dec
+        x = astrom.table.sep# .* cosd.(astrom.table.pa)
+        y = astrom.table.pa# .* sind.(astrom.table.pa)
 
-        return astrom.table.ra, astrom.table.dec
+        if hasproperty(astrom.table, :cor)
+            cor = astrom.table.cor
+        else
+            cor = 0
+        end
+
+        
+        σ₁ = astrom.table.σ_sep
+        σ₂ = astrom.table.σ_pa
+
+        error_ellipses = broadcast(x,y,σ₁,cor,σ₂) do x,y,σ₁,cor,σ₂
+            Σ = [
+                σ₁^2        cor*σ₁*σ₂
+                cor*σ₁*σ₂   σ₂^2
+            ]
+            vals, vecs = eigen(Σ) # should be real and sorted by real eigenvalue
+            length_major = sqrt(vals[2])
+            length_minor = sqrt(vals[1])
+            λ = vecs[:,2]
+            α = atan(λ[2],λ[1])
+            @show length_major length_minor α
+
+            xvals = [
+                # Major axis
+                x - length_major*cos(α),
+                x,
+                x + length_major*cos(α),
+                NaN,
+                # Minor axis
+                x - length_minor*cos(α+π/2),
+                x,
+                x + length_minor*cos(α+π/2),
+                NaN,
+            ]
+            yvals = [
+                # Major axis
+                y - length_major*sin(α),
+                y,
+                y + length_major*sin(α),
+                NaN,
+                # Minor axis
+                y - length_minor*sin(α+π/2),
+                y,
+                y + length_minor*sin(α+π/2),
+                NaN,
+            ]
+            xvals, yvals
+        end
+        xs = Base.vcat(getindex.(error_ellipses,1)...)
+        ys = Base.vcat(getindex.(error_ellipses,2)...)
+        @show xs ys
+
+        @series begin
+            label := nothing
+            xs .* cos.(ys), xs .* sin.(ys)
+        end
+        @series begin
+            x = astrom.table.sep .* cos.(astrom.table.pa)
+            y = astrom.table.sep .* sin.(astrom.table.pa)
+            seriestype:=:scatter
+            x, y
+        end
+    else
+        x = astrom.table.ra
+        y = astrom.table.dec
+
+        if hasproperty(astrom.table, :cor)
+            cor = astrom.table.cor
+        else
+            cor = 0
+        end
+        
+        σ₁ = astrom.table.σ_ra
+        σ₂ = astrom.table.σ_dec
+
+        error_ellipses = broadcast(x,y,σ₁,cor,σ₂) do x,y,σ₁,cor,σ₂
+            Σ = [
+                σ₁^2        cor*σ₁*σ₂
+                cor*σ₁*σ₂   σ₂^2
+            ]
+            vals, vecs = eigen(Σ) # should be real and sorted by real eigenvalue
+            length_major = sqrt(vals[2])
+            length_minor = sqrt(vals[1])
+            λ = vecs[:,2]
+            α = atan(λ[2],λ[1])
+
+            xvals = [
+                # Major axis
+                x - length_major*cos(α),
+                x + length_major*cos(α),
+                NaN,
+                # Minor axis
+                x - length_minor*cos(α+π/2),
+                x + length_minor*cos(α+π/2),
+                NaN,
+            ]
+            yvals = [
+                # Major axis
+                y - length_major*sin(α),
+                y + length_major*sin(α),
+                NaN,
+                # Minor axis
+                y - length_minor*sin(α+π/2),
+                y + length_minor*sin(α+π/2),
+                NaN,
+            ]
+            xvals, yvals
+        end
+        xs = Base.vcat(getindex.(error_ellipses,1)...)
+        ys = Base.vcat(getindex.(error_ellipses,2)...)
+
+        @series begin
+            label := nothing
+            xs, ys
+        end
+
     end
+
+
 end
 
 

@@ -211,7 +211,7 @@ function init_plots()
                         m = mass*mjup2msol
                     end
                 end
-                Plots.plot!(p, orbits[i]; label="", alpha, mass=m, kwargs_loc...)
+                Plots.plot!(p, orbits[i]; label="", alpha, mass=m, colorbar=true, kwargs_loc...)
             end
             # Colorbar
             # Plots.scatter!(p, [NaN],[NaN]; marker_z=[0], ms=0, clims=clims, color=cmap, label="", colorbartitle)
