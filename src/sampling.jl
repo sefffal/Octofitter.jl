@@ -307,7 +307,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
         # an error, we'll see it right away instead of burried in some deep stack
         # trace from the sampler, autodiff, etc.
         ln_like_generated(system, arr2nt(initial_θ_0))
-        ln_prior_transformed(initial_θ_0_t)
+        ln_prior_transformed(initial_θ_0)
 
 
         # We use let blocks to prevent type instabilities from closures
@@ -316,7 +316,8 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                                       system=system,
                                       Bijector_invlinkvec=Bijector_invlinkvec,
                                       ln_prior_transformed=ln_prior_transformed,
-                                      ln_like_generated=ln_like_generated
+                                      ln_like_generated=ln_like_generated,
+                                      D=D
 
             # Capture these variables in a let binding to improve performance
             # We also set up temporary storage to reduce allocations
@@ -326,10 +327,19 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 # Transform back from the unconstrained support to constrained support for the likelihood function
                 θ_natural = Bijector_invlinkvec(θ_transformed)
                 θ_structured = arr2nt(θ_natural)
-                lp = ln_prior_transformed(θ_transformed)
-                ll = ln_like_generated(system, θ_structured)
-                return lp+ll
+                lprior = ln_prior_transformed(θ_natural)
+                llike  = ln_like_generated(system, θ_structured)
+                lpost = lprior+llike
+                if !isfinite(lpost)
+                    @error "Invalid log posterior encountered. This likely indicates a problem with the prior support." lprior llike θ=θ_structured
+                    error()
+                end
+                return lpost
             end
+
+            # Test likelihood function immediately to give user a clean error
+            # if it fails for some reason.
+            ℓπcallback(initial_θ_0_t)
 
             if autodiff == :Enzyme
                 # Enzyme mode:
@@ -377,6 +387,10 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 # https://juliadiff.org/ForwardDiff.jl/stable/user/advanced/#Fixing-NaN/Inf-Issues
                 set_preferences!(ForwardDiff, "nansafe_mode" => true)
 
+                # Test likelihood function gradient immediately to give user a clean error
+                # if it fails for some reason.
+                ForwardDiff.gradient(ℓπcallback, initial_θ_0_t)
+
                 # ForwardDiff mode:
                 # Create temporary storage space for gradient computations
                 diffresults = [
@@ -418,8 +432,12 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
             # here in the output logs.
             ℓπcallback(initial_θ_0_t)
             ∇ℓπcallback(initial_θ_0_t) 
-            verbosity >= 1 && @showtime ℓπcallback(initial_θ_0_t)
-            verbosity >= 1 && @showtime ∇ℓπcallback(initial_θ_0_t)
+            if verbosity >= 1
+                (function(ℓπcallback, ∇ℓπcallback, θ)
+                    @showtime ℓπcallback(θ)
+                    @showtime ∇ℓπcallback(θ)
+                end)(ℓπcallback, ∇ℓπcallback, initial_θ_0_t)
+            end
 
             ℓπcallback, ∇ℓπcallback
         end
@@ -655,11 +673,11 @@ function advancedhmc(
     verbosity >= 3 && @info "Finding good stepsize"
     ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
     verbosity >= 3 && @info "Found initial stepsize" ϵ 
-    # integrator = Leapfrog(ϵ)
-    integrator = JitteredLeapfrog(ϵ, 0.1) # 10% normal distribution on step size to help in areas of high curvature. 
+    integrator = Leapfrog(ϵ)
+    # integrator = JitteredLeapfrog(ϵ, 0.1) # 10% normal distribution on step size to help in areas of high curvature. 
     verbosity >= 3 && @info "Creating kernel"
-    # κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
-    κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
+    κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
+    # κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
     
     verbosity >= 3 && @info "Creating adaptor"
     mma = MassMatrixAdaptor(metric)

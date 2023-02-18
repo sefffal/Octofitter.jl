@@ -3,7 +3,7 @@
 # This code provides helpers for loading data from the HIPPARCOS GAIA Catalog of Accelerations.
 # 
 
-# using Measurements
+using AstroImages
 
 """
     gaia_plx(gaia_id=12123)

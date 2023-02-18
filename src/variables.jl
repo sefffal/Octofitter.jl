@@ -133,26 +133,15 @@ function expandparam(var, p::UniformCircular)
     varx = Symbol("$(var)y")
     vary = Symbol("$(var)x")
 
-    # callback = @RuntimeGeneratedFunction(:(
-    #     # This parameterization needs to work for either a planet
-    #     # or a system as a whole. Therefore, use the first
-    #     # non-nothing argument
-    #     function (arg1, arg2)
-    #         if isnothing(arg2)
-    #             atan(arg1.$vary, arg1.$varx)/2pi*$(p.domain)
-    #         else
-    #             atan(arg2.$vary, arg2.$varx)/2pi*$(p.domain)
-    #         end
-    #     end
-    # ))
-    callback = let varx=varx, vary=vary, domain=p.domain
-        callback(sys) = atan(
-            getproperty(sys, vary),
-            getproperty(sys, varx))/2pi*domain
-        callback(sys,pl) = atan(
-            getproperty(pl, vary),
-            getproperty(pl, varx))/2pi*domain
-    end
+    callback_inner = @RuntimeGeneratedFunction(:(
+        # This parameterization needs to work for either a planet
+        # or a system as a whole.
+        function (body)
+            atan(body.$vary, body.$varx)/2pi*$(p.domain)
+        end
+    ))
+    callback(sys,pl) = callback_inner(pl)
+    callback(sys) = callback_inner(sys)
 
     return OrderedDict(
         varx => Normal(),
@@ -553,9 +542,9 @@ function make_ln_prior_transformed(system::System)
     # System priors
     for prior_distribution in values(system.priors.priors)
         i += 1
-        prior_unconstrained = Bijectors.transformed(prior_distribution)
+        # prior_unconstrained = Bijectors.transformed(prior_distribution)
         ex = :(
-            lp += $logpdf_with_trans($prior_unconstrained, arr[$i], true)
+            lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
         )
         push!(prior_evaluations,ex)
     end
@@ -565,9 +554,9 @@ function make_ln_prior_transformed(system::System)
         # for prior_distribution in values(planet.priors.priors)
         for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
             i += 1
-            prior_unconstrained = Bijectors.transformed(prior_distribution)
+            # prior_distribution = Bijectors.transformed(prior_distribution)
             ex = :(
-                lp += $logpdf_with_trans($prior_unconstrained, arr[$i], true)
+                lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
             )
             push!(prior_evaluations,ex)
         end

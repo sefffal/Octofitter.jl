@@ -4,23 +4,36 @@ module OctofitterWhereistheplanet
 using Octofitter
 using HDF5
 using DataDeps
+using StringDistances
+using MCMCChains: MCMCChains
 
-function Whereistheplanet_search(target, catalog=datadep"Whereistheplanet")
+function search(target, catalog=datadep"Whereistheplanet")
 
     dirpath = joinpath(catalog, "whereistheplanet-master", "data")
     fnames = readdir(dirpath,join=true)
-    fname_matched_i = findfirst(fnames) do fname
+    avail_targets = map(fnames) do fname
         m = match(r"post_(.+)\.hdf5", fname)
-        !isnothing(m) && m.captures[1] == target
+        return !isnothing(m) ? m.captures[1] : ""
+    end
+    fname_matched_i = findfirst(==(target), avail_targets)
+
+    if isnothing(fname_matched_i)
+        avail_filt = avail_targets[avail_targets.!=""] 
+        similarity = evaluate.(Ref(Levenshtein()), target, avail_filt)
+        ii = sortperm(similarity)
+        closest_3 = avail_filt[ii[1:min(3,end)]]
+        @error "No results were found for the target $target."
+        @info  "Here are a list of similar and available target names" closest_3
+        error()
     end
 
     return fnames[fname_matched_i]
 
 end
 
-function Whereistheplanet_astrom(target, catalog=datadep"Whereistheplanet")
+function astrom(target, catalog=datadep"Whereistheplanet")
 
-    fname = Whereistheplanet_search(target)
+    fname = search(target)
     return h5open(fname, "r") do f
         records = read(f["data"])
 
@@ -52,16 +65,40 @@ function Whereistheplanet_astrom(target, catalog=datadep"Whereistheplanet")
 
         # return(out...)
     end
+end
 
 
-
-
-    
-    # rvbank = CSV.read(joinpath(catalog, "HARPS_RVBank_v1.csv"), Table)
-
-    # target_rows = findall(==(target), rvbank.target)
-    # return rvbank[target_rows]
-   
+"""
+Load an Orbitize! posterior from an HDF5 file and convert it into
+an Octofitter-compatible chains format.
+Both tools use the same orbit conventions so this is fairly straightforward.
+"""
+function posterior(fname_or_targetname)
+    if !occursin(".hdf5", fname_or_targetname)
+        fname = search(fname_or_targetname)
+    else
+        fname = fname_or_targetname
+    end
+    return h5open(fname, "r") do f
+        # Standard orbitize basis assumed:
+        # semi-major axis (sma), eccentricity (ecc), inclination (inc), argument of periastron (aop), position angle of the nodes (pan), epoch of periastron expressed as a fraction of the period past a reference epoch (tau), parallax (plx) and total system mass (mtot)
+        chn =  MCMCChains.Chains(
+            transpose(read(f["post"])),
+            [
+                :b_a,
+                :b_e,
+                :b_i,
+                :b_ω,
+                :b_Ω,
+                :b_τ,
+                :plx,
+                :M
+            ],
+        )
+        # Read additional attributes in and convert to named tuple
+        metadata = [Symbol(k)=>v for (k,v) in attrs(f)]
+        return MCMCChains.setinfo(chn, NamedTuple(metadata))
+    end
 end
 
 function __init__()
