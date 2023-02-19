@@ -330,10 +330,10 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 lprior = ln_prior_transformed(θ_natural)
                 llike  = ln_like_generated(system, θ_structured)
                 lpost = lprior+llike
-                if !isfinite(lpost)
-                    @error "Invalid log posterior encountered. This likely indicates a problem with the prior support." lprior llike θ=θ_structured
-                    error()
-                end
+                # if !isfinite(lpost)
+                #     @error "Invalid log posterior encountered. This likely indicates a problem with the prior support." lprior llike θ=θ_structured
+                #     error()
+                # end
                 return lpost
             end
 
@@ -673,8 +673,8 @@ function advancedhmc(
     verbosity >= 3 && @info "Finding good stepsize"
     ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
     verbosity >= 3 && @info "Found initial stepsize" ϵ 
-    integrator = Leapfrog(ϵ)
-    # integrator = JitteredLeapfrog(ϵ, 0.1) # 10% normal distribution on step size to help in areas of high curvature. 
+    # integrator = Leapfrog(ϵ)
+    integrator = JitteredLeapfrog(ϵ, 0.05) # 5% normal distribution on step size to help in areas of high curvature. 
     verbosity >= 3 && @info "Creating kernel"
     κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
     # κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
@@ -794,6 +794,13 @@ function advancedhmc(
     # else
     if isnothing(initial_parameters)
         initial_parameters = fill(initial_θ_t, num_chains)
+    else
+        if eltype(initial_parameters) <: Number
+            initial_parameters = fill(initial_parameters, num_chains)
+        else
+            # Assume they know what they're doing and are initializing multiple chains separately
+        end
+        initial_parameters = map(model.link, initial_parameters)
     end
 
     mc_samples_all_chains = AbstractMCMC.sample(
@@ -869,8 +876,8 @@ function advancedhmc(
         (;
             start_time,
             stop_time,
-            model=model.system,
-            logpost=logposts_mat,
+            # model=model.system,
+            # logpost=logposts_mat,
             # states=mc_samples_all_chains,
             # pathfinder=pathfinder_chain_with_info,
             # _restart=(;

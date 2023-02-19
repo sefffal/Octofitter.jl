@@ -192,10 +192,10 @@ function generate(system::System, θ_newsystem = drawfrompriors(system))
         planet = system.planets[i]
         θ_newplanet = θ_newsystem.planets[i]
 
-        if (hasproperty(θ_newplanet, :a) && θ_newplanet.a <= 0) ||
-            (hasproperty(θ_newplanet, :e) && !(0 <= θ_newplanet.e < 1))
-            out_of_bounds[] = true
-        end
+        # if (hasproperty(θ_newplanet, :a) && θ_newplanet.a <= 0) ||
+        #     (hasproperty(θ_newplanet, :e) && !(0 <= θ_newplanet.e < 1))
+        #     out_of_bounds[] = true
+        # end
 
         neworbit = Octofitter.construct_elements(Octofitter.orbittype(planet), θ_newsystem, θ_newplanet)
 

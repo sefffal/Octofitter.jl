@@ -54,7 +54,7 @@ export projectpositions
 
 
 function bayesfactor(chain, planet, property)
-    prior = chain.info.model.planets[planet].priors.priors[property]
+    prior = model.system.planets[planet].priors.priors[property]
     post = chain["$planet.$property"]
 
     # Fit a histogram to the posterior.
@@ -82,7 +82,7 @@ end
         chain, planet_key;
         N=1500,
         ii = rand(1:size(chain,1)*size(chain,3), N),
-        color=length(chain.info.model.planets) == 0 || !haskey(chain, string(planet_key)*"_a") ? nothing : string(planet_key)*"_a",
+        color=length(model.system.planets) == 0 || !haskey(chain, string(planet_key)*"_a") ? nothing : string(planet_key)*"_a",
         colorbartitle=color,
         clims=nothing,
         cmap=:plasma,
@@ -152,7 +152,7 @@ function init_plots()
             p, chain, planet_key;
             N=1500,
             ii = rand(1:size(chain,1)*size(chain,3), N),
-            color=length(chain.info.model.planets) == 0 || !haskey(chain, string(planet_key)*"_a") ? nothing : string(planet_key)*"_a",
+            color=length(model.system.planets) == 0 || !haskey(chain, string(planet_key)*"_a") ? nothing : string(planet_key)*"_a",
             colorbartitle=color,
             clims=nothing,
             cmap=:plasma,
@@ -395,7 +395,7 @@ function init_plots()
         #     N=1500,
         #     alpha=(N <= 15 ? 1 : 30/N),
         #     ii = rand(1:size(chain,1)*size(chain,3), N),
-        #     color=length(chain.info.model.planets) == 0 ? nothing : string(planet_key)*"_a",
+        #     color=length(model.system.planets) == 0 ? nothing : string(planet_key)*"_a",
         #     colorbartitle=color,
         #     cmap=:plasma,
         #     clims=isnothing(color) ? nothing : quantile(Iterators.flatten(
@@ -414,14 +414,14 @@ function init_plots()
         #         margin=0Plots.mm,
         #         kwargs...
         #     )
-        #     if length(chain.info.model.planets[planet_key].observations) > 0 && chain.info.model.planets[planet_key].observations[1] isa Astrometry
+        #     if length(model.system.planets[planet_key].observations) > 0 && model.system.planets[planet_key].observations[1] isa Astrometry
         #         el = Octofitter.construct_elements(chain, :b, 1)
         #         scalefacty = PlanetOrbits.posy(el,0) / decoff(el, 0)
         #         scalefactx = PlanetOrbits.posx(el,0) / raoff(el, 0)
         #         Plots.scatter!(
         #             p1,
-        #             scalefactx .* chain.info.model.planets[planet_key].observations[1].table.ra,
-        #             scalefacty .* chain.info.model.planets[planet_key].observations[1].table.dec,
+        #             scalefactx .* model.system.planets[planet_key].observations[1].table.ra,
+        #             scalefacty .* model.system.planets[planet_key].observations[1].table.dec,
         #             color=:black,label=""
         #         )
         #     end
@@ -436,9 +436,9 @@ function init_plots()
         #         margin=0Plots.mm,
         #         kwargs...
         #     )
-        #     if length(chain.info.model.planets[planet_key].observations) > 0 && chain.info.model.planets[planet_key].observations[1] isa Astrometry
+        #     if length(model.system.planets[planet_key].observations) > 0 && model.system.planets[planet_key].observations[1] isa Astrometry
         #         el = Octofitter.construct_elements(chain, :b, 1)
-        #         Plots.hline!(p2, scalefacty .* chain.info.model.planets[planet_key].observations[1].table.dec, color=:black,label="")
+        #         Plots.hline!(p2, scalefacty .* model.system.planets[planet_key].observations[1].table.dec, color=:black,label="")
         #     end
         #     p3 = plotposterior(
         #         chain, planet_key, color;
@@ -450,9 +450,9 @@ function init_plots()
         #         size=(500,500),
         #         kwargs...
         #     )
-        #     if length(chain.info.model.planets[planet_key].observations) > 0 && chain.info.model.planets[planet_key].observations[1] isa Astrometry
+        #     if length(model.system.planets[planet_key].observations) > 0 && model.system.planets[planet_key].observations[1] isa Astrometry
         #         el = Octofitter.construct_elements(chain, :b, 1)
-        #         Plots.vline!(p3, scalefactx .* chain.info.model.planets[planet_key].observations[1].table.ra, color=:black,label="")
+        #         Plots.vline!(p3, scalefactx .* model.system.planets[planet_key].observations[1].table.ra, color=:black,label="")
         #     end
         #     # Set limits correctly
         #     Plots.ylims!(p2, Plots.ylims(p1))
@@ -480,7 +480,7 @@ function init_plots()
         # function plotmodel!(
         #     chain,
         #     N=1500,
-        #     system=chain.info.model;
+        #     system=model;
         #     alpha=(N <= 15 ? 1 : 30/N),
         #     ii = rand(1:size(chain,1)*size(chain,3), N),
         #     color=length(system.planets) == 0 ? nothing : string(first(keys(system.planets)))*"_a",
@@ -604,10 +604,12 @@ function init_plots()
             timeplot!(args...; kwargs...)
         end
         function timeplot!(
+            model,
             chain,
             planet_key,
             color,
-            prop;
+            prop,
+            ;
             N = 1500,
             ii = rand(1:size(chain,1)*size(chain,3), N),
             alpha = 0.05,
@@ -621,7 +623,7 @@ function init_plots()
             else # They passed in the values directly
                 color = color[ii]
             end
-            planet = chain.info.model.planets[planet_key]
+            planet = model.system.planets[planet_key]
             if prop == :ra
                 ylabel = "RA (mas)"
             elseif prop == :dec
@@ -649,11 +651,11 @@ function init_plots()
             else
                 planet_keys = planet_key
             end
-            all_epochs_planet = mapreduce(vcat, keys(chain.info.model.planets)) do planet_key
-                planet = chain.info.model.planets[planet_key]
+            all_epochs_planet = mapreduce(vcat, keys(model.system.planets)) do planet_key
+                planet = model.system.planets[planet_key]
                 reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch)], init=[])
             end
-            all_epochs_star = mapreduce(vcat, chain.info.model.observations, init=Float64[]) do obs
+            all_epochs_star = mapreduce(vcat, model.system.observations, init=Float64[]) do obs
                 if hasproperty(obs.table, :epoch)
                     return obs.table.epoch
                 else
@@ -728,8 +730,8 @@ function init_plots()
                 diffs = diff(fit, dims=1)
                 fit[findall(abs.(diffs) .> 100)] .= NaN
             elseif prop == :pmra
-                if !isnothing(propermotionanom(chain.info.model))
-                    hgca = propermotionanom(chain.info.model).table[1]
+                if !isnothing(propermotionanom(model))
+                    hgca = propermotionanom(model).table[1]
                     t = range(years2mjd(hgca.epoch_ra_hip)-365*5, years2mjd(hgca.epoch_ra_gaia)+365*5, length=100)
                     y = [hgca.pmra_hip, hgca.pmra_hg, hgca.pmra_gaia]
                     yerr = [hgca.pmra_hip_error, hgca.pmra_hg_error, hgca.pmra_gaia_error]
@@ -745,8 +747,8 @@ function init_plots()
                     fit = fit .+ chain["pmra"][ii]
                 end
             elseif prop == :pmdec
-                if !isnothing(propermotionanom(chain.info.model))
-                    hgca = propermotionanom(chain.info.model).table[1]
+                if !isnothing(propermotionanom(model))
+                    hgca = propermotionanom(model).table[1]
                     t = range(years2mjd(hgca.epoch_dec_hip)-365*5, years2mjd(hgca.epoch_dec_gaia)+365*5, length=100)
                     y = [hgca.pmdec_hip, hgca.pmdec_hg, hgca.pmdec_gaia]
                     yerr = [hgca.pmdec_hip_error, hgca.pmdec_hg_error, hgca.pmdec_gaia_error]
@@ -768,7 +770,7 @@ function init_plots()
                     elements = Octofitter.construct_elements(chain, planet_key, ii)
                     fit = fit .+ radvel.(elements, t', collect(chain["$(planet_key)_mass"][ii]).*mjup2msol)
                 end
-                for obs in chain.info.model.observations
+                for obs in model.system.observations
                     # TODO: make this pluggable instead of this hacky workaround
                     if startswith(string(typeof(obs)), "RadialVelocity")
                         if haskey(chain,:rv0_1)
@@ -852,8 +854,9 @@ function init_plots()
         end
 
         function timeplotgrid(
+            model,
             chains;
-            color = "$(first(keys(chains.info.model.planets)))_e",
+            color = "$(first(keys(chains.info.model.system.planets)))_e",
             clims = quantile(vec(chains[color]),(0.01, 0.99)),
             cmap = :plasma,
             alpha=0.1,
@@ -868,14 +871,14 @@ function init_plots()
                 alpha,
                 kwargs...
             )
-            planet_keys = keys(chains.info.model.planets)
+            planet_keys = keys(chains.info.model.system.planets)
 
             ppost = Plots.plot()
             for (i,planet_key) in enumerate(planet_keys)
                 # plotchains!(ppost, chains, planet_key; color, body=:primary, mass=chains["$(planet_key)_mass"], rev=false, colorbar=nothing, kwargs...)
                 plotchains!(ppost, chains, planet_key; color, rev=false, colorbar=nothing, kwargs...)
                 Plots.scatter!([0],[0],marker=(:star, :white, :black, 5),label="")
-                astrom = astrometry(chains.info.model.planets[planet_key])
+                astrom = astrometry(chains.info.model.system.planets[planet_key])
                 if !isnothing(astrom) && hasproperty(astrom.table, :ra)
                     els = construct_elements(chains, planet_key, :)
                     sols = orbitsolve.(els, astrom.table.epoch')
@@ -967,7 +970,7 @@ function init_plots()
             pmra_hg_model = zeros(size(ii))
             pmdec_hg_model = zeros(size(ii))
 
-            planets = keys(chains.info.model.planets)
+            planets = keys(chains.info.model.system.planets)
         
             for (j,jj) in enumerate(ii)
                 elements = [

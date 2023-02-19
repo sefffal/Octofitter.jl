@@ -27,8 +27,8 @@ using LinearAlgebra
     color --> :black
 
     if hasproperty(astrom.table, :pa)
-        x = astrom.table.sep# .* cosd.(astrom.table.pa)
-        y = astrom.table.pa# .* sind.(astrom.table.pa)
+        x = astrom.table.sep
+        y = pi/2 .- astrom.table.pa
 
         if hasproperty(astrom.table, :cor)
             cor = astrom.table.cor
@@ -50,7 +50,6 @@ using LinearAlgebra
             length_minor = sqrt(vals[1])
             λ = vecs[:,2]
             α = atan(λ[2],λ[1])
-            @show length_major length_minor α
 
             xvals = [
                 # Major axis
@@ -80,15 +79,14 @@ using LinearAlgebra
         end
         xs = Base.vcat(getindex.(error_ellipses,1)...)
         ys = Base.vcat(getindex.(error_ellipses,2)...)
-        @show xs ys
 
         @series begin
             label := nothing
             xs .* cos.(ys), xs .* sin.(ys)
         end
         @series begin
-            x = astrom.table.sep .* cos.(astrom.table.pa)
-            y = astrom.table.sep .* sin.(astrom.table.pa)
+            x = astrom.table.sep .* cos.(pi/2 .- astrom.table.pa)
+            y = astrom.table.sep .* sin.(pi/2 .- astrom.table.pa)
             seriestype:=:scatter
             x, y
         end
@@ -203,10 +201,11 @@ function ln_like(astrom::Astrometry, θ_planet, orbit,)
         # ll += χ²1 + χ²2
 
         # Same as above, with support for covariance:
-        dist = MvNormal(@SArray[
+        Σ = @SArray[
             σ₁^2        cor*σ₁*σ₂
             cor*σ₁*σ₂   σ₂^2
-        ])
+        ]
+        dist = MvNormal(Σ)
         ll += logpdf(dist, @SArray[resid1, resid2])
 
     end

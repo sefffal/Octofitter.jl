@@ -14,7 +14,9 @@ GAIA catalog id `gaia_id`.
 function gaia_plx(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits") 
     
     # Load the Hipparcos-GAIA catalog of accelerations as a table
-    hgca = Table(load(catalog, 2))
+    hgca = FITS(catalog,"r") do fits
+        Table(fits[2])
+    end
 
     idx = findfirst(==(gaia_id), hgca.gaia_source_id)
     return truncated(Normal(hgca.parallax_gaia[idx,], hgca.parallax_gaia_error[idx,]), lower=0)
@@ -64,7 +66,9 @@ already subtracted out. e.g. we would expect 0 pma if there is no companion.
 function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
 
     # Load the Hipparcos-GAIA catalog of accelerations (downloaded automatically with datadeps)
-    hgca = Table(load(catalog, 2))
+    hgca = FITS(catalog,"r") do fits
+        Table(fits[2])
+    end
 
     # Available columns (for reference)
     # chisq            crosscal_pmdec_hg  crosscal_pmdec_hip   crosscal_pmra_hg   crosscal_pmra_hip  epoch_dec_gaia          epoch_dec_hip
