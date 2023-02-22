@@ -1,3 +1,99 @@
+"""
+
+    astrom = CSV.read("octofitter/input.csv", Astrometry)
+
+    vars = Octofitter.@planet b VisualOrbit astrom begin
+        a  ~ LogUniform(2.5, 25)
+        a2 = b.a^2
+        i ~ Sine()
+        e ~ truncated(
+            Normal(0.2, 0.2),
+            lower=0
+        )
+        Ω ~ UniformCircular()
+        ω ~ UniformCircular()
+        τ ~ UniformCircular(1.0)
+        mass  ~ Uniform(0, 50)
+        H_band = cooling_track_flux(system.age_Myr, b.mass)
+    end
+
+Generate a Planet model 
+"""
+macro planet(args...)
+    name = args[1]
+    orbit_type = args[2]
+    observations = args[3:end-1]
+    variables_block_input = args[end]
+    variables_block = filter(variables_block_input.args) do expr
+        !(expr isa LineNumberNode)
+    end
+    variables = map(variables_block) do statement
+        if statement.head == :call && statement.args[1] == :~
+            varname = statement.args[2]
+            expression = statement.args[3]
+            distribution = eval(expression)
+            if !(distribution isa Distributions.UnivariateDistribution || distribution isa Octofitter.Parameterization)
+                error("prior on variable $varname must be a UnivariateDistribution")
+            end
+            return :( $(esc(varname)) = $distribution)
+        elseif statement.head == :(=)
+            varname = statement.args[1]
+            expression = statement.args[2]
+            return :(
+                $(esc(varname)) = (system, $name) -> $expression
+            )
+        else
+            error("invalid statement encoutered $(statement.head)")
+        end
+    end
+    return quote 
+        $(esc(name)) = $Planet{$orbit_type}(
+            Variables(;$(variables...)),
+            $((esc(o) for o in observations)...);
+            name=$(Meta.quot(name))
+        )
+    end
+end
+export @planet
+
+macro system(args...)
+    name = args[1]
+    orbit_type = args[2]
+    observations = args[3:end-1]
+    variables_block_input = args[end]
+    variables_block = filter(variables_block_input.args) do expr
+        !(expr isa LineNumberNode)
+    end
+    variables = map(variables_block) do statement
+        if statement.head == :call && statement.args[1] == :~
+            varname = statement.args[2]
+            expression = statement.args[3]
+            distribution = eval(expression)
+            if !(distribution isa Distributions.UnivariateDistribution || distribution isa Octofitter.Parameterization)
+                error("prior on variable $varname must be a UnivariateDistribution")
+            end
+            return :( $(esc(varname)) = $distribution)
+        elseif statement.head == :(=)
+            varname = statement.args[1]
+            expression = statement.args[2]
+            return :(
+                $(esc(varname)) = (system) -> $expression
+            )
+        else
+            error("invalid statement encoutered $(statement.head)")
+        end
+    end
+    return quote 
+        $(esc(name)) = $System(
+            Variables(;$(variables...)),
+            $((esc(o) for o in observations)...);
+            name=$(Meta.quot(name))
+        )
+    end
+end
+export @system
+
+
 
 # Copied from ModellingToolkit.
 

@@ -3,8 +3,6 @@
 # This code provides helpers for loading data from the HIPPARCOS GAIA Catalog of Accelerations.
 # 
 
-using AstroImages
-
 """
     gaia_plx(gaia_id=12123)
 
@@ -97,7 +95,7 @@ function ln_like(pma::ProperMotionAnom, θ_system, elements)
 
     # How many points over Δt should we average the proper motion at each
     # epoch? This is because the PM is not an instantaneous measurement.
-    N_ave = 5
+    N_ave = 25
     
     for i in eachindex(pma.table.ra_epoch, pma.table.dec_epoch)
         pmra_star = 0.0

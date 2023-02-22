@@ -7,7 +7,6 @@ using Distributions, DistributionsAD
 using Bijectors
 using AbstractMCMC
 using AdvancedHMC
-using Pathfinder
 using NamedTupleTools
 using ForwardDiff
 using Logging
@@ -42,11 +41,8 @@ include("variables.jl")
 
 include("observations/system.jl")
 include("observations/astrometry.jl")
-# include("observations/images.jl")
 include("observations/photometry.jl")
 include("observations/astrometric-motion.jl")
-# include("observations/radial-velocity.jl")
-# include("observations/transits.jl")
 
 include("sampling.jl")
 
@@ -60,7 +56,6 @@ include("io.jl")
 # include("sbc.jl")
 
 function __init__()
-    init_plots()
 
     # List DataDeps here.
     # These are optional, automatic downloads required for certain

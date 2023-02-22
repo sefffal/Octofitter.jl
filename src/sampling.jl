@@ -1,6 +1,6 @@
 using DiffResults
-using AbstractDifferentiation
-AD = AbstractDifferentiation
+# using AbstractDifferentiation
+# AD = AbstractDifferentiation
 using LinearAlgebra
 using Preferences
 
@@ -474,6 +474,14 @@ function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::LogDensityMo
     println(io, "LogDensityModel for System $(p.system.name) of dimension $(p.D) with fields .ℓπcallback and .∇ℓπcallback")
 end
 
+"""
+Test that a model returns valid probability densities for 
+all input values covered by the priors.
+"""
+function model_tester(model)
+
+end
+
 
 # Fallback when no random number generator is provided (as is usually the case)
 function advancedhmc(model::LogDensityModel, target_accept::Number=0.8, ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial(); kwargs...)
@@ -712,14 +720,18 @@ function advancedhmc(
     function callback(rng, logdensitymodel, sampler, transition, state, iteration; kwargs...)
         if verbosity >= 1 && iteration == 1
             @info "Adaptation complete."
+            adapted_ss = AdvancedHMC.getϵ(adaptor)
 
             # Show adapted step size and mass matrix
             if verbosity >= 3
-                adapted_ss = AdvancedHMC.getϵ(adaptor)
                 println("Adapated stepsize ϵ=", adapted_ss)
                 # adapted_mm = AdvancedHMC.getM⁻¹(adaptor)
                 # print("Adapted mass matrix M⁻¹ ")
                 # display(adapted_mm)
+            end
+
+            if adapted_ss == 1.0
+                error("Failed to adapt step size (ϵ=1.0). Check your model.")
             end
             
             @info "Sampling..."

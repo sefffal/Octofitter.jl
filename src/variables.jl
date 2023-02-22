@@ -270,7 +270,11 @@ end
 #### Show methods
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize obs::AbstractObs)
     ObsType = typeof(obs)
-    print(io, "$(ObsType) ")
+    obstype_name = string(ObsType)
+    if occursin("{",obstype_name)
+        obstype_name = obstype_name[1:findfirst(==('{'),collect(obstype_name))-1]
+    end
+    print(io, "$(obstype_name) ")
     Base.show(io::IO, mime, Table(obs))
 end
 

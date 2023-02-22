@@ -14,23 +14,39 @@ using FITSIO
 function savechain(fname, chain::MCMCChains.Chains)
     # Need to massage data into the right format on the way out
     # data = permutedims(stack(row for row in Table(chain_octo)))
-    # @show eltype(data)
     tbl = Table(chain)
     FITS(fname, "w") do fits
         
         info = chain.info
         ks = collect(string.(keys(info)))
-        vals = collect(values(info))
+        vals = convert(Vector{Any}, collect(values(info)))
         h = nothing
+
+        # Expand any vectors into multiple headers
+        for k in ks
+            i = findfirst(==(k),ks)
+            if vals[i] isa AbstractArray
+                for ki in eachindex(vals[i])
+                    push!(ks, "$(k)_$ki")
+                    push!(vals, vals[i][ki])
+                    vals[i] = "ARRAY"
+                end
+            end
+        end
+
+        normalize(x::Number) = x
+        normalize(x::AbstractString) = string(x)
+        normalize(x::Nothing) = x
+        normalize(x::Any) = string(x)
         if length(ks) > 0
             h = FITSHeader(
                 ks,
-                vals,
-                ["chain-info" for _ in values(info)]
+                normalize.(vals),
+                ["chain-info" for _ in vals]
             )
         end
 
-        write(fits,zeros(0,0), header=h)
+        write(fits,zeros(0), header=h)
         col_titles = ["iteration"; "chain"; string.(keys(chain))]
 
         write(
@@ -38,7 +54,6 @@ function savechain(fname, chain::MCMCChains.Chains)
             String.(map(title->all(isascii,title) ? title : latexify(title), col_titles)),
             [collect(getproperty(tbl,k)) for k in propertynames(tbl)];
             hdutype=FITSIO.TableHDU,
-            # header=nothing
         )
     end
 end
@@ -96,7 +111,22 @@ function loadchain(fname)
         meta = Dict{Symbol,Any}()
         for k in keys(h)
             if get_comment(h,k) == "chain-info"
-                meta[Symbol(lowercase(k))] = h[k]
+                if h[k] != "ARRAY"
+                    meta[Symbol(lowercase(k))] = h[k]
+                else
+                    arrdat = []
+                    i = 0
+                    while true
+                        i+=1
+                        ki = "$(k)_$i"
+                        if haskey(h,ki)
+                            push!(arrdat, h[ki])
+                        else
+                            break
+                        end
+                    end
+                    meta[Symbol(lowercase(k))] = identity.(arrdat)
+                end
             end
         end
         chn = MCMCChains.setinfo(chn, NamedTuple(meta))
