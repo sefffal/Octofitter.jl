@@ -160,7 +160,7 @@ function timeplot!(
     ;
     N = 1500,
     ii = rand(1:size(chain,1)*size(chain,3), N),
-    alpha = 0.05,
+    alpha = 0.025,
     cmap=:plasma,
     clims = quantile(vec(chain[color]),(0.01, 0.99)),
     kwargs...
@@ -314,7 +314,7 @@ function timeplot!(
         for planet_key in planet_keys
             elements = Octofitter.construct_elements(chain, planet_key, ii)
             k = "$(planet_key)_mass"
-            if haskey(chain,k)
+            if haskey(chain,Symbol(k))
                 mass = collect(chain["$(planet_key)_mass"][ii])
             else
                 mass = 0
@@ -338,7 +338,7 @@ function timeplot!(
             elements = Octofitter.construct_elements(chain, planet_key, ii)
             elements = Octofitter.construct_elements(chain, planet_key, ii)
             k = "$(planet_key)_mass"
-            if haskey(chain,k)
+            if haskey(chain,Symbol(k))
                 mass = collect(chain["$(planet_key)_mass"][ii])
             else
                 mass = 0
@@ -358,7 +358,7 @@ function timeplot!(
             elements = Octofitter.construct_elements(chain, planet_key, ii)
             elements = Octofitter.construct_elements(chain, planet_key, ii)
             k = "$(planet_key)_mass"
-            if haskey(chain,k)
+            if haskey(chain,Symbol(k))
                 mass = collect(chain["$(planet_key)_mass"][ii])
             else
                 mass = 0
@@ -466,6 +466,28 @@ function timeplot!(
     p1
 end
 
+function Octofitter.octoplot(
+    model::Octofitter.LogDensityModel,
+    chain::Octofitter.MCMCChains.Chains;
+    fname="$(model.system.name)-plot-grid",
+    color = "$(first(keys(model.system.planets)))_e",
+    colorbartitle=string(color),
+    clims = quantile(vec(chain[color]),(0.01, 0.99)),
+    cmap = :plasma,
+    dpi=200,
+    kwargs...
+)
+
+    p = timeplotgrid(model, chain; color, clims, cmap, dpi)
+    fname1 = fname*".png"
+    Plots.savefig(p, fname1)
+
+    pc = Plots.plot([0], marker_z=[0]; right_margin=20Plots.mm, legend=false, size=(200,400), color=cmap, clims, colorbartitle="\n\n$colorbartitle", colorbar=true, framestyle=:none, dpi)
+    fname2 = fname*"-colorbar.png"
+    Plots.savefig(pc, fname2)
+
+    return (fname1, fname2)
+end
 function Octofitter.timeplotgrid(
     model,
     chains;
@@ -488,7 +510,7 @@ function Octofitter.timeplotgrid(
         planet_keys = [:b] # just assume
         model = (;system=System(Planet{VisualOrbit}(Variables();name=:b),name=Symbol("")))
     else
-        planet_keys = [keys(model.system.planets)]
+        planet_keys = keys(model.system.planets)
     end
 
     # Add a colourbar to the main astrometry plot
@@ -511,6 +533,7 @@ function Octofitter.timeplotgrid(
     for (i,planet_key) in enumerate(planet_keys)
         plotchains!(pz, chains, planet_key; kind=(:x,:z), color, rev=false, colorbar=nothing, kwargs...)
     end
+    Plots.annotate!(pz,((0.5,1.0),Plots.text("top down",:bottom,:middle,10)))
     Plots.scatter!(pz, [0],[0],marker=(:star, :white, :black, 5),label="")
     Plots.annotate!(pz,((-0.2,0.00),Plots.text("↓","Helvetica",:center,15)))
     Plots.annotate!(pz,((-0.2,-0.15),Plots.text("🌍","Helvetica",:center,15)))
@@ -519,25 +542,30 @@ function Octofitter.timeplotgrid(
     for (i,planet_key) in enumerate(planet_keys)
         plotchains!(py, chains, planet_key; kind=(:y,:z), xflip=false, color, rev=false, colorbar=nothing, kwargs...)
     end
+    Plots.annotate!(py,((0.5,1.0),Plots.text("side view",:bottom,:middle,10)))
     Plots.scatter!(py, [0],[0],marker=(:star, :white, :black, 5),label="")
     
-    pxyz = Plots.plot(;xlims=:symmetric, ylims=:symmetric)
-    # for (i,planet_key) in enumerate(planet_keys)
-    #     plotchains!(pxyz, chains, planet_key; kind=(:x,:y,:z), grid=true, zflip=true, color, rev=false, colorbar=nothing, kwargs...)
-    # end
+
     # Deprojected plot. Periastron at bottom.
     chains_deproj = deepcopy(chains)
+    maxa = 0
+    maxe = 0
     for planet_key in planet_keys
         chains_deproj.value[:,Symbol("$(planet_key)_i"),:] .= 0
         chains_deproj.value[:,Symbol("$(planet_key)_ω"),:] .= π
         chains_deproj.value[:,Symbol("$(planet_key)_Ω"),:] .= 0
+        maxa = max(maxa, maximum(chains_deproj[Symbol("$(planet_key)_a")]))
+        maxe = max(maxe, maximum(chains_deproj[Symbol("$(planet_key)_e")]))
     end
+    pxyz = Plots.plot(;xlims=:symmetric, ylims=(-maxa*(1+maxe), maxa*(1+maxe)))
+    # Line to mark periastron
+    Plots.plot!(pxyz, [0,0], [-maxa*(1+maxe),0],label="", color=:grey)
     for planet_key in planet_keys
         plotchains!(pxyz, chains_deproj, planet_key; kind=(:x,:y), xflip=false, color, rev=false, colorbar=nothing, kwargs...)
     end
     Plots.scatter!(pxyz, [0],[0],marker=(:star, :white, :black, 5),label="",xlabel="(au)",ylabel="(au)")
-    Plots.annotate!(pxyz,((0.5,1.0),Plots.text("derotated with i=ω=Ω=0",:bottom,:middle,10)))
-    Plots.annotate!(pxyz,((0.5,0.0),Plots.text("periastron",:top,:middle,10)))
+    Plots.annotate!(pxyz,((0.5,1.0),Plots.text("deprojected with i=ω=Ω=0",:bottom,:middle,10)))
+    Plots.annotate!(pxyz,((0.5,0.05),Plots.text(" periastron",:bottom,:left,10)))
     
     psep = Plots.plot()
     for planet_key in planet_keys
