@@ -2,6 +2,9 @@ module PlotsExt
 using Octofitter
 using Plots
 using RecipesBase
+using Statistics
+using StatsBase
+using PlanetOrbits
 
 """
     plotchains(
@@ -57,6 +60,7 @@ function Octofitter.plotchains!(
     alpha=30/length(ii),
     attime=nothing,
     mass=nothing,
+    kind=:astrometry,
     kwargs...,
 )
     # Construct orbits from chain
@@ -104,17 +108,16 @@ function Octofitter.plotchains!(
         m = nothing
         if !isnothing(mass)
             if length(mass) > 1
-                m = mass[ii][i]*mjup2msol
+                m = mass[ii][i]*Octofitter.mjup2msol
             else
-                m = mass*mjup2msol
+                m = mass*Octofitter.mjup2msol
             end
         end
-        Plots.plot!(p, orbits[i]; label="", alpha, mass=m, colorbar=true, kwargs_loc...)
+        Plots.plot!(p, orbits[i]; label="", alpha, mass=m, colorbar=true, kind, kwargs_loc...)
     end
     # Colorbar
     # Plots.scatter!(p, [NaN],[NaN]; marker_z=[0], ms=0, clims=clims, color=cmap, label="", colorbartitle)
     Plots.scatter!(p, [0],[0]; marker_z=[0], ms=0, clims=clims, color=cmap, label="", colorbartitle)
-    Plots.scatter!(p, [0],[0], marker=(:star, :black, 5), markerstrokewidth=1, markerstrokecolor=:white,  label="")
     return p
     # # Star at centre
 
@@ -170,19 +173,19 @@ function timeplot!(
     end
     planet = model.system.planets[planet_key]
     if prop == :ra
-        ylabel = "RA (mas)"
+        ylabel = "ΔRA (mas)"
     elseif prop == :dec
-        ylabel = "DEC (mas)"
+        ylabel = "ΔDEC (mas)"
     elseif prop == :sep
         ylabel = "SEP (mas)"
     elseif prop == :pa
         ylabel = "PA (°)"
     elseif prop == :rv
-        ylabel = "RV m/s"
+        ylabel = "RV (m/s)"
     elseif prop == :pmra
-        ylabel = "∂RA mas/yr"
+        ylabel = "Δμ RA (mas/yr)"
     elseif prop == :pmdec
-        ylabel = "∂DEC mas/yr"
+        ylabel = "Δμ DEC (mas/yr)"
     else
         error("Unsupported property. Choose :ra, :dec, :sep, :pa, :rv, :pmra, or :pmdec")
     end
@@ -211,8 +214,7 @@ function timeplot!(
     if isempty(all_epochs) 
         all_epochs = mjd() .+ [-365*2, +365*2]
     end
-    t = range((extrema(all_epochs) .+ [-365, 365])..., length=100)
-    # t = range((extrema(all_epochs) .+ [-365, 365])..., length=500)
+    t = range((extrema(all_epochs) .+ [-365, 365])..., length=500)
     y = nothing
     ribbon = nothing
     zcolor = nothing
@@ -234,6 +236,11 @@ function timeplot!(
         fit = decoff.(elements, t')
     elseif prop == :sep
         if !isnothing(astrometry(planet))
+            t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=500)
+        else
+            t = range((extrema(all_epochs) .+ [-365, 365])..., length=500)
+        end
+        if !isnothing(astrometry(planet))
             if hasproperty(astrometry(planet).table, :sep)
                 y = astrometry(planet).table.sep
                 yerr = astrometry(planet).table.σ_sep
@@ -242,18 +249,23 @@ function timeplot!(
                 yy = astrometry(planet).table.dec
                 xxerr = astrometry(planet).table.σ_ra
                 yyerr = astrometry(planet).table.σ_dec
-                y_unc = sqrt.((xx .± xxerr).^2 .+ (yy .± yyerr).^2)
-                y = Measurements.value.(y_unc)
-                yerr = Measurements.uncertainty.(y_unc)
+                # TODO: These error bars do not take into account the covariance specified in the ra/dec data.
+                y = @. sqrt(xx^2 + yy^2)
+                yerr = @. sqrt(
+                    (xx^2*xxerr^2 + yy^2*yyerr^2)/(xx^2 + yy^2)
+                )
+                
             end
             x = astrometry(planet).table.epoch
         end
         elements = Octofitter.construct_elements(chain, planet_key, ii)
         fit = projectedseparation.(elements, t')
-        if Symbol("$(planet_key)_mass") in keys(chain)
-            fit  = fit# .- projectedseparation.(elements, t', chain["$(planet_key)_mass"][ii].*Octofitter.mjup2msol)
-        end
     elseif prop == :pa
+        if !isnothing(astrometry(planet))
+            t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=500)
+        else
+            t = range((extrema(all_epochs) .+ [-365, 365])..., length=500)
+        end
         if !isnothing(astrometry(planet))
             if hasproperty(astrometry(planet).table, :pa)
                 y = rad2deg.(rem2pi.(astrometry(planet).table.pa, RoundNearest))
@@ -263,20 +275,35 @@ function timeplot!(
                 yy = astrometry(planet).table.dec
                 xxerr = astrometry(planet).table.σ_ra
                 yyerr = astrometry(planet).table.σ_dec
-                y_unc = atand.((xx .± xxerr), (yy .± yyerr))
-                y = Measurements.value.(y_unc)
-                yerr = Measurements.uncertainty.(y_unc)
+                y = @. atand(xx, yy)
+                yerr = @. rad2deg(sqrt(
+                    (xx^2*yyerr^2 + yy^2*xxerr^2)/(xx^2 + yy^2)^2
+                ))
             end
             x = astrometry(planet).table.epoch
         end
         elements = Octofitter.construct_elements(chain, planet_key, ii)
-        fit = rad2deg.(posangle.(elements, t'))
+        fit = rad2deg.(rem2pi.(posangle.(elements, t'),RoundDown))
         # Avoid ugly wrapping
+        fit_unwrapped = copy(fit)
+        unwrap!(fit_unwrapped, 360)
+        # Don't use the unwrap if it's cycling a bunch of times
+        a,b = extrema(fit_unwrapped)
+        if abs(a-b) < 720
+            fit = fit_unwrapped
+            if !isnothing(y)
+                unwrap!(y, 360)
+            end
+        end
+        # Remove lines where we jumped from positive to negative or back.
+        # We can detect this because the direction changes. No orbit changes its
+        # PA trend part way along!
         diffs = diff(fit, dims=1)
-        fit[findall(abs.(diffs) .> 100)] .= NaN
+        diffs2 = diff(diffs, dims=1)
+        fit[findall((diffs2 .< 0))] .= NaN
     elseif prop == :pmra
-        if !isnothing(propermotionanom(model.system))
-            hgca = propermotionanom(model.system).table[1]
+        if !isnothing(Octofitter.propermotionanom(model.system))
+            hgca = Octofitter.propermotionanom(model.system).table[1]
             t = range(years2mjd(hgca.epoch_ra_hip)-365*5, years2mjd(hgca.epoch_ra_gaia)+365*5, length=100)
             y = [hgca.pmra_hip, hgca.pmra_hg, hgca.pmra_gaia]
             yerr = [hgca.pmra_hip_error, hgca.pmra_hg_error, hgca.pmra_gaia_error]
@@ -286,14 +313,20 @@ function timeplot!(
         fit = 0
         for planet_key in planet_keys
             elements = Octofitter.construct_elements(chain, planet_key, ii)
-            fit = fit .+ pmra.(elements, t', collect(chain["$(planet_key)_mass"][ii]).*Octofitter.mjup2msol)
+            k = "$(planet_key)_mass"
+            if haskey(chain,k)
+                mass = collect(chain["$(planet_key)_mass"][ii])
+            else
+                mass = 0
+            end
+            fit = fit .+ pmra.(elements, t', mass.*Octofitter.mjup2msol)
         end
         if :pmra in keys(chain)
             fit = fit .+ chain["pmra"][ii]
         end
     elseif prop == :pmdec
-        if !isnothing(propermotionanom(model.system))
-            hgca = propermotionanom(model.system).table[1]
+        if !isnothing(Octofitter.propermotionanom(model.system))
+            hgca = Octofitter.propermotionanom(model.system).table[1]
             t = range(years2mjd(hgca.epoch_dec_hip)-365*5, years2mjd(hgca.epoch_dec_gaia)+365*5, length=100)
             y = [hgca.pmdec_hip, hgca.pmdec_hg, hgca.pmdec_gaia]
             yerr = [hgca.pmdec_hip_error, hgca.pmdec_hg_error, hgca.pmdec_gaia_error]
@@ -303,17 +336,34 @@ function timeplot!(
         fit = 0
         for planet_key in planet_keys
             elements = Octofitter.construct_elements(chain, planet_key, ii)
-            fit = fit .+ pmdec.(elements, t', collect(chain["$(planet_key)_mass"][ii]).*Octofitter.mjup2msol)
+            elements = Octofitter.construct_elements(chain, planet_key, ii)
+            k = "$(planet_key)_mass"
+            if haskey(chain,k)
+                mass = collect(chain["$(planet_key)_mass"][ii])
+            else
+                mass = 0
+            end
+            fit = fit .+ pmdec.(elements, t', mass.*Octofitter.mjup2msol)
         end
         if :pmdec in keys(chain)
             fit = fit .+ chain["pmdec"][ii]
         end
     elseif prop == :rv
-        # ribbon = chain[jitter_inst][ii]
+        if isempty(all_epochs_star)
+            all_epochs_star = all_epochs
+        end
+        t = range((extrema(all_epochs) .+ [-365, 365])..., length=500)
         fit = 0
         for planet_key in planet_keys
             elements = Octofitter.construct_elements(chain, planet_key, ii)
-            fit = fit .+ radvel.(elements, t', collect(chain["$(planet_key)_mass"][ii]).*mjup2msol)
+            elements = Octofitter.construct_elements(chain, planet_key, ii)
+            k = "$(planet_key)_mass"
+            if haskey(chain,k)
+                mass = collect(chain["$(planet_key)_mass"][ii])
+            else
+                mass = 0
+            end
+            fit = fit .+ radvel.(elements, t', mass.*Octofitter.mjup2msol)
         end
         for obs in model.system.observations
             # TODO: make this pluggable instead of this hacky workaround
@@ -321,6 +371,9 @@ function timeplot!(
                 if haskey(chain,:rv0)
                     barycentric_rv_inst_1 = median(vec(chain["rv0"]))
                     jitter = barycentric_rv_inst_1 = median(vec(chain["jitter"]))
+                else
+                    barycentric_rv_inst_1 = 0
+                    jitter = barycentric_rv_inst_1 = 0
                 end
                 if haskey(chain,:rv0_1)
                     barycentric_rv_inst_1 = median(vec(chain["rv0_1"]))
@@ -378,6 +431,7 @@ function timeplot!(
             fillalpha=alpha/2,
             ribbon=isnothing(ribbon) ? nothing : ribbon[i],
             kwargs...,
+            xrotation =25
         )
     end
     if !isnothing(y)
@@ -392,6 +446,7 @@ function timeplot!(
                     markerstrokewidth=1.5,
                     markerstrokecolor=:auto,
                     markersize=2.5,
+                    linecolor=j,
                     color=j
                 )
             end
@@ -400,6 +455,7 @@ function timeplot!(
                 p1,
                 mjd2date.(x),
                 y; yerr, xerr,
+                linecolor=1,
                 color=1,
                 markerstrokewidth=1.5,
                 markerstrokecolor=:auto,
@@ -428,18 +484,61 @@ function Octofitter.timeplotgrid(
         alpha,
         kwargs...
     )
-    planet_keys = keys(model.system.planets)
+    if isnothing(model)
+        planet_keys = [:b] # just assume
+        model = (;system=System(Planet{VisualOrbit}(Variables();name=:b),name=Symbol("")))
+    else
+        planet_keys = [keys(model.system.planets)]
+    end
 
-    ppost = Plots.plot()
+    # Add a colourbar to the main astrometry plot
+    ppost = Plots.plot(
+        # [NaN,NaN],[NaN,NaN], framestyle=:box, markersize=10, marker_z=collect(clims); colorbar=true,color=cmap, colorbartitle=string(color), clims,label="",
+        # left_margin=15Plots.mm,
+        # top_margin=0Plots.mm,
+        # bottom_margin=0Plots.mm,
+    )
     for (i,planet_key) in enumerate(planet_keys)
-        # plotchains!(ppost, chains, planet_key; color, body=:primary, mass=chains["$(planet_key)_mass"], rev=false, colorbar=nothing, kwargs...)
-        plotchains!(ppost, chains, planet_key; color, rev=false, colorbar=nothing, kwargs...)
+        plotchains!(ppost, chains, planet_key; kind=:astrometry, color, rev=false, colorbar=true, kwargs...)
         astrom = astrometry(model.system.planets[planet_key])
         if !isnothing(astrom)
-            Plots.plot!(ppost, astrom, linecolor=1)
+            Plots.plot!(ppost, astrom, linecolor=1, )
         end
-        Plots.scatter!([0],[0],marker=(:star, :white, :black, 5),label="")
     end
+    Plots.scatter!(ppost, [0],[0],marker=(:star, :white, :black, 5),label="",colorbar=nothing)
+    
+    pz = Plots.plot()
+    for (i,planet_key) in enumerate(planet_keys)
+        plotchains!(pz, chains, planet_key; kind=(:x,:z), color, rev=false, colorbar=nothing, kwargs...)
+    end
+    Plots.scatter!(pz, [0],[0],marker=(:star, :white, :black, 5),label="")
+    Plots.annotate!(pz,((-0.2,0.00),Plots.text("↓","Helvetica",:center,15)))
+    Plots.annotate!(pz,((-0.2,-0.15),Plots.text("🌍","Helvetica",:center,15)))
+
+    py = Plots.plot()
+    for (i,planet_key) in enumerate(planet_keys)
+        plotchains!(py, chains, planet_key; kind=(:y,:z), xflip=false, color, rev=false, colorbar=nothing, kwargs...)
+    end
+    Plots.scatter!(py, [0],[0],marker=(:star, :white, :black, 5),label="")
+    
+    pxyz = Plots.plot(;xlims=:symmetric, ylims=:symmetric)
+    # for (i,planet_key) in enumerate(planet_keys)
+    #     plotchains!(pxyz, chains, planet_key; kind=(:x,:y,:z), grid=true, zflip=true, color, rev=false, colorbar=nothing, kwargs...)
+    # end
+    # Deprojected plot. Periastron at bottom.
+    chains_deproj = deepcopy(chains)
+    for planet_key in planet_keys
+        chains_deproj.value[:,Symbol("$(planet_key)_i"),:] .= 0
+        chains_deproj.value[:,Symbol("$(planet_key)_ω"),:] .= π
+        chains_deproj.value[:,Symbol("$(planet_key)_Ω"),:] .= 0
+    end
+    for planet_key in planet_keys
+        plotchains!(pxyz, chains_deproj, planet_key; kind=(:x,:y), xflip=false, color, rev=false, colorbar=nothing, kwargs...)
+    end
+    Plots.scatter!(pxyz, [0],[0],marker=(:star, :white, :black, 5),label="",xlabel="(au)",ylabel="(au)")
+    Plots.annotate!(pxyz,((0.5,1.0),Plots.text("derotated with i=ω=Ω=0",:bottom,:middle,10)))
+    Plots.annotate!(pxyz,((0.5,0.0),Plots.text("periastron",:top,:middle,10)))
+    
     psep = Plots.plot()
     for planet_key in planet_keys
         timeplot!(model, chains, planet_key, color, :sep; clims, kwargs...)
@@ -458,28 +557,28 @@ function Octofitter.timeplotgrid(
     prv = Plots.plot()
     timeplot!(model, chains, planet_keys, color, :rv; clims, kwargs...)
     
-    pcolormap = Plots.scatter([NaN,NaN],[NaN,NaN],framestyle=:none,foreground=:transparent, markersize=0, marker_z=collect(clims); colorbar=true,color=cmap, colorbartitle=string(color), clims)
     layout = Plots.@layout [
-        [
-            A B C 
-            D E F
-        ] G{0.025w}
+        B C D
+        E F G
+        H I J
     ]
 
     # Horizontal
     Plots.plot(
-        ppost,
-        psep,
-        ppa,
         prv,
         ppmra,
         ppmdec,
-        pcolormap,
+        ppost,
+        psep,
+        ppa,
+        pz,
+        py,
+        pxyz,
         layout = layout,
         framestyle=:box,
         grid=false,
-        size=(1400,900),
-        margin=4Plots.mm
+        size=(1000,900),
+        margin=2Plots.mm
     )
 end
 
@@ -665,6 +764,13 @@ end
 
 #     return pma_plot
 
+# https://discourse.julialang.org/t/equivalent-of-matlabs-unwrap/44882/4?
+function unwrap!(x, period = 2π)
+	y = convert(eltype(x), period)
+	v = first(x)
+	@inbounds for k = eachindex(x)
+		x[k] = v = v + rem(x[k] - v,  y, RoundNearest)
+	end
+end
 
-# end
 end
