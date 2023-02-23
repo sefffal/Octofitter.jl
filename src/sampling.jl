@@ -281,7 +281,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
     link::TLink
     invlink::TInvLink
     arr2nt::TArr2nt
-    function LogDensityModel(system::System; autodiff=:ForwardDiff, verbosity=0)
+    function LogDensityModel(system::System; autodiff=:ForwardDiff, verbosity=0, chunk_sizes=nothing)
         verbosity >= 1 && @info "Preparing model"
 
         # Choose parameter dimensionality and initial parameter value
@@ -330,8 +330,12 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 lprior = ln_prior_transformed(θ_natural)
                 llike  = ln_like_generated(system, θ_structured)
                 lpost = lprior+llike
-                # if !isfinite(lpost)
-                #     @error "Invalid log posterior encountered. This likely indicates a problem with the prior support." lprior llike θ=θ_structured
+                # if !isfinite(lprior)
+                #     @error "Invalid log prior encountered. This likely indicates a problem with the prior support."
+                #     error()
+                # end
+                # if !isfinite(llike)
+                #     @error "Invalid log likelihood encountered. This likely indicates a problem with the prior support."
                 #     error()
                 # end
                 return lpost
@@ -401,7 +405,9 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
                 # We're going to call this thousands of times so worth a few calls
                 # to get this optimized.
-                chunk_sizes = unique([1; 2:2:D; D])
+                if isnothing(chunk_sizes)
+                    chunk_sizes = unique([1; 2:2:D; D])
+                end
                 ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
                     cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
                     ForwardDiff.gradient!(diffresults[1], ℓπcallback, initial_θ_0_t, cfg)
@@ -478,8 +484,96 @@ end
 Test that a model returns valid probability densities for 
 all input values covered by the priors.
 """
-function model_tester(model)
+function checkmodel(@nospecialize model)
 
+    (;system,arr2nt,link,invlink,ℓπcallback,∇ℓπcallback,) = model
+
+    priors_kv = Iterators.flatten([
+        system.priors.priors,
+        [planet.priors.priors for planet in system.planets]...
+    ])
+    priors_flat = map(((k,v),)->v, priors_kv)
+    prior_names = map(((k,v),)->k, priors_kv)
+
+    local waserr = false
+
+    θ0 = link(rand.(priors_flat))
+    local lp = 0
+    try
+        lp = ℓπcallback(θ0)
+    catch err
+        @error "posterior density function failed on simple input" arr2nt(invlink(θ0)) exception=(err, catch_backtrace())
+        waserr = true
+    end
+    if !isfinite(lp)
+        @error "posterior density function gave non-finite answer for simple input" lp arr2nt(invlink(θ0))
+        waserr = true
+    end
+
+
+    local gradlp = 0
+    try
+        primal, gradlp = ∇ℓπcallback(θ0)
+    catch err
+        @error "posterior density gradient failed on simple input" arr2nt(invlink(θ0)) exception=(err, catch_backtrace())
+        waserr = true
+    end
+    if any(!isfinite, gradlp)
+        @error "posterior density gradient function gave non-finite answer for simple input" lp arr2nt(invlink(θ0))
+        waserr = true
+    end
+
+    # Test with extreme values near edge of the prior support
+    θ0 = link(quantile.(priors_flat, 1e-5))
+    if any(!isfinite, θ0)
+        ii = findall(!isfinite, θ0)
+        priors_with_errors = namedtuple(prior_names[ii], gradlp[ii])
+        @error "lower edge of prior support included a non-finite value" priors_with_errors
+    end
+    try
+        primal, gradlp = ∇ℓπcallback(θ0)
+    catch err
+        @error "posterior density gradient failed near start of prior support" arr2nt(invlink(θ0)) exception=(err, catch_backtrace()) 
+        waserr = true
+    end
+    if any(!isfinite, gradlp)
+        ii = findall(!isfinite, gradlp)
+        params_with_errors = namedtuple(prior_names[ii], gradlp[ii])
+        @error "posterior density function gave non-finite answer for parameters near start of prior supoprt" arr2nt(invlink(θ0))  params_with_errors
+        waserr = true
+    end
+
+    # Test with extreme values near edge of the prior support
+    θ0 = quantile.(priors_flat, 0.99)
+    # This is a bit extreme for eccentricity
+    θ0[prior_names .== :e] .= 0.999
+    θ0 = link(θ0)
+    if any(!isfinite, θ0)
+        ii = findall(!isfinite, θ0)
+        priors_with_errors = namedtuple(prior_names[ii], gradlp[ii])
+        @error "upper edge of prior support included a non-finite value" priors_with_errors
+    end
+    try
+        primal, gradlp = ∇ℓπcallback(θ0)
+    catch err
+        @error "posterior density gradient failed near end of prior support" arr2nt(invlink(θ0)) exception=(err, catch_backtrace()) 
+        waserr = true
+    end
+    if any(!isfinite, gradlp)
+        ii = findall(!isfinite, gradlp)
+        params_with_errors = namedtuple(prior_names[ii], gradlp[ii])
+        @error "posterior density function gave non-finite answer for parameters near end of prior support"  arr2nt(invlink(θ0))  params_with_errors
+        waserr = true
+    end
+
+    if waserr
+        error("model check failed.")
+    end
+
+    
+    
+
+    
 end
 
 

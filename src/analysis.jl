@@ -60,5 +60,6 @@ end
 
 function plotchains end
 function plotchains! end
+function octoplot end
 function timeplotgrid end
-export plotchains, plotchains!, timeplotgrid
+export plotchains, octoplot

@@ -28,8 +28,8 @@ function Distributions.logpdf(d::Sine, x::Real)
         return -Inf
     end
 end
-Distributions.minimum(d::Sine) = 0
-Distributions.maximum(d::Sine) = π
+Distributions.minimum(d::Sine) = 0.0
+Distributions.maximum(d::Sine) = π+0.0
 Distributions.insupport(d::Sine, x::Real) = 0 < x < π
 Distributions.mean(d::Sine) = π/2
 
