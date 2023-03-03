@@ -1,0 +1,10 @@
+[deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Octofitter = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
+PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[extras]
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
