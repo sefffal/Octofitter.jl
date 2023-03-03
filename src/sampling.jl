@@ -23,7 +23,14 @@ end
 sample_priors(rng::Random.AbstractRNG, system::System, N::Number) = [sample_priors(rng, system) for _ in 1:N]
 
 
-
+# Function to give the parameter names as a flat vector of symbols. Only returns
+# active parameters (i.e.) and not any derived variables.
+function list_parameter_names(system::System)
+    return map(((k,v),)->k, Iterators.flatten([
+        system.priors.priors,
+        [planet.priors.priors for planet in system.planets]...
+    ]))
+end
 
 function guess_starting_position(system::System, args...; kwargs...)
     return guess_starting_position(Random.default_rng(), system, args...; kwargs...)
@@ -350,16 +357,16 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
                     system_tmp = deepcopy(system)
                     function (θ_t)
-                        likelihood = ℓπcallback(θ_t)
+                        # likelihood = ℓπcallback(θ_t)
                         fill!(diffresult,0)
-                        out= Main.Enzyme.autodiff(
-                            Main.Enzyme.Reverse,
+                        _, primal = Main.Enzyme.autodiff(
+                            Main.Enzyme.ReverseWithPrimal,
                             ℓπcallback,
                             Main.Enzyme.Active,
                             Main.Enzyme.Duplicated(θ_t,diffresult),
                             Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
                         )
-                        return likelihood, diffresult
+                        return primal, diffresult
                     end
                 end
 
@@ -582,6 +589,8 @@ function advancedhmc(model::LogDensityModel, target_accept::Number=0.8, ensemble
     return advancedhmc(Random.default_rng(), model, target_accept, ensemble; kwargs...)
 end
 
+include("custom-integrator.jl")
+
 """
 The method signature of Octofitter.hmc is as follows:
 
@@ -631,39 +640,7 @@ function advancedhmc(
     initial_samples=250_000,
     initial_parameters=nothing,
     verbosity=2,
-    autodiff=:ForwardDiff,
 )
-
-    if ensemble == MCMCThreads()
-        @warn "TODO: In-place model gradients may not be safe during task migration"
-    end
-
-    # Choose parameter dimensionality and initial parameter value
-    initial_θ_0 = sample_priors(rng, model.system)
-    D = length(initial_θ_0)
-
-    # ln_prior_transformed = make_ln_prior_transformed(system)
-    # # ln_prior = make_ln_prior(system)
-    # arr2nt = Octofitter.make_arr2nt(system) 
-    # ln_like_generated = make_ln_like(system, arr2nt(initial_θ_0))
-
-    # priors_vec = _list_priors(system)
-    # Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
-    initial_θ_0_t = model.link(initial_θ_0)
-    # arr2nt = Octofitter.make_arr2nt(system)
-
-    # # Test out model likelihood and prior computations. This way, if they throw
-    # # an error, we'll see it right away instead of burried in some deep stack
-    # # trace from the sampler, autodiff, etc.
-    # ln_like_generated(system, arr2nt(initial_θ_0))
-    # ln_prior_transformed(initial_θ_0_t)
-
-
-
-    # # Uncomment for debugging model type-stability
-    # Main.InteractiveUtils.@code_warntype ℓπ(initial_θ_0_t)
-    # Main.InteractiveUtils.@code_warntype ∇ℓπ(initial_θ_0_t)
-    # return
 
     # Guess initial starting positions by drawing from priors a bunch of times
     # and picking the best one (highest likelihood).
@@ -671,7 +648,7 @@ function advancedhmc(
     if isnothing(initial_parameters)
         verbosity >= 1 && @info "Guessing a starting location by sampling from prior" initial_samples
         initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
-        verbosity > 2 && @info "Found starting location" θ=model.arr2nt(initial_θ)
+        verbosity > 2 && @info "Found starting location" θ=stringify_nested_named_tuple(model.arr2nt(initial_θ))
         # Transform from constrained support to unconstrained support
         initial_θ_t = model.link(initial_θ)
     else
@@ -680,8 +657,9 @@ function advancedhmc(
         initial_θ_t = model.link(initial_θ)
     end
 
+
+    # # Use Pathfinder to initialize HMC. Works but currently disabled.
     # verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
-    # # Use Pathfinder to initialize HMC.
     # # It seems to hit a PosDefException sometimes when factoring a matrix.
     # # When that happens, the next try usually succeeds.
     # start_time = time()
@@ -742,41 +720,42 @@ function advancedhmc(
     # # Start using a draw from the typical set as estimated by Pathfinder
     # finite_pathfinder_draws = filter(row->all(isfinite, row), collect(eachrow(result_pf.draws)))
     # if length(finite_pathfinder_draws) > 0 && all(isfinite, Matrix(result_pf.fit_distribution.Σ))
-        
     #     # initial_θ_t = last(finite_pathfinder_draws)
-
     #     verbosity >= 3 && @info "Creating metric"
-
     #     # # Use the metric found by Pathfinder for HMC sampling
     #     # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.fit_distribution.Σ)
-        
     #     # Start with found pathfinder metric then adapt a dense metric:
     #     # metric = DenseEuclideanMetric(Matrix(result_pf.fit_distribution.Σ))
     #     # metric = DiagEuclideanMetric(diag(Matrix(result_pf.fit_distribution.Σ)))
-
     #     metric = DenseEuclideanMetric(collect(Diagonal(Matrix(result_pf.fit_distribution.Σ))))
-
     # else
     #     @warn "Pathfinder failed to provide a finite initial draw and metric. Check your model. Starting from initial guess instead."
         # Fit a dense metric from scratch
         # metric = DiagEuclideanMetric(D)
     # end
 
-    # verbosity >= 3 && @info "Creating model" 
-    # # model = AdvancedHMC.DifferentiableDensityModel(ℓπ, ∇ℓπ)
-    # model = LogDensityModel(system; autodiff, verbosity)
+    
 
     metric = DenseEuclideanMetric(model.D)
 
 
     verbosity >= 3 && @info "Creating hamiltonian"
-    # hamiltonian = Hamiltonian(metric, model.ℓπcallback, model.∇ℓπcallback)
     hamiltonian = Hamiltonian(metric, model)
     verbosity >= 3 && @info "Finding good stepsize"
     ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
     verbosity >= 3 && @info "Found initial stepsize" ϵ 
+
+    # Create integrator. Had best luck with JitteredLeapfrog but all perform similarily.
     # integrator = Leapfrog(ϵ)
     integrator = JitteredLeapfrog(ϵ, 0.05) # 5% normal distribution on step size to help in areas of high curvature. 
+    # integrator = TemperedLeapfrog(ϵ, 1.05) 
+    
+    # This is an attempt at a custom integrator that scales down the step size
+    # as eccentricity grows.
+    # idx_ecc = only(findall(==(:e), list_parameter_names(model.system)))
+    # integrator = EccentricLeapfrog1(ϵ, idx_ecc)
+
+
     verbosity >= 3 && @info "Creating kernel"
     κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
     # κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
@@ -787,7 +766,6 @@ function advancedhmc(
     adaptor = StanHMCAdaptor(mma, ssa) 
     # adaptor = StepSizeAdaptor(target_accept, integrator)
 
-    # κ = NUTS(integrator, max_depth=tree_depth) 
     verbosity >= 3 && @info "Creating sampler"
     sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
 
@@ -809,6 +787,7 @@ function advancedhmc(
     # #     verbose=false
     # # )
 
+    # Callback to print some additional output while sampling.
 
     last_output_time = Ref(time())
     function callback(rng, logdensitymodel, sampler, transition, state, iteration; kwargs...)
@@ -819,9 +798,9 @@ function advancedhmc(
             # Show adapted step size and mass matrix
             if verbosity >= 3
                 println("Adapated stepsize ϵ=", adapted_ss)
-                # adapted_mm = AdvancedHMC.getM⁻¹(adaptor)
-                # print("Adapted mass matrix M⁻¹ ")
-                # display(adapted_mm)
+                adapted_mm = AdvancedHMC.getM⁻¹(adaptor)
+                print("Adapted mass matrix M⁻¹ ")
+                display(adapted_mm)
             end
 
             if adapted_ss == 1.0
@@ -831,16 +810,15 @@ function advancedhmc(
             @info "Sampling..."
             verbosity >= 2 && println("Progress legend: divergence iter(thread) td=tree-depth ℓπ=log-posterior-density ")
         end
-        if verbosity < 2 || last_output_time[] + 1 > time()
+        if verbosity < 2 || last_output_time[] + 0.5 > time()
             return
         end
         # Give different messages if the log-density is non-finite,
         # or if there was a divergent transition.
         if !isfinite(transition.z.ℓπ)
-            # TODO: this never runs since any non-finite proposal is rejected during sampling.
             note = "∞ " 
         elseif transition.stat.numerical_error
-            note = "❗" # "X"
+            note = "❗"
         else
             note = "  "
         end
@@ -856,9 +834,12 @@ function advancedhmc(
             θ_res = model.arr2nt(θ)
             # Fill the remaining width of the terminal with info
             max_width = displaysize(stdout)[2]-34
-            θ_str = string(θ_res)
-            θ_str_trunc = θ_str[begin:prevind(θ_str, min(end,max_width))]
-            θ_message = "θ="*θ_str_trunc*"_.."
+            θ_str = stringify_nested_named_tuple(θ_res)
+            θ_message = "θ="*θ_str
+            if length(θ_message) > max_width+2
+                lastind = prevind(θ_str, min(length(θ_str),max_width))
+                θ_message = θ_str[begin:lastind]*".."
+            end
         end
         
         @printf("%2s%6d(%2d) td=%2d ℓπ=%6.0f. %s\n", note, iteration, Threads.threadid(), transition.stat.tree_depth, ℓπ, θ_message)
@@ -883,7 +864,7 @@ function advancedhmc(
         return
     end
 
-    # # For N chains, use the last N pathfinder draws as initial parameters
+    # If using pathfinder, take N pathfinder draws as initial parameters (disabled)
     # if isnothing(initial_parameters)
     #     if num_chains <= size(result_pf.draws,2)
     #         initial_parameters = [
@@ -908,6 +889,7 @@ function advancedhmc(
         end
         initial_parameters = map(model.link, initial_parameters)
     end
+
 
     mc_samples_all_chains = AbstractMCMC.sample(
         rng,
@@ -976,7 +958,7 @@ function advancedhmc(
     mcmcchains = AbstractMCMC.chainscat(chains...)
 
     # Concatenate the log posteriors and make them the same shape as the chains (N_iters,N_vars,N_chains)
-    logposts_mat = reduce(hcat, logposts)
+    # logposts_mat = reduce(hcat, logposts)
     mcmcchains_with_info = MCMCChains.setinfo(
         mcmcchains,
         (;
@@ -984,23 +966,22 @@ function advancedhmc(
             stop_time,
             # model=model.system,
             # logpost=logposts_mat,
-            # states=mc_samples_all_chains,
+            states=mc_samples_all_chains,
             # pathfinder=pathfinder_chain_with_info,
-            # _restart=(;
-            #     model,
-            #     sampler,
-            #     adaptor,
-            #     state = last.(mc_samples_all_chains)
-            # )
         )
     )
     return mcmcchains_with_info
 end
 
 
-# include("tempered-sampling.jl")
-# include("zigzag.jl")
-
+function stringify_nested_named_tuple(num::Number)
+    string(round(num,digits=1))*","
+end
+function stringify_nested_named_tuple(nt::NamedTuple)
+    "(;"*join(map(keys(nt)) do k
+        "$k="*stringify_nested_named_tuple(nt[k])
+    end)*")"
+end
 
 """
 Convert a vector of component arrays returned from sampling into an MCMCChains.Chains

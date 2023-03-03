@@ -39,16 +39,17 @@ macro planet(args...)
         elseif statement.head == :(=)
             varname = statement.args[1]
             expression = statement.args[2]
-            return :(
-                $(esc(varname)) = (system, $name) -> $expression
-            )
+            return esc(:(
+                $varname = (system, $name) -> $expression
+            ))
+            # TODO: can we constant-ify the arguments they passed in to avoid performance issues? Or wrap in a let block?
         else
             error("invalid statement encoutered $(statement.head)")
         end
     end
     return quote 
         $(esc(name)) = $Planet{$orbit_type}(
-            Variables(;$(variables...)),
+            Variables(;$(variables...))...,
             $((esc(o) for o in observations)...);
             name=$(Meta.quot(name))
         )
@@ -58,8 +59,7 @@ export @planet
 
 macro system(args...)
     name = args[1]
-    orbit_type = args[2]
-    observations = args[3:end-1]
+    observations = args[2:end-1]
     variables_block_input = args[end]
     variables_block = filter(variables_block_input.args) do expr
         !(expr isa LineNumberNode)
@@ -67,17 +67,17 @@ macro system(args...)
     variables = map(variables_block) do statement
         if statement.head == :call && statement.args[1] == :~
             varname = statement.args[2]
-            expression = statement.args[3]
-            distribution = eval(expression)
-            if !(distribution isa Distributions.UnivariateDistribution || distribution isa Octofitter.Parameterization)
-                error("prior on variable $varname must be a UnivariateDistribution")
-            end
-            return :( $(esc(varname)) = $distribution)
+            distribution = statement.args[3]
+            # distribution = eval(expression)
+            # if !(distribution isa Distributions.UnivariateDistribution || distribution isa Octofitter.Parameterization)
+            #     error("prior on variable $varname must be a UnivariateDistribution")
+            # end
+            return :( $(esc(varname)) = $(esc(distribution)))
         elseif statement.head == :(=)
             varname = statement.args[1]
             expression = statement.args[2]
             return :(
-                $(esc(varname)) = (system) -> $expression
+                $(esc(varname)) = (system) -> $(esc(expression))
             )
         else
             error("invalid statement encoutered $(statement.head)")

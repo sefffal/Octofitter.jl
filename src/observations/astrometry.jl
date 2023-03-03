@@ -190,23 +190,26 @@ function ln_like(astrom::Astrometry, θ_planet, orbit,)
             end
         end
 
-        # Manual definition:
-        # χ²1 = -(1/2)*resid1^2 / σ²1 - log(sqrt(2π * σ²1))
-        # χ²2 = -(1/2)*resid2^2 / σ²2 - log(sqrt(2π * σ²2))
-        # ll += χ²1 + χ²2
+        # if cor == 0
+        #     # Manual definition:
+        #     χ²1 = -(1/2)*resid1^2 / σ₁ - log(sqrt(2π * σ₁))
+        #     χ²2 = -(1/2)*resid2^2 / σ₂ - log(sqrt(2π * σ₂))
+        #     ll += χ²1 + χ²2
 
-        # Leveraging Distributions.jl to make this clearer:
-        # χ²1 = logpdf(Normal(0, sqrt(σ²1)), resid1)
-        # χ²2 = logpdf(Normal(0, sqrt(σ²2)), resid2)
-        # ll += χ²1 + χ²2
+        #     # Leveraging Distributions.jl to make this clearer:
+        #     # χ²1 = logpdf(Normal(0, sqrt(σ₁)), resid1)
+        #     # χ²2 = logpdf(Normal(0, sqrt(σ₂)), resid2)
+        #     # ll += χ²1 + χ²2
 
-        # Same as above, with support for covariance:
-        Σ = @SArray[
-            σ₁^2        cor*σ₁*σ₂
-            cor*σ₁*σ₂   σ₂^2
-        ]
-        dist = MvNormal(Σ)
-        ll += logpdf(dist, @SArray[resid1, resid2])
+        # else
+            # Same as above, with support for covariance:
+            Σ = @SArray[
+                σ₁^2        cor*σ₁*σ₂
+                cor*σ₁*σ₂   σ₂^2
+            ]
+            dist = MvNormal(Σ)
+            ll += logpdf(dist, @SArray[resid1, resid2])
+        # end
 
     end
     return ll

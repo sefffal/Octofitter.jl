@@ -155,7 +155,9 @@ function make_ln_like(system::System, θ_system)
 
 
     sys_exprs = map(system.observations) do obs
-        :(ll += ln_like($obs, θ_system, elems))
+        # Provide the number of observations as a compile time constant
+        L = Val(length(obs.table))
+        :(ll += ln_like($obs, θ_system, elems, $L))
     end
 
     return @RuntimeGeneratedFunction(:(function (system::System, θ_system)
@@ -177,6 +179,7 @@ function make_ln_like(system::System, θ_system)
 end
 
 
+ln_like(prior::UniformCircularUnitVectorPrior1, θ_planet_or_system, element,) = prior.logdensity(θ_planet_or_system)
 
 
 # Generate calibration data

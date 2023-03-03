@@ -38,7 +38,7 @@ Inputs:
 """
 function Octofitter.plotchains(args...;kwargs...)
     p = Plots.plot()
-    plotchains!(p, args...;kwargs...)
+    Octofitter.plotchains!(p, args...;kwargs...)
 end
 
 """
@@ -201,7 +201,7 @@ function timeplot!(
     end
     all_epochs_planet = mapreduce(vcat, keys(model.system.planets)) do planet_key
         planet = model.system.planets[planet_key]
-        reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch)], init=[])
+        reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if  hasproperty(t, :table) && (hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch))], init=[])
     end
     all_epochs_star = mapreduce(vcat, model.system.observations, init=Float64[]) do obs
         if hasproperty(obs.table, :epoch)
@@ -301,6 +301,7 @@ function timeplot!(
         diffs = diff(fit, dims=1)
         diffs2 = diff(diffs, dims=1)
         fit[findall((diffs2 .< 0))] .= NaN
+        y[y .< 0] .+= 360
     elseif prop == :pmra
         if !isnothing(Octofitter.propermotionanom(model.system))
             hgca = Octofitter.propermotionanom(model.system).table[1]
@@ -478,7 +479,7 @@ function Octofitter.octoplot(
     kwargs...
 )
 
-    p = timeplotgrid(model, chain; color, clims, cmap, dpi)
+    p = Octofitter.timeplotgrid(model, chain; color, clims, cmap, dpi)
     fname1 = fname*".png"
     Plots.savefig(p, fname1)
 
@@ -521,17 +522,17 @@ function Octofitter.timeplotgrid(
         # bottom_margin=0Plots.mm,
     )
     for (i,planet_key) in enumerate(planet_keys)
-        plotchains!(ppost, chains, planet_key; kind=:astrometry, color, rev=false, colorbar=true, kwargs...)
+        Octofitter.plotchains!(ppost, chains, planet_key; kind=:astrometry, color, rev=false, colorbar=true, kwargs...)
         astrom = astrometry(model.system.planets[planet_key])
         if !isnothing(astrom)
-            Plots.plot!(ppost, astrom, linecolor=1, )
+            Plots.plot!(ppost, astrom, linecolor=1, label="", markersize=0)
         end
     end
     Plots.scatter!(ppost, [0],[0],marker=(:star, :white, :black, 5),label="",colorbar=nothing)
     
     pz = Plots.plot()
     for (i,planet_key) in enumerate(planet_keys)
-        plotchains!(pz, chains, planet_key; kind=(:x,:z), color, rev=false, colorbar=nothing, kwargs...)
+        Octofitter.plotchains!(pz, chains, planet_key; kind=(:x,:z), color, rev=false, colorbar=nothing, kwargs...)
     end
     Plots.annotate!(pz,((0.5,1.0),Plots.text("top down",:bottom,:middle,10)))
     Plots.scatter!(pz, [0],[0],marker=(:star, :white, :black, 5),label="")
@@ -540,7 +541,7 @@ function Octofitter.timeplotgrid(
 
     py = Plots.plot()
     for (i,planet_key) in enumerate(planet_keys)
-        plotchains!(py, chains, planet_key; kind=(:y,:z), xflip=false, color, rev=false, colorbar=nothing, kwargs...)
+        Octofitter.plotchains!(py, chains, planet_key; kind=(:y,:z), xflip=false, color, rev=false, colorbar=nothing, kwargs...)
     end
     Plots.annotate!(py,((0.5,1.0),Plots.text("side view",:bottom,:middle,10)))
     Plots.scatter!(py, [0],[0],marker=(:star, :white, :black, 5),label="")
@@ -550,10 +551,17 @@ function Octofitter.timeplotgrid(
     chains_deproj = deepcopy(chains)
     maxa = 0
     maxe = 0
+
     for planet_key in planet_keys
-        chains_deproj.value[:,Symbol("$(planet_key)_i"),:] .= 0
-        chains_deproj.value[:,Symbol("$(planet_key)_ω"),:] .= π
-        chains_deproj.value[:,Symbol("$(planet_key)_Ω"),:] .= 0
+        keyi = Symbol("$(planet_key)_i")
+        keyω = Symbol("$(planet_key)_ω")
+        keyΩ = Symbol("$(planet_key)_Ω")
+        if !(haskey(chains_deproj, keyi) &&haskey(chains_deproj, keyω) &&haskey(chains_deproj, keyΩ))
+            continue
+        end
+        chains_deproj.value[:,keyi,:] .= 0
+        chains_deproj.value[:,keyω,:] .= π
+        chains_deproj.value[:,keyΩ,:] .= 0
         maxa = max(maxa, maximum(chains_deproj[Symbol("$(planet_key)_a")]))
         maxe = max(maxe, maximum(chains_deproj[Symbol("$(planet_key)_e")]))
     end
@@ -561,7 +569,13 @@ function Octofitter.timeplotgrid(
     # Line to mark periastron
     Plots.plot!(pxyz, [0,0], [-maxa*(1+maxe),0],label="", color=:grey)
     for planet_key in planet_keys
-        plotchains!(pxyz, chains_deproj, planet_key; kind=(:x,:y), xflip=false, color, rev=false, colorbar=nothing, kwargs...)
+        keyi = Symbol("$(planet_key)_i")
+        keyω = Symbol("$(planet_key)_ω")
+        keyΩ = Symbol("$(planet_key)_Ω")
+        if !(haskey(chains_deproj, keyi) &&haskey(chains_deproj, keyω) &&haskey(chains_deproj, keyΩ))
+            continue
+        end
+        Octofitter.plotchains!(pxyz, chains_deproj, planet_key; kind=(:x,:y), xflip=false, color, rev=false, colorbar=nothing, kwargs...)
     end
     Plots.scatter!(pxyz, [0],[0],marker=(:star, :white, :black, 5),label="",xlabel="(au)",ylabel="(au)")
     Plots.annotate!(pxyz,((0.5,1.0),Plots.text("deprojected with i=ω=Ω=0",:bottom,:middle,10)))

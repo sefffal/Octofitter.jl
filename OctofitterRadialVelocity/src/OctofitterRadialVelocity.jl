@@ -5,6 +5,8 @@ using PlanetOrbits
 using Tables, TypedTables
 using Distributions
 using DataDeps
+using LoopVectorization
+using StrideArrays
 
 # Radial Velocity data type
 const rv_cols = (:epoch, :rv, :σ_rv)
@@ -24,52 +26,60 @@ export RadialVelocity
 """
 Radial velocity likelihood.
 """
-function Octofitter.ln_like(rv::RadialVelocity, θ_system, elements)
-    T = Float64
+function Octofitter.ln_like(rv::RadialVelocity, θ_system, elements, num_epochs::Val{L}=Val(length(rv.table))) where L
+    T = typeof(θ_system.M)
     ll = zero(T)
 
-    for i in eachindex(rv.table.epoch)
-        rv_star = zero(T)
-        for j in eachindex(elements)
-            θ_planet = θ_system.planets[j]
-            orbit = elements[j]
+    epochs = rv.table.epoch
+    σ_rvs = rv.table.σ_rv
+    inst_idxs = rv.table.inst_idx
+    rvs = rv.table.rv
 
-            if θ_planet.mass < 0
-                return -Inf 
-            end
+    # # # TODO: This is a debug override. This is forcing omega to be shifted by pi
+    # # # to compare with orvara.
+    # nt = θ_system.planets.B
+    # nt = merge(nt,(;ω=nt.ω+π))
+    # elements = (Octofitter.construct_elements(VisualOrbit, θ_system, nt),)
 
-            rv_star += radvel(orbit, rv.table.epoch[i], θ_planet.mass*Octofitter.mjup2msol)
+    # single_instrument_mode = !hasproperty(rv.table, :inst_idx)
+    barycentric_rv_inst = (
+        hasproperty(rv.table, :rv0_1) ? rv.table.rv0_1 : zero(T),
+        hasproperty(rv.table, :rv0_2) ? rv.table.rv0_2 : zero(T),
+        hasproperty(rv.table, :rv0_3) ? rv.table.rv0_3 : zero(T),
+        hasproperty(rv.table, :rv0_4) ? rv.table.rv0_4 : zero(T),
+    )
+    jitter_inst = (
+        hasproperty(rv.table, :jitter_1) ? rv.table.jitter_1 : zero(T),
+        hasproperty(rv.table, :jitter_2) ? rv.table.jitter_2 : zero(T),
+        hasproperty(rv.table, :jitter_3) ? rv.table.jitter_3 : zero(T),
+        hasproperty(rv.table, :jitter_4) ? rv.table.jitter_4 : zero(T),
+    )
+    # Vector of radial velocity of the star at each epoch. Go through and sum up the influence of
+    # each planet and put it into here. 
+    # Then loop through and get likelihood.
+    # Hopefully this is more efficient than looping over each planet at each epoch and adding up the likelihood.
+    rv_star = StrideArray{T}(undef, (StaticInt(num_epochs),))
+    fill!(rv_star, 0)
+    for planet_i in eachindex(elements)
+        orbit = elements[planet_i]
+        # Need to structarrays orbit???
+        planet_mass = θ_system.planets[planet_i].mass
+        @turbo for epoch_i in eachindex(epochs)
+            rv_star[epoch_i] += radvel(orbit, epochs[epoch_i], planet_mass*Octofitter.mjup2msol)
         end
+    end
+    @turbo for i in eachindex(epochs)
         # Each measurement is tagged with a jitter and rv zero point variable.
         # We then query the system variables for them.
         # A previous implementation used symbols instead of indices but it was too slow.
-        # barycentric_rv_inst = getproperty(θ_system, rv.table.rv0[i])::Float64
-        # jitter_inst = getproperty(θ_system, rv.table.jitter[i])::Float64
-        if !hasproperty(rv.table, :inst_idx)
-            barycentric_rv_inst = θ_system.rv0
-            jitter_inst = θ_system.jitter
-        else
-            inst_idx = rv.table.inst_idx[i]
-            if inst_idx == 1
-                barycentric_rv_inst = θ_system.rv0_1
-                jitter_inst = θ_system.jitter_1
-            elseif inst_idx == 2
-                barycentric_rv_inst = θ_system.rv0_2
-                jitter_inst = θ_system.jitter_2
-            elseif inst_idx == 3
-                barycentric_rv_inst = θ_system.rv0_3
-                jitter_inst = θ_system.jitter_3
-            elseif inst_idx == 4
-                barycentric_rv_inst = θ_system.rv0_4
-                jitter_inst = θ_system.jitter_4
-            else
-                error("More than four radial velocity instruments are not yet supported for performance reasons")
-            end
-        end
-        resid = rv_star + barycentric_rv_inst - rv.table.rv[i]
-        σ² = rv.table.σ_rv[i]^2 + jitter_inst^2
+        inst_idx = inst_idxs[i]
+        resid = rv_star[i] + barycentric_rv_inst[inst_idx] - rvs[i]
+        σ² = σ_rvs[i]^2 + jitter_inst[inst_idx]^2
         χ² = -0.5resid^2 / σ² - log(sqrt(2π * σ²))
         ll += χ²
+
+        # Leveraging Distributions.jl to make this clearer:
+        # ll += logpdf(Normal(0, sqrt(σ²)), resid)
     end
 
     return ll
@@ -143,13 +153,13 @@ function __init__()
         
         File size: 132MiB
         """,
-        # "42916f0008b8dd9ead18f8e793c009800b2dcf02b523d219463e1ecf021af6d1",
+        "17b2a7f47569de11ff1747a96997203431c81586ffcf08212ddaa250bb879a40",
         "https://www2.mpia-hd.mpg.de/homes/trifonov/HARPS_RVBank_v1.csv",
     ))
 
     register(DataDep("HIRES_rvs",
         """
-        Dataset:     A public HARPS radial velocity database corrected for systematic errors
+        Dataset:     A public HIRES radial velocity database corrected for systematic errors
         Author:      Butler et al.
         License:     
         Publication: https://ui.adsabs.harvard.edu/abs/2017yCat..51530208B/abstract

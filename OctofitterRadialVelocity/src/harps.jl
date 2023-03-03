@@ -1,5 +1,5 @@
 using CSV
-
+using StringDistances
 
 
 function HARPS_observations(target, catalog=datadep"HARPS_RVBank")
@@ -7,8 +7,18 @@ function HARPS_observations(target, catalog=datadep"HARPS_RVBank")
     
     rvbank = CSV.read(joinpath(catalog, "HARPS_RVBank_v1.csv"), Table)
 
-    target_rows = findall(==(target), rvbank.target)
-    return rvbank[target_rows]
+    target_matched_i = findfirst(==(target), rvbank.target)
+
+    if isnothing(target_matched_i)
+        avail_filt = rvbank.target[rvbank.target.!=""] 
+        similarity = evaluate.(Ref(Levenshtein()), target, avail_filt)
+        ii = sortperm(similarity)
+        closest_3 = avail_filt[ii[1:min(3,end)]]
+        @error "No results were found for the target $target."
+        @info  "Here are a list of similar and available target names" closest_3
+        error()
+    end
+    return rvbank[target_matched_i]
    
 end
 

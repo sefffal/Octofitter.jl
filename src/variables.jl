@@ -75,19 +75,23 @@ function Variables(; kwargs...)
     # have a nice mechanism for pre-canned parameterizations
     # that can introduce auxillary variables without much fuss.
     kwargs_expanded = Pair[]
+    extra_obs_likelihoods = []
     for (k,v) in pairs(kwargs)
+        expanded, extra_obs_likelihood = expandparam(k,v)
         # Each input can expand to any number of inputs.
-        for (k,v) in pairs(expandparam(k,v))
+        for (k,v) in pairs(expanded)
             push!(kwargs_expanded, k => v)
         end
+        push!(extra_obs_likelihoods, extra_obs_likelihood)
     end
     kwargs_dict = OrderedDict(kwargs_expanded)
     # Now divide the list into priors (random variables) and derived (functions of random variables)
     isdist(v) = typeof(v) <: Distribution
     priors = filter(isdist ∘ last, kwargs_dict)
     derived = filter(!(isdist ∘ last), kwargs_dict)
+    observation_likelihoods = filter(!isnothing, extra_obs_likelihoods)
     
-    return Priors(priors), Derived(derived)
+    return (Priors(priors), Derived(derived), observation_likelihoods...)
 end
 export Variables
 
@@ -118,9 +122,9 @@ struct UniformCircular <: Parameterization
 end
 UniformCircular() = UniformCircular(2π)
 export UniformCircular
-expandparam(var, n::Number) = OrderedDict(var => Returns(n))
-expandparam(var, f::Base.Callable) = OrderedDict(var => f)
-expandparam(var, d::Distribution) = OrderedDict(var => d)
+expandparam(var, n::Number) = OrderedDict(var => Returns(n)), nothing
+expandparam(var, f::Base.Callable) = OrderedDict(var => f), nothing
+expandparam(var, d::Distribution) = OrderedDict(var => d), nothing
 # expandparam(var, p::UniformCircular) = OrderedDict(
 #     Symbol("$(var)x") => Normal(),
 #     Symbol("$(var)y") => Normal(),
@@ -143,11 +147,27 @@ function expandparam(var, p::UniformCircular)
     callback(sys,pl) = callback_inner(pl)
     callback(sys) = callback_inner(sys)
 
+    # We need to create a "prior" on the length of the unit vector so that it doesn't get pinched at (0,0)
+    paramprior = @RuntimeGeneratedFunction(:(
+        # This parameterization needs to work for either a planet
+        # or a system as a whole.
+        function (body)
+            vector_length = sqrt(body.$vary^2 + body.$varx^2)
+            # return logpdf(LogNormal(log(1.0), 0.1), vector_length);
+            return logpdf(LogNormal(log(1.0), 0.02), vector_length);
+        end
+    ))
+
     return OrderedDict(
-        varx => Normal(),
-        vary => Normal(),
+        varx => Normal(0,1),
+        vary => Normal(0,1),
         var  => callback,
-    )
+    ), UniformCircularUnitVectorPrior1(paramprior)
+end
+
+struct UniformCircularUnitVectorPrior1{T} <: AbstractObs where T
+    logdensity::T
+    UniformCircularUnitVectorPrior1(logdensity::Base.Callable) = new{typeof(logdensity)}(logdensity)
 end
 
 
@@ -275,7 +295,11 @@ function Base.show(io::IO, mime::MIME"text/plain", @nospecialize obs::AbstractOb
         obstype_name = obstype_name[1:findfirst(==('{'),collect(obstype_name))-1]
     end
     print(io, "$(obstype_name) ")
-    Base.show(io::IO, mime, Table(obs))
+    if hasproperty(obs, :table)
+        Base.show(io::IO, mime, Table(obs))
+    else
+        println(io)
+    end
 end
 
 

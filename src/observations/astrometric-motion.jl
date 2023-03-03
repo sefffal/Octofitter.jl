@@ -145,7 +145,7 @@ end
 Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
 using 5 position measurements averaged at each of their epochs.
 """
-function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements)
+function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements, _L=1 #=length of observations: we know this is one=#)
     ll = 0.0
 
     # This observation type just wraps one row from the HGCA (see hgca.jl)

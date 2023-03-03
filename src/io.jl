@@ -25,7 +25,7 @@ function savechain(fname, chain::MCMCChains.Chains)
         # Expand any vectors into multiple headers
         for k in ks
             i = findfirst(==(k),ks)
-            if vals[i] isa AbstractArray
+            if vals[i] isa AbstractArray{<:Number}
                 for ki in eachindex(vals[i])
                     push!(ks, "$(k)_$ki")
                     push!(vals, vals[i][ki])
@@ -37,7 +37,7 @@ function savechain(fname, chain::MCMCChains.Chains)
         normalize(x::Number) = x
         normalize(x::AbstractString) = string(x)
         normalize(x::Nothing) = x
-        normalize(x::Any) = string(x)
+        normalize(x::Any) = string(x)[1:min(255,end)]
         if length(ks) > 0
             h = FITSHeader(
                 ks,
