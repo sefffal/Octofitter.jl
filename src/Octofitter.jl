@@ -39,10 +39,10 @@ export Chains
 include("distributions.jl")
 include("variables.jl")
 
-include("observations/system.jl")
-include("observations/astrometry.jl")
-include("observations/photometry.jl")
-include("observations/astrometric-motion.jl")
+include("likelihoods/system.jl")
+include("likelihoods/astrometry.jl")
+include("likelihoods/photometry.jl")
+include("likelihoods/astrometric-motion.jl")
 
 include("sampling.jl")
 
