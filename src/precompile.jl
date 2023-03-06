@@ -16,34 +16,28 @@ using SnoopPrecompile
     with_logger(logger) do
         @precompile_all_calls begin
         
-            planet = Octofitter.Planet{VisualOrbit}(
-                Variables(
-                    a = Uniform(1, 50),
-                    e = Beta(1.2, 5),
-                    τ = UniformCircular(1.0),
-                    ω = UniformCircular(),
-                    i = Sine(),
-                    Ω = UniformCircular(),
-                    mass = Uniform(0, 1),
-                ),
-                Astrometry(
-                    (epoch=1234.0, ra=123., dec=123., σ_ra=12., σ_dec=34.),
-                ),
-                name=:test
+            astrom = AstrometryLikelihood(
+                (epoch=1234.0, ra=123., dec=123., σ_ra=12., σ_dec=34.),
             )
+            @planet test VisualOrbit begin
+                a ~ Uniform(1, 50)
+                e ~ Beta(1.2, 5)
+                τ ~ UniformCircular(1.0)
+                ω ~ UniformCircular()
+                i ~ Sine()
+                Ω ~ UniformCircular()
+                mass ~ Uniform(0, 1)
+                computed1 = test.a
+            end astrom
 
-            system = System(
-                Variables(
-                    M = TruncatedNormal(1.0, 0.2, 0.1, Inf),
-                    plx = TruncatedNormal(12.0, 0.2, 0.1, Inf),
-                ),
-                planet,
-                name=:Test
-            )
-            show(io, "text/plain", planet)
-            show(io, "text/plain", system)
+            @system Test begin
+                M ~ TruncatedNormal(1.0, 0.2, 0.1, Inf)
+                plx ~ TruncatedNormal(12.0, 0.2, 0.1, Inf)
+            end test
+            show(io, "text/plain", test)
+            show(io, "text/plain", Test)
 
-            model = Octofitter.LogDensityModel(system)
+            model = Octofitter.LogDensityModel(Test)
 
             # This can't actually start since AdvancedHMC uses
             # Requires to load in ForwardDiff. It's not available

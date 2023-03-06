@@ -203,9 +203,9 @@ function timeplot!(
         planet = model.system.planets[planet_key]
         reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if  hasproperty(t, :table) && (hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch))], init=[])
     end
-    all_epochs_star = mapreduce(vcat, model.system.observations, init=Float64[]) do obs
-        if hasproperty(obs.table, :epoch)
-            return obs.table.epoch
+    all_epochs_star = mapreduce(vcat, model.system.observations, init=Float64[]) do like
+        if hasproperty(like.table, :epoch)
+            return like.table.epoch
         else
             return Float64[]
         end
@@ -368,7 +368,7 @@ function timeplot!(
         end
         for obs in model.system.observations
             # TODO: make this pluggable instead of this hacky workaround
-            if startswith(string(typeof(obs)), "RadialVelocity")
+            if startswith(string(typeof(obs)), "RadialVelocityLikelihood")
                 if haskey(chain,:rv0)
                     barycentric_rv_inst_1 = median(vec(chain["rv0"]))
                     jitter = barycentric_rv_inst_1 = median(vec(chain["jitter"]))
@@ -627,7 +627,7 @@ end
 # function pmaplot(model, chains; kwargs...)
 #     pmaplot(chains, propermotionanom(model.system); kwargs...)
 # end
-# function pmaplot(model, chains, pma::ProperMotionAnomHGCA; color, N=1500, ii =rand(1:size(chains,1)*size(chains,3), N), kwargs...)
+# function pmaplot(model, chains, pma::HGCALikelihood; color, N=1500, ii =rand(1:size(chains,1)*size(chains,3), N), kwargs...)
     
 #     hgca = pma.table
 

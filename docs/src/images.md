@@ -91,7 +91,7 @@ Now specify the planet:
 ```
 Note how we also provided a prior on the photometry called `H`. We can put any name we want here, as long as it's used consistently throughout the model specification.
 
-See [Fit Astrometry](@ref fit-astrometry) for a description of the different orbital parameters, and conventions used.
+See [Fit AstrometryLikelihood](@ref fit-astrometry) for a description of the different orbital parameters, and conventions used.
 
 
 Finally, create the system and pass in the planet.

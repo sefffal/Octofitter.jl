@@ -32,4 +32,4 @@ That is, specify the extension package you want to install after the colon (`:`)
 These aren't included by default since they may include a number of heavier dependencies that aren't needed by all users.
 
 ## Fitting your first model
-Start with the [Fit Astrometry](@ref fit-astrometry) tutorial which shows how to model of one planet with some astrometry points.
+Start with the [Fit AstrometryLikelihood](@ref fit-astrometry) tutorial which shows how to model of one planet with some astrometry points.

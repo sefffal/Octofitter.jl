@@ -1,4 +1,4 @@
-using DirectDetections, Distributions, Plots
+using Octofitter, Distributions, Plots
 
 
 using DirectImages
@@ -15,7 +15,7 @@ imshow2([
 ##
 
 
-@named b = DirectDetections.Planet(
+@named b = Octofitter.Planet(
     Priors(
         a = Normal(16, 3),
         e = Beta(5, 25),
@@ -27,7 +27,7 @@ imshow2([
     ),
 )
 
-system_images = DirectDetections.Images(
+system_images = Octofitter.Images(
     (band=:H, image=imagesc[1], platescale=10.0, epoch=times[1], contrast=contrasts[1]),
     (band=:H, image=imagesc[2], platescale=10.0, epoch=times[2], contrast=contrasts[2]),
     (band=:H, image=imagesc[3], platescale=10.0, epoch=times[3], contrast=contrasts[3]),
@@ -46,7 +46,7 @@ system_images = DirectDetections.Images(
     b,
 )
 
-chain = DirectDetectionsadvancedhmc(
+chain = Octofitteradvancedhmc(
     HD82134, .60,
     MCMCThreads(),
     num_chains=4,
@@ -58,7 +58,7 @@ chain = DirectDetectionsadvancedhmc(
 ##
 @show snr = mean(chain["X[H]"]) / std(chain["X[H]"])
 ##
-DirectDetections.MCMCChains.gelmandiag(chain)
+Octofitter.MCMCChains.gelmandiag(chain)
 ##
 plot(chain)
 ##
@@ -124,7 +124,7 @@ points = hcat(
 )
 
 # Create synthetic images at each time with those points
-using DirectImages, ImageFiltering
+using DirectImageLikelihood, ImageFiltering
 images_contrasts = map(eachrow(points)) do (ra,dec)
     x = -ra
     y = dec

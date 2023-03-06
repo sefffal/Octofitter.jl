@@ -8,12 +8,12 @@ ld = QuadLimbDark(u)
 
 o = orbit(M=1,a=0.1,i=π/2,Ω=π/2,e=0,ω=0,τ=0)
 ts =  0:0.01:60
-tds = DirectDetections.transit_depth.(o, ts, 0.1, 696340e3, ld)
+tds = Octofitter.transit_depth.(o, ts, 0.1, 696340e3, ld)
 i = argmin(tds)
 
 synth_obs = Table([
-    # (epoch=t, phot= 4 < t < 6 ? DirectDetections.transit_depth(o, t, 0.1, 696340e3, ld)+0.0001randn() : 1 + 0.0001randn(), σ_phot=0.0001)
-    (epoch=t, phot=DirectDetections.transit_depth(o, t, 0.1, 696340e3, ld)+0.0001randn(), σ_phot=0.0001)
+    # (epoch=t, phot= 4 < t < 6 ? Octofitter.transit_depth(o, t, 0.1, 696340e3, ld)+0.0001randn() : 1 + 0.0001randn(), σ_phot=0.0001)
+    (epoch=t, phot=Octofitter.transit_depth(o, t, 0.1, 696340e3, ld)+0.0001randn(), σ_phot=0.0001)
     # for t in ts[i-40:i+40]
     # for t in ts[i-240:i+100]
     for t in ts[i-140:i+100]
@@ -65,7 +65,7 @@ lightcurvedata = LightCurve4(
 
 ## Sample from chains
 
-results = DirectDetectionsadvancedhmc(
+results = Octofitteradvancedhmc(
     system, 0.65;
 
 
@@ -85,7 +85,7 @@ results = DirectDetectionsadvancedhmc(
 ##
 function transitplot(chain, planetkey)
     ii = rand(1:size(chain,1)*size(chain,3), 150)
-    els = DirectDetections.construct_elements(chain, planetkey, ii)
+    els = Octofitter.construct_elements(chain, planetkey, ii)
 
     lightcurvedata = first(filter(obs->isa(obs, LightCurve4), chain.info.model.observations))
 
@@ -105,11 +105,11 @@ function transitplot(chain, planetkey)
                 end
             end
         end
-        ld = DirectDetections.limbdarkfunc(lightcurvedata)(SVector(params))
+        ld = Octofitter.limbdarkfunc(lightcurvedata)(SVector(params))
         Rₛₜₐᵣ = chain["R"][i]
         r = chain["$planetkey.r"][i]
 
-        phot_star =  DirectDetections.transit_depth.(orb, tspan, r, Rₛₜₐᵣ, ld)
+        phot_star =  Octofitter.transit_depth.(orb, tspan, r, Rₛₜₐᵣ, ld)
 
     end
 

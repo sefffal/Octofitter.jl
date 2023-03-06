@@ -3,12 +3,12 @@ using Transits
 const light_curve_cols = (:epoch, :phot, :σ_phot)
 
 """
-    LightCurve(AbstractLimbDark, observation_table) <: AbstractObs
+    LightCurve(AbstractLimbDark, observation_table) <: AbstractLikelihood
 
 Construct a LightCuve observation using a limb darkening type from 
 Tranits.jl and a table of observations.
 """
-struct LightCurve4{TLimbDark, TTable<:Table} <: AbstractObs
+struct LightCurve4{TLimbDark, TTable<:Table} <: AbstractLikelihood
     table::TTable
     function LightCurve4(ld::Type{<:AbstractLimbDark}, observations...)
         table = Table(observations...)

@@ -1,4 +1,4 @@
-# [Fit Relative Astrometry](@id fit-astrometry)
+# [Fit Relative AstrometryLikelihood](@id fit-astrometry)
 
 Here is a worked example of a basic model. It contains a star with a single planet, and several astrometry points.
 
@@ -14,7 +14,7 @@ using Octofitter, Distributions
 Create our first planet. Let's name it planet B. 
 ```julia
 
-astrom = Astrometry(
+astrom = AstrometryLikelihood(
     (epoch = 5000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 5120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 5240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
@@ -25,7 +25,7 @@ astrom = Astrometry(
     (epoch = 5840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
 )
 # Or from a file:
-# astrom = CSV.read("mydata.csv", Astrometry)
+# astrom = CSV.read("mydata.csv", AstrometryLikelihood)
 
 @named B = Planet{VisualOrbit}(
     Variables(
@@ -59,9 +59,9 @@ The parameter τ represents the epoch of periastron passage as a fraction of the
 Many different distributions are supported as priors, including `Uniform`, `LogNormal`, `LogUniform`, `Sine`, and `Beta`. See the section on [Priors](@ref priors) for more information.
 The parameters can be specified in any order.
 
-After the `Variables` block are zero or more `Observation` blocks. These are observations specific to a given planet that you would like to include in the model. If you would like to sample from the priors only, don't pass in any observations.
+After the `Variables` block are zero or more `Likelihood` blocks. These are observations specific to a given planet that you would like to include in the model. If you would like to sample from the priors only, don't pass in any observations.
 
-For this example, we specify `Astrometry` block. This is where you can list the position of a planet at different epochs if it known. `epoch` is a modified Julian date that the observation was taken. the `ra`, `dec`, `σ_ra`, and `σ_dec` parameters are the position of the planet at that epoch, relative to the star. All values in milliarcseconds (mas).
+For this example, we specify `AstrometryLikelihood` block. This is where you can list the position of a planet at different epochs if it known. `epoch` is a modified Julian date that the observation was taken. the `ra`, `dec`, `σ_ra`, and `σ_dec` parameters are the position of the planet at that epoch, relative to the star. All values in milliarcseconds (mas).
 Alternatively, you can pass in `pa`, `sep`, `σ_pa`, and `σ_sep` if your data is specified in position angle (degrees) and separation (mas).
 
 If you have many observations you may prefer to load them from a file or database. You can pass in any Tables.jl compatible data source via, for example, the CSV.jl library, the Arrow.jl library, a DataFrame, etc. Just ensure the right columns are present.

@@ -4,11 +4,11 @@
 ```@docs
 Priors
 Derived
-Astrometry
-Photometry
+AstrometryLikelihood
+PhotometryLikelihood
 ProperMotionAnom
-ProperMotionAnomHGCA
-Images
+HGCALikelihood
+ImageLikelihood
 Sine
 Planet
 System

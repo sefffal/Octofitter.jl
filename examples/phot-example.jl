@@ -22,8 +22,8 @@ const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
         # mass = NNor(1, 50)
         mass = Uniform(2, 60)
     ),
-    # Photometry 
-    Photometry(
+    # PhotometryLikelihood 
+    PhotometryLikelihood(
         (band = :Z, phot=16.0, σ_phot=3.),
         (band = :J, phot=17.0, σ_phot=2.),
         (band = :L, phot=12.0, σ_phot=3.0)
@@ -38,7 +38,7 @@ const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
 )
 
 ##
-chain = DirectDetectionsadvancedhmc(
+chain = Octofitteradvancedhmc(
     HD12345, 0.85,
     adaptation =   1_000,
     iterations =  50_000,

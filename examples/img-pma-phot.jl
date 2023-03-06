@@ -1,4 +1,4 @@
-using DirectDetections, Distributions
+using Octofitter, Distributions
 using MCMCChains
 
 # Create a function mapping (age_Myr, mass_Mjup) -> temp_K
@@ -10,7 +10,7 @@ const sonora_temp_mass_J = sonora_photometry_interpolator(:MKO_J)
 const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
 
 ##
-@named f = DirectDetections.Planet(
+@named f = Octofitter.Planet(
     Priors(
         τ = Uniform(0, 1),
     ),
@@ -25,7 +25,7 @@ const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
     ),  
 )
 
-@named e = DirectDetections.Planet(
+@named e = Octofitter.Planet(
     Priors(
         τ = Uniform(0, 1),
     ),
@@ -40,7 +40,7 @@ const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
     ),  
 )
 
-@named d = DirectDetections.Planet(
+@named d = Octofitter.Planet(
     Priors(
         τ = Uniform(0, 1),
     ),
@@ -55,7 +55,7 @@ const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
     ),  
 )
 
-@named c = DirectDetections.Planet(
+@named c = Octofitter.Planet(
     Priors(
         τ = Uniform(0, 1),
     ),
@@ -70,7 +70,7 @@ const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
     ),  
 )
 
-@named b = DirectDetections.Planet(
+@named b = Octofitter.Planet(
     Priors(
         τ = Uniform(0, 1),
     ),
@@ -95,12 +95,12 @@ const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
         mass = TruncatedNormal(7,1,0,Inf),
         P1 = Uniform(40, 100)
     ),
-    ProperMotionAnomHGCA(gaia_id=2832463659640297472),
+    HGCALikelihood(gaia_id=2832463659640297472),
     f, e, d, c, b
 )
 
 ##
-chains = DirectDetectionsadvancedhmc(
+chains = Octofitteradvancedhmc(
     HR8799, 0.85,
     MCMCThreads(),
     num_chains=4,

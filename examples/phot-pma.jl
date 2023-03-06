@@ -40,12 +40,12 @@ const star_abs_mag_L = 5.2
         # We inculde teff in the chains to ease analysis (though it can be recalculated after the fact using age and mass)
         teff = (sys, pl) -> cooling_tracks(sys.age, pl.mass),
     ),
-    Photometry(
+    PhotometryLikelihood(
         (band = :Z, phot=15.0, σ_phot=3.),
         (band = :J, phot=13.5, σ_phot=0.5),
         (band = :L, phot=11.0, σ_phot=1.0)
     ),
-    Astrometry(
+    AstrometryLikelihood(
         (epoch=mjd("2016-12-15"), ra=0.133*1e3, dec=-0.174*1e3, σ_ra=0.007*1e3, σ_dec=0.007*1e3),
         (epoch=mjd("2017-03-12"), ra=0.126*1e3, dec=-0.176*1e3, σ_ra=0.004*1e3, σ_dec=0.004*1e3),
         (epoch=mjd("2017-03-13"), ra=0.127*1e3, dec=-0.172*1e3, σ_ra=0.004*1e3, σ_dec=0.004*1e3),
@@ -62,13 +62,13 @@ const star_abs_mag_L = 5.2
         μ = Normal(1.61, 0.05),
         plx = gaia_plx(gaia_id=756291174721509376),
     ),
-    # ProperMotionAnomHGCA(gaia_id=756291174721509376),
-    ProperMotionAnomHGCA(gaia_id=2832463659640297472), #HR8799...
+    # HGCALikelihood(gaia_id=756291174721509376),
+    HGCALikelihood(gaia_id=2832463659640297472), #HR8799...
     b,
 )
 
 ##
-chains = DirectDetectionsadvancedhmc(
+chains = Octofitteradvancedhmc(
     HD12345, 0.85,
     MCMCThreads(),
     num_chains=2,

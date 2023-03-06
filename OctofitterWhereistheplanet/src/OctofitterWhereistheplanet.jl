@@ -41,9 +41,9 @@ function astrom(target, catalog=datadep"Whereistheplanet")
         seppa = filter(row->row.quant_type=="seppa", records)
         radec = filter(row->row.quant_type=="radec", records)
 
-        out = Astrometry[]
+        out = AstrometryLikelihood[]
         if length(seppa) > 0
-            astrom_seppa = Astrometry(map(seppa) do row
+            astrom_seppa = AstrometryLikelihood(map(seppa) do row
                 cor=row.quant12_corr
                 if !isfinite(cor)
                     cor = 0.0
@@ -53,7 +53,7 @@ function astrom(target, catalog=datadep"Whereistheplanet")
             push!(out, astrom_seppa)
         end
         if length(radec) > 0
-            astrom_radec = Astrometry(map(radec) do row
+            astrom_radec = AstrometryLikelihood(map(radec) do row
                 cor=row.quant12_corr
                 if !isfinite(cor)
                     cor = 0.0

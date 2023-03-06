@@ -14,14 +14,14 @@ using AstroImages
 const images_cols = (:band, :image, :epoch, :platescale,)
 
 """
-    Images(...)
+    ImageLikelihood(...)
 
 A block of images of a system. Pass a vector of named tuples with the following fields:
 $images_cols
 
 For example:
 ```julia
-Images(
+ImageLikelihood(
     (; epoch=1234.0, band=:J, image=readfits("abc.fits"), platescale=19.4)
 )
 ```
@@ -31,9 +31,9 @@ Epoch is in MJD.
 Band is a symbol which matches the one used in the planet's `Priors()` block.
 Platescale is in mas/px.
 """
-struct Images{TTable<:Table} <: Octofitter.AbstractObs
+struct ImageLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
     table::TTable
-    function Images(observations...)
+    function ImageLikelihood(observations...)
         table = Table(observations...)
         # Fallback to calculating contrast automatically
         if !in(:contrast, columnnames(table)) && !in(:contrastmap, columnnames(table))
@@ -59,7 +59,7 @@ struct Images{TTable<:Table} <: Octofitter.AbstractObs
         return new{typeof(table)}(table)
     end
 end
-Images(observations::NamedTuple...) = Images(observations)
+Images(observations::NamedTuple...) = ImageLikelihood(observations)
 export Images
 
 
@@ -121,7 +121,7 @@ end
 """
 Likelihood of there being planets in a sequence of images.
 """
-function Octofitter.ln_like(images::Images, θ_planet, orbit)
+function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
     
     # Resolve the combination of system and planet parameters
     # as a VisualOrbit object. This pre-computes
@@ -197,9 +197,9 @@ end
 
 
 # Generate new images
-function Octofitter.genobs(obs::Images, elements::Vector{<:VisualOrbit}, θ_system)
+function Octofitter.genobs(like::ImageLikelihood, elements::Vector{<:VisualOrbit}, θ_system)
 
-    newrows = map(obs.table) do row
+    newrows = map(like.table) do row
         (;band, image, platescale, epoch, psf) = row
 
         injected = copy(image)
@@ -234,7 +234,7 @@ function Octofitter.genobs(obs::Images, elements::Vector{<:VisualOrbit}, θ_syst
         return merge(row, (;image=injected))
     end
 
-    return Images(newrows)
+    return ImageLikelihood(newrows)
 end
 
 

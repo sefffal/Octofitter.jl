@@ -40,7 +40,7 @@ function plot_orbits!(ax::Axis, chains, planet_key;
     ii = rand(1:size(chains,1) * size(chains,3), N),
     colorrange=quantile(filter(isfinite, color),(0.05,0.95))
 )
-    orbits = DirectDetections.construct_elements(chains, planet_key, ii)
+    orbits = Octofitter.construct_elements(chains, planet_key, ii)
     posns = DirectOrbits.kep2cart_ν.(orbits, range(0, 2π, length=90)')
     ras = getproperty.(posns, :x)
     decs = getproperty.(posns, :y)
@@ -154,10 +154,10 @@ function plot_pma_epoch!(ax::Axis, chains, ind::Integer;
     vx = zeros(size(ii))
     vy = zeros(size(ii))
     for j in keys(chains.info.model.planets)
-        elements = DirectDetections.construct_elements(chains, j, ii)
+        elements = Octofitter.construct_elements(chains, j, ii)
         mass = vec(chains["$j[mass]"][ii])
-        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[ind], mass.*DirectDetections.mjup2msol),1)
-        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[ind], mass.*DirectDetections.mjup2msol),2)
+        vx .+= getindex.(propmotionanom.(elements, system_pma.ra_epoch[ind], mass.*Octofitter.mjup2msol),1)
+        vy .+= getindex.(propmotionanom.(elements, system_pma.dec_epoch[ind], mass.*Octofitter.mjup2msol),2)
     end
     if typeof(color) <: AbstractArray
         color = color[ii]
@@ -213,9 +213,9 @@ function plot_pma_time!(ax::Axis, chains, direction;
 
     vy = zeros(length(ii), length(epoch))
     for j in keys(chains.info.model.planets)
-        elements = DirectDetections.construct_elements(chains, j, ii)
+        elements = Octofitter.construct_elements(chains, j, ii)
         mass = vec(chains["$j[mass]"][ii])
-        vy .+= getindex.(propmotionanom.(elements, epoch', mass.*DirectDetections.mjup2msol), dir_ind)
+        vy .+= getindex.(propmotionanom.(elements, epoch', mass.*Octofitter.mjup2msol), dir_ind)
     end
     # if typeof(color) <: AbstractArray
         color = color[ii]

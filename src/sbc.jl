@@ -44,7 +44,7 @@ end
 export drawfrompriors
 
 # Generate new astrometry observations
-function genobs(obs::Astrometry, elem::VisualOrbit, θ_planet)
+function genobs(like::AstrometryLikelihood, elem::VisualOrbit, θ_planet)
 
     # Get epochs and uncertainties from observations
     epochs = obs.table.epoch
@@ -56,11 +56,11 @@ function genobs(obs::Astrometry, elem::VisualOrbit, θ_planet)
     decs = decoff.(elem, epochs)
     astrometry_table = Table(epoch=epochs, ra=ras, dec=decs, σ_ra=σ_ras, σ_dec=σ_decs)
 
-    return Astrometry(astrometry_table)
+    return AstrometryLikelihood(astrometry_table)
 end
 
 # Generate new radial velocity observations for a planet
-function genobs(obs::RadialVelocity, elem::VisualOrbit, θ_planet)
+function genobs(like::RadialVelocityLikelihood, elem::VisualOrbit, θ_planet)
 
     # Get epochs and uncertainties from observations
     epochs = obs.table.epoch 
@@ -70,11 +70,11 @@ function genobs(obs::RadialVelocity, elem::VisualOrbit, θ_planet)
     rvs = DirectOribts.radvel.(elem, epochs)
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
 
-    return RadialVelocity(radvel_table)
+    return RadialVelocityLikelihood(radvel_table)
 end
 
 # Generate new radial velocity observations for a star
-function genobs(obs::RadialVelocity, elems::Vector{<:VisualOrbit}, θ_system)
+function genobs(like::RadialVelocityLikelihood, elems::Vector{<:VisualOrbit}, θ_system)
 
     # Get epochs, uncertainties, and planet masses from observations and parameters
     epochs = obs.table.epoch 
@@ -87,11 +87,11 @@ function genobs(obs::RadialVelocity, elems::Vector{<:VisualOrbit}, θ_system)
     rvs = sum(rvs, dims=2)[:,1] .+ θ_system.rv .+ noise
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
 
-    return RadialVelocity(radvel_table)
+    return RadialVelocityLikelihood(radvel_table)
 end
 
 # Generate new images
-function genobs(obs::Images, elements::Vector{<:VisualOrbit}, θ_system)
+function genobs(like::ImageLikelihood, elements::Vector{<:VisualOrbit}, θ_system)
 
     newrows = map(obs.table) do row
         (;band, image, platescale, epoch, psf) = row
@@ -128,14 +128,14 @@ function genobs(obs::Images, elements::Vector{<:VisualOrbit}, θ_system)
         return merge(row, (;image=injected))
     end
 
-    return Images(newrows)
+    return ImageLikelihood(newrows)
 end
 
 """
 Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
 using 5 position measurements averaged at each of their epochs.
 """
-function genobs(obs::ProperMotionAnomHGCA, elements, θ_system)
+function genobs(like::HGCALikelihood, elements, θ_system)
     ll = 0.0
 
     # This observation type just wraps one row from the HGCA (see hgca.jl)
@@ -218,7 +218,7 @@ function genobs(obs::ProperMotionAnomHGCA, elements, θ_system)
     pmra_hg_model = (ra_gaia_model - ra_hip_model)/(years2mjd(hgca.epoch_ra_gaia[1]) - years2mjd(hgca.epoch_ra_hip[1]))
     pmdec_hg_model = (dec_gaia_model - dec_hip_model)/(years2mjd(hgca.epoch_dec_gaia[1]) - years2mjd(hgca.epoch_dec_hip[1]))
 
-    return ProperMotionAnomHGCA(merge(hgca[1], (;
+    return HGCALikelihood(merge(hgca[1], (;
         pmra_hip=pmra_hip_model,
         pmdec_hip=pmdec_hip_model,
         pmra_gaia=pmra_gaia_model,

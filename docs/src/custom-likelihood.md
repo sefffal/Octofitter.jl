@@ -8,21 +8,21 @@ and can be used as examples.
 
 Note that these examples won't run if you copy and paste them, you'll need to modify them to suite your purposes.
 
-## Creating an Observation type
+## Creating a Likelihood type
 
 The first step is to create a new data type to hold the observations. 
 
 ```julia
-struct MyObsType{TTable<:Table} <: AbstractObs
+struct MyLikelihood{TTable<:Table} <: AbstractLikelihood
     table::TTable
-    function MyObsType(observations...)
+    function MyLikelihood(observations...)
         table = Table(observations...)
         return new{typeof(table)}(table)
     end
 end
 ```
 
-Here we create a struct `MyObsType` that is a subtype of `AbstractObs`. It's entirely up to you how you store the data in the struct. Here, we accept one or more arguments and forward them to the `TypedTables.Table` constructor so we can grab them out efficiently during sampling.
+Here we create a struct `MyLikelihood` that is a subtype of `AbstractLikelihood`. It's entirely up to you how you store the data in the struct. Here, we accept one or more arguments and forward them to the `TypedTables.Table` constructor so we can grab them out efficiently during sampling.
 
 Try to follow the advice in the Julia Manual's performance tips section to ensure you've created a fully "concrete" type. This won't affect corectness, but will be important for performance down the road.
 
@@ -32,10 +32,10 @@ Now, create a method that extends `Octofitter.ln_like` for your custom observati
 If the likelihood function is specific to a planet (like astrometry, where the data is attached to a planet instead of the system) then the method signature should look like:
 
 ```julia
-function Octofitter.ln_like(obs::MyObsType, θ_planet, orbit,)
+function Octofitter.ln_like(like::MyLikelihood, θ_planet, orbit,)
 
     # Access your data
-    # obs.table.col1[1]
+    # like.table.col1[1]
 
     # Access planet variables
     # θ_planet.e
@@ -44,7 +44,7 @@ function Octofitter.ln_like(obs::MyObsType, θ_planet, orbit,)
     # θ_planet.e
 
     # Solve for position
-    # x = raoff(orbit, obs.table.date[1])
+    # x = raoff(orbit, like.table.date[1])
 
     return 0.0
 end
@@ -52,10 +52,10 @@ end
 
 If the data is attached to the system as a whole, like radial velocity, the method signature should look like:
 ```julia
-function Octofitter.ln_like(obs::MyObsType, θ_system, orbits)
+function Octofitter.ln_like(like::MyLikelihood, θ_system, orbits)
 
     # Access your data
-    # obs.table.col1[1]
+    # like.table.col1[1]
 
     # Access system variables
     # θ_system.M
@@ -83,20 +83,20 @@ Simpling extend the `Octofitter.genobs` function for your data type in much the 
 
 ```julia
 # Generate new astrometry observations
-function genobs(obs::MyObsType, elem::PlanetOrbits.AbstractOrbit, θ_planet)
+function genobs(like::MyLikelihood, elem::PlanetOrbits.AbstractOrbit, θ_planet)
 
     # Get epochs from observations (assuming you have an epoch column)
-    epochs = obs.table.e
+    epochs = like.table.e
 
     # Generate new data at that epoch based on current parameters. i.e.
     # "what would we see at date X if the true parameters were θ_planet"
     ras = raoff.(elem, epochs)
     decs = decoff.(elem, epochs)
 
-    # Then, generate a new MyObsType with the simulated values
+    # Then, generate a new MyLikelihood with the simulated values
     astrometry_table = Table()
 
-    return MyObsType(epoch=epochs, ra=ras, dec=decs)
+    return MyLikelihood(epoch=epochs, ra=ras, dec=decs)
 end
 ```
 
@@ -104,11 +104,11 @@ end
 
 Using RecipesBase.jl, we can create a plotting recipe to visualize the observations. This is only for your convenience and it not strictly necessary.
 
-Here is an example for the `Astrometry` data type:
+Here is an example for the `AstrometryLikelihood` data type:
 ```julia
 using RecipesBase
 # Plot recipe for astrometry data
-@recipe function f(astrom::Astrometry)
+@recipe function f(astrom::AstrometryLikelihood)
    
     xflip --> true
     xguide --> "Δ right ascension (mas)"

@@ -135,10 +135,10 @@ function make_ln_like(system::System, θ_system)
         θ_planet = θ_system.planets[i]
         key = Symbol("planet_$i")
 
-        likelihood_exprs = map(eachindex(planet.observations)) do obs
+        likelihood_exprs = map(eachindex(planet.observations)) do like
             :(
                 ll += ln_like(
-                    system.planets[$(Meta.quot(i))].observations[$obs],
+                    system.planets[$(Meta.quot(i))].observations[$like],
                     θ_system.planets.$i,
                     $(key)
                 )
@@ -154,10 +154,10 @@ function make_ln_like(system::System, θ_system)
     end
 
 
-    sys_exprs = map(system.observations) do obs
+    sys_exprs = map(system.observations) do like
         # Provide the number of observations as a compile time constant
-        L = Val(length(obs.table))
-        :(ll += ln_like($obs, θ_system, elems, $L))
+        L = Val(length(like.table))
+        :(ll += ln_like($like, θ_system, elems, $L))
     end
 
     return @RuntimeGeneratedFunction(:(function (system::System, θ_system)

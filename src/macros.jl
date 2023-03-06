@@ -1,6 +1,6 @@
 """
 
-    astrom = CSV.read("octofitter/input.csv", Astrometry)
+    astrom = CSV.read("octofitter/input.csv", AstrometryLikelihood)
 
     vars = Octofitter.@planet b VisualOrbit astrom begin
         a  ~ LogUniform(2.5, 25)
@@ -22,11 +22,11 @@ Generate a Planet model
 macro planet(args...)
     name = args[1]
     orbit_type = args[2]
-    observations = args[3:end-1]
-    variables_block_input = args[end]
+    variables_block_input = args[3]
     variables_block = filter(variables_block_input.args) do expr
         !(expr isa LineNumberNode)
     end
+    likelihoods = args[4:end]
     variables = map(variables_block) do statement
         if statement.head == :call && statement.args[1] == :~
             varname = statement.args[2]
@@ -50,7 +50,7 @@ macro planet(args...)
     return quote 
         $(esc(name)) = $Planet{$orbit_type}(
             Variables(;$(variables...))...,
-            $((esc(o) for o in observations)...);
+            $((esc(l) for l in likelihoods)...);
             name=$(Meta.quot(name))
         )
     end
@@ -59,11 +59,11 @@ export @planet
 
 macro system(args...)
     name = args[1]
-    observations = args[2:end-1]
-    variables_block_input = args[end]
+    variables_block_input = args[2]
     variables_block = filter(variables_block_input.args) do expr
         !(expr isa LineNumberNode)
     end
+    likelihoods = args[3:end]
     variables = map(variables_block) do statement
         if statement.head == :call && statement.args[1] == :~
             varname = statement.args[2]
@@ -86,7 +86,7 @@ macro system(args...)
     return quote 
         $(esc(name)) = $System(
             Variables(;$(variables...)),
-            $((esc(o) for o in observations)...);
+            $((esc(o) for o in likelihoods)...);
             name=$(Meta.quot(name))
         )
     end

@@ -13,7 +13,7 @@ using Octofitter, Distributions, CSV
         Ω = (sys, pl) -> sys.Ω,
         ω    = Uniform(0, 2π),
     ),
-    CSV.read("cEri-astrometry.csv", Astrometry)
+    CSV.read("cEri-astrometry.csv", AstrometryLikelihood)
 )
 
 @named c = Planet{VisualOrbit}(
@@ -42,8 +42,8 @@ gaia_id = 3205095125321700480
         # rv     = Normal(0, 200),
         # jitter = TruncatedNormal(0, 5, 0, Inf)
     ),
-    ProperMotionAnomHGCA(;gaia_id),
-    # RadialVelocity(
+    HGCALikelihood(;gaia_id),
+    # RadialVelocityLikelihood(
     #     (epoch=57374.0, rv=400 - 112.918, σ_rv=10.657),
     #     (epoch=57376.0, rv=400 - 112.464, σ_rv=10.392),
     #     (epoch=57415.0, rv=400 - 110.406, σ_rv=10.188),

@@ -1,4 +1,4 @@
-using DirectDetections, Distributions, Plots
+using Octofitter, Distributions, Plots
 
 
 @named b = Planet{VisualOrbit}
@@ -10,7 +10,7 @@ using DirectDetections, Distributions, Plots
         i = Sine(),
         Ω = UniformCircular(),
     ),
-    Astrometry(
+    AstrometryLikelihood(
         (epoch=5000.,  ra=-364., dec=-1169., σ_ra=70., σ_dec=30.),
         (epoch=5014.,  ra=-493., dec=-1104., σ_ra=70., σ_dec=30.),
         (epoch=5072.,  ra=-899., dec=-629., σ_ra=20.,  σ_dec=50.),
@@ -26,12 +26,12 @@ using DirectDetections, Distributions, Plots
 )
 
 ##
-scatter(astrometry(b), label="Planet b Astrometry", aspectratio=1)
+scatter(astrometry(b), label="Planet b AstrometryLikelihood", aspectratio=1)
 xlims!(-1500,1500)
 ylims!(-1500,1500)
 ##
 
-chain = DirectDetectionsadvancedhmc(
+chain = Octofitteradvancedhmc(
     HD82134, 0.65,# MCMCThreads(),
     num_chains=1,
     adaptation =   5_000,
@@ -39,7 +39,7 @@ chain = DirectDetectionsadvancedhmc(
     tree_depth =   12
 )
 ##
-chains = DirectDetections.chainscat(chain, chain2)
+chains = Octofitter.chainscat(chain, chain2)
 ##
 plotmodel(chain[3end÷4:end], color="b[i]")
 xlims!(-1500,1500)

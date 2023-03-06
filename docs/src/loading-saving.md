@@ -9,12 +9,12 @@ compatible source. These could include a TypedTable, a DataFrame, a CSV file, an
 Here is an example of loading data from a CSV file:
 ```julia
 using CSV
-astrom = Astrometry(CSV.File("astrom.csv"))
+astrom = AstrometryLikelihood(CSV.File("astrom.csv"))
 # Or equivalently
-astrom = CSV.read("astrom.csv", Astrometry)
+astrom = CSV.read("astrom.csv", AstrometryLikelihood)
 ```
 
-The list of columns necessary for each type of observation are listed in the API documentation for e.g. Astrometry.
+The list of columns necessary for each type of observation are listed in the API documentation for e.g. AstrometryLikelihood.
 
 This works for other observation types too:
 ```julia

@@ -1,9 +1,9 @@
 
 
 const phot_cols = (:band, :phot, :σ_phot)
-struct Photometry{TTable<:Table} <: AbstractObs
+struct PhotometryLikelihood{TTable<:Table} <: AbstractLikelihood
     table::TTable
-    function Photometry(observations...)
+    function PhotometryLikelihood(observations...)
         table = Table(observations...)
         if !issubset(phot_cols, Tables.columnnames(table))
             error("Expected columns $phot_cols")
@@ -11,12 +11,12 @@ struct Photometry{TTable<:Table} <: AbstractObs
         return new{typeof(table)}(table)
     end
 end
-Photometry(observations::NamedTuple...) = Photometry(observations)
-export Photometry
+PhotometryLikelihood(observations::NamedTuple) = PhotometryLikelihood(observations)
+export PhotometryLikelihood
 
 
-# Photometry
-function ln_like(photometry::Photometry, θ_planet, _elements=nothing, _interior_planets=nothing)
+# PhotometryLikelihood
+function ln_like(photometry::PhotometryLikelihood, θ_planet, _elements=nothing, _interior_planets=nothing)
     ll = 0.0
     for i in eachindex(photometry.table.band)
         band = photometry.table.band[i]

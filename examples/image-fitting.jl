@@ -1,6 +1,6 @@
 ##
 using Random: Random
-using DirectDetections
+using Octofitter
 using Distributions
 using DirectImages
 using ImageFiltering
@@ -90,7 +90,7 @@ imshow2(psf, clims = (-1, 1))
 )
 
 
-system_images = DirectDetections.Images(
+system_images = Octofitter.ImageLikelihood(
     [
         (;band = :J, image = images[i], platescale = 10.0, epoch = times[i], contrast = contrasts[i], psf)
         for i in eachindex(images)
@@ -118,7 +118,7 @@ sysg.observations[1].table.image[1]|>imshow2
 ##
 imshow2(snrmap((sysg.observations[1].table.image[4])))
 ##
-out = DirectDetectionsadvancedhmc(
+out = Octofitteradvancedhmc(
     sysg, 0.65;
     # adaptation = 5_000,
     adaptation =  4_000,
@@ -127,7 +127,7 @@ out = DirectDetectionsadvancedhmc(
 );
 
 ##
-# out = DirectDetections.temperedhmc(
+# out = Octofitter.temperedhmc(
 #     system, 0.65;
 #     # adaptation = 5_000,
 #     adaptation = 500,
@@ -280,26 +280,26 @@ snr(chains.planets[1].phot.Keck_L′[:])
 histogram(chains.planets[1].phot.Keck_L′[:])
 histogram(chainsh[1].planets[1].phot.Keck_L′[:])
 ##
-DirectDetections.plotposterior(chains_img, 1, :a, 500)
+Octofitter.plotposterior(chains_img, 1, :a, 500)
 plot!(truths, color = :black, lw = 2, ls = :dash, label = "", alpha = 0.5)
 # savefig("images/readme-orbits.png")
 
 ##
-DirectDetections.plotposterior(chains_img, chains_img.planets[1], :i, 500, colorbartitle = "inclination (rad)", dpi = 200)
+Octofitter.plotposterior(chains_img, chains_img.planets[1], :i, 500, colorbartitle = "inclination (rad)", dpi = 200)
 # savefig("images/readme-post-i.png")
 
 ##
-DirectDetections.plotposterior(chains_img, chains_img.planets[1], (:phot, :Keck_L′), 500, colorbartitle = "flux", cmap = :plasma, rev = false, clims = (0, 12), dpi = 200)
+Octofitter.plotposterior(chains_img, chains_img.planets[1], (:phot, :Keck_L′), 500, colorbartitle = "flux", cmap = :plasma, rev = false, clims = (0, 12), dpi = 200)
 plot!(truths, color = :black, lw = 2, ls = :dash, label = "")
 # savefig("images/readme-post-f.png")
 
 ##
-DirectDetections.plotposterior(chains.planets[1], :e, 500, colorbartitle = "eccentricity", dpi = 200)
+Octofitter.plotposterior(chains.planets[1], :e, 500, colorbartitle = "eccentricity", dpi = 200)
 plot!(truths, color = :black, lw = 2, ls = :dash)
 # savefig("images/readme-post-e.png")
 
 ##
-DirectDetections.plotposterior(chains.planets[1], lw = 3, :e, 500, colorbartitle = "eccentricity", dpi = 200, cmap = :plasma, rev = false,)
+Octofitter.plotposterior(chains.planets[1], lw = 3, :e, 500, colorbartitle = "eccentricity", dpi = 200, cmap = :plasma, rev = false,)
 plot!(truths, color = :black, lw = 2, ls = :dash)
 # savefig("images/readme-post-e2.png")
 

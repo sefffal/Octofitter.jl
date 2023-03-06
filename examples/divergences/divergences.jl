@@ -15,7 +15,7 @@ cd(@__DIR__)
 
 # Octofitter also supports radial velocity of the star, stellar motion, etc.
 # but relative astrometry is the simplest case.
-astrom = Astrometry(
+astrom = AstrometryLikelihood(
     (epoch=58849.0,  pa=-2.33643,  sep=615.194, σ_sep=30.0, σ_pa=0.0139626, cor=0),
     (epoch=58879.0,  pa=-2.30229,  sep=606.432, σ_sep=30.0, σ_pa=0.0139626, cor=0),
     (epoch=58909.0,  pa=-2.26984,  sep=663.252, σ_sep=30.0, σ_pa=0.0139626, cor=0),

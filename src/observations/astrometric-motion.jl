@@ -26,7 +26,7 @@ export gaia_plx
 
 
 const pma_cols = (:ra_epoch, :dec_epoch, :dt, :pm_ra, :pm_dec, :σ_pm_ra, :σ_pm_dec,)
-struct ProperMotionAnom{TTable<:Table} <: AbstractObs
+struct ProperMotionAnom{TTable<:Table} <: AbstractLikelihood
     table::TTable
     function ProperMotionAnom(observations...)
         table = Table(observations...)
@@ -39,9 +39,9 @@ end
 ProperMotionAnom(observations::NamedTuple...) = ProperMotionAnom(observations)
 export ProperMotionAnom
 
-struct ProperMotionAnomHGCA{TTable<:Table} <: AbstractObs
+struct HGCALikelihood{TTable<:Table} <: AbstractLikelihood
     table::TTable
-    function ProperMotionAnomHGCA(observations...)
+    function HGCALikelihood(observations...)
         table = Table(observations...)
         # if !issubset(pma_cols, Tables.columnnames(table))
         #     error("Expected columns $pma_cols")
@@ -49,19 +49,19 @@ struct ProperMotionAnomHGCA{TTable<:Table} <: AbstractObs
         return new{typeof(table)}(table)
     end
 end
-ProperMotionAnomHGCA(observations::NamedTuple...) = ProperMotionAnomHGCA(observations)
-export ProperMotionAnomHGCA
+HGCALikelihood(observations::NamedTuple...) = HGCALikelihood(observations)
+export HGCALikelihood
 
 
 """
-    ProperMotionAnomHGCA(;gaia_id=1234)
+    HGCALikelihood(;gaia_id=1234)
 
 Load proper motion anomaly data from the HIPPARCOS-GAIA Catalog of Accelerations (Brandt et al)
 for a star with catalog id `gaia_id`.
 The resulting velocities are in mas/yr and have the long term trend between HIPPARCOS and GAIA
 already subtracted out. e.g. we would expect 0 pma if there is no companion.
 """
-function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
+function HGCALikelihood(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
 
     # Load the Hipparcos-GAIA catalog of accelerations (downloaded automatically with datadeps)
     hgca = FITS(catalog,"r") do fits
@@ -78,10 +78,10 @@ function ProperMotionAnomHGCA(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3
     # Find the row with a GAIA source id match
     idx = findfirst(==(gaia_id), hgca.gaia_source_id)
 
-    return ProperMotionAnomHGCA(hgca[idx])
+    return HGCALikelihood(hgca[idx])
 
 end
-export ProperMotionAnomHGCA
+export HGCALikelihood
 
 
 
@@ -145,7 +145,7 @@ end
 Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
 using 5 position measurements averaged at each of their epochs.
 """
-function ln_like(pma::ProperMotionAnomHGCA, θ_system, elements, _L=1 #=length of observations: we know this is one=#)
+function ln_like(pma::HGCALikelihood, θ_system, elements, _L=1 #=length of observations: we know this is one=#)
     ll = 0.0
 
     # This observation type just wraps one row from the HGCA (see hgca.jl)
@@ -293,11 +293,11 @@ end
 Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
 using 25 position measurements averaged at each of their epochs.
 """
-function genobs(obs::ProperMotionAnomHGCA, elements, θ_system)
+function genobs(like::HGCALikelihood, elements, θ_system)
     ll = 0.0
 
     # This observation type just wraps one row from the HGCA (see hgca.jl)
-    hgca = obs.table
+    hgca = like.table
     # Roughly over what time period were the observations made?
     dt_gaia = 1038 # EDR3: days between  Date("2017-05-28") - Date("2014-07-25")
     dt_hip = 4*365
@@ -378,7 +378,7 @@ function genobs(obs::ProperMotionAnomHGCA, elements, θ_system)
 
     # Merge the measurements together into a new observation and add noise according to the sigma
     # we were passed in from the original measurements
-    return ProperMotionAnomHGCA(merge(hgca[1], (;
+    return HGCALikelihood(merge(hgca[1], (;
         pmra_hip=pmra_hip_model+hgca[1].pmra_hip_error*randn(),
         pmdec_hip=pmdec_hip_model+hgca[1].pmdec_hip_error*randn(),
         pmra_gaia=pmra_gaia_model+hgca[1].pmra_gaia_error*randn(),

@@ -1,4 +1,4 @@
-# [Fit Absolute Astrometry](@id fit-pma)
+# [Fit Absolute AstrometryLikelihood](@id fit-pma)
 
 One of the features of Octofitter.jl is support for absolute astrometry aka. proper motion anomaly aka. astrometric acceleration.
 These data points are typically calculated by finding the difference between a long term proper motion of a star between the Hipparcos and GAIA catalogs, and their proper motion calculated within the windows of each catalog.
@@ -22,7 +22,7 @@ using Octofitter, Distributions, Plots
 
 
 ```julia
-astrom = Astrometry(
+astrom = AstrometryLikelihood(
     (epoch=mjd("2016-12-15"), ra=133., dec=-174., σ_ra=07.0, σ_dec=07.,),# cor=0.2),
     (epoch=mjd("2017-03-12"), ra=126., dec=-176., σ_ra=04.0, σ_dec=04.,),# cor=0.3),
     (epoch=mjd("2017-03-13"), ra=127., dec=-172., σ_ra=04.0, σ_dec=04.,),# cor=0.1),
@@ -62,7 +62,7 @@ Now that we have our planet model, we create a system model to contain it.
         pmra = Normal(0, 500),
         pmdec = Normal(0,  500),
     ),  
-    ProperMotionAnomHGCA(gaia_id=756291174721509376),
+    HGCALikelihood(gaia_id=756291174721509376),
     B,
 )
 ```
@@ -240,7 +240,7 @@ As a start, you can restrict the orbital parameters to just semi-major axis, epo
         pmra = Normal(0, 500),
         pmdec = Normal(0,  500),
     ),  
-    ProperMotionAnomHGCA(gaia_id=756291174721509376),
+    HGCALikelihood(gaia_id=756291174721509376),
     b,
 )
 ```

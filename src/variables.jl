@@ -1,5 +1,5 @@
-abstract type AbstractObs end
-TypedTables.Table(obs::AbstractObs) = obs.table
+abstract type AbstractLikelihood end
+TypedTables.Table(like::AbstractLikelihood) = like.table
 
 
 
@@ -165,7 +165,7 @@ function expandparam(var, p::UniformCircular)
     ), UniformCircularUnitVectorPrior1(paramprior)
 end
 
-struct UniformCircularUnitVectorPrior1{T} <: AbstractObs where T
+struct UniformCircularUnitVectorPrior1{T} <: AbstractLikelihood where T
     logdensity::T
     UniformCircularUnitVectorPrior1(logdensity::Base.Callable) = new{typeof(logdensity)}(logdensity)
 end
@@ -184,12 +184,12 @@ struct Planet{TElem<:AbstractOrbit, TP<:Priors,TD<:Union{Derived,Nothing},TObs<:
     derived::TD
     observations::TObs
     name::Symbol
-    Planet{O}(priors::Priors, det::Derived, obs::Tuple; name::Symbol) where {O<:AbstractOrbit} = new{O,typeof(priors),typeof(det),typeof(obs)}(priors,det,obs,name)
+    Planet{O}(priors::Priors, det::Derived, like::Tuple; name::Symbol) where {O<:AbstractOrbit} = new{O,typeof(priors),typeof(det),typeof(like)}(priors,det,like,name)
 end
 export Planet
 Planet{O}((priors,det)::Tuple{Priors,Derived}, args...; kwargs...) where {O<:AbstractOrbit} = Planet{O}(priors, det, args...; kwargs...)
-Planet{O}(priors::Priors, obs::AbstractObs...; name) where {O<:AbstractOrbit} = Planet{O}(priors, nothing, obs; name)
-Planet{O}(priors::Priors, det::Derived, obs::AbstractObs...; name) where {O<:AbstractOrbit} = Planet{O}(priors, det, obs; name)
+Planet{O}(priors::Priors, like::AbstractLikelihood...; name) where {O<:AbstractOrbit} = Planet{O}(priors, nothing, like; name)
+Planet{O}(priors::Priors, det::Derived, like::AbstractLikelihood...; name) where {O<:AbstractOrbit} = Planet{O}(priors, det, like; name)
 
 
 """
@@ -217,7 +217,7 @@ You may provide `ProperMotionAnom()` and/or `Images()` of the system.
 Finally, planet models are listed last.
 `name` must be a symbol e.g. `:HD56441`.
 """
-struct System{TPriors<:Priors, TDet<:Union{Derived,Nothing},TObs<:NTuple{N,AbstractObs} where N, TPlanet}
+struct System{TPriors<:Priors, TDet<:Union{Derived,Nothing},TObs<:NTuple{N,AbstractLikelihood} where N, TPlanet}
     priors::TPriors
     derived::TDet
     observations::TObs
@@ -226,7 +226,7 @@ struct System{TPriors<:Priors, TDet<:Union{Derived,Nothing},TObs<:NTuple{N,Abstr
     function System(
         system_priors::Priors,
         system_det::Union{Derived,Nothing},
-        observations::NTuple{N,AbstractObs} where N,
+        observations::NTuple{N,AbstractLikelihood} where N,
         planets::NTuple{M,Planet} where M;
         name
     )
@@ -249,20 +249,20 @@ export System
 # Allows users to pass arguments to System in any convenient order.
 System((priors,det)::Tuple{Priors,Derived}, args...; kwargs...) = System(priors, det, args...; kwargs...)
 System(planets::Planet...; kwargs...) = System(Priors(), nothing, planets...; kwargs...)
-System(priors::Priors, args::Union{AbstractObs,Planet}...; kwargs...) = System(priors, nothing, args...; kwargs...)
-System(priors::Priors, det::Union{Derived,Nothing}, args::Union{AbstractObs,Planet}...; kwargs...) = System(priors, det, group_obs_planets(args)...; kwargs...)
+System(priors::Priors, args::Union{AbstractLikelihood,Planet}...; kwargs...) = System(priors, nothing, args...; kwargs...)
+System(priors::Priors, det::Union{Derived,Nothing}, args::Union{AbstractLikelihood,Planet}...; kwargs...) = System(priors, det, group_obs_planets(args)...; kwargs...)
 
 function group_obs_planets(args)
-    observations = filter(o->typeof(o) <: AbstractObs, args)
+    observations = filter(o->typeof(o) <: AbstractLikelihood, args)
     planets = filter(p->p isa Planet, args)
     return observations, planets
 end
 
 ## Helpers for accessing the first observation of a certain type in a planet or system
 function astrometry(planet::Planet)
-    for obs in planet.observations
-        if obs isa Astrometry
-            return obs
+    for like in planet.observations
+        if like isa AstrometryLikelihood
+            return like
         end
     end
     return nothing
@@ -270,17 +270,17 @@ end
 export astrometry
 
 function propermotionanom(system::System)
-    for obs in system.observations
-        if obs isa ProperMotionAnom || obs isa ProperMotionAnomHGCA
-            return obs
+    for like in system.observations
+        if like isa ProperMotionAnom || like isa HGCALikelihood
+            return like
         end
     end
     return nothing
 end
 function images(system::System)
-    for obs in system.observations
-        if obs isa Images
-            return obs
+    for like in system.observations
+        if like isa ImageLikelihood
+            return like
         end
     end
     return nothing
@@ -288,15 +288,15 @@ end
 
 
 #### Show methods
-function Base.show(io::IO, mime::MIME"text/plain", @nospecialize obs::AbstractObs)
-    ObsType = typeof(obs)
-    obstype_name = string(ObsType)
-    if occursin("{",obstype_name)
-        obstype_name = obstype_name[1:findfirst(==('{'),collect(obstype_name))-1]
+function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::AbstractLikelihood)
+    ObsType = typeof(like)
+    liketype_name = string(ObsType)
+    if occursin("{",liketype_name)
+        liketype_name = liketype_name[1:findfirst(==('{'),collect(liketype_name))-1]
     end
-    print(io, "$(obstype_name) ")
-    if hasproperty(obs, :table)
-        Base.show(io::IO, mime, Table(obs))
+    print(io, "$(liketype_name) ")
+    if hasproperty(like, :table)
+        Base.show(io::IO, mime, Table(like))
     else
         println(io)
     end
@@ -309,8 +309,8 @@ function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::Planet)
         show(io, mime, p.derived)
     end
     show(io, mime, p.priors)
-    for obs in p.observations
-        show(io, mime, obs)
+    for like in p.observations
+        show(io, mime, like)
     end
     print(io, "\n")
     println(io)
@@ -324,8 +324,8 @@ function Base.show(io::IO, mime::MIME"text/plain", @nospecialize sys::System)
     for planet in sys.planets
         show(io, mime, planet)
     end
-    for obs in sys.observations
-        show(io, mime, obs)
+    for like in sys.observations
+        show(io, mime, like)
     end
     print(io, "\n")
     println(io)

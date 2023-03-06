@@ -29,7 +29,7 @@ function HARPS_rvs(target, catalog=datadep"HARPS_RVBank")
     target_rows = findall(==(target), rvbank.target)
     table = rvbank[target_rows]
 
-    return RadialVelocity(Table(;
+    return RadialVelocityLikelihood(Table(;
         epoch=mjd2jd.(table.BJD),
         inst_idx=ones(Int,size(table,1)),
         rv=-table.RV_mlc_nzp,

@@ -39,7 +39,7 @@ gaia_id = 5164707970261890560
 # Convert from JD to MJD
 # Data tabulated from Mawet et al
 jd(mjd) = mjd - 2400000.5
-rvs = RadialVelocity(
+rvs = RadialVelocityLikelihood(
     (;inst_idx=1, epoch=jd(2455110.97985),  rv=−6.54, σ_rv=1.30),
     (;inst_idx=1, epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09),
     (;inst_idx=1, epoch=jd(2455188.78841),  rv=7.90, σ_rv=.11),
@@ -265,7 +265,7 @@ rvs = RadialVelocity(
         jitter_2 = truncated(Normal(0,10),lower=0),
 
     ),
-    ProperMotionAnomHGCA(;gaia_id),
+    HGCALikelihood(;gaia_id),
     rvs,
     b
 )

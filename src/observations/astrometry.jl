@@ -1,10 +1,10 @@
 
-# Astrometry Data type
+# AstrometryLikelihood Data type
 const astrom_cols1 = (:epoch, :ra, :dec, :σ_ra, :σ_dec)
 const astrom_cols3 = (:epoch, :pa, :sep, :σ_pa, :σ_sep)
-struct Astrometry{TTable<:Table} <: AbstractObs
+struct AstrometryLikelihood{TTable<:Table} <: AbstractLikelihood
     table::TTable
-    function Astrometry(observations...)
+    function AstrometryLikelihood(observations...)
         table = Table(observations...)
         if !issubset(astrom_cols1, Tables.columnnames(table)) && 
            !issubset(astrom_cols3, Tables.columnnames(table))
@@ -13,13 +13,13 @@ struct Astrometry{TTable<:Table} <: AbstractObs
         return new{typeof(table)}(table)
     end
 end
-Astrometry(observations::NamedTuple...) = Astrometry(observations)
-export Astrometry
+AstrometryLikelihood(observations::NamedTuple...) = AstrometryLikelihood(observations)
+export AstrometryLikelihood
 
 
 # Plot recipe for astrometry data
 using LinearAlgebra
-@recipe function f(astrom::Astrometry)
+@recipe function f(astrom::AstrometryLikelihood)
    
     xflip --> true
     xguide --> "Δ right ascension (mas)"
@@ -150,8 +150,8 @@ using LinearAlgebra
 end
 
 
-# Astrometry likelihood function
-function ln_like(astrom::Astrometry, θ_planet, orbit,)
+# AstrometryLikelihood likelihood function
+function ln_like(astrom::AstrometryLikelihood, θ_planet, orbit,)
 
     # Note: since astrometry data is stored in a typed-table, the column name
     # checks using `hasproperty` ought to be compiled out completely.
@@ -216,17 +216,17 @@ function ln_like(astrom::Astrometry, θ_planet, orbit,)
 end
 
 # Generate new astrometry observations
-function genobs(obs::Astrometry, elem::VisualOrbit, θ_planet)
+function genobs(like::AstrometryLikelihood, elem::VisualOrbit, θ_planet)
 
     # Get epochs and uncertainties from observations
-    epochs = obs.table.epoch
-    σ_ras = obs.table.σ_ra 
-    σ_decs = obs.table.σ_dec
+    epochs = like.table.epoch
+    σ_ras = like.table.σ_ra 
+    σ_decs = like.table.σ_dec
 
     # Generate now astrometry data
     ras = raoff.(elem, epochs)
     decs = decoff.(elem, epochs)
     astrometry_table = Table(epoch=epochs, ra=ras, dec=decs, σ_ra=σ_ras, σ_dec=σ_decs)
 
-    return Astrometry(astrometry_table)
+    return AstrometryLikelihood(astrometry_table)
 end
