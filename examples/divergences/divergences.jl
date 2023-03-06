@@ -50,7 +50,7 @@ const tref1 = mean(astrom.table.epoch)
 
 
 # Define the planet `b` model
-@planet b ThieleInnesOrbit astrom begin
+@planet b ThieleInnesOrbit begin
     e ~ Uniform(0.0, 1.0)
 
     # A, B, F, and G are Thiele-Innes constants that represent
@@ -74,30 +74,30 @@ const tref1 = mean(astrom.table.epoch)
 
     # Fixed reference epoch.
     tref = tref1
-end
+end astrom
 
 # Alternative, traditional parameterization using Campbell angles (semi-major axis, inclination, etc.)
 # These lead to even more divergences.
-# @planet b VisualOrbit astrom begin
+# @planet b VisualOrbit begin
 #     a ~ LogUniform(0.001, 10000.0)
 #     e ~ Uniform(0.0, 0.99)
 #     i ~ Sine()
 #     ω ~ UniformCircular()
 #     Ω ~ UniformCircular()
 #     τ ~ UniformCircular(1.0)
-# end
+# end astrom
 
 
 # Simple model for the star (with one orbitting planet, b).
 # Note this is not a nested model, just a nice way of structuring multi-planet 
 # models in the code.
-@system HD1234 b begin
+@system HD1234 begin
     # Parallax distance to the star (milliarcseconds of apparent motion per Earth year)
     # Sets overall scale of the model.
     plx ~ truncated(Normal(100, 5.0), lower=0)
     # Mass of the star in solar masses: determines orbital speed.
     M   ~ truncated(Normal(1.5, 0.2), lower=0)
-end
+end b
 
 
 ## Generate custom LogDensityModel
