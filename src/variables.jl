@@ -148,12 +148,12 @@ function expandparam(var, p::UniformCircular)
     callback(sys) = callback_inner(sys)
 
     # We need to create a "prior" on the length of the unit vector so that it doesn't get pinched at (0,0)
+    # This has no observable effect on the results of the model as whole, it just improves sampling.
     paramprior = @RuntimeGeneratedFunction(:(
         # This parameterization needs to work for either a planet
         # or a system as a whole.
-        function (body)
-            vector_length = sqrt(body.$vary^2 + body.$varx^2)
-            # return logpdf(LogNormal(log(1.0), 0.1), vector_length);
+        function (parameters, orbit)
+            vector_length = sqrt(parameters.$vary^2 + parameters.$varx^2)
             return logpdf(LogNormal(log(1.0), 0.02), vector_length);
         end
     ))

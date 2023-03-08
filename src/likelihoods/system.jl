@@ -179,7 +179,7 @@ function make_ln_like(system::System, θ_system)
 end
 
 
-ln_like(prior::UniformCircularUnitVectorPrior1, θ_planet_or_system, element,) = prior.logdensity(θ_planet_or_system)
+ln_like(prior::UniformCircularUnitVectorPrior1, θ_planet_or_system, element,) = prior.logdensity(θ_planet_or_system, element)
 
 
 # Generate calibration data
