@@ -87,6 +87,65 @@ end astrom
 #     τ ~ UniformCircular(1.0)
 # end astrom
 
+# Third new option for parameterization: ABFG-Theta. Theta should be better behaved than tau.
+
+using Octofitter.StaticArrays
+function τ_from_θ(system,planet)
+    (;plx,M) = system
+    (;B,G,A,F,e,θx,θy) = planet
+    θ = atan(θy,θx)
+    t=tref=tref1
+    # Thiele-Innes transformation matrix
+    T = @SArray [
+        A F
+        B G
+    ]
+    xx, yy = T \ @SArray[
+        cos(θ)
+        sin(θ)
+    ] # Note: this is missing the radius factor but we don't need it for true anomaly.
+    # r = sqrt((sol.x*sol.elem.B+sol.y*sol.elem.G)^2 + (sol.x*sol.elem.A + sol.y*sol.elem.F)^2 )
+
+    # True anomaly is now straightforward to calculate in the deprojected coordinate space
+    ν = atan(yy,xx)
+
+    # Mean anomaly (see Wikipedia page)
+    MA = atan(-sqrt(1-e^2)*sin(ν), -e-cos(ν))+π-e*sqrt(1-e^2)*sin(ν)/(1+e*cos(ν))
+
+    # Math in order to get semi-major axis -> mean motion and period (already in TI constructor)
+    u = (A^2 + B^2 + F^2 + G^2)/2
+    v = A*G - B * F
+    α = sqrt(u + sqrt((u+v)*(u-v)))
+    a = α/plx
+    periodyrs = √(a^3/M)
+    perioddays = periodyrs * PlanetOrbits.year2day # period [days]
+    n = 2π/√(a^3/M) 
+    # Get epoch of periastron passage
+    tₚ = t - MA/n*PlanetOrbits.year2day - tref
+    # Tau: periastron passage epoch / orbital period
+    τ = rem(tₚ/perioddays,1,RoundDown)
+    return τ
+end
+
+@planet b ThieleInnesOrbit begin
+    e ~ Uniform(0.0, 1.0)
+
+    # A and B are the rectangular coordinates of periastron
+    A ~ Uniform(-1.5e3, +1.5e3)
+    B ~ Uniform(-1.5e3, +1.5e3)
+    F ~ Uniform(-1.5e3, +1.5e3)
+    G ~ Uniform(-1.5e3, +1.5e3)
+    tref = tref1
+
+    θ ~ UniformCircular()
+    τ = τ_from_θ(system, b)
+
+    # Please excuse this ugliness needed to retain a loguniform prior on semi-major axis.
+end astrom Octofitter.UniformCircularUnitVectorPrior1(function(parameters, orbit)
+    campbell_orbit = VisualOrbit(orbit)
+    return logpdf(LogUniform(0.001, 1000), campbell_orbit.a)
+end)
+
 
 # Simple model for the star (with one orbitting planet, b).
 # Note this is not a nested model, just a nice way of structuring multi-planet 
