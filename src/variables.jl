@@ -410,7 +410,7 @@ function make_arr2nt(system::System)
     if !isnothing(system.derived)
         for (key,func) in zip(keys(system.derived.variables), values(system.derived.variables))
             ex = :(
-                $key = $func(sys)
+                sys = (; sys..., $key = $func(sys))
             )
             push!(body_sys_determ,ex)
         end
@@ -430,18 +430,12 @@ function make_arr2nt(system::System)
             push!(body_planet_priors,ex)
         end
 
-        if isnothing(planet.derived)
-            ex = :(
-                $(planet.name) = (;
-                    $(body_planet_priors...)
-                )
-            )
-        # Resolve derived vars.
-        else
-            body_planet_determ = Expr[]
+        body_planet_determ = Expr[]
+        if !isnothing(planet.derived)
+            # Resolve derived vars.
             for (key,func) in zip(keys(planet.derived.variables), values(planet.derived.variables))
                 ex = :(
-                    $key = $func(sys_res, (;$(body_planet_priors...)))
+                    planet = (; planet..., $key = $func(sys, planet))
                 )
                 push!(body_planet_determ,ex)
             end
@@ -453,6 +447,11 @@ function make_arr2nt(system::System)
                 )
             )
         end
+        ex = :($(planet.name) = begin
+            planet = (;$(body_planet_priors...));
+            $(body_planet_determ...);
+            planet
+        end)
         push!(body_planets,ex)
     end
 
@@ -468,14 +467,11 @@ function make_arr2nt(system::System)
         # Expand system variables from priors
         sys = (;$(body_sys_priors...))
         # Resolve derived system variables
-        sys_res = (;
-            sys...,
-            $(body_sys_determ...)
-        )
+        $(body_sys_determ...)
         # Get resolved planets
         pln = (;$(body_planets...))
         # Merge planets into resolved system
-        sys_res_pln = (;sys_res..., planets=pln)
+        sys_res_pln = (;sys..., planets=pln)
         return sys_res_pln
     end))
 
