@@ -176,7 +176,7 @@ rng = Random.Xoshiro(1)
 chain = Octofitter.advancedhmc(
     rng,
     model, 
-    0.9; # Target acceptance. Cranking this up to 0.95+ will reduce the number of divergences to a narrow region.
+    0.8; # Target acceptance. Cranking this up to 0.95+ will reduce the number of divergences to a narrow region.
     num_chains = 1,
     # Number of adaptation steps, and iterations after adaption.
     # Would recommend 20,000 but 2,000 are enough for quick tests.
@@ -191,20 +191,22 @@ chain = Octofitter.advancedhmc(
 )
 
 
-
-# Optional: save and restore chains
-# Octofitter.savechain(joinpath(@__DIR__, "chains.fits"), chain);
-# Octofitter.loadchain(joinpath(@__DIR__, "chains.fits"), chain);
-
-##  Standard model output: plot orbits against data
-using Plots: Plots
-octoplot(model, chain)
+##
+plotchains(chain, :b, kind=:astrometry, color=:b_e, xlims=(-6000,6000), framestyle=:box)
 
 
 ## Corner plot
 using CairoMakie
 using PairPlots
-fig = pairplot(chain)
+fig = pairplot((;
+    iter=collect(chain.value.axes[1]),
+    M=vec(chain[:M]),
+    b_A=vec(chain[:b_A]),
+    b_B=vec(chain[:b_B]),
+    b_F=vec(chain[:b_F]),
+    b_G=vec(chain[:b_G]),
+    b_θ=vec(chain[:b_θ]),
+) => (PairPlots.Scatter(),))
 save(joinpath(@__DIR__,"octofitter-pairplot.png"), fig)
 
 
@@ -220,7 +222,7 @@ ms = 1.5
 
 c = Makie.wong_colors()
 colnames = [
-    :plx, :M, :b_e, :b_A, :b_B, :b_F, :b_G, :b_τ, :b_τx, :b_τy
+    :plx, :M, :b_e, :b_A, :b_B, :b_F, :b_G, :b_θ, :b_θx, :b_θy
 ]
 fig = pairplot(
     PairPlots.Series(chain[.! num_err,colnames,:],label="sample") => (PairPlots.Scatter(color=c[1],markersize=ms),PairPlots.MarginDensity(color=(c[1],0.4),linewidth=1)),
