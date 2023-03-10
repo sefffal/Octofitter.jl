@@ -31,11 +31,13 @@ function search(target, catalog=datadep"Whereistheplanet")
 
 end
 
-function astrom(target, catalog=datadep"Whereistheplanet")
+function astrom(target, catalog=datadep"Whereistheplanet"; object=1)
 
     fname = search(target)
     return h5open(fname, "r") do f
         records = read(f["data"])
+
+        records = filter(row->row.object==object, records)
 
         # Group observations by type
         seppa = filter(row->row.quant_type=="seppa", records)
