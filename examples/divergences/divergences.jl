@@ -2,7 +2,7 @@
 # Octofitter, Distributions, Plots, CairoMakie, PairPlots, Random
 # See Project and Manifest files.
 
-using Octofitter, Distributions
+using Octofitter, Distributions, PlanetOrbits
 cd(@__DIR__)
 
 ## Define model
@@ -92,7 +92,11 @@ end astrom
 using Octofitter.StaticArrays
 function τ_from_θ(system,planet)
     (;plx,M) = system
-    (;B,G,A,F,e,θx,θy) = planet
+    (;B_scaled,G_scaled,A_scaled,F_scaled,e,θx,θy) = planet
+    B = 2000*B_scaled
+    G = 2000*G_scaled
+    A = 2000*A_scaled
+    F = 2000*F_scaled
     θ = atan(θy,θx)
     t=tref=tref1
     # Thiele-Innes transformation matrix
@@ -127,24 +131,32 @@ function τ_from_θ(system,planet)
     return τ
 end
 
+struct CustomLikelihood1 <: Octofitter.AbstractLikelihood end
+function Octofitter.ln_like(::CustomLikelihood1, θ_planet, orbit) 
+    # Convert back to Campbell elements to maintain a prior on semi-major axis.
+    campbell_orbit = VisualOrbit(orbit)
+    return logpdf(LogUniform(0.001, 1000), campbell_orbit.a)
+end
+
 @planet b ThieleInnesOrbit begin
     e ~ Uniform(0.0, 1.0)
 
-    # A and B are the rectangular coordinates of periastron
-    A ~ Uniform(-1.5e3, +1.5e3)
-    B ~ Uniform(-1.5e3, +1.5e3)
-    F ~ Uniform(-1.5e3, +1.5e3)
-    G ~ Uniform(-1.5e3, +1.5e3)
+    # The adaptation phase will evidently perform better 
+    # if working on parameter values inside [-2,2]
+    A_scaled ~ Normal(0, 1)
+    B_scaled ~ Normal(0, 1)
+    F_scaled ~ Normal(0, 1)
+    G_scaled ~ Normal(0, 1)
+    A = 2000 * b.A_scaled
+    B = 2000 * b.B_scaled
+    F = 2000 * b.F_scaled
+    G = 2000 * b.G_scaled
     tref = tref1
 
     θ ~ UniformCircular()
     τ = τ_from_θ(system, b)
 
-    # Please excuse this ugliness needed to retain a loguniform prior on semi-major axis.
-end astrom Octofitter.UniformCircularUnitVectorPrior1(function(parameters, orbit)
-    campbell_orbit = VisualOrbit(orbit)
-    return logpdf(LogUniform(0.001, 1000), campbell_orbit.a)
-end)
+end CustomLikelihood1() astrom
 
 
 # Simple model for the star (with one orbitting planet, b).
@@ -153,9 +165,11 @@ end)
 @system HD1234 begin
     # Parallax distance to the star (milliarcseconds of apparent motion per Earth year)
     # Sets overall scale of the model.
-    plx ~ truncated(Normal(100, 5.0), lower=0)
+    plx_scale ~ Normal(0, 1.0)
+    plx = 100 + 5.0 * system.plx_scale
     # Mass of the star in solar masses: determines orbital speed.
-    M   ~ truncated(Normal(1.5, 0.2), lower=0)
+    M_scale   ~ Normal(0, 1)
+    M   = 1.5 + 0.2system.M_scale
 end b
 
 
@@ -177,7 +191,7 @@ rng = Random.Xoshiro(1)
 chain = Octofitter.advancedhmc(
     rng,
     model, 
-    0.65; # Target acceptance. Cranking this up to 0.95+ will reduce the number of divergences to a narrow region.
+    0.9; # Target acceptance. Cranking this up to 0.95+ will reduce the number of divergences to a narrow region.
     num_chains = 1,
     # Number of adaptation steps, and iterations after adaption.
     # Would recommend 20,000 but 2,000 are enough for quick tests.
