@@ -76,9 +76,9 @@ macro system(args...)
         elseif statement.head == :(=)
             varname = statement.args[1]
             expression = statement.args[2]
-            return :(
-                $(esc(varname)) = (system) -> $(esc(expression))
-            )
+            return esc(:(
+                $varname = system -> $expression
+            ))
         else
             error("invalid statement encoutered $(statement.head)")
         end
