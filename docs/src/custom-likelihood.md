@@ -79,11 +79,11 @@ If the parameter has a restricted domain where it is valid, ensure the prior pas
 ## Bonus: Generative model
 The above is sufficient to start sampling from the posterior. Ideally, you will also add a function that does the reverse: generate observations from a set of parameters. This is useful for a variety of statistical tests.
 
-Simpling extend the `Octofitter.genobs` function for your data type in much the same way:
+Simpling extend the `Octofitter.generate_from_params` function for your data type in much the same way:
 
 ```julia
 # Generate new astrometry observations
-function genobs(like::MyLikelihood, elem::PlanetOrbits.AbstractOrbit, θ_planet)
+function generate_from_params(like::MyLikelihood, elem::PlanetOrbits.AbstractOrbit, θ_planet)
 
     # Get epochs from observations (assuming you have an epoch column)
     epochs = like.table.e

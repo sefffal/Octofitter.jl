@@ -89,7 +89,7 @@ end
 
 
 # Generate new radial velocity observations for a planet
-function Octofitter.genobs(like::RadialVelocityLikelihood, elem::VisualOrbit, θ_planet)
+function Octofitter.generate_from_params(like::RadialVelocityLikelihood, θ_planet, elem::PlanetOrbits.AbstractOrbit)
 
     # Get epochs and uncertainties from observations
     epochs = like.table.epoch 
@@ -106,7 +106,7 @@ end
 
 
 # Generate new radial velocity observations for a star
-function Octofitter.genobs(like::RadialVelocityLikelihood, elems::Vector{<:VisualOrbit}, θ_system)
+function Octofitter.generate_from_params(like::RadialVelocityLikelihood, θ_system, orbits::Vector{<:VisualOrbit})
 
     # Get epochs, uncertainties, and planet masses from observations and parameters
     epochs = like.table.epoch 
@@ -114,7 +114,7 @@ function Octofitter.genobs(like::RadialVelocityLikelihood, elems::Vector{<:Visua
     planet_masses = [θ_planet.mass for θ_planet in θ_system.planets] .* 0.000954588 # Mjup -> Msun
 
     # Generate new star radial velocity data
-    rvs = radvel.(reshape(elems, :, 1), epochs, transpose(planet_masses))
+    rvs = radvel.(reshape(orbits, :, 1), epochs, transpose(planet_masses))
     noise = randn(length(epochs)) .* θ_system.jitter
     rvs = sum(rvs, dims=2)[:,1] .+ θ_system.rv .+ noise
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)

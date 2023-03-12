@@ -125,12 +125,7 @@ export UniformCircular
 expandparam(var, n::Number) = OrderedDict(var => Returns(n)), nothing
 expandparam(var, f::Base.Callable) = OrderedDict(var => f), nothing
 expandparam(var, d::Distribution) = OrderedDict(var => d), nothing
-# expandparam(var, p::UniformCircular) = OrderedDict(
-#     Symbol("$(var)x") => Normal(),
-#     Symbol("$(var)y") => Normal(),
-#     var  => (args...) -> atan(args[end][Symbol("$(var)y")], args[end][ Symbol("$(var)x")])/2pi*p.domain,
-#     var  => (sys) -> atan(args[end][Symbol("$(var)y")], args[end][ Symbol("$(var)x")])/2pi*p.domain,
-# )
+
 
 function expandparam(var, p::UniformCircular)
 
@@ -149,26 +144,32 @@ function expandparam(var, p::UniformCircular)
 
     # We need to create a "prior" on the length of the unit vector so that it doesn't get pinched at (0,0)
     # This has no observable effect on the results of the model as whole, it just improves sampling.
-    paramprior = @RuntimeGeneratedFunction(:(
-        # This parameterization needs to work for either a planet
-        # or a system as a whole.
-        function (parameters, orbit)
-            vector_length = sqrt(parameters.$vary^2 + parameters.$varx^2)
-            return logpdf(LogNormal(log(1.0), 0.02), vector_length);
-        end
-    ))
+    prior = UnitLengthPrior(varx, vary)
 
     return OrderedDict(
         varx => Normal(0,1),
         vary => Normal(0,1),
         var  => callback,
-    ), UniformCircularUnitVectorPrior1(paramprior)
+    ), prior
 end
 
-struct UniformCircularUnitVectorPrior1{T} <: AbstractLikelihood where T
-    logdensity::T
-    UniformCircularUnitVectorPrior1(logdensity::Base.Callable) = new{typeof(logdensity)}(logdensity)
+# This likelihood can be attached to put a prior on the two variables repsenting a uniform circular distribtion.
+# It makes sure they keep away from the origin for better sampling.
+struct UnitLengthPrior{X,Y} <: AbstractLikelihood where {X,Y}
+    UnitLengthPrior(xsymbol, ysymbol) = new{xsymbol, ysymbol}()
 end
+function ln_like(::UnitLengthPrior{X,Y}, θ_planet_or_system, orbit,) where {X,Y}
+    x = getproperty(θ_planet_or_system, X)
+    y = getproperty(θ_planet_or_system, Y)
+    vector_length = sqrt(x^2 + y^2)
+    return logpdf(LogNormal(log(1.0), 0.02), vector_length);
+end
+function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::UnitLengthPrior{X,Y}) where {X,Y}
+    T = typeof(like)
+    println(io, "$(T): √($X^2+$Y^2) ~ LogNormal(log(1), 0.02)")
+end
+generate_from_params(like::UnitLengthPrior, θ_planet, orbit) = like
+
 
 
 """

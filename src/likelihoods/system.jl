@@ -179,46 +179,37 @@ function make_ln_like(system::System, θ_system)
 end
 
 
-ln_like(prior::UniformCircularUnitVectorPrior1, θ_planet_or_system, element,) = prior.logdensity(θ_planet_or_system, element)
-
-
 # Generate calibration data
 """
-    generate(system, newparameters=drawfrompriors(system))
+    generate_from_params(system, θ=drawfrompriors(system))
 
 Generate a new system and observations from an existing model.
 """
-function generate(system::System, θ_newsystem = drawfrompriors(system))
+function generate_from_params(system::System, θ_newsystem = drawfrompriors(system))
 
     # Generate new orbits for each planet in the system
-    elements = map(eachindex(system.planets)) do i
+    orbits = map(eachindex(system.planets)) do i
         planet = system.planets[i]
         θ_newplanet = θ_newsystem.planets[i]
-
-        # if (hasproperty(θ_newplanet, :a) && θ_newplanet.a <= 0) ||
-        #     (hasproperty(θ_newplanet, :e) && !(0 <= θ_newplanet.e < 1))
-        #     out_of_bounds[] = true
-        # end
-
         neworbit = Octofitter.construct_elements(Octofitter.orbittype(planet), θ_newsystem, θ_newplanet)
-
         return neworbit
     end
 
     # Generate new observations for each planet in the system
     newplanets = map(1:length(system.planets)) do i
         planet = system.planets[i]
-        elem = elements[i]
-
+        orbit = orbits[i]
+        θ_newplanet = θ_newsystem.planets[i]
         newplanet_obs = map(planet.observations) do obs
-            return genobs(obs, elem, planet)
+            return generate_from_params(obs, θ_newplanet, orbit)
         end
         newplanet = Planet{Octofitter.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
+        return newplanet
     end
 
     # Generate new observations for the star
     newstar_obs = map(system.observations) do obs
-        return genobs(obs, collect(elements), θ_newsystem)
+        return generate_from_params(obs, θ_newsystem, collect(orbits))
     end
 
     # Generate new system
@@ -226,4 +217,5 @@ function generate(system::System, θ_newsystem = drawfrompriors(system))
 
     return newsystem
 end
-export generate
+export generate_from_params
+

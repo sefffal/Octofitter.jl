@@ -40,9 +40,9 @@ include("distributions.jl")
 include("variables.jl")
 
 include("likelihoods/system.jl")
-include("likelihoods/astrometry.jl")
+include("likelihoods/relative-astrometry.jl")
 include("likelihoods/photometry.jl")
-include("likelihoods/astrometric-motion.jl")
+include("likelihoods/hgca.jl")
 
 include("sampling.jl")
 

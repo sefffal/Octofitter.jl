@@ -293,7 +293,7 @@ end
 Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
 using 25 position measurements averaged at each of their epochs.
 """
-function genobs(like::HGCALikelihood, elements, θ_system)
+function generate_from_params(like::HGCALikelihood, θ_system, orbit::PlanetOrbits.AbstractOrbit)
     ll = 0.0
 
     # This observation type just wraps one row from the HGCA (see hgca.jl)
@@ -314,9 +314,9 @@ function genobs(like::HGCALikelihood, elements, θ_system)
     pmra_hip_model = 0.0
     pmdec_hip_model = 0.0
     # The model can support multiple planets
-    for i in eachindex(elements)
+    for i in eachindex(orbits)
         θ_planet = θ_system.planets[i]
-        orbit = elements[i]
+        orbit = orbits[i]
         if θ_planet.mass < 0
             return -Inf
         end
@@ -347,9 +347,9 @@ function genobs(like::HGCALikelihood, elements, θ_system)
     pmra_gaia_model = 0.0
     pmdec_gaia_model = 0.0
     # The model can support multiple planets
-    for i in eachindex(elements)
+    for i in eachindex(orbits)
         θ_planet = θ_system.planets[i]
-        orbit = elements[i]
+        orbit = orbits[i]
         if θ_planet.mass < 0
             return -Inf
         end

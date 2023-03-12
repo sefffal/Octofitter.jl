@@ -67,7 +67,7 @@ end
 
 
 # # Generate new observations for a planet (I don't think this is relevant)
-# function Octofitter.genobs(like::VisibiltiesLikelihood, elem::VisualOrbit, θ_planet)
+# function Octofitter.generate_from_params(like::VisibiltiesLikelihood, orbit::PlanetOrbits.AbstractOrbit, θ_planet)
 
 # end
 
@@ -75,7 +75,7 @@ end
 
 
 # Generate new observations for a system of possibly multiple planets
-function Octofitter.genobs(like::VisibiltiesLikelihood, orbits::Vector{<:VisualOrbit}, θ_system)
+function Octofitter.generate_from_params(like::VisibiltiesLikelihood, orbits::Vector{<:VisualOrbit}, θ_system)
 
     # # Get epochs, uncertainties, and planet masses from observations and parameters
     # epochs = like.table.epoch 

@@ -25,6 +25,7 @@ using LinearAlgebra
     xguide --> "Δ right ascension (mas)"
     yguide --> "Δ declination (mas)"
     color --> :black
+    aspetratio --> 1
 
     if hasproperty(astrom.table, :pa)
         x = astrom.table.sep
@@ -216,7 +217,7 @@ function ln_like(astrom::AstrometryLikelihood, θ_planet, orbit,)
 end
 
 # Generate new astrometry observations
-function genobs(like::AstrometryLikelihood, elem::VisualOrbit, θ_planet)
+function generate_from_params(like::AstrometryLikelihood, θ_planet, orbit::PlanetOrbits.AbstractOrbit)
 
     # Get epochs and uncertainties from observations
     epochs = like.table.epoch
@@ -224,9 +225,13 @@ function genobs(like::AstrometryLikelihood, elem::VisualOrbit, θ_planet)
     σ_decs = like.table.σ_dec
 
     # Generate now astrometry data
-    ras = raoff.(elem, epochs)
-    decs = decoff.(elem, epochs)
-    astrometry_table = Table(epoch=epochs, ra=ras, dec=decs, σ_ra=σ_ras, σ_dec=σ_decs)
+    ras = raoff.(orbit, epochs)
+    decs = decoff.(orbit, epochs)
+    if hasproperty(like.table, :cov)
+        astrometry_table = Table(;epochs, ras, decs, σ_ras, σ_decs, like.table.cov)
+    else
+        astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec)
+    end
 
     return AstrometryLikelihood(astrometry_table)
 end

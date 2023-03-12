@@ -19,6 +19,13 @@ function sample_priors(rng::Random.AbstractRNG, system::System)
     return priors_flat_sampled
 end
 
+function priors_flat(system::System)
+    return priors_flat = map(((k,v),)->v, Iterators.flatten([
+        system.priors.priors,
+        [planet.priors.priors for planet in system.planets]...
+    ]))
+end
+
 
 sample_priors(rng::Random.AbstractRNG, system::System, N::Number) = [sample_priors(rng, system) for _ in 1:N]
 
@@ -50,7 +57,6 @@ function guess_starting_position(rng::Random.AbstractRNG, system::System, N=500_
     end
     mapv,mapi = findmax(posts)
     best = θ[mapi]
-    
 
     return best, mapv
 end
@@ -734,10 +740,24 @@ function advancedhmc(
         # metric = DiagEuclideanMetric(D)
     # end
 
-    
 
-    metric = DenseEuclideanMetric(model.D)
+    # Help adaptation by starting the metric with a rough order of magnitude of the
+    # variable variances along the diagonals.
 
+    # We already sampled from the priors earlier to get the starting positon.
+    # Use those variance estimates and transform them into the unconstrainted space.
+    # variances_t = (model.link(initial_θ .+ sqrt.(variances)/2) .- model.link(initial_θ .- sqrt.(variances)/2)).^2
+    p = priors_flat(model.system)
+    variances_t = (model.link(quantile.(p, 0.85)) .- model.link(quantile.(p, 0.15))).^2
+    # metric = DenseEuclideanMetric(model.D)
+    metric = DenseEuclideanMetric(collect(Diagonal(variances_t)))
+    if verbosity >= 3
+        print("Initial mass matrix M⁻¹ from priors\n")
+        display(metric.M⁻¹)
+    end
+    if any(v->!isfinite(v)||v==0, variances_t)
+        error("failed to initialize mass matrix")
+    end
 
     verbosity >= 3 && @info "Creating hamiltonian"
     hamiltonian = Hamiltonian(metric, model)

@@ -197,7 +197,7 @@ end
 
 
 # Generate new images
-function Octofitter.genobs(like::ImageLikelihood, elements::Vector{<:VisualOrbit}, θ_system)
+function Octofitter.generate_from_params(like::ImageLikelihood, θ_system,  elements::Vector{<:VisualOrbit})
 
     newrows = map(like.table) do row
         (;band, image, platescale, epoch, psf) = row
