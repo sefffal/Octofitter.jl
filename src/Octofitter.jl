@@ -14,10 +14,9 @@ using Statistics
 using StatsBase
 using NamedTupleTools
 using OrderedCollections
-using PlanetOrbits
 
-# Re-export these from DirectOrbits
-export mjd, Visual{KepOrbit}, Visual{KepOrbit}Deg, KepOrbit, RadialVelocityOrbit, ThieleInnesOrbit, orbit
+using Reexport
+@reexport using PlanetOrbits
 
 # Re-export from TypedTables
 export Table, FlexTable
