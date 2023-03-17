@@ -135,7 +135,7 @@ index of the chains.
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Union{Integer,CartesianIndex})
     pk = string(planet_key)
     if haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
-        return Visual{KepOrbit}((;
+        return Visual{KepOrbit}(;(;
             M=chain["M"][i],
             plx=chain["plx"][i],
             i=chain[pk*"_i"][i],
@@ -144,9 +144,9 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
             e=chain[pk*"_e"][i],
             τ=chain[pk*"_τ"][i],
             a=chain[pk*"_a"][i],
-        ))
+        )...)
     elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*"_A")) && haskey(chain, Symbol(pk*"_B")) && haskey(chain, Symbol(pk*"_G"))&& haskey(chain, Symbol(pk*"_F"))
-        return ThieleInnesOrbit((;
+        return ThieleInnesOrbit(;(;
             M=chain["M"][i],
             plx=chain["plx"][i],
             e=chain[pk*"_e"][i],
@@ -155,9 +155,9 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
             B=chain[pk*"_B"][i],
             F=chain[pk*"_F"][i],
             G=chain[pk*"_G"][i],
-        ))
+        )...)
     elseif haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
-        return KepOrbit((;
+        return KepOrbit(;(;
             M=chain["M"][i],
             i=chain[pk*"_i"][i],
             Ω=chain[pk*"_Ω"][i],
@@ -165,15 +165,15 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
             e=chain[pk*"_e"][i],
             τ=chain[pk*"_τ"][i],
             a=chain[pk*"_a"][i],
-        ))
+        )...)
     elseif haskey(chain, :M) && haskey(chain, :rv)
-        return RadialVelocityOrbit((;
+        return RadialVelocityOrbit(;(;
             M=chain["M"][i],
             ω=chain[pk*"_ω"][i],
             e=chain[pk*"_e"][i],
             τ=chain[pk*"_τ"][i],
             a=chain[pk*"_a"][i],
-        ))
+        )...)
     else
         error("Unrecognized columns")
     end
@@ -198,7 +198,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         τs=chain[pk*"_τ"]
         as=chain[pk*"_a"]
         return map(ii) do i
-            Visual{KepOrbit}((;
+            Visual{KepOrbit}(;(;
                 M=Ms[i],
                 plx=plxs[i],
                 i=is[i],
@@ -207,7 +207,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                 e=es[i],
                 τ=τs[i],
                 a=as[i],
-            ))
+            )...)
         end
     elseif haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
         Ms=chain["M"]
@@ -218,7 +218,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         τs=chain[pk*"_τ"]
         as=chain[pk*"_a"]
         return map(ii) do i
-            KepOrbit((;
+            KepOrbit(;(;
                 M=Ms[i],
                 i=is[i],
                 Ω=Ωs[i],
@@ -226,7 +226,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                 e=es[i],
                 τ=τs[i],
                 a=as[i],
-            ))
+            )...)
         end
     elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*"_A")) && haskey(chain, Symbol(pk*"_B"))
         Ms=chain["M"]
@@ -238,7 +238,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         es=chain[pk*"_e"]
         τs=chain[pk*"_τ"]
         return map(ii) do i
-            ThieleInnesOrbit((;
+            ThieleInnesOrbit(;(;
                 M=Ms[i],
                 plx=plxs[i],
                 e=es[i],
@@ -247,7 +247,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                 B=Bs[i],
                 F=Fs[i],
                 G=Gs[i],
-            ))
+            )...)
         end
     elseif haskey(chain, Symbol("M")) && haskey(chain, Symbol("rv"))
         Ms=chain["M"]
@@ -256,13 +256,13 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         τs=chain[pk*"_τ"]
         as=chain[pk*"_a"]
         return map(ii) do i
-            RadialVelocityOrbit((;
+            RadialVelocityOrbit(;(;
                 M=Ms[i],
                 ω=ωs[i],
                 e=es[i],
                 τ=τs[i],
                 a=as[i],
-            ))
+            )...)
         end
     else
         error("Unrecognized chain format")
