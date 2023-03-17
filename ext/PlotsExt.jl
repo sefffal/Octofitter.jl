@@ -301,7 +301,9 @@ function timeplot!(
         diffs = diff(fit, dims=1)
         diffs2 = diff(diffs, dims=1)
         fit[findall((diffs2 .< 0))] .= NaN
-        y[y .< 0] .+= 360
+        if !isnothing(y)
+            y[y .< 0] .+= 360
+        end
     elseif prop == :pmra
         if !isnothing(Octofitter.propermotionanom(model.system))
             hgca = Octofitter.propermotionanom(model.system).table[1]
