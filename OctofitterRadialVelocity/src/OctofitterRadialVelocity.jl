@@ -115,6 +115,7 @@ function Octofitter.generate_from_params(like::RadialVelocityLikelihood, θ_syst
 
     # Generate new star radial velocity data
     rvs = radvel.(reshape(orbits, :, 1), epochs, transpose(planet_masses))
+    # TODO: Question: is adding jitter like this appropriate in a generative model? I think so.
     noise = randn(length(epochs)) .* θ_system.jitter
     rvs = sum(rvs, dims=2)[:,1] .+ θ_system.rv .+ noise
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)

@@ -379,12 +379,12 @@ function generate_from_params(like::HGCALikelihood, θ_system, orbit::PlanetOrbi
     # Merge the measurements together into a new observation and add noise according to the sigma
     # we were passed in from the original measurements
     return HGCALikelihood(merge(hgca[1], (;
-        pmra_hip=pmra_hip_model+hgca[1].pmra_hip_error*randn(),
-        pmdec_hip=pmdec_hip_model+hgca[1].pmdec_hip_error*randn(),
-        pmra_gaia=pmra_gaia_model+hgca[1].pmra_gaia_error*randn(),
-        pmdec_gaia=pmdec_gaia_model+hgca[1].pmdec_gaia_error*randn(),
-        pmra_hg=pmra_hg_model+hgca[1].pmra_hg_error*randn(),
-        pmdec_hg=pmdec_hg_model+hgca[1].pmdec_hg_error*randn(),
+        pmra_hip=pmra_hip_model+hgca[1].pmra_hip_error,
+        pmdec_hip=pmdec_hip_model+hgca[1].pmdec_hip_error,
+        pmra_gaia=pmra_gaia_model+hgca[1].pmra_gaia_error,
+        pmdec_gaia=pmdec_gaia_model+hgca[1].pmdec_gaia_error,
+        pmra_hg=pmra_hg_model+hgca[1].pmra_hg_error,
+        pmdec_hg=pmdec_hg_model+hgca[1].pmdec_hg_error,
     )))
 
 end
