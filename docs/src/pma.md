@@ -30,7 +30,7 @@ astrom = AstrometryLikelihood(
     (epoch=mjd("2018-11-28"), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.,),# cor=0.3),
     (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.,),# cor=0.2),
 )
-@named B = Planet{VisualOrbit}(
+@named B = Planet{Visual{KepOrbit}}(
     Variables(
         a = truncated(LogNormal(9,3),lower=0),
         e = Uniform(0,1),
@@ -220,7 +220,7 @@ you can follow a simplified approach.
 As a start, you can restrict the orbital parameters to just semi-major axis, epoch of periastron passage, and mass.
 
 ```julia
-@named b = Planet{VisualOrbit}(
+@named b = Planet{Visual{KepOrbit}}(
     Variables(
         a = LogUniform(0.1, 100),
         τ = UniformCircular(1.0),

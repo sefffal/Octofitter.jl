@@ -15,7 +15,7 @@ System
 mjd
 gaia_plx
 Octofitter.hmc
-VisualOrbit
+Visual{KepOrbit}
 sonora_photometry_interpolator
 sonora_cooling_interpolator
 plotchains

@@ -80,7 +80,7 @@ function transit_depth(orbit, t,  r, Rₛₜₐᵣ, ld=QuadLimbDark(Float64[]))
     z = PlanetOrbits.posz(soln)*Octofitter.PlanetOrbits.au2m
 
     
-    # TODO: at the moment this only supports VisualOrbit
+    # TODO: at the moment this only supports Visual{KepOrbit}
     cosi = orbit.cosi
 
 

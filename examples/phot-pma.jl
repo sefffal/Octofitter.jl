@@ -24,7 +24,7 @@ const star_abs_mag_L = 5.2
 
 
 ##
-@named b = Planet{VisualOrbit}(
+@named b = Planet{Visual{KepOrbit}}(
     Variables(
         mass = Uniform(0.6, 75),
         a = Uniform(1, 30),

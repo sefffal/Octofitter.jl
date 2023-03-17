@@ -22,7 +22,7 @@ using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, Plots
 gaia_id = 5164707970261890560 
 
 
-@named b = Planet{VisualOrbit}(
+@named b = Planet{Visual{KepOrbit}}(
     Variables(
         e = 0,
         τ = UniformCircular(1.0),

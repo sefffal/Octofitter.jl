@@ -509,7 +509,7 @@ function Octofitter.timeplotgrid(
     )
     if isnothing(model)
         planet_keys = [:b] # just assume
-        model = (;system=System(Planet{VisualOrbit}(Variables();name=:b),name=Symbol("")))
+        model = (;system=System(Planet{Visual{KepOrbit}}(Variables();name=:b),name=Symbol("")))
     else
         planet_keys = keys(model.system.planets)
     end

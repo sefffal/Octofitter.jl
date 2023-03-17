@@ -11,7 +11,7 @@ using Plots
 # Generate astrometry points using this template
 # and we will try to fit the results
 truths = [
-    VisualOrbit(; a = 12, τ = 0.15, ω = 0.5, Ω = 0, e = 0.2, i = 0.15pi, M = 1.0, plx = 45.0),
+    Visual{KepOrbit}(; a = 12, τ = 0.15, ω = 0.5, Ω = 0, e = 0.2, i = 0.15pi, M = 1.0, plx = 45.0),
 
 ]
 intensities = [
@@ -20,7 +20,7 @@ intensities = [
     0
 ]
 
-# truth_elements = VisualOrbit(ComponentArray(truth, static))
+# truth_elements = Visual{KepOrbit}(ComponentArray(truth, static))
 
 # times = range(0, period(truth_elements)*4/5, length=9, )
 # times = range(0, 0.6period(first(truths)), length = 2,)
@@ -71,7 +71,7 @@ imshow2(psf, clims = (-1, 1))
 
 ##
 
-@named b = Planet{VisualOrbit}(
+@named b = Planet{Visual{KepOrbit}}(
     Variables(
         a = Normal(12, 3),
         e = Beta(10, 70),

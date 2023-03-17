@@ -116,7 +116,7 @@ truth = (;
     μ = 2.0,
     plx = 45.
 )
-truth_elements = VisualOrbit(truth)
+truth_elements = Visual{KepOrbit}(truth)
 times = sort(rand(Uniform(0, period(truth_elements)/2), 5,))
 points = hcat(
     raoff.(truth_elements, times),

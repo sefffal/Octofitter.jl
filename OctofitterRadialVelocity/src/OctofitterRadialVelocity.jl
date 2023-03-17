@@ -39,7 +39,7 @@ function Octofitter.ln_like(rv::RadialVelocityLikelihood, θ_system, elements, n
     # # # to compare with orvara.
     # nt = θ_system.planets.B
     # nt = merge(nt,(;ω=nt.ω+π))
-    # elements = (Octofitter.construct_elements(VisualOrbit, θ_system, nt),)
+    # elements = (Octofitter.construct_elements(Visual{KepOrbit}, θ_system, nt),)
 
     # single_instrument_mode = !hasproperty(rv.table, :inst_idx)
     barycentric_rv_inst = (
@@ -106,7 +106,7 @@ end
 
 
 # Generate new radial velocity observations for a star
-function Octofitter.generate_from_params(like::RadialVelocityLikelihood, θ_system, orbits::Vector{<:VisualOrbit})
+function Octofitter.generate_from_params(like::RadialVelocityLikelihood, θ_system, orbits::Vector{<:Visual{KepOrbit}})
 
     # Get epochs, uncertainties, and planet masses from observations and parameters
     epochs = like.table.epoch 

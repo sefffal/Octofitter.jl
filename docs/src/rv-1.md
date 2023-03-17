@@ -22,7 +22,7 @@ rvs = OctofitterRadialVelocityLikelihood.HARPS_rvs("GJ436")
 Now, create a planet. Since we're only fitting radial velocity data, we
 fix some of these parameters
 ```julia
-@named b = Planet{VisualOrbit}(
+@named b = Planet{Visual{KepOrbit}}(
     Variables(
         τ = UniformCircular(1.0),
         mass = truncated(Normal(21.3*0.00314558, 8*0.00314558),lower=0),

@@ -27,7 +27,7 @@ astrom = AstrometryLikelihood(
 # Or from a file:
 # astrom = CSV.read("mydata.csv", AstrometryLikelihood)
 
-@named B = Planet{VisualOrbit}(
+@named B = Planet{Visual{KepOrbit}}(
     Variables(
         a = truncated(Normal(10, 4), lower=0, upper=100),
         e = Uniform(0.0, 0.5),
@@ -43,7 +43,7 @@ astrom = AstrometryLikelihood(
 
 There's a lot going on here, so let's break it down.
 
-First, `VisualOrbit` is the kind of orbit parameterization from PlanetOrbits.jl that we'd like to use for this model. A `VisualOrbit` uses the traditional Keplerian parameters like semi-major axis and inclination, along with the parallax distance to map positions into projected coordinates in the sky.
+First, `Visual{KepOrbit}` is the kind of orbit parameterization from PlanetOrbits.jl that we'd like to use for this model. A `Visual{KepOrbit}` uses the traditional Keplerian parameters like semi-major axis and inclination, along with the parallax distance to map positions into projected coordinates in the sky.
 Other options include the similar `ThieleInnesOrbit` which uses a different parameterization, as well as `RadVelOrbit` and `KepOrbit` which are useful for modelling radial velocity data.
 
 The `Variables` block accepts the priors that you would like for the orbital parameters of this planet. Priors can be any univariate distribution from the Distributions.jl package.

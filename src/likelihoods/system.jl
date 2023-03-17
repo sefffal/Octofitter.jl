@@ -61,7 +61,7 @@
 #         planet = system.planets[i]
 #         # Parameters specific to this planet
 #         θ_planet = θ_system.planets[i]
-#         # Cached VisualOrbit with precomputed factors, etc.
+#         # Cached Visual{KepOrbit} with precomputed factors, etc.
 #         planet_elements = elements[i]
 #         # kep_elements, but for all planets interior to this one (given the current parameters)
 #         # interior_planets = kep_elements[begin:min(end,i)]
@@ -100,7 +100,7 @@
 #         # as a orbit object. The type of orbitobject is stored in the 
 #         # Planet type. This pre-computes some factors used in various calculations.
 #         planet_elements = construct_elements(orbittype(planet), θ_system, θ_planet)
-#         # planet_elements = VisualOrbit((;
+#         # planet_elements = Visual{KepOrbit}((;
 #         #     M=θ_system.M,
 #         #     plx=θ_system.plx,
 #         #     a=θ_planet.a,
@@ -126,12 +126,14 @@
 #     return ll
 # end
 
+_planet_orbit_type(::Planet{OrbitType}) where {OrbitType} = OrbitType
 function make_ln_like(system::System, θ_system)
 
     planet_exprs = Expr[]
     planet_keys = Symbol[]
     for i in eachindex(system.planets)
         planet = system.planets[i]
+        OrbitType = _planet_orbit_type(planet)
         θ_planet = θ_system.planets[i]
         key = Symbol("planet_$i")
 
@@ -146,7 +148,7 @@ function make_ln_like(system::System, θ_system)
         end
 
         planet_contruction = quote
-            $key = $(construct_elements)($(orbittype(planet)), θ_system, θ_system.planets.$i)
+            $key = $(OrbitType)(;merge(θ_system, θ_system.planets.$i)...)
             $(likelihood_exprs...)
         end
         push!(planet_exprs, planet_contruction)

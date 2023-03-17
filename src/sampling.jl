@@ -6,6 +6,7 @@ using Preferences
 
 export sample_priors
 
+# TODO: consolidate all these functions. There is a lot of duplication.
 
 sample_priors(arg::Union{Planet,System}, args...; kwargs...) = sample_priors(Random.default_rng(), arg, args...; kwargs...)
 # sample_priors(rng::Random.AbstractRNG, planet::Planet) = rand.(rng, ComponentArray(planet.priors.priors))
@@ -65,10 +66,10 @@ end
     construct_elements(θ_system, θ_planet)
 
 Given a named tuple for of parameters from a System (θ_system) and Planet (θ_planet),
-return a `VisualOrbit PlanetOrbits.jl.
+return a `Visual{KepOrbit} PlanetOrbits.jl.
 """
-function construct_elements(::Type{VisualOrbit}, θ_system, θ_planet)
-    return VisualOrbit((;
+function construct_elements(::Type{Visual{KepOrbit}}, θ_system, θ_planet)
+    return Visual{KepOrbit}((;
         θ_system.M,
         θ_system.plx,
         θ_planet.i,
@@ -111,19 +112,30 @@ function construct_elements(::Type{RadialVelocityOrbit}, θ_system, θ_planet)
         θ_planet.a,
     ))
 end
-
+function construct_elements(::Type{CartesianOrbit}, θ_system, θ_planet)
+    return CartesianOrbit((;
+        θ_system.M,
+        θ_system.plx,
+        θ_planet.x,
+        θ_planet.y,
+        θ_planet.z,
+        θ_planet.vx,
+        θ_planet.vy,
+        θ_planet.vz,
+    ))
+end
 
 """
     construct_elements(chains, :b, 4)
 
 Given a Chains object, a symbol matching the name of a planet, and an index,
-construct a `VisualOrbit DirectOrbits of that planet from that
+construct a `Visual{KepOrbit} DirectOrbits of that planet from that
 index of the chains.
 """
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Union{Integer,CartesianIndex})
     pk = string(planet_key)
     if haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
-        return VisualOrbit((;
+        return Visual{KepOrbit}((;
             M=chain["M"][i],
             plx=chain["plx"][i],
             i=chain[pk*"_i"][i],
@@ -171,7 +183,7 @@ end
     construct_elements(chains, :b, [4,5,10])
 
 Given a Chains object, a symbol matching the name of a planet, and an array of indices,
-construct a `VisualOrbit DirectOrbits of that planet from those indices
+construct a `Visual{KepOrbit} DirectOrbits of that planet from those indices
 of the chains.
 """
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
@@ -186,7 +198,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         τs=chain[pk*"_τ"]
         as=chain[pk*"_a"]
         return map(ii) do i
-            VisualOrbit((;
+            Visual{KepOrbit}((;
                 M=Ms[i],
                 plx=plxs[i],
                 i=is[i],
@@ -268,7 +280,7 @@ function construct_elements(chain, planet_key::Union{String,Symbol}, ii::Abstrac
     τs=chain[:,pk*"_τ"]
     as=chain[:,pk*"_a"]
     return map(ii) do i
-        VisualOrbit((;
+        Visual{KepOrbit}((;
             M=Ms[i],
             plx=plxs[i],
             i=is[i],

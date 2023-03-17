@@ -1,7 +1,7 @@
 using Octofitter, Distributions, CSV
 ##
 ## Create a 1-planet model
-@named b = Planet{VisualOrbit}(
+@named b = Planet{Visual{KepOrbit}}(
     Variables(
         a    = Uniform(9, 100),
         e    = Uniform(0, 1),
@@ -16,7 +16,7 @@ using Octofitter, Distributions, CSV
     CSV.read("cEri-astrometry.csv", AstrometryLikelihood)
 )
 
-@named c = Planet{VisualOrbit}(
+@named c = Planet{Visual{KepOrbit}}(
     Variables(
         a    = Uniform(1, 9),
         e    = 0,

@@ -1,7 +1,7 @@
 using Octofitter, Distributions, Plots
 
 
-@named b = Planet{VisualOrbit}
+@named b = Planet{Visual{KepOrbit}}
     Variables(
         a = TruncatedNormal(1, 0.5, 0, Inf),
         e = TruncatedNormal(0.0, 0.2, 0, 1.0),

@@ -4,38 +4,30 @@
 
 # General
 using StatsBase
-using StaticArrays
+# using StaticArrays
 
 # Data
-using CSV
-using JSON
+using TOML
+# using CSV
+# using JSON
 # using TypedTables
 # using DataFrames 
 
 # Plots
-using Plots
-using PairPlots
+# using Plots
+# using PairPlots
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Functions
 # ----------------------------------------------------------------------------------------------------------------------
 # Load data in .json file to dictionary 
-function loadJSON(filepath::String)
-    dict = open(filepath, "r") do f
-        JSON.parse(f)
-    end
-    return dict
-end
-
-# Sample system parameters from prior distributions
-function drawfrompriors(system::System)
-    θ = Octofitter.sample_priors(system)
-    arr2nt = Octofitter.make_arr2nt(system)
-    θnt = arr2nt(θ)
-    return θnt
-end
-export drawfrompriors
+# function loadJSON(filepath::String)
+#     dict = open(filepath, "r") do f
+#         TOML.parse(f)
+#     end
+#     return dict
+# end
 
 
 # Run chains on new model
@@ -43,12 +35,19 @@ function calibrationhmc(system::System, target_accept, num_chains, adaptation, i
 
     # Get parameter values sampled from priors and generate a new system
     θ_newsystem = drawfrompriors(system)
-    newsystem = generate(system, θ_newsystem)
-    θ_array = Octofitter.result2mcmcchain(newsystem, [θ_newsystem])
+
+    msg = stringify_nested_named_tuple(θ_newsystem)
+    println("="^80)
+    println("Drew parameters $msg")
+
+    θ_array = Octofitter.result2mcmcchain([θ_newsystem])
+    newsystem = generate_from_params(system, θ_newsystem)
+
+    model = Octofitter.LogDensityModel(newsystem; autodiff=:ForwardDiff, verbosity=4)
 
     # Run chains
-    @time chains = Octofitter.advancedhmc(
-        newsystem, target_accept,
+    chains = Octofitter.advancedhmc(
+        model, target_accept,
         num_chains = num_chains,
         adaptation = adaptation,
         iterations = iterations,
@@ -77,38 +76,34 @@ end
 function calibrate(system::System, chainparams::AbstractDict, saveas::AbstractString)
 
     # Get chain parameters 
-    target_accept = chainparams["target_accept"]
-    num_chains = chainparams["num_chains"]
-    adaptation = chainparams["adaptation"]
-    iterations = chainparams["iterations"]
-    thinning = chainparams["thinning"]
-    tree_depth = chainparams["tree_depth"]
-    verbosity = chainparams["verbosity"]
+    target_accept = chainparams[:target_accept]
+    num_chains = chainparams[:num_chains]
+    adaptation = chainparams[:adaptation]
+    iterations = chainparams[:iterations]
+    thinning = chainparams[:thinning]
+    tree_depth = chainparams[:tree_depth]
+    verbosity = chainparams[:verbosity]
 
     # Run chains
     calib = calibrationhmc(system, target_accept, num_chains, adaptation, iterations, thinning, tree_depth, verbosity)
     priorsampledict, rdict, chains = calib
+
+    
     
     # Save chain parameters
-    chainparams_data = JSON.json(chainparams)
-    open("$(saveas)_chain_params.json", "w") do f
-        write(f, chainparams_data)
+    open("$(saveas)_sampler_parameters.toml", "w") do f
+        TOML.print(f, chainparams)
     end
 
     # Save sampled parameter values
-    priorsampledict_data = JSON.json(priorsampledict)
-    open("$(saveas)_prior_samples.json", "w") do f
-        write(f, priorsampledict_data)
+    open("$(saveas)_parameters.toml", "w") do f
+        TOML.print(f, priorsampledict)
     end
 
     # Save cumulative probabilities of sampled values w.r.t. the chains
-    rdict_data = JSON.json(rdict)
-    open("$(saveas)_rank_stats.json", "w") do f
-        write(f, rdict_data)
+    open("$(saveas)_rank_stats.toml", "w") do f
+        TOML.print(f, rdict)
     end
-
-    # Save chains
-    CSV.write("$(saveas)_chains.csv", chains)
 
     return nothing
 end
@@ -119,20 +114,20 @@ function getplotdata(datadir::String, plotsdir::String, grmax)
 
     # Load files and create file arrays
     files = readdir(datadir)
-    rankfiles = datadir .* [i for i ∈ files if occursin("rank_stats.json", i)]
+    rankfiles = datadir .* [i for i ∈ files if occursin("rank_stats.toml", i)]
     usablerankfiles = []
-    chainfiles = datadir .* [i for i ∈ files if occursin("chains.csv", i)]
+    chainfiles = datadir .* [i for i ∈ files if occursin("chains.fits", i)]
     pairedfiles = [(rankfiles[i], chainfiles[i]) for i ∈ 1:length(rankfiles)]
 
     # Determine if each chain is usable based on Gelman-Rubin diagnostic
-    for pair ∈ pairedfiles 
+    for (rankfile, chainfile) ∈ pairedfiles 
 
         # Load chains data as matrix
-        rankfile, chainfile = pair 
-        df = CSV.read(chainfile, Table)
-        m = Matrix(df)
+        df = loadchain("$(saveas)_chains.fits")
+        m = Array(df)
 
         # Get number of subchains and number of iterations per chain
+        # TODO: check this, I think this assumes the data was flattend
         nsubchains = Int(m[:,2][end])
         maxval = Int(m[:,1][end])
 
@@ -157,6 +152,8 @@ function getplotdata(datadir::String, plotsdir::String, grmax)
     end
 
     # Save numbers of usable chains
+    # TODO: rather than discarding, we need an error message. To be representative, we 
+    # need to increase convergence not discard.
     open(plotsdir * "usable_chains.txt", "w") do f
         write(f, "Usable chains (Gelman-Rubin ≤ $grmax):\n")
         for file ∈ usablerankfiles 
@@ -167,7 +164,8 @@ function getplotdata(datadir::String, plotsdir::String, grmax)
     end
 
     # Get maximum histogram values
-    m = Matrix(CSV.read(chainfiles[1], Table))
+    # TODO: I don't quite understand what this code is doing yet
+    m = loadchain(chainfiles[1])
     maxval = Int(m[:,1][end] * Int(m[:,2][end]))
 
     return maxval, usablerankfiles
@@ -182,7 +180,7 @@ function calibrationplots(datadir::String, plotsdir::String; grmax::Number=1.2, 
 
     # Get named tuples of CDF values from files
     rankarr = map(rankfiles) do i
-        dict = loadJSON(i)
+        dict = TOML.parsefile(i)
         return (; (Symbol(k) => v for (k,v) in dict)...)
     end
 

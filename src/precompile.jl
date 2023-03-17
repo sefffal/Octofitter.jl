@@ -19,7 +19,7 @@ using SnoopPrecompile
             astrom = AstrometryLikelihood(
                 (epoch=1234.0, ra=123., dec=123., σ_ra=12., σ_dec=34.),
             )
-            @planet test VisualOrbit begin
+            @planet test Visual{KepOrbit} begin
                 a ~ Uniform(1, 50)
                 e ~ Beta(1.2, 5)
                 τ ~ UniformCircular(1.0)

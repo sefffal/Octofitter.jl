@@ -17,7 +17,7 @@ using OrderedCollections
 using PlanetOrbits
 
 # Re-export these from DirectOrbits
-export mjd, VisualOrbit, VisualOrbitDeg, KepOrbit, RadialVelocityOrbit, ThieleInnesOrbit, orbit
+export mjd, Visual{KepOrbit}, Visual{KepOrbit}Deg, KepOrbit, RadialVelocityOrbit, ThieleInnesOrbit, orbit
 
 # Re-export from TypedTables
 export Table, FlexTable
@@ -53,7 +53,7 @@ include("sonora.jl")
 include("io.jl")
 
 
-# include("sbc.jl")
+include("sbc.jl")
 
 function __init__()
 

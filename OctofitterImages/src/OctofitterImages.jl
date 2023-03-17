@@ -124,7 +124,7 @@ Likelihood of there being planets in a sequence of images.
 function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
     
     # Resolve the combination of system and planet parameters
-    # as a VisualOrbit object. This pre-computes
+    # as a Visual{KepOrbit} object. This pre-computes
     # some factors used in various calculations.
     # elements = construct_elements(θ_system, θ_planet)
 
@@ -197,7 +197,7 @@ end
 
 
 # Generate new images
-function Octofitter.generate_from_params(like::ImageLikelihood, θ_system,  elements::Vector{<:VisualOrbit})
+function Octofitter.generate_from_params(like::ImageLikelihood, θ_system,  elements::Vector{<:Visual{KepOrbit}})
 
     newrows = map(like.table) do row
         (;band, image, platescale, epoch, psf) = row

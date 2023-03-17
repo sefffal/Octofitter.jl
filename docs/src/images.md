@@ -76,7 +76,7 @@ You can also provide images from multiple bands and they will be sampled indepen
 
 Now specify the planet:
 ```julia
-@named X = Planet{VisualOrbit}(
+@named X = Planet{Visual{KepOrbit}}(
     Variables(
         a = Normal(13, 3),
         e = TruncatedNormal(0.2, 0.2, 0, 1.0),

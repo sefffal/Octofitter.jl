@@ -10,7 +10,7 @@ const sonora_temp_mass_J = sonora_photometry_interpolator(:MKO_J)
 const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
 
 ##
-@named b = Planet{VisualOrbit}(
+@named b = Planet{Visual{KepOrbit}}(
     Variables(
         Z = (sys, pl) -> sonora_temp_mass_Z(cooling_tracks(sys.age, pl.mass), pl.mass),
         J = (sys, pl) -> sonora_temp_mass_J(cooling_tracks(sys.age, pl.mass), pl.mass),

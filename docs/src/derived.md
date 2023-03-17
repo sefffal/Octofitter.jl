@@ -40,7 +40,7 @@ Derived variables for an individual planet are similar, but have access to both 
 
 Here is an example of reparameterizing `e` and `a` on a planet to be logarithmic quantities:
 ```julia
-@named b = Planet{VisualOrbit}(
+@named b = Planet{Visual{KepOrbit}}(
     Variables(
         τ = Normal(0.5, 1),
         ω = Normal(0.1, deg2rad(30.)),
@@ -61,7 +61,7 @@ Planets can have Derived variables that are calculated from variables defined on
 This makes it easy to, for example, create a system of two planets that are co-planar.
 
 ```julia
-@named b = Planet{VisualOrbit}(
+@named b = Planet{Visual{KepOrbit}}(
     Variables(
         a = Uniform(0, 15),
         e = TruncatedNormal(0, 0.1, 0, 1),
@@ -71,7 +71,7 @@ This makes it easy to, for example, create a system of two planets that are co-p
         Ω = (sys, pl) -> sys.Ω,
     ),
 )
-@named c = Planet{VisualOrbit}(
+@named c = Planet{Visual{KepOrbit}}(
     Variables(
         a = Uniform(15, 45),
         e = TruncatedNormal(0, 0.1, 0, 1),

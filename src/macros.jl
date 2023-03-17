@@ -2,7 +2,7 @@
 
     astrom = CSV.read("octofitter/input.csv", AstrometryLikelihood)
 
-    vars = Octofitter.@planet b VisualOrbit astrom begin
+    vars = Octofitter.@planet b Visual{KepOrbit} astrom begin
         a  ~ LogUniform(2.5, 25)
         a2 = b.a^2
         i ~ Sine()

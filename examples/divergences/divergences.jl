@@ -78,7 +78,7 @@ end astrom
 
 # Alternative, traditional parameterization using Campbell angles (semi-major axis, inclination, etc.)
 # These lead to even more divergences.
-# @planet b VisualOrbit begin
+# @planet b Visual{KepOrbit} begin
 #     a ~ LogUniform(0.001, 10000.0)
 #     e ~ Uniform(0.0, 0.99)
 #     i ~ Sine()
@@ -134,7 +134,7 @@ end
 struct CustomLikelihood1 <: Octofitter.AbstractLikelihood end
 function Octofitter.ln_like(::CustomLikelihood1, θ_planet, orbit) 
     # Convert back to Campbell elements to maintain a prior on semi-major axis.
-    campbell_orbit = VisualOrbit(orbit)
+    campbell_orbit = Visual{KepOrbit}(orbit)
     return logpdf(LogUniform(0.001, 1000), campbell_orbit.a)
 end
 
