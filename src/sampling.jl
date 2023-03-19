@@ -249,7 +249,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                 G=Gs[i],
             )...)
         end
-    elseif haskey(chain, Symbol("M")) && haskey(chain, Symbol("rv"))
+    elseif haskey(chain, Symbol("M"))
         Ms=chain["M"]
         ωs=chain[pk*"_ω"]
         es=chain[pk*"_e"]

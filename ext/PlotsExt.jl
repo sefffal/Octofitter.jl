@@ -116,8 +116,8 @@ function Octofitter.plotchains!(
         Plots.plot!(p, orbits[i]; label="", alpha, mass=m, colorbar=true, kind, kwargs_loc...)
     end
     # Colorbar
-    # Plots.scatter!(p, [NaN],[NaN]; marker_z=[0], ms=0, clims=clims, color=cmap, label="", colorbartitle)
-    Plots.scatter!(p, [0],[0]; marker_z=[0], ms=0, clims=clims, color=cmap, label="", colorbartitle)
+    Plots.scatter!(p, [NaN],[NaN]; marker_z=[0], ms=0, clims=clims, color=cmap, label="", colorbartitle)
+    # Plots.scatter!(p, [0],[0]; marker_z=[0], ms=0, clims=clims, color=cmap, label="", colorbartitle)
     return p
     # # Star at centre
 

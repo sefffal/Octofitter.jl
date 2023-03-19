@@ -7,6 +7,7 @@ using Distributions
 using DataDeps
 using LoopVectorization
 using StrideArrays
+using RecipesBase
 
 # Radial Velocity data type
 const rv_cols = (:epoch, :rv, :σ_rv)
@@ -133,9 +134,22 @@ include("hires.jl")
 
 
 # Plot recipe for astrometry data
-# @recipe function f(rv::RadialVelocityLikelihood)
+@recipe function f(rv::RadialVelocityLikelihood)
+   
+    xguide --> "time (mjd)"
+    yguide --> "radvel (m/s)"
+    color --> :black
 
-# end
+    @series begin
+        label := nothing
+        seriestype := :scatter
+        markersize--> 0
+        yerr := rv.table.σ_rv
+        rv.table.epoch, rv.table.rv
+    end
+
+
+end
 
 
 
