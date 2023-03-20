@@ -69,7 +69,7 @@ Given a named tuple for of parameters from a System (θ_system) and Planet (θ_p
 return a `Visual{KepOrbit} PlanetOrbits.jl.
 """
 function construct_elements(::Type{Visual{KepOrbit}}, θ_system, θ_planet)
-    return Visual{KepOrbit}((;
+    return Visual{KepOrbit}(;(;
         θ_system.M,
         θ_system.plx,
         θ_planet.i,
@@ -78,10 +78,10 @@ function construct_elements(::Type{Visual{KepOrbit}}, θ_system, θ_planet)
         θ_planet.e,
         θ_planet.τ,
         θ_planet.a,
-    ))
+    )...)
 end
 function construct_elements(::Type{KepOrbit}, θ_system, θ_planet)
-    return KepOrbit((;
+    return KepOrbit(;(;
         θ_system.M,
         θ_planet.i,
         θ_planet.Ω,
@@ -89,10 +89,10 @@ function construct_elements(::Type{KepOrbit}, θ_system, θ_planet)
         θ_planet.e,
         θ_planet.τ,
         θ_planet.a,
-    ))
+    )...)
 end
 function construct_elements(::Type{ThieleInnesOrbit}, θ_system, θ_planet)
-    return ThieleInnesOrbit((;
+    return ThieleInnesOrbit(;(;
         θ_system.M,
         θ_system.plx,
         θ_planet.A,
@@ -101,19 +101,19 @@ function construct_elements(::Type{ThieleInnesOrbit}, θ_system, θ_planet)
         θ_planet.G,
         θ_planet.e,
         θ_planet.τ,
-    ))
+    )...)
 end
 function construct_elements(::Type{RadialVelocityOrbit}, θ_system, θ_planet)
-    return RadialVelocityOrbit((;
+    return RadialVelocityOrbit(;(;
         θ_system.M,
         θ_planet.ω,
         θ_planet.e,
         θ_planet.τ,
         θ_planet.a,
-    ))
+    )...)
 end
 function construct_elements(::Type{CartesianOrbit}, θ_system, θ_planet)
-    return CartesianOrbit((;
+    return CartesianOrbit(;(;
         θ_system.M,
         θ_system.plx,
         θ_planet.x,
@@ -122,7 +122,7 @@ function construct_elements(::Type{CartesianOrbit}, θ_system, θ_planet)
         θ_planet.vx,
         θ_planet.vy,
         θ_planet.vz,
-    ))
+    )...)
 end
 
 """
