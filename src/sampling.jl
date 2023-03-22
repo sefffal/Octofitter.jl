@@ -943,17 +943,20 @@ function advancedhmc(
     
     verbosity >= 1 && @info "Sampling compete. Building chains."
 
+    # Rebuild just the likelihood function (should already be compiled anyways)
+    ln_like = make_ln_like(model.system, model.arr2nt(initial_θ))
 
     # Go through each chain and repackage results
     chains = MCMCChains.Chains[]
-    logposts = Vector{Float64}[]
     for (i,mc_samples) in enumerate(mc_samples_all_chains)
         stat = map(s->s.stat, mc_samples)
+        numerical_error = getproperty.(stat, :numerical_error)
+        tree_depth = getproperty.(stat, :tree_depth)
         logpost = map(s->s.z.ℓπ.value, mc_samples)
      
         mean_accept = mean(getproperty.(stat, :acceptance_rate))
-        num_err_frac = mean(getproperty.(stat, :numerical_error))
-        mean_tree_depth = mean(getproperty.(stat, :tree_depth))
+        num_err_frac = mean(numerical_error)
+        mean_tree_depth = mean(tree_depth)
         max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
     
         verbosity >= 1 && println("""
@@ -974,16 +977,45 @@ function advancedhmc(
             @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
         end
 
-        # Transform samples back to constrained support
-        samples = map(mc_samples) do s
-            θ_t = s.z.θ
+        # Resolve the array back into the nested named tuple structure used internally.
+        # Augment with some internal fields
+        chain_res = map(enumerate(mc_samples)) do (i, sample)
+            # Map the variables back to the constrained domain and reconstruct the parameter
+            # named tuple structure.
+            θ_t = sample.z.θ
             θ = model.invlink(θ_t)
-            return θ
+            resolved_namedtuple = model.arr2nt(θ)
+            # Add log posterior, tree depth, and numerical error reported by
+            # the sampler.
+            # Also recompute the log-likelihood and add that too.
+            loglike = ln_like(model.system, resolved_namedtuple)
+            @show (;
+                loglike = loglike,
+                logpost = sample.z.ℓπ.value,
+                tree_depth = sample.stat.tree_depth,
+                numerical_error = sample.stat.numerical_error,
+            )
+            return merge((;
+                loglike = loglike,
+                logpost = sample.z.ℓπ.value,
+                tree_depth = sample.stat.tree_depth,
+                numerical_error = sample.stat.numerical_error,
+            ), resolved_namedtuple)
         end
-        chain_res = model.arr2nt.(samples)
-        push!(chains, Octofitter.result2mcmcchain(chain_res))
-        # push!(chains, Strapping.deconstruct(chain_res))
-        push!(logposts, logpost)
+        # Then finally flatten and convert into an MCMCChain object / table.
+        # Mark the posterior, likelihood, numerical error flag, and tree depth as internal
+        chn = Octofitter.result2mcmcchain(
+            chain_res,
+            Dict(:internals => [:logpost, :loglike, :tree_depth, :numerical_error])
+        )
+        push!(chains, chn)
+
+        # TODO: place the log posteriors, tree depth, and num_error flag into
+        # the chains as columns.
+        # Then, also reconstruct the log-likelihood as a column too.
+        # This will enable the augmented SBC using the log-like ranks.
+        # Also, check thinning.
+
     end
 
     # Concatenate the independent chains now that we have remapped / resolved the variables.
@@ -1005,7 +1037,7 @@ function advancedhmc(
     return mcmcchains_with_info
 end
 
-
+# Helper function for displaying nested named tuples in a compact format.
 function stringify_nested_named_tuple(num::Number)
     string(round(num,digits=1))*","
 end
@@ -1018,12 +1050,15 @@ end
 """
 Convert a vector of component arrays returned from sampling into an MCMCChains.Chains
 object.
-"""
-function result2mcmcchain(chain_in)
 
+!!! warning
+    Currently any nested named tuples must appear in the final position ie.
+    `(;a=1,b=2,c=(;d=1,e=2))`.
+"""
+function result2mcmcchain(chain_in, sectionmap=Dict())
     # There is a specific column name convention used by MCMCChains to indicate
-    # that multiple parameters form a group. Instead of planets.X.a, we adapt our to X[a] 
-    # accordingly
+    # that multiple parameters form a group. Instead of planets.X.a, we adapt our to X_a 
+    # accordingly (see flatten_named_tuple)
     flattened_labels = keys(flatten_named_tuple(first(chain_in)))
     data = zeros(length(chain_in), length(flattened_labels))
     for (i, sample) in enumerate(chain_in)
@@ -1031,7 +1066,7 @@ function result2mcmcchain(chain_in)
             data[i,j] = val
         end
     end
-    c = Chains(data, [string(l) for l in flattened_labels])
+    c = Chains(data, [string(l) for l in flattened_labels], sectionmap)
     return c
 end
 
