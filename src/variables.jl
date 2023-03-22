@@ -3,7 +3,6 @@ TypedTables.Table(like::AbstractLikelihood) = like.table
 
 
 
-
 """
     Priors(key=dist, ...)
 
@@ -158,6 +157,8 @@ end
 struct UnitLengthPrior{X,Y} <: AbstractLikelihood where {X,Y}
     UnitLengthPrior(xsymbol, ysymbol) = new{xsymbol, ysymbol}()
 end
+TypedTables.Table(like::UnitLengthPrior) = nothing
+
 function ln_like(::UnitLengthPrior{X,Y}, θ_planet_or_system, orbit,) where {X,Y}
     x = getproperty(θ_planet_or_system, X)
     y = getproperty(θ_planet_or_system, Y)

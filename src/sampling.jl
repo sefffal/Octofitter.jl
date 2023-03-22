@@ -988,12 +988,6 @@ function advancedhmc(
             # the sampler.
             # Also recompute the log-likelihood and add that too.
             loglike = ln_like(model.system, resolved_namedtuple)
-            @show (;
-                loglike = loglike,
-                logpost = sample.z.ℓπ.value,
-                tree_depth = sample.stat.tree_depth,
-                numerical_error = sample.stat.numerical_error,
-            )
             return merge((;
                 loglike = loglike,
                 logpost = sample.z.ℓπ.value,

@@ -53,6 +53,7 @@ include("io.jl")
 
 
 include("sbc.jl")
+include("predictive-distributions.jl")
 
 function __init__()
 

@@ -8,6 +8,7 @@ using StatsBase
 
 # Data
 using TOML
+using Random
 # using CSV
 # using JSON
 # using TypedTables
@@ -31,65 +32,101 @@ using TOML
 
 
 # Run chains on new model
-function calibrationhmc(system::System, target_accept, num_chains, adaptation, iterations, thinning, tree_depth, verbosity)
+function calibrationhmc(
+    system::System;
+    rng=Random.default_rng(),
+    verbosity=0,
+    target_accept,
+    kwargs...
+)
 
     # Get parameter values sampled from priors and generate a new system
-    θ_newsystem = drawfrompriors(system)
+    # θ_newsystem = drawfrompriors(system)
+    θ_newsystem_flat = sample_priors(rng, system)
+    arr2nt = make_arr2nt(system)
+    θ_newsystem = arr2nt(θ_newsystem_flat)
 
-    msg = stringify_nested_named_tuple(θ_newsystem)
-    println("="^80)
-    println("Drew parameters $msg")
+    verbosity > 0 && println("= SBC ="*"="^70)
+    verbosity > 0 && println("Drew parameters: ", stringify_nested_named_tuple(θ_newsystem))
 
-    θ_array = Octofitter.result2mcmcchain([θ_newsystem])
     newsystem = generate_from_params(system, θ_newsystem)
 
     model = Octofitter.LogDensityModel(newsystem; autodiff=:ForwardDiff, verbosity=4)
 
     # Run chains
     chains = Octofitter.advancedhmc(
-        model, target_accept,
-        num_chains = num_chains,
-        adaptation = adaptation,
-        iterations = iterations,
-        thinning = thinning,
-        tree_depth = tree_depth,
-        verbosity = verbosity
+        model, target_accept;
+        verbosity,
+        kwargs...
     )
 
+    # Also calculate the log posterior and log likelihood of these parameters (Modrak et al 2022)
+
+    ln_like_function = make_ln_like(model.system, θ_newsystem)
+    loglike = ln_like_function(model.system, θ_newsystem)
+
+    ln_prior_function = make_ln_prior(system)
+    logprior = ln_prior_function(θ_newsystem_flat)
+
+    logpost = logprior + loglike
+
+    
+    θ_array = Octofitter.result2mcmcchain([(;loglike, logpost, θ_newsystem...)])
+
+    # θ_t = sample.z.θ
+    # θ = model.invlink(θ_t)
+    # resolved_namedtuple = model.arr2nt(θ)
+    # # Add log posterior, tree depth, and numerical error reported by
+    # # the sampler.
+    # # Also recompute the log-likelihood and add that too.
+    # loglike = ln_like(model.system, resolved_namedtuple)
+    # @show (;
+    #     loglike = loglike,
+    #     logpost = sample.z.ℓπ.value,
+    
+
+    # Compute a good guess for how much thinning we should do based on 
+    # the effective sample size
+    ess = median(filter(isfinite, MCMCChains.ess_rhat(chains)[:,:ess]))
+    keep_ii = range(
+        start=1,
+        stop=size(chains,1),
+        step=round(Int, size(chains,1)/ess, RoundUp)
+    )
+    verbosity > 1 && @info "Thinning to keep $(length(keep_ii)) independent samples."
+    chains_thinned = chains[keep_ii,:,:]
+
     # Compute rank statistic of each parameter in the chains
-    chainkeys = string.(keys(chains))
+    # that is also in θ_array (otherwise we can't compare)
+    chainkeys = string.(intersect(keys(θ_array), keys(chains_thinned)))
     priorsampledict = OrderedDict()
     rdict = OrderedDict()
 
     for key in chainkeys
-        posteriorsamples = vec(chains[key])
-        priorsample = θ_array[key][1]
-        r = sum(posteriorsamples .< priorsample)
+        posteriorsamples = vec(chains_thinned[key])
+        priorsample = only(θ_array[key])
+        # Find rank
+        r = count(<(priorsample), posteriorsamples)
         priorsampledict[key] = priorsample
-        rdict[key] = r
+        rdict[key] = r/length(keep_ii)*100 # Should be on scale of 1-100
     end
 
     return priorsampledict, rdict, chains
 end
 
 # Calibrate model by running chains and save results 
-function calibrate(system::System, chainparams::AbstractDict, saveas::AbstractString)
+function sbctrial(system::System, chainparams::AbstractDict, saveas::AbstractString)
 
-    # Get chain parameters 
+    # Get verbosity from chain parameters to decide how much we should log
+    # Rest can just be forwarded
+    verbosity = chainparams[:verbosity] = get(chainparams, :verbosity, 4)
     target_accept = chainparams[:target_accept]
-    num_chains = chainparams[:num_chains]
-    adaptation = chainparams[:adaptation]
-    iterations = chainparams[:iterations]
-    thinning = chainparams[:thinning]
-    tree_depth = chainparams[:tree_depth]
-    verbosity = chainparams[:verbosity]
+    delete!(chainparams, :target_accept)
 
     # Run chains
-    calib = calibrationhmc(system, target_accept, num_chains, adaptation, iterations, thinning, tree_depth, verbosity)
+    calib = calibrationhmc(system; target_accept, verbosity, chainparams...)
     priorsampledict, rdict, chains = calib
 
-    
-    
     # Save chain parameters
     open("$(saveas)_sampler_parameters.toml", "w") do f
         TOML.print(f, chainparams)
@@ -105,9 +142,10 @@ function calibrate(system::System, chainparams::AbstractDict, saveas::AbstractSt
         TOML.print(f, rdict)
     end
 
-    return nothing
+    Octofitter.savechain("$(saveas)_chains.fits", chains)
+
+    return
 end
-export calibrate
 
 # Get data required for rank statistic plots
 function getplotdata(datadir::String, plotsdir::String, grmax)
@@ -204,8 +242,7 @@ function calibrationplots(datadir::String, plotsdir::String; grmax::Number=1.2, 
     c = PairPlots.corner(rankdata, hist_kwargs=(;nbins=5), hist2d_kwargs=(;nbins=5), plotcontours=false)
     savefig(c, plotsdir * "corner.$filetype")
 
-    return nothing 
+    return
 end
-export calibrationplots
 
 # ----------------------------------------------------------------------------------------------------------------------

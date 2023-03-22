@@ -6,6 +6,9 @@ using Octofitter, Distributions, PlanetOrbits
 using OctofitterWhereistheplanet
 cd(@__DIR__)
 
+sbc_index = parse(Int, ARGS[1])
+@info "Running SBC trial $sbc_index"
+outname = @sprintf("sbctest-%04d", sbc_index)
 
 # Reference epoch for tau (orbital position) in convention used by Orbitize.
 const tref = 58849.0
@@ -58,7 +61,7 @@ end
 
 
 @planet b ThieleInnesOrbit begin
-    b ~ Uniform(0.0, 1.0)
+    e ~ Uniform(0.0, 1.0)
 
     AFr ~ LogUniform(10, 10_000)
     AFt ~ UniformCircular()
@@ -72,7 +75,7 @@ end
     tref = tref
 
     θ ~ UniformCircular()
-    τ = τ_from_θ(system, e)
+    τ = τ_from_θ(system, b)
 
     mass = 7
 
@@ -93,13 +96,13 @@ end OctofitterWhereistheplanet.astrom("hr8799";object=4)[2]
     # True proper motion of the system barycentre.
     # The variance on this will be quite low, but let the mean be determined
     # entirely from the data.
-    pmra  = 0 #~ Normal(0, 500)
-    pmdec = 0 #~ Normal(0, 500)
-end e
+    # pmra  = 0 #~ Normal(0, 500)
+    # pmdec = 0 #~ Normal(0, 500)
+end b
 
 
 ## Generate custom LogDensityModel
-model = Octofitter.LogDensityModel(HR8799; autodiff=:ForwardDiff, verbosity=4)
+model = Octofitter.LogDensityModel(system; autodiff=:ForwardDiff, verbosity=4)
 
 
 ## Sample using AdvancedHMC
@@ -116,10 +119,4 @@ settings = Dict(
     :tree_depth=>14,
     :verbosity=>4
 )
-Octofitter.calibrate(HR8799, settings, "sbctest")
-
-##
-using Printf
-for i in 1:50
-    Octofitter.calibrate(HR8799, settings, @sprintf("sbctest-%04d", i))
-end
+Octofitter.calibrate(HR8799, settings, outname)
