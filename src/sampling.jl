@@ -952,7 +952,6 @@ function advancedhmc(
         stat = map(s->s.stat, mc_samples)
         numerical_error = getproperty.(stat, :numerical_error)
         tree_depth = getproperty.(stat, :tree_depth)
-        logpost = map(s->s.z.ℓπ.value, mc_samples)
      
         mean_accept = mean(getproperty.(stat, :acceptance_rate))
         num_err_frac = mean(numerical_error)
