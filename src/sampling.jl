@@ -115,6 +115,17 @@ end
 function construct_elements(::Type{CartesianOrbit}, θ_system, θ_planet)
     return CartesianOrbit(;(;
         θ_system.M,
+        θ_planet.x,
+        θ_planet.y,
+        θ_planet.z,
+        θ_planet.vx,
+        θ_planet.vy,
+        θ_planet.vz,
+    )...)
+end
+function construct_elements(::Type{Visual{CartesianOrbit}}, θ_system, θ_planet)
+    return Visual{CartesianOrbit}(;(;
+        θ_system.M,
         θ_system.plx,
         θ_planet.x,
         θ_planet.y,
@@ -247,6 +258,51 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                 B=Bs[i],
                 F=Fs[i],
                 G=Gs[i],
+            )...)
+        end
+    elseif haskey(chain, Symbol(pk*"_vx")) && haskey(chain, Symbol("plx"))
+        M=chain["M"]
+        plx=chain["plx"]
+
+         x=chain[ pk*"_x"]
+         y=chain[ pk*"_y"]
+         z=chain[ pk*"_z"]
+        vx=chain[pk*"_vx"]
+        vy=chain[pk*"_vy"]
+        vz=chain[pk*"_vz"]
+        tref=chain[pk*"_tref"]
+        return map(ii) do i
+            Visual{CartesianOrbit}(;(;
+                x = x[i],
+                y = y[i],
+                z = z[i],
+                vx = vx[i],
+                vy = vy[i],
+                vz = vz[i],           
+                M = M[i],
+                tref = tref[i],
+                plx = plx[i],
+            )...)
+        end
+    elseif haskey(chain, Symbol(pk*"_vx"))
+        M=chain["M"]
+         x=chain[ pk*"_x"]
+         y=chain[ pk*"_y"]
+         z=chain[ pk*"_z"]
+        vx=chain[pk*"_vx"]
+        vy=chain[pk*"_vy"]
+        vz=chain[pk*"_vz"]
+        tref=chain[pk*"_tref"]
+        return map(ii) do i
+            CartesianOrbit(;(;
+                x = x[i],
+                y = y[i],
+                z = z[i],
+                vx = vx[i],
+                vy = vy[i],
+                vz = vz[i],           
+                M = M[i],
+                tref = tref[i],
             )...)
         end
     elseif haskey(chain, Symbol("M"))

@@ -151,8 +151,13 @@ function timeplot(args...; kwargs...)
     Plots.plot()
     timeplot!(args...; kwargs...)
 end
+
+function timeplot!(model::Octofitter.LogDensityModel, args...; kwargs...)
+    return timeplot!(model.system, args...; kwargs...)
+end
+
 function timeplot!(
-    model,
+    system::Octofitter.System,
     chain,
     planet_key,
     color,
@@ -171,7 +176,7 @@ function timeplot!(
     else # They passed in the values directly
         color = color[ii]
     end
-    planet = model.system.planets[planet_key]
+    planet = system.planets[planet_key]
     if prop == :ra
         ylabel = "ΔRA (mas)"
     elseif prop == :dec
@@ -199,11 +204,11 @@ function timeplot!(
     else
         planet_keys = planet_key
     end
-    all_epochs_planet = mapreduce(vcat, keys(model.system.planets)) do planet_key
-        planet = model.system.planets[planet_key]
+    all_epochs_planet = mapreduce(vcat, keys(system.planets)) do planet_key
+        planet = system.planets[planet_key]
         reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if  hasproperty(t, :table) && (hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch))], init=[])
     end
-    all_epochs_star = mapreduce(vcat, model.system.observations, init=Float64[]) do like
+    all_epochs_star = mapreduce(vcat, system.observations, init=Float64[]) do like
         if hasproperty(like.table, :epoch)
             return like.table.epoch
         else
@@ -305,8 +310,8 @@ function timeplot!(
             y[y .< 0] .+= 360
         end
     elseif prop == :pmra
-        if !isnothing(Octofitter.propermotionanom(model.system))
-            hgca = Octofitter.propermotionanom(model.system).table[1]
+        if !isnothing(Octofitter.propermotionanom(system))
+            hgca = Octofitter.propermotionanom(system).table[1]
             t = range(years2mjd(hgca.epoch_ra_hip)-365*5, years2mjd(hgca.epoch_ra_gaia)+365*5, length=100)
             y = [hgca.pmra_hip, hgca.pmra_hg, hgca.pmra_gaia]
             yerr = [hgca.pmra_hip_error, hgca.pmra_hg_error, hgca.pmra_gaia_error]
@@ -328,8 +333,8 @@ function timeplot!(
             fit = fit .+ chain["pmra"][ii]
         end
     elseif prop == :pmdec
-        if !isnothing(Octofitter.propermotionanom(model.system))
-            hgca = Octofitter.propermotionanom(model.system).table[1]
+        if !isnothing(Octofitter.propermotionanom(system))
+            hgca = Octofitter.propermotionanom(system).table[1]
             t = range(years2mjd(hgca.epoch_dec_hip)-365*5, years2mjd(hgca.epoch_dec_gaia)+365*5, length=100)
             y = [hgca.pmdec_hip, hgca.pmdec_hg, hgca.pmdec_gaia]
             yerr = [hgca.pmdec_hip_error, hgca.pmdec_hg_error, hgca.pmdec_gaia_error]
@@ -368,7 +373,7 @@ function timeplot!(
             end
             fit = fit .+ radvel.(elements, t', mass.*Octofitter.mjup2msol)
         end
-        for obs in model.system.observations
+        for obs in system.observations
             # TODO: make this pluggable instead of this hacky workaround
             if startswith(string(typeof(obs)), "RadialVelocityLikelihood")
                 if haskey(chain,:rv0)
@@ -469,11 +474,16 @@ function timeplot!(
     p1
 end
 
+function Octofitter.octoplot(model::Octofitter.LogDensityModel, args...; kwargs...)
+    return Octofitter.octoplot(model.system, args...; kwargs...)
+end
+
+
 function Octofitter.octoplot(
-    model::Octofitter.LogDensityModel,
+    system::Octofitter.System,
     chain::Octofitter.MCMCChains.Chains;
-    fname="$(model.system.name)-plot-grid",
-    color = "$(first(keys(model.system.planets)))_e",
+    fname="$(system.name)-plot-grid",
+    color = "$(first(keys(system.planets)))_e",
     colorbartitle=string(color),
     clims = quantile(vec(chain[color]),(0.01, 0.99)),
     cmap = :plasma,
@@ -481,7 +491,7 @@ function Octofitter.octoplot(
     kwargs...
 )
 
-    p = Octofitter.timeplotgrid(model, chain; color, clims, cmap, dpi)
+    p = Octofitter.timeplotgrid(system, chain; color, clims, cmap, dpi)
     fname1 = fname*".png"
     Plots.savefig(p, fname1)
 
@@ -491,10 +501,16 @@ function Octofitter.octoplot(
 
     return (fname1, fname2)
 end
+
+
+function Octofitter.timeplotgrid(model::Octofitter.LogDensityModel, args...; kwargs...)
+    return Octofitter.timeplotgrid(model.system, args...; kwargs...)
+end
+
 function Octofitter.timeplotgrid(
-    model,
+    system::Octofitter.System,
     chains;
-    color = "$(first(keys(model.system.planets)))_e",
+    color = "$(first(keys(system.planets)))_e",
     clims = quantile(vec(chains[color]),(0.01, 0.99)),
     cmap = :plasma,
     alpha=0.1,
@@ -509,11 +525,11 @@ function Octofitter.timeplotgrid(
         alpha,
         kwargs...
     )
-    if isnothing(model)
+    if isnothing(system)
         planet_keys = [:b] # just assume
-        model = (;system=System(Planet{Visual{KepOrbit}}(Variables();name=:b),name=Symbol("")))
+        system = System(Planet{Visual{KepOrbit}}(Variables();name=:b),name=Symbol(""))
     else
-        planet_keys = keys(model.system.planets)
+        planet_keys = keys(system.planets)
     end
 
     # Add a colourbar to the main astrometry plot
@@ -525,7 +541,7 @@ function Octofitter.timeplotgrid(
     )
     for (i,planet_key) in enumerate(planet_keys)
         Octofitter.plotchains!(ppost, chains, planet_key; kind=:astrometry, color, rev=false, colorbar=true, kwargs...)
-        astrom = astrometry(model.system.planets[planet_key])
+        astrom = astrometry(system.planets[planet_key])
         if !isnothing(astrom)
             Plots.plot!(ppost, astrom, linecolor=1, label="", markersize=0)
         end
@@ -585,21 +601,21 @@ function Octofitter.timeplotgrid(
     
     psep = Plots.plot()
     for planet_key in planet_keys
-        timeplot!(model, chains, planet_key, color, :sep; clims, kwargs...)
+        timeplot!(system, chains, planet_key, color, :sep; clims, kwargs...)
     end
     ppa = Plots.plot()
     for planet_key in planet_keys
-        timeplot!(model, chains, planet_key, color, :pa; clims, kwargs...)
+        timeplot!(system, chains, planet_key, color, :pa; clims, kwargs...)
     end
     
     ppmra = Plots.plot()
-    timeplot!(model, chains, planet_keys, color, :pmra;clims,  kwargs...)
+    timeplot!(system, chains, planet_keys, color, :pmra;clims,  kwargs...)
     
     ppmdec = Plots.plot()
-    timeplot!(model, chains, planet_keys, color, :pmdec;clims,  kwargs...)
+    timeplot!(system, chains, planet_keys, color, :pmdec;clims,  kwargs...)
     
     prv = Plots.plot()
-    timeplot!(model, chains, planet_keys, color, :rv; clims, kwargs...)
+    timeplot!(system, chains, planet_keys, color, :rv; clims, kwargs...)
     
     layout = Plots.@layout [
         B C D

@@ -74,8 +74,11 @@ end
 Load an Orbitize! posterior from an HDF5 file and convert it into
 an Octofitter-compatible chains format.
 Both tools use the same orbit conventions so this is fairly straightforward.
+
+If you pass `numchains` as a second argument, the array will be interpretted
+as coming from multiple chains concatenated together, 
 """
-function posterior(fname_or_targetname)
+function posterior(fname_or_targetname, numchains=1)
     if !occursin(".hdf5", fname_or_targetname)
         fname = search(fname_or_targetname)
     else
@@ -84,8 +87,18 @@ function posterior(fname_or_targetname)
     return h5open(fname, "r") do f
         # Standard orbitize basis assumed:
         # semi-major axis (sma), eccentricity (ecc), inclination (inc), argument of periastron (aop), position angle of the nodes (pan), epoch of periastron expressed as a fraction of the period past a reference epoch (tau), parallax (plx) and total system mass (mtot)
+        arr = transpose(read(f["post"]))
+        if numchains > 1
+            lenchain = size(arr,1)÷numchains
+            arr = stack(
+                (
+                    arr[(chain_no-1)*lenchain+1:chain_no*lenchain,:]
+                    for chain_no in 1:numchains
+                ),
+            )
+        end
         chn =  MCMCChains.Chains(
-            transpose(read(f["post"])),
+            arr,
             [
                 :b_a,
                 :b_e,

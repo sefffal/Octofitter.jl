@@ -37,12 +37,13 @@ function calibrationhmc(
     rng=Random.default_rng(),
     verbosity=0,
     target_accept,
+    θ = sample_priors(rng, system),
     kwargs...
 )
 
+    θ_newsystem_flat = θ
     # Get parameter values sampled from priors and generate a new system
     # θ_newsystem = drawfrompriors(system)
-    θ_newsystem_flat = sample_priors(rng, system)
     arr2nt = make_arr2nt(system)
     θ_newsystem = arr2nt(θ_newsystem_flat)
 
@@ -62,10 +63,10 @@ function calibrationhmc(
 
     # Also calculate the log posterior and log likelihood of these parameters (Modrak et al 2022)
 
-    ln_like_function = make_ln_like(model.system, θ_newsystem)
+    ln_like_function = make_ln_like(newsystem, θ_newsystem)
     loglike = ln_like_function(model.system, θ_newsystem)
 
-    ln_prior_function = make_ln_prior(system)
+    ln_prior_function = make_ln_prior(newsystem)
     logprior = ln_prior_function(θ_newsystem_flat)
 
     logpost = logprior + loglike
@@ -87,28 +88,28 @@ function calibrationhmc(
 
     # Compute a good guess for how much thinning we should do based on 
     # the effective sample size
-    ess = median(filter(isfinite, MCMCChains.ess_rhat(chains)[:,:ess]))
-    keep_ii = range(
-        start=1,
-        stop=size(chains,1),
-        step=round(Int, size(chains,1)/ess, RoundUp)
-    )
-    verbosity > 1 && @info "Thinning to keep $(length(keep_ii)) independent samples."
-    chains_thinned = chains[keep_ii,:,:]
+    # ess = median(filter(isfinite, MCMCChains.ess_rhat(chains)[:,:ess]))
+    # keep_ii = range(
+    #     start=1,
+    #     stop=size(chains,1),
+    #     step=round(Int, size(chains,1)/ess, RoundUp)
+    # )
+    # verbosity > 1 && @info "Thinning to keep $(length(keep_ii)) independent samples."
+    # chains_thinned = chains[keep_ii,:,:]
 
     # Compute rank statistic of each parameter in the chains
     # that is also in θ_array (otherwise we can't compare)
-    chainkeys = string.(intersect(keys(θ_array), keys(chains_thinned)))
+    chainkeys = string.(intersect(keys(θ_array), keys(chains)))
     priorsampledict = OrderedDict()
     rdict = OrderedDict()
 
     for key in chainkeys
-        posteriorsamples = vec(chains_thinned[key])
+        posteriorsamples = vec(chains[key])
         priorsample = only(θ_array[key])
         # Find rank
         r = count(<(priorsample), posteriorsamples)
         priorsampledict[key] = priorsample
-        rdict[key] = r/length(keep_ii)*100 # Should be on scale of 1-100
+        rdict[key] = r/length(chains[key])*100 # Should be on scale of 1-100
     end
 
     return priorsampledict, rdict, chains

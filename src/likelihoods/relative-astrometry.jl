@@ -221,16 +221,32 @@ function generate_from_params(like::AstrometryLikelihood, θ_planet, orbit::Plan
 
     # Get epochs and uncertainties from observations
     epoch = like.table.epoch
-    σ_ra = like.table.σ_ra 
-    σ_dec = like.table.σ_dec
 
-    # Generate now astrometry data
-    ra = raoff.(orbit, epoch)
-    dec = decoff.(orbit, epoch)
-    if hasproperty(like.table, :cov)
-        astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec, like.table.cov)
+    if hasproperty(like.table, :pa) && hasproperty(like.table, :sep)
+
+        σ_sep = like.table.σ_sep 
+        σ_pa = like.table.σ_pa
+
+        # Generate now astrometry data
+        sep = projectedseparation.(orbit, epoch)
+        pa = posangle.(orbit, epoch)
+        if hasproperty(like.table, :cov)
+            astrometry_table = Table(;epoch, sep, pa, σ_sep, σ_pa, like.table.cov)
+        else
+            astrometry_table = Table(;epoch, sep, pa, σ_sep, σ_pa)
+        end
     else
-        astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec)
+        σ_ra = like.table.σ_ra 
+        σ_dec = like.table.σ_dec
+
+        # Generate now astrometry data
+        ra = raoff.(orbit, epoch)
+        dec = decoff.(orbit, epoch)
+        if hasproperty(like.table, :cov)
+            astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec, like.table.cov)
+        else
+            astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec)
+        end
     end
 
     return AstrometryLikelihood(astrometry_table)
