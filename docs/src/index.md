@@ -1,4 +1,3 @@
-
 # *Octofitter*
 
 [![GitHub](https://img.shields.io/badge/Code-GitHub-black.svg)](https://github.com/sefffal/Octofitter.jl)
@@ -21,7 +20,7 @@ Try Octofitter in your browser in seconds! Click below to launch an example in G
     Octofitter is under active development and is only tested against Julia 1.9
 
 **Supported data:**
-* sample directly from images
+* sample directly from images and interferometric visibilities
 * exoplanet astrometry 
 * stellar astrometric acceleration
 * radial velocity
