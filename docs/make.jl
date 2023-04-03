@@ -1,7 +1,7 @@
 using Pkg
 cd(@__DIR__)
 Pkg.activate(".")
-pkg"dev .. ../OctofitterRadialVelocity ../OctofitterImages ../OctofitterWhereistheplanet"
+pkg"dev .. ../OctofitterRadialVelocity ../OctofitterImages ../OctofitterWhereistheplanet ../OctofitterVisibilities"
 Pkg.instantiate()
 Pkg.precompile()
 
@@ -14,8 +14,8 @@ makedocs(
         "Home" => "index.md",
         "Getting Started" => "getting-started.md",
         "Tutorials" => [
-            "Fit Relative AstrometryLikelihood" => "modelling.md",
-            "Fit Absolute AstrometryLikelihood" => "pma.md",
+            "Fit Relative Astrometry" => "modelling.md",
+            "Fit Proper Motion Anomal" => "pma.md",
             "Fit Images" => "images.md",
             "Fit Radial Velocity" => "rv-1.md",
             "Fit RV and AstrometryLikelihood" => "rv.md",
