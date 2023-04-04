@@ -27,18 +27,14 @@ astrom = AstrometryLikelihood(
 # Or from a file:
 # astrom = CSV.read("mydata.csv", AstrometryLikelihood)
 
-@named B = Planet{Visual{KepOrbit}}(
-    Variables(
-        a = truncated(Normal(10, 4), lower=0, upper=100),
-        e = Uniform(0.0, 0.5),
-        i = Sine(),
-        ω = UniformCircular(),
-        Ω = UniformCircular(),
-        τ = UniformCircular(1.0),
-        
-    ),
-    astrom
-)
+@planet Visual{KepOrbit} begin
+    a ~ truncated(Normal(10, 4), lower=0, upper=100)
+    e ~ Uniform(0.0, 0.5)
+    i ~ Sine()
+    ω ~ UniformCircular()
+    Ω ~ UniformCircular()
+    τ ~ UniformCircular(1.0)
+end astrom
 ```
 
 There's a lot going on here, so let's break it down.
@@ -73,13 +69,10 @@ If you have many observations you may prefer to load them from a file or databas
 A system represents a host star with one or more planets. Properties of the whole system are specified here, like parallax distance and mass of the star. This is also where you will supply data like images and astrometric acceleration in later tutorials, since those don't belong to any planet in particular.
 
 ```julia
-@named HD82134 = System(
-    Variables(
-        M = truncated(Normal(1.2, 0.1), lower=0),
-        plx = truncated(Normal(50.0, 0.02), lower=0),
-    ),  
-    B,
-)
+@system HD82134 begin
+    M ~ truncated(Normal(1.2, 0.1), lower=0),
+    plx ~ truncated(Normal(50.0, 0.02), lower=0),
+end B
 ```
 
 The `Variables` block works just like it does for planets. Here, the two parameters you must provide are:
@@ -89,7 +82,6 @@ The `Variables` block works just like it does for planets. Here, the two paramet
 After that, just list any planets that you want orbiting the star. Here, we pass planet B.
 You can name the system and planets whatever you like.
 
-Note: the `@named` convenience macro just passes in the name as a keyword argument, e.g. `name=:HD82134`. This makes sure that the variable name matches what gets displayed in the package output, and saved a few keystrokes. (taken from ModellingToolkit.jl)
 
 ## Prepare model
 We now convert our declarative model into efficient, compiled code.

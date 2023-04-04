@@ -22,19 +22,16 @@ using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, Plots
 gaia_id = 5164707970261890560 
 
 
-@named b = Planet{Visual{KepOrbit}}(
-    Variables(
-        e = 0,
-        τ = UniformCircular(1.0),
-        mass = (sys,pl) -> 0.78*sin(pl.i),
-        a=3.48,
-        i=Sine(),
-        ω=0.0,#UniformCircular(),
-        Ω=UniformCircular(),
+@named b Visual{KepOrbit} begin
+    e = 0
+    τ ~ UniformCircular(1.0)
+    mass = 0.78*sin(b.i)
+    a=3.48
+    i~Sine()
+    ω=0.0
+    Ω~UniformCircular()
+end # No planet astrometry is included since it has not yet been directly detected
 
-    ),
-    # No planet astrometry is included since it has not yet been directly detected
-)
 
 # Convert from JD to MJD
 # Data tabulated from Mawet et al
@@ -252,23 +249,17 @@ rvs = RadialVelocityLikelihood(
     (inst_idx=2, epoch=jd(2457821.65582), rv=−5.60, σ_rv=1.63),
 )
 
-@named ϵEri = System(
-    Variables(
-        M = 0.78,
-        plx = gaia_plx(;gaia_id),
-        pmra = Normal(-975, 10),
-        pmdec = Normal(20,  10),
+@system ϵEri begin
+    M = 0.78,
+    plx = gaia_plx(;gaia_id),
+    pmra = Normal(-975, 10),
+    pmdec = Normal(20,  10),
 
-        rv0_1 = Normal(0,10),
-        rv0_2 = Normal(0,10),
-        jitter_1 = truncated(Normal(0,10),lower=0),
-        jitter_2 = truncated(Normal(0,10),lower=0),
-
-    ),
-    HGCALikelihood(;gaia_id),
-    rvs,
-    b
-)
+    rv0_1 = Normal(0,10),
+    rv0_2 = Normal(0,10),
+    jitter_1 = truncated(Normal(0,10),lower=0),
+    jitter_2 = truncated(Normal(0,10),lower=0),
+end HGCALikelihood(;gaia_id) rvs b
 
 ## Build model
 model = Octofitter.LogDensityModel(ϵEri; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0

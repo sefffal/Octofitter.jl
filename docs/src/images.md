@@ -76,18 +76,15 @@ You can also provide images from multiple bands and they will be sampled indepen
 
 Now specify the planet:
 ```julia
-@named X = Planet{Visual{KepOrbit}}(
-    Variables(
-        a = Normal(13, 3),
-        e = TruncatedNormal(0.2, 0.2, 0, 1.0),
-        τ = Normal(0.5, 1),
-        ω = Normal(0.1, deg2rad(30.)),
-        i = Normal(0.6, deg2rad(10.)),
-        Ω = Normal(0.0, deg2rad(30.)),
-        H = Normal(3.8, 0.5)
-    ),
-    image_data
-)
+@planet Visual{KepOrbit} begin
+    a ~ Normal(13, 3)
+    e ~ TruncatedNormal(0.2, 0.2, 0, 1.0)
+    τ ~ Normal(0.5, 1)
+    ω ~ Normal(0.1, deg2rad(30.))
+    i ~ Normal(0.6, deg2rad(10.))
+    Ω ~ Normal(0.0, deg2rad(30.))
+    H ~ Normal(3.8, 0.5)
+end image_data
 ```
 Note how we also provided a prior on the photometry called `H`. We can put any name we want here, as long as it's used consistently throughout the model specification.
 
@@ -96,13 +93,10 @@ See [Fit AstrometryLikelihood](@ref fit-astrometry) for a description of the dif
 
 Finally, create the system and pass in the planet.
 ```julia
-@named HD82134 = System(
-    Variables(
-        M = Normal(2.0, 0.1),
-        plx =Normal(45., 0.02),
-    ),
-    X,
-)
+@system HD82134 begin
+    M ~ Normal(2.0, 0.1),
+    plx ~ Normal(45., 0.02),
+end X
 ```
 
 If you want to search for two or more planets in the same images, just create multiple `Planet`s and pass the same images to each. You'll need to adjust the priors in some way to prevent overlap.

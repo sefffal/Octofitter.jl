@@ -27,10 +27,17 @@ Once loaded, you can access the underlying table using e.g. `astrom.table`.
 
 ## Saving Chains
 
-You can save your chains using any Tables.jl compatible data package. I recommend Arrow.jl since it is a binary table format that takes up less space but is still cross compatible with other languages like Python. Another good choice is CSV.jl.
+There are two ways you can save chains for later analysis. The first is a built in function that stores the chain and metadata into a FITS table. The second is converting the chain to a Table and saving it using any Tables.jl compatible package (CSV, Arrow, SQL, etc.)
+
+### Example: Saving with metadata to FITS Table
+```julia
+Octofitter.savechain("mychain.fits", chain)
+
+chain = Octofitter.loadchain(fname)
+```
 
 
-### Examples
+### Example: Saving to CSV
 
 Converting chain to a TypedTables.jl Table (re-exported by this package)
 ```julia

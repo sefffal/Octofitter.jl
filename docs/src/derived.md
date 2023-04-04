@@ -11,26 +11,22 @@ Derived variables allow you to mark certain properties as constants, reparameter
 Derived variables for the system as a whole can be created as follows:
 
 ```julia
-@named HD12345 = System(
-    Variables(
-        M = sys -> 1.0
-        plx = Normal(45., 0.02),
-    )
-)
+@system HD12345 begin
+    M = 1.0
+    plx ~ Normal(45., 0.02)
+end
 ```
 In this case, instead of including `M` as a variable in the model, we define it as a function that always returns `1.0`. This is equivalent to passing `M=1.0`.
 
 In the following case, let's define `M` as being calculated based on another variable in the model. This is how you can do reparameterizations in Octofitter.jl
 ```julia
-@named HD12345 = System(
-    Variables(
-        plx =Normal(45., 0.02),
-        logM =Normal(45., 0.02),
-        M = sys -> 10^sys.logM,
-    )
-)
+@system HD12345 begin
+    plx ~ Normal(45., 0.02)
+    logM ~Normal(45., 0.02)
+    M = 10^system.logM
+end
 ```
-We defined a new variable `logM` under priors, and then used the `Derived` block to calculate `M` from the other variables in the model.
+We defined a new variable `logM` as a prior, and then calculate M from it.
 
 In general, you can write any function you want to map from any of combination of constants and variables in the model to new variables. The only constraints are that your functions always return the same outputs for the same inputs, and are differentiable. These functions will be called in a tight loop, so you should try to make sure they are as efficient as possible.
 
@@ -40,18 +36,16 @@ Derived variables for an individual planet are similar, but have access to both 
 
 Here is an example of reparameterizing `e` and `a` on a planet to be logarithmic quantities:
 ```julia
-@named b = Planet{Visual{KepOrbit}}(
-    Variables(
-        τ = Normal(0.5, 1),
-        ω = Normal(0.1, deg2rad(30.)),
-        i = Normal(0.1, deg2rad(30.)),
-        Ω = Normal(0.0, deg2rad(30.)),
-        loge = Uniform(-4, 1),
-        loga = Normal(1, 1)
-        e = (sys, pl) -> 10^pl.loge,
-        a = (sys, pl) -> 10^pl.loga,
-    ),
-)
+@planet b Visual{KepOrbit}
+    τ ~ Normal(0.5, 1)
+    ω ~ Normal(0.1, deg2rad(30.))
+    i ~ Normal(0.1, deg2rad(30.))
+    Ω ~ Normal(0.0, deg2rad(30.))
+    loge ~ Uniform(-4, 1)
+    loga ~ Normal(1, 1)
+    e = 10^b.loge
+    a = 10^b.loga
+end
 ```
 Here `e` is defined as log-uniform, and `a` as log-normal.
 
@@ -61,37 +55,30 @@ Planets can have Derived variables that are calculated from variables defined on
 This makes it easy to, for example, create a system of two planets that are co-planar.
 
 ```julia
-@named b = Planet{Visual{KepOrbit}}(
-    Variables(
-        a = Uniform(0, 15),
-        e = TruncatedNormal(0, 0.1, 0, 1),
-        ω = Normal(0.1, deg2rad(30.)),
-        τ = Normal(0.5, 1),
-        i = (sys, pl) -> sys.i,
-        Ω = (sys, pl) -> sys.Ω,
-    ),
-)
-@named c = Planet{Visual{KepOrbit}}(
-    Variables(
-        a = Uniform(15, 45),
-        e = TruncatedNormal(0, 0.1, 0, 1),
-        ω = Normal(0.1, deg2rad(30.)),
-        τ = Normal(0.5, 1),
-        i = (sys, pl) -> sys.i,
-        Ω = (sys, pl) -> sys.Ω,
-    ),
-)
-@named HD12345 = System(
-    Variables(
-        plx = Normal(45., 0.02),
-        M = Normal(45., 0.02),
-        i = Normal(0.1, deg2rad(30.)),
-        Ω = Normal(0.0, deg2rad(30.)),
-    ),
-    b, c
-)
+@planet b Visual{KepOrbit} begin
+    a ~ Uniform(0, 15)
+    e ~ TruncatedNormal(0, 0.1, 0, 1)
+    ω ~ Normal(0.1, deg2rad(30.))
+    τ ~ Normal(0.5, 1)
+    i = system.i
+    Ω = system.Ω
+end
+@planet c Visual{KepOrbit} begin
+    a ~ Uniform(15, 45)
+    e ~ TruncatedNormal(0, 0.1, 0, 1)
+    ω ~ Normal(0.1, deg2rad(30.))
+    τ ~ Normal(0.5, 1)
+    i = system.i
+    Ω = system.Ω
+end
+@system HD12345 begin
+    plx ~ Normal(45., 0.02),
+    M ~ Normal(45., 0.02),
+    i ~ Normal(0.1, deg2rad(30.)),
+    Ω ~ Normal(0.0, deg2rad(30.)),
+end b c
 ```
-Notice how `i` and `Ω` are defined as variables on the System. The two planets B & C omit those two variables from their priors, and instead just take their values from the System. This way we can enforce co-planarity between planets without e.g. rejection sampling.
+Notice how `i` and `Ω` are defined as variables on the System. The two planets B & C instead just take their values from the System. This way we can enforce co-planarity between planets without e.g. rejection sampling.
 
 ## Resolution Order
 The order that variables are resolved is as follows:

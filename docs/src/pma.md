@@ -30,20 +30,17 @@ astrom = AstrometryLikelihood(
     (epoch=mjd("2018-11-28"), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.,),# cor=0.3),
     (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.,),# cor=0.2),
 )
-@named B = Planet{Visual{KepOrbit}}(
-    Variables(
-        a = truncated(LogNormal(9,3),lower=0),
-        e = Uniform(0,1),
-        τ = UniformCircular(1.0),
-        ω = UniformCircular(),
-        i = Sine(), # The Sine() distribution is defined by Octofitter
-        Ω = UniformCircular(),
-        # mass = LogNormal(300, 18),
-        # Anoter option would be:
-        mass = Uniform(0.5, 1000),
-    ),
-    astrom
-)
+@planet B Visual{KepOrbit} begin
+    a ~ truncated(LogNormal(9,3),lower=0)
+    e ~ Uniform(0,1)
+    τ ~ UniformCircular(1.0)
+    ω ~ UniformCircular()
+    i ~ Sine() # The Sine() distribution is defined by Octofitter
+    Ω ~ UniformCircular()
+    # mass ~ LogNormal(300, 18),
+    # Anoter option would be:
+    mass ~ Uniform(0.5, 1000)
+end astrom
 ```
 
 The `@named` macro simply passes the variable name you give as an arugment to the function i.e. `Planet(..., name=:B)`. This ensures the parameter names in the output are consistent with the code.
@@ -53,18 +50,14 @@ The `@named` macro simply passes the variable name you give as an arugment to th
 Now that we have our planet model, we create a system model to contain it.
 
 ```julia
-@named HD91312 = System(
-    Variables(
-        M = LogNormal(1.61, 1),
-        plx = gaia_plx(gaia_id=756291174721509376),
-                
-        # Priors on the centre of mass proper motion
-        pmra = Normal(0, 500),
-        pmdec = Normal(0,  500),
-    ),  
-    HGCALikelihood(gaia_id=756291174721509376),
-    B,
-)
+@system HD91312 begin
+    M ~ LogNormal(1.61, 1),
+    plx ~ gaia_plx(gaia_id=756291174721509376),
+            
+    # Priors on the centre of mass proper motion
+    pmra ~ Normal(0, 500),
+    pmdec ~ Normal(0,  500),
+end HGCALikelihood(gaia_id=756291174721509376) B
 ```
 
 We specify priors on `M` and `plx` as usual, but here we use the `gaia_plx` helper function to read the parallax and uncertainty directly from the HGCA using its source ID.
@@ -220,29 +213,23 @@ you can follow a simplified approach.
 As a start, you can restrict the orbital parameters to just semi-major axis, epoch of periastron passage, and mass.
 
 ```julia
-@named b = Planet{Visual{KepOrbit}}(
-    Variables(
-        a = LogUniform(0.1, 100),
-        τ = UniformCircular(1.0),
-        mass = LogUniform(1, 2000),
-        i = 0,
-        e = 0,
-        Ω = 0,
-        ω = 0,
-    )
-)
-@named HD91312 = System(
-    Variables(
-        M = truncated(Normal(1.61, 0.2), lower=0),
-        plx = gaia_plx(gaia_id=756291174721509376),
-        
-        # Priors on the centre of mass proper motion
-        pmra = Normal(0, 500),
-        pmdec = Normal(0,  500),
-    ),  
-    HGCALikelihood(gaia_id=756291174721509376),
-    b,
-)
+@planet b Visual{KepOrbit} begin
+    a ~ LogUniform(0.1, 100)
+    τ ~ UniformCircular(1.0)
+    mass ~ LogUniform(1, 2000)
+    i = 0
+    e = 0
+    Ω = 0
+    ω = 0
+end
+@named HD91312 begin
+    M ~ truncated(Normal(1.61, 0.2), lower=0)
+    plx ~ gaia_plx(gaia_id=756291174721509376)
+    
+    # Priors on the centre of mass proper motion
+    pmra ~ Normal(0, 500)
+    pmdec ~ Normal(0,  500)
+end HGCALikelihood(gaia_id=756291174721509376) b
 ```
 
 This models assumes a circular, face-on orbit.

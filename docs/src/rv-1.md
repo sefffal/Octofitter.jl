@@ -22,32 +22,26 @@ rvs = OctofitterRadialVelocityLikelihood.HARPS_rvs("GJ436")
 Now, create a planet. Since we're only fitting radial velocity data, we
 fix some of these parameters
 ```julia
-@named b = Planet{Visual{KepOrbit}}(
-    Variables(
-        τ = UniformCircular(1.0),
-        mass = truncated(Normal(21.3*0.00314558, 8*0.00314558),lower=0),
-        a=truncated(Normal(	0.028, 0.02), lower=0),
-        i=pi/2,
-        e = Uniform(0, 0.5),
-        ω=UniformCircular(),
-        Ω=0,
-    ),
-)
+@named b = Visual{KepOrbit} begin
+    τ ~ UniformCircular(1.0)
+    mass ~ truncated(Normal(21.3*0.00314558, 8*0.00314558),lower=0)
+    a ~truncated(Normal(	0.028, 0.02), lower=0)
+    i = pi/2
+    e ~ Uniform(0, 0.5)
+    ω ~ UniformCircular()
+    Ω = 0
+end
 
 # Nor create the system
-@named GJ436 = System(
-    Variables(
-        M = truncated(Normal(0.425,0.009),lower=0),
-        plx = 0.425,
+@system GJ436 begin
+    M ~ truncated(Normal(0.425,0.009),lower=0)
+    plx ~ 0.425
 
-        # RV zero point of the system for instrument 1
-        rv0_1 = Normal(0,10),
-        # Jitter term for instrument 1
-        jitter_1 = truncated(Normal(0,10),lower=0),
-    ),
-    rvs,
-    b
-)
+    # RV zero point of the system for instrument 1
+    rv0_1 ~ Normal(0,10)
+    # Jitter term for instrument 1
+    jitter_1 ~ truncated(Normal(0,10),lower=0)
+end rvs b
 ```
 
 Build model:
