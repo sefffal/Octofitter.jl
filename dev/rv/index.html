@@ -6,19 +6,16 @@ using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, Plots
 gaia_id = 5164707970261890560 
 
 
-@named b = Planet{Visual{KepOrbit}}(
-    Variables(
-        e = 0,
-        τ = UniformCircular(1.0),
-        mass = (sys,pl) -&gt; 0.78*sin(pl.i),
-        a=3.48,
-        i=Sine(),
-        ω=0.0,#UniformCircular(),
-        Ω=UniformCircular(),
+@named b Visual{KepOrbit} begin
+    e = 0
+    τ ~ UniformCircular(1.0)
+    mass = 0.78*sin(b.i)
+    a=3.48
+    i~Sine()
+    ω=0.0
+    Ω~UniformCircular()
+end # No planet astrometry is included since it has not yet been directly detected
 
-    ),
-    # No planet astrometry is included since it has not yet been directly detected
-)
 
 # Convert from JD to MJD
 # Data tabulated from Mawet et al
@@ -236,23 +233,17 @@ rvs = RadialVelocityLikelihood(
     (inst_idx=2, epoch=jd(2457821.65582), rv=−5.60, σ_rv=1.63),
 )
 
-@named ϵEri = System(
-    Variables(
-        M = 0.78,
-        plx = gaia_plx(;gaia_id),
-        pmra = Normal(-975, 10),
-        pmdec = Normal(20,  10),
+@system ϵEri begin
+    M = 0.78,
+    plx = gaia_plx(;gaia_id),
+    pmra = Normal(-975, 10),
+    pmdec = Normal(20,  10),
 
-        rv0_1 = Normal(0,10),
-        rv0_2 = Normal(0,10),
-        jitter_1 = truncated(Normal(0,10),lower=0),
-        jitter_2 = truncated(Normal(0,10),lower=0),
-
-    ),
-    HGCALikelihood(;gaia_id),
-    rvs,
-    b
-)
+    rv0_1 = Normal(0,10),
+    rv0_2 = Normal(0,10),
+    jitter_1 = truncated(Normal(0,10),lower=0),
+    jitter_2 = truncated(Normal(0,10),lower=0),
+end HGCALikelihood(;gaia_id) rvs b
 
 ## Build model
 model = Octofitter.LogDensityModel(ϵEri; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
@@ -269,4 +260,4 @@ results = Octofitter.advancedhmc(
 
 ## Display results
 timeplotgrid(results, cmap=:greys, clims=(-0.5,1));
-savefig(&quot;eps-eri.png&quot;)</code></pre><p><img src="../assets/eps-eri-pma-fit-4.png" alt="model plot with astrometry"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../mass-photometry/">Connecting Mass with Photometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Monday 3 April 2023 20:01">Monday 3 April 2023</span>. Using Julia version 1.10.0-DEV.940.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+savefig(&quot;eps-eri.png&quot;)</code></pre><p><img src="../assets/eps-eri-pma-fit-4.png" alt="model plot with astrometry"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../mass-photometry/">Connecting Mass with Photometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Tuesday 4 April 2023 19:17">Tuesday 4 April 2023</span>. Using Julia version 1.10.0-DEV.948.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

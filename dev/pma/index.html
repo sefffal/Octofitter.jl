@@ -7,31 +7,24 @@
     (epoch=mjd(&quot;2018-11-28&quot;), ra=058., dec=-122., σ_ra=10.0, σ_dec=20.,),# cor=0.3),
     (epoch=mjd(&quot;2018-12-15&quot;), ra=056., dec=-104., σ_ra=08.0, σ_dec=08.,),# cor=0.2),
 )
-@named B = Planet{Visual{KepOrbit}}(
-    Variables(
-        a = truncated(LogNormal(9,3),lower=0),
-        e = Uniform(0,1),
-        τ = UniformCircular(1.0),
-        ω = UniformCircular(),
-        i = Sine(), # The Sine() distribution is defined by Octofitter
-        Ω = UniformCircular(),
-        # mass = LogNormal(300, 18),
-        # Anoter option would be:
-        mass = Uniform(0.5, 1000),
-    ),
-    astrom
-)</code></pre><p>The <code>@named</code> macro simply passes the variable name you give as an arugment to the function i.e. <code>Planet(..., name=:B)</code>. This ensures the parameter names in the output are consistent with the code.</p><h2 id="System-Model-and-Specifying-Proper-Motion-Anomaly"><a class="docs-heading-anchor" href="#System-Model-and-Specifying-Proper-Motion-Anomaly">System Model &amp; Specifying Proper Motion Anomaly</a><a id="System-Model-and-Specifying-Proper-Motion-Anomaly-1"></a><a class="docs-heading-anchor-permalink" href="#System-Model-and-Specifying-Proper-Motion-Anomaly" title="Permalink"></a></h2><p>Now that we have our planet model, we create a system model to contain it.</p><pre><code class="language-julia hljs">@named HD91312 = System(
-    Variables(
-        M = LogNormal(1.61, 1),
-        plx = gaia_plx(gaia_id=756291174721509376),
-                
-        # Priors on the centre of mass proper motion
-        pmra = Normal(0, 500),
-        pmdec = Normal(0,  500),
-    ),  
-    HGCALikelihood(gaia_id=756291174721509376),
-    B,
-)</code></pre><p>We specify priors on <code>M</code> and <code>plx</code> as usual, but here we use the <code>gaia_plx</code> helper function to read the parallax and uncertainty directly from the HGCA using its source ID.</p><p>We also add parameters for the long term system&#39;s proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements.</p><p>After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.</p><h2 id="Sampling-from-the-posterior"><a class="docs-heading-anchor" href="#Sampling-from-the-posterior">Sampling from the posterior</a><a id="Sampling-from-the-posterior-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling-from-the-posterior" title="Permalink"></a></h2><p>Sample from our model as usual:</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(HD91312)
+@planet B Visual{KepOrbit} begin
+    a ~ truncated(LogNormal(9,3),lower=0)
+    e ~ Uniform(0,1)
+    τ ~ UniformCircular(1.0)
+    ω ~ UniformCircular()
+    i ~ Sine() # The Sine() distribution is defined by Octofitter
+    Ω ~ UniformCircular()
+    # mass ~ LogNormal(300, 18),
+    # Anoter option would be:
+    mass ~ Uniform(0.5, 1000)
+end astrom</code></pre><p>The <code>@named</code> macro simply passes the variable name you give as an arugment to the function i.e. <code>Planet(..., name=:B)</code>. This ensures the parameter names in the output are consistent with the code.</p><h2 id="System-Model-and-Specifying-Proper-Motion-Anomaly"><a class="docs-heading-anchor" href="#System-Model-and-Specifying-Proper-Motion-Anomaly">System Model &amp; Specifying Proper Motion Anomaly</a><a id="System-Model-and-Specifying-Proper-Motion-Anomaly-1"></a><a class="docs-heading-anchor-permalink" href="#System-Model-and-Specifying-Proper-Motion-Anomaly" title="Permalink"></a></h2><p>Now that we have our planet model, we create a system model to contain it.</p><pre><code class="language-julia hljs">@system HD91312 begin
+    M ~ LogNormal(1.61, 1),
+    plx ~ gaia_plx(gaia_id=756291174721509376),
+            
+    # Priors on the centre of mass proper motion
+    pmra ~ Normal(0, 500),
+    pmdec ~ Normal(0,  500),
+end HGCALikelihood(gaia_id=756291174721509376) B</code></pre><p>We specify priors on <code>M</code> and <code>plx</code> as usual, but here we use the <code>gaia_plx</code> helper function to read the parallax and uncertainty directly from the HGCA using its source ID.</p><p>We also add parameters for the long term system&#39;s proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements.</p><p>After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.</p><h2 id="Sampling-from-the-posterior"><a class="docs-heading-anchor" href="#Sampling-from-the-posterior">Sampling from the posterior</a><a id="Sampling-from-the-posterior-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling-from-the-posterior" title="Permalink"></a></h2><p>Sample from our model as usual:</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(HD91312)
 chain = Octofitter.advancedhmc(
     # Note: start the target acceptance at around 0.7 and increase if you see numerical errors. That indicates a tricky posterior and that therefore smaller steps are required.
     model, 0.92, 
@@ -116,29 +109,23 @@ table = (;
     ω=rad2deg.(vec(chain[&quot;B_ω&quot;])),
     τ=         vec(chain[&quot;B_τ&quot;]),
 )
-fig = pairplot(table; figure=(;resolution=(1200,1200)))</code></pre><p><a href="../assets/pma-astrometry-mass-corner.svg"><img src="../assets/pma-astrometry-mass-corner.png" alt="pair plot"/></a></p><h2 id="Fitting-Astrometric-Acceleration-Only"><a class="docs-heading-anchor" href="#Fitting-Astrometric-Acceleration-Only">Fitting Astrometric Acceleration Only</a><a id="Fitting-Astrometric-Acceleration-Only-1"></a><a class="docs-heading-anchor-permalink" href="#Fitting-Astrometric-Acceleration-Only" title="Permalink"></a></h2><p>If you wish to look at the possible locations/masses of a planet around a star using onnly GAIA/HIPPARCOS, you can follow a simplified approach.</p><p>As a start, you can restrict the orbital parameters to just semi-major axis, epoch of periastron passage, and mass.</p><pre><code class="language-julia hljs">@named b = Planet{Visual{KepOrbit}}(
-    Variables(
-        a = LogUniform(0.1, 100),
-        τ = UniformCircular(1.0),
-        mass = LogUniform(1, 2000),
-        i = 0,
-        e = 0,
-        Ω = 0,
-        ω = 0,
-    )
-)
-@named HD91312 = System(
-    Variables(
-        M = truncated(Normal(1.61, 0.2), lower=0),
-        plx = gaia_plx(gaia_id=756291174721509376),
-        
-        # Priors on the centre of mass proper motion
-        pmra = Normal(0, 500),
-        pmdec = Normal(0,  500),
-    ),  
-    HGCALikelihood(gaia_id=756291174721509376),
-    b,
-)</code></pre><p>This models assumes a circular, face-on orbit.</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(HD91312; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+fig = pairplot(table; figure=(;resolution=(1200,1200)))</code></pre><p><a href="../assets/pma-astrometry-mass-corner.svg"><img src="../assets/pma-astrometry-mass-corner.png" alt="pair plot"/></a></p><h2 id="Fitting-Astrometric-Acceleration-Only"><a class="docs-heading-anchor" href="#Fitting-Astrometric-Acceleration-Only">Fitting Astrometric Acceleration Only</a><a id="Fitting-Astrometric-Acceleration-Only-1"></a><a class="docs-heading-anchor-permalink" href="#Fitting-Astrometric-Acceleration-Only" title="Permalink"></a></h2><p>If you wish to look at the possible locations/masses of a planet around a star using onnly GAIA/HIPPARCOS, you can follow a simplified approach.</p><p>As a start, you can restrict the orbital parameters to just semi-major axis, epoch of periastron passage, and mass.</p><pre><code class="language-julia hljs">@planet b Visual{KepOrbit} begin
+    a ~ LogUniform(0.1, 100)
+    τ ~ UniformCircular(1.0)
+    mass ~ LogUniform(1, 2000)
+    i = 0
+    e = 0
+    Ω = 0
+    ω = 0
+end
+@named HD91312 begin
+    M ~ truncated(Normal(1.61, 0.2), lower=0)
+    plx ~ gaia_plx(gaia_id=756291174721509376)
+    
+    # Priors on the centre of mass proper motion
+    pmra ~ Normal(0, 500)
+    pmdec ~ Normal(0,  500)
+end HGCALikelihood(gaia_id=756291174721509376) b</code></pre><p>This models assumes a circular, face-on orbit.</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(HD91312; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 
 chains = Octofitter.advancedhmc(
     model, 0.75,
@@ -233,4 +220,4 @@ Quantiles
          b_Ω      0.0000      0.0000      0.0000      0.0000      0.0000
          b_ω      0.0000      0.0000      0.0000      0.0000      0.0000
 
-</code></pre><p>With such simple models, the mean tree depth is often very low and sampling proceeds very quickly.</p><p>A good place to start is a histogram of planet mass vs. semi-major axis:</p><pre><code class="language-julia hljs">histogram2d(chains[&quot;b_a&quot;], chains[&quot;b_mass&quot;], color=:plasma, xguide=&quot;sma (au)&quot;, yguide=&quot;mass (Mjup)&quot;)</code></pre><p><a href="../assets/pma-a-vs-mass.svg"><img src="../assets/pma-a-vs-mass.svg" alt="2d histogram"/></a></p><p>You can also visualize the orbits and proper motion:</p><pre><code class="language-julia hljs">plotmodel(chains)</code></pre><p><a href="../assets/pma-model.svg"><img src="../assets/pma-model.png" alt="2d histogram"/></a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../modelling/">« Fit Relative Astrometry</a><a class="docs-footer-nextpage" href="../images/">Fit Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Monday 3 April 2023 20:01">Monday 3 April 2023</span>. Using Julia version 1.10.0-DEV.940.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre><p>With such simple models, the mean tree depth is often very low and sampling proceeds very quickly.</p><p>A good place to start is a histogram of planet mass vs. semi-major axis:</p><pre><code class="language-julia hljs">histogram2d(chains[&quot;b_a&quot;], chains[&quot;b_mass&quot;], color=:plasma, xguide=&quot;sma (au)&quot;, yguide=&quot;mass (Mjup)&quot;)</code></pre><p><a href="../assets/pma-a-vs-mass.svg"><img src="../assets/pma-a-vs-mass.svg" alt="2d histogram"/></a></p><p>You can also visualize the orbits and proper motion:</p><pre><code class="language-julia hljs">plotmodel(chains)</code></pre><p><a href="../assets/pma-model.svg"><img src="../assets/pma-model.png" alt="2d histogram"/></a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../modelling/">« Fit Relative Astrometry</a><a class="docs-footer-nextpage" href="../images/">Fit Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Tuesday 4 April 2023 19:17">Tuesday 4 April 2023</span>. Using Julia version 1.10.0-DEV.948.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
