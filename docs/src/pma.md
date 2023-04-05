@@ -1,4 +1,4 @@
-# [Fit Absolute AstrometryLikelihood](@id fit-pma)
+# [Fit Proper Motion Anomaly](@id fit-pma)
 
 One of the features of Octofitter.jl is support for absolute astrometry aka. proper motion anomaly aka. astrometric acceleration.
 These data points are typically calculated by finding the difference between a long term proper motion of a star between the Hipparcos and GAIA catalogs, and their proper motion calculated within the windows of each catalog.

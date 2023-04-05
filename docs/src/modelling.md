@@ -1,18 +1,18 @@
-# [Fit Relative AstrometryLikelihood](@id fit-astrometry)
+# [Fit Relative Astrometry](@id fit-astrometry)
 
 Here is a worked example of a basic model. It contains a star with a single planet, and several astrometry points.
 
 The full code is available on [GitHub](https://github.com/sefffal/Octofitter.jl/examples/basic-example.jl)
 
 Start by loading the Octofitter and Distributions packages:
-```julia
+```@example 1
 using Octofitter, Distributions
 ```
 
 ## Creating a planet
 
 Create our first planet. Let's name it planet B. 
-```julia
+```@example 1
 
 astrom = AstrometryLikelihood(
     (epoch = 5000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
@@ -68,7 +68,7 @@ If you have many observations you may prefer to load them from a file or databas
 
 A system represents a host star with one or more planets. Properties of the whole system are specified here, like parallax distance and mass of the star. This is also where you will supply data like images and astrometric acceleration in later tutorials, since those don't belong to any planet in particular.
 
-```julia
+```@example 1
 @system HD82134 begin
     M ~ truncated(Normal(1.2, 0.1), lower=0),
     plx ~ truncated(Normal(50.0, 0.02), lower=0),
@@ -86,7 +86,7 @@ You can name the system and planets whatever you like.
 ## Prepare model
 We now convert our declarative model into efficient, compiled code.
 
-```julia
+```@example 1
 model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 ```
 
@@ -124,7 +124,7 @@ This type implements the LogDensityProblems interface and can be passed to a wid
 Great! Now we are ready to draw samples from the posterior.
 
 Start sampling:
-```julia
+```@example 1
 # Provide a seeded random number generator for reproducibility of this example.
 # Not needed in general: simply omit the RNG parameter.
 using Random
@@ -135,7 +135,7 @@ chain = Octofitter.advancedhmc(
     adaptation =   500,
     iterations =  1000,
     verbosity = 4,
-    tree_depth = 15
+    tree_depth = 12
 )
 ```
 
@@ -248,17 +248,18 @@ You should also check the acceptance rate (`mean_accept`) is reasonably high and
 Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than this and it might be being too conservative. The default maximum tree depth is 10. These don't affect the accuracy of your results, but do affect the efficiency of the sampling.
 
 Next, you can make a trace plot of different variabes to visually inspect the chain:
-```julia
+```@example 1
+using Plots
 plot(
     chain["B_a"],
     xlabel="iteration",
     ylabel="semi-major axis (AU)"
 )
 ```
-![trace plot](assets/astrometry-trace-plot.png)
+<!-- ![trace plot](assets/astrometry-trace-plot.png) -->
 
 And an auto-correlation plot:
-```julia
+```@example 1
 using StatsBase
 plot(
     autocor(chain["B_e"], 1:500),
@@ -267,12 +268,12 @@ plot(
 )
 ```
 This plot shows that these samples are not correlated after only above 5 steps. No thinning is necessary.
-![autocorrelation plot](assets/astrometry-autocor-plot.png)
+<!-- ![autocorrelation plot](assets/astrometry-autocor-plot.png) -->
 
 To confirm convergence, you may also examine the `rhat` column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal `1.0` to one significant digit (3 recommended).
 
 Finnaly, if you ran multiple chains (see later tutorials to learn how), you can run 
-```julia
+```@example 1
 using MCMCChains
 gelmandiag(chain)
 ```
@@ -281,15 +282,15 @@ As an additional convergence test.
 ## Analysis
 As a first pass, let's plot a sample of orbits drawn from the posterior.
 
-```julia 
+```@example 1
 using Plots
 plotchains(chain, :B, kind=:astrometry, color="B_a")
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
-![model plot](assets/astrometry-model-plot.png)
+<!-- ![model plot](assets/astrometry-model-plot.png) -->
 
 We can overplot the astrometry data like so:
-```julia
+```@example 1
 plot!(astrom, label="astrometry")
 ```
 ![model plot with astrometry](assets/astrometry-model-plot-data.png)
@@ -297,7 +298,7 @@ plot!(astrom, label="astrometry")
 
 ## Pair Plot
 A very useful visualization of our results is a pair-plot, or corner plot. We can use our PairPlots.jl package for this purpose:
-```julia
+```@example 1
 using CairoMakie: Makie
 using PairPlots
 table = (;
@@ -311,7 +312,7 @@ table = (;
 pairplot(table)
 ```
 You can read more about the syntax for creating pair plots in the PairPlots.jl documentation page.
-[![corner plot](assets/astrometry-corner-plot.png)](assets/astrometry-corner-plot.svg)
+<!-- [![corner plot](assets/astrometry-corner-plot.png)](assets/astrometry-corner-plot.svg) -->
 In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.
 
 ## Notes on Hamiltonian Monte Carlo
