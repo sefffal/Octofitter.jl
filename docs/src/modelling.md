@@ -204,7 +204,6 @@ We can overplot the astrometry data like so:
 ```@example 1
 plot!(astrom, label="astrometry")
 ```
-![model plot with astrometry](assets/astrometry-model-plot-data.png)
 
 
 ## Pair Plot

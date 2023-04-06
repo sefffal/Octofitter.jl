@@ -15,7 +15,7 @@ makedocs(
         "Getting Started" => "getting-started.md",
         "Tutorials" => [
             "Fit Relative Astrometry" => "modelling.md",
-            "Fit Proper Motion Anomal" => "pma.md",
+            "Fit Proper Motion Anomaly" => "pma.md",
             "Fit Images" => "images.md",
             "Fit Radial Velocity" => "rv-1.md",
             "Fit RV and AstrometryLikelihood" => "rv.md",
