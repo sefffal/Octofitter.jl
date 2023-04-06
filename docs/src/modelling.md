@@ -27,7 +27,7 @@ astrom = AstrometryLikelihood(
 # Or from a file:
 # astrom = CSV.read("mydata.csv", AstrometryLikelihood)
 
-@planet Visual{KepOrbit} begin
+@planet B Visual{KepOrbit} begin
     a ~ truncated(Normal(10, 4), lower=0, upper=100)
     e ~ Uniform(0.0, 0.5)
     i ~ Sine()
