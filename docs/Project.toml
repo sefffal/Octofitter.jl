@@ -1,15 +1,14 @@
 [deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
+PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PlanetOrbits = "fd6f9641-d78f-43ce-a379-ceb0bddb468a"
-
-using Octofitter, Distributions
-using Random
-using StatsBase
-using MCMCChains
-using Plots
-using CairoMakie: Makie
-using PairPlots
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 Documenter = "0.27"
