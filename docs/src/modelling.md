@@ -140,93 +140,7 @@ chain = Octofitter.advancedhmc(
 ```
 
 You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the `verbosity` value down to 0.
-```
-┌ Info: Guessing a starting location by sampling from prior
-└   initial_samples = 50000
-┌ Info: Found starting location
-│   ℓπ(θ) = -89.28815445133954
-└   θ = (M = 1.1111483814942722, plx = 1000.2227630045661, planets = (X = (e = 0.1418001656198612, i = 0.525788926622379, ωy = -1.1725508160731015, ωx = -0.43641579618975873, Ωy = -0.7979161232983363, Ωx = 0.2820224081714881, τy = -0.043514240045819885, τx = 0.2096938720105077, a = 1.15, ω = -2.78528474083047, Ω = 2.801848814768598, τ = 0.28256456774501354),))
-[ Info: Determining initial positions and metric using pathfinder
-┌ Info: Pathfinder results
-│   ℓπ(θ) = -81.40541918631729
-│   mode = (M = 1.1127302837775135, plx = 1000.2000677799822, planets = (X = (e = 0.16579107514335195, i = 0.677833985142943, ωy = -0.9614880217396555, ωx = -0.45166294756082653, Ωy = -0.7346570090965128, Ωx = -0.08731420672478027, τy = -0.020385223319104005, τx = 0.1748163097467169, a = 1.15, ω = -2.7024331879915238, Ω = -3.0232972595211622, τ = 0.26847552057327845),))
-│   inv_metric =
-│    10×10 Matrix{Float64}:
-│     1.06997e-6  3.08986e-10  -7.81759e-5  0.000140487  0.000171713  -0.000210901  7.95167e-5  -7.16133e-5  9.73303e-6  -1.86979e-5
-└     ⋮                                                                ⋮
-[ Info: Creating metric
-[ Info: Creating model
-[ Info: Creating hamiltonian
-[ Info: Finding good stepsize
-┌ Info: Found initial stepsize
-└   ϵ = 0.05
-[ Info: Creating kernel
-[ Info: Creating adaptor
-[ Info: Creating sampler
-[ Info: Adapting sampler...
-[ Info: Adaptation complete.
-Adapated stepsize ϵ=0.002872101892940701
-[ Info: Sampling...
-Progress legend: divergence iter(thread) td=tree-depth ℓπ=log-posterior-density
-      1( 1) td= 9 ℓπ=   -85. θ=(M = 1.1424834223934601, plx = 1000.1966145007555, planets = (X = (e = 0.01862240489198337, i = 0.6488908016928603, ωy = 0.6923810518865087, ωx = 0.19568512...
-      
-      ...
 
-   5000( 1) td= 9 ℓπ=   -91. θ=(M = 1.1359851964247802, plx = 1000.2011655406451, planets = (X = (e = 0.028169989687460695, i = 0.6426282606572278, ωy = -1.0140236479079945, ωx = -0.17573...
-Sampling100%|███████████████████████████████| Time: 0:03:43
-[ Info: Sampling compete. Building chains.
-Sampling report for chain 1:
-mean_accept         = 0.9064319281136375
-num_err_frac        = 0.0082
-mean_tree_depth     = 9.5084
-max_tree_depth_frac = 0.0
-Chains MCMC chain (5000×14×1 Array{Float64, 3}):
-
-Iterations        = 1:1:5000
-Number of chains  = 1
-Samples per chain = 5000
-Wall duration     = 537.41 seconds
-Compute duration  = 537.41 seconds
-parameters        = M, plx, B_e, B_i, B_ωy, B_ωx, B_Ωy, B_Ωx, B_τy, B_τx, B_a, B_ω, B_Ω, B_τ
-
-Summary Statistics
-  parameters        mean       std   naive_se      mcse         ess      rhat   ess_per_sec 
-      Symbol     Float64   Float64    Float64   Float64     Float64   Float64       Float64
-
-           M      1.1770    0.0643     0.0009    0.0074     13.6286    1.3228        0.0254
-         plx   1000.1999    0.0200     0.0003    0.0003   5106.1567    0.9998        9.5014
-         B_e      0.0896    0.0720     0.0010    0.0027    452.4981    1.0177        0.8420
-         B_i      0.6654    0.0865     0.0012    0.0037    118.3149    1.0328        0.2202
-        B_ωy      0.0438    1.0324     0.0146    0.0387    729.2747    1.0037        1.3570
-        B_ωx      0.1143    0.9379     0.0133    0.0566    123.0589    1.0065        0.2290
-        B_Ωy      0.2000    1.1830     0.0167    0.1106     40.3880    1.0443        0.0752
-        B_Ωx      0.1078    0.7360     0.0104    0.0572     63.0293    1.0176        0.1173
-        B_τy      0.0033    1.0146     0.0143    0.0225   2225.1564    1.0000        4.1405
-        B_τx      0.0351    1.0049     0.0142    0.0203   2625.0771    1.0004        4.8847
-         B_a      1.1500    0.0000     0.0000    0.0000     10.5465    0.9998        0.0196
-         B_ω      0.0442    1.8056     0.0255    0.0995    156.0941    1.0061        0.2905
-         B_Ω     -0.5663    1.6501     0.0233    0.1377     51.8761    1.0282        0.0965
-         B_τ      0.0062    0.2906     0.0041    0.0052   2653.3396    1.0000        4.9373
-
-Quantiles
-  parameters        2.5%       25.0%       50.0%       75.0%       97.5% 
-      Symbol     Float64     Float64     Float64     Float64     Float64
-
-           M      1.0751      1.1343      1.1663      1.2071      1.3184
-         plx   1000.1613   1000.1863   1000.1999   1000.2135   1000.2388
-         B_e      0.0033      0.0337      0.0720      0.1271      0.2709
-         B_i      0.4805      0.6157      0.6695      0.7227      0.8190
-        B_ωy     -1.9748     -0.6966      0.0558      0.7736      2.0343
-        B_ωx     -1.7283     -0.5112      0.1333      0.7312      1.9565
-        B_Ωy     -2.0398     -0.8199      0.4805      1.0963      2.1772
-        B_Ωx     -1.4038     -0.3779      0.1416      0.5949      1.5423
-        B_τy     -1.9671     -0.6951      0.0032      0.6845      2.0126
-        B_τx     -1.9379     -0.6503      0.0492      0.6978      2.0343
-         B_a      1.1500      1.1500      1.1500      1.1500      1.1500
-         B_ω     -2.9700     -1.5517      0.3106      1.4407      2.9686
-         B_Ω     -2.9958     -2.5080      0.2512      0.5978      2.8679
-         B_τ     -0.4774     -0.2444      0.0168      0.2535      0.4746
-```
 
 The sampler will begin by drawing orbits randomly from the priors (50,000 by default). It will then pick the orbit with the highest posterior density as a starting point. These are then passed to AdvancedHMC to adapt following the Stan windowed adaption scheme.
 
@@ -256,7 +170,6 @@ plot(
     ylabel="semi-major axis (AU)"
 )
 ```
-<!-- ![trace plot](assets/astrometry-trace-plot.png) -->
 
 And an auto-correlation plot:
 ```@example 1
@@ -268,7 +181,6 @@ plot(
 )
 ```
 This plot shows that these samples are not correlated after only above 5 steps. No thinning is necessary.
-<!-- ![autocorrelation plot](assets/astrometry-autocor-plot.png) -->
 
 To confirm convergence, you may also examine the `rhat` column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal `1.0` to one significant digit (3 recommended).
 
@@ -287,7 +199,6 @@ using Plots
 plotchains(chain, :B, kind=:astrometry, color="B_a")
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
-<!-- ![model plot](assets/astrometry-model-plot.png) -->
 
 We can overplot the astrometry data like so:
 ```@example 1
@@ -312,7 +223,7 @@ table = (;
 pairplot(table)
 ```
 You can read more about the syntax for creating pair plots in the PairPlots.jl documentation page.
-<!-- [![corner plot](assets/astrometry-corner-plot.png)](assets/astrometry-corner-plot.svg) -->
+
 In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.
 
 ## Notes on Hamiltonian Monte Carlo
