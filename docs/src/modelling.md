@@ -70,8 +70,8 @@ A system represents a host star with one or more planets. Properties of the whol
 
 ```@example 1
 @system HD82134 begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0),
-    plx ~ truncated(Normal(50.0, 0.02), lower=0),
+    M ~ truncated(Normal(1.2, 0.1), lower=0)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0)
 end B
 ```
 
