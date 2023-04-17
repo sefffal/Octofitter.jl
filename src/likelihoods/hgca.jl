@@ -26,7 +26,7 @@ export gaia_plx
 
 
 const pma_cols = (:ra_epoch, :dec_epoch, :dt, :pm_ra, :pm_dec, :σ_pm_ra, :σ_pm_dec,)
-struct ProperMotionAnom{TTable<:Table} <: AbstractLikelihood
+struct ProperMotionAnomLikelihood{TTable<:Table} <: AbstractLikelihood
     table::TTable
     function ProperMotionAnom(observations...)
         table = Table(observations...)
@@ -90,7 +90,7 @@ export HGCALikelihood
 General proper motion likelihood at any number of epochs.
 Each epoch is averaged over 5 measurements at +-dt/2.
 """
-function ln_like(pma::ProperMotionAnom, θ_system, elements)
+function ln_like(pma::ProperMotionAnomLikelihood, θ_system, elements)
     ll = 0.0
 
     # How many points over Δt should we average the proper motion at each
@@ -182,8 +182,8 @@ function ln_like(pma::HGCALikelihood, θ_system, elements, _L=1 #=length of obse
             # meaning we calculate the orbit 2x as much as we need.
             o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt)
             o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt)
-            ra_hip_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
-            dec_hip_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
+            ra_hip_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/totalmass(orbit)
+            dec_hip_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/totalmass(orbit)
             pmra_hip_model += pmra(o_ra, θ_planet.mass*mjup2msol)
             pmdec_hip_model += pmdec(o_dec, θ_planet.mass*mjup2msol)
         end
@@ -213,8 +213,8 @@ function ln_like(pma::HGCALikelihood, θ_system, elements, _L=1 #=length of obse
             # make it the same unit as the stellar mass (element.M)
             o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt)
             o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt)
-            ra_gaia_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
-            dec_gaia_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
+            ra_gaia_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/totalmass(orbit)
+            dec_gaia_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/totalmass(orbit)
             pmra_gaia_model += pmra(o_ra, θ_planet.mass*mjup2msol)
             pmdec_gaia_model += pmdec(o_dec, θ_planet.mass*mjup2msol)
         end
@@ -330,8 +330,8 @@ function generate_from_params(like::HGCALikelihood, θ_system, orbit::PlanetOrbi
             # meaning we calculate the orbit 2x as much as we need.
             o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt)
             o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt)
-            ra_hip_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
-            dec_hip_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
+            ra_hip_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/totalmass(orbit)
+            dec_hip_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/totalmass(orbit)
             pmra_hip_model += pmra(o_ra, θ_planet.mass*mjup2msol)
             pmdec_hip_model += pmdec(o_dec, θ_planet.mass*mjup2msol)
         end
@@ -361,8 +361,8 @@ function generate_from_params(like::HGCALikelihood, θ_system, orbit::PlanetOrbi
             # make it the same unit as the stellar mass (element.M)
             o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt)
             o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt)
-            ra_gaia_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/orbit.M
-            dec_gaia_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/orbit.M
+            ra_gaia_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/totalmass(orbit)
+            dec_gaia_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/totalmass(orbit)
             pmra_gaia_model += pmra(o_ra, θ_planet.mass*mjup2msol)
             pmdec_gaia_model += pmdec(o_dec, θ_planet.mass*mjup2msol)
         end

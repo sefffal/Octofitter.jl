@@ -6,7 +6,7 @@ Priors
 Derived
 AstrometryLikelihood
 PhotometryLikelihood
-ProperMotionAnom
+ProperMotionAnomLikelihood
 HGCALikelihood
 ImageLikelihood
 Sine

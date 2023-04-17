@@ -215,7 +215,7 @@ orbittype(::Planet{TElem}) where TElem = TElem
 Construct a model of a system.
 Must be constructed with a block of priors, and optionally
 additional derived parameters.
-You may provide `ProperMotionAnom()` and/or `Images()` of the system.
+You may provide `ProperMotionAnomLikelihood()` and/or `Images()` of the system.
 Finally, planet models are listed last.
 `name` must be a symbol e.g. `:HD56441`.
 """
@@ -273,7 +273,7 @@ export astrometry
 
 function propermotionanom(system::System)
     for like in system.observations
-        if like isa ProperMotionAnom || like isa HGCALikelihood
+        if like isa ProperMotionAnomLikelihood || like isa HGCALikelihood
             return like
         end
     end

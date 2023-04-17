@@ -25,12 +25,12 @@ function savechain(fname, chain::MCMCChains.Chains)
         # Expand any vectors into multiple headers
         for k in ks
             i = findfirst(==(k),ks)
-            if vals[i] isa AbstractArray{<:Number}
+            if typeof(vals[i]) <: AbstractArray{<:Number}
                 for ki in eachindex(vals[i])
                     push!(ks, "$(k)_$ki")
                     push!(vals, vals[i][ki])
-                    vals[i] = "ARRAY"
                 end
+                vals[i] = "ARRAY"
             end
         end
 

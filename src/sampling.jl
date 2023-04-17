@@ -324,7 +324,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         error("Unrecognized chain format")
     end
 end
-construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::Colon) = construct_elements(chain, planet_key, 1:size(chain,1))
+construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::Colon) = construct_elements(chain, planet_key, 1:size(chain,1)*size(chain,3))
 function construct_elements(chain, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
     pk = string(planet_key)
     Ms=chain[:,"M"]
@@ -1007,12 +1007,12 @@ function advancedhmc(
     for (i,mc_samples) in enumerate(mc_samples_all_chains)
         stat = map(s->s.stat, mc_samples)
         numerical_error = getproperty.(stat, :numerical_error)
-        tree_depth = getproperty.(stat, :tree_depth)
+        actual_tree_depth = getproperty.(stat, :tree_depth)
      
         mean_accept = mean(getproperty.(stat, :acceptance_rate))
         num_err_frac = mean(numerical_error)
-        mean_tree_depth = mean(tree_depth)
-        max_tree_depth_frac = mean(getproperty.(stat, :tree_depth) .== tree_depth)
+        mean_tree_depth = mean(actual_tree_depth)
+        max_tree_depth_frac = mean(==(tree_depth), actual_tree_depth)
     
         verbosity >= 1 && println("""
         Sampling report for chain $i:
@@ -1079,7 +1079,7 @@ function advancedhmc(
             stop_time,
             # model=model.system,
             # logpost=logposts_mat,
-            states=mc_samples_all_chains,
+            # states=mc_samples_all_chains,
             # pathfinder=pathfinder_chain_with_info,
         )
     )

@@ -555,7 +555,8 @@ function Octofitter.timeplotgrid(
     Plots.annotate!(pz,((0.5,1.0),Plots.text("top down",:bottom,:middle,10)))
     Plots.scatter!(pz, [0],[0],marker=(:star, :white, :black, 5),label="")
     Plots.annotate!(pz,((-0.2,0.00),Plots.text("↓","Helvetica",:center,15)))
-    Plots.annotate!(pz,((-0.2,-0.15),Plots.text("🌍","Helvetica",:center,15)))
+    # Plots.annotate!(pz,((-0.2,-0.15),Plots.text("🌍","Helvetica",:center,15)))
+    Plots.annotate!(pz,((-0.2,-0.15),Plots.text("Earth",:center,5)))
 
     py = Plots.plot()
     for (i,planet_key) in enumerate(planet_keys)

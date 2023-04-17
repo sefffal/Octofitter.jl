@@ -9,7 +9,7 @@ using ImageTransformations
 using CoordinateTransformations
 using Interpolations
 using AstroImages
-
+using Statistics
 
 const images_cols = (:band, :image, :epoch, :platescale,)
 
@@ -59,8 +59,8 @@ struct ImageLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
         return new{typeof(table)}(table)
     end
 end
-Images(observations::NamedTuple...) = ImageLikelihood(observations)
-export Images
+ImageLikelihood(observations::NamedTuple...) = ImageLikelihood(observations)
+export ImageLikelihood
 
 
 """
@@ -115,7 +115,15 @@ function contrast(image::AstroImage; step=2)
 end
 
 
-
+function imgsep(image::AstroImage)
+    dx = dims(image,X)
+    dy = collect(dims(image,Y))
+    dr = sqrt.(
+        dx.^2 .+ (dy').^2
+    )
+    return dr
+end
+    
 
 
 """
@@ -168,6 +176,7 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
         # TODO: verify this is type stable
         f_band = getproperty(θ_planet, band)
 
+        # σ_add = θ_planet.H_σ
 
         # When we get a position that falls outside of our available
         # data (e.g. under the coronagraph) we cannot say anything
@@ -175,6 +184,7 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
         # of zero.
         if !isfinite(σₓ) || !isfinite(f̃ₓ)
             continue
+            # return convert(T, -Inf)
         end
 
         # Direct imaging likelihood.
@@ -187,7 +197,7 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
         # Ruffio et al 2017, eqn (31)
         # Mawet et al 2019, eqn (8)
 
-        σₓ² = σₓ^2
+        σₓ² = σₓ^2 #+ σ_add^2
         ll += -1 / (2*σₓ²) * (f_band^2 - 2f_band * f̃ₓ)
     end
 
@@ -197,39 +207,36 @@ end
 
 
 # Generate new images
-function Octofitter.generate_from_params(like::ImageLikelihood, θ_system,  elements::Vector{<:Visual{KepOrbit}})
+# function Octofitter.generate_from_params(like::ImageLikelihood, θ_system,  elements::Vector{<:Visual{KepOrbit}})
+function Octofitter.generate_from_params(like::ImageLikelihood, θ_planet,  orbit::PlanetOrbits.AbstractOrbit)
 
     newrows = map(like.table) do row
         (;band, image, platescale, epoch, psf) = row
 
         injected = copy(image)
-        
-        for i in eachindex(elements)
-            θ_planet = θ_system.planets[i]
-            elem = elements[i]
-            # Generate new astrometry point
-            os = orbitsolve(elem, epoch)
+    
+        # Generate new astrometry point
+        os = orbitsolve(orbit, epoch)
 
-            # TODO: this does not consider the shift to the images due to the motion of the star
-            ra = raoff(os)
-            dec = decoff(os)
+        # TODO: this does not consider the shift to the images due to the motion of the star
+        ra = raoff(os)
+        dec = decoff(os)
 
-            phot = θ_planet[band]
+        phot = θ_planet[band]
 
-            # TODO: verify signs
-            dx = ra/platescale
-            dy = -dec/platescale
-            translation_tform = Translation(
-                mean(axes(psf,1))-mean(axes(image,1))+mean(dims(image,1))+dx,
-                mean(axes(psf,2))-mean(axes(image,2))+mean(dims(image,2))+dy
-            )
-            # TBD if we want to support rotations for handling negative sidelobes.
+        # TODO: verify signs
+        dx = ra/platescale
+        dy = -dec/platescale
+        translation_tform = Translation(
+            mean(axes(psf,1))-mean(axes(image,1))+mean(dims(image,1))+dx,
+            mean(axes(psf,2))-mean(axes(image,2))+mean(dims(image,2))+dy
+        )
+        # TBD if we want to support rotations for handling negative sidelobes.
 
-            psf_positioned = warp(psf, translation_tform, axes(image), fillvalue=0)
-            psf_positioned[.! isfinite.(psf_positioned)] .= 0
-            psf_scaled = psf_positioned .* phot ./ maximum(filter(isfinite, psf_positioned))
-            injected .+= psf_scaled
-        end
+        psf_positioned = warp(psf, translation_tform, axes(image), fillvalue=0)
+        psf_positioned[.! isfinite.(psf_positioned)] .= 0
+        psf_scaled = psf_positioned .* phot ./ maximum(filter(isfinite, psf_positioned))
+        injected .+= psf_scaled
 
         return merge(row, (;image=injected))
     end
