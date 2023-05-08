@@ -1,13 +1,13 @@
-module OctofitterVisibilities
+module OctofitterInterferometry
 
 using Octofitter
 using PlanetOrbits
 using Tables, TypedTables
 
 const vis_cols = (:epoch, :u, :v, :cps_data, :dcps, :vis2_data, :dvis2, :index_cps1, :index_cps2, :index_cps3,:bands,:use_vis2)
-struct VisibiltiesLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
+struct InterferometryLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
     table::TTable
-    function VisibiltiesLikelihood(observations...)
+    function InterferometryLikelihood(observations...)
         table = Table(observations...)
         if !issubset(vis_cols, Tables.columnnames(table))
             error("Ecpected columns $vis_cols")
@@ -15,13 +15,13 @@ struct VisibiltiesLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
         return new{typeof(table)}(table)
     end
 end
-VisibiltiesLikelihood(observations::NamedTuple...) = VisibiltiesLikelihood(observations)
-export VisibiltiesLikelihood
+InterferometryLikelihood(observations::NamedTuple...) = InterferometryLikelihood(observations)
+export InterferometryLikelihood
 
 """
 Visibliitiy modelling likelihood for point sources.
 """
-function Octofitter.ln_like(vis::VisibiltiesLikelihood, θ_system, orbits, num_epochs::Val{L}=Val(length(vis.table))) where L
+function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, num_epochs::Val{L}=Val(length(vis.table))) where L
     T = typeof(θ_system.M)
     ll = zero(T)
 
@@ -156,7 +156,7 @@ function cp_indices(;vis2_index::Matrix{<:Int64}, cp_index::Matrix{<:Int64})
 end
 
 # Generate new observations for a system of possibly multiple planets
-function Octofitter.generate_from_params(like::VisibiltiesLikelihood, orbits::Vector{<:AbstractOrbit}, θ_system)
+function Octofitter.generate_from_params(like::InterferometryLikelihood, orbits::Vector{<:AbstractOrbit}, θ_system)
 
     # # Get epochs, uncertainties, and planet masses from observations and parameters
     epochs = like.table.epoch
@@ -209,7 +209,7 @@ function Octofitter.generate_from_params(like::VisibiltiesLikelihood, orbits::Ve
     
     # return with same number of rows: band, epoch
     # position(s) of point sources according to orbits, θ_system
-    return VisibiltiesLikelihood(new_vis_like_table)
+    return InterferometryLikelihood(new_vis_like_table)
 end
 
 

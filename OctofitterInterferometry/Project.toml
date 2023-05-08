@@ -1,4 +1,4 @@
-name = "OctofitterVisibilities"
+name = "OctofitterInterferometry"
 uuid = "1a3c1578-c182-4e42-bc1e-b4981e19ba9a"
 authors = ["Dori Blakely", "William Thompson <will.thompson@outlook.com>"]
 version = "0.7.1"
