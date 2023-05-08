@@ -663,7 +663,6 @@ function advancedhmc(model::LogDensityModel, target_accept::Number=0.8, ensemble
     return advancedhmc(Random.default_rng(), model, target_accept, ensemble; kwargs...)
 end
 
-include("custom-integrator.jl")
 
 """
 The method signature of Octofitter.hmc is as follows:
