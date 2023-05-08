@@ -44,6 +44,7 @@ include("likelihoods/photometry.jl")
 include("likelihoods/hgca.jl")
 
 include("sampling.jl")
+include("temperedhmc.jl")
 
 include("analysis.jl")
 include("macros.jl")
