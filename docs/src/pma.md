@@ -37,13 +37,11 @@ astrom = AstrometryLikelihood(
     ω ~ UniformCircular()
     i ~ Sine() # The Sine() distribution is defined by Octofitter
     Ω ~ UniformCircular()
-    # mass ~ LogNormal(300, 18),
+    # mass ~ LogNormal(300, 18)
     # Anoter option would be:
     mass ~ Uniform(0.5, 1000)
 end astrom
 ```
-
-The `@named` macro simply passes the variable name you give as an arugment to the function i.e. `Planet(..., name=:B)`. This ensures the parameter names in the output are consistent with the code.
 
 
 ## System Model & Specifying Proper Motion Anomaly
@@ -51,12 +49,12 @@ Now that we have our planet model, we create a system model to contain it.
 
 ```julia
 @system HD91312 begin
-    M ~ LogNormal(1.61, 1),
-    plx ~ gaia_plx(gaia_id=756291174721509376),
+    M ~ LogNormal(1.61, 1)
+    plx ~ gaia_plx(gaia_id=756291174721509376)
             
     # Priors on the centre of mass proper motion
-    pmra ~ Normal(0, 500),
-    pmdec ~ Normal(0,  500),
+    pmra ~ Normal(0, 500)
+    pmdec ~ Normal(0,  500)
 end HGCALikelihood(gaia_id=756291174721509376) B
 ```
 
@@ -74,7 +72,7 @@ Sample from our model as usual:
 ```julia
 model = Octofitter.LogDensityModel(HD91312)
 chain = Octofitter.advancedhmc(
-    # Note: start the target acceptance at around 0.7 and increase if you see numerical errors. That indicates a tricky posterior and that therefore smaller steps are required.
+    # Note: start the target acceptance at around 0.8 and increase if you see numerical errors. That indicates a tricky posterior and that therefore smaller steps are required.
     model, 0.92, 
     adaptation =  1_000,
     iterations =  4_000,
@@ -201,7 +199,7 @@ table = (;
     ω=rad2deg.(vec(chain["B_ω"])),
     τ=         vec(chain["B_τ"]),
 )
-fig = pairplot(table; figure=(;resolution=(1200,1200)))
+fig = pairplot(table)
 ```
 [![pair plot](assets/pma-astrometry-mass-corner.png)](assets/pma-astrometry-mass-corner.svg)
 
@@ -242,7 +240,7 @@ chains = Octofitter.advancedhmc(
     # Octofitter.MCMCThreads(),
     # num_chains=4,
     adaptation =  2_000,
-    iterations =  2_000, #50_000
+    iterations =  2_000,
 )
 ```
 ```
