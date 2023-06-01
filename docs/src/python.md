@@ -17,9 +17,10 @@ python3 -m pip install juliacall
 ### Step 3
 From inside python, install the Octofitter and Distributions Julia packages:
 ```python
+import juliacall
+from juliacall import Main as jl
 from juliacall import Pkg
-Pkg.add('Octofitter')
-Pkg.add('Distributions')
+Pkg.add(jl.map(jl.String, ['Octofitter','Distributions','Plots']))
 ```
 
 ### Step 4 
@@ -87,6 +88,12 @@ chain = jl.Octofitter.advancedhmc(
 # Display results (recommended)
 chain._jl_display()
 
-# Save chain to FITS file
+# Save chain to FITS file (optional)
 jl.Octofitter.savechain("mychain.fits", chain)
+
+# Plot chains (optional)
+jl.seval("using Plots")
+jl.Octofitter.plotchains(chain, jl.Symbol("B"), kind=jl.Symbol("astrometry"), 
+color="B_a")
+jl.Plots.savefig("orbits.png")
 ```
