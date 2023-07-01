@@ -22,7 +22,7 @@ function HARPS_observations(target, catalog=datadep"HARPS_RVBank")
    
 end
 
-function HARPS_rvs(target, catalog=datadep"HARPS_RVBank")
+function HARPS_rvs(target, catalog=datadep"HARPS_RVBank"; inst_idx::Int=1)
 
     rvbank = CSV.read(joinpath(catalog, "HARPS_RVBank_v1.csv"), Table)
 
@@ -31,7 +31,7 @@ function HARPS_rvs(target, catalog=datadep"HARPS_RVBank")
 
     return RadialVelocityLikelihood(Table(;
         epoch=mjd2jd.(table.BJD),
-        inst_idx=ones(Int,size(table,1)),
+        inst_idx=fill(inst_idx,size(table,1)),
         rv=-table.RV_mlc_nzp,
         σ_rv=table.e_RV_mlc_nzp,
     ))

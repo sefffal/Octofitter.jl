@@ -58,17 +58,17 @@ First, we create a table of our image data that will be attached to the `Planet`
 
 ```julia
 image_data = Images(
-    (band=:H, image=centered(images[1]), platescale=10.0, epoch=1238.6),
-    (band=:H, image=centered(images[2]), platescale=10.0, epoch=1584.7),
-    (band=:H, image=centered(images[3]), platescale=10.0, epoch=3220.0),
-    (band=:H, image=centered(images[4]), platescale=10.0, epoch=7495.9),
-    (band=:H, image=centered(images[5]), platescale=10.0, epoch=7610.4),
+    (band=:H, image=AstroImages.recenter(images[1]), platescale=10.0, epoch=1238.6),
+    (band=:H, image=AstroImages.recenter(images[2]), platescale=10.0, epoch=1584.7),
+    (band=:H, image=AstroImages.recenter(images[3]), platescale=10.0, epoch=3220.0),
+    (band=:H, image=AstroImages.recenter(images[4]), platescale=10.0, epoch=7495.9),
+    (band=:H, image=AstroImages.recenter(images[5]), platescale=10.0, epoch=7610.4),
 )
 ```
 Provide one entry for each image you want to sample from. Ensure that each image has been re-centered so that index `[0,0]` is the position of the star. Areas of the image where there is no data should be filled with `NaN` and will not contribute to the likelihood of your model. `platescale` should be the pixel scale of your images, in milliarseconds / pixel. `epoch` should be the Modified Julian Day (MJD) that your image was taken. You can use the `mjd("2021-09-09")` function to calculate this for you.
 `band` should be a symbol that matches the name you supplied when you created the `Planet`.
 
-By default, the contrast of the images is calculated automatically, but you can supply your own contrast curve as well by also passing `contrast=contrast_interp(centered(my_image))`.
+By default, the contrast of the images is calculated automatically, but you can supply your own contrast curve as well by also passing `contrast=OctofitterImages.contrast_interp(AstroImages.recenter(my_image))`.
 
 You can freely mix and match images from different instruments as long as you specify the correct platescale. 
 You can also provide images from multiple bands and they will be sampled independently. If you wish to tie them together, see [Connecting Mass with Photometry](@ref mass-photometry).
@@ -115,10 +115,10 @@ it's recommended to lower the target acceptance ratio to around 0.5±0.2 and als
 model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 
 chain = Octofitter.advancedhmc(
-    model, 0.25,
+    model, 0.75,
     adaptation =   8_000,
     iterations =  10_000,
-    tree_depth =      10,
+    tree_depth =      14,
 );
 ```
 Sampling directly from images is somewhat slower than from astrometry. This example takes roughly 7 minutes on my laptop.

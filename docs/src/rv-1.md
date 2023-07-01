@@ -8,7 +8,7 @@ Multiple instruments (up to five) are supported.
     `pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterRadialVelocity`
 
 Load the packages we'll need:
-```julia
+```@example 1
 using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, Plots
 ```
 
@@ -21,11 +21,12 @@ rvs = OctofitterRadialVelocityLikelihood.HARPS_rvs("GJ436")
 
 Now, create a planet. Since we're only fitting radial velocity data, we
 fix some of these parameters
-```julia
+```@example 1
+mjup = 0.00314558 # Jupiter mass in Solar masses
 @named b = Visual{KepOrbit} begin
     τ ~ UniformCircular(1.0)
-    mass ~ truncated(Normal(21.3*0.00314558, 8*0.00314558),lower=0)
-    a ~truncated(Normal(	0.028, 0.02), lower=0)
+    mass ~ truncated(Normal(21.3mjup, 8mjup),lower=0)
+    a ~truncated(Normal(0.028, 0.02), lower=0)
     i = pi/2
     e ~ Uniform(0, 0.5)
     ω ~ UniformCircular()
@@ -45,21 +46,22 @@ end rvs b
 ```
 
 Build model:
-```julia
+```@example 1
 model = Octofitter.LogDensityModel(GJ436; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 ```
 
 
 Sample from chains:
-```julia
+```@example 1
 results = Octofitter.advancedhmc(
-    model, 0.5;
-    adaptation =  600,
-    iterations =  600,
+    model, 0.8;
+    adaptation =  1000,
+    iterations =  1000,
     verbosity = 4,
-    tree_depth = 8
+    tree_depth = 14
 )
+```
 
-
+```@example 1
 timeplot(results, :b, "b_mass", :rv)
 ```
