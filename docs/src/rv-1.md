@@ -62,5 +62,7 @@ results = Octofitter.advancedhmc(
 ```
 
 ```@example 1
-timeplot(results, :b, "b_mass", :rv)
+using Plots
+octoplot(model, results)
 ```
+![](HD82134-plot-grid.png)
