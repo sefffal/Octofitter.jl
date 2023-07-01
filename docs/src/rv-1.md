@@ -22,10 +22,9 @@ rvs = OctofitterRadialVelocityLikelihood.HARPS_rvs("GJ436")
 Now, create a planet. Since we're only fitting radial velocity data, we
 fix some of these parameters
 ```@example 1
-mjup = 0.00314558 # Jupiter mass in Solar masses
 @planet b Visual{KepOrbit} begin
     τ ~ UniformCircular(1.0)
-    mass ~ truncated(Normal(21.3mjup, 8mjup),lower=0)
+    mass ~ truncated(Normal(21.3*0.00314558, 8*0.00314558),lower=0)
     a ~truncated(Normal(0.028, 0.02), lower=0)
     i = pi/2
     e ~ Uniform(0, 0.5)
