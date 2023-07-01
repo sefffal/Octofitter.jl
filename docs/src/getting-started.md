@@ -22,6 +22,7 @@ If you need one of these packages you can install them like so:
 ```
 pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterImages
 pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterRadialVelocity
+pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterVisibilities
 ```
 That is, specify the extension package you want to install after the colon (`:`).
 

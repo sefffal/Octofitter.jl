@@ -23,7 +23,7 @@ Now, create a planet. Since we're only fitting radial velocity data, we
 fix some of these parameters
 ```@example 1
 mjup = 0.00314558 # Jupiter mass in Solar masses
-@named b = Visual{KepOrbit} begin
+@planet b Visual{KepOrbit} begin
     τ ~ UniformCircular(1.0)
     mass ~ truncated(Normal(21.3mjup, 8mjup),lower=0)
     a ~truncated(Normal(0.028, 0.02), lower=0)
@@ -34,7 +34,7 @@ mjup = 0.00314558 # Jupiter mass in Solar masses
 end
 
 # Nor create the system
-@system GJ436 begin
+@system HD82134 begin
     M ~ truncated(Normal(0.425,0.009),lower=0)
     plx ~ 0.425
 
@@ -47,7 +47,7 @@ end rvs b
 
 Build model:
 ```@example 1
-model = Octofitter.LogDensityModel(GJ436; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 ```
 
 
