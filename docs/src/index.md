@@ -12,12 +12,9 @@ The package provides a simple but powerful modelling language which is used to g
 efficient, differentiable code. You can then plug it into a variety of samplers.
 The package also contains analysis and visualization tools for understanding your results.
 
-Try Octofitter in your browser in seconds! Click below to launch an example in GitHub Codespaces. 
-
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=584480871)
 
 !!! note
-    Octofitter is under active development and is only tested against Julia 1.9
+    Octofitter is under active development and is only tested against Julia 1.9+
 
 **Supported data:**
 * sample directly from images and interferometric visibilities

@@ -24,7 +24,8 @@ astrom = AstrometryLikelihood(
     (epoch = 5720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 5840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
 )
-# Or from a file:
+# Or from a file (must install CSV.jl first):
+# using CSV
 # astrom = CSV.read("mydata.csv", AstrometryLikelihood)
 
 @planet B Visual{KepOrbit} begin
@@ -211,6 +212,7 @@ A very useful visualization of our results is a pair-plot, or corner plot. We ca
 ```@example 1
 using CairoMakie: Makie
 using PairPlots
+# We use rad2deg to convert from radians into degrees for the plots
 table = (;
     a=         vec(chain["B_a"]),
     e=         vec(chain["B_e"]),

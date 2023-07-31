@@ -22,6 +22,7 @@ makedocs(
             "Connecting Mass with Photometry" => "mass-photometry.md",
             "Loading and Saving Data" => "loading-saving.md",
             "Custom Likelihoods" => "custom-likelihood.md",
+            "Calling from Python" => "python.md",
             # "Multiple Planets" => "multi-planets.md",
             # "" => "multi-planets.md",
         ],
