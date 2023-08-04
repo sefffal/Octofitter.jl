@@ -274,9 +274,8 @@ results = Octofitter.advancedhmc(
     tree_depth = 12
 )
 
-## Display results
-timeplotgrid(results, cmap=:greys, clims=(-0.5,1));
-savefig("eps-eri.png")
+## Save results plot
+octoplot(model, results, cmap=:greys, clims=(-0.5,1));
 ```
 
 ![model plot with astrometry](assets/eps-eri-pma-fit-4.png)

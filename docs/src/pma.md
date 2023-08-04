@@ -170,9 +170,9 @@ scatter!(astrom, label="astrometry", markersize=0, linecolor=1)
 ```
 [![orbit posterior](assets/pma-astrometry-posterior.png)](assets/pma-astrometry-posterior.svg)
 
-Another useful plotting function is `timeplotgrid` which takes similar arguments and produces a 6 panel plot:
+Another useful plotting function is `octoplot` which takes similar arguments and produces a 9 panel plot:
 ```julia
-timeplotgrid(chain)
+octoplot(model, chain)
 ```
 [![orbit posterior grid](assets/pma-astrometry-posterior-grid.png)](assets/pma-astrometry-posterior-grid.svg)
 
@@ -345,6 +345,6 @@ histogram2d(chains["b_a"], chains["b_mass"], color=:plasma, xguide="sma (au)", y
 
 You can also visualize the orbits and proper motion:
 ```julia
-plotmodel(chains)
+octoplot(model, chain)
 ```
 [![2d histogram](assets/pma-model.png)](assets/pma-model.svg)
