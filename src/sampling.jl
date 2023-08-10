@@ -487,7 +487,13 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 # We're going to call this thousands of times so worth a few calls
                 # to get this optimized.
                 if isnothing(chunk_sizes)
-                    chunk_sizes = unique([1; 2:2:D; D])
+                    if D < 20
+                        # If less than 20 dimensional, a single chunk with ForwardDiff
+                        # is almost always optimial.
+                        chunk_sizes = D
+                    else
+                        chunk_sizes = unique([1; 2:2:D; D])
+                    end
                 end
                 ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
                     cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
