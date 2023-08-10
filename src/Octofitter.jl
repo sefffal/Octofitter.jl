@@ -97,5 +97,5 @@ function __init__()
     return
 end
 
-# include("precompile.jl")
+include("precompile.jl")
 end

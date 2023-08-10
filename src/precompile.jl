@@ -51,13 +51,17 @@ using SnoopPrecompile
                 initial_samples = 5,
                 verbosity=0
             )
-
-            # This would precompile the chain display,
-            # but currently fails during precompile due to
-            # an eval inside PrettyTables.jl
+            # This would precompile the chain display (but crashes)
             # show(io, "text/plain", output)
-            nothing
 
+            # We can't just precompile displaying the chain due to annoying
+            # issues with MCMCChains.jl.
+            # So lets just call some diagnostics manually and hope that 
+            # speeds up most things.
+            # MCMCChains.summarize(output)
+
+            # Neither of these work, and both crash Julia.
+            nothing
         end
     end
 end
