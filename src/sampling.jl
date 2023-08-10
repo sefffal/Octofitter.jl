@@ -850,17 +850,24 @@ function advancedhmc(
 
 
     verbosity >= 3 && @info "Creating kernel"
-    κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
+    # κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
     # κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
+
+    sampler = NUTS(
+        target_accept; # For dual averaging. I guess this could be different than for the adaptor below?
+        max_depth=tree_depth, # Maximum doubling tree depth.
+        Δ_max=1000, # Maximum divergence during doubling tree.
+        integrator = integrator,
+        metric = metric
+    )
+
+
     
     verbosity >= 3 && @info "Creating adaptor"
     mma = MassMatrixAdaptor(metric)
     ssa = StepSizeAdaptor(target_accept, integrator)
     adaptor = StanHMCAdaptor(mma, ssa) 
     # adaptor = StepSizeAdaptor(target_accept, integrator)
-
-    verbosity >= 3 && @info "Creating sampler"
-    sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
 
 
     verbosity >= 1 && @info "Sampling, beginning with adaptation phase..."
@@ -992,6 +999,7 @@ function advancedhmc(
         iterations,
         num_chains;
         nadapts = adaptation,
+        adaptor,
         thinning,
         init_params=initial_parameters,
         discard_initial,
