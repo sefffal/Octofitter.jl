@@ -1,7 +1,7 @@
 name = "OctofitterRadialVelocity"
 uuid = "c6a353d9-c9c1-48aa-9c23-64f4679bd07d"
 authors = ["William Thompson <will.thompson@outlook.com>"]
-version = "0.7.1"
+version = "1.0.1"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
@@ -17,6 +17,20 @@ StringDistances = "88034a9c-02f8-509d-84a9-84ec65e18404"
 StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
+
+[compat]
+CSV = "0.10"
+DataDeps = "0.7"
+Distributions = "0.25"
+LoopVectorization = "0.12"
+Octofitter = "1.0.1"
+PlanetOrbits = "0.6"
+RecipesBase = "1.3"
+StaticArrays = "1.6"
+StrideArrays = "0.1.26"
+StringDistances = "0.11"
+Tables = "1.10"
+TypedTables = "1.4"
 
 [extras]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
