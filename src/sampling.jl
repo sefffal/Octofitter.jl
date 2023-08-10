@@ -431,15 +431,28 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
                     system_tmp = deepcopy(system)
                     function (θ_t)
-                        # likelihood = ℓπcallback(θ_t)
+                       
+                        # fill!(diffresult,0)
+
+                        # primal, = Main.Enzyme.autodiff(
+                        #     Main.Enzyme.Forward,
+                        #     # ℓπcallback,
+                        #     Main.Enzyme.Duplicated(ℓπcallback,ℓπcallback),
+                        #     # Main.Enzyme.Duplicated,
+                        #     Main.Enzyme.Duplicated(θ_t,diffresult),
+                        #     # Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
+                        #     Main.Enzyme.Duplicated(system, system_tmp)
+                        # )
+                        
                         fill!(diffresult,0)
                         _, primal = Main.Enzyme.autodiff(
                             Main.Enzyme.ReverseWithPrimal,
-                            ℓπcallback,
+                            Main.Enzyme.Duplicated(ℓπcallback,ℓπcallback),
                             Main.Enzyme.Active,
                             Main.Enzyme.Duplicated(θ_t,diffresult),
                             Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
                         )
+
                         return primal, diffresult
                     end
                 end
