@@ -3,18 +3,18 @@ using Distributions, Logging, ForwardDiff
 # There is some runtime code generation, so the easiest way
 # to make sure everything we need is precompiled is just to
 # run a super (super) quick fit during precompilation.
-using SnoopPrecompile
+using PrecompileTools
 
 # define methods, types, etc
 
-@precompile_setup begin
+@setup_workload  begin
     # Silence logging during precompile (but don't precompile these logging calls)
     io = IOBuffer();
     # io = stdout
     logger = SimpleLogger(io)
 
     with_logger(logger) do
-        @precompile_all_calls begin
+        @compile_workload begin
         
             astrom = AstrometryLikelihood(
                 (epoch=1234.0, ra=123., dec=123., σ_ra=12., σ_dec=34.),
