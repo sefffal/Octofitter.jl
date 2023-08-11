@@ -12,7 +12,6 @@ using PrecompileTools
     io = IOBuffer();
     # io = stdout
     logger = SimpleLogger(io)
-
     with_logger(logger) do
         @compile_workload begin
         

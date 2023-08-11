@@ -97,5 +97,7 @@ function __init__()
     return
 end
 
-include("precompile.jl")
+if VERSION != v"1.10.0-beta1"
+    include("precompile.jl")
+end
 end
