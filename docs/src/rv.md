@@ -5,7 +5,7 @@ Multiple instruments (up to five) are supported.
 
 !!! tip
     Radial velocity modelling is supported in Octofitter via the extension package OctofitterRadialVelocity. To install it, run 
-    `pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterRadialVelocity`
+    `pkg> add OctofitterRadialVelocity`
 
 The following is an example of jointly fitting the radial velocity and astrometric motion of the star $\epsilon$ Eridani using some of the radial velocity data collated in Mawet et al.
 

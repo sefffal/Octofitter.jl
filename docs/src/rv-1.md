@@ -5,7 +5,7 @@ Multiple instruments (up to five) are supported.
 
 !!! tip
     Radial velocity modelling is supported in Octofitter via the extension package OctofitterRadialVelocity. To install it, run 
-    `pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterRadialVelocity`
+    `pkg> add OctofitterRadialVelocity`
 
 Load the packages we'll need:
 ```@example 1
