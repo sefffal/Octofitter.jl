@@ -116,11 +116,10 @@ function closurephase(;vis::AbstractVector,index_cps1::AbstractVector,index_cps2
     
     realt = real(vis)
     imagt = imag(vis)
-    visphi = atan.(imagt,realt)
-    visphi = mod.(visphi .+ 10980., 360.) .- 180.
+    visphi = atan.(imagt,realt)*180/pi #convert to degrees
+    visphi = mod.(visphi .+ 10980., 360.) .- 180. #phase in range (-180,180]
     cp = visphi[index_cps1] .+ visphi[index_cps2] .- visphi[index_cps3]
-    out = cp*180/pi
-    return out
+    return cp
 end
 
 function cp_indices(;vis2_index::Matrix{<:Int64}, cp_index::Matrix{<:Int64})
@@ -191,7 +190,7 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, orbits:
             cvis = cvis .+ cvis_bin(ddec=Δdec,dra=Δra,contrast=contrast,u=u[j],v=v[j])
             norm_factor += contrast
         end
-        cvis = cvis .+ 1. #add contribution from the primary primary
+        cvis = cvis .+ 1. #add contribution from the primary 
         cvis *= 1. /(1. +norm_factor)
         #compute closure phase
         cp = closurephase(vis=cvis,index_cps1=i_cps1[j],index_cps2=i_cps2[j],index_cps3=i_cps3[j])
