@@ -16,7 +16,7 @@ We can specify a table of radial velocity data manually by creating a [`RadialVe
 
 We can also directly load in data from the HARPS RVBank dataset:
 ```@example 1
-rvs = OctofitterRadialVelocityLikelihood.HARPS_rvs("GJ436")
+rvs = OctofitterRadialVelocity.HARPS_rvs("GJ436")
 ```
 
 Now, create a planet. Since we're only fitting radial velocity data, we
@@ -25,7 +25,7 @@ fix some of these parameters
 @planet b Visual{KepOrbit} begin
     τ ~ UniformCircular(1.0)
     mass ~ truncated(Normal(21.3*0.00314558, 8*0.00314558),lower=0)
-    a ~truncated(Normal(0.028, 0.02), lower=0)
+    a ~ truncated(Normal(0.028, 0.02), lower=0)
     i = pi/2
     e ~ Uniform(0, 0.5)
     ω ~ UniformCircular()
