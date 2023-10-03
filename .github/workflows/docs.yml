@@ -20,7 +20,7 @@ jobs:
         with:
           version: '1.9'
       - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")));Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterImages")));Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry")));Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterWhereistheplanet")));'
+        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")));'
       - uses: actions/cache@v1
         env:
           cache-name: cache-artifacts
