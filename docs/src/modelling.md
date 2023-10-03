@@ -136,7 +136,10 @@ chain = Octofitter.advancedhmc(
     adaptation =   500,
     iterations =  1000,
     verbosity = 4,
-    tree_depth = 12
+    tree_depth = 12,
+    # Optional: we sample from two chains so we can test for convergence
+    # using gelmandiag. In practice, only one chain is usually needed.
+    num_chains=2
 )
 ```
 

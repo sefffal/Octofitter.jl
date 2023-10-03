@@ -15,7 +15,7 @@ using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, Plots
 We can specify a table of radial velocity data manually by creating a [`RadialVelocityLikelihood`](@ref). An example of this is in [the other RV tutorial](@ref fit-rv-pma).
 
 We can also directly load in data from the HARPS RVBank dataset:
-```julia
+```@example 1
 rvs = OctofitterRadialVelocityLikelihood.HARPS_rvs("GJ436")
 ```
 
