@@ -100,8 +100,8 @@ function plotchains! end
     octoplot(
         system::Union{Octofitter.System,Octofitter.Model,
         chain::Octofitter.MCMCChains.Chains;
-        fname="$(system.name)-plot-grid",
-        color = "$(first(keys(system.planets)))_e",
+        fname="\$(system.name)-plot-grid",
+        color = "\$(first(keys(system.planets)))_e",
         colorbartitle=string(color),
         clims = quantile(vec(chain[color]),(0.01, 0.99)),
         cmap = :plasma,
