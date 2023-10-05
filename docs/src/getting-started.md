@@ -14,7 +14,7 @@ Visit the [julialang.org](https://julialang.org/downloads/) Downloads page, and 
 
 You will need the Distributions,jl package so that you can specify priors for different parameters in your models.
 Plots.jl is for visualizing your results and is optional.
-[CairoMakie.jl](makie.juliaplots.org/) and [PairPlots.jl](https://sefffal.github.io/PairPlots.jl/dev/) can be used for generating corner plots and are also optional.
+[CairoMakie.jl](http://makie.juliaplots.org/) and [PairPlots.jl](https://sefffal.github.io/PairPlots.jl/dev/) can be used for generating corner plots and are also optional.
 
 ## Extension Packages
 Some Octofitter functionality exists in extension packages, including radial velocity fitting.

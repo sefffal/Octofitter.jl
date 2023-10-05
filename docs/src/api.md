@@ -5,6 +5,7 @@
 Priors
 Derived
 AstrometryLikelihood
+RadialVelocityLikelihood              
 PhotometryLikelihood
 HGCALikelihood
 Sine
