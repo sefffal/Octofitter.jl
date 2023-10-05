@@ -17,7 +17,7 @@ function gaia_plx(;gaia_id,catalog=(datadep"HGCA_eDR3")*"/HGCA_vEDR3.fits")
     end
 
     idx = findfirst(==(gaia_id), hgca.gaia_source_id)
-    return truncated(Normal(hgca.parallax_gaia[idx,], hgca.parallax_gaia_error[idx,]), lower=0)
+    return truncated(Normal(Float64(hgca.parallax_gaia[idx,]), Float64(hgca.parallax_gaia_error[idx,])), lower=0)
 end
 export gaia_plx
 
