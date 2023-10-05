@@ -399,6 +399,14 @@ function timeplot!(
                     barycentric_rv_inst_4 = median(vec(chain["rv0_4"]))
                     jitter = barycentric_rv_inst_4 = median(vec(chain["jitter_4"]))
                 end
+                if haskey(chain,:rv0_5)
+                    barycentric_rv_inst_5 = median(vec(chain["rv0_5"]))
+                    jitter = barycentric_rv_inst_5 = median(vec(chain["jitter_5"]))
+                end
+                if haskey(chain,:rv0_6)
+                    barycentric_rv_inst_6 = median(vec(chain["rv0_6"]))
+                    jitter = barycentric_rv_inst_6 = median(vec(chain["jitter_6"]))
+                end
 
                 if hasproperty(obs.table, :inst_idx)
                     idxes = length(unique(obs.table.inst_idx))
@@ -421,6 +429,12 @@ function timeplot!(
                     elseif row.inst_idx == 4
                         inst_idx = 4
                         barycentric_rv_inst = barycentric_rv_inst_4
+                    elseif row.inst_idx == 5
+                        inst_idx = 5
+                        barycentric_rv_inst = barycentric_rv_inst_5
+                    elseif row.inst_idx == 6
+                        inst_idx = 6
+                        barycentric_rv_inst = barycentric_rv_inst_6
                     end
                     push!(x[inst_idx], row.epoch)
                     push!(y[inst_idx], row.rv - barycentric_rv_inst)

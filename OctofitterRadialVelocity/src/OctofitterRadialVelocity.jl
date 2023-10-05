@@ -44,7 +44,7 @@ export RadialVelocityLikelihood
 Radial velocity likelihood.
 """
 function Octofitter.ln_like(rv::RadialVelocityLikelihood, θ_system, elements, num_epochs::Val{L}=Val(length(rv.table))) where L
-    T = typeof(θ_system.M)
+    T = promote_type(typeof(θ_system.M), typeof(θ_system.plx))
     ll = zero(T)
 
     epochs = rv.table.epoch
@@ -64,12 +64,16 @@ function Octofitter.ln_like(rv::RadialVelocityLikelihood, θ_system, elements, n
         hasproperty(rv.table, :rv0_2) ? rv.table.rv0_2 : zero(T),
         hasproperty(rv.table, :rv0_3) ? rv.table.rv0_3 : zero(T),
         hasproperty(rv.table, :rv0_4) ? rv.table.rv0_4 : zero(T),
+        hasproperty(rv.table, :rv0_5) ? rv.table.rv0_5 : zero(T),
+        hasproperty(rv.table, :rv0_6) ? rv.table.rv0_6 : zero(T),
     )
     jitter_inst = (
         hasproperty(rv.table, :jitter_1) ? rv.table.jitter_1 : zero(T),
         hasproperty(rv.table, :jitter_2) ? rv.table.jitter_2 : zero(T),
         hasproperty(rv.table, :jitter_3) ? rv.table.jitter_3 : zero(T),
         hasproperty(rv.table, :jitter_4) ? rv.table.jitter_4 : zero(T),
+        hasproperty(rv.table, :jitter_5) ? rv.table.jitter_5 : zero(T),
+        hasproperty(rv.table, :jitter_6) ? rv.table.jitter_6 : zero(T),
     )
     # Vector of radial velocity of the star at each epoch. Go through and sum up the influence of
     # each planet and put it into here. 
@@ -81,11 +85,13 @@ function Octofitter.ln_like(rv::RadialVelocityLikelihood, θ_system, elements, n
         orbit = elements[planet_i]
         # Need to structarrays orbit???
         planet_mass = θ_system.planets[planet_i].mass
-        @turbo for epoch_i in eachindex(epochs)
+        # @turbo
+        for epoch_i in eachindex(epochs)
             rv_star[epoch_i] += radvel(orbit, epochs[epoch_i], planet_mass*Octofitter.mjup2msol)
         end
     end
-    @turbo for i in eachindex(epochs)
+    # @turbo 
+    for i in eachindex(epochs)
         # Each measurement is tagged with a jitter and rv zero point variable.
         # We then query the system variables for them.
         # A previous implementation used symbols instead of indices but it was too slow.
