@@ -184,8 +184,8 @@ function __init__()
         
         File size: 132MiB
         """,
-        "17b2a7f47569de11ff1747a96997203431c81586ffcf08212ddaa250bb879a40",
         "https://www2.mpia-hd.mpg.de/homes/trifonov/HARPS_RVBank_v1.csv",
+        "17b2a7f47569de11ff1747a96997203431c81586ffcf08212ddaa250bb879a40",
     ))
 
     register(DataDep("HIRES_rvs",
