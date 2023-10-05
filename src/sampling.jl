@@ -510,9 +510,9 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 end
                 ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
                     cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
-                    ForwardDiff.gradient!(diffresults[1], ℓπcallback, initial_θ_0_t, cfg)
+                    ForwardDiff.gradient!(diffresults[1], ℓπcallback, initial_θ_0_t, cfg, Val{false}())
                     t = minimum(
-                        @elapsed ForwardDiff.gradient!(diffresults[1], ℓπcallback, initial_θ_0_t, cfg)
+                        @elapsed ForwardDiff.gradient!(diffresults[1], ℓπcallback, initial_θ_0_t, cfg, Val{false}())
                         for _ in 1:10
                     )
 
@@ -525,7 +525,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
                 ∇ℓπcallback = let cfg=cfg, diffresults=diffresults, ℓπcallback=ℓπcallback
                     function (θ_transformed)
-                        result = ForwardDiff.gradient!(diffresults[Threads.threadid()], ℓπcallback, θ_transformed, cfg)
+                        result = ForwardDiff.gradient!(diffresults[Threads.threadid()], ℓπcallback, θ_transformed, cfg, Val{false}())
                         return DiffResults.value(result), DiffResults.gradient(result)
                         # return DiffResults.gradient(result)
                     end
