@@ -251,14 +251,14 @@ rvs = RadialVelocityLikelihood(
 
 @system ϵEri begin
     M = 0.78,
-    plx = gaia_plx(;gaia_id),
-    pmra = Normal(-975, 10),
-    pmdec = Normal(20,  10),
+    plx ~ gaia_plx(;gaia_id),
+    pmra ~ Normal(-975, 10),
+    pmdec ~ Normal(20,  10),
 
-    rv0_1 = Normal(0,10),
-    rv0_2 = Normal(0,10),
-    jitter_1 = truncated(Normal(0,10),lower=0),
-    jitter_2 = truncated(Normal(0,10),lower=0),
+    rv0_1 ~ Normal(0,10),
+    rv0_2 ~ Normal(0,10),
+    jitter_1 ~ truncated(Normal(0,10),lower=0),
+    jitter_2 ~ truncated(Normal(0,10),lower=0),
 end HGCALikelihood(;gaia_id) rvs b
 
 ## Build model
