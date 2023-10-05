@@ -43,6 +43,11 @@ The package supports only bound, 2-body Keplerian orbits. Support for hyperbolic
 
 See also: the python libraries [Orbitize!](https://orbitize.readthedocs.io/en/latest/), [orvara](https://github.com/t-brandt/orvara), and [exoplanet](https://docs.exoplanet.codes/en/latest/).
 
+### Read the paper
+In addition to these documentation and tutorial pages, you can read the paper published in the [Astronomical Journal](https://dx.doi.org/10.3847/1538-3881/acf5cc) (open-access).
+
+Please cite this paper if you use Octofitter in your work.
+
 
 ### Getting Started
 ```@contents
