@@ -11,6 +11,22 @@ using RecipesBase
 
 # Radial Velocity data type
 const rv_cols = (:epoch, :rv, :σ_rv)
+
+
+"""
+    RadialVelocityLikelihood(
+        (;inst_idx=1, epoch=5000.0,  rv=−6.54, σ_rv=1.30),
+        (;inst_idx=1, epoch=5050.1,  rv=−3.33, σ_rv=1.09),
+        (;inst_idx=1, epoch=5100.2,  rv=7.90,  σ_rv=.11),
+    )
+
+Represents a likelihood function of relative astometry between a host star and a secondary body.
+`:epoch` (mjd), `:rv` (km/s), and `:σ_rv` (km/s), and `:inst_idx` are all required.
+
+`:inst_idx` is used to distinguish RV time series between insturments so that they may optionally
+be fit with different zero points and jitters.
+In addition to the example above, any Tables.jl compatible source can be provided.
+"""
 struct RadialVelocityLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
     table::TTable
     function RadialVelocityLikelihood(observations...)
@@ -168,8 +184,8 @@ function __init__()
         
         File size: 132MiB
         """,
-        "17b2a7f47569de11ff1747a96997203431c81586ffcf08212ddaa250bb879a40",
         "https://www2.mpia-hd.mpg.de/homes/trifonov/HARPS_RVBank_v1.csv",
+        "17b2a7f47569de11ff1747a96997203431c81586ffcf08212ddaa250bb879a40",
     ))
 
     register(DataDep("HIRES_rvs",

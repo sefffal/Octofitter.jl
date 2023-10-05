@@ -23,6 +23,8 @@ from juliacall import Pkg
 Pkg.add(jl.map(jl.String, ['Octofitter','Distributions','Plots']))
 ```
 
+!!! note You only need to run this step once to install everything. Don't repeat it each time you fit a model.
+
 ### Step 4 
 Use Octofitter from inside python.
 

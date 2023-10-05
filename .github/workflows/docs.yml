@@ -20,7 +20,7 @@ jobs:
         with:
           version: '1.9'
       - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")));Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterImages")));'
+        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.develop(PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")));'
       - uses: actions/cache@v1
         env:
           cache-name: cache-artifacts
@@ -33,6 +33,8 @@ jobs:
             ${{ runner.os }}-
       - name: Build and deploy
         env:
+          DATADEPS_ALWAYS_ACCEPT: true
+          GKSwstype: 100 # use software renderer for Plots.jl since headless
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
           # DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key
         run: julia --project=docs/ docs/make.jl

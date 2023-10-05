@@ -5,7 +5,7 @@ Multiple instruments (up to five) are supported.
 
 !!! tip
     Radial velocity modelling is supported in Octofitter via the extension package OctofitterRadialVelocity. To install it, run 
-    `pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterRadialVelocity`
+    `pkg> add OctofitterRadialVelocity`
 
 Load the packages we'll need:
 ```@example 1
@@ -15,8 +15,8 @@ using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, Plots
 We can specify a table of radial velocity data manually by creating a [`RadialVelocityLikelihood`](@ref). An example of this is in [the other RV tutorial](@ref fit-rv-pma).
 
 We can also directly load in data from the HARPS RVBank dataset:
-```julia
-rvs = OctofitterRadialVelocityLikelihood.HARPS_rvs("GJ436")
+```@example 1
+rvs = OctofitterRadialVelocity.HARPS_rvs("GJ436")
 ```
 
 Now, create a planet. Since we're only fitting radial velocity data, we
@@ -25,7 +25,7 @@ fix some of these parameters
 @planet b Visual{KepOrbit} begin
     τ ~ UniformCircular(1.0)
     mass ~ truncated(Normal(21.3*0.00314558, 8*0.00314558),lower=0)
-    a ~truncated(Normal(0.028, 0.02), lower=0)
+    a ~ truncated(Normal(0.028, 0.02), lower=0)
     i = pi/2
     e ~ Uniform(0, 0.5)
     ω ~ UniformCircular()

@@ -56,6 +56,14 @@ end
 export sonora_photometry_interpolator
 
 
+"""
+    itp = sonora_cooling_interpolator()
+
+
+Create a function mapping (age_Myr, mass_Mjup) -> temp_K using Sonora Bobcat
+cooling model grids.
+    
+"""
 function sonora_cooling_interpolator(metalicity="+0.0";catalog=datadep"SonoraBobcatEvoPhot")
 
     # Load Sonora cooling track 
