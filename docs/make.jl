@@ -5,7 +5,7 @@ pkg"dev .. ../OctofitterRadialVelocity ../OctofitterImages ../OctofitterWhereist
 Pkg.instantiate()
 Pkg.precompile()
 
-using Documenter, Octofitter
+using Documenter, Octofitter, OctofitterRadialVelocity
 
 
 makedocs(
