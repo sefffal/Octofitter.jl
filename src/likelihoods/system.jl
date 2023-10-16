@@ -131,6 +131,7 @@ function make_ln_like(system::System, θ_system)
 
     planet_exprs = Expr[]
     planet_keys = Symbol[]
+    j = 0
     for i in eachindex(system.planets)
         planet = system.planets[i]
         OrbitType = _planet_orbit_type(planet)
@@ -138,13 +139,16 @@ function make_ln_like(system::System, θ_system)
         key = Symbol("planet_$i")
 
         likelihood_exprs = map(eachindex(planet.observations)) do like
-            :(
-                ll += ln_like(
+            expr = :(
+                $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
                     system.planets[$(Meta.quot(i))].observations[$like],
+                    # $(system.planets[i].observations[like]),
                     θ_system.planets.$i,
                     $(key)
                 )
             )
+            j+=1
+            return expr
         end
 
         planet_contruction = quote
@@ -159,12 +163,14 @@ function make_ln_like(system::System, θ_system)
     sys_exprs = map(system.observations) do like
         # Provide the number of observations as a compile time constant
         L = Val(length(like.table))
-        :(ll += ln_like($like, θ_system, elems, $L))
+        expr = :( $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) +  ln_like($like, θ_system, elems, $L))
+        j+=1
+        return expr
     end
 
     return @RuntimeGeneratedFunction(:(function (system::System, θ_system)
 
-        ll = zero(first(θ_system))
+        ll0 = zero(first(θ_system))
 
         # Construct all orbit elements and evaluate all their individual observation likelihoods
         $(planet_exprs...)
@@ -174,7 +180,7 @@ function make_ln_like(system::System, θ_system)
         
         $(sys_exprs...)
 
-        return ll
+        return $(Symbol("ll$j"))
     end))
 
 

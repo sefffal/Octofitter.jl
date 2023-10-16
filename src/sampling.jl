@@ -404,12 +404,18 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
             # We also set up temporary storage to reduce allocations
             # ForwardDiff is used to compute the likelihood gradients using the in-place 
             # API. This ensures type stability.
-            function ℓπcallback(θ_transformed, system=system)
+            function ℓπcallback(θ_transformed, system=system, arr2nt=arr2nt, Bijector_invlinkvec=Bijector_invlinkvec)
                 # Transform back from the unconstrained support to constrained support for the likelihood function
                 θ_natural = Bijector_invlinkvec(θ_transformed)
                 θ_structured = arr2nt(θ_natural)
-                lprior = ln_prior_transformed(θ_natural)
-                llike  = ln_like_generated(system, θ_structured)
+                lprior = @inline ln_prior_transformed(θ_natural)
+                # CAUTION: This inline annotation is necessary for correct gradients. Yikes!
+                llike  = @inline ln_like_generated(system, θ_structured)
+                # llike = 0.0
+                # llike += Octofitter.ln_like(system.planets.b.observations[1], θ_structured.planets.b, Octofitter.Visual{KepOrbit}(;θ_structured...,θ_structured.planets.b...))
+                # llike += Octofitter.ln_like(system.planets.b.observations[2], θ_structured.planets.b, Octofitter.Visual{KepOrbit}(;θ_structured...,θ_structured.planets.b...))
+                # llike += Octofitter.ln_like(system.planets.b.observations[3], θ_structured.planets.b, Octofitter.Visual{KepOrbit}(;θ_structured...,θ_structured.planets.b...))
+                
                 lpost = lprior+llike
                 # if !isfinite(lprior)
                 #     @error "Invalid log prior encountered. This likely indicates a problem with the prior support."
@@ -424,36 +430,57 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
 
             # Test likelihood function immediately to give user a clean error
             # if it fails for some reason.
-            ℓπcallback(initial_θ_0_t)
-
+            ℓπcallback(initial_θ_0_t,)
+            # return (ℓπcallback,
+            # initial_θ_0_t,
+            # system,
+            # arr2nt,
+            # Bijector_invlinkvec,
+            # )
             if autodiff == :Enzyme
                 # Enzyme mode:
                 ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
                     system_tmp = deepcopy(system)
-                    function (θ_t)
-                       
-                        # fill!(diffresult,0)
-
-                        # primal, = Main.Enzyme.autodiff(
-                        #     Main.Enzyme.Forward,
-                        #     # ℓπcallback,
-                        #     Main.Enzyme.Duplicated(ℓπcallback,ℓπcallback),
-                        #     # Main.Enzyme.Duplicated,
-                        #     Main.Enzyme.Duplicated(θ_t,diffresult),
-                        #     # Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
-                        #     Main.Enzyme.Duplicated(system, system_tmp)
-                        # )
-                        
-                        fill!(diffresult,0)
-                        _, primal = Main.Enzyme.autodiff(
-                            Main.Enzyme.ReverseWithPrimal,
-                            Main.Enzyme.Duplicated(ℓπcallback,ℓπcallback),
-                            Main.Enzyme.Active,
-                            Main.Enzyme.Duplicated(θ_t,diffresult),
-                            Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
+                    oh = Main.Enzyme.onehot(diffresult)
+                    forward = function (θ_t)
+                        primal, out = Main.Enzyme.autodiff(
+                            Main.Enzyme.Forward,
+                            ℓπcallback,
+                            Main.Enzyme.Duplicated,
+                            Main.Enzyme.BatchDuplicated(θ_t,oh),
+                            (system),
+                            (arr2nt),
+                            (Bijector_invlinkvec)
                         )
-
+                        return primal, out
+                    end
+                    reverse = function (θ_t)
+                        fill!(diffresult,0)
+                        primal = @inline ℓπcallback(θ_t)
+                        @inline Main.Enzyme.autodiff(
+                            Main.Enzyme.Reverse,
+                            ℓπcallback,
+                            Main.Enzyme.Duplicated(θ_t,diffresult),
+                            Main.Enzyme.DuplicatedNoNeed(system,system_tmp),
+                            Main.Enzyme.Const(arr2nt),
+                            Main.Enzyme.Const(Bijector_invlinkvec)
+                        )
                         return primal, diffresult
+                    end 
+                    tforward = minimum(
+                        @elapsed forward(initial_θ_0_t)
+                        for _ in 1:100
+                    )
+                    treverse = minimum(
+                        @elapsed reverse(initial_θ_0_t)
+                        for _ in 1:100
+                    )
+                    if tforward > treverse
+                        verbosity > 2  && @info "selected reverse mode AD" tforward treverse
+                        reverse
+                    else
+                        verbosity > 2  && @info "selected forward mode AD" tforward treverse
+                        forward
                     end
                 end
 
@@ -500,7 +527,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 # We're going to call this thousands of times so worth a few calls
                 # to get this optimized.
                 if isnothing(chunk_sizes)
-                    if D < 20
+                    if D < 40
                         # If less than 20 dimensional, a single chunk with ForwardDiff
                         # is almost always optimial.
                         chunk_sizes = D

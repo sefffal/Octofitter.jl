@@ -431,15 +431,16 @@ function make_arr2nt(system::System)
             )
             push!(body_planet_priors,ex)
         end
-
+        j = 0
         body_planet_determ = Expr[]
         if !isnothing(planet.derived)
             # Resolve derived vars.
             for (key,func) in zip(keys(planet.derived.variables), values(planet.derived.variables))
                 ex = :(
-                    planet = (; planet..., $key = $func(sys, planet))
+                    $(Symbol("planet$(j+1)")) = (; $(Symbol("planet$j"))..., $key = $func(sys, $(Symbol("planet$j"))))
                 )
                 push!(body_planet_determ,ex)
+                j += 1
             end
 
             ex = :(
@@ -450,9 +451,9 @@ function make_arr2nt(system::System)
             )
         end
         ex = :($(planet.name) = begin
-            planet = (;$(body_planet_priors...));
+            planet0 = (;$(body_planet_priors...));
             $(body_planet_determ...);
-            planet
+            $(Symbol("planet$(j)"))
         end)
         push!(body_planets,ex)
     end
