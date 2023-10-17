@@ -42,6 +42,7 @@ include("likelihoods/system.jl")
 include("likelihoods/relative-astrometry.jl")
 include("likelihoods/photometry.jl")
 include("likelihoods/hgca.jl")
+include("likelihoods/observable.jl")
 
 include("sampling.jl")
 
@@ -99,6 +100,6 @@ function __init__()
 end
 
 if VERSION != v"1.10.0-beta1"
-    include("precompile.jl")
+    # include("precompile.jl")
 end
 end

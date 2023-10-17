@@ -8,6 +8,7 @@ AstrometryLikelihood
 RadialVelocityLikelihood              
 PhotometryLikelihood
 HGCALikelihood
+ObsPriorAstromONeil2019
 Sine
 Planet
 System
