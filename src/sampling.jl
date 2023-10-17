@@ -441,19 +441,19 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 # Enzyme mode:
                 ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
                     system_tmp = deepcopy(system)
-                    oh = Main.Enzyme.onehot(diffresult)
-                    forward = function (θ_t)
-                        primal, out = Main.Enzyme.autodiff(
-                            Main.Enzyme.Forward,
-                            ℓπcallback,
-                            Main.Enzyme.Duplicated,
-                            Main.Enzyme.BatchDuplicated(θ_t,oh),
-                            (system),
-                            (arr2nt),
-                            (Bijector_invlinkvec)
-                        )
-                        return primal, out
-                    end
+                    # oh = Main.Enzyme.onehot(diffresult)
+                    # forward = function (θ_t)
+                    #     primal, out = Main.Enzyme.autodiff(
+                    #         Main.Enzyme.Forward,
+                    #         ℓπcallback,
+                    #         Main.Enzyme.Duplicated,
+                    #         Main.Enzyme.BatchDuplicated(θ_t,oh),
+                    #         (system),
+                    #         (arr2nt),
+                    #         (Bijector_invlinkvec)
+                    #     )
+                    #     return primal, out
+                    # end
                     reverse = function (θ_t)
                         fill!(diffresult,0)
                         primal = @inline ℓπcallback(θ_t)
@@ -467,21 +467,21 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                         )
                         return primal, diffresult
                     end 
-                    tforward = minimum(
-                        @elapsed forward(initial_θ_0_t)
-                        for _ in 1:100
-                    )
-                    treverse = minimum(
-                        @elapsed reverse(initial_θ_0_t)
-                        for _ in 1:100
-                    )
-                    if tforward > treverse
-                        verbosity > 2  && @info "selected reverse mode AD" tforward treverse
-                        reverse
-                    else
-                        verbosity > 2  && @info "selected forward mode AD" tforward treverse
-                        forward
-                    end
+                    # tforward = minimum(
+                    #     @elapsed forward(initial_θ_0_t)
+                    #     for _ in 1:100
+                    # )
+                    # treverse = minimum(
+                    #     @elapsed reverse(initial_θ_0_t)
+                    #     for _ in 1:100
+                    # )
+                    # if tforward > treverse
+                    #     verbosity > 2  && @info "selected reverse mode AD" tforward treverse
+                    #     reverse
+                    # else
+                    #     verbosity > 2  && @info "selected forward mode AD" tforward treverse
+                    #     forward
+                    # end
                 end
 
 
