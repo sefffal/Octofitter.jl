@@ -42,6 +42,7 @@ include("likelihoods/system.jl")
 include("likelihoods/relative-astrometry.jl")
 include("likelihoods/photometry.jl")
 include("likelihoods/hgca.jl")
+include("likelihoods/observable.jl")
 
 include("sampling.jl")
 
@@ -72,7 +73,8 @@ function __init__()
 
         File size: 19MiB
         """,
-        "http://physics.ucsb.edu/~tbrandt/HGCA_vEDR3.fits",
+        # "http://physics.ucsb.edu/~tbrandt/HGCA_vEDR3.fits", # file is now 404
+        "https://raw.githubusercontent.com/t-brandt/orvara/master/HGCA_vEDR3.fits",
         "23684d583baaa236775108b360c650e79770a695e16914b1201f290c1826065c"
     ))
 
@@ -98,6 +100,6 @@ function __init__()
 end
 
 if VERSION != v"1.10.0-beta1"
-    include("precompile.jl")
+    # include("precompile.jl")
 end
 end

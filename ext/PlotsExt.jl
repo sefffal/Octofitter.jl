@@ -409,7 +409,7 @@ function timeplot!(
                 end
 
                 if hasproperty(obs.table, :inst_idx)
-                    idxes = length(unique(obs.table.inst_idx))
+                    idxes = maximum(obs.table.inst_idx)
                 else
                     idxes = 1
                 end

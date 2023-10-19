@@ -404,12 +404,18 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
             # We also set up temporary storage to reduce allocations
             # ForwardDiff is used to compute the likelihood gradients using the in-place 
             # API. This ensures type stability.
-            function ℓπcallback(θ_transformed, system=system)
+            function ℓπcallback(θ_transformed, system=system, arr2nt=arr2nt, Bijector_invlinkvec=Bijector_invlinkvec)
                 # Transform back from the unconstrained support to constrained support for the likelihood function
                 θ_natural = Bijector_invlinkvec(θ_transformed)
                 θ_structured = arr2nt(θ_natural)
-                lprior = ln_prior_transformed(θ_natural)
-                llike  = ln_like_generated(system, θ_structured)
+                lprior = @inline ln_prior_transformed(θ_natural)
+                # CAUTION: This inline annotation is necessary for correct gradients. Yikes!
+                llike  = @inline ln_like_generated(system, θ_structured)
+                # llike = 0.0
+                # llike += Octofitter.ln_like(system.planets.b.observations[1], θ_structured.planets.b, Octofitter.Visual{KepOrbit}(;θ_structured...,θ_structured.planets.b...))
+                # llike += Octofitter.ln_like(system.planets.b.observations[2], θ_structured.planets.b, Octofitter.Visual{KepOrbit}(;θ_structured...,θ_structured.planets.b...))
+                # llike += Octofitter.ln_like(system.planets.b.observations[3], θ_structured.planets.b, Octofitter.Visual{KepOrbit}(;θ_structured...,θ_structured.planets.b...))
+                
                 lpost = lprior+llike
                 # if !isfinite(lprior)
                 #     @error "Invalid log prior encountered. This likely indicates a problem with the prior support."
@@ -424,37 +430,58 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
 
             # Test likelihood function immediately to give user a clean error
             # if it fails for some reason.
-            ℓπcallback(initial_θ_0_t)
-
+            ℓπcallback(initial_θ_0_t,)
+            # return (ℓπcallback,
+            # initial_θ_0_t,
+            # system,
+            # arr2nt,
+            # Bijector_invlinkvec,
+            # )
             if autodiff == :Enzyme
                 # Enzyme mode:
                 ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
                     system_tmp = deepcopy(system)
-                    function (θ_t)
-                       
-                        # fill!(diffresult,0)
-
-                        # primal, = Main.Enzyme.autodiff(
-                        #     Main.Enzyme.Forward,
-                        #     # ℓπcallback,
-                        #     Main.Enzyme.Duplicated(ℓπcallback,ℓπcallback),
-                        #     # Main.Enzyme.Duplicated,
-                        #     Main.Enzyme.Duplicated(θ_t,diffresult),
-                        #     # Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
-                        #     Main.Enzyme.Duplicated(system, system_tmp)
-                        # )
-                        
+                    # oh = Main.Enzyme.onehot(diffresult)
+                    # forward = function (θ_t)
+                    #     primal, out = Main.Enzyme.autodiff(
+                    #         Main.Enzyme.Forward,
+                    #         ℓπcallback,
+                    #         Main.Enzyme.Duplicated,
+                    #         Main.Enzyme.BatchDuplicated(θ_t,oh),
+                    #         (system),
+                    #         (arr2nt),
+                    #         (Bijector_invlinkvec)
+                    #     )
+                    #     return primal, out
+                    # end
+                    reverse = function (θ_t)
                         fill!(diffresult,0)
-                        _, primal = Main.Enzyme.autodiff(
-                            Main.Enzyme.ReverseWithPrimal,
-                            Main.Enzyme.Duplicated(ℓπcallback,ℓπcallback),
-                            Main.Enzyme.Active,
+                        primal = @inline ℓπcallback(θ_t)
+                        @inline Main.Enzyme.autodiff(
+                            Main.Enzyme.Reverse,
+                            ℓπcallback,
                             Main.Enzyme.Duplicated(θ_t,diffresult),
-                            Main.Enzyme.DuplicatedNoNeed(system, system_tmp)
+                            Main.Enzyme.DuplicatedNoNeed(system,system_tmp),
+                            Main.Enzyme.Const(arr2nt),
+                            Main.Enzyme.Const(Bijector_invlinkvec)
                         )
-
                         return primal, diffresult
-                    end
+                    end 
+                    # tforward = minimum(
+                    #     @elapsed forward(initial_θ_0_t)
+                    #     for _ in 1:100
+                    # )
+                    # treverse = minimum(
+                    #     @elapsed reverse(initial_θ_0_t)
+                    #     for _ in 1:100
+                    # )
+                    # if tforward > treverse
+                    #     verbosity > 2  && @info "selected reverse mode AD" tforward treverse
+                    #     reverse
+                    # else
+                    #     verbosity > 2  && @info "selected forward mode AD" tforward treverse
+                    #     forward
+                    # end
                 end
 
 
@@ -500,7 +527,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 # We're going to call this thousands of times so worth a few calls
                 # to get this optimized.
                 if isnothing(chunk_sizes)
-                    if D < 20
+                    if D < 40
                         # If less than 20 dimensional, a single chunk with ForwardDiff
                         # is almost always optimial.
                         chunk_sizes = D
@@ -678,9 +705,14 @@ end
 
 
 # Fallback when no random number generator is provided (as is usually the case)
-function advancedhmc(model::LogDensityModel, target_accept::Number=0.8, ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial(); kwargs...)
-    return advancedhmc(Random.default_rng(), model, target_accept, ensemble; kwargs...)
+function advancedhmc(model::LogDensityModel, target_accept::Number=0.8; kwargs...)
+    return advancedhmc(Random.default_rng(), model, target_accept; kwargs...)
 end
+
+function octofit(args...; kwargs...)
+    return advancedhmc(args...; kwargs...)
+end
+export octofit
 
 
 """
@@ -691,12 +723,10 @@ The method signature of Octofitter.hmc is as follows:
         model::Octofitter.LogDensityModel
         target_accept::Number=0.8,
         ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
-        num_chains=1,
         adaptation,
         iterations,
-        thinning=1,
-        discard_initial=adaptation,
-        tree_depth=12,
+        drop_warmup=true,
+        max_depth=12,
         initial_samples=50_000,
         initial_parameters=nothing,
         step_size=nothing,
@@ -719,20 +749,20 @@ initial_samples from the priors.
 The sample with the highest posterior value will be used as the starting point.
 """
 function advancedhmc(
-    rng::Random.AbstractRNG,
+    rng::Union{AbstractRNG, AbstractVector{<:AbstractRNG}},
     model::LogDensityModel,
-    target_accept::Number=0.8,
-    ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
-    num_chains=1,
+    target_accept::Number=0.8;
     adaptation,
     iterations,
-    thinning=1,
-    discard_initial=adaptation,
-    tree_depth=12,
+    drop_warmup=true,
+    max_depth=12,
     initial_samples=250_000,
     initial_parameters=nothing,
     verbosity=2,
 )
+    if adaptation < 1000
+        @warn "At least 1000 steps of adapation are recomended for good sampling"
+    end
 
     # Guess initial starting positions by drawing from priors a bunch of times
     # and picking the best one (highest likelihood).
@@ -848,12 +878,12 @@ function advancedhmc(
     verbosity >= 3 && @info "Creating hamiltonian"
     hamiltonian = Hamiltonian(metric, model)
     verbosity >= 3 && @info "Finding good stepsize"
-    ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
+    ϵ = find_good_stepsize(rng, hamiltonian, initial_θ_t)
     verbosity >= 3 && @info "Found initial stepsize" ϵ 
 
     # Create integrator. Had best luck with JitteredLeapfrog but all perform similarily.
-    # integrator = Leapfrog(ϵ)
-    integrator = JitteredLeapfrog(ϵ, 0.05) # 5% normal distribution on step size to help in areas of high curvature. 
+    integrator = Leapfrog(ϵ)
+    # integrator = JitteredLeapfrog(ϵ, 0.05) # 5% normal distribution on step size to help in areas of high curvature. 
     # integrator = TemperedLeapfrog(ϵ, 1.05) 
     
     # This is an attempt at a custom integrator that scales down the step size
@@ -863,119 +893,18 @@ function advancedhmc(
 
 
     verbosity >= 3 && @info "Creating kernel"
-    # κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
-    # κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=tree_depth)
-
-    sampler = NUTS(
-        target_accept; # For dual averaging. I guess this could be different than for the adaptor below?
-        max_depth=tree_depth, # Maximum doubling tree depth.
-        Δ_max=1000, # Maximum divergence during doubling tree.
-        integrator = integrator,
-        metric = metric
-    )
-
+    kernel = HMCKernel(Trajectory{MultinomialTS}(integrator, GeneralisedNoUTurn(;max_depth)))
 
     
     verbosity >= 3 && @info "Creating adaptor"
     mma = MassMatrixAdaptor(metric)
     ssa = StepSizeAdaptor(target_accept, integrator)
     adaptor = StanHMCAdaptor(mma, ssa) 
-    # adaptor = StepSizeAdaptor(target_accept, integrator)
 
 
-    verbosity >= 1 && @info "Sampling, beginning with adaptation phase..."
-    start_time = fill(time(), num_chains)
 
-    # # Neat: it's possible to return a live iterator
-    # # We could use this to build e.g. live plotting while the code is running
-    # # once the analysis code is ported to Makie.
-    # # return  AbstractMCMC.steps(
-    # #     rng,
-    # #     model,
-    # #     sampler,
-    # #     nadapts = adaptation,
-    # #     init_params = initial_θ_t,
-    # #     discard_initial = adaptation,
-    # #     progress=progress,
-    # #     verbose=false
-    # # )
 
-    # Callback to print some additional output while sampling.
 
-    last_output_time = Ref(time())
-    function callback(rng, logdensitymodel, sampler, transition, state, iteration; kwargs...)
-        if verbosity >= 1 && iteration == 1
-            @info "Adaptation complete."
-            adapted_ss = AdvancedHMC.getϵ(adaptor)
-
-            # Show adapted step size and mass matrix
-            if verbosity >= 3
-                println("Adapated stepsize ϵ=", adapted_ss)
-                adapted_mm = AdvancedHMC.getM⁻¹(adaptor)
-                print("Adapted mass matrix M⁻¹ ")
-                display(adapted_mm)
-            end
-
-            if adapted_ss == 1.0
-                error("Failed to adapt step size (ϵ=1.0). Check your model.")
-            end
-            
-            @info "Sampling..."
-            verbosity >= 2 && println("Progress legend: divergence iter(thread) td=tree-depth ℓπ=log-posterior-density ")
-        end
-        if verbosity < 2 || last_output_time[] + 0.5 > time()
-            return
-        end
-        # Give different messages if the log-density is non-finite,
-        # or if there was a divergent transition.
-        if !isfinite(transition.z.ℓπ)
-            note = "∞ " 
-        elseif transition.stat.numerical_error
-            note = "❗"
-        else
-            note = "  "
-        end
-        if transition.z.ℓπ isa AdvancedHMC.DualValue
-            ℓπ = transition.z.ℓπ.value
-        else
-            ℓπ = transition.z.ℓπ
-        end
-
-        θ_message = ""
-        if verbosity >= 3
-            θ = model.invlink(transition.z.θ)
-            θ_res = model.arr2nt(θ)
-            # Fill the remaining width of the terminal with info
-            max_width = displaysize(stdout)[2]-34
-            θ_str = stringify_nested_named_tuple(θ_res)
-            θ_message = "θ="*θ_str
-            if length(θ_message) > max_width+2
-                lastind = prevind(θ_str, min(length(θ_str),max_width))
-                θ_message = θ_str[begin:lastind]*".."
-            end
-        end
-        
-        @printf("%2s%6d(%2d) td=%2d ℓπ=%6.0f. %s\n", note, iteration, Threads.threadid(), transition.stat.tree_depth, ℓπ, θ_message)
-    
-        # Support for live plotting orbits as we go.
-        # This code works but I found it slows down a lot as we go. Maybe it would
-        # work better with Makie.
-        # for p_i in keys(system.planets)
-        #     kep_elements = construct_elements(θ_res, θ_res.planets[p_i])
-        #     color = if transition.stat.numerical_error
-        #         :red
-        #     elseif iteration <= adaptation
-        #         :blue
-        #     else
-        #         :black
-        #     end
-        #     Main.plot!(kep_elements,color=color, label="")
-        # end
-        # display(Main.Plots.current())
-
-        last_output_time[] = time()
-        return
-    end
 
     # If using pathfinder, take N pathfinder draws as initial parameters (disabled)
     # if isnothing(initial_parameters)
@@ -992,109 +921,119 @@ function advancedhmc(
     #         ]
     #     end
     # else
-    if isnothing(initial_parameters)
-        initial_parameters = fill(initial_θ_t, num_chains)
-    else
-        if eltype(initial_parameters) <: Number
-            initial_parameters = fill(initial_parameters, num_chains)
-        else
-            # Assume they know what they're doing and are initializing multiple chains separately
-        end
-        initial_parameters = map(model.link, initial_parameters)
-    end
+    # if isnothing(initial_parameters)
+    #     initial_parameters = fill(initial_θ_t, num_chains)
+    # else
+    #     if eltype(initial_parameters) <: Number
+    #         initial_parameters = fill(initial_parameters, num_chains)
+    #     else
+    #         # Assume they know what they're doing and are initializing multiple chains separately
+    #     end
+    #     initial_parameters = map(model.link, initial_parameters)
+    # end
 
+    initial_parameters = initial_θ_t
 
-    mc_samples_all_chains = AbstractMCMC.sample(
+    verbosity >= 1 && @info "Sampling, beginning with adaptation phase..."
+    start_time = fill(time(), 1)
+    mc_samples, stats = AdvancedHMC.sample(
         rng,
-        model,
-        sampler,
-        ensemble,
-        iterations,
-        num_chains;
-        nadapts = adaptation,
+        hamiltonian,
+        kernel,
+        initial_parameters,
+        iterations+adaptation,
         adaptor,
-        thinning,
-        init_params=initial_parameters,
-        discard_initial,
-        progress=verbosity >= 1,
-        callback,
-        verbose=verbosity>=4
+        adaptation;
+        verbose=verbosity>=4,
+        progress=verbosity>=1,
+        drop_warmup,
     )
-    stop_time = fill(time(), num_chains)
-
+    stop_time = fill(time(), 1)
     
     verbosity >= 1 && @info "Sampling compete. Building chains."
 
     # Rebuild just the likelihood function (should already be compiled anyways)
     ln_like = make_ln_like(model.system, model.arr2nt(initial_θ))
 
-    # Go through each chain and repackage results
-    chains = MCMCChains.Chains[]
-    for (i,mc_samples) in enumerate(mc_samples_all_chains)
-        stat = map(s->s.stat, mc_samples)
-        numerical_error = getproperty.(stat, :numerical_error)
-        actual_tree_depth = getproperty.(stat, :tree_depth)
+    # Go through chain and repackage results
+    numerical_error = getproperty.(stats, :numerical_error)
+    actual_tree_depth = getproperty.(stats, :tree_depth)
      
-        mean_accept = mean(getproperty.(stat, :acceptance_rate))
-        num_err_frac = mean(numerical_error)
-        mean_tree_depth = mean(actual_tree_depth)
-        max_tree_depth_frac = mean(==(tree_depth), actual_tree_depth)
-    
-        verbosity >= 1 && println("""
-        Sampling report for chain $i:
-        mean_accept         = $mean_accept
-        num_err_frac        = $num_err_frac
-        mean_tree_depth     = $mean_tree_depth
-        max_tree_depth_frac = $max_tree_depth_frac\
-        """)
+    mean_accept = mean(getproperty.(stats, :acceptance_rate))
+    num_err_frac = mean(numerical_error)
+    mean_tree_depth = mean(actual_tree_depth)
+    max_tree_depth_frac = mean(==(max_depth), actual_tree_depth)
 
-        # Report some warnings if sampling did not work well
-        if num_err_frac == 1.0
-            @error "Numerical errors encountered in ALL iterations. Check model and priors."
-        elseif num_err_frac > 0.1
-            @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
-        end
-        if max_tree_depth_frac > 0.1
-            @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
-        end
+    gradient_evaluations = 2sum(getproperty.(stats, :n_steps))
 
-        # Resolve the array back into the nested named tuple structure used internally.
-        # Augment with some internal fields
-        chain_res = map(enumerate(mc_samples)) do (i, sample)
-            # Map the variables back to the constrained domain and reconstruct the parameter
-            # named tuple structure.
-            θ_t = sample.z.θ
-            θ = model.invlink(θ_t)
-            resolved_namedtuple = model.arr2nt(θ)
-            # Add log posterior, tree depth, and numerical error reported by
-            # the sampler.
-            # Also recompute the log-likelihood and add that too.
-            loglike = ln_like(model.system, resolved_namedtuple)
-            return merge((;
-                loglike = loglike,
-                logpost = sample.z.ℓπ.value,
-                tree_depth = sample.stat.tree_depth,
-                numerical_error = sample.stat.numerical_error,
-            ), resolved_namedtuple)
-        end
-        # Then finally flatten and convert into an MCMCChain object / table.
-        # Mark the posterior, likelihood, numerical error flag, and tree depth as internal
-        chn = Octofitter.result2mcmcchain(
-            chain_res,
-            Dict(:internals => [:logpost, :loglike, :tree_depth, :numerical_error])
-        )
-        push!(chains, chn)
+    verbosity >= 1 && println("""
+    Sampling report for chain:
+    mean_accept         = $mean_accept
+    num_err_frac        = $num_err_frac
+    mean_tree_depth     = $mean_tree_depth
+    max_tree_depth_frac = $max_tree_depth_frac\
+    gradient_evaluations = $gradient_evaluations\
+    """)
 
-        # TODO: place the log posteriors, tree depth, and num_error flag into
-        # the chains as columns.
-        # Then, also reconstruct the log-likelihood as a column too.
-        # This will enable the augmented SBC using the log-like ranks.
-        # Also, check thinning.
-
+    # Report some warnings if sampling did not work well
+    if num_err_frac == 1.0
+        @error "Numerical errors encountered in ALL iterations. Check model and priors."
+    elseif num_err_frac > 0.1
+        @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
+    end
+    if max_tree_depth_frac > 0.1
+        @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
     end
 
-    # Concatenate the independent chains now that we have remapped / resolved the variables.
-    mcmcchains = AbstractMCMC.chainscat(chains...)
+    # Resolve the array back into the nested named tuple structure used internally.
+    # Augment with some internal fields
+    chain_res = map(zip(stats, mc_samples)) do (stat, θ_t)
+        # Map the variables back to the constrained domain and reconstruct the parameter
+        # named tuple structure.
+        θ = model.invlink(θ_t)
+        resolved_namedtuple = model.arr2nt(θ)
+        # Add log posterior, tree depth, and numerical error reported by
+        # the sampler.
+        # Also recompute the log-likelihood and add that too.
+        loglike = ln_like(model.system, resolved_namedtuple)
+        return merge((;
+            stat.n_steps,
+            stat.is_accept,
+            stat.acceptance_rate,
+            stat.hamiltonian_energy,
+            stat.hamiltonian_energy_error,
+            stat.max_hamiltonian_energy_error,
+            stat.tree_depth,
+            stat.numerical_error,
+            stat.step_size,
+            stat.nom_step_size,
+            stat.is_adapt,
+            loglike = loglike,
+            logpost = stat.log_density,
+        ), resolved_namedtuple)
+    end
+    # Then finally flatten and convert into an MCMCChain object / table.
+    # Mark the posterior, likelihood, numerical error flag, and tree depth as internal
+    mcmcchains = Octofitter.result2mcmcchain(
+        chain_res,
+        Dict(:internals => [
+            :n_steps
+            :is_accept
+            :acceptance_rate
+            :hamiltonian_energy
+            :hamiltonian_energy_error
+            :max_hamiltonian_energy_error
+            :tree_depth
+            :numerical_error
+            :step_size
+            :nom_step_size
+            :is_adapt
+            :loglike
+            :logpost
+            :tree_depth
+            :numerical_error
+        ])
+    )
 
     # Concatenate the log posteriors and make them the same shape as the chains (N_iters,N_vars,N_chains)
     # logposts_mat = reduce(hcat, logposts)
@@ -1103,10 +1042,6 @@ function advancedhmc(
         (;
             start_time,
             stop_time,
-            # model=model.system,
-            # logpost=logposts_mat,
-            # states=mc_samples_all_chains,
-            # pathfinder=pathfinder_chain_with_info,
         )
     )
     return mcmcchains_with_info
