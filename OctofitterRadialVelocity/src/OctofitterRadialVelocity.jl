@@ -153,6 +153,7 @@ jd2mjd(jd) = jd + 2400000.5
 
 include("harps.jl")
 include("hires.jl")
+include("radvel.jl")
 
 
 # Plot recipe for astrometry data
