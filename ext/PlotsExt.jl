@@ -465,7 +465,7 @@ function timeplot!(
                     end
                     
                     push!(x[inst_idx], row.epoch)
-                    push!(y[inst_idx], row.rv - barycentric_rv_inst)
+                    push!(y[inst_idx], row.rv + barycentric_rv_inst)
                     push!(yerr[inst_idx], row.σ_rv)
                 end
             end
