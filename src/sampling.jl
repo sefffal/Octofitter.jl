@@ -1,6 +1,4 @@
 using DiffResults
-# using AbstractDifferentiation
-# AD = AbstractDifferentiation
 using LinearAlgebra
 using Preferences
 
@@ -362,7 +360,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
     link::TLink
     invlink::TInvLink
     arr2nt::TArr2nt
-    function LogDensityModel(system::System; autodiff=:ForwardDiff, verbosity=0, chunk_sizes=nothing)
+    function LogDensityModel(system::System; autodiff=:Enzyme, verbosity=0, chunk_sizes=nothing)
         verbosity >= 1 && @info "Preparing model"
 
         # Choose parameter dimensionality and initial parameter value
@@ -441,13 +439,13 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 # Enzyme mode:
                 ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
                     system_tmp = deepcopy(system)
-                    # oh = Main.Enzyme.onehot(diffresult)
+                    # oh = Enzyme.onehot(diffresult)
                     # forward = function (θ_t)
-                    #     primal, out = Main.Enzyme.autodiff(
-                    #         Main.Enzyme.Forward,
+                    #     primal, out = Enzyme.autodiff(
+                    #         Enzyme.Forward,
                     #         ℓπcallback,
-                    #         Main.Enzyme.Duplicated,
-                    #         Main.Enzyme.BatchDuplicated(θ_t,oh),
+                    #         Enzyme.Duplicated,
+                    #         Enzyme.BatchDuplicated(θ_t,oh),
                     #         (system),
                     #         (arr2nt),
                     #         (Bijector_invlinkvec)
@@ -457,13 +455,13 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                     reverse = function (θ_t)
                         fill!(diffresult,0)
                         primal = @inline ℓπcallback(θ_t)
-                        @inline Main.Enzyme.autodiff(
-                            Main.Enzyme.Reverse,
+                        @inline Enzyme.autodiff(
+                            Enzyme.Reverse,
                             ℓπcallback,
-                            Main.Enzyme.Duplicated(θ_t,diffresult),
-                            Main.Enzyme.DuplicatedNoNeed(system,system_tmp),
-                            Main.Enzyme.Const(arr2nt),
-                            Main.Enzyme.Const(Bijector_invlinkvec)
+                            Enzyme.Duplicated(θ_t,diffresult),
+                            Enzyme.DuplicatedNoNeed(system,system_tmp),
+                            Enzyme.Const(arr2nt),
+                            Enzyme.Const(Bijector_invlinkvec)
                         )
                         return primal, diffresult
                     end 
@@ -483,12 +481,6 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                     #     forward
                     # end
                 end
-
-
-                ## Main.Enzyme.autodiff(ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
-                ## Main.Enzyme.autodiff(Main.Enzyme.Reverse, ℓπcallback, Main.Enzyme.Duplicated(θ_t,diffresult))
-                ## Main.Enzyme.autodiff(Main.Enzyme.Forward, ℓπcallback, Main.Enzyme.Duplicated, Main.Enzyme.Duplicated(θ_t,diffresult))
-
 
             elseif autodiff == :FiniteDiff
             

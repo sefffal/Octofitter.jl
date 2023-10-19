@@ -9,6 +9,7 @@ using AbstractMCMC
 using AdvancedHMC
 using NamedTupleTools
 using ForwardDiff
+using Enzyme
 using Logging
 using Statistics
 using StatsBase
@@ -99,7 +100,5 @@ function __init__()
     return
 end
 
-if VERSION != v"1.10.0-beta1"
-    # include("precompile.jl")
-end
+include("precompile.jl")
 end
