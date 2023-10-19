@@ -37,7 +37,7 @@ function radvel_posterior(
 
     M_star = rand(M_prior, size(semiamp))
 
-    msini = Msini.(semiamp, period_days, M_star, eccentricity)
+    msini = Msini2.(semiamp, period_yrs, M_star, eccentricity)
 
     cosi = (2 .* rand(length(semiamp))) .- 1
     inc = acos.(cosi)
@@ -49,6 +49,7 @@ function radvel_posterior(
     else
         omega_st_rad = fill(0.0, size(semiamp))
     end 
+    @show median(M_star) median(mtot) median(m_pl) median(inc)
     
     omega_pl_rad = omega_st_rad .+ π
     parallax = rand(plx_prior, length(semiamp))
@@ -66,7 +67,7 @@ function radvel_posterior(
     datagrid = hcat(
         M_star,
         parallax,
-        m_pl./Octofitter.mjup2msol,
+        m_pl,
         sma,
         inc,
         Ω,
@@ -121,29 +122,25 @@ Calculate Msini for a given K, P, stellar mass, and e
 Semi-amplitude K is in units of **earth masses**.
 Mstar is in solar mass units.
 
-Period must be in days.
+Period must be in years.
 
 Returns Msini in *jupiter masses*
 """
-function Msini(K, P, Mstar, e)
+function Msini2(K, P, Mstar, e)
 
-    K_Msun =  K * 0.0031Octofitter.mjup2msol
 
     # Normalization.
     # RV m/s of a 1.0 Jupiter mass planet tugging on a 1.0
     # solar mass star on a 1.0 year orbital period
     K_0 = 28.4329
 
+    P_year = P
 
-    P_year = P / 365.25
+    # First assume that Mp << Mstar
+    Msini = K / K_0 * sqrt(1.0 - e^2.0) * (Mstar)^(2.0 / 3.0) * P_year^(1 / 3.0)
 
-    # assumes that Mp << Mstar
-    Msini = K_Msun / K_0 * sqrt(1.0 - e^2) * Mstar^(2/3) * P_year^(1/3)
-
-    return Msini/Octofitter.mjup2msol
+    return Msini
 end
-
-
 
 
 
