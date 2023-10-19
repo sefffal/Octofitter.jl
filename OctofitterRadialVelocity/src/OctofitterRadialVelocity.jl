@@ -66,6 +66,10 @@ function Octofitter.ln_like(rv::RadialVelocityLikelihood, θ_system, elements, n
         hasproperty(rv.table, :rv0_4) ? rv.table.rv0_4 : zero(T),
         hasproperty(rv.table, :rv0_5) ? rv.table.rv0_5 : zero(T),
         hasproperty(rv.table, :rv0_6) ? rv.table.rv0_6 : zero(T),
+        hasproperty(rv.table, :rv0_7) ? rv.table.rv0_7 : zero(T),
+        hasproperty(rv.table, :rv0_8) ? rv.table.rv0_8 : zero(T),
+        hasproperty(rv.table, :rv0_9) ? rv.table.rv0_9 : zero(T),
+        hasproperty(rv.table, :rv0_10) ? rv.table.rv0_10 : zero(T),
     )
     jitter_inst = (
         hasproperty(rv.table, :jitter_1) ? rv.table.jitter_1 : zero(T),
@@ -74,6 +78,10 @@ function Octofitter.ln_like(rv::RadialVelocityLikelihood, θ_system, elements, n
         hasproperty(rv.table, :jitter_4) ? rv.table.jitter_4 : zero(T),
         hasproperty(rv.table, :jitter_5) ? rv.table.jitter_5 : zero(T),
         hasproperty(rv.table, :jitter_6) ? rv.table.jitter_6 : zero(T),
+        hasproperty(rv.table, :jitter_7) ? rv.table.jitter_7 : zero(T),
+        hasproperty(rv.table, :jitter_8) ? rv.table.jitter_8 : zero(T),
+        hasproperty(rv.table, :jitter_9) ? rv.table.jitter_9 : zero(T),
+        hasproperty(rv.table, :jitter_10) ? rv.table.jitter_10 : zero(T),
     )
     # Vector of radial velocity of the star at each epoch. Go through and sum up the influence of
     # each planet and put it into here. 
@@ -161,14 +169,30 @@ include("radvel.jl")
    
     xguide --> "time (mjd)"
     yguide --> "radvel (m/s)"
-    color --> :black
 
-    @series begin
-        label := nothing
-        seriestype := :scatter
-        markersize--> 0
-        yerr := rv.table.σ_rv
-        rv.table.epoch, rv.table.rv
+    multiple_instruments = hasproperty(rv.table,:inst_idx) && 
+                           length(unique(rv.table.inst_idx)) > 1
+    if !multiple_instruments
+        @series begin
+            color --> :black
+            label := nothing
+            seriestype := :scatter
+            markersize--> 0
+            yerr := rv.table.σ_rv
+            rv.table.epoch, rv.table.rv
+        end
+    else
+        for inst_idx in sort(unique(rv.table.inst_idx))
+            @series begin
+                label := nothing
+                seriestype := :scatter
+                markersize--> 0
+                color-->inst_idx
+                markerstrokecolor-->inst_idx
+                yerr := rv.table.σ_rv[rv.table.inst_idx.==inst_idx]
+                rv.table.epoch[rv.table.inst_idx.==inst_idx], rv.table.rv[rv.table.inst_idx.==inst_idx]
+            end
+        end
     end
 
 

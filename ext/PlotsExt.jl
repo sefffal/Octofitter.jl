@@ -407,7 +407,22 @@ function timeplot!(
                     barycentric_rv_inst_6 = median(vec(chain["rv0_6"]))
                     jitter = barycentric_rv_inst_6 = median(vec(chain["jitter_6"]))
                 end
-
+                if haskey(chain,:rv0_7)
+                    barycentric_rv_inst_7 = median(vec(chain["rv0_7"]))
+                    jitter = barycentric_rv_inst_7 = median(vec(chain["jitter_7"]))
+                end
+                if haskey(chain,:rv0_8)
+                    barycentric_rv_inst_8 = median(vec(chain["rv0_8"]))
+                    jitter = barycentric_rv_inst_8 = median(vec(chain["jitter_8"]))
+                end
+                if haskey(chain,:rv0_9)
+                    barycentric_rv_inst_9 = median(vec(chain["rv0_9"]))
+                    jitter = barycentric_rv_inst_9 = median(vec(chain["jitter_9"]))
+                end
+                if haskey(chain,:rv0_10)
+                    barycentric_rv_inst_10 = median(vec(chain["rv0_10"]))
+                    jitter = barycentric_rv_inst_10 = median(vec(chain["jitter_10"]))
+                end
                 if hasproperty(obs.table, :inst_idx)
                     idxes = maximum(obs.table.inst_idx)
                 else
@@ -435,10 +450,23 @@ function timeplot!(
                     elseif row.inst_idx == 6
                         inst_idx = 6
                         barycentric_rv_inst = barycentric_rv_inst_6
+                    elseif row.inst_idx == 7
+                        inst_idx = 7
+                        barycentric_rv_inst = barycentric_rv_inst_7
+                    elseif row.inst_idx == 8
+                        inst_idx = 8
+                        barycentric_rv_inst = barycentric_rv_inst_8
+                    elseif row.inst_idx == 9
+                        inst_idx = 9
+                        barycentric_rv_inst = barycentric_rv_inst_9
+                    elseif row.inst_idx == 10
+                        inst_idx = 10
+                        barycentric_rv_inst = barycentric_rv_inst_10
                     end
+                    
                     push!(x[inst_idx], row.epoch)
                     push!(y[inst_idx], row.rv - barycentric_rv_inst)
-                    push!(yerr[inst_idx], row.σ_rv + jitter)
+                    push!(yerr[inst_idx], row.σ_rv)
                 end
             end
         end
@@ -467,7 +495,7 @@ function timeplot!(
                     xerr=!isnothing(xerr) ? xerr[j] : nothing,
                     markerstrokewidth=1.5,
                     markerstrokecolor=:auto,
-                    markersize=2.5,
+                    markersize=1.5,
                     linecolor=j,
                     color=j
                 )
@@ -481,7 +509,7 @@ function timeplot!(
                 color=1,
                 markerstrokewidth=1.5,
                 markerstrokecolor=:auto,
-                markersize=2.5,
+                markersize=1.5,
             )
         end
     end
