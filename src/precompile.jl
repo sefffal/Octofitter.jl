@@ -30,24 +30,22 @@ using PrecompileTools
             end astrom
 
             @system Test begin
-                M ~ TruncatedNormal(1.0, 0.2, 0.1, Inf)
-                plx ~ TruncatedNormal(12.0, 0.2, 0.1, Inf)
+                M ~ truncated(Normal(1.0, 0.2), lower=0.1, upper=Inf)
+                plx ~ truncated(Normal(12.0, 0.2), lower=0.1, upper=Inf)
             end test
             show(io, "text/plain", test)
             show(io, "text/plain", Test)
 
-            model = Octofitter.LogDensityModel(Test)
+            # We can't yet use Enzyme during precompile...
+            # Precopmile with ForwardDiff at least
+            model = Octofitter.LogDensityModel(Test,autodiff=:ForwardDiff)
 
-            # This can't actually start since AdvancedHMC uses
-            # Requires to load in ForwardDiff. It's not available
-            # during precompile.
 
-            output = Octofitter.advancedhmc(
+            output = octofit(
                 model, 0.85,
-                adaptation = 5,
-                iterations = 10,
-                tree_depth = 5,
-                initial_samples = 5,
+                adaptation = 50,
+                iterations = 5,
+                max_depth = 5,
                 verbosity=0
             )
             # This would precompile the chain display (but crashes)
