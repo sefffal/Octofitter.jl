@@ -21,7 +21,6 @@ function radvel_posterior(
     plx_prior,
 
 )
-
     # Calculations adapted from Sarah Blunt's
     # https://github.com/sblunt/orbitize_radvel_utils/blob/main/compute_sep.py
 
@@ -64,25 +63,37 @@ function radvel_posterior(
     tau = @. (tp_mjd - tau_ref_epoch)/(period_days)
     tau = mod.(tau, 1.0)
 
+    datagrid = hcat(
+        M_star,
+        parallax,
+        m_pl./Octofitter.mjup2msol,
+        sma,
+        inc,
+        Ω,
+        eccentricity,
+        omega_pl_rad,
+        tau,
+        msini
+    )
+    cols = [:M, :plx, :b_mass, :b_a, :b_i, :b_Ω, :b_e, :b_ω, :b_τ, :b_msini]
+
+    # Gather jitter and gamma for all instruments
+    inst_names = last.(split.(filter(startswith("jit_"), names(table)), "_", limit=2))
+
+    @info "Instrument names" inst_names
+
+    for inst_idx in eachindex(inst_names)
+        inst_name = inst_names[inst_idx]
+        gamma = getproperty(table, Symbol("gamma_$(inst_name)"))
+        jit = getproperty(table, Symbol("jit_$(inst_name)"))
+        datagrid = hcat(datagrid, jit, gamma)
+        cols = vcat(cols, Symbol("jitter_$inst_idx"), Symbol("rv0_$inst_idx"))
+    end        
+    
+
     # [:loglike, :logpost, :tree_depth, :numerical_error, :M, :rv0_1, :rv0_2, :rv0_3, :rv0_4, :jitter_1, :jitter_2, :jitter_3, :jitter_4, :rv0_5, :jitter_5, :rv0_6, :jitter_6, :plx, :b_a, :b_τy, :b_τx, :b_mass, :b_i, :b_Ωy, :b_Ωx, :b_e, :b_ω, :b_τ, :b_Ω]
 
-    return MCMCChains.Chains(
-        # (data),
-        # (names)
-        hcat(
-            M_star,
-            parallax,
-            m_pl./Octofitter.mjup2msol,
-            sma,
-            inc,
-            Ω,
-            eccentricity,
-            omega_pl_rad,
-            tau,
-            msini
-        ),
-        [:M, :plx, :b_mass, :b_a, :b_i, :b_Ω, :b_e, :b_ω, :b_τ, :b_msini],
-    )
+    return MCMCChains.Chains(datagrid,cols,)
     # return map(eachindex(semiamp)) do i
     #     orbit(
     #         a=sma[i],
