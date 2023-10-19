@@ -14,7 +14,7 @@ function HIRES_search(target, catalog=datadep"HIRES_rvs")
     target_matched_i = findfirst(==(target), target_names)
 
     if isnothing(target_matched_i)
-        avail_filt = target_names[target_names.!=""] 
+        avail_filt = unique(target_names[target_names.!=""])
         similarity = evaluate.(Ref(Levenshtein()), target, avail_filt)
         ii = sortperm(similarity)
         closest_3 = avail_filt[ii[1:min(3,end)]]

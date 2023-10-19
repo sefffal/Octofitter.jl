@@ -10,7 +10,7 @@ function HARPS_observations(target, catalog=datadep"HARPS_RVBank")
     target_matched_i = findfirst(==(target), rvbank.target)
 
     if isnothing(target_matched_i)
-        avail_filt = rvbank.target[rvbank.target.!=""] 
+        avail_filt = unique(rvbank.target[rvbank.target.!=""])
         similarity = evaluate.(Ref(Levenshtein()), target, avail_filt)
         ii = sortperm(similarity)
         closest_3 = avail_filt[ii[1:min(3,end)]]
