@@ -377,51 +377,51 @@ function timeplot!(
             # TODO: make this pluggable instead of this hacky workaround
             if startswith(string(typeof(obs)), "RadialVelocityLikelihood")
                 if haskey(chain,:rv0)
-                    barycentric_rv_inst_1 = median(vec(chain["rv0"]))
-                    jitter = barycentric_rv_inst_1 = median(vec(chain["jitter"]))
+                    barycentric_rv_inst_1 =     mean(vec(chain["rv0"]))
+                    jitter_1 =  mean(vec(chain["jitter"]))
                 else
                     barycentric_rv_inst_1 = 0
-                    jitter = barycentric_rv_inst_1 = 0
+                    jitter_1 = 0
                 end
                 if haskey(chain,:rv0_1)
-                    barycentric_rv_inst_1 = median(vec(chain["rv0_1"]))
-                    jitter = barycentric_rv_inst_1 = median(vec(chain["jitter_1"]))
+                    barycentric_rv_inst_1 =     mean(vec(chain["rv0_1"]))
+                    jitter_1 =  mean(vec(chain["jitter_1"]))
                 end
                 if haskey(chain,:rv0_2)
-                    barycentric_rv_inst_2 = median(vec(chain["rv0_2"]))
-                    jitter = barycentric_rv_inst_2 = median(vec(chain["jitter_2"]))
+                    barycentric_rv_inst_2 =     mean(vec(chain["rv0_2"]))
+                    jitter_2 =  mean(vec(chain["jitter_2"]))
                 end
                 if haskey(chain,:rv0_3)
-                    barycentric_rv_inst_3 = median(vec(chain["rv0_3"]))
-                    jitter = barycentric_rv_inst_3 = median(vec(chain["jitter_3"]))
+                    barycentric_rv_inst_3 =     mean(vec(chain["rv0_3"]))
+                    jitter_3 =  mean(vec(chain["jitter_3"]))
                 end
                 if haskey(chain,:rv0_4)
-                    barycentric_rv_inst_4 = median(vec(chain["rv0_4"]))
-                    jitter = barycentric_rv_inst_4 = median(vec(chain["jitter_4"]))
+                    barycentric_rv_inst_4 =     mean(vec(chain["rv0_4"]))
+                    jitter_4 =  mean(vec(chain["jitter_4"]))
                 end
                 if haskey(chain,:rv0_5)
-                    barycentric_rv_inst_5 = median(vec(chain["rv0_5"]))
-                    jitter = barycentric_rv_inst_5 = median(vec(chain["jitter_5"]))
+                    barycentric_rv_inst_5 =     mean(vec(chain["rv0_5"]))
+                    jitter_5 =  mean(vec(chain["jitter_5"]))
                 end
                 if haskey(chain,:rv0_6)
-                    barycentric_rv_inst_6 = median(vec(chain["rv0_6"]))
-                    jitter = barycentric_rv_inst_6 = median(vec(chain["jitter_6"]))
+                    barycentric_rv_inst_6 =     mean(vec(chain["rv0_6"]))
+                    jitter_6 =  mean(vec(chain["jitter_6"]))
                 end
                 if haskey(chain,:rv0_7)
-                    barycentric_rv_inst_7 = median(vec(chain["rv0_7"]))
-                    jitter = barycentric_rv_inst_7 = median(vec(chain["jitter_7"]))
+                    barycentric_rv_inst_7 =     mean(vec(chain["rv0_7"]))
+                    jitter_7 =  mean(vec(chain["jitter_7"]))
                 end
                 if haskey(chain,:rv0_8)
-                    barycentric_rv_inst_8 = median(vec(chain["rv0_8"]))
-                    jitter = barycentric_rv_inst_8 = median(vec(chain["jitter_8"]))
+                    barycentric_rv_inst_8 =     mean(vec(chain["rv0_8"]))
+                    jitter_8 =  mean(vec(chain["jitter_8"]))
                 end
                 if haskey(chain,:rv0_9)
-                    barycentric_rv_inst_9 = median(vec(chain["rv0_9"]))
-                    jitter = barycentric_rv_inst_9 = median(vec(chain["jitter_9"]))
+                    barycentric_rv_inst_9 =     mean(vec(chain["rv0_9"]))
+                    jitter_9 =  mean(vec(chain["jitter_9"]))
                 end
                 if haskey(chain,:rv0_10)
-                    barycentric_rv_inst_10 = median(vec(chain["rv0_10"]))
-                    jitter = barycentric_rv_inst_10 = median(vec(chain["jitter_10"]))
+                    barycentric_rv_inst_10 =    mean(vec(chain["rv0_10"]))
+                    jitter_10 =    mean(vec(chain["jitter_10"]))
                 end
                 if hasproperty(obs.table, :inst_idx)
                     idxes = maximum(obs.table.inst_idx)
@@ -435,38 +435,48 @@ function timeplot!(
                     if !hasproperty(row,:inst_idx) || row.inst_idx == 1
                         inst_idx = 1
                         barycentric_rv_inst = barycentric_rv_inst_1
+                        jitter = jitter_1
                     elseif row.inst_idx == 2
                         inst_idx = 2
                         barycentric_rv_inst = barycentric_rv_inst_2
+                        jitter = jitter_2
                     elseif row.inst_idx == 3
                         inst_idx = 3
                         barycentric_rv_inst = barycentric_rv_inst_3
+                        jitter = jitter_3
                     elseif row.inst_idx == 4
                         inst_idx = 4
                         barycentric_rv_inst = barycentric_rv_inst_4
+                        jitter = jitter_4
                     elseif row.inst_idx == 5
                         inst_idx = 5
                         barycentric_rv_inst = barycentric_rv_inst_5
+                        jitter = jitter_5
                     elseif row.inst_idx == 6
                         inst_idx = 6
                         barycentric_rv_inst = barycentric_rv_inst_6
+                        jitter = jitter_6
                     elseif row.inst_idx == 7
                         inst_idx = 7
                         barycentric_rv_inst = barycentric_rv_inst_7
+                        jitter = jitter_7
                     elseif row.inst_idx == 8
                         inst_idx = 8
                         barycentric_rv_inst = barycentric_rv_inst_8
+                        jitter = jitter_8
                     elseif row.inst_idx == 9
                         inst_idx = 9
                         barycentric_rv_inst = barycentric_rv_inst_9
+                        jitter = jitter_9
                     elseif row.inst_idx == 10
                         inst_idx = 10
                         barycentric_rv_inst = barycentric_rv_inst_10
+                        jitter = jitter_10
                     end
                     
                     push!(x[inst_idx], row.epoch)
-                    push!(y[inst_idx], row.rv + barycentric_rv_inst)
-                    push!(yerr[inst_idx], row.σ_rv)
+                    push!(y[inst_idx], row.rv - barycentric_rv_inst)
+                    push!(yerr[inst_idx], row.σ_rv + jitter)
                 end
             end
         end
@@ -497,7 +507,8 @@ function timeplot!(
                     markerstrokecolor=:auto,
                     markersize=1.5,
                     linecolor=j,
-                    color=j
+                    color=j,
+                    label=""
                 )
             end
         else
@@ -510,6 +521,7 @@ function timeplot!(
                 markerstrokewidth=1.5,
                 markerstrokecolor=:auto,
                 markersize=1.5,
+                label=""
             )
         end
     end
