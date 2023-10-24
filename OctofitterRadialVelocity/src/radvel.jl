@@ -49,7 +49,6 @@ function radvel_posterior(
     else
         omega_st_rad = fill(0.0, size(semiamp))
     end 
-    @show median(M_star) median(mtot) median(m_pl) median(inc)
     
     omega_pl_rad = omega_st_rad .+ π
     parallax = rand(plx_prior, length(semiamp))
