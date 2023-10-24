@@ -963,7 +963,7 @@ function advancedhmc(
     mean_accept         = $mean_accept
     num_err_frac        = $num_err_frac
     mean_tree_depth     = $mean_tree_depth
-    max_tree_depth_frac = $max_tree_depth_frac\
+    max_tree_depth_frac = $max_tree_depth_frac
     gradient_evaluations = $gradient_evaluations\
     """)
 
