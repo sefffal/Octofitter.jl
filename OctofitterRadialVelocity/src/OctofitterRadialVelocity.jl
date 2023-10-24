@@ -60,28 +60,28 @@ function Octofitter.ln_like(rv::RadialVelocityLikelihood, θ_system, elements, n
 
     # single_instrument_mode = !hasproperty(rv.table, :inst_idx)
     barycentric_rv_inst = (
-        hasproperty(rv.table, :rv0_1) ? rv.table.rv0_1 : zero(T),
-        hasproperty(rv.table, :rv0_2) ? rv.table.rv0_2 : zero(T),
-        hasproperty(rv.table, :rv0_3) ? rv.table.rv0_3 : zero(T),
-        hasproperty(rv.table, :rv0_4) ? rv.table.rv0_4 : zero(T),
-        hasproperty(rv.table, :rv0_5) ? rv.table.rv0_5 : zero(T),
-        hasproperty(rv.table, :rv0_6) ? rv.table.rv0_6 : zero(T),
-        hasproperty(rv.table, :rv0_7) ? rv.table.rv0_7 : zero(T),
-        hasproperty(rv.table, :rv0_8) ? rv.table.rv0_8 : zero(T),
-        hasproperty(rv.table, :rv0_9) ? rv.table.rv0_9 : zero(T),
-        hasproperty(rv.table, :rv0_10) ? rv.table.rv0_10 : zero(T),
+        hasproperty(θ_system, :rv0_1) ? θ_system.rv0_1 : convert(T, NaN),
+        hasproperty(θ_system, :rv0_2) ? θ_system.rv0_2 : convert(T, NaN),
+        hasproperty(θ_system, :rv0_3) ? θ_system.rv0_3 : convert(T, NaN),
+        hasproperty(θ_system, :rv0_4) ? θ_system.rv0_4 : convert(T, NaN),
+        hasproperty(θ_system, :rv0_5) ? θ_system.rv0_5 : convert(T, NaN),
+        hasproperty(θ_system, :rv0_6) ? θ_system.rv0_6 : convert(T, NaN),
+        hasproperty(θ_system, :rv0_7) ? θ_system.rv0_7 : convert(T, NaN),
+        hasproperty(θ_system, :rv0_8) ? θ_system.rv0_8 : convert(T, NaN),
+        hasproperty(θ_system, :rv0_9) ? θ_system.rv0_9 : convert(T, NaN),
+        hasproperty(θ_system, :rv0_10) ? θ_system.rv0_10 : convert(T, NaN),
     )
     jitter_inst = (
-        hasproperty(rv.table, :jitter_1) ? rv.table.jitter_1 : zero(T),
-        hasproperty(rv.table, :jitter_2) ? rv.table.jitter_2 : zero(T),
-        hasproperty(rv.table, :jitter_3) ? rv.table.jitter_3 : zero(T),
-        hasproperty(rv.table, :jitter_4) ? rv.table.jitter_4 : zero(T),
-        hasproperty(rv.table, :jitter_5) ? rv.table.jitter_5 : zero(T),
-        hasproperty(rv.table, :jitter_6) ? rv.table.jitter_6 : zero(T),
-        hasproperty(rv.table, :jitter_7) ? rv.table.jitter_7 : zero(T),
-        hasproperty(rv.table, :jitter_8) ? rv.table.jitter_8 : zero(T),
-        hasproperty(rv.table, :jitter_9) ? rv.table.jitter_9 : zero(T),
-        hasproperty(rv.table, :jitter_10) ? rv.table.jitter_10 : zero(T),
+        hasproperty(θ_system, :jitter_1) ? θ_system.jitter_1 : convert(T, NaN),
+        hasproperty(θ_system, :jitter_2) ? θ_system.jitter_2 : convert(T, NaN),
+        hasproperty(θ_system, :jitter_3) ? θ_system.jitter_3 : convert(T, NaN),
+        hasproperty(θ_system, :jitter_4) ? θ_system.jitter_4 : convert(T, NaN),
+        hasproperty(θ_system, :jitter_5) ? θ_system.jitter_5 : convert(T, NaN),
+        hasproperty(θ_system, :jitter_6) ? θ_system.jitter_6 : convert(T, NaN),
+        hasproperty(θ_system, :jitter_7) ? θ_system.jitter_7 : convert(T, NaN),
+        hasproperty(θ_system, :jitter_8) ? θ_system.jitter_8 : convert(T, NaN),
+        hasproperty(θ_system, :jitter_9) ? θ_system.jitter_9 : convert(T, NaN),
+        hasproperty(θ_system, :jitter_10) ? θ_system.jitter_10 : convert(T, NaN),
     )
     # Vector of radial velocity of the star at each epoch. Go through and sum up the influence of
     # each planet and put it into here. 
@@ -104,7 +104,10 @@ function Octofitter.ln_like(rv::RadialVelocityLikelihood, θ_system, elements, n
         # We then query the system variables for them.
         # A previous implementation used symbols instead of indices but it was too slow.
         inst_idx = inst_idxs[i]
-        resid = rv_star[i] + barycentric_rv_inst[inst_idx] - rvs[i]
+        if isnan(jitter_inst[inst_idx]) || isnan(barycentric_rv_inst[inst_idx])
+            error(lazy"`jitter_$inst_idx` and `rv0_$inst_idx` must be provided")
+        end
+            resid = rv_star[i] + barycentric_rv_inst[inst_idx] - rvs[i]
         σ² = σ_rvs[i]^2 + jitter_inst[inst_idx]^2
         χ² = -0.5resid^2 / σ² - log(sqrt(2π * σ²))
         ll += χ²
