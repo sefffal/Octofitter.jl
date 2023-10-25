@@ -164,6 +164,7 @@ jd2mjd(jd) = jd + 2400000.5
 
 include("harps.jl")
 include("hires.jl")
+include("lick.jl")
 include("radvel.jl")
 
 
@@ -238,8 +239,20 @@ function __init__()
     ))
 
 
+    register(DataDep("Lick_rvs",
+        """
+        Dataset:     The Twenty-Five Year Lick Planet Search
+        Author:      Fischer et al.
+        License:     
+        Publication: https://iopscience.iop.org/article/10.1088/0067-0049/210/1/5#apjs488421t2
 
-
+        A public Lick radial velocity database.
+        
+        File size: 780k
+        """,
+        "https://content.cld.iop.org/journals/0067-0049/210/1/5/revision1/apjs488421t2_mrt.txt?Expires=1698868925&Signature=YyKJ4p64PeQg2sh~VAYj6aXxH8b-lH0F0lS6GF0YP07V7oaZWzM4sthpMRldUE7cHQZbMkwoW0R-Jq2FymIYqIlAnT1-qs-y~JifD1A1WThaBOEP2gl5JGgDOGXXMCLK4VuKM3ZucSUu9TWIb3vbNqrG7l~V9LIs-K2bW~KcM-syfRzJ1YC6TSiej1PHJVhoxN-SUQRAw2lkLVQ-eea30IFOw9RSmYFqrqUQGnwx7fdkbTd5ZSvQ~BmB0HZjsav890rZpEVWlCs8ITLpKab3aEysIptlezpS90boNDi3CR-p7We2M9WfibcsemIa72HH7cZS~S1Ri8QTQra5nTY8eQ__&Key-Pair-Id=KL1D8TIY3N7T8",
+    ))
+    
     return
 end
 
