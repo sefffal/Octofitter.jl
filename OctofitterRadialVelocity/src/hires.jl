@@ -10,7 +10,6 @@ function HIRES_search(target, catalog=datadep"HIRES_rvs")
         obj = first(split(first(split(fname, '_')), '.'))
     end
 
-    @show fnames_search
     target_matched_i = findfirst(==(target), target_names)
 
     if isnothing(target_matched_i)
