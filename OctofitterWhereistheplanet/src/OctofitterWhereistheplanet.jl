@@ -128,7 +128,7 @@ function __init__()
         File size: 10MiB
         """,
         "https://github.com/semaphoreP/whereistheplanet/archive/refs/heads/master.zip",
-        "c02e7c601dc94d7acd0c58398b518038b036d1507f790f3419b574b39d515197",
+        # "c02e7c601dc94d7acd0c58398b518038b036d1507f790f3419b574b39d515197",
         post_fetch_method=unpack
     ))
 
