@@ -50,7 +50,7 @@ function astrom(target, catalog=datadep"Whereistheplanet"; object=1)
                 if !isfinite(cor)
                     cor = 0.0
                 end
-                (;row.epoch, sep=row.quant1, σ_sep=row.quant1_err, pa=row.quant2, σ_pa=row.quant2_err, cor)
+                (;row.epoch, sep=row.quant1, σ_sep=row.quant1_err, pa=deg2rad(row.quant2), σ_pa=deg2rad(row.quant2_err), cor)
             end)
             push!(out, astrom_seppa)
         end
