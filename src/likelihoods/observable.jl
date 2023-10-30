@@ -10,50 +10,81 @@ is implemented.
 
 
 """
-    ObsPriorAstromONeil2019(astrometry_table)
+    ObsPriorAstromONeil2019(astrometry_likelihood, period_prior)
 
-Given a table of astrometry (in same format as `AstrometryLikelihood`,
-but only `epoch` is required), apply the "observable based priors" 
-of K. O'Neil 2019 "Improving Orbit Estimates for Incomplete Orbits with  
-a New Approach to Priors: with Applications from Black Holes to Planets".
+Given a an astrometry likelihood (`AstrometryLikelihood`), apply the
+"observable based priors" of K. O'Neil 2019 "Improving Orbit Estimates
+for Incomplete Orbits with a New Approach to Priors: with Applications
+from Black Holes to Planets".
 
 This prior correction is only correct if you supply Uniform priors on 
-all orbital parameters.
+all Campbell orbital parameters and a Uniform prior on Period (not
+semi-major axis).
+This period prior has a significant impact in the
+fit and recommendations for its range were not published in the original paper.
 
-A Period parameter (in years) must exist in the planet model as `P`,
-in addition to the usual semi-major axis `a` (au). Typically
-this can be provided as:
+## Examples
 ```julia
+astrom_like = AstrometryLikelihood(astrom_table)
+
+# Apply observable based priors ontop of our uniform Campbell priors:
+obs_prior = ObsPriorAstromONeil2019(astrom_like)
+
+# The astrometry lieklihood object is passed as a first parameter
+# since the obserable-based priors depend on the observation 
+# epochs.
+
 @planet b Visual{KepOrbit} begin
-    P ~ Uniform(0.001, 1000)
+    # Instead of a prior on sma
+    # a ~ Uniform(0.001, 10000)
+
+    # Put a prior on period:
+	P ~ Uniform(0.001, 2000) # yrs
     a = cbrt(system.M * b.P^2)
-    ...
-end AstrometryLikelihood(astrom_table) ObsPriorAstromONeil2019(astrom_table)
+
+    # Keep sine prior on inclination
+    i ~ Sine()
+
+    # Rest are uniform
+    e ~ Uniform(0.0, 1.0)
+    ω ~ UniformCircular()
+    Ω ~ UniformCircular()
+    τ ~ UniformCircular(1.0)
+end astrom_like obs_prior
 ```
 """
-struct ObsPriorAstromONeil2019{TTable<:Table} <: Octofitter.AbstractLikelihood
-	table::TTable
-	function ObsPriorAstromONeil2019(observations...)
-		table = Table(observations...)
-		return new{typeof(table)}(table)
+struct ObsPriorAstromONeil2019{Likelihood<:AbstractLikelihood} <: AbstractLikelihood
+	wrapped_like::Likelihood
+	function ObsPriorAstromONeil2019(
+        obs::AbstractLikelihood;
+    )
+		return new{typeof(obs)}(obs)
 	end
 end
 export ObsPriorAstromONeil2019
 
-function Octofitter.ln_like(like::ObsPriorAstromONeil2019, θ_planet, orbit,)
+function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:AstrometryLikelihood}, θ_planet, orbit,) 
+# function Octofitter.ln_like(like::ObsPriorAstromONeil2019, θ_planet, orbit,) 
 
+    # Add period prior
+    ln_prior = 0.0
+    P = period(orbit)/365.25
+    e = eccentricity(orbit)
     jac = 0.0
-    for j in 1:length(like.table.epoch)
-        current_epoch = like.table.epoch[j]
+    for j in 1:length(like.wrapped_like.table.epoch)
+        current_epoch = like.wrapped_like.table.epoch[j]
         M = meananom(orbit, current_epoch)
         E = eccanom(orbit, current_epoch)
         jac += abs(3M*(
-            eccentricity(orbit)+cos(E)
-        ) + 2*(-2+eccentricity(orbit)^2+eccentricity(orbit)*cos(E)) *sin(E))
+            e+cos(E)
+        ) + 2*(-2+e^2+e*cos(E)) *sin(E))
     end
 
-    P = period(orbit)/365.25
-    jac *= P^(1/3) / sqrt(1-eccentricity(orbit)^2);
+    jac *= cbrt(P) / sqrt(1-eccentricity(orbit)^2);
 
-    return -2log(jac);
+    ln_prior += - 2log(jac)
+
+    return ln_prior
 end
+
+# TODO: Add a RadialVelocity correction version in OctofitterRadialVelocity
