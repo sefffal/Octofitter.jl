@@ -161,8 +161,12 @@ function make_ln_like(system::System, θ_system)
 
 
     sys_exprs = map(system.observations) do like
-        # Provide the number of observations as a compile time constant
-        L = Val(length(like.table))
+        # Provide the number of observations as a compile time constant 
+        if hasproperty(like, :table)
+            L = Val(length(like.table))
+        else
+            L = Val(0)
+        end
         expr = :( $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) +  ln_like($like, θ_system, elems, $L))
         j+=1
         return expr

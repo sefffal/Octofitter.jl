@@ -159,7 +159,7 @@ struct UnitLengthPrior{X,Y} <: AbstractLikelihood where {X,Y}
 end
 TypedTables.Table(like::UnitLengthPrior) = nothing
 
-function ln_like(::UnitLengthPrior{X,Y}, θ_planet_or_system, orbit,) where {X,Y}
+function ln_like(::UnitLengthPrior{X,Y}, θ_planet_or_system, orbit, _L=0) where {X,Y}
     x = getproperty(θ_planet_or_system, X)
     y = getproperty(θ_planet_or_system, Y)
     vector_length = sqrt(x^2 + y^2)
@@ -253,6 +253,7 @@ System((priors,det)::Tuple{Priors,Derived}, args...; kwargs...) = System(priors,
 System(planets::Planet...; kwargs...) = System(Priors(), nothing, planets...; kwargs...)
 System(priors::Priors, args::Union{AbstractLikelihood,Planet}...; kwargs...) = System(priors, nothing, args...; kwargs...)
 System(priors::Priors, det::Union{Derived,Nothing}, args::Union{AbstractLikelihood,Planet}...; kwargs...) = System(priors, det, group_obs_planets(args)...; kwargs...)
+
 
 function group_obs_planets(args)
     observations = filter(o->typeof(o) <: AbstractLikelihood, args)

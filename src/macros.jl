@@ -85,7 +85,7 @@ macro system(args...)
     end
     return quote 
         $(esc(name)) = $System(
-            Variables(;$(variables...)),
+            Variables(;$(variables...))...,
             $((esc(o) for o in likelihoods)...);
             name=$(Meta.quot(name))
         )
