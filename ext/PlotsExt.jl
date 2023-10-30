@@ -209,7 +209,7 @@ function timeplot!(
         reduce(vcat, Any[hasproperty(t.table, :epoch) ? t.table.epoch : t.table.ra_epoch for t in planet.observations if  hasproperty(t, :table) && (hasproperty(t.table, :epoch) || hasproperty(t.table, :ra_epoch))], init=[])
     end
     all_epochs_star = mapreduce(vcat, system.observations, init=Float64[]) do like
-        if hasproperty(like.table, :epoch)
+        if if hasproperty(like, :table) && hasproperty(like.table, :epoch)
             return like.table.epoch
         else
             return Float64[]
