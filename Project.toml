@@ -51,7 +51,7 @@ PlotsExt = "Plots"
 
 [compat]
 AbstractMCMC = "4"
-AdvancedHMC = "0.5.2"
+AdvancedHMC = "0.5.2, 0.6"
 BasicInterpolators = "0.7"
 Bijectors = "0.13"
 DataDeps = "0.7"
