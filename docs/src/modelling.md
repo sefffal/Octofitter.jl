@@ -131,15 +131,12 @@ Start sampling:
 using Random
 rng = Random.Xoshiro(0)
 
-chain = Octofitter.advancedhmc(
+chain = octofit(
     rng, model, 0.85;
     adaptation =   500,
     iterations =  1000,
     verbosity = 4,
-    tree_depth = 12,
-    # Optional: we sample from two chains so we can test for convergence
-    # using gelmandiag. In practice, only one chain is usually needed.
-    num_chains=2
+    max_depth = 12,
 )
 ```
 
@@ -188,8 +185,8 @@ This plot shows that these samples are not correlated after only above 5 steps. 
 
 To confirm convergence, you may also examine the `rhat` column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal `1.0` to one significant digit (3 recommended).
 
-Finnaly, if you ran multiple chains (see later tutorials to learn how), you can run 
-```@example 1
+Finaly, if you ran multiple chains (see later tutorials to learn how), you can run 
+```julia
 using MCMCChains
 gelmandiag(chain)
 ```

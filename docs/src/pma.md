@@ -71,7 +71,7 @@ Sample from our model as usual:
 
 ```julia
 model = Octofitter.LogDensityModel(HD91312)
-chain = Octofitter.advancedhmc(
+chain = octofit(
     # Note: start the target acceptance at around 0.8 and increase if you see numerical errors. That indicates a tricky posterior and that therefore smaller steps are required.
     model, 0.92, 
     adaptation =  1_000,
@@ -235,7 +235,7 @@ This models assumes a circular, face-on orbit.
 ```julia
 model = Octofitter.LogDensityModel(HD91312; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 
-chains = Octofitter.advancedhmc(
+chains = octofit(
     model, 0.75,
     # Octofitter.MCMCThreads(),
     # num_chains=4,

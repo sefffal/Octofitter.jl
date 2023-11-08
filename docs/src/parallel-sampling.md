@@ -1,5 +1,8 @@
 # Parallel Sampling
 
+!!! warn
+    Parallel sampling broke after an update to AdvancedHMC.jl. This page will be updated with new instructions in the future.
+
 You can sample from multiple chains in parallel using either threads (useful for quick tests) processes (high throughput), or simply running multiple copies of the program and merging the results afterwards (recommended for clusters).
 
 ## Threads
@@ -43,7 +46,7 @@ You may also want to reduce the verbosity (perhaps to 0) as the overlapping log 
 AdvancedHMC.jl has some internal array allocations. With a high number of workers, this can lead to contention between threads due to Julia's stop-the-world garbage collector. On the other hand, using worker processes via Distributed.jl prevents this overhead at the expense of more communcation overhead at the start and end of sampling and more memory utilization.
 
 ```julia
-chain = Octofitter.advancedhmc(
+chain = octofit(
     model, 0.85,
     Octofitter.MCMCDistributed();
     num_chains=8,

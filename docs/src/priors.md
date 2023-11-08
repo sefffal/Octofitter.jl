@@ -26,3 +26,46 @@ For example, setting `a=Normal(3,2)` will result in poor sampling efficiency as 
 Instead, for parameters like semi-major axis, eccentricity, parallax, and masses, you should truncate any distributions that have negative tails.
 This can easily be accomplished with `TrauncatedNormal` or `Trunacted(dist, low, high)` for any arbitrary distribution.
 
+## Observable Based Priors
+
+Octofitter implements observable-based priors from O'Neil 2019 for relative astrometry. You can fit a model to astrometry using observable-based priors using the following recipe:
+
+
+```@example 1
+using Octofitter, Distributions
+
+astrom_like = AstrometryLikelihood(
+    (;epoch=mjd("2020-12-20"), ra=400.0, σ_ra=5.0, dec=400.0, σ_dec=5.0)
+)
+
+@planet b Visual{KepOrbit} begin
+    # For using with ObsPriors:
+	P ~ Uniform(0.001, 1000)
+    a = cbrt(system.M * b.P^2)
+
+    e ~ Uniform(0.0, 1.0)
+    i ~ Sine()
+    ω ~ UniformCircular()
+    Ω ~ UniformCircular()
+    τ ~ UniformCircular(1.0)
+    mass ~ LogUniform(0.01, 100)
+end astrom_like ObsPriorAstromONeil2019(astrom_like);
+
+@system System1 begin
+    plx ~ Normal(21.219, 0.060)
+	M ~ truncated(Normal(1.1, 0.2),lower=0)
+end b
+
+model = Octofitter.LogDensityModel(System1, verbosity=4)
+
+```
+
+```@example 1
+octofit(
+    model, 0.95;
+    adaptation = 1000,
+    iterations = 1000,
+    verbosity = 4,
+    max_depth = 10,
+)
+```

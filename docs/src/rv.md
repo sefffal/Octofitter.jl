@@ -266,12 +266,12 @@ model = Octofitter.LogDensityModel(ϵEri; autodiff=:ForwardDiff, verbosity=4) # 
 
 ## Sample from chains
 
-results = Octofitter.advancedhmc(
+results = octofit(
     model, 0.75;
     adaptation =  2000,
     iterations =  5000,
     verbosity = 4,
-    tree_depth = 12
+    max_depth = 12
 )
 
 ## Save results plot

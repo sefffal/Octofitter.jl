@@ -52,12 +52,12 @@ model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) 
 
 Sample from chains:
 ```@example 1
-results = Octofitter.advancedhmc(
+results = octofit(
     model, 0.8;
     adaptation =  1000,
     iterations =  1000,
     verbosity = 4,
-    tree_depth = 14
+    max_depth = 14
 )
 ```
 

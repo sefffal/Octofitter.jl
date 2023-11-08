@@ -407,7 +407,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 θ_natural = Bijector_invlinkvec(θ_transformed)
                 θ_structured = arr2nt(θ_natural)
                 lprior = @inline ln_prior_transformed(θ_natural)
-                # CAUTION: This inline annotation is necessary for correct gradients. Yikes!
+                # CAUTION: This inline annotation is necessary for correct gradients from Enzyme. Yikes!
                 llike  = @inline ln_like_generated(system, θ_structured)
                 # llike = 0.0
                 # llike += Octofitter.ln_like(system.planets.b.observations[1], θ_structured.planets.b, Octofitter.Visual{KepOrbit}(;θ_structured...,θ_structured.planets.b...))
@@ -771,6 +771,11 @@ function advancedhmc(
         initial_θ_t = model.link(initial_θ)
     end
 
+    if verbosity >= 4
+        @info "flat starting point" initial_θ
+        @info "transformed flat starting point" initial_θ_t
+    end
+
 
     # # Use Pathfinder to initialize HMC. Works but currently disabled.
     # verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
@@ -1044,7 +1049,7 @@ function stringify_nested_named_tuple(num::Number)
     string(round(num,digits=1))*","
 end
 function stringify_nested_named_tuple(nt::NamedTuple)
-    "(;"*join(map(keys(nt)) do k
+    "(;"*join(map(keys(nt), ", ") do k
         "$k="*stringify_nested_named_tuple(nt[k])
     end)*")"
 end

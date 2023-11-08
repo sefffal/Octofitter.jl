@@ -15,24 +15,21 @@ Similarily, fewer samples are required. This is because unlike Affine Invariant 
 
 ### Usage
 
-The method signature of `Octofitter.advancedhmc` is as follows:
+The method signature of `octofit` is as follows:
 ```julia
-function advancedhmc(
-    rng::Random.AbstractRNG,
+octofit(
+    [rng::Random.AbstractRNG],
     model::Octofitter.LogDensityModel,
     target_accept::Number=0.8,
     ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
-    num_chains=1,
     adaptation,
     iterations,
-    thinning=1,
-    discard_initial=adaptation,
-    tree_depth=10,
+    drop_warmup=true,
+    max_depth=12,
     initial_samples=50_000,
     initial_parameters=nothing,
     step_size=nothing,
     verbosity=2,
-    autodiff=ForwardDiff
 )
 ```
 The only required arguments are `model`, `adaptation`, and `iterations`.

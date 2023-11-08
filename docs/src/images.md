@@ -114,11 +114,11 @@ it's recommended to lower the target acceptance ratio to around 0.5±0.2 and als
 ```julia
 model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 
-chain = Octofitter.advancedhmc(
+chain = octofit(
     model, 0.75,
     adaptation =   8_000,
     iterations =  10_000,
-    tree_depth =      14,
+    max_depth =      14,
 );
 ```
 Sampling directly from images is somewhat slower than from astrometry. This example takes roughly 7 minutes on my laptop.

@@ -80,12 +80,12 @@ model = jl.Octofitter.LogDensityModel(system)
 model._jl_display()
 
 # Sample
-chain = jl.Octofitter.advancedhmc(
+chain = jl.octofit(
     model, 0.85,
     adaptation =   500,
     iterations =  1000,
     verbosity = 4,
-    tree_depth = 12
+    max_depth = 12
 )
 # Display results (recommended)
 chain._jl_display()
