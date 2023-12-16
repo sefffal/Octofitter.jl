@@ -61,7 +61,11 @@ end
 
 function coltitle_restorer(title::AbstractString)
     replacements = Pair{String,Char}[]
-    for m in eachmatch(r"(\\\w+)}", title)
+    for m in eachmatch(r"(\\[^\W_]+)[}_]", title)
+        if !haskey(MathTeXEngine.command_to_canonical, m.captures[1])
+            @error "Could not restore column" title m.captures[1] 
+            error()
+        end
         push!(
             replacements,
             m.captures[1] =>
