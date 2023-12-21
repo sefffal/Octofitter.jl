@@ -13,30 +13,30 @@ using Dates
 # 1) Mean model (orbit + GP) and data (- mean instrument offset)
 # 2) Residuals of above
 # 3) Phase folded curve
-function OctofitterRadialVelocity.rvpostplot(model,results)
+function OctofitterRadialVelocity.rvpostplot(model,results,args...)
     fig = Figure()
-    OctofitterRadialVelocity.rvpostplot!(fig.layout, model, results)
+    OctofitterRadialVelocity.rvpostplot!(fig.layout, model, results,args...)
     return fig
 end
 function OctofitterRadialVelocity.rvpostplot!(
     gridspec_or_fig,
     model::Octofitter.LogDensityModel,
-    results::Chains
+    results::Chains,
+    sample_idx = argmax(results["logpost"][:])
 )
     gs = gridspec_or_fig
 
     rvs = only(filter(obs->obs isa StarAbsoluteRVLikelihood, model.system.observations))
     ii = rand(1:size(results,1),100)
 
-    map_I = argmax(results["logpost"][:])
 
     # Start filling the RV plot
     els = Octofitter.construct_elements(results,:b, :)
     M = (results[:b_mass] .* PlanetOrbits.mjup2msol)
 
     # For phase-folded plot
-    t_peri = periastron(els[map_I])
-    T = period(els[map_I])
+    t_peri = periastron(els[sample_idx])
+    T = period(els[sample_idx])
 
     # Model plot vs raw data
     ts_grid = range((extrema(rvs.table.epoch) )...,length=10000)
@@ -44,7 +44,7 @@ function OctofitterRadialVelocity.rvpostplot!(
     # we might miss them unless we add a very very fine grid.
     ts = sort(vcat(ts_grid, vec(rvs.table.epoch)))
     RV = radvel.(els[ii], ts', M[ii])
-    RV_map = radvel.(els[map_I], ts, M[map_I])
+    RV_map = radvel.(els[sample_idx], ts, M[sample_idx])
 
     # For secondary date axis on top
     date_start = mjd2date(ts[begin])
@@ -52,18 +52,25 @@ function OctofitterRadialVelocity.rvpostplot!(
     date_start = Date(year(date_start), month(date_start))
     date_end = Date(year(date_end), month(date_end))
     dates = range(date_start, date_end, step=Year(1))
+    dates_str = string.(year.(dates))
     if length(dates) == 1
         dates = range(date_start, date_end, step=Month(1))
+        dates_str = map(d->string(year(d),"-",lpad(month(d),2,'0')),dates)
+    else
+        year_step = 1
+        while length(dates) > 8
+            year_step += 1
+            dates = range(date_start, date_end, step=Year(year_step))
+        end
+        dates_str = string.(year.(dates))
     end
     ax_fit = Axis(
         gs[1,1],
-        # TODO: year axis on top
-        # TODO: stop tick marks near bottom from overlapping
         ylabel="RV [m/s]",
         xaxisposition=:top,
         xticks=(
             mjd.(string.(dates)),
-            map(d->string(year(d),"-",lpad(month(d),2,'0')),dates)
+            dates_str
         )
     )
     ax_resid = Axis(
@@ -100,8 +107,8 @@ function OctofitterRadialVelocity.rvpostplot!(
     rvs_off_sub = collect(rvs.table.rv)
     jitters_all = zeros(length(rvs_off_sub))
     for inst_idx in 1:maximum(rvs.table.inst_idx)
-        barycentric_rv_inst = results["rv0_$inst_idx"][map_I]
-        jitter = results["jitter_$inst_idx"][map_I]
+        barycentric_rv_inst = results["rv0_$inst_idx"][sample_idx]
+        jitter = results["jitter_$inst_idx"][sample_idx]
         thisinst_mask = vec(rvs.table.inst_idx.==inst_idx)
         # Apply barycentric rv offset correction for this instrument
         # using the MAP parameters
@@ -110,7 +117,7 @@ function OctofitterRadialVelocity.rvpostplot!(
     end
     # Calculate the residuals minus the orbit model
     # Use the MAP values
-    model_at_data = radvel.(els[map_I], rvs.table.epoch, M[map_I]) 
+    model_at_data = radvel.(els[sample_idx], rvs.table.epoch, M[sample_idx]) 
     resids_all = rvs_off_sub .- model_at_data 
     rvs_off_gp_sub = zeros(length(resids_all))
     errs_all = zeros(length(resids_all))
@@ -119,7 +126,7 @@ function OctofitterRadialVelocity.rvpostplot!(
     # Model plot vs phase-folded data
     phases = -0.5:0.02:0.5
     ts_phase_folded = ((phases .+ 0.5) .* T) .+ t_peri .+ T/4
-    RV = radvel.(els[map_I], ts_phase_folded, M[map_I])
+    RV = radvel.(els[sample_idx], ts_phase_folded, M[sample_idx])
     lines!(
         ax_phase,
         phases,
@@ -135,9 +142,10 @@ function OctofitterRadialVelocity.rvpostplot!(
 
     # plot!(ax_fit, ts, posterior_gp; bandscale=1, color=(:black,0.3))
     for inst_idx in 1:maximum(rvs.table.inst_idx)
-        # barycentric_rv_inst = results["rv0_$inst_idx"][map_I]
+        # barycentric_rv_inst = results["rv0_$inst_idx"][sample_idx]
         thisinst_mask = vec(rvs.table.inst_idx.==inst_idx)
-        jitter = jitters_all[thisinst_mask]
+        jitters = jitters_all[thisinst_mask]
+        jitter = only(unique(jitters))
         data = rvs.table[thisinst_mask]
         resid = resids_all[thisinst_mask]
         rvs_off_sub_this = rvs_off_sub[thisinst_mask]
@@ -157,10 +165,10 @@ function OctofitterRadialVelocity.rvpostplot!(
         # η₃? = θ  # the period of the correlated noise 
         # η₂? = λ  # characteristic decay timescale of the correlation (spot lifetime)
         # η₄? = ω # coherence scale (sometimes called the structure parameter)
-        η₁ = results["gp_η₁"][map_I]
-        η₂ = results["gp_η₂"][map_I]
-        η₃ = results["gp_η₃"][map_I]
-        η₄ = results["gp_η₄"][map_I]
+        η₁ = results["gp_η₁"][sample_idx]
+        η₂ = results["gp_η₂"][sample_idx]
+        η₃ = results["gp_η₃"][sample_idx]
+        η₄ = results["gp_η₄"][sample_idx]
         kernel = η₁^2 * 
                     # (Matern52Kernel() ∘ ScaleTransform(2/η₂)) *  
                     # (ApproxPeriodicKernel{7}(r=η₄) ∘ ScaleTransform(1/η₃)) #
@@ -200,23 +208,23 @@ function OctofitterRadialVelocity.rvpostplot!(
         )
         errs_all[thisinst_mask] .= errs
 
-        RV_map_inst =  radvel.(els[map_I], ts_inst, M[map_I])
+        RV_sample_idxnst =  radvel.(els[sample_idx], ts_inst, M[sample_idx])
         band!(ax_fit, ts_inst,
-            vec(y_inst .+ RV_map_inst .- sqrt.(var) .- first(jitter)),
-            vec(y_inst .+ RV_map_inst .+ sqrt.(var) .+ first(jitter)),
+            vec(y_inst .+ RV_sample_idxnst .- sqrt(var .+ jitter^2)),
+            vec(y_inst .+ RV_sample_idxnst .+ sqrt(var .+ jitter^2)),
             color=(Makie.wong_colors()[inst_idx], 0.35)
         )
         lines!(
             ax_fit,
             ts_inst,
-            radvel.(els[map_I], ts_inst, M[map_I]) .+ y,
+            radvel.(els[sample_idx], ts_inst, M[sample_idx]) .+ y,
             color=(:black,1),
             linewidth=0.3
         )
         lines!(
             ax_fit,
             ts_inst,
-            radvel.(els[map_I], ts_inst, M[map_I]) .+ y,
+            radvel.(els[sample_idx], ts_inst, M[sample_idx]) .+ y,
             color=(Makie.wong_colors()[inst_idx],0.8),
             # color=:blue,
             linewidth=0.3
@@ -293,7 +301,7 @@ function OctofitterRadialVelocity.rvpostplot!(
         # )
     end
     for inst_idx in 1:maximum(rvs.table.inst_idx)
-        # barycentric_rv_inst = results["rv0_$inst_idx"][map_I]
+        # barycentric_rv_inst = results["rv0_$inst_idx"][sample_idx]
         thisinst_mask = vec(rvs.table.inst_idx.==inst_idx)
         jitter = jitters_all[thisinst_mask]
         data = rvs.table[thisinst_mask]
@@ -340,7 +348,7 @@ function OctofitterRadialVelocity.rvpostplot!(
     phase_folded = mod.(rvs.table.epoch[:] .- t_peri .- T/4, T)./T .- 0.5
     jitters = map(eachrow(rvs.table)) do row
         inst_idx = row[].inst_idx
-        results["jitter_$inst_idx"][map_I]
+        results["jitter_$inst_idx"][sample_idx]
     end
     for (i,bin_cent) in enumerate(bins)
         mask = bin_cent - step(bins)/2 .<= phase_folded .<= bin_cent + step(bins/2)
@@ -384,7 +392,8 @@ function OctofitterRadialVelocity.rvpostplot!(
         "instrument",
         valign=:top,
         halign=:left,
-        height=Relative(1)
+        width=Relative(1),
+        # height=Relative(1),
     )
     Legend(
         gs[3,2],
@@ -398,8 +407,8 @@ function OctofitterRadialVelocity.rvpostplot!(
         ],
         valign=:top,
         halign=:left,
-        width=Relative(1),
-        height=Relative(1)
+        # width=Relative(1),
+        # height=Relative(1),
     )
     Makie.rowsize!(gs, 1, Auto(2))
     Makie.rowsize!(gs, 2, Auto(1))
