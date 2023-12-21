@@ -30,20 +30,41 @@ function OctofitterRadialVelocity.rvpostplot!(
 
     map_I = argmax(results["logpost"][:])
 
-    year_start = year(mjd2date(ts[begin]))
-    year_end = year(mjd2date(ts[end]))
+    # Start filling the RV plot
+    els = Octofitter.construct_elements(results,:b, :)
+    M = (results[:b_mass] .* PlanetOrbits.mjup2msol)
+
+    # For phase-folded plot
+    t_peri = periastron(els[map_I])
+    T = period(els[map_I])
+
+    # Model plot vs raw data
+    ts_grid = range((extrema(rvs.table.epoch) )...,length=10000)
+    # Ensure the curve has points at exactly our data points. Otherwise for fine structure
+    # we might miss them unless we add a very very fine grid.
+    ts = sort(vcat(ts_grid, vec(rvs.table.epoch)))
+    RV = radvel.(els[ii], ts', M[ii])
+    RV_map = radvel.(els[map_I], ts, M[map_I])
+
+    # For secondary date axis on top
+    date_start = mjd2date(ts[begin])
+    date_end = mjd2date(ts[end])
+    date_start = Date(year(date_start), month(date_start))
+    date_end = Date(year(date_end), month(date_end))
+    dates = range(date_start, date_end, step=Year(1))
+    if length(dates) == 1
+        dates = range(date_start, date_end, step=Month(1))
+    end
     ax_fit = Axis(
         gs[1,1],
         # TODO: year axis on top
         # TODO: stop tick marks near bottom from overlapping
         ylabel="RV [m/s]",
-        # xlabel="date",
-        # xaxisposition=:top,
-    )
-    ax_fit_top = Axis(
-        gs[1,1],
-        xlabel="date",
-        xaxisposition=:top
+        xaxisposition=:top,
+        xticks=(
+            mjd.(string.(dates)),
+            map(d->string(year(d),"-",lpad(month(d),2,'0')),dates)
+        )
     )
     ax_resid = Axis(
         gs[2,1],
@@ -51,7 +72,7 @@ function OctofitterRadialVelocity.rvpostplot!(
         ylabel="Residuals",
     )
     linkxaxes!(ax_fit, ax_resid)
-    hidexdecorations!(ax_fit,grid=false)
+    # hidexdecorations!(ax_fit,grid=false)
 
     ax_phase = Axis(
         gs[3,1],
@@ -65,23 +86,6 @@ function OctofitterRadialVelocity.rvpostplot!(
     # Horizontal zero line
     hlines!(ax_resid, 0, color=:blue, linewidth=5)
 
-    # Start filling the RV plot
-    els = Octofitter.construct_elements(results,:b, :)
-    M = (results[:b_mass] .* PlanetOrbits.mjup2msol)
-
-    # For phase-folded plot
-    t_peri = periastron(els[map_I])
-    T = period(els[map_I])
-
-
-
-    # Model plot vs raw data
-    ts_grid = range((extrema(rvs.table.epoch) )...,length=10000 )
-    # Ensure the curve has points at exactly our data points. Otherwise for fine structure
-    # we might miss them unless we add a very very fine grid.
-    ts = sort(vcat(ts_grid, vec(rvs.table.epoch)))
-    RV = radvel.(els[ii], ts', M[ii])
-    RV_map = radvel.(els[map_I], ts, M[map_I])
     # for rv_post in eachrow(RV)
     #     lines!(
     #         ax_fit,
@@ -90,6 +94,7 @@ function OctofitterRadialVelocity.rvpostplot!(
     #         color=(:blue, 0.05)
     #     )
     # end
+
     # Calculate RVs minus the median instrument-specific offsets.
     # Use the MAP parameter values
     rvs_off_sub = collect(rvs.table.rv)
@@ -125,7 +130,7 @@ function OctofitterRadialVelocity.rvpostplot!(
     xlims!(ax_phase, -0.5,0.5)
     
     # Main blue orbit line in top panel
-    lines!(ax_fit, ts, RV_map, color=:darkblue, linewidth=0.2)
+    # lines!(ax_fit, ts, RV_map, color=:darkblue, linewidth=0.2)
 
 
     # plot!(ax_fit, ts, posterior_gp; bandscale=1, color=(:black,0.3))
@@ -157,12 +162,11 @@ function OctofitterRadialVelocity.rvpostplot!(
         η₃ = results["gp_η₃"][map_I]
         η₄ = results["gp_η₄"][map_I]
         kernel = η₁^2 * 
-            # (SqExponentialKernel() ∘ ScaleTransform(1/(η₂*√(2)))) *  # or 2/
-            # (PeriodicKernel(r=[η₄]) ∘ ScaleTransform(1/(η₃*√(2)))) # or 2/
-            (Matern52Kernel() ∘ ScaleTransform(2/η₂)) *
-            (ApproxPeriodicKernel{7}(r=η₄) ∘ ScaleTransform(2/η₃))
-            # (SqExponentialKernel() ∘ ScaleTransform(√(2)/η₂)) *#*  # or 2/
-            # (PeriodicKernel(r=[η₃]) ∘ ScaleTransform(1/(η₄))) # or 2/
+                    # (Matern52Kernel() ∘ ScaleTransform(2/η₂)) *  
+                    # (ApproxPeriodicKernel{7}(r=η₄) ∘ ScaleTransform(1/η₃)) #
+                    # This is a closer match to what other packages use
+                    (SqExponentialKernel() ∘ ScaleTransform(1/(η₂))) *
+                    (PeriodicKernel(r=[η₄]) ∘ ScaleTransform(1/(η₃)))
         gp_naive = GP(kernel)
         map_gp = gp_naive
         # map_gp = to_sde(gp_naive, SArrayStorage(Float64))
@@ -202,20 +206,20 @@ function OctofitterRadialVelocity.rvpostplot!(
             vec(y_inst .+ RV_map_inst .+ sqrt.(var) .+ first(jitter)),
             color=(Makie.wong_colors()[inst_idx], 0.35)
         )
-        # lines!(
-        #     ax_fit,
-        #     ts_inst,
-        #     radvel.(els[map_I], ts_inst, M[map_I]) .+ y,
-        #     color=(:black,0.5),
-        #     linewidth=1
-        # )
         lines!(
             ax_fit,
             ts_inst,
             radvel.(els[map_I], ts_inst, M[map_I]) .+ y,
-            # color=Makie.wong_colors()[inst_idx],
-            color=:blue,
-            linewidth=0.1
+            color=(:black,1),
+            linewidth=0.3
+        )
+        lines!(
+            ax_fit,
+            ts_inst,
+            radvel.(els[map_I], ts_inst, M[map_I]) .+ y,
+            color=(Makie.wong_colors()[inst_idx],0.8),
+            # color=:blue,
+            linewidth=0.3
         )
         
 
@@ -302,6 +306,7 @@ function OctofitterRadialVelocity.rvpostplot!(
             rvs_off_sub_this,
             color=Makie.wong_colors()[inst_idx],
             markersize=4,
+            strokecolor=:black,strokewidth=0.1,
         )
 
         scatter!(
@@ -309,7 +314,8 @@ function OctofitterRadialVelocity.rvpostplot!(
             data.epoch,
             resid,
             color=Makie.wong_colors()[inst_idx],
-            markersize=4
+            markersize=4,
+            strokecolor=:black,strokewidth=0.1,
         )
         phase_folded = mod.(data.epoch .- t_peri .- T/4, T)./T .- 0.5
         scatter!(
@@ -317,7 +323,8 @@ function OctofitterRadialVelocity.rvpostplot!(
             phase_folded,
             data_minus_off_and_gp[thisinst_mask],
             color=Makie.wong_colors()[inst_idx],
-            markersize=4
+            markersize=4,
+            strokecolor=:black,strokewidth=0.1,
         )
     end
 
@@ -355,15 +362,15 @@ function OctofitterRadialVelocity.rvpostplot!(
         bins,
         binned,
         binned_unc,
-        color=:red,
-        linewidth=8,
+        color=:black,
+        linewidth=1,
     )
     scatter!(
         ax_phase,
         bins,
         binned,
         color=:red,
-        markersize=16,
+        markersize=10,
         strokecolor=:black,
         strokewidth=2,
     )
@@ -386,7 +393,7 @@ function OctofitterRadialVelocity.rvpostplot!(
             MarkerElement(color = :red, strokecolor=:black, strokewidth=2, marker=:circle, markersize = 15),
         ],
         [
-            "MAP orbit",
+            "MAP model",
             "binned",
         ],
         valign=:top,

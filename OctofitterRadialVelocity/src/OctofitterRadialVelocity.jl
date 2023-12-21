@@ -194,11 +194,11 @@ function Octofitter.ln_like(rv::StarAbsoluteRVLikelihood, θ_system, elements, n
             local kernel
             try
                 kernel = η₁^2 *  
-                    # (Matern52Kernel() ∘ ScaleTransform(1/η₂)) *  
-                    # (ApproxPeriodicKernel{7}(r=η₄) ∘ ScaleTransform(2/η₃)) #
+                    # (Matern52Kernel() ∘ ScaleTransform(2/η₂)) *  
+                    # (ApproxPeriodicKernel{7}(r=η₄) ∘ ScaleTransform(1/η₃)) #
                     # This is a closer match to what other packages use
-                    (SqExponentialKernel() ∘ ScaleTransform(√(2)/η₂)) *#*  # or 2/
-                    (PeriodicKernel(r=[η₃]) ∘ ScaleTransform(1/(η₄))) # or 2/
+                    (SqExponentialKernel() ∘ ScaleTransform(1/(η₂))) *
+                    (PeriodicKernel(r=[η₄]) ∘ ScaleTransform(1/(η₃)))
             catch err
                 @warn "err" exception=(err, catch_backtrace()) maxlog=1
                 return -Inf
@@ -210,7 +210,15 @@ function Octofitter.ln_like(rv::StarAbsoluteRVLikelihood, θ_system, elements, n
         else
             fx = MvNormal(Diagonal((noise_var)))
         end
-        ll += logpdf(fx, rv_star_buf)
+        try
+            ll += logpdf(fx, rv_star_buf)
+        catch err
+            if err isa PosDefException
+                return -Inf
+            else
+                rethrow(err)
+            end
+        end
     end
     
     return ll
