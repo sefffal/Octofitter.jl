@@ -2,10 +2,10 @@ using CSV
 using StringDistances
 
 
-function HARPS_observations(target, catalog=datadep"HARPS_RVBank")
+function HARPS_RVBank_observations(target, catalog=datadep"HARPS_RVBank")
 
     
-    rvbank = CSV.read(joinpath(catalog, "HARPS_RVBank_v1.csv"), Table)
+    rvbank = CSV.read(joinpath(catalog, "HARPS_RVBank_ver02.csv"), Table)
 
     target_matched_i = findfirst(==(target), rvbank.target)
 
@@ -22,15 +22,15 @@ function HARPS_observations(target, catalog=datadep"HARPS_RVBank")
    
 end
 
-function HARPS_rvs(target, catalog=datadep"HARPS_RVBank"; inst_idx::Int=1)
+function HARPS_RVBank_rvs(target, catalog=datadep"HARPS_RVBank"; inst_idx::Int=1)
 
-    rvbank = CSV.read(joinpath(catalog, "HARPS_RVBank_v1.csv"), Table)
+    rvbank = CSV.read(joinpath(catalog, "HARPS_RVBank_ver02.csv"), Table)
 
     target_rows = findall(==(target), rvbank.target)
     table = rvbank[target_rows]
 
-    return RadialVelocityLikelihood(Table(;
-        epoch=mjd2jd.(table.BJD),
+    return StarAbsoluteRVLikelihood(Table(;
+        epoch=OctofitterRadialVelocity.jd2mjd.(table.BJD),
         inst_idx=fill(inst_idx,size(table,1)),
         rv=-table.RV_mlc_nzp,
         σ_rv=table.e_RV_mlc_nzp,

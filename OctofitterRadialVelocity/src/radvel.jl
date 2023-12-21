@@ -12,8 +12,8 @@ available tools of these packages.
 
 Only works with one planet.
 
-Supply priors for the stellar mass and parallax
-using Distributions.jl
+Supply priors for the stellar mass (Msun) and parallax distance (mas)
+using Distributions.jl distributions, eg. `Normal(1.0, 0.1)`.
 """
 function radvel_posterior(
     table,

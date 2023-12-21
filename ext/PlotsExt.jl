@@ -219,7 +219,7 @@ function timeplot!(
     if isempty(all_epochs) 
         all_epochs = mjd() .+ [-365*2, +365*2]
     end
-    t = range((extrema(all_epochs) .+ [-365, 365])..., length=500)
+    t = range((extrema(all_epochs) .+ [-365, 2*365])..., length=500)
     y = nothing
     ribbon = nothing
     zcolor = nothing
@@ -241,9 +241,9 @@ function timeplot!(
         fit = decoff.(elements, t')
     elseif prop == :sep
         if !isnothing(astrometry(planet))
-            t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 365])..., length=500)
+            t = range((extrema(astrometry(planet).table.epoch) .+ [-365, 6*365])..., length=500)
         else
-            t = range((extrema(all_epochs) .+ [-365, 365])..., length=500)
+            t = range((extrema(all_epochs) .+ [-365, 6*365])..., length=500)
         end
         if !isnothing(astrometry(planet))
             if hasproperty(astrometry(planet).table, :sep)
@@ -375,7 +375,7 @@ function timeplot!(
         end
         for obs in system.observations
             # TODO: make this pluggable instead of this hacky workaround
-            if startswith(string(typeof(obs)), "RadialVelocityLikelihood")
+            if endswith(string(typeof(obs)), "RVLikelihood")
                 if haskey(chain,:rv0)
                     barycentric_rv_inst_1 =     mean(vec(chain["rv0"]))
                     jitter_1 =  mean(vec(chain["jitter"]))

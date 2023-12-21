@@ -8,13 +8,23 @@ using DataDeps
 using LoopVectorization
 using StrideArrays
 using RecipesBase
+using AbstractGPs
+# using TemporalGPs
+using Distances: Distances
+using FITSIO
+using StaticArrays
+using LinearAlgebra
+
+export jd2mjd, mjd2jd
 
 # Radial Velocity data type
 const rv_cols = (:epoch, :rv, :σ_rv)
 
+function rvpostplot end
+function rvpostplot! end
 
 """
-    RadialVelocityLikelihood(
+    StarAbsoluteRVLikelihood(
         (;inst_idx=1, epoch=5000.0,  rv=−6.54, σ_rv=1.30),
         (;inst_idx=1, epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;inst_idx=1, epoch=5100.2,  rv=7.90,  σ_rv=.11),
@@ -27,38 +37,42 @@ Represents a likelihood function of relative astometry between a host star and a
 be fit with different zero points and jitters.
 In addition to the example above, any Tables.jl compatible source can be provided.
 """
-struct RadialVelocityLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
+struct StarAbsoluteRVLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
     table::TTable
-    function RadialVelocityLikelihood(observations...)
+    instrument_names::Vector{String}
+    function StarAbsoluteRVLikelihood(observations...; instrument_names=nothing)
         table = Table(observations...)
         if !issubset(rv_cols, Tables.columnnames(table))
-            error("Ecpected columns $rv_cols")
+            error("Expected columns $rv_cols")
         end
-        return new{typeof(table)}(table)
+        # Check instrument indexes are contiguous
+        if length(unique(table.inst_idx)) != maximum(table.inst_idx)
+            error("instrument indexes must run from 1:N without gaps")
+        end
+        # We sort the data by instrument index to make some later code faster
+        ii = sortperm(table.inst_idx)
+        table = table[ii,:]
+        if isnothing(instrument_names)
+            instrument_names = string.(1:maximum(table.inst_idx))
+        end
+        return new{typeof(table)}(table, instrument_names)
     end
 end
-RadialVelocityLikelihood(observations::NamedTuple...) = RadialVelocityLikelihood(observations)
-export RadialVelocityLikelihood
+StarAbsoluteRVLikelihood(observations::NamedTuple...) = StarAbsoluteRVLikelihood(observations)
+export StarAbsoluteRVLikelihood
 
 """
 Radial velocity likelihood.
 """
-function Octofitter.ln_like(rv::RadialVelocityLikelihood, θ_system, elements, num_epochs::Val{L}=Val(length(rv.table))) where L
-    T = promote_type(typeof(θ_system.M), typeof(θ_system.plx))
+function Octofitter.ln_like(rv::StarAbsoluteRVLikelihood, θ_system, elements, num_epochs::Val{L}=Val(length(rv.table))) where L
+    T = typeof(θ_system.M)
     ll = zero(T)
 
-    epochs = rv.table.epoch
-    σ_rvs = rv.table.σ_rv
-    inst_idxs = rv.table.inst_idx
-    rvs = rv.table.rv
+    fit_gps = true
 
-    # # # TODO: This is a debug override. This is forcing omega to be shifted by pi
-    # # # to compare with orvara.
-    # nt = θ_system.planets.B
-    # nt = merge(nt,(;ω=nt.ω+π))
-    # elements = (Octofitter.construct_elements(Visual{KepOrbit}, θ_system, nt),)
-
-    # single_instrument_mode = !hasproperty(rv.table, :inst_idx)
+    # Each RV instrument index can have it's own barycentric RV offset and jitter.
+    # We support up to 10 insturments. Grab the offsets (if defined) and store in 
+    # a tuple. Then we can index by inst_idxs to look up the right offset and jitter.
     barycentric_rv_inst = (
         hasproperty(θ_system, :rv0_1) ? θ_system.rv0_1 : convert(T, NaN),
         hasproperty(θ_system, :rv0_2) ? θ_system.rv0_2 : convert(T, NaN),
@@ -83,47 +97,151 @@ function Octofitter.ln_like(rv::RadialVelocityLikelihood, θ_system, elements, n
         hasproperty(θ_system, :jitter_9) ? θ_system.jitter_9 : convert(T, NaN),
         hasproperty(θ_system, :jitter_10) ? θ_system.jitter_10 : convert(T, NaN),
     )
+    # gp_len_scales = (
+    #     hasproperty(θ_system, :gp_len_scale_1) ? θ_system.gp_len_scale_1 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_len_scale_2) ? θ_system.gp_len_scale_2 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_len_scale_3) ? θ_system.gp_len_scale_3 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_len_scale_4) ? θ_system.gp_len_scale_4 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_len_scale_5) ? θ_system.gp_len_scale_5 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_len_scale_6) ? θ_system.gp_len_scale_6 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_len_scale_7) ? θ_system.gp_len_scale_7 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_len_scale_8) ? θ_system.gp_len_scale_8 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_len_scale_9) ? θ_system.gp_len_scale_9 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_len_scale_10) ? θ_system.gp_len_scale_10 : convert(T, NaN),
+    # )
+    # gp_per_scales = (
+    #     hasproperty(θ_system, :gp_per_scale_1) ? θ_system.gp_per_scale_1 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_per_scale_2) ? θ_system.gp_per_scale_2 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_per_scale_3) ? θ_system.gp_per_scale_3 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_per_scale_4) ? θ_system.gp_per_scale_4 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_per_scale_5) ? θ_system.gp_per_scale_5 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_per_scale_6) ? θ_system.gp_per_scale_6 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_per_scale_7) ? θ_system.gp_per_scale_7 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_per_scale_8) ? θ_system.gp_per_scale_8 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_per_scale_9) ? θ_system.gp_per_scale_9 : convert(T, NaN),
+    #     hasproperty(θ_system, :gp_per_scale_10) ? θ_system.gp_per_scale_10 : convert(T, NaN),
+    # )
+
     # Vector of radial velocity of the star at each epoch. Go through and sum up the influence of
     # each planet and put it into here. 
-    # Then loop through and get likelihood.
-    # Hopefully this is more efficient than looping over each planet at each epoch and adding up the likelihood.
-    rv_star = StrideArray{T}(undef, (StaticInt(num_epochs),))
-    fill!(rv_star, 0)
-    for planet_i in eachindex(elements)
-        orbit = elements[planet_i]
-        # Need to structarrays orbit???
-        planet_mass = θ_system.planets[planet_i].mass
-        # @turbo
-        for epoch_i in eachindex(epochs)
-            rv_star[epoch_i] += radvel(orbit, epochs[epoch_i], planet_mass*Octofitter.mjup2msol)
-        end
-    end
-    # @turbo 
-    for i in eachindex(epochs)
-        # Each measurement is tagged with a jitter and rv zero point variable.
-        # We then query the system variables for them.
-        # A previous implementation used symbols instead of indices but it was too slow.
-        inst_idx = inst_idxs[i]
+    rv_star_buf_all_inst = zeros(T, (L))
+    noise_var_all_inst =  zeros(T, (L))
+
+    # Work through RV data and model one instrument at a time
+    for inst_idx in 1:maximum(rv.table.inst_idx)
         if isnan(jitter_inst[inst_idx]) || isnan(barycentric_rv_inst[inst_idx])
-            error(lazy"`jitter_$inst_idx` and `rv0_$inst_idx` must be provided")
+            @warn("`jitter_$inst_idx` and `rv0_$inst_idx` must be provided (were NaN)", maxlog=1)
         end
-            resid = rv_star[i] + barycentric_rv_inst[inst_idx] - rvs[i]
-        σ² = σ_rvs[i]^2 + jitter_inst[inst_idx]^2
-        χ² = -0.5resid^2 / σ² - log(sqrt(2π * σ²))
-        ll += χ²
+        istart = findfirst(==(inst_idx), rv.table.inst_idx)
+        iend = findlast(==(inst_idx), rv.table.inst_idx)
+        epochs = vec(@view rv.table.epoch[istart:iend])
+        σ_rvs = vec(@view rv.table.σ_rv[istart:iend])
+        rvs = vec(@view rv.table.rv[istart:iend])
+        istart = istart[1]
+        iend = iend[1]
+        noise_var = @view noise_var_all_inst[istart:iend]
+        rv_star_buf = @view rv_star_buf_all_inst[istart:iend] 
+        rv_star_buf .+= rvs
+        rv_star_buf .+= barycentric_rv_inst[inst_idx] 
+        
+        # # Zygote version:
+        # rv_star_buf = @view(rv_star_buf_all_inst[istart:iend]) .+ barycentric_rv_inst[inst_idx]
 
-        # Leveraging Distributions.jl to make this clearer:
-        # ll += logpdf(Normal(0, sqrt(σ²)), resid)
+        # rv_star_buf .+= barycentric_rv_inst[inst_idx] 
+        # rv_star_buf += barycentric_rv_inst[inst_idx] 
+
+        # Go through all "influences" on the RV signal, and subtract their models.
+        # You could consider `rv_star` as the residuals after subtracting these.
+        for planet_i in eachindex(elements)
+            orbit = elements[planet_i]
+            # Need to structarrays orbit if we want this to SIMD
+            planet_mass = θ_system.planets[planet_i].mass
+            for epoch_i in eachindex(epochs)
+                rv_star_buf[epoch_i] -= radvel(orbit, epochs[epoch_i], planet_mass*Octofitter.mjup2msol)
+            end
+            # Zygote version:
+            # rv_star_buf -= radvel.(orbit, epochs, planet_mass*Octofitter.mjup2msol)
+        end
+        
+
+        noise_var .= σ_rvs.^2 .+ jitter_inst[inst_idx]^2
+
+        # if !fit_gps
+        #     # # Now calculate the likelihoods of orbit model
+        #     # for epoch_i in eachindex(epochs)#,rv_star_buf)
+
+        #     #     # Each measurement is tagged with a jitter and rv zero point variable.
+        #     #     # We then query the system variables for them.
+        #     #     # A previous implementation used symbols instead of indices but it was too slow.
+        #     #     σ² = noise_var[epoch_i]# σ_rvs[epoch_i]^2 + jitter_inst[inst_idx]^2
+        #     #     resid = rv_star_buf[epoch_i]
+        #     #     # χ² = -0.5resid^2 / σ² - log(sqrt(2π * σ²))
+        #     #     # ll += χ²
+
+        #     #     # Leveraging Distributions.jl to make this clearer:
+        #     #     # ll += logpdf(Normal(0, sqrt(σ²)), resid)
+        #     # end
+        # end
+
+
+        if fit_gps
+
+            η₁ = θ_system.gp_η₁ #7.  # h
+            η₂ = θ_system.gp_η₂ #45.   # λ
+            η₃ = θ_system.gp_η₃ #11.68 # θ
+            η₄ = θ_system.gp_η₄ #0.5   # ω
+
+            local kernel
+            try
+                kernel = η₁^2 *  
+                    # (Matern52Kernel() ∘ ScaleTransform(1/η₂)) *  
+                    # (ApproxPeriodicKernel{7}(r=η₄) ∘ ScaleTransform(2/η₃)) #
+                    # This is a closer match to what other packages use
+                    (SqExponentialKernel() ∘ ScaleTransform(√(2)/η₂)) *#*  # or 2/
+                    (PeriodicKernel(r=[η₃]) ∘ ScaleTransform(1/(η₄))) # or 2/
+            catch err
+                @warn "err" exception=(err, catch_backtrace()) maxlog=1
+                return -Inf
+            end                
+            gp_naive = GP(kernel)
+            gp = gp_naive
+            # gp = to_sde(gp_naive, SArrayStorage(T))
+            fx = gp(epochs, noise_var)
+        else
+            fx = MvNormal(Diagonal((noise_var)))
+        end
+        ll += logpdf(fx, rv_star_buf)
     end
-
+    
     return ll
 end
 
 
+        # We have inst: Normal(inst jitter)
+        # Or we have  : GP(inst parameters)
+        # Can we fold these into one interface?
+
+        # The GP has to be fit to all the residuals and then evaluated at each epoch.
+        # The Normal(jitter) could be fit to all data as an MVNormal()
+        # (epochs, residuals) -> logpdf(Normal(0, (σ_rvs[i]^2 + jitter_inst^2)))
+
+
+        # Now calculate the likelihoods (Gaussian Proccess over residuals)
+    #     Per((len_scale, per_scale)) = 
+    #     # with_lengthscale(SqExponentialKernel(), len_scale) ∘ PeriodicTransform(1 / per_scale)
+    #     # with_lengthscale(SqExponentialKernel(), len_scale) ∘ PeriodicTransform(1 / per_scale)
+    #     with_lengthscale(SqExponentialKernel(), len_scale) ∘ PeriodicTransform(1 / per_scale)
+    # # f = GP(PeriodicKernel() * SqExponentialKernel())
+    # f = GP(Per([3,1.2]))
+
+        # Way to unify this interface:
+        # RVLike(data, noise_models=(
+        #   (system, epochs) ->  Normal()
+        # ))
 
 
 # Generate new radial velocity observations for a planet
-function Octofitter.generate_from_params(like::RadialVelocityLikelihood, θ_planet, elem::PlanetOrbits.AbstractOrbit)
+function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_planet, elem::PlanetOrbits.AbstractOrbit)
 
     # Get epochs and uncertainties from observations
     epochs = like.table.epoch 
@@ -133,14 +251,14 @@ function Octofitter.generate_from_params(like::RadialVelocityLikelihood, θ_plan
     rvs = DirectOribts.radvel.(elem, epochs)
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
 
-    return RadialVelocityLikelihood(radvel_table)
+    return StarAbsoluteRVLikelihood(radvel_table)
 end
 
 
 
 
 # Generate new radial velocity observations for a star
-function Octofitter.generate_from_params(like::RadialVelocityLikelihood, θ_system, orbits::Vector{<:Visual{KepOrbit}})
+function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_system, orbits::Vector{<:Visual{KepOrbit}})
 
     # Get epochs, uncertainties, and planet masses from observations and parameters
     epochs = like.table.epoch 
@@ -154,22 +272,22 @@ function Octofitter.generate_from_params(like::RadialVelocityLikelihood, θ_syst
     rvs = sum(rvs, dims=2)[:,1] .+ θ_system.rv .+ noise
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
 
-    return RadialVelocityLikelihood(radvel_table)
+    return StarAbsoluteRVLikelihood(radvel_table)
 end
 
-mjd2jd(mjd) = mjd - 2400000.5
-jd2mjd(jd) = jd + 2400000.5
+mjd2jd(jd) = jd + 2400000.5
+jd2mjd(jd) = jd - 2400000.5
 
 
-
-include("harps.jl")
+include("harps_rvbank.jl")
+include("harps_dr1.jl")
 include("hires.jl")
 include("lick.jl")
 include("radvel.jl")
 
 
 # Plot recipe for astrometry data
-@recipe function f(rv::RadialVelocityLikelihood)
+@recipe function f(rv::StarAbsoluteRVLikelihood)
    
     xguide --> "time (mjd)"
     yguide --> "radvel (m/s)"
@@ -207,6 +325,24 @@ end
 
 function __init__()
 
+    register(DataDep("ESOHARPS_DR1_rvs",
+        """
+        Dataset:     ESO/HARPS Radial Velocities Catalog
+        Author:      Barbieri, M.
+        License:     CC0-1.0
+        Publication: https://arxiv.org/abs/2312.06586
+        Website:     https://archive.eso.org/dataset/ADP.2023-12-04T15:16:53.464
+        
+        The first public data release of the HARPS radial velocities catalog. This data release aims to provide the astronomical community with a catalog of radial velocities obtained with spectroscopic observations acquired from 2003 to 2023 with the High Accuracy Radial Velocity Planet Searcher (HARPS) spectrograph installed at the ESO 3.6m telescope in La Silla Observatory (Chile), and spanning wavelengths from 3800 to 6900 Angstrom. The catalog comprises 289843 observations of 6488 unique astronomical objects.
+        Radial velocities reported in this catalog are obtained using the HARPS pipeline, with a typical precision of 0.5 m/s, which is essential for the search and validation of exoplanets. Additionally, independent radial velocities measured on the Hα spectral line are included, with a typical error of around 300 m/s suitable for various astrophysical applications where high precision is not critical. This catalog includes 282294 radial velocities obtained through the HARPS pipeline and 288972 derived from the Hα line, collectively forming a time-series dataset that provides a historical record of measurements for each object.
+        Further, each object has been cross-referenced with the SIMBAD astronomical database to ensure accurate identification, enabling users to locate and verify objects with existing records in astronomical literature. Information provided for each object includes: astrometric parameters (coordinates, parallaxes, proper motions, radial velocities), photometric parameters (apparent magnitudes in the visible and near-infrared), spectral types and object classifications.
+        
+        File size: 160MiB
+        """,
+        "https://dataportal.eso.org/dataPortal/file/ADP.2023-12-04T15:16:53.464",
+        "9cff9058cb126e76eb9841d2e3fe3f385c1ebe386662633f21e7db78d2ba6b14"
+    ))
+
     register(DataDep("HARPS_RVBank",
         """
         Dataset:     A public HARPS radial velocity database corrected for systematic errors
@@ -216,11 +352,17 @@ function __init__()
         Website:     https://www2.mpia-hd.mpg.de/homes/trifonov/HARPS_RVBank.html
 
         A public HARPS radial velocity database corrected for systematic errors. (2020)
+
+        Updated in 2023 to coincide with the ESO/HARPS Radial Velocities Catalog release.
+        Publication: https://arxiv.org/abs/2312.06586
+        Website:     https://archive.eso.org/dataset/ADP.2023-12-04T15:16:53.464
         
-        File size: 132MiB
+        File size: 38MiB
         """,
-        "https://www2.mpia-hd.mpg.de/homes/trifonov/HARPS_RVBank_v1.csv",
-        "17b2a7f47569de11ff1747a96997203431c81586ffcf08212ddaa250bb879a40",
+        "https://github.com/3fon3fonov/HARPS_RVBank/raw/master/HARPS_RVBank_ver02.csv.zip",
+        "bc32ee889fba6cb0871efe8b4278b0c994cf302c7538aeb6aca630e27bdbb6d8",
+        post_fetch_method=unpack
+
     ))
 
     register(DataDep("HIRES_rvs",

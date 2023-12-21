@@ -47,7 +47,7 @@ function Lick_rvs(target, catalog=datadep"Lick_rvs")
         @info  "Here are a list of similar and available target names" closest_3
         error()
     end
-    return RadialVelocityLikelihood(df_lick_all[target_matched_ii,:])
+    return StarAbsoluteRVLikelihood(df_lick_all[target_matched_ii,:])
 
 
     

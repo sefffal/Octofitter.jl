@@ -37,3 +37,31 @@ Distributions.mean(d::Sine) = π/2
 Distributions.var(d::Sine) = 1/4 - 2/pi^2 
 Distributions.cdf(d::Sine, x::Real)= 1/2*(1-cos(x))
 Distributions.quantile(d::Sine, p::Real) = acos(1-2p)
+
+
+
+"""
+    UniformImproper()
+
+A custom univariate distribution.
+The pdf is exactly 1 between -Inf and Inf. This is an **improper**
+distribution. This is useful for some change of variable transformations
+where we want to apply no prior on a variable and instead apply it on
+a transformed quantity. Use wuith caution.
+
+The full Distributions.jl interface is not obeyed by this distribution,
+but the following methods work:
+pdf, logpdf, minimum, maximum, insupport, mean, var, cdf, quantile
+"""
+struct UniformImproper <: ContinuousUnivariateDistribution end
+Distributions.pdf(d::UniformImproper, x::Real) = 1.0
+Distributions.logpdf(d::UniformImproper, x::Real) = log(1.0)
+# obviously these are not statistically correct since they cannot be
+# defined for an improper distribution
+Distributions.minimum(d::UniformImproper) = -Inf
+Distributions.maximum(d::UniformImproper) = +Inf
+Distributions.insupport(d::UniformImproper, x::Real) = isfinite(x)
+Distributions.mean(d::UniformImproper) = 1.0
+Distributions.var(d::UniformImproper) = Inf
+# Distributions.cdf(d::UniformImproper, x::Real)= 1.0
+Distributions.quantile(d::UniformImproper, p::Real) = p

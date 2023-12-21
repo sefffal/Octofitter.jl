@@ -428,58 +428,61 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
 
             # Test likelihood function immediately to give user a clean error
             # if it fails for some reason.
-            ℓπcallback(initial_θ_0_t,)
-            # return (ℓπcallback,
-            # initial_θ_0_t,
-            # system,
-            # arr2nt,
-            # Bijector_invlinkvec,
-            # )
+            ℓπcallback(initial_θ_0_t)
+            # Also Display their run time. If something is egregously wrong we'll notice something
+            # here in the output logs.
+            if verbosity >= 1
+                (function(ℓπcallback, θ)
+                    @showtime ℓπcallback(θ)
+                end)(ℓπcallback, initial_θ_0_t)
+            end
+
             if autodiff == :Enzyme
                 # Enzyme mode:
                 ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
-                    system_tmp = deepcopy(system)
-                    # oh = Enzyme.onehot(diffresult)
-                    # forward = function (θ_t)
-                    #     primal, out = Enzyme.autodiff(
-                    #         Enzyme.Forward,
-                    #         ℓπcallback,
-                    #         Enzyme.Duplicated,
-                    #         Enzyme.BatchDuplicated(θ_t,oh),
-                    #         (system),
-                    #         (arr2nt),
-                    #         (Bijector_invlinkvec)
-                    #     )
-                    #     return primal, out
-                    # end
+                    # system_tmp = deepcopy(system)
+                    oh = Enzyme.onehot(diffresult)
+                    forward = function (θ_t)
+                        primal, out = Enzyme.autodiff(
+                            Enzyme.Forward,
+                            ℓπcallback,
+                            Enzyme.BatchDuplicated,
+                            Enzyme.BatchDuplicated(θ_t,oh),
+                            Enzyme.Const(system),
+                            Enzyme.Const(arr2nt),
+                            Enzyme.Const(Bijector_invlinkvec)
+                        )
+                        return primal, tuple(out...)
+                    end
                     reverse = function (θ_t)
                         fill!(diffresult,0)
                         primal = @inline ℓπcallback(θ_t)
-                        @inline Enzyme.autodiff(
+                        # @inline 
+                        Enzyme.autodiff(
                             Enzyme.Reverse,
                             ℓπcallback,
                             Enzyme.Duplicated(θ_t,diffresult),
-                            Enzyme.DuplicatedNoNeed(system,system_tmp),
+                            Enzyme.Const(system),
                             Enzyme.Const(arr2nt),
                             Enzyme.Const(Bijector_invlinkvec)
                         )
                         return primal, diffresult
                     end 
-                    # tforward = minimum(
-                    #     @elapsed forward(initial_θ_0_t)
-                    #     for _ in 1:100
-                    # )
-                    # treverse = minimum(
-                    #     @elapsed reverse(initial_θ_0_t)
-                    #     for _ in 1:100
-                    # )
-                    # if tforward > treverse
-                    #     verbosity > 2  && @info "selected reverse mode AD" tforward treverse
-                    #     reverse
-                    # else
-                    #     verbosity > 2  && @info "selected forward mode AD" tforward treverse
-                    #     forward
-                    # end
+                    tforward = minimum(
+                        @elapsed forward(initial_θ_0_t)
+                        for _ in 1:100
+                    )
+                    treverse = minimum(
+                        @elapsed reverse(initial_θ_0_t)
+                        for _ in 1:100
+                    )
+                    if tforward > treverse
+                        verbosity > 2  && @info "selected reverse mode AD" tforward treverse
+                        reverse
+                    else
+                        verbosity > 2  && @info "selected forward mode AD" tforward treverse
+                        forward
+                    end
                 end
 
             elseif autodiff == :FiniteDiff
@@ -496,7 +499,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
 
                 # Zygote mode:
                 ∇ℓπcallback = function (θ_t)
-                    Main.Zygote.gradient(ℓπ, θ_t)
+                    Main.Zygote.gradient(ℓπcallback, θ_t)
                 end
 
             elseif autodiff == :ForwardDiff
@@ -553,15 +556,12 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 error("Unsupported option for autodiff: $autodiff. Valid options are :ForwardDiff (default), :Enzyme, and :Zygote.")
             end
 
-            # Display their run time. If something is egregously wrong we'll notice something
-            # here in the output logs.
-            ℓπcallback(initial_θ_0_t)
+
             ∇ℓπcallback(initial_θ_0_t) 
             if verbosity >= 1
-                (function(ℓπcallback, ∇ℓπcallback, θ)
-                    @showtime ℓπcallback(θ)
+                (function(∇ℓπcallback, θ)
                     @showtime ∇ℓπcallback(θ)
-                end)(ℓπcallback, ∇ℓπcallback, initial_θ_0_t)
+                end)(∇ℓπcallback, initial_θ_0_t)
             end
 
             ℓπcallback, ∇ℓπcallback
@@ -1045,13 +1045,16 @@ function advancedhmc(
 end
 
 # Helper function for displaying nested named tuples in a compact format.
+function stringify_nested_named_tuple(val::Any) # fallback
+    string(val)
+end
 function stringify_nested_named_tuple(num::Number)
-    string(round(num,digits=1))*","
+    string(round(num,digits=1))
 end
 function stringify_nested_named_tuple(nt::NamedTuple)
-    "(;"*join(map(keys(nt), ", ") do k
+    "(;"*join(map(keys(nt)) do k
         "$k="*stringify_nested_named_tuple(nt[k])
-    end)*")"
+    end, ", ")*")"
 end
 
 """

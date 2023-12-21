@@ -60,5 +60,5 @@ function HIRES_rvs(target, catalog=datadep"HIRES_rvs"; inst_idx::Int=1)
             end
             return rows
     end)))
-    return RadialVelocityLikelihood(df_all)
+    return StarAbsoluteRVLikelihood(df_all)
 end
