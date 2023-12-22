@@ -37,10 +37,11 @@ Represents a likelihood function of relative astometry between a host star and a
 be fit with different zero points and jitters.
 In addition to the example above, any Tables.jl compatible source can be provided.
 """
-struct StarAbsoluteRVLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
+struct StarAbsoluteRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikelihood
     table::TTable
     instrument_names::Vector{String}
-    function StarAbsoluteRVLikelihood(observations...; instrument_names=nothing)
+    gaussian_process::GP
+    function StarAbsoluteRVLikelihood(observations...; instrument_names=nothing, gaussian_process=nothing)
         table = Table(observations...)
         if !issubset(rv_cols, Tables.columnnames(table))
             error("Expected columns $rv_cols")
@@ -49,26 +50,31 @@ struct StarAbsoluteRVLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
         if length(unique(table.inst_idx)) != maximum(table.inst_idx)
             error("instrument indexes must run from 1:N without gaps")
         end
-        # We sort the data by instrument index to make some later code faster
-        ii = sortperm(table.inst_idx)
+        # We sort the data first by instrument index then by epoch to make some later code faster
+        m = maximum(table.epoch)
+        ii = sortperm(table.inst_idx .* (10m) .+ table.epoch)
         table = table[ii,:]
         if isnothing(instrument_names)
             instrument_names = string.(1:maximum(table.inst_idx))
         end
-        return new{typeof(table)}(table, instrument_names)
+        return new{typeof(table),typeof(gaussian_process)}(table, instrument_names, gaussian_process)
     end
 end
-StarAbsoluteRVLikelihood(observations::NamedTuple...) = StarAbsoluteRVLikelihood(observations)
+StarAbsoluteRVLikelihood(observations::NamedTuple...;kwargs...) = StarAbsoluteRVLikelihood(observations; kwargs...)
 export StarAbsoluteRVLikelihood
 
 """
 Radial velocity likelihood.
 """
-function Octofitter.ln_like(rv::StarAbsoluteRVLikelihood, θ_system, elements, num_epochs::Val{L}=Val(length(rv.table))) where L
+function Octofitter.ln_like(
+    rvlike::StarAbsoluteRVLikelihood,
+    θ_system,
+    elements,
+    num_epochs::Val{L}=Val(length(rvlike.table))
+) where L
+
     T = typeof(θ_system.M)
     ll = zero(T)
-
-    fit_gps = true
 
     # Each RV instrument index can have it's own barycentric RV offset and jitter.
     # We support up to 10 insturments. Grab the offsets (if defined) and store in 
@@ -97,30 +103,6 @@ function Octofitter.ln_like(rv::StarAbsoluteRVLikelihood, θ_system, elements, n
         hasproperty(θ_system, :jitter_9) ? θ_system.jitter_9 : convert(T, NaN),
         hasproperty(θ_system, :jitter_10) ? θ_system.jitter_10 : convert(T, NaN),
     )
-    # gp_len_scales = (
-    #     hasproperty(θ_system, :gp_len_scale_1) ? θ_system.gp_len_scale_1 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_len_scale_2) ? θ_system.gp_len_scale_2 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_len_scale_3) ? θ_system.gp_len_scale_3 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_len_scale_4) ? θ_system.gp_len_scale_4 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_len_scale_5) ? θ_system.gp_len_scale_5 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_len_scale_6) ? θ_system.gp_len_scale_6 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_len_scale_7) ? θ_system.gp_len_scale_7 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_len_scale_8) ? θ_system.gp_len_scale_8 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_len_scale_9) ? θ_system.gp_len_scale_9 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_len_scale_10) ? θ_system.gp_len_scale_10 : convert(T, NaN),
-    # )
-    # gp_per_scales = (
-    #     hasproperty(θ_system, :gp_per_scale_1) ? θ_system.gp_per_scale_1 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_per_scale_2) ? θ_system.gp_per_scale_2 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_per_scale_3) ? θ_system.gp_per_scale_3 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_per_scale_4) ? θ_system.gp_per_scale_4 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_per_scale_5) ? θ_system.gp_per_scale_5 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_per_scale_6) ? θ_system.gp_per_scale_6 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_per_scale_7) ? θ_system.gp_per_scale_7 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_per_scale_8) ? θ_system.gp_per_scale_8 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_per_scale_9) ? θ_system.gp_per_scale_9 : convert(T, NaN),
-    #     hasproperty(θ_system, :gp_per_scale_10) ? θ_system.gp_per_scale_10 : convert(T, NaN),
-    # )
 
     # Vector of radial velocity of the star at each epoch. Go through and sum up the influence of
     # each planet and put it into here. 
@@ -128,15 +110,15 @@ function Octofitter.ln_like(rv::StarAbsoluteRVLikelihood, θ_system, elements, n
     noise_var_all_inst =  zeros(T, (L))
 
     # Work through RV data and model one instrument at a time
-    for inst_idx in 1:maximum(rv.table.inst_idx)
+    for inst_idx in 1:maximum(rvlike.table.inst_idx)
         if isnan(jitter_inst[inst_idx]) || isnan(barycentric_rv_inst[inst_idx])
             @warn("`jitter_$inst_idx` and `rv0_$inst_idx` must be provided (were NaN)", maxlog=1)
         end
-        istart = findfirst(==(inst_idx), rv.table.inst_idx)
-        iend = findlast(==(inst_idx), rv.table.inst_idx)
-        epochs = vec(@view rv.table.epoch[istart:iend])
-        σ_rvs = vec(@view rv.table.σ_rv[istart:iend])
-        rvs = vec(@view rv.table.rv[istart:iend])
+        istart = findfirst(==(inst_idx), rvlike.table.inst_idx)
+        iend = findlast(==(inst_idx), rvlike.table.inst_idx)
+        epochs = vec(@view rvlike.table.epoch[istart:iend])
+        σ_rvs = vec(@view rvlike.table.σ_rv[istart:iend])
+        rvs = vec(@view rvlike.table.rv[istart:iend])
         istart = istart[1]
         iend = iend[1]
         noise_var = @view noise_var_all_inst[istart:iend]
@@ -166,54 +148,36 @@ function Octofitter.ln_like(rv::StarAbsoluteRVLikelihood, θ_system, elements, n
 
         noise_var .= σ_rvs.^2 .+ jitter_inst[inst_idx]^2
 
-        # if !fit_gps
-        #     # # Now calculate the likelihoods of orbit model
-        #     # for epoch_i in eachindex(epochs)#,rv_star_buf)
+        if !isnothing(rvlike.gaussian_process)
+            # Fit a GP
 
-        #     #     # Each measurement is tagged with a jitter and rv zero point variable.
-        #     #     # We then query the system variables for them.
-        #     #     # A previous implementation used symbols instead of indices but it was too slow.
-        #     #     σ² = noise_var[epoch_i]# σ_rvs[epoch_i]^2 + jitter_inst[inst_idx]^2
-        #     #     resid = rv_star_buf[epoch_i]
-        #     #     # χ² = -0.5resid^2 / σ² - log(sqrt(2π * σ²))
-        #     #     # ll += χ²
-
-        #     #     # Leveraging Distributions.jl to make this clearer:
-        #     #     # ll += logpdf(Normal(0, sqrt(σ²)), resid)
-        #     # end
-        # end
-
-
-        if fit_gps
-
-            η₁ = θ_system.gp_η₁ #7.  # h
-            η₂ = θ_system.gp_η₂ #45.   # λ
-            η₃ = θ_system.gp_η₃ #11.68 # θ
-            η₄ = θ_system.gp_η₄ #0.5   # ω
-
-            local kernel
+            local gp
             try
-                kernel = η₁^2 *  
-                    # (Matern52Kernel() ∘ ScaleTransform(2/η₂)) *  
-                    # (ApproxPeriodicKernel{7}(r=η₄) ∘ ScaleTransform(1/η₃)) #
-                    # This is a closer match to what other packages use
-                    (SqExponentialKernel() ∘ ScaleTransform(1/(η₂))) *
-                    (PeriodicKernel(r=[η₄]) ∘ ScaleTransform(1/(η₃)))
+                gp = @inline rvlike.gaussian_process(θ_system)
+                
             catch err
-                @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                return -Inf
+                if err isa PosDefException
+                    @warn "err" exception=(err, catch_backtrace()) maxlog=1
+                    return -Inf
+                elseif err isa ArgumentError
+                    @warn "err" exception=(err, catch_backtrace()) maxlog=1
+                    return -Inf
+                else
+                    rethrow(err)
+                end
             end                
-            gp_naive = GP(kernel)
-            gp = gp_naive
-            # gp = to_sde(gp_naive, SArrayStorage(T))
+
             fx = gp(epochs, noise_var)
+
         else
+            # Don't fit a GP
             fx = MvNormal(Diagonal((noise_var)))
         end
+
         try
             ll += logpdf(fx, rv_star_buf)
         catch err
-            if err isa PosDefException
+            if err isa PosDefException || err isa DomainError
                 return -Inf
             else
                 rethrow(err)

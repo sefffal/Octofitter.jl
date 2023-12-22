@@ -6,7 +6,7 @@ using Makie
 using Statistics
 using StatsBase
 using AbstractGPs
-# using TemporalGPs
+using TemporalGPs
 using Dates
 
 ## Need three panels
@@ -165,19 +165,32 @@ function OctofitterRadialVelocity.rvpostplot!(
         # η₃? = θ  # the period of the correlated noise 
         # η₂? = λ  # characteristic decay timescale of the correlation (spot lifetime)
         # η₄? = ω # coherence scale (sometimes called the structure parameter)
-        η₁ = results["gp_η₁"][sample_idx]
-        η₂ = results["gp_η₂"][sample_idx]
-        η₃ = results["gp_η₃"][sample_idx]
-        η₄ = results["gp_η₄"][sample_idx]
-        kernel = η₁^2 * 
-                    # (Matern52Kernel() ∘ ScaleTransform(2/η₂)) *  
-                    # (ApproxPeriodicKernel{7}(r=η₄) ∘ ScaleTransform(1/η₃)) #
-                    # This is a closer match to what other packages use
-                    (SqExponentialKernel() ∘ ScaleTransform(1/(η₂))) *
-                    (PeriodicKernel(r=[η₄]) ∘ ScaleTransform(1/(η₃)))
-        gp_naive = GP(kernel)
-        map_gp = gp_naive
-        # map_gp = to_sde(gp_naive, SArrayStorage(Float64))
+
+
+        # η₁ = results["gp_η₁"][sample_idx]
+        # η₂ = results["gp_η₂"][sample_idx]
+        # η₃ = results["gp_η₃"][sample_idx]
+        # η₄ = results["gp_η₄"][sample_idx]
+        # kernel = η₁^2 * 
+        #             # (Matern52Kernel() ∘ ScaleTransform(2/η₂)) *  
+        #             # (ApproxPeriodicKernel{7}(r=η₄) ∘ ScaleTransform(1/η₃)) #
+        #             # This is a closer match to what other packages use
+        #             (SqExponentialKernel() ∘ ScaleTransform(1/(η₂))) *
+        #             (PeriodicKernel(r=[η₄]) ∘ ScaleTransform(1/(η₃)))
+        # gp_naive = GP(kernel)
+        # map_gp = gp_naive
+        # # map_gp = to_sde(gp_naive, SArrayStorage(Float64))
+
+        row = results[sample_idx,:,:];
+        nt = (Table((row)))[1]
+        map_gp = rvs.gaussian_process(nt)
+        if isnothing(map_gp)
+            map_gp = GP(ZeroKernel())
+        elseif map_gp isa TemporalGPs.LTISDE
+            # Unwrap the temporal GPs wrapper so that we can calculate mean_and_var
+            # We don't need the speed up provided by LTISDE for plotting once.
+            map_gp = map_gp.f
+        end
 
         fx = map_gp(
             # x
@@ -210,8 +223,8 @@ function OctofitterRadialVelocity.rvpostplot!(
 
         RV_sample_idxnst =  radvel.(els[sample_idx], ts_inst, M[sample_idx])
         band!(ax_fit, ts_inst,
-            vec(y_inst .+ RV_sample_idxnst .- sqrt(var .+ jitter^2)),
-            vec(y_inst .+ RV_sample_idxnst .+ sqrt(var .+ jitter^2)),
+            vec(y_inst .+ RV_sample_idxnst .- sqrt.(var .+ jitter^2)),
+            vec(y_inst .+ RV_sample_idxnst .+ sqrt.(var .+ jitter^2)),
             color=(Makie.wong_colors()[inst_idx], 0.35)
         )
         lines!(
@@ -402,7 +415,7 @@ function OctofitterRadialVelocity.rvpostplot!(
             MarkerElement(color = :red, strokecolor=:black, strokewidth=2, marker=:circle, markersize = 15),
         ],
         [
-            "MAP model",
+            Makie.rich("maximum\n", Makie.rich("a posteriori", font=:italic), "\nmodel"),
             "binned",
         ],
         valign=:top,
