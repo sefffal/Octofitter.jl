@@ -183,7 +183,10 @@ function OctofitterRadialVelocity.rvpostplot!(
 
         row = results[sample_idx,:,:];
         nt = (Table((row)))[1]
-        map_gp = rvs.gaussian_process(nt)
+        map_gp = nothing
+        if !isnothing(rvs.gaussian_process)
+            map_gp = rvs.gaussian_process(nt)
+        end
         if isnothing(map_gp)
             map_gp = GP(ZeroKernel())
         elseif map_gp isa TemporalGPs.LTISDE
