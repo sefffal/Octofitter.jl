@@ -14,7 +14,7 @@ Datasets from two different radial velocity insturments are included and modelle
 For the purposes of this quick example, a fixed semi-major axis, eccentricity, and m*sin(i) are used.
 
 
-```julia
+```@example 1
 
 
 using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, Plots
@@ -265,7 +265,6 @@ end HGCALikelihood(;gaia_id) rvs b
 model = Octofitter.LogDensityModel(ϵEri; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 
 ## Sample from chains
-
 results = octofit(
     model, 0.75;
     adaptation =  2000,
@@ -273,9 +272,18 @@ results = octofit(
     verbosity = 4,
     max_depth = 12
 )
+```
 
+We can now plot the results with a multi-panel plot:
+```@example 1
 ## Save results plot
 octoplot(model, results, cmap=:greys, clims=(-0.5,1));
 ```
 
-![model plot with astrometry](assets/eps-eri-pma-fit-4.png)
+![model plot with astrometry](assets/ϵEri-plot-grid.png)
+
+
+We can also plot just the RV fit:
+```@example 1
+fig = OctofitterRadialVelocity.rvpostplot(model, results)
+```
