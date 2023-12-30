@@ -366,6 +366,8 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
         # Choose parameter dimensionality and initial parameter value
         initial_θ_0 = sample_priors(system)
         D = length(initial_θ_0)
+        verbosity >= 2 && @info "Determined number of free variables" D
+
 
         ln_prior_transformed = make_ln_prior_transformed(system)
         # ln_prior = make_ln_prior(system)
