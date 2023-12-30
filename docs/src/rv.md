@@ -36,11 +36,11 @@ end # No planet astrometry is included since it has not yet been directly detect
 # Convert from JD to MJD
 # Data tabulated from Mawet et al
 jd(mjd) = mjd - 2400000.5
-rvs = RadialVelocityLikelihood(
+rvs = StarAbsoluteRVLikelihood(
     (;inst_idx=1, epoch=jd(2455110.97985),  rv=−6.54, σ_rv=1.30),
     (;inst_idx=1, epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09),
     (;inst_idx=1, epoch=jd(2455188.78841),  rv=7.90, σ_rv=.11),
-    (;inst_idx=1, epoch=jd(2455231.7593),  rv=−8.39, σ_rv=.13),
+    (;inst_idx=1, epoch=jd(2455231.7593),   rv=−8.39, σ_rv=.13),
     (;inst_idx=1, epoch=jd(2455255.70841),  rv=1.66, σ_rv=.70),
     (;inst_idx=1, epoch=jd(2455260.71231),  rv=1.77, σ_rv=.01),
     (;inst_idx=1, epoch=jd(2455261.71825),  rv=0.75, σ_rv=.30),
