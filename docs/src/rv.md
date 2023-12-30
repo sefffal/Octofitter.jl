@@ -247,6 +247,8 @@ rvs = StarAbsoluteRVLikelihood(
     (inst_idx=2, epoch=jd(2457753.47716), rv=−12.45, σ_rv=1.30),
     (inst_idx=2, epoch=jd(2457798.55461), rv=−18.91, σ_rv=2.25),
     (inst_idx=2, epoch=jd(2457821.65582), rv=−5.60, σ_rv=1.63),
+
+    instrument_names=["HIRES", "APF"],
 )
 
 @system ϵEri begin
