@@ -250,7 +250,7 @@ rvs = StarAbsoluteRVLikelihood(
 )
 
 @system ϵEri begin
-    M = 0.78
+    M ~ Normal(0.78, 0.01)
     plx ~ gaia_plx(;gaia_id)
     pmra ~ Normal(-975, 10)
     pmdec ~ Normal(20,  10)
@@ -261,9 +261,12 @@ rvs = StarAbsoluteRVLikelihood(
     jitter_2 ~ truncated(Normal(0,10),lower=0)
 end HGCALikelihood(;gaia_id) rvs b
 
-## Build model
+# Build model
 model = Octofitter.LogDensityModel(ϵEri; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+```
 
+Now sample:
+```@example 1
 ## Sample from chains
 results = octofit(
     model, 0.75;
