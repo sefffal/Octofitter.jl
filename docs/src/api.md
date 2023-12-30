@@ -5,7 +5,7 @@
 Priors
 Derived
 AstrometryLikelihood
-RadialVelocityLikelihood              
+StarAbsoluteRVLikelihood              
 PhotometryLikelihood
 HGCALikelihood
 ObsPriorAstromONeil2019
