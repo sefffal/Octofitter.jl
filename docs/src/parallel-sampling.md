@@ -1,6 +1,6 @@
 # Parallel Sampling
 
-!!! warn
+!!! warning
     Parallel sampling broke after an update to AdvancedHMC.jl. This page will be updated with new instructions in the future.
 
 You can sample from multiple chains in parallel using either threads (useful for quick tests) processes (high throughput), or simply running multiple copies of the program and merging the results afterwards (recommended for clusters).
