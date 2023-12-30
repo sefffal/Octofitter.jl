@@ -181,10 +181,10 @@ function OctofitterRadialVelocity.rvpostplot!(
         # map_gp = gp_naive
         # # map_gp = to_sde(gp_naive, SArrayStorage(Float64))
 
-        row = results[sample_idx,:,:];
-        nt = (Table((row)))[1]
         map_gp = nothing
         if !isnothing(rvs.gaussian_process)
+            row = results[sample_idx,:,:];
+            nt = (Table((row)))[1]
             map_gp = rvs.gaussian_process(nt)
         end
         if isnothing(map_gp)
