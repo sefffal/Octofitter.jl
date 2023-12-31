@@ -22,7 +22,7 @@ using Octofitter, Distributions, Plots
 
 
 ```julia
-astrom = AstrometryLikelihood(
+astrom = PlanetRelAstromLikelihood(
     (epoch=mjd("2016-12-15"), ra=133., dec=-174., σ_ra=07.0, σ_dec=07.,),# cor=0.2),
     (epoch=mjd("2017-03-12"), ra=126., dec=-176., σ_ra=04.0, σ_dec=04.,),# cor=0.3),
     (epoch=mjd("2017-03-13"), ra=127., dec=-172., σ_ra=04.0, σ_dec=04.,),# cor=0.1),

@@ -10,7 +10,7 @@ using Octofitter, Distributions, Plots
         i = Sine(),
         Ω = UniformCircular(),
     ),
-    AstrometryLikelihood(
+    PlanetRelAstromLikelihood(
         (epoch=5000.,  ra=-364., dec=-1169., σ_ra=70., σ_dec=30.),
         (epoch=5014.,  ra=-493., dec=-1104., σ_ra=70., σ_dec=30.),
         (epoch=5072.,  ra=-899., dec=-629., σ_ra=20.,  σ_dec=50.),
@@ -26,7 +26,7 @@ using Octofitter, Distributions, Plots
 )
 
 ##
-scatter(astrometry(b), label="Planet b AstrometryLikelihood", aspectratio=1)
+scatter(astrometry(b), label="Planet b PlanetRelAstromLikelihood", aspectratio=1)
 xlims!(-1500,1500)
 ylims!(-1500,1500)
 ##

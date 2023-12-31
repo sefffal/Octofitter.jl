@@ -104,11 +104,11 @@ end
 
 Using RecipesBase.jl, we can create a plotting recipe to visualize the observations. This is only for your convenience and it not strictly necessary.
 
-Here is an example for the `AstrometryLikelihood` data type:
+Here is an example for the `PlanetRelAstromLikelihood` data type:
 ```julia
 using RecipesBase
 # Plot recipe for astrometry data
-@recipe function f(astrom::AstrometryLikelihood)
+@recipe function f(astrom::PlanetRelAstromLikelihood)
    
     xflip --> true
     xguide --> "Δ right ascension (mas)"

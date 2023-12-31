@@ -14,7 +14,7 @@ using Octofitter, Distributions
 Create our first planet. Let's name it planet B. 
 ```@example 1
 
-astrom = AstrometryLikelihood(
+astrom = PlanetRelAstromLikelihood(
     (epoch = 5000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 5120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 5240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
@@ -26,7 +26,7 @@ astrom = AstrometryLikelihood(
 )
 # Or from a file (must install CSV.jl first):
 # using CSV
-# astrom = CSV.read("mydata.csv", AstrometryLikelihood)
+# astrom = CSV.read("mydata.csv", PlanetRelAstromLikelihood)
 
 @planet B Visual{KepOrbit} begin
     a ~ truncated(Normal(10, 4), lower=0, upper=100)
@@ -58,7 +58,7 @@ The parameters can be specified in any order.
 
 After the `Variables` block are zero or more `Likelihood` blocks. These are observations specific to a given planet that you would like to include in the model. If you would like to sample from the priors only, don't pass in any observations.
 
-For this example, we specify `AstrometryLikelihood` block. This is where you can list the position of a planet at different epochs if it known. `epoch` is a modified Julian date that the observation was taken. the `ra`, `dec`, `σ_ra`, and `σ_dec` parameters are the position of the planet at that epoch, relative to the star. All values in milliarcseconds (mas).
+For this example, we specify `PlanetRelAstromLikelihood` block. This is where you can list the position of a planet at different epochs if it known. `epoch` is a modified Julian date that the observation was taken. the `ra`, `dec`, `σ_ra`, and `σ_dec` parameters are the position of the planet at that epoch, relative to the star. All values in milliarcseconds (mas).
 Alternatively, you can pass in `pa`, `sep`, `σ_pa`, and `σ_sep` if your data is specified in position angle (degrees) and separation (mas).
 
 If you have many observations you may prefer to load them from a file or database. You can pass in any Tables.jl compatible data source via, for example, the CSV.jl library, the Arrow.jl library, a DataFrame, etc. Just ensure the right columns are present.
@@ -90,34 +90,6 @@ We now convert our declarative model into efficient, compiled code.
 ```@example 1
 model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 ```
-
-```
-
-[ Info: Preparing model
-┌ Info: Timing autodiff
-│   chunk_size = 1
-└   t = 8.84e-5
-┌ Info: Timing autodiff
-│   chunk_size = 2
-└   t = 3.58e-5
-┌ Info: Timing autodiff
-│   chunk_size = 4
-└   t = 3.49e-5
-┌ Info: Timing autodiff
-│   chunk_size = 6
-└   t = 2.3e-5
-┌ Info: Timing autodiff
-│   chunk_size = 8
-└   t = 2.77e-5
-┌ Info: Timing autodiff
-│   chunk_size = 10
-└   t = 1.43e-5
-┌ Info: Selected auto-diff chunk size
-└   ideal_chunk_size = 10
-ℓπ(initial_θ_0_t): 0.003915 seconds (1 allocation: 16 bytes)
-∇ℓπ(initial_θ_0_t): 0.013444 seconds (1 allocation: 32 bytes)
-```
-You can hide this output by adjusting `verbosity`.
 
 This type implements the LogDensityProblems interface and can be passed to a wide variety of samplers.
 

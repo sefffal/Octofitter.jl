@@ -1,10 +1,10 @@
 
-# AstrometryLikelihood Data type
+# PlanetRelAstromLikelihood Data type
 const astrom_cols1 = (:epoch, :ra, :dec, :σ_ra, :σ_dec)
 const astrom_cols3 = (:epoch, :pa, :sep, :σ_pa, :σ_sep)
 
 """
-    AstrometryLikelihood(
+    PlanetRelAstromLikelihood(
         (epoch = 5000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
         (epoch = 5050, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
         (epoch = 5100, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
@@ -16,9 +16,9 @@ All units are in **milliarcseconds** or **radians** as appropriate.
 
 In addition to the example above, any Tables.jl compatible source can be provided.
 """
-struct AstrometryLikelihood{TTable<:Table} <: AbstractLikelihood
+struct PlanetRelAstromLikelihood{TTable<:Table} <: AbstractLikelihood
     table::TTable
-    function AstrometryLikelihood(observations...)
+    function PlanetRelAstromLikelihood(observations...)
         table = Table(observations...)
         if !issubset(astrom_cols1, Tables.columnnames(table)) && 
            !issubset(astrom_cols3, Tables.columnnames(table))
@@ -27,13 +27,13 @@ struct AstrometryLikelihood{TTable<:Table} <: AbstractLikelihood
         return new{typeof(table)}(table)
     end
 end
-AstrometryLikelihood(observations::NamedTuple...) = AstrometryLikelihood(observations)
-export AstrometryLikelihood
+PlanetRelAstromLikelihood(observations::NamedTuple...) = PlanetRelAstromLikelihood(observations)
+export PlanetRelAstromLikelihood
 
 
 # Plot recipe for astrometry data
 using LinearAlgebra
-@recipe function f(astrom::AstrometryLikelihood)
+@recipe function f(astrom::PlanetRelAstromLikelihood)
    
     xflip --> true
     xguide --> "Δ right ascension (mas)"
@@ -165,8 +165,8 @@ using LinearAlgebra
 end
 
 
-# AstrometryLikelihood likelihood function
-function ln_like(astrom::AstrometryLikelihood, θ_planet, orbit,)
+# PlanetRelAstromLikelihood likelihood function
+function ln_like(astrom::PlanetRelAstromLikelihood, θ_planet, orbit,)
 
     # Note: since astrometry data is stored in a typed-table, the column name
     # checks using `hasproperty` ought to be compiled out completely.
@@ -233,7 +233,7 @@ function ln_like(astrom::AstrometryLikelihood, θ_planet, orbit,)
 end
 
 # Generate new astrometry observations
-function generate_from_params(like::AstrometryLikelihood, θ_planet, orbit::PlanetOrbits.AbstractOrbit)
+function generate_from_params(like::PlanetRelAstromLikelihood, θ_planet, orbit::PlanetOrbits.AbstractOrbit)
 
     # Get epochs and uncertainties from observations
     epoch = like.table.epoch
@@ -265,5 +265,5 @@ function generate_from_params(like::AstrometryLikelihood, θ_planet, orbit::Plan
         end
     end
 
-    return AstrometryLikelihood(astrometry_table)
+    return PlanetRelAstromLikelihood(astrometry_table)
 end

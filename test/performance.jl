@@ -13,7 +13,7 @@ using Octofitter, Distributions, CSV
         Ω = (sys, pl) -> sys.Ω,
         ω    = Uniform(0, 2π),
     ),
-    CSV.read("cEri-astrometry.csv", AstrometryLikelihood)
+    CSV.read("cEri-astrometry.csv", PlanetRelAstromLikelihood)
 )
 
 @named c = Planet{Visual{KepOrbit}}(

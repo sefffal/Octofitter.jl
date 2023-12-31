@@ -264,7 +264,7 @@ end
 ## Helpers for accessing the first observation of a certain type in a planet or system
 function astrometry(planet::Planet)
     astrom_likes = filter(planet.observations) do like
-        return like isa AstrometryLikelihood
+        return like isa PlanetRelAstromLikelihood
     end
     if length(astrom_likes) == 1
         return astrom_likes[1]

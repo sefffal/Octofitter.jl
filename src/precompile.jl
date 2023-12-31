@@ -15,7 +15,7 @@ using PrecompileTools
     with_logger(logger) do
         @compile_workload begin
         
-            astrom = AstrometryLikelihood(
+            astrom = PlanetRelAstromLikelihood(
                 (epoch=1234.0, ra=123., dec=123., σ_ra=12., σ_dec=34.),
             )
             @planet test Visual{KepOrbit} begin

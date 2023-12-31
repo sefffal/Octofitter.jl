@@ -1,6 +1,6 @@
 """
 
-    astrom = CSV.read("octofitter/input.csv", AstrometryLikelihood)
+    astrom = CSV.read("octofitter/input.csv", PlanetRelAstromLikelihood)
 
     vars = Octofitter.@planet b Visual{KepOrbit} astrom begin
         a  ~ LogUniform(2.5, 25)

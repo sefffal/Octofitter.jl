@@ -12,7 +12,7 @@ is implemented.
 """
     ObsPriorAstromONeil2019(astrometry_likelihood, period_prior)
 
-Given a an astrometry likelihood (`AstrometryLikelihood`), apply the
+Given a an astrometry likelihood (`PlanetRelAstromLikelihood`), apply the
 "observable based priors" of K. O'Neil 2019 "Improving Orbit Estimates
 for Incomplete Orbits with a New Approach to Priors: with Applications
 from Black Holes to Planets".
@@ -25,7 +25,7 @@ fit and recommendations for its range were not published in the original paper.
 
 ## Examples
 ```julia
-astrom_like = AstrometryLikelihood(astrom_table)
+astrom_like = PlanetRelAstromLikelihood(astrom_table)
 
 # Apply observable based priors ontop of our uniform Campbell priors:
 obs_prior = ObsPriorAstromONeil2019(astrom_like)
@@ -63,7 +63,7 @@ struct ObsPriorAstromONeil2019{Likelihood<:AbstractLikelihood} <: AbstractLikeli
 end
 export ObsPriorAstromONeil2019
 
-function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:AstrometryLikelihood}, θ_planet, orbit,) 
+function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_planet, orbit,) 
 # function Octofitter.ln_like(like::ObsPriorAstromONeil2019, θ_planet, orbit,) 
 
     # Add period prior

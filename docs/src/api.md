@@ -4,7 +4,7 @@
 ```@docs
 Priors
 Derived
-AstrometryLikelihood
+PlanetRelAstromLikelihood
 StarAbsoluteRVLikelihood              
 PhotometryLikelihood
 HGCALikelihood

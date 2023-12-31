@@ -34,7 +34,7 @@ Octofitter implements observable-based priors from O'Neil 2019 for relative astr
 ```@example 1
 using Octofitter, Distributions
 
-astrom_like = AstrometryLikelihood(
+astrom_like = PlanetRelAstromLikelihood(
     (;epoch=mjd("2020-12-20"), ra=400.0, σ_ra=5.0, dec=400.0, σ_dec=5.0)
 )
 
