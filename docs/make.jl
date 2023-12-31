@@ -7,6 +7,10 @@ Pkg.precompile()
 
 using Documenter, Octofitter, OctofitterRadialVelocity
 
+# Increase resolution of figures
+using CairoMakie
+CairoMakie.activate!(px_per_unit=4)
+
 
 makedocs(
     sitename="Octofitter.jl",
