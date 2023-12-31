@@ -411,11 +411,6 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 lprior = @inline ln_prior_transformed(θ_natural)
                 # CAUTION: This inline annotation is necessary for correct gradients from Enzyme. Yikes!
                 llike  = @inline ln_like_generated(system, θ_structured)
-                # llike = 0.0
-                # llike += Octofitter.ln_like(system.planets.b.observations[1], θ_structured.planets.b, Octofitter.Visual{KepOrbit}(;θ_structured...,θ_structured.planets.b...))
-                # llike += Octofitter.ln_like(system.planets.b.observations[2], θ_structured.planets.b, Octofitter.Visual{KepOrbit}(;θ_structured...,θ_structured.planets.b...))
-                # llike += Octofitter.ln_like(system.planets.b.observations[3], θ_structured.planets.b, Octofitter.Visual{KepOrbit}(;θ_structured...,θ_structured.planets.b...))
-                
                 lpost = lprior+llike
                 # if !isfinite(lprior)
                 #     @error "Invalid log prior encountered. This likely indicates a problem with the prior support."
@@ -442,26 +437,24 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
             if autodiff == :Enzyme
                 # Enzyme mode:
                 ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
-                    # system_tmp = deepcopy(system)
-                    oh = Enzyme.onehot(diffresult)
-                    forward = function (θ_t)
-                        primal, out = Enzyme.autodiff(
-                            Enzyme.Forward,
-                            ℓπcallback,
-                            Enzyme.BatchDuplicated,
-                            Enzyme.BatchDuplicated(θ_t,oh),
-                            Enzyme.Const(system),
-                            Enzyme.Const(arr2nt),
-                            Enzyme.Const(Bijector_invlinkvec)
-                        )
-                        return primal, tuple(out...)
-                    end
+                    # oh = Enzyme.onehot(diffresult)
+                    # forward = function (θ_t)
+                    #     primal, out = Enzyme.autodiff(
+                    #         Enzyme.Forward,
+                    #         ℓπcallback,
+                    #         Enzyme.BatchDuplicated,
+                    #         Enzyme.BatchDuplicated(θ_t,oh),
+                    #         Enzyme.Const(system),
+                    #         Enzyme.Const(arr2nt),
+                    #         Enzyme.Const(Bijector_invlinkvec)
+                    #     )
+                    #     return primal, tuple(out...)
+                    # end
                     reverse = function (θ_t)
                         fill!(diffresult,0)
-                        primal = @inline ℓπcallback(θ_t)
-                        # @inline 
-                        Enzyme.autodiff(
-                            Enzyme.Reverse,
+                        out, primal = Enzyme.autodiff(
+                            # Enzyme.Reverse,
+                            Enzyme.ReverseWithPrimal,
                             ℓπcallback,
                             Enzyme.Duplicated(θ_t,diffresult),
                             Enzyme.Const(system),
@@ -470,10 +463,11 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                         )
                         return primal, diffresult
                     end 
-                    tforward = minimum(
-                        @elapsed forward(initial_θ_0_t)
-                        for _ in 1:100
-                    )
+                    # tforward = minimum(
+                    #     @elapsed forward(initial_θ_0_t)
+                    #     for _ in 1:100
+                    # )
+                    tforward = Inf
                     treverse = minimum(
                         @elapsed reverse(initial_θ_0_t)
                         for _ in 1:100
