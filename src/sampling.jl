@@ -360,7 +360,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
     link::TLink
     invlink::TInvLink
     arr2nt::TArr2nt
-    function LogDensityModel(system::System; autodiff=:Enzyme, verbosity=0, chunk_sizes=nothing)
+    function LogDensityModel(system::System; autodiff=:ForwardDiff, verbosity=0, chunk_sizes=nothing)
         verbosity >= 1 && @info "Preparing model"
 
         # Choose parameter dimensionality and initial parameter value
