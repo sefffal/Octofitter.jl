@@ -437,19 +437,19 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
             if autodiff == :Enzyme
                 # Enzyme mode:
                 ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
-                    # oh = Enzyme.onehot(diffresult)
-                    # forward = function (θ_t)
-                    #     primal, out = Enzyme.autodiff(
-                    #         Enzyme.Forward,
-                    #         ℓπcallback,
-                    #         Enzyme.BatchDuplicated,
-                    #         Enzyme.BatchDuplicated(θ_t,oh),
-                    #         Enzyme.Const(system),
-                    #         Enzyme.Const(arr2nt),
-                    #         Enzyme.Const(Bijector_invlinkvec)
-                    #     )
-                    #     return primal, tuple(out...)
-                    # end
+                    oh = Enzyme.onehot(diffresult)
+                    forward = function (θ_t)
+                        primal, out = Enzyme.autodiff(
+                            Enzyme.Forward,
+                            ℓπcallback,
+                            Enzyme.BatchDuplicated,
+                            Enzyme.BatchDuplicated(θ_t,oh),
+                            Enzyme.Const(system),
+                            Enzyme.Const(arr2nt),
+                            Enzyme.Const(Bijector_invlinkvec)
+                        )
+                        return primal, tuple(out...)
+                    end
                     reverse = function (θ_t)
                         fill!(diffresult,0)
                         out, primal = Enzyme.autodiff(
@@ -463,11 +463,10 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                         )
                         return primal, diffresult
                     end 
-                    # tforward = minimum(
-                    #     @elapsed forward(initial_θ_0_t)
-                    #     for _ in 1:100
-                    # )
-                    tforward = Inf
+                    tforward = minimum(
+                        @elapsed forward(initial_θ_0_t)
+                        for _ in 1:100
+                    )
                     treverse = minimum(
                         @elapsed reverse(initial_θ_0_t)
                         for _ in 1:100
