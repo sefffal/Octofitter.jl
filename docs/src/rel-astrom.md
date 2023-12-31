@@ -1,19 +1,16 @@
 # [Fit Relative Astrometry](@id fit-astrometry)
 
-Here is a worked example of a basic model. It contains a star with a single planet, and several astrometry points.
-
-The full code is available on [GitHub](https://github.com/sefffal/Octofitter.jl/examples/basic-example.jl)
+Here is a worked example of a one-planet model fit to relative astrometry (positions measured between the planet and the host star). 
 
 Start by loading the Octofitter and Distributions packages:
 ```@example 1
 using Octofitter, Distributions
 ```
 
-## Creating a planet
+## Specifying the data
+We will create a likelihood object to contain our relative astrometry data. We can specify this data in several formats. It can be listed in the code or loaded from a file (eg. a CSV file, FITS table, or SQL database).
 
-Create our first planet. Let's name it planet B. 
 ```@example 1
-
 astrom = PlanetRelAstromLikelihood(
     (epoch = 5000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 5120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
@@ -24,10 +21,70 @@ astrom = PlanetRelAstromLikelihood(
     (epoch = 5720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 5840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
 )
-# Or from a file (must install CSV.jl first):
-# using CSV
-# astrom = CSV.read("mydata.csv", PlanetRelAstromLikelihood)
+```
+In Octofitter, `epoch` is always the modified Julian date (measured in days). If you're not sure what this is, you can get started by just putting in arbitrary time offsets measured in days.
 
+In this case, we specified `ra` and `dec` offsets in milliarcseconds. We could instead specify `sep` (projected separation) in milliarcseconds and `pa` in radians. You cannot mix the two formats in a single `PlanetRelAstromLikelihood` but you can create two different likelihood objects, one for each format.
+
+Another way we could specify the data is by column:
+```@example 1
+astrom = PlanetRelAstromLikelihood(Table(;
+    epoch= [
+        5000,
+        5120,
+        5240,
+        5360,
+        5480,
+        5600,
+        5720,
+        5840,
+    ],
+    ra = [
+        -505.764,
+        -502.57,
+        -498.209,
+        -492.678,
+        -485.977,
+        -478.11,
+        -469.08,
+        -458.896,
+    ],
+    dec = [
+        -66.9298,
+        -37.4722,
+        -7.92755,
+        21.6356, 
+        51.1472, 
+        80.5359, 
+        109.729, 
+        138.651, 
+    ],
+    σ_ra = fill(10.0, 8),
+    σ_dec = fill(10.0, 8),
+    cor = fill(0.0, 8)
+))
+```
+
+Finally we could also load the data from a file somewhere. Here is an example 
+of loading a CSV:
+```julia
+using CSV # must install CSV.jl first
+astrom = CSV.read("mydata.csv", PlanetRelAstromLikelihood)
+```
+
+You can also pass a DataFrame or any other table format.
+
+## Creating a planet
+
+We now create our first planet model. Let's name it planet B. 
+The name of the planet will be used in the output results.
+
+In Octofitter, we specify planet and system models using a "probabilistic
+programming language". Quantities with a `~` are random variables. The distributions on the right hand sides are **priors**. You must specify a 
+proper prior for any quantity which is allowed to vary. 
+
+We now create our planet `B` model using the `@planet` macro.
+```@example 1
 @planet B Visual{KepOrbit} begin
     a ~ truncated(Normal(10, 4), lower=0, upper=100)
     e ~ Uniform(0.0, 0.5)
@@ -36,15 +93,24 @@ astrom = PlanetRelAstromLikelihood(
     Ω ~ UniformCircular()
     τ ~ UniformCircular(1.0)
 end astrom
+nothing # hide
 ```
 
 There's a lot going on here, so let's break it down.
 
-First, `Visual{KepOrbit}` is the kind of orbit parameterization from PlanetOrbits.jl that we'd like to use for this model. A `Visual{KepOrbit}` uses the traditional Keplerian parameters like semi-major axis and inclination, along with the parallax distance to map positions into projected coordinates in the sky.
-Other options include the similar `ThieleInnesOrbit` which uses a different parameterization, as well as `RadVelOrbit` and `KepOrbit` which are useful for modelling radial velocity data.
+First, `Visual{KepOrbit}` is a kind of orbit parameterization from PlanetOrbits.jl that we will use for this. A `KepOrbit` uses the traditional Keplerian orbital elements like semi-major axis and inclination.
+The `Visual{...}` part surrounding it adds support for parallax distance and allows a Keplerian orbit to be projected into the plane of the sky, which is where our relative astrometry data lives! A `KepOrbit` by itself can only be used to fit position measurements in astronomical units. The `Visual{...}` part makes it so we can calculate and specify observed angles between the star and planet.
 
-The `Variables` block accepts the priors that you would like for the orbital parameters of this planet. Priors can be any univariate distribution from the Distributions.jl package.
-You will want to always specify the following parameters:
+You can read about orbit parameterizations in the [PlanetOrbits.jl documentation page](https://sefffal.github.io/PlanetOrbits.jl/dev/api/).
+
+Other options include the similar `ThieleInnesOrbit` which uses a different parameterization, as well as `RadVelOrbit` which is useful for modelling radial velocity data. These can also be wrapped in `Visual{...}` if we want to e.g. project a `RadVelOrbit` onto the plane of the sky.
+
+After the `begin` comes our variable specification. Quantities with a `~` are random variables. The distribution son the right hand sides are **priors**.You must specify a proper prior for any quantity which is allowed to vary. 
+"Uninformative" priors like `1/x` must be given bounds, and can be specified with `LogUniform(lower, upper)`.
+
+Priors can be any univariate distribution from the Distributions.jl package.
+
+For a `KepOrbit` you must specify the following parameters:
 * `a`: Semi-major axis, astronomical units (AU)
 * `i`: Inclination, radius
 * `e`: Eccentricity in the range [0, 1)
@@ -56,42 +122,75 @@ The parameter τ represents the epoch of periastron passage as a fraction of the
 Many different distributions are supported as priors, including `Uniform`, `LogNormal`, `LogUniform`, `Sine`, and `Beta`. See the section on [Priors](@ref priors) for more information.
 The parameters can be specified in any order.
 
-After the `Variables` block are zero or more `Likelihood` blocks. These are observations specific to a given planet that you would like to include in the model. If you would like to sample from the priors only, don't pass in any observations.
+You can also hardcode a particular value for any parameter if you don't want it to vary. The syntax for this is:
+```julia
+    e = 0.1 # hardcode eccentricity
+```
 
-For this example, we specify `PlanetRelAstromLikelihood` block. This is where you can list the position of a planet at different epochs if it known. `epoch` is a modified Julian date that the observation was taken. the `ra`, `dec`, `σ_ra`, and `σ_dec` parameters are the position of the planet at that epoch, relative to the star. All values in milliarcseconds (mas).
-Alternatively, you can pass in `pa`, `sep`, `σ_pa`, and `σ_sep` if your data is specified in position angle (degrees) and separation (mas).
+This `=` syntax works for arbitrary mathematical expressions and even most functions, even many function from external libraries.
+For example, if you wanted to place a uniform prior on the square-root of eccentricity, you could specify:
+```julia
+    e_sqrt ~ Uniform(0, 1)
+    e = sqrt(B.e_sqrt)
+```
+Note how `e_sqrt` is allowed to vary, and `e` is calculated from it deterministically.
 
-If you have many observations you may prefer to load them from a file or database. You can pass in any Tables.jl compatible data source via, for example, the CSV.jl library, the Arrow.jl library, a DataFrame, etc. Just ensure the right columns are present.
 
+After the variables block are zero or more `Likelihood` objects. These are observations specific to a given planet that you would like to include in the model. If you would like to sample from the priors only, don't pass in any observations.
+
+For this example, we specify `PlanetRelAstromLikelihood` block. This is where you can list the position of a planet relative to the star at different epochs.
+
+When you have created your planet, you should see the following output. If you don't, you can run `display(B)` to force the text to be output:
+```@example 1
+B # hide
+```
 
 
 ## Creating a system
 
-A system represents a host star with one or more planets. Properties of the whole system are specified here, like parallax distance and mass of the star. This is also where you will supply data like images and astrometric acceleration in later tutorials, since those don't belong to any planet in particular.
+A system represents a host star with one or more planets. Properties of the whole system are specified here, like parallax distance and mass of the star. This is also where you will supply data like images, astrometric acceleration, or stellar radial velocity since they don't belong to any planet in particular.
 
 ```@example 1
 @system HD82134 begin
     M ~ truncated(Normal(1.2, 0.1), lower=0)
     plx ~ truncated(Normal(50.0, 0.02), lower=0)
-end B
+end B #hide
 ```
 
-The `Variables` block works just like it does for planets. Here, the two parameters you must provide are:
+The variables block works just like it does for planets. Here, the two parameters you must provide are:
 * `M`: Gravitational parameter of the central body, expressed in units of Solar mass.
 * `plx`: Distance to the system expressed in milliarcseconds of parallax.
 
+`M` is always required for all choices of parameterizations supported by PlanetOrbits.jl. `plx` is needed due to our choice to use `Visual{...}` orbit and relative astrometry.
+The prior on `plx` can be looked up from GAIA for many targets by using the function `gaia_plx`:
+```julia
+    plx ~ gaia_plx(;gaia_id=12345678910)
+```
+
 After that, just list any planets that you want orbiting the star. Here, we pass planet B.
-You can name the system and planets whatever you like.
+
+This is also where we could pass likelihood objects for system-wide data like stellar radial velocity.
+
+You can display your system object by running `display(HD82134)` (or whatever you chose to name your system).
+
+
 
 
 ## Prepare model
 We now convert our declarative model into efficient, compiled code.
+The `autodiff` flag specifies what Julia automatic differentiation package we should use to calculate the gradients of our model.
+
 
 ```@example 1
-model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+model = Octofitter.LogDensityModel(HD82134; autodiff=:Enzyme, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 ```
 
-This type implements the LogDensityProblems interface and can be passed to a wide variety of samplers.
+This type implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.
+
+### A note on automatic differentiation
+Julia has many packages for calculating the gradients of arbitrary code, and several are supported with Octofitter. `:ForwardDiff` is a very robust choice for forward-mode auto-diff, and it works well on most codes and models. `:Enzyme` is a state-of-the-art auto-diff forward and reverse mode package that works with many, but not all models. Give it a try for a free speed-boost, but fall back to `ForwardDiff` if you see an error message or crash.
+The `:Zygote` reverse diff package is also partially supported, but usually only of interest when fitting gaussian-process models.
+If you absolutely must, you can fallback to `:FiniteDiff` which uses classical finite differencing methods to approximate gradients for un-differentiable code. 
 
 ## Sampling
 Great! Now we are ready to draw samples from the posterior.
@@ -99,14 +198,14 @@ Great! Now we are ready to draw samples from the posterior.
 Start sampling:
 ```@example 1
 # Provide a seeded random number generator for reproducibility of this example.
-# Not needed in general: simply omit the RNG parameter.
+# This is not necessary in general: you may simply omit the RNG parameter if you prefer.
 using Random
 rng = Random.Xoshiro(0)
 
 chain = octofit(
     rng, model, 0.85;
     adaptation =   500,
-    iterations =  1000,
+    iterations =  2000,
     verbosity = 4,
     max_depth = 12,
 )
@@ -119,7 +218,7 @@ The sampler will begin by drawing orbits randomly from the priors (50,000 by def
 
 Once complete, the `chain` object will hold the sampler results. Displaying it prints out a summary table like the one shown above.
 
-For a basic model like this, sampling should take less than a minute on a typical laptop.
+For a basic model like this, sampl]ing should take less than a minute on a typical laptop.
 
 ## Diagnostics
 The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.
@@ -136,8 +235,8 @@ Lower than this and the sampler is taking steps that are too large and encounter
 
 Next, you can make a trace plot of different variabes to visually inspect the chain:
 ```@example 1
-using Plots
-plot(
+using Plots: Plots
+Plots.plot(
     chain["B_a"],
     xlabel="iteration",
     ylabel="semi-major axis (AU)"
@@ -147,7 +246,7 @@ plot(
 And an auto-correlation plot:
 ```@example 1
 using StatsBase
-plot(
+Plots.plot(
     autocor(chain["B_e"], 1:500),
     xlabel="lag",
     ylabel="autocorrelation",
@@ -168,14 +267,14 @@ As an additional convergence test.
 As a first pass, let's plot a sample of orbits drawn from the posterior.
 
 ```@example 1
-using Plots
+using Plots: Plots
 plotchains(chain, :B, kind=:astrometry, color="B_a")
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
 
 We can overplot the astrometry data like so:
 ```@example 1
-plot!(astrom, label="astrometry")
+Plots.plot!(astrom, label="astrometry")
 ```
 
 
@@ -193,7 +292,13 @@ table = (;
     ω=rad2deg.(vec(chain["B_ω"])),
     τ=         vec(chain["B_τ"]),
 )
-pairplot(table)
+pairplot(
+    table => (
+        PairPlots.Hist(),
+        PairPlots.MarginHist(),
+        PairPlots.MarginConfidenceLimits()
+    )
+)
 ```
 You can read more about the syntax for creating pair plots in the PairPlots.jl documentation page.
 
