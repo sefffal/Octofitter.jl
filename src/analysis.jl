@@ -81,7 +81,7 @@ Inputs:
 * N=1500                  Number of samples to draw for the plot 
 * kind=nothing            Specify what kind of plot to make. 
 * ii=...                  Specific row numbers to use, if you want to e.g. plot the same 100 samples in a few different plots
-* color="\$planet_key_a"   Column name to to map colors to. Semi-major axis by default but can be any column or an arbitrary array.
+* color="planet_key_a"   Column name to to map colors to. Semi-major axis by default but can be any column or an arbitrary array.
 * colorbartitle=color     Name for colourbar
 * clims=nothing           Tuple of colour limits (min and max)
 * cmap=:plasma            Colormap
