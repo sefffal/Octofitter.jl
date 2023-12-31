@@ -103,8 +103,11 @@ model = Octofitter.LogDensityModel(k2_132; autodiff=:ForwardDiff)
 
 Sample:
 ```@example 1
+using Random
+rng = Random.Xoshiro(0)
+
 chain = octofit(
-    model, 0.8,
+    rng, model, 0.8,
     adaptation = 500,
     iterations = 500,
     verbosity = 4,
@@ -207,8 +210,11 @@ model = Octofitter.LogDensityModel(k2_132; autodiff=:ForwardDiff)
 
 Sample from the model as before:
 ```@example 1
+using Random
+rng = Random.Xoshiro(0)
+
 chain = octofit(
-    model, 0.8,
+    rng, model, 0.8,
     adaptation = 100,
     iterations = 100,
     verbosity = 4,

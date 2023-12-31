@@ -269,9 +269,11 @@ model = Octofitter.LogDensityModel(ϵEri; autodiff=:ForwardDiff, verbosity=4) # 
 
 Now sample:
 ```@example 1
-## Sample from chains
+using Random
+rng = Random.Xoshiro(0)
+
 results = octofit(
-    model, 0.75;
+    rng, model, 0.75;
     adaptation =  2000,
     iterations =  5000,
     verbosity = 4,

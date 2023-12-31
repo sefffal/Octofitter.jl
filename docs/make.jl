@@ -42,7 +42,8 @@ makedocs(
     ],
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true"
-    )
+    ),
+    pagesonly=true
 )
 
 
