@@ -225,7 +225,11 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_planet, orbit,)
                 cor*σ₁*σ₂   σ₂^2
             ]
             dist = MvNormal(Σ)
-            ll += logpdf(dist, @SArray[resid1, resid2])
+            # The following static allocation is currently breaking Enzyme.
+            # The slow (non-zero) correlation path therefore currently allocates.
+            # resids = @SArray[resid1, resid2]
+            resids = [resid1, resid2]
+            ll += logpdf(dist, resids)
         end
 
     end
