@@ -79,11 +79,14 @@ Now specify the planet:
 @planet X Visual{KepOrbit} begin
     a ~ Normal(13, 3)
     e ~ TruncatedNormal(0.2, 0.2, 0, 1.0)
-    τ ~ Normal(0.5, 1)
     ω ~ Normal(0.1, deg2rad(30.))
     i ~ Normal(0.6, deg2rad(10.))
     Ω ~ Normal(0.0, deg2rad(30.))
     H ~ Normal(3.8, 0.5)
+
+    τ ~ UniformCircular(1.0)
+    P = √(b.a^3/system.M)
+    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end image_data
 ```
 Note how we also provided a prior on the photometry called `H`. We can put any name we want here, as long as it's used consistently throughout the model specification.

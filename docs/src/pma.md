@@ -33,13 +33,17 @@ astrom = PlanetRelAstromLikelihood(
 @planet B Visual{KepOrbit} begin
     a ~ truncated(LogNormal(9,3),lower=0)
     e ~ Uniform(0,1)
-    τ ~ UniformCircular(1.0)
     ω ~ UniformCircular()
     i ~ Sine() # The Sine() distribution is defined by Octofitter
     Ω ~ UniformCircular()
     # mass ~ LogNormal(300, 18)
     # Anoter option would be:
     mass ~ Uniform(0.5, 1000)
+
+
+    τ ~ UniformCircular(1.0)
+    P = √(b.a^3/system.M)
+    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end astrom
 ```
 

@@ -76,22 +76,24 @@ You can also pass a DataFrame or any other table format.
 
 ## Creating a planet
 
-We now create our first planet model. Let's name it planet B. 
+We now create our first planet model. Let's name it planet `b`. 
 The name of the planet will be used in the output results.
 
 In Octofitter, we specify planet and system models using a "probabilistic
 programming language". Quantities with a `~` are random variables. The distributions on the right hand sides are **priors**. You must specify a 
 proper prior for any quantity which is allowed to vary. 
 
-We now create our planet `B` model using the `@planet` macro.
+We now create our planet `b` model using the `@planet` macro.
 ```@example 1
-@planet B Visual{KepOrbit} begin
+@planet b Visual{KepOrbit} begin
     a ~ truncated(Normal(10, 4), lower=0, upper=100)
     e ~ Uniform(0.0, 0.5)
     i ~ Sine()
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
     τ ~ UniformCircular(1.0)
+    P = √(b.a^3/system.M)
+    tp =  b.τ*b.P + 5000 # reference epoch for τ. Choose an MJD date near your data.
 end astrom
 nothing # hide
 ```
@@ -131,7 +133,7 @@ This `=` syntax works for arbitrary mathematical expressions and even most funct
 For example, if you wanted to place a uniform prior on the square-root of eccentricity, you could specify:
 ```julia
     e_sqrt ~ Uniform(0, 1)
-    e = sqrt(B.e_sqrt)
+    e = sqrt(b.e_sqrt)
 ```
 Note how `e_sqrt` is allowed to vary, and `e` is calculated from it deterministically.
 
@@ -140,9 +142,9 @@ After the variables block are zero or more `Likelihood` objects. These are obser
 
 For this example, we specify `PlanetRelAstromLikelihood` block. This is where you can list the position of a planet relative to the star at different epochs.
 
-When you have created your planet, you should see the following output. If you don't, you can run `display(B)` to force the text to be output:
+When you have created your planet, you should see the following output. If you don't, you can run `display(b)` to force the text to be output:
 ```@example 1
-B # hide
+b # hide
 ```
 
 
@@ -154,7 +156,7 @@ A system represents a host star with one or more planets. Properties of the whol
 @system HD82134 begin
     M ~ truncated(Normal(1.2, 0.1), lower=0)
     plx ~ truncated(Normal(50.0, 0.02), lower=0)
-end B #hide
+end b #hide
 ```
 
 The variables block works just like it does for planets. Here, the two parameters you must provide are:
@@ -167,7 +169,7 @@ The prior on `plx` can be looked up from GAIA for many targets by using the func
     plx ~ gaia_plx(;gaia_id=12345678910)
 ```
 
-After that, just list any planets that you want orbiting the star. Here, we pass planet B.
+After that, just list any planets that you want orbiting the star. Here, we pass planet `b`.
 
 This is also where we could pass likelihood objects for system-wide data like stellar radial velocity.
 
@@ -182,7 +184,7 @@ The `autodiff` flag specifies what Julia automatic differentiation package we sh
 
 
 ```@example 1
-model = Octofitter.LogDensityModel(HD82134; autodiff=:Enzyme, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
 ```
 
 This type implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.
@@ -237,7 +239,7 @@ Next, you can make a trace plot of different variabes to visually inspect the ch
 ```@example 1
 using Plots: Plots
 Plots.plot(
-    chain["B_a"],
+    chain["b_a"],
     xlabel="iteration",
     ylabel="semi-major axis (AU)"
 )
@@ -247,7 +249,7 @@ And an auto-correlation plot:
 ```@example 1
 using StatsBase
 Plots.plot(
-    autocor(chain["B_e"], 1:500),
+    autocor(chain["b_e"], 1:500),
     xlabel="lag",
     ylabel="autocorrelation",
 )
@@ -268,7 +270,7 @@ As a first pass, let's plot a sample of orbits drawn from the posterior.
 
 ```@example 1
 using Plots: Plots
-plotchains(chain, :B, kind=:astrometry, color="B_a")
+plotchains(chain, :b, kind=:astrometry, color="b_a")
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
 
@@ -285,12 +287,12 @@ using CairoMakie: Makie
 using PairPlots
 # We use rad2deg to convert from radians into degrees for the plots
 table = (;
-    a=         vec(chain["B_a"]),
-    e=         vec(chain["B_e"]),
-    i=rad2deg.(vec(chain["B_i"])),
-    Ω=rad2deg.(vec(chain["B_Ω"])),
-    ω=rad2deg.(vec(chain["B_ω"])),
-    τ=         vec(chain["B_τ"]),
+    a=         vec(chain["b_a"]),
+    e=         vec(chain["b_e"]),
+    i=rad2deg.(vec(chain["b_i"])),
+    Ω=rad2deg.(vec(chain["b_Ω"])),
+    ω=rad2deg.(vec(chain["b_ω"])),
+    τ=         vec(chain["b_τ"]),
 )
 pairplot(
     table => (

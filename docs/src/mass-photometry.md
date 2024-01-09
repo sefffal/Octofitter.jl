@@ -15,13 +15,16 @@ Then, list your physical variable `mass` under priors. List the model functions 
 @planet b Visual{KepOrbit} begin
     a ~ Normal(16, 3)
     e ~ TruncatedNormal(0.2, 0.2, 0, 1.0)
-    τ ~ Normal(0.5, 1)
     ω ~ Normal(0.6, 0.2)
     i ~ Normal(0.5, 0.2)
     Ω ~ Normal(0.0, 0.2)
     mass ~ Uniform(0, 1)
     H = H_band_contrast_interp(b.mass)
     J = J_band_contrast_interp(b.mass)
+
+    τ ~ UniformCircular(1.0)
+    P = √(b.a^3/system.M)
+    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 ```
 
@@ -33,13 +36,16 @@ models mass parameter before getting compared to the images.
 @planet b Visual{KepOrbit} begin
     a ~ Normal(16, 3)
     e ~ TruncatedNormal(0.2, 0.2, 0, 1.0)
-    τ ~ Normal(0.5, 1)
     ω ~ Normal(0.6, 0.2)
     i ~ Normal(0.5, 0.2)
     Ω ~ Normal(0.0, 0.2)
     mass ~ Uniform(0, 1)
     temp ~ Normal(1200, 500)
     K = K_band_contrast_interp(b.mass, system.age, b.temp)
+
+    τ ~ UniformCircular(1.0)
+    P = √(b.a^3/system.M)
+    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 @system HD12345 begin
     M ~ Normal(1.0, 0.1)

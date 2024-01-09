@@ -24,12 +24,15 @@ gaia_id = 5164707970261890560
 
 @planet b Visual{KepOrbit} begin
     e = 0
-    τ ~ UniformCircular(1.0)
     mass = 0.78*sin(b.i)
     a=3.48
     i~Sine()
     ω=0.0
     Ω~UniformCircular()
+    
+    τ ~ UniformCircular(1.0)
+    P = √(b.a^3/system.M)
+    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end # No planet astrometry is included since it has not yet been directly detected
 
 

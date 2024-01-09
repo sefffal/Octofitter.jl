@@ -74,7 +74,7 @@ function construct_elements(::Type{Visual{KepOrbit}}, θ_system, θ_planet)
         θ_planet.Ω,
         θ_planet.ω,
         θ_planet.e,
-        θ_planet.τ,
+        θ_planet.tp,
         θ_planet.a,
     )...)
 end
@@ -85,7 +85,7 @@ function construct_elements(::Type{KepOrbit}, θ_system, θ_planet)
         θ_planet.Ω,
         θ_planet.ω,
         θ_planet.e,
-        θ_planet.τ,
+        θ_planet.tp,
         θ_planet.a,
     )...)
 end
@@ -98,7 +98,7 @@ function construct_elements(::Type{ThieleInnesOrbit}, θ_system, θ_planet)
         θ_planet.F,
         θ_planet.G,
         θ_planet.e,
-        θ_planet.τ,
+        θ_planet.tp,
     )...)
 end
 function construct_elements(::Type{RadialVelocityOrbit}, θ_system, θ_planet)
@@ -106,7 +106,7 @@ function construct_elements(::Type{RadialVelocityOrbit}, θ_system, θ_planet)
         θ_system.M,
         θ_planet.ω,
         θ_planet.e,
-        θ_planet.τ,
+        θ_planet.tp,
         θ_planet.a,
     )...)
 end
@@ -151,7 +151,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
             Ω=chain[pk*"_Ω"][i],
             ω=chain[pk*"_ω"][i],
             e=chain[pk*"_e"][i],
-            τ=chain[pk*"_τ"][i],
+            tp=chain[pk*"_tp"][i],
             a=chain[pk*"_a"][i],
         )...)
     elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*"_A")) && haskey(chain, Symbol(pk*"_B")) && haskey(chain, Symbol(pk*"_G"))&& haskey(chain, Symbol(pk*"_F"))
@@ -159,7 +159,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
             M=chain["M"][i],
             plx=chain["plx"][i],
             e=chain[pk*"_e"][i],
-            τ=chain[pk*"_τ"][i],
+            tp=chain[pk*"_tp"][i],
             A=chain[pk*"_A"][i],
             B=chain[pk*"_B"][i],
             F=chain[pk*"_F"][i],
@@ -172,7 +172,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
             Ω=chain[pk*"_Ω"][i],
             ω=chain[pk*"_ω"][i],
             e=chain[pk*"_e"][i],
-            τ=chain[pk*"_τ"][i],
+            tp=chain[pk*"_tp"][i],
             a=chain[pk*"_a"][i],
         )...)
     elseif haskey(chain, :M) && haskey(chain, :rv)
@@ -180,7 +180,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
             M=chain["M"][i],
             ω=chain[pk*"_ω"][i],
             e=chain[pk*"_e"][i],
-            τ=chain[pk*"_τ"][i],
+            tp=chain[pk*"_tp"][i],
             a=chain[pk*"_a"][i],
         )...)
     else
@@ -204,7 +204,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         Ωs=chain[pk*"_Ω"]
         ωs=chain[pk*"_ω"]
         es=chain[pk*"_e"]
-        τs=chain[pk*"_τ"]
+        tps=chain[pk*"_tp"]
         as=chain[pk*"_a"]
         return map(ii) do i
             Visual{KepOrbit}(;(;
@@ -214,7 +214,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                 Ω=Ωs[i],
                 ω=ωs[i],
                 e=es[i],
-                τ=τs[i],
+                tp=tps[i],
                 a=as[i],
             )...)
         end
@@ -224,7 +224,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         Ωs=chain[pk*"_Ω"]
         ωs=chain[pk*"_ω"]
         es=chain[pk*"_e"]
-        τs=chain[pk*"_τ"]
+        tps=chain[pk*"_tp"]
         as=chain[pk*"_a"]
         return map(ii) do i
             KepOrbit(;(;
@@ -233,7 +233,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                 Ω=Ωs[i],
                 ω=ωs[i],
                 e=es[i],
-                τ=τs[i],
+                tp=tps[i],
                 a=as[i],
             )...)
         end
@@ -245,13 +245,13 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         Fs=chain[pk*"_F"]
         Gs=chain[pk*"_G"]
         es=chain[pk*"_e"]
-        τs=chain[pk*"_τ"]
+        tps=chain[pk*"_tp"]
         return map(ii) do i
             ThieleInnesOrbit(;(;
                 M=Ms[i],
                 plx=plxs[i],
                 e=es[i],
-                τ=τs[i],
+                tp=tps[i],
                 A=As[i],
                 B=Bs[i],
                 F=Fs[i],
@@ -268,7 +268,12 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         vx=chain[pk*"_vx"]
         vy=chain[pk*"_vy"]
         vz=chain[pk*"_vz"]
-        tref=chain[pk*"_tref"]
+        pkkey = pk*"_tref"
+        if haskey(chain, pkkey)
+            tref=chain[pkkey]
+        else
+            tref = fill(0.0, size(x))
+        end
         return map(ii) do i
             Visual{CartesianOrbit}(;(;
                 x = x[i],
@@ -307,14 +312,14 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         Ms=chain["M"]
         ωs=chain[pk*"_ω"]
         es=chain[pk*"_e"]
-        τs=chain[pk*"_τ"]
+        tps=chain[pk*"_tp"]
         as=chain[pk*"_a"]
         return map(ii) do i
             RadialVelocityOrbit(;(;
                 M=Ms[i],
                 ω=ωs[i],
                 e=es[i],
-                τ=τs[i],
+                tp=tps[i],
                 a=as[i],
             )...)
         end
@@ -331,7 +336,7 @@ function construct_elements(chain, planet_key::Union{String,Symbol}, ii::Abstrac
     Ωs=chain[:,pk*"_Ω"]
     ωs=chain[:,pk*"_ω"]
     es=chain[:,pk*"_e"]
-    τs=chain[:,pk*"_τ"]
+    tps=chain[:,pk*"_tp"]
     as=chain[:,pk*"_a"]
     return map(ii) do i
         Visual{KepOrbit}((;
@@ -341,7 +346,7 @@ function construct_elements(chain, planet_key::Union{String,Symbol}, ii::Abstrac
             Ω=Ωs[i],
             ω=ωs[i],
             e=es[i],
-            τ=τs[i],
+            tp=tps[i],
             a=as[i],
         ))
     end

@@ -47,8 +47,10 @@ astrom_like = PlanetRelAstromLikelihood(
     i ~ Sine()
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
-    τ ~ UniformCircular(1.0)
     mass ~ LogUniform(0.01, 100)
+
+    τ ~ UniformCircular(1.0)
+    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end astrom_like ObsPriorAstromONeil2019(astrom_like);
 
 @system System1 begin

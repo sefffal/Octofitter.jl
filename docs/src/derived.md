@@ -36,8 +36,7 @@ Derived variables for an individual planet are similar, but have access to both 
 
 Here is an example of reparameterizing `e` and `a` on a planet to be logarithmic quantities:
 ```julia
-@planet b Visual{KepOrbit}
-    τ ~ Normal(0.5, 1)
+@planet b Visual{KepOrbit} begin
     ω ~ Normal(0.1, deg2rad(30.))
     i ~ Normal(0.1, deg2rad(30.))
     Ω ~ Normal(0.0, deg2rad(30.))
@@ -45,6 +44,10 @@ Here is an example of reparameterizing `e` and `a` on a planet to be logarithmic
     loga ~ Normal(1, 1)
     e = 10^b.loge
     a = 10^b.loga
+
+    τ ~ UniformCircular(1.0)
+    P = √(b.a^3/system.M)
+    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 ```
 Here `e` is defined as log-uniform, and `a` as log-normal.
@@ -59,23 +62,29 @@ This makes it easy to, for example, create a system of two planets that are co-p
     a ~ Uniform(0, 15)
     e ~ TruncatedNormal(0, 0.1, 0, 1)
     ω ~ Normal(0.1, deg2rad(30.))
-    τ ~ Normal(0.5, 1)
     i = system.i
     Ω = system.Ω
+
+    τ ~ UniformCircular(1.0)
+    P = √(b.a^3/system.M)
+    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 @planet c Visual{KepOrbit} begin
     a ~ Uniform(15, 45)
     e ~ TruncatedNormal(0, 0.1, 0, 1)
     ω ~ Normal(0.1, deg2rad(30.))
-    τ ~ Normal(0.5, 1)
     i = system.i
     Ω = system.Ω
+
+    τ ~ UniformCircular(1.0)
+    P = √(b.a^3/system.M)
+    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 @system HD12345 begin
-    plx ~ Normal(45., 0.02),
-    M ~ Normal(45., 0.02),
-    i ~ Normal(0.1, deg2rad(30.)),
-    Ω ~ Normal(0.0, deg2rad(30.)),
+    plx ~ Normal(45., 0.02)
+    M ~ Normal(45., 0.02)
+    i ~ Normal(0.1, deg2rad(30.))
+    Ω ~ Normal(0.0, deg2rad(30.))
 end b c
 ```
 Notice how `i` and `Ω` are defined as variables on the System. The two planets B & C instead just take their values from the System. This way we can enforce co-planarity between planets without e.g. rejection sampling.

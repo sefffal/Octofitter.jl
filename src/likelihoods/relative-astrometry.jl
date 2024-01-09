@@ -177,7 +177,13 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_planet, orbit,)
         # Covariance between the two dimensions
         cor = 0.0
 
-        o = orbitsolve(orbit, astrom.table.epoch[i])
+        local o
+        try
+            o = orbitsolve(orbit, astrom.table.epoch[i])
+        catch err
+            @warn "Error during orbit solve (maxlog=10)" maxlog=10 err
+            return -Inf
+        end
         # PA and Sep specified
         if hasproperty(astrom.table, :pa) && hasproperty(astrom.table, :sep)
             ρ = projectedseparation(o)

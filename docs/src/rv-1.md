@@ -71,6 +71,8 @@ if we wanted to include these parameters and visualize the orbit in the plane of
     a = cbrt(system.M * b.P^2) # note the equals sign. 
 
     τ ~ UniformCircular(1.0)
+    tp =  b.τ*b.P + 57782 # reference epoch for τ. Choose an MJD date near your data.
+    
     mass ~ LogUniform(0.001, 10)
 end
 
@@ -182,8 +184,10 @@ gp_per_unc = 0.12
     ω = 0.0
     P ~ truncated(Normal(0.3693038/365.25, 0.0000091/365.25),lower=0.00001)
     a = cbrt(system.M * b.P^2)
-    τ ~ UniformCircular(1.0)
     mass ~ LogUniform(0.001, 10)
+    
+    τ ~ UniformCircular(1.0)
+    tp =  b.τ*b.P + 57782 # reference epoch for τ. Choose an MJD date near your data.
 end
 
 
@@ -222,6 +226,9 @@ chain = octofit(
     initial_samples=50000,
 )
 ```
+
+For real data, we would want to increase the adaptation and iterations to at about 1000.
+
 
 And plot:
 ```@example 1

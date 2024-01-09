@@ -21,7 +21,7 @@ using PrecompileTools
             @planet test Visual{KepOrbit} begin
                 a ~ Uniform(1, 50)
                 e ~ Beta(1.2, 5)
-                τ ~ UniformCircular(1.0)
+                tp ~ Normal(100,10)
                 ω ~ UniformCircular()
                 i ~ Sine()
                 Ω ~ UniformCircular()
