@@ -80,11 +80,11 @@ end
 
     # HARPS-N
     rv0_1 ~ Normal(0,10000)
-    jitter_1 ~ LogUniform(0.01,10)
+    jitter_1 ~ LogUniform(0.01,100)
 
     # FPS
     rv0_2 ~ Normal(0,10000)
-    jitter_2 ~ LogUniform(0.01,10)
+    jitter_2 ~ LogUniform(0.01,100)
 end rvlike b
 
 ```

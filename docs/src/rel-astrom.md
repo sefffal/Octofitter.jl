@@ -204,7 +204,7 @@ rng = Random.Xoshiro(0)
 
 chain = octofit(
     rng, model, 0.85;
-    adaptation =   500,
+    adaptation =  2000,
     iterations =  2000,
     verbosity = 4,
     max_depth = 12,
