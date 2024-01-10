@@ -798,11 +798,11 @@ Base.@nospecializeinfer function advancedhmc(
                 result_pf = with_logger(errlogger) do 
                     Pathfinder.multipathfinder(
                         ldm_any, 500;
-                        nruns=4,
+                        nruns=20,
                         init=collect(initial_θ_t),
                         progress=verbosity > 1,
-                        # maxiters=5,
-                        maxtime=25.0,
+                        maxiters=5,
+                        # maxtime=25.0,
                         # reltol=1e-4,
                     )
                 end
@@ -816,11 +816,11 @@ Base.@nospecializeinfer function advancedhmc(
                 result_pf = with_logger(errlogger) do 
                     Pathfinder.multipathfinder(
                         ldm_any, 500;
-                        nruns=8,
+                        nruns=20,
                         init_sampler=CallableAny(init_sampler),
                         progress=verbosity > 1,
-                        # maxiters=5,
-                        maxtime=25.0,
+                        maxiters=5,
+                        # maxtime=25.0,
                         # reltol=1e-4,
                     ) 
                 end
@@ -857,9 +857,11 @@ Base.@nospecializeinfer function advancedhmc(
             initial_θ = model.invlink(initial_θ_t)
             verbosity >= 3 && @info "Creating metric"
             # Use the metric found by Pathfinder for HMC sampling
-            # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.fit_distribution.Σ)
+            # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.pathfinder_results[1].fit_distribution.Σ)
+            # display(metric)
             # metric = DenseEuclideanMetric(collect(Matrix(result_pf.fit_distribution.Σ)))
-            S = cov(SimpleCovariance(corrected=true), stack(finite_pathfinder_draws)')
+
+            S =  (cov(SimpleCovariance(corrected=true), stack(finite_pathfinder_draws)'))
             metric = DenseEuclideanMetric(S)
         else
             @warn "Pathfinder failed to provide a finite initial draw and metric. Check your model. Starting from initial guess instead."
@@ -868,7 +870,7 @@ Base.@nospecializeinfer function advancedhmc(
             initial_θ_t = guess_starting_position(system, initial_samples)
         end
     else
-        @warn("Warm up failed: pathfinder failed. Falling back to initializing the diagonals with the prior interquartile ranges.")
+        @warn("Falling back to initializing the diagonals with the prior interquartile ranges.")
         # We already sampled from the priors earlier to get the starting positon.
         # Use those variance estimates and transform them into the unconstrainted space.
         # variances_t = (model.link(initial_θ .+ sqrt.(variances)/2) .- model.link(initial_θ .- sqrt.(variances)/2)).^2
@@ -953,11 +955,13 @@ Base.@nospecializeinfer function advancedhmc(
     
     verbosity >= 3 && @info "Creating adaptor"
     # if isnothing(result_pf)
+    if metric isa Pathfinder.RankUpdateEuclideanMetric
+        adaptor = StepSizeAdaptor(target_accept, integrator)
+    else
         mma = MassMatrixAdaptor(metric)
         ssa = StepSizeAdaptor(target_accept, integrator)
         adaptor = StanHMCAdaptor(mma, ssa) 
-    # else
-    #     adaptor = StepSizeAdaptor(target_accept, integrator)
+    end
     # end
 
 

@@ -67,7 +67,7 @@ model = Octofitter.LogDensityModel(test; autodiff=:ForwardDiff,verbosity=4)
 using Random
 Random.seed!(2)
 
-results = octofit(model, verbosity=1, adaptation=1500, iterations=50000)
+results = octofit(model)#, adaptation=1500, iterations=50000)
 plotchains(results, :b, color=:b_e); Plots.plot!(astrom)
 ##
 
