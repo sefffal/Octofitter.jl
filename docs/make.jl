@@ -1,9 +1,7 @@
 using Pkg
 cd(@__DIR__)
 Pkg.activate(".")
-pkg"add Enzyme#main"
-Pkg.instantiate()
-Pkg.precompile()
+
 
 using Documenter, Octofitter, OctofitterRadialVelocity
 
