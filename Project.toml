@@ -26,6 +26,7 @@ MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
 MathTeXEngine = "0a4f8689-d25c-4efe-a92b-7142dfc1aa53"
 NamedTupleTools = "d9ec5142-1e00-5aa0-9d6a-321866360f50"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+Pathfinder = "b1d3bc72-d0e7-4279-b92f-7fa5d6d2d454"
 PlanetOrbits = "fd6f9641-d78f-43ce-a379-ceb0bddb468a"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 Preferences = "21216c6a-2e73-6563-6e65-726566657250"
@@ -50,7 +51,7 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlotsExt = "Plots"
 
 [compat]
-AbstractMCMC = "4"
+AbstractMCMC = "5"
 AdvancedHMC = "0.6"
 BasicInterpolators = "0.7"
 Bijectors = "0.13"
@@ -85,5 +86,5 @@ UnPack = "1"
 julia = "1.9"
 
 [extras]
-Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"

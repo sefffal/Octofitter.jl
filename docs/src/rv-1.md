@@ -224,6 +224,7 @@ chain = octofit(
     verbosity = 4,
     max_depth = 12,
     initial_samples=50000,
+    pathfinder=false
 )
 ```
 

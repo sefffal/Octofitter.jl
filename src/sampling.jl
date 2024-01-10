@@ -1,7 +1,7 @@
 using DiffResults
 using LinearAlgebra
 using Preferences
-
+using Pathfinder
 export sample_priors
 
 # TODO: consolidate all these functions. There is a lot of duplication.
@@ -719,7 +719,7 @@ The method signature of Octofitter.hmc is as follows:
         iterations,
         drop_warmup=true,
         max_depth=12,
-        initial_samples=50_000,
+        initial_samples= pathfinder ? 50000 : 250_000,
         initial_parameters=nothing,
         step_size=nothing,
         verbosity=2,
@@ -748,129 +748,176 @@ function advancedhmc(
     iterations,
     drop_warmup=true,
     max_depth=12,
-    initial_samples=250_000,
     initial_parameters=nothing,
     verbosity=2,
+    pathfinder=true,
+    initial_samples= pathfinder ? 50000 : 250_000,
 )
     if adaptation < 1000
         @warn "At least 1000 steps of adapation are recomended for good sampling"
     end
 
-    # Guess initial starting positions by drawing from priors a bunch of times
-    # and picking the best one (highest likelihood).
-    # Then transform that guess into our unconstrained support
-    if isnothing(initial_parameters)
-        verbosity >= 1 && @info "Guessing a starting location by sampling from prior" initial_samples
-        initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
-        verbosity > 2 && @info "Found starting location" θ=stringify_nested_named_tuple(model.arr2nt(initial_θ))
-        # Transform from constrained support to unconstrained support
-        initial_θ_t = model.link(initial_θ)
+
+
+    # Use Pathfinder to initialize HMC. Works but currently disabled.
+    verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
+    # It seems to hit a PosDefException sometimes when factoring a matrix.
+    # When that happens, the next try usually succeeds.
+    # start_time = time()
+
+
+
+
+    local result_pf = nothing
+    if pathfinder 
+        for retry in 1:5
+            try
+                if !isnothing(initial_parameters)
+                    initial_θ = initial_parameters
+                    # Transform from constrained support to unconstrained support
+                    initial_θ_t = model.link(initial_θ)
+                    result_pf = Pathfinder.pathfinder(
+                        model;
+                        init=collect(initial_θ_t),
+                        progress=verbosity > 1,
+                        # maxiters=5,
+                        maxtime=25.0,
+                        # reltol=1e-4,
+                    ) 
+                else
+                    init_sampler = function(rng, x) 
+                        initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
+                        initial_θ_t = model.link(initial_θ)
+                        x .= initial_θ_t
+                    end
+                    result_pf = Pathfinder.pathfinder(
+                        model;
+                        init_sampler,
+                        progress=verbosity > 1,
+                        # maxiters=5,
+                        maxtime=25.0,
+                        # reltol=1e-4,
+                    ) 
+                end
+                break
+            catch ex
+                if ex isa LinearAlgebra.PosDefException
+                    @warn "pathfinder hit a PosDefException. Retrying" exception=ex retry
+                    continue
+                elseif ex isa InterruptException
+                    rethrow(ex)
+                else
+                    @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
+                    # rethrow(ex)
+                end
+            end
+            verbosity >= 3 && @info(
+                "Pathfinder results",
+                ℓπ=model.ℓπcallback(result_pf.fit_distribution.μ),
+                mode=arr2nt(Bijectors.invlink.(priors_vec, result_pf.fit_distribution.μ)),
+                inv_metric=Matrix(result_pf.fit_distribution.Σ)
+            )
+        end
+
     else
-        initial_θ = initial_parameters
-        # Transform from constrained support to unconstrained support
-        initial_θ_t = model.link(initial_θ)
+
+        # Guess initial starting positions by drawing from priors a bunch of times
+        # and picking the best one (highest likelihood).
+        # Then transform that guess into our unconstrained support
+        if isnothing(initial_parameters)
+            verbosity >= 1 && @info "Guessing a starting location by sampling from prior" initial_samples
+            initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
+            verbosity > 2 && @info "Found starting location" θ=stringify_nested_named_tuple(model.arr2nt(initial_θ))
+            # Transform from constrained support to unconstrained support
+            initial_θ_t = model.link(initial_θ)
+        else
+            initial_θ = initial_parameters
+            # Transform from constrained support to unconstrained support
+            initial_θ_t = model.link(initial_θ)
+        end
     end
+    # stop_time = time()
+
+    
+    if !isnothing(result_pf)
+
+        # Start using a draw from the typical set as estimated by Pathfinder
+        finite_pathfinder_draws = filter(row->all(isfinite, row), collect(eachrow(result_pf.draws)))
+        if length(finite_pathfinder_draws) > 0 && all(isfinite, Matrix(result_pf.fit_distribution.Σ))
+            initial_θ_t = result_pf.fit_distribution.μ
+            initial_θ = model.invlink(initial_θ_t)
+            verbosity >= 3 && @info "Creating metric"
+            # Use the metric found by Pathfinder for HMC sampling
+            # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.fit_distribution.Σ)
+            metric = DenseEuclideanMetric(collect(Matrix(result_pf.fit_distribution.Σ)))
+        else
+            @warn "Pathfinder failed to provide a finite initial draw and metric. Check your model. Starting from initial guess instead."
+            # Fit a dense metric from scratch
+            metric = DiagEuclideanMetric(D)
+            initial_θ_t = guess_starting_position(system, initial_samples)
+        end
+    else
+        @warn("Warm up failed: pathfinder failed 5 times. Falling back to initializing the diagonals with the prior interquartile ranges.")
+        # We already sampled from the priors earlier to get the starting positon.
+        # Use those variance estimates and transform them into the unconstrainted space.
+        # variances_t = (model.link(initial_θ .+ sqrt.(variances)/2) .- model.link(initial_θ .- sqrt.(variances)/2)).^2
+        p = priors_flat(model.system)
+        variances_t = (model.link(quantile.(p, 0.85)) .- model.link(quantile.(p, 0.15))).^2
+        # metric = DenseEuclideanMetric(model.D)
+        metric = DenseEuclideanMetric(collect(Diagonal(variances_t)))
+
+        if verbosity >= 3
+            print("Initial mass matrix M⁻¹ from priors\n")
+            display(metric.M⁻¹)
+        end
+        if any(v->!isfinite(v)||v==0, variances_t)
+            error("failed to initialize mass matrix")
+        end
+    end
+
 
     if verbosity >= 4
         @info "flat starting point" initial_θ
         @info "transformed flat starting point" initial_θ_t
     end
+    
 
-
-    # # Use Pathfinder to initialize HMC. Works but currently disabled.
-    # verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
-    # # It seems to hit a PosDefException sometimes when factoring a matrix.
-    # # When that happens, the next try usually succeeds.
-    # start_time = time()
-    # local result_pf = nothing
-    # for retry in 1:5
-    #     try
-    #         result_pf = pathfinder(
-    #             ℓπ;
-    #             # ad_backend=AD.FiniteDifferencesBackend(),
-    #             ad_backend=AD.ForwardDiffBackend(),
-    #             init=collect(initial_θ_t),
-    #             progress=true,
-    #             # maxiters=5,
-    #             # maxtime=5.0,
-    #             # reltol=1e-4,
-    #         ) 
-    #         break
-    #     catch ex
-    #         if ex isa LinearAlgebra.PosDefException
-    #             @warn "pathfinder hit a PosDefException. Retrying" exception=ex retry
-    #             continue
-    #         elseif ex isa InterruptException
-    #             rethrow(ex)
-    #         else
-    #             @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
-    #             rethrow(ex)
-    #         end
-    #     end
+    # # Return a chains object with the resampled pathfinder draws
+    # # Transform samples back to constrained support
+    # pathfinder_samples = map(eachcol(result_pf.draws)) do θ_t
+    #     Bijectors.invlink.(priors_vec, θ_t)
     # end
-    # if isnothing(result_pf)
-    #     error("Warm up failed: pathfinder failed 5 times")
-    # end
-    # stop_time = time()
-
-    # verbosity >= 3 && @info(
-    #     "Pathfinder results",
-    #     ℓπ(θ)=ℓπ(result_pf.fit_distribution.μ),
-    #     mode=arr2nt(Bijectors.invlink.(priors_vec, result_pf.fit_distribution.μ)),
-    #     inv_metric=Matrix(result_pf.fit_distribution.Σ)
+    # pathfinder_chain =  Octofitter.result2mcmcchain(system, arr2nt.(pathfinder_samples))
+    # pathfinder_chain_with_info = MCMCChains.setinfo(
+    #     pathfinder_chain,
+    #     (;
+    #         start_time,
+    #         stop_time,
+    #         model=system,
+    #         result_pf,
+    #     )
     # )
 
-    # # # Return a chains object with the resampled pathfinder draws
-    # # # Transform samples back to constrained support
-    # # pathfinder_samples = map(eachcol(result_pf.draws)) do θ_t
-    # #     Bijectors.invlink.(priors_vec, θ_t)
-    # # end
-    # # pathfinder_chain =  Octofitter.result2mcmcchain(system, arr2nt.(pathfinder_samples))
-    # # pathfinder_chain_with_info = MCMCChains.setinfo(
-    # #     pathfinder_chain,
-    # #     (;
-    # #         start_time,
-    # #         stop_time,
-    # #         model=system,
-    # #         result_pf,
-    # #     )
-    # # )
 
-    # # Start using a draw from the typical set as estimated by Pathfinder
-    # finite_pathfinder_draws = filter(row->all(isfinite, row), collect(eachrow(result_pf.draws)))
-    # if length(finite_pathfinder_draws) > 0 && all(isfinite, Matrix(result_pf.fit_distribution.Σ))
-    #     # initial_θ_t = last(finite_pathfinder_draws)
-    #     verbosity >= 3 && @info "Creating metric"
-    #     # # Use the metric found by Pathfinder for HMC sampling
-    #     # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.fit_distribution.Σ)
-    #     # Start with found pathfinder metric then adapt a dense metric:
-    #     # metric = DenseEuclideanMetric(Matrix(result_pf.fit_distribution.Σ))
-    #     # metric = DiagEuclideanMetric(diag(Matrix(result_pf.fit_distribution.Σ)))
-    #     metric = DenseEuclideanMetric(collect(Diagonal(Matrix(result_pf.fit_distribution.Σ))))
-    # else
-    #     @warn "Pathfinder failed to provide a finite initial draw and metric. Check your model. Starting from initial guess instead."
-        # Fit a dense metric from scratch
-        # metric = DiagEuclideanMetric(D)
+
+    # # Help adaptation by starting the metric with a rough order of magnitude of the
+    # # variable variances along the diagonals.
+
+    # # We already sampled from the priors earlier to get the starting positon.
+    # # Use those variance estimates and transform them into the unconstrainted space.
+    # # variances_t = (model.link(initial_θ .+ sqrt.(variances)/2) .- model.link(initial_θ .- sqrt.(variances)/2)).^2
+    # p = priors_flat(model.system)
+    # variances_t = (model.link(quantile.(p, 0.85)) .- model.link(quantile.(p, 0.15))).^2
+    # # metric = DenseEuclideanMetric(model.D)
+    # metric = DenseEuclideanMetric(collect(Diagonal(variances_t)))
+
+    # if verbosity >= 3
+    #     print("Initial mass matrix M⁻¹ from priors\n")
+    #     display(metric.M⁻¹)
     # end
-
-
-    # Help adaptation by starting the metric with a rough order of magnitude of the
-    # variable variances along the diagonals.
-
-    # We already sampled from the priors earlier to get the starting positon.
-    # Use those variance estimates and transform them into the unconstrainted space.
-    # variances_t = (model.link(initial_θ .+ sqrt.(variances)/2) .- model.link(initial_θ .- sqrt.(variances)/2)).^2
-    p = priors_flat(model.system)
-    variances_t = (model.link(quantile.(p, 0.85)) .- model.link(quantile.(p, 0.15))).^2
-    # metric = DenseEuclideanMetric(model.D)
-    metric = DenseEuclideanMetric(collect(Diagonal(variances_t)))
-    if verbosity >= 3
-        print("Initial mass matrix M⁻¹ from priors\n")
-        display(metric.M⁻¹)
-    end
-    if any(v->!isfinite(v)||v==0, variances_t)
-        error("failed to initialize mass matrix")
-    end
+    # if any(v->!isfinite(v)||v==0, variances_t)
+    #     error("failed to initialize mass matrix")
+    # end
 
     verbosity >= 3 && @info "Creating hamiltonian"
     hamiltonian = Hamiltonian(metric, model)
@@ -894,9 +941,14 @@ function advancedhmc(
 
     
     verbosity >= 3 && @info "Creating adaptor"
-    mma = MassMatrixAdaptor(metric)
-    ssa = StepSizeAdaptor(target_accept, integrator)
-    adaptor = StanHMCAdaptor(mma, ssa) 
+    # if isnothing(result_pf)
+        mma = MassMatrixAdaptor(metric)
+        ssa = StepSizeAdaptor(target_accept, integrator)
+        adaptor = StanHMCAdaptor(mma, ssa) 
+    # else
+    #     adaptor = StepSizeAdaptor(target_accept, integrator)
+    # end
+
 
 
 
