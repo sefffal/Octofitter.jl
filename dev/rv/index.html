@@ -6,12 +6,15 @@ gaia_id = 5164707970261890560
 
 @planet b Visual{KepOrbit} begin
     e = 0
-    τ ~ UniformCircular(1.0)
     mass = 0.78*sin(b.i)
     a=3.48
     i~Sine()
     ω=0.0
     Ω~UniformCircular()
+
+    τ ~ UniformCircular(1.0)
+    P = √(b.a^3/system.M)
+    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end # No planet astrometry is included since it has not yet been directly detected
 
 
@@ -256,62 +259,62 @@ results = octofit(
     iterations =  5000,
     verbosity = 4,
     max_depth = 12
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (5000×32×1 Array{Float64, 3}):
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (5000×34×1 Array{Float64, 3}):
 
 Iterations        = 1:1:5000
 Number of chains  = 1
 Samples per chain = 5000
-Wall duration     = 49.32 seconds
-Compute duration  = 49.32 seconds
-parameters        = M, plx, pmra, pmdec, rv0_1, rv0_2, jitter_1, jitter_2, b_τy, b_τx, b_i, b_Ωy, b_Ωx, b_e, b_τ, b_mass, b_a, b_ω, b_Ω
+Wall duration     = 159.48 seconds
+Compute duration  = 159.48 seconds
+parameters        = M, plx, pmra, pmdec, rv0_1, rv0_2, jitter_1, jitter_2, b_i, b_Ωy, b_Ωx, b_τy, b_τx, b_e, b_mass, b_a, b_ω, b_Ω, b_τ, b_P, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Summary Statistics
- <span class="sgr1"> parameters        mean       std      mcse    ess_bulk    ess_tail      rhat ⋯
- <span class="sgr90">     Symbol     Float64   Float64   Float64     Float64     Float64   Float64 ⋯
+ <span class="sgr1"> parameters         mean       std      mcse    ess_bulk    ess_tail      rha ⋯
+ <span class="sgr90">     Symbol      Float64   Float64   Float64     Float64     Float64   Float6 ⋯
 
-           M      0.7814    0.0099    0.0001   6578.9153   3507.1551    0.9999 ⋯
-         plx    310.5788    0.1352    0.0019   5044.9335   3560.0124    1.0005 ⋯
-        pmra   -975.0447    0.0207    0.0002   7059.6160   3392.1789    0.9998 ⋯
-       pmdec     20.0354    0.0155    0.0002   6523.6507   3792.2232    1.0002 ⋯
-       rv0_1     -2.5462    0.8581    0.0120   5097.2030   3514.5614    1.0001 ⋯
-       rv0_2      0.6672    1.0118    0.0134   5732.8044   3834.6203    1.0000 ⋯
-    jitter_1      7.7019    0.6012    0.0079   6010.7256   3147.5357    1.0007 ⋯
-    jitter_2      7.3368    0.5129    0.0067   6003.6927   3830.9526    0.9998 ⋯
-        b_τy     -0.2902    0.0871    0.0013   4523.7467   3328.1794    1.0003 ⋯
-        b_τx     -0.9530    0.0337    0.0005   5619.7292   3360.8042    1.0003 ⋯
-         b_i      1.5637    0.3001    0.0116    884.6519   4192.1147    1.0003 ⋯
-        b_Ωy     -0.9128    0.0928    0.0025   1962.7397   1317.5075    0.9999 ⋯
-        b_Ωx     -0.3234    0.2322    0.0061   1377.6516   1461.3229    0.9999 ⋯
-         b_e      0.0000    0.0000       NaN         NaN         NaN       NaN ⋯
-         b_τ     -0.2970    0.0145    0.0002   4429.5034   3341.2578    1.0004 ⋯
-      b_mass      0.7452    0.0230    0.0003   4232.8976   3856.3143    1.0001 ⋯
-         b_a      3.4800    0.0000    0.0000         NaN         NaN       NaN ⋯
-      ⋮            ⋮          ⋮         ⋮          ⋮           ⋮          ⋮    ⋱
-</span><span class="sgr36">                                                     1 column and 2 rows omitted
+           M       0.7784    0.0099    0.0001   7275.0226   3605.8161    1.000 ⋯
+         plx     310.5789    0.1320    0.0019   5110.2229   2667.5242    1.000 ⋯
+        pmra    -975.0409    0.0208    0.0003   6123.0121   3506.5515    1.001 ⋯
+       pmdec      20.0400    0.0155    0.0002   6447.5064   3429.6268    1.000 ⋯
+       rv0_1       1.0162    1.1992    0.0151   6284.0184   3189.7122    1.002 ⋯
+       rv0_2      -0.2512    1.0345    0.0135   5833.2737   3751.8640    0.999 ⋯
+    jitter_1      11.6178    0.8609    0.0102   7220.9507   3731.0381    0.999 ⋯
+    jitter_2      10.7801    0.7352    0.0092   6537.6138   3559.2546    0.999 ⋯
+         b_i       0.2039    0.0774    0.0016   2154.3118   1220.8120    1.000 ⋯
+        b_Ωy       0.6380    0.3522    0.0126   1400.0433    691.1834    1.001 ⋯
+        b_Ωx      -0.5819    0.3624    0.0098   1729.6692   1191.0403    1.001 ⋯
+        b_τy      -0.0131    0.7106    0.0162   2012.2948   3913.6880    1.003 ⋯
+        b_τx      -0.0076    0.7048    0.0156   2128.5098   4190.1962    1.000 ⋯
+         b_e       0.0000    0.0000       NaN         NaN         NaN       Na ⋯
+      b_mass       0.1575    0.0589    0.0013   2154.3118   1220.8120    1.000 ⋯
+         b_a       3.4800    0.0000    0.0000         NaN         NaN       Na ⋯
+         b_ω       0.0000    0.0000       NaN         NaN         NaN       Na ⋯
+      ⋮            ⋮           ⋮         ⋮          ⋮           ⋮          ⋮   ⋱
+</span><span class="sgr36">                                                    2 columns and 4 rows omitted
 
 Quantiles
-  parameters        2.5%       25.0%       50.0%       75.0%       97.5%
- </span><span class="sgr90">     Symbol     Float64     Float64     Float64     Float64     Float64
+  parameters         2.5%        25.0%        50.0%        75.0%        97.5%
+ </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M      0.7623      0.7748      0.7813      0.7880      0.8009
-         plx    310.3112    310.4882    310.5798    310.6684    310.8438
-        pmra   -975.0869   -975.0587   -975.0442   -975.0309   -975.0055
-       pmdec     20.0059     20.0249     20.0352     20.0461     20.0657
-       rv0_1     -4.2138     -3.1300     -2.5522     -1.9804     -0.8410
-       rv0_2     -1.2974     -0.0229      0.6711      1.3501      2.6349
-    jitter_1      6.6133      7.2869      7.6599      8.0861      8.9713
-    jitter_2      6.4084      6.9795      7.3132      7.6776      8.4011
-        b_τy     -0.4590     -0.3491     -0.2892     -0.2316     -0.1195
-        b_τx     -1.0120     -0.9753     -0.9558     -0.9337     -0.8801
-         b_i      1.1260      1.2750      1.5380      1.8575      2.0118
-        b_Ωy     -1.0209     -0.9797     -0.9383     -0.8703     -0.6664
-        b_Ωx     -0.7420     -0.4895     -0.3404     -0.1661      0.1596
-         b_e      0.0000      0.0000      0.0000      0.0000      0.0000
-         b_τ     -0.3259     -0.3067     -0.2967     -0.2872     -0.2692
-      b_mass      0.6972      0.7289      0.7472      0.7641      0.7796
-         b_a      3.4800      3.4800      3.4800      3.4800      3.4800
-         b_ω      0.0000      0.0000      0.0000      0.0000      0.0000
-         b_Ω     -3.1064     -2.9064     -2.7335     -2.5494      3.1021
+           M       0.7585       0.7719       0.7785       0.7850       0.7976
+         plx     310.3229     310.4889     310.5770     310.6664     310.8422
+        pmra    -975.0814    -975.0552    -975.0409    -975.0270    -975.0008
+       pmdec      20.0090      20.0298      20.0403      20.0501      20.0700
+       rv0_1      -1.2880       0.2024       1.0073       1.8236       3.3988
+       rv0_2      -2.2664      -0.9284      -0.2776       0.4493       1.8568
+    jitter_1      10.0731      11.0028      11.5750      12.1569      13.4154
+    jitter_2       9.4679      10.2487      10.7522      11.2554      12.3127
+         b_i       0.0516       0.1510       0.2052       0.2563       0.3579
+        b_Ωy      -0.2850       0.4685       0.7354       0.9094       1.0106
+        b_Ωx      -1.0036      -0.8711      -0.6678      -0.3821       0.3200
+        b_τy      -0.9989      -0.7201      -0.0310       0.7036       1.0000
+        b_τx      -1.0013      -0.7081      -0.0340       0.7047       1.0004
+         b_e       0.0000       0.0000       0.0000       0.0000       0.0000
+      b_mass       0.0402       0.1173       0.1590       0.1978       0.2732
+         b_a       3.4800       3.4800       3.4800       3.4800       3.4800
+         b_ω       0.0000       0.0000       0.0000       0.0000       0.0000
+      ⋮            ⋮            ⋮            ⋮            ⋮            ⋮
+</span><span class="sgr36">                                                                 4 rows omitted
 </span></span></code></pre><p>We can now plot the results with a multi-panel plot:</p><pre><code class="language-julia hljs">## Save results plot
-octoplot(model, results, cmap=:greys, clims=(-0.5,1));</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(&quot;ϵEri-plot-grid.png&quot;, &quot;ϵEri-plot-grid-colorbar.png&quot;)</code></pre><p><img src="../assets/ϵEri-plot-grid.png" alt="model plot with astrometry"/></p><p>We can also plot just the RV fit:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, results)</code></pre><img src="bc698941.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../mass-photometry/">Connecting Mass with Photometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Sunday 31 December 2023 23:22">Sunday 31 December 2023</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octoplot(model, results, cmap=:greys, clims=(-0.5,1));</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(&quot;ϵEri-plot-grid.png&quot;, &quot;ϵEri-plot-grid-colorbar.png&quot;)</code></pre><p><img src="../assets/ϵEri-plot-grid.png" alt="model plot with astrometry"/></p><p>We can also plot just the RV fit:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, results)</code></pre><img src="2a0d4f50.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../mass-photometry/">Connecting Mass with Photometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 10 January 2024 16:35">Wednesday 10 January 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
