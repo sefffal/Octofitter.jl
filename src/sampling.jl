@@ -590,8 +590,6 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
     end
 end
 LogDensityProblems.logdensity(p::LogDensityModel, θ) = p.ℓπcallback(θ)
-# TODO: use diff results API to avoid calculating primal twice!
-# LogDensityProblems.logdensity_and_gradient(p::LogDensityModel, θ) = (p.ℓπcallback(θ), p.∇ℓπcallback(θ)) # TODO: may need to copy vector
 LogDensityProblems.logdensity_and_gradient(p::LogDensityModel, θ) = p.∇ℓπcallback(θ) # TODO: may need to copy vector
 LogDensityProblems.dimension(p::LogDensityModel) = p.D
 LogDensityProblems.capabilities(::Type{<:LogDensityModel}) = LogDensityProblems.LogDensityOrder{1}()
@@ -698,16 +696,32 @@ end
 
 
 # Fallback when no random number generator is provided (as is usually the case)
-function advancedhmc(model::LogDensityModel, target_accept::Number=0.8; kwargs...)
-    @nospecialize 
+Base.@nospecializeinfer function advancedhmc(model::LogDensityModel, target_accept::Number=0.8; kwargs...)
     return advancedhmc(Random.default_rng(), model, target_accept; kwargs...)
 end
 
-function octofit(args...; kwargs...)
-    @nospecialize 
+Base.@nospecializeinfer function octofit(args...; kwargs...)
     return advancedhmc(args...; kwargs...)
 end
 export octofit
+
+# Define some wrapper functions that hide type information
+# so that we don't have to recompile pathfinder() with each 
+# new model.
+# It's worth it for the sampler, but not pathfinder.
+struct CallableAny
+    func::Function
+end
+(ca::CallableAny)(args...;kwargs...) = ca.func(args...;kwargs...)
+
+struct LogDensityModelAny
+    ldm::LogDensityModel
+end
+LogDensityProblems.logdensity(ldm_any::LogDensityModelAny, θ) = LogDensityProblems.logdensity(ldm_any.ldm, θ)
+LogDensityProblems.logdensity_and_gradient(ldm_any::LogDensityModelAny, θ) = LogDensityProblems.logdensity_and_gradient(ldm_any.ldm, θ)
+LogDensityProblems.dimension(ldm_any::LogDensityModelAny) = LogDensityProblems.dimension(ldm_any.ldm)
+LogDensityProblems.capabilities(::Type{<:LogDensityModelAny}) = LogDensityProblems.LogDensityOrder{1}()
+
 
 
 """
@@ -743,20 +757,20 @@ If you don't pass a default position, one will be selected by drawing
 initial_samples from the priors.
 The sample with the highest posterior value will be used as the starting point.
 """
-function advancedhmc(
+Base.@nospecializeinfer function advancedhmc(
     rng::Union{AbstractRNG, AbstractVector{<:AbstractRNG}},
     model::LogDensityModel,
     target_accept::Number=0.8;
-    adaptation=1000,
-    iterations=1000,
-    drop_warmup=true,
-    max_depth=12,
-    initial_parameters=nothing,
-    verbosity=2,
-    pathfinder=true,
-    initial_samples= pathfinder ? 10_000 : 250_000,
+    adaptation::Int=1000,
+    iterations::Int=1000,
+    drop_warmup::Bool=true,
+    max_depth::Int=12,
+    initial_parameters::Union{Nothing,Vector{Float64}}=nothing,
+    verbosity::Int=2,
+    pathfinder::Bool=true,
+    initial_samples::Int= pathfinder ? 10_000 : 250_000,
 )
-    @nospecialize 
+    @nospecialize
     if adaptation < 1000
         @warn "At least 1000 steps of adapation are recomended for good sampling"
     end
@@ -773,36 +787,43 @@ function advancedhmc(
 
 
     local result_pf = nothing
+    ldm_any = LogDensityModelAny(model)
     if pathfinder 
         try
             if !isnothing(initial_parameters)
                 initial_θ = initial_parameters
                 # Transform from constrained support to unconstrained support
                 initial_θ_t = model.link(initial_θ)
-                result_pf = Pathfinder.multipathfinder(
-                    model, 500;
-                    nruns=4,
-                    init=collect(initial_θ_t),
-                    progress=verbosity > 1,
-                    # maxiters=5,
-                    maxtime=25.0,
-                    # reltol=1e-4,
-                ) 
+                errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
+                result_pf = with_logger(errlogger) do 
+                    Pathfinder.multipathfinder(
+                        ldm_any, 500;
+                        nruns=4,
+                        init=collect(initial_θ_t),
+                        progress=verbosity > 1,
+                        # maxiters=5,
+                        maxtime=25.0,
+                        # reltol=1e-4,
+                    )
+                end
             else
                 init_sampler = function(rng, x) 
                     initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
                     initial_θ_t = model.link(initial_θ)
                     x .= initial_θ_t
                 end
-                result_pf = Pathfinder.multipathfinder(
-                    model, 500;
-                    nruns=8,
-                    init_sampler,
-                    progress=verbosity > 1,
-                    # maxiters=5,
-                    maxtime=25.0,
-                    # reltol=1e-4,
-                ) 
+                errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
+                result_pf = with_logger(errlogger) do 
+                    Pathfinder.multipathfinder(
+                        ldm_any, 500;
+                        nruns=8,
+                        init_sampler=CallableAny(init_sampler),
+                        progress=verbosity > 1,
+                        # maxiters=5,
+                        maxtime=25.0,
+                        # reltol=1e-4,
+                    ) 
+                end
             end
         catch ex
             @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
