@@ -528,10 +528,6 @@ function timeplot!(
     p1
 end
 
-function Octofitter.octoplot(model::Octofitter.LogDensityModel, args...; kwargs...)
-    return Octofitter.octoplot(model.system, args...; kwargs...)
-end
-
 
 function Octofitter.octoplot(
     system::Octofitter.System,
@@ -542,10 +538,12 @@ function Octofitter.octoplot(
     clims = quantile(vec(chain[color]),(0.01, 0.99)),
     cmap = :plasma,
     dpi=200,
+    N=500,
+    alpha=1,
     kwargs...
 )
 
-    p = Octofitter.timeplotgrid(system, chain; color, clims, cmap, dpi)
+    p = Octofitter.timeplotgrid(system, chain; color, clims, cmap, dpi, N)
     fname1 = fname*".png"
     Plots.savefig(p, fname1)
 
@@ -553,6 +551,8 @@ function Octofitter.octoplot(
     fname2 = fname*"-colorbar.png"
     Plots.savefig(pc, fname2)
 
+
+    display("image/png", p)
     return (fname1, fname2)
 end
 

@@ -113,7 +113,21 @@ Given a `System` or `Octofitter.LogDensityModel` and an MCMC Chain (sampled eith
 the posterior or the prior), produce a panel of 9 plots visualizing the orbits.
 The output is saved to a file based on the name of the system (`fname`).
 """
-function octoplot end
+function octoplot(model::System, ::Any)
+    error("You must load the Plots.jl package (`using Plots`) before calling this function. Then, pass your model and chain result as arguments.")
+end
+function Octofitter.octoplot(model::Octofitter.LogDensityModel, args...; kwargs...)
+    return Octofitter.octoplot(model.system, args...; kwargs...)
+end
+
+function octocorner end
+function octocorner(model::System, ::Any)
+    error("You must load the Plots.jl package (`using Plots`) before calling this function. Then, pass your model and chain result as arguments.")
+end
+function Octofitter.octocorner(model::Octofitter.LogDensityModel, args...; kwargs...)
+    return Octofitter.octocorner(model.system, args...; kwargs...)
+end
+
 
 function timeplotgrid end
-export plotchains, octoplot
+export plotchains, plotchains!, octoplot, octocorner

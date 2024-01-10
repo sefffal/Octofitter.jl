@@ -100,7 +100,7 @@ Note also here that the `mass` variable is really `msini`, or the minimum mass o
 
 We can now prepare our model for sampling.
 ```@example 1
-model = Octofitter.LogDensityModel(k2_132; autodiff=:ForwardDiff)
+model = Octofitter.LogDensityModel(k2_132)
 ```
 
 Sample:
@@ -108,31 +108,21 @@ Sample:
 using Random
 rng = Random.Xoshiro(0)
 
-chain = octofit(
-    rng, model, 0.8,
-    adaptation = 500,
-    iterations = 500,
-    verbosity = 4,
-    max_depth = 12,
-    initial_samples=50000,
-)
+chain = octofit(rng, model)
 ```
 
 Excellent! Let's plot the maximum likelihood orbit:
 ```@example 1
+using CairoMakie: Makie
 fig = OctofitterRadialVelocity.rvpostplot(model, chain)
 ```
 
-We can also plot the orbit from a given sample. Making an animation of random orbits drawn from the chain
-is a good way to visualize the uncertainty.
-```@example 1
-fig = OctofitterRadialVelocity.rvpostplot(model, chain, 253)
-```
 
 Create a corner plot:
 ```@example 1
 using PairPlots
-pairplot(chain[:,[:M, :b_mass, :b_P, :b_τ],1])
+using CairoMakie: Makie
+octocorner(model, chain, small=true)
 ```
 
 
@@ -218,13 +208,9 @@ using Random
 rng = Random.Xoshiro(0)
 
 chain = octofit(
-    rng, model, 0.8,
+    rng, model,
     adaptation = 100,
     iterations = 100,
-    verbosity = 4,
-    max_depth = 12,
-    initial_samples=50000,
-    pathfinder=false
 )
 ```
 
@@ -234,4 +220,10 @@ For real data, we would want to increase the adaptation and iterations to at abo
 And plot:
 ```@example 1
 fig = OctofitterRadialVelocity.rvpostplot(model, chain)
+```
+
+
+Corner plot:
+```@example 1
+octocorner(model, chain)
 ```

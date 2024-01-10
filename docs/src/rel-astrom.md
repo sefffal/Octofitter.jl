@@ -156,7 +156,8 @@ A system represents a host star with one or more planets. Properties of the whol
 @system HD82134 begin
     M ~ truncated(Normal(1.2, 0.1), lower=0)
     plx ~ truncated(Normal(50.0, 0.02), lower=0)
-end b #hide
+end b
+nothing #hide
 ```
 
 The variables block works just like it does for planets. Here, the two parameters you must provide are:
@@ -184,13 +185,13 @@ The `autodiff` flag specifies what Julia automatic differentiation package we sh
 
 
 ```@example 1
-model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+model = Octofitter.LogDensityModel(HD82134)
 ```
 
 This type implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.
 
 ### A note on automatic differentiation
-Julia has many packages for calculating the gradients of arbitrary code, and several are supported with Octofitter. `:ForwardDiff` is a very robust choice for forward-mode auto-diff, and it works well on most codes and models. `:Enzyme` is a state-of-the-art auto-diff forward and reverse mode package that works with many, but not all models. Give it a try for a free speed-boost, but fall back to `ForwardDiff` if you see an error message or crash.
+Julia has many packages for calculating the gradients of arbitrary code, and several are supported with Octofitter. `autodiff=:ForwardDiff` is a very robust choice for forward-mode auto-diff, and it works well on most codes and models. `:Enzyme` is a state-of-the-art auto-diff forward and reverse mode package that works with many, but not all models. Give it a try for a free speed-boost, but fall back to `ForwardDiff` if you see an error message or crash.
 The `:Zygote` reverse diff package is also partially supported, but usually only of interest when fitting gaussian-process models.
 If you absolutely must, you can fallback to `:FiniteDiff` which uses classical finite differencing methods to approximate gradients for un-differentiable code. 
 
@@ -202,15 +203,9 @@ Start sampling:
 # Provide a seeded random number generator for reproducibility of this example.
 # This is not necessary in general: you may simply omit the RNG parameter if you prefer.
 using Random
-rng = Random.Xoshiro(0)
+rng = Random.Xoshiro(1234)
 
-chain = octofit(
-    rng, model, 0.85;
-    adaptation =  2000,
-    iterations =  2000,
-    verbosity = 4,
-    max_depth = 12,
-)
+chain = octofit(rng, model, verbosity = 2)
 ```
 
 You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the `verbosity` value down to 0.
@@ -279,30 +274,20 @@ We can overplot the astrometry data like so:
 Plots.plot!(astrom, label="astrometry")
 ```
 
+The function [`octoplot`](@ref) is a conveninient way to generate a 9-panel plot of velocities and position:
+```@example 1
+octoplot(model, chain)
+```
+
 
 ## Pair Plot
-A very useful visualization of our results is a pair-plot, or corner plot. We can use our PairPlots.jl package for this purpose:
+A very useful visualization of our results is a pair-plot, or corner plot. We can use the `octocorner` function and our PairPlots.jl package for this purpose:
 ```@example 1
 using CairoMakie: Makie
 using PairPlots
-# We use rad2deg to convert from radians into degrees for the plots
-table = (;
-    a=         vec(chain["b_a"]),
-    e=         vec(chain["b_e"]),
-    i=rad2deg.(vec(chain["b_i"])),
-    Ω=rad2deg.(vec(chain["b_Ω"])),
-    ω=rad2deg.(vec(chain["b_ω"])),
-    τ=         vec(chain["b_τ"]),
-)
-pairplot(
-    table => (
-        PairPlots.Hist(),
-        PairPlots.MarginHist(),
-        PairPlots.MarginConfidenceLimits()
-    )
-)
+octocorner(model, chain, small=true)
 ```
-You can read more about the syntax for creating pair plots in the PairPlots.jl documentation page.
+Remove `small=true` to display all variables, or run `pairplot(chain)` to include internal variables.
 
 In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.
 
