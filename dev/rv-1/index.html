@@ -122,8 +122,8 @@ chain = octofit(
 Iterations        = 1:1:500
 Number of chains  = 1
 Samples per chain = 500
-Wall duration     = 22.8 seconds
-Compute duration  = 22.8 seconds
+Wall duration     = 22.24 seconds
+Compute duration  = 22.24 seconds
 parameters        = M, rv0_1, jitter_1, rv0_2, jitter_2, b_P, b_τy, b_τx, b_mass, b_e, b_ω, b_a, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -131,42 +131,42 @@ Summary Statistics
  <span class="sgr1"> parameters         mean       std      mcse   ess_bulk   ess_tail      rhat  ⋯
  <span class="sgr90">     Symbol      Float64   Float64   Float64    Float64    Float64   Float64  ⋯
 
-           M       0.8201    0.0204    0.0011   357.9794   268.0032    1.0001  ⋯
-       rv0_1    6693.2284    2.6104    0.1467   319.4064   364.4657    1.0023  ⋯
-    jitter_1      14.5644    2.0719    0.1261   283.8800   268.2735    0.9985  ⋯
-       rv0_2      -0.4256    3.3353    0.2052   266.7124   275.7139    1.0146  ⋯
-    jitter_2      19.8466    2.9668    0.2221   214.6247   145.3872    1.0235  ⋯
-         b_P       0.0010    0.0000    0.0000   536.1837   373.1814    0.9988  ⋯
-        b_τy       0.0589    0.6952    0.0508   199.0062   332.3291    0.9988  ⋯
-        b_τx       0.0286    0.7166    0.0671   155.7656   406.3729    0.9980  ⋯
-      b_mass       0.0346    0.0103    0.0007   241.2182   105.7702    1.0172  ⋯
+           M       0.8203    0.0197    0.0009   442.2672   352.3842    1.0023  ⋯
+       rv0_1    6693.2744    2.3011    0.1212   363.9162   297.7144    1.0055  ⋯
+    jitter_1      14.3205    2.0967    0.1062   391.1891   249.1879    0.9986  ⋯
+       rv0_2       0.1426    3.9720    0.1965   421.8123   313.4341    1.0037  ⋯
+    jitter_2      19.7501    3.1972    0.2298   270.5424   167.3481    0.9997  ⋯
+         b_P       0.0010    0.0000    0.0000   501.0729   302.8591    1.0292  ⋯
+        b_τy      -0.0881    0.7057    0.0538   194.5379   272.6094    1.0015  ⋯
+        b_τx      -0.1277    0.6927    0.0565   156.2358   383.2258    1.0162  ⋯
+      b_mass       0.0346    0.0103    0.0006   275.0929   191.7740    1.0110  ⋯
          b_e       0.0000    0.0000       NaN        NaN        NaN       NaN  ⋯
          b_ω       0.0000    0.0000       NaN        NaN        NaN       NaN  ⋯
-         b_a       0.0094    0.0001    0.0000   357.2281   268.0032    1.0001  ⋯
-         b_τ       0.0111    0.2773    0.0231   186.9646   246.8546    1.0049  ⋯
-        b_tp   57782.0000    0.0003    0.0000   187.0456   246.8546    1.0049  ⋯
+         b_a       0.0094    0.0001    0.0000   441.8219   352.3842    1.0023  ⋯
+         b_τ      -0.0396    0.3017    0.0220   226.5464   349.8738    1.0154  ⋯
+        b_tp   57782.0000    0.0003    0.0000   226.5464   349.8738    1.0154  ⋯
 </span><span class="sgr36">                                                                1 column omitted
 
 Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       0.7811       0.8054       0.8198       0.8339       0.8591
-       rv0_1    6688.2592    6691.4850    6693.1721    6694.8353    6698.5651
-    jitter_1      10.8416      13.0552      14.4493      15.9676      18.9119
-       rv0_2      -7.5434      -2.4601      -0.4044       1.7878       6.4794
-    jitter_2      15.3251      17.7164      19.5316      21.4581      26.6730
+           M       0.7840       0.8079       0.8195       0.8325       0.8626
+       rv0_1    6689.0441    6691.7582    6693.1559    6694.7557    6698.5635
+    jitter_1      10.6507      12.9514      14.0645      15.5558      18.8389
+       rv0_2      -7.4686      -2.4553       0.2187       2.9170       7.5774
+    jitter_2      14.7884      17.5403      19.2616      21.5518      26.5301
          b_P       0.0010       0.0010       0.0010       0.0010       0.0010
-        b_τy      -1.0030      -0.6029       0.0700       0.7513       1.0002
-        b_τx      -1.0025      -0.6960       0.0705       0.7246       1.0010
-      b_mass       0.0140       0.0282       0.0345       0.0419       0.0534
+        b_τy      -0.9942      -0.7786      -0.1724       0.6148       0.9933
+        b_τx      -1.0035      -0.7873      -0.2991       0.5220       0.9950
+      b_mass       0.0147       0.0271       0.0351       0.0413       0.0541
          b_e       0.0000       0.0000       0.0000       0.0000       0.0000
          b_ω       0.0000       0.0000       0.0000       0.0000       0.0000
          b_a       0.0093       0.0094       0.0094       0.0095       0.0096
-         b_τ      -0.4706      -0.2394       0.0181       0.2386       0.4755
-        b_tp   57781.9995   57781.9998   57782.0000   57782.0002   57782.0005
-</span></span></code></pre><p>Excellent! Let&#39;s plot the maximum likelihood orbit:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain)</code></pre><img src="bd92ee98.png" alt="Example block output"/><p>We can also plot the orbit from a given sample. Making an animation of random orbits drawn from the chain is a good way to visualize the uncertainty.</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain, 253)</code></pre><img src="fb2f6acb.png" alt="Example block output"/><p>Create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
-pairplot(chain[:,[:M, :b_mass, :b_P, :b_τ],1])</code></pre><img src="8df71330.png" alt="Example block output"/><h2 id="Gaussian-Process-Fit"><a class="docs-heading-anchor" href="#Gaussian-Process-Fit">Gaussian Process Fit</a><a id="Gaussian-Process-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Gaussian-Process-Fit" title="Permalink"></a></h2><p>Let us now add a Gaussian process to model stellar activity. This should improve the fit.</p><p>We start by writing a functino that creates a Gaussian process kernel from a set of system  parameters. We will create a quasi-periodic kernel.</p><pre><code class="language-julia hljs">using AbstractGPs
+         b_τ      -0.4739      -0.3071      -0.0909       0.2358       0.4774
+        b_tp   57781.9995   57781.9997   57781.9999   57782.0002   57782.0005
+</span></span></code></pre><p>Excellent! Let&#39;s plot the maximum likelihood orbit:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain)</code></pre><img src="2b87ba1b.png" alt="Example block output"/><p>We can also plot the orbit from a given sample. Making an animation of random orbits drawn from the chain is a good way to visualize the uncertainty.</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain, 253)</code></pre><img src="3ea85e8b.png" alt="Example block output"/><p>Create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
+pairplot(chain[:,[:M, :b_mass, :b_P, :b_τ],1])</code></pre><img src="9f5b088e.png" alt="Example block output"/><h2 id="Gaussian-Process-Fit"><a class="docs-heading-anchor" href="#Gaussian-Process-Fit">Gaussian Process Fit</a><a id="Gaussian-Process-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Gaussian-Process-Fit" title="Permalink"></a></h2><p>Let us now add a Gaussian process to model stellar activity. This should improve the fit.</p><p>We start by writing a functino that creates a Gaussian process kernel from a set of system  parameters. We will create a quasi-periodic kernel.</p><pre><code class="language-julia hljs">using AbstractGPs
 
 function gauss_proc_quasi_periodic(θ_system)
     # θ_system is a named tuple of variable values for this posterior draw.
@@ -257,8 +257,8 @@ chain = octofit(
 Iterations        = 1:1:100
 Number of chains  = 1
 Samples per chain = 100
-Wall duration     = 499.91 seconds
-Compute duration  = 499.91 seconds
+Wall duration     = 494.58 seconds
+Compute duration  = 494.58 seconds
 parameters        = M, rv0_1, jitter_1, rv0_2, jitter_2, gp_η₁, gp_η₂, gp_η₃, gp_η₄, b_P, b_mass, b_τy, b_τx, b_e, b_ω, b_a, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -308,4 +308,4 @@ Quantiles
          b_a       0.0093       0.0094       0.0094       0.0095       0.0096
          b_τ      -0.4836      -0.2610      -0.0167       0.1886       0.4547
         b_tp   57781.9995   57781.9997   57782.0000   57782.0002   57782.0005
-</span></span></code></pre><p>For real data, we would want to increase the adaptation and iterations to at about 1000.</p><p>And plot:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain)</code></pre><img src="dee9326e.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Fit Images</a><a class="docs-footer-nextpage" href="../rv/">Fit RV and Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 10 January 2024 19:24">Wednesday 10 January 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</span></span></code></pre><p>For real data, we would want to increase the adaptation and iterations to at about 1000.</p><p>And plot:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain)</code></pre><img src="dee9326e.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Fit Images</a><a class="docs-footer-nextpage" href="../rv/">Fit RV and Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 10 January 2024 19:29">Wednesday 10 January 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
