@@ -2,6 +2,7 @@ using DiffResults
 using LinearAlgebra
 using Preferences
 using Pathfinder
+using CovarianceEstimation: SimpleCovariance
 export sample_priors
 
 # TODO: consolidate all these functions. There is a lot of duplication.
@@ -698,10 +699,12 @@ end
 
 # Fallback when no random number generator is provided (as is usually the case)
 function advancedhmc(model::LogDensityModel, target_accept::Number=0.8; kwargs...)
+    @nospecialize 
     return advancedhmc(Random.default_rng(), model, target_accept; kwargs...)
 end
 
 function octofit(args...; kwargs...)
+    @nospecialize 
     return advancedhmc(args...; kwargs...)
 end
 export octofit
@@ -719,7 +722,7 @@ The method signature of Octofitter.hmc is as follows:
         iterations,
         drop_warmup=true,
         max_depth=12,
-        initial_samples= pathfinder ? 50000 : 250_000,
+        initial_samples= pathfinder ? 500 : 250_000,
         initial_parameters=nothing,
         step_size=nothing,
         verbosity=2,
@@ -744,15 +747,16 @@ function advancedhmc(
     rng::Union{AbstractRNG, AbstractVector{<:AbstractRNG}},
     model::LogDensityModel,
     target_accept::Number=0.8;
-    adaptation,
-    iterations,
+    adaptation=1000,
+    iterations=1000,
     drop_warmup=true,
     max_depth=12,
     initial_parameters=nothing,
     verbosity=2,
     pathfinder=true,
-    initial_samples= pathfinder ? 50000 : 250_000,
+    initial_samples= pathfinder ? 10_000 : 250_000,
 )
+    @nospecialize 
     if adaptation < 1000
         @warn "At least 1000 steps of adapation are recomended for good sampling"
     end
@@ -770,57 +774,42 @@ function advancedhmc(
 
     local result_pf = nothing
     if pathfinder 
-        for retry in 1:5
-            try
-                if !isnothing(initial_parameters)
-                    initial_θ = initial_parameters
-                    # Transform from constrained support to unconstrained support
+        try
+            if !isnothing(initial_parameters)
+                initial_θ = initial_parameters
+                # Transform from constrained support to unconstrained support
+                initial_θ_t = model.link(initial_θ)
+                result_pf = Pathfinder.multipathfinder(
+                    model, 500;
+                    nruns=4,
+                    init=collect(initial_θ_t),
+                    progress=verbosity > 1,
+                    # maxiters=5,
+                    maxtime=25.0,
+                    # reltol=1e-4,
+                ) 
+            else
+                init_sampler = function(rng, x) 
+                    initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
                     initial_θ_t = model.link(initial_θ)
-                    result_pf = Pathfinder.pathfinder(
-                        model;
-                        init=collect(initial_θ_t),
-                        progress=verbosity > 1,
-                        # maxiters=5,
-                        maxtime=25.0,
-                        # reltol=1e-4,
-                    ) 
-                else
-                    init_sampler = function(rng, x) 
-                        initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
-                        initial_θ_t = model.link(initial_θ)
-                        x .= initial_θ_t
-                    end
-                    result_pf = Pathfinder.pathfinder(
-                        model;
-                        init_sampler,
-                        progress=verbosity > 1,
-                        # maxiters=5,
-                        maxtime=25.0,
-                        # reltol=1e-4,
-                    ) 
+                    x .= initial_θ_t
                 end
-                break
-            catch ex
-                if ex isa LinearAlgebra.PosDefException
-                    @warn "pathfinder hit a PosDefException. Retrying" exception=ex retry
-                    continue
-                elseif ex isa InterruptException
-                    rethrow(ex)
-                else
-                    @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
-                    # rethrow(ex)
-                end
+                result_pf = Pathfinder.multipathfinder(
+                    model, 500;
+                    nruns=8,
+                    init_sampler,
+                    progress=verbosity > 1,
+                    # maxiters=5,
+                    maxtime=25.0,
+                    # reltol=1e-4,
+                ) 
             end
-            verbosity >= 3 && @info(
-                "Pathfinder results",
-                ℓπ=model.ℓπcallback(result_pf.fit_distribution.μ),
-                mode=arr2nt(Bijectors.invlink.(priors_vec, result_pf.fit_distribution.μ)),
-                inv_metric=Matrix(result_pf.fit_distribution.Σ)
-            )
+        catch ex
+            @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
         end
-
-    else
-
+        verbosity >= 3 && "Pathfinder complete"
+    end
+    if isnothing(result_pf) # failed or not attempted
         # Guess initial starting positions by drawing from priors a bunch of times
         # and picking the best one (highest likelihood).
         # Then transform that guess into our unconstrained support
@@ -840,16 +829,17 @@ function advancedhmc(
 
     
     if !isnothing(result_pf)
-
         # Start using a draw from the typical set as estimated by Pathfinder
-        finite_pathfinder_draws = filter(row->all(isfinite, row), collect(eachrow(result_pf.draws)))
-        if length(finite_pathfinder_draws) > 0 && all(isfinite, Matrix(result_pf.fit_distribution.Σ))
-            initial_θ_t = result_pf.fit_distribution.μ
+        finite_pathfinder_draws = filter(col->all(isfinite, col), collect(eachcol(result_pf.draws)))
+        if length(finite_pathfinder_draws) > 0 #&& all(isfinite, Matrix(result_pf.fit_distribution.Σ))
+            initial_θ_t = collect(last(finite_pathfinder_draws)) # result_pf.fit_distribution.μ
             initial_θ = model.invlink(initial_θ_t)
             verbosity >= 3 && @info "Creating metric"
             # Use the metric found by Pathfinder for HMC sampling
             # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.fit_distribution.Σ)
-            metric = DenseEuclideanMetric(collect(Matrix(result_pf.fit_distribution.Σ)))
+            # metric = DenseEuclideanMetric(collect(Matrix(result_pf.fit_distribution.Σ)))
+            S = cov(SimpleCovariance(corrected=true), stack(finite_pathfinder_draws)')
+            metric = DenseEuclideanMetric(S)
         else
             @warn "Pathfinder failed to provide a finite initial draw and metric. Check your model. Starting from initial guess instead."
             # Fit a dense metric from scratch
@@ -857,7 +847,7 @@ function advancedhmc(
             initial_θ_t = guess_starting_position(system, initial_samples)
         end
     else
-        @warn("Warm up failed: pathfinder failed 5 times. Falling back to initializing the diagonals with the prior interquartile ranges.")
+        @warn("Warm up failed: pathfinder failed. Falling back to initializing the diagonals with the prior interquartile ranges.")
         # We already sampled from the priors earlier to get the starting positon.
         # Use those variance estimates and transform them into the unconstrainted space.
         # variances_t = (model.link(initial_θ .+ sqrt.(variances)/2) .- model.link(initial_θ .- sqrt.(variances)/2)).^2
