@@ -2,7 +2,6 @@ using Pkg
 cd(@__DIR__)
 Pkg.activate(".")
 pkg"add Enzyme#main"
-pkg"dev .. ../OctofitterRadialVelocity ../OctofitterImages ../OctofitterWhereistheplanet ../OctofitterInterferometry"
 Pkg.instantiate()
 Pkg.precompile()
 
