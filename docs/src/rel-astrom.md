@@ -198,12 +198,11 @@ Great! Now we are ready to draw samples from the posterior.
 
 Start sampling:
 ```@example 1
-octofit(rng, model, verbosity = 2,iterations=2,adaptation=2,) # hide
 # Provide a seeded random number generator for reproducibility of this example.
 # This is not necessary in general: you may simply omit the RNG parameter if you prefer.
 using Random
 rng = Random.Xoshiro(1234)
-
+octofit(rng, model, verbosity = 2,iterations=2,adaptation=2,) # hide
 chain = octofit(rng, model, verbosity = 2)
 ```
 
