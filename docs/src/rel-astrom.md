@@ -274,7 +274,7 @@ We can overplot the astrometry data like so:
 Plots.plot!(astrom, label="astrometry")
 ```
 
-The function [`octoplot`](@ref) is a conveninient way to generate a 9-panel plot of velocities and position:
+The function `octoplot` is a conveninient way to generate a 9-panel plot of velocities and position:
 ```@example 1
 octoplot(model, chain)
 ```
