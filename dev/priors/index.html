@@ -17,7 +17,7 @@ astrom_like = PlanetRelAstromLikelihood(
     mass ~ LogUniform(0.01, 100)
 
     τ ~ UniformCircular(1.0)
-    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end astrom_like ObsPriorAstromONeil2019(astrom_like);
 
 @system System1 begin
@@ -37,8 +37,8 @@ model = Octofitter.LogDensityModel(System1, verbosity=4)</code></pre><pre class=
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 23.02 seconds
-Compute duration  = 23.02 seconds
+Wall duration     = 22.78 seconds
+Compute duration  = 22.78 seconds
 parameters        = plx, M, b_P, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_mass, b_τy, b_τx, b_a, b_ω, b_Ω, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -46,22 +46,22 @@ Summary Statistics
  <span class="sgr1"> parameters         mean       std      mcse   ess_bulk   ess_tail      rhat  ⋯
  <span class="sgr90">     Symbol      Float64   Float64   Float64    Float64    Float64   Float64  ⋯
 
-         plx      21.2167    0.0000       NaN        NaN        NaN       NaN  ⋯
-           M       1.0587    0.0000    0.0000     2.6446    22.4407    1.9627  ⋯
-         b_P     752.5229    0.0000    0.0000        NaN        NaN       NaN  ⋯
-         b_e       0.6796    0.0000    0.0000        NaN        NaN       NaN  ⋯
-         b_i       1.4429    0.0000    0.0000     2.5760        NaN    2.0086  ⋯
-        b_ωy      -0.9974    0.0000    0.0000        NaN        NaN       NaN  ⋯
-        b_ωx       0.0152    0.0000    0.0000     2.6766    20.3448    1.7928  ⋯
-        b_Ωy      -0.6948    0.0000    0.0000        NaN        NaN       NaN  ⋯
-        b_Ωx      -0.6946    0.0000    0.0000        NaN        NaN       NaN  ⋯
-      b_mass       1.9568    0.0000    0.0000        NaN        NaN       NaN  ⋯
-        b_τy      -0.9898    0.0000    0.0000        NaN        NaN       NaN  ⋯
-        b_τx       0.1861    0.0000    0.0000     3.5973    12.4224    1.3436  ⋯
-         b_a      84.3202    0.0000    0.0000     2.6448    22.4407    1.9626  ⋯
-         b_ω       3.1264    0.0000    0.0000     2.6760    19.1874    1.7932  ⋯
-         b_Ω      -2.3564    0.0000       NaN        NaN        NaN       NaN  ⋯
-         b_τ       0.4704    0.0000    0.0000     3.6238     9.3239    1.3562  ⋯
+         plx      21.2366    0.0000    0.0000        NaN        NaN       NaN  ⋯
+           M       0.9880    0.0000    0.0000        NaN        NaN       NaN  ⋯
+         b_P     316.0643    0.0000       NaN        NaN        NaN       NaN  ⋯
+         b_e       0.3708    0.0000    0.0000        NaN        NaN       NaN  ⋯
+         b_i       1.2961    0.0000    0.0000        NaN        NaN       NaN  ⋯
+        b_ωy       0.8834    0.0000    0.0000        NaN        NaN       NaN  ⋯
+        b_ωx      -0.3462    0.0000    0.0000        NaN        NaN       NaN  ⋯
+        b_Ωy       0.6081    0.0000    0.0000        NaN        NaN       NaN  ⋯
+        b_Ωx       0.7721    0.0000    0.0000        NaN        NaN       NaN  ⋯
+      b_mass       0.1851    0.0000    0.0000        NaN        NaN       NaN  ⋯
+        b_τy       1.0157    0.0000    0.0000        NaN        NaN       NaN  ⋯
+        b_τx       0.0196    0.0000    0.0000        NaN        NaN       NaN  ⋯
+         b_a      46.2139    0.0000    0.0000        NaN        NaN       NaN  ⋯
+         b_ω      -0.3735    0.0000    0.0000        NaN        NaN       NaN  ⋯
+         b_Ω       0.9036    0.0000    0.0000        NaN        NaN       NaN  ⋯
+         b_τ       0.0031    0.0000    0.0000        NaN        NaN       NaN  ⋯
         b_tp   59203.0000    0.0000       NaN        NaN        NaN       NaN  ⋯
 </span><span class="sgr36">                                                                1 column omitted
 
@@ -69,21 +69,21 @@ Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-         plx      21.2167      21.2167      21.2167      21.2167      21.2167
-           M       1.0587       1.0587       1.0587       1.0587       1.0587
-         b_P     752.5229     752.5229     752.5229     752.5229     752.5229
-         b_e       0.6796       0.6796       0.6796       0.6796       0.6796
-         b_i       1.4429       1.4429       1.4429       1.4429       1.4429
-        b_ωy      -0.9974      -0.9974      -0.9974      -0.9974      -0.9974
-        b_ωx       0.0152       0.0152       0.0152       0.0152       0.0152
-        b_Ωy      -0.6948      -0.6948      -0.6948      -0.6948      -0.6948
-        b_Ωx      -0.6946      -0.6946      -0.6946      -0.6946      -0.6946
-      b_mass       1.9568       1.9568       1.9568       1.9568       1.9568
-        b_τy      -0.9898      -0.9898      -0.9898      -0.9898      -0.9898
-        b_τx       0.1861       0.1861       0.1861       0.1861       0.1861
-         b_a      84.3202      84.3202      84.3202      84.3202      84.3202
-         b_ω       3.1264       3.1264       3.1264       3.1264       3.1264
-         b_Ω      -2.3564      -2.3564      -2.3564      -2.3564      -2.3564
-         b_τ       0.4704       0.4704       0.4704       0.4704       0.4704
+         plx      21.2366      21.2366      21.2366      21.2366      21.2366
+           M       0.9880       0.9880       0.9880       0.9880       0.9880
+         b_P     316.0643     316.0643     316.0643     316.0643     316.0643
+         b_e       0.3708       0.3708       0.3708       0.3708       0.3708
+         b_i       1.2961       1.2961       1.2961       1.2961       1.2961
+        b_ωy       0.8834       0.8834       0.8834       0.8834       0.8834
+        b_ωx      -0.3462      -0.3462      -0.3462      -0.3462      -0.3462
+        b_Ωy       0.6081       0.6081       0.6081       0.6081       0.6081
+        b_Ωx       0.7721       0.7721       0.7721       0.7721       0.7721
+      b_mass       0.1851       0.1851       0.1851       0.1851       0.1851
+        b_τy       1.0157       1.0157       1.0157       1.0157       1.0157
+        b_τx       0.0196       0.0196       0.0196       0.0196       0.0196
+         b_a      46.2139      46.2139      46.2139      46.2139      46.2139
+         b_ω      -0.3735      -0.3735      -0.3735      -0.3735      -0.3735
+         b_Ω       0.9036       0.9036       0.9036       0.9036       0.9036
+         b_τ       0.0031       0.0031       0.0031       0.0031       0.0031
         b_tp   59203.0000   59203.0000   59203.0000   59203.0000   59203.0000
-</span></span></code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../python/">« Calling from Python</a><a class="docs-footer-nextpage" href="../derived/">Derived Variables »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 10 January 2024 19:29">Wednesday 10 January 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</span></span></code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../python/">« Calling from Python</a><a class="docs-footer-nextpage" href="../derived/">Derived Variables »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Thursday 11 January 2024 03:23">Thursday 11 January 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

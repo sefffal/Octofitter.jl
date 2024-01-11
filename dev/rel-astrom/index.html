@@ -71,7 +71,7 @@ astrom = CSV.read(&quot;mydata.csv&quot;, PlanetRelAstromLikelihood)</code></pre
     Ω ~ UniformCircular()
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P + 5000 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 5000 # reference epoch for τ. Choose an MJD date near your data.
 end astrom</code></pre><p>There&#39;s a lot going on here, so let&#39;s break it down.</p><p>First, <code>Visual{KepOrbit}</code> is a kind of orbit parameterization from PlanetOrbits.jl that we will use for this. A <code>KepOrbit</code> uses the traditional Keplerian orbital elements like semi-major axis and inclination. The <code>Visual{...}</code> part surrounding it adds support for parallax distance and allows a Keplerian orbit to be projected into the plane of the sky, which is where our relative astrometry data lives! A <code>KepOrbit</code> by itself can only be used to fit position measurements in astronomical units. The <code>Visual{...}</code> part makes it so we can calculate and specify observed angles between the star and planet.</p><p>You can read about orbit parameterizations in the <a href="https://sefffal.github.io/PlanetOrbits.jl/dev/api/">PlanetOrbits.jl documentation page</a>.</p><p>Other options include the similar <code>ThieleInnesOrbit</code> which uses a different parameterization, as well as <code>RadVelOrbit</code> which is useful for modelling radial velocity data. These can also be wrapped in <code>Visual{...}</code> if we want to e.g. project a <code>RadVelOrbit</code> onto the plane of the sky.</p><p>After the <code>begin</code> comes our variable specification. Quantities with a <code>~</code> are random variables. The distribution son the right hand sides are <strong>priors</strong>.You must specify a proper prior for any quantity which is allowed to vary.  &quot;Uninformative&quot; priors like <code>1/x</code> must be given bounds, and can be specified with <code>LogUniform(lower, upper)</code>.</p><p>Priors can be any univariate distribution from the Distributions.jl package.</p><p>For a <code>KepOrbit</code> you must specify the following parameters:</p><ul><li><code>a</code>: Semi-major axis, astronomical units (AU)</li><li><code>i</code>: Inclination, radius</li><li><code>e</code>: Eccentricity in the range [0, 1)</li><li><code>τ</code>: Epoch of periastron passage, in fraction of orbit [0,1] (periodic outside these bounds)</li><li><code>ω</code>: Argument of periastron, radius</li><li><code>Ω</code>: Longitude of the ascending node, radians.</li></ul><p>The parameter τ represents the epoch of periastron passage as a fraction of the planet&#39;s orbit between 0 and 1. This follows the same convention as Orbitize! and you can read more about their choice in ther FAQ. Many different distributions are supported as priors, including <code>Uniform</code>, <code>LogNormal</code>, <code>LogUniform</code>, <code>Sine</code>, and <code>Beta</code>. See the section on <a href="../priors/#priors">Priors</a> for more information. The parameters can be specified in any order.</p><p>You can also hardcode a particular value for any parameter if you don&#39;t want it to vary. The syntax for this is:</p><pre><code class="language-julia hljs">    e = 0.1 # hardcode eccentricity</code></pre><p>This <code>=</code> syntax works for arbitrary mathematical expressions and even most functions, even many function from external libraries. For example, if you wanted to place a uniform prior on the square-root of eccentricity, you could specify:</p><pre><code class="language-julia hljs">    e_sqrt ~ Uniform(0, 1)
     e = sqrt(b.e_sqrt)</code></pre><p>Note how <code>e_sqrt</code> is allowed to vary, and <code>e</code> is calculated from it deterministically.</p><p>After the variables block are zero or more <code>Likelihood</code> objects. These are observations specific to a given planet that you would like to include in the model. If you would like to sample from the priors only, don&#39;t pass in any observations.</p><p>For this example, we specify <code>PlanetRelAstromLikelihood</code> block. This is where you can list the position of a planet relative to the star at different epochs.</p><p>When you have created your planet, you should see the following output. If you don&#39;t, you can run <code>display(b)</code> to force the text to be output:</p><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Planet b
 Derived:
@@ -103,133 +103,77 @@ PlanetRelAstromLikelihood Table with 6 columns and 8 rows:
 
 </code></pre><h2 id="Creating-a-system"><a class="docs-heading-anchor" href="#Creating-a-system">Creating a system</a><a id="Creating-a-system-1"></a><a class="docs-heading-anchor-permalink" href="#Creating-a-system" title="Permalink"></a></h2><p>A system represents a host star with one or more planets. Properties of the whole system are specified here, like parallax distance and mass of the star. This is also where you will supply data like images, astrometric acceleration, or stellar radial velocity since they don&#39;t belong to any planet in particular.</p><pre><code class="language-julia hljs">@system HD82134 begin
     M ~ truncated(Normal(1.2, 0.1), lower=0)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">System model HD82134
-Derived:
-  
-Priors:
-  M	Truncated(Distributions.Normal{Float64}(μ=1.2, σ=0.1); lower=0.0)
-  plx	Truncated(Distributions.Normal{Float64}(μ=50.0, σ=0.02); lower=0.0)
-Planet b
-Derived:
-  ω, Ω, τ, P, tp, 
-Priors:
-  a	Truncated(Distributions.Normal{Float64}(μ=10.0, σ=4.0); lower=0.0, upper=100.0)
-  e	Distributions.Uniform{Float64}(a=0.0, b=0.5)
-  i	Sine()
-  ωy	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
-  ωx	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
-  Ωy	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
-  Ωx	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
-  τy	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
-  τx	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
-Octofitter.UnitLengthPrior{:ωy, :ωx}: √(ωy^2+ωx^2) ~ LogNormal(log(1), 0.02)
-Octofitter.UnitLengthPrior{:Ωy, :Ωx}: √(Ωy^2+Ωx^2) ~ LogNormal(log(1), 0.02)
-Octofitter.UnitLengthPrior{:τy, :τx}: √(τy^2+τx^2) ~ LogNormal(log(1), 0.02)
-PlanetRelAstromLikelihood Table with 6 columns and 8 rows:
-     epoch  ra        dec       σ_ra  σ_dec  cor
-   ┌────────────────────────────────────────────
- 1 │ 5000   -505.764  -66.9298  10.0  10.0   0.0
- 2 │ 5120   -502.57   -37.4722  10.0  10.0   0.0
- 3 │ 5240   -498.209  -7.92755  10.0  10.0   0.0
- 4 │ 5360   -492.678  21.6356   10.0  10.0   0.0
- 5 │ 5480   -485.977  51.1472   10.0  10.0   0.0
- 6 │ 5600   -478.11   80.5359   10.0  10.0   0.0
- 7 │ 5720   -469.08   109.729   10.0  10.0   0.0
- 8 │ 5840   -458.896  138.651   10.0  10.0   0.0
-
-
-
-</code></pre><p>The variables block works just like it does for planets. Here, the two parameters you must provide are:</p><ul><li><code>M</code>: Gravitational parameter of the central body, expressed in units of Solar mass.</li><li><code>plx</code>: Distance to the system expressed in milliarcseconds of parallax.</li></ul><p><code>M</code> is always required for all choices of parameterizations supported by PlanetOrbits.jl. <code>plx</code> is needed due to our choice to use <code>Visual{...}</code> orbit and relative astrometry. The prior on <code>plx</code> can be looked up from GAIA for many targets by using the function <code>gaia_plx</code>:</p><pre><code class="language-julia hljs">    plx ~ gaia_plx(;gaia_id=12345678910)</code></pre><p>After that, just list any planets that you want orbiting the star. Here, we pass planet <code>b</code>.</p><p>This is also where we could pass likelihood objects for system-wide data like stellar radial velocity.</p><p>You can display your system object by running <code>display(HD82134)</code> (or whatever you chose to name your system).</p><h2 id="Prepare-model"><a class="docs-heading-anchor" href="#Prepare-model">Prepare model</a><a id="Prepare-model-1"></a><a class="docs-heading-anchor-permalink" href="#Prepare-model" title="Permalink"></a></h2><p>We now convert our declarative model into efficient, compiled code. The <code>autodiff</code> flag specifies what Julia automatic differentiation package we should use to calculate the gradients of our model.</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HD82134 of dimension 11 with fields .ℓπcallback and .∇ℓπcallback
-</code></pre><p>This type implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.</p><h3 id="A-note-on-automatic-differentiation"><a class="docs-heading-anchor" href="#A-note-on-automatic-differentiation">A note on automatic differentiation</a><a id="A-note-on-automatic-differentiation-1"></a><a class="docs-heading-anchor-permalink" href="#A-note-on-automatic-differentiation" title="Permalink"></a></h3><p>Julia has many packages for calculating the gradients of arbitrary code, and several are supported with Octofitter. <code>:ForwardDiff</code> is a very robust choice for forward-mode auto-diff, and it works well on most codes and models. <code>:Enzyme</code> is a state-of-the-art auto-diff forward and reverse mode package that works with many, but not all models. Give it a try for a free speed-boost, but fall back to <code>ForwardDiff</code> if you see an error message or crash. The <code>:Zygote</code> reverse diff package is also partially supported, but usually only of interest when fitting gaussian-process models. If you absolutely must, you can fallback to <code>:FiniteDiff</code> which uses classical finite differencing methods to approximate gradients for un-differentiable code. </p><h2 id="Sampling"><a class="docs-heading-anchor" href="#Sampling">Sampling</a><a id="Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling" title="Permalink"></a></h2><p>Great! Now we are ready to draw samples from the posterior.</p><p>Start sampling:</p><pre><code class="language-julia hljs"># Provide a seeded random number generator for reproducibility of this example.
+    plx ~ truncated(Normal(50.0, 0.02), lower=0)
+end b</code></pre><p>The variables block works just like it does for planets. Here, the two parameters you must provide are:</p><ul><li><code>M</code>: Gravitational parameter of the central body, expressed in units of Solar mass.</li><li><code>plx</code>: Distance to the system expressed in milliarcseconds of parallax.</li></ul><p><code>M</code> is always required for all choices of parameterizations supported by PlanetOrbits.jl. <code>plx</code> is needed due to our choice to use <code>Visual{...}</code> orbit and relative astrometry. The prior on <code>plx</code> can be looked up from GAIA for many targets by using the function <code>gaia_plx</code>:</p><pre><code class="language-julia hljs">    plx ~ gaia_plx(;gaia_id=12345678910)</code></pre><p>After that, just list any planets that you want orbiting the star. Here, we pass planet <code>b</code>.</p><p>This is also where we could pass likelihood objects for system-wide data like stellar radial velocity.</p><p>You can display your system object by running <code>display(HD82134)</code> (or whatever you chose to name your system).</p><h2 id="Prepare-model"><a class="docs-heading-anchor" href="#Prepare-model">Prepare model</a><a id="Prepare-model-1"></a><a class="docs-heading-anchor-permalink" href="#Prepare-model" title="Permalink"></a></h2><p>We now convert our declarative model into efficient, compiled code. The <code>autodiff</code> flag specifies what Julia automatic differentiation package we should use to calculate the gradients of our model.</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(HD82134)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HD82134 of dimension 11 with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>This type implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.</p><h3 id="A-note-on-automatic-differentiation"><a class="docs-heading-anchor" href="#A-note-on-automatic-differentiation">A note on automatic differentiation</a><a id="A-note-on-automatic-differentiation-1"></a><a class="docs-heading-anchor-permalink" href="#A-note-on-automatic-differentiation" title="Permalink"></a></h3><p>Julia has many packages for calculating the gradients of arbitrary code, and several are supported with Octofitter. <code>autodiff=:ForwardDiff</code> is a very robust choice for forward-mode auto-diff, and it works well on most codes and models. <code>:Enzyme</code> is a state-of-the-art auto-diff forward and reverse mode package that works with many, but not all models. Give it a try for a free speed-boost, but fall back to <code>ForwardDiff</code> if you see an error message or crash. The <code>:Zygote</code> reverse diff package is also partially supported, but usually only of interest when fitting gaussian-process models. If you absolutely must, you can fallback to <code>:FiniteDiff</code> which uses classical finite differencing methods to approximate gradients for un-differentiable code. </p><h2 id="Sampling"><a class="docs-heading-anchor" href="#Sampling">Sampling</a><a id="Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling" title="Permalink"></a></h2><p>Great! Now we are ready to draw samples from the posterior.</p><p>Start sampling:</p><pre><code class="language-julia hljs"># Provide a seeded random number generator for reproducibility of this example.
 # This is not necessary in general: you may simply omit the RNG parameter if you prefer.
 using Random
-rng = Random.Xoshiro(0)
+rng = Random.Xoshiro(1234)
 
-chain = octofit(
-    rng, model, 0.85;
-    adaptation =  2000,
-    iterations =  2000,
-    verbosity = 4,
-    max_depth = 12,
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (2000×29×1 Array{Float64, 3}):
+chain = octofit(rng, model, verbosity = 2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×29×1 Array{Float64, 3}):
 
-Iterations        = 1:1:2000
+Iterations        = 1:1:1000
 Number of chains  = 1
-Samples per chain = 2000
-Wall duration     = 21.34 seconds
-Compute duration  = 21.34 seconds
+Samples per chain = 1000
+Wall duration     = 18.26 seconds
+Compute duration  = 18.26 seconds
 parameters        = M, plx, b_a, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_τy, b_τx, b_ω, b_Ω, b_τ, b_P, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Summary Statistics
- <span class="sgr1"> parameters        mean       std      mcse    ess_bulk    ess_tail      rhat ⋯
- <span class="sgr90">     Symbol     Float64   Float64   Float64     Float64     Float64   Float64 ⋯
+ <span class="sgr1"> parameters        mean         std       mcse    ess_bulk   ess_tail      rh ⋯
+ <span class="sgr90">     Symbol     Float64     Float64    Float64     Float64    Float64   Float ⋯
 
-           M      1.1620    0.0954    0.0032    884.7115   1153.9432    1.0000 ⋯
-         plx     50.0003    0.0197    0.0004   1965.2090    959.5907    1.0005 ⋯
-         b_a     13.1324    2.1836    0.1173    340.0818    708.0079    1.0013 ⋯
-         b_e      0.1328    0.1058    0.0072    300.8520    350.8757    0.9996 ⋯
-         b_i      0.6963    0.1054    0.0051    425.0904    597.8487    1.0012 ⋯
-        b_ωy      0.7858    0.2494    0.0252    123.9877    663.7603    1.0031 ⋯
-        b_ωx      0.4558    0.3370    0.0324    133.3662    575.1977    1.0031 ⋯
-        b_Ωy     -0.5129    0.2923    0.0285    132.6919    630.0601    1.0024 ⋯
-        b_Ωx     -0.7702    0.2412    0.0244    124.3174    553.9991    1.0020 ⋯
-        b_τy      0.0268    0.7104    0.0312    548.7977   1146.8705    1.0037 ⋯
-        b_τx      0.0254    0.7041    0.0389    391.5925    912.5168    1.0019 ⋯
-         b_ω      0.5320    0.4347    0.0429    133.4064    611.1887    1.0032 ⋯
-         b_Ω     -2.1630    0.3901    0.0388    131.1133    574.2451    1.0026 ⋯
-         b_τ      0.0085    0.2843    0.0172    299.4850    718.5613    1.0029 ⋯
-         b_P     44.6818   11.4186    0.6133    339.4146    712.1115    1.0011 ⋯
-        b_tp   5000.5464   13.3005    0.8281    262.9551    573.2615    1.0034 ⋯
-</span><span class="sgr36">                                                                1 column omitted
+           M      1.1940      0.0966     0.0049    395.3800   528.4281    0.99 ⋯
+         plx     49.9995      0.0209     0.0007   1019.2655   469.7109    1.00 ⋯
+         b_a     11.3293      2.3136     0.2248    109.3177   128.2368    1.01 ⋯
+         b_e      0.1578      0.1129     0.0110    113.9553   265.5303    1.00 ⋯
+         b_i      0.6123      0.1750     0.0181    122.9180    95.0343    1.01 ⋯
+        b_ωy     -0.1534      0.6936     0.0707    106.6193   308.8501    1.00 ⋯
+        b_ωx     -0.0211      0.7035     0.0745    107.4776   255.6545    1.01 ⋯
+        b_Ωy     -0.0970      0.7560     0.1192     54.0836   233.3651    1.00 ⋯
+        b_Ωx     -0.0846      0.6437     0.1094     41.8073   162.6225    1.02 ⋯
+        b_τy     -0.2047      0.7249     0.1005     81.9590   227.4105    1.02 ⋯
+        b_τx      0.0888      0.6527     0.0665    101.1131   344.9673    1.00 ⋯
+         b_ω     -0.3305      1.9536     0.1782    189.1117   396.3132    1.00 ⋯
+         b_Ω     -0.7352      1.8091     0.2911     51.1309   140.9003    1.01 ⋯
+         b_τ      0.0533      0.3248     0.0290    179.8639   449.6412    1.02 ⋯
+         b_P     35.4931     11.1952     1.0929    108.9123   130.8524    1.01 ⋯
+        b_tp   5551.5924   3733.4368   339.6117    151.6899   410.9394    1.01 ⋯
+</span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
-  parameters        2.5%       25.0%       50.0%       75.0%       97.5%
- </span><span class="sgr90">     Symbol     Float64     Float64     Float64     Float64     Float64
+  parameters        2.5%       25.0%       50.0%       75.0%        97.5%
+ </span><span class="sgr90">     Symbol     Float64     Float64     Float64     Float64      Float64
 
-           M      0.9884      1.0939      1.1626      1.2264      1.3487
-         plx     49.9616     49.9866     50.0003     50.0143     50.0393
-         b_a     10.3183     11.4284     12.6648     14.4382     18.3672
-         b_e      0.0041      0.0491      0.1024      0.1965      0.3940
-         b_i      0.5036      0.6260      0.6895      0.7667      0.9154
-        b_ωy      0.2636      0.5736      0.9203      0.9807      1.0238
-        b_ωx     -0.0540      0.1609      0.3842      0.8221      0.9655
-        b_Ωy     -0.9691     -0.8287     -0.4416     -0.2535     -0.0882
-        b_Ωx     -1.0116     -0.9644     -0.8890     -0.5635     -0.2684
-        b_τy     -0.9950     -0.7008      0.0757      0.7502      0.9982
-        b_τx     -1.0025     -0.6651      0.0754      0.7140      0.9977
-         b_ω     -0.0527      0.1608      0.3944      0.9633      1.3029
-         b_Ω     -2.8719     -2.5471     -2.0315     -1.8280     -1.6592
-         b_τ     -0.4692     -0.2366      0.0217      0.2423      0.4732
-         b_P     30.4013     35.9761     41.9549     51.0018     72.8042
-        b_tp   4976.3952   4990.1911   5000.9092   5010.7401   5025.5379
+           M      1.0043      1.1285      1.1935      1.2613       1.3761
+         plx     49.9603     49.9848     49.9996     50.0130      50.0421
+         b_a      7.9212      9.8259     10.9106     12.4689      17.2204
+         b_e      0.0052      0.0675      0.1364      0.2385       0.3992
+         b_i      0.2078      0.5111      0.6299      0.7363       0.8968
+        b_ωy     -1.0104     -0.8183     -0.3230      0.5368       0.9851
+        b_ωx     -0.9976     -0.7089     -0.0395      0.6826       0.9995
+        b_Ωy     -0.9982     -0.8692     -0.2479      0.7263       0.9970
+        b_Ωx     -0.9956     -0.6252     -0.2372      0.5095       0.9843
+        b_τy     -1.0085     -0.9036     -0.4104      0.5359       0.9925
+        b_τx     -0.9917     -0.4797      0.1754      0.6777       0.9981
+         b_ω     -3.0442     -2.2076     -0.3097      1.2646       3.0408
+         b_Ω     -2.9671     -2.5153     -0.9744      0.7281       2.9728
+         b_τ     -0.4854     -0.2489      0.0997      0.3614       0.4889
+         b_P     20.0634     28.1214     33.3226     40.7319      65.4851
+        b_tp   -826.3766   1842.2404   6421.4075   8637.5021   11219.0894
 </span></span></code></pre><p>You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the <code>verbosity</code> value down to 0.</p><p>The sampler will begin by drawing orbits randomly from the priors (50,000 by default). It will then pick the orbit with the highest posterior density as a starting point. These are then passed to AdvancedHMC to adapt following the Stan windowed adaption scheme.</p><p>Once complete, the <code>chain</code> object will hold the sampler results. Displaying it prints out a summary table like the one shown above.</p><p>For a basic model like this, sampl]ing should take less than a minute on a typical laptop.</p><h2 id="Diagnostics"><a class="docs-heading-anchor" href="#Diagnostics">Diagnostics</a><a id="Diagnostics-1"></a><a class="docs-heading-anchor-permalink" href="#Diagnostics" title="Permalink"></a></h2><p>The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.</p><p>A few things to watch out for: check that you aren&#39;t getting many (any, really) numerical errors (<code>num_err_frac</code>).  This likely indicates a problem with your model: either invalid values of one or more parameters are encountered (e.g. the prior on semi-major axis includes negative values) or that there is a region of very high curvature that is failing to sample properly. This latter issue can lead to a bias in your results.</p><p>One common mistake is to use a distribution like <code>Normal(10,3)</code> for semi-major axis. This left hand side of this distribution includes negative values which are not physically possible. A better choice is a <code>truncated(Normal(10,3), lower=0)</code> distribution.</p><p>You may see some warnings during initial step-size adaptation. These are probably nothing to worry about if sampling proceeds normally afterwards.</p><p>You should also check the acceptance rate (<code>mean_accept</code>) is reasonably high and the mean tree depth (<code>mean_tree_depth</code>) is reasonable (~4-8).  Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than this and it might be being too conservative. The default maximum tree depth is 10. These don&#39;t affect the accuracy of your results, but do affect the efficiency of the sampling.</p><p>Next, you can make a trace plot of different variabes to visually inspect the chain:</p><pre><code class="language-julia hljs">using Plots: Plots
 Plots.plot(
     chain[&quot;b_a&quot;],
     xlabel=&quot;iteration&quot;,
     ylabel=&quot;semi-major axis (AU)&quot;
-)</code></pre><img src="c61e0a2a.svg" alt="Example block output"/><p>And an auto-correlation plot:</p><pre><code class="language-julia hljs">using StatsBase
+)</code></pre><img src="10a285da.svg" alt="Example block output"/><p>And an auto-correlation plot:</p><pre><code class="language-julia hljs">using StatsBase
 Plots.plot(
     autocor(chain[&quot;b_e&quot;], 1:500),
     xlabel=&quot;lag&quot;,
     ylabel=&quot;autocorrelation&quot;,
-)</code></pre><img src="fc995f85.svg" alt="Example block output"/><p>This plot shows that these samples are not correlated after only above 5 steps. No thinning is necessary.</p><p>To confirm convergence, you may also examine the <code>rhat</code> column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal <code>1.0</code> to one significant digit (3 recommended).</p><p>Finaly, if you ran multiple chains (see later tutorials to learn how), you can run </p><pre><code class="language-julia hljs">using MCMCChains
+)</code></pre><img src="7c0f4863.svg" alt="Example block output"/><p>This plot shows that these samples are not correlated after only above 5 steps. No thinning is necessary.</p><p>To confirm convergence, you may also examine the <code>rhat</code> column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal <code>1.0</code> to one significant digit (3 recommended).</p><p>Finaly, if you ran multiple chains (see later tutorials to learn how), you can run </p><pre><code class="language-julia hljs">using MCMCChains
 gelmandiag(chain)</code></pre><p>As an additional convergence test.</p><h2 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h2><p>As a first pass, let&#39;s plot a sample of orbits drawn from the posterior.</p><pre><code class="language-julia hljs">using Plots: Plots
-plotchains(chain, :b, kind=:astrometry, color=&quot;b_a&quot;)</code></pre><img src="92549a08.svg" alt="Example block output"/><p>This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. </p><p>We can overplot the astrometry data like so:</p><pre><code class="language-julia hljs">Plots.plot!(astrom, label=&quot;astrometry&quot;)</code></pre><img src="ada24c01.svg" alt="Example block output"/><h2 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h2><p>A very useful visualization of our results is a pair-plot, or corner plot. We can use our PairPlots.jl package for this purpose:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
+plotchains(chain, :b, kind=:astrometry, color=&quot;b_a&quot;)</code></pre><img src="10b5754a.svg" alt="Example block output"/><p>This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. </p><p>We can overplot the astrometry data like so:</p><pre><code class="language-julia hljs">Plots.plot!(astrom, label=&quot;astrometry&quot;)</code></pre><img src="789353c0.svg" alt="Example block output"/><p>The function <code>octoplot</code> is a conveninient way to generate a 9-panel plot of velocities and position:</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="71124483.svg" alt="Example block output"/><h2 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h2><p>A very useful visualization of our results is a pair-plot, or corner plot. We can use the <code>octocorner</code> function and our PairPlots.jl package for this purpose:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
 using PairPlots
-# We use rad2deg to convert from radians into degrees for the plots
-table = (;
-    a=         vec(chain[&quot;b_a&quot;]),
-    e=         vec(chain[&quot;b_e&quot;]),
-    i=rad2deg.(vec(chain[&quot;b_i&quot;])),
-    Ω=rad2deg.(vec(chain[&quot;b_Ω&quot;])),
-    ω=rad2deg.(vec(chain[&quot;b_ω&quot;])),
-    τ=         vec(chain[&quot;b_τ&quot;]),
-)
-pairplot(
-    table =&gt; (
-        PairPlots.Hist(),
-        PairPlots.MarginHist(),
-        PairPlots.MarginConfidenceLimits()
-    )
-)</code></pre><img src="4f19be3e.png" alt="Example block output"/><p>You can read more about the syntax for creating pair plots in the PairPlots.jl documentation page.</p><p>In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.</p><h2 id="Notes-on-Hamiltonian-Monte-Carlo"><a class="docs-heading-anchor" href="#Notes-on-Hamiltonian-Monte-Carlo">Notes on Hamiltonian Monte Carlo</a><a id="Notes-on-Hamiltonian-Monte-Carlo-1"></a><a class="docs-heading-anchor-permalink" href="#Notes-on-Hamiltonian-Monte-Carlo" title="Permalink"></a></h2><p>Unlike most other astrometry modelling code, Octofitter uses Hamiltonian Monte Carlo instead of Affine Invariant MCMC (e.g. emcee in Python) This sampling method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.</p><p>Derviatives for a complex model are usualy tedious to code, but Octofitter uses ForwardDiff.jl to generate them automatically.</p><p>When using HMC, only a few chains are necessary. This is in contrast to Affine Invariant MCMC based packages where hundreds or thousands of walkers are required. One chain should be enough to cover the whole posterior, but you can run a few different chains to make sure each has converged to the same distribution.</p><p>Similarily, many fewer samples are required. This is because unlike Affine Invariant MCMC, HMC produces samples that are much less correlated after each step (i.e. the autocorrelation time is much shorter).</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../getting-started/">« Getting Started</a><a class="docs-footer-nextpage" href="../pma/">Fit Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 10 January 2024 19:30">Wednesday 10 January 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model, chain, small=true)</code></pre><img src="165a3e40.png" alt="Example block output"/><p>Remove <code>small=true</code> to display all variables, or run <code>pairplot(chain)</code> to include internal variables.</p><p>In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.</p><h2 id="Notes-on-Hamiltonian-Monte-Carlo"><a class="docs-heading-anchor" href="#Notes-on-Hamiltonian-Monte-Carlo">Notes on Hamiltonian Monte Carlo</a><a id="Notes-on-Hamiltonian-Monte-Carlo-1"></a><a class="docs-heading-anchor-permalink" href="#Notes-on-Hamiltonian-Monte-Carlo" title="Permalink"></a></h2><p>Unlike most other astrometry modelling code, Octofitter uses Hamiltonian Monte Carlo instead of Affine Invariant MCMC (e.g. emcee in Python) This sampling method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.</p><p>Derviatives for a complex model are usualy tedious to code, but Octofitter uses ForwardDiff.jl to generate them automatically.</p><p>When using HMC, only a few chains are necessary. This is in contrast to Affine Invariant MCMC based packages where hundreds or thousands of walkers are required. One chain should be enough to cover the whole posterior, but you can run a few different chains to make sure each has converged to the same distribution.</p><p>Similarily, many fewer samples are required. This is because unlike Affine Invariant MCMC, HMC produces samples that are much less correlated after each step (i.e. the autocorrelation time is much shorter).</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../getting-started/">« Getting Started</a><a class="docs-footer-nextpage" href="../pma/">Fit Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Thursday 11 January 2024 03:55">Thursday 11 January 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

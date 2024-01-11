@@ -17,7 +17,7 @@ end</code></pre><p>We defined a new variable <code>logM</code> as a prior, and t
 
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end</code></pre><p>Here <code>e</code> is defined as log-uniform, and <code>a</code> as log-normal.</p><h2 id="Linking-Planets"><a class="docs-heading-anchor" href="#Linking-Planets">Linking Planets</a><a id="Linking-Planets-1"></a><a class="docs-heading-anchor-permalink" href="#Linking-Planets" title="Permalink"></a></h2><p>Planets can have Derived variables that are calculated from variables defined on the system as a whole. This makes it easy to, for example, create a system of two planets that are co-planar.</p><pre><code class="language-julia hljs">@planet b Visual{KepOrbit} begin
     a ~ Uniform(0, 15)
     e ~ TruncatedNormal(0, 0.1, 0, 1)
@@ -27,7 +27,7 @@ end</code></pre><p>Here <code>e</code> is defined as log-uniform, and <code>a</c
 
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 @planet c Visual{KepOrbit} begin
     a ~ Uniform(15, 45)
@@ -38,11 +38,11 @@ end
 
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 @system HD12345 begin
     plx ~ Normal(45., 0.02)
     M ~ Normal(45., 0.02)
     i ~ Normal(0.1, deg2rad(30.))
     Ω ~ Normal(0.0, deg2rad(30.))
-end b c</code></pre><p>Notice how <code>i</code> and <code>Ω</code> are defined as variables on the System. The two planets B &amp; C instead just take their values from the System. This way we can enforce co-planarity between planets without e.g. rejection sampling.</p><h2 id="Resolution-Order"><a class="docs-heading-anchor" href="#Resolution-Order">Resolution Order</a><a id="Resolution-Order-1"></a><a class="docs-heading-anchor-permalink" href="#Resolution-Order" title="Permalink"></a></h2><p>The order that variables are resolved is as follows:</p><ul><li>Variables defined as priors for the system and planets</li><li>Derived variables on the system</li><li>Derived variables on each planet</li></ul><p>It&#39;s not possible to observe one derived variable from another derived variable in a System or one Derived variable from another on a Planet but it is possible to see the System&#39;s Derived variables in the Planets&#39;.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../priors/">« Priors</a><a class="docs-footer-nextpage" href="../samplers/">Sampler »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 10 January 2024 19:29">Wednesday 10 January 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end b c</code></pre><p>Notice how <code>i</code> and <code>Ω</code> are defined as variables on the System. The two planets B &amp; C instead just take their values from the System. This way we can enforce co-planarity between planets without e.g. rejection sampling.</p><h2 id="Resolution-Order"><a class="docs-heading-anchor" href="#Resolution-Order">Resolution Order</a><a id="Resolution-Order-1"></a><a class="docs-heading-anchor-permalink" href="#Resolution-Order" title="Permalink"></a></h2><p>The order that variables are resolved is as follows:</p><ul><li>Variables defined as priors for the system and planets</li><li>Derived variables on the system</li><li>Derived variables on each planet</li></ul><p>It&#39;s not possible to observe one derived variable from another derived variable in a System or one Derived variable from another on a Planet but it is possible to see the System&#39;s Derived variables in the Planets&#39;.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../priors/">« Priors</a><a class="docs-footer-nextpage" href="../samplers/">Sampler »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Thursday 11 January 2024 03:23">Thursday 11 January 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
