@@ -47,7 +47,7 @@ Here is an example of reparameterizing `e` and `a` on a planet to be logarithmic
 
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 ```
 Here `e` is defined as log-uniform, and `a` as log-normal.
@@ -67,7 +67,7 @@ This makes it easy to, for example, create a system of two planets that are co-p
 
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 @planet c Visual{KepOrbit} begin
     a ~ Uniform(15, 45)
@@ -78,7 +78,7 @@ end
 
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 @system HD12345 begin
     plx ~ Normal(45., 0.02)

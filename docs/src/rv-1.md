@@ -71,7 +71,7 @@ if we wanted to include these parameters and visualize the orbit in the plane of
     a = cbrt(system.M * b.P^2) # note the equals sign. 
 
     τ ~ UniformCircular(1.0)
-    tp =  b.τ*b.P + 57782 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 57782 # reference epoch for τ. Choose an MJD date near your data.
     
     mass ~ LogUniform(0.001, 10)
 end
@@ -177,7 +177,7 @@ gp_per_unc = 0.12
     mass ~ LogUniform(0.001, 10)
     
     τ ~ UniformCircular(1.0)
-    tp =  b.τ*b.P + 57782 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 57782 # reference epoch for τ. Choose an MJD date near your data.
 end
 
 

@@ -93,7 +93,7 @@ We now create our planet `b` model using the `@planet` macro.
     Ω ~ UniformCircular()
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P + 5000 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 5000 # reference epoch for τ. Choose an MJD date near your data.
 end astrom
 nothing # hide
 ```

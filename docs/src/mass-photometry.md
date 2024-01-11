@@ -24,7 +24,7 @@ Then, list your physical variable `mass` under priors. List the model functions 
 
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 ```
 
@@ -45,7 +45,7 @@ models mass parameter before getting compared to the images.
 
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 @system HD12345 begin
     M ~ Normal(1.0, 0.1)
