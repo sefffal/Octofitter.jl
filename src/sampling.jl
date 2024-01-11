@@ -828,7 +828,7 @@ Base.@nospecializeinfer function advancedhmc(
                 end
                 # Check pareto shape diagnostic to see if we have a good approximation
                 # If we don't, just try again
-                if result_pf.psis_result.pareto_shape > 0.9
+                if result_pf.psis_result.pareto_shape > 3
                     verbosity > 3 && display(result_pf)
                     verbosity >= 4 && display(result_pf.psis_result)
                     verbosity > 2 && @warn "Restarting pathfinder" i
@@ -841,8 +841,11 @@ Base.@nospecializeinfer function advancedhmc(
             catch ex
                 result_pf = nothing
                 if ex isa PosDefException
-                    verbosity > 2 && @warn "Restarting pathfinder" i
+                    verbosity > 2 && @warn "Mass matrix failed to factorize. Restarting pathfinder" i
                     continue
+                end
+                if ex isa InterruptException
+                    rethrow(ex)
                 end
                 @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
                 break
@@ -883,7 +886,7 @@ Base.@nospecializeinfer function advancedhmc(
 
     else # !isnothing(result_pf)
         # Start using a draw from the typical set as estimated by Pathfinder
-        if result_pf.psis_result.pareto_shape < 0.7
+        if result_pf.psis_result.pareto_shape < 3
             verbosity >= 4 && @info "PSIS result good; starting with sample from typical set"
             initial_θ_t = collect(last(eachcol(result_pf.draws))) # result_pf.fit_distribution.μ
         else
@@ -895,7 +898,7 @@ Base.@nospecializeinfer function advancedhmc(
         # Use the metric found by Pathfinder for HMC sampling
         # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.pathfinder_results[1].fit_distribution.Σ)
         # display(metric)
-        if length(result_pf.pathfinder_results) > 1
+        if length(result_pf.pathfinder_results) > 3
             S =  (cov(SimpleCovariance(), stack(result_pf.draws)'))
             metric = DenseEuclideanMetric(S)
         else
