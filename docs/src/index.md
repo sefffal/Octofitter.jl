@@ -56,4 +56,4 @@ Please cite this paper if you use Octofitter in your work.
 
 
 ## Rady?
-Ready to get started? Follow our [installation guide](@ref getting-started) and then follow our [first tutorial](@fit-astrometry).
+Ready to get started? Follow our [installation guide](@ref getting-started) and then follow our [first tutorial](@ref fit-astrometry).
