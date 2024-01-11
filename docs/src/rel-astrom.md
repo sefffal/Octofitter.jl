@@ -12,14 +12,14 @@ We will create a likelihood object to contain our relative astrometry data. We c
 
 ```@example 1
 astrom = PlanetRelAstromLikelihood(
-    (epoch = 5000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 5120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 5240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 5360, ra = -492.67768482682357, dec = 21.63557115669823, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 5480, ra = -485.9770335870402, dec = 51.147204404903704, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 5600, ra = -478.1095526888573, dec = 80.53589069730698, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 5720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 5840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50360, ra = -492.67768482682357, dec = 21.63557115669823, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50480, ra = -485.9770335870402, dec = 51.147204404903704, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50600, ra = -478.1095526888573, dec = 80.53589069730698, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
 )
 ```
 In Octofitter, `epoch` is always the modified Julian date (measured in days). If you're not sure what this is, you can get started by just putting in arbitrary time offsets measured in days.
@@ -30,14 +30,14 @@ Another way we could specify the data is by column:
 ```@example 1
 astrom = PlanetRelAstromLikelihood(Table(;
     epoch= [
-        5000,
-        5120,
-        5240,
-        5360,
-        5480,
-        5600,
-        5720,
-        5840,
+        50000,
+        50120,
+        50240,
+        50360,
+        50480,
+        50600,
+        50720,
+        50840,
     ],
     ra = [
         -505.764,
@@ -93,7 +93,7 @@ We now create our planet `b` model using the `@planet` macro.
     Ω ~ UniformCircular()
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 5000 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
 end astrom
 nothing # hide
 ```
@@ -177,8 +177,6 @@ This is also where we could pass likelihood objects for system-wide data like st
 You can display your system object by running `display(HD82134)` (or whatever you chose to name your system).
 
 
-
-
 ## Prepare model
 We now convert our declarative model into efficient, compiled code.
 The `autodiff` flag specifies what Julia automatic differentiation package we should use to calculate the gradients of our model.
@@ -200,6 +198,7 @@ Great! Now we are ready to draw samples from the posterior.
 
 Start sampling:
 ```@example 1
+octofit(rng, model, verbosity = 2,iterations=2,adaptation=2,) # hide
 # Provide a seeded random number generator for reproducibility of this example.
 # This is not necessary in general: you may simply omit the RNG parameter if you prefer.
 using Random
