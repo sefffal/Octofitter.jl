@@ -5,8 +5,9 @@
 Welcome to the documentation page for Octofitter.jl. 
 This page includes tutorial and an API reference for using this package.
 
-Octofitter is a Julia package for performing Bayesian inference
+Octofitter is a Julia package for performing Bayesian inference 
 against a wide variety of exoplanet / binary star data.
+You can also use Octofitter from Python using the [Python guide](@ref python).
 
 The package provides a simple but powerful modelling language which is used to generate
 efficient, differentiable code. You can then plug it into a variety of samplers.
@@ -17,29 +18,34 @@ The package also contains analysis and visualization tools for understanding you
     Octofitter is under active development and is only tested against Julia 1.9+
 
 **Supported data:**
-* sample directly from images and interferometric visibilities
-* exoplanet astrometry 
-* stellar astrometric acceleration
-* radial velocity
+* Fit exoplanet orbits to relative astrometry
+* Fit radial velocity data
+* Model stellar activity with Gaussian processes
+* Model stellar astrometric accerlation (Gaia-Hipparcos proper motion anomaly)
+* "De-orbiting": combine a sequence of images with orbital motion to detect planets
+* Sample directly from images and interferometric visibilities
 * experimental support for transit data based on Transits.jl
 
-Any and all combinations also work together.
+You can freely combine any of the above data types. 
+Any and all combinations work together.
 
 **Modelling features:**
 * multiple planets (one or more)
+* hyperbolic orbits
 * co-planar, and non-coplanar systems
 * arbitrary priors and parameterizations
 * link mass to photometry via atmosphere models
+* hierarchical models (with a bit of work from the user)
 
 **Speed:**
 
-Fit astrometry on your laptop in minutes!
+Fit astrometry on your laptop in seconds!
 
 * Highly optimized code and derivatives are generated from your model
 * Higher order sampler (No U-Turn sampler) which explores the parameter space very efficiently 
-* Run on a single core, multiple threads, or hundreds of nodes by changing just a single line of code
+* The sampler is automatically warmed up using a variational approximation from the Pathfinder algorithm (Pathfinder.jl) 
 
-The package supports only bound, 2-body Keplerian orbits. Support for hyperbolic orbits and multi-body physics are not currently planned. Pull-requests to PlanetOrbits implementing this functionality would be welcome.
+Multi-body physics is not currently supported. A Pull-request to PlanetOrbits.jl implementing this functionality would be welcome.
 
 See also: the python libraries [Orbitize!](https://orbitize.readthedocs.io/en/latest/), [orvara](https://github.com/t-brandt/orvara), and [exoplanet](https://docs.exoplanet.codes/en/latest/).
 
@@ -49,21 +55,5 @@ In addition to these documentation and tutorial pages, you can read the paper pu
 Please cite this paper if you use Octofitter in your work.
 
 
-### Getting Started
-```@contents
-Pages = ["getting-started.md"]
-Depth = 5
-```
-
-### Tutorials
-```@contents
-Pages = ["modelling.md", "pma.md",  "images.md", "derived.md", "mass-photometry.md"]
-Depth = 5
-```
-
-### Documentation
-```@contents
-Pages = ["samplers.md", "chains.md", "kepler.md", "api.md"]
-Depth = 5
-```
-
+## Rady?
+Ready to get started? Follow our [installation guide](@ref getting-started) and then follow our [first tutorial](@fit-astrometry).

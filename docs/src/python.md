@@ -1,4 +1,4 @@
-# Calling from Python
+# [Calling from Python](@id python)
 
 This page provides some guidance on how Octofitter can be used from Python. 
 Our general recomendation is to download Julia and copy-paste the examples as needed, but there may be cases where it useful to embed Octofitter within a larger Python project or pipeline
