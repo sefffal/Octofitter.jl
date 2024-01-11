@@ -2,6 +2,7 @@ using DiffResults
 using LinearAlgebra
 using Preferences
 using Pathfinder
+using Transducers
 using CovarianceEstimation
 export sample_priors
 
@@ -787,6 +788,7 @@ Base.@nospecializeinfer function advancedhmc(
 
 
     local result_pf = nothing
+    local metric = nothing
     ldm_any = LogDensityModelAny(model)
     if pathfinder 
         for i in 1:8
@@ -799,7 +801,7 @@ Base.@nospecializeinfer function advancedhmc(
                     result_pf = with_logger(errlogger) do 
                         Pathfinder.multipathfinder(
                             ldm_any, 1000;
-                            nruns=1,
+                            nruns=nruns=cld(8,Threads.nthreads())*Threads.nthreads(),
                             init=collect(initial_θ_t),
                             progress=verbosity > 1,
                             maxiters=25_000,
@@ -817,7 +819,7 @@ Base.@nospecializeinfer function advancedhmc(
                     result_pf = with_logger(errlogger) do 
                         Pathfinder.multipathfinder(
                             ldm_any, 1000;
-                            nruns=1,
+                            nruns=nruns=cld(8,Threads.nthreads())*Threads.nthreads(),
                             init_sampler=CallableAny(init_sampler),
                             progress=verbosity > 1,
                             maxiters=25_000,
@@ -834,8 +836,14 @@ Base.@nospecializeinfer function advancedhmc(
                     verbosity > 2 && @warn "Restarting pathfinder" i
                     continue
                 end
-                S =  (cov(BiweightMidcovariance(), stack(result_pf.draws)'))
-                cholesky(Symmetric(S)) # test can factor without posdef exception
+                if length(result_pf.pathfinder_results) > 1
+                    # This can fail, triggering an exception
+                    S =  (cov(SimpleCovariance(), stack(result_pf.draws)'))
+                    metric = DenseEuclideanMetric(S)
+                else
+                    # estimate it emperically by pooling draws from all pathfinder runs
+                    metric = DenseEuclideanMetric(collect(Matrix(result_pf.pathfinder_results[1].fit_distribution.Σ)))
+                end
                 verbosity >= 3 && "Pathfinder complete"
                 break
             catch ex
@@ -847,12 +855,12 @@ Base.@nospecializeinfer function advancedhmc(
                 if ex isa InterruptException
                     rethrow(ex)
                 end
-                @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
+                @error "Unexpected error occured running pathfinder" exception=ex #(ex, catch_backtrace())
                 break
             end
         end
     end
-    if isnothing(result_pf) # failed or not attempted
+    if isnothing(result_pf) || isnothing(metric) # failed or not attempted
         # Guess initial starting positions by drawing from priors a bunch of times
         # and picking the best one (highest likelihood).
         # Then transform that guess into our unconstrained support
@@ -894,17 +902,17 @@ Base.@nospecializeinfer function advancedhmc(
             initial_θ_t = collect(mean(result_pf.fit_distribution))
         end
         initial_θ = model.invlink(initial_θ_t)
-        verbosity >= 3 && @info "Creating metric"
+        # verbosity >= 3 && @info "Creating metric"
         # Use the metric found by Pathfinder for HMC sampling
         # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.pathfinder_results[1].fit_distribution.Σ)
         # display(metric)
-        if length(result_pf.pathfinder_results) > 3
-            S =  (cov(SimpleCovariance(), stack(result_pf.draws)'))
-            metric = DenseEuclideanMetric(S)
-        else
-            # estimate it emperically by pooling draws from all pathfinder runs
-            metric = DenseEuclideanMetric(collect(Matrix(result_pf.pathfinder_results[1].fit_distribution.Σ)))
-        end
+        # if length(result_pf.pathfinder_results) > 1
+        #     S =  (cov(SimpleCovariance(), stack(result_pf.draws)'))
+        #     metric = DenseEuclideanMetric(S)
+        # else
+        #     # estimate it emperically by pooling draws from all pathfinder runs
+        #     metric = DenseEuclideanMetric(collect(Matrix(result_pf.pathfinder_results[1].fit_distribution.Σ)))
+        # end
 
     end
 
@@ -1186,3 +1194,67 @@ function flatten_named_tuple(nt)
     return namedtuple(pairs)
 
 end
+
+octoquick(model::LogDensityModel; kwargs...) = 
+    octoquick(Random.default_rng(), model; kwargs...)
+Base.@nospecializeinfer function octoquick(
+    rng::Union{AbstractRNG, AbstractVector{<:AbstractRNG}},
+    model::LogDensityModel;
+    verbosity::Int=2,
+    initial_samples::Int=10_000,
+    nruns=cld(16,Threads.nthreads())*Threads.nthreads()
+)
+    @nospecialize
+
+    # start_time = time()
+    local result_pf = nothing
+    ldm_any = LogDensityModelAny(model)
+    
+    init_sampler = function(rng, x) 
+        initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
+        initial_θ_t = model.link(initial_θ)
+        x .= initial_θ_t
+    end
+    local start_time, stop_time
+    errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
+    result_pf = with_logger(errlogger) do 
+        start_time = time()
+        result_pf = Pathfinder.multipathfinder(
+            ldm_any, 1000;
+            # Do at least 16 runs, rounding up to nearest multiple
+            # of nthreads
+            nruns,
+            init_sampler=CallableAny(init_sampler),
+            progress=verbosity > 1,
+            maxiters=10_000,
+            executor=Transducers.ThreadedEx(),
+            # reltol=1e-4,
+        ) 
+        stop_time = time()
+        return result_pf
+    end
+
+    augmented_resolved_samples = map(eachcol(result_pf.draws)) do θ_t
+        # Map the variables back to the constrained domain and reconstruct the parameter
+        # named tuple structure.
+        θ = model.invlink(θ_t)
+        resolved_namedtuple = model.arr2nt(θ)
+        # Add log posterior, tree depth, and numerical error reported by
+        # the sampler.
+        # Also recompute the log-likelihood and add that too.
+        logpost = model.ℓπcallback(θ)
+        return merge((;logpost = logpost,), resolved_namedtuple)
+    end
+    pathfinder_chain =  Octofitter.result2mcmcchain(augmented_resolved_samples)
+    pathfinder_chain_with_info = MCMCChains.setinfo(
+        pathfinder_chain,
+        (;
+            start_time,
+            stop_time,
+            result_pf,
+        )
+    )
+
+    return pathfinder_chain_with_info
+end
+export octoquick
