@@ -972,13 +972,13 @@ Base.@nospecializeinfer function advancedhmc(
     
     verbosity >= 3 && @info "Creating adaptor"
     # if isnothing(result_pf)
-    if metric isa Pathfinder.RankUpdateEuclideanMetric
-        adaptor = StepSizeAdaptor(target_accept, integrator)
-    else
+    # if metric isa Pathfinder.RankUpdateEuclideanMetric
+    #     adaptor = StepSizeAdaptor(target_accept, integrator)
+    # else
         mma = MassMatrixAdaptor(metric)
         ssa = StepSizeAdaptor(target_accept, integrator)
         adaptor = StanHMCAdaptor(mma, ssa) 
-    end
+    # end
     # end
 
 
