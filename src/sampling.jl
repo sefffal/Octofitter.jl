@@ -2,7 +2,7 @@ using DiffResults
 using LinearAlgebra
 using Preferences
 using Pathfinder
-using CovarianceEstimation: SimpleCovariance
+using CovarianceEstimation
 export sample_priors
 
 # TODO: consolidate all these functions. There is a lot of duplication.
@@ -789,46 +789,65 @@ Base.@nospecializeinfer function advancedhmc(
     local result_pf = nothing
     ldm_any = LogDensityModelAny(model)
     if pathfinder 
-        try
-            if !isnothing(initial_parameters)
-                initial_θ = initial_parameters
-                # Transform from constrained support to unconstrained support
-                initial_θ_t = model.link(initial_θ)
-                errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
-                result_pf = with_logger(errlogger) do 
-                    Pathfinder.multipathfinder(
-                        ldm_any, 500;
-                        nruns=20,
-                        init=collect(initial_θ_t),
-                        progress=verbosity > 1,
-                        maxiters=5,
-                        # maxtime=25.0,
-                        # reltol=1e-4,
-                    )
-                end
-            else
-                init_sampler = function(rng, x) 
-                    initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
+        for i in 1:8
+            try
+                if !isnothing(initial_parameters)
+                    initial_θ = initial_parameters
+                    # Transform from constrained support to unconstrained support
                     initial_θ_t = model.link(initial_θ)
-                    x .= initial_θ_t
+                    errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
+                    result_pf = with_logger(errlogger) do 
+                        Pathfinder.multipathfinder(
+                            ldm_any, 1000;
+                            nruns=1,
+                            init=collect(initial_θ_t),
+                            progress=verbosity > 1,
+                            maxiters=25_000,
+                            # maxtime=25.0,
+                            # reltol=1e-4,
+                        )
+                    end
+                else
+                    init_sampler = function(rng, x) 
+                        initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
+                        initial_θ_t = model.link(initial_θ)
+                        x .= initial_θ_t
+                    end
+                    errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
+                    result_pf = with_logger(errlogger) do 
+                        Pathfinder.multipathfinder(
+                            ldm_any, 1000;
+                            nruns=1,
+                            init_sampler=CallableAny(init_sampler),
+                            progress=verbosity > 1,
+                            maxiters=25_000,
+                            # maxtime=25.0,
+                            # reltol=1e-4,
+                        ) 
+                    end
                 end
-                errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
-                result_pf = with_logger(errlogger) do 
-                    Pathfinder.multipathfinder(
-                        ldm_any, 500;
-                        nruns=20,
-                        init_sampler=CallableAny(init_sampler),
-                        progress=verbosity > 1,
-                        maxiters=5,
-                        # maxtime=25.0,
-                        # reltol=1e-4,
-                    ) 
+                # Check pareto shape diagnostic to see if we have a good approximation
+                # If we don't, just try again
+                if result_pf.psis_result.pareto_shape > 0.9
+                    verbosity > 3 && display(result_pf)
+                    verbosity >= 4 && display(result_pf.psis_result)
+                    verbosity > 2 && @warn "Restarting pathfinder" i
+                    continue
                 end
+                S =  (cov(BiweightMidcovariance(), stack(result_pf.draws)'))
+                cholesky(Symmetric(S)) # test can factor without posdef exception
+                verbosity >= 3 && "Pathfinder complete"
+                break
+            catch ex
+                result_pf = nothing
+                if ex isa PosDefException
+                    verbosity > 2 && @warn "Restarting pathfinder" i
+                    continue
+                end
+                @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
+                break
             end
-        catch ex
-            @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
         end
-        verbosity >= 3 && "Pathfinder complete"
     end
     if isnothing(result_pf) # failed or not attempted
         # Guess initial starting positions by drawing from priors a bunch of times
@@ -845,32 +864,8 @@ Base.@nospecializeinfer function advancedhmc(
             # Transform from constrained support to unconstrained support
             initial_θ_t = model.link(initial_θ)
         end
-    end
-    # stop_time = time()
 
-    
-    if !isnothing(result_pf)
-        # Start using a draw from the typical set as estimated by Pathfinder
-        finite_pathfinder_draws = filter(col->all(isfinite, col), collect(eachcol(result_pf.draws)))
-        if length(finite_pathfinder_draws) > 0 #&& all(isfinite, Matrix(result_pf.fit_distribution.Σ))
-            initial_θ_t = collect(last(finite_pathfinder_draws)) # result_pf.fit_distribution.μ
-            initial_θ = model.invlink(initial_θ_t)
-            verbosity >= 3 && @info "Creating metric"
-            # Use the metric found by Pathfinder for HMC sampling
-            # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.pathfinder_results[1].fit_distribution.Σ)
-            # display(metric)
-            # metric = DenseEuclideanMetric(collect(Matrix(result_pf.fit_distribution.Σ)))
-
-            S =  (cov(SimpleCovariance(corrected=true), stack(finite_pathfinder_draws)'))
-            metric = DenseEuclideanMetric(S)
-        else
-            @warn "Pathfinder failed to provide a finite initial draw and metric. Check your model. Starting from initial guess instead."
-            # Fit a dense metric from scratch
-            metric = DiagEuclideanMetric(D)
-            initial_θ_t = guess_starting_position(system, initial_samples)
-        end
-    else
-        @warn("Falling back to initializing the diagonals with the prior interquartile ranges.")
+        verbosity > 1 && @warn("Falling back to initializing the diagonals with the prior interquartile ranges.")
         # We already sampled from the priors earlier to get the starting positon.
         # Use those variance estimates and transform them into the unconstrainted space.
         # variances_t = (model.link(initial_θ .+ sqrt.(variances)/2) .- model.link(initial_θ .- sqrt.(variances)/2)).^2
@@ -878,7 +873,6 @@ Base.@nospecializeinfer function advancedhmc(
         variances_t = (model.link(quantile.(p, 0.85)) .- model.link(quantile.(p, 0.15))).^2
         # metric = DenseEuclideanMetric(model.D)
         metric = DenseEuclideanMetric(collect(Diagonal(variances_t)))
-
         if verbosity >= 3
             print("Initial mass matrix M⁻¹ from priors\n")
             display(metric.M⁻¹)
@@ -886,6 +880,29 @@ Base.@nospecializeinfer function advancedhmc(
         if any(v->!isfinite(v)||v==0, variances_t)
             error("failed to initialize mass matrix")
         end
+
+    else # !isnothing(result_pf)
+        # Start using a draw from the typical set as estimated by Pathfinder
+        if result_pf.psis_result.pareto_shape < 0.7
+            verbosity >= 4 && @info "PSIS result good; starting with sample from typical set"
+            initial_θ_t = collect(last(eachcol(result_pf.draws))) # result_pf.fit_distribution.μ
+        else
+            verbosity >= 4 && @info "PSIS result bad; starting with distribution mean"
+            initial_θ_t = collect(mean(result_pf.fit_distribution))
+        end
+        initial_θ = model.invlink(initial_θ_t)
+        verbosity >= 3 && @info "Creating metric"
+        # Use the metric found by Pathfinder for HMC sampling
+        # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.pathfinder_results[1].fit_distribution.Σ)
+        # display(metric)
+        if length(result_pf.pathfinder_results) > 1
+            S =  (cov(SimpleCovariance(), stack(result_pf.draws)'))
+            metric = DenseEuclideanMetric(S)
+        else
+            # estimate it emperically by pooling draws from all pathfinder runs
+            metric = DenseEuclideanMetric(collect(Matrix(result_pf.pathfinder_results[1].fit_distribution.Σ)))
+        end
+
     end
 
 
@@ -1042,8 +1059,8 @@ Base.@nospecializeinfer function advancedhmc(
     # Report some warnings if sampling did not work well
     if num_err_frac == 1.0
         @error "Numerical errors encountered in ALL iterations. Check model and priors."
-    elseif num_err_frac > 0.1
-        @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
+    elseif num_err_frac > 0.05
+        @warn "Numerical errors encountered in more than 5% of iterations. Results are likely incorrect." num_err_frac
     end
     if max_tree_depth_frac > 0.1
         @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
