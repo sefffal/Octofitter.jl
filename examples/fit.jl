@@ -7,7 +7,7 @@ using PlanetOrbits
 ##
 orb_template = orbit(
     a = 1.0,
-    e = 0.1,
+    e = 0.7,
     i= pi/4,
     Ω = 0.1,
     ω = 1π/4,
@@ -21,27 +21,29 @@ Plots.plot(orb_template)
 
 astrom = PlanetRelAstromLikelihood(
     [(; epoch=epoch+58849,
-    ra=raoff(orb_template, epoch) ,
-    dec=decoff(orb_template, epoch) ,
-    σ_ra = 0.2,
-    σ_dec = 0.2,
+    ra=raoff(orb_template, epoch) ,#.+ 0.3 .* randn.(),
+    dec=decoff(orb_template, epoch),# .+ 0.3 .* randn.(),
+    σ_ra = 1.0,
+    σ_dec = 1.0,
     )
-    for epoch in [20:8:45;]]...
+    for epoch in [20:20:93;]]...
 )
 Plots.plot(orb_template, aspectratio=1, lw=0, label="")
 Plots.plot!(astrom, aspectratio=1, framestyle=:box)
 ##
 @planet b Visual{KepOrbit} begin
-    e ~ Uniform(0,0.9)
-    a ~ LogUniform(0.01, 50)
-    mass ~ truncated(Normal(1, 1), lower=0)
+    e ~ Uniform(0,0.999999)
+    a ~ truncated(Normal(1, 1),lower=0)
+    # mass ~ truncated(Normal(1, 1), lower=0)
     i ~ Sine()
     Ω ~ UniformCircular()
     ω ~ UniformCircular()
 
     τ ~ UniformCircular(1.0)
+    # τ ~ Uniform(-1,1)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P +  58849
+    tp =  b.τ*b.P*365.25 +  58849
+    # tp ~ Uniform(58849-300,58849+300)
 end astrom
 
 
@@ -65,17 +67,21 @@ model = Octofitter.LogDensityModel(test; autodiff=:ForwardDiff,verbosity=4)
 
 ##
 using Random
-Random.seed!(2)
+Random.seed!(5)
 
-results = octofit(model)#, adaptation=1500, iterations=50000)
+@time results = octofit(model, 0.85, verbosity=1, pathfinder=true, )#, adaptation=1500, iterations=50000)
+
 plotchains(results, :b, color=:b_e); Plots.plot!(astrom)
 ##
 
-octocorner(model, results,)
+octocorner(model, results)
 octoplot(model, results)
 
 
 ##
+results = Octofitter.MCMCChains.chainscat(map(1:4) do i 
+    octofit(model, verbosity=2, iterations=1_000, pathfinder=true, )#, adaptation=1500, iterations=50000)
+end...)
 
 
 
