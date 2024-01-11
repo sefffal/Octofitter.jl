@@ -290,8 +290,6 @@ We can now plot the results with a multi-panel plot:
 octoplot(model, results, cmap=:greys, clims=(-0.5,1));
 ```
 
-![model plot with astrometry](assets/ϵEri-plot-grid.png)
-
 
 We can also plot just the RV fit:
 ```@example 1

@@ -20,7 +20,7 @@ makedocs(
             "Fit Proper Motion Anomaly" => "pma.md",
             "Fit Images" => "images.md",
             "Fit Radial Velocity" => "rv-1.md",
-            "Fit RV and Astrometry" => "rv.md",
+            "Fit RV and Proper Motion" => "rv.md",
             "Connecting Mass with Photometry" => "mass-photometry.md",
             "Loading and Saving Data" => "loading-saving.md",
             "Custom Likelihoods" => "custom-likelihood.md",

@@ -1,10 +1,9 @@
 # Calling from Python
 
-This page provides some guidance on how Octofitter can be used from Python.
-Please note that this is not officially supported and performance may suffer. In general, we recommend you download Julia and copy-paste the examples as needed.
+This page provides some guidance on how Octofitter can be used from Python. 
+Our general recomendation is to download Julia and copy-paste the examples as needed, but there may be cases where it useful to embed Octofitter within a larger Python project or pipeline
 
-Still, it might be useful to embed Octofitter as part of a larger Python project or pipeline.
-In those cases, you might consider using Octofitter via [juliacall.py](https://pyjulia.readthedocs.io/en/stable/index.html).
+In those cases, you might consider using Octofitter via [juliacall.py](https://pyjulia.readthedocs.io/en/stable/index.html), as demonstrated in these examples.
 
 The broad instructions are as follows:
 
@@ -20,7 +19,7 @@ From inside python, install the Octofitter and Distributions Julia packages:
 import juliacall
 from juliacall import Main as jl
 from juliacall import Pkg
-Pkg.add(jl.map(jl.String, ['Octofitter','Distributions','Plots']))
+Pkg.add(jl.map(jl.String, ['Octofitter','Distributions','Plots', 'CairoMakie', 'PairPlots']))
 ```
 
 !!! note You only need to run this step once to install everything. Don't repeat it each time you fit a model.
@@ -32,8 +31,7 @@ Use Octofitter from inside python.
 
 # Import packages
 from juliacall import Main as jl
-jl.seval("using Octofitter")
-jl.seval("using Distributions")
+jl.seval("using Octofitter, Distributions, Plots, CairoMakie, PairPlots")
 
 import numpy as np
 
@@ -50,7 +48,7 @@ jl.astrom = jl.PlanetRelAstromLikelihood(jl.Table(
 jl.astrom._jl_display()
 
 # Create a planet model
-# If needed, you could pass these variables in from Python by setting e.g. `jl.e_max=1` and then writing `e ~ Uniform(0, e_max)` below
+# You can evaluate variables into the model using Python format strings
 jl.seval("""
 @planet B Visual{KepOrbit} begin
     a ~ truncated(Normal(10, 4), lower=0, upper=100)
@@ -61,22 +59,17 @@ jl.seval("""
     τ ~ UniformCircular(1.0)
 
     τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    P = √(B.a^3/system.M)
+    tp =  B.τ*B.P*365.25 + 5000 # reference epoch for τ. Choose an MJD date near your data.
 end astrom
-""")
-# Print it out to the screen (optional)
-jl.B._jl_display()
 
-# Create system model
-system = jl.seval("""
 @system HD82134 begin
     M ~ truncated(Normal(1.2, 0.1), lower=0)
     plx ~ truncated(Normal(50.0, 0.02), lower=0)
 end B
 """)
 # Print it out to the screen (optional)
-jl.B._jl_display()
+jl.HD82134._jl_display()
 
 
 model = jl.Octofitter.LogDensityModel(system)
