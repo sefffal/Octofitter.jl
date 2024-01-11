@@ -551,9 +551,7 @@ function Octofitter.octoplot(
     fname2 = fname*"-colorbar.png"
     Plots.savefig(pc, fname2)
 
-
-    display("image/png", p)
-    return (fname1, fname2)
+    return p
 end
 
 
