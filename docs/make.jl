@@ -17,6 +17,7 @@ makedocs(
         "Getting Started" => "getting-started.md",
         "Tutorials" => [
             "Fit Relative Astrometry" => "rel-astrom.md",
+            "Fit with Observable Priors" => "rel-astrom-obs.md",
             "Fit Radial Velocity" => "rv-1.md",
             "Fit Proper Motion Anomaly" => "pma.md",
             "Fit Images" => "images.md",

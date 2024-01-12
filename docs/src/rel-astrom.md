@@ -155,12 +155,14 @@ b # hide
 A system represents a host star with one or more planets. Properties of the whole system are specified here, like parallax distance and mass of the star. This is also where you will supply data like images, astrometric acceleration, or stellar radial velocity since they don't belong to any planet in particular.
 
 ```@example 1
-@system HD82134 begin
+@system Tutoria begin
     M ~ truncated(Normal(1.2, 0.1), lower=0)
     plx ~ truncated(Normal(50.0, 0.02), lower=0)
 end b
 nothing #hide
 ```
+
+`Tutoria` is the name we have given to the system. It could be eg `PDS70`, or anything that will help you keep track of the results.
 
 The variables block works just like it does for planets. Here, the two parameters you must provide are:
 * `M`: Gravitational parameter of the central body, expressed in units of Solar mass.
@@ -176,7 +178,7 @@ After that, just list any planets that you want orbiting the star. Here, we pass
 
 This is also where we could pass likelihood objects for system-wide data like stellar radial velocity.
 
-You can display your system object by running `display(HD82134)` (or whatever you chose to name your system).
+You can display your system object by running `display(Tutoria)` (or whatever you chose to name your system).
 
 
 ## Prepare model
@@ -185,7 +187,7 @@ The `autodiff` flag specifies what Julia automatic differentiation package we sh
 
 
 ```@example 1
-model = Octofitter.LogDensityModel(HD82134)
+model = Octofitter.LogDensityModel(Tutoria)
 ```
 
 This type implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.
