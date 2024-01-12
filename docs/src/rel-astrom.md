@@ -273,7 +273,7 @@ This function draws orbits from the posterior and displays them in a plot. Any a
 
 We can overplot the astrometry data like so:
 ```@example 1
-Plots.plot!(astrom, label="astrometry")
+Plots.plot!(astrom_like, label="astrometry")
 ```
 
 The function `octoplot` is a conveninient way to generate a 9-panel plot of velocities and position:

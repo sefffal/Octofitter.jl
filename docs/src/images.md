@@ -76,7 +76,7 @@ You can also provide images from multiple bands and they will be sampled indepen
 
 Now specify the planet:
 ```julia
-@planet X Visual{KepOrbit} begin
+@planet b Visual{KepOrbit} begin
     a ~ Normal(13, 3)
     e ~ TruncatedNormal(0.2, 0.2, 0, 1.0)
     ω ~ Normal(0.1, deg2rad(30.))
@@ -97,9 +97,9 @@ See [Fit PlanetRelAstromLikelihood](@ref fit-astrometry) for a description of th
 Finally, create the system and pass in the planet.
 ```julia
 @system HD82134 begin
-    M ~ Normal(2.0, 0.1),
-    plx ~ Normal(45., 0.02),
-end X
+    M ~ Normal(2.0, 0.1)
+    plx ~ Normal(45., 0.02)
+end b
 ```
 
 If you want to search for two or more planets in the same images, just create multiple `Planet`s and pass the same images to each. You'll need to adjust the priors in some way to prevent overlap.
@@ -135,7 +135,7 @@ The acceptance rate should be somewhat lower than when fitting just astrometry, 
 You can make a trace plot:
 ```julia
 plot(
-    chain["X_a"],
+    chain["b_a"],
     xlabel="iteration",
     ylabel="semi-major axis (aU)"
 )
@@ -145,7 +145,7 @@ And an auto-correlation plot:
 ```julia
 using StatsBase
 plot(
-    autocor(chain["X_e"], 1:500),
+    autocor(chain["b_e"], 1:500),
     xlabel="lag",
     ylabel="autocorrelation",
 )
@@ -174,13 +174,13 @@ We can show the relationships between variables on a pair plot (aka corner plot)
 ```julia
 using CairoMakie, PairPlots
 table = (;
-    a=         chain["X_a"],
-    H=         chain["X_H"],
-    e=         chain["X_e"],
-    i=rad2deg.(chain["X_i"]),
-    Ω=rad2deg.(chain["X_Ω"]),
-    ω=rad2deg.(chain["X_ω"]),
-    τ=         chain["X_τ"],
+    a=         chain["b_a"],
+    H=         chain["b_H"],
+    e=         chain["b_e"],
+    i=rad2deg.(chain["b_i"]),
+    Ω=rad2deg.(chain["b_Ω"]),
+    ω=rad2deg.(chain["b_ω"]),
+    τ=         chain["b_τ"],
 )
 labels=Dict(
     :a => "a (au)",
@@ -205,14 +205,14 @@ We start by plotting the marginal distribution of the flux parameter, `H`:
 
 
 ```julia
-histogram(chain["X_H"], xlabel="H", label="")
+histogram(chain["b_H"], xlabel="H", label="")
 ```
 ![corner plot](assets/images-flux-hist.png)
 
 
 We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:
 ```julia
-flux = chain["X_H"]
+flux = chain["b_H"]
 snr = mean(flux)/std(flux) # 13.35 in this example
 ```
 It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.

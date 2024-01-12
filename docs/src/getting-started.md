@@ -1,10 +1,10 @@
-# [Getting Started](@id getting-started)
+# [Installation](@id install)
 
 The first step to using Octofitter.jl is to install Julia. If you're used to Python, don't worry --- Julia is easy to install, and you won't need to code anything other than changing your input data.
 
 
 ## Installing Julia
-Visit the [julialang.org](https://julialang.org/downloads/) Downloads page, and select the latest stable version for your operating system. This is 1.9.1 at the time of writing. Click the `[help]` links next to your operating system if you require more detailed instructions.
+Visit the [julialang.org](https://julialang.org/downloads/) Downloads page, and select the latest stable version for your operating system. This is 1.10.0 at the time of writing. Click the `[help]` links next to your operating system if you require more detailed instructions.
 
 ## Installing Octofitter
 
@@ -22,9 +22,8 @@ If you need one of these packages you can install them like so:
 ```
 pkg> add OctofitterRadialVelocity
 pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterImages
-pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterVisibilities
+pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterInterferometry
 ```
-That is, specify the extension package you want to install after the colon (`:`).
 
 These aren't included by default since they may include a number of heavier dependencies that aren't needed by all users.
 They are descibed further in relevant sections of the documentation.
