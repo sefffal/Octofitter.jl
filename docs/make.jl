@@ -23,7 +23,7 @@ makedocs(
             "Fit Images" => "images.md",
             "Fit RV and Proper Motion Anomaly" => "rv.md",
             "Fit RV and Relative Astrometry" => "fit-rv-astrom.md",
-            "Fit Resonant Co-Planar Model" => "fit-rv-astrom.md",
+            "Fit Resonant Co-Planar Model" => "fit-coplanar.md",
             "Loading and Saving Data" => "loading-saving.md",
             "Connecting Mass with Photometry" => "mass-photometry.md",
             "Custom Likelihoods" => "custom-likelihood.md",
