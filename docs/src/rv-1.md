@@ -92,7 +92,7 @@ end rvlike b
 ```
 
 Note how the `rvlike` object was attached to the `k2_132` system instead of the planet. This is because
-the observed radial velocity is of the star, and is caused by any/all orbitting planets.
+the observed radial velocity is of the star, and is caused by any/all orbiting planets.
 
 The `rv0` and `jitter` parameters specify priors for the instrument-specific offset and white noise jitter standard deviation. The `_i` index matches the `inst_idx` used to create the observation table.
 

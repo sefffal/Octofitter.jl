@@ -6,6 +6,11 @@ We will fit the same astrometry as in the [previous tutorial](@ref fit-astrometr
 
 
 ```@example 1
+using Octofitter
+using CairoMakie
+using PairPlots
+using Distributions
+
 astrom_like = PlanetRelAstromLikelihood(
     (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
