@@ -55,5 +55,5 @@ In addition to these documentation and tutorial pages, you can read the paper pu
 Please cite this paper if you use Octofitter in your work.
 
 
-## Rady?
+## Ready?
 Ready to get started? Follow our [installation guide](@ref getting-started) and then follow our [first tutorial](@ref fit-astrometry).
