@@ -84,8 +84,7 @@ chain._jl_display()
 # Save chain to FITS file (optional)
 jl.Octofitter.savechain("mychain.fits", chain)
 
-# Plot chains (optional)
-jl.seval("using Plots")
+# Plot chains 
 jl.Octofitter.plotchains(chain, jl.Symbol("B"), kind=jl.Symbol("astrometry"), 
 color="B_a")
 jl.Plots.savefig("orbits.png")

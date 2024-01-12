@@ -3,7 +3,7 @@
 You can use Octofitter to fit radial velocity data, either alone or in combination with other kinds of data.
 Multiple instruments (up to 10) are supported, as are gaussian processes to model stellar activity..
 
-!!! tip
+!!! note
     Radial velocity modelling is supported in Octofitter via the extension package OctofitterRadialVelocity. To install it, run 
     `pkg> add OctofitterRadialVelocity`
 
