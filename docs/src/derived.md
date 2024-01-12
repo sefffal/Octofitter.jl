@@ -77,8 +77,8 @@ end
     Ω = system.Ω
 
     τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    P = √(c.a^3/system.M)
+    tp =  c.τ*c.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end
 @system HD12345 begin
     plx ~ Normal(45., 0.02)
@@ -95,4 +95,5 @@ The order that variables are resolved is as follows:
 * Derived variables on the system
 * Derived variables on each planet
 
-It's not possible to observe one derived variable from another derived variable in a System or one Derived variable from another on a Planet but it is possible to see the System's Derived variables in the Planets'.
+You can use one derived variable from another based on their order in the `@system` or `@planet` block. 
+You cannot access variables from a different planet inside a `@planet` block. If you need to do this, move the variable up to the `@system` block.
