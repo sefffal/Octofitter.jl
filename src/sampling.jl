@@ -1052,7 +1052,7 @@ Base.@nospecializeinfer function advancedhmc(
     actual_tree_depth = getproperty.(stats, :tree_depth)
      
     mean_accept = mean(getproperty.(stats, :acceptance_rate))
-    num_err_frac = mean(numerical_error)
+    ratio_divergent_transitions = mean(numerical_error)
     mean_tree_depth = mean(actual_tree_depth)
     max_tree_depth_frac = mean(==(max_depth), actual_tree_depth)
 
@@ -1060,18 +1060,18 @@ Base.@nospecializeinfer function advancedhmc(
 
     verbosity >= 1 && println("""
     Sampling report for chain:
-    mean_accept         = $mean_accept
-    num_err_frac        = $num_err_frac
-    mean_tree_depth     = $mean_tree_depth
-    max_tree_depth_frac = $max_tree_depth_frac
-    gradient_evaluations = $gradient_evaluations\
+    mean_accept                 = $mean_accept
+    ratio_divergent_transitions = $ratio_divergent_transitions
+    mean_tree_depth             = $mean_tree_depth
+    max_tree_depth_frac         = $max_tree_depth_frac
+    gradient_evaluations        = $gradient_evaluations\
     """)
 
     # Report some warnings if sampling did not work well
-    if num_err_frac == 1.0
+    if ratio_divergent_transitions == 1.0
         @error "Numerical errors encountered in ALL iterations. Check model and priors."
-    elseif num_err_frac > 0.05
-        @warn "Numerical errors encountered in more than 5% of iterations. Results are likely incorrect." num_err_frac
+    elseif ratio_divergent_transitions > 0.05
+        @warn "Numerical errors encountered in more than 5% of iterations. Results are likely incorrect. Your model might have high curvature, and could be improved. Otherwise, increasing the target acceptance rate" ratio_divergent_transitions
     end
     if max_tree_depth_frac > 0.1
         @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
@@ -1220,7 +1220,7 @@ Base.@nospecializeinfer function octoquick(
     result_pf = with_logger(errlogger) do 
         start_time = time()
         result_pf = Pathfinder.multipathfinder(
-            ldm_any, 1000;
+            ldm_any, 1000*nruns;
             # Do at least 16 runs, rounding up to nearest multiple
             # of nthreads
             nruns,

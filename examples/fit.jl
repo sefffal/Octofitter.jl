@@ -13,7 +13,7 @@ orb_template = orbit(
     ω = 1π/4,
     M = 1.0,
     plx=100.0,
-    m=0,
+    m =0,
     tp =58849
 )
 Plots.plot(orb_template)
@@ -25,36 +25,37 @@ astrom = PlanetRelAstromLikelihood(
     dec=decoff(orb_template, epoch),# .+ 0.3 .* randn.(),
     σ_ra = 1.0,
     σ_dec = 1.0,
+    cor = 2rand() -1
     )
-    for epoch in [20:20:93;]]...
+    for epoch in [20:2:30;]]...
 )
 Plots.plot(orb_template, aspectratio=1, lw=0, label="")
 Plots.plot!(astrom, aspectratio=1, framestyle=:box)
 ##
-@planet b Visual{KepOrbit} begin
-    e ~ Uniform(0,0.999999)
-    a ~ truncated(Normal(1, 1),lower=0)
-    # mass ~ truncated(Normal(1, 1), lower=0)
-    i ~ Sine()
-    Ω ~ UniformCircular()
-    ω ~ UniformCircular()
+# @planet b Visual{KepOrbit} begin
+#     e ~ Uniform(0,0.999999)
+#     a ~ truncated(Normal(1, 1),lower=0)
+#     # mass ~ truncated(Normal(1, 1), lower=0)
+#     i ~ Sine()
+#     Ω ~ UniformCircular()
+#     ω ~ UniformCircular()
 
-    τ ~ UniformCircular(1.0)
-    # τ ~ Uniform(-1,1)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 +  58849
-    # tp ~ Uniform(58849-300,58849+300)
-end astrom
-
-
-# @planet b Visual{CartesianOrbit} begin
-#     x ~ Normal(0, 1)
-#     y ~ Normal(0, 1)
-#     z ~ Normal(0, 1)
-#     vx ~ Normal(0, 10)
-#     vy ~ Normal(0, 10)
-#     vz ~ Normal(0, 10)
+#     τ ~ UniformCircular(1.0)
+#     # τ ~ Uniform(-1,1)
+#     P = √(b.a^3/system.M)
+#     tp =  b.τ*b.P*365.25 +  58849
+#     # tp ~ Uniform(58849-300,58849+300)
 # end astrom
+
+
+@planet b Visual{CartesianOrbit} begin
+    x ~ Normal(0, 1)
+    y ~ Normal(0, 1)
+    z ~ Normal(0, 1)
+    vx ~ Normal(0, 10)
+    vy ~ Normal(0, 10)
+    vz ~ Normal(0, 10)
+end astrom
 
 
 @system test begin
@@ -62,19 +63,19 @@ end astrom
     plx = 100.0
 end b
 
-model = Octofitter.LogDensityModel(test; autodiff=:ForwardDiff,verbosity=4)
-# model = Octofitter.LogDensityModel(test; autodiff=:FiniteDiff,verbosity=4)
+# model = Octofitter.LogDensityModel(test; autodiff=:ForwardDiff,verbosity=4)
+model = Octofitter.LogDensityModel(test; autodiff=:FiniteDiff,verbosity=4)
 
 ##
 using Random
-Random.seed!(5)
+Random.seed!(1)
 
-@time results = octofit(model, 0.85, verbosity=1, pathfinder=true, )#, adaptation=1500, iterations=50000)
+@time results = octofit(model, verbosity=1, pathfinder=true, )#, adaptation=1500, iterations=50000)
 
 plotchains(results, :b, color=:b_e); Plots.plot!(astrom)
 ##
 
-octocorner(model, results)
+octocorner(model, results, small=true)
 octoplot(model, results)
 
 

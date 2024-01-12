@@ -218,7 +218,7 @@ For a basic model like this, sampl]ing should take less than a minute on a typic
 ## Diagnostics
 The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.
 
-A few things to watch out for: check that you aren't getting many (any, really) numerical errors (`num_err_frac`). 
+A few things to watch out for: check that you aren't getting many (any, really) numerical errors (`ratio_divergent_transitions`). 
 This likely indicates a problem with your model: either invalid values of one or more parameters are encountered (e.g. the prior on semi-major axis includes negative values) or that there is a region of very high curvature that is failing to sample properly. This latter issue can lead to a bias in your results.
 
 One common mistake is to use a distribution like `Normal(10,3)` for semi-major axis. This left hand side of this distribution includes negative values which are not physically possible. A better choice is a `truncated(Normal(10,3), lower=0)` distribution.

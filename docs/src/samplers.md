@@ -211,21 +211,21 @@ function remapchain(mc_samples::AbstractArray{<:AdvancedHMC.Transition})
     logpost = map(s->s.z.ℓπ.value, mc_samples)
     
     mean_accept = mean(getproperty.(stat, :acceptance_rate))
-    num_err_frac = mean(getproperty.(stat, :numerical_error))
+    ratio_divergent_transitions = mean(getproperty.(stat, :numerical_error))
     mean_tree_depth = mean(getproperty.(stat, :tree_depth))
 
     println("""
     Sampling report for chain:
     mean_accept         = $mean_accept
-    num_err_frac        = $num_err_frac
+    ratio_divergent_transitions        = $ratio_divergent_transitions
     mean_tree_depth     = $mean_tree_depth\
     """)
 
     # Report some warnings if sampling did not work well
-    if num_err_frac == 1.0
+    if ratio_divergent_transitions == 1.0
         @error "Numerical errors encountered in ALL iterations. Check model and priors."
-    elseif num_err_frac > 0.1
-        @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
+    elseif ratio_divergent_transitions > 0.1
+        @warn "Numerical errors encountered in more than 10% of iterations" ratio_divergent_transitions
     end
     # Transform samples back to constrained support
     samples = map(mc_samples) do s
@@ -312,9 +312,9 @@ function remapchain(mc_samples::AbstractArray{<:AdvancedHMC.Transition})
     
     mean_accept = mean(getproperty.(stat, :acceptance_rate))
     if hasproperty(first(mc_samples), :numerical_error)
-        num_err_frac = mean(getproperty.(stat, :numerical_error))
+        ratio_divergent_transitions = mean(getproperty.(stat, :numerical_error))
     else
-        num_err_frac = 0
+        ratio_divergent_transitions = 0
     end
     if hasproperty(first(mc_samples), :tree_depth)
         mean_tree_depth = mean(getproperty.(stat, :tree_depth))
@@ -325,15 +325,15 @@ function remapchain(mc_samples::AbstractArray{<:AdvancedHMC.Transition})
     println("""
     Sampling report for chain:
     mean_accept         = $mean_accept
-    num_err_frac        = $num_err_frac
+    ratio_divergent_transitions        = $ratio_divergent_transitions
     mean_tree_depth     = $mean_tree_depth\
     """)
 
     # Report some warnings if sampling did not work well
-    if num_err_frac == 1.0
+    if ratio_divergent_transitions == 1.0
         @error "Numerical errors encountered in ALL iterations. Check model and priors."
-    elseif num_err_frac > 0.1
-        @warn "Numerical errors encountered in more than 10% of iterations" num_err_frac
+    elseif ratio_divergent_transitions > 0.1
+        @warn "Numerical errors encountered in more than 10% of iterations" ratio_divergent_transitions
     end
     # Transform samples back to constrained support
     samples = map(mc_samples) do s
