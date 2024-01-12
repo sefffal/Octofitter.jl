@@ -275,13 +275,7 @@ Now sample:
 using Random
 rng = Random.Xoshiro(0)
 
-results = octofit(
-    rng, model, 0.75;
-    adaptation =  2000,
-    iterations =  5000,
-    verbosity = 4,
-    max_depth = 12
-)
+results = octofit(rng, model)
 ```
 
 We can now plot the results with a multi-panel plot:

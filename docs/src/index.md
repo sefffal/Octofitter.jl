@@ -9,13 +9,8 @@ Octofitter is a Julia package for performing Bayesian inference
 against a wide variety of exoplanet / binary star data.
 You can also use Octofitter from Python using the [Python guide](@ref python).
 
-The package provides a simple but powerful modelling language which is used to generate
-efficient, differentiable code. You can then plug it into a variety of samplers.
-The package also contains analysis and visualization tools for understanding your results.
-
-
 !!! note
-    Octofitter is under active development and is only tested against Julia 1.9+
+    Octofitter is under active development and is only tested with the latest stable julia release (currently 1.10)
 
 **Supported data:**
 * Fit exoplanet orbits to relative astrometry
@@ -26,14 +21,14 @@ The package also contains analysis and visualization tools for understanding you
 * Sample directly from images and interferometric visibilities
 * experimental support for transit data based on Transits.jl
 
-You can freely combine any of the above data types. 
-Any and all combinations work together.
+You can freely combine any of the above data types.  Any and all combinations work together.
 
 **Modelling features:**
 * multiple planets (one or more)
 * hyperbolic orbits
 * co-planar, and non-coplanar systems
 * arbitrary priors and parameterizations
+* optional O'Neil "observable based priors"
 * link mass to photometry via atmosphere models
 * hierarchical models (with a bit of work from the user)
 
@@ -52,7 +47,26 @@ See also: the python libraries [Orbitize!](https://orbitize.readthedocs.io/en/la
 ### Read the paper
 In addition to these documentation and tutorial pages, you can read the paper published in the [Astronomical Journal](https://dx.doi.org/10.3847/1538-3881/acf5cc) (open-access).
 
-Please cite this paper if you use Octofitter in your work.
+## Attribution
+* If you use Octofitter in your work, please cite [Thompson et al](https://dx.doi.org/10.3847/1538-3881/acf5cc)
+* If you use Gaia parallaxes in your work, please cite Gaia DR3 [Gaia Collaboration et al. 2023](https://ui.adsabs.harvard.edu/abs/2023A&A...674A...1G)
+* If you use Hipparcos-GAIA proper motion anomaly, please cite [Brandt 2021](https://ui.adsabs.harvard.edu/abs/2021ApJS..254...42B)
+* If you use example data in one of the tutorials, please cite the sources listed [Brandt 2021](https://ui.adsabs.harvard.edu/abs/2021ApJS..254...42B)
+* If you use one of the included functions for automatically retreiving data from a public dataset, eg HARPS RVBank, please cite the source as appropriate.
+* If you adopt the O'Neil et al. 2019 observable based priors, please cite [O'Neil et al. 2019](https://ui.adsabs.harvard.edu/abs/2019AJ....158....4O).
+
+* Please also consider citing the HMC sampler backend, [Xu et al 2020](http://proceedings.mlr.press/v118/xu20a.html)
+* If you use RV phase folded plot, please consider citing Makie.jl [Danisch & Krumbiegel, (2021).](https://doi.org/10.21105/joss.03349)
+* If you use TemporalGPs.jl to accelerate Gaussian processes modelling of stellar activity, please consider citing [Tebbutt et al 2021](https://proceedings.mlr.press/v161/tebbutt21a.html)
+* If you use the pairplot functionality, please cite:
+```
+@misc{Thompson2023,
+  author = {William Thompson},
+  title = {{PairPlots.jl} Beautiful and flexible visualizations of high dimensional data},
+  year = {2023},
+  howpublished = {\url{https://sefffal.github.io/PairPlots.jl/dev}},
+}
+```
 
 
 ## Ready?

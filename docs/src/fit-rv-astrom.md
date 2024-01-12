@@ -96,9 +96,9 @@ end rvlike b
 model = Octofitter.LogDensityModel(test; autodiff=:ForwardDiff,verbosity=4)
 
 using Random
-Random.seed!(1)
+rng = Xoshiro(0) # seed the random number generator for reproducible results
 
-results = octofit(model)
+results = octofit(rng, model)
 ```
 
 

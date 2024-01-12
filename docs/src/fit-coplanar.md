@@ -58,6 +58,7 @@ Plots.plot!(astrom_c, xlims=:symmetric, ylims=:symmetric, color=2)
 ```
 
 
+We now specify our two planet model for planets b & c.
 
 ```@example 1
 @planet b Visual{KepOrbit} begin
@@ -76,7 +77,7 @@ Plots.plot!(astrom_c, xlims=:symmetric, ylims=:symmetric, color=2)
     a = cbrt(system.M * b.P^2)
 
     τ ~ UniformCircular(1.0)
-    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 53200 # reference epoch for τ. Choose an MJD date near your data.
 end astrom_b
 @planet c Visual{KepOrbit} begin
     e = 0.0
@@ -94,7 +95,7 @@ end astrom_b
     a = cbrt(system.M * c.P^2)
 
     τ ~ UniformCircular(1.0)
-    tp =  c.τ*c.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  c.τ*c.P*365.25 + 53200 # reference epoch for τ. Choose an MJD date near your data.
 end astrom_c
 @system HR8799_res_co begin
     plx ~ gaia_plx(;gaia_id=2832463659640297472)
@@ -122,7 +123,9 @@ octoplot(model, results_quick)
 
 Looks okay! Let's now properly sample from the model:
 ```@example 1
-results = octofit(model)
+using Random
+rng = Xoshiro(0) # seed the random number generator for reproducible results
+results = octofit(rng, model)
 ```
 
 Plots the orbits:

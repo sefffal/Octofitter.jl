@@ -77,13 +77,7 @@ model = jl.Octofitter.LogDensityModel(system)
 model._jl_display()
 
 # Sample
-chain = jl.octofit(
-    model, 0.85,
-    adaptation =   500,
-    iterations =  1000,
-    verbosity = 4,
-    max_depth = 12
-)
+chain = jl.octofit(model,)
 # Display results (recommended)
 chain._jl_display()
 
