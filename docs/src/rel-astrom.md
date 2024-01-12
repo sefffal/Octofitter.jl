@@ -11,7 +11,7 @@ using Octofitter, Distributions
 We will create a likelihood object to contain our relative astrometry data. We can specify this data in several formats. It can be listed in the code or loaded from a file (eg. a CSV file, FITS table, or SQL database).
 
 ```@example 1
-astrom = PlanetRelAstromLikelihood(
+astrom_like = PlanetRelAstromLikelihood(
     (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
@@ -28,7 +28,7 @@ In this case, we specified `ra` and `dec` offsets in milliarcseconds. We could i
 
 Another way we could specify the data is by column:
 ```@example 1
-astrom = PlanetRelAstromLikelihood(Table(;
+astrom_like = PlanetRelAstromLikelihood(Table(;
     epoch= [
         50000,
         50120,
@@ -69,7 +69,7 @@ Finally we could also load the data from a file somewhere. Here is an example
 of loading a CSV:
 ```julia
 using CSV # must install CSV.jl first
-astrom = CSV.read("mydata.csv", PlanetRelAstromLikelihood)
+astrom_like = CSV.read("mydata.csv", PlanetRelAstromLikelihood)
 ```
 
 You can also pass a DataFrame or any other table format.
@@ -94,7 +94,7 @@ We now create our planet `b` model using the `@planet` macro.
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
     tp =  b.τ*b.P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
-end astrom
+end astrom_like
 nothing # hide
 ```
 
@@ -116,11 +116,11 @@ For a `KepOrbit` you must specify the following parameters:
 * `a`: Semi-major axis, astronomical units (AU)
 * `i`: Inclination, radius
 * `e`: Eccentricity in the range [0, 1)
-* `τ`: Epoch of periastron passage, in fraction of orbit \[0,1] (periodic outside these bounds)
+* `tp`: Epoch of periastron passage
 * `ω`: Argument of periastron, radius
 * `Ω`: Longitude of the ascending node, radians.
 
-The parameter τ represents the epoch of periastron passage as a fraction of the planet's orbit between 0 and 1. This follows the same convention as Orbitize! and you can read more about their choice in ther FAQ.
+
 Many different distributions are supported as priors, including `Uniform`, `LogNormal`, `LogUniform`, `Sine`, and `Beta`. See the section on [Priors](@ref priors) for more information.
 The parameters can be specified in any order.
 
@@ -129,14 +129,16 @@ You can also hardcode a particular value for any parameter if you don't want it 
     e = 0.1 # hardcode eccentricity
 ```
 
-This `=` syntax works for arbitrary mathematical expressions and even most functions, even many function from external libraries.
-For example, if you wanted to place a uniform prior on the square-root of eccentricity, you could specify:
-```julia
-    e_sqrt ~ Uniform(0, 1)
-    e = sqrt(b.e_sqrt)
-```
-Note how `e_sqrt` is allowed to vary, and `e` is calculated from it deterministically.
+This `=` syntax works for arbitrary mathematical expressions and even most functions, even many function from external libraries. We use it here to reparameterize `tp`.
 
+`tp` is a date which sets the location of the planet around its orbit, and it repeats every orbital period; however, the period depends on the scale of the orbit making this a bit hard to sample from. We therefore reparameterize using `τ` similar to Orbitize! (but with a user-selected reference epoch). This parameterization speeds up sampling quite a bit!
+```julia
+    # Calculate period from semi-major axis and total mass
+    P = √(b.a^3/system.M)
+    # Calculate epoch of periastron passage from τ parameter
+    tp =  b.τ*b.P*365.25 + 50420 
+    # After the +, use an MJD date near your data.
+```
 
 After the variables block are zero or more `Likelihood` objects. These are observations specific to a given planet that you would like to include in the model. If you would like to sample from the priors only, don't pass in any observations.
 

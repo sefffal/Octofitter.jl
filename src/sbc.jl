@@ -55,7 +55,7 @@ function calibrationhmc(
     model = Octofitter.LogDensityModel(newsystem; autodiff=:ForwardDiff, verbosity=4)
 
     # Run chains
-    chains = Octofitter.advancedhmc(
+    chains = octofit(
         model, target_accept;
         verbosity,
         kwargs...
@@ -116,12 +116,13 @@ function calibrationhmc(
 end
 
 # Calibrate model by running chains and save results 
-function sbctrial(system::System, chainparams::AbstractDict, saveas::AbstractString)
-
+function sbctrial(system::System, chainparams, saveas::AbstractString)
+    chainparams = Dict{Symbol,Any}(pairs(chainparams))
+    
     # Get verbosity from chain parameters to decide how much we should log
     # Rest can just be forwarded
-    verbosity = chainparams[:verbosity] = get(chainparams, :verbosity, 4)
-    target_accept = chainparams[:target_accept]
+    verbosity = chainparams[:verbosity] = get(chainparams, :verbosity, 2)
+    target_accept = get(chainparams, :target_accept, 0.85)
     delete!(chainparams, :target_accept)
 
     # Run chains
