@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Fit Resonant Co-Planar Model · Octofitter.jl</title><meta name="title" content="Fit Resonant Co-Planar Model · Octofitter.jl"/><meta property="og:title" content="Fit Resonant Co-Planar Model · Octofitter.jl"/><meta property="twitter:title" content="Fit Resonant Co-Planar Model · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../getting-started/">Getting Started</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../rel-astrom/">Fit Relative Astrometry</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Fit with Observable Priors</a></li><li><a class="tocitem" href="../rv-1/">Fit Radial Velocity</a></li><li><a class="tocitem" href="../pma/">Fit Proper Motion Anomaly</a></li><li><a class="tocitem" href="../images/">Fit Images</a></li><li><a class="tocitem" href="../rv/">Fit RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../fit-rv-astrom/">Fit RV and Relative Astrometry</a></li><li class="is-active"><a class="tocitem" href>Fit Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../mass-photometry/">Connecting Mass with Photometry</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../python/">Python Guide</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Parallel Sampling</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../api/">API</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Fit Resonant Co-Planar Model</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Fit Resonant Co-Planar Model</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/fit-coplanar.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Hierarchical-Co-Planar,-Resonant-Model"><a class="docs-heading-anchor" href="#Hierarchical-Co-Planar,-Resonant-Model">Hierarchical Co-Planar, Resonant Model</a><a id="Hierarchical-Co-Planar,-Resonant-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Hierarchical-Co-Planar,-Resonant-Model" title="Permalink"></a></h1><p>This example shows how you can fit a two planet model to relative astrometry data. This functionality would work equally well with RV, images, etc.</p><p>We will restrict the two planets to being exactly co-planar, and have a near 2:1 period resonance, and zero-eccentricity.</p><p>For this example, we will use astrometry from the HR8799 system collated by Jason Wong and retrieved from the website <a href="http://whereistheplanet.com">Whereistheplanet.com</a>.</p><pre><code class="language-julia hljs">using Octofitter
+using CairoMakie
+using PairPlots
+using Distributions
+using Plots:Plots
+using PlanetOrbits</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-008fdbf086d8 is missing from the cache.
+│ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
+└ @ Base loading.jl:1942
+┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-008fdbf086d8 is missing from the cache.
+│ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
+└ @ Base loading.jl:1942</code></pre><pre><code class="language-julia hljs">astrom_b = PlanetRelAstromLikelihood(
+    (epoch=53200.0, object=1, ra=1471.0, σ_ra=6.0, dec=887.0, σ_dec=6.0, cor=0, ),
+    (epoch=54314.0, object=1, ra=1504.0, σ_ra=3.0, dec=837.0, σ_dec=3.0, cor=0, ),
+    (epoch=54398.0, object=1, ra=1500.0, σ_ra=7.0, dec=836.0, σ_dec=7.0, cor=0, ),
+    (epoch=54727.0, object=1, ra=1516.0, σ_ra=4.0, dec=818.0, σ_dec=4.0, cor=0, ),
+    (epoch=55042.0, object=1, ra=1526.0, σ_ra=4.0, dec=797.0, σ_dec=4.0, cor=0, ),
+    (epoch=55044.0, object=1, ra=1531.0, σ_ra=7.0, dec=794.0, σ_dec=7.0, cor=0, ),
+    (epoch=55136.0, object=1, ra=1524.0, σ_ra=10.0, dec=795.0, σ_dec=10.0, cor=0, ),
+    (epoch=55390.0, object=1, ra=1532.0, σ_ra=5.0, dec=783.0, σ_dec=5.0, cor=0, ),
+    (epoch=55499.0, object=1, ra=1535.0, σ_ra=15.0, dec=766.0, σ_dec=15.0, cor=0, ),
+    (epoch=55763.0, object=1, ra=1541.0, σ_ra=5.0, dec=762.0, σ_dec=5.0, cor=0, ),
+    (epoch=56130.0, object=1, ra=1545.0, σ_ra=5.0, dec=747.0, σ_dec=5.0, cor=0, ),
+    (epoch=56226.0, object=1, ra=1549.0, σ_ra=4.0, dec=743.0, σ_dec=4.0, cor=0, ),
+    (epoch=56581.0, object=1, ra=1545.0, σ_ra=22.0, dec=724.0, σ_dec=22.0, cor=0, ),
+    (epoch=56855.0, object=1, ra=1560.0, σ_ra=13.0, dec=725.0, σ_dec=13.0, cor=0, ),
+    (epoch=58798.03906, object=1, ra=1611.002, σ_ra=0.133, dec=604.893, σ_dec=0.199, cor=-0.406, ),
+    (epoch=59453.245, object=1, ra=1622.924, σ_ra=0.32, dec=570.534, σ_dec=0.296, cor=-0.905, ),
+    (epoch=59454.231, object=1, ra=1622.872, σ_ra=0.204, dec=571.296, σ_dec=0.446, cor=-0.79, ),
+)
+
+astrom_c = PlanetRelAstromLikelihood(
+    (epoch=53200.0, object=2, ra=-739.0, σ_ra=6.0, dec=612.0, σ_dec=6.0, cor=0, ),
+    (epoch=54314.0, object=2, ra=-683.0, σ_ra=4.0, dec=671.0, σ_dec=4.0, cor=0, ),
+    (epoch=54398.0, object=2, ra=-678.0, σ_ra=7.0, dec=678.0, σ_dec=7.0, cor=0, ),
+    (epoch=54727.0, object=2, ra=-663.0, σ_ra=3.0, dec=693.0, σ_dec=3.0, cor=0, ),
+    (epoch=55042.0, object=2, ra=-639.0, σ_ra=4.0, dec=712.0, σ_dec=4.0, cor=0, ),
+    (epoch=55136.0, object=2, ra=-636.0, σ_ra=9.0, dec=720.0, σ_dec=9.0, cor=0, ),
+    (epoch=55390.0, object=2, ra=-619.0, σ_ra=4.0, dec=728.0, σ_dec=4.0, cor=0, ),
+    (epoch=55499.0, object=2, ra=-607.0, σ_ra=12.0, dec=744.0, σ_dec=12.0, cor=0, ),
+    (epoch=55763.0, object=2, ra=-595.0, σ_ra=4.0, dec=747.0, σ_dec=4.0, cor=0, ),
+    (epoch=56130.0, object=2, ra=-578.0, σ_ra=5.0, dec=761.0, σ_dec=5.0, cor=0, ),
+    (epoch=56226.0, object=2, ra=-572.0, σ_ra=3.0, dec=768.0, σ_dec=3.0, cor=0, ),
+    (epoch=56581.0, object=2, ra=-542.0, σ_ra=22.0, dec=784.0, σ_dec=22.0, cor=0, ),
+    (epoch=56855.0, object=2, ra=-540.0, σ_ra=12.0, dec=799.0, σ_dec=12.0, cor=0, ),
+)
+
+Plots.plot(astrom_b, xlims=:symmetric, ylims=:symmetric, color=1)
+Plots.plot!(astrom_c, xlims=:symmetric, ylims=:symmetric, color=2)</code></pre><img src="fe0f1693.svg" alt="Example block output"/><p>We now specify our two planet model for planets b &amp; c.</p><pre><code class="language-julia hljs">@planet b Visual{KepOrbit} begin
+    e = 0.0
+    ω = 0.0
+
+    # Use the system inclination and longitude of ascending node
+    # variables
+    i = system.i
+    Ω = system.Ω
+
+    # Specify the period as ~ 1% around 2X the P_nominal variable
+    P_mul ~ Normal(1, 0.1)
+    P = 2*system.P_nominal * b.P_mul
+
+    a = cbrt(system.M * b.P^2)
+
+    τ ~ UniformCircular(1.0)
+    tp =  b.τ*b.P*365.25 + 53200 # reference epoch for τ. Choose an MJD date near your data.
+end astrom_b
+@planet c Visual{KepOrbit} begin
+    e = 0.0
+    ω = 0.0
+
+    # Use the system inclination and longitude of ascending node
+    # variables
+    i = system.i
+    Ω = system.Ω
+
+    # Specify the period as ~ 1% the P_nominal variable
+    P_mul ~ Normal(1, 0.1)
+    P = system.P_nominal * c.P_mul
+
+    a = cbrt(system.M * c.P^2)
+
+    τ ~ UniformCircular(1.0)
+    tp =  c.τ*c.P*365.25 + 53200 # reference epoch for τ. Choose an MJD date near your data.
+end astrom_c
+@system HR8799_res_co begin
+    plx ~ gaia_plx(;gaia_id=2832463659640297472)
+    M ~ truncated(Normal(1.5, 0.02), lower=0)
+    # We create inclination and longitude of ascending node variables at the
+    # system level.
+    i ~ Sine()
+    Ω ~ UniformCircular()
+    # We create a nominal period of planet c variable.
+    P_nominal ~ Uniform(50, 300) # years
+end b c
+
+
+model = Octofitter.LogDensityModel(HR8799_res_co)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HR8799_res_co of dimension 12 with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>We will run a &quot;quick fit&quot; to check that the model is properly specified. This is only an approximate posterior generated using  a variation inference-style method.</p><pre><code class="language-julia hljs">results_quick = octoquick(model)
+octoplot(model, results_quick)</code></pre><img src="72a81bba.svg" alt="Example block output"/><p>Looks okay! Let&#39;s now properly sample from the model:</p><pre><code class="language-julia hljs">using Random
+rng = Xoshiro(0) # seed the random number generator for reproducible results
+results = octofit(rng, model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×42×1 Array{Float64, 3}):
+
+Iterations        = 1:1:1000
+Number of chains  = 1
+Samples per chain = 1000
+Wall duration     = 75.93 seconds
+Compute duration  = 75.93 seconds
+parameters        = plx, M, i, Ωy, Ωx, P_nominal, Ω, b_P_mul, b_τy, b_τx, b_e, b_ω, b_i, b_Ω, b_P, b_a, b_τ, b_tp, c_P_mul, c_τy, c_τx, c_e, c_ω, c_i, c_Ω, c_P, c_a, c_τ, c_tp
+internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
+
+Summary Statistics
+ <span class="sgr1"> parameters         mean        std      mcse   ess_bulk   ess_tail      rhat ⋯
+ <span class="sgr90">     Symbol      Float64    Float64   Float64    Float64    Float64   Float64 ⋯
+
+         plx      24.4497     0.0466    0.0017   801.0775   742.5488    0.9991 ⋯
+           M       1.4875     0.0193    0.0007   675.1088   621.6724    1.0052 ⋯
+           i       0.3928     0.0208    0.0009   513.6231   390.1255    1.0020 ⋯
+          Ωy       0.3950     0.0199    0.0008   578.6290   447.4570    1.0064 ⋯
+          Ωx       0.9195     0.0208    0.0008   615.0867   609.3058    0.9996 ⋯
+   P_nominal     236.0697    16.3904    1.5678   115.6156    61.4971    1.0124 ⋯
+           Ω       1.1650     0.0196    0.0009   499.0361   524.6471    1.0116 ⋯
+     b_P_mul       1.0307     0.0709    0.0064   118.4731    71.7787    1.0174 ⋯
+        b_τy       0.9892     0.0198    0.0011   357.9032   516.4412    1.0009 ⋯
+        b_τx       0.1482     0.0214    0.0010   500.3152   446.4523    1.0137 ⋯
+         b_e       0.0000     0.0000       NaN        NaN        NaN       NaN ⋯
+         b_ω       0.0000     0.0000       NaN        NaN        NaN       NaN ⋯
+         b_i       0.3928     0.0208    0.0009   513.6231   390.1255    1.0020 ⋯
+         b_Ω       1.1650     0.0196    0.0009   499.0361   524.6471    1.0116 ⋯
+         b_P     484.3322     3.3790    0.1336   632.0390   535.7516    1.0024 ⋯
+         b_a      70.3979     0.1348    0.0049   774.8730   697.8548    0.9993 ⋯
+         b_τ       0.0237     0.0034    0.0002   505.1549   488.1904    1.0125 ⋯
+      ⋮            ⋮           ⋮          ⋮         ⋮          ⋮          ⋮    ⋱
+</span><span class="sgr36">                                                    1 column and 12 rows omitted
+
+Quantiles
+  parameters         2.5%        25.0%        50.0%        75.0%        97.5%
+ </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
+
+         plx      24.3581      24.4187      24.4494      24.4813      24.5410
+           M       1.4503       1.4743       1.4864       1.5001       1.5246
+           i       0.3499       0.3794       0.3934       0.4068       0.4314
+          Ωy       0.3549       0.3818       0.3951       0.4082       0.4329
+          Ωx       0.8788       0.9050       0.9198       0.9331       0.9613
+   P_nominal     208.1019     223.5652     234.7859     248.1382     270.9292
+           Ω       1.1295       1.1526       1.1647       1.1778       1.2033
+     b_P_mul       0.8933       0.9758       1.0321       1.0827       1.1650
+        b_τy       0.9537       0.9755       0.9879       1.0023       1.0291
+        b_τx       0.1082       0.1341       0.1479       0.1624       0.1922
+         b_e       0.0000       0.0000       0.0000       0.0000       0.0000
+         b_ω       0.0000       0.0000       0.0000       0.0000       0.0000
+         b_i       0.3499       0.3794       0.3934       0.4068       0.4314
+         b_Ω       1.1295       1.1526       1.1647       1.1778       1.2033
+         b_P     477.5599     482.0991     484.5617     486.5449     490.9617
+         b_a      70.1344      70.3088      70.3971      70.4899      70.6604
+         b_τ       0.0175       0.0215       0.0236       0.0259       0.0302
+      ⋮            ⋮            ⋮            ⋮            ⋮            ⋮
+</span><span class="sgr36">                                                                12 rows omitted
+</span></span></code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="7f4f8ae6.svg" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="b7093d11.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
+    results[:b_P][:] ./ results[:c_P][:],
+    axis=(;
+        xlabel=&quot;period ratio&quot;,
+        ylabel=&quot;counts&quot;,
+    )
+)</code></pre><img src="54c4b0cc.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-astrom/">« Fit RV and Relative Astrometry</a><a class="docs-footer-nextpage" href="../loading-saving/">Loading and Saving Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Saturday 13 January 2024 02:04">Saturday 13 January 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
