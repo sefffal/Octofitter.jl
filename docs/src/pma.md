@@ -17,7 +17,7 @@ The units used on this variable are Jupiter masses, in contrast to `M`, the prim
 
 Initial setup:
 ```@example 1
-using Octofitter, Distributions, Plots
+using Octofitter, Distributions, Plots, Random
 ```
 
 
@@ -75,6 +75,7 @@ Sample from our model as usual:
 
 ```@example 1
 model = Octofitter.LogDensityModel(HD91312)
+Random.seed!(1)
 chain = octofit(model)
 ```
 
@@ -143,7 +144,7 @@ This models assumes a circular, face-on orbit.
 
 ```@example 1
 model = Octofitter.LogDensityModel(HD91312; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
-
+Random.seed!(1)
 chain = octofit(model)
 ```
 
