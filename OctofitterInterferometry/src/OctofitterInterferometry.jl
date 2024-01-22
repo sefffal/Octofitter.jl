@@ -4,13 +4,52 @@ using Octofitter
 using PlanetOrbits
 using Tables, TypedTables
 
-const vis_cols = (:epoch, :u, :v, :cps_data, :dcps, :vis2_data, :dvis2, :index_cps1, :index_cps2, :index_cps3,:bands,:use_vis2)
+using FITSIO, OIFITS
+
+const required_cols = (:epoch, :u, :v, :cps_data, :dcps, :vis2_data, :dvis2, :index_cps1, :index_cps2, :index_cps3,:band,:use_vis2)
 struct InterferometryLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
     table::TTable
     function InterferometryLikelihood(observations...)
-        table = Table(observations...)
-        if !issubset(vis_cols, Tables.columnnames(table))
-            error("Ecpected columns $vis_cols")
+        input_table = Table(observations...) 
+        rows = map(eachrow(input_table)) do row
+            row = only(row)
+            f = FITS(row.filename, "r")     # open FITS file for reading
+            wavs = read(OIDataBlock, f[2]) # idem
+            vis2s = read(OIDataBlock, f[5]) # idem
+            cps = read(OIDataBlock, f[6]) # idem
+            #read data
+            wav = wavs.eff_wave
+            vis2 = vis2s.vis2data
+            vis2_err = vis2s.vis2err
+            ut = vis2s.ucoord
+            vt = vis2s.vcoord
+            vis2_index = vis2s.sta_index
+            cp = cps.t3phi
+            cp_err = cps.t3phierr
+            cp_index = cps.sta_index
+            #convert u,v to units of wavelength
+            u = ut/wav
+            v = vt/wav
+            cp_inds1,cp_inds2,cp_inds3 = cp_indices(vis2_index=vis2_index,cp_index=cp_index)
+            return (;
+                row.epoch,
+                row.band,
+                row.use_vis2,
+                u=u[:,1],
+                v=v[:,1],
+                cps_data=cp[1,:],
+                dcps=cp_err[1,:], 
+                vis2_data=vis2[1,:],
+                dvis2=vis2_err[1,:],
+                index_cps1=cp_inds1,
+                index_cps2=cp_inds2,
+                index_cps3=cp_inds3,
+            )
+        end
+        table = Table(rows)
+        
+        if !issubset(required_cols, Tables.columnnames(table))
+            error("Expected columns $vis_cols")
         end
         return new{typeof(table)}(table)
     end
@@ -22,12 +61,13 @@ export InterferometryLikelihood
 Visibliitiy modelling likelihood for point sources.
 """
 function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, num_epochs::Val{L}=Val(length(vis.table))) where L
+
     T = typeof(θ_system.M)
     ll = zero(T)
 
     # Access the data here: 
     epochs = vis.table.epoch
-    bands = vis.table.bands
+    band = vis.table.band
     u = vis.table.u
     v = vis.table.v
     cps_data = vis.table.cps_data
@@ -43,7 +83,7 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
     for j in eachindex(epochs)
         
         epoch = epochs[j]
-        band = bands[j]
+        this_band = band[j]
         
         cvis = 0.
         norm_factor = 0. #to normalize complex visibilities 
@@ -52,7 +92,7 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
             θ_planet = θ_system.planets[i]
             
             # Get model contrast parameter in this band (band provided as a symbol, e.g. :L along with data in table row.)
-            contrast = getproperty(θ_planet, band) #secondary/primary
+            contrast = getproperty(θ_planet, this_band) #secondary/primary
             #contrast = contrast[i] 
             
             # orbit object pre-created from above parameters (shared between all likelihood functions)
@@ -71,7 +111,7 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
         #compute closure phase
         cps = closurephase(vis=cvis,index_cps1=i_cps1[j],index_cps2=i_cps2[j],index_cps3=i_cps3[j])
         lnlike_v2 = 0.
-        if (use_vis2==1)
+        if use_vis2[j]
             #compute squared visibilities
             vis2 = abs.(cvis).^2
             const_v2 = -sum(log.(2*pi*(dvis2[j].^2)))/2
@@ -79,7 +119,7 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
             lnlike_v2 = lnlike_v2 .+ -0.5*sum((vis2_data[j].- vis2).^2 ./dvis2[j].^2) .+ const_v2
         end
         
-        #calculaye cp ln likelihood
+        #calculate cp ln likelihood
         const_cp = -sum(log.(2*pi*(dcps[j].^2)))/2
         lnlike_cp = -0.5*sum((cps_data[j] .- (cps)).^2 ./dcps[j].^2) .+ const_cp
 
@@ -159,7 +199,7 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, orbits:
 
     # # Get epochs, uncertainties, and planet masses from observations and parameters
     epochs = like.table.epoch
-    bands = like.table.bands
+    band = like.table.band
     u = like.table.u
     v = like.table.v
     cps_data = like.table.cps_data
@@ -173,7 +213,7 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, orbits:
     cp_all = Any[];
     vis2_all = Any[];
     for j in eachindex(epochs)
-        band = bands[j]
+        band = band[j]
         epoch = epochs[j]
         cvis = 0.
         norm_factor = 0. #to normalize complex visibilities 
@@ -203,7 +243,7 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, orbits:
     end
     new_vis_like_table = Table(epoch=epochs, u=u, v=v, cps_data=cp_all, dcps=dcps,
         vis2_data=vis2_all, dvis2=dvis2, index_cps1=i_cps1,
-        index_cps2=i_cps2,index_cps3=i_cps3,bands=bands,use_vis2=use_vis2)
+        index_cps2=i_cps2,index_cps3=i_cps3,band=band,use_vis2=use_vis2)
     
     
     # return with same number of rows: band, epoch

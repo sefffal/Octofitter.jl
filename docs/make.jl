@@ -24,13 +24,12 @@ makedocs(
             "Fit RV and Proper Motion Anomaly" => "rv.md",
             "Fit RV and Relative Astrometry" => "fit-rv-astrom.md",
             "Fit Resonant Co-Planar Model" => "fit-coplanar.md",
+            "Fit Interferometer Data" => "fit-interfere.md"
             "Loading and Saving Data" => "loading-saving.md",
             "Connecting Mass with Photometry" => "mass-photometry.md",
             "Custom Likelihoods" => "custom-likelihood.md",
             "Python Guide" => "python.md",
             "Simulation Based Calibration" => "sbc.md",
-            # "Multiple Planets" => "multi-planets.md",
-            # "" => "multi-planets.md",
         ],
         "Documentation" => [
             "Priors" => "priors.md",
