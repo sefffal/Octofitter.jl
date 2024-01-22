@@ -17,7 +17,7 @@ The units used on this variable are Jupiter masses, in contrast to `M`, the prim
 
 Initial setup:
 ```@example 1
-using Octofitter, Distributions, Plots
+using Octofitter, Distributions, Plots, Random
 ```
 
 
@@ -75,6 +75,7 @@ Sample from our model as usual:
 
 ```@example 1
 model = Octofitter.LogDensityModel(HD91312)
+Random.seed!(1)
 chain = octofit(model)
 ```
 
@@ -91,11 +92,9 @@ The `mean` and `std` columns give the mean and standard deviation of each parame
 The second table summarizes the 2.5, 25, 50, 75, and 97.5 percentiles of each parameter in the model.
 
 Another useful plotting function is `octoplot` which takes similar arguments and produces a 9 panel plot:
-```julia
+```@example 1
 octoplot(model, chain)
 ```
-[![orbit posterior grid](assets/pma-astrometry-posterior-grid.png)](assets/pma-astrometry-posterior-grid.svg)
-
 
 
 ### Pair Plot
@@ -105,7 +104,7 @@ For a quick look, you can just run `octocorner(model, chain)`, but for more cont
 
 
 ```@example 1
-##Create a corner plot / pair plot.
+# Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
 using CairoMakie: Makie
 using PairPlots
@@ -145,7 +144,7 @@ This models assumes a circular, face-on orbit.
 
 ```@example 1
 model = Octofitter.LogDensityModel(HD91312; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
-
+Random.seed!(1)
 chain = octofit(model)
 ```
 
