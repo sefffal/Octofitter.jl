@@ -37,14 +37,15 @@ vis_like = InterferometryLikelihood(
 
 ```@example 1
 @planet b Visual{KepOrbit} begin
-    a ~ Uniform(0, 100)
-    e ~ Uniform(0.0, 0.5)
+    a ~ truncated(Normal(2,0.1), lower=0)
+    e ~ truncated(Normal(0, 0.05),lower=0, upper=1.0)
     i ~ Sine()
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
 
     # Our prior on the planet's photometry
-    F480M ~ Normal(0., 10)
+    # 0 +- 10% of stars brightness (assuming this is unit of data files)
+    F480M ~ truncated(Normal(0, 0.1),lower=0)
 
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
@@ -52,22 +53,39 @@ vis_like = InterferometryLikelihood(
 end
 
 @system Tutoria begin
-    M ~ truncated(Normal(1.0, 1), lower=0)
-    plx ~ truncated(Normal(100., 50), lower=0)
+    M ~ truncated(Normal(1.5, 0.01), lower=0)
+    plx ~ truncated(Normal(100., 0.1), lower=0)
 end vis_like b
 ```
 
 Create the model object and run `octofit`:
 ```@example 1
 model = Octofitter.LogDensityModel(Tutoria)
-results = octofit(model)
+
+using Random
+rng = Xoshiro(0)
+results = octofit(rng, model)
+```
+
+
+Examine the recovered photometry posterior:
+```@example 1
+hist(results[:b_F480M][:], axis=(;xlabel="F480M"))
+```
+
+Determine the significance of the detection:
+```@example 1
+using Statistics
+phot = results[:b_F480M][:]
+snr = mean(phot)/std(phot)
 ```
 
 Plot the resulting orbit:
 ```@example 1
 using Plots: Plots
-plotchains(results,:b, kind=:astrometry)
+plotchains(results,:b, kind=:astrometry, color=:b_F480M)
 ```
+
 
 
 Plot position at each epoch:
@@ -88,7 +106,7 @@ for epoch in vis_like.table.epoch
         raoff.(els, epoch)[:],
         decoff.(els, epoch)[:],
         label=string(mjd2date(epoch)),
-        markersize=3,
+        markersize=1.5,
     )
 end
 Legend(fig[1,2], ax, "date")
@@ -96,18 +114,29 @@ fig
 ```
 
 
-Examine the recovered photometry posterior:
+We can use PairPlots.jl to create a contour plot of positions at all three epochs:
 ```@example 1
-hist(results[:b_F480M][:], axis=(;xlabel="F480M"))
+els = Octofitter.construct_elements(results,:b,:);
+fig = pairplot(
+    [
+        (;
+                ra=raoff.(els, epoch)[:],
+                dec=decoff.(els, epoch)[:],
+        )=>(PairPlots.Contourf(),)
+        for epoch in vis_like.table.epoch
+    ]...,
+    bodyaxis=(;width=400,height=400),
+    axis=(;
+        ra=(;reversed=true, lims=(;low=250,high=-250,)),
+        dec=(;lims=(;low=-250,high=250,)),
+    ),
+    labels=Dict(:ra=>"ra offset [mas]", :dec=>"dec offset [mas]"),
+)
+scatter!(fig.content[1], [0],[0],marker='⭐', markersize=30, color=:black)
+fig
 ```
 
-And create a corner plot examining contrast vs. separation at the epoch of the first observation:
+Finally we can examine the joint photometry and orbit posterior as a corner plot:
 ```@example 1
-pairplot(
-    (;
-        sep=projectedseparation.(els, vis_like.table.epoch[1]),
-        F480M=results["b_F480M"][:]
-    ),
-    labels=Dict(:sep=>"sep [mas]")
-)
+octocorner(model, results)
 ```
