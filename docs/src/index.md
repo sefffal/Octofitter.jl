@@ -10,6 +10,9 @@ Octofitter is a Julia package for performing Bayesian inference
 against a wide variety of exoplanet / binary star data.
 You can also use Octofitter from Python using the [Python guide](@ref python).
 
+
+![](assets/gallery.png)
+
 !!! note
     Octofitter is under active development and is only tested with the latest stable julia release (currently 1.10)
 
