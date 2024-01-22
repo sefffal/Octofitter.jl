@@ -5,7 +5,6 @@ using PlanetOrbits
 using Tables, TypedTables
 using Distributions
 using DataDeps
-using LoopVectorization
 using StrideArrays
 using RecipesBase
 using AbstractGPs
