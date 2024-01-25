@@ -100,7 +100,7 @@ function Octofitter.octocorner(
                 # Do any data conversions
                 dat = vec(chain_notinternal[pk])
                 if k == "i" || k == "Ω" || k == "ω"
-                    dat = rem2pi.(rad2deg.(dat), RoundDown)
+                    dat = rad2deg.(rem2pi.(dat, RoundDown))
                 end
                 push!(table_cols, pks => dat)
             end
