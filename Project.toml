@@ -49,13 +49,15 @@ UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 [weakdeps]
 PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Pigeons = "0eb8d820-af6a-4919-95ae-11206f830c31"
 
 [extensions]
 OctofitterPairPlotsExt = "PairPlots"
 PlotsExt = "Plots"
+OctofitterPigeonsExt = "Pigeons"
 
 [compat]
-AbstractMCMC = "5"
+AbstractMCMC = "4,5"
 AdvancedHMC = "0.6"
 BasicInterpolators = "0.7"
 Bijectors = "0.13"
