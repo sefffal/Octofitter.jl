@@ -10,9 +10,11 @@ unitlengthprior_vars(::Octofitter.UnitLengthPrior{VX,VY}) where {VX, VY} = (VX, 
 function Octofitter.octocorner(
     system::System,
     chains::Octofitter.MCMCChains.Chains...; 
-    small=false
+    small=false,
+    labels=Dict{Symbol,Any}(),
+    kwargs...
 )
-    labels = Dict{Symbol,Any}(
+    labels_gen = Dict{Symbol,Any}(
         :M => "total mass [M⊙]",
         :plx => "parallax [mas]",
     )
@@ -54,9 +56,9 @@ function Octofitter.octocorner(
                 # Also remove tp if tau is used
                 ii_splice = findall(map(planet_var_keys_chopped) do k
                     k = Symbol(k)
-                    if k == :tp && "τ" ∈ planet_var_keys_chopped
-                        return true
-                    end
+                    # if k == :tp && "τ" ∈ planet_var_keys_chopped
+                    #     return true
+                    # end
                     for obs in planet.observations
                         if obs isa Octofitter.UnitLengthPrior
                             varx, vary = unitlengthprior_vars(obs)
@@ -79,22 +81,22 @@ function Octofitter.octocorner(
             splice!(planet_var_keys, ii_splice)
             splice!(planet_var_keys_chopped, ii_splice)
 
-            labels[Symbol(pk_*"a")] = "$planetkey:\nsemi-major axis [au]"
-            labels[Symbol(pk_*"i")] = "$planetkey:\ninclination [°]"
-            labels[Symbol(pk_*"Ω")] = "$planetkey:\nlogintude of\nascending node [°]"
-            labels[Symbol(pk_*"ω")] = "$planetkey:\nargument of\nperiapsis [°]"
-            labels[Symbol(pk_*"e")] = "$planetkey:\neccentricity"
-            labels[Symbol(pk_*"mass")] = "$planetkey:\nmass [Mⱼᵤₚ]"
-            labels[Symbol(pk_*"tp")] = "$planetkey:\nperiastron [mjd]"
-            labels[Symbol(pk_*"P")] = "$planetkey:\nperiod [yrs]"
-            labels[Symbol(pk_*"τ")] = "$planetkey:\norbit fraction τ"
+            labels_gen[Symbol(pk_*"a")] = "$planetkey:\nsemi-major axis [au]"
+            labels_gen[Symbol(pk_*"i")] = "$planetkey:\ninclination [°]"
+            labels_gen[Symbol(pk_*"Ω")] = "$planetkey:\nlogintude of\nascending node [°]"
+            labels_gen[Symbol(pk_*"ω")] = "$planetkey:\nargument of\nperiapsis [°]"
+            labels_gen[Symbol(pk_*"e")] = "$planetkey:\neccentricity"
+            labels_gen[Symbol(pk_*"mass")] = "$planetkey:\nmass [Mⱼᵤₚ]"
+            labels_gen[Symbol(pk_*"tp")] = "$planetkey:\nperiastron [mjd]"
+            labels_gen[Symbol(pk_*"P")] = "$planetkey:\nperiod [yrs]"
+            labels_gen[Symbol(pk_*"τ")] = "$planetkey:\norbit fraction τ"
 
             for (k, pk) in zip(planet_var_keys_chopped, planet_var_keys)
                 pks = Symbol(pk)
 
                 # Add generic label if missing
-                if pks ∉ keys(labels)
-                    labels[pks] = "$planetkey:\n$k"
+                if pks ∉ keys(labels_gen)
+                    labels_gen[pks] = "$planetkey:\n$k"
                 end
 
                 # Do any data conversions
@@ -109,7 +111,9 @@ function Octofitter.octocorner(
         tbl = FlexTable(namedtuple(table_cols))
     end
 
-    pairplot(prepared...;labels)
+    # Merge our generated labels with user labels
+    labels = merge(labels_gen, labels)
+    pairplot(prepared...;labels, kwargs...)
 end
 
 
