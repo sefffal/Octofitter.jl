@@ -1139,7 +1139,6 @@ Base.@nospecializeinfer function advancedhmc(
     )
     return mcmcchains_with_info
 end
-include("tempered.jl")
 
 # Helper function for displaying nested named tuples in a compact format.
 function stringify_nested_named_tuple(val::Any) # fallback
