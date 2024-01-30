@@ -122,7 +122,7 @@ end
 
 function octocorner end
 function octocorner(model::System, ::Any)
-    error("You must load the Makie package (eg `using CairoPlots`) and PairPlots package (eg `using PairPlots`) before calling this function. Then, pass your model and chain result as arguments.")
+    error("You must load the Makie package (eg `using CairoMakie`) and PairPlots package (eg `using PairPlots`) before calling this function. Then, pass your model and chain result as arguments.")
 end
 function Octofitter.octocorner(model::Octofitter.LogDensityModel, args...; kwargs...)
     return Octofitter.octocorner(model.system, args...; kwargs...)
