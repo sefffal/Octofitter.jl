@@ -4,7 +4,7 @@ This example shows how you can fit a two planet model to relative astrometry dat
 
 We will restrict the two planets to being exactly co-planar, and have a near 2:1 period resonance, and zero-eccentricity.
 
-For this example, we will use astrometry from the HR8799 system collated by Jason Wong and retrieved from the website [Whereistheplanet.com](http://whereistheplanet.com).
+For this example, we will use astrometry from the HR8799 system collated by Jason Wang and retrieved from the website [Whereistheplanet.com](http://whereistheplanet.com).
 
 
 ```@example 1
