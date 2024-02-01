@@ -60,6 +60,8 @@ include("predictive-distributions.jl")
 
 function octofit_pigeons end
 
+export octofit_pigeons
+
 function __init__()
 
     # List DataDeps here.

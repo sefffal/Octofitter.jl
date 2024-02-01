@@ -15,30 +15,28 @@ end
 
 
 """
-```octofit_pigeons(
-    target=model_target,
-    reference=model_reference;
-    pigeons_kw...
-)`
+octofit_pigeons(model; nrounds, n_chains=[auto])
 
 Use Pigeons.jl to sample from intractable posterior distributions.
-Requires two model: a target and reference. 
-The reference model is typically the prior only model. You can construct this 
-by removing all data from the system, or by passing inverse_temp=0.0 when constructing
-the log density model.
 
 ```julia
-model_target = Octofitter.LogDensityModel(System, autodiff=:Enzyme, verbosity=4)
-model_reference = Octofitter.LogDensityModel(System, inverse_temp=0.0, autodiff=:Enzyme, verbosity=4)
-chain, pt = octofit_pigeons(target=model_target, reference=model_reference)
+model = Octofitter.LogDensityModel(System, autodiff=:Enzyme, verbosity=4)
+chain, pt = octofit_pigeons(model)
 ```
 """
-function Octofitter.octofit_pigeons(;
-    target,
-    reference,
-    n_chains=cld(16,Threads.nthreads())*Threads.nthreads(),
+function Octofitter.octofit_pigeons(
+    model;
+    n_rounds,
+    n_chains=cld(8,Threads.nthreads())*Threads.nthreads(),
     pigeons_kw...
 )
+
+    target = model
+    reference_sys = prior_only_model(model.system)
+    # Note we could run into issues if their priors aren't well handled by the default
+    # autodiff backend
+    reference = Octofitter.LogDensityModel(reference_sys)
+ 
     start_time = time()
     pt = pigeons(;
             target,
@@ -47,7 +45,7 @@ function Octofitter.octofit_pigeons(;
             record = [traces; round_trip; record_default()],
             multithreaded=true,
             show_report=true,
-            n_rounds=12,
+            n_rounds,
             n_chains,
             pigeons_kw...
     )
@@ -57,7 +55,9 @@ function Octofitter.octofit_pigeons(;
 
     # Resolve the array back into the nested named tuple structure used internally.
     # Augment with some internal fields
-    chain_res = map(get_sample(pt)) do θ_t
+    chain_res = map(get_sample(pt)) do sample 
+        θ_t = @view(sample[begin:begin+model.D-1])
+        logpost2 = sample[model.D+1]
         # Map the variables back to the constrained domain and reconstruct the parameter
         # named tuple structure.
         θ = target.invlink(θ_t)
@@ -70,6 +70,7 @@ function Octofitter.octofit_pigeons(;
         return merge((;
             loglike,
             logpost,
+            logpost2
         ), resolved_namedtuple)
     end
     # Then finally flatten and convert into an MCMCChain object / table.
@@ -79,6 +80,7 @@ function Octofitter.octofit_pigeons(;
         Dict(:internals => [
             :loglike
             :logpost
+            :logpost2
         ])
     )
     # Concatenate the log posteriors and make them the same shape as the chains (N_iters,N_vars,N_chains)
@@ -92,6 +94,57 @@ function Octofitter.octofit_pigeons(;
     )
     return (;chain=mcmcchains_with_info, pt)
 end
+
+
+## Precompile workload
+using Distributions, Logging, ForwardDiff
+
+# There is some runtime code generation, so the easiest way
+# to make sure everything we need is precompiled is just to
+# run a super (super) quick fit during precompilation.
+using PrecompileTools
+
+# define methods, types, etc
+
+@setup_workload  begin
+    # Silence logging during precompile (but don't precompile these logging calls)
+    io = IOBuffer();
+    # io = stdout
+    logger = SimpleLogger(io)
+    with_logger(logger) do
+        @compile_workload begin
+        
+            astrom = PlanetRelAstromLikelihood(
+                (epoch=1234.0, ra=123., dec=123., σ_ra=12., σ_dec=34.),
+            )
+            @planet test Visual{KepOrbit} begin
+                a ~ Uniform(1, 50)
+                e ~ Beta(1.2, 5)
+                tp ~ Normal(100,10)
+                ω ~ UniformCircular()
+                i ~ Sine()
+                Ω ~ UniformCircular()
+                mass ~ Uniform(0, 1)
+                computed1 = test.a
+            end astrom
+
+            @system Test begin
+                M ~ truncated(Normal(1.0, 0.2), lower=0.1, upper=Inf)
+                plx ~ truncated(Normal(12.0, 0.2), lower=0.1, upper=Inf)
+            end test
+
+            # We can't yet use Enzyme during precompile...
+            # Precopmile with ForwardDiff at least
+            model = Octofitter.LogDensityModel(Test,autodiff=:ForwardDiff)
+
+            chain, pt = octofit_pigeons(
+                model, n_rounds=2,
+            )
+            nothing
+        end
+    end
+end
+
 
 
 end

@@ -1,19 +1,19 @@
 # [Fit Proper Motion Anomaly](@id fit-pma)
 
-One of the features of Octofitter.jl is support for absolute astrometry aka. proper motion anomaly aka. astrometric acceleration.
-These data points are typically calculated by finding the difference between a long term proper motion of a star between the Hipparcos and GAIA catalogs, and their proper motion calculated within the windows of each catalog.
+Octofitter.jl supports fitting orbit models to astrometric motion, in the form of GAIA-Hipparcos proper motion anomaly (HGCA; [https://arxiv.org/abs/2105.11662](https://arxiv.org/abs/2105.11662)) .
+These data points are calculated by finding the difference between a long term proper motion of a star between the Hipparcos and GAIA catalogs, and their proper motion calculated within the windows of each catalog.
 
 For Hipparcos/GAIA this gives four data points that can constrain the dynamical mass & orbits of planetary companions (assuming we subtract out the net trend).
 
-You can specify these quantities manually, but the easiest way is to use the Hipparcos-GAIA Catalog of Accelerations (HGCA, [https://arxiv.org/abs/2105.11662](https://arxiv.org/abs/2105.11662)). Support for loading this catalog is built into Octofitter.jl.
+For this tutorial, we will examine the star and companion [HD 91312 A & B](https://arxiv.org/abs/2109.12124), discovered by SCExAO. We will use their published astrometry and proper motion anomaly extracted from the HGCA.
 
-Let's look at the star and companion [HD 91312 A & B](https://arxiv.org/abs/2109.12124), discovered by SCExAO. We will use their published astrometry and proper motion anomaly extracted from the HGCA.
-
-The first step is to find the GAIA source ID for your object. For HD 91312, SIMBAD tells us the GAIA DR2 ID is `756291174721509376` (which we will assume is the same in eDR3).
+The first step is to find the GAIA source ID for your object. For HD 91312, SIMBAD tells us the GAIA DR3 ID is `756291174721509376`.
 
 ## Planet Model
 For this model, we will have to add the variable `mass` as a prior.
 The units used on this variable are Jupiter masses, in contrast to `M`, the primary's mass, in solar masses.  A reasonable uninformative prior for `mass` is `Uniform(0,1000)` or `LogUniform(1,1000)` depending on the situation.
+
+For this model, we will change our parameterization to be on the host mass and secondary mass, rather than total mass and secondary mass.
 
 Initial setup:
 ```@example 1
@@ -31,15 +31,13 @@ astrom = PlanetRelAstromLikelihood(
     (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08., cor=0.2),
 )
 @planet B Visual{KepOrbit} begin
-    a ~ truncated(LogNormal(9,3),lower=0)
-    e ~ truncated(Normal(0, 0.5), lower=0, upper=1) #Uniform(0,0.9999)
+    a ~ LogUniform(0.1,20)
+    e ~ Uniform(0,0.999)
     ω ~ UniformCircular()
     i ~ Sine() # The Sine() distribution is defined by Octofitter
     Ω ~ UniformCircular()
-    # mass ~ LogNormal(300, 18)
-    # Anoter option would be:
-    mass ~ Uniform(0.5, 1000)
 
+    mass = system.M_sec
 
     τ ~ UniformCircular(1.0)
     P = √(B.a^3/system.M)
@@ -53,13 +51,19 @@ Now that we have our planet model, we create a system model to contain it.
 
 ```@example 1
 @system HD91312 begin
-    M ~ truncated(Normal(1.61, 0.1), lower=0)
+    
+    M_pri ~ truncated(Normal(1.61, 0.1), lower=0)
+    M_sec ~ LogUniform(0.5, 1000) # MJup
+    M = system.M_pri + system.M_sec*Octofitter.mjup2msol
+
     plx ~ gaia_plx(gaia_id=756291174721509376)
             
     # Priors on the centre of mass proper motion
     pmra ~ Normal(-137, 10)
     pmdec ~ Normal(2,  10)
 end HGCALikelihood(gaia_id=756291174721509376) B
+
+model = Octofitter.LogDensityModel(HD91312)
 ```
 
 We specify priors on `M` and `plx` as usual, but here we use the `gaia_plx` helper function to read the parallax and uncertainty directly from the HGCA using its source ID.
@@ -71,12 +75,21 @@ After the priors, we add the proper motion anomaly measurements from the HGCA. I
 
 
 ## Sampling from the posterior
-Sample from our model as usual:
 
+Because proper motion anomaly data is quite sparse, it can often produce multi-modal posteriors. If your orbit already has several relative astrometry or RV data points, this is less of an issue. But if you are sampling from proper motion data with only a few relative astrometry points, it is recommended to use the `Pigeons.jl` sampler instead of Octofitter's default. This sampler is less efficient for unimodal distributions, but is more robust at exploring posteriors with distinct peaks. 
+
+To install and use `Pigeons.jl` with Octofitter, type `using Pigeons` at in the terminal and accept the prompt to install the package.
+
+We now sample from our model using Pigeons:
 ```@example 1
-model = Octofitter.LogDensityModel(HD91312)
-Random.seed!(1)
-chain = octofit(model)
+
+using Pigeons
+Random.seed!(2)
+# Fit with Pigeons.
+# Increase `n_runs` to get more samples. Samples and runtime double
+# with each increase to `n_runs`.
+chain, ptresults = octofit_pigeons(model)
+display(chain)
 ```
 
 This takes about a minute on the first run due to JIT startup latency; subsequent runs are very quick even on e.g. an older laptop.
@@ -93,7 +106,7 @@ The second table summarizes the 2.5, 25, 50, 75, and 97.5 percentiles of each pa
 
 Another useful plotting function is `octoplot` which takes similar arguments and produces a 9 panel plot:
 ```@example 1
-octoplot(model, chain)
+octoplot(model, chain, small=true)
 ```
 
 
@@ -111,6 +124,7 @@ using PairPlots
 octocorner(model, chain, small=true)
 ```
 
+Notice how there are three or more completely separated peaks? The default Octofitter sample (Hamiltonian Monte Carlo) is capabale of jumping 2-3σ gaps between modes, but such widely separated peaks can cause issues (hence why we used Pigeons in this example)
 
 ## Fitting Astrometric Acceleration Only
 If you wish to look at the possible locations/masses of a planet around a star using onnly GAIA/HIPPARCOS,
@@ -120,43 +134,62 @@ As a start, you can restrict the orbital parameters to just semi-major axis, epo
 
 ```@example 1
 @planet B Visual{KepOrbit} begin
-    a ~ LogUniform(0.1, 100)
-    mass ~ LogUniform(1, 2000)
-    i = 0
-    e = 0
-    Ω = 0
-    ω = 0
-      τ ~ UniformCircular(1.0)
+    a ~ LogUniform(0.1,200)
+    e ~ Uniform(0,0.999)
+    ω ~ UniformCircular()
+    i ~ Sine() # The Sine() distribution is defined by Octofitter
+    Ω ~ UniformCircular()
+
+    mass = system.M_sec
+
+    τ ~ UniformCircular(1.0)
     P = √(B.a^3/system.M)
     tp =  B.τ*B.P*365.25 + 57737 # reference epoch for τ. Choose an MJD date near your data.
-end
+end  # note we did not include the relative astrometry this time
 @system HD91312 begin
-    M ~ truncated(Normal(1.61, 0.2), lower=0)
-    plx ~ gaia_plx(gaia_id=756291174721509376)
     
+    M_pri ~ truncated(Normal(1.61, 0.1), lower=0)
+    M_sec ~ LogUniform(0.5, 1000) # MJup
+    M = system.M_pri + system.M_sec*Octofitter.mjup2msol
+
+    plx ~ gaia_plx(gaia_id=756291174721509376)
+            
     # Priors on the centre of mass proper motion
-    pmra ~ Normal(0, 500)
-    pmdec ~ Normal(0,  500)
+    pmra ~ Normal(-137, 10)
+    pmdec ~ Normal(2,  10)
 end HGCALikelihood(gaia_id=756291174721509376) B
+
+model = Octofitter.LogDensityModel(HD91312)
 ```
 
 This models assumes a circular, face-on orbit.
 
 ```@example 1
-model = Octofitter.LogDensityModel(HD91312; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+using Pigeons
+model = Octofitter.LogDensityModel(HD91312)
 Random.seed!(1)
-chain = octofit(model)
+chain, pt = octofit_pigeons(model, n_rounds=12) 
 ```
 
-With such simple models, the mean tree depth is often very low and sampling proceeds very quickly.
+Since the orbits are so unconstrained with this model, it's not useful to plot them in the plane of the sky.
 
-A good place to start is a histogram of planet mass vs. semi-major axis:
+We will instead just display the marginal posterior of secondary mass vs. semi-major axis. We can do this using PairPlots.jl.
 ```@example 1
-Plots.histogram2d(chain["B_a"], chain["B_mass"], color=:plasma, xguide="sma (au)", yguide="mass (Mjup)")
+using CairoMakie, PairPlots
+pairplot(
+    (; a=chain["B_a"][:], mass=chain["B_mass"][:]) =>
+        (
+            PairPlots.Scatter(color=:red),
+            PairPlots.MarginHist(),
+            PairPlots.MarginConfidenceLimits()
+        ),
+    labels=Dict(:mass=>"mass [Mⱼᵤₚ]", :a=>"sma. [au]"),
+    axis = (;
+        a = (;
+            scale=Makie.pseudolog10,
+            ticks=2 .^ (0:1:6)
+        )
+    )
+)
 ```
 
-
-You can also visualize the orbits and proper motion:
-```@example 1
-octoplot(model, chain)
-```
