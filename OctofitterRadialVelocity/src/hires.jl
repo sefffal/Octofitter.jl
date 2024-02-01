@@ -56,7 +56,7 @@ function HIRES_rvs(target, catalog=datadep"HIRES_rvs"; inst_idx::Int=1)
                 mjd = jd2mjd(jd)
                 rv = parse(Float64, line[14:24])#,
                 σ_rv=parse(Float64, line[25:31])#,
-                push!(rows, (;jd,epoch=mjd,rv,σ_rv,inst_idx))
+                push!(rows, (;epoch=mjd,rv,σ_rv,inst_idx))
             end
             return rows
     end)))
