@@ -82,13 +82,10 @@ To install and use `Pigeons.jl` with Octofitter, type `using Pigeons` at in the 
 
 We now sample from our model using Pigeons:
 ```@example 1
-
 using Pigeons
-Random.seed!(2)
-# Fit with Pigeons.
-# Increase `n_runs` to get more samples. Samples and runtime double
-# with each increase to `n_runs`.
-chain, ptresults = octofit_pigeons(model)
+model = Octofitter.LogDensityModel(HD91312)
+Random.seed!(1)
+chain, pt = octofit_pigeons(model, n_rounds=12) 
 display(chain)
 ```
 
