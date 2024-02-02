@@ -25,6 +25,7 @@ makedocs(
             "Fit RV and Relative Astrometry" => "fit-rv-astrom.md",
             "Fit Resonant Co-Planar Model" => "fit-coplanar.md",
             "Fit Interferometer Data" => "fit-interfere.md",
+            "Fit Likelihood Map" => "fit-likemap.md",
             "Fit Thiele-Innes Paramerers" => "thiele-innes.md"
         ],
         "Statistical Methods" => [
