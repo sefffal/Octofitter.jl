@@ -4,10 +4,10 @@ using CairoMakie
 using PairPlots
 using Distributions
 using Plots:Plots
-using PlanetOrbits</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-004d68a0ffc6 is missing from the cache.
+using PlanetOrbits</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-0039b8d738b9 is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1942
-┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-004d68a0ffc6 is missing from the cache.
+┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-0039b8d738b9 is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1942</code></pre><pre><code class="language-julia hljs">astrom_b = PlanetRelAstromLikelihood(
     (epoch=53200.0, object=1, ra=1471.0, σ_ra=6.0, dec=887.0, σ_dec=6.0, cor=0, ),
@@ -46,7 +46,7 @@ astrom_c = PlanetRelAstromLikelihood(
 )
 
 Plots.plot(astrom_b, xlims=:symmetric, ylims=:symmetric, color=1)
-Plots.plot!(astrom_c, xlims=:symmetric, ylims=:symmetric, color=2)</code></pre><img src="ebebd22f.svg" alt="Example block output"/><p>We now specify our two planet model for planets b &amp; c.</p><pre><code class="language-julia hljs">@planet b Visual{KepOrbit} begin
+Plots.plot!(astrom_c, xlims=:symmetric, ylims=:symmetric, color=2)</code></pre><img src="021f325a.svg" alt="Example block output"/><p>We now specify our two planet model for planets b &amp; c.</p><pre><code class="language-julia hljs">@planet b Visual{KepOrbit} begin
     e = 0.0
     ω = 0.0
 
@@ -96,69 +96,69 @@ end b c
 
 model = Octofitter.LogDensityModel(HR8799_res_co)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HR8799_res_co of dimension 12 with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>We will run a &quot;quick fit&quot; to check that the model is properly specified. This is only an approximate posterior generated using  a variation inference-style method.</p><pre><code class="language-julia hljs">results_quick = octoquick(model)
-octoplot(model, results_quick)</code></pre><img src="7e155179.svg" alt="Example block output"/><p>Looks okay! Let&#39;s now properly sample from the model:</p><pre><code class="language-julia hljs">using Random
+octoplot(model, results_quick)</code></pre><img src="51a0af25.svg" alt="Example block output"/><p>Looks okay! Let&#39;s now properly sample from the model:</p><pre><code class="language-julia hljs">using Random
 rng = Xoshiro(0) # seed the random number generator for reproducible results
 results = octofit(rng, model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×42×1 Array{Float64, 3}):
 
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 69.47 seconds
-Compute duration  = 69.47 seconds
+Wall duration     = 64.93 seconds
+Compute duration  = 64.93 seconds
 parameters        = plx, M, i, Ωy, Ωx, P_nominal, Ω, b_P_mul, b_τy, b_τx, b_e, b_ω, b_i, b_Ω, b_P, b_a, b_τ, b_tp, c_P_mul, c_τy, c_τx, c_e, c_ω, c_i, c_Ω, c_P, c_a, c_τ, c_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Summary Statistics
- <span class="sgr1"> parameters          mean        std      mcse    ess_bulk   ess_tail      rh ⋯
- <span class="sgr90">     Symbol       Float64    Float64   Float64     Float64    Float64   Float ⋯
+ <span class="sgr1"> parameters         mean        std      mcse    ess_bulk   ess_tail      rha ⋯
+ <span class="sgr90">     Symbol      Float64    Float64   Float64     Float64    Float64   Float6 ⋯
 
-         plx       24.4504     0.0449    0.0013   1187.1539   677.9194    0.99 ⋯
-           M        1.4873     0.0187    0.0006    827.7089   765.2233    0.99 ⋯
-           i        0.3925     0.0207    0.0008    680.4446   610.0000    1.00 ⋯
-          Ωy       -0.3935     0.0196    0.0008    674.7896   670.3847    1.00 ⋯
-          Ωx       -0.9171     0.0208    0.0009    520.8955   462.8443    0.99 ⋯
-   P_nominal      231.7450    15.1993    1.0913    188.1817   179.5367    1.01 ⋯
-           Ω       -1.9761     0.0200    0.0008    630.4165   546.4430    1.00 ⋯
-     b_P_mul        1.0494     0.0684    0.0048    191.4982   167.8845    1.01 ⋯
-        b_τy       -0.9892     0.0180    0.0007    704.5201   563.8438    1.00 ⋯
-        b_τx       -0.1486     0.0215    0.0009    633.5109   525.6582    1.00 ⋯
-         b_e        0.0000     0.0000       NaN         NaN        NaN       N ⋯
-         b_ω        0.0000     0.0000       NaN         NaN        NaN       N ⋯
-         b_i        0.3925     0.0207    0.0008    680.4446   610.0000    1.00 ⋯
-         b_Ω       -1.9761     0.0200    0.0008    630.4165   546.4430    1.00 ⋯
-         b_P      484.3406     3.3206    0.1143    839.3564   672.1557    0.99 ⋯
-         b_a       70.3959     0.1293    0.0038   1178.9102   741.3550    0.99 ⋯
-         b_τ       -0.4763     0.0035    0.0001    628.9368   545.3520    1.00 ⋯
-      ⋮             ⋮           ⋮          ⋮          ⋮          ⋮          ⋮  ⋱
+         plx      24.4525     0.0460    0.0014   1026.5538   616.8761    1.006 ⋯
+           M       1.4871     0.0187    0.0006    829.7534   712.0668    1.002 ⋯
+           i       0.3923     0.0202    0.0008    730.0935   654.6647    1.002 ⋯
+          Ωy       0.3943     0.0189    0.0007    635.6703   503.8309    1.005 ⋯
+          Ωx       0.9200     0.0192    0.0006    891.1197   576.4969    0.999 ⋯
+   P_nominal     232.6533    12.8081    0.8181    221.5879   241.6524    1.000 ⋯
+           Ω       1.1658     0.0190    0.0008    628.4617   556.2185    1.005 ⋯
+     b_P_mul       1.0440     0.0582    0.0036    235.6484   271.4482    0.999 ⋯
+        b_τy       0.9886     0.0193    0.0007    696.8476   621.6724    1.003 ⋯
+        b_τx       0.1490     0.0208    0.0008    640.4168   582.4934    1.006 ⋯
+         b_e       0.0000     0.0000       NaN         NaN        NaN       Na ⋯
+         b_ω       0.0000     0.0000       NaN         NaN        NaN       Na ⋯
+         b_i       0.3923     0.0202    0.0008    730.0935   654.6647    1.002 ⋯
+         b_Ω       1.1658     0.0190    0.0008    628.4617   556.2185    1.005 ⋯
+         b_P     484.3035     3.2854    0.1162    802.7096   652.3114    1.000 ⋯
+         b_a      70.3895     0.1333    0.0042    980.3108   640.6174    1.005 ⋯
+         b_τ       0.0238     0.0033    0.0001    630.3076   542.5845    1.007 ⋯
+      ⋮            ⋮           ⋮          ⋮          ⋮          ⋮          ⋮   ⋱
 </span><span class="sgr36">                                                   2 columns and 12 rows omitted
 
 Quantiles
-  parameters          2.5%         25.0%         50.0%         75.0%         9 ⋯
- </span><span class="sgr90">     Symbol       Float64       Float64       Float64       Float64       Flo ⋯
+  parameters         2.5%        25.0%        50.0%        75.0%        97.5%
+ </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-         plx       24.3613       24.4203       24.4506       24.4815       24. ⋯
-           M        1.4500        1.4744        1.4871        1.4999        1. ⋯
-           i        0.3522        0.3789        0.3929        0.4058        0. ⋯
-          Ωy       -0.4294       -0.4068       -0.3931       -0.3793       -0. ⋯
-          Ωx       -0.9560       -0.9304       -0.9171       -0.9033       -0. ⋯
-   P_nominal      205.7243      220.3708      230.5798      242.7402      262. ⋯
-           Ω       -2.0157       -1.9892       -1.9761       -1.9625       -1. ⋯
-     b_P_mul        0.9234        0.9973        1.0495        1.0995        1. ⋯
-        b_τy       -1.0250       -1.0017       -0.9893       -0.9770       -0. ⋯
-        b_τx       -0.1887       -0.1633       -0.1492       -0.1345       -0. ⋯
-         b_e        0.0000        0.0000        0.0000        0.0000        0. ⋯
-         b_ω        0.0000        0.0000        0.0000        0.0000        0. ⋯
-         b_i        0.3522        0.3789        0.3929        0.4058        0. ⋯
-         b_Ω       -2.0157       -1.9892       -1.9761       -1.9625       -1. ⋯
-         b_P      477.9460      482.1784      484.3684      486.4826      490. ⋯
-         b_a       70.1369       70.3054       70.3963       70.4799       70. ⋯
-         b_τ       -0.4831       -0.4785       -0.4762       -0.4739       -0. ⋯
-      ⋮             ⋮             ⋮             ⋮             ⋮             ⋮  ⋱
-</span><span class="sgr36">                                                    1 column and 12 rows omitted
-</span></span></code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="526d3edb.svg" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="402e63b3.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
+         plx      24.3608      24.4236      24.4536      24.4825      24.5414
+           M       1.4523       1.4745       1.4878       1.5006       1.5219
+           i       0.3520       0.3785       0.3928       0.4068       0.4296
+          Ωy       0.3570       0.3814       0.3946       0.4066       0.4311
+          Ωx       0.8806       0.9072       0.9205       0.9333       0.9556
+   P_nominal     210.0022     222.4125     232.9829     242.8752     255.4868
+           Ω       1.1266       1.1547       1.1655       1.1770       1.2051
+     b_P_mul       0.9450       0.9981       1.0389       1.0894       1.1542
+        b_τy       0.9535       0.9745       0.9882       1.0020       1.0277
+        b_τx       0.1052       0.1367       0.1489       0.1622       0.1905
+         b_e       0.0000       0.0000       0.0000       0.0000       0.0000
+         b_ω       0.0000       0.0000       0.0000       0.0000       0.0000
+         b_i       0.3520       0.3785       0.3928       0.4068       0.4296
+         b_Ω       1.1266       1.1547       1.1655       1.1770       1.2051
+         b_P     478.0448     482.2137     484.2110     486.6635     490.5197
+         b_a      70.1342      70.2991      70.3855      70.4769      70.6550
+         b_τ       0.0169       0.0219       0.0238       0.0258       0.0306
+      ⋮            ⋮            ⋮            ⋮            ⋮            ⋮
+</span><span class="sgr36">                                                                12 rows omitted
+</span></span></code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="72eef2b0.svg" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="fceb3131.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
     results[:b_P][:] ./ results[:c_P][:],
     axis=(;
         xlabel=&quot;period ratio&quot;,
         ylabel=&quot;counts&quot;,
     )
-)</code></pre><img src="c115741d.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-astrom/">« Fit RV and Relative Astrometry</a><a class="docs-footer-nextpage" href="../fit-interfere/">Fit Interferometer Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Friday 2 February 2024 19:53">Friday 2 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="065828ac.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-astrom/">« Fit RV and Relative Astrometry</a><a class="docs-footer-nextpage" href="../fit-interfere/">Fit Interferometer Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Friday 2 February 2024 22:03">Friday 2 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
