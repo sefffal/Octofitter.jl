@@ -25,10 +25,11 @@ makedocs(
             "Fit RV and Relative Astrometry" => "fit-rv-astrom.md",
             "Fit Resonant Co-Planar Model" => "fit-coplanar.md",
             "Fit Interferometer Data" => "fit-interfere.md",
+            "Fit Thiele-Innes Paramerers" => "thiele-innes.md"
         ],
         "Statistical Methods" => [
-            # "Prior Predictive Checks" => "prior-pred.md",
-            # "Posterior Predictive Checks" => "post-pred.md",
+            "Prior Predictive Checks" => "prior-pred.md",
+            "Posterior Predictive Checks" => "post-pred.md",
             "Simulation Based Calibration" => "sbc.md",
             # "Leave-One-Out Cross Validation" => "psis-loo.md",
         ],
