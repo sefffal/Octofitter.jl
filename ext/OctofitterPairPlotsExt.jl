@@ -49,7 +49,7 @@ function Octofitter.octocorner(
 
             if small
                 ii_splice = findall(map(planet_var_keys_chopped) do k
-                    k ∉ ["a", "e", "i", "mass"]
+                    k ∉ ["a", "e", "i", "mass", "A", "B", "F", "G"]
                 end)
             else
                 # Remove x and y parameters used by UniformCircular
