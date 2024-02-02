@@ -211,12 +211,6 @@ pairplot(
             PairPlots.MarginConfidenceLimits()
         ),
     labels=Dict(:mass=>"mass [Mⱼᵤₚ]", :a=>"sma. [au]"),
-    axis = (;
-        a = (;
-            scale=Makie.pseudolog10,
-            ticks=2 .^ (0:1:6)
-        )
-    )
 )
 ```
 

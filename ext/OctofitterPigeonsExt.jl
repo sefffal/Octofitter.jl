@@ -13,6 +13,15 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
     return initial_θ_t
 end
 
+# Valid for reference model only
+function Pigeons.sample_iid!(model_reference::Octofitter.LogDensityModel, replica, shared)
+    # This could in theory be done without any array allocations
+    θ = sample_priors(replica.rng, model_reference.system)
+    θ_t = model_reference.link(θ)
+    replica.state .= θ_t
+end
+
+
 
 """
 octofit_pigeons(model; nrounds, n_chains=[auto])
