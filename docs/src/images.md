@@ -24,6 +24,7 @@ using OctofitterImages
 using Distributions
 using Pigeons
 using AstroImages
+using Plots: Plots
 
 # Load individual iamges
 # image1 = load("image1.fits")
@@ -132,7 +133,7 @@ The acceptance rate should be somewhat lower than when fitting just astrometry, 
 
 You can make a trace plot:
 ```@example 1
-plot(
+Plots.plot(
     chain["b_a"],
     xlabel="iteration",
     ylabel="semi-major axis (aU)"
@@ -142,7 +143,7 @@ plot(
 And an auto-correlation plot:
 ```@example 1
 using StatsBase
-plot(
+Plots.plot(
     autocor(chain["b_e"], 1:500),
     xlabel="lag",
     ylabel="autocorrelation",
