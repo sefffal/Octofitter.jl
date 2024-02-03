@@ -43,7 +43,7 @@ images = AstroImages.load("image-examples-1.fits",:)
 ```
 
 You can preview the image using `imshow2` from AstroImages:
-```julia
+```@example 1
 # imshow2(image1, cmap=:magma) # for a single image
 hcat(imview.(images, clims=(-1.0, 4.0))...)
 ```
@@ -94,7 +94,7 @@ See [Fit PlanetRelAstromLikelihood](@ref fit-astrometry) for a description of th
 
 
 Finally, create the system and pass in the planet.
-```julia
+```@example 1
 @system HD82134 begin
     M ~ truncated(Normal(2.0, 0.1),lower=0)
     plx ~ truncated(Normal(45., 0.02),lower=0)
@@ -113,7 +113,7 @@ One way this manifests is very high tree depths. You might see a sampling report
 To encourage the sampler to take larger steps and explore the images,
 it's recommended to lower the target acceptance ratio to around 0.5±0.2 and also increase the number of adapataion steps.
 
-```julia
+```@example 1
 model = Octofitter.LogDensityModel(HD82134)
 
 chain, pt = octofit_pigeons(model, n_rounds=13)
