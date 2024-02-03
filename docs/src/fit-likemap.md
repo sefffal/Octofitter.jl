@@ -1,4 +1,17 @@
-# [Fitting Images](@id fit-images)
+# [Fitting Likelihood Maps](@id fit-likemap)
+
+There are circumstances where you might have a 2D map of planet likelihood vs. position in the plane of the sky ($\Delta$ R.A. and Dec.). These could originate from:
+* cleaned interferometer data 
+* some kind of spectroscopic cube model fitting to detect planets
+* some other imaginative modelling process I haven't thought of!
+
+You can feed such 2D likelihood maps in to Octofitter. Simply pass in a list of maps and a platescale mapping the pixel size to a separation in milliarcseconds. 
+You can of course also mix these likelihood maps with relative astrometry, radial velocity, proper motion, images, etc.
+
+The likelihood maps must cover the full field of view. So for example, if you have a likelihood map covering a narrow field of view of $\pm 20 \; \mathrm{mas}$ from a fiber fed interferometer placed at a separation of $\pm 150 \; \mathrm{mas}$, you should pad out your likelihood map so that it covers $\pm 170 \; \mathrm{mas}$ in both directions. You can simply pad the map with NaN of -Inf.
+
+!!! note
+    For simple models of interferometer data, OctofitterInterferometry.jl can already handle fitting point sources directly to visibilities.
 
 ```@example 1
 using Octofitter
@@ -8,13 +21,13 @@ using Pigeons
 using AstroImages
 ```
 
-Typically one would load the likelihood maps from eg. FITS files like so:
+Typically one would load your likelihood maps from eg. FITS files like so:
 ```julia
 images = AstroImages.recenter(load("image-example-1.fits",1))
 ```
+If you're using a FITS file, make sure to store your data in 64-bit floating point format.
 
-However for this demonstration we will construct a synthetic likelihood map using 
-a template orbit. We will create three peaks in two epochs.
+For this demonstration, however, we will construct two synthetic likelihood maps using a template orbit. We will create three peaks in two epochs.
 ```@example 1
 
 orbit_template = orbit(
@@ -47,7 +60,6 @@ d3 = MvNormal([x1+9.0, y1-10.0], [
     0.6 6.0
 ])
 d = MixtureModel([d1, d2, d3], [0.5, 0.3, 0.2])
-
 
 # For calculations we save the full map in log likelihood
 llmap_epoch1 = broadcast(-500:1:500, (-500:1:500)') do x, y
@@ -110,7 +122,10 @@ loglikemap = LogLikelihoodMap(
 );
 ```
 
-We now create a one-planet model and run the fit using `octofit_pigeons`.
+!!! note
+    The likelihood maps will be interpolated using a simple bi-linear interpolation. 
+
+We now create a one-planet model and run the fit using `octofit_pigeons`. This parallel-tempered sampling is recommended over the default Hamiltonian Monte Carlo sampler due to the multi-modal nature of the data.
 ```@example 1
 
 @planet b Visual{KepOrbit} begin
@@ -128,7 +143,7 @@ end loglikemap
     plx ~ truncated(Normal(50.0, 0.02), lower=0)
 end b 
 model = Octofitter.LogDensityModel(Tutoria)
-chain, pt = octofit_pigeons(model, n_rounds=13)
+chain, pt = octofit_pigeons(model, n_rounds=13) # increase n_rounds until log(Z₁/Z₀) converges.
 ```
 
 Display the results:
