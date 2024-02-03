@@ -21,6 +21,7 @@ Start by loading your images:
 ```@example 1
 using Octofitter
 using OctofitterImages
+using Distributions
 using Pigeons
 using AstroImages
 
