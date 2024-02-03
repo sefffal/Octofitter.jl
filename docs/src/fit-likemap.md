@@ -4,6 +4,7 @@
 using Octofitter
 using Distributions
 using OctofitterImages
+usig Pigeons
 using AstroImages
 ```
 
