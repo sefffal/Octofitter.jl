@@ -133,7 +133,7 @@ chain, pt = octofit_pigeons(model, n_rounds=13)
 
 Display the results:
 ```@example 1
-using Plots : Plots
+using Plots: Plots
 octoplot(model, chain)
 ```
 
