@@ -2,6 +2,7 @@
 
 ```@example 1
 using Octofitter
+using Distributions
 using OctofitterImages
 using AstroImages
 ```
@@ -131,6 +132,7 @@ chain, pt = octofit_pigeons(model, n_rounds=13)
 
 Display the results:
 ```@example 1
+using Plots : Plots
 octoplot(model, chain)
 ```
 
