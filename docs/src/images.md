@@ -18,9 +18,10 @@ Sampling from images can be freely combined with any known astrometry points, as
 The first step will be to load your images. For this, we will use our AstroImages.jl package.
 
 Start by loading your images:
-```julia
+```@example 1
 using Octofitter
 using OctofitterImages
+using Pigeons
 using AstroImages
 
 # Load individual iamges
@@ -31,22 +32,21 @@ using AstroImages
 # cube = load("cube1.fits")
 # image1 = cube[:,:,1] 
 
+# Download sample images from GitHub
+download(
+    "https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits",
+    "image-examples-1.fits"
+)
+
 # Or multi-extension FITS (this example)
-images = load("image-examples-1.fits",:)
+images = AstroImages.load("image-examples-1.fits",:)
 ```
 
 You can preview the image using `imshow2` from AstroImages:
 ```julia
 # imshow2(image1, cmap=:magma) # for a single image
-imview([
-    images[1]
-    images[2]
-    images[3]
-    images[4]
-    images[5]
-], cmap=:magma, clims=(-1.0, 4.0))
+hcat(imview.(images, clims=(-1.0, 4.0))...)
 ```
-![images](assets/images-input.png)
 
 Your images should either be convolved with a gaussian of diameter one λ/D, or be matched filtered. This is so that the values of the pixels in the image represent the photometry at that location. 
 
@@ -56,8 +56,8 @@ If you want to perform the convolution in Julia, see ImageFiltering.jl.
 
 First, we create a table of our image data that will be attached to the `Planet`:
 
-```julia
-image_data = Images(
+```@example 1
+image_data = ImageLikelihood(
     (band=:H, image=AstroImages.recenter(images[1]), platescale=10.0, epoch=1238.6),
     (band=:H, image=AstroImages.recenter(images[2]), platescale=10.0, epoch=1584.7),
     (band=:H, image=AstroImages.recenter(images[3]), platescale=10.0, epoch=3220.0),
@@ -75,18 +75,17 @@ You can also provide images from multiple bands and they will be sampled indepen
 
 
 Now specify the planet:
-```julia
+```@example 1
 @planet b Visual{KepOrbit} begin
-    a ~ Normal(13, 3)
-    e ~ TruncatedNormal(0.2, 0.2, 0, 1.0)
-    ω ~ Normal(0.1, deg2rad(30.))
-    i ~ Normal(0.6, deg2rad(10.))
-    Ω ~ Normal(0.0, deg2rad(30.))
     H ~ Normal(3.8, 0.5)
-
+    a ~ truncated(Normal(13, 4), lower=0, upper=100)
+    e ~ Uniform(0.0, 0.5)
+    i ~ Sine()
+    ω ~ UniformCircular()
+    Ω ~ UniformCircular()
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
 end image_data
 ```
 Note how we also provided a prior on the photometry called `H`. We can put any name we want here, as long as it's used consistently throughout the model specification.
@@ -97,8 +96,8 @@ See [Fit PlanetRelAstromLikelihood](@ref fit-astrometry) for a description of th
 Finally, create the system and pass in the planet.
 ```julia
 @system HD82134 begin
-    M ~ Normal(2.0, 0.1)
-    plx ~ Normal(45., 0.02)
+    M ~ truncated(Normal(2.0, 0.1),lower=0)
+    plx ~ truncated(Normal(45., 0.02),lower=0)
 end b
 ```
 
@@ -115,14 +114,9 @@ To encourage the sampler to take larger steps and explore the images,
 it's recommended to lower the target acceptance ratio to around 0.5±0.2 and also increase the number of adapataion steps.
 
 ```julia
-model = Octofitter.LogDensityModel(HD82134; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+model = Octofitter.LogDensityModel(HD82134)
 
-chain = octofit(
-    model, 0.75,
-    adaptation =   8_000,
-    iterations =  10_000,
-    max_depth =      14,
-);
+chain, pt = octofit_pigeons(model, n_rounds=13)
 ```
 Sampling directly from images is somewhat slower than from astrometry. This example takes roughly 7 minutes on my laptop.
 
@@ -133,7 +127,7 @@ The first thing you should do with your results is check a few diagnostics to ma
 The acceptance rate should be somewhat lower than when fitting just astrometry, e.g. around the 0.6 target.
 
 You can make a trace plot:
-```julia
+```@example 1
 plot(
     chain["b_a"],
     xlabel="iteration",
@@ -142,7 +136,7 @@ plot(
 ```
 
 And an auto-correlation plot:
-```julia
+```@example 1
 using StatsBase
 plot(
     autocor(chain["b_e"], 1:500),
@@ -151,52 +145,48 @@ plot(
 )
 ```
 For this model, there is somewhat higher correlation between samples. Some thinning to remove this correlation is recommended.
-![autocorrelation plot](assets/images-autocor-plot.png)
 
 
 ## Analysis
-You can plot the model as usual:
-```julia
-using Plots
-plotmodel(chain)
+
+We can now plot the model overtop one of the images:
+```@example 1
+using Plots: Plots
+
+# We have to do some annoying work to get the image orientated correctly
+# since we want the RA axis increasing to the left.
+image_idx = 2
+img = AstroImages.recenter(AstroImage(collect(image_data.table.image[image_idx])[end:-1:begin,:]))
+plt = implot(img, platescale=image_data.table.platescale[image_idx])
+Octofitter.plotchains!(plt, chain, :b)
 ```
-[![images](assets/images-model-plot.png)](assets/images-model-plot.svg)
 
+Another useful view would be the orbits over a stack of the maximum pixel values of all images. Here we will color the orbits according to the posterior photometry of the planet.
+```@example 1
+using Plots: Plots
+imgs = maximum(stack(image_data.table.image),dims=3)[:,:]
+# We have to do some annoying work to get the image orientated correctly
+# since we want the RA axis increasing to the left.
+img = AstroImages.recenter(AstroImage(imgs)[end:-1:begin,:])
+plt = implot(
+    img, platescale=image_data.table.platescale[image_idx],
+    cmap=:magma,
+    clims=(-5,8),
+    colorbar=nothing,
+    stretch=identity
+)
+Octofitter.plotchains!(plt, chain, :b, color=:b_H, cmap=:magma, clims=(-5,8))
+```
 
-In this case, the model is shown overtop a stack of the input images to help you visualize which peaks contributed to the fit.
-The images are stacked using the `maximum` function, so that bright spots from all images appear at once. The colour scale is inverted, so that the brightest peaks are shown in black.
-
-You can also specify a `lims=1000` parameter to set limits of the images to +/- 1000 mas, as in this example.
 
 ## Pair Plot
-We can show the relationships between variables on a pair plot (aka corner plot) using PairPlots.jl
+We can show the relationships between variables on a pair plot (aka corner plot):
 
-```julia
+```@example 1
 using CairoMakie, PairPlots
-table = (;
-    a=         chain["b_a"],
-    H=         chain["b_H"],
-    e=         chain["b_e"],
-    i=rad2deg.(chain["b_i"]),
-    Ω=rad2deg.(chain["b_Ω"]),
-    ω=rad2deg.(chain["b_ω"]),
-    τ=         chain["b_τ"],
-)
-labels=Dict(
-    :a => "a (au)",
-    :H => "H (arb.)",
-    :e => "e ",
-    :i => "i (\\degree)",
-    :Ω => "\\Omega (\\degree)",
-    :ω => "\\omega (\\degree)",
-    :τ => "\\tau ",
-)
-pairplot(table; labels)
+octocorner(model, chain, small=true)
 ```
-
 Note that this time, we also show the recovered photometry in the corner plot.
-
-[![corner plot](assets/images-corner-plot.png)](assets/images-corner-plot.svg)
 
 
 ## Assessing Detections
@@ -204,15 +194,14 @@ To assess a detection, we can treat all the orbital variables as nuisance parame
 We start by plotting the marginal distribution of the flux parameter, `H`:
 
 
-```julia
-histogram(chain["b_H"], xlabel="H", label="")
+```@example 1
+hist(chain["b_H"][:], axis=(xlabel="H", ylabel="counts"))
 ```
-![corner plot](assets/images-flux-hist.png)
 
 
 We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:
-```julia
+```@example 1
 flux = chain["b_H"]
-snr = mean(flux)/std(flux) # 13.35 in this example
+snr = mean(flux)/std(flux)
 ```
 It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.
