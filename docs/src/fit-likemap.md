@@ -144,7 +144,11 @@ end loglikemap
 end b 
 model = Octofitter.LogDensityModel(Tutoria)
 chain, pt = octofit_pigeons(model, n_rounds=13) # increase n_rounds until log(Z₁/Z₀) converges.
+display(chain)
 ```
+
+!!! note
+    `octofit_pigeons` scales very well across multiple cores. Start julia with `julia --threads=auto` to make sure you have multiple threads available for sampling.
 
 Display the results:
 ```@example 1

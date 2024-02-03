@@ -80,6 +80,9 @@ Because proper motion anomaly data is quite sparse, it can often produce multi-m
 
 To install and use `Pigeons.jl` with Octofitter, type `using Pigeons` at in the terminal and accept the prompt to install the package. You may have to restart Julia.
 
+!!! note
+    `octofit_pigeons` scales very well across multiple cores. Start julia with `julia --threads=auto` to make sure you have multiple threads available for sampling.
+
 We now sample from our model using Pigeons:
 ```@example 1
 using Pigeons

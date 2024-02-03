@@ -85,7 +85,7 @@ Now specify the planet:
     Ω ~ UniformCircular()
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
+    tp =  b.τ*b.P*365.25 + 1238.6 # reference epoch for τ. Choose an MJD date near your data.
 end image_data
 ```
 Note how we also provided a prior on the photometry called `H`. We can put any name we want here, as long as it's used consistently throughout the model specification.
@@ -117,8 +117,11 @@ it's recommended to lower the target acceptance ratio to around 0.5±0.2 and als
 model = Octofitter.LogDensityModel(HD82134)
 
 chain, pt = octofit_pigeons(model, n_rounds=13)
+display(chain)
 ```
-Sampling directly from images is somewhat slower than from astrometry. This example takes roughly 7 minutes on my laptop.
+
+!!! note
+    `octofit_pigeons` scales very well across multiple cores. Start julia with `julia --threads=auto` to make sure you have multiple threads available for sampling.
 
 
 ## Diagnostics
