@@ -48,8 +48,14 @@ function Octofitter.octocorner(
             planet_var_keys_chopped = chopprefix.(planet_var_keys, pk_)
 
             if small
+                keep_params_if_small = ["a", "e", "i", "mass", "A", "B", "F", "G"]
+                for obs in planet.observations
+                    if hasproperty(obs,:table) && hasproperty(obs.table, :band)
+                        append!(keep_params_if_small, string.(unique(obs.table.band)))
+                    end
+                end
                 ii_splice = findall(map(planet_var_keys_chopped) do k
-                    k ∉ ["a", "e", "i", "mass", "A", "B", "F", "G"]
+                    k ∉ keep_params_if_small
                 end)
             else
                 # Remove x and y parameters used by UniformCircular
