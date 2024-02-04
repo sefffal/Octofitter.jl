@@ -1,7 +1,7 @@
 name = "Octofitter"
 uuid = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
 authors = ["William Thompson <will.thompson@outlook.com>", "Jensen Lawrence", "Dori Blakely"]
-version = "2.1.0"
+version = "2.2.0"
 
 [deps]
 AbstractMCMC = "80f14c24-f653-4e6a-9b94-39d6b0f70001"

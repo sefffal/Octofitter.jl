@@ -91,9 +91,9 @@ We now create our planet `b` model using the `@planet` macro.
     i ~ Sine()
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
-    τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
+
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50420)
 end astrom_like
 nothing # hide
 ```
@@ -124,21 +124,10 @@ For a `KepOrbit` you must specify the following parameters:
 Many different distributions are supported as priors, including `Uniform`, `LogNormal`, `LogUniform`, `Sine`, and `Beta`. See the section on [Priors](@ref priors) for more information.
 The parameters can be specified in any order.
 
-You can also hardcode a particular value for any parameter if you don't want it to vary. The syntax for this is:
-```julia
-    e = 0.1 # hardcode eccentricity
-```
+You can also hardcode a particular value for any parameter if you don't want it to vary. Simply replace eg. `e ~ Uniform(0, 0.999)` with `e = 0.1`.
+This `=` syntax works for arbitrary mathematical expressions and even functions. We use it here to reparameterize `tp`.
 
-This `=` syntax works for arbitrary mathematical expressions and even most functions, even many function from external libraries. We use it here to reparameterize `tp`.
-
-`tp` is a date which sets the location of the planet around its orbit, and it repeats every orbital period; however, the period depends on the scale of the orbit making this a bit hard to sample from. We therefore reparameterize using `τ` similar to Orbitize! (but with a user-selected reference epoch). This parameterization speeds up sampling quite a bit!
-```julia
-    # Calculate period from semi-major axis and total mass
-    P = √(b.a^3/system.M)
-    # Calculate epoch of periastron passage from τ parameter
-    tp =  b.τ*b.P*365.25 + 50420 
-    # After the +, use an MJD date near your data.
-```
+`tp` is a date which sets the location of the planet around its orbit. It repeats every orbital period and the orbital period depends on the scale of the orbit. This makes it quite hard to sample from. We therefore reparameterize using `θ` parameter, representing the position angle of the planet at a given reference epoch. This parameterization speeds up sampling quite a bit!
 
 After the variables block are zero or more `Likelihood` objects. These are observations specific to a given planet that you would like to include in the model. If you would like to sample from the priors only, don't pass in any observations.
 
@@ -206,8 +195,8 @@ Start sampling:
 # This is not necessary in general: you may simply omit the RNG parameter if you prefer.
 using Random
 rng = Random.Xoshiro(1234)
-octofit(rng, model, verbosity = 2,iterations=2,adaptation=2,) # hide
-chain = octofit(rng, model, verbosity = 2)
+octofit(rng, model, verbosity = 2,iterations=2,adaptation=2,); # hide
+chain = octofit(rng, model)
 ```
 
 You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the `verbosity` value down to 0.

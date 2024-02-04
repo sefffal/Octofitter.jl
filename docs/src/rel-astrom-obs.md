@@ -26,12 +26,11 @@ astrom_like = PlanetRelAstromLikelihood(
     i ~ Sine()
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
-    τ ~ UniformCircular(1.0)
     # Results will be sensitive to the prior on period
     P ~  LogUniform(0.1, 50)
-
     a = ∛(system.M * b.P^2)
-    tp =  b.τ*b.P*365.25 + 50420 
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50420)
 end astrom_like ObsPriorAstromONeil2019(astrom_like)
 
 @system TutoriaPrime begin
@@ -48,7 +47,7 @@ Now run the fit:
 using Random
 Random.seed!(0)
 
-results_obspri = octofit(model)
+results_obspri = octofit(model,iterations=5000,)
 ```
 
 
@@ -63,14 +62,14 @@ Plots.ylims!(-1000,1000)
 Compare this with the previous fit using uniform priors:
 ```@example 1
 @planet b Visual{KepOrbit} begin # hide
-    a ~ truncated(Normal(10, 4), lower=0, upper=100) # hide
+    a ~ Uniform(0, 100) # hide
     e ~ Uniform(0.0, 0.5) # hide
     i ~ Sine() # hide
     ω ~ UniformCircular() # hide
     Ω ~ UniformCircular() # hide
-    τ ~ UniformCircular(1.0) # hide
     P = √(b.a^3/system.M) # hide
-    tp =  b.τ*b.P*365.25 + 50420 # reference epoch for τ.  # hideChoose an MJD date near your data. # hide
+    θ ~ UniformCircular() # hide
+    tp = θ_at_epoch_to_tperi(system,b,50420) # hide
 end astrom_like # hide
 @system Tutoria begin # hide
     M ~ truncated(Normal(1.2, 0.1), lower=0) # hide
@@ -78,7 +77,7 @@ end astrom_like # hide
 end b # hide
 model = Octofitter.LogDensityModel(Tutoria) # hide
 Random.seed!(0) # hide
-results = octofit(model,verbosity=0) # hide
+results = octofit(model,iterations=5000,verbosity=0) # hide
 plotchains(results, :b, kind=:astrometry, color="b_e")
 Plots.plot!(astrom_like, label="astrometry")
 Plots.xlims!(-1000,1000)

@@ -28,19 +28,8 @@ astrom_like = PlanetRelAstromLikelihood(
     F ~ Normal(0, 10000) # milliarcseconds
     G ~ Normal(0, 10000) # milliarcseconds
     
-    # We would like to keep using the "tau" parameterization,
-    # so calculate the Period from the Thiele-Innes coefficients
-    # above. This is optional and you can just do
-    # tp ~ Uniform(...) instead with lower efficiency.
-    τ ~ UniformCircular(1.0)   
-    P = begin
-        u = (b.A^2 + b.B^2 + b.F^2 + b.G^2)/2
-        v = b.A*b.G - b.B * b.F
-        α = sqrt(u + sqrt((u+v)*(u-v)))
-        a = α/system.plx
-        √(a^3/system.M)
-    end
-    tp =  b.τ*b.P*365.25 + 50000
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50000.0)  # reference epoch for θ. Choose an MJD date near your data.
 end astrom_like
 
 @system TutoriaPrime begin
@@ -54,7 +43,7 @@ model = Octofitter.LogDensityModel(TutoriaPrime)
 We now sample from the model as usual:
 ```@example 1
 using Random
-Random.seed!(1)
+Random.seed!(0)
 
 results = octofit(model)
 ```
@@ -85,8 +74,8 @@ display(orbits_ti[1])
 We can now make a table of results (and visualize them in a corner plot) by querying properties of these objects:
 ```@example 1
 table = (;
-    B_a = rad2deg.(semimajoraxis.(orbits_ti)),
-    B_e = rad2deg.(eccentricity.(orbits_ti)),
+    B_a = semimajoraxis.(orbits_ti),
+    B_e = eccentricity.(orbits_ti),
     B_i = rad2deg.(inclination.(orbits_ti)),
 )
 pairplot(table)

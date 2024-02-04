@@ -47,9 +47,8 @@ vis_like = InterferometryLikelihood(
     # 0 +- 10% of stars brightness (assuming this is unit of data files)
     F480M ~ truncated(Normal(0, 0.1),lower=0)
 
-    τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,58849)  # reference epoch for θ. Choose an MJD date near your data.
 end
 
 @system Tutoria begin
@@ -63,7 +62,7 @@ Create the model object and run `octofit`:
 model = Octofitter.LogDensityModel(Tutoria)
 
 using Random
-rng = Xoshiro(0)
+rng = Xoshiro(0) # Optional seeded random number generator.
 results = octofit(rng, model)
 ```
 
@@ -92,8 +91,8 @@ Plot position at each epoch:
 ```@example 1
 using PlanetOrbits
 els = Octofitter.construct_elements(results,:b,:);
-fig = Figure()
-ax = Axis(
+fig = Makie.Figure()
+ax = Makie.Axis(
     fig[1,1],
     aspect=1,
     xreversed=true,
@@ -101,7 +100,7 @@ ax = Axis(
     ylabel="ΔDec. (mas)",
 )
 for epoch in vis_like.table.epoch
-    scatter!(
+    Makie.scatter!(
         ax,
         raoff.(els, epoch)[:],
         decoff.(els, epoch)[:],
@@ -109,7 +108,7 @@ for epoch in vis_like.table.epoch
         markersize=1.5,
     )
 end
-Legend(fig[1,2], ax, "date")
+Makie.Legend(fig[1,2], ax, "date")
 fig
 ```
 
@@ -132,7 +131,7 @@ fig = pairplot(
     ),
     labels=Dict(:ra=>"ra offset [mas]", :dec=>"dec offset [mas]"),
 )
-scatter!(fig.content[1], [0],[0],marker='⭐', markersize=30, color=:black)
+Makie.scatter!(fig.content[1], [0],[0],marker='⭐', markersize=30, color=:black)
 fig
 ```
 

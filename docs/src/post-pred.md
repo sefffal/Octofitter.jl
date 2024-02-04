@@ -23,9 +23,8 @@ astrom_like = PlanetRelAstromLikelihood(Table(;
     i ~ Sine()
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
-    τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50420)  # reference epoch for θ. Choose an MJD date near your data.
 end astrom_like
 @system Tutoria begin
     M ~ truncated(Normal(1.2, 0.1), lower=0)
@@ -58,11 +57,12 @@ Plots.scatter!(
     x, y,
     lims=:symmetric,
     markerstrokewidth=0,
-    markersize=3,
+    markersize=1,
     legend=:topleft,
     label=["epoch $i" for  i in epochs]
 )
 Plots.plot!(astrom_like, linewidth=2, color=:black, label="observed")
+Plots.scatter!([0],[0], marker=(:star,:black, :white, 10),label="")
 
 Plots.xlims!(-700,400)
 Plots.ylims!(-300,300)

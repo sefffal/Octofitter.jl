@@ -75,9 +75,8 @@ We now specify our two planet model for planets b & c.
     P = 2*system.P_nominal * b.P_mul
 
     a = cbrt(system.M * b.P^2)
-
-    τ ~ UniformCircular(1.0)
-    tp =  b.τ*b.P*365.25 + 53200 # reference epoch for τ. Choose an MJD date near your data.
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,59454.231)  # reference epoch for θ. Choose an MJD date near your data.
 end astrom_b
 @planet c Visual{KepOrbit} begin
     e = 0.0
@@ -89,13 +88,13 @@ end astrom_b
     Ω = system.Ω
 
     # Specify the period as ~ 1% the P_nominal variable
-    P_mul ~ Normal(1, 0.1)
+    P_mul ~ truncated(Normal(1, 0.1), lower=0)
     P = system.P_nominal * c.P_mul
 
     a = cbrt(system.M * c.P^2)
 
-    τ ~ UniformCircular(1.0)
-    tp =  c.τ*c.P*365.25 + 53200 # reference epoch for τ. Choose an MJD date near your data.
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,c,59454.231)  # reference epoch for θ. Choose an MJD date near your data.
 end astrom_c
 @system HR8799_res_co begin
     plx ~ gaia_plx(;gaia_id=2832463659640297472)

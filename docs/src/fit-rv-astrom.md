@@ -47,7 +47,7 @@ astrom = PlanetRelAstromLikelihood(Table(
 
 And plot our simulated astrometry measurments:
 ```@example 1
-Plots.plot(orb_template, aspectratio=1, lw=0, label="")
+Plots.plot(orb_template, aspectratio=1, lw=1, label="")
 Plots.plot!(astrom, aspectratio=1, framestyle=:box)
 ```
 
@@ -79,9 +79,8 @@ Now specify model and fit it:
     i ~ Sine()
     Ω ~ UniformCircular()
     ω ~ UniformCircular()
-    τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 +  58849
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,58849.0)  # reference epoch for θ. Choose an MJD date near your data.
 end astrom
 
 

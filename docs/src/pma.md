@@ -39,9 +39,8 @@ To make this parameterization change, we specify priors on both masses in the `@
 
     mass = system.M_sec
 
-    τ ~ UniformCircular(1.0)
-    P = √(B.a^3/system.M)
-    tp =  B.τ*B.P*365.25 + 57737 # reference epoch for τ. Choose an MJD date near your data.
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,B,57737)
 end
 ```
 
@@ -171,9 +170,8 @@ adding `astrom_like` to the end of the `@planet` defintion.
 
     mass = system.M_sec
 
-    τ ~ UniformCircular(1.0)
-    P = √(B.a^3/system.M)
-    tp =  B.τ*B.P*365.25 + 57737 # reference epoch for τ. Choose an MJD date near your data.
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,B,57737)
 end astrom_like # Note the relative astrometry added here!
 
 @system HD91312 begin
