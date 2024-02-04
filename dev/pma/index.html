@@ -43,7 +43,7 @@ Octofitter.UnitLengthPrior{:τy, :τx}: √(τy^2+τx^2) ~ LogNormal(log(1), 0.0
 end HGCALikelihood(gaia_id=756291174721509376) B
 
 model = Octofitter.LogDensityModel(HD91312)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HD91312 of dimension 14 with fields .ℓπcallback and .∇ℓπcallback
-</code></pre><p>After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.</p><h3 id="Sampling-from-the-posterior"><a class="docs-heading-anchor" href="#Sampling-from-the-posterior">Sampling from the posterior</a><a id="Sampling-from-the-posterior-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling-from-the-posterior" title="Permalink"></a></h3><p>Because proper motion anomaly data is quite sparse, it can often produce multi-modal posteriors. If your orbit already has several relative astrometry or RV data points, this is less of an issue. But in many cases it is recommended to use the <code>Pigeons.jl</code> sampler instead of Octofitter&#39;s default. This sampler is less efficient for unimodal distributions, but is more robust at exploring posteriors with distinct, widely separated peaks. </p><p>To install and use <code>Pigeons.jl</code> with Octofitter, type <code>using Pigeons</code> at in the terminal and accept the prompt to install the package. You may have to restart Julia.</p><p>We now sample from our model using Pigeons:</p><pre><code class="language-julia hljs">using Pigeons
+</code></pre><p>After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.</p><h3 id="Sampling-from-the-posterior"><a class="docs-heading-anchor" href="#Sampling-from-the-posterior">Sampling from the posterior</a><a id="Sampling-from-the-posterior-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling-from-the-posterior" title="Permalink"></a></h3><p>Because proper motion anomaly data is quite sparse, it can often produce multi-modal posteriors. If your orbit already has several relative astrometry or RV data points, this is less of an issue. But in many cases it is recommended to use the <code>Pigeons.jl</code> sampler instead of Octofitter&#39;s default. This sampler is less efficient for unimodal distributions, but is more robust at exploring posteriors with distinct, widely separated peaks. </p><p>To install and use <code>Pigeons.jl</code> with Octofitter, type <code>using Pigeons</code> at in the terminal and accept the prompt to install the package. You may have to restart Julia.</p><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>We now sample from our model using Pigeons:</p><pre><code class="language-julia hljs">using Pigeons
 model = Octofitter.LogDensityModel(HD91312)
 Random.seed!(1)
 chain, pt = octofit_pigeons(model, n_rounds=12)
@@ -51,17 +51,17 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
   scans     restarts      Λ        time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
         2          0          5      0.133   2.55e+04  -3.35e+04          0      0.286      0.988      0.998
-        4          0       3.25      0.293   3.53e+04   -4.6e+03          0      0.535          1          1
-        8          0        4.3      0.578   5.88e+04  -5.47e+03          0      0.386          1          1
-       16          0       4.75       1.05   1.02e+05       -306  2.62e-257      0.322          1          1
-       32          0       5.23       2.16   1.77e+05      -49.1   2.14e-36      0.253          1          1
-       64          0       5.13       4.47   3.05e+05      -57.5   5.33e-44      0.266          1          1
-      128          0       5.57       8.61   5.68e+05      -62.2   2.36e-45      0.204          1          1
-      256          0       5.72       17.4    1.1e+06      -20.5    8.7e-09      0.183          1          1
-      512          0       5.83       35.1   2.12e+06      -21.4   7.55e-08      0.168          1          1
- 1.02e+03          0       5.91       68.5   4.26e+06      -20.7   1.91e-05      0.155          1          1
- 2.05e+03          1       5.98        134   8.38e+06      -18.1   0.000635      0.146          1          1
-  4.1e+03          2       6.11        271   1.67e+07      -18.7    0.00126      0.127          1          1
+        4          0       3.25      0.302   3.53e+04   -4.6e+03          0      0.535          1          1
+        8          0        4.3      0.595   5.88e+04  -5.47e+03          0      0.386          1          1
+       16          0       4.75       1.08   1.02e+05       -306  2.62e-257      0.322          1          1
+       32          0       5.23       2.23   1.77e+05      -49.1   2.14e-36      0.253          1          1
+       64          0       5.13        4.6   3.05e+05      -57.5   5.33e-44      0.266          1          1
+      128          0       5.57       8.84   5.68e+05      -62.2   2.36e-45      0.204          1          1
+      256          0       5.72       17.9    1.1e+06      -20.5    8.7e-09      0.183          1          1
+      512          0       5.83       36.1   2.12e+06      -21.4   7.55e-08      0.168          1          1
+ 1.02e+03          0       5.91       70.4   4.26e+06      -20.7   1.91e-05      0.155          1          1
+ 2.05e+03          1       5.98        138   8.38e+06      -18.1   0.000635      0.146          1          1
+  4.1e+03          2       6.11        279   1.67e+07      -18.7    0.00126      0.127          1          1
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Note that <code>octofit_pigeons</code> took considerably longer to run than <code>octofit</code> typically does; however, as we will see, it sampled successfully from severally completely disconnected modes in the posterior. That makes it a good fit for sampling from proper motion anomaly and relative astrometry with limited orbital coverage.</p><h3 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h3><p>The first step is to look at the table output above generated by MCMCChains.jl. The <code>rhat</code> column gives a convergence measure. Each parameter should have an <code>rhat</code> very close to 1.000. If not, you may need to run the model for more iterations or tweak the parameterization of the model to improve sampling. The <code>ess</code> column gives an estimate of the effective sample size. The <code>mean</code> and <code>std</code> columns give the mean and standard deviation of each parameter.</p><p>The second table summarizes the 2.5, 25, 50, 75, and 97.5 percentiles of each parameter in the model.</p><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>If we wish to examine the covariance between parameters in more detail, we can construct a pair-plot (aka. corner plot).</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
 using CairoMakie: Makie
@@ -89,7 +89,7 @@ pairplot(
     (epoch=mjd(&quot;2018-11-28&quot;), ra=058., dec=-122., σ_ra=10.0, σ_dec=20., cor=0.3),
     (epoch=mjd(&quot;2018-12-15&quot;), ra=056., dec=-104., σ_ra=08.0, σ_dec=08., cor=0.2),
 )
-Plots.plot(astrom_like, lims=:symmetric)</code></pre><img src="a46f5c75.svg" alt="Example block output"/><p>We use the same model as before, but now condition the planet model <code>B</code> on the astrometry data by adding <code>astrom_like</code> to the end of the <code>@planet</code> defintion.</p><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
+Plots.plot(astrom_like, lims=:symmetric)</code></pre><img src="cf614c5b.svg" alt="Example block output"/><p>We use the same model as before, but now condition the planet model <code>B</code> on the astrometry data by adding <code>astrom_like</code> to the end of the <code>@planet</code> defintion.</p><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
     a ~ LogUniform(0.1,200)
     e ~ Uniform(0,0.999)
     ω ~ UniformCircular()
@@ -124,18 +124,18 @@ chain, pt = octofit_pigeons(model, n_rounds=12)
 display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">─────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0          4      0.143   2.64e+04  -4.67e+04          0      0.429          1          1
-        4          0        4.3      0.313   3.66e+04  -7.54e+03          0      0.386      0.994      0.999
-        8          0       3.82      0.651   6.72e+04  -3.65e+03          0      0.454          1          1
-       16          0       5.26       1.32   9.22e+04       -237   1.12e-73      0.249          1          1
-       32          0        5.8       2.39   1.48e+05       -100   3.05e-10      0.172          1          1
-       64          0       6.05       4.66   2.88e+05      -75.2   1.44e-05      0.135          1          1
-      128          0       6.21       9.18   5.64e+05      -71.6   3.04e-11      0.113          1          1
-      256          0       6.49       18.3   1.07e+06      -70.2   0.000163     0.0728          1          1
-      512          0        6.5       36.1   2.13e+06      -69.3   0.000277     0.0718          1          1
- 1.02e+03          0       6.53       70.9   4.25e+06        -68   3.73e-05     0.0677          1          1
- 2.05e+03          2        6.6        141   8.45e+06      -68.1    0.00452     0.0569          1          1
-  4.1e+03          1       6.63        280   1.67e+07      -68.3    0.00183     0.0531          1          1
+        2          0          4       0.14   2.64e+04  -4.67e+04          0      0.429          1          1
+        4          0        4.3      0.304   3.66e+04  -7.54e+03          0      0.386      0.994      0.999
+        8          0       3.82      0.632   6.72e+04  -3.65e+03          0      0.454          1          1
+       16          0       5.26       1.28   9.22e+04       -237   1.12e-73      0.249          1          1
+       32          0        5.8       2.32   1.48e+05       -100   3.05e-10      0.172          1          1
+       64          0       6.05       4.53   2.88e+05      -75.2   1.44e-05      0.135          1          1
+      128          0       6.21       8.89   5.64e+05      -71.6   3.04e-11      0.113          1          1
+      256          0       6.49       17.7   1.07e+06      -70.2   0.000163     0.0728          1          1
+      512          0        6.5         35   2.13e+06      -69.3   0.000277     0.0718          1          1
+ 1.02e+03          0       6.53       68.9   4.25e+06        -68   3.73e-05     0.0677          1          1
+ 2.05e+03          2        6.6        137   8.45e+06      -68.1    0.00452     0.0569          1          1
+  4.1e+03          1       6.63        272   1.67e+07      -68.3    0.00183     0.0531          1          1
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>The mass vs. semi-major axis posterior is now much more constrained:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 pairplot(
     (; a=chain[&quot;B_a&quot;][:], mass=chain[&quot;B_mass&quot;][:]) =&gt;
@@ -145,7 +145,7 @@ pairplot(
             PairPlots.MarginConfidenceLimits()
         ),
     labels=Dict(:mass=&gt;&quot;mass [Mⱼᵤₚ]&quot;, :a=&gt;&quot;sma. [au]&quot;),
-)</code></pre><img src="15117ecd.png" alt="Example block output"/><p>It is now useful to display the orbits projected onto the plane of the sky using <code>octoplot</code>. This function produces a nine-panel figure showing posterior predictive distributions for velocity (in three dimensions), projected positions vs. time in the plane of the sky,  and various other two and three-dimensional views.</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="9ffdefca.svg" alt="Example block output"/><p>Finally we display the posterior as a corner plot:</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
+)</code></pre><img src="15117ecd.png" alt="Example block output"/><p>It is now useful to display the orbits projected onto the plane of the sky using <code>octoplot</code>. This function produces a nine-panel figure showing posterior predictive distributions for velocity (in three dimensions), projected positions vs. time in the plane of the sky,  and various other two and three-dimensional views.</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="b678e1b8.svg" alt="Example block output"/><p>Finally we display the posterior as a corner plot:</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
 using CairoMakie: Makie
 using PairPlots
@@ -161,4 +161,4 @@ pairplot(
     (;a=mode1[&quot;B_a&quot;][:], e=mode1[&quot;B_e&quot;][:])=&gt;viz_layers,
     (;a=mode2[&quot;B_a&quot;][:], e=mode2[&quot;B_e&quot;][:])=&gt;viz_layers,
     (;a=mode3[&quot;B_a&quot;][:], e=mode3[&quot;B_e&quot;][:])=&gt;viz_layers,
-)</code></pre><img src="713836e7.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Saturday 3 February 2024 20:27">Saturday 3 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="713836e7.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Sunday 4 February 2024 02:24">Sunday 4 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
