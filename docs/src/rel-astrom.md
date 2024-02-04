@@ -2,12 +2,58 @@
 
 Here is a worked example of a one-planet model fit to relative astrometry (positions measured between the planet and the host star). 
 
+## TL;DR
+Just want to see the code? Copy and paste this example. It is fully explained in the tutorial below.
+On my recent Mac laptop (single core) this takes 7s to run.
+```julia
+using Octofitter
+using Distributions
+using Plots: Plots
+using CairoMakie: Makie
+using PairPlots
+astrom_like = PlanetRelAstromLikelihood(
+    # Your data here:
+    # units are MJD, mas, mas, mas, mas, and correlation.
+    (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50360, ra = -492.67768482682357, dec = 21.63557115669823, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50480, ra = -485.9770335870402, dec = 51.147204404903704, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50600, ra = -478.1095526888573, dec = 80.53589069730698, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
+)
+@planet b Visual{KepOrbit} begin
+    a ~ truncated(Normal(10, 4), lower=0, upper=100)
+    e ~ Uniform(0.0, 0.5)
+    i ~ Sine()
+    ω ~ UniformCircular()
+    Ω ~ UniformCircular()
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50000) # use MJD epoch of your data here!!
+end astrom_like
+@system Tutoria begin # replace Tutoria with the name of your planetary system
+    M ~ truncated(Normal(1.2, 0.1), lower=0)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0)
+end b
+model = Octofitter.LogDensityModel(Tutoria)
+chain = octofit(model)
+display(chain) # see results
+plt = octoplot(model, chain) # plot orbits
+display(plt)
+plt_corn = octocorner(model, chain, small=true)
+display(plt_corn)
+Octofitter.savechain("mychain.fits", chain)
+```
+
+## Tutorial
+
 Start by loading the Octofitter and Distributions packages:
 ```@example 1
 using Octofitter, Distributions
 ```
 
-## Specifying the data
+### Specifying the data
 We will create a likelihood object to contain our relative astrometry data. We can specify this data in several formats. It can be listed in the code or loaded from a file (eg. a CSV file, FITS table, or SQL database).
 
 ```@example 1
@@ -29,36 +75,9 @@ In this case, we specified `ra` and `dec` offsets in milliarcseconds. We could i
 Another way we could specify the data is by column:
 ```@example 1
 astrom_like = PlanetRelAstromLikelihood(Table(;
-    epoch= [
-        50000,
-        50120,
-        50240,
-        50360,
-        50480,
-        50600,
-        50720,
-        50840,
-    ],
-    ra = [
-        -505.764,
-        -502.57,
-        -498.209,
-        -492.678,
-        -485.977,
-        -478.11,
-        -469.08,
-        -458.896,
-    ],
-    dec = [
-        -66.9298,
-        -37.4722,
-        -7.92755,
-        21.6356, 
-        51.1472, 
-        80.5359, 
-        109.729, 
-        138.651, 
-    ],
+    epoch= [50000,  50120, 50240, 50360,50480, 50600, 50720, 50840,],
+    ra = [-505.764, -502.57, -498.209, -492.678,-485.977, -478.11, -469.08, -458.896,],
+    dec = [-66.9298, -37.4722, -7.92755, 21.6356, 51.1472,  80.5359,  109.729,  138.651, ],
     σ_ra = fill(10.0, 8),
     σ_dec = fill(10.0, 8),
     cor = fill(0.0, 8)
@@ -74,7 +93,7 @@ astrom_like = CSV.read("mydata.csv", PlanetRelAstromLikelihood)
 
 You can also pass a DataFrame or any other table format.
 
-## Creating a planet
+### Creating a planet
 
 We now create our first planet model. Let's name it planet `b`. 
 The name of the planet will be used in the output results.
@@ -91,24 +110,20 @@ We now create our planet `b` model using the `@planet` macro.
     i ~ Sine()
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
-
     θ ~ UniformCircular()
     tp = θ_at_epoch_to_tperi(system,b,50420)
 end astrom_like
 nothing # hide
 ```
 
-There's a lot going on here, so let's break it down.
+In the model definition, `b` is the name of the planet (it can be anything), `Visual{KepOrbit}` is the type of orbit parameterization ([see the PlanetOrbits.jl documentation page](https://sefffal.github.io/PlanetOrbits.jl/dev/api/)).
 
-First, `Visual{KepOrbit}` is a kind of orbit parameterization from PlanetOrbits.jl that we will use for this. A `KepOrbit` uses the traditional Keplerian orbital elements like semi-major axis and inclination.
-The `Visual{...}` part surrounding it adds support for parallax distance and allows a Keplerian orbit to be projected into the plane of the sky, which is where our relative astrometry data lives! A `KepOrbit` by itself can only be used to fit position measurements in astronomical units. The `Visual{...}` part makes it so we can calculate and specify observed angles between the star and planet.
 
-You can read about orbit parameterizations in the [PlanetOrbits.jl documentation page](https://sefffal.github.io/PlanetOrbits.jl/dev/api/).
-
-Other options include the similar `ThieleInnesOrbit` which uses a different parameterization, as well as `RadVelOrbit` which is useful for modelling radial velocity data. These can also be wrapped in `Visual{...}` if we want to e.g. project a `RadVelOrbit` onto the plane of the sky.
-
-After the `begin` comes our variable specification. Quantities with a `~` are random variables. The distribution son the right hand sides are **priors**.You must specify a proper prior for any quantity which is allowed to vary. 
+After the `begin` comes our variable specification. Quantities with a `~` are random variables aka. **our priors**. You must specify a proper prior for any quantity which is allowed to vary. 
 "Uninformative" priors like `1/x` must be given bounds, and can be specified with `LogUniform(lower, upper)`.
+
+!!! warning
+    Make sure that variables like mass and eccentricity can't be negative. You can pass a distribution to `truncated` to prevent this, e.g. `M ~ truncated(Normal(1, 0.1),lower=0)`.
 
 Priors can be any univariate distribution from the Distributions.jl package.
 
@@ -116,9 +131,9 @@ For a `KepOrbit` you must specify the following parameters:
 * `a`: Semi-major axis, astronomical units (AU)
 * `i`: Inclination, radius
 * `e`: Eccentricity in the range [0, 1)
-* `tp`: Epoch of periastron passage
 * `ω`: Argument of periastron, radius
 * `Ω`: Longitude of the ascending node, radians.
+* `tp`: Epoch of periastron passage
 
 
 Many different distributions are supported as priors, including `Uniform`, `LogNormal`, `LogUniform`, `Sine`, and `Beta`. See the section on [Priors](@ref priors) for more information.
@@ -139,7 +154,7 @@ b # hide
 ```
 
 
-## Creating a system
+### Creating a system
 
 A system represents a host star with one or more planets. Properties of the whole system are specified here, like parallax distance and mass of the star. This is also where you will supply data like images, astrometric acceleration, or stellar radial velocity since they don't belong to any planet in particular.
 
@@ -170,31 +185,23 @@ This is also where we could pass likelihood objects for system-wide data like st
 You can display your system object by running `display(Tutoria)` (or whatever you chose to name your system).
 
 
-## Prepare model
-We now convert our declarative model into efficient, compiled code.
-The `autodiff` flag specifies what Julia automatic differentiation package we should use to calculate the gradients of our model.
-
-
+### Prepare model
+We now convert our declarative model into efficient, compiled code:
 ```@example 1
 model = Octofitter.LogDensityModel(Tutoria)
 ```
 
 This type implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.
 
-### A note on automatic differentiation
-Julia has many packages for calculating the gradients of arbitrary code, and several are supported with Octofitter. `autodiff=:ForwardDiff` is a very robust choice for forward-mode auto-diff, and it works well on most codes and models. `:Enzyme` is a state-of-the-art auto-diff forward and reverse mode package that works with many, but not all models. Give it a try for a free speed-boost, but fall back to `ForwardDiff` if you see an error message or crash.
-The `:Zygote` reverse diff package is also partially supported, but usually only of interest when fitting gaussian-process models.
-If you absolutely must, you can fallback to `:FiniteDiff` which uses classical finite differencing methods to approximate gradients for un-differentiable code. 
-
-## Sampling
-Great! Now we are ready to draw samples from the posterior.
-
-Start sampling:
+### Sampling
+Now we are ready to draw samples from the posterior:
 ```@example 1
+
 # Provide a seeded random number generator for reproducibility of this example.
 # This is not necessary in general: you may simply omit the RNG parameter if you prefer.
 using Random
 rng = Random.Xoshiro(1234)
+
 octofit(rng, model, verbosity = 2,iterations=2,adaptation=2,); # hide
 chain = octofit(rng, model)
 ```
@@ -208,7 +215,7 @@ Once complete, the `chain` object will hold the sampler results. Displaying it p
 
 For a basic model like this, sampl]ing should take less than a minute on a typical laptop.
 
-## Diagnostics
+### Diagnostics
 The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.
 
 A few things to watch out for: check that you aren't getting many (any, really) numerical errors (`ratio_divergent_transitions`). 
@@ -251,7 +258,7 @@ gelmandiag(chain)
 ```
 As an additional convergence test.
 
-## Analysis
+### Analysis
 As a first pass, let's plot a sample of orbits drawn from the posterior.
 
 ```@example 1
@@ -271,7 +278,7 @@ octoplot(model, chain)
 ```
 
 
-## Pair Plot
+### Pair Plot
 A very useful visualization of our results is a pair-plot, or corner plot. We can use the `octocorner` function and our PairPlots.jl package for this purpose:
 ```@example 1
 using CairoMakie: Makie
@@ -281,13 +288,3 @@ octocorner(model, chain, small=true)
 Remove `small=true` to display all variables, or run `pairplot(chain)` to include internal variables.
 
 In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.
-
-## Notes on Hamiltonian Monte Carlo
-Unlike most other astrometry modelling code, Octofitter uses Hamiltonian Monte Carlo instead of Affine Invariant MCMC (e.g. emcee in Python) This sampling method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.
-
-Derviatives for a complex model are usualy tedious to code, but Octofitter uses ForwardDiff.jl to generate them automatically.
-
-When using HMC, only a few chains are necessary. This is in contrast to Affine Invariant MCMC based packages where hundreds or thousands of walkers are required.
-One chain should be enough to cover the whole posterior, but you can run a few different chains to make sure each has converged to the same distribution.
-
-Similarily, many fewer samples are required. This is because unlike Affine Invariant MCMC, HMC produces samples that are much less correlated after each step (i.e. the autocorrelation time is much shorter).
