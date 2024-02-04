@@ -26,9 +26,6 @@ For this model, we also want to place a prior on the host star mass rather than 
 
 To make this parameterization change, we specify priors on both masses in the `@system` block, and connect it to the planet.
 
-For these models, we will also adopt the "τ" parameterization for epoch of periastron passage originally from Orbitize!. This parameter is marginally better than the "θ" parameterization for veloc
-
-
 ### Planet Model
 
 ```@example 1
@@ -164,7 +161,8 @@ We use the same model as before, but now condition the planet model `B` on the a
 adding `astrom_like` to the end of the `@planet` defintion.
 ```@example 1
 @planet B Visual{KepOrbit} begin
-    a ~ LogUniform(0.1,200)
+    # a ~ LogUniform(0.1,200)
+    a ~ Uniform(0.1,200)
     e ~ Uniform(0,0.999)
     ω ~ UniformCircular()
     i ~ Sine()
