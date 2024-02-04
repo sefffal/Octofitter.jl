@@ -33,12 +33,13 @@ model = Octofitter.LogDensityModel(System, autodiff=:Enzyme, verbosity=4)
 chain, pt = octofit_pigeons(model)
 ```
 """
-function Octofitter.octofit_pigeons(
+Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     model;
     n_rounds,
     n_chains=cld(8,Threads.nthreads())*Threads.nthreads(),
     pigeons_kw...
 )
+    @nospecialize
 
     target = model
     reference_sys = prior_only_model(model.system)
