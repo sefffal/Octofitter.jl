@@ -22,8 +22,8 @@ You can also use Octofitter from Python using the [Python guide](@ref python).
 * Model stellar activity with Gaussian processes
 * Model stellar astrometric accerlation (Gaia-Hipparcos proper motion anomaly)
 * "De-orbiting": combine a sequence of images with orbital motion to detect planets
-* Sample directly from images and interferometric visibilities
-* experimental support for transit data based on Transits.jl
+* Sample directly from images or interferometric visibilities
+* Experimental support for transit data based on Transits.jl
 
 You can freely combine any of the above data types.  Any and all combinations work together.
 
@@ -72,12 +72,12 @@ journal = {The Astronomical Journal},
 * Please cite the HMC sampler backend if you use `octofit`: [Xu et al 2020](http://proceedings.mlr.press/v118/xu20a.html)
 * Please cite the [Pigeons paper](https://arxiv.org/abs/2308.09769) if you use `octofit_pigeons`.
 * If you use Hipparcos-GAIA proper motion anomaly, please cite [Brandt 2021](https://ui.adsabs.harvard.edu/abs/2021ApJS..254...42B)
-* If you use example data in one of the tutorials, please cite the sources listed [Brandt 2021](https://ui.adsabs.harvard.edu/abs/2021ApJS..254...42B)
-* If you use one of the included functions for automatically retreiving data from a public dataset, eg HARPS RVBank, please cite the source as appropriate.
+* If you use example data in one of the tutorials, please cite the sources listed
+* If you use one of the included functions for automatically retreiving data from a public dataset, eg HARPS RVBank, please cite the source as appropriate (it will be displyed in the terminal)
 * If you adopt the O'Neil et al. 2019 observable based priors, please cite [O'Neil et al. 2019](https://ui.adsabs.harvard.edu/abs/2019AJ....158....4O).
 * If you use RV phase folded plot, please consider citing Makie.jl [Danisch & Krumbiegel, (2021).](https://doi.org/10.21105/joss.03349)
 * If you use TemporalGPs.jl to accelerate Gaussian processes modelling of stellar activity, please consider citing [Tebbutt et al 2021](https://proceedings.mlr.press/v161/tebbutt21a.html)
-* If you use the pairplot functionality, please cite:
+* If you use the pairplot/cornerplot functionality, please cite:
 ```
 @misc{Thompson2023,
   author = {William Thompson},
