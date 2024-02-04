@@ -26,6 +26,8 @@ For this model, we also want to place a prior on the host star mass rather than 
 
 To make this parameterization change, we specify priors on both masses in the `@system` block, and connect it to the planet.
 
+For these models, we will also adopt the "τ" parameterization for epoch of periastron passage originally from Orbitize!. This parameter is marginally better than the "θ" parameterization for veloc
+
 
 ### Planet Model
 
@@ -40,7 +42,7 @@ To make this parameterization change, we specify priors on both masses in the `@
     mass = system.M_sec
 
     θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,B,57737)
+    tp = θ_at_epoch_to_tperi(system,B,57423.0) # epoch of GAIA measurement
 end
 ```
 
@@ -87,7 +89,7 @@ We now sample from our model using Pigeons:
 using Pigeons
 model = Octofitter.LogDensityModel(HD91312)
 Random.seed!(1)
-chain, pt = octofit_pigeons(model, n_rounds=12) 
+chain, pt = octofit_pigeons(model, n_rounds=10) 
 display(chain)
 ```
 
@@ -171,7 +173,7 @@ adding `astrom_like` to the end of the `@planet` defintion.
     mass = system.M_sec
 
     θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,B,57737)
+    tp = θ_at_epoch_to_tperi(system,B,57737.0) # epoch of astrometry
 end astrom_like # Note the relative astrometry added here!
 
 @system HD91312 begin
@@ -196,7 +198,7 @@ Sample as before:
 using Pigeons
 model = Octofitter.LogDensityModel(HD91312)
 Random.seed!(1)
-chain, pt = octofit_pigeons(model, n_rounds=12) 
+chain, pt = octofit_pigeons(model, n_rounds=10) 
 display(chain)
 ```
 
@@ -246,14 +248,14 @@ octocorner(model,mode1, mode2, mode3, small=true)
 Here we plot just the semi-major axis and eccentricity:
 ```@example 1
 viz_layers = (
-    PairPlots.Scatter(),
+    PairPlots.Scatter(markersize=3),
     PairPlots.MarginDensity(),
     PairPlots.MarginConfidenceLimits()
 )
 pairplot(
-    (;a=mode1["B_a"][:], e=mode1["B_e"][:])=>viz_layers,
-    (;a=mode2["B_a"][:], e=mode2["B_e"][:])=>viz_layers,
-    (;a=mode3["B_a"][:], e=mode3["B_e"][:])=>viz_layers,
+    (;a=mode1["B_a"][:], mass=mode1["B_mass"][:])=>viz_layers,
+    (;a=mode2["B_a"][:], mass=mode2["B_mass"][:])=>viz_layers,
+    (;a=mode3["B_a"][:], mass=mode3["B_mass"][:])=>viz_layers,
 )
 ```
 
