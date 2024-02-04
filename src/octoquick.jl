@@ -1,14 +1,22 @@
 
 octoquick(model::LogDensityModel; kwargs...) = 
-    octoquick(Random.default_rng(), model; kwargs...)
+    octoquick(nothing, model; kwargs...)
 Base.@nospecializeinfer function octoquick(
-    rng::Union{AbstractRNG, AbstractVector{<:AbstractRNG}},
+    rng,
     model::LogDensityModel;
     verbosity::Int=2,
     initial_samples::Int=10_000,
     nruns=cld(16,Threads.nthreads())*Threads.nthreads(),
 )
     @nospecialize
+
+    if isnothing(rng)
+        rng = Random.default_rng()
+        executor=Transducers.SequentialEx()
+    else
+        executor=ThreadedEx()
+    end
+    
 
     # start_time = time()
     local result_pf = nothing
@@ -25,6 +33,7 @@ Base.@nospecializeinfer function octoquick(
         start_time = time()
         result_pf = Pathfinder.multipathfinder(
             ldm_any, 1000*nruns;
+            rng,
             # Do at least 16 runs, rounding up to nearest multiple
             # of nthreads
             nruns,

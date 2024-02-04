@@ -116,7 +116,9 @@ We will run a "quick fit" to check that the model is properly
 specified. This is only an approximate posterior generated using 
 a variation inference-style method.
 ```@example 1 
-results_quick = octoquick(model)
+using Random
+rng = Random.Xoshiro(1) # optional for reproducbility
+results_quick = octoquick(rng, model)
 octoplot(model, results_quick)
 ```
 
