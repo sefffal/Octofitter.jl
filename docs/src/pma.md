@@ -235,25 +235,3 @@ octocorner(model, chain, small=true)
 
 
 
-Notice that our data is consitent with orbits with three completely different orbital periods. It might be worth separating the posterior and quoting uncertainties on the three modes separately:
-```@example 1
-mode1 = chain[       chain["B_a"][:] .< 5.5]
-mode2 = chain[5.5 .< chain["B_a"][:] .< 7.5]
-mode3 = chain[7.5 .< chain["B_a"][:]       ]
-octocorner(model,mode1, mode2, mode3, small=true)
-```
-
-Here we plot just the semi-major axis and eccentricity:
-```@example 1
-viz_layers = (
-    PairPlots.Scatter(markersize=3),
-    PairPlots.MarginDensity(),
-    PairPlots.MarginConfidenceLimits()
-)
-pairplot(
-    (;a=mode1["B_a"][:], mass=mode1["B_mass"][:])=>viz_layers,
-    (;a=mode2["B_a"][:], mass=mode2["B_mass"][:])=>viz_layers,
-    (;a=mode3["B_a"][:], mass=mode3["B_mass"][:])=>viz_layers,
-)
-```
-
