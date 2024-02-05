@@ -7,7 +7,7 @@ using Documenter, Octofitter, OctofitterRadialVelocity
 
 # Increase resolution of figures
 using CairoMakie
-CairoMakie.activate!(px_per_unit=4)
+CairoMakie.activate!(px_per_unit=2)
 
 
 makedocs(
