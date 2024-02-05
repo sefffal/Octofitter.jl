@@ -3,14 +3,14 @@
 Here is a worked example of a one-planet model fit to relative astrometry (positions measured between the planet and the host star). 
 
 ## TL;DR
-Just want to see the code? Copy and paste this example. It is fully explained in the tutorial below.
-On my recent Mac laptop (single core) this takes 7s to run.
+Just want to see the code? Copy and paste this example, and accept the prompts to download the required packages. It is fully explained in the tutorial below. 
+It may take up to 15 minutes to compile everything, but should run in <10s afterwards.
 ```julia
-using Octofitter
-using Distributions
-using Plots: Plots
-using CairoMakie: Makie
-using PairPlots
+using Octofitter,
+      Distributions,
+      Plots,
+      CairoMakie,
+      PairPlots
 astrom_like = PlanetRelAstromLikelihood(
     # Your data here:
     # units are MJD, mas, mas, mas, mas, and correlation.
@@ -202,7 +202,7 @@ Now we are ready to draw samples from the posterior:
 using Random
 rng = Random.Xoshiro(1234)
 
-octofit(rng, model, verbosity = 2,iterations=2,adaptation=2,); # hide
+octofit(rng, model, verbosity = 0,iterations=2,adaptation=2,); # hide
 chain = octofit(rng, model)
 ```
 
