@@ -8,12 +8,11 @@
 
     mass = system.M_sec
 
-    τ ~ UniformCircular(1.0)
-    P = √(B.a^3/system.M)
-    tp =  B.τ*B.P*365.25 + 57737 # reference epoch for τ. Choose an MJD date near your data.
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,B,57423.0) # epoch of GAIA measurement
 end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Planet B
 Derived:
-  ω, Ω, mass, τ, P, tp, 
+  ω, Ω, mass, θ, tp, 
 Priors:
   a	Distributions.LogUniform{Float64}(a=0.1, b=20.0)
   e	Distributions.Uniform{Float64}(a=0.0, b=0.999)
@@ -22,11 +21,11 @@ Priors:
   i	Sine()
   Ωy	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
   Ωx	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
-  τy	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
-  τx	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+  θy	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+  θx	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
 Octofitter.UnitLengthPrior{:ωy, :ωx}: √(ωy^2+ωx^2) ~ LogNormal(log(1), 0.02)
 Octofitter.UnitLengthPrior{:Ωy, :Ωx}: √(Ωy^2+Ωx^2) ~ LogNormal(log(1), 0.02)
-Octofitter.UnitLengthPrior{:τy, :τx}: √(τy^2+τx^2) ~ LogNormal(log(1), 0.02)
+Octofitter.UnitLengthPrior{:θy, :θx}: √(θy^2+θx^2) ~ LogNormal(log(1), 0.02)
 
 
 </code></pre><h3 id="System-Model-and-Specifying-Proper-Motion-Anomaly"><a class="docs-heading-anchor" href="#System-Model-and-Specifying-Proper-Motion-Anomaly">System Model &amp; Specifying Proper Motion Anomaly</a><a id="System-Model-and-Specifying-Proper-Motion-Anomaly-1"></a><a class="docs-heading-anchor-permalink" href="#System-Model-and-Specifying-Proper-Motion-Anomaly" title="Permalink"></a></h3><p>Now that we have our planet model, we create a system model to contain it.</p><p>We specify priors on <code>plx</code> as usual, but here we use the <code>gaia_plx</code> helper function to read the parallax and uncertainty directly from the HGCA catalog using its source ID.</p><p>We also add parameters for the star&#39;s long term proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements. If you&#39;re not sure what to use here, try <code>Normal(0, 1000)</code>; that is, assume a long-term proper motion of 0 +- 1000 milliarcseconds / year.</p><pre><code class="language-julia hljs">@system HD91312 begin
@@ -46,27 +45,25 @@ model = Octofitter.LogDensityModel(HD91312)</code></pre><pre class="documenter-e
 </code></pre><p>After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.</p><h3 id="Sampling-from-the-posterior"><a class="docs-heading-anchor" href="#Sampling-from-the-posterior">Sampling from the posterior</a><a id="Sampling-from-the-posterior-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling-from-the-posterior" title="Permalink"></a></h3><p>Because proper motion anomaly data is quite sparse, it can often produce multi-modal posteriors. If your orbit already has several relative astrometry or RV data points, this is less of an issue. But in many cases it is recommended to use the <code>Pigeons.jl</code> sampler instead of Octofitter&#39;s default. This sampler is less efficient for unimodal distributions, but is more robust at exploring posteriors with distinct, widely separated peaks. </p><p>To install and use <code>Pigeons.jl</code> with Octofitter, type <code>using Pigeons</code> at in the terminal and accept the prompt to install the package. You may have to restart Julia.</p><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>We now sample from our model using Pigeons:</p><pre><code class="language-julia hljs">using Pigeons
 model = Octofitter.LogDensityModel(HD91312)
 Random.seed!(1)
-chain, pt = octofit_pigeons(model, n_rounds=12)
+chain, pt = octofit_pigeons(model, n_rounds=10)
 display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">─────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0          5      0.133   2.55e+04  -3.35e+04          0      0.286      0.988      0.998
-        4          0       3.25      0.293   3.53e+04   -4.6e+03          0      0.535          1          1
-        8          0        4.3      0.578   5.88e+04  -5.47e+03          0      0.386          1          1
-       16          0       4.75       1.05   1.02e+05       -306  2.62e-257      0.322          1          1
-       32          0       5.23       2.17   1.77e+05      -49.1   2.14e-36      0.253          1          1
-       64          0       5.13       4.48   3.05e+05      -57.5   5.33e-44      0.266          1          1
-      128          0       5.57       8.62   5.68e+05      -62.2   2.36e-45      0.204          1          1
-      256          0       5.72       17.4    1.1e+06      -20.5    8.7e-09      0.183          1          1
-      512          0       5.83       35.2   2.12e+06      -21.4   7.55e-08      0.168          1          1
- 1.02e+03          0       5.91       68.5   4.26e+06      -20.7   1.91e-05      0.155          1          1
- 2.05e+03          1       5.98        135   8.38e+06      -18.1   0.000635      0.146          1          1
-  4.1e+03          2       6.11        271   1.67e+07      -18.7    0.00126      0.127          1          1
+        2          0       1.74      0.131   2.66e+04  -3.27e+04          0      0.752          1          1
+        4          0       3.77       0.28   3.62e+04  -1.87e+03          0      0.461          1          1
+        8          0       3.42      0.591   6.17e+04  -3.18e+03          0      0.511          1          1
+       16          0       5.34       1.21   9.18e+04       -138  2.92e-113      0.238          1          1
+       32          0        5.5       2.26    1.7e+05      -29.8    2.1e-17      0.214          1          1
+       64          0       5.56       4.32      3e+05      -32.6   1.01e-19      0.206          1          1
+      128          0       5.74       9.19   5.71e+05      -34.6    3.3e-18       0.18          1          1
+      256          0       6.01       17.4   1.08e+06      -17.7   7.63e-05      0.141          1          1
+      512          0       6.01         35   2.15e+06        -19   7.96e-05      0.141          1          1
+ 1.02e+03          1       6.15       69.7   4.24e+06      -18.8    0.00297      0.122          1          1
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Note that <code>octofit_pigeons</code> took considerably longer to run than <code>octofit</code> typically does; however, as we will see, it sampled successfully from severally completely disconnected modes in the posterior. That makes it a good fit for sampling from proper motion anomaly and relative astrometry with limited orbital coverage.</p><h3 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h3><p>The first step is to look at the table output above generated by MCMCChains.jl. The <code>rhat</code> column gives a convergence measure. Each parameter should have an <code>rhat</code> very close to 1.000. If not, you may need to run the model for more iterations or tweak the parameterization of the model to improve sampling. The <code>ess</code> column gives an estimate of the effective sample size. The <code>mean</code> and <code>std</code> columns give the mean and standard deviation of each parameter.</p><p>The second table summarizes the 2.5, 25, 50, 75, and 97.5 percentiles of each parameter in the model.</p><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>If we wish to examine the covariance between parameters in more detail, we can construct a pair-plot (aka. corner plot).</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
 using CairoMakie: Makie
 using PairPlots
-octocorner(model, chain, small=true)</code></pre><img src="c49e394c.png" alt="Example block output"/><p>Notice how there are completely separated peaks? The default Octofitter sample (Hamiltonian Monte Carlo) is capabale of jumping 2-3σ gaps between modes, but such widely separated peaks can cause issues (hence why we used Pigeons in this example).</p><h3 id="Posterior-Mass-vs.-Semi-Major-Axis"><a class="docs-heading-anchor" href="#Posterior-Mass-vs.-Semi-Major-Axis">Posterior Mass vs. Semi-Major Axis</a><a id="Posterior-Mass-vs.-Semi-Major-Axis-1"></a><a class="docs-heading-anchor-permalink" href="#Posterior-Mass-vs.-Semi-Major-Axis" title="Permalink"></a></h3><p>Given that this posterior is quite unconstrained, it is useful to make a simplified plot marginalizing over all orbital  parameters besides semi-major axis. We can do this using PairPlots.jl:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model, chain, small=true)</code></pre><img src="6d6859f1.png" alt="Example block output"/><p>Notice how there are completely separated peaks? The default Octofitter sample (Hamiltonian Monte Carlo) is capabale of jumping 2-3σ gaps between modes, but such widely separated peaks can cause issues (hence why we used Pigeons in this example).</p><h3 id="Posterior-Mass-vs.-Semi-Major-Axis"><a class="docs-heading-anchor" href="#Posterior-Mass-vs.-Semi-Major-Axis">Posterior Mass vs. Semi-Major Axis</a><a id="Posterior-Mass-vs.-Semi-Major-Axis-1"></a><a class="docs-heading-anchor-permalink" href="#Posterior-Mass-vs.-Semi-Major-Axis" title="Permalink"></a></h3><p>Given that this posterior is quite unconstrained, it is useful to make a simplified plot marginalizing over all orbital  parameters besides semi-major axis. We can do this using PairPlots.jl:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 pairplot(
     (; a=chain[&quot;B_a&quot;][:], mass=chain[&quot;B_mass&quot;][:]) =&gt;
         (
@@ -81,7 +78,7 @@ pairplot(
             ticks=2 .^ (0:1:6)
         )
     )
-)</code></pre><img src="8ee67091.png" alt="Example block output"/><h2 id="Adding-Relative-Astrometry"><a class="docs-heading-anchor" href="#Adding-Relative-Astrometry">Adding Relative Astrometry</a><a id="Adding-Relative-Astrometry-1"></a><a class="docs-heading-anchor-permalink" href="#Adding-Relative-Astrometry" title="Permalink"></a></h2><p>The first orbit fit to only Hipparcos/GAIA data was very unconstrained. We will now add six epochs of relative astrometry (measured from direct images) gathered from the <a href="https://arxiv.org/abs/2109.12124">discovery paper</a>.</p><pre><code class="language-julia hljs">astrom_like = PlanetRelAstromLikelihood(
+)</code></pre><img src="a5c62627.png" alt="Example block output"/><h2 id="Adding-Relative-Astrometry"><a class="docs-heading-anchor" href="#Adding-Relative-Astrometry">Adding Relative Astrometry</a><a id="Adding-Relative-Astrometry-1"></a><a class="docs-heading-anchor-permalink" href="#Adding-Relative-Astrometry" title="Permalink"></a></h2><p>The first orbit fit to only Hipparcos/GAIA data was very unconstrained. We will now add six epochs of relative astrometry (measured from direct images) gathered from the <a href="https://arxiv.org/abs/2109.12124">discovery paper</a>.</p><pre><code class="language-julia hljs">astrom_like = PlanetRelAstromLikelihood(
     (epoch=mjd(&quot;2016-12-15&quot;), ra=133., dec=-174., σ_ra=07.0, σ_dec=07., cor=0.2),
     (epoch=mjd(&quot;2017-03-12&quot;), ra=126., dec=-176., σ_ra=04.0, σ_dec=04., cor=0.3),
     (epoch=mjd(&quot;2017-03-13&quot;), ra=127., dec=-172., σ_ra=04.0, σ_dec=04., cor=0.1),
@@ -89,8 +86,9 @@ pairplot(
     (epoch=mjd(&quot;2018-11-28&quot;), ra=058., dec=-122., σ_ra=10.0, σ_dec=20., cor=0.3),
     (epoch=mjd(&quot;2018-12-15&quot;), ra=056., dec=-104., σ_ra=08.0, σ_dec=08., cor=0.2),
 )
-Plots.plot(astrom_like, lims=:symmetric)</code></pre><img src="a7d8a74f.svg" alt="Example block output"/><p>We use the same model as before, but now condition the planet model <code>B</code> on the astrometry data by adding <code>astrom_like</code> to the end of the <code>@planet</code> defintion.</p><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
-    a ~ LogUniform(0.1,200)
+Plots.plot(astrom_like, lims=:symmetric)</code></pre><img src="1bc27421.svg" alt="Example block output"/><p>We use the same model as before, but now condition the planet model <code>B</code> on the astrometry data by adding <code>astrom_like</code> to the end of the <code>@planet</code> defintion.</p><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
+    # a ~ LogUniform(0.1,200)
+    a ~ Uniform(0.1,200)
     e ~ Uniform(0,0.999)
     ω ~ UniformCircular()
     i ~ Sine()
@@ -98,9 +96,8 @@ Plots.plot(astrom_like, lims=:symmetric)</code></pre><img src="a7d8a74f.svg" alt
 
     mass = system.M_sec
 
-    τ ~ UniformCircular(1.0)
-    P = √(B.a^3/system.M)
-    tp =  B.τ*B.P*365.25 + 57737 # reference epoch for τ. Choose an MJD date near your data.
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,B,57737.0) # epoch of astrometry
 end astrom_like # Note the relative astrometry added here!
 
 @system HD91312 begin
@@ -120,22 +117,20 @@ model = Octofitter.LogDensityModel(HD91312)</code></pre><pre class="documenter-e
 </code></pre><p>Sample as before:</p><pre><code class="language-julia hljs">using Pigeons
 model = Octofitter.LogDensityModel(HD91312)
 Random.seed!(1)
-chain, pt = octofit_pigeons(model, n_rounds=12)
+chain, pt = octofit_pigeons(model, n_rounds=10)
 display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">─────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0          4       0.14   2.64e+04  -4.67e+04          0      0.429          1          1
-        4          0        4.3      0.304   3.66e+04  -7.54e+03          0      0.386      0.994      0.999
-        8          0       3.82      0.634   6.72e+04  -3.65e+03          0      0.454          1          1
-       16          0       5.26       1.28   9.22e+04       -237   1.12e-73      0.249          1          1
-       32          0        5.8       2.32   1.48e+05       -100   3.05e-10      0.172          1          1
-       64          0       6.05       4.52   2.88e+05      -75.2   1.44e-05      0.135          1          1
-      128          0       6.21       8.92   5.64e+05      -71.6   3.04e-11      0.113          1          1
-      256          0       6.49       17.8   1.07e+06      -70.2   0.000163     0.0728          1          1
-      512          0        6.5       35.1   2.13e+06      -69.3   0.000277     0.0718          1          1
- 1.02e+03          0       6.53         69   4.25e+06        -68   3.73e-05     0.0677          1          1
- 2.05e+03          2        6.6        137   8.45e+06      -68.1    0.00452     0.0569          1          1
-  4.1e+03          1       6.63        272   1.67e+07      -68.3    0.00183     0.0531          1          1
+        2          0          6      0.135   2.55e+04  -4.37e+04          0      0.143          1          1
+        4          0        5.5      0.333   3.37e+04   -6.2e+03          0      0.215          1          1
+        8          0       4.42      0.722   6.28e+04  -1.89e+04          0      0.369          1          1
+       16          0       6.43       1.47   8.38e+04  -1.28e+03          0     0.0814          1          1
+       32          0       6.57       3.02   1.49e+05       -325  6.62e-107     0.0607          1          1
+       64          0       5.72       6.01   2.99e+05       -440  7.95e-270      0.184          1          1
+      128          0       5.42         11   5.55e+05       -180   5.88e-85      0.226          1          1
+      256          0       5.76       21.1   1.07e+06      -88.4   1.25e-21      0.177          1          1
+      512          0       6.19       39.1   2.15e+06       -106   6.57e-38      0.116          1          1
+ 1.02e+03          0       6.34       77.9   4.24e+06      -75.9   2.05e-09     0.0945          1          1
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>The mass vs. semi-major axis posterior is now much more constrained:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 pairplot(
     (; a=chain[&quot;B_a&quot;][:], mass=chain[&quot;B_mass&quot;][:]) =&gt;
@@ -145,20 +140,8 @@ pairplot(
             PairPlots.MarginConfidenceLimits()
         ),
     labels=Dict(:mass=&gt;&quot;mass [Mⱼᵤₚ]&quot;, :a=&gt;&quot;sma. [au]&quot;),
-)</code></pre><img src="15117ecd.png" alt="Example block output"/><p>It is now useful to display the orbits projected onto the plane of the sky using <code>octoplot</code>. This function produces a nine-panel figure showing posterior predictive distributions for velocity (in three dimensions), projected positions vs. time in the plane of the sky,  and various other two and three-dimensional views.</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="c4b4b50d.svg" alt="Example block output"/><p>Finally we display the posterior as a corner plot:</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
+)</code></pre><img src="b485569e.png" alt="Example block output"/><p>It is now useful to display the orbits projected onto the plane of the sky using <code>octoplot</code>. This function produces a nine-panel figure showing posterior predictive distributions for velocity (in three dimensions), projected positions vs. time in the plane of the sky,  and various other two and three-dimensional views.</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="416ef882.svg" alt="Example block output"/><p>Finally we display the posterior as a corner plot:</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
 using CairoMakie: Makie
 using PairPlots
-octocorner(model, chain, small=true)</code></pre><img src="ce7739d1.png" alt="Example block output"/><p>Notice that our data is consitent with orbits with three completely different orbital periods. It might be worth separating the posterior and quoting uncertainties on the three modes separately:</p><pre><code class="language-julia hljs">mode1 = chain[       chain[&quot;B_a&quot;][:] .&lt; 5.5]
-mode2 = chain[5.5 .&lt; chain[&quot;B_a&quot;][:] .&lt; 7.5]
-mode3 = chain[7.5 .&lt; chain[&quot;B_a&quot;][:]       ]
-octocorner(model,mode1, mode2, mode3, small=true)</code></pre><img src="53a332c9.png" alt="Example block output"/><p>Here we plot just the semi-major axis and eccentricity:</p><pre><code class="language-julia hljs">viz_layers = (
-    PairPlots.Scatter(),
-    PairPlots.MarginDensity(),
-    PairPlots.MarginConfidenceLimits()
-)
-pairplot(
-    (;a=mode1[&quot;B_a&quot;][:], e=mode1[&quot;B_e&quot;][:])=&gt;viz_layers,
-    (;a=mode2[&quot;B_a&quot;][:], e=mode2[&quot;B_e&quot;][:])=&gt;viz_layers,
-    (;a=mode3[&quot;B_a&quot;][:], e=mode3[&quot;B_e&quot;][:])=&gt;viz_layers,
-)</code></pre><img src="713836e7.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Sunday 4 February 2024 17:53">Sunday 4 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model, chain, small=true)</code></pre><img src="ae093a89.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Monday 5 February 2024 04:08">Monday 5 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

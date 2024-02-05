@@ -19,12 +19,11 @@ astrom_like = PlanetRelAstromLikelihood(
     i ~ Sine()
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
-    τ ~ UniformCircular(1.0)
     # Results will be sensitive to the prior on period
     P ~  LogUniform(0.1, 50)
-
     a = ∛(system.M * b.P^2)
-    tp =  b.τ*b.P*365.25 + 50420
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50420)
 end astrom_like ObsPriorAstromONeil2019(astrom_like)
 
 @system TutoriaPrime begin
@@ -36,63 +35,63 @@ model = Octofitter.LogDensityModel(TutoriaPrime)</code></pre><pre class="documen
 </code></pre><p>Now run the fit:</p><pre><code class="language-julia hljs">using Random
 Random.seed!(0)
 
-results_obspri = octofit(model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×29×1 Array{Float64, 3}):
+results_obspri = octofit(model,iterations=5000,)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (5000×29×1 Array{Float64, 3}):
 
-Iterations        = 1:1:1000
+Iterations        = 1:1:5000
 Number of chains  = 1
-Samples per chain = 1000
-Wall duration     = 9.45 seconds
-Compute duration  = 9.45 seconds
-parameters        = M, plx, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_τy, b_τx, b_P, b_ω, b_Ω, b_τ, b_a, b_tp
+Samples per chain = 5000
+Wall duration     = 19.34 seconds
+Compute duration  = 19.34 seconds
+parameters        = M, plx, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_P, b_θy, b_θx, b_ω, b_Ω, b_a, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Summary Statistics
- <span class="sgr1"> parameters         mean        std       mcse   ess_bulk   ess_tail      rha ⋯
- <span class="sgr90">     Symbol      Float64    Float64    Float64    Float64    Float64   Float6 ⋯
+ <span class="sgr1"> parameters         mean         std       mcse    ess_bulk    ess_tail       ⋯
+ <span class="sgr90">     Symbol      Float64     Float64    Float64     Float64     Float64   Flo ⋯
 
-           M       1.1557     0.0867     0.0048   322.5507   539.3699    1.008 ⋯
-         plx      50.0001     0.0195     0.0007   920.9786   550.3266    1.005 ⋯
-         b_e       0.1151     0.0815     0.0143    42.0037   140.9220    1.064 ⋯
-         b_i       0.6587     0.0845     0.0048   315.3617   490.7981    1.002 ⋯
-        b_ωy       0.7398     0.2867     0.0415    52.1482   140.1112    1.031 ⋯
-        b_ωx       0.5260     0.3101     0.0435    49.4746    62.0805    1.032 ⋯
-        b_Ωy      -0.4664     0.3209     0.0569    34.8404   241.3921    1.074 ⋯
-        b_Ωx      -0.7935     0.2261     0.0361    39.8129   220.7514    1.066 ⋯
-        b_τy       0.9657     0.0995     0.0209    72.5350    21.0802    1.008 ⋯
-        b_τx      -0.0488     0.2391     0.0435    63.1313    20.3448    1.016 ⋯
-         b_P      40.2326     5.0092     0.2806   317.4436   384.5162    1.000 ⋯
-         b_ω       0.6260     0.4403     0.0643    46.7815    62.0805    1.034 ⋯
-         b_Ω      -2.1062     0.4048     0.0707    32.4921   222.1868    1.077 ⋯
-         b_τ      -0.0090     0.0425     0.0081    63.0446    20.3448    1.016 ⋯
-         b_a      12.2881     1.0143     0.0560   327.7461   384.5162    0.999 ⋯
-        b_tp   50286.8052   633.4416   120.5451    61.7807    21.2645    1.015 ⋯
+           M       1.1597      0.0937     0.0021   2000.3719   2240.3863    1. ⋯
+         plx      49.9995      0.0204     0.0003   4437.2612   2832.0722    0. ⋯
+         b_e       0.1331      0.0925     0.0040    621.4710   1103.1427    1. ⋯
+         b_i       0.6648      0.0947     0.0027   1580.0576   1267.2710    1. ⋯
+        b_ωy       0.7225      0.3278     0.0211    383.8487    369.0082    0. ⋯
+        b_ωx       0.5046      0.3411     0.0201    327.2207    201.3930    1. ⋯
+        b_Ωy      -0.4209      0.3422     0.0187    333.2445    673.5414    1. ⋯
+        b_Ωx      -0.8040      0.2465     0.0145    372.4976    507.2257    1. ⋯
+         b_P      41.0021      5.6029     0.1967    586.7902    166.7369    1. ⋯
+        b_θy       0.0745      0.0074     0.0002   2060.6253   2932.7778    1. ⋯
+        b_θx      -0.9968      0.0202     0.0006   1325.1421    796.6298    1. ⋯
+         b_ω       0.6021      0.5360     0.0263    416.7882    199.8501    1. ⋯
+         b_Ω      -2.0189      0.5809     0.0357    406.0772    494.7984    1. ⋯
+         b_a      12.4531      1.1580     0.0386    752.5003    168.6151    1. ⋯
+         b_θ      -1.4962      0.0074     0.0002   1331.6420    415.6009    1. ⋯
+        b_tp   43288.8506   7265.9078   181.4077   2821.8446   2295.8923    1. ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       0.9923       1.0977       1.1457       1.2137       1.3347
-         plx      49.9607      49.9870      50.0004      50.0133      50.0395
-         b_e       0.0018       0.0474       0.0975       0.1720       0.2788
-         b_i       0.4798       0.6031       0.6624       0.7193       0.8068
-        b_ωy       0.0464       0.5963       0.8638       0.9591       1.0134
-        b_ωx      -0.0515       0.2802       0.4951       0.8019       0.9990
-        b_Ωy      -0.9614      -0.7816      -0.4402      -0.1880       0.0450
-        b_Ωx      -1.0235      -0.9784      -0.8927      -0.6230      -0.2890
-        b_τy       0.5231       0.9686       0.9872       1.0063       1.0348
-        b_τx      -0.8371      -0.1316      -0.0198       0.0808       0.3533
-         b_P      31.8518      35.9703      40.1333      44.2809      49.1357
-         b_ω      -0.0516       0.2848       0.5200       0.9290       1.5237
-         b_Ω      -2.8465      -2.4639      -2.0296      -1.7608      -1.5274
-         b_τ      -0.1627      -0.0209      -0.0031       0.0128       0.0564
-         b_a      10.6006      11.4521      12.2690      13.1192      14.1104
-        b_tp   47948.7246   50126.7350   50374.3680   50600.0979   51302.0910
+           M       0.9793       1.0967       1.1594       1.2222       1.3468
+         plx      49.9602      49.9854      49.9992      50.0133      50.0395
+         b_e       0.0064       0.0513       0.1182       0.2054       0.3109
+         b_i       0.4676       0.6083       0.6691       0.7310       0.8280
+        b_ωy      -0.0162       0.5471       0.8696       0.9576       1.0100
+        b_ωx      -0.1633       0.2689       0.4790       0.8223       1.0022
+        b_Ωy      -0.9625      -0.7617      -0.3422      -0.1526       0.0983
+        b_Ωx      -1.0220      -0.9827      -0.9330      -0.6464      -0.2600
+         b_P      30.5470      36.4408      41.3673      45.8163      49.6051
+        b_θy       0.0599       0.0694       0.0744       0.0794       0.0890
+        b_θx      -1.0372      -1.0104      -0.9968      -0.9828      -0.9589
+         b_ω      -0.1829       0.2729       0.5003       0.9725       1.5290
+         b_Ω      -2.8471      -2.4224      -1.9131      -1.7189      -1.4150
+         b_a      10.3563      11.5280      12.4938      13.4055      14.4311
+         b_θ      -1.5105      -1.5013      -1.4962      -1.4914      -1.4817
+        b_tp   32744.4871   35867.5935   49155.1316   50196.4940   50402.2715
 </span></span></code></pre><pre><code class="language-julia hljs">using Plots: Plots
 plotchains(results_obspri, :b, kind=:astrometry, color=&quot;b_e&quot;)
 Plots.plot!(astrom_like, label=&quot;astrometry&quot;)
 Plots.xlims!(-1000,1000)
-Plots.ylims!(-1000,1000)</code></pre><img src="a037bc21.svg" alt="Example block output"/><p>Compare this with the previous fit using uniform priors:</p><pre><code class="language-julia hljs">plotchains(results, :b, kind=:astrometry, color=&quot;b_e&quot;)
+Plots.ylims!(-1000,1000)</code></pre><img src="49b6ff17.svg" alt="Example block output"/><p>Compare this with the previous fit using uniform priors:</p><pre><code class="language-julia hljs">plotchains(results, :b, kind=:astrometry, color=&quot;b_e&quot;)
 Plots.plot!(astrom_like, label=&quot;astrometry&quot;)
 Plots.xlims!(-1000,1000)
-Plots.ylims!(-1000,1000)</code></pre><img src="f935e4a5.svg" alt="Example block output"/><p>We can compare the results in a corner plot:</p><pre><code class="language-julia hljs">octocorner(model,results,results_obspri,small=true)</code></pre><img src="6193575f.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom/">« Fit Relative Astrometry</a><a class="docs-footer-nextpage" href="../rv-1/">Fit Radial Velocity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Sunday 4 February 2024 17:53">Sunday 4 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Plots.ylims!(-1000,1000)</code></pre><img src="06f464d6.svg" alt="Example block output"/><p>We can compare the results in a corner plot:</p><pre><code class="language-julia hljs">octocorner(model,results,results_obspri,small=true)</code></pre><img src="c158a0ad.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom/">« Fit Relative Astrometry</a><a class="docs-footer-nextpage" href="../rv-1/">Fit Radial Velocity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Monday 5 February 2024 04:09">Monday 5 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

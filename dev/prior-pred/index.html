@@ -19,9 +19,8 @@ astrom_like = PlanetRelAstromLikelihood(Table(;
     i ~ Sine()
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
-    τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50420)  # reference epoch for θ. Choose an MJD date near your data.
 end astrom_like
 @system Tutoria begin
     M ~ truncated(Normal(1.2, 0.1), lower=0)
@@ -30,14 +29,14 @@ end b</code></pre><p>We can now draw one sample from the prior:</p><pre><code cl
 prior_draw_astrometry = prior_draw_system.planets.b.observations[4]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PlanetRelAstromLikelihood Table with 5 columns and 8 rows:
      epoch  ra        dec       σ_ra  σ_dec
    ┌───────────────────────────────────────
- 1 │ 50000  -167.699  -233.685  10.0  10.0
- 2 │ 50120  -162.402  -206.363  10.0  10.0
- 3 │ 50240  -154.751  -176.05   10.0  10.0
- 4 │ 50360  -144.806  -143.128  10.0  10.0
- 5 │ 50480  -132.663  -108.035  10.0  10.0
- 6 │ 50600  -118.457  -71.2643  10.0  10.0
- 7 │ 50720  -102.364  -33.3602  10.0  10.0
- 8 │ 50840  -84.6017  5.08618   10.0  10.0</code></pre><p>And plot the generated astrometry:</p><pre><code class="language-julia hljs">Plots.plot(prior_draw_astrometry, lims=:symmetric)</code></pre><img src="6b774a7a.svg" alt="Example block output"/><p>We can repeat this many times to get a feel for our chosen priors in the domain of our data:</p><pre><code class="language-julia hljs">plt = Plots.plot()
+ 1 │ 50000  -166.557  -99.4701  10.0  10.0
+ 2 │ 50120  -124.409  -93.4762  10.0  10.0
+ 3 │ 50240  -79.9871  -85.7742  10.0  10.0
+ 4 │ 50360  -34.1125  -76.5154  10.0  10.0
+ 5 │ 50480  12.3742   -65.8895  10.0  10.0
+ 6 │ 50600  58.649    -54.1139  10.0  10.0
+ 7 │ 50720  103.938   -41.4232  10.0  10.0
+ 8 │ 50840  147.542   -28.0579  10.0  10.0</code></pre><p>And plot the generated astrometry:</p><pre><code class="language-julia hljs">Plots.plot(prior_draw_astrometry, lims=:symmetric)</code></pre><img src="68528d3e.svg" alt="Example block output"/><p>We can repeat this many times to get a feel for our chosen priors in the domain of our data:</p><pre><code class="language-julia hljs">plt = Plots.plot()
 for i in 1:50
     prior_draw_system = generate_from_params(Tutoria)
     prior_draw_astrometry = prior_draw_system.planets.b.observations[4]
@@ -51,4 +50,4 @@ end
 # Finally we overplot our actual astrometry
 Plots.plot!(astrom_like, color=:black, linewidth=4)
 
-plt</code></pre><img src="3ca5cdf3.svg" alt="Example block output"/><p>The heavy black crosses are our actual data, while the colored ones are simulations drawn from our priors. Notice that our real data lies at a greater separation than most draws from the prior? That might mean the priors could be tweaked.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../thiele-innes/">« Fit Thiele-Innes Paramerers</a><a class="docs-footer-nextpage" href="../post-pred/">Posterior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Sunday 4 February 2024 17:42">Sunday 4 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plt</code></pre><img src="755cf431.svg" alt="Example block output"/><p>The heavy black crosses are our actual data, while the colored ones are simulations drawn from our priors. Notice that our real data lies at a greater separation than most draws from the prior? That might mean the priors could be tweaked.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../thiele-innes/">« Fit Thiele-Innes Paramerers</a><a class="docs-footer-nextpage" href="../post-pred/">Posterior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Monday 5 February 2024 03:58">Monday 5 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -22,19 +22,8 @@ astrom_like = PlanetRelAstromLikelihood(
     F ~ Normal(0, 10000) # milliarcseconds
     G ~ Normal(0, 10000) # milliarcseconds
 
-    # We would like to keep using the &quot;tau&quot; parameterization,
-    # so calculate the Period from the Thiele-Innes coefficients
-    # above. This is optional and you can just do
-    # tp ~ Uniform(...) instead with lower efficiency.
-    τ ~ UniformCircular(1.0)
-    P = begin
-        u = (b.A^2 + b.B^2 + b.F^2 + b.G^2)/2
-        v = b.A*b.G - b.B * b.F
-        α = sqrt(u + sqrt((u+v)*(u-v)))
-        a = α/system.plx
-        √(a^3/system.M)
-    end
-    tp =  b.τ*b.P*365.25 + 50000
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50000.0)  # reference epoch for θ. Choose an MJD date near your data.
 end astrom_like
 
 @system TutoriaPrime begin
@@ -44,91 +33,89 @@ end b
 
 model = Octofitter.LogDensityModel(TutoriaPrime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System TutoriaPrime of dimension 9 with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>We now sample from the model as usual:</p><pre><code class="language-julia hljs">using Random
-Random.seed!(1)
+Random.seed!(0)
 
-results = octofit(model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×25×1 Array{Float64, 3}):
+results = octofit(model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×24×1 Array{Float64, 3}):
 
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 16.85 seconds
-Compute duration  = 16.85 seconds
-parameters        = M, plx, b_e, b_A, b_B, b_F, b_G, b_τy, b_τx, b_τ, b_P, b_tp
+Wall duration     = 6.1 seconds
+Compute duration  = 6.1 seconds
+parameters        = M, plx, b_e, b_A, b_B, b_F, b_G, b_θy, b_θx, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Summary Statistics
- <span class="sgr1"> parameters         mean         std       mcse   ess_bulk   ess_tail      rh ⋯
- <span class="sgr90">     Symbol      Float64     Float64    Float64    Float64    Float64   Float ⋯
+ <span class="sgr1"> parameters         mean          std        mcse    ess_bulk   ess_tail      ⋯
+ <span class="sgr90">     Symbol      Float64      Float64     Float64     Float64    Float64   Fl ⋯
 
-           M       1.2169      0.0890     0.0039   479.0433   534.5035    1.00 ⋯
-         plx      50.0002      0.0205     0.0007   991.7560   457.0424    0.99 ⋯
-         b_e       0.2529      0.1461     0.0161    85.1998   227.8871    1.00 ⋯
-         b_A      79.8045    613.3084    68.4119    78.8316   152.6501    1.03 ⋯
-         b_B    -341.5654    418.4717    60.5959    57.4205   122.5754    0.99 ⋯
-         b_F     440.2678    577.1581    78.1032    60.4501   139.8577    1.00 ⋯
-         b_G     138.3215    370.5060    41.8725    69.4716   161.2312    1.02 ⋯
-        b_τy       0.5623      0.6291     0.1001    58.7487    82.6719    1.00 ⋯
-        b_τx       0.1096      0.5256     0.0522   105.1946   210.9764    1.04 ⋯
-         b_τ       0.0314      0.1856     0.0151   131.3286   141.0137    1.01 ⋯
-         b_P      78.7740     38.1277     4.2715    72.0264   192.9827    1.00 ⋯
-        b_tp   50673.7723   3247.0737   286.5871   128.5076   182.4053    1.01 ⋯
+           M       1.2217       0.0995      0.0044    499.6496   516.5868    1 ⋯
+         plx      50.0000       0.0185      0.0006   1073.3258   656.5302    0 ⋯
+         b_e       0.3873       0.1015      0.0047    450.9195   464.8731    1 ⋯
+         b_A     191.6840     677.8019     56.0307    152.1866   366.0805    1 ⋯
+         b_B    -684.1996     245.9657     21.7055    134.5908   200.9364    1 ⋯
+         b_F    1225.3965     543.8012     49.0481    120.9252   186.5605    1 ⋯
+         b_G     337.3958     320.5488     28.2325    137.9856   275.9731    1 ⋯
+        b_θy      -0.1270       0.0128      0.0005    645.3822   672.5417    1 ⋯
+        b_θx      -0.9917       0.0196      0.0007    771.0431   662.0184    1 ⋯
+         b_θ      -1.6982       0.0127      0.0005    617.7519   582.5453    1 ⋯
+        b_tp   14860.0377   31812.8696   2088.2902    284.8355   560.7967    1 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
-  parameters         2.5%        25.0%        50.0%        75.0%        97.5%
- </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
+  parameters          2.5%        25.0%        50.0%        75.0%        97.5% ⋯
+ </span><span class="sgr90">     Symbol       Float64      Float64      Float64      Float64      Float64 ⋯
 
-           M       1.0527       1.1552       1.2170       1.2755       1.3961
-         plx      49.9596      49.9868      49.9999      50.0136      50.0419
-         b_e       0.0094       0.1292       0.2541       0.3820       0.4925
-         b_A    -868.4589    -479.9619      63.8897     632.5893    1169.5194
-         b_B    -933.6530    -664.6745    -451.2555     -49.9501     470.7773
-         b_F    -613.0882       3.6421     499.5383     859.3015    1473.8037
-         b_G    -507.3224    -176.8110     153.0368     490.1502     683.1105
-        b_τy      -0.9839       0.4690       0.8914       0.9709       1.0188
-        b_τx      -0.9166      -0.2660       0.0956       0.5609       0.9845
-         b_τ      -0.4187      -0.0470       0.0164       0.1202       0.4570
-         b_P      27.7355      48.2898      69.6026     102.8108     165.4180
-        b_tp   43475.3703   48489.2929   50481.1220   53190.5552   56896.2386
-</span></span></code></pre><p>Notice that the fit was very very fast! The Thiele-Innes orbital paramterization is easier to explore than the default Campbell in  many cases.</p><p>We now display the results:</p><pre><code class="language-julia hljs">octoplot(model,results)</code></pre><img src="153569cc.svg" alt="Example block output"/><pre><code class="language-julia hljs">octocorner(model, results, small=false)</code></pre><img src="0c1ba423.png" alt="Example block output"/><h2 id="Conversion-back-to-Campbell-Elements"><a class="docs-heading-anchor" href="#Conversion-back-to-Campbell-Elements">Conversion back to Campbell Elements</a><a id="Conversion-back-to-Campbell-Elements-1"></a><a class="docs-heading-anchor-permalink" href="#Conversion-back-to-Campbell-Elements" title="Permalink"></a></h2><p>To convert our chain into the more familiar Campbell parameterization, we have to do a few steps. We start by turning the chain table into a an array of orbit objects, and then convert their type:</p><pre><code class="language-julia hljs">orbits_ti = Octofitter.construct_elements(results, :b, :) # colon means all rows</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1000-element Vector{ThieleInnesOrbit{Float64}}:
- ThieleInnesOrbit{Float64}(0.28980428047349943, 53647.521964968604, 1.2308910471214916, 50.008133914672925, 979.1344806017291, -233.5248041798903, 710.6784602440214, 612.6122123329236, -14.00240413111542, 15.786141381896591, 39971.646163583675, 0.05741280744881384, 1.3476368619652546)
- ThieleInnesOrbit{Float64}(0.10395718378940048, 52074.13050431149, 1.3049361670644486, 50.001008142486434, 494.1349438516237, -373.0616434677787, 600.0054024624349, 400.84760658240634, -9.609536883620343, 6.116292402162104, 19840.687034587812, 0.11566557249763221, 1.1099712596163185)
- ThieleInnesOrbit{Float64}(0.3955910010408713, 50174.25828826766, 1.0215092808109347, 49.97508231673269, -41.095901018589, -827.5185236077049, 1201.205248065405, 231.4866976827576, -18.730942451436658, -5.150076209721266, 45210.66208696391, 0.050759805733162605, 1.5195451868659071)
- ThieleInnesOrbit{Float64}(0.43041763773861763, 50495.03554465347, 1.013726900238544, 50.03136080581431, 90.71656476125199, -844.612947610846, 1492.2266136946387, 372.2291019515161, -25.775040506579284, -2.774707407922784, 62203.390897833924, 0.03689323671069934, 1.5847222735559425)
- ThieleInnesOrbit{Float64}(0.35808325819422276, 51129.993344249546, 1.08283921326316, 49.982092059686074, 331.33290006269857, -699.3328887885501, 1233.1707239631182, 337.12385347924027, -20.633568471426866, 3.3528296493971594, 45987.30836241239, 0.049902560213279754, 1.4545338961612553)
- ThieleInnesOrbit{Float64}(0.2850834690779656, 51192.95178698561, 1.1878034541519569, 49.98719828897293, 305.762428094475, -604.0263776186698, 1225.8611373236643, 427.76529782673333, -22.261747374055023, 2.093284073756755, 44577.740492292614, 0.051480501238027714, 1.3407197248852898)
- ThieleInnesOrbit{Float64}(0.20933535829447097, 51604.02254361613, 1.1827357679207762, 50.015827833053514, 386.1900805701416, -516.910804667451, 1093.581541162872, 394.89780771158587, -19.832233372021772, 4.39819991920576, 38648.39380500807, 0.059378520002157924, 1.2367366087863867)
- ThieleInnesOrbit{Float64}(0.3175757832244589, 52055.6333759966, 1.201860827140187, 50.01591743575933, 612.4537288206565, -561.2191782462259, 1234.624382832569, 470.2412707468522, -22.34736526900147, 8.805129767075034, 48948.29633687591, 0.046883846759607516, 1.3895065137355642)
- ThieleInnesOrbit{Float64}(0.3314027045833632, 50472.02173003877, 1.1770457481061198, 50.00576931678505, 73.89692594910768, -731.4565974812217, 1049.8673550818519, 147.17447068014565, -15.294484014799613, -0.7862397778482567, 32895.937934196314, 0.06976193927628818, 1.4111474966972477)
- ThieleInnesOrbit{Float64}(0.2984250252160071, 50362.26943439505, 1.0940247345327687, 49.99346133284484, 21.503049000867954, -692.2642229958974, 1024.2481218922353, 145.58332412179465, -15.505690499704503, -2.0322415709380808, 33109.041166326104, 0.06931292310983576, 1.3604149440480677)
+           M        1.0403       1.1528       1.2195       1.2913       1.4183 ⋯
+         plx       49.9634      49.9879      50.0007      50.0118      50.0374 ⋯
+         b_e        0.1523       0.3343       0.4176       0.4701       0.4962 ⋯
+         b_A     -980.3575    -354.7567     211.5667     774.8534    1311.8324 ⋯
+         b_B    -1069.6939    -871.5748    -715.1540    -518.5669    -142.4153 ⋯
+         b_F      219.0536     819.4344    1215.4408    1643.0113    2248.7524 ⋯
+         b_G     -354.1087     122.8192     422.1532     593.2974     769.4964 ⋯
+        b_θy       -0.1507      -0.1360      -0.1272      -0.1182      -0.1009 ⋯
+        b_θx       -1.0296      -1.0048      -0.9914      -0.9781      -0.9561 ⋯
+         b_θ       -1.7209      -1.7071      -1.6986      -1.6899      -1.6722 ⋯
+        b_tp   -49605.5478   -9678.2506   15547.2947   48493.5874   49824.3453 ⋯
+</span></span></code></pre><p>Notice that the fit was very very fast! The Thiele-Innes orbital paramterization is easier to explore than the default Campbell in  many cases.</p><p>We now display the results:</p><pre><code class="language-julia hljs">octoplot(model,results)</code></pre><img src="1d649130.svg" alt="Example block output"/><pre><code class="language-julia hljs">octocorner(model, results, small=false)</code></pre><img src="823a98d0.png" alt="Example block output"/><h2 id="Conversion-back-to-Campbell-Elements"><a class="docs-heading-anchor" href="#Conversion-back-to-Campbell-Elements">Conversion back to Campbell Elements</a><a id="Conversion-back-to-Campbell-Elements-1"></a><a class="docs-heading-anchor-permalink" href="#Conversion-back-to-Campbell-Elements" title="Permalink"></a></h2><p>To convert our chain into the more familiar Campbell parameterization, we have to do a few steps. We start by turning the chain table into a an array of orbit objects, and then convert their type:</p><pre><code class="language-julia hljs">orbits_ti = Octofitter.construct_elements(results, :b, :) # colon means all rows</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1000-element Vector{ThieleInnesOrbit{Float64}}:
+ ThieleInnesOrbit{Float64}(0.18707743881833627, 21136.459644943345, 1.2089814645872294, 49.98436396370038, 323.4682314786873, -492.14785246134784, 917.5722359608272, 410.01255042374487, -16.45571224951068, 2.311127645163544, 30244.89156613766, 0.07587676152131796, 1.2084117434178065)
+ ThieleInnesOrbit{Float64}(0.4775781694717116, 48907.30995611101, 1.2422036233504297, 50.009930299585186, -601.9326804268939, -1051.905615470152, 1959.433630083798, 215.22419331887363, -34.99175839447516, -16.064176112857492, 91002.44881665568, 0.025217831546769626, 1.6817621528832523)
+ ThieleInnesOrbit{Float64}(0.4707938543158362, -27933.544877457156, 1.1146186609473892, 50.008767266894296, -87.56541198693145, -966.2686606452896, 1748.924538209633, 473.6311523833294, -31.56320200960283, -7.737948655118999, 78016.32376662592, 0.029415439151769685, 1.6671069565544063)
+ ThieleInnesOrbit{Float64}(0.21626558352234818, 48861.06283999391, 1.0932266246684308, 49.997030772007946, -400.29209699665097, -679.7538111768546, 868.0326613546247, -11.072755710933187, -12.836238681424225, -10.59438836480554, 32044.560109702194, 0.0716154135599172, 1.2457467120680175)
+ ThieleInnesOrbit{Float64}(0.44579902105961894, 9076.194467234847, 0.9727077190486019, 50.001594039346294, 610.4468883343719, -664.7156418596004, 993.76540495363, 559.1495566231071, -15.241359395638383, 6.166131395678381, 42521.57078545154, 0.05396988827579075, 1.6151777334992623)
+ ThieleInnesOrbit{Float64}(0.4891772653737992, -21156.8040644437, 1.0760306630946634, 49.99620646078617, 509.27443838068956, -825.4096676051628, 1636.1333877282802, 537.250355366543, -28.966662521214577, 5.383408303802007, 72477.82871624018, 0.03166326123795332, 1.7074110582754707)
+ ThieleInnesOrbit{Float64}(0.1790033663783733, 16497.08486450305, 1.2004601636848133, 50.02371705831036, 548.8672215322849, -435.9344739783701, 969.1313121909075, 435.14906259379353, -17.72561011652749, 7.715469220731979, 35803.223123502496, 0.06409714613362574, 1.1983587033379122)
+ ThieleInnesOrbit{Float64}(0.3913500316538844, -952.2428153922665, 1.3567412628079327, 49.956742321282086, 1275.0515603275044, -275.2682014319103, 887.0546942944707, 680.6484109295266, -17.27300880896922, 21.891138843313705, 54928.92031769661, 0.04177916498865896, 1.5119394510565762)
+ ThieleInnesOrbit{Float64}(0.4779657305267765, -24153.801152101398, 1.2682205483038502, 49.99549094715694, 1257.7920997733104, -498.4913326126098, 1427.7836970990134, 761.6384543858459, -27.30850935765613, 20.74723784304857, 77314.606722208, 0.029682417358048347, 1.6826069378184494)
+ ThieleInnesOrbit{Float64}(0.44827515237867827, -29575.405752030754, 1.1895520880643926, 49.992781507181284, -57.996968137839865, -917.8192336111314, 1861.3311251368405, 385.3307285738863, -33.722813032674466, -5.476990678073621, 79730.02759175668, 0.02878318864195674, 1.6201837356050186)
  ⋮
- ThieleInnesOrbit{Float64}(0.4538299442712753, 48660.17501922811, 1.1681537786737457, 49.999012529275255, -703.7990269039345, -979.7549664629393, 1188.5472883670036, -44.81955118443541, -17.579271545029073, -18.035276427472336, 55118.304578765164, 0.04163561347070304, 1.6315217279296386)
- ThieleInnesOrbit{Float64}(0.4511658911287866, 48541.41939010145, 1.1677205622570783, 50.001690113182036, -732.2581944337724, -985.635279405715, 1184.3754048559633, -61.2028132502003, -17.411308831225735, -18.537156534508906, 55824.386127355945, 0.04110899525820979, 1.6260653069282132)
- ThieleInnesOrbit{Float64}(0.14548561421514097, 49193.781392227225, 1.3149723301179115, 49.99407215952539, -284.1361579658137, -631.7733241692821, 1032.6506870738838, 102.78539274261948, -17.494219138768642, -8.195517617359599, 33579.31596174975, 0.06834220289704693, 1.1578042261111283)
- ThieleInnesOrbit{Float64}(0.288645243291094, 48715.20878442682, 1.3138755338907593, 49.998039373444406, -499.5360703737597, -787.5511064722427, 1184.9822136016678, 92.1336993788753, -19.893050970713446, -13.36252489250649, 45377.33886332552, 0.0505733584667456, 1.345933390878108)
- ThieleInnesOrbit{Float64}(0.3712429511255162, 47409.89119719275, 1.2900398706842466, 49.98396940993137, -901.6374020785, -711.5221641959218, 526.0055787552911, -372.97297970930174, -4.2890529384337, -19.4935127176444, 36343.29805858776, 0.06314463868695805, 1.4767798929769287)
- ThieleInnesOrbit{Float64}(0.3756050086375934, 48297.87615175074, 1.3265115411533686, 50.00251863540571, -756.6798790002382, -796.1390650269338, 876.954177856011, -210.2918059799598, -11.611576846455332, -17.089912410144635, 39275.27119868047, 0.058430772202511215, 1.4842845568462808)
- ThieleInnesOrbit{Float64}(0.3032490305793671, 47896.21985634573, 1.169252147452438, 50.00278310080153, -741.2434643650461, -558.8094212023157, 505.11095878698876, -395.1380960583288, -4.353764596080308, -14.11065798579624, 28125.193283615456, 0.08159532990441172, 1.3676498256703893)
- ThieleInnesOrbit{Float64}(0.26554253925226395, 48228.903783044, 1.2019331363007708, 50.01206422394377, -618.1939424389409, -703.8667560198334, 923.7519632768765, -116.10535275251603, -13.910204300362349, -14.064469706654632, 37545.356601028034, 0.061122989161837164, 1.312668460360685)
- ThieleInnesOrbit{Float64}(0.2434788372494445, 49210.87562979994, 1.0311514951347016, 50.00515435273057, -345.43934142872985, -655.9717083718076, 739.1943666686705, -111.58645246079455, -8.643738733574219, -8.42745095918318, 25571.462693853147, 0.08974396388962103, 1.28206090927476)</code></pre><p>Here is one of those entries:</p><pre><code class="language-julia hljs">display(orbits_ti[1])</code></pre><p>We can now make a table of results (and visualize them in a corner plot) by querying properties of these objects:</p><pre><code class="language-julia hljs">table = (;
-    B_a = rad2deg.(semimajoraxis.(orbits_ti)),
-    B_e = rad2deg.(eccentricity.(orbits_ti)),
+ ThieleInnesOrbit{Float64}(0.4743335523151601, 49113.4487367461, 1.1174492644687255, 49.99692393920925, -528.2949632941745, -1039.8053756679274, 1425.001031069265, 168.95528492036541, -23.166246397039657, -16.03394387884708, 65131.8774729661, 0.035234427651106355, 1.674722078132139)
+ ThieleInnesOrbit{Float64}(0.47654691870090543, -30836.81454704897, 1.2660769258354296, 50.01660289155714, -124.30241513606582, -976.5103162591067, 1904.1371737401419, 400.45454671735075, -34.34337900059952, -7.306446615892915, 80837.93087027887, 0.028388708121247726, 1.6795183202903496)
+ ThieleInnesOrbit{Float64}(0.4149153463387019, 47873.906542137054, 1.0720763340579949, 49.98540237023068, -878.7674601126328, -774.6615332443878, 786.312948945147, -323.2443752651009, -9.438266272825661, -18.683033823490526, 44797.56420841911, 0.05122788404130809, 1.555091240155874)
+ ThieleInnesOrbit{Float64}(0.34432517164678145, 49190.521928345675, 1.173955367474919, 49.97211530556498, -397.5150833403476, -811.9129635484337, 1188.3781592708476, 63.404100102001905, -19.015629542280692, -11.032223102306471, 45326.005148194294, 0.050630635042704, 1.4318842420626425)
+ ThieleInnesOrbit{Float64}(0.207731961313487, 49048.535288191, 1.390421624956897, 49.973625748963684, -356.12218843162793, -686.6105364239673, 1181.6617788130711, 117.8087988060748, -20.517975759095346, -9.79111096820545, 40358.3513687618, 0.05686269004482269, 1.2346652122726696)
+ ThieleInnesOrbit{Float64}(0.36176116666911884, 48077.84073891385, 1.2147546465770347, 49.97820082385949, -753.8357649737034, -745.4357145023864, 656.4572175769781, -290.58383362679155, -6.576770179168031, -16.937927681298174, 34683.21467809658, 0.06616700458424436, 1.4606927041921383)
+ ThieleInnesOrbit{Float64}(0.394384239276155, 48240.78566030651, 1.2616238526927417, 50.02092973121539, -765.7908200740949, -848.1653666113468, 820.8502949103396, -195.7193251344314, -10.05156918207058, -18.39355509756403, 40545.51818544661, 0.05660019965969193, 1.5173740349808962)
+ ThieleInnesOrbit{Float64}(0.46217669922176463, 48765.32802274727, 1.2087141878530416, 50.02700547648082, -661.0017269560155, -1018.2131222792982, 1059.4080403532735, -39.23452390948972, -14.249836324202612, -18.515545239753376, 49592.895587939296, 0.04627445922234173, 1.6488461044890006)
+ ThieleInnesOrbit{Float64}(0.4580069592246936, 49437.26652201768, 1.1394587716349232, 50.00763231531701, -366.57825466040424, -981.7446774003046, 1628.9529742849038, 234.2842142120612, -27.99112680761316, -11.816509716969733, 70747.03678189262, 0.03243788756378434, 1.6401476399015507)</code></pre><p>Here is one of those entries:</p><pre><code class="language-julia hljs">display(orbits_ti[1])</code></pre><p>We can now make a table of results (and visualize them in a corner plot) by querying properties of these objects:</p><pre><code class="language-julia hljs">table = (;
+    B_a = semimajoraxis.(orbits_ti),
+    B_e = eccentricity.(orbits_ti),
     B_i = rad2deg.(inclination.(orbits_ti)),
 )
-pairplot(table)</code></pre><img src="586cde07.png" alt="Example block output"/><p>We can also convert the orbit objects into Campbell parameters:</p><pre><code class="language-julia hljs">orbits_campbell = Visual{KepOrbit}.(orbits_ti)
+pairplot(table)</code></pre><img src="70755fda.png" alt="Example block output"/><p>We can also convert the orbit objects into Campbell parameters:</p><pre><code class="language-julia hljs">orbits_campbell = Visual{KepOrbit}.(orbits_ti)
 orbits_campbell[1]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">KepOrbit{Float64}
 ─────────────────────────
-a   [au ] = 24.5
-e         = 0.28980428
-i   [°  ] = 59.4
-ω   [°  ] = 318.0
-Ω   [°  ] = 10.9
-tp  [day] = 53600.0
-M   [M⊙ ] = 1.23 
-period      [yrs ] : 109.4 
-mean motion [°/yr] : 3.29 
+a   [au ] = 20.2
+e         = 0.18707744
+i   [°  ] = 55.2
+ω   [°  ] = 278.0
+Ω   [°  ] = 19.5
+tp  [day] = 21100.0
+M   [M⊙ ] = 1.21 
+period      [yrs ] : 82.8 
+mean motion [°/yr] : 4.35 
 ──────────────────────────
 plx [mas] = 50.0 
 distance    [pc  ] : 20.0 
 ──────────────────────────
-</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-likemap/">« Fit Likelihood Map</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Sunday 4 February 2024 20:49">Sunday 4 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-likemap/">« Fit Likelihood Map</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Monday 5 February 2024 07:05">Monday 5 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
