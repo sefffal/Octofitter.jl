@@ -825,7 +825,7 @@ Base.@nospecializeinfer function advancedhmc(
                             progress=verbosity > 1,
                             maxiters=25_000,
                             # maxtime=25.0,
-                            # reltol=1e-4,
+                            reltol=1e-10,
                         ) 
                     end
                 end
