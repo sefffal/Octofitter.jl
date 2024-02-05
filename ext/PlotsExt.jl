@@ -600,21 +600,19 @@ function Octofitter.timeplotgrid(
     end
     Plots.scatter!(ppost, [0],[0],marker=(:star, :white, :black, 5),label="",colorbar=nothing)
     
-    pz = Plots.plot()
+    pz = Plots.plot(title="top down", titlefontsize=8)
     for (i,planet_key) in enumerate(planet_keys)
         Octofitter.plotchains!(pz, chains, planet_key; kind=(:x,:z), color, rev=false, colorbar=nothing, kwargs...)
     end
-    Plots.annotate!(pz,((0.5,1.0),Plots.text("top down",:bottom,:middle,10)))
     Plots.scatter!(pz, [0],[0],marker=(:star, :white, :black, 5),label="")
     Plots.annotate!(pz,((-0.2,0.00),Plots.text("↓",:center,15)))
     # Plots.annotate!(pz,((-0.2,-0.15),Plots.text("🌍","Helvetica",:center,15)))
     Plots.annotate!(pz,((-0.2,-0.15),Plots.text("Earth",:center,5)))
 
-    py = Plots.plot()
+    py = Plots.plot(title="side view",titlefontsize=8)
     for (i,planet_key) in enumerate(planet_keys)
         Octofitter.plotchains!(py, chains, planet_key; kind=(:y,:z), xflip=false, color, rev=false, colorbar=nothing, kwargs...)
     end
-    Plots.annotate!(py,((0.5,1.0),Plots.text("side view",:bottom,:middle,10)))
     Plots.scatter!(py, [0],[0],marker=(:star, :white, :black, 5),label="")
     
 
@@ -636,7 +634,7 @@ function Octofitter.timeplotgrid(
         maxa = max(maxa, maximum(chains_deproj[Symbol("$(planet_key)_a")]))
         maxe = max(maxe, maximum(chains_deproj[Symbol("$(planet_key)_e")]))
     end
-    pxyz = Plots.plot(;xlims=:symmetric, ylims=(-maxa*(1+maxe), maxa*(1+maxe)))
+    pxyz = Plots.plot(;title="deprojected with i=ω=Ω=0", titlefontsize=8,xlims=:symmetric, ylims=(-maxa*(1+maxe), maxa*(1+maxe)))
     # Line to mark periastron
     Plots.plot!(pxyz, [0,0], [-maxa*(1+maxe),0],label="", color=:grey)
     for planet_key in planet_keys
@@ -649,7 +647,6 @@ function Octofitter.timeplotgrid(
         Octofitter.plotchains!(pxyz, chains_deproj, planet_key; kind=(:x,:y), xflip=false, color, rev=false, colorbar=nothing, kwargs...)
     end
     Plots.scatter!(pxyz, [0],[0],marker=(:star, :white, :black, 5),label="",xlabel="(au)",ylabel="(au)")
-    Plots.annotate!(pxyz,((0.5,1.0),Plots.text("deprojected with i=ω=Ω=0",:bottom,:middle,10)))
     Plots.annotate!(pxyz,((0.5,0.05),Plots.text(" periastron",:bottom,:left,10)))
     
     psep = Plots.plot()
