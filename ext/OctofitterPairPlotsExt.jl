@@ -15,8 +15,8 @@ function Octofitter.octocorner(
     kwargs...
 )
     labels_gen = Dict{Symbol,Any}(
-        :M => "total mass [M⊙]",
-        :plx => "parallax [mas]",
+        :M => "M [M⊙]\ntotal mass ",
+        :plx => "plx [mas]\nparallax",
     )
     prepared = map(chains) do chain
         chain_notinternal = MCMCChains.get_sections(chain, :parameters)
@@ -87,15 +87,16 @@ function Octofitter.octocorner(
             splice!(planet_var_keys, ii_splice)
             splice!(planet_var_keys_chopped, ii_splice)
 
-            labels_gen[Symbol(pk_*"a")] = "$planetkey:\nsemi-major axis [au]"
-            labels_gen[Symbol(pk_*"i")] = "$planetkey:\ninclination [°]"
-            labels_gen[Symbol(pk_*"Ω")] = "$planetkey:\nlogintude of\nascending node [°]"
-            labels_gen[Symbol(pk_*"ω")] = "$planetkey:\nargument of\nperiapsis [°]"
-            labels_gen[Symbol(pk_*"e")] = "$planetkey:\neccentricity"
-            labels_gen[Symbol(pk_*"mass")] = "$planetkey:\nmass [Mⱼᵤₚ]"
-            labels_gen[Symbol(pk_*"tp")] = "$planetkey:\nperiastron [mjd]"
-            labels_gen[Symbol(pk_*"P")] = "$planetkey:\nperiod [yrs]"
-            labels_gen[Symbol(pk_*"τ")] = "$planetkey:\norbit fraction τ"
+            labels_gen[Symbol(pk_*"a")] = "$(planetkey)_a [au]\nsemi-major axis"
+            labels_gen[Symbol(pk_*"i")] = "$(planetkey)_i [°]\ninclination"
+            labels_gen[Symbol(pk_*"Ω")] = "$(planetkey)_Ω [°]\nlogintude of\nascending node"
+            labels_gen[Symbol(pk_*"ω")] = "$(planetkey)_ω [°]\nargument of\nperiapsis"
+            labels_gen[Symbol(pk_*"e")] = "$(planetkey)_e\neccentricity"
+            labels_gen[Symbol(pk_*"mass")] = "$(planetkey)_mass [Mⱼᵤₚ]\nmass"
+            labels_gen[Symbol(pk_*"tp")] = "$(planetkey)_tp [mjd]\nepoch of periastron\npassage"
+            labels_gen[Symbol(pk_*"P")] = "$(planetkey)_P [yrs]\nperiod"
+            labels_gen[Symbol(pk_*"τ")] = "$(planetkey)_τ\norbit fraction τ"
+            labels_gen[Symbol(pk_*"θ")] = "$(planetkey)_θ [°]\nposition angle\nat ref. epoch"
 
             for (k, pk) in zip(planet_var_keys_chopped, planet_var_keys)
                 pks = Symbol(pk)
@@ -107,7 +108,7 @@ function Octofitter.octocorner(
 
                 # Do any data conversions
                 dat = vec(chain_notinternal[pk])
-                if k == "i" || k == "Ω" || k == "ω"
+                if k == "i" || k == "Ω" || k == "ω" || k == "θ"
                     dat = rad2deg.(rem2pi.(dat, RoundDown))
                 end
                 push!(table_cols, pks => dat)
