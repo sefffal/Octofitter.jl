@@ -34,9 +34,9 @@ chain, pt = octofit_pigeons(model)
 ```
 """
 Base.@nospecializeinfer function Octofitter.octofit_pigeons(
-    model;
-    n_rounds,
-    n_chains=cld(8,Threads.nthreads())*Threads.nthreads(),
+    model::Octofitter.LogDensityModel;
+    n_rounds::Int,
+    n_chains::Int=cld(8,Threads.nthreads())*Threads.nthreads(),
     pigeons_kw...
 )
     @nospecialize
