@@ -129,7 +129,7 @@ Priors can be any univariate distribution from the Distributions.jl package.
 
 For a `KepOrbit` you must specify the following parameters:
 * `a`: Semi-major axis, astronomical units (AU)
-* `i`: Inclination, radius
+* `i`: Inclination, radians
 * `e`: Eccentricity in the range [0, 1)
 * `ω`: Argument of periastron, radius
 * `Ω`: Longitude of the ascending node, radians.
