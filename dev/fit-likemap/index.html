@@ -3,10 +3,10 @@
 using Distributions
 using OctofitterImages
 using Pigeons
-using AstroImages</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-004896e9cd43 is missing from the cache.
+using AstroImages</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-0057bd913f87 is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1942
-┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-004896e9cd43 is missing from the cache.
+┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-0057bd913f87 is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1942</code></pre><p>Typically one would load your likelihood maps from eg. FITS files like so:</p><pre><code class="language-julia hljs">images = AstroImages.recenter(load(&quot;image-example-1.fits&quot;,1))</code></pre><p>If you&#39;re using a FITS file, make sure to store your data in 64-bit floating point format.</p><p>For this demonstration, however, we will construct two synthetic likelihood maps using a template orbit. We will create three peaks in two epochs.</p><pre><code class="language-julia hljs">orbit_template = orbit(
     a = 1.0,
@@ -107,21 +107,21 @@ chain, pt = octofit_pigeons(model, n_rounds=13) # increase n_rounds until log(Z�
 display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">─────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0          5     0.0163   2.91e+04       -576   1.5e-141      0.286          1          1
-        4          0       2.37     0.0148   3.58e+04       -707          0      0.661          1          1
+        2          0          5     0.0153   2.91e+04       -576   1.5e-141      0.286          1          1
+        4          0       2.37     0.0149   3.58e+04       -707          0      0.661          1          1
         8          0       2.47     0.0281   6.39e+04      -42.3   1.05e-18      0.647          1          1
-       16          0       4.92     0.0562   8.59e+04      -20.2     0.0018      0.298          1          1
-       32          0       4.83       0.11   1.62e+05      -18.7      0.137      0.311          1          1
+       16          0       4.92     0.0561   8.59e+04      -20.2     0.0018      0.298          1          1
+       32          0       4.83      0.109   1.62e+05      -18.7      0.137      0.311          1          1
        64          0       5.39       0.22   2.72e+05      -21.6     0.0586       0.23          1          1
-      128          2       5.38      0.438   5.12e+05      -20.5      0.116      0.231          1          1
-      256          6       5.17      0.866   9.76e+05        -20      0.191      0.262          1          1
+      128          2       5.38       0.44   5.12e+05      -20.5      0.116      0.231          1          1
+      256          6       5.17      0.871   9.76e+05        -20      0.191      0.262          1          1
       512          7       5.29       1.73   1.88e+06      -20.3      0.204      0.244          1          1
- 1.02e+03         18       5.22       3.48   3.69e+06      -20.7      0.208      0.255          1          1
- 2.05e+03         38        5.3       6.96   7.26e+06      -20.1      0.235      0.243          1          1
+ 1.02e+03         18       5.22       3.47   3.69e+06      -20.7      0.208      0.255          1          1
+ 2.05e+03         38        5.3       6.94   7.26e+06      -20.1      0.235      0.243          1          1
   4.1e+03         88       5.27       13.9   1.45e+07      -20.3      0.236      0.247          1          1
  8.19e+03        174       5.23       27.9    2.9e+07      -20.7      0.237      0.253          1          1
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>Display the results:</p><pre><code class="language-julia hljs">using Plots: Plots
-octoplot(model, chain)</code></pre><img src="9d53aec1.svg" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octoplot(model, chain)</code></pre><img src="cc6d46ce.svg" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 octocorner(model,chain,small=true,)</code></pre><img src="4a40780c.png" alt="Example block output"/><p>And finally let&#39;s look at the posterior predictive distributions at both epochs:</p><pre><code class="language-julia hljs">els = Octofitter.construct_elements(chain,:b, :)
 x = raoff.(els, loglikemap.table.epoch[1])
 y = decoff.(els, loglikemap.table.epoch[1])
@@ -131,4 +131,4 @@ pairplot(
 y = decoff.(els, loglikemap.table.epoch[2])
 pairplot(
     (;x,y)
-)</code></pre><img src="39703b84.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Fit Interferometer Data</a><a class="docs-footer-nextpage" href="../thiele-innes/">Fit Thiele-Innes Paramerers »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Monday 5 February 2024 19:27">Monday 5 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="39703b84.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Fit Interferometer Data</a><a class="docs-footer-nextpage" href="../thiele-innes/">Fit Thiele-Innes Paramerers »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Monday 5 February 2024 19:30">Monday 5 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
