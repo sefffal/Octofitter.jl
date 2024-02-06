@@ -16,7 +16,7 @@ using PlanetOrbits</code></pre><p>We now use PlanetOrbits.jl to create sample da
     m =0,
     tp =58849
 )
-Plots.plot(orb_template)</code></pre><img src="75ff859a.svg" alt="Example block output"/><p>Sample position and store as relative astrometry measurements:</p><pre><code class="language-julia hljs">epochs = [58849,58852,58858,58890]
+Plots.plot(orb_template)</code></pre><img src="d5808db0.svg" alt="Example block output"/><p>Sample position and store as relative astrometry measurements:</p><pre><code class="language-julia hljs">epochs = [58849,58852,58858,58890]
 astrom = PlanetRelAstromLikelihood(Table(
     epoch=epochs,
     ra=raoff.(orb_template, epochs),
@@ -30,7 +30,7 @@ astrom = PlanetRelAstromLikelihood(Table(
  2 │ 58852  21.3842   9.55631   1.0   1.0
  3 │ 58858  24.6966   -12.2283  1.0   1.0
  4 │ 58890  0.213769  -87.2649  1.0   1.0</code></pre><p>And plot our simulated astrometry measurments:</p><pre><code class="language-julia hljs">Plots.plot(orb_template, aspectratio=1, lw=1, label=&quot;&quot;)
-Plots.plot!(astrom, aspectratio=1, framestyle=:box)</code></pre><img src="9daddf3f.svg" alt="Example block output"/><p>Generate a simulated RV curve from the same orbit:</p><pre><code class="language-julia hljs">using Random
+Plots.plot!(astrom, aspectratio=1, framestyle=:box)</code></pre><img src="ad5c29a4.svg" alt="Example block output"/><p>Generate a simulated RV curve from the same orbit:</p><pre><code class="language-julia hljs">using Random
 Random.seed!(1)
 
 epochs = 58849 .+ (20:20:660)
@@ -41,7 +41,7 @@ rvlike = StarAbsoluteRVLikelihood(Table(
     σ_rv=fill(5.0, size(epochs)),
     inst_idx=ones(Int64, size(epochs)),
 ))
-Plots.plot(rvlike, framestyle=:box)</code></pre><img src="6a401197.svg" alt="Example block output"/><p>Now specify model and fit it:</p><pre><code class="language-julia hljs">@planet b Visual{KepOrbit} begin
+Plots.plot(rvlike, framestyle=:box)</code></pre><img src="9f04b9f1.svg" alt="Example block output"/><p>Now specify model and fit it:</p><pre><code class="language-julia hljs">@planet b Visual{KepOrbit} begin
     e ~ Uniform(0,0.999999)
     a ~ truncated(Normal(1, 1),lower=0)
     mass ~ truncated(Normal(1, 1), lower=0)
@@ -71,8 +71,8 @@ results = octofit(rng, model)</code></pre><pre class="documenter-example-output"
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 5.1 seconds
-Compute duration  = 5.1 seconds
+Wall duration     = 5.13 seconds
+Compute duration  = 5.13 seconds
 parameters        = M, jitter_1, rv0_1, plx, b_e, b_a, b_mass, b_i, b_Ωy, b_Ωx, b_ωy, b_ωx, b_θy, b_θx, b_Ω, b_ω, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -122,4 +122,4 @@ Quantiles
          b_ω       0.5996       0.7092       0.7773       0.8356       0.9386
          b_θ       0.6485       0.6923       0.7140       0.7360       0.7741
         b_tp   58478.7970   58483.1142   58488.4156   58848.6968   58848.9710
-</span></span></code></pre><p>Display results as a corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="1e1cb87a.png" alt="Example block output"/><p>Plot RV curve, phase folded curve, and binned residuals:</p><pre><code class="language-julia hljs">OctofitterRadialVelocity.rvpostplot(model, results,)</code></pre><img src="9e0446c8.png" alt="Example block output"/><p>Display RV, PMA, astrometry, relative separation, position angle, and 3D projected views:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="3d0f66d0.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« Fit RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../fit-coplanar/">Fit Resonant Co-Planar Model »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Monday 5 February 2024 19:51">Monday 5 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</span></span></code></pre><p>Display results as a corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="1e1cb87a.png" alt="Example block output"/><p>Plot RV curve, phase folded curve, and binned residuals:</p><pre><code class="language-julia hljs">OctofitterRadialVelocity.rvpostplot(model, results,)</code></pre><img src="9e0446c8.png" alt="Example block output"/><p>Display RV, PMA, astrometry, relative separation, position angle, and 3D projected views:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="7a55293f.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« Fit RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../fit-coplanar/">Fit Resonant Co-Planar Model »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Tuesday 6 February 2024 02:08">Tuesday 6 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
