@@ -22,7 +22,8 @@ from juliacall import Pkg
 Pkg.add(jl.map(jl.String, ['Octofitter','Distributions','Plots', 'CairoMakie', 'PairPlots']))
 ```
 
-!!! note You only need to run this step once to install everything. Don't repeat it each time you fit a model.
+!!! note
+    You only need to run this step once to install everything. Don't repeat it each time you fit a model.
 
 ### Step 4 
 Use Octofitter from inside python.
@@ -31,8 +32,6 @@ Use Octofitter from inside python.
 # Import packages
 import juliacall
 from juliacall import Main as jl
-from juliacall import Pkg
-Pkg.add(jl.map(jl.String, ['Octofitter','Distributions','Plots', 'CairoMakie', 'PairPlots']))
 jl.seval("using Octofitter, Distributions, Plots, CairoMakie, PairPlots")
 import numpy as np
 
@@ -51,8 +50,8 @@ jl.astrom._jl_display()
 
 jl.seval("""
 @planet B Visual{KepOrbit} begin
-    a ~ truncated(Normal(10, 4), lower=0, upper=100)
-    e ~ Uniform(0.0, 0.5)
+    a ~ LogUniform(0.1, 500)
+    e ~ Uniform(0.0, 0.99)
     i ~ Sine()
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
@@ -82,9 +81,11 @@ chain._jl_display()
 # Save chain to FITS file (optional)
 jl.Octofitter.savechain("mychain.fits", chain)
 
-# Plot orbits
-jl.octoplot(model, chain)._jl_display()
+# Make corner plot
+fig = jl.octocorner(model, chain, small=True)
+jl.Makie.save("corner.png", fig)
 
-# Corner plot
-jl.octocorner(model, chain, small=True)._jl_display()
+# Plot orbits
+jl.octoplot(model, chain)
+jl.Plots.savefig("orbits.png")
 ```

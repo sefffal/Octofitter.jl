@@ -24,9 +24,9 @@ astrom_like = PlanetRelAstromLikelihood(
     (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
 )
 @planet b Visual{KepOrbit} begin
-    a ~ truncated(Normal(10, 4), lower=0, upper=100)
-    e ~ Uniform(0.0, 0.5)
-    i ~ Sine()
+    a ~ Uniform(0, 100) # AU
+    e ~ Uniform(0.0, 0.99)
+    i ~ Sine() # radians
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
     θ ~ UniformCircular()
@@ -254,7 +254,8 @@ To confirm convergence, you may also examine the `rhat` column from chains. This
 Finaly, if you ran multiple chains (see later tutorials to learn how), you can run 
 ```julia
 using MCMCChains
-gelmandiag(chain)
+merged_chains = chainscat(chain1, chain2, chain3)
+gelmandiag(merged_chains)
 ```
 As an additional convergence test.
 
