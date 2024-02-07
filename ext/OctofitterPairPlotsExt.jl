@@ -12,6 +12,7 @@ function Octofitter.octocorner(
     chains::Octofitter.MCMCChains.Chains...; 
     small=false,
     labels=Dict{Symbol,Any}(),
+    fname=small ? "$(system.name)-pairplot-small.png" : "$(system.name)-pairplot.png" ,
     kwargs...
 )
     labels_gen = Dict{Symbol,Any}(
@@ -120,7 +121,11 @@ function Octofitter.octocorner(
 
     # Merge our generated labels with user labels
     labels = merge(labels_gen, labels)
-    pairplot(prepared...;labels, kwargs...)
+    fig = pairplot(prepared...;labels, kwargs...)
+
+    PairPlots.Makie.save(fname, fig, px_per_unit=3)
+
+    return fig
 end
 
 

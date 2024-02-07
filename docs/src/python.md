@@ -82,10 +82,8 @@ chain._jl_display()
 jl.Octofitter.savechain("mychain.fits", chain)
 
 # Make corner plot
-fig = jl.octocorner(model, chain, small=True)
-jl.Makie.save("corner.png", fig)
+fig = jl.octocorner(model, chain, small=True) # saved to "HD82134-pair-plot-small.png"
 
 # Plot orbits
-jl.octoplot(model, chain)
-jl.Plots.savefig("orbits.png")
+jl.octoplot(model, chain) # saved to "HD82134-plot-grid.png"
 ```

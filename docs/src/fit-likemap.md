@@ -246,3 +246,9 @@ If you would like to add additional rounds of sampling, you may do the following
 pt = increment_n_rounds!(pt, 2)
 chain, pt = octofit_pigeons(pt)
 ```
+
+Updated corner plot:
+```@example 1
+using CairoMakie, PairPlots
+octocorner(model,chain,small=false,)
+```
