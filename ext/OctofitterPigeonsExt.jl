@@ -34,40 +34,64 @@ chain, pt = octofit_pigeons(model)
 ```
 """
 Base.@nospecializeinfer function Octofitter.octofit_pigeons(
-    model::Octofitter.LogDensityModel;
+    target::Octofitter.LogDensityModel;
     n_rounds::Int,
     n_chains::Int=cld(8,Threads.nthreads())*Threads.nthreads(),
     pigeons_kw...
 )
     @nospecialize
 
-    target = model
-    reference_sys = prior_only_model(model.system)
+    reference_sys = prior_only_model(target.system)
     # Note we could run into issues if their priors aren't well handled by the default
     # autodiff backend
     reference = Octofitter.LogDensityModel(reference_sys)
- 
-    start_time = time()
-    pt = pigeons(;
-            target,
-            reference,
-            # explorer = AutoMALA(default_autodiff_backend = :ForwardDiff),
-            record = [traces; round_trip; record_default()],
-            multithreaded=true,
-            show_report=true,
-            n_rounds,
-            n_chains,
-            pigeons_kw...
+    inputs = Pigeons.Inputs(;
+        target,
+        reference,
+        # explorer = AutoMALA(default_autodiff_backend = :ForwardDiff),
+        record = [traces; round_trip; record_default()],
+        multithreaded=true,
+        show_report=true,
+        n_rounds,
+        n_chains,
+        pigeons_kw...
     )
+    return octofit_pigeons(inputs)
+end
+
+Base.@nospecializeinfer function Octofitter.octofit_pigeons(
+    pt::Pigeons.PT
+)
+    @nospecialize
+
+    start_time = time()
+    pt = pigeons(pt)
     stop_time = time()
 
+    chain = pt_to_chains(pt, start_time, stop_time)
+    return (;chain, pt)
+end
+Base.@nospecializeinfer function Octofitter.octofit_pigeons(
+    inputs::Pigeons.Inputs
+)
+    @nospecialize
+
+    start_time = time()
+    pt = pigeons(inputs)
+    stop_time = time()
+
+    chain = pt_to_chains(pt, start_time, stop_time)
+    return (;chain, pt)
+end
+function pt_to_chains(pt, start_time, stop_time)
+    target = pt.inputs.target
     ln_like = Octofitter.make_ln_like(target.system, target.arr2nt(Octofitter.sample_priors(target.system)))
 
     # Resolve the array back into the nested named tuple structure used internally.
     # Augment with some internal fields
     chain_res = map(get_sample(pt)) do sample 
-        θ_t = @view(sample[begin:begin+model.D-1])
-        logpost2 = sample[model.D+1]
+        θ_t = @view(sample[begin:begin+target.D-1])
+        logpost2 = sample[target.D+1]
         # Map the variables back to the constrained domain and reconstruct the parameter
         # named tuple structure.
         θ = target.invlink(θ_t)
@@ -102,7 +126,7 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
             stop_time,
         )
     )
-    return (;chain=mcmcchains_with_info, pt)
+    return mcmcchains_with_info
 end
 
 end

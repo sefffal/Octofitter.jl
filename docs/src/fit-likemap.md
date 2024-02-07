@@ -8,7 +8,11 @@ There are circumstances where you might have a 2D map of planet likelihood vs. p
 You can feed such 2D likelihood maps in to Octofitter. Simply pass in a list of maps and a platescale mapping the pixel size to a separation in milliarcseconds. 
 You can of course also mix these likelihood maps with relative astrometry, radial velocity, proper motion, images, etc.
 
-The likelihood maps must cover the full field of view. So for example, if you have a likelihood map covering a narrow field of view of $\pm 20 \; \mathrm{mas}$ from a fiber fed interferometer placed at a separation of $\pm 150 \; \mathrm{mas}$, you should pad out your likelihood map so that it covers $\pm 170 \; \mathrm{mas}$ in both directions. You can simply pad the map with NaN of -Inf.
+If your likelihood map is not centered on the star, you can specify offset dimensions as shown below.
+
+!!! note
+    Image modelling is supported in Octofitter via the extension package OctofitterImages. To install it, run 
+    `pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterImages`
 
 !!! note
     For simple models of interferometer data, OctofitterInterferometry.jl can already handle fitting point sources directly to visibilities.
@@ -23,9 +27,29 @@ using AstroImages
 
 Typically one would load your likelihood maps from eg. FITS files like so:
 ```julia
-images = AstroImages.recenter(load("image-example-1.fits",1))
+# If centred at the star:
+image1 = AstroImages.recenter(AstroImages.load("image-example-1.fits",1))
+
+# If not centered at the star:
+image1 = AstroImages.load("image-example-1.fits")
+image1_offset = AstroImage(
+    image1,
+    # Specify coordinates here:
+    (
+        # X coordinates should go from negative to positive.
+        # The image should have +RA at the left.
+        X(-4.85878653527304:1.0:95.14121346472696),
+        Y(-69.0877222942365:1.0:30.9122777057635)
+    )
+    # Below, there is a platescale option. `platescale` multiplies
+    # these values by a scaling factor. It can be 1 if the coordinates
+    # above are already in milliarcseconds.
+)
+imview(image1_offset)
 ```
 If you're using a FITS file, make sure to store your data in 64-bit floating point format.
+
+
 
 For this demonstration, however, we will construct two synthetic likelihood maps using a template orbit. We will create three peaks in two epochs.
 ```@example 1
@@ -61,16 +85,26 @@ d3 = MvNormal([x1+9.0, y1-10.0], [
 ])
 d = MixtureModel([d1, d2, d3], [0.5, 0.3, 0.2])
 
-# For calculations we save the full map in log likelihood
-llmap_epoch1 = broadcast(-500:1:500, (-500:1:500)') do x, y
+# Calculate a log-likelihood map over a +-50 mas patch around (x1, x2)
+lm1 = broadcast(x1 .+ (-50:50), y1 .+ (-50:1:50)') do x, y
     logpdf(d, [x, y])
 end
 
-# For display we show just a subset in linear units:
-lm1 = broadcast(x1 .+ (-50:50), y1 .+ (-50:1:50)') do x, y
-    pdf(d, [x, y])
-end
-imview(lm1,clims=extrema)
+# Place in an AstroImage with appropriate offset coordinates
+image1_offset = AstroImage(
+    lm1,
+    # Specify coordinates here:
+    (
+        # X coordinates should go from negative to positive.
+        # The image should have +RA at the left.
+        X(x1 .+ (-50:50)),
+        Y(y1 .+ (-50:1:50))
+    )
+    # Below, there is a platescale option. `platescale` multiplies
+    # these values by a scaling factor. It can be 1 if the coordinates
+    # above are already in milliarcseconds.
+)
+imview(10 .^ image1_offset)
 ```
 
 That was the first epoch. We now generate data for the second epoch:
@@ -93,16 +127,25 @@ d3 = MvNormal([x2-4.0, y2-10.0], [
 d = MixtureModel([d1, d2, d3], [0.5, 0.3, 0.2])
 
 
-# For calculations we save the full map in log likelihood
-llmap_epoch2 = broadcast(-500:1:500, (-500:1:500)') do x, y
+
+lm2 = broadcast(x2 .+ (-50:50), y2 .+ (-50:1:50)') do x, y
     logpdf(d, [x, y])
 end
-
-# For display we show just a subset in linear units:
-lm2 = broadcast(x2 .+ (-50:50), y2 .+ (-50:1:50)') do x, y
-    pdf(d, [x, y])
-end
-imview(lm2,clims=extrema)
+# Place in an AstroImage with appropriate offset coordinates
+image2_offset = AstroImage(
+    lm2,
+    # Specify coordinates here:
+    (
+        # X coordinates should go from negative to positive.
+        # The image should have +RA at the left.
+        X(x2 .+ (-50:50)),
+        Y(y2 .+ (-50:1:50))
+    )
+    # Below, there is a platescale option. `platescale` multiplies
+    # these values by a scaling factor. It can be 1 if the coordinates
+    # above are already in milliarcseconds.
+)
+imview(10 .^ image2_offset)
 ```
 
 
@@ -111,12 +154,12 @@ Okay, we have our synthetic data. We now set up a `LogLikelihoodMap` object to c
 loglikemap = LogLikelihoodMap(
     (;
         epoch=epochs[1],
-        map=AstroImages.recenter(AstroImage(llmap_epoch1)),
+        map=image1_offset,
         platescale=1.0 # milliarcseconds/pixel of the map
     ),
     (;
         epoch=epochs[2],
-        map=AstroImages.recenter(AstroImage(llmap_epoch2)),
+        map=image2_offset,
         platescale=1.0 # milliarcseconds/pixel of the map
     )
 );
@@ -125,7 +168,7 @@ loglikemap = LogLikelihoodMap(
 !!! note
     The likelihood maps will be interpolated using a simple bi-linear interpolation. 
 
-We now create a one-planet model and run the fit using `octofit_pigeons`. This parallel-tempered sampling is recommended over the default Hamiltonian Monte Carlo sampler due to the multi-modal nature of the data.
+We now create a one-planet model and run the fit using `octofit_pigeons`. This parallel-tempered sampler is slower than the regular `octofit`, but is recommended over the default Hamiltonian Monte Carlo sampler due to the multi-modal nature of the data. 
 ```@example 1
 
 @planet b Visual{KepOrbit} begin
@@ -142,7 +185,7 @@ end loglikemap
     plx ~ truncated(Normal(50.0, 0.02), lower=0)
 end b 
 model = Octofitter.LogDensityModel(Tutoria)
-chain, pt = octofit_pigeons(model, n_rounds=13) # increase n_rounds until log(Z₁/Z₀) converges.
+chain, pt = octofit_pigeons(model, n_rounds=12) # increase n_rounds until log(Z₁/Z₀) converges.
 display(chain)
 ```
 
@@ -167,7 +210,15 @@ els = Octofitter.construct_elements(chain,:b, :)
 x = raoff.(els, loglikemap.table.epoch[1])
 y = decoff.(els, loglikemap.table.epoch[1])
 pairplot(
-    (;x,y)
+    (;x,y),
+    axis=(
+        x = (;
+            lims=(low=100,high=-100)
+        ),
+        y = (;
+            lims=(low=-100,high=100)
+        )
+    )
 )
 ```
 
@@ -175,6 +226,23 @@ pairplot(
 x = raoff.(els, loglikemap.table.epoch[2])
 y = decoff.(els, loglikemap.table.epoch[2])
 pairplot(
-    (;x,y)
+    (;x,y),
+    axis=(
+        x = (;
+            lims=(low=100,high=-100)
+        ),
+        y = (;
+            lims=(low=-100,high=100)
+        )
+    )
 )
+```
+
+
+## Resume sampling for additional rounds
+
+If you would like to add additional rounds of sampling, you may do the following:
+```@example 1
+pt = increment_n_rounds!(pt, 2)
+chain, pt = octofit_pigeons(pt)
 ```

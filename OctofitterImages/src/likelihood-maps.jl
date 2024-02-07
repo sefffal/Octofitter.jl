@@ -29,9 +29,22 @@ struct LogLikelihoodMap{TTable<:Table} <: Octofitter.AbstractLikelihood
         if !issubset(likemap_cols, columnnames(table))
             error("Expected columns $likemap_cols")
         end
+        if !in(:fillvalue, columnnames(table))
+            @info ":fillvalue not provided. Filling Inf/NaN with minimum log-like value"
+            fillvalue = map(eachrow(table)) do row
+                img = row[].map
+                m = minimum(filter(isfinite, img))
+                @info "row:" epoch=row[].epoch fillvalue=m
+                return m
+            end
+            table = Table(table; fillvalue)
+        end
         # Create linear interpolators over the input likemaps
-        mapinterp = map(table.map) do img
-            LinearInterpolation(parent.(dims(img)), img, extrapolation_bc=convert(eltype(img), NaN))
+        mapinterp = map(eachrow(table)) do row
+            img = row[].map
+            data = collect(img)
+            data[.!isfinite.(data)] .= row[].fillvalue
+            LinearInterpolation(parent.(dims(img)), data, extrapolation_bc=convert(eltype(img), row[].fillvalue))
         end
         table = Table(table; mapinterp)
         return new{typeof(table)}(table)
@@ -55,8 +68,7 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_planet, orbit)
 
     likemaps_table = likemaps.table
     T = eltype(first(θ_planet))
-    # ll = zero(T)
-    ll = -Inf
+    ll = zero(T)
     for i in eachindex(likemaps_table.epoch)
 
         soln = orbitsolve(orbit, likemaps_table.epoch[i])
@@ -75,13 +87,13 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_planet, orbit)
         # about the likelihood. This is equivalent to σₓ→∞ or log likelihood 
         # of zero.
         if !isfinite(χ²)
-            continue
+            ll += likemaps_table.fillvalue[i]
         end
-        if isfinite(ll)
+        # if isfinite(ll)
            ll += χ²
-        else
-            ll = χ²
-        end
+        # else
+        #     ll = χ²
+        # end
     end
 
     return ll
