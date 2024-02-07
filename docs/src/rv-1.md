@@ -80,13 +80,13 @@ if we wanted to include these parameters and visualize the orbit in the plane of
     ω = 0.0
 
     # To match RadVel, we set a prior on Period and calculate semi-major axis from it
-    P ~ truncated(Normal(0.3693038/365.25, 0.0000091/365.25),lower=0.00001)
+    P ~ truncated(Normal(0.3693038/365.256360417, 0.0000091/365.256360417),lower=0.00001)
     a = cbrt(system.M * b.P^2) # note the equals sign. 
 
     τ ~ UniformCircular(1.0)
-    tp =  b.τ*b.P*365.25 + 57782 # reference epoch for τ. Choose an MJD date near your data.
+    tp = b.τ*b.P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
     
-    # planet mass [jupiter masses]
+    # minimum planet mass [jupiter masses]. really m*sin(i)
     mass ~ LogUniform(0.001, 10)
 end
 

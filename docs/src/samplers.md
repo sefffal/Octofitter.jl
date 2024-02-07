@@ -1,42 +1,22 @@
 # [Samplers](@id samplers)
 
+Octofitter directly supports three different samplers. Many additional samplers can be used through the LogDensityProblems.jl interface, but they are not tested.
 
-## Hamiltonian Monte Carlo (NUTS)
+The supported samplers are:
+* Pathfinder 
+* AdvancedHMC (Hamltonian Monte Carlo, No U-Turn Sampler)
+* Pigeons
 
-The recommended choice for almost all problems is Hamiltonian Monte Carlo. It can be run using the `Octofitter.advancedhmc` function.
-This sampling  method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.
 
-Derviatives for a complex model are usualy tedious to code, but Octofitter uses ForwardDiff.jl to generate them automatically.
+## Workflow
+When you're testing a new model and/or data, we recommend you test it quickly with Pathfinder (`chains = octoquick(model)`). This will return a rough approximation of the posterior and will pick up if it contains multiple modes. 
 
-When using HMC, only a few chains are necessary. This is in contrast to Affine Invariant MCMC based packages where hundreds or thousands of walkers are required.
-One chain should be enough to cover the whole posterior, but you can run a few different chains to make sure each has converged to the same distribution.
+If the posterior is unimodal (even if it has a complicated shape), go ahead and use AdvancedHMC (`chains = octofit(model)`). This uses a single computer core and is in many cases very efficient.
 
-Similarily, fewer samples are required. This is because unlike Affine Invariant MCMC, HMC produces samples that are much less correlated after each step (i.e. the autocorrelation time is much shorter).
+If the posterior is multimodal, and the modes are quite separated, then use Pigeons (`chains, pt = octofit_pigeons(model, n_rounds=12)`).
 
-### Usage
+Read mode about these samplers below.
 
-The method signature of `octofit` is as follows:
-```julia
-octofit(
-    [rng::Random.AbstractRNG],
-    model::Octofitter.LogDensityModel,
-    target_accept::Number=0.8,
-    ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
-    adaptation,
-    iterations,
-    drop_warmup=true,
-    max_depth=12,
-    initial_samples=50_000,
-    initial_parameters=nothing,
-    step_size=nothing,
-    verbosity=2,
-    pathfinder = true,
-    initial_samples= pathfinder ? 10_000 : 250_000,
-)
-```
-The only required arguments are `model`, `adaptation`, and `iterations`.
-The two positional arguments are `model`, the model you wish to sample; and `target_accept`, the acceptance rate that should be targeted during windowed adaptation. During this time, the step size and mass matrix will be adapted (see AdvancedHMC.jl for more information). The number of steps taken during adaptation is controlled by `adaptation`. You can prevent these samples from being dropped by pasing `include_adaptation=false`. The total number of posterior samples produced are given by `iterations`. These include the adaptation steps that may be discarded.
-`tree_depth` controls the maximum tree depth of the sampler. `initial_parameters` is an optional way to pass a starting point for the chain. If you don't pass a default position, one will be selected by automatically using pathfinder. This automatic selection is recommended over a manually specified point.
 
 ## Pathfinder
 If you would like a quick approximation to a posterior, you can use the function `octoquick`. This uses the multi-pathfinder approximate inference algorithm.
@@ -50,9 +30,85 @@ results = octoquick(model)
 
 This function accepts an `nruns` keyword argument to specify how many runs of pathfinder should be combined. These runs happen in parallel if julia is started with multiple threads (`julia --threads=auto`). The default of `nruns` is the lowest multiple of the number of threads greater than or equal to 16.
 
+## Hamiltonian Monte Carlo (NUTS)
+
+The recommended choice for almost all problems is Hamiltonian Monte Carlo. It can be run using the `octofit` function.
+This sampling  method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.
+
+Derviatives for a complex model are usualy tedious to code, but Octofitter uses ForwardDiff.jl to generate them automatically.
+
+When using HMC, only a few chains are necessary. This is in contrast to Affine Invariant MCMC based packages where hundreds or thousands of walkers are required.
+One chain should be enough to cover the whole posterior, but you can run a few different chains to make sure each has converged to the same distribution.
+
+Similarily, fewer samples are required. This is because unlike Affine Invariant MCMC, HMC produces samples that are much less correlated after each step (i.e. the autocorrelation time is much shorter).
+
+`octofit` will internally use Pathfinder to warm up the sampler, reducing convergence times signficantly. This can be bypassed by passing `pathfinder=false`.
+
+### Usage
+
+The method signature of `octofit` is as follows:
+```julia
+octofit(
+    [rng::Random.AbstractRNG],
+    model::Octofitter.LogDensityModel,
+    target_accept::Number=0.8,
+    adaptation=1000,
+    iterations=1000,
+    drop_warmup=true,
+    max_depth=12,
+    initial_samples=10_000,
+    initial_parameters=nothing,
+    step_size=nothing,
+    verbosity=2,
+    pathfinder = true,
+    initial_samples= pathfinder ? 10_000 : 250_000,
+)
+```
+The only required arguments are `model`, `adaptation`, and `iterations`.
+The two positional arguments are `model`, the model you wish to sample; and `target_accept`, the acceptance rate that should be targeted during windowed adaptation. During this time, the step size and mass matrix will be adapted (see AdvancedHMC.jl for more information). The number of steps taken during adaptation is controlled by `adaptation`. You can prevent these samples from being dropped by pasing `include_adaptation=false`. The total number of posterior samples produced are given by `iterations`. These include the adaptation steps that may be discarded.
+`tree_depth` controls the maximum tree depth of the sampler. `initial_parameters` is an optional way to pass a starting point for the chain. If you don't pass a default position, one will be selected by automatically using pathfinder. This automatic selection is recommended over a manually specified point.
+
+## Pigeons
+Pigeons implements non-reversible parallel tempering. You can read more about it here:
+[http://pigeons.run](https://pigeons.run/stable/). Pigeons is slower if you only run it on a single (or a few) computer cores, but can scale up very well over many cores or compute nodes. It can reliably sample from multimodal posteriors.
+
+!!! note
+   Pigeons must be installed as a separate package install it, run 
+    `pkg> add Pigeons`
 
 
-## Other Samplers
+Pigeons can be run locally with one or more Julia threads.
+!!! note
+    `octofit_pigeons` scales very well across multiple cores. Start julia with `julia --threads=auto` to make sure you have multiple threads available for sampling.
+
+You can get started with Pigeons by running:
+```julia
+using Pigeons
+model = Octofitter.LogDensityModel(System)
+chain, pt = octofit_pigeons(model)
+```
+
+The method signature of `octofit_pigeons` is as follows:
+```julia
+octofit_pigeons(
+    target::Octofitter.LogDensityModel;
+    n_rounds::Int,
+    n_chains::Int=cld(8,Threads.nthreads())*Threads.nthreads(),
+    pigeons_kw... # forwarded to Pigeons.Inputs
+)
+```
+
+The default number of chains is 8, or if you have more than 8 threads avialable, the next highest multiple of 8. The number of chains should ideally be set to twice the value of `Λ` in the resulting report.
+
+
+A nice feature of Pigeons is that you can resume sampler for additional rounds without having to start over:
+```@example 1
+pt = increment_n_rounds!(pt, 2)
+chain, pt = octofit_pigeons(pt)
+```
+
+## Advanced Usage: Additional Samplers
+This section is for people interested in developing support for new samplers with Octofitter.
 
 Octofitter converts your model specification into an `Octofitter.LogDensityModel` which implements the [LogDensityProblems.jl interface](https://www.tamaspapp.eu/LogDensityProblems.jl/dev/).
 
@@ -89,10 +145,6 @@ function remapchain(mc_samples)
     )
 end
 ```
-
-### Nested Sampling
-The image likelihood that is implemented in this package is not suitable for use with nested sampling. Other observation types should work fine.
-
 
 ### AdvancedMH
 Here is an example of using a separate package to sample from a model---in this case, AdvancedHM. For other packages, see their documentation for full details.
@@ -135,7 +187,7 @@ We can use the AdvancedMH package to implement a sampler that is similar to emce
 
 ```julia
 using AdvancedMH
-using MCMCChains: Chains
+using MCMCChains: MCMCChains, Chains, chainscat
 
 # Construct model from a system (see elsewhere in docs)
 model = Octofitter.LogDensityModel(system)
@@ -150,22 +202,50 @@ using LinearAlgebra
 spl = Ensemble(1_000, StretchProposal(MvNormal(zeros(model.D), I)))
 
 # Sample from the posterior.
-chn_norm = sample(
+start_time = time()
+chn_raw = sample(
     model,
     spl,
     1_000;
     chain_type=Any,
     init_params=initial_θ_t
 )
+stop_time = time()
 # Results are in normalized parameter space and need to be mapped back to their constrained support
 
-chn = remapchain(chn_norm)
+# Function to map the samples from all walkers back to their natural domain
+function remapchain(mc_samples_by_chain)
+    chains = map(mc_samples_by_chain) do mc_samples
+        logpost = map(s->s.lp, mc_samples)
+        # Transform samples back to constrained support
+        samples = map(mc_samples) do s
+            θ_t = s.params
+            θ = model.invlink(θ_t)
+            return θ
+        end
+        chain_res = model.arr2nt.(samples)
+        chain = Octofitter.result2mcmcchain(chain_res)
+        return MCMCChains.setinfo(
+            chain,
+            (;
+                start_time,
+                stop_time,
+                model=model.system,
+                logpost=logpost,
+            )
+        )
+    end
+    chainscat(chains...)
+end
+# Remap back to natural domain 
+chn_all = remapchain(chn_raw)
+# Discard some burn in
+chn = chn_all[500:end,:,:];
 ```
 
 ### Tempering
 The package MCMCTempering can be used to temper most Julia MCMC samplers.
 Here is an example with AdvancedMH. 
-
 
 !!! note
     MCMCTempering is under active development. The API might evolve, and you may
