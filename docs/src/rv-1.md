@@ -34,8 +34,21 @@ The following functions allow you to directly load data from various public RV d
 ## Basic Fit
 Start by fitting a 1-planet Keplerian model.
 
-Calling those functions with the name of a star will return a [`StarAbsoluteRVLikelihood`](@ref) table.
-For this example, to replicate the results of RadVel, we will download their example data for K2-131 
+Calling those functions with the name of a star will return a [`StarAbsoluteRVLikelihood`](@ref) table. 
+
+If you would like to manually specify RV data, use the following format:
+```julia
+rv_like = StarAbsoluteRVLikelihood(
+    # epoch is in units of MJD. `jd` is a helper function to convert.
+    # you can also put `years2mjd(2016.1231)`.
+    # rv and σ_rv are in units of meters/second
+    (;inst_idx=1, epoch=jd(2455110.97985),  rv=−6.54, σ_rv=1.30),
+    (;inst_idx=1, epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09),
+    # ... etc.
+)
+```
+
+For this example, to replicate the results of RadVel, we will download their example data for K2-131.
 and format it for Octofitter:
 ```@example 1
 rv_file = download("https://raw.githubusercontent.com/California-Planet-Search/radvel/master/example_data/k2-131.txt")
@@ -73,20 +86,22 @@ if we wanted to include these parameters and visualize the orbit in the plane of
     τ ~ UniformCircular(1.0)
     tp =  b.τ*b.P*365.25 + 57782 # reference epoch for τ. Choose an MJD date near your data.
     
+    # planet mass [jupiter masses]
     mass ~ LogUniform(0.001, 10)
 end
 
 
 @system k2_132 begin
+    # total mass [solar masses]
     M ~ truncated(Normal(0.82, 0.02),lower=0) # (Baines & Armstrong 2011).
 
     # HARPS-N
-    rv0_1 ~ Normal(0,10000)
-    jitter_1 ~ LogUniform(0.01,100)
+    rv0_1 ~ Normal(0,10000) # m/s
+    jitter_1 ~ LogUniform(0.01,100) # m/s
 
     # FPS
-    rv0_2 ~ Normal(0,10000)
-    jitter_2 ~ LogUniform(0.01,100)
+    rv0_2 ~ Normal(0,10000) # m/s
+    jitter_2 ~ LogUniform(0.01,100) # m/s
 end rvlike b
 
 ```
@@ -207,23 +222,33 @@ Sample from the model as before:
 using Random
 rng = Random.Xoshiro(0)
 
-chain = octofit(
+chain1 = octofit(
     rng, model,
     adaptation = 100,
     iterations = 100,
 )
 ```
+For real data, we would want to increase the adaptation and iterations to about 1000 each.
 
-For real data, we would want to increase the adaptation and iterations to at about 1000.
 
-
-And plot:
+Plot the results:
 ```@example 1
-fig = OctofitterRadialVelocity.rvpostplot(model, chain)
+fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to "k2_132-rvpostplot.png"
 ```
 
 
 Corner plot:
 ```@example 1
-octocorner(model, chain)
+octocorner(model, chain, small=true) # saved to "k2_132-pairplot-small.png"
 ```
+
+It is expensive (per iteration) to fit Guassian processes. If you have many cores (or a cluster) available you might also try starting julia with multiple threads (`julia --threads=auto`) and using `octofit_pigeons`. Pigeons is less efficient with single-core, but has better parallelization scaling:
+```julia
+using Pigeons
+chain, pt = octofit_pigeons(
+    model,
+    n_rounds=10
+)
+display(chain)
+```
+
