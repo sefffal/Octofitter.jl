@@ -13,9 +13,17 @@ using Dates
 # 1) Mean model (orbit + GP) and data (- mean instrument offset)
 # 2) Residuals of above
 # 3) Phase folded curve
-function OctofitterRadialVelocity.rvpostplot(model,results,args...)
+function OctofitterRadialVelocity.rvpostplot(
+    model,
+    results,
+    fname="$(model.system.name)-rvpostplot.png",
+    args...
+)
     fig = Figure()
     OctofitterRadialVelocity.rvpostplot!(fig.layout, model, results,args...)
+
+    Makie.save(fname, fig, px_per_unit=3)
+
     return fig
 end
 function OctofitterRadialVelocity.rvpostplot!(

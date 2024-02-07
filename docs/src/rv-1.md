@@ -114,7 +114,7 @@ chain = octofit(rng, model)
 Excellent! Let's plot the maximum likelihood orbit:
 ```@example 1
 using CairoMakie: Makie
-fig = OctofitterRadialVelocity.rvpostplot(model, chain)
+fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to "k2_132-rvpostplot.png"
 ```
 
 
