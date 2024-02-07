@@ -222,7 +222,7 @@ Sample from the model as before:
 using Random
 rng = Random.Xoshiro(0)
 
-chain1 = octofit(
+chain = octofit(
     rng, model,
     adaptation = 100,
     iterations = 100,
