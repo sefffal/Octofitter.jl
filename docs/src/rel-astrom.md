@@ -68,9 +68,18 @@ astrom_like = PlanetRelAstromLikelihood(
     (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
 )
 ```
+
 In Octofitter, `epoch` is always the modified Julian date (measured in days). If you're not sure what this is, you can get started by just putting in arbitrary time offsets measured in days.
 
 In this case, we specified `ra` and `dec` offsets in milliarcseconds. We could instead specify `sep` (projected separation) in milliarcseconds and `pa` in radians. You cannot mix the two formats in a single `PlanetRelAstromLikelihood` but you can create two different likelihood objects, one for each format.
+
+You can also specify it in separation (mas) and positon angle (rad):
+```julia
+astrom_like_2 = PlanetRelAstromLikelihood(
+    (epoch = 50000, sep = 505.7637580573554, pa = deg2rad(24.1), σ_sep = 10, σ_pa =deg2rad(1.2), cor=0),
+    # ...etc.
+)
+```
 
 Another way we could specify the data is by column:
 ```@example 1
