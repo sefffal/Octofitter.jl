@@ -6,7 +6,14 @@ using CairoMakie
 using PairPlots
 using CSV
 using DataFrames
-using Distributions</code></pre><p>We will start by downloading and preparing a table of radial velocity measurements, and create a <a href="../api/#OctofitterRadialVelocity.StarAbsoluteRVLikelihood"><code>StarAbsoluteRVLikelihood</code></a> object to hold them.</p><p>The following functions allow you to directly load data from various public RV databases:</p><ul><li><code>HARPS_DR1_rvs(&quot;star-name&quot;)</code></li><li><code>HARPS_RVBank_observations(&quot;star-name&quot;)</code></li><li><code>Lick_rvs(&quot;star-name&quot;)</code></li><li><code>HIRES_rvs(&quot;star-name&quot;)</code></li></ul><h2 id="Basic-Fit"><a class="docs-heading-anchor" href="#Basic-Fit">Basic Fit</a><a id="Basic-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Fit" title="Permalink"></a></h2><p>Start by fitting a 1-planet Keplerian model.</p><p>Calling those functions with the name of a star will return a <a href="../api/#OctofitterRadialVelocity.StarAbsoluteRVLikelihood"><code>StarAbsoluteRVLikelihood</code></a> table. For this example, to replicate the results of RadVel, we will download their example data for K2-131  and format it for Octofitter:</p><pre><code class="language-julia hljs">rv_file = download(&quot;https://raw.githubusercontent.com/California-Planet-Search/radvel/master/example_data/k2-131.txt&quot;)
+using Distributions</code></pre><p>We will start by downloading and preparing a table of radial velocity measurements, and create a <a href="../api/#OctofitterRadialVelocity.StarAbsoluteRVLikelihood"><code>StarAbsoluteRVLikelihood</code></a> object to hold them.</p><p>The following functions allow you to directly load data from various public RV databases:</p><ul><li><code>HARPS_DR1_rvs(&quot;star-name&quot;)</code></li><li><code>HARPS_RVBank_observations(&quot;star-name&quot;)</code></li><li><code>Lick_rvs(&quot;star-name&quot;)</code></li><li><code>HIRES_rvs(&quot;star-name&quot;)</code></li></ul><h2 id="Basic-Fit"><a class="docs-heading-anchor" href="#Basic-Fit">Basic Fit</a><a id="Basic-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Fit" title="Permalink"></a></h2><p>Start by fitting a 1-planet Keplerian model.</p><p>Calling those functions with the name of a star will return a <a href="../api/#OctofitterRadialVelocity.StarAbsoluteRVLikelihood"><code>StarAbsoluteRVLikelihood</code></a> table. </p><p>If you would like to manually specify RV data, use the following format:</p><pre><code class="language-julia hljs">rv_like = StarAbsoluteRVLikelihood(
+    # epoch is in units of MJD. `jd` is a helper function to convert.
+    # you can also put `years2mjd(2016.1231)`.
+    # rv and σ_rv are in units of meters/second
+    (;inst_idx=1, epoch=jd(2455110.97985),  rv=−6.54, σ_rv=1.30),
+    (;inst_idx=1, epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09),
+    # ... etc.
+)</code></pre><p>For this example, to replicate the results of RadVel, we will download their example data for K2-131. and format it for Octofitter:</p><pre><code class="language-julia hljs">rv_file = download(&quot;https://raw.githubusercontent.com/California-Planet-Search/radvel/master/example_data/k2-131.txt&quot;)
 rv_dat_raw = CSV.read(rv_file, DataFrame, delim=&#39; &#39;)
 rv_dat = DataFrame();
 rv_dat.epoch = jd2mjd.(rv_dat_raw.time)
@@ -50,20 +57,22 @@ rvlike = StarAbsoluteRVLikelihood(
     τ ~ UniformCircular(1.0)
     tp =  b.τ*b.P*365.25 + 57782 # reference epoch for τ. Choose an MJD date near your data.
 
+    # planet mass [jupiter masses]
     mass ~ LogUniform(0.001, 10)
 end
 
 
 @system k2_132 begin
+    # total mass [solar masses]
     M ~ truncated(Normal(0.82, 0.02),lower=0) # (Baines &amp; Armstrong 2011).
 
     # HARPS-N
-    rv0_1 ~ Normal(0,10000)
-    jitter_1 ~ LogUniform(0.01,100)
+    rv0_1 ~ Normal(0,10000) # m/s
+    jitter_1 ~ LogUniform(0.01,100) # m/s
 
     # FPS
-    rv0_2 ~ Normal(0,10000)
-    jitter_2 ~ LogUniform(0.01,100)
+    rv0_2 ~ Normal(0,10000) # m/s
+    jitter_2 ~ LogUniform(0.01,100) # m/s
 end rvlike b</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">System model k2_132
 Derived:
   
@@ -115,8 +124,8 @@ chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 30.82 seconds
-Compute duration  = 30.82 seconds
+Wall duration     = 31.14 seconds
+Compute duration  = 31.14 seconds
 parameters        = M, rv0_1, jitter_1, rv0_2, jitter_2, b_P, b_τy, b_τx, b_mass, b_e, b_ω, b_a, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -248,8 +257,8 @@ chain = octofit(
 Iterations        = 1:1:100
 Number of chains  = 1
 Samples per chain = 100
-Wall duration     = 646.17 seconds
-Compute duration  = 646.17 seconds
+Wall duration     = 653.71 seconds
+Compute duration  = 653.71 seconds
 parameters        = M, rv0_1, jitter_1, rv0_2, jitter_2, gp_η₁, gp_η₂, gp_η₃, gp_η₄, b_P, b_mass, b_τy, b_τx, b_e, b_ω, b_a, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -299,4 +308,9 @@ Quantiles
          b_a       0.0093       0.0094       0.0094       0.0095       0.0096
          b_τ      -0.2245      -0.1622      -0.1395      -0.1174      -0.0816
         b_tp   57781.9171   57781.9401   57781.9485   57781.9566   57781.9699
-</span></span></code></pre><p>For real data, we would want to increase the adaptation and iterations to at about 1000.</p><p>And plot:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain)</code></pre><img src="d5c04d53.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, chain)</code></pre><img src="19fad177.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Fit with Observable Priors</a><a class="docs-footer-nextpage" href="../pma/">Fit Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 7 February 2024 17:52">Wednesday 7 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</span></span></code></pre><p>For real data, we would want to increase the adaptation and iterations to about 1000 each.</p><p>Plot the results:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="d5c04d53.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, chain, small=true) # saved to &quot;k2_132-pairplot-small.png&quot;</code></pre><img src="76163724.png" alt="Example block output"/><p>It is expensive (per iteration) to fit Guassian processes. If you have many cores (or a cluster) available you might also try starting julia with multiple threads (<code>julia --threads=auto</code>) and using <code>octofit_pigeons</code>. Pigeons is less efficient with single-core, but has better parallelization scaling:</p><pre><code class="language-julia hljs">using Pigeons
+chain, pt = octofit_pigeons(
+    model,
+    n_rounds=10
+)
+display(chain)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Fit with Observable Priors</a><a class="docs-footer-nextpage" href="../pma/">Fit Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 7 February 2024 19:41">Wednesday 7 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
