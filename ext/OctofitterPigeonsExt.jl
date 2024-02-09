@@ -21,6 +21,13 @@ function Pigeons.sample_iid!(model_reference::Octofitter.LogDensityModel, replic
     replica.state .= θ_t
 end
 
+function Pigeons.default_reference(target::Octofitter.LogDensityModel)
+    reference_sys = prior_only_model(target.system)
+    # Note we could run into issues if their priors aren't well handled by the default
+    # autodiff backend
+    reference = Octofitter.LogDensityModel(reference_sys)
+    return reference
+end
 
 
 """
@@ -40,14 +47,8 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     pigeons_kw...
 )
     @nospecialize
-
-    reference_sys = prior_only_model(target.system)
-    # Note we could run into issues if their priors aren't well handled by the default
-    # autodiff backend
-    reference = Octofitter.LogDensityModel(reference_sys)
     inputs = Pigeons.Inputs(;
         target,
-        reference,
         # explorer = AutoMALA(default_autodiff_backend = :ForwardDiff),
         record = [traces; round_trip; record_default()],
         multithreaded=true,
@@ -68,8 +69,15 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     pt = pigeons(pt)
     stop_time = time()
 
-    chain = pt_to_chains(pt, start_time, stop_time)
-    return (;chain, pt)
+    mcmcchains = Chains(pt.inputs.target, pt)
+    mcmcchains_with_info = MCMCChains.setinfo(
+        mcmcchains,
+        (;
+            start_time,
+            stop_time,
+        )
+    )
+    return (;chain=mcmcchains_with_info, pt)
 end
 Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     inputs::Pigeons.Inputs
@@ -80,27 +88,33 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     pt = pigeons(inputs)
     stop_time = time()
 
-    chain = pt_to_chains(pt, start_time, stop_time)
-    return (;chain, pt)
+    mcmcchains = Chains(inputs.target, pt)
+    mcmcchains_with_info = MCMCChains.setinfo(
+        mcmcchains,
+        (;
+            start_time,
+            stop_time,
+        )
+    )
+    return (;chain=mcmcchains_with_info, pt)
 end
-function pt_to_chains(pt, start_time, stop_time)
-    target = pt.inputs.target
-    ln_like = Octofitter.make_ln_like(target.system, target.arr2nt(Octofitter.sample_priors(target.system)))
+function MCMCChains.Chains(model::Octofitter.LogDensityModel, pt::Pigeons.PT)
+    ln_like = Octofitter.make_ln_like(model.system, model.arr2nt(Octofitter.sample_priors(model.system)))
 
     # Resolve the array back into the nested named tuple structure used internally.
     # Augment with some internal fields
     chain_res = map(get_sample(pt)) do sample 
-        θ_t = @view(sample[begin:begin+target.D-1])
-        logpost2 = sample[target.D+1]
+        θ_t = @view(sample[begin:begin+model.D-1])
+        logpost2 = sample[model.D+1]
         # Map the variables back to the constrained domain and reconstruct the parameter
         # named tuple structure.
-        θ = target.invlink(θ_t)
-        resolved_namedtuple = target.arr2nt(θ)
+        θ = model.invlink(θ_t)
+        resolved_namedtuple = model.arr2nt(θ)
         # Add log posterior, tree depth, and numerical error reported by
         # the sampler.
         # Also recompute the log-likelihood and add that too.
-        loglike = ln_like(target.system, resolved_namedtuple)
-        logpost = target.ℓπcallback(θ_t)
+        loglike = ln_like(model.system, resolved_namedtuple)
+        logpost = model.ℓπcallback(θ_t)
         return merge((;
             loglike,
             logpost,
@@ -117,16 +131,7 @@ function pt_to_chains(pt, start_time, stop_time)
             :logpost2
         ])
     )
-    # Concatenate the log posteriors and make them the same shape as the chains (N_iters,N_vars,N_chains)
-    # logposts_mat = reduce(hcat, logposts)
-    mcmcchains_with_info = MCMCChains.setinfo(
-        mcmcchains,
-        (;
-            start_time,
-            stop_time,
-        )
-    )
-    return mcmcchains_with_info
+    return mcmcchains
 end
 
 end
