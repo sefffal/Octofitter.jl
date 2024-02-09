@@ -126,8 +126,8 @@ chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 5.37 seconds
-Compute duration  = 5.37 seconds
+Wall duration     = 4.97 seconds
+Compute duration  = 4.97 seconds
 parameters        = M, plx, b_a, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_θy, b_θx, b_ω, b_Ω, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -135,55 +135,55 @@ Summary Statistics
  <span class="sgr1"> parameters         mean         std       mcse    ess_bulk   ess_tail      r ⋯
  <span class="sgr90">     Symbol      Float64     Float64    Float64     Float64    Float64   Floa ⋯
 
-           M       1.1900      0.0915     0.0037    636.1574   603.0879    1.0 ⋯
-         plx      50.0000      0.0191     0.0006   1008.1203   663.3738    0.9 ⋯
-         b_a      11.7918      2.4589     0.1748    191.5988   334.3618    1.0 ⋯
-         b_e       0.1558      0.1082     0.0052    445.2728   538.5655    1.0 ⋯
-         b_i       0.6361      0.1774     0.0127    205.6145   277.5496    1.0 ⋯
-        b_ωy       0.0025      0.7279     0.0623    178.8340   708.6744    1.0 ⋯
-        b_ωx       0.0072      0.6879     0.0449    255.7601   597.2899    1.0 ⋯
-        b_Ωy      -0.0879      0.7521     0.1044     67.2240   519.2739    1.0 ⋯
-        b_Ωx      -0.1282      0.6420     0.0895     70.7110   370.2429    1.0 ⋯
-        b_θy       0.0741      0.0069     0.0002    920.0961   568.5537    1.0 ⋯
-        b_θx      -0.9976      0.0190     0.0006    906.8877   742.5488    0.9 ⋯
-         b_ω      -0.2315      1.7999     0.1100    309.3050   531.3379    1.0 ⋯
-         b_Ω      -0.7984      1.7633     0.2213     95.0366   406.5925    1.0 ⋯
-         b_θ      -1.4967      0.0067     0.0002    898.6408   567.1474    1.0 ⋯
-        b_tp   43267.6237   4999.2886   254.7639    361.0363   569.5574    0.9 ⋯
+           M       1.1806      0.0965     0.0040    588.8149   552.4069    1.0 ⋯
+         plx      49.9997      0.0192     0.0006   1179.5182   625.3658    1.0 ⋯
+         b_a      11.7534      2.3697     0.1779    151.6811   242.3531    1.0 ⋯
+         b_e       0.1536      0.1109     0.0067    294.8834   472.7666    1.0 ⋯
+         b_i       0.6230      0.1817     0.0164    160.2636    90.1379    1.0 ⋯
+        b_ωy      -0.1089      0.7178     0.0657    128.9529   519.6239    1.0 ⋯
+        b_ωx       0.0533      0.6867     0.0516    201.8635   582.4934    1.0 ⋯
+        b_Ωy       0.1235      0.7391     0.0857     93.2699   340.9800    1.0 ⋯
+        b_Ωx       0.1712      0.6408     0.0653    118.5816   399.8313    1.0 ⋯
+        b_θy       0.0744      0.0077     0.0003    916.7476   506.1261    1.0 ⋯
+        b_θx      -0.9980      0.0198     0.0007    735.5149   589.2488    1.0 ⋯
+         b_ω      -0.1514      1.9367     0.1303    294.0893   463.5570    1.0 ⋯
+         b_Ω      -0.1172      1.7060     0.1526    211.2694   295.3700    1.0 ⋯
+         b_θ      -1.4964      0.0076     0.0003    937.7517   550.2357    1.0 ⋯
+        b_tp   43106.8639   5160.2584   338.6412    232.0205   417.3458    1.0 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       1.0107       1.1289       1.1935       1.2516       1.3545
-         plx      49.9629      49.9862      50.0005      50.0139      50.0356
-         b_a       8.0974       9.9779      11.4121      13.2233      17.2877
-         b_e       0.0096       0.0690       0.1380       0.2261       0.4003
-         b_i       0.2066       0.5480       0.6617       0.7542       0.9252
-        b_ωy      -1.0015      -0.7300      -0.0284       0.7961       1.0056
-        b_ωx      -0.9972      -0.6539      -0.0227       0.6819       1.0005
-        b_Ωy      -1.0030      -0.8476      -0.2721       0.7492       0.9962
-        b_Ωx      -0.9958      -0.7312      -0.2570       0.4547       0.9673
-        b_θy       0.0611       0.0695       0.0739       0.0789       0.0874
-        b_θx      -1.0338      -1.0100      -0.9980      -0.9846      -0.9596
-         b_ω      -3.0114      -2.0225      -0.0397       1.2552       2.8583
-         b_Ω      -3.0058      -2.4324      -1.2638       0.5662       2.9102
-         b_θ      -1.5096      -1.5011      -1.4968      -1.4918      -1.4839
-        b_tp   30719.4800   41077.2623   44487.8709   46756.6329   49866.9101
+           M       0.9838       1.1188       1.1832       1.2433       1.3722
+         plx      49.9623      49.9867      50.0003      50.0129      50.0350
+         b_a       7.9283      10.1292      11.2994      13.1537      17.1335
+         b_e       0.0075       0.0552       0.1368       0.2306       0.4038
+         b_i       0.1658       0.5280       0.6541       0.7459       0.9105
+        b_ωy      -1.0071      -0.8133      -0.2568       0.6177       1.0057
+        b_ωx      -0.9978      -0.5842       0.0709       0.7302       0.9977
+        b_Ωy      -0.9982      -0.6996       0.3506       0.8331       0.9938
+        b_Ωx      -0.9757      -0.3874       0.3522       0.7341       1.0021
+        b_θy       0.0594       0.0691       0.0743       0.0794       0.0904
+        b_θx      -1.0375      -1.0110      -0.9980      -0.9842      -0.9602
+         b_ω      -3.0353      -2.1477       0.1588       1.4904       2.9757
+         b_Ω      -2.9719      -1.9200       0.4245       1.0162       2.8634
+         b_θ      -1.5111      -1.5017      -1.4963      -1.4911      -1.4805
+        b_tp   29681.7950   40203.5688   44620.4405   46661.9968   49910.5514
 </span></span></code></pre><p>You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the <code>verbosity</code> value down to 0.</p><p>The sampler will begin by drawing orbits randomly from the priors (50,000 by default). It will then pick the orbit with the highest posterior density as a starting point. These are then passed to AdvancedHMC to adapt following the Stan windowed adaption scheme.</p><p>Once complete, the <code>chain</code> object will hold the sampler results. Displaying it prints out a summary table like the one shown above.</p><p>For a basic model like this, sampl]ing should take less than a minute on a typical laptop.</p><h3 id="Diagnostics"><a class="docs-heading-anchor" href="#Diagnostics">Diagnostics</a><a id="Diagnostics-1"></a><a class="docs-heading-anchor-permalink" href="#Diagnostics" title="Permalink"></a></h3><p>The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.</p><p>A few things to watch out for: check that you aren&#39;t getting many (any, really) numerical errors (<code>ratio_divergent_transitions</code>).  This likely indicates a problem with your model: either invalid values of one or more parameters are encountered (e.g. the prior on semi-major axis includes negative values) or that there is a region of very high curvature that is failing to sample properly. This latter issue can lead to a bias in your results.</p><p>One common mistake is to use a distribution like <code>Normal(10,3)</code> for semi-major axis. This left hand side of this distribution includes negative values which are not physically possible. A better choice is a <code>truncated(Normal(10,3), lower=0)</code> distribution.</p><p>You may see some warnings during initial step-size adaptation. These are probably nothing to worry about if sampling proceeds normally afterwards.</p><p>You should also check the acceptance rate (<code>mean_accept</code>) is reasonably high and the mean tree depth (<code>mean_tree_depth</code>) is reasonable (~4-8).  Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than this and it might be being too conservative. The default maximum tree depth is 10. These don&#39;t affect the accuracy of your results, but do affect the efficiency of the sampling.</p><p>Next, you can make a trace plot of different variabes to visually inspect the chain:</p><pre><code class="language-julia hljs">using Plots: Plots
 Plots.plot(
     chain[&quot;b_a&quot;],
     xlabel=&quot;iteration&quot;,
     ylabel=&quot;semi-major axis (AU)&quot;
-)</code></pre><img src="969274b9.svg" alt="Example block output"/><p>And an auto-correlation plot:</p><pre><code class="language-julia hljs">using StatsBase
+)</code></pre><img src="1f83982c.svg" alt="Example block output"/><p>And an auto-correlation plot:</p><pre><code class="language-julia hljs">using StatsBase
 Plots.plot(
     autocor(chain[&quot;b_e&quot;], 1:500),
     xlabel=&quot;lag&quot;,
     ylabel=&quot;autocorrelation&quot;,
-)</code></pre><img src="373bcbcd.svg" alt="Example block output"/><p>This plot shows that these samples are not correlated after only above 5 steps. No thinning is necessary.</p><p>To confirm convergence, you may also examine the <code>rhat</code> column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal <code>1.0</code> to one significant digit (3 recommended).</p><p>Finaly, if you ran multiple chains (see later tutorials to learn how), you can run </p><pre><code class="language-julia hljs">using MCMCChains
+)</code></pre><img src="3bc79e9b.svg" alt="Example block output"/><p>This plot shows that these samples are not correlated after only above 5 steps. No thinning is necessary.</p><p>To confirm convergence, you may also examine the <code>rhat</code> column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal <code>1.0</code> to one significant digit (3 recommended).</p><p>Finaly, if you ran multiple chains (see later tutorials to learn how), you can run </p><pre><code class="language-julia hljs">using MCMCChains
 merged_chains = chainscat(chain1, chain2, chain3)
 gelmandiag(merged_chains)</code></pre><p>As an additional convergence test.</p><h3 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h3><p>As a first pass, let&#39;s plot a sample of orbits drawn from the posterior.</p><pre><code class="language-julia hljs">using Plots: Plots
-plotchains(chain, :b, kind=:astrometry, color=&quot;b_a&quot;)</code></pre><img src="560b98dc.svg" alt="Example block output"/><p>This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. </p><p>We can overplot the astrometry data like so:</p><pre><code class="language-julia hljs">Plots.plot!(astrom_like, label=&quot;astrometry&quot;)</code></pre><img src="6daca308.svg" alt="Example block output"/><p>The function <code>octoplot</code> is a conveninient way to generate a 9-panel plot of velocities and position:</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="067dc800.svg" alt="Example block output"/><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>A very useful visualization of our results is a pair-plot, or corner plot. We can use the <code>octocorner</code> function and our PairPlots.jl package for this purpose:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
+plotchains(chain, :b, kind=:astrometry, color=&quot;b_a&quot;)</code></pre><img src="8663ffb4.svg" alt="Example block output"/><p>This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. </p><p>We can overplot the astrometry data like so:</p><pre><code class="language-julia hljs">Plots.plot!(astrom_like, label=&quot;astrometry&quot;)</code></pre><img src="a20b3cc5.svg" alt="Example block output"/><p>The function <code>octoplot</code> is a conveninient way to generate a 9-panel plot of velocities and position:</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="880ed32a.svg" alt="Example block output"/><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>A very useful visualization of our results is a pair-plot, or corner plot. We can use the <code>octocorner</code> function and our PairPlots.jl package for this purpose:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
 using PairPlots
-octocorner(model, chain, small=true)</code></pre><img src="f3cf4d50.png" alt="Example block output"/><p>Remove <code>small=true</code> to display all variables, or run <code>pairplot(chain)</code> to include internal variables.</p><p>In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../getting-started/">« Installation</a><a class="docs-footer-nextpage" href="../rel-astrom-obs/">Fit with Observable Priors »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Friday 9 February 2024 01:30">Friday 9 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model, chain, small=true)</code></pre><img src="bf29d9da.png" alt="Example block output"/><p>Remove <code>small=true</code> to display all variables, or run <code>pairplot(chain)</code> to include internal variables.</p><p>In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../getting-started/">« Installation</a><a class="docs-footer-nextpage" href="../rel-astrom-obs/">Fit with Observable Priors »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Friday 9 February 2024 06:39">Friday 9 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
