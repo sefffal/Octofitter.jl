@@ -799,10 +799,11 @@ Base.@nospecializeinfer function advancedhmc(
                     result_pf = with_logger(errlogger) do 
                         Pathfinder.multipathfinder(
                             ldm_any, 1000;
-                            nruns=nruns=cld(8,Threads.nthreads())*Threads.nthreads(),
+                            nruns=8,
                             init=collect(initial_θ_t),
                             progress=verbosity > 1,
                             maxiters=25_000,
+                            rng=rng,
                             # maxtime=25.0,
                             # reltol=1e-4,
                         )
@@ -817,12 +818,13 @@ Base.@nospecializeinfer function advancedhmc(
                     result_pf = with_logger(errlogger) do 
                         Pathfinder.multipathfinder(
                             ldm_any, 1000;
-                            nruns=nruns=cld(8,Threads.nthreads())*Threads.nthreads(),
+                            nruns=8,
                             init_sampler=CallableAny(init_sampler),
                             progress=verbosity > 1,
                             maxiters=25_000,
                             # maxtime=25.0,
                             reltol=1e-10,
+                            rng=rng,
                         ) 
                     end
                 end
