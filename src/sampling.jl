@@ -779,19 +779,16 @@ Base.@nospecializeinfer function advancedhmc(
 
 
 
-    # Use Pathfinder to initialize HMC. Works but currently disabled.
-    verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
-    # It seems to hit a PosDefException sometimes when factoring a matrix.
-    # When that happens, the next try usually succeeds.
-    # start_time = time()
-
-
-
 
     local result_pf = nothing
     local metric = nothing
     ldm_any = LogDensityModelAny(model)
     if pathfinder 
+        # Use Pathfinder to initialize HMC. Works but currently disabled.
+        verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
+        # It seems to hit a PosDefException sometimes when factoring a matrix.
+        # When that happens, the next try usually succeeds.
+        # start_time = time()
         for i in 1:8
             try
                 if !isnothing(initial_parameters)
