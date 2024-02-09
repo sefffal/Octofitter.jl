@@ -51,13 +51,13 @@ rvlike = StarAbsoluteRVLikelihood(
     ω = 0.0
 
     # To match RadVel, we set a prior on Period and calculate semi-major axis from it
-    P ~ truncated(Normal(0.3693038/365.25, 0.0000091/365.25),lower=0.00001)
+    P ~ truncated(Normal(0.3693038/365.256360417, 0.0000091/365.256360417),lower=0.00001)
     a = cbrt(system.M * b.P^2) # note the equals sign.
 
     τ ~ UniformCircular(1.0)
-    tp =  b.τ*b.P*365.25 + 57782 # reference epoch for τ. Choose an MJD date near your data.
+    tp = b.τ*b.P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
 
-    # planet mass [jupiter masses]
+    # minimum planet mass [jupiter masses]. really m*sin(i)
     mass ~ LogUniform(0.001, 10)
 end
 
@@ -86,7 +86,7 @@ Planet b
 Derived:
   e, ω, a, τ, tp, 
 Priors:
-  P	Truncated(Distributions.Normal{Float64}(μ=0.001011098699520876, σ=2.491444216290212e-8); lower=1.0e-5)
+  P	Truncated(Distributions.Normal{Float64}(μ=0.001011081092683449, σ=2.4914008313533153e-8); lower=1.0e-5)
   τy	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
   τx	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
   mass	Distributions.LogUniform{Float64}(a=0.001, b=10.0)
@@ -124,8 +124,8 @@ chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 31.14 seconds
-Compute duration  = 31.14 seconds
+Wall duration     = 28.85 seconds
+Compute duration  = 28.85 seconds
 parameters        = M, rv0_1, jitter_1, rv0_2, jitter_2, b_P, b_τy, b_τx, b_mass, b_e, b_ω, b_a, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -133,44 +133,44 @@ Summary Statistics
  <span class="sgr1"> parameters         mean       std      mcse    ess_bulk   ess_tail      rhat ⋯
  <span class="sgr90">     Symbol      Float64   Float64   Float64     Float64    Float64   Float64 ⋯
 
-           M       0.8185    0.0202    0.0007    771.9123   530.2659    1.0162 ⋯
-       rv0_1    6693.6800    2.5291    0.0835    922.5216   504.9251    0.9998 ⋯
-    jitter_1      13.9460    2.0775    0.0830    640.9521   644.4543    1.0073 ⋯
-       rv0_2      -1.4855    3.3211    0.1040   1017.9869   725.2119    0.9990 ⋯
-    jitter_2      17.5483    2.6862    0.0885    974.3113   530.4696    0.9991 ⋯
-         b_P       0.0010    0.0000    0.0000    862.9178   516.4873    1.0007 ⋯
-        b_τy       0.7296    0.1677    0.0090    492.6396   248.8326    0.9999 ⋯
-        b_τx      -0.6436    0.1650    0.0072    499.0974   277.5487    1.0002 ⋯
-      b_mass       0.0414    0.0093    0.0004    666.3243   387.4018    1.0012 ⋯
+           M       0.8190    0.0212    0.0007    899.9355   454.7616    1.0011 ⋯
+       rv0_1    6693.7503    2.5211    0.0950    708.5259   512.9985    1.0000 ⋯
+    jitter_1      13.9789    2.2580    0.1114    429.0406   394.9331    1.0040 ⋯
+       rv0_2      -1.6953    3.3216    0.1317    640.8767   545.9756    1.0041 ⋯
+    jitter_2      17.6972    2.6350    0.1039    657.1116   610.8283    1.0056 ⋯
+         b_P       0.0010    0.0000    0.0000   1073.0255   819.0230    1.0006 ⋯
+        b_τy       0.7305    0.1753    0.0134    173.3333   189.2721    1.0035 ⋯
+        b_τx      -0.6325    0.1925    0.0150    164.3012   210.2642    1.0040 ⋯
+      b_mass       0.0413    0.0089    0.0003    676.8151   624.4842    0.9990 ⋯
          b_e       0.0000    0.0000       NaN         NaN        NaN       NaN ⋯
          b_ω       0.0000    0.0000       NaN         NaN        NaN       NaN ⋯
-         b_a       0.0094    0.0001    0.0000    770.9246   530.2659    1.0163 ⋯
-         b_τ      -0.1153    0.0379    0.0019    485.0276   248.7918    1.0001 ⋯
-        b_tp   57781.9574    0.0140    0.0007    485.0347   248.7918    1.0001 ⋯
+         b_a       0.0094    0.0001    0.0000    900.9305   454.7616    1.0011 ⋯
+         b_τ      -0.1136    0.0420    0.0033    162.3931   203.6472    1.0044 ⋯
+        b_tp   57781.9580    0.0155    0.0012    162.3940   203.6472    1.0044 ⋯
 </span><span class="sgr36">                                                                1 column omitted
 
 Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       0.7753       0.8056       0.8192       0.8326       0.8567
-       rv0_1    6689.0098    6691.9767    6693.6310    6695.3677    6698.8080
-    jitter_1      10.4027      12.4190      13.7573      15.3511      18.2672
-       rv0_2      -7.8148      -3.8584      -1.4067       0.8250       4.6819
-    jitter_2      13.1489      15.5613      17.1194      19.1862      23.7032
+           M       0.7781       0.8049       0.8192       0.8338       0.8594
+       rv0_1    6688.9479    6692.1095    6693.7667    6695.3084    6698.8336
+    jitter_1      10.1489      12.3191      13.8049      15.3895      19.1536
+       rv0_2      -7.8029      -4.0246      -1.8232       0.4677       4.8508
+    jitter_2      13.1981      15.7941      17.5094      19.3497      23.3295
          b_P       0.0010       0.0010       0.0010       0.0010       0.0010
-        b_τy       0.3404       0.6492       0.7618       0.8412       0.9671
-        b_τx      -0.9439      -0.7611      -0.6488      -0.5363      -0.2909
-      b_mass       0.0225       0.0355       0.0421       0.0478       0.0580
+        b_τy       0.3007       0.6374       0.7581       0.8644       0.9799
+        b_τx      -0.9585      -0.7717      -0.6474      -0.5092      -0.2284
+      b_mass       0.0227       0.0354       0.0416       0.0471       0.0578
          b_e       0.0000       0.0000       0.0000       0.0000       0.0000
          b_ω       0.0000       0.0000       0.0000       0.0000       0.0000
          b_a       0.0093       0.0094       0.0094       0.0095       0.0096
-         b_τ      -0.1940      -0.1380      -0.1120      -0.0904      -0.0472
-        b_tp   57781.9284   57781.9491   57781.9586   57781.9666   57781.9826
+         b_τ      -0.2009      -0.1395      -0.1118      -0.0855      -0.0368
+        b_tp   57781.9258   57781.9485   57781.9587   57781.9684   57781.9864
 </span></span></code></pre><p>Excellent! Let&#39;s plot the maximum likelihood orbit:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
-fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="295fd324.png" alt="Example block output"/><p>Create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
+fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="8e83f79f.png" alt="Example block output"/><p>Create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
 using CairoMakie: Makie
-octocorner(model, chain, small=true)</code></pre><img src="be8195f4.png" alt="Example block output"/><h2 id="Gaussian-Process-Fit"><a class="docs-heading-anchor" href="#Gaussian-Process-Fit">Gaussian Process Fit</a><a id="Gaussian-Process-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Gaussian-Process-Fit" title="Permalink"></a></h2><p>Let us now add a Gaussian process to model stellar activity. This should improve the fit.</p><p>We start by writing a functino that creates a Gaussian process kernel from a set of system  parameters. We will create a quasi-periodic kernel.</p><pre><code class="language-julia hljs">using AbstractGPs
+octocorner(model, chain, small=true)</code></pre><img src="47376269.png" alt="Example block output"/><h2 id="Gaussian-Process-Fit"><a class="docs-heading-anchor" href="#Gaussian-Process-Fit">Gaussian Process Fit</a><a id="Gaussian-Process-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Gaussian-Process-Fit" title="Permalink"></a></h2><p>Let us now add a Gaussian process to model stellar activity. This should improve the fit.</p><p>We start by writing a functino that creates a Gaussian process kernel from a set of system  parameters. We will create a quasi-periodic kernel.</p><pre><code class="language-julia hljs">using AbstractGPs
 
 function gauss_proc_quasi_periodic(θ_system)
     # θ_system is a named tuple of variable values for this posterior draw.
@@ -257,8 +257,8 @@ chain = octofit(
 Iterations        = 1:1:100
 Number of chains  = 1
 Samples per chain = 100
-Wall duration     = 653.71 seconds
-Compute duration  = 653.71 seconds
+Wall duration     = 643.85 seconds
+Compute duration  = 643.85 seconds
 parameters        = M, rv0_1, jitter_1, rv0_2, jitter_2, gp_η₁, gp_η₂, gp_η₃, gp_η₄, b_P, b_mass, b_τy, b_τx, b_e, b_ω, b_a, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -313,4 +313,4 @@ chain, pt = octofit_pigeons(
     model,
     n_rounds=10
 )
-display(chain)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Fit with Observable Priors</a><a class="docs-footer-nextpage" href="../pma/">Fit Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 7 February 2024 19:41">Wednesday 7 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+display(chain)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Fit with Observable Priors</a><a class="docs-footer-nextpage" href="../pma/">Fit Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Thursday 8 February 2024 22:42">Thursday 8 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -3,10 +3,10 @@
 using Distributions
 using OctofitterImages
 using Pigeons
-using AstroImages</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-00bd17cf304a is missing from the cache.
+using AstroImages</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-00937830db66 is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1942
-┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-00bd17cf304a is missing from the cache.
+┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-00937830db66 is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1942</code></pre><p>Typically one would load your likelihood maps from eg. FITS files like so:</p><pre><code class="language-julia hljs"># If centred at the star:
 image1 = AstroImages.recenter(AstroImages.load(&quot;image-example-1.fits&quot;,1))
@@ -144,20 +144,20 @@ chain, pt = octofit_pigeons(model, n_rounds=12) # increase n_rounds until log(Z�
 display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">─────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.89     0.0153   2.99e+04       -407   3.07e-29      0.588          1          1
+        2          0       2.89     0.0147   2.99e+04       -407   3.07e-29      0.588          1          1
         4          0       4.02      0.015   3.44e+04      -99.9   5.83e-06      0.425          1          1
-        8          0       4.31     0.0284   5.26e+04        -23    0.00315      0.384          1          1
-       16          0       4.55     0.0542    8.2e+04      -18.4     0.0592       0.35          1          1
+        8          0       4.31     0.0283   5.26e+04        -23    0.00315      0.384          1          1
+       16          0       4.55      0.054    8.2e+04      -18.4     0.0592       0.35          1          1
        32          0       4.75      0.105   1.56e+05      -18.4      0.149      0.322          1          1
        64          0       4.99      0.215   2.74e+05      -19.9      0.159      0.287          1          1
-      128          1       5.31      0.425    5.2e+05        -20      0.142      0.241          1          1
-      256          6       5.15      0.858   9.77e+05      -21.2      0.235      0.264          1          1
-      512         10       5.08       1.74   1.87e+06      -20.2       0.25      0.275          1          1
- 1.02e+03         17       5.07       3.44    3.7e+06      -20.8      0.245      0.276          1          1
+      128          1       5.31      0.426    5.2e+05        -20      0.142      0.241          1          1
+      256          6       5.15      0.856   9.77e+05      -21.2      0.235      0.264          1          1
+      512         10       5.08       1.71   1.87e+06      -20.2       0.25      0.275          1          1
+ 1.02e+03         17       5.07       3.42    3.7e+06      -20.8      0.245      0.276          1          1
  2.05e+03         53       5.09       6.86   7.28e+06      -20.6      0.255      0.272          1          1
   4.1e+03         88       5.11       13.7   1.44e+07        -21      0.245       0.27          1          1
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>Display the results:</p><pre><code class="language-julia hljs">using Plots: Plots
-octoplot(model, chain)</code></pre><img src="f988f3e0.svg" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octoplot(model, chain)</code></pre><img src="af14d467.svg" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 octocorner(model,chain,small=true,)</code></pre><img src="6148b3d0.png" alt="Example block output"/><p>And finally let&#39;s look at the posterior predictive distributions at both epochs:</p><pre><code class="language-julia hljs">els = Octofitter.construct_elements(chain,:b, :)
 x = raoff.(els, loglikemap.table.epoch[1])
 y = decoff.(els, loglikemap.table.epoch[1])
@@ -185,4 +185,4 @@ pairplot(
     )
 )</code></pre><img src="6044f929.png" alt="Example block output"/><h2 id="Resume-sampling-for-additional-rounds"><a class="docs-heading-anchor" href="#Resume-sampling-for-additional-rounds">Resume sampling for additional rounds</a><a id="Resume-sampling-for-additional-rounds-1"></a><a class="docs-heading-anchor-permalink" href="#Resume-sampling-for-additional-rounds" title="Permalink"></a></h2><p>If you would like to add additional rounds of sampling, you may do the following:</p><pre><code class="language-julia hljs">pt = increment_n_rounds!(pt, 2)
 chain, pt = octofit_pigeons(pt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (16384×18×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Updated corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model,chain,small=false,)</code></pre><img src="38e2903c.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Fit Interferometer Data</a><a class="docs-footer-nextpage" href="../thiele-innes/">Fit Thiele-Innes Paramerers »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 7 February 2024 21:47">Wednesday 7 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model,chain,small=false,)</code></pre><img src="38e2903c.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Fit Interferometer Data</a><a class="docs-footer-nextpage" href="../thiele-innes/">Fit Thiele-Innes Paramerers »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Friday 9 February 2024 00:48">Friday 9 February 2024</span>. Using Julia version 1.10.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
