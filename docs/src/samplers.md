@@ -102,7 +102,7 @@ The default number of chains is 8, or if you have more than 8 threads avialable,
 
 
 A nice feature of Pigeons is that you can resume sampler for additional rounds without having to start over:
-```@example 1
+```julia
 pt = increment_n_rounds!(pt, 2)
 chain, pt = octofit_pigeons(pt)
 ```
