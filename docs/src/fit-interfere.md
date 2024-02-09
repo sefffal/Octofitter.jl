@@ -35,6 +35,30 @@ vis_like = InterferometryLikelihood(
 )
 ```
 
+Plot the closure phases:
+```@example 1
+fig = Makie.Figure()
+ax = Axis(
+    fig[1,1],
+    xlabel="index",
+    ylabel="closure phase",
+)
+Makie.stem!(
+    vis_like.table.cps_data[1],
+    label="epoch 1",
+)
+Makie.stem!(
+    vis_like.table.cps_data[2],
+    label="epoch 2"
+)
+Makie.stem!(
+    vis_like.table.cps_data[3],
+    label="epoch 3"
+)
+Makie.Legend(fig[1,2], ax)
+fig
+```
+
 ```@example 1
 @planet b Visual{KepOrbit} begin
     a ~ truncated(Normal(2,0.1), lower=0)
@@ -48,7 +72,7 @@ vis_like = InterferometryLikelihood(
     F480M ~ truncated(Normal(0, 0.1),lower=0)
 
     θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,58849)  # reference epoch for θ. Choose an MJD date near your data.
+    tp = θ_at_epoch_to_tperi(system,b,60171)  # reference epoch for θ. Choose an MJD date near your data.
 end
 
 @system Tutoria begin
@@ -63,7 +87,7 @@ model = Octofitter.LogDensityModel(Tutoria)
 
 using Random
 rng = Xoshiro(0) # Optional seeded random number generator.
-results = octofit(rng, model)
+results = octofit(rng, model,  adaptation=2000,iterations=5000)
 ```
 
 
