@@ -364,6 +364,37 @@ function __init__()
         """,
         "https://content.cld.iop.org/journals/0067-0049/210/1/5/revision1/apjs488421t2_mrt.txt?Expires=1698868925&Signature=YyKJ4p64PeQg2sh~VAYj6aXxH8b-lH0F0lS6GF0YP07V7oaZWzM4sthpMRldUE7cHQZbMkwoW0R-Jq2FymIYqIlAnT1-qs-y~JifD1A1WThaBOEP2gl5JGgDOGXXMCLK4VuKM3ZucSUu9TWIb3vbNqrG7l~V9LIs-K2bW~KcM-syfRzJ1YC6TSiej1PHJVhoxN-SUQRAw2lkLVQ-eea30IFOw9RSmYFqrqUQGnwx7fdkbTd5ZSvQ~BmB0HZjsav890rZpEVWlCs8ITLpKab3aEysIptlezpS90boNDi3CR-p7We2M9WfibcsemIa72HH7cZS~S1Ri8QTQra5nTY8eQ__&Key-Pair-Id=KL1D8TIY3N7T8",
     ))
+
+
+    register(DataDep("CES_rvs",
+        """
+        Dataset:     The planet search programme at the ESO Coude Echelle spectrometer and HARPS.IV. The search for Jupiter analogues around solar-like stars
+        Author:      
+        License:     
+        Publication: 10.1051/0004-6361/201116551 (https://www.aanda.org/10.1051/0004-6361/201116551)
+        The planet search programme at the ESO Coude Echelle spectrometer and HARPS.IV. The search for Jupiter analogues around solar-like stars. (2013)
+    
+        Extracted file size: 2.3M
+        """,
+        "http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?J/A+A/552/A78",
+        "24d1ce0356fb6b62ec6a131c3d9f55ef3aced37660c635d87f33d697e074cdfb",
+        post_fetch_method=unpack
+    ))
+
+    register(DataDep("UVES_rvs",
+        """
+        Dataset: A Reanalysis of the UVES M Dwarf Planet Search Program
+        Author:  R. P. Butler, H. R. A. Jones, F. Feng, M. Tuomi, G. Anglada-Escudé, and Sandy Keiser
+        License:     
+        Publication: 10.3847/1538-3881/ab4905 (https://iopscience.iop.org/article/10.3847/1538-3881/ab4905)
+        
+        The UVES (Ultraviolet and Visible Spectrometer) M Dwarf Planet Search program surveyed 40 M dwarfs and 1 M giant from 2000 through 2007 March. Two of the M dwarfs were double-lined spectroscopic binaries. The 38 single-lined M dwarfs in this survey are among the nearest and brightest M dwarfs. Starting with the reduced 1D spectra provided by the UVES team, we reanalyzed the UVES velocities of Proxima Cen as part of the “Pale Red Dot” program. The velocity rms decreased from 3.6 to 2.3 m s−1. Motivated by this result, we have harvested all of the raw data from the UVES M Dwarf Planet Search from the European Southern Observatory (ESO) archives and have written custom packages to generate 1D spectra from the raw data, and velocities from the 1D spectra. The median improvement in the velocity rms from the new analysis is 1.8 m s−1. Six of the 38 M dwarfs from the original study had a velocity rms &lt; 4 m s−1. In the reanalysis presented here, 22 of these stars have a velocity rms &lt; 4 m s−1. We improve the upper limits on possible planets orbiting these stars by a factor of typically two to three. For many of these M dwarfs, these observations represent the first epoch of high-precision velocity measurements.
+    
+        """,
+        "https://content.cld.iop.org/journals/1538-3881/158/6/251/revision1/ajab4905t2_mrt.txt",
+    ))
+
+    # 
     
     return
 end
