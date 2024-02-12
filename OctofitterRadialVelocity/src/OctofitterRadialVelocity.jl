@@ -136,7 +136,7 @@ function Octofitter.ln_like(
             orbit = elements[planet_i]
             # Need to structarrays orbit if we want this to SIMD
             planet_mass = θ_system.planets[planet_i].mass
-            for epoch_i in eachindex(epochs)
+            Threads.@threads for epoch_i in eachindex(epochs)
                 rv_star_buf[epoch_i] -= radvel(orbit, epochs[epoch_i], planet_mass*Octofitter.mjup2msol)
             end
             # Zygote version:
@@ -253,6 +253,7 @@ include("harps_rvbank.jl")
 include("harps_dr1.jl")
 include("hires.jl")
 include("lick.jl")
+include("ces.jl")
 include("radvel.jl")
 
 
