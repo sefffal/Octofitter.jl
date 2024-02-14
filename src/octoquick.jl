@@ -7,6 +7,7 @@ Base.@nospecializeinfer function octoquick(
     verbosity::Int=2,
     initial_samples::Int=10_000,
     nruns=cld(16,Threads.nthreads())*Threads.nthreads(),
+    kwargs...
 )
     @nospecialize
 
@@ -42,6 +43,7 @@ Base.@nospecializeinfer function octoquick(
             maxiters=10_000,
             executor=Transducers.ThreadedEx(),
             # reltol=1e-4,
+            kwargs...
         ) 
         stop_time = time()
         return result_pf
