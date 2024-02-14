@@ -58,6 +58,7 @@ include("io.jl")
 
 include("sbc.jl")
 include("predictive-distributions.jl")
+include("cross-validation.jl")
 
 
 function octofit_pigeons end
