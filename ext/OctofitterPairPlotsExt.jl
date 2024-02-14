@@ -13,6 +13,7 @@ function Octofitter.octocorner(
     small=false,
     labels=Dict{Symbol,Any}(),
     fname=small ? "$(system.name)-pairplot-small.png" : "$(system.name)-pairplot.png" ,
+    viz=nothing,
     kwargs...
 )
     labels_gen = Dict{Symbol,Any}(
@@ -117,6 +118,12 @@ function Octofitter.octocorner(
 
         end
         tbl = FlexTable(namedtuple(table_cols))
+
+        if !isnothing(viz)
+            return tbl => viz
+        else
+            return tbl
+        end
     end
 
     # Merge our generated labels with user labels
