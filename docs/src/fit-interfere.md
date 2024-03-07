@@ -161,5 +161,7 @@ fig
 
 Finally we can examine the joint photometry and orbit posterior as a corner plot:
 ```@example 1
+using PairPlots
+using CairoMakie: Makie
 octocorner(model, results)
 ```
