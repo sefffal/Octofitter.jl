@@ -7,9 +7,14 @@ using MCMCChains
 
 unitlengthprior_vars(::Octofitter.UnitLengthPrior{VX,VY}) where {VX, VY} = (VX, VY)
 
+Octofitter.octocorner(
+    model::Octofitter.LogDensityModel,
+    chains::MCMCChains.Chains...; 
+    kwargs...
+) = octocorner(model.system, chains...; kwargs...)
 function Octofitter.octocorner(
     system::System,
-    chains...; 
+    chains::MCMCChains.Chains...; 
     small=false,
     labels=Dict{Symbol,Any}(),
     fname=small ? "$(system.name)-pairplot-small.png" : "$(system.name)-pairplot.png" ,
