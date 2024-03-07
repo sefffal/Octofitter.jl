@@ -38,7 +38,7 @@ function pointwise_like(model, chain)
                     j_obs += 1
                     if i_obs == j_obs
                         # TODO WARNING! internals access
-                        T = eval(typeof(obs).name.name)
+                        T = Main.eval(typeof(obs).name.name)
                         obs_row = T(obs.table[k_obs,:])
                         return System(
                             model.system.priors,
@@ -68,7 +68,7 @@ function pointwise_like(model, chain)
                         j_obs += 1
                         if i_obs == j_obs
                             # TODO WARNING! internals access
-                            T = eval(typeof(obs).name.name)
+                            T = Main.eval(typeof(obs).name.name)
                             obs_row = T(obs.table[k_obs,:])
                             planet = Planet{orbittype(planet)}(
                                 planet.priors,
