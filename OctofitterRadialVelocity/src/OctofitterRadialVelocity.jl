@@ -331,7 +331,7 @@ function __init__()
         File size: 38MiB
         """,
         "https://github.com/3fon3fonov/HARPS_RVBank/raw/master/HARPS_RVBank_ver02.csv.zip",
-        "bc32ee889fba6cb0871efe8b4278b0c994cf302c7538aeb6aca630e27bdbb6d8",
+        "9218ebd833f8971dcf304c7a6d9835de1c988dc5faae131f3eb939c7b9682586",
         post_fetch_method=unpack
 
     ))
