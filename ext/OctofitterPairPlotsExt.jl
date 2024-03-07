@@ -9,7 +9,7 @@ unitlengthprior_vars(::Octofitter.UnitLengthPrior{VX,VY}) where {VX, VY} = (VX, 
 
 function Octofitter.octocorner(
     system::System,
-    chains::Octofitter.MCMCChains.Chains...; 
+    chains...; 
     small=false,
     labels=Dict{Symbol,Any}(),
     fname=small ? "$(system.name)-pairplot-small.png" : "$(system.name)-pairplot.png" ,
@@ -20,7 +20,19 @@ function Octofitter.octocorner(
         :M => "M [M⊙]\ntotal mass ",
         :plx => "plx [mas]\nparallax",
     )
-    prepared = map(chains) do chain
+    function preparechain((chain,viz)::Pair)
+        prepped = _preparechain(chain)
+        return prepped => viz
+    end
+    function preparechain(chain)
+        prepped = _preparechain(chain)
+        if !isnothing(viz)
+            return prepped => viz
+        else
+            return prepped
+        end
+    end
+    function _preparechain(chain::Octofitter.MCMCChains.Chains)
         chain_notinternal = MCMCChains.get_sections(chain, :parameters)
         chain_keys = string.(keys(chain_notinternal))
         table_cols = Pair{Symbol}[]
@@ -118,13 +130,9 @@ function Octofitter.octocorner(
 
         end
         tbl = FlexTable(namedtuple(table_cols))
-
-        if !isnothing(viz)
-            return tbl => viz
-        else
-            return tbl
-        end
     end
+
+    prepared = map(preparechain, chains)
 
     # Merge our generated labels with user labels
     labels = merge(labels_gen, labels)
