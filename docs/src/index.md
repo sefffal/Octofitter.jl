@@ -53,7 +53,7 @@ In addition to these documentation and tutorial pages, you can read the paper pu
 
 ## Attribution
 * If you use Octofitter in your work, please cite [Thompson et al](https://dx.doi.org/10.3847/1538-3881/acf5cc):
-```
+```bibtex
 @article{Thompson_2023,
 doi = {10.3847/1538-3881/acf5cc},
 url = {https://dx.doi.org/10.3847/1538-3881/acf5cc},
@@ -78,7 +78,7 @@ journal = {The Astronomical Journal},
 * If you use RV phase folded plot, please consider citing Makie.jl [Danisch & Krumbiegel, (2021).](https://doi.org/10.21105/joss.03349)
 * If you use TemporalGPs.jl to accelerate Gaussian processes modelling of stellar activity, please consider citing [Tebbutt et al 2021](https://proceedings.mlr.press/v161/tebbutt21a.html)
 * If you use the pairplot/cornerplot functionality, please cite:
-```
+```bibtex
 @misc{Thompson2023,
   author = {William Thompson},
   title = {{PairPlots.jl} Beautiful and flexible visualizations of high dimensional data},
