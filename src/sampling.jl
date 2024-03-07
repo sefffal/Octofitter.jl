@@ -801,7 +801,7 @@ Base.@nospecializeinfer function advancedhmc(
                         Pathfinder.multipathfinder(
                             ldm_any, 1000;
                             nruns=8,
-                            init=collect(initial_θ_t),
+                            init=fill(collect(initial_θ_t),8),
                             progress=verbosity > 1,
                             maxiters=25_000,
                             rng=rng,
@@ -856,7 +856,7 @@ Base.@nospecializeinfer function advancedhmc(
                 if ex isa InterruptException
                     rethrow(ex)
                 end
-                @error "Unexpected error occured running pathfinder" exception=ex #(ex, catch_backtrace())
+                @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
                 break
             end
         end
