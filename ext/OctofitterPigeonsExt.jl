@@ -105,7 +105,7 @@ function MCMCChains.Chains(model::Octofitter.LogDensityModel, pt::Pigeons.PT)
     # Augment with some internal fields
     chain_res = map(get_sample(pt)) do sample 
         θ_t = @view(sample[begin:begin+model.D-1])
-        logpost2 = sample[model.D+1]
+        logpost = sample[model.D+1]
         # Map the variables back to the constrained domain and reconstruct the parameter
         # named tuple structure.
         θ = model.invlink(θ_t)
@@ -114,11 +114,9 @@ function MCMCChains.Chains(model::Octofitter.LogDensityModel, pt::Pigeons.PT)
         # the sampler.
         # Also recompute the log-likelihood and add that too.
         loglike = ln_like(model.system, resolved_namedtuple)
-        logpost = model.ℓπcallback(θ_t)
         return merge((;
             loglike,
             logpost,
-            logpost2
         ), resolved_namedtuple)
     end
     # Then finally flatten and convert into an MCMCChain object / table.
@@ -126,9 +124,8 @@ function MCMCChains.Chains(model::Octofitter.LogDensityModel, pt::Pigeons.PT)
     mcmcchains = Octofitter.result2mcmcchain(
         chain_res,
         Dict(:internals => [
-            :loglike
+            :loglike,
             :logpost
-            :logpost2
         ])
     )
     return mcmcchains
