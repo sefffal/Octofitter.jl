@@ -30,17 +30,19 @@ function OctofitterRadialVelocity.rvpostplot!(
     gridspec_or_fig,
     model::Octofitter.LogDensityModel,
     results::Chains,
-    sample_idx = argmax(results["logpost"][:])
+    sample_idx = argmax(results["logpost"][:]),
+    planet_key = first(keys(model.system.planets))
 )
     gs = gridspec_or_fig
+
 
     rvs = only(filter(obs->obs isa StarAbsoluteRVLikelihood, model.system.observations))
     ii = rand(1:size(results,1),100)
 
 
     # Start filling the RV plot
-    els = Octofitter.construct_elements(results,:b, :)
-    M = (results[:b_mass] .* PlanetOrbits.mjup2msol)
+    els = Octofitter.construct_elements(results,planet_key, :)
+    M = (results[string(planet_key)*"_mass"] .* PlanetOrbits.mjup2msol)
 
     # For phase-folded plot
     t_peri = periastron(els[sample_idx])
@@ -135,14 +137,14 @@ function OctofitterRadialVelocity.rvpostplot!(
     phases = -0.5:0.02:0.5
     ts_phase_folded = ((phases .+ 0.5) .* T) .+ t_peri .+ T/4
     RV = radvel.(els[sample_idx], ts_phase_folded, M[sample_idx])
-    lines!(
+    Makie.lines!(
         ax_phase,
         phases,
         RV,
         color=:blue,
         linewidth=5
     )
-    xlims!(ax_phase, -0.5,0.5)
+    Makie.xlims!(ax_phase, -0.5,0.5)
     
     # Main blue orbit line in top panel
     # lines!(ax_fit, ts, RV_map, color=:darkblue, linewidth=0.2)
@@ -332,7 +334,7 @@ function OctofitterRadialVelocity.rvpostplot!(
         resid = resids_all[thisinst_mask]
         rvs_off_sub_this = rvs_off_sub[thisinst_mask]
 
-        scatter!(
+        Makie.scatter!(
             ax_fit,
             data.epoch,
             rvs_off_sub_this,
@@ -341,7 +343,7 @@ function OctofitterRadialVelocity.rvpostplot!(
             strokecolor=:black,strokewidth=0.1,
         )
 
-        scatter!(
+        Makie.scatter!(
             ax_resid,
             data.epoch,
             resid,
@@ -350,7 +352,7 @@ function OctofitterRadialVelocity.rvpostplot!(
             strokecolor=:black,strokewidth=0.1,
         )
         phase_folded = mod.(data.epoch .- t_peri .- T/4, T)./T .- 0.5
-        scatter!(
+        Makie.scatter!(
             ax_phase,
             phase_folded,
             data_minus_off_and_gp[thisinst_mask],
@@ -361,7 +363,7 @@ function OctofitterRadialVelocity.rvpostplot!(
     end
 
 
-    xlims!(ax_resid, extrema(ts))
+    Makie.xlims!(ax_resid, extrema(ts))
 
 
     # Binned values on phase folded plot
