@@ -110,6 +110,32 @@ function posterior(fname_or_targetname, numchains=1)
                 :M
             ],
         )
+
+        # Calculate epoch of periastron passage from Orbitize tau variable:
+        tau_ref_epoch = 58849
+        period_days = 
+        a = chn[:b_a]
+        τ = chn[:b_τ]
+        M = chn[:M]
+        periodyrs = @. √(a^3/M)
+        period_days = @. periodyrs * PlanetOrbits.year2day
+        tp = @. τ * period_days + tau_ref_epoch
+
+        chn =  MCMCChains.Chains(
+            hcat(arr, tp),
+            [
+                :b_a,
+                :b_e,
+                :b_i,
+                :b_ω,
+                :b_Ω,
+                :b_τ,
+                :plx,
+                :M,
+                :b_tp
+            ],
+        )
+
         # Read additional attributes in and convert to named tuple
         metadata = [Symbol(k)=>v for (k,v) in attrs(f)]
         return MCMCChains.setinfo(chn, NamedTuple(metadata))
