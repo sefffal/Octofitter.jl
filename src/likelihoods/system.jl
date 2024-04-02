@@ -145,7 +145,10 @@ function make_ln_like(system::System, θ_system)
                     # $(system.planets[i].observations[like]),
                     θ_system.planets.$i,
                     $(key)
-                )
+                );
+                # if !isfinite($(Symbol("ll$(j+1)")))
+                #     println("invalid likelihood value encountered")
+                # end
             )
             j+=1
             return expr
@@ -167,7 +170,12 @@ function make_ln_like(system::System, θ_system)
         else
             L = Val(0)
         end
-        expr = :( $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) +  ln_like($like, θ_system, elems, $L))
+        expr = :(
+            $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) +  ln_like($like, θ_system, elems, $L);
+            # if !isfinite($(Symbol("ll$(j+1)")))
+            #     println("invalid likelihood value encountered")
+            # end
+        )
         j+=1
         return expr
     end
