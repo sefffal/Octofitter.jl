@@ -8,7 +8,7 @@ function (model::Octofitter.LogDensityModel)(θ)
     return model.ℓπcallback(θ)
 end
 function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::AbstractRNG, ::Int)
-    initial_θ, mapv = Octofitter.guess_starting_position(rng,model.system,1)
+    initial_θ, mapv = Octofitter.guess_starting_position(rng,model.system,10000)
     initial_θ_t = model.link(initial_θ)
     return initial_θ_t
 end
