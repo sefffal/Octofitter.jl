@@ -33,8 +33,8 @@ chain = octofit(model)</code></pre><pre class="documenter-example-output"><code 
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 7.88 seconds
-Compute duration  = 7.88 seconds
+Wall duration     = 6.41 seconds
+Compute duration  = 6.41 seconds
 parameters        = M, plx, b_a, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_θy, b_θx, b_ω, b_Ω, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -42,66 +42,66 @@ Summary Statistics
  <span class="sgr1"> parameters         mean         std       mcse   ess_bulk   ess_tail      rh ⋯
  <span class="sgr90">     Symbol      Float64     Float64    Float64    Float64    Float64   Float ⋯
 
-           M       1.1833      0.0959     0.0042   522.0667   540.9154    1.00 ⋯
-         plx      50.0003      0.0197     0.0006   991.4917   507.9373    0.99 ⋯
-         b_a      11.9201      2.2107     0.1538   211.8314   581.8028    1.00 ⋯
-         b_e       0.1529      0.1100     0.0059   316.1664   442.2797    0.99 ⋯
-         b_i       0.6503      0.1474     0.0088   301.9988   293.8121    1.00 ⋯
-        b_ωy       0.1000      0.7368     0.0635   162.3535   607.5537    1.00 ⋯
-        b_ωx       0.0749      0.6666     0.0610   132.5110   460.6052    1.00 ⋯
-        b_Ωy       0.0192      0.7498     0.1028    60.1911   233.0736    1.00 ⋯
-        b_Ωx      -0.0084      0.6617     0.0828    72.3806   294.7192    1.00 ⋯
-        b_θy       0.0738      0.0073     0.0003   709.8192   730.2083    1.00 ⋯
-        b_θx      -0.9985      0.0199     0.0007   912.4548   710.8617    0.99 ⋯
-         b_ω      -0.0019      1.7260     0.1358   199.2655   365.7615    1.00 ⋯
-         b_Ω      -0.4870      1.7522     0.2028    92.1881   244.1262    1.00 ⋯
-         b_θ      -1.4970      0.0073     0.0003   672.1737   708.4912    1.00 ⋯
-        b_tp   42684.4660   5167.9377   340.5706   231.1143   386.0399    1.00 ⋯
+           M       1.1879      0.0937     0.0035   725.8698   757.1258    0.99 ⋯
+         plx      50.0003      0.0206     0.0007   908.1759   368.8283    1.00 ⋯
+         b_a      11.8217      2.1478     0.1524   185.3611   347.0400    1.00 ⋯
+         b_e       0.1568      0.1151     0.0065   317.2318   312.0475    1.00 ⋯
+         b_i       0.6446      0.1471     0.0100   230.6606   222.1760    0.99 ⋯
+        b_ωy       0.0013      0.7429     0.0847    92.1889   451.8662    0.99 ⋯
+        b_ωx      -0.0157      0.6897     0.0556   189.3206   535.4323    1.00 ⋯
+        b_Ωy      -0.0200      0.7706     0.1151    55.9193   290.2122    1.01 ⋯
+        b_Ωx       0.0459      0.6535     0.0983    51.1757   313.4401    1.02 ⋯
+        b_θy       0.0745      0.0103     0.0003   928.4183   793.5969    0.99 ⋯
+        b_θx      -1.0022      0.1010     0.0033   953.7531   621.6724    0.99 ⋯
+         b_ω      -0.2094      1.8117     0.1270   242.9618   395.6031    1.00 ⋯
+         b_Ω      -0.3615      1.8348     0.2360    82.2058   296.3564    1.00 ⋯
+         b_θ      -1.4965      0.0074     0.0003   843.4137   708.4912    1.00 ⋯
+        b_tp   42419.3338   4909.8298   547.7841    59.8491   418.6033    1.03 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       1.0080       1.1180       1.1819       1.2505       1.3731
-         plx      49.9602      49.9867      50.0006      50.0145      50.0364
-         b_a       8.4357      10.2626      11.6425      13.2438      16.6699
-         b_e       0.0070       0.0610       0.1336       0.2247       0.3953
-         b_i       0.3354       0.5578       0.6665       0.7564       0.8976
-        b_ωy      -0.9919      -0.6763       0.2643       0.8390       1.0080
-        b_ωx      -0.9981      -0.5631       0.1742       0.6902       0.9966
-        b_Ωy      -0.9950      -0.7840       0.0525       0.8057       0.9962
-        b_Ωx      -0.9936      -0.6137       0.0103       0.5956       0.9984
-        b_θy       0.0595       0.0690       0.0737       0.0788       0.0878
-        b_θx      -1.0381      -1.0123      -0.9979      -0.9853      -0.9605
-         b_ω      -2.9659      -1.5068       0.2789       1.1693       2.9670
-         b_Ω      -2.9655      -2.2688       0.0128       0.8231       2.9088
-         b_θ      -1.5115      -1.5020      -1.4971      -1.4920      -1.4830
-        b_tp   30877.1265   39407.3102   43483.3562   46639.2495   49918.5866
+           M       1.0032       1.1274       1.1850       1.2524       1.3752
+         plx      49.9605      49.9867      50.0000      50.0148      50.0396
+         b_a       8.3996      10.2074      11.5465      13.1232      16.6243
+         b_e       0.0063       0.0586       0.1382       0.2391       0.4097
+         b_i       0.3289       0.5548       0.6572       0.7446       0.9156
+        b_ωy      -1.0790      -0.7422      -0.0308       0.7613       1.0632
+        b_ωx      -1.0416      -0.6886      -0.0085       0.6339       1.0758
+        b_Ωy      -1.0742      -0.8113      -0.0564       0.7981       1.0762
+        b_Ωx      -1.0393      -0.4959       0.1028       0.6252       1.0286
+        b_θy       0.0558       0.0674       0.0742       0.0809       0.0962
+        b_θx      -1.2155      -1.0699      -0.9967      -0.9313      -0.8056
+         b_ω      -2.9823      -1.9896      -0.0135       1.0970       2.9783
+         b_Ω      -3.0069      -2.2889       0.1327       1.0144       2.8729
+         b_θ      -1.5111      -1.5015      -1.4965      -1.4917      -1.4827
+        b_tp   32205.7638   39100.3833   43131.1696   46025.7772   49859.7634
 </span></span></code></pre><p>We now have our posterior as approximated by the MCMC chain. Convert these posterior samples into orbit objects:</p><pre><code class="language-julia hljs"># Instead of creating orbit objects for all rows in the chain, just pick
 # every twentieth row.
 ii = 1:20:1000
 orbits = Octofitter.construct_elements(chain, :b, ii)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">50-element Vector{Visual{KepOrbit{Float64}, Float64}}:
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(10.9, 0.129, 0.684, -1.93, 3.6, 44300.0, 1.21), 49.99160840367902, 4.1259924732651813e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(12.9, 0.229, 0.833, 0.211, 4.64, 50400.0, 1.41), 50.00620464056703, 4.124788143443096e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(10.8, 0.0964, 0.685, -1.24, 4.13, 47000.0, 1.24), 49.971251133197846, 4.1276733186087897e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(14.6, 0.0492, 0.796, 2.71, 3.27, 34400.0, 1.1), 50.01327330942985, 4.1242051629743935e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(13.2, 0.0829, 0.828, -1.41, 3.46, 43900.0, 1.39), 50.01093626020028, 4.124397890230059e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(10.6, 0.0808, 0.629, 0.98, 4.64, 40100.0, 1.17), 49.99105906441326, 4.126037812766248e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(15.5, 0.143, 0.855, 0.462, 3.72, 48600.0, 1.24), 50.01054545203968, 4.1244301203994867e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(13.0, 0.0129, 0.766, -0.329, 3.63, 46500.0, 1.15), 50.042002620487885, 4.121837440525457e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(12.3, 0.0193, 0.695, -0.553, 0.517, 38900.0, 1.18), 50.01265540608288, 4.1242561172809205e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(13.4, 0.00981, 0.785, 1.62, 0.385, 43100.0, 1.27), 50.01274002536434, 4.124249139227148e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(10.7, 0.19, 0.592, -2.45, 3.36, 42700.0, 1.24), 50.01684578665373, 4.123910589640557e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(11.1, 0.0143, 0.632, -1.28, 3.93, 45800.0, 1.08), 49.99665640088176, 4.1255758854378555e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(13.1, 0.1, 0.695, 0.595, 3.81, 49300.0, 1.04), 49.98512150408365, 4.1265279305792763e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(8.8, 0.254, 0.395, 2.0, 5.14, 44600.0, 1.26), 49.9993822967132, 4.125350964857004e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(10.3, 0.106, 0.513, 1.47, 0.00977, 44700.0, 1.25), 50.03012387123658, 4.1228160963756135e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(10.3, 0.0284, 0.612, -2.11, 1.39, 40500.0, 1.18), 49.99751576592623, 4.1255049744005785e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(12.9, 0.0153, 0.752, -2.49, 0.489, 49000.0, 1.16), 50.000764980206725, 4.1252368855086905e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(10.4, 0.168, 0.675, 1.84, 1.01, 47200.0, 1.12), 49.99698009993928, 4.125549174924077e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(9.79, 0.0163, 0.541, -0.198, 1.4, 44500.0, 1.21), 49.98604050316658, 4.1264520638903826e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(14.6, 0.0432, 0.818, -2.45, 0.286, 48500.0, 1.25), 49.996517449235704, 4.1255873513476723e6)
  ⋮
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(10.6, 0.0124, 0.681, 2.55, 1.15, 48400.0, 1.34), 49.9865616721975, 4.126409040746735e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(11.1, 0.106, 0.666, -1.29, 3.68, 45700.0, 1.12), 50.00483053400293, 4.124901490461832e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(15.2, 0.147, 0.817, 2.81, 3.29, 33100.0, 1.1), 49.983738187566196, 4.126642133607163e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(15.3, 0.0676, 0.87, 2.81, 3.38, 35400.0, 1.36), 49.998368136458254, 4.1254346429277533e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(10.8, 0.169, 0.726, 1.84, 0.731, 46500.0, 1.21), 50.012151728427085, 4.1242976530993413e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(10.5, 0.144, 0.562, -2.52, 3.44, 42600.0, 1.08), 50.01780861522872, 4.123831205535849e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(11.8, 0.33, 0.602, -2.23, 2.2, 38900.0, 1.23), 50.00517052636756, 4.124873444661831e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(11.8, 0.15, 0.728, 2.34, 0.689, 46900.0, 1.17), 49.985818540057075, 4.126470387490117e6)
- Visual{KepOrbit{Float64}, Float64}(KepOrbit(8.55, 0.256, 0.51, 0.824, 0.779, 45900.0, 1.15), 50.02398566853842, 4.1233219873107034e6)</code></pre><p>Calculate and plot the location the planet would be at each observation epoch:</p><pre><code class="language-julia hljs">epochs = astrom_like.table.epoch&#39; # transpose
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(14.8, 0.301, 0.67, 2.88, 3.22, 33900.0, 1.21), 50.00869293429833, 4.1245829054359007e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(9.38, 0.136, 0.559, -1.02, 1.67, 43700.0, 1.18), 49.972804376640305, 4.127545023197021e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(14.7, 0.481, 0.764, -2.38, 2.3, 34200.0, 1.31), 49.9733008430486, 4.1275040175516433e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(12.9, 0.251, 0.641, 0.46, 4.85, 35600.0, 1.17), 49.98748856894181, 4.1263325264985696e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(13.9, 0.0808, 0.798, 2.91, 3.47, 36700.0, 1.17), 49.982355897778135, 4.126756258185283e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(10.2, 0.0364, 0.353, -1.19, 3.98, 46700.0, 0.982), 50.02349332324461, 4.123362570205669e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(9.18, 0.084, 0.325, 0.142, 1.14, 45000.0, 1.15), 50.0235478573165, 4.123358075047679e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(12.8, 0.17, 0.799, 0.811, 0.136, 40600.0, 1.22), 50.011143729486044, 4.124380780325732e6)
+ Visual{KepOrbit{Float64}, Float64}(KepOrbit(13.5, 0.0798, 0.833, 2.28, 0.487, 45200.0, 1.2), 49.99144292342498, 4.1260061310082413e6)</code></pre><p>Calculate and plot the location the planet would be at each observation epoch:</p><pre><code class="language-julia hljs">epochs = astrom_like.table.epoch&#39; # transpose
 
 x = raoff.(orbits, epochs)
 y = decoff.(orbits, epochs)
@@ -119,4 +119,4 @@ Plots.plot!(astrom_like, linewidth=2, color=:black, label=&quot;observed&quot;)
 Plots.scatter!([0],[0], marker=(:star,:black, :white, 10),label=&quot;&quot;)
 
 Plots.xlims!(-700,400)
-Plots.ylims!(-300,300)</code></pre><img src="982cffe6.svg" alt="Example block output"/><p>Looks like a great match to the data! Notice how the uncertainty around the middle point is lower than the ends. That&#39;s because the orbit&#39;s posterior location at that epoch is also constrained by the surrounding data points. We can know the location of the planet in hindsight better than we could measure it!</p><p>You can follow this same procedure for any kind of data modelled with Octofitter.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../prior-pred/">« Prior Predictive Checks</a><a class="docs-footer-nextpage" href="../sbc/">Simulation Based Calibration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Friday 8 March 2024 04:42">Friday 8 March 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Plots.ylims!(-300,300)</code></pre><img src="f393a391.svg" alt="Example block output"/><p>Looks like a great match to the data! Notice how the uncertainty around the middle point is lower than the ends. That&#39;s because the orbit&#39;s posterior location at that epoch is also constrained by the surrounding data points. We can know the location of the planet in hindsight better than we could measure it!</p><p>You can follow this same procedure for any kind of data modelled with Octofitter.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../prior-pred/">« Prior Predictive Checks</a><a class="docs-footer-nextpage" href="../sbc/">Simulation Based Calibration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Wednesday 3 April 2024 04:57">Wednesday 3 April 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

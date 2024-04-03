@@ -40,8 +40,8 @@ results_obspri = octofit(model,iterations=5000,)</code></pre><pre class="documen
 Iterations        = 1:1:5000
 Number of chains  = 1
 Samples per chain = 5000
-Wall duration     = 18.25 seconds
-Compute duration  = 18.25 seconds
+Wall duration     = 11.64 seconds
+Compute duration  = 11.64 seconds
 parameters        = M, plx, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_P, b_θy, b_θx, b_ω, b_Ω, b_a, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -49,49 +49,49 @@ Summary Statistics
  <span class="sgr1"> parameters         mean         std       mcse    ess_bulk    ess_tail       ⋯
  <span class="sgr90">     Symbol      Float64     Float64    Float64     Float64     Float64   Flo ⋯
 
-           M       1.1605      0.0944     0.0019   2361.0441   2934.5815    1. ⋯
-         plx      50.0001      0.0197     0.0003   5113.2200   2805.0161    1. ⋯
-         b_e       0.1349      0.0877     0.0028    938.3259   1625.7842    1. ⋯
-         b_i       0.6636      0.0900     0.0019   2331.5564   2438.4360    0. ⋯
-        b_ωy       0.7622      0.2685     0.0116    659.5054   1222.3859    1. ⋯
-        b_ωx       0.5081      0.3005     0.0124    618.0942   1462.2968    1. ⋯
-        b_Ωy      -0.3992      0.3146     0.0139    563.9483   1177.0785    1. ⋯
-        b_Ωx      -0.8353      0.2108     0.0095    641.4671   1262.8238    1. ⋯
-         b_P      40.6827      5.4373     0.1365   1458.5008   1581.1617    0. ⋯
-        b_θy       0.0740      0.0076     0.0001   4021.3227   3345.3282    1. ⋯
-        b_θx      -0.9968      0.0200     0.0003   4489.0736   3337.6890    1. ⋯
-         b_ω       0.5957      0.4187     0.0179    606.3092   1252.0786    1. ⋯
-         b_Ω      -2.0225      0.3916     0.0177    558.8114   1177.0785    1. ⋯
-         b_a      12.3910      1.1136     0.0264   1675.0550   1884.0960    1. ⋯
-         b_θ      -1.4967      0.0074     0.0001   3945.9282   3254.0265    1. ⋯
-        b_tp   43087.4917   7243.1533   125.7516   3260.6945   2303.6452    0. ⋯
+           M       1.1589      0.0885     0.0030    841.4162   1337.2940    1. ⋯
+         plx      49.9999      0.0201     0.0004   2040.2440   2504.6483    1. ⋯
+         b_e       0.1392      0.0978     0.0095    106.1669     98.6716    1. ⋯
+         b_i       0.6709      0.0870     0.0048    337.4923   1543.2910    1. ⋯
+        b_ωy       0.7261      0.2975     0.0154    493.3967    965.9205    1. ⋯
+        b_ωx       0.5424      0.3071     0.0168    364.1457   1137.9427    1. ⋯
+        b_Ωy      -0.4076      0.3504     0.0309    114.1756     64.7919    1. ⋯
+        b_Ωx      -0.8025      0.2346     0.0126    436.3396   1675.4843    1. ⋯
+         b_P      41.4746      5.3150     0.5123    101.1368     46.2939    1. ⋯
+        b_θy       0.0736      0.0101     0.0005    337.1252    173.7669    1. ⋯
+        b_θx      -0.9986      0.0986     0.0048    406.9616   1470.5653    1. ⋯
+         b_ω       0.6487      0.4361     0.0244    350.2227   1034.7566    1. ⋯
+         b_Ω      -2.0422      0.4294     0.0369    109.4191     64.6283    1. ⋯
+         b_a      12.5534      1.1288     0.1083     98.5358     42.1001    1. ⋯
+         b_θ      -1.4972      0.0074     0.0003    450.4495    197.3574    1. ⋯
+        b_tp   42278.1491   7280.4068   299.9834    600.1441   2133.6175    1. ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       0.9844       1.0946       1.1591       1.2222       1.3513
-         plx      49.9618      49.9868      50.0005      50.0138      50.0377
-         b_e       0.0062       0.0582       0.1248       0.2053       0.3017
-         b_i       0.4780       0.6063       0.6665       0.7264       0.8258
-        b_ωy       0.1117       0.6213       0.8816       0.9596       1.0145
-        b_ωx      -0.0133       0.2771       0.4677       0.7813       0.9970
-        b_Ωy      -0.9508      -0.6897      -0.3201      -0.1505       0.0571
-        b_Ωx      -1.0240      -0.9850      -0.9423      -0.7223      -0.3156
-         b_P      30.5430      36.2936      40.9089      45.2308      49.4726
-        b_θy       0.0591       0.0689       0.0742       0.0791       0.0890
-        b_θx      -1.0370      -1.0105      -0.9961      -0.9837      -0.9585
-         b_ω      -0.0134       0.2804       0.4858       0.8970       1.4573
-         b_Ω      -2.8201      -2.3318      -1.8973      -1.7216      -1.5143
-         b_a      10.3793      11.5022      12.4137      13.2919      14.3411
-         b_θ      -1.5113      -1.5018      -1.4967      -1.4916      -1.4822
-        b_tp   32763.0509   35914.3928   48686.8384   50204.2993   50399.8856
+           M       0.9858       1.1012       1.1557       1.2190       1.3326
+         plx      49.9606      49.9861      50.0000      50.0137      50.0388
+         b_e       0.0072       0.0490       0.1244       0.2198       0.3204
+         b_i       0.5013       0.6072       0.6724       0.7337       0.8263
+        b_ωy       0.0443       0.5493       0.8220       0.9341       1.1221
+        b_ωx       0.0075       0.3072       0.5100       0.8197       1.0677
+        b_Ωy      -1.0116      -0.7340      -0.3209      -0.1433       0.1973
+        b_Ωx      -1.1401      -0.9660      -0.8657      -0.6554      -0.2921
+         b_P      31.3723      37.3362      41.8428      45.9283      49.4487
+        b_θy       0.0538       0.0665       0.0734       0.0799       0.0950
+        b_θx      -1.2017      -1.0645      -0.9893      -0.9266      -0.8298
+         b_ω       0.0078       0.3117       0.5441       0.9935       1.5269
+         b_Ω      -2.8387      -2.4233      -1.9098      -1.7190      -1.3550
+         b_a      10.4234      11.6957      12.6503      13.4908      14.3907
+         b_θ      -1.5117      -1.5019      -1.4971      -1.4922      -1.4826
+        b_tp   32802.2298   35307.8190   38965.7832   50188.4989   50399.2484
 </span></span></code></pre><pre><code class="language-julia hljs">using Plots: Plots
 plotchains(results_obspri, :b, kind=:astrometry, color=&quot;b_e&quot;)
 Plots.plot!(astrom_like, label=&quot;astrometry&quot;)
 Plots.xlims!(-1000,1000)
-Plots.ylims!(-1000,1000)</code></pre><img src="3fea822c.svg" alt="Example block output"/><p>Compare this with the previous fit using uniform priors:</p><pre><code class="language-julia hljs">plotchains(results, :b, kind=:astrometry, color=&quot;b_e&quot;)
+Plots.ylims!(-1000,1000)</code></pre><img src="73589eba.svg" alt="Example block output"/><p>Compare this with the previous fit using uniform priors:</p><pre><code class="language-julia hljs">plotchains(results, :b, kind=:astrometry, color=&quot;b_e&quot;)
 Plots.plot!(astrom_like, label=&quot;astrometry&quot;)
 Plots.xlims!(-1000,1000)
-Plots.ylims!(-1000,1000)</code></pre><img src="7f41bae6.svg" alt="Example block output"/><p>We can compare the results in a corner plot:</p><pre><code class="language-julia hljs">octocorner(model,results,results_obspri,small=true)</code></pre><img src="03fe026d.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom/">« Fit Relative Astrometry</a><a class="docs-footer-nextpage" href="../rv-1/">Fit Radial Velocity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Friday 8 March 2024 04:54">Friday 8 March 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Plots.ylims!(-1000,1000)</code></pre><img src="13a61154.svg" alt="Example block output"/><p>We can compare the results in a corner plot:</p><pre><code class="language-julia hljs">octocorner(model,results,results_obspri,small=true)</code></pre><img src="b5bf67f4.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom/">« Fit Relative Astrometry</a><a class="docs-footer-nextpage" href="../rv-1/">Fit Radial Velocity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Wednesday 3 April 2024 05:09">Wednesday 3 April 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
