@@ -26,13 +26,14 @@ makedocs(
             "Fit Resonant Co-Planar Model" => "fit-coplanar.md",
             "Fit Interferometer Data" => "fit-interfere.md",
             "Fit Likelihood Map" => "fit-likemap.md",
-            "Fit Thiele-Innes Paramerers" => "thiele-innes.md"
+            "Fit Thiele-Innes Paramerers" => "thiele-innes.md",
+            "Detection Limits" => "limits.md"
         ],
         "Statistical Methods" => [
             "Prior Predictive Checks" => "prior-pred.md",
             "Posterior Predictive Checks" => "post-pred.md",
+            "Cross Validataion" => "cross-validation.md",
             "Simulation Based Calibration" => "sbc.md",
-            # "Leave-One-Out Cross Validation" => "psis-loo.md",
         ],
         "Documentation" => [
             "Using Python" => "python.md",

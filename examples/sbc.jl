@@ -12,7 +12,7 @@ outname = @sprintf("sbctest-%04d", sbc_index)
 
 # Reference epoch for tau (orbital position) in convention used by Orbitize.
 const tref = 58849.0
-const theta_epoch = mean(OctofitterWhereistheplanet.astrom("hr8799";object=4)[2].table.epoch)
+const theta_epoch = mean(Octofitter.Whereistheplanet_astrom("hr8799";object=4)[2].table.epoch)
 
 
 using Octofitter.StaticArrays
@@ -79,7 +79,7 @@ end
 
     mass = 7
 
-end OctofitterWhereistheplanet.astrom("hr8799";object=4)[2]
+end Octofitter.Whereistheplanet_astrom("hr8799";object=4)[2]
 
 
 
