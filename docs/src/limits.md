@@ -3,7 +3,7 @@
 !!! warning
     This tutorial is a work in progress.
 
-This guide shows how to calculate detection limits, in mass, or in photometry, as a function of orbital parameters.
+This guide shows how to calculate detection limits, in mass, or in photometry, as a function of orbital parameters for different combinations of data.
 
 There are a few use cases for this:
 
@@ -11,7 +11,6 @@ There are a few use cases for this:
 * Mass limit vs semi-major axis given an RV non-detection
 * Mass limit vs semi-major axis given proper motion anomaly from the GAIA-Hipparcos Catalog of Accelerations
 * Any combination of the above
-
 
 We will once more use some sample data from the system [HD 91312 A & B](https://arxiv.org/abs/2109.12124) discovered by SCExAO. 
 
@@ -25,45 +24,28 @@ using Pigeons
 using CairoMakie
 ```
 
-# We will need to decide on an atmosphere model to map image intensities into mass
+## Photometry Model
+
+We will need to decide on an atmosphere model to map image intensities into mass. Here we use the Sonora Bobcat cooling and atmosphere models which will be auto-downloaded by Octofitter:
 ```julia
-const cooling_tracks = sonora_cooling_interpolator()
-const sonora_temp_mass_L = sonora_photometry_interpolator(:Keck_L′)
+const cooling_tracks = Octofitter.sonora_cooling_interpolator()
+const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)
 ```
 
+## Proper Motion Anomaly Data
+We start by defining and sampling from a model that only includes proper motion anomaly data from the HGCA:
 ```julia
 @planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
-    # e = 0
-    ω ~ Uniform(0,2pi)#~ UniformCircular()
+    ω ~ Uniform(0,2pi)
     i ~ Sine() # The Sine() distribution is defined by Octofitter
     Ω ~ Uniform(0,pi)# ~ UniformCircular()
     mass = system.M_sec
-
-    # Calculate planet temperature from cooling track and planet mass variable
-    tempK = cooling_tracks(system.age, B.mass)
-    # Calculate absolute magnitude
-    abs_mag_L = sonora_temp_mass_L(B.tempK, B.mass)
-    # Deal with out-of-grid values by clamping to grid max and min
-    abs_mal_L′ = if isfinite(B.abs_mag_L)
-        B.abs_mag_L
-    elseif B.mass > 10 
-        8.2 # jump to absurdly bright
-    else
-        16.7 # jump to absordly dim
-    end
-    # Calculate relative magnitude
-    rel_mag_L = B.abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
-    # Convert to contrast (same units as image)
-    L = 10.0^(B.rel_mag_L/-2.5)
-
     θ ~ Uniform(0,2pi)#UniformCircular()
     tp = θ_at_epoch_to_tperi(system,B,57423.0) # epoch of GAIA measurement
 end
 @system HD91312_pma begin
-    age = 10
-    rel_mag = 5.65
     M_pri ~ truncated(Normal(0.95, 0.05), lower=0) # Msol
     M_sec ~ LogUniform(0.2, 65) # MJup
     M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
@@ -77,12 +59,21 @@ end HGCALikelihood(gaia_id=6166183842771027328) B
 model_pma = Octofitter.LogDensityModel(HD91312_pma)
 ```
 
-
+Sample:
 ```julia
-chain_pma, pt = octofit_pigeons(model_pma, n_chains=8, n_rounds=14);
+using Pigeons
+pt = pigeons(
+    target=model_pma,
+    n_chains=8,
+    n_rounds=14,
+    multithreaded=true,
+    record = [traces; round_trip; record_default()],
+)
+chain_pma = Chains(model_pma, pt)
 ```
 
 
+Plot mass vs. semi-major axis posterior:
 ```julia
 fig = Figure()
 ax = Axis(
@@ -98,6 +89,7 @@ scatter!(ax,x,y, markersize=5, color=Makie.wong_colors()[1])
 fig
 ```
 
+## Image Data
 
 
 ```julia
@@ -121,10 +113,9 @@ image_data = ImageLikelihood(
 @planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
-    # e = 0
-    ω ~ Uniform(0,2pi)#~ UniformCircular()
+    ω ~ Uniform(0,2pi)
     i ~ Sine() # The Sine() distribution is defined by Octofitter
-    Ω ~ Uniform(0,pi)# ~ UniformCircular()
+    Ω ~ Uniform(0,pi)
     mass = system.M_sec
 
     # Calculate planet temperature from cooling track and planet mass variable
@@ -166,23 +157,43 @@ model_img = Octofitter.LogDensityModel(HD91312_img)
 ```
 
 ```julia
-using Random; Random.seed!(1)
+using Pigeons
+pt = pigeons(
+    target=model_img,
+    n_chains=8,
+    n_rounds=14,
+    multithreaded=true,
+    record = [traces; round_trip; record_default()],
+)
+chain_img = Chains(model_img, pt)
+```
 
-chain_img, pt = octofit_pigeons(model_img, n_rounds=14) ;
+Plot mass vs. semi-major axis posterior:
+```julia
+fig = Figure()
+ax = Axis(
+    fig[1,1],
+    xscale=log10,
+    yscale=log10,
+    xticks = 2.0 .^ (0:2:6),
+    yticks = 2.0 .^ (-1:2:6)
+)
+x = chain_img[:B_a][:]
+y = chain_img[:B_mass][:]
+scatter!(ax,x,y, markersize=5, color=Makie.wong_colors()[1])
+fig
 ```
 
 
-
+# Image and PMA data
 
 ```julia
-
 @planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
-    # e = 0
-    ω ~ Uniform(0,2pi)#~ UniformCircular()
-    i ~ Sine() # The Sine() distribution is defined by Octofitter
-    Ω ~ Uniform(0,pi)# ~ UniformCircular()
+    ω ~ Uniform(0,2pi)
+    i ~ Sine() 
+    Ω ~ Uniform(0,pi)
     mass = system.M_sec
 
     # Calculate planet temperature from cooling track and planet mass variable
@@ -221,14 +232,20 @@ end image_data
     rel_mag = 5.65
 end  HGCALikelihood(gaia_id=6166183842771027328) B
 model_both = Octofitter.LogDensityModel(HD91312_both)
-using Random; Random.seed!(1)
 
-chain_both, pt = octofit_pigeons(model_both, n_rounds=14) ;
-
+using Pigeons
+pt = pigeons(
+    target=model_both,
+    n_chains=8,
+    n_rounds=14,
+    multithreaded=true,
+    record = [traces; round_trip; record_default()],
+)
+chain_both = Chains(model_both, pt)
 ```
 
-
-```@example
+Compare all three limit posteriors:
+```julia
 fig = Figure()
 ax = Axis(
     fig[1,1],
