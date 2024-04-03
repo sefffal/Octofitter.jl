@@ -551,6 +551,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
                 ∇ℓπcallback = let cfg=cfg, diffresults=diffresults, ℓπcallback=ℓπcallback
                     function (θ_transformed)
+                        # TODO: this is not safe for tasks that migrate across threads! Would need task-local storage instead.
                         result = ForwardDiff.gradient!(diffresults[Threads.threadid()], ℓπcallback, θ_transformed, cfg, Val{false}())
                         return DiffResults.value(result), DiffResults.gradient(result)
                         # return DiffResults.gradient(result)
