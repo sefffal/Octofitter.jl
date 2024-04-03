@@ -1,20 +1,24 @@
-module OctofitterWhereistheplanet
+"""
+This file contains functions for importing and exporting
+chains in a format compatible with the python package Orbitize!.
 
-# using TypedTables
-using Octofitter
+It also contains functions for querying posteriors and datasets
+from the public whereistheplanet.com website.
+"""
+
 using HDF5
-using DataDeps
 using StringDistances
 using MCMCChains: MCMCChains
 
+# public loadhdf5, savehdf5, Whereistheplanet_search, Whereistheplanet_posterior, Whereistheplanet_astrom
 
 """
-    search("targetname")
+Whereistheplanet_search("targetname")
 
 Search for an orbit posterior and/or astrometry hosted on whereistheplanet.com by a given target name.
 If not found, a list of similar target names will be reported.
 """
-function search(target, catalog=datadep"Whereistheplanet")
+function Whereistheplanet_search(target, catalog=datadep"Whereistheplanet")
 
     dirpath = joinpath(catalog, "whereistheplanet-master", "data")
     fnames = readdir(dirpath,join=true)
@@ -39,12 +43,12 @@ function search(target, catalog=datadep"Whereistheplanet")
 end
 
 """
-    astrom("targetname")
+    Whereistheplanet_astrom("targetname")
 
 Load astrometry hosted on whereistheplanet.com by a given target name.
 If not found, a list of similar target names will be reported.
 """
-function astrom(target, catalog=datadep"Whereistheplanet"; object=1)
+function Whereistheplanet_astrom(target, catalog=datadep"Whereistheplanet"; object=1)
 
     fname = search(target)
     return h5open(fname, "r") do f
@@ -212,28 +216,4 @@ function savehdf5(fname::AbstractString, model::Octofitter.LogDensityModel, chai
         write(dset, convert(Matrix{Float32}, dat))
         return
     end
-end
-
-
-function __init__()
-
-    register(DataDep("Whereistheplanet",
-        """
-        Dataset:     Planet astrometry and orbit fits from whereistheplanet.com
-        Author:      Wang et al.
-        License:     BSD-3 Clause
-        Website:     https://github.com/semaphoreP/whereistheplanet
-
-        File size: 10MiB
-        """,
-        "https://github.com/semaphoreP/whereistheplanet/archive/refs/heads/master.zip",
-        # "c02e7c601dc94d7acd0c58398b518038b036d1507f790f3419b574b39d515197",
-        post_fetch_method=unpack
-    ))
-
-
-
-
-    return
-end
 end

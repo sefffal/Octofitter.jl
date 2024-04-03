@@ -54,6 +54,7 @@ include("macros.jl")
 include("sonora.jl")
 
 include("io.jl")
+include("orbitize.jl")
 
 
 include("sbc.jl")
@@ -102,6 +103,20 @@ function __init__()
         """,
         "https://zenodo.org/record/5063476/files/evolution_and_photometery.tar.gz?download=1",
         "2198426d1ca0e410fda7b63c3b7f45f3890a8d9f2fcf0a3a1e36e14185283ca5",
+        post_fetch_method=unpack
+    ))
+
+    register(DataDep("Whereistheplanet",
+        """
+        Dataset:     Planet astrometry and orbit fits from whereistheplanet.com
+        Author:      Wang et al.
+        License:     BSD-3 Clause
+        Website:     https://github.com/semaphoreP/whereistheplanet
+
+        File size: 10MiB
+        """,
+        "https://github.com/semaphoreP/whereistheplanet/archive/refs/heads/master.zip",
+        # "c02e7c601dc94d7acd0c58398b518038b036d1507f790f3419b574b39d515197",
         post_fetch_method=unpack
     ))
 
