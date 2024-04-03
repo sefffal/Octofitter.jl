@@ -517,7 +517,11 @@ function make_ln_prior(system::System)
     for prior_distribution in values(system.priors.priors)
         i += 1
         ex = :(
-            lp += $logpdf($prior_distribution, arr[$i])
+            lp += $logpdf($prior_distribution, arr[$i]);
+            if !isfinite(lp)
+                println("invalid prior value encountered for prior: Distributions.logpdf(", $prior_distribution, ", ", arr[$i], ")")
+                error()
+            end
         )
         push!(prior_evaluations,ex)
     end
@@ -532,11 +536,18 @@ function make_ln_prior(system::System)
             # This works fine, but AutoDiff outside this range causes a DomainError.
             if typeof(prior_distribution) <: Beta
                 ex = :(
-                    lp += 0 <= arr[$i] < 1 ? $logpdf($prior_distribution, arr[$i]) : -Inf
+                    lp += 0 <= arr[$i] < 1 ? $logpdf($prior_distribution, arr[$i]) : -Inf;
+                    if !isfinite(lp)
+                        println("invalid prior value encountered for prior: Distributions.logpdf(", $prior_distribution, ", ", arr[$i], ")")
+                        error()
+                    end
                 )
             else
                 ex = :(
-                    lp += $logpdf($prior_distribution, arr[$i])
+                    lp += $logpdf($prior_distribution, arr[$i]);
+                    if !isfinite(lp)
+                        println("invalid prior value encountered for prior: Distributions.logpdf(", $prior_distribution, ", ", arr[$i], ")")
+                    end
                 )
             end
             push!(prior_evaluations,ex)
@@ -564,6 +575,7 @@ end
 # Same as above, but assumes the input to the log prior was sampled
 # using transformed distributions from Bijectors.jl
 # Uses logpdf_with_trans() instead of logpdf to make the necessary corrections.
+# Note! The array of values passed in must already be transformed back to the correct domain.
 function make_ln_prior_transformed(system::System)
 
     i = 0
@@ -574,7 +586,11 @@ function make_ln_prior_transformed(system::System)
         i += 1
         # prior_unconstrained = Bijectors.transformed(prior_distribution)
         ex = :(
-            lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
+            p = $logpdf_with_trans($prior_distribution, arr[$i], true);
+            # if !isfinite(p)
+            #     println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", true)=", p)
+            # end;
+            lp += p
         )
         push!(prior_evaluations,ex)
     end
@@ -586,8 +602,12 @@ function make_ln_prior_transformed(system::System)
             i += 1
             # prior_distribution = Bijectors.transformed(prior_distribution)
             ex = :(
-                lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
-            )
+                p = $logpdf_with_trans($prior_distribution, arr[$i], true);
+                # if !isfinite(p)
+                #     println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", true)=", p)
+                # end;
+                lp += p
+                )
             push!(prior_evaluations,ex)
         end
     end
