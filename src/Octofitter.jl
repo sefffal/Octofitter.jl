@@ -9,7 +9,6 @@ using AbstractMCMC
 using AdvancedHMC
 using NamedTupleTools
 using ForwardDiff
-using Enzyme
 using Logging
 using Statistics
 using StatsBase

@@ -420,14 +420,12 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 # CAUTION: This inline annotation is necessary for correct gradients from Enzyme. Yikes!
                 llike  = @inline ln_like_generated(system, θ_structured)
                 lpost = lprior+llike*inverse_temp
-                # if !isfinite(lprior)
-                #     @error "Invalid log prior encountered. This likely indicates a problem with the prior support."
-                #     error()
-                # end
-                # if !isfinite(llike)
-                #     @error "Invalid log likelihood encountered. This likely indicates a problem with the prior support."
-                #     error()
-                # end
+                if !isfinite(lprior)
+                    # @warn "Invalid log prior encountered. This likely indicates a problem with the prior support." θ=θ_structured lprior
+                end
+                if !isfinite(llike)
+                    # @warn "Invalid log likelihood encountered." θ=θ_structured llike
+                end
                 return lpost
             end
 
@@ -443,32 +441,35 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
             end
 
             if autodiff == :Enzyme
+                if !isdefined(Main, :Enzyme)
+                    error("To use the :Enzyme autodiff backend, load the Enzyme package first: `using Enzyme`")
+                end
                 # Enzyme mode:
                 ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
-                    oh = Enzyme.onehot(diffresult)
+                    oh = Main.Enzyme.onehot(diffresult)
                     forward = function (θ_t)
-                        primal, out = Enzyme.autodiff(
-                            Enzyme.Forward,
+                        primal, out = Main.Enzyme.autodiff(
+                            Main.Enzyme.Forward,
                             ℓπcallback,
-                            Enzyme.BatchDuplicated,
-                            Enzyme.BatchDuplicated(θ_t,oh),
-                            Enzyme.Const(system),
-                            Enzyme.Const(arr2nt),
-                            Enzyme.Const(Bijector_invlinkvec)
+                            Main.Enzyme.BatchDuplicated,
+                            Main.Enzyme.BatchDuplicated(θ_t,oh),
+                            Main.Enzyme.Const(system),
+                            Main.Enzyme.Const(arr2nt),
+                            Main.Enzyme.Const(Bijector_invlinkvec)
                         )
                         diffresult .= tuple(out...)
                         return primal, diffresult
                     end
                     reverse = function (θ_t)
                         fill!(diffresult,0)
-                        out, primal = Enzyme.autodiff(
-                            # Enzyme.Reverse,
-                            Enzyme.ReverseWithPrimal,
+                        out, primal = Main.Enzyme.autodiff(
+                            # Main.Enzyme.Reverse,
+                            Main.Enzyme.ReverseWithPrimal,
                             ℓπcallback,
-                            Enzyme.Duplicated(θ_t,diffresult),
-                            Enzyme.Const(system),
-                            Enzyme.Const(arr2nt),
-                            Enzyme.Const(Bijector_invlinkvec)
+                            Main.Enzyme.Duplicated(θ_t,diffresult),
+                            Main.Enzyme.Const(system),
+                            Main.Enzyme.Const(arr2nt),
+                            Main.Enzyme.Const(Bijector_invlinkvec)
                         )
                         return primal, diffresult
                     end 

@@ -36,7 +36,7 @@ octofit_pigeons(model; nrounds, n_chains=[auto])
 Use Pigeons.jl to sample from intractable posterior distributions.
 
 ```julia
-model = Octofitter.LogDensityModel(System, autodiff=:Enzyme, verbosity=4)
+model = Octofitter.LogDensityModel(System, autodiff=:ForwardDiff, verbosity=4)
 chain, pt = octofit_pigeons(model)
 ```
 """
