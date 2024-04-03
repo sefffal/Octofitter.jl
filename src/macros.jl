@@ -91,9 +91,9 @@ macro system(args...)
         elseif statement.head == :(=)
             varname = statement.args[1]
             expression = statement.args[2]
-            :(
-                $(esc(varname)) = ($(esc(system)), $name) -> $(esc(expression))
-            )
+            esc(:(
+                $varname = system -> $expression
+            ))
             # TODO: can we constant-ify the arguments they passed in to avoid performance issues? Or wrap in a let block?
             # We would need to recurse through their expression and find all variabels, then put them in a let.
         else
