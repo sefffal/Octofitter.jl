@@ -50,7 +50,7 @@ If not found, a list of similar target names will be reported.
 """
 function Whereistheplanet_astrom(target, catalog=datadep"Whereistheplanet"; object=1)
 
-    fname = search(target)
+    fname = Whereistheplanet_search(target)
     return h5open(fname, "r") do f
         records = read(f["data"])
 
@@ -96,7 +96,7 @@ as coming from multiple chains concatenated together,
 """
 function loadhdf5(fname_or_targetname, numchains=1)
     if !occursin(".hdf5", fname_or_targetname)
-        fname = search(fname_or_targetname)
+        fname = Whereistheplanet_search(fname_or_targetname)
     else
         fname = fname_or_targetname
     end
