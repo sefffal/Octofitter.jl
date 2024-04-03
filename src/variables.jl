@@ -163,7 +163,7 @@ function ln_like(::UnitLengthPrior{X,Y}, θ_planet_or_system, orbit, _L=0) where
     x = getproperty(θ_planet_or_system, X)
     y = getproperty(θ_planet_or_system, Y)
     vector_length = sqrt(x^2 + y^2)
-    return logpdf(LogNormal(log(1.0), 0.02), vector_length);
+    return logpdf(LogNormal(log(1.0), 0.1), vector_length);
 end
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::UnitLengthPrior{X,Y}) where {X,Y}
     T = typeof(like)
