@@ -7,6 +7,13 @@ using DataDeps
 using StringDistances
 using MCMCChains: MCMCChains
 
+
+"""
+    search("targetname")
+
+Search for an orbit posterior and/or astrometry hosted on whereistheplanet.com by a given target name.
+If not found, a list of similar target names will be reported.
+"""
 function search(target, catalog=datadep"Whereistheplanet")
 
     dirpath = joinpath(catalog, "whereistheplanet-master", "data")
@@ -31,6 +38,12 @@ function search(target, catalog=datadep"Whereistheplanet")
 
 end
 
+"""
+    astrom("targetname")
+
+Load astrometry hosted on whereistheplanet.com by a given target name.
+If not found, a list of similar target names will be reported.
+"""
 function astrom(target, catalog=datadep"Whereistheplanet"; object=1)
 
     fname = search(target)
@@ -69,7 +82,7 @@ function astrom(target, catalog=datadep"Whereistheplanet"; object=1)
     end
 end
 
-
+@deprecate posterior loadhdf5
 """
 Load an Orbitize! posterior from an HDF5 file and convert it into
 an Octofitter-compatible chains format.
@@ -78,7 +91,7 @@ Both tools use the same orbit conventions so this is fairly straightforward.
 If you pass `numchains` as a second argument, the array will be interpretted
 as coming from multiple chains concatenated together, 
 """
-function posterior(fname_or_targetname, numchains=1)
+function loadhdf5(fname_or_targetname, numchains=1)
     if !occursin(".hdf5", fname_or_targetname)
         fname = search(fname_or_targetname)
     else
@@ -97,6 +110,7 @@ function posterior(fname_or_targetname, numchains=1)
                 ),
             )
         end
+        # TODO: should read the `colnames` property instead of assuming:
         chn =  MCMCChains.Chains(
             arr,
             [
@@ -113,7 +127,10 @@ function posterior(fname_or_targetname, numchains=1)
 
         # Calculate epoch of periastron passage from Orbitize tau variable:
         tau_ref_epoch = 58849
-        period_days = 
+        if haskey(attrs(f),"tau_ref_epoch")
+            tau_ref_epoch = attrs(f)["tau_ref_epoch"]
+        end
+
         a = chn[:b_a]
         τ = chn[:b_τ]
         M = chn[:M]
@@ -141,6 +158,62 @@ function posterior(fname_or_targetname, numchains=1)
         return MCMCChains.setinfo(chn, NamedTuple(metadata))
     end
 end
+
+
+
+"""
+    savehdf5("filename.hdf5", chain)
+
+For some limited cases, supports saving an Octofitter chain in a format used by Orbitize!
+and used by whereistheplanet.com.
+
+Currently only works with a single planet model. Does not currently export any raw data.
+"""
+function savehdf5(fname::AbstractString, model::Octofitter.LogDensityModel, chain::Chains, planet_key::Symbol=first(keys(model.system.planets)))
+    return h5open(fname, "w") do f
+        #  Just look up by planet key
+
+        # Must calculate tau
+        tau_ref_epoch = 58849
+        tp = chain["$(planet_key)_tp"]
+        a = chain[:b_a]
+        M = chain[:M]
+        periodyrs = @. √(a^3/M)
+        period_days = @. periodyrs * PlanetOrbits.year2day
+        # TODO: verify
+        τ = @. mod((tp  - tau_ref_epoch)/period_days, 1)
+        
+
+        sma =  chain[:,"$(planet_key)_a",:]
+        ecc =  chain[:,"$(planet_key)_e",:]
+        inc =  chain[:,"$(planet_key)_i",:]
+        aop =  chain[:,"$(planet_key)_ω",:]
+        pan =  chain[:,"$(planet_key)_Ω",:]
+        tau =  τ
+        plx =  chain[:,"plx",:]
+        mtot = chain[:,"M",:]
+
+        dat = transpose(hcat(
+            vec(collect(sma )),
+            vec(collect(ecc )),
+            vec(collect(inc )),
+            vec(collect(aop )),
+            vec(collect(pan )),
+            vec(collect(tau )),
+            vec(collect(plx )),
+            vec(collect(mtot)),
+        ))
+
+        f["col_names"] = ["sma", "ecc", "inc", "aop", "pan", "tau", "plx", "mtot"]
+
+        attrs(f)["tau_ref_epoch"] = tau_ref_epoch
+        
+        dset = create_dataset(f, "post", Float32, size(dat))
+        write(dset, convert(Matrix{Float32}, dat))
+        return
+    end
+end
+
 
 function __init__()
 
