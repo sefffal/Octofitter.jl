@@ -1,7 +1,9 @@
 
 
 """
-Given a model and original samples? split out the posterior probability into prior and columns for each datapoint.
+    pointwise_like(model, chain)
+
+Given a model and posterior sample chain split out the posterior probability into prior and columns for each datapoint.
 """
 function pointwise_like(model, chain)
 
