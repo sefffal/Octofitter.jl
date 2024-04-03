@@ -86,7 +86,6 @@ function Whereistheplanet_astrom(target, catalog=datadep"Whereistheplanet"; obje
     end
 end
 
-@deprecate posterior loadhdf5
 """
 Load an Orbitize! posterior from an HDF5 file and convert it into
 an Octofitter-compatible chains format.
