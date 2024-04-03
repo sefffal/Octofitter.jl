@@ -31,18 +31,26 @@ macro planet(args...)
         if statement.head == :call && statement.args[1] == :~
             varname = statement.args[2]
             expression = statement.args[3]
-            distribution = eval(expression)
-            if !(distribution isa Distributions.UnivariateDistribution || distribution isa Octofitter.Parameterization)
-                error("prior on variable $varname must be a UnivariateDistribution")
-            end
-            return :( $(esc(varname)) = $distribution)
+            return :($(esc(varname)) = (
+                distribution = try
+                    $(esc(expression))
+                catch err
+                    @error "There is an error in your prior specification for $($(Meta.quot(varname))). The right-hand side of the ~ must be a Distribution distribution. This is what we got:" expression=$(string(expression))
+                    rethrow(err)
+                end;
+                if !(distribution isa Distributions.UnivariateDistribution || distribution isa Octofitter.Parameterization)
+                    error("prior on variable $($(Meta.quot(varname))) must be a UnivariateDistribution")
+                end;
+                distribution
+            ))
         elseif statement.head == :(=)
             varname = statement.args[1]
             expression = statement.args[2]
-            return esc(:(
-                $varname = (system, $name) -> $expression
-            ))
+            return :(
+                $(esc(varname)) = ($(esc(:system)), $(esc(name))) -> $(esc(expression))
+            )
             # TODO: can we constant-ify the arguments they passed in to avoid performance issues? Or wrap in a let block?
+            # We would need to recurse through their expression and find all variabels, then put them in a let.
         else
             error("invalid statement encoutered $(statement.head)")
         end
@@ -67,18 +75,27 @@ macro system(args...)
     variables = map(variables_block) do statement
         if statement.head == :call && statement.args[1] == :~
             varname = statement.args[2]
-            distribution = statement.args[3]
-            # distribution = eval(expression)
-            # if !(distribution isa Distributions.UnivariateDistribution || distribution isa Octofitter.Parameterization)
-            #     error("prior on variable $varname must be a UnivariateDistribution")
-            # end
-            return :( $(esc(varname)) = $(esc(distribution)))
+            expression = statement.args[3]
+            return :($(esc(varname)) = (
+                distribution = try
+                    $(esc(expression))
+                catch err
+                    @error "There is an error in your prior specification for $($(Meta.quot(varname))). The right-hand side of the ~ must be a Distribution distribution. This is what we got:" expression=$(string(expression))
+                    rethrow(err)
+                end;
+                if !(distribution isa Distributions.UnivariateDistribution || distribution isa Octofitter.Parameterization)
+                    error("prior on variable $($(Meta.quot(varname))) must be a UnivariateDistribution")
+                end;
+                distribution
+            ))
         elseif statement.head == :(=)
             varname = statement.args[1]
             expression = statement.args[2]
-            return esc(:(
-                $varname = system -> $expression
-            ))
+            :(
+                $(esc(varname)) = ($(esc(system)), $name) -> $(esc(expression))
+            )
+            # TODO: can we constant-ify the arguments they passed in to avoid performance issues? Or wrap in a let block?
+            # We would need to recurse through their expression and find all variabels, then put them in a let.
         else
             error("invalid statement encoutered $(statement.head)")
         end
