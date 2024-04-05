@@ -602,6 +602,10 @@ LogDensityProblems.capabilities(::Type{<:LogDensityModel}) = LogDensityProblems.
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::LogDensityModel)
     println(io, "LogDensityModel for System $(p.system.name) of dimension $(p.D) with fields .ℓπcallback and .∇ℓπcallback")
 end
+function Base.show(io::IO, @nospecialize p::LogDensityModel)
+    println(io, "LogDensityModel for System $(p.system.name) of dimension $(p.D) with fields .ℓπcallback and .∇ℓπcallback")
+end
+
 
 """
 Test that a model returns valid probability densities for 
