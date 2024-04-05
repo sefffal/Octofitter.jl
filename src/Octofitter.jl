@@ -37,6 +37,7 @@ export Chains
 
 include("distributions.jl")
 include("variables.jl")
+include("parameterizations.jl")
 
 include("likelihoods/system.jl")
 include("likelihoods/relative-astrometry.jl")
@@ -44,7 +45,6 @@ include("likelihoods/photometry.jl")
 include("likelihoods/hgca.jl")
 include("likelihoods/observable.jl")
 
-include("parameterizations.jl")
 
 include("sampling.jl")
 
@@ -53,8 +53,7 @@ include("macros.jl")
 include("sonora.jl")
 
 include("io.jl")
-include("orbitize.jl")
-
+include("io-orbitize.jl")
 
 include("sbc.jl")
 include("predictive-distributions.jl")
