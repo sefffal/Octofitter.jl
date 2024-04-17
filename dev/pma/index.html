@@ -49,13 +49,13 @@ chain, pt = octofit_pigeons(model, n_rounds=10)
 display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">─────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.88      0.127   2.55e+04   -1.5e+04          0      0.446      0.988      0.998
-        4          0       2.56      0.293   3.71e+04  -1.28e+03          0      0.635          1          1
-        8          0       5.15      0.508   5.13e+04       -623          0      0.264          1          1
+        2          0       3.88      0.126   2.55e+04   -1.5e+04          0      0.446      0.988      0.998
+        4          0       2.56      0.294   3.71e+04  -1.28e+03          0      0.635          1          1
+        8          0       5.15      0.509   5.13e+04       -623          0      0.264          1          1
        16          0       5.21       1.05   8.93e+04       -290  2.38e-242      0.256          1          1
-       32          0       5.25          2   1.73e+05        -52   1.15e-33       0.25          1          1
-       64          0       5.81       4.01   2.91e+05      -26.9   3.86e-09       0.17          1          1
-      128          0       5.93       8.04   5.76e+05        -18     0.0156      0.153          1          1
+       32          0       5.25       2.01   1.73e+05        -52   1.15e-33       0.25          1          1
+       64          0       5.81       4.02   2.91e+05      -26.9   3.86e-09       0.17          1          1
+      128          0       5.93       7.98   5.76e+05        -18     0.0156      0.153          1          1
       256          0       6.03       16.6    1.1e+06      -17.9     0.0193      0.139          1          1
       512          0       6.09       33.1   2.12e+06      -18.6     0.0104      0.131          1          1
  1.02e+03          4       6.07       66.2   4.24e+06      -19.3     0.0166      0.132          1          1
@@ -86,7 +86,7 @@ pairplot(
     (epoch=mjd(&quot;2018-11-28&quot;), ra=058., dec=-122., σ_ra=10.0, σ_dec=20., cor=0.3),
     (epoch=mjd(&quot;2018-12-15&quot;), ra=056., dec=-104., σ_ra=08.0, σ_dec=08., cor=0.2),
 )
-Plots.plot(astrom_like, lims=:symmetric)</code></pre><img src="430f541c.svg" alt="Example block output"/><p>We use the same model as before, but now condition the planet model <code>B</code> on the astrometry data by adding <code>astrom_like</code> to the end of the <code>@planet</code> defintion.</p><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
+Plots.plot(astrom_like, lims=:symmetric)</code></pre><img src="fbeaa2a0.svg" alt="Example block output"/><p>We use the same model as before, but now condition the planet model <code>B</code> on the astrometry data by adding <code>astrom_like</code> to the end of the <code>@planet</code> defintion.</p><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
     # a ~ LogUniform(0.1,200)
     a ~ Uniform(0.1,200)
     e ~ Uniform(0,0.999)
@@ -122,15 +122,15 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
   scans     restarts      Λ        time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
         2          0       3.91      0.134   2.56e+04  -1.78e+04          0      0.441          1          1
-        4          0       2.86      0.309    3.8e+04  -6.45e+04          0      0.592          1          1
-        8          0       5.52      0.632   5.49e+04  -4.29e+03          0      0.212          1          1
+        4          0       2.86      0.306    3.8e+04  -6.45e+04          0      0.592          1          1
+        8          0       5.52      0.623   5.49e+04  -4.29e+03          0      0.212          1          1
        16          0          6       1.32   8.76e+04  -3.07e+03          0      0.143          1          1
-       32          0       6.23       2.66   1.49e+05  -1.91e+03          0       0.11          1          1
-       64          0       5.56        5.4   2.98e+05       -628          0      0.206          1          1
-      128          0       5.27       10.7   5.56e+05       -157   6.97e-77      0.247          1          1
+       32          0       6.23       2.64   1.49e+05  -1.91e+03          0       0.11          1          1
+       64          0       5.56       5.37   2.98e+05       -628          0      0.206          1          1
+      128          0       5.27       10.6   5.56e+05       -157   6.97e-77      0.247          1          1
       256          0       5.17         20   1.08e+06       -209  8.87e-131      0.262          1          1
-      512          0       5.84       39.8   2.14e+06       -149   8.33e-79      0.166          1          1
- 1.02e+03          0       5.86       77.4   4.21e+06       -104   1.97e-38      0.163          1          1
+      512          0       5.84       39.5   2.14e+06       -149   8.33e-79      0.166          1          1
+ 1.02e+03          0       5.86         77   4.21e+06       -104   1.97e-38      0.163          1          1
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>The mass vs. semi-major axis posterior is now much more constrained:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 pairplot(
     (; a=chain[&quot;B_a&quot;][:], mass=chain[&quot;B_mass&quot;][:]) =&gt;
@@ -140,8 +140,8 @@ pairplot(
             PairPlots.MarginConfidenceLimits()
         ),
     labels=Dict(:mass=&gt;&quot;mass [Mⱼᵤₚ]&quot;, :a=&gt;&quot;sma. [au]&quot;),
-)</code></pre><img src="2993c567.png" alt="Example block output"/><p>It is now useful to display the orbits projected onto the plane of the sky using <code>octoplot</code>. This function produces a nine-panel figure showing posterior predictive distributions for velocity (in three dimensions), projected positions vs. time in the plane of the sky,  and various other two and three-dimensional views.</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="b484dc3c.svg" alt="Example block output"/><p>Finally we display the posterior as a corner plot:</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
+)</code></pre><img src="2993c567.png" alt="Example block output"/><p>It is now useful to display the orbits projected onto the plane of the sky using <code>octoplot</code>. This function produces a nine-panel figure showing posterior predictive distributions for velocity (in three dimensions), projected positions vs. time in the plane of the sky,  and various other two and three-dimensional views.</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="f29afbbf.svg" alt="Example block output"/><p>Finally we display the posterior as a corner plot:</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
 using CairoMakie: Makie
 using PairPlots
-octocorner(model, chain, small=true)</code></pre><img src="2fe3b1c9.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Saturday 6 April 2024 00:31">Saturday 6 April 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model, chain, small=true)</code></pre><img src="2fe3b1c9.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.4.0 on <span class="colophon-date" title="Wednesday 17 April 2024 17:55">Wednesday 17 April 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
