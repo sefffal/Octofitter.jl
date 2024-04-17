@@ -44,15 +44,15 @@ ax = Axis(
     ylabel="closure phase",
 )
 Makie.stem!(
-    vis_like.table.cps_data[1],
+    vis_like.table.cps_data[1][:],
     label="epoch 1",
 )
 Makie.stem!(
-    vis_like.table.cps_data[2],
+    vis_like.table.cps_data[2][:],
     label="epoch 2"
 )
 Makie.stem!(
-    vis_like.table.cps_data[3],
+    vis_like.table.cps_data[3][:],
     label="epoch 3"
 )
 Makie.Legend(fig[1,2], ax)
