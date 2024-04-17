@@ -80,6 +80,24 @@ function construct_elements(::Type{Visual{KepOrbit}}, θ_system, θ_planet)
         θ_planet.a,
     )...)
 end
+function construct_elements(::Type{Compensated{KepOrbit}}, θ_system, θ_planet)
+    return Compensated{KepOrbit}(;(;
+        θ_system.M,
+        θ_system.ref_epoch,
+        θ_system.ra,
+        θ_system.dec,
+        θ_system.rv,
+        θ_system.pmra,
+        θ_system.pmdec,
+        θ_system.plx,
+        θ_planet.i,
+        θ_planet.Ω,
+        θ_planet.ω,
+        θ_planet.e,
+        θ_planet.tp,
+        θ_planet.a,
+    )...)
+end
 function construct_elements(::Type{KepOrbit}, θ_system, θ_planet)
     return KepOrbit(;(;
         θ_system.M,
@@ -140,12 +158,29 @@ end
     construct_elements(chains, :b, 4)
 
 Given a Chains object, a symbol matching the name of a planet, and an index,
-construct a `Visual{KepOrbit} DirectOrbits of that planet from that
-index of the chains.
+construct a PlanetOrbits.jl orbit object.
 """
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Union{Integer,CartesianIndex})
     pk = string(planet_key)
-    if haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
+    if haskey(chain, :ra) && haskey(chain, :ref_epoch) && haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
+        o = Compensated{KepOrbit}(;(;
+            M=chain["M"][i],
+            ref_epoch=chain["ref_epoch"][i],
+            ra=chain["ra"][i],
+            dec=chain["dec"][i],
+            rv=chain["rv"][i],
+            pmra=chain["pmra"][i],
+            pmdec=chain["pmdec"][i],
+            plx=chain["plx"][i],
+            i=chain[pk*"_i"][i],
+            Ω=chain[pk*"_Ω"][i],
+            ω=chain[pk*"_ω"][i],
+            e=chain[pk*"_e"][i],
+            tp=chain[pk*"_tp"][i],
+            a=chain[pk*"_a"][i],
+        )...)
+        return o
+    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
         return Visual{KepOrbit}(;(;
             M=chain["M"][i],
             plx=chain["plx"][i],
@@ -354,257 +389,6 @@ function construct_elements(chain, planet_key::Union{String,Symbol}, ii::Abstrac
     end
 end
 construct_elements(chain::Chains, planet::Planet, args...; kwargs...) = construct_elements(chain, planet.name, args...; kwargs...) 
-
-using LogDensityProblems
-
-# Define the target distribution using the `LogDensityProblem` interface
-# TODO: in future, just roll this all into the System type.
-struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
-    D::Int
-    ℓπcallback::Tℓπ
-    ∇ℓπcallback::T∇ℓπ
-    system::TSys
-    link::TLink
-    invlink::TInvLink
-    arr2nt::TArr2nt
-    function LogDensityModel(system::System; autodiff=:ForwardDiff, verbosity=0, chunk_sizes=nothing, inverse_temp=1.0)
-        verbosity >= 1 && @info "Preparing model"
-
-        # Choose parameter dimensionality and initial parameter value
-        initial_θ_0 = sample_priors(system)
-        D = length(initial_θ_0)
-        verbosity >= 2 && @info "Determined number of free variables" D
-
-
-        ln_prior_transformed = make_ln_prior_transformed(system)
-        # ln_prior = make_ln_prior(system)
-        arr2nt = Octofitter.make_arr2nt(system) 
-        ln_like_generated = make_ln_like(system, arr2nt(initial_θ_0))
-
-        priors_vec = _list_priors(system)
-        Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
-        # TODO : this could be unrolled like invlink if used anywhere performance sensitive. Currently
-        # it just transforms things back after all sampling is done.
-        Bijector_linkvec = let priors_vec=priors_vec
-            (θ) -> Bijectors.link.(priors_vec, θ)
-        end
-        initial_θ_0_t = Bijector_linkvec(initial_θ_0)
-        arr2nt = Octofitter.make_arr2nt(system)
-
-        # Test out model likelihood and prior computations. This way, if they throw
-        # an error, we'll see it right away instead of burried in some deep stack
-        # trace from the sampler, autodiff, etc.
-        ln_like_generated(system, arr2nt(initial_θ_0))
-        ln_prior_transformed(initial_θ_0)
-
-
-        # We use let blocks to prevent type instabilities from closures
-        # A function barrier would also work.
-        ℓπcallback, ∇ℓπcallback = let arr2nt=arr2nt,
-                                      system=system,
-                                      Bijector_invlinkvec=Bijector_invlinkvec,
-                                      ln_prior_transformed=ln_prior_transformed,
-                                      ln_like_generated=ln_like_generated,
-                                      D=D,
-                                      inverse_temp=inverse_temp
-
-            # Capture these variables in a let binding to improve performance
-            # We also set up temporary storage to reduce allocations
-            # ForwardDiff is used to compute the likelihood gradients using the in-place 
-            # API. This ensures type stability.
-            function ℓπcallback(θ_transformed, system=system, arr2nt=arr2nt, Bijector_invlinkvec=Bijector_invlinkvec)
-                # Transform back from the unconstrained support to constrained support for the likelihood function
-                θ_natural = Bijector_invlinkvec(θ_transformed)
-                θ_structured = arr2nt(θ_natural)
-                lprior = @inline ln_prior_transformed(θ_natural)
-                # CAUTION: This inline annotation is necessary for correct gradients from Enzyme. Yikes!
-                llike  = @inline ln_like_generated(system, θ_structured)
-                lpost = lprior+llike*inverse_temp
-                if !isfinite(lprior)
-                    # @warn "Invalid log prior encountered. This likely indicates a problem with the prior support." θ=θ_structured lprior
-                end
-                if !isfinite(llike)
-                    # @warn "Invalid log likelihood encountered." θ=θ_structured llike
-                end
-                return lpost
-            end
-
-            # Test likelihood function immediately to give user a clean error
-            # if it fails for some reason.
-            ℓπcallback(initial_θ_0_t)
-            # Also Display their run time. If something is egregously wrong we'll notice something
-            # here in the output logs.
-            if verbosity >= 1
-                (function(ℓπcallback, θ)
-                    @showtime ℓπcallback(θ)
-                end)(ℓπcallback, initial_θ_0_t)
-            end
-
-            if autodiff == :Enzyme
-                if !isdefined(Main, :Enzyme)
-                    error("To use the :Enzyme autodiff backend, load the Enzyme package first: `using Enzyme`")
-                end
-                # Enzyme mode:
-                ∇ℓπcallback = let diffresult = copy(initial_θ_0_t), system=system, ℓπcallback=ℓπcallback
-                    oh = Main.Enzyme.onehot(diffresult)
-                    forward = function (θ_t)
-                        primal, out = Main.Enzyme.autodiff(
-                            Main.Enzyme.Forward,
-                            ℓπcallback,
-                            Main.Enzyme.BatchDuplicated,
-                            Main.Enzyme.BatchDuplicated(θ_t,oh),
-                            Main.Enzyme.Const(system),
-                            Main.Enzyme.Const(arr2nt),
-                            Main.Enzyme.Const(Bijector_invlinkvec)
-                        )
-                        diffresult .= tuple(out...)
-                        return primal, diffresult
-                    end
-                    reverse = function (θ_t)
-                        fill!(diffresult,0)
-                        out, primal = Main.Enzyme.autodiff(
-                            # Main.Enzyme.Reverse,
-                            Main.Enzyme.ReverseWithPrimal,
-                            ℓπcallback,
-                            Main.Enzyme.Duplicated(θ_t,diffresult),
-                            Main.Enzyme.Const(system),
-                            Main.Enzyme.Const(arr2nt),
-                            Main.Enzyme.Const(Bijector_invlinkvec)
-                        )
-                        return primal, diffresult
-                    end 
-                    tforward = minimum(
-                        @elapsed forward(initial_θ_0_t)
-                        for _ in 1:100
-                    )
-                    treverse = minimum(
-                        @elapsed reverse(initial_θ_0_t)
-                        for _ in 1:100
-                    )
-                    if tforward > treverse
-                        verbosity > 2  && @info "selected reverse mode AD" tforward treverse
-                        reverse
-                    else
-                        verbosity > 2  && @info "selected forward mode AD" tforward treverse
-                        forward
-                    end
-                end
-
-            elseif autodiff == :FiniteDiff
-            
-                ∇ℓπcallback = let diffresult = copy(initial_θ_0_t)
-                    function (θ_t)
-                        primal = ℓπcallback(θ_t)
-                        Main.FiniteDiff.finite_difference_gradient!(diffresult, ℓπcallback, θ_t)
-                        return primal, diffresult
-                    end
-                end
-            
-            elseif autodiff == :Zygote
-
-                # Zygote mode:
-                ∇ℓπcallback = function (θ_t)
-                    Main.Zygote.gradient(ℓπcallback, θ_t)
-                end
-
-            elseif autodiff == :ForwardDiff
-
-                # https://juliadiff.org/ForwardDiff.jl/stable/user/advanced/#Fixing-NaN/Inf-Issues
-                set_preferences!(ForwardDiff, "nansafe_mode" => true)
-
-                # Test likelihood function gradient immediately to give user a clean error
-                # if it fails for some reason.
-                ForwardDiff.gradient(ℓπcallback, initial_θ_0_t)
-
-                # ForwardDiff mode:
-                # Create temporary storage space for gradient computations
-                diffresults = [
-                    DiffResults.GradientResult(collect(initial_θ_0_t))
-                    for _ in 1:Threads.nthreads()
-                ]
-
-                # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
-                # We're going to call this thousands of times so worth a few calls
-                # to get this optimized.
-                if isnothing(chunk_sizes)
-                    if D < 40
-                        # If less than 20 dimensional, a single chunk with ForwardDiff
-                        # is almost always optimial.
-                        chunk_sizes = D
-                    else
-                        chunk_sizes = unique([1; 2:2:D; D])
-                    end
-                end
-                ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
-                    cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
-                    ForwardDiff.gradient!(diffresults[1], ℓπcallback, initial_θ_0_t, cfg, Val{false}())
-                    t = minimum(
-                        @elapsed ForwardDiff.gradient!(diffresults[1], ℓπcallback, initial_θ_0_t, cfg, Val{false}())
-                        for _ in 1:10
-                    )
-
-                    verbosity >= 3 && @info "Tuning autodiff" chunk_size t
-                    return t
-                end)
-                ideal_chunk_size =  chunk_sizes[ideal_chunk_size_i]
-                verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
-
-                cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
-                ∇ℓπcallback = let cfg=cfg, diffresults=diffresults, ℓπcallback=ℓπcallback
-                    function (θ_transformed)
-                        # TODO: this is not safe for tasks that migrate across threads! Would need task-local storage instead.
-                        result = ForwardDiff.gradient!(diffresults[Threads.threadid()], ℓπcallback, θ_transformed, cfg, Val{false}())
-                        return DiffResults.value(result), DiffResults.gradient(result)
-                        # return DiffResults.gradient(result)
-                    end
-                end
-            else
-                error("Unsupported option for autodiff: $autodiff. Valid options are :ForwardDiff (default), :Enzyme, and :Zygote.")
-            end
-
-
-            ∇ℓπcallback(initial_θ_0_t) 
-            if verbosity >= 1
-                (function(∇ℓπcallback, θ)
-                    @showtime ∇ℓπcallback(θ)
-                end)(∇ℓπcallback, initial_θ_0_t)
-            end
-
-            ℓπcallback, ∇ℓπcallback
-        end
-        
-
-    
-        # Return fully concrete type wrapping all these functions
-        new{
-            typeof(ℓπcallback),
-            typeof(∇ℓπcallback),
-            typeof(system),
-            typeof(Bijector_linkvec),
-            typeof(Bijector_invlinkvec),
-            typeof(arr2nt),
-        }(
-            D,
-            ℓπcallback,
-            ∇ℓπcallback,
-            system,
-            Bijector_linkvec,
-            Bijector_invlinkvec,
-            arr2nt
-        )
-    end
-end
-LogDensityProblems.logdensity(p::LogDensityModel, θ) = p.ℓπcallback(θ)
-LogDensityProblems.logdensity_and_gradient(p::LogDensityModel, θ) = p.∇ℓπcallback(θ) # TODO: may need to copy vector
-LogDensityProblems.dimension(p::LogDensityModel) = p.D
-LogDensityProblems.capabilities(::Type{<:LogDensityModel}) = LogDensityProblems.LogDensityOrder{1}()
-
-function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::LogDensityModel)
-    println(io, "LogDensityModel for System $(p.system.name) of dimension $(p.D) with fields .ℓπcallback and .∇ℓπcallback")
-end
-function Base.show(io::IO, @nospecialize p::LogDensityModel)
-    println(io, "LogDensityModel for System $(p.system.name) of dimension $(p.D) with fields .ℓπcallback and .∇ℓπcallback")
-end
 
 
 """
