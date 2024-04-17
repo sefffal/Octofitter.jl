@@ -43,6 +43,7 @@ include("likelihoods/system.jl")
 include("likelihoods/relative-astrometry.jl")
 include("likelihoods/photometry.jl")
 include("likelihoods/hgca.jl")
+include("likelihoods/hipparcos.jl")
 include("likelihoods/observable.jl")
 
 
