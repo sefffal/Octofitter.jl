@@ -163,7 +163,8 @@ function make_ln_like(system::System, θ_system)
     end
 
 
-    sys_exprs = map(system.observations) do like
+    sys_exprs = map(eachindex(system.observations)) do i
+        like = system.observations[i]
         # Provide the number of observations as a compile time constant 
         if hasproperty(like, :table)
             L = Val(length(like.table))
@@ -171,7 +172,11 @@ function make_ln_like(system::System, θ_system)
             L = Val(0)
         end
         expr = :(
-            $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) +  ln_like($like, θ_system, elems, $L);
+            # $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) +  ln_like($like, θ_system, elems, $L);
+            $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) +  ln_like(
+                system.observations[$i], θ_system, elems, $L
+            );
+
             # if !isfinite($(Symbol("ll$(j+1)")))
             #     println("invalid likelihood value encountered")
             # end

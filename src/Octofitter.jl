@@ -46,6 +46,8 @@ include("likelihoods/hgca.jl")
 include("likelihoods/observable.jl")
 
 
+include("logdensitymodel.jl")
+include("optimization.jl")
 include("sampling.jl")
 
 include("analysis.jl")
@@ -115,6 +117,27 @@ function __init__()
         """,
         "https://github.com/semaphoreP/whereistheplanet/archive/refs/heads/master.zip",
         # "c02e7c601dc94d7acd0c58398b518038b036d1507f790f3419b574b39d515197",
+        post_fetch_method=unpack
+    ))
+
+    register(DataDep("Hipparcos_IAD",
+        """
+        Dataset: The Hipparcos 2 Catalog -- intermediate astrometry data
+        Author: Van Leeuwen and Michalik
+
+        Website: https://www.cosmos.esa.int/web/hipparcos/hipparcos-2
+
+        > Van Leeuwen and Michalik (2021) have provided a human readable version of the IAD of the Java tool in a 
+        > zip file [warning: ~350 MB]. The data is provided as one ASCII file per star. An eleven line header gives
+        > auxiliary information together with the astrometric reference parameters. The rest of each file is mostly
+        > identical to the IAD format of the DVD: it provides the individual observations of this star expressed as
+        > abscissa residuals against the astrometric reference solution. This data is currently not available from
+        > the ESA legacy archive.
+
+        File size: 332MiB
+        """,
+        "https://www.cosmos.esa.int/documents/532822/6470227/ResRec_JavaTool_2014.zip/a58ad12e-cffb-f959-0ed5-2ae26899f61a?t=1631109433177&download=true",
+        "db850403b396ebfa493a5f457530edfac2c2fab33ad2c8795eb70c0e5a828b59",
         post_fetch_method=unpack
     ))
 
