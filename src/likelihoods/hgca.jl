@@ -87,61 +87,6 @@ export HGCALikelihood
 
 
 """
-General proper motion likelihood at any number of epochs.
-Each epoch is averaged over 5 measurements at +-dt/2.
-"""
-function ln_like(pma::ProperMotionAnomLikelihood, θ_system, elements)
-    ll = 0.0
-
-    # How many points over Δt should we average the proper motion at each
-    # epoch? This is because the PM is not an instantaneous measurement.
-    N_ave = 25
-    
-    for i in eachindex(pma.table.ra_epoch, pma.table.dec_epoch)
-        pmra_star = 0.0
-        pmdec_star = 0.0
-        
-        # The model can support multiple planets
-        # for key in keys(θ_system.planets)
-        for j in eachindex(elements)
-            θ_planet = θ_system.planets[j]
-            orbit = elements[j]
-
-            if θ_planet.mass < 0
-                return -Inf
-            end
-
-            # Average multiple observations over a timescale +- dt
-            # to approximate what HIPPARCOS and GAIA would have measured.
-            for δt = range(-pma.table.dt[i]/2, pma.table.dt[i]/2, N_ave)
-
-                # RA and dec epochs are usually slightly different
-                # Note the unit conversion here from jupiter masses to solar masses to 
-                # make it the same unit as the stellar mass (element.mu)
-                pmra_star += pmra(orbit, pma.table.ra_epoch[i]+δt, θ_planet.mass*mjup2msol)
-                pmdec_star += pmdec(orbit, pma.table.dec_epoch[i]+δt, θ_planet.mass*mjup2msol)
-            end
-
-        end
-        
-        pmra_star/=N_ave
-        pmdec_star/=N_ave
-
-        residx = pmra_star + θ_system.pmra - pma.table.pmra[i]
-        residy = pmdec_star + θ_system.pmdec - pma.table.pmdec[i]
-        σ²x = pma.table.σ_pmra[i]^2
-        σ²y = pma.table.σ_pmdec[i]^2
-        χ²x = -0.5residx^2 / σ²x - log(sqrt(2π * σ²x))
-        χ²y = -0.5residy^2 / σ²y - log(sqrt(2π * σ²y))
-
-        ll += χ²x + χ²y
-    end
-
-    return ll
-end
-
-
-"""
 Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
 using 5 position measurements averaged at each of their epochs.
 """
@@ -160,6 +105,13 @@ function ln_like(pma::HGCALikelihood, θ_system, elements, _L=1 #=length of obse
     # Look at the position of the star around both epochs to calculate 
     # our modelled delta-position proper motion
 
+    # If the user specified a AbsoluteVisual orbit, then all our `raoff` and instantaneous
+    # `pmra` calls below will take into account the star's motion in spherical coordinates;
+    # however, we still have to account for a couple of things:
+    # the RA & DEC position & light travel time
+
+    deg2mas = 60*60*1000 
+
     # First epoch: Hipparcos
     ra_hip_model = 0.0
     dec_hip_model = 0.0
@@ -177,13 +129,22 @@ function ln_like(pma::HGCALikelihood, θ_system, elements, _L=1 #=length of obse
         for δt = range(-dt_hip/2, dt_hip/2, N_ave)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
-            # make it the same unit as the stellar mass (element.mu)
-            # TODO: we can't yet use the orbitsolve interface here for the pmra calls,
-            # meaning we calculate the orbit 2x as much as we need.
+            # make it the same unit as the total mass (element.mu)
             o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip[1])+δt)
             o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip[1])+δt)
-            ra_hip_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/totalmass(orbit)
-            dec_hip_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/totalmass(orbit)
+            ra_hip_model += raoff(o_ra, θ_planet.mass*mjup2msol)
+            dec_hip_model += decoff(o_dec, θ_planet.mass*mjup2msol)
+            if o_ra isa PlanetOrbits.OrbitSolutionAbsoluteVisual
+                # Add a correction from the difference in linear vs non-linearly propagated ra&dec
+                dra_deg = o_ra.compensated.ra2 - (θ_system.ra + θ_system.pmra*(
+                    o_ra.compensated.epoch2a-o_ra.compensated.epoch1 # [years]
+                )/deg2mas)
+                ra_hip_model += dra_deg*deg2mas# deg->mas
+                ddec_deg = o_ra.compensated.dec2 - (θ_system.dec + θ_system.pmdec*(
+                    o_dec.compensated.epoch2a-o_dec.compensated.epoch1 # [years]
+                )/deg2mas)
+                dec_hip_model += ddec_deg*deg2mas # deg->mas
+            end
             pmra_hip_model += pmra(o_ra, θ_planet.mass*mjup2msol)
             pmdec_hip_model += pmdec(o_dec, θ_planet.mass*mjup2msol)
         end
@@ -213,8 +174,19 @@ function ln_like(pma::HGCALikelihood, θ_system, elements, _L=1 #=length of obse
             # make it the same unit as the stellar mass (element.M)
             o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia[1])+δt)
             o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia[1])+δt)
-            ra_gaia_model += -raoff(o_ra) * θ_planet.mass*mjup2msol/totalmass(orbit)
-            dec_gaia_model += -decoff(o_dec) * θ_planet.mass*mjup2msol/totalmass(orbit)
+            ra_gaia_model += raoff(o_ra, θ_planet.mass*mjup2msol)
+            dec_gaia_model += decoff(o_dec, θ_planet.mass*mjup2msol)
+            if o_ra isa PlanetOrbits.OrbitSolutionAbsoluteVisual
+                # Add a correction from the difference in linear vs non-linearly propagated ra&dec
+                dra_deg = o_ra.compensated.ra2 - (θ_system.ra + θ_system.pmra*(
+                    o_ra.compensated.epoch2a-o_ra.compensated.epoch1 # [years]
+                )/deg2mas)
+                ra_hip_model += dra_deg*deg2mas# deg->mas
+                ddec_deg = o_ra.compensated.dec2 - (θ_system.dec + θ_system.pmdec*(
+                    o_dec.compensated.epoch2a-o_dec.compensated.epoch1 # [years]
+                )/deg2mas)
+                dec_hip_model += ddec_deg*deg2mas # deg->mas
+            end
             pmra_gaia_model += pmra(o_ra, θ_planet.mass*mjup2msol)
             pmdec_gaia_model += pmdec(o_dec, θ_planet.mass*mjup2msol)
         end
@@ -246,9 +218,12 @@ function ln_like(pma::HGCALikelihood, θ_system, elements, _L=1 #=length of obse
         hgca.pmra_hg_error[1]^2   c
         c                      hgca.pmdec_hg_error[1]^2 
     ])
+
+    # TODO: We have to undo the spherical coordinate correction that was done in the HGCA catalog
+    # since our calculations use real, not tangent plane, coordinates
     resids_hg = @SArray[
-        pmra_hg_model  +  θ_system.pmra  - hgca.pmra_hg[1],
-        pmdec_hg_model +  θ_system.pmdec - hgca.pmdec_hg[1]
+        pmra_hg_model  +  θ_system.pmra  - hgca.pmra_hg[1]# - hgca.nonlinear_dpmra,
+        pmdec_hg_model +  θ_system.pmdec - hgca.pmdec_hg[1]# - hgca.nonlinear_dpmdec
     ]
     ll += logpdf(dist_hg, resids_hg)
 

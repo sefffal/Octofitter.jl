@@ -80,8 +80,8 @@ function construct_elements(::Type{Visual{KepOrbit}}, θ_system, θ_planet)
         θ_planet.a,
     )...)
 end
-function construct_elements(::Type{Compensated{KepOrbit}}, θ_system, θ_planet)
-    return Compensated{KepOrbit}(;(;
+function construct_elements(::Type{AbsoluteVisual{KepOrbit}}, θ_system, θ_planet)
+    return AbsoluteVisual{KepOrbit}(;(;
         θ_system.M,
         θ_system.ref_epoch,
         θ_system.ra,
@@ -163,7 +163,7 @@ construct a PlanetOrbits.jl orbit object.
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Union{Integer,CartesianIndex})
     pk = string(planet_key)
     if haskey(chain, :ra) && haskey(chain, :ref_epoch) && haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
-        o = Compensated{KepOrbit}(;(;
+        o = AbsoluteVisual{KepOrbit}(;(;
             M=chain["M"][i],
             ref_epoch=chain["ref_epoch"][i],
             ra=chain["ra"][i],
