@@ -539,11 +539,10 @@ function Octofitter.octoplot(
     cmap = :plasma,
     dpi=200,
     N=500,
-    alpha=1,
     kwargs...
 )
 
-    p = Octofitter.timeplotgrid(system, chain; color, clims, cmap, dpi, N)
+    p = Octofitter.timeplotgrid(system, chain; color, clims, cmap, dpi, N, kwargs...)
     fname1 = fname*".png"
     Plots.savefig(p, fname1)
 
