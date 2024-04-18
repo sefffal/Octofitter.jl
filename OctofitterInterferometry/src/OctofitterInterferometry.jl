@@ -35,9 +35,9 @@ struct InterferometryLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
             rows = map(eachrow(input_table)) do row
                 row = only(row)
                 FITS(row.filename, "r") do f
-                    wavs = read(OIDataBlock, get_first_named_hdu(f, "OI_WAVELENGTH"))
-                    vis2s = read(OIDataBlock, get_first_named_hdu(f, "OI_VIS2"))
-                    cps = read(OIDataBlock, get_first_named_hdu(f, "OI_T3"))
+                    wavs = read(OIDataBlock, f["OI_WAVELENGTH",10])
+                    vis2s = read(OIDataBlock, f["OI_VIS2",10])
+                    cps = read(OIDataBlock, f["OI_T3",10])
                     #read data
                     eff_wave = wavs.eff_wave
                     vis2 = vis2s.vis2data
@@ -49,9 +49,11 @@ struct InterferometryLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
                     cp_err = cps.t3phierr
                     cp_index = cps.sta_index
                     #convert u,v to units of wavelength
-                    u = ut / eff_wave
-                    v = vt / eff_wave
-                    cp_inds1, cp_inds2, cp_inds3 = cp_indices(vis2_index=vis2_index, cp_index=cp_index)
+                    u = ut ./ eff_wave' # Units of inverse wavelength
+                    v = vt ./ eff_wave' # Units of inverse wavelength
+                    # These say what baseline (cp1) should be added to (cp2) and then subtract (cp3)
+                    # to get a closure phase in our modelling.
+                    cp_inds1, cp_inds2, cp_inds3 = cp_indices(;vis2_index, cp_index)
                     return (;
                         row.epoch,
                         row.band,
@@ -111,7 +113,7 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
         epoch = epochs[j]
         this_band = band[j]
 
-        cvis = zeros(complex(T), length(u[j]))
+        cvis = zeros(complex(T), size(u[j]))
         norm_factor = 0.0 #to normalize complex visibilities 
         for i in eachindex(orbits)
             # All parameters relevant to this planet
@@ -145,9 +147,17 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
         end
 
         #calculate cp ln likelihood
-        const_cp = -sum(log.(2π*(dcps[j] .^ 2))) / 2
-        lnlike_cp = -0.5 * sum((cps_data[j] .- (cps)) .^ 2 ./ dcps[j] .^ 2) .+ const_cp
 
+        # TODO: move mask into object creation and add warning there
+        mask = dcps[j] .> 0 
+        const_cp = -sum(log.(2π*(dcps[j][mask] .^ 2))) / 2
+        lnlike_cp = -0.5 * sum((cps_data[j][mask] .- cps[mask]) .^ 2 ./ dcps[j][mask] .^ 2) .+ const_cp
+
+        if any(!isfinite, const_cp)
+            @show any(dcps[j] .< 0) 
+            @show any(!isfinite, dcps[j]) 
+            @show any(2π*(dcps[j] .^ 2) .<= 0)
+        end
         # Accumulate into likelihood
         ll = ll .+ lnlike_cp .+ lnlike_v2
     end
@@ -168,7 +178,8 @@ function cvis_bin!(cvis; Δdec, Δra, contrast, u, v)
     l2 = contrast
     # phase-factor
     cvis .+= l2 .* (
-        cos.(-2π*(u * Δra + v * Δdec) * π / (180 * 3600 * 1000)) .+ sin.(-2π*(u * Δra + v * Δdec) * π / (180 * 3600 * 1000))im
+        cos.(-2π*(u * Δra + v * Δdec) * π / (180 * 3600 * 1000)) .+
+        sin.(-2π*(u * Δra + v * Δdec) * π / (180 * 3600 * 1000))im
     )
     return cvis
 end
@@ -180,16 +191,19 @@ function closurephase(; vis::AbstractArray, index_cps1::AbstractArray, index_cps
     ##################################
     #returns closure phases [degrees]
 
-    realt = real(vis)
-    imagt = imag(vis)
-    visphi = atan.(imagt, realt) * 180 / π #convert to degrees
+    realt = real.(vis)
+    imagt = imag.(vis)
+    visphi = rad2deg.(atan.(imagt, realt)) #convert to degrees
     visphi = mod.(visphi .+ 10980.0, 360.0) .- 180.0 #phase in range (-180,180]
-    cp = visphi[index_cps1] .+ visphi[index_cps2] .- visphi[index_cps3]
+    # TODO: replace with rem2pi(, RoundNearest)
+    cp = @views visphi[index_cps1, :] .+ visphi[index_cps2, :] .- visphi[index_cps3, :]
     return cp
 end
 
+"""
+Extracts indices for calculating closure phases from visibility and closure phase station indices
+"""
 function cp_indices(; vis2_index::Matrix{<:Int64}, cp_index::Matrix{<:Int64})
-    """Extracts indices for calculating closure phases from visibility and closure phase station indices"""
     i_cps1 = zeros(Int64, size(cp_index)[2])
     i_cps2 = zeros(Int64, size(cp_index)[2])
     i_cps3 = zeros(Int64, size(cp_index)[2])
@@ -256,8 +270,8 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, θ_syst
             norm_factor += contrast
         end
         cvis .+= 1.0 #add contribution from the primary 
-        cvis .*= 1.0 / (1.0 + norm_factor)
-        #compute closure phase
+        cvis ./= 1.0 + norm_factor
+        # compute closure phase
         cp = closurephase(vis=cvis, index_cps1=i_cps1[j], index_cps2=i_cps2[j], index_cps3=i_cps3[j])
         #compute squared visibilities
         vis2 = abs.(cvis) .^ 2
