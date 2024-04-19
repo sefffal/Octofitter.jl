@@ -99,7 +99,7 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
     u = vis.table.u
     v = vis.table.v
     cps_data = vis.table.cps_data
-    dcps = vis.table.dcps
+    σ_cp = vis.table.dcps
     vis2_data = vis.table.vis2_data
     dvis2 = vis.table.dvis2
     i_cps1 = vis.table.index_cps1
@@ -107,20 +107,23 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
     i_cps3 = vis.table.index_cps3
     use_vis2 = vis.table.use_vis2
 
-    # Loop through planets
+    # Loop through epochs
     for j in eachindex(epochs)
 
         epoch = epochs[j]
         this_band = band[j]
 
-        cvis = zeros(complex(T), size(u[j]))
-        norm_factor = 0.0 #to normalize complex visibilities 
+        cvis_model = zeros(complex(T), size(u[j]))
+        # to normalize complex visibilities 
+        norm_factor_model = zero(T)
+
+        # Consider all planets
         for i in eachindex(orbits)
             # All parameters relevant to this planet
             θ_planet = θ_system.planets[i]
 
             # Get model contrast parameter in this band (band provided as a symbol, e.g. :L along with data in table row.)
-            contrast = getproperty(θ_planet, this_band) #secondary/primary
+            contrast = convert(T, getproperty(θ_planet, this_band)) #secondary/primary
             #contrast = contrast[i] 
 
             # orbit object pre-created from above parameters (shared between all likelihood functions)
@@ -130,36 +133,45 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
             Δdec = decoff(sol) # in mas
 
             #add complex visibilities from all planets at a single epoch
-            cvis_bin!(cvis; Δdec, Δra, contrast,  u=u[j], v=v[j])
-            norm_factor += contrast
+            cvis_bin!(cvis_model; Δdec, Δra, contrast,  u=u[j], v=v[j])
+            norm_factor_model += contrast
         end
-        cvis .+= 1.0 #add contribution from the primary primary
-        cvis .*= 1.0 / (1.0 + norm_factor)
+        cvis_model .+= 1.0 #add contribution from the primary primary
+        cvis_model .*= 1.0 / (1.0 + norm_factor_model)
         #compute closure phase
-        cps = closurephase(vis=cvis, index_cps1=i_cps1[j], index_cps2=i_cps2[j], index_cps3=i_cps3[j])
-        lnlike_v2 = 0.0
+        cps_model = closurephase(vis=cvis_model, index_cps1=i_cps1[j], index_cps2=i_cps2[j], index_cps3=i_cps3[j])
         if use_vis2[j]
             #compute squared visibilities
-            vis2 = abs.(cvis) .^ 2
+            # TODO: optimize
+            vis2 = abs.(cvis_model) .^ 2
             const_v2 = -sum(log.(2π*(dvis2[j] .^ 2))) / 2
             #calculate vis2 ln likelihood
             lnlike_v2 = lnlike_v2 .+ -0.5 * sum((vis2_data[j] .- vis2) .^ 2 ./ dvis2[j] .^ 2) .+ const_v2
+            ll += lnlike_v2
         end
 
-        #calculate cp ln likelihood
-
-        # TODO: move mask into object creation and add warning there
-        mask = dcps[j] .> 0 
-        const_cp = -sum(log.(2π*(dcps[j][mask] .^ 2))) / 2
-        lnlike_cp = -0.5 * sum((cps_data[j][mask] .- cps[mask]) .^ 2 ./ dcps[j][mask] .^ 2) .+ const_cp
-
-        if any(!isfinite, const_cp)
-            @show any(dcps[j] .< 0) 
-            @show any(!isfinite, dcps[j]) 
-            @show any(2π*(dcps[j] .^ 2) .<= 0)
+        # Calculate cp ln likelihood
+        const_cp = zero(eltype(σ_cp[j]))
+        for I in eachindex(σ_cp[j])
+            if σ_cp[j][I] <= 0
+                continue # Skip entries with zero or negative errors! TODO: sum in constructor and warn on this.
+            end 
+            const_cp -= log(2π*(σ_cp[j][I] .^ 2))
         end
+        const_cp /= 2
+
+        lnlike_cp = zero(T)
+        for I in eachindex(σ_cp[j], cps_data[j], cps_model)
+            if σ_cp[j][I] <= 0
+                continue # Skip entries with zero or negative errors! TODO: sum in constructor and warn on this.
+            end 
+            lnlike_cp -= 0.5 * (cps_data[j][I] - cps_model[I])^2 / σ_cp[j][I]^2 
+        end
+        lnlike_cp += const_cp
+
+
         # Accumulate into likelihood
-        ll = ll .+ lnlike_cp .+ lnlike_v2
+        ll += lnlike_cp
     end
 
 
@@ -177,10 +189,17 @@ function cvis_bin!(cvis; Δdec, Δra, contrast, u, v)
 
     l2 = contrast
     # phase-factor
-    cvis .+= l2 .* (
-        cos.(-2π*(u * Δra + v * Δdec) * π / (180 * 3600 * 1000)) .+
-        sin.(-2π*(u * Δra + v * Δdec) * π / (180 * 3600 * 1000))im
-    )
+    # cvis .+= l2 .* (
+    #     cos.(-2π*(u * Δra + v * Δdec) * π / (180 * 3600 * 1000)) .+
+    #     sin.(-2π*(u * Δra + v * Δdec) * π / (180 * 3600 * 1000))im
+    # )
+
+    # Threads.@threads 
+    for I in eachindex(cvis, u, v)
+        s,c = sincos(-2π*(u[I] * Δra + v[I] * Δdec) * π / (180 * 3600 * 1000))
+        cvis[I] += l2 * (c + s*im)
+    end
+
     return cvis
 end
 
@@ -191,11 +210,18 @@ function closurephase(; vis::AbstractArray, index_cps1::AbstractArray, index_cps
     ##################################
     #returns closure phases [degrees]
 
-    realt = real.(vis)
-    imagt = imag.(vis)
-    visphi = rad2deg.(atan.(imagt, realt)) #convert to degrees
-    visphi = mod.(visphi .+ 10980.0, 360.0) .- 180.0 #phase in range (-180,180]
-    # TODO: replace with rem2pi(, RoundNearest)
+    # visphi = rad2deg.(atan.(imag.(vis), real.(vis))) #convert to degrees
+    # visphi = mod.(visphi .+ 10980.0, 360.0) .- 180.0 #phase in range (-180,180]
+
+    visphi = rad2deg.(rem2pi.(atan.(imag.(vis), real.(vis)), RoundNearest)) #convert to degrees
+
+    # for I in eachindex(vis, cp, visphi)
+    #     realt = real(vis[I])
+    #     imagt = imag(vis[I])
+    #     # convert to degrees
+    #     visphi[I] = rad2deg(rem2pi(atan(imagt, realt), RoundNearest))
+    # end
+
     cp = @views visphi[index_cps1, :] .+ visphi[index_cps2, :] .- visphi[index_cps3, :]
     return cp
 end
@@ -248,12 +274,12 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, θ_syst
     i_cps2 = like.table.index_cps2
     i_cps3 = like.table.index_cps3
     use_vis2 = like.table.use_vis2
-    cp_all = Any[]
-    vis2_all = Any[]
+    cp_all = []
+    vis2_all = []
     for j in eachindex(epochs)
         band = bands[j]
         epoch = epochs[j]
-        cvis = zeros(Complex{Float64}, length(u[j]))
+        complexvis_model = zeros(Complex{Float64}, length(u[j]))
         norm_factor = 0.0 # to normalize complex visibilities 
         for i in eachindex(orbits)
             # All parameters relevant to this planet
@@ -266,20 +292,21 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, θ_syst
             Δra = raoff(sol)  # in mas
             Δdec = decoff(sol) # in mas
             # Accumulate into cvis
-            cvis_bin!(cvis; Δdec, Δra, contrast, u=u[j], v=v[j])
+            cvis_bin!(complexvis_model; Δdec, Δra, contrast, u=u[j], v=v[j])
             norm_factor += contrast
         end
-        cvis .+= 1.0 #add contribution from the primary 
-        cvis ./= 1.0 + norm_factor
+        complexvis_model .+= 1.0 #add contribution from the primary 
+        complexvis_model ./= 1.0 + norm_factor
         # compute closure phase
-        cp = closurephase(vis=cvis, index_cps1=i_cps1[j], index_cps2=i_cps2[j], index_cps3=i_cps3[j])
+        cp_model = closurephase(vis=complexvis_model, index_cps1=i_cps1[j], index_cps2=i_cps2[j], index_cps3=i_cps3[j])
         #compute squared visibilities
-        vis2 = abs.(cvis) .^ 2
+        vis2_model = abs.(complexvis_model) .^ 2
 
-        cp_all = append!(cp_all, [cp])
-        vis2_all = append!(vis2_all, [vis2])
-
+        append!(cp_all, [cp_model])
+        append!(vis2_all, [vis2_model])
     end
+    cp_all = identity.(cp_all)
+    vis2_all = identity.(vis2_all)
     new_vis_like_table = Table(epoch=epochs, u=u, v=v, cps_data=cp_all, dcps=dcps,
         vis2_data=vis2_all, dvis2=dvis2, index_cps1=i_cps1,
         index_cps2=i_cps2, index_cps3=i_cps3, band=bands, use_vis2=use_vis2)
