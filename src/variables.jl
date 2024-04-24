@@ -276,7 +276,7 @@ export astrometry
 
 function propermotionanom(system::System)
     for like in system.observations
-        if like isa ProperMotionAnomLikelihood || like isa HGCALikelihood
+        if like isa HGCALikelihood
             return like
         end
     end
