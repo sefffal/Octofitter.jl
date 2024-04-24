@@ -6,84 +6,85 @@ using Tables, TypedTables
 
 using FITSIO, OIFITS
 
-
-# Querying a FITSIO file by HDU name works, but if there are multiple columns,
-# it automatically selects the *last* matching HDU.
-# Unforuantely GRAVITY stores their data with two sets of named HDUs per file.
-# The first set are from the data fiber, and the last set are from the fringe
-# tracker.
-# We therefore use this function to find the *first* matching HDU number
-# given an HDU name.
-# Note: this is certainly not threadsafe, as the underlying library is not either.
-function get_first_named_hdu(fits::FITS, hduname::AbstractString)
-    for i in 1:length(fits)
-        FITSIO.fits_movabs_hdu(fits.fitsfile, i)
-        hduname′ = something(FITSIO.fits_try_read_extname(fits.fitsfile), "")
-        if hduname == hduname′
-            return fits[i]
-        end
-    end
-    throw(KeyError("FITS HDU with name \"$hduname\" not found."))
-end
+abstract type AbstractInterferometryLikelihood <: Octofitter.AbstractLikelihood end
 
 const required_cols = (:epoch, :u, :v, :cps_data, :dcps, :vis2_data, :dvis2, :index_cps1, :index_cps2, :index_cps3, :band, :use_vis2)
-struct InterferometryLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
+struct InterferometryLikelihood{TTable<:Table} <: AbstractInterferometryLikelihood
     table::TTable
-    function InterferometryLikelihood(observations...)
-        input_table = Table(observations...)
-        if :filename ∈ Tables.columnnames(input_table)
-            rows = map(eachrow(input_table)) do row
-                row = only(row)
-                FITS(row.filename, "r") do f
-                    wavs = read(OIDataBlock, f["OI_WAVELENGTH",10])
-                    vis2s = read(OIDataBlock, f["OI_VIS2",10])
-                    cps = read(OIDataBlock, f["OI_T3",10])
-                    #read data
-                    eff_wave = wavs.eff_wave
-                    vis2 = vis2s.vis2data
-                    vis2_err = vis2s.vis2err
-                    ut = vis2s.ucoord
-                    vt = vis2s.vcoord
-                    vis2_index = vis2s.sta_index
-                    cp = cps.t3phi
-                    cp_err = cps.t3phierr
-                    cp_index = cps.sta_index
-                    #convert u,v to units of wavelength
-                    u = ut ./ eff_wave' # Units of inverse wavelength
-                    v = vt ./ eff_wave' # Units of inverse wavelength
-                    # These say what baseline (cp1) should be added to (cp2) and then subtract (cp3)
-                    # to get a closure phase in our modelling.
-                    cp_inds1, cp_inds2, cp_inds3 = cp_indices(;vis2_index, cp_index)
-                    return (;
-                        row.epoch,
-                        row.band,
-                        row.use_vis2,
-                        u,
-                        v,
-                        eff_wave=eff_wave,
-                        cps_data=transpose(cp),
-                        dcps=transpose(cp_err),
-                        vis2_data=transpose(vis2),
-                        dvis2=transpose(vis2_err),
-                        index_cps1=cp_inds1,
-                        index_cps2=cp_inds2,
-                        index_cps3=cp_inds3,
-                    )
-                end
-            end
-            table = Table(rows)
-        else
-            table = input_table
-        end
-
-        if !issubset(required_cols, Tables.columnnames(table))
-            error("Expected columns $vis_cols")
-        end
-        return new{typeof(table)}(table)
+end
+function InterferometryLikelihood(observations...)
+    input_table = Table(observations...)
+    if :filename ∈ Tables.columnnames(input_table)
+        rows = map(_prepare_input_row, eachrow(input_table))
+        table = Table(rows)
+    else
+        table = input_table
     end
+
+    if !issubset(required_cols, Tables.columnnames(table))
+        error("Expected columns $vis_cols")
+    end
+    return InterferometryLikelihood{typeof(table)}(table)
 end
 InterferometryLikelihood(observations::NamedTuple...) = InterferometryLikelihood(observations)
 export InterferometryLikelihood
+
+# Prepare closure phases etc
+function _prepare_input_row(row)
+    row = only(row)
+    FITS(row.filename, "r") do f
+        local wavs, vis2s, cps
+        try
+            wavs = read(OIDataBlock, f["OI_WAVELENGTH", 10])
+            vis2s = read(OIDataBlock, f["OI_VIS2", 10])
+            cps = read(OIDataBlock, f["OI_T3", 10])
+        catch
+            try
+                wavs = read(OIDataBlock, f["OI_WAVELENGTH"])
+                vis2s = read(OIDataBlock, f["OI_VIS2"])
+                cps = read(OIDataBlock, f["OI_T3"])
+            catch
+                throw(KeyError("Could not find keys OI_WAVELENGTH, OI_VIS2, and OI_T3 in $(row.filename)"))
+            end
+        end
+        #read data
+        eff_wave = wavs.eff_wave
+        vis2 = vis2s.vis2data
+        vis2_err = vis2s.vis2err
+        ut = vis2s.ucoord
+        vt = vis2s.vcoord
+        vis2_index = vis2s.sta_index
+        cp = cps.t3phi
+        cp_err = cps.t3phierr
+        cp_index = cps.sta_index
+        #convert u,v to units of wavelength
+        u = ut ./ eff_wave' # Units of inverse wavelength
+        v = vt ./ eff_wave' # Units of inverse wavelength
+
+
+        mask = eff_wave .< 2.2e-6
+
+        # These say what baseline (cp1) should be added to (cp2) and then subtract (cp3)
+        # to get a closure phase in our modelling.
+        cp_inds1, cp_inds2, cp_inds3 = cp_indices(; vis2_index, cp_index)
+        return (;
+            row...,
+            row.epoch,
+            row.band,
+            row.use_vis2,
+            u=u[:, mask],
+            v=v[:, mask],
+            eff_wave=eff_wave[mask],
+            cps_data=transpose(cp)[:, mask],
+            dcps=transpose(cp_err)[:, mask],
+            vis2_data=transpose(vis2)[:, mask],
+            dvis2=transpose(vis2_err)[:, mask],
+            index_cps1=cp_inds1,
+            index_cps2=cp_inds2,
+            index_cps3=cp_inds3,
+        )
+    end
+end
 
 """
 Visibliitiy modelling likelihood for point sources.
@@ -96,87 +97,95 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
     # Access the data here: 
     epochs = vis.table.epoch
     band = vis.table.band
-    u = vis.table.u
-    v = vis.table.v
-    cps_data = vis.table.cps_data
-    σ_cp = vis.table.dcps
-    vis2_data = vis.table.vis2_data
-    dvis2 = vis.table.dvis2
-    i_cps1 = vis.table.index_cps1
-    i_cps2 = vis.table.index_cps2
-    i_cps3 = vis.table.index_cps3
-    use_vis2 = vis.table.use_vis2
 
     # Loop through epochs
-    for j in eachindex(epochs)
+    for i_epoch in eachindex(epochs)
 
-        epoch = epochs[j]
-        this_band = band[j]
+        epoch = epochs[i_epoch]
+        this_band = band[i_epoch]
 
-        cvis_model = zeros(complex(T), size(u[j]))
-        # to normalize complex visibilities 
-        norm_factor_model = zero(T)
+        index_cps1 = vis.table.index_cps1[i_epoch]
+        index_cps2 = vis.table.index_cps2[i_epoch]
+        index_cps3 = vis.table.index_cps3[i_epoch]
+        use_vis2 = vis.table.use_vis2[i_epoch]
 
-        # Consider all planets
-        for i in eachindex(orbits)
-            # All parameters relevant to this planet
-            θ_planet = θ_system.planets[i]
+        cps_model = zeros(T, size(vis.table.cps_data[i_epoch][:, 1]))
+        cvis_model = zeros(complex(T), size(vis.table.u[i_epoch][:, 1]))
 
-            # Get model contrast parameter in this band (band provided as a symbol, e.g. :L along with data in table row.)
-            contrast = convert(T, getproperty(θ_planet, this_band)) #secondary/primary
-            #contrast = contrast[i] 
+        contrasts = T[getproperty(θ_planet, this_band) for θ_planet in θ_system.planets]
+        sols = [orbitsolve(orbits[i_planet], epoch) for i_planet in 1:length(θ_system.planets)]
 
-            # orbit object pre-created from above parameters (shared between all likelihood functions)
-            orbit = orbits[i]
-            sol = orbitsolve(orbit, epoch)
-            Δra = raoff(sol)  # in mas
-            Δdec = decoff(sol) # in mas
+        # Loop through wavelengths
+        for i_wave in axes(vis.table.u[i_epoch], 2)
 
-            #add complex visibilities from all planets at a single epoch
-            cvis_bin!(cvis_model; Δdec, Δra, contrast,  u=u[j], v=v[j])
-            norm_factor_model += contrast
+            u = @views vis.table.u[i_epoch][:, i_wave]
+            v = @views vis.table.v[i_epoch][:, i_wave]
+            cps_data = @views vis.table.cps_data[i_epoch][:, i_wave]
+            σ_cp = @views vis.table.dcps[i_epoch][:, i_wave]
+            vis2_data = @views vis.table.vis2_data[i_epoch][:, i_wave]
+            dvis2 = @views vis.table.dvis2[i_epoch][:, i_wave]
+
+            # to normalize complex visibilities 
+            cvis_model .= 0
+            cps_model .= 0
+            norm_factor_model = zero(T)
+
+            # Consider all planets
+            for i_planet in eachindex(orbits)
+                # All parameters relevant to this planet
+                # Get model contrast parameter in this band (band provided as a symbol, e.g. :L along with data in table row.)
+                contrast = contrasts[i_planet]
+                Δra = raoff(sols[i_planet])  # in mas
+                Δdec = decoff(sols[i_planet]) # in mas
+
+                # add complex visibilities from all planets at a single epoch, for this wavelength
+                cvis_bin!(cvis_model; Δdec, Δra, contrast, u, v)
+                norm_factor_model += contrast
+            end
+            cvis_model .+= 1.0 #add contribution from the primary primary
+            cvis_model .*= 1.0 / (1.0 + norm_factor_model)
+            # Compute closure phases
+            closurephase!(cps_model; vis=cvis_model, index_cps1, index_cps2, index_cps3)
+            if use_vis2
+                #compute squared visibilities
+                # TODO: optimize
+                vis2 = abs.(cvis_model) .^ 2
+                const_v2 = -sum(log.(2π * (dvis2 .^ 2))) / 2
+                #calculate vis2 ln likelihood
+                lnlike_v2 = lnlike_v2 .+ -0.5 * sum((vis2_data .- vis2) .^ 2 ./ dvis2 .^ 2) .+ const_v2
+                ll += lnlike_v2
+            end
+
+            # Calculate cp ln likelihood
+            const_cp = zero(eltype(σ_cp))
+            for I in eachindex(σ_cp)
+                if σ_cp[I] <= 0
+                    const_cp -= zero(T) # Skip entries with zero or negative errors! TODO: sum in constructor and warn on this.
+                else
+                    const_cp -= log(2π * (σ_cp[I] .^ 2))
+                end
+            end
+            const_cp /= 2
+            # @show const_cp
+            lnlike_cp = zero(T)
+            for I in eachindex(σ_cp, cps_data, cps_model)
+                if σ_cp[I] <= 0
+                    lnlike_cp -= zero(T) # Skip entries with zero or negative errors! TODO: sum in constructor and warn on this.
+                else
+                    lnlike_cp -= 0.5 * (cps_data[I] - cps_model[I])^2 / σ_cp[I]^2
+                end
+            end
+            lnlike_cp += const_cp
+
+            # Accumulate into likelihood
+            ll += lnlike_cp
         end
-        cvis_model .+= 1.0 #add contribution from the primary primary
-        cvis_model .*= 1.0 / (1.0 + norm_factor_model)
-        #compute closure phase
-        cps_model = closurephase(vis=cvis_model, index_cps1=i_cps1[j], index_cps2=i_cps2[j], index_cps3=i_cps3[j])
-        if use_vis2[j]
-            #compute squared visibilities
-            # TODO: optimize
-            vis2 = abs.(cvis_model) .^ 2
-            const_v2 = -sum(log.(2π*(dvis2[j] .^ 2))) / 2
-            #calculate vis2 ln likelihood
-            lnlike_v2 = lnlike_v2 .+ -0.5 * sum((vis2_data[j] .- vis2) .^ 2 ./ dvis2[j] .^ 2) .+ const_v2
-            ll += lnlike_v2
-        end
-
-        # Calculate cp ln likelihood
-        const_cp = zero(eltype(σ_cp[j]))
-        for I in eachindex(σ_cp[j])
-            if σ_cp[j][I] <= 0
-                continue # Skip entries with zero or negative errors! TODO: sum in constructor and warn on this.
-            end 
-            const_cp -= log(2π*(σ_cp[j][I] .^ 2))
-        end
-        const_cp /= 2
-
-        lnlike_cp = zero(T)
-        for I in eachindex(σ_cp[j], cps_data[j], cps_model)
-            if σ_cp[j][I] <= 0
-                continue # Skip entries with zero or negative errors! TODO: sum in constructor and warn on this.
-            end 
-            lnlike_cp -= 0.5 * (cps_data[j][I] - cps_model[I])^2 / σ_cp[j][I]^2 
-        end
-        lnlike_cp += const_cp
-
-
-        # Accumulate into likelihood
-        ll += lnlike_cp
     end
 
 
     return ll
 end
+
 
 
 function cvis_bin!(cvis; Δdec, Δra, contrast, u, v)
@@ -188,23 +197,23 @@ function cvis_bin!(cvis; Δdec, Δra, contrast, u, v)
     #returns complex visibilities of a point source at position Δdec,Δra
 
     l2 = contrast
-    # phase-factor
-    # cvis .+= l2 .* (
-    #     cos.(-2π*(u * Δra + v * Δdec) * π / (180 * 3600 * 1000)) .+
-    #     sin.(-2π*(u * Δra + v * Δdec) * π / (180 * 3600 * 1000))im
-    # )
 
     # Threads.@threads 
     for I in eachindex(cvis, u, v)
-        s,c = sincos(-2π*(u[I] * Δra + v[I] * Δdec) * π / (180 * 3600 * 1000))
-        cvis[I] += l2 * (c + s*im)
+        arg = -2π * (u[I] * Δra + v[I] * Δdec) * π / (180 * 3600 * 1000)
+        if !isfinite(arg)
+            cvis[I] = NaN
+            continue
+        end
+        s, c = sincos(arg)
+        cvis[I] += l2 * (c + s * im)
     end
 
     return cvis
 end
 
 
-function closurephase(; vis::AbstractArray, index_cps1::AbstractArray, index_cps2::AbstractArray, index_cps3::AbstractArray)
+function closurephase!(cp_out; vis::AbstractArray, index_cps1::AbstractArray, index_cps2::AbstractArray, index_cps3::AbstractArray)
     #vis: complex visibilities
     #i_cps1,i_cps2,i_cps3: closure triangle indices 
     ##################################
@@ -213,17 +222,22 @@ function closurephase(; vis::AbstractArray, index_cps1::AbstractArray, index_cps
     # visphi = rad2deg.(atan.(imag.(vis), real.(vis))) #convert to degrees
     # visphi = mod.(visphi .+ 10980.0, 360.0) .- 180.0 #phase in range (-180,180]
 
-    visphi = rad2deg.(rem2pi.(atan.(imag.(vis), real.(vis)), RoundNearest)) #convert to degrees
+    # visphi = rad2deg.(rem2pi.(atan.(imag.(vis), real.(vis)), RoundNearest)) #convert to degrees
+    # cp_out .= @views visphi[index_cps1, :] .+ visphi[index_cps2, :] .- visphi[index_cps3, :]
 
-    # for I in eachindex(vis, cp, visphi)
-    #     realt = real(vis[I])
-    #     imagt = imag(vis[I])
-    #     # convert to degrees
-    #     visphi[I] = rad2deg(rem2pi(atan(imagt, realt), RoundNearest))
-    # end
+    visphi(vis) = rad2deg.(rem2pi.(atan.(imag.(vis), real.(vis)), RoundNearest))
 
-    cp = @views visphi[index_cps1, :] .+ visphi[index_cps2, :] .- visphi[index_cps3, :]
-    return cp
+    for i_cp in eachindex(index_cps1, index_cps2, index_cps3)
+        for i_obs in axes(cp_out, 2)
+            visphi1 = visphi(vis[index_cps1[i_cp], i_obs])
+            visphi2 = visphi(vis[index_cps2[i_cp], i_obs])
+            visphi3 = visphi(vis[index_cps3[i_cp], i_obs])
+            cp_out[i_cp, i_obs] = visphi1 + visphi2 - visphi3
+        end
+    end
+
+    # cp_out .= @views visphi[index_cps1, :] .+ visphi[index_cps2, :] .- visphi[index_cps3, :]
+    return cp_out
 end
 
 """
@@ -317,5 +331,5 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, θ_syst
     return InterferometryLikelihood(new_vis_like_table)
 end
 
-
+include("fiber-fed.jl")
 end

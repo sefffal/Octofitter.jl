@@ -1,10 +1,12 @@
-authors = ["Dori Blakely", "William Thompson <will.thompson@outlook.com>"]
 name = "OctofitterInterferometry"
 uuid = "1a3c1578-c182-4e42-bc1e-b4981e19ba9a"
+authors = ["Dori Blakely", "William Thompson <will.thompson@outlook.com>"]
 version = "0.7.1"
 
 [deps]
 FITSIO = "525bcba6-941b-5504-bd06-fd0dc1a4d2eb"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 OIFITS = "53eb397e-dec1-5dcf-8dc9-2db916067267"
 Octofitter = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
 PlanetOrbits = "fd6f9641-d78f-43ce-a379-ceb0bddb468a"
