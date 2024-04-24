@@ -234,7 +234,41 @@ of the chains.
 """
 function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
     pk = string(planet_key)
-    if haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
+    if haskey(chain, :ra) && haskey(chain, :ref_epoch) && haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
+        Ms=chain["M"]
+        ref_epochs=chain["ref_epoch"]
+        ras=chain["ra"]
+        decs=chain["dec"]
+        rvs=chain["rv"]
+        pmras=chain["pmra"]
+        pmdecs=chain["pmdec"]
+        plxs=chain["plx"]
+        plxs=chain["plx"]
+        is=chain[pk*"_i"]
+        Ωs=chain[pk*"_Ω"]
+        ωs=chain[pk*"_ω"]
+        es=chain[pk*"_e"]
+        tps=chain[pk*"_tp"]
+        as=chain[pk*"_a"]
+        return map(ii) do i
+            AbsoluteVisual{KepOrbit}(;(;
+                M=Ms[i],
+                ref_epoch=ref_epochs[i],
+                ra=ras[i],
+                dec=decs[i],
+                rv=rvs[i],
+                pmra=pmras[i],
+                pmdec=pmdecs[i],
+                plx=plxs[i],
+                i=is[i],
+                Ω=Ωs[i],
+                ω=ωs[i],
+                e=es[i],
+                tp=tps[i],
+                a=as[i],
+            )...)
+        end
+    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
         Ms=chain["M"]
         plxs=chain["plx"]
         is=chain[pk*"_i"]
@@ -365,29 +399,29 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
     end
 end
 construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::Colon) = construct_elements(chain, planet_key, 1:size(chain,1)*size(chain,3))
-function construct_elements(chain, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
-    pk = string(planet_key)
-    Ms=chain[:,"M"]
-    plxs=chain[:,"plx"]
-    is=chain[:,pk*"_i"]
-    Ωs=chain[:,pk*"_Ω"]
-    ωs=chain[:,pk*"_ω"]
-    es=chain[:,pk*"_e"]
-    tps=chain[:,pk*"_tp"]
-    as=chain[:,pk*"_a"]
-    return map(ii) do i
-        Visual{KepOrbit}((;
-            M=Ms[i],
-            plx=plxs[i],
-            i=is[i],
-            Ω=Ωs[i],
-            ω=ωs[i],
-            e=es[i],
-            tp=tps[i],
-            a=as[i],
-        ))
-    end
-end
+# function construct_elements(chain, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
+#     pk = string(planet_key)
+#     Ms=chain[:,"M"]
+#     plxs=chain[:,"plx"]
+#     is=chain[:,pk*"_i"]
+#     Ωs=chain[:,pk*"_Ω"]
+#     ωs=chain[:,pk*"_ω"]
+#     es=chain[:,pk*"_e"]
+#     tps=chain[:,pk*"_tp"]
+#     as=chain[:,pk*"_a"]
+#     return map(ii) do i
+#         Visual{KepOrbit}((;
+#             M=Ms[i],
+#             plx=plxs[i],
+#             i=is[i],
+#             Ω=Ωs[i],
+#             ω=ωs[i],
+#             e=es[i],
+#             tp=tps[i],
+#             a=as[i],
+#         ))
+#     end
+# end
 construct_elements(chain::Chains, planet::Planet, args...; kwargs...) = construct_elements(chain, planet.name, args...; kwargs...) 
 
 
