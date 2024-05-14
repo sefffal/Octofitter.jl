@@ -54,6 +54,7 @@ include("sampling.jl")
 include("analysis.jl")
 include("macros.jl")
 include("sonora.jl")
+include("BHAC.jl")
 
 include("io.jl")
 include("io-orbitize.jl")
