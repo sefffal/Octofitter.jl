@@ -24,7 +24,7 @@ struct PhotometryLikelihood{TTable<:Table} <: AbstractLikelihood
         return new{typeof(table)}(table)
     end
 end
-PhotometryLikelihood(observations::NamedTuple) = PhotometryLikelihood(observations)
+PhotometryLikelihood(observations::NamedTuple...) = PhotometryLikelihood(observations)
 export PhotometryLikelihood
 
 
