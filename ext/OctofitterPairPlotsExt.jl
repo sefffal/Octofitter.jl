@@ -19,6 +19,8 @@ function Octofitter.octocorner(
     labels=Dict{Symbol,Any}(),
     fname=small ? "$(system.name)-pairplot-small.png" : "$(system.name)-pairplot.png" ,
     viz=nothing,
+    # Optionally include additional columns
+    includecols=String[],
     kwargs...
 )
     labels_gen = Dict{Symbol,Any}(
@@ -41,8 +43,23 @@ function Octofitter.octocorner(
         chain_notinternal = MCMCChains.get_sections(chain, :parameters)
         chain_keys = string.(keys(chain_notinternal))
         table_cols = Pair{Symbol}[]
+
+        for colname in includecols
+            if colname==:iter
+                push!(table_cols, Symbol(:iter)=>repeat(1:size(chain,1),outer=size(chain,3)))
+            else
+                push!(table_cols, Symbol(colname)=>vec(chain[colname]))
+            end
+        end
+
         if small
             push!(table_cols, :M => vec(chain_notinternal["M"]))
+            for obs in system.observations
+                if hasproperty(obs,:table) && hasproperty(obs.table, :band)
+                    bands = unique(obs.table.band)
+                    append!(table_cols, [band => vec(chain_notinternal[band]) for band in bands])
+                end
+            end
         else
             planetkeys = string.(keys(system.planets))
             ii = map(chain_keys) do k
@@ -81,9 +98,12 @@ function Octofitter.octocorner(
                 # Also remove tp if tau is used
                 ii_splice = findall(map(planet_var_keys_chopped) do k
                     k = Symbol(k)
-                    # if k == :tp && "τ" ∈ planet_var_keys_chopped
-                    #     return true
-                    # end
+                    if k == :tp && "τ" ∈ planet_var_keys_chopped
+                        return true
+                    end
+                    if k == :tp && "θ" ∈ planet_var_keys_chopped
+                        return true
+                    end
                     for obs in planet.observations
                         if obs isa Octofitter.UnitLengthPrior
                             varx, vary = unitlengthprior_vars(obs)
