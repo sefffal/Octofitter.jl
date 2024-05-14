@@ -15,7 +15,7 @@ function projectpositions(chains, planet_key, times)
     
     for is in collect(Iterators.partition(1:size(chains,1), 5000))
         for j in 1:size(chains,3)
-            els = Octofitter.construct_elements(chains, planet_key, is .* j)
+            els = construct_elements(chains, planet_key, is .* j)
             for (i,el) in zip(is,els)
                 for (k, t) in enumerate(times)
                     o = orbitsolve(el, t)
@@ -98,8 +98,8 @@ function plotchains! end
 
 """
     octoplot(
-        system::Union{Octofitter.System,Octofitter.Model,
-        chain::Octofitter.MCMCChains.Chains;
+        system::Union{System,Model,
+        chain::MCMCChains.Chains;
         fname="\$(system.name)-plot-grid",
         color = "\$(first(keys(system.planets)))_e",
         colorbartitle=string(color),
@@ -109,25 +109,55 @@ function plotchains! end
         kwargs...
     )
 
-Given a `System` or `Octofitter.LogDensityModel` and an MCMC Chain (sampled either from 
+Given a `System` or `LogDensityModel` and an MCMC Chain (sampled either from 
 the posterior or the prior), produce a panel of 9 plots visualizing the orbits.
 The output is saved to a file based on the name of the system (`fname`).
 """
 function octoplot(model::System, ::Any)
     error("You must load the Plots.jl package (`using Plots`) before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
 end
-function Octofitter.octoplot(model::Octofitter.LogDensityModel, args...; kwargs...)
-    return Octofitter.octoplot(model.system, args...; kwargs...)
+function octoplot(model::LogDensityModel, args...; kwargs...)
+    return octoplot(model.system, args...; kwargs...)
 end
 
-function octocorner end
 function octocorner(model::System, ::Any)
     error("You must load the Makie package (eg `using CairoMakie`) and PairPlots package (eg `using PairPlots`) before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
 end
-function Octofitter.octocorner(model::Octofitter.LogDensityModel, args...; kwargs...)
-    return Octofitter.octocorner(model.system, args...; kwargs...)
+function octocorner(model::LogDensityModel, args...; kwargs...)
+    return octocorner(model.system, args...; kwargs...)
 end
 
 
-function timeplotgrid end
+function astromplot(args...)
+    error("You must load the Makie package (eg `using CairoMakie`)  before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+function astromplot!(args...)
+    error("You must load the Makie package (eg `using CairoMakie`)  before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+
+
+
+function hgcaplot( args...; kwargs...)
+    error("You must load the Makie package (eg `using CairoMakie`)  before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+function hgcaplot!( args...; kwargs...)
+    error("You must load the Makie package (eg `using CairoMakie`)  before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+
+
+function masspostplot( args...; kwargs...)
+    error("You must load the Makie package (eg `using CairoMakie`)  before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+function masspostplot!( args...; kwargs...)
+    error("You must load the Makie package (eg `using CairoMakie`)  before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+
+
+function rvpostplot( args...; kwargs...)
+    error("You must load the Makie package (eg `using CairoMakie`)  before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+function rvpostplot!( args...; kwargs...)
+    error("You must load the Makie package (eg `using CairoMakie`)  before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+
 export plotchains, plotchains!, octoplot, octocorner

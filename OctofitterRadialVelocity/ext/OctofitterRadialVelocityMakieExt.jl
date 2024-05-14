@@ -13,20 +13,21 @@ using Dates
 # 1) Mean model (orbit + GP) and data (- mean instrument offset)
 # 2) Residuals of above
 # 3) Phase folded curve
-function OctofitterRadialVelocity.rvpostplot(
+function Octofitter.rvpostplot(
     model,
     results,
+    args...;
     fname="$(model.system.name)-rvpostplot.png",
-    args...
+    kwargs...,
 )
     fig = Figure()
-    OctofitterRadialVelocity.rvpostplot!(fig.layout, model, results,args...)
+    Octofitter.rvpostplot!(fig.layout, model, results,args...;kwargs...)
 
     Makie.save(fname, fig, px_per_unit=3)
 
     return fig
 end
-function OctofitterRadialVelocity.rvpostplot!(
+function Octofitter.rvpostplot!(
     gridspec_or_fig,
     model::Octofitter.LogDensityModel,
     results::Chains,
@@ -36,7 +37,14 @@ function OctofitterRadialVelocity.rvpostplot!(
     gs = gridspec_or_fig
 
 
-    rvs = only(filter(obs->obs isa StarAbsoluteRVLikelihood, model.system.observations))
+    rv_likes = filter(obs->obs isa StarAbsoluteRVLikelihood, model.system.observations)
+    if length(rv_likes) > 1
+        error("`rvpostplot` requires a system with only one StarAbsoluteRVLikelihood. Combine the data together into a single likelihood object.")
+    end
+    if length(rv_likes) != 1
+        error("`rvpostplot` requires a system with a StarAbsoluteRVLikelihood.")
+    end
+    rvs = only(rv_likes)
     ii = rand(1:size(results,1),100)
 
 
@@ -134,7 +142,7 @@ function OctofitterRadialVelocity.rvpostplot!(
     data_minus_off_and_gp  = zeros(length(resids_all))
 
     # Model plot vs phase-folded data
-    phases = -0.5:0.02:0.5
+    phases = -0.5:0.005:0.5
     ts_phase_folded = ((phases .+ 0.5) .* T) .+ t_peri .+ T/4
     RV = radvel.(els[sample_idx], ts_phase_folded, M[sample_idx])
     Makie.lines!(
@@ -418,7 +426,7 @@ function OctofitterRadialVelocity.rvpostplot!(
         "instrument",
         valign=:top,
         halign=:left,
-        width=Relative(1),
+        # width=Relative(1),
         # height=Relative(1),
     )
     Legend(
@@ -433,6 +441,7 @@ function OctofitterRadialVelocity.rvpostplot!(
         ],
         valign=:top,
         halign=:left,
+        width=Relative(1)
         # width=Relative(1),
         # height=Relative(1),
     )

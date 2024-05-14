@@ -542,7 +542,7 @@ function Octofitter.octoplot(
     kwargs...
 )
 
-    p = Octofitter.timeplotgrid(system, chain; color, clims, cmap, dpi, N, kwargs...)
+    p = timeplotgrid(system, chain; color, clims, cmap, dpi, N, kwargs...)
     fname1 = fname*".png"
     Plots.savefig(p, fname1)
 
@@ -554,11 +554,11 @@ function Octofitter.octoplot(
 end
 
 
-function Octofitter.timeplotgrid(model::Octofitter.LogDensityModel, args...; kwargs...)
-    return Octofitter.timeplotgrid(model.system, args...; kwargs...)
+function timeplotgrid(model::Octofitter.LogDensityModel, args...; kwargs...)
+    return timeplotgrid(model.system, args...; kwargs...)
 end
 
-function Octofitter.timeplotgrid(
+function timeplotgrid(
     system::Octofitter.System,
     chains;
     color = "$(first(keys(system.planets)))_e",

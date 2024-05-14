@@ -18,9 +18,6 @@ export jd2mjd, mjd2jd
 # Radial Velocity data type
 const rv_cols = (:epoch, :rv, :σ_rv)
 
-function rvpostplot end
-function rvpostplot! end
-
 """
     StarAbsoluteRVLikelihood(
         (;inst_idx=1, epoch=5000.0,  rv=−6.54, σ_rv=1.30),
