@@ -38,8 +38,11 @@ macro planet(args...)
                     @error "There is an error in your prior specification for $($(Meta.quot(varname))). The right-hand side of the ~ must be a Distribution distribution. This is what we got:" expression=$(string(expression))
                     rethrow(err)
                 end;
-                if !(distribution isa Distributions.UnivariateDistribution || distribution isa Octofitter.Parameterization)
-                    error("prior on variable $($(Meta.quot(varname))) must be a UnivariateDistribution")
+                if !(
+                    distribution isa Distributions.UnivariateDistribution ||
+                    distribution isa Octofitter.Parameterization
+                )
+                    error("prior on variable $($(Meta.quot(varname))) must be a UnivariateDistribution, Octofitter.Parameterization")
                 end;
                 distribution
             ))
@@ -83,8 +86,11 @@ macro system(args...)
                     @error "There is an error in your prior specification for $($(Meta.quot(varname))). The right-hand side of the ~ must be a Distribution distribution. This is what we got:" expression=$(string(expression))
                     rethrow(err)
                 end;
-                if !(distribution isa Distributions.UnivariateDistribution || distribution isa Octofitter.Parameterization)
-                    error("prior on variable $($(Meta.quot(varname))) must be a UnivariateDistribution")
+                if !(
+                    distribution isa Distributions.UnivariateDistribution ||
+                    distribution isa Octofitter.Parameterization
+                )
+                    error("prior on variable $($(Meta.quot(varname))) must be a UnivariateDistribution, Octofitter.Parameterization")
                 end;
                 distribution
             ))
