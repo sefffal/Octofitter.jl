@@ -85,12 +85,11 @@ We now sample from our model using Pigeons:
 ```@example 1
 using Pigeons
 model = Octofitter.LogDensityModel(HD91312)
-Random.seed!(1)
 chain, pt = octofit_pigeons(model, n_rounds=10) 
 display(chain)
 ```
 
-Note that `octofit_pigeons` took considerably longer to run than `octofit` typically does; however, as we will see, it sampled successfully from severally completely disconnected modes in the posterior. That makes it a good fit for sampling from proper motion anomaly and relative astrometry with limited orbital coverage.
+Note that `octofit_pigeons` took somewhat longer to run than `octofit` typically does; however, as we will see, it sampled successfully from severally completely disconnected modes in the posterior. That makes it a good fit for sampling from proper motion anomaly and relative astrometry with limited orbital coverage.
 
 ### Analysis
 
@@ -161,8 +160,7 @@ We use the same model as before, but now condition the planet model `B` on the a
 adding `astrom_like` to the end of the `@planet` defintion.
 ```@example 1
 @planet B Visual{KepOrbit} begin
-    # a ~ LogUniform(0.1,200)
-    a ~ Uniform(0.1,200)
+    a ~ LogUniform(0.1,400)
     e ~ Uniform(0,0.999)
     ω ~ UniformCircular()
     i ~ Sine()

@@ -118,7 +118,7 @@ els = Octofitter.construct_elements(results,:b,:);
 fig = Makie.Figure()
 ax = Makie.Axis(
     fig[1,1],
-    aspect=1,
+    autolimitaspect = 1,
     xreversed=true,
     xlabel="ΔR.A. (mas)",
     ylabel="ΔDec. (mas)",
