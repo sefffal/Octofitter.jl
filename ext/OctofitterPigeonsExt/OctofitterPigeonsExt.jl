@@ -98,12 +98,17 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     )
     return (;chain=mcmcchains_with_info, pt)
 end
-function MCMCChains.Chains(model::Octofitter.LogDensityModel, pt::Pigeons.PT)
+Base.@nospecializeinfer function MCMCChains.Chains(
+    model::Octofitter.LogDensityModel,
+    pt::Pigeons.PT,
+    chain_num::Int=pt.inputs.n_chains
+)
     ln_like = Octofitter.make_ln_like(model.system, model.arr2nt(Octofitter.sample_priors(model.system)))
 
     # Resolve the array back into the nested named tuple structure used internally.
     # Augment with some internal fields
-    chain_res = map(get_sample(pt)) do sample 
+    samples = get_sample(pt, chain_num)
+    chain_res = map(samples) do sample 
         θ_t = @view(sample[begin:begin+model.D-1])
         logpost = sample[model.D+1]
         # Map the variables back to the constrained domain and reconstruct the parameter
