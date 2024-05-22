@@ -61,8 +61,14 @@ function _prepare_input_row(row)
         u = ut ./ eff_wave' # Units of inverse wavelength
         v = vt ./ eff_wave' # Units of inverse wavelength
 
+        # Clamp CP err to a minimum of 2 degrees
+        if any(==(0), cp_err)
+            @warn "Some closure phase errors are exactly 0. This will lead to numerical issues. Either verify the data, or provide a non-zero `σ_cp_jitter` variable when sampling."
+        end
 
-        mask = eff_wave .< 2.2e-6
+
+        @warn "masking wavelengths"
+        mask = 2.025e-6 .< eff_wave .< 2.15e-6
 
         # These say what baseline (cp1) should be added to (cp2) and then subtract (cp3)
         # to get a closure phase in our modelling.
@@ -97,6 +103,10 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
     # Access the data here: 
     epochs = vis.table.epoch
     band = vis.table.band
+
+    # Add an extra optional uncertainty
+    # in quadrature
+    σ_cp_jitter = hasproperty(θ_system, :σ_cp_jitter) ? θ_system.σ_cp_jitter : zero(T)
 
     # Loop through epochs
     for i_epoch in eachindex(epochs)
@@ -159,21 +169,13 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
             # Calculate cp ln likelihood
             const_cp = zero(eltype(σ_cp))
             for I in eachindex(σ_cp)
-                if σ_cp[I] <= 0
-                    const_cp -= zero(T) # Skip entries with zero or negative errors! TODO: sum in constructor and warn on this.
-                else
-                    const_cp -= log(2π * (σ_cp[I] .^ 2))
-                end
+                const_cp -= log(2π * (σ_cp[I] ^ 2 + σ_cp_jitter^2))
             end
             const_cp /= 2
-            # @show const_cp
             lnlike_cp = zero(T)
             for I in eachindex(σ_cp, cps_data, cps_model)
-                if σ_cp[I] <= 0
-                    lnlike_cp -= zero(T) # Skip entries with zero or negative errors! TODO: sum in constructor and warn on this.
-                else
-                    lnlike_cp -= 0.5 * (cps_data[I] - cps_model[I])^2 / σ_cp[I]^2
-                end
+                σ² = σ_cp_jitter^2 + σ_cp[I]^2
+                lnlike_cp -= 0.5 * (cps_data[I] - cps_model[I])^2 / σ²
             end
             lnlike_cp += const_cp
 

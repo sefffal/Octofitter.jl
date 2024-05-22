@@ -70,6 +70,10 @@ function Octofitter.ln_like(vis::FiberInterferometryLikelihood, θ_system, orbit
     epochs = vis.table.epoch
     band = vis.table.band
 
+    # Add an extra optional uncertainty
+    # in quadrature
+    σ_cp_jitter = hasproperty(θ_system, :σ_cp_jitter) ? θ_system.σ_cp_jitter : zero(T)
+
     # Loop through epochs
     for i_epoch in eachindex(epochs)
 
@@ -141,20 +145,13 @@ function Octofitter.ln_like(vis::FiberInterferometryLikelihood, θ_system, orbit
             # Calculate cp ln likelihood
             const_cp = zero(eltype(σ_cp))
             for I in eachindex(σ_cp)
-                if σ_cp[I] <= 0
-                    const_cp -= zero(T) # Skip entries with zero or negative errors! TODO: sum in constructor and warn on this.
-                else
-                    const_cp -= log(2π * (σ_cp[I] .^ 2))
-                end
+                const_cp -= log(2π * (σ_cp[I] ^ 2 + σ_cp_jitter^2))
             end
             const_cp /= 2
             lnlike_cp = zero(T)
             for I in eachindex(σ_cp, cps_data, cps_model)
-                if σ_cp[I] <= 0
-                    lnlike_cp -= zero(T) # Skip entries with zero or negative errors! TODO: sum in constructor and warn on this.
-                else
-                    lnlike_cp -= 0.5 * (cps_data[I] - cps_model[I])^2 / σ_cp[I]^2
-                end
+                σ² = σ_cp_jitter^2 + σ_cp[I]^2
+                lnlike_cp -= 0.5 * (cps_data[I] - cps_model[I])^2 / σ²
             end
             lnlike_cp += const_cp
 
