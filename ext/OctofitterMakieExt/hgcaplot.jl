@@ -161,8 +161,12 @@ function Octofitter.hgcaplot!(
         Colorbar(
             gs[1:2, 4];
             colormap,
-            label="orbit fraction past periastron",
-            colorrange=(0, 1)
+            label="mean anomaly",
+            colorrange=(0,2pi),
+            ticks=(
+                [0,pi/2,pi,3pi/2,2pi],
+                ["0", "π/2", "π", "3π/2", "2π"]
+            )
         )
     end
     lines!(ax_velra,

@@ -8,6 +8,7 @@ function Octofitter.octoplot(
     show_hgca=nothing,
     show_mass=false,
     show_rv=false,
+    relative_rv=nothing,
     figure=(;),
     # If less than 500 samples, just show all of them
     N  = min(size(results, 1)*size(results, 3), 500),
@@ -106,7 +107,7 @@ function Octofitter.octoplot(
             height=135,
         )
         bottom_time_axis = !show_hgca
-        rvtimeplot!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis)
+        rvtimeplot!(gl, model, results; relative_rv, ii, colorbar, top_time_axis, bottom_time_axis)
         colorbar = false
         top_time_axis = false
     end

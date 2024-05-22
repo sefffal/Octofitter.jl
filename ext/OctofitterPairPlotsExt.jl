@@ -54,10 +54,16 @@ function Octofitter.octocorner(
 
         if small
             push!(table_cols, :M => vec(chain_notinternal["M"]))
+            planetkeys = string.(keys(system.planets))
             for obs in system.observations
                 if hasproperty(obs,:table) && hasproperty(obs.table, :band)
                     bands = unique(obs.table.band)
-                    append!(table_cols, [band => vec(chain_notinternal[band]) for band in bands])
+                    for pk in planetkeys, band in bands
+                        k = Symbol("$(pk)_$band")
+                        if haskey(chain_notinternal, k)
+                            push!(table_cols, band => vec(chain_notinternal[k]))
+                        end
+                    end
                 end
             end
         else
@@ -152,7 +158,6 @@ function Octofitter.octocorner(
                 end
                 push!(table_cols, pks => dat)
             end
-
         end
         tbl = FlexTable(namedtuple(table_cols))
     end

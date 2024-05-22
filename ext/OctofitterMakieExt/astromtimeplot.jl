@@ -49,13 +49,37 @@ function astromtimeplot!(
         append!(periods, period.(orbs))
     end
     min_period = minimum(periods)
-    med_period = median(periods)
+    med_period = quantile(periods, 0.35)
 
     # Always try and show at least one full period
-    # TODO: decide t_start and t_end based on epochs of data if astrometry 
+    # decide t_start and t_end based on epochs of data if astrometry 
     # available, otherwise other data, otherwise arbitrary
-    t_start = years2mjd(1990)
-    t_stop = years2mjd(2020)
+    t_start = t_stop = mjd()
+    for like_obj in model.system.observations
+        if hasproperty(like_obj, :table) && hasproperty(like_obj.table, :epoch)
+            t_start, t_stop = extrema(like_obj.table.epoch,)
+            d = t_stop - t_start
+            t_start -= 0.015d
+            t_stop += 0.015d
+        end
+    end
+    for planet in model.system.planets
+        for like_obj in planet.observations
+            if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+                t_start, t_stop = extrema(like_obj.table.epoch)
+                d = t_stop - t_start
+                t_start -= 0.015d
+                    t_stop += 0.015d
+                break
+            end
+            if hasproperty(like_obj, :table) && hasproperty(like_obj.table, :epoch)
+                t_start, t_stop = extrema(like_obj.table.epoch)
+                d = t_stop - t_start
+                t_start -= 0.015d
+                    t_stop += 0.015d
+            end
+        end
+    end
     t_cur = t_stop-t_start
     if t_cur < med_period
         t_extend = med_period - t_cur
@@ -69,8 +93,6 @@ function astromtimeplot!(
         # solutions
         ts = range(t_start, t_stop, length=1500)
     end
-    # Make sure we include the approx. data epochs
-    ts = sort([ts; years2mjd(1990.25); years2mjd((1990.25 + 2016) / 2); years2mjd(2016)])
     
     date_pos, date_strs = _date_ticks(ts)
     ax_sep = Axis(
@@ -135,7 +157,7 @@ function astromtimeplot!(
 
         # TODO: add in direction check, orbits are always increasing or
         # decreasing in PA, but sometimes do a big jump
-        delta = 2.0
+        delta = 1.0
         allx = Float64[]
         ally = Float64[]
         allcolors = Float64[]
@@ -143,21 +165,32 @@ function astromtimeplot!(
             x = ts
             y = pa_model_t[yi,:]
             colors = color_model_t[yi,:]
-            for xi in 2:(size(pa_model_t, 2)-2)
+            xi = 1
+            xi0 = 1
+            while xi<size(x,1)-1
+                xi += 1
+                xi0 += 1
                 if (
-                    pa_model_t[yi,xi] > 2pi - delta &&
-                    pa_model_t[yi,xi+1] < delta)
+                    pa_model_t[yi,xi0] > 2pi - delta &&
+                    pa_model_t[yi,xi0+1] < delta)
+                    slope = 2pi + pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0]
+                    newpt = y[xi-1] + slope
+                    newpt = NaN
                     x = [x[1:xi]; NaN; x[xi+1:end]]
-                    y = [y[1:xi-1]; 4pi; NaN; 0; y[xi+2:end]]
+                    y = [y[1:xi]; NaN; y[xi+1:end]]
                     colors = [colors[1:xi]; NaN; colors[xi+1:end]]
                     ylims!(ax_pa, 0, 360)
+                    xi += 1
                 elseif (
-                    pa_model_t[yi,xi] < delta &&
-                    pa_model_t[yi,xi+1] > 2pi - delta)
+                    pa_model_t[yi,xi0] < delta &&
+                    pa_model_t[yi,xi0+1] > 2pi - delta)
+                    slope = pa_model_t[yi,xi0+1] - (pa_model_t[yi,xi0]-2pi)
+                    newpt = y[xi-1] + slope
                     x = [x[1:xi]; NaN; x[xi+1:end]]
-                    y = [y[1:xi-1]; 0; NaN; 4pi; y[xi+2:end]]
+                    y = [y[1:xi-1]; newpt; NaN; 4pi; y[xi+2:end]]
                     colors = [colors[1:xi]; NaN; colors[xi+1:end]]
                     ylims!(ax_pa, 0, 360)
+                    xi += 1
                 end
             end
             append!(allx, x)
@@ -179,11 +212,13 @@ function astromtimeplot!(
     # Now overplot the data points, if any.
     # This is actually a bit of work since we might need
     # to convert RA and DEC +- uncertainties into SEP and PA.
-     for planet in model.system.planets
-        for like_obj in planet.observations
-            if nameof(typeof(like_obj)) != :PlanetRelAstromLikelihood
-                continue
-            end
+    like_objs = []
+    for planet in model.system.planets
+        append!(like_objs, planet.observations)
+    end
+    append!(like_objs, model.system.observations)
+    for like_obj in like_objs
+        if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
             if hasproperty(like_obj.table, :sep)
                 epoch = like_obj.table.epoch
                 sep = like_obj.table.sep
@@ -278,6 +313,28 @@ function astromtimeplot!(
                 strokecolor=:black,
                 markersize=8,
             )
+        elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :FiberInterferometryLikelihood)
+            # In this case, put scatter points from the posterior
+            
+            for planet_key in keys(model.system.planets)
+                orbs = Octofitter.construct_elements(results, planet_key, ii)
+                # Now time-series
+                sols = orbitsolve.(orbs, like_obj.table.epoch')
+                Makie.scatter!(
+                    ax_sep,
+                    repeat(like_obj.table.epoch, inner=length(orbs)),
+                    vec(projectedseparation.(sols));
+                    color=:black,
+                    markersize=4,
+                )
+                Makie.scatter!(
+                    ax_pa,
+                    repeat(like_obj.table.epoch, inner=length(orbs)),
+                    vec(rad2deg.(rem2pi.(posangle.(sols),RoundDown)));
+                    color=:black,
+                    markersize=4,
+                )
+            end
         end
     end
 
@@ -285,8 +342,12 @@ function astromtimeplot!(
         Colorbar(
             gs[1:2,2];
             colormap,
-            label="orbit fraction past periastron",
-            colorrange=(0,1)
+            label="mean anomaly",
+            colorrange=(0,2pi),
+            ticks=(
+                [0,pi/2,pi,3pi/2,2pi],
+                ["0", "π/2", "π", "3π/2", "2π"]
+            )
         )
     end
 

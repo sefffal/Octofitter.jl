@@ -71,8 +71,12 @@ function Octofitter.astromplot!(
         Colorbar(
             gs[1,2];
             colormap,
-            label="orbit fraction past periastron",
-            colorrange=(0,1)
+            label="mean anomaly",
+            colorrange=(0,2pi),
+            ticks=(
+                [0,pi/2,pi,3pi/2,2pi],
+                ["0", "π/2", "π", "3π/2", "2π"]
+            )
         )
     end
 
@@ -91,16 +95,20 @@ function Octofitter.astromplot!(
                 rem2pi.(meananom.(sols), RoundDown) .+ 0 .* ii
             ),
             alpha=min.(1, 100 / length(ii)),
+            transparency=true,
             colormap
         )
     end
 
     # Now over plot any astrometry
+    like_objs = []
     for planet in model.system.planets
-        for like_obj in planet.observations
-            if nameof(typeof(like_obj)) != :PlanetRelAstromLikelihood
-                continue
-            end
+        append!(like_objs, planet.observations)
+    end
+    append!(like_objs, model.system.observations)
+
+    for like_obj in like_objs
+        if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
 
             x = Float64[]
             y = Float64[]
@@ -223,6 +231,21 @@ function Octofitter.astromplot!(
                 strokecolor=:black,
                 markersize=8,
             )
+        elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :FiberInterferometryLikelihood)
+            # In this case, put scatter points from the posterior
+            
+            for planet_key in keys(model.system.planets)
+                orbs = Octofitter.construct_elements(results, planet_key, ii)
+                # Now time-series
+                sols = orbitsolve.(orbs, like_obj.table.epoch')
+                Makie.scatter!(
+                    ax,
+                    vec(raoff.(sols)),
+                    vec(decoff.(sols)),
+                    color=:black,
+                    markersize=4,
+                )
+            end
         end
     end
     scatter!(ax, [0],[0],marker='⭐', markersize=30, color=:black)
