@@ -7,8 +7,9 @@ using MCMCChains
 function (model::Octofitter.LogDensityModel)(θ)
     return model.ℓπcallback(θ)
 end
-function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::AbstractRNG, ::Int)
-    initial_θ, mapv = Octofitter.guess_starting_position(rng,model.system,10000)
+function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::AbstractRNG, chain_no::Int)
+    t = @elapsed initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,100_000)
+    @info "initialized chain" chain_no initial_logpost t
     initial_θ_t = model.link(initial_θ)
     return initial_θ_t
 end
