@@ -8,7 +8,8 @@ function Octofitter.octoplot(
     show_hgca=nothing,
     show_mass=false,
     show_rv=false,
-    relative_rv=nothing,
+    planet_rv=nothing, # plot planet(s) absolute RV in addition to star
+    show_relative_rv=nothing,
     figure=(;),
     # If less than 500 samples, just show all of them
     N  = min(size(results, 1)*size(results, 3), 500),
@@ -90,9 +91,8 @@ function Octofitter.octoplot(
             width=500,
             height=300,
         )
-        bottom_time_axis = !(show_hgca || show_rv)
+        bottom_time_axis = !(show_hgca || show_rv || show_relative_rv)
         astromtimeplot!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis)
-        colorbar = false
         top_time_axis = false
     end
 
@@ -106,9 +106,23 @@ function Octofitter.octoplot(
             width=500,
             height=135,
         )
+        bottom_time_axis = !(show_hgca || show_relative_rv)
+        rvtimeplot!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis, planet_rv)
+        top_time_axis = false
+    end
+
+
+    if show_relative_rv
+        item += 1
+        col = mod1(item, cols)
+        row = cld(item, cols)
+        gl = GridLayout(
+            fig[row,col],
+            width=500,
+            height=135,
+        )
         bottom_time_axis = !show_hgca
-        rvtimeplot!(gl, model, results; relative_rv, ii, colorbar, top_time_axis, bottom_time_axis)
-        colorbar = false
+        rvtimeplot_relative!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis)
         top_time_axis = false
     end
 
@@ -122,7 +136,6 @@ function Octofitter.octoplot(
             height=480,
         )
         Octofitter.hgcaplot!(gl, model, results; ii, colorbar, top_time_axis)
-        colorbar = false
         top_time_axis = false
     end
 

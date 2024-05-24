@@ -5,20 +5,21 @@
 function _date_ticks(ts)
 
     # For secondary date axis on top
-    date_start = mjd2date(ts[begin])
+    date_start_day = mjd2date(ts[begin])
     # Remove any dates before 0 BC, the Julia datetime parser
     # fails on negative years...
-    date_start = max.(Date("0000-01-01"), date_start)
+    date_start = max.(Date("0000-01-01"), date_start_day)
 
-    date_end = mjd2date(ts[end])
+    date_end_day = mjd2date(ts[end])
     date_start = Date(Dates.year(date_start), month(date_start))
 
-    date_end = Date(Dates.year(date_end), month(date_end))
+    date_end = Date(Dates.year(date_end_day), month(date_end_day))
     dates = range(date_start, date_end, step=Year(1))
     dates_str = string.(year.(dates))
     if length(dates) == 1
         dates = range(date_start, date_end, step=Month(1))
         dates_str = map(d->string(Dates.year(d),"-",lpad(month(d),2,'0')),dates)
+        minor_ticks = range(Date(date_start_day)+Day(1), Date(date_end_day)-Day(1), step=Day(1))
     else
         year_step = 1
         while length(dates) > 8
@@ -26,8 +27,15 @@ function _date_ticks(ts)
             dates = range(date_start, date_end, step=Year(year_step))
         end
         dates_str = string.(year.(dates))
+        if step(dates) == Year(1)
+            minor_ticks = range(date_start, date_end, step=Month(1))
+        else
+            minor_ticks = Float64[]
+        end
     end
-    return (mjd.(string.(dates)), dates_str)
+
+
+    return (mjd.(string.(dates)), dates_str, mjd.(string.(minor_ticks)))
 end
 
 

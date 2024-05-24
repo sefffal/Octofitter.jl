@@ -77,7 +77,7 @@ function Octofitter.hgcaplot!(
     # Find earliest epoch
     # epoch_0 = years2mjd(1991.25)
 
-    date_pos, date_strs = _date_ticks(ts)
+    date_pos, date_strs, xminorticks = _date_ticks(ts)
     ax_velra = Axis(
         gs[1, 1:3];
         ylabel=pmra_label,
@@ -87,6 +87,8 @@ function Octofitter.hgcaplot!(
         ygridvisible=false,
         xticksvisible=top_time_axis,
         xticklabelsvisible=top_time_axis,
+        xminorticks,
+        xminorticksvisible=top_time_axis,
         axis...
     )
     ax_veldec = Axis(

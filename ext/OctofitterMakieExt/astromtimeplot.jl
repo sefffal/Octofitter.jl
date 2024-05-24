@@ -94,7 +94,7 @@ function astromtimeplot!(
         ts = range(t_start, t_stop, length=1500)
     end
     
-    date_pos, date_strs = _date_ticks(ts)
+    date_pos, date_strs, xminorticks = _date_ticks(ts)
     ax_sep = Axis(
         gs[1, 1];
         ylabel="sep [mas]",
@@ -102,6 +102,8 @@ function astromtimeplot!(
         xticks=(date_pos, date_strs),
         xgridvisible=false,
         ygridvisible=false,
+        xminorticks,
+        xminorticksvisible=top_time_axis,
         xticksvisible=top_time_axis,
         xticklabelsvisible=top_time_axis,
         axis...
@@ -126,7 +128,6 @@ function astromtimeplot!(
         # Now time-series
         sols = orbitsolve.(orbs, ts')
         
-        # TODO: data overplot...
         sep_model_t = projectedseparation.(sols)
         pa_model_t = rem2pi.(posangle.(sols), RoundDown)
         color_model_t = rem2pi.(
