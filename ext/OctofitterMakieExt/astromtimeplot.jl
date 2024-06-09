@@ -314,7 +314,7 @@ function astromtimeplot!(
                 strokecolor=:black,
                 markersize=8,
             )
-        elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :FiberInterferometryLikelihood)
+        elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :GRAVITYWideCPLikelihood)
             # In this case, put scatter points from the posterior
             
             for planet_key in keys(model.system.planets)
@@ -352,5 +352,6 @@ function astromtimeplot!(
         )
     end
 
+    return [ax_sep, ax_pa]
 
 end

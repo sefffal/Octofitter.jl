@@ -57,7 +57,7 @@ function rvtimeplot!(
         append!(periods, period.(orbs))
 
         for like_obj in model.system.planets[planet_key].observations
-            if isnothing(planet_rv) && nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
+            if isnothing(planet_rv) && nameof(typeof(like_obj)) == :PlanetAbsoluteRVLikelihood
                 planet_rv = true
             end
         end
@@ -231,7 +231,7 @@ function rvtimeplot!(
     for (i_planet, planet_key) in enumerate(keys(model.system.planets))
         planet = getproperty(model.system.planets, planet_key)
         for like_obj in planet.observations
-            if planet_rv && nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
+            if nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
                 continue
             end
             epoch = vec(like_obj.table.epoch)
@@ -259,7 +259,7 @@ function rvtimeplot!(
         end
     end
     for like_obj in model.system.observations
-        if planet_rv && nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
+        if nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
             continue
         end
         epoch = vec(like_obj.table.epoch)
@@ -274,12 +274,12 @@ function rvtimeplot!(
         σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
         Makie.errorbars!(
             ax, epoch, rv, σ_tot;
-            color = planet_rv ? Makie.wong_colors()[1] : concat_with_nan(color_model_t),
+            color = planet_rv ? Makie.wong_colors()[1] : :black,
             linewidth=3,
         )
         Makie.scatter!(
             ax, epoch, rv;
-            color = planet_rv ? Makie.wong_colors()[1] : concat_with_nan(color_model_t),
+            color = planet_rv ? Makie.wong_colors()[1] : :black,
             strokewidth=0.5,
             strokecolor=:black,
             markersize=4,
@@ -298,6 +298,8 @@ function rvtimeplot!(
             )
         )
     end
+
+    return [ax]
 end
 
 
@@ -493,4 +495,5 @@ function rvtimeplot_relative!(
             )
         )
     end
+    return [ax]
 end

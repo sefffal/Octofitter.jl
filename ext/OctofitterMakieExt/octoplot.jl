@@ -44,6 +44,15 @@ function Octofitter.octoplot(
         end
     end
 
+    if isnothing(show_relative_rv)
+        show_relative_rv = false
+        for planet in model.system.planets
+            for like_obj in planet.observations
+                show_relative_rv |=  nameof(typeof(like_obj)) == :PlanetRelativeRVLikelihood
+            end
+        end
+    end
+
     if isnothing(show_hgca)
         show_hgca = false
         for like_obj in model.system.observations
@@ -81,6 +90,7 @@ function Octofitter.octoplot(
         colorbar = false
     end
 
+    axes_to_link = []
 
     if show_astrom_time
         item += 1
@@ -92,8 +102,9 @@ function Octofitter.octoplot(
             height=300,
         )
         bottom_time_axis = !(show_hgca || show_rv || show_relative_rv)
-        astromtimeplot!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis)
+        ax = astromtimeplot!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis)
         top_time_axis = false
+        append!(axes_to_link,ax)
     end
 
 
@@ -107,8 +118,9 @@ function Octofitter.octoplot(
             height=135,
         )
         bottom_time_axis = !(show_hgca || show_relative_rv)
-        rvtimeplot!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis, planet_rv)
+        ax = rvtimeplot!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis, planet_rv)
         top_time_axis = false
+        append!(axes_to_link,ax)
     end
 
 
@@ -122,8 +134,9 @@ function Octofitter.octoplot(
             height=135,
         )
         bottom_time_axis = !show_hgca
-        rvtimeplot_relative!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis)
+        ax = rvtimeplot_relative!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis)
         top_time_axis = false
+        append!(axes_to_link,ax)
     end
 
     if show_hgca
@@ -135,8 +148,13 @@ function Octofitter.octoplot(
             width=500,
             height=480,
         )
-        Octofitter.hgcaplot!(gl, model, results; ii, colorbar, top_time_axis)
+        ax = Octofitter.hgcaplot!(gl, model, results; ii, colorbar, top_time_axis)
         top_time_axis = false
+        append!(axes_to_link,ax)
+    end
+
+    if !isempty(axes_to_link)
+        Makie.linkxaxes!(axes_to_link...)
     end
 
 

@@ -231,7 +231,7 @@ function Octofitter.astromplot!(
                 strokecolor=:black,
                 markersize=8,
             )
-        elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :FiberInterferometryLikelihood)
+        elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :GRAVITYWideCPLikelihood)
             # In this case, put scatter points from the posterior
             
             for planet_key in keys(model.system.planets)

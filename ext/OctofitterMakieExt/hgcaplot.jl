@@ -449,4 +449,6 @@ function Octofitter.hgcaplot!(
         strokewidth=1.5,
         strokecolor=:black
     )
+
+    return [ax_velra, ax_veldec]
 end
