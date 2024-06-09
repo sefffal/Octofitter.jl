@@ -47,7 +47,7 @@ function _prepare_input_row(row)
                 throw(KeyError("Could not find keys OI_WAVELENGTH, OI_VIS2, and OI_T3 in $(row.filename)"))
             end
         end
-        #read data
+        # read data
         eff_wave = wavs.eff_wave
         vis2 = vis2s.vis2data
         vis2_err = vis2s.vis2err
@@ -64,11 +64,14 @@ function _prepare_input_row(row)
         # Clamp CP err to a minimum of 2 degrees
         if any(==(0), cp_err)
             @warn "Some closure phase errors are exactly 0. This will lead to numerical issues. Either verify the data, or provide a non-zero `σ_cp_jitter` variable when sampling."
+            @warn "claming uncertainties to at least 2 degrees"
+            cp_err .= max.(2, cp_err)
         end
 
 
-        @warn "masking wavelengths"
-        mask = 2.025e-6 .< eff_wave .< 2.15e-6
+        # @warn "masking wavelengths"
+        # mask = 2.025e-6 .< eff_wave .< 2.15e-6
+        mask = trues(length(eff_wave))
 
         # These say what baseline (cp1) should be added to (cp2) and then subtract (cp3)
         # to get a closure phase in our modelling.
@@ -333,5 +336,5 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, θ_syst
     return InterferometryLikelihood(new_vis_like_table)
 end
 
-include("fiber-fed.jl")
+include("GRAVITY.jl")
 end
