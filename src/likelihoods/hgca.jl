@@ -180,7 +180,7 @@ function _simulate_hgca(pma, θ_system, orbits)
         θ_planet = θ_system.planets[i]
         orbit = orbits[i]
         if θ_planet.mass < 0
-            return -Inf
+            continue
         end
         # Average multiple observations over a timescale +- dt/2
         # to approximate what HIPPARCOS would have measured.
@@ -217,7 +217,7 @@ function _simulate_hgca(pma, θ_system, orbits)
         θ_planet = θ_system.planets[i]
         orbit = orbits[i]
         if θ_planet.mass < 0
-            return -Inf
+            continue
         end
         # Average multiple observations over a timescale +- dt/2
         # to approximate what HIPPARCOS would have measured.
