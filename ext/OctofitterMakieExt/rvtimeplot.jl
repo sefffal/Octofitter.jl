@@ -33,6 +33,7 @@ function rvtimeplot!(
     results::Chains;
     # If less than 500 samples, just show all of them
     N  = min(size(results, 1)*size(results, 3), 500),
+    ts,
     # If showing all samples, include each sample once.
     # Otherwise, sample randomly with replacement
     ii = (
@@ -50,66 +51,6 @@ function rvtimeplot!(
 )
     gs = gridspec_or_fig
 
-    # Find the minimum time step size
-    periods = Float64[]
-    for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, :)
-        append!(periods, period.(orbs))
-
-        for like_obj in model.system.planets[planet_key].observations
-            if isnothing(planet_rv) && nameof(typeof(like_obj)) == :PlanetAbsoluteRVLikelihood
-                planet_rv = true
-            end
-        end
-    end
-    if isnothing(planet_rv)
-        planet_rv = false
-    end
-    
-    min_period = minimum(periods)
-    med_period = quantile(periods, 0.35)
-
-    # Always try and show at least one full period
-    # decide t_start and t_end based on epochs of data if astrometry 
-    # available, otherwise other data, otherwise arbitrary
-    t_start = t_stop = mjd()
-    for like_obj in model.system.observations
-        if hasproperty(like_obj, :table) && hasproperty(like_obj.table, :epoch)
-            t_start, t_stop = extrema(like_obj.table.epoch,)
-            d = t_stop - t_start
-            t_start -= 0.015d
-            t_stop += 0.015d
-        end
-    end
-    for planet in model.system.planets
-        for like_obj in planet.observations
-            if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
-                t_start, t_stop = extrema(like_obj.table.epoch)
-                d = t_stop - t_start
-                t_start -= 0.015d
-                t_stop += 0.015d
-                break
-            end
-            if hasproperty(like_obj, :table) && hasproperty(like_obj.table, :epoch)
-                t_start, t_stop = extrema(like_obj.table.epoch)
-                d = t_stop - t_start
-                t_start -= 0.015d
-                t_stop += 0.015d
-            end
-        end
-    end
-    t_cur = t_stop-t_start
-    if t_cur < med_period
-        t_extend = med_period - t_cur
-        t_start -= t_extend/2
-        t_stop += t_extend/2
-    end
-    ts = range(t_start, t_stop, step=min_period / 150)
-    if length(ts) > 1500
-        # Things can get very slow if we have some very short period 
-        # solutions
-        ts = range(t_start, t_stop, length=1500)
-    end
 
     date_pos, date_strs, xminorticks = _date_ticks(ts)
     ax= Axis(
@@ -160,10 +101,8 @@ function rvtimeplot!(
         # We subtract off the "average" instrument RV offset here.
         # This varies by instrument, and isn't centred around a net hierarchical value.
         # For now just take the average of the different zero points per row.
-        if i_planet == 1
-            color_model_t .+= rem2pi.(
-                meananom.(sols), RoundDown) .+ 0 .* ii
-        end
+        color_model_t .= rem2pi.(
+            meananom.(sols), RoundDown) .+ 0 .* ii
 
 
         ### Planet RV

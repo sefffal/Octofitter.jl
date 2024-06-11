@@ -27,6 +27,7 @@ function Octofitter.hgcaplot!(
     results::Chains;
     # If less than 500 samples, just show all of them
     N=min(size(results, 1) * size(results, 3), 500),
+    ts,
     # If showing all samples, include each sample once.
     # Otherwise, sample randomly with replacement
     ii=(
@@ -42,40 +43,6 @@ function Octofitter.hgcaplot!(
     kwargs...
 )
     gs = gridspec_or_fig
-
-    # Find the minimum time step size
-    periods = Float64[]
-    for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, :)
-        append!(periods, period.(orbs))
-    end
-    min_period = minimum(periods)
-    med_period = median(periods)
-
-    # Start by plotting the orbits
-    # EAs = range(0, 2pi, length=150)
-    # ts = range(years2mjd(1990), years2mjd(2020), step=min_period / 150)
-    # Always try and show at least one full period
-    t_start = years2mjd(1990)
-    t_stop = years2mjd(2020)
-    t_cur = t_stop - t_start
-    if t_cur < med_period
-        t_extend = med_period - t_cur
-        t_start -= t_extend / 2
-        t_stop += t_extend / 2
-    end
-    ts = range(t_start, t_stop, step=min_period / 150)
-    if length(ts) > 1500
-        # Things can get very slow if we have some very short period 
-        # solutions
-        ts = range(t_start, t_stop, length=1500)
-    end
-
-
-    # Make sure we include the approx. data epochs
-    ts = sort([ts; years2mjd(1990.25); years2mjd((1990.25 + 2016) / 2); years2mjd(2016)])
-    # Find earliest epoch
-    # epoch_0 = years2mjd(1991.25)
 
     date_pos, date_strs, xminorticks = _date_ticks(ts)
     ax_velra = Axis(
@@ -154,10 +121,16 @@ function Octofitter.hgcaplot!(
         # Now time-series
         sols = orbitsolve.(orbs, ts')
         # Can we use the existing simulator for this please?
-        pmra_model_t .+= pmra.(sols, mass) .+ results[:pmra][ii]
-        pmdec_model_t .+= pmdec.(sols, mass) .+ results[:pmdec][ii]
-        color_model_t .+= rem2pi.(
+        pmra_model_t .+= pmra.(sols, mass)
+        pmdec_model_t .+= pmdec.(sols, mass)
+        color_model_t .= rem2pi.(
             meananom.(sols), RoundDown) .+ 0 .* ii
+    end
+    if haskey(results, :pmra)
+        pmra_model_t .+= results[:pmra][ii]
+    end
+    if haskey(results, :pmdec)
+        pmdec_model_t .+= results[:pmdec][ii]
     end
     if colorbar
         Colorbar(
