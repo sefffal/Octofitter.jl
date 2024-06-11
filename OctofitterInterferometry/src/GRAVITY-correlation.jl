@@ -56,7 +56,7 @@ ie a struct with a single parameter.
 =#
 
 
-using OctofitterInterferometry.BlockArrays
+using BlockArrays
 function CT3(dat, y)
     # https://www.aanda.org/articles/aa/pdf/2020/12/aa38563-20.pdf
 
