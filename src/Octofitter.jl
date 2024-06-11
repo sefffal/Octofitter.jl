@@ -29,7 +29,6 @@ using StaticArrays
 using MCMCChains: MCMCChains, Chains
 using Random
 using DataDeps
-using RecipesBase
 using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
@@ -53,7 +52,6 @@ include("likelihoods/observable.jl")
 include("logdensitymodel.jl")
 include("optimization.jl")
 include("sampling.jl")
-include("grid-search.jl")
 
 include("analysis.jl")
 include("macros.jl")
