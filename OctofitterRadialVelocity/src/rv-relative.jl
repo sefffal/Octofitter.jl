@@ -203,36 +203,36 @@ end
 
 
 
-# Plot recipe for astrometry data
-@recipe function f(rv::PlanetRelativeRVLikelihood)
+# # Plot recipe for astrometry data
+# @recipe function f(rv::PlanetRelativeRVLikelihood)
    
-    xguide --> "time (mjd)"
-    yguide --> "radvel (m/s)"
+#     xguide --> "time (mjd)"
+#     yguide --> "radvel (m/s)"
 
-    multiple_instruments = hasproperty(rv.table,:inst_idx) && 
-                           length(unique(rv.table.inst_idx)) > 1
-    if !multiple_instruments
-        @series begin
-            color --> :black
-            label := nothing
-            seriestype := :scatter
-            markersize--> 0
-            yerr := rv.table.σ_rv
-            rv.table.epoch, rv.table.rv
-        end
-    else
-        for inst_idx in sort(unique(rv.table.inst_idx))
-            @series begin
-                label := nothing
-                seriestype := :scatter
-                markersize--> 0
-                color-->inst_idx
-                markerstrokecolor-->inst_idx
-                yerr := rv.table.σ_rv[rv.table.inst_idx.==inst_idx]
-                rv.table.epoch[rv.table.inst_idx.==inst_idx], rv.table.rv[rv.table.inst_idx.==inst_idx]
-            end
-        end
-    end
+#     multiple_instruments = hasproperty(rv.table,:inst_idx) && 
+#                            length(unique(rv.table.inst_idx)) > 1
+#     if !multiple_instruments
+#         @series begin
+#             color --> :black
+#             label := nothing
+#             seriestype := :scatter
+#             markersize--> 0
+#             yerr := rv.table.σ_rv
+#             rv.table.epoch, rv.table.rv
+#         end
+#     else
+#         for inst_idx in sort(unique(rv.table.inst_idx))
+#             @series begin
+#                 label := nothing
+#                 seriestype := :scatter
+#                 markersize--> 0
+#                 color-->inst_idx
+#                 markerstrokecolor-->inst_idx
+#                 yerr := rv.table.σ_rv[rv.table.inst_idx.==inst_idx]
+#                 rv.table.epoch[rv.table.inst_idx.==inst_idx], rv.table.rv[rv.table.inst_idx.==inst_idx]
+#             end
+#         end
+#     end
 
 
-end
+# end

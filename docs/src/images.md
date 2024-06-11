@@ -24,7 +24,7 @@ using OctofitterImages
 using Distributions
 using Pigeons
 using AstroImages
-using Plots: Plots
+using CairoMakie
 
 # Load individual iamges
 # image1 = load("image1.fits")
@@ -117,7 +117,7 @@ it's recommended to lower the target acceptance ratio to around 0.5±0.2 and als
 ```@example 1
 model = Octofitter.LogDensityModel(HD82134)
 
-chain, pt = octofit_pigeons(model, n_rounds=13)
+chain, pt = octofit_pigeons(model, n_rounds=12)
 display(chain)
 ```
 
@@ -132,20 +132,24 @@ The acceptance rate should be somewhat lower than when fitting just astrometry, 
 
 You can make a trace plot:
 ```@example 1
-Plots.plot(
-    chain["b_a"],
-    xlabel="iteration",
-    ylabel="semi-major axis (aU)"
+lines(
+    chain["b_a"][:],
+    axis=(;
+        xlabel="iteration",
+        ylabel="semi-major axis (aU)"
+    )
 )
 ```
 
 And an auto-correlation plot:
 ```@example 1
 using StatsBase
-Plots.plot(
-    autocor(chain["b_e"], 1:500),
-    xlabel="lag",
-    ylabel="autocorrelation",
+lines(
+    autocor(chain["b_e"][:], 1:500),
+    axis=(;
+        xlabel="lag",
+        ylabel="autocorrelation",
+    )
 )
 ```
 For this model, there is somewhat higher correlation between samples. Some thinning to remove this correlation is recommended.
@@ -153,33 +157,47 @@ For this model, there is somewhat higher correlation between samples. Some thinn
 
 ## Analysis
 
-We can now plot the model overtop one of the images:
+We can now view the orbit fit:
 ```@example 1
-using Plots: Plots
+fig = octoplot(model, chain)
+```
+
+With a bit of work, we can plot one of the images under the orbit.
+```@example 1
+fig = octoplot(model, chain)
+ax = fig.content[1] # grap first axis in the figure
 
 # We have to do some annoying work to get the image orientated correctly
 # since we want the RA axis increasing to the left.
 image_idx = 2
+platescale = image_data.table.platescale[image_idx]
 img = AstroImages.recenter(AstroImage(collect(image_data.table.image[image_idx])[end:-1:begin,:]))
-plt = implot(img, platescale=image_data.table.platescale[image_idx])
-Octofitter.plotchains!(plt, chain, :b)
+imgax1 = dims(img,1) .* platescale
+imgax2 = dims(img,2) .* platescale
+h = heatmap!(ax, imgax1, imgax2, collect(img), colormap=:greys)
+Makie.translate!(h, 0,0,-1) # Send heatmap to back of the plot
+
+# Add colorbar for image
+Colorbar(fig[1,2], h, label="image flux")
+
+fig
 ```
 
-Another useful view would be the orbits over a stack of the maximum pixel values of all images. Here we will color the orbits according to the posterior photometry of the planet.
+Another useful view would be the orbits over a stack of the maximum pixel values of all images.
 ```@example 1
-using Plots: Plots
-imgs = maximum(stack(image_data.table.image),dims=3)[:,:]
+fig = octoplot(model, chain)
+ax = fig.content[1] # grap first axis in the figure
+
 # We have to do some annoying work to get the image orientated correctly
 # since we want the RA axis increasing to the left.
-img = AstroImages.recenter(AstroImage(imgs)[end:-1:begin,:])
-plt = implot(
-    img, platescale=image_data.table.platescale[image_idx],
-    cmap=:magma,
-    clims=(-5,8),
-    colorbar=nothing,
-    stretch=identity
-)
-Octofitter.plotchains!(plt, chain, :b, color=:b_H, cmap=:magma, clims=(-5,8))
+platescale = image_data.table.platescale[image_idx]
+imgs = maximum(stack(image_data.table.image),dims=3)[:,:]
+img = AstroImages.recenter(AstroImage(imgs[end:-1:begin,:]))
+imgax1 = dims(img,1) .* platescale
+imgax2 = dims(img,2) .* platescale
+h = heatmap!(ax, imgax1, imgax2, collect(img), colormap=:greys)
+Makie.translate!(h, 0,0,-1) # Send heatmap to back of the plot
+fig
 ```
 
 

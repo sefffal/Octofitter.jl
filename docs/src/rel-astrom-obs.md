@@ -1,4 +1,4 @@
-# Observale-Based Priors
+# Observable-Based Priors
 
 This tutorial shows how to fit an orbit to relative astrometry using the observable-based priors of[O'Neil et al. 2019](https://ui.adsabs.harvard.edu/abs/2019AJ....158....4O). Please cite that paper if you use this functionality.
 
@@ -52,11 +52,7 @@ results_obspri = octofit(model,iterations=5000,)
 
 
 ```@example 1
-using Plots: Plots
-plotchains(results_obspri, :b, kind=:astrometry, color="b_e")
-Plots.plot!(astrom_like, label="astrometry")
-Plots.xlims!(-1000,1000)
-Plots.ylims!(-1000,1000)
+octoplot(model, results_obspri)
 ```
 
 Compare this with the previous fit using uniform priors:
@@ -77,11 +73,8 @@ end astrom_like # hide
 end b # hide
 model = Octofitter.LogDensityModel(Tutoria) # hide
 Random.seed!(0) # hide
-results = octofit(model,iterations=5000,verbosity=0) # hide
-plotchains(results, :b, kind=:astrometry, color="b_e")
-Plots.plot!(astrom_like, label="astrometry")
-Plots.xlims!(-1000,1000)
-Plots.ylims!(-1000,1000)
+results_unif_pri = octofit(model,iterations=5000,verbosity=0) # hide
+octoplot(model, results_unif_pri)
 ```
 
 We can compare the results in a corner plot:

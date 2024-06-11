@@ -1,5 +1,4 @@
 function Octofitter.octoplot(
-    ::Val{2},
     model::Octofitter.LogDensityModel,
     results::Chains;
     fname="$(model.system.name)-plot-grid.png",
@@ -7,7 +6,7 @@ function Octofitter.octoplot(
     show_astrom_time=nothing,
     show_hgca=nothing,
     show_mass=false,
-    show_rv=false,
+    show_rv=nothing,
     planet_rv=nothing, # plot planet(s) absolute RV in addition to star
     show_relative_rv=nothing,
     figure=(;),
@@ -50,6 +49,13 @@ function Octofitter.octoplot(
             for like_obj in planet.observations
                 show_relative_rv |=  nameof(typeof(like_obj)) == :PlanetRelativeRVLikelihood
             end
+        end
+    end
+
+    if isnothing(show_rv)
+        show_rv = false
+        for like_obj in model.system.observations
+            show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
         end
     end
 

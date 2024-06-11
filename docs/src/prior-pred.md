@@ -10,7 +10,6 @@ To generate a prior predictive distribution, one first needs to create a model. 
 using Octofitter
 using CairoMakie
 using PairPlots
-using Plots:Plots
 using Distributions
 
 astrom_like = PlanetRelAstromLikelihood(Table(;
@@ -45,28 +44,34 @@ prior_draw_astrometry = prior_draw_system.planets.b.observations[4]
 
 And plot the generated astrometry:
 ```@example 1
-Plots.plot(prior_draw_astrometry, lims=:symmetric)
+Makie.scatter(prior_draw_astrometry.table.ra, prior_draw_astrometry.table.dec,color=:black, axis=(;autolimitaspect=1,xreversed=true))
+
 ```
 
 We can repeat this many times to get a feel for our chosen priors in the domain of our data:
 ```@example 1
-using Random # hide
-Random.seed!(1) # hide
-plt = Plots.plot()
+using Random
+Random.seed!(1)
+
+
+fig = Figure()
+ax = Axis(
+    fig[1,1], xlabel="ra offset [mas]", ylabel="dec offset [mas]",
+    xreversed=true,
+    aspect=1
+)
 for i in 1:50
     prior_draw_system = generate_from_params(Tutoria)
     prior_draw_astrometry = prior_draw_system.planets.b.observations[4]
-    Plots.plot!(
-        prior_draw_astrometry,
-        lims=:symmetric,
-        color=Plots.cgrad(:turbo)[i/50],
+    Makie.scatter!(
+        ax,
+        prior_draw_astrometry.table.ra,
+        prior_draw_astrometry.table.dec,
+        color=Makie.cgrad(:turbo)[i/50],
     )
 end
 
-# Finally we overplot our actual astrometry
-Plots.plot!(astrom_like, color=:black, linewidth=4)
-
-plt
+fig
 ```
 
 The heavy black crosses are our actual data, while the colored ones are simulations drawn from our priors. Notice that our real data lies at a greater separation than most draws from the prior? That might mean the priors could be tweaked.

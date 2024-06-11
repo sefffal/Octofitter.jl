@@ -452,14 +452,3 @@ end
 chn = remapchain(chn_norm)
 
 ```
-
-```julia
-using Plots
-plotchains(chn, :B, kind=:astrometry)
-```
-
-```julia
-plotchains(chn, :B, kind=:radvel)
-```
-
-

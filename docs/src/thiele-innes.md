@@ -8,7 +8,6 @@ At the end, we will convert our results back into the Campbell basis to compare.
 using Octofitter
 using CairoMakie
 using PairPlots
-using Plots:Plots
 using Distributions
 
 astrom_like = PlanetRelAstromLikelihood(

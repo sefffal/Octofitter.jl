@@ -194,7 +194,6 @@ display(chain)
 
 Display the results:
 ```@example 1
-using Plots: Plots
 octoplot(model, chain)
 ```
 

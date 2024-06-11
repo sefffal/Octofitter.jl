@@ -13,7 +13,6 @@ PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 Pigeons = "0eb8d820-af6a-4919-95ae-11206f830c31"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PlanetOrbits = "fd6f9641-d78f-43ce-a379-ceb0bddb468a"
-Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 

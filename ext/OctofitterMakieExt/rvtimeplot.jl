@@ -106,6 +106,7 @@ function rvtimeplot!(
 
 
         ### Planet RV
+        # TODO: WIP support for planet absolute RV
         if planet_rv
 
             rv_planet_model_t = radvel.(sols) .* M_star ./ M_tot
@@ -148,7 +149,7 @@ function rvtimeplot!(
             end
         end
         ave_rv0 = mean(stack(rv0s),dims=2)
-        rv_star_model_t .+= ave_rv0
+        rv_star_model_t .-= ave_rv0
     end
     lines!(ax,
         concat_with_nan(ts' .+ 0 .* rv_star_model_t),
@@ -167,36 +168,37 @@ function rvtimeplot!(
 
     # Now overplot the data points, if any.
     # We can do this for relative RV since there is no zero point offset
-    for (i_planet, planet_key) in enumerate(keys(model.system.planets))
-        planet = getproperty(model.system.planets, planet_key)
-        for like_obj in planet.observations
-            if nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
-                continue
-            end
-            epoch = vec(like_obj.table.epoch)
-            rv = vec(like_obj.table.rv)
-            σ_rv = vec(like_obj.table.σ_rv)
-            inst_idx = vec(like_obj.table.inst_idx)
-            if any(!=(1), inst_idx)
-                @warn "instidx != 1 data plotting not yet implemented"
-                continue
-            end
-            jitter = results["$(planet_key)_jitter_1"]
-            σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
-            Makie.errorbars!(
-                ax, epoch, rv, σ_tot;
-                color=Makie.wong_colors()[1+i_planet],
-                linewidth=3,
-            )
-            Makie.scatter!(
-                ax, epoch, rv;
-                color=Makie.wong_colors()[1+i_planet],
-                strokewidth=0.5,
-                strokecolor=:black,
-                markersize=4,
-            )
-        end
-    end
+    # TODO: WIP support for planet absolute RV
+    # for (i_planet, planet_key) in enumerate(keys(model.system.planets))
+    #     planet = getproperty(model.system.planets, planet_key)
+    #     for like_obj in planet.observations
+    #         if nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
+    #             continue
+    #         end
+    #         epoch = vec(like_obj.table.epoch)
+    #         rv = vec(like_obj.table.rv)
+    #         σ_rv = vec(like_obj.table.σ_rv)
+    #         inst_idx = vec(like_obj.table.inst_idx)
+    #         if any(!=(1), inst_idx)
+    #             @warn "instidx != 1 data plotting not yet implemented"
+    #             continue
+    #         end
+    #         jitter = results["$(planet_key)_jitter_1"]
+    #         σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
+    #         Makie.errorbars!(
+    #             ax, epoch, rv, σ_tot;
+    #             color=Makie.wong_colors()[1+i_planet],
+    #             linewidth=3,
+    #         )
+    #         Makie.scatter!(
+    #             ax, epoch, rv;
+    #             color=Makie.wong_colors()[1+i_planet],
+    #             strokewidth=0.5,
+    #             strokecolor=:black,
+    #             markersize=4,
+    #         )
+    #     end
+    # end
     for like_obj in model.system.observations
         if nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
             continue
@@ -209,12 +211,17 @@ function rvtimeplot!(
             @warn "instidx != 1 data plotting not yet implemented"
             continue
         end
-        jitter = results["jitter_1"]
-        σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
+        jitter = median(collect(results["jitter_1"]))
+        σ_tot = sqrt.(σ_rv .^2 .+ jitter .^2)
         Makie.errorbars!(
             ax, epoch, rv, σ_tot;
+            color = planet_rv ? Makie.wong_colors()[1] : :grey,
+            linewidth=1,
+        )
+        Makie.errorbars!(
+            ax, epoch, rv, σ_rv;
             color = planet_rv ? Makie.wong_colors()[1] : :black,
-            linewidth=3,
+            linewidth=2,
         )
         Makie.scatter!(
             ax, epoch, rv;

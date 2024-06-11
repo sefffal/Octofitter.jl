@@ -105,8 +105,7 @@ snr = mean(phot)/std(phot)
 
 Plot the resulting orbit:
 ```@example 1
-using Plots: Plots
-plotchains(results,:b, kind=:astrometry, color=:b_F480M)
+octoplot(model, results)
 ```
 
 

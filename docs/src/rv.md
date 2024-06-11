@@ -12,7 +12,7 @@ Datasets from two different radial velocity insturments are included and modelle
 ```@example 1
 
 
-using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, Plots
+using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits
 
 gaia_id = 5164707970261890560 
 
@@ -51,7 +51,7 @@ rvs_merged = StarAbsoluteRVLikelihood(
     cat(rvhires.table, rvharps.table,dims=1),
     instrument_names=["HARPS", "HIRES"]
 )
-Plots.plot(rvs_merged)
+scatter(rvs_merged.table.epoch[:], rvs_merged.table.rv[:])
 
 
 @system ϵEri begin
@@ -81,7 +81,7 @@ results = octofit(rng, model)
 We can now plot the results with a multi-panel plot:
 ```@example 1
 ## Save results plot
-octoplot(model, results, cmap=:greys, clims=(-0.5,1))
+octoplot(model, results)
 ```
 
 
@@ -90,6 +90,7 @@ We can also plot just the RV fit:
 fig = OctofitterRadialVelocity.rvpostplot(model, results)
 ```
 
+And a corner plot:
 ```@example 1
 using CairoMakie, PairPlots
 octocorner(model, results, small=true)

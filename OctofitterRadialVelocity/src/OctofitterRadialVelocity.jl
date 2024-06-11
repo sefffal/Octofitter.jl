@@ -5,7 +5,6 @@ using PlanetOrbits
 using Tables, TypedTables
 using Distributions
 using DataDeps
-using RecipesBase
 using AbstractGPs
 # using TemporalGPs
 using Distances: Distances

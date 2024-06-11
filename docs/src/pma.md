@@ -14,7 +14,7 @@ The first step is to find the GAIA source ID for your object. For HD 91312, SIMB
 
 Initial setup:
 ```@example 1
-using Octofitter, Distributions, Plots, Random
+using Octofitter, Distributions, Random
 ```
 
 We begin by finding orbits that are consistent with the astrometric motion. Later, we will add in relative astrometry to the fit from direct imaging to further constrain the planet's orbit and mass.
@@ -153,7 +153,7 @@ astrom_like = PlanetRelAstromLikelihood(
     (epoch=mjd("2018-11-28"), ra=058., dec=-122., σ_ra=10.0, σ_dec=20., cor=0.3),
     (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08., cor=0.2),
 )
-Plots.plot(astrom_like, lims=:symmetric)
+scatter(astrom_like.table.ra, astrom_like.table.dec)
 ```
 
 We use the same model as before, but now condition the planet model `B` on the astrometry data by

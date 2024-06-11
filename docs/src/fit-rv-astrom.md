@@ -11,7 +11,6 @@ using OctofitterRadialVelocity
 using CairoMakie
 using PairPlots
 using Distributions
-using Plots:Plots
 using PlanetOrbits
 ```
 
@@ -29,7 +28,7 @@ orb_template = orbit(
     m =0,
     tp =58849
 )
-Plots.plot(orb_template)
+Makie.lines(orb_template)
 ```
 
 
@@ -47,8 +46,9 @@ astrom = PlanetRelAstromLikelihood(Table(
 
 And plot our simulated astrometry measurments:
 ```@example 1
-Plots.plot(orb_template, aspectratio=1, lw=1, label="")
-Plots.plot!(astrom, aspectratio=1, framestyle=:box)
+fig = Makie.lines(orb_template,)
+Makie.scatter!(astrom.table.ra, astrom.table.dec)
+fig
 ```
 
 
@@ -65,7 +65,7 @@ rvlike = StarAbsoluteRVLikelihood(Table(
     σ_rv=fill(5.0, size(epochs)),
     inst_idx=ones(Int64, size(epochs)),
 ))
-Plots.plot(rvlike, framestyle=:box)
+Makie.scatter(rvlike.table.epoch[:], rvlike.table.rv[:])
 ```
 
 

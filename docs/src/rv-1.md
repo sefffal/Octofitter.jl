@@ -73,8 +73,6 @@ if we wanted to include these parameters and visualize the orbit in the plane of
 
 
 ```@example 1
-
-
 @planet b RadialVelocityOrbit begin
     e = 0
     ω = 0.0

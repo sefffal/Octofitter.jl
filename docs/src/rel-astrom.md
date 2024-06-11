@@ -8,7 +8,6 @@ It may take up to 15 minutes to compile everything, but should run in <10s after
 ```julia
 using Octofitter,
       Distributions,
-      Plots,
       CairoMakie,
       PairPlots
 astrom_like = PlanetRelAstromLikelihood(
@@ -239,21 +238,24 @@ Lower than this and the sampler is taking steps that are too large and encounter
 
 Next, you can make a trace plot of different variabes to visually inspect the chain:
 ```@example 1
-using Plots: Plots
-Plots.plot(
-    chain["b_a"],
-    xlabel="iteration",
-    ylabel="semi-major axis (AU)"
+lines(
+    chain["b_a"][:],
+    axis=(;
+        xlabel="iteration",
+        ylabel="semi-major axis (AU)"
+    )
 )
 ```
 
 And an auto-correlation plot:
 ```@example 1
 using StatsBase
-Plots.plot(
-    autocor(chain["b_e"], 1:500),
-    xlabel="lag",
-    ylabel="autocorrelation",
+lines(
+    autocor(chain["b_e"][:], 1:500),
+    axis=(;
+        xlabel="lag",
+        ylabel="autocorrelation",
+    )
 )
 ```
 This plot shows that these samples are not correlated after only above 5 steps. No thinning is necessary.
@@ -270,22 +272,12 @@ As an additional convergence test.
 
 ### Analysis
 As a first pass, let's plot a sample of orbits drawn from the posterior.
-
+The function `octoplot` is a conveninient way to generate a 9-panel plot of velocities and position:
 ```@example 1
-using Plots: Plots
-plotchains(chain, :b, kind=:astrometry, color="b_a")
+octoplot(model,chain)
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
 
-We can overplot the astrometry data like so:
-```@example 1
-Plots.plot!(astrom_like, label="astrometry")
-```
-
-The function `octoplot` is a conveninient way to generate a 9-panel plot of velocities and position:
-```@example 1
-octoplot(model, chain)
-```
 
 
 ### Pair Plot

@@ -6,7 +6,6 @@ To demonstrate, we will fit a model to relative astrometry data:
 
 ```@example 1
 using Octofitter
-using Plots:Plots
 using Distributions
 
 astrom_like = PlanetRelAstromLikelihood(Table(;
@@ -49,23 +48,32 @@ Calculate and plot the location the planet would be at each observation epoch:
 ```@example 1
 epochs = astrom_like.table.epoch' # transpose
 
-x = raoff.(orbits, epochs)
-y = decoff.(orbits, epochs)
+x = raoff.(orbits, epochs)[:]
+y = decoff.(orbits, epochs)[:]
 
-Plots.plot(orbits, kind=(:raoff, :decoff), color=:lightgrey)
-Plots.scatter!(
-    x, y,
-    lims=:symmetric,
-    markerstrokewidth=0,
-    markersize=1,
-    legend=:topleft,
-    label=["epoch $i" for  i in epochs]
+fig = Figure()
+ax = Axis(
+    fig[1,1], xlabel="ra offset [mas]", ylabel="dec offset [mas]",
+    xreversed=true,
+    aspect=1
 )
-Plots.plot!(astrom_like, linewidth=2, color=:black, label="observed")
-Plots.scatter!([0],[0], marker=(:star,:black, :white, 10),label="")
+for orbit in orbits
+    Makie.lines!(ax, orbit, color=:lightgrey)
+end
 
-Plots.xlims!(-700,400)
-Plots.ylims!(-300,300)
+Makie.scatter!(
+    ax,
+    x, y,
+    markersize=3,
+)
+fig
+
+Makie.scatter!(ax, astrom_like.table.ra, astrom_like.table.dec,color=:black, label="observed")
+Makie.scatter!(ax, [0],[0], marker='⋆', color=:black, markersize=20,label="")
+Makie.xlims!(400,-700)
+Makie.ylims!(-200,200)
+fig
+
 ```
 
 Looks like a great match to the data! Notice how the uncertainty around the middle point is lower than the ends. That's because the orbit's posterior location at that epoch is also constrained by the surrounding data points. We can know the location of the planet in hindsight better than we could measure it!

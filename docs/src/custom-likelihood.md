@@ -99,30 +99,3 @@ function generate_from_params(like::MyLikelihood, elem::PlanetOrbits.AbstractOrb
     return MyLikelihood(epoch=epochs, ra=ras, dec=decs)
 end
 ```
-
-## Bonus: Creating a plot recipe
-
-Using RecipesBase.jl, we can create a plotting recipe to visualize the observations. This is only for your convenience and it not strictly necessary.
-
-Here is an example for the `PlanetRelAstromLikelihood` data type:
-```julia
-using RecipesBase
-# Plot recipe for astrometry data
-@recipe function f(astrom::PlanetRelAstromLikelihood)
-   
-    xflip --> true
-    xguide --> "Δ right ascension (mas)"
-    yguide --> "Δ declination (mas)"
-
-    if hasproperty(astrom.table, :pa)
-        x = astrom.table.sep .* cosd.(astrom.table.pa)
-        y = astrom.table.sep .* sind.(astrom.table.pa)
-        return -y, -x
-    else
-        xerror := astrom.table.σ_ra
-        yerror := astrom.table.σ_dec
-
-        return astrom.table.ra, astrom.table.dec
-    end
-end
-```

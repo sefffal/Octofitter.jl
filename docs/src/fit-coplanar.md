@@ -12,7 +12,6 @@ using Octofitter
 using CairoMakie
 using PairPlots
 using Distributions
-using Plots:Plots
 using PlanetOrbits
 ```
 
@@ -53,8 +52,10 @@ astrom_c = PlanetRelAstromLikelihood(
     (epoch=56855.0, object=2, ra=-540.0, σ_ra=12.0, dec=799.0, σ_dec=12.0, cor=0, ),
 )
 
-Plots.plot(astrom_b, xlims=:symmetric, ylims=:symmetric, color=1)
-Plots.plot!(astrom_c, xlims=:symmetric, ylims=:symmetric, color=2)
+fig = Makie.scatter(astrom_b.table.ra, astrom_b.table.dec, axis=(;autolimitaspect=1))
+Makie.scatter!(astrom_c.table.ra, astrom_c.table.dec)
+Makie.scatter!([0], [0], marker='⋆', markersize=50, color=:black)
+fig
 ```
 
 
