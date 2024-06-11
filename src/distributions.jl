@@ -65,3 +65,38 @@ Distributions.mean(d::UniformImproper) = 1.0
 Distributions.var(d::UniformImproper) = Inf
 # Distributions.cdf(d::UniformImproper, x::Real)= 1.0
 Distributions.quantile(d::UniformImproper, p::Real) = p
+
+
+struct KDEDist{TKDE<:InterpKDE,TDat<:AbstractArray} <: ContinuousUnivariateDistribution
+    ik::TKDE
+    data::TDat
+    bandwidth::Float64
+end
+function KDEDist(data; bandwidth=KernelDensity.default_bandwidth(data))
+    k  = KernelDensity.kde(data; bandwidth, boundary=extrema(data))
+    ik = KernelDensity.InterpKDE(k)
+    return KDEDist(ik, data, bandwidth)
+end
+
+Distributions.pdf(kded::KDEDist, x::Real) = pdf(kded.ik, x)
+Distributions.logpdf(kded::KDEDist, x::Real) = log(pdf(kded.ik, x))
+# obviously these are not statistically correct since they cannot be
+# defined for an improper distribution
+Distributions.minimum(kded::KDEDist) = minimum(kded.data)
+Distributions.maximum(kded::KDEDist) = maximum(kded.data)
+Distributions.insupport(kded::KDEDist, x::Real) = minimum(kded) <= x <= maximum(kded.data)
+Distributions.mean(kded::KDEDist) = mean(kded.ik.kde.density)
+Distributions.var(kded::KDEDist) = var(kded.ik.kde.density)
+# Distributions.cdf(kded::KDEDist, x::Real)= 
+Distributions.quantile(kded::KDEDist, p::Real) = quantile(kded.data, p) # TODO: this will be kind of choppy. better to define and use cdf.
+
+# Define a random sampler from a kernel density estimate
+# https://discourse.julialang.org/t/sample-from-kernel-density-estimator/50639/2
+Random.rand(rng::AbstractRNG, kded::KDEDist) = rand(rng, Normal(rand(rng, kded.data), kded.bandwidth))
+
+function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::KDEDist)
+    println(io, "KDEDist kernel density estimate distribution")
+end
+function Base.show(io::IO, @nospecialize p::KDEDist)
+    println(io, "KDEDist kernel density estimate distribution")
+end

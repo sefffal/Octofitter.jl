@@ -14,9 +14,12 @@ using Statistics
 using StatsBase
 using NamedTupleTools
 using OrderedCollections
+using KernelDensity
 
 using Reexport
 @reexport using PlanetOrbits
+
+export KernelDensity
 
 # Re-export from TypedTables
 export Table, FlexTable
@@ -50,6 +53,7 @@ include("likelihoods/observable.jl")
 include("logdensitymodel.jl")
 include("optimization.jl")
 include("sampling.jl")
+include("grid-search.jl")
 
 include("analysis.jl")
 include("macros.jl")
