@@ -266,7 +266,7 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
         cp_resids = zeros(T, Len) # Fill this in a moment
 
         # Loop through wavelengths
-        for i_wave in axes(vis.table.u[i_epoch], 2)
+        Threads.@threads for i_wave in axes(vis.table.u[i_epoch], 2)
             u = @views vis.table.u[i_epoch][:, i_wave]
             v = @views vis.table.v[i_epoch][:, i_wave]
             cps_data = @views vis.table.cps_data[i_epoch][:, i_wave]
