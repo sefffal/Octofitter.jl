@@ -6,7 +6,7 @@ using Makie
 using Statistics
 using StatsBase
 using AbstractGPs
-using TemporalGPs
+# using TemporalGPs
 using Dates
 
 ## Need three panels
@@ -207,10 +207,11 @@ function Octofitter.rvpostplot!(
         end
         if isnothing(map_gp)
             map_gp = GP(ZeroKernel())
-        elseif map_gp isa TemporalGPs.LTISDE
-            # Unwrap the temporal GPs wrapper so that we can calculate mean_and_var
-            # We don't need the speed up provided by LTISDE for plotting once.
-            map_gp = map_gp.f
+        # Drop TemporalGPs for now due to compilation failures
+        # elseif map_gp isa TemporalGPs.LTISDE
+        #     # Unwrap the temporal GPs wrapper so that we can calculate mean_and_var
+        #     # We don't need the speed up provided by LTISDE for plotting once.
+        #     map_gp = map_gp.f
         end
 
         fx = map_gp(
