@@ -416,8 +416,13 @@ function rvtimeplot_relative!(
             σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
             Makie.errorbars!(
                 ax, epoch, rv, σ_tot;
-                color=:black,
-                linewidth=3,
+                color =  :grey,
+                linewidth=1,
+            )
+            Makie.errorbars!(
+                ax, epoch, rv, σ_rv;
+                color =  :black,
+                linewidth=2,
             )
             Makie.scatter!(
                 ax, epoch, rv;
