@@ -180,6 +180,7 @@ Makie.translate!(h, 0,0,-1) # Send heatmap to back of the plot
 # Add colorbar for image
 Colorbar(fig[1,2], h, label="image flux")
 
+Makie.resize_to_layout!(fig)
 fig
 ```
 
@@ -197,6 +198,7 @@ imgax1 = dims(img,1) .* platescale
 imgax2 = dims(img,2) .* platescale
 h = heatmap!(ax, imgax1, imgax2, collect(img), colormap=:greys)
 Makie.translate!(h, 0,0,-1) # Send heatmap to back of the plot
+Makie.resize_to_layout!(fig)
 fig
 ```
 
