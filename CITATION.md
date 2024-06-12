@@ -27,7 +27,6 @@ To cite octofitterpy or Octiftter.jl, please use the following BibTeX entry:
 * If you use one of the included functions for automatically retreiving data from a public dataset, eg HARPS RVBank, please cite the source as appropriate (it will be displyed in the terminal)
 * If you adopt the O'Neil et al. 2019 observable based priors, please cite [O'Neil et al. 2019](https://ui.adsabs.harvard.edu/abs/2019AJ....158....4O).
 * If you use RV phase folded plot, please consider citing Makie.jl [Danisch & Krumbiegel, (2021).](https://doi.org/10.21105/joss.03349)
-* If you use TemporalGPs.jl to accelerate Gaussian processes modelling of stellar activity, please consider citing [Tebbutt et al 2021](https://proceedings.mlr.press/v161/tebbutt21a.html)
 * If you use the pairplot/cornerplot functionality, please cite:
 ```bibtex
 @misc{Thompson2023,

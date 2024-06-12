@@ -25,7 +25,6 @@ In addition to these documentation and tutorial pages, you can read the paper pu
 
 * Please also consider citing the HMC sampler backend, [Xu et al 2020](http://proceedings.mlr.press/v118/xu20a.html)
 * If you use RV phase folded plot, please consider citing Makie.jl [Danisch & Krumbiegel, (2021).](https://doi.org/10.21105/joss.03349)
-* If you use TemporalGPs.jl to accelerate Gaussian processes modelling of stellar activity, please consider citing [Tebbutt et al 2021](https://proceedings.mlr.press/v161/tebbutt21a.html)
 * If you use the pairplot functionality, please cite:
 ```
 @misc{Thompson2023,
