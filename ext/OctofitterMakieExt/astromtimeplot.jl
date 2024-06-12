@@ -107,7 +107,7 @@ function astromtimeplot!(
 
         # TODO: add in direction check, orbits are always increasing or
         # decreasing in PA, but sometimes do a big jump
-        delta = 1.0
+        delta = 0.2
         allx = Float64[]
         ally = Float64[]
         allcolors = Float64[]
@@ -134,7 +134,7 @@ function astromtimeplot!(
                 elseif (
                     pa_model_t[yi,xi0] < delta &&
                     pa_model_t[yi,xi0+1] > 2pi - delta)
-                    slope = pa_model_t[yi,xi0+1] - (pa_model_t[yi,xi0]-2pi)
+                    slope = pa_model_t[yi,xi0+1] - (pa_model_t[yi,xi0]+2pi)
                     newpt = y[xi-1] + slope
                     x = [x[1:xi]; NaN; x[xi+1:end]]
                     y = [y[1:xi-1]; newpt; NaN; 4pi; y[xi+2:end]]

@@ -11,15 +11,16 @@ function Octofitter.octoplot(
     show_relative_rv=nothing,
     figure=(;),
     # If less than 500 samples, just show all of them
-    N  = min(size(results, 1)*size(results, 3), 500),
+    N  = min(size(results, 1)*size(results, 3), 250),
     # If showing all samples, include each sample once.
     # Otherwise, sample randomly with replacement
     ii = (
         N == size(results, 1)*size(results, 3) ? 
         (1:size(results, 1)*size(results, 3)) :
         rand(1:size(results, 1)*size(results, 3),N)
-    )
+    ),
     # The user can of course just override the above directly.
+    colormap=Makie.cgrad(:plasma,rev=true),
 )
 
     # Auto-detect if we should include a given plot
@@ -188,7 +189,7 @@ function Octofitter.octoplot(
             width=500,
             height=400,
         )
-        Octofitter.astromplot!(gl, model, results; ii, ts, colorbar,)
+        Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap)
         colorbar = false
     end
 
@@ -204,7 +205,7 @@ function Octofitter.octoplot(
             height=300,
         )
         bottom_time_axis = !(show_hgca || show_rv || show_relative_rv)
-        ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis)
+        ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap)
         top_time_axis = false
         append!(axes_to_link,ax)
     end
@@ -220,7 +221,7 @@ function Octofitter.octoplot(
             height=135,
         )
         bottom_time_axis = !(show_hgca || show_relative_rv)
-        ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, planet_rv)
+        ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, planet_rv, colormap)
         top_time_axis = false
         append!(axes_to_link,ax)
     end
@@ -236,7 +237,7 @@ function Octofitter.octoplot(
             height=135,
         )
         bottom_time_axis = !show_hgca
-        ax = rvtimeplot_relative!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis)
+        ax = rvtimeplot_relative!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap)
         top_time_axis = false
         append!(axes_to_link,ax)
     end
@@ -250,7 +251,7 @@ function Octofitter.octoplot(
             width=500,
             height=480,
         )
-        ax = Octofitter.hgcaplot!(gl, model, results; ii, ts, colorbar, top_time_axis)
+        ax = Octofitter.hgcaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap)
         top_time_axis = false
         append!(axes_to_link,ax)
     end

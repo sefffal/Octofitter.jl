@@ -71,7 +71,7 @@ function Octofitter.astromplot!(
         Colorbar(
             gs[1,2];
             colormap,
-            label="mean anomaly",
+            label="mean anomaly →",
             colorrange=(0,2pi),
             ticks=(
                 [0,pi/2,pi,3pi/2,2pi],
