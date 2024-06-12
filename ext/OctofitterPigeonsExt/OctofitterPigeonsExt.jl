@@ -8,7 +8,14 @@ function (model::Octofitter.LogDensityModel)(θ)
     return model.ℓπcallback(θ)
 end
 function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::AbstractRNG, chain_no::Int)
-    t = @elapsed initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,100_000)
+    # TODO: it would be much better to run multi-pathfinder here.
+    # t = @elapsed initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,500_000)
+    
+    # Advance RNG ny the chain_no. This prevents seeded workers eg with MPI from all getting the same
+    # starting position
+    rand(rng, chain_no)
+
+    t = @elapsed initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,50_000)
     @info "initialized chain" chain_no initial_logpost t
     initial_θ_t = model.link(initial_θ)
     return initial_θ_t
@@ -18,6 +25,8 @@ end
 function Pigeons.sample_iid!(model_reference::Octofitter.LogDensityModel, replica, shared)
     # This could in theory be done without any array allocations
     θ = sample_priors(replica.rng, model_reference.system)
+    # t = @elapsed θ, logpost = Octofitter.guess_starting_position(replica.rng, model_reference.system, 100_000)
+    # @info "Sampled from reference" logpost t
     θ_t = model_reference.link(θ)
     replica.state .= θ_t
 end
@@ -28,6 +37,14 @@ function Pigeons.default_reference(target::Octofitter.LogDensityModel)
     # autodiff backend
     reference = Octofitter.LogDensityModel(reference_sys)
     return reference
+end
+
+
+function Pigeons.default_explorer(target::Octofitter.LogDensityModel)
+    return Pigeons.Compose(
+        Pigeons.SliceSampler(),
+        Pigeons.AutoMALA()
+    )
 end
 
 
