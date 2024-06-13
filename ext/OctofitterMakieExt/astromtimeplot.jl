@@ -107,7 +107,54 @@ function astromtimeplot!(
 
         # TODO: add in direction check, orbits are always increasing or
         # decreasing in PA, but sometimes do a big jump
-        delta = 0.2
+        # delta = 0.2
+        # allx = Float64[]
+        # ally = Float64[]
+        # allcolors = Float64[]
+        # for yi in axes(pa_model_t, 1)
+        #     x = ts
+        #     y = pa_model_t[yi,:]
+        #     colors = color_model_t[yi,:]
+        #     xi = 1
+        #     xi0 = 1
+        #     while xi<size(x,1)-1
+        #         xi += 1
+        #         xi0 += 1
+        #         if (
+        #             pa_model_t[yi,xi0] > 2pi - delta &&
+        #             pa_model_t[yi,xi0+1] < delta)
+        #             slope = 2pi + pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0]
+        #             newpt = y[xi-1] + slope
+        #             newpt = NaN
+        #             x = [x[1:xi]; NaN; x[xi+1:end]]
+        #             y = [y[1:xi]; NaN; y[xi+1:end]]
+        #             colors = [colors[1:xi]; NaN; colors[xi+1:end]]
+        #             ylims!(ax_pa, 0, 360)
+        #             xi += 1
+        #         elseif (
+        #             pa_model_t[yi,xi0] < delta &&
+        #             pa_model_t[yi,xi0+1] > 2pi - delta)
+        #             slope = pa_model_t[yi,xi0+1] - (pa_model_t[yi,xi0]+2pi)
+        #             newpt = y[xi-1] + slope
+        #             x = [x[1:xi]; NaN; x[xi+1:end]]
+        #             y = [y[1:xi-1]; newpt; NaN; 4pi; y[xi+2:end]]
+        #             colors = [colors[1:xi]; NaN; colors[xi+1:end]]
+        #             ylims!(ax_pa, 0, 360)
+        #             xi += 1
+        #         end
+        #     end
+        #     append!(allx, x)
+        #     append!(ally, y)
+        #     append!(allcolors, colors)
+        #     push!(allx, NaN)
+        #     push!(ally, NaN)
+        #     push!(allcolors, 0.0)
+        # end
+        
+        # Go through each PA time series and, whenever we detect PA has wrapped past 0 or 360,
+        # do some work to make the line not jump back vertically across the plot.
+        # Instead, insert a NaN line break and project the line above/below the top/bottom plot limits.
+        # Also, set the plot limits to (0,360)
         allx = Float64[]
         ally = Float64[]
         allcolors = Float64[]
@@ -117,30 +164,56 @@ function astromtimeplot!(
             colors = color_model_t[yi,:]
             xi = 1
             xi0 = 1
+            # TODO: this would fail if the wrapping happened between first and second indices
+            direction = sign(pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0])
             while xi<size(x,1)-1
                 xi += 1
                 xi0 += 1
-                if (
-                    pa_model_t[yi,xi0] > 2pi - delta &&
-                    pa_model_t[yi,xi0+1] < delta)
+                direction_next = sign(pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0])
+                if direction != direction_next && direction > 0
                     slope = 2pi + pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0]
-                    newpt = y[xi-1] + slope
-                    newpt = NaN
-                    x = [x[1:xi]; NaN; x[xi+1:end]]
-                    y = [y[1:xi]; NaN; y[xi+1:end]]
-                    colors = [colors[1:xi]; NaN; colors[xi+1:end]]
+                    x_midpoint = (x[xi] + x[xi])/2
+                    newpt_before = y[xi] + slope
+                    newpt_after =  y[xi+1] - slope
+                    x = [
+                        x[1:xi];
+                        x_midpoint;
+                        NaN;
+                        x_midpoint;
+                        x[xi+1:end]
+                    ]
+                    y = [
+                        y[1:xi];
+                        newpt_before;
+                        NaN;
+                        newpt_after;
+                        y[xi+1:end]
+                    ]
+                    colors = [colors[[1:xi;xi]]; NaN; colors[[xi+1;xi+1:end]]]
                     ylims!(ax_pa, 0, 360)
-                    xi += 1
-                elseif (
-                    pa_model_t[yi,xi0] < delta &&
-                    pa_model_t[yi,xi0+1] > 2pi - delta)
-                    slope = pa_model_t[yi,xi0+1] - (pa_model_t[yi,xi0]+2pi)
-                    newpt = y[xi-1] + slope
-                    x = [x[1:xi]; NaN; x[xi+1:end]]
-                    y = [y[1:xi-1]; newpt; NaN; 4pi; y[xi+2:end]]
-                    colors = [colors[1:xi]; NaN; colors[xi+1:end]]
+                    xi += 3
+                elseif direction != direction_next && direction < 0
+                    slope = pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0] -2π
+                    x_midpoint = (x[xi] + x[xi])/2
+                    newpt_before = y[xi] + slope
+                    newpt_after =  y[xi+1] - slope
+                    x = [
+                        x[1:xi];
+                        x_midpoint;
+                        NaN;
+                        x_midpoint;
+                        x[xi+1:end]
+                    ]
+                    y = [
+                        y[1:xi];
+                        newpt_before;
+                        NaN;
+                        newpt_after;
+                        y[xi+1:end]
+                    ]
+                    colors = [colors[[1:xi;xi]]; NaN; colors[[xi+1;xi+1:end]]]
                     ylims!(ax_pa, 0, 360)
-                    xi += 1
+                    xi += 3
                 end
             end
             append!(allx, x)
