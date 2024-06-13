@@ -17,14 +17,16 @@ function _date_ticks(ts)
     dates = range(date_start, date_end, step=Year(1))
     dates_str = string.(year.(dates))
     if length(dates) == 1
-        dates = range(date_start, date_end, step=Month(1))
+        date_start_month_floor = Date(Dates.year(date_start), Dates.month(date_start))
+        dates = range(date_start_month_floor, date_end, step=Month(1))
         dates_str = map(d->string(Dates.year(d),"-",lpad(month(d),2,'0')),dates)
         minor_ticks = range(Date(date_start_day)+Day(1), Date(date_end_day)-Day(1), step=Day(1))
     else
         year_step = 1
+        date_start_year_floor = Date(Dates.year(date_start))
         while length(dates) > 8
             year_step += 1
-            dates = range(date_start, date_end, step=Year(year_step))
+            dates = range(date_start_year_floor, date_end, step=Year(year_step))
         end
         dates_str = string.(year.(dates))
         if step(dates) == Year(1)
@@ -123,12 +125,3 @@ end
 
 concat_with_nan(mat) =
     reduce((row_A, row_B) -> [row_A; NaN; row_B], eachrow(mat), init=Float64[])
-
-# https://discourse.julialang.org/t/equivalent-of-matlabs-unwrap/44882/4?
-function unwrap!(x, period = 2π)
-	y = convert(eltype(x), period)
-	v = first(x)
-	@inbounds for k = eachindex(x)
-		x[k] = v = v + rem(x[k] - v,  y, RoundNearest)
-	end
-end
