@@ -19,6 +19,14 @@ Generate a plot of orbits drawn from the posterior `chain`. There are many optio
 `colormap`          : A symbol from ColorSchemes.jl, or a ColorScheme object. Eg. try  `:viridis`.
 `planet_rv`         : Applicable to `show_rv`. Show planets' absolute RV instead of star absolute RV.
 `figure`            : Plot into an existing Makie Figure object. Useful for customizing overall figure appearance.
+
+Note that the chain sample subset indices `ii` are not used for certain plots where it makes more sense to show all samples,
+including the HGCA scatter plots (`show_hgca`) and mass plot histograms (`show_mass`). If you want to control which samples
+are displayed in those plots, apply your filtering before passing the chain to `octoplot`:
+```julia
+chain_filtered = chain[vec(chain[:b_e]) .> 0.5,:,:]
+octoplot(model, chain_filtered)
+```
 """
 function Octofitter.octoplot(
     model::Octofitter.LogDensityModel,

@@ -377,6 +377,8 @@ function astromtimeplot!(
                     vec(projectedseparation.(sols));
                     color,
                     markersize=6,
+                    strokewidth=1,
+                    strokecolor=:black,
                     label = replace(string(mjd2date(epoch_mjd)), "T"=>" ") # TODO: better to use a format string
                 )
                 Makie.scatter!(
@@ -385,6 +387,8 @@ function astromtimeplot!(
                     vec(rad2deg.(rem2pi.(posangle.(sols),RoundDown)));
                     color,
                     markersize=6,
+                    strokewidth=1,
+                    strokecolor=:black,
                     label = replace(string(mjd2date(epoch_mjd)), "T"=>" ") # TODO: better to use a format string
                 )
             end

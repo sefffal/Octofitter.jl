@@ -26,7 +26,7 @@ function Octofitter.hgcaplot!(
     model::Octofitter.LogDensityModel,
     results::Chains;
     # If less than 500 samples, just show all of them
-    N=min(size(results, 1) * size(results, 3), 500),
+    # N=min(size(results, 1) * size(results, 3), 500),
     ts,
     # If showing all samples, include each sample once.
     # Otherwise, sample randomly with replacement
@@ -77,6 +77,7 @@ function Octofitter.hgcaplot!(
         ylabel=pmdec_label,
         autolimitaspect=1.0,
         title="H",
+        titlecolor=Makie.wong_colors()[1],
         xticklabelrotation=pi / 4,
         xgridvisible=false,
         ygridvisible=false,
@@ -87,6 +88,7 @@ function Octofitter.hgcaplot!(
         ylabel=pmdec_label,
         autolimitaspect=1.0,
         title="G-H",
+        titlecolor=Makie.wong_colors()[2],
         xticklabelrotation=pi / 4,
         xgridvisible=false,
         ygridvisible=false,
@@ -98,6 +100,7 @@ function Octofitter.hgcaplot!(
         ylabel=pmdec_label,
         autolimitaspect=1.0,
         title="G",
+        titlecolor=Makie.wong_colors()[3],
         xticklabelrotation=pi / 4,
         xgridvisible=false,
         ygridvisible=false,
@@ -300,9 +303,9 @@ function Octofitter.hgcaplot!(
     rowsize!(gs, 3, Aspect(3, 1.0))
 
     ## Model
-
-    θ_systems_from_chain = Octofitter.mcmcchain2result(model, results[ii])
-    for (θ_system, i) in zip(θ_systems_from_chain, ii)
+    ## Compute these for all results, not just `ii`
+    θ_systems_from_chain = Octofitter.mcmcchain2result(model, results)
+    for (θ_system, i) in zip(θ_systems_from_chain, 1:size(results,1)*size(results,3))
         orbits = map(keys(model.system.planets)) do planet_key
             Octofitter.construct_elements(results, planet_key, i)
         end
