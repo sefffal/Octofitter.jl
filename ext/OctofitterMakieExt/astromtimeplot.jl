@@ -38,6 +38,7 @@ function astromtimeplot!(
     colorbar=true,
     top_time_axis=true,
     bottom_time_axis=true,
+    mark_epochs_mjd=Float64[],
     kwargs...
 )
     gs = gridspec_or_fig
@@ -358,6 +359,38 @@ function astromtimeplot!(
                     markersize=4,
                 )
             end
+        end
+    end
+
+     # The user can ask us to plot the position at a particular date
+     if !isempty(mark_epochs_mjd)
+        i = 0
+        for epoch_mjd in mark_epochs_mjd
+            i += 1
+            for planet_key in keys(model.system.planets)
+                orbs = Octofitter.construct_elements(results, planet_key, ii)
+                color = Makie.wong_colors()[mod1(i,end)]
+                sols = orbitsolve.(orbs, epoch_mjd)
+                Makie.scatter!(
+                    ax_sep,
+                    fill(epoch_mjd, length(orbs)),
+                    vec(projectedseparation.(sols));
+                    color,
+                    markersize=6,
+                    label = replace(string(mjd2date(epoch_mjd)), "T"=>" ") # TODO: better to use a format string
+                )
+                Makie.scatter!(
+                    ax_pa,
+                    fill(epoch_mjd, length(orbs)),
+                    vec(rad2deg.(rem2pi.(posangle.(sols),RoundDown)));
+                    color,
+                    markersize=6,
+                    label = replace(string(mjd2date(epoch_mjd)), "T"=>" ") # TODO: better to use a format string
+                )
+            end
+        end
+        if colorbar
+            axislegend(ax_sep)
         end
     end
 

@@ -1,3 +1,25 @@
+"""
+
+    octoplot(model, chain; fname, ...)
+
+Generate a plot of orbits drawn from the posterior `chain`. There are many options described below.
+
+**Output Panels**
+`show_astrom`       : Plot relative RA and DEC of planets vs the primary. Only supported for `Visual` orbit types.
+`show_astrom_time`  : Plot relative separation and position angle of planets vs the primary. Only supported for `Visual` orbit types.
+`show_rv`           : Plot the absolute radial velocity of the primary. Lines are shifted vertically by RV zero-point to match data. 
+`show_relative_rv`  : Plot the relative radial velocity between planets and the primary. 
+`show_hgca`         : Plot instantaneous proper motion in R.A. and in Dec., and plot the time averaged HGCA quantities. Only supported for models including an `HGCALikelihood`.
+`show_mass`         : Plot a mini corner plot of mass 
+
+**Display Options**
+`N`                 : Controls how many orbits are sampled with replacement from the posterior. Default is 250. If there are less than 250 samples, just plot each one once (not sampled).
+`ii`                : A vector of posterior sample indices to plot (overrides N and the sampling described above)
+`mark_epochs_mjd`   : A vector dates in MJD format to mark on the astrometry plots.
+`colormap`          : A symbol from ColorSchemes.jl, or a ColorScheme object. Eg. try  `:viridis`.
+`planet_rv`         : Applicable to `show_rv`. Show planets' absolute RV instead of star absolute RV.
+`figure`            : Plot into an existing Makie Figure object. Useful for customizing overall figure appearance.
+"""
 function Octofitter.octoplot(
     model::Octofitter.LogDensityModel,
     results::Chains;
@@ -9,6 +31,7 @@ function Octofitter.octoplot(
     show_rv=nothing,
     planet_rv=nothing, # plot planet(s) absolute RV in addition to star
     show_relative_rv=nothing,
+    mark_epochs_mjd=Float64[],
     figure=(;),
     # If less than 500 samples, just show all of them
     N  = min(size(results, 1)*size(results, 3), 250),
@@ -189,7 +212,7 @@ function Octofitter.octoplot(
             width=500,
             height=400,
         )
-        Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap)
+        Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd)
         colorbar = false
     end
 
@@ -205,7 +228,7 @@ function Octofitter.octoplot(
             height=300,
         )
         bottom_time_axis = !(show_hgca || show_rv || show_relative_rv)
-        ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap)
+        ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, mark_epochs_mjd)
         top_time_axis = false
         append!(axes_to_link,ax)
     end

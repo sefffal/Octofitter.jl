@@ -35,6 +35,7 @@ function Octofitter.astromplot!(
     axis=(;),
     colormap=:plasma,
     colorbar=true,
+    mark_epochs_mjd=Float64[],
     kwargs...
 )
     gs = gridspec_or_fig
@@ -231,8 +232,9 @@ function Octofitter.astromplot!(
                 strokecolor=:black,
                 markersize=8,
             )
+        # If the model, instead/in addition to astrometry, includes one of the following 
+        # "position-like" observations, add scatter points at the posterior projected locatinos.
         elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :GRAVITYWideCPLikelihood)
-            # In this case, put scatter points from the posterior
             
             for planet_key in keys(model.system.planets)
                 orbs = Octofitter.construct_elements(results, planet_key, ii)
@@ -248,5 +250,28 @@ function Octofitter.astromplot!(
             end
         end
     end
+
+    # The user can ask us to plot the position at a particular date
+    if !isempty(mark_epochs_mjd)
+        i = 0
+        for epoch_mjd in mark_epochs_mjd
+            i += 1
+            for planet_key in keys(model.system.planets)
+                orbs = Octofitter.construct_elements(results, planet_key, ii)
+                color = Makie.wong_colors()[mod1(i,end)]
+                sols = orbitsolve.(orbs, epoch_mjd)
+                Makie.scatter!(
+                    ax,
+                    vec(raoff.(sols)),
+                    vec(decoff.(sols));
+                    color,
+                    markersize=6,
+                    label = replace(string(mjd2date(epoch_mjd)), "T"=>" ") # TODO: better to use a format string
+                )
+            end
+        end
+        axislegend(ax)
+    end
+
     scatter!(ax, [0],[0],marker='⭐', markersize=30, color=:black)
 end
