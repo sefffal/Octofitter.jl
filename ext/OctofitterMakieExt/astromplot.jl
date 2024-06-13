@@ -68,19 +68,6 @@ function Octofitter.astromplot!(
         end
     end
 
-    if colorbar 
-        Colorbar(
-            gs[1,2];
-            colormap,
-            label="mean anomaly →",
-            colorrange=(0,2pi),
-            ticks=(
-                [0,pi/2,pi,3pi/2,2pi],
-                ["0", "π/2", "π", "3π/2", "2π"]
-            )
-        )
-    end
-
     for planet_key in keys(model.system.planets)
         orbs = Octofitter.construct_elements(results, planet_key, ii)
 
@@ -254,8 +241,23 @@ function Octofitter.astromplot!(
     # The user can ask us to plot the position at a particular date
     if !isempty(mark_epochs_mjd)
         i = 0
-        for epoch_mjd in mark_epochs_mjd
-            i += 1
+        labels = map(mark_epochs_mjd) do epoch_mjd
+            replace(string(mjd2date(epoch_mjd)), "T"=>" ") # TODO: better to use a format string
+        end
+        # Find N last characers in common for all labels and chop them off.
+        local label_last_shared_index
+        for j in reverse(1:minimum(length.(labels)))
+            label_last_shared_index = j
+            if !all(s-> s∈(':', '0', ' '), getindex.(labels, j))
+                break
+            end
+        end
+        label_last_shared_index = max(10, label_last_shared_index)
+        labels = map(labels) do label
+            label[1:label_last_shared_index]
+        end
+        for i in eachindex(mark_epochs_mjd)
+            epoch_mjd = mark_epochs_mjd[i]
             for planet_key in keys(model.system.planets)
                 orbs = Octofitter.construct_elements(results, planet_key, ii)
                 color = Makie.wong_colors()[mod1(i,end)]
@@ -266,11 +268,26 @@ function Octofitter.astromplot!(
                     vec(decoff.(sols));
                     color,
                     markersize=6,
-                    label = replace(string(mjd2date(epoch_mjd)), "T"=>" ") # TODO: better to use a format string
+                    strokewidth=1,
+                    strokecolor=:black,
+                    label = labels[i]
                 )
             end
         end
-        axislegend(ax)
+        axislegend(ax, "Posterior Predictions")
+    end
+
+    if colorbar 
+        Colorbar(
+            gs[1,2];
+            colormap,
+            label="mean anomaly →",
+            colorrange=(0,2pi),
+            ticks=(
+                [0,pi/2,pi,3pi/2,2pi],
+                ["0", "π/2", "π", "3π/2", "2π"]
+            )
+        )
     end
 
     scatter!(ax, [0],[0],marker='⭐', markersize=30, color=:black)

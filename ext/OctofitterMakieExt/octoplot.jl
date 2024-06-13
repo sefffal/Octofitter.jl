@@ -124,12 +124,12 @@ function Octofitter.octoplot(
     # available, otherwise other data, otherwise arbitrary
     t_start = Inf
     t_stop = -Inf
+    if !isempty(mark_epochs_mjd)
+        t_start, t_stop = extrema(mark_epochs_mjd)
+    end
     for like_obj in model.system.observations
         if hasproperty(like_obj, :table) && hasproperty(like_obj.table, :epoch)
             t_start′, t_stop′ = extrema(like_obj.table.epoch,)
-            d = t_stop′ - t_start′
-            t_start′ -= 0.015d
-            t_stop′ += 0.015d
             if t_start′ < t_start
                 t_start = t_start′
             end
@@ -142,9 +142,6 @@ function Octofitter.octoplot(
         for like_obj in planet.observations
             if hasproperty(like_obj, :table) && hasproperty(like_obj.table, :epoch)
                 t_start′, t_stop′ = extrema(like_obj.table.epoch)
-                d = t_stop′ - t_start′
-                t_start′ -= 0.015d
-                t_stop′ += 0.015d
                 if t_start′ < t_start
                     t_start = t_start′
                 end
@@ -158,9 +155,6 @@ function Octofitter.octoplot(
     if show_hgca
         t_start′ = years2mjd(1990)
         t_stop′ = years2mjd(2020)
-        d = t_stop′ - t_start′
-        t_start′ -= 0.015d
-        t_stop′ += 0.015d
         if t_start′ < t_start
             t_start = t_start′
         end
@@ -172,6 +166,10 @@ function Octofitter.octoplot(
     if !isfinite(t_start) || !isfinite(t_stop)
         t_start = t_stop = mjd()
     end
+    # Put a little padding on either end
+    d = t_stop - t_start
+    t_start -= 0.015d
+    t_stop += 0.015d
     # Now make sure we are showing enough time for a typical period
     t_cur = t_stop-t_start
     if t_cur < med_period
