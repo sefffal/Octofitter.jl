@@ -46,6 +46,8 @@ orbits = Octofitter.construct_elements(chain, :b, ii)
 
 Calculate and plot the location the planet would be at each observation epoch:
 ```@example 1
+using CairoMakie 
+
 epochs = astrom_like.table.epoch' # transpose
 
 x = raoff.(orbits, epochs)[:]

@@ -79,5 +79,5 @@ octoplot(model, results_unif_pri)
 
 We can compare the results in a corner plot:
 ```@example 1
-octocorner(model,results,results_obspri,small=true)
+octocorner(model,results_unif_pri,results_obspri,small=true)
 ```

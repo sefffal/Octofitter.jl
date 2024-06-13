@@ -238,6 +238,7 @@ Lower than this and the sampler is taking steps that are too large and encounter
 
 Next, you can make a trace plot of different variabes to visually inspect the chain:
 ```@example 1
+using CairoMakie
 lines(
     chain["b_a"][:],
     axis=(;
@@ -250,6 +251,7 @@ lines(
 And an auto-correlation plot:
 ```@example 1
 using StatsBase
+using CairoMakie
 lines(
     autocor(chain["b_e"][:], 1:500),
     axis=(;
@@ -274,6 +276,7 @@ As an additional convergence test.
 As a first pass, let's plot a sample of orbits drawn from the posterior.
 The function `octoplot` is a conveninient way to generate a 9-panel plot of velocities and position:
 ```@example 1
+using CairoMakie
 octoplot(model,chain)
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
@@ -283,7 +286,7 @@ This function draws orbits from the posterior and displays them in a plot. Any a
 ### Pair Plot
 A very useful visualization of our results is a pair-plot, or corner plot. We can use the `octocorner` function and our PairPlots.jl package for this purpose:
 ```@example 1
-using CairoMakie: Makie
+using CairoMakie
 using PairPlots
 octocorner(model, chain, small=true)
 ```

@@ -12,7 +12,7 @@ Datasets from two different radial velocity insturments are included and modelle
 ```@example 1
 
 
-using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits
+using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, CairoMakie
 
 gaia_id = 5164707970261890560 
 
