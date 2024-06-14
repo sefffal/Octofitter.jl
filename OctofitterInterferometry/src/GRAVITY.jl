@@ -33,7 +33,7 @@ function GRAVITYWideCPLikelihood(observations...)
     # # Take some additional preparation steps per input-row.
     # rows_with_kernel_phases = map(eachrow(table)) do row′
     #     row = row′[1]
-        
+
     #     # Calculate the design matrix
     #     # TODO: replace hardcoded T with one calculated using cps_index1, 2, and 
     #     T = Int8[
@@ -79,7 +79,7 @@ function GRAVITYWideCPLikelihood(observations...)
     #     # S₁ ./= S₁
     #     # # i_max = rank(Tλ)
     #     # P₁ = V₁[:, 1:i_max]'
-        
+
     #     # U₂, S₂, V₂ = svd(C_T3 * C_T3')
     #     # i_max = findfirst(<=(1e-5), S₂) - 1
     #     # U₂ .*= sqrt.(S₂)
@@ -128,10 +128,10 @@ function GRAVITYWideCPLikelihood(observations...)
     #     # return (; row..., Tλ, P₁, C_T3, #=C_kernphases,=# Σ_kernphases)#, distribution)
     # end
 
-     # Take some additional preparation steps per input-row.
-     rows_with_kernel_phases = map(eachrow(table)) do row′
+    # Take some additional preparation steps per input-row.
+    rows_with_kernel_phases = map(eachrow(table)) do row′
         row = row′[1]
-        
+
         # Calculate the design matrix
         # TODO: replace hardcoded T with one calculated using cps_index1, 2, and 
         T = Int8[
@@ -160,19 +160,39 @@ function GRAVITYWideCPLikelihood(observations...)
         CT3_y = hasproperty(row, :CT3_y) ? float(row.CT3_y) : zero(Float64)
         C_T3 = CT3(row, CT3_y)
 
-        # Best version: ΣT3 basis so that it's diagonal
+        # # Best version: ΣT3 basis so that it's diagonal
+        # σ_cp = row.dcps
+        # Σ_T3 = C_T3 .* vec(σ_cp) .* vec(σ_cp)'
+        # U₁, S₁, V₁ = svd(Σ_T3 * Σ_T3')
+        # # U₁, S₁, V₁ = svd(Tλ * Tλ')
+        # i_max = findfirst(<=(1e-5), S₁) - 1
+        # U₁ .*= sqrt.(S₁)
+        # V₁ .*= sqrt.(S₁')
+        # S₁ ./= S₁
+        # P₁ = V₁[:, 1:i_max]'
+        # Σ_kernphases = P₁ * Σ_T3 * P₁'
+        # distribution = MvNormal(Diagonal(diag(Σ_kernphases)))
+        # # distribution = MvNormal(Hermitian(Σ_kernphases))
+
+        # Experiment with cholskey decomp
+        # 
         σ_cp = row.dcps
         Σ_T3 = C_T3 .* vec(σ_cp) .* vec(σ_cp)'
-        U₁, S₁, V₁ = svd(Σ_T3 * Σ_T3')
-        # U₁, S₁, V₁ = svd(Tλ * Tλ')
-        i_max = findfirst(<=(1e-5), S₁) - 1
-        U₁ .*= sqrt.(S₁)
-        V₁ .*= sqrt.(S₁')
-        S₁ ./= S₁
-        P₁ = V₁[:, 1:i_max]'
+        C, U=cholesky(Tλ*Tλ')
+        P₁ = collect(C) ./ sqrt.(diag(C*C'))
+        i_max = findfirst(<=(1e-5), diag(P₁))-1
+        P₁ = P₁[:,1:i_max]'
+
+        # # U₁, S₁, V₁ = svd(Σ_T3 * Σ_T3')
+        # # U₁, S₁, V₁ = svd(Tλ * Tλ')
+        # i_max = findfirst(<=(1e-5), S₁) - 1
+        # U₁ .*= sqrt.(S₁)
+        # V₁ .*= sqrt.(S₁')
+        # S₁ ./= S₁
+        # P₁ = V₁[:, 1:i_max]'
         Σ_kernphases = P₁ * Σ_T3 * P₁'
-        distribution = MvNormal(Diagonal(diag(Σ_kernphases)))
-        # distribution = MvNormal(Hermitian(Σ_kernphases))
+        # distribution = MvNormal(Diagonal(diag(Σ_kernphases)))
+        distribution = MvNormal(Hermitian(Σ_kernphases))
 
         return (; row..., Tλ, P₁, C_T3, distribution, Σ_kernphases)
     end
@@ -231,7 +251,7 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
 
     # Add an extra optional uncertainty
     # in quadrature
-    cp_C_y = hasproperty(θ_system, :cp_C_y) ? θ_system.cp_C_y : zero(T)
+    # cp_C_y = hasproperty(θ_system, :cp_C_y) ? θ_system.cp_C_y : zero(T)
 
 
     # Loop through epochs
@@ -266,7 +286,8 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
         cp_resids = zeros(T, Len) # Fill this in a moment
 
         # Loop through wavelengths
-        Threads.@threads for i_wave in axes(vis.table.u[i_epoch], 2)
+        # The following is NOT threadsafe. DON'T multithread it!
+        for i_wave in axes(vis.table.u[i_epoch], 2)
             u = @views vis.table.u[i_epoch][:, i_wave]
             v = @views vis.table.v[i_epoch][:, i_wave]
             cps_data = @views vis.table.cps_data[i_epoch][:, i_wave]
@@ -294,29 +315,33 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
             end
             cvis_model .+= 1.0 # add contribution from the primary primary
             cvis_model .*= 1.0 / (1.0 + norm_factor_model)
+
             # Compute closure phases
             closurephase!(cps_model; vis=cvis_model, index_cps1, index_cps2, index_cps3)
 
             for i_T3 in eachindex(σ_cp, cps_data, cps_model)
                 cp_resids[(i_T3-1)*Λ+i_wave] = cps_data[i_T3] - cps_model[i_T3]
+                # if !isfinite(cp_resids[(i_T3-1)*Λ+i_wave] )
+                #     @warn "non finite CP calculated"  cps_data[i_T3] cps_model[i_T3]
+                # end
             end
         end
         # Done calculating the residuals for this epoch
 
-        ## CP Only:
+        # # CP Only:
         # σ_cp = vec(vis.table[i_epoch].dcps) #sqrt.(σ_cp_jitter .^ 2 .+ vec(vis.table[i_epoch].dcps) .^ 2)
         # distribution = MvNormal(Diagonal(σ_cp))
         # ll += logpdf(distribution, cp_resids)
 
         ## Diagonalized covariance Kernphases
 
-        # if hasproperty(vis.table, :jitter)
-        #     kp_jitter_relative_name =  vis.table.jitter[i_epoch]
-        #     kp_jitter_relative = convert(T, getproperty(θ_system, kp_jitter_relative_name))
-        #     kp_jitter_relative = max(eps(),kp_jitter_relative)
-        # else
-        #     kp_jitter_relative = zero(T)
-        # end
+        if hasproperty(vis.table, :jitter)
+            kp_jitter_name =  vis.table.jitter[i_epoch]
+            kp_jitter = convert(T, getproperty(θ_system, kp_jitter_name))
+            kp_jitter = max(eps(),kp_jitter)
+        else
+            kp_jitter = zero(T)
+        end
         # P₁ = vis.table.P₁[i_epoch]
         # kernphase_resids = P₁ * vec(cp_resids)
         # # Σ_kernphases = vis.table[i_epoch].Σ_kernphases #sqrt.(cp_jitter_relative .^ 2 .+ vis.table[i_epoch].Σ_kernphases .^ 2)
@@ -331,14 +356,22 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
         #     rethrow(err)
         # end
         # ll += logpdf(distribution, kernphase_resids)
-        
 
-        ## General, prepared residuals
+
+        # ## General, prepared residuals
+        # P₁ = vis.table.P₁[i_epoch]
+        # kernphase_resids = P₁ * vec(cp_resids)
+        # distribution = vis.table[i_epoch].distribution
+        # ll += logpdf(distribution, kernphase_resids)
+
+        σ_kp = kp_jitter
         P₁ = vis.table.P₁[i_epoch]
         kernphase_resids = P₁ * vec(cp_resids)
         distribution = vis.table[i_epoch].distribution
-        ll += logpdf(distribution, kernphase_resids)
-        
+        Σ_kernphases = vis.table[i_epoch].Σ_kernphases
+        dist = MvNormal(Hermitian(Σ_kernphases .+ Diagonal(fill(σ_kp,size(Σ_kernphases,1)))))
+        ll += logpdf(dist,kernphase_resids)
+
 
 
         # ## Kern-phases
@@ -349,7 +382,7 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
         # C_T3 = vis.table[i_epoch].C_T3
         # # # Convert our variables etc into kernel phases too
         # C_kernphases = P₁ * C_T3 * P₁'
-        
+
         #  # C_kernphases = vis.table.C_kernphases[i_epoch] 
         # kernphase_resids = P₁ * vec(cp_resids')
         # σ_kernphases = P₁ * vec(σ_cp')
@@ -359,7 +392,6 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
         # distribution = MvNormal(Hermitian(Σ_kernphases))
         # ll += logpdf(distribution, kernphase_resids)
     end
-
 
     return ll
 end
