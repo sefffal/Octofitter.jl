@@ -185,7 +185,7 @@ function Octofitter.octoplot(
         t_start -= t_extend/2
         t_stop += t_extend/2
     end
-    ts = range(t_start, t_stop, step=min_period / 150)
+    ts = range(t_start, t_stop, step=min_period / 30)
 
     if show_hgca
         # Make sure we include the approx. data epochs
