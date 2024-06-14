@@ -587,9 +587,17 @@ function make_ln_prior_transformed(system::System)
         # prior_unconstrained = Bijectors.transformed(prior_distribution)
         ex = :(
             p = $logpdf_with_trans($prior_distribution, arr[$i], true);
-            # if !isfinite(p)
-            #     println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", true)=", p)
-            # end;
+            # Try and "heal" out of bounds values.
+            # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
+            # precision. 
+            if !isfinite(p)
+                # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", true)=", p)
+                if sign(p) > 1
+                    return prevfloat(typemax(eltype(arr)))
+                else
+                    return nextfloat(typemin(eltype(arr)))
+                end
+            end;
             lp += p
         )
         push!(prior_evaluations,ex)
@@ -603,9 +611,17 @@ function make_ln_prior_transformed(system::System)
             # prior_distribution = Bijectors.transformed(prior_distribution)
             ex = :(
                 p = $logpdf_with_trans($prior_distribution, arr[$i], true);
-                # if !isfinite(p)
-                #     println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", true)=", p)
-                # end;
+                # Try and "heal" out of bounds values.
+                # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
+                # precision. 
+                if !isfinite(p)
+                    # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", true)=", p)
+                    if sign(p) > 1
+                        return prevfloat(typemax(eltype(arr)))
+                    else
+                        return nextfloat(typemin(eltype(arr)))
+                    end
+                end;
                 lp += p
                 )
             push!(prior_evaluations,ex)
