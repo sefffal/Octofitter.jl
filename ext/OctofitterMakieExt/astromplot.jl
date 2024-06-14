@@ -274,7 +274,7 @@ function Octofitter.astromplot!(
                 )
             end
         end
-        axislegend(ax, "Posterior Predictions")
+        axislegend(ax, "Posterior Predictions", position=:lt)
     end
 
     if colorbar 
