@@ -138,24 +138,16 @@ function Octofitter.octoplot(
     for like_obj in model.system.observations
         if hasproperty(like_obj, :table) && hasproperty(like_obj.table, :epoch)
             t_start′, t_stop′ = extrema(like_obj.table.epoch,)
-            if t_start′ < t_start
-                t_start = t_start′
-            end
-            if t_stop′ > t_stop
-                t_stop = t_stop′
-            end
+            t_start = min(t_start′, t_start)
+            t_stop = max(t_stop′, t_stop)
         end
     end
     for planet in model.system.planets
         for like_obj in planet.observations
             if hasproperty(like_obj, :table) && hasproperty(like_obj.table, :epoch)
                 t_start′, t_stop′ = extrema(like_obj.table.epoch)
-                if t_start′ < t_start
-                    t_start = t_start′
-                end
-                if t_stop′ > t_stop
-                    t_stop = t_stop′
-                end
+                t_start = min(t_start′, t_start)
+                t_stop = max(t_stop′, t_stop)
             end
         end
     end
@@ -163,12 +155,8 @@ function Octofitter.octoplot(
     if show_hgca
         t_start′ = years2mjd(1990)
         t_stop′ = years2mjd(2020)
-        if t_start′ < t_start
-            t_start = t_start′
-        end
-        if t_stop′ > t_stop
-            t_stop = t_stop′
-        end
+        t_start = min(t_start′, t_start)
+        t_stop = max(t_stop′, t_stop)
     end
     # If no data use current date as midpoint
     if !isfinite(t_start) || !isfinite(t_stop)
@@ -188,16 +176,16 @@ function Octofitter.octoplot(
     ts = range(t_start, t_stop, step=min_period / 30)
 
     if show_hgca
-        # Make sure we include the approx. data epochs
+        # Make sure we include the approx. data epochs of the HGCA
         ts = sort([ts; years2mjd(1990.25); years2mjd((1990.25 + 2016) / 2); years2mjd(2016)])
-        # Find earliest epoch
-        # epoch_0 = years2mjd(1991.25)
     end
 
-    if length(ts) > 1500
+    # TODO: could have a dense grid of Time to allow different resolutions per orbit.
+    # then could step in eccanom.
+    if length(ts) > 1000
         # Things can get very slow if we have some very short period 
-        # solutions
-        ts = range(t_start, t_stop, length=1500)
+        # solutions. Limit the maximum number of points per orbit.
+        ts = range(t_start, t_stop, length=1000)
     end
     
 

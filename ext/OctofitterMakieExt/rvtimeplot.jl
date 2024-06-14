@@ -282,6 +282,7 @@ function rvtimeplot_relative!(
         (1:size(results, 1)*size(results, 3)) :
         rand(1:size(results, 1)*size(results, 3),N)
     ),
+    ts,
     axis=(;),
     colormap=:plasma,
     colorbar=true,
@@ -291,56 +292,7 @@ function rvtimeplot_relative!(
 )
     gs = gridspec_or_fig
 
-    # Find the minimum time step size
-    periods = Float64[]
-    for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, :)
-        append!(periods, period.(orbs))
-    end
-    min_period = minimum(periods)
-    med_period = quantile(periods, 0.35)
-
-    # Always try and show at least one full period
-    # decide t_start and t_end based on epochs of data if astrometry 
-    # available, otherwise other data, otherwise arbitrary
-    t_start = t_stop = mjd()
-    for like_obj in model.system.observations
-        if hasproperty(like_obj, :table) && hasproperty(like_obj.table, :epoch)
-            t_start, t_stop = extrema(like_obj.table.epoch,)
-            d = t_stop - t_start
-            t_start -= 0.015d
-            t_stop += 0.015d
-        end
-    end
-    for planet in model.system.planets
-        for like_obj in planet.observations
-            if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
-                t_start, t_stop = extrema(like_obj.table.epoch)
-                d = t_stop - t_start
-                t_start -= 0.015d
-                t_stop += 0.015d
-                break
-            end
-            if hasproperty(like_obj, :table) && hasproperty(like_obj.table, :epoch)
-                t_start, t_stop = extrema(like_obj.table.epoch)
-                d = t_stop - t_start
-                t_start -= 0.015d
-                t_stop += 0.015d
-            end
-        end
-    end
-    t_cur = t_stop-t_start
-    if t_cur < med_period
-        t_extend = med_period - t_cur
-        t_start -= t_extend/2
-        t_stop += t_extend/2
-    end
-    ts = range(t_start, t_stop, step=min_period / 150)
-    if length(ts) > 1500
-        # Things can get very slow if we have some very short period 
-        # solutions
-        ts = range(t_start, t_stop, length=1500)
-    end
+   
 
     date_pos, date_strs, xminorticks = _date_ticks(ts)
     ax= Axis(
@@ -409,8 +361,7 @@ function rvtimeplot_relative!(
             σ_rv = vec(like_obj.table.σ_rv)
             inst_idx = vec(like_obj.table.inst_idx)
             if any(!=(1), inst_idx)
-                @warn "instidx != 1 data plotting not yet implemented"
-                continue
+                @warn "instidx != 1 data plotting not yet implemented. Only the first data from the insturment will be displayed."
             end
             jitter = results["$(planet_key)_jitter_1"]
             σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
