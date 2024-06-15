@@ -112,18 +112,8 @@ end b c
 model = Octofitter.LogDensityModel(HR8799_res_co)
 ```
 
-We will run a "quick fit" to check that the model is properly
-specified. This is only an approximate posterior generated using 
-a variation inference-style method.
-```@example 1 
-using Random
-rng = Random.Xoshiro(1) # optional for reproducbility
-results_quick = octoquick(rng, model)
-octoplot(model, results_quick)
-```
 
-
-Looks okay! Let's now properly sample from the model:
+Let's now sample from the model:
 ```@example 1
 using Random
 rng = Xoshiro(0) # seed the random number generator for reproducible results
