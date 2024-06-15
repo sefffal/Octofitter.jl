@@ -71,8 +71,8 @@ results = octofit(rng, model)</code></pre><pre class="documenter-example-output"
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 5.14 seconds
-Compute duration  = 5.14 seconds
+Wall duration     = 4.75 seconds
+Compute duration  = 4.75 seconds
 parameters        = M, jitter_1, rv0_1, plx, b_e, b_a, b_mass, b_i, b_Ωy, b_Ωx, b_ωy, b_ωx, b_θy, b_θx, b_Ω, b_ω, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -80,46 +80,46 @@ Summary Statistics
  <span class="sgr1"> parameters         mean        std      mcse    ess_bulk   ess_tail      rha ⋯
  <span class="sgr90">     Symbol      Float64    Float64   Float64     Float64    Float64   Float6 ⋯
 
-           M       0.9981     0.0282    0.0009    997.5207   654.4965    1.000 ⋯
-    jitter_1       0.7646     0.6092    0.0203    694.0787   341.5338    1.000 ⋯
-       rv0_1       6.7150     0.9449    0.0298    999.9091   715.2958    0.999 ⋯
+           M       0.9999     0.0292    0.0010    785.7538   480.0167    1.000 ⋯
+    jitter_1       0.7912     0.5868    0.0164    901.8288   487.6043    1.001 ⋯
+       rv0_1       6.7626     0.9467    0.0405    555.8480   549.3671    0.999 ⋯
          plx     100.0000     0.0000       NaN         NaN        NaN       Na ⋯
-         b_e       0.7028     0.0126    0.0005    625.0159   452.4845    1.001 ⋯
-         b_a       0.9994     0.0110    0.0004    880.8351   690.8798    0.999 ⋯
-      b_mass       1.0796     0.0985    0.0045    504.3115   403.7274    0.999 ⋯
-         b_i       0.7715     0.0598    0.0027    510.5406   546.7528    0.999 ⋯
-        b_Ωy       0.9951     0.0985    0.0033    943.4135   580.3024    1.001 ⋯
-        b_Ωx       0.1045     0.0530    0.0020    690.7528   734.5371    0.999 ⋯
-        b_ωy       0.7123     0.0918    0.0030    929.4787   614.8753    1.003 ⋯
-        b_ωx       0.6977     0.0951    0.0042    535.4695   410.0273    0.999 ⋯
-        b_θy       0.7584     0.0797    0.0026    959.3856   742.0334    1.000 ⋯
-        b_θx       0.6547     0.0699    0.0022   1023.3964   720.1504    1.000 ⋯
-         b_Ω       0.1046     0.0519    0.0019    715.7938   670.2794    1.000 ⋯
-         b_ω       0.7747     0.0882    0.0034    659.2259   567.3667    1.001 ⋯
-         b_θ       0.7122     0.0302    0.0010    849.9777   754.2835    1.002 ⋯
-        b_tp   58652.9669   182.1944    6.8625    735.7476   881.3880    1.000 ⋯
+         b_e       0.7028     0.0135    0.0005    732.1189   680.0086    1.002 ⋯
+         b_a       0.9995     0.0115    0.0004    700.9839   560.3749    0.999 ⋯
+      b_mass       1.0786     0.1071    0.0042    679.5368   522.9171    1.003 ⋯
+         b_i       0.7720     0.0651    0.0027    623.9378   421.6864    1.001 ⋯
+        b_Ωy       1.0045     0.0987    0.0039    657.1127   608.4801    0.999 ⋯
+        b_Ωx       0.1057     0.0582    0.0023    632.9678   619.7583    1.006 ⋯
+        b_ωy       0.7145     0.0969    0.0038    659.7751   497.7267    0.999 ⋯
+        b_ωx       0.6961     0.0979    0.0036    733.4854   629.9088    1.001 ⋯
+        b_θy       0.7623     0.0747    0.0024   1014.4876   528.4769    0.999 ⋯
+        b_θx       0.6575     0.0668    0.0021   1085.3257   787.6426    0.999 ⋯
+         b_Ω       0.1051     0.0568    0.0022    663.9083   675.2338    1.005 ⋯
+         b_ω       0.7722     0.0929    0.0037    650.3109   715.3534    1.003 ⋯
+         b_θ       0.7117     0.0315    0.0010   1016.2578   763.9165    1.000 ⋯
+        b_tp   58658.8881   182.4131    6.4223    703.4303   689.3369    0.999 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       0.9402       0.9793       0.9971       1.0184       1.0520
-    jitter_1       0.0226       0.3111       0.6285       1.0787       2.2886
-       rv0_1       4.8896       6.0500       6.7378       7.3272       8.5260
+           M       0.9435       0.9808       1.0000       1.0202       1.0559
+    jitter_1       0.0395       0.3310       0.6774       1.1459       2.1501
+       rv0_1       5.0059       6.1440       6.7173       7.3722       8.8020
          plx     100.0000     100.0000     100.0000     100.0000     100.0000
-         b_e       0.6776       0.6947       0.7039       0.7116       0.7256
-         b_a       0.9773       0.9920       0.9990       1.0072       1.0214
-      b_mass       0.9000       1.0131       1.0720       1.1413       1.2853
-         b_i       0.6403       0.7359       0.7757       0.8131       0.8843
-        b_Ωy       0.8144       0.9243       0.9906       1.0644       1.1924
-        b_Ωx       0.0034       0.0688       0.1038       0.1380       0.2124
-        b_ωy       0.5433       0.6527       0.7037       0.7718       0.8990
-        b_ωx       0.5216       0.6300       0.6936       0.7633       0.8897
-        b_θy       0.6079       0.7015       0.7565       0.8121       0.9140
-        b_θx       0.5248       0.6049       0.6537       0.7008       0.7982
-         b_Ω       0.0038       0.0691       0.1045       0.1383       0.2109
-         b_ω       0.5946       0.7152       0.7772       0.8324       0.9452
-         b_θ       0.6505       0.6913       0.7137       0.7321       0.7701
-        b_tp   58478.8643   58483.2936   58488.1210   58848.7243   58848.9731
-</span></span></code></pre><p>Display results as a corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="299cddbe.png" alt="Example block output"/><p>Plot RV curve, phase folded curve, and binned residuals:</p><pre><code class="language-julia hljs">OctofitterRadialVelocity.rvpostplot(model, results,)</code></pre><img src="fd989f78.png" alt="Example block output"/><p>Display RV, PMA, astrometry, relative separation, position angle, and 3D projected views:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="0c024d81.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« Fit RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../fit-coplanar/">Fit Resonant Co-Planar Model »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.4.1 on <span class="colophon-date" title="Thursday 13 June 2024 18:48">Thursday 13 June 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+         b_e       0.6736       0.6947       0.7034       0.7127       0.7266
+         b_a       0.9770       0.9916       0.9998       1.0077       1.0216
+      b_mass       0.8779       1.0081       1.0734       1.1392       1.3180
+         b_i       0.6359       0.7322       0.7753       0.8171       0.8923
+        b_Ωy       0.8266       0.9339       1.0021       1.0644       1.2073
+        b_Ωx      -0.0074       0.0687       0.1056       0.1440       0.2219
+        b_ωy       0.5464       0.6475       0.7128       0.7760       0.9088
+        b_ωx       0.5118       0.6273       0.6951       0.7624       0.8993
+        b_θy       0.6274       0.7111       0.7579       0.8108       0.9192
+        b_θx       0.5328       0.6109       0.6563       0.6974       0.7939
+         b_Ω      -0.0072       0.0696       0.1066       0.1406       0.2193
+         b_ω       0.5887       0.7131       0.7718       0.8355       0.9492
+         b_θ       0.6487       0.6910       0.7126       0.7339       0.7721
+        b_tp   58479.3095   58483.2914   58488.9251   58848.7104   58848.9716
+</span></span></code></pre><p>Display results as a corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="d80aa983.png" alt="Example block output"/><p>Plot RV curve, phase folded curve, and binned residuals:</p><pre><code class="language-julia hljs">OctofitterRadialVelocity.rvpostplot(model, results,)</code></pre><img src="b53c0f2e.png" alt="Example block output"/><p>Display RV, PMA, astrometry, relative separation, position angle, and 3D projected views:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="6c96bb3c.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« Fit RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../fit-coplanar/">Fit Resonant Co-Planar Model »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.4.1 on <span class="colophon-date" title="Saturday 15 June 2024 05:30">Saturday 15 June 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
