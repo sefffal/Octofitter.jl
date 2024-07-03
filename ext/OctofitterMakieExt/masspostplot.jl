@@ -88,7 +88,7 @@ function Octofitter.masspostplot!(
         label = margin_confidence_default_formatter(mid-low,mid,high-mid)
         push!(
             cred_intervals,
-            Makie.latexstring("$(planet_key)_mass = "*label)
+            Makie.latexstring("$(planet_key)_{mass} = "*label)
         )
     end
     if !isempty(cred_intervals)

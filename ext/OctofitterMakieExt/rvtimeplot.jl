@@ -92,6 +92,7 @@ function rvtimeplot!(
 
         # Draws from the posterior
         M_planet = results["$(planet_key)_mass"][ii] .* Octofitter.mjup2msol
+        # M_planet = (results["$(planet_key)_mass"][ii].*0 .+ 10) .* Octofitter.mjup2msol
         M_tot = results["M"][ii]
         M_star = M_tot - M_planet
 
@@ -104,14 +105,16 @@ function rvtimeplot!(
         color_model_t .= rem2pi.(
             meananom.(sols), RoundDown) .+ 0 .* ii
 
-
         ### Planet RV
-        # TODO: WIP support for planet absolute RV
         if planet_rv
 
-            rv_planet_model_t = radvel.(sols) .* M_star ./ M_tot
-            # color_planet_model_t = rem2pi.(
-            #     meananom.(sols), RoundDown) .+ 0 .* ii
+            # rv_star = -radvel(planet_orbit, epochs[epoch_i])*planet_mass*Octofitter.mjup2msol/M_tot
+            # rv_planet_vs_star = radvel(planet_orbit, epochs[epoch_i])
+            # rv_planet = rv_star + rv_planet_vs_star
+            # rv_planet_buf[epoch_i] -= rv_planet
+            # rv_planet_model_t = radvel.(sols) .* M_star ./ M_tot
+            
+            rv_planet_model_t = rv_star_model_t  .+ radvel.(sols)
 
             if haskey(results, Symbol("$(planet_key)_rv0_1"))
                 rv0s = []
@@ -149,7 +152,7 @@ function rvtimeplot!(
             end
         end
         ave_rv0 = mean(stack(rv0s),dims=2)
-        rv_star_model_t .-= ave_rv0
+        rv_star_model_t .+= ave_rv0
     end
     lines!(ax,
         concat_with_nan(ts' .+ 0 .* rv_star_model_t),
@@ -169,36 +172,36 @@ function rvtimeplot!(
     # Now overplot the data points, if any.
     # We can do this for relative RV since there is no zero point offset
     # TODO: WIP support for planet absolute RV
-    # for (i_planet, planet_key) in enumerate(keys(model.system.planets))
-    #     planet = getproperty(model.system.planets, planet_key)
-    #     for like_obj in planet.observations
-    #         if nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
-    #             continue
-    #         end
-    #         epoch = vec(like_obj.table.epoch)
-    #         rv = vec(like_obj.table.rv)
-    #         σ_rv = vec(like_obj.table.σ_rv)
-    #         inst_idx = vec(like_obj.table.inst_idx)
-    #         if any(!=(1), inst_idx)
-    #             @warn "instidx != 1 data plotting not yet implemented"
-    #             continue
-    #         end
-    #         jitter = results["$(planet_key)_jitter_1"]
-    #         σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
-    #         Makie.errorbars!(
-    #             ax, epoch, rv, σ_tot;
-    #             color=Makie.wong_colors()[1+i_planet],
-    #             linewidth=3,
-    #         )
-    #         Makie.scatter!(
-    #             ax, epoch, rv;
-    #             color=Makie.wong_colors()[1+i_planet],
-    #             strokewidth=0.5,
-    #             strokecolor=:black,
-    #             markersize=4,
-    #         )
-    #     end
-    # end
+    for (i_planet, planet_key) in enumerate(keys(model.system.planets))
+        planet = getproperty(model.system.planets, planet_key)
+        for like_obj in planet.observations
+            if nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
+                continue
+            end
+            epoch = vec(like_obj.table.epoch)
+            rv = vec(like_obj.table.rv)
+            σ_rv = vec(like_obj.table.σ_rv)
+            inst_idx = vec(like_obj.table.inst_idx)
+            if any(!=(1), inst_idx)
+                @warn "instidx != 1 data plotting not yet implemented"
+                continue
+            end
+            jitter = results["$(planet_key)_jitter_1"]
+            σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
+            Makie.errorbars!(
+                ax, epoch, rv, σ_tot;
+                color=Makie.wong_colors()[1+i_planet],
+                linewidth=3,
+            )
+            Makie.scatter!(
+                ax, epoch, rv;
+                color=Makie.wong_colors()[1+i_planet],
+                strokewidth=0.5,
+                strokecolor=:black,
+                markersize=4,
+            )
+        end
+    end
     for like_obj in model.system.observations
         if nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
             continue
@@ -292,7 +295,6 @@ function rvtimeplot_relative!(
 )
     gs = gridspec_or_fig
 
-   
 
     date_pos, date_strs, xminorticks = _date_ticks(ts)
     ax= Axis(
@@ -341,9 +343,9 @@ function rvtimeplot_relative!(
         lines!(
             ax,
             concat_with_nan(ts' .+ 0 .* ii),
-            concat_with_nan(rv_model_t),
+            concat_with_nan(rv_model_t);
             color=concat_with_nan(color_model_t),
-            colormap=:plasma,
+            colormap,
             alpha=min.(1, 100 / length(ii)),
         )
     end
@@ -363,7 +365,7 @@ function rvtimeplot_relative!(
             if any(!=(1), inst_idx)
                 @warn "instidx != 1 data plotting not yet implemented. Only the first data from the insturment will be displayed."
             end
-            jitter = results["$(planet_key)_jitter_1"]
+            jitter = results["$(planet_key)_jitter"]
             σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
             Makie.errorbars!(
                 ax, epoch, rv, σ_tot;

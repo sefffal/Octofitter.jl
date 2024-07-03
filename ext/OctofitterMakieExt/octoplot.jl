@@ -91,6 +91,7 @@ function Octofitter.octoplot(
         end
     end
 
+
     if isnothing(show_hgca)
         show_hgca = false
         for like_obj in model.system.observations
@@ -115,7 +116,7 @@ function Octofitter.octoplot(
         append!(periods, period.(orbs))
 
         for like_obj in model.system.planets[planet_key].observations
-            if isnothing(planet_rv) && nameof(typeof(like_obj)) == :PlanetAbsoluteRVLikelihood
+            if isnothing(planet_rv) && nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
                 planet_rv = true
             end
         end
