@@ -333,7 +333,7 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
         # distribution = MvNormal(Diagonal(σ_cp))
         # ll += logpdf(distribution, cp_resids)
 
-        ## Diagonalized covariance Kernphases
+        # ## Diagonalized covariance Kernphases
 
         if hasproperty(vis.table, :jitter)
             kp_jitter_name =  vis.table.jitter[i_epoch]
@@ -342,27 +342,6 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
         else
             kp_jitter = zero(T)
         end
-        # P₁ = vis.table.P₁[i_epoch]
-        # kernphase_resids = P₁ * vec(cp_resids)
-        # # Σ_kernphases = vis.table[i_epoch].Σ_kernphases #sqrt.(cp_jitter_relative .^ 2 .+ vis.table[i_epoch].Σ_kernphases .^ 2)
-        # Σ_kernphases = vis.table[i_epoch].Σ_kernphases# .+ Diagonal(diag(vis.table[i_epoch].Σ_kernphases)).*fill(kp_jitter_relative.^ 2, size(vis.table[i_epoch].Σ_kernphases,1))
-        # # distribution = MvNormal(Hermitian(Σ_kernphases))
-        # local distribution
-        # try
-        #     distribution = MvNormal(Diagonal(Σ_kernphases) .* (1 + kp_jitter_relative))
-        # catch err
-        #     display(err)
-        #     @show σ_kp_jitter
-        #     rethrow(err)
-        # end
-        # ll += logpdf(distribution, kernphase_resids)
-
-
-        # ## General, prepared residuals
-        # P₁ = vis.table.P₁[i_epoch]
-        # kernphase_resids = P₁ * vec(cp_resids)
-        # distribution = vis.table[i_epoch].distribution
-        # ll += logpdf(distribution, kernphase_resids)
 
         σ_kp = kp_jitter
         P₁ = vis.table.P₁[i_epoch]
@@ -371,27 +350,8 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
         Σ_kernphases = vis.table[i_epoch].Σ_kernphases
         dist = MvNormal(Hermitian(Σ_kernphases .+ Diagonal(fill(σ_kp,size(Σ_kernphases,1)))))
         ll += logpdf(dist,kernphase_resids)
-
-
-
-        # ## Kern-phases
-        # σ_cp = vis.table[i_epoch].dcps #sqrt.(σ_cp_jitter .^ 2 .+ vec(vis.table[i_epoch].dcps) .^ 2)
-        # P₁ = vis.table.P₁[i_epoch]
-        # # construct T3 correlation matrix from Jens's paper
-        # # C_T3 = CT3(vis.table[i_epoch], cp_C_y);
-        # C_T3 = vis.table[i_epoch].C_T3
-        # # # Convert our variables etc into kernel phases too
-        # C_kernphases = P₁ * C_T3 * P₁'
-
-        #  # C_kernphases = vis.table.C_kernphases[i_epoch] 
-        # kernphase_resids = P₁ * vec(cp_resids')
-        # σ_kernphases = P₁ * vec(σ_cp')
-        # Σ_kernphases = C_kernphases .* vec(σ_kernphases) .* vec(σ_kernphases)'
-        # # # The matrix may not be Hermitian due to numerical errors
-        # # # The Hermitian wrapper ensures these checks are bypassed
-        # distribution = MvNormal(Hermitian(Σ_kernphases))
-        # ll += logpdf(distribution, kernphase_resids)
     end
+
 
     return ll
 end
