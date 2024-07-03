@@ -30,104 +30,6 @@ function GRAVITYWideCPLikelihood(observations...)
         error("Expected columns $vis_cols")
     end
 
-    # # Take some additional preparation steps per input-row.
-    # rows_with_kernel_phases = map(eachrow(table)) do row′
-    #     row = row′[1]
-
-    #     # Calculate the design matrix
-    #     # TODO: replace hardcoded T with one calculated using cps_index1, 2, and 
-    #     T = Int8[
-    #         1 -1 0 1 0 0
-    #         1 0 -1 0 1 0
-    #         0 1 -1 0 0 1
-    #         0 0 0 1 -1 1
-    #     ]
-
-    #     # We now generate a unified design matrix that works with all wavelengths.
-    #     # Later, this will allow us to easily deal with correlations between both CPs & wavelengths.
-    #     Λ = length(row.eff_wave)
-    #     Tλ = zeros(Int8, Λ * size(T, 1), Λ * size(T, 2))
-
-    #     # We now replicate our deign matrix T across wavelengths.
-    #     # We will put each wavelength together, grouped by baseline.
-
-    #     for baseline_i in axes(T, 1), baseline_j in axes(T, 2)
-    #         for wavelength_i in 1:Λ
-    #             Tλ[wavelength_i+(baseline_i-1)*Λ, wavelength_i+(baseline_j-1)*Λ] = T[baseline_i, baseline_j]
-    #         end
-    #     end
-
-    #     # Now we move to kernel phases: these are an orthonormal basis spanned by the closure phases (which
-    #     # have some linear dependence due to reuse of baselines)
-    #     # U₁, S₁, V₁ = svd(Tλ * Tλ')
-    #     # i_max = findfirst(<=(1e-5), S₁) - 1
-    #     # U₁ .*= sqrt.(S₁)
-    #     # V₁ .*= sqrt.(S₁')
-    #     # # S₁ ./= S₁
-    #     # # i_max = rank(Tλ)
-    #     # P₁ = V₁[:, 1:i_max]'
-
-    #     # We calculate the closure phase correlation matrix and 
-    #     # # transformed kernel phase correlation matrix
-    #     CT3_y = hasproperty(row, :CT3_y) ? row.CT3_y : zero(Float64)
-    #     C_T3 = CT3(row, CT3_y)
-
-    #     # U₁, S₁, V₁ = svd(C_T3 * C_T3')
-    #     # i_max = findfirst(<=(1e-5), S₁) - 1
-    #     # U₁ .*= sqrt.(S₁)
-    #     # V₁ .*= sqrt.(S₁')
-    #     # S₁ ./= S₁
-    #     # # i_max = rank(Tλ)
-    #     # P₁ = V₁[:, 1:i_max]'
-
-    #     # U₂, S₂, V₂ = svd(C_T3 * C_T3')
-    #     # i_max = findfirst(<=(1e-5), S₂) - 1
-    #     # U₂ .*= sqrt.(S₂)
-    #     # V₂ .*= sqrt.(S₂')
-    #     # S₂ ./= S₂
-    #     # P₁ = V₂[:, 1:i_max]
-
-    #     # σ_cp = row.dcps
-    #     # Σ_T3 = C_T3 .* vec(σ_cp) .* vec(σ_cp)'
-    #     # Σ_kernphases = P₁ * Σ_T3 * P₁'
-    #     # # σ_kp = P₁ * vec(σ_cp) #.* S₁[1:i_max]
-    #     # # Σ_kernphases = (P₁ * C_T3 * P₁') .* vec(σ_kp) .* vec(σ_kp)'
-    #     # distribution = MvNormal(Hermitian(Σ_kernphases))
-
-    #     # Best version: ΣT3 basis so that it's diagonal
-    #     σ_cp = row.dcps
-    #     Σ_T3 = C_T3 .* vec(σ_cp) .* vec(σ_cp)'
-    #     U₁, S₁, V₁ = svd(Σ_T3 * Σ_T3')
-    #     i_max = findfirst(<=(1e-5), S₁) - 1
-    #     U₁ .*= sqrt.(S₁)
-    #     V₁ .*= sqrt.(S₁')
-    #     S₁ ./= S₁
-    #     # i_max = rank(Tλ)
-    #     P₁ = V₁[:, 1:i_max]'
-    #     Σ_kernphases = P₁ * Σ_T3 * P₁'
-    #     # σ_kp = P₁ * vec(σ_cp) #.* S₁[1:i_max]
-    #     # Σ_kernphases = (P₁ * C_T3 * P₁') .* vec(σ_kp) .* vec(σ_kp)'
-    #     distribution = MvNormal(Diagonal(Σ_kernphases))
-
-    #     return (; row..., Tλ, P₁, C_T3, distribution, #=C_kernphases,=# Σ_kernphases)#, distribution)
-
-    #     # σ_cp = row.dcps
-
-    #     # Σ_T3 = C_T3 .* vec(σ_cp) .* vec(σ_cp)'
-    #     # U₁, S₁, V₁ = svd(Σ_T3 * Σ_T3')
-    #     # i_max = findfirst(<=(1e-5), S₁) - 1
-    #     # U₁ .*= sqrt.(S₁)
-    #     # V₁ .*= sqrt.(S₁')
-    #     # S₁ ./= S₁
-    #     # # i_max = rank(Tλ)
-    #     # P₁ = V₁[:, 1:i_max]'
-    #     # # σ_cp = row.dcps
-    #     # # Σ_T3 = C_T3 .* vec(σ_cp) .* vec(σ_cp)'
-    #     # Σ_kernphases = Diagonal(diag(P₁ * Σ_T3 * P₁'))
-
-    #     # return (; row..., Tλ, P₁, C_T3, #=C_kernphases,=# Σ_kernphases)#, distribution)
-    # end
-
     # Take some additional preparation steps per input-row.
     rows_with_kernel_phases = map(eachrow(table)) do row′
         row = row′[1]
@@ -155,46 +57,14 @@ function GRAVITYWideCPLikelihood(observations...)
             end
         end
 
-        # We calculate the closure phase correlation matrix and 
-        # # transformed kernel phase correlation matrix
-        CT3_y = hasproperty(row, :CT3_y) ? float(row.CT3_y) : zero(Float64)
-        C_T3 = CT3(row, CT3_y)
-
-        # # Best version: ΣT3 basis so that it's diagonal
-        # σ_cp = row.dcps
-        # Σ_T3 = C_T3 .* vec(σ_cp) .* vec(σ_cp)'
-        # U₁, S₁, V₁ = svd(Σ_T3 * Σ_T3')
-        # # U₁, S₁, V₁ = svd(Tλ * Tλ')
-        # i_max = findfirst(<=(1e-5), S₁) - 1
-        # U₁ .*= sqrt.(S₁)
-        # V₁ .*= sqrt.(S₁')
-        # S₁ ./= S₁
-        # P₁ = V₁[:, 1:i_max]'
-        # Σ_kernphases = P₁ * Σ_T3 * P₁'
-        # distribution = MvNormal(Diagonal(diag(Σ_kernphases)))
-        # # distribution = MvNormal(Hermitian(Σ_kernphases))
-
-        # Experiment with cholskey decomp
-        # 
-        σ_cp = row.dcps
-        Σ_T3 = C_T3 .* vec(σ_cp) .* vec(σ_cp)'
+        # Determine a kernel phase basis using the cholesky factorization of the
+        # design matrix * design matrixᵀ
         C, U=cholesky(Tλ*Tλ')
         P₁ = collect(C) ./ sqrt.(diag(C*C'))
         i_max = findfirst(<=(1e-5), diag(P₁))-1
         P₁ = P₁[:,1:i_max]'
 
-        # # U₁, S₁, V₁ = svd(Σ_T3 * Σ_T3')
-        # # U₁, S₁, V₁ = svd(Tλ * Tλ')
-        # i_max = findfirst(<=(1e-5), S₁) - 1
-        # U₁ .*= sqrt.(S₁)
-        # V₁ .*= sqrt.(S₁')
-        # S₁ ./= S₁
-        # P₁ = V₁[:, 1:i_max]'
-        Σ_kernphases = P₁ * Σ_T3 * P₁'
-        # distribution = MvNormal(Diagonal(diag(Σ_kernphases)))
-        distribution = MvNormal(Hermitian(Σ_kernphases))
-
-        return (; row..., Tλ, P₁, C_T3, distribution, Σ_kernphases)
+        return (; row..., Tλ, P₁)
     end
     table = Table(rows_with_kernel_phases)
 
@@ -343,12 +213,31 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
             kp_jitter = zero(T)
         end
 
-        σ_kp = kp_jitter
         P₁ = vis.table.P₁[i_epoch]
+        σ_cp = vis.table[i_epoch].dcps
+        σ_kp = kp_jitter
+
+        # Generate the semi-analytic correlation matrix from Jens
+        CT3_y = hasproperty(θ_system, :CT3_y) ? float(θ_system.CT3_y) : zero(T)
+        C_T3 = CT3(vis.table[i_epoch], CT3_y)
+
+        # Calculate the CP covariance matrix using the uncertainties
+        Σ_T3 = C_T3 .* vec(σ_cp) .* vec(σ_cp)'
+
+        # Convert to KP covariance matrix
+        Σ_kernphases = P₁ * Σ_T3 * P₁'
+
+        # Convert the CP residuals to KPs
         kernphase_resids = P₁ * vec(cp_resids)
-        distribution = vis.table[i_epoch].distribution
-        Σ_kernphases = vis.table[i_epoch].Σ_kernphases
-        dist = MvNormal(Hermitian(Σ_kernphases .+ Diagonal(fill(σ_kp,size(Σ_kernphases,1)))))
+
+        # Create a multivariate normal distribution
+        # Add the kernel phase jitters along the diagonal.
+        dist = MvNormal(
+            Hermitian(
+                Σ_kernphases .+ 
+                Diagonal(fill(σ_kp^2,size(Σ_kernphases,1)))
+            )
+        )
         ll += logpdf(dist,kernphase_resids)
     end
 
