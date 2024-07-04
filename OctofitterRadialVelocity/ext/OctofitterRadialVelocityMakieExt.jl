@@ -130,7 +130,7 @@ function Octofitter.rvpostplot!(
         thisinst_mask = vec(rvs.table.inst_idx.==inst_idx)
         # Apply barycentric rv offset correction for this instrument
         # using the MAP parameters
-        rvs_off_sub[thisinst_mask] .+= barycentric_rv_inst
+        rvs_off_sub[thisinst_mask] .-= barycentric_rv_inst
         jitters_all[thisinst_mask] .= jitter
     end
     # Calculate the residuals minus the orbit model
