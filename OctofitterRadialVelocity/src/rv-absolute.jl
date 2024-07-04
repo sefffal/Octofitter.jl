@@ -91,7 +91,7 @@ function Octofitter.ln_like(
     # Work through RV data and model one instrument at a time
     for inst_idx in 1:max_inst_idx
         if isnan(jitter_inst[inst_idx]) || isnan(barycentric_rv_inst[inst_idx])
-            error("`jitter_$inst_idx` and `rv0_$inst_idx` must be provided (were NaN)")
+            # @warn("`jitter_$inst_idx` and `rv0_$inst_idx` must be provided (were NaN)", maxlog=5)
         end
 
         # Find the range in the table occupied by data from this instrument
@@ -126,7 +126,7 @@ function Octofitter.ln_like(
         # RV "data" calculation: measured RV + our barycentric rv calculation
         rv_star_buf = @view rv_star_buf_all_inst[istart:iend] 
         rv_star_buf .+= rvs
-        rv_star_buf .+= barycentric_rv_inst[inst_idx] 
+        rv_star_buf .-= barycentric_rv_inst[inst_idx] 
 
         # # Zygote version:
         # rv_star_buf = @view(rv_star_buf_all_inst[istart:iend]) .+ barycentric_rv_inst[inst_idx]
@@ -142,7 +142,8 @@ function Octofitter.ln_like(
             planet_mass = θ_system.planets[planet_i].mass
             # Threads.@threads 
             for epoch_i in eachindex(epochs)
-                rv_star_buf[epoch_i] -= radvel(orbit, epochs[epoch_i], planet_mass*Octofitter.mjup2msol)
+                M_tot = totalmass(orbit)
+                rv_star_buf[epoch_i] -= -radvel(orbit, epochs[epoch_i])*planet_mass*Octofitter.mjup2msol/M_tot
             end
             # Zygote version:
             # rv_star_buf -= radvel.(orbit, epochs, planet_mass*Octofitter.mjup2msol)
@@ -283,7 +284,7 @@ function Octofitter.ln_like(
         # RV "data" calculation: measured RV + our barycentric rv calculation
         rv_planet_buf = @view rv_planet_buf_all_inst[istart:iend] 
         rv_planet_buf .+= rvs
-        rv_planet_buf .+= barycentric_rv_inst[inst_idx] 
+        rv_planet_buf .-= barycentric_rv_inst[inst_idx]
 
 
         # # Zygote version:
@@ -297,7 +298,11 @@ function Octofitter.ln_like(
         for epoch_i in eachindex(epochs)
             # Threads.@threads 
             for epoch_i in eachindex(epochs)
-                rv_planet_buf[epoch_i] -= radvel(planet_orbit, epochs[epoch_i]) * M_star / M_tot
+
+                # rv_star = -radvel(planet_orbit, epochs[epoch_i])*planet_mass*Octofitter.mjup2msol/M_tot
+                # rv_planet_vs_star = radvel(planet_orbit, epochs[epoch_i])
+                # rv_planet = rv_star + rv_planet_vs_star
+                rv_planet_buf[epoch_i] -= radvel(planet_orbit, epochs[epoch_i]) * (M_star) / M_tot
             end
         end
 
