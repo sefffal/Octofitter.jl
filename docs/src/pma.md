@@ -85,7 +85,7 @@ We now sample from our model using Pigeons:
 ```@example 1
 using Pigeons
 model = Octofitter.LogDensityModel(HD91312)
-chain, pt = octofit_pigeons(model, n_rounds=10) 
+chain, pt = octofit_pigeons(model, n_rounds=8) 
 display(chain)
 ```
 
@@ -194,7 +194,7 @@ Sample as before:
 using Pigeons
 model = Octofitter.LogDensityModel(HD91312)
 Random.seed!(1)
-chain, pt = octofit_pigeons(model, n_rounds=10) 
+chain, pt = octofit_pigeons(model, n_rounds=9) 
 display(chain)
 ```
 

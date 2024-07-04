@@ -117,7 +117,7 @@ it's recommended to lower the target acceptance ratio to around 0.5±0.2 and als
 ```@example 1
 model = Octofitter.LogDensityModel(HD82134)
 
-chain, pt = octofit_pigeons(model, n_rounds=12)
+chain, pt = octofit_pigeons(model, n_rounds=10)
 display(chain)
 ```
 

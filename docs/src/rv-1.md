@@ -245,7 +245,7 @@ It is expensive (per iteration) to fit Guassian processes. If you have many core
 using Pigeons
 chain, pt = octofit_pigeons(
     model,
-    n_rounds=10
+    n_rounds=9
 )
 display(chain)
 ```

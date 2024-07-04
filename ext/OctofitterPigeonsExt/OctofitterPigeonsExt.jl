@@ -61,18 +61,22 @@ chain, pt = octofit_pigeons(model)
 Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     target::Octofitter.LogDensityModel;
     n_rounds::Int,
-    n_chains::Int=cld(8,Threads.nthreads())*Threads.nthreads(),
+    n_chains::Int=16,
+    n_chains_variational::Int=16,
+    checkpoint::Bool=false,
     pigeons_kw...
 )
     @nospecialize
     inputs = Pigeons.Inputs(;
         target,
-        # explorer = AutoMALA(default_autodiff_backend = :ForwardDiff),
-        record = [traces; round_trip; record_default()],
+        record = [traces; round_trip; record_default(); index_process],
         multithreaded=true,
         show_report=true,
         n_rounds,
         n_chains,
+        n_chains_variational,
+        variational = GaussianReference(first_tuning_round = 5),
+        checkpoint,
         pigeons_kw...
     )
     return octofit_pigeons(inputs)

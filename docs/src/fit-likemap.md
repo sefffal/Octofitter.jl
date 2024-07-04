@@ -185,7 +185,7 @@ end loglikemap
     plx ~ truncated(Normal(50.0, 0.02), lower=0)
 end b 
 model = Octofitter.LogDensityModel(Tutoria)
-chain, pt = octofit_pigeons(model, n_rounds=12) # increase n_rounds until log(Z₁/Z₀) converges.
+chain, pt = octofit_pigeons(model, n_rounds=10) # increase n_rounds until log(Z₁/Z₀) converges.
 display(chain)
 ```
 
