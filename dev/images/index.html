@@ -118,50 +118,50 @@ chain, pt = octofit_pigeons(model, n_rounds=12)
 display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Info: initialized chain
 │   chain_no = 1
 │   initial_logpost = 0.8320287272761764
-└   t = 0.525755492
+└   t = 0.56451111
 ┌ Info: initialized chain
 │   chain_no = 2
 │   initial_logpost = 16.73074811470953
-└   t = 0.456827427
+└   t = 0.45228816
 ┌ Info: initialized chain
 │   chain_no = 3
 │   initial_logpost = 10.645406198386203
-└   t = 0.461202336
+└   t = 0.394470249
 ┌ Info: initialized chain
 │   chain_no = 4
 │   initial_logpost = 2.087383547262
-└   t = 0.405170366
+└   t = 0.448743452
 ┌ Info: initialized chain
 │   chain_no = 5
 │   initial_logpost = -3.687674961415097
-└   t = 0.437433949
+└   t = 0.407222451
 ┌ Info: initialized chain
 │   chain_no = 6
 │   initial_logpost = 55.144530113947056
-└   t = 0.449817124
+└   t = 0.430273352
 ┌ Info: initialized chain
 │   chain_no = 7
 │   initial_logpost = 16.508003846190427
-└   t = 0.396526785
+└   t = 0.446214178
 ┌ Info: initialized chain
 │   chain_no = 8
 │   initial_logpost = -3.115469170812233
-└   t = 0.448676936
+└   t = 0.392051286
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0          2       5.96   3.02e+08       33.5   1.24e-08      0.714      0.955      0.973
-        4          0       3.38      0.203   2.05e+07       21.4    7.3e-06      0.518      0.863      0.918
-        8          0       4.66      0.215   3.26e+07       29.7    0.00246      0.335      0.896      0.923
-       16          0       5.52      0.376   6.76e+07       36.4    0.00614      0.211      0.897      0.919
-       32          0       5.38      0.801   1.37e+08       48.9     0.0692      0.231      0.906      0.918
-       64          0       4.26       1.66   2.77e+08       54.5   8.76e-05      0.391       0.91      0.921
-      128          0       4.64       3.17   5.43e+08       60.6     0.0815      0.337      0.907       0.92
-      256          0       4.36       6.47    1.1e+09         67     0.0101      0.376      0.906      0.922
-      512          0       4.65       12.7   2.16e+09       64.9     0.0174      0.336        0.9      0.915
- 1.02e+03          1       4.67       25.5   4.35e+09       65.5       0.22      0.332      0.904      0.917
- 2.05e+03          6       4.66       51.4    8.8e+09       65.9      0.266      0.335      0.904      0.918
-  4.1e+03          8       4.65       99.6    1.7e+10       66.2      0.299      0.336        0.9      0.914
+        2          0          2       6.08   3.02e+08       33.5   1.24e-08      0.714      0.955      0.973
+        4          0       3.38      0.202   2.05e+07       21.4    7.3e-06      0.518      0.863      0.918
+        8          0       4.66      0.177   3.26e+07       29.7    0.00246      0.335      0.896      0.923
+       16          0       5.52       0.39   6.76e+07       36.4    0.00614      0.211      0.897      0.919
+       32          0       5.38      0.807   1.37e+08       48.9     0.0692      0.231      0.906      0.918
+       64          0       4.26       1.61   2.77e+08       54.5   8.76e-05      0.391       0.91      0.921
+      128          0       4.64       3.13   5.43e+08       60.6     0.0815      0.337      0.907       0.92
+      256          0       4.36       6.39    1.1e+09         67     0.0101      0.376      0.906      0.922
+      512          0       4.65       12.5   2.16e+09       64.9     0.0174      0.336        0.9      0.915
+ 1.02e+03          1       4.67       25.1   4.35e+09       65.5       0.22      0.332      0.904      0.917
+ 2.05e+03          6       4.66       50.8    8.8e+09       65.9      0.266      0.335      0.904      0.918
+  4.1e+03          8       4.65       98.7    1.7e+10       66.2      0.299      0.336        0.9      0.914
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><h2 id="Diagnostics"><a class="docs-heading-anchor" href="#Diagnostics">Diagnostics</a><a id="Diagnostics-1"></a><a class="docs-heading-anchor-permalink" href="#Diagnostics" title="Permalink"></a></h2><p>The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.</p><p>The acceptance rate should be somewhat lower than when fitting just astrometry, e.g. around the 0.6 target.</p><p>You can make a trace plot:</p><pre><code class="language-julia hljs">lines(
     chain[&quot;b_a&quot;][:],
     axis=(;
@@ -207,4 +207,4 @@ Makie.translate!(h, 0,0,-1) # Send heatmap to back of the plot
 Makie.resize_to_layout!(fig)
 fig</code></pre><img src="99250141.png" alt="Example block output"/><h2 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h2><p>We can show the relationships between variables on a pair plot (aka corner plot):</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 octocorner(model, chain, small=true)</code></pre><img src="d88d2ecd.png" alt="Example block output"/><p>Note that this time, we also show the recovered photometry in the corner plot.</p><h2 id="Assessing-Detections"><a class="docs-heading-anchor" href="#Assessing-Detections">Assessing Detections</a><a id="Assessing-Detections-1"></a><a class="docs-heading-anchor-permalink" href="#Assessing-Detections" title="Permalink"></a></h2><p>To assess a detection, we can treat all the orbital variables as nuisance parameters.  We start by plotting the marginal distribution of the flux parameter, <code>H</code>:</p><pre><code class="language-julia hljs">hist(chain[&quot;b_H&quot;][:], axis=(xlabel=&quot;H&quot;, ylabel=&quot;counts&quot;))</code></pre><img src="843a0fe8.png" alt="Example block output"/><p>We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:</p><pre><code class="language-julia hljs">flux = chain[&quot;b_H&quot;]
-snr = mean(flux)/std(flux)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">14.482222042049468</code></pre><p>It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../pma/">« Fit Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../rv/">Fit RV and Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 4 July 2024 00:23">Thursday 4 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+snr = mean(flux)/std(flux)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">14.482222042049468</code></pre><p>It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../pma/">« Fit Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../rv/">Fit RV and Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 4 July 2024 01:24">Thursday 4 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
