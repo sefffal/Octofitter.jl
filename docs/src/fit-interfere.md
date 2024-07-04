@@ -85,9 +85,8 @@ Create the model object and run `octofit`:
 ```@example 1
 model = Octofitter.LogDensityModel(Tutoria)
 
-using Random
-rng = Xoshiro(0) # Optional seeded random number generator.
-results = octofit(rng, model,  adaptation=2000,iterations=5000)
+using Pigeons
+results,pt = octofit_pigeons(model, n_rounds=10)
 ```
 
 
