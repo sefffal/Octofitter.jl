@@ -3,7 +3,7 @@
 using OctofitterInterferometry
 using Distributions
 using CairoMakie
-using PairPlots</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-008f85eaef19 is missing from the cache.
+using PairPlots</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-00562f95da43 is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1948</code></pre><p>Download simulated JWST AMI observations from our examples folder on GitHub:</p><pre><code class="language-julia hljs">download(&quot;https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Sim_data_2023_1_.oifits&quot;, &quot;Sim_data_2023_1_.oifits&quot;)
 download(&quot;https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Sim_data_2023_2_.oifits&quot;, &quot;Sim_data_2023_2_.oifits&quot;)
@@ -94,8 +94,8 @@ results = octofit(rng, model,  adaptation=2000,iterations=5000)</code></pre><pre
 Iterations        = 1:1:5000
 Number of chains  = 1
 Samples per chain = 5000
-Wall duration     = 13.78 seconds
-Compute duration  = 13.78 seconds
+Wall duration     = 14.6 seconds
+Compute duration  = 14.6 seconds
 parameters        = M, plx, b_a, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_F480M, b_θy, b_θx, b_ω, b_Ω, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -103,47 +103,47 @@ Summary Statistics
  <span class="sgr1"> parameters         mean        std      mcse    ess_bulk    ess_tail      rh ⋯
  <span class="sgr90">     Symbol      Float64    Float64   Float64     Float64     Float64   Float ⋯
 
-           M       1.4999     0.0101    0.0002   4121.5034   3553.6043    1.00 ⋯
-         plx      99.9984     0.0975    0.0011   7447.6063   3577.4381    1.00 ⋯
-         b_a       2.0054     0.0582    0.0027    664.7214    399.5201    1.00 ⋯
-         b_e       0.0320     0.0237    0.0005   1735.6221   1387.0381    1.00 ⋯
-         b_i       2.7107     0.2292    0.0206    395.9198    115.5443    1.00 ⋯
-        b_ωy      -0.0235     0.7152    0.0233   1038.6555   3284.6014    1.00 ⋯
-        b_ωx       0.0155     0.7112    0.0211   1153.4788   2981.2722    1.00 ⋯
-        b_Ωy       0.0014     0.5952    0.0192   1035.2175   2963.5992    1.00 ⋯
-        b_Ωx      -0.0263     0.8128    0.0363    584.2052   2866.0365    1.00 ⋯
-     b_F480M       0.0003     0.0001    0.0000   1807.6285   1658.5673    1.00 ⋯
-        b_θy      -0.4916     0.1333    0.0138    365.1615    113.2238    1.00 ⋯
-        b_θx      -0.8704     0.1015    0.0035   1018.3648    394.2917    1.00 ⋯
-         b_ω       0.0954     1.8391    0.0470   1854.2325   2643.0236    0.99 ⋯
-         b_Ω       0.1461     1.7291    0.0673    925.7803   2965.7751    1.00 ⋯
-         b_θ      -2.0841     0.1315    0.0143    360.6292    111.9066    1.00 ⋯
-        b_tp   59804.4836   276.6774    6.1751   2672.4575   3717.8232    1.00 ⋯
+           M       1.4994     0.0099    0.0002   4241.1553   3392.6981    0.99 ⋯
+         plx      99.9993     0.1005    0.0011   8447.9477   3367.6732    1.00 ⋯
+         b_a       2.0730     0.0555    0.0013   1895.7368   3411.5071    0.99 ⋯
+         b_e       0.0352     0.0273    0.0006   1847.3337   1950.4820    1.00 ⋯
+         b_i       0.5956     0.1093    0.0022   2509.8985   2703.9002    0.99 ⋯
+        b_ωy       0.0435     0.6671    0.0181   1438.6176   3424.8590    1.00 ⋯
+        b_ωx      -0.2196     0.7260    0.0565    200.4483   2260.6931    1.00 ⋯
+        b_Ωy      -0.4455     0.6021    0.1305     41.8775    105.4821    1.00 ⋯
+        b_Ωx      -0.4000     0.5449    0.1144     39.0518     98.3379    1.00 ⋯
+     b_F480M       0.0005     0.0001    0.0000   3518.9199   2665.9701    1.00 ⋯
+        b_θy       0.4997     0.0610    0.0011   3250.6819   2670.3905    0.99 ⋯
+        b_θx      -0.8722     0.0885    0.0014   4081.2970   3318.0875    0.99 ⋯
+         b_ω      -0.3730     1.6922    0.0992    500.8647   3204.2509    1.00 ⋯
+         b_Ω      -1.7499     1.3540    0.2740     48.9449    223.1968    1.00 ⋯
+         b_θ      -1.0506     0.0382    0.0007   3081.4607   2789.4043    1.00 ⋯
+        b_tp   59759.5298   225.8954    5.8285   1643.6982   2088.3700    0.99 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       1.4805       1.4929       1.4998       1.5067       1.5197
-         plx      99.8071      99.9328      99.9987     100.0651     100.1893
-         b_a       1.8992       1.9669       2.0017       2.0393       2.1334
-         b_e       0.0010       0.0134       0.0279       0.0462       0.0880
-         b_i       2.1790       2.6096       2.7385       2.8547       3.0489
-        b_ωy      -1.0861      -0.7186      -0.0461       0.6767       1.0662
-        b_ωx      -1.0629      -0.6884       0.0282       0.7069       1.0691
-        b_Ωy      -1.0235      -0.4796       0.0104       0.4749       1.0096
-        b_Ωx      -1.1015      -0.8634      -0.0564       0.8313       1.0926
-     b_F480M       0.0002       0.0003       0.0003       0.0004       0.0005
-        b_θy      -0.6908      -0.5587      -0.5040      -0.4475      -0.1893
-        b_θx      -1.0929      -0.9328      -0.8626      -0.7991      -0.6926
-         b_ω      -3.0115      -1.4541       0.0800       1.7698       3.0073
-         b_Ω      -2.7620      -1.3644      -0.0938       1.7581       2.9103
-         b_θ      -2.2453      -2.1496      -2.1038      -2.0522      -1.7789
-        b_tp   59310.8659   59540.0232   59897.9448   60042.4391   60155.4299
-</span></span></code></pre><p>Examine the recovered photometry posterior:</p><pre><code class="language-julia hljs">hist(results[:b_F480M][:], axis=(;xlabel=&quot;F480M&quot;))</code></pre><img src="3ac0cb76.png" alt="Example block output"/><p>Determine the significance of the detection:</p><pre><code class="language-julia hljs">using Statistics
+           M       1.4804       1.4928       1.4990       1.5059       1.5193
+         plx      99.8078      99.9291      99.9983     100.0699     100.1918
+         b_a       1.9605       2.0370       2.0743       2.1085       2.1801
+         b_e       0.0012       0.0136       0.0298       0.0506       0.1012
+         b_i       0.3820       0.5214       0.5966       0.6664       0.8133
+        b_ωy      -1.0480      -0.5606       0.0838       0.6482       1.0531
+        b_ωx      -1.0996      -0.8750      -0.4570       0.4721       1.0515
+        b_Ωy      -1.0424      -0.8243      -0.6801      -0.4513       0.9448
+        b_Ωx      -0.9973      -0.7608      -0.6033      -0.3071       0.8675
+     b_F480M       0.0003       0.0004       0.0005       0.0005       0.0006
+        b_θy       0.3897       0.4565       0.4974       0.5395       0.6269
+        b_θx      -1.0556      -0.9283      -0.8687      -0.8112      -0.7109
+         b_ω      -2.9368      -1.6655      -0.7787       0.9998       2.9057
+         b_Ω      -2.9186      -2.5282      -2.3180      -2.0157       1.1170
+         b_θ      -1.1281      -1.0757      -1.0502      -1.0249      -0.9773
+        b_tp   59293.0295   59605.3737   59794.5015   59923.1404   60134.5723
+</span></span></code></pre><p>Examine the recovered photometry posterior:</p><pre><code class="language-julia hljs">hist(results[:b_F480M][:], axis=(;xlabel=&quot;F480M&quot;))</code></pre><img src="cf311b94.png" alt="Example block output"/><p>Determine the significance of the detection:</p><pre><code class="language-julia hljs">using Statistics
 phot = results[:b_F480M][:]
-snr = mean(phot)/std(phot)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4.958580132567284</code></pre><p>Plot the resulting orbit:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="34f85056.png" alt="Example block output"/><p>Plot position at each epoch:</p><pre><code class="language-julia hljs">using PlanetOrbits
+snr = mean(phot)/std(phot)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">7.236867536007492</code></pre><p>Plot the resulting orbit:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="09062f3d.png" alt="Example block output"/><p>Plot position at each epoch:</p><pre><code class="language-julia hljs">using PlanetOrbits
 els = Octofitter.construct_elements(results,:b,:);
 fig = Makie.Figure()
 ax = Makie.Axis(
@@ -163,7 +163,7 @@ for epoch in vis_like.table.epoch
     )
 end
 Makie.Legend(fig[1,2], ax, &quot;date&quot;)
-fig</code></pre><img src="ca26c71e.png" alt="Example block output"/><p>We can use PairPlots.jl to create a contour plot of positions at all three epochs:</p><pre><code class="language-julia hljs">els = Octofitter.construct_elements(results,:b,:);
+fig</code></pre><img src="619cf896.png" alt="Example block output"/><p>We can use PairPlots.jl to create a contour plot of positions at all three epochs:</p><pre><code class="language-julia hljs">els = Octofitter.construct_elements(results,:b,:);
 fig = pairplot(
     [
         (;
@@ -180,6 +180,6 @@ fig = pairplot(
     labels=Dict(:ra=&gt;&quot;ra offset [mas]&quot;, :dec=&gt;&quot;dec offset [mas]&quot;),
 )
 Makie.scatter!(fig.content[1], [0],[0],marker=&#39;⭐&#39;, markersize=30, color=:black)
-fig</code></pre><img src="9c43532b.png" alt="Example block output"/><p>Finally we can examine the joint photometry and orbit posterior as a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
+fig</code></pre><img src="0ebe43a7.png" alt="Example block output"/><p>Finally we can examine the joint photometry and orbit posterior as a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
 using CairoMakie: Makie
-octocorner(model, results)</code></pre><img src="504f871b.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-coplanar/">« Fit Resonant Co-Planar Model</a><a class="docs-footer-nextpage" href="../fit-likemap/">Fit Likelihood Map »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 3 July 2024 18:52">Wednesday 3 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model, results)</code></pre><img src="ea7a913e.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-coplanar/">« Fit Resonant Co-Planar Model</a><a class="docs-footer-nextpage" href="../fit-likemap/">Fit Likelihood Map »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 4 July 2024 00:23">Thursday 4 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
