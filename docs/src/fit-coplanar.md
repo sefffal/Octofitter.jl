@@ -115,9 +115,7 @@ model = Octofitter.LogDensityModel(HR8799_res_co)
 
 Let's now sample from the model:
 ```@example 1
-using Random
-rng = Xoshiro(0) # seed the random number generator for reproducible results
-results = octofit(rng, model)
+results,pt = octofit_pigeons(model, n_rounds=10);
 ```
 
 Plots the orbits:

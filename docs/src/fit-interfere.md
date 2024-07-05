@@ -81,13 +81,15 @@ end
 end vis_like b
 ```
 
-Create the model object and run `octofit`:
+Create the model object and run `octofit_pigeons`:
 ```@example 1
 model = Octofitter.LogDensityModel(Tutoria)
 
 using Pigeons
-results,pt = octofit_pigeons(model, n_rounds=10)
+results,pt = octofit_pigeons(model, n_rounds=10);
 ```
+
+Note that we use Pigeons paralell tempered sampling (`octofit_pigeons`) instead of HMC (`octofit`) because interferometry data is almost always multi-modal (or more precisely non-convex, there is often still a single mode that dominates).
 
 
 Examine the recovered photometry posterior:
