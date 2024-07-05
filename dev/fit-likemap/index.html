@@ -3,10 +3,7 @@
 using Distributions
 using OctofitterImages
 using Pigeons
-using AstroImages</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-005a1bb20235 is missing from the cache.
-│ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
-└ @ Base loading.jl:1948
-┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-005a1bb20235 is missing from the cache.
+using AstroImages</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-003fd9a6c080 is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1948</code></pre><p>Typically one would load your likelihood maps from eg. FITS files like so:</p><pre><code class="language-julia hljs"># If centred at the star:
 image1 = AstroImages.recenter(AstroImages.load(&quot;image-example-1.fits&quot;,1))
@@ -144,145 +141,145 @@ chain, pt = octofit_pigeons(model, n_rounds=10) # increase n_rounds until log(Z�
 display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Info: initialized chain
 │   chain_no = 1
 │   initial_logpost = -22.792739963730398
-└   t = 0.541756321
+└   t = 0.439206224
 ┌ Info: initialized chain
 │   chain_no = 2
 │   initial_logpost = -17.712844032666492
-└   t = 0.333202863
+└   t = 0.326398351
 ┌ Info: initialized chain
 │   chain_no = 3
 │   initial_logpost = -18.454947852784557
-└   t = 0.29331263
+└   t = 0.296836079
 ┌ Info: initialized chain
 │   chain_no = 4
 │   initial_logpost = -14.859288705669845
-└   t = 0.320766434
+└   t = 0.321066569
 ┌ Info: initialized chain
 │   chain_no = 5
 │   initial_logpost = -16.574552418606718
-└   t = 0.312072694
+└   t = 0.310617625
 ┌ Info: initialized chain
 │   chain_no = 6
 │   initial_logpost = -21.90355921928969
-└   t = 0.312688008
+└   t = 0.308310395
 ┌ Info: initialized chain
 │   chain_no = 7
 │   initial_logpost = -19.081606227817954
-└   t = 0.289313731
+└   t = 0.313856244
 ┌ Info: initialized chain
 │   chain_no = 8
 │   initial_logpost = -14.899988737458909
-└   t = 0.313624673
+└   t = 0.296940214
 ┌ Info: initialized chain
 │   chain_no = 9
 │   initial_logpost = -23.69544229084042
-└   t = 0.3130663
+└   t = 0.313804989
 ┌ Info: initialized chain
 │   chain_no = 10
 │   initial_logpost = -18.339611434506622
-└   t = 0.308881164
+└   t = 0.313257702
 ┌ Info: initialized chain
 │   chain_no = 11
 │   initial_logpost = -18.596682873951018
-└   t = 0.291359743
+└   t = 0.309973188
 ┌ Info: initialized chain
 │   chain_no = 12
 │   initial_logpost = -20.19336377183581
-└   t = 0.311922857
+└   t = 0.315971837
 ┌ Info: initialized chain
 │   chain_no = 13
 │   initial_logpost = -17.245272456082745
-└   t = 0.313698387
+└   t = 0.296684101
 ┌ Info: initialized chain
 │   chain_no = 14
 │   initial_logpost = -19.923405849207384
-└   t = 0.312382574
+└   t = 0.314513726
 ┌ Info: initialized chain
 │   chain_no = 15
 │   initial_logpost = -15.027638392553252
-└   t = 0.290549151
+└   t = 0.314432176
 ┌ Info: initialized chain
 │   chain_no = 16
 │   initial_logpost = -23.601433665586796
-└   t = 0.314800732
+└   t = 0.309033249
 ┌ Info: initialized chain
 │   chain_no = 17
 │   initial_logpost = -17.822103376126584
-└   t = 0.313642994
+└   t = 0.298166547
 ┌ Info: initialized chain
 │   chain_no = 18
 │   initial_logpost = -19.458392413968955
-└   t = 0.309073768
+└   t = 0.295443826
 ┌ Info: initialized chain
 │   chain_no = 19
 │   initial_logpost = -24.19694228767479
-└   t = 0.292777465
+└   t = 0.308887037
 ┌ Info: initialized chain
 │   chain_no = 20
 │   initial_logpost = -17.71551680292213
-└   t = 0.31305059
+└   t = 0.309207533
 ┌ Info: initialized chain
 │   chain_no = 21
 │   initial_logpost = -25.136162374364783
-└   t = 0.313601441
+└   t = 0.313258002
 ┌ Info: initialized chain
 │   chain_no = 22
 │   initial_logpost = -21.84021732266443
-└   t = 0.313011009
+└   t = 0.298549068
 ┌ Info: initialized chain
 │   chain_no = 23
 │   initial_logpost = -19.592406315674936
-└   t = 0.289785317
+└   t = 0.313077867
 ┌ Info: initialized chain
 │   chain_no = 24
 │   initial_logpost = -18.375535774618044
-└   t = 0.314062433
+└   t = 0.31726988
 ┌ Info: initialized chain
 │   chain_no = 25
 │   initial_logpost = -19.739360603849452
-└   t = 0.313346175
+└   t = 0.313995093
 ┌ Info: initialized chain
 │   chain_no = 26
 │   initial_logpost = -24.20095202076545
-└   t = 0.30882434
+└   t = 0.310164612
 ┌ Info: initialized chain
 │   chain_no = 27
 │   initial_logpost = -18.954961003445224
-└   t = 0.291594407
+└   t = 0.2971514
 ┌ Info: initialized chain
 │   chain_no = 28
 │   initial_logpost = -17.31494905584559
-└   t = 0.309903907
+└   t = 0.314375616
 ┌ Info: initialized chain
 │   chain_no = 29
 │   initial_logpost = -16.103655052201134
-└   t = 0.310137413
+└   t = 0.310008642
 ┌ Info: initialized chain
 │   chain_no = 30
 │   initial_logpost = -22.511856615962802
-└   t = 0.293022714
+└   t = 0.309826704
 ┌ Info: initialized chain
 │   chain_no = 31
 │   initial_logpost = -15.347237389469488
-└   t = 0.307665367
+└   t = 0.312671345
 ┌ Info: initialized chain
 │   chain_no = 32
 │   initial_logpost = -18.451354687146782
-└   t = 0.311070005
+└   t = 0.296916719
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.95       3.75       6.34   3.84e+08      -42.6   7.87e-25      0.752      0.915       0.96
-        4          0       3.51       3.63      0.447   7.56e+07      -23.1   4.86e-05       0.77      0.881      0.924
-        8          0       4.08       4.56      0.472    1.1e+08      -19.3      0.104      0.721      0.896      0.922
-       16          0       5.05       4.43      0.934   2.31e+08      -21.6      0.318      0.694      0.898      0.916
-       32          1       5.36       4.51       1.97   4.85e+08      -20.6      0.454      0.682      0.888      0.912
-       64          5       4.96       3.08       5.59   1.12e+09      -20.8      0.538      0.741      0.894      0.911
-      128         15       4.97       3.11       8.32   2.21e+09        -21      0.544      0.739      0.888       0.91
-      256         29       4.84       3.12       16.5    4.4e+09        -21      0.596      0.743      0.892      0.909
-      512         68       4.79       2.97         33   8.79e+09      -20.9      0.602       0.75      0.893      0.909
- 1.02e+03        165       4.77       3.05       65.7   1.75e+10        -21       0.65      0.748      0.893      0.909
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>Display the results:</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="7bbb0c23.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+        2          0       3.95       3.75       6.07   3.54e+08      -42.6   7.87e-25      0.752      0.915       0.96
+        4          0       3.51       3.63      0.406   7.54e+07      -23.1   4.86e-05       0.77      0.881      0.924
+        8          0       4.08       4.56       0.48    1.1e+08      -19.3      0.104      0.721      0.896      0.922
+       16          0       5.05       4.43      0.991   2.31e+08      -21.6      0.318      0.694      0.898      0.916
+       32          1       5.36       4.51       2.03   4.85e+08      -20.6      0.454      0.682      0.888      0.912
+       64          5       4.96       3.08       5.42    1.1e+09      -20.8      0.538      0.741      0.894      0.911
+      128         15       4.97       3.11       8.48   2.21e+09        -21      0.544      0.739      0.888       0.91
+      256         29       4.84       3.12       16.8    4.4e+09        -21      0.596      0.743      0.892      0.909
+      512         68       4.79       2.97       33.5   8.79e+09      -20.9      0.602       0.75      0.893      0.909
+ 1.02e+03        165       4.77       3.05       66.7   1.75e+10        -21       0.65      0.748      0.893      0.909
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>Display the results:</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="9a2d0dda.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 octocorner(model,chain,small=true,)</code></pre><img src="d5ed94b4.png" alt="Example block output"/><p>And finally let&#39;s look at the posterior predictive distributions at both epochs:</p><pre><code class="language-julia hljs">els = Octofitter.construct_elements(chain,:b, :)
 x = raoff.(els, loglikemap.table.epoch[1])
 y = decoff.(els, loglikemap.table.epoch[1])
@@ -310,4 +307,4 @@ pairplot(
     )
 )</code></pre><img src="ff9013fc.png" alt="Example block output"/><h2 id="Resume-sampling-for-additional-rounds"><a class="docs-heading-anchor" href="#Resume-sampling-for-additional-rounds">Resume sampling for additional rounds</a><a id="Resume-sampling-for-additional-rounds-1"></a><a class="docs-heading-anchor-permalink" href="#Resume-sampling-for-additional-rounds" title="Permalink"></a></h2><p>If you would like to add additional rounds of sampling, you may do the following:</p><pre><code class="language-julia hljs">pt = increment_n_rounds!(pt, 2)
 chain, pt = octofit_pigeons(pt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (4096×17×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Updated corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model,chain,small=false,)</code></pre><img src="31c04f38.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Fit Interferometer Data</a><a class="docs-footer-nextpage" href="../thiele-innes/">Fit Thiele-Innes Paramerers »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 4 July 2024 16:43">Thursday 4 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model,chain,small=false,)</code></pre><img src="31c04f38.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Fit Interferometer Data</a><a class="docs-footer-nextpage" href="../thiele-innes/">Fit Thiele-Innes Paramerers »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Friday 5 July 2024 00:18">Friday 5 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
