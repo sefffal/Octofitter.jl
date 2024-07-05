@@ -2,7 +2,7 @@ using LinearAlgebra
 using Interpolations
 using BlockArrays
 using Distributions
-
+using PDMats
 
 #=
 This file implements a variant of InterferometryLikelihood
@@ -64,7 +64,10 @@ function GRAVITYWideCPLikelihood(observations...)
         i_max = findfirst(<=(1e-5), diag(P₁))-1
         P₁ = P₁[:,1:i_max]'
 
-        return (; row..., Tλ, P₁)
+        # We can pre-convert the CP uncertainties into KP uncertainties
+        σ_kp =  P₁ * vec(row.dcps);
+
+        return (; row..., Tλ, P₁, σ_kp)
     end
     table = Table(rows_with_kernel_phases)
 
@@ -119,11 +122,6 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
     epochs = vis.table.epoch
     band = vis.table.band
 
-    # Add an extra optional uncertainty
-    # in quadrature
-    # cp_C_y = hasproperty(θ_system, :cp_C_y) ? θ_system.cp_C_y : zero(T)
-
-
     # Loop through epochs
     for i_epoch in eachindex(epochs)
 
@@ -162,8 +160,8 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
             v = @views vis.table.v[i_epoch][:, i_wave]
             cps_data = @views vis.table.cps_data[i_epoch][:, i_wave]
             σ_cp = @views vis.table.dcps[i_epoch][:, i_wave]
-            vis2_data = @views vis.table.vis2_data[i_epoch][:, i_wave]
-            dvis2 = @views vis.table.dvis2[i_epoch][:, i_wave]
+            # vis2_data = @views vis.table.vis2_data[i_epoch][:, i_wave]
+            # dvis2 = @views vis.table.dvis2[i_epoch][:, i_wave]
 
             # to normalize complex visibilities 
             cvis_model .= 0
@@ -198,13 +196,18 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
         end
         # Done calculating the residuals for this epoch
 
-        # # CP Only:
+        # Niave CP Only:
         # σ_cp = vec(vis.table[i_epoch].dcps) #sqrt.(σ_cp_jitter .^ 2 .+ vec(vis.table[i_epoch].dcps) .^ 2)
         # distribution = MvNormal(Diagonal(σ_cp))
         # ll += logpdf(distribution, cp_resids)
 
-        # ## Diagonalized covariance Kernphases
+        # Kernel Phase likelihood with Jens's semi-analytic correlation matrix
+        # This is 7x slower than naive CP modelling, but this implementation is 
+        # still 5.5x faster than the straightforward approach.
+        P₁ = vis.table.P₁[i_epoch]
+        # σ_cp = vis.table[i_epoch].dcps
 
+        ## Diagonalized covariance Kernphases
         if hasproperty(vis.table, :jitter)
             kp_jitter_name =  vis.table.jitter[i_epoch]
             kp_jitter = convert(T, getproperty(θ_system, kp_jitter_name))
@@ -213,31 +216,50 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
             kp_jitter = zero(T)
         end
 
-        P₁ = vis.table.P₁[i_epoch]
-        σ_cp = vis.table[i_epoch].dcps
-        σ_kp = kp_jitter
-
         # Generate the semi-analytic correlation matrix from Jens
-        CT3_y = hasproperty(θ_system, :CT3_y) ? float(θ_system.CT3_y) : zero(T)
-        C_T3 = CT3(vis.table[i_epoch], CT3_y)
+        # CT3_y = hasproperty(θ_system, :CT3_y) ? float(θ_system.CT3_y) : zero(T)
+        if hasproperty(vis.table, :kp_Cy)
+            kp_Cy =  vis.table.kp_Cy[i_epoch]
+            kp_Cy = convert(T, getproperty(θ_system, kp_Cy))
+            kp_Cy = max(eps(),kp_Cy)
+        else
+            kp_Cy = zero(T)
+        end
 
-        # Calculate the CP covariance matrix using the uncertainties
-        Σ_T3 = C_T3 .* vec(σ_cp) .* vec(σ_cp)'
+        # We directly compute the kernel phase analog to that correlation matrix (digonal + spectral correlation within a given KP)
+        
+        # TODO: this might only be correct up to a scaling factor, verify
+        C_kp = CKP(vis.table[i_epoch], kp_Cy)
 
-        # Convert to KP covariance matrix
-        Σ_kernphases = P₁ * Σ_T3 * P₁'
+        # Caculate KP uncertainties from CPs
+        # σ_kp =  P₁ * vec(σ_cp); 
+        # We have factored this out into the constructor to avoid doing it each iteration:
+        σ_kp = vis.table[i_epoch].σ_kp
+
+        # Calculate covariance from correlation
+        Σ_kp = Diagonal(σ_kp) * C_kp * Diagonal(σ_kp)' 
+        # add KP jitter along the diagonal
+        for i in axes(Σ_kp,1)
+            Σ_kp[i,i] += kp_jitter^2
+        end
 
         # Convert the CP residuals to KPs
         kernphase_resids = P₁ * vec(cp_resids)
 
-        # Create a multivariate normal distribution
-        # Add the kernel phase jitters along the diagonal.
-        dist = MvNormal(
-            Hermitian(
-                Σ_kernphases .+ 
-                Diagonal(fill(σ_kp^2,size(Σ_kernphases,1)))
-            )
-        )
+        # We now exploit the block diagonal structure of the KP covariance matrix
+        # (we have ensured this by construction). We can calculate the cholesky 
+        # factorization for each block independently and then concatenate them together.
+        # TODO: hardcoded sizes. We know there are three KPs per wavelength with GRAVITY.
+        cholesky!(Hermitian(@view Σ_kp[1:56,1:56]));
+        cholesky!(Hermitian(@view Σ_kp[57:112,57:112]));
+        cholesky!(Hermitian(@view Σ_kp[113:168,113:168]));
+        
+        # Now we construct an MvNormal distribution but avoid 
+        # calling Cholesky on the full matrix
+        Ch = Cholesky(UpperTriangular(Σ_kp));
+        # need to pass matrix and cholesky factorization
+        P = PDMat(Σ_kp, Ch);
+        dist = MvNormal(P);
         ll += logpdf(dist,kernphase_resids)
     end
 

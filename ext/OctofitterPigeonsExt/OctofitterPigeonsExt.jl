@@ -9,15 +9,12 @@ function (model::Octofitter.LogDensityModel)(θ)
 end
 function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::AbstractRNG, chain_no::Int)
     # TODO: it would be much better to run multi-pathfinder here.
-    # t = @elapsed initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,500_000)
     
-    # Advance RNG ny the chain_no. This prevents seeded workers eg with MPI from all getting the same
-    # starting position
-    rand(rng, chain_no)
+    t = @elapsed initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,1_000)
 
-    t = @elapsed initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,50_000)
-    @info "initialized chain" chain_no initial_logpost t
     initial_θ_t = model.link(initial_θ)
+    initial_logpost = model.ℓπcallback(initial_θ_t)
+    @info "initialized chain" chain_no initial_logpost
     return initial_θ_t
 end
 

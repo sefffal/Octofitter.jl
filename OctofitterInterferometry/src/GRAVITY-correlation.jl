@@ -118,11 +118,42 @@ function CT3(dat, y)
     return C
 end
 
-# using AstroImages
-# CT3(vis_like.table[1], 7.4e-2);
-# @time C = CT3(vis_like.table[1], 7.4e-2);
-# # @descend CT3(vis_like.table[1], 7.4e-2)
 
-# # fig,ax,pl=heatmap(collect(reverse(C,dims=1)), colorrange=(-0.5,0.5), colormap=cgrad(:diverging_bwr_20_95_c54_n256,rev=true), axis=(;aspect=1,autolimitaspect=1))#cgrad(:seaborn_icefire_gradient,rev=true))
-# # Colorbar(fig[1,2],pl)
-# # fig
+using BlockArrays
+function CKP(dat, y)
+    # This is the analogue of the above, but directly constructed for the kernel phase
+    # basis set found via cholesky factorization of the design matrix.
+
+    # Computing the KP version directly is faster than computing the CT3 version
+    # and applying the basis transform.
+    
+    Λ = length(dat.eff_wave)
+    T = 3 # hardcoded for GRAVITY--there are 3 kernel phases per wavelength.
+    L = T * Λ
+
+    C = BlockedArray{typeof(y)}(zeros(typeof(y), L,L), fill(Λ,T), fill(Λ, T))
+    C .= 0
+    # populate the block banded matrix
+    for t_i in 1:T, t_j in 1:T
+        if t_i == t_j
+            block = view(C, Block(t_i,t_i))
+            block .= y
+            for λ in 1:Λ
+                block[λ,λ] = 1
+            end
+        end
+    end
+
+
+    # The  CPs are computed with index_cps1 + index_cps2 - index_cps3
+    # The sign is positive if the two triangles share a baseline in parallel
+    # direction and negative if they share a baseline in anti-parallel direction.
+
+    # I need to see if, for this block comparing one T3 against another T3 (computed from three baselines each),
+    # do they share a baseline +/-?
+
+    # Inidices into u and v give the baseline numbers
+    # cp_inds give the baselines to subtract
+
+    return C
+end
