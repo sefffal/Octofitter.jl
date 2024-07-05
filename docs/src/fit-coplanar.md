@@ -115,6 +115,7 @@ model = Octofitter.LogDensityModel(HR8799_res_co)
 
 Let's now sample from the model:
 ```@example 1
+using Pigeons
 results,pt = octofit_pigeons(model, n_rounds=10);
 ```
 
