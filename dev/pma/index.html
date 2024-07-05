@@ -44,151 +44,121 @@ end HGCALikelihood(gaia_id=756291174721509376) B
 model = Octofitter.LogDensityModel(HD91312)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HD91312 of dimension 14 with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.</p><h3 id="Sampling-from-the-posterior"><a class="docs-heading-anchor" href="#Sampling-from-the-posterior">Sampling from the posterior</a><a id="Sampling-from-the-posterior-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling-from-the-posterior" title="Permalink"></a></h3><p>Because proper motion anomaly data is quite sparse, it can often produce multi-modal posteriors. If your orbit already has several relative astrometry or RV data points, this is less of an issue. But in many cases it is recommended to use the <code>Pigeons.jl</code> sampler instead of Octofitter&#39;s default. This sampler is less efficient for unimodal distributions, but is more robust at exploring posteriors with distinct, widely separated peaks. </p><p>To install and use <code>Pigeons.jl</code> with Octofitter, type <code>using Pigeons</code> at in the terminal and accept the prompt to install the package. You may have to restart Julia.</p><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>We now sample from our model using Pigeons:</p><pre><code class="language-julia hljs">using Pigeons
 model = Octofitter.LogDensityModel(HD91312)
-chain, pt = octofit_pigeons(model, n_rounds=8)
+chain, pt = octofit_pigeons(model, n_rounds=10)
 display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Info: initialized chain
 │   chain_no = 1
-│   initial_logpost = -260.3386945842529
-└   t = 0.767622279
+└   initial_logpost = -1371.5537078069651
 ┌ Info: initialized chain
 │   chain_no = 2
-│   initial_logpost = -251.0677651400995
-└   t = 0.632677549
+└   initial_logpost = -558.6894011523439
 ┌ Info: initialized chain
 │   chain_no = 3
-│   initial_logpost = -232.5993658182453
-└   t = 0.623750952
+└   initial_logpost = -955.7650011630872
 ┌ Info: initialized chain
 │   chain_no = 4
-│   initial_logpost = -236.03308636875187
-└   t = 0.618096099
+└   initial_logpost = -1394.2782875770513
 ┌ Info: initialized chain
 │   chain_no = 5
-│   initial_logpost = -224.80261965371648
-└   t = 0.619055453
+└   initial_logpost = -1282.928548359876
 ┌ Info: initialized chain
 │   chain_no = 6
-│   initial_logpost = -156.0394777869163
-└   t = 0.624297409
+└   initial_logpost = -1060.965986643502
 ┌ Info: initialized chain
 │   chain_no = 7
-│   initial_logpost = -266.333678207752
-└   t = 0.628291845
+└   initial_logpost = -310.8082358948227
 ┌ Info: initialized chain
 │   chain_no = 8
-│   initial_logpost = -171.55481858639212
-└   t = 0.628873914
+└   initial_logpost = -284.8184681675917
 ┌ Info: initialized chain
 │   chain_no = 9
-│   initial_logpost = -268.43295551719615
-└   t = 0.638975167
+└   initial_logpost = -362.46530966952434
 ┌ Info: initialized chain
 │   chain_no = 10
-│   initial_logpost = -205.46734997421757
-└   t = 0.606831069
+└   initial_logpost = -852.2473018886623
 ┌ Info: initialized chain
 │   chain_no = 11
-│   initial_logpost = -197.00709541342425
-└   t = 0.628588215
+└   initial_logpost = -557.7514894679057
 ┌ Info: initialized chain
 │   chain_no = 12
-│   initial_logpost = -202.28429915806345
-└   t = 0.624861527
+└   initial_logpost = -1838.346682291516
 ┌ Info: initialized chain
 │   chain_no = 13
-│   initial_logpost = -272.95823644924394
-└   t = 0.621857132
+└   initial_logpost = -1028.0590943346544
 ┌ Info: initialized chain
 │   chain_no = 14
-│   initial_logpost = -180.08941326970756
-└   t = 0.623261382
+└   initial_logpost = -2227.24524037295
 ┌ Info: initialized chain
 │   chain_no = 15
-│   initial_logpost = -256.19714610454946
-└   t = 0.625784671
+└   initial_logpost = -610.9512172282086
 ┌ Info: initialized chain
 │   chain_no = 16
-│   initial_logpost = -235.29301999118474
-└   t = 0.625946259
+└   initial_logpost = -1362.0503097450867
 ┌ Info: initialized chain
 │   chain_no = 17
-│   initial_logpost = -280.0001789357113
-└   t = 0.626808492
+└   initial_logpost = -344.17203488002394
 ┌ Info: initialized chain
 │   chain_no = 18
-│   initial_logpost = -213.68635527876208
-└   t = 0.654640289
+└   initial_logpost = -1479.9850519949262
 ┌ Info: initialized chain
 │   chain_no = 19
-│   initial_logpost = -282.41026186029626
-└   t = 0.645756853
+└   initial_logpost = -377.85125339478253
 ┌ Info: initialized chain
 │   chain_no = 20
-│   initial_logpost = -312.3661879406764
-└   t = 0.612439346
+└   initial_logpost = -1442.6513656441116
 ┌ Info: initialized chain
 │   chain_no = 21
-│   initial_logpost = -279.29462641423385
-└   t = 0.630307418
+└   initial_logpost = -1003.9195578616122
 ┌ Info: initialized chain
 │   chain_no = 22
-│   initial_logpost = -233.52454317480982
-└   t = 0.625233404
+└   initial_logpost = -554.8745953263926
 ┌ Info: initialized chain
 │   chain_no = 23
-│   initial_logpost = -223.99046467353392
-└   t = 0.637003036
+└   initial_logpost = -1068.1502553903363
 ┌ Info: initialized chain
 │   chain_no = 24
-│   initial_logpost = -235.73935811343063
-└   t = 0.62347809
+└   initial_logpost = -892.7012502643381
 ┌ Info: initialized chain
 │   chain_no = 25
-│   initial_logpost = -208.705526855245
-└   t = 0.630564565
+└   initial_logpost = -883.0585493948192
 ┌ Info: initialized chain
 │   chain_no = 26
-│   initial_logpost = -247.48637481230492
-└   t = 0.631275077
+└   initial_logpost = -1282.4509132581181
 ┌ Info: initialized chain
 │   chain_no = 27
-│   initial_logpost = -251.69248870131187
-└   t = 0.64223793
+└   initial_logpost = -708.7999803723753
 ┌ Info: initialized chain
 │   chain_no = 28
-│   initial_logpost = -245.3179777534296
-└   t = 0.605785724
+└   initial_logpost = -764.1828858108206
 ┌ Info: initialized chain
 │   chain_no = 29
-│   initial_logpost = -230.0410943948777
-└   t = 0.625675894
+└   initial_logpost = -1711.7673828417999
 ┌ Info: initialized chain
 │   chain_no = 30
-│   initial_logpost = -266.02628056595063
-└   t = 0.626231775
+└   initial_logpost = -549.4817835476731
 ┌ Info: initialized chain
 │   chain_no = 31
-│   initial_logpost = -256.2707974558775
-└   t = 0.620700492
+└   initial_logpost = -2639.159986176613
 ┌ Info: initialized chain
 │   chain_no = 32
-│   initial_logpost = -261.8237909306901
-└   t = 0.62255431
+└   initial_logpost = -890.0553113797704
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0        6.5       6.85       8.21   4.87e+08     -1e+04          0      0.569      0.928      0.957
-        4          0        4.1       4.38       1.07   2.45e+08  -1.39e+03          0      0.727      0.925      0.945
-        8          0       5.85       4.46       1.92   4.94e+08      -83.3          0      0.668      0.895       0.93
-       16          0       7.07       5.74       3.77   9.77e+08       -140  1.76e-144      0.587      0.898      0.921
-       32          0       6.87       7.01       8.39   2.16e+09      -33.8   5.19e-33      0.552      0.896      0.919
-       64          1       7.72       5.92       19.2   4.93e+09      -23.6   1.04e-09       0.56      0.899       0.92
-      128          3       8.16       5.96       34.6   9.79e+09      -22.2     0.0263      0.544      0.898      0.919
-      256          7       8.47       5.94       70.5   1.99e+10      -22.5     0.0707      0.535      0.893      0.917
+        2          0       5.05       4.87       7.84   4.81e+08   -1.3e+04          0       0.68      0.924      0.964
+        4          0       3.92       3.35       1.16    2.6e+08  -5.65e+03          0      0.766      0.909       0.94
+        8          0       5.41       5.31       1.68   4.38e+08      -86.8          0      0.654      0.894      0.925
+       16          0          7       6.54       3.88      1e+09       -121    1.5e-88      0.563        0.9      0.924
+       32          0       7.05       7.48       7.98   2.07e+09      -37.8   1.86e-17      0.531      0.899      0.921
+       64          0       7.82       6.11       17.7   4.56e+09      -21.4     0.0265      0.551      0.898      0.917
+      128          3        8.3       6.38       32.1    9.1e+09      -22.2     0.0249      0.526      0.903       0.92
+      256         10       8.46        6.4       65.5   1.86e+10      -22.3       0.11      0.521      0.902       0.92
+      512         19       8.71       6.17        134    3.8e+10      -22.1      0.264       0.52      0.896      0.918
+ 1.02e+03         33       8.64       6.95        262   7.44e+10      -22.2      0.368      0.497      0.904      0.921
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Note that <code>octofit_pigeons</code> took somewhat longer to run than <code>octofit</code> typically does; however, as we will see, it sampled successfully from severally completely disconnected modes in the posterior. That makes it a good fit for sampling from proper motion anomaly and relative astrometry with limited orbital coverage.</p><h3 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h3><p>The first step is to look at the table output above generated by MCMCChains.jl. The <code>rhat</code> column gives a convergence measure. Each parameter should have an <code>rhat</code> very close to 1.000. If not, you may need to run the model for more iterations or tweak the parameterization of the model to improve sampling. The <code>ess</code> column gives an estimate of the effective sample size. The <code>mean</code> and <code>std</code> columns give the mean and standard deviation of each parameter.</p><p>The second table summarizes the 2.5, 25, 50, 75, and 97.5 percentiles of each parameter in the model.</p><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>If we wish to examine the covariance between parameters in more detail, we can construct a pair-plot (aka. corner plot).</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
 using CairoMakie: Makie
 using PairPlots
-octocorner(model, chain, small=true)</code></pre><img src="1735ed81.png" alt="Example block output"/><p>Notice how there are completely separated peaks? The default Octofitter sample (Hamiltonian Monte Carlo) is capabale of jumping 2-3σ gaps between modes, but such widely separated peaks can cause issues (hence why we used Pigeons in this example).</p><h3 id="Posterior-Mass-vs.-Semi-Major-Axis"><a class="docs-heading-anchor" href="#Posterior-Mass-vs.-Semi-Major-Axis">Posterior Mass vs. Semi-Major Axis</a><a id="Posterior-Mass-vs.-Semi-Major-Axis-1"></a><a class="docs-heading-anchor-permalink" href="#Posterior-Mass-vs.-Semi-Major-Axis" title="Permalink"></a></h3><p>Given that this posterior is quite unconstrained, it is useful to make a simplified plot marginalizing over all orbital  parameters besides semi-major axis. We can do this using PairPlots.jl:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model, chain, small=true)</code></pre><img src="5fa9945f.png" alt="Example block output"/><p>Notice how there are completely separated peaks? The default Octofitter sample (Hamiltonian Monte Carlo) is capabale of jumping 2-3σ gaps between modes, but such widely separated peaks can cause issues (hence why we used Pigeons in this example).</p><h3 id="Posterior-Mass-vs.-Semi-Major-Axis"><a class="docs-heading-anchor" href="#Posterior-Mass-vs.-Semi-Major-Axis">Posterior Mass vs. Semi-Major Axis</a><a id="Posterior-Mass-vs.-Semi-Major-Axis-1"></a><a class="docs-heading-anchor-permalink" href="#Posterior-Mass-vs.-Semi-Major-Axis" title="Permalink"></a></h3><p>Given that this posterior is quite unconstrained, it is useful to make a simplified plot marginalizing over all orbital  parameters besides semi-major axis. We can do this using PairPlots.jl:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 pairplot(
     (; a=chain[&quot;B_a&quot;][:], mass=chain[&quot;B_mass&quot;][:]) =&gt;
         (
@@ -203,7 +173,7 @@ pairplot(
             ticks=2 .^ (0:1:6)
         )
     )
-)</code></pre><img src="eca27e87.png" alt="Example block output"/><h2 id="Adding-Relative-Astrometry"><a class="docs-heading-anchor" href="#Adding-Relative-Astrometry">Adding Relative Astrometry</a><a id="Adding-Relative-Astrometry-1"></a><a class="docs-heading-anchor-permalink" href="#Adding-Relative-Astrometry" title="Permalink"></a></h2><p>The first orbit fit to only Hipparcos/GAIA data was very unconstrained. We will now add six epochs of relative astrometry (measured from direct images) gathered from the <a href="https://arxiv.org/abs/2109.12124">discovery paper</a>.</p><pre><code class="language-julia hljs">astrom_like = PlanetRelAstromLikelihood(
+)</code></pre><img src="2554e8f2.png" alt="Example block output"/><h2 id="Adding-Relative-Astrometry"><a class="docs-heading-anchor" href="#Adding-Relative-Astrometry">Adding Relative Astrometry</a><a id="Adding-Relative-Astrometry-1"></a><a class="docs-heading-anchor-permalink" href="#Adding-Relative-Astrometry" title="Permalink"></a></h2><p>The first orbit fit to only Hipparcos/GAIA data was very unconstrained. We will now add six epochs of relative astrometry (measured from direct images) gathered from the <a href="https://arxiv.org/abs/2109.12124">discovery paper</a>.</p><pre><code class="language-julia hljs">astrom_like = PlanetRelAstromLikelihood(
     (epoch=mjd(&quot;2016-12-15&quot;), ra=133., dec=-174., σ_ra=07.0, σ_dec=07., cor=0.2),
     (epoch=mjd(&quot;2017-03-12&quot;), ra=126., dec=-176., σ_ra=04.0, σ_dec=04., cor=0.3),
     (epoch=mjd(&quot;2017-03-13&quot;), ra=127., dec=-172., σ_ra=04.0, σ_dec=04., cor=0.1),
@@ -241,147 +211,116 @@ model = Octofitter.LogDensityModel(HD91312)</code></pre><pre class="documenter-e
 </code></pre><p>Sample as before:</p><pre><code class="language-julia hljs">using Pigeons
 model = Octofitter.LogDensityModel(HD91312)
 Random.seed!(1)
-chain, pt = octofit_pigeons(model, n_rounds=9)
+chain, pt = octofit_pigeons(model, n_rounds=10)
 display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Info: initialized chain
 │   chain_no = 1
-│   initial_logpost = -1985.3155845133124
-└   t = 0.824756426
+└   initial_logpost = -7401.069640321642
 ┌ Info: initialized chain
 │   chain_no = 2
-│   initial_logpost = -1787.1135059081491
-└   t = 0.69465907
+└   initial_logpost = -1781.1193716167695
 ┌ Info: initialized chain
 │   chain_no = 3
-│   initial_logpost = -734.7299534972204
-└   t = 0.74018237
+└   initial_logpost = -6259.401390367446
 ┌ Info: initialized chain
 │   chain_no = 4
-│   initial_logpost = -1082.0109774465461
-└   t = 0.722266249
+└   initial_logpost = -5146.250310331539
 ┌ Info: initialized chain
 │   chain_no = 5
-│   initial_logpost = -1730.994620464712
-└   t = 0.716412605
+└   initial_logpost = -6402.049880754616
 ┌ Info: initialized chain
 │   chain_no = 6
-│   initial_logpost = -1204.4976442209231
-└   t = 0.732489336
+└   initial_logpost = -5696.952572538848
 ┌ Info: initialized chain
 │   chain_no = 7
-│   initial_logpost = -1123.124329209282
-└   t = 0.724644902
+└   initial_logpost = -3111.17530297689
 ┌ Info: initialized chain
 │   chain_no = 8
-│   initial_logpost = -2397.128926317684
-└   t = 0.737470835
+└   initial_logpost = -4120.835978792667
 ┌ Info: initialized chain
 │   chain_no = 9
-│   initial_logpost = -2152.800237237886
-└   t = 0.689796512
+└   initial_logpost = -4503.121848193743
 ┌ Info: initialized chain
 │   chain_no = 10
-│   initial_logpost = -2819.6269537077583
-└   t = 0.731546112
+└   initial_logpost = -5344.960425877511
 ┌ Info: initialized chain
 │   chain_no = 11
-│   initial_logpost = -846.766817668307
-└   t = 0.722102342
+└   initial_logpost = -1405.941964569966
 ┌ Info: initialized chain
 │   chain_no = 12
-│   initial_logpost = -1604.608114118781
-└   t = 0.723335381
+└   initial_logpost = -7376.34003578511
 ┌ Info: initialized chain
 │   chain_no = 13
-│   initial_logpost = -1103.747638826385
-└   t = 0.717561509
+└   initial_logpost = -6245.129078584823
 ┌ Info: initialized chain
 │   chain_no = 14
-│   initial_logpost = -1652.9571846641202
-└   t = 0.739964475
+└   initial_logpost = -7454.753227106867
 ┌ Info: initialized chain
 │   chain_no = 15
-│   initial_logpost = -1544.63149334378
-└   t = 0.70297716
+└   initial_logpost = -5608.8428441470305
 ┌ Info: initialized chain
 │   chain_no = 16
-│   initial_logpost = -1140.0943515894946
-└   t = 0.721130104
+└   initial_logpost = -3489.8467093008103
 ┌ Info: initialized chain
 │   chain_no = 17
-│   initial_logpost = -1656.4068099607505
-└   t = 0.719223889
+└   initial_logpost = -5123.675341639092
 ┌ Info: initialized chain
 │   chain_no = 18
-│   initial_logpost = -1067.0981661596256
-└   t = 0.717576637
+└   initial_logpost = -2198.4373303168068
 ┌ Info: initialized chain
 │   chain_no = 19
-│   initial_logpost = -1796.9354157539694
-└   t = 0.718861639
+└   initial_logpost = -4437.902389325922
 ┌ Info: initialized chain
 │   chain_no = 20
-│   initial_logpost = -1662.625220713405
-└   t = 0.741262295
+└   initial_logpost = -5893.060461676174
 ┌ Info: initialized chain
 │   chain_no = 21
-│   initial_logpost = -1668.8214380213349
-└   t = 0.699262504
+└   initial_logpost = -4976.297462439361
 ┌ Info: initialized chain
 │   chain_no = 22
-│   initial_logpost = -1079.0069618080656
-└   t = 0.719883445
+└   initial_logpost = -4146.564939000374
 ┌ Info: initialized chain
 │   chain_no = 23
-│   initial_logpost = -1016.4174293524579
-└   t = 0.724080087
+└   initial_logpost = -3468.4588797461424
 ┌ Info: initialized chain
 │   chain_no = 24
-│   initial_logpost = -1942.63752329683
-└   t = 0.718822112
+└   initial_logpost = -6066.31885731732
 ┌ Info: initialized chain
 │   chain_no = 25
-│   initial_logpost = -2391.974321549172
-└   t = 0.720264963
+└   initial_logpost = -4998.933663696705
 ┌ Info: initialized chain
 │   chain_no = 26
-│   initial_logpost = -1920.807045016096
-└   t = 0.733139593
+└   initial_logpost = -4431.954099205218
 ┌ Info: initialized chain
 │   chain_no = 27
-│   initial_logpost = -1593.7432561111473
-└   t = 0.749632364
+└   initial_logpost = -4662.114631430568
 ┌ Info: initialized chain
 │   chain_no = 28
-│   initial_logpost = -2275.8441159415825
-└   t = 0.684169711
+└   initial_logpost = -7728.894146289673
 ┌ Info: initialized chain
 │   chain_no = 29
-│   initial_logpost = -2032.1240672698054
-└   t = 0.724828589
+└   initial_logpost = -5596.749623432364
 ┌ Info: initialized chain
 │   chain_no = 30
-│   initial_logpost = -840.525649040876
-└   t = 0.722228629
+└   initial_logpost = -3023.010342549864
 ┌ Info: initialized chain
 │   chain_no = 31
-│   initial_logpost = -1385.9094913756314
-└   t = 0.734353486
+└   initial_logpost = -7522.766522141386
 ┌ Info: initialized chain
 │   chain_no = 32
-│   initial_logpost = -2128.564332620015
-└   t = 0.72474534
+└   initial_logpost = -5305.669753453331
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       5.96       5.86       8.44   4.59e+08  -1.14e+04          0      0.619      0.903      0.957
-        4          0       2.78        4.7      0.948   1.83e+08  -1.06e+03          0      0.759       0.92      0.949
-        8          0       6.24       3.97       1.89   3.78e+08       -244   4.23e-86      0.671      0.906      0.938
-       16          0       9.93       7.15        4.1   8.26e+08       -241   2.42e-69      0.449      0.908      0.932
-       32          0       11.1       8.96       9.13   1.83e+09       -221   1.64e-59      0.353       0.91      0.931
-       64          0       10.7       6.82       21.5   4.37e+09      -81.8   0.000172      0.436      0.911      0.932
-      128          1         11       7.66       40.1   8.84e+09      -75.6     0.0253        0.4      0.916      0.932
-      256          5       10.5       6.62       76.4   1.71e+10      -74.6     0.0626      0.448      0.913      0.932
-      512         13       9.98       6.95        152   3.39e+10      -73.9      0.162      0.454      0.915      0.931
+        2          0       6.68       2.99       8.08   4.61e+08  -5.32e+04          0      0.688      0.903      0.958
+        4          0       2.39       4.05       1.07      2e+08       -505          0      0.792      0.925      0.949
+        8          0       6.73       7.03       1.85   3.74e+08       -222   5.42e-18      0.556      0.924      0.941
+       16          0       8.59       9.45       4.05   8.08e+08       -117    3.3e-05      0.418      0.909       0.93
+       32          0       10.3        9.9       8.97   1.77e+09      -98.7   7.08e-11      0.348      0.907      0.929
+       64          0       10.7       6.82       21.3   4.27e+09      -60.1    0.00419      0.435      0.913       0.93
+      128          2       10.6       7.26       40.8   8.87e+09      -77.5    0.00136      0.422      0.913      0.931
+      256          3       10.6       7.13       77.2    1.7e+10      -74.6     0.0926      0.429      0.913      0.932
+      512         14       9.99        6.3        147   3.25e+10       60.5       0.11      0.475      0.914      0.932
+ 1.02e+03         25       10.1       6.69        307   6.75e+10      -73.6      0.211       0.46      0.911       0.93
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>The mass vs. semi-major axis posterior is now much more constrained:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 pairplot(
     (; a=chain[&quot;B_a&quot;][:], mass=chain[&quot;B_mass&quot;][:]) =&gt;
@@ -391,8 +330,8 @@ pairplot(
             PairPlots.MarginConfidenceLimits()
         ),
     labels=Dict(:mass=&gt;&quot;mass [Mⱼᵤₚ]&quot;, :a=&gt;&quot;sma. [au]&quot;),
-)</code></pre><img src="24141751.png" alt="Example block output"/><p>It is now useful to display the orbits projected onto the plane of the sky using <code>octoplot</code>. This function produces a nine-panel figure showing posterior predictive distributions for velocity (in three dimensions), projected positions vs. time in the plane of the sky,  and various other two and three-dimensional views.</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="7cd5a194.png" alt="Example block output"/><p>Finally we display the posterior as a corner plot:</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
+)</code></pre><img src="4cc2f4c5.png" alt="Example block output"/><p>It is now useful to display the orbits projected onto the plane of the sky using <code>octoplot</code>. This function produces a nine-panel figure showing posterior predictive distributions for velocity (in three dimensions), projected positions vs. time in the plane of the sky,  and various other two and three-dimensional views.</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="20d1209f.png" alt="Example block output"/><p>Finally we display the posterior as a corner plot:</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
 using CairoMakie: Makie
 using PairPlots
-octocorner(model, chain, small=true)</code></pre><img src="8aed5932.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Friday 5 July 2024 00:18">Friday 5 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model, chain, small=true)</code></pre><img src="f596002b.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Friday 5 July 2024 21:36">Friday 5 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

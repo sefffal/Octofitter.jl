@@ -3,7 +3,7 @@
 using CairoMakie
 using PairPlots
 using Distributions
-using PlanetOrbits</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-003fd9a6c080 is missing from the cache.
+using PlanetOrbits</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-00a893e522fe is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1948</code></pre><pre><code class="language-julia hljs">astrom_b = PlanetRelAstromLikelihood(
     (epoch=53200.0, object=1, ra=1471.0, σ_ra=6.0, dec=887.0, σ_dec=6.0, cor=0, ),
@@ -92,69 +92,11 @@ end b c
 
 
 model = Octofitter.LogDensityModel(HR8799_res_co)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HR8799_res_co of dimension 12 with fields .ℓπcallback and .∇ℓπcallback
-</code></pre><p>Let&#39;s now sample from the model:</p><pre><code class="language-julia hljs">using Random
-rng = Xoshiro(0) # seed the random number generator for reproducible results
-results = octofit(rng, model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×42×1 Array{Float64, 3}):
-
-Iterations        = 1:1:1000
-Number of chains  = 1
-Samples per chain = 1000
-Wall duration     = 115.79 seconds
-Compute duration  = 115.79 seconds
-parameters        = plx, M, i, Ωy, Ωx, P_nominal, Ω, b_P_mul, b_θy, b_θx, b_e, b_ω, b_i, b_Ω, b_P, b_a, b_θ, b_tp, c_P_mul, c_θy, c_θx, c_e, c_ω, c_i, c_Ω, c_P, c_a, c_θ, c_tp
-internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
-
-Summary Statistics
- <span class="sgr1"> parameters          mean         std       mcse    ess_bulk   ess_tail       ⋯
- <span class="sgr90">     Symbol       Float64     Float64    Float64     Float64    Float64   Flo ⋯
-
-         plx       24.3990      0.0457     0.0014   1087.5964   795.8619    0. ⋯
-           M        0.0684      0.0020     0.0001    596.9615   592.4117    0. ⋯
-           i        2.0897      0.0067     0.0002   1124.9223   703.8093    1. ⋯
-          Ωy        0.0362      0.0085     0.0007    135.3202   522.4303    0. ⋯
-          Ωx        0.9280      0.0856     0.0218     16.3804    59.7545    1. ⋯
-   P_nominal      299.5702      0.2289     0.1186      3.0624    12.6635    1. ⋯
-           Ω        1.5318      0.0085     0.0003    716.3419   762.3618    1. ⋯
-     b_P_mul        4.5537      0.0739     0.0039    367.5177   639.8214    1. ⋯
-        b_θy        0.3969      0.0526     0.0244      5.4060    13.9716    1. ⋯
-        b_θx        1.0815      0.1434     0.0664      5.4052    13.9716    1. ⋯
-         b_e        0.0000      0.0000        NaN         NaN        NaN       ⋯
-         b_ω        0.0000      0.0000        NaN         NaN        NaN       ⋯
-         b_i        2.0897      0.0067     0.0002   1124.9223   703.8093    1. ⋯
-         b_Ω        1.5318      0.0085     0.0003    716.3419   762.3618    1. ⋯
-         b_P     2728.3313     44.1695     2.2037    427.0276   737.1636    0. ⋯
-         b_a       79.8524      0.4924     0.0172    818.5798   818.0303    1. ⋯
-         b_θ        1.2190      0.0001     0.0000    818.2524   534.3051    0. ⋯
-      ⋮             ⋮            ⋮          ⋮           ⋮          ⋮           ⋱
-</span><span class="sgr36">                                                   2 columns and 12 rows omitted
-
-Quantiles
-  parameters          2.5%         25.0%         50.0%         75.0%         9 ⋯
- </span><span class="sgr90">     Symbol       Float64       Float64       Float64       Float64       Flo ⋯
-
-         plx       24.3060       24.3686       24.3974       24.4309       24. ⋯
-           M        0.0647        0.0671        0.0684        0.0698        0. ⋯
-           i        2.0771        2.0851        2.0897        2.0939        2. ⋯
-          Ωy        0.0204        0.0301        0.0360        0.0420        0. ⋯
-          Ωx        0.7676        0.8631        0.9307        0.9963        1. ⋯
-   P_nominal      298.9310      299.4904      299.6465      299.7001      299. ⋯
-           Ω        1.5149        1.5261        1.5321        1.5376        1. ⋯
-     b_P_mul        4.4085        4.5036        4.5558        4.6041        4. ⋯
-        b_θy        0.3235        0.3619        0.3849        0.4205        0. ⋯
-        b_θx        0.8814        0.9859        1.0488        1.1459        1. ⋯
-         b_e        0.0000        0.0000        0.0000        0.0000        0. ⋯
-         b_ω        0.0000        0.0000        0.0000        0.0000        0. ⋯
-         b_i        2.0771        2.0851        2.0897        2.0939        2. ⋯
-         b_Ω        1.5149        1.5261        1.5321        1.5376        1. ⋯
-         b_P     2641.7679     2697.7575     2730.0130     2757.8248     2815. ⋯
-         b_a       78.9453       79.5123       79.8255       80.1992       80. ⋯
-         b_θ        1.2189        1.2190        1.2190        1.2191        1. ⋯
-      ⋮             ⋮             ⋮             ⋮             ⋮             ⋮  ⋱
-</span><span class="sgr36">                                                    1 column and 12 rows omitted
-</span></span></code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="9a0ed24a.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="83e325ef.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
+</code></pre><p>Let&#39;s now sample from the model:</p><pre><code class="language-julia hljs">using Pigeons
+results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (1024×31×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="36acc172.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="71a0b553.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
     results[:b_P][:] ./ results[:c_P][:],
     axis=(;
         xlabel=&quot;period ratio&quot;,
         ylabel=&quot;counts&quot;,
     )
-)</code></pre><img src="90e6ec0c.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-astrom/">« Fit RV and Relative Astrometry</a><a class="docs-footer-nextpage" href="../fit-interfere/">Fit Interferometer Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Friday 5 July 2024 00:18">Friday 5 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="26340cec.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-astrom/">« Fit RV and Relative Astrometry</a><a class="docs-footer-nextpage" href="../fit-interfere/">Fit Interferometer Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Friday 5 July 2024 21:36">Friday 5 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
