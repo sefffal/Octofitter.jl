@@ -29,6 +29,13 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikeli
         if isnothing(instrument_names)
             instrument_names = ["1"]
         end
+
+        rows = map(eachrow(table)) do row′
+            row = (;row′[1]..., inst_idx=1)
+            return row
+        end
+        table = Table(rows)
+
         return new{typeof(table),typeof(gaussian_process)}(table, instrument_names, gaussian_process)
     end
 end
