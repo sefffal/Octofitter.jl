@@ -118,8 +118,8 @@ function astromtimeplot!(
             x = ts
             y = pa_model_t[yi,:]
             colors = color_model_t[yi,:]
-            xi = 1
-            xi0 = 1
+            xi = 0
+            xi0 = 0
             # TODO: this does fail if the wrapping happened between first and second indices
             direction = mean(sign.(pa_model_t[yi,2:end] - pa_model_t[yi,1:end-1])) > 0 ? +1.0 : -1.0
             while xi<size(x,1)-1
