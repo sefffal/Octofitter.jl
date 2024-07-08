@@ -97,20 +97,6 @@ function astromtimeplot!(
         pa_model_t = rem2pi.(posangle.(sols), RoundDown)
         color_model_t = rem2pi.(
             eccanom.(sols), RoundDown)
-
-        # # Try to unwrap position angle if it extends slightly past 180 deg,
-        # # but not if there are 2 or more cycles.
-        # pa_model_t_unwrapped = copy(pa_model_t)
-        # unwrap!(pa_model_t_unwrapped, 2pi)
-
-        # # Don't use the unwrap if it's cycling a bunch of times
-        # a,b = extrema(pa_model_t_unwrapped)
-        # if abs(a-b) < 4pi
-        #     println("unwrapping")
-        #     pa_model_t = pa_model_t_unwrapped
-        #     # TO unwrap data, find closest point in time and add the difference
-        #     # between wrapped and unwrapped
-        # end
         
         lines!(ax_sep,
             concat_with_nan(ts' .+ 0 .* sep_model_t),
@@ -134,8 +120,8 @@ function astromtimeplot!(
             colors = color_model_t[yi,:]
             xi = 1
             xi0 = 1
-            # TODO: this would fail if the wrapping happened between first and second indices
-            direction = sign(pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0])
+            # TODO: this does fail if the wrapping happened between first and second indices
+            direction = mean(sign.(pa_model_t[yi,2:end] - pa_model_t[yi,1:end-1]))>0
             while xi<size(x,1)-1
                 xi += 1
                 xi0 += 1
