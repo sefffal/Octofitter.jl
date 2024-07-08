@@ -70,12 +70,23 @@ function _prepare_input_row(row)
 
 
         # @warn "masking wavelengths"
-        # mask = 2.025e-6 .< eff_wave .< 2.15e-6
-        mask = trues(length(eff_wave))
+        mask = 2.025e-6 .< eff_wave .< 2.15e-6
+        
+        # subset by factor 20
+        # @warn "sub-setting factor of 20"
+        # for i in eachindex(mask)
+        #     if mod(i,20) != 0
+        #     # if mod(i,10) != 0
+        #         mask[i] = false
+        #     end
+        # end
+        # @show count(mask)
+        # mask = trues(length(eff_wave))
 
         # These say what baseline (cp1) should be added to (cp2) and then subtract (cp3)
         # to get a closure phase in our modelling.
         cp_inds1, cp_inds2, cp_inds3 = cp_indices(; vis2_index, cp_index)
+        # @warn "WARN!! Inflating errors for debug 25deg"
         return (;
             row...,
             row.epoch,
@@ -207,6 +218,7 @@ function cvis_bin!(cvis; Δdec, Δra, contrast, u, v)
     for I in eachindex(cvis, u, v)
         arg = -2π * (u[I] * Δra + v[I] * Δdec) * π / (180 * 3600 * 1000)
         if !isfinite(arg)
+            @warn "non finite complex vis (maxlog=5)" l2  Δra Δdec maxlog=5
             cvis[I] = NaN
             continue
         end

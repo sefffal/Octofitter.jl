@@ -9,9 +9,39 @@ function (model::Octofitter.LogDensityModel)(θ)
 end
 function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::AbstractRNG, chain_no::Int)
     # TODO: it would be much better to run multi-pathfinder here.
+    # t = @elapsed initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,500_000)
     
     t = @elapsed initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,1_000)
 
+    # # TODO: this isn't ideal since it doesn't account for the temperature, it finds aposteriori samples
+    # # if isodd(chain_no)
+    #     # t = @elapsed initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,50_000)
+    # # end
+
+    initial_θ = [
+        0.06902811728798654
+        173.56566842501638
+          9.872733871484598
+          9.914018099456364
+          9.905673338471932
+         10.093949285624802
+         10.086335632817296
+          0.5013880077362658
+          0.498163647973302
+          0.49809573095806847
+          0.4959354628199989
+          0.5040290165039253
+          1.9931059445372208
+        401.0778790614302
+          0.2322922025996769
+          0.03321684533020867
+          0.5443391082518028
+          0.012274816353402723
+          3.7215795117016937
+          0.4662073533300253
+          0.07369659589549674
+          0.4562169396788246
+    ]
     initial_θ_t = model.link(initial_θ)
     initial_logpost = model.ℓπcallback(initial_θ_t)
     @info "initialized chain" chain_no initial_logpost

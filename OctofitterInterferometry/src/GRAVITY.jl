@@ -137,7 +137,7 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
         cvis_model = zeros(complex(T), size(vis.table.u[i_epoch][:, 1]))
 
         contrasts = T[getproperty(θ_planet, this_band) for θ_planet in θ_system.planets]
-        sols = [orbitsolve(orbits[i_planet], epoch) for i_planet in 1:length(θ_system.planets)]
+        sols = [orbitsolve(orbits[i_planet], epoch) for i_planet in 1:min(length(θ_system.planets), length(orbits))]
 
         throughputs = broadcast(sols, contrasts, vis.table.eff_wave[i_epoch]') do sol, flux_ratio, wavelength_m
             # Model the fiber as placed at the photocentre of the two bodies

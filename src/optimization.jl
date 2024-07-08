@@ -10,12 +10,12 @@ single row.
 Returning a Chains object is a bit weird, but this way 
 it can be handled the same as our posteriors, plotted, etc.
 """
-function findmap(model::LogDensityModel;starting_position=nothing,N=100_000,verbosity=0)
+function findmap(model::LogDensityModel;starting_position=nothing,N=10_000,verbosity=0)
     if isnothing(starting_position)
         starting_position, _ = guess_starting_position(model.system,N)
     end
 
-    logpost = model.ℓπcallback(model.link(starting_position))
+    # logpost = model.ℓπcallback(model.link(starting_position))
 
     θ_t′ = _findmap(model,model.link(starting_position);verbosity)
     θ′ = model.invlink(θ_t′)
@@ -44,7 +44,7 @@ function _findmap(model::LogDensityModel,initial_θ_t;verbosity=0)
     # # Start with Simulated Annealing
     prob = OptimizationProblem(func, initial_θ_t, model)
     verbosity > 1 && @info "Simualted annealing optimization" N
-    sol = solve(prob, SimulatedAnnealing(), iterations=1_00_000, x_tol=0)
+    sol = solve(prob, SimulatedAnnealing(), iterations=1_000_000, x_tol=0)
 
     # Then iterate with qusi-Newton
     prob = OptimizationProblem(func, sol.u, model)

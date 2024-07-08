@@ -121,16 +121,17 @@ function astromtimeplot!(
             xi = 1
             xi0 = 1
             # TODO: this does fail if the wrapping happened between first and second indices
-            direction = mean(sign.(pa_model_t[yi,2:end] - pa_model_t[yi,1:end-1]))>0
+            direction = mean(sign.(pa_model_t[yi,2:end] - pa_model_t[yi,1:end-1])) > 0 ? +1.0 : -1.0
             while xi<size(x,1)-1
                 xi += 1
                 xi0 += 1
                 direction_next = sign(pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0])
                 if direction != direction_next && direction > 0
-                    slope = 2pi + pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0]
-                    x_midpoint = (x[xi] + x[xi])/2
-                    newpt_before = y[xi] + slope
-                    newpt_after =  y[xi+1] - slope
+                    @show "A"
+                    Δ =  pa_model_t[yi,xi0+1]-(pa_model_t[yi,xi0]-2pi)
+                    x_midpoint = (x[xi] + x[xi+1])/2
+                    newpt_before = y[xi] + Δ/2
+                    newpt_after =  y[xi+1] - Δ/2
                     x = [
                         x[1:xi];
                         x_midpoint;
@@ -149,10 +150,10 @@ function astromtimeplot!(
                     ylims!(ax_pa, 0, 360)
                     xi += 3
                 elseif direction != direction_next && direction < 0
-                    slope = pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0] -2π
-                    x_midpoint = (x[xi] + x[xi])/2
-                    newpt_before = y[xi] + slope
-                    newpt_after =  y[xi+1] - slope
+                    Δ =  (pa_model_t[yi,xi0+1]-2pi)-pa_model_t[yi,xi0]
+                    x_midpoint = (x[xi] + x[xi+1])/2
+                    newpt_before = y[xi] + Δ/2
+                    newpt_after =  y[xi+1] - Δ/2
                     x = [
                         x[1:xi];
                         x_midpoint;

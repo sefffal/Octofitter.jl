@@ -3,3 +3,7 @@ docs/build/
 **/LocalPreferences.toml
 OctofitterCLI/bin/lib
 OctofitterCLI/bin/share
+sbctest-*
+*.pdf
+*.png
+.DS_Store

@@ -70,10 +70,10 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 llike  = @inline ln_like_generated(system, θ_structured)
                 lpost = lprior+llike
                 if !isfinite(lprior)
-                    # @warn "Invalid log prior encountered. This likely indicates a problem with the prior support." θ=θ_structured lprior
+                    @warn "Invalid log prior encountered. This likely indicates a problem with the prior support." θ=θ_structured lprior θ_transformed maxlog=5
                 end
                 if !isfinite(llike)
-                    # @warn "Invalid log likelihood encountered." θ=θ_structured llike
+                    @warn "Invalid log likelihood encountered." θ=θ_structured llike θ_transformed maxlog=5
                 end
                 return lpost
             end
@@ -105,6 +105,8 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                     #         Enzyme.Const(system),
                     #         Enzyme.Const(arr2nt),
                     #         Enzyme.Const(Bijector_invlinkvec)
+                    #         Enzyme.Const(ln_prior_transformed),#ln_prior_transformed_dup,
+                    #         Enzyme.Const(ln_like_generated),#ln_like_generated_dup,
                     #     )
                     #     diffresult .= tuple(out...)
                     #     return primal, diffresult
@@ -112,21 +114,21 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                     reverse = function (θ_t)
                         fill!(diffresult,0)
                         θ_t_dup  = Enzyme.Duplicated(θ_t,diffresult)
-                        # system_dup  = Enzyme.Duplicated(system,system_shadow)
-                        # arr2nt_dup  = Enzyme.Duplicated(arr2nt, deepcopy(arr2nt))
-                        # Bijector_invlinkvec_dup  = Enzyme.Duplicated(Bijector_invlinkvec, deepcopy(Bijector_invlinkvec))
-                        # ln_prior_transformed_dup  = Enzyme.Duplicated(ln_prior_transformed, deepcopy(ln_prior_transformed))
-                        # ln_like_generated_dup  = Enzyme.Duplicated(ln_like_generated, deepcopy(ln_like_generated))
+                        system_dup  = Enzyme.Duplicated(system,system_shadow)
+                        arr2nt_dup  = Enzyme.Duplicated(arr2nt, deepcopy(arr2nt))
+                        Bijector_invlinkvec_dup  = Enzyme.Duplicated(Bijector_invlinkvec, deepcopy(Bijector_invlinkvec))
+                        ln_prior_transformed_dup  = Enzyme.Duplicated(ln_prior_transformed, deepcopy(ln_prior_transformed))
+                        ln_like_generated_dup  = Enzyme.Duplicated(ln_like_generated, deepcopy(ln_like_generated))
                         out, primal = Enzyme.autodiff(
                             # Enzyme.Reverse,
                             Enzyme.ReverseWithPrimal,
                             ℓπcallback,
                             θ_t_dup,
-                            Enzyme.Const(system),#system_dup,
-                            arr2nt,#arr2nt_dup,
-                            Bijector_invlinkvec,#Bijector_invlinkvec_dup,
-                            ln_prior_transformed,#ln_prior_transformed_dup,
-                            ln_like_generated,#ln_like_generated_dup,
+                            system_dup, #Enzyme.Const(system,),
+                            arr2nt_dup, #Enzyme.Const(arr2nt,),
+                            Bijector_invlinkvec_dup, #Enzyme.Const(Bijector_invlinkvec,),
+                            ln_prior_transformed_dup, #Enzyme.Const(ln_prior_transformed,),
+                            ln_like_generated_dup, #Enzyme.Const(ln_like_generated,),
                         )
                         return primal, diffresult
                     end 
@@ -220,6 +222,8 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
             end
 
 
+            # Run the callback once right away. If there is a coding error in the users 
+            # model, we want to surface it ASAP.
             ∇ℓπcallback(initial_θ_0_t) 
             if verbosity >= 1
                 (function(∇ℓπcallback, θ)

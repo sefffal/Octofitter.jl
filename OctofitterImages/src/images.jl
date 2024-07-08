@@ -59,7 +59,8 @@ Extrapolated results return Inf.
 """
 function contrast_interp(image::AstroImage; step=2)
     cont = contrast(image; step)
-    return LinearInterpolation(cont.separation, cont.contrast, extrapolation_bc=Inf)
+    mask = findfirst(isfinite, cont.contrast):findlast(isfinite, cont.contrast)
+    return LinearInterpolation(cont.separation[mask], cont.contrast[mask], extrapolation_bc=Flat())
 end
 
 
@@ -124,7 +125,6 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
     # some factors used in various calculations.
     # elements = construct_elements(θ_system, θ_planet)
 
-
     imgtable = images.table
     T = eltype(first(θ_planet))
     ll = zero(T)
@@ -165,11 +165,17 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
 
         # When we get a position that falls outside of our available
         # data (e.g. under the coronagraph) we cannot say anything
-        # about the likelihood. This is equivalent to σₓ→∞ or log likelihood 
-        # of zero.
-        if !isfinite(σₓ) || !isfinite(f̃ₓ)
-            continue
-            # return convert(T, -Inf)
+        # much about the planet.
+        # We assume that we plateaued at the maximum flux
+        if !isfinite(f̃ₓ)
+            f̃ₓ = zero(typeof(f̃ₓ))
+        end
+        if !isfinite(σₓ) || iszero(σₓ)
+            return NaN
+        end
+
+        if !isfinite(f_band)
+            @warn "Flux variable is not finite" band f_band 
         end
 
         # Direct imaging likelihood.
@@ -183,8 +189,14 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
         # Mawet et al 2019, eqn (8)
 
         σₓ² = σₓ^2 #+ σ_add^2
-        ll += -1 / (2*σₓ²) * (f_band^2 - 2f_band * f̃ₓ)
+        ll_i = -1 / (2*σₓ²) * (f_band^2 - 2f_band * f̃ₓ)
+        ll += ll_i
     end
+
+    # if !isfinite(ll)
+        # @warn "ll not finite. How?" ll
+        # return -1e9
+    # end
 
     return ll
 end

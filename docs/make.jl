@@ -27,24 +27,32 @@ makedocs(
             "Fit Interferometer Data" => "fit-interfere.md",
             "Fit Likelihood Map" => "fit-likemap.md",
             "Fit Thiele-Innes Paramerers" => "thiele-innes.md",
-            "Detection Limits" => "limits.md"
+            # TODO:
+            "Detection Limits" => "limits.md",
+            "Fit GRAVITY Wide Data" => "fit-grav-wide.md",
+            "Fit Relative RV Data" => "fit-rv-rel.md",
         ],
         "Statistical Methods" => [
             "Prior Predictive Checks" => "prior-pred.md",
             "Posterior Predictive Checks" => "post-pred.md",
+            # TODO:
             "Cross Validataion" => "cross-validation.md",
             "Simulation Based Calibration" => "sbc.md",
         ],
+        "Compatibility" => [
+            "RadVel" => "compat-radvel.md",
+            "Orbitize!" => "compat-orbitize.md",
+        ],
         "Documentation" => [
             "Using Python" => "python.md",
-            "Priors" => "priors.md",
-            "Derived Variables" => "derived.md",
+            "Chains" => "chains.md",
             "Loading and Saving Data" => "loading-saving.md",
-            "Connecting Mass with Photometry" => "mass-photometry.md",
-            "Custom Likelihoods" => "custom-likelihood.md",
             "Sampler" => "samplers.md",
             "Parallel Sampling" => "parallel-sampling.md",
-            "Chains" => "chains.md",
+            "Priors" => "priors.md",
+            "Derived Variables" => "derived.md",
+            "Connecting Mass with Photometry" => "mass-photometry.md",
+            "Custom Likelihoods" => "custom-likelihood.md",
             "Kepler Solver" => "kepler.md",
             "Full API Documentation" => "api.md"
         ]
