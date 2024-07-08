@@ -27,10 +27,10 @@ makedocs(
             "Fit Interferometer Data" => "fit-interfere.md",
             "Fit Likelihood Map" => "fit-likemap.md",
             "Fit Thiele-Innes Paramerers" => "thiele-innes.md",
+            "Fit Relative RV Data" => "fit-rv-rel.md",
+            "Fit GRAVITY Wide Data" => "fit-grav-wide.md",
             # TODO:
             "Detection Limits" => "limits.md",
-            "Fit GRAVITY Wide Data" => "fit-grav-wide.md",
-            "Fit Relative RV Data" => "fit-rv-rel.md",
         ],
         "Statistical Methods" => [
             "Prior Predictive Checks" => "prior-pred.md",
@@ -40,7 +40,7 @@ makedocs(
             "Simulation Based Calibration" => "sbc.md",
         ],
         "Compatibility" => [
-            "RadVel" => "compat-radvel.md",
+            # "RadVel" => "compat-radvel.md",
             "Orbitize!" => "compat-orbitize.md",
         ],
         "Documentation" => [
