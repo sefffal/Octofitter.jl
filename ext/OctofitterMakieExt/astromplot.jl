@@ -40,6 +40,20 @@ function Octofitter.astromplot!(
 )
     gs = gridspec_or_fig
 
+    if length(model.system.planets) == 1
+        colormaps = Dict(
+            first(keys(model.system.planets)) => colormap
+        )
+    else
+        colormaps = Dict(
+            begin
+                c = Makie.wong_colors()[i]
+                planet_key => Makie.cgrad([c, Makie.RGBAf(c.r,c.g,c.b,0.1)])
+            end
+            for (i,planet_key) in enumerate(keys(model.system.planets))
+        )
+    end
+
     ax = Axis(
         gs[1, 1];
         autolimitaspect=1,
@@ -84,7 +98,7 @@ function Octofitter.astromplot!(
             ),
             alpha=min.(1, 100 / length(ii)),
             transparency=true,
-            colormap
+            colormap=colormaps[planet_key]
         )
     end
 
@@ -277,17 +291,36 @@ function Octofitter.astromplot!(
         axislegend(ax, "Posterior Predictions", position=:lt, backgroundcolor=(:white, 0.85))
     end
 
-    if colorbar 
-        Colorbar(
-            gs[1,2];
-            colormap,
-            label="mean anomaly →",
-            colorrange=(0,2pi),
-            ticks=(
-                [0,pi/2,pi,3pi/2,2pi],
-                ["0", "π/2", "π", "3π/2", "2π"]
+    if colorbar
+        if length(colormaps) == 1
+            Colorbar(
+                gs[1,2];
+                colormap,
+                label="mean anomaly →",
+                colorrange=(0,2pi),
+                ticks=(
+                    [0,pi/2,pi,3pi/2,2pi],
+                    ["0", "π/2", "π", "3π/2", "2π"]
+                )
             )
-        )
+        else
+            col = 1
+            for planet_key in keys(colormaps)
+                col += 1
+                Colorbar(
+                    gs[1,col];
+                    colormap=colormaps[planet_key],
+                    label="mean anomaly ($planet_key) →",
+                    colorrange=(0,2pi),
+                    ticks=(
+                        [0,pi/2,pi,3pi/2,2pi],
+                        ["0", "π/2", "π", "3π/2", "2π"]
+                    ),
+                    ticksvisible=col - 1 == length(colormaps),
+                    ticklabelsvisible=col - 1 == length(colormaps),
+                )
+            end
+        end
     end
 
     scatter!(ax, [0],[0],marker='⭐', markersize=30, color=:black)

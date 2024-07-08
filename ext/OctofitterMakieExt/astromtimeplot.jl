@@ -73,6 +73,21 @@ function astromtimeplot!(
     xlims!(ax_sep, extrema(ts))
     xlims!(ax_pa, extrema(ts))
 
+
+    if length(model.system.planets) == 1
+        colormaps = Dict(
+            first(keys(model.system.planets)) => colormap
+        )
+    else
+        colormaps = Dict(
+            begin
+                c = Makie.wong_colors()[i]
+                planet_key => Makie.cgrad([c, Makie.RGBAf(c.r,c.g,c.b,0.1)])
+            end
+            for (i,planet_key) in enumerate(keys(model.system.planets))
+        )
+    end
+
     for planet_key in keys(model.system.planets)
         orbs = Octofitter.construct_elements(results, planet_key, ii)
         # Now time-series
@@ -103,54 +118,8 @@ function astromtimeplot!(
             alpha=min.(1, 100 / length(ii)),
             color=concat_with_nan(color_model_t .+ 0 .* ii),
             colorrange=(0,2pi),
-            colormap
+            colormap=colormaps[planet_key]
         )
-
-        # TODO: add in direction check, orbits are always increasing or
-        # decreasing in PA, but sometimes do a big jump
-        # delta = 0.2
-        # allx = Float64[]
-        # ally = Float64[]
-        # allcolors = Float64[]
-        # for yi in axes(pa_model_t, 1)
-        #     x = ts
-        #     y = pa_model_t[yi,:]
-        #     colors = color_model_t[yi,:]
-        #     xi = 1
-        #     xi0 = 1
-        #     while xi<size(x,1)-1
-        #         xi += 1
-        #         xi0 += 1
-        #         if (
-        #             pa_model_t[yi,xi0] > 2pi - delta &&
-        #             pa_model_t[yi,xi0+1] < delta)
-        #             slope = 2pi + pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0]
-        #             newpt = y[xi-1] + slope
-        #             newpt = NaN
-        #             x = [x[1:xi]; NaN; x[xi+1:end]]
-        #             y = [y[1:xi]; NaN; y[xi+1:end]]
-        #             colors = [colors[1:xi]; NaN; colors[xi+1:end]]
-        #             ylims!(ax_pa, 0, 360)
-        #             xi += 1
-        #         elseif (
-        #             pa_model_t[yi,xi0] < delta &&
-        #             pa_model_t[yi,xi0+1] > 2pi - delta)
-        #             slope = pa_model_t[yi,xi0+1] - (pa_model_t[yi,xi0]+2pi)
-        #             newpt = y[xi-1] + slope
-        #             x = [x[1:xi]; NaN; x[xi+1:end]]
-        #             y = [y[1:xi-1]; newpt; NaN; 4pi; y[xi+2:end]]
-        #             colors = [colors[1:xi]; NaN; colors[xi+1:end]]
-        #             ylims!(ax_pa, 0, 360)
-        #             xi += 1
-        #         end
-        #     end
-        #     append!(allx, x)
-        #     append!(ally, y)
-        #     append!(allcolors, colors)
-        #     push!(allx, NaN)
-        #     push!(ally, NaN)
-        #     push!(allcolors, 0.0)
-        # end
         
         # Go through each PA time series and, whenever we detect PA has wrapped past 0 or 360,
         # do some work to make the line not jump back vertically across the plot.
@@ -228,7 +197,7 @@ function astromtimeplot!(
             alpha=min.(1, 100 / length(ii)),
             color=allcolors,
             colorrange=(0,2pi),
-            colormap
+            colormap=colormaps[planet_key]
         )
     end
 
@@ -399,18 +368,36 @@ function astromtimeplot!(
     end
 
     if colorbar
-        Colorbar(
-            gs[1:2,2];
-            colormap,
-            label="mean anomaly",
-            colorrange=(0,2pi),
-            ticks=(
-                [0,pi/2,pi,3pi/2,2pi],
-                ["0", "π/2", "π", "3π/2", "2π"]
+        if length(colormaps) == 1
+            Colorbar(
+                gs[1,2];
+                colormap,
+                label="mean anomaly →",
+                colorrange=(0,2pi),
+                ticks=(
+                    [0,pi/2,pi,3pi/2,2pi],
+                    ["0", "π/2", "π", "3π/2", "2π"]
+                )
             )
-        )
+        else
+            col = 1
+            for planet_key in keys(colormaps)
+                col += 1
+                Colorbar(
+                    gs[1,col];
+                    colormap=colormaps[planet_key],
+                    label="mean anomaly ($planet_key) →",
+                    colorrange=(0,2pi),
+                    ticks=(
+                        [0,pi/2,pi,3pi/2,2pi],
+                        ["0", "π/2", "π", "3π/2", "2π"]
+                    ),
+                    ticksvisible=col - 1 == length(colormaps),
+                    ticklabelsvisible=col - 1 == length(colormaps),
+                )
+            end
+        end
     end
-
     return [ax_sep, ax_pa]
 
 end
