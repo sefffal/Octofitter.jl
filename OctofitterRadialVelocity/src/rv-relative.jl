@@ -21,16 +21,13 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikeli
         if !issubset(rv_cols, Tables.columnnames(table))
             error("Expected columns $rv_cols")
         end
-        # Check instrument indexes are contiguous
-        if length(unique(table.inst_idx)) != maximum(table.inst_idx)
-            error("instrument indexes must run from 1:N without gaps")
-        end
+       
         # We sort the data first by instrument index then by epoch to make some later code faster
         m = maximum(table.epoch)
-        ii = sortperm(table.inst_idx .* (10m) .+ table.epoch)
+        ii = sortperm(table.epoch)
         table = table[ii,:]
         if isnothing(instrument_names)
-            instrument_names = string.(1:maximum(table.inst_idx))
+            instrument_names = ["1"]
         end
         return new{typeof(table),typeof(gaussian_process)}(table, instrument_names, gaussian_process)
     end
