@@ -48,7 +48,7 @@ function Octofitter.astromplot!(
         colormaps = Dict(
             begin
                 c = Makie.wong_colors()[i]
-                planet_key => Makie.cgrad([c, Makie.RGBAf(c.r,c.g,c.b,0.1)])
+                planet_key => Makie.cgrad([c, "#FAFAFA"])
             end
             for (i,planet_key) in enumerate(keys(model.system.planets))
         )
