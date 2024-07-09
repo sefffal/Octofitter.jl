@@ -2,7 +2,11 @@
 
 ## Background
 Octofitter has support for directly fitting GRAVITY-WIDE closure phase data, in the OI-FITS format emitted by the pipeline.
-The closure phases are actually mapped to a set of non-redundant kernel phases. All spectral channels are modelled at the same time.
+The closure phases are actually mapped to a set of non-redundant kernel phases. All spectral channels are modelled separately per exposure.
+
+!!! note
+    GRAVITY modelling is supported in Octofitter via the extension package OctofitterInterferometry. To install it, run 
+    `pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterInterferometry`
 
 The only supported astrophysical sources at this time are zero or more point sources orbitting a primary body.
 
