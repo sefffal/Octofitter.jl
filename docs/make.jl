@@ -26,11 +26,11 @@ makedocs(
             "Fit Resonant Co-Planar Model" => "fit-coplanar.md",
             "Fit Interferometer Data" => "fit-interfere.md",
             "Fit Likelihood Map" => "fit-likemap.md",
-            "Fit Thiele-Innes Paramerers" => "thiele-innes.md",
+            "Fit Thiele-Innes Parameters" => "thiele-innes.md",
             "Fit Relative RV Data" => "fit-rv-rel.md",
             "Fit GRAVITY Wide Data" => "fit-grav-wide.md",
-            # TODO:
-            "Detection Limits" => "limits.md",
+            "Fit " => "fit-grav-wide.md",
+            "Calculate Detection Limits" => "limits.md",
         ],
         "Statistical Methods" => [
             "Prior Predictive Checks" => "prior-pred.md",

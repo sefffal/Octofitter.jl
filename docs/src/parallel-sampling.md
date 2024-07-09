@@ -12,7 +12,7 @@ If you just want to sample across multiple cores on the same computer, start jul
 If your problem is challenging enough to benefit from parallel sampling across multiple nodes in a cluster, you might consider using Pigeons with MPI. 
 
 ## Model Script
-Start by creating a script that only loads your data and defines your model. At the end of the script, add some boilerplate shown below. Here is an example:
+Start by creating a script that only loads your data. Instead of building your model at the top-level, create a function that returns a new model. At the end of the script, add some boilerplate shown below. Here is an example:
 ```
 
 
@@ -25,10 +25,9 @@ using CSV
 using DataFrames
 using Distributions
 
-# load your data
+# Specify your data as usual
 astrom_like = PlanetRelAstromLikelihood(
     # Your data here:
-    # units are MJD, mas, mas, mas, mas, and correlation.
     (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
@@ -39,40 +38,54 @@ astrom_like = PlanetRelAstromLikelihood(
     (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
 )
 
-# define your model
-@planet b Visual{KepOrbit} begin
-    a ~ Uniform(0, 100) # AU
-    e ~ Uniform(0.0, 0.99)
-    i ~ Sine() # radians
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,50000) # use MJD epoch of your data here!!
-end astrom_like
-@system Tutoria begin # replace Tutoria with the name of your planetary system
-    M ~ truncated(Normal(1.2, 0.1), lower=0)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0)
-end b
-model = Octofitter.LogDensityModel(Tutoria)
 
 # Copy this boilerplate
-struct MyTargetFlag end 
+struct MyLazyTarget end 
 using Pigeons
-Pigeons.instantiate_target(flag::MyTargetFlag) = model
+
+function Pigeons.instantiate_target(flag::MyLazyTarget) 
+
+    # build your model as usual
+    @planet b Visual{KepOrbit} begin
+        a ~ Uniform(0, 100) # AU
+        e ~ Uniform(0.0, 0.99)
+        i ~ Sine() # radians
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(system,b,50000) # use MJD epoch of your data here!!
+    end astrom_like
+    @system Tutoria begin # replace Tutoria with the name of your planetary system
+        M ~ truncated(Normal(1.2, 0.1), lower=0)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0)
+    end b
+    model = Octofitter.LogDensityModel(Tutoria)
+
+    return model
+end
 ```
 
 
 ## Launcher Script
+Use this script to launch your MPI job.
 
+!!! info 
+    Don't submit this script to your cluster. Run it on a login node and it will submit the job for you.
 ```julia
 include("distributed-model.jl")
 pt = pigeons(
-    target = Pigeons.LazyTarget(MyTargetFlag()),
+    target = Pigeons.LazyTarget(MyLazyTarget()),
     record = [traces; round_trip; record_default()],
-    on = ChildProcess(
-        n_local_mpi_processes = 4,
-        dependencies = ["distributed-model.jl"]
-    )
+    on = Pigeons.MPIProcesses(
+        n_mpi_processes = n_chains,
+        n_threads = 1,
+        dependencies = [abspath("distributed-model.jl")]
+    ),
+    # Pass additional flags to the HPC scheduler here
+    # See here for more details: https://pigeons.run/stable/reference/#Pigeons.MPIProcesses
+    # add_to_submission = ["#PBS -A my_user_allocation_code"] # pbs
+    add_to_submission = ["#SBATCH --account=my_user_name"], # slurm
+    environment_modules: ["intel", "openmpi", "julia"] # HPC modules to load on each worker
 )
 results = Chains(model, pt)
 octocorner(model, results,small=true)
