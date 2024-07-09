@@ -36,7 +36,7 @@ makedocs(
             "Prior Predictive Checks" => "prior-pred.md",
             "Posterior Predictive Checks" => "post-pred.md",
             # TODO:
-            "Cross Validataion" => "cross-validation.md",
+            "Cross Validation" => "cross-validation.md",
             "Simulation Based Calibration" => "sbc.md",
         ],
         "Compatibility" => [
