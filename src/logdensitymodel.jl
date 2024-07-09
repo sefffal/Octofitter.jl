@@ -69,12 +69,12 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 # CAUTION: This inline annotation is necessary for correct gradients from Enzyme. Yikes!
                 llike  = @inline ln_like_generated(system, θ_structured)
                 lpost = lprior+llike
-                if !isfinite(lprior)
-                    @warn "Invalid log prior encountered. This likely indicates a problem with the prior support." θ=θ_structured lprior θ_transformed maxlog=5
-                end
-                if !isfinite(llike)
-                    @warn "Invalid log likelihood encountered." θ=θ_structured llike θ_transformed maxlog=5
-                end
+                # if !isfinite(lprior)
+                #     @warn "Invalid log prior encountered. This likely indicates a problem with the prior support." θ=θ_structured lprior θ_transformed maxlog=5
+                # end
+                # if !isfinite(llike)
+                #     @warn "Invalid log likelihood encountered." θ=θ_structured llike θ_transformed maxlog=5
+                # end
                 return lpost
             end
 
