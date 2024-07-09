@@ -64,7 +64,8 @@ chain = octofit(model)
 We now examine the posterior and verify that it matches our KDE prior:
 ```@example 1
 dat = chain[:b_a][:]
-@show mean(dat) std(dat);
+@show mean(dat) std(dat)
+nothing # hide
 ```
 
 ## Observable Based Priors
