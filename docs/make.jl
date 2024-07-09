@@ -58,7 +58,8 @@ makedocs(
         ]
     ],
     format = Documenter.HTML(
-        prettyurls = get(ENV, "CI", nothing) == "true"
+        prettyurls = get(ENV, "CI", nothing) == "true",
+        size_threshold=nothing
     ),
     pagesonly=true
 )
