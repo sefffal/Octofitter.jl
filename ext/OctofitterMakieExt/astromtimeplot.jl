@@ -127,7 +127,6 @@ function astromtimeplot!(
                 xi0 += 1
                 direction_next = sign(pa_model_t[yi,xi0+1] - pa_model_t[yi,xi0])
                 if direction != direction_next && direction > 0
-                    @show "A"
                     Δ =  pa_model_t[yi,xi0+1]-(pa_model_t[yi,xi0]-2pi)
                     x_midpoint = (x[xi] + x[xi+1])/2
                     newpt_before = y[xi] + Δ/2
