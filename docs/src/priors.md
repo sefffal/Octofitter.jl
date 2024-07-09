@@ -64,7 +64,7 @@ chain = octofit(model)
 We now examine the posterior and verify that it matches our KDE prior:
 ```@example 1
 dat = chain[:b_a][:]
-@show mean(dat) std(dat)
+@show mean(dat) std(dat);
 ```
 
 ## Observable Based Priors
@@ -81,7 +81,7 @@ astrom_like = PlanetRelAstromLikelihood(
 
 @planet b Visual{KepOrbit} begin
     # For using with ObsPriors:
-	P ~ Uniform(0.001, 1000)
+    P ~ Uniform(0.001, 1000)
     a = cbrt(system.M * b.P^2)
 
     e ~ Uniform(0.0, 1.0)
