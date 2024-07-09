@@ -73,7 +73,7 @@ nothing # hide
 Octofitter implements observable-based priors from O'Neil 2019 for relative astrometry. You can fit a model to astrometry using observable-based priors using the following recipe:
 
 
-```@example 1
+```julia
 using Octofitter, Distributions
 
 astrom_like = PlanetRelAstromLikelihood(
@@ -99,17 +99,4 @@ end astrom_like ObsPriorAstromONeil2019(astrom_like);
     plx ~ Normal(21.219, 0.060)
 	M ~ truncated(Normal(1.1, 0.2),lower=0)
 end b
-
-model = Octofitter.LogDensityModel(System1, verbosity=4)
-
-```
-
-```@example 1
-octofit(
-    model, 0.95;
-    adaptation = 1000,
-    iterations = 1000,
-    verbosity = 4,
-    max_depth = 10,
-)
 ```
