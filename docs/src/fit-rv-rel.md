@@ -9,6 +9,7 @@ To fit relative RV data, start by creating a likelihood object:
 using Octofitter
 using OctofitterRadialVelocity
 using CairoMakie
+using Distributions
 
 rel_rv_like = PlanetRelativeRVLikelihood(
         (;epoch=5000.0,  rv=−6.54, σ_rv=1.30),
