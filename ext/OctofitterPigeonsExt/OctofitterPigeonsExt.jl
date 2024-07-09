@@ -18,7 +18,7 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
     local result_pf = nothing
     ldm_any = Octofitter.LogDensityModelAny(model)
     # Use Pathfinder to initialize HMC. Works but currently disabled.
-    verbosity >= 2 && @info "Determining initial positions using pathfinder"
+    verbosity >= 1 && @info "Determining initial positions using pathfinder"
     # It seems to hit a PosDefException sometimes when factoring a matrix.
     # When that happens, the next try usually succeeds.
     # start_time = time()
@@ -28,11 +28,10 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
                 initial_θ = initial_parameters
                 # Transform from constrained support to unconstrained support
                 initial_θ_t = model.link(initial_θ)
-                errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
+                errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.LogLevel(10000000))
                 result_pf = with_logger(errlogger) do 
-                    Pathfinder.multipathfinder(
-                        ldm_any, 1000;
-                        nruns=8,
+                    Pathfinder.pathfinder(
+                        ldm_any;
                         init=fill(collect(initial_θ_t),8),
                         progress=verbosity > 1,
                         maxiters=25_000,
@@ -49,9 +48,8 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
                 end
                 errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
                 result_pf = with_logger(errlogger) do 
-                    Pathfinder.multipathfinder(
-                        ldm_any, 1000;
-                        nruns=8,
+                    Pathfinder.pathfinder(
+                        ldm_any;
                         init_sampler=Octofitter.CallableAny(init_sampler),
                         progress=verbosity > 1,
                         maxiters=25_000,
@@ -60,14 +58,6 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
                         rng=rng,
                     ) 
                 end
-            end
-            # Check pareto shape diagnostic to see if we have a good approximation
-            # If we don't, just try again
-            if result_pf.psis_result.pareto_shape > 3
-                verbosity > 3 && display(result_pf)
-                verbosity >= 4 && display(result_pf.psis_result)
-                verbosity > 2 && @warn "Restarting pathfinder" i
-                continue
             end
             verbosity >= 3 && "Pathfinder complete"
             break
@@ -89,9 +79,8 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
         # and picking the best one (highest likelihood).
         # Then transform that guess into our unconstrained support
         if isnothing(initial_parameters)
-            verbosity >= 1 && @info "Guessing a starting location by sampling from prior" initial_samples
+            verbosity >= 1 && @info "Falling back to guessing a starting location by sampling from prior" initial_samples
             initial_θ, mapv = Octofitter.guess_starting_position(rng,model.system,initial_samples)
-            verbosity > 2 && @info "Found starting location" θ=Octofitter.stringify_nested_named_tuple(model.arr2nt(initial_θ))
             # Transform from constrained support to unconstrained support
             initial_θ_t = model.link(initial_θ)
         else
@@ -100,21 +89,12 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
             initial_θ_t = model.link(initial_θ)
         end
     else # !isnothing(result_pf)
-        # Start using a draw from the typical set as estimated by Pathfinder
-        # TODO: ideally we want to run multi-pathfinder once, store the result in the object,
-        # and then pull out single draws on each chain.
-        if result_pf.psis_result.pareto_shape < 3
-            verbosity >= 4 && @info "PSIS result good; starting with sample from typical set"
-            initial_θ_t = collect(last(eachcol(result_pf.draws))) # result_pf.fit_distribution.μ
-        else
-            verbosity >= 4 && @info "PSIS result bad; starting with distribution mean"
-            initial_θ_t = collect(mean(result_pf.fit_distribution))
-        end
+        initial_θ_t = collect(mean(result_pf.fit_distribution))
         initial_θ = collect(model.invlink(initial_θ_t))
     end
 
 
-    if verbosity >= 4
+    if verbosity >= 1
         initial_logpost = model.ℓπcallback(initial_θ_t)
         @info "Determined initial position" initial_θ initial_θ_nt=model.arr2nt(initial_θ) initial_logpost
     end
