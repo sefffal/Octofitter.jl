@@ -87,6 +87,7 @@ model = Octofitter.LogDensityModel(Tutoria)
 
 using Pigeons
 results,pt = octofit_pigeons(model, n_rounds=10);
+nothing # hide
 ```
 
 Note that we use Pigeons paralell tempered sampling (`octofit_pigeons`) instead of HMC (`octofit`) because interferometry data is almost always multi-modal (or more precisely non-convex, there is often still a single mode that dominates).
