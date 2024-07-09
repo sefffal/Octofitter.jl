@@ -28,7 +28,7 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
                 initial_θ = initial_parameters
                 # Transform from constrained support to unconstrained support
                 initial_θ_t = model.link(initial_θ)
-                errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.LogLevel(10000000))
+                errlogger = verbosity >= 3 ? ConsoleLogger(stderr, Logging.Info) : NullLogger()
                 result_pf = with_logger(errlogger) do 
                     Pathfinder.pathfinder(
                         ldm_any;
@@ -46,7 +46,7 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
                     initial_θ_t = model.link(initial_θ)
                     x .= initial_θ_t
                 end
-                errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
+                errlogger = verbosity >= 3 ? ConsoleLogger(stderr, Logging.Info) : NullLogger()
                 result_pf = with_logger(errlogger) do 
                     Pathfinder.pathfinder(
                         ldm_any;
