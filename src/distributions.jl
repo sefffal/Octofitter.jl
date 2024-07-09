@@ -47,7 +47,7 @@ A custom univariate distribution.
 The pdf is exactly 1 between -Inf and Inf. This is an **improper**
 distribution. This is useful for some change of variable transformations
 where we want to apply no prior on a variable and instead apply it on
-a transformed quantity. Use wuith caution.
+a transformed quantity. Use with caution.
 
 The full Distributions.jl interface is not obeyed by this distribution,
 but the following methods work:
@@ -67,6 +67,15 @@ Distributions.var(d::UniformImproper) = Inf
 Distributions.quantile(d::UniformImproper, p::Real) = p
 
 
+"""
+    kde = KDEDist(data)
+
+A univariate distribution that obeys the Distributions.jl interface.
+Uses KernelDensity.jl to create a 1D kernel density estimator using the provided
+input data and optional bandwidth scale factor.
+
+Appropriate to use as a prior in an Octofitter model.
+"""
 struct KDEDist{TKDE<:InterpKDE,TDat<:AbstractArray} <: ContinuousUnivariateDistribution
     ik::TKDE
     data::TDat
@@ -98,5 +107,5 @@ function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::KDEDist)
     println(io, "KDEDist kernel density estimate distribution")
 end
 function Base.show(io::IO, @nospecialize p::KDEDist)
-    println(io, "KDEDist kernel density estimate distribution")
+    print(io, "KDEDist kernel density estimate distribution")
 end

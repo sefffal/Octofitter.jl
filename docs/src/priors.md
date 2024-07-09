@@ -26,6 +26,47 @@ For example, setting `a=Normal(3,2)` will result in poor sampling efficiency as 
 Instead, for parameters like semi-major axis, eccentricity, parallax, and masses, you should truncate any distributions that have negative tails.
 This can easily be accomplished with `TrauncatedNormal` or `Trunacted(dist, low, high)` for any arbitrary distribution.
 
+
+## Kernel Density Estimate Priors
+
+Octofitter has support for sampling from smoothed kernel density estimate priors. These are non-parametric distributions fit to a 1D dataset consisting of random draws. This is one way to include the output of a different model as the prior to a new model. That said, it's usually best to try and incorporate the model directly into the code. There are a few examples on GitHub of this, including atmosphere model grids, cooling tracks, etc.
+
+### Using a KDE
+First, we will generate some data. In the real world, you would load this data eg. from a CSV file.
+```@example 1
+using Octofitter, Distributions
+
+# create a smoothed KDE estimate of the samples from a 10+-1 gaussian
+kde = Octofitter.KDEDist(randn(1000).+10)
+```
+
+Note that in Octofitter the KDE will have its support truncated to the minimum and maximum values that occur in your dataset, ie. it doesn't allow for infinite long tails.
+
+Now add it to your model as a prior:
+```@example 1
+@planet b Visual{KepOrbit} begin
+    a ~ kde # Sample from the KDE here
+    e ~ Uniform(0.0, 0.99)
+    i ~ Sine()
+    ω ~ UniformCircular()
+    Ω ~ UniformCircular()
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50000)
+end 
+@system Tutoria begin 
+    M ~ truncated(Normal(1.2, 0.1), lower=0)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0)
+end b
+model = Octofitter.LogDensityModel(Tutoria)
+chain = octofit(model)
+```
+
+We now examine the posterior and verify that it matches our KDE prior:
+```@example 1
+dat = chain[:b_a][:]
+@show mean(dat) std(dat)
+```
+
 ## Observable Based Priors
 
 Octofitter implements observable-based priors from O'Neil 2019 for relative astrometry. You can fit a model to astrometry using observable-based priors using the following recipe:
