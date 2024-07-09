@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Detection Limits · Octofitter.jl</title><meta name="title" content="Detection Limits · Octofitter.jl"/><meta property="og:title" content="Detection Limits · Octofitter.jl"/><meta property="twitter:title" content="Detection Limits · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../getting-started/">Installation</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../rel-astrom/">Fit Relative Astrometry</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Fit with Observable Priors</a></li><li><a class="tocitem" href="../rv-1/">Fit Radial Velocity</a></li><li><a class="tocitem" href="../pma/">Fit Proper Motion Anomaly</a></li><li><a class="tocitem" href="../images/">Fit Orbits to Images</a></li><li><a class="tocitem" href="../rv/">Fit RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../fit-rv-astrom/">Fit RV and Relative Astrometry</a></li><li><a class="tocitem" href="../fit-coplanar/">Fit Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../fit-interfere/">Fit Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Fit Likelihood Map</a></li><li><a class="tocitem" href="../thiele-innes/">Fit Thiele-Innes Paramerers</a></li><li><a class="tocitem" href="../fit-rv-rel/">Fit Relative RV Data</a></li><li><a class="tocitem" href="../fit-grav-wide/">Fit GRAVITY Wide Data</a></li><li class="is-active"><a class="tocitem" href>Detection Limits</a><ul class="internal"><li><a class="tocitem" href="#Detection-Limits"><span>Detection Limits</span></a></li><li><a class="tocitem" href="#Photometry-Model"><span>Photometry Model</span></a></li><li><a class="tocitem" href="#Proper-Motion-Anomaly-Data"><span>Proper Motion Anomaly Data</span></a></li><li><a class="tocitem" href="#Image-Data"><span>Image Data</span></a></li><li class="toplevel"><a class="tocitem" href="#Image-and-PMA-data"><span>Image and PMA data</span></a></li></ul></li></ul></li><li><span class="tocitem">Statistical Methods</span><ul><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li><li><span class="tocitem">Compatibility</span><ul><li><a class="tocitem" href="../compat-orbitize/">Orbitize!</a></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Parallel Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../mass-photometry/">Connecting Mass with Photometry</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Detection Limits</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Detection Limits</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/limits.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h2 id="Detection-Limits"><a class="docs-heading-anchor" href="#Detection-Limits">Detection Limits</a><a id="Detection-Limits-1"></a><a class="docs-heading-anchor-permalink" href="#Detection-Limits" title="Permalink"></a></h2><div class="admonition is-warning"><header class="admonition-header">Warning</header><div class="admonition-body"><p>This tutorial is a work in progress.</p></div></div><p>This guide shows how to calculate detection limits, in mass, or in photometry, as a function of orbital parameters for different combinations of data.</p><p>There are a few use cases for this:</p><ul><li>Mass limit vs semi-major axis given one or more images and/or contrast curves</li><li>Mass limit vs semi-major axis given an RV non-detection</li><li>Mass limit vs semi-major axis given proper motion anomaly from the GAIA-Hipparcos Catalog of Accelerations</li><li>Any combination of the above</li></ul><p>We will once more use some sample data from the system <a href="https://arxiv.org/abs/2109.12124">HD 91312 A &amp; B</a> discovered by SCExAO. </p><pre><code class="language-julia hljs">using Octofitter
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Calculate Detection Limits · Octofitter.jl</title><meta name="title" content="Calculate Detection Limits · Octofitter.jl"/><meta property="og:title" content="Calculate Detection Limits · Octofitter.jl"/><meta property="twitter:title" content="Calculate Detection Limits · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../getting-started/">Installation</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../rel-astrom/">Fit Relative Astrometry</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Fit with Observable Priors</a></li><li><a class="tocitem" href="../rv-1/">Fit Radial Velocity</a></li><li><a class="tocitem" href="../pma/">Fit Proper Motion Anomaly</a></li><li><a class="tocitem" href="../images/">Fit Orbits to Images</a></li><li><a class="tocitem" href="../rv/">Fit RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../fit-rv-astrom/">Fit RV and Relative Astrometry</a></li><li><a class="tocitem" href="../fit-coplanar/">Fit Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../fit-interfere/">Fit Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Fit Likelihood Map</a></li><li><a class="tocitem" href="../thiele-innes/">Fit Thiele-Innes Parameters</a></li><li><a class="tocitem" href="../fit-rv-rel/">Fit Relative RV Data</a></li><li><a class="tocitem" href="../fit-grav-wide/">Fit GRAVITY Wide Data</a></li><li><a class="tocitem" href="../fit-grav-wide/">Fit </a></li><li class="is-active"><a class="tocitem" href>Calculate Detection Limits</a><ul class="internal"><li><a class="tocitem" href="#Detection-Limits"><span>Detection Limits</span></a></li><li><a class="tocitem" href="#Photometry-Model"><span>Photometry Model</span></a></li><li><a class="tocitem" href="#Proper-Motion-Anomaly-Data"><span>Proper Motion Anomaly Data</span></a></li><li><a class="tocitem" href="#Image-Data"><span>Image Data</span></a></li><li class="toplevel"><a class="tocitem" href="#Image-and-PMA-data"><span>Image and PMA data</span></a></li></ul></li></ul></li><li><span class="tocitem">Statistical Methods</span><ul><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li><li><span class="tocitem">Compatibility</span><ul><li><a class="tocitem" href="../compat-orbitize/">Orbitize!</a></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Parallel Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../mass-photometry/">Connecting Mass with Photometry</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Calculate Detection Limits</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Calculate Detection Limits</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/limits.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h2 id="Detection-Limits"><a class="docs-heading-anchor" href="#Detection-Limits">Detection Limits</a><a id="Detection-Limits-1"></a><a class="docs-heading-anchor-permalink" href="#Detection-Limits" title="Permalink"></a></h2><div class="admonition is-warning"><header class="admonition-header">Warning</header><div class="admonition-body"><p>This tutorial is a work in progress.</p></div></div><p>This guide shows how to calculate detection limits, in mass, or in photometry, as a function of orbital parameters for different combinations of data.</p><p>There are a few use cases for this:</p><ul><li>Mass limit vs semi-major axis given one or more images and/or contrast curves</li><li>Mass limit vs semi-major axis given an RV non-detection</li><li>Mass limit vs semi-major axis given proper motion anomaly from the GAIA-Hipparcos Catalog of Accelerations</li><li>Any combination of the above</li></ul><p>We will once more use some sample data from the system <a href="https://arxiv.org/abs/2109.12124">HD 91312 A &amp; B</a> discovered by SCExAO. </p><pre><code class="language-julia hljs">using Octofitter
 using OctofitterImages
 using OctofitterRadialVelocity
 using Distributions
 using Pigeons
-using CairoMakie</code></pre><h2 id="Photometry-Model"><a class="docs-heading-anchor" href="#Photometry-Model">Photometry Model</a><a id="Photometry-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Photometry-Model" title="Permalink"></a></h2><p>We will need to decide on an atmosphere model to map image intensities into mass. Here we use the Sonora Bobcat cooling and atmosphere models which will be auto-downloaded by Octofitter:</p><pre><code class="language-julia hljs">const cooling_tracks = Octofitter.sonora_cooling_interpolator()
+using CairoMakie
+using PairPlots</code></pre><h2 id="Photometry-Model"><a class="docs-heading-anchor" href="#Photometry-Model">Photometry Model</a><a id="Photometry-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Photometry-Model" title="Permalink"></a></h2><p>We will need to decide on an atmosphere model to map image intensities into mass. Here we use the Sonora Bobcat cooling and atmosphere models which will be auto-downloaded by Octofitter:</p><pre><code class="language-julia hljs">const cooling_tracks = Octofitter.sonora_cooling_interpolator()
 const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)</code></pre><h2 id="Proper-Motion-Anomaly-Data"><a class="docs-heading-anchor" href="#Proper-Motion-Anomaly-Data">Proper Motion Anomaly Data</a><a id="Proper-Motion-Anomaly-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Proper-Motion-Anomaly-Data" title="Permalink"></a></h2><p>We start by defining and sampling from a model that only includes proper motion anomaly data from the HGCA:</p><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
@@ -27,25 +28,25 @@ end
     pmdec ~ Normal(0,  1000)
 end HGCALikelihood(gaia_id=6166183842771027328) B
 model_pma = Octofitter.LogDensityModel(HD91312_pma)</code></pre><p>Sample:</p><pre><code class="language-julia hljs">using Pigeons
-pt = pigeons(
-    target=model_pma,
-    n_chains=8,
-    n_rounds=14,
-    multithreaded=true,
-    record = [traces; round_trip; record_default()],
-)
-chain_pma = Chains(model_pma, pt)</code></pre><p>Plot mass vs. semi-major axis posterior:</p><pre><code class="language-julia hljs">fig = Figure()
-ax = Axis(
-    fig[1,1],
-    xscale=log10,
-    yscale=log10,
-    xticks = 2.0 .^ (0:2:6),
-    yticks = 2.0 .^ (-1:2:6)
-)
-x = chain_pma[:B_a][:]
-y = chain_pma[:B_mass][:]
-scatter!(ax,x,y, markersize=5, color=Makie.wong_colors()[1])
-fig</code></pre><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><pre><code class="language-julia hljs">using AstroImages
+chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16, n_rounds=12);
+nothing # hide</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl:</p><pre><code class="language-julia hljs">pairplot(
+    PairPlots.Series(
+        (;
+            sma=log2.(chain_pma[:B_a][:],),
+            mass=log2.(chain_pma[:B_mass][:]),
+        ),
+        label=&quot;PMA&quot;,
+        color=Makie.wong_colors()[1],
+    )=&gt;(
+        PairPlots.Scatter(markersize=3,alpha=0.35),
+        PairPlots.Contour(sigmas=[1,3]),
+        PairPlots.MarginStepHist(),
+    ),
+    labels=Dict(
+        :sma=&gt;&quot;log₂ Semi-major axis [au]&quot;,
+        :mass=&gt;&quot;log₂ Mass [Mⱼᵤₚ]&quot;
+    )
+)</code></pre><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><pre><code class="language-julia hljs">using AstroImages
 download(
     &quot;https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits&quot;,
     &quot;image-examples-1.fits&quot;
@@ -74,7 +75,7 @@ image_data = ImageLikelihood(
     elseif B.mass &gt; 10 
         8.2 # jump to absurdly bright
     else
-        16.7 # jump to absordly dim
+        16.7 # jump to absurdly dim
     end
     # Calculate relative magnitude
     rel_mag_L = B.abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
@@ -100,25 +101,32 @@ end image_data
     rel_mag = 5.65
 end  B
 model_img = Octofitter.LogDensityModel(HD91312_img)</code></pre><pre><code class="language-julia hljs">using Pigeons
-pt = pigeons(
-    target=model_img,
-    n_chains=8,
-    n_rounds=14,
-    multithreaded=true,
-    record = [traces; round_trip; record_default()],
+chain_img, pt = octofit_pigeons(model_img, n_chains=5, n_chains_variational=5, n_rounds=12)</code></pre><p>Plot mass vs. semi-major axis posterior:</p><pre><code class="language-julia hljs">vis_layers = (
+    PairPlots.Contour(sigmas=[1,3]),
+    PairPlots.MarginStepHist(),
 )
-chain_img = Chains(model_img, pt)</code></pre><p>Plot mass vs. semi-major axis posterior:</p><pre><code class="language-julia hljs">fig = Figure()
-ax = Axis(
-    fig[1,1],
-    xscale=log10,
-    yscale=log10,
-    xticks = 2.0 .^ (0:2:6),
-    yticks = 2.0 .^ (-1:2:6)
-)
-x = chain_img[:B_a][:]
-y = chain_img[:B_mass][:]
-scatter!(ax,x,y, markersize=5, color=Makie.wong_colors()[1])
-fig</code></pre><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
+pairplot(
+    PairPlots.Series(
+        (;
+            sma=log2.(chain_pma[:B_a][:],),
+            mass=log2.(chain_pma[:B_mass][:]),
+        ),
+        label=&quot;PMA&quot;,
+        color=Makie.wong_colors()[1],
+    )=&gt;vis_layers,
+    PairPlots.Series(
+        (;
+            sma=log2.(chain_img[:B_a][:],),
+            mass=log2.(chain_img[:B_mass][:]),
+        ),
+        label=&quot;IMG&quot;,
+        color=Makie.wong_colors()[2],
+    )=&gt;vis_layers,
+    labels=Dict(
+        :sma=&gt;&quot;log₂ Semi-major axis [au]&quot;,
+        :mass=&gt;&quot;log₂ Mass [Mⱼᵤₚ]&quot;
+    )
+)</code></pre><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
     ω ~ Uniform(0,2pi)
@@ -164,39 +172,37 @@ end  HGCALikelihood(gaia_id=6166183842771027328) B
 model_both = Octofitter.LogDensityModel(HD91312_both)
 
 using Pigeons
-pt = pigeons(
-    target=model_both,
-    n_chains=8,
-    n_rounds=14,
-    multithreaded=true,
-    record = [traces; round_trip; record_default()],
+chain_both, pt = octofit_pigeons(model_both,n_chains=18,n_chains_variational=8,n_rounds=12)</code></pre><p>Compare all three posteriors to see limits:</p><pre><code class="language-julia hljs">vis_layers = (
+    PairPlots.Contour(sigmas=[1,3]),
+    PairPlots.MarginStepHist(),
 )
-chain_both = Chains(model_both, pt)</code></pre><p>Compare all three limit posteriors:</p><pre><code class="language-julia hljs">fig = Figure()
-ax = Axis(
-    fig[1,1],
-    xscale=Makie.pseudolog10,
-    yscale=Makie.pseudolog10,
-    xticks = 2.0 .^ (0:2:6),
-    yticks = 2.0 .^ (-1:2:6),
-    xlabel = &quot;semi-major axis [au]&quot;,
-    ylabel = Makie.rich(&quot;companion mass [m&quot;, Makie.subscript(&quot;jup&quot;), &quot;]&quot;),
-)
-
-
-
-x = chain_img[:B_a][:]
-y = chain_img[:B_mass][:]
-scatter!(ax,x,y, markersize=3, color=Makie.wong_colors()[3], label=&quot;image&quot;, alpha=0.5)
-
-x = chain_pma[:B_a][:]
-y = chain_pma[:B_mass][:]
-scatter!(ax,x,y, markersize=3, color=Makie.wong_colors()[1], label=&quot;PMA&quot;, alpha=0.5)
-
-
-x = chain_both[:B_a][:]
-y = chain_both[:B_mass][:]
-scatter!(ax,x,y, markersize=3, color=Makie.wong_colors()[2], label=&quot;image+PMA&quot;, alpha=0.5)
-
-Legend(fig[1,2], ax)
-
-fig</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-grav-wide/">« Fit GRAVITY Wide Data</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Tuesday 9 July 2024 04:28">Tuesday 9 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+pairplot(
+    PairPlots.Series(
+        (;
+            sma=log2.(chain_pma[:B_a][:],),
+            mass=log2.(chain_pma[:B_mass][:]),
+        ),
+        label=&quot;PMA&quot;,
+        color=Makie.wong_colors()[1],
+    )=&gt;vis_layers,
+    PairPlots.Series(
+        (;
+            sma=log2.(chain_img[:B_a][:],),
+            mass=log2.(chain_img[:B_mass][:]),
+        ),
+        label=&quot;IMG&quot;,
+        color=Makie.wong_colors()[2],
+    )=&gt;vis_layers,
+        PairPlots.Series(
+        (;
+            sma=log2.(chain_both[:B_a][:],),
+            mass=log2.(chain_both[:B_mass][:]),
+        ),
+        label=&quot;IMG + PMA&quot;,
+        color=Makie.wong_colors()[3],
+    )=&gt;vis_layers,
+    labels=Dict(
+        :sma=&gt;&quot;log₂ Semi-major axis [au]&quot;,
+        :mass=&gt;&quot;log₂ Mass [Mⱼᵤₚ]&quot;
+    )
+)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-grav-wide/">« Fit </a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Tuesday 9 July 2024 21:57">Tuesday 9 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
