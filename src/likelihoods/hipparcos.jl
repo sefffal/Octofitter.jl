@@ -7,10 +7,10 @@ const hipparcos_catalog_epoch_mjd = years2mjd(1991.15)
 ###########################
 # Stores data:
 const hip_iad_cols = (:iorb, :epoch, :parf, :cpsi, :spsi, :res, :sres)
-struct HiparcosIADLikelihood{THipSol,TIADTable<:Table} <: AbstractLikelihood
+struct HipparcosIADLikelihood{THipSol,TIADTable<:Table} <: AbstractLikelihood
     hip_sol::THipSol
     table::TIADTable
-    function HiparcosIADLikelihood(hip_sol, observations...)
+    function HipparcosIADLikelihood(hip_sol, observations...)
         iad_table = Table(observations...)
         if !issubset(hip_iad_cols, Tables.columnnames(iad_table))
             error("Expected columns $hip_iad_cols")
@@ -25,9 +25,9 @@ end
 ##########################
 # Loads data:
 """
-    HiparcosIADLikelihood(;hipparcos_id)
+    HipparcosIADLikelihood(;hipparcos_id)
 """
-function HiparcosIADLikelihood(; hip_id, catalog=(datadep"Hipparcos_IAD"))
+function HipparcosIADLikelihood(; hip_id, catalog=(datadep"Hipparcos_IAD"))
 
     # TODO: copy in file search functionality from OctofitterRadialVelocity
     file = @sprintf("H%06d.d", hip_id)
@@ -173,15 +173,15 @@ function HiparcosIADLikelihood(; hip_id, catalog=(datadep"Hipparcos_IAD"))
     table.α✱ₘ = collect(eachrow(@. [-1, 1]' * table.spsi + table.α✱ₐ))
     table.δₘ = collect(eachrow(@. [1, -1]' * table.cpsi + table.δₐ))
 
-    return HiparcosIADLikelihood(hip_sol, table)
+    return HipparcosIADLikelihood(hip_sol, table)
 end
-export HiparcosIADLikelihood
+export HipparcosIADLikelihood
 
 
 ##########################
 # Computes likelihood
 function ln_like(
-    hiplike::HiparcosIADLikelihood,
+    hiplike::HipparcosIADLikelihood,
     θ_system,
     orbits,
     num_epochs::Val{L}=Val(length(hiplike.table.epochs))
@@ -274,7 +274,7 @@ function ln_like(
     return ll
 end
 
-function simulate(hiplike::HiparcosIADLikelihood, θ_system, orbits)
+function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits)
     α✱_model_with_perturbation_out = zeros(length(hiplike.table.epoch))
     δ_model_with_perturbation_out = zeros(length(hiplike.table.epoch))
     resid_out = zeros(length(hiplike.table.epoch))
