@@ -22,6 +22,7 @@ using OctofitterRadialVelocity
 using Distributions
 using Pigeons
 using CairoMakie
+using PairPlots
 ```
 
 ## Photometry Model
@@ -62,32 +63,32 @@ model_pma = Octofitter.LogDensityModel(HD91312_pma)
 Sample:
 ```julia
 using Pigeons
-pt = pigeons(
-    target=model_pma,
-    n_chains=8,
-    n_rounds=14,
-    multithreaded=true,
-    record = [traces; round_trip; record_default()],
-)
-chain_pma = Chains(model_pma, pt)
+chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16, n_rounds=12);
+nothing # hide
 ```
 
-
-Plot mass vs. semi-major axis posterior:
+Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl:
 ```julia
-fig = Figure()
-ax = Axis(
-    fig[1,1],
-    xscale=log10,
-    yscale=log10,
-    xticks = 2.0 .^ (0:2:6),
-    yticks = 2.0 .^ (-1:2:6)
+pairplot(
+    PairPlots.Series(
+        (;
+            sma=log2.(chain_pma[:B_a][:],),
+            mass=log2.(chain_pma[:B_mass][:]),
+        ),
+        label="PMA",
+        color=Makie.wong_colors()[1],
+    )=>(
+        PairPlots.Scatter(markersize=3,alpha=0.35),
+        PairPlots.Contour(sigmas=[1,3]),
+        PairPlots.MarginStepHist(),
+    ),
+    labels=Dict(
+        :sma=>"log₂ Semi-major axis [au]",
+        :mass=>"log₂ Mass [Mⱼᵤₚ]"
+    )
 )
-x = chain_pma[:B_a][:]
-y = chain_pma[:B_mass][:]
-scatter!(ax,x,y, markersize=5, color=Makie.wong_colors()[1])
-fig
 ```
+
 
 ## Image Data
 
@@ -128,7 +129,7 @@ image_data = ImageLikelihood(
     elseif B.mass > 10 
         8.2 # jump to absurdly bright
     else
-        16.7 # jump to absordly dim
+        16.7 # jump to absurdly dim
     end
     # Calculate relative magnitude
     rel_mag_L = B.abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
@@ -158,30 +159,37 @@ model_img = Octofitter.LogDensityModel(HD91312_img)
 
 ```julia
 using Pigeons
-pt = pigeons(
-    target=model_img,
-    n_chains=8,
-    n_rounds=14,
-    multithreaded=true,
-    record = [traces; round_trip; record_default()],
-)
-chain_img = Chains(model_img, pt)
+chain_img, pt = octofit_pigeons(model_img, n_chains=5, n_chains_variational=5, n_rounds=12)
 ```
 
 Plot mass vs. semi-major axis posterior:
 ```julia
-fig = Figure()
-ax = Axis(
-    fig[1,1],
-    xscale=log10,
-    yscale=log10,
-    xticks = 2.0 .^ (0:2:6),
-    yticks = 2.0 .^ (-1:2:6)
+vis_layers = (
+    PairPlots.Contour(sigmas=[1,3]),
+    PairPlots.MarginStepHist(),
 )
-x = chain_img[:B_a][:]
-y = chain_img[:B_mass][:]
-scatter!(ax,x,y, markersize=5, color=Makie.wong_colors()[1])
-fig
+pairplot(
+    PairPlots.Series(
+        (;
+            sma=log2.(chain_pma[:B_a][:],),
+            mass=log2.(chain_pma[:B_mass][:]),
+        ),
+        label="PMA",
+        color=Makie.wong_colors()[1],
+    )=>vis_layers,
+    PairPlots.Series(
+        (;
+            sma=log2.(chain_img[:B_a][:],),
+            mass=log2.(chain_img[:B_mass][:]),
+        ),
+        label="IMG",
+        color=Makie.wong_colors()[2],
+    )=>vis_layers,
+    labels=Dict(
+        :sma=>"log₂ Semi-major axis [au]",
+        :mass=>"log₂ Mass [Mⱼᵤₚ]"
+    )
+)
 ```
 
 
@@ -234,45 +242,43 @@ end  HGCALikelihood(gaia_id=6166183842771027328) B
 model_both = Octofitter.LogDensityModel(HD91312_both)
 
 using Pigeons
-pt = pigeons(
-    target=model_both,
-    n_chains=8,
-    n_rounds=14,
-    multithreaded=true,
-    record = [traces; round_trip; record_default()],
-)
-chain_both = Chains(model_both, pt)
+chain_both, pt = octofit_pigeons(model_both,n_chains=18,n_chains_variational=8,n_rounds=12)
 ```
 
-Compare all three limit posteriors:
+Compare all three posteriors to see limits:
 ```julia
-fig = Figure()
-ax = Axis(
-    fig[1,1],
-    xscale=Makie.pseudolog10,
-    yscale=Makie.pseudolog10,
-    xticks = 2.0 .^ (0:2:6),
-    yticks = 2.0 .^ (-1:2:6),
-    xlabel = "semi-major axis [au]",
-    ylabel = Makie.rich("companion mass [m", Makie.subscript("jup"), "]"),
+vis_layers = (
+    PairPlots.Contour(sigmas=[1,3]),
+    PairPlots.MarginStepHist(),
 )
-
-
-
-x = chain_img[:B_a][:]
-y = chain_img[:B_mass][:]
-scatter!(ax,x,y, markersize=3, color=Makie.wong_colors()[3], label="image", alpha=0.5)
-
-x = chain_pma[:B_a][:]
-y = chain_pma[:B_mass][:]
-scatter!(ax,x,y, markersize=3, color=Makie.wong_colors()[1], label="PMA", alpha=0.5)
-
-
-x = chain_both[:B_a][:]
-y = chain_both[:B_mass][:]
-scatter!(ax,x,y, markersize=3, color=Makie.wong_colors()[2], label="image+PMA", alpha=0.5)
-
-Legend(fig[1,2], ax)
-
-fig
+pairplot(
+    PairPlots.Series(
+        (;
+            sma=log2.(chain_pma[:B_a][:],),
+            mass=log2.(chain_pma[:B_mass][:]),
+        ),
+        label="PMA",
+        color=Makie.wong_colors()[1],
+    )=>vis_layers,
+    PairPlots.Series(
+        (;
+            sma=log2.(chain_img[:B_a][:],),
+            mass=log2.(chain_img[:B_mass][:]),
+        ),
+        label="IMG",
+        color=Makie.wong_colors()[2],
+    )=>vis_layers,
+        PairPlots.Series(
+        (;
+            sma=log2.(chain_both[:B_a][:],),
+            mass=log2.(chain_both[:B_mass][:]),
+        ),
+        label="IMG + PMA",
+        color=Makie.wong_colors()[3],
+    )=>vis_layers,
+    labels=Dict(
+        :sma=>"log₂ Semi-major axis [au]",
+        :mass=>"log₂ Mass [Mⱼᵤₚ]"
+    )
+)
 ```
