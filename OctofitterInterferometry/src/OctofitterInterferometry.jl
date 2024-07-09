@@ -68,20 +68,7 @@ function _prepare_input_row(row)
             cp_err .= max.(2, cp_err)
         end
 
-
-        # @warn "masking wavelengths"
-        mask = 2.025e-6 .< eff_wave .< 2.15e-6
-        
-        # subset by factor 20
-        # @warn "sub-setting factor of 20"
-        # for i in eachindex(mask)
-        #     if mod(i,20) != 0
-        #     # if mod(i,10) != 0
-        #         mask[i] = false
-        #     end
-        # end
-        # @show count(mask)
-        # mask = trues(length(eff_wave))
+        mask = trues(length(eff_wave))
 
         # These say what baseline (cp1) should be added to (cp2) and then subtract (cp3)
         # to get a closure phase in our modelling.
