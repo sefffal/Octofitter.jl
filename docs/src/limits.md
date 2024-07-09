@@ -15,7 +15,7 @@ There are a few use cases for this:
 We will once more use some sample data from the system [HD 91312 A & B](https://arxiv.org/abs/2109.12124) discovered by SCExAO. 
 
 
-```julia
+```@example 1
 using Octofitter
 using OctofitterImages
 using OctofitterRadialVelocity
@@ -28,14 +28,14 @@ using PairPlots
 ## Photometry Model
 
 We will need to decide on an atmosphere model to map image intensities into mass. Here we use the Sonora Bobcat cooling and atmosphere models which will be auto-downloaded by Octofitter:
-```julia
+```@example 1
 const cooling_tracks = Octofitter.sonora_cooling_interpolator()
 const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)
 ```
 
 ## Proper Motion Anomaly Data
 We start by defining and sampling from a model that only includes proper motion anomaly data from the HGCA:
-```julia
+```@example 1
 @planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
@@ -61,14 +61,14 @@ model_pma = Octofitter.LogDensityModel(HD91312_pma)
 ```
 
 Sample:
-```julia
+```@example 1
 using Pigeons
 chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16, n_rounds=12);
 nothing # hide
 ```
 
 Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl:
-```julia
+```@example 1
 pairplot(
     PairPlots.Series(
         (;
@@ -93,7 +93,7 @@ pairplot(
 ## Image Data
 
 
-```julia
+```@example 1
 using AstroImages
 download(
     "https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits",
@@ -110,7 +110,7 @@ image_data = ImageLikelihood(
 
 
 
-```julia
+```@example 1
 @planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
@@ -157,13 +157,13 @@ end  B
 model_img = Octofitter.LogDensityModel(HD91312_img)
 ```
 
-```julia
+```@example 1
 using Pigeons
 chain_img, pt = octofit_pigeons(model_img, n_chains=5, n_chains_variational=5, n_rounds=12)
 ```
 
 Plot mass vs. semi-major axis posterior:
-```julia
+```@example 1
 vis_layers = (
     PairPlots.Contour(sigmas=[1,3]),
     PairPlots.MarginStepHist(),
@@ -195,7 +195,7 @@ pairplot(
 
 # Image and PMA data
 
-```julia
+```@example 1
 @planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
@@ -246,7 +246,7 @@ chain_both, pt = octofit_pigeons(model_both,n_chains=18,n_chains_variational=8,n
 ```
 
 Compare all three posteriors to see limits:
-```julia
+```@example 1
 vis_layers = (
     PairPlots.Contour(sigmas=[1,3]),
     PairPlots.MarginStepHist(),
