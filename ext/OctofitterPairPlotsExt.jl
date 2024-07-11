@@ -134,7 +134,7 @@ function Octofitter.octocorner(
 
             labels_gen[Symbol(pk_*"a")] = "$(planetkey)_a [au]\nsemi-major axis"
             labels_gen[Symbol(pk_*"i")] = "$(planetkey)_i [°]\ninclination"
-            labels_gen[Symbol(pk_*"Ω")] = "$(planetkey)_Ω [°]\nlogintude of\nascending node"
+            labels_gen[Symbol(pk_*"Ω")] = "$(planetkey)_Ω [°]\nlongitude of\nascending node"
             labels_gen[Symbol(pk_*"ω")] = "$(planetkey)_ω [°]\nargument of\nperiapsis"
             labels_gen[Symbol(pk_*"e")] = "$(planetkey)_e\neccentricity"
             labels_gen[Symbol(pk_*"mass")] = "$(planetkey)_mass [Mⱼᵤₚ]\nmass"
