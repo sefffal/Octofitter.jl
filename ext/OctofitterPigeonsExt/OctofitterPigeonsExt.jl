@@ -18,7 +18,7 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
     local result_pf = nothing
     ldm_any = Octofitter.LogDensityModelAny(model)
     # Use Pathfinder to initialize HMC. Works but currently disabled.
-    verbosity >= 1 && @info "Determining initial positions using pathfinder"
+    verbosity >= 1 && @info "Determining initial positions using pathfinder" chain_no
     # It seems to hit a PosDefException sometimes when factoring a matrix.
     # When that happens, the next try usually succeeds.
     # start_time = time()
@@ -94,7 +94,7 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
     end
 
 
-    if verbosity >= 1
+    if verbosity >= 3
         initial_logpost = model.ℓπcallback(initial_θ_t)
         @info "Determined initial position" initial_θ initial_θ_nt=model.arr2nt(initial_θ) initial_logpost
     end
