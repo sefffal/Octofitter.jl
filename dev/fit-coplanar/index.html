@@ -3,7 +3,7 @@
 using CairoMakie
 using PairPlots
 using Distributions
-using PlanetOrbits</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-003ffed2038e is missing from the cache.
+using PlanetOrbits</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-003d54fa6dc6 is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1948</code></pre><pre><code class="language-julia hljs">astrom_b = PlanetRelAstromLikelihood(
     (epoch=53200.0, object=1, ra=1471.0, σ_ra=6.0, dec=887.0, σ_dec=6.0, cor=0, ),
@@ -93,7 +93,7 @@ end b c
 
 model = Octofitter.LogDensityModel(HR8799_res_co)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HR8799_res_co of dimension 12 with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>Let&#39;s now sample from the model:</p><pre><code class="language-julia hljs">using Pigeons
-results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-003ffed2038e is missing from the cache.
+results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-003d54fa6dc6 is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1948
 ┌ Info: Determining initial positions using pathfinder
@@ -2391,20 +2391,20 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       4.96          6        8.3   4.39e+08  -1.81e+07          0      0.646      0.889      0.955
-        4          0          4          3       1.01   5.87e+07  -8.74e+05          0      0.774      0.851       0.93
-        8          0        6.1       6.77       1.68   1.02e+08  -1.18e+05          0      0.585      0.892      0.929
+        2          0       4.96          6       8.35   4.39e+08  -1.81e+07          0      0.646      0.889      0.955
+        4          0          4          3       1.03   5.87e+07  -8.74e+05          0      0.774      0.851       0.93
+        8          0        6.1       6.77       1.66   1.02e+08  -1.18e+05          0      0.585      0.892      0.929
        16          0       12.5       11.2        3.4   2.18e+08  -1.62e+04          0      0.235      0.892      0.923
-       32          0       13.3       12.3       6.75    4.3e+08  -5.11e+03          0      0.171      0.911      0.928
+       32          0       13.3       12.3       6.76    4.3e+08  -5.11e+03          0      0.171      0.911      0.928
        64          0         13       7.64       14.8   1.11e+09       -565          0      0.333        0.9      0.924
       128          0       13.5       8.47         27   2.24e+09       -207          0       0.29      0.908      0.925
       256          0       13.3       8.78       56.1    4.7e+09       -202          0      0.289      0.915      0.928
       512          0         13       9.44        109   9.04e+09       -179          0      0.274      0.914      0.926
  1.02e+03          0       13.4       10.4        249   2.13e+10      -98.8          0      0.234      0.915      0.928
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="1190daf2.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="098ff76c.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="0d2be9f9.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="098ff76c.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
     results[:b_P][:] ./ results[:c_P][:],
     axis=(;
         xlabel=&quot;period ratio&quot;,
         ylabel=&quot;counts&quot;,
     )
-)</code></pre><img src="0c34917f.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-astrom/">« Fit RV and Relative Astrometry</a><a class="docs-footer-nextpage" href="../fit-interfere/">Fit Interferometer Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 11 July 2024 05:27">Thursday 11 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="0c34917f.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-astrom/">« Fit RV and Relative Astrometry</a><a class="docs-footer-nextpage" href="../fit-interfere/">Fit Interferometer Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 11 July 2024 05:29">Thursday 11 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
