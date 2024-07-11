@@ -3,7 +3,7 @@
 using CairoMakie
 using PairPlots
 using Distributions
-using PlanetOrbits</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-00704b6ec683 is missing from the cache.
+using PlanetOrbits</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-003ffed2038e is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1948</code></pre><pre><code class="language-julia hljs">astrom_b = PlanetRelAstromLikelihood(
     (epoch=53200.0, object=1, ra=1471.0, σ_ra=6.0, dec=887.0, σ_dec=6.0, cor=0, ),
@@ -93,26 +93,15 @@ end b c
 
 model = Octofitter.LogDensityModel(HR8799_res_co)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HR8799_res_co of dimension 12 with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>Let&#39;s now sample from the model:</p><pre><code class="language-julia hljs">using Pigeons
-results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-00704b6ec683 is missing from the cache.
+results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-003ffed2038e is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1948
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.372674186771018
-│      ⋮
-│   initial_θ_nt = (plx = 24.372674186771018, M = 0.07355143777003945, i = 2.0767425482839883, Ωy = -0.06514587279354983, Ωx = -1.5031756454167864, P_nominal = 298.25474037845487, Ω = -1.6141080529131475, planets = (b = (P_mul = 4.442812177279751, θy = 0.3372524628002845, θx = 0.9187637869967281, e = 0.0, ω = 0.0, i = 2.0767425482839883, Ω = -1.6141080529131475, P = 2650.17958496962, a = 80.23809176321211, θ = 1.2189942809425625, tp = -514131.09356002137), c = (P_mul = 6.753256270885079, θy = 0.8508193292985553, θx = -0.8316525104153376, e = 0.0, ω = 0.0, i = 2.0767425482839883, Ω = -1.6141080529131475, P = 2014.1906957820015, a = 66.82374008845615, θ = -0.7740065969265648, tp = -540270.1493758255)))
-└   initial_logpost = -33682.8633212572
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.4595704068047
-│      ⋮
-│   initial_θ_nt = (plx = 24.4595704068047, M = 1.4932170187868745, i = 0.4005784681263142, Ωy = 0.3993893503333638, Ωx = 0.9398394029942898, P_nominal = 221.0882237237235, Ω = 1.1689638883559477, planets = (b = (P_mul = 1.0923983727675541, θy = 0.3327457487478191, θx = 0.9471696250067401, e = 0.0, ω = 0.0, i = 0.4005784681263142, Ω = 1.1689638883559477, P = 483.032831667729, a = 70.36533249403321, θ = 1.2329590931305972, tp = 57503.32260373873), c = (P_mul = 1.0142555497222594, θy = 0.9045961540536862, θx = -0.3498993935047561, e = 0.0, ω = 0.0, i = 0.4005784681263142, Ω = 1.1689638883559477, P = 224.23995789002305, a = 42.18742121850745, θ = -0.3690770719709599, tp = -2365.380468104915)))
-└   initial_logpost = -157.95154528605588
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 1
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 2
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 3
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -252,14 +241,8 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.400743365502862
-│      ⋮
-│   initial_θ_nt = (plx = 24.400743365502862, M = 1.5226560754988832, i = 0.3760870338350655, Ωy = 0.3610797689540541, Ωx = 0.9731922977818095, P_nominal = 277.3072147499337, Ω = 1.2155141435846577, planets = (b = (P_mul = 0.8867149361754556, θy = 0.6400651544746809, θx = 2.8630786840108415, e = 0.0, ω = 0.0, i = 0.3760870338350655, Ω = 1.2155141435846577, P = 491.7848984559616, a = 71.67770071586848, θ = 1.350854487942822, tp = 55298.39619141808), c = (P_mul = 0.9315138966615852, θy = -1.8682776968704822, θx = 2.704132805029513, e = 0.0, ω = 0.0, i = 0.3760870338350655, Ω = 1.2155141435846577, P = 258.31552418408177, a = 46.66245791980575, θ = 2.175386846397476, tp = 44536.33954308643)))
-└   initial_logpost = -2.2540986310500647e6
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 4
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -399,30 +382,12 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.436570531035667
-│      ⋮
-│   initial_θ_nt = (plx = 24.436570531035667, M = 1.4802062562691771, i = 0.8139291808415443, Ωy = -0.27316330452600773, Ωx = -0.12064106739760491, P_nominal = 281.36378324455006, Ω = -2.725708861022949, planets = (b = (P_mul = 0.9980304589988022, θy = 0.6786455931379515, θx = 1.2203487006198892, e = 0.0, ω = 0.0, i = 0.8139291808415443, Ω = -2.725708861022949, P = 561.6192514743956, a = 77.57743261007798, θ = 1.0632758218311005, tp = -70320.50796327148), c = (P_mul = 0.94748725848248, θy = -0.037766342993120046, θx = 1.1637032588786325, e = 0.0, ω = 0.0, i = 0.8139291808415443, Ω = -2.725708861022949, P = 266.5885996226375, a = 47.20649913353735, θ = 1.6032385255516537, tp = -9385.206554985387)))
-└   initial_logpost = -3.278127379787704e6
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.40804324200787
-│      ⋮
-│   initial_θ_nt = (plx = 24.40804324200787, M = 0.06385014072621413, i = 2.1010132563973345, Ωy = -0.03001276891884346, Ωx = -1.4033874324004068, P_nominal = 299.52334889875635, Ω = -1.5921790141037417, planets = (b = (P_mul = 4.754347146231671, θy = 0.7218401013763406, θx = 1.9670226097848, e = 0.0, ω = 0.0, i = 2.1010132563973345, Ω = -1.5921790141037417, P = 2848.075958133111, a = 80.3072950613644, θ = 1.219083361220505, tp = -559309.3018173146), c = (P_mul = 6.705949599193618, θy = 0.9854263293894813, θx = -0.9586427349341358, e = 0.0, ω = 0.0, i = 2.1010132563973345, Ω = -1.5921790141037417, P = 2008.5884814967453, a = 63.62795005412293, θ = -0.7716219552573708, tp = -542190.6349300041)))
-└   initial_logpost = -33693.35469675867
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.410256239324443
-│      ⋮
-│   initial_θ_nt = (plx = 24.410256239324443, M = 1.4348789902349763, i = 0.4152162108753866, Ωy = -1.0543680393565131, Ωx = 0.37934435181664583, P_nominal = 284.57165024637044, Ω = 2.7962286392333207, planets = (b = (P_mul = 0.9917369350001449, θy = 0.3110977712122374, θx = 0.8862015026889173, e = 0.0, ω = 0.0, i = 0.4152162108753866, Ω = 2.7962286392333207, P = 564.4404324065373, a = 77.03424600390592, θ = 1.2331896831626092, tp = -95396.76829285588), c = (P_mul = 0.7346581873008617, θy = 0.8347167779631771, θx = -0.3504980964184378, e = 0.0, ω = 0.0, i = 0.4152162108753866, Ω = 2.7962286392333207, P = 209.06289272721332, a = 39.73041142597478, θ = -0.39754351435407487, tp = 21967.829065307822)))
-└   initial_logpost = -183.51466609333525
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 5
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 6
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 7
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -562,30 +527,12 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.4424322861998
-│      ⋮
-│   initial_θ_nt = (plx = 24.4424322861998, M = 1.4876890558494182, i = 1.669343149902447, Ωy = 0.5423446270405322, Ωx = 1.487501807690479, P_nominal = 213.00108495162215, Ω = 1.2211736207824013, planets = (b = (P_mul = 1.0461847154082522, θy = 0.6537916306747411, θx = 1.8009866421442418, e = 0.0, ω = 0.0, i = 1.669343149902447, Ω = 1.2211736207824013, P = 445.6769588835235, a = 66.6066376508989, θ = 1.2225710567011765, tp = -102957.85535896022), c = (P_mul = 0.8897941569833127, θy = -1.8890034902968396, θx = 1.0346246693039427, e = 0.0, ω = 0.0, i = 1.669343149902447, Ω = 1.2211736207824013, P = 189.52712082105958, a = 37.66618479682957, θ = 2.6405098832825615, tp = 7371.323330527703)))
-└   initial_logpost = -1.266302334258115e6
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     22.100805162929966
-│      ⋮
-│   initial_θ_nt = (plx = 22.100805162929966, M = 1.4475715958629878, i = 1.5862866222268102, Ωy = -0.3187970974061111, Ωx = -0.9112794691746167, P_nominal = 267.47249694490375, Ω = -1.9073237975397541, planets = (b = (P_mul = 1.1894402102373642, θy = 0.38990101291336005, θx = 1.0910229085313943, e = 0.0, ω = 0.0, i = 1.5862866222268102, Ω = -1.9073237975397541, P = 636.2850859977182, a = 83.6850436206194, θ = 1.227569200500985, tp = -71844.24416905938), c = (P_mul = 0.7976287914420234, θy = -0.6560679127002534, θx = 0.3134528033962332, e = 0.0, ω = 0.0, i = 1.5862866222268102, Ω = -1.9073237975397541, P = 213.34376448214385, a = 40.38933043699295, θ = 2.6958826565959906, tp = 39952.63703515667)))
-└   initial_logpost = -305517.3416368259
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     25.552963284743903
-│      ⋮
-│   initial_θ_nt = (plx = 25.552963284743903, M = 1.4570467047131146, i = 1.5799994341133996, Ωy = -0.5018096975263155, Ωx = -1.3777483278426976, P_nominal = 247.92177631926356, Ω = -1.9200866822210174, planets = (b = (P_mul = 1.0678401663736297, θy = 0.4892997742579972, θx = 1.325270288483959, e = 0.0, ω = 0.0, i = 1.5799994341133996, Ω = -1.9200866822210174, P = 529.4816617448164, a = 74.19792723095306, θ = 1.2171136290075486, tp = -50946.244678537245), c = (P_mul = 0.6564043618912636, θy = -0.15355323998812578, θx = 0.36301368416674534, e = 0.0, ω = 0.0, i = 1.5799994341133996, Ω = -1.9200866822210174, P = 162.7369353837948, a = 33.79210504032844, θ = 1.9709681192882968, tp = 44501.08232210427)))
-└   initial_logpost = -265062.2309103512
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 8
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 9
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 10
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -725,22 +672,10 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.39866105762878
-│      ⋮
-│   initial_θ_nt = (plx = 24.39866105762878, M = 1.4812605501917238, i = 2.9788474005820786, Ωy = 0.8796995721391921, Ωx = -0.047415242232395106, P_nominal = 218.3855962850662, Ω = -0.053847253786900175, planets = (b = (P_mul = 1.0799224134750565, θy = 0.3986959829137569, θx = 0.9188842038137173, e = 0.0, ω = 0.0, i = 2.9788474005820786, Ω = -0.053847253786900175, P = 471.67900041671606, a = 69.07297789722378, θ = 1.161418725725615, tp = -79383.35677630338), c = (P_mul = 1.0290459402626886, θy = 0.5589576105596972, θx = -0.4950997672299442, e = 0.0, ω = 0.0, i = 2.9788474005820786, Ω = -0.053847253786900175, P = 224.72881126899387, a = 42.13564586048632, θ = -0.7248892283632754, tp = 50603.32093624572)))
-└   initial_logpost = -405560.24844179087
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.406676706336988
-│      ⋮
-│   initial_θ_nt = (plx = 24.406676706336988, M = 1.4408252741048277, i = 0.42818536505476645, Ωy = -0.9422882527560251, Ωx = 0.3473732480237336, P_nominal = 289.21089038759055, Ω = 2.7884019252088597, planets = (b = (P_mul = 0.9825538599275898, θy = 0.32292931816977666, θx = 0.9198931435109098, e = 0.0, ω = 0.0, i = 0.42818536505476645, Ω = 2.7884019252088597, P = 568.3305533668444, a = 77.49454074524321, θ = 1.2331855983817233, tp = -96697.75158777277), c = (P_mul = 0.7218560146378132, θy = 0.8818597773928061, θx = -0.3717144550011296, e = 0.0, ω = 0.0, i = 0.42818536505476645, Ω = 2.7884019252088597, P = 208.76862072503957, a = 39.74787548291175, θ = -0.39891255187722907, tp = 21938.51983385194)))
-└   initial_logpost = -182.71532029979127
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 11
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 12
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -880,22 +815,10 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.558038804061404
-│      ⋮
-│   initial_θ_nt = (plx = 24.558038804061404, M = 1.4962758504699778, i = 0.8536624454572489, Ωy = 0.9239010136721173, Ωx = 0.8990202093972649, P_nominal = 287.5137067299929, Ω = 0.7717501466289413, planets = (b = (P_mul = 1.0738612296532986, θy = 0.7230052071831659, θx = 1.998447376086377, e = 0.0, ω = 0.0, i = 0.8536624454572489, Ω = 0.7717501466289413, P = 617.4996453024961, a = 82.93955429023445, θ = 1.2236628019629507, tp = 36619.300220608115), c = (P_mul = 0.8649898576765362, θy = 1.1270156009091432, θx = 0.5303737375941163, e = 0.0, ω = 0.0, i = 0.8536624454572489, Ω = 0.7717501466289413, P = 248.69644026442995, a = 45.2324662899857, θ = 0.4398523567381932, tp = -24397.989461854944)))
-└   initial_logpost = -1.5854457494571854e6
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.397653079560165
-│      ⋮
-│   initial_θ_nt = (plx = 24.397653079560165, M = 0.0668980516122898, i = 2.092791044217633, Ωy = 0.0395762699881407, Ωx = 1.3507465445511155, P_nominal = 299.99999979122146, Ω = 1.5415051536687463, planets = (b = (P_mul = 4.633105044431804, θy = 0.3586595258333413, θx = 0.9772681557130636, e = 0.0, ω = 0.0, i = 2.092791044217633, Ω = 1.5415051536687463, P = 2779.8630247244964, a = 80.25770825945106, θ = 1.2190558296581369, tp = -35944.82265323939), c = (P_mul = 6.701537785570371, θy = 1.1865353779649153, θx = -1.1561010830854963, e = 0.0, ω = 0.0, i = 2.092791044217633, Ω = 1.5415051536687463, P = 2010.4613342719738, a = 64.66485475731204, θ = -0.7724074226904456, tp = -174328.35917436425)))
-└   initial_logpost = -33673.57045258056
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 13
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 14
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -1035,22 +958,10 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.441612064002268
-│      ⋮
-│   initial_θ_nt = (plx = 24.441612064002268, M = 1.5294442818180063, i = 3.0145778217466206, Ωy = -0.4300248323416726, Ωx = 1.0702558509649427, P_nominal = 288.33414342924135, Ω = 1.952850271622513, planets = (b = (P_mul = 0.7819380076446918, θy = 0.6479332244511534, θx = 1.4166917093767268, e = 0.0, ω = 0.0, i = 3.0145778217466206, Ω = 1.952850271622513, P = 450.91885129799954, a = 67.7501323625987, θ = 1.1418415636704333, tp = 38090.26305788807), c = (P_mul = 1.017993092625887, θy = 0.16851223231301315, θx = -2.0279800933716605, e = 0.0, ω = 0.0, i = 3.0145778217466206, Ω = 1.952850271622513, P = 293.5221663791695, a = 50.8868017409965, θ = -1.487893147486972, tp = 707.6434044757552)))
-└   initial_logpost = -743676.8994726023
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.411244838823954
-│      ⋮
-│   initial_θ_nt = (plx = 24.411244838823954, M = 1.441086019623604, i = 0.4324898269246585, Ωy = 0.9316384537708484, Ωx = -0.3421204350854308, P_nominal = 275.55810110097707, Ω = -0.3519364004819697, planets = (b = (P_mul = 1.0339121177015933, θy = 0.3246171187639702, θx = 0.9246727217642127, e = 0.0, ω = 0.0, i = 0.4324898269246585, Ω = -0.3519364004819697, P = 569.8057197182819, a = 77.63326256340301, θ = 1.2331760422004812, tp = 6994.4225238951985), c = (P_mul = 0.7578631229358983, θy = 0.9028583975808698, θx = -0.3813217953520008, e = 0.0, ω = 0.0, i = 0.4324898269246585, Ω = -0.3519364004819697, P = 208.83532305067249, a = 39.75873950955277, θ = -0.39962351222746906, tp = -16183.733333690223)))
-└   initial_logpost = -180.96588841421996
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 15
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 16
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_d) &amp;&amp; isfinite(gphi)
@@ -1194,14 +1105,8 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.416794284970994
-│      ⋮
-│   initial_θ_nt = (plx = 24.416794284970994, M = 1.5297075630433217, i = 0.874911820804632, Ωy = -0.01618156218142616, Ωx = 0.6613016134264137, P_nominal = 253.65426156193521, Ω = 1.5952607065435458, planets = (b = (P_mul = 1.110238703351076, θy = 0.39310533817889215, θx = 0.9987326046398034, e = 0.0, ω = 0.0, i = 0.874911820804632, Ω = 1.5952607065435458, P = 563.2335569119953, a = 78.58297852099773, θ = 1.1958157094091628, tp = -127196.61817822108), c = (P_mul = 0.9504231543335193, θy = 1.214216136010873, θx = -1.0117352812557043, e = 0.0, ω = 0.0, i = 0.874911820804632, Ω = 1.5952607065435458, P = 241.07888338383404, a = 44.631579032949766, θ = -0.6946840803144346, tp = 582.8236187222501)))
-└   initial_logpost = -205740.82171257221
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 17
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -1341,30 +1246,12 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.516709659595605
-│      ⋮
-│   initial_θ_nt = (plx = 24.516709659595605, M = 1.4953818070157523, i = 2.7475534544361917, Ωy = 0.8415810922790661, Ωx = 0.4370726276976559, P_nominal = 253.33534953816573, Ω = 0.4790051546632627, planets = (b = (P_mul = 1.1327379458991045, θy = 0.5296425701129149, θx = 1.8748527229032925, e = 0.0, ω = 0.0, i = 2.7475534544361917, Ω = 0.4790051546632627, P = 573.925126918987, a = 78.9746161110277, θ = 1.2954725243757845, tp = -121605.44734018747), c = (P_mul = 0.9745413215093911, θy = -1.2998401105632145, θx = 1.0656630135007008, e = 0.0, ω = 0.0, i = 2.7475534544361917, Ω = 0.4790051546632627, P = 246.88576632396754, a = 45.00368391820761, θ = 2.454869717313513, tp = -2765.2940905473733)))
-└   initial_logpost = -3.0393028525111657e6
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.343566800199905
-│      ⋮
-│   initial_θ_nt = (plx = 24.343566800199905, M = 0.2792370696983968, i = 1.5760202597233357, Ωy = 1.0420939397138613, Ωx = 2.8877370827487256, P_nominal = 259.71112247388976, Ω = 1.2244719220305407, planets = (b = (P_mul = 3.0766629118481283, θy = 0.48594359717575664, θx = 1.3295605220799724, e = 0.0, ω = 0.0, i = 1.5760202597233357, Ω = 1.2244719220305407, P = 1598.087156619727, a = 89.34247886953558, θ = 1.2203874721395285, tp = -2191.6762366741386), c = (P_mul = 0.24606727560214386, θy = -0.2107677977076822, θx = 3.2818493219472438, e = 0.0, ω = 0.0, i = 1.5760202597233357, Ω = 1.2244719220305407, P = 63.90640835072477, a = 10.447698487901938, θ = 1.6349305150224656, tp = 41903.65133803491)))
-└   initial_logpost = -263466.370396598
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.379748376495183
-│      ⋮
-│   initial_θ_nt = (plx = 24.379748376495183, M = 0.02131673614699614, i = 3.072564827045496, Ωy = 0.9548815768535835, Ωx = -1.26304047229234, P_nominal = 299.2365035121664, Ω = -0.9234546870261627, planets = (b = (P_mul = 6.776616898351534, θy = 0.7491103105836577, θx = 2.0439386451668025, e = 0.0, ω = 0.0, i = 3.072564827045496, Ω = -0.9234546870261627, P = 4055.62229260835, a = 70.51452275597269, θ = 1.2194955237856253, tp = -916877.413181172), c = (P_mul = 5.559479995355606, θy = 1.76121152503178, θx = -1.678216428348186, e = 0.0, ω = 0.0, i = 3.072564827045496, Ω = -0.9234546870261627, P = 1663.5993551560468, a = 38.92895377598278, θ = -0.7612723510187527, tp = -532441.797700832)))
-└   initial_logpost = -35279.21256202097
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 18
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 19
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 20
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -1504,14 +1391,8 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.44770811042699
-│      ⋮
-│   initial_θ_nt = (plx = 24.44770811042699, M = 1.4980575534264586, i = 2.4921638725041753, Ωy = 0.10851940040683727, Ωx = -0.41503261682257087, P_nominal = 282.02674613512374, Ω = -1.31504998765501, planets = (b = (P_mul = 0.9321847431824906, θy = 0.5594582984702482, θx = 1.2443079970327178, e = 0.0, ω = 0.0, i = 2.4921638725041753, Ω = -1.31504998765501, P = 525.8020598331276, a = 74.54028032066947, θ = 1.1482634431465704, tp = -60753.07966778464), c = (P_mul = 1.0493474292511467, θy = 1.1048832220936096, θx = -0.4391751128026829, e = 0.0, ω = 0.0, i = 2.4921638725041753, Ω = -1.31504998765501, P = 295.94404103695786, a = 50.8139043822714, θ = -0.3783368682390181, tp = -30728.95095559841)))
-└   initial_logpost = -702165.9295603092
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 21
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -1651,14 +1532,8 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.45946297283324
-│      ⋮
-│   initial_θ_nt = (plx = 24.45946297283324, M = 1.5268701657846362, i = 2.6700204682538593, Ωy = 0.7289767901447542, Ωx = 1.231151045147455, P_nominal = 257.6339947946725, Ω = 1.0361985293143297, planets = (b = (P_mul = 0.9188572000688544, θy = 0.6165021926654564, θx = 1.2679207773067744, e = 0.0, ω = 0.0, i = 2.6700204682538593, Ω = 1.0361985293143297, P = 473.4577021991732, a = 69.95007113182236, θ = 1.1182245924365277, tp = -110939.85700248918), c = (P_mul = 0.760339449604997, θy = 0.5576583647242535, θx = -3.890362513116878, e = 0.0, ω = 0.0, i = 2.6700204682538593, Ω = 1.0361985293143297, P = 195.88928980171795, a = 38.83957755331132, θ = -1.4284226278744967, tp = 32038.69444180155)))
-└   initial_logpost = -717182.4479658644
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 22
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -1798,30 +1673,12 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.504561091280646
-│      ⋮
-│   initial_θ_nt = (plx = 24.504561091280646, M = 1.4767622952786343, i = 2.767571768199373, Ωy = 1.3177851978081774, Ωx = -0.7957649026559384, P_nominal = 232.2476178990085, Ω = -0.5432568694003757, planets = (b = (P_mul = 1.05701373771735, θy = 0.21235947192581528, θx = 0.5947504875554369, e = 0.0, ω = 0.0, i = 2.767571768199373, Ω = -0.5432568694003757, P = 490.9778453427638, a = 70.8725614099362, θ = 1.2278490595198588, tp = -69708.96742087723), c = (P_mul = 1.268193981643106, θy = 1.0577780194335347, θx = 0.15410294176617198, e = 0.0, ω = 0.0, i = 2.767571768199373, Ω = -0.5432568694003757, P = 294.5350312704703, a = 50.41133158413583, θ = 0.1446677608764045, tp = -35738.83042948012)))
-└   initial_logpost = -1.652288776522883e6
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.41717004777244
-│      ⋮
-│   initial_θ_nt = (plx = 24.41717004777244, M = 0.06193370281128899, i = 2.1102208631269965, Ωy = 0.017964045433606524, Ωx = 0.9367877621438325, P_nominal = 299.0790632742643, Ω = 1.5516224597905206, planets = (b = (P_mul = 4.807431208876722, θy = 0.32085011691195575, θx = 0.8743568470627086, e = 0.0, ω = 0.0, i = 2.1102208631269965, Ω = 1.5516224597905206, P = 2875.6040454126282, a = 80.00707733322335, θ = 1.2190968898119312, tp = -39492.16859347536), c = (P_mul = 6.665798156265037, θy = 0.7292063971760588, θx = -0.7090304921178966, e = 0.0, ω = 0.0, i = 2.1102208631269965, Ω = 1.5516224597905206, P = 1993.6006685510652, a = 62.67116900740709, θ = -0.7713708624111987, tp = -174503.16952469829)))
-└   initial_logpost = -33661.49550623455
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.467260767345596
-│      ⋮
-│   initial_θ_nt = (plx = 24.467260767345596, M = 1.4743316702040201, i = 0.3901109171012205, Ωy = -0.4396668765792903, Ωx = -0.9824238294270186, P_nominal = 222.44084967795408, Ω = -1.9915966252009363, planets = (b = (P_mul = 1.0924866538938778, θy = 0.3839355491006256, θx = 1.0927884626924602, e = 0.0, ω = 0.0, i = 0.3901109171012205, Ω = -1.9915966252009363, P = 486.0273191079582, a = 70.35670937512108, θ = 1.2329321112033138, tp = -31837.162563290185), c = (P_mul = 1.0092182151345048, θy = 0.8831050668598335, θx = -0.3431411683974945, e = 0.0, ω = 0.0, i = 0.3901109171012205, Ω = -1.9915966252009363, P = 224.49135728498752, a = 42.04020405963662, θ = -0.3706074069148818, tp = 38349.93807155506)))
-└   initial_logpost = -160.48133116047651
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 23
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 24
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 25
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -1961,22 +1818,10 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.468258912737042
-│      ⋮
-│   initial_θ_nt = (plx = 24.468258912737042, M = 1.476865019349989, i = 2.649771066796551, Ωy = 0.1342554703506569, Ωx = -0.2356544630126207, P_nominal = 248.29641819815447, Ω = -1.0529442553435064, planets = (b = (P_mul = 1.0699125218468444, θy = 0.15405599322052482, θx = 0.4231171654230512, e = 0.0, ω = 0.0, i = 2.649771066796551, Ω = -1.0529442553435064, P = 531.3108939198523, a = 74.70438276775683, θ = 1.2216179124524378, tp = -66250.6469336162), c = (P_mul = 1.0419415623209003, θy = -0.07468610947842512, θx = -1.1531124560035861, e = 0.0, ω = 0.0, i = 2.649771066796551, Ω = -1.0529442553435064, P = 258.7103578960687, a = 46.23698203186657, θ = -1.6354751307101456, tp = 49802.00550780705)))
-└   initial_logpost = -305821.3593741012
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.418146888248973
-│      ⋮
-│   initial_θ_nt = (plx = 24.418146888248973, M = 0.06076661942554753, i = 2.110599002973336, Ωy = 0.008984089371848691, Ωx = 1.00344776930655, P_nominal = 299.7958019654443, Ω = 1.5618433452817178, planets = (b = (P_mul = 4.889745788933877, θy = 0.3834242106798143, θx = 1.0448999053667394, e = 0.0, ω = 0.0, i = 2.110599002973336, Ω = 1.5618433452817178, P = 2931.8505204011717, a = 80.53467458948603, θ = 1.2191033268387041, tp = -43971.8713230327), c = (P_mul = 6.650055988173255, θy = 0.7013042774363303, θx = -0.6815340328360336, e = 0.0, ω = 0.0, i = 2.110599002973336, Ω = 1.5618433452817178, P = 1993.6588680895063, a = 62.276221983612075, θ = -0.7711022781845864, tp = -175446.6227061863)))
-└   initial_logpost = -33654.336798188015
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 26
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 27
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -2116,30 +1961,12 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.4313427201196
-│      ⋮
-│   initial_θ_nt = (plx = 24.4313427201196, M = 1.5054135922729244, i = 1.3027914032338106, Ωy = -0.42119133480355553, Ωx = -1.5434102441581556, P_nominal = 299.50627026537757, Ω = -1.8372059296261312, planets = (b = (P_mul = 0.8615466560505012, θy = 0.2903333806250484, θx = 0.6656685662672817, e = 0.0, ω = 0.0, i = 1.3027914032338106, Ω = -1.8372059296261312, P = 516.0772512265874, a = 73.73863400572385, θ = 1.159516992427602, tp = -19685.75444394644), c = (P_mul = 1.0960416420735908, θy = -0.04021506542890003, θx = -0.39068961676364167, e = 0.0, ω = 0.0, i = 1.3027914032338106, Ω = -1.8372059296261312, P = 328.2713442730011, a = 54.53901122343961, θ = -1.6733686231508251, tp = 48804.42602006401)))
-└   initial_logpost = -2.1643473709040163e6
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.40432919991547
-│      ⋮
-│   initial_θ_nt = (plx = 24.40432919991547, M = 1.4365978758904112, i = 0.4181359346385253, Ωy = 0.9320295560088944, Ωx = -0.34652183398148284, P_nominal = 234.5725714650804, Ω = -0.3559558761924975, planets = (b = (P_mul = 1.2051601307565492, θy = 0.3179921947888851, θx = 0.9058634619585125, e = 0.0, ω = 0.0, i = 0.4181359346385253, Ω = -0.3559558761924975, P = 565.3950217975125, a = 77.15185873601749, θ = 1.2331973832181826, tp = 7276.341017446015), c = (P_mul = 0.8901950254882677, θy = 0.8879082611933334, θx = -0.37301294799073553, e = 0.0, ω = 0.0, i = 0.4181359346385253, Ω = -0.3559558761924975, P = 208.81533623420572, a = 39.71488730557106, θ = -0.39771556628048155, tp = -16259.31963737261)))
-└   initial_logpost = -179.8980701696097
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.390039299764002
-│      ⋮
-│   initial_θ_nt = (plx = 24.390039299764002, M = 0.06479432893156199, i = 2.1011418492047573, Ωy = -0.0319697382161861, Ωx = -1.4500383756289075, P_nominal = 298.46653220754615, Ω = -1.5928402672708315, planets = (b = (P_mul = 4.737699953649793, θy = 0.3283688531074137, θx = 0.8948585706727743, e = 0.0, ω = 0.0, i = 2.1011418492047573, Ω = -1.5928402672708315, P = 2828.089751611412, a = 80.32322257832753, θ = 1.2191013074949193, tp = -554781.3134327882), c = (P_mul = 6.673857409933325, θy = 1.404777506911529, θx = -1.3709648823541736, e = 0.0, ω = 0.0, i = 2.1011418492047573, Ω = -1.5928402672708315, P = 1991.9230775904355, a = 63.585883140379025, θ = -0.773217295182931, tp = -537292.2285881968)))
-└   initial_logpost = -33701.73429139011
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 28
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 29
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 30
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -2279,14 +2106,8 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.55298170757054
-│      ⋮
-│   initial_θ_nt = (plx = 24.55298170757054, M = 1.4745652205616886, i = 0.7256684391420547, Ωy = 0.17952657246519688, Ωx = 1.9687224622685318, P_nominal = 252.52561802726794, Ω = 1.4798584591487753, planets = (b = (P_mul = 0.9535967005079562, θy = 1.2008467148556135, θx = 2.3071931736869504, e = 0.0, ω = 0.0, i = 0.7256684391420547, Ω = 1.4798584591487753, P = 481.61519228907036, a = 69.93395892784797, θ = 1.090899680505134, tp = -102419.99150779017), c = (P_mul = 1.0487033203562293, θy = 0.5990214918973684, θx = -1.470860942559718, e = 0.0, ω = 0.0, i = 0.7256684391420547, Ω = 1.4798584591487753, P = 264.8244541002048, a = 46.93823113995675, θ = -1.1840478179446796, tp = 1772.7173697400576)))
-└   initial_logpost = -1.9181166972175415e6
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 31
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -2426,14 +2247,8 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.521954111883634
-│      ⋮
-│   initial_θ_nt = (plx = 24.521954111883634, M = 1.4809385882936372, i = 2.8169964793113396, Ωy = -2.301318863819776, Ωx = -0.6253886755517345, P_nominal = 294.06017494977823, Ω = -2.8762483110311923, planets = (b = (P_mul = 0.879146872296859, θy = 0.2863080137455691, θx = 0.7114625949285753, e = 0.0, ω = 0.0, i = 2.8169964793113396, Ω = -2.8762483110311923, P = 517.0441661483294, a = 73.42840783169473, θ = 1.1882039897613959, tp = -6461.860505051183), c = (P_mul = 0.9830914701759054, θy = -0.6041077867521775, θx = 0.858925968909836, e = 0.0, ω = 0.0, i = 2.8169964793113396, Ω = -2.8762483110311923, P = 289.08804971156144, a = 49.83476821419071, θ = 2.183753216916722, tp = 38616.22529361588)))
-└   initial_logpost = -1.5815643893253258e6
-[ Info: Determining initial positions using pathfinder
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 32
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -2573,30 +2388,23 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    12-element Vector{Float64}:
-│     24.522772145293725
-│      ⋮
-│   initial_θ_nt = (plx = 24.522772145293725, M = 1.5030024258955907, i = 2.634518803702793, Ωy = 0.1603188246724039, Ωx = -0.0028537448765923964, P_nominal = 262.9357665061686, Ω = -0.017798555668427384, planets = (b = (P_mul = 1.0189249735262822, θy = 0.6773614829471364, θx = 1.7774274856790198, e = 0.0, ω = 0.0, i = 2.634518803702793, Ω = -0.017798555668427384, P = 535.8236378528211, a = 75.56739877041436, θ = 1.2066963907023025, tp = -96842.21120997795), c = (P_mul = 1.049322564103222, θy = 0.6532855251504551, θx = -1.0406989830064726, e = 0.0, ω = 0.0, i = 2.634518803702793, Ω = -0.017798555668427384, P = 275.9044327046989, a = 48.54662161161044, θ = -1.01023106782679, tp = 42578.51361706077)))
-└   initial_logpost = -707235.6717969463
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       4.96          6       8.69   4.37e+08  -1.81e+07          0      0.646      0.889      0.955
-        4          0          4          3       1.03   5.87e+07  -8.74e+05          0      0.774      0.851       0.93
-        8          0        6.1       6.77       1.66   1.02e+08  -1.18e+05          0      0.585      0.892      0.929
+        2          0       4.96          6        8.3   4.39e+08  -1.81e+07          0      0.646      0.889      0.955
+        4          0          4          3       1.01   5.87e+07  -8.74e+05          0      0.774      0.851       0.93
+        8          0        6.1       6.77       1.68   1.02e+08  -1.18e+05          0      0.585      0.892      0.929
        16          0       12.5       11.2        3.4   2.18e+08  -1.62e+04          0      0.235      0.892      0.923
-       32          0       13.3       12.3       6.76    4.3e+08  -5.11e+03          0      0.171      0.911      0.928
-       64          0         13       7.64         15   1.11e+09       -565          0      0.333        0.9      0.924
-      128          0       13.5       8.47       27.3   2.24e+09       -207          0       0.29      0.908      0.925
-      256          0       13.3       8.78       56.7    4.7e+09       -202          0      0.289      0.915      0.928
-      512          0         13       9.44        110   9.04e+09       -179          0      0.274      0.914      0.926
- 1.02e+03          0       13.4       10.4        251   2.13e+10      -98.8          0      0.234      0.915      0.928
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="0310a123.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="098ff76c.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
+       32          0       13.3       12.3       6.75    4.3e+08  -5.11e+03          0      0.171      0.911      0.928
+       64          0         13       7.64       14.8   1.11e+09       -565          0      0.333        0.9      0.924
+      128          0       13.5       8.47         27   2.24e+09       -207          0       0.29      0.908      0.925
+      256          0       13.3       8.78       56.1    4.7e+09       -202          0      0.289      0.915      0.928
+      512          0         13       9.44        109   9.04e+09       -179          0      0.274      0.914      0.926
+ 1.02e+03          0       13.4       10.4        249   2.13e+10      -98.8          0      0.234      0.915      0.928
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="1190daf2.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="098ff76c.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
     results[:b_P][:] ./ results[:c_P][:],
     axis=(;
         xlabel=&quot;period ratio&quot;,
         ylabel=&quot;counts&quot;,
     )
-)</code></pre><img src="0c34917f.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-astrom/">« Fit RV and Relative Astrometry</a><a class="docs-footer-nextpage" href="../fit-interfere/">Fit Interferometer Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 10 July 2024 21:18">Wednesday 10 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="0c34917f.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-astrom/">« Fit RV and Relative Astrometry</a><a class="docs-footer-nextpage" href="../fit-interfere/">Fit Interferometer Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 11 July 2024 05:27">Thursday 11 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

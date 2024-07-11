@@ -3,7 +3,7 @@
 using Distributions
 using OctofitterImages
 using Pigeons
-using AstroImages</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-00704b6ec683 is missing from the cache.
+using AstroImages</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-003ffed2038e is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1948</code></pre><p>Typically one would load your likelihood maps from eg. FITS files like so:</p><pre><code class="language-julia hljs"># If centred at the star:
 image1 = AstroImages.recenter(AstroImages.load(&quot;image-example-1.fits&quot;,1))
@@ -138,247 +138,68 @@ end loglikemap
 end b
 model = Octofitter.LogDensityModel(Tutoria)
 chain, pt = octofit_pigeons(model, n_rounds=10) # increase n_rounds until log(Z₁/Z₀) converges.
-display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0161891632353388
-│     ⋮
-│   initial_θ_nt = (M = 1.0161891632353388, plx = 50.00007734253861, planets = (b = (a = 2.754333991293197, e = 0.13503105027601692, i = 2.0191611738804687, ωy = -0.9660659276063157, ωx = -0.16226771545979915, Ωy = -0.5492775986684656, Ωx = 0.8101584342805007, θy = -0.47384328773676265, θx = -0.855930414536231, ω = -2.9751785310959864, Ω = 2.1665957940608123, θ = -2.0763994390816043, tp = 60089.31167962199),))
-└   initial_logpost = -8.933627629647548
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     0.9941888743731925
-│     ⋮
-│   initial_θ_nt = (M = 0.9941888743731925, plx = 50.00001461709995, planets = (b = (a = 2.4324718440880124, e = 0.191311978988162, i = 2.085730860580224, ωy = -0.989834305385766, ωx = 0.015269804766360244, Ωy = -0.46941162997527525, Ωx = 0.8688264762590627, θy = -0.48295340756961064, θx = -0.8780323953137096, ω = 3.1261672500153757, Ω = 2.0661481867859286, θ = -2.0736706573278774, tp = 60133.53928874164),))
-└   initial_logpost = -8.855301541648387
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     0.981792995870056
-│     ⋮
-│   initial_θ_nt = (M = 0.981792995870056, plx = 49.99982488805985, planets = (b = (a = 1.4141156806875657, e = 0.25387381696630545, i = 2.6607576838172253, ωy = -0.33461499440253223, ωx = -0.9233184521551516, Ωy = -0.9432518586158052, Ωx = 0.33340930719198164, θy = -0.3797884987740021, θx = -0.9073121844792946, ω = -1.9184791263273329, Ω = 2.8018316873436744, θ = -1.9672220404661158, tp = 60316.16150959041),))
-└   initial_logpost = -9.56231624067186
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0562389193145993
-│     ⋮
-│   initial_θ_nt = (M = 1.0562389193145993, plx = 49.998803333302234, planets = (b = (a = 9.93752108054164, e = 0.4661619523333437, i = 1.74933093083266, ωy = -0.3420968048971156, ωx = 0.888847969394067, Ωy = 0.9903865423525903, Ωx = -0.11416842542697592, θy = -0.4634966795046996, θx = -0.861216469518942, ω = 1.9381977144109073, Ω = -0.11477003992702478, θ = -2.064525895754535, tp = 49376.87837673708),))
-└   initial_logpost = -15.2002518033425
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0418955358404658
-│     ⋮
-│   initial_θ_nt = (M = 1.0418955358404658, plx = 50.000695987138464, planets = (b = (a = 4.378418706333312, e = 0.38566414072870614, i = 1.9106042269738646, ωy = -0.05413638249967217, ωx = 0.9587317010534593, Ωy = 0.9825433119101373, Ωx = -0.014585784934979721, θy = -0.3939162022698933, θx = -0.834044408029522, ω = 1.6272030927291774, Ω = -0.014843837892420698, θ = -2.012036488399499, tp = 60318.95122194632),))
-└   initial_logpost = -8.537649580298968
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0165783311807535
-│     ⋮
-│   initial_θ_nt = (M = 1.0165783311807535, plx = 49.999860693483846, planets = (b = (a = 1.9145587250946092, e = 0.3639201874614326, i = 2.4597682217124177, ωy = 0.2403675329741453, ωx = -0.9708631174998669, Ωy = -0.23698484779468643, Ωx = 0.937908808628696, θy = -0.45455429596016006, θx = -0.8674532164481132, ω = -1.3280953987177346, Ω = 1.8182897848127093, θ = -2.0534670450349815, tp = 59448.36582882503),))
-└   initial_logpost = -9.646483762708588
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0276650402871326
-│     ⋮
-│   initial_θ_nt = (M = 1.0276650402871326, plx = 49.99938496481062, planets = (b = (a = 3.14179989192478, e = 0.060585992195632495, i = 1.9471062577146796, ωy = 0.8435817235217918, ωx = 0.5139099682967279, Ωy = -0.7950062839655825, Ωx = 0.585301015948949, θy = -0.4695055510116523, θx = -0.8382567977651378, ω = 0.5471567431799294, Ω = 2.506968018625893, θ = -2.081358882052251, tp = 58990.62140162079),))
-└   initial_logpost = -9.948787215150883
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0553542255653807
-│     ⋮
-│   initial_θ_nt = (M = 1.0553542255653807, plx = 49.999627405997856, planets = (b = (a = 7.146203202313162, e = 0.150197535677222, i = 1.701991709861698, ωy = 0.9499265223230601, ωx = 0.24458111091261858, Ωy = -0.9575696565439318, Ωx = 0.12408005862255274, θy = -0.4986168230468067, θx = -0.8388084237721235, ω = 0.25200028479159653, Ω = 3.0127325583208977, θ = -2.107113636243228, tp = 55132.02368232619),))
-└   initial_logpost = -13.463457068358908
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0210242387811899
-│     ⋮
-│   initial_θ_nt = (M = 1.0210242387811899, plx = 50.000203323104635, planets = (b = (a = 1.7941346198012675, e = 0.2704735981796052, i = 2.400719683075822, ωy = -0.2605624348766079, ωx = -0.9450744036737009, Ωy = -0.8503380198974334, Ωx = 0.5048203120468022, θy = -0.3927391431487995, θx = -0.9073025721681864, ω = -1.839818537207658, Ω = 2.6058404441818044, θ = -1.979309437509439, tp = 60325.6036306055),))
-└   initial_logpost = -8.348983318140835
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.032891271359102
-│     ⋮
-│   initial_θ_nt = (M = 1.032891271359102, plx = 50.00036661750861, planets = (b = (a = 2.9110405732558746, e = 0.1718074308443197, i = 1.9334866150068433, ωy = 0.2061332406954549, ωx = -0.9586283502524853, Ωy = 0.6758043099684867, Ωx = -0.7074405098027637, θy = -0.4849877826724144, θx = -0.8608434905468662, ω = -1.3589921040843949, Ω = -0.8082651823043424, θ = -2.083859116367859, tp = 59572.0711503177),))
-└   initial_logpost = -10.059145763511122
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0249800860791662
-│     ⋮
-│   initial_θ_nt = (M = 1.0249800860791662, plx = 49.99432108435399, planets = (b = (a = 3.202474132950594, e = 0.23128057063114787, i = 1.9781419162474592, ωy = 0.3152429839072195, ωx = 0.9025384661522472, Ωy = 0.9863138366790012, Ωx = -0.1996956349349428, θy = -0.4290583448815951, θx = -0.8569423855191601, ω = 1.2347587825979955, Ω = -0.19976618690559364, θ = -2.0349919224024227, tp = 60249.38338308606),))
-└   initial_logpost = -8.70545873057333
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.043661125762045
-│     ⋮
-│   initial_θ_nt = (M = 1.043661125762045, plx = 50.00644478409308, planets = (b = (a = 3.589953035971349, e = 0.296091579866087, i = 1.9698286027774399, ωy = 0.05355319094282285, ωx = 0.9624137212307983, Ωy = 1.0012805873918296, Ωx = -0.12494659700571523, θy = -0.4076954982892083, θx = -0.8935877715259906, ω = 1.5152089848270427, Ω = -0.12414506570073292, θ = -1.9988319504239622, tp = 60303.41149883558),))
-└   initial_logpost = -8.600798475038388
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0451527808196561
-│     ⋮
-│   initial_θ_nt = (M = 1.0451527808196561, plx = 50.000519875014184, planets = (b = (a = 1.9627364359310566, e = 0.33310214988207, i = 1.9181970141076317, ωy = 0.514993502597262, ωx = -0.8599770616715966, Ωy = 0.9701421086543482, Ωx = 0.04942418975193761, θy = -0.47367863533850685, θx = -0.8642597331900232, ω = -1.031226062587439, Ω = 0.0509013028673918, θ = -2.0721599485688627, tp = 59944.11576161951),))
-└   initial_logpost = -10.96785046560781
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0777795526620548
-│     ⋮
-│   initial_θ_nt = (M = 1.0777795526620548, plx = 50.00192311593279, planets = (b = (a = 1.4085827262480808, e = 0.17099356691009976, i = 2.437933412823508, ωy = -0.8947650314936217, ωx = 0.23605671802074696, Ωy = 0.9624901792125778, Ωx = -0.14027548280326957, θy = -0.40232437372282714, θx = -0.9014994406823239, ω = 2.883650018020429, Ω = -0.14472330896439906, θ = -1.9905553583767608, tp = 59827.038817346416),))
-└   initial_logpost = -9.145221515077113
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0318998903833092
-│     ⋮
-│   initial_θ_nt = (M = 1.0318998903833092, plx = 50.00162277635404, planets = (b = (a = 2.943847948449271, e = 0.37273315348935343, i = 1.8653203599963442, ωy = -0.2035577594472974, ωx = -0.9519844037082504, Ωy = 0.6682829343775686, Ωx = -0.7014510190630588, θy = -0.5183007368065247, θx = -0.8172726363262808, ω = -1.781448823605337, Ω = -0.8096084153295774, θ = -2.1359721941951664, tp = 59350.044545978046),))
-└   initial_logpost = -10.69557446808849
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0229575032133296
-│     ⋮
-│   initial_θ_nt = (M = 1.0229575032133296, plx = 50.00091707324293, planets = (b = (a = 2.323875050343465, e = 0.3603343631253589, i = 2.145776540853875, ωy = -0.8727628144906511, ωx = 0.5068848887896327, Ωy = 0.955746035549967, Ωx = 0.1940195733950995, θy = -0.3791762264247183, θx = -0.90647473815937, ω = 2.615423942302181, Ω = 0.20028164748667274, θ = -1.9669763302440775, tp = 59124.09763391291),))
-└   initial_logpost = -8.469712771578164
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     0.9689171150613141
-│     ⋮
-│   initial_θ_nt = (M = 0.9689171150613141, plx = 49.99466986868976, planets = (b = (a = 1.5379916590951235, e = 0.12203895325055439, i = 2.2602099530534128, ωy = 0.917303513396433, ωx = -0.3015395124205774, Ωy = 0.9216513818812437, Ωx = -0.16944261291029777, θy = -0.4112869676312903, θx = -0.8938964300867206, ω = -0.31759626893486936, Ω = -0.1818164522455765, θ = -2.00202241937534, tp = 60133.62684994618),))
-└   initial_logpost = -9.893447345904042
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0283616224637775
-│     ⋮
-│   initial_θ_nt = (M = 1.0283616224637775, plx = 49.99987726814407, planets = (b = (a = 7.533187344032185, e = 0.17280543734477607, i = 1.748293040225361, ωy = 0.6801471180816895, ωx = -0.6853843533104075, Ωy = -0.6256327923648209, Ωx = 0.7513329257404344, θy = -0.5160848469881308, θx = -0.8605760629851418, ω = -0.7892334536558276, Ω = 2.265159038072982, θ = -2.1109929721791554, tp = 53610.8489519556),))
-└   initial_logpost = -10.264531114759905
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0213030767417417
-│     ⋮
-│   initial_θ_nt = (M = 1.0213030767417417, plx = 49.99992809734129, planets = (b = (a = 3.846987364221996, e = 0.27461572192040623, i = 1.8971706725522528, ωy = 0.30665381263098146, ωx = 0.9217831149025405, Ωy = 0.9764956926120759, Ωx = -0.05674602533723379, θy = -0.4322346588794806, θx = -0.8738664353041288, ω = 1.2496387655375092, Ω = -0.05804662313902529, θ = -2.030133293910727, tp = 60228.974720716906),))
-└   initial_logpost = -8.352680421433197
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.02353733050879
-│     ⋮
-│   initial_θ_nt = (M = 1.02353733050879, plx = 50.00009389545093, planets = (b = (a = 5.734029586380575, e = 0.05334008653592613, i = 1.7643996516912637, ωy = 0.536037411669046, ωx = -0.8294110561782407, Ωy = 0.6193480217906691, Ωx = -0.7715871148108643, θy = -0.5028348479483896, θx = -0.8343461649176827, ω = -0.9970358755480412, Ω = -0.8944151157571536, θ = -2.1131762618011187, tp = 58421.030027748966),))
-└   initial_logpost = -11.04837664162131
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     0.9988276727794669
-│     ⋮
-│   initial_θ_nt = (M = 0.9988276727794669, plx = 50.00264854959746, planets = (b = (a = 1.6837477366793088, e = 0.13723593160331216, i = 2.1297848757534608, ωy = -0.9748701679755771, ωx = -0.33393832446650684, Ωy = -0.9881470283614396, Ωx = -0.0659756607350505, θy = -0.414313757831078, θx = -0.8945738059716004, ω = -2.8115733290304155, Ω = -3.0749245526456375, θ = -2.004524368294078, tp = 60180.01675607302),))
-└   initial_logpost = -9.063757934456802
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0231594392515202
-│     ⋮
-│   initial_θ_nt = (M = 1.0231594392515202, plx = 49.9993526552067, planets = (b = (a = 5.785245877279058, e = 0.3268948272595004, i = 1.8744657443789325, ωy = 0.22694198121558917, ωx = -0.9536128771044973, Ωy = -0.6871407927356801, Ωx = 0.6969677094275454, θy = -0.4835987049968234, θx = -0.8544678770633395, ω = -1.3371610248192565, Ω = 2.349094792758893, θ = -2.085813872295896, tp = 55437.675982543464),))
-└   initial_logpost = -8.525252649849822
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0319175903848072
-│     ⋮
-│   initial_θ_nt = (M = 1.0319175903848072, plx = 49.99974274211286, planets = (b = (a = 9.249033214278983, e = 0.10943343218816491, i = 1.6970192343759605, ωy = 1.017720554116536, ωx = -0.04429237151429974, Ωy = 0.6763419936113146, Ωx = -0.7277957772646813, θy = -0.5208582294809964, θx = -0.8080588547917701, ω = -0.04349370608939092, Ω = -0.8220261726569494, θ = -2.1433516092897773, tp = 58144.11136088833),))
-└   initial_logpost = -12.924521030491675
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.012228991661509
-│     ⋮
-│   initial_θ_nt = (M = 1.012228991661509, plx = 49.999898823058395, planets = (b = (a = 2.508755559686338, e = 0.1522981001360796, i = 2.0245127669824505, ωy = -0.8958716661231039, ωx = -0.3959980797168898, Ωy = 0.6754636000870883, Ωx = -0.7146483906837144, θy = -0.4825278644660648, θx = -0.8509552542519462, ω = -2.7253901182868114, Ω = -0.813578926795987, θ = -2.0866298331370725, tp = 59320.143838491276),))
-└   initial_logpost = -9.127148146873644
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.027005728435651
-│     ⋮
-│   initial_θ_nt = (M = 1.027005728435651, plx = 50.000140256925235, planets = (b = (a = 1.787886179912307, e = 0.4657040772583531, i = 2.489068751985128, ωy = 0.9615645185375288, ωx = -0.1975260695756781, Ωy = -0.11831515820460849, Ωx = -0.9735198688822162, θy = -0.3846580224587321, θx = -0.9019133191779193, ω = -0.2026031079102973, Ω = -1.691736588309718, θ = -1.9739292888184758, tp = 60313.74735123369),))
-└   initial_logpost = -9.866967682021695
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0393737244326158
-│     ⋮
-│   initial_θ_nt = (M = 1.0393737244326158, plx = 50.000316074180624, planets = (b = (a = 3.1010420275695867, e = 0.42143256354513897, i = 2.1665728996331852, ωy = 0.11299638681368603, ωx = 0.9760499297957996, Ωy = 0.37366648124545143, Ωx = -0.8943212620284585, θy = -0.4682675641689938, θx = -0.8558294915589416, ω = 1.4555403405142973, Ω = -1.175021772463022, θ = -2.0714492166983822, tp = 58418.15153008473),))
-└   initial_logpost = -9.477623446208547
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0154048208148887
-│     ⋮
-│   initial_θ_nt = (M = 1.0154048208148887, plx = 50.00071793663185, planets = (b = (a = 1.762948763277319, e = 0.2118251535612445, i = 2.2577519511542077, ωy = 0.03651488136469299, ωx = -0.979297651785918, Ωy = -0.9692434384779822, Ωx = -0.1529642542222688, θy = -0.3719718028474089, θx = -0.9092567440558104, ω = -1.533526786614156, Ω = -2.9850654532273992, θ = -1.9591179983730114, tp = 60310.52397244341),))
-└   initial_logpost = -8.356339510784027
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0209613528025079
-│     ⋮
-│   initial_θ_nt = (M = 1.0209613528025079, plx = 49.99998280034652, planets = (b = (a = 1.5971130966535316, e = 0.36859032590025825, i = 2.555116695353945, ωy = -0.9728609139824919, ωx = 0.07577577768298899, Ωy = 0.8286210884872008, Ωx = 0.5404449158267844, θy = -0.38787933203218494, θx = -0.9070005062520359, ω = 3.0638599650860643, Ω = 0.5779356839933144, θ = -1.974909932287018, tp = 59640.17234866604),))
-└   initial_logpost = -9.178799114930115
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0176464299176315
-│     ⋮
-│   initial_θ_nt = (M = 1.0176464299176315, plx = 49.99953306008724, planets = (b = (a = 1.314762765851045, e = 0.2774592835321171, i = 2.329037297125379, ωy = -0.9371547567920013, ωx = 0.2964435043766927, Ωy = -0.9766994062318225, Ωx = 0.11218001514372249, θy = -0.40582220770034155, θx = -0.9186162861875803, ω = 2.8352288072056733, Ω = 3.027237519058271, θ = -1.9867897792100147, tp = 60203.79454085211),))
-└   initial_logpost = -8.802092810910182
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0576352319357167
-│     ⋮
-│   initial_θ_nt = (M = 1.0576352319357167, plx = 50.0008365899974, planets = (b = (a = 1.686299889347596, e = 0.03566087620377504, i = 2.119464000594755, ωy = 0.019642882422455415, ωx = 1.0044947114503673, Ωy = -1.0081263490329229, Ωx = -0.03456540721964746, θy = -0.4282360190751953, θx = -0.8763324256790862, ω = 1.5512438304242928, Ω = -3.107319298905983, θ = -2.02533768120699, tp = 59911.64260754017),))
-└   initial_logpost = -10.24746597015643
-[ Info: Determining initial positions using pathfinder
+display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Info: Determining initial positions using pathfinder
+└   chain_no = 1
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 2
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 3
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 4
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 5
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 6
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 7
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 8
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 9
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 10
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 11
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 12
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 13
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 14
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 15
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 16
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 17
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 18
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 19
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 20
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 21
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 22
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 23
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 24
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 25
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 26
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 27
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 28
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 29
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 30
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 31
 ┌ Error: Unexpected error occured running pathfinder
 │   exception =
 │    AssertionError: isfinite(phi_c) &amp;&amp; isfinite(dphi_c)
@@ -518,35 +339,22 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:73
 ┌ Info: Falling back to guessing a starting location by sampling from prior
 └   initial_samples = 1000
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     0.9743246416795353
-│     ⋮
-│   initial_θ_nt = (M = 0.9743246416795353, plx = 50.00888984347276, planets = (b = (a = 3.7161724459592294, e = 0.4904087746915301, i = 2.083823350634089, ωy = -0.7629391289707614, ωx = -1.435928624476293, Ωy = 0.1600951922038924, Ωx = 1.3098783772820934, θy = -0.4402847578674227, θx = -0.5565233686440222, ω = -2.0591857009442123, Ω = 1.4491780962763214, θ = -2.240107962620897, tp = 57712.10459679558),))
-└   initial_logpost = -54.697037922386706
-[ Info: Determining initial positions using pathfinder
-┌ Info: Determined initial position
-│   initial_θ =
-│    11-element Vector{Float64}:
-│     1.0370418325386064
-│     ⋮
-│   initial_θ_nt = (M = 1.0370418325386064, plx = 50.00290667184853, planets = (b = (a = 3.546435779645301, e = 0.10690100594680679, i = 1.8661964639673387, ωy = 0.3765391942549143, ωx = 0.9166436326598859, Ωy = -0.5861526090676549, Ωx = 0.7962524510510387, θy = -0.48920480092757945, θx = -0.8243386707982251, ω = 1.1810312262157239, Ω = 2.205367318787591, θ = -2.106386642646951, tp = 59016.201512342595),))
-└   initial_logpost = -9.679030260678434
+┌ Info: Determining initial positions using pathfinder
+└   chain_no = 32
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.67       3.03          6   3.54e+08      -42.5   4.98e-25      0.816      0.924      0.957
-        4          0       4.69       4.71      0.395   7.55e+07      -24.1    0.00309      0.697      0.891       0.93
-        8          0       4.74       4.76      0.508   1.27e+08      -19.7      0.266      0.693      0.887      0.921
-       16          0       4.98       4.66      0.997   2.52e+08      -22.2      0.317      0.689      0.899       0.92
-       32          0       4.83       4.45       2.02   4.96e+08      -20.5      0.369      0.701      0.894      0.913
-       64          7       4.48       2.89       5.52   1.12e+09      -20.9      0.514      0.762      0.897      0.909
-      128         18       4.63       2.93       8.37   2.19e+09        -21      0.586      0.756      0.896      0.909
-      256         30       4.93       3.16       16.8   4.39e+09      -20.7      0.585      0.739      0.895       0.91
-      512         72       4.78       3.02       33.4   8.75e+09      -20.8      0.629      0.748      0.892      0.909
- 1.02e+03        161       4.73       3.02       67.1   1.76e+10      -20.9      0.632       0.75      0.892      0.908
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>Display the results:</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="a947a247.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+        2          0       2.67       3.03       5.97   3.54e+08      -42.5   4.98e-25      0.816      0.924      0.957
+        4          0       4.69       4.71      0.396   7.55e+07      -24.1    0.00309      0.697      0.891       0.93
+        8          0       4.74       4.76       0.52   1.27e+08      -19.7      0.266      0.693      0.887      0.921
+       16          0       4.98       4.66       1.05   2.52e+08      -22.2      0.317      0.689      0.899       0.92
+       32          0       4.83       4.45       2.01   4.96e+08      -20.5      0.369      0.701      0.894      0.913
+       64          7       4.48       2.89       5.44   1.12e+09      -20.9      0.514      0.762      0.897      0.909
+      128         18       4.63       2.93       8.16   2.19e+09        -21      0.586      0.756      0.896      0.909
+      256         30       4.93       3.16       16.4   4.39e+09      -20.7      0.585      0.739      0.895       0.91
+      512         72       4.78       3.02       32.7   8.75e+09      -20.8      0.629      0.748      0.892      0.909
+ 1.02e+03        161       4.73       3.02       65.7   1.76e+10      -20.9      0.632       0.75      0.892      0.908
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>Display the results:</p><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="9f42ae61.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 octocorner(model,chain,small=true,)</code></pre><img src="e22e0eb1.png" alt="Example block output"/><p>And finally let&#39;s look at the posterior predictive distributions at both epochs:</p><pre><code class="language-julia hljs">els = Octofitter.construct_elements(chain,:b, :)
 x = raoff.(els, loglikemap.table.epoch[1])
 y = decoff.(els, loglikemap.table.epoch[1])
@@ -574,4 +382,4 @@ pairplot(
     )
 )</code></pre><img src="64e0cfae.png" alt="Example block output"/><h2 id="Resume-sampling-for-additional-rounds"><a class="docs-heading-anchor" href="#Resume-sampling-for-additional-rounds">Resume sampling for additional rounds</a><a id="Resume-sampling-for-additional-rounds-1"></a><a class="docs-heading-anchor-permalink" href="#Resume-sampling-for-additional-rounds" title="Permalink"></a></h2><p>If you would like to add additional rounds of sampling, you may do the following:</p><pre><code class="language-julia hljs">pt = increment_n_rounds!(pt, 2)
 chain, pt = octofit_pigeons(pt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (4096×17×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Updated corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model,chain,small=false,)</code></pre><img src="9af4780b.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Fit Interferometer Data</a><a class="docs-footer-nextpage" href="../thiele-innes/">Fit Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 10 July 2024 21:18">Wednesday 10 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model,chain,small=false,)</code></pre><img src="9af4780b.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Fit Interferometer Data</a><a class="docs-footer-nextpage" href="../thiele-innes/">Fit Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 11 July 2024 05:27">Thursday 11 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
