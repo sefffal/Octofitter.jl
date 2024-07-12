@@ -109,3 +109,4 @@ end
 function Base.show(io::IO, @nospecialize p::KDEDist)
     print(io, "KDEDist kernel density estimate distribution")
 end
+export KDEDist
