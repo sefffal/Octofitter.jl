@@ -48,7 +48,7 @@ already subtracted out. e.g. we would expect 0 pma if there is no companion.
 function HGCALikelihood(; gaia_id, catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits")
 
     # Load the Hipparcos-GAIA catalog of accelerations (downloaded automatically with datadeps)
-    hgca = FITS(catalog, "r") do fits
+    hgca_all = FITS(catalog, "r") do fits
         Table(fits[2])
     end
 
@@ -60,9 +60,30 @@ function HGCALikelihood(; gaia_id, catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.f
     # pmra_hip_error   pmra_pmdec_gaia    pmra_pmdec_hg        pmra_pmdec_hip     radial_velocity    radial_velocity_error   radial_velocity_source
 
     # Find the row with a GAIA source id match
-    idx = findfirst(==(gaia_id), hgca.gaia_source_id)
+    idx = findfirst(==(gaia_id), hgca_all.gaia_source_id)
+    hgca = NamedTuple(hgca_all[idx])
 
-    return HGCALikelihood(hgca[idx])
+    # Hipparcos epoch
+    c = hgca.pmra_pmdec_hip[1] * hgca.pmra_hip_error[1] * hgca.pmdec_hip_error[1]
+    dist_hip = MvNormal(@SArray[
+        hgca.pmra_hip_error[1]^2 c
+        c hgca.pmdec_hip_error[1]^2
+    ])
+    # Hipparcos - GAIA epoch
+    c = hgca.pmra_pmdec_hg[1] * hgca.pmra_hg_error[1] * hgca.pmdec_hg_error[1]
+    dist_hg = MvNormal(@SArray[
+        hgca.pmra_hg_error[1]^2 c
+        c hgca.pmdec_hg_error[1]^2
+    ])
+    # GAIA epoch
+    c = hgca.pmra_pmdec_gaia[1] * hgca.pmra_gaia_error[1] * hgca.pmdec_gaia_error[1]
+    dist_gaia = MvNormal(@SArray[
+        hgca.pmra_gaia_error[1]^2 c
+        c hgca.pmdec_gaia_error[1]^2
+    ])
+
+
+    return HGCALikelihood((;hgca...,dist_hip,dist_hg,dist_gaia))
 
 end
 export HGCALikelihood
@@ -86,45 +107,29 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, elements, _L=1) #=length 
         pmdec_hg_model,
     ) = _simulate_hgca(hgca_like, θ_system, elements)
 
-    hgca = hgca_like.table[1]
     # Hipparcos epoch
-    c = hgca.pmra_pmdec_hip[1] * hgca.pmra_hip_error[1] * hgca.pmdec_hip_error[1]
-    dist_hip = MvNormal(@SArray[
-        hgca.pmra_hip_error[1]^2 c
-        c hgca.pmdec_hip_error[1]^2
-    ])
     resids_hip = @SArray[
-        pmra_hip_model - hgca.pmra_hip[1],
-        pmdec_hip_model - hgca.pmdec_hip[1]
+        pmra_hip_model - hgca_like.table.pmra_hip[1],
+        pmdec_hip_model - hgca_like.table.pmdec_hip[1]
     ]
-    ll += logpdf(dist_hip, resids_hip)
+    ll += logpdf(hgca_like.table.dist_hip[1], resids_hip)
 
     # Hipparcos - GAIA epoch
-    c = hgca.pmra_pmdec_hg[1] * hgca.pmra_hg_error[1] * hgca.pmdec_hg_error[1]
-    dist_hg = MvNormal(@SArray[
-        hgca.pmra_hg_error[1]^2 c
-        c hgca.pmdec_hg_error[1]^2
-    ])
 
     # TODO: We have to undo the spherical coordinate correction that was done in the HGCA catalog
     # since our calculations use real, not tangent plane, coordinates
     resids_hg = @SArray[
-        pmra_hg_model - hgca.pmra_hg[1]# - hgca.nonlinear_dpmra,
-        pmdec_hg_model - hgca.pmdec_hg[1]# - hgca.nonlinear_dpmdec
+        pmra_hg_model - hgca_like.table.pmra_hg[1]# - hgca_like.table.nonlinear_dpmra[1],
+        pmdec_hg_model - hgca_like.table.pmdec_hg[1]# - hgca_like.table.nonlinear_dpmdec[1]
     ]
-    ll += logpdf(dist_hg, resids_hg)
+    ll += logpdf(hgca_like.table.dist_hg[1], resids_hg)
 
     # GAIA epoch
-    c = hgca.pmra_pmdec_gaia[1] * hgca.pmra_gaia_error[1] * hgca.pmdec_gaia_error[1]
-    dist_gaia = MvNormal(@SArray[
-        hgca.pmra_gaia_error[1]^2 c
-        c hgca.pmdec_gaia_error[1]^2
-    ])
     resids_gaia = @SArray[
-        pmra_gaia_model - hgca.pmra_gaia[1],
-        pmdec_gaia_model - hgca.pmdec_gaia[1]
+        pmra_gaia_model - hgca_like.table.pmra_gaia[1],
+        pmdec_gaia_model - hgca_like.table.pmdec_gaia[1]
     ]
-    ll += logpdf(dist_gaia, resids_gaia)
+    ll += logpdf(hgca_like.table.dist_gaia[1], resids_gaia)
 
 
     return ll
