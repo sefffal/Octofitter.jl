@@ -261,41 +261,7 @@ function Octofitter.hgcaplot!(
         xvals, yvals
     end
 
-    # 1D plots: stroke twice for contrast
-    Makie.errorbars!(
-        ax_velra,
-        tx,
-        x,
-        σ₁,
-        color=:black,
-    )
-    Makie.errorbars!(
-        ax_veldec,
-        ty,
-        y,
-        σ₂,
-        color=:black,
-    )
-    Makie.scatter!(
-        ax_velra,
-        tx,
-        x,
-        σ₁,
-        color=Makie.wong_colors()[1:length(x)],
-        markersize=10,
-        strokewidth=1.5,
-        strokecolor=:black
-    )
-    Makie.scatter!(
-        ax_veldec,
-        ty,
-        y,
-        σ₂,
-        color=Makie.wong_colors()[1:length(x)],
-        markersize=10,
-        strokewidth=1.5,
-        strokecolor=:black
-    )
+    
 
     colsize!(gs, 1, Auto(1 // 3))
     colsize!(gs, 2, Auto(1 // 3))
@@ -421,6 +387,43 @@ function Octofitter.hgcaplot!(
     Makie.scatter!(
         ax_dat3, x[3], y[3],
         color=Makie.wong_colors()[3],
+        markersize=10,
+        strokewidth=1.5,
+        strokecolor=:black
+    )
+
+
+    # 1D plots: stroke twice for contrast
+    Makie.errorbars!(
+        ax_velra,
+        tx,
+        x,
+        σ₁,
+        color=Makie.wong_colors()[[1,2,3]],
+    )
+    Makie.errorbars!(
+        ax_veldec,
+        ty,
+        y,
+        σ₂,
+        color=Makie.wong_colors()[[1,2,3]],
+    )
+    Makie.scatter!(
+        ax_velra,
+        tx,
+        x,
+        σ₁,
+        color=Makie.wong_colors()[1:length(x)],
+        markersize=10,
+        strokewidth=1.5,
+        strokecolor=:black
+    )
+    Makie.scatter!(
+        ax_veldec,
+        ty,
+        y,
+        σ₂,
+        color=Makie.wong_colors()[1:length(x)],
         markersize=10,
         strokewidth=1.5,
         strokecolor=:black
