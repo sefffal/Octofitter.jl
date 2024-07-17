@@ -18,29 +18,29 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
     local result_pf = nothing
     ldm_any = Octofitter.LogDensityModelAny(model)
     # Use Pathfinder to initialize HMC. Works but currently disabled.
-    verbosity >= 1 && @info "Determining initial positions using pathfinder" chain_no
+    verbosity >= 2 && @info "Determining initial positions using pathfinder" chain_no
     # It seems to hit a PosDefException sometimes when factoring a matrix.
     # When that happens, the next try usually succeeds.
     # start_time = time()
     for i in 1:8
         try
-            if !isnothing(initial_parameters)
-                initial_θ = initial_parameters
-                # Transform from constrained support to unconstrained support
-                initial_θ_t = model.link(initial_θ)
-                errlogger = verbosity >= 3 ? ConsoleLogger(stderr, Logging.Info) : NullLogger()
-                result_pf = with_logger(errlogger) do 
-                    Pathfinder.pathfinder(
-                        ldm_any;
-                        init=fill(collect(initial_θ_t),8),
-                        progress=verbosity > 1,
-                        maxiters=25_000,
-                        rng=rng,
-                        # maxtime=25.0,
-                        # reltol=1e-4,
-                    )
-                end
-            else
+            # if !isnothing(initial_parameters)
+            #     initial_θ = initial_parameters
+            #     # Transform from constrained support to unconstrained support
+            #     initial_θ_t = model.link(initial_θ)
+            #     errlogger = verbosity >= 3 ? ConsoleLogger(stderr, Logging.Info) : NullLogger()
+            #     result_pf = with_logger(errlogger) do 
+            #         Pathfinder.pathfinder(
+            #             ldm_any;
+            #             init=fill(collect(initial_θ_t),8),
+            #             progress=verbosity > 1,
+            #             maxiters=25_000,
+            #             rng=rng,
+            #             # maxtime=25.0,
+            #             # reltol=1e-4,
+            #         )
+            #     end
+            # else
                 init_sampler = function(rng, x) 
                     initial_θ, mapv = Octofitter.guess_starting_position(rng,model.system,initial_samples)
                     initial_θ_t = model.link(initial_θ)
@@ -54,14 +54,20 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
                         progress=verbosity > 1,
                         maxiters=25_000,
                         # maxtime=25.0,
-                        reltol=1e-8,
+                        reltol=1e-6,
                         rng=rng,
+                        optimizer=Pathfinder.Optim.LBFGS(;
+                            m=6,
+                            linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
+                            alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
+                        )
                     ) 
                 end
-            end
+            # end
             verbosity >= 3 && "Pathfinder complete"
             break
         catch ex
+            rethrow(ex)
             result_pf = nothing
             if ex isa PosDefException
                 verbosity > 2 && @warn "Mass matrix failed to factorize. Restarting pathfinder" i
@@ -96,7 +102,10 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
 
     if verbosity >= 3
         initial_logpost = model.ℓπcallback(initial_θ_t)
-        @info "Determined initial position" initial_θ initial_θ_nt=model.arr2nt(initial_θ) initial_logpost
+        @info "Determined draw using pathfinder" chain_no initial_θ initial_θ_nt=model.arr2nt(initial_θ) initial_logpost
+    elseif verbosity >= 1
+        initial_logpost = model.ℓπcallback(initial_θ_t)
+        @info "Determined draw using pathfinder" chain_no initial_logpost
     end
     
     return initial_θ_t
