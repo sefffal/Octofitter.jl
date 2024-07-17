@@ -57,7 +57,9 @@ function Octofitter.rvpostplot!(
     T = period(els[sample_idx])
 
     # Model plot vs raw data
-    ts_grid = range((extrema(rvs.table.epoch) )...,length=10000)
+    tmin, tmax = extrema(rvs.table.epoch)
+    delta = tmax-tmin
+    ts_grid = range(tmin-0.015delta, tmax+0.015delta,length=10000)
     # Ensure the curve has points at exactly our data points. Otherwise for fine structure
     # we might miss them unless we add a very very fine grid.
     ts = sort(vcat(ts_grid, vec(rvs.table.epoch)))
