@@ -80,19 +80,22 @@ struct KDEDist{TKDE<:InterpKDE,TDat<:AbstractArray} <: ContinuousUnivariateDistr
     ik::TKDE
     data::TDat
     bandwidth::Float64
+    lower::Float64
+    upper::Float64
 end
-function KDEDist(data; bandwidth=KernelDensity.default_bandwidth(data))
-    k  = KernelDensity.kde(data; bandwidth, boundary=extrema(data))
+function KDEDist(data; bandwidth=KernelDensity.default_bandwidth(data), lower=minimum(data), upper=maximum(data))
+    T = eltype(data)
+    k  = KernelDensity.kde(data; bandwidth, boundary=(lower,upper))
     ik = KernelDensity.InterpKDE(k)
-    return KDEDist(ik, data, bandwidth)
+    return KDEDist(ik, data, bandwidth, convert(T,lower), convert(T,upper))
 end
 
 Distributions.pdf(kded::KDEDist, x::Real) = pdf(kded.ik, x)
 Distributions.logpdf(kded::KDEDist, x::Real) = log(pdf(kded.ik, x))
 # obviously these are not statistically correct since they cannot be
 # defined for an improper distribution
-Distributions.minimum(kded::KDEDist) = minimum(kded.data)
-Distributions.maximum(kded::KDEDist) = maximum(kded.data)
+Distributions.minimum(kded::KDEDist) = kded.lower
+Distributions.maximum(kded::KDEDist) = kded.upper
 Distributions.insupport(kded::KDEDist, x::Real) = minimum(kded) <= x <= maximum(kded.data)
 Distributions.mean(kded::KDEDist) = mean(kded.ik.kde.density)
 Distributions.var(kded::KDEDist) = var(kded.ik.kde.density)
@@ -101,7 +104,14 @@ Distributions.quantile(kded::KDEDist, p::Real) = quantile(kded.data, p) # TODO: 
 
 # Define a random sampler from a kernel density estimate
 # https://discourse.julialang.org/t/sample-from-kernel-density-estimator/50639/2
-Random.rand(rng::AbstractRNG, kded::KDEDist) = rand(rng, Normal(rand(rng, kded.data), kded.bandwidth))
+function Random.rand(rng::AbstractRNG, kded::KDEDist)
+    while true
+        val = rand(rng, Normal(rand(rng, kded.data), kded.bandwidth))
+        if kded.lower < val < kded.upper
+            return val
+        end
+    end
+end
 
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::KDEDist)
     println(io, "KDEDist kernel density estimate distribution")
