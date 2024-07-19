@@ -39,7 +39,7 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
         # an error, we'll see it right away instead of burried in some deep stack
         # trace from the sampler, autodiff, etc.
         ln_like_generated(system, arr2nt(initial_θ_0))
-        ln_prior_transformed(initial_θ_0)
+        ln_prior_transformed(initial_θ_0,false)
 
 
         # We use let blocks to prevent type instabilities from closures
@@ -61,11 +61,12 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 arr2nt=arr2nt,
                 Bijector_invlinkvec=Bijector_invlinkvec,
                 ln_prior_transformed=ln_prior_transformed,
-                ln_like_generated=ln_like_generated)
+                ln_like_generated=ln_like_generated;sampled=true)
                 # Transform back from the unconstrained support to constrained support for the likelihood function
                 θ_natural = Bijector_invlinkvec(θ_transformed)
                 θ_structured = arr2nt(θ_natural)
-                lprior = @inline ln_prior_transformed(θ_natural)
+                lprior = @inline ln_prior_transformed(θ_natural,sampled)
+                # lprior = @inline ln_prior_transformed(θ_transformed)
                 # CAUTION: This inline annotation is necessary for correct gradients from Enzyme. Yikes!
                 llike  = @inline ln_like_generated(system, θ_structured)
                 lpost = lprior+llike

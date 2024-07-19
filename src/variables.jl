@@ -586,12 +586,12 @@ function make_ln_prior_transformed(system::System)
         i += 1
         # prior_unconstrained = Bijectors.transformed(prior_distribution)
         ex = :(
-            p = $logpdf_with_trans($prior_distribution, arr[$i], true);
+            p = $logpdf_with_trans($prior_distribution, arr[$i], sampled);
             # Try and "heal" out of bounds values.
             # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
             # precision. 
             if !isfinite(p)
-                # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", true)=", p)
+                # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", sampled)=", p)
                 if sign(p) > 1
                     return prevfloat(typemax(eltype(arr)))
                 else
@@ -610,12 +610,12 @@ function make_ln_prior_transformed(system::System)
             i += 1
             # prior_distribution = Bijectors.transformed(prior_distribution)
             ex = :(
-                p = $logpdf_with_trans($prior_distribution, arr[$i], true);
+                p = $logpdf_with_trans($prior_distribution, arr[$i], sampled);
                 # Try and "heal" out of bounds values.
                 # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
                 # precision. 
                 if !isfinite(p)
-                    # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", true)=", p)
+                    # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", sampled)=", p)
                     if sign(p) > 1
                         return prevfloat(typemax(eltype(arr)))
                     else
@@ -634,7 +634,7 @@ function make_ln_prior_transformed(system::System)
     # for prior_distribution in values(system.priors.priors)
     #     i += 1
     #     ex = :(
-    #         lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
+    #         lp += $logpdf_with_trans($prior_distribution, arr[$i], sampled)
     #     )
     #     push!(prior_evaluations,ex)
     # end
@@ -645,7 +645,7 @@ function make_ln_prior_transformed(system::System)
     #     for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
     #         i += 1
     #         ex = :(
-    #             lp += $logpdf_with_trans($prior_distribution, arr[$i], true)
+    #             lp += $logpdf_with_trans($prior_distribution, arr[$i], sampled)
     #         )
     #         push!(prior_evaluations,ex)
     #     end
@@ -655,7 +655,7 @@ function make_ln_prior_transformed(system::System)
     # It maps an array of parameters into our nested named tuple structure
     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (arr)
+    return @RuntimeGeneratedFunction(:(function (arr,sampled)
         l = $i
         @boundscheck if length(arr) != l
             error("Expected exactly $l elements in array (got $(length(arr)))")
