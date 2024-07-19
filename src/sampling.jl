@@ -404,7 +404,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
         else
             z = fill(0.0, size(x))
         end
-       return map(ii) do i
+        return map(ii) do i
             Visual{FixedPosition}(;(;
                 x = x[i],
                 y = y[i],
@@ -478,8 +478,8 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                sep = sep[i],
                pa = pa[i],
                z = z[i],
-            )...)
-        end
+           )...)
+       end
     elseif haskey(chain, Symbol("M"))
         Ms=chain["M"]
         ωs=chain[pk*"_ω"]
@@ -731,7 +731,12 @@ Base.@nospecializeinfer function advancedhmc(
                             maxiters=25_000,
                             rng=rng,
                             # maxtime=25.0,
-                            # reltol=1e-4,
+                            reltol=1e-6,
+                            optimizer=Pathfinder.Optim.LBFGS(;
+                                m=6,
+                                linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
+                                alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
+                            )
                         )
                     end
                 else
@@ -749,8 +754,13 @@ Base.@nospecializeinfer function advancedhmc(
                             progress=verbosity > 1,
                             maxiters=25_000,
                             # maxtime=25.0,
-                            reltol=1e-8,
+                            reltol=1e-6,
                             rng=rng,
+                            optimizer=Pathfinder.Optim.LBFGS(;
+                                m=6,
+                                linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
+                                alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
+                            )
                         ) 
                     end
                 end
