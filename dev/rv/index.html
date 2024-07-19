@@ -63,8 +63,8 @@ results = octofit(rng, model)</code></pre><pre class="documenter-example-output"
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 128.81 seconds
-Compute duration  = 128.81 seconds
+Wall duration     = 118.91 seconds
+Compute duration  = 118.91 seconds
 parameters        = M, plx, pmra, pmdec, rv0_1, rv0_2, jitter_1, jitter_2, b_mass, b_a, b_i, b_Ωy, b_Ωx, b_τy, b_τx, b_e, b_ω, b_Ω, b_τ, b_P, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -72,21 +72,21 @@ Summary Statistics
  <span class="sgr1"> parameters         mean       std      mcse    ess_bulk   ess_tail      rhat ⋯
  <span class="sgr90">     Symbol      Float64   Float64   Float64     Float64    Float64   Float64 ⋯
 
-           M       0.7799    0.0096    0.0003   1053.3582   712.4143    1.0008 ⋯
-         plx     310.5745    0.1450    0.0044   1087.2814   572.0075    1.0099 ⋯
-        pmra    -975.0428    0.0603    0.0085     63.7332   453.0813    1.0116 ⋯
-       pmdec      20.0100    0.0266    0.0026    104.6675   317.7846    1.0055 ⋯
-       rv0_1      -1.3222    0.5813    0.0198    858.1377   607.1932    1.0041 ⋯
-       rv0_2       2.4211    0.7204    0.0249    847.1676   625.9025    0.9995 ⋯
-    jitter_1       5.9156    0.1533    0.0042   1321.2341   750.6262    1.0018 ⋯
-    jitter_2       7.5764    0.5475    0.0155   1232.9366   614.8370    0.9990 ⋯
-      b_mass       0.7418    0.1480    0.0056    682.7018   731.7238    1.0063 ⋯
-         b_a       3.4474    0.0225    0.0007    940.8453   739.5350    0.9991 ⋯
-         b_i       1.4361    0.8925    0.1431     53.2455   434.0399    1.0163 ⋯
-        b_Ωy      -0.9169    0.1398    0.0110    178.7067   422.6932    1.0121 ⋯
-        b_Ωx      -0.2873    0.2703    0.0256    110.6889   313.3614    1.0118 ⋯
-        b_τy      -0.5463    0.0828    0.0029    861.5323   601.9295    1.0033 ⋯
-        b_τx      -0.8423    0.0888    0.0027   1077.8496   660.9260    0.9997 ⋯
+           M       0.7802    0.0103    0.0003   1291.9677   675.7607    1.0001 ⋯
+         plx     310.5781    0.1383    0.0040   1174.8248   760.0771    1.0069 ⋯
+        pmra    -975.0702    0.0202    0.0005   1646.4091   840.7347    1.0061 ⋯
+       pmdec      20.0405    0.0165    0.0004   1424.7227   688.9930    1.0008 ⋯
+       rv0_1       3.6867    0.5305    0.0138   1474.6597   656.6717    0.9997 ⋯
+       rv0_2       0.8096    1.0489    0.0292   1301.9413   602.5053    1.0019 ⋯
+    jitter_1       5.5702    0.1467    0.0038   1441.8613   734.4811    1.0047 ⋯
+    jitter_2      11.1887    0.7843    0.0225   1305.7107   734.6116    0.9991 ⋯
+      b_mass       0.5794    0.1090    0.0031   1284.9795   874.2977    1.0013 ⋯
+         b_a       1.7317    0.0089    0.0002   1408.2346   665.9359    0.9995 ⋯
+         b_i       2.7171    0.1080    0.0031   1399.6216   842.7230    1.0004 ⋯
+        b_Ωy       0.9824    0.1119    0.0032   1242.0733   660.1217    1.0005 ⋯
+        b_Ωx       0.0438    0.2265    0.0068   1121.0058   642.2759    0.9994 ⋯
+        b_τy       0.4786    0.1052    0.0030   1232.7972   641.2952    1.0024 ⋯
+        b_τx       0.8790    0.0967    0.0025   1467.6900   699.6500    0.9993 ⋯
          b_e       0.0000    0.0000       NaN         NaN        NaN       NaN ⋯
          b_ω       0.0000    0.0000       NaN         NaN        NaN       NaN ⋯
       ⋮            ⋮           ⋮         ⋮          ⋮          ⋮          ⋮    ⋱
@@ -96,25 +96,25 @@ Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       0.7610       0.7734       0.7801       0.7859       0.7983
-         plx     310.3002     310.4794     310.5720     310.6741     310.8487
-        pmra    -975.1507    -975.0963    -975.0293    -974.9927    -974.9513
-       pmdec      19.9612      19.9914      20.0104      20.0274      20.0621
-       rv0_1      -2.4403      -1.7171      -1.3450      -0.9289      -0.1637
-       rv0_2       1.0814       1.9369       2.4141       2.9031       3.8842
-    jitter_1       5.6172       5.8127       5.9137       6.0114       6.2255
-    jitter_2       6.5944       7.1774       7.5605       7.9140       8.7342
-      b_mass       0.4727       0.6390       0.7361       0.8362       1.0574
-         b_a       3.4021       3.4338       3.4483       3.4623       3.4895
-         b_i       0.4302       0.6092       0.9191       2.4493       2.7031
-        b_Ωy      -1.1544      -1.0057      -0.9300      -0.8432      -0.5920
-        b_Ωx      -0.7718      -0.4871      -0.2897      -0.1013       0.2402
-        b_τy      -0.7137      -0.6001      -0.5428      -0.4856      -0.3972
-        b_τx      -1.0180      -0.9045      -0.8347      -0.7769      -0.6808
+           M       0.7603       0.7734       0.7800       0.7867       0.8018
+         plx     310.3184     310.4770     310.5778     310.6707     310.8458
+        pmra    -975.1110    -975.0826    -975.0699    -975.0576    -975.0294
+       pmdec      20.0092      20.0286      20.0409      20.0515      20.0738
+       rv0_1       2.6451       3.3340       3.7007       4.0592       4.6622
+       rv0_2      -1.2968       0.1269       0.8243       1.5293       2.8630
+    jitter_1       5.2813       5.4731       5.5650       5.6597       5.8659
+    jitter_2       9.7894      10.6481      11.1342      11.6672      12.8108
+      b_mass       0.3660       0.5021       0.5798       0.6565       0.7836
+         b_a       1.7145       1.7255       1.7317       1.7378       1.7487
+         b_i       2.4254       2.6625       2.7364       2.7920       2.8675
+        b_Ωy       0.7790       0.9053       0.9729       1.0549       1.2026
+        b_Ωx      -0.4179      -0.1080       0.0440       0.2025       0.4817
+        b_τy       0.2671       0.4100       0.4792       0.5503       0.6762
+        b_τx       0.6975       0.8148       0.8772       0.9410       1.0727
          b_e       0.0000       0.0000       0.0000       0.0000       0.0000
          b_ω       0.0000       0.0000       0.0000       0.0000       0.0000
       ⋮            ⋮            ⋮            ⋮            ⋮            ⋮
 </span><span class="sgr36">                                                                 4 rows omitted
 </span></span></code></pre><p>We can now plot the results with a multi-panel plot:</p><pre><code class="language-julia hljs">## Save results plot
-octoplot(model, results)</code></pre><img src="7d4cdfdd.png" alt="Example block output"/><p>We can also plot just the RV fit:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, results)</code></pre><img src="ce3f61f5.png" alt="Example block output"/><p>And a corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model, results, small=true)</code></pre><img src="7e734426.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Fit Orbits to Images</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">Fit RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 17 July 2024 20:40">Wednesday 17 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octoplot(model, results)</code></pre><img src="0a54309b.png" alt="Example block output"/><p>We can also plot just the RV fit:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, results)</code></pre><img src="73feabf9.png" alt="Example block output"/><p>And a corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model, results, small=true)</code></pre><img src="92a02be6.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Fit Orbits to Images</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">Fit RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Friday 19 July 2024 23:00">Friday 19 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
