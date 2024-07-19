@@ -111,7 +111,7 @@ Visibliitiy modelling likelihood for point sources.
 function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num_epochs::Val{L}=Val(length(vis.table))) where {L}
 
     # Convoluted way to get either Float64 normally or a Dual{Float64} if using ForwardDiff
-    T = float(typeof(θ_system.M))
+    T = float(typeof(first(θ_system)))
     for θ_planet in θ_system.planets
         TT = typeof(first(promote(θ_planet...)))
         T = promote_type(T, TT)
@@ -249,12 +249,13 @@ function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num
         # We now exploit the block diagonal structure of the KP covariance matrix
         # (we have ensured this by construction). We can calculate the cholesky 
         # factorization for each block independently and then concatenate them together.
-        # TODO: hardcoded sizes. We know there are three KPs per wavelength with GRAVITY.
-        cholesky!(Hermitian(@view Σ_kp[1:56,1:56]));
-        cholesky!(Hermitian(@view Σ_kp[57:112,57:112]));
-        cholesky!(Hermitian(@view Σ_kp[113:168,113:168]));
+        # We know there are three KPs per wavelength with GRAVITY.
+        N = length(vis.table.eff_wave)
+        cholesky!(Hermitian(@view Σ_kp[1:N,1:N]));
+        cholesky!(Hermitian(@view Σ_kp[N+1:2N,N+1:2N]));
+        cholesky!(Hermitian(@view Σ_kp[2N+1:end,2N+1:end]));
         
-        # Now we construct an MvNormal distribution but avoid 
+        # Now we construct an MvNormal d1;istribution but avoid 
         # calling Cholesky on the full matrix
         Ch = Cholesky(UpperTriangular(Σ_kp));
         # need to pass matrix and cholesky factorization
