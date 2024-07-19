@@ -153,6 +153,21 @@ function construct_elements(::Type{Visual{CartesianOrbit}}, θ_system, θ_planet
         θ_planet.vz,
     )...)
 end
+function construct_elements(::Type{FixedPosition}, θ_system, θ_planet)
+    return Visual{CartesianOrbit}(;(;
+        θ_planet.x,
+        θ_planet.y,
+        z = hasproperty(θ_planet, :z) ? θ_planet.z : zero(θ_planet.x)
+    )...)
+end
+function construct_elements(::Type{Visual{<:FixedPosition}}, θ_system, θ_planet)
+    return Visual{CartesianOrbit}(;(;
+        θ_system.plx,
+        θ_planet.x,
+        θ_planet.y,
+        z = hasproperty(θ_planet, :z) ? θ_planet.z : zero(θ_planet.x)
+    )...)
+end
 
 """
     construct_elements(chains, :b, 4)
@@ -377,6 +392,92 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                 vz = vz[i],           
                 M = M[i],
                 tref = tref[i],
+            )...)
+        end
+    elseif haskey(chain, Symbol(pk*"_x")) && haskey(chain,  Symbol(pk*"_y")) && haskey(chain, Symbol("plx"))
+        plx=chain["plx"]
+         x=chain[ pk*"_x"]
+         y=chain[ pk*"_y"]
+        pkkey = pk*"_z"
+        if haskey(chain, pkkey)
+            z=chain[pkkey]
+        else
+            z = fill(0.0, size(x))
+        end
+       return map(ii) do i
+            Visual{FixedPosition}(;(;
+                x = x[i],
+                y = y[i],
+                z = z[i],
+                plx = plx[i],
+            )...)
+        end
+    elseif haskey(chain, Symbol(pk*"_sep")) && haskey(chain,  Symbol(pk*"_pa")) && haskey(chain, Symbol("plx"))
+        plx=chain["plx"]
+        sep=chain[ pk*"_sep"]
+        pa=chain[ pk*"_pa"]
+        pkkey = pk*"_z"
+        if haskey(chain, pkkey)
+            z=chain[pkkey]
+        else
+            z = fill(0.0, size(sep))
+        end
+        return map(ii) do i
+            Visual{FixedPosition}(;(;
+                sep = sep[i],
+                pa = pa[i],
+                z = z[i],
+                plx = plx[i],
+            )...)
+        end
+    elseif haskey(chain, Symbol(pk*"_ra")) && haskey(chain,  Symbol(pk*"_dec")) && haskey(chain, Symbol("plx"))
+        plx=chain["plx"]
+        ra=chain[ pk*"_ra"]
+        dec=chain[ pk*"_dec"]
+        pkkey = pk*"_z"
+        if haskey(chain, pkkey)
+            z=chain[pkkey]
+        else
+            z = fill(0.0, size(ra))
+        end
+        return map(ii) do i
+            Visual{FixedPosition}(;(;
+                ra = ra[i],
+                dec = dec[i],
+                z = z[i],
+                plx = plx[i],
+            )...)
+        end
+    elseif haskey(chain, Symbol(pk*"_x")) && haskey(chain,  Symbol(pk*"_y"))
+         x=chain[ pk*"_x"]
+         y=chain[ pk*"_y"]
+        pkkey = pk*"_z"
+        if haskey(chain, pkkey)
+            z=chain[pkkey]
+        else
+            z = fill(0.0, size(x))
+        end
+        return map(ii) do i
+            FixedPosition(;(;
+                x = x[i],
+                y = y[i],
+                z = z[i],
+            )...)
+        end
+    elseif haskey(chain, Symbol(pk*"_sep")) && haskey(chain,  Symbol(pk*"_pa"))
+        sep=chain[ pk*"_sep"]
+        pa=chain[ pk*"_pa"]
+       pkkey = pk*"_z"
+       if haskey(chain, pkkey)
+           z=chain[pkkey]
+       else
+           z = fill(0.0, size(sep))
+       end
+       return map(ii) do i
+           FixedPosition(;(;
+               sep = sep[i],
+               pa = pa[i],
+               z = z[i],
             )...)
         end
     elseif haskey(chain, Symbol("M"))

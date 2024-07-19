@@ -127,6 +127,9 @@ function Octofitter.octoplot(
     
     min_period = minimum(periods)
     med_period = quantile(periods, 0.35)
+    if !isfinite(med_period)
+        med_period = 0.0
+    end
 
     # Always try and show at least one full period
     # decide t_start and t_end based on epochs of data if astrometry 
@@ -163,6 +166,7 @@ function Octofitter.octoplot(
     if !isfinite(t_start) || !isfinite(t_stop)
         t_start = t_stop = mjd()
     end
+
     # Put a little padding on either end
     d = t_stop - t_start
     t_start -= 0.015d
@@ -174,7 +178,12 @@ function Octofitter.octoplot(
         t_start -= t_extend/2
         t_stop += t_extend/2
     end
-    ts = range(t_start, t_stop, step=min_period / 30)
+
+    if isfinite(min_period)
+        ts = range(t_start, t_stop, step=min_period / 30)
+    else
+        ts = [t_start-1, t_start, t_start+1]
+    end
 
     if show_hgca
         # Make sure we include the approx. data epochs of the HGCA
@@ -189,7 +198,6 @@ function Octofitter.octoplot(
         ts = range(t_start, t_stop, length=1000)
     end
     
-
     fig = Figure(;
         figure...
     )
