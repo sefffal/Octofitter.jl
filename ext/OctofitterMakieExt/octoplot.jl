@@ -112,7 +112,7 @@ function Octofitter.octoplot(
     # Find the minimum time step size
     periods = Float64[]
     for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, :)
+        orbs = Octofitter.construct_elements(results, planet_key, ii)
         append!(periods, period.(orbs))
 
         for like_obj in model.system.planets[planet_key].observations
@@ -123,6 +123,11 @@ function Octofitter.octoplot(
     end
     if isnothing(planet_rv)
         planet_rv = false
+    end
+
+    if isempty(periods)
+        @warn "No planets in this model"
+        return Figure()
     end
     
     min_period = minimum(periods)
