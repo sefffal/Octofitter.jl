@@ -10,11 +10,10 @@ Visit the [julialang.org](https://julialang.org/downloads/) Downloads page, and 
 
 1. Start julia in a terminal by running `julia`
 2. Type `]` to enter package-mode (see Julia documentation for more details)
-3. Type `add Octofitter Distributions Plots CairoMakie PairPlots`
+3. Type `add Octofitter Distributions CairoMakie PairPlots`
 
 You will need the Distributions,jl package so that you can specify priors for different parameters in your models.
-Plots.jl is for visualizing your results and is optional.
-[CairoMakie.jl](http://makie.juliaplots.org/) and [PairPlots.jl](https://sefffal.github.io/PairPlots.jl/dev/) can be used for generating corner plots and are also optional.
+[CairoMakie.jl](http://makie.juliaplots.org/) is used for generating plots and isn't needed if you only want text-based summary outputs. [PairPlots.jl](https://sefffal.github.io/PairPlots.jl/dev/) (in combination with CairoMakie) is used for generating corner plots and can also be skipped if these aren't of interest.
 
 ## Extension Packages
 Some Octofitter functionality exists in extension packages, including radial velocity fitting.
