@@ -69,6 +69,7 @@ function _prepare_input_row(row)
         end
 
         mask = trues(length(eff_wave))
+        # mask = 1:20:length(eff_wave)
 
         # These say what baseline (cp1) should be added to (cp2) and then subtract (cp3)
         # to get a closure phase in our modelling.
@@ -205,7 +206,7 @@ function cvis_bin!(cvis; Δdec, Δra, contrast, u, v)
     for I in eachindex(cvis, u, v)
         arg = -2π * (u[I] * Δra + v[I] * Δdec) * π / (180 * 3600 * 1000)
         if !isfinite(arg)
-            @warn "non finite complex vis (maxlog=5)" l2  Δra Δdec maxlog=5
+            # @warn "non finite complex vis (maxlog=5)" l2  Δra Δdec maxlog=5
             cvis[I] = NaN
             continue
         end
