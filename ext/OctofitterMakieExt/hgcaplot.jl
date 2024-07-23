@@ -271,7 +271,12 @@ function Octofitter.hgcaplot!(
     ## Model
     ## Compute these for all results, not just `ii`
     θ_systems_from_chain = Octofitter.mcmcchain2result(model, results)
-    for (θ_system, i) in zip(θ_systems_from_chain, 1:size(results,1)*size(results,3))
+    # Display all points, unless there are more than 10k 
+    jj = 1:size(results,1)*size(results,3)
+    if size(results,1)*size(results,3) > 5_000
+        jj = ii
+    end
+    for (θ_system, i) in zip(θ_systems_from_chain, jj)
         orbits = map(keys(model.system.planets)) do planet_key
             Octofitter.construct_elements(results, planet_key, i)
         end
