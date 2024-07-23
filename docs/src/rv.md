@@ -18,10 +18,11 @@ gaia_id = 5164707970261890560
 
 
 @planet b Visual{KepOrbit} begin
+    # For speed of example, we are fitting a circular orbit only.s
     e = 0
     ω=0.0
     mass ~ Uniform(0, 3)
-    a~Uniform(1, 5)
+    a~Uniform(2, 5)
     i~Sine()
     Ω~UniformCircular()
     
@@ -38,7 +39,7 @@ jd(mjd) = mjd - 2400000.5
 # # You could also specify it manually like so:
 # rvs = StarAbsoluteRVLikelihood(
 #     (;inst_idx=1, epoch=jd(2455110.97985),  rv=−6.54, σ_rv=1.30),
-#     (;inst_idx=1, epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09),
+#     (;inst_idx=1, epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09), # units in meters/second
 #     ...
 # )
 
@@ -51,44 +52,70 @@ rvs_merged = StarAbsoluteRVLikelihood(
     cat(rvhires.table, rvharps.table,dims=1),
     instrument_names=["HARPS", "HIRES"]
 )
-scatter(rvs_merged.table.epoch[:], rvs_merged.table.rv[:])
+scatter(
+    rvs_merged.table.epoch[:],
+    rvs_merged.table.rv[:],
+    axis=(
+        xlabel="time [mjd]",
+        ylabel="RV [m/s]",
+    )
+)
+```
 
 
+```@example 1
 @system ϵEri begin
     M ~ truncated(Normal(0.78, 0.01),lower=0)
     plx ~ gaia_plx(;gaia_id)
     pmra ~ Normal(-975, 10)
     pmdec ~ Normal(20,  10)
 
-    rv0_1 ~ Normal(0,10)
+    # Radial velocity zero point per instrument
+    rv0_1 ~ Normal(0,10) # m/s
     rv0_2 ~ Normal(0,10)
-    jitter_1 ~ truncated(Normal(0,10),lower=0)
+    # Radial jitter per instrument. 
+    jitter_1 ~ truncated(Normal(0,10),lower=0) # m/s
     jitter_2 ~ truncated(Normal(0,10),lower=0)
+    # You can also set both instruments to the same jitter, eg by putting instead (with = not ~):
+    # jitter_2 = system.jitter_1
 end HGCALikelihood(;gaia_id) rvs_merged b
 
 # Build model
-model = Octofitter.LogDensityModel(ϵEri; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0
+model = Octofitter.LogDensityModel(ϵEri)
 ```
 
-Now sample:
-```@example 1
-using Random
-rng = Random.Xoshiro(0)
 
-results = octofit(rng, model)
+Now sample. You could use HMC via `octofit` or tempered sampling via `octofit_pigeons`. When using tempered sampling, make sure to start julia with `julia --thread=auto`. Each additional round doubles the number of posterior samples, so `n_rounds=10` gives 1024 samples. You should adjust `n_chains` to be roughly double the `Λ` value printed out during sample, and `n_chains_variational` to be roughly double the `Λ_var` column. 
+```@example 1
+using Pigeons
+results, pt = octofit_pigeons(model, n_rounds=8, n_chains=10, n_chains_variational=10);
+nothing # hide
 ```
 
 We can now plot the results with a multi-panel plot:
 ```@example 1
-## Save results plot
-octoplot(model, results)
+octoplot(model, results, show_mass=true)
 ```
 
 
-We can also plot just the RV fit:
+We can also plot just the RV curve from the maximum *a-posteriori* fit:
 ```@example 1
 fig = OctofitterRadialVelocity.rvpostplot(model, results)
 ```
+
+We can see what the visual orbit looks like for the maximum a-posteriori orbit:
+```@example 1
+i_max = argmax(results[:logpost][:])
+fig = octoplot(
+    model,
+    results[i_max,:,:],
+    # change the colour map a bit:
+    colormap=Makie.cgrad([Makie.wong_colors()[1], "#FAFAFA"])
+)
+Label(fig[0,1], "Maximum a-posteriori orbit sample")
+fig
+```
+
 
 And a corner plot:
 ```@example 1
