@@ -444,7 +444,6 @@ function Octofitter.rvpostplot!(
         ],
         valign=:top,
         halign=:left,
-        width=Relative(1)
         # width=Relative(1),
         # height=Relative(1),
     )
