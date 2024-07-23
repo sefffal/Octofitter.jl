@@ -5,10 +5,11 @@ gaia_id = 5164707970261890560
 
 
 @planet b Visual{KepOrbit} begin
+    # For speed of example, we are fitting a circular orbit only.s
     e = 0
     ω=0.0
     mass ~ Uniform(0, 3)
-    a~Uniform(1, 5)
+    a~Uniform(2, 5)
     i~Sine()
     Ω~UniformCircular()
 
@@ -25,7 +26,7 @@ jd(mjd) = mjd - 2400000.5
 # # You could also specify it manually like so:
 # rvs = StarAbsoluteRVLikelihood(
 #     (;inst_idx=1, epoch=jd(2455110.97985),  rv=−6.54, σ_rv=1.30),
-#     (;inst_idx=1, epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09),
+#     (;inst_idx=1, epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09), # units in meters/second
 #     ...
 # )
 
@@ -38,83 +39,110 @@ rvs_merged = StarAbsoluteRVLikelihood(
     cat(rvhires.table, rvharps.table,dims=1),
     instrument_names=[&quot;HARPS&quot;, &quot;HIRES&quot;]
 )
-scatter(rvs_merged.table.epoch[:], rvs_merged.table.rv[:])
-
-
-@system ϵEri begin
+scatter(
+    rvs_merged.table.epoch[:],
+    rvs_merged.table.rv[:],
+    axis=(
+        xlabel=&quot;time [mjd]&quot;,
+        ylabel=&quot;RV [m/s]&quot;,
+    )
+)</code></pre><img src="c0c2a0c3.png" alt="Example block output"/><pre><code class="language-julia hljs">@system ϵEri begin
     M ~ truncated(Normal(0.78, 0.01),lower=0)
     plx ~ gaia_plx(;gaia_id)
     pmra ~ Normal(-975, 10)
     pmdec ~ Normal(20,  10)
 
-    rv0_1 ~ Normal(0,10)
+    # Radial velocity zero point per instrument
+    rv0_1 ~ Normal(0,10) # m/s
     rv0_2 ~ Normal(0,10)
-    jitter_1 ~ truncated(Normal(0,10),lower=0)
+    # Radial jitter per instrument.
+    jitter_1 ~ truncated(Normal(0,10),lower=0) # m/s
     jitter_2 ~ truncated(Normal(0,10),lower=0)
+    # You can also set both instruments to the same jitter, eg by putting instead (with = not ~):
+    # jitter_2 = system.jitter_1
 end HGCALikelihood(;gaia_id) rvs_merged b
 
 # Build model
-model = Octofitter.LogDensityModel(ϵEri; autodiff=:ForwardDiff, verbosity=4) # defaults are ForwardDiff, and verbosity=0</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System ϵEri of dimension 15 with fields .ℓπcallback and .∇ℓπcallback
-</code></pre><p>Now sample:</p><pre><code class="language-julia hljs">using Random
-rng = Random.Xoshiro(0)
-
-results = octofit(rng, model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×34×1 Array{Float64, 3}):
-
-Iterations        = 1:1:1000
-Number of chains  = 1
-Samples per chain = 1000
-Wall duration     = 117.89 seconds
-Compute duration  = 117.89 seconds
-parameters        = M, plx, pmra, pmdec, rv0_1, rv0_2, jitter_1, jitter_2, b_mass, b_a, b_i, b_Ωy, b_Ωx, b_τy, b_τx, b_e, b_ω, b_Ω, b_τ, b_P, b_tp
-internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
-
-Summary Statistics
- <span class="sgr1"> parameters         mean       std      mcse    ess_bulk   ess_tail      rhat ⋯
- <span class="sgr90">     Symbol      Float64   Float64   Float64     Float64    Float64   Float64 ⋯
-
-           M       0.7802    0.0103    0.0003   1291.9677   675.7607    1.0001 ⋯
-         plx     310.5781    0.1383    0.0040   1174.8248   760.0771    1.0069 ⋯
-        pmra    -975.0702    0.0202    0.0005   1646.4091   840.7347    1.0061 ⋯
-       pmdec      20.0405    0.0165    0.0004   1424.7227   688.9930    1.0008 ⋯
-       rv0_1       3.6867    0.5305    0.0138   1474.6597   656.6717    0.9997 ⋯
-       rv0_2       0.8096    1.0489    0.0292   1301.9413   602.5053    1.0019 ⋯
-    jitter_1       5.5702    0.1467    0.0038   1441.8613   734.4811    1.0047 ⋯
-    jitter_2      11.1887    0.7843    0.0225   1305.7107   734.6116    0.9991 ⋯
-      b_mass       0.5794    0.1090    0.0031   1284.9795   874.2977    1.0013 ⋯
-         b_a       1.7317    0.0089    0.0002   1408.2346   665.9359    0.9995 ⋯
-         b_i       2.7171    0.1080    0.0031   1399.6216   842.7230    1.0004 ⋯
-        b_Ωy       0.9824    0.1119    0.0032   1242.0733   660.1217    1.0005 ⋯
-        b_Ωx       0.0438    0.2265    0.0068   1121.0058   642.2759    0.9994 ⋯
-        b_τy       0.4786    0.1052    0.0030   1232.7972   641.2952    1.0024 ⋯
-        b_τx       0.8790    0.0967    0.0025   1467.6900   699.6500    0.9993 ⋯
-         b_e       0.0000    0.0000       NaN         NaN        NaN       NaN ⋯
-         b_ω       0.0000    0.0000       NaN         NaN        NaN       NaN ⋯
-      ⋮            ⋮           ⋮         ⋮          ⋮          ⋮          ⋮    ⋱
-</span><span class="sgr36">                                                     1 column and 4 rows omitted
-
-Quantiles
-  parameters         2.5%        25.0%        50.0%        75.0%        97.5%
- </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
-
-           M       0.7603       0.7734       0.7800       0.7867       0.8018
-         plx     310.3184     310.4770     310.5778     310.6707     310.8458
-        pmra    -975.1110    -975.0826    -975.0699    -975.0576    -975.0294
-       pmdec      20.0092      20.0286      20.0409      20.0515      20.0738
-       rv0_1       2.6451       3.3340       3.7007       4.0592       4.6622
-       rv0_2      -1.2968       0.1269       0.8243       1.5293       2.8630
-    jitter_1       5.2813       5.4731       5.5650       5.6597       5.8659
-    jitter_2       9.7894      10.6481      11.1342      11.6672      12.8108
-      b_mass       0.3660       0.5021       0.5798       0.6565       0.7836
-         b_a       1.7145       1.7255       1.7317       1.7378       1.7487
-         b_i       2.4254       2.6625       2.7364       2.7920       2.8675
-        b_Ωy       0.7790       0.9053       0.9729       1.0549       1.2026
-        b_Ωx      -0.4179      -0.1080       0.0440       0.2025       0.4817
-        b_τy       0.2671       0.4100       0.4792       0.5503       0.6762
-        b_τx       0.6975       0.8148       0.8772       0.9410       1.0727
-         b_e       0.0000       0.0000       0.0000       0.0000       0.0000
-         b_ω       0.0000       0.0000       0.0000       0.0000       0.0000
-      ⋮            ⋮            ⋮            ⋮            ⋮            ⋮
-</span><span class="sgr36">                                                                 4 rows omitted
-</span></span></code></pre><p>We can now plot the results with a multi-panel plot:</p><pre><code class="language-julia hljs">## Save results plot
-octoplot(model, results)</code></pre><img src="0a54309b.png" alt="Example block output"/><p>We can also plot just the RV fit:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, results)</code></pre><img src="73feabf9.png" alt="Example block output"/><p>And a corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model, results, small=true)</code></pre><img src="92a02be6.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Fit Orbits to Images</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">Fit RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Friday 19 July 2024 23:37">Friday 19 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+model = Octofitter.LogDensityModel(ϵEri)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System ϵEri of dimension 15 with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>Now sample. You could use HMC via <code>octofit</code> or tempered sampling via <code>octofit_pigeons</code>. When using tempered sampling, make sure to start julia with <code>julia --thread=auto</code>. Each additional round doubles the number of posterior samples, so <code>n_rounds=10</code> gives 1024 samples. You should adjust <code>n_chains</code> to be roughly double the <code>Λ</code> value printed out during sample, and <code>n_chains_variational</code> to be roughly double the <code>Λ_var</code> column. </p><pre><code class="language-julia hljs">using Pigeons
+results, pt = octofit_pigeons(model, n_rounds=8, n_chains=10, n_chains_variational=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Info: Determined draw using pathfinder
+│   chain_no = 1
+└   initial_logpost = -2908.617599428681
+┌ Info: Determined draw using pathfinder
+│   chain_no = 2
+└   initial_logpost = -3785.075969110791
+┌ Info: Determined draw using pathfinder
+│   chain_no = 3
+└   initial_logpost = -2912.0750929418227
+┌ Info: Determined draw using pathfinder
+│   chain_no = 4
+└   initial_logpost = -2936.3688714591112
+┌ Info: Determined draw using pathfinder
+│   chain_no = 5
+└   initial_logpost = -2889.4099354141063
+┌ Info: Determined draw using pathfinder
+│   chain_no = 6
+└   initial_logpost = -3005.581352177821
+┌ Info: Determined draw using pathfinder
+│   chain_no = 7
+└   initial_logpost = -2934.1499587794783
+┌ Info: Determined draw using pathfinder
+│   chain_no = 8
+└   initial_logpost = -2915.9220887973365
+┌ Info: Determined draw using pathfinder
+│   chain_no = 9
+└   initial_logpost = -2932.6109945470225
+┌ Info: Determined draw using pathfinder
+│   chain_no = 10
+└   initial_logpost = -2880.369058077178
+┌ Info: Determined draw using pathfinder
+│   chain_no = 11
+└   initial_logpost = -2919.607700338893
+┌ Info: Determined draw using pathfinder
+│   chain_no = 12
+└   initial_logpost = -3260.900243799341
+┌ Info: Determined draw using pathfinder
+│   chain_no = 13
+└   initial_logpost = -2937.004558904213
+┌ Info: Determined draw using pathfinder
+│   chain_no = 14
+└   initial_logpost = -2895.804626735056
+┌ Info: Determined draw using pathfinder
+│   chain_no = 15
+└   initial_logpost = -2933.7758677080456
+┌ Info: Determined draw using pathfinder
+│   chain_no = 16
+└   initial_logpost = -2989.8076572325854
+┌ Info: Determined draw using pathfinder
+│   chain_no = 17
+└   initial_logpost = -2982.3123098116557
+┌ Info: Determined draw using pathfinder
+│   chain_no = 18
+└   initial_logpost = -2851.583070843596
+┌ Info: Determined draw using pathfinder
+│   chain_no = 19
+└   initial_logpost = -2896.3579124017588
+┌ Info: Determined draw using pathfinder
+│   chain_no = 20
+└   initial_logpost = -2900.782150911321
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
+────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
+        2          0       2.74       2.43       15.8   3.85e+09  -2.66e+04          0      0.728      0.948      0.973
+        4          0       5.08       4.95       12.2   4.94e+09  -4.11e+03          0      0.472      0.926      0.945
+        8          0       7.01          4       19.7   7.83e+09  -3.59e+03          0       0.42      0.911      0.938
+       16          0       7.38       6.04       43.3   1.72e+10  -2.91e+03   8.37e-38      0.293       0.92      0.936
+       32          0       7.58       6.61       89.8   3.58e+10  -2.94e+03   1.04e-62      0.253      0.919      0.935
+       64          8       7.16       2.32        186   7.16e+10  -2.88e+03    0.00662      0.501      0.918      0.933
+      128         12       7.66       2.52        359   1.39e+11  -2.88e+03     0.0444      0.464      0.926      0.934
+      256         25       7.75       2.65        719   2.78e+11  -2.88e+03      0.052      0.452      0.923      0.936
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>We can now plot the results with a multi-panel plot:</p><pre><code class="language-julia hljs">octoplot(model, results, show_mass=true)</code></pre><img src="70e552c9.png" alt="Example block output"/><p>We can also plot just the RV curve from the maximum <em>a-posteriori</em> fit:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, results)</code></pre><img src="a1c2d915.png" alt="Example block output"/><p>We can see what the visual orbit looks like for the maximum a-posteriori orbit:</p><pre><code class="language-julia hljs">i_max = argmax(results[:logpost][:])
+fig = octoplot(
+    model,
+    results[i_max,:,:],
+    # change the colour map a bit:
+    colormap=Makie.cgrad([Makie.wong_colors()[1], &quot;#FAFAFA&quot;])
+)
+Label(fig[0,1], &quot;Maximum a-posteriori orbit sample&quot;)
+fig</code></pre><img src="2d82b57b.png" alt="Example block output"/><p>And a corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model, results, small=true)</code></pre><img src="9ff780d5.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Fit Orbits to Images</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">Fit RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Tuesday 23 July 2024 18:36">Tuesday 23 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
