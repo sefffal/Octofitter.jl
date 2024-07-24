@@ -323,5 +323,5 @@ function Octofitter.astromplot!(
         end
     end
 
-    scatter!(ax, [0],[0],marker='⭐', markersize=30, color=:black)
+    scatter!(ax, [0],[0],marker='★', markersize=20, color=:white, strokecolor=:black, strokewidth=1.5)
 end
