@@ -202,6 +202,11 @@ function Octofitter.octoplot(
         # solutions. Limit the maximum number of points per orbit.
         ts = range(t_start, t_stop, length=1000)
     end
+    if length(ts) < 200
+        # Things can get very slow if we have some very short period 
+        # solutions. Limit the maximum number of points per orbit.
+        ts = range(t_start, t_stop, length=200)
+    end
     
     fig = Figure(;
         figure...
