@@ -1,4 +1,4 @@
-# [Fit RV and Astrometry](@id fit-rv-pma)
+# [Fit RV and Proper Motion Anomaly](@id fit-rv-pma)
 
 In this example, we will fit an orbit model to a combination of radial velocity and Hipparcos-GAIA proper motion anomaly for the star $\epsilon$ Eridani. We will use some of the radial velocity data collated in [Mawet et al 2019](https://iopscience.iop.org/article/10.3847/1538-3881/aaef8a).
 
