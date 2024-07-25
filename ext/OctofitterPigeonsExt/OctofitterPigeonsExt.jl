@@ -12,8 +12,7 @@ function (model::Octofitter.LogDensityModel)(θ)
 end
 function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::AbstractRNG, chain_no::Int)
     verbosity=1
-    initial_parameters = nothing
-    initial_samples = 1000
+    initial_samples=1000
 
     local result_pf = nothing
     ldm_any = Octofitter.LogDensityModelAny(model)
@@ -22,90 +21,84 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
     # It seems to hit a PosDefException sometimes when factoring a matrix.
     # When that happens, the next try usually succeeds.
     # start_time = time()
-    for i in 1:8
-        try
-            # if !isnothing(initial_parameters)
-            #     initial_θ = initial_parameters
-            #     # Transform from constrained support to unconstrained support
-            #     initial_θ_t = model.link(initial_θ)
-            #     errlogger = verbosity >= 3 ? ConsoleLogger(stderr, Logging.Info) : NullLogger()
-            #     result_pf = with_logger(errlogger) do 
-            #         Pathfinder.pathfinder(
-            #             ldm_any;
-            #             init=fill(collect(initial_θ_t),8),
-            #             progress=verbosity > 1,
-            #             maxiters=25_000,
-            #             rng=rng,
-            #             # maxtime=25.0,
-            #             # reltol=1e-4,
-            #         )
-            #     end
-            # else
-                init_sampler = function(rng, x) 
-                    initial_θ, mapv = Octofitter.guess_starting_position(rng,model.system,initial_samples)
-                    initial_θ_t = model.link(initial_θ)
-                    x .= initial_θ_t
-                end
-                errlogger = verbosity >= 3 ? ConsoleLogger(stderr, Logging.Info) : NullLogger()
-                result_pf = with_logger(errlogger) do 
-                    Pathfinder.pathfinder(
-                        ldm_any;
-                        init_sampler=Octofitter.CallableAny(init_sampler),
-                        progress=verbosity > 1,
-                        maxiters=25_000,
-                        # maxtime=25.0,
-                        reltol=1e-6,
-                        rng=rng,
-                        optimizer=Pathfinder.Optim.LBFGS(;
-                            m=6,
-                            linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
-                            alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
-                        )
-                    ) 
-                end
-            # end
-            verbosity >= 3 && "Pathfinder complete"
-            break
-        catch ex
-            rethrow(ex)
-            result_pf = nothing
-            if ex isa PosDefException
-                verbosity > 2 && @warn "Mass matrix failed to factorize. Restarting pathfinder" i
-                continue
+    try
+        # if !isnothing(initial_parameters)
+        #     initial_θ = initial_parameters
+        #     # Transform from constrained support to unconstrained support
+        #     initial_θ_t = model.link(initial_θ)
+        #     errlogger = verbosity >= 3 ? ConsoleLogger(stderr, Logging.Info) : NullLogger()
+        #     result_pf = with_logger(errlogger) do 
+        #         Pathfinder.pathfinder(
+        #             ldm_any;
+        #             init=fill(collect(initial_θ_t),8),
+        #             progress=verbosity > 1,
+        #             maxiters=25_000,
+        #             rng=rng,
+        #             # maxtime=25.0,
+        #             # reltol=1e-4,
+        #         )
+        #     end
+        # else
+            init_sampler = function(rng, x) 
+                initial_θ_guess, mapv = Octofitter.guess_starting_position(rng,model.system,initial_samples)
+                initial_θ_t_guess = model.link(initial_θ_guess)
+                x .= initial_θ_t_guess
             end
-            if ex isa InterruptException
-                rethrow(ex)
+            errlogger = verbosity >= 3 ? ConsoleLogger(stderr, Logging.Info) : NullLogger()
+            result_pf = with_logger(errlogger) do 
+                Pathfinder.pathfinder(
+                    ldm_any;
+                    init_sampler=Octofitter.CallableAny(init_sampler),
+                    progress=verbosity > 1,
+                    maxiters=25_000,
+                    # maxtime=25.0,
+                    reltol=1e-6,
+                    rng=rng,
+                    optimizer=Pathfinder.Optim.LBFGS(;
+                        m=6,
+                        linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
+                        alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
+                    )
+                ) 
             end
-            @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
-            break
+        # end
+        verbosity >= 3 && "Pathfinder complete"
+    catch ex
+        result_pf = nothing
+        if ex isa PosDefException
+            verbosity > 2 && @warn "Mass matrix failed to factorize." i
         end
+        if ex isa InterruptException
+            rethrow(ex)
+        end
+        @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
     end
-    if isnothing(result_pf)
+
+
+    if !isnothing(result_pf)
+        initial_θ_t = collect(mean(result_pf.fit_distribution))
+        initial_θ = collect(model.invlink(initial_θ_t))
+        initial_logpost = model.ℓπcallback(initial_θ_t)
+    end
+    
+    if isnothing(result_pf) || any(!isfinite, initial_θ_t) || any(!isfinite, initial_θ) || !isfinite(model.ℓπcallback(initial_θ_t))
         # Guess initial starting positions by drawing from priors a bunch of times
         # and picking the best one (highest likelihood).
         # Then transform that guess into our unconstrained support
-        if isnothing(initial_parameters)
-            verbosity >= 1 && @info "Falling back to guessing a starting location by sampling from prior" initial_samples
-            initial_θ, mapv = Octofitter.guess_starting_position(rng,model.system,initial_samples)
-            # Transform from constrained support to unconstrained support
-            initial_θ_t = model.link(initial_θ)
-        else
-            initial_θ = initial_parameters
-            # Transform from constrained support to unconstrained support
-            initial_θ_t = model.link(initial_θ)
-        end
-    else # !isnothing(result_pf)
-        initial_θ_t = collect(mean(result_pf.fit_distribution))
-        initial_θ = collect(model.invlink(initial_θ_t))
+        verbosity >= 1 && @info "Falling back to guessing a starting location by sampling from prior" initial_samples
+        initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,initial_samples)
+        initial_θ_t = model.link(initial_θ)
+    end
+    
+
+    if any(!isfinite, initial_θ_t) || any(!isfinite, initial_θ) || !isfinite(initial_logpost)
+        error("Could not find a starting point with finite arguments initial_logpost=$initial_logpost, initial_θ_t=$initial_θ_t, initial_θ=$(model.arr2nt(initial_θ))")
     end
 
-
     if verbosity >= 3
-        initial_logpost = model.ℓπcallback(initial_θ_t)
-        @info "Determined draw using pathfinder" chain_no initial_θ initial_θ_nt=model.arr2nt(initial_θ) initial_logpost
+        @info "Determined initial position" chain_no initial_θ initial_θ_nt=model.arr2nt(initial_θ) initial_logpost
     elseif verbosity >= 1
-        initial_logpost = model.ℓπcallback(initial_θ_t)
-        @info "Determined draw using pathfinder" chain_no initial_logpost
+        @info "Determined initial position" chain_no initial_logpost
     end
     
     return initial_θ_t
