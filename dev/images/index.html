@@ -115,115 +115,119 @@ OctofitterImages.ImageLikelihood Table with 6 columns and 5 rows:
 </code></pre><p>If you want to search for two or more planets in the same images, just create multiple <code>Planet</code>s and pass the same images to each. You&#39;ll need to adjust the priors in some way to prevent overlap.</p><p>You can also do some very clever things like searching for planets that are co-planar and/or have a specific resonance between their periods. To do this, put the planet of the system or base period as variables of the system and derive the planet variables from those values of the system. </p><h2 id="Sampling"><a class="docs-heading-anchor" href="#Sampling">Sampling</a><a id="Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling" title="Permalink"></a></h2><p>Sampling from images is much more challenging than relative astrometry or proper motion anomaly, so the fitting process tends to take longer.</p><p>This is because the posterior is much &quot;bumpier&quot; with images. One way this manifests is very high tree depths. You might see a sampling report that says <code>max_tree_depth_frac = 0.9</code> or even <code>1.0</code>. To encourage the sampler to take larger steps and explore the images, it&#39;s recommended to lower the target acceptance ratio to around 0.5±0.2 and also increase the number of adapataion steps.</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(HD82134)
 
 chain, pt = octofit_pigeons(model, n_rounds=10)
-display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Info: Determined draw using pathfinder
+display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Info: Determined initial position
 │   chain_no = 1
 └   initial_logpost = 23.169306742258758
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 2
 └   initial_logpost = -13.117515572555034
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 3
 └   initial_logpost = 12.912651471908639
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 4
 └   initial_logpost = -2.9283831660444495
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 5
 └   initial_logpost = -0.35435151822886013
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 6
 └   initial_logpost = 20.552679257317383
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 7
 └   initial_logpost = -18.962841920475228
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 8
 └   initial_logpost = -11.806708668412774
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 9
 └   initial_logpost = -1.1517710574474593
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 10
 └   initial_logpost = 25.643993868663635
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 11
 └   initial_logpost = -24.85818653313929
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 12
 └   initial_logpost = -7.693894856127653
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 13
 └   initial_logpost = -13.935084925085958
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 14
 └   initial_logpost = -3.762566647014612
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 15
 └   initial_logpost = -6.169225785115648
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 16
 └   initial_logpost = -4.695748108761901
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 17
 └   initial_logpost = 7.319624976528295
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 18
 └   initial_logpost = -14.806221881522891
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 19
 └   initial_logpost = -9.900782548804841
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 20
 └   initial_logpost = 5.202201092777862
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 21
 └   initial_logpost = -17.066977482371723
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 22
 └   initial_logpost = -48.881119323429004
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 23
 └   initial_logpost = -1.3934300098406966
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 24
 └   initial_logpost = -9.572860264387975
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 25
 └   initial_logpost = -6.081159711385688
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 26
 └   initial_logpost = -21.59007433896587
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 27
 └   initial_logpost = -5.2045031403838555
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 28
 └   initial_logpost = 10.458104297029909
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 29
 └   initial_logpost = 2.1840084995189484
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 30
 └   initial_logpost = -7.574223009147394
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 31
 └   initial_logpost = -16.339268565171217
-┌ Info: Determined draw using pathfinder
+┌ Info: Determined initial position
 │   chain_no = 32
 └   initial_logpost = 8.658794679884057
+┌ Warning: Invalid log likelihood encountered. (maxlog=1)
+│   θ = (M = 1.9482237628830765, plx = 45.006494208076695, planets = (b = (H = 1.3946621337833338, a = 3.762106001732616e-278, e = 0.26776193046806746, i = 1.5747083698607698, ωy = 0.5102782917969182, ωx = 0.8412240871720069, Ωy = 0.9005898643296926, Ωx = -0.844274269009516, θy = 0.7030958229827968, θx = -0.8685576824941202, ω = 1.0255451727525904, Ω = -0.753134302739485, θ = -0.8902906133386802, tp = 1238.6),))
+│   llike = NaN
+└ @ Octofitter ~/work/Octofitter.jl/Octofitter.jl/src/logdensitymodel.jl:90
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       4.65       3.14       8.01   3.22e+08      -12.1   1.08e-11      0.749      0.933      0.967
-        4          0       3.06       2.49      0.536   1.17e+07       3.21    0.00516      0.821      0.896      0.925
-        8          0       4.93       5.23      0.702   6.16e+06      -1.23   0.000318      0.672      0.892      0.915
-       16          0       5.36       4.87       1.52   1.23e+07       8.38      0.275       0.67      0.902       0.92
-       32          0       5.83       5.55       2.98   2.43e+07       7.07      0.107      0.633      0.893       0.91
-       64          2       5.62       4.36       7.76   4.93e+08       50.3      0.359      0.678        0.9      0.915
-      128          4       5.52       5.13       12.4   9.23e+08       65.7      0.219      0.656      0.898      0.917
-      256         14       5.34       4.62       24.9   1.84e+09       65.8      0.416      0.679      0.901      0.918
-      512         30       5.15       4.49       50.3    3.7e+09       65.3      0.409      0.689      0.901      0.916
- 1.02e+03         61        5.3       4.67        101   7.43e+09       65.2      0.597      0.678      0.902      0.916
+        2          0       4.65       3.14       8.75   3.75e+08      -12.1   1.08e-11      0.749      0.933      0.967
+        4          0       3.06       2.49      0.566   1.17e+07       3.21    0.00516      0.821      0.896      0.925
+        8          0       4.93       5.23      0.759   6.16e+06      -1.23   0.000318      0.672      0.892      0.915
+       16          0       5.36       4.87       1.64   1.23e+07       8.38      0.275       0.67      0.902       0.92
+       32          0       5.83       5.55       3.21   2.43e+07       7.07      0.107      0.633      0.893       0.91
+       64          2       5.62       4.36       8.05   4.93e+08       50.3      0.359      0.678        0.9      0.915
+      128          4       5.52       5.13       13.1   9.23e+08       65.7      0.219      0.656      0.898      0.917
+      256         14       5.34       4.62       26.3   1.84e+09       65.8      0.416      0.679      0.901      0.918
+      512         30       5.15       4.49       53.1    3.7e+09       65.3      0.409      0.689      0.901      0.916
+ 1.02e+03         61        5.3       4.67        106   7.43e+09       65.2      0.597      0.678      0.902      0.916
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><h2 id="Diagnostics"><a class="docs-heading-anchor" href="#Diagnostics">Diagnostics</a><a id="Diagnostics-1"></a><a class="docs-heading-anchor-permalink" href="#Diagnostics" title="Permalink"></a></h2><p>The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.</p><p>The acceptance rate should be somewhat lower than when fitting just astrometry, e.g. around the 0.6 target.</p><p>You can make a trace plot:</p><pre><code class="language-julia hljs">lines(
     chain[&quot;b_a&quot;][:],
     axis=(;
@@ -269,4 +273,4 @@ Makie.translate!(h, 0,0,-1) # Send heatmap to back of the plot
 Makie.resize_to_layout!(fig)
 fig</code></pre><img src="43494be7.png" alt="Example block output"/><h2 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h2><p>We can show the relationships between variables on a pair plot (aka corner plot):</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 octocorner(model, chain, small=true)</code></pre><img src="299dfe67.png" alt="Example block output"/><p>Note that this time, we also show the recovered photometry in the corner plot.</p><h2 id="Assessing-Detections"><a class="docs-heading-anchor" href="#Assessing-Detections">Assessing Detections</a><a id="Assessing-Detections-1"></a><a class="docs-heading-anchor-permalink" href="#Assessing-Detections" title="Permalink"></a></h2><p>To assess a detection, we can treat all the orbital variables as nuisance parameters.  We start by plotting the marginal distribution of the flux parameter, <code>H</code>:</p><pre><code class="language-julia hljs">hist(chain[&quot;b_H&quot;][:], axis=(xlabel=&quot;H&quot;, ylabel=&quot;counts&quot;))</code></pre><img src="74402fd9.png" alt="Example block output"/><p>We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:</p><pre><code class="language-julia hljs">flux = chain[&quot;b_H&quot;]
-snr = mean(flux)/std(flux)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">14.30866306710697</code></pre><p>It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../pma/">« Fit Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../rv/">Fit RV and Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 25 July 2024 02:07">Thursday 25 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+snr = mean(flux)/std(flux)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">14.30866306710697</code></pre><p>It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../pma/">« Fit Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../rv/">Fit RV and Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 25 July 2024 21:02">Thursday 25 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
