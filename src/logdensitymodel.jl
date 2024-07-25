@@ -62,20 +62,33 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                 Bijector_invlinkvec=Bijector_invlinkvec,
                 ln_prior_transformed=ln_prior_transformed,
                 ln_like_generated=ln_like_generated;sampled=true)
+                # Stop right away if we are given non-finite arguments
+                if any(!isfinite, θ_transformed)
+                    @warn "non finite parameters encountered (maxlog=1)" θ_transformed maxlog=1
+                    return NaN
+                end
                 # Transform back from the unconstrained support to constrained support for the likelihood function
                 θ_natural = Bijector_invlinkvec(θ_transformed)
                 θ_structured = arr2nt(θ_natural)
                 lprior = @inline ln_prior_transformed(θ_natural,sampled)
-                # lprior = @inline ln_prior_transformed(θ_transformed)
-                # CAUTION: This inline annotation is necessary for correct gradients from Enzyme. Yikes!
-                llike  = @inline ln_like_generated(system, θ_structured)
+                # Don't compute likelihood if we fell outside the prior bounds
+                if !isfinite(lprior)
+                    @warn "non finite log prior (maxlog=1)" lprior maxlog=1
+                    return lprior
+                end
+                local llike
+                try
+                    llike  = @inline ln_like_generated(system, θ_structured)
+                catch err
+                    @show θ_natural θ_transformed θ_structured
+                end
                 lpost = lprior+llike
                 # if !isfinite(lprior)
                 #     @warn "Invalid log prior encountered. This likely indicates a problem with the prior support." θ=θ_structured lprior θ_transformed maxlog=5
                 # end
-                # if !isfinite(llike)
-                #     @warn "Invalid log likelihood encountered." θ=θ_structured llike θ_transformed maxlog=5
-                # end
+                if !isfinite(llike)
+                    @warn "Invalid log likelihood encountered. (maxlog=1)" θ=θ_structured llike maxlog=1
+                end
                 return lpost
             end
 
