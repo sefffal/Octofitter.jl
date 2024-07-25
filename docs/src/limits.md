@@ -43,7 +43,7 @@ We start by defining and sampling from a model that only includes proper motion 
     i ~ Sine() # The Sine() distribution is defined by Octofitter
     Ω ~ Uniform(0,pi)# ~ UniformCircular()
     mass = system.M_sec
-    θ ~ Uniform(0,2pi)#UniformCircular()
+    θ ~ Uniform(0,2pi)
     tp = θ_at_epoch_to_tperi(system,B,57423.0) # epoch of GAIA measurement
 end
 @system HD91312_pma begin
@@ -72,8 +72,8 @@ Plot the marginal mass vs. semi-major axis posterior with contours using PairPlo
 pairplot(
     PairPlots.Series(
         (;
-            sma=log2.(chain_pma[:B_a][:],),
-            mass=log2.(chain_pma[:B_mass][:]),
+            sma=log.(chain_pma[:B_a][:],),
+            mass=log.(chain_pma[:B_mass][:]),
         ),
         label="PMA",
         color=Makie.wong_colors()[1],
@@ -83,8 +83,8 @@ pairplot(
         PairPlots.MarginStepHist(),
     ),
     labels=Dict(
-        :sma=>"log₂ Semi-major axis [au]",
-        :mass=>"log₂ Mass [Mⱼᵤₚ]"
+        :sma=>"log Semi-major axis [au]",
+        :mass=>"log Mass [Mⱼᵤₚ]"
     )
 )
 ```
@@ -101,10 +101,10 @@ download(
 )
 
 # Or multi-extension FITS (this example)
-image = AstroImages.load("image-examples-1.fits").*5e-7 # units of contrast
+image = AstroImages.load("image-examples-1.fits").*2e-7 # units of contrast
 
 image_data = ImageLikelihood(
-    (band=:L, image=AstroImages.recenter(image), platescale=10.0, epoch=57423.6),
+    (band=:L, image=AstroImages.recenter(image), platescale=4.0, epoch=57423.6),
 )
 ```
 
@@ -136,8 +136,8 @@ image_data = ImageLikelihood(
     # Convert to contrast (same units as image)
     L = 10.0^(B.rel_mag_L/-2.5)
 
-    θ ~ Uniform(0,2pi)#UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,B,57423.0+1000) # epoch of GAIA measurement
+    θ ~ Uniform(0,2pi)
+    tp = θ_at_epoch_to_tperi(system,B,57423.6)
 end image_data 
 
 @system HD91312_img begin
@@ -159,7 +159,7 @@ model_img = Octofitter.LogDensityModel(HD91312_img)
 
 ```@example 1
 using Pigeons
-chain_img, pt = octofit_pigeons(model_img, n_chains=5, n_chains_variational=5, n_rounds=12)
+chain_img, pt = octofit_pigeons(model_img, n_chains=5, n_chains_variational=5, n_rounds=7)
 ```
 
 Plot mass vs. semi-major axis posterior:
@@ -171,23 +171,23 @@ vis_layers = (
 pairplot(
     PairPlots.Series(
         (;
-            sma=log2.(chain_pma[:B_a][:],),
-            mass=log2.(chain_pma[:B_mass][:]),
+            sma=log.(chain_pma[:B_a][:],),
+            mass=log.(chain_pma[:B_mass][:]),
         ),
         label="PMA",
         color=Makie.wong_colors()[1],
     )=>vis_layers,
     PairPlots.Series(
         (;
-            sma=log2.(chain_img[:B_a][:],),
-            mass=log2.(chain_img[:B_mass][:]),
+            sma=log.(chain_img[:B_a][:],),
+            mass=log.(chain_img[:B_mass][:]),
         ),
         label="IMG",
         color=Makie.wong_colors()[2],
     )=>vis_layers,
     labels=Dict(
-        :sma=>"log₂ Semi-major axis [au]",
-        :mass=>"log₂ Mass [Mⱼᵤₚ]"
+        :sma=>"log Semi-major axis [au]",
+        :mass=>"log Mass [Mⱼᵤₚ]"
     )
 )
 ```
@@ -200,7 +200,7 @@ pairplot(
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
     ω ~ Uniform(0,2pi)
-    i ~ Sine() 
+    i ~ Sine() # The Sine() distribution is defined by Octofitter
     Ω ~ Uniform(0,pi)
     mass = system.M_sec
 
@@ -214,15 +214,17 @@ pairplot(
     elseif B.mass > 10 
         8.2 # jump to absurdly bright
     else
-        16.7 # jump to absordly dim
+        16.7 # jump to absurdly dim
     end
     # Calculate relative magnitude
     rel_mag_L = B.abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
     # Convert to contrast (same units as image)
     L = 10.0^(B.rel_mag_L/-2.5)
 
-    θ ~ Uniform(0,2pi)#UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,B,57423.0+1000) # epoch of GAIA measurement
+    # L ~ Uniform(0,1)
+
+    θ ~ Uniform(0,2pi)
+    tp = θ_at_epoch_to_tperi(system,B,57423.6)
 end image_data 
 
 @system HD91312_both begin
@@ -238,11 +240,11 @@ end image_data
     pmra ~ Normal(0, 1000)
     pmdec ~ Normal(0,  1000)
     rel_mag = 5.65
-end  HGCALikelihood(gaia_id=6166183842771027328) B
+end HGCALikelihood(gaia_id=6166183842771027328) B
 model_both = Octofitter.LogDensityModel(HD91312_both)
 
 using Pigeons
-chain_both, pt = octofit_pigeons(model_both,n_chains=18,n_chains_variational=8,n_rounds=12)
+chain_both, pt = octofit_pigeons(model_both,n_chains=5,n_chains_variational=5,n_rounds=10)
 ```
 
 Compare all three posteriors to see limits:
@@ -254,24 +256,24 @@ vis_layers = (
 pairplot(
     PairPlots.Series(
         (;
-            sma=log2.(chain_pma[:B_a][:],),
-            mass=log2.(chain_pma[:B_mass][:]),
+            sma=log.(chain_pma[:B_a][:],),
+            mass=log.(chain_pma[:B_mass][:]),
         ),
         label="PMA",
         color=Makie.wong_colors()[1],
     )=>vis_layers,
     PairPlots.Series(
         (;
-            sma=log2.(chain_img[:B_a][:],),
-            mass=log2.(chain_img[:B_mass][:]),
+            sma=log.(chain_img[:B_a][:],),
+            mass=log.(chain_img[:B_mass][:]),
         ),
         label="IMG",
         color=Makie.wong_colors()[2],
     )=>vis_layers,
         PairPlots.Series(
         (;
-            sma=log2.(chain_both[:B_a][:],),
-            mass=log2.(chain_both[:B_mass][:]),
+            sma=log.(chain_both[:B_a][:],),
+            mass=log.(chain_both[:B_mass][:]),
         ),
         label="IMG + PMA",
         color=Makie.wong_colors()[3],
