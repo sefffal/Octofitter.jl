@@ -114,7 +114,7 @@ the posterior or the prior), produce a panel of 9 plots visualizing the orbits.
 The output is saved to a file based on the name of the system (`fname`).
 """
 function octoplot(model::System, ::Any)
-    error("You must load the Plots.jl package (`using Plots`) before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+    error("You must load the Makie.jl package (`using CairoMakie`, or `using GLMakie`) before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
 end
 function octoplot(model::LogDensityModel, args...; kwargs...)
     return octoplot(model.system, args...; kwargs...)
