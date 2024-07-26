@@ -42,7 +42,7 @@ One chain should be enough to cover the whole posterior, but you can run a few d
 
 Similarily, fewer samples are required. This is because unlike Affine Invariant MCMC, HMC produces samples that are much less correlated after each step (i.e. the autocorrelation time is much shorter).
 
-`octofit` will internally use Pathfinder to warm up the sampler, reducing convergence times signficantly. This can be bypassed by passing `pathfinder=false`.
+`octofit` will internally use Pathfinder to warm up the sampler, reducing convergence times signficantly. 
 
 ### Usage
 
@@ -163,7 +163,7 @@ using LinearAlgebra
 spl = RWMH(MvNormal(zeros(model.D), I))
 
 # Find initial guess by drawing from priors
-initial_θ = Octofitter.guess_starting_position(model.system,50_000)[1]
+initial_θ = Octofitter.guess_starting_position(model,50_000)[1]
 initial_θ_t = model.link(initial_θ) # Map to unconstrainted parameterization
 
 # Sample from the posterior.
@@ -192,7 +192,7 @@ using MCMCChains: MCMCChains, Chains, chainscat
 # Construct model from a system (see elsewhere in docs)
 model = Octofitter.LogDensityModel(system)
 
-initial_θ = Octofitter.guess_starting_position(model.system,50_000)[1]
+initial_θ = Octofitter.guess_starting_position(model,50_000)[1]
 initial_θ_t = model.link(initial_θ) # Map to unconstrainted parameterization
 
 
@@ -276,7 +276,7 @@ This example shows how to customize different aspects of the default NUTS
 sampler.
 ```julia
 using AdvancedHMC
-initial_θ = Octofitter.guess_starting_position(model.system,150_000)[1]
+initial_θ = Octofitter.guess_starting_position(model,150_000)[1]
 initial_θ_t = model.link(initial_θ)
 metric = DenseEuclideanMetric(model.D)
 hamiltonian = Hamiltonian(metric, model)
@@ -377,7 +377,7 @@ Further work is likely necessary to ensure all observations are also stored on t
 
 ```julia
 using AdvancedHMC, CUDA
-initial_θ = Octofitter.guess_starting_position(model.system,150_000)[1]
+initial_θ = Octofitter.guess_starting_position(model,150_000)[1]
 initial_θ_t = model.link(initial_θ)
 metric = DenseEuclideanMetric(model.D)
 hamiltonian = Hamiltonian(metric, model)

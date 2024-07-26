@@ -3,19 +3,35 @@ using LogDensityProblems
 
 # Define the target distribution using the `LogDensityProblem` interface
 # TODO: in future, just roll this all into the System type.
-struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
-    D::Int
-    ℓπcallback::Tℓπ
-    ∇ℓπcallback::T∇ℓπ
-    system::TSys
-    link::TLink
-    invlink::TInvLink
-    arr2nt::TArr2nt
+mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp}
+    # Dimensionality
+    const D::Int
+    # Auto diff backend symbol (need to keep track of this for Pigeons)
+    const autodiff_backend_symbol::Symbol
+    # Calculate the log-posterior density given transformed parameters
+    const ℓπcallback::Tℓπ
+    # Calculate the log-posterior density and gradient given transformed parameters
+    const ∇ℓπcallback::T∇ℓπ
+    # The underlying System object
+    const system::TSys
+    # Convert flat parameter vector into transformed domain
+    const link::TLink
+    # Convert flat transformed parameter vector back to natural domain
+    const invlink::TInvLink
+    # Convert a flat parameter vector into a nested named tuple structure,
+    # matching the variable definitions in the System and Planet blocks
+    const arr2nt::TArr2nt
+    # Sample IID from the model's priors
+    const sample_priors::TPriSamp
+    # A set of starting points that can be sampled from to initialize a sampler, or nothing
+    starting_points::Union{Nothing,Vector} 
     function LogDensityModel(system::System; autodiff=:ForwardDiff, verbosity=0, chunk_sizes=nothing)
         verbosity >= 1 && @info "Preparing model"
 
+        sample_priors = make_prior_sampler(system)
+
         # Choose parameter dimensionality and initial parameter value
-        initial_θ_0 = sample_priors(system)
+        initial_θ_0 = sample_priors(Random.default_rng())
         D = length(initial_θ_0)
         verbosity >= 2 && @info "Determined number of free variables" D
 
@@ -76,18 +92,13 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
                     @warn "non finite log prior (maxlog=1)" lprior maxlog=1
                     return lprior
                 end
-                local llike
-                try
-                    llike  = @inline ln_like_generated(system, θ_structured)
-                catch err
-                    @show θ_natural θ_transformed θ_structured
-                end
+                llike  = @inline ln_like_generated(system, θ_structured)
                 lpost = lprior+llike
                 # if !isfinite(lprior)
                 #     @warn "Invalid log prior encountered. This likely indicates a problem with the prior support." θ=θ_structured lprior θ_transformed maxlog=5
                 # end
                 if !isfinite(llike)
-                    @warn "Invalid log likelihood encountered. (maxlog=1)" θ=θ_structured llike maxlog=1
+                    @warn "Invalid log likelihood encountered. (maxlog=1)" θ=θ_structured llike θ_transformed  maxlog=1
                 end
                 return lpost
             end
@@ -248,30 +259,33 @@ struct LogDensityModel{Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt}
             ℓπcallback, ∇ℓπcallback
         end
         
-
-    
         # Return fully concrete type wrapping all these functions
         new{
+            D,
             typeof(ℓπcallback),
             typeof(∇ℓπcallback),
             typeof(system),
             typeof(Bijector_linkvec),
             typeof(Bijector_invlinkvec),
             typeof(arr2nt),
+            typeof(sample_priors)
         }(
             D,
+            autodiff,
             ℓπcallback,
             ∇ℓπcallback,
             system,
             Bijector_linkvec,
             Bijector_invlinkvec,
-            arr2nt
+            arr2nt,
+            sample_priors,
+            nothing # no starting points set
         )
     end
 end
 LogDensityProblems.logdensity(p::LogDensityModel, θ) = p.ℓπcallback(θ)
-LogDensityProblems.logdensity_and_gradient(p::LogDensityModel, θ) = p.∇ℓπcallback(θ) # TODO: may need to copy vector
-LogDensityProblems.dimension(p::LogDensityModel) = p.D
+LogDensityProblems.logdensity_and_gradient(p::LogDensityModel, θ) = p.∇ℓπcallback(θ)
+LogDensityProblems.dimension(p::LogDensityModel{D}) where D = D
 LogDensityProblems.capabilities(::Type{<:LogDensityModel}) = LogDensityProblems.LogDensityOrder{1}()
 
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::LogDensityModel)

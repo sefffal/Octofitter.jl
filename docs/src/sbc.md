@@ -72,7 +72,7 @@ using Random
 rng = Random.Xoshiro(sbc_index)
 
 # Sample system parameters from priors
-θ_system_flat = sample_priors(rng, model.system)
+θ_system_flat = model.sample_priors(rng)
 
 settings = (;
     # Sampler parameters if desired:

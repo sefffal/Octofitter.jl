@@ -51,6 +51,7 @@ include("likelihoods/observable.jl")
 
 
 include("logdensitymodel.jl")
+include("initialization.jl")
 include("optimization.jl")
 include("sampling.jl")
 

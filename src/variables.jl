@@ -255,42 +255,21 @@ System(priors::Priors, args::Union{AbstractLikelihood,Planet}...; kwargs...) = S
 System(priors::Priors, det::Union{Derived,Nothing}, args::Union{AbstractLikelihood,Planet}...; kwargs...) = System(priors, det, group_obs_planets(args)...; kwargs...)
 
 
+# Function to give the parameter names as a flat vector of symbols. Only returns
+# active parameters (i.e.) and not any derived variables.
+function list_parameter_names(system::System)
+    return map(((k,v),)->k, Iterators.flatten([
+        system.priors.priors,
+        [planet.priors.priors for planet in system.planets]...
+    ]))
+end
+
+
 function group_obs_planets(args)
     observations = filter(o->typeof(o) <: AbstractLikelihood, args)
     planets = filter(p->p isa Planet, args)
     return observations, planets
 end
-
-## Helpers for accessing the first observation of a certain type in a planet or system
-function astrometry(planet::Planet)
-    astrom_likes = filter(planet.observations) do like
-        return like isa PlanetRelAstromLikelihood
-    end
-    if length(astrom_likes) == 1
-        return astrom_likes[1]
-    elseif length(astrom_likes) > 1
-    end
-    return nothing
-end
-export astrometry
-
-function propermotionanom(system::System)
-    for like in system.observations
-        if like isa HGCALikelihood
-            return like
-        end
-    end
-    return nothing
-end
-function images(system::System)
-    for like in system.observations
-        if like isa ImageLikelihood
-            return like
-        end
-    end
-    return nothing
-end
-
 
 #### Show methods
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::AbstractLikelihood)
@@ -669,41 +648,49 @@ function make_ln_prior_transformed(system::System)
     end))
 end
 
+# Generate a callback function to efficiently sample from a system's prior distributions.
+function make_prior_sampler(system::System)
 
-# # Replaces `θ = Bijectors.invlink.(priors_vec, θ_t)` with a type stable
-# # unrolled version.
-# function make_Bijector_invlinkvec(priors_vec)
+    # This function uses meta-programming to unroll all the code at compile time.
+    # This is a big performance win, since it avoids looping over all the different
+    # types of distributions that might be specified as priors.
+    # Otherwise we would have to loop through an abstract vector and do runtime dispatch!
+    # This way all the code gets inlined into a single tight numberical function in most cases.
+    prior_sample_expressions = Expr[]
 
-#     i = 0
-#     parameter_transformations = Expr[]
+    # System priors
+    for prior_distribution in values(system.priors.priors)
+        ex = :(
+            sample = $rand(rng, $prior_distribution);
+            prior_samples = (prior_samples..., sample);
+        )
+        push!(prior_sample_expressions,ex)
+    end
 
-#     # System priors
-#     for prior_distribution in priors_vec
-#         i += 1
-#         ex = :(
-#             theta_out[$i] = $(Bijectors.invlink)($prior_distribution, arr[$i])
-#         )
-#         push!(parameter_transformations, ex)
-#     end
+    # Planet priors
+    for planet in system.planets
+        # for prior_distribution in values(planet.priors.priors)
+        for prior_distribution in values(planet.priors.priors)
+            ex = :(
+                sample = $rand(rng, $prior_distribution);
+                prior_samples = (prior_samples..., sample);
+            )
+            push!(prior_sample_expressions,ex)
+        end
+    end
 
-#     # Here is the function we return.
-#     # It maps an array of parameters into our nested named tuple structure
-#     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
-#     # The RuntimeGeneratedFunctions package avoids these in all cases.
-#     return @RuntimeGeneratedFunction(:(function (arr)
-#         l = $i
-#         theta_out = @MVector zeros(eltype(arr), l)
-#         # theta_out = zeros(eltype(arr), l)
-#         @boundscheck if length(arr) != l
-#             error("Expected exactly $l elements in array (got $(length(arr)))")
-#         end
-#         # Add unrolled parameter transformations to fill theta_out
-#         @inbounds begin
-#            $(parameter_transformations...) 
-#         end
-#         return theta_out
-#     end))
-# end
+    # Here is the function we return.
+    # It maps an array of parameters into our nested named tuple structure
+    # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
+    # The RuntimeGeneratedFunctions package avoids these in all cases.
+    return @RuntimeGeneratedFunction(:(function (rng)
+        prior_samples = ()
+        @inbounds begin
+           $(prior_sample_expressions...) 
+        end
+        return prior_samples
+    end))
+end
 
 
 # Replaces `θ = Bijectors.invlink.(priors_vec, θ_t)` with a type stable

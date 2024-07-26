@@ -6,12 +6,8 @@ using Transducers
 using CovarianceEstimation
 export sample_priors
 
-# TODO: consolidate all these functions. There is a lot of duplication.
-
-sample_priors(arg::Union{Planet,System}, args...; kwargs...) = sample_priors(Random.default_rng(), arg, args...; kwargs...)
-# sample_priors(rng::Random.AbstractRNG, planet::Planet) = rand.(rng, ComponentArray(planet.priors.priors))
-sample_priors(rng::Random.AbstractRNG, planet::Planet, N::Number) = [sample_priors(rng, planet) for _ in 1:N]
-
+sample_priors(arg::Union{Planet,System,<:LogDensityModel}, args...; kwargs...) = sample_priors(Random.default_rng(), arg, args...; kwargs...)
+# Sample priors from system once
 function sample_priors(rng::Random.AbstractRNG, system::System)
     priors_flat_sampled = map(((k,v),)->rand(rng, v), Iterators.flatten([
         system.priors.priors,
@@ -19,26 +15,10 @@ function sample_priors(rng::Random.AbstractRNG, system::System)
     ]))
     return priors_flat_sampled
 end
-
-function priors_flat(system::System)
-    return priors_flat = map(((k,v),)->v, Iterators.flatten([
-        system.priors.priors,
-        [planet.priors.priors for planet in system.planets]...
-    ]))
-end
-
-
+# Sample priors from system many times
 sample_priors(rng::Random.AbstractRNG, system::System, N::Number) = [sample_priors(rng, system) for _ in 1:N]
+sample_priors(rng::Random.AbstractRNG, model::LogDensityModel, N::Number) = [model.sample_priors(rng) for _ in 1:N]
 
-
-# Function to give the parameter names as a flat vector of symbols. Only returns
-# active parameters (i.e.) and not any derived variables.
-function list_parameter_names(system::System)
-    return map(((k,v),)->k, Iterators.flatten([
-        system.priors.priors,
-        [planet.priors.priors for planet in system.planets]...
-    ]))
-end
 
 function guess_starting_position(system::System, args...; kwargs...)
     return guess_starting_position(Random.default_rng(), system, args...; kwargs...)
@@ -61,6 +41,40 @@ function guess_starting_position(rng::Random.AbstractRNG, system::System, N=500_
 
     return best, mapv
 end
+
+
+
+
+
+function guess_starting_position(model::LogDensityModel, args...; kwargs...)
+    return guess_starting_position(Random.default_rng(), model, args...; kwargs...)
+end
+function guess_starting_position(rng::Random.AbstractRNG, model::LogDensityModel, N=500_000)
+
+    # Seed RNGs for each thread
+    rngs = [
+        Xoshiro(reinterpret(UInt64,rand(rng)))
+        for i in 1: Threads.nthreads()
+    ]
+    bestlogposts = fill(-Inf64, 1:Threads.nthreads())
+    bestparams = fill(model.sample_priors(rng), 1:Threads.nthreads())
+
+    Threads.@threads for i in 1:N
+        tid = Threads.threadid()
+        params = model.sample_priors(rngs[tid])
+        params_t = model.link(params)
+        logpost = model.ℓπcallback(params)
+        if logpost > bestlogposts[tid]
+            bestparams[tid] = params
+            bestlogposts[tid] = logpost
+        end
+    end
+
+    I_max = argmax(bestlogposts)
+
+    return bestparams[I_max], bestlogposts[I_max]
+end
+
 
 """
     construct_elements(θ_system, θ_planet)
@@ -526,103 +540,6 @@ construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::Colon) =
 construct_elements(chain::Chains, planet::Planet, args...; kwargs...) = construct_elements(chain, planet.name, args...; kwargs...) 
 
 
-"""
-Test that a model returns valid probability densities for 
-all input values covered by the priors.
-"""
-function checkmodel(@nospecialize model)
-
-    (;system,arr2nt,link,invlink,ℓπcallback,∇ℓπcallback,) = model
-
-    priors_kv = Iterators.flatten([
-        system.priors.priors,
-        [planet.priors.priors for planet in system.planets]...
-    ])
-    priors_flat = map(((k,v),)->v, priors_kv)
-    prior_names = map(((k,v),)->k, priors_kv)
-
-    local waserr = false
-
-    θ0 = link(rand.(priors_flat))
-    local lp = 0
-    try
-        lp = ℓπcallback(θ0)
-    catch err
-        @error "posterior density function failed on simple input" arr2nt(invlink(θ0)) exception=(err, catch_backtrace())
-        waserr = true
-    end
-    if !isfinite(lp)
-        @error "posterior density function gave non-finite answer for simple input" lp arr2nt(invlink(θ0))
-        waserr = true
-    end
-
-
-    local gradlp = 0
-    try
-        primal, gradlp = ∇ℓπcallback(θ0)
-    catch err
-        @error "posterior density gradient failed on simple input" arr2nt(invlink(θ0)) exception=(err, catch_backtrace())
-        waserr = true
-    end
-    if any(!isfinite, gradlp)
-        @error "posterior density gradient function gave non-finite answer for simple input" lp arr2nt(invlink(θ0))
-        waserr = true
-    end
-
-    # Test with extreme values near edge of the prior support
-    θ0 = link(quantile.(priors_flat, 1e-5))
-    if any(!isfinite, θ0)
-        ii = findall(!isfinite, θ0)
-        priors_with_errors = namedtuple(prior_names[ii], gradlp[ii])
-        @error "lower edge of prior support included a non-finite value" priors_with_errors
-    end
-    try
-        primal, gradlp = ∇ℓπcallback(θ0)
-    catch err
-        @error "posterior density gradient failed near start of prior support" arr2nt(invlink(θ0)) exception=(err, catch_backtrace()) 
-        waserr = true
-    end
-    if any(!isfinite, gradlp)
-        ii = findall(!isfinite, gradlp)
-        params_with_errors = namedtuple(prior_names[ii], gradlp[ii])
-        @error "posterior density function gave non-finite answer for parameters near start of prior supoprt" arr2nt(invlink(θ0))  params_with_errors
-        waserr = true
-    end
-
-    # Test with extreme values near edge of the prior support
-    θ0 = quantile.(priors_flat, 0.99)
-    # This is a bit extreme for eccentricity
-    θ0[prior_names .== :e] .= 0.999
-    θ0 = link(θ0)
-    if any(!isfinite, θ0)
-        ii = findall(!isfinite, θ0)
-        priors_with_errors = namedtuple(prior_names[ii], gradlp[ii])
-        @error "upper edge of prior support included a non-finite value" priors_with_errors
-    end
-    try
-        primal, gradlp = ∇ℓπcallback(θ0)
-    catch err
-        @error "posterior density gradient failed near end of prior support" arr2nt(invlink(θ0)) exception=(err, catch_backtrace()) 
-        waserr = true
-    end
-    if any(!isfinite, gradlp)
-        ii = findall(!isfinite, gradlp)
-        params_with_errors = namedtuple(prior_names[ii], gradlp[ii])
-        @error "posterior density function gave non-finite answer for parameters near end of prior support"  arr2nt(invlink(θ0))  params_with_errors
-        waserr = true
-    end
-
-    if waserr
-        error("model check failed.")
-    end
-
-    
-    
-
-    
-end
-
-
 # Fallback when no random number generator is provided (as is usually the case)
 Base.@nospecializeinfer function advancedhmc(model::LogDensityModel, target_accept::Number=0.8; kwargs...)
     return advancedhmc(Random.default_rng(), model, target_accept; kwargs...)
@@ -664,8 +581,8 @@ The method signature of Octofitter.hmc is as follows:
         iterations,
         drop_warmup=true,
         max_depth=12,
-        initial_samples= pathfinder ? 500 : 250_000,
-        initial_parameters=nothing,
+        initial_samples= pathfinder ? 500 : 250_000,  # deprecated
+        initial_parameters=nothing, # deprecated
         step_size=nothing,
         verbosity=2,
     )
@@ -693,9 +610,11 @@ Base.@nospecializeinfer function advancedhmc(
     iterations::Int=1000,
     drop_warmup::Bool=true,
     max_depth::Int=12,
-    initial_parameters::Union{Nothing,Vector{Float64}}=nothing,
     verbosity::Int=2,
+
+    # deprecated options: see model.starting_points and Octofitter.default_initializer!
     pathfinder::Bool=true,
+    initial_parameters::Union{Nothing,Vector{Float64}}=nothing,
     initial_samples::Int= pathfinder ? 10_000 : 250_000,
 )
     @nospecialize
@@ -703,120 +622,32 @@ Base.@nospecializeinfer function advancedhmc(
         @warn "At least 1000 steps of adapation are recomended for good sampling"
     end
 
-
-
-
-    local result_pf = nothing
-    local metric = nothing
-    ldm_any = LogDensityModelAny(model)
-    if pathfinder 
-        # Use Pathfinder to initialize HMC. Works but currently disabled.
-        verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
-        # It seems to hit a PosDefException sometimes when factoring a matrix.
-        # When that happens, the next try usually succeeds.
-        # start_time = time()
-        for i in 1:8
-            try
-                if !isnothing(initial_parameters)
-                    initial_θ = initial_parameters
-                    # Transform from constrained support to unconstrained support
-                    initial_θ_t = model.link(initial_θ)
-                    errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
-                    result_pf = with_logger(errlogger) do 
-                        Pathfinder.multipathfinder(
-                            ldm_any, 1000;
-                            nruns=8,
-                            init=fill(collect(initial_θ_t),8),
-                            progress=verbosity > 1,
-                            maxiters=25_000,
-                            rng=rng,
-                            # maxtime=25.0,
-                            reltol=1e-6,
-                            optimizer=Pathfinder.Optim.LBFGS(;
-                                m=6,
-                                linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
-                                alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
-                            )
-                        )
-                    end
-                else
-                    init_sampler = function(rng, x) 
-                        initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
-                        initial_θ_t = model.link(initial_θ)
-                        x .= initial_θ_t
-                    end
-                    errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
-                    result_pf = with_logger(errlogger) do 
-                        Pathfinder.multipathfinder(
-                            ldm_any, 1000;
-                            nruns=8,
-                            init_sampler=CallableAny(init_sampler),
-                            progress=verbosity > 1,
-                            maxiters=25_000,
-                            # maxtime=25.0,
-                            reltol=1e-6,
-                            rng=rng,
-                            optimizer=Pathfinder.Optim.LBFGS(;
-                                m=6,
-                                linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
-                                alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
-                            )
-                        ) 
-                    end
-                end
-                # Check pareto shape diagnostic to see if we have a good approximation
-                # If we don't, just try again
-                if result_pf.psis_result.pareto_shape > 3
-                    verbosity > 3 && display(result_pf)
-                    verbosity >= 4 && display(result_pf.psis_result)
-                    verbosity > 2 && @warn "Restarting pathfinder" i
-                    continue
-                end
-                if length(result_pf.pathfinder_results) > 1
-                    # This can fail, triggering an exception
-                    S =  (cov(SimpleCovariance(), stack(result_pf.draws)'))
-                    metric = DenseEuclideanMetric(S)
-                else
-                    # estimate it emperically by pooling draws from all pathfinder runs
-                    metric = DenseEuclideanMetric(collect(Matrix(result_pf.pathfinder_results[1].fit_distribution.Σ)))
-                end
-                verbosity >= 3 && "Pathfinder complete"
-                break
-            catch ex
-                result_pf = nothing
-                if ex isa PosDefException
-                    verbosity > 2 && @warn "Mass matrix failed to factorize. Restarting pathfinder" i
-                    continue
-                end
-                if ex isa InterruptException
-                    rethrow(ex)
-                end
-                @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
-                break
-            end
-        end
+    if !pathfinder
+        error("pathfinder option is deprecated. Use model.starting_points and/or Octofitter.default_initializer!.")
     end
-    if isnothing(result_pf) || isnothing(metric) # failed or not attempted
-        # Guess initial starting positions by drawing from priors a bunch of times
-        # and picking the best one (highest likelihood).
-        # Then transform that guess into our unconstrained support
-        if isnothing(initial_parameters)
-            verbosity >= 1 && @info "Guessing a starting location by sampling from prior" initial_samples
-            initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
-            verbosity > 2 && @info "Found starting location" θ=stringify_nested_named_tuple(model.arr2nt(initial_θ))
-            # Transform from constrained support to unconstrained support
-            initial_θ_t = model.link(initial_θ)
-        else
-            initial_θ = initial_parameters
-            # Transform from constrained support to unconstrained support
-            initial_θ_t = model.link(initial_θ)
-        end
+    if !isnothing(initial_parameters)
+        error("initial_parameters option is deprecated. Use model.starting_points and/or Octofitter.default_initializer!.")
+    end
+    if initial_samples != 10_000
+        error("initial_samples option is deprecated. Use model.starting_points and/or Octofitter.default_initializer!.")
+    end
+    
+    # inialize if not already done or set by user
+    get_starting_point!!(model)
+
+    local metric
+    try
+        # This can fail, triggering an exception
+        S =  (cov(SimpleCovariance(), stack(model.starting_points)'))
+        metric = DenseEuclideanMetric(S)
+    catch err
+        display(err)
 
         verbosity > 1 && @warn("Falling back to initializing the diagonals with the prior interquartile ranges.")
         # We already sampled from the priors earlier to get the starting positon.
         # Use those variance estimates and transform them into the unconstrainted space.
         # variances_t = (model.link(initial_θ .+ sqrt.(variances)/2) .- model.link(initial_θ .- sqrt.(variances)/2)).^2
-        p = priors_flat(model.system)
+        p = _list_priors(model.system)
         variances_t = (model.link(quantile.(p, 0.85)) .- model.link(quantile.(p, 0.15))).^2
         # metric = DenseEuclideanMetric(model.D)
         metric = DenseEuclideanMetric(collect(Diagonal(variances_t)))
@@ -827,74 +658,15 @@ Base.@nospecializeinfer function advancedhmc(
         if any(v->!isfinite(v)||v==0, variances_t)
             error("failed to initialize mass matrix")
         end
-
-    else # !isnothing(result_pf)
-        # Start using a draw from the typical set as estimated by Pathfinder
-        if result_pf.psis_result.pareto_shape < 3
-            verbosity >= 4 && @info "PSIS result good; starting with sample from typical set"
-            initial_θ_t = collect(last(eachcol(result_pf.draws))) # result_pf.fit_distribution.μ
-        else
-            verbosity >= 4 && @info "PSIS result bad; starting with distribution mean"
-            initial_θ_t = collect(mean(result_pf.fit_distribution))
-        end
-        initial_θ = collect(model.invlink(initial_θ_t))
-        # verbosity >= 3 && @info "Creating metric"
-        # Use the metric found by Pathfinder for HMC sampling
-        # metric = Pathfinder.RankUpdateEuclideanMetric(result_pf.pathfinder_results[1].fit_distribution.Σ)
-        # display(metric)
-        # if length(result_pf.pathfinder_results) > 1
-        #     S =  (cov(SimpleCovariance(), stack(result_pf.draws)'))
-        #     metric = DenseEuclideanMetric(S)
-        # else
-        #     # estimate it emperically by pooling draws from all pathfinder runs
-        #     metric = DenseEuclideanMetric(collect(Matrix(result_pf.pathfinder_results[1].fit_distribution.Σ)))
-        # end
-
     end
 
+    initial_θ_t = rand(rng, model.starting_points)
+    initial_θ = model.invlink(initial_θ_t)
 
     if verbosity >= 4
         @info "flat starting point" initial_θ
         @info "transformed flat starting point" initial_θ_t
     end
-    
-
-    # # Return a chains object with the resampled pathfinder draws
-    # # Transform samples back to constrained support
-    # pathfinder_samples = map(eachcol(result_pf.draws)) do θ_t
-    #     Bijectors.invlink.(priors_vec, θ_t)
-    # end
-    # pathfinder_chain =  Octofitter.result2mcmcchain(system, arr2nt.(pathfinder_samples))
-    # pathfinder_chain_with_info = MCMCChains.setinfo(
-    #     pathfinder_chain,
-    #     (;
-    #         start_time,
-    #         stop_time,
-    #         model=system,
-    #         result_pf,
-    #     )
-    # )
-
-
-
-    # # Help adaptation by starting the metric with a rough order of magnitude of the
-    # # variable variances along the diagonals.
-
-    # # We already sampled from the priors earlier to get the starting positon.
-    # # Use those variance estimates and transform them into the unconstrainted space.
-    # # variances_t = (model.link(initial_θ .+ sqrt.(variances)/2) .- model.link(initial_θ .- sqrt.(variances)/2)).^2
-    # p = priors_flat(model.system)
-    # variances_t = (model.link(quantile.(p, 0.85)) .- model.link(quantile.(p, 0.15))).^2
-    # # metric = DenseEuclideanMetric(model.D)
-    # metric = DenseEuclideanMetric(collect(Diagonal(variances_t)))
-
-    # if verbosity >= 3
-    #     print("Initial mass matrix M⁻¹ from priors\n")
-    #     display(metric.M⁻¹)
-    # end
-    # if any(v->!isfinite(v)||v==0, variances_t)
-    #     error("failed to initialize mass matrix")
-    # end
 
     verbosity >= 3 && @info "Creating hamiltonian"
     hamiltonian = Hamiltonian(metric, model)
@@ -1121,7 +893,6 @@ function mcmcchain2result(model, chain,)
     # Quickly construct a named tuple template
     θ = sample_priors(model.system)
     nt = model.arr2nt(θ)
-
 
     planetkeys = string.(keys(model.system.planets))
         # for pk in planetkeys

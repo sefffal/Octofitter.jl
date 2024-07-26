@@ -11,95 +11,20 @@ function (model::Octofitter.LogDensityModel)(θ)
     return model.ℓπcallback(θ)
 end
 function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::AbstractRNG, chain_no::Int)
-    verbosity=1
-    initial_samples=1000
 
-    local result_pf = nothing
-    ldm_any = Octofitter.LogDensityModelAny(model)
-    # Use Pathfinder to initialize HMC. Works but currently disabled.
-    verbosity >= 2 && @info "Determining initial positions using pathfinder" chain_no
-    # It seems to hit a PosDefException sometimes when factoring a matrix.
-    # When that happens, the next try usually succeeds.
-    # start_time = time()
-    try
-        # if !isnothing(initial_parameters)
-        #     initial_θ = initial_parameters
-        #     # Transform from constrained support to unconstrained support
-        #     initial_θ_t = model.link(initial_θ)
-        #     errlogger = verbosity >= 3 ? ConsoleLogger(stderr, Logging.Info) : NullLogger()
-        #     result_pf = with_logger(errlogger) do 
-        #         Pathfinder.pathfinder(
-        #             ldm_any;
-        #             init=fill(collect(initial_θ_t),8),
-        #             progress=verbosity > 1,
-        #             maxiters=25_000,
-        #             rng=rng,
-        #             # maxtime=25.0,
-        #             # reltol=1e-4,
-        #         )
-        #     end
-        # else
-            init_sampler = function(rng, x) 
-                initial_θ_guess, mapv = Octofitter.guess_starting_position(rng,model.system,initial_samples)
-                initial_θ_t_guess = model.link(initial_θ_guess)
-                x .= initial_θ_t_guess
-            end
-            errlogger = verbosity >= 3 ? ConsoleLogger(stderr, Logging.Info) : NullLogger()
-            result_pf = with_logger(errlogger) do 
-                Pathfinder.pathfinder(
-                    ldm_any;
-                    init_sampler=Octofitter.CallableAny(init_sampler),
-                    progress=verbosity > 1,
-                    maxiters=25_000,
-                    # maxtime=25.0,
-                    reltol=1e-6,
-                    rng=rng,
-                    optimizer=Pathfinder.Optim.LBFGS(;
-                        m=6,
-                        linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
-                        alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
-                    )
-                ) 
-            end
-        # end
-        verbosity >= 3 && "Pathfinder complete"
-    catch ex
-        result_pf = nothing
-        if ex isa PosDefException
-            verbosity > 2 && @warn "Mass matrix failed to factorize." i
-        end
-        if ex isa InterruptException
-            rethrow(ex)
-        end
-        @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
-    end
+    Octofitter.get_starting_point!!(rng, model)
 
-
-    if !isnothing(result_pf)
-        initial_θ_t = collect(mean(result_pf.fit_distribution))
-        initial_θ = collect(model.invlink(initial_θ_t))
-        initial_logpost = model.ℓπcallback(initial_θ_t)
-    end
-    
-    if isnothing(result_pf) || any(!isfinite, initial_θ_t) || any(!isfinite, initial_θ) || !isfinite(model.ℓπcallback(initial_θ_t))
-        # Guess initial starting positions by drawing from priors a bunch of times
-        # and picking the best one (highest likelihood).
-        # Then transform that guess into our unconstrained support
-        verbosity >= 1 && @info "Falling back to guessing a starting location by sampling from prior" initial_samples
-        initial_θ, initial_logpost = Octofitter.guess_starting_position(rng,model.system,initial_samples)
-        initial_θ_t = model.link(initial_θ)
-    end
-    
+    initial_θ_t = collect(model.starting_points[chain_no])
+    # initial_θ_t = collect(Octofitter.get_starting_point!!(rng, model))
+    initial_θ = model.invlink(initial_θ_t)
+    initial_logpost = model.ℓπcallback(initial_θ_t)
 
     if any(!isfinite, initial_θ_t) || any(!isfinite, initial_θ) || !isfinite(initial_logpost)
         error("Could not find a starting point with finite arguments initial_logpost=$initial_logpost, initial_θ_t=$initial_θ_t, initial_θ=$(model.arr2nt(initial_θ))")
     end
 
-    if verbosity >= 3
-        @info "Determined initial position" chain_no initial_θ initial_θ_nt=model.arr2nt(initial_θ) initial_logpost
-    elseif verbosity >= 1
-        @info "Determined initial position" chain_no initial_logpost
-    end
+    # @info "Determined initial position" chain_no initial_θ initial_θ_nt=model.arr2nt(initial_θ) initial_logpost
+    # @info "Determined initial position" chain_no initial_logpost
     
     return initial_θ_t
 end
@@ -107,9 +32,7 @@ end
 # Valid for reference model only
 function Pigeons.sample_iid!(model_reference::Octofitter.LogDensityModel, replica, shared)
     # This could in theory be done without any array allocations
-    θ = sample_priors(replica.rng, model_reference.system)
-    # t = @elapsed θ, logpost = Octofitter.Octofitter.guess_starting_position(replica.rng, model_reference.system, 100_000)
-    # @info "Sampled from reference" logpost t
+    θ = model_reference.sample_priors(replica.rng)
     θ_t = model_reference.link(θ)
     replica.state .= θ_t
 end
@@ -208,7 +131,7 @@ Base.@nospecializeinfer function MCMCChains.Chains(
     pt::Pigeons.PT,
     chain_num::Int=pt.inputs.n_chains
 )
-    ln_like = Octofitter.make_ln_like(model.system, model.arr2nt(Octofitter.sample_priors(model.system)))
+    ln_like = Octofitter.make_ln_like(model.system, model.arr2nt(model.sample_priors(Random.default_rng())))
 
     # Resolve the array back into the nested named tuple structure used internally.
     # Augment with some internal fields

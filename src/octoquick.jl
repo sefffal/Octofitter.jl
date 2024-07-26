@@ -24,7 +24,7 @@ Base.@nospecializeinfer function octoquick(
     ldm_any = LogDensityModelAny(model)
     
     init_sampler = function(rng, x) 
-        initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
+        initial_θ, mapv = guess_starting_position(rng,model,initial_samples)
         initial_θ_t = model.link(initial_θ)
         x .= initial_θ_t
     end

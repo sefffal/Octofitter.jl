@@ -12,7 +12,7 @@ it can be handled the same as our posteriors, plotted, etc.
 """
 function findmap(model::LogDensityModel;starting_position=nothing,N=10_000,verbosity=0)
     if isnothing(starting_position)
-        starting_position, _ = guess_starting_position(model.system,N)
+        starting_position, _ = guess_starting_position(model,N)
     end
 
     # logpost = model.ℓπcallback(model.link(starting_position))

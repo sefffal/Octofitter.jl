@@ -2,7 +2,7 @@ function gridsearch(model, N=4; q=0.65)
 
     # Get a list of all priors for the system as a flat vector of
     # Distribution objects
-    prior_distributions = priors_flat(model.system)
+    prior_distributions = _list_priors(model.system)
 
     # We will perform a grid search over these parmeters. Some of them
     # may be unbounded (eg M ~ Normal())
