@@ -39,51 +39,51 @@ chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 37.44 seconds
-Compute duration  = 37.44 seconds
+Wall duration     = 46.62 seconds
+Compute duration  = 46.62 seconds
 parameters        = M, plx, b_a, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_θy, b_θx, b_jitter, b_ω, b_Ω, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Summary Statistics
- <span class="sgr1"> parameters         mean         std        mcse    ess_bulk   ess_tail       ⋯
- <span class="sgr90">     Symbol      Float64     Float64     Float64     Float64    Float64   Flo ⋯
+ <span class="sgr1"> parameters         mean         std       mcse    ess_bulk   ess_tail      r ⋯
+ <span class="sgr90">     Symbol      Float64     Float64    Float64     Float64    Float64   Floa ⋯
 
-           M       1.1943      0.0966      0.0051    356.1227   522.1150    1. ⋯
-         plx      49.9996      0.0189      0.0006   1015.1505   587.3972    1. ⋯
-         b_a      12.4671      4.1374      1.5319      6.5242    20.3102    1. ⋯
-         b_e       0.2746      0.1473      0.0084    316.9518   400.8315    1. ⋯
-         b_i       3.0177      0.3445      0.0359     34.1784   176.9804    1. ⋯
-        b_ωy       0.0185      0.6989      0.0711    102.7712   434.2943    1. ⋯
-        b_ωx       0.2000      0.6952      0.1170     48.0750   203.7401    1. ⋯
-        b_Ωy       0.0185      0.6982      0.0552    178.2749   461.8923    1. ⋯
-        b_Ωx       0.0591      0.7205      0.0625    145.0673   688.8652    1. ⋯
-        b_θy       0.0443      0.7250      0.0585    155.7970   271.9367    1. ⋯
-        b_θx       0.0287      0.7081      0.0669    120.3463   454.1743    1. ⋯
-    b_jitter      21.2336     47.9919      6.7709     35.3838    88.5921    1. ⋯
-         b_ω       0.3828      1.7375      0.1967     97.4374   303.0157    1. ⋯
-         b_Ω       0.0825      1.7814      0.1403    198.7458   410.7552    1. ⋯
-         b_θ       0.0404      1.7598      0.1445    180.3356   359.0846    1. ⋯
-        b_tp   42859.2211   6926.9390   1527.9873     40.0454    94.3578    1. ⋯
+           M       1.1824      0.0935     0.0049    369.5312   576.0579    1.0 ⋯
+         plx      49.9988      0.0210     0.0006   1122.3252   508.6995    0.9 ⋯
+         b_a      12.8593      3.3491     0.9598     11.3634    83.3543    1.0 ⋯
+         b_e       0.2771      0.1445     0.0061    552.1760   382.2097    1.0 ⋯
+         b_i       3.0472      0.1744     0.0135     57.7149   119.7607    1.0 ⋯
+        b_ωy       0.0193      0.7129     0.0516    221.9287   724.1779    1.0 ⋯
+        b_ωx       0.3172      0.6488     0.0663    110.5663   188.0979    1.0 ⋯
+        b_Ωy      -0.0419      0.7070     0.0479    232.1645   722.5845    1.0 ⋯
+        b_Ωx      -0.0892      0.7112     0.0448    283.2456   518.1695    1.0 ⋯
+        b_θy       0.0352      0.7198     0.0436    291.4009   657.1710    1.0 ⋯
+        b_θx      -0.0220      0.7095     0.0477    247.2440   699.2394    1.0 ⋯
+    b_jitter      16.5116     47.4870     3.4473     71.2354   281.2525    1.0 ⋯
+         b_ω       0.6108      1.6819     0.1406    187.6640   496.2079    1.0 ⋯
+         b_Ω      -0.2075      1.8428     0.1069    367.2028   448.8443    0.9 ⋯
+         b_θ      -0.0157      1.7708     0.1060    353.1603   605.8472    1.0 ⋯
+        b_tp   42914.1369   6619.8176   733.3491    137.1658    75.4807    1.0 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       1.0033       1.1342       1.1931       1.2579       1.3891
-         plx      49.9638      49.9872      50.0001      50.0123      50.0366
-         b_a       5.9605       9.0571      12.1794      15.2082      21.1325
-         b_e       0.0114       0.1571       0.2907       0.4058       0.4910
-         b_i       2.4433       3.0416       3.0975       3.1213       3.1382
-        b_ωy      -1.0675      -0.6779       0.0450       0.7145       1.0266
-        b_ωx      -1.0282      -0.4719       0.4144       0.8271       1.0846
-        b_Ωy      -1.0544      -0.6440       0.0138       0.7109       1.0711
-        b_Ωx      -1.0312      -0.6428       0.1121       0.7777       1.0929
-        b_θy      -1.0702      -0.6677       0.0546       0.7415       1.0689
-        b_θx      -1.0886      -0.6634       0.0901       0.7167       1.1002
-    b_jitter       2.5558       4.3058       7.6980      17.6970     143.1550
-         b_ω      -2.9715      -0.9570       0.6556       1.7526       2.9534
-         b_Ω      -2.9435      -1.4651       0.2362       1.5868       2.9414
-         b_θ      -2.9596      -1.5138       0.1375       1.5147       2.9374
-        b_tp   24114.4792   39815.8665   44855.6843   48222.6945   50292.6721
-</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="6fced9fe.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../thiele-innes/">« Fit Thiele-Innes Parameters</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">Fit GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 25 July 2024 21:02">Thursday 25 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+           M       1.0212       1.1157       1.1814       1.2433       1.3758
+         plx      49.9589      49.9854      49.9991      50.0124      50.0383
+         b_a       8.1641      10.2091      12.3826      14.6384      20.7031
+         b_e       0.0236       0.1579       0.2841       0.4064       0.4902
+         b_i       2.5487       3.0502       3.0932       3.1166       3.1390
+        b_ωy      -1.0763      -0.6740       0.0538       0.7185       1.0620
+        b_ωx      -0.9995      -0.1453       0.5171       0.8683       1.1014
+        b_Ωy      -1.0908      -0.6954      -0.0921       0.6594       1.0516
+        b_Ωx      -1.0555      -0.7655      -0.1787       0.6275       1.0649
+        b_θy      -1.0705      -0.6661       0.0426       0.7374       1.0844
+        b_θx      -1.0517      -0.7173      -0.0309       0.6819       1.0754
+    b_jitter       1.5562       3.0874       5.5110      11.6606     107.4378
+         b_ω      -3.0002      -0.3533       0.9273       1.8773       3.0422
+         b_Ω      -3.0090      -1.8667      -0.3998       1.4183       3.0139
+         b_θ      -2.9097      -1.5351      -0.0466       1.4817       2.9538
+        b_tp   24759.9378   39303.4232   44275.8933   48235.1019   50253.7578
+</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="a600e807.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../thiele-innes/">« Fit Thiele-Innes Parameters</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">Fit GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Friday 26 July 2024 21:16">Friday 26 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
