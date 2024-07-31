@@ -309,8 +309,11 @@ function Octofitter.octoplot(
         Octofitter.masspostplot!(gl, model, results;)
     end
 
-    # hgcaplot
-    Makie.resize_to_layout!(fig)
+    try
+        Makie.resize_to_layout!(fig)
+    catch
+        @warn "Erorr occurred with resize_to_layout!"
+    end
 
     save(fname, fig)
 
