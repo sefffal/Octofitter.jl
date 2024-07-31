@@ -58,7 +58,7 @@ function Octofitter.ln_like(
     planet_orbits::NTuple{N,<:AbstractOrbit},
     num_epochs::Val{L}=Val(length(rvlike.table))
 ) where {L,N}
-    T = typeof(first(θ_system))
+    T = _system_number_type(θ_system)
     ll = zero(T)
 
     # Each RV instrument index can have it's own barycentric RV offset and jitter.

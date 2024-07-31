@@ -126,7 +126,7 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
     # elements = construct_elements(θ_system, θ_planet)
 
     imgtable = images.table
-    T = eltype(first(θ_planet))
+    T = _system_number_type(θ_planet)
     ll = zero(T)
     for i in eachindex(imgtable.epoch)
 
@@ -177,6 +177,14 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
         if !isfinite(f_band)
             @warn "Flux variable is not finite" band f_band 
         end
+
+        # if !isfinite(σₓ) || iszero(σₓ)
+        #     σₓ =  prevfloat(typemax(typeof(σₓ)))
+        # end
+
+        # if !isfinite(f_band)
+        #     @warn "Flux variable is not finite (maxlog=5)" band f_band maxlog=5
+        # end
 
         # Direct imaging likelihood.
         # Notes: we are assuming that the different images fed in are not correlated.
