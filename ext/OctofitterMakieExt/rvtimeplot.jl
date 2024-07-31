@@ -97,11 +97,8 @@ function rvtimeplot!(
         M_star = M_tot - M_planet
 
         ### Star RV    
-        rv_star_model_t .+= -radvel.(sols) .* M_planet ./ M_tot
+        rv_star_model_t .+= radvel.(sols, M_planet)
 
-        # We subtract off the "average" instrument RV offset here.
-        # This varies by instrument, and isn't centred around a net hierarchical value.
-        # For now just take the average of the different zero points per row.
         color_model_t .= rem2pi.(
             meananom.(sols), RoundDown) .+ 0 .* ii
 
@@ -143,17 +140,6 @@ function rvtimeplot!(
 
     end
 
-    if haskey(results, :rv0_1)
-        rv0s = []
-        for i in 1:10
-            k = Symbol("rv0_$i")
-            if haskey(results, k)
-                push!(rv0s, results[k][ii])
-            end
-        end
-        ave_rv0 = mean(stack(rv0s),dims=2)
-        rv_star_model_t .+= ave_rv0
-    end
     lines!(ax,
         concat_with_nan(ts' .+ 0 .* rv_star_model_t),
         concat_with_nan(rv_star_model_t);
@@ -207,32 +193,38 @@ function rvtimeplot!(
             continue
         end
         epoch = vec(like_obj.table.epoch)
-        rv = vec(like_obj.table.rv)
+        rv = collect(vec(like_obj.table.rv))
         σ_rv = vec(like_obj.table.σ_rv)
-        inst_idx = vec(like_obj.table.inst_idx)
-        if any(!=(1), inst_idx)
-            @warn "instidx != 1 data plotting not yet implemented"
-            continue
+        inst_idxes = vec(like_obj.table.inst_idx)
+        # if any(!=(1), inst_idx)
+        #     @warn "instidx != 1 data plotting not yet implemented"
+        #     continue
+        # end
+        num_idx = maximum(inst_idxes)
+        for inst_idx in sort(unique(inst_idxes))
+            mask = inst_idxes .== inst_idx
+            jitter = vec(results["jitter_$inst_idx"])'
+            rv0 = vec(results["rv0_$inst_idx"])'
+            σ_tot = sqrt.(σ_rv[mask] .^2 .+ mean(jitter) .^2 .+ var(rv0))
+            rv[mask] .-= mean(rv0,dims=2)
+            Makie.errorbars!(
+                ax, epoch[mask], rv[mask], σ_tot;
+                color = planet_rv ? Makie.wong_colors()[1] : :grey,
+                linewidth=1,
+            )
+            Makie.errorbars!(
+                ax, epoch[mask], rv[mask], σ_rv[mask];
+                color = num_idx > 1 ? Makie.wong_colors()[inst_idx] : :black,
+                linewidth=2,
+            )
+            Makie.scatter!(
+                ax, epoch[mask], rv[mask];
+                color = num_idx > 1 ? Makie.wong_colors()[inst_idx] : :black,
+                strokewidth=0.5,
+                strokecolor=:black,
+                markersize=4,
+            )
         end
-        jitter = median(collect(results["jitter_1"]))
-        σ_tot = sqrt.(σ_rv .^2 .+ jitter .^2)
-        Makie.errorbars!(
-            ax, epoch, rv, σ_tot;
-            color = planet_rv ? Makie.wong_colors()[1] : :grey,
-            linewidth=1,
-        )
-        Makie.errorbars!(
-            ax, epoch, rv, σ_rv;
-            color = planet_rv ? Makie.wong_colors()[1] : :black,
-            linewidth=2,
-        )
-        Makie.scatter!(
-            ax, epoch, rv;
-            color = planet_rv ? Makie.wong_colors()[1] : :black,
-            strokewidth=0.5,
-            strokecolor=:black,
-            markersize=4,
-        )
     end
 
     if colorbar
