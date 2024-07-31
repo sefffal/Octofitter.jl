@@ -45,12 +45,16 @@ function Octofitter.rvpostplot!(
         error("`rvpostplot` requires a system with a StarAbsoluteRVLikelihood.")
     end
     rvs = only(rv_likes)
-    ii = rand(1:size(results,1),100)
-
-
     # Start filling the RV plot
     els = Octofitter.construct_elements(results,planet_key, :)
     M = (results[string(planet_key)*"_mass"] .* PlanetOrbits.mjup2msol)
+
+    # Sometimes we want the true RV, including eg perspecive acceleration, and
+    # sometimes we want just the perturbation orbit. 
+    # This function returns an orbit-element's parent orbit-element if its
+    # an AbsoluteVisualOrbit, otherwise, just returns the passed in element.
+    nonabsvis_parent(element::AbsoluteVisual) = element.parent 
+    nonabsvis_parent(element::AbstractOrbit) = element
 
     # For phase-folded plot
     t_peri = periastron(els[sample_idx])
@@ -63,8 +67,8 @@ function Octofitter.rvpostplot!(
     # Ensure the curve has points at exactly our data points. Otherwise for fine structure
     # we might miss them unless we add a very very fine grid.
     ts = sort(vcat(ts_grid, vec(rvs.table.epoch)))
-    RV = radvel.(els[ii], ts', M[ii])
-    RV_map = radvel.(els[sample_idx], ts, M[sample_idx])
+    # RV = radvel.(els[ii], ts', M[ii])
+    # RV_map = radvel.(els[sample_idx], ts, M[sample_idx])
 
     # For secondary date axis on top
     date_start = mjd2date(ts[begin])
@@ -111,16 +115,14 @@ function Octofitter.rvpostplot!(
     rowgap!(gs, 1, 0)
 
     # Horizontal zero line
-    hlines!(ax_resid, 0, color=:blue, linewidth=5)
+    hlines!(ax_resid, 0, color=:black, linewidth=3)
 
-    # for rv_post in eachrow(RV)
-    #     lines!(
-    #         ax_fit,
-    #         ts,
-    #         rv_post,
-    #         color=(:blue, 0.05)
-    #     )
-    # end
+    # Perspective acceleration line
+    if els[sample_idx] isa AbsoluteVisual
+        lines!(ax_fit, ts_grid, radvel.(els[sample_idx], ts_grid, 0.0), color=:orange)
+        text!(ax_fit, 1.0, 0.0, text="Perspective", space=:relative, align=(:right,:bottom), color=:orange, )
+    end
+        
 
     # Calculate RVs minus the median instrument-specific offsets.
     # Use the MAP parameter values
@@ -135,18 +137,17 @@ function Octofitter.rvpostplot!(
         rvs_off_sub[thisinst_mask] .-= barycentric_rv_inst
         jitters_all[thisinst_mask] .= jitter
     end
-    # Calculate the residuals minus the orbit model
-    # Use the MAP values
+    # Calculate the residuals minus the orbit model and any perspecive acceleration
     model_at_data = radvel.(els[sample_idx], rvs.table.epoch, M[sample_idx]) 
     resids_all = rvs_off_sub .- model_at_data 
-    rvs_off_gp_sub = zeros(length(resids_all))
     errs_all = zeros(length(resids_all))
     data_minus_off_and_gp  = zeros(length(resids_all))
+    perspective_accel_to_remove = radvel.(els[sample_idx], rvs.table.epoch, 0.0)
 
     # Model plot vs phase-folded data
     phases = -0.5:0.005:0.5
     ts_phase_folded = ((phases .+ 0.5) .* T) .+ t_peri .+ T/4
-    RV = radvel.(els[sample_idx], ts_phase_folded, M[sample_idx])
+    RV = radvel.(nonabsvis_parent(els[sample_idx]), ts_phase_folded, M[sample_idx])
     Makie.lines!(
         ax_phase,
         phases,
@@ -176,31 +177,8 @@ function Octofitter.rvpostplot!(
         )))
 
 
-        ## Gaussian Process. We have one per instrument
-        # I think this is implementable as 
-        # η₁ = h # the amplitude of the covariance function
-        # η₂  # equivalent to the evolution timescale of features in the stellar surface which produce activity-induced RV variations
-        # η₃  # is equivalent to the stellar rotation period
-        # η₄   # gives a measure of the level of high-frequency variability structure in the GP model
-        # η₃? = θ  # the period of the correlated noise 
-        # η₂? = λ  # characteristic decay timescale of the correlation (spot lifetime)
-        # η₄? = ω # coherence scale (sometimes called the structure parameter)
-
-
-        # η₁ = results["gp_η₁"][sample_idx]
-        # η₂ = results["gp_η₂"][sample_idx]
-        # η₃ = results["gp_η₃"][sample_idx]
-        # η₄ = results["gp_η₄"][sample_idx]
-        # kernel = η₁^2 * 
-        #             # (Matern52Kernel() ∘ ScaleTransform(2/η₂)) *  
-        #             # (ApproxPeriodicKernel{7}(r=η₄) ∘ ScaleTransform(1/η₃)) #
-        #             # This is a closer match to what other packages use
-        #             (SqExponentialKernel() ∘ ScaleTransform(1/(η₂))) *
-        #             (PeriodicKernel(r=[η₄]) ∘ ScaleTransform(1/(η₃)))
-        # gp_naive = GP(kernel)
-        # map_gp = gp_naive
-        # # map_gp = to_sde(gp_naive, SArrayStorage(Float64))
-
+        # Plot a gaussian process per-instrument
+        # If not using a GP, we fit a GP with a "ZeroKernel"
         map_gp = nothing
         if !isnothing(rvs.gaussian_process)
             row = results[sample_idx,:,:];
@@ -234,7 +212,6 @@ function Octofitter.rvpostplot!(
 
         # Subtract MAP GP from residuals
         resid = resids_all[thisinst_mask] .-= mean(map_gp_posterior, vec(data.epoch))
-        # rvs_off_gp_sub[thisinst_mask] .= rvs_off_sub[thisinst_mask] .- mean(map_gp_posterior, vec(data.epoch))
         data_minus_off_and_gp[thisinst_mask] .= rvs_off_sub_this .- mean(map_gp_posterior, vec(data.epoch))
         y_inst, var = mean_and_var(map_gp_posterior, ts_inst)
 
@@ -315,7 +292,7 @@ function Octofitter.rvpostplot!(
         errorbars!(
             ax_phase,
             phase_folded,
-            data_minus_off_and_gp[thisinst_mask],
+            data_minus_off_and_gp[thisinst_mask].-perspective_accel_to_remove[thisinst_mask],
             errs,
             linewidth=1,
             color="#CCC",
@@ -323,7 +300,7 @@ function Octofitter.rvpostplot!(
         errorbars!(
             ax_phase,
             phase_folded,
-            data_minus_off_and_gp[thisinst_mask],
+            data_minus_off_and_gp[thisinst_mask].-perspective_accel_to_remove[thisinst_mask],
             data.σ_rv,
             # linewidth=1,
             color=Makie.wong_colors()[inst_idx]
@@ -363,10 +340,10 @@ function Octofitter.rvpostplot!(
             strokecolor=:black,strokewidth=0.1,
         )
         phase_folded = mod.(data.epoch .- t_peri .- T/4, T)./T .- 0.5
-        Makie.scatter!(
+        Makie.scatter!( 
             ax_phase,
             phase_folded,
-            data_minus_off_and_gp[thisinst_mask],
+            data_minus_off_and_gp[thisinst_mask].-perspective_accel_to_remove[thisinst_mask],
             color=Makie.wong_colors()[inst_idx],
             markersize=4,
             strokecolor=:black,strokewidth=0.1,
@@ -379,7 +356,8 @@ function Octofitter.rvpostplot!(
 
     # Binned values on phase folded plot
     # Noise weighted (including jitter and GP)
-    bins = -0.45:0.1:0.45
+    # bins = -0.45:0.1:0.45
+    bins = -0.495:0.05:0.495
     binned = zeros(length(bins))
     binned_unc = zeros(length(bins))
     phase_folded = mod.(rvs.table.epoch[:] .- t_peri .- T/4, T)./T .- 0.5
@@ -394,11 +372,11 @@ function Octofitter.rvpostplot!(
             continue
         end
         binned[i] = mean(
-            data_minus_off_and_gp[mask],
+            data_minus_off_and_gp[mask] .- perspective_accel_to_remove[mask],
             ProbabilityWeights(1 ./ errs_all[mask].^2)
         )
         binned_unc[i] = sem(
-            data_minus_off_and_gp[mask],
+            data_minus_off_and_gp[mask] .- perspective_accel_to_remove[mask],
             ProbabilityWeights(1 ./ errs_all[mask].^2)
         )
     end
