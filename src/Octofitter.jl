@@ -37,6 +37,7 @@ const mjup2msol = 0.0009543
 # Re-export the Chains constructor.
 export Chains 
 
+include("units.jl")
 include("orbit-models.jl")
 include("distributions.jl")
 include("variables.jl")
