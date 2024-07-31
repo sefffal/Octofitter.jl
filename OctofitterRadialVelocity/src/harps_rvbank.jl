@@ -32,7 +32,7 @@ function HARPS_RVBank_rvs(target, catalog=datadep"HARPS_RVBank"; inst_idx::Int=1
     return StarAbsoluteRVLikelihood(Table(;
         epoch=OctofitterRadialVelocity.jd2mjd.(table.BJD),
         inst_idx=fill(inst_idx,size(table,1)),
-        rv=-table.RV_mlc_nzp,
+        rv=table.RV_mlc_nzp,
         σ_rv=table.e_RV_mlc_nzp,
     ))
 end
