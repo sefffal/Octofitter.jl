@@ -44,7 +44,13 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
         try
             verbosity >= 3 && @info "Starting multipathfinder run"
             init_sampler = function(rng, x) 
+                if verbosity > 3
+                    @info "drawing new starting guess by sampling IID from priors"
+                end
                 initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
+                if verbosity > 3
+                    @info "Starting point drawn" initial_logpost=mapv
+                end
                 initial_θ_t = model.link(initial_θ)
                 x .= initial_θ_t
             end
@@ -102,9 +108,12 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
         II = sortperm(logposts)[end-ndraws:end]
         model.starting_points = samples_t[II]
         initial_logpost_range = extrema(@view logposts[II])
+        logposts = logposts[II]
     end
 
     if verbosity >= 1
         @info "Found a sample of initial positions" initial_logpost_range
     end
+
+    return model.arr2nt(model.invlink(model.starting_points[argmax(logposts)]))
 end
