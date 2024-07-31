@@ -131,6 +131,7 @@ Base.@nospecializeinfer function MCMCChains.Chains(
     pt::Pigeons.PT,
     chain_num::Int=pt.inputs.n_chains
 )
+    ln_prior = Octofitter.make_ln_prior_transformed(model.system)
     ln_like = Octofitter.make_ln_like(model.system, model.arr2nt(model.sample_priors(Random.default_rng())))
 
     # Resolve the array back into the nested named tuple structure used internally.
@@ -138,7 +139,7 @@ Base.@nospecializeinfer function MCMCChains.Chains(
     samples = get_sample(pt, chain_num)
     chain_res = map(samples) do sample 
         θ_t = @view(sample[begin:begin+model.D-1])
-        logpost = sample[model.D+1]
+        logpot = sample[model.D+1]
         # Map the variables back to the constrained domain and reconstruct the parameter
         # named tuple structure.
         θ = model.invlink(θ_t)
@@ -146,10 +147,14 @@ Base.@nospecializeinfer function MCMCChains.Chains(
         # Add log posterior, tree depth, and numerical error reported by
         # the sampler.
         # Also recompute the log-likelihood and add that too.
-        loglike = ln_like(model.system, resolved_namedtuple)
+        ll = ln_like(model.system, resolved_namedtuple)
+        lp = ln_prior(θ,true)
+        # logpot does not equal ll + lp, so I'm not fully sure what it is.
         return merge((;
-            loglike,
-            logpost,
+            loglike=ll,
+            logprior=lp,
+            logpost=ll+lp,
+            pigeons_logpotential = logpot
         ), resolved_namedtuple)
     end
     # Then finally flatten and convert into an MCMCChain object / table.
@@ -158,7 +163,9 @@ Base.@nospecializeinfer function MCMCChains.Chains(
         chain_res,
         Dict(:internals => [
             :loglike,
-            :logpost
+            :logpost,
+            :logprior,
+            :pigeons_logpotential,
         ])
     )
     return mcmcchains
