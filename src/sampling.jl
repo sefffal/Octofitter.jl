@@ -241,6 +241,32 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
             tp=chain[pk*"_tp"][i],
             a=chain[pk*"_a"][i],
         )...)
+    elseif haskey(chain, :ra) && haskey(chain, :ref_epoch) && haskey(chain, :plx) && haskey(chain, :M) && haskey(chain, :rv)
+        return AbsoluteVisual{RadialVelocityOrbit}(;(;
+            ref_epoch=chain["ref_epoch"][i],
+            ra=chain["ra"][i],
+            dec=chain["dec"][i],
+            rv=chain["rv"][i],
+            pmra=chain["pmra"][i],
+            pmdec=chain["pmdec"][i],
+            plx=chain["plx"][i],
+            M=chain["M"][i],
+            ω=chain[pk*"_ω"][i],
+            e=chain[pk*"_e"][i],
+            tp=chain[pk*"_tp"][i],
+            a=chain[pk*"_a"][i],
+        )...)
+    elseif haskey(chain, :plx) && haskey(chain, :M) && haskey(chain, :rv)
+        return Visual{RadialVelocityOrbit}(;(;
+            pmra=chain["pmra"][i],
+            pmdec=chain["pmdec"][i],
+            plx=chain["plx"][i],
+            M=chain["M"][i],
+            ω=chain[pk*"_ω"][i],
+            e=chain[pk*"_e"][i],
+            tp=chain[pk*"_tp"][i],
+            a=chain[pk*"_a"][i],
+        )...)
     elseif haskey(chain, :M) && haskey(chain, :rv)
         return RadialVelocityOrbit(;(;
             M=chain["M"][i],
@@ -494,7 +520,55 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii:
                z = z[i],
            )...)
        end
-    elseif haskey(chain, Symbol("M"))
+
+    elseif haskey(chain, :M) && haskey(chain, :ra) && haskey(chain, :ref_epoch) && haskey(chain, :plx)
+        Ms=chain["M"]
+        ωs=chain[pk*"_ω"]
+        es=chain[pk*"_e"]
+        tps=chain[pk*"_tp"]
+        as=chain[pk*"_a"]
+        plx=chain[:plx]
+        ref_epochs=chain["ref_epoch"]
+        ras=chain["ra"]
+        decs=chain["dec"]
+        rvs=chain["rv"]
+        pmras=chain["pmra"]
+        pmdecs=chain["pmdec"]
+        return map(ii) do i
+            AbsoluteVisual{RadialVelocityOrbit}(;(;
+                M=Ms[i],
+                ω=ωs[i],
+                e=es[i],
+                tp=tps[i],
+                a=as[i],
+                plx=plx[i],
+                ref_epoch=ref_epochs[i],
+                ra=ras[i],
+                dec=decs[i],
+                rv=rvs[i],
+                pmra=pmras[i],
+                pmdec=pmdecs[i],
+            )...)
+        end
+
+    elseif haskey(chain, :M) && haskey(chain, :plx)
+        Ms=chain["M"]
+        ωs=chain[pk*"_ω"]
+        es=chain[pk*"_e"]
+        tps=chain[pk*"_tp"]
+        as=chain[pk*"_a"]
+        plx=chain[:plx]
+        return map(ii) do i
+            Visual{RadialVelocityOrbit}(;(;
+                M=Ms[i],
+                ω=ωs[i],
+                e=es[i],
+                tp=tps[i],
+                a=as[i],
+                plx=plx[i],
+            )...)
+        end
+    elseif haskey(chain, :M)
         Ms=chain["M"]
         ωs=chain[pk*"_ω"]
         es=chain[pk*"_e"]
@@ -779,7 +853,7 @@ Base.@nospecializeinfer function advancedhmc(
     if ratio_divergent_transitions == 1.0
         @error "Numerical errors encountered in ALL iterations. Check model and priors."
     elseif ratio_divergent_transitions > 0.05
-        @warn "Numerical errors encountered in more than 5% of iterations. Results are likely incorrect. Your model might have high curvature, and could be improved. Otherwise, increasing the target acceptance rate" ratio_divergent_transitions
+        @warn "Numerical errors encountered in more than 5% of iterations. Results are likely incorrect. Your model might have high curvature, and could be improved. Otherwise, increasing the target acceptance rate (second argument to `octofit`) might help" ratio_divergent_transitions
     end
     if max_tree_depth_frac > 0.1
         @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
@@ -842,6 +916,7 @@ Base.@nospecializeinfer function advancedhmc(
         (;
             start_time,
             stop_time,
+            samples_transformed=mc_samples
         )
     )
     return mcmcchains_with_info
