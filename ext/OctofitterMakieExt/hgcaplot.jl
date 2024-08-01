@@ -173,16 +173,16 @@ function Octofitter.hgcaplot!(
     end
     hgca_like = only(like_objs)
 
-    tx = years2mjd.([
-        hgca_like.table.epoch_ra_hip
-        (hgca_like.table.epoch_ra_hip + hgca_like.table.epoch_ra_gaia) / 2
-        hgca_like.table.epoch_ra_gaia
-    ])
-    ty = years2mjd.([
-        hgca_like.table.epoch_dec_hip
-        (hgca_like.table.epoch_dec_hip + hgca_like.table.epoch_dec_gaia) / 2
-        hgca_like.table.epoch_dec_gaia
-    ])
+    tx = [
+        hgca_like.table.epoch_ra_hip_mjd
+        (hgca_like.table.epoch_ra_hip_mjd + hgca_like.table.epoch_ra_gaia_mjd) / 2
+        hgca_like.table.epoch_ra_gaia_mjd
+    ]
+    ty = [
+        hgca_like.table.epoch_dec_hip_mjd
+        (hgca_like.table.epoch_dec_hip_mjd + hgca_like.table.epoch_dec_gaia_mjd) / 2
+        hgca_like.table.epoch_dec_gaia_mjd
+    ]
     x = [
         hgca_like.table.pmra_hip
         hgca_like.table.pmra_hg
