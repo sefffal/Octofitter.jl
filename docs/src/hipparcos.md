@@ -34,11 +34,11 @@ end
     pmdec ~  Uniform(-100, 100)
 
 
-    # It is convenient to put a prior of the catalog value +- 1000 mas on position
+    # It is convenient to put a prior of the catalog value +- 10,000 mas on position
     ra_hip_offset_mas ~  Normal(0, 10000)
     dec_hip_offset_mas ~ Normal(0, 10000)
     dec = hip_like.hip_sol.dedeg + system.ra_hip_offset_mas/60/60/1000
-    ra = hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000
+    ra = hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cos(system.ra)
 
     ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
 
@@ -82,7 +82,10 @@ for prop in (
         i = 1
     end
     unc = hip_like.hip_sol[prop.hip_err]
-    if prop.chain == :ra || prop.chain == :dec
+    if prop.chain == :ra
+        unc /= 60*60*1000 * cos(hip_like.hip_sol.dedeg)
+    end
+    if prop.chain == :dec
         unc /= 60*60*1000
     end
     if prop.hip == :zero
