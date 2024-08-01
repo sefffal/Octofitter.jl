@@ -291,14 +291,14 @@ function Octofitter.hgcaplot!(
         )
         Makie.scatter!(
             ax_velra,
-            [years2mjd(only(hgca_like_sim.table.epoch_ra_hip))],
+            [(only(hgca_like_sim.table.epoch_ra_hip_mjd))],
             [only(hgca_like_sim.table.pmra_hip)],
             color=:black,
             markersize=3,
         )
         Makie.scatter!(
             ax_veldec,
-            [years2mjd(only(hgca_like_sim.table.epoch_dec_hip))],
+            [(only(hgca_like_sim.table.epoch_dec_hip_mjd))],
             [only(hgca_like_sim.table.pmdec_hip)],
             color=:black,
             markersize=3,
@@ -311,20 +311,20 @@ function Octofitter.hgcaplot!(
             color=:black,
             markersize=2,
         )
-        hg_ra_epoch = (only(hgca_like_sim.table.epoch_ra_hip) +
-                       only(hgca_like_sim.table.epoch_ra_gaia)) / 2
-        hg_dec_epoch = (only(hgca_like_sim.table.epoch_dec_hip) +
-                        only(hgca_like_sim.table.epoch_dec_gaia)) / 2
+        hg_ra_epoch = (only(hgca_like_sim.table.epoch_ra_hip_mjd) +
+                       only(hgca_like_sim.table.epoch_ra_gaia_mjd)) / 2
+        hg_dec_epoch = (only(hgca_like_sim.table.epoch_dec_hip_mjd) +
+                        only(hgca_like_sim.table.epoch_dec_gaia_mjd)) / 2
         Makie.scatter!(
             ax_velra,
-            [years2mjd(hg_ra_epoch)],
+            [(hg_ra_epoch)],
             [only(hgca_like_sim.table.pmra_hg)],
             color=:black,
             markersize=3,
         )
         Makie.scatter!(
             ax_veldec,
-            [years2mjd(hg_dec_epoch)],
+            [(hg_dec_epoch)],
             [only(hgca_like_sim.table.pmdec_hg)],
             color=:black,
             markersize=3,
@@ -339,14 +339,14 @@ function Octofitter.hgcaplot!(
         )
         Makie.scatter!(
             ax_velra,
-            [years2mjd(only(hgca_like_sim.table.epoch_ra_gaia))],
+            [(only(hgca_like_sim.table.epoch_ra_gaia_mjd))],
             [only(hgca_like_sim.table.pmra_gaia)],
             color=:black,
             markersize=3,
         )
         Makie.scatter!(
             ax_veldec,
-            [years2mjd(only(hgca_like_sim.table.epoch_dec_gaia))],
+            [(only(hgca_like_sim.table.epoch_dec_gaia_mjd))],
             [only(hgca_like_sim.table.pmdec_gaia)],
             color=:black,
             markersize=3,

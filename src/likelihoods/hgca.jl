@@ -45,7 +45,7 @@ for a star with catalog id `gaia_id`.
 The resulting velocities are in mas/yr and have the long term trend between HIPPARCOS and GAIA
 already subtracted out. e.g. we would expect 0 pma if there is no companion.
 """
-function HGCALikelihood(; gaia_id, catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits")
+function HGCALikelihood(; gaia_id, catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits",expand_uncertainties_factor=1)
 
     # Load the Hipparcos-GAIA catalog of accelerations (downloaded automatically with datadeps)
     hgca_all = FITS(catalog, "r") do fits
@@ -61,7 +61,29 @@ function HGCALikelihood(; gaia_id, catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.f
 
     # Find the row with a GAIA source id match
     idx = findfirst(==(gaia_id), hgca_all.gaia_source_id)
-    hgca = NamedTuple(hgca_all[idx])
+    hgca_all.pmra_hip_error[idx] *= expand_uncertainties_factor
+    hgca_all.pmdec_hip_error[idx] *= expand_uncertainties_factor
+    hgca_all.pmra_hg_error[idx] *= expand_uncertainties_factor
+    hgca_all.pmdec_hg_error[idx] *= expand_uncertainties_factor
+    hgca_all.pmra_gaia_error[idx] *= expand_uncertainties_factor
+    hgca_all.pmdec_gaia_error[idx] *= expand_uncertainties_factor
+
+    # Convert measurement epochs to MJD.
+    # The HGCA doesn't say, but we assume these are actually Julian years and not decimal years.
+    J2000_mjd = 51544.5 # year J2000 in MJD
+    epoch_ra_hip_mjd = (hgca_all.epoch_ra_hip[idx] - 2000)*julian_year + J2000_mjd
+    epoch_dec_hip_mjd = (hgca_all.epoch_dec_hip[idx] - 2000)*julian_year + J2000_mjd
+    epoch_ra_gaia_mjd = (hgca_all.epoch_ra_gaia[idx] - 2000)*julian_year + J2000_mjd
+    epoch_dec_gaia_mjd = (hgca_all.epoch_dec_gaia[idx] - 2000)*julian_year + J2000_mjd
+
+    hgca = (;
+        NamedTuple(hgca_all[idx])...,
+        epoch_ra_hip_mjd,
+        epoch_dec_hip_mjd,
+        epoch_ra_gaia_mjd,
+        epoch_dec_gaia_mjd,
+    )
+
 
     # Hipparcos epoch
     c = hgca.pmra_pmdec_hip[1] * hgca.pmra_hip_error[1] * hgca.pmdec_hip_error[1]
@@ -119,8 +141,8 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, elements, _L=1) #=length 
     # TODO: We have to undo the spherical coordinate correction that was done in the HGCA catalog
     # since our calculations use real, not tangent plane, coordinates
     resids_hg = @SArray[
-        pmra_hg_model - hgca_like.table.pmra_hg[1]# - hgca_like.table.nonlinear_dpmra[1],
-        pmdec_hg_model - hgca_like.table.pmdec_hg[1]# - hgca_like.table.nonlinear_dpmdec[1]
+        pmra_hg_model - hgca_like.table.pmra_hg[1]
+        pmdec_hg_model - hgca_like.table.pmdec_hg[1]
     ]
     ll += logpdf(hgca_like.table.dist_hg[1], resids_hg)
 
@@ -130,7 +152,6 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, elements, _L=1) #=length 
         pmdec_gaia_model - hgca_like.table.pmdec_gaia[1]
     ]
     ll += logpdf(hgca_like.table.dist_gaia[1], resids_gaia)
-
 
     return ll
 end
@@ -143,7 +164,7 @@ function _simulate_hgca(pma, θ_system, orbits)
 
     # Roughly over what time period were the observations made?
     dt_gaia = 1038 # EDR3: days between  Date("2017-05-28") - Date("2014-07-25")
-    dt_hip = 4 * 365 # 4 years for Hipparcos
+    dt_hip = 4 * 365.25 # 4 years for Hipparcos
 
     # How many points over Δt should we average the proper motion and stellar position
     # at each epoch? This is because the PM is not an instantaneous measurement.
@@ -162,12 +183,12 @@ function _simulate_hgca(pma, θ_system, orbits)
     # If the user specified a AbsoluteVisual orbit, we will compute things a
     # little differently
     absolute_orbits = false
-    # for orbit in orbits
-    #     absolute_orbits |= orbit isa AbsoluteVisual
-    #     # TODO: could check in a more user-friendly way
-    #     # that we don't have a mismatch of different orbit types 
-    #     # for different planets?
-    # end
+    for orbit in orbits
+        absolute_orbits |= orbit isa AbsoluteVisual
+        # TODO: could check in a more user-friendly way
+        # that we don't have a mismatch of different orbit types 
+        # for different planets?
+    end
 
     deg2mas = 60 * 60 * 1000
 
@@ -193,8 +214,8 @@ function _simulate_hgca(pma, θ_system, orbits)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
             # make it the same unit as the total mass (element.mu)
-            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_hip[1]) + δt)
-            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_hip[1]) + δt)
+            o_ra = orbitsolve(orbit, hgca.epoch_ra_hip_mjd[1] + δt)
+            o_dec = orbitsolve(orbit, hgca.epoch_dec_hip_mjd[1] + δt)
             ra_hip_model += raoff(o_ra, θ_planet.mass * mjup2msol)
             dec_hip_model += decoff(o_dec, θ_planet.mass * mjup2msol)
             if absolute_orbits
@@ -230,8 +251,8 @@ function _simulate_hgca(pma, θ_system, orbits)
             # RA and dec epochs are usually slightly different
             # Note the unit conversion here from jupiter masses to solar masses to 
             # make it the same unit as the total mass (element.mu)
-            o_ra = orbitsolve(orbit, years2mjd(hgca.epoch_ra_gaia[1]) + δt)
-            o_dec = orbitsolve(orbit, years2mjd(hgca.epoch_dec_gaia[1]) + δt)
+            o_ra = orbitsolve(orbit, hgca.epoch_ra_gaia_mjd[1] + δt)
+            o_dec = orbitsolve(orbit, hgca.epoch_dec_gaia_mjd[1] + δt)
             ra_gaia_model += raoff(o_ra, θ_planet.mass * mjup2msol)
             dec_gaia_model += decoff(o_dec, θ_planet.mass * mjup2msol)
             if absolute_orbits
@@ -250,8 +271,8 @@ function _simulate_hgca(pma, θ_system, orbits)
     pmdec_gaia_model += θ_system.pmdec
 
     # Model the GAIA-Hipparcos delta-position velocity in mas/yr
-    pmra_hg_model = (ra_gaia_model - ra_hip_model) / (hgca.epoch_ra_gaia[1] - hgca.epoch_ra_hip[1])
-    pmdec_hg_model = (dec_gaia_model - dec_hip_model) / (hgca.epoch_dec_gaia[1] - hgca.epoch_dec_hip[1])
+    pmra_hg_model = (ra_gaia_model - ra_hip_model) / ((hgca.epoch_ra_gaia_mjd[1] - hgca.epoch_ra_hip_mjd[1])/julian_year)
+    pmdec_hg_model = (dec_gaia_model - dec_hip_model) / ((hgca.epoch_dec_gaia_mjd[1] - hgca.epoch_dec_hip_mjd[1])/julian_year)
     if absolute_orbits
         # Cosine factor to go from alpha to alpha-star
         pmra_hg_model *= cosd((dec_gaia_model + dec_hip_model)/2/deg2mas)
@@ -261,17 +282,16 @@ function _simulate_hgca(pma, θ_system, orbits)
         pmdec_hg_model += θ_system.pmdec
     end
 
-    # TODO deal with undoing the non-linear corrections already applied
 
     # The HGCA catalog values have an non-linearity correction added.
     # If we are doing our own rigorous propagation we don't need this
     # correction. We could subtract it from the measurements, but 
     # here we just add it to our model so that they match
     if absolute_orbits
-        pmra_hip_model += 2hgca.nonlinear_dpmra[1]
-        pmdec_hip_model += 2hgca.nonlinear_dpmdec[1]
         pmra_hg_model += hgca.nonlinear_dpmra[1]
         pmdec_hg_model += hgca.nonlinear_dpmdec[1]
+        pmra_hip_model += 2hgca.nonlinear_dpmra[1]
+        pmdec_hip_model += 2hgca.nonlinear_dpmdec[1]
     end
 
     return (;
@@ -291,6 +311,7 @@ Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motio
 using 25 position measurements averaged at each of their epochs.
 """
 function generate_from_params(hgca_like::HGCALikelihood, θ_system, orbits)
+
     (;
         pmra_hip_model,
         pmdec_hip_model,
@@ -299,7 +320,7 @@ function generate_from_params(hgca_like::HGCALikelihood, θ_system, orbits)
         pmra_hg_model,
         pmdec_hg_model,
     ) = _simulate_hgca(hgca_like, θ_system, orbits)
-    
+
     # Merge the measurements together into a new observation and add noise according to the sigma
     # we were passed in from the original measurements
     return HGCALikelihood(merge(hgca_like.table[1], (;
