@@ -39,6 +39,7 @@ function Octofitter.octoplot(
     show_rv=nothing,
     planet_rv=nothing, # plot planet(s) absolute RV in addition to star
     show_relative_rv=nothing,
+    show_hipparcos=nothing,
     mark_epochs_mjd=Float64[],
     figure=(;),
     # If less than 500 samples, just show all of them
@@ -97,6 +98,16 @@ function Octofitter.octoplot(
         for like_obj in model.system.observations
             if like_obj isa HGCALikelihood
                 show_hgca = true
+            end
+        end
+    end
+
+
+    if isnothing(show_hipparcos)
+        show_hipparcos = false
+        for like_obj in model.system.observations
+            if like_obj isa HipparcosIADLikelihood
+                show_hipparcos = true
             end
         end
     end
@@ -288,6 +299,20 @@ function Octofitter.octoplot(
             height=480,
         )
         ax = Octofitter.hgcaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap)
+        top_time_axis = false
+        append!(axes_to_link,ax)
+    end
+
+    if show_hipparcos
+        item += 1
+        col = mod1(item, cols)
+        row = cld(item, cols)
+        gl = GridLayout(
+            fig[row,col],
+            width=500,
+            height=480,
+        )
+        ax = hipparcosplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap)
         top_time_axis = false
         append!(axes_to_link,ax)
     end

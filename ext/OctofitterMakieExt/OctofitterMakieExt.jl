@@ -13,6 +13,7 @@ include("astromtimeplot.jl")
 include("hgcaplot.jl")
 include("masspostplot.jl")
 include("rvtimeplot.jl")
+include("hipparcosplot.jl")
 
 include("octoplot.jl")
 
