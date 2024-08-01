@@ -28,6 +28,7 @@ makedocs(
             "Fit Likelihood Map" => "fit-likemap.md",
             "Fit Thiele-Innes Parameters" => "thiele-innes.md",
             "Fit Relative RV Data" => "fit-rv-rel.md",
+            "Fit Hipparcos IAD" => "hipparcos.md",
             "Fit GRAVITY Wide Data" => "fit-grav-wide.md",
             "Calculate Detection Limits" => "limits.md",
         ],
