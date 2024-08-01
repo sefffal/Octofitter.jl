@@ -54,6 +54,11 @@ chain = octofit(model, iterations=4_000, max_depth=6)
 nothing # hide
 ```
 
+Plot the posterior values:
+```@example 1
+octoplot(model,chain,show_astrom=false,show_astrom_time=false)
+```
+
 
 We now visualize the model fit compared to the Hipparcos catalog values:
 ```@example 1
