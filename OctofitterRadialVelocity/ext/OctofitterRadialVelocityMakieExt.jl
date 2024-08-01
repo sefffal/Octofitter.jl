@@ -47,7 +47,7 @@ function Octofitter.rvpostplot!(
     rvs = only(rv_likes)
     # Start filling the RV plot
     els = Octofitter.construct_elements(results,planet_key, :)
-    M = (results[string(planet_key)*"_mass"] .* PlanetOrbits.mjup2msol)
+    M = (results[string(planet_key)*"_mass"] .* Octofitter.mjup2msol)
 
     # Sometimes we want the true RV, including eg perspecive acceleration, and
     # sometimes we want just the perturbation orbit. 
