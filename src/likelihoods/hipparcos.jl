@@ -263,8 +263,6 @@ function HipparcosIADLikelihood(; hip_id, catalog=(datadep"Hipparcos_IAD"), full
         #     table.y * sind(ra2) * sind(dec2) -
         #     table.z * cosd(dec2)
         # ) + (dec2 - sol₀.compensated.dec2)*60*60*1000
-
-        # This is wrong, for some reason!
         table.Δα✱ = @. parallax2 * (
             table.x * sind(ra2) -
             table.y * cosd(ra2)
@@ -487,6 +485,10 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits)
             α✱_model = skypath_alpha + (solcmp.ra2 - hiplike.hip_sol.radeg)*60*60*1000*cosd(hiplike.hip_sol.dedeg)
             δ_model = skypath_delta + (solcmp.dec2 - hiplike.hip_sol.dedeg)*60*60*1000
 
+            # TODO: is it correct to subtract these degrees like this? I think not.
+            # I think I need to use an angle addition formula to do it correctly,
+            # and maybe this accounts for the remaining error.
+
                 #     hiplike.table.x[i] * cosd(orbitsol_hip_epoch.compensated.ra2) * sind(orbitsol_hip_epoch.compensated.dec2) +
                 #     hiplike.table.y[i] * sind(orbitsol_hip_epoch.compensated.ra2) * sind(orbitsol_hip_epoch.compensated.dec2) -
                 #     hiplike.table.z[i] * cosd(orbitsol_hip_epoch.compensated.dec2)
@@ -536,11 +538,13 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits)
             end
             # TODO: could hoist the trig into the constructor for speed. It doesn't change in this simplified
             # model.
-            α✱_model = θ_system.ra_hip_offset_mas + plx_at_epoch * (
+            # α✱_model = θ_system.ra_hip_offset_mas + plx_at_epoch * (
+            α✱_model = (θ_system.ra-hiplike.hip_sol.radeg)*60*60*1000 + plx_at_epoch * (
                 hiplike.table.x[i] * sind(hiplike.hip_sol.radeg) -
                 hiplike.table.y[i] * cosd(hiplike.hip_sol.radeg)
             ) + delta_time_julian_year * orbit.pmra
-            δ_model = θ_system.dec_hip_offset_mas + plx_at_epoch * (
+            # δ_model = θ_system.dec_hip_offset_mas + plx_at_epoch * (
+            δ_model = (θ_system.dec-hiplike.hip_sol.dedeg)*60*60*1000 + plx_at_epoch * (
                 hiplike.table.x[i] * cosd(hiplike.hip_sol.radeg) * sind(hiplike.hip_sol.dedeg) +
                 hiplike.table.y[i] * sind(hiplike.hip_sol.radeg) * sind(hiplike.hip_sol.dedeg) -
                 hiplike.table.z[i] * cosd(hiplike.hip_sol.dedeg)
