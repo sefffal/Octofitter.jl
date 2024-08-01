@@ -51,7 +51,7 @@ function Octofitter.ln_like(
     planet_orbit::AbstractOrbit,
     num_epochs::Val{L}=Val(length(rvlike.table))
 ) where L
-    T = _system_number_type(θ_planet)
+    T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
 
     # We don't support multiple instruments for relative RVs.

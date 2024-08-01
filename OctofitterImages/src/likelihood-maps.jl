@@ -67,7 +67,7 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_planet, orbit)
 
 
     likemaps_table = likemaps.table
-    T = _system_number_type(θ_planet)
+    T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
     for i in eachindex(likemaps_table.epoch)
 

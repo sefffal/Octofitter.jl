@@ -111,7 +111,7 @@ Visibliitiy modelling likelihood for point sources.
 function Octofitter.ln_like(vis::GRAVITYWideCPLikelihood, θ_system, orbits, num_epochs::Val{L}=Val(length(vis.table))) where {L}
 
     # Convoluted way to get either Float64 normally or a Dual{Float64} if using ForwardDiff
-    T = _system_number_type(θ_system)
+    T = Octofitter._system_number_type(θ_system)
     for θ_planet in θ_system.planets
         TT = typeof(first(promote(θ_planet...)))
         T = promote_type(T, TT)
