@@ -1,7 +1,7 @@
 name = "Octofitter"
 uuid = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
 authors = ["William Thompson <will.thompson@outlook.com>", "Jensen Lawrence", "Dori Blakely", "Clarissa R. Do O"]
-version = "3.1.0"
+version = "4.0.0"
 
 [deps]
 AbstractMCMC = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
@@ -92,7 +92,7 @@ OrderedCollections = "1.6"
 PairPlots = "2"
 Pathfinder = "0.8"
 Pigeons = "0.4.0 - 0.4.2, 0.4.4 - 0.5"
-PlanetOrbits = "0.9"
+PlanetOrbits = "0.10"
 PrecompileTools = "1.1.2"
 Preferences = "1"
 Printf = "1"
