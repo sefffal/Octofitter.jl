@@ -126,7 +126,7 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
     # elements = construct_elements(θ_system, θ_planet)
 
     imgtable = images.table
-    T = _system_number_type(θ_planet)
+    T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
     for i in eachindex(imgtable.epoch)
 
