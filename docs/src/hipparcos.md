@@ -38,7 +38,7 @@ end
     ra_hip_offset_mas ~  Normal(0, 10000)
     dec_hip_offset_mas ~ Normal(0, 10000)
     dec = hip_like.hip_sol.dedeg + system.ra_hip_offset_mas/60/60/1000
-    ra = hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cos(system.ra)
+    ra = hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cos(system.dec)
 
     ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
 
@@ -142,7 +142,7 @@ end astrom_like1
     ra_hip_offset_mas ~  Normal(0, 10000)
     dec_hip_offset_mas ~ Normal(0, 10000)
     dec = hip_like.hip_sol.dedeg + system.ra_hip_offset_mas/60/60/1000
-    ra = hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000
+    ra = hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cos(system.dec)
 
     ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
 end hip_like b
