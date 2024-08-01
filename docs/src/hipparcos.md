@@ -72,7 +72,8 @@ for prop in (
     (;chain=:pmra, hip=:pm_ra, hip_err=:e_pmra), 
     (;chain=:pmdec, hip=:pm_de, hip_err=:e_pmde)
 )
-    global ax = Axis(
+    global i, j, ax
+    ax = Axis(
         fig[j,i],
         xlabel=string(prop.chain),
     )
