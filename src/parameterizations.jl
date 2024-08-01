@@ -58,9 +58,11 @@ function θ_at_epoch_to_tperi(system,planet,theta_epoch)
     # Mean anomaly (see Wikipedia page)
     MA = atan(-sqrt(1-e^2)*sin(ν), -e-cos(ν))+π-e*sqrt(1-e^2)*sin(ν)/(1+e*cos(ν))
 
-    n = 2π/√(a^3/M) 
+    period_days = √(a^3/M)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
+    period_yrs = period_days/PlanetOrbits.year2day_julian
+    n = 2π/period_yrs # mean motion
 
     # Get epoch of periastron passage
-    tₚ = theta_epoch - MA/n*PlanetOrbits.year2day
+    tₚ = theta_epoch - MA/n*PlanetOrbits.year2day_julian
     return tₚ
 end

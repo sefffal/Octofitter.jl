@@ -32,7 +32,7 @@ using DataDeps
 using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
-const mjup2msol = 0.0009543
+const mjup2msol = PlanetOrbits.mjup2msol_IAU
 
 # Re-export the Chains constructor.
 export Chains 

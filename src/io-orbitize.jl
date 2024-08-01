@@ -137,8 +137,8 @@ function loadhdf5(fname_or_targetname, numchains=1)
         a = chn[:b_a]
         τ = chn[:b_τ]
         M = chn[:M]
-        periodyrs = @. √(a^3/M)
-        period_days = @. periodyrs * PlanetOrbits.year2day
+        period_days = @. √(a^3/M)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
+            
         tp = @. τ * period_days + tau_ref_epoch
 
         chn =  MCMCChains.Chains(
@@ -181,9 +181,7 @@ function savehdf5(fname::AbstractString, model::Octofitter.LogDensityModel, chai
         tp = chain["$(planet_key)_tp"]
         a = chain[:b_a]
         M = chain[:M]
-        periodyrs = @. √(a^3/M)
-        period_days = @. periodyrs * PlanetOrbits.year2day
-        # TODO: verify
+        period_days = @. √(a^3/M)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
         τ = @. mod((tp  - tau_ref_epoch)/period_days, 1)
         
 
