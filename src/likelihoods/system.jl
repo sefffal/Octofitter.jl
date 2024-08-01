@@ -126,38 +126,6 @@
 #     return ll
 # end
 
-# Helper function for determining the umber type to use in a likelihood function. 
-# It loops through all system and planet variables in a nested named tuple structure
-# and promotes them
-# NOTE: I couldn't find a way to express this with the type-system, but it is not valid
-# to call this function with anything other than our standard nested named tuple structure.
-Base.@assume_effects :terminates_globally function _system_number_type(θ_nt::NamedTuple)
-    T = UInt8
-    for key in propertynames(θ_nt)
-        if key == :planets
-            continue
-        end
-        T = promote_type(T, typeof(getproperty(θ_nt, key)))
-    end
-    if !hasproperty(θ_nt, :planets)
-        return T
-    end
-    if !(θ_nt.planets isa NamedTuple)
-        throw(ArgumentError("Invalid input"))
-    end
-    for planet_key in propertynames(θ_nt.planets)
-        planet = getproperty(θ_nt.planets, planet_key)
-        if !(planet isa NamedTuple)
-            throw(ArgumentError("Invalid input"))
-        end
-        for key in propertynames(planet)
-            T = promote_type(T,typeof(getproperty(planet, key)))
-        end
-    end
-    return T
-end
-
-_planet_orbit_type(::Planet{OrbitType}) where {OrbitType} = OrbitType
 function make_ln_like(system::System, θ_system)
 
     planet_exprs = Expr[]
