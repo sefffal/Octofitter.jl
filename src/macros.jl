@@ -1,23 +1,23 @@
 """
+    @planet [planet_name] [Orbit_Type] begin
+        [prior_1] ~ [UnivariateDistribution]
+        [prior_2] ~ [UnivariateDistribution]
+        calculation_3 = [planet_name].[prior_1] + [planet_name].[prior_2] + [system.variable_x]
+    end [likelihood_objects...]
 
-    astrom = CSV.read("octofitter/input.csv", PlanetRelAstromLikelihood)
-
-    vars = Octofitter.@planet b Visual{KepOrbit} astrom begin
-        a  ~ LogUniform(2.5, 25)
-        a2 = b.a^2
-        i ~ Sine()
-        e ~ truncated(
-            Normal(0.2, 0.2),
-            lower=0
-        )
-        Ω ~ UniformCircular()
-        ω ~ UniformCircular()
-        τ ~ UniformCircular(1.0)
-        mass  ~ Uniform(0, 50)
-        H_band = cooling_track_flux(system.age_Myr, b.mass)
-    end
-
-Generate a Planet model 
+Generate a Planet model named `planet_name`. A variable will be created with the name `[planet_name]`
+in the current scope.
+`Orbit_Type` specifies the orbit parameterization from PlanetOrbits.jl. You must provide all
+input variables needed for the selected orbit type (see PlanetOrbits.jl documentation).
+Following that is a block of variable assignments. Variables with a `~` will be free variables
+with a prior distribution given by the right-hand-side (a UnivariateDistribution from Distributions.jl
+or a `KDEDist`). 
+Calculated quantities are also allowed. These may reference other variables using the planet name followed
+by a dot and the name of the variable. Variables from other planets in a single system are not accessible.
+You can access other variables in the current local scope, but these bindings are only guaranteed to be
+resolved a single time. Note that using non-constant global variables in calculated expressions can lead 
+to poor performance.
+Finally, the planet model can be conditioned on data by supplying zero or more likelihood objects.
 """
 macro planet(args...)
     name = args[1]
@@ -68,6 +68,26 @@ macro planet(args...)
 end
 export @planet
 
+"""
+    @system [system_name] begin
+        [prior_1] ~ [UnivariateDistribution]
+        [prior_2] ~ [UnivariateDistribution]
+        calculation_3 = system.[prior_1] + system.[prior_2]
+    end [likelihood_objects...] [planet_models...]
+
+Generate a System model named `system_name`. A variable will be created with the name `[system_name]`
+in the current scope.
+Following that is a block of variable assignments. Variables with a `~` will be free variables
+with a prior distribution given by the right-hand-side (a UnivariateDistribution from Distributions.jl
+or a `KDEDist`). 
+Calculated quantities are also allowed. These may reference other variables using the planet name followed
+by a dot and the name of the variable. Variables from other planets in a single system are not accessible.
+You can access other variables in the current local scope, but these bindings are only guaranteed to be
+resolved a single time. Note that using non-constant global variables in calculated expressions can lead 
+to poor performance.
+After the end of the variable block, the system model can be conditioned on data by supplying zero or more likelihood objects.
+Finally, zero or more planet models can be attached to the system, potentially conditioned on likelihood objects of their own.
+"""
 macro system(args...)
     name = args[1]
     variables_block_input = args[2]
@@ -123,7 +143,7 @@ export @system
 """
     @named x = f(...)
 
-For variable assiments like the above, this is equivalent to:
+For variable assignments like the above, this is equivalent to:
 `x = f(..., name=:x)`.
 
 This shorthand copied from ModellingToolkit is a handy way to

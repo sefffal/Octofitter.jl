@@ -2,16 +2,15 @@
 
 
 ```@docs
-Priors
-Derived
+@planet
+@system
 PlanetRelAstromLikelihood
 StarAbsoluteRVLikelihood              
+PlanetRelativeRVLikelihood              
 PhotometryLikelihood
 HGCALikelihood
 ObsPriorAstromONeil2019
 Sine
-Planet
-System
 mjd
 gaia_plx
 Octofitter.advancedhmc
