@@ -38,7 +38,7 @@ end
     ra_hip_offset_mas ~  Normal(0, 10000)
     dec_hip_offset_mas ~ Normal(0, 10000)
     dec = hip_like.hip_sol.dedeg + system.ra_hip_offset_mas/60/60/1000
-    ra = hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cos(system.dec)
+    ra = hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cosd(system.dec)
 
     ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
 
@@ -84,7 +84,7 @@ for prop in (
     end
     unc = hip_like.hip_sol[prop.hip_err]
     if prop.chain == :ra
-        unc /= 60*60*1000 * cos(hip_like.hip_sol.dedeg)
+        unc /= 60*60*1000 * cosd(hip_like.hip_sol.dedeg)
     end
     if prop.chain == :dec
         unc /= 60*60*1000

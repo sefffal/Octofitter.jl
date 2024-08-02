@@ -332,7 +332,7 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits)
             δ_perturbation += decoff(sol, θ_system.planets[planet_i].mass*Octofitter.mjup2msol)
         end
         # coordinates in degrees of RA and Dec
-        α✱_model_with_perturbation = α✱_model + α✱_perturbation/cos(δ_model)
+        α✱_model_with_perturbation = α✱_model + α✱_perturbation/cosd(hiplike.hip_sol.dedeg)
         δ_model_with_perturbation = δ_model + δ_perturbation
 
         # Calculate differences in milliarcseconds by mapping into a local tangent plane,
