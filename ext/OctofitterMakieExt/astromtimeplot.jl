@@ -39,6 +39,7 @@ function astromtimeplot!(
     top_time_axis=true,
     bottom_time_axis=true,
     mark_epochs_mjd=Float64[],
+    alpha,
     kwargs...
 )
     gs = gridspec_or_fig
@@ -101,7 +102,7 @@ function astromtimeplot!(
         lines!(ax_sep,
             concat_with_nan(ts' .+ 0 .* sep_model_t),
             concat_with_nan(sep_model_t);
-            alpha=min.(1, 100 / length(ii)),
+            alpha,
             color=concat_with_nan(color_model_t .+ 0 .* ii),
             colorrange=(0,2pi),
             colormap=colormaps[planet_key]
@@ -180,7 +181,7 @@ function astromtimeplot!(
             push!(allcolors, 0.0)
         end
         lines!(ax_pa, allx, rad2deg.(ally);
-            alpha=min.(1, 100 / length(ii)),
+            alph,
             color=allcolors,
             colorrange=(0,2pi),
             colormap=colormaps[planet_key]

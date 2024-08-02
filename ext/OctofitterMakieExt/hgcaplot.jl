@@ -40,6 +40,7 @@ function Octofitter.hgcaplot!(
     colorbar=true,
     top_time_axis=true,
     bottom_time_axis=true,
+    alpha=min.(1, 100 / length(ii)),
     kwargs...
 )
     gs = gridspec_or_fig
@@ -150,7 +151,7 @@ function Octofitter.hgcaplot!(
     lines!(ax_velra,
         concat_with_nan(ts' .+ 0 .* pmra_model_t),
         concat_with_nan(pmra_model_t);
-        alpha=min.(1, 100 / length(ii)),
+        alpha,
         color=concat_with_nan(color_model_t),
         colorrange=(0, 2pi),
         colormap
@@ -158,7 +159,7 @@ function Octofitter.hgcaplot!(
     lines!(ax_veldec,
         concat_with_nan(ts' .+ 0 .* pmdec_model_t),
         concat_with_nan(pmdec_model_t);
-        alpha=min.(1, 100 / length(ii)),
+        alpha,
         color=concat_with_nan(color_model_t),
         colorrange=(0, 2pi),
         colormap

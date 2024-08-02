@@ -36,6 +36,7 @@ function Octofitter.astromplot!(
     colormap=:plasma,
     colorbar=true,
     mark_epochs_mjd=Float64[],
+    alpha=min.(1, 100 / length(ii)),
     kwargs...
 )
     gs = gridspec_or_fig
@@ -96,7 +97,7 @@ function Octofitter.astromplot!(
                 # rem2pi.(EAs' .- eccanom.(sols_0), RoundDown) .+ 0 .* ii
                 rem2pi.(meananom.(sols), RoundDown) .+ 0 .* ii
             ),
-            alpha=min.(1, 100 / length(ii)),
+            alpha=alpha,
             transparency=true,
             colormap=colormaps[planet_key]
         )

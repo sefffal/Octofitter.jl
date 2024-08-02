@@ -47,6 +47,7 @@ function rvtimeplot!(
     top_time_axis=true,
     bottom_time_axis=true,
     planet_rv=nothing,
+    alpha=min.(1, 100 / length(ii)),
     kwargs...
 )
     gs = gridspec_or_fig
@@ -127,7 +128,7 @@ function rvtimeplot!(
             lines!(ax,
                 concat_with_nan(ts' .+ 0 .* rv_planet_model_t),
                 concat_with_nan(rv_planet_model_t);
-                alpha=min.(1, 100 / length(ii)),
+                alpha,
                 # color=concat_with_nan(color_planet_model_t),
                 # colorrange=(0,2pi),
                 # colormap
@@ -143,7 +144,7 @@ function rvtimeplot!(
     lines!(ax,
         concat_with_nan(ts' .+ 0 .* rv_star_model_t),
         concat_with_nan(rv_star_model_t);
-        alpha=min.(1, 100 / length(ii)),
+        alph,
         color = planet_rv ? Makie.wong_colors()[1] : concat_with_nan(color_model_t),
         colorrange=(0,2pi),
         colormap,
@@ -338,7 +339,7 @@ function rvtimeplot_relative!(
             concat_with_nan(rv_model_t);
             color=concat_with_nan(color_model_t),
             colormap,
-            alpha=min.(1, 100 / length(ii)),
+            alpha,
         )
     end
 

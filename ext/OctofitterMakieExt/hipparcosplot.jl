@@ -17,6 +17,7 @@ function hipparcosplot!(
     colormap=:plasma,
     colorbar=true,
     top_time_axis=true,
+    alpha=1,
     bottom_time_axis=true,
     kwargs...
 )
@@ -98,19 +99,20 @@ function hipparcosplot!(
             lines!(ax_main, hip_like.table.α✱ₘ[i][1:2], hip_like.table.δₘ[i][1:2],color=:black,alpha=0.1)
         end
 
-        resid = map(eachindex(hip_like.table.epoch)) do i
-            # point = α✱ₘ
-            point =  [
-                sim.α✱_model_with_perturbation[i],
-                sim.δ_model_with_perturbation[i]
-            ]
-            line_point_1 =  [hip_like.table.α✱ₘ[i][1], hip_like.table.δₘ[i][1]]
-            line_point_2 =  [hip_like.table.α✱ₘ[i][2], hip_like.table.δₘ[i][2]]
-            Octofitter.distance_point_to_line(point, line_point_1, line_point_2)
-        end
-        scatter!(ax_resids, hip_like.table.epoch, resid, markersize=4, color=:red, alpha=1)
+        # resid = map(eachindex(hip_like.table.epoch)) do i
+        #     # point = α✱ₘ
+        #     point =  [
+        #         sim.α✱_model_with_perturbation[i],
+        #         sim.δ_model_with_perturbation[i]
+        #     ]
+        #     line_point_1 =  [hip_like.table.α✱ₘ[i][1], hip_like.table.δₘ[i][1]]
+        #     line_point_2 =  [hip_like.table.α✱ₘ[i][2], hip_like.table.δₘ[i][2]]
+        #     Octofitter.distance_point_to_line(point, line_point_1, line_point_2)
+        # end
+        display(extrema(sim.resid))
+        scatter!(ax_resids, hip_like.table.epoch, sim.resid, markersize=4, color=:red, alpha=1)
 
-        for i in 1:length(resid)
+        for i in 1:length(sim.resid)
             # Need to draw along scan line and residual on the plot
             # start point at data point x and y
             # move at 90 degree angle to the scan direction, for a length of `resid`
@@ -123,12 +125,12 @@ function hipparcosplot!(
             line_point_1 =  [hip_like.table.α✱ₘ[i][1], hip_like.table.δₘ[i][1]]
             line_point_2 =  [hip_like.table.α✱ₘ[i][2], hip_like.table.δₘ[i][2]]
             angle_1 = atan(rise,run) - π/2
-            x1_1 = x0 + resid[i]*cos(angle_1)
-            y1_1 = y0 + resid[i]*sin(angle_1)
+            x1_1 = x0 + sim.resid[i]*cos(angle_1)/60/60/1000
+            y1_1 = y0 + sim.resid[i]*sin(angle_1)/60/60/1000
             d1 = Octofitter.distance_point_to_line([x1_1,y1_1], line_point_1, line_point_2)
             angle_2 = atan(rise,run) + π/2
-            x1_2 = x0 + resid[i]*cos(angle_2)
-            y1_2 = y0 + resid[i]*sin(angle_2)
+            x1_2 = x0 + sim.resid[i]*cos(angle_2)/60/60/1000
+            y1_2 = y0 + sim.resid[i]*sin(angle_2)/60/60/1000
             d2 = Octofitter.distance_point_to_line([x1_2,y1_2], line_point_1, line_point_2)
             if d1 < d2
                 angle = angle_1
@@ -141,10 +143,10 @@ function hipparcosplot!(
             end
 
             # Now we plot the uncertainties along this direction, centred around the intersection point
-            unc_x1 = x1 + hip_like.table.sres_renorm[i]*cos(angle)
-            unc_y1 = y1 + hip_like.table.sres_renorm[i]*sin(angle)
-            unc_x2 = x1 - hip_like.table.sres_renorm[i]*cos(angle)
-            unc_y2 = y1 - hip_like.table.sres_renorm[i]*sin(angle)
+            unc_x1 = x1 + hip_like.table.sres_renorm[i]*cos(angle)/60/60/1000
+            unc_y1 = y1 + hip_like.table.sres_renorm[i]*sin(angle)/60/60/1000
+            unc_x2 = x1 - hip_like.table.sres_renorm[i]*cos(angle)/60/60/1000
+            unc_y2 = y1 - hip_like.table.sres_renorm[i]*sin(angle)/60/60/1000
             lines!(ax_main, [unc_x1,unc_x2], [unc_y1,unc_y2], color=:blue, alpha=0.25, linewidth=4)
 
 

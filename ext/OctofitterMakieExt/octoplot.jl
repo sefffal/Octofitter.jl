@@ -53,6 +53,7 @@ function Octofitter.octoplot(
     ),
     # The user can of course just override the above directly.
     colormap=Makie.cgrad(:plasma,rev=true),
+    alpha=min.(1, 100 / length(ii)),
 )
 
     # Auto-detect if we should include a given plot
@@ -236,7 +237,7 @@ function Octofitter.octoplot(
             width=500,
             height=400,
         )
-        Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd)
+        Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha)
         colorbar = false
     end
 
@@ -252,7 +253,7 @@ function Octofitter.octoplot(
             height=300,
         )
         bottom_time_axis = !(show_hgca || show_rv || show_relative_rv)
-        ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, mark_epochs_mjd)
+        ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, mark_epochs_mjd, alpha)
         top_time_axis = false
         append!(axes_to_link,ax)
     end
@@ -268,7 +269,7 @@ function Octofitter.octoplot(
             height=135,
         )
         bottom_time_axis = !(show_hgca || show_relative_rv)
-        ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, planet_rv, colormap)
+        ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, planet_rv, colormap, alpha)
         top_time_axis = false
         append!(axes_to_link,ax)
     end
@@ -284,7 +285,7 @@ function Octofitter.octoplot(
             height=135,
         )
         bottom_time_axis = !show_hgca
-        ax = rvtimeplot_relative!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap)
+        ax = rvtimeplot_relative!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
         top_time_axis = false
         append!(axes_to_link,ax)
     end
@@ -298,7 +299,7 @@ function Octofitter.octoplot(
             width=500,
             height=480,
         )
-        ax = Octofitter.hgcaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap)
+        ax = Octofitter.hgcaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
         top_time_axis = false
         append!(axes_to_link,ax)
     end
@@ -312,7 +313,7 @@ function Octofitter.octoplot(
             width=500,
             height=480,
         )
-        ax = hipparcosplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap)
+        ax = hipparcosplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
         top_time_axis = false
         append!(axes_to_link,ax)
     end
