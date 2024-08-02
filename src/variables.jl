@@ -13,7 +13,6 @@ package.
 struct Priors
     priors::OrderedDict{Symbol,Distribution}
 end
-export Priors
 # Basically just wrap a named tuple
 Priors(;priors...) = Priors(OrderedDict(priors))
 
@@ -38,7 +37,6 @@ support autodifferentiation.
 struct Derived
     variables::OrderedDict{Symbol,Base.Callable}
 end
-export Derived
 Derived(;variables...) = Derived(OrderedDict(variables))
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize det::Derived)
     print(io, "Derived:\n  ")
@@ -92,7 +90,6 @@ function Variables(; kwargs...)
     
     return (Priors(priors), Derived(derived), observation_likelihoods...)
 end
-export Variables
 
 
 
