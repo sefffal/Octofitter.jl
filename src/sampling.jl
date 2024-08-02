@@ -975,20 +975,21 @@ function mcmcchain2result(model, chain,)
 
     # These are the columns we expect in the Chains object
     flattened_labels = keys(flatten_named_tuple(nt))
+    
     # These are the labels corresponding to the flattened named tuple without the *planet_key* prepended
     return broadcast(1:size(chain,1),1:size(chain,3)') do i,j
         # Take existing NT and recurse through it. replace elements
         nt_sys = Dict(
-            k => el 
-            for (k,el) in zip(flattened_labels, Array(chain[i,:,j]))
+            k => chain[i,k,j]
+            for k in flattened_labels
             if !any(map(pk->startswith(string(k),pk*"_"), planetkeys))
                 # this search operation could be majorly spread up by computing a set
                 # of valid keys *once*
         )
         nt_planets = map(collect(planetkeys)) do pk
             return Symbol(pk)=>namedtuple(Dict(
-                replace(string(k), r"^"*string(pk)*"_" =>"") => el 
-                for (k,el) in zip(flattened_labels, Array(chain[i,:,j]))
+                replace(string(k), r"^"*string(pk)*"_" =>"") => chain[i,k,j] 
+                for k in flattened_labels
                 if startswith(string(k),pk*"_")
                     # this search operation could be majorly spread up by computing a set
                     # of valid keys *once*
