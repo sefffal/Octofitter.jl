@@ -284,6 +284,7 @@ function rvtimeplot_relative!(
     colorbar=true,
     top_time_axis=true,
     bottom_time_axis=true,
+    alpha=min.(1, 100 / length(ii)),
     kwargs...
 )
     gs = gridspec_or_fig
