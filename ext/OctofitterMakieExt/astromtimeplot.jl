@@ -181,7 +181,7 @@ function astromtimeplot!(
             push!(allcolors, 0.0)
         end
         lines!(ax_pa, allx, rad2deg.(ally);
-            alph,
+            alpha,
             color=allcolors,
             colorrange=(0,2pi),
             colormap=colormaps[planet_key]

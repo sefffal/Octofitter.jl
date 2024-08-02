@@ -144,7 +144,7 @@ function rvtimeplot!(
     lines!(ax,
         concat_with_nan(ts' .+ 0 .* rv_star_model_t),
         concat_with_nan(rv_star_model_t);
-        alph,
+        alpha,
         color = planet_rv ? Makie.wong_colors()[1] : concat_with_nan(color_model_t),
         colorrange=(0,2pi),
         colormap,
