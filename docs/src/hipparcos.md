@@ -51,7 +51,6 @@ We can now sample from the model using Hamiltonian Monte Carlo. This should only
 ```@example 1
 # Typical depth is ~4, so limiting the max_depth down from default 12 speeds warm-up
 chain = octofit(model, iterations=4_000, max_depth=6)
-nothing # hide
 ```
 
 Plot the posterior values:
@@ -155,7 +154,7 @@ model = Octofitter.LogDensityModel(cEri)
 Now we sample:
 ```@example 1
 chain = octofit(model)
-nothing # hide
+chain
 ```
 
 ```@example 1
