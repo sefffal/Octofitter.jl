@@ -16,6 +16,11 @@ using NamedTupleTools
 using OrderedCollections
 using KernelDensity
 
+# Many users are unfamiliar with Julia, and they want to load their data from CSV.
+# We export the CSV package to help them on their journey.
+using CSV
+export CSV
+
 using Reexport
 @reexport using PlanetOrbits
 
@@ -47,6 +52,7 @@ include("likelihoods/system.jl")
 include("likelihoods/relative-astrometry.jl")
 include("likelihoods/photometry.jl")
 include("likelihoods/hgca.jl")
+include("likelihoods/gaia.jl")
 include("likelihoods/hipparcos.jl")
 include("likelihoods/observable.jl")
 

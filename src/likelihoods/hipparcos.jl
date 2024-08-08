@@ -50,7 +50,6 @@ end
 """
 function HipparcosIADLikelihood(; hip_id, catalog=(datadep"Hipparcos_IAD"), renormalize=true)
 
-    # TODO: copy in file search functionality from OctofitterRadialVelocity
     file = @sprintf("H%06d.d", hip_id)
     fname = joinpath(catalog, "ResRec_JavaTool_2014", file[1:4], file)
 
@@ -100,7 +99,7 @@ function HipparcosIADLikelihood(; hip_id, catalog=(datadep"Hipparcos_IAD"), reno
     )
 
     if isol_n != 5
-        error("Only stars with solution types 5 are currently supported. If you need solution type 1, please open an issue on GitHub and we would be happy to add it.")
+        error("Only stars with solution types 5 are currently supported. This sol is $isol_n. If you need solution type 1, please open an issue on GitHub and we would be happy to add it.")
     end
 
     iad_table_rows = NamedTuple[]
@@ -131,29 +130,7 @@ function HipparcosIADLikelihood(; hip_id, catalog=(datadep"Hipparcos_IAD"), reno
         @warn "rejected scans present" count(iad_table.reject)
     end
 
-    # Query the HORIZONS system for the Earth-Moon barycentre position at each specific epoch
-    # of the dataset. 
-    # This incurs a separate query for each epoch.
-    @info "Querying Earth Geocentre position from HORIZONS"
-    earth_pos_vel = map(iad_table.epoch) do epoch
-        print(".")
-        fname = tempname()
-        t = DateTime(mjd2date(epoch))
-        HORIZONS.vec_tbl("Geocenter", t, t + Hour(1), Day(1); FILENAME=fname, CENTER="@ssb", REF_PLANE="FRAME", OUT_UNITS="AU-D", CSV_FORMAT=true, VEC_TABLE=2)
-        lines = readlines(fname)
-        rm(fname)
-        i = 0
-        for line in lines
-            i += 1
-            if startswith(line, raw"$$SOE")
-                break
-            end
-        end
-        record = split(rstrip(lines[i+1], ','), ", ")
-        x, y, z, vx, vy, vz = parse.(Float64, record[3:8])
-        return (; x, y, z, vx, vy, vz)
-    end
-    println("done")
+    earth_pos_vel = geocentre_position_query.(iad_table.epoch)
     table = FlexTable(eachcol(iad_table)..., eachcol(earth_pos_vel)...)
     
     ## Nielsen eq 10
