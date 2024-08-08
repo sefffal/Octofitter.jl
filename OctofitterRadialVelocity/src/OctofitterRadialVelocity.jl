@@ -12,11 +12,10 @@ using FITSIO
 using StaticArrays
 using LinearAlgebra
 
-export jd2mjd, mjd2jd
 
+# mjd2jd = Octofitter.mjd2jd
+# jd2mjd = Octofitter.jd2mjd
 
-mjd2jd(jd) = jd + 2400000.5
-jd2mjd(jd) = jd - 2400000.5
 
 include("rv-absolute.jl")
 include("rv-relative.jl")
