@@ -747,7 +747,7 @@ export drawfrompriors
 # NOTE: I couldn't find a way to express this with the type-system, but it is not valid
 # to call this function with anything other than our standard nested named tuple structure.
 Base.@assume_effects :terminates_globally function _system_number_type(θ_nt::NamedTuple)
-    T = UInt8
+    T = Bool # The narrowest number type
     for key in propertynames(θ_nt)
         if key == :planets
             continue
@@ -769,7 +769,7 @@ Base.@assume_effects :terminates_globally function _system_number_type(θ_nt::Na
             T = promote_type(T,typeof(getproperty(planet, key)))
         end
     end
-    return T
+    return float(T) # Now promote to an appropriate floating point type
 end
 
 _planet_orbit_type(::Planet{OrbitType}) where {OrbitType} = OrbitType
