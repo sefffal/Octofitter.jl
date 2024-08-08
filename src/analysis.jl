@@ -160,4 +160,8 @@ function rvpostplot!( args...; kwargs...)
     error("You must load the Makie package (eg `using CairoMakie`)  before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
 end
 
+function rvpostplot_animated( args...; kwargs...)
+    error("You must load the Makie package (eg `using CairoMakie`)  before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+
 export plotchains, plotchains!, octoplot, octocorner
