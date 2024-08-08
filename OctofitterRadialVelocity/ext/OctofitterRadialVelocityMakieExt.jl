@@ -8,6 +8,7 @@ using StatsBase
 using AbstractGPs
 # using TemporalGPs
 using Dates
+using AstroImages
 
 ## Need three panels
 # 1) Mean model (orbit + GP) and data (- mean instrument offset)
@@ -429,6 +430,31 @@ function Octofitter.rvpostplot!(
     Makie.rowsize!(gs, 2, Auto(1))
     Makie.rowsize!(gs, 3, Auto(2))
 
+end
+
+function Octofitter.rvpostplot_animated(model, chain; framerate=4, fname="rv-posterior.mp4", N=min(size(chain,1),50))
+    imgs = []
+    print("generating plots")
+    for i in rand(1:size(chain,1), N)
+        print(".")
+        f = tempname()*".png"
+        Octofitter.rvpostplot(model,chain,i,fname=f)
+        push!(imgs, load(f))
+        rm(f)
+    end
+    println()
+    fig = Figure()
+    ax = Axis(fig[1,1],autolimitaspect=1)
+    hidedecorations!(ax)
+    i = Observable(imgs[1])
+    image!(ax, @lift(rotr90($i)))
+    print("animating")
+    Makie.record(fig, fname, imgs; framerate) do img
+        print(".")
+        i[] = img
+    end
+    println()
+    return fname
 end
 
 
