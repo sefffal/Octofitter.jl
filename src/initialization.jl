@@ -105,7 +105,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
         samples = sample_priors(rng, model, initial_samples)
         samples_t = model.link.(samples)
         logposts = model.ℓπcallback.(samples_t)
-        II = sortperm(logposts)[end-ndraws:end]
+        II = sortperm(logposts)[end-ndraws+1:end]
         model.starting_points = samples_t[II]
         initial_logpost_range = extrema(@view logposts[II])
         logposts = logposts[II]
