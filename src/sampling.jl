@@ -916,7 +916,9 @@ Base.@nospecializeinfer function advancedhmc(
         (;
             start_time,
             stop_time,
-            samples_transformed=mc_samples
+            samples_transformed=mc_samples,
+            adaptor,
+            initial_metric=metric
         )
     )
     return mcmcchains_with_info
