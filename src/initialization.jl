@@ -102,7 +102,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
         initial_logpost_range = extrema(logposts)
     else
         verbosity > 1 && @warn("Falling back to sampling from the prior and keeping the $ndraws samples with highest posterior density.")
-        samples = sample_priors(rng, model, initial_samples)
+        samples = sample_priors(rng, model, ndraws)
         samples_t = model.link.(samples)
         logposts = model.ℓπcallback.(samples_t)
         II = sortperm(logposts)[end-ndraws+1:end]
