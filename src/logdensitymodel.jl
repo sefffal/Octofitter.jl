@@ -94,16 +94,16 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 end
                 llike  = @inline ln_like_generated(system, θ_structured)
                 lpost = lprior+llike
-                if !isfinite(llike)
-                    # TODO: check for performance impact here
-                    # Display parameters that caused an invalid log-likelihood to be calculated
-                    # Strip off any forward diff Dual tags, as these make it impossible to see
-                    # what's going on.
-                    θ_transformed_primals = ForwardDiff.value.(θ_transformed)
-                    θ_structured = arr2nt(Bijector_invlinkvec(θ_transformed_primals))
-                    llike = ln_like_generated(system, θ_structured)
-                    @warn "Invalid log likelihood encountered. (maxlog=1)" θ=θ_structured llike θ_transformed=θ_transformed_primals  maxlog=1
-                end
+                # if !isfinite(llike)
+                #     # TODO: check for performance impact here
+                #     # Display parameters that caused an invalid log-likelihood to be calculated
+                #     # Strip off any forward diff Dual tags, as these make it impossible to see
+                #     # what's going on.
+                #     θ_transformed_primals = ForwardDiff.value.(θ_transformed)
+                #     θ_structured = arr2nt(Bijector_invlinkvec(θ_transformed_primals))
+                #     llike = ln_like_generated(system, θ_structured)
+                #     @warn "Invalid log likelihood encountered. (maxlog=1)" θ=θ_structured llike θ_transformed=θ_transformed_primals  maxlog=1
+                # end
                 return lpost
             end
 
