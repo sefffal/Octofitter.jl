@@ -63,7 +63,6 @@ rvlike = StarAbsoluteRVLikelihood(Table(
     epoch=epochs,
     rv=radvel.(orb_template, epochs, planet_sim_mass) .+ randn.() .+ 100randn(),
     σ_rv=fill(5.0, size(epochs)),
-    inst_idx=ones(Int64, size(epochs)),
 ))
 Makie.scatter(rvlike.table.epoch[:], rvlike.table.rv[:])
 ```
@@ -88,8 +87,8 @@ end astrom
 @system test begin
     M ~ truncated(Normal(1, 0.04),lower=0) # (Baines & Armstrong 2011).
     plx = 100.0
-    jitter_1 ~ truncated(Normal(0,10),lower=0)
-    rv0_1 ~ Normal(0,10)
+    jitter ~ truncated(Normal(0,10),lower=0)
+    rv0 ~ Normal(0,10)
 end rvlike b
 
 model = Octofitter.LogDensityModel(test; autodiff=:ForwardDiff,verbosity=4)

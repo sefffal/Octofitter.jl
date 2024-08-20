@@ -216,12 +216,8 @@ chain = octofit(rng, model)
 
 You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the `verbosity` value down to 0.
 
-
-The sampler will begin by drawing orbits randomly from the priors (50,000 by default). It will then pick the orbit with the highest posterior density as a starting point. These are then passed to AdvancedHMC to adapt following the Stan windowed adaption scheme.
-
 Once complete, the `chain` object will hold the sampler results. Displaying it prints out a summary table like the one shown above.
-
-For a basic model like this, sampl]ing should take less than a minute on a typical laptop.
+For a basic model like this, sampling should take less than a minute on a typical laptop.
 
 ### Diagnostics
 The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.
@@ -229,12 +225,12 @@ The first thing you should do with your results is check a few diagnostics to ma
 A few things to watch out for: check that you aren't getting many (any, really) numerical errors (`ratio_divergent_transitions`). 
 This likely indicates a problem with your model: either invalid values of one or more parameters are encountered (e.g. the prior on semi-major axis includes negative values) or that there is a region of very high curvature that is failing to sample properly. This latter issue can lead to a bias in your results.
 
-One common mistake is to use a distribution like `Normal(10,3)` for semi-major axis. This left hand side of this distribution includes negative values which are not physically possible. A better choice is a `truncated(Normal(10,3), lower=0)` distribution.
+One common mistake is to use a distribution like `Normal(10,3)` for semi-major axis. This left tail of this distribution includes negative values, and our orbit model is not defined for negative semi-major axes. A better choice is a `truncated(Normal(10,3), lower=0)` distribution.
 
 You may see some warnings during initial step-size adaptation. These are probably nothing to worry about if sampling proceeds normally afterwards.
 
 You should also check the acceptance rate (`mean_accept`) is reasonably high and the mean tree depth (`mean_tree_depth`) is reasonable (~4-8). 
-Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than this and it might be being too conservative. The default maximum tree depth is 10. These don't affect the accuracy of your results, but do affect the efficiency of the sampling.
+Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than this and it might be being too conservative. 
 
 Next, you can make a trace plot of different variabes to visually inspect the chain:
 ```@example 1
@@ -260,13 +256,16 @@ lines(
     )
 )
 ```
-This plot shows that these samples are not correlated after only above 5 steps. No thinning is necessary.
+This plot shows that these samples are not correlated after only about 5 iterations. No thinning is necessary.
 
 To confirm convergence, you may also examine the `rhat` column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal `1.0` to one significant digit (3 recommended).
 
-Finaly, if you ran multiple chains (see later tutorials to learn how), you can run 
-```julia
+Finaly, you might consider running multiple chains. Simply run `octofit` multiple times, and store the result in different variables. Ten you can combined the chains using `chainscat` and run additional inter-chain convergence diagnostics:
+```@example 1
 using MCMCChains
+chain1 = octofit(model)
+chain2 = octofit(model)
+chain3 = octofit(model)
 merged_chains = chainscat(chain1, chain2, chain3)
 gelmandiag(merged_chains)
 ```
@@ -281,8 +280,6 @@ octoplot(model,chain)
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
 
-
-
 ### Pair Plot
 A very useful visualization of our results is a pair-plot, or corner plot. We can use the `octocorner` function and our PairPlots.jl package for this purpose:
 ```@example 1
@@ -290,6 +287,20 @@ using CairoMakie
 using PairPlots
 octocorner(model, chain, small=true)
 ```
-Remove `small=true` to display all variables, or run `pairplot(chain)` to include internal variables.
+Remove `small=true` to display all variables.
 
 In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.
+
+### Saving your chain
+
+Variables can be retrieved from the chains using the following sytnax: `sma_planet_b = chain["b_a",:,:]`. The first index is a string or symbol giving the name of the variable in the model. Planet variables are prepended by the name of the planet and an underscore.
+
+You can save your chain in FITS table format by running:
+```julia
+Octofitter.savechain("mychain.fits", chain)
+```
+
+You can load it back via:
+```julia
+chain = Octofitter.loadchain("mychain.fits")
+```

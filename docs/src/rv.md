@@ -71,11 +71,15 @@ scatter(
     pmdec ~ Normal(20,  10)
 
     # Radial velocity zero point per instrument
-    rv0_1 ~ Normal(0,10) # m/s
-    rv0_2 ~ Normal(0,10)
+    rv0 ~ Product([
+        Normal(0,10) # m/s
+        Normal(0,10)
+    ])
     # Radial jitter per instrument. 
-    jitter_1 ~ truncated(Normal(0,10),lower=0) # m/s
-    jitter_2 ~ truncated(Normal(0,10),lower=0)
+    jitter ~ Product([
+        truncated(Normal(0,10),lower=0) # m/s
+        truncated(Normal(0,10),lower=0)
+    ])
     # You can also set both instruments to the same jitter, eg by putting instead (with = not ~):
     # jitter_2 = system.jitter_1
 end HGCALikelihood(;gaia_id) rvs_merged b

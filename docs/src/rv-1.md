@@ -93,13 +93,16 @@ end
     # total mass [solar masses]
     M ~ truncated(Normal(0.82, 0.02),lower=0) # (Baines & Armstrong 2011).
 
-    # HARPS-N
-    rv0_1 ~ Normal(0,10000) # m/s
-    jitter_1 ~ LogUniform(0.01,100) # m/s
-
-    # FPS
-    rv0_2 ~ Normal(0,10000) # m/s
-    jitter_2 ~ LogUniform(0.01,100) # m/s
+    rv0 ~ Product([
+        # HARPS-N
+        Normal(0,10000), # m/s
+        # FPS
+        Normal(0,10000), # m/s
+    ])
+    jitter ~ Product([
+        LogUniform(0.01,100), # m/s
+        LogUniform(0.01,100), # m/s
+    ])
 end rvlike b
 
 ```
@@ -128,6 +131,12 @@ Excellent! Let's plot the maximum likelihood orbit:
 ```@example 1
 using CairoMakie: Makie
 fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to "k2_132-rvpostplot.png"
+```
+
+We can also plot a number of samples from the posterior:
+```@example 1
+using CairoMakie: Makie
+octoplot(model, chain)
 ```
 
 
@@ -198,16 +207,21 @@ end
     M ~ truncated(Normal(0.82, 0.02),lower=0) # (Baines & Armstrong 2011).
 
     # HARPS-N
-    rv0_1 ~ Normal(0,10000)
-    jitter_1 ~ LogUniform(0.01,10)
-    # FPS
-    rv0_2 ~ Normal(0,10000)
-    jitter_2 ~ LogUniform(0.01,10)
+    rv0 ~ Product([
+        # HARPS-N
+        Normal(0,10000), # m/s
+        # FPS
+        Normal(0,10000), # m/s
+    ])
+    jitter ~ Product([
+        LogUniform(0.01,100), # m/s
+        LogUniform(0.01,100), # m/s
+    ])
 
     # Add priors on GP kernel hyper-parameters.
-    gp_η₁ ~ truncated(Normal(25,10),lower=0)
-    gp_η₂ ~ truncated(Normal(gp_explength_mean,gp_explength_unc),lower=0)
-    gp_η₃ ~ truncated(Normal(gp_per_mean,1),lower=0)
+    gp_η₁ ~ truncated(Normal(25,10),lower=0.1)
+    gp_η₂ ~ truncated(Normal(gp_explength_mean,gp_explength_unc),lower=0.1)
+    gp_η₃ ~ truncated(Normal(gp_per_mean,1),lower=0.1)
     gp_η₄ ~ truncated(Normal(gp_perlength_mean,gp_perlength_unc),lower=0)
 
 end rvlike b
