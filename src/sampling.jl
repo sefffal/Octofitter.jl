@@ -716,14 +716,13 @@ Base.@nospecializeinfer function advancedhmc(
         S =  (cov(SimpleCovariance(), stack(model.starting_points)'))
         metric = DenseEuclideanMetric(S)
     catch err
-        display(err)
-
         verbosity > 1 && @warn("Falling back to initializing the diagonals with the prior interquartile ranges.")
         # We already sampled from the priors earlier to get the starting positon.
         # Use those variance estimates and transform them into the unconstrainted space.
         # variances_t = (model.link(initial_θ .+ sqrt.(variances)/2) .- model.link(initial_θ .- sqrt.(variances)/2)).^2
-        p = _list_priors(model.system)
-        variances_t = (model.link(quantile.(p, 0.85)) .- model.link(quantile.(p, 0.15))).^2
+        # p = _list_priors(model.system)
+        samples = eachrow(stack(Octofitter.sample_priors(model, 1000)))
+        variances_t = (model.link(quantile.(samples, 0.85)) .- model.link(quantile.(samples, 0.15))).^2
         # metric = DenseEuclideanMetric(model.D)
         metric = DenseEuclideanMetric(collect(Diagonal(variances_t)))
         if verbosity >= 3
