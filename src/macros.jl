@@ -95,6 +95,8 @@ macro system(args...)
         !(expr isa LineNumberNode)
     end
     likelihoods = args[3:end]
+    quote_vars = Symbol[]
+    quote_vals = Expr[]
     variables = map(variables_block) do statement
         if statement.head == :call && statement.args[1] == :~
             varname = statement.args[2]
@@ -117,7 +119,7 @@ macro system(args...)
         elseif statement.head == :(=)
             varname = statement.args[1]
             expression = statement.args[2]
-            # expression = quasiquote!(expression, quote_vars, quote_vals)
+            expression = quasiquote!(expression, quote_vars, quote_vals)
             esc(:(
                 $varname = system -> $expression
             ))
@@ -127,10 +129,20 @@ macro system(args...)
             error("invalid statement encoutered $(statement.head)")
         end
     end
-   
-    return quote 
+
+    # Create constant bindings for all `$` interpolated variables
+    # to ensure performance.
+    # We just interpolate them into the global scope as constants,
+    # evaluated immediately in the calling scope.
+    quoted_var_pairs = map(quote_vars, quote_vals) do var, val
+        return quote
+            const $(esc(var)) = $(esc(val.args[1]))
+        end
+    end
+    return quote
+        $(quoted_var_pairs...)
         $(esc(name)) = $System(
-            Variables(;$(variables...))...,
+            $Variables(;$(variables...))...,
             $((esc(o) for o in likelihoods)...);
             name=$(Meta.quot(name))
         )
@@ -138,87 +150,30 @@ macro system(args...)
 end
 export @system
 
-
-
-# Copied from ModellingToolkit.
-
+# Copied from BenchmarkTools
+# We use this for $variable interpolation into models.
+# Users can do this to avoid type-instabilities / global variable 
+# access when using constants etc. in their models.
+# This only applies to deterministic variables, sampled variables already
+# resolve any variables at model-creation time.
 """
-    @named x = f(...)
+    quasiquote!(expr::Expr, vars::Vector{Symbol}, vals::Vector{Expr})
 
-For variable assignments like the above, this is equivalent to:
-`x = f(..., name=:x)`.
-
-This shorthand copied from ModellingToolkit is a handy way to
-cut down on typing and make sure that names of objects are kept
-in sync with variable names.
+Replace every interpolated value in `expr` with a placeholder variable and
+store the resulting variable / value pairings in `vars` and `vals`.
 """
-macro named(expr)
-    name, call = split_assign(expr)
-    if Meta.isexpr(name, :ref)
-        name, idxs = name.args
-        check_name(name)
-        esc(_named_idxs(name, idxs, :($(gensym()) -> $call)))
-    else
-        check_name(name)
-        esc(:($name = $(_named(name, call))))
-    end
-end
-export @named 
-
-macro named(name::Symbol, idxs, call)
-    esc(_named_idxs(name, idxs, call))
-end
-
-function _named(name, call, runtime=false)
-    has_kw = false
-    call isa Expr || throw(Meta.ParseError("The rhs must be an Expr. Got $call."))
-    if length(call.args) >= 2 && call.args[2] isa Expr
-        # canonicalize to use `:parameters`
-        if call.args[2].head === :kw
-            call.args[2] = Expr(:parameters, Expr(:kw, call.args[2].args...))
-            has_kw = true
-        elseif call.args[2].head === :parameters
-            has_kw = true
+quasiquote!(ex, _...) = ex
+function quasiquote!(ex::Expr, vars::Vector{Symbol}, vals::Vector{Expr})
+    if ex.head === :($)
+        var = isa(ex.args[1], Symbol) ? gensym(ex.args[1]) : gensym()
+        push!(vars, var)
+        push!(vals, ex)
+        return var
+    elseif ex.head !== :quote
+        for i in 1:length(ex.args)
+            ex.args[i] = quasiquote!(ex.args[i], vars, vals)
         end
     end
-
-    if !has_kw
-        param = Expr(:parameters)
-        if length(call.args) == 1
-            push!(call.args, param)
-        else
-            insert!(call.args, 2, param)
-        end
-    end
-
-    kws = call.args[2].args
-
-    if !any(kw->(kw isa Symbol ? kw : kw.args[1]) == :name, kws) # don't overwrite `name` kwarg
-        pushfirst!(kws, Expr(:kw, :name, runtime ? name : Meta.quot(name)))
-    end
-    call
+    return ex
 end
 
-function _named_idxs(name::Symbol, idxs, call)
-    if call.head !== :->
-        throw(ArgumentError("Not an anonymous function"))
-    end
-    if !isa(call.args[1], Symbol)
-        throw(ArgumentError("not a single-argument anonymous function"))
-    end
-    sym, ex = call.args
-    ex = Base.Cartesian.poplinenum(ex)
-    ex = _named(:(Symbol($(Meta.quot(name)), :_, $sym)), ex, true)
-    ex = Base.Cartesian.poplinenum(ex)
-    :($name = $map($sym->$ex, $idxs))
-end
-
-check_name(name) = name isa Symbol || throw(Meta.ParseError("The lhs must be a symbol (a) or a ref (a[1:10]). Got $name."))
-
-
-function split_assign(expr)
-    if !(expr isa Expr && expr.head === :(=) && expr.args[2].head === :call)
-        throw(ArgumentError("expression should be of the form `sys = foo(a, b)`"))
-    end
-    name, call = expr.args
-end
