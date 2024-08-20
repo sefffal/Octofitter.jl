@@ -125,13 +125,15 @@ function Octofitter.rvpostplot!(
     end
         
 
+    nt_format = Octofitter.mcmcchain2result(model, results)
+
     # Calculate RVs minus the median instrument-specific offsets.
     # Use the MAP parameter values
     rvs_off_sub = collect(rvs.table.rv)
     jitters_all = zeros(length(rvs_off_sub))
     for inst_idx in 1:maximum(rvs.table.inst_idx)
-        barycentric_rv_inst = results["rv0_$inst_idx"][sample_idx]
-        jitter = results["jitter_$inst_idx"][sample_idx]
+        barycentric_rv_inst = nt_format[sample_idx].rv0[inst_idx]
+        jitter = nt_format[sample_idx].jitter[inst_idx]
         thisinst_mask = vec(rvs.table.inst_idx.==inst_idx)
         # Apply barycentric rv offset correction for this instrument
         # using the MAP parameters
@@ -364,7 +366,7 @@ function Octofitter.rvpostplot!(
     phase_folded = mod.(rvs.table.epoch[:] .- t_peri .- T/4, T)./T .- 0.5
     jitters = map(eachrow(rvs.table)) do row
         inst_idx = row[].inst_idx
-        results["jitter_$inst_idx"][sample_idx]
+        nt_format[sample_idx].jitter[inst_idx]
     end
     for (i,bin_cent) in enumerate(bins)
         mask = bin_cent - step(bins)/2 .<= phase_folded .<= bin_cent + step(bins/2)

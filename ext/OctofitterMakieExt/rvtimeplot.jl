@@ -51,6 +51,7 @@ function rvtimeplot!(
     kwargs...
 )
     gs = gridspec_or_fig
+    nt_format = Octofitter.mcmcchain2result(model, results)
 
 
     date_pos, date_strs, xminorticks = _date_ticks(ts)
@@ -204,8 +205,8 @@ function rvtimeplot!(
         num_idx = maximum(inst_idxes)
         for inst_idx in sort(unique(inst_idxes))
             mask = inst_idxes .== inst_idx
-            jitter = vec(results["jitter_$inst_idx"])'
-            rv0 = vec(results["rv0_$inst_idx"])'
+            jitter = map(sample->sample.jitter[inst_idx], nt_format)
+            rv0 = map(sample->sample.rv0[inst_idx], nt_format)'
             σ_tot = sqrt.(σ_rv[mask] .^2 .+ mean(jitter) .^2 .+ var(rv0))
             rv[mask] .-= mean(rv0,dims=2)
             Makie.errorbars!(
