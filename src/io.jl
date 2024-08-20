@@ -37,7 +37,7 @@ function savechain(fname, chain::MCMCChains.Chains)
         normalize(x::Number) = x
         normalize(x::AbstractString) = string(x)
         normalize(x::Nothing) = x
-        normalize(x::Any) = string(x)[1:min(255,end)]
+        normalize(x::Any) = filter(isascii, string(x)[1:min(255,end)])
         if length(ks) > 0
             h = FITSHeader(
                 ks,
@@ -45,6 +45,8 @@ function savechain(fname, chain::MCMCChains.Chains)
                 ["chain-info" for _ in vals]
             )
         end
+
+        display(h)
 
         write(fits,zeros(0), header=h)
         col_titles = ["iteration"; "chain"; string.(keys(chain))]
