@@ -27,6 +27,11 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TOffsets,TJitters} <: Octofitte
         if !issubset(rv_cols, Tables.columnnames(table))
             error("Expected columns $rv_cols")
         end
+        rows = map(eachrow(table)) do row′
+            row = (;inst_idx=1, row′[1]..., rv=float(row′[1].rv[1]))
+            return row
+        end
+        table = Table(rows)
         # Check instrument indexes are contiguous
         if length(unique(table.inst_idx)) != maximum(table.inst_idx)
             error("instrument indexes must run from 1:N without gaps")

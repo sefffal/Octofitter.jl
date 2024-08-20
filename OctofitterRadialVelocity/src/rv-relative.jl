@@ -31,7 +31,7 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikeli
         end
 
         rows = map(eachrow(table)) do row′
-            row = (;row′[1]..., inst_idx=1)
+            row = (;inst_idx=1, row′[1]..., rv=float(row′[1].rv[1]))
             return row
         end
         table = Table(rows)
