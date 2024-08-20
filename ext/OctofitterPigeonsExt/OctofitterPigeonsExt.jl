@@ -49,7 +49,7 @@ end
 function Pigeons.default_explorer(target::Octofitter.LogDensityModel)
     return Pigeons.Compose(
         Pigeons.SliceSampler(),
-        Pigeons.AutoMALA()
+        Pigeons.AutoMALA(default_autodiff_backend=target.autodiff_backend_symbol)
     )
 end
 
