@@ -31,7 +31,7 @@ If this fails repeatedly, simply draw `initial_samples` from the prior and keepi
 function default_initializer!(model::LogDensityModel; kwargs...)
     return default_initializer!(Random.default_rng(), model; kwargs...)
 end
-function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; nruns=8, ntries=8, ndraws=1000, initial_samples=10000, verbosity=1)
+function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; nruns=8, ntries=2, ndraws=1000, initial_samples=10000, verbosity=1)
 
 
     local result_pf = nothing
@@ -47,7 +47,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
                 if verbosity > 3
                     @info "drawing new starting guess by sampling IID from priors"
                 end
-                initial_θ, mapv = guess_starting_position(rng,model.system,initial_samples)
+                initial_θ, mapv = guess_starting_position(rng,model,initial_samples)
                 if verbosity > 3
                     @info "Starting point drawn" initial_logpost=mapv
                 end
@@ -76,7 +76,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
             if result_pf.psis_result.pareto_shape > 3
                 verbosity > 3 && display(result_pf)
                 verbosity >= 4 && display(result_pf.psis_result)
-                verbosity > 2 && @warn "Restarting pathfinder" i
+                i<ntries && verbosity > 2 && @warn "Restarting pathfinder" i
                 continue
             end
             

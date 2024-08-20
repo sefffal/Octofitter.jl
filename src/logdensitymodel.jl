@@ -46,7 +46,24 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # TODO : this could be unrolled like invlink if used anywhere performance sensitive. Currently
         # it just transforms things back after all sampling is done.
         Bijector_linkvec = let priors_vec=priors_vec
-            (θ) -> Bijectors.link.(priors_vec, θ)
+            # (θ) -> Bijectors.link.(priors_vec, θ)
+            function (θ)
+                i = 0
+                out = zeros(eltype(θ), length(θ))
+                for prior in priors_vec
+                    if length(prior) == 1
+                        i += 1
+                        out[i] = Bijectors.link(prior, θ[i])
+                    else
+                        param_outs = Bijectors.link(prior, θ[i+1:i+length(prior)])
+                        for param_out in param_outs
+                            i += 1
+                            out[i] = param_out
+                        end
+                    end
+                end
+                return out
+            end
         end
         initial_θ_0_t = Bijector_linkvec(initial_θ_0)
         arr2nt = Octofitter.make_arr2nt(system)
@@ -55,6 +72,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # an error, we'll see it right away instead of burried in some deep stack
         # trace from the sampler, autodiff, etc.
         ln_like_generated(system, arr2nt(initial_θ_0))
+
         ln_prior_transformed(initial_θ_0,false)
 
 

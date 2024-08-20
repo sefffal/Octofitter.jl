@@ -24,6 +24,7 @@ function guess_starting_position(system::System, args...; kwargs...)
     return guess_starting_position(Random.default_rng(), system, args...; kwargs...)
 end
 function guess_starting_position(rng::Random.AbstractRNG, system::System, N=500_000)
+    @warn "guess_starting_position(...::System) is deprecated. Use guess_starting_position(...,::LogDensityModel)"
 
     # TODO: this shouldn't have to allocate anything, we can just loop keeping the best.
     θ = sample_priors(rng, system, N)
@@ -952,7 +953,7 @@ function result2mcmcchain(chain_in, sectionmap=Dict())
     flattened_labels = keys(flatten_named_tuple(first(chain_in)))
     data = zeros(length(chain_in), length(flattened_labels))
     for (i, sample) in enumerate(chain_in)
-        for (j, val) in enumerate(Iterators.flatten(Iterators.flatten(sample)))
+        for (j, val) in enumerate(Iterators.flatten(Iterators.flatten(Iterators.flatten(sample))))
             data[i,j] = val
         end
     end
@@ -968,34 +969,89 @@ Does the opposite of result2mcmcchain: given a model and a chain, return a vecto
 function mcmcchain2result(model, chain,)
 
     # Quickly construct a named tuple template
-    θ = sample_priors(model.system)
+    θ = model.sample_priors(Random.default_rng())
     nt = model.arr2nt(θ)
 
     planetkeys = string.(keys(model.system.planets))
-        # for pk in planetkeys
-            # if startswith(k, pk*"_")
 
-    # These are the columns we expect in the Chains object
-    flattened_labels = keys(flatten_named_tuple(nt))
+    # Map output keys in the named tuple to one or more input keys in the chain
+    # Complicated because in the chain representation, array-valued variables get
+    # flattened out; e.g. (;a=1,b=(1,2,3)) becomes four columns [a, b_1, b_2, b_3]
+    key_mapping = Pair{Symbol,Vector{Symbol}}[]
+    for key in keys(nt)
+        if key == :planets
+            continue
+        end
+        if nt[key] isa Number
+            push!(key_mapping, key => [key])
+        else
+            arr = Symbol[]
+            push!(key_mapping, key => arr)
+            for i in eachindex(nt[key])
+                key_i = Symbol(key, '_', i)
+                push!(arr, key_i)
+            end
+        end
+    end
+    for pl in keys(get(nt, :planets, (;)))
+        for key in keys(nt.planets[pl])
+            if nt.planets[pl][key] isa Number
+                k = Symbol(pl, '_', key)
+                push!(key_mapping, k => [k])
+            else
+                arr = Symbol[]
+                push!(key_mapping, Symbol(pl, '_', key) => arr)
+                for i in eachindex(nt.planets[pl][key])
+                    key_i = Symbol(pl, '_', key, '_', i)
+                    push!(arr, key_i)
+                end
+            end
+        end
+    end
     
     # These are the labels corresponding to the flattened named tuple without the *planet_key* prepended
     return broadcast(1:size(chain,1),1:size(chain,3)') do i,j
         # Take existing NT and recurse through it. replace elements
-        nt_sys = Dict(
-            k => chain[i,k,j]
-            for k in flattened_labels
-            if !any(map(pk->startswith(string(k),pk*"_"), planetkeys))
-                # this search operation could be majorly spread up by computing a set
-                # of valid keys *once*
-        )
+        nt_sys = Dict{Symbol,Any}()
+        for (kout,kins) in key_mapping
+            if any(map(pk->startswith(string(kout),pk*"_"), planetkeys))
+                continue
+            end
+            if length(kins) == 1
+                nt_sys[kout] = chain[i,kins[],j]
+            else
+                nt_sys[kout] = [
+                    chain[i,kin,j]
+                    for kin in kins
+                ]
+            end
+            # this search operation could be sped up by computing a set
+            # of valid keys *once*
+        end
         nt_planets = map(collect(planetkeys)) do pk
-            return Symbol(pk)=>namedtuple(Dict(
-                replace(string(k), r"^"*string(pk)*"_" =>"") => chain[i,k,j] 
-                for k in flattened_labels
-                if startswith(string(k),pk*"_")
-                    # this search operation could be majorly spread up by computing a set
-                    # of valid keys *once*
-            ))
+            # return Symbol(pk)=>namedtuple(Dict(
+            #     replace(string(k), r"^"*string(pk)*"_" =>"") => chain[i,k,j] 
+            #     for k in flattened_labels
+            #     if startswith(string(k),pk*"_")
+            # ))
+            nt_pl = Dict{Symbol,Any}()
+            for (kout,kins) in key_mapping
+                if !startswith(string(kout),pk*"_")
+                    continue
+                end
+                kout = Symbol(replace(string(kout), r"^"*string(pk)*"_" =>""))
+                if length(kins) == 1
+                    nt_pl[kout] = chain[i,kins[],j]
+                else
+                    nt_pl[kout] = [
+                        chain[i,kin,j]
+                        for kin in kins
+                    ]
+                end
+                # this search operation could be sped up by computing a set
+                # of valid keys *once*
+            end
+            return Symbol(pk) => namedtuple(nt_pl)
         end
         return merge(namedtuple(nt_sys), (;planets=namedtuple(nt_planets)))
         nt_sys
@@ -1009,17 +1065,30 @@ end
 function flatten_named_tuple(nt)
     pairs = Pair{Symbol, Float64}[]
     for key in keys(nt)
-        if key != :planets
+        if key == :planets
+            continue
+        end
+        if nt[key] isa Number
             push!(pairs, key => nt[key])
+        else
+            for i in eachindex(nt[key])
+                key_i = Symbol(key, '_', i)
+                push!(pairs, key_i => nt[key][i])
+            end
         end
     end
     for pl in keys(get(nt, :planets, (;)))
         for key in keys(nt.planets[pl])
-            push!(pairs, Symbol(pl, '_', key) =>  nt.planets[pl][key])
+            if nt.planets[pl][key] isa Number
+                push!(pairs, Symbol(pl, '_', key) =>  nt.planets[pl][key])
+            else
+                for i in eachindex(nt.planets[pl][key])
+                    push!(pairs, Symbol(pl, '_', key, '_', i) =>  nt.planets[pl][key][i])
+                end
+            end
         end
     end
     return namedtuple(pairs)
-
 end
 
 include("octoquick.jl")

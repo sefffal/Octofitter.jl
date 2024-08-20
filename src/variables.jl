@@ -379,10 +379,23 @@ function make_arr2nt(system::System)
 
     # Priors
     for key in keys(system.priors.priors)
-        i += 1
-        ex = :(
-            $key = arr[$i]
-        )
+        if length(system.priors.priors[key]) > 1
+            ex_is = []
+            # Handle vector-valued distributions
+            for _ in 1:length(system.priors.priors[key])
+                i += 1
+                ex_i = :(arr[$i])
+                push!(ex_is, ex_i)
+            end
+            ex  = :(
+                $key = ($(ex_is...),)
+            )
+        else
+            i += 1
+            ex  = :(
+                $key = arr[$i]
+            )
+        end
         push!(body_sys_priors,ex)
     end
 
@@ -404,10 +417,25 @@ function make_arr2nt(system::System)
         # Priors
         body_planet_priors = Expr[]
         for key in keys(planet.priors.priors)
-            i += 1
-            ex = :(
-                $key = arr[$i]
-            )
+            if length(planet.priors.priors[key]) > 1
+                ex_is = []
+                # Handle vector-valued distributions
+                for _ in 1:length(planet.priors.priors[key])
+                    i += 1
+                    ex_i = :(arr[$i])
+                    push!(ex_is, ex_i)
+                end
+                ex  = :(
+                    $key = ($(ex_is...),)
+                )
+            else
+                i += 1
+                ex  = :(
+                    $key = arr[$i]
+                )
+            end
+
+
             push!(body_planet_priors,ex)
         end
         j = 0
@@ -559,10 +587,20 @@ function make_ln_prior_transformed(system::System)
 
     # System priors
     for prior_distribution in values(system.priors.priors)
-        i += 1
         # prior_unconstrained = Bijectors.transformed(prior_distribution)
+        if length(prior_distribution) > 1
+            samples = []
+            for _ in 1:length(prior_distribution)
+                i += 1
+                samples = [samples; :(arr[$i])]
+            end
+            samples = :(SVector($(samples...),))
+        else
+            i += 1
+            samples = :(arr[$i])
+        end
         ex = :(
-            p = $logpdf_with_trans($prior_distribution, arr[$i], sampled);
+            p = $logpdf_with_trans($prior_distribution, $samples, sampled);
             # Try and "heal" out of bounds values.
             # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
             # precision. 
@@ -583,10 +621,20 @@ function make_ln_prior_transformed(system::System)
     for planet in system.planets
         # for prior_distribution in values(planet.priors.priors)
         for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
-            i += 1
             # prior_distribution = Bijectors.transformed(prior_distribution)
+            if length(prior_distribution) > 1
+                samples = []
+                for _ in 1:length(prior_distribution)
+                    i += 1
+                    samples = [samples; :(arr[$i])]
+                end
+                samples = :(SVector($(samples...),))
+            else
+                i += 1
+                samples = :(arr[$i])
+            end
             ex = :(
-                p = $logpdf_with_trans($prior_distribution, arr[$i], sampled);
+                p = $logpdf_with_trans($prior_distribution, $samples, sampled);
                 # Try and "heal" out of bounds values.
                 # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
                 # precision. 
@@ -659,7 +707,7 @@ function make_prior_sampler(system::System)
     for prior_distribution in values(system.priors.priors)
         ex = :(
             sample = $rand(rng, $prior_distribution);
-            prior_samples = (prior_samples..., sample);
+            prior_samples = (prior_samples..., sample...);
         )
         push!(prior_sample_expressions,ex)
     end
@@ -670,7 +718,7 @@ function make_prior_sampler(system::System)
         for prior_distribution in values(planet.priors.priors)
             ex = :(
                 sample = $rand(rng, $prior_distribution);
-                prior_samples = (prior_samples..., sample);
+                prior_samples = (prior_samples..., sample...);
             )
             push!(prior_sample_expressions,ex)
         end
@@ -699,10 +747,22 @@ function make_Bijector_invlinkvec(priors_vec)
 
     # System priors
     for prior_distribution in priors_vec
-        i += 1
-        ex = :(
-            $(Bijectors.invlink)($prior_distribution, arr[$i])
-        )
+        if length(prior_distribution) > 1
+            # Vector-valued distribution
+            array_access_ex = []
+            for _ in 1:length(prior_distribution)
+                i += 1
+                push!(array_access_ex, :(arr[$i]))
+            end
+            ex = :(
+                $(Bijectors.invlink)($prior_distribution, ($(array_access_ex...),))...
+            )
+        else
+            i += 1
+            ex = :(
+                $(Bijectors.invlink)($prior_distribution, arr[$i])
+            )
+        end
         push!(parameter_transformations, ex)
     end
 
@@ -748,11 +808,10 @@ export drawfrompriors
 # to call this function with anything other than our standard nested named tuple structure.
 Base.@assume_effects :terminates_globally function _system_number_type(θ_nt::NamedTuple)
     T = Bool # The narrowest number type
-    for key in propertynames(θ_nt)
-        if key == :planets
-            continue
+    for val in values(θ_nt)
+        if val isa Number
+            T = promote_type(T, typeof(val))
         end
-        T = promote_type(T, typeof(getproperty(θ_nt, key)))
     end
     if !hasproperty(θ_nt, :planets)
         return T
@@ -765,8 +824,10 @@ Base.@assume_effects :terminates_globally function _system_number_type(θ_nt::Na
         if !(planet isa NamedTuple)
             throw(ArgumentError("Invalid input"))
         end
-        for key in propertynames(planet)
-            T = promote_type(T,typeof(getproperty(planet, key)))
+        for val in values(planet)
+            if val isa Number
+                T = promote_type(T, typeof(val))
+            end
         end
     end
     return float(T) # Now promote to an appropriate floating point type

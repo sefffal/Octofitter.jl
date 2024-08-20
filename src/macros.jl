@@ -39,10 +39,10 @@ macro planet(args...)
                     rethrow(err)
                 end;
                 if !(
-                    distribution isa Distributions.UnivariateDistribution ||
+                    distribution isa Distributions.Distribution ||
                     distribution isa Octofitter.Parameterization
                 )
-                    error("prior on variable $($(Meta.quot(varname))) must be a UnivariateDistribution, Octofitter.Parameterization")
+                    error("prior on variable $($(Meta.quot(varname))) must be a Distribution, Octofitter.Parameterization")
                 end;
                 distribution
             ))
@@ -107,7 +107,7 @@ macro system(args...)
                     rethrow(err)
                 end;
                 if !(
-                    distribution isa Distributions.UnivariateDistribution ||
+                    distribution isa Distributions.Distribution ||
                     distribution isa Octofitter.Parameterization
                 )
                     error("prior on variable $($(Meta.quot(varname))) must be a UnivariateDistribution, Octofitter.Parameterization")
@@ -117,6 +117,7 @@ macro system(args...)
         elseif statement.head == :(=)
             varname = statement.args[1]
             expression = statement.args[2]
+            # expression = quasiquote!(expression, quote_vars, quote_vals)
             esc(:(
                 $varname = system -> $expression
             ))
@@ -126,6 +127,7 @@ macro system(args...)
             error("invalid statement encoutered $(statement.head)")
         end
     end
+   
     return quote 
         $(esc(name)) = $System(
             Variables(;$(variables...))...,
