@@ -98,8 +98,8 @@ function HipparcosIADLikelihood(; hip_id, catalog=(datadep"Hipparcos_IAD"), reno
         e_ddpmra, e_ddpmde, upsra, upsde, e_upsra, e_upsde, var
     )
 
-    if isol_n != 5
-        error("Only stars with solution types 5 are currently supported. This sol is $isol_n. If you need solution type 1, please open an issue on GitHub and we would be happy to add it.")
+    if isol_n ∉ (5,7,9)
+        error("Only stars with solution types 5, 7, or 9 are currently supported. This sol is $isol_n. If you need solution type 1, please open an issue on GitHub and we would be happy to add it.")
     end
 
     iad_table_rows = NamedTuple[]
@@ -225,7 +225,8 @@ function ln_like(
     orbits,
     num_epochs::Val{L}=Val(length(hiplike.table.epochs))
 ) where L
-    ll = 0.0
+    T = _system_number_type(θ_system)
+    ll = zero(T)
 
     hip_model = simulate(hiplike, θ_system, orbits)
     for i in eachindex(hip_model.resid)
