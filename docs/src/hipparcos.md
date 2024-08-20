@@ -37,8 +37,8 @@ end
     # It is convenient to put a prior of the catalog value +- 10,000 mas on position
     ra_hip_offset_mas ~  Normal(0, 10000)
     dec_hip_offset_mas ~ Normal(0, 10000)
-    dec = hip_like.hip_sol.dedeg + system.ra_hip_offset_mas/60/60/1000
-    ra = hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cosd(system.dec)
+    dec = $hip_like.hip_sol.dedeg + system.ra_hip_offset_mas/60/60/1000
+    ra = $hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cosd(system.dec)
 
     ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
 
@@ -141,8 +141,8 @@ end astrom_like1
     # It is convenient to put a prior of the catalog value +- 1000 mas on position
     ra_hip_offset_mas ~  Normal(0, 10000)
     dec_hip_offset_mas ~ Normal(0, 10000)
-    dec = hip_like.hip_sol.dedeg + system.ra_hip_offset_mas/60/60/1000
-    ra = hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cos(system.dec)
+    dec = $hip_like.hip_sol.dedeg + system.ra_hip_offset_mas/60/60/1000
+    ra = $hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cos(system.dec)
 
     ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
 end hip_like b
