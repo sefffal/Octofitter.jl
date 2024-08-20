@@ -95,13 +95,13 @@ end
 
     rv0 ~ Product([
         # HARPS-N
-        Normal(0,10000), # m/s
+        Normal(-6693,100), # m/s
         # FPS
-        Normal(0,10000), # m/s
+        Normal(0,100), # m/s
     ])
     jitter ~ Product([
-        LogUniform(0.01,100), # m/s
-        LogUniform(0.01,100), # m/s
+        LogUniform(0.1,100), # m/s
+        LogUniform(0.1,100), # m/s
     ])
 end rvlike b
 
@@ -182,7 +182,6 @@ rvlike = StarAbsoluteRVLikelihood(rv_dat,
 We create a new system model with added parameters `gp_η₁` etc for the Gaussian process fit.
 
 ```@example 1
-
 gp_explength_mean = 9.5*sqrt(2.) # sqrt(2)*tau in Dai+ 2017 [days]
 gp_explength_unc = 1.0*sqrt(2.)
 gp_perlength_mean = sqrt(1. /(2. *3.32)) # sqrt(1/(2*gamma)) in Dai+ 2017
