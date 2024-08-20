@@ -185,7 +185,6 @@ function make_ln_like(system::System, θ_system)
     end
 
     return @RuntimeGeneratedFunction(:(function (system::System, θ_system)
-
         ll0 = zero(_system_number_type(θ_system))
 
         # Construct all orbit elements and evaluate all their individual observation likelihoods

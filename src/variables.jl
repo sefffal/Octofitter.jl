@@ -804,33 +804,18 @@ export drawfrompriors
 # Helper function for determining the umber type to use in a likelihood function. 
 # It loops through all system and planet variables in a nested named tuple structure
 # and promotes them
-# NOTE: I couldn't find a way to express this with the type-system, but it is not valid
-# to call this function with anything other than our standard nested named tuple structure.
-Base.@assume_effects :terminates_globally function _system_number_type(θ_nt::NamedTuple)
+_system_number_type(T::NamedTuple) = _system_number_type(typeof(T))
+@generated function _system_number_type(::Type{NamedTuple{Keys,Vals}}) where {Keys, Vals}
     T = Bool # The narrowest number type
-    for val in values(θ_nt)
-        if val isa Number
-            T = promote_type(T, typeof(val))
-        end
-    end
-    if !hasproperty(θ_nt, :planets)
-        return T
-    end
-    if !(θ_nt.planets isa NamedTuple)
-        throw(ArgumentError("Invalid input"))
-    end
-    for planet_key in propertynames(θ_nt.planets)
-        planet = getproperty(θ_nt.planets, planet_key)
-        if !(planet isa NamedTuple)
-            throw(ArgumentError("Invalid input"))
-        end
-        for val in values(planet)
-            if val isa Number
-                T = promote_type(T, typeof(val))
-            end
+    for (K,V) in zip(Keys,fieldtypes(Vals))
+        if V <: Number
+            T = promote_type(T, V)
+        elseif V <: NamedTuple
+            T = promote_type(T, _system_number_type(V))
+        elseif V <: Tuple
+            T = promote_type(T, eltype(V))
         end
     end
     return float(T) # Now promote to an appropriate floating point type
 end
-
 _planet_orbit_type(::Planet{OrbitType}) where {OrbitType} = OrbitType

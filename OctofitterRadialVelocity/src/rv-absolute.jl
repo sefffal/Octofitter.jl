@@ -69,8 +69,9 @@ function Octofitter.ln_like(
     # Each RV instrument index can have it's own barycentric RV offset and jitter.
     # Grab the offsets/jitters and store in a tuple. 
     # Then we can index by inst_idxs to look up the right offset and jitter.
-    barycentric_rv_inst = SVector{length(rvlike.offset_symbols), T}(getproperty(θ_system, symbol) for symbol in rvlike.offset_symbols)
-    jitter_inst = SVector{length(rvlike.jitter_symbols), T}(getproperty(θ_system, symbol) for symbol in rvlike.jitter_symbols)
+    barycentric_rv_inst = θ_system.rv0
+    # barycentric_rv_inst = SVector{length(rvlike.offset_symbols), T}(getproperty(θ_system, symbol) for symbol in rvlike.offset_symbols)
+    jitter_inst =  θ_system.jitter #SVector{length(rvlike.jitter_symbols), T}(getproperty(θ_system, symbol) for symbol in rvlike.jitter_symbols)
     max_inst_idx = maximum(rvlike.table.inst_idx)
 
     # Vector of radial velocity of the star at each epoch. Go through and sum up the influence of
