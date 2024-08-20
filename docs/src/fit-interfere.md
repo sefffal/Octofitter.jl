@@ -62,7 +62,7 @@ fig
 ```@example 1
 @planet b Visual{KepOrbit} begin
     a ~ truncated(Normal(2,0.1), lower=0)
-    e ~ truncated(Normal(0, 0.05),lower=0, upper=1.0)
+    e ~ truncated(Normal(0, 0.05),lower=0, upper=0.90)
     i ~ Sine()
     ω ~ UniformCircular()
     Ω ~ UniformCircular()
