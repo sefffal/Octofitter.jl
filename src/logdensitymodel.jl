@@ -281,6 +281,29 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             ℓπcallback, ∇ℓπcallback
         end
         
+        # Perform some quick diagnostic checks to warn users for performance-gtochas
+        out_type_model = Core.Compiler.return_type(ℓπcallback, typeof((initial_θ_0_t,)))
+        out_type_arr2nt = Core.Compiler.return_type(arr2nt, typeof((initial_θ_0_t,)))
+        out_type_prior = Core.Compiler.return_type(ln_prior_transformed, typeof((initial_θ_0,false,)))
+        out_type_like = Core.Compiler.return_type(ln_like_generated, typeof((system,arr2nt(initial_θ_0),)))
+
+        if isconcretetype(out_type_prior) &&
+            isconcretetype(out_type_like) &&
+            isconcretetype(out_type_arr2nt) &&
+            !isconcretetype(out_type_model)
+            @warn "\nThis model's log density function is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
+        end
+        if !isconcretetype(out_type_prior)
+            @warn "\nThis model's prior sampler does not appear to be type stable, which will likely hurt sampling performance.\nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
+        end
+        if !isconcretetype(out_type_like)
+            @warn "\nThis model's likelihood function does not appear to be type stable, which will likely hurt sampling performance.\nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
+        end
+        if !isconcretetype(out_type_arr2nt)
+            @warn "\nThis model specification is not type-stable, which will likely hurt sampling performance.\nCheck for global variables used within your model definition, and prepend these with `\$`.\nIf that doesn't work, you could trying running:\n`@code_warntype model.arr2nt(randn(model.D))` for a bit more information.\nFor assistance, please file an issue on GitHub."
+        end
+
+
         # Return fully concrete type wrapping all these functions
         new{
             D,
