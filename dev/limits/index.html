@@ -6,7 +6,7 @@ using Distributions
 using Pigeons
 using CairoMakie
 using PairPlots</code></pre><h2 id="Photometry-Model"><a class="docs-heading-anchor" href="#Photometry-Model">Photometry Model</a><a id="Photometry-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Photometry-Model" title="Permalink"></a></h2><p>We will need to decide on an atmosphere model to map image intensities into mass. Here we use the Sonora Bobcat cooling and atmosphere models which will be auto-downloaded by Octofitter:</p><pre><code class="language-julia hljs">const cooling_tracks = Octofitter.sonora_cooling_interpolator()
-const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(::Octofitter.var&quot;#model_interpolator#197&quot;{Interpolations.FilledExtrapolation{Float64, 2, Interpolations.ScaledInterpolation{Float64, 2, Interpolations.BSplineInterpolation{Float64, 2, Matrix{Float64}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Float64}, Float64, Float64, Float64, Float64}) (generic function with 1 method)</code></pre><h2 id="Proper-Motion-Anomaly-Data"><a class="docs-heading-anchor" href="#Proper-Motion-Anomaly-Data">Proper Motion Anomaly Data</a><a id="Proper-Motion-Anomaly-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Proper-Motion-Anomaly-Data" title="Permalink"></a></h2><p>We start by defining and sampling from a model that only includes proper motion anomaly data from the HGCA:</p><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
+const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(::Octofitter.var&quot;#model_interpolator#213&quot;{Interpolations.FilledExtrapolation{Float64, 2, Interpolations.ScaledInterpolation{Float64, 2, Interpolations.BSplineInterpolation{Float64, 2, Matrix{Float64}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Float64}, Float64, Float64, Float64, Float64}) (generic function with 1 method)</code></pre><h2 id="Proper-Motion-Anomaly-Data"><a class="docs-heading-anchor" href="#Proper-Motion-Anomaly-Data">Proper Motion Anomaly Data</a><a id="Proper-Motion-Anomaly-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Proper-Motion-Anomaly-Data" title="Permalink"></a></h2><p>We start by defining and sampling from a model that only includes proper motion anomaly data from the HGCA:</p><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
     ω ~ Uniform(0,2pi)
@@ -31,30 +31,22 @@ model_pma = Octofitter.LogDensityModel(HD91312_pma)</code></pre><pre class="docu
 </code></pre><p>Sample:</p><pre><code class="language-julia hljs">using Pigeons
 chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16, n_rounds=12);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Determining initial positions and metric using pathfinder
 ┌ Info: Found a sample of initial positions
-└   initial_logpost_range = (-19.720833680208656, -10.548165481637598)
-┌ Warning: Invalid log likelihood encountered. (maxlog=1)
-│   θ = (M_pri = 4.98498823597598e-9, M_sec = 2.0847160820168282, plx = 1.2350202260592312e285, pmra = -202.53053076575225, pmdec = -61.78002974722685, M = 0.0019900629363446224, planets = (B = (a = 22.70097279973875, e = 0.0740492499002648, ω = 0.797981881797887, i = 1.544491798317002, Ω = 0.25323937753279413, θ = 3.2976763444175248, mass = 2.0847160820168282, tp = -71196.78994388279),))
-│   llike = -Inf
-│   θ_transformed =
-│    11-element Vector{Float64}:
-│     -19.11683479341985
-│       ⋮
-└ @ Octofitter ~/work/Octofitter.jl/Octofitter.jl/src/logdensitymodel.jl:105
+└   initial_logpost_range = (-733051.75321396, -733047.1366429877)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.13       3.88        7.3   7.22e+08   -1.6e+08          0      0.806      0.932       0.96
-        4          0       3.53       3.23      0.883   6.03e+08  -5.87e+05          0      0.782      0.897      0.921
-        8          0       4.95       6.19        1.2   8.99e+08  -7.99e+04          0      0.641      0.875      0.921
-       16          0       5.96       6.06       2.46   1.91e+09  -7.56e+04          0      0.612      0.891      0.912
-       32          0       6.65       6.53       4.84   3.76e+09  -2.52e+03          0      0.575      0.891      0.909
-       64          6       7.19       2.26       9.64   5.99e+09      -17.7  8.29e-244      0.695      0.894      0.904
-      128         10       7.84       2.56       17.6   1.19e+10      -17.3    9.3e-37      0.665      0.893      0.902
-      256         13       8.15       3.72       35.5   2.41e+10      -16.4   5.62e-33      0.617      0.901      0.916
-      512         34       8.48       3.64       68.3   4.66e+10      -17.2   5.31e-05      0.609      0.896      0.908
- 1.02e+03         96        8.9       3.15        138   9.46e+10      -17.2     0.0102      0.611      0.899      0.907
- 2.05e+03        191       9.28       3.41        278    1.9e+11      -17.2     0.0162      0.591      0.902      0.911
-  4.1e+03        424       9.61       3.26        559    3.8e+11      -17.2      0.054      0.585      0.903      0.911
+        2          0       3.03       4.67       5.12   3.27e+08  -3.59e+06          0      0.752       0.88       0.91
+        4          0       3.99       4.32      0.432   9.28e+06  -3.78e+06          0      0.732      0.867       0.92
+        8          0       6.84       5.11      0.511   9.01e+05  -3.52e+03          0      0.614      0.869      0.916
+       16          0       6.14       6.46       1.09   1.68e+06  -6.69e+04          0      0.593      0.893      0.915
+       32          0       7.75       6.03       2.23   3.24e+06       -282  6.81e-240      0.556      0.896      0.917
+       64          1        7.7       3.89       5.44    2.3e+08        -17   6.43e-57      0.626        0.9      0.913
+      128          8       8.07       3.29       9.39   4.06e+08      -16.9   1.53e-12      0.634      0.901      0.912
+      256         25       8.66       3.14       18.5   8.01e+08      -17.1   7.75e-09      0.619      0.902      0.911
+      512         45       9.21       3.35       37.3    1.6e+09      -17.3    0.00305      0.595      0.902      0.912
+ 1.02e+03        107       9.35       3.01         74   3.17e+09      -17.3     0.0288      0.601      0.902      0.909
+ 2.05e+03        182       9.62       3.52        149    6.4e+09      -17.2     0.0693      0.576      0.902      0.912
+  4.1e+03        441        9.9       3.22        296   1.26e+10      -17.1      0.132      0.577      0.902       0.91
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl:</p><pre><code class="language-julia hljs">pairplot(
     PairPlots.Series(
         (;
@@ -72,7 +64,7 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="321e73cb.png" alt="Example block output"/><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><pre><code class="language-julia hljs">using AstroImages
+)</code></pre><img src="6401dc2e.png" alt="Example block output"/><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><pre><code class="language-julia hljs">using AstroImages
 download(
     &quot;https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits&quot;,
     &quot;image-examples-1.fits&quot;
@@ -156,7 +148,7 @@ pairplot(
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="7e423e0d.png" alt="Example block output"/><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
+)</code></pre><img src="0cdbdcbd.png" alt="Example block output"/><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
     ω ~ Uniform(0,2pi)
@@ -237,4 +229,4 @@ pairplot(
         :sma=&gt;&quot;log₂ Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log₂ Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="b781f3d2.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-grav-wide/">« Fit GRAVITY Wide Data</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Monday 5 August 2024 22:02">Monday 5 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="c935a591.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-grav-wide/">« Fit GRAVITY Wide Data</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 21 August 2024 01:02">Wednesday 21 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -46,18 +46,22 @@ scatter(
         xlabel=&quot;time [mjd]&quot;,
         ylabel=&quot;RV [m/s]&quot;,
     )
-)</code></pre><img src="9b3e1cfb.png" alt="Example block output"/><pre><code class="language-julia hljs">@system ϵEri begin
+)</code></pre><img src="69cce1c6.png" alt="Example block output"/><pre><code class="language-julia hljs">@system ϵEri begin
     M ~ truncated(Normal(0.78, 0.01),lower=0)
     plx ~ gaia_plx(;gaia_id)
     pmra ~ Normal(-975, 10)
     pmdec ~ Normal(20,  10)
 
     # Radial velocity zero point per instrument
-    rv0_1 ~ Normal(0,10) # m/s
-    rv0_2 ~ Normal(0,10)
+    rv0 ~ Product([
+        Normal(0,10) # m/s
+        Normal(0,10)
+    ])
     # Radial jitter per instrument.
-    jitter_1 ~ truncated(Normal(0,10),lower=0) # m/s
-    jitter_2 ~ truncated(Normal(0,10),lower=0)
+    jitter ~ Product([
+        truncated(Normal(0,10),lower=0) # m/s
+        truncated(Normal(0,10),lower=0)
+    ])
     # You can also set both instruments to the same jitter, eg by putting instead (with = not ~):
     # jitter_2 = system.jitter_1
 end HGCALikelihood(;gaia_id) rvs_merged b
@@ -67,27 +71,19 @@ model = Octofitter.LogDensityModel(ϵEri)</code></pre><pre class="documenter-exa
 </code></pre><p>Now sample. You could use HMC via <code>octofit</code> or tempered sampling via <code>octofit_pigeons</code>. When using tempered sampling, make sure to start julia with <code>julia --thread=auto</code>. Each additional round doubles the number of posterior samples, so <code>n_rounds=10</code> gives 1024 samples. You should adjust <code>n_chains</code> to be roughly double the <code>Λ</code> value printed out during sample, and <code>n_chains_variational</code> to be roughly double the <code>Λ_var</code> column. </p><pre><code class="language-julia hljs">using Pigeons
 results, pt = octofit_pigeons(model, n_rounds=8, n_chains=10, n_chains_variational=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Determining initial positions and metric using pathfinder
 ┌ Info: Found a sample of initial positions
-└   initial_logpost_range = (-2901.1687262807304, -2889.591392057439)
-┌ Warning: Invalid log likelihood encountered. (maxlog=1)
-│   θ = (M = 4.9876590346216725e-33, plx = 4.5961723619289533e204, pmra = -974.7220771738882, pmdec = 4.370215347595899, rv0_1 = -3.1555942718523413, rv0_2 = 3.4768181728988594, jitter_1 = 0.04345869932887191, jitter_2 = 0.16338405258993616, planets = (b = (mass = 0.7838098223287824, a = 4.945069656460365, i = 0.9692943851871149, Ωy = -3.0493149782634354, Ωx = -1.6630147339594183, τy = -0.700643634491267, τx = -2.3701462662771355, e = 0, ω = 0.0, Ω = -2.642308610249553, τ = -0.29574530744239536, P = 1.5570775456708432e17, tp = -1.6819703236583041e19),))
-│   llike = -Inf
-│   θ_transformed =
-│    15-element Vector{Float64}:
-│     -74.37834140045496
-│       ⋮
-└ @ Octofitter ~/work/Octofitter.jl/Octofitter.jl/src/logdensitymodel.jl:105
+└   initial_logpost_range = (-2895.3716016812336, -2885.9261137661874)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0        5.3       3.16       29.5   1.24e+10  -1.75e+04          0      0.555      0.948      0.973
-        4          0       4.74       4.29         34   1.64e+10  -1.56e+04          0      0.525      0.913      0.946
-        8          0       4.15       5.34       57.5   2.77e+10  -3.07e+03          0      0.501       0.92      0.937
-       16          0        6.5       6.33        118    5.7e+10  -2.95e+03  1.68e-225      0.325      0.919      0.935
-       32          0       6.12       6.37        237   1.15e+11  -3.15e+03  8.66e-238      0.342      0.923      0.936
-       64          1       6.44       4.13        473   2.23e+11  -2.89e+03   4.26e-43      0.444      0.927      0.938
-      128          3       6.75       4.42        934   4.42e+11  -2.89e+03   2.06e-35      0.413      0.925      0.936
-      256         10       6.99        4.7   1.85e+03   8.79e+11  -2.89e+03    0.00191      0.385      0.928      0.938
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>We can now plot the results with a multi-panel plot:</p><pre><code class="language-julia hljs">octoplot(model, results, show_mass=true)</code></pre><img src="4cdbb029.png" alt="Example block output"/><p>We can also plot just the RV curve from the maximum <em>a-posteriori</em> fit:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, results)</code></pre><img src="e3691168.png" alt="Example block output"/><p>We can see what the visual orbit looks like for the maximum a-posteriori orbit:</p><pre><code class="language-julia hljs">i_max = argmax(results[:logpost][:])
+        2          0       3.53       4.17       13.5   4.05e+09  -1.96e+04          0      0.595      0.946      0.972
+        4          0       3.61       3.97         14   5.67e+09  -4.14e+03          0      0.601      0.911      0.939
+        8          0       5.75       5.21       22.1   8.74e+09  -5.33e+03          0      0.423      0.915      0.937
+       16          0       6.08       5.81         46   1.82e+10     -3e+03   2.9e-201      0.374      0.928      0.938
+       32          0       6.09        6.4       93.2   3.69e+10  -2.91e+03   1.83e-72      0.342      0.921      0.938
+       64          2       6.42       4.75        176   6.72e+10  -2.89e+03   5.91e-41      0.413      0.926      0.935
+      128          8       6.85       4.33        346   1.32e+11  -2.89e+03   9.86e-35      0.412      0.926      0.936
+      256         11       6.88       4.49        695   2.66e+11  -2.89e+03    0.00771      0.402      0.928      0.937
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>We can now plot the results with a multi-panel plot:</p><pre><code class="language-julia hljs">octoplot(model, results, show_mass=true)</code></pre><img src="9e5c4daf.png" alt="Example block output"/><p>We can also plot just the RV curve from the maximum <em>a-posteriori</em> fit:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, results)</code></pre><img src="fc21ae19.png" alt="Example block output"/><p>We can see what the visual orbit looks like for the maximum a-posteriori orbit:</p><pre><code class="language-julia hljs">i_max = argmax(results[:logpost][:])
 fig = octoplot(
     model,
     results[i_max,:,:],
@@ -95,5 +91,5 @@ fig = octoplot(
     colormap=Makie.cgrad([Makie.wong_colors()[1], &quot;#FAFAFA&quot;])
 )
 Label(fig[0,1], &quot;Maximum a-posteriori orbit sample&quot;)
-fig</code></pre><img src="aeb5183e.png" alt="Example block output"/><p>And a corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model, results, small=true)</code></pre><img src="68502982.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Fit Orbits to Images</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">Fit RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Monday 5 August 2024 22:02">Monday 5 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+fig</code></pre><img src="14a10fff.png" alt="Example block output"/><p>And a corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model, results, small=true)</code></pre><img src="bd05b37e.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Fit Orbits to Images</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">Fit RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 21 August 2024 01:02">Wednesday 21 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
