@@ -30,7 +30,7 @@
 
 
 *******************************************************************************
-Ephemeris / API_USER Tue Aug 20 16:37:42 2024 Pasadena, USA      / Horizons
+Ephemeris / API_USER Fri Aug 23 11:23:17 2024 Pasadena, USA      / Horizons
 *******************************************************************************
 Target body name: Earth (399)                     {source: DE441}
 Center body name: Solar System Barycenter (0)     {source: DE441}

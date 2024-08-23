@@ -3,20 +3,20 @@
 using OctofitterInterferometry
 using Distributions
 using CairoMakie
-using PairPlots</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-00ab1ab195f9 is missing from the cache.
+using PairPlots</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID ffffffff-ffff-ffff-0000-0055b8b20dae is missing from the cache.
 │ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 └ @ Base loading.jl:1948</code></pre><p>Download simulated JWST AMI observations from our examples folder on GitHub:</p><pre><code class="language-julia hljs">download(&quot;https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Sim_data_2023_1_.oifits&quot;, &quot;Sim_data_2023_1_.oifits&quot;)
 download(&quot;https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Sim_data_2023_2_.oifits&quot;, &quot;Sim_data_2023_2_.oifits&quot;)
 download(&quot;https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Sim_data_2024_1_.oifits&quot;, &quot;Sim_data_2024_1_.oifits&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;Sim_data_2024_1_.oifits&quot;</code></pre><p>Create the likelihood object:</p><pre><code class="language-julia hljs">vis_like = InterferometryLikelihood(
-    (; filename=&quot;Sim_data_2023_1_.oifits&quot;, epoch=mjd(&quot;2023-06-01&quot;), band=:F480M, use_vis2=false),
-    (; filename=&quot;Sim_data_2023_2_.oifits&quot;, epoch=mjd(&quot;2023-08-15&quot;), band=:F480M, use_vis2=false),
-    (; filename=&quot;Sim_data_2024_1_.oifits&quot;, epoch=mjd(&quot;2024-06-01&quot;), band=:F480M, use_vis2=false),
+    (; filename=&quot;Sim_data_2023_1_.oifits&quot;, epoch=mjd(&quot;2023-06-01&quot;), spectrum_var=:contrast_F480M, use_vis2=false),
+    (; filename=&quot;Sim_data_2023_2_.oifits&quot;, epoch=mjd(&quot;2023-08-15&quot;), spectrum_var=:contrast_F480M, use_vis2=false),
+    (; filename=&quot;Sim_data_2024_1_.oifits&quot;, epoch=mjd(&quot;2024-06-01&quot;), spectrum_var=:contrast_F480M, use_vis2=false),
 )</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">OctofitterInterferometry.InterferometryLikelihood Table with 14 columns and 3 rows:
-     filename              epoch    band   use_vis2  u                     ⋯
-   ┌────────────────────────────────────────────────────────────────────────
- 1 │ Sim_data_2023_1_.oi…  60096.0  F480M  false     [-3.46641e5; 6.7596…  ⋯
- 2 │ Sim_data_2023_2_.oi…  60171.0  F480M  false     [-3.46641e5; 6.7596…  ⋯
- 3 │ Sim_data_2024_1_.oi…  60462.0  F480M  false     [-3.46641e5; 6.7596…  ⋯</code></pre><p>Plot the closure phases:</p><pre><code class="language-julia hljs">fig = Makie.Figure()
+     filename              epoch    spectrum_var    use_vis2  ⋯
+   ┌───────────────────────────────────────────────────────────
+ 1 │ Sim_data_2023_1_.oi…  60096.0  contrast_F480M  false     ⋯
+ 2 │ Sim_data_2023_2_.oi…  60171.0  contrast_F480M  false     ⋯
+ 3 │ Sim_data_2024_1_.oi…  60462.0  contrast_F480M  false     ⋯</code></pre><p>Plot the closure phases:</p><pre><code class="language-julia hljs">fig = Makie.Figure()
 ax = Axis(
     fig[1,1],
     xlabel=&quot;index&quot;,
@@ -44,7 +44,7 @@ fig</code></pre><img src="85236a3a.png" alt="Example block output"/><pre><code c
 
     # Our prior on the planet&#39;s photometry
     # 0 +- 10% of stars brightness (assuming this is unit of data files)
-    F480M ~ truncated(Normal(0, 0.1),lower=0)
+    contrast_F480M ~ truncated(Normal(0, 0.1),lower=0)
 
     θ ~ UniformCircular()
     tp = θ_at_epoch_to_tperi(system,b,60171)  # reference epoch for θ. Choose an MJD date near your data.
@@ -70,7 +70,7 @@ Priors:
   ωx	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
   Ωy	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
   Ωx	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
-  F480M	Truncated(Distributions.Normal{Float64}(μ=0.0, σ=0.1); lower=0.0)
+  contrast_F480M	Truncated(Distributions.Normal{Float64}(μ=0.0, σ=0.1); lower=0.0)
   θy	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
   θx	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
 Octofitter.UnitLengthPrior{:ωy, :ωx}: √(ωy^2+ωx^2) ~ LogNormal(log(1), 0.02)
@@ -79,11 +79,11 @@ Octofitter.UnitLengthPrior{:θy, :θx}: √(θy^2+θx^2) ~ LogNormal(log(1), 0.0
 
 
 OctofitterInterferometry.InterferometryLikelihood Table with 14 columns and 3 rows:
-     filename              epoch    band   use_vis2  u                     ⋯
-   ┌────────────────────────────────────────────────────────────────────────
- 1 │ Sim_data_2023_1_.oi…  60096.0  F480M  false     [-3.46641e5; 6.7596…  ⋯
- 2 │ Sim_data_2023_2_.oi…  60171.0  F480M  false     [-3.46641e5; 6.7596…  ⋯
- 3 │ Sim_data_2024_1_.oi…  60462.0  F480M  false     [-3.46641e5; 6.7596…  ⋯
+     filename              epoch    spectrum_var    use_vis2  ⋯
+   ┌───────────────────────────────────────────────────────────
+ 1 │ Sim_data_2023_1_.oi…  60096.0  contrast_F480M  false     ⋯
+ 2 │ Sim_data_2023_2_.oi…  60171.0  contrast_F480M  false     ⋯
+ 3 │ Sim_data_2024_1_.oi…  60462.0  contrast_F480M  false     ⋯
 
 </code></pre><p>Create the model object and run <code>octofit_pigeons</code>:</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(Tutoria)
 
@@ -94,19 +94,19 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0        4.6       4.94       6.32   1.29e+09  -1.72e+03          0      0.692      0.939      0.965
-        4          0        4.3       4.95       1.55   1.47e+09       -326          0      0.701      0.894      0.927
-        8          0       4.83       4.38       2.29   2.37e+09      -65.5  2.16e-211      0.703      0.907      0.928
-       16          0       5.66        5.6       4.56   4.76e+09        173   8.91e-24      0.637      0.889      0.917
-       32          0        6.1       6.28       9.12   9.57e+09        178    0.00356      0.601      0.902      0.918
-       64          7       6.31       2.55       20.3   2.01e+10        176      0.143      0.714      0.907      0.923
-      128         12       6.48       2.61       38.6   3.98e+10        176     0.0997      0.707      0.908      0.923
-      256         25       6.71       2.62       75.5   7.82e+10        176      0.288      0.699       0.91      0.921
-      512         63       6.95       2.73        153   1.57e+11        176      0.452      0.688      0.908       0.92
- 1.02e+03        148       6.77       2.66        308   3.16e+11        176      0.518      0.696      0.909       0.92
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Note that we use Pigeons paralell tempered sampling (<code>octofit_pigeons</code>) instead of HMC (<code>octofit</code>) because interferometry data is almost always multi-modal (or more precisely non-convex, there is often still a single mode that dominates).</p><p>Examine the recovered photometry posterior:</p><pre><code class="language-julia hljs">hist(results[:b_F480M][:], axis=(;xlabel=&quot;F480M&quot;))</code></pre><img src="840cf1db.png" alt="Example block output"/><p>Determine the significance of the detection:</p><pre><code class="language-julia hljs">using Statistics
-phot = results[:b_F480M][:]
-snr = mean(phot)/std(phot)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">7.276898550901578</code></pre><p>Plot the resulting orbit:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="7007733f.png" alt="Example block output"/><p>Plot position at each epoch:</p><pre><code class="language-julia hljs">using PlanetOrbits
+        2          0        4.6       4.94       6.41   1.29e+09  -1.72e+03          0      0.692      0.939      0.965
+        4          0        4.3       4.95       1.66   1.47e+09       -326          0      0.701      0.894      0.927
+        8          0       4.83       4.38       2.47   2.37e+09      -65.5  2.16e-211      0.703      0.907      0.928
+       16          0       5.66        5.6          5   4.76e+09        173   8.91e-24      0.637      0.889      0.917
+       32          0        6.1       6.28       9.79   9.57e+09        178    0.00356      0.601      0.902      0.918
+       64          7       6.31       2.55       20.2   2.01e+10        176      0.143      0.714      0.907      0.923
+      128         12       6.48       2.61       38.8   3.98e+10        176     0.0997      0.707      0.908      0.923
+      256         25       6.71       2.62       76.4   7.82e+10        176      0.288      0.699       0.91      0.921
+      512         63       6.95       2.73        154   1.57e+11        176      0.452      0.688      0.908       0.92
+ 1.02e+03        148       6.77       2.66        310   3.16e+11        176      0.518      0.696      0.909       0.92
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Note that we use Pigeons paralell tempered sampling (<code>octofit_pigeons</code>) instead of HMC (<code>octofit</code>) because interferometry data is almost always multi-modal (or more precisely non-convex, there is often still a single mode that dominates).</p><p>Examine the recovered photometry posterior:</p><pre><code class="language-julia hljs">hist(results[:b_contrast_F480M][:], axis=(;xlabel=&quot;F480M&quot;))</code></pre><img src="840cf1db.png" alt="Example block output"/><p>Determine the significance of the detection:</p><pre><code class="language-julia hljs">using Statistics
+phot = results[:b_contrast_F480M][:]
+snr = mean(phot)/std(phot)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">7.276898550901578</code></pre><p>Plot the resulting orbit:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="08f6567f.png" alt="Example block output"/><p>Plot only the position at each epoch:</p><pre><code class="language-julia hljs">using PlanetOrbits
 els = Octofitter.construct_elements(results,:b,:);
 fig = Makie.Figure()
 ax = Makie.Axis(
@@ -126,23 +126,6 @@ for epoch in vis_like.table.epoch
     )
 end
 Makie.Legend(fig[1,2], ax, &quot;date&quot;)
-fig</code></pre><img src="57fdda9e.png" alt="Example block output"/><p>We can use PairPlots.jl to create a contour plot of positions at all three epochs:</p><pre><code class="language-julia hljs">els = Octofitter.construct_elements(results,:b,:);
-fig = pairplot(
-    [
-        (;
-                ra=raoff.(els, epoch)[:],
-                dec=decoff.(els, epoch)[:],
-        )=&gt;(PairPlots.Contourf(),)
-        for epoch in vis_like.table.epoch
-    ]...,
-    bodyaxis=(;width=400,height=400),
-    axis=(;
-        ra=(;reversed=true, lims=(;low=250,high=-250,)),
-        dec=(;lims=(;low=-250,high=250,)),
-    ),
-    labels=Dict(:ra=&gt;&quot;ra offset [mas]&quot;, :dec=&gt;&quot;dec offset [mas]&quot;),
-)
-Makie.scatter!(fig.content[1], [0],[0],marker=&#39;⭐&#39;, markersize=30, color=:black)
-fig</code></pre><img src="b664d1ac.png" alt="Example block output"/><p>Finally we can examine the joint photometry and orbit posterior as a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
+fig</code></pre><img src="57fdda9e.png" alt="Example block output"/><p>Finally we can examine the joint photometry and orbit posterior as a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
 using CairoMakie: Makie
-octocorner(model, results)</code></pre><img src="b8c6625e.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-coplanar/">« Fit Resonant Co-Planar Model</a><a class="docs-footer-nextpage" href="../fit-likemap/">Fit Likelihood Map »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 21 August 2024 01:02">Wednesday 21 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model, results)</code></pre><img src="178bedad.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-coplanar/">« Fit Resonant Co-Planar Model</a><a class="docs-footer-nextpage" href="../fit-likemap/">Fit Likelihood Map »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.6.0 on <span class="colophon-date" title="Friday 23 August 2024 19:46">Friday 23 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
