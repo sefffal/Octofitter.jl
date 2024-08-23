@@ -27,6 +27,8 @@ macro planet(args...)
         !(expr isa LineNumberNode)
     end
     likelihoods = args[4:end]
+    quote_vars = Symbol[]
+    quote_vals = Expr[]
     variables = map(variables_block) do statement
         if statement.head == :call && statement.args[1] == :~
             varname = statement.args[2]
@@ -49,6 +51,7 @@ macro planet(args...)
         elseif statement.head == :(=)
             varname = statement.args[1]
             expression = statement.args[2]
+            expression = quasiquote!(expression, quote_vars, quote_vals)
             return :(
                 $(esc(varname)) = ($(esc(:system)), $(esc(name))) -> $(esc(expression))
             )
@@ -58,7 +61,17 @@ macro planet(args...)
             error("invalid statement encoutered $(statement.head)")
         end
     end
+     # Create constant bindings for all `$` interpolated variables
+    # to ensure performance.
+    # We just interpolate them into the global scope as constants,
+    # evaluated immediately in the calling scope.
+    quoted_var_pairs = map(quote_vars, quote_vals) do var, val
+        return quote
+            const $(esc(var)) = $(esc(val.args[1]))
+        end
+    end
     return quote 
+        $(quoted_var_pairs...)
         $(esc(name)) = $Planet{$orbit_type}(
             Variables(;$(variables...))...,
             $((esc(l) for l in likelihoods)...);
