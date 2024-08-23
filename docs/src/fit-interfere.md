@@ -29,9 +29,9 @@ download("https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Si
 Create the likelihood object:
 ```@example 1
 vis_like = InterferometryLikelihood(
-    (; filename="Sim_data_2023_1_.oifits", epoch=mjd("2023-06-01"), band=:F480M, use_vis2=false),
-    (; filename="Sim_data_2023_2_.oifits", epoch=mjd("2023-08-15"), band=:F480M, use_vis2=false),
-    (; filename="Sim_data_2024_1_.oifits", epoch=mjd("2024-06-01"), band=:F480M, use_vis2=false),
+    (; filename="Sim_data_2023_1_.oifits", epoch=mjd("2023-06-01"), spectrum_var=:contrast_F480M, use_vis2=false),
+    (; filename="Sim_data_2023_2_.oifits", epoch=mjd("2023-08-15"), spectrum_var=:contrast_F480M, use_vis2=false),
+    (; filename="Sim_data_2024_1_.oifits", epoch=mjd("2024-06-01"), spectrum_var=:contrast_F480M, use_vis2=false),
 )
 ```
 
@@ -69,7 +69,7 @@ fig
 
     # Our prior on the planet's photometry
     # 0 +- 10% of stars brightness (assuming this is unit of data files)
-    F480M ~ truncated(Normal(0, 0.1),lower=0)
+    contrast_F480M ~ truncated(Normal(0, 0.1),lower=0)
 
     θ ~ UniformCircular()
     tp = θ_at_epoch_to_tperi(system,b,60171)  # reference epoch for θ. Choose an MJD date near your data.
@@ -95,13 +95,13 @@ Note that we use Pigeons paralell tempered sampling (`octofit_pigeons`) instead 
 
 Examine the recovered photometry posterior:
 ```@example 1
-hist(results[:b_F480M][:], axis=(;xlabel="F480M"))
+hist(results[:b_contrast_F480M][:], axis=(;xlabel="F480M"))
 ```
 
 Determine the significance of the detection:
 ```@example 1
 using Statistics
-phot = results[:b_F480M][:]
+phot = results[:b_contrast_F480M][:]
 snr = mean(phot)/std(phot)
 ```
 
@@ -111,8 +111,7 @@ octoplot(model, results)
 ```
 
 
-
-Plot position at each epoch:
+Plot only the position at each epoch:
 ```@example 1
 using PlanetOrbits
 els = Octofitter.construct_elements(results,:b,:);
@@ -137,28 +136,6 @@ Makie.Legend(fig[1,2], ax, "date")
 fig
 ```
 
-
-We can use PairPlots.jl to create a contour plot of positions at all three epochs:
-```@example 1
-els = Octofitter.construct_elements(results,:b,:);
-fig = pairplot(
-    [
-        (;
-                ra=raoff.(els, epoch)[:],
-                dec=decoff.(els, epoch)[:],
-        )=>(PairPlots.Contourf(),)
-        for epoch in vis_like.table.epoch
-    ]...,
-    bodyaxis=(;width=400,height=400),
-    axis=(;
-        ra=(;reversed=true, lims=(;low=250,high=-250,)),
-        dec=(;lims=(;low=-250,high=250,)),
-    ),
-    labels=Dict(:ra=>"ra offset [mas]", :dec=>"dec offset [mas]"),
-)
-Makie.scatter!(fig.content[1], [0],[0],marker='⭐', markersize=30, color=:black)
-fig
-```
 
 Finally we can examine the joint photometry and orbit posterior as a corner plot:
 ```@example 1
