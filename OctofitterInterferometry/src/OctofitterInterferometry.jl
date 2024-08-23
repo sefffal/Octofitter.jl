@@ -8,14 +8,18 @@ using FITSIO, OIFITS
 
 abstract type AbstractInterferometryLikelihood <: Octofitter.AbstractLikelihood end
 
-const required_cols = (:epoch, :u, :v, :cps_data, :dcps, :vis2_data, :dvis2, :index_cps1, :index_cps2, :index_cps3, :band, :use_vis2)
+const required_cols = (:epoch, :u, :v, :cps_data, :dcps, :vis2_data, :dvis2, :index_cps1, :index_cps2, :index_cps3, :spectrum_var, :use_vis2)
 struct InterferometryLikelihood{TTable<:Table} <: AbstractInterferometryLikelihood
     table::TTable
 end
-function InterferometryLikelihood(observations...)
+function InterferometryLikelihood(
+    observations...;
+)
     input_table = Table(observations...)
     if :filename ∈ Tables.columnnames(input_table)
-        rows = map(_prepare_input_row, eachrow(input_table))
+        rows = map(eachrow(input_table)) do row
+            _prepare_input_row(row)
+        end
         table = Table(rows)
     else
         table = input_table
@@ -32,6 +36,7 @@ export InterferometryLikelihood
 # Prepare closure phases etc
 function _prepare_input_row(row)
     row = only(row)
+    (;wavelength_min_meters, wavelength_max_meters) = (;wavelength_min_meters=-Inf, wavelength_max_meters=Inf, row...)
     FITS(row.filename, "r") do f
         local wavs, vis2s, cps
         try
@@ -64,12 +69,12 @@ function _prepare_input_row(row)
         # Clamp CP err to a minimum of 2 degrees
         if any(==(0), cp_err)
             @warn "Some closure phase errors are exactly 0. This will lead to numerical issues. Either verify the data, or provide a non-zero `σ_cp_jitter` variable when sampling."
-            @warn "claming uncertainties to at least 2 degrees"
+            @warn "clamping uncertainties to at least 2 degrees"
             cp_err .= max.(2, cp_err)
         end
 
         mask = trues(length(eff_wave))
-        # mask = 1:20:length(eff_wave)
+        mask .= wavelength_min_meters .< eff_wave .< wavelength_max_meters
 
         # These say what baseline (cp1) should be added to (cp2) and then subtract (cp3)
         # to get a closure phase in our modelling.
@@ -78,8 +83,8 @@ function _prepare_input_row(row)
         return (;
             row...,
             row.epoch,
-            row.band,
-            row.use_vis2,
+            row.spectrum_var,
+            use_vis2 = hasproperty(row, :use_vis2) ? row.use_vis2 : nothing,
             u=u[:, mask],
             v=v[:, mask],
             eff_wave=eff_wave[mask],
@@ -104,7 +109,7 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
 
     # Access the data here: 
     epochs = vis.table.epoch
-    band = vis.table.band
+    spectrum_var = vis.table.spectrum_var
 
     # Add an extra optional uncertainty
     # in quadrature
@@ -114,7 +119,7 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
     for i_epoch in eachindex(epochs)
 
         epoch = epochs[i_epoch]
-        this_band = band[i_epoch]
+        this_spectrum_var = spectrum_var[i_epoch]
 
         index_cps1 = vis.table.index_cps1[i_epoch]
         index_cps2 = vis.table.index_cps2[i_epoch]
@@ -124,7 +129,7 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
         cps_model = zeros(T, size(vis.table.cps_data[i_epoch][:, 1]))
         cvis_model = zeros(complex(T), size(vis.table.u[i_epoch][:, 1]))
 
-        contrasts = T[getproperty(θ_planet, this_band) for θ_planet in θ_system.planets]
+        contrasts = T[getproperty(θ_planet, this_spectrum_var) for θ_planet in θ_system.planets]
         sols = [orbitsolve(orbits[i_planet], epoch) for i_planet in 1:length(θ_system.planets)]
 
         # Loop through wavelengths
