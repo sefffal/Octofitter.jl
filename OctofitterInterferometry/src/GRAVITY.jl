@@ -290,17 +290,21 @@ function Octofitter.ln_like(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num
         # factorization for each block independently and then concatenate them together.
         # We know there are three KPs per wavelength with GRAVITY.
         N = length(vis.table.eff_wave)
-        cholesky!(Hermitian(@view Σ_kp[1:N,1:N]));
-        cholesky!(Hermitian(@view Σ_kp[N+1:2N,N+1:2N]));
-        cholesky!(Hermitian(@view Σ_kp[2N+1:end,2N+1:end]));
-        
-        # Now we construct an MvNormal d1;istribution but avoid 
-        # calling Cholesky on the full matrix
-        Ch = Cholesky(UpperTriangular(Σ_kp));
-        # need to pass matrix and cholesky factorization
-        P = PDMat(Σ_kp, Ch);
-        dist = MvNormal(P);
-        ll += logpdf(dist,kernphase_resids)
+        try
+            cholesky!(Hermitian(@view Σ_kp[1:N,1:N]));
+            cholesky!(Hermitian(@view Σ_kp[N+1:2N,N+1:2N]));
+            cholesky!(Hermitian(@view Σ_kp[2N+1:end,2N+1:end]));
+                
+            # Now we construct an MvNormal d1;istribution but avoid 
+            # calling Cholesky on the full matrix
+            Ch = Cholesky(UpperTriangular(Σ_kp));
+            # need to pass matrix and cholesky factorization
+            P = PDMat(Σ_kp, Ch);
+            dist = MvNormal(P);
+            ll += logpdf(dist,kernphase_resids)
+        catch
+            return convert(T,-Inf)
+        end
     end
 
 
