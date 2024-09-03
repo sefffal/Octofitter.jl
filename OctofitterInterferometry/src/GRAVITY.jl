@@ -91,13 +91,20 @@ GRAVITYWideKPLikelihood(observations::NamedTuple...) = GRAVITYWideKPLikelihood(o
 export GRAVITYWideKPLikelihood
 
 
-function _getparams(::GRAVITYWideKPLikelihood{TTable,TInterp,spectrum_vars}, θ_planet) where
+
+@generated function _getparams(::GRAVITYWideKPLikelihood{TTable,TInterp,spectrum_vars}, θ_planet) where
     {TTable,TInterp,spectrum_vars}
-    spectrum_vals = [
-        getproperty(θ_planet, spectrum_vars[i_epoch]) for i_epoch in eachindex(spectrum_vars)
+    # build an expression up using the types, and return it
+    exprs = [
+        :(θ_planet.$(spectrum_vars[i_epoch])) for i_epoch in eachindex(spectrum_vars)
     ]
-    return (;spectrum_vals)
+    return quote
+        spectrum_vals = ($(exprs...),)
+        nt = (;spectrum_vals)
+        return nt
+    end
 end
+
 
 # theta = range(0, 100, length=250)
 # Credit: W. Balmer, D. Bakely, and others.
@@ -141,10 +148,11 @@ function Octofitter.ln_like(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num
     epochs = vis.table.epoch
 
     if length(epochs) > 0
-        cps_model = zeros(T, size(vis.table.cps_data[1][:, 1]))
-        cvis_model = zeros(complex(T), size(vis.table.u[1][:, 1]))
+        cps_model = zeros(T, size(vis.table.cps_data[1], 1))
+        cvis_model = zeros(complex(T), size(vis.table.u[1], 1))
     end
 
+    local C_kp, throughputs, Σ_kp
     # Loop through epochs
     for i_epoch in eachindex(epochs)
         epoch = epochs[i_epoch]
@@ -159,18 +167,25 @@ function Octofitter.ln_like(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num
             cps_model .= 0
             cvis_model .= 0
         else
-            cps_model = zeros(T, size(vis.table.cps_data[i_epoch][:, 1]))
-            cvis_model = zeros(complex(T), size(vis.table.u[i_epoch][:, 1]))
+            cps_model = zeros(T, size(vis.table.cps_data[i_epoch], 1))
+            cvis_model = zeros(complex(T), size(vis.table.u[i_epoch], 1))
         end
 
-        sols = [orbitsolve(orbits[i_planet], epoch) for i_planet in 1:min(length(θ_system.planets), length(orbits))]
+        if length(θ_system.planets) == 1
+            sols = (orbitsolve(only(orbits), epoch),)
+        else
+            # TODO: why is this so complicated?
+            sols = [orbitsolve(orbits[i_planet], epoch) for i_planet in 1:min(length(θ_system.planets), length(orbits))]
+        end
 
-        throughputs = zeros(T, length(sols), length(vis.table.eff_wave[i_epoch]))
-        for i_planet in 1:length(sols)
+        if i_epoch == 1 || size(throughputs) == (length(orbits), length(vis.table.eff_wave[i_epoch]))
+            throughputs = zeros(T, length(orbits), length(vis.table.eff_wave[i_epoch]))
+        end
+        for i_planet in 1:length(orbits)
 
             θ_planet = θ_system.planets[i_planet]
             (;spectrum_vals) = _getparams(vis, θ_planet)
-            mean_constrast = mean(spectrum_vals[i_epoch])
+            mean_constrast = mean(spectrum_vals[i_epoch])::Union{T,Float64}
             for i_wave in 1:length(vis.table.eff_wave[i_epoch])
                 sol = sols[i_planet]
                 # flux_ratio = mean_constrasts_by_planet[i_planet]
@@ -209,10 +224,11 @@ function Octofitter.ln_like(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num
             for i_planet in eachindex(orbits)
                 θ_planet = θ_system.planets[i_planet]
                 (;spectrum_vals) = _getparams(vis, θ_planet)
+                # spectrum_vals::Union{Vector{Vector{T}},Vector{Vector{Float64}}}
                 # All parameters relevant to this planet
                 # Get model contrast parameter in this band (band provided as a symbol, e.g. :L along with data in table row.)
-                contrast = spectrum_vals[i_planet][i_wave]
-                throughput = throughputs[i_planet]
+                contrast = spectrum_vals[i_epoch][i_wave]::Union{Float64,T}
+                throughput = throughputs[i_planet,i_wave]
                 Δra = raoff(sols[i_planet])  # in mas
                 Δdec = decoff(sols[i_planet]) # in mas
 
@@ -268,7 +284,11 @@ function Octofitter.ln_like(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num
         # We directly compute the kernel phase analog to that correlation matrix (digonal + spectral correlation within a given KP)
         
         # TODO: this might only be correct up to a scaling factor, verify
-        C_kp = CKP(vis.table[i_epoch], kp_Cy)
+        if i_epoch == 1 || size(vis.table.eff_wave[i_epoch]) != size(first(vis.table.eff_wave))
+            C_kp = CKP(vis.table[i_epoch], kp_Cy)
+        else
+            C_kp = CKP!(C_kp, vis.table[i_epoch], kp_Cy)
+        end
 
         # Caculate KP uncertainties from CPs
         # σ_kp =  P₁ * vec(σ_cp); 
@@ -276,7 +296,11 @@ function Octofitter.ln_like(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num
         σ_kp = vis.table[i_epoch].σ_kp
 
         # Calculate covariance from correlation
-        Σ_kp = (Diagonal(σ_kp) * C_kp * Diagonal(σ_kp)' )
+        if i_epoch == 1 || size(vis.table.eff_wave[i_epoch]) != size(first(vis.table.eff_wave))
+            Σ_kp = (Diagonal(σ_kp) * C_kp * Diagonal(σ_kp)' )
+        else
+            Σ_kp .= σ_kp .* C_kp .* (σ_kp')
+        end
         # add KP jitter along the diagonal
         for i in axes(Σ_kp,1)
             Σ_kp[i,i] += kp_jitter^2
