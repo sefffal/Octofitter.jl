@@ -154,7 +154,8 @@ function Octofitter.hgcaplot!(
         alpha,
         color=concat_with_nan(color_model_t),
         colorrange=(0, 2pi),
-        colormap
+        colormap,
+        rasterize=4,
     )
     lines!(ax_veldec,
         concat_with_nan(ts' .+ 0 .* pmdec_model_t),
@@ -162,7 +163,8 @@ function Octofitter.hgcaplot!(
         alpha,
         color=concat_with_nan(color_model_t),
         colorrange=(0, 2pi),
-        colormap
+        colormap,
+        rasterize=4,
     )
 
     # Now over plot any astrometry
@@ -360,7 +362,7 @@ function Octofitter.hgcaplot!(
         error_ellipses[1][1],
         error_ellipses[1][2],
         color=Makie.wong_colors()[1],
-        linewidth=3.5,
+        linewidth=3.5
     )
     Makie.scatter!(
         ax_dat1, x[1], y[1],

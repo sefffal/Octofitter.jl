@@ -105,7 +105,8 @@ function astromtimeplot!(
             alpha,
             color=concat_with_nan(color_model_t .+ 0 .* ii),
             colorrange=(0,2pi),
-            colormap=colormaps[planet_key]
+            colormap=colormaps[planet_key],
+            rasterize=4,
         )
         
         # Go through each PA time series and, whenever we detect PA has wrapped past 0 or 360,
@@ -184,7 +185,8 @@ function astromtimeplot!(
             alpha,
             color=allcolors,
             colorrange=(0,2pi),
-            colormap=colormaps[planet_key]
+            colormap=colormaps[planet_key],
+            rasterize=4,
         )
     end
 

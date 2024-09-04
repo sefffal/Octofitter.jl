@@ -53,11 +53,23 @@ function rvtimeplot!(
     gs = gridspec_or_fig
     nt_format = Octofitter.mcmcchain2result(model, results)
 
+    # Detect if should use km/s
+    use_kms = false
+    kms_mult = 1.0
+    for planet_key in keys(model.system.planets)
+        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        sols = orbitsolve_meananom.(orbs, range(0,2pi,length=30)')
+        rv_model_t = radvel.(sols)
+        if maximum(abs, rv_model_t) > 1500
+            use_kms = true
+            kms_mult = 1e-3
+        end
+    end
 
     date_pos, date_strs, xminorticks = _date_ticks(ts)
     ax= Axis(
         gs[1, 1];
-        ylabel="rv [m/s]",
+        ylabel= use_kms ? "rv [km/s]" : "rv [m/s]",
         xaxisposition=:top,
         xticks=(date_pos, date_strs),
         xgridvisible=false,
@@ -128,13 +140,14 @@ function rvtimeplot!(
             end
             lines!(ax,
                 concat_with_nan(ts' .+ 0 .* rv_planet_model_t),
-                concat_with_nan(rv_planet_model_t);
+                concat_with_nan(rv_planet_model_t) .* kms_mult;
                 alpha,
                 # color=concat_with_nan(color_planet_model_t),
                 # colorrange=(0,2pi),
                 # colormap
                 color=Makie.wong_colors()[1+i_planet],
-                label=string(planet_key)
+                label=string(planet_key),
+                rasterize=4,
             )
 
         end
@@ -144,12 +157,13 @@ function rvtimeplot!(
 
     lines!(ax,
         concat_with_nan(ts' .+ 0 .* rv_star_model_t),
-        concat_with_nan(rv_star_model_t);
+        concat_with_nan(rv_star_model_t) .* kms_mult;
         alpha,
         color = planet_rv ? Makie.wong_colors()[1] : concat_with_nan(color_model_t),
         colorrange=(0,2pi),
         colormap,
-        label="A"
+        label="A",
+        rasterize=4,
     )
 
     if planet_rv
@@ -176,17 +190,34 @@ function rvtimeplot!(
             end
             jitter = results["$(planet_key)_jitter_1"]
             σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
+            # Makie.errorbars!(
+            #     ax, epoch, rv .* kms_mult, σ_tot .* kms_mult;
+            #     color=Makie.wong_colors()[1+i_planet],
+            #     linewidth=3,
+            # )
+            # Makie.scatter!(
+            #     ax, epoch, rv .* kms_mult;
+            #     color=Makie.wong_colors()[1+i_planet],
+            #     strokewidth=0.5,
+            #     strokecolor=:black,
+            #     markersize=4,
+            # )
             Makie.errorbars!(
-                ax, epoch, rv, σ_tot;
-                color=Makie.wong_colors()[1+i_planet],
-                linewidth=3,
+                ax, epoch, rv .* kms_mult, σ_tot .* kms_mult;
+                color =  :grey,
+                linewidth=1,
+            )
+            Makie.errorbars!(
+                ax, epoch, rv.*kms_mult, σ_rv .* kms_mult;
+                color =  :black,
+                linewidth=2,
             )
             Makie.scatter!(
-                ax, epoch, rv;
-                color=Makie.wong_colors()[1+i_planet],
-                strokewidth=0.5,
+                ax, epoch, rv.*kms_mult;
+                color=:white,
+                strokewidth=2,
                 strokecolor=:black,
-                markersize=4,
+                markersize=8,
             )
         end
     end
@@ -210,21 +241,21 @@ function rvtimeplot!(
             σ_tot = sqrt.(σ_rv[mask] .^2 .+ mean(jitter) .^2 .+ var(rv0))
             rv[mask] .-= mean(rv0,dims=2)
             Makie.errorbars!(
-                ax, epoch[mask], rv[mask], σ_tot;
+                ax, epoch[mask], rv[mask] .* kms_mult, σ_tot .* kms_mult;
                 color = planet_rv ? Makie.wong_colors()[1] : :grey,
                 linewidth=1,
             )
             Makie.errorbars!(
-                ax, epoch[mask], rv[mask], σ_rv[mask];
+                ax, epoch[mask], rv[mask] .* kms_mult, σ_rv[mask] .* kms_mult;
                 color = num_idx > 1 ? Makie.wong_colors()[inst_idx] : :black,
                 linewidth=2,
             )
             Makie.scatter!(
-                ax, epoch[mask], rv[mask];
-                color = num_idx > 1 ? Makie.wong_colors()[inst_idx] : :black,
-                strokewidth=0.5,
+                ax, epoch[mask], rv[mask] .* kms_mult;
+                color = num_idx > 1 ? Makie.wong_colors()[inst_idx] : :white,
+                strokewidth=2,
                 strokecolor=:black,
-                markersize=4,
+                markersize=8,
             )
         end
     end
@@ -290,11 +321,24 @@ function rvtimeplot_relative!(
 )
     gs = gridspec_or_fig
 
-
     date_pos, date_strs, xminorticks = _date_ticks(ts)
+
+    # Detect if should use km/s
+    use_kms = false
+    kms_mult = 1.0
+    for planet_key in keys(model.system.planets)
+        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        sols = orbitsolve_meananom.(orbs, range(0,2pi,length=30)')
+        rv_model_t = radvel.(sols)
+        if maximum(abs, rv_model_t) > 1500
+            use_kms = true
+            kms_mult = 1e-3
+        end
+    end
+
     ax= Axis(
         gs[1, 1];
-        ylabel="relative rv [m/s]",
+        ylabel= use_kms ? "relative rv [km/s]" : "relative rv [m/s]",
         xaxisposition=:top,
         xticks=(date_pos, date_strs),
         xgridvisible=false,
@@ -323,10 +367,6 @@ function rvtimeplot_relative!(
     xlims!(ax_secondary, extrema(ts))
 
     for (i_planet, planet_key) in enumerate(keys(model.system.planets))
-      
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
-        sols = orbitsolve.(orbs, ts')
-
         # Plot each relative RV separately
         orbs = Octofitter.construct_elements(results, planet_key, ii)
 
@@ -338,10 +378,11 @@ function rvtimeplot_relative!(
         lines!(
             ax,
             concat_with_nan(ts' .+ 0 .* ii),
-            concat_with_nan(rv_model_t);
+            concat_with_nan(rv_model_t) .* kms_mult;
             color=concat_with_nan(color_model_t),
             colormap,
             alpha,
+            rasterize=4,
         )
     end
 
@@ -363,21 +404,21 @@ function rvtimeplot_relative!(
             jitter = results["$(planet_key)_jitter"]
             σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
             Makie.errorbars!(
-                ax, epoch, rv, σ_tot;
+                ax, epoch, rv .* kms_mult, σ_tot .* kms_mult;
                 color =  :grey,
                 linewidth=1,
             )
             Makie.errorbars!(
-                ax, epoch, rv, σ_rv;
+                ax, epoch, rv.*kms_mult, σ_rv .* kms_mult;
                 color =  :black,
                 linewidth=2,
             )
             Makie.scatter!(
-                ax, epoch, rv;
+                ax, epoch, rv.*kms_mult;
                 color=:white,
-                strokewidth=0.5,
+                strokewidth=2,
                 strokecolor=:black,
-                markersize=2,
+                markersize=8,
             )
         end
     end

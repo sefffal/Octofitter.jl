@@ -99,7 +99,8 @@ function Octofitter.astromplot!(
             ),
             alpha=alpha,
             transparency=true,
-            colormap=colormaps[planet_key]
+            colormap=colormaps[planet_key],
+            rasterize=4,
         )
     end
 
@@ -223,8 +224,8 @@ function Octofitter.astromplot!(
                 xs = Base.vcat(getindex.(error_ellipses, 1)...)
                 ys = Base.vcat(getindex.(error_ellipses, 2)...)
             end
-            Makie.lines!(ax, xs, ys, color=:white, linewidth=3)
-            Makie.lines!(ax, xs, ys, color=:black, linewidth=2)
+            Makie.lines!(ax, xs, ys, color=:white, linewidth=3,rasterize=4,)
+            Makie.lines!(ax, xs, ys, color=:black, linewidth=2,rasterize=4,)
             Makie.scatter!(
                 ax,
                 vec(x),
@@ -289,7 +290,7 @@ function Octofitter.astromplot!(
                 )
             end
         end
-        axislegend(ax, "Posterior Predictions", position=:lt, backgroundcolor=(:white, 0.85))
+        # axislegend(ax, "Posterior Predictions", position=:rb, backgroundcolor=(:white, 0.65))
     end
 
     if colorbar

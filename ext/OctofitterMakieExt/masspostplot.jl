@@ -80,9 +80,11 @@ function Octofitter.masspostplot!(
         )
         scatter!(ax_scat_sma, sma, mass;
             markersize=2,
+            rasterize=4,
         )
         scatter!(ax_scat_ecc, ecc, mass;
             markersize=2,
+            rasterize=4,
         )
         low,mid,high = quantile(mass, (0.16, 0.5, 0.84))
         label = margin_confidence_default_formatter(mid-low,mid,high-mid)

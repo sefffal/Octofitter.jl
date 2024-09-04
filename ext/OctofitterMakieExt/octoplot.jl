@@ -54,6 +54,8 @@ function Octofitter.octoplot(
     # The user can of course just override the above directly.
     colormap=Makie.cgrad(:plasma,rev=true),
     alpha=min.(1, 100 / length(ii)),
+    figscale=0.6,
+    colorbar = true
 )
 
     # Auto-detect if we should include a given plot
@@ -224,7 +226,6 @@ function Octofitter.octoplot(
         figure...
     )
     # Show a colorbar for only the first sub-plot, and don't repeat it.
-    colorbar = true
     top_time_axis = true
     item = 0
     cols = 1
@@ -234,8 +235,8 @@ function Octofitter.octoplot(
         row = cld(item, cols)
         gl = GridLayout(
             fig[row,col],
-            width=500,
-            height=400,
+            width=500figscale,
+            height=400figscale,
         )
         Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha)
         colorbar = false
@@ -249,12 +250,13 @@ function Octofitter.octoplot(
         row = cld(item, cols)
         gl = GridLayout(
             fig[row,col],
-            width=500,
-            height=300,
+            width=500figscale,
+            height=300figscale,
         )
         bottom_time_axis = !(show_hgca || show_rv || show_relative_rv)
         ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, mark_epochs_mjd, alpha)
         top_time_axis = false
+        Makie.rowgap!(gl, 10.)
         append!(axes_to_link,ax)
     end
 
@@ -265,12 +267,13 @@ function Octofitter.octoplot(
         row = cld(item, cols)
         gl = GridLayout(
             fig[row,col],
-            width=500,
-            height=135,
+            width=500figscale,
+            height=135figscale,
         )
         bottom_time_axis = !(show_hgca || show_relative_rv)
         ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, planet_rv, colormap, alpha)
         top_time_axis = false
+        Makie.rowgap!(gl, 10.)
         append!(axes_to_link,ax)
     end
 
@@ -281,12 +284,13 @@ function Octofitter.octoplot(
         row = cld(item, cols)
         gl = GridLayout(
             fig[row,col],
-            width=500,
-            height=135,
+            width=500figscale,
+            height=135figscale,
         )
         bottom_time_axis = !show_hgca
         ax = rvtimeplot_relative!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
         top_time_axis = false
+        Makie.rowgap!(gl, 10.)
         append!(axes_to_link,ax)
     end
 
@@ -296,11 +300,12 @@ function Octofitter.octoplot(
         row = cld(item, cols)
         gl = GridLayout(
             fig[row,col],
-            width=500,
-            height=480,
+            width=500figscale,
+            height=480figscale,
         )
         ax = Octofitter.hgcaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
         top_time_axis = false
+        Makie.rowgap!(gl, 10.)
         append!(axes_to_link,ax)
     end
 
@@ -310,11 +315,12 @@ function Octofitter.octoplot(
         row = cld(item, cols)
         gl = GridLayout(
             fig[row,col],
-            width=500,
-            height=480,
+            width=500figscale,
+            height=480figscale,
         )
         ax = hipparcosplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
         top_time_axis = false
+        Makie.rowgap!(gl, 10.)
         append!(axes_to_link,ax)
     end
 
@@ -329,12 +335,13 @@ function Octofitter.octoplot(
         row = cld(item, cols)
         gl = GridLayout(
             fig[row,col],
-            width=500,
-            height=400,
+            width=500figscale,
+            height=400figscale,
         )
         Octofitter.masspostplot!(gl, model, results;)
+        Makie.rowgap!(gl, 10.)
     end
-
+    Makie.rowgap!(fig.layout, 10.)
     try
         Makie.resize_to_layout!(fig)
     catch
