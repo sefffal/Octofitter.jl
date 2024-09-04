@@ -57,11 +57,15 @@ UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 Pigeons = "0eb8d820-af6a-4919-95ae-11206f830c31"
+Dynesty = "eb527566-0f3e-4aab-bb5f-9d2e403dba70"
+HypercubeTransform = "9ec9aee3-0fd3-44c2-8e61-a50acc66f3c8"
+
 
 [extensions]
 OctofitterMakieExt = "Makie"
 OctofitterPairPlotsExt = "PairPlots"
 OctofitterPigeonsExt = "Pigeons"
+OctofitterDynestyHypercubeTransformExt = ["Dynesty", "HypercubeTransform"]
 
 [compat]
 AbstractMCMC = "4,5"
@@ -112,6 +116,9 @@ Transducers = "0.4"
 TypedTables = "1.4"
 UnPack = "1"
 julia = "1.9"
+
+Dynesty = "0.4.0"
+HypercubeTransform = "0.4.3"
 
 [extras]
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
