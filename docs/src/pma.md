@@ -7,6 +7,8 @@ If your star of interest is in the HGCA, all you need is it's GAIA DR3 ID number
 
 For this tutorial, we will examine the star and companion [HD 91312 A & B](https://arxiv.org/abs/2109.12124) discovered by SCExAO. We will use their published astrometry and proper motion anomaly extracted from the HGCA.
 
+We will also perform a model comparison: we will fit the same model to four different subsets of data to see how each dataset are impacting the final constraints. This is an important consistency check, especially with proper motion / absolute astrometry data which be susceptible to systematic errors.
+
 The first step is to find the GAIA source ID for your object. For HD 91312, SIMBAD tells us the GAIA DR3 ID is `756291174721509376`.
 
 ## Fitting Astrometric Motion Only
@@ -29,7 +31,7 @@ To make this parameterization change, we specify priors on both masses in the `@
 ### Planet Model
 
 ```@example 1
-@planet B Visual{KepOrbit} begin
+@planet b Visual{KepOrbit} begin
     a ~ LogUniform(0.1,20)
     e ~ Uniform(0,0.999)
     ω ~ UniformCircular()
@@ -39,7 +41,7 @@ To make this parameterization change, we specify priors on both masses in the `@
     mass = system.M_sec
 
     θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,B,57423.0) # epoch of GAIA measurement
+    tp = θ_at_epoch_to_tperi(system,b,57423.0) # epoch of GAIA measurement
 end
 ```
 
@@ -52,7 +54,7 @@ We specify priors on `plx` as usual, but here we use the `gaia_plx` helper funct
 We also add parameters for the star's long term proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements. If you're not sure what to use here, try `Normal(0, 1000)`; that is, assume a long-term proper motion of 0 +- 1000 milliarcseconds / year.
 
 ```@example 1
-@system HD91312 begin
+@system HD91312_pma begin
     
     M_pri ~ truncated(Normal(1.61, 0.1), lower=0) # Msol
     M_sec ~ LogUniform(0.5, 1000) # MJup
@@ -63,16 +65,16 @@ We also add parameters for the star's long term proper motion. This is usually c
     # Priors on the center of mass proper motion
     pmra ~ Normal(-137, 10)
     pmdec ~ Normal(2,  10)
-end HGCALikelihood(gaia_id=756291174721509376) B
+end HGCALikelihood(gaia_id=756291174721509376) b
 
-model = Octofitter.LogDensityModel(HD91312)
+model_pma = Octofitter.LogDensityModel(HD91312_pma)
 ```
 
 
 After the priors, we add the proper motion anomaly measurements from the HGCA. If this is your first time running this code, you will be prompted to automatically download and cache the catalog which may take around 30 seconds.
 
 
-### Sampling from the posterior
+### Sampling from the posterior (PMA only)
 
 Because proper motion anomaly data is quite sparse, it can often produce multi-modal posteriors. If your orbit already has several relative astrometry or RV data points, this is less of an issue. But in many cases it is recommended to use the `Pigeons.jl` sampler instead of Octofitter's default. This sampler is less efficient for unimodal distributions, but is more robust at exploring posteriors with distinct, widely separated peaks. 
 
@@ -84,8 +86,7 @@ To install and use `Pigeons.jl` with Octofitter, type `using Pigeons` at in the 
 We now sample from our model using Pigeons:
 ```@example 1
 using Pigeons
-model = Octofitter.LogDensityModel(HD91312)
-chain, pt = octofit_pigeons(model, n_rounds=10) 
+chain_pma, pt = octofit_pigeons(model_pma, n_rounds=13, explorer=SliceSampler()) 
 display(chain)
 ```
 
@@ -110,7 +111,7 @@ If we wish to examine the covariance between parameters in more detail, we can c
 # We can access any property from the chain specified in Variables
 using CairoMakie: Makie
 using PairPlots
-octocorner(model, chain, small=true)
+octocorner(model_pma, chain_pma, small=true)
 ```
 
 Notice how there are completely separated peaks? The default Octofitter sample (Hamiltonian Monte Carlo) is capabale of jumping 2-3σ gaps between modes, but such widely separated peaks can cause issues (hence why we used Pigeons in this example).
@@ -122,7 +123,7 @@ parameters besides semi-major axis. We can do this using PairPlots.jl:
 ```@example 1
 using CairoMakie, PairPlots
 pairplot(
-    (; a=chain["B_a"][:], mass=chain["B_mass"][:]) =>
+    (; a=chain_pma["b_a"][:], mass=chain_pma["b_mass"][:]) =>
         (
             PairPlots.Scatter(color=:red),
             PairPlots.MarginHist(),
@@ -138,7 +139,7 @@ pairplot(
 )
 ```
 
-## Adding Relative Astrometry
+## Model: PMA & Relative Astrometry
 
 The first orbit fit to only Hipparcos/GAIA data was very unconstrained. We will now add six epochs of
 relative astrometry (measured from direct images) gathered from the [discovery paper](https://arxiv.org/abs/2109.12124).
@@ -156,10 +157,20 @@ astrom_like = PlanetRelAstromLikelihood(
 scatter(astrom_like.table.ra, astrom_like.table.dec)
 ```
 
+
 We use the same model as before, but now condition the planet model `B` on the astrometry data by
 adding `astrom_like` to the end of the `@planet` defintion.
+
 ```@example 1
-@planet B Visual{KepOrbit} begin
+using OctofitterRadialVelocity
+
+rvlike = PlanetRelativeRVLikelihood(
+    (epoch=mjd("2008-05-01"), rv=1300, σ_rv=150, inst_idx=1),
+    (epoch=mjd("2010-02-15"), rv=700, σ_rv=150, inst_idx=1),
+    (epoch=mjd("2016-03-01"), rv=-2700, σ_rv=150, inst_idx=1),
+)
+
+@planet b Visual{KepOrbit} begin
     a ~ LogUniform(0.1,400)
     e ~ Uniform(0,0.999)
     ω ~ UniformCircular()
@@ -169,10 +180,57 @@ adding `astrom_like` to the end of the `@planet` defintion.
     mass = system.M_sec
 
     θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,B,57737.0) # epoch of astrometry
+    tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
+
 end astrom_like # Note the relative astrometry added here!
 
-@system HD91312 begin
+@system HD91312_pma_astrom begin
+    
+    M_pri ~ truncated(Normal(1.61, 0.1), lower=0)
+    M_sec ~ LogUniform(0.5, 1000) # MJup
+    M = system.M_pri + system.M_sec*Octofitter.mjup2msol
+
+    plx ~ gaia_plx(gaia_id=756291174721509376)
+
+    # Priors on the centre of mass proper motion
+    pmra ~ Normal(-137, 10)
+    pmdec ~ Normal(2,  10)
+
+end HGCALikelihood(gaia_id=756291174721509376)  b
+
+model_pma_astrom = Octofitter.LogDensityModel(HD91312_pma_astrom,autodiff=:ForwardDiff,verbosity=4)
+
+chain_pma_astrom, pt = octofit_pigeons(model_pma_astrom, n_rounds=12, explorer=SliceSampler())
+nothing # hide
+```
+
+## Model: PMA & Relative Astrometry & RVs
+
+We now add in three additional epochs of stellar RVs.
+```@example 1
+using OctofitterRadialVelocity
+
+rvlike = StarAbsoluteRVLikelihood(
+    (epoch=mjd("2008-05-01"), rv=1300, σ_rv=150, inst_idx=1),
+    (epoch=mjd("2010-02-15"), rv=700, σ_rv=150, inst_idx=1),
+    (epoch=mjd("2016-03-01"), rv=-2700, σ_rv=150, inst_idx=1),
+)
+
+@planet b Visual{KepOrbit} begin
+    a ~ LogUniform(0.1,400)
+    e ~ Uniform(0,0.999)
+    ω ~ UniformCircular()
+    i ~ Sine()
+    Ω ~ UniformCircular()
+
+    mass = system.M_sec
+
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
+
+end astrom_like # Note the relative astrometry added here!
+
+@system HD91312_pma_rv_astrom begin
     
     M_pri ~ truncated(Normal(1.61, 0.1), lower=0)
     M_sec ~ LogUniform(0.5, 1000) # MJup
@@ -183,27 +241,21 @@ end astrom_like # Note the relative astrometry added here!
     # Priors on the centre of mass proper motion
     pmra ~ Normal(-137, 10)
     pmdec ~ Normal(2,  10)
-end HGCALikelihood(gaia_id=756291174721509376) B
 
-model = Octofitter.LogDensityModel(HD91312)
-```
+    jitter ~ truncated(Normal(0,400),lower=0)
+    rv0 ~ Normal(0,10e3)
+end HGCALikelihood(gaia_id=756291174721509376) rvlike b
 
-
-Sample as before:
-```@example 1
-using Pigeons
-model = Octofitter.LogDensityModel(HD91312)
-Random.seed!(1)
-chain, pt = octofit_pigeons(model, n_rounds=10) 
+model_pma_rv_astrom = Octofitter.LogDensityModel(HD91312_pma_rv_astrom,autodiff=:ForwardDiff,verbosity=4)
+chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=12, explorer=SliceSampler())
 display(chain)
 ```
-
 
 The mass vs. semi-major axis posterior is now much more constrained:
 ```@example 1
 using CairoMakie, PairPlots
 pairplot(
-    (; a=chain["B_a"][:], mass=chain["B_mass"][:]) =>
+    (; a=chain_pma_rv_astrom["b_a"][:], mass=chain_pma_rv_astrom["b_mass"][:]) =>
         (
             PairPlots.Scatter(color=:red),
             PairPlots.MarginHist(),
@@ -218,18 +270,72 @@ It is now useful to display the orbits projected onto the plane of the sky using
 showing posterior predictive distributions for velocity (in three dimensions), projected positions vs. time in the plane of the sky, 
 and various other two and three-dimensional views.
 ```@example 1
-octoplot(model, chain)
+octoplot(model_pma_rv_astrom, chain_pma_rv_astrom, show_mass=true)
+```
+
+## Model:  Relative Astrometry & RVs (no PMA)
+
+There is a final model we should consider: one using the RV and astrometry data, but not the proper motion anomaly:
+```@example 1
+using OctofitterRadialVelocity
+
+@planet b Visual{KepOrbit} begin
+    a ~ LogUniform(0.1,400)
+    e ~ Uniform(0,0.999)
+    ω ~ UniformCircular()
+    i ~ Sine()
+    Ω ~ UniformCircular()
+
+    mass = system.M_sec
+
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
+
+end astrom_like # Note the relative astrometry added here!
+
+@system HD91312_rv_astrom begin
+    
+    M_pri ~ truncated(Normal(1.61, 0.1), lower=0)
+    M_sec ~ LogUniform(0.5, 1000) # MJup
+    M = system.M_pri + system.M_sec*Octofitter.mjup2msol
+
+    plx ~ gaia_plx(gaia_id=756291174721509376)
+    jitter ~ truncated(Normal(0,400),lower=0)
+    rv0 ~ Normal(0,10e3)
+end rvlike b
+
+model_rv_astrom = Octofitter.LogDensityModel(HD91312_rv_astrom,autodiff=:ForwardDiff,verbosity=4)
+
+chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)
+nothing # hide
 ```
 
 
-Finally we display the posterior as a corner plot:
+## Model Comparison
+Let's now display the constraints provided by each data set in a single corner plot
 ```@example 1
 # Create a corner plot / pair plot.
-# We can access any property from the chain specified in Variables
 using CairoMakie: Makie
 using PairPlots
-octocorner(model, chain, small=true)
+octocorner(
+    model_pma,
+    chain_pma,
+    chain_pma_astrom,
+    chain_rv_astrom,
+    chain_pma_rv_astrom,
+    small=true, # pass small=false to show all variables
+    axis=(;
+        b_a = (;lims=(low=0, high=25))
+    ),
+    viz=(
+        PairPlots.MarginDensity(),
+        PairPlots.Scatter()
+    )
+)
 ```
 
+
+We see that the constraints provided by the PMA, the astrometry, and the radial velocity data all individually overlap, and agree with the joint model constraint. 
+This is means that none of the datasets are in tension with each other, which might suggest an issue with the data or with the modelling assumptions (e.g. single planet). 
 
 
