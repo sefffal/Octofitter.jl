@@ -29,7 +29,7 @@ function Octofitter.octocorner(
     )
     if length(chains) > 1
         if isnothing(viz)
-            viz = PairPlots.multi_series_default_viz3
+            viz = PairPlots.multi_series_default_viz
         end
         colors = PairPlots.Makie.wong_colors()
     else
