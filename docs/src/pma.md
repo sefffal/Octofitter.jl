@@ -87,7 +87,7 @@ We now sample from our model using Pigeons:
 ```@example 1
 using Pigeons
 chain_pma, pt = octofit_pigeons(model_pma, n_rounds=13, explorer=SliceSampler()) 
-display(chain)
+display(chain_pma)
 ```
 
 Note that `octofit_pigeons` took somewhat longer to run than `octofit` typically does; however, as we will see, it sampled successfully from severally completely disconnected modes in the posterior. That makes it a good fit for sampling from proper motion anomaly and relative astrometry with limited orbital coverage.
@@ -248,7 +248,7 @@ end HGCALikelihood(gaia_id=756291174721509376) rvlike b
 
 model_pma_rv_astrom = Octofitter.LogDensityModel(HD91312_pma_rv_astrom,autodiff=:ForwardDiff,verbosity=4)
 chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=12, explorer=SliceSampler())
-display(chain)
+display(chain_pma_rv_astrom)
 ```
 
 The mass vs. semi-major axis posterior is now much more constrained:
