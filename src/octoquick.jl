@@ -72,6 +72,7 @@ Base.@nospecializeinfer function octoquick(
             start_time,
             stop_time,
             result_pf,
+            model_name=model.system.name
         )
     )
 

@@ -58,7 +58,8 @@ function Dynesty.dysample(model::Octofitter.LogDensityModel, args...; kwargs...)
             logz,
             logzerr,
             samples,
-            stats
+            stats,
+            model_name=model.system.name
         )
     )
     return mcmcchains_with_info

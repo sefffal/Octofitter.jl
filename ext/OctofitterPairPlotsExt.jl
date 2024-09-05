@@ -27,17 +27,28 @@ function Octofitter.octocorner(
         :M => "M [M⊙]\ntotal mass ",
         :plx => "plx [mas]\nparallax",
     )
+    if length(chains) > 1
+        if isnothing(viz)
+            viz = PairPlots.multi_series_default_viz3
+        end
+        colors = PairPlots.Makie.wong_colors()
+    else
+        if isnothing(viz)
+            viz = PairPlots.single_series_default_viz
+        end
+        colors = [PairPlots.single_series_color]
+    end
+    colori = 1
     function preparechain((chain,viz)::Pair)
         prepped = _preparechain(chain)
         return prepped => viz
     end
     function preparechain(chain)
         prepped = _preparechain(chain)
-        if !isnothing(viz)
-            return prepped => viz
-        else
-            return prepped
-        end
+        name = hasproperty(chain.info, :model_name) ? string(chain.info.model_name) : nothing
+        pair = PairPlots.Series(prepped,label=name,color=colors[mod1(colori,end)]) => viz
+        colori += 1
+        return pair
     end
     function _preparechain(chain::Octofitter.MCMCChains.Chains)
         chain_notinternal = MCMCChains.get_sections(chain, :parameters)
@@ -159,7 +170,22 @@ function Octofitter.octocorner(
                 push!(table_cols, pks => dat)
             end
         end
-        tbl = FlexTable(namedtuple(table_cols))
+        # Remove duplicates (eg. if a column is added by the user to includecols
+        # and would have been included anyways).
+        table_cols_unique = Pair{Symbol}[]
+        for (k,v) in table_cols
+            found = false
+            for (k2,v2) in table_cols_unique
+                if k==k2
+                    found = true
+                    break
+                end
+            end
+            if !found
+                push!(table_cols_unique,(k=>v))
+            end
+        end
+        tbl = FlexTable(namedtuple(table_cols_unique))
     end
 
     prepared = map(preparechain, chains)

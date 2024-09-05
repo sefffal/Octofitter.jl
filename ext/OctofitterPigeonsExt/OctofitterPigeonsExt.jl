@@ -103,6 +103,7 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
         (;
             start_time,
             stop_time,
+            model_name=pt.inputs.target.system.name
         )
     )
     return (;chain=mcmcchains_with_info, pt)
@@ -122,6 +123,7 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
         (;
             start_time,
             stop_time,
+            model_name=inputs.target.system.name
         )
     )
     return (;chain=mcmcchains_with_info, pt)
