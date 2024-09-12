@@ -61,22 +61,27 @@ macro planet(args...)
             error("invalid statement encoutered $(statement.head)")
         end
     end
-     # Create constant bindings for all `$` interpolated variables
-    # to ensure performance.
-    # We just interpolate them into the global scope as constants,
-    # evaluated immediately in the calling scope.
-    quoted_var_pairs = map(quote_vars, quote_vals) do var, val
+
+    # We allow users to interpolate local variables into the model definition 
+    # with `$`.
+    # We wrap the model definition in a local anonymous function and use 
+    # the arguments to pass in these local variables.
+    quote_vars = map(quote_vals) do val
+        return esc(val.args[1])
+    end
+    quoted_vals_escaped = map(quote_vars, quote_vals) do var, val
         return quote
-            const $(esc(var)) = $(esc(val.args[1]))
+            $(esc(val.args[1]))
         end
     end
-    return quote 
-        $(quoted_var_pairs...)
-        $(esc(name)) = $Planet{$orbit_type}(
-            Variables(;$(variables...))...,
-            $((esc(l) for l in likelihoods)...);
-            name=$(Meta.quot(name))
-        )
+    return quote
+        $(esc(name)) = (function($(quote_vars...))
+            return $Planet{$orbit_type}(
+                $Variables(;$(variables...))...,
+                $((esc(o) for o in likelihoods)...);
+                name=$(Meta.quot(name))
+            )
+        end)($(quoted_vals_escaped...))
     end
 end
 export @planet
@@ -143,22 +148,26 @@ macro system(args...)
         end
     end
 
-    # Create constant bindings for all `$` interpolated variables
-    # to ensure performance.
-    # We just interpolate them into the global scope as constants,
-    # evaluated immediately in the calling scope.
-    quoted_var_pairs = map(quote_vars, quote_vals) do var, val
+    # We allow users to interpolate local variables into the model definition 
+    # with `$`.
+    # We wrap the model definition in a local anonymous function and use 
+    # the arguments to pass in these local variables.
+    quote_vars = map(quote_vals) do val
+        return esc(val.args[1])
+    end
+    quoted_vals_escaped = map(quote_vals) do val
         return quote
-            const $(esc(var)) = $(esc(val.args[1]))
+            $(esc(val.args[1]))
         end
     end
     return quote
-        $(quoted_var_pairs...)
-        $(esc(name)) = $System(
-            $Variables(;$(variables...))...,
-            $((esc(o) for o in likelihoods)...);
-            name=$(Meta.quot(name))
-        )
+        $(esc(name)) = (function($(quote_vars...))
+            return $System(
+                $Variables(;$(variables...))...,
+                $((esc(o) for o in likelihoods)...);
+                name=$(Meta.quot(name))
+            )
+        end)($(quoted_vals_escaped...))
     end
 end
 export @system
@@ -179,6 +188,7 @@ quasiquote!(ex, _...) = ex
 function quasiquote!(ex::Expr, vars::Vector{Symbol}, vals::Vector{Expr})
     if ex.head === :($)
         var = isa(ex.args[1], Symbol) ? gensym(ex.args[1]) : gensym()
+        var = ex.args[1]
         push!(vars, var)
         push!(vals, ex)
         return var
