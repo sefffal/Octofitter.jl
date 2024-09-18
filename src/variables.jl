@@ -605,7 +605,7 @@ function make_ln_prior_transformed(system::System)
             # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
             # precision. 
             if !isfinite(p)
-                # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", sampled)=", p)
+                # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", $sampled)=", p)
                 if sign(p) > 1
                     return prevfloat(typemax(eltype(arr)))
                 else
@@ -639,7 +639,7 @@ function make_ln_prior_transformed(system::System)
                 # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
                 # precision. 
                 if !isfinite(p)
-                    # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", sampled)=", p)
+                    # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", $sampled)=", p)
                     if sign(p) > 1
                         return prevfloat(typemax(eltype(arr)))
                     else
@@ -703,24 +703,29 @@ function make_prior_sampler(system::System)
     # This way all the code gets inlined into a single tight numberical function in most cases.
     prior_sample_expressions = Expr[]
 
+
+
+
     # System priors
     for prior_distribution in values(system.priors.priors)
-        ex = :(
-            sample = $rand(rng, $prior_distribution);
-            prior_samples = (prior_samples..., sample...);
-        )
-        push!(prior_sample_expressions,ex)
+        # Performance: Instead of splatting, loop through according to the
+        # statically known distribution length.
+        push!(prior_sample_expressions, :(sample = $rand(rng, $prior_distribution)))
+        for i in 1:length(prior_distribution)
+            push!(prior_sample_expressions, :(prior_samples = (prior_samples..., sample[$i])))
+        end
     end
 
     # Planet priors
     for planet in system.planets
         # for prior_distribution in values(planet.priors.priors)
         for prior_distribution in values(planet.priors.priors)
-            ex = :(
-                sample = $rand(rng, $prior_distribution);
-                prior_samples = (prior_samples..., sample...);
-            )
-            push!(prior_sample_expressions,ex)
+            # Performance: Instead of splatting, loop through according to the
+            # statically known distribution length.
+            push!(prior_sample_expressions, :(sample = $rand(rng, $prior_distribution)))
+            for i in 1:length(prior_distribution)
+                push!(prior_sample_expressions, :(prior_samples = (prior_samples..., sample[$i])))
+            end
         end
     end
 

@@ -44,7 +44,7 @@ download(
 images = AstroImages.load("image-examples-1.fits",:)
 ```
 
-You can preview the image using `imshow2` from AstroImages:
+You can preview the image using `imview` from AstroImages:
 ```@example 1
 # imshow2(image1, cmap=:magma) # for a single image
 hcat(imview.(images, clims=(-1.0, 4.0))...)
