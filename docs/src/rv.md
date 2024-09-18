@@ -22,9 +22,9 @@ gaia_id = 5164707970261890560
     e = 0
     ω=0.0
     mass ~ Uniform(0, 3)
-    a~Uniform(2, 5)
-    i~Sine()
-    Ω~UniformCircular()
+    a ~ truncated(Normal(3.48,0.1),lower=0)
+    i ~ Sine()
+    Ω ~ UniformCircular()
     
     τ ~ UniformCircular(1.0)
     P = √(b.a^3/system.M)
