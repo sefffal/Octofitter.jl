@@ -164,7 +164,7 @@ function Octofitter.octocorner(
 
                 # Do any data conversions
                 dat = vec(chain_notinternal[pk])
-                if k == "i" || k == "Ω" || k == "ω" || k == "θ"
+                if k == "i" || k == "Ω" || k == "ω" || k == "θ" || k == "pa"
                     dat = rad2deg.(rem2pi.(dat, RoundDown))
                 end
                 push!(table_cols, pks => dat)
@@ -172,8 +172,12 @@ function Octofitter.octocorner(
         end
         # Remove duplicates (eg. if a column is added by the user to includecols
         # and would have been included anyways).
+        # Also remove series where the std is 0.
         table_cols_unique = Pair{Symbol}[]
         for (k,v) in table_cols
+            if length(unique(v)) == 1
+                continue
+            end
             found = false
             for (k2,v2) in table_cols_unique
                 if k==k2
