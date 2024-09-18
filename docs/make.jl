@@ -30,6 +30,7 @@ makedocs(
             "Fit Relative RV Data" => "fit-rv-rel.md",
             "Fit Hipparcos IAD" => "hipparcos.md",
             "Fit GRAVITY Wide Data" => "fit-grav-wide.md",
+            "Extract Astrometry and Photometry" => "extract-phot-astrom.md",
             "Calculate Detection Limits" => "limits.md",
         ],
         "Statistical Methods" => [
