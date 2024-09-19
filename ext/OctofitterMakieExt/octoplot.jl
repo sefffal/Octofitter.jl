@@ -236,7 +236,7 @@ function Octofitter.octoplot(
         gl = GridLayout(
             fig[row,col],
             width=500figscale,
-            height=400figscale,
+            height=(400+40*length(mark_epochs_mjd)+ 155*(length(mark_epochs_mjd)>0))*figscale,
         )
         Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha)
         colorbar = false

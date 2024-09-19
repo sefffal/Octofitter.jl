@@ -286,11 +286,20 @@ function Octofitter.astromplot!(
                     markersize=6,
                     strokewidth=1,
                     strokecolor=:black,
-                    label = labels[i]
+                    label = labels[i],
                 )
             end
         end
-        # axislegend(ax, "Posterior Predictions", position=:rb, backgroundcolor=(:white, 0.65))
+        Legend(
+            gs[2,1:2],
+            ax,
+            "Posterior Predictions",
+            position=:rb,
+            # backgroundcolor=(:white, 0.65),
+            tellwidth=false,
+            tellheight=true,
+            width=Relative(1.0)
+        )
     end
 
     if colorbar
