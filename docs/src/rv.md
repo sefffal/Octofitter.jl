@@ -72,13 +72,13 @@ scatter(
 
     # Radial velocity zero point per instrument
     rv0 ~ Product([
-        Normal(0,10) # m/s
-        Normal(0,10)
+        Normal(0,10), # m/s
+        Normal(0,10),
     ])
     # Radial jitter per instrument. 
     jitter ~ Product([
-        truncated(Normal(0,10),lower=0) # m/s
-        truncated(Normal(0,10),lower=0)
+        truncated(Normal(0,10),lower=0), # m/s
+        truncated(Normal(0,10),lower=0),
     ])
     # You can also set both instruments to the same jitter, eg by putting instead (with = not ~):
     # jitter_2 = system.jitter_1
@@ -98,7 +98,7 @@ nothing # hide
 
 We can now plot the results with a multi-panel plot:
 ```@example 1
-octoplot(model, results, show_mass=true)
+octoplot(model, results[1:200,:,:], show_mass=true)
 ```
 
 
@@ -114,7 +114,14 @@ fig = octoplot(
     model,
     results[i_max,:,:],
     # change the colour map a bit:
-    colormap=Makie.cgrad([Makie.wong_colors()[1], "#FAFAFA"])
+    colormap=Makie.cgrad([Makie.wong_colors()[1], "#FAFAFA"]),
+    show_astrom=true,
+    show_astrom_time=false,
+    show_rv=false,
+    show_hgca=false,
+    mark_epochs_mjd=[
+        mjd("2030")
+    ]
 )
 Label(fig[0,1], "Maximum a-posteriori orbit sample")
 fig
