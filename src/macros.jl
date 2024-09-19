@@ -74,6 +74,22 @@ macro planet(args...)
             $(esc(val.args[1]))
         end
     end
+    # Drop any duplicates (if the same variable is interpolated in twice)
+    ii = []
+    for j in eachindex(quote_vars)
+        found = false
+        for i in ii
+            if quote_vars[i] == quote_vars[j]
+                found = true
+                break
+            end
+        end
+        if !found
+            push!(ii, j)
+        end
+    end
+    quote_vars = quote_vars[ii]
+    quoted_vals_escaped = quoted_vals_escaped[ii]
     return quote
         $(esc(name)) = (function($(quote_vars...))
             return $Planet{$orbit_type}(
@@ -160,6 +176,22 @@ macro system(args...)
             $(esc(val.args[1]))
         end
     end
+    # Drop any duplicates (if the same variable is interpolated in twice)
+    ii = []
+    for j in eachindex(quote_vars)
+        found = false
+        for i in ii
+            if quote_vars[i] == quote_vars[j]
+                found = true
+                break
+            end
+        end
+        if !found
+            push!(ii, j)
+        end
+    end
+    quote_vars = quote_vars[ii]
+    quoted_vals_escaped = quoted_vals_escaped[ii]
     return quote
         $(esc(name)) = (function($(quote_vars...))
             return $System(
