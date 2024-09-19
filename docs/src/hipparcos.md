@@ -108,7 +108,7 @@ fig
 
 ## Constrain Planet Mass
 
-We now allow the planet to have a non zero mass and free orbit. We start by retrieving relative astrometry data on the planet, collated by Jason Wang and co on [whereistheplanet.com](http://whereistheplanet.com).
+We now allow the planet to have a non zero mass and have free orbit. We start by retrieving relative astrometry data on the planet, collated by Jason Wang and co. on [whereistheplanet.com](http://whereistheplanet.com).
 
 ```@example 1
 astrom_like1,astrom_like2 = Octofitter.Whereistheplanet_astrom("51erib",object=1)
@@ -153,7 +153,8 @@ model = Octofitter.LogDensityModel(cEri)
 
 Now we sample:
 ```@example 1
-chain = octofit(model)
+using Pigeons
+chain,pt = octofit_pigeons(model, n_rounds=8)
 chain
 ```
 
