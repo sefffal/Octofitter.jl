@@ -86,6 +86,7 @@ You could also try sampling across the entire image, without necessarily specify
 Note that if there are multiple candidates, taking the naive mean and standard deviation will average across all planets.
 ```@example 1
 using Pigeons
+model.starting_points = nothing # reset starting points
 chain, pt = octofit_pigeons(model, n_rounds=11)
 ```
 
