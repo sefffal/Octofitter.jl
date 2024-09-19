@@ -26,7 +26,7 @@ function hipparcosplot!(
     # date_pos, date_strs, xminorticks = _date_ticks(ts)
     
     ax_resids = Axis(
-        gs[2, 1:3];
+        gs[1, 1:3];
         xlabel="MJD",
         ylabel="along-scan residual [mas]",
         xgridvisible=false,
@@ -52,7 +52,7 @@ function hipparcosplot!(
     end
 
    
-    ax_main =  Axis(gs[1, 1:3],
+    ax_main =  Axis(gs[2, 1:3],
         xlabel="α* [mas]",
         ylabel="δ [mas]",
         autolimitaspect=1
@@ -155,6 +155,31 @@ function hipparcosplot!(
 
         end
     end
+
+
+
+    # # GAIA
+    # absastrlike = nothing
+    # for like_obs in model.system.observations
+    #     if like_obs isa StarAbsoluteAstrometryLikelihood_v1
+    #         if !isnothing(absastrlike)
+    #         end
+    #         absastrlike = like_obs
+    #     end
+    # end
+    # if isnothing(absastrlike)
+        
+
+    # end
+
+
+
+
+
+
+
+
+
     axislegend(ax_main)
     ylims!(ax_resids, low=0)
     return [ax_resids]

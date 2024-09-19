@@ -253,7 +253,7 @@ function Octofitter.octoplot(
             width=500figscale,
             height=300figscale,
         )
-        bottom_time_axis = !(show_hgca || show_rv || show_relative_rv)
+        bottom_time_axis = !(show_hgca || show_rv || show_relative_rv || show_hipparcos)
         ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, mark_epochs_mjd, alpha)
         top_time_axis = false
         Makie.rowgap!(gl, 10.)
@@ -270,7 +270,7 @@ function Octofitter.octoplot(
             width=500figscale,
             height=135figscale,
         )
-        bottom_time_axis = !(show_hgca || show_relative_rv)
+        bottom_time_axis = !(show_hgca || show_relative_rv || show_hipparcos)
         ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, planet_rv, colormap, alpha)
         top_time_axis = false
         Makie.rowgap!(gl, 10.)
@@ -287,7 +287,7 @@ function Octofitter.octoplot(
             width=500figscale,
             height=135figscale,
         )
-        bottom_time_axis = !show_hgca
+        bottom_time_axis = !(show_hgca || show_hipparcos)
         ax = rvtimeplot_relative!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
         top_time_axis = false
         Makie.rowgap!(gl, 10.)
