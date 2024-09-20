@@ -40,8 +40,8 @@ results_obspri = octofit(model,iterations=5000,)</code></pre><pre class="documen
 Iterations        = 1:1:5000
 Number of chains  = 1
 Samples per chain = 5000
-Wall duration     = 48.61 seconds
-Compute duration  = 48.61 seconds
+Wall duration     = 21.63 seconds
+Compute duration  = 21.63 seconds
 parameters        = M, plx, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_P, b_θy, b_θx, b_ω, b_Ω, b_a, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -49,42 +49,42 @@ Summary Statistics
  <span class="sgr1"> parameters         mean          std       mcse    ess_bulk    ess_tail      ⋯
  <span class="sgr90">     Symbol      Float64      Float64    Float64     Float64     Float64   Fl ⋯
 
-           M       1.1568       0.1022     0.0022   2111.2420   2525.0555    1 ⋯
-         plx      50.0000       0.0199     0.0003   5202.2572   3049.3321    1 ⋯
-         b_e       0.2826       0.1391     0.0038   1245.4620   1399.8625    1 ⋯
-         b_i       0.7251       0.1586     0.0107    227.8076    989.6467    1 ⋯
-        b_ωy      -0.0528       0.6734     0.1627     17.8597    166.8063    1 ⋯
-        b_ωx      -0.0303       0.7438     0.2007     15.2318    152.0828    1 ⋯
-        b_Ωy       0.0242       0.7421     0.1937     16.2568    129.3530    1 ⋯
-        b_Ωx       0.0532       0.6819     0.1808     16.0138    178.0855    1 ⋯
-         b_P      72.2710      31.4203     1.8334    322.5249   1108.1747    1 ⋯
-        b_θy       0.0712       0.0092     0.0002   2843.0765   2646.4868    1 ⋯
-        b_θx      -1.0021       0.1018     0.0019   2864.5395   2525.0034    1 ⋯
-         b_ω      -0.6826       1.7474     0.4694     17.9601    214.6823    1 ⋯
-         b_Ω      -0.6535       1.7001     0.4851     15.1541    126.8492    1 ⋯
-         b_a      17.8389       5.2188     0.3078    316.2102   1030.7748    1 ⋯
-         b_θ      -1.4999       0.0055     0.0001   2414.2848   3272.9043    1 ⋯
-        b_tp   38199.1498   14860.2848   370.4062   2147.8643   1793.3817    1 ⋯
+           M       1.1606       0.0970     0.0020   2294.6372   2848.8208    1 ⋯
+         plx      50.0001       0.0201     0.0003   4823.7848   2174.5579    0 ⋯
+         b_e       0.2719       0.1336     0.0049    606.0626   1141.7799    1 ⋯
+         b_i       0.7308       0.1471     0.0098    238.3376   1031.4444    1 ⋯
+        b_ωy       0.0878       0.6558     0.1764     14.2274     94.9791    1 ⋯
+        b_ωx      -0.0434       0.7604     0.2188     13.4459    114.9606    1 ⋯
+        b_Ωy       0.0462       0.7586     0.2128     14.1056    112.3098    1 ⋯
+        b_Ωx      -0.0700       0.6579     0.1916     12.7974     96.7960    2 ⋯
+         b_P      70.6177      29.2478     1.7249    302.6526    477.0053    1 ⋯
+        b_θy       0.0712       0.0087     0.0001   3606.8014   2989.1630    1 ⋯
+        b_θx      -1.0017       0.0970     0.0016   3616.2053   3648.9332    1 ⋯
+         b_ω      -0.5316       1.6113     0.4619     14.8380     88.4611    1 ⋯
+         b_Ω      -0.8339       1.5986     0.4748     13.7254    127.0137    1 ⋯
+         b_a      17.6132       4.8717     0.2920    295.2035    466.3562    1 ⋯
+         b_θ      -1.4999       0.0053     0.0001   2657.1223   3273.5457    1 ⋯
+        b_tp   38695.1478   14444.3998   376.6884   2086.3718    875.8126    1 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
   parameters        2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol     Float64      Float64      Float64      Float64      Float64
 
-           M      0.9608       1.0871       1.1554       1.2234       1.3620
-         plx     49.9609      49.9865      50.0002      50.0137      50.0384
-         b_e      0.0181       0.1702       0.3050       0.3991       0.4880
-         b_i      0.4103       0.6221       0.7303       0.8490       0.9893
-        b_ωy     -1.0943      -0.6679      -0.0565       0.3913       1.0760
-        b_ωx     -1.1062      -0.8331      -0.0640       0.7813       1.0986
-        b_Ωy     -1.0918      -0.8093       0.0274       0.8358       1.0881
-        b_Ωx     -1.0862      -0.3887       0.1882       0.5754       1.1182
-         b_P     31.2928      46.8876      65.1439      91.3860     141.8722
-        b_θy      0.0549       0.0647       0.0705       0.0770       0.0911
-        b_θx     -1.2199      -1.0672      -0.9953      -0.9314      -0.8208
-         b_ω     -3.0718      -2.1139      -1.4212       1.1156       1.9890
-         b_Ω     -2.9651      -2.6137       0.1957       0.6631       1.6960
-         b_a     10.3759      13.6626      16.9471      21.2361      28.8588
-         b_θ     -1.5107      -1.5036      -1.4999      -1.4962      -1.4889
-        b_tp   1171.4499   28684.6853   49341.0311   50200.2325   50399.2597
-</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, results_obspri)</code></pre><img src="62c3c051.png" alt="Example block output"/><p>Compare this with the previous fit using uniform priors:</p><pre><code class="language-julia hljs">octoplot(model, results_unif_pri)</code></pre><img src="7e484d47.png" alt="Example block output"/><p>We can compare the results in a corner plot:</p><pre><code class="language-julia hljs">octocorner(model,results_unif_pri,results_obspri,small=true)</code></pre><img src="44b33f66.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom/">« Fit Relative Astrometry</a><a class="docs-footer-nextpage" href="../rv-1/">Fit Radial Velocity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Friday 20 September 2024 18:57">Friday 20 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+           M      0.9748       1.0954       1.1581       1.2253       1.3551
+         plx     49.9611      49.9861      49.9999      50.0137      50.0399
+         b_e      0.0215       0.1651       0.2862       0.3814       0.4845
+         b_i      0.4361       0.6280       0.7333       0.8493       0.9781
+        b_ωy     -1.0624      -0.2930       0.0582       0.7201       1.1068
+        b_ωx     -1.1234      -0.8761       0.0220       0.7385       1.0914
+        b_Ωy     -1.0821      -0.7979       0.0193       0.8727       1.0989
+        b_Ωx     -1.0991      -0.6155      -0.1442       0.3423       1.0819
+         b_P     32.1151      47.0704      64.5677      88.8796     137.8894
+        b_θy      0.0557       0.0652       0.0704       0.0768       0.0898
+        b_θx     -1.1976      -1.0654      -0.9979      -0.9342      -0.8225
+         b_ω     -3.0357      -1.8275       0.0317       1.0067       1.7829
+         b_Ω     -2.9514      -2.5503      -1.2518       0.3548       1.6373
+         b_a     10.5737      13.6390      16.8631      20.8775      27.9471
+         b_θ     -1.5100      -1.5035      -1.4999      -1.4962      -1.4893
+        b_tp   3832.3395   29267.2421   49429.1785   50207.1312   50403.2402
+</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, results_obspri)</code></pre><img src="7861866b.png" alt="Example block output"/><p>Compare this with the previous fit using uniform priors:</p><pre><code class="language-julia hljs">octoplot(model, results_unif_pri)</code></pre><img src="8a6c2de7.png" alt="Example block output"/><p>We can compare the results in a corner plot:</p><pre><code class="language-julia hljs">octocorner(model,results_unif_pri,results_obspri,small=true)</code></pre><img src="28ef432d.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom/">« Fit Relative Astrometry</a><a class="docs-footer-nextpage" href="../rv-1/">Fit Radial Velocity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Friday 20 September 2024 19:19">Friday 20 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
