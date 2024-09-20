@@ -90,14 +90,15 @@ model.starting_points = nothing # reset starting points
 chain, pt = octofit_pigeons(model, n_rounds=11)
 ```
 
-## Visualize
-```@example 1
-octocorner(model,chain)
-```
-
 ## Access results
 ```@example 1
 samples_sep = chain[:b_sep]
 samples_pa = chain[:b_pa]
 println("The median separation is ", median(samples_sep))
+```
+
+## Visualize
+```@example 1
+using CairoMakie, PairPlots
+octocorner(model,chain)
 ```
