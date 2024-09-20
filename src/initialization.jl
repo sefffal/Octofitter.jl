@@ -100,8 +100,13 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
         model.starting_points = collect.(eachcol(result_pf.draws))
         logposts = model.ℓπcallback.(model.starting_points)
         initial_logpost_range = extrema(logposts)
-    else
-        verbosity > 1 && @warn("Falling back to sampling from the prior and keeping the $ndraws samples with highest posterior density.")
+    end
+    # Occasionally there is a failure mode of pathfinder where, despite starting it at a reasonable spot, it returns garbage
+    # starting draws that are orders of magnitude worse.
+    # Check for this by ensuring the highest a-posteriori pathfinder draw is better than a random guess
+    random_guess_logpost = model.ℓπcallback(model.link(model.sample_priors(rng)))
+    if isnothing(result_pf) || maximum(initial_logpost_range) < random_guess_logpost
+        verbosity >= 1 && @warn "Falling back to sampling from the prior and keeping the $ndraws samples with highest posterior density."
         samples = sample_priors(rng, model, ndraws)
         samples_t = model.link.(samples)
         logposts = model.ℓπcallback.(samples_t)
