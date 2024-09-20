@@ -279,82 +279,84 @@ function Octofitter.hgcaplot!(
     if size(results,1)*size(results,3) > 5_000
         jj = ii
     end
+    sims = []
     for (θ_system, i) in zip(θ_systems_from_chain, jj)
         orbits = map(keys(model.system.planets)) do planet_key
             Octofitter.construct_elements(results, planet_key, i)
         end
         hgca_like_sim = Octofitter.generate_from_params(hgca_like, θ_system, orbits)
-        # HIP Epoch
-        Makie.scatter!(
-            ax_dat1,
-            [only(hgca_like_sim.table.pmra_hip)],
-            [only(hgca_like_sim.table.pmdec_hip)],
-            color=:black,
-            markersize=2,
-        )
-        Makie.scatter!(
-            ax_velra,
-            [(only(hgca_like_sim.table.epoch_ra_hip_mjd))],
-            [only(hgca_like_sim.table.pmra_hip)],
-            color=:black,
-            markersize=3,
-        )
-        Makie.scatter!(
-            ax_veldec,
-            [(only(hgca_like_sim.table.epoch_dec_hip_mjd))],
-            [only(hgca_like_sim.table.pmdec_hip)],
-            color=:black,
-            markersize=3,
-        )
-        # HG Epoch
-        Makie.scatter!(
-            ax_dat2,
-            [only(hgca_like_sim.table.pmra_hg)],
-            [only(hgca_like_sim.table.pmdec_hg)],
-            color=:black,
-            markersize=2,
-        )
-        hg_ra_epoch = (only(hgca_like_sim.table.epoch_ra_hip_mjd) +
-                       only(hgca_like_sim.table.epoch_ra_gaia_mjd)) / 2
-        hg_dec_epoch = (only(hgca_like_sim.table.epoch_dec_hip_mjd) +
-                        only(hgca_like_sim.table.epoch_dec_gaia_mjd)) / 2
-        Makie.scatter!(
-            ax_velra,
-            [(hg_ra_epoch)],
-            [only(hgca_like_sim.table.pmra_hg)],
-            color=:black,
-            markersize=3,
-        )
-        Makie.scatter!(
-            ax_veldec,
-            [(hg_dec_epoch)],
-            [only(hgca_like_sim.table.pmdec_hg)],
-            color=:black,
-            markersize=3,
-        )
-        # GAIA Epoch
-        Makie.scatter!(
-            ax_dat3,
-            [only(hgca_like_sim.table.pmra_gaia)],
-            [only(hgca_like_sim.table.pmdec_gaia)],
-            color=:black,
-            markersize=2,
-        )
-        Makie.scatter!(
-            ax_velra,
-            [(only(hgca_like_sim.table.epoch_ra_gaia_mjd))],
-            [only(hgca_like_sim.table.pmra_gaia)],
-            color=:black,
-            markersize=3,
-        )
-        Makie.scatter!(
-            ax_veldec,
-            [(only(hgca_like_sim.table.epoch_dec_gaia_mjd))],
-            [only(hgca_like_sim.table.pmdec_gaia)],
-            color=:black,
-            markersize=3,
-        )
+        push!(sims, hgca_like_sim)
     end
+    # HIP Epoch
+    Makie.scatter!(
+        ax_dat1,
+        [only(sim.table.pmra_hip) for sim in sims ],
+        [only(sim.table.pmdec_hip) for sim in sims],
+        color=:black,
+        markersize=2,
+    )
+    Makie.scatter!(
+        ax_velra,
+        [only(sim.table.epoch_ra_hip_mjd) for sim in sims],
+        [only(sim.table.pmra_hip) for sim in sims],
+        color=:black,
+        markersize=3,
+    )
+    Makie.scatter!(
+        ax_veldec,
+        [only(sim.table.epoch_dec_hip_mjd) for sim in sims],
+        [only(sim.table.pmdec_hip) for sim in sims],
+        color=:black,
+        markersize=3,
+    )
+    # HG Epoch
+    Makie.scatter!(
+        ax_dat2,
+        [only(sim.table.pmra_hg) for sim in sims],
+        [only(sim.table.pmdec_hg) for sim in sims],
+        color=:black,
+        markersize=2,
+    )
+    hg_ra_epoch = [(only(sim.table.epoch_ra_hip_mjd) +
+                    only(sim.table.epoch_ra_gaia_mjd)) / 2 for sim in sims]
+    hg_dec_epoch = [(only(sim.table.epoch_dec_hip_mjd) +
+                    only(sim.table.epoch_dec_gaia_mjd)) / 2 for sim in sims]
+    Makie.scatter!(
+        ax_velra,
+        hg_ra_epoch,
+        [only(sim.table.pmra_hg) for sim in sims],
+        color=:black,
+        markersize=3,
+    )
+    Makie.scatter!(
+        ax_veldec,
+        hg_dec_epoch,
+        [only(sim.table.pmdec_hg) for sim in sims],
+        color=:black,
+        markersize=3,
+    )
+    # GAIA Epoch
+    Makie.scatter!(
+        ax_dat3,
+        [only(sim.table.pmra_gaia) for sim in sims],
+        [only(sim.table.pmdec_gaia) for sim in sims],
+        color=:black,
+        markersize=2,
+    )
+    Makie.scatter!(
+        ax_velra,
+        [only(sim.table.epoch_ra_gaia_mjd) for sim in sims],
+        [only(sim.table.pmra_gaia) for sim in sims],
+        color=:black,
+        markersize=3,
+    )
+    Makie.scatter!(
+        ax_veldec,
+        [only(sim.table.epoch_dec_gaia_mjd) for sim in sims],
+        [only(sim.table.pmdec_gaia) for sim in sims],
+        color=:black,
+        markersize=3,
+    )
 
     ## Data 
     Makie.lines!(
