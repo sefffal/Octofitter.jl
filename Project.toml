@@ -54,18 +54,17 @@ TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 
 [weakdeps]
+Dynesty = "eb527566-0f3e-4aab-bb5f-9d2e403dba70"
+HypercubeTransform = "9ec9aee3-0fd3-44c2-8e61-a50acc66f3c8"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 Pigeons = "0eb8d820-af6a-4919-95ae-11206f830c31"
-Dynesty = "eb527566-0f3e-4aab-bb5f-9d2e403dba70"
-HypercubeTransform = "9ec9aee3-0fd3-44c2-8e61-a50acc66f3c8"
-
 
 [extensions]
+OctofitterDynestyHypercubeTransformExt = ["Dynesty", "HypercubeTransform"]
 OctofitterMakieExt = "Makie"
 OctofitterPairPlotsExt = "PairPlots"
 OctofitterPigeonsExt = "Pigeons"
-OctofitterDynestyHypercubeTransformExt = ["Dynesty", "HypercubeTransform"]
 
 [compat]
 AbstractMCMC = "4,5"
@@ -81,11 +80,13 @@ DiffResults = "1"
 Distances = "0.10"
 Distributions = "0.25"
 DistributionsAD = "0.6"
+Dynesty = "0.4.0"
 FITSIO = "0.16, 0.17"
 ForwardDiff = "0.10"
 HDF5 = "0.17"
 HORIZONS = "0.4"
 HTTP = "1"
+HypercubeTransform = "0.4.3"
 Interpolations = "0.13, 0.14, 0.15"
 KernelDensity = "0.6"
 Latexify = "0.15, 0.16"
@@ -95,7 +96,7 @@ MCMCChains = "6.0"
 Makie = "0.21"
 MathTeXEngine = "0.6"
 NamedTupleTools = "0.13, 0.14"
-Optimization = "3.25"
+Optimization = "3.25, 4"
 OptimizationOptimJL = "0.3"
 OrderedCollections = "1.6"
 PairPlots = "2"
@@ -119,9 +120,6 @@ Transducers = "0.4"
 TypedTables = "1.4"
 UnPack = "1"
 julia = "1.9"
-
-Dynesty = "0.4.0"
-HypercubeTransform = "0.4.3"
 
 [extras]
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
