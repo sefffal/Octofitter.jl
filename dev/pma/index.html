@@ -50,16 +50,16 @@ display(chain_pma)</code></pre><pre class="documenter-example-output"><code clas
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.98       4.22      0.318   7.02e+06  -8.42e+04          0      0.736          1          1
-        4          0       5.52        5.2      0.117    1.6e+05  -3.14e+03          0      0.654          1          1
-        8          0       6.11       5.25      0.223   2.49e+05  -1.51e+03          0      0.634          1          1
-       16          0       6.48       5.46      0.433   4.38e+05      -74.5    7.7e-45      0.615          1          1
-       32          0       7.97       7.32      0.849   6.37e+05        -46   1.68e-22      0.507          1          1
-       64          0       7.66          6       1.83   6.01e+07      -21.5     0.0166      0.559          1          1
-      128          3       8.14       6.17       3.28   1.08e+08      -23.2     0.0144      0.538          1          1
-      256          8        8.6       5.56       6.75   2.18e+08      -22.8      0.133      0.543          1          1
-      512         23        8.6       6.06       13.2   4.32e+08      -22.8      0.229      0.527          1          1
- 1.02e+03         47       8.72       6.21       26.1   8.56e+08      -22.7      0.362      0.518          1          1
+        2          0       3.98       4.22       0.32   7.02e+06  -8.42e+04          0      0.736          1          1
+        4          0       5.52        5.2      0.119    1.6e+05  -3.14e+03          0      0.654          1          1
+        8          0       6.11       5.25      0.227   2.49e+05  -1.51e+03          0      0.634          1          1
+       16          0       6.48       5.46      0.446   4.38e+05      -74.5    7.7e-45      0.615          1          1
+       32          0       7.97       7.32       0.85   6.37e+05        -46   1.68e-22      0.507          1          1
+       64          0       7.66          6       1.96   6.01e+07      -21.5     0.0166      0.559          1          1
+      128          3       8.14       6.17       3.27   1.08e+08      -23.2     0.0144      0.538          1          1
+      256          8        8.6       5.56       6.65   2.18e+08      -22.8      0.133      0.543          1          1
+      512         23        8.6       6.06       13.3   4.32e+08      -22.8      0.229      0.527          1          1
+ 1.02e+03         47       8.72       6.21       26.3   8.56e+08      -22.7      0.362      0.518          1          1
  2.05e+03         98       8.77       6.38       52.2   1.71e+09      -22.5      0.372      0.511          1          1
   4.1e+03        199       8.71       6.31        105   3.41e+09      -22.3      0.394      0.515          1          1
  8.19e+03        341       8.74       6.86        210   6.89e+09      -22.5      0.321      0.497          1          1
@@ -131,29 +131,29 @@ model_pma_astrom = Octofitter.LogDensityModel(HD91312_pma_astrom,autodiff=:Forwa
 chain_pma_astrom, pt = octofit_pigeons(model_pma_astrom, n_rounds=12, explorer=SliceSampler())</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 14
-ℓπcallback(θ): 0.000011 seconds
+ℓπcallback(θ): 0.000010 seconds
 ┌ Info: Tuning autodiff
 │   chunk_size = 14
-└   t = 1.2313e-5
+└   t = 1.2353e-5
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 14
-∇ℓπcallback(θ): 0.000025 seconds
+∇ℓπcallback(θ): 0.000023 seconds
 [ Info: Determining initial positions and metric using pathfinder
 ┌ Info: Found a sample of initial positions
 └   initial_logpost_range = (-204.76484306360447, -197.80112130815783)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.39       3.41      0.373   4.03e+06  -3.47e+03          0      0.781          1          1
-        4          0       5.75       4.22      0.265   1.55e+05  -1.18e+03          0      0.678          1          1
-        8          0       7.21       6.53      0.504   2.24e+05       -483   6.6e-296      0.557          1          1
-       16          0       7.21       7.78      0.973   3.88e+05       -180   3.3e-113      0.516          1          1
-       32          0       9.13       8.62       1.86   5.96e+05       -128   7.73e-23      0.427          1          1
-       64          0       9.87       7.99       3.64   6.59e+07      -96.6      0.018      0.424          1          1
-      128          0       9.56       7.58       6.88   1.15e+08      -74.9    0.00107      0.447          1          1
-      256          1       9.53       7.95       13.4    2.3e+08      -74.2     0.0116      0.436          1          1
+        2          0       3.39       3.41      0.345   4.03e+06  -3.47e+03          0      0.781          1          1
+        4          0       5.75       4.22      0.256   1.55e+05  -1.18e+03          0      0.678          1          1
+        8          0       7.21       6.53      0.502   2.24e+05       -483   6.6e-296      0.557          1          1
+       16          0       7.21       7.78      0.971   3.88e+05       -180   3.3e-113      0.516          1          1
+       32          0       9.13       8.62       1.84   5.96e+05       -128   7.73e-23      0.427          1          1
+       64          0       9.87       7.99       3.65   6.59e+07      -96.6      0.018      0.424          1          1
+      128          0       9.56       7.58       6.94   1.15e+08      -74.9    0.00107      0.447          1          1
+      256          1       9.53       7.95       13.3    2.3e+08      -74.2     0.0116      0.436          1          1
       512          6       9.76       7.49       25.8   4.56e+08      -71.1     0.0237      0.444          1          1
- 1.02e+03         15       9.89       7.56       51.2   9.07e+08      -73.6     0.0843      0.437          1          1
+ 1.02e+03         15       9.89       7.56       51.1   9.07e+08      -73.6     0.0843      0.437          1          1
  2.05e+03         40       10.1       7.96        101   1.79e+09      -73.7      0.187      0.419          1          1
   4.1e+03         91       10.1       7.69        199   3.57e+09        -74      0.269      0.425          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><h2 id="Model:-PMA-and-Relative-Astrometry-and-RVs"><a class="docs-heading-anchor" href="#Model:-PMA-and-Relative-Astrometry-and-RVs">Model: PMA &amp; Relative Astrometry &amp; RVs</a><a id="Model:-PMA-and-Relative-Astrometry-and-RVs-1"></a><a class="docs-heading-anchor-permalink" href="#Model:-PMA-and-Relative-Astrometry-and-RVs" title="Permalink"></a></h2><p>We now add in three additional epochs of stellar RVs.</p><pre><code class="language-julia hljs">using OctofitterRadialVelocity
@@ -199,31 +199,31 @@ chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=12, expl
 display(chain_pma_rv_astrom)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 16
-ℓπcallback(θ): 0.000016 seconds (8 allocations: 400 bytes)
+ℓπcallback(θ): 0.000034 seconds (8 allocations: 400 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 16
-└   t = 1.7342e-5
+└   t = 1.7382e-5
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 16
-∇ℓπcallback(θ): 0.000033 seconds (8 allocations: 1.203 KiB)
+∇ℓπcallback(θ): 0.000057 seconds (8 allocations: 1.203 KiB)
 [ Info: Determining initial positions and metric using pathfinder
 ┌ Info: Found a sample of initial positions
 └   initial_logpost_range = (-2477.7949595937976, -2465.511272781165)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       7.43       7.17      0.371   1.73e+07  -3.83e+04          0      0.529          1          1
-        4          0       2.59       3.45      0.369   2.89e+07  -4.63e+03          0      0.805          1          1
-        8          0        5.6       5.45       0.76   5.12e+07       -604          0      0.644          1          1
+        2          0       7.43       7.17      0.379   1.73e+07  -3.83e+04          0      0.529          1          1
+        4          0       2.59       3.45      0.363   2.89e+07  -4.63e+03          0      0.805          1          1
+        8          0        5.6       5.45      0.638   5.12e+07       -604          0      0.644          1          1
        16          0       7.95       7.28       1.27   1.02e+08       -447  7.35e-267      0.509          1          1
-       32          0       10.4       8.59       2.54   2.02e+08       -191   5.11e-66      0.387          1          1
-       64          0       10.8       7.58       5.37   4.85e+08       -113     0.0346      0.408          1          1
-      128          0       10.4       7.45         10   9.48e+08      -96.9     0.0229      0.424          1          1
+       32          0       10.4       8.59       2.64   2.02e+08       -191   5.11e-66      0.387          1          1
+       64          0       10.8       7.58       5.32   4.85e+08       -113     0.0346      0.408          1          1
+      128          0       10.4       7.45       10.1   9.48e+08      -96.9     0.0229      0.424          1          1
       256          0       10.8       8.38       20.1   1.89e+09       -100      0.114      0.381          1          1
-      512          9       10.8       6.85         40   3.79e+09        -76     0.0718       0.43          1          1
- 1.02e+03         20       10.7       7.67       79.4   7.51e+09       -101      0.227      0.407          1          1
- 2.05e+03         59       10.7       6.53        158    1.5e+10       -101      0.247      0.445          1          1
-  4.1e+03        135       10.7       6.22        317   3.02e+10       -101      0.249      0.455          1          1
+      512          9       10.8       6.85       39.9   3.79e+09        -76     0.0718       0.43          1          1
+ 1.02e+03         20       10.7       7.67       79.1   7.51e+09       -101      0.227      0.407          1          1
+ 2.05e+03         59       10.7       6.53        157    1.5e+10       -101      0.247      0.445          1          1
+  4.1e+03        135       10.7       6.22        316   3.02e+10       -101      0.249      0.455          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>The mass vs. semi-major axis posterior is now much more constrained:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 pairplot(
     (; a=chain_pma_rv_astrom[&quot;b_a&quot;][:], mass=chain_pma_rv_astrom[&quot;b_mass&quot;][:]) =&gt;
@@ -265,31 +265,31 @@ model_rv_astrom = Octofitter.LogDensityModel(HD91312_rv_astrom,autodiff=:Forward
 chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 14
-ℓπcallback(θ): 0.000014 seconds (8 allocations: 400 bytes)
+ℓπcallback(θ): 0.000011 seconds (8 allocations: 400 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 14
-└   t = 1.1351e-5
+└   t = 1.106e-5
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 14
-∇ℓπcallback(θ): 0.000022 seconds (8 allocations: 1.109 KiB)
+∇ℓπcallback(θ): 0.000021 seconds (8 allocations: 1.109 KiB)
 [ Info: Determining initial positions and metric using pathfinder
 ┌ Info: Found a sample of initial positions
 └   initial_logpost_range = (-99.42140707996221, -92.19905845133069)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       4.07        4.3       5.52    4.1e+08       -305          0       0.73      0.942      0.967
+        2          0       4.07        4.3       5.58    4.1e+08       -305          0       0.73      0.942      0.967
         4          0       4.77        4.6      0.928    6.9e+07       -129   8.69e-61      0.698      0.902      0.943
-        8          0       5.49       6.05       1.35   1.06e+08      -95.5    2.8e-15      0.628      0.914      0.938
-       16          0       7.56       7.27        2.7   2.09e+08      -85.2   0.000252      0.521      0.917      0.932
-       32          0       7.82       7.27       5.49   4.25e+08      -85.6      0.117      0.513      0.923      0.935
-       64          1       7.99        4.3       11.9   1.07e+09      0.431       0.31      0.604      0.915      0.931
-      128          6       8.17       4.48       22.1    2.1e+09      -87.3      0.285      0.592      0.917      0.932
-      256         16       7.91       3.84       43.4   4.14e+09      -87.6      0.362      0.621      0.917      0.931
-      512         26       7.93       5.06       89.5   8.53e+09      -86.7      0.341      0.581      0.916      0.934
- 1.02e+03         35        7.8       5.61        178   1.71e+10      -87.2      0.412      0.567      0.919      0.935
- 2.05e+03         80       7.94       5.74        344    3.3e+10      -86.9      0.445      0.559      0.914      0.931
-  4.1e+03        141       7.94       5.85        706   6.77e+10        -87      0.439      0.555      0.917      0.934
+        8          0       5.49       6.05       1.32   1.06e+08      -95.5    2.8e-15      0.628      0.914      0.938
+       16          0       7.56       7.27       2.68   2.09e+08      -85.2   0.000252      0.521      0.917      0.932
+       32          0       7.82       7.27       5.47   4.25e+08      -85.6      0.117      0.513      0.923      0.935
+       64          1       7.99        4.3       11.8   1.07e+09      0.431       0.31      0.604      0.915      0.931
+      128          6       8.17       4.48         22    2.1e+09      -87.3      0.285      0.592      0.917      0.932
+      256         16       7.91       3.84       43.2   4.14e+09      -87.6      0.362      0.621      0.917      0.931
+      512         26       7.93       5.06       88.9   8.53e+09      -86.7      0.341      0.581      0.916      0.934
+ 1.02e+03         35        7.8       5.61        177   1.71e+10      -87.2      0.412      0.567      0.919      0.935
+ 2.05e+03         80       7.94       5.74        342    3.3e+10      -86.9      0.445      0.559      0.914      0.931
+  4.1e+03        141       7.94       5.85        703   6.77e+10        -87      0.439      0.555      0.917      0.934
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><h2 id="Model-Comparison"><a class="docs-heading-anchor" href="#Model-Comparison">Model Comparison</a><a id="Model-Comparison-1"></a><a class="docs-heading-anchor-permalink" href="#Model-Comparison" title="Permalink"></a></h2><p>Let&#39;s now display the constraints provided by each data set in a single corner plot</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 using CairoMakie: Makie
 using PairPlots
@@ -307,4 +307,4 @@ octocorner(
         PairPlots.MarginDensity(),
         PairPlots.Scatter()
     )
-)</code></pre><img src="29248e24.png" alt="Example block output"/><p>We see that the constraints provided by the PMA, the astrometry, and the radial velocity data all individually overlap, and agree with the joint model constraint.  This is means that none of the datasets are in tension with each other, which might suggest an issue with the data or with the modelling assumptions (e.g. single planet). </p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Friday 20 September 2024 22:49">Friday 20 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="29248e24.png" alt="Example block output"/><p>We see that the constraints provided by the PMA, the astrometry, and the radial velocity data all individually overlap, and agree with the joint model constraint.  This is means that none of the datasets are in tension with each other, which might suggest an issue with the data or with the modelling assumptions (e.g. single planet). </p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Monday 23 September 2024 05:59">Monday 23 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

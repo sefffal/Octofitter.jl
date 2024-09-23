@@ -50,8 +50,8 @@ chain = octofit(model, iterations=10000)</code></pre><pre class="documenter-exam
 Iterations        = 1:1:10000
 Number of chains  = 1
 Samples per chain = 10000
-Wall duration     = 4.99 seconds
-Compute duration  = 4.99 seconds
+Wall duration     = 4.83 seconds
+Compute duration  = 4.83 seconds
 parameters        = plx, b_sep, b_pa, b_L
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -60,9 +60,9 @@ Summary Statistics
  <span class="sgr90">     Symbol     Float64   Float64   Float64     Float64     Float64   Float64 ⋯
 
          plx     24.4620    0.0000    0.0000         NaN         NaN       NaN ⋯
-       b_sep   1706.6202    7.5335    1.2174     74.0078     92.5566    1.0346 ⋯
-        b_pa      1.2331    0.0020    0.0000   3755.7919   5759.6566    1.0047 ⋯
-         b_L      0.0001    0.0000    0.0000   1995.9548   2681.1970    0.9999 ⋯
+       b_sep   1704.4767    4.7071    0.5754    226.7228     53.8508    1.0055 ⋯
+        b_pa      1.2330    0.0020    0.0000   4941.3044   6521.3006    1.0000 ⋯
+         b_L      0.0001    0.0000    0.0000   3826.3265   3358.8822    1.0000 ⋯
 </span><span class="sgr36">                                                                1 column omitted
 
 Quantiles
@@ -70,12 +70,12 @@ Quantiles
  </span><span class="sgr90">     Symbol     Float64     Float64     Float64     Float64     Float64
 
          plx     24.4620     24.4620     24.4620     24.4620     24.4620
-       b_sep   1698.6765   1701.9951   1704.0562   1707.7421   1725.7656
-        b_pa      1.2296      1.2315      1.2329      1.2345      1.2370
+       b_sep   1698.7293   1701.7655   1703.5187   1706.0127   1721.6723
+        b_pa      1.2296      1.2314      1.2328      1.2344      1.2370
          b_L      0.0001      0.0001      0.0001      0.0001      0.0001
 </span></span></code></pre><h2 id="Sample-from-the-model-(globally)"><a class="docs-heading-anchor" href="#Sample-from-the-model-(globally)">Sample from the model (globally)</a><a id="Sample-from-the-model-(globally)-1"></a><a class="docs-heading-anchor-permalink" href="#Sample-from-the-model-(globally)" title="Permalink"></a></h2><p>You could also try sampling across the entire image, without necessarily specifying a starting position. Note that if there are multiple candidates, taking the naive mean and standard deviation will average across all planets.</p><pre><code class="language-julia hljs">using Pigeons
 model.starting_points = nothing # reset starting points
 chain, pt = octofit_pigeons(model, n_rounds=11)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (2048×8×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><h2 id="Access-results"><a class="docs-heading-anchor" href="#Access-results">Access results</a><a id="Access-results-1"></a><a class="docs-heading-anchor-permalink" href="#Access-results" title="Permalink"></a></h2><pre><code class="language-julia hljs">samples_sep = chain[:b_sep]
 samples_pa = chain[:b_pa]
 println(&quot;The median separation is &quot;, median(samples_sep))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">The median separation is 1703.8388560973906</code></pre><h2 id="Visualize"><a class="docs-heading-anchor" href="#Visualize">Visualize</a><a id="Visualize-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize" title="Permalink"></a></h2><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model,chain)</code></pre><img src="7db2421f.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-grav-wide/">« Fit GRAVITY Wide Data</a><a class="docs-footer-nextpage" href="../limits/">Calculate Detection Limits »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Friday 20 September 2024 22:49">Friday 20 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model,chain)</code></pre><img src="7db2421f.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-grav-wide/">« Fit GRAVITY Wide Data</a><a class="docs-footer-nextpage" href="../limits/">Calculate Detection Limits »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Monday 23 September 2024 05:59">Monday 23 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
