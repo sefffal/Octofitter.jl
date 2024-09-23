@@ -32,6 +32,7 @@ OctofitterRadialVelocityMakieExt = ["Makie"]
 
 [compat]
 AbstractGPs = "0.5"
+AstroImages = "0.5"
 CSV = "0.10"
 DataDeps = "0.7"
 Distances = "0.10"
