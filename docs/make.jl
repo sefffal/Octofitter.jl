@@ -49,7 +49,7 @@ makedocs(
             "Chains" => "chains.md",
             "Loading and Saving Data" => "loading-saving.md",
             "Sampler" => "samplers.md",
-            "Parallel Sampling" => "parallel-sampling.md",
+            "Distributed Sampling" => "parallel-sampling.md",
             "Priors" => "priors.md",
             "Derived Variables" => "derived.md",
             "Connecting Mass with Photometry" => "mass-photometry.md",
