@@ -1010,7 +1010,7 @@ function mcmcchain2result(model, chain,)
     end
     
     # These are the labels corresponding to the flattened named tuple without the *planet_key* prepended
-    return broadcast(1:size(chain,1),1:size(chain,3)') do i,j
+    return broadcast(1:size(chain,1),(1:size(chain,3))') do i,j
         # Take existing NT and recurse through it. replace elements
         nt_sys = Dict{Symbol,Any}()
         for (kout,kins) in key_mapping
