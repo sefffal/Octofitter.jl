@@ -39,9 +39,7 @@ end
 
 function Pigeons.default_reference(target::Octofitter.LogDensityModel)
     reference_sys = prior_only_model(target.system)
-    # Note we could run into issues if their priors aren't well handled by the default
-    # autodiff backend
-    reference = Octofitter.LogDensityModel(reference_sys)
+    reference = Octofitter.LogDensityModel(reference_sys; autodiff=target.autodiff_backend_symbol)
     return reference
 end
 
