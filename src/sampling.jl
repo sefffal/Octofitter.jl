@@ -60,14 +60,27 @@ function guess_starting_position(rng::Random.AbstractRNG, model::LogDensityModel
     bestlogposts = fill(-Inf64, 1:Threads.nthreads())
     bestparams = fill(model.sample_priors(rng), 1:Threads.nthreads())
 
-    Threads.@threads for i in 1:N
-        tid = Threads.threadid()
-        params = model.sample_priors(rngs[tid])
-        params_t = model.link(params)
-        logpost = model.ℓπcallback(params)
-        if logpost > bestlogposts[tid]
-            bestparams[tid] = params
-            bestlogposts[tid] = logpost
+    if _kepsolve_use_threads[]
+        Threads.@threads for i in 1:N
+            tid = Threads.threadid()
+            params = model.sample_priors(rngs[tid])
+            params_t = model.link(params)
+            logpost = model.ℓπcallback(params_t)
+            if logpost > bestlogposts[tid]
+                bestparams[tid] = params
+                bestlogposts[tid] = logpost
+            end
+        end
+    else
+        for i in 1:N
+            tid = Threads.threadid()
+            params = model.sample_priors(rngs[tid])
+            params_t = model.link(params)
+            logpost = model.ℓπcallback(params_t)
+            if logpost > bestlogposts[tid]
+                bestparams[tid] = params
+                bestlogposts[tid] = logpost
+            end
         end
     end
 

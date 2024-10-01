@@ -31,7 +31,7 @@ If this fails repeatedly, simply draw `initial_samples` from the prior and keepi
 function default_initializer!(model::LogDensityModel; kwargs...)
     return default_initializer!(Random.default_rng(), model; kwargs...)
 end
-function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; nruns=8, ntries=2, ndraws=1000, initial_samples=10000, verbosity=1)
+function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; initial_point = nothing, nruns=8, ntries=2, ndraws=1000, initial_samples=10000, verbosity=1)
 
 
     local result_pf = nothing
@@ -40,23 +40,34 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
     verbosity >= 1 && @info "Determining initial positions and metric using pathfinder"
     # It can sometimes hit a PosDefException sometimes when factoring a matrix.
     # When that happens, the next try usually succeeds.
-    for i in 1:ntries
-        try
+    try
+        for i in 1:ntries
             verbosity >= 3 && @info "Starting multipathfinder run"
             init_sampler = function(rng, x) 
-                if verbosity > 3
-                    @info "drawing new starting guess by sampling IID from priors"
+                if isnothing(initial_point) || length(initial_point) < model.D
+                    if verbosity > 3
+                        @info "drawing new starting guess by sampling IID from priors"
+                    end
+                    initial_θ, mapv = guess_starting_position(rng,model,initial_samples)
+                    if verbosity > 3
+                        @info "Starting point drawn" initial_logpost=mapv
+                    end
                 end
-                initial_θ, mapv = guess_starting_position(rng,model,initial_samples)
-                if verbosity > 3
-                    @info "Starting point drawn" initial_logpost=mapv
+                if !isnothing(initial_point)
+                    if length(initial_point) < model.D
+                        initial_θ = (initial_point..., initial_θ[length(initial_point)+1:end]...)
+                    else
+                        initial_θ = initial_point
+                    end
                 end
                 initial_θ_t = model.link(initial_θ)
                 x .= initial_θ_t
             end
             errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
             result_pf = with_logger(errlogger) do 
-                Pathfinder.multipathfinder(
+                initial_mt = _kepsolve_use_threads[]
+                _kepsolve_use_threads[] = true
+                result_pf = Pathfinder.multipathfinder(
                     ldm_any, ndraws;
                     nruns,
                     init_sampler=CallableAny(init_sampler),
@@ -64,12 +75,16 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
                     maxiters=25_000,
                     reltol=1e-6,
                     rng=rng,
+                    ntries=1,
+                    # executor=Pathfinder.Transducers.PreferParallel(),
                     optimizer=Pathfinder.Optim.LBFGS(;
                         m=6,
                         linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
                         alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
                     )
                 ) 
+                _kepsolve_use_threads[] = initial_mt
+                return result_pf
             end
             # Check pareto shape diagnostic to see if we have a good approximation
             # If we don't, just try again
@@ -79,21 +94,12 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
                 i<ntries && verbosity > 2 && @warn "Restarting pathfinder" i
                 continue
             end
+            verbosity > 0 &&  display(result_pf)
             
             verbosity >= 3 && "Pathfinder complete"
             break
-        catch ex
-            result_pf = nothing
-            if ex isa PosDefException
-                verbosity > 2 && @warn "Mass matrix failed to factorize. Restarting pathfinder" i
-                continue
-            end
-            if ex isa InterruptException
-                rethrow(ex)
-            end
-            @error "Unexpected error occured running pathfinder" exception=(ex, catch_backtrace())
-            break
         end
+    catch
     end
     
     if !isnothing(result_pf)
@@ -104,11 +110,16 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
     # Occasionally there is a failure mode of pathfinder where, despite starting it at a reasonable spot, it returns garbage
     # starting draws that are orders of magnitude worse.
     # Check for this by ensuring the highest a-posteriori pathfinder draw is better than a random guess
-    random_guess_logpost = model.ℓπcallback(model.link(model.sample_priors(rng)))
+    _, random_guess_logpost = guess_starting_position(rng,model,100)
     if isnothing(result_pf) || maximum(initial_logpost_range) < random_guess_logpost
         verbosity >= 1 && @warn "Falling back to sampling from the prior and keeping the $ndraws samples with highest posterior density."
-        samples = sample_priors(rng, model, ndraws)
-        samples_t = model.link.(samples)
+        samples_t = map(1:1000) do _
+            initial_θ, mapv = guess_starting_position(rng,model,max(1,initial_samples÷100))
+            initial_θ_t = model.link(initial_θ)
+            return initial_θ_t
+        end
+        # samples = sample_priors(rng, model, ndraws)
+        # samples_t = model.link.(samples)
         logposts = model.ℓπcallback.(samples_t)
         II = sortperm(logposts)[end-ndraws+1:end]
         model.starting_points = samples_t[II]
