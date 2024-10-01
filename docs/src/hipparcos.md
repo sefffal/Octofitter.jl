@@ -154,7 +154,7 @@ model = Octofitter.LogDensityModel(cEri)
 Now we sample:
 ```@example 1
 using Pigeons
-chain,pt = octofit_pigeons(model, n_rounds=8)
+chain,pt = octofit_pigeons(model, n_rounds=8, explorer=SliceSampler())
 chain
 ```
 
