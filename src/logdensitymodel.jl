@@ -216,7 +216,6 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             elseif autodiff == :ForwardDiff
 
                 # https://juliadiff.org/ForwardDiff.jl/stable/user/advanced/#Fixing-NaN/Inf-Issues
-                set_preferences!(ForwardDiff, "nansafe_mode" => true)
 
                 # Test likelihood function gradient immediately to give user a clean error
                 # if it fails for some reason.

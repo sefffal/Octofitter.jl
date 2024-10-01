@@ -81,6 +81,9 @@ export octofit_pigeons
 
 function __init__()
 
+    # Some octofitter likelihoods can cause errors when nansafe_mode isn't set to true.
+    set_preferences!(ForwardDiff, "nansafe_mode" => true)
+
     # List DataDeps here.
     # These are optional, automatic downloads required for certain
     # functionality.
