@@ -328,33 +328,33 @@ end
 
 
 
-# """
-# Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
-# using 25 position measurements averaged at each of their epochs.
-# """
-# function generate_from_params(hgca_like::HGCALikelihood, θ_system, orbits)
+"""
+Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
+using 25 position measurements averaged at each of their epochs.
+"""
+function generate_from_params(hgca_like::HGCALikelihood, θ_system, orbits, solutions, sol_start_i)
 
-#     (;
-#         pmra_hip_model,
-#         pmdec_hip_model,
-#         pmra_gaia_model,
-#         pmdec_gaia_model,
-#         pmra_hg_model,
-#         pmdec_hg_model,
-#     ) = _simulate_hgca(hgca_like, θ_system, orbits)
+    (;
+        pmra_hip_model,
+        pmdec_hip_model,
+        pmra_gaia_model,
+        pmdec_gaia_model,
+        pmra_hg_model,
+        pmdec_hg_model,
+    ) = _simulate_hgca(hgca_like, θ_system, orbits, solutions, sol_start_i)
 
-#     # Merge the measurements together into a new observation and add noise according to the sigma
-#     # we were passed in from the original measurements
-#     return HGCALikelihood(merge(hgca_like.table[1], (;
-#         pmra_hip=pmra_hip_model,
-#         pmdec_hip=pmdec_hip_model,
-#         pmra_gaia=pmra_gaia_model,
-#         pmdec_gaia=pmdec_gaia_model,
-#         pmra_hg=pmra_hg_model,
-#         pmdec_hg=pmdec_hg_model,
-#     )))
+    # Merge the measurements together into a new observation and add noise according to the sigma
+    # we were passed in from the original measurements
+    return HGCALikelihood(hgca_like.table, merge(hgca_like.hgca, (;
+        pmra_hip=pmra_hip_model,
+        pmdec_hip=pmdec_hip_model,
+        pmra_gaia=pmra_gaia_model,
+        pmdec_gaia=pmdec_gaia_model,
+        pmra_hg=pmra_hg_model,
+        pmdec_hg=pmdec_hg_model,
+    )))
 
-# end
+end
 
 
 # include("hgca-linefit.jl")
