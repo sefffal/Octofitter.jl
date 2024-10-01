@@ -35,7 +35,7 @@ export PlanetRelAstromLikelihood
 using LinearAlgebra
 
 # PlanetRelAstromLikelihood likelihood function
-function ln_like(astrom::PlanetRelAstromLikelihood, θ_planet, orbit,)
+function ln_like(astrom::PlanetRelAstromLikelihood, θ_planet, orbit, orbit_solutions, orbit_solutions_i_epoch_start)
 
     # Note: since astrometry data is stored in a typed-table, the column name
     # checks using `hasproperty` ought to be compiled out completely.
@@ -46,13 +46,7 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_planet, orbit,)
         # Covariance between the two dimensions
         cor = 0.0
 
-        local o
-        try
-            o = orbitsolve(orbit, astrom.table.epoch[i])
-        catch err
-            @warn "Error during orbit solve (maxlog=10)" maxlog=10 err
-            return -Inf
-        end
+        o = orbit_solutions[i+orbit_solutions_i_epoch_start]
         # PA and Sep specified
         if hasproperty(astrom.table, :pa) && hasproperty(astrom.table, :sep)
             ρ = projectedseparation(o)

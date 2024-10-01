@@ -102,7 +102,8 @@ end
 """
 Visibliitiy modelling likelihood for point sources.
 """
-function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, num_epochs::Val{L}=Val(length(vis.table))) where {L}
+function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits,     orbit_solutions,
+    orbit_solutions_i_epoch_start)
 
     T = typeof(θ_system.M)
     ll = zero(T)
@@ -130,7 +131,6 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
         cvis_model = zeros(complex(T), size(vis.table.u[i_epoch][:, 1]))
 
         contrasts = T[getproperty(θ_planet, this_spectrum_var) for θ_planet in θ_system.planets]
-        sols = [orbitsolve(orbits[i_planet], epoch) for i_planet in 1:length(θ_system.planets)]
 
         # Loop through wavelengths
         for i_wave in axes(vis.table.u[i_epoch], 2)
@@ -152,8 +152,8 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits, nu
                 # All parameters relevant to this planet
                 # Get model contrast parameter in this band (band provided as a symbol, e.g. :L along with data in table row.)
                 contrast = contrasts[i_planet]
-                Δra = raoff(sols[i_planet])  # in mas
-                Δdec = decoff(sols[i_planet]) # in mas
+                Δra = raoff(orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start])  # in mas
+                Δdec = decoff(orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]) # in mas
 
                 # add complex visibilities from all planets at a single epoch, for this wavelength
                 cvis_bin!(cvis_model; Δdec, Δra, contrast, u, v)

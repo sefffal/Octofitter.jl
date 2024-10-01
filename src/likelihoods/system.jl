@@ -2,184 +2,120 @@
 
 
 
-# # Overall log likelihood of the system given the parameters θ_system
-# function ln_like(system::System, θ_system)
-#     # Take some care to ensure type stability when using e.g. ForwardDiff
-#     ll = zero(typeof(first(θ_system)))
-
-#     # Fail fast if we have a negative stellar mass.
-#     # Users should endeavour to use priors on e.g. stellar mass
-#     # that are strictly positive, otherwise we are reduced to rejection sampling!
-#     if hasproperty(θ_system, :M) && θ_system.M <= 0
-#         return oftype(ll, -Inf)
-#     end
-
-#     # Go through each planet in the model and add its contribution
-#     # to the ln-likelihood.
-#     # out_of_bounds = Base.RefValue{Bool}(false)
-#     elements = map(eachindex(system.planets)) do i
-#         planet = system.planets[i]
-#         θ_planet = θ_system.planets[i]
-
-#         # Like negative stellar mass, users should use priors with supports
-#         # that do not include these invalid values. But if we see them,
-#         # give zero likelihood right away instead of an inscrutable error
-#         # from some code expecting these invariants to hold.
-#         if (hasproperty(θ_planet, :a) && θ_planet.a <= 0) ||
-#             (hasproperty(θ_planet, :e) && !(0 <= θ_planet.e < 1))
-#             out_of_bounds[] = true
-#         end
-
-#         # Resolve the combination of system and planet parameters
-#         # as a orbit object. The type of orbitobject is stored in the 
-#         # Planet type. This pre-computes some factors used in various calculations.
-#         kep_elements = construct_elements(orbittype(planet), θ_system, θ_planet)
-
-#         return kep_elements
-#     end
-#     # # Fail fast if out of bounds for one of the planets
-#     # if out_of_bounds[]
-#     #     return oftype(ll, -Inf) # Ensure type stability
-#     # end
-
-#     # Loop through the planets from the outside in. 
-#     # Try to do this sorting in a non-allocating way.
-#     # This way we have the option to account for each planets influence on the outer planets
-#     # sma = map(elements) do elem
-#     #     return elem.a
-#     # end
-#     # planet_sma_asc_ii = sortperm(SVector(sma))
-
-#     # The above sorting is not currently used, so need to perform it.
-#     planet_sma_asc_ii = 1:length(elements)
-
-
-#     # Handle all observations attached to planets in order of semi-major axis
-#     for j in eachindex(planet_sma_asc_ii)
-#         i = planet_sma_asc_ii[j]
-#         # Planet model
-#         planet = system.planets[i]
-#         # Parameters specific to this planet
-#         θ_planet = θ_system.planets[i]
-#         # Cached Visual{KepOrbit} with precomputed factors, etc.
-#         planet_elements = elements[i]
-#         # kep_elements, but for all planets interior to this one (given the current parameters)
-#         # interior_planets = kep_elements[begin:min(end,i)]
-
-#         # Loop through observations
-#         for obs in planet.observations
-#             ll += ln_like(obs, θ_planet, planet_elements, θ_system.planets, elements)
-#         end
-#     end
-
-#     if !isfinite(ll)
-#         return ll
-#     end
-
-#     # Loop through and add contribution of all observation types associated with this system as a whole
-#     for obs in system.observations
-#         ll += ln_like(obs, θ_system, elements)
-#     end
-
-#     return ll
-# end
-
-
-# # Overall log likelihood of the system given the parameters θ_system
-# function ln_like(system::System, θ_system)
-#     # Take some care to ensure type stability when using e.g. ForwardDiff
-#     ll = zero(typeof(first(θ_system)))
-
-#     # Should unroll this loop with RuntimeGeneratedFunction
-#     # for i in eachindex(system.planets)
-#     let i = 1
-#         planet = system.planets[i]
-#         θ_planet = θ_system.planets[i]
-
-#         # Resolve the combination of system and planet parameters
-#         # as a orbit object. The type of orbitobject is stored in the 
-#         # Planet type. This pre-computes some factors used in various calculations.
-#         planet_elements = construct_elements(orbittype(planet), θ_system, θ_planet)
-#         # planet_elements = Visual{KepOrbit}((;
-#         #     M=θ_system.M,
-#         #     plx=θ_system.plx,
-#         #     a=θ_planet.a,
-#         #     i=θ_planet.i,
-#         #     ω=θ_planet.ω,
-#         #     Ω=θ_planet.Ω,
-#         #     e=θ_planet.e,
-#         #     τ=θ_planet.τ,
-#         # ))
-        
-#         # Loop through observations ( could unroll this loop with RuntimeGeneratedFunction)
-#         for obs in planet.observations
-#             ll += ln_like(obs, θ_planet, planet_elements)
-#         end
-#     end
-#     # Could unroll this loop
-
-#     # # Loop through and add contribution of all observation types associated with this system as a whole
-#     # for obs in system.observations
-#     #     ll += ln_like(obs, θ_system)
-#     # end
-
-#     return ll
-# end
 
 function make_ln_like(system::System, θ_system)
 
-    planet_exprs = Expr[]
+    # We want to gather up all observation epochs in a standardized order.
+    # That way we can loop through and solve each orbit at each epoch.
+
+    # We assume that all planets will need to be solved at every general system observation epoch
+    # We assume that each planet will need to be solved at every epoch it has attached observations
+    # We'll solve them once in a hot (possibly multi-threaded) loop, and pass views into each likelihood
+    # function.
+
+    # I want a vector of solution types per object
+    # The solutions will be ordered first, each epoch in the system observations,
+    # then, each epoch in that planet's observations.
+    # Note that in practice MA is always fixed when solving; it's only e that we might want the gradient for.
+    epochs_system_obs = Float64[]    
+    for obs in system.observations
+        if hasproperty(obs, :table) && hasproperty(obs.table, :epoch)
+            # TODO: deal with HGCA
+            append!(epochs_system_obs, obs.table.epoch)
+        end
+    end
+    
     planet_keys = Symbol[]
+    planet_construction_exprs = Expr[]
+    planet_like_exprs = Expr[]
+    planet_orbit_solution_exprs = Expr[]
+    planet_sol_keys = Symbol[]
     j = 0
     for i in eachindex(system.planets)
         planet = system.planets[i]
         OrbitType = _planet_orbit_type(planet)
-        θ_planet = θ_system.planets[i]
+        # θ_planet = θ_system.planets[i]
         key = Symbol("planet_$i")
+        sols_key = Symbol("sols_planet_$i")
 
-        likelihood_exprs = map(eachindex(planet.observations)) do like
+        epochs_planet_i = copy(epochs_system_obs)
+        i_epoch_start = length(epochs_planet_i) + 1
+        likelihood_exprs = map(enumerate(planet.observations)) do (i_like, like)
+            if hasproperty(like, :table) && hasproperty(like.table, :epoch)
+                append!(epochs_planet_i, like.table.epoch)
+            end
+            i_epoch_end = length(epochs_planet_i)
             expr = :(
                 $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
-                    system.planets[$(Meta.quot(i))].observations[$like],
+                    system.planets[$(Meta.quot(i))].observations[$i_like],
                     # $(system.planets[i].observations[like]),
                     θ_system.planets.$i,
-                    $(key)
+                    $(key),
+                    $sols_key, $(i_epoch_start-1)
                 );
                 # if !isfinite($(Symbol("ll$(j+1)")))
                 #     println("invalid likelihood value encountered")
                 # end
             )
+            i_epoch_start = length(epochs_planet_i) + 1
             j+=1
             return expr
         end
+        likelihood_expr = quote
+            $(likelihood_exprs...)
+        end
+        epochs_planet_i = tuple(epochs_planet_i...)
 
         planet_contruction = quote
             $key = $(OrbitType)(;merge(θ_system, θ_system.planets.$i)...)
-            $(likelihood_exprs...)
         end
-        push!(planet_exprs, planet_contruction)
+
+        if isempty(epochs_planet_i)  
+            orbit_sol_expr = quote
+                $sols_key = ()
+            end
+        else
+            orbit_sol_expr = quote
+                # Pre-solve kepler's equation for all epochs
+                # TODO: is there a better way to determine the output type? 
+                # Does the compiler elide this?
+                sol0 = orbitsolve($key, $(first(epochs_planet_i)))
+                $sols_key = $_kepsolve_all(sol0, $key, $epochs_planet_i)
+            end
+        end
+
         push!(planet_keys, key)
+        push!(planet_construction_exprs, planet_contruction)
+        push!(planet_like_exprs, likelihood_expr)
+        push!(planet_orbit_solution_exprs, orbit_sol_expr)
+        push!(planet_sol_keys, sols_key)
     end
 
+    # TODO: now need to pass solved epochs in through system Likelihoods, then deal with HGCA.
 
+    i_epoch_start = 1
+    # TODO: this seems way overcomplicated? Just need a list of symbols
+    # interpolated in.
+    solutions_list = :(tuple($((:($sols_key) for sols_key in planet_sol_keys)...)))
     sys_exprs = map(eachindex(system.observations)) do i
         like = system.observations[i]
-        # Provide the number of observations as a compile time constant 
-        if hasproperty(like, :table)
-            L = Val(length(like.table))
-        else
-            L = Val(0)
+        num_epochs_this_obs = 0
+        if hasproperty(like, :table) && hasproperty(like.table, :epoch)
+            num_epochs_this_obs = length(like.table.epoch)
         end
+        i_epoch_end = i_epoch_start + num_epochs_this_obs
+        # Provide the number of observations as a compile time constant 
         expr = :(
-            # $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) +  ln_like($like, θ_system, elems, $L);
-            $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) +  ln_like(
-                system.observations[$i], θ_system, elems, $L
+            $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
+                system.observations[$i], θ_system, elems,
+                ($solutions_list),
+                $(i_epoch_start-1)
             );
-
             # if !isfinite($(Symbol("ll$(j+1)")))
             #     println("invalid likelihood value encountered")
             # end
         )
+        i_epoch_start = i_epoch_end + 1
         j+=1
         return expr
     end
@@ -187,8 +123,15 @@ function make_ln_like(system::System, θ_system)
     return @RuntimeGeneratedFunction(:(function (system::System, θ_system)
         ll0 = zero(_system_number_type(θ_system))
 
-        # Construct all orbit elements and evaluate all their individual observation likelihoods
-        $(planet_exprs...)
+        # Construct all orbit elements
+        $(planet_construction_exprs...)
+
+        # Solve all orbits
+        $(planet_orbit_solution_exprs...)
+
+        # evaluate all their individual observation likelihoods
+        $(planet_like_exprs...)
+
 
         # Construct a tuple of existing planet orbital elements
         elems = tuple($(planet_keys...))
@@ -197,8 +140,32 @@ function make_ln_like(system::System, θ_system)
 
         return $(Symbol("ll$j"))
     end))
+end
 
+const _kepsolve_use_threads = Ref(false)
+function _kepsolve_all(sol0, orbit, epochs)
+    if _kepsolve_use_threads[]
+        return _kepsolve_all_multithread(sol0, orbit, epochs)
+    else
+        return _kepsolve_all_singlethread(sol0, orbit, epochs)
+    end
+end
+function _kepsolve_all_singlethread(sol0, orbit, epochs)
+    solutions = Array{typeof(sol0)}(undef,length(epochs))
+    solutions[begin] = sol0
+    for epoch_i in eachindex(epochs)[begin+1:end]
+        solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
+    end
+    return solutions
+end
 
+function _kepsolve_all_multithread(sol0, orbit, epochs)
+    solutions = Array{typeof(sol0)}(undef,length(epochs))
+    solutions[begin] = sol0
+    Threads.@threads for epoch_i in eachindex(epochs)[begin+1:end]
+        solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
+    end
+    return solutions
 end
 
 

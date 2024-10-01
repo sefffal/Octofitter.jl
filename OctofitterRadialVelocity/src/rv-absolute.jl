@@ -31,19 +31,20 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TOffsets,TJitters} <: Octofitte
             row = (;inst_idx=1, row′[1]..., rv=float(row′[1].rv[1]))
             return row
         end
-        table = Table(rows)
+        # We sort the data first by instrument index then by epoch to make some later code faster
+        m = maximum(r->r.epoch, rows)
+        ii = sortperm([
+            r.inst_idx .* (10m) .+ r.epoch
+            for r in rows
+        ])
+        table = Table(rows[ii])
         # Check instrument indexes are contiguous
         if length(unique(table.inst_idx)) != maximum(table.inst_idx)
             error("instrument indexes must run from 1:N without gaps")
         end
-        # We sort the data first by instrument index then by epoch to make some later code faster
-        m = maximum(table.epoch)
-        ii = sortperm(table.inst_idx .* (10m) .+ table.epoch)
-        table = table[ii,:]
         if isnothing(instrument_names)
             instrument_names = string.(1:maximum(table.inst_idx))
         end
-
         # Pre-allocate symbols for offset and jitter term access
         offset_symbols = Tuple(Symbol("rv0_", i) for i in eachindex(instrument_names))
         jitter_symbols = Tuple(Symbol("jitter_", i) for i in eachindex(instrument_names))
@@ -60,9 +61,11 @@ Absolute radial velocity likelihood (for a star).
 function Octofitter.ln_like(
     rvlike::StarAbsoluteRVLikelihood,
     θ_system,
-    planet_orbits::NTuple{N,<:AbstractOrbit},
-    num_epochs::Val{L}=Val(length(rvlike.table))
-) where {L,N}
+    planet_orbits::Tuple,
+    orbit_solutions,
+    orbit_solutions_i_epoch_start
+)
+    L = length(rvlike.table.epoch)
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
@@ -87,26 +90,25 @@ function Octofitter.ln_like(
 
         # Find the range in the table occupied by data from this instrument
 
-        # istart = only(findfirst(==(inst_idx), rvlike.table.inst_idx))
-        # iend = only(findlast(==(inst_idx), rvlike.table.inst_idx))
+        istart = only(findfirst(==(inst_idx), vec(rvlike.table.inst_idx)))
+        iend = only(findlast(==(inst_idx), vec(rvlike.table.inst_idx)))
         # istart = searchsortedfirst(vec(rvlike.table.inst_idx), inst_idx)
         # iend = searchsortedlast(vec(rvlike.table.inst_idx), inst_idx)
-
-        # Make Enzyme happy:
-        istart = 1
-        for i in eachindex(rvlike.table.inst_idx)
-            if rvlike.table.inst_idx[i] == inst_idx
-                istart = i
-                break
-            end
-        end
-        iend = L
-        for i in reverse(eachindex(rvlike.table.inst_idx))
-            if rvlike.table.inst_idx[i] == inst_idx
-                iend = i
-                break
-            end
-        end
+        # # Make Enzyme happy:
+        # istart = 1
+        # for i in eachindex(rvlike.table.inst_idx)
+        #     if rvlike.table.inst_idx[i] == inst_idx
+        #         istart = i
+        #         break
+        #     end
+        # end
+        # iend = L
+        # for i in reverse(eachindex(rvlike.table.inst_idx))
+        #     if rvlike.table.inst_idx[i] == inst_idx
+        #         iend = i
+        #         break
+        #     end
+        # end
 
         # Data for this instrument:
         epochs = @view rvlike.table.epoch[istart:iend]
@@ -131,10 +133,12 @@ function Octofitter.ln_like(
             orbit = planet_orbits[planet_i]
             # Need to structarrays orbit if we want this to SIMD
             planet_mass = θ_system.planets[planet_i].mass
-            # Threads.@threads 
             for epoch_i in eachindex(epochs)
-                M_tot = totalmass(orbit)
-                rv_star_buf[epoch_i] -= radvel(orbit, epochs[epoch_i], planet_mass*Octofitter.mjup2msol)
+                # @show epochs[epoch_i] orbit_solutions[planet_i][epoch_i+orbit_solutions_i_epoch_start].sol.t
+                # println()
+                # M_tot = totalmass(orbit)
+                # rv_star_buf[epoch_i] -= radvel(orbit, epochs[epoch_i], planet_mass*Octofitter.mjup2msol)
+                rv_star_buf[epoch_i] -= radvel(orbit_solutions[planet_i][epoch_i+orbit_solutions_i_epoch_start], planet_mass*Octofitter.mjup2msol)
             end
             # Zygote version:
             # rv_star_buf -= radvel.(orbit, epochs, planet_mass*Octofitter.mjup2msol)
@@ -157,10 +161,10 @@ function Octofitter.ln_like(
             catch err
                 if err isa PosDefException
                     @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                    return -Inf
+                    return convert(T,-Inf)
                 elseif err isa ArgumentError
                     @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                    return -Inf
+                    return convert(T,-Inf)
                 else
                     rethrow(err)
                 end

@@ -63,7 +63,7 @@ struct ObsPriorAstromONeil2019{Likelihood<:AbstractLikelihood} <: AbstractLikeli
 end
 export ObsPriorAstromONeil2019
 
-function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_planet, orbit,) 
+function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_planet, orbit, orbit_solutions, i_orbsol_start) 
 # function Octofitter.ln_like(like::ObsPriorAstromONeil2019, θ_planet, orbit,) 
 
     # Add period prior
@@ -71,10 +71,23 @@ function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikel
     P = period(orbit)/365.25
     e = eccentricity(orbit)
     jac = 0.0
+    # We can't use i_orbsol_start for this, since we're actually using the epochs
+    # of another likelihood object. Instead loop through each until we find the right epoch.
+    # This should normally be faster than solving it again.
+    # TODO: I wonder if a Dict would be a better choice here. Something to benchmark.
+    # Or maybe a dict of likelihood object to starting index?
     for j in 1:length(like.wrapped_like.table.epoch)
         current_epoch = like.wrapped_like.table.epoch[j]
-        M = meananom(orbit, current_epoch)
-        E = eccanom(orbit, current_epoch)
+        local sol
+        for k in eachindex(orbit_solutions)
+            sol′ = orbit_solutions[k]
+            if sol′.sol.t == current_epoch
+                sol = sol′
+                break
+            end
+        end
+        M = meananom(sol)
+        E = eccanom(sol)
         jac += abs(3M*(
             e+cos(E)
         ) + 2*(-2+e^2+e*cos(E)) *sin(E))
