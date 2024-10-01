@@ -39,7 +39,8 @@ end
 
 function Pigeons.default_reference(target::Octofitter.LogDensityModel)
     reference_sys = prior_only_model(target.system)
-    reference = Octofitter.LogDensityModel(reference_sys; autodiff=target.autodiff_backend_symbol)
+    reference = Octofitter.LogDensityModel(reference_sys; autodiff=target.autodiff_backend_symbol, verbosity=4)
+    reference.starting_points = target.starting_points
     return reference
 end
 
@@ -68,9 +69,20 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     n_chains::Int=16,
     n_chains_variational::Int=16,
     checkpoint::Bool=false,
+    multithreaded=true,
     pigeons_kw...
 )
     @nospecialize
+
+    # Turn off likelihood parallelism if we are sampling one chain per thread
+    if multithreaded
+        Octofitter._kepsolve_use_threads[] = false
+    # Turn on likelihood parallelism if we have ~15x more data than threads.
+    # This is based on some local benchmarks. Spawning tasks takes about 450ns;
+    # an orbit solve takes about 32ns, or 1/14 as long.
+    else
+        Octofitter._kepsolve_use_threads[] = _count_epochs(model.system) > 15*Threads.nthreads()
+    end
     inputs = Pigeons.Inputs(;
         target,
         record = [traces; round_trip; record_default(); index_process],
@@ -110,6 +122,16 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     inputs::Pigeons.Inputs
 )
     @nospecialize
+
+    # Turn off likelihood parallelism if we are sampling one chain per thread
+    if inputs.multithreaded
+        Octofitter._kepsolve_use_threads[] = false
+    # Turn on likelihood parallelism if we have ~15x more data than threads.
+    # This is based on some local benchmarks. Spawning tasks takes about 450ns;
+    # an orbit solve takes about 32ns, or 1/14 as long.
+    else
+        Octofitter._kepsolve_use_threads[] = _count_epochs(model.system) > 15*Threads.nthreads()
+    end
 
     start_time = time()
     pt = pigeons(inputs)
