@@ -257,7 +257,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
             tp=chain[pk*"_tp"][i],
             a=chain[pk*"_a"][i],
         )...)
-    elseif haskey(chain, :plx) && haskey(chain, :M) && haskey(chain, :rv)
+    elseif haskey(chain, :plx) && haskey(chain, :M) 
         return Visual{RadialVelocityOrbit}(;(;
             pmra=chain["pmra"][i],
             pmdec=chain["pmdec"][i],
@@ -268,7 +268,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
             tp=chain[pk*"_tp"][i],
             a=chain[pk*"_a"][i],
         )...)
-    elseif haskey(chain, :M) && haskey(chain, :rv)
+    elseif haskey(chain, :M)
         return RadialVelocityOrbit(;(;
             M=chain["M"][i],
             ω=chain[pk*"_ω"][i],
@@ -277,7 +277,7 @@ function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::
             a=chain[pk*"_a"][i],
         )...)
     else
-        error("Unrecognized columns")
+        error("Unrecognized column combinations for $pk: $(keys(chain))")
     end
 end
 
@@ -838,15 +838,17 @@ Base.@nospecializeinfer function advancedhmc(
     mean_tree_depth = mean(actual_tree_depth)
     max_tree_depth_frac = mean(==(max_depth), actual_tree_depth)
 
-    gradient_evaluations = 2sum(getproperty.(stats, :n_steps))
+    total_steps = round(Int,sum(getproperty.(stats, :n_steps))*(iterations+adaptation)/iterations)
 
+    elapsed = only(stop_time) - only(start_time)
     verbosity >= 1 && println("""
     Sampling report for chain:
     mean_accept                 = $mean_accept
     ratio_divergent_transitions = $ratio_divergent_transitions
     mean_tree_depth             = $mean_tree_depth
     max_tree_depth_frac         = $max_tree_depth_frac
-    gradient_evaluations        = $gradient_evaluations\
+    total_steps                 = $total_steps
+    μs/step                     = $(round(elapsed/total_steps*1e6,sigdigits=3))\
     """)
 
     # Report some warnings if sampling did not work well
@@ -966,7 +968,7 @@ end
 
 Does the opposite of result2mcmcchain: given a model and a chain, return a vector of named tuples.
 """
-function mcmcchain2result(model, chain,)
+function mcmcchain2result(model, chain, ii=(:))
 
     # Quickly construct a named tuple template
     θ = model.sample_priors(Random.default_rng())
@@ -1010,7 +1012,10 @@ function mcmcchain2result(model, chain,)
     end
     
     # These are the labels corresponding to the flattened named tuple without the *planet_key* prepended
-    return broadcast(1:size(chain,1),(1:size(chain,3))') do i,j
+    IIs = broadcast(1:size(chain,1),(1:size(chain,3))') do i,j
+        return (i,j)
+    end
+    return broadcast(IIs[ii]) do (i,j)
         # Take existing NT and recurse through it. replace elements
         nt_sys = Dict{Symbol,Any}()
         for (kout,kins) in key_mapping
