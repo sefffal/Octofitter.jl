@@ -26,7 +26,7 @@ orb_template = orbit(
     M = 1.0,
     plx=100.0,
     m =0,
-    tp =58849
+    tp =58829
 )
 Makie.lines(orb_template)
 ```
