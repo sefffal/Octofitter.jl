@@ -62,6 +62,12 @@ scatter(
 )
 ```
 
+We load the HGCA data for this target:
+```@example
+hgca_like = HGCALikelihood(;gaia_id, N_ave=1)
+```
+In the interests of time, we set `N_ave=1` to speed up the computation. This parameter controls how the model smears out the simulated Gaia and Hipparcos measurements. For a real target, leave it at the default value once you have completed testing.
+
 
 ```@example 1
 @system ϵEri begin
@@ -82,7 +88,7 @@ scatter(
     ])
     # You can also set both instruments to the same jitter, eg by putting instead (with = not ~):
     # jitter_2 = system.jitter_1
-end HGCALikelihood(;gaia_id) rvs_merged b
+end hgca_like rvs_merged b
 
 # Build model
 model = Octofitter.LogDensityModel(ϵEri)
