@@ -256,7 +256,7 @@ end astrom_like # Note the relative astrometry added here!
 
     jitter ~ truncated(Normal(0,400),lower=0)
     rv0 ~ Normal(0,10e3)
-end hgca_likervlike b
+end hgca_like rvlike b
 
 model_pma_rv_astrom = Octofitter.LogDensityModel(HD91312_pma_rv_astrom,autodiff=:ForwardDiff,verbosity=4)
 chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=12, explorer=SliceSampler())
