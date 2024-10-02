@@ -28,6 +28,17 @@ For this model, we also want to place a prior on the host star mass rather than 
 
 To make this parameterization change, we specify priors on both masses in the `@system` block, and connect it to the planet.
 
+### Retrieving the HGCA
+To start, we retrieve the HGCA data for this object.
+```julia
+hgca_like = HGCALikelihood(gaia_id=756291174721509376)
+```
+
+For this example, we will speed things up by treating the HGCA measurements as instantaenous. The default is to average measurements 25 times over the duration of each mission. For real inference, you'll want to increase this or leave it at the default value, unless you have reason to believe the companion has an orbital period much greater than 20 years or so.
+```@example 1
+hgca_like = HGCALikelihood(gaia_id=756291174721509376, N_ave=1)
+```
+
 ### Planet Model
 
 ```@example 1
@@ -53,6 +64,7 @@ We specify priors on `plx` as usual, but here we use the `gaia_plx` helper funct
 
 We also add parameters for the star's long term proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements. If you're not sure what to use here, try `Normal(0, 1000)`; that is, assume a long-term proper motion of 0 +- 1000 milliarcseconds / year.
 
+
 ```@example 1
 @system HD91312_pma begin
     
@@ -65,7 +77,7 @@ We also add parameters for the star's long term proper motion. This is usually c
     # Priors on the center of mass proper motion
     pmra ~ Normal(-137, 10)
     pmdec ~ Normal(2,  10)
-end HGCALikelihood(gaia_id=756291174721509376) b
+end hgca_like b
 
 model_pma = Octofitter.LogDensityModel(HD91312_pma)
 ```
@@ -196,7 +208,7 @@ end astrom_like # Note the relative astrometry added here!
     pmra ~ Normal(-137, 10)
     pmdec ~ Normal(2,  10)
 
-end HGCALikelihood(gaia_id=756291174721509376)  b
+end hgca_like b
 
 model_pma_astrom = Octofitter.LogDensityModel(HD91312_pma_astrom,autodiff=:ForwardDiff,verbosity=4)
 
@@ -244,7 +256,7 @@ end astrom_like # Note the relative astrometry added here!
 
     jitter ~ truncated(Normal(0,400),lower=0)
     rv0 ~ Normal(0,10e3)
-end HGCALikelihood(gaia_id=756291174721509376) rvlike b
+end hgca_likervlike b
 
 model_pma_rv_astrom = Octofitter.LogDensityModel(HD91312_pma_rv_astrom,autodiff=:ForwardDiff,verbosity=4)
 chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=12, explorer=SliceSampler())
