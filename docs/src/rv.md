@@ -63,7 +63,7 @@ scatter(
 ```
 
 We load the HGCA data for this target:
-```@example
+```@example 1
 hgca_like = HGCALikelihood(;gaia_id, N_ave=1)
 ```
 In the interests of time, we set `N_ave=1` to speed up the computation. This parameter controls how the model smears out the simulated Gaia and Hipparcos measurements. For a real target, leave it at the default value once you have completed testing.
