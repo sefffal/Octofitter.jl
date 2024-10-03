@@ -64,7 +64,7 @@ function make_ln_like(system::System, θ_system)
         likelihood_expr = quote
             $(likelihood_exprs...)
         end
-        epochs_planet_i = tuple(epochs_planet_i...)
+        # epochs_planet_i = tuple(epochs_planet_i...)
 
         planet_contruction = quote
             $key = $(OrbitType)(;merge(θ_system, θ_system.planets.$i)...)
@@ -162,7 +162,7 @@ end
 function _kepsolve_all_multithread(sol0, orbit, epochs)
     solutions = Array{typeof(sol0)}(undef,length(epochs))
     solutions[begin] = sol0
-    Threads.@threads for epoch_i in eachindex(epochs)[begin+1:end]
+    Threads.@threads for epoch_i in 2:length(epochs)
         solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
     end
     return solutions
