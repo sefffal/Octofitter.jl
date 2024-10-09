@@ -65,7 +65,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; i
             end
             errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
             initial_mt = _kepsolve_use_threads[]
-            _kepsolve_use_threads[] = false
+            _kepsolve_use_threads[] = nruns == 1
             result_pf = with_logger(errlogger) do 
                 result_pf = Pathfinder.multipathfinder(
                     ldm_any, ndraws;
