@@ -610,12 +610,13 @@ function ln_like(
     hiplike::HipparcosIADLikelihood,
     θ_system,
     orbits,
-    num_epochs::Val{L}=Val(length(hiplike.table.epochs))
-) where L
+    orbit_solutions,
+    sol_start_i
+)
     T = _system_number_type(θ_system)
     ll = zero(T)
 
-    hip_model = simulate(hiplike, θ_system, orbits)
+    hip_model = simulate(hiplike, θ_system, orbits, orbit_solutions, sol_start_i)
     for i in eachindex(hip_model.resid)
         if hiplike.table.reject[i]
             continue
@@ -626,7 +627,7 @@ function ln_like(
     return ll
 end
 
-function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits)
+function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits, orbit_solutions, sol_start_i)
 
     T = _system_number_type(θ_system)
     α✱_model_with_perturbation_out = zeros(T,length(hiplike.table.epoch))
@@ -649,7 +650,7 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits)
 
     for i in eachindex(hiplike.table.epoch)
 
-        orbitsol_hip_epoch = orbitsolve(orbit, hiplike.table.epoch[i])
+        orbitsol_hip_epoch = first(orbit_solutions)[i+sol_start_i]
 
         # Simplified tangent-plane model (matches Hipparcos)
         # The parallax versus time is considered for 21 high RV, nearby stars.
@@ -686,12 +687,7 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits)
 
         # Add perturbations from all planets
         for planet_i in eachindex(orbits)
-            orbit = orbits[planet_i]
-            if orbit == orbit
-                sol = orbitsol_hip_epoch
-            else
-                sol = orbitsolve(orbit, hiplike.table.epoch[i])
-            end
+            sol = orbit_solutions[planet_i][i+sol_start_i]
             # Add perturbation from planet
             α✱_perturbation += raoff(sol, θ_system.planets[planet_i].mass*Octofitter.mjup2msol)
             δ_perturbation += decoff(sol, θ_system.planets[planet_i].mass*Octofitter.mjup2msol)
@@ -724,6 +720,7 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits)
         α✱_model_with_perturbation_out[i] = α✱_model_with_perturbation
         δ_model_with_perturbation_out[i]  = δ_model_with_perturbation
         resid_out[i] = resid
+
     end
 
     # So we can add the model ra and dec to each of our model outputs
@@ -758,14 +755,14 @@ function distance_point_to_line(point, line_point_1, line_point_2)
 end
 
 
-function idenfity_rejectable_scans(hiplike, θ_system, orbits)
-    hip_model = simulate(hiplike, θ_system, orbits)
-    for i in eachindex(hip_model.resid)
-        print("$i\t", (hip_model.resid[i]/hiplike.table.sres_renorm[i])^2)
-        if hiplike.table.reject[i]
-            println("\t-already rejected")
-            continue
-        end
-        println()
-    end
-end
+# function idenfity_rejectable_scans(hiplike, θ_system, orbits, orbit_solutions, sol_start_i)
+#     hip_model = simulate(hiplike, θ_system, orbits, orbit_solutions, sol_start_i)
+#     for i in eachindex(hip_model.resid)
+#         print("$i\t", (hip_model.resid[i]/hiplike.table.sres_renorm[i])^2)
+#         if hiplike.table.reject[i]
+#             println("\t-already rejected")
+#             continue
+#         end
+#         println()
+#     end
+# end

@@ -60,14 +60,27 @@ function guess_starting_position(rng::Random.AbstractRNG, model::LogDensityModel
     bestlogposts = fill(-Inf64, 1:Threads.nthreads())
     bestparams = fill(model.sample_priors(rng), 1:Threads.nthreads())
 
-    Threads.@threads for i in 1:N
-        tid = Threads.threadid()
-        params = model.sample_priors(rngs[tid])
-        params_t = model.link(params)
-        logpost = model.ℓπcallback(params)
-        if logpost > bestlogposts[tid]
-            bestparams[tid] = params
-            bestlogposts[tid] = logpost
+    if !_kepsolve_use_threads[]
+        Threads.@threads for i in 1:N
+            tid = Threads.threadid()
+            params = model.sample_priors(rngs[tid])
+            params_t = model.link(params)
+            logpost = model.ℓπcallback(params_t)
+            if logpost > bestlogposts[tid]
+                bestparams[tid] = params
+                bestlogposts[tid] = logpost
+            end
+        end
+    else
+        for i in 1:N
+            tid = Threads.threadid()
+            params = model.sample_priors(rngs[tid])
+            params_t = model.link(params)
+            logpost = model.ℓπcallback(params_t)
+            if logpost > bestlogposts[tid]
+                bestparams[tid] = params
+                bestlogposts[tid] = logpost
+            end
         end
     end
 
@@ -775,36 +788,10 @@ Base.@nospecializeinfer function advancedhmc(
     # end
 
 
-
-
-
-
-
-    # If using pathfinder, take N pathfinder draws as initial parameters (disabled)
-    # if isnothing(initial_parameters)
-    #     if num_chains <= size(result_pf.draws,2)
-    #         initial_parameters = [
-    #             result_pf.draws[:, end-i+1]
-    #             for i in 1:num_chains
-    #         ]
-    #     # If we have more chains to inialize than pathfinder draws, pick from them at random
-    #     else
-    #         initial_parameters = [
-    #             result_pf.draws[:, rand(axes(result_pf.draws,2))]
-    #             for _ in 1:num_chains
-    #         ]
-    #     end
-    # else
-    # if isnothing(initial_parameters)
-    #     initial_parameters = fill(initial_θ_t, num_chains)
-    # else
-    #     if eltype(initial_parameters) <: Number
-    #         initial_parameters = fill(initial_parameters, num_chains)
-    #     else
-    #         # Assume they know what they're doing and are initializing multiple chains separately
-    #     end
-    #     initial_parameters = map(model.link, initial_parameters)
-    # end
+    # Turn on likelihood parallelism if we have ~15x more data than threads.
+    # This is based on some local benchmarks. Spawning tasks takes about 450ns;
+    # an orbit solve takes about 32ns, or 1/14 as long.
+    Octofitter._kepsolve_use_threads[] = Threads.nthreads() > 1 && _count_epochs(model.system) > 15
 
     initial_parameters = initial_θ_t
 
@@ -1010,7 +997,7 @@ function mcmcchain2result(model, chain,)
     end
     
     # These are the labels corresponding to the flattened named tuple without the *planet_key* prepended
-    return broadcast(1:size(chain,1),1:size(chain,3)') do i,j
+    return broadcast(1:size(chain,1),(1:size(chain,3))') do i,j
         # Take existing NT and recurse through it. replace elements
         nt_sys = Dict{Symbol,Any}()
         for (kout,kins) in key_mapping

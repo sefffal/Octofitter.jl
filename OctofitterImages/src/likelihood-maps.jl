@@ -58,7 +58,7 @@ export LogLikelihoodMap
 """
 Likelihood of there being planets in a sequence of likemaps.
 """
-function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_planet, orbit)
+function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_planet, orbit, orbit_solutions, solution_i_start)
     
     # Resolve the combination of system and planet parameters
     # as a Visual{KepOrbit} object. This pre-computes
@@ -71,7 +71,7 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_planet, orbit)
     ll = zero(T)
     for i in eachindex(likemaps_table.epoch)
 
-        soln = orbitsolve(orbit, likemaps_table.epoch[i])
+        soln = orbit_solutions[i+solution_i_start]
 
         # Note the x reversal between RA and image coordinates
         x = -raoff(soln)

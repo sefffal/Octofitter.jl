@@ -156,7 +156,7 @@ struct UnitLengthPrior{X,Y} <: AbstractLikelihood where {X,Y}
 end
 TypedTables.Table(like::UnitLengthPrior) = nothing
 
-function ln_like(::UnitLengthPrior{X,Y}, θ_planet_or_system, orbit, _L=0) where {X,Y}
+function ln_like(::UnitLengthPrior{X,Y}, θ_planet_or_system, orbit, _solutions, _i) where {X,Y}
     x = getproperty(θ_planet_or_system, X)
     y = getproperty(θ_planet_or_system, Y)
     vector_length = sqrt(x^2 + y^2)
@@ -251,6 +251,19 @@ System(planets::Planet...; kwargs...) = System(Priors(), nothing, planets...; kw
 System(priors::Priors, args::Union{AbstractLikelihood,Planet}...; kwargs...) = System(priors, nothing, args...; kwargs...)
 System(priors::Priors, det::Union{Derived,Nothing}, args::Union{AbstractLikelihood,Planet}...; kwargs...) = System(priors, det, group_obs_planets(args)...; kwargs...)
 
+function _count_epochs(system::System)::Int
+    observation_count = 0
+    for obj in [system; system.planets...]
+        for obs in obj.observations
+            if hasproperty(obs, :table)
+                observation_count += Tables.rowcount(obs.table)
+            else
+                observation_count += 1
+            end
+        end
+    end
+    return observation_count
+end
 
 # Function to give the parameter names as a flat vector of symbols. Only returns
 # active parameters (i.e.) and not any derived variables.

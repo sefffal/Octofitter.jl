@@ -128,7 +128,11 @@ end
 """
 Visibliitiy modelling likelihood for point sources.
 """
-function Octofitter.ln_like(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num_epochs::Val{L}=Val(length(vis.table))) where {L}
+function Octofitter.ln_like(
+    vis::GRAVITYWideKPLikelihood, θ_system, orbits,
+    orbit_solutions,
+    orbit_solutions_i_epoch_start
+)
 
     # Convoluted way to get either Float64 normally or a Dual{Float64} if using ForwardDiff
     T = Octofitter._system_number_type(θ_system)
@@ -171,13 +175,6 @@ function Octofitter.ln_like(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num
             cvis_model = zeros(complex(T), size(vis.table.u[i_epoch], 1))
         end
 
-        if length(θ_system.planets) == 1
-            sols = (orbitsolve(only(orbits), epoch),)
-        else
-            # TODO: why is this so complicated?
-            sols = [orbitsolve(orbits[i_planet], epoch) for i_planet in 1:min(length(θ_system.planets), length(orbits))]
-        end
-
         if i_epoch == 1 || size(throughputs) == (length(orbits), length(vis.table.eff_wave[i_epoch]))
             throughputs = zeros(T, length(orbits), length(vis.table.eff_wave[i_epoch]))
         end
@@ -187,7 +184,7 @@ function Octofitter.ln_like(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num
             (;spectrum_vals) = _getparams(vis, θ_planet)
             mean_constrast = mean(spectrum_vals[i_epoch])::Union{T,Float64}
             for i_wave in 1:length(vis.table.eff_wave[i_epoch])
-                sol = sols[i_planet]
+                sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
                 # flux_ratio = mean_constrasts_by_planet[i_planet]
                 flux_ratio = mean_constrast
                 wavelength_m = vis.table.eff_wave[i_epoch][i_wave]
@@ -251,7 +248,7 @@ function Octofitter.ln_like(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num
         end
         # Done calculating the residuals for this epoch
 
-        # Niave CP Only:
+        # Naive CP Only:
         # σ_cp = vec(vis.table[i_epoch].dcps) #sqrt.(σ_cp_jitter .^ 2 .+ vec(vis.table[i_epoch].dcps) .^ 2)
         # distribution = MvNormal(Diagonal(σ_cp))
         # ll += logpdf(distribution, cp_resids)
@@ -333,4 +330,128 @@ function Octofitter.ln_like(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num
 
 
     return ll
+end
+
+
+
+
+"""
+Visibliitiy modelling likelihood for point sources.
+"""
+function Octofitter.simulate(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num_epochs::Val{L}=Val(length(vis.table))) where {L}
+
+    # Convoluted way to get either Float64 normally or a Dual{Float64} if using ForwardDiff
+    T = Octofitter._system_number_type(θ_system)
+    ll = zero(T)
+
+
+    # Assume that the fiber is positioned at the photocentre, averaged over wavelengths
+    # mean_constrasts_by_planet = zeros(T,length(orbits))
+    # for i_planet in eachindex(orbits)
+    #     θ_planet = θ_system.planets[i_planet]
+    #     (;spectrum_vals) = _getparams(vis, θ_planet)
+    #     @show spectrum_vals
+    #     mean_constrasts_by_planet[i_planet] = mean(spectrum_vals)
+    # end
+
+    # Access the data here: 
+    epochs = vis.table.epoch
+
+    if length(epochs) > 0
+        cps_model = zeros(T, size(vis.table.cps_data[1], 1))
+        cvis_model = zeros(complex(T), size(vis.table.u[1], 1))
+    end
+
+    local C_kp, throughputs, Σ_kp
+    # Loop through epochs
+    out = []
+    for i_epoch in eachindex(epochs)
+        epoch = epochs[i_epoch]
+
+        index_cps1 = vis.table.index_cps1[i_epoch]
+        index_cps2 = vis.table.index_cps2[i_epoch]
+        index_cps3 = vis.table.index_cps3[i_epoch]
+        # use_vis2 = vis.table.use_vis2[i_epoch]
+
+        # Re-use buffers between iterations if they are all the same shape (typical)
+        if size(cps_model) == size(vis.table.cps_data[i_epoch][:, 1]) && size(cvis_model) == size(vis.table.u[i_epoch][:, 1])
+            cps_model .= 0
+            cvis_model .= 0
+        else
+            cps_model = zeros(T, size(vis.table.cps_data[i_epoch], 1))
+            cvis_model = zeros(complex(T), size(vis.table.u[i_epoch], 1))
+        end
+
+        if i_epoch == 1 || size(throughputs) == (length(orbits), length(vis.table.eff_wave[i_epoch]))
+            throughputs = zeros(T, length(orbits), length(vis.table.eff_wave[i_epoch]))
+        end
+        for i_planet in 1:length(orbits)
+
+            θ_planet = θ_system.planets[i_planet]
+            (;spectrum_vals) = _getparams(vis, θ_planet)
+            mean_constrast = mean(spectrum_vals[i_epoch])::Union{T,Float64}
+            for i_wave in 1:length(vis.table.eff_wave[i_epoch])
+                sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
+                # flux_ratio = mean_constrasts_by_planet[i_planet]
+                flux_ratio = mean_constrast
+                wavelength_m = vis.table.eff_wave[i_epoch][i_wave]
+                # Model the fiber as placed at the photocentre of the two bodies
+                secondary_offset_mas = projectedseparation(sol)
+                # Now calculate throughput loss on the secondary due to it being offset wrt. the 
+                # fiber (assumed to be at photocentre)
+                fiber_offset_mas = (flux_ratio * secondary_offset_mas) / (1.0 + flux_ratio)
+                coupling = vis.fiber_coupling_interpolator(fiber_offset_mas, wavelength_m)
+                throughputs[i_planet,i_wave] = coupling
+            end
+        end
+
+        Λ = length(vis.table.eff_wave[i_epoch])
+        Len = Λ * size(vis.table.cps_data[i_epoch], 1)
+        cp_resids = zeros(T, Len) # Fill this in a moment
+
+        # Loop through wavelengths
+        # The following is NOT threadsafe. DON'T multithread it!
+        out_wave = []
+        for i_wave in axes(vis.table.u[i_epoch], 2)
+            u = @views vis.table.u[i_epoch][:, i_wave]
+            v = @views vis.table.v[i_epoch][:, i_wave]
+            cps_data = @views vis.table.cps_data[i_epoch][:, i_wave]
+            σ_cp = @views vis.table.dcps[i_epoch][:, i_wave]
+            # vis2_data = @views vis.table.vis2_data[i_epoch][:, i_wave]
+            # dvis2 = @views vis.table.dvis2[i_epoch][:, i_wave]
+
+            # to normalize complex visibilities 
+            cvis_model .= 0
+            cps_model .= 0
+            norm_factor_model = zero(T)
+
+            # Consider all planets
+            for i_planet in eachindex(orbits)
+                θ_planet = θ_system.planets[i_planet]
+                (;spectrum_vals) = _getparams(vis, θ_planet)
+                # spectrum_vals::Union{Vector{Vector{T}},Vector{Vector{Float64}}}
+                # All parameters relevant to this planet
+                # Get model contrast parameter in this band (band provided as a symbol, e.g. :L along with data in table row.)
+                contrast = spectrum_vals[i_epoch][i_wave]::Union{Float64,T}
+                throughput = throughputs[i_planet,i_wave]
+                Δra = raoff(orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start])  # in mas
+                Δdec = decoff(orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]) # in mas
+
+                # add complex visibilities from all planets at a single epoch, for this wavelength
+                cvis_bin!(cvis_model; Δdec, Δra, contrast=contrast * throughput, u, v)
+                norm_factor_model += contrast
+            end
+            cvis_model .+= 1.0 # add contribution from the primary primary
+            cvis_model .*= 1.0 / (1.0 + norm_factor_model)
+
+            # Compute closure phases
+            closurephase!(cps_model; vis=cvis_model, index_cps1, index_cps2, index_cps3)
+
+            push!(out_wave, (;cps_data, cps_model=collect(cps_model),σ_cp))
+        end
+        push!(out,out_wave)
+    end
+
+
+    return out
 end

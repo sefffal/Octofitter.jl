@@ -29,7 +29,7 @@ export PhotometryLikelihood
 
 
 # PhotometryLikelihood
-function ln_like(photometry::PhotometryLikelihood, θ_planet, _elements=nothing, _interior_planets=nothing)
+function ln_like(photometry::PhotometryLikelihood, θ_planet, orbit_solutions, _i_epoch_start)
     ll = 0.0
     for i in eachindex(photometry.table.band)
         band = photometry.table.band[i]

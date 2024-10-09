@@ -19,17 +19,7 @@ function pointwise_like(model, chain)
     # (if no table, just discard observation object). Start with observations of star,
     # then observations attached to each planet.
     # Yikes!
-
-    observation_count = 0
-    for obj in [model.system; model.system.planets...]
-        for obs in obj.observations
-            if hasproperty(obs, :table)
-                observation_count += Tables.rowcount(obs.table)
-            else
-                observation_count += 1
-            end
-        end
-    end
+    observation_count = _count_epochs(model.system)
     
     per_obs_systems = map(1:observation_count) do i_obs
         j_obs = 0

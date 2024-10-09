@@ -80,7 +80,10 @@ function hipparcosplot!(
     I_best = argmax(vec(results[:logpost]))
 
     for i in [I_best]
-        sim = Octofitter.simulate(hip_like, nts[i,], getindex.(orbits,i))
+        solutions = map(orbits) do orbit
+            return orbitsolve.(orbit[i], hip_like.table.epoch)
+        end
+        sim = Octofitter.simulate(hip_like, nts[i,], getindex.(orbits,i), solutions, 0)
         
         # Model
         scatterlines!(ax_main,

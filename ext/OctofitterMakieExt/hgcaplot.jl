@@ -124,7 +124,12 @@ function Octofitter.hgcaplot!(
 
         # Now time-series
         sols = orbitsolve.(orbs, ts')
-        # Can we use the existing simulator for this please?
+        try
+            pmra(first(sols), mass)
+        catch
+            continue
+        end
+        # TODO: Can we use the existing simulator for this please?
         pmra_model_t .+= pmra.(sols, mass)
         pmdec_model_t .+= pmdec.(sols, mass)
         color_model_t .= rem2pi.(
@@ -177,41 +182,41 @@ function Octofitter.hgcaplot!(
     hgca_like = only(like_objs)
 
     tx = [
-        hgca_like.table.epoch_ra_hip_mjd
-        (hgca_like.table.epoch_ra_hip_mjd + hgca_like.table.epoch_ra_gaia_mjd) / 2
-        hgca_like.table.epoch_ra_gaia_mjd
+        hgca_like.hgca.epoch_ra_hip_mjd
+        (hgca_like.hgca.epoch_ra_hip_mjd + hgca_like.hgca.epoch_ra_gaia_mjd) / 2
+        hgca_like.hgca.epoch_ra_gaia_mjd
     ]
     ty = [
-        hgca_like.table.epoch_dec_hip_mjd
-        (hgca_like.table.epoch_dec_hip_mjd + hgca_like.table.epoch_dec_gaia_mjd) / 2
-        hgca_like.table.epoch_dec_gaia_mjd
+        hgca_like.hgca.epoch_dec_hip_mjd
+        (hgca_like.hgca.epoch_dec_hip_mjd + hgca_like.hgca.epoch_dec_gaia_mjd) / 2
+        hgca_like.hgca.epoch_dec_gaia_mjd
     ]
     x = [
-        hgca_like.table.pmra_hip
-        hgca_like.table.pmra_hg
-        hgca_like.table.pmra_gaia
+        hgca_like.hgca.pmra_hip
+        hgca_like.hgca.pmra_hg
+        hgca_like.hgca.pmra_gaia
     ]
     y = [
-        hgca_like.table.pmdec_hip
-        hgca_like.table.pmdec_hg
-        hgca_like.table.pmdec_gaia
+        hgca_like.hgca.pmdec_hip
+        hgca_like.hgca.pmdec_hg
+        hgca_like.hgca.pmdec_gaia
     ]
 
     cor = [
-        hgca_like.table.pmra_pmdec_hip
-        hgca_like.table.pmra_pmdec_hg
-        hgca_like.table.pmra_pmdec_gaia
+        hgca_like.hgca.pmra_pmdec_hip
+        hgca_like.hgca.pmra_pmdec_hg
+        hgca_like.hgca.pmra_pmdec_gaia
     ]
 
     σ₁ = [
-        hgca_like.table.pmra_hip_error
-        hgca_like.table.pmra_hg_error
-        hgca_like.table.pmra_gaia_error
+        hgca_like.hgca.pmra_hip_error
+        hgca_like.hgca.pmra_hg_error
+        hgca_like.hgca.pmra_gaia_error
     ]
     σ₂ = [
-        hgca_like.table.pmdec_hip_error
-        hgca_like.table.pmdec_hg_error
-        hgca_like.table.pmdec_gaia_error
+        hgca_like.hgca.pmdec_hip_error
+        hgca_like.hgca.pmdec_hg_error
+        hgca_like.hgca.pmdec_gaia_error
     ]
 
     # # One more model-plot: add scatter points to existing lines at the 
@@ -284,76 +289,78 @@ function Octofitter.hgcaplot!(
         orbits = map(keys(model.system.planets)) do planet_key
             Octofitter.construct_elements(results, planet_key, i)
         end
-        hgca_like_sim = Octofitter.generate_from_params(hgca_like, θ_system, orbits)
-        push!(sims, hgca_like_sim)
+        solutions = map(orbits) do orbit
+            return orbitsolve.(orbit, hgca_like.table.epoch)
+        end
+        push!(sims, Octofitter._simulate_hgca(hgca_like, θ_system, orbits, solutions, 0))
     end
     # HIP Epoch
     Makie.scatter!(
         ax_dat1,
-        [only(sim.table.pmra_hip) for sim in sims ],
-        [only(sim.table.pmdec_hip) for sim in sims],
+        [only(sim.pmra_hip_model) for sim in sims ],
+        [only(sim.pmdec_hip_model) for sim in sims],
         color=:black,
         markersize=2,
     )
     Makie.scatter!(
         ax_velra,
-        [only(sim.table.epoch_ra_hip_mjd) for sim in sims],
-        [only(sim.table.pmra_hip) for sim in sims],
+        [only(hgca_like.hgca.epoch_ra_hip_mjd) for sim in sims],
+        [only(sim.pmra_hip_model) for sim in sims],
         color=:black,
         markersize=3,
     )
     Makie.scatter!(
         ax_veldec,
-        [only(sim.table.epoch_dec_hip_mjd) for sim in sims],
-        [only(sim.table.pmdec_hip) for sim in sims],
+        [only(hgca_like.hgca.epoch_dec_hip_mjd) for sim in sims],
+        [only(sim.pmdec_hip_model) for sim in sims],
         color=:black,
         markersize=3,
     )
     # HG Epoch
     Makie.scatter!(
         ax_dat2,
-        [only(sim.table.pmra_hg) for sim in sims],
-        [only(sim.table.pmdec_hg) for sim in sims],
+        [only(sim.pmra_hg_model) for sim in sims],
+        [only(sim.pmdec_hg_model) for sim in sims],
         color=:black,
         markersize=2,
     )
-    hg_ra_epoch = [(only(sim.table.epoch_ra_hip_mjd) +
-                    only(sim.table.epoch_ra_gaia_mjd)) / 2 for sim in sims]
-    hg_dec_epoch = [(only(sim.table.epoch_dec_hip_mjd) +
-                    only(sim.table.epoch_dec_gaia_mjd)) / 2 for sim in sims]
+    hg_ra_epoch = [(only(hgca_like.hgca.epoch_ra_hip_mjd) +
+                    only(hgca_like.hgca.epoch_ra_gaia_mjd)) / 2 for sim in sims]
+    hg_dec_epoch = [(only(hgca_like.hgca.epoch_dec_hip_mjd) +
+                    only(hgca_like.hgca.epoch_dec_gaia_mjd)) / 2 for sim in sims]
     Makie.scatter!(
         ax_velra,
         hg_ra_epoch,
-        [only(sim.table.pmra_hg) for sim in sims],
+        [only(sim.pmra_hg_model) for sim in sims],
         color=:black,
         markersize=3,
     )
     Makie.scatter!(
         ax_veldec,
         hg_dec_epoch,
-        [only(sim.table.pmdec_hg) for sim in sims],
+        [only(sim.pmdec_hg_model) for sim in sims],
         color=:black,
         markersize=3,
     )
     # GAIA Epoch
     Makie.scatter!(
         ax_dat3,
-        [only(sim.table.pmra_gaia) for sim in sims],
-        [only(sim.table.pmdec_gaia) for sim in sims],
+        [only(sim.pmra_gaia_model) for sim in sims],
+        [only(sim.pmdec_gaia_model) for sim in sims],
         color=:black,
         markersize=2,
     )
     Makie.scatter!(
         ax_velra,
-        [only(sim.table.epoch_ra_gaia_mjd) for sim in sims],
-        [only(sim.table.pmra_gaia) for sim in sims],
+        [only(hgca_like.hgca.epoch_ra_gaia_mjd) for sim in sims],
+        [only(sim.pmra_gaia_model) for sim in sims],
         color=:black,
         markersize=3,
     )
     Makie.scatter!(
         ax_veldec,
-        [only(sim.table.epoch_dec_gaia_mjd) for sim in sims],
-        [only(sim.table.pmdec_gaia) for sim in sims],
+        [only(hgca_like.hgca.epoch_dec_gaia_mjd) for sim in sims],
+        [only(sim.pmdec_gaia_model) for sim in sims],
         color=:black,
         markersize=3,
     )

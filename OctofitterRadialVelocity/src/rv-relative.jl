@@ -49,8 +49,10 @@ function Octofitter.ln_like(
     rvlike::PlanetRelativeRVLikelihood,
     θ_planet,
     planet_orbit::AbstractOrbit,
-    num_epochs::Val{L}=Val(length(rvlike.table))
-) where L
+    orbit_solutions,
+    orbit_solutions_i_epoch_start
+)
+    L = length(rvlike.table.epoch)
     T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
 
@@ -75,10 +77,9 @@ function Octofitter.ln_like(
 
     # Go through all planets and subtract their modelled influence on the RV signal:
     # You could consider `rv_star` as the residuals after subtracting these.
-    orbit = planet_orbit
     # Threads.@threads 
     for epoch_i in eachindex(epochs)
-        rv_star_buf[epoch_i] -= radvel(orbit, epochs[epoch_i])
+        rv_star_buf[epoch_i] -= radvel(orbit_solutions[epoch_i+orbit_solutions_i_epoch_start])
     end
 
     # The noise variance per observation is the measurement noise and the jitter added

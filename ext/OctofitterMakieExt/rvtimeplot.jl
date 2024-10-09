@@ -51,7 +51,7 @@ function rvtimeplot!(
     kwargs...
 )
     gs = gridspec_or_fig
-    nt_format = Octofitter.mcmcchain2result(model, results)
+    nt_format = vec(Octofitter.mcmcchain2result(model, results))
 
     # Detect if should use km/s
     use_kms = false
@@ -255,7 +255,7 @@ function rvtimeplot!(
                 color = num_idx > 1 ? Makie.wong_colors()[inst_idx] : :white,
                 strokewidth=2,
                 strokecolor=:black,
-                markersize=8,
+                markersize=8, #1.5,
             )
         end
     end

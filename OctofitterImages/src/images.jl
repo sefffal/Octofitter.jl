@@ -118,7 +118,7 @@ end
 """
 Likelihood of there being planets in a sequence of images.
 """
-function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
+function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit, orbit_solutions, solution_i_start)
     
     # Resolve the combination of system and planet parameters
     # as a Visual{KepOrbit} object. This pre-computes
@@ -130,8 +130,7 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit)
     ll = zero(T)
     for i in eachindex(imgtable.epoch)
 
-        soln = orbitsolve(orbit, imgtable.epoch[i])
-            
+        soln = orbit_solutions[i+solution_i_start]
         
         band = imgtable.band[i]
 
