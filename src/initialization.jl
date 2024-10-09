@@ -64,9 +64,9 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; i
                 x .= initial_θ_t
             end
             errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
+            initial_mt = _kepsolve_use_threads[]
+            _kepsolve_use_threads[] = false
             result_pf = with_logger(errlogger) do 
-                initial_mt = _kepsolve_use_threads[]
-                _kepsolve_use_threads[] = true
                 result_pf = Pathfinder.multipathfinder(
                     ldm_any, ndraws;
                     nruns,
@@ -76,16 +76,16 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; i
                     reltol=1e-6,
                     rng=rng,
                     ntries=1,
-                    # executor=Pathfinder.Transducers.PreferParallel(),
+                    executor=Pathfinder.Transducers.PreferParallel(),
                     optimizer=Pathfinder.Optim.LBFGS(;
                         m=6,
                         linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
                         alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
                     )
                 ) 
-                _kepsolve_use_threads[] = initial_mt
                 return result_pf
             end
+            _kepsolve_use_threads[] = initial_mt
             # Check pareto shape diagnostic to see if we have a good approximation
             # If we don't, just try again
             if result_pf.psis_result.pareto_shape > 3
@@ -94,9 +94,9 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; i
                 i<ntries && verbosity > 2 && @warn "Restarting pathfinder" i
                 continue
             end
-            verbosity > 0 &&  display(result_pf)
             
             verbosity >= 3 && "Pathfinder complete"
+            verbosity > 2 &&  display(result_pf)
             break
         end
     catch
@@ -121,7 +121,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; i
         # samples = sample_priors(rng, model, ndraws)
         # samples_t = model.link.(samples)
         logposts = model.ℓπcallback.(samples_t)
-        II = sortperm(logposts)[end-ndraws+1:end]
+        II = sortperm(logposts, rev=true)[begin:ndraws]
         model.starting_points = samples_t[II]
         initial_logpost_range = extrema(@view logposts[II])
         logposts = logposts[II]
