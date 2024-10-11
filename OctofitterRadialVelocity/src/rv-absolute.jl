@@ -129,16 +129,16 @@ function Octofitter.ln_like(
 
         # Go through all planets and subtract their modelled influence on the RV signal:
         # You could consider `rv_star` as the residuals after subtracting these.
+        
         for planet_i in eachindex(planet_orbits)
             orbit = planet_orbits[planet_i]
-            # Need to structarrays orbit if we want this to SIMD
             planet_mass = θ_system.planets[planet_i].mass
-            for epoch_i in eachindex(epochs)
-                # @show epochs[epoch_i] orbit_solutions[planet_i][epoch_i+orbit_solutions_i_epoch_start].sol.t
-                # println()
-                # M_tot = totalmass(orbit)
-                # rv_star_buf[epoch_i] -= radvel(orbit, epochs[epoch_i], planet_mass*Octofitter.mjup2msol)
-                rv_star_buf[epoch_i] -= radvel(orbit_solutions[planet_i][epoch_i+orbit_solutions_i_epoch_start], planet_mass*Octofitter.mjup2msol)
+            for epoch_i_inst in eachindex(epochs)
+                epoch_i = epoch_i_inst + istart
+                rv_star_buf[epoch_i_inst] -= radvel(
+                    orbit_solutions[planet_i][epoch_i+orbit_solutions_i_epoch_start],
+                    planet_mass*Octofitter.mjup2msol
+                )
             end
             # Zygote version:
             # rv_star_buf -= radvel.(orbit, epochs, planet_mass*Octofitter.mjup2msol)
@@ -152,6 +152,7 @@ function Octofitter.ln_like(
         # a Gaussian process or not.
         if isnothing(rvlike.gaussian_process)
             # Don't fit a GP
+            
             fx = MvNormal(Diagonal((noise_var)))
         else
             # Fit a GP
@@ -185,7 +186,6 @@ function Octofitter.ln_like(
         ll += logpdf(fx, rv_star_buf)
 
     end
-
     return ll
 end
 
