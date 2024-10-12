@@ -134,7 +134,7 @@ function Octofitter.ln_like(
             orbit = planet_orbits[planet_i]
             planet_mass = θ_system.planets[planet_i].mass
             for epoch_i_inst in eachindex(epochs)
-                epoch_i = epoch_i_inst + istart
+                epoch_i = epoch_i_inst + istart - 1
                 rv_star_buf[epoch_i_inst] -= radvel(
                     orbit_solutions[planet_i][epoch_i+orbit_solutions_i_epoch_start],
                     planet_mass*Octofitter.mjup2msol
@@ -152,7 +152,6 @@ function Octofitter.ln_like(
         # a Gaussian process or not.
         if isnothing(rvlike.gaussian_process)
             # Don't fit a GP
-            
             fx = MvNormal(Diagonal((noise_var)))
         else
             # Fit a GP
@@ -187,22 +186,6 @@ function Octofitter.ln_like(
 
     end
     return ll
-end
-
-
-
-# Generate new radial velocity observations for a planet
-function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_planet, elem::PlanetOrbits.AbstractOrbit)
-
-    # Get epochs and uncertainties from observations
-    epochs = like.table.epoch 
-    σ_rvs = like.table.σ_rv 
-
-    # Generate new planet radial velocity data
-    rvs = DirectOribts.radvel.(elem, epochs)
-    radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
-
-    return StarAbsoluteRVLikelihood(radvel_table)
 end
 
 
