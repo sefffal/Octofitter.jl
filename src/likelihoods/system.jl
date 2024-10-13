@@ -41,10 +41,12 @@ function make_ln_like(system::System, θ_system)
         epochs_planet_i = copy(epochs_system_obs)
         i_epoch_start = length(epochs_planet_i) + 1
         likelihood_exprs = map(enumerate(planet.observations)) do (i_like, like)
+            num_epochs_this_obs = 0
             if hasproperty(like, :table) && hasproperty(like.table, :epoch)
+                num_epochs_this_obs = length(like.table.epoch)
                 append!(epochs_planet_i, like.table.epoch)
             end
-            i_epoch_end = length(epochs_planet_i)
+            i_epoch_end = i_epoch_start + num_epochs_this_obs - 1
             expr = :(
                 $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
                     system.planets[$(Meta.quot(i))].observations[$i_like],
@@ -57,7 +59,7 @@ function make_ln_like(system::System, θ_system)
                 #     println("invalid likelihood value encountered")
                 # end
             )
-            i_epoch_start = length(epochs_planet_i) + 1
+            i_epoch_start = i_epoch_end + 1
             j+=1
             return expr
         end
