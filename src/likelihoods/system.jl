@@ -103,7 +103,7 @@ function make_ln_like(system::System, θ_system)
         if hasproperty(like, :table) && hasproperty(like.table, :epoch)
             num_epochs_this_obs = length(like.table.epoch)
         end
-        i_epoch_end = i_epoch_start + num_epochs_this_obs
+        i_epoch_end = i_epoch_start + num_epochs_this_obs - 1
         # Provide the number of observations as a compile time constant 
         expr = :(
             $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
@@ -152,8 +152,8 @@ function _kepsolve_all(sol0, orbit, epochs)
 end
 function _kepsolve_all_singlethread(sol0, orbit, epochs)
     solutions = Array{typeof(sol0)}(undef,length(epochs))
-    solutions[begin] = sol0
-    for epoch_i in eachindex(epochs)[begin+1:end]
+    # solutions[begin] = sol0
+    for epoch_i in eachindex(epochs)#[begin+1:end]
         solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
     end
     return solutions
@@ -161,8 +161,7 @@ end
 
 function _kepsolve_all_multithread(sol0, orbit, epochs)
     solutions = Array{typeof(sol0)}(undef,length(epochs))
-    solutions[begin] = sol0
-    Threads.@threads for epoch_i in 2:length(epochs)
+    Threads.@threads for epoch_i in 1:length(epochs)
         solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
     end
     return solutions
