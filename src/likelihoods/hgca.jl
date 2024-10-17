@@ -183,7 +183,7 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, elements, orbit_solutions
         hg_nonlinear_dpmra = 
         hg_nonlinear_dpmdec = 
         hip_nonlinear_dpmra = 
-        hip_nonlinear_dpmdec = zero(hgca.nonlinear_dpmra[1])
+        hip_nonlinear_dpmdec = zero(hgca_like.hgca.nonlinear_dpmra[1])
     end
 
 
