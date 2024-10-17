@@ -78,12 +78,14 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
         # We use let blocks to prevent type instabilities from closures
         # A function barrier would also work.
-        ℓπcallback, ∇ℓπcallback = let arr2nt=arr2nt,
-                                      system=system,
-                                      Bijector_invlinkvec=Bijector_invlinkvec,
-                                      ln_prior_transformed=ln_prior_transformed,
-                                      ln_like_generated=ln_like_generated,
-                                      D=D
+        ℓπcallback, ∇ℓπcallback = (function(
+            arr2nt,
+            system,
+            Bijector_invlinkvec,
+            ln_prior_transformed,
+            ln_like_generated,
+            D,
+        )
 
             # Capture these variables in a let binding to improve performance
             # We also set up temporary storage to reduce allocations
@@ -95,34 +97,35 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 arr2nt=arr2nt,
                 Bijector_invlinkvec=Bijector_invlinkvec,
                 ln_prior_transformed=ln_prior_transformed,
-                ln_like_generated=ln_like_generated
-                ;sampled=true)
+                ln_like_generated=ln_like_generated;sampled=true)::eltype(θ_transformed)
+
+                lpost = zero(eltype(θ_transformed))
                 # Stop right away if we are given non-finite arguments
                 if any(!isfinite, θ_transformed)
-                    @warn "non finite parameters encountered (maxlog=1)" θ_transformed maxlog=1
-                    return NaN
+                    # @warn "non finite parameters encountered (maxlog=1)" θ_transformed maxlog=1
+                    lpost += NaN
+                    return lpost
                 end
                 # Transform back from the unconstrained support to constrained support for the likelihood function
-                θ_natural = Bijector_invlinkvec(θ_transformed)
-                θ_structured = arr2nt(θ_natural)
-                lprior = @inline ln_prior_transformed(θ_natural,sampled)
+                θ_natural = @inline Bijector_invlinkvec(θ_transformed)
+                θ_structured = @inline arr2nt(θ_natural)
+                lpost += @inline ln_prior_transformed(θ_natural,sampled)
                 # Don't compute likelihood if we fell outside the prior bounds
-                if !isfinite(lprior)
-                    @warn "non finite log prior (maxlog=1)" lprior maxlog=1
-                    return lprior
+                if !isfinite(lpost)
+                    # @warn "non finite log prior (maxlog=1)" lpost maxlog=1
+                    return lpost
                 end
-                llike  = @inline ln_like_generated(system, θ_structured)
-                lpost = lprior+llike
-                # # if !isfinite(llike)
-                # #     # TODO: check for performance impact here
-                # #     # Display parameters that caused an invalid log-likelihood to be calculated
-                # #     # Strip off any forward diff Dual tags, as these make it impossible to see
-                # #     # what's going on.
-                # #     θ_transformed_primals = ForwardDiff.value.(θ_transformed)
-                # #     θ_structured = arr2nt(Bijector_invlinkvec(θ_transformed_primals))
-                # #     llike = ln_like_generated(system, θ_structured)
-                # #     @warn "Invalid log likelihood encountered. (maxlog=1)" θ=θ_structured llike θ_transformed=θ_transformed_primals  maxlog=1
-                # # end
+                lpost += @inline ln_like_generated(system, θ_structured)
+                # if !isfinite(llike)
+                #     # TODO: check for performance impact here
+                #     # Display parameters that caused an invalid log-likelihood to be calculated
+                #     # Strip off any forward diff Dual tags, as these make it impossible to see
+                #     # what's going on.
+                #     θ_transformed_primals = ForwardDiff.value.(θ_transformed)
+                #     θ_structured = arr2nt(Bijector_invlinkvec(θ_transformed_primals))
+                #     llike = ln_like_generated(system, θ_structured)
+                #     @warn "Invalid log likelihood encountered. (maxlog=1)" θ=θ_structured llike θ_transformed=θ_transformed_primals  maxlog=1
+                # end
                 return lpost
             end
 
@@ -242,12 +245,12 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 # We're going to call this thousands of times so worth a few calls
                 # to get this optimized.
                 if isnothing(chunk_sizes)
-                    if D < 40
+                    if D < 100
                         # If less than 20 dimensional, a single chunk with ForwardDiff
                         # is almost always optimial.
                         chunk_sizes = D
                     else
-                        chunk_sizes = unique([1; 2:2:D; D])
+                        chunk_sizes = unique([1; D÷4; D])
                     end
                 end
                 ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
@@ -288,7 +291,14 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             end
 
             ℓπcallback, ∇ℓπcallback
-        end
+        end)(
+            arr2nt,
+            system,
+            Bijector_invlinkvec,
+            ln_prior_transformed,
+            ln_like_generated,
+            D
+        )
         
         # Perform some quick diagnostic checks to warn users for performance-gtochas
         out_type_model = Core.Compiler.return_type(ℓπcallback, typeof((initial_θ_0_t,)))
@@ -301,19 +311,19 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             isconcretetype(out_type_like) &&
             isconcretetype(out_type_arr2nt) &&
             !isconcretetype(out_type_model)
-            @warn "\nThis model's log density function is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
+            @warn "\nThis model's log density function is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub." out_type_prior out_type_like out_type_arr2nt out_type_model
         end
         if !isconcretetype(out_type_model_grad)
             @warn "\nThis model's log density gradfient is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
             end
         if !isconcretetype(out_type_prior)
-            @warn "\nThis model's prior sampler does not appear to be type stable, which will likely hurt sampling performance.\nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
+            @warn "\nThis model's prior sampler does not appear to be type stable, which will likely hurt sampling performance.\nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub." out_type_prior out_type_like out_type_arr2nt out_type_model
         end
         if !isconcretetype(out_type_like)
-            @warn "\nThis model's likelihood function does not appear to be type stable, which will likely hurt sampling performance.\nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
+            @warn "\nThis model's likelihood function does not appear to be type stable, which will likely hurt sampling performance.\nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub." out_type_prior out_type_like out_type_arr2nt out_type_model
         end
         if !isconcretetype(out_type_arr2nt)
-            @warn "\nThis model specification is not type-stable, which will likely hurt sampling performance.\nCheck for global variables used within your model definition, and prepend these with `\$`.\nIf that doesn't work, you could trying running:\n`@code_warntype model.arr2nt(randn(model.D))` for a bit more information.\nFor assistance, please file an issue on GitHub."
+            @warn "\nThis model specification is not type-stable, which will likely hurt sampling performance.\nCheck for global variables used within your model definition, and prepend these with `\$`.\nIf that doesn't work, you could trying running:\n`@code_warntype model.arr2nt(randn(model.D))` for a bit more information.\nFor assistance, please file an issue on GitHub." out_type_prior out_type_like out_type_arr2nt out_type_model
         end
 
         # Return fully concrete type wrapping all these functions
