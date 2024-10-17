@@ -38,7 +38,9 @@ function Octofitter.rvpostplot!(
     gs = gridspec_or_fig
 
 
-    rv_likes = filter(obs->obs isa StarAbsoluteRVLikelihood, model.system.observations)
+    rv_likes = filter(model.system.observations) do obs
+        obs isa StarAbsoluteRVLikelihood || obs isa OctofitterRadialVelocityMakieExt.MarginalizedStarAbsoluteRVLikelihood
+    end
     if length(rv_likes) > 1
         error("`rvpostplot` requires a system with only one StarAbsoluteRVLikelihood. Combine the data together into a single likelihood object.")
     end

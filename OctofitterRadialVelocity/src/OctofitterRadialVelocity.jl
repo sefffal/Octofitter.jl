@@ -18,6 +18,7 @@ using LinearAlgebra
 
 
 include("rv-absolute.jl")
+include("rv-absolute-margin.jl")
 include("rv-relative.jl")
 
 include("harps_rvbank.jl")

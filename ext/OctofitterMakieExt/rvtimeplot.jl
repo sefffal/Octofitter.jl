@@ -223,6 +223,8 @@ function rvtimeplot!(
             )
         end
     end
+
+
     for like_obj in model.system.observations
         if nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
             continue
@@ -260,6 +262,52 @@ function rvtimeplot!(
                 markersize=8, #1.5,
             )
         end
+    end
+
+    # auto-Marginalized rv0 star absolute RV 
+    i_like = 0
+    orbits = map(keys(model.system.planets)) do planet_key
+        Octofitter.construct_elements(results, planet_key, ii)
+    end
+    for like_obj in model.system.observations
+        if nameof(typeof(like_obj)) != :MarginalizedStarAbsoluteRVLikelihood
+            continue
+        end
+        i_like += 1
+        epoch = vec(like_obj.table.epoch)
+        rv = collect(vec(like_obj.table.rv))
+        σ_rv = vec(like_obj.table.σ_rv)
+
+        jitter_symbol = like_obj.jitter_symbol
+
+        jitter = map(sample->sample[jitter_symbol], nt_format)
+        # rv0 = map(sample->sample.rv0[inst_idx], nt_format)'
+        # instead of each 
+        rv0 = map(enumerate(ii)) do (i_sol, i)
+            θ_system = nt_format[i]
+            planet_orbits_this_sample = getindex.(orbits, i_sol)
+            return _find_rv_zero_point_maxlike(like_obj, θ_system, planet_orbits_this_sample)
+        end'
+
+        σ_tot = sqrt.(σ_rv .^2 .+ mean(jitter) .^2 .+ var(rv0))
+        rv .-= mean(rv0,dims=2)
+        Makie.errorbars!(
+            ax, epoch, rv .* kms_mult, σ_tot .* kms_mult;
+            color = planet_rv ? Makie.wong_colors()[1] : :grey,
+            linewidth=1,
+        )
+        Makie.errorbars!(
+            ax, epoch, rv .* kms_mult, σ_rv .* kms_mult;
+            color = Makie.wong_colors()[i_like],
+            linewidth=2,
+        )
+        Makie.scatter!(
+            ax, epoch, rv .* kms_mult;
+            color = Makie.wong_colors()[i_like],
+            strokewidth=2,
+            strokecolor=:black,
+            markersize=8, #1.5,
+        )
     end
 
     if colorbar
@@ -438,4 +486,53 @@ function rvtimeplot_relative!(
         )
     end
     return [ax]
+end
+
+
+
+
+
+function _find_rv_zero_point_maxlike(
+    rvlike,#::MarginalizedStarAbsoluteRVLikelihood,
+    θ_system,
+    planet_orbits::Tuple,
+)
+    T = Octofitter._system_number_type(θ_system)
+
+    # Data for this instrument:
+    epochs = rvlike.table.epoch
+    σ_rvs = rvlike.table.σ_rv
+    rvs = rvlike.table.rv
+
+    jitter = getproperty(θ_system, rvlike.jitter_symbol)
+
+    # RV residual calculation: measured RV - model
+    resid = zeros(T, length(rvs))
+    resid .+= rvs
+    # Start with model ^
+
+    # Go through all planets and subtract their modelled influence on the RV signal:
+    for planet_i in eachindex(planet_orbits)
+        orbit = planet_orbits[planet_i]
+        planet_mass = θ_system.planets[planet_i].mass
+        for i_epoch in eachindex(epochs)
+            sol = orbitsolve(orbit, epochs[i_epoch])
+            resid[i_epoch] -= radvel(sol, planet_mass*Octofitter.mjup2msol)
+        end
+    end
+    
+    # Marginalize out the instrument zero point using math from the Orvara paper
+    A = zero(T)
+    B = zero(T)
+    for i_epoch in eachindex(epochs)
+        # The noise variance per observation is the measurement noise and the jitter added
+        # in quadrature
+        var = σ_rvs[i_epoch]^2 + jitter^2
+        A += 1/var
+        B -= 2resid[i_epoch]/var
+    end
+
+    rv0 = B/2A
+
+    return -rv0
 end
