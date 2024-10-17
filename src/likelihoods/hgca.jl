@@ -41,10 +41,10 @@ already subtracted out. e.g. we would expect 0 pma if there is no companion.
 function HGCALikelihood(;
     gaia_id,
     catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits",
-    N_ave=25
+    N_ave=25,
+    factor=1
 )
 
-    # Load the Hipparcos-GAIA catalog of accelerations (downloaded automatically with datadeps)
     hgca_all = FITS(catalog, "r") do fits
         Table(fits[2])
     end
@@ -107,19 +107,19 @@ function HGCALikelihood(;
     dist_hip = MvNormal(@SArray[
         hgca.pmra_hip_error[1]^2 c
         c hgca.pmdec_hip_error[1]^2
-    ])
+    ].*factor^2)
     # Hipparcos - GAIA epoch
     c = hgca.pmra_pmdec_hg[1] * hgca.pmra_hg_error[1] * hgca.pmdec_hg_error[1]
     dist_hg = MvNormal(@SArray[
         hgca.pmra_hg_error[1]^2 c
         c hgca.pmdec_hg_error[1]^2
-    ])
+    ].*factor^2)
     # GAIA epoch
     c = hgca.pmra_pmdec_gaia[1] * hgca.pmra_gaia_error[1] * hgca.pmdec_gaia_error[1]
     dist_gaia = MvNormal(@SArray[
         hgca.pmra_gaia_error[1]^2 c
         c hgca.pmdec_gaia_error[1]^2
-    ])
+    ].*factor^2)
     
     hgca = (;hgca...,dist_hip,dist_hg,dist_gaia)
 
@@ -144,17 +144,62 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, elements, orbit_solutions
         pmdec_hg_model,
     ) = _simulate_hgca(hgca_like, θ_system, elements, orbit_solutions, orbit_solutions_i_epoch_start)
 
-    # Hipparcos epoch
-    resids_hip = @SArray[
-        pmra_hip_model - hgca_like.hgca.pmra_hip,
-        pmdec_hip_model - hgca_like.hgca.pmdec_hip
-    ]
-    ll += logpdf(hgca_like.hgca.dist_hip, resids_hip)
+    # hgca_σ_mul = θ_system.hgca_σ_mul
+
+    # c = hgca_like.hgca.pmra_pmdec_hip[1] * hgca_like.hgca.pmra_hip_error[1] * hgca_like.hgca.pmdec_hip_error[1]
+    # dist_hip = MvNormal(@SArray[
+    #     hgca_like.hgca.pmra_hip_error[1]^2 c
+    #     c hgca_like.hgca.pmdec_hip_error[1]^2
+    # ].*hgca_σ_mul^2)
+    # c = hgca_like.hgca.pmra_pmdec_hg[1] * hgca_like.hgca.pmra_hg_error[1] * hgca_like.hgca.pmdec_hg_error[1]
+    # dist_hg = MvNormal(@SArray[
+    #     hgca_like.hgca.pmra_hg_error[1]^2 c
+    #     c hgca_like.hgca.pmdec_hg_error[1]^2
+    # ].*hgca_σ_mul^2)
+    # c = hgca_like.hgca.pmra_pmdec_gaia[1] * hgca_like.hgca.pmra_gaia_error[1] * hgca_like.hgca.pmdec_gaia_error[1]
+    # dist_gaia = MvNormal(@SArray[
+    #     hgca_like.hgca.pmra_gaia_error[1]^2 c
+    #     c hgca_like.hgca.pmdec_gaia_error[1]^2
+    # ].*hgca_σ_mul^2)
+
+    absolute_orbits = false
+    for orbit in elements
+        absolute_orbits |= orbit isa AbsoluteVisual
+        # TODO: could check in a more user-friendly way
+        # that we don't have a mismatch of different orbit types 
+        # for different planets?
+    end
+
+    # The HGCA catalog values have an non-linearity correction added.
+    # If we are doing our own rigorous propagation we don't need this
+    # correction. We could subtract it from the measurements, but 
+    # here we just add it to our model so that they match
+    if absolute_orbits
+        hg_nonlinear_dpmra = hgca_like.hgca.nonlinear_dpmra[1]
+        hg_nonlinear_dpmdec = hgca_like.hgca.nonlinear_dpmdec[1]
+        hip_nonlinear_dpmra = 2hgca_like.hgca.nonlinear_dpmra[1]
+        hip_nonlinear_dpmdec = 2hgca_like.hgca.nonlinear_dpmdec[1]
+    else
+        hg_nonlinear_dpmra = 
+        hg_nonlinear_dpmdec = 
+        hip_nonlinear_dpmra = 
+        hip_nonlinear_dpmdec = zero(hgca.nonlinear_dpmra[1])
+    end
+
+
+
+
+    # # Hipparcos epoch
+    # resids_hip = @SArray[
+    #     pmra_hip_model - hgca_like.hgca.pmra_hip,
+    #     pmdec_hip_model - hgca_like.hgca.pmdec_hip
+    # ]
+    # ll += logpdf(hgca_like.hgca.dist_hip, resids_hip)
 
     # Hipparcos - GAIA epoch
     resids_hg = @SArray[
-        pmra_hg_model - hgca_like.hgca.pmra_hg
-        pmdec_hg_model - hgca_like.hgca.pmdec_hg
+        pmra_hg_model + hg_nonlinear_dpmra - hgca_like.hgca.pmra_hg 
+        pmdec_hg_model + hg_nonlinear_dpmdec - hgca_like.hgca.pmdec_hg
     ]
     ll += logpdf(hgca_like.hgca.dist_hg, resids_hg)
 
@@ -188,7 +233,6 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
     end
 
     deg2mas = 60 * 60 * 1000
-
     # First epoch: Hipparcos
     # Note: the catalog is stored as Float32, but we really want to do 
     # this math in Float64. Adding/subtracting small differences in RA and Dec,
@@ -224,18 +268,19 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
             if pma.table.meas[i_epoch] == :ra
                 ra_hip_model += raoff(sol, θ_planet.mass * mjup2msol)
                 if absolute_orbits
-                    ra_hip_model += deg2mas*(o_ra.compensated.ra2)
+                    ra_hip_model += deg2mas*(sol.compensated.ra2)
                 end
                 pmra_hip_model += pmra(sol, θ_planet.mass * mjup2msol)
             elseif pma.table.meas[i_epoch] == :dec
                 dec_hip_model += raoff(sol, θ_planet.mass * mjup2msol)
                 if absolute_orbits
-                    dec_hip_model += deg2mas*(o_dec.compensated.dec2)
+                    dec_hip_model += deg2mas*(sol.compensated.dec2)
                 end
                 pmdec_hip_model += pmdec(sol, θ_planet.mass * mjup2msol)
             end
         end
     end
+    N_ave_hip ÷= 2 # don't double count pmra & pmdec
     ra_hip_model /= N_ave_hip
     dec_hip_model /= N_ave_hip
     pmra_hip_model /= N_ave_hip
@@ -274,18 +319,19 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
             if pma.table.meas[i_epoch] == :ra
                 ra_gaia_model += raoff(sol, θ_planet.mass * mjup2msol)
                 if absolute_orbits
-                    ra_gaia_model += deg2mas*(o_ra.compensated.ra2)
+                    ra_gaia_model += deg2mas*(sol.compensated.ra2)
                 end
                 pmra_gaia_model += pmra(sol, θ_planet.mass * mjup2msol)
             elseif pma.table.meas[i_epoch] == :dec
                 dec_gaia_model += raoff(sol, θ_planet.mass * mjup2msol)
                 if absolute_orbits
-                    dec_gaia_model += deg2mas*(o_dec.compensated.dec2)
+                    dec_gaia_model += deg2mas*(sol.compensated.dec2)
                 end
                 pmdec_gaia_model += pmdec(sol, θ_planet.mass * mjup2msol)
             end
         end
     end
+    N_ave_gaia ÷= 2
     ra_gaia_model /= N_ave_gaia
     dec_gaia_model /= N_ave_gaia
     pmra_gaia_model /= N_ave_gaia
@@ -303,17 +349,6 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
         # Simple linear approximation: don't deal with curvature directly
         pmra_hg_model += θ_system.pmra
         pmdec_hg_model += θ_system.pmdec
-    end
-
-    # The HGCA catalog values have an non-linearity correction added.
-    # If we are doing our own rigorous propagation we don't need this
-    # correction. We could subtract it from the measurements, but 
-    # here we just add it to our model so that they match
-    if absolute_orbits
-        pmra_hg_model += hgca.nonlinear_dpmra[1]
-        pmdec_hg_model += hgca.nonlinear_dpmdec[1]
-        pmra_hip_model += 2hgca.nonlinear_dpmra[1]
-        pmdec_hip_model += 2hgca.nonlinear_dpmdec[1]
     end
 
     return (;
