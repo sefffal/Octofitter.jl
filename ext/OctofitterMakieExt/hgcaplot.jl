@@ -117,15 +117,17 @@ function Octofitter.hgcaplot!(
     pmra_model_t = zeros(length(ii), length(ts))
     pmdec_model_t = zeros(length(ii), length(ts))
     color_model_t = zeros(length(ii), length(ts))
+    absolute_orbits = false
     for planet_key in keys(model.system.planets)
         orbs = Octofitter.construct_elements(results, planet_key, ii)
+        absolute_orbits |= first(orbs) isa AbsoluteVisual
         # Draws from the posterior
         mass = results["$(planet_key)_mass"][ii] .* Octofitter.mjup2msol
 
         # Now time-series
         sols = orbitsolve.(orbs, ts')
         try
-            pmra(first(sols), mass)
+            pmra(first(sols), first(mass))
         catch
             continue
         end
@@ -181,6 +183,23 @@ function Octofitter.hgcaplot!(
     end
     hgca_like = only(like_objs)
 
+    # The HGCA catalog values have an non-linearity correction added.
+    # If we are doing our own rigorous propagation we don't need this
+    # correction. We could subtract it from the measurements, but 
+    # here we just add it to our model so that they match
+    if absolute_orbits
+        hg_nonlinear_dpmra = hgca_like.hgca.nonlinear_dpmra[1]
+        hg_nonlinear_dpmdec = hgca_like.hgca.nonlinear_dpmdec[1]
+        hip_nonlinear_dpmra = 2hgca_like.hgca.nonlinear_dpmra[1]
+        hip_nonlinear_dpmdec = 2hgca_like.hgca.nonlinear_dpmdec[1]
+    else
+        hg_nonlinear_dpmra = 
+        hg_nonlinear_dpmdec = 
+        hip_nonlinear_dpmra = 
+        hip_nonlinear_dpmdec = zero(hgca.nonlinear_dpmra[1])
+    end
+
+
     tx = [
         hgca_like.hgca.epoch_ra_hip_mjd
         (hgca_like.hgca.epoch_ra_hip_mjd + hgca_like.hgca.epoch_ra_gaia_mjd) / 2
@@ -192,13 +211,13 @@ function Octofitter.hgcaplot!(
         hgca_like.hgca.epoch_dec_gaia_mjd
     ]
     x = [
-        hgca_like.hgca.pmra_hip
-        hgca_like.hgca.pmra_hg
+        hgca_like.hgca.pmra_hip - hip_nonlinear_dpmra
+        hgca_like.hgca.pmra_hg - hg_nonlinear_dpmra
         hgca_like.hgca.pmra_gaia
     ]
     y = [
-        hgca_like.hgca.pmdec_hip
-        hgca_like.hgca.pmdec_hg
+        hgca_like.hgca.pmdec_hip - hip_nonlinear_dpmdec
+        hgca_like.hgca.pmdec_hg - hg_nonlinear_dpmdec
         hgca_like.hgca.pmdec_gaia
     ]
 
@@ -292,7 +311,8 @@ function Octofitter.hgcaplot!(
         solutions = map(orbits) do orbit
             return orbitsolve.(orbit, hgca_like.table.epoch)
         end
-        push!(sims, Octofitter._simulate_hgca(hgca_like, θ_system, orbits, solutions, 0))
+        sim = Octofitter._simulate_hgca(hgca_like, θ_system, orbits, solutions, 0)
+        push!(sims, sim)
     end
     # HIP Epoch
     Makie.scatter!(
@@ -430,20 +450,20 @@ function Octofitter.hgcaplot!(
         tx,
         x,
         σ₁,
-        color=Makie.wong_colors()[1:length(x)],
+        strokecolor=Makie.wong_colors()[1:length(x)],
+        color=:transparent,
         markersize=10,
         strokewidth=1.5,
-        strokecolor=:black
     )
     Makie.scatter!(
         ax_veldec,
         ty,
         y,
         σ₂,
-        color=Makie.wong_colors()[1:length(x)],
+        strokecolor=Makie.wong_colors()[1:length(x)],
+        color=:transparent,
         markersize=10,
         strokewidth=1.5,
-        strokecolor=:black
     )
 
     return [ax_velra, ax_veldec]

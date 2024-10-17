@@ -58,9 +58,11 @@ function rvtimeplot!(
     kms_mult = 1.0
     for planet_key in keys(model.system.planets)
         orbs = Octofitter.construct_elements(results, planet_key, ii)
-        sols = orbitsolve_meananom.(orbs, range(0,2pi,length=30)')
-        rv_model_t = radvel.(sols)
-        if maximum(abs, rv_model_t) > 1500
+        sols = orbitsolve.(orbs, ts')
+        planet_mass = map(nt->nt.planets[planet_key].mass, nt_format[ii])
+        rv_model_t = radvel.(sols, planet_mass.*Octofitter.mjup2msol)
+        maximum(abs, rv_model_t)
+        if maximum(abs, rv_model_t) > 1000
             use_kms = true
             kms_mult = 1e-3
         end
@@ -328,9 +330,9 @@ function rvtimeplot_relative!(
     kms_mult = 1.0
     for planet_key in keys(model.system.planets)
         orbs = Octofitter.construct_elements(results, planet_key, ii)
-        sols = orbitsolve_meananom.(orbs, range(0,2pi,length=30)')
+        sols = orbitsolve.(orbs, ts')
         rv_model_t = radvel.(sols)
-        if maximum(abs, rv_model_t) > 1500
+        if median(abs, rv_model_t) > 1000
             use_kms = true
             kms_mult = 1e-3
         end

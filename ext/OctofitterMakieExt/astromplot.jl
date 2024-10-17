@@ -55,33 +55,12 @@ function Octofitter.astromplot!(
         )
     end
 
-    ax = Axis(
-        gs[1, 1];
-        autolimitaspect=1,
-        xreversed=true,
-        xlabel="Δra [mas]",
-        ylabel="Δdec [mas]",
-        xgridvisible=false,
-        ygridvisible=false,
-        axis...
-    )
-
-    # Start by plotting the orbits
     EAs = range(0, 2pi, length=150)
 
-    # Find earliest epoch
-    epoch_0 = mjd("2020")
-    for planet in model.system.planets
-        for like_obj in planet.observations
-            x = Float64[]
-            y = Float64[]
-            xs = Float64[]
-            ys = Float64[]
-            if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
-                epoch_0 = min(epoch_0, minimum(like_obj.table.epoch))
-            end
-        end
-    end
+
+    # Detect if should use arcseconds instead of mas for plotting
+    use_arcsec = false
+    axis_mult = 1.0
 
     for planet_key in keys(model.system.planets)
         orbs = Octofitter.construct_elements(results, planet_key, ii)
@@ -89,10 +68,57 @@ function Octofitter.astromplot!(
         # Draws from the posterior
         sols = orbitsolve_eccanom.(orbs, EAs')
         # sols_0 = orbitsolve.(orbs, epoch_0)
+        try
+            raoff(first(sols))
+        catch
+            continue
+        end
+        s = maximum(projectedseparation, sols)
+        if s > 10
+            axis_mult = 1e-3
+            use_arcsec = true
+        end
+    end
+
+    ax = Axis(
+        gs[1, 1];
+        autolimitaspect=1,
+        xreversed=true,
+        xlabel= use_arcsec ? "Δra [as]" : "Δra [mas]",
+        ylabel= use_arcsec ? "Δdec [as]" : "Δdec [mas]",
+        xgridvisible=false,
+        ygridvisible=false,
+        axis...
+    )
+
+    # Start by plotting the orbits
+
+    # # Find earliest epoch
+    # epoch_0 = mjd("2020")
+    # for planet in model.system.planets
+    #     for like_obj in planet.observations
+    #         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+    #             epoch_0 = min(epoch_0, minimum(like_obj.table.epoch))
+    #         end
+    #     end
+    # end
+
+
+    for planet_key in keys(model.system.planets)
+        orbs = Octofitter.construct_elements(results, planet_key, ii)
+
+        # Draws from the posterior
+        sols = orbitsolve_eccanom.(orbs, EAs')
+        # sols_0 = orbitsolve.(orbs, epoch_0)
+        try
+            raoff(first(sols))
+        catch
+            continue
+        end
 
         lines!(ax,
-            concat_with_nan(raoff.(sols)),
-            concat_with_nan(decoff.(sols));
+            concat_with_nan(raoff.(sols)).*axis_mult,
+            concat_with_nan(decoff.(sols)).*axis_mult;
             color=concat_with_nan(
                 # rem2pi.(EAs' .- eccanom.(sols_0), RoundDown) .+ 0 .* ii
                 rem2pi.(meananom.(sols), RoundDown) .+ 0 .* ii
@@ -224,12 +250,12 @@ function Octofitter.astromplot!(
                 xs = Base.vcat(getindex.(error_ellipses, 1)...)
                 ys = Base.vcat(getindex.(error_ellipses, 2)...)
             end
-            Makie.lines!(ax, xs, ys, color=:white, linewidth=3,rasterize=4,)
-            Makie.lines!(ax, xs, ys, color=:black, linewidth=2,rasterize=4,)
+            Makie.lines!(ax, xs.*axis_mult, ys.*axis_mult, color=:white, linewidth=3,rasterize=4,)
+            Makie.lines!(ax, xs.*axis_mult, ys.*axis_mult, color=:black, linewidth=2,rasterize=4,)
             Makie.scatter!(
                 ax,
-                vec(x),
-                vec(y),
+                vec(x).*axis_mult,
+                vec(y).*axis_mult,
                 color=:white,
                 strokewidth=2,
                 strokecolor=:black,
@@ -245,8 +271,8 @@ function Octofitter.astromplot!(
                 sols = orbitsolve.(orbs, like_obj.table.epoch')
                 Makie.scatter!(
                     ax,
-                    vec(raoff.(sols)),
-                    vec(decoff.(sols)),
+                    vec(raoff.(sols)).*axis_mult,
+                    vec(decoff.(sols)).*axis_mult,
                     color=:black,
                     markersize=4,
                 )
@@ -280,8 +306,8 @@ function Octofitter.astromplot!(
                 sols = orbitsolve.(orbs, epoch_mjd)
                 Makie.scatter!(
                     ax,
-                    vec(raoff.(sols)),
-                    vec(decoff.(sols));
+                    vec(raoff.(sols)).*axis_mult,
+                    vec(decoff.(sols)).*axis_mult;
                     color,
                     markersize=6,
                     strokewidth=1,

@@ -44,11 +44,31 @@ function astromtimeplot!(
 )
     gs = gridspec_or_fig
 
+     # Detect if should use arcseconds instead of mas for plotting
+     use_arcsec = false
+     axis_mult = 1.0
+ 
+    for planet_key in keys(model.system.planets)
+        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        # Now time-series
+        sols = orbitsolve.(orbs, ts')
+        # sols_0 = orbitsolve.(orbs, epoch_0)
+        try
+            raoff(first(sols))
+        catch
+            continue
+        end
+        s = maximum(projectedseparation, sols)
+        if s > 10
+            axis_mult = 1e-3
+            use_arcsec = true
+        end
+    end
     
     date_pos, date_strs, xminorticks = _date_ticks(ts)
     ax_sep = Axis(
         gs[1, 1];
-        ylabel="sep [mas]",
+        ylabel=use_arcsec ? "sep [as] " : "sep [mas]",
         xaxisposition=:top,
         xticks=(date_pos, date_strs),
         xgridvisible=false,
@@ -93,15 +113,26 @@ function astromtimeplot!(
         orbs = Octofitter.construct_elements(results, planet_key, ii)
         # Now time-series
         sols = orbitsolve.(orbs, ts')
+
+        # Some orbit models provide position angles but not projected separation
+        sep_model_t = try
+            projectedseparation.(sols)
+        catch
+            fill(NaN, length(sols))
+        end
         
-        sep_model_t = projectedseparation.(sols)
-        pa_model_t = rem2pi.(posangle.(sols), RoundDown)
+        # Other orbit models e.g. RadialVelocityOrbit provide neither
+        pa_model_t = try
+            rem2pi.(posangle.(sols), RoundDown)
+        catch
+            continue
+        end
         color_model_t = rem2pi.(
             eccanom.(sols), RoundDown)
         
         lines!(ax_sep,
             concat_with_nan(ts' .+ 0 .* sep_model_t),
-            concat_with_nan(sep_model_t);
+            concat_with_nan(sep_model_t).*axis_mult;
             alpha,
             color=concat_with_nan(color_model_t .+ 0 .* ii),
             colorrange=(0,2pi),
@@ -272,12 +303,12 @@ function astromtimeplot!(
                 error("invalid astrometry format")
             end
             Makie.errorbars!(
-                ax_sep, epoch, sep, σ_sep;
+                ax_sep, epoch, sep .* axis_mult, σ_sep.*axis_mult;
                 color=:black,
                 linewidth=3,
             )
             Makie.scatter!(
-                ax_sep, epoch, sep;
+                ax_sep, epoch, sep .* axis_mult;
                 color=:white,
                 strokewidth=2,
                 strokecolor=:black,
@@ -305,7 +336,7 @@ function astromtimeplot!(
                 Makie.scatter!(
                     ax_sep,
                     repeat(like_obj.table.epoch, inner=length(orbs)),
-                    vec(projectedseparation.(sols));
+                    vec(projectedseparation.(sols)).*axis_mult;
                     color=:black,
                     markersize=4,
                 )
@@ -332,7 +363,7 @@ function astromtimeplot!(
                 Makie.scatter!(
                     ax_sep,
                     fill(epoch_mjd, length(orbs)),
-                    vec(projectedseparation.(sols));
+                    vec(projectedseparation.(sols)).*axis_mult;
                     color,
                     markersize=6,
                     strokewidth=1,
