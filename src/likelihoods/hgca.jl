@@ -189,12 +189,12 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, elements, orbit_solutions
 
 
 
-    # # Hipparcos epoch
-    # resids_hip = @SArray[
-    #     pmra_hip_model - hgca_like.hgca.pmra_hip,
-    #     pmdec_hip_model - hgca_like.hgca.pmdec_hip
-    # ]
-    # ll += logpdf(hgca_like.hgca.dist_hip, resids_hip)
+    # Hipparcos epoch
+    resids_hip = @SArray[
+        pmra_hip_model - hgca_like.hgca.pmra_hip,
+        pmdec_hip_model - hgca_like.hgca.pmdec_hip
+    ]
+    ll += logpdf(hgca_like.hgca.dist_hip, resids_hip)
 
     # Hipparcos - GAIA epoch
     resids_hg = @SArray[
