@@ -95,7 +95,8 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 arr2nt=arr2nt,
                 Bijector_invlinkvec=Bijector_invlinkvec,
                 ln_prior_transformed=ln_prior_transformed,
-                ln_like_generated=ln_like_generated;sampled=true)
+                ln_like_generated=ln_like_generated
+                ;sampled=true)
                 # Stop right away if we are given non-finite arguments
                 if any(!isfinite, θ_transformed)
                     @warn "non finite parameters encountered (maxlog=1)" θ_transformed maxlog=1
@@ -112,27 +113,34 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 end
                 llike  = @inline ln_like_generated(system, θ_structured)
                 lpost = lprior+llike
-                # if !isfinite(llike)
-                #     # TODO: check for performance impact here
-                #     # Display parameters that caused an invalid log-likelihood to be calculated
-                #     # Strip off any forward diff Dual tags, as these make it impossible to see
-                #     # what's going on.
-                #     θ_transformed_primals = ForwardDiff.value.(θ_transformed)
-                #     θ_structured = arr2nt(Bijector_invlinkvec(θ_transformed_primals))
-                #     llike = ln_like_generated(system, θ_structured)
-                #     @warn "Invalid log likelihood encountered. (maxlog=1)" θ=θ_structured llike θ_transformed=θ_transformed_primals  maxlog=1
-                # end
+                # # if !isfinite(llike)
+                # #     # TODO: check for performance impact here
+                # #     # Display parameters that caused an invalid log-likelihood to be calculated
+                # #     # Strip off any forward diff Dual tags, as these make it impossible to see
+                # #     # what's going on.
+                # #     θ_transformed_primals = ForwardDiff.value.(θ_transformed)
+                # #     θ_structured = arr2nt(Bijector_invlinkvec(θ_transformed_primals))
+                # #     llike = ln_like_generated(system, θ_structured)
+                # #     @warn "Invalid log likelihood encountered. (maxlog=1)" θ=θ_structured llike θ_transformed=θ_transformed_primals  maxlog=1
+                # # end
                 return lpost
             end
 
+            args = (
+                system,
+                arr2nt,
+                Bijector_invlinkvec,
+                ln_prior_transformed,
+                ln_like_generated,
+            )
             # Test likelihood function immediately to give user a clean error
             # if it fails for some reason.
-            ℓπcallback(initial_θ_0_t)
-            # Also Display their run time. If something is egregously wrong we'll notice something
+            ℓπcallback(initial_θ_0_t,args...)
+            # Also Display their run time. If something is egregiously wrong we'll notice something
             # here in the output logs.
             if verbosity >= 1
                 (function(ℓπcallback, θ)
-                    @showtime ℓπcallback(θ)
+                    @showtime ℓπcallback(θ, args...)
                 end)(ℓπcallback, initial_θ_0_t)
             end
 
@@ -142,18 +150,19 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 end
                 # Enzyme mode:
                 ∇ℓπcallback = let Enzyme=Main.Enzyme, diffresult = copy(initial_θ_0_t), system=system, system_shadow=deepcopy(system), ℓπcallback=ℓπcallback
-                    # oh = Enzyme.onehot(diffresult)
+                    oh = Enzyme.onehot(diffresult)
                     # forward = function (θ_t)
                     #     primal, out = Enzyme.autodiff(
                     #         Enzyme.Forward,
                     #         ℓπcallback,
                     #         Enzyme.BatchDuplicated,
                     #         Enzyme.BatchDuplicated(θ_t,oh),
-                    #         Enzyme.Const(system),
-                    #         Enzyme.Const(arr2nt),
-                    #         Enzyme.Const(Bijector_invlinkvec)
-                    #         Enzyme.Const(ln_prior_transformed),#ln_prior_transformed_dup,
-                    #         Enzyme.Const(ln_like_generated),#ln_like_generated_dup,
+                    #         Enzyme.Const.(args)...
+                    #         # Enzyme.Const(system),
+                    #         # Enzyme.Const(arr2nt),
+                    #         # Enzyme.Const(Bijector_invlinkvec),
+                    #         # Enzyme.Const(ln_prior_transformed),#ln_prior_transformed_dup,
+                    #         # Enzyme.Const(ln_like_generated),#ln_like_generated_dup,
                     #     )
                     #     diffresult .= tuple(out...)
                     #     return primal, diffresult
@@ -161,21 +170,22 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                     reverse = function (θ_t)
                         fill!(diffresult,0)
                         θ_t_dup  = Enzyme.Duplicated(θ_t,diffresult)
-                        system_dup  = Enzyme.Duplicated(system,system_shadow)
-                        arr2nt_dup  = Enzyme.Duplicated(arr2nt, deepcopy(arr2nt))
-                        Bijector_invlinkvec_dup  = Enzyme.Duplicated(Bijector_invlinkvec, deepcopy(Bijector_invlinkvec))
-                        ln_prior_transformed_dup  = Enzyme.Duplicated(ln_prior_transformed, deepcopy(ln_prior_transformed))
-                        ln_like_generated_dup  = Enzyme.Duplicated(ln_like_generated, deepcopy(ln_like_generated))
+                        # system_dup  = Enzyme.Duplicated(system,deepcopy(system))
+                        # arr2nt_dup  = Enzyme.Duplicated(arr2nt, deepcopy(arr2nt))
+                        # Bijector_invlinkvec_dup  = Enzyme.Duplicated(Bijector_invlinkvec, deepcopy(Bijector_invlinkvec))
+                        # ln_prior_transformed_dup  = Enzyme.Duplicated(ln_prior_transformed, deepcopy(ln_prior_transformed))
+                        # ln_like_generated_dup  = Enzyme.Duplicated(ln_like_generated, deepcopy(ln_like_generated))
                         out, primal = Enzyme.autodiff(
                             # Enzyme.Reverse,
                             Enzyme.ReverseWithPrimal,
-                            ℓπcallback,
+                            (ℓπcallback),
                             θ_t_dup,
-                            system_dup, #Enzyme.Const(system,),
-                            arr2nt_dup, #Enzyme.Const(arr2nt,),
-                            Bijector_invlinkvec_dup, #Enzyme.Const(Bijector_invlinkvec,),
-                            ln_prior_transformed_dup, #Enzyme.Const(ln_prior_transformed,),
-                            ln_like_generated_dup, #Enzyme.Const(ln_like_generated,),
+                            # Enzyme.Duplicated.(args, deepcopy.(args))...
+                            # Enzyme.Const(system,),# system_dup, #Enzyme.Const(system,),
+                            # Enzyme.Const(arr2nt,),# arr2nt_dup, #Enzyme.Const(arr2nt,),
+                            Enzyme.Const(Bijector_invlinkvec,),# Bijector_invlinkvec_dup, #Enzyme.Const(Bijector_invlinkvec,),
+                            # Enzyme.Const(ln_prior_transformed,),# ln_prior_transformed_dup, #Enzyme.Const(ln_prior_transformed,),
+                            # Enzyme.Const(ln_like_generated,),# ln_like_generated_dup, #Enzyme.Const(ln_like_generated,),
                         )
                         return primal, diffresult
                     end 
@@ -189,7 +199,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                     # )
                     # if tforward > treverse
                     #     verbosity > 2  && @info "selected reverse mode AD" tforward treverse
-                        reverse
+                    #     reverse
                     # else
                     #     verbosity > 2  && @info "selected forward mode AD" tforward treverse
                     #     forward
@@ -198,7 +208,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
             elseif autodiff == :FiniteDiff
             
-                ∇ℓπcallback = let diffresult = copy(initial_θ_0_t)
+                ∇ℓπcallback = let diffresult = copy(initial_θ_0_t),ℓπcallback=ℓπcallback
                     function (θ_t)
                         primal = ℓπcallback(θ_t)
                         Main.FiniteDiff.finite_difference_gradient!(diffresult, ℓπcallback, θ_t)
@@ -282,6 +292,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         
         # Perform some quick diagnostic checks to warn users for performance-gtochas
         out_type_model = Core.Compiler.return_type(ℓπcallback, typeof((initial_θ_0_t,)))
+        out_type_model_grad = Core.Compiler.return_type(∇ℓπcallback, typeof((initial_θ_0_t,)))
         out_type_arr2nt = Core.Compiler.return_type(arr2nt, typeof((initial_θ_0_t,)))
         out_type_prior = Core.Compiler.return_type(ln_prior_transformed, typeof((initial_θ_0,false,)))
         out_type_like = Core.Compiler.return_type(ln_like_generated, typeof((system,arr2nt(initial_θ_0),)))
@@ -292,6 +303,9 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             !isconcretetype(out_type_model)
             @warn "\nThis model's log density function is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
         end
+        if !isconcretetype(out_type_model_grad)
+            @warn "\nThis model's log density gradfient is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
+            end
         if !isconcretetype(out_type_prior)
             @warn "\nThis model's prior sampler does not appear to be type stable, which will likely hurt sampling performance.\nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
         end
@@ -301,7 +315,6 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         if !isconcretetype(out_type_arr2nt)
             @warn "\nThis model specification is not type-stable, which will likely hurt sampling performance.\nCheck for global variables used within your model definition, and prepend these with `\$`.\nIf that doesn't work, you could trying running:\n`@code_warntype model.arr2nt(randn(model.D))` for a bit more information.\nFor assistance, please file an issue on GitHub."
         end
-
 
         # Return fully concrete type wrapping all these functions
         new{
@@ -333,8 +346,10 @@ LogDensityProblems.dimension(p::LogDensityModel{D}) where D = D
 LogDensityProblems.capabilities(::Type{<:LogDensityModel}) = LogDensityProblems.LogDensityOrder{1}()
 
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::LogDensityModel)
-    println(io, "LogDensityModel for System $(p.system.name) of dimension $(p.D) with fields .ℓπcallback and .∇ℓπcallback")
+    L = _count_epochs(p.system)
+    println(io, "LogDensityModel for System $(p.system.name) of dimension $(p.D) and $(L) epochs with fields .ℓπcallback and .∇ℓπcallback")
 end
 function Base.show(io::IO, @nospecialize p::LogDensityModel)
-    println(io, "LogDensityModel for System $(p.system.name) of dimension $(p.D) with fields .ℓπcallback and .∇ℓπcallback")
+    L = _count_epochs(p.system)
+    println(io, "LogDensityModel for System $(p.system.name) of dimension $(p.D) and $(L) epochs with fields .ℓπcallback and .∇ℓπcallback")
 end
