@@ -21,6 +21,7 @@ function Octofitter.octocorner(
     viz=nothing,
     # Optionally include additional columns
     includecols=String[],
+    excludecols=String[],
     kwargs...
 )
     labels_gen = Dict{Symbol,Any}(
@@ -175,6 +176,9 @@ function Octofitter.octocorner(
         # Also remove series where the std is 0.
         table_cols_unique = Pair{Symbol}[]
         for (k,v) in table_cols
+            if k in excludecols
+                continue
+            end
             if length(unique(v)) == 1
                 continue
             end
