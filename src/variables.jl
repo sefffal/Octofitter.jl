@@ -174,6 +174,7 @@ end
 struct UnitLengthPrior{X,Y} <: AbstractLikelihood where {X,Y}
     UnitLengthPrior(xsymbol, ysymbol) = new{xsymbol, ysymbol}()
 end
+_isprior(::UnitLengthPrior) = true
 function likeobj_from_epoch_subset(obs::UnitLengthPrior{X,Y}, obs_inds) where {X,Y}
     return UnitLengthPrior(X,Y)
 end
@@ -273,6 +274,20 @@ System((priors,det)::Tuple{Priors,Derived}, args...; kwargs...) = System(priors,
 System(planets::Planet...; kwargs...) = System(Priors(), nothing, planets...; kwargs...)
 System(priors::Priors, args::Union{AbstractLikelihood,Planet}...; kwargs...) = System(priors, nothing, args...; kwargs...)
 System(priors::Priors, det::Union{Derived,Nothing}, args::Union{AbstractLikelihood,Planet}...; kwargs...) = System(priors, det, group_obs_planets(args)...; kwargs...)
+
+_isprior(::AbstractLikelihood) = false
+
+function _count_likeobj(system::System)::Int
+    likeobj_count = 0
+    for obj in [system; system.planets...]
+        for obs in obj.observations
+            if !_isprior(obs)
+                likeobj_count += 1
+            end
+        end
+    end
+    return likeobj_count
+end
 
 function _count_epochs(system::System)::Int
     observation_count = 0
