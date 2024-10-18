@@ -30,6 +30,9 @@ struct MarginalizedStarAbsoluteRVLikelihood{TTable<:Table,jitter_symbol} <: Octo
     end
 end
 MarginalizedStarAbsoluteRVLikelihood(observations::NamedTuple...;kwargs...) = MarginalizedStarAbsoluteRVLikelihood(observations; kwargs...)
+function Octofitter.likeobj_from_epoch_subset(obs::MarginalizedStarAbsoluteRVLikelihood, obs_inds)
+    return MarginalizedStarAbsoluteRVLikelihood(obs.table[obs_inds,:,1]...; jitter=obs.jitter_symbol, instrument_name=obs.instrument_name)
+end
 export MarginalizedStarAbsoluteRVLikelihood
 
 

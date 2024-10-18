@@ -51,6 +51,11 @@ ImageLikelihood(observations::NamedTuple...) = ImageLikelihood(observations)
 export ImageLikelihood
 
 
+function Octofitter.likeobj_from_epoch_subset(obs::ImageLikelihood, obs_inds)
+    return ImageLikelihood(obs.table[obs_inds,:,1]...)
+end
+
+
 """
     contrast_interp(image; step=2)
 

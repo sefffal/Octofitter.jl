@@ -30,6 +30,9 @@ end
 PlanetRelAstromLikelihood(observations::NamedTuple...) = PlanetRelAstromLikelihood(observations)
 export PlanetRelAstromLikelihood
 
+function likeobj_from_epoch_subset(obs::PlanetRelAstromLikelihood, obs_inds)
+    return PlanetRelAstromLikelihood(obs.table[obs_inds,:,1]...)
+end
 
 # Plot recipe for astrometry data
 using LinearAlgebra

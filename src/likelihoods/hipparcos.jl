@@ -426,6 +426,10 @@ struct HipparcosIADLikelihood{THipSol,TIADTable<:Table} <: AbstractLikelihood
     end
 end
 
+function likeobj_from_epoch_subset(obs::HipparcosIADLikelihood, obs_inds)
+    return HipparcosIADLikelihood(obs.hip_sol, obs.table[obs_inds,:,1]...)
+end
+
 ##########################
 # Loads data:
 """

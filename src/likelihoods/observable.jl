@@ -63,6 +63,12 @@ struct ObsPriorAstromONeil2019{Likelihood<:AbstractLikelihood} <: AbstractLikeli
 end
 export ObsPriorAstromONeil2019
 
+function likeobj_from_epoch_subset(obs::ObsPriorAstromONeil2019, obs_inds)
+    return ObsPriorAstromONeil2019(
+        likeobj_from_epoch_subset(obs.wrapped_like, obs_inds)
+    )
+end
+
 function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_planet, orbit, orbit_solutions, i_orbsol_start) 
 # function Octofitter.ln_like(like::ObsPriorAstromONeil2019, θ_planet, orbit,) 
 
@@ -76,15 +82,27 @@ function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikel
     # This should normally be faster than solving it again.
     # TODO: I wonder if a Dict would be a better choice here. Something to benchmark.
     # Or maybe a dict of likelihood object to starting index?
+    # TODO: problem: this doesn't work with AbsoluteVisual orbits, since the true time is different
+    # due to changing light travel time.
     for j in 1:length(like.wrapped_like.table.epoch)
         current_epoch = like.wrapped_like.table.epoch[j]
         local sol
+        found = false
         for k in eachindex(orbit_solutions)
             sol′ = orbit_solutions[k]
-            if sol′.sol.t == current_epoch
+            if hasproperty(sol′, :t) && sol′.t == current_epoch
+                found = true
                 sol = sol′
                 break
             end
+            if sol′.sol.t == current_epoch
+                found = true
+                sol = sol′
+                break
+            end
+        end
+        if !found
+            error("epoch not found in solutions $current_epoch")
         end
         M = meananom(sol)
         E = eccanom(sol)

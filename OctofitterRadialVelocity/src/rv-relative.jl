@@ -40,6 +40,13 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikeli
     end
 end
 PlanetRelativeRVLikelihood(observations::NamedTuple...;kwargs...) = PlanetRelativeRVLikelihood(observations; kwargs...)
+function Octofitter.likeobj_from_epoch_subset(obs::PlanetRelativeRVLikelihood, obs_inds)
+    return PlanetRelativeRVLikelihood(
+        obs.table[obs_inds,:,1]...;
+        instrument_names=obs.instrument_names,
+        gaussian_process=obs.gaussian_process
+    )
+end
 export PlanetRelativeRVLikelihood
 
 """

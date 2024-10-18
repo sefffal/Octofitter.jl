@@ -29,9 +29,7 @@ function pointwise_like(model, chain)
                 for k_obs in 1:Tables.rowcount(obs.table)
                     j_obs += 1
                     if i_obs == j_obs
-                        # TODO WARNING! internals access
-                        T = Main.eval(typeof(obs).name.name)
-                        obs_row = T(obs.table[k_obs,:])
+                        obs_row = likeobj_from_epoch_subset(obs, k_obs)
                         return System(
                             model.system.priors,
                             model.system.derived,
@@ -59,9 +57,7 @@ function pointwise_like(model, chain)
                     for k_obs in 1:Tables.rowcount(obs.table)
                         j_obs += 1
                         if i_obs == j_obs
-                            # TODO WARNING! internals access
-                            T = Main.eval(typeof(obs).name.name)
-                            obs_row = T(obs.table[k_obs,:])
+                            obs_row = likeobj_from_epoch_subset(obs, k_obs)
                             planet = Planet{orbittype(planet)}(
                                 planet.priors,
                                 planet.derived,

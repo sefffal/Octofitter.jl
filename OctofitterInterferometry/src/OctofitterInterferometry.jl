@@ -12,6 +12,9 @@ const required_cols = (:epoch, :u, :v, :cps_data, :dcps, :vis2_data, :dvis2, :in
 struct InterferometryLikelihood{TTable<:Table} <: AbstractInterferometryLikelihood
     table::TTable
 end
+function Octofitter.likeobj_from_epoch_subset(obs::InterferometryLikelihood, obs_inds)
+    return InterferometryLikelihood(obs.table[obs_inds,:,1]...)
+end
 function InterferometryLikelihood(
     observations...;
 )

@@ -27,6 +27,9 @@ struct HGCALikelihood{TTable<:Table,THGCA} <: AbstractLikelihood
     table::TTable
     hgca::THGCA
 end
+function likeobj_from_epoch_subset(obs::HGCALikelihood, obs_inds)
+    return HGCALikelihood(obs.table[obs_inds,:,1], obs.hgca)
+end
 export HGCALikelihood
 
 
@@ -38,16 +41,17 @@ for a star with catalog id `gaia_id`.
 The resulting velocities are in mas/yr and have the long term trend between HIPPARCOS and GAIA
 already subtracted out. e.g. we would expect 0 pma if there is no companion.
 """
-function HGCALikelihood(;
+function HGCALikelihood(hgca;
     gaia_id,
     catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits",
     N_ave=25,
     factor=1
 )
+    hgca_all=Table([hgca])
 
-    hgca_all = FITS(catalog, "r") do fits
-        Table(fits[2])
-    end
+    # hgca_all = FITS(catalog, "r") do fits
+    #     Table(fits[2])
+    # end
 
     # Available columns (for reference)
     # chisq            crosscal_pmdec_hg  crosscal_pmdec_hip   crosscal_pmra_hg   crosscal_pmra_hip  epoch_dec_gaia          epoch_dec_hip
@@ -190,11 +194,11 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, elements, orbit_solutions
 
 
     # Hipparcos epoch
-    resids_hip = @SArray[
-        pmra_hip_model - hgca_like.hgca.pmra_hip,
-        pmdec_hip_model - hgca_like.hgca.pmdec_hip
-    ]
-    ll += logpdf(hgca_like.hgca.dist_hip, resids_hip)
+    # resids_hip = @SArray[
+    #     pmra_hip_model - hgca_like.hgca.pmra_hip,
+    #     pmdec_hip_model - hgca_like.hgca.pmdec_hip
+    # ]
+    # ll += logpdf(hgca_like.hgca.dist_hip, resids_hip)
 
     # Hipparcos - GAIA epoch
     resids_hg = @SArray[

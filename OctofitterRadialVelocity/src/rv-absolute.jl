@@ -53,6 +53,13 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TOffsets,TJitters} <: Octofitte
     end
 end
 StarAbsoluteRVLikelihood(observations::NamedTuple...;kwargs...) = StarAbsoluteRVLikelihood(observations; kwargs...)
+function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVLikelihood, obs_inds)
+    return StarAbsoluteRVLikelihood(
+        obs.table[obs_inds,:,1]...;
+        instrument_names=obs.instrument_names,
+        gaussian_process=obs.gaussian_process
+    )
+end
 export StarAbsoluteRVLikelihood
 
 """

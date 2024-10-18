@@ -1,6 +1,26 @@
 abstract type AbstractLikelihood end
 TypedTables.Table(like::AbstractLikelihood) = like.table
 
+"""
+    ln_like(likeobj::AbstractLikelihood,  θ_planet, orbit, orbit_solutions, i_orbsol_start)
+
+Compute the natural log of the likelihood of the data given by `likeobj` being generated
+given the model parameters `θ_planet`. 
+
+The remaining parameters are pre-calculated cached values generated `θ_planet`.
+"""
+function ln_like end
+
+"""
+    likeobj_from_epoch_subset(likeobj::AbstractLikelihood,  observation_indices)
+
+Given a likelihood object that wraps an observation table, construct a new one only containing
+observations specified by the index or indices in `observation_indices`.
+
+This allows sub-setting data for various statistical checks.
+"""
+function likeobj_from_epoch_subset end
+
 
 
 """
@@ -153,6 +173,9 @@ end
 # It makes sure they keep away from the origin for better sampling.
 struct UnitLengthPrior{X,Y} <: AbstractLikelihood where {X,Y}
     UnitLengthPrior(xsymbol, ysymbol) = new{xsymbol, ysymbol}()
+end
+function likeobj_from_epoch_subset(obs::UnitLengthPrior{X,Y}, obs_inds) where {X,Y}
+    return UnitLengthPrior(X,Y)
 end
 TypedTables.Table(like::UnitLengthPrior) = nothing
 

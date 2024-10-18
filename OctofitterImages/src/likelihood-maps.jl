@@ -53,7 +53,9 @@ end
 LogLikelihoodMap(observations::NamedTuple...) = LogLikelihoodMap(observations)
 export LogLikelihoodMap
 
-
+function Octofitter.likeobj_from_epoch_subset(obs::LogLikelihoodMap, obs_inds)
+    return LogLikelihoodMap(obs.table[obs_inds,:,1]...)
+end
 
 """
 Likelihood of there being planets in a sequence of likemaps.

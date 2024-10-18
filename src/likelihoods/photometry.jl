@@ -27,6 +27,9 @@ end
 PhotometryLikelihood(observations::NamedTuple...) = PhotometryLikelihood(observations)
 export PhotometryLikelihood
 
+function likeobj_from_epoch_subset(obs::PhotometryLikelihood, obs_inds)
+    return PhotometryLikelihood(obs.table[obs_inds,:,1]...)
+end
 
 # PhotometryLikelihood
 function ln_like(photometry::PhotometryLikelihood, θ_planet, orbit_solutions, _i_epoch_start)
