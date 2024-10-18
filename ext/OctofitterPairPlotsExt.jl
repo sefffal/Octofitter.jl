@@ -144,19 +144,40 @@ function Octofitter.octocorner(
             splice!(planet_var_keys, ii_splice)
             splice!(planet_var_keys_chopped, ii_splice)
 
-            labels_gen[Symbol(pk_*"a")] = "$(planetkey)_a [au]\nsemi-major axis"
-            labels_gen[Symbol(pk_*"i")] = "$(planetkey)_i [°]\ninclination"
-            labels_gen[Symbol(pk_*"Ω")] = "$(planetkey)_Ω [°]\nlongitude of\nascending node"
-            labels_gen[Symbol(pk_*"ω")] = "$(planetkey)_ω [°]\nargument of\nperiapsis"
-            labels_gen[Symbol(pk_*"e")] = "$(planetkey)_e\neccentricity"
-            labels_gen[Symbol(pk_*"mass")] = "$(planetkey)_mass [Mⱼᵤₚ]\nmass"
-            labels_gen[Symbol(pk_*"tp")] = "$(planetkey)_tp [mjd]\nepoch of periastron\npassage"
-            labels_gen[Symbol(pk_*"P")] = "$(planetkey)_P [yrs]\nperiod"
-            labels_gen[Symbol(pk_*"τ")] = "$(planetkey)_τ\norbit fraction τ"
-            labels_gen[Symbol(pk_*"θ")] = "$(planetkey)_θ [°]\nposition angle\nat ref. epoch"
 
             for (k, pk) in zip(planet_var_keys_chopped, planet_var_keys)
                 pks = Symbol(pk)
+
+                if k=="a"
+                    labels_gen[Symbol(pk_*"a")] = "$(planetkey)_a [au]\nsemi-major axis"
+                end
+                if k=="i"
+                    labels_gen[Symbol(pk_*"i")] = "$(planetkey)_i [°]\ninclination"
+                end
+                if k=="Ω"
+                    labels_gen[Symbol(pk_*"Ω")] = "$(planetkey)_Ω [°]\nlongitude of\nascending node"
+                end
+                if k=="ω"
+                    labels_gen[Symbol(pk_*"ω")] = "$(planetkey)_ω [°]\nargument of\nperiapsis"
+                end
+                if k=="e"
+                    labels_gen[Symbol(pk_*"e")] = "$(planetkey)_e\neccentricity"
+                end
+                if k=="mass"
+                    labels_gen[Symbol(pk_*"mass")] = "$(planetkey)_mass [Mⱼᵤₚ]\nmass"
+                end
+                if k=="tp"
+                    labels_gen[Symbol(pk_*"tp")] = "$(planetkey)_tp [mjd]\nepoch of periastron\npassage"
+                end
+                if k=="P"
+                    labels_gen[Symbol(pk_*"P")] = "$(planetkey)_P [yrs]\nperiod"
+                end
+                if k=="τ"
+                    labels_gen[Symbol(pk_*"τ")] = "$(planetkey)_τ\norbit fraction τ"
+                end
+                if k=="θ"
+                    labels_gen[Symbol(pk_*"θ")] = "$(planetkey)_θ [°]\nposition angle\nat ref. epoch"
+                end
 
                 # Add generic label if missing
                 if pks ∉ keys(labels_gen)
