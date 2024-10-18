@@ -90,11 +90,9 @@ function Octofitter.ln_like(
         B -= 2resid[i_epoch]/var
         C += resid[i_epoch]^2/var
         # Penalize RV likelihood by total variance 
-        ll += log(1/var)
+        ll -= log(2π*var) #  ll += log(1/var)
     end
-
     ll -= -B^2 / (4A) + C + log(A)
-    # rv0 = B/2A
 
     return ll
 end
