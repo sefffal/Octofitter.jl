@@ -380,7 +380,7 @@ function rvtimeplot_relative!(
         orbs = Octofitter.construct_elements(results, planet_key, ii)
         sols = orbitsolve.(orbs, ts')
         rv_model_t = radvel.(sols)
-        if median(abs, rv_model_t) > 1000
+        if median(abs, vec(rv_model_t)) > 1000
             use_kms = true
             kms_mult = 1e-3
         end
