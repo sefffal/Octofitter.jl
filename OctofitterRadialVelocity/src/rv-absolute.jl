@@ -69,121 +69,127 @@ function Octofitter.ln_like(
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
-    # Each RV instrument index can have it's own barycentric RV offset and jitter.
-    # Grab the offsets/jitters and store in a tuple. 
-    # Then we can index by inst_idxs to look up the right offset and jitter.
-    barycentric_rv_inst = θ_system.rv0
-    # barycentric_rv_inst = SVector{length(rvlike.offset_symbols), T}(getproperty(θ_system, symbol) for symbol in rvlike.offset_symbols)
-    jitter_inst =  θ_system.jitter #SVector{length(rvlike.jitter_symbols), T}(getproperty(θ_system, symbol) for symbol in rvlike.jitter_symbols)
-    max_inst_idx = maximum(rvlike.table.inst_idx)
+    @no_escape begin
 
-    # Vector of radial velocity of the star at each epoch. Go through and sum up the influence of
-    # each planet and put it into here. 
-    rv_star_buf_all_inst =  zeros(T, L) # @SArray
-    noise_var_all_inst =   zeros(T, L) # @SArray
+        # Each RV instrument index can have it's own barycentric RV offset and jitter.
+        # Grab the offsets/jitters and store in a tuple. 
+        # Then we can index by inst_idxs to look up the right offset and jitter.
+        barycentric_rv_inst = θ_system.rv0
+        # barycentric_rv_inst = SVector{length(rvlike.offset_symbols), T}(getproperty(θ_system, symbol) for symbol in rvlike.offset_symbols)
+        jitter_inst =  θ_system.jitter #SVector{length(rvlike.jitter_symbols), T}(getproperty(θ_system, symbol) for symbol in rvlike.jitter_symbols)
+        max_inst_idx = maximum(rvlike.table.inst_idx)
 
-    # Work through RV data and model one instrument at a time
-    for inst_idx in 1:max_inst_idx
-        if isnan(jitter_inst[inst_idx]) || isnan(barycentric_rv_inst[inst_idx])
-            # @warn("`jitter_$inst_idx` and `rv0_$inst_idx` must be provided (were NaN)", maxlog=5)
-        end
+        # Vector of radial velocity of the star at each epoch. Go through and sum up the influence of
+        # each planet and put it into here. 
+        rv_star_buf_all_inst =  @alloc(T, L) # @SArray
+        fill!(rv_star_buf_all_inst, 0)
+        noise_var_all_inst =   @alloc(T, L) # @SArray
+        fill!(noise_var_all_inst, 0)
 
-        # Find the range in the table occupied by data from this instrument
-
-        istart = only(findfirst(==(inst_idx), vec(rvlike.table.inst_idx)))
-        iend = only(findlast(==(inst_idx), vec(rvlike.table.inst_idx)))
-        # istart = searchsortedfirst(vec(rvlike.table.inst_idx), inst_idx)
-        # iend = searchsortedlast(vec(rvlike.table.inst_idx), inst_idx)
-        # # Make Enzyme happy:
-        # istart = 1
-        # for i in eachindex(rvlike.table.inst_idx)
-        #     if rvlike.table.inst_idx[i] == inst_idx
-        #         istart = i
-        #         break
-        #     end
-        # end
-        # iend = L
-        # for i in reverse(eachindex(rvlike.table.inst_idx))
-        #     if rvlike.table.inst_idx[i] == inst_idx
-        #         iend = i
-        #         break
-        #     end
-        # end
-
-        # Data for this instrument:
-        epochs = @view rvlike.table.epoch[istart:iend]
-        σ_rvs = @view rvlike.table.σ_rv[istart:iend]
-        rvs = @view rvlike.table.rv[istart:iend]
-        noise_var = @view noise_var_all_inst[istart:iend]
-
-        # RV "data" calculation: measured RV + our barycentric rv calculation
-        rv_star_buf = @view rv_star_buf_all_inst[istart:iend] 
-        rv_star_buf .+= rvs
-        rv_star_buf .-= barycentric_rv_inst[inst_idx] 
-
-        # # Zygote version:
-        # rv_star_buf = @view(rv_star_buf_all_inst[istart:iend]) .+ barycentric_rv_inst[inst_idx]
-
-        # rv_star_buf .+= barycentric_rv_inst[inst_idx] 
-        # rv_star_buf += barycentric_rv_inst[inst_idx] 
-
-        # Go through all planets and subtract their modelled influence on the RV signal:
-        # You could consider `rv_star` as the residuals after subtracting these.
-        
-        for planet_i in eachindex(planet_orbits)
-            orbit = planet_orbits[planet_i]
-            planet_mass = θ_system.planets[planet_i].mass
-            for epoch_i_inst in eachindex(epochs)
-                epoch_i = epoch_i_inst + istart - 1
-                rv_star_buf[epoch_i_inst] -= radvel(
-                    orbit_solutions[planet_i][epoch_i+orbit_solutions_i_epoch_start],
-                    planet_mass*Octofitter.mjup2msol
-                )
+        # Work through RV data and model one instrument at a time
+        for inst_idx in 1:max_inst_idx
+            if isnan(jitter_inst[inst_idx]) || isnan(barycentric_rv_inst[inst_idx])
+                # @warn("`jitter_$inst_idx` and `rv0_$inst_idx` must be provided (were NaN)", maxlog=5)
             end
-            # Zygote version:
-            # rv_star_buf -= radvel.(orbit, epochs, planet_mass*Octofitter.mjup2msol)
-        end        
 
-        # The noise variance per observation is the measurement noise and the jitter added
-        # in quadrature
-        noise_var .= σ_rvs.^2 .+ jitter_inst[inst_idx]^2
+            # Find the range in the table occupied by data from this instrument
 
-        # Two code paths, depending on if we are modelling the residuals by 
-        # a Gaussian process or not.
-        if isnothing(rvlike.gaussian_process)
-            # Don't fit a GP
-            fx = MvNormal(Diagonal((noise_var)))
-        else
-            # Fit a GP
-            local gp
-            try
-                gp = @inline rvlike.gaussian_process(θ_system)
-            catch err
-                if err isa PosDefException
-                    @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                    return convert(T,-Inf)
-                elseif err isa ArgumentError
-                    @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                    return convert(T,-Inf)
-                else
-                    rethrow(err)
+            istart = only(findfirst(==(inst_idx), vec(rvlike.table.inst_idx)))
+            iend = only(findlast(==(inst_idx), vec(rvlike.table.inst_idx)))
+            # istart = searchsortedfirst(vec(rvlike.table.inst_idx), inst_idx)
+            # iend = searchsortedlast(vec(rvlike.table.inst_idx), inst_idx)
+            # # Make Enzyme happy:
+            # istart = 1
+            # for i in eachindex(rvlike.table.inst_idx)
+            #     if rvlike.table.inst_idx[i] == inst_idx
+            #         istart = i
+            #         break
+            #     end
+            # end
+            # iend = L
+            # for i in reverse(eachindex(rvlike.table.inst_idx))
+            #     if rvlike.table.inst_idx[i] == inst_idx
+            #         iend = i
+            #         break
+            #     end
+            # end
+
+            # Data for this instrument:
+            epochs = @view rvlike.table.epoch[istart:iend]
+            σ_rvs = @view rvlike.table.σ_rv[istart:iend]
+            rvs = @view rvlike.table.rv[istart:iend]
+            noise_var = @view noise_var_all_inst[istart:iend]
+
+            # RV "data" calculation: measured RV + our barycentric rv calculation
+            rv_star_buf = @view rv_star_buf_all_inst[istart:iend] 
+            rv_star_buf .+= rvs
+            rv_star_buf .-= barycentric_rv_inst[inst_idx] 
+
+            # # Zygote version:
+            # rv_star_buf = @view(rv_star_buf_all_inst[istart:iend]) .+ barycentric_rv_inst[inst_idx]
+
+            # rv_star_buf .+= barycentric_rv_inst[inst_idx] 
+            # rv_star_buf += barycentric_rv_inst[inst_idx] 
+
+            # Go through all planets and subtract their modelled influence on the RV signal:
+            # You could consider `rv_star` as the residuals after subtracting these.
+            
+            for planet_i in eachindex(planet_orbits)
+                orbit = planet_orbits[planet_i]
+                planet_mass = θ_system.planets[planet_i].mass
+                for epoch_i_inst in eachindex(epochs)
+                    epoch_i = epoch_i_inst + istart - 1
+                    rv_star_buf[epoch_i_inst] -= radvel(
+                        orbit_solutions[planet_i][epoch_i+orbit_solutions_i_epoch_start],
+                        planet_mass*Octofitter.mjup2msol
+                    )
                 end
-            end                
+                # Zygote version:
+                # rv_star_buf -= radvel.(orbit, epochs, planet_mass*Octofitter.mjup2msol)
+            end        
 
-            fx = gp(epochs, noise_var)
-            try
+            # The noise variance per observation is the measurement noise and the jitter added
+            # in quadrature
+            noise_var .= σ_rvs.^2 .+ jitter_inst[inst_idx]^2
+
+            # Two code paths, depending on if we are modelling the residuals by 
+            # a Gaussian process or not.
+            if isnothing(rvlike.gaussian_process)
+                # Don't fit a GP
+                fx = MvNormal(Diagonal((noise_var)))
                 ll += logpdf(fx, rv_star_buf)
-            catch err
-                if err isa PosDefException || err isa DomainError
-                    return -Inf
-                else
-                    rethrow(err)
+            else
+                # Fit a GP
+                local gp
+                try
+                    gp = @inline rvlike.gaussian_process(θ_system)
+                catch err
+                    if err isa PosDefException
+                        @warn "err" exception=(err, catch_backtrace()) maxlog=1
+                        ll = convert(T,-Inf)
+                        break
+                    elseif err isa ArgumentError
+                        @warn "err" exception=(err, catch_backtrace()) maxlog=1
+                        ll = convert(T,-Inf)
+                        break
+                    else
+                        rethrow(err)
+                    end
+                end                
+
+                fx = gp(epochs, noise_var)
+                try
+                    ll += logpdf(fx, rv_star_buf)
+                catch err
+                    if err isa PosDefException || err isa DomainError
+                        ll = convert(T,-Inf)
+                        break
+                    else
+                        rethrow(err)
+                    end
                 end
             end
         end
-
-        ll += logpdf(fx, rv_star_buf)
-
     end
     return ll
 end

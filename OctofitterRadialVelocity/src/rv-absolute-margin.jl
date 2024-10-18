@@ -4,6 +4,8 @@
 # This object only supports one instrument, but you can add as many 
 # likelihood objects as you want (one per instrument).
 
+using Bumper
+
 # Gaussian processes not supported.
 struct MarginalizedStarAbsoluteRVLikelihood{TTable<:Table,jitter_symbol} <: Octofitter.AbstractLikelihood
     table::TTable
@@ -49,50 +51,54 @@ function Octofitter.ln_like(
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
-    
-    jitter = _getjitter(rvlike, θ_system)
+    @no_escape begin
 
-    # Data for this instrument:
-    epochs = rvlike.table.epoch
-    σ_rvs = rvlike.table.σ_rv
-    rvs = rvlike.table.rv
+        
+        jitter = _getjitter(rvlike, θ_system)
 
-    # RV residual calculation: measured RV - model
-    resid = zeros(T, length(rvs))
-    resid .+= rvs
-    # Start with model ^
+        # Data for this instrument:
+        epochs = rvlike.table.epoch
+        σ_rvs = rvlike.table.σ_rv
+        rvs = rvlike.table.rv
 
-    # Go through all planets and subtract their modelled influence on the RV signal:
-    for planet_i in eachindex(planet_orbits)
-        planet_mass = θ_system.planets[planet_i].mass
-        for i_epoch in eachindex(epochs)
-            # We've already solved each orbit at each epoch; grab the solution
-            sol_i = i_epoch+orbit_solutions_i_epoch_start
-            if sol_i > length(orbit_solutions)
-                # @show length(orbit_solutions)
-                # @show size(orbit_solutions[planet_i])
-                # @show sol_i i_epoch orbit_solutions_i_epoch_start
+        # RV residual calculation: measured RV - model
+        resid = @alloc(T, length(rvs))
+        fill!(resid, 0)
+        resid .+= rvs
+        # Start with model ^
+
+        # Go through all planets and subtract their modelled influence on the RV signal:
+        for planet_i in eachindex(planet_orbits)
+            planet_mass = θ_system.planets[planet_i].mass
+            for i_epoch in eachindex(epochs)
+                # We've already solved each orbit at each epoch; grab the solution
+                sol_i = i_epoch+orbit_solutions_i_epoch_start
+                if sol_i > length(orbit_solutions)
+                    # @show length(orbit_solutions)
+                    # @show size(orbit_solutions[planet_i])
+                    # @show sol_i i_epoch orbit_solutions_i_epoch_start
+                end
+                sol = orbit_solutions[planet_i][sol_i]
+                resid[i_epoch] -= radvel(sol, planet_mass*Octofitter.mjup2msol)
             end
-            sol = orbit_solutions[planet_i][sol_i]
-            resid[i_epoch] -= radvel(sol, planet_mass*Octofitter.mjup2msol)
         end
+        
+        # Marginalize out the instrument zero point using math from the Orvara paper
+        A = zero(T)
+        B = zero(T)
+        C = zero(T)
+        for i_epoch in eachindex(epochs)
+            # The noise variance per observation is the measurement noise and the jitter added
+            # in quadrature
+            var = σ_rvs[i_epoch]^2 + jitter^2
+            A += 1/var
+            B -= 2resid[i_epoch]/var
+            C += resid[i_epoch]^2/var
+            # Penalize RV likelihood by total variance 
+            ll -= log(2π*var) #  ll += log(1/var)
+        end
+        ll -= -B^2 / (4A) + C + log(A)
     end
-    
-    # Marginalize out the instrument zero point using math from the Orvara paper
-    A = zero(T)
-    B = zero(T)
-    C = zero(T)
-    for i_epoch in eachindex(epochs)
-        # The noise variance per observation is the measurement noise and the jitter added
-        # in quadrature
-        var = σ_rvs[i_epoch]^2 + jitter^2
-        A += 1/var
-        B -= 2resid[i_epoch]/var
-        C += resid[i_epoch]^2/var
-        # Penalize RV likelihood by total variance 
-        ll -= log(2π*var) #  ll += log(1/var)
-    end
-    ll -= -B^2 / (4A) + C + log(A)
 
     return ll
 end

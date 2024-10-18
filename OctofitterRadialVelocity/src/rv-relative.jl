@@ -66,61 +66,56 @@ function Octofitter.ln_like(
     σ_rvs = vec(rvlike.table.σ_rv)
     rvs = vec(rvlike.table.rv)
     jitter = θ_planet.jitter
-    noise_var = zeros(T, length(rvs))
 
-    # RV "data" calculation: measured RV + our barycentric rv calculation
-    rv_star_buf = zeros(T, length(rvs))
-    rv_star_buf .+= rvs
-    
-    ## Zygote version:
-    # rv_star_buf = @view(rv_star_buf_all_inst[istart:iend])
+    @no_escape begin
+        noise_var = @alloc(T, length(rvs))
+        fill!(noise_var, 0)
 
-    # Go through all planets and subtract their modelled influence on the RV signal:
-    # You could consider `rv_star` as the residuals after subtracting these.
-    # Threads.@threads 
-    for epoch_i in eachindex(epochs)
-        rv_star_buf[epoch_i] -= radvel(orbit_solutions[epoch_i+orbit_solutions_i_epoch_start])
-    end
+        # RV "data" calculation: measured RV + our barycentric rv calculation
+        rv_star_buf = @alloc(T, length(rvs))
+        fill!(rv_star_buf, 0)
+        rv_star_buf .+= rvs
+        
+        ## Zygote version:
+        # rv_star_buf = @view(rv_star_buf_all_inst[istart:iend])
 
-    # The noise variance per observation is the measurement noise and the jitter added
-    # in quadrature
-    noise_var .= σ_rvs.^2 .+ jitter^2
+        # Go through all planets and subtract their modelled influence on the RV signal:
+        # You could consider `rv_star` as the residuals after subtracting these.
+        # Threads.@threads 
+        for epoch_i in eachindex(epochs)
+            rv_star_buf[epoch_i] -= radvel(orbit_solutions[epoch_i+orbit_solutions_i_epoch_start])
+        end
 
-    # Two code paths, depending on if we are modelling the residuals by 
-    # a Gaussian process or not.
-    if isnothing(rvlike.gaussian_process)
-        # Don't fit a GP
-        fx = MvNormal(Diagonal((noise_var)))
-    else
-        # Fit a GP
-        local gp
-        try
-            gp = @inline rvlike.gaussian_process(θ_system)
-        catch err
-            if err isa PosDefException
-                # @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                return -Inf
-            elseif err isa ArgumentError
-                # @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                return -Inf
-            else
-                rethrow(err)
-            end
-        end                
+        # The noise variance per observation is the measurement noise and the jitter added
+        # in quadrature
+        noise_var .= σ_rvs.^2 .+ jitter^2
 
-        fx = gp(epochs, noise_var)
-        try
+        # Two code paths, depending on if we are modelling the residuals by 
+        # a Gaussian process or not.
+        if isnothing(rvlike.gaussian_process)
+            # Don't fit a GP
+            fx = MvNormal(Diagonal((noise_var)))
             ll += logpdf(fx, rv_star_buf)
-        catch err
-            if err isa PosDefException || err isa DomainError
-                return -Inf
-            else
-                rethrow(err)
-            end
+        else
+            # Fit a GP
+            local gp
+            try
+                gp = @inline rvlike.gaussian_process(θ_system)
+                fx = gp(epochs, noise_var)
+                ll += logpdf(fx, rv_star_buf)
+            catch err
+                if err isa PosDefException
+                    # @warn "err" exception=(err, catch_backtrace()) maxlog=1
+                    ll = convert(T, -Inf)
+                elseif err isa ArgumentError
+                    # @warn "err" exception=(err, catch_backtrace()) maxlog=1
+                    ll = convert(T, -Inf)
+                else
+                    rethrow(err)
+                end
+            end                
         end
     end
-
-    ll += logpdf(fx, rv_star_buf)
 
     return ll
 end

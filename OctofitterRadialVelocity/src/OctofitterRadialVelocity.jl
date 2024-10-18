@@ -11,7 +11,7 @@ using Distances: Distances
 using FITSIO
 using StaticArrays
 using LinearAlgebra
-
+using Bumper
 
 # mjd2jd = Octofitter.mjd2jd
 # jd2mjd = Octofitter.jd2mjd
