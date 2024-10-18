@@ -1,4 +1,4 @@
-
+using Bumper
 
 
 
@@ -79,10 +79,18 @@ function make_ln_like(system::System, θ_system)
         else
             orbit_sol_expr = quote
                 # Pre-solve kepler's equation for all epochs
-                # TODO: is there a better way to determine the output type? 
-                # Does the compiler elide this?
-                sol0 = orbitsolve($key, $(first(epochs_planet_i)))
-                $sols_key = $_kepsolve_all(sol0, $key, $epochs_planet_i)
+                # epochs = Vector{Float64}(undef, $(length(epochs_planet_i)))
+                epochs = @alloc(Float64, $(length(epochs_planet_i)))
+                $((
+                    :(epochs[$j] = $(epochs_planet_i[j]))
+                    for j in 1:length(epochs_planet_i)
+                )...)
+
+                sol0 = orbitsolve($key, first(epochs))
+                # $sols_key = Vector{typeof(sol0)}(undef, length(epochs))
+                $sols_key = @alloc(typeof(sol0), length(epochs))
+                $sols_key[begin] = sol0
+                $_kepsolve_all!(view($sols_key, 2:length(epochs)), $key, view(epochs, 2:length(epochs)))
             end
         end
 
@@ -125,44 +133,44 @@ function make_ln_like(system::System, θ_system)
     return @RuntimeGeneratedFunction(:(function (system::System, θ_system)
         ll0 = zero(_system_number_type(θ_system))
 
-        # Construct all orbit elements
-        $(planet_construction_exprs...)
+        @no_escape begin
 
-        # Solve all orbits
-        $(planet_orbit_solution_exprs...)
+            # Construct all orbit elements
+            $(planet_construction_exprs...)
 
-        # evaluate all their individual observation likelihoods
-        $(planet_like_exprs...)
+            # Solve all orbits
+            $(planet_orbit_solution_exprs...)
 
+            # evaluate all their individual observation likelihoods
+            $(planet_like_exprs...)
 
-        # Construct a tuple of existing planet orbital elements
-        elems = tuple($(planet_keys...))
-        
-        $(sys_exprs...)
+            # Construct a tuple of existing planet orbital elements
+            elems = tuple($(planet_keys...))
+            
+            $(sys_exprs...)
+
+        end
 
         return $(Symbol("ll$j"))
     end))
 end
 
 const _kepsolve_use_threads = Ref(false)
-function _kepsolve_all(sol0, orbit, epochs)
+function _kepsolve_all!(solutions, orbit, epochs)
     if _kepsolve_use_threads[]
-        return _kepsolve_all_multithread(sol0, orbit, epochs)
+        return _kepsolve_all_multithread!(solutions, orbit, epochs)
     else
-        return _kepsolve_all_singlethread(sol0, orbit, epochs)
+        return _kepsolve_all_singlethread!(solutions, orbit, epochs)
     end
 end
-function _kepsolve_all_singlethread(sol0, orbit, epochs)
-    solutions = Array{typeof(sol0)}(undef,length(epochs))
-    # solutions[begin] = sol0
-    for epoch_i in eachindex(epochs)#[begin+1:end]
+function _kepsolve_all_singlethread!(solutions, orbit, epochs)
+    for epoch_i in eachindex(epochs)
         solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
     end
     return solutions
 end
 
-function _kepsolve_all_multithread(sol0, orbit, epochs)
-    solutions = Array{typeof(sol0)}(undef,length(epochs))
+function _kepsolve_all_multithread!(solutions, orbit, epochs)
     Threads.@threads for epoch_i in 1:length(epochs)
         solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
     end
