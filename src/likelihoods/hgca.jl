@@ -215,6 +215,7 @@ end
 
 
 function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    T = Octofitter._system_number_type(θ_system)
 
     # This observation type just wraps one row from the HGCA (see hgca.jl)
     hgca = pma.hgca
@@ -238,10 +239,10 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
     # this math in Float64. Adding/subtracting small differences in RA and Dec,
     # stored in degrees, actually needs more precision than you would expect.
     # In Float32, we would easily get round off at the 0.3% relative error level.
-    ra_hip_model = 0.0
-    dec_hip_model = 0.0
-    pmra_hip_model = 0.0
-    pmdec_hip_model = 0.0
+    ra_hip_model = zero(T)
+    dec_hip_model = zero(T)
+    pmra_hip_model = zero(T)
+    pmdec_hip_model = zero(T)
     N_ave_hip = 0
     # The model can support multiple planets
     for i_planet in eachindex(orbits)
@@ -289,10 +290,10 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
     pmdec_hip_model += θ_system.pmdec
 
     # Last epoch: GAIA
-    ra_gaia_model = 0.0
-    dec_gaia_model = 0.0
-    pmra_gaia_model = 0.0
-    pmdec_gaia_model = 0.0
+    ra_gaia_model = zero(T)
+    dec_gaia_model = zero(T)
+    pmra_gaia_model = zero(T)
+    pmdec_gaia_model = zero(T)
     N_ave_gaia = 0
     # The model can support multiple planets
     for i_planet in eachindex(orbits)
