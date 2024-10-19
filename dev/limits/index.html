@@ -6,7 +6,7 @@ using Distributions
 using Pigeons
 using CairoMakie
 using PairPlots</code></pre><h2 id="Photometry-Model"><a class="docs-heading-anchor" href="#Photometry-Model">Photometry Model</a><a id="Photometry-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Photometry-Model" title="Permalink"></a></h2><p>We will need to decide on an atmosphere model to map image intensities into mass. Here we use the Sonora Bobcat cooling and atmosphere models which will be auto-downloaded by Octofitter:</p><pre><code class="language-julia hljs">const cooling_tracks = Octofitter.sonora_cooling_interpolator()
-const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(::Octofitter.var&quot;#model_interpolator#219&quot;{Interpolations.FilledExtrapolation{Float64, 2, Interpolations.ScaledInterpolation{Float64, 2, Interpolations.BSplineInterpolation{Float64, 2, Matrix{Float64}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Float64}, Float64, Float64, Float64, Float64}) (generic function with 1 method)</code></pre><h2 id="Proper-Motion-Anomaly-Data"><a class="docs-heading-anchor" href="#Proper-Motion-Anomaly-Data">Proper Motion Anomaly Data</a><a id="Proper-Motion-Anomaly-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Proper-Motion-Anomaly-Data" title="Permalink"></a></h2><p>We start by defining and sampling from a model that only includes proper motion anomaly data from the HGCA:</p><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
+const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(::Octofitter.var&quot;#model_interpolator#228&quot;{Interpolations.FilledExtrapolation{Float64, 2, Interpolations.ScaledInterpolation{Float64, 2, Interpolations.BSplineInterpolation{Float64, 2, Matrix{Float64}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Float64}, Float64, Float64, Float64, Float64}) (generic function with 1 method)</code></pre><h2 id="Proper-Motion-Anomaly-Data"><a class="docs-heading-anchor" href="#Proper-Motion-Anomaly-Data">Proper Motion Anomaly Data</a><a id="Proper-Motion-Anomaly-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Proper-Motion-Anomaly-Data" title="Permalink"></a></h2><p>We start by defining and sampling from a model that only includes proper motion anomaly data from the HGCA:</p><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
     ω ~ Uniform(0,2pi)
@@ -27,26 +27,46 @@ end
     pmra ~ Normal(0, 1000)
     pmdec ~ Normal(0,  1000)
 end HGCALikelihood(gaia_id=6166183842771027328) B
-model_pma = Octofitter.LogDensityModel(HD91312_pma)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HD91312_pma of dimension 11 with fields .ℓπcallback and .∇ℓπcallback
+model_pma = Octofitter.LogDensityModel(HD91312_pma)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HD91312_pma of dimension 11 and 100 epochs with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>Sample:</p><pre><code class="language-julia hljs">using Pigeons
-chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16, n_rounds=12);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Determining initial positions and metric using pathfinder
+chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16, n_rounds=12);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
+┌ Info: Determined number of free variables
+└   D = 11
+ℓπcallback(θ, args...): 0.000013 seconds (9 allocations: 320 bytes)
+┌ Info: Tuning autodiff
+│   chunk_size = 11
+└   t = 1.664e-6
+┌ Info: Selected auto-diff chunk size
+└   ideal_chunk_size = 11
+∇ℓπcallback(θ): 0.000006 seconds
+[ Info: Preparing model
+┌ Info: Determined number of free variables
+└   D = 11
+ℓπcallback(θ, args...): 0.000002 seconds (9 allocations: 320 bytes)
+┌ Info: Tuning autodiff
+│   chunk_size = 11
+└   t = 1.673e-6
+┌ Info: Selected auto-diff chunk size
+└   ideal_chunk_size = 11
+∇ℓπcallback(θ): 0.000002 seconds
+[ Info: Determining initial positions and metric using pathfinder
 ┌ Info: Found a sample of initial positions
-└   initial_logpost_range = (-733051.75321396, -733047.1366429877)
+└   initial_logpost_range = (-20.49211742138131, -7.610986970116208)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.03       4.67       5.35   3.28e+08  -5.75e+08          0      0.752       0.88       0.91
-        4          0       3.99       4.32      0.449   9.28e+06  -3.82e+06          0      0.732      0.867       0.92
-        8          0       6.84       5.11      0.523   9.01e+05  -6.87e+04          0      0.614      0.869      0.916
-       16          0       6.14       6.46        1.1   1.68e+06  -2.37e+04          0      0.593      0.893      0.915
-       32          0       7.75       6.03       2.24   3.24e+06       -492          0      0.556      0.896      0.917
-       64          2       7.73       4.27       5.55   2.32e+08      -18.2   6.43e-57      0.613      0.898      0.913
-      128         10       8.25       3.39       9.43   4.03e+08      -17.4   2.07e-12      0.625        0.9      0.911
-      256         24       8.59       2.55       18.6   7.98e+08      -17.2   1.49e-09      0.641      0.902      0.908
-      512         55       8.96       2.63       37.3   1.58e+09      -17.2    0.00185      0.626      0.898      0.907
- 1.02e+03         99       9.26       2.99       75.5   3.21e+09      -17.2     0.0151      0.605      0.901      0.909
- 2.05e+03        204       9.63       3.16        150   6.34e+09      -17.2     0.0489      0.588      0.904      0.911
-  4.1e+03        466       9.83       3.11        301   1.27e+10      -17.2      0.111      0.582      0.904      0.911
+        2          0       2.23       3.56       6.44   3.02e+08  -2.96e+08          0      0.813      0.924       0.96
+        4          0       6.32       4.67       3.77   9.28e+06  -2.39e+05          0      0.646      0.888      0.918
+        8          0       6.09        6.5       6.07   8.92e+05  -6.49e+04          0      0.594      0.887      0.916
+       16          0       7.21       5.33       12.3   1.71e+06  -3.24e+04          0      0.595      0.891      0.911
+       32          0       7.85       7.36       24.6   3.19e+06  -2.41e+03          0       0.51       0.89      0.906
+       64          3       8.45       2.61       51.3   2.29e+08      -14.7   2.21e-29      0.643      0.892      0.904
+      128         10       8.23       2.67        101   4.04e+08      -15.1   1.22e-05      0.649      0.898      0.905
+      256         29       8.94       2.47        198   7.89e+08      -15.2   0.000161      0.632      0.899      0.907
+      512         54       9.56       2.68        404    1.6e+09      -15.1      0.015      0.605        0.9      0.907
+ 1.02e+03        140        9.6       2.54        804   3.18e+09      -15.1     0.0432      0.609        0.9      0.908
+ 2.05e+03        272       9.77       2.59   1.62e+03   6.42e+09      -15.5      0.134      0.601      0.902      0.907
+  4.1e+03        524       9.86       2.75   3.23e+03   1.28e+10      -15.1      0.226      0.593      0.901      0.908
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl:</p><pre><code class="language-julia hljs">pairplot(
     PairPlots.Series(
         (;
@@ -64,7 +84,7 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="cbce6d1f.png" alt="Example block output"/><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><pre><code class="language-julia hljs">using AstroImages
+)</code></pre><img src="237dd382.png" alt="Example block output"/><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><pre><code class="language-julia hljs">using AstroImages
 download(
     &quot;https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits&quot;,
     &quot;image-examples-1.fits&quot;
@@ -121,7 +141,7 @@ end image_data
     # pmdec ~ Normal(0,  1000)
     rel_mag = 5.65
 end  B
-model_img = Octofitter.LogDensityModel(HD91312_img)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HD91312_img of dimension 9 with fields .ℓπcallback and .∇ℓπcallback
+model_img = Octofitter.LogDensityModel(HD91312_img)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HD91312_img of dimension 9 and 1 epochs with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><pre><code class="language-julia hljs">using Pigeons
 chain_img, pt = octofit_pigeons(model_img, n_chains=5, n_chains_variational=5, n_rounds=7)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (128×23×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Plot mass vs. semi-major axis posterior:</p><pre><code class="language-julia hljs">vis_layers = (
     PairPlots.Contour(sigmas=[1,3]),
@@ -148,7 +168,7 @@ pairplot(
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="ef35ccba.png" alt="Example block output"/><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
+)</code></pre><img src="6050ab66.png" alt="Example block output"/><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
     ω ~ Uniform(0,2pi)
@@ -229,4 +249,4 @@ pairplot(
         :sma=&gt;&quot;log₂ Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log₂ Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="d3935bba.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extract-phot-astrom/">« Extract Astrometry and Photometry</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Thursday 26 September 2024 19:18">Thursday 26 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="818045ae.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extract-phot-astrom/">« Extract Astrometry and Photometry</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Saturday 19 October 2024 21:39">Saturday 19 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -35,54 +35,54 @@ end
 
 end hip_like b
 
-model = Octofitter.LogDensityModel(c_Eri_straight_line)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System c_Eri_straight_line of dimension 5 with fields .ℓπcallback and .∇ℓπcallback
+model = Octofitter.LogDensityModel(c_Eri_straight_line)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System c_Eri_straight_line of dimension 5 and 104 epochs with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>We can now sample from the model using Hamiltonian Monte Carlo. This should only take about 15 seconds.</p><pre><code class="language-julia hljs"># Typical depth is ~4, so limiting the max_depth down from default 12 speeds warm-up
 chain = octofit(model, iterations=4_000, max_depth=6)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (4000×30×1 Array{Float64, 3}):
 
 Iterations        = 1:1:4000
 Number of chains  = 1
 Samples per chain = 4000
-Wall duration     = 7.52 seconds
-Compute duration  = 7.52 seconds
+Wall duration     = 1.09 seconds
+Compute duration  = 1.09 seconds
 parameters        = plx, pmra, pmdec, ra_hip_offset_mas, dec_hip_offset_mas, M, rv, dec, ra, ref_epoch, b_mass, b_e, b_ω, b_a, b_i, b_Ω, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Summary Statistics
- <span class="sgr1">         parameters         mean       std      mcse    ess_bulk    ess_tail  ⋯
- <span class="sgr90">             Symbol      Float64   Float64   Float64     Float64     Float64  ⋯
+ <span class="sgr1">         parameters         mean       std      mcse   ess_bulk   ess_tail    ⋯
+ <span class="sgr90">             Symbol      Float64   Float64   Float64    Float64    Float64    ⋯
 
-                 plx      33.9701    0.3369    0.0049   4714.8634   3084.7106  ⋯
-                pmra      44.2263    0.3448    0.0051   4595.8942   3370.6690  ⋯
-               pmdec     -64.3843    0.2677    0.0037   5317.5511   3424.1023  ⋯
-   ra_hip_offset_mas       0.0030    0.1976    0.0030   4385.9396   3022.8126  ⋯
-  dec_hip_offset_mas      -0.0017    0.2934    0.0047   3899.0695   3277.0364  ⋯
-                   M       1.0000    0.0000       NaN         NaN         NaN  ⋯
-                  rv       0.0000    0.0000       NaN         NaN         NaN  ⋯
-                 dec      -2.4734    0.0000    0.0000   4385.9396   3022.8126  ⋯
-                  ra      69.4004    0.0000    0.0000   3899.0695   3277.0364  ⋯
-           ref_epoch   48348.5625    0.0000       NaN         NaN         NaN  ⋯
-              b_mass       0.0000    0.0000       NaN         NaN         NaN  ⋯
-                 b_e       0.0000    0.0000       NaN         NaN         NaN  ⋯
-                 b_ω       0.0000    0.0000       NaN         NaN         NaN  ⋯
-                 b_a       1.0000    0.0000       NaN         NaN         NaN  ⋯
-                 b_i       0.0000    0.0000       NaN         NaN         NaN  ⋯
-                 b_Ω       0.0000    0.0000       NaN         NaN         NaN  ⋯
-                b_tp       0.0000    0.0000       NaN         NaN         NaN  ⋯
+                 plx      37.2696    0.0000    0.0000        NaN        NaN    ⋯
+                pmra     -38.5786    0.0000    0.0000        NaN        NaN    ⋯
+               pmdec     -95.1111    0.0000    0.0000        NaN        NaN    ⋯
+   ra_hip_offset_mas    -414.8912    0.0000    0.0000        NaN        NaN    ⋯
+  dec_hip_offset_mas   -1722.3892    0.0000    0.0000        NaN        NaN    ⋯
+                   M       1.0000    0.0000       NaN        NaN        NaN    ⋯
+                  rv       0.0000    0.0000       NaN        NaN        NaN    ⋯
+                 dec      -2.4735    0.0000    0.0000        NaN        NaN    ⋯
+                  ra      69.4000    0.0000    0.0000        NaN        NaN    ⋯
+           ref_epoch   48348.5625    0.0000       NaN        NaN        NaN    ⋯
+              b_mass       0.0000    0.0000       NaN        NaN        NaN    ⋯
+                 b_e       0.0000    0.0000       NaN        NaN        NaN    ⋯
+                 b_ω       0.0000    0.0000       NaN        NaN        NaN    ⋯
+                 b_a       1.0000    0.0000       NaN        NaN        NaN    ⋯
+                 b_i       0.0000    0.0000       NaN        NaN        NaN    ⋯
+                 b_Ω       0.0000    0.0000       NaN        NaN        NaN    ⋯
+                b_tp       0.0000    0.0000       NaN        NaN        NaN    ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
           parameters         2.5%        25.0%        50.0%        75.0%       ⋯
  </span><span class="sgr90">             Symbol      Float64      Float64      Float64      Float64       ⋯
 
-                 plx      33.3067      33.7418      33.9684      34.2074       ⋯
-                pmra      43.5712      43.9871      44.2166      44.4665       ⋯
-               pmdec     -64.9136     -64.5666     -64.3827     -64.2014     - ⋯
-   ra_hip_offset_mas      -0.3802      -0.1329       0.0023       0.1362       ⋯
-  dec_hip_offset_mas      -0.5736      -0.2011       0.0005       0.1976       ⋯
+                 plx      37.2696      37.2696      37.2696      37.2696       ⋯
+                pmra     -38.5786     -38.5786     -38.5786     -38.5786     - ⋯
+               pmdec     -95.1111     -95.1111     -95.1111     -95.1111     - ⋯
+   ra_hip_offset_mas    -414.8912    -414.8912    -414.8912    -414.8912    -4 ⋯
+  dec_hip_offset_mas   -1722.3892   -1722.3892   -1722.3892   -1722.3892   -17 ⋯
                    M       1.0000       1.0000       1.0000       1.0000       ⋯
                   rv       0.0000       0.0000       0.0000       0.0000       ⋯
-                 dec      -2.4734      -2.4734      -2.4734      -2.4734       ⋯
-                  ra      69.4004      69.4004      69.4004      69.4004       ⋯
+                 dec      -2.4735      -2.4735      -2.4735      -2.4735       ⋯
+                  ra      69.4000      69.4000      69.4000      69.4000       ⋯
            ref_epoch   48348.5625   48348.5625   48348.5625   48348.5625   483 ⋯
               b_mass       0.0000       0.0000       0.0000       0.0000       ⋯
                  b_e       0.0000       0.0000       0.0000       0.0000       ⋯
@@ -92,7 +92,7 @@ Quantiles
                  b_Ω       0.0000       0.0000       0.0000       0.0000       ⋯
                 b_tp       0.0000       0.0000       0.0000       0.0000       ⋯
 </span><span class="sgr36">                                                                1 column omitted
-</span></span></code></pre><p>Plot the posterior values:</p><pre><code class="language-julia hljs">octoplot(model,chain,show_astrom=false,show_astrom_time=false)</code></pre><img src="ff6b8872.png" alt="Example block output"/><p>We now visualize the model fit compared to the Hipparcos catalog values:</p><pre><code class="language-julia hljs">using LinearAlgebra, StatsBase
+</span></span></code></pre><p>Plot the posterior values:</p><pre><code class="language-julia hljs">octoplot(model,chain,show_astrom=false,show_astrom_time=false)</code></pre><img src="d6259b41.png" alt="Example block output"/><p>We now visualize the model fit compared to the Hipparcos catalog values:</p><pre><code class="language-julia hljs">using LinearAlgebra, StatsBase
 fig = Figure(size=(1080,720))
 j = i = 1
 for prop in (
@@ -133,7 +133,29 @@ for prop in (
     lines!(ax, nxs, pdf.(n,nxs), label=&quot;Hipparcos Catalog&quot;, color=:black, linewidth=2)
 end
 Legend(fig[i-1,j+1],ax,tellwidth=false)
-fig</code></pre><img src="63f29003.png" alt="Example block output"/><h2 id="Constrain-Planet-Mass"><a class="docs-heading-anchor" href="#Constrain-Planet-Mass">Constrain Planet Mass</a><a id="Constrain-Planet-Mass-1"></a><a class="docs-heading-anchor-permalink" href="#Constrain-Planet-Mass" title="Permalink"></a></h2><p>We now allow the planet to have a non zero mass and have free orbit. We start by retrieving relative astrometry data on the planet, collated by Jason Wang and co. on <a href="http://whereistheplanet.com">whereistheplanet.com</a>.</p><pre><code class="language-julia hljs">astrom_like1,astrom_like2 = Octofitter.Whereistheplanet_astrom(&quot;51erib&quot;,object=1)</code></pre><p>We specify our full model:</p><pre><code class="language-julia hljs">@planet b AbsoluteVisual{KepOrbit} begin
+fig</code></pre><img src="cefb9343.png" alt="Example block output"/><h2 id="Constrain-Planet-Mass"><a class="docs-heading-anchor" href="#Constrain-Planet-Mass">Constrain Planet Mass</a><a id="Constrain-Planet-Mass-1"></a><a class="docs-heading-anchor-permalink" href="#Constrain-Planet-Mass" title="Permalink"></a></h2><p>We now allow the planet to have a non zero mass and have free orbit. We start by retrieving relative astrometry data on the planet, collated by Jason Wang and co. on <a href="http://whereistheplanet.com">whereistheplanet.com</a>.</p><pre><code class="language-julia hljs">astrom_like1,astrom_like2 = Octofitter.Whereistheplanet_astrom(&quot;51erib&quot;,object=1)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Checksum not provided, add to the Datadep Registration the following hash line
+│   hash = &quot;d734dd8296e6f3e147ce49a18851e8c8571d326bd387a6edfeb4bb62f80fa7ea&quot;
+└ @ DataDeps ~/.julia/packages/DataDeps/Y2lje/src/verification.jl:44
+
+7-Zip (a) [64] 17.04 : Copyright (c) 1999-2021 Igor Pavlov : 2017-08-28
+p7zip Version 17.04 (locale=C.UTF-8,Utf16=on,HugeFiles=on,64 bits,4 CPUs AMD EPYC 7763 64-Core Processor                 (A00F11),ASM,AES-NI)
+
+Scanning the drive for archives:
+1 file, 11900618 bytes (12 MiB)
+
+Extracting archive: /home/runner/.julia/scratchspaces/124859b0-ceae-595e-8997-d05f6a7a8dfe/datadeps/Whereistheplanet/whereistheplanet-master.zip
+--
+Path = /home/runner/.julia/scratchspaces/124859b0-ceae-595e-8997-d05f6a7a8dfe/datadeps/Whereistheplanet/whereistheplanet-master.zip
+Type = zip
+Physical Size = 11900618
+Comment = 0bdbe0d3b7cde8746f3849cb48252903cd2c58fa
+
+Everything is Ok
+
+Folders: 8
+Files: 100
+Size:       15044074
+Compressed: 11900618</code></pre><p>We specify our full model:</p><pre><code class="language-julia hljs">@planet b AbsoluteVisual{KepOrbit} begin
     a ~ truncated(Normal(10,1),lower=0)
     e ~ Uniform(0,0.99)
     ω ~ UniformCircular()
@@ -163,16 +185,16 @@ end astrom_like1
     ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
 end hip_like b
 
-model = Octofitter.LogDensityModel(cEri)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System cEri of dimension 16 with fields .ℓπcallback and .∇ℓπcallback
+model = Octofitter.LogDensityModel(cEri)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System cEri of dimension 16 and 121 epochs with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>Now we sample:</p><pre><code class="language-julia hljs">using Pigeons
-chain,pt = octofit_pigeons(model, n_rounds=8)
+chain,pt = octofit_pigeons(model, n_rounds=8, explorer=SliceSampler())
 chain</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (256×30×1 Array{Float64, 3}):
 
 Iterations        = 1:1:256
 Number of chains  = 1
 Samples per chain = 256
-Wall duration     = 1639.2 seconds
-Compute duration  = 1639.2 seconds
+Wall duration     = 468.08 seconds
+Compute duration  = 468.08 seconds
 parameters        = M_pri, M_sec, plx, pmra, pmdec, ra_hip_offset_mas, dec_hip_offset_mas, M, rv, dec, ra, ref_epoch, b_a, b_e, b_ωy, b_ωx, b_i, b_Ωy, b_Ωx, b_θy, b_θx, b_ω, b_Ω, b_θ, b_tp, b_mass
 internals         = loglike, logpost, logprior, pigeons_logpotential
 
@@ -180,23 +202,23 @@ Summary Statistics
  <span class="sgr1">         parameters         mean       std      mcse   ess_bulk   ess_tail    ⋯
  <span class="sgr90">             Symbol      Float64   Float64   Float64    Float64    Float64    ⋯
 
-               M_pri       1.7407    0.0525    0.0035   218.3223   257.7237    ⋯
-               M_sec      44.0546   18.6896    1.6151   112.3091    75.2923    ⋯
-                 plx      33.9326    0.3428    0.0244   195.5916   192.3436    ⋯
-                pmra      44.8241    0.7159    0.0424   281.2963    28.3373    ⋯
-               pmdec     -63.6365    0.6761    0.0441   239.4952   245.1944    ⋯
-   ra_hip_offset_mas      -7.3969    4.4444    0.3304   178.8106    71.2309    ⋯
-  dec_hip_offset_mas      -3.9088    2.8299    0.1991   213.7833   194.1012    ⋯
-                   M       1.7827    0.0516    0.0036   195.2060   257.7237    ⋯
+               M_pri       1.7451    0.0477    0.0045   107.5000   185.1977    ⋯
+               M_sec      73.1884   22.4705    1.7482   152.3040   150.2559    ⋯
+                 plx      33.9969    0.3850    0.0356   126.6629    72.6416    ⋯
+                pmra      45.5497    0.7015    0.0561   170.7574   117.5230    ⋯
+               pmdec     -63.5945    0.6373    0.0457   191.9803    85.2471    ⋯
+   ra_hip_offset_mas     -14.9370    6.3280    0.5118    45.1195    38.1704    ⋯
+  dec_hip_offset_mas      -4.7164    2.7994    0.2179   182.7440    96.7170    ⋯
+                   M       1.8150    0.0536    0.0043   152.3617   151.7290    ⋯
                   rv   12600.0000    0.0000       NaN        NaN        NaN    ⋯
-                 dec      -2.4734    0.0000    0.0000   178.8106    71.2309    ⋯
-                  ra      69.4004    0.0000    0.0000   213.7833   194.1012    ⋯
+                 dec      -2.4734    0.0000    0.0000    45.1195    38.1704    ⋯
+                  ra      69.4004    0.0000    0.0000   182.7440    96.7170    ⋯
            ref_epoch   48348.5625    0.0000       NaN        NaN        NaN    ⋯
-                 b_a      11.3011    0.8973    0.0597   208.8002   187.9874    ⋯
-                 b_e       0.5206    0.0754    0.0050   215.6354   145.5454    ⋯
-                b_ωy      -0.2572    0.2130    0.0131   251.1601    97.2051    ⋯
-                b_ωx      -0.3648    0.8732    0.0551   243.7628   219.6587    ⋯
-                 b_i       2.3529    0.0940    0.0063   218.7459   174.6887    ⋯
+                 b_a      10.8991    0.7764    0.0684   160.2218    40.6582    ⋯
+                 b_e       0.5239    0.0861    0.0068   158.6873    16.0401    ⋯
+                b_ωy      -0.1098    0.3700    0.0287   162.1383    34.7891    ⋯
+                b_ωx      -0.8155    0.4711    0.0490    77.8770    73.0799    ⋯
+                 b_i       2.3617    0.0899    0.0071   158.8479    33.0792    ⋯
           ⋮                ⋮           ⋮         ⋮         ⋮          ⋮        ⋱
 </span><span class="sgr36">                                                    2 columns and 9 rows omitted
 
@@ -204,23 +226,23 @@ Quantiles
           parameters         2.5%        25.0%        50.0%        75.0%       ⋯
  </span><span class="sgr90">             Symbol      Float64      Float64      Float64      Float64       ⋯
 
-               M_pri       1.6472       1.7051       1.7380       1.7769       ⋯
-               M_sec       8.5816      32.5159      42.0783      54.8299       ⋯
-                 plx      33.2657      33.7169      33.9237      34.1255       ⋯
-                pmra      43.0440      44.4911      44.9132      45.2854       ⋯
-               pmdec     -64.9587     -64.0185     -63.7039     -63.1572     - ⋯
-   ra_hip_offset_mas     -17.0855      -9.8762      -7.9439      -4.9079       ⋯
-  dec_hip_offset_mas      -9.7265      -5.5431      -3.3514      -2.1604       ⋯
-                   M       1.6825       1.7472       1.7804       1.8164       ⋯
+               M_pri       1.6514       1.7112       1.7448       1.7786       ⋯
+               M_sec      14.1676      64.2797      81.4881      88.3763       ⋯
+                 plx      33.3830      33.7465      33.9574      34.2618       ⋯
+                pmra      43.9686      45.1544      45.6303      46.0611       ⋯
+               pmdec     -64.6241     -64.0673     -63.6727     -63.1183     - ⋯
+   ra_hip_offset_mas     -22.3601     -20.0307     -16.4129     -11.3178       ⋯
+  dec_hip_offset_mas     -10.0306      -6.5818      -4.4232      -3.1818       ⋯
+                   M       1.7120       1.7755       1.8180       1.8532       ⋯
                   rv   12600.0000   12600.0000   12600.0000   12600.0000   126 ⋯
                  dec      -2.4734      -2.4734      -2.4734      -2.4734       ⋯
                   ra      69.4004      69.4004      69.4004      69.4004       ⋯
            ref_epoch   48348.5625   48348.5625   48348.5625   48348.5625   483 ⋯
-                 b_a       9.4952      10.8105      11.1987      12.0651       ⋯
-                 b_e       0.3544       0.4669       0.5366       0.5865       ⋯
-                b_ωy      -0.6309      -0.3958      -0.3149      -0.1461       ⋯
-                b_ωx      -1.0950      -0.9723      -0.8725       0.8594       ⋯
-                 b_i       2.2117       2.2782       2.3483       2.4126       ⋯
+                 b_a       9.9096      10.3215      10.6844      11.3930       ⋯
+                 b_e       0.3298       0.4670       0.5208       0.6070       ⋯
+                b_ωy      -0.5833      -0.4446      -0.3321       0.2816       ⋯
+                b_ωx      -1.1279      -0.9997      -0.9225      -0.8443       ⋯
+                 b_i       2.2073       2.2939       2.3487       2.4345       ⋯
           ⋮                ⋮            ⋮            ⋮            ⋮            ⋱
 </span><span class="sgr36">                                                     1 column and 9 rows omitted
-</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain, show_mass=true)</code></pre><img src="438139b9.png" alt="Example block output"/><p>We see that we constrained both the orbit and the parallax. The mass is not strongly constrained by Hipparcos.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-rel/">« Fit Relative RV Data</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">Fit GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Thursday 26 September 2024 19:18">Thursday 26 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain, show_mass=true)</code></pre><img src="29c3d28d.png" alt="Example block output"/><p>We see that we constrained both the orbit and the parallax. The mass is not strongly constrained by Hipparcos.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-rel/">« Fit Relative RV Data</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">Fit GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Saturday 19 October 2024 21:39">Saturday 19 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
