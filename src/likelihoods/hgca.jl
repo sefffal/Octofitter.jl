@@ -41,17 +41,16 @@ for a star with catalog id `gaia_id`.
 The resulting velocities are in mas/yr and have the long term trend between HIPPARCOS and GAIA
 already subtracted out. e.g. we would expect 0 pma if there is no companion.
 """
-function HGCALikelihood(hgca;
+function HGCALikelihood(;
     gaia_id,
     catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits",
     N_ave=25,
     factor=1
 )
-    hgca_all=Table([hgca])
 
-    # hgca_all = FITS(catalog, "r") do fits
-    #     Table(fits[2])
-    # end
+    hgca_all = FITS(catalog, "r") do fits
+        Table(fits[2])
+    end
 
     # Available columns (for reference)
     # chisq            crosscal_pmdec_hg  crosscal_pmdec_hip   crosscal_pmra_hg   crosscal_pmra_hip  epoch_dec_gaia          epoch_dec_hip
