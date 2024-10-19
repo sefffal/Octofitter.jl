@@ -7,7 +7,7 @@ function HARPS_RVBank_observations(target, catalog=datadep"HARPS_RVBank")
     
     rvbank = CSV.read(joinpath(catalog, "HARPS_RVBank_ver02.csv"), Table)
 
-    target_matched_i = findfirst(==(target), rvbank.target)
+    target_matched_i = findall(==(target), rvbank.target)
 
     if isnothing(target_matched_i)
         avail_filt = unique(rvbank.target[rvbank.target.!=""])
