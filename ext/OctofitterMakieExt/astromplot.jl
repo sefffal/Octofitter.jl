@@ -37,6 +37,7 @@ function Octofitter.astromplot!(
     colorbar=true,
     mark_epochs_mjd=Float64[],
     alpha=min.(1, 100 / length(ii)),
+    ts,
     kwargs...
 )
     gs = gridspec_or_fig
@@ -108,8 +109,18 @@ function Octofitter.astromplot!(
         orbs = Octofitter.construct_elements(results, planet_key, ii)
 
         # Draws from the posterior
-        sols = orbitsolve_eccanom.(orbs, EAs')
-        # sols_0 = orbitsolve.(orbs, epoch_0)
+        if first(orbs) isa AbsoluteVisual
+            # Solve from an initial epoch, then in equal steps of mean anomaly (best we can do, ideally we'd do steps of eccentic anomaly)
+            MAs = range(0, 2pi, length=150)
+            ts_prime = first(ts) .+ range(0, 1 + 1/150, length=150)' .* period.(orbs)
+            sols = orbitsolve.(orbs, ts_prime)
+        else
+            # Orbit is perfectly periodic, so take equal steps in 
+            sols = orbitsolve_eccanom.(orbs, EAs')
+        end
+        
+
+
         try
             raoff(first(sols))
         catch
