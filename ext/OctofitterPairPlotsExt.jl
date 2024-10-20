@@ -46,7 +46,7 @@ function Octofitter.octocorner(
     end
     function preparechain(chain)
         prepped = _preparechain(chain)
-        name = hasproperty(chain.info, :model_name) ? string(chain.info.model_name) : nothing
+        name = hasproperty(chain.info, :model_name) ? string(chain.info.model_name) : string(system.name)
         pair = PairPlots.Series(prepped,label=name,color=colors[mod1(colori,end)]) => viz
         colori += 1
         return pair
