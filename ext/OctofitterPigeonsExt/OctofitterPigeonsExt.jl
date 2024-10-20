@@ -190,7 +190,13 @@ Base.@nospecializeinfer function MCMCChains.Chains(
             :pigeons_logpotential,
         ])
     )
-    return mcmcchains
+    mcmcchains_with_info = MCMCChains.setinfo(
+        mcmcchains,
+        (;
+            model_name=pt.inputs.target.system.name
+        )
+    )
+    return mcmcchains_with_info
 end
 
 end
