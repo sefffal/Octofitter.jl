@@ -32,20 +32,20 @@ model_pma = Octofitter.LogDensityModel(HD91312_pma)</code></pre><pre class="docu
 chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16, n_rounds=12);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 11
-ℓπcallback(θ, args...): 0.000013 seconds (9 allocations: 320 bytes)
+ℓπcallback(θ, args...): 0.000022 seconds (9 allocations: 320 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 11
-└   t = 1.664e-6
+└   t = 1.684e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 11
-∇ℓπcallback(θ): 0.000006 seconds
+∇ℓπcallback(θ): 0.000011 seconds
 [ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 11
-ℓπcallback(θ, args...): 0.000002 seconds (9 allocations: 320 bytes)
+ℓπcallback(θ, args...): 0.000003 seconds (9 allocations: 320 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 11
-└   t = 1.673e-6
+└   t = 1.663e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 11
 ∇ℓπcallback(θ): 0.000002 seconds
@@ -55,18 +55,18 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.23       3.56       6.44   3.02e+08  -2.96e+08          0      0.813      0.924       0.96
-        4          0       6.32       4.67       3.77   9.28e+06  -2.39e+05          0      0.646      0.888      0.918
-        8          0       6.09        6.5       6.07   8.92e+05  -6.49e+04          0      0.594      0.887      0.916
-       16          0       7.21       5.33       12.3   1.71e+06  -3.24e+04          0      0.595      0.891      0.911
-       32          0       7.85       7.36       24.6   3.19e+06  -2.41e+03          0       0.51       0.89      0.906
-       64          3       8.45       2.61       51.3   2.29e+08      -14.7   2.21e-29      0.643      0.892      0.904
-      128         10       8.23       2.67        101   4.04e+08      -15.1   1.22e-05      0.649      0.898      0.905
-      256         29       8.94       2.47        198   7.89e+08      -15.2   0.000161      0.632      0.899      0.907
-      512         54       9.56       2.68        404    1.6e+09      -15.1      0.015      0.605        0.9      0.907
- 1.02e+03        140        9.6       2.54        804   3.18e+09      -15.1     0.0432      0.609        0.9      0.908
- 2.05e+03        272       9.77       2.59   1.62e+03   6.42e+09      -15.5      0.134      0.601      0.902      0.907
-  4.1e+03        524       9.86       2.75   3.23e+03   1.28e+10      -15.1      0.226      0.593      0.901      0.908
+        2          0       2.23       3.56       6.73   3.02e+08  -2.96e+08          0      0.813      0.924       0.96
+        4          0       6.32       4.67        3.9   9.28e+06  -2.39e+05          0      0.646      0.888      0.918
+        8          0       6.09        6.5       6.31   8.92e+05  -6.49e+04          0      0.594      0.887      0.916
+       16          0       7.21       5.33       12.8   1.71e+06  -3.24e+04          0      0.595      0.891      0.911
+       32          0       7.85       7.36       25.7   3.19e+06  -2.41e+03          0       0.51       0.89      0.906
+       64          3       8.45       2.61       53.5    2.3e+08      -14.7   2.21e-29      0.643      0.892      0.904
+      128         10       8.23       2.67        105   4.04e+08      -15.1   1.22e-05      0.649      0.898      0.905
+      256         29       8.94       2.47        207   7.89e+08      -15.2   0.000161      0.632      0.899      0.907
+      512         54       9.56       2.68        421    1.6e+09      -15.1      0.015      0.605        0.9      0.907
+ 1.02e+03        140        9.6       2.54        834   3.18e+09      -15.1     0.0432      0.609        0.9      0.908
+ 2.05e+03        272       9.77       2.59   1.68e+03   6.42e+09      -15.5      0.134      0.601      0.902      0.907
+  4.1e+03        524       9.86       2.75   3.36e+03   1.28e+10      -15.1      0.226      0.593      0.901      0.908
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl:</p><pre><code class="language-julia hljs">pairplot(
     PairPlots.Series(
         (;
@@ -249,4 +249,4 @@ pairplot(
         :sma=&gt;&quot;log₂ Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log₂ Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="818045ae.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extract-phot-astrom/">« Extract Astrometry and Photometry</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Saturday 19 October 2024 21:39">Saturday 19 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="818045ae.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extract-phot-astrom/">« Extract Astrometry and Photometry</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Monday 21 October 2024 22:29">Monday 21 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

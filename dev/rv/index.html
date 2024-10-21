@@ -78,37 +78,37 @@ model = Octofitter.LogDensityModel(ϵEri)</code></pre><pre class="documenter-exa
 results, pt = octofit_pigeons(model, n_rounds=8, n_chains=10, n_chains_variational=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 15
-ℓπcallback(θ, args...): 0.000032 seconds (43 allocations: 1.625 KiB)
+ℓπcallback(θ, args...): 0.000052 seconds (43 allocations: 1.625 KiB)
 ┌ Info: Tuning autodiff
 │   chunk_size = 15
-└   t = 4.068e-6
+└   t = 3.997e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 15
-∇ℓπcallback(θ): 0.000021 seconds (34 allocations: 10.016 KiB)
+∇ℓπcallback(θ): 0.000040 seconds (34 allocations: 10.016 KiB)
 [ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 15
 ℓπcallback(θ, args...): 0.000005 seconds (43 allocations: 1.625 KiB)
 ┌ Info: Tuning autodiff
 │   chunk_size = 15
-└   t = 4.378e-6
+└   t = 4.248e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 15
-∇ℓπcallback(θ): 0.000006 seconds (34 allocations: 10.016 KiB)
+∇ℓπcallback(θ): 0.000005 seconds (34 allocations: 10.016 KiB)
 [ Info: Determining initial positions and metric using pathfinder
 ┌ Info: Found a sample of initial positions
 └   initial_logpost_range = (-2883.922757647466, -2873.745439258521)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       5.87       4.21       16.9    8.2e+08  -3.46e+04          0       0.47      0.947      0.973
-        4          0       4.19       5.13       19.4   5.96e+08  -4.57e+03          0      0.509      0.897      0.938
-        8          0       4.36       5.49       28.3   8.58e+08  -3.23e+03          0      0.482      0.931      0.944
-       16          0       5.87       5.63       57.8   1.75e+09   -3.8e+03          0      0.395      0.924      0.938
-       32          0       6.72       6.27        117   3.55e+09  -3.08e+03  5.22e-164      0.317      0.925      0.935
-       64         10       6.52       2.13        248   5.98e+09   -2.9e+03   4.93e-31      0.545      0.923      0.938
-      128         19       6.86       2.15        479   1.16e+10   -2.9e+03   1.12e-29      0.526       0.92      0.935
-      256         30       7.08       2.26        964   2.33e+10   -2.9e+03   0.000135      0.509      0.926      0.936
+        2          0       5.87       4.21       17.8   8.18e+08  -3.46e+04          0       0.47      0.947      0.973
+        4          0       4.19       5.13       19.8   5.96e+08  -4.57e+03          0      0.509      0.897      0.938
+        8          0       4.36       5.49       28.7   8.58e+08  -3.23e+03          0      0.482      0.931      0.944
+       16          0       5.87       5.63         59   1.75e+09   -3.8e+03          0      0.395      0.924      0.938
+       32          0       6.72       6.27        118   3.55e+09  -3.08e+03  5.22e-164      0.317      0.925      0.935
+       64         10       6.52       2.13        252   5.98e+09   -2.9e+03   4.93e-31      0.545      0.923      0.938
+      128         19       6.86       2.15        485   1.16e+10   -2.9e+03   1.12e-29      0.526       0.92      0.935
+      256         30       7.08       2.26        970   2.33e+10   -2.9e+03   0.000135      0.509      0.926      0.936
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>We can now plot the results with a multi-panel plot:</p><pre><code class="language-julia hljs">octoplot(model, results[1:200,:,:], show_mass=true)</code></pre><img src="7075d066.png" alt="Example block output"/><p>We can also plot just the RV curve from the maximum <em>a-posteriori</em> fit:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, results)</code></pre><img src="1ce24e13.png" alt="Example block output"/><p>We can see what the visual orbit looks like for the maximum a-posteriori orbit:</p><pre><code class="language-julia hljs">i_max = argmax(results[:logpost][:])
 fig = octoplot(
     model,
@@ -125,4 +125,4 @@ fig = octoplot(
 )
 Label(fig[0,1], &quot;Maximum a-posteriori orbit sample&quot;)
 fig</code></pre><img src="3d7325cc.png" alt="Example block output"/><p>And a corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model, results, small=true)</code></pre><img src="74e59869.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Fit Orbits to Images</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">Fit RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Saturday 19 October 2024 21:39">Saturday 19 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model, results, small=true)</code></pre><img src="74e59869.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Fit Orbits to Images</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">Fit RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Monday 21 October 2024 22:29">Monday 21 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -53,42 +53,42 @@ chain_pma, pt = octofit_pigeons(model_pma, n_rounds=13, explorer=SliceSampler())
 display(chain_pma)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 14
-ℓπcallback(θ, args...): 0.000011 seconds (9 allocations: 320 bytes)
+ℓπcallback(θ, args...): 0.000022 seconds (9 allocations: 320 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 14
 └   t = 2.164e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 14
-∇ℓπcallback(θ): 0.000009 seconds
+∇ℓπcallback(θ): 0.000013 seconds
 [ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 14
-ℓπcallback(θ, args...): 0.000003 seconds (9 allocations: 320 bytes)
+ℓπcallback(θ, args...): 0.000002 seconds (9 allocations: 320 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 14
-└   t = 2.205e-6
+└   t = 2.194e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 14
-∇ℓπcallback(θ): 0.000002 seconds
+∇ℓπcallback(θ): 0.000003 seconds
 [ Info: Determining initial positions and metric using pathfinder
 ┌ Info: Found a sample of initial positions
 └   initial_logpost_range = (-11.987352900918872, -2.26543628251968)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.16       3.99      0.277   6.98e+06  -2.57e+04          0      0.769          1          1
-        4          0       4.76       5.31     0.0979   1.49e+05  -1.27e+03          0      0.675          1          1
-        8          0       4.99       6.68      0.197   2.51e+05       -668          0      0.624          1          1
-       16          0        6.2       5.82      0.385   4.15e+05       -117   5.69e-98      0.612          1          1
-       32          0       5.79       6.65      0.753   6.91e+05      -8.84   3.06e-11      0.599          1          1
-       64          3       6.73       3.65       1.68   5.52e+07      -12.3     0.0432      0.665          1          1
-      128          4       7.47       4.79       3.01   9.69e+07      -11.9     0.0843      0.604          1          1
-      256         17       7.63       4.39       5.76   1.91e+08      -11.9      0.178      0.612          1          1
-      512         50       7.76       4.09       11.7   3.84e+08      -11.8      0.281      0.618          1          1
- 1.02e+03        103       7.81       4.05       23.4    7.7e+08      -12.1      0.419      0.618          1          1
- 2.05e+03        209       7.75       4.12       46.9   1.54e+09        -12      0.438      0.617          1          1
-  4.1e+03        291        7.8        5.2       93.4   3.07e+09        -12      0.232      0.581          1          1
- 8.19e+03        815       7.75       4.11        186   6.06e+09        -12      0.463      0.617          1          1
+        2          0       3.16       3.99      0.306   6.98e+06  -2.57e+04          0      0.769          1          1
+        4          0       4.76       5.31     0.0966   1.49e+05  -1.27e+03          0      0.675          1          1
+        8          0       4.99       6.68      0.196   2.51e+05       -668          0      0.624          1          1
+       16          0        6.2       5.82      0.383   4.15e+05       -117   5.69e-98      0.612          1          1
+       32          0       5.79       6.65      0.749   6.91e+05      -8.84   3.06e-11      0.599          1          1
+       64          3       6.73       3.65       2.54   5.76e+07      -12.3     0.0432      0.665          1          1
+      128          4       7.47       4.79       2.88   9.69e+07      -11.9     0.0843      0.604          1          1
+      256         17       7.63       4.39       5.74   1.91e+08      -11.9      0.178      0.612          1          1
+      512         50       7.76       4.09       11.6   3.84e+08      -11.8      0.281      0.618          1          1
+ 1.02e+03        103       7.81       4.05       23.2    7.7e+08      -12.1      0.419      0.618          1          1
+ 2.05e+03        209       7.75       4.12       46.6   1.54e+09        -12      0.438      0.617          1          1
+  4.1e+03        291        7.8        5.2       92.7   3.07e+09        -12      0.232      0.581          1          1
+ 8.19e+03        815       7.75       4.11        184   6.06e+09        -12      0.463      0.617          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Note that <code>octofit_pigeons</code> took somewhat longer to run than <code>octofit</code> typically does; however, as we will see, it sampled successfully from severally completely disconnected modes in the posterior. That makes it a good fit for sampling from proper motion anomaly and relative astrometry with limited orbital coverage.</p><h3 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h3><p>The first step is to look at the table output above generated by MCMCChains.jl. The <code>rhat</code> column gives a convergence measure. Each parameter should have an <code>rhat</code> very close to 1.000. If not, you may need to run the model for more iterations or tweak the parameterization of the model to improve sampling. The <code>ess</code> column gives an estimate of the effective sample size. The <code>mean</code> and <code>std</code> columns give the mean and standard deviation of each parameter.</p><p>The second table summarizes the 2.5, 25, 50, 75, and 97.5 percentiles of each parameter in the model.</p><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>If we wish to examine the covariance between parameters in more detail, we can construct a pair-plot (aka. corner plot).</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
 using CairoMakie: Makie
@@ -157,51 +157,51 @@ model_pma_astrom = Octofitter.LogDensityModel(HD91312_pma_astrom,autodiff=:Forwa
 chain_pma_astrom, pt = octofit_pigeons(model_pma_astrom, n_rounds=12, explorer=SliceSampler())</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 14
-ℓπcallback(θ, args...): 0.000016 seconds (9 allocations: 1.688 KiB)
+ℓπcallback(θ, args...): 0.000038 seconds (9 allocations: 1.688 KiB)
 ┌ Info: Tuning autodiff
 │   chunk_size = 14
-└   t = 1.2944e-5
+└   t = 1.2864e-5
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 14
-∇ℓπcallback(θ): 0.000023 seconds
+∇ℓπcallback(θ): 0.000039 seconds
 [ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 14
-ℓπcallback(θ, args...): 0.000014 seconds (9 allocations: 320 bytes)
+ℓπcallback(θ, args...): 0.000024 seconds (9 allocations: 320 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 14
-└   t = 2.174e-6
+└   t = 2.184e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 14
-∇ℓπcallback(θ): 0.000008 seconds
+∇ℓπcallback(θ): 0.000016 seconds
 [ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 14
 ℓπcallback(θ, args...): 0.000002 seconds (9 allocations: 320 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 14
-└   t = 2.194e-6
+└   t = 2.224e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 14
-∇ℓπcallback(θ): 0.000002 seconds
+∇ℓπcallback(θ): 0.000003 seconds
 [ Info: Determining initial positions and metric using pathfinder
 ┌ Info: Found a sample of initial positions
 └   initial_logpost_range = (-50.0716224146948, -39.737661938103244)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.66        3.3      0.322   4.03e+06  -1.09e+04          0      0.775          1          1
-        4          0       4.06       4.56      0.224   1.59e+05       -996          0      0.722          1          1
-        8          0       5.28       7.38      0.426   2.54e+05       -175   1.33e-98      0.592          1          1
-       16          0       8.12       8.06      0.791   3.56e+05      -60.3   6.16e-29      0.478          1          1
-       32          0        8.5       9.64       1.54   5.71e+05      -60.5   2.04e-07      0.415          1          1
-       64          0       8.77       4.62       3.29    6.3e+07        -74     0.0549      0.568          1          1
-      128          2       9.31       5.63       6.31   1.15e+08      -67.9     0.0241      0.518          1          1
+        2          0       3.66        3.3      0.334   4.03e+06  -1.09e+04          0      0.775          1          1
+        4          0       4.06       4.56      0.225   1.59e+05       -996          0      0.722          1          1
+        8          0       5.28       7.38      0.428   2.54e+05       -175   1.33e-98      0.592          1          1
+       16          0       8.12       8.06      0.794   3.56e+05      -60.3   6.16e-29      0.478          1          1
+       32          0        8.5       9.64       1.55   5.71e+05      -60.5   2.04e-07      0.415          1          1
+       64          0       8.77       4.62       3.33    6.3e+07        -74     0.0549      0.568          1          1
+      128          2       9.31       5.63       6.35   1.15e+08      -67.9     0.0241      0.518          1          1
       256          8       9.31       5.68       12.3   2.25e+08      -66.5     0.0995      0.516          1          1
       512         10       9.63       6.43       24.8   4.51e+08        -66      0.179      0.482          1          1
- 1.02e+03         26       9.65       6.43       48.8   8.84e+08      -66.4      0.302      0.481          1          1
- 2.05e+03         61       9.74       6.23       97.5   1.76e+09      -65.9      0.316      0.485          1          1
-  4.1e+03        133       9.76        6.1        196   3.55e+09      -66.1      0.325      0.488          1          1
+ 1.02e+03         26       9.65       6.43       48.9   8.84e+08      -66.4      0.302      0.481          1          1
+ 2.05e+03         61       9.74       6.23       97.7   1.76e+09      -65.9      0.316      0.485          1          1
+  4.1e+03        133       9.76        6.1        197   3.55e+09      -66.1      0.325      0.488          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><h2 id="Model:-PMA-and-Relative-Astrometry-and-RVs"><a class="docs-heading-anchor" href="#Model:-PMA-and-Relative-Astrometry-and-RVs">Model: PMA &amp; Relative Astrometry &amp; RVs</a><a id="Model:-PMA-and-Relative-Astrometry-and-RVs-1"></a><a class="docs-heading-anchor-permalink" href="#Model:-PMA-and-Relative-Astrometry-and-RVs" title="Permalink"></a></h2><p>We now add in three additional epochs of stellar RVs.</p><pre><code class="language-julia hljs">using OctofitterRadialVelocity
 
 rvlike = StarAbsoluteRVLikelihood(
@@ -245,27 +245,27 @@ chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=12, expl
 display(chain_pma_rv_astrom)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 16
-ℓπcallback(θ, args...): 0.000021 seconds (9 allocations: 1.828 KiB)
+ℓπcallback(θ, args...): 0.000038 seconds (9 allocations: 1.828 KiB)
 ┌ Info: Tuning autodiff
 │   chunk_size = 16
-└   t = 1.6541e-5
+└   t = 1.6491e-5
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 16
-∇ℓπcallback(θ): 0.000036 seconds
+∇ℓπcallback(θ): 0.000046 seconds
 [ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 16
-ℓπcallback(θ, args...): 0.000011 seconds (9 allocations: 320 bytes)
+ℓπcallback(θ, args...): 0.000024 seconds (9 allocations: 320 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 16
-└   t = 2.174e-6
+└   t = 2.184e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 16
-∇ℓπcallback(θ): 0.000014 seconds
+∇ℓπcallback(θ): 0.000016 seconds
 [ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 16
-ℓπcallback(θ, args...): 0.000002 seconds (9 allocations: 320 bytes)
+ℓπcallback(θ, args...): 0.000003 seconds (9 allocations: 320 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 16
 └   t = 2.224e-6
@@ -278,16 +278,16 @@ display(chain_pma_rv_astrom)</code></pre><pre class="documenter-example-output">
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.92          4      0.374   4.02e+06  -1.85e+04          0      0.744          1          1
-        4          0       4.76          4      0.328   1.67e+05  -3.53e+03          0      0.717          1          1
+        2          0       3.92          4      0.382   4.02e+06  -1.85e+04          0      0.744          1          1
+        4          0       4.76          4      0.338   1.67e+05  -3.53e+03          0      0.717          1          1
         8          0       5.53       4.92       0.62   2.62e+05       -185  2.52e-307      0.663          1          1
-       16          0       8.23       7.21       1.19   3.67e+05       -175   1.31e-74      0.502          1          1
+       16          0       8.23       7.21        1.2   3.67e+05       -175   1.31e-74      0.502          1          1
        32          0       8.33       8.19       2.34   5.79e+05      -97.1    2.6e-11      0.467          1          1
-       64          1        9.3       4.54       4.79   7.34e+07       -103     0.0133      0.554          1          1
-      128          0       9.64       5.56       9.39   1.35e+08       -100     0.0344       0.51          1          1
+       64          1        9.3       4.54       4.82   7.34e+07       -103     0.0133      0.554          1          1
+      128          0       9.64       5.56       9.45   1.35e+08       -100     0.0344       0.51          1          1
       256          4       10.1       7.07       18.9    2.7e+08        -98     0.0353      0.446          1          1
-      512          6       10.4       6.87       37.4   5.32e+08      -97.5      0.104      0.442          1          1
- 1.02e+03         30       10.4       6.95       75.6   1.08e+09      -97.6      0.211       0.44          1          1
+      512          6       10.4       6.87       37.5   5.32e+08      -97.5      0.104      0.442          1          1
+ 1.02e+03         30       10.4       6.95       75.7   1.08e+09      -97.6      0.211       0.44          1          1
  2.05e+03         66       10.5       6.53        151   2.15e+09      -97.6      0.258      0.451          1          1
   4.1e+03        134       10.4       6.61        302   4.33e+09      -97.6      0.274       0.45          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>The mass vs. semi-major axis posterior is now much more constrained:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
@@ -331,20 +331,20 @@ model_rv_astrom = Octofitter.LogDensityModel(HD91312_rv_astrom,autodiff=:Forward
 chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 14
-ℓπcallback(θ, args...): 0.000023 seconds (9 allocations: 608 bytes)
+ℓπcallback(θ, args...): 0.000028 seconds (9 allocations: 608 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 14
-└   t = 1.1612e-5
+└   t = 1.1521e-5
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 14
-∇ℓπcallback(θ): 0.000024 seconds
+∇ℓπcallback(θ): 0.000029 seconds
 [ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 14
-ℓπcallback(θ, args...): 0.000019 seconds (9 allocations: 320 bytes)
+ℓπcallback(θ, args...): 0.000015 seconds (9 allocations: 320 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 14
-└   t = 2.154e-6
+└   t = 2.153e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 14
 ∇ℓπcallback(θ): 0.000009 seconds
@@ -354,7 +354,7 @@ chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)</code></pre>
 ℓπcallback(θ, args...): 0.000003 seconds (9 allocations: 320 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 14
-└   t = 2.255e-6
+└   t = 2.254e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 14
 ∇ℓπcallback(θ): 0.000002 seconds
@@ -364,18 +364,18 @@ chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)</code></pre>
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       1.98       4.32       4.38   3.09e+08       -283          0      0.797       0.94      0.969
-        4          0       5.25       4.58      0.871   9.14e+06       -135   3.52e-56      0.683      0.902      0.941
-        8          0       5.25       5.81       1.31   6.33e+05      -91.2   5.23e-13      0.643      0.902      0.935
-       16          0       6.28       6.88       2.97   1.15e+06      -90.2   8.92e-05      0.576      0.905      0.938
-       32          0        8.1       7.77          5   2.05e+06      -87.9     0.0507      0.488      0.907      0.933
-       64          1          8       4.68       10.8   1.98e+08      -79.6      0.241      0.591      0.915      0.931
-      128          3       7.73       5.06       20.4   3.56e+08      -87.4      0.269      0.588      0.916      0.933
-      256          8       8.02       5.37       41.2   7.31e+08      -86.8      0.376      0.568      0.916      0.934
-      512         16       7.88       5.73         80   1.41e+09      -86.4      0.399      0.561      0.914      0.932
- 1.02e+03         35       7.98       5.88        164    2.9e+09      -87.1      0.402      0.553      0.916      0.934
- 2.05e+03         90       7.95       5.47        315   5.56e+09      -86.8      0.429      0.567      0.916      0.932
-  4.1e+03        160       7.95       5.86        650   1.16e+10      -86.8      0.436      0.555      0.918      0.935
+        2          0       1.98       4.32       4.31   3.09e+08       -283          0      0.797       0.94      0.969
+        4          0       5.25       4.58      0.869   9.14e+06       -135   3.52e-56      0.683      0.902      0.941
+        8          0       5.25       5.81       1.27   6.33e+05      -91.2   5.23e-13      0.643      0.902      0.935
+       16          0       6.28       6.88       2.81   1.15e+06      -90.2   8.92e-05      0.576      0.905      0.938
+       32          0        8.1       7.77       4.76   2.05e+06      -87.9     0.0507      0.488      0.907      0.933
+       64          1          8       4.68       10.4   1.98e+08      -79.6      0.241      0.591      0.915      0.931
+      128          3       7.73       5.06       19.9   3.56e+08      -87.4      0.269      0.588      0.916      0.933
+      256          8       8.02       5.37       40.4   7.31e+08      -86.8      0.376      0.568      0.916      0.934
+      512         16       7.88       5.73       78.5   1.41e+09      -86.4      0.399      0.561      0.914      0.932
+ 1.02e+03         35       7.98       5.88        160    2.9e+09      -87.1      0.402      0.553      0.916      0.934
+ 2.05e+03         90       7.95       5.47        309   5.56e+09      -86.8      0.429      0.567      0.916      0.932
+  4.1e+03        160       7.95       5.86        638   1.16e+10      -86.8      0.436      0.555      0.918      0.935
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><h2 id="Model-Comparison"><a class="docs-heading-anchor" href="#Model-Comparison">Model Comparison</a><a id="Model-Comparison-1"></a><a class="docs-heading-anchor-permalink" href="#Model-Comparison" title="Permalink"></a></h2><p>Let&#39;s now display the constraints provided by each data set in a single corner plot</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 using CairoMakie: Makie
 using PairPlots
@@ -393,4 +393,4 @@ octocorner(
         PairPlots.MarginDensity(),
         PairPlots.Scatter()
     )
-)</code></pre><img src="6ef87b40.png" alt="Example block output"/><p>We see that the constraints provided by the PMA, the astrometry, and the radial velocity data all individually overlap, and agree with the joint model constraint.  This is means that none of the datasets are in tension with each other, which might suggest an issue with the data or with the modelling assumptions (e.g. single planet). </p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Saturday 19 October 2024 21:39">Saturday 19 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="6ef87b40.png" alt="Example block output"/><p>We see that the constraints provided by the PMA, the astrometry, and the radial velocity data all individually overlap, and agree with the joint model constraint.  This is means that none of the datasets are in tension with each other, which might suggest an issue with the data or with the modelling assumptions (e.g. single planet). </p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Fit Radial Velocity</a><a class="docs-footer-nextpage" href="../images/">Fit Orbits to Images »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Monday 21 October 2024 22:29">Monday 21 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
