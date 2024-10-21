@@ -158,7 +158,12 @@ Base.@nospecializeinfer function MCMCChains.Chains(
 
     # Resolve the array back into the nested named tuple structure used internally.
     # Augment with some internal fields
-    samples = get_sample(pt, chain_num)
+    local samples
+    try
+        samples = get_sample(pt, chain_num)
+    catch
+        samples = get_sample(pt)
+    end
     chain_res = map(samples) do sample 
         θ_t = @view(sample[begin:begin+model.D-1])
         logpot = sample[model.D+1]
