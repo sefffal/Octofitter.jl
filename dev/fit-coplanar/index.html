@@ -94,43 +94,43 @@ model = Octofitter.LogDensityModel(HR8799_res_co)</code></pre><pre class="docume
 results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 12
-ℓπcallback(θ, args...): 0.000023 seconds (9 allocations: 368 bytes)
+ℓπcallback(θ, args...): 0.000015 seconds (9 allocations: 368 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 12
-└   t = 2.244e-6
+└   t = 2.265e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 12
-∇ℓπcallback(θ): 0.000014 seconds
+∇ℓπcallback(θ): 0.000007 seconds
 [ Info: Preparing model
 ┌ Info: Determined number of free variables
 └   D = 12
-ℓπcallback(θ, args...): 0.000003 seconds (9 allocations: 368 bytes)
+ℓπcallback(θ, args...): 0.000002 seconds (9 allocations: 368 bytes)
 ┌ Info: Tuning autodiff
 │   chunk_size = 12
-└   t = 2.224e-6
+└   t = 2.344e-6
 ┌ Info: Selected auto-diff chunk size
 └   ideal_chunk_size = 12
-∇ℓπcallback(θ): 0.000003 seconds
+∇ℓπcallback(θ): 0.000002 seconds
 [ Info: Determining initial positions and metric using pathfinder
 ┌ Info: Found a sample of initial positions
 └   initial_logpost_range = (-182.7838992836761, -164.96643603923988)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.51       2.89       5.66   2.86e+08   -9.3e+06          0      0.794      0.943      0.965
-        4          0       5.65       5.53       1.35   9.33e+06  -3.14e+06          0      0.639      0.905      0.931
-        8          0       7.94       5.84        1.8   9.91e+05   -2.1e+05          0      0.556      0.923      0.936
-       16          0       8.37       6.63       3.52   1.89e+06  -1.92e+04          0      0.516       0.91       0.93
-       32          0       9.32       7.59       7.47   3.59e+06  -6.14e+03          0      0.455      0.914      0.925
-       64          0       10.3       6.67       17.6   2.67e+08       -208   5.99e-38      0.451      0.909      0.927
+        2          0       3.51       2.89       5.51   2.88e+08   -9.3e+06          0      0.794      0.943      0.965
+        4          0       5.65       5.53       1.27   9.33e+06  -3.14e+06          0      0.639      0.905      0.931
+        8          0       7.94       5.84       1.71   9.91e+05   -2.1e+05          0      0.556      0.923      0.936
+       16          0       8.37       6.63       3.34   1.89e+06  -1.92e+04          0      0.516       0.91       0.93
+       32          0       9.32       7.59       7.07   3.59e+06  -6.14e+03          0      0.455      0.914      0.925
+       64          0       10.3       6.67       16.8   2.67e+08       -208   5.99e-38      0.451      0.909      0.927
       128          0       10.2       7.76       31.4   4.64e+08       -208    3.1e-16      0.419      0.913      0.927
-      256          4       10.5       7.44         64   9.26e+08       -207   3.36e-37      0.421      0.912      0.925
-      512          6       10.7       7.99        130   1.85e+09       -207   0.000124      0.396      0.908      0.925
- 1.02e+03          9       10.9       8.83        270   3.91e+09       -205   0.000223      0.363      0.916      0.927
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="5e2eb4ee.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="4ced7d02.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
+      256          4       10.5       7.44       60.6   9.26e+08       -207   3.36e-37      0.421      0.912      0.925
+      512          6       10.7       7.99        122   1.85e+09       -207   0.000124      0.396      0.908      0.925
+ 1.02e+03          9       10.9       8.83        259   3.91e+09       -205   0.000223      0.363      0.916      0.927
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="4d8eeb09.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="4ced7d02.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
     results[:b_P][:] ./ results[:c_P][:],
     axis=(;
         xlabel=&quot;period ratio&quot;,
         ylabel=&quot;counts&quot;,
     )
-)</code></pre><img src="894e6a92.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-astrom/">« Fit RV and Relative Astrometry</a><a class="docs-footer-nextpage" href="../fit-interfere/">Fit Interferometer Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Monday 21 October 2024 22:29">Monday 21 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="894e6a92.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-astrom/">« Fit RV and Relative Astrometry</a><a class="docs-footer-nextpage" href="../fit-interfere/">Fit Interferometer Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Saturday 26 October 2024 22:37">Saturday 26 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
