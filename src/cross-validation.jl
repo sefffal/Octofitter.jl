@@ -80,12 +80,13 @@ function generate_kfold_systems(system)
             )
         end
 
+        new_name = Symbol(string(system.name, "_kfold_$i_obs"))
         return System(
             system.priors,
             system.derived,
             to_include_system...,
             planets_new...;
-            system.name
+            name=new_name
         )
     end
 
