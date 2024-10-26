@@ -81,7 +81,7 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     # This is based on some local benchmarks. Spawning tasks takes about 450ns;
     # an orbit solve takes about 32ns, or 1/14 as long.
     else
-        Octofitter._kepsolve_use_threads[] = _count_epochs(model.system) > 15*Threads.nthreads()
+        Octofitter._kepsolve_use_threads[] = _count_epochs(target.system) > 15*Threads.nthreads()
     end
     inputs = Pigeons.Inputs(;
         target,
