@@ -66,11 +66,12 @@ function Octofitter.masspostplot!(
     xlims!(ax_scat_ecc, 0, 1)
     cred_intervals = []
     for planet_key in keys(model.system.planets)
+        els = Octofitter.construct_elements(results, planet_key, :);
         mk = Symbol("$(planet_key)_mass")
         if !haskey(results, mk)
             continue
         end
-        sma = vec(results["$(planet_key)_a"])
+        sma = semimajoraxis.(els)
         mass = vec(results[mk])
         ecc = vec(results["$(planet_key)_e"])
         stephist!(
