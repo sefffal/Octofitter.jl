@@ -173,104 +173,15 @@ function rvtimeplot!(
     end
 
 
-    # Now overplot the data points, if any.
-    # We can do this for relative RV since there is no zero point offset
-    # TODO: WIP support for planet absolute RV
-    for (i_planet, planet_key) in enumerate(keys(model.system.planets))
-        planet = getproperty(model.system.planets, planet_key)
-        for like_obj in planet.observations
-            if nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
-                continue
-            end
-            epoch = vec(like_obj.table.epoch)
-            rv = vec(like_obj.table.rv)
-            σ_rv = vec(like_obj.table.σ_rv)
-            inst_idx = vec(like_obj.table.inst_idx)
-            if any(!=(1), inst_idx)
-                @warn "instidx != 1 data plotting not yet implemented"
-                continue
-            end
-            jitter = results["$(planet_key)_jitter_1"]
-            σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
-            # Makie.errorbars!(
-            #     ax, epoch, rv .* kms_mult, σ_tot .* kms_mult;
-            #     color=Makie.wong_colors()[1+i_planet],
-            #     linewidth=3,
-            # )
-            # Makie.scatter!(
-            #     ax, epoch, rv .* kms_mult;
-            #     color=Makie.wong_colors()[1+i_planet],
-            #     strokewidth=0.5,
-            #     strokecolor=:black,
-            #     markersize=4,
-            # )
-            Makie.errorbars!(
-                ax, epoch, rv .* kms_mult, σ_tot .* kms_mult;
-                color =  :grey,
-                linewidth=1,
-            )
-            Makie.errorbars!(
-                ax, epoch, rv.*kms_mult, σ_rv .* kms_mult;
-                color =  :black,
-                linewidth=2,
-            )
-            Makie.scatter!(
-                ax, epoch, rv.*kms_mult;
-                color=:white,
-                strokewidth=2,
-                strokecolor=:black,
-                markersize=8,
-            )
-        end
-    end
-
-
-    for like_obj in model.system.observations
-        if nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
-            continue
-        end
-        epoch = vec(like_obj.table.epoch)
-        rv = collect(vec(like_obj.table.rv))
-        σ_rv = vec(like_obj.table.σ_rv)
-        inst_idxes = vec(like_obj.table.inst_idx)
-        # if any(!=(1), inst_idx)
-        #     @warn "instidx != 1 data plotting not yet implemented"
-        #     continue
-        # end
-        num_idx = maximum(inst_idxes)
-        for inst_idx in sort(unique(inst_idxes))
-            mask = inst_idxes .== inst_idx
-            jitter = map(sample->sample.jitter[inst_idx], nt_format)
-            rv0 = map(sample->sample.rv0[inst_idx], nt_format)'
-            σ_tot = sqrt.(σ_rv[mask] .^2 .+ mean(jitter) .^2 .+ var(rv0))
-            rv[mask] .-= mean(rv0,dims=2)
-            Makie.errorbars!(
-                ax, epoch[mask], rv[mask] .* kms_mult, σ_tot .* kms_mult;
-                color = planet_rv ? Makie.wong_colors()[1] : :grey,
-                linewidth=1,
-            )
-            Makie.errorbars!(
-                ax, epoch[mask], rv[mask] .* kms_mult, σ_rv[mask] .* kms_mult;
-                color = num_idx > 1 ? Makie.wong_colors()[inst_idx] : :black,
-                linewidth=2,
-            )
-            Makie.scatter!(
-                ax, epoch[mask], rv[mask] .* kms_mult;
-                color = num_idx > 1 ? Makie.wong_colors()[inst_idx] : :white,
-                strokewidth=2,
-                strokecolor=:black,
-                markersize=8, #1.5,
-            )
-        end
-    end
-
-    # auto-Marginalized rv0 star absolute RV 
+    
+    
     i_like = 0
     orbits = map(keys(model.system.planets)) do planet_key
         Octofitter.construct_elements(results, planet_key, ii)
     end
     for like_obj in model.system.observations
-        if nameof(typeof(like_obj)) != :MarginalizedStarAbsoluteRVLikelihood
+        if nameof(typeof(like_obj)) != :MarginalizedStarAbsoluteRVLikelihood &&
+            nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
             continue
         end
         i_like += 1
@@ -285,6 +196,14 @@ function rvtimeplot!(
         # instead of each 
         rv0 = map(enumerate(ii)) do (i_sol, i)
             θ_system = nt_format[i]
+
+            # StarAbsoluteRVLikelihood have an RV0 parameter in the model
+            if hasproperty(like_obj,:offset_symbol)
+                return θ_system[like_obj.offset_symbol]
+            end
+
+            # MarginalizedStarAbsoluteRVLikelihood do not, we can compute it in
+            # closed form (just like in the likelihood evaluation)
             planet_orbits_this_sample = getindex.(orbits, i_sol)
             return _find_rv_zero_point_maxlike(like_obj, θ_system, planet_orbits_this_sample)
         end'
