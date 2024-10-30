@@ -39,7 +39,7 @@ end
 
 function Pigeons.default_reference(target::Octofitter.LogDensityModel)
     reference_sys = prior_only_model(target.system)
-    reference = Octofitter.LogDensityModel(reference_sys; autodiff=target.autodiff_backend_symbol, verbosity=4)
+    reference = Octofitter.LogDensityModel(reference_sys; autodiff=target.autodiff_backend_symbol, verbosity=0)
     reference.starting_points = target.starting_points
     return reference
 end
@@ -70,6 +70,7 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     n_chains_variational::Int=16,
     checkpoint::Bool=false,
     multithreaded=true,
+    variational = GaussianReference(first_tuning_round = 5),
     pigeons_kw...
 )
     @nospecialize
@@ -81,8 +82,10 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     # This is based on some local benchmarks. Spawning tasks takes about 450ns;
     # an orbit solve takes about 32ns, or 1/14 as long.
     else
-        Octofitter._kepsolve_use_threads[] = _count_epochs(target.system) > 15*Threads.nthreads()
+        Octofitter._kepsolve_use_threads[] = Octofitter._count_epochs(target.system) > 15*Threads.nthreads()
     end
+    @info "Sampler running with multiple threads     : $multithreaded"
+    @info "Likelihood evaluated with multiple threads: $(Octofitter._kepsolve_use_threads[])"
     inputs = Pigeons.Inputs(;
         target,
         record = [traces; round_trip; record_default(); index_process],
@@ -91,8 +94,8 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
         n_rounds,
         n_chains,
         n_chains_variational,
-        variational = GaussianReference(first_tuning_round = 5),
         checkpoint,
+        variational,
         pigeons_kw...
     )
     return octofit_pigeons(inputs)
