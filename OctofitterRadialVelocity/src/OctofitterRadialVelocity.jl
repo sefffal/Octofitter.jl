@@ -21,12 +21,12 @@ include("rv-absolute.jl")
 include("rv-absolute-margin.jl")
 include("rv-relative.jl")
 
-include("harps_rvbank.jl")
-include("harps_dr1.jl")
-include("hires.jl")
-include("lick.jl")
-include("ces.jl")
-include("radvel.jl")
+include("data-sources/harps_rvbank.jl")
+include("data-sources/harps_dr1.jl")
+include("data-sources/hires.jl")
+include("data-sources/lick.jl")
+include("data-sources/ces.jl")
+include("compat/radvel.jl")
 
 
 rvpostplot = Octofitter.rvpostplot

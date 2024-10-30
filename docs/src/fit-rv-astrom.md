@@ -59,12 +59,20 @@ Random.seed!(1)
 
 epochs = 58849 .+ (20:20:660)
 planet_sim_mass = 0.001 # solar masses here
-rvlike = StarAbsoluteRVLikelihood(Table(
+
+# rvlike = StarAbsoluteRVLikelihood(Table(
+#     epoch=epochs,
+#     rv=radvel.(orb_template, epochs, planet_sim_mass),
+#     σ_rv=fill(5.0, size(epochs)),
+# ))
+
+rvlike = MarginalizedStarAbsoluteRVLikelihood(Table(
     epoch=epochs,
-    rv=radvel.(orb_template, epochs, planet_sim_mass) .+ randn.() .+ 100randn(),
+    rv=radvel.(orb_template, epochs, planet_sim_mass) ,
     σ_rv=fill(5.0, size(epochs)),
-))
-Makie.scatter(rvlike.table.epoch[:], rvlike.table.rv[:])
+), jitter=:jitter)
+
+# Makie.scatter(rvlike.table.epoch[:], rvlike.table.rv[:])
 ```
 
 
@@ -82,13 +90,11 @@ Now specify model and fit it:
     tp = θ_at_epoch_to_tperi(system,b,58849.0)  # reference epoch for θ. Choose an MJD date near your data.
 end astrom
 
-
-
 @system test begin
     M ~ truncated(Normal(1, 0.04),lower=0) # (Baines & Armstrong 2011).
     plx = 100.0
     jitter ~ truncated(Normal(0,10),lower=0)
-    rv0 ~ Normal(0,10)
+    # rv0 ~ Normal(0, 10000)
 end rvlike b
 
 model = Octofitter.LogDensityModel(test; autodiff=:ForwardDiff,verbosity=4)
@@ -96,13 +102,13 @@ model = Octofitter.LogDensityModel(test; autodiff=:ForwardDiff,verbosity=4)
 using Random
 rng = Xoshiro(0) # seed the random number generator for reproducible results
 
-results = octofit(rng, model)
+results_margin_newmath = octofit(rng, model, iterations=5000)
 ```
 
 
 Display results as a corner plot:
 ```@example 1
-octocorner(model, results, small=true)
+octocorner(model, results_nomargin2, results_margin, small=true)
 ```
 
 Plot RV curve, phase folded curve, and binned residuals:
@@ -112,6 +118,6 @@ OctofitterRadialVelocity.rvpostplot(model, results,)
 
 Display RV, PMA, astrometry, relative separation, position angle, and 3D projected views:
 ```@example 1
-octoplot(model, results)
+octoplot(model, results_margin_newmath)
 ```
 

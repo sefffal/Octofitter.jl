@@ -15,7 +15,7 @@ function CES_lc_rvs(target, catalog=datadep"CES_rvs"; inst_idx::Int=1)
         end
     end
 
-    return StarAbsoluteRVLikelihood(tbl)
+    return tbl
 end
 
 
@@ -31,7 +31,7 @@ function CES_vlc_rvs(target, catalog=datadep"CES_rvs"; inst_idx::Int=1)
         end
     end
 
-    return StarAbsoluteRVLikelihood(tbl)
+    return tbl
 end
 
 # --------------------------------------------------------------------------------

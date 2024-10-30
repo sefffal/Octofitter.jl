@@ -22,43 +22,24 @@ gaia_id = 5164707970261890560
     e = 0
     ω=0.0
     mass ~ Uniform(0, 3)
-    a ~ truncated(Normal(3.48,0.1),lower=0)
+    a ~ Uniform(3, 10)
     i ~ Sine()
-    Ω ~ UniformCircular()
-    
-    τ ~ UniformCircular(1.0)
+    Ω ~ Uniform(0,2pi)
+    τ ~ Uniform(0,1.0)
     P = √(b.a^3/system.M)
     tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
 end # No planet astrometry is included since it has not yet been directly detected
 
 
-# Convert from JD to MJD
-# Data tabulated from Mawet et al
-jd(mjd) = mjd - 2400000.5
-
-# # You could also specify it manually like so:
-# rvs = StarAbsoluteRVLikelihood(
-#     (;inst_idx=1, epoch=jd(2455110.97985),  rv=−6.54, σ_rv=1.30),
-#     (;inst_idx=1, epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09), # units in meters/second
-#     ...
-# )
-
-# We will load in data from two RV
-rvharps = OctofitterRadialVelocity.HARPS_RVBank_rvs("HD22049")
-rvharps.table.inst_idx .= 1
-rvhires = OctofitterRadialVelocity.HIRES_rvs("HD22049")
-rvhires.table.inst_idx .= 2
-rvs_merged = StarAbsoluteRVLikelihood(
-    cat(rvhires.table, rvharps.table,dims=1),
-    instrument_names=["HARPS", "HIRES"]
-)
-scatter(
-    rvs_merged.table.epoch[:],
-    rvs_merged.table.rv[:],
-    axis=(
-        xlabel="time [mjd]",
-        ylabel="RV [m/s]",
-    )
+# We will load in data from one RV instruments.
+# We use `MarginalizedStarAbsoluteRVLikelihood` instead of 
+# `StarAbsoluteRVLikelihood` to automatically marginalize out
+# the radial velocity zero point of each instrument, saving one parameter.
+hires_data = OctofitterRadialVelocity.HIRES_rvs("HD22049")
+rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
+    hires_data,
+    instrument_name="HIRES",
+    jitter=:jitter_hires,
 )
 ```
 
@@ -71,25 +52,15 @@ In the interests of time, we set `N_ave=1` to speed up the computation. This par
 
 ```@example 1
 @system ϵEri begin
-    M ~ truncated(Normal(0.78, 0.01),lower=0)
+    M ~ truncated(Normal(0.82, 0.02),lower=0.5, upper=1.5) # (Baines & Armstrong 2011).
     plx ~ gaia_plx(;gaia_id)
     pmra ~ Normal(-975, 10)
     pmdec ~ Normal(20,  10)
 
-    # Radial velocity zero point per instrument
-    rv0 ~ Product([
-        Normal(0,10), # m/s
-        Normal(0,10),
-    ])
-    # Radial jitter per instrument. 
-    jitter ~ Product([
-        truncated(Normal(0,10),lower=0), # m/s
-        truncated(Normal(0,10),lower=0),
-    ])
-    # You can also set both instruments to the same jitter, eg by putting instead (with = not ~):
-    # jitter_2 = system.jitter_1
-end hgca_like rvs_merged b
+    # Jitter per instrument
+    jitter_hires ~ LogUniform(0.1, 100) # m/s
 
+end hgca_like rvlike_hires b
 # Build model
 model = Octofitter.LogDensityModel(ϵEri)
 ```
@@ -98,22 +69,22 @@ model = Octofitter.LogDensityModel(ϵEri)
 Now sample. You could use HMC via `octofit` or tempered sampling via `octofit_pigeons`. When using tempered sampling, make sure to start julia with `julia --thread=auto`. Each additional round doubles the number of posterior samples, so `n_rounds=10` gives 1024 samples. You should adjust `n_chains` to be roughly double the `Λ` value printed out during sample, and `n_chains_variational` to be roughly double the `Λ_var` column. 
 ```@example 1
 using Pigeons
-results, pt = octofit_pigeons(model, n_rounds=8, n_chains=10, n_chains_variational=10);
+results, pt = octofit_pigeons(model, n_rounds=10, n_chains=10, n_chains_variational=0, explorer=SliceSampler());
 nothing # hide
 ```
 
 We can now plot the results with a multi-panel plot:
 ```@example 1
-octoplot(model, results[1:200,:,:], show_mass=true)
+octoplot(model, results, show_mass=true)
 ```
 
 
 We can also plot just the RV curve from the maximum *a-posteriori* fit:
 ```@example 1
-fig = OctofitterRadialVelocity.rvpostplot(model, results)
+fig = Octofitter.rvpostplot(model, results)
 ```
 
-We can see what the visual orbit looks like for the maximum a-posteriori orbit:
+We can see what the visual orbit looks like for the maximum a-posteriori sample (note, we would need to run an optimizer to get the true MAP value; this is just the MCMC sample with higest posterior density):
 ```@example 1
 i_max = argmax(results[:logpost][:])
 fig = octoplot(
@@ -126,10 +97,11 @@ fig = octoplot(
     show_rv=false,
     show_hgca=false,
     mark_epochs_mjd=[
-        mjd("2030")
+        mjd("2037")
     ]
 )
 Label(fig[0,1], "Maximum a-posteriori orbit sample")
+Makie.resize_to_layout!(fig)
 fig
 ```
 

@@ -161,7 +161,7 @@ function Octofitter.ln_like(
                     ll += logpdf(fx, rv_buf)
                 catch err
                     if err isa PosDefException || err isa DomainError
-                        @show err
+                        @warn "err" exception=(err, catch_backtrace()) θ_system
                         ll = convert(T,-Inf)
                     else
                         rethrow(err)

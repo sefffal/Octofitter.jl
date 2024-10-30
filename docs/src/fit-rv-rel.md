@@ -19,7 +19,7 @@ rel_rv_like = PlanetRelativeRVLikelihood(
 ```
 The columns in the table should be . See the standard radial velocity tutorial for examples on how this data can be loaded from a CSV file.
 
-The relative RV likelihood does not incorporate an instrument-specific RV offset. A jitter parameter called `jitter` can still be specified in the `@planet` block, as can parameters for a gaussian process model of stellar noise. Unlike the `StarAbsoluteRVLikelihood`, only a single instrument jitter parameter is supported. If you need to model relative radial velocities from multiple instruments with different jitters, please open an issue on GitHub.
+The relative RV likelihood does not incorporate an instrument-specific RV offset. A jitter parameter called `jitter` can still be specified in the `@planet` block, as can parameters for a gaussian process model of stellar noise. Currently only a single instrument jitter parameter is supported. If you need to model relative radial velocities from multiple instruments with different jitters, please open an issue on GitHub.
 
 Next, create a planet and system model, attaching the relative rv likelihood to the planet. Make sure to add a `jitter` parameter (optionally jitter=0) to the planet.
 

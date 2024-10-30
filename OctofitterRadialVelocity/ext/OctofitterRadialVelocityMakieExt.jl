@@ -138,9 +138,7 @@ function Octofitter.rvpostplot!(
     # Main blue orbit line in top panel
     RV = radvel.(els[sample_idx], ts, M[sample_idx])
     # Use a narrow line if we're overplotting a complicated GP
-    if any_models_have_a_gp
-        lines!(ax_fit, ts, RV, color=:darkblue, linewidth=0.2)
-    else
+    if !any_models_have_a_gp
         lines!(ax_fit, ts, RV, color=:blue, linewidth=3)
     end
 
@@ -183,7 +181,7 @@ function Octofitter.rvpostplot!(
 
 
         if hasproperty(rvs,:offset_symbol)
-            barycentric_rv_inst = θ_system[rvs.offset_symbol]
+            barycentric_rv_inst = nt_format[sample_idx][rvs.offset_symbol]
             jitter = nt_format[sample_idx][rvs.jitter_symbol]
         else
             barycentric_rv_inst = _find_rv_zero_point_maxlike(rvs, nt_format[sample_idx], (els[sample_idx],))
@@ -464,7 +462,7 @@ function Octofitter.rvpostplot!(
         [
 
             "data uncertainty",
-            any_models_have_a_gp ? "data, jitter, and\nmodel uncertainty" : "data and jitter uncertainty",
+            any_models_have_a_gp ? "data, jitter, and\nmodel uncertainty" : "data and jitter\nuncertainty",
             "orbit model",
             "perspective",
             "binned",

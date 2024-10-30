@@ -223,9 +223,12 @@ We now add in three additional epochs of stellar RVs.
 using OctofitterRadialVelocity
 
 rvlike = StarAbsoluteRVLikelihood(
-    (epoch=mjd("2008-05-01"), rv=1300, σ_rv=150, inst_idx=1),
-    (epoch=mjd("2010-02-15"), rv=700, σ_rv=150, inst_idx=1),
-    (epoch=mjd("2016-03-01"), rv=-2700, σ_rv=150, inst_idx=1),
+    (epoch=mjd("2008-05-01"), rv=1300, σ_rv=150),
+    (epoch=mjd("2010-02-15"), rv=700, σ_rv=150),
+    (epoch=mjd("2016-03-01"), rv=-2700, σ_rv=150),
+    instrument_name="SOPHIE",
+    offset=:rv0,
+    jitter=:jitter
 )
 
 @planet b Visual{KepOrbit} begin

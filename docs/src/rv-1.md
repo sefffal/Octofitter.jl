@@ -42,14 +42,14 @@ rv_like = StarAbsoluteRVLikelihood(
     # epoch is in units of MJD. `jd` is a helper function to convert.
     # you can also put `years2mjd(2016.1231)`.
     # rv and σ_rv are in units of meters/second
-    (;inst_idx=1, epoch=jd(2455110.97985),  rv=−6.54, σ_rv=1.30),
-    (;inst_idx=1, epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09),
+    (epoch=jd(2455110.97985),  rv=−6.54, σ_rv=1.30),
+    (epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09),
     # ... etc.
+    instrument_name="insert name here"
 )
 ```
 
-For this example, to replicate the results of RadVel, we will download their example data for K2-131.
-and format it for Octofitter:
+For this example, to replicate the results of RadVel, we will download their example data for K2-131 and format it for Octofitter:
 ```@example 1
 rv_file = download("https://raw.githubusercontent.com/California-Planet-Search/radvel/master/example_data/k2-131.txt")
 rv_dat_raw = CSV.read(rv_file, DataFrame, delim=' ')
@@ -58,12 +58,20 @@ rv_dat.epoch = jd2mjd.(rv_dat_raw.time)
 rv_dat.rv = rv_dat_raw.mnvel
 rv_dat.σ_rv = rv_dat_raw.errvel
 tels = sort(unique(rv_dat_raw.tel))
-rv_dat.inst_idx = map(rv_dat_raw.tel) do tel
-    findfirst(==(tel), tels)
-end
-rvlike = StarAbsoluteRVLikelihood(
-    rv_dat,
-    instrument_names=["harps-n", "psf"],
+
+# This table includes data from two insturments. We create a separate
+# likelihood object for each:
+rvlike_harps = StarAbsoluteRVLikelihood(
+    rv_dat[rv_dat_raw.tel .== "harps-n",:],
+    instrument_name="harps-n",
+    offset=:rv0_harps,
+    jitter=:jitter_harps,
+)
+rvlike_pfs = StarAbsoluteRVLikelihood(
+    rv_dat[rv_dat_raw.tel .== "pfs",:],
+    instrument_name="pfs",
+    offset=:rv0_pfs,
+    jitter=:jitter_pfs,
 )
 ```
 
@@ -78,7 +86,10 @@ if we wanted to include these parameters and visualize the orbit in the plane of
     ω = 0.0
 
     # To match RadVel, we set a prior on Period and calculate semi-major axis from it
-    P ~ truncated(Normal(0.3693038/365.256360417, 0.0000091/365.256360417),lower=0.00001)
+    P ~ truncated(
+        Normal(0.3693038/365.256360417, 0.0000091/365.256360417),
+        lower=0.0001
+    )
     a = cbrt(system.M * b.P^2) # note the equals sign. 
 
     τ ~ UniformCircular(1.0)
@@ -93,17 +104,13 @@ end
     # total mass [solar masses]
     M ~ truncated(Normal(0.82, 0.02),lower=0) # (Baines & Armstrong 2011).
 
-    rv0 ~ Product([
-        # HARPS-N
-        Normal(-6693,100), # m/s
-        # FPS
-        Normal(0,100), # m/s
-    ])
-    jitter ~ Product([
-        LogUniform(0.1,100), # m/s
-        LogUniform(0.1,100), # m/s
-    ])
-end rvlike b
+    rv0_harps ~ Normal(-6693,100) # m/s
+    rv0_pfs ~ Normal(0,100) # m/s
+
+    jitter_harps ~ LogUniform(0.1,100) # m/s
+    jitter_pfs ~ LogUniform(0.1,100) # m/s
+
+end rvlike_harps rvlike_pfs b
 
 ```
 
@@ -144,7 +151,7 @@ Create a corner plot:
 ```@example 1
 using PairPlots
 using CairoMakie: Makie
-octocorner(model, chain, small=true)
+octocorner(model, chain)
 ```
 
 
@@ -159,6 +166,8 @@ using AbstractGPs
 
 function gauss_proc_quasi_periodic(θ_system)
     # θ_system is a named tuple of variable values for this posterior draw.
+    # Note: for multiple instruments, you can supply different gaussian process
+    # functions that e.g. use different hyper-parameter names.
     η₁ = θ_system.gp_η₁ # h
     η₂ = θ_system.gp_η₂ # λ
     η₃ = θ_system.gp_η₃ # θ
@@ -173,11 +182,25 @@ end
 
 Now provide this function when we construct our likelihood object:
 ```@example 1
-rvlike = StarAbsoluteRVLikelihood(rv_dat,
-    instrument_names=["harps-n", "psf"],
+rvlike_harps = StarAbsoluteRVLikelihood(
+    rv_dat[rv_dat_raw.tel .== "harps-n",:],
+    instrument_name="harps-n",
+    offset=:rv0_harps,
+    jitter=:jitter_harps,
+    # NEW:
+    gaussian_process = gauss_proc_quasi_periodic
+)
+rvlike_pfs = StarAbsoluteRVLikelihood(
+    rv_dat[rv_dat_raw.tel .== "pfs",:],
+    instrument_name="pfs",
+    offset=:rv0_pfs,
+    jitter=:jitter_pfs,
+    # NEW:
     gaussian_process = gauss_proc_quasi_periodic
 )
 ```
+
+Note that the two instruments do not need to use the same Gaussian process kernels, nor the same hyper parameter names.
 
 We create a new system model with added parameters `gp_η₁` etc for the Gaussian process fit.
 
@@ -205,31 +228,28 @@ end
 @system k2_132 begin
     M ~ truncated(Normal(0.82, 0.02),lower=0) # (Baines & Armstrong 2011).
 
-    # HARPS-N
-    rv0 ~ Product([
-        # HARPS-N
-        Normal(0,10000), # m/s
-        # FPS
-        Normal(0,10000), # m/s
-    ])
-    jitter ~ Product([
-        LogUniform(0.01,100), # m/s
-        LogUniform(0.01,100), # m/s
-    ])
+    rv0_harps ~ Normal(-6693,100) # m/s
+    rv0_pfs ~ Normal(0,100) # m/s
+
+    jitter_harps ~ LogUniform(0.1,100) # m/s
+    jitter_pfs ~ LogUniform(0.1,100) # m/s
 
     # Add priors on GP kernel hyper-parameters.
-    gp_η₁ ~ truncated(Normal(25,10),lower=0.1)
-    gp_η₂ ~ truncated(Normal(gp_explength_mean,gp_explength_unc),lower=0.1)
-    gp_η₃ ~ truncated(Normal(gp_per_mean,1),lower=0.1)
-    gp_η₄ ~ truncated(Normal(gp_perlength_mean,gp_perlength_unc),lower=0)
+    gp_η₁ ~ truncated(Normal(25,10),lower=0.1,upper=100)
+    # Important: ensure the period and exponential length scales
+    # have physically plausible lower and upper limits to avoid poor numerical conditioning
+    gp_η₂ ~ truncated(Normal(gp_explength_mean,gp_explength_unc),lower=5,upper=100)
+    gp_η₃ ~ truncated(Normal(gp_per_mean,1),lower=2, upper=100)
+    gp_η₄ ~ truncated(Normal(gp_perlength_mean,gp_perlength_unc),lower=0.2, upper=10)
 
-end rvlike b
+end rvlike_harps rvlike_pfs b
 
-model = Octofitter.LogDensityModel(k2_132; autodiff=:ForwardDiff)
+model = Octofitter.LogDensityModel(k2_132)
 ```
 
 Sample from the model as before:
 ```@example 1
+# Seed the random number generator
 using Random
 rng = Random.Xoshiro(0)
 
@@ -253,13 +273,17 @@ Corner plot:
 octocorner(model, chain, small=true) # saved to "k2_132-pairplot-small.png"
 ```
 
-It is expensive (per iteration) to fit Guassian processes. If you have many cores (or a cluster) available you might also try starting julia with multiple threads (`julia --threads=auto`) and using `octofit_pigeons`. Pigeons is less efficient with single-core, but has better parallelization scaling:
+It is expensive (per iteration) to fit Guassian processes. If you have many cores (or a cluster) available you might also considering using the Pigeons parallel tempered sampler with MPI. starting julia with multiple threads (`julia --threads=auto`) and using `octofit_pigeons`. Pigeons is less efficient with single-core, but has better parallelization scaling:
 ```julia
 using Pigeons
 chain, pt = octofit_pigeons(
     model,
-    n_rounds=9
+    n_rounds=8,
+    n_chains=6,
+    n_chains_variational=0,
+    explorer=SliceSampler()
 )
 display(chain)
 ```
 
+See http://pigeons.run for details on setting up MPI, or create a GitHub issue if you would like assistance.
