@@ -60,19 +60,17 @@ Random.seed!(1)
 epochs = 58849 .+ (20:20:660)
 planet_sim_mass = 0.001 # solar masses here
 
-# rvlike = StarAbsoluteRVLikelihood(Table(
-#     epoch=epochs,
-#     rv=radvel.(orb_template, epochs, planet_sim_mass),
-#     σ_rv=fill(5.0, size(epochs)),
-# ))
 
-rvlike = MarginalizedStarAbsoluteRVLikelihood(Table(
-    epoch=epochs,
-    rv=radvel.(orb_template, epochs, planet_sim_mass) ,
-    σ_rv=fill(5.0, size(epochs)),
-), jitter=:jitter)
+rvlike = MarginalizedStarAbsoluteRVLikelihood(
+    Table(
+        epoch=epochs,
+        rv=radvel.(orb_template, epochs, planet_sim_mass) ,
+        σ_rv=fill(5.0, size(epochs)),
+    ),
+    jitter=:jitter1
+)
 
-# Makie.scatter(rvlike.table.epoch[:], rvlike.table.rv[:])
+Makie.scatter(rvlike.table.epoch[:], rvlike.table.rv[:])
 ```
 
 
@@ -93,22 +91,21 @@ end astrom
 @system test begin
     M ~ truncated(Normal(1, 0.04),lower=0) # (Baines & Armstrong 2011).
     plx = 100.0
-    jitter ~ truncated(Normal(0,10),lower=0)
-    # rv0 ~ Normal(0, 10000)
+    jitter1 ~ truncated(Normal(0,10),lower=0)
 end rvlike b
 
-model = Octofitter.LogDensityModel(test; autodiff=:ForwardDiff,verbosity=4)
+model = Octofitter.LogDensityModel(test)
 
 using Random
 rng = Xoshiro(0) # seed the random number generator for reproducible results
 
-results_margin_newmath = octofit(rng, model, iterations=5000)
+results = octofit(rng, model, iterations=5000)
 ```
 
 
 Display results as a corner plot:
 ```@example 1
-octocorner(model, results_nomargin2, results_margin, small=true)
+octocorner(model, results, small=true)
 ```
 
 Plot RV curve, phase folded curve, and binned residuals:
@@ -118,6 +115,6 @@ OctofitterRadialVelocity.rvpostplot(model, results,)
 
 Display RV, PMA, astrometry, relative separation, position angle, and 3D projected views:
 ```@example 1
-octoplot(model, results_margin_newmath)
+octoplot(model, results)
 ```
 
