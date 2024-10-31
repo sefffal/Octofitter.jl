@@ -444,34 +444,29 @@ function Octofitter.rvpostplot!(
         # width=Relative(1),
         # height=Relative(1),
     )
-    Legend(
-        gs[3,2],
+    markers =  [
         [
-            [
-                LineElement(color = Makie.wong_colors()[i], linestyle = :solid,
-                points = Point2f[(0+i/length(rv_likes), 0), (0+i/length(rv_likes), 1)])
-                for i in 1:length(rv_likes)
-            ],
-            LineElement(color = "#CCC", linestyle = :solid,
-                points = Point2f[(0.5, 0), (0.5, 1)]),
-            LineElement(color = :blue,linewidth=4,),
-            LineElement(color = :orange,linewidth=4,),
-            MarkerElement(color = :red, strokecolor=:black, strokewidth=2, marker=:circle, markersize = 15),
-            
+            LineElement(color = Makie.wong_colors()[i], linestyle = :solid,
+            points = Point2f[((-1+i)/length(rv_likes), 0), ((-1+i)/length(rv_likes), 1)])
+            for i in 1:length(rv_likes)
         ],
-        [
+        LineElement(color = "#CCC", linestyle = :solid,
+            points = Point2f[(0.0, 0), (0.0, 1)]),
+        LineElement(color = :blue,linewidth=4,),
+        MarkerElement(color = :red, strokecolor=:black, strokewidth=2, marker=:circle, markersize = 15),   
+    ]
+    labels = [
+        "data uncertainty",
+        any_models_have_a_gp ? "data, jitter, and\nmodel uncertainty" : "data and jitter\nuncertainty",
+        "orbit model",
+        "binned",
+    ]
+    if nonabsvis_parent(first(els)) != first(els)
+        push!(markers, LineElement(color = :orange,linewidth=4,))
+        push!(labels, "perspective")
+    end
 
-            "data uncertainty",
-            any_models_have_a_gp ? "data, jitter, and\nmodel uncertainty" : "data and jitter\nuncertainty",
-            "orbit model",
-            "perspective",
-            "binned",
-        ],
-        valign=:top,
-        halign=:left,
-        # width=Relative(1),
-        # height=Relative(1),
-    )
+    Legend(gs[3,2], markers, labels, valign=:top, halign=:left)
     Makie.rowsize!(gs, 1, Auto(2))
     Makie.rowsize!(gs, 2, Auto(1))
     Makie.rowsize!(gs, 3, Auto(2))
