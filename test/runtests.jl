@@ -1,8 +1,6 @@
 using Test
 using Octofitter,
-      Distributions,
-      CairoMakie,
-      PairPlots
+      Distributions
 
 
 include("integration-tests.jl")
