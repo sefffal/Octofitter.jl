@@ -29,10 +29,10 @@ using Random
     end b
     model_a = Octofitter.LogDensityModel(TestSys, autodiff=:FiniteDiff)
     # Correct dimensionality of problem
-    @test model.D == 11
+    @test model_a.D == 11
     # Test auto-diff
     model_b = Octofitter.LogDensityModel(TestSys, autodiff=:ForwardDiff)
-    theta = collect(model.link(Octofitter.guess_starting_position(rng, model, 100)[1]))
+    theta = collect(model_a.link(Octofitter.guess_starting_position(rng, model_a, 100)[1]))
     @test (model_a.∇ℓπcallback(theta)[2]) ≈ (model_b.∇ℓπcallback(theta)[2]) atol=1e-5 rtol=1e-5
 
     Octofitter.default_initializer!(rng, model_b)
