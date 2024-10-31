@@ -181,8 +181,8 @@ We now create a one-planet model and run the fit using `octofit_pigeons`. This p
     tp = θ_at_epoch_to_tperi(system,b,60339.0)  # reference epoch for θ. Choose an MJD date near your data.
 end loglikemap
 @system Tutoria begin
-    M ~ truncated(Normal(1.0, 0.1), lower=0)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0)
+    M ~ truncated(Normal(1.0, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
 end b 
 model = Octofitter.LogDensityModel(Tutoria)
 chain, pt = octofit_pigeons(model, n_rounds=10) # increase n_rounds until log(Z₁/Z₀) converges.

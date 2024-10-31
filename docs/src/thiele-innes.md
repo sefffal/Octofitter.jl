@@ -32,8 +32,8 @@ astrom_like = PlanetRelAstromLikelihood(
 end astrom_like
 
 @system TutoriaPrime begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0)
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
 end b
 
 model = Octofitter.LogDensityModel(TutoriaPrime)

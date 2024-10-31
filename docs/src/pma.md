@@ -68,7 +68,7 @@ We also add parameters for the star's long term proper motion. This is usually c
 ```@example 1
 @system HD91312_pma begin
     
-    M_pri ~ truncated(Normal(1.61, 0.1), lower=0) # Msol
+    M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
     M_sec ~ LogUniform(0.5, 1000) # MJup
     M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
 
@@ -198,7 +198,7 @@ end astrom_like # Note the relative astrometry added here!
 
 @system HD91312_pma_astrom begin
     
-    M_pri ~ truncated(Normal(1.61, 0.1), lower=0)
+    M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
     M_sec ~ LogUniform(0.5, 1000) # MJup
     M = system.M_pri + system.M_sec*Octofitter.mjup2msol
 
@@ -247,7 +247,7 @@ end astrom_like # Note the relative astrometry added here!
 
 @system HD91312_pma_rv_astrom begin
     
-    M_pri ~ truncated(Normal(1.61, 0.1), lower=0)
+    M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
     M_sec ~ LogUniform(0.5, 1000) # MJup
     M = system.M_pri + system.M_sec*Octofitter.mjup2msol
 
@@ -310,7 +310,7 @@ end astrom_like # Note the relative astrometry added here!
 
 @system HD91312_rv_astrom begin
     
-    M_pri ~ truncated(Normal(1.61, 0.1), lower=0)
+    M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
     M_sec ~ LogUniform(0.5, 1000) # MJup
     M = system.M_pri + system.M_sec*Octofitter.mjup2msol
 

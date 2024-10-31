@@ -102,7 +102,7 @@ end
 
 @system k2_132 begin
     # total mass [solar masses]
-    M ~ truncated(Normal(0.82, 0.02),lower=0) # (Baines & Armstrong 2011).
+    M ~ truncated(Normal(0.82, 0.02),lower=0.1) # (Baines & Armstrong 2011).
 
     rv0_harps ~ Normal(-6693,100) # m/s
     rv0_pfs ~ Normal(0,100) # m/s
@@ -226,7 +226,7 @@ end
 
 
 @system k2_132 begin
-    M ~ truncated(Normal(0.82, 0.02),lower=0) # (Baines & Armstrong 2011).
+    M ~ truncated(Normal(0.82, 0.02),lower=0.1) # (Baines & Armstrong 2011).
 
     rv0_harps ~ Normal(-6693,100) # m/s
     rv0_pfs ~ Normal(0,100) # m/s

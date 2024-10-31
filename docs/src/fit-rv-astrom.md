@@ -79,8 +79,8 @@ Now specify model and fit it:
 
 @planet b Visual{KepOrbit} begin
     e ~ Uniform(0,0.999999)
-    a ~ truncated(Normal(1, 1),lower=0)
-    mass ~ truncated(Normal(1, 1), lower=0)
+    a ~ truncated(Normal(1, 1),lower=0.1)
+    mass ~ truncated(Normal(1, 1), lower=0.)
     i ~ Sine()
     Ω ~ UniformCircular()
     ω ~ UniformCircular()
@@ -89,7 +89,7 @@ Now specify model and fit it:
 end astrom
 
 @system test begin
-    M ~ truncated(Normal(1, 0.04),lower=0) # (Baines & Armstrong 2011).
+    M ~ truncated(Normal(1, 0.04),lower=0.1) # (Baines & Armstrong 2011).
     plx = 100.0
     jitter1 ~ truncated(Normal(0,10),lower=0)
 end rvlike b

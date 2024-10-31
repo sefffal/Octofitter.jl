@@ -54,8 +54,8 @@ Now add it to your model as a prior:
     tp = θ_at_epoch_to_tperi(system,b,50000)
 end 
 @system Tutoria begin 
-    M ~ truncated(Normal(1.2, 0.1), lower=0)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0)
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
 end b
 model = Octofitter.LogDensityModel(Tutoria)
 chain = octofit(model)
@@ -97,6 +97,6 @@ end astrom_like ObsPriorAstromONeil2019(astrom_like);
 
 @system System1 begin
     plx ~ Normal(21.219, 0.060)
-	M ~ truncated(Normal(1.1, 0.2),lower=0)
+	M ~ truncated(Normal(1.1, 0.2),lower=0.1)
 end b
 ```

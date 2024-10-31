@@ -61,7 +61,7 @@ fig
 
 ```@example 1
 @planet b Visual{KepOrbit} begin
-    a ~ truncated(Normal(2,0.1), lower=0)
+    a ~ truncated(Normal(2,0.1), lower=0.1)
     e ~ truncated(Normal(0, 0.05),lower=0, upper=0.90)
     i ~ Sine()
     ω ~ UniformCircular()
@@ -76,8 +76,8 @@ fig
 end
 
 @system Tutoria begin
-    M ~ truncated(Normal(1.5, 0.01), lower=0)
-    plx ~ truncated(Normal(100., 0.1), lower=0)
+    M ~ truncated(Normal(1.5, 0.01), lower=0.1)
+    plx ~ truncated(Normal(100., 0.1), lower=0.1)
 end vis_like b
 ```
 

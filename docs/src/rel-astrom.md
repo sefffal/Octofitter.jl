@@ -32,8 +32,8 @@ astrom_like = PlanetRelAstromLikelihood(
     tp = θ_at_epoch_to_tperi(system,b,50000) # use MJD epoch of your data here!!
 end astrom_like
 @system Tutoria begin # replace Tutoria with the name of your planetary system
-    M ~ truncated(Normal(1.2, 0.1), lower=0)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0)
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
 end b
 model = Octofitter.LogDensityModel(Tutoria)
 chain = octofit(model)
@@ -113,7 +113,7 @@ proper prior for any quantity which is allowed to vary.
 We now create our planet `b` model using the `@planet` macro.
 ```@example 1
 @planet b Visual{KepOrbit} begin
-    a ~ truncated(Normal(10, 4), lower=0, upper=100)
+    a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
     e ~ Uniform(0.0, 0.5)
     i ~ Sine()
     ω ~ UniformCircular()
@@ -168,8 +168,8 @@ A system represents a host star with one or more planets. Properties of the whol
 
 ```@example 1
 @system Tutoria begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0)
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
 end b
 nothing #hide
 ```
@@ -225,7 +225,7 @@ The first thing you should do with your results is check a few diagnostics to ma
 A few things to watch out for: check that you aren't getting many (any, really) numerical errors (`ratio_divergent_transitions`). 
 This likely indicates a problem with your model: either invalid values of one or more parameters are encountered (e.g. the prior on semi-major axis includes negative values) or that there is a region of very high curvature that is failing to sample properly. This latter issue can lead to a bias in your results.
 
-One common mistake is to use a distribution like `Normal(10,3)` for semi-major axis. This left tail of this distribution includes negative values, and our orbit model is not defined for negative semi-major axes. A better choice is a `truncated(Normal(10,3), lower=0)` distribution.
+One common mistake is to use a distribution like `Normal(10,3)` for semi-major axis. This left tail of this distribution includes negative values, and our orbit model is not defined for negative semi-major axes. A better choice is a `truncated(Normal(10,3), lower=0.1)` distribution (not including zero, since a=0 is not defined).
 
 You may see some warnings during initial step-size adaptation. These are probably nothing to worry about if sampling proceeds normally afterwards.
 

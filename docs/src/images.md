@@ -80,7 +80,7 @@ Now specify the planet:
 ```@example 1
 @planet b Visual{KepOrbit} begin
     H ~ Normal(3.8, 0.5)
-    a ~ truncated(Normal(13, 4), lower=0, upper=100)
+    a ~ truncated(Normal(13, 4), lower=0.1, upper=100)
     e ~ Uniform(0.0, 0.5)
     i ~ Sine()
     ω ~ UniformCircular()
@@ -97,8 +97,8 @@ See [Fit PlanetRelAstromLikelihood](@ref fit-astrometry) for a description of th
 Finally, create the system and pass in the planet.
 ```@example 1
 @system HD82134 begin
-    M ~ truncated(Normal(2.0, 0.1),lower=0)
-    plx ~ truncated(Normal(45., 0.02),lower=0)
+    M ~ truncated(Normal(2.0, 0.1),lower=0.1)
+    plx ~ truncated(Normal(45., 0.02),lower=0.1)
 end b
 ```
 

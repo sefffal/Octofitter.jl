@@ -34,8 +34,8 @@ astrom_like = PlanetRelAstromLikelihood(
 end astrom_like ObsPriorAstromONeil2019(astrom_like)
 
 @system TutoriaPrime begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0)
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
 end b
 
 model = Octofitter.LogDensityModel(TutoriaPrime)
@@ -68,8 +68,8 @@ Compare this with the previous fit using uniform priors:
     tp = θ_at_epoch_to_tperi(system,b,50420) # hide
 end astrom_like # hide
 @system Tutoria begin # hide
-    M ~ truncated(Normal(1.2, 0.1), lower=0) # hide
-    plx ~ truncated(Normal(50.0, 0.02), lower=0) # hide
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1) # hide
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1) # hide
 end b # hide
 model = Octofitter.LogDensityModel(Tutoria) # hide
 Random.seed!(0) # hide

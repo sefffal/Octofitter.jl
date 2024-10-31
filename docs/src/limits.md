@@ -47,7 +47,7 @@ We start by defining and sampling from a model that only includes proper motion 
     tp = θ_at_epoch_to_tperi(system,B,57423.0) # epoch of GAIA measurement
 end
 @system HD91312_pma begin
-    M_pri ~ truncated(Normal(0.95, 0.05), lower=0) # Msol
+    M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
     M_sec ~ LogUniform(0.2, 65) # MJup
     M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
 
@@ -143,7 +143,7 @@ end image_data
 @system HD91312_img begin
     # age ~ truncated(Normal(40, 15),lower=0, upper=200)
     age = 10
-    M_pri ~ truncated(Normal(0.95, 0.05), lower=0) # Msol
+    M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
     # Mass of secondary
     # Make sure to pick only a mass range that is covered by your models
     M_sec ~ LogUniform(0.55, 65) # MJup
@@ -230,7 +230,7 @@ end image_data
 @system HD91312_both begin
     # age ~ truncated(Normal(40, 15),lower=0, upper=200)
     age = 10
-    M_pri ~ truncated(Normal(0.95, 0.05), lower=0) # Msol
+    M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
     # Mass of secondary
     # Make sure to pick only a mass range that is covered by your models
     M_sec ~ LogUniform(0.55, 65) # MJup

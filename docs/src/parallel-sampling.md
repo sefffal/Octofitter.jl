@@ -48,8 +48,8 @@ astrom_like = PlanetRelAstromLikelihood(
     tp = θ_at_epoch_to_tperi(system,b,50000) # use MJD epoch of your data here!!
 end astrom_like
 @system Tutoria begin # replace Tutoria with the name of your planetary system
-    M ~ truncated(Normal(1.2, 0.1), lower=0)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0)
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
 end b
 model = Octofitter.LogDensityModel(Tutoria)
 ```

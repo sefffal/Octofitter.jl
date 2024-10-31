@@ -89,7 +89,7 @@ end astrom_b
     Ω = system.Ω
 
     # Specify the period as ~ 1% the P_nominal variable
-    P_mul ~ truncated(Normal(1, 0.1), lower=0)
+    P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
     P = system.P_nominal * c.P_mul
 
     a = cbrt(system.M * c.P^2)
@@ -99,7 +99,7 @@ end astrom_b
 end astrom_c
 @system HR8799_res_co begin
     plx ~ gaia_plx(;gaia_id=2832463659640297472)
-    M ~ truncated(Normal(1.5, 0.02), lower=0)
+    M ~ truncated(Normal(1.5, 0.02), lower=0.1)
     # We create inclination and longitude of ascending node variables at the
     # system level.
     i ~ Sine()

@@ -33,7 +33,7 @@ astrom_like = PlanetRelAstromLikelihood(
 )
 
 @planet b Visual{KepOrbit} begin
-    a ~ truncated(Normal(10, 4), lower=0, upper=100)
+    a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
     e ~ Uniform(0.0, 0.5)
     i ~ Sine()
     ω ~ UniformCircular()
@@ -43,8 +43,8 @@ astrom_like = PlanetRelAstromLikelihood(
     tp =  b.τ*b.P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
 end astrom_like
 @system SBC begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0)
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
 end b
 model = Octofitter.LogDensityModel(SBC)
 ```

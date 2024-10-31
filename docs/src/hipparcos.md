@@ -118,7 +118,7 @@ nothing # hide
 We specify our full model:
 ```@example 1
 @planet b AbsoluteVisual{KepOrbit} begin
-    a ~ truncated(Normal(10,1),lower=0)
+    a ~ truncated(Normal(10,1),lower=0.1)
     e ~ Uniform(0,0.99)
     ω ~ UniformCircular()
     i ~ Sine()
