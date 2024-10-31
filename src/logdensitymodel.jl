@@ -112,11 +112,11 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 lpost += @inline ln_prior_transformed(θ_natural,sampled)
                 # Don't compute likelihood if we fell outside the prior bounds
                 if !isfinite(lpost)
-                    # @warn "non finite log prior (maxlog=1)" lpost maxlog=1
+                    @warn "non finite log prior (maxlog=1)" lpost maxlog=1
                     return lpost
                 end
                 lpost += @inline ln_like_generated(system, θ_structured)
-                # if !isfinite(llike)
+                # if !isfinite(lpost)
                 #     # TODO: check for performance impact here
                 #     # Display parameters that caused an invalid log-likelihood to be calculated
                 #     # Strip off any forward diff Dual tags, as these make it impossible to see
@@ -142,9 +142,9 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             # Also Display their run time. If something is egregiously wrong we'll notice something
             # here in the output logs.
             if verbosity >= 1
-                (function(ℓπcallback, θ)
+                (function(ℓπcallback, θ, args)
                     @showtime ℓπcallback(θ, args...)
-                end)(ℓπcallback, initial_θ_0_t)
+                end)(ℓπcallback, initial_θ_0_t, args)
             end
 
             if autodiff == :Enzyme
@@ -154,44 +154,44 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 # Enzyme mode:
                 ∇ℓπcallback = let Enzyme=Main.Enzyme, diffresult = copy(initial_θ_0_t), system=system, system_shadow=deepcopy(system), ℓπcallback=ℓπcallback
                     oh = Enzyme.onehot(diffresult)
-                    # forward = function (θ_t)
-                    #     primal, out = Enzyme.autodiff(
-                    #         Enzyme.Forward,
-                    #         ℓπcallback,
-                    #         Enzyme.BatchDuplicated,
-                    #         Enzyme.BatchDuplicated(θ_t,oh),
-                    #         Enzyme.Const.(args)...
-                    #         # Enzyme.Const(system),
-                    #         # Enzyme.Const(arr2nt),
-                    #         # Enzyme.Const(Bijector_invlinkvec),
-                    #         # Enzyme.Const(ln_prior_transformed),#ln_prior_transformed_dup,
-                    #         # Enzyme.Const(ln_like_generated),#ln_like_generated_dup,
-                    #     )
-                    #     diffresult .= tuple(out...)
-                    #     return primal, diffresult
-                    # end
-                    reverse = function (θ_t)
-                        fill!(diffresult,0)
-                        θ_t_dup  = Enzyme.Duplicated(θ_t,diffresult)
-                        # system_dup  = Enzyme.Duplicated(system,deepcopy(system))
-                        # arr2nt_dup  = Enzyme.Duplicated(arr2nt, deepcopy(arr2nt))
-                        # Bijector_invlinkvec_dup  = Enzyme.Duplicated(Bijector_invlinkvec, deepcopy(Bijector_invlinkvec))
-                        # ln_prior_transformed_dup  = Enzyme.Duplicated(ln_prior_transformed, deepcopy(ln_prior_transformed))
-                        # ln_like_generated_dup  = Enzyme.Duplicated(ln_like_generated, deepcopy(ln_like_generated))
-                        out, primal = Enzyme.autodiff(
-                            # Enzyme.Reverse,
-                            Enzyme.ReverseWithPrimal,
-                            (ℓπcallback),
-                            θ_t_dup,
-                            # Enzyme.Duplicated.(args, deepcopy.(args))...
-                            # Enzyme.Const(system,),# system_dup, #Enzyme.Const(system,),
-                            # Enzyme.Const(arr2nt,),# arr2nt_dup, #Enzyme.Const(arr2nt,),
-                            Enzyme.Const(Bijector_invlinkvec,),# Bijector_invlinkvec_dup, #Enzyme.Const(Bijector_invlinkvec,),
-                            # Enzyme.Const(ln_prior_transformed,),# ln_prior_transformed_dup, #Enzyme.Const(ln_prior_transformed,),
-                            # Enzyme.Const(ln_like_generated,),# ln_like_generated_dup, #Enzyme.Const(ln_like_generated,),
+                    forward = function (θ_t)
+                        primal, out = Enzyme.autodiff(
+                            Enzyme.Forward,
+                            ℓπcallback,
+                            Enzyme.BatchDuplicated,
+                            Enzyme.BatchDuplicated(θ_t,oh),
+                            Enzyme.Const.(args)...
+                            # Enzyme.Const(system),
+                            # Enzyme.Const(arr2nt),
+                            # Enzyme.Const(Bijector_invlinkvec),
+                            # Enzyme.Const(ln_prior_transformed),#ln_prior_transformed_dup,
+                            # Enzyme.Const(ln_like_generated),#ln_like_generated_dup,
                         )
+                        diffresult .= tuple(out...)
                         return primal, diffresult
-                    end 
+                    end
+                    # reverse = function (θ_t)
+                    #     fill!(diffresult,0)
+                    #     θ_t_dup  = Enzyme.Duplicated(θ_t,diffresult)
+                    #     # system_dup  = Enzyme.Duplicated(system,deepcopy(system))
+                    #     # arr2nt_dup  = Enzyme.Duplicated(arr2nt, deepcopy(arr2nt))
+                    #     # Bijector_invlinkvec_dup  = Enzyme.Duplicated(Bijector_invlinkvec, deepcopy(Bijector_invlinkvec))
+                    #     # ln_prior_transformed_dup  = Enzyme.Duplicated(ln_prior_transformed, deepcopy(ln_prior_transformed))
+                    #     # ln_like_generated_dup  = Enzyme.Duplicated(ln_like_generated, deepcopy(ln_like_generated))
+                    #     out, primal = Enzyme.autodiff(
+                    #         # Enzyme.Reverse,
+                    #         Enzyme.ReverseWithPrimal,
+                    #         (ℓπcallback),
+                    #         θ_t_dup,
+                    #         # Enzyme.Duplicated.(args, deepcopy.(args))...
+                    #         # Enzyme.Const(system,),# system_dup, #Enzyme.Const(system,),
+                    #         # Enzyme.Const(arr2nt,),# arr2nt_dup, #Enzyme.Const(arr2nt,),
+                    #         Enzyme.Const(Bijector_invlinkvec,),# Bijector_invlinkvec_dup, #Enzyme.Const(Bijector_invlinkvec,),
+                    #         # Enzyme.Const(ln_prior_transformed,),# ln_prior_transformed_dup, #Enzyme.Const(ln_prior_transformed,),
+                    #         # Enzyme.Const(ln_like_generated,),# ln_like_generated_dup, #Enzyme.Const(ln_like_generated,),
+                    #     )
+                    #     return primal, diffresult
+                    # end 
                     # tforward = minimum(
                     #     @elapsed forward(initial_θ_0_t)
                     #     for _ in 1:100
@@ -290,6 +290,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 end)(∇ℓπcallback, initial_θ_0_t)
             end
 
+
             ℓπcallback, ∇ℓπcallback
         end)(
             arr2nt,
@@ -314,7 +315,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             @warn "\nThis model's log density function is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub." out_type_prior out_type_like out_type_arr2nt out_type_model
         end
         if !isconcretetype(out_type_model_grad)
-            @warn "\nThis model's log density gradfient is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
+            @warn "\nThis model's log density gradient is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
             end
         if !isconcretetype(out_type_prior)
             @warn "\nThis model's prior sampler does not appear to be type stable, which will likely hurt sampling performance.\nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub." out_type_prior out_type_like out_type_arr2nt out_type_model

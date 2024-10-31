@@ -1,0 +1,14 @@
+name = "OctofitterTransits"
+uuid = "417c3104-6720-4fe5-9d56-0d1c13580cb1"
+version = "0.0.1"
+
+[compat]
+Transits = "0.4"
+
+[deps]
+Octofitter = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
+Transits = "2e59a628-7bac-4d38-8059-3a73ba0928ab"
+TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
+
+[extras]
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"

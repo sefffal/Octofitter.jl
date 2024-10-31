@@ -7,3 +7,8 @@ sbctest-*
 *.pdf
 *.png
 .DS_Store
+_gaia_dr1
+_gaia_dr2
+_gaia_dr3
+_geocentre_pos
+GHOST*

@@ -53,6 +53,7 @@ include("likelihoods/relative-astrometry.jl")
 include("likelihoods/photometry.jl")
 include("likelihoods/hgca.jl")
 include("likelihoods/gaia.jl")
+include("likelihoods/gaia-new3.jl")
 include("likelihoods/hipparcos.jl")
 include("likelihoods/observable.jl")
 

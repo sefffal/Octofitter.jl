@@ -49,7 +49,13 @@ function _findmap(model::LogDensityModel,initial_θ_t;verbosity=0)
     # Then iterate with qusi-Newton
     prob = OptimizationProblem(func, sol.u, model)
     verbosity > 1 && @info "LBFGS optimization" N
-    sol = solve(prob, LBFGS(), g_tol=1e-12, iterations=100000, allow_f_increases=true)
+    sol = solve(prob, 
+        Optim.LBFGS(;
+            m=6,
+            linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
+            alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
+        )
+    , g_tol=1e-12, iterations=100000, allow_f_increases=true)
     θ_map2 = sol.u
 
     return θ_map2
@@ -60,4 +66,29 @@ function _findmap(model::LogDensityModel,initial_θ_t;verbosity=0)
     #     end
     # end
     # error("Solution did not converge after 10 attempts")
+end
+
+
+
+# Returns the raw parameter vector
+function _refine(model::LogDensityModel,initial_θ_t;verbosity=0)
+    func = OptimizationFunction(
+        (θ,model)->-model.ℓπcallback(θ),
+        grad=(G,θ,model)->G.=.-model.∇ℓπcallback(θ)[2],
+    )
+    
+    # Then iterate with qusi-Newton
+    prob = OptimizationProblem(func, initial_θ_t, model)
+    verbosity > 1 && @info "LBFGS optimization"
+    sol = solve(prob, 
+        Optim.LBFGS(;
+            m=6,
+            linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
+            alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
+        )
+    , g_tol=1e-12, show_trace=true, show_every=100, iterations=100000, allow_f_increases=true)
+    display(sol)
+    θ_map2 = sol.u
+
+    return θ_map2
 end

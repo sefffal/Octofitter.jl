@@ -22,7 +22,6 @@ export gaia_plx
 
 # function ghca_pmra(;gaia_id)
 
-
 struct HGCALikelihood{TTable<:Table,THGCA} <: AbstractLikelihood
     table::TTable
     hgca::THGCA
@@ -31,6 +30,17 @@ function likeobj_from_epoch_subset(obs::HGCALikelihood, obs_inds)
     return HGCALikelihood(obs.table[obs_inds,:,1], obs.hgca)
 end
 export HGCALikelihood
+
+
+# We split the HGCA Likelihood into three 
+struct TimeAveragedProperMotionLikelihood{TTable<:Table,THGCA} <: AbstractLikelihood
+    table::TTable
+end
+function likeobj_from_epoch_subset(obs::TimeAveragedProperMotionLikelihood, obs_inds)
+    return TimeAveragedProperMotionLikelihood(obs.table[obs_inds,:,1], obs.hgca)
+end
+export TimeAveragedProperMotionLikelihood
+
 
 
 """
@@ -48,6 +58,7 @@ function HGCALikelihood(;
     factor=1
 )
 
+# hgca_all = Table([h])
     hgca_all = FITS(catalog, "r") do fits
         Table(fits[2])
     end
@@ -193,11 +204,11 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, elements, orbit_solutions
 
 
     # Hipparcos epoch
-    # resids_hip = @SArray[
-    #     pmra_hip_model - hgca_like.hgca.pmra_hip,
-    #     pmdec_hip_model - hgca_like.hgca.pmdec_hip
-    # ]
-    # ll += logpdf(hgca_like.hgca.dist_hip, resids_hip)
+    resids_hip = @SArray[
+        pmra_hip_model - hgca_like.hgca.pmra_hip,
+        pmdec_hip_model - hgca_like.hgca.pmdec_hip
+    ]
+    ll += logpdf(hgca_like.hgca.dist_hip, resids_hip)
 
     # Hipparcos - GAIA epoch
     resids_hg = @SArray[
@@ -330,6 +341,12 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
                 dec_gaia_model += raoff(sol, θ_planet.mass * mjup2msol)
                 if absolute_orbits
                     dec_gaia_model += deg2mas*(sol.compensated.dec2)
+                    if !isfinite(dec_gaia_model)
+                        @show sol.compensated.dec2  dec_gaia_model  raoff(sol, θ_planet.mass * mjup2msol)
+                        display(sol)
+                        display(orbit)
+                        display(θ_system)
+                    end
                 end
                 pmdec_gaia_model += pmdec(sol, θ_planet.mass * mjup2msol)
             end

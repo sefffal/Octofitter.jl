@@ -1,4 +1,7 @@
+module OctofitterTransits
 using Transits
+using TypedTables
+using Octofitter
 
 const light_curve_cols = (:epoch, :phot, :σ_phot)
 
@@ -8,9 +11,9 @@ const light_curve_cols = (:epoch, :phot, :σ_phot)
 Construct a LightCuve observation using a limb darkening type from 
 Tranits.jl and a table of observations.
 """
-struct LightCurve4{TLimbDark, TTable<:Table} <: AbstractLikelihood
+struct LightCurveLikelihood{TLimbDark, TTable<:Table} <: Octofitter.AbstractLikelihood
     table::TTable
-    function LightCurve4(ld::Type{<:AbstractLimbDark}, observations...)
+    function LightCurveLikelihood(ld::Type{<:AbstractLimbDark}, observations...)
         table = Table(observations...)
         if !issubset(light_curve_cols, Tables.columnnames(table))
             error("Ecpected columns $light_curve_cols")
@@ -18,16 +21,16 @@ struct LightCurve4{TLimbDark, TTable<:Table} <: AbstractLikelihood
         return new{ld, typeof(table)}(table)
     end
 end
-LightCurve4(observations::NamedTuple...) = LightCurve4(observations)
-export LightCurve4
+LightCurveLikelihood(observations::NamedTuple...) = LightCurveLikelihood(observations)
+export LightCurveLikelihood
 
-limbdarkfunc(lightcurve::LightCurve4{limbdark}) where limbdark = limbdark
+limbdarkfunc(lightcurve::LightCurveLikelihood{limbdark}) where limbdark = limbdark
 
 
 """
 Transit likelihood. Uses Transits.jl QuadLimbDark.
 """
-function ln_like(lc::LightCurve4, θ_system, elements)
+function ln_like(lc::LightCurveLikelihood, θ_system, elements)
     T = Float64
     ll = zero(T)
 
@@ -95,5 +98,7 @@ function transit_depth(orbit, t,  r, Rₛₜₐᵣ, ld=QuadLimbDark(Float64[]))
         bₜᵣₐₙ = sqrt(z^2 + y^2)/Rₛₜₐᵣ
         convert(T, Transits.compute(ld, bₜᵣₐₙ, r))
     # end
+
+end
 
 end

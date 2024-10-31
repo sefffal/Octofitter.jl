@@ -12,7 +12,6 @@ end
 # Orbits for the Impatient (Blunt et al) to improve the rate at which samples 
 # are generated close to the data.
 function guess_starting_position(rng::Random.AbstractRNG, model::LogDensityModel, N=500_000, enable_ofti=true)
-   
     if !_kepsolve_use_threads[]
         # Seed RNGs for each thread
         rngs = [
@@ -28,13 +27,13 @@ function guess_starting_position(rng::Random.AbstractRNG, model::LogDensityModel
             params_t = model.link(params)
             logpost = model.ℓπcallback(params_t)
             
-            # params_ofti = ofti_step(rng, model, params)
-            # params_ofti_t = model.link(params_ofti)
-            # logpost_ofti = model.ℓπcallback(params_ofti_t)
-            # if logpost_ofti > logpost
-            #     logpost = logpost_ofti
-            #     params = params_ofti
-            # end
+            params_ofti = ofti_step(rng, model, params)
+            params_ofti_t = model.link(params_ofti)
+            logpost_ofti = model.ℓπcallback(params_ofti_t)
+            if logpost_ofti > logpost
+                logpost = logpost_ofti
+                params = params_ofti
+            end
 
             logpost = model.ℓπcallback(params_t)
             if logpost > bestlogposts[tid]
@@ -51,7 +50,7 @@ function guess_starting_position(rng::Random.AbstractRNG, model::LogDensityModel
             params = model.sample_priors(rng)
             params_t = model.link(params)
             logpost = model.ℓπcallback(params_t)
-                # println("logpost_initial = ", logpost)
+            # println("logpost_initial = ", logpost)
             # Try an OFTI step and only keep it if it helps
             params_ofti = ofti_step(rng, model, params)
             # @show model.arr2nt(params)
@@ -71,8 +70,6 @@ function guess_starting_position(rng::Random.AbstractRNG, model::LogDensityModel
         end
         return bestparams, bestlogpost
     end
-
-
 end
 
 
@@ -188,6 +185,9 @@ function _get_planet_param_index(model, params, planet_key, param_name)
     # TODO: Hack! Find index in flat array corresponding to desired parameters using sentials.
     # This is really gross, we really want an nt2arr function.
     params_search_nt = model.arr2nt(params)
+    if !hasproperty(params_search_nt.planets[planet_key], param_name)
+        return nothing
+    end
     sentinal = params_search_nt.planets[planet_key][param_name]
     return findfirst(==(sentinal), params)
 end
