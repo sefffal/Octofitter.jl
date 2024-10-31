@@ -17,7 +17,7 @@ const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)
     tp = θ_at_epoch_to_tperi(system,B,57423.0) # epoch of GAIA measurement
 end
 @system HD91312_pma begin
-    M_pri ~ truncated(Normal(0.95, 0.05), lower=0) # Msol
+    M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
     M_sec ~ LogUniform(0.2, 65) # MJup
     M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
 
@@ -33,22 +33,22 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
 [ Info: Likelihood evaluated with multiple threads: false
 [ Info: Determining initial positions and metric using pathfinder
 ┌ Info: Found a sample of initial positions
-└   initial_logpost_range = (-24.566253490404023, -9.9128611926462)
+└   initial_logpost_range = (-19.938565335017405, -9.976137577804373)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.09       3.97       6.71    3.1e+08  -5.04e+07          0      0.805      0.923       0.96
-        4          0       5.97       2.73       3.78   9.28e+06  -1.63e+07          0      0.719      0.883      0.925
-        8          0        6.1        4.8       6.26   9.07e+05  -3.29e+05          0      0.648      0.889       0.92
-       16          0       7.52       5.21       12.8    1.7e+06  -2.49e+03          0      0.589      0.881      0.907
-       32          0       7.82       5.94       26.1   3.23e+06  -2.37e+04          0      0.556      0.892      0.905
-       64          5       7.72        2.1       53.5   2.33e+08      -17.2   7.59e-30      0.683      0.896      0.904
-      128         17       8.73       2.28        105   4.04e+08      -17.2   2.89e-06      0.645      0.897      0.903
-      256         31       9.04       2.43        211   8.07e+08      -17.4   2.91e-05       0.63      0.897      0.906
-      512         68       9.04       2.17        419   1.61e+09      -17.4     0.0307      0.639        0.9      0.907
- 1.02e+03        147       9.52       2.24        835   3.19e+09      -17.3     0.0791      0.621      0.899      0.905
- 2.05e+03        298       9.79       2.26   1.68e+03   6.42e+09      -17.3      0.143      0.611        0.9      0.905
-  4.1e+03        593       9.84       2.41   3.37e+03   1.29e+10      -17.3      0.221      0.605        0.9      0.906
+        2          0       2.29       2.92       6.85    3.1e+08  -1.67e+07          0      0.832      0.934      0.961
+        4          0       3.77        3.4       4.11   9.28e+06  -5.88e+06          0      0.769      0.883      0.916
+        8          0       3.49       4.44       6.31    9.3e+05  -3.77e+05          0      0.744      0.887      0.914
+       16          0        5.5       4.85       13.1   1.73e+06  -7.28e+05          0      0.666      0.891      0.913
+       32          0       6.46       5.92       26.8   3.31e+06  -3.56e+04          0      0.601      0.893      0.911
+       64          7          7       2.36       53.6    2.3e+08      -17.6          0      0.698      0.895      0.906
+      128         13       7.04       2.19        104   4.02e+08      -17.3  6.12e-192      0.702      0.898      0.904
+      256         26       7.69        2.6        210   8.04e+08      -17.1  7.91e-147      0.668      0.898      0.907
+      512         57       7.83       2.75        417    1.6e+09      -17.3    8.6e-12      0.659      0.902       0.91
+ 1.02e+03        129       8.34       2.35        841    3.2e+09      -17.4    0.00219      0.655      0.901      0.907
+ 2.05e+03        280       8.84       2.31   1.68e+03   6.42e+09      -17.3    0.00733       0.64        0.9      0.906
+  4.1e+03        509       9.18       2.52   3.37e+03   1.28e+10      -17.3     0.0109      0.623      0.901      0.907
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl:</p><pre><code class="language-julia hljs">pairplot(
     PairPlots.Series(
         (;
@@ -66,7 +66,7 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="2fadc0ce.png" alt="Example block output"/><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><pre><code class="language-julia hljs">using AstroImages
+)</code></pre><img src="1d8edf38.png" alt="Example block output"/><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><pre><code class="language-julia hljs">using AstroImages
 download(
     &quot;https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits&quot;,
     &quot;image-examples-1.fits&quot;
@@ -112,7 +112,7 @@ end image_data
 @system HD91312_img begin
     # age ~ truncated(Normal(40, 15),lower=0, upper=200)
     age = 10
-    M_pri ~ truncated(Normal(0.95, 0.05), lower=0) # Msol
+    M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
     # Mass of secondary
     # Make sure to pick only a mass range that is covered by your models
     M_sec ~ LogUniform(0.55, 65) # MJup
@@ -150,7 +150,7 @@ pairplot(
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="588e03a4.png" alt="Example block output"/><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
+)</code></pre><img src="69359d0c.png" alt="Example block output"/><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">@planet B Visual{KepOrbit} begin
     a ~ LogUniform(1, 65)
     e ~ Uniform(0,0.9)
     ω ~ Uniform(0,2pi)
@@ -184,7 +184,7 @@ end image_data
 @system HD91312_both begin
     # age ~ truncated(Normal(40, 15),lower=0, upper=200)
     age = 10
-    M_pri ~ truncated(Normal(0.95, 0.05), lower=0) # Msol
+    M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
     # Mass of secondary
     # Make sure to pick only a mass range that is covered by your models
     M_sec ~ LogUniform(0.55, 65) # MJup
@@ -231,4 +231,4 @@ pairplot(
         :sma=&gt;&quot;log₂ Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log₂ Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="ba6113bd.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extract-phot-astrom/">« Extract Astrometry and Photometry</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Thursday 31 October 2024 19:02">Thursday 31 October 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="6e72a8a1.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../extract-phot-astrom/">« Extract Astrometry and Photometry</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Thursday 31 October 2024 21:27">Thursday 31 October 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
