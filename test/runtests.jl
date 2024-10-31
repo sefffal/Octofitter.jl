@@ -1,7 +1,9 @@
 using Test
+using Octofitter,
+      Distributions,
+      CairoMakie,
+      PairPlots
 
 
-@testset "Basics" begin
-    
-    @test 1+1
-end
+include("integration-tests.jl")
+include("unit-tests.jl")
