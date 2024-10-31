@@ -130,15 +130,17 @@ function astromtimeplot!(
         color_model_t = rem2pi.(
             eccanom.(sols), RoundDown)
         
-        lines!(ax_sep,
-            concat_with_nan(ts' .+ 0 .* sep_model_t),
-            concat_with_nan(sep_model_t).*axis_mult;
-            alpha,
-            color=concat_with_nan(color_model_t .+ 0 .* ii),
-            colorrange=(0,2pi),
-            colormap=colormaps[planet_key],
-            rasterize=4,
-        )
+        if any(isfinite, sep_model_t)
+            lines!(ax_sep,
+                concat_with_nan(ts' .+ 0 .* sep_model_t),
+                concat_with_nan(sep_model_t).*axis_mult;
+                alpha,
+                color=concat_with_nan(color_model_t .+ 0 .* ii),
+                colorrange=(0,2pi),
+                colormap=colormaps[planet_key],
+                rasterize=4,
+            )
+        end
         
         # Go through each PA time series and, whenever we detect PA has wrapped past 0 or 360,
         # do some work to make the line not jump back vertically across the plot.

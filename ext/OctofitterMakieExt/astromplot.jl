@@ -373,3 +373,188 @@ function Octofitter.astromplot!(
 
     scatter!(ax, [0],[0],marker='★', markersize=20, color=:white, strokecolor=:black, strokewidth=1.5)
 end
+
+
+
+
+function physorbplot!(
+    gridspec_or_fig,
+    model::Octofitter.LogDensityModel,
+    results::Chains;
+    # If less than 500 samples, just show all of them
+    N  = min(size(results, 1)*size(results, 3), 500),
+    # If showing all samples, include each sample once.
+    # Otherwise, sample randomly with replacement
+    ii = (
+        N == size(results, 1)*size(results, 3) ? 
+        (1:size(results, 1)*size(results, 3)) :
+        rand(1:size(results, 1)*size(results, 3),N)
+    ),
+    axis=(;),
+    colormap=:plasma,
+    colorbar=true,
+    mark_epochs_mjd=Float64[],
+    alpha=min.(1, 100 / length(ii)),
+    ts,
+    kwargs...
+)
+    gs = gridspec_or_fig
+
+    if length(model.system.planets) == 1
+        colormaps = Dict(
+            first(keys(model.system.planets)) => colormap
+        )
+    else
+        colormaps = Dict(
+            begin
+                c = Makie.wong_colors()[i]
+                planet_key => Makie.cgrad([c, "#FAFAFA"])
+            end
+            for (i,planet_key) in enumerate(keys(model.system.planets))
+        )
+    end
+
+    EAs = range(0, 2pi, length=150)
+
+
+    ax = Axis(
+        gs[1, 1];
+        autolimitaspect=1,
+        xreversed=true,
+        xlabel= "Δx [au]",
+        ylabel= "Δy [au]",
+        xgridvisible=false,
+        ygridvisible=false,
+        axis...
+    )
+
+    # Start by plotting the orbits
+
+    # # Find earliest epoch
+    # epoch_0 = mjd("2020")
+    # for planet in model.system.planets
+    #     for like_obj in planet.observations
+    #         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+    #             epoch_0 = min(epoch_0, minimum(like_obj.table.epoch))
+    #         end
+    #     end
+    # end
+
+
+    for planet_key in keys(model.system.planets)
+        orbs = Octofitter.construct_elements(results, planet_key, ii)
+
+        # Draws from the posterior
+        if first(orbs) isa AbsoluteVisual
+            # Solve from an initial epoch, then in equal steps of mean anomaly (best we can do, ideally we'd do steps of eccentic anomaly)
+            MAs = range(0, 2pi, length=150)
+            ts_prime = first(ts) .+ range(0, 1 + 1/150, length=150)' .* period.(orbs)
+            sols = orbitsolve.(orbs, ts_prime)
+        else
+            # Orbit is perfectly periodic, so take equal steps in 
+            sols = orbitsolve_eccanom.(orbs, EAs')
+        end
+
+        try
+            posx(first(sols))
+        catch
+            continue
+        end
+
+        lines!(ax,
+            concat_with_nan(posx.(sols)),
+            concat_with_nan(posy.(sols)),
+            color=concat_with_nan(
+                # rem2pi.(EAs' .- eccanom.(sols_0), RoundDown) .+ 0 .* ii
+                rem2pi.(meananom.(sols), RoundDown) .+ 0 .* ii
+            ),
+            alpha=alpha,
+            transparency=true,
+            colormap=colormaps[planet_key],
+            rasterize=4,
+        )
+    end
+
+
+    # The user can ask us to plot the position at a particular date
+    if !isempty(mark_epochs_mjd)
+        i = 0
+        labels = map(mark_epochs_mjd) do epoch_mjd
+            replace(string(mjd2date(epoch_mjd)), "T"=>" ") # TODO: better to use a format string
+        end
+        # Find N last characers in common for all labels and chop them off.
+        local label_last_shared_index
+        for j in reverse(1:minimum(length.(labels)))
+            label_last_shared_index = j
+            if !all(s-> s∈(':', '0', ' '), getindex.(labels, j))
+                break
+            end
+        end
+        label_last_shared_index = max(10, label_last_shared_index)
+        labels = map(labels) do label
+            label[1:label_last_shared_index]
+        end
+        for i in eachindex(mark_epochs_mjd)
+            epoch_mjd = mark_epochs_mjd[i]
+            for planet_key in keys(model.system.planets)
+                orbs = Octofitter.construct_elements(results, planet_key, ii)
+                color = Makie.wong_colors()[mod1(i,end)]
+                sols = orbitsolve.(orbs, epoch_mjd)
+                Makie.scatter!(
+                    ax,
+                    vec(posx.(sols)),
+                    vec(posy.(sols)),
+                    color,
+                    markersize=6,
+                    strokewidth=1,
+                    strokecolor=:black,
+                    label = labels[i],
+                )
+            end
+        end
+        Legend(
+            gs[2,1:2],
+            ax,
+            "Posterior Predictions",
+            position=:rb,
+            # backgroundcolor=(:white, 0.65),
+            tellwidth=false,
+            tellheight=true,
+            width=Relative(1.0)
+        )
+    end
+
+    if colorbar
+        if length(colormaps) == 1
+            Colorbar(
+                gs[1,2];
+                colormap,
+                label="mean anomaly →",
+                colorrange=(0,2pi),
+                ticks=(
+                    [0,pi/2,pi,3pi/2,2pi],
+                    ["0", "π/2", "π", "3π/2", "2π"]
+                )
+            )
+        else
+            col = 1
+            for planet_key in keys(colormaps)
+                col += 1
+                Colorbar(
+                    gs[1,col];
+                    colormap=colormaps[planet_key],
+                    label="mean anomaly ($planet_key) →",
+                    colorrange=(0,2pi),
+                    ticks=(
+                        [0,pi/2,pi,3pi/2,2pi],
+                        ["0", "π/2", "π", "3π/2", "2π"]
+                    ),
+                    ticksvisible=col - 1 == length(colormaps),
+                    ticklabelsvisible=col - 1 == length(colormaps),
+                )
+            end
+        end
+    end
+
+    scatter!(ax, [0],[0],marker='★', markersize=20, color=:white, strokecolor=:black, strokewidth=1.5)
+end

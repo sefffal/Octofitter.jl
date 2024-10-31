@@ -33,6 +33,7 @@ function Octofitter.octoplot(
     results::Chains;
     fname="$(model.system.name)-plot-grid.png",
     show_astrom=nothing,
+    show_physical_orbit=nothing,
     show_astrom_time=nothing,
     show_hgca=nothing,
     show_mass=false,
@@ -67,6 +68,15 @@ function Octofitter.octoplot(
                 Octofitter.orbittype(planet) <: Visual{KepOrbit} || 
                 Octofitter.orbittype(planet) <: AbsoluteVisual{KepOrbit} || 
                 Octofitter.orbittype(planet) <: ThieleInnesOrbit
+        end
+    end
+
+    if isnothing(show_physical_orbit)
+        show_physical_orbit = false
+        for planet in model.system.planets
+            show_physical_orbit |= 
+                Octofitter.orbittype(planet) <: KepOrbit || 
+                Octofitter.orbittype(planet) <: CartesianOrbit
         end
     end
 
@@ -236,6 +246,7 @@ function Octofitter.octoplot(
     top_time_axis = true
     item = 0
     cols = 1
+   
     if show_astrom
         item += 1
         col = mod1(item, cols)
@@ -246,6 +257,18 @@ function Octofitter.octoplot(
             height=(400+40*length(mark_epochs_mjd)+ 155*(length(mark_epochs_mjd)>0))*figscale,
         )
         Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha)
+        colorbar = false
+    end
+    if show_physical_orbit
+        item += 1
+        col = mod1(item, cols)
+        row = cld(item, cols)
+        gl = GridLayout(
+            fig[row,col],
+            width=500figscale,
+            height=(400+40*length(mark_epochs_mjd)+ 155*(length(mark_epochs_mjd)>0))*figscale,
+        )
+        physorbplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha)
         colorbar = false
     end
 
@@ -359,3 +382,4 @@ function Octofitter.octoplot(
 
     return fig
 end
+ 
