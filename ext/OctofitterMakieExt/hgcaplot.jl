@@ -211,13 +211,13 @@ function Octofitter.hgcaplot!(
         hgca_like.hgca.epoch_dec_gaia_mjd
     ]
     x = [
-        hgca_like.hgca.pmra_hip - hip_nonlinear_dpmra
+        hgca_like.hgca.pmra_hip -  hip_nonlinear_dpmra
         hgca_like.hgca.pmra_hg - hg_nonlinear_dpmra
         hgca_like.hgca.pmra_gaia
     ]
     y = [
-        hgca_like.hgca.pmdec_hip - hip_nonlinear_dpmdec
-        hgca_like.hgca.pmdec_hg - hg_nonlinear_dpmdec
+        hgca_like.hgca.pmdec_hip -  hip_nonlinear_dpmdec
+        hgca_like.hgca.pmdec_hg -  hg_nonlinear_dpmdec
         hgca_like.hgca.pmdec_gaia
     ]
 

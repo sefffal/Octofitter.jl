@@ -200,20 +200,17 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, elements, orbit_solutions
         hip_nonlinear_dpmdec = zero(hgca_like.hgca.nonlinear_dpmra[1])
     end
 
-
-
-
     # Hipparcos epoch
     resids_hip = @SArray[
-        pmra_hip_model - hgca_like.hgca.pmra_hip,
-        pmdec_hip_model - hgca_like.hgca.pmdec_hip
+        pmra_hip_model  - (hgca_like.hgca.pmra_hip - hip_nonlinear_dpmra),
+        pmdec_hip_model - (hgca_like.hgca.pmdec_hip - hip_nonlinear_dpmdec)
     ]
     ll += logpdf(hgca_like.hgca.dist_hip, resids_hip)
 
     # Hipparcos - GAIA epoch
     resids_hg = @SArray[
-        pmra_hg_model + hg_nonlinear_dpmra - hgca_like.hgca.pmra_hg 
-        pmdec_hg_model + hg_nonlinear_dpmdec - hgca_like.hgca.pmdec_hg
+        pmra_hg_model - (hgca_like.hgca.pmra_hg - hg_nonlinear_dpmra),
+        pmdec_hg_model  - (hgca_like.hgca.pmdec_hg - hg_nonlinear_dpmdec)
     ]
     ll += logpdf(hgca_like.hgca.dist_hg, resids_hg)
 
@@ -240,12 +237,12 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
     # If the user specified a AbsoluteVisual orbit, we will compute things a
     # little differently
     absolute_orbits = false
-    for orbit in orbits
-        absolute_orbits |= orbit isa AbsoluteVisual
-        # TODO: could check in a more user-friendly way
-        # that we don't have a mismatch of different orbit types 
-        # for different planets?
-    end
+    # for orbit in orbits
+    #     absolute_orbits |= orbit isa AbsoluteVisual
+    #     # TODO: could check in a more user-friendly way
+    #     # that we don't have a mismatch of different orbit types 
+    #     # for different planets?
+    # end
 
     deg2mas = 60 * 60 * 1000
     # First epoch: Hipparcos
@@ -257,14 +254,14 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
     dec_hip_model = zero(T)
     pmra_hip_model = zero(T)
     pmdec_hip_model = zero(T)
-    N_ave_hip = 0
+    epoch_hip_ra = 0.0
+    epoch_hip_dec = 0.0
+    N_ave_hip_ra = 0
+    N_ave_hip_dec = 0
     # The model can support multiple planets
     for i_planet in eachindex(orbits)
         θ_planet = θ_system.planets[i_planet]
         orbit = orbits[i_planet]
-        if θ_planet.mass < 0
-            continue
-        end
         # TODO: a trait would be better here
         if !(
             (
@@ -277,17 +274,20 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
             if pma.table.inst[i_epoch] != :hip
                 continue
             end
-            N_ave_hip += 1
             
             sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
             if pma.table.meas[i_epoch] == :ra
+                N_ave_hip_ra += 1
+                epoch_hip_ra += pma.table.epoch[i_epoch]
                 ra_hip_model += raoff(sol, θ_planet.mass * mjup2msol)
                 if absolute_orbits
                     ra_hip_model += deg2mas*(sol.compensated.ra2)
                 end
                 pmra_hip_model += pmra(sol, θ_planet.mass * mjup2msol)
             elseif pma.table.meas[i_epoch] == :dec
-                dec_hip_model += raoff(sol, θ_planet.mass * mjup2msol)
+                N_ave_hip_dec += 1
+                epoch_hip_dec += pma.table.epoch[i_epoch]
+                dec_hip_model += decoff(sol, θ_planet.mass * mjup2msol)
                 if absolute_orbits
                     dec_hip_model += deg2mas*(sol.compensated.dec2)
                 end
@@ -295,11 +295,12 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
             end
         end
     end
-    N_ave_hip ÷= 2 # don't double count pmra & pmdec
-    ra_hip_model /= N_ave_hip
-    dec_hip_model /= N_ave_hip
-    pmra_hip_model /= N_ave_hip
-    pmdec_hip_model /= N_ave_hip
+    ra_hip_model /= N_ave_hip_ra
+    dec_hip_model /= N_ave_hip_dec
+    pmra_hip_model /= N_ave_hip_ra
+    pmdec_hip_model /= N_ave_hip_dec
+    epoch_hip_ra /= N_ave_hip_ra
+    epoch_hip_dec /= N_ave_hip_dec
     pmra_hip_model += θ_system.pmra
     pmdec_hip_model += θ_system.pmdec
 
@@ -308,14 +309,14 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
     dec_gaia_model = zero(T)
     pmra_gaia_model = zero(T)
     pmdec_gaia_model = zero(T)
-    N_ave_gaia = 0
+    epoch_gaia_ra = 0.0
+    epoch_gaia_dec = 0.0
+    N_ave_gaia_ra = 0
+    N_ave_gaia_dec = 0
     # The model can support multiple planets
     for i_planet in eachindex(orbits)
         θ_planet = θ_system.planets[i_planet]
         orbit = orbits[i_planet]
-        if θ_planet.mass < 0
-            continue
-        end
         # TODO: a trait would be better here
         if !(
             (
@@ -328,41 +329,39 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
             if pma.table.inst[i_epoch] != :gaia
                 continue
             end
-            N_ave_gaia += 1
             
             sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
             if pma.table.meas[i_epoch] == :ra
+                N_ave_gaia_ra += 1
+                epoch_gaia_ra += pma.table.epoch[i_epoch]
                 ra_gaia_model += raoff(sol, θ_planet.mass * mjup2msol)
                 if absolute_orbits
                     ra_gaia_model += deg2mas*(sol.compensated.ra2)
                 end
                 pmra_gaia_model += pmra(sol, θ_planet.mass * mjup2msol)
             elseif pma.table.meas[i_epoch] == :dec
-                dec_gaia_model += raoff(sol, θ_planet.mass * mjup2msol)
+                N_ave_gaia_dec += 1
+                epoch_gaia_dec += pma.table.epoch[i_epoch]
+                dec_gaia_model += decoff(sol, θ_planet.mass * mjup2msol)
                 if absolute_orbits
                     dec_gaia_model += deg2mas*(sol.compensated.dec2)
-                    if !isfinite(dec_gaia_model)
-                        @show sol.compensated.dec2  dec_gaia_model  raoff(sol, θ_planet.mass * mjup2msol)
-                        display(sol)
-                        display(orbit)
-                        display(θ_system)
-                    end
                 end
                 pmdec_gaia_model += pmdec(sol, θ_planet.mass * mjup2msol)
             end
         end
     end
-    N_ave_gaia ÷= 2
-    ra_gaia_model /= N_ave_gaia
-    dec_gaia_model /= N_ave_gaia
-    pmra_gaia_model /= N_ave_gaia
-    pmdec_gaia_model /= N_ave_gaia
+    ra_gaia_model /= N_ave_gaia_ra
+    dec_gaia_model /= N_ave_gaia_dec
+    pmra_gaia_model /= N_ave_gaia_ra
+    pmdec_gaia_model /= N_ave_gaia_dec
+    epoch_gaia_ra /= N_ave_gaia_ra
+    epoch_gaia_dec /= N_ave_gaia_dec
     pmra_gaia_model += θ_system.pmra
     pmdec_gaia_model += θ_system.pmdec
 
     # Model the GAIA-Hipparcos delta-position velocity in mas/yr
-    pmra_hg_model = (ra_gaia_model - ra_hip_model) / ((hgca.epoch_ra_gaia_mjd[1] - hgca.epoch_ra_hip_mjd[1])/julian_year)
-    pmdec_hg_model = (dec_gaia_model - dec_hip_model) / ((hgca.epoch_dec_gaia_mjd[1] - hgca.epoch_dec_hip_mjd[1])/julian_year)
+    pmra_hg_model = (ra_gaia_model - ra_hip_model) / (epoch_gaia_ra - epoch_hip_ra)*julian_year # ((hgca.epoch_ra_gaia_mjd[1] - hgca.epoch_ra_hip_mjd[1])/julian_year)
+    pmdec_hg_model = (dec_gaia_model - dec_hip_model) / (epoch_gaia_dec - epoch_hip_dec)*julian_year # ((hgca.epoch_dec_gaia_mjd[1] - hgca.epoch_dec_hip_mjd[1])/julian_year)
     if absolute_orbits
         # Cosine factor to go from alpha to alpha-star
         pmra_hg_model *= cosd((dec_gaia_model + dec_hip_model)/2/deg2mas)
@@ -372,7 +371,7 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
         pmdec_hg_model += θ_system.pmdec
     end
 
-    return (;
+    result = (;
         pmra_hip_model,
         pmdec_hip_model,
         pmra_gaia_model,
@@ -380,6 +379,8 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
         pmra_hg_model,
         pmdec_hg_model,
     )
+
+    return result
 end
 
 
