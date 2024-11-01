@@ -257,7 +257,7 @@ function Octofitter.rvpostplot!(
 
         
         epochs_all[mask] = vec(rvs.table.epoch)
-        rvs_all_minus_accel_minus_perspective[mask] = rvs_off_sub .- mean(map_gp_posterior, vec(data.epoch))
+        rvs_all_minus_accel_minus_perspective[mask] = rvs_off_sub .- mean(map_gp_posterior, vec(data.epoch)) .- perspective_accel_to_remove
         errs_all_data_jitter_gp[mask] .= errs_data_jitter_gp
 
         RV_sample_idxnst =  radvel.(els[sample_idx], ts_inst, M[sample_idx])
