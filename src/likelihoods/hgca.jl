@@ -237,12 +237,12 @@ function _simulate_hgca(pma, θ_system, orbits, orbit_solutions, orbit_solutions
     # If the user specified a AbsoluteVisual orbit, we will compute things a
     # little differently
     absolute_orbits = false
-    # for orbit in orbits
-    #     absolute_orbits |= orbit isa AbsoluteVisual
-    #     # TODO: could check in a more user-friendly way
-    #     # that we don't have a mismatch of different orbit types 
-    #     # for different planets?
-    # end
+    for orbit in orbits
+        absolute_orbits |= orbit isa AbsoluteVisual
+        # TODO: could check in a more user-friendly way
+        # that we don't have a mismatch of different orbit types 
+        # for different planets?
+    end
 
     deg2mas = 60 * 60 * 1000
     # First epoch: Hipparcos
