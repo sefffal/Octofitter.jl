@@ -108,6 +108,13 @@ function Octofitter.rvpostplot!(
     linkxaxes!(ax_fit, ax_resid)
     # hidexdecorations!(ax_fit,grid=false)
 
+    ax_resid_hist = Axis(
+        gs[2,2],
+    )
+    hidedecorations!(ax_resid_hist)
+    linkyaxes!(ax_resid, ax_resid_hist)
+
+
     ax_phase = Axis(
         gs[3,1],
         xlabel="Phase",
@@ -117,8 +124,10 @@ function Octofitter.rvpostplot!(
     # xlims!(ax_phase, -0.5,0.5)
     rowgap!(gs, 1, 0)
 
+
     # Horizontal zero line
-    hlines!(ax_resid, 0, color=:black, linewidth=3)
+    hlines!(ax_resid, 0, color=:black, linewidth=2)
+    hlines!(ax_resid_hist, 0, color=:black, linewidth=2)
 
     # Perspective acceleration line
     if els[sample_idx] isa AbsoluteVisual
@@ -374,6 +383,23 @@ function Octofitter.rvpostplot!(
             markersize=4,
             strokecolor=:black,strokewidth=0.1,
         )
+
+        # Makie.hist!(
+        #     ax_resid_hist,
+        #     resids,
+        #     color=Makie.wong_colors()[rv_like_idx],
+        #     direction=:x,
+        #     scale_to=1
+        # )
+        h = fit(Histogram, resids)
+        Makie.stairs!(
+            ax_resid_hist,
+            h.weights,
+            h.edges[1][1:end-1],
+            step=:post,
+            color=Makie.wong_colors()[rv_like_idx],
+        )
+
         phase_folded = mod.(data.epoch .- t_peri .- T/4, T)./T .- 0.5
         Makie.scatter!( 
             ax_phase,
@@ -431,45 +457,54 @@ function Octofitter.rvpostplot!(
         strokewidth=2,
     )
 
-    Legend(
-        gs[1:2,2],
-        [
-          MarkerElement(color = Makie.wong_colors()[i], marker=:circle, markersize = 15)
-          for i in 1:length(rv_likes)
-        ],
-        [rv.instrument_name for rv in rv_likes],
-        "instrument",
-        valign=:top,
-        halign=:left,
-        # width=Relative(1),
-        # height=Relative(1),
-    )
+ 
     markers =  [
+        # Group 1
         [
-            LineElement(color = Makie.wong_colors()[i], linestyle = :solid,
-            points = Point2f[((-1+i)/length(rv_likes), 0), ((-1+i)/length(rv_likes), 1)])
+            MarkerElement(color = Makie.wong_colors()[i], marker=:circle, markersize = 15)
             for i in 1:length(rv_likes)
         ],
-        LineElement(color = "#CCC", linestyle = :solid,
-            points = Point2f[(0.0, 0), (0.0, 1)]),
-        LineElement(color = :blue,linewidth=4,),
-        MarkerElement(color = :red, strokecolor=:black, strokewidth=2, marker=:circle, markersize = 15),   
+        # Group 2
+        [
+            [
+                LineElement(color = Makie.wong_colors()[i], linestyle = :solid,
+                points = Point2f[((-1+i)/length(rv_likes), 0), ((-1+i)/length(rv_likes), 1)])
+                for i in 1:length(rv_likes)
+            ],
+            LineElement(color = "#CCC", linestyle = :solid,
+                points = Point2f[(0.0, 0), (0.0, 1)]),
+            LineElement(color = :blue,linewidth=4,),
+            MarkerElement(color = :red, strokecolor=:black, strokewidth=2, marker=:circle, markersize = 15),   
+        ]
     ]
     labels = [
-        "data uncertainty",
-        any_models_have_a_gp ? "data, jitter, and\nmodel uncertainty" : "data and jitter\nuncertainty",
-        "orbit model",
-        "binned",
+        [rv.instrument_name for rv in rv_likes],
+        [
+            "data uncertainty",
+            any_models_have_a_gp ? "uncertainty,\njitter, and GP" : "uncertainty and\njitter",
+            "orbit model",
+            "binned",
+        ]
     ]
     if nonabsvis_parent(first(els)) != first(els)
-        push!(markers, LineElement(color = :orange,linewidth=4,))
-        push!(labels, "perspective")
+        push!(markers[end], LineElement(color = :orange,linewidth=4,))
+        push!(labels[end], "perspective")
     end
 
-    Legend(gs[3,2], markers, labels, valign=:top, halign=:left)
+    Legend(
+        gs[1:3,3],
+        markers,
+        labels,
+        ["instrument", ""],
+        valign=:top,
+        framevisible=false,
+    )
     Makie.rowsize!(gs, 1, Auto(2))
     Makie.rowsize!(gs, 2, Auto(1))
     Makie.rowsize!(gs, 3, Auto(2))
+    Makie.colgap!(gs, 1, 0)
+    Makie.colsize!(gs, 2, Aspect(2,1.0))
+
 
 end
 
