@@ -76,7 +76,7 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     @nospecialize
 
     # Turn off likelihood parallelism if we are sampling one chain per thread
-    if multithreaded
+    if multithreaded && n_chains + n_chains_variational > 1
         Octofitter._kepsolve_use_threads[] = false
     # Turn on likelihood parallelism if we have ~15x more data than threads.
     # This is based on some local benchmarks. Spawning tasks takes about 450ns;
