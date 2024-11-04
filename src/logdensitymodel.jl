@@ -283,7 +283,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                         diffres::TDiffRes = get!(
                             () -> DiffResults.GradientResult(zeros(Float64, D))::TDiffRes,
                             task_local_storage(),
-                            forward_diff_gradient_result_key
+                            Symbol(forward_diff_gradient_result_key,D)
                         )
                         
                         # Explicitly clear/reset the buffer before each use
