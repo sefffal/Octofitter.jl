@@ -1,6 +1,8 @@
 
 using LogDensityProblems
 
+const forward_diff_gradient_result_key = gensym(:fdgradkey)
+
 # Define the target distribution using the `LogDensityProblem` interface
 # TODO: in future, just roll this all into the System type.
 mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp}
@@ -211,9 +213,14 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
             elseif autodiff == :FiniteDiff
             
-                ∇ℓπcallback = let diffresult = copy(initial_θ_0_t),ℓπcallback=ℓπcallback
+                ∇ℓπcallback = let ℓπcallback=ℓπcallback
+                    diffresults = [
+                        DiffResults.GradientResult(collect(initial_θ_0_t))
+                        for _ in 1:Threads.nthreads()
+                    ]
                     function (θ_t)
                         primal = ℓπcallback(θ_t)
+                        diffresult = diffresults[Threads.threadid()]
                         Main.FiniteDiff.finite_difference_gradient!(diffresult, ℓπcallback, θ_t)
                         return primal, diffresult
                     end
@@ -236,10 +243,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
                 # ForwardDiff mode:
                 # Create temporary storage space for gradient computations
-                diffresults = [
-                    DiffResults.GradientResult(collect(initial_θ_0_t))
-                    for _ in 1:Threads.nthreads()
-                ]
+                diffresult = DiffResults.GradientResult(collect(initial_θ_0_t))
 
                 # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
                 # We're going to call this thousands of times so worth a few calls
@@ -255,9 +259,9 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 end
                 ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
                     cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
-                    ForwardDiff.gradient!(diffresults[1], ℓπcallback, initial_θ_0_t, cfg, Val{false}())
+                    ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg, Val{false}())
                     t = minimum(
-                        @elapsed ForwardDiff.gradient!(diffresults[1], ℓπcallback, initial_θ_0_t, cfg, Val{false}())
+                        @elapsed ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg, Val{false}())
                         for _ in 1:10
                     )
 
@@ -268,12 +272,25 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
 
                 cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
-                ∇ℓπcallback = let cfg=cfg, diffresults=diffresults, ℓπcallback=ℓπcallback
+                ∇ℓπcallback = let   cfg=cfg,
+                                    ℓπcallback=ℓπcallback,
+                                    D=D,
+                                    initial_θ_0_t=initial_θ_0_t
+
                     function (θ_transformed)
-                        # TODO: this is not safe for tasks that migrate across threads! Would need task-local storage instead.
-                        result = ForwardDiff.gradient!(diffresults[Threads.threadid()], ℓπcallback, θ_transformed, cfg, Val{false}())
-                        return DiffResults.value(result), DiffResults.gradient(result)
-                        # return DiffResults.gradient(result)
+                        TDiffRes = DiffResults.MutableDiffResult{1, Float64, Tuple{Vector{Float64}}}
+
+                        diffres::TDiffRes = get!(
+                            () -> DiffResults.GradientResult(zeros(Float64, D))::TDiffRes,
+                            task_local_storage(),
+                            forward_diff_gradient_result_key
+                        )
+                        
+                        # Explicitly clear/reset the buffer before each use
+                        fill!(DiffResults.gradient(diffres), zero(eltype(initial_θ_0_t)))
+                        
+                        ForwardDiff.gradient!(diffres, ℓπcallback, θ_transformed, cfg, Val{false}())
+                        return DiffResults.value(diffres), DiffResults.gradient(diffres)
                     end
                 end
             else
@@ -283,11 +300,12 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
             # Run the callback once right away. If there is a coding error in the users 
             # model, we want to surface it ASAP.
-            ∇ℓπcallback(initial_θ_0_t) 
             if verbosity >= 1
                 (function(∇ℓπcallback, θ)
                     @showtime ∇ℓπcallback(θ)
                 end)(∇ℓπcallback, initial_θ_0_t)
+            else
+                ∇ℓπcallback(initial_θ_0_t) 
             end
 
 
