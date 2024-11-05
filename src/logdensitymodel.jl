@@ -213,16 +213,11 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
             elseif autodiff == :FiniteDiff
             
-                ∇ℓπcallback = let ℓπcallback=ℓπcallback
-                    diffresults = [
-                        DiffResults.GradientResult(collect(initial_θ_0_t))
-                        for _ in 1:Threads.nthreads()
-                    ]
+                ∇ℓπcallback = let ℓπcallback=ℓπcallback, D=D
                     function (θ_t)
-                        primal = ℓπcallback(θ_t)
-                        diffresult = diffresults[Threads.threadid()]
-                        Main.FiniteDiff.finite_difference_gradient!(diffresult, ℓπcallback, θ_t)
-                        return primal, diffresult
+                        val = ℓπcallback(θ_t)
+                        grad= Main.FiniteDiff.finite_difference_gradient(ℓπcallback, θ_t)
+                        return val, grad
                     end
                 end
             
@@ -278,19 +273,23 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                                     initial_θ_0_t=initial_θ_0_t
 
                     function (θ_transformed)
-                        TDiffRes = DiffResults.MutableDiffResult{1, Float64, Tuple{Vector{Float64}}}
+                        
+                        grad = ForwardDiff.gradient(ℓπcallback, θ_transformed, cfg, Val{false}())
+                        return ℓπcallback(θ_transformed), grad
 
-                        diffres::TDiffRes = get!(
-                            () -> DiffResults.GradientResult(zeros(Float64, D))::TDiffRes,
-                            task_local_storage(),
-                            Symbol(forward_diff_gradient_result_key,D)
-                        )
+                        # TDiffRes = DiffResults.MutableDiffResult{1, Float64, Tuple{Vector{Float64}}}
+
+                        # diffres::TDiffRes = get!(
+                        #     () -> DiffResults.GradientResult(zeros(Float64, D))::TDiffRes,
+                        #     task_local_storage(),
+                        #     Symbol(forward_diff_gradient_result_key,D)
+                        # )
                         
-                        # Explicitly clear/reset the buffer before each use
-                        fill!(DiffResults.gradient(diffres), zero(eltype(initial_θ_0_t)))
+                        # # Explicitly clear/reset the buffer before each use
+                        # fill!(DiffResults.gradient(diffres), zero(eltype(initial_θ_0_t)))
                         
-                        ForwardDiff.gradient!(diffres, ℓπcallback, θ_transformed, cfg, Val{false}())
-                        return DiffResults.value(diffres), DiffResults.gradient(diffres)
+                        # ForwardDiff.gradient!(diffres, ℓπcallback, θ_transformed, cfg, Val{false}())
+                        # return DiffResults.value(diffres), DiffResults.gradient(diffres)
                     end
                 end
             else
