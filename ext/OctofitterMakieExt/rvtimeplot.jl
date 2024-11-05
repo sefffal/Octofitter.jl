@@ -289,6 +289,7 @@ function rvtimeplot_relative!(
     kwargs...
 )
     gs = gridspec_or_fig
+    nt_format = vec(Octofitter.mcmcchain2result(model, results))
 
     date_pos, date_strs, xminorticks = _date_ticks(ts)
 
@@ -366,11 +367,9 @@ function rvtimeplot_relative!(
             epoch = vec(like_obj.table.epoch)
             rv = vec(like_obj.table.rv)
             σ_rv = vec(like_obj.table.σ_rv)
-            inst_idx = vec(like_obj.table.inst_idx)
-            if any(!=(1), inst_idx)
-                @warn "instidx != 1 data plotting not yet implemented. Only the first data from the insturment will be displayed."
+            jitter = map(nt_format) do θ_system
+                θ_system.planets[planet_key][like_obj.jitter_symbol]
             end
-            jitter = results["$(planet_key)_jitter"]
             σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
             Makie.errorbars!(
                 ax, epoch, rv .* kms_mult, σ_tot .* kms_mult;

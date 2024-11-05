@@ -37,11 +37,14 @@ rel_rv_like = PlanetRelativeRVLikelihood(
     (epoch=7200, rv= 27083.2046462065, σ_rv=1500.0),
     (epoch=7300, rv=  9174.176455190982, σ_rv=1500.0),
     (epoch=7400, rv=-22241.45434114139, σ_rv=1500.0),
-    )
-```
-The columns in the table should be . See the standard radial velocity tutorial for examples on how this data can be loaded from a CSV file.
 
-The relative RV likelihood does not incorporate an instrument-specific RV offset. A jitter parameter called `jitter` can still be specified in the `@planet` block, as can parameters for a gaussian process model of stellar noise. Currently only a single instrument jitter parameter is supported. If you need to model relative radial velocities from multiple instruments with different jitters, please open an issue on GitHub.
+    instrument_name="simulated data",
+    jitter=:gamma # name of jitter variable to use
+)
+```
+See the standard radial velocity tutorial for examples on how this data can be loaded from a CSV file.
+
+The relative RV likelihood does not incorporate an instrument-specific RV offset. A jitter parameter called can still be specified in the `@planet` block, as can parameters for a gaussian process model of stellar noise. Currently only a single instrument jitter parameter is supported. If you need to model relative radial velocities from multiple instruments with different jitters, please open an issue on GitHub.
 
 Next, create a planet and system model, attaching the relative rv likelihood to the planet. Make sure to add a `jitter` parameter (optionally jitter=0) to the planet.
 
@@ -56,7 +59,7 @@ Next, create a planet and system model, attaching the relative rv likelihood to 
     P = √(b.a^3/system.M)
     tp =  b.τ*b.P*365.25 + 6000 # reference epoch for τ. Choose an MJD date near your data.
 
-    jitter ~ LogUniform(0.1, 1000) # m/s
+    gamma ~ LogUniform(0.1, 1000) # m/s
 end rel_rv_like
 
 @system ExampleSystem begin

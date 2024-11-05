@@ -1,42 +1,43 @@
 """
     PlanetRelativeRVLikelihood(
-        (;inst_idx=1, epoch=5000.0,  rv=−6.54, σ_rv=1.30),
-        (;inst_idx=1, epoch=5050.1,  rv=−3.33, σ_rv=1.09),
-        (;inst_idx=1, epoch=5100.2,  rv=7.90,  σ_rv=.11),
+        (;epoch=5000.0,  rv=−6.54, σ_rv=1.30),
+        (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
+        (;epoch=5100.2,  rv=7.90,  σ_rv=.11),
+
+        jitter=:jitter_1,
+        instrument_name="inst name",
     )
 
 Represents a likelihood function of relative astometry between a host star and a secondary body.
-`:epoch` (mjd), `:rv` (m/s), and `:σ_rv` (m/s), and `:inst_idx` are all required.
+`:epoch` (mjd), `:rv` (m/s), and `:σ_rv` (m/s) are all required.
 
-`:inst_idx` is used to distinguish RV time series between insturments so that they may optionally
-be fit with different zero points and jitters.
 In addition to the example above, any Tables.jl compatible source can be provided.
+
+The  `jitter` parameter specify which variables should be read from the model for the 
+jitter of this instrument.
 """
-struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikelihood
+struct PlanetRelativeRVLikelihood{TTable<:Table,GP,jitter_symbol} <: Octofitter.AbstractLikelihood
     table::TTable
-    instrument_names::Vector{String}
+    instrument_name::String
     gaussian_process::GP
-    function PlanetRelativeRVLikelihood(observations...; instrument_names=nothing, gaussian_process=nothing)
+    jitter_symbol::Symbol
+    function PlanetRelativeRVLikelihood(observations...; instrument_name="1", gaussian_process=nothing, jitter)
         table = Table(observations...)
         if !issubset(rv_cols, Tables.columnnames(table))
             error("Expected columns $rv_cols")
         end
        
         # We sort the data first by instrument index then by epoch to make some later code faster
-        m = maximum(table.epoch)
         ii = sortperm(table.epoch)
         table = table[ii,:]
-        if isnothing(instrument_names)
-            instrument_names = ["1"]
-        end
 
         rows = map(eachrow(table)) do row′
-            row = (;inst_idx=1, row′[1]..., rv=float(row′[1].rv[1]))
+            row = (;row′[1]..., rv=float(row′[1].rv[1]))
             return row
         end
         table = Table(rows)
 
-        return new{typeof(table),typeof(gaussian_process)}(table, instrument_names, gaussian_process)
+        return new{typeof(table),typeof(gaussian_process),jitter}(table, instrument_name, gaussian_process, jitter)
     end
 end
 PlanetRelativeRVLikelihood(observations::NamedTuple...;kwargs...) = PlanetRelativeRVLikelihood(observations; kwargs...)
@@ -48,6 +49,12 @@ function Octofitter.likeobj_from_epoch_subset(obs::PlanetRelativeRVLikelihood, o
     )
 end
 export PlanetRelativeRVLikelihood
+
+function _getparams(::PlanetRelativeRVLikelihood{TTable,GP,jitter_symbol}, θ_planet) where {TTable,GP,jitter_symbol}
+    jitter = getproperty(θ_planet, jitter_symbol)
+    return (;jitter)
+end
+
 
 """
 Radial velocity likelihood.
@@ -72,7 +79,7 @@ function Octofitter.ln_like(
     epochs = vec(rvlike.table.epoch)
     σ_rvs = vec(rvlike.table.σ_rv)
     rvs = vec(rvlike.table.rv)
-    jitter = θ_planet.jitter
+    jitter = _getparams(rvlike, θ_planet).jitter
 
     @no_escape begin
         noise_var = @alloc(T, length(rvs))
