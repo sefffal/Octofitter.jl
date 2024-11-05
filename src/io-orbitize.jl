@@ -95,7 +95,7 @@ If you pass `numchains` as a second argument, the array will be interpretted
 as coming from multiple chains concatenated together, 
 """
 function loadhdf5(fname_or_targetname, numchains=1)
-    if !occursin(".hdf5", fname_or_targetname)
+    if !(occursin(".hdf5", fname_or_targetname) || occursin(".h5", fname_or_targetname))
         fname = Whereistheplanet_search(fname_or_targetname)
     else
         fname = fname_or_targetname
