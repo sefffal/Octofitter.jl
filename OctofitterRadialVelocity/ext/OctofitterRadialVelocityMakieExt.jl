@@ -395,8 +395,8 @@ function Octofitter.rvpostplot!(
         Makie.stairs!(
             ax_resid_hist,
             h.weights,
-            h.edges[1][1:end-1],
-            step=:post,
+            h.edges[1][1:end-1] .+ step(h.edges[1])/2,
+            step=:center,
             color=Makie.wong_colors()[rv_like_idx],
         )
 
