@@ -399,6 +399,7 @@ function Octofitter.rvpostplot!(
             step=:center,
             color=Makie.wong_colors()[rv_like_idx],
         )
+        xlims!(ax_resid_hist, low=0)
 
         phase_folded = mod.(data.epoch .- t_peri .- T/4, T)./T .- 0.5
         Makie.scatter!( 
