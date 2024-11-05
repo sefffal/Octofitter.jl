@@ -154,7 +154,7 @@ function Octofitter.rvpostplot!(
 
     # Model plot vs phase-folded data (without any perspective acceleration)
     phases = -0.5:0.005:0.5
-    ts_phase_folded = ((phases .+ 0.5) .* T) .+ t_peri .+ T/4
+    ts_phase_folded = ((phases .+ 0.5) .* T) .+ t_peri .+ T/2
     RV = radvel.(nonabsvis_parent(els[sample_idx]), ts_phase_folded, M[sample_idx])
     Makie.lines!(
         ax_phase,
@@ -280,21 +280,23 @@ function Octofitter.rvpostplot!(
 
         # Draw the full model ie. RV + perspective + GP
         # We darken the colour by plotting a faint black line under it
-        lines!(
-            ax_fit,
-            ts_inst,
-            radvel.(els[sample_idx], ts_inst, M[sample_idx]) .+ y,
-            color=(:black,1),
-            linewidth=0.3
-        )
-        lines!(
-            ax_fit,
-            ts_inst,
-            radvel.(els[sample_idx], ts_inst, M[sample_idx]) .+ y,
-            color=(Makie.wong_colors()[rv_like_idx],0.8),
-            # color=:blue,
-            linewidth=0.3
-        )
+        if any_models_have_a_gp
+            lines!(
+                ax_fit,
+                ts_inst,
+                radvel.(els[sample_idx], ts_inst, M[sample_idx]) .+ y,
+                color=(:black,1),
+                linewidth=0.3
+            )
+            lines!(
+                ax_fit,
+                ts_inst,
+                radvel.(els[sample_idx], ts_inst, M[sample_idx]) .+ y,
+                color=(Makie.wong_colors()[rv_like_idx],0.8),
+                # color=:blue,
+                linewidth=0.3
+            )
+        end
         
 
 
@@ -333,7 +335,7 @@ function Octofitter.rvpostplot!(
         )
 
         # Phase-folded plot
-        phase_folded = mod.(data.epoch .- t_peri .- T/4, T)./T .- 0.5
+        phase_folded = mod.(data.epoch .- t_peri .- T/2, T)./T .- 0.5
         errorbars!(
             ax_phase,
             phase_folded,
@@ -401,7 +403,7 @@ function Octofitter.rvpostplot!(
         )
         xlims!(ax_resid_hist, low=0)
 
-        phase_folded = mod.(data.epoch .- t_peri .- T/4, T)./T .- 0.5
+        phase_folded = mod.(data.epoch .- t_peri .- T/2, T)./T .- 0.5
         Makie.scatter!( 
             ax_phase,
             phase_folded,
@@ -423,7 +425,7 @@ function Octofitter.rvpostplot!(
     bins = -0.495:0.05:0.495
     binned = zeros(length(bins))
     binned_unc = zeros(length(bins))
-    phase_folded = mod.(epochs_all .- t_peri .- T/4, T)./T .- 0.5
+    phase_folded = mod.(epochs_all .- t_peri .- T/2, T)./T .- 0.5
     
     for (i,bin_cent) in enumerate(bins)
         mask = bin_cent - step(bins)/2 .<= phase_folded .<= bin_cent + step(bins/2)
@@ -509,7 +511,7 @@ function Octofitter.rvpostplot!(
 
 end
 
-function Octofitter.rvpostplot_animated(model, chain; framerate=4,compression=0, fname="rv-posterior.mp4", N=min(size(chain,1),50))
+function Octofitter.rvpostplot_animated(model, chain; framerate=4,compression=1, fname="rv-posterior.mp4", N=min(size(chain,1),50))
     imgs = []
     print("generating plots")
     for i in rand(1:size(chain,1), N)
