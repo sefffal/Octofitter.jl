@@ -42,8 +42,8 @@ chain = octofit(model, iterations=4_000, max_depth=6)</code></pre><pre class="do
 Iterations        = 1:1:4000
 Number of chains  = 1
 Samples per chain = 4000
-Wall duration     = 1.06 seconds
-Compute duration  = 1.06 seconds
+Wall duration     = 1.07 seconds
+Compute duration  = 1.07 seconds
 parameters        = plx, pmra, pmdec, ra_hip_offset_mas, dec_hip_offset_mas, M, rv, dec, ra, ref_epoch, b_mass, b_e, b_ω, b_a, b_i, b_Ω, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -133,7 +133,29 @@ for prop in (
     lines!(ax, nxs, pdf.(n,nxs), label=&quot;Hipparcos Catalog&quot;, color=:black, linewidth=2)
 end
 Legend(fig[i-1,j+1],ax,tellwidth=false)
-fig</code></pre><img src="7b9aaef2.png" alt="Example block output"/><h2 id="Constrain-Planet-Mass"><a class="docs-heading-anchor" href="#Constrain-Planet-Mass">Constrain Planet Mass</a><a id="Constrain-Planet-Mass-1"></a><a class="docs-heading-anchor-permalink" href="#Constrain-Planet-Mass" title="Permalink"></a></h2><p>We now allow the planet to have a non zero mass and have free orbit. We start by retrieving relative astrometry data on the planet, collated by Jason Wang and co. on <a href="http://whereistheplanet.com">whereistheplanet.com</a>.</p><pre><code class="language-julia hljs">astrom_like1,astrom_like2 = Octofitter.Whereistheplanet_astrom(&quot;51erib&quot;,object=1)</code></pre><p>We specify our full model:</p><pre><code class="language-julia hljs">@planet b AbsoluteVisual{KepOrbit} begin
+fig</code></pre><img src="7b9aaef2.png" alt="Example block output"/><h2 id="Constrain-Planet-Mass"><a class="docs-heading-anchor" href="#Constrain-Planet-Mass">Constrain Planet Mass</a><a id="Constrain-Planet-Mass-1"></a><a class="docs-heading-anchor-permalink" href="#Constrain-Planet-Mass" title="Permalink"></a></h2><p>We now allow the planet to have a non zero mass and have free orbit. We start by retrieving relative astrometry data on the planet, collated by Jason Wang and co. on <a href="http://whereistheplanet.com">whereistheplanet.com</a>.</p><pre><code class="language-julia hljs">astrom_like1,astrom_like2 = Octofitter.Whereistheplanet_astrom(&quot;51erib&quot;,object=1)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Checksum not provided, add to the Datadep Registration the following hash line
+│   hash = &quot;d734dd8296e6f3e147ce49a18851e8c8571d326bd387a6edfeb4bb62f80fa7ea&quot;
+└ @ DataDeps ~/.julia/packages/DataDeps/Y2lje/src/verification.jl:44
+
+7-Zip (a) [64] 17.04 : Copyright (c) 1999-2021 Igor Pavlov : 2017-08-28
+p7zip Version 17.04 (locale=C.UTF-8,Utf16=on,HugeFiles=on,64 bits,4 CPUs AMD EPYC 7763 64-Core Processor                 (A00F11),ASM,AES-NI)
+
+Scanning the drive for archives:
+1 file, 11900618 bytes (12 MiB)
+
+Extracting archive: /home/runner/.julia/scratchspaces/124859b0-ceae-595e-8997-d05f6a7a8dfe/datadeps/Whereistheplanet/whereistheplanet-master.zip
+--
+Path = /home/runner/.julia/scratchspaces/124859b0-ceae-595e-8997-d05f6a7a8dfe/datadeps/Whereistheplanet/whereistheplanet-master.zip
+Type = zip
+Physical Size = 11900618
+Comment = 0bdbe0d3b7cde8746f3849cb48252903cd2c58fa
+
+Everything is Ok
+
+Folders: 8
+Files: 100
+Size:       15044074
+Compressed: 11900618</code></pre><p>We specify our full model:</p><pre><code class="language-julia hljs">@planet b AbsoluteVisual{KepOrbit} begin
     a ~ truncated(Normal(10,1),lower=0.1)
     e ~ Uniform(0,0.99)
     ω ~ UniformCircular()
@@ -171,8 +193,8 @@ chain</code></pre><pre class="documenter-example-output"><code class="nohighligh
 Iterations        = 1:1:256
 Number of chains  = 1
 Samples per chain = 256
-Wall duration     = 434.92 seconds
-Compute duration  = 434.92 seconds
+Wall duration     = 429.59 seconds
+Compute duration  = 429.59 seconds
 parameters        = M_pri, M_sec, plx, pmra, pmdec, ra_hip_offset_mas, dec_hip_offset_mas, M, rv, dec, ra, ref_epoch, b_a, b_e, b_ωy, b_ωx, b_i, b_Ωy, b_Ωx, b_θy, b_θx, b_ω, b_Ω, b_θ, b_tp, b_mass
 internals         = loglike, logpost, logprior, pigeons_logpotential
 
@@ -223,4 +245,4 @@ Quantiles
                  b_i       2.2431       2.3448       2.4363       2.4731       ⋯
           ⋮                ⋮            ⋮            ⋮            ⋮            ⋱
 </span><span class="sgr36">                                                     1 column and 9 rows omitted
-</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain, show_mass=true)</code></pre><img src="50da3189.png" alt="Example block output"/><p>We see that we constrained both the orbit and the parallax. The mass is not strongly constrained by Hipparcos.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-rel/">« Fit Relative RV Data</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">Fit GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Sunday 3 November 2024 03:10">Sunday 3 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain, show_mass=true)</code></pre><img src="50da3189.png" alt="Example block output"/><p>We see that we constrained both the orbit and the parallax. The mass is not strongly constrained by Hipparcos.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-rel/">« Fit Relative RV Data</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">Fit GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Tuesday 5 November 2024 01:33">Tuesday 5 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
