@@ -1,5 +1,9 @@
 using TypedTables
 using Octofitter: Variables, Priors, Derived, FixedPosition
+using CSV
+using MCMCChains
+using HDF5
+using Random
 @testset "Core Functionality" begin
 
 
@@ -634,4 +638,109 @@ end
             @test params.plx ≥ 0.1
         end
     end
+end
+
+
+@testset "Data I/O" begin
+    
+    @testset "FITS Chain basic I/O" begin
+        # Test handling of unicode characters in parameter names
+        test_chain = Chains(
+            randn(100, 5, 1),  # 100 samples, 5 parameters, 1 chain
+            [:a, :e, :ω, :Ω, :θ]  # Unicode parameter names
+        )
+        
+        # Save and reload with FITS
+        Octofitter.savechain("test_unicode.fits", test_chain)
+        loaded_chain = Octofitter.loadchain("test_unicode.fits")
+        
+        @test keys(test_chain) == keys(loaded_chain)
+        for name in keys(test_chain)
+            @test test_chain[name] ≈ loaded_chain[name]
+        end
+        
+        # Clean up
+        rm("test_unicode.fits")
+    end
+
+    # Create a test chain 
+    @planet b Visual{KepOrbit} begin 
+        a ~ LogUniform(0.1, 100)
+        e ~ Uniform(0, 0.99)
+        i ~ Sine()
+        ω ~ UniformCircular() # Unicode omega
+        Ω ~ UniformCircular() # Unicode capital omega  
+        θ ~ UniformCircular() # Unicode theta
+        tp = θ_at_epoch_to_tperi(system,b,50000)
+    end
+
+    @system TestSystem begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end b
+
+    model = Octofitter.LogDensityModel(TestSystem)
+    chain_original = octofit(model, iterations=100, adaptation=50)
+    @testset "FITS Chain I/O" begin
+        # Save and reload
+        Octofitter.savechain("test_chain.fits", chain_original)
+        chain_loaded = Octofitter.loadchain("test_chain.fits")
+        
+        # Test that all columns are preserved
+        @test keys(chain_original) == keys(chain_loaded)
+        
+        # Test that values are preserved
+        for name in keys(chain_original)
+            @test chain_original[name] ≈ chain_loaded[name]
+        end
+    end
+
+
+    # Clean up
+    rm("test_chain.fits")
+
+    @testset "HDF5 Chain I/O" begin
+        # Save to HDF5 format
+        Octofitter.savehdf5("test_chain.h5", model, chain_original)
+        
+        # Load back
+        chain_loaded = Octofitter.loadhdf5("test_chain.h5")
+        
+        # Test that essential orbital parameters are preserved
+        params = ["b_a", "b_e", "b_i", "b_ω", "b_Ω", "M", "plx"]
+        for param in params
+            @test median(chain_original[param]) ≈ median(chain_loaded[param]) rtol=1e-5
+        end
+        
+        # Clean up
+        rm("test_chain.h5")
+    end
+
+    @testset "CSV Astrometry Data I/O" begin
+        # Create a test CSV file
+        test_data = """
+        epoch,ra,dec,σ_ra,σ_dec,cor
+        50000.0,100.0,50.0,1.0,1.0,0.0
+        50100.0,110.0,55.0,1.0,1.0,0.1
+        50200.0,120.0,60.0,1.0,1.0,-0.1
+        """
+        
+        open("test_astrometry.csv", "w") do io
+            write(io, test_data)
+        end
+        
+        # Load using CSV.read
+        astrom_data = CSV.read("test_astrometry.csv", PlanetRelAstromLikelihood)
+        
+        # Test the loaded data
+        @test length(astrom_data.table) == 3
+        @test astrom_data.table.epoch[1] ≈ 50000.0
+        @test astrom_data.table.ra[2] ≈ 110.0
+        @test astrom_data.table.dec[3] ≈ 60.0
+        @test astrom_data.table.cor[2] ≈ 0.1
+        
+        # Clean up
+        rm("test_astrometry.csv")
+    end
+
 end
