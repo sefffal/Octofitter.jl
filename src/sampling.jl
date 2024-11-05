@@ -114,14 +114,14 @@ function construct_elements(::Type{Visual{CartesianOrbit}}, θ_system, θ_planet
     )...)
 end
 function construct_elements(::Type{FixedPosition}, θ_system, θ_planet)
-    return Visual{CartesianOrbit}(;(;
+    return FixedPosition(;(;
         θ_planet.x,
         θ_planet.y,
         z = hasproperty(θ_planet, :z) ? θ_planet.z : zero(θ_planet.x)
     )...)
 end
-function construct_elements(::Type{Visual{<:FixedPosition}}, θ_system, θ_planet)
-    return Visual{CartesianOrbit}(;(;
+function construct_elements(::Type{Visual{FixedPosition}}, θ_system, θ_planet)
+    return Visual{FixedPosition}(;(;
         θ_system.plx,
         θ_planet.x,
         θ_planet.y,
