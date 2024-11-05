@@ -155,8 +155,8 @@ chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 29.63 seconds
-Compute duration  = 29.63 seconds
+Wall duration     = 22.75 seconds
+Compute duration  = 22.75 seconds
 parameters        = M, rv0_harps, rv0_pfs, jitter_harps, jitter_pfs, b_P, b_τy, b_τx, b_mass, b_e, b_ω, b_a, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -164,46 +164,46 @@ Summary Statistics
  <span class="sgr1">   parameters         mean       std      mcse    ess_bulk   ess_tail      rh ⋯
  <span class="sgr90">       Symbol      Float64   Float64   Float64     Float64    Float64   Float ⋯
 
-             M       0.8208    0.0191    0.0006    966.3434   703.3511    0.99 ⋯
-     rv0_harps   -6693.6552    2.3894    0.0809    876.3124   643.0315    1.00 ⋯
-       rv0_pfs       1.3235    3.4488    0.1241    775.2198   660.7247    1.00 ⋯
-  jitter_harps      13.7657    2.0511    0.0713    827.7176   757.1258    1.00 ⋯
-    jitter_pfs      17.4948    2.5563    0.0860    903.4647   576.7808    0.99 ⋯
-           b_P       0.0010    0.0000    0.0000   1017.0582   639.8154    1.00 ⋯
-          b_τy       0.7099    0.1838    0.0082    564.9358   420.4282    1.00 ⋯
-          b_τx      -0.6659    0.1899    0.0070    719.3966   522.3262    1.00 ⋯
-        b_mass       0.0414    0.0087    0.0003    672.7172   625.9025    1.00 ⋯
+             M       0.8197    0.0193    0.0006    952.8892   447.1838    1.00 ⋯
+     rv0_harps   -6693.7240    2.4848    0.0794   1013.4806   453.5122    0.99 ⋯
+       rv0_pfs       1.3695    3.5464    0.1230    829.0215   510.8579    1.00 ⋯
+  jitter_harps      13.8706    2.0521    0.0653    995.3947   707.4387    1.00 ⋯
+    jitter_pfs      17.7079    2.6254    0.0888    943.0857   696.5626    0.99 ⋯
+           b_P       0.0010    0.0000    0.0000    996.1645   656.2286    0.99 ⋯
+          b_τy       0.7318    0.1687    0.0058    890.1100   660.7247    0.99 ⋯
+          b_τx      -0.6516    0.1844    0.0074    675.2873   477.2452    0.99 ⋯
+        b_mass       0.0411    0.0091    0.0004    667.3872   284.4081    1.00 ⋯
            b_e       0.0000    0.0000       NaN         NaN        NaN       N ⋯
            b_ω       0.0000    0.0000       NaN         NaN        NaN       N ⋯
-           b_a       0.0094    0.0001    0.0000    962.6177   703.3511    0.99 ⋯
-           b_τ      -0.1199    0.0395    0.0017    540.5645   381.5970    1.00 ⋯
-          b_tp   57781.9557    0.0146    0.0006    540.5774   381.5970    1.00 ⋯
+           b_a       0.0094    0.0001    0.0000    952.9723   447.1838    1.00 ⋯
+           b_τ      -0.1157    0.0370    0.0015    656.4353   584.4086    0.99 ⋯
+          b_tp   57781.9573    0.0137    0.0005    656.3444   584.4086    0.99 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
     parameters         2.5%        25.0%        50.0%        75.0%        97.5 ⋯
  </span><span class="sgr90">       Symbol      Float64      Float64      Float64      Float64      Float6 ⋯
 
-             M       0.7827       0.8082       0.8203       0.8343       0.859 ⋯
-     rv0_harps   -6698.0013   -6695.1917   -6693.6804   -6692.1512   -6688.891 ⋯
-       rv0_pfs      -5.4962      -1.0563       1.4946       3.5947       8.562 ⋯
-  jitter_harps      10.1342      12.3204      13.6302      15.0299      18.056 ⋯
-    jitter_pfs      13.1932      15.6817      17.2860      19.0660      23.166 ⋯
+             M       0.7797       0.8074       0.8193       0.8323       0.857 ⋯
+     rv0_harps   -6698.7024   -6695.3735   -6693.6822   -6692.0468   -6688.902 ⋯
+       rv0_pfs      -5.4963      -1.0453       1.4208       3.7594       8.186 ⋯
+  jitter_harps      10.3782      12.4303      13.6629      15.0602      18.339 ⋯
+    jitter_pfs      13.5979      15.8682      17.3918      19.1449      23.834 ⋯
            b_P       0.0010       0.0010       0.0010       0.0010       0.001 ⋯
-          b_τy       0.2941       0.5990       0.7263       0.8330       1.020 ⋯
-          b_τx      -1.0101      -0.8012      -0.6732      -0.5430      -0.266 ⋯
-        b_mass       0.0252       0.0356       0.0413       0.0474       0.058 ⋯
+          b_τy       0.3689       0.6223       0.7449       0.8491       1.016 ⋯
+          b_τx      -0.9910      -0.7719      -0.6601      -0.5406      -0.266 ⋯
+        b_mass       0.0235       0.0348       0.0415       0.0477       0.057 ⋯
            b_e       0.0000       0.0000       0.0000       0.0000       0.000 ⋯
            b_ω       0.0000       0.0000       0.0000       0.0000       0.000 ⋯
            b_a       0.0093       0.0094       0.0094       0.0095       0.009 ⋯
-           b_τ      -0.2002      -0.1455      -0.1192      -0.0934      -0.043 ⋯
-          b_tp   57781.9261   57781.9463   57781.9560   57781.9655   57781.983 ⋯
+           b_τ      -0.1882      -0.1390      -0.1164      -0.0910      -0.045 ⋯
+          b_tp   57781.9305   57781.9487   57781.9570   57781.9664   57781.983 ⋯
 </span><span class="sgr36">                                                                1 column omitted
 </span></span></code></pre><p>Excellent! Let&#39;s plot the maximum likelihood orbit:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
-fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="81a07f05.png" alt="Example block output"/><p>We can also plot a number of samples from the posterior:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
-octoplot(model, chain)</code></pre><img src="62146bfd.png" alt="Example block output"/><p>Create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
+fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="3077df3b.png" alt="Example block output"/><p>We can also plot a number of samples from the posterior:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
+octoplot(model, chain)</code></pre><img src="033cc96f.png" alt="Example block output"/><p>Create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
 using CairoMakie: Makie
-octocorner(model, chain)</code></pre><img src="583071f0.png" alt="Example block output"/><h2 id="Gaussian-Process-Fit"><a class="docs-heading-anchor" href="#Gaussian-Process-Fit">Gaussian Process Fit</a><a id="Gaussian-Process-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Gaussian-Process-Fit" title="Permalink"></a></h2><p>Let us now add a Gaussian process to model stellar activity. This should improve the fit.</p><p>We start by writing a functino that creates a Gaussian process kernel from a set of system  parameters. We will create a quasi-periodic kernel.</p><pre><code class="language-julia hljs">using AbstractGPs
+octocorner(model, chain)</code></pre><img src="e204b1e0.png" alt="Example block output"/><h2 id="Gaussian-Process-Fit"><a class="docs-heading-anchor" href="#Gaussian-Process-Fit">Gaussian Process Fit</a><a id="Gaussian-Process-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Gaussian-Process-Fit" title="Permalink"></a></h2><p>Let us now add a Gaussian process to model stellar activity. This should improve the fit.</p><p>We start by writing a functino that creates a Gaussian process kernel from a set of system  parameters. We will create a quasi-periodic kernel.</p><pre><code class="language-julia hljs">using AbstractGPs
 
 function gauss_proc_quasi_periodic(θ_system)
     # θ_system is a named tuple of variable values for this posterior draw.
@@ -306,8 +306,8 @@ chain = octofit(
 Iterations        = 1:1:100
 Number of chains  = 1
 Samples per chain = 100
-Wall duration     = 799.6 seconds
-Compute duration  = 799.6 seconds
+Wall duration     = 345.38 seconds
+Compute duration  = 345.38 seconds
 parameters        = M, rv0_harps, rv0_pfs, jitter_harps, jitter_pfs, gp_η₁, gp_η₂, gp_η₃, gp_η₄, b_P, b_mass, b_τy, b_τx, b_e, b_ω, b_a, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -315,50 +315,50 @@ Summary Statistics
  <span class="sgr1">   parameters         mean       std      mcse   ess_bulk   ess_tail      rha ⋯
  <span class="sgr90">       Symbol      Float64   Float64   Float64    Float64    Float64   Float6 ⋯
 
-             M       0.8227    0.0157    0.0040    15.1866    16.1693    1.037 ⋯
-     rv0_harps   -6689.7060   10.6875    1.0748    98.8053   101.7705    0.991 ⋯
-       rv0_pfs     -27.1178    5.7503    0.6033    92.2342    92.5822    1.004 ⋯
-  jitter_harps       0.2802    0.0407    0.0061    19.4157    66.9638    1.076 ⋯
-    jitter_pfs       3.8282    0.7823    0.2881     7.4587    59.8641    1.137 ⋯
-         gp_η₁      28.6063    4.9412    1.2459    14.6951    71.2875    1.036 ⋯
-         gp_η₂      13.2532    0.8243    0.1611    26.0597    49.6667    0.990 ⋯
-         gp_η₃       9.7019    0.4413    0.1129    19.0431    66.9638    1.036 ⋯
-         gp_η₄       0.3976    0.0114    0.0028    18.6273    34.3628    1.041 ⋯
-           b_P       0.0010    0.0000    0.0000   121.5531    76.6284    0.997 ⋯
-        b_mass       0.0180    0.0039    0.0004   116.9240    26.3673    1.006 ⋯
-          b_τy       0.6004    0.1586    0.0303    28.6973    68.6430    1.017 ⋯
-          b_τx      -0.7474    0.1390    0.0171    63.0094   100.0590    0.991 ⋯
+             M       0.8170    0.0197    0.0018   108.3856   114.5296    0.993 ⋯
+     rv0_harps   -6689.8966   10.8264    3.1831    13.8942    58.1997    1.150 ⋯
+       rv0_pfs       0.0026   13.8603    3.3921    21.3826    21.0246    1.415 ⋯
+  jitter_harps       0.9397    0.8200    0.1100    45.4048    31.5355    1.019 ⋯
+    jitter_pfs       4.7585    1.0724    0.0979   123.8786    78.3393    1.003 ⋯
+         gp_η₁      27.1398    5.2611    0.5400    96.0536    74.7352    1.008 ⋯
+         gp_η₂      13.4065    1.2454    0.1489    71.6206   101.7705    1.004 ⋯
+         gp_η₃       9.5135    0.8771    0.0899    94.4139    74.7352    0.991 ⋯
+         gp_η₄       0.3843    0.0164    0.0016   101.6902   104.2464    1.043 ⋯
+           b_P       0.0010    0.0000    0.0000   103.3760    78.3393    0.990 ⋯
+        b_mass       0.0205    0.0042    0.0005    82.4451   116.7774    0.990 ⋯
+          b_τy       0.6198    0.1297    0.0133    94.2590    78.3393    1.031 ⋯
+          b_τx      -0.7672    0.1170    0.0120    96.8028    43.7971    1.003 ⋯
            b_e       0.0000    0.0000       NaN        NaN        NaN       Na ⋯
            b_ω       0.0000    0.0000       NaN        NaN        NaN       Na ⋯
-           b_a       0.0094    0.0001    0.0000    15.1345    16.1693    1.042 ⋯
-           b_τ      -0.1425    0.0308    0.0052    34.5974    33.0858    1.020 ⋯
-          b_tp   57781.9474    0.0114    0.0019    34.5974    33.0858    1.020 ⋯
+           b_a       0.0094    0.0001    0.0000   108.4640   114.5296    0.993 ⋯
+           b_τ      -0.1418    0.0253    0.0026    94.6744   116.7774    1.000 ⋯
+          b_tp   57781.9476    0.0094    0.0010    94.6744   116.7774    0.999 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
     parameters         2.5%        25.0%        50.0%        75.0%        97.5 ⋯
  </span><span class="sgr90">       Symbol      Float64      Float64      Float64      Float64      Float6 ⋯
 
-             M       0.7848       0.8156       0.8246       0.8301       0.852 ⋯
-     rv0_harps   -6708.5614   -6697.1684   -6689.9815   -6683.0852   -6664.774 ⋯
-       rv0_pfs     -38.6144     -30.7843     -27.1224     -24.0695     -15.619 ⋯
-  jitter_harps       0.2172       0.2490       0.2714       0.3037       0.377 ⋯
-    jitter_pfs       2.4313       3.3720       3.7493       4.3242       5.263 ⋯
-         gp_η₁      21.3769      24.9706      28.2132      31.1443      38.348 ⋯
-         gp_η₂      11.8758      12.6840      13.2729      13.7026      15.146 ⋯
-         gp_η₃       9.0885       9.3372       9.6602       9.9922      10.638 ⋯
-         gp_η₄       0.3760       0.3886       0.3971       0.4055       0.422 ⋯
+             M       0.7816       0.8025       0.8169       0.8279       0.855 ⋯
+     rv0_harps   -6708.7135   -6697.2931   -6692.3395   -6682.6007   -6672.378 ⋯
+       rv0_pfs     -32.1856      -6.0411       2.1698       8.3425      26.764 ⋯
+  jitter_harps       0.1155       0.3000       0.6740       1.4091       3.219 ⋯
+    jitter_pfs       2.9338       4.0014       4.8154       5.4879       6.617 ⋯
+         gp_η₁      19.0310      23.8021      27.0397      30.2041      37.349 ⋯
+         gp_η₂      11.2733      12.4760      13.2145      14.2750      15.865 ⋯
+         gp_η₃       7.7211       8.9900       9.4433      10.1013      11.249 ⋯
+         gp_η₄       0.3534       0.3734       0.3842       0.3934       0.417 ⋯
            b_P       0.0010       0.0010       0.0010       0.0010       0.001 ⋯
-        b_mass       0.0109       0.0153       0.0180       0.0209       0.025 ⋯
-          b_τy       0.2852       0.5012       0.6002       0.6966       0.886 ⋯
-          b_τx      -0.9959      -0.8475      -0.7671      -0.6673      -0.470 ⋯
+        b_mass       0.0142       0.0174       0.0200       0.0239       0.027 ⋯
+          b_τy       0.4013       0.5425       0.6210       0.7085       0.862 ⋯
+          b_τx      -0.9844      -0.8555      -0.7748      -0.6980      -0.556 ⋯
            b_e       0.0000       0.0000       0.0000       0.0000       0.000 ⋯
            b_ω       0.0000       0.0000       0.0000       0.0000       0.000 ⋯
            b_a       0.0093       0.0094       0.0094       0.0095       0.009 ⋯
-           b_τ      -0.1989      -0.1629      -0.1433      -0.1240      -0.079 ⋯
-          b_tp   57781.9266   57781.9398   57781.9471   57781.9542   57781.970 ⋯
+           b_τ      -0.1866      -0.1598      -0.1403      -0.1267      -0.097 ⋯
+          b_tp   57781.9311   57781.9410   57781.9482   57781.9532   57781.963 ⋯
 </span><span class="sgr36">                                                                1 column omitted
-</span></span></code></pre><p>For real data, we would want to increase the adaptation and iterations to about 1000 each.</p><p>Plot the results:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="84a19e70.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, chain, small=true) # saved to &quot;k2_132-pairplot-small.png&quot;</code></pre><img src="d97f6c1c.png" alt="Example block output"/><p>It is expensive (per iteration) to fit Guassian processes. If you have many cores (or a cluster) available you might also considering using the Pigeons parallel tempered sampler with MPI. starting julia with multiple threads (<code>julia --threads=auto</code>) and using <code>octofit_pigeons</code>. Pigeons is less efficient with single-core, but has better parallelization scaling:</p><pre><code class="language-julia hljs">using Pigeons
+</span></span></code></pre><p>For real data, we would want to increase the adaptation and iterations to about 1000 each.</p><p>Plot the results:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="29465552.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, chain, small=true) # saved to &quot;k2_132-pairplot-small.png&quot;</code></pre><img src="b6822569.png" alt="Example block output"/><p>It is expensive (per iteration) to fit Guassian processes. If you have many cores (or a cluster) available you might also considering using the Pigeons parallel tempered sampler with MPI. starting julia with multiple threads (<code>julia --threads=auto</code>) and using <code>octofit_pigeons</code>. Pigeons is less efficient with single-core, but has better parallelization scaling:</p><pre><code class="language-julia hljs">using Pigeons
 chain, pt = octofit_pigeons(
     model,
     n_rounds=8,
@@ -366,4 +366,4 @@ chain, pt = octofit_pigeons(
     n_chains_variational=0,
     explorer=SliceSampler()
 )
-display(chain)</code></pre><p>See http://pigeons.run for details on setting up MPI, or create a GitHub issue if you would like assistance.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Fit with Observable Priors</a><a class="docs-footer-nextpage" href="../pma/">Fit Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Tuesday 5 November 2024 02:35">Tuesday 5 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+display(chain)</code></pre><p>See http://pigeons.run for details on setting up MPI, or create a GitHub issue if you would like assistance.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Fit with Observable Priors</a><a class="docs-footer-nextpage" href="../pma/">Fit Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Tuesday 5 November 2024 05:12">Tuesday 5 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

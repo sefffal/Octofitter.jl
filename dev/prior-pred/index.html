@@ -26,16 +26,16 @@ end astrom_like
     plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
 end b</code></pre><p>We can now draw one sample from the prior:</p><pre><code class="language-julia hljs">prior_draw_system = generate_from_params(Tutoria)
 prior_draw_astrometry = prior_draw_system.planets.b.observations[4]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PlanetRelAstromLikelihood Table with 5 columns and 8 rows:
-     epoch  ra        dec       σ_ra  σ_dec
-   ┌───────────────────────────────────────
- 1 │ 50000  178.273   -18.3522  10.0  10.0
- 2 │ 50120  146.083   -32.7627  10.0  10.0
- 3 │ 50240  103.159   -44.7528  10.0  10.0
- 4 │ 50360  52.2996   -53.2818  10.0  10.0
- 5 │ 50480  -2.74507  -57.5153  10.0  10.0
- 6 │ 50600  -57.5392  -56.9565  10.0  10.0
- 7 │ 50720  -107.425  -51.5506  10.0  10.0
- 8 │ 50840  -148.106  -41.7269  10.0  10.0</code></pre><p>And plot the generated astrometry:</p><pre><code class="language-julia hljs">Makie.scatter(prior_draw_astrometry.table.ra, prior_draw_astrometry.table.dec,color=:black, axis=(;autolimitaspect=1,xreversed=true))</code></pre><img src="af16124c.png" alt="Example block output"/><p>We can repeat this many times to get a feel for our chosen priors in the domain of our data:</p><pre><code class="language-julia hljs">using Random
+     epoch  ra        dec      σ_ra  σ_dec
+   ┌──────────────────────────────────────
+ 1 │ 50000  -267.155  242.907  10.0  10.0
+ 2 │ 50120  -281.265  216.116  10.0  10.0
+ 3 │ 50240  -291.546  186.391  10.0  10.0
+ 4 │ 50360  -297.452  153.879  10.0  10.0
+ 5 │ 50480  -298.407  118.815  10.0  10.0
+ 6 │ 50600  -293.826  81.5597  10.0  10.0
+ 7 │ 50720  -283.149  42.6262  10.0  10.0
+ 8 │ 50840  -265.892  2.71874  10.0  10.0</code></pre><p>And plot the generated astrometry:</p><pre><code class="language-julia hljs">Makie.scatter(prior_draw_astrometry.table.ra, prior_draw_astrometry.table.dec,color=:black, axis=(;autolimitaspect=1,xreversed=true))</code></pre><img src="c6f3398d.png" alt="Example block output"/><p>We can repeat this many times to get a feel for our chosen priors in the domain of our data:</p><pre><code class="language-julia hljs">using Random
 Random.seed!(1)
 
 
@@ -56,4 +56,4 @@ for i in 1:50
     )
 end
 
-fig</code></pre><img src="e096fc9f.png" alt="Example block output"/><p>The heavy black crosses are our actual data, while the colored ones are simulations drawn from our priors. Notice that our real data lies at a greater separation than most draws from the prior? That might mean the priors could be tweaked.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../limits/">« Calculate Detection Limits</a><a class="docs-footer-nextpage" href="../post-pred/">Posterior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Tuesday 5 November 2024 02:35">Tuesday 5 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+fig</code></pre><img src="e096fc9f.png" alt="Example block output"/><p>The heavy black crosses are our actual data, while the colored ones are simulations drawn from our priors. Notice that our real data lies at a greater separation than most draws from the prior? That might mean the priors could be tweaked.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../limits/">« Calculate Detection Limits</a><a class="docs-footer-nextpage" href="../post-pred/">Posterior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Tuesday 5 November 2024 05:12">Tuesday 5 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
