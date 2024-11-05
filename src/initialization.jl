@@ -264,8 +264,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; i
                     rng=rng,
                     ntries=1,
                     executor=Pathfinder.Transducers.PreferParallel(),
-                    optimizer=Pathfinder.Optim.LBFGS(;
-                        m=6,
+                    optimizer=Pathfinder.Optim.BFGS(;
                         linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
                         alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
                     )
