@@ -180,6 +180,8 @@ rvlike = PlanetRelativeRVLikelihood(
     (epoch=mjd("2008-05-01"), rv=1300, σ_rv=150, inst_idx=1),
     (epoch=mjd("2010-02-15"), rv=700, σ_rv=150, inst_idx=1),
     (epoch=mjd("2016-03-01"), rv=-2700, σ_rv=150, inst_idx=1),
+    jitter=:jitter_1,
+    instrument_name=""
 )
 
 @planet b Visual{KepOrbit} begin
@@ -193,6 +195,8 @@ rvlike = PlanetRelativeRVLikelihood(
 
     θ ~ UniformCircular()
     tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
+
+    jitter_1 = 0.0
 
 end astrom_like # Note the relative astrometry added here!
 
