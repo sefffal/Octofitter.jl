@@ -4,6 +4,8 @@ using CSV
 using MCMCChains
 using HDF5
 using Random
+using PairPlots, CairoMakie
+using AstroImages
 @testset "Core Functionality" begin
 
 
@@ -743,4 +745,196 @@ end
         rm("test_astrometry.csv")
     end
 
+end
+
+
+@testset "Plotting" begin
+    # Create a test model and chain once to use across tests
+    astrom_like = PlanetRelAstromLikelihood(
+        (epoch = 50000, ra = -494.4, dec = -76.7, σ_ra =  12.6, σ_dec =  12.6, cor=  0.2),
+        (epoch = 50120, ra = -495.0, dec = -44.9, σ_ra =  10.4, σ_dec =  10.4, cor=  0.5),
+        (epoch = 50240, ra = -493.7, dec = -12.9, σ_ra =   9.9, σ_dec =   9.9, cor=  0.1),
+        (epoch = 50360, ra = -490.4, dec =  19.1, σ_ra =   8.7, σ_dec =   8.7, cor= -0.8),
+        (epoch = 50480, ra = -485.2, dec =  51.0, σ_ra =   8.0, σ_dec =   8.0, cor=  0.3),
+        (epoch = 50600, ra = -478.1, dec =  82.8, σ_ra =   6.9, σ_dec =   6.9, cor= -0.0),
+        (epoch = 50720, ra = -469.1, dec = 114.3, σ_ra =   5.8, σ_dec =   5.8, cor=  0.1),
+        (epoch = 50840, ra = -458.3, dec = 145.3, σ_ra =   4.2, σ_dec =   4.2, cor= -0.2),
+    )
+    @planet b Visual{KepOrbit} begin 
+        a ~ LogUniform(0.1, 100)
+        e ~ Uniform(0, 0.99)
+        i ~ Sine()
+        ω ~ UniformCircular() # Unicode omega
+        Ω ~ UniformCircular() # Unicode capital omega  
+        θ ~ UniformCircular() # Unicode theta
+        tp = θ_at_epoch_to_tperi(system,b,50000)
+        mass = 10
+    end astrom_like
+    gaia_id = 756291174721509376
+    hgca = HGCALikelihood(;gaia_id=gaia_id, N_ave=1)  # N_ave=1 for faster tests
+    @system TestSystem begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+        pmra ~ Normal(-137, 10)
+        pmdec ~ Normal(2,  10)    
+    end hgca b
+
+    model = Octofitter.LogDensityModel(TestSystem)
+    Random.seed!(0)
+    chain = octofit(model, iterations=100, adaptation=50)
+    
+    @testset "Basic Plot Creation" begin
+        # Test octoplot returns valid figure and handles options
+        fig = octoplot(model, chain)
+        @test fig isa Makie.Figure
+        @test isfile("$(model.system.name)-plot-grid.png")
+        
+        fig_astrom = octoplot(
+            model, chain,
+            N = 1,
+            show_astrom=true,
+            show_physical_orbit=false,
+            show_astrom_time=false,
+            show_hgca=false,
+            show_mass=false,
+            show_rv=false,
+            planet_rv=false,
+            show_relative_rv=false,
+            show_hipparcos=false,
+        )
+        @test length(fig_astrom.content) == 2
+
+        fig_phys_orb = octoplot(
+            model, chain,
+            N = 1,
+            show_astrom=false,
+            show_physical_orbit=true,
+            show_astrom_time=false,
+            show_hgca=false,
+            show_mass=false,
+            show_rv=false,
+            planet_rv=false,
+            show_relative_rv=false,
+            show_hipparcos=false,
+        )
+        @test length(fig_phys_orb.content) == 2
+
+
+        fig_astrom_time = octoplot(
+            model, chain,
+            N = 1,
+            show_astrom=false,
+            show_physical_orbit=false,
+            show_astrom_time=true,
+            show_hgca=false,
+            show_mass=false,
+            show_rv=false,
+            planet_rv=false,
+            show_relative_rv=false,
+            show_hipparcos=false,
+        )
+        @test length(fig_astrom_time.content) == 3
+
+
+        fig_hgca = octoplot(
+            model, chain,
+            N = 1,
+            show_astrom=false,
+            show_physical_orbit=false,
+            show_astrom_time=false,
+            show_hgca=true,
+            show_mass=false,
+            show_rv=false,
+            planet_rv=false,
+            show_relative_rv=false,
+            show_hipparcos=false,
+        )
+        @test length(fig_hgca.content) == 6
+
+
+        fig_mass = octoplot(
+            model, chain,
+            N = 1,
+            show_astrom=false,
+            show_physical_orbit=false,
+            show_astrom_time=false,
+            show_hgca=false,
+            show_mass=true,
+            show_rv=false,
+            planet_rv=false,
+            show_relative_rv=false,
+            show_hipparcos=false,
+        )
+        @test length(fig_mass.content) == 4
+
+
+        fig_rv = octoplot(
+            model, chain,
+            N = 1,
+            show_astrom=false,
+            show_physical_orbit=false,
+            show_astrom_time=false,
+            show_hgca=false,
+            show_mass=false,
+            show_rv=true,
+            planet_rv=false,
+            show_relative_rv=false,
+            show_hipparcos=false,
+        )
+        @test length(fig_rv.content) == 3
+
+
+        fig_planet_rv = octoplot(
+            model, chain,
+            N = 1,
+            show_astrom=false,
+            show_physical_orbit=false,
+            show_astrom_time=false,
+            show_hgca=false,
+            show_mass=false,
+            show_rv=true,
+            planet_rv=true,
+            show_relative_rv=false,
+            show_hipparcos=false,
+        )
+        @test length(fig_planet_rv.content) == 4
+
+
+        fig_relative_rv = octoplot(
+            model, chain,
+            N = 1,
+            show_astrom=false,
+            show_physical_orbit=false,
+            show_astrom_time=false,
+            show_hgca=false,
+            show_mass=false,
+            show_rv=false,
+            planet_rv=false,
+            show_relative_rv=true,
+            show_hipparcos=false,
+        )
+        @test length(fig_relative_rv.content) == 3
+
+        # Test corner plot
+        fig_corner = octocorner(model, chain, small=true)
+        @test fig_corner isa Makie.Figure
+    end
+
+    @testset "Plot Visual Test" begin
+        # Test octoplot returns valid figure and handles options
+        octoplot(
+            model, chain[1:10:100,:,:],
+            show_mass=true,
+            show_relative_rv=true,
+            show_rv=true,
+            show_physical_orbit=true,
+            show_hgca=true,
+            fname="tmp.png",
+        )
+        
+        # Exact visual reference. This file may have to be updated often.
+        # If it becomes burdensome, we can revisit the need for this test.
+        @test load("tmp.png") == load("octoplot-reference.png")
+        
+    end
 end
