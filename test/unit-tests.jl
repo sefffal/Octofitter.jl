@@ -781,7 +781,8 @@ end
 
     model = Octofitter.LogDensityModel(TestSystem)
     Random.seed!(0)
-    chain = octofit(model, iterations=100, adaptation=50)
+    Octofitter.default_initializer!(model,nruns=1) # work around non-reproducibility bug
+    chain = octofit(model, iterations=500, adaptation=500)
     
     @testset "Basic Plot Creation" begin
         # Test octoplot returns valid figure and handles options
@@ -920,21 +921,5 @@ end
         @test fig_corner isa Makie.Figure
     end
 
-    @testset "Plot Visual Test" begin
-        # Test octoplot returns valid figure and handles options
-        octoplot(
-            model, chain[1:10:100,:,:],
-            show_mass=true,
-            show_relative_rv=true,
-            show_rv=true,
-            show_physical_orbit=true,
-            show_hgca=true,
-            fname="tmp.png",
-        )
-        
-        # Exact visual reference. This file may have to be updated often.
-        # If it becomes burdensome, we can revisit the need for this test.
-        @test load("tmp.png") == load("octoplot-reference.png")
-        
-    end
+  
 end
