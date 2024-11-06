@@ -5,7 +5,7 @@ using MCMCChains
 using HDF5
 using Random
 using PairPlots, CairoMakie
-using AstroImages
+
 @testset "Core Functionality" begin
 
 
