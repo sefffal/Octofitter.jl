@@ -59,6 +59,9 @@ function rvtimeplot!(
     for planet_key in keys(model.system.planets)
         orbs = Octofitter.construct_elements(results, planet_key, ii)
         sols = orbitsolve.(orbs, ts')
+        if !hasproperty(first(nt_format[ii]).planets[planet_key], :mass)
+            continue
+        end
         planet_mass = map(nt->nt.planets[planet_key].mass, nt_format[ii])
         rv_model_t = radvel.(sols, planet_mass.*Octofitter.mjup2msol)
         maximum(abs, rv_model_t)
@@ -107,8 +110,12 @@ function rvtimeplot!(
         sols = orbitsolve.(orbs, ts')
 
         # Draws from the posterior
-        M_planet = results["$(planet_key)_mass"][ii] .* Octofitter.mjup2msol
-        # M_planet = (results["$(planet_key)_mass"][ii].*0 .+ 10) .* Octofitter.mjup2msol
+        key = "$(planet_key)_mass"
+        if haskey(results, key)
+            M_planet = results[key][ii] .* Octofitter.mjup2msol
+        else
+            M_planet = zeros(length(ii))
+        end
         M_tot = results["M"][ii]
         M_star = M_tot - M_planet
 
@@ -432,7 +439,12 @@ function _find_rv_zero_point_maxlike(
     # Go through all planets and subtract their modelled influence on the RV signal:
     for planet_i in eachindex(planet_orbits)
         orbit = planet_orbits[planet_i]
-        planet_mass = θ_system.planets[planet_i].mass
+        if hasproperty(θ_system.planets[planet_i], :mass)
+            planet_mass = θ_system.planets[planet_i].mass
+        else
+            planet_mass = 0.0
+        end
+
         for i_epoch in eachindex(epochs)
             sol = orbitsolve(orbit, epochs[i_epoch])
             resid[i_epoch] -= radvel(sol, planet_mass*Octofitter.mjup2msol)
