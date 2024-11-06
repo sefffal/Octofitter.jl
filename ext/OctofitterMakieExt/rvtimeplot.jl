@@ -110,7 +110,7 @@ function rvtimeplot!(
         sols = orbitsolve.(orbs, ts')
 
         # Draws from the posterior
-        key = "$(planet_key)_mass"
+        key = Symbol("$(planet_key)_mass")
         if haskey(results, key)
             M_planet = results[key][ii] .* Octofitter.mjup2msol
         else
@@ -136,17 +136,6 @@ function rvtimeplot!(
             
             rv_planet_model_t = rv_star_model_t  .+ radvel.(sols)
 
-            if haskey(results, Symbol("$(planet_key)_rv0_1"))
-                rv0s = []
-                for i in 1:10
-                    k = Symbol("$(planet_key)_rv0_$i")
-                    if haskey(results, k)
-                        push!(rv0s, results[k][ii])
-                    end
-                end
-                ave_rv0 = mean(stack(rv0s),dims=2)
-                rv_planet_model_t .+= ave_rv0
-            end
             lines!(ax,
                 concat_with_nan(ts' .+ 0 .* rv_planet_model_t),
                 concat_with_nan(rv_planet_model_t) .* kms_mult;
