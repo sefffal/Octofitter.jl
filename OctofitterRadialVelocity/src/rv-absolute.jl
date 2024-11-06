@@ -69,8 +69,8 @@ StarAbsoluteRVLikelihood(observations::NamedTuple...;kwargs...) = StarAbsoluteRV
 function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVLikelihood, obs_inds)
     return StarAbsoluteRVLikelihood(
         obs.table[obs_inds,:,1]...;
-        offset_symbol=obs.offset_symbol,
-        jitter_symbol=obs.jitter_symbol,
+        offset=obs.offset_symbol,
+        jitter=obs.jitter_symbol,
         trend_function=obs.trend_function,
         instrument_name=obs.instrument_name,
         gaussian_process=obs.gaussian_process,

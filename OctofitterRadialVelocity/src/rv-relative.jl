@@ -44,7 +44,8 @@ PlanetRelativeRVLikelihood(observations::NamedTuple...;kwargs...) = PlanetRelati
 function Octofitter.likeobj_from_epoch_subset(obs::PlanetRelativeRVLikelihood, obs_inds)
     return PlanetRelativeRVLikelihood(
         obs.table[obs_inds,:,1]...;
-        instrument_names=obs.instrument_names,
+        instrument_name=obs.instrument_name,
+        jitter=obs.jitter_symbol,
         gaussian_process=obs.gaussian_process
     )
 end
