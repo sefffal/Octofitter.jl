@@ -155,8 +155,8 @@ chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 28.24 seconds
-Compute duration  = 28.24 seconds
+Wall duration     = 28.7 seconds
+Compute duration  = 28.7 seconds
 parameters        = M, rv0_harps, rv0_pfs, jitter_harps, jitter_pfs, b_P, b_τy, b_τx, b_mass, b_e, b_ω, b_a, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -201,7 +201,7 @@ Quantiles
 </span><span class="sgr36">                                                                1 column omitted
 </span></span></code></pre><p>Excellent! Let&#39;s plot the maximum likelihood orbit:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
 fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="750fcc52.png" alt="Example block output"/><p>We can also plot a number of samples from the posterior:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
-octoplot(model, chain)</code></pre><img src="c4d4a777.png" alt="Example block output"/><p>Create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
+octoplot(model, chain)</code></pre><img src="033cc96f.png" alt="Example block output"/><p>Create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
 using CairoMakie: Makie
 octocorner(model, chain)</code></pre><img src="e204b1e0.png" alt="Example block output"/><h2 id="Gaussian-Process-Fit"><a class="docs-heading-anchor" href="#Gaussian-Process-Fit">Gaussian Process Fit</a><a id="Gaussian-Process-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Gaussian-Process-Fit" title="Permalink"></a></h2><p>Let us now add a Gaussian process to model stellar activity. This should improve the fit.</p><p>We start by writing a functino that creates a Gaussian process kernel from a set of system  parameters. We will create a quasi-periodic kernel.</p><pre><code class="language-julia hljs">using AbstractGPs
 
@@ -306,8 +306,8 @@ chain = octofit(
 Iterations        = 1:1:100
 Number of chains  = 1
 Samples per chain = 100
-Wall duration     = 365.32 seconds
-Compute duration  = 365.32 seconds
+Wall duration     = 362.79 seconds
+Compute duration  = 362.79 seconds
 parameters        = M, rv0_harps, rv0_pfs, jitter_harps, jitter_pfs, gp_η₁, gp_η₂, gp_η₃, gp_η₄, b_P, b_mass, b_τy, b_τx, b_e, b_ω, b_a, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -366,4 +366,4 @@ chain, pt = octofit_pigeons(
     n_chains_variational=0,
     explorer=SliceSampler()
 )
-display(chain)</code></pre><p>See http://pigeons.run for details on setting up MPI, or create a GitHub issue if you would like assistance.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Fit with Observable Priors</a><a class="docs-footer-nextpage" href="../pma/">Fit Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Wednesday 6 November 2024 02:15">Wednesday 6 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+display(chain)</code></pre><p>See http://pigeons.run for details on setting up MPI, or create a GitHub issue if you would like assistance.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Fit with Observable Priors</a><a class="docs-footer-nextpage" href="../pma/">Fit Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Wednesday 6 November 2024 06:09">Wednesday 6 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
