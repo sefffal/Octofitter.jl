@@ -66,6 +66,9 @@ function Octofitter.rvpostplot!(
     all_epochs = vec(vcat((rvs.table.epoch for rvs in rv_likes)...))
     tmin, tmax = extrema(all_epochs)
     delta = tmax-tmin
+    if delta == 0
+        delta = 1
+    end
     ts_grid = range(tmin-0.015delta, tmax+0.015delta,length=10000)
     # Ensure the curve has points at exactly our data points. Otherwise for fine structure
     # we might miss them unless we add a very very fine grid.
