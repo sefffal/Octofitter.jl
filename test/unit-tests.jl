@@ -192,49 +192,7 @@ using PairPlots, CairoMakie
         @test orbit.A ≈ 100.0
     end
 
-    # @testset "RadialVelocityOrbit Models" begin
-    #     # Create test RV data
-    #     rvlike = StarAbsoluteRVLikelihood(
-    #         (epoch=50000.0, rv=100.0, σ_rv=10.0),
-    #         instrument_name="test",
-    #         offset=:rv0,
-    #         jitter=:jitter
-    #     )
-
-    #     @planet b RadialVelocityOrbit begin
-    #         a ~ truncated(Normal(5, 1), lower=0.1)
-    #         e ~ Uniform(0.0, 0.5)
-    #         ω ~ UniformCircular()
-    #         θ ~ UniformCircular()
-    #         tp = θ_at_epoch_to_tperi(system,b,50000)
-    #     end
-
-    #     @system RVSystem begin
-    #         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-    #         jitter ~ LogUniform(0.1, 100)
-    #         rv0 ~ Normal(0, 100)
-    #     end rvlike b
-
-    #     # Test orbit type extraction
-    #     @test Octofitter.orbittype(b) == RadialVelocityOrbit
-
-    #     # Test element construction
-    #     θ_system = (
-    #         M = 1.2,
-    #         planets = (
-    #             b = (
-    #                 a = 5.0,
-    #                 e = 0.1,
-    #                 ω = 1.0,
-    #                 tp = 50000.0
-    #             ),
-    #         )
-    #     )
-        
-    #     orbit = Octofitter.construct_elements(RadialVelocityOrbit, θ_system, θ_system.planets.b)
-    #     @test orbit isa RadialVelocityOrbit
-    #     @test semimajoraxis(orbit) ≈ 5.0
-    # end
+    
 
     @testset "FixedPosition Models" begin
 
@@ -334,64 +292,6 @@ end
 end
 
 
-# @testset "RV Likelihoods" begin
-#     @testset "StarAbsoluteRVLikelihood" begin
-#         # Create test data
-#         rvlike = StarAbsoluteRVLikelihood(
-#             (epoch=50000.0, rv=100.0, σ_rv=10.0),
-#             (epoch=50100.0, rv=110.0, σ_rv=10.0),
-#             instrument_name="HARPS",
-#             offset=:rv0,
-#             jitter=:jitter
-#         )
-        
-#         @test rvlike isa StarAbsoluteRVLikelihood
-#         @test length(rvlike.table) == 2
-#         @test all([:epoch, :rv, :σ_rv] .∈ Ref(propertynames(rvlike.table)))
-        
-#         # Test subsetting
-#         subset = likeobj_from_epoch_subset(rvlike, 1:1)
-#         @test length(subset.table) == 1
-#     end
-
-#     @testset "MarginalizedStarAbsoluteRVLikelihood" begin
-#         # Create test data
-#         rvlike = MarginalizedStarAbsoluteRVLikelihood(
-#             Table(
-#                 epoch=[50000.0, 50100.0],
-#                 rv=[100.0, 110.0],
-#                 σ_rv=[10.0, 10.0]
-#             ),
-#             jitter=:jitter
-#         )
-        
-#         @test rvlike isa MarginalizedStarAbsoluteRVLikelihood
-#         @test length(rvlike.table) == 2
-#         @test hasproperty(rvlike.table, :epoch)
-        
-#         # Test subsetting
-#         subset = likeobj_from_epoch_subset(rvlike, 1:1)
-#         @test length(subset.table) == 1
-#     end
-
-#     @testset "PlanetRelativeRVLikelihood" begin
-#         # Create test data
-#         rvlike = PlanetRelativeRVLikelihood(
-#             (epoch=50000.0, rv=100.0, σ_rv=10.0),
-#             (epoch=50100.0, rv=110.0, σ_rv=10.0),
-#             instrument_name="test",
-#             jitter=:gamma
-#         )
-        
-#         @test rvlike isa PlanetRelativeRVLikelihood
-#         @test length(rvlike.table) == 2
-#         @test all([:epoch, :rv, :σ_rv] .∈ Ref(propertynames(rvlike.table)))
-        
-#         # Test subsetting
-#         subset = likeobj_from_epoch_subset(rvlike, 1:1)
-#         @test length(subset.table) == 1
-#     end
-# end
 
 # @testset "ImageLikelihood" begin
 #     using AstroImages
@@ -784,142 +684,286 @@ end
     Octofitter.default_initializer!(model,nruns=1) # work around non-reproducibility bug
     chain = octofit(model, iterations=500, adaptation=500)
     
-    @testset "Basic Plot Creation" begin
-        # Test octoplot returns valid figure and handles options
-        fig = octoplot(model, chain)
-        @test fig isa Makie.Figure
-        @test isfile("$(model.system.name)-plot-grid.png")
-        
-        fig_astrom = octoplot(
-            model, chain,
-            N = 1,
-            show_astrom=true,
-            show_physical_orbit=false,
-            show_astrom_time=false,
-            show_hgca=false,
-            show_mass=false,
-            show_rv=false,
-            planet_rv=false,
-            show_relative_rv=false,
-            show_hipparcos=false,
-        )
-        @test length(fig_astrom.content) == 2
+    # Test octoplot returns valid figure and handles options
+    fig = octoplot(model, chain)
+    @test fig isa Makie.Figure
+    @test isfile("$(model.system.name)-plot-grid.png")
+    
+    fig_astrom = octoplot(
+        model, chain,
+        N = 1,
+        show_astrom=true,
+        show_physical_orbit=false,
+        show_astrom_time=false,
+        show_hgca=false,
+        show_mass=false,
+        show_rv=false,
+        planet_rv=false,
+        show_relative_rv=false,
+        show_hipparcos=false,
+    )
+    @test length(fig_astrom.content) == 2
 
-        fig_phys_orb = octoplot(
-            model, chain,
-            N = 1,
-            show_astrom=false,
-            show_physical_orbit=true,
-            show_astrom_time=false,
-            show_hgca=false,
-            show_mass=false,
-            show_rv=false,
-            planet_rv=false,
-            show_relative_rv=false,
-            show_hipparcos=false,
-        )
-        @test length(fig_phys_orb.content) == 2
-
-
-        fig_astrom_time = octoplot(
-            model, chain,
-            N = 1,
-            show_astrom=false,
-            show_physical_orbit=false,
-            show_astrom_time=true,
-            show_hgca=false,
-            show_mass=false,
-            show_rv=false,
-            planet_rv=false,
-            show_relative_rv=false,
-            show_hipparcos=false,
-        )
-        @test length(fig_astrom_time.content) == 3
+    fig_phys_orb = octoplot(
+        model, chain,
+        N = 1,
+        show_astrom=false,
+        show_physical_orbit=true,
+        show_astrom_time=false,
+        show_hgca=false,
+        show_mass=false,
+        show_rv=false,
+        planet_rv=false,
+        show_relative_rv=false,
+        show_hipparcos=false,
+    )
+    @test length(fig_phys_orb.content) == 2
 
 
-        fig_hgca = octoplot(
-            model, chain,
-            N = 1,
-            show_astrom=false,
-            show_physical_orbit=false,
-            show_astrom_time=false,
-            show_hgca=true,
-            show_mass=false,
-            show_rv=false,
-            planet_rv=false,
-            show_relative_rv=false,
-            show_hipparcos=false,
-        )
-        @test length(fig_hgca.content) == 6
+    fig_astrom_time = octoplot(
+        model, chain,
+        N = 1,
+        show_astrom=false,
+        show_physical_orbit=false,
+        show_astrom_time=true,
+        show_hgca=false,
+        show_mass=false,
+        show_rv=false,
+        planet_rv=false,
+        show_relative_rv=false,
+        show_hipparcos=false,
+    )
+    @test length(fig_astrom_time.content) == 3
 
 
-        fig_mass = octoplot(
-            model, chain,
-            N = 1,
-            show_astrom=false,
-            show_physical_orbit=false,
-            show_astrom_time=false,
-            show_hgca=false,
-            show_mass=true,
-            show_rv=false,
-            planet_rv=false,
-            show_relative_rv=false,
-            show_hipparcos=false,
-        )
-        @test length(fig_mass.content) == 4
+    fig_hgca = octoplot(
+        model, chain,
+        N = 1,
+        show_astrom=false,
+        show_physical_orbit=false,
+        show_astrom_time=false,
+        show_hgca=true,
+        show_mass=false,
+        show_rv=false,
+        planet_rv=false,
+        show_relative_rv=false,
+        show_hipparcos=false,
+    )
+    @test length(fig_hgca.content) == 6
 
 
-        fig_rv = octoplot(
-            model, chain,
-            N = 1,
-            show_astrom=false,
-            show_physical_orbit=false,
-            show_astrom_time=false,
-            show_hgca=false,
-            show_mass=false,
-            show_rv=true,
-            planet_rv=false,
-            show_relative_rv=false,
-            show_hipparcos=false,
-        )
-        @test length(fig_rv.content) == 3
+    fig_mass = octoplot(
+        model, chain,
+        N = 1,
+        show_astrom=false,
+        show_physical_orbit=false,
+        show_astrom_time=false,
+        show_hgca=false,
+        show_mass=true,
+        show_rv=false,
+        planet_rv=false,
+        show_relative_rv=false,
+        show_hipparcos=false,
+    )
+    @test length(fig_mass.content) == 4
 
 
-        fig_planet_rv = octoplot(
-            model, chain,
-            N = 1,
-            show_astrom=false,
-            show_physical_orbit=false,
-            show_astrom_time=false,
-            show_hgca=false,
-            show_mass=false,
-            show_rv=true,
-            planet_rv=true,
-            show_relative_rv=false,
-            show_hipparcos=false,
-        )
-        @test length(fig_planet_rv.content) == 4
+    fig_rv = octoplot(
+        model, chain,
+        N = 1,
+        show_astrom=false,
+        show_physical_orbit=false,
+        show_astrom_time=false,
+        show_hgca=false,
+        show_mass=false,
+        show_rv=true,
+        planet_rv=false,
+        show_relative_rv=false,
+        show_hipparcos=false,
+    )
+    @test length(fig_rv.content) == 3
 
 
-        fig_relative_rv = octoplot(
-            model, chain,
-            N = 1,
-            show_astrom=false,
-            show_physical_orbit=false,
-            show_astrom_time=false,
-            show_hgca=false,
-            show_mass=false,
-            show_rv=false,
-            planet_rv=false,
-            show_relative_rv=true,
-            show_hipparcos=false,
-        )
-        @test length(fig_relative_rv.content) == 3
+    fig_planet_rv = octoplot(
+        model, chain,
+        N = 1,
+        show_astrom=false,
+        show_physical_orbit=false,
+        show_astrom_time=false,
+        show_hgca=false,
+        show_mass=false,
+        show_rv=true,
+        planet_rv=true,
+        show_relative_rv=false,
+        show_hipparcos=false,
+    )
+    @test length(fig_planet_rv.content) == 4
 
-        # Test corner plot
-        fig_corner = octocorner(model, chain, small=true)
-        @test fig_corner isa Makie.Figure
-    end
 
-  
+    fig_relative_rv = octoplot(
+        model, chain,
+        N = 1,
+        show_astrom=false,
+        show_physical_orbit=false,
+        show_astrom_time=false,
+        show_hgca=false,
+        show_mass=false,
+        show_rv=false,
+        planet_rv=false,
+        show_relative_rv=true,
+        show_hipparcos=false,
+    )
+    @test length(fig_relative_rv.content) == 3
+
+    # Test corner plot
+    fig_corner = octocorner(model, chain, small=true)
+    @test fig_corner isa Makie.Figure
+end
+
+
+
+
+@testset "Multi-Planet Systems" begin
+    # Create test data for two planets
+    astrom_b = PlanetRelAstromLikelihood(
+        (epoch=50000.0, ra=100.0, dec=50.0, σ_ra=1.0, σ_dec=1.0),
+        (epoch=50100.0, ra=110.0, dec=55.0, σ_ra=1.0, σ_dec=1.0)
+    )
+    astrom_c = PlanetRelAstromLikelihood(
+        (epoch=50000.0, ra=-200.0, dec=-100.0, σ_ra=1.0, σ_dec=1.0),
+        (epoch=50100.0, ra=-210.0, dec=-110.0, σ_ra=1.0, σ_dec=1.0)
+    )
+
+    # Create two-planet model with resonance
+    @planet b Visual{KepOrbit} begin
+        a ~ LogUniform(0.1, 10)
+        e ~ Uniform(0, 0.5)
+        i = system.i  # Coplanar
+        ω ~ UniformCircular()
+        Ω = system.Ω  # Coplanar
+        P = 2*system.P_nominal * b.P_mul
+        P_mul ~ Normal(1, 0.1)
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(system,b,50000)
+    end astrom_b
+
+    @planet c Visual{KepOrbit} begin
+        a ~ LogUniform(0.1, 10)
+        e ~ Uniform(0, 0.5)
+        i = system.i  # Coplanar
+        ω ~ UniformCircular()
+        Ω = system.Ω  # Coplanar
+        P = system.P_nominal * c.P_mul
+        P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(system,c,50000)
+    end astrom_c
+
+    @system TwoPlanetSystem begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+        i ~ Sine()  # Common inclination
+        Ω ~ UniformCircular()  # Common node
+        P_nominal ~ LogUniform(50, 300)  # Base period
+    end b c
+
+    model = Octofitter.LogDensityModel(TwoPlanetSystem)
+    chain = octofit(model, iterations=100)
+
+    # Test that period ratio is preserved
+    period_ratio = chain[:b_P][:] ./ chain[:c_P][:]
+    @test mean(period_ratio) ≈ 2.0 rtol=0.2
+
+    # Test coplanarity is preserved
+    @test all(chain[:b_i][:] .== chain[:c_i][:])
+    @test all(chain[:b_Ω][:] .== chain[:c_Ω][:])
+end
+
+@testset "Joint Fitting" begin
+    # Create test data of different types
+    astrom = PlanetRelAstromLikelihood(
+        (epoch=50000.0, ra=100.0, dec=50.0, σ_ra=1.0, σ_dec=1.0)
+    )
+    
+    hgca = HGCALikelihood(;gaia_id=756291174721509376, N_ave=1)
+
+    @planet b Visual{KepOrbit} begin
+        a ~ LogUniform(0.1, 10)
+        e ~ Uniform(0, 0.5)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        mass ~ LogUniform(0.1, 100)
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(system,b,50000)
+    end astrom
+
+    @system AstromSystem begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ gaia_plx(;gaia_id=756291174721509376)
+        pmra ~ Normal(-975, 10)
+        pmdec ~ Normal(20, 10)
+        jitter ~ LogUniform(0.1, 100)
+        rv0 ~ Normal(0, 100)
+    end b
+
+    @system JointSystem begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ gaia_plx(;gaia_id=756291174721509376)
+        pmra ~ Normal(-975, 10)
+        pmdec ~ Normal(20, 10)
+        jitter ~ LogUniform(0.1, 100)
+        rv0 ~ Normal(0, 100)
+    end hgca b
+
+    # Test that the mass is better constrained with joint data
+    # by comparing to chains from individual fits
+    model_astrom = Octofitter.LogDensityModel(AstromSystem)
+    model_astrom_pma = Octofitter.LogDensityModel(JointSystem)
+    
+    chain_astrom = octofit(model_astrom, iterations=100)
+    chain_astrom_pma = octofit(model_astrom_pma, iterations=100)
+
+    @test std(chain_astrom_pma[:b_mass]) < std(chain_astrom[:b_mass])
+end
+
+@testset "Cross Validation" begin
+    # Create test model with multiple epochs
+    astrom1 = PlanetRelAstromLikelihood(
+        (epoch=t, ra=100.0+t/100, dec=50.0+t/200, σ_ra=1.0, σ_dec=1.0)
+        for t in range(50000, 51000, length=10)
+    )
+    astrom2 = PlanetRelAstromLikelihood(
+        (epoch=t, ra=100.0+t/100, dec=50.0+t/200, σ_ra=1.0, σ_dec=1.0)
+        for t in range(50000, 51000, length=10)
+    )
+
+    @planet b Visual{KepOrbit} begin
+        a  = 1.0
+        e  = 0.0
+        i  = 1.0
+        ω  = 1.0
+        Ω  = 1.0
+        tp = 50000
+    end astrom1 astrom2
+
+    @system Sys begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx = 100.
+    end b
+    model = Octofitter.LogDensityModel(Sys)
+    chain = octofit(model, iterations=100)
+
+    # Test pointwise likelihood calculation
+    like_mat = Octofitter.pointwise_like(model, chain)
+    @test size(like_mat, 2) == 20  # One column per epoch
+    @test all(isfinite, like_mat)
+
+    # Test k-fold systems generation
+    kfold_systems = Octofitter.generate_kfold_systems(model.system)
+    @test length(kfold_systems) == 2  # One per dataset
+
+    # Test per-epoch system generation
+    per_epoch_systems = Octofitter.generate_system_per_epoch(model.system)
+    @test length(per_epoch_systems) == 20
 end
