@@ -72,7 +72,7 @@ function coltitle_restorer(title::AbstractString)
                 Char(MathTeXEngine.command_definitions[m.captures[1]][1].args[1])
         )
     end
-    replace(title, replacements..., '$'=>"", '{'=>"", '}'=>"")
+    replace(title, replacements..., '$'=>"", '{'=>"", '}'=>"", "\\"=>"")
 end
 
 function loadchain(fname)
