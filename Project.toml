@@ -68,6 +68,7 @@ OctofitterPairPlotsExt = "PairPlots"
 OctofitterPigeonsExt = "Pigeons"
 
 [compat]
+AstroImages = "0.5"
 AbstractMCMC = "4,5"
 AdvancedHMC = "0.6"
 BasicInterpolators = "0.7"
@@ -128,6 +129,9 @@ FiniteDiff = "2"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
+AstroImages = "fe3fc30c-9b16-11e9-1c73-17dabf39f4ad"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 
 [targets]
-test = ["Test", "FiniteDiff"]
+test = ["Test", "FiniteDiff", "CairoMakie", "PairPlots"]
