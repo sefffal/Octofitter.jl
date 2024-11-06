@@ -42,8 +42,8 @@ chain = octofit(model, iterations=4_000, max_depth=6)</code></pre><pre class="do
 Iterations        = 1:1:4000
 Number of chains  = 1
 Samples per chain = 4000
-Wall duration     = 1.05 seconds
-Compute duration  = 1.05 seconds
+Wall duration     = 1.13 seconds
+Compute duration  = 1.13 seconds
 parameters        = plx, pmra, pmdec, ra_hip_offset_mas, dec_hip_offset_mas, M, rv, dec, ra, ref_epoch, b_mass, b_e, b_ω, b_a, b_i, b_Ω, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -171,8 +171,8 @@ chain</code></pre><pre class="documenter-example-output"><code class="nohighligh
 Iterations        = 1:1:256
 Number of chains  = 1
 Samples per chain = 256
-Wall duration     = 441.62 seconds
-Compute duration  = 441.62 seconds
+Wall duration     = 437.85 seconds
+Compute duration  = 437.85 seconds
 parameters        = M_pri, M_sec, plx, pmra, pmdec, ra_hip_offset_mas, dec_hip_offset_mas, M, rv, dec, ra, ref_epoch, b_a, b_e, b_ωy, b_ωx, b_i, b_Ωy, b_Ωx, b_θy, b_θx, b_ω, b_Ω, b_θ, b_tp, b_mass
 internals         = loglike, logpost, logprior, pigeons_logpotential
 
@@ -223,4 +223,4 @@ Quantiles
                  b_i       2.3387       2.3997       2.4350       2.4660       ⋯
           ⋮                ⋮            ⋮            ⋮            ⋮            ⋱
 </span><span class="sgr36">                                                     1 column and 9 rows omitted
-</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain, show_mass=true)</code></pre><img src="c1a4f70b.png" alt="Example block output"/><p>We see that we constrained both the orbit and the parallax. The mass is not strongly constrained by Hipparcos.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-rel/">« Fit Relative RV Data</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">Fit GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Tuesday 5 November 2024 19:16">Tuesday 5 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain, show_mass=true)</code></pre><img src="c1a4f70b.png" alt="Example block output"/><p>We see that we constrained both the orbit and the parallax. The mass is not strongly constrained by Hipparcos.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-rv-rel/">« Fit Relative RV Data</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">Fit GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Wednesday 6 November 2024 00:03">Wednesday 6 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
