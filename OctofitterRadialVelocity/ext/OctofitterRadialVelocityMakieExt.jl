@@ -33,7 +33,8 @@ function Octofitter.rvpostplot!(
     model::Octofitter.LogDensityModel,
     results::Chains,
     sample_idx = argmax(results["logpost"][:]),
-    planet_key = first(keys(model.system.planets))
+    planet_key = first(keys(model.system.planets));
+    show_perspective=true
 )
     gs = gridspec_or_fig
 
@@ -133,7 +134,7 @@ function Octofitter.rvpostplot!(
     hlines!(ax_resid_hist, 0, color=:black, linewidth=2)
 
     # Perspective acceleration line
-    if els[sample_idx] isa AbsoluteVisual
+    if els[sample_idx] isa AbsoluteVisual && show_perspective
         lines!(ax_fit, ts_grid, radvel.(els[sample_idx], ts_grid, 0.0), color=:orange)
     end
         
@@ -492,7 +493,7 @@ function Octofitter.rvpostplot!(
             "binned",
         ]
     ]
-    if nonabsvis_parent(first(els)) != first(els)
+    if nonabsvis_parent(first(els)) != first(els) && show_perspective
         push!(markers[end], LineElement(color = :orange,linewidth=4,))
         push!(labels[end], "perspective")
     end
