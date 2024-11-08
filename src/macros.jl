@@ -37,7 +37,7 @@ macro planet(args...)
                 distribution = try
                     $(esc(expression))
                 catch err
-                    @error "There is an error in your prior specification for $($(Meta.quot(varname))). The right-hand side of the ~ must be a Distribution distribution. Did you run `using Distributions`? This is what we got:" expression=$(string(expression))
+                    @error "There is an error in your prior specification for $($(Meta.quot(varname))). The right-hand side of the ~ must be a Distributions.jl distribution. Did you run `using Distributions`? This is what we got:" expression=$(string(expression))
                     rethrow(err)
                 end;
                 if !(
@@ -139,7 +139,7 @@ macro system(args...)
                 distribution = try
                     $(esc(expression))
                 catch err
-                    @error "There is an error in your prior specification for $($(Meta.quot(varname))). The right-hand side of the ~ must be a Distribution distribution. Did you run `using Distributions`? This is what we got:" expression=$(string(expression))
+                    @error "There is an error in your prior specification for $($(Meta.quot(varname))). The right-hand side of the ~ must be a Distributions.jl distribution. Did you run `using Distributions`? This is what we got:" expression=$(string(expression))
                     rethrow(err)
                 end;
                 if !(
