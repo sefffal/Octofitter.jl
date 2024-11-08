@@ -59,7 +59,7 @@ function astromtimeplot!(
             continue
         end
         s = maximum(projectedseparation, sols)
-        if s > 10
+        if s > 1500
             axis_mult = 1e-3
             use_arcsec = true
         end
