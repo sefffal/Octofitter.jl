@@ -50,7 +50,7 @@ If not found, a list of similar target names will be reported.
 """
 function Whereistheplanet_astrom(target, catalog=datadep"Whereistheplanet"; object=1)
 
-    fname = Whereistheplanet_search(target)
+    fname = Whereistheplanet_search(target, catalog)
     return h5open(fname, "r") do f
         records = read(f["data"])
 
