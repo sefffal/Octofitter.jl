@@ -43,6 +43,7 @@ FITSIO = "0.16, 0.17"
 MCMCChains = "6.0"
 Octofitter = "5"
 PlanetOrbits = "0.10"
+Random = "1"
 StaticArrays = "1.6"
 StatsBase = "0.33, 0.34"
 StringDistances = "0.11"
@@ -53,3 +54,9 @@ julia = "1.9"
 [extras]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[targets]
+test = ["Test", "CairoMakie", "Random"]
