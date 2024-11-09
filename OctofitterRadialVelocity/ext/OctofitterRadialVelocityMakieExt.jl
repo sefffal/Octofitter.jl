@@ -21,7 +21,9 @@ function Octofitter.rvpostplot(
     fname="$(model.system.name)-rvpostplot.png",
     kwargs...,
 )
-    fig = Figure()
+    fig = Figure(
+        size=(600, 305 + 135*length(model.system.planets))
+    )
     Octofitter.rvpostplot!(fig.layout, model, results,args...;kwargs...)
 
     Makie.save(fname, fig, px_per_unit=3)
@@ -32,11 +34,11 @@ function Octofitter.rvpostplot!(
     gridspec_or_fig,
     model::Octofitter.LogDensityModel,
     results::Chains,
-    sample_idx = argmax(results["logpost"][:]),
-    planet_key = first(keys(model.system.planets));
+    sample_idx = argmax(results["logpost"][:]);
     show_perspective=true
 )
     gs = gridspec_or_fig
+    n_planet_count = length(model.system.planets)
 
 
     rv_likes = filter(model.system.observations) do obs
@@ -49,8 +51,14 @@ function Octofitter.rvpostplot!(
     #     error("`rvpostplot` requires a system with a StarAbsoluteRVLikelihood.")
     # end
     # Start filling the RV plot
-    els = Octofitter.construct_elements(results,planet_key, :)
-    M = (results[string(planet_key)*"_mass"] .* Octofitter.mjup2msol)
+
+    els_by_planet = map(keys(model.system.planets)) do planet_key
+        Octofitter.construct_elements(results,planet_key, :)
+    end
+    M_by_planet = [
+        results[string(planet_key)*"_mass"] .* Octofitter.mjup2msol
+        for planet_key in keys(model.system.planets)
+    ]
 
     # Sometimes we want the true RV, including eg perspecive acceleration, and
     # sometimes we want just the perturbation orbit. 
@@ -59,9 +67,6 @@ function Octofitter.rvpostplot!(
     nonabsvis_parent(element::AbsoluteVisual) = element.parent 
     nonabsvis_parent(element::AbstractOrbit) = element
 
-    # For phase-folded plot
-    t_peri = periastron(els[sample_idx])
-    T = period(els[sample_idx])
 
     # Model plot vs raw data
     all_epochs = vec(vcat((rvs.table.epoch for rvs in rv_likes)...))
@@ -110,22 +115,13 @@ function Octofitter.rvpostplot!(
         ylabel="Residuals",
     )
     linkxaxes!(ax_fit, ax_resid)
-    # hidexdecorations!(ax_fit,grid=false)
+    Makie.xlims!(ax_resid, extrema(ts))
 
     ax_resid_hist = Axis(
         gs[2,2],
     )
     hidedecorations!(ax_resid_hist)
     linkyaxes!(ax_resid, ax_resid_hist)
-
-
-    ax_phase = Axis(
-        gs[3,1],
-        xlabel="Phase",
-        ylabel="RV [m/s]",
-        xticks=-0.5:0.1:0.5,
-    )
-    # xlims!(ax_phase, -0.5,0.5)
     rowgap!(gs, 1, 0)
 
 
@@ -134,11 +130,10 @@ function Octofitter.rvpostplot!(
     hlines!(ax_resid_hist, 0, color=:black, linewidth=2)
 
     # Perspective acceleration line
-    if els[sample_idx] isa AbsoluteVisual && show_perspective
-        lines!(ax_fit, ts_grid, radvel.(els[sample_idx], ts_grid, 0.0), color=:orange)
+    if first(els_by_planet)[sample_idx] isa AbsoluteVisual && show_perspective
+        lines!(ax_fit, ts_grid, radvel.(first(els_by_planet)[sample_idx], ts_grid, 0.0), color=:orange)
     end
         
-
     nt_format = Octofitter.mcmcchain2result(model, results)
 
 
@@ -149,26 +144,66 @@ function Octofitter.rvpostplot!(
 
 
     # Main blue orbit line in top panel
-    RV = radvel.(els[sample_idx], ts, M[sample_idx])
+    RV = sum(map(els_by_planet,M_by_planet) do els, M
+        radvel.(els[sample_idx], ts, M[sample_idx])
+    end)
     # Use a narrow line if we're overplotting a complicated GP
     if !any_models_have_a_gp
         lines!(ax_fit, ts, RV, color=:blue, linewidth=3)
     end
 
 
-    # Model plot vs phase-folded data (without any perspective acceleration)
-    phases = -0.5:0.005:0.5
-    ts_phase_folded = ((phases .+ 0.5) .* T) .+ t_peri .+ T/2
-    RV = radvel.(nonabsvis_parent(els[sample_idx]), ts_phase_folded, M[sample_idx])
-    Makie.lines!(
-        ax_phase,
-        phases,
-        RV,
-        color=:blue,
-        linewidth=5
-    )
-    Makie.xlims!(ax_phase, -0.5,0.5)
 
+    # Create an axis for each planet, with orbit model vs. phase
+    ax_phase_by_planet= Axis[]
+    i_planet = 0
+    for (planet, els, M) in zip(model.system.planets, els_by_planet, M_by_planet)
+        i_planet += 1
+        ax_phase = Axis(
+            gs[2+i_planet,1],
+            xlabel="Phase",
+            ylabel="RV [m/s]",
+            xticks=-0.5:0.1:0.5,
+        )
+        Makie.xlims!(ax_phase, -0.5,0.5)
+        if i_planet != n_planet_count
+            hidexdecorations!(ax_phase,  grid=false)
+        end
+        push!(ax_phase_by_planet, ax_phase)
+
+        Label(
+            gs[2+i_planet,2,],
+            string(planet.name),
+            fontsize = 16,
+            font = :bold,
+            padding = (5, 0, 0, 0),
+            valign=:top,
+            halign=:left,
+            tellwidth=false,
+            tellheight=false,
+        )
+
+
+        # Plot orbit models
+        t_peri = periastron(els[sample_idx])
+        T = period(els[sample_idx])
+        phases = -0.5:0.005:0.5
+        ts_phase_folded = ((phases .+ 0.5) .* T) .+ t_peri .+ T/2
+        # Don't include any perspective acceleration
+        RV = radvel.(nonabsvis_parent(els[sample_idx]), ts_phase_folded, M[sample_idx])
+        Makie.lines!(
+            ax_phase,
+            phases,
+            RV,
+            color=:blue,
+            linewidth=5
+        )
+    end
+
+
+    # for (planet_key, els, ax_phase) in zip(keys(model.system.planets), els_by_planet, ax_phase_by_planet)
+
+       
 
     # Calculate RVs minus the median instrument-specific offsets.
     
@@ -182,8 +217,9 @@ function Octofitter.rvpostplot!(
         N += length(rvs.table.rv)
     end
     epochs_all = zeros(N)
-    rvs_all_minus_accel_minus_perspective = zeros(N)
-    errs_all_data_jitter_gp = zeros(N)
+    resids_all = zeros(N)
+    uncer_all = zeros(N)
+    uncer_jitter_gp_all = zeros(N)
 
     rv_like_idx = 0
     for rvs in rv_likes
@@ -197,7 +233,7 @@ function Octofitter.rvpostplot!(
             barycentric_rv_inst = nt_format[sample_idx][rvs.offset_symbol]
             jitter = nt_format[sample_idx][rvs.jitter_symbol]
         else
-            barycentric_rv_inst = _find_rv_zero_point_maxlike(rvs, nt_format[sample_idx], (els[sample_idx],))
+            barycentric_rv_inst = _find_rv_zero_point_maxlike(rvs, nt_format[sample_idx], getindex.(els_by_planet, sample_idx))
             jitter = nt_format[sample_idx][rvs.jitter_symbol]
         end
 
@@ -207,15 +243,14 @@ function Octofitter.rvpostplot!(
         jitters .= jitter
 
         # Calculate the residuals minus the orbit model and any perspecive acceleration
-        model_at_data = radvel.(els[sample_idx], rvs.table.epoch, M[sample_idx]) 
+        model_at_data_by_planet = map(els_by_planet,M_by_planet) do els, M
+            radvel.(els[sample_idx], rvs.table.epoch, M[sample_idx])
+        end
+        model_at_data = sum(model_at_data_by_planet)
         resids = rvs_off_sub .- model_at_data 
-        errs_all = zeros(length(resids))
         data_minus_off_and_gp  = zeros(length(resids))
-        perspective_accel_to_remove = radvel.(els[sample_idx], rvs.table.epoch, 0.0)
+        perspective_accel_to_remove = radvel.(first(els_by_planet)[sample_idx], rvs.table.epoch, 0.0)
 
-
-        # plot!(ax_fit, ts, posterior_gp; bandscale=1, color=(:black,0.3))
-        # barycentric_rv_inst = results["rv0_$inst_idx"][sample_idx]
         data = rvs.table
 
         ts_inst = sort(vcat(
@@ -258,25 +293,31 @@ function Octofitter.rvpostplot!(
         data_minus_off_and_gp .= rvs_off_sub .- mean(map_gp_posterior, vec(data.epoch))
         y_inst, var = mean_and_var(map_gp_posterior, ts_inst)
 
-        errs_data_jitter = sqrt.(
-            data.σ_rv.^2 .+
-            jitter.^2
-        )
+        # errs_data_jitter = sqrt.(
+        #     data.σ_rv.^2 .+
+        #     jitter.^2
+        # )
         errs_data_jitter_gp = sqrt.(
             data.σ_rv.^2 .+
             jitter.^2 .+
             mean_and_var(map_gp_posterior, vec(data.epoch))[2]
         )
 
-        
-        epochs_all[mask] = vec(rvs.table.epoch)
-        rvs_all_minus_accel_minus_perspective[mask] = rvs_off_sub .- mean(map_gp_posterior, vec(data.epoch)) .- perspective_accel_to_remove
-        errs_all_data_jitter_gp[mask] .= errs_data_jitter_gp
 
-        RV_sample_idxnst =  radvel.(els[sample_idx], ts_inst, M[sample_idx])
+        epochs_all[mask] .= vec(rvs.table.epoch)
+        resids_all[mask] .= resids
+        uncer_all[mask] .= data.σ_rv
+        uncer_jitter_gp_all[mask] .= errs_data_jitter_gp
+        # rvs_all_minus_accel_minus_perspective[mask] .= rvs_off_sub .- mean(map_gp_posterior, vec(data.epoch)) .- perspective_accel_to_remove
+        # errs_all_data_jitter_gp[mask] .= errs_data_jitter_gp
+
+        # RV_sample_idxnst =  radvel.(els[sample_idx], ts_inst, M[sample_idx])
+        RV_sample = sum(map(els_by_planet,M_by_planet) do els, M
+            radvel.(els[sample_idx], ts_inst, M[sample_idx])
+        end)
         obj = band!(ax_fit, ts_inst,
-            vec(y_inst .+ RV_sample_idxnst .- sqrt.(var)),# .+ jitter^2)),
-            vec(y_inst .+ RV_sample_idxnst .+ sqrt.(var)),# .+ jitter^2)),
+            vec(y_inst .+ RV_sample .- sqrt.(var)),# .+ jitter^2)),
+            vec(y_inst .+ RV_sample .+ sqrt.(var)),# .+ jitter^2)),
             color=(Makie.wong_colors()[rv_like_idx], 0.35)
         )
         # Try to put bands behind everything else
@@ -288,14 +329,14 @@ function Octofitter.rvpostplot!(
             lines!(
                 ax_fit,
                 ts_inst,
-                radvel.(els[sample_idx], ts_inst, M[sample_idx]) .+ y,
+                RV_sample .+ y,
                 color=(:black,1),
                 linewidth=0.3
             )
             lines!(
                 ax_fit,
                 ts_inst,
-                radvel.(els[sample_idx], ts_inst, M[sample_idx]) .+ y,
+                RV_sample .+ y,
                 color=(Makie.wong_colors()[rv_like_idx],0.8),
                 # color=:blue,
                 linewidth=0.3
@@ -338,39 +379,7 @@ function Octofitter.rvpostplot!(
             color=Makie.wong_colors()[rv_like_idx]
         )
 
-        # Phase-folded plot
-        phase_folded = mod.(data.epoch .- t_peri .- T/2, T)./T .- 0.5
-        errorbars!(
-            ax_phase,
-            phase_folded,
-            data_minus_off_and_gp.-perspective_accel_to_remove,
-            errs_data_jitter_gp,
-            linewidth=1,
-            color="#CCC",
-        )
-        errorbars!(
-            ax_phase,
-            phase_folded,
-            data_minus_off_and_gp.-perspective_accel_to_remove,
-            data.σ_rv,
-            # linewidth=1,
-            color=Makie.wong_colors()[rv_like_idx]
-        )
         
-        # scatter!(
-        #      ax_phase,
-        #     phase_folded,
-        # #     rvs_off_sub .- mean(map_gp_posterior, vec(data.epoch)),
-        #     data_minus_off_and_gp[thisinst_mask],
-        #     color=Makie.wong_colors()[rv_like_idx],
-        #     markersize=4
-        # )
-
-        # barycentric_rv_inst = results["rv0_$inst_idx"][sample_idx]
-        # thisinst_mask = vec(rvs.table.inst_idx.==inst_idx)
-        # jitter = jitters_all[thisinst_mask]
-        # data = rvs.table#[thisinst_mask]
-        # rvs_off_sub = rvs_off_sub#[thisinst_mask]
 
         Makie.scatter!(
             ax_fit,
@@ -390,13 +399,6 @@ function Octofitter.rvpostplot!(
             strokecolor=:black,strokewidth=0.1,
         )
 
-        # Makie.hist!(
-        #     ax_resid_hist,
-        #     resids,
-        #     color=Makie.wong_colors()[rv_like_idx],
-        #     direction=:x,
-        #     scale_to=1
-        # )
         h = fit(Histogram, resids)
         Makie.stairs!(
             ax_resid_hist,
@@ -407,62 +409,107 @@ function Octofitter.rvpostplot!(
         )
         xlims!(ax_resid_hist, low=0)
 
-        phase_folded = mod.(data.epoch .- t_peri .- T/2, T)./T .- 0.5
-        Makie.scatter!( 
-            ax_phase,
-            phase_folded,
-            data_minus_off_and_gp.-perspective_accel_to_remove,
-            color=Makie.wong_colors()[rv_like_idx],
-            markersize=4,
-            strokecolor=:black,strokewidth=0.1,
-        )
+        for (ax_phase, els,rv_model_this_planet) in zip(ax_phase_by_planet, els_by_planet, model_at_data_by_planet)
+            # Plot orbit models
+            t_peri = periastron(els[sample_idx])
+            T = period(els[sample_idx])
 
-
-        Makie.xlims!(ax_resid, extrema(ts))
-    end
-
-
-
-    # Binned values on phase folded plot
-    # Noise weighted (including jitter and GP)
-    # bins = -0.45:0.1:0.45
-    bins = -0.495:0.05:0.495
-    binned = zeros(length(bins))
-    binned_unc = zeros(length(bins))
-    phase_folded = mod.(epochs_all .- t_peri .- T/2, T)./T .- 0.5
-    
-    for (i,bin_cent) in enumerate(bins)
-        mask = bin_cent - step(bins)/2 .<= phase_folded .<= bin_cent + step(bins/2)
-        if count(mask) == 0
-            binned[i] = NaN
-            continue
+            # Don't include any perspective acceleration
+            # Phase-folded plot
+            phase_folded = mod.(data.epoch .- t_peri .- T/2, T)./T .- 0.5
+            errorbars!(
+                ax_phase,
+                phase_folded,
+                resids .+ rv_model_this_planet,
+                errs_data_jitter_gp,
+                linewidth=1,
+                color="#CCC",
+            )
+            errorbars!(
+                ax_phase,
+                phase_folded,
+                resids .+ rv_model_this_planet,
+                data.σ_rv,
+                # linewidth=1,
+                color=Makie.wong_colors()[rv_like_idx]
+            )
+            
+            Makie.scatter!( 
+                ax_phase,
+                phase_folded,
+                resids .+ rv_model_this_planet,
+                color=Makie.wong_colors()[rv_like_idx],
+                markersize=4,
+                strokecolor=:black,strokewidth=0.1,
+            )
         end
-        binned[i] = mean(
-            rvs_all_minus_accel_minus_perspective[mask],
-            ProbabilityWeights(1 ./ errs_all_data_jitter_gp[mask].^2)
+
+
+    end
+
+
+    # Now that we have gone through all datasets and have the residuals, go through 
+    # each planet and plot binned residuals
+    for (ax_phase, planet, els, M) in zip(ax_phase_by_planet, model.system.planets, els_by_planet, M_by_planet)
+
+    # epochs_all
+    # resids_all
+    # uncer_all
+    # uncer_jitter_gp_all
+    # RV_sample = sum(map(els_by_planet,M_by_planet) do els, M
+    #             radvel.(els[sample_idx], ts_inst, M[sample_idx])
+    #         end)
+
+        t_peri = periastron(els[sample_idx])
+        T = period(els[sample_idx])
+
+        # Binned values on phase folded plot
+        # Noise weighted (including jitter and GP)
+        # bins = -0.45:0.1:0.45
+        bins = -0.495:0.05:0.495
+        binned = zeros(length(bins))
+        binned_unc = zeros(length(bins))
+        phase_folded = mod.(epochs_all .- t_peri .- T/2, T)./T .- 0.5
+        
+        # the rv component we plot is the residual RV, with the signal of this *particular*
+        # planet added back in.
+        rv = collect(resids_all)
+        rv .+= radvel.(els[sample_idx], epochs_all, M[sample_idx])
+
+        for (i,bin_cent) in enumerate(bins)
+            mask = bin_cent - step(bins)/2 .<= phase_folded .<= bin_cent + step(bins/2)
+            if count(mask) == 0
+                binned[i] = NaN
+                continue
+            end
+            binned[i] = mean(
+                rv[mask],
+                ProbabilityWeights(1 ./ uncer_jitter_gp_all[mask].^2)
+            )
+            binned_unc[i] = std(
+                rv[mask],
+                ProbabilityWeights(1 ./ uncer_jitter_gp_all[mask].^2)
+            )
+        end
+        errorbars!(
+            ax_phase,
+            bins,
+            binned,
+            binned_unc,
+            color=:black,
+            linewidth=2,
         )
-        binned_unc[i] = std(
-            rvs_all_minus_accel_minus_perspective[mask],
-            ProbabilityWeights(1 ./ errs_all_data_jitter_gp[mask].^2)
+        scatter!(
+            ax_phase,
+            bins,
+            binned,
+            color=:red,
+            markersize=10,
+            strokecolor=:black,
+            strokewidth=2,
         )
     end
-    errorbars!(
-        ax_phase,
-        bins,
-        binned,
-        binned_unc,
-        color=:black,
-        linewidth=2,
-    )
-    scatter!(
-        ax_phase,
-        bins,
-        binned,
-        color=:red,
-        markersize=10,
-        strokecolor=:black,
-        strokewidth=2,
-    )
+
 
  
     markers =  [
@@ -493,7 +540,7 @@ function Octofitter.rvpostplot!(
             "binned",
         ]
     ]
-    if nonabsvis_parent(first(els)) != first(els) && show_perspective
+    if show_perspective
         push!(markers[end], LineElement(color = :orange,linewidth=4,))
         push!(labels[end], "perspective")
     end
@@ -508,7 +555,9 @@ function Octofitter.rvpostplot!(
     )
     Makie.rowsize!(gs, 1, Auto(2))
     Makie.rowsize!(gs, 2, Auto(1))
-    Makie.rowsize!(gs, 3, Auto(2))
+    for i in 1:n_planet_count
+        Makie.rowsize!(gs, 2+i, Auto(2))
+    end
     Makie.colgap!(gs, 1, 0)
     Makie.colsize!(gs, 2, Aspect(2,1.0))
 

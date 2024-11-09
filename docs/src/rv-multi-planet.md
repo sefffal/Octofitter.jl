@@ -1,0 +1,154 @@
+# [Multi-Planet RV Fits](@id fit-rv-multi)
+
+
+This tutorial shows how to perform a multi-planet RV fit, and compare the bayesian evidence between the two models.
+
+
+```@example 1
+using Octofitter
+using OctofitterRadialVelocity
+using CairoMakie
+using PairPlots
+using Distributions
+using PlanetOrbits
+```
+
+To begin, we create simulated data. We imagine that we have two different instruments.
+```@example 1
+using Random
+Random.seed!(1)
+
+orb_template_1 = orbit(a = 1.0,e = 0.05,ω = 1π/4,M = 1.0,tp =58800)
+mass_1 = 0.25*1e-3
+orb_template_2 = orbit(a = 5.0,e = 0.4,ω = 1π/4,M = 1.0,tp =59800)
+mass_2 = 1.0*1e-3
+
+epochs = (58400:150:69400) .+ 10 .* randn.()
+rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
+rvlike1 = MarginalizedStarAbsoluteRVLikelihood(
+    Table(epoch=epochs, rv=rv .+ 4 .* randn.(), σ_rv=[4 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
+    jitter=:jitter1,
+    instrument_name="DATA 1"
+)
+
+epochs = (65400:100:71400) .+ 10 .* randn.()
+rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
+rvlike2 = MarginalizedStarAbsoluteRVLikelihood(
+    Table(epoch=epochs, rv=rv .+ 2 .* randn.() .+ 7, σ_rv=[2 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
+    jitter=:jitter2,
+    instrument_name="DATA 2"
+)
+
+fig = Figure()
+ax = Axis(
+    fig[1,1],
+    xlabel="epoch [mjd]",
+    ylabel="rv [m/s]"
+)
+Makie.scatter!(ax, rvlike1.table.epoch, rvlike1.table.rv)
+Makie.errorbars!(ax, rvlike1.table.epoch, rvlike1.table.rv, rvlike1.table.σ_rv)
+Makie.scatter!(ax, rvlike2.table.epoch, rvlike2.table.rv)
+Makie.errorbars!(ax, rvlike2.table.epoch, rvlike2.table.rv, rvlike2.table.σ_rv)
+fig
+```
+
+## Two Planet Model
+
+```@example 1
+@planet b RadialVelocityOrbit begin
+    e ~ Uniform(0,0.999999)
+    mass ~ Uniform(0, 10)
+    i ~ Sine()
+    ω ~ Uniform(0,2pi)
+    τ ~ Uniform(0,1.0)
+
+    P_kep_yrs ~ Uniform(0, 100)
+    a = ∛(system.M * b.P_kep_yrs^2)
+    tp =  b.τ*b.P_kep_yrs*365.25 + 58400
+end
+
+@planet c RadialVelocityOrbit begin
+    e ~ Uniform(0,0.999999)
+    mass ~ Uniform(0, 10)
+    i ~ Sine()
+    ω ~ Uniform(0,2pi)
+    τ ~ Uniform(0,1.0)
+
+    P_kep_yrs ~ Uniform(0, 100)
+    a = ∛(system.M * c.P_kep_yrs^2)
+    tp =  c.τ*c.P_kep_yrs*365.25 + 58400
+end
+
+@system sim_2p begin
+    M = 1.0 #~ truncated(Normal(1, 0.04),lower=0.1) # (Baines & Armstrong 2011).
+    jitter1 ~ Uniform(0, 20_000)
+    jitter2 ~ Uniform(0, 20_000)
+end rvlike1 rvlike2 b c
+
+model_2p = Octofitter.LogDensityModel(sim_2p)
+```
+
+Sample from the posterior
+```@example 1
+using Pigeons
+results_2p, pt_2p = octofit_pigeons(model_2p, n_rounds=10)
+```
+
+Plot RV curve, phase folded curve, and binned residuals:
+```@example 1
+OctofitterRadialVelocity.rvpostplot(model_2p, results_2p)
+```
+
+
+## One Planet Model
+
+We now create a new system object that only includes one planet (we dropped c, in this case).
+```@example 1
+@system sim_1p begin
+    M = 1.0 #~ truncated(Normal(1, 0.04),lower=0.1) # (Baines & Armstrong 2011).
+    jitter1 ~ Uniform(0, 20_000)
+    jitter2 ~ Uniform(0, 20_000)
+end rvlike1 rvlike2 b
+
+model_1p = Octofitter.LogDensityModel(sim_1p)
+```
+
+Sample from the posterior
+```@example 1
+using Pigeons
+results_1p, pt_1p = octofit_pigeons(model_1p, n_rounds=10)
+```
+
+Plot RV curve, phase folded curve, and binned residuals:
+```@example 1
+OctofitterRadialVelocity.rvpostplot(model_1p, results_1p)
+```
+
+## Model Comparison: Bayesian Evidence
+
+Octofitter with Pigeons directly calculates the log Bayesian evidence using the "stepping stone" method. This should be more reliable than even nested sampling, and certainly more reliable than approximate methods like the BIC etc.
+
+```@example 1
+Z1 = pt_1p.shared.reports.summary.stepping_stone[end]
+Z2 = pt_2p.shared.reports.summary.stepping_stone[end]
+
+log_BF₁₀ = Z2-Z1
+```
+
+Here is a standard guideline you can use to interpret the evidence:
+| Log Bayes Factor log(BF₁₀) | Interpretation |
+|-----------|----------------|
+| > 4.61 | Extreme evidence for H₁ |
+| 3.40 - 4.61 | Very strong evidence for H₁ |
+| 2.30 - 3.40 | Strong evidence for H₁ |
+| 1.10 - 2.30 | Moderate evidence for H₁ |
+| 0 - 1.10 | Anecdotal evidence for H₁ |
+| 0 | No evidence |
+| -1.10 - 0 | Anecdotal evidence for H₀ |
+| -2.30 - -1.10 | Moderate evidence for H₀ |
+| -3.40 - -2.30 | Strong evidence for H₀ |
+| -4.61 - -3.40 | Very strong evidence for H₀ |
+| < -4.61 | Extreme evidence for H₀ |
+
+As you can see, the evidence for there being two planets is "extreme" in this case.
+Try adjusting the masses of the two planets and see how this changes!
