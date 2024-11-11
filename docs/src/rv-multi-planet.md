@@ -136,6 +136,7 @@ log_BF₁₀ = Z2-Z1
 ```
 
 Here is a standard guideline you can use to interpret the evidence:
+
 | Log Bayes Factor log(BF₁₀) | Interpretation              |
 |----------------------------|-----------------------------|
 | > 4.61                     | Extreme evidence for H₁     |

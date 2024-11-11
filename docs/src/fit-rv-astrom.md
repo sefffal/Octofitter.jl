@@ -1,4 +1,4 @@
-# [Fit Radial Velocity and Astrometry](@id fit-rv)
+# [Fit Radial Velocity and Astrometry](@id fit-rv-astrom)
 
 You can use Octofitter to jointly fit relative astrometry data and radial velocity data. 
 Below is an example. For more information on these functions, see previous guides.
@@ -20,15 +20,15 @@ We now use PlanetOrbits.jl to create sample data. We start with a template orbit
 orb_template = orbit(
     a = 1.0,
     e = 0.7,
-    i= pi/4,
+    i= pi/2+0.05,
     Ω = 0.1,
     ω = 1π/4,
     M = 1.0,
     plx=100.0,
     m =0,
-    tp =58829
+    tp =58829-40
 )
-Makie.lines(orb_template)
+Makie.lines(orb_template,axis=(;autolimitaspect=1))
 ```
 
 
@@ -46,7 +46,7 @@ astrom = PlanetRelAstromLikelihood(Table(
 
 And plot our simulated astrometry measurments:
 ```@example 1
-fig = Makie.lines(orb_template,)
+fig = Makie.lines(orb_template,axis=(;autolimitaspect=1))
 Makie.scatter!(astrom.table.ra, astrom.table.dec)
 fig
 ```
@@ -57,7 +57,7 @@ Generate a simulated RV curve from the same orbit:
 using Random
 Random.seed!(1)
 
-epochs = 58849 .+ (20:20:660)
+epochs = 58849 .+ (20:25:90)
 planet_sim_mass = 0.001 # solar masses here
 
 
@@ -99,13 +99,24 @@ model = Octofitter.LogDensityModel(test)
 using Random
 rng = Xoshiro(0) # seed the random number generator for reproducible results
 
-results = octofit(rng, model, iterations=5000)
+results = octofit(rng, model, max_depth=9, iterations=5000)
+```
+
+```julia
+using Pigeons
+chain_pt, pt = octofit_pigeons(
+    model,
+    n_chains=8,
+    n_chains_variational=0,
+    variational=nothing,
+    n_rounds=12
+)
 ```
 
 
 Display results as a corner plot:
 ```@example 1
-octocorner(model, results, small=true)
+octocorner(model,chain, small=true)
 ```
 
 Plot RV curve, phase folded curve, and binned residuals:

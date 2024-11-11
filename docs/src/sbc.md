@@ -1,4 +1,4 @@
-# Simulation Based Calibration
+# Simulation Based Calibration (@id sbc)
 
 Simulation based calibration [Talts et al. 2020](https://ui.adsabs.harvard.edu/abs/2018arXiv180406788T) is a way to test the correctness and accuracy of a Bayesian model. 
 

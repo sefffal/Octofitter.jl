@@ -28,4 +28,4 @@ These aren't included by default since they may include a number of heavier depe
 They are descibed further in relevant sections of the documentation.
 
 ## Fitting your first model
-Start with the [Fit Relative Astrometry](@ref fit-astrometry) tutorial. It shows how one can model the orbit of one planet based on relative astrometry points.
+Start with the [Quick Start](@ref fit-astrometry) tutorial. It shows how one can model the orbit of one planet based on relative astrometry points.

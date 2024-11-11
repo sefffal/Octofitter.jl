@@ -1,4 +1,4 @@
-# Hierarchical Co-Planar, Resonant Model
+# Hierarchical Co-Planar, Near-Resonant Model
 
 This example shows how you can fit a two planet model to relative astrometry data. This functionality would work equally well with RV, images, etc.
 

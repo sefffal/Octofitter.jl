@@ -1,4 +1,4 @@
-# [Fit Radial Velocity](@id fit-rv)
+# [Fit Radial Velocity](@id fit-transit)
 
 You can use Octofitter to fit radial velocity data, either alone or in combination with other kinds of data.
 Multiple instruments (up to 10) are supported, as are gaussian processes to model stellar activity..

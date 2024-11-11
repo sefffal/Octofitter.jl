@@ -14,36 +14,47 @@ makedocs(
     sitename="Octofitter.jl",
     pages = [
         "Home" => "index.md",
-        "Installation" => "getting-started.md",
+        "Getting Started" => [
+            "Installation" => "installation.md",
+            "Quick Start" => "quick-start.md",
+        ],
         "Tutorials" => [
-            "Fit Relative Astrometry" => "rel-astrom.md",
-            "Fit with Observable Priors" => "rel-astrom-obs.md",
-            "Fit Radial Velocity" => "rv-1.md",
-            "Fit RV (multi-planet)" => "rv-multi-planet.md",
-            "Fit RV and Proper Motion Anomaly" => "rv.md",
-            "Fit RV and Relative Astrometry" => "fit-rv-astrom.md",
-            "Fit Relative RV Data" => "fit-rv-rel.md",
-            "Fit Proper Motion Anomaly" => "pma.md",
-            "Fit Resonant Co-Planar Model" => "fit-coplanar.md",
-            "Fit Thiele-Innes Parameters" => "thiele-innes.md",
-            "Fit Orbits to Images" => "images.md",
-            "Fit Interferometer Data" => "fit-interfere.md",
-            "Fit Likelihood Map" => "fit-likemap.md",
-            "Fit Hipparcos IAD" => "hipparcos.md",
-            "Fit GRAVITY Wide Data" => "fit-grav-wide.md",
-            "Extract Astrometry and Photometry" => "extract-phot-astrom.md",
-            "Calculate Detection Limits" => "limits.md",
-        ],
-        "Statistical Methods" => [
-            "Prior Predictive Checks" => "prior-pred.md",
-            "Posterior Predictive Checks" => "post-pred.md",
-            # TODO:
-            "Cross Validation" => "cross-validation.md",
-            "Simulation Based Calibration" => "sbc.md",
-        ],
-        "Compatibility" => [
-            # "RadVel" => "compat-radvel.md",
-            "Orbitize!" => "compat-orbitize.md",
+            "Relative Astrometry" => [
+                "Basic Astrom Fit" => "rel-astrom.md",
+                "Observable Priors" => "rel-astrom-obs.md",
+                "Resonant Co-Planar Model" => "fit-coplanar.md",
+                "Thiele-Innes Parameters" => "thiele-innes.md",    
+            ],
+            "Radial Velocity" => [
+                "Basic RV Fit" => "rv-1.md",
+                "Gaussian Process" => "rv-gp.md",
+                "Multiple Planets" => "rv-multi-planet.md",
+                "Relative RV Data" => "fit-rv-rel.md",
+            ],
+            "Absolute Astrometry" => [
+                "Proper Motion Anomaly" => "pma.md",
+                "Hipparcos IAD" => "hipparcos.md",
+            ],
+            "Images and More" => [
+                "Image Data (de-orbiting)" => "images.md",
+                "Extract Astrom. and Photometry" => "extract-phot-astrom.md",
+                "Connect Mass and Photometry" => "mass-photometry.md",
+                "Interferometer Data" => "fit-interfere.md",
+                "Likelihood Map" => "fit-likemap.md",
+                "GRAVITY Wide Data" => "fit-grav-wide.md",
+            ],
+            "Joint Models" => [
+                "Astrometry, PMA, and RV" => "astrom-pma-rv.md",
+                "RV and Relative Astrometry" => "fit-rv-astrom.md",
+                "RV and Proper Motion Anomaly" => "rv.md",
+                "Calculate Detection Limits" => "limits.md",
+            ],
+            "Bayesian Workflows" => [
+                "Prior Predictive Checks" => "prior-pred.md",
+                "Posterior Predictive Checks" => "post-pred.md",
+                "Cross Validation" => "cross-validation.md",
+                "Simulation Based Calibration" => "sbc.md",
+            ],
         ],
         "Documentation" => [
             "Using Python" => "python.md",
@@ -53,9 +64,9 @@ makedocs(
             "Distributed Sampling" => "parallel-sampling.md",
             "Priors" => "priors.md",
             "Derived Variables" => "derived.md",
-            "Connecting Mass with Photometry" => "mass-photometry.md",
             "Custom Likelihoods" => "custom-likelihood.md",
             "Kepler Solver" => "kepler.md",
+            "Orbitize! Compatibility" => "compat-orbitize.md",
             "Full API Documentation" => "api.md"
         ]
     ],
@@ -63,7 +74,7 @@ makedocs(
         prettyurls = get(ENV, "CI", nothing) == "true",
         size_threshold=nothing
     ),
-    pagesonly=true
+    pagesonly=true,
 )
 
 
