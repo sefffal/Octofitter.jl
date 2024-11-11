@@ -80,7 +80,7 @@ end
 end
 
 @system sim_2p begin
-    M = 1.0 #~ truncated(Normal(1, 0.04),lower=0.1) # (Baines & Armstrong 2011).
+    M = 1.0
     jitter1 ~ Uniform(0, 20_000)
     jitter2 ~ Uniform(0, 20_000)
 end rvlike1 rvlike2 b c
@@ -96,7 +96,7 @@ results_2p, pt_2p = octofit_pigeons(model_2p, n_rounds=10)
 
 Plot RV curve, phase folded curve, and binned residuals:
 ```@example 1
-OctofitterRadialVelocity.rvpostplot(model_2p, results_2p)
+Octofitter.rvpostplot(model_2p, results_2p)
 ```
 
 
@@ -121,7 +121,7 @@ results_1p, pt_1p = octofit_pigeons(model_1p, n_rounds=10)
 
 Plot RV curve, phase folded curve, and binned residuals:
 ```@example 1
-OctofitterRadialVelocity.rvpostplot(model_1p, results_1p)
+Octofitter.rvpostplot(model_1p, results_1p)
 ```
 
 ## Model Comparison: Bayesian Evidence
@@ -136,19 +136,106 @@ log_BF₁₀ = Z2-Z1
 ```
 
 Here is a standard guideline you can use to interpret the evidence:
-| Log Bayes Factor log(BF₁₀) | Interpretation |
-|-----------|----------------|
-| > 4.61 | Extreme evidence for H₁ |
-| 3.40 - 4.61 | Very strong evidence for H₁ |
-| 2.30 - 3.40 | Strong evidence for H₁ |
-| 1.10 - 2.30 | Moderate evidence for H₁ |
-| 0 - 1.10 | Anecdotal evidence for H₁ |
-| 0 | No evidence |
-| -1.10 - 0 | Anecdotal evidence for H₀ |
-| -2.30 - -1.10 | Moderate evidence for H₀ |
-| -3.40 - -2.30 | Strong evidence for H₀ |
-| -4.61 - -3.40 | Very strong evidence for H₀ |
-| < -4.61 | Extreme evidence for H₀ |
+| Log Bayes Factor log(BF₁₀) | Interpretation              |
+|----------------------------|-----------------------------|
+| > 4.61                     | Extreme evidence for H₁     |
+| 3.40 - 4.61                | Very strong evidence for H₁ |
+| 2.30 - 3.40                | Strong evidence for H₁      |
+| 1.10 - 2.30                | Moderate evidence for H₁    |
+| 0 - 1.10                   | Anecdotal evidence for H₁   |
+| 0                          | No evidence                 |
+| -1.10 - 0                  | Anecdotal evidence for H₀   |
+| -2.30 - -1.10              | Moderate evidence for H₀    |
+| -3.40 - -2.30              | Strong evidence for H₀      |
+| -4.61 - -3.40              | Very strong evidence for H₀ |
+| < -4.61                    | Extreme evidence for H₀     |
 
 As you can see, the evidence for there being two planets is "extreme" in this case.
 Try adjusting the masses of the two planets and see how this changes!
+
+## Parameterizations
+
+When using the evidence for model comparisons, a model with more specific priors will have more evidence than an quivalent model with broad priors.
+
+In our two planet model above, we made two exactly equivalent planets. If you inspect the chains, you may notice that the two planets often flip back and forth -- sometimes `b` has the longer period, and sometimes `c` does. 
+
+For example, here is a histogram of the period of planet b:
+```@example 1
+hist(vec(results_2p[:b_P_kep_yrs]), bins=100)
+```
+
+We can refine the two planet model a bit by adjusting the priors such that planet `c` always has a longer period than planet `b`.
+
+This will make analysis a little more straightforward, but crucially it will also increase the evidence of this model, by approximately halving the prior volume---thus making a more specific prediction.
+
+There are several ways we could do this. Here, we add a "nominal period" variable and reparameterize the two planets as ratios of this nominal period.
+
+
+```@example 1
+@planet b RadialVelocityOrbit begin
+    e ~ Uniform(0,0.999999)
+    mass ~ Uniform(0, 10)
+    i ~ Sine()
+    ω ~ Uniform(0,2pi)
+    τ ~ Uniform(0,1.0)
+
+    P_kep_yrs = system.P_yrs_nom * system.P_ratio_b
+    a = ∛(system.M * b.P_kep_yrs^2)
+    tp =  b.τ*b.P_kep_yrs*365.25 + 58400
+end
+
+@planet c RadialVelocityOrbit begin
+    e ~ Uniform(0,0.999999)
+    mass ~ Uniform(0, 10)
+    i ~ Sine()
+    ω ~ Uniform(0,2pi)
+    τ ~ Uniform(0,1.0)
+
+    P_kep_yrs = system.P_yrs_nom * system.P_ratio_c
+    a = ∛(system.M * c.P_kep_yrs^2)
+    tp =  c.τ*c.P_kep_yrs*365.25 + 58400
+end
+
+@system sim_2p_v2 begin
+    M = 1.0
+    jitter1 ~ Uniform(0, 20_000)
+    jitter2 ~ Uniform(0, 20_000)
+    
+    P_yrs_a ~ Uniform(0, 100)
+    P_ratio_b ~ Uniform(0, 0.5)
+    P_ratio_c ~ Uniform(0.5, 1)
+end rvlike1 rvlike2 b c
+
+model_2p_v2 = Octofitter.LogDensityModel(sim_2p_v2)
+```
+
+Sample from the posterior
+```@example 1
+using Pigeons
+results_2p_v2, pt_2p_v2 = octofit_pigeons(model_2p_v2, n_rounds=10)
+```
+
+The planet with the wider orbit is now consistently plotted in the bottom panel (meaning that planet b and c are no longer trading back and forth):
+```@example 1
+Octofitter.rvpostplot(model_2p_v2, results_2p_v2)
+```
+
+If we look again at the log-evidence, we see that this parameterization (Z3) is even more favoured. This is because this small change in parameterization makes considerably 
+```@example 1
+Z1 = pt_1p.shared.reports.summary.stepping_stone[end]
+Z2 = pt_2p.shared.reports.summary.stepping_stone[end]
+Z3 = pt_2p_v2.shared.reports.summary.stepping_stone[end]
+
+Z1, Z2, Z3
+```
+
+
+As a final treat, let's animate the orbit plots. All the previous images were visualizing a single posterior draw. In this animation, we'll loop over many different samples:
+
+```@example 1
+Octofitter.rvpostplot_animated(model_2p_v2, results_2p_v2)
+```
+
+```@raw html
+<video src="rv-posterior.mp4" autoplay loop width=300 height=300>
+```
