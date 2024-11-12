@@ -202,7 +202,7 @@ end
     jitter1 ~ Uniform(0, 20_000)
     jitter2 ~ Uniform(0, 20_000)
     
-    P_yrs_a ~ Uniform(0, 100)
+    P_yrs_nom ~ Uniform(0, 100)
     P_ratio_b ~ Uniform(0, 0.5)
     P_ratio_c ~ Uniform(0.5, 1)
 end rvlike1 rvlike2 b c

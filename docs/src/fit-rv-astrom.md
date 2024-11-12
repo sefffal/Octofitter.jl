@@ -102,26 +102,14 @@ rng = Xoshiro(0) # seed the random number generator for reproducible results
 results = octofit(rng, model, max_depth=9, iterations=5000)
 ```
 
-```julia
-using Pigeons
-chain_pt, pt = octofit_pigeons(
-    model,
-    n_chains=8,
-    n_chains_variational=0,
-    variational=nothing,
-    n_rounds=12
-)
-```
-
-
 Display results as a corner plot:
 ```@example 1
-octocorner(model,chain, small=true)
+octocorner(model,results, small=true)
 ```
 
 Plot RV curve, phase folded curve, and binned residuals:
 ```@example 1
-OctofitterRadialVelocity.rvpostplot(model, results,)
+Octofitter.rvpostplot(model, results,)
 ```
 
 Display RV, PMA, astrometry, relative separation, position angle, and 3D projected views:

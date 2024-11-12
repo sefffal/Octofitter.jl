@@ -116,7 +116,7 @@ If we wish to examine the covariance between parameters in more detail, we can c
 ```@example 1
 # Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
-using CairoMakie: Makie
+using CairoMakie
 using PairPlots
 octocorner(model_pma, chain_pma, small=true)
 ```
