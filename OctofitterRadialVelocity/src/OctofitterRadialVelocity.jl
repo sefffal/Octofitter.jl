@@ -7,7 +7,6 @@ using Distributions
 using DataDeps
 using AbstractGPs
 # using TemporalGPs
-using Distances: Distances
 using FITSIO
 using StaticArrays
 using LinearAlgebra
