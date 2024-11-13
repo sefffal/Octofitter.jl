@@ -34,15 +34,17 @@ The following functions allow you to directly load data from various public RV d
 
 
 If you would like to manually specify RV data, use the following format:
-```julia
+```@example 1
 rv_like = StarAbsoluteRVLikelihood(
     # epoch is in units of MJD. `jd` is a helper function to convert.
     # you can also put `years2mjd(2016.1231)`.
     # rv and σ_rv are in units of meters/second
-    (epoch=jd(2455110.97985),  rv=−6.54, σ_rv=1.30),
-    (epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09),
+    (epoch=jd2mjd(2455110.97985),  rv=−6.54, σ_rv=1.30),
+    (epoch=jd2mjd(2455171.90825),  rv=−3.33, σ_rv=1.09),
     # ... etc.
-    instrument_name="insert name here"
+    instrument_name="insert name here",
+    offset=:rv0_harps,
+    jitter=:jitter_harps,
 )
 ```
 
