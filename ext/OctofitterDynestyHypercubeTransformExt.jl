@@ -37,13 +37,22 @@ function Dynesty.dysample(model::Octofitter.LogDensityModel, args...; kwargs...)
     stats = (logl = Dynesty.PythonCall.pyconvert(Vector, res["logl"]), weights = weights,)
     logz = Dynesty.PythonCall.pyconvert(Float64, res["logz"][-1])
     logzerr = Dynesty.PythonCall.pyconvert(Float64, res["logzerr"][-1])
-    inds = sample(1:size(samples)[1], Weights(stats.weights), 10*length(samples))
+    inds = sample(1:size(samples)[1], Weights(stats.weights), length(samples)÷50)
     esamples = samples[inds, :]
 
+    ln_prior = Octofitter.make_ln_prior(model.system)
     chain_res = map(eachrow(esamples)) do θ
         # Reconstruct the parameter named tuple structure.
         resolved_namedtuple = model.arr2nt(θ)
-        return resolved_namedtuple
+
+        # Add log posterior, tree depth, and numerical error reported by
+        # the sampler.
+        logprior = ln_prior( θ)
+        # Also recompute the log-likelihood and add that too.
+        loglike = log_lik(θ)
+        logpost = loglike + logprior
+
+        return (;loglike, logpost, resolved_namedtuple...,)
     end
     # Then finally flatten and convert into an MCMCChain object / table.
     # Mark the posterior, likelihood, numerical error flag, and tree depth as internal
