@@ -29,6 +29,36 @@ function pointwise_like(model, chain)
 
 end
 
+
+
+# Generate calibration data
+"""
+    prior_only_model(system, θ=drawfrompriors(system))
+
+Creates a copy of a system model that is stripped of observations. The result is 
+a model that only samples from the priors. This can be used eg. for tempering.
+"""
+function prior_only_model(system::System)
+
+
+    # Generate new observations for each planet in the system
+    newplanets = map(1:length(system.planets)) do i
+        planet = system.planets[i]
+        newplanet_obs = []
+        newplanet = Planet{Octofitter.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
+        return newplanet
+    end
+
+    newstar_obs = []
+
+    # Generate new system with observations
+    newsystem = System(system.priors, system.derived, newstar_obs..., newplanets..., name=system.name)
+
+    return newsystem
+end
+export prior_only_model
+
+
 """
 Given an existing model with N likelihood objects, return N copies
 that each drop one of the likehood objects.
