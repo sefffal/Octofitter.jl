@@ -185,10 +185,20 @@ function Octofitter.rvpostplot!(
 
 
         # Plot orbit models
-        t_peri = periastron(els[sample_idx])
         T = period(els[sample_idx])
         phases = -0.5:0.005:0.5
-        ts_phase_folded = ((phases .+ 0.5) .* T) .+ t_peri .+ T/2
+        ts_phase_folded = phases .* T
+        # Shift to RV zero crossing
+        rv_zero_cross = 1
+        for i in LinearIndices(ts_phase_folded)[2:end]
+            a = radvel(els[sample_idx], ts_phase_folded[i-1])
+            b = radvel(els[sample_idx], ts_phase_folded[i])
+            if a <= 0 <= b
+                rv_zero_cross = i
+                break
+            end
+        end
+        ts_phase_folded = ts_phase_folded .+ ts_phase_folded[rv_zero_cross]
         # Don't include any perspective acceleration
         RV = radvel.(nonabsvis_parent(els[sample_idx]), ts_phase_folded, M[sample_idx])
         Makie.lines!(
@@ -411,12 +421,26 @@ function Octofitter.rvpostplot!(
 
         for (ax_phase, els,rv_model_this_planet) in zip(ax_phase_by_planet, els_by_planet, model_at_data_by_planet)
             # Plot orbit models
-            t_peri = periastron(els[sample_idx])
-            T = period(els[sample_idx])
 
-            # Don't include any perspective acceleration
+
             # Phase-folded plot
-            phase_folded = mod.(data.epoch .- t_peri .- T/2, T)./T .- 0.5
+            T = period(els[sample_idx])
+            # Shift to RV zero crossing
+            # Find orbit fraction at zero-crossing
+            ts_phase_folded = ( -0.5:0.005:0.5) .* T
+            rv_zero_cross = 1
+            for i in LinearIndices(ts_phase_folded)[2:end]
+                a = radvel(els[sample_idx], ts_phase_folded[i-1])
+                b = radvel(els[sample_idx], ts_phase_folded[i])
+                if a <= 0 <= b
+                    rv_zero_cross = i
+                    break
+                end
+            end
+            t_offset = ts_phase_folded[rv_zero_cross]            
+            phase_folded = mod.(data.epoch .- t_offset .- T/2, T)./T .- 0.5
+             
+
             errorbars!(
                 ax_phase,
                 phase_folded,
@@ -452,16 +476,20 @@ function Octofitter.rvpostplot!(
     # each planet and plot binned residuals
     for (ax_phase, planet, els, M) in zip(ax_phase_by_planet, model.system.planets, els_by_planet, M_by_planet)
 
-    # epochs_all
-    # resids_all
-    # uncer_all
-    # uncer_jitter_gp_all
-    # RV_sample = sum(map(els_by_planet,M_by_planet) do els, M
-    #             radvel.(els[sample_idx], ts_inst, M[sample_idx])
-    #         end)
-
-        t_peri = periastron(els[sample_idx])
         T = period(els[sample_idx])
+        # Shift to RV zero crossing
+        # Find orbit fraction at zero-crossing
+        ts_phase_folded = ( -0.5:0.005:0.5) .* T
+        rv_zero_cross = 1
+        for i in LinearIndices(ts_phase_folded)[2:end]
+            a = radvel(els[sample_idx], ts_phase_folded[i-1])
+            b = radvel(els[sample_idx], ts_phase_folded[i])
+            if a <= 0 <= b
+                rv_zero_cross = i
+                break
+            end
+        end
+        t_offset = ts_phase_folded[rv_zero_cross]            
 
         # Binned values on phase folded plot
         # Noise weighted (including jitter and GP)
@@ -469,7 +497,7 @@ function Octofitter.rvpostplot!(
         bins = -0.495:0.05:0.495
         binned = zeros(length(bins))
         binned_unc = zeros(length(bins))
-        phase_folded = mod.(epochs_all .- t_peri .- T/2, T)./T .- 0.5
+        phase_folded = mod.(epochs_all .- t_offset .- T/2, T)./T .- 0.5
         
         # the rv component we plot is the residual RV, with the signal of this *particular*
         # planet added back in.

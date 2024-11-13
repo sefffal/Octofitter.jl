@@ -20,7 +20,7 @@ We now use PlanetOrbits.jl to create sample data. We start with a template orbit
 orb_template = orbit(
     a = 1.0,
     e = 0.7,
-    i= pi/2+0.05,
+    i= pi/4,
     Ω = 0.1,
     ω = 1π/4,
     M = 1.0,

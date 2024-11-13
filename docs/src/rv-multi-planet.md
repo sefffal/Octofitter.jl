@@ -238,5 +238,5 @@ Octofitter.rvpostplot_animated(model_2p_v2, results_2p_v2)
 ```
 
 ```@raw html
-<video src="rv-posterior.mp4" autoplay loop width=300 height=300>
+<video src="assets/rv-posterior.mp4" autoplay loop width=300 height=300>
 ```
