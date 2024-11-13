@@ -10,11 +10,17 @@ using Distributions</code></pre><p>We will start by downloading and preparing a 
     # epoch is in units of MJD. `jd` is a helper function to convert.
     # you can also put `years2mjd(2016.1231)`.
     # rv and σ_rv are in units of meters/second
-    (epoch=jd(2455110.97985),  rv=−6.54, σ_rv=1.30),
-    (epoch=jd(2455171.90825),  rv=−3.33, σ_rv=1.09),
+    (epoch=jd2mjd(2455110.97985),  rv=−6.54, σ_rv=1.30),
+    (epoch=jd2mjd(2455171.90825),  rv=−3.33, σ_rv=1.09),
     # ... etc.
-    instrument_name=&quot;insert name here&quot;
-)</code></pre><p>For this example, to replicate the results of RadVel, we will download their example data for K2-131 and format it for Octofitter:</p><pre><code class="language-julia hljs">rv_file = download(&quot;https://raw.githubusercontent.com/California-Planet-Search/radvel/master/example_data/k2-131.txt&quot;)
+    instrument_name=&quot;insert name here&quot;,
+    offset=:rv0_harps,
+    jitter=:jitter_harps,
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">StarAbsoluteRVLikelihood Table with 3 columns and 2 rows:
+     epoch    rv     σ_rv
+   ┌─────────────────────
+ 1 │ 55110.5  -6.54  1.3
+ 2 │ 55171.4  -3.33  1.09</code></pre><p>For this example, to replicate the results of RadVel, we will download their example data for K2-131 and format it for Octofitter:</p><pre><code class="language-julia hljs">rv_file = download(&quot;https://raw.githubusercontent.com/California-Planet-Search/radvel/master/example_data/k2-131.txt&quot;)
 rv_dat_raw = CSV.read(rv_file, DataFrame, delim=&#39; &#39;)
 rv_dat = DataFrame();
 rv_dat.epoch = jd2mjd.(rv_dat_raw.time)
@@ -158,8 +164,8 @@ chain = octofit(
 Iterations        = 1:1:100
 Number of chains  = 1
 Samples per chain = 100
-Wall duration     = 365.8 seconds
-Compute duration  = 365.8 seconds
+Wall duration     = 371.24 seconds
+Compute duration  = 371.24 seconds
 parameters        = M, rv0_harps, rv0_pfs, jitter_harps, jitter_pfs, gp_η₁, gp_η₂, gp_η₃, gp_η₄, b_P, b_mass, b_τy, b_τx, b_e, b_ω, b_a, b_τ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -210,4 +216,4 @@ Quantiles
            b_τ      -0.1838      -0.1590      -0.1436      -0.1279      -0.098 ⋯
           b_tp   57781.9321   57781.9413   57781.9470   57781.9528   57781.963 ⋯
 </span><span class="sgr36">                                                                1 column omitted
-</span></span></code></pre><p>For real data, we would want to increase the adaptation and iterations to about 1000 each.</p><p>Plot the results:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="938b4942.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, chain, small=true) # saved to &quot;k2_132-pairplot-small.png&quot;</code></pre><img src="90f78f48.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Basic RV Fit</a><a class="docs-footer-nextpage" href="../rv-multi-planet/">Multiple Planets »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Tuesday 12 November 2024 06:28">Tuesday 12 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</span></span></code></pre><p>For real data, we would want to increase the adaptation and iterations to about 1000 each.</p><p>Plot the results:</p><pre><code class="language-julia hljs">fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="14dd160a.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, chain, small=true) # saved to &quot;k2_132-pairplot-small.png&quot;</code></pre><img src="90f78f48.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Basic RV Fit</a><a class="docs-footer-nextpage" href="../rv-multi-planet/">Multiple Planets »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Wednesday 13 November 2024 20:52">Wednesday 13 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
