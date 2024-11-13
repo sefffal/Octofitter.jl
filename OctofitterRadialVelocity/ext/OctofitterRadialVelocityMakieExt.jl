@@ -107,12 +107,16 @@ function Octofitter.rvpostplot!(
         xticks=(
             mjd.(string.(dates)),
             dates_str
-        )
+        ),
+        xgridvisible=false,
+        ygridvisible=false,
     )
     ax_resid = Axis(
         gs[2,1],
         xlabel="time [MJD]",
         ylabel="Residuals",
+        xgridvisible=false,
+        ygridvisible=false,
     )
     linkxaxes!(ax_fit, ax_resid)
     Makie.xlims!(ax_resid, extrema(ts))
@@ -164,6 +168,8 @@ function Octofitter.rvpostplot!(
             xlabel="Phase",
             ylabel="RV [m/s]",
             xticks=-0.5:0.1:0.5,
+            xgridvisible=false,
+            ygridvisible=false,
         )
         Makie.xlims!(ax_phase, -0.5,0.5)
         if i_planet != n_planet_count
@@ -279,11 +285,10 @@ function Octofitter.rvpostplot!(
         end
         if isnothing(map_gp)
             map_gp = GP(ZeroKernel())
-        # Drop TemporalGPs for now due to compilation failures
-        # elseif map_gp isa TemporalGPs.LTISDE
-        #     # Unwrap the temporal GPs wrapper so that we can calculate mean_and_var
-        #     # We don't need the speed up provided by LTISDE for plotting once.
-        #     map_gp = map_gp.f
+        elseif isdefined(Main, :TemporalGPs) && map_gp isa Main.TemporalGPs.LTISDE
+            # Unwrap the temporal GPs wrapper so that we can calculate mean_and_var
+            # We don't need the speed up provided by LTISDE for plotting once.
+            map_gp = map_gp.f
         end
 
         fx = map_gp(
