@@ -1,14 +1,14 @@
 module OctofitterRadialVelocityMakieExt
+using AbstractGPs
+using AstroImages
+using Dates
+using Makie
 using Octofitter
 using OctofitterRadialVelocity
 using PlanetOrbits
-using Makie
+using Printf
 using Statistics
 using StatsBase
-using AbstractGPs
-# using TemporalGPs
-using Dates
-using AstroImages
 
 ## Need three panels
 # 1) Mean model (orbit + GP) and data (- mean instrument offset)
@@ -35,7 +35,8 @@ function Octofitter.rvpostplot!(
     model::Octofitter.LogDensityModel,
     results::Chains,
     sample_idx = argmax(results["logpost"][:]);
-    show_perspective=true
+    show_perspective=true,
+    show_summary=false
 )
     gs = gridspec_or_fig
     n_planet_count = length(model.system.planets)
@@ -110,6 +111,12 @@ function Octofitter.rvpostplot!(
         ),
         xgridvisible=false,
         ygridvisible=false,
+        alignmode=Makie.Mixed(;
+            left=nothing,
+            right=nothing,
+            top=0,
+            bottom=nothing,
+        )
     )
     ax_resid = Axis(
         gs[2,1],
@@ -153,7 +160,7 @@ function Octofitter.rvpostplot!(
     end)
     # Use a narrow line if we're overplotting a complicated GP
     if !any_models_have_a_gp
-        lines!(ax_fit, ts, RV, color=:blue, linewidth=3)
+        lines!(ax_fit, ts, RV, color=:blue, linewidth=0.5)
     end
 
 
@@ -177,17 +184,61 @@ function Octofitter.rvpostplot!(
         end
         push!(ax_phase_by_planet, ax_phase)
 
+        text = Makie.rich(string(planet.name), font=:bold, fontsize=16)
         Label(
             gs[2+i_planet,2,],
-            string(planet.name),
-            fontsize = 16,
-            font = :bold,
+            text,
             padding = (5, 0, 0, 0),
             valign=:top,
             halign=:left,
+            justification=:left,
             tellwidth=false,
             tellheight=false,
         )
+        if show_summary
+            el = Octofitter.construct_elements(results,planet.name,:)
+            credP = cred_internal_format(quantile(period.(el), (0.14, 0.5,0.84))...)
+            text = Makie.rich( 
+                "P", Makie.subscript(string(planet.name)),
+                " = $credP d",
+                font="Monaco",
+                fontsize=10
+            )
+            credE = cred_internal_format(quantile(eccentricity.(el), (0.14, 0.5,0.84))...)
+            text = Makie.rich(text, "\n", 
+                "e", Makie.subscript(string(planet.name)),
+                " = $credE",
+                font="Monaco",
+                fontsize=10
+            )
+            credMass = cred_internal_format(quantile(results["$(planet.name)_mass"][:], (0.14, 0.5,0.84))...)
+            text = Makie.rich(text, "\n", 
+                "m", Makie.subscript(string(planet.name)),
+                " = $credMass M", Makie.subscript("jup"),
+                font="Monaco",
+                fontsize=10
+            )
+            try
+                inclination(el[1])
+            catch
+                text = Makie.rich(
+                    text, " (min)",
+                    font="Monaco",
+                    fontsize=10
+                )
+            end
+
+            Label(
+                gs[2+i_planet,2,],
+                text,
+                padding = (5, 0, 0, 0),
+                valign=:bottom,
+                halign=:left,
+                justification=:left,
+                tellwidth=false,
+                tellheight=false,
+            )
+        end
 
 
         # Plot orbit models
@@ -585,7 +636,7 @@ function Octofitter.rvpostplot!(
         valign=:top,
         framevisible=false,
     )
-    Makie.rowsize!(gs, 1, Auto(2))
+    Makie.rowsize!(gs, 1, Auto(2.4))
     Makie.rowsize!(gs, 2, Auto(1))
     for i in 1:n_planet_count
         Makie.rowsize!(gs, 2+i, Auto(2))
@@ -596,23 +647,37 @@ function Octofitter.rvpostplot!(
 
 end
 
-function Octofitter.rvpostplot_animated(model, chain; framerate=4,compression=1, fname="rv-posterior.mp4", N=min(size(chain,1),50))
+function Octofitter.rvpostplot_animated(model, chain; framerate=4,compression=1, fname="rv-posterior.mp4", N=min(size(chain,1),50), kwargs...)
+    return Octofitter.rvpostplot_animated(identity, model, chain; framerate,compression, fname, N, kwargs...)
+end
+function Octofitter.rvpostplot_animated(callback::Base.Callable, model, chain; framerate=4,compression=1, fname="rv-posterior.mp4", N=min(size(chain,1),50), kwargs...)
     imgs = []
-    print("generating plots")
+    print("generating plots:")
     for i in rand(1:size(chain,1), N)
         print(".")
         f = tempname()*".png"
-        Octofitter.rvpostplot(model,chain,i,fname=f)
+        fig = Octofitter.rvpostplot(model,chain,i; fname=f, kwargs...)
+        callback(fig)
+        save(f,fig)
         push!(imgs, load(f))
         rm(f)
     end
     println()
-    fig = Figure()
-    ax = Axis(fig[1,1],autolimitaspect=1)
+    fig = Figure(
+        size=reverse(size(first(imgs))),
+        figure_padding=(0,0,0,0)
+    )
+    ax = Axis(fig[1,1],
+        autolimitaspect=1,
+        leftspinevisible=false,
+        rightspinevisible=false,
+        topspinevisible=false,
+        bottomspinevisible=false,
+    )
     hidedecorations!(ax)
     i = Observable(imgs[1])
     image!(ax, @lift(rotr90($i)))
-    print("animating")
+    print("animating       :")
     Makie.record(fig, fname, imgs; framerate, compression) do img
         print(".")
         i[] = img
@@ -667,5 +732,25 @@ function _find_rv_zero_point_maxlike(
     return -rv0
 end
 
+
+
+
+# From PairPlots.jl
+function cred_internal_format(low,mid,high)
+    largest_error = max(abs(high-mid), abs(mid-low))
+    # Fallback for series with no variance
+    if largest_error == 0
+        return "$mid"
+    end
+
+    digits_after_dot = max(0, 1 - round(Int, log10(largest_error)))
+    return @sprintf(
+        "%.*f ± %.*f",
+        digits_after_dot, mid,
+        digits_after_dot, largest_error,
+    )
+
+    return title 
+end
 
 end
