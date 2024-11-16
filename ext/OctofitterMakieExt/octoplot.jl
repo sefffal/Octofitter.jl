@@ -60,6 +60,17 @@ function Octofitter.octoplot(
     colorbar = true
 )
 
+    defaults_used = any(isnothing, (
+        show_astrom,
+        show_physical_orbit,
+        show_astrom_time,
+        show_hgca,
+        show_mass,
+        show_rv,
+        show_relative_rv,
+        show_hipparcos,
+    ))
+
     # Auto-detect if we should include a given plot
     if isnothing(show_astrom)
         show_astrom = false
@@ -133,6 +144,22 @@ function Octofitter.octoplot(
             show_mass |= haskey(results, Symbol("$(planet_key)_mass"))
         end
     end
+
+    if defaults_used
+        @info(
+            "You can control the panels included by `octoplot` by passing keyword arguments. Currently selected:",
+            show_astrom,
+            show_physical_orbit,
+            show_astrom_time,
+            show_hgca,
+            show_mass,
+            show_rv,
+            show_relative_rv,
+            show_hipparcos,
+        )
+        @info "pass true or false for each of these arguments to suppress this message."
+    end
+
 
     # determine a consistent time axis/scale for all kinds of data
     # Find the minimum time step size
@@ -295,10 +322,16 @@ function Octofitter.octoplot(
         item += 1
         col = mod1(item, cols)
         row = cld(item, cols)
+        matching_like_objs = filter(model.system.observations) do like_obj
+            nameof(typeof(like_obj)) ∈ (
+                :MarginalizedStarAbsoluteRVLikelihood,
+                :StarAbsoluteRVLikelihood
+            )
+        end
         gl = GridLayout(
             fig[row,col],
             width=500figscale,
-            height=135figscale,
+            height=(135 * max(1, length(matching_like_objs)) *figscale),
         )
         bottom_time_axis = !(show_hgca || show_relative_rv || show_hipparcos)
         ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, planet_rv, colormap, alpha)

@@ -46,7 +46,6 @@ function rvtimeplot!(
     colorbar=true,
     top_time_axis=true,
     bottom_time_axis=true,
-    planet_rv=nothing,
     alpha=min.(1, 100 / length(ii)),
     kwargs...
 )
@@ -72,123 +71,137 @@ function rvtimeplot!(
     end
 
     date_pos, date_strs, xminorticks = _date_ticks(ts)
-    ax= Axis(
-        gs[1, 1];
-        ylabel= use_kms ? "rv [km/s]" : "rv [m/s]",
-        xaxisposition=:top,
-        xticks=(date_pos, date_strs),
-        xgridvisible=false,
-        ygridvisible=false,
-        xminorticks,
-        xminorticksvisible=top_time_axis,
-        xticksvisible=top_time_axis,
-        xticklabelsvisible=top_time_axis,
-        axis...
-    )
-    ax_secondary = Axis(
-        gs[1, 1];
-        xlabel="MJD",
-        xgridvisible=false,
-        ygridvisible=false,
-        yticksvisible=false,
-        yticklabelsvisible=false,
-        ylabelvisible=false,
-        xticksvisible=bottom_time_axis,
-        xticklabelsvisible=bottom_time_axis,
-        xlabelvisible=bottom_time_axis,
-        axis...
-    )
-    linkxaxes!(ax, ax_secondary)
-    xlims!(ax, extrema(ts))
-    xlims!(ax_secondary, extrema(ts))
 
-    rv_star_model_t = zeros(length(ii), length(ts))
-    color_model_t = zeros(length(ii), length(ts))
-    for (i_planet, planet_key) in enumerate(keys(model.system.planets))
-      
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
-        sols = orbitsolve.(orbs, ts')
-
-        # Draws from the posterior
-        key = Symbol("$(planet_key)_mass")
-        if haskey(results, key)
-            M_planet = results[key][ii] .* Octofitter.mjup2msol
-        else
-            M_planet = zeros(length(ii))
-        end
-        M_tot = results["M"][ii]
-        M_star = M_tot - M_planet
-
-        ### Star RV    
-        rv_star_model_t .+= radvel.(sols, M_planet)
-
-        color_model_t .= rem2pi.(
-            meananom.(sols), RoundDown) .+ 0 .* ii
-
-        ### Planet RV
-        if planet_rv
-
-            # rv_star = -radvel(planet_orbit, epochs[epoch_i])*planet_mass*Octofitter.mjup2msol/M_tot
-            # rv_planet_vs_star = radvel(planet_orbit, epochs[epoch_i])
-            # rv_planet = rv_star + rv_planet_vs_star
-            # rv_planet_buf[epoch_i] -= rv_planet
-            # rv_planet_model_t = radvel.(sols) .* M_star ./ M_tot
-            
-            rv_planet_model_t = rv_star_model_t  .+ radvel.(sols)
-
-            lines!(ax,
-                concat_with_nan(ts' .+ 0 .* rv_planet_model_t),
-                concat_with_nan(rv_planet_model_t) .* kms_mult;
-                alpha,
-                # color=concat_with_nan(color_planet_model_t),
-                # colorrange=(0,2pi),
-                # colormap
-                color=Makie.wong_colors()[1+i_planet],
-                label=string(planet_key),
-                rasterize=4,
-            )
-
-        end
-
-
-    end
-
-    lines!(ax,
-        concat_with_nan(ts' .+ 0 .* rv_star_model_t),
-        concat_with_nan(rv_star_model_t) .* kms_mult;
-        alpha,
-        color = planet_rv ? Makie.wong_colors()[1] : concat_with_nan(color_model_t),
-        colorrange=(0,2pi),
-        colormap,
-        label="A",
-        rasterize=4,
-    )
-
-    if planet_rv
-        Makie.axislegend(ax)
+    # The only safe way to display this data without misinterpretation is
+    # to plot it separately by instrument. 
+    # For an all up plot, users can see a single draw from `rvpostplot`.
+    all_axes = Axis[]
+    like_objs = filter(model.system.observations) do like_obj
+        nameof(typeof(like_obj)) ∈ (
+            :MarginalizedStarAbsoluteRVLikelihood,
+            :StarAbsoluteRVLikelihood
+        )
     end
 
 
-    
-    
-    i_like = 0
-    orbits = map(keys(model.system.planets)) do planet_key
-        Octofitter.construct_elements(results, planet_key, ii)
+    # CASE: no data, just plot model.
+    if isempty(like_objs)
+        @info "is empyty"
+        ax = Axis(
+            gs[1, 1];
+            ylabel= use_kms ? "rv [km/s]" : "rv [m/s]",
+            xaxisposition=:top,
+            xticks=(date_pos, date_strs),
+            xgridvisible=false,
+            ygridvisible=false,
+            xminorticks,
+            xminorticksvisible=top_time_axis,
+            xticksvisible=top_time_axis,
+            xticklabelsvisible=top_time_axis,
+            axis...
+        )
+        ax_secondary = Axis(
+            gs[1, 1];
+            xlabel="MJD",
+            xgridvisible=false,
+            ygridvisible=false,
+            yticksvisible=false,
+            yticklabelsvisible=false,
+            ylabelvisible=false,
+            xticksvisible=bottom_time_axis,
+            xticklabelsvisible=bottom_time_axis,
+            xlabelvisible=bottom_time_axis,
+            axis...
+        )
+        linkxaxes!(ax, ax_secondary)
+        xlims!(ax, extrema(ts))
+        xlims!(ax_secondary, extrema(ts))
+        push!(all_axes, ax)
+        push!(all_axes, ax_secondary)
+        
+        rv_star_model_t = zeros(length(ii), length(ts))
+        color_model_t = zeros(length(ii), length(ts))
+        for (i_planet, planet_key) in enumerate(keys(model.system.planets))
+        
+            orbs = Octofitter.construct_elements(results, planet_key, ii)
+            sols = orbitsolve.(orbs, ts')
+
+            # Draws from the posterior
+            key = Symbol("$(planet_key)_mass")
+            if haskey(results, key)
+                M_planet = results[key][ii] .* Octofitter.mjup2msol
+            else
+                M_planet = zeros(length(ii))
+            end
+            M_tot = results["M"][ii]
+
+            ### Star RV    
+            rv_star_model_t .+= radvel.(sols, M_planet)
+
+            color_model_t .= rem2pi.(
+                meananom.(sols), RoundDown) .+ 0 .* ii
+        end    
+
+        lines!(ax,
+            concat_with_nan(ts' .+ 0 .* rv_star_model_t),
+            concat_with_nan(rv_star_model_t) .* kms_mult;
+            alpha,
+            color = concat_with_nan(color_model_t),
+            colorrange=(0,2pi),
+            colormap,
+            label="A",
+            rasterize=4,
+        )
     end
-    for like_obj in model.system.observations
-        if nameof(typeof(like_obj)) != :MarginalizedStarAbsoluteRVLikelihood &&
-            nameof(typeof(like_obj)) != :StarAbsoluteRVLikelihood
-            continue
+
+    # CASE: one or more RV likelihood objects.
+    # The only safe way to display these is with a separate panel per instrument
+    gs_row = 0
+    for (i_like, like_obj) in enumerate(like_objs)
+        gs_row += 1
+        ax = Axis(
+            gs[gs_row, 1];
+            ylabel= use_kms ? "rv [km/s]" : "rv [m/s]",
+            xaxisposition=:top,
+            xticks=(date_pos, date_strs),
+            xgridvisible=false,
+            ygridvisible=false,
+            xminorticks,
+            xminorticksvisible=top_time_axis && i_like==1,
+            xticksvisible=top_time_axis && i_like==1,
+            xticklabelsvisible=top_time_axis && i_like==1,
+            axis...
+        )
+        ax_secondary = Axis(
+            gs[gs_row, 1];
+            xlabel="MJD",
+            xgridvisible=false,
+            ygridvisible=false,
+            yticksvisible=false,
+            yticklabelsvisible=false,
+            ylabelvisible=false,
+            xticksvisible=bottom_time_axis && i_like == length(like_objs),
+            xticklabelsvisible=bottom_time_axis && i_like == length(like_objs),
+            xlabelvisible=bottom_time_axis && i_like == length(like_objs),
+            axis...
+        )
+        linkxaxes!(ax, ax_secondary)
+        xlims!(ax, extrema(ts))
+        xlims!(ax_secondary, extrema(ts))
+        push!(all_axes, ax)
+        push!(all_axes, ax_secondary)
+        
+
+        # For each instrument's data, subtract the mean rv0 across all draws
+        # Then for each orbit draw, add the difference between the mean rv0 across all instruments, and the above
+
+        orbits = map(keys(model.system.planets)) do planet_key
+            Octofitter.construct_elements(results, planet_key, ii)
         end
-        i_like += 1
         epoch = vec(like_obj.table.epoch)
         rv = collect(vec(like_obj.table.rv))
         σ_rv = vec(like_obj.table.σ_rv)
 
-        jitter_symbol = like_obj.jitter_symbol
-
-        jitter = map(sample->sample[jitter_symbol], nt_format)
-        # rv0 = map(sample->sample.rv0[inst_idx], nt_format)'
         # instead of each 
         rv0 = map(enumerate(ii)) do (i_sol, i)
             θ_system = nt_format[i]
@@ -204,25 +217,86 @@ function rvtimeplot!(
             return _find_rv_zero_point_maxlike(like_obj, θ_system, planet_orbits_this_sample)
         end'
 
-        σ_tot = sqrt.(σ_rv .^2 .+ mean(jitter) .^2 .+ var(rv0))
-        rv .-= mean(rv0,dims=2)
+        rv_star_model_t = zeros(length(ii), length(ts))
+        color_model_t = zeros(length(ii), length(ts))
+        for (i_planet, planet_key) in enumerate(keys(model.system.planets))
+        
+            orbs = Octofitter.construct_elements(results, planet_key, ii)
+            sols = orbitsolve.(orbs, ts')
+
+            # Draws from the posterior
+            key = Symbol("$(planet_key)_mass")
+            if haskey(results, key)
+                M_planet = results[key][ii] .* Octofitter.mjup2msol
+            else
+                M_planet = zeros(length(ii))
+            end
+            M_tot = results["M"][ii]
+            M_star = M_tot - M_planet
+
+            # Star RV  influence from this planet   
+            rv_star_model_t .+= radvel.(sols, M_planet)
+
+            color_model_t .= rem2pi.(
+                meananom.(sols), RoundDown) .+ 0 .* ii
+
+        end    
+
+        # Add RV0 offset to make model match data, but subtract
+        # mean offset to keep it near zero
+        rv_star_model_t .+= rv0'
+        rv_star_model_t .-= mean(rv0)
+
+        lines!(ax,
+            concat_with_nan(ts' .+ 0 .* rv_star_model_t),
+            concat_with_nan(rv_star_model_t) .* kms_mult;
+            alpha,
+            color = concat_with_nan(color_model_t),
+            colorrange=(0,2pi),
+            colormap,
+            label="A",
+            rasterize=4,
+        )
+
+
+        epoch = vec(like_obj.table.epoch)
+        rv = collect(vec(like_obj.table.rv))
+        σ_rv = vec(like_obj.table.σ_rv)
+
+        jitter_symbol = like_obj.jitter_symbol
+        jitter = map(sample->sample[jitter_symbol], nt_format)
+        σ_tot = sqrt.(σ_rv .^2 .+ mean(jitter) .^2)
+
+        # Subtract off mean of all draws RV0 to keep near zero
+        rv .-= mean(rv0)
+    
         Makie.errorbars!(
             ax, epoch, rv .* kms_mult, σ_tot .* kms_mult;
-            color = planet_rv ? Makie.wong_colors()[1] : :grey,
+            color = :grey,
             linewidth=1,
         )
         Makie.errorbars!(
             ax, epoch, rv .* kms_mult, σ_rv .* kms_mult;
-            color = Makie.wong_colors()[i_like],
+            color = :black,
             linewidth=2,
         )
         Makie.scatter!(
             ax, epoch, rv .* kms_mult;
-            color = Makie.wong_colors()[i_like],
+            color = :white,
             strokewidth=2,
             strokecolor=:black,
             markersize=8, #1.5,
         )
+
+        # Label inside top right corner
+        Makie.text!(ax,
+            1.0, 1.0,
+            text=string(like_obj.instrument_name),
+            align=(:right,:top),
+            space=:relative,
+            offset = (-4, -4),
+        );
+        
     end
 
     if colorbar
@@ -238,7 +312,7 @@ function rvtimeplot!(
         )
     end
 
-    return [ax]
+    return all_axes
 end
 
 
