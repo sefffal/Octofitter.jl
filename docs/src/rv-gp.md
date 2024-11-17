@@ -180,9 +180,14 @@ chain = octofit(
 For real data, we would want to increase the adaptation and iterations to about 1000 each.
 
 
-Plot the results:
+Plot one sample from the results:
 ```@example 1
-fig = OctofitterRadialVelocity.rvpostplot(model, chain) # saved to "k2_132-rvpostplot.png"
+fig = Octofitter.rvpostplot(model, chain) # saved to "k2_132-rvpostplot.png"
+```
+
+Plot many samples from the results:
+```@example 1
+fig = octoplot(model, chain) # saved to "k2_132-plot-grid.png"
 ```
 
 
