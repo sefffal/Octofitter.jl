@@ -140,7 +140,7 @@ function rvtimeplot!(
 
             color_model_t .= rem2pi.(
                 meananom.(sols), RoundDown) .+ 0 .* ii
-        end    
+        end
 
         lines!(ax,
             concat_with_nan(ts' .+ 0 .* rv_star_model_t),
@@ -161,7 +161,7 @@ function rvtimeplot!(
         gs_row += 1
         ax = Axis(
             gs[gs_row, 1];
-            ylabel= use_kms ? "rv [km/s]" : "rv [m/s]",
+            ylabel= string(like_obj.instrument_name) * "\n" * (use_kms ? "rv [km/s]" : "rv [m/s]"),
             xaxisposition=:top,
             xticks=(date_pos, date_strs),
             xgridvisible=false,
@@ -199,8 +199,12 @@ function rvtimeplot!(
             Octofitter.construct_elements(results, planet_key, ii)
         end
         epoch = vec(like_obj.table.epoch)
-        rv = collect(vec(like_obj.table.rv))
+        rv_data = collect(vec(like_obj.table.rv))
         σ_rv = vec(like_obj.table.σ_rv)
+
+        jitter_symbol = like_obj.jitter_symbol
+        jitter = map(sample->sample[jitter_symbol], nt_format)
+        σ_tot = sqrt.(σ_rv .^2 .+ mean(jitter) .^2)
 
         # instead of each 
         rv0 = map(enumerate(ii)) do (i_sol, i)
@@ -216,13 +220,18 @@ function rvtimeplot!(
             planet_orbits_this_sample = getindex.(orbits, i_sol)
             return _find_rv_zero_point_maxlike(like_obj, θ_system, planet_orbits_this_sample)
         end'
+        # Subtract off mean of all draws of RV0 to keep near zero
+        rv_data .-= mean(rv0)
 
         rv_star_model_t = zeros(length(ii), length(ts))
+        rv_star_model_at_data = zeros(length(ii), length(epoch))
         color_model_t = zeros(length(ii), length(ts))
+        # Model: add influences of each planet
         for (i_planet, planet_key) in enumerate(keys(model.system.planets))
         
             orbs = Octofitter.construct_elements(results, planet_key, ii)
             sols = orbitsolve.(orbs, ts')
+            sols_data = orbitsolve.(orbs, epoch')
 
             # Draws from the posterior
             key = Symbol("$(planet_key)_mass")
@@ -236,16 +245,61 @@ function rvtimeplot!(
 
             # Star RV  influence from this planet   
             rv_star_model_t .+= radvel.(sols, M_planet)
+            rv_star_model_at_data .+= radvel.(sols_data, M_planet)
 
             color_model_t .= rem2pi.(
                 meananom.(sols), RoundDown) .+ 0 .* ii
 
-        end    
+        end
 
         # Add RV0 offset to make model match data, but subtract
         # mean offset to keep it near zero
         rv_star_model_t .+= rv0'
         rv_star_model_t .-= mean(rv0)
+        rv_star_model_at_data .+= rv0'
+        rv_star_model_at_data .-= mean(rv0)
+
+        # Calculate residuals in order to condition GP
+        resids = rv_star_model_at_data' .- rv_data
+
+        # Add gaussian process for this instrument, conditioned on the residuals
+        # If not using a GP, we fit a GP with a "ZeroKernel"
+        if isdefined(Main, :AbstractGPs)
+            for (j,i) in enumerate(ii)
+                map_gp = nothing
+                # TODO: hacky interdependency
+                if hasproperty(like_obj, :gaussian_process) && !isnothing(like_obj.gaussian_process) 
+                    row = nt_format[i,:,:];
+                    nt = (Table((row)))[1]
+                    map_gp = like_obj.gaussian_process(nt)
+                end
+                if isnothing(map_gp)
+                    map_gp = Main.AbstractGPs.GP(Main.AbstractGPs.ZeroKernel())
+                elseif isdefined(Main, :TemporalGPs) && map_gp isa Main.TemporalGPs.LTISDE
+                    # Unwrap the temporal GPs wrapper so that we can calculate mean_and_var
+                    # We don't need the speed up provided by LTISDE for plotting once.
+                    map_gp = map_gp.f
+                end
+
+                fx = map_gp(
+                    # x
+                    vec(like_obj.table.epoch),
+                    # y-err
+                    vec(
+                        sqrt.(like_obj.table.σ_rv.^2 .+ jitter[i].^2)
+                    )
+                )
+                # condition GP on residuals (data - orbit - inst offsets)
+                map_gp_posterior = Main.AbstractGPs.posterior(fx, @view resids[:,j])
+                # y, var = mean_and_var(map_gp_posterior, ts_inst)
+
+                # # Subtract MAP GP from residuals
+                # resids = resids .-= mean(map_gp_posterior, vec(data.epoch))
+                # data_minus_off_and_gp .= rvs_off_sub .- mean(map_gp_posterior, vec(data.epoch))
+                y_inst, var = Main.AbstractGPs.mean_and_var(map_gp_posterior, ts)
+                rv_star_model_t[j,:] .-= y_inst
+            end
+        end
 
         lines!(ax,
             concat_with_nan(ts' .+ 0 .* rv_star_model_t),
@@ -259,44 +313,24 @@ function rvtimeplot!(
         )
 
 
-        epoch = vec(like_obj.table.epoch)
-        rv = collect(vec(like_obj.table.rv))
-        σ_rv = vec(like_obj.table.σ_rv)
-
-        jitter_symbol = like_obj.jitter_symbol
-        jitter = map(sample->sample[jitter_symbol], nt_format)
-        σ_tot = sqrt.(σ_rv .^2 .+ mean(jitter) .^2)
-
-        # Subtract off mean of all draws RV0 to keep near zero
-        rv .-= mean(rv0)
     
         Makie.errorbars!(
-            ax, epoch, rv .* kms_mult, σ_tot .* kms_mult;
+            ax, epoch, rv_data .* kms_mult, σ_tot .* kms_mult;
             color = :grey,
             linewidth=1,
         )
         Makie.errorbars!(
-            ax, epoch, rv .* kms_mult, σ_rv .* kms_mult;
+            ax, epoch, rv_data .* kms_mult, σ_rv .* kms_mult;
             color = :black,
             linewidth=2,
         )
         Makie.scatter!(
-            ax, epoch, rv .* kms_mult;
+            ax, epoch, rv_data .* kms_mult;
             color = :white,
             strokewidth=2,
             strokecolor=:black,
             markersize=8, #1.5,
         )
-
-        # Label inside top right corner
-        Makie.text!(ax,
-            1.0, 1.0,
-            text=string(like_obj.instrument_name),
-            align=(:right,:top),
-            space=:relative,
-            offset = (-4, -4),
-        );
-        
     end
 
     if colorbar

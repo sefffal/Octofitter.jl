@@ -71,6 +71,10 @@ function Octofitter.octoplot(
         show_hipparcos,
     ))
 
+    if colormap isa Symbol || colormap isa String
+        colormap = Makie.cgrad([colormap,"#FAFAFA"])
+    end
+
     # Auto-detect if we should include a given plot
     if isnothing(show_astrom)
         show_astrom = false
