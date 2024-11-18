@@ -187,7 +187,15 @@ fig = Octofitter.rvpostplot(model, chain) # saved to "k2_132-rvpostplot.png"
 
 Plot many samples from the results:
 ```@example 1
-fig = octoplot(model, chain) # saved to "k2_132-plot-grid.png"
+fig = octoplot(
+    model,
+    chain,
+    # Some optional tweaks to the appearance:
+    N=50, # only plot 50 samples
+    figscale=1.5, # make it larger
+    alpha=0.05 # make each sample more transparent
+    colormap="#0072b2",
+) # saved to "k2_132-plot-grid.png"
 ```
 
 
