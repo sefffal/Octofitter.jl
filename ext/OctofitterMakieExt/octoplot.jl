@@ -1,32 +1,35 @@
 """
+    octoplot(model, chain; kwargs...)
 
-    octoplot(model, chain; fname, ...)
+Generate publication-quality figures showing orbit fits and data. Creates a multi-panel
+visualization that automatically adapts to show the types of data present in your model.
 
-Generate a plot of orbits drawn from the posterior `chain`. There are many options described below.
+The file is automatically saved to "\$(model.system.name)-plot-grid.png". You can override 
+this by passing `fname="fname.png"`
 
-**Output Panels**
-`show_astrom`       : Plot relative RA and DEC of planets vs the primary. Only supported for `Visual` orbit types.
-`show_astrom_time`  : Plot relative separation and position angle of planets vs the primary. Only supported for `Visual` orbit types.
-`show_rv`           : Plot the absolute radial velocity of the primary. Lines are shifted vertically by RV zero-point to match data. 
-`show_relative_rv`  : Plot the relative radial velocity between planets and the primary. 
-`show_hgca`         : Plot instantaneous proper motion in R.A. and in Dec., and plot the time averaged HGCA quantities. Only supported for models including an `HGCALikelihood`.
-`show_mass`         : Plot a mini corner plot of mass 
+# Panel Types (enabled with boolean flags)
+- `show_astrom=true`: Sky-projected orbits (mas)
+- `show_physical_orbit=true`: Physical orbits (AU)
+- `show_astrom_time=true`: Separation/PA vs time
+- `show_rv=true`: Stellar RV curve
+- `show_relative_rv=true`: Planet-star relative RV
+- `show_hgca=true`: Proper motion anomaly
+- `show_mass=true`: Mass posterior
 
-**Display Options**
-`N`                 : Controls how many orbits are sampled with replacement from the posterior. Default is 250. If there are less than 250 samples, just plot each one once (not sampled).
-`ii`                : A vector of posterior sample indices to plot (overrides N and the sampling described above)
-`mark_epochs_mjd`   : A vector dates in MJD format to mark on the astrometry plots.
-`colormap`          : A symbol from ColorSchemes.jl, or a ColorScheme object. Eg. try  `:viridis`.
-`planet_rv`         : Applicable to `show_rv`. Show planets' absolute RV instead of star absolute RV.
-`figure`            : Plot into an existing Makie Figure object. Useful for customizing overall figure appearance.
+# Optional Arguments
+- `N=250`: Number of posterior samples to plot
+- `ii=nothing`: Specific sample indices to plot (overrides N)
+- `ts=nothing`: Time range for plots (MJD values)
+- `colormap=:plasma`: Colormap for orbital phase
+- `alpha=auto`: Transparency of orbit lines
+- `figscale=1.0`: Overall figure size multiplier
+- `mark_epochs_mjd=Float64[]`: Epochs to highlight across panels
 
-Note that the chain sample subset indices `ii` are not used for certain plots where it makes more sense to show all samples,
-including the HGCA scatter plots (`show_hgca`) and mass plot histograms (`show_mass`). If you want to control which samples
-are displayed in those plots, apply your filtering before passing the chain to `octoplot`:
+# Returns
+A Makie figure object that can be further customized and saved in various formats:
 ```julia
-chain_filtered = chain[vec(chain[:b_e]) .> 0.5,:,:]
-octoplot(model, chain_filtered)
-```
+save("orbit_plot.pdf", fig)  # PDF (CairoMakie)
+save("orbit_plot.png", fig, px_per_unit=3)  # Higher resolution PNG
 """
 function Octofitter.octoplot(
     model::Octofitter.LogDensityModel,
