@@ -19,14 +19,14 @@ using Octofitter, Distributions, CairoMakie, PairPlots
 
 Create a [`PlanetRelAstromLikelihood`](@ref) object containing your observational data. In this case its the position of the planet relative to the star, but many other kinds of data are supported:
 ```julia
-astrom = PlanetRelAstromLikelihood(
+astrom = PlanetRelAstromLikelihood(Table(
     epoch = [50000, 50120, 50240],      # Dates in MJD
     ra = [-505.7, -502.5, -498.2],      # [mas] East positive
     dec = [-66.9, -37.4, -7.9],         # [mas] North positive
     σ_ra = [10.0, 10.0, 10.0],          # [mas] Uncertainties
     σ_dec = [10.0, 10.0, 10.0],         # [mas] Uncertainties
     cor = [0.0, 0.0, 0.0]               # RA/Dec correlations
-)
+))
 ```
 
 Define a planet model with orbital elements and their [prior distributions](@ref priors):
