@@ -193,7 +193,7 @@ fig = octoplot(
     # Some optional tweaks to the appearance:
     N=50, # only plot 50 samples
     figscale=1.5, # make it larger
-    alpha=0.05 # make each sample more transparent
+    alpha=0.05, # make each sample more transparent
     colormap="#0072b2",
 ) # saved to "k2_132-plot-grid.png"
 ```
