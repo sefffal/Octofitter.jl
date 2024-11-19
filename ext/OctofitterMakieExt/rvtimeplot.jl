@@ -298,6 +298,13 @@ function rvtimeplot!(
                 # data_minus_off_and_gp .= rvs_off_sub .- mean(map_gp_posterior, vec(data.epoch))
                 y_inst, var = Main.AbstractGPs.mean_and_var(map_gp_posterior, ts)
                 rv_star_model_t[j,:] .-= y_inst
+
+                band!(ax,
+                    ts,
+                    vec(y_inst .+ rv_star_model_t[j,:] .- sqrt.(var)),
+                    vec(y_inst .+ rv_star_model_t[j,:] .+ sqrt.(var)),
+                    color=(:black, alpha*0.05)
+                )
             end
         end
 
@@ -311,6 +318,8 @@ function rvtimeplot!(
             label="A",
             rasterize=4,
         )
+
+
 
 
     
