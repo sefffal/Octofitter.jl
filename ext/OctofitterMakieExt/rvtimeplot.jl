@@ -83,10 +83,10 @@ function rvtimeplot!(
         )
     end
 
+    y_ax_limits = (0,0)
 
     # CASE: no data, just plot model.
     if isempty(like_objs)
-        @info "is empyty"
         ax = Axis(
             gs[1, 1];
             ylabel= use_kms ? "rv [km/s]" : "rv [m/s]",
@@ -149,10 +149,13 @@ function rvtimeplot!(
             color = concat_with_nan(color_model_t),
             colorrange=(0,2pi),
             colormap,
-            label="A",
             rasterize=4,
         )
+        y_ax_limits = extrema([y_ax_limits...; filter(isfinite, concat_with_nan(rv_star_model_t) .* kms_mult)])
+
     end
+
+
 
     # CASE: one or more RV likelihood objects.
     # The only safe way to display these is with a separate panel per instrument
@@ -315,7 +318,6 @@ function rvtimeplot!(
             color = concat_with_nan(color_model_t),
             colorrange=(0,2pi),
             colormap,
-            label="A",
             rasterize=4,
         )
 
@@ -340,7 +342,10 @@ function rvtimeplot!(
             strokecolor=:black,
             markersize=8, #1.5,
         )
+        y_ax_limits = extrema([y_ax_limits...; filter(isfinite, concat_with_nan(rv_star_model_t) .* kms_mult); rv_data .* kms_mult])
     end
+
+    ylims!(ax, y_ax_limits...)
 
     if colorbar
         Colorbar(
