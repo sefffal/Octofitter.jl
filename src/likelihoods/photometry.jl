@@ -31,9 +31,34 @@ function likeobj_from_epoch_subset(obs::PhotometryLikelihood, obs_inds)
     return PhotometryLikelihood(obs.table[obs_inds,:,1]...)
 end
 
-# PhotometryLikelihood
-function ln_like(photometry::PhotometryLikelihood, θ_planet, orbit_solutions, _i_epoch_start)
-    ll = 0.0
+# PhotometryLikelihood: attached to a system
+function ln_like(photometry::PhotometryLikelihood, θ_system, orbits::NTuple{N,<:AbstractOrbit}, args...) where N
+    T = _system_number_type(θ_system)
+    ll = zero(T)
+
+    for i in eachindex(photometry.table.band)
+        band = photometry.table.band[i]
+        phot_param = getproperty(θ_system, band)
+        phot_meas = photometry.table.phot[i]
+        if !isfinite(phot_param)
+            return -Inf
+        end
+        # Experimenting with fitting sigma phot
+        σ_phot = photometry.table.σ_phot[i]
+
+        resid = phot_param - phot_meas
+        σ² = σ_phot^2
+        χ² = -(1/2)*resid^2 / σ² - log(sqrt(2π * σ²))
+        ll += χ²
+    end
+    return ll
+end
+
+# PhotometryLikelihood: attached to a planet
+function ln_like(photometry::PhotometryLikelihood, θ_planet, orbits::AbstractOrbit, args...)
+    T = _system_number_type(θ_planet)
+    ll = zero(T)
+
     for i in eachindex(photometry.table.band)
         band = photometry.table.band[i]
         phot_param = getproperty(θ_planet, band)
@@ -43,7 +68,6 @@ function ln_like(photometry::PhotometryLikelihood, θ_planet, orbit_solutions, _
         end
         # Experimenting with fitting sigma phot
         σ_phot = photometry.table.σ_phot[i]
-        # σₓ = θ_planet_i.σ
 
         resid = phot_param - phot_meas
         σ² = σ_phot^2
