@@ -698,7 +698,6 @@ end
         show_hgca=false,
         show_mass=false,
         show_rv=false,
-        planet_rv=false,
         show_relative_rv=false,
         show_hipparcos=false,
     )
@@ -713,7 +712,6 @@ end
         show_hgca=false,
         show_mass=false,
         show_rv=false,
-        planet_rv=false,
         show_relative_rv=false,
         show_hipparcos=false,
     )
@@ -729,7 +727,6 @@ end
         show_hgca=false,
         show_mass=false,
         show_rv=false,
-        planet_rv=false,
         show_relative_rv=false,
         show_hipparcos=false,
     )
@@ -745,7 +742,6 @@ end
         show_hgca=true,
         show_mass=false,
         show_rv=false,
-        planet_rv=false,
         show_relative_rv=false,
         show_hipparcos=false,
     )
@@ -761,7 +757,6 @@ end
         show_hgca=false,
         show_mass=true,
         show_rv=false,
-        planet_rv=false,
         show_relative_rv=false,
         show_hipparcos=false,
     )
@@ -777,27 +772,10 @@ end
         show_hgca=false,
         show_mass=false,
         show_rv=true,
-        planet_rv=false,
         show_relative_rv=false,
         show_hipparcos=false,
     )
     @test length(fig_rv.content) == 3
-
-
-    fig_planet_rv = octoplot(
-        model, chain,
-        N = 1,
-        show_astrom=false,
-        show_physical_orbit=false,
-        show_astrom_time=false,
-        show_hgca=false,
-        show_mass=false,
-        show_rv=true,
-        planet_rv=true,
-        show_relative_rv=false,
-        show_hipparcos=false,
-    )
-    @test length(fig_planet_rv.content) == 4
 
 
     fig_relative_rv = octoplot(
@@ -809,7 +787,6 @@ end
         show_hgca=false,
         show_mass=false,
         show_rv=false,
-        planet_rv=false,
         show_relative_rv=true,
         show_hipparcos=false,
     )
