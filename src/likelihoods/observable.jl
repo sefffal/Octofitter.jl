@@ -63,6 +63,8 @@ struct ObsPriorAstromONeil2019{Likelihood<:AbstractLikelihood} <: AbstractLikeli
 end
 export ObsPriorAstromONeil2019
 
+_isprior(::ObsPriorAstromONeil2019) = true
+
 function likeobj_from_epoch_subset(obs::ObsPriorAstromONeil2019, obs_inds)
     return ObsPriorAstromONeil2019(
         likeobj_from_epoch_subset(obs.wrapped_like, obs_inds)
@@ -101,8 +103,11 @@ function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikel
                 break
             end
         end
+        # if !found
+        #     error("epoch not found in solutions $current_epoch")
+        # end
         if !found
-            error("epoch not found in solutions $current_epoch")
+            sol = orbitsolve(orbit, current_epoch)
         end
         M = meananom(sol)
         E = eccanom(sol)

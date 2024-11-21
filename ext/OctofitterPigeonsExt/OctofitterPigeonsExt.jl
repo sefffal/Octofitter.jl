@@ -31,10 +31,22 @@ end
 
 # Valid for reference model only
 function Pigeons.sample_iid!(model_reference::Octofitter.LogDensityModel, replica, shared)
-    # This could in theory be done without any array allocations
-    θ = model_reference.sample_priors(replica.rng)
-    θ_t = model_reference.link(θ)
-    replica.state .= θ_t
+    if _has_non_sampleable_priors(model_reference)
+        Pigeons.step!(shared.explorer, replica, shared)
+    else
+        θ = model_reference.sample_priors(replica.rng)
+        θ_t = model_reference.link(θ)
+        replica.state .= θ_t
+    end
+end
+
+function _has_non_sampleable_priors(model)
+    ret = false
+    ret |= any(Octofitter._isprior, model.system.observations)
+    for planet in model.system.planets
+        ret |= any(Octofitter._isprior, planet.observations)
+    end
+    return ret
 end
 
 function Pigeons.default_reference(target::Octofitter.LogDensityModel)
@@ -81,6 +93,12 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     else
         Octofitter._kepsolve_use_threads[] = Octofitter._count_epochs(target.system) > 15*Threads.nthreads()
     end
+
+
+    if _has_non_sampleable_priors(target)
+        @warn "This model has priors that cannot be sampled IID."
+    end
+
     @info "Sampler running with multiple threads     : $multithreaded"
     @info "Likelihood evaluated with multiple threads: $(Octofitter._kepsolve_use_threads[])"
     inputs = Pigeons.Inputs(;
