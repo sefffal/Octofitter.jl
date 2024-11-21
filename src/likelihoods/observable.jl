@@ -116,11 +116,13 @@ function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikel
         ) + 2*(-2+e^2+e*cos(E)) *sin(E))
     end
 
-    jac *= cbrt(P) / sqrt(1-eccentricity(orbit)^2);
+    sqrt_eccen = sqrt(1-eccentricity(orbit)^2)
+    jac *= cbrt(P) / sqrt_eccen 
 
-    ln_prior += - 2log(jac)
+    ln_prior += 2log(jac)
 
     return ln_prior
 end
+
 
 # TODO: Add a RadialVelocity correction version in OctofitterRadialVelocity

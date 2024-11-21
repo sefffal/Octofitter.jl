@@ -21,6 +21,7 @@ astrom_like = PlanetRelAstromLikelihood(
     (epoch = 50720, ra = -469.1, dec = 114.3, σ_ra =   5.8, σ_dec =   5.8, cor=  0.1),
     (epoch = 50840, ra = -458.3, dec = 145.3, σ_ra =   4.2, σ_dec =   4.2, cor= -0.2),
 )
+obs_pri = ObsPriorAstromONeil2019(astrom_like)
 @planet b Visual{KepOrbit} begin
     e ~ Uniform(0.0, 0.5)
     i ~ Sine()
@@ -31,7 +32,7 @@ astrom_like = PlanetRelAstromLikelihood(
     a = ∛(system.M * b.P^2)
     θ ~ UniformCircular()
     tp = θ_at_epoch_to_tperi(system,b,50420)
-end astrom_like ObsPriorAstromONeil2019(astrom_like)
+end astrom_like obs_pri
 
 @system TutoriaPrime begin
     M ~ truncated(Normal(1.2, 0.1), lower=0.1)
@@ -62,19 +63,23 @@ Compare this with the previous fit using uniform priors:
     e ~ Uniform(0.0, 0.5) # hide
     i ~ Sine() # hide
     ω ~ UniformCircular() # hide
-    Ω ~ UniformCircular() # hide
+    # Ω ~ UniformCircular() # hide
+    # P = √(b.a^3/system.M) # hide
+    # θ ~ UniformCircular() # hide
+    # ω ~ Uniform(0,2pi) # hide
+    Ω ~ Uniform(0,2pi) # hide
     P = √(b.a^3/system.M) # hide
-    θ ~ UniformCircular() # hide
+    θ ~ Uniform(0,2pi) # hide
     tp = θ_at_epoch_to_tperi(system,b,50420) # hide
 end astrom_like # hide
 @system Tutoria begin # hide
     M ~ truncated(Normal(1.2, 0.1), lower=0.1) # hide
     plx ~ truncated(Normal(50.0, 0.02), lower=0.1) # hide
 end b # hide
-model = Octofitter.LogDensityModel(Tutoria) # hide
+model_with_uniform_priors = Octofitter.LogDensityModel(Tutoria) # hide
 Random.seed!(0) # hide
-results_unif_pri = octofit(model,iterations=5000,verbosity=0) # hide
-octoplot(model, results_unif_pri)
+results_unif_pri = octofit(model_with_uniform_priors,iterations=5000,verbosity=0) # hide
+octoplot(model_with_uniform_priors, results_unif_pri)
 ```
 
 We can compare the results in a corner plot:

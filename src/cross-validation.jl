@@ -38,21 +38,21 @@ end
 Creates a copy of a system model that is stripped of observations. The result is 
 a model that only samples from the priors. This can be used eg. for tempering.
 """
-function prior_only_model(system::System)
+function prior_only_model(system::System;exclude_all=false)
 
 
     # Generate new observations for each planet in the system
     newplanets = map(1:length(system.planets)) do i
         planet = system.planets[i]
-        newplanet_obs = []
+        newplanet_obs = exclude_all ? AbstractLikelihood[] : filter(_isprior, planet.observations)
         newplanet = Planet{Octofitter.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
         return newplanet
     end
 
-    newstar_obs = []
+    newsys_obs = exclude_all ? AbstractLikelihood[] : filter(_isprior, system.observations)
 
     # Generate new system with observations
-    newsystem = System(system.priors, system.derived, newstar_obs..., newplanets..., name=system.name)
+    newsystem = System(system.priors, system.derived, newsys_obs..., newplanets..., name=system.name)
 
     return newsystem
 end

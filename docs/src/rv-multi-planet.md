@@ -240,3 +240,30 @@ Octofitter.rvpostplot_animated(model_2p_v2, results_2p_v2)
 ```@raw html
 <video src="assets/rv-posterior.mp4" autoplay loop width=300 height=300>
 ```
+
+
+
+```@example 1
+using Dynesty, HypercubeTransform
+chn_dyn_2p_v2 = Dynesty.dysample(model_2p_v2, DynamicNestedSampler())
+
+Octofitter.rvpostplot(model_2p_v2, chn_dyn_2p_v2, 1)
+
+```
+
+
+## Note about the evidence ratio
+The pigeons method returns the log evidence ratio. If the priors are properly normalized, this is equal to the log evidence.
+
+In other cases (e.g. if using `ObsPriorAstromONeil2019` or `UniformCircular`) you may need to calculate the log_Z0 term yourself. This can be done as follows:
+```@example 1
+prior_model = Octofitter.LogDensityModel(Octofitter.prior_only_model(pt_1p.system))
+_, pt_prior = octofit_pigeons(prior_model, n_rounds=10) # should be very quick!
+log_Z0 = pt_prior.shared.reports.summary.stepping_stone[end]
+```
+
+Subtract this from the stepping stone value to get the true evidence:
+```@example 1
+log_Z1_over_Z0 = pt_1p.shared.reports.summary.stepping_stone[end]
+log_Z1 = log_Z1_over_Z0 - log_Z0
+```

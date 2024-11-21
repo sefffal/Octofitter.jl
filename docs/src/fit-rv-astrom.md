@@ -57,20 +57,35 @@ Generate a simulated RV curve from the same orbit:
 using Random
 Random.seed!(1)
 
-epochs = 58849 .+ (20:25:90)
+epochs = 58849 .+ range(0,step=1.5, length=20)
 planet_sim_mass = 0.001 # solar masses here
 
 
 rvlike = MarginalizedStarAbsoluteRVLikelihood(
     Table(
         epoch=epochs,
-        rv=radvel.(orb_template, epochs, planet_sim_mass) ,
+        rv=radvel.(orb_template, epochs, planet_sim_mass) .+ 150,
         σ_rv=fill(5.0, size(epochs)),
     ),
-    jitter=:jitter1
+    jitter=:jitter1,
+    instrument_name="inst1"
 )
 
-Makie.scatter(rvlike.table.epoch[:], rvlike.table.rv[:])
+epochs = 58949 .+ range(0,step=1.5, length=20)
+
+rvlike2 = MarginalizedStarAbsoluteRVLikelihood(
+    Table(
+        epoch=epochs,
+        rv=radvel.(orb_template, epochs, planet_sim_mass) .- 150,
+        σ_rv=fill(5.0, size(epochs)),
+    ),
+    jitter=:jitter1,
+    instrument_name="inst2"
+)
+
+fap = Makie.scatter(rvlike.table.epoch[:], rvlike.table.rv[:])
+Makie.scatter!(rvlike2.table.epoch[:], rvlike2.table.rv[:])
+fap
 ```
 
 
@@ -92,14 +107,14 @@ end astrom
     M ~ truncated(Normal(1, 0.04),lower=0.1) # (Baines & Armstrong 2011).
     plx = 100.0
     jitter1 ~ truncated(Normal(0,10),lower=0)
-end rvlike b
+end rvlike rvlike2 b
 
 model = Octofitter.LogDensityModel(test)
 
 using Random
 rng = Xoshiro(0) # seed the random number generator for reproducible results
 
-results = octofit(rng, model, max_depth=9, iterations=5000)
+results = octofit(rng, model, max_depth=9, adaptation=300, iterations=400)
 ```
 
 Display results as a corner plot:
@@ -109,7 +124,7 @@ octocorner(model,results, small=true)
 
 Plot RV curve, phase folded curve, and binned residuals:
 ```@example 1
-Octofitter.rvpostplot(model, results,)
+Octofitter.rvpostplot(model, results)
 ```
 
 Display RV, PMA, astrometry, relative separation, position angle, and 3D projected views:
