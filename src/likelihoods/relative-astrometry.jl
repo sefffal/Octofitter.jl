@@ -43,7 +43,8 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_planet, orbit, orbit_solu
     # Note: since astrometry data is stored in a typed-table, the column name
     # checks using `hasproperty` ought to be compiled out completely.
 
-    ll = 0.0
+    T = _system_number_type(θ_planet)
+    ll = zero(T)
     for i in eachindex(astrom.table.epoch)
 
         # Covariance between the two dimensions
