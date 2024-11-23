@@ -111,7 +111,7 @@ fig
 We now allow the planet to have a non zero mass and have free orbit. We start by retrieving relative astrometry data on the planet, collated by Jason Wang and co. on [whereistheplanet.com](http://whereistheplanet.com).
 
 ```@example 1
-astrom_like1,astrom_like2 = Octofitter.Whereistheplanet_astrom("51erib",object=1)
+astrom_like1,astrom_like2 = Octofitter.Whereistheplanet_astrom("51eri",object=1)
 nothing # hide
 ```
 
