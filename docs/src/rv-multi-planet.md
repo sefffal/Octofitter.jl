@@ -129,8 +129,8 @@ Octofitter.rvpostplot(model_1p, results_1p)
 Octofitter with Pigeons directly calculates the log Bayesian evidence using the "stepping stone" method. This should be more reliable than even nested sampling, and certainly more reliable than approximate methods like the BIC etc.
 
 ```@example 1
-Z1 = pt_1p.shared.reports.summary.stepping_stone[end]
-Z2 = pt_2p.shared.reports.summary.stepping_stone[end]
+Z1 = stepping_stone(pt_1p)
+Z2 = stepping_stone(pt_2p)
 
 log_BF₁₀ = Z2-Z1
 ```
@@ -223,9 +223,9 @@ Octofitter.rvpostplot(model_2p_v2, results_2p_v2)
 
 If we look again at the log-evidence, we see that this parameterization (Z3) is even more favoured. This is because this small change in parameterization makes considerably 
 ```@example 1
-Z1 = pt_1p.shared.reports.summary.stepping_stone[end]
-Z2 = pt_2p.shared.reports.summary.stepping_stone[end]
-Z3 = pt_2p_v2.shared.reports.summary.stepping_stone[end]
+Z1 = stepping_stone(pt_1p)
+Z2 = stepping_stone(pt_2p)
+Z3 = stepping_stone(pt_2p_v2)
 
 Z1, Z2, Z3
 ```
@@ -238,18 +238,9 @@ Octofitter.rvpostplot_animated(model_2p_v2, results_2p_v2)
 ```
 
 ```@raw html
-<video src="assets/rv-posterior.mp4" autoplay loop width=300 height=300>
+<video src="rv-posterior.mp4" autoplay loop width=300 height=300>
 ```
 
-
-
-```@example 1
-using Dynesty, HypercubeTransform
-chn_dyn_2p_v2 = Dynesty.dysample(model_2p_v2, DynamicNestedSampler())
-
-Octofitter.rvpostplot(model_2p_v2, chn_dyn_2p_v2, 1)
-
-```
 
 
 ## Note about the evidence ratio
@@ -257,13 +248,13 @@ The pigeons method returns the log evidence ratio. If the priors are properly no
 
 In other cases (e.g. if using `ObsPriorAstromONeil2019` or `UniformCircular`) you may need to calculate the log_Z0 term yourself. This can be done as follows:
 ```@example 1
-prior_model = Octofitter.LogDensityModel(Octofitter.prior_only_model(pt_1p.system))
+prior_model = Octofitter.LogDensityModel(Octofitter.prior_only_model(model_1p.system, exclude_all=true))
 _, pt_prior = octofit_pigeons(prior_model, n_rounds=10) # should be very quick!
-log_Z0 = pt_prior.shared.reports.summary.stepping_stone[end]
+log_Z0 = stepping_stone(pt_prior)
 ```
 
 Subtract this from the stepping stone value to get the true evidence:
 ```@example 1
-log_Z1_over_Z0 = pt_1p.shared.reports.summary.stepping_stone[end]
+log_Z1_over_Z0 = stepping_stone(pt_1p)
 log_Z1 = log_Z1_over_Z0 - log_Z0
 ```
