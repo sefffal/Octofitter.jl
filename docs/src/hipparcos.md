@@ -49,8 +49,8 @@ model = Octofitter.LogDensityModel(c_Eri_straight_line)
 
 We can now sample from the model using Hamiltonian Monte Carlo. This should only take about 15 seconds.
 ```@example 1
-# Typical depth is ~4, so limiting the max_depth down from default 12 speeds warm-up
-chain = octofit(model, iterations=4_000, max_depth=6)
+using Pigeons
+chain,pt = octofit_pigeons(model, n_rounds=6)
 ```
 
 Plot the posterior values:
@@ -108,11 +108,25 @@ fig
 
 ## Constrain Planet Mass
 
-We now allow the planet to have a non zero mass and have free orbit. We start by retrieving relative astrometry data on the planet, collated by Jason Wang and co. on [whereistheplanet.com](http://whereistheplanet.com).
+We now allow the planet to have a non zero mass and have free orbit. We start by specifying relative astrometry data on the planet, collated by Jason Wang and co. on [whereistheplanet.com](http://whereistheplanet.com).
 
 ```@example 1
-astrom_like1,astrom_like2 = Octofitter.Whereistheplanet_astrom("51erib",object=1)
-nothing # hide
+astrom_like1 = PlanetRelAstromLikelihood(
+    (;epoch=57009.1, sep=454.24,  σ_sep=1.88, pa=2.98835, σ_pa=0.00401426),
+    (;epoch=57052.1, sep=451.81,  σ_sep=2.06, pa=2.96723, σ_pa=0.00453786),
+    (;epoch=57053.1, sep=456.8 ,  σ_sep=2.57, pa=2.97038, σ_pa=0.00523599),
+    (;epoch=57054.3, sep=461.5 ,  σ_sep=23.9 ,pa=2.97404, σ_pa=0.0523599 ,),
+    (;epoch=57266.4, sep=455.1 ,  σ_sep=2.23, pa=2.91994, σ_pa=0.00453786),
+    (;epoch=57332.2, sep=452.88,  σ_sep=5.41, pa=2.89934, σ_pa=0.00994838),
+    (;epoch=57374.2, sep=455.91,  σ_sep=6.23, pa=2.89131, σ_pa=0.00994838),
+    (;epoch=57376.2, sep=455.01,  σ_sep=3.03, pa=2.89184, σ_pa=0.00750492),
+    (;epoch=57415.0, sep=454.46,  σ_sep=6.03, pa=2.8962 , σ_pa=0.00890118),
+    (;epoch=57649.4, sep=454.81,  σ_sep=2.02, pa=2.82394, σ_pa=0.00453786),
+    (;epoch=57652.4, sep=451.43,  σ_sep=2.67, pa=2.82272, σ_pa=0.00541052),
+    (;epoch=57739.1, sep=449.39,  σ_sep=2.15, pa=2.79357, σ_pa=0.00471239),
+    (;epoch=58068.3, sep=447.54,  σ_sep=3.02, pa=2.70927, σ_pa=0.00680678),
+    (;epoch=58442.2, sep=434.22,  σ_sep=2.01, pa=2.61171, σ_pa=0.00401426),
+)
 ```
 
 We specify our full model:
@@ -120,27 +134,27 @@ We specify our full model:
 @planet b AbsoluteVisual{KepOrbit} begin
     a ~ truncated(Normal(10,1),lower=0.1)
     e ~ Uniform(0,0.99)
-    ω ~ UniformCircular()
+    ω ~ Uniform(0, 2pi)
     i ~ Sine()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,57463) 
+    Ω ~ Uniform(0, 2pi)
+    θ ~ Uniform(0, 2pi)
+    tp = θ_at_epoch_to_tperi(system,b,58442.2) 
     mass = system.M_sec
-end astrom_like1 
+end astrom_like1
 
 @system cEri begin
     M_pri ~ truncated(Normal(1.75,0.05), lower=0.03) # Msol
-    M_sec ~ Uniform(0, 100) # MJup
+    M_sec ~ LogUniform(0.1, 100) # MJup
     M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
 
     rv =  12.60e3 # m/s
-    plx ~ Uniform(0,100)
+    plx ~ Uniform(20,40)
     pmra ~ Uniform(-100, 100)
     pmdec ~  Uniform(-100, 100)
 
     # It is convenient to put a prior of the catalog value +- 1000 mas on position
-    ra_hip_offset_mas ~  Normal(0, 10000)
-    dec_hip_offset_mas ~ Normal(0, 10000)
+    ra_hip_offset_mas ~  Normal(0, 1000)
+    dec_hip_offset_mas ~ Normal(0, 1000)
     dec = $hip_like.hip_sol.dedeg + system.ra_hip_offset_mas/60/60/1000
     ra = $hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cos(system.dec)
 
