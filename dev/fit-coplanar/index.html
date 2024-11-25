@@ -95,26 +95,28 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:99
 [ Info: Sampler running with multiple threads     : true
 [ Info: Likelihood evaluated with multiple threads: false
-[ Info: Determining initial positions and metric using pathfinder
+[ Info: Determining initial positions using pathfinder, around that location.
+┌ Warning: ErrorException(&quot;Could not find starting point within 0.001 - 0.999 quantiles of priors.&quot;)
+└ @ Octofitter ~/work/Octofitter.jl/Octofitter.jl/src/initialization.jl:302
 ┌ Info: Found a sample of initial positions
-└   initial_logpost_range = (-189.23318053552134, -180.36697537148015)
+└   initial_logpost_range = (-163.74602469694574, -163.74602469694574)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.46       3.28      0.406   6.92e+06  -2.23e+07          0      0.815          1          1
-        4          0       6.03       4.11       0.39   1.57e+05  -2.65e+06          0      0.673          1          1
-        8          0       7.27       5.69      0.744    2.3e+05  -7.27e+05          0      0.582          1          1
-       16          0       6.61        6.6       1.45   4.34e+05  -4.94e+04          0      0.574          1          1
-       32          0       7.74       7.13       2.81   6.01e+05  -1.46e+03          0       0.52          1          1
-       64          0       8.37       5.87       5.53   6.98e+07       -227  3.62e-268      0.541          1          1
-      128          0       8.76        6.5       10.6   1.27e+08       -231   5.91e-17      0.508          1          1
-      256          0        9.6       8.74       20.7   2.51e+08       -219   1.11e-13      0.409          1          1
-      512          2        9.9       8.74       40.3   4.96e+08       -205   1.38e-18      0.399          1          1
- 1.02e+03         10       9.95       8.61       77.3   9.69e+08       -202   6.59e-08      0.401          1          1
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="ed950c79.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="1b56aa1c.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
+        2          0       3.57       3.59      0.392   6.91e+06  -1.07e+06          0      0.769          1          1
+        4          0       3.89       2.76      0.348   1.63e+05  -9.28e+05          0      0.785          1          1
+        8          0       6.06       7.18      0.681   2.37e+05   -3.5e+04          0      0.573          1          1
+       16          0       7.74       6.46        1.3   4.04e+05   -1.4e+04          0      0.542          1          1
+       32          0       9.63       8.28       2.48   5.75e+05  -6.73e+03          0      0.422          1          1
+       64          0       9.71       5.23       4.89   6.85e+07       -212  4.24e-213      0.518          1          1
+      128          2         10       5.91       9.74   1.29e+08       -213   3.12e-43      0.487          1          1
+      256          0       10.1       7.12         20   2.54e+08       -208   0.000158      0.444          1          1
+      512          3       10.4       8.13       38.2   4.89e+08       -206    0.00124      0.402          1          1
+ 1.02e+03          9       10.7        8.5       75.9   9.76e+08       -203      0.011      0.381          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="991bb0d5.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="ba60b006.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
     results[:b_P][:] ./ results[:c_P][:],
     axis=(;
         xlabel=&quot;period ratio&quot;,
         ylabel=&quot;counts&quot;,
     )
-)</code></pre><img src="ff20759e.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Observable Priors</a><a class="docs-footer-nextpage" href="../thiele-innes/">Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Monday 25 November 2024 07:57">Monday 25 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="9b23f12f.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Observable Priors</a><a class="docs-footer-nextpage" href="../thiele-innes/">Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Monday 25 November 2024 20:59">Monday 25 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

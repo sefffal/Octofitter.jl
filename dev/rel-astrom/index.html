@@ -89,51 +89,51 @@ chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 4.15 seconds
-Compute duration  = 4.15 seconds
+Wall duration     = 3.9 seconds
+Compute duration  = 3.9 seconds
 parameters        = M, plx, b_a, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_θy, b_θx, b_ω, b_Ω, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Summary Statistics
- <span class="sgr1"> parameters         mean         std       mcse    ess_bulk   ess_tail      r ⋯
- <span class="sgr90">     Symbol      Float64     Float64    Float64     Float64    Float64   Floa ⋯
+ <span class="sgr1"> parameters         mean         std       mcse   ess_bulk   ess_tail      rh ⋯
+ <span class="sgr90">     Symbol      Float64     Float64    Float64    Float64    Float64   Float ⋯
 
-           M       1.1882      0.0977     0.0036    745.7450   590.7783    0.9 ⋯
-         plx      50.0004      0.0194     0.0006    931.1013   517.0414    1.0 ⋯
-         b_a      11.8946      2.3664     0.2328     84.1329   150.7339    1.0 ⋯
-         b_e       0.1627      0.1175     0.0067    341.2565   562.8753    1.0 ⋯
-         b_i       0.6380      0.1653     0.0198     76.6875   170.7712    1.0 ⋯
-        b_ωy       0.1493      0.7302     0.0614    176.8796   446.4091    1.0 ⋯
-        b_ωx       0.0651      0.6801     0.0609    165.9432   720.8847    1.0 ⋯
-        b_Ωy       0.1208      0.7767     0.1220     46.4052   343.7076    1.0 ⋯
-        b_Ωx      -0.0286      0.6307     0.0698     93.7252   458.5879    0.9 ⋯
-        b_θy       0.0745      0.0103     0.0004    795.3883   592.0962    1.0 ⋯
-        b_θx      -0.9990      0.0972     0.0037    697.8952   792.6583    0.9 ⋯
-         b_ω      -0.0730      1.6521     0.1314    253.8218   490.0156    1.0 ⋯
-         b_Ω      -0.4999      1.6533     0.1785    105.4412   244.9398    1.0 ⋯
-         b_θ      -1.4963      0.0072     0.0002   1188.1886   663.6859    1.0 ⋯
-        b_tp   42628.8944   5167.7960   281.5895    315.4812   424.3232    1.0 ⋯
+           M       1.1817      0.1014     0.0044   540.1752   484.9230    1.00 ⋯
+         plx      49.9996      0.0204     0.0007   914.4649   561.3423    1.00 ⋯
+         b_a      11.7651      2.3759     0.1931   142.2919   271.4230    0.99 ⋯
+         b_e       0.1629      0.1204     0.0094   162.3156   173.8303    1.00 ⋯
+         b_i       0.6190      0.1798     0.0157   156.9574    91.7228    1.00 ⋯
+        b_ωy       0.0111      0.7417     0.1205    91.5358   632.7106    1.03 ⋯
+        b_ωx       0.0013      0.6811     0.0689   111.6337   583.1452    1.03 ⋯
+        b_Ωy       0.0405      0.7642     0.2115    15.0177   477.3838    1.09 ⋯
+        b_Ωx       0.0139      0.6554     0.0969    53.4656   339.2948    1.00 ⋯
+        b_θy       0.0751      0.0104     0.0004   741.8589   519.9492    1.00 ⋯
+        b_θx      -1.0090      0.0970     0.0039   645.1193   564.3417    1.01 ⋯
+         b_ω      -0.2432      1.8031     0.1582   201.2692   476.3692    1.04 ⋯
+         b_Ω      -0.4250      1.7498     0.2381    73.5812   259.5052    1.10 ⋯
+         b_θ      -1.4965      0.0075     0.0003   508.3983   424.5213    1.00 ⋯
+        b_tp   42645.6356   5210.6681   327.7290   283.5700   316.1030    1.00 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       1.0059       1.1235       1.1868       1.2494       1.3868
-         plx      49.9649      49.9871      49.9991      50.0139      50.0387
-         b_a       8.0508      10.2079      11.6424      13.2033      17.2969
-         b_e       0.0061       0.0600       0.1476       0.2421       0.4121
-         b_i       0.2667       0.5424       0.6637       0.7568       0.9153
-        b_ωy      -1.0484      -0.5924       0.3433       0.8337       1.0762
-        b_ωx      -1.0365      -0.5901       0.1501       0.6878       1.0417
-        b_Ωy      -1.0745      -0.7094       0.3349       0.8760       1.0804
-        b_Ωx      -1.0466      -0.5760      -0.0119       0.5004       1.0060
-        b_θy       0.0567       0.0668       0.0745       0.0814       0.0948
-        b_θx      -1.1829      -1.0672      -0.9957      -0.9287      -0.8144
-         b_ω      -2.9360      -1.5529       0.1993       1.0606       2.8338
-         b_Ω      -2.9881      -2.1879      -0.0263       0.6224       2.8328
-         b_θ      -1.5100      -1.5014      -1.4965      -1.4914      -1.4822
-        b_tp   30154.8283   39738.0365   43540.1304   46376.1080   49863.5975
+           M       0.9799       1.1122       1.1814       1.2529       1.3795
+         plx      49.9581      49.9868      50.0000      50.0140      50.0386
+         b_a       7.9981      10.0390      11.4322      13.1578      17.0208
+         b_e       0.0021       0.0636       0.1362       0.2506       0.4069
+         b_i       0.1543       0.5167       0.6408       0.7471       0.9008
+        b_ωy      -1.0665      -0.7305       0.0248       0.7624       1.0565
+        b_ωx      -1.0243      -0.6459      -0.0152       0.6479       1.0343
+        b_Ωy      -1.0901      -0.7396       0.0946       0.8244       1.0547
+        b_Ωx      -1.0340      -0.5644       0.0524       0.5791       1.0536
+        b_θy       0.0557       0.0683       0.0740       0.0817       0.0966
+        b_θx      -1.2157      -1.0729      -1.0029      -0.9447      -0.8248
+         b_ω      -3.0008      -2.1258      -0.0243       1.1136       2.9447
+         b_Ω      -3.0075      -2.2061       0.0844       0.7873       2.8890
+         b_θ      -1.5118      -1.5015      -1.4964      -1.4918      -1.4821
+        b_tp   30230.4253   39375.5423   43856.2995   46319.6350   49831.5484
 </span></span></code></pre><p>You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the <code>verbosity</code> value down to 0.</p><p>Once complete, the <code>chain</code> object will hold the sampler results. Displaying it prints out a summary table like the one shown above. For a basic model like this, sampling should take less than a minute on a typical laptop.</p><h3 id="Diagnostics"><a class="docs-heading-anchor" href="#Diagnostics">Diagnostics</a><a id="Diagnostics-1"></a><a class="docs-heading-anchor-permalink" href="#Diagnostics" title="Permalink"></a></h3><p>The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.</p><p>A few things to watch out for: check that you aren&#39;t getting many (any, really) numerical errors (<code>ratio_divergent_transitions</code>).  This likely indicates a problem with your model: either invalid values of one or more parameters are encountered (e.g. the prior on semi-major axis includes negative values) or that there is a region of very high curvature that is failing to sample properly. This latter issue can lead to a bias in your results.</p><p>One common mistake is to use a distribution like <code>Normal(10,3)</code> for semi-major axis. This left tail of this distribution includes negative values, and our orbit model is not defined for negative semi-major axes. A better choice is a <code>truncated(Normal(10,3), lower=0.1)</code> distribution (not including zero, since a=0 is not defined).</p><p>You may see some warnings during initial step-size adaptation. These are probably nothing to worry about if sampling proceeds normally afterwards.</p><p>You should also check the acceptance rate (<code>mean_accept</code>) is reasonably high and the mean tree depth (<code>mean_tree_depth</code>) is reasonable (~4-8).  Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than this and it might be being too conservative. </p><p>Next, you can make a trace plot of different variabes to visually inspect the chain:</p><pre><code class="language-julia hljs">using CairoMakie
 lines(
     chain[&quot;b_a&quot;][:],
@@ -141,7 +141,7 @@ lines(
         xlabel=&quot;iteration&quot;,
         ylabel=&quot;semi-major axis (AU)&quot;
     )
-)</code></pre><img src="c88c0867.png" alt="Example block output"/><p>And an auto-correlation plot:</p><pre><code class="language-julia hljs">using StatsBase
+)</code></pre><img src="0c8bd2cb.png" alt="Example block output"/><p>And an auto-correlation plot:</p><pre><code class="language-julia hljs">using StatsBase
 using CairoMakie
 lines(
     autocor(chain[&quot;b_e&quot;][:], 1:500),
@@ -149,7 +149,7 @@ lines(
         xlabel=&quot;lag&quot;,
         ylabel=&quot;autocorrelation&quot;,
     )
-)</code></pre><img src="54c79c52.png" alt="Example block output"/><p>This plot shows that these samples are not correlated after only about 5 iterations. No thinning is necessary.</p><p>To confirm convergence, you may also examine the <code>rhat</code> column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal <code>1.0</code> to one significant digit (3 recommended).</p><p>Finaly, you might consider running multiple chains. Simply run <code>octofit</code> multiple times, and store the result in different variables. Ten you can combined the chains using <code>chainscat</code> and run additional inter-chain convergence diagnostics:</p><pre><code class="language-julia hljs">using MCMCChains
+)</code></pre><img src="73f6f16f.png" alt="Example block output"/><p>This plot shows that these samples are not correlated after only about 5 iterations. No thinning is necessary.</p><p>To confirm convergence, you may also examine the <code>rhat</code> column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal <code>1.0</code> to one significant digit (3 recommended).</p><p>Finaly, you might consider running multiple chains. Simply run <code>octofit</code> multiple times, and store the result in different variables. Ten you can combined the chains using <code>chainscat</code> and run additional inter-chain convergence diagnostics:</p><pre><code class="language-julia hljs">using MCMCChains
 chain1 = octofit(model)
 chain2 = octofit(model)
 chain3 = octofit(model)
@@ -158,22 +158,22 @@ gelmandiag(merged_chains)</code></pre><pre class="documenter-example-output"><co
  <span class="sgr1"> parameters      psrf    psrfci
  <span class="sgr90">     Symbol   Float64   Float64
 
-           M    1.0031    1.0071
-         plx    1.0026    1.0082
-         b_a    1.0107    1.0322
-         b_e    1.0049    1.0102
-         b_i    1.0088    1.0228
-        b_ωy    1.0354    1.1214
-        b_ωx    1.0049    1.0189
-        b_Ωy    1.0279    1.0975
-        b_Ωx    1.0001    1.0011
-        b_θy    1.0011    1.0046
-        b_θx    1.0015    1.0054
-         b_ω    1.0105    1.0238
-         b_Ω    1.0061    1.0074
-         b_θ    1.0004    1.0015
-        b_tp    1.0028    1.0052
+           M    1.0013    1.0051
+         plx    1.0003    1.0018
+         b_a    1.0019    1.0060
+         b_e    1.0023    1.0070
+         b_i    1.0026    1.0050
+        b_ωy    1.0023    1.0064
+        b_ωx    1.0048    1.0134
+        b_Ωy    1.0135    1.0466
+        b_Ωx    1.0079    1.0293
+        b_θy    1.0018    1.0077
+        b_θx    1.0025    1.0091
+         b_ω    1.0013    1.0037
+         b_Ω    1.0076    1.0230
+         b_θ    1.0004    1.0023
+        b_tp    1.0032    1.0086
 </span></span></code></pre><p>As an additional convergence test.</p><h3 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h3><p>As a first pass, let&#39;s plot a sample of orbits drawn from the posterior. The function <code>octoplot</code> is a conveninient way to generate a 9-panel plot of velocities and position:</p><pre><code class="language-julia hljs">using CairoMakie
-octoplot(model,chain)</code></pre><img src="be025052.png" alt="Example block output"/><p>This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. </p><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>A very useful visualization of our results is a pair-plot, or corner plot. We can use the <code>octocorner</code> function and our PairPlots.jl package for this purpose:</p><pre><code class="language-julia hljs">using CairoMakie
+octoplot(model,chain)</code></pre><img src="16a1f42d.png" alt="Example block output"/><p>This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. </p><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>A very useful visualization of our results is a pair-plot, or corner plot. We can use the <code>octocorner</code> function and our PairPlots.jl package for this purpose:</p><pre><code class="language-julia hljs">using CairoMakie
 using PairPlots
-octocorner(model, chain, small=true)</code></pre><img src="5455ed34.png" alt="Example block output"/><p>Remove <code>small=true</code> to display all variables.</p><p>In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.</p><h3 id="Saving-your-chain"><a class="docs-heading-anchor" href="#Saving-your-chain">Saving your chain</a><a id="Saving-your-chain-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-your-chain" title="Permalink"></a></h3><p>Variables can be retrieved from the chains using the following sytnax: <code>sma_planet_b = chain[&quot;b_a&quot;,:,:]</code>. The first index is a string or symbol giving the name of the variable in the model. Planet variables are prepended by the name of the planet and an underscore.</p><p>You can save your chain in FITS table format by running:</p><pre><code class="language-julia hljs">Octofitter.savechain(&quot;mychain.fits&quot;, chain)</code></pre><p>You can load it back via:</p><pre><code class="language-julia hljs">chain = Octofitter.loadchain(&quot;mychain.fits&quot;)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../quick-start/">« Quick Start</a><a class="docs-footer-nextpage" href="../rel-astrom-obs/">Observable Priors »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Monday 25 November 2024 07:57">Monday 25 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model, chain, small=true)</code></pre><img src="ce5c7a9d.png" alt="Example block output"/><p>Remove <code>small=true</code> to display all variables.</p><p>In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.</p><h3 id="Saving-your-chain"><a class="docs-heading-anchor" href="#Saving-your-chain">Saving your chain</a><a id="Saving-your-chain-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-your-chain" title="Permalink"></a></h3><p>Variables can be retrieved from the chains using the following sytnax: <code>sma_planet_b = chain[&quot;b_a&quot;,:,:]</code>. The first index is a string or symbol giving the name of the variable in the model. Planet variables are prepended by the name of the planet and an underscore.</p><p>You can save your chain in FITS table format by running:</p><pre><code class="language-julia hljs">Octofitter.savechain(&quot;mychain.fits&quot;, chain)</code></pre><p>You can load it back via:</p><pre><code class="language-julia hljs">chain = Octofitter.loadchain(&quot;mychain.fits&quot;)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../quick-start/">« Quick Start</a><a class="docs-footer-nextpage" href="../rel-astrom-obs/">Observable Priors »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Monday 25 November 2024 20:59">Monday 25 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
