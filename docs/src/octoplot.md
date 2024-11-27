@@ -96,7 +96,7 @@ The default colormap ("plasma") is used to indicate orbital phase in most panels
 
 ```julia
 # Use a different colormap from the ColorSchemes package
-octoplot(model, chain, colormap=:viridis)
+octoplot(model, chain, colormap=Makie.cgrad(:viridis))
 
 # Use a gradient from light grey to a specific color
 octoplot(model, chain, colormap="#0072b2")  # Blue to grey
