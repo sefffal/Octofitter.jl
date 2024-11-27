@@ -96,8 +96,8 @@ function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikel
                 found = true
                 sol = sol′
                 break
-            end
-            if sol′.sol.t == current_epoch
+            elseif  hasproperty(sol′, :sol) && hasproperty(sol′.sol, :t) &&
+                    sol′.sol.t == current_epoch
                 found = true
                 sol = sol′
                 break
