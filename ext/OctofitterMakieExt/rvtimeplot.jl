@@ -223,8 +223,6 @@ function rvtimeplot!(
             planet_orbits_this_sample = getindex.(orbits, i_sol)
             return _find_rv_zero_point_maxlike(like_obj, θ_system, planet_orbits_this_sample)
         end'
-        # Subtract off mean of all draws of RV0 to keep near zero
-        rv_data .-= mean(rv0)
 
         rv_star_model_t = zeros(length(ii), length(ts))
         rv_star_model_at_data = zeros(length(ii), length(epoch))
@@ -258,9 +256,7 @@ function rvtimeplot!(
         # Add RV0 offset to make model match data, but subtract
         # mean offset to keep it near zero
         rv_star_model_t .+= rv0'
-        rv_star_model_t .-= mean(rv0)
         rv_star_model_at_data .+= rv0'
-        rv_star_model_at_data .-= mean(rv0)
 
         # Calculate residuals in order to condition GP
         resids = rv_star_model_at_data' .- rv_data
