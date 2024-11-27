@@ -50,13 +50,13 @@ hgca_like = HGCALikelihood(gaia_id=756291174721509376, N_ave=1)
 @planet b Visual{KepOrbit} begin
     a ~ LogUniform(0.1,20)
     e ~ Uniform(0,0.999)
-    ω ~ UniformCircular()
+    ω ~ Uniform(0, 2pi)
     i ~ Sine() # The Sine() distribution is defined by Octofitter
-    Ω ~ UniformCircular()
+    Ω ~ Uniform(0, 2pi)
 
     mass = system.M_sec
 
-    θ ~ UniformCircular()
+    θ ~ Uniform(0, 2pi)
     tp = θ_at_epoch_to_tperi(system,b,57423.0) # epoch of GAIA measurement
 end
 ```
@@ -160,13 +160,13 @@ rvlike = PlanetRelativeRVLikelihood(
 @planet b Visual{KepOrbit} begin
     a ~ LogUniform(0.1,400)
     e ~ Uniform(0,0.999)
-    ω ~ UniformCircular()
+    ω ~ Uniform(0, 2pi)
     i ~ Sine()
-    Ω ~ UniformCircular()
+    Ω ~ Uniform(0, 2pi)
 
     mass = system.M_sec
 
-    θ ~ UniformCircular()
+    θ ~ Uniform(0, 2pi)
     tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
 
     jitter_1 = 0.0
@@ -189,8 +189,13 @@ end hgca_like b
 
 model_pma_astrom = Octofitter.LogDensityModel(HD91312_pma_astrom,autodiff=:ForwardDiff,verbosity=4)
 
+using Pigeons
 chain_pma_astrom, pt = octofit_pigeons(model_pma_astrom, n_rounds=12, explorer=SliceSampler())
 nothing # hide
+```
+
+```@example 1
+octoplot(model_pma_astrom, chain_pma_astrom)
 ```
 
 ## Model: PMA & Relative Astrometry & RVs
@@ -199,28 +204,27 @@ We now add in three additional epochs of stellar RVs.
 ```@example 1
 using OctofitterRadialVelocity
 
-rvlike = StarAbsoluteRVLikelihood(
+rvlike = MarginalizedStarAbsoluteRVLikelihood(
     (epoch=mjd("2008-05-01"), rv=1300, σ_rv=150),
     (epoch=mjd("2010-02-15"), rv=700, σ_rv=150),
     (epoch=mjd("2016-03-01"), rv=-2700, σ_rv=150),
     instrument_name="SOPHIE",
-    offset=:rv0,
-    jitter=:jitter
+    jitter=:jitter_1
 )
 
 @planet b Visual{KepOrbit} begin
     a ~ LogUniform(0.1,400)
     e ~ Uniform(0,0.999)
-    ω ~ UniformCircular()
+    ω ~ Uniform(0, 2pi)
     i ~ Sine()
-    Ω ~ UniformCircular()
+    Ω ~ Uniform(0, 2pi)
 
     mass = system.M_sec
 
-    θ ~ UniformCircular()
+    θ ~ Uniform(0, 2pi)
     tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
 
-end astrom_like # Note the relative astrometry added here!
+end astrom_like  ObsPriorAstromONeil2019(astrom_like) # Note the relative astrometry added here!
 
 @system HD91312_pma_rv_astrom begin
     
@@ -234,8 +238,7 @@ end astrom_like # Note the relative astrometry added here!
     pmra ~ Normal(-137, 10)
     pmdec ~ Normal(2,  10)
 
-    jitter ~ truncated(Normal(0,400),lower=0)
-    rv0 ~ Normal(0,10e3)
+    jitter_1 = 0.0
 end hgca_like rvlike b
 
 model_pma_rv_astrom = Octofitter.LogDensityModel(HD91312_pma_rv_astrom,autodiff=:ForwardDiff,verbosity=4)
@@ -274,13 +277,13 @@ using OctofitterRadialVelocity
 @planet b Visual{KepOrbit} begin
     a ~ LogUniform(0.1,400)
     e ~ Uniform(0,0.999)
-    ω ~ UniformCircular()
+    ω ~ Uniform(0, 2pi)
     i ~ Sine()
-    Ω ~ UniformCircular()
+    Ω ~ Uniform(0, 2pi)
 
     mass = system.M_sec
 
-    θ ~ UniformCircular()
+    θ ~ Uniform(0, 2pi)
     tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
 
 end astrom_like # Note the relative astrometry added here!
@@ -292,14 +295,17 @@ end astrom_like # Note the relative astrometry added here!
     M = system.M_pri + system.M_sec*Octofitter.mjup2msol
 
     plx ~ gaia_plx(gaia_id=756291174721509376)
-    jitter ~ truncated(Normal(0,400),lower=0)
-    rv0 ~ Normal(0,10e3)
+    jitter_1 = 0.0
 end rvlike b
 
 model_rv_astrom = Octofitter.LogDensityModel(HD91312_rv_astrom,autodiff=:ForwardDiff,verbosity=4)
 
 chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)
 nothing # hide
+```
+
+```@example 1
+octoplot(model_rv_astrom, chain_rv_astrom)
 ```
 
 
@@ -315,7 +321,7 @@ octocorner(
     chain_pma_astrom,
     chain_rv_astrom,
     chain_pma_rv_astrom,
-    small=true, # pass small=false to show all variables
+    small=false, 
     axis=(;
         b_a = (;lims=(low=0, high=25))
     ),
