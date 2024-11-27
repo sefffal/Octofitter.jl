@@ -394,10 +394,6 @@ function Octofitter.octoplot(
         append!(axes_to_link,ax)
     end
 
-    if !isempty(axes_to_link)
-        Makie.linkxaxes!(axes_to_link...)
-    end
-
 
     if show_mass
         item += 1
@@ -412,6 +408,16 @@ function Octofitter.octoplot(
         Makie.rowgap!(gl, 10.)
     end
     Makie.rowgap!(fig.layout, 10.)
+
+
+    if !isempty(axes_to_link)
+        Makie.linkxaxes!(axes_to_link...)
+        yspace = maximum(Makie.tight_yticklabel_spacing!, axes_to_link)
+        for ax in axes_to_link
+            ax.yticklabelspace = yspace + 30
+        end
+    end
+
     try
         Makie.resize_to_layout!(fig)
     catch

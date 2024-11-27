@@ -466,5 +466,12 @@ function Octofitter.hgcaplot!(
         strokewidth=1.5,
     )
 
+
+    hg_axes = [ax_dat1, ax_dat2, ax_dat3]
+    xspace = maximum(Makie.tight_xticklabel_spacing!, hg_axes)
+    for ax in hg_axes
+        ax.xticklabelspace = xspace + 20
+    end
+
     return [ax_velra, ax_veldec]
 end
