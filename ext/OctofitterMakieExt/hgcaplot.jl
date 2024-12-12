@@ -179,7 +179,7 @@ function Octofitter.hgcaplot!(
         nameof(typeof(like_obj)) == :HGCALikelihood
     end
     if isempty(like_objs)
-        return
+        return [ax_velra, ax_veldec]
     end
     hgca_like = only(like_objs)
 
