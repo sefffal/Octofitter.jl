@@ -58,10 +58,6 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF,offset_symbol,jitter_symbol}
         if isnothing(instrument_name)
             instrument_name = string.(1:maximum(table.inst_idx))
         end
-        # Pre-allocate symbols for offset and jitter term access
-        offset_symbols = Tuple(Symbol("rv0_", i) for i in eachindex(instrument_name))
-        jitter_symbols = Tuple(Symbol("jitter_", i) for i in eachindex(instrument_name))
-
         return new{typeof(table),typeof(gaussian_process),typeof(trend_function),offset, jitter, }(table, instrument_name, gaussian_process, trend_function, offset, jitter, )
     end
 end
