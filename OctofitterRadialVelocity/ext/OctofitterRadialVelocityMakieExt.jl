@@ -9,6 +9,7 @@ using PlanetOrbits
 using Printf
 using Statistics
 using StatsBase
+using LinearAlgebra: normalize
 
 ## Need three panels
 # 1) Mean model (orbit + GP) and data (- mean instrument offset)
@@ -36,14 +37,22 @@ function Octofitter.rvpostplot!(
     results::Chains,
     sample_idx = argmax(results["logpost"][:]);
     show_perspective=true,
-    show_summary=false
+    show_summary=false,
+    show_legend=true,
+    show_phase=true,
+    show_hist=true,
+    ts=nothing
 )
-    gs = gridspec_or_fig
+    if gridspec_or_fig isa Figure
+        gs = GridLayout(gridspec_or_fig[1,1])
+    else
+        gs = gridspec_or_fig
+    end
     n_planet_count = length(model.system.planets)
 
 
     rv_likes = filter(model.system.observations) do obs
-        obs isa StarAbsoluteRVLikelihood || obs isa OctofitterRadialVelocityMakieExt.MarginalizedStarAbsoluteRVLikelihood
+        obs isa StarAbsoluteRVLikelihood || obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood || obs isa OctofitterRadialVelocity.StarAbsoluteRVLikelihood_Celerite
     end
     # if length(rv_likes) > 1
     #     error("`rvpostplot` requires a system with only one StarAbsoluteRVLikelihood. Combine the data together into a single likelihood object.")
@@ -76,7 +85,11 @@ function Octofitter.rvpostplot!(
     if delta == 0
         delta = 1
     end
-    ts_grid = range(tmin-0.015delta, tmax+0.015delta,length=10000)
+    if !isnothing(ts)
+        ts_grid = ts
+    else
+        ts_grid = range(tmin-0.015delta, tmax+0.015delta,length=10000)
+    end
     # Ensure the curve has points at exactly our data points. Otherwise for fine structure
     # we might miss them unless we add a very very fine grid.
     ts = sort(vcat(ts_grid, all_epochs))
@@ -128,17 +141,19 @@ function Octofitter.rvpostplot!(
     linkxaxes!(ax_fit, ax_resid)
     Makie.xlims!(ax_resid, extrema(ts))
 
-    ax_resid_hist = Axis(
-        gs[2,2],
-    )
-    hidedecorations!(ax_resid_hist)
-    linkyaxes!(ax_resid, ax_resid_hist)
+    if show_hist
+        ax_resid_hist = Axis(
+            gs[2,2],
+        )
+        hidedecorations!(ax_resid_hist)
+        linkyaxes!(ax_resid, ax_resid_hist)
+    end
     rowgap!(gs, 1, 0)
 
 
     # Horizontal zero line
     hlines!(ax_resid, 0, color=:black, linewidth=2)
-    hlines!(ax_resid_hist, 0, color=:black, linewidth=2)
+    show_hist && hlines!(ax_resid_hist, 0, color=:black, linewidth=2)
 
     # Perspective acceleration line
     if first(els_by_planet) isa AbsoluteVisual && show_perspective
@@ -159,118 +174,138 @@ function Octofitter.rvpostplot!(
         radvel.(els, ts, M)
     end)
     # Use a narrow line if we're overplotting a complicated GP
-    if !any_models_have_a_gp
+    # if !any_models_have_a_gp
         lines!(ax_fit, ts, RV, color=:blue, linewidth=0.5)
-    end
+    # end
 
 
 
     # Create an axis for each planet, with orbit model vs. phase
     ax_phase_by_planet= Axis[]
     i_planet = 0
-    for (planet, els, M) in zip(model.system.planets, els_by_planet, M_by_planet)
-        i_planet += 1
-        ax_phase = Axis(
-            gs[2+i_planet,1],
-            xlabel="Phase",
-            ylabel="RV [m/s]",
-            xticks=-0.5:0.1:0.5,
-            xgridvisible=false,
-            ygridvisible=false,
-        )
-        Makie.xlims!(ax_phase, -0.5,0.5)
-        if i_planet != n_planet_count
-            hidexdecorations!(ax_phase,  grid=false)
-        end
-        push!(ax_phase_by_planet, ax_phase)
-
-        text = Makie.rich(string(planet.name), font=:bold, fontsize=16)
-        Label(
-            gs[2+i_planet,2,],
-            text,
-            padding = (5, 0, 0, 0),
-            valign=:top,
-            halign=:left,
-            justification=:left,
-            tellwidth=false,
-            tellheight=false,
-        )
-        if show_summary
-            el = Octofitter.construct_elements(results,planet.name,:)
-            credP = cred_internal_format(quantile(period.(el), (0.14, 0.5,0.84))...)
-            text = Makie.rich( 
-                "P", Makie.subscript(string(planet.name)),
-                " = $credP d",
-                font="Monaco",
-                fontsize=10
+    if show_phase
+        for (planet, els, M) in zip(model.system.planets, els_by_planet, M_by_planet)
+            i_planet += 1
+            ax_phase = Axis(
+                gs[2+i_planet,1],
+                xlabel="Phase",
+                ylabel="RV [m/s]",
+                xticks=-0.5:0.1:0.5,
+                xgridvisible=false,
+                ygridvisible=false,
             )
-            credE = cred_internal_format(quantile(eccentricity.(el), (0.14, 0.5,0.84))...)
-            text = Makie.rich(text, "\n", 
-                "e", Makie.subscript(string(planet.name)),
-                " = $credE",
-                font="Monaco",
-                fontsize=10
-            )
-            credMass = cred_internal_format(quantile(results["$(planet.name)_mass"][:], (0.14, 0.5,0.84))...)
-            text = Makie.rich(text, "\n", 
-                "m", Makie.subscript(string(planet.name)),
-                " = $credMass M", Makie.subscript("jup"),
-                font="Monaco",
-                fontsize=10
-            )
-            try
-                inclination(el[1])
-            catch
-                text = Makie.rich(
-                    text, " (min)",
-                    font="Monaco",
-                    fontsize=10
-                )
+            Makie.xlims!(ax_phase, -0.5,0.5)
+            if i_planet != n_planet_count
+                hidexdecorations!(ax_phase,  grid=false)
             end
+            push!(ax_phase_by_planet, ax_phase)
 
+            text = Makie.rich(string(planet.name), font=:bold, fontsize=16)
             Label(
                 gs[2+i_planet,2,],
                 text,
                 padding = (5, 0, 0, 0),
-                valign=:bottom,
+                valign=:top,
                 halign=:left,
                 justification=:left,
                 tellwidth=false,
                 tellheight=false,
             )
-        end
+            if show_summary
+                el = Octofitter.construct_elements(results,planet.name,:)
+                credP = cred_internal_format(quantile(period.(el), (0.14, 0.5,0.84))...)
+                text = Makie.rich( 
+                    "P", Makie.subscript(string(planet.name)),
+                    " = $credP d",
+                    font="Monaco",
+                    fontsize=10
+                )
+                credE = cred_internal_format(quantile(eccentricity.(el), (0.14, 0.5,0.84))...)
+                text = Makie.rich(text, "\n", 
+                    "e", Makie.subscript(string(planet.name)),
+                    " = $credE",
+                    font="Monaco",
+                    fontsize=10
+                )
+                credMass = cred_internal_format(quantile(results["$(planet.name)_mass"][:], (0.14, 0.5,0.84))...)
+                text = Makie.rich(text, "\n", 
+                    "m", Makie.subscript(string(planet.name)),
+                    " = $credMass M", Makie.subscript("jup"),
+                    font="Monaco",
+                    fontsize=10
+                )
+                try
+                    inclination(el[1])
+                catch
+                    text = Makie.rich(
+                        text, " (min)",
+                        font="Monaco",
+                        fontsize=10
+                    )
+                end
 
-
-        # Plot orbit models
-        T = period(els)
-        phases = -0.5:0.005:0.5
-        ts_phase_folded = phases .* T
-        # Shift to RV zero crossing
-        rv_zero_cross = 1
-        for i in LinearIndices(ts_phase_folded)[2:end]
-            a = radvel(els, ts_phase_folded[i-1])
-            b = radvel(els, ts_phase_folded[i])
-            if a <= 0 <= b
-                rv_zero_cross = i
-                break
+                Label(
+                    gs[2+i_planet,2,],
+                    text,
+                    padding = (5, 0, 0, 0),
+                    valign=:bottom,
+                    halign=:left,
+                    justification=:left,
+                    tellwidth=false,
+                    tellheight=false,
+                )
             end
+
+
+            # Plot orbit models
+            T = period(els)
+            phases = -0.5:0.005:0.5
+            ts_phase_folded = phases .* T
+            # Shift to RV zero crossing
+            rv_zero_cross = 1
+            for i in LinearIndices(ts_phase_folded)[2:end]
+                a = radvel(els, ts_phase_folded[i-1])
+                b = radvel(els, ts_phase_folded[i])
+                if a <= 0 <= b
+                    rv_zero_cross = i
+                    break
+                end
+            end
+            ts_phase_folded = ts_phase_folded .+ ts_phase_folded[rv_zero_cross]
+            # Don't include any perspective acceleration
+            RV = radvel.(nonabsvis_parent(els), ts_phase_folded, M)
+            Makie.lines!(
+                ax_phase,
+                phases,
+                RV,
+                color=:blue,
+                linewidth=5
+            )
         end
-        ts_phase_folded = ts_phase_folded .+ ts_phase_folded[rv_zero_cross]
-        # Don't include any perspective acceleration
-        RV = radvel.(nonabsvis_parent(els), ts_phase_folded, M)
-        Makie.lines!(
-            ax_phase,
-            phases,
-            RV,
-            color=:blue,
-            linewidth=5
-        )
     end
 
 
-    # for (planet_key, els, ax_phase) in zip(keys(model.system.planets), els_by_planet, ax_phase_by_planet)
+    marker_symbols = [
+        :circle,
+        :rect,
+        :diamond,
+        :hexagon,
+        :cross,
+        :xcross,
+        :utriangle,
+        :dtriangle,
+        :ltriangle,
+        :rtriangle,
+        :pentagon,
+        :star4,
+        :star5,
+        :star6,
+        :star8,
+        :vline,
+        :hline,
+    ]
 
-       
+    
 
     # Calculate RVs minus the median instrument-specific offsets.
     
@@ -294,6 +329,9 @@ function Octofitter.rvpostplot!(
         mask = masks[rv_like_idx]
         rvs_off_sub = collect(rvs.table.rv)
         jitters = zeros(length(rvs_off_sub))
+
+        color = Makie.wong_colors()[mod1(rv_like_idx, length(Makie.wong_colors()))]
+        marker_symbol = marker_symbols[mod1(rv_like_idx, length(marker_symbols))]
 
         if hasproperty(rvs,:offset_symbol)
             barycentric_rv_inst = nt_format[rvs.offset_symbol]
@@ -341,36 +379,65 @@ function Octofitter.rvpostplot!(
             map_gp = map_gp.f
         end
 
-        fx = map_gp(
-            # x
-            vec(rvs.table.epoch),
-            # y-err
-            vec(
+
+        if isdefined(Main, :Celerite) && map_gp isa Main.Celerite.CeleriteGP
+
+            # Compute GP model
+            Main.Celerite.compute!(map_gp, vec(rvs.table.epoch), vec(
                 sqrt.(rvs.table.σ_rv.^2 .+ jitters.^2)
+            ))
+
+            y_inst, var = Main.Celerite.predict(map_gp, vec(resids), collect(ts_inst); return_var=true)
+            y_at_dat, var_at_dat = Main.Celerite.predict(map_gp, vec(resids), collect(vec(data.epoch)); return_var=true)
+            var = max.(0, var)
+            var_at_dat = max.(0, var_at_dat)
+
+
+            resids = resids .-= y_at_dat
+
+            # errs_data_jitter = sqrt.(
+            #     data.σ_rv.^2 .+
+            #     jitter.^2
+            # )
+            errs_data_jitter_gp = sqrt.(
+                data.σ_rv.^2 .+
+                jitter.^2 .+
+                var_at_dat
             )
-        )
-        # condition GP on residuals (data - orbit - inst offsets)
-        map_gp_posterior = posterior(fx, vec(resids))
-        y, var = mean_and_var(map_gp_posterior, ts_inst)
 
-        # Subtract MAP GP from residuals
-        resids = resids .-= mean(map_gp_posterior, vec(data.epoch))
-        data_minus_off_and_gp .= rvs_off_sub .- mean(map_gp_posterior, vec(data.epoch))
-        y_inst, var = mean_and_var(map_gp_posterior, ts_inst)
+        else
 
-        # errs_data_jitter = sqrt.(
-        #     data.σ_rv.^2 .+
-        #     jitter.^2
-        # )
-        errs_data_jitter_gp = sqrt.(
-            data.σ_rv.^2 .+
-            jitter.^2 .+
-            mean_and_var(map_gp_posterior, vec(data.epoch))[2]
-        )
+
+            fx = map_gp(
+                # x
+                vec(rvs.table.epoch),
+                # y-err
+                vec(
+                    sqrt.(rvs.table.σ_rv.^2 .+ jitters.^2)
+                )
+            )
+            # condition GP on residuals (data - orbit - inst offsets)
+            map_gp_posterior = posterior(fx, vec(resids))
+            y_inst, var = mean_and_var(map_gp_posterior, ts_inst)
+
+            # Subtract MAP GP from residuals
+            resids = resids .-= mean(map_gp_posterior, vec(data.epoch))
+            data_minus_off_and_gp .= rvs_off_sub .- mean(map_gp_posterior, vec(data.epoch))
+
+            # errs_data_jitter = sqrt.(
+            #     data.σ_rv.^2 .+
+            #     jitter.^2
+            # )
+            errs_data_jitter_gp = sqrt.(
+                data.σ_rv.^2 .+
+                jitter.^2 .+
+                mean_and_var(map_gp_posterior, vec(data.epoch))[2]
+            )
+        end
 
 
         epochs_all[mask] .= vec(rvs.table.epoch)
-        resids_all[mask] .= resids
+        resids_all[mask] .= resids .- perspective_accel_to_remove
         uncer_all[mask] .= data.σ_rv
         uncer_jitter_gp_all[mask] .= errs_data_jitter_gp
         # rvs_all_minus_accel_minus_perspective[mask] .= rvs_off_sub .- mean(map_gp_posterior, vec(data.epoch)) .- perspective_accel_to_remove
@@ -383,7 +450,7 @@ function Octofitter.rvpostplot!(
         obj = band!(ax_fit, ts_inst,
             vec(y_inst .+ RV_sample .- sqrt.(var)),# .+ jitter^2)),
             vec(y_inst .+ RV_sample .+ sqrt.(var)),# .+ jitter^2)),
-            color=(Makie.wong_colors()[rv_like_idx], 0.35)
+            color=(color, 0.35)
         )
         # Try to put bands behind everything else
         translate!(obj, 0, 0, -10)
@@ -394,17 +461,17 @@ function Octofitter.rvpostplot!(
             lines!(
                 ax_fit,
                 ts_inst,
-                RV_sample .+ y,
+                RV_sample .+ y_inst,
                 color=(:black,1),
-                linewidth=0.3
+                linewidth=0.1
             )
             lines!(
                 ax_fit,
                 ts_inst,
-                RV_sample .+ y,
-                color=(Makie.wong_colors()[rv_like_idx],0.8),
+                RV_sample .+ y_inst,
+                color=(color,0.8),
                 # color=:blue,
-                linewidth=0.3
+                linewidth=0.1
             )
         end
         
@@ -416,7 +483,7 @@ function Octofitter.rvpostplot!(
             data.epoch,
             rvs_off_sub,
             errs_data_jitter_gp,
-            linewidth=1,
+            linewidth=0.5,
             color="#CCC",
         )
         errorbars!(
@@ -424,8 +491,8 @@ function Octofitter.rvpostplot!(
             data.epoch,
             rvs_off_sub,
             data.σ_rv,
-            # linewidth=1,
-            color=Makie.wong_colors()[rv_like_idx]
+            linewidth=0.5,
+            color=color
         )
 
         errorbars!(
@@ -433,7 +500,7 @@ function Octofitter.rvpostplot!(
             data.epoch,
             resids,
             errs_data_jitter_gp,
-            linewidth=1,
+            linewidth=0.5,
             color="#CCC",
         )
         errorbars!(
@@ -441,7 +508,8 @@ function Octofitter.rvpostplot!(
             data.epoch,
             resids,
             data.σ_rv,
-            color=Makie.wong_colors()[rv_like_idx]
+            linewidth=0.5,
+            color=color
         )
 
         
@@ -450,29 +518,37 @@ function Octofitter.rvpostplot!(
             ax_fit,
             data.epoch,
             rvs_off_sub,
-            color=Makie.wong_colors()[rv_like_idx],
+            color=color,
             markersize=4,
-            strokecolor=:black,strokewidth=0.1,
+            strokecolor=:black,
+            strokewidth=0.1,
+            marker=marker_symbol
         )
 
         Makie.scatter!(
             ax_resid,
             data.epoch,
             resids,
-            color=Makie.wong_colors()[rv_like_idx],
+            color=color,
             markersize=4,
-            strokecolor=:black,strokewidth=0.1,
+            strokecolor=:black,
+            strokewidth=0.1,
+            marker=marker_symbol
         )
 
-        h = fit(Histogram, resids)
-        Makie.stairs!(
-            ax_resid_hist,
-            h.weights,
-            h.edges[1][1:end-1] .+ step(h.edges[1])/2,
-            step=:center,
-            color=Makie.wong_colors()[rv_like_idx],
-        )
-        xlims!(ax_resid_hist, low=0)
+        
+        if show_hist
+            h = fit(Histogram, resids)
+            Makie.stairs!(
+                ax_resid_hist,
+                h.weights,
+                h.edges[1][1:end-1] .+ step(h.edges[1])/2,
+                step=:center,
+                color=color,
+                linewidth=0.5
+            )
+            xlims!(ax_resid_hist, low=0)
+        end
 
         for (ax_phase, els,rv_model_this_planet) in zip(ax_phase_by_planet, els_by_planet, model_at_data_by_planet)
             # Plot orbit models
@@ -499,27 +575,29 @@ function Octofitter.rvpostplot!(
             errorbars!(
                 ax_phase,
                 phase_folded,
-                resids .+ rv_model_this_planet,
+                resids .+ rv_model_this_planet .- perspective_accel_to_remove,
                 errs_data_jitter_gp,
-                linewidth=1,
+                linewidth=0.5,
                 color="#CCC",
             )
             errorbars!(
                 ax_phase,
                 phase_folded,
-                resids .+ rv_model_this_planet,
+                resids .+ rv_model_this_planet .- perspective_accel_to_remove,
                 data.σ_rv,
-                # linewidth=1,
-                color=Makie.wong_colors()[rv_like_idx]
+                linewidth=0.5,
+                color=Makie.wong_colors()[mod1(rv_like_idx, length(Makie.wong_colors()))]
             )
             
             Makie.scatter!( 
                 ax_phase,
                 phase_folded,
-                resids .+ rv_model_this_planet,
-                color=Makie.wong_colors()[rv_like_idx],
+                resids .+ rv_model_this_planet .- perspective_accel_to_remove,
+                color=Makie.wong_colors()[mod1(rv_like_idx, length(Makie.wong_colors()))],
                 markersize=4,
-                strokecolor=:black,strokewidth=0.1,
+                strokecolor=:black,
+                strokewidth=0.1,
+                marker=marker_symbol
             )
         end
 
@@ -595,55 +673,62 @@ function Octofitter.rvpostplot!(
 
 
  
-    markers =  [
-        # Group 1
-        [
-            MarkerElement(color = Makie.wong_colors()[i], marker=:circle, markersize = 15)
-            for i in 1:length(rv_likes)
-        ],
-        # Group 2
-        [
+    if show_legend
+        markers =  [
+            # Group 1
             [
-                LineElement(color = Makie.wong_colors()[i], linestyle = :solid,
-                points = Point2f[((-1+i)/length(rv_likes), 0), ((-1+i)/length(rv_likes), 1)])
+                MarkerElement(color = Makie.wong_colors()[mod1(i,length(Makie.wong_colors()))], marker=marker_symbols[mod1(i,length(marker_symbols))], markersize = 15)
                 for i in 1:length(rv_likes)
             ],
-            LineElement(color = "#CCC", linestyle = :solid,
-                points = Point2f[(0.0, 0), (0.0, 1)]),
-            LineElement(color = :blue,linewidth=4,),
-            MarkerElement(color = :red, strokecolor=:black, strokewidth=2, marker=:circle, markersize = 15),   
+            # Group 2
+            [
+                [
+                    LineElement(color = Makie.wong_colors()[mod1(i,length(Makie.wong_colors()))], linestyle = :solid,
+                    points = Point2f[((-1+i)/length(rv_likes), 0), ((-1+i)/length(rv_likes), 1)])
+                    for i in 1:length(rv_likes)
+                ],
+                LineElement(color = "#CCC", linestyle = :solid,
+                    points = Point2f[(0.0, 0), (0.0, 1)]),
+                LineElement(color = :blue,linewidth=4,),
+                MarkerElement(color = :red, strokecolor=:black, strokewidth=2, marker=:circle, markersize = 15),   
+            ]
         ]
-    ]
-    labels = [
-        [rv.instrument_name for rv in rv_likes],
-        [
-            "data uncertainty",
-            any_models_have_a_gp ? "uncertainty,\njitter, and GP" : "uncertainty and\njitter",
-            "orbit model",
-            "binned",
+        labels = [
+            [rv.instrument_name for rv in rv_likes],
+            [
+                "data uncertainty",
+                any_models_have_a_gp ? "uncertainty,\njitter, and GP" : "uncertainty and\njitter",
+                "orbit model",
+                "binned",
+            ]
         ]
-    ]
-    if first(els_by_planet) isa AbsoluteVisual && show_perspective
-        push!(markers[end], LineElement(color = :orange,linewidth=4,))
-        push!(labels[end], "perspective")
-    end
+        if first(els_by_planet) isa AbsoluteVisual && show_perspective
+            push!(markers[end], LineElement(color = :orange,linewidth=4,))
+            push!(labels[end], "perspective")
+        end
 
-    Legend(
-        gs[1:3,3],
-        markers,
-        labels,
-        ["instrument", "legend"],
-        valign=:top,
-        framevisible=false,
-    )
+        xs = show_phase ? (1:3) : (1:2)
+        ys = show_hist ? 3 : 2
+        Legend(
+            gs[xs,ys],
+            markers,
+            labels,
+            ["instrument", "legend"],
+            valign=:top,
+            framevisible=false,
+        )
+    end
     Makie.rowsize!(gs, 1, Auto(2.4))
-    Makie.rowsize!(gs, 2, Auto(1))
-    for i in 1:n_planet_count
-        Makie.rowsize!(gs, 2+i, Auto(2))
+    if show_phase
+        Makie.rowsize!(gs, 2, Auto(1))
+        for i in 1:n_planet_count
+            Makie.rowsize!(gs, 2+i, Auto(2))
+        end
     end
-    Makie.colgap!(gs, 1, 0)
-    Makie.colsize!(gs, 2, Aspect(2,1.0))
-
+    if show_hist
+        Makie.colgap!(gs, 1, 0)
+        Makie.colsize!(gs, 2, Aspect(2,1.0))
+    end
 
 end
 
