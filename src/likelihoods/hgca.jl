@@ -37,16 +37,6 @@ end
 export HGCAInstantaneousLikelihood
 
 
-# We split the HGCA Likelihood into three 
-struct TimeAveragedProperMotionLikelihood{TTable<:Table,THGCA} <: AbstractLikelihood
-    table::TTable
-end
-function likeobj_from_epoch_subset(obs::TimeAveragedProperMotionLikelihood, obs_inds)
-    return TimeAveragedProperMotionLikelihood(obs.table[obs_inds,:,1], obs.hgca)
-end
-export TimeAveragedProperMotionLikelihood
-
-
 
 """
     HGCAInstantaneousLikelihood(;gaia_id=1234,N_ave=1)
@@ -214,8 +204,6 @@ function ln_like(hgca_like::HGCAInstantaneousLikelihood, θ_system, elements, or
     ]
     ll += logpdf(hgca_like.hgca.dist_gaia, resids_gaia)
 
-    # display(elements[1])
-    # @show ll
 
     return ll
 end
