@@ -35,7 +35,7 @@ To make this parameterization change, we specify priors on both masses in the `@
 
 ### Retrieving the HGCA
 To start, we retrieve the HGCA data for this object.
-```julia
+```@example 1
 hgca_like = HGCALikelihood(gaia_id=756291174721509376,fluxratio_var=:F)
 ```
 
@@ -188,7 +188,7 @@ end astrom_like # Note the relative astrometry added here!
 
 end hgca_like b
 
-model_pma_astrom = Octofitter.LogDensityModel(HD91312_pma_astrom,autodiff=:ForwardDiff,verbosity=4)
+model_pma_astrom = Octofitter.LogDensityModel(HD91312_pma_astrom,verbosity=4)
 
 using Pigeons
 chain_pma_astrom, pt = octofit_pigeons(model_pma_astrom, n_rounds=7, explorer=SliceSampler())
@@ -252,7 +252,7 @@ end astrom_like  ObsPriorAstromONeil2019(astrom_like) # Note the relative astrom
 
 end hgca_like rvlike b
 
-model_pma_rv_astrom = Octofitter.LogDensityModel(HD91312_pma_rv_astrom,autodiff=:ForwardDiff,verbosity=4)
+model_pma_rv_astrom = Octofitter.LogDensityModel(HD91312_pma_rv_astrom,verbosity=4)
 chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=7, explorer=SliceSampler())
 display(chain_pma_rv_astrom)
 ```
@@ -307,9 +307,10 @@ end astrom_like # Note the relative astrometry added here!
 
     plx ~ gaia_plx(gaia_id=756291174721509376)
     jitter_1 = 0.0
+    offset_1 ~ Normal(0, 1000) # km/s
 end rvlike b
 
-model_rv_astrom = Octofitter.LogDensityModel(HD91312_rv_astrom,autodiff=:ForwardDiff,verbosity=4)
+model_rv_astrom = Octofitter.LogDensityModel(HD91312_rv_astrom,verbosity=4)
 
 chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)
 nothing # hide
