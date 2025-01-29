@@ -36,13 +36,11 @@ To make this parameterization change, we specify priors on both masses in the `@
 ### Retrieving the HGCA
 To start, we retrieve the HGCA data for this object.
 ```julia
-hgca_like = HGCALikelihood(gaia_id=756291174721509376)
+hgca_like = HGCALikelihood(gaia_id=756291174721509376,fluxratio_var=:F)
 ```
 
-For this example, we will speed things up by treating the HGCA measurements as instantaenous. The default is to average measurements 25 times over the duration of each mission. For real inference, you'll want to increase this or leave it at the default value, unless you have reason to believe the companion has an orbital period much greater than 20 years or so.
-```@example 1
-hgca_like = HGCALikelihood(gaia_id=756291174721509376, N_ave=1)
-```
+The symbol `:F` here will be the variable used to represent the flux ratio of the planet(s) compared to the host star. This is used to account for photocentre offsets caused by luminous companions. You can pick a different name if you like.
+For typical exoplanets this can often just be set to `0` in the model definition, since they are so dim compared to the star.
 
 ### Planet Model
 
@@ -58,6 +56,8 @@ hgca_like = HGCALikelihood(gaia_id=756291174721509376, N_ave=1)
 
     θ ~ Uniform(0, 2pi)
     tp = θ_at_epoch_to_tperi(system,b,57423.0) # epoch of GAIA measurement
+
+    F = 0.0 # set gaia flux ratio of secondary to host
 end
 ```
 
@@ -103,7 +103,7 @@ To install and use `Pigeons.jl` with Octofitter, type `using Pigeons` at in the 
 We now sample from our model using Pigeons:
 ```@example 1
 using Pigeons
-chain_pma, pt = octofit_pigeons(model_pma, n_rounds=13, explorer=SliceSampler()) 
+chain_pma, pt = octofit_pigeons(model_pma, n_rounds=8, explorer=SliceSampler()) 
 display(chain_pma)
 ```
 
@@ -170,6 +170,7 @@ rvlike = PlanetRelativeRVLikelihood(
     tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
 
     jitter_1 = 0.0
+    F = 0.0
 
 end astrom_like # Note the relative astrometry added here!
 
@@ -190,7 +191,7 @@ end hgca_like b
 model_pma_astrom = Octofitter.LogDensityModel(HD91312_pma_astrom,autodiff=:ForwardDiff,verbosity=4)
 
 using Pigeons
-chain_pma_astrom, pt = octofit_pigeons(model_pma_astrom, n_rounds=12, explorer=SliceSampler())
+chain_pma_astrom, pt = octofit_pigeons(model_pma_astrom, n_rounds=7, explorer=SliceSampler())
 nothing # hide
 ```
 
@@ -204,15 +205,16 @@ We now add in three additional epochs of stellar RVs.
 ```@example 1
 using OctofitterRadialVelocity
 
-rvlike = MarginalizedStarAbsoluteRVLikelihood(
+rvlike = StarAbsoluteRVLikelihood(
     (epoch=mjd("2008-05-01"), rv=1300, σ_rv=150),
     (epoch=mjd("2010-02-15"), rv=700, σ_rv=150),
     (epoch=mjd("2016-03-01"), rv=-2700, σ_rv=150),
     instrument_name="SOPHIE",
-    jitter=:jitter_1
+    jitter=:jitter_1,
+    offset=:offset_1,
 )
 
-@planet b Visual{KepOrbit} begin
+@planet b AbsoluteVisual{KepOrbit} begin
     a ~ LogUniform(0.1,400)
     e ~ Uniform(0,0.999)
     ω ~ Uniform(0, 2pi)
@@ -223,6 +225,8 @@ rvlike = MarginalizedStarAbsoluteRVLikelihood(
 
     θ ~ Uniform(0, 2pi)
     tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
+
+    F = 0.0
 
 end astrom_like  ObsPriorAstromONeil2019(astrom_like) # Note the relative astrometry added here!
 
@@ -239,10 +243,17 @@ end astrom_like  ObsPriorAstromONeil2019(astrom_like) # Note the relative astrom
     pmdec ~ Normal(2,  10)
 
     jitter_1 = 0.0
+    offset_1 ~ Normal(0, 1000) # km/s
+
+    ra = hgca_like.gaialike.gaia_sol.ra
+    dec = hgca_like.gaialike.gaia_sol.dec
+    rv = hgca_like.gaialike.gaia_sol.radial_velocity*1e3
+    ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+
 end hgca_like rvlike b
 
 model_pma_rv_astrom = Octofitter.LogDensityModel(HD91312_pma_rv_astrom,autodiff=:ForwardDiff,verbosity=4)
-chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=12, explorer=SliceSampler())
+chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=7, explorer=SliceSampler())
 display(chain_pma_rv_astrom)
 ```
 
@@ -252,9 +263,9 @@ using CairoMakie, PairPlots
 pairplot(
     (; a=chain_pma_rv_astrom["b_a"][:], mass=chain_pma_rv_astrom["b_mass"][:]) =>
         (
-            PairPlots.Scatter(color=:red),
+            PairPlots.Scatter(color=:red,markersize=5),
             PairPlots.MarginHist(),
-            PairPlots.MarginConfidenceLimits()
+            PairPlots.MarginQuantileText()
         ),
     labels=Dict(:mass=>"mass [Mⱼᵤₚ]", :a=>"sma. [au]"),
 )
