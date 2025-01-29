@@ -212,7 +212,6 @@ function ln_like(hgca_like::HGCAInstantaneousLikelihood, θ_system, elements, or
         pmra_gaia_model - hgca_like.hgca.pmra_gaia,
         pmdec_gaia_model - hgca_like.hgca.pmdec_gaia
     ]
-    @warn "skipping gaia epoch" maxlog=1
     ll += logpdf(hgca_like.hgca.dist_gaia, resids_gaia)
 
     # display(elements[1])
