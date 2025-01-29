@@ -243,11 +243,11 @@ end astrom_like  ObsPriorAstromONeil2019(astrom_like) # Note the relative astrom
     pmdec ~ Normal(2,  10)
 
     jitter_1 = 0.0
-    offset_1 ~ Normal(0, 1000) # km/s
+    offset_1 ~ Normal(0, 1000) # m/s
 
     ra = hgca_like.gaialike.gaia_sol.ra
     dec = hgca_like.gaialike.gaia_sol.dec
-    rv = hgca_like.gaialike.gaia_sol.radial_velocity*1e3
+    rv = 0*1e3 # m/s
     ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 
 end hgca_like rvlike b
@@ -307,7 +307,7 @@ end astrom_like # Note the relative astrometry added here!
 
     plx ~ gaia_plx(gaia_id=756291174721509376)
     jitter_1 = 0.0
-    offset_1 ~ Normal(0, 1000) # km/s
+    offset_1 ~ Normal(0, 1000) # m/s
 end rvlike b
 
 model_rv_astrom = Octofitter.LogDensityModel(HD91312_rv_astrom,verbosity=4)
