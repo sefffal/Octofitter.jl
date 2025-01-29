@@ -226,8 +226,9 @@ function Octofitter.ln_like(
                 # Get model contrast parameter in this band (band provided as a symbol, e.g. :L along with data in table row.)
                 contrast = spectrum_vals[i_epoch][i_wave]::Union{Float64,T}
                 throughput = throughputs[i_planet,i_wave]
-                Δra = raoff(sols[i_planet])  # in mas
-                Δdec = decoff(sols[i_planet]) # in mas
+                sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
+                Δra = raoff(sol)  # in mas
+                Δdec = decoff(sol) # in mas
 
                 # add complex visibilities from all planets at a single epoch, for this wavelength
                 cvis_bin!(cvis_model; Δdec, Δra, contrast=contrast * throughput, u, v)
