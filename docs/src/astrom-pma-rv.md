@@ -57,7 +57,7 @@ For typical exoplanets this can often just be set to `0` in the model definition
     θ ~ Uniform(0, 2pi)
     tp = θ_at_epoch_to_tperi(system,b,57423.0) # epoch of GAIA measurement
 
-    F = 0.0 # set gaia flux ratio of secondary to host
+    F = 0.0 # optional: set gaia flux ratio of secondary to host
 end
 ```
 

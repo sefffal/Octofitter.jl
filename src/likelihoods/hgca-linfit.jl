@@ -6,6 +6,16 @@
 # allow us to subset epochs. Here, the subsetting should happen at the granularity
 # of either the entire Hipparcos or entire Gaia epochs.
 # Hence, our table just includes those two values.
+
+"""
+    HGCAInstantaneousLikelihood(;gaia_id=1234,N_ave=1)
+
+Model Hipparcos-Gaia Catalog of Accelerations (Brandt et al) data using a full model of the Gaia and Hipparcos
+measurement process and linear models.
+
+Upon first load, you will be prompted to accept the download of the eDR3 version of the HGCA 
+catalog.
+"""
 struct HGCALikelihood{TTable<:Table,THGCA,THip,TGaia,fluxratio_var} <: AbstractLikelihood
     table::TTable
     hgca::THGCA
@@ -13,7 +23,6 @@ struct HGCALikelihood{TTable<:Table,THGCA,THip,TGaia,fluxratio_var} <: AbstractL
     gaialike::TGaia
     fluxratio_var::Symbol
 end
-HGCALikelihood_Linfit = HGCALikelihood
 
 function _getparams(::HGCALikelihood{TTable,THGCA,THip,TGaia,fluxratio_var}, θ_planet) where {TTable,THGCA,THip,TGaia,fluxratio_var}
     if fluxratio_var == :__dark

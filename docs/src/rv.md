@@ -45,9 +45,9 @@ rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
 
 We load the HGCA data for this target:
 ```@example 1
-hgca_like = HGCALikelihood(;gaia_id, N_ave=1)
+hgca_like = HGCAInstantaneousLikelihood(;gaia_id)
 ```
-In the interests of time, we set `N_ave=1` to speed up the computation. This parameter controls how the model smears out the simulated Gaia and Hipparcos measurements in time. For a real target, leave it at the default value once you have completed testing.
+In the interests of time, we use the `HGCAInstantaneousLikelihood` approximation to speed up the computation. This parameter controls how the model smears out the simulated Gaia and Hipparcos measurements in time. For a real target, leave it at the default value once you have completed testing.
 
 
 ```@example 1
