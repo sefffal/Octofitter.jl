@@ -56,7 +56,8 @@ end
 
 function Pigeons.default_reference(target::Octofitter.LogDensityModel)
     reference_sys = prior_only_model(target.system)
-    reference = Octofitter.LogDensityModel(reference_sys; autodiff=target.autodiff_backend_symbol, verbosity=0)
+    # TODO: adapt Pigeons to work using DifferentiationInterface
+    reference = Octofitter.LogDensityModel(reference_sys; verbosity=0)
     reference.starting_points = target.starting_points
     return reference
 end
@@ -166,7 +167,6 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
         (;
             start_time,
             stop_time,
-            model_name=inputs.target.system.name
         )
     )
     return (;chain=mcmcchains_with_info, pt)
@@ -221,7 +221,10 @@ Base.@nospecializeinfer function MCMCChains.Chains(
     mcmcchains_with_info = MCMCChains.setinfo(
         mcmcchains,
         (;
-            model_name=pt.inputs.target.system.name
+            model_name=pt.inputs.target.system.name,
+            logevidence_ratio=Pigeons.stepping_stone(pt),
+            start_time=0,
+            stop_time=sum(pt.shared.reports.summary.last_round_max_time)
         )
     )
     return mcmcchains_with_info
