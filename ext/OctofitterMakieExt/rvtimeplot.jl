@@ -224,6 +224,14 @@ function rvtimeplot!(
             return _find_rv_zero_point_maxlike(like_obj, θ_system, planet_orbits_this_sample)
         end'
 
+        # Each draw will have it's own trend function realization. 
+        # Rather than subtract it from the data, we add it to the model draw.
+        # In extreme cases this could look a little weird
+        trend_funcs = map(enumerate(ii)) do (i_sol, i)
+            θ_system = nt_format[i]
+            return epoch -> like_obj.trend_function(θ_system, epoch)
+        end
+           
         rv_star_model_t = zeros(length(ii), length(ts))
         rv_star_model_at_data = zeros(length(ii), length(epoch))
         color_model_t = zeros(length(ii), length(ts))
@@ -257,6 +265,12 @@ function rvtimeplot!(
         # mean offset to keep it near zero
         rv_star_model_t .+= rv0'
         rv_star_model_at_data .+= rv0'
+        for (tf, row) in zip(trend_funcs, eachrow(rv_star_model_t))
+            row .+= tf.(ts)
+        end
+        for (tf, row) in zip(trend_funcs, eachrow(rv_star_model_at_data))
+            row .+= tf.(like_obj.table.epoch)
+        end
 
         # Calculate residuals in order to condition GP
         resids = rv_star_model_at_data' .- rv_data
