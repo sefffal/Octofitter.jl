@@ -116,9 +116,6 @@ The output is saved to a file based on the name of the system (`fname`).
 function octoplot(model::System, ::Any)
     error("You must load the Makie.jl package (`using CairoMakie`, or `using GLMakie`) before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
 end
-function octoplot(model::LogDensityModel, args...; kwargs...)
-    return octoplot(model.system, args...; kwargs...)
-end
 
 function octocorner(model::System, ::Any)
     error("You must load the Makie package (eg `using CairoMakie`) and PairPlots package (eg `using PairPlots`) before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
