@@ -52,7 +52,7 @@ function Octofitter.rvpostplot!(
 
 
     rv_likes = filter(model.system.observations) do obs
-        obs isa StarAbsoluteRVLikelihood || obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood || obs isa OctofitterRadialVelocity.StarAbsoluteRVLikelihood_Celerite
+        obs isa StarAbsoluteRVLikelihood || obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood
     end
     # if length(rv_likes) > 1
     #     error("`rvpostplot` requires a system with only one StarAbsoluteRVLikelihood. Combine the data together into a single likelihood object.")
@@ -344,6 +344,7 @@ function Octofitter.rvpostplot!(
         # Apply barycentric rv offset correction for this instrument
         # using the MAP parameters
         rvs_off_sub .-= barycentric_rv_inst
+        rvs_off_sub .-= rvs.trend_function.((nt_format,), rvs.table.epoch)
         jitters .= jitter
 
         # Calculate the residuals minus the orbit model and any perspecive acceleration

@@ -71,17 +71,21 @@ hipparcos_catalog_orbit_parameters_used = [
 
 ###########################
 # Stores data:
-const hip_iad_cols = (:iorb, :epoch, :parf, :cpsi, :spsi, :res, :sres)
-struct HipparcosIADLikelihood{THipSol,TIADTable<:Table} <: AbstractLikelihood
+const hip_iad_cols = (:iorb, :epoch, :parf, :cosϕ, :sinϕ, :res, :sres)
+struct HipparcosIADLikelihood{THipSol,TIADTable<:Table,TDist,TFact} <: AbstractLikelihood
     hip_sol::THipSol
     table::TIADTable
-    function HipparcosIADLikelihood(hip_sol, observations...)
-        iad_table = Table(observations...)
-        if !issubset(hip_iad_cols, Tables.columnnames(iad_table))
-            error("Expected columns $hip_iad_cols")
-        end
-        return new{typeof(hip_sol),typeof(iad_table)}(hip_sol, iad_table)
-    end
+    # precomputed MvNormal distribution
+    dist::TDist
+    A_prepared_4::TFact
+    A_prepared_5::TFact
+    # function HipparcosIADLikelihood(hip_sol, observations...)
+    #     iad_table = Table(observations...)
+    #     if !issubset(hip_iad_cols, Tables.columnnames(iad_table))
+    #         error("Expected columns $hip_iad_cols, got ", Tables.columnnames(iad_table))
+    #     end
+    #     return new{typeof(hip_sol),typeof(iad_table)}(hip_sol, iad_table)
+    # end
 end
 
 function likeobj_from_epoch_subset(obs::HipparcosIADLikelihood, obs_inds)
@@ -167,7 +171,7 @@ function HipparcosIADLikelihood(;
     )
 
     if isol_n ∉ (5,)#7,9)
-        error("Only stars with solution types 5 are currently supported. This sol is $isol_n. If you need solution type 1, 7, or 9, please open an issue on GitHub and we would be happy to add it.")
+        @warn("Only stars with solution types 5 are currently supported. This sol is $isol_n. If you need solution type 1, 7, or 9, please open an issue on GitHub and we would be happy to add it.")
     end
 
     iad_table_rows = NamedTuple[]
@@ -175,13 +179,13 @@ function HipparcosIADLikelihood(;
         if startswith(line, '#')
             continue
         end
-        iorb, epoch, parf, cpsi, spsi, res, sres = split(line)
+        iorb, epoch, parf, cosϕ, sinϕ, res, sres = split(line)
         push!(iad_table_rows, (;
             iorb=parse(Int, iorb),
             epoch_yrs=parse(Float64, epoch),
             parf=parse(Float64, parf),
-            cpsi=parse(Float64, cpsi),
-            spsi=parse(Float64, spsi),
+            cosϕ=parse(Float64, cosϕ),
+            sinϕ=parse(Float64, sinϕ),
             res=parse(Float64, res),
             sres=parse(Float64, sres),
         ))
@@ -237,6 +241,8 @@ function HipparcosIADLikelihood(;
     α₀ = hip_sol.radeg  # deg
     δ₀ = hip_sol.dedeg  # deg
 
+    # Not currently used
+    dist = MvNormal([α₀,δ₀,hip_sol.plx,μα✱,μδ], [hip_sol.e_ra, hip_sol.e_de, hip_sol.e_plx, hip_sol.e_pmra,  hip_sol.e_pmde,] )
 
     # For 21 stars that are nearby and have high radial velocity, the Hipparcos team
     # did account for changing parallax. 
@@ -294,46 +300,53 @@ function HipparcosIADLikelihood(;
         table.z * cosd(δ)
     )
 
-    # ##################
-    # # This version of the code uses a simplifed tangent-plane approximation, under the assumption
-    # # that Hipparcos used a purely linear model when they fit (or least, to report the IAD residuals against)
-    # # Calculate sky coordinate Delta at each scan epoch from the catalog position
-    # # using the eath's motion ("ephemeris"), x,y,z in AU.
-    # plx0 = hip_sol.plx
-    # dist0 = 1000/plx0
-    # δdist_pc_δt_sec = rv_kms / IAU_pc2km / PlanetOrbits.sec2day
-    # Δdist_pc = δdist_pc_δt_sec .* (table.epoch .- hipparcos_catalog_epoch_mjd)
-    # dist1 = dist0 .+ Δdist_pc
-    # table.plx_vs_time = 1000 ./ dist1
-    # table.Δα✱ = @. table.plx_vs_time * (
-    #     table.x * sind(α₀) -
-    #     table.y * cosd(α₀)
-    #     # table.x * sind(α) -
-    #     # table.y * cosd(α)
-    # # Both of these calculations are correct, that's how we know the dates are computed correctly:
-    # ) + (table.epoch - hipparcos_catalog_epoch_mjd)/julian_year * μα✱
-    # table.Δδ = @. table.plx_vs_time * (
-    #     table.x * cosd(α₀) * sind(δ₀) +
-    #     table.y * sind(α₀) * sind(δ₀) -
-    #     table.z * cosd(δ₀)
-    #     # table.x * cosd(α) * sind(δ) +
-    #     # table.y * sind(α) * sind(δ) -
-    #     # table.z * cosd(δ)
-    # # Both of these calculations are correct, that's how we know the dates are computed correctly:
-    # ) + (table.epoch - hipparcos_catalog_epoch_mjd)/julian_year * μδ
+    ##################
+    # This version of the code uses a simplifed tangent-plane approximation, under the assumption
+    # that Hipparcos used a purely linear model when they fit (or least, to report the IAD residuals against)
+    # Calculate sky coordinate Delta at each scan epoch from the catalog position
+    # using the eath's motion ("ephemeris"), x,y,z in AU.
+    plx0 = hip_sol.plx
+    dist0 = 1000/plx0
+    δdist_pc_δt_sec = rv_kms / IAU_pc2km / PlanetOrbits.sec2day
+    Δdist_pc = δdist_pc_δt_sec .* (table.epoch .- hipparcos_catalog_epoch_mjd)
+    dist1 = dist0 .+ Δdist_pc
+    table.plx_vs_time = 1000 ./ dist1
+    table.Δα✱ = @. table.plx_vs_time * (
+        table.x * sind(α₀) -
+        table.y * cosd(α₀)
+        # table.x * sind(α) -
+        # table.y * cosd(α)
+    # Both of these calculations are correct, that's how we know the dates are computed correctly:
+    ) + (table.epoch - hipparcos_catalog_epoch_mjd)/julian_year * μα✱
+    table.Δδ = @. table.plx_vs_time * (
+        table.x * cosd(α₀) * sind(δ₀) +
+        table.y * sind(α₀) * sind(δ₀) -
+        table.z * cosd(δ₀)
+        # table.x * cosd(α) * sind(δ) +
+        # table.y * sind(α) * sind(δ) -
+        # table.z * cosd(δ)
+    # Both of these calculations are correct, that's how we know the dates are computed correctly:
+    ) + (table.epoch - hipparcos_catalog_epoch_mjd)/julian_year * μδ
 
 
     # Nielsen Eq. 3: abcissa point
-    table.α✱ₐ = @. table.res * table.cpsi + table.Δα✱
-    table.δₐ = @. table.res * table.spsi + table.Δδ
+    table.α✱ₐ = @. table.res * table.cosϕ + table.Δα✱
+    table.δₐ = @. table.res * table.sinϕ + table.Δδ
 
     # These two points (picked ± 1 mas) specify a line--- the Hipparcos `sres`
     # is then then the 
-    table.α✱ₘ = collect(eachrow(@. [-1, 1]' * table.spsi + table.α✱ₐ))
-    table.δₘ = collect(eachrow(@. [1, -1]' * table.cpsi + table.δₐ))
+    table.α✱ₘ = collect(eachrow(@. [-1, 1]' * table.sinϕ + table.α✱ₐ))
+    table.δₘ = collect(eachrow(@. [1, -1]' * table.cosϕ + table.δₐ))
+
+    table = Table(table)
+
+    # Prepare some factorized matrices for linear system solves
+    A_prepared_4 = prepare_A_4param(table, hipparcos_catalog_epoch_mjd, hipparcos_catalog_epoch_mjd, table.sres)
+    # A_prepared_5 = prepare_A_5param(table, hipparcos_catalog_epoch_mjd, hipparcos_catalog_epoch_mjd)
+    A_prepared_5 = A_prepared_4 # TODO
 
 
-    return HipparcosIADLikelihood(hip_sol, table)
+    return HipparcosIADLikelihood(hip_sol, table, dist, A_prepared_4, A_prepared_5)
 end
 export HipparcosIADLikelihood
 
@@ -398,7 +411,7 @@ function find_best_correction(iad_table, n_corrupt)
 
 
     # np.array([data.parallax_factors.values, sin_scan, cos_scan, dt * sin_scan, dt * cos_scan]).T
-    _orbit_factors = [ iad_table.parf iad_table.cpsi iad_table.spsi dt .* iad_table.cpsi dt .* iad_table.spsi]
+    _orbit_factors = [ iad_table.parf iad_table.cosϕ iad_table.sinϕ dt .* iad_table.cosϕ dt .* iad_table.sinϕ]
 
     # we should be able to do the orbit reject calculation fairly easily in memory.
     # for 100 choose 3 we have like 250,000 combinations of orbits -- we sghould be able to
@@ -465,8 +478,8 @@ function correct_iad_corruption(iad_table)
         iad_table[mask].iorb,
         iad_table[mask].epoch_yrs,
         iad_table[mask].parf,
-        iad_table[mask].cpsi,
-        iad_table[mask].spsi ,
+        iad_table[mask].cosϕ,
+        iad_table[mask].sinϕ ,
         # R:
         iad_table[1:end-n_corrupt].res ,
         iad_table[1:end-n_corrupt].sres,
@@ -567,21 +580,21 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits, orbit_solu
         # else
         #     plx_at_epoch = plx0
         # end
-        # α = orbitsol_hip_epoch.compensated.ra2
-        # δ = orbitsol_hip_epoch.compensated.dec2
+        # # α = orbitsol_hip_epoch.compensated.ra2
+        # # δ = orbitsol_hip_epoch.compensated.dec2
         # α✱_model = (θ_system.ra - hiplike.hip_sol.radeg) * 60 * 60 * 1000 * cosd(hiplike.hip_sol.dedeg) + plx_at_epoch * (
-        #             #    hiplike.table.x[i] * sind(hiplike.hip_sol.radeg) -
-        #             #    hiplike.table.y[i] * cosd(hiplike.hip_sol.radeg)
-        #     hiplike.table.x[i] * sind(α) -
-        #     hiplike.table.y[i] * cosd(α)
+        #                hiplike.table.x[i] * sind(hiplike.hip_sol.radeg) -
+        #                hiplike.table.y[i] * cosd(hiplike.hip_sol.radeg)
+        #     # hiplike.table.x[i] * sind(α) -
+        #     # hiplike.table.y[i] * cosd(α)
         # ) + delta_time_julian_year * orbit.pmra
         # δ_model = (θ_system.dec - hiplike.hip_sol.dedeg) * 60 * 60 * 1000 + plx_at_epoch * (
-        #             #   hiplike.table.x[i] * cosd(hiplike.hip_sol.radeg) * sind(hiplike.hip_sol.dedeg) +
-        #             #   hiplike.table.y[i] * sind(hiplike.hip_sol.radeg) * sind(hiplike.hip_sol.dedeg) -
-        #             #   hiplike.table.z[i] * cosd(hiplike.hip_sol.dedeg)
-        #             hiplike.table.x[i] * cosd(α) * sind(δ) +
-        #             hiplike.table.y[i] * sind(α) * sind(δ) -
-        #             hiplike.table.z[i] * cosd(δ)
+        #               hiplike.table.x[i] * cosd(hiplike.hip_sol.radeg) * sind(hiplike.hip_sol.dedeg) +
+        #               hiplike.table.y[i] * sind(hiplike.hip_sol.radeg) * sind(hiplike.hip_sol.dedeg) -
+        #               hiplike.table.z[i] * cosd(hiplike.hip_sol.dedeg)
+        #             # hiplike.table.x[i] * cosd(α) * sind(δ) +
+        #             # hiplike.table.y[i] * sind(α) * sind(δ) -
+        #             # hiplike.table.z[i] * cosd(δ)
         # ) + delta_time_julian_year * orbit.pmdec
 
 

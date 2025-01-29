@@ -31,13 +31,18 @@ To make this parameterization change, we specify priors on both masses in the `@
 ### Retrieving the HGCA
 To start, we retrieve the HGCA data for this object.
 ```julia
-hgca_like = HGCALikelihood(gaia_id=756291174721509376)
+hgca_like = HGCALikelihood(;gaia_id=3937211745905473024)
 ```
 
-For this example, we will speed things up by treating the HGCA measurements as instantaenous. The default is to average measurements 25 times over the duration of each mission. For real inference, you'll want to increase this or leave it at the default value, unless you have reason to believe the companion has an orbital period much greater than 20 years or so.
+You can optionally provide an argument `fluxratio_var=:FR` giving a variable name to represent the flux ratio of the companions to the host, if you don't want to approximate it as zero. This is to handle luminous companions that are unresolved by gaia. You can then provide a `FR ~ SomeDistributionOrFunction()` definition in each `@planet` model.
+
+
+If you're in a hurry, and you're study orbits with periods much longer than the mission durations of Gaia or Hipparcos (>> 4 years) then you might consider using a faster approximation that the Gaia and Hipparcos measurements were instantaneous. You can do so as follows:
+
 ```@example 1
-hgca_like = HGCALikelihood(gaia_id=756291174721509376, N_ave=1)
+hgca_like = HGCAInstantaneousLikelihood(gaia_id=756291174721509376, N_ave=1) 
 ```
+`N_ave` is an optional argument to control over how many epochs the measurements are approximated, e.g. N_ave=10 implies that the position and proper motion was measured instantaneously 10 times over each mission and averaged.
 
 ### Planet Model
 
@@ -139,7 +144,8 @@ pairplot(
         (
             PairPlots.Scatter(color=:red),
             PairPlots.MarginHist(),
-            PairPlots.MarginConfidenceLimits()
+            PairPlots.MarginQuantileLines(),
+            PairPlots.MarginQuantileText(),
         ),
     labels=Dict(:mass=>"mass [Mⱼᵤₚ]", :a=>"sma. [au]"),
     axis = (;

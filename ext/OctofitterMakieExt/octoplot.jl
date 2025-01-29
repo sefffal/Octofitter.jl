@@ -13,7 +13,7 @@ this by passing `fname="fname.png"`
 - `show_astrom_time=true`: Separation/PA vs time
 - `show_rv=true`: Stellar RV curve
 - `show_relative_rv=true`: Planet-star relative RV
-- `show_hgca=true`: Proper motion anomaly
+- `show_pma=true`: Proper motion anomaly
 - `show_mass=true`: Mass posterior
 
 # Optional Arguments
@@ -38,12 +38,12 @@ function Octofitter.octoplot(
     show_astrom=nothing,
     show_physical_orbit=nothing,
     show_astrom_time=nothing,
-    show_hgca=nothing,
+    show_pma=nothing,
     show_mass=false,
     show_rv=nothing,
-    planet_rv=nothing, # plot planet(s) absolute RV in addition to star
     show_relative_rv=nothing,
     show_hipparcos=nothing,
+    residuals=false,
     mark_epochs_mjd=Float64[],
     figure=(;),
     # If less than 500 samples, just show all of them
@@ -67,7 +67,7 @@ function Octofitter.octoplot(
         show_astrom,
         show_physical_orbit,
         show_astrom_time,
-        show_hgca,
+        show_pma,
         show_mass,
         show_rv,
         show_relative_rv,
@@ -125,14 +125,18 @@ function Octofitter.octoplot(
         end
     end
 
-
-    if isnothing(show_hgca)
-        show_hgca = false
+    if isnothing(show_pma)
+        show_pma = false
         for like_obj in model.system.observations
-            if like_obj isa HGCALikelihood
-                show_hgca = true
-            end
+            show_pma |= like_obj isa Octofitter.HGCALikelihood
+            show_pma |= like_obj isa Octofitter.HGCAInstantaneousLikelihood
+            show_pma |= like_obj isa Octofitter.GaiaDifferenceLike
         end
+    end
+
+    hgca_detected = false
+    for like_obj in model.system.observations
+        hgca_detected |= like_obj isa HGCALikelihood
     end
 
 
@@ -158,7 +162,7 @@ function Octofitter.octoplot(
             show_astrom,
             show_physical_orbit,
             show_astrom_time,
-            show_hgca,
+            show_pma,
             show_mass,
             show_rv,
             show_relative_rv,
@@ -174,15 +178,6 @@ function Octofitter.octoplot(
     for planet_key in keys(model.system.planets)
         orbs = Octofitter.construct_elements(results, planet_key, ii)
         append!(periods, period.(orbs))
-
-        for like_obj in model.system.planets[planet_key].observations
-            if isnothing(planet_rv) && nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
-                planet_rv = true
-            end
-        end
-    end
-    if isnothing(planet_rv)
-        planet_rv = false
     end
 
     if isempty(periods)
@@ -222,7 +217,7 @@ function Octofitter.octoplot(
             end
         end
         # Show the full range of the HGCA if plotted
-        if show_hgca
+        if hgca_detected
             t_start′ = years2mjd(1990)
             t_stop′ = years2mjd(2020)
             t_start = min(t_start′, t_start)
@@ -254,7 +249,7 @@ function Octofitter.octoplot(
             ts = [t_start-1, t_start, t_start+1]
         end
 
-        if show_hgca
+        if hgca_detected
             # Make sure we include the approx. data epochs of the HGCA
             ts = sort([ts; years2mjd(1990.25); years2mjd((1990.25 + 2016) / 2); years2mjd(2016)])
         end
@@ -317,10 +312,9 @@ function Octofitter.octoplot(
             width=500figscale,
             height=300figscale,
         )
-        bottom_time_axis = !(show_hgca || show_rv || show_relative_rv || show_hipparcos)
-        ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, mark_epochs_mjd, alpha)
+        bottom_time_axis = !(show_pma || show_rv || show_relative_rv || show_hipparcos)
+        ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, mark_epochs_mjd, alpha, residuals)
         top_time_axis = false
-        Makie.rowgap!(gl, 10.)
         append!(axes_to_link,ax)
     end
 
@@ -340,8 +334,8 @@ function Octofitter.octoplot(
             width=500figscale,
             height=(135 * max(1, length(matching_like_objs)) *figscale),
         )
-        bottom_time_axis = !(show_hgca || show_relative_rv || show_hipparcos)
-        ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, planet_rv, colormap, alpha)
+        bottom_time_axis = !(show_pma || show_relative_rv || show_hipparcos)
+        ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
         top_time_axis = false
         Makie.rowgap!(gl, 10.)
         append!(axes_to_link,ax)
@@ -357,23 +351,49 @@ function Octofitter.octoplot(
             width=500figscale,
             height=135figscale,
         )
-        bottom_time_axis = !(show_hgca || show_hipparcos)
+        bottom_time_axis = !(show_pma || show_hipparcos)
         ax = rvtimeplot_relative!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
         top_time_axis = false
         Makie.rowgap!(gl, 10.)
         append!(axes_to_link,ax)
     end
 
-    if show_hgca
+    # if show_hgca
+    #     item += 1
+    #     col = mod1(item, cols)
+    #     row = cld(item, cols)
+    #     gl = GridLayout(
+    #         fig[row,col],
+    #         width=500figscale,
+    #         height=480figscale,
+    #     )
+    #     ax = Octofitter.hgcaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
+    #     top_time_axis = false
+    #     Makie.rowgap!(gl, 10.)
+    #     append!(axes_to_link,ax)
+    # end
+
+    if show_pma
         item += 1
         col = mod1(item, cols)
         row = cld(item, cols)
+        height=300figscale
+        for like_obj in model.system.observations
+            if like_obj isa HGCALikelihood
+                height+=180figscale
+            end
+        end
+        for like_obj in model.system.observations
+            if like_obj isa Octofitter.GaiaDifferenceLike
+                height+=180figscale
+            end
+        end
         gl = GridLayout(
-            fig[row,col],
+            fig[row,col];
             width=500figscale,
-            height=480figscale,
+            height,
         )
-        ax = Octofitter.hgcaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
+        ax = pmaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
         top_time_axis = false
         Makie.rowgap!(gl, 10.)
         append!(axes_to_link,ax)
