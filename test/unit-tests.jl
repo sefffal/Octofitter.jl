@@ -667,7 +667,7 @@ end
         mass = 10
     end astrom_like
     gaia_id = 756291174721509376
-    hgca = HGCALikelihood(;gaia_id=gaia_id, N_ave=1)  # N_ave=1 for faster tests
+    hgca = HGCALikelihood(;gaia_id=gaia_id)  
     @system TestSystem begin
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
@@ -858,7 +858,7 @@ end
         (epoch=50000.0, ra=100.0, dec=50.0, σ_ra=1.0, σ_dec=1.0)
     )
     
-    hgca = HGCALikelihood(;gaia_id=756291174721509376, N_ave=1)
+    hgca = HGCALikelihood(;gaia_id=756291174721509376)
 
     @planet b Visual{KepOrbit} begin
         a ~ LogUniform(0.1, 10)
