@@ -95,7 +95,7 @@ fig = octoplot(
     show_astrom=true,
     show_astrom_time=false,
     show_rv=false,
-    show_hgca=false,
+    show_pma=false,
     mark_epochs_mjd=[
         mjd("2037")
     ]

@@ -25,7 +25,7 @@ fig = octoplot(model, chain;
     show_astrom_time=true,    # Show sep/PA vs time
     show_rv=true,             # Show stellar RV
     show_relative_rv=true,    # Show planet-star relative RV
-    show_hgca=true,           # Show proper motion anomaly
+    show_pma=true,            # Show proper motion anomaly
     show_mass=true            # Show mass posterior
 )
 ```
