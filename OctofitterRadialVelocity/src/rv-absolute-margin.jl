@@ -70,7 +70,7 @@ end
 export MarginalizedStarAbsoluteRVLikelihood
 
 
-function _getjitter(::MarginalizedStarAbsoluteRVLikelihood{TTable,TF,jitter_symbol}, θ_system) where {TTable,FT,jitter_symbol}
+function _getjitter(::MarginalizedStarAbsoluteRVLikelihood{TTable,TF,jitter_symbol}, θ_system) where {TTable,TF,jitter_symbol}
     jitter = getproperty(θ_system, jitter_symbol)
     return jitter
 end
