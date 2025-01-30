@@ -693,16 +693,9 @@ Base.@nospecializeinfer function advancedhmc(
     ϵ = find_good_stepsize(rng, hamiltonian, initial_θ_t)
     verbosity >= 3 && @info "Found initial stepsize" ϵ 
 
-    # Create integrator. Had best luck with JitteredLeapfrog but all perform similarily.
+    # Create integrator
     integrator = Leapfrog(ϵ)
     # integrator = JitteredLeapfrog(ϵ, 0.05) # 5% normal distribution on step size to help in areas of high curvature. 
-    # integrator = TemperedLeapfrog(ϵ, 1.05) 
-    
-    # This is an attempt at a custom integrator that scales down the step size
-    # as eccentricity grows.
-    # idx_ecc = only(findall(==(:e), list_parameter_names(model.system)))
-    # integrator = EccentricLeapfrog1(ϵ, idx_ecc)
-
 
     verbosity >= 3 && @info "Creating kernel"
     kernel = HMCKernel(Trajectory{MultinomialTS}(integrator, GeneralisedNoUTurn(;max_depth)))
@@ -711,11 +704,12 @@ Base.@nospecializeinfer function advancedhmc(
     verbosity >= 3 && @info "Creating adaptor"
     # if isnothing(result_pf)
     # if metric isa Pathfinder.RankUpdateEuclideanMetric
-    #     adaptor = StepSizeAdaptor(target_accept, integrator)
+        # adaptor = StepSizeAdaptor(target_accept, integrator)
     # else
         mma = MassMatrixAdaptor(metric)
         ssa = StepSizeAdaptor(target_accept, integrator)
         adaptor = StanHMCAdaptor(mma, ssa) 
+
     # end
     # end
 
@@ -723,7 +717,12 @@ Base.@nospecializeinfer function advancedhmc(
     # Turn on likelihood parallelism if we have ~15x more data than threads.
     # This is based on some local benchmarks. Spawning tasks takes about 450ns;
     # an orbit solve takes about 32ns, or 1/14 as long.
-    Octofitter._kepsolve_use_threads[] = Threads.nthreads() > 1 && _count_epochs(model.system) > 15
+    threads_avail = Threads.nthreads()
+    n_epochs = _count_epochs(model.system) 
+    Octofitter._kepsolve_use_threads[] = threads_avail > 1  && n_epochs > 15
+    if verbosity >= 1
+        @info "Kepler solver will use multiple threads: $(Octofitter._kepsolve_use_threads[] )" threads_avail n_epochs > 15
+    end
 
     initial_parameters = initial_θ_t
 
@@ -767,7 +766,7 @@ Base.@nospecializeinfer function advancedhmc(
     mean_tree_depth             = $mean_tree_depth
     max_tree_depth_frac         = $max_tree_depth_frac
     total_steps                 = $total_steps
-    μs/step                     = $(round(elapsed/total_steps*1e6,sigdigits=3))\
+    μs/step (approx.)           = $(round(elapsed/total_steps*1e6,sigdigits=3))\
     """)
 
     # Report some warnings if sampling did not work well
@@ -776,9 +775,9 @@ Base.@nospecializeinfer function advancedhmc(
     elseif ratio_divergent_transitions > 0.05
         @warn "Numerical errors encountered in more than 5% of iterations. Results are likely incorrect. Your model might have high curvature, and could be improved. Otherwise, increasing the target acceptance rate (second argument to `octofit`) might help" ratio_divergent_transitions
     end
-    if max_tree_depth_frac > 0.1
-        @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
-    end
+    # if max_tree_depth_frac > 0.1
+    #     @warn "Maximum tree depth hit in more than 10% of iterations (reduced efficiency)" max_tree_depth_frac
+    # end
 
     # Resolve the array back into the nested named tuple structure used internally.
     # Augment with some internal fields
@@ -977,8 +976,11 @@ function mcmcchain2result(model, chain, ii=(:))
             end
             return Symbol(pk) => namedtuple(nt_pl)
         end
-        return merge(namedtuple(nt_sys), (;planets=namedtuple(nt_planets)))
-        nt_sys
+        if length(planetkeys) > 0 
+            return merge(namedtuple(nt_sys), (;planets=namedtuple(nt_planets)))
+        else
+            return namedtuple(nt_sys)
+        end
     end
 end
 

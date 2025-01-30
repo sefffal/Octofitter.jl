@@ -181,7 +181,7 @@ end
 
 end rvlike b
 
-model = Octofitter.LogDensityModel(k2_132; autodiff=:ForwardDiff)
+model = Octofitter.LogDensityModel(k2_132)
 ```
 
 Sample from the model as before:

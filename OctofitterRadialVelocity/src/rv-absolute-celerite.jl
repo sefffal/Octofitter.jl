@@ -1,9 +1,9 @@
-
+using Celerite: Celerite
 # Radial Velocity data type
 const rv_cols = (:epoch, :rv, :σ_rv)
 
 """
-    StarAbsoluteRVLikelihood(
+StarAbsoluteRVLikelihood_Celerite(
         (;epoch=5000.0,  rv=−6.54, σ_rv=1.30),
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;epoch=5100.2,  rv=7.90,  σ_rv=.11),
@@ -25,14 +25,14 @@ RV zero-point and jitter of this instrument.
 
 In addition to the example above, any Tables.jl compatible source can be provided.
 """
-struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF,offset_symbol,jitter_symbol} <: Octofitter.AbstractLikelihood
+struct StarAbsoluteRVLikelihood_Celerite{TTable<:Table,GP,TF,offset_symbol,jitter_symbol} <: Octofitter.AbstractLikelihood
     table::TTable
     instrument_name::String
     gaussian_process::GP
     trend_function::TF
     offset_symbol::Symbol
     jitter_symbol::Symbol
-    function StarAbsoluteRVLikelihood(
+    function StarAbsoluteRVLikelihood_Celerite(
         observations...;
         offset,
         jitter,
@@ -45,7 +45,7 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF,offset_symbol,jitter_symbol}
             error("Expected columns $rv_cols")
         end
         if hasproperty(table, :inst_idx) && length(unique(table.inst_idx)) > 1
-            error("Deprecated: data from separate RV instruments should now be placed into different StarAbsoluteRVLikelihood likelihood objects, rather than specified by an inst_idx parameter.")
+            error("Deprecated: data from separate RV instruments should now be placed into different StarAbsoluteRVLikelihood_Celerite likelihood objects, rather than specified by an inst_idx parameter.")
         end
         rows = map(eachrow(table)) do row′
             row = (;row′[1]..., rv=float(row′[1].rv[1]))
@@ -58,12 +58,13 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF,offset_symbol,jitter_symbol}
         if isnothing(instrument_name)
             instrument_name = string.(1:maximum(table.inst_idx))
         end
+
         return new{typeof(table),typeof(gaussian_process),typeof(trend_function),offset, jitter, }(table, instrument_name, gaussian_process, trend_function, offset, jitter, )
     end
 end
-StarAbsoluteRVLikelihood(observations::NamedTuple...;kwargs...) = StarAbsoluteRVLikelihood(observations; kwargs...)
-function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVLikelihood, obs_inds)
-    return StarAbsoluteRVLikelihood(
+StarAbsoluteRVLikelihood_Celerite(observations::NamedTuple...;kwargs...) = StarAbsoluteRVLikelihood_Celerite(observations; kwargs...)
+function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVLikelihood_Celerite, obs_inds)
+    return StarAbsoluteRVLikelihood_Celerite(
         obs.table[obs_inds,:,1]...;
         offset=obs.offset_symbol,
         jitter=obs.jitter_symbol,
@@ -72,10 +73,10 @@ function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVLikelihood, obs
         gaussian_process=obs.gaussian_process,
     )
 end
-export StarAbsoluteRVLikelihood
+export StarAbsoluteRVLikelihood_Celerite
 
 
-function _getparams(::StarAbsoluteRVLikelihood{TTable,GP,TF,offset_symbol,jitter_symbol}, θ_system) where {TTable,GP,TF,offset_symbol,jitter_symbol}
+function _getparams(::StarAbsoluteRVLikelihood_Celerite{TTable,GP,TF,offset_symbol,jitter_symbol}, θ_system) where {TTable,GP,TF,offset_symbol,jitter_symbol}
     offset = getproperty(θ_system, offset_symbol)
     jitter = getproperty(θ_system, jitter_symbol)
     return (;offset, jitter)
@@ -85,7 +86,7 @@ end
 Absolute radial velocity likelihood (for a star).
 """
 function Octofitter.ln_like(
-    rvlike::StarAbsoluteRVLikelihood,
+    rvlike::StarAbsoluteRVLikelihood_Celerite,
     θ_system,
     planet_orbits::Tuple,
     orbit_solutions,
@@ -148,22 +149,31 @@ function Octofitter.ln_like(
             local gp
             try
                 gp = @inline rvlike.gaussian_process(θ_system)
+                Celerite.compute!(gp, rvlike.table.epoch, sqrt.(rv_var_buf))# TODO: is this std or var?
             catch err
-                if err isa PosDefException
-                    @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                    ll = convert(T,-Inf)
-                elseif err isa ArgumentError
-                    @warn "err" exception=(err, catch_backtrace()) maxlog=1
+                if err isa DomainError
                     ll = convert(T,-Inf)
                 else
                     rethrow(err)
                 end
-            end             
+            end
+
+            #     if err isa PosDefException
+            #         @warn "err" exception=(err, catch_backtrace()) maxlog=1
+            #         ll = convert(T,-Inf)
+            #     elseif err isa ArgumentError
+            #         @warn "err" exception=(err, catch_backtrace()) maxlog=1
+            #         ll = convert(T,-Inf)
+            #     else
+            #         rethrow(err)
+            #     end
+            # end             
             
             if isfinite(ll)
-                fx = gp(rvlike.table.epoch, rv_var_buf)
+                # fx = gp(rvlike.table.epoch, rv_var_buf)
                 try
-                    ll += logpdf(fx, rv_buf)
+                    # ll += logpdf(fx, rv_buf)
+                    ll += Celerite.log_likelihood(gp, rv_buf)
                 catch err
                     if err isa PosDefException || err isa DomainError
                         @warn "err" exception=(err, catch_backtrace()) θ_system
@@ -182,7 +192,7 @@ end
 
 
 # Generate new radial velocity observations for a star
-function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_system, orbits::Vector{<:Visual{KepOrbit}})
+function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood_Celerite, θ_system, orbits::Vector{<:Visual{KepOrbit}})
 
     # Get epochs, uncertainties, and planet masses from observations and parameters
     epochs = like.table.epoch 
@@ -194,13 +204,13 @@ function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_syst
     rvs = sum(rvs, dims=2)[:,1] .+ θ_system.rv
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
 
-    return StarAbsoluteRVLikelihood(radvel_table)
+    return StarAbsoluteRVLikelihood_Celerite(radvel_table)
 end
 
 
 
 # # Plot recipe for astrometry data
-# @recipe function f(rv::StarAbsoluteRVLikelihood)
+# @recipe function f(rv::StarAbsoluteRVLikelihood_Celerite)
    
 #     xguide --> "time (mjd)"
 #     yguide --> "radvel (m/s)"

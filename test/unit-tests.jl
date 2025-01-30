@@ -276,17 +276,13 @@ end
         gaia_id = 756291174721509376
         
         # Test basic constructor
-        hgca = HGCALikelihood(;gaia_id=gaia_id, N_ave=1)  # N_ave=1 for faster tests
+        hgca = HGCALikelihood(;gaia_id=gaia_id,)  
         @test hgca isa HGCALikelihood
         
-        # Check that data was loaded correctly
-        @test hasproperty(hgca.table, :epoch)
-        @test hasproperty(hgca.table, :meas)
-        @test hasproperty(hgca.table, :inst)
-        
         # Test epoch subsetting
-        subset = Octofitter.likeobj_from_epoch_subset(hgca, 1:2)
-        @test length(subset.table) == 2
+        # TODO: not yet supported
+        # subset = Octofitter.likeobj_from_epoch_subset(hgca, 1:2)
+        # @test_broken length(subset.table) == 2
     end
 
 end
@@ -671,7 +667,7 @@ end
         mass = 10
     end astrom_like
     gaia_id = 756291174721509376
-    hgca = HGCALikelihood(;gaia_id=gaia_id, N_ave=1)  # N_ave=1 for faster tests
+    hgca = HGCALikelihood(;gaia_id=gaia_id)  
     @system TestSystem begin
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
@@ -862,7 +858,7 @@ end
         (epoch=50000.0, ra=100.0, dec=50.0, σ_ra=1.0, σ_dec=1.0)
     )
     
-    hgca = HGCALikelihood(;gaia_id=756291174721509376, N_ave=1)
+    hgca = HGCALikelihood(;gaia_id=756291174721509376)
 
     @planet b Visual{KepOrbit} begin
         a ~ LogUniform(0.1, 10)

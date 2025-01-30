@@ -75,6 +75,7 @@ function _refine(model::LogDensityModel,initial_θ_t;verbosity=0)
     func = OptimizationFunction(
         (θ,model)->-model.ℓπcallback(θ),
         grad=(G,θ,model)->G.=.-model.∇ℓπcallback(θ)[2],
+        Optimization.OptimizationBase.DifferentiationInterface.SecondOrder(AutoForwardDiff(), AutoForwardDiff())
     )
     
     # Then iterate with qusi-Newton
@@ -85,9 +86,15 @@ function _refine(model::LogDensityModel,initial_θ_t;verbosity=0)
             m=6,
             linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
             alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
-        )
-    , g_tol=1e-12, show_trace=true, show_every=100, iterations=100000, allow_f_increases=true)
+        ),
+        # Newton(
+        #     linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
+        #     alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
+        # ),
+        # NelderMead(),
+        g_tol=1e-10, show_trace=true, show_every=100, iterations=100000, allow_f_increases=true)
     display(sol)
+    display(sol.original)
     θ_map2 = sol.u
 
     return θ_map2

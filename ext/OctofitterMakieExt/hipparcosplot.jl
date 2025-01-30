@@ -112,7 +112,6 @@ function hipparcosplot!(
         #     line_point_2 =  [hip_like.table.α✱ₘ[i][2], hip_like.table.δₘ[i][2]]
         #     Octofitter.distance_point_to_line(point, line_point_1, line_point_2)
         # end
-        display(extrema(sim.resid))
         scatter!(ax_resids, hip_like.table.epoch, sim.resid, markersize=4, color=:red, alpha=1)
 
         for i in 1:length(sim.resid)

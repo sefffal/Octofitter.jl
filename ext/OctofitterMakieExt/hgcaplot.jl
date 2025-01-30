@@ -311,7 +311,7 @@ function Octofitter.hgcaplot!(
         solutions = map(orbits) do orbit
             return orbitsolve.(orbit, hgca_like.table.epoch)
         end
-        sim = Octofitter._simulate_hgca(hgca_like, θ_system, orbits, solutions, 0)
+        sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, 0)
         push!(sims, sim)
     end
     # HIP Epoch

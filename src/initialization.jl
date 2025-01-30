@@ -226,6 +226,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
     # Pathfinder (and especially multipathfinder) do not work well with global optimization methods.
     # Instead, we do a two-step process. 
     # Find the global MAP point, then initialize multi-pathfinder in Gaussian ball around that point.
+    verbosity > 0 && @info "Performing a global optimization to search for a starting position, bounded to the 0.1% to 99.9% percentiles of the priors."
 
     priors = Octofitter._list_priors(model.system)
     lb = model.link(quantile.(priors,0.001))
@@ -236,7 +237,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
     )
     prob = Optimization.OptimizationProblem(f, model.link(quantile.(priors,0.5)), model; lb, ub)
     Random.seed!(rand(rng, UInt64))
-    sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters = 100_000, )
+    sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters = 1_000_000, )
     
     model.starting_points = fill(sol.u, 1000)
     initial_logpost_range = (-sol.objective, -sol.objective)

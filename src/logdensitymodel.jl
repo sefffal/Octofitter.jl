@@ -5,11 +5,9 @@ const forward_diff_gradient_result_key = gensym(:fdgradkey)
 
 # Define the target distribution using the `LogDensityProblem` interface
 # TODO: in future, just roll this all into the System type.
-mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp}
+mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp,ADType}
     # Dimensionality
     const D::Int
-    # Auto diff backend symbol (need to keep track of this for Pigeons)
-    const autodiff_backend_symbol::Symbol
     # Calculate the log-posterior density given transformed parameters
     const ℓπcallback::Tℓπ
     # Calculate the log-posterior density and gradient given transformed parameters
@@ -27,7 +25,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
     const sample_priors::TPriSamp
     # A set of starting points that can be sampled from to initialize a sampler, or nothing
     starting_points::Union{Nothing,Vector} 
-    function LogDensityModel(system::System; autodiff=:ForwardDiff, verbosity=0, chunk_sizes=nothing)
+    function LogDensityModel(system::System; autodiff=AutoForwardDiff(), verbosity=0, chunk_sizes=nothing)
         verbosity >= 1 && @info "Preparing model"
 
         sample_priors = make_prior_sampler(system)
@@ -42,6 +40,15 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # ln_prior = make_ln_prior(system)
         arr2nt = Octofitter.make_arr2nt(system) 
         ln_like_generated = make_ln_like(system, arr2nt(initial_θ_0))
+
+        # Check number type
+        θ_nt = arr2nt(initial_θ_0)
+        T = _system_number_type(θ_nt)
+        verbosity >= 2 && @info "Determined number type to use as T"
+        if !(T <: Real)
+            error("Error: inferred that you wanted to use $(T) as the number type, which is not supported. It must be a floating point number or similar. Check that all the variables you provided in your model are promotable to a float (e.g. not `nothing` or `missing`)")
+        end
+
 
         priors_vec = _list_priors(system)
         Bijector_invlinkvec = make_Bijector_invlinkvec(priors_vec)
@@ -68,7 +75,6 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             end
         end
         initial_θ_0_t = Bijector_linkvec(initial_θ_0)
-        arr2nt = Octofitter.make_arr2nt(system)
 
         # Test out model likelihood and prior computations. This way, if they throw
         # an error, we'll see it right away instead of burried in some deep stack
@@ -99,7 +105,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 arr2nt=arr2nt,
                 Bijector_invlinkvec=Bijector_invlinkvec,
                 ln_prior_transformed=ln_prior_transformed,
-                ln_like_generated=ln_like_generated;sampled=true)::eltype(θ_transformed)
+                ln_like_generated=ln_like_generated;sampled=true)#::eltype(θ_transformed)
 
                 lpost = zero(eltype(θ_transformed))
                 # Stop right away if we are given non-finite arguments
@@ -114,7 +120,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 lpost += @inline ln_prior_transformed(θ_natural,sampled)
                 # Don't compute likelihood if we fell outside the prior bounds
                 if !isfinite(lpost)
-                    @warn "non finite log prior (maxlog=1)" lpost maxlog=1
+                    # @warn "non finite log prior (maxlog=1)" lpost maxlog=1
                     return lpost
                 end
                 lpost += @inline ln_like_generated(system, θ_structured)
@@ -140,162 +146,24 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             )
             # Test likelihood function immediately to give user a clean error
             # if it fails for some reason.
-            ℓπcallback(initial_θ_0_t,args...)
             # Also Display their run time. If something is egregiously wrong we'll notice something
             # here in the output logs.
             if verbosity >= 1
-                (function(ℓπcallback, θ, args)
-                    @showtime ℓπcallback(θ, args...)
-                end)(ℓπcallback, initial_θ_0_t, args)
+                (function(ℓπcallback, θ)
+                    @showtime ℓπcallback(θ)
+                end)(ℓπcallback, initial_θ_0_t)
             end
 
-            if autodiff == :Enzyme
-                if !isdefined(Main, :Enzyme)
-                    error("To use the :Enzyme autodiff backend, load the Enzyme package first: `using Enzyme`")
+
+            ∇ℓπcallback =
+            let ℓπcallback=ℓπcallback,
+                autodiff=autodiff,
+                prep = prepare_gradient(ℓπcallback, autodiff, zero(initial_θ_0_t)),
+                grad = similar(initial_θ_0_t)
+                function(initial_θ_0_t)
+                    return value_and_gradient!(ℓπcallback, grad, prep, autodiff, initial_θ_0_t)
                 end
-                # Enzyme mode:
-                ∇ℓπcallback = let Enzyme=Main.Enzyme, diffresult = copy(initial_θ_0_t), system=system, system_shadow=deepcopy(system), ℓπcallback=ℓπcallback
-                    oh = Enzyme.onehot(diffresult)
-                    forward = function (θ_t)
-                        primal, out = Enzyme.autodiff(
-                            Enzyme.Forward,
-                            ℓπcallback,
-                            Enzyme.BatchDuplicated,
-                            Enzyme.BatchDuplicated(θ_t,oh),
-                            Enzyme.Const.(args)...
-                            # Enzyme.Const(system),
-                            # Enzyme.Const(arr2nt),
-                            # Enzyme.Const(Bijector_invlinkvec),
-                            # Enzyme.Const(ln_prior_transformed),#ln_prior_transformed_dup,
-                            # Enzyme.Const(ln_like_generated),#ln_like_generated_dup,
-                        )
-                        diffresult .= tuple(out...)
-                        return primal, diffresult
-                    end
-                    # reverse = function (θ_t)
-                    #     fill!(diffresult,0)
-                    #     θ_t_dup  = Enzyme.Duplicated(θ_t,diffresult)
-                    #     # system_dup  = Enzyme.Duplicated(system,deepcopy(system))
-                    #     # arr2nt_dup  = Enzyme.Duplicated(arr2nt, deepcopy(arr2nt))
-                    #     # Bijector_invlinkvec_dup  = Enzyme.Duplicated(Bijector_invlinkvec, deepcopy(Bijector_invlinkvec))
-                    #     # ln_prior_transformed_dup  = Enzyme.Duplicated(ln_prior_transformed, deepcopy(ln_prior_transformed))
-                    #     # ln_like_generated_dup  = Enzyme.Duplicated(ln_like_generated, deepcopy(ln_like_generated))
-                    #     out, primal = Enzyme.autodiff(
-                    #         # Enzyme.Reverse,
-                    #         Enzyme.ReverseWithPrimal,
-                    #         (ℓπcallback),
-                    #         θ_t_dup,
-                    #         # Enzyme.Duplicated.(args, deepcopy.(args))...
-                    #         # Enzyme.Const(system,),# system_dup, #Enzyme.Const(system,),
-                    #         # Enzyme.Const(arr2nt,),# arr2nt_dup, #Enzyme.Const(arr2nt,),
-                    #         Enzyme.Const(Bijector_invlinkvec,),# Bijector_invlinkvec_dup, #Enzyme.Const(Bijector_invlinkvec,),
-                    #         # Enzyme.Const(ln_prior_transformed,),# ln_prior_transformed_dup, #Enzyme.Const(ln_prior_transformed,),
-                    #         # Enzyme.Const(ln_like_generated,),# ln_like_generated_dup, #Enzyme.Const(ln_like_generated,),
-                    #     )
-                    #     return primal, diffresult
-                    # end 
-                    # tforward = minimum(
-                    #     @elapsed forward(initial_θ_0_t)
-                    #     for _ in 1:100
-                    # )
-                    # treverse = minimum(
-                    #     @elapsed reverse(initial_θ_0_t)
-                    #     for _ in 1:100
-                    # )
-                    # if tforward > treverse
-                    #     verbosity > 2  && @info "selected reverse mode AD" tforward treverse
-                    #     reverse
-                    # else
-                    #     verbosity > 2  && @info "selected forward mode AD" tforward treverse
-                    #     forward
-                    # end
-                end
-
-            elseif autodiff == :FiniteDiff
-            
-                ∇ℓπcallback = let ℓπcallback=ℓπcallback, D=D
-                    function (θ_t)
-                        val = ℓπcallback(θ_t)
-                        grad= Main.FiniteDiff.finite_difference_gradient(ℓπcallback, θ_t)
-                        return val, grad
-                    end
-                end
-            
-            elseif autodiff == :Zygote
-
-                # Zygote mode:
-                ∇ℓπcallback = function (θ_t)
-                    Main.Zygote.gradient(ℓπcallback, θ_t)
-                end
-
-            elseif autodiff == :ForwardDiff
-
-                # https://juliadiff.org/ForwardDiff.jl/stable/user/advanced/#Fixing-NaN/Inf-Issues
-
-                # Test likelihood function gradient immediately to give user a clean error
-                # if it fails for some reason.
-                ForwardDiff.gradient(ℓπcallback, initial_θ_0_t)
-
-                # ForwardDiff mode:
-                # Create temporary storage space for gradient computations
-                diffresult = DiffResults.GradientResult(collect(initial_θ_0_t))
-
-                # Perform dynamic benchmarking to pick a ForwardDiff chunk size.
-                # We're going to call this thousands of times so worth a few calls
-                # to get this optimized.
-                if isnothing(chunk_sizes)
-                    if D < 100
-                        # If less than 20 dimensional, a single chunk with ForwardDiff
-                        # is almost always optimial.
-                        chunk_sizes = D
-                    else
-                        chunk_sizes = unique([1; D÷4; D])
-                    end
-                end
-                ideal_chunk_size_i = argmin(map(chunk_sizes) do chunk_size
-                    cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{chunk_size}());
-                    ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg, Val{false}())
-                    t = minimum(
-                        @elapsed ForwardDiff.gradient!(diffresult, ℓπcallback, initial_θ_0_t, cfg, Val{false}())
-                        for _ in 1:10
-                    )
-
-                    verbosity >= 3 && @info "Tuning autodiff" chunk_size t
-                    return t
-                end)
-                ideal_chunk_size =  chunk_sizes[ideal_chunk_size_i]
-                verbosity >= 1 && @info "Selected auto-diff chunk size" ideal_chunk_size
-
-                cfg = ForwardDiff.GradientConfig(ℓπcallback, initial_θ_0_t, ForwardDiff.Chunk{ideal_chunk_size}());
-                ∇ℓπcallback = let   cfg=cfg,
-                                    ℓπcallback=ℓπcallback,
-                                    D=D,
-                                    initial_θ_0_t=initial_θ_0_t
-
-                    function (θ_transformed)
-                        
-                        grad = ForwardDiff.gradient(ℓπcallback, θ_transformed, cfg, Val{false}())
-                        return ℓπcallback(θ_transformed), grad
-
-                        # TDiffRes = DiffResults.MutableDiffResult{1, Float64, Tuple{Vector{Float64}}}
-
-                        # diffres::TDiffRes = get!(
-                        #     () -> DiffResults.GradientResult(zeros(Float64, D))::TDiffRes,
-                        #     task_local_storage(),
-                        #     Symbol(forward_diff_gradient_result_key,D)
-                        # )
-                        
-                        # # Explicitly clear/reset the buffer before each use
-                        # fill!(DiffResults.gradient(diffres), zero(eltype(initial_θ_0_t)))
-                        
-                        # ForwardDiff.gradient!(diffres, ℓπcallback, θ_transformed, cfg, Val{false}())
-                        # return DiffResults.value(diffres), DiffResults.gradient(diffres)
-                    end
-                end
-            else
-                error("Unsupported option for autodiff: $autodiff. Valid options are :ForwardDiff (default), :Enzyme, and :Zygote.")
             end
-
 
             # Run the callback once right away. If there is a coding error in the users 
             # model, we want to surface it ASAP.
@@ -341,7 +209,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             @warn "\nThis model's likelihood function does not appear to be type stable, which will likely hurt sampling performance.\nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub." out_type_prior out_type_like out_type_arr2nt out_type_model
         end
         if !isconcretetype(out_type_arr2nt)
-            @warn "\nThis model specification is not type-stable, which will likely hurt sampling performance.\nCheck for global variables used within your model definition, and prepend these with `\$`.\nIf that doesn't work, you could trying running:\n`@code_warntype model.arr2nt(randn(model.D))` for a bit more information.\nFor assistance, please file an issue on GitHub." out_type_prior out_type_like out_type_arr2nt out_type_model
+            @warn "\nThis model specification is not type-stable, which will likely hurt sampling performance.\nCheck for global variables used within your model definition, and prepend these with `\$`.\nIf that doesn't work, you could trying running:\n`Cthulhu.@descend model.arr2nt(model.sample_priors(Random.Xoshiro(0)))` for more information.\nFor assistance, please file an issue on GitHub." out_type_prior out_type_like out_type_arr2nt out_type_model
         end
 
         # Return fully concrete type wrapping all these functions
@@ -353,10 +221,10 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             typeof(Bijector_linkvec),
             typeof(Bijector_invlinkvec),
             typeof(arr2nt),
-            typeof(sample_priors)
+            typeof(sample_priors),
+            autodiff # an ADType
         }(
             D,
-            autodiff,
             ℓπcallback,
             ∇ℓπcallback,
             system,

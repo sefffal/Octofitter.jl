@@ -9,12 +9,14 @@ using AbstractMCMC
 using AdvancedHMC
 using NamedTupleTools
 using ForwardDiff
+using DifferentiationInterface
 using Logging
 using Statistics
 using StatsBase
 using NamedTupleTools
 using OrderedCollections
 using KernelDensity
+using LinearAlgebra
 
 # Many users are unfamiliar with Julia, and they want to load their data from CSV.
 # We export the CSV package to help them on their journey.
@@ -52,9 +54,13 @@ include("likelihoods/system.jl")
 include("likelihoods/relative-astrometry.jl")
 include("likelihoods/photometry.jl")
 include("likelihoods/hgca.jl")
-include("likelihoods/gaia.jl")
-include("likelihoods/gaia-new3.jl")
+include("likelihoods/gaia-linefit.jl")
+include("likelihoods/gaia-cor.jl")
+include("likelihoods/gaia-ueva.jl")
+include("likelihoods/gaia.jl") # remove this
 include("likelihoods/hipparcos.jl")
+include("likelihoods/hgca-linfit.jl")
+
 include("likelihoods/observable.jl")
 
 
@@ -80,7 +86,37 @@ function octofit_pigeons end
 
 export octofit_pigeons
 
+
+include_dependency("../Project.toml")
+const ROOT_DIR = normpath(joinpath(@__DIR__, ".."))
+const OCTO_VERSION = VersionNumber(TOML.parsefile(joinpath(ROOT_DIR, "Project.toml"))["version"])
+const OCTO_VERSION_STR = "v$(string(OCTO_VERSION))"
+
 function __init__()
+
+    if isinteractive() && get(ENV, "CI", "") != "true" 
+        @info """\
+Welcome to Octofitter $(OCTO_VERSION_STR) 🐙
+Check for new releases: https://github.com/sefffal/Octofitter.jl/releases/tag/v5.2.1
+Read the documentation: https://sefffal.github.io/Octofitter.jl/dev/
+"""
+    end
+
+    # if running on a Mac, prompt users to load AppleAccelerate
+    if Sys.isapple()
+        apple_accelerate_loaded = 
+            any(contains("Accelerate.framework"), getfield.(BLAS.get_config().loaded_libs, :libname))
+        if !apple_accelerate_loaded && isinteractive() && get(ENV, "CI", "") != "true" 
+            @info """\
+Note for macOS users of Octofitter: Some models may run faster if you use Apple's optimized math libraries.
+To enable these optimizations, run:
+
+    julia> using AppleAccelerate
+
+Place `using AppleAccelerate` at the start of your script to suppress this message.
+            """
+        end
+    end
 
     # Some octofitter likelihoods can cause errors when nansafe_mode isn't set to true.
     set_preferences!(ForwardDiff, "nansafe_mode" => true)

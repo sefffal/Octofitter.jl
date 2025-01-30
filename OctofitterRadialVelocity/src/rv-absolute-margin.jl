@@ -30,11 +30,17 @@ zero points, hierarchical models, etc, you should use `StarAbsoluteRVLikelihood`
 
 Additionally, a gaussian and trend fit are not supported with the analytically marginalization.
 """
-struct MarginalizedStarAbsoluteRVLikelihood{TTable<:Table,jitter_symbol} <: Octofitter.AbstractLikelihood
+struct MarginalizedStarAbsoluteRVLikelihood{TTable<:Table,TF,jitter_symbol} <: Octofitter.AbstractLikelihood
     table::TTable
     instrument_name::String
+    trend_function::TF
     jitter_symbol::Symbol
-    function MarginalizedStarAbsoluteRVLikelihood(observations...; jitter, instrument_name=nothing)
+    function MarginalizedStarAbsoluteRVLikelihood(
+        observations...;
+        jitter,
+        instrument_name=nothing,
+        trend_function=(θ_system, epoch)->zero(Octofitter._system_number_type(θ_system)),
+    )
         table = Table(observations...)
         if !issubset(rv_cols, Tables.columnnames(table))
             error("Expected columns $rv_cols")
@@ -49,17 +55,22 @@ struct MarginalizedStarAbsoluteRVLikelihood{TTable<:Table,jitter_symbol} <: Octo
         if isnothing(instrument_name)
             instrument_name = ""
         end
-        return new{typeof(table),jitter}(table, instrument_name, jitter)
+        return new{typeof(table),typeof(trend_function),jitter}(table, instrument_name, trend_function, jitter)
     end
 end
 MarginalizedStarAbsoluteRVLikelihood(observations::NamedTuple...;kwargs...) = MarginalizedStarAbsoluteRVLikelihood(observations; kwargs...)
 function Octofitter.likeobj_from_epoch_subset(obs::MarginalizedStarAbsoluteRVLikelihood, obs_inds)
-    return MarginalizedStarAbsoluteRVLikelihood(obs.table[obs_inds,:,1]...; jitter=obs.jitter_symbol, instrument_name=obs.instrument_name)
+    return MarginalizedStarAbsoluteRVLikelihood(
+        obs.table[obs_inds,:,1]...;
+        jitter=obs.jitter_symbol,
+        trend_function=obs.trend_function,
+        instrument_name=obs.instrument_name,
+    )
 end
 export MarginalizedStarAbsoluteRVLikelihood
 
 
-function _getjitter(::MarginalizedStarAbsoluteRVLikelihood{TTable,jitter_symbol}, θ_system) where {TTable,jitter_symbol}
+function _getjitter(::MarginalizedStarAbsoluteRVLikelihood{TTable,TF,jitter_symbol}, θ_system) where {TTable,jitter_symbol}
     jitter = getproperty(θ_system, jitter_symbol)
     return jitter
 end
@@ -92,6 +103,9 @@ function Octofitter.ln_like(
         fill!(resid, 0)
         resid .+= rvs
         # Start with model ^
+
+        # Subtract trend function
+        resid .-= rvlike.trend_function(θ_system, rvlike.table.epoch)
 
         # Go through all planets and subtract their modelled influence on the RV signal:
         for planet_i in eachindex(planet_orbits)

@@ -4,6 +4,7 @@ using Distributions, Logging, ForwardDiff
 # to make sure everything we need is precompiled is just to
 # run a super (super) quick fit during precompilation.
 using PrecompileTools
+using DifferentiationInterface
 
 # define methods, types, etc
 
@@ -38,7 +39,7 @@ using PrecompileTools
 
             # We can't yet use Enzyme during precompile...
             # Precopmile with ForwardDiff at least
-            model = Octofitter.LogDensityModel(Test,autodiff=:ForwardDiff)
+            model = Octofitter.LogDensityModel(Test,autodiff=AutoForwardDiff())
 
 
             output = octofit(
