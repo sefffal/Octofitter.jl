@@ -8,7 +8,7 @@
 # Hence, our table just includes those two values.
 
 """
-    HGCAInstantaneousLikelihood(;gaia_id=1234,N_ave=1)
+    HGCALikelihood(;gaia_id=1234,N_ave=1)
 
 Model Hipparcos-Gaia Catalog of Accelerations (Brandt et al) data using a full model of the Gaia and Hipparcos
 measurement process and linear models.
@@ -22,6 +22,7 @@ struct HGCALikelihood{TTable<:Table,THGCA,THip,TGaia,fluxratio_var} <: AbstractL
     hiplike::THip
     gaialike::TGaia
     fluxratio_var::Symbol
+    include_dr3_vel::Bool
 end
 
 function _getparams(::HGCALikelihood{TTable,THGCA,THip,TGaia,fluxratio_var}, θ_planet) where {TTable,THGCA,THip,TGaia,fluxratio_var}
@@ -32,7 +33,7 @@ function _getparams(::HGCALikelihood{TTable,THGCA,THip,TGaia,fluxratio_var}, θ_
     return (;fluxratio)
 end
 
-function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits",)
+function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits", include_dr3_vel=true)
 
     # Load the HCGA
     hgca = FITS(hgca_catalog, "r") do fits
@@ -115,7 +116,7 @@ function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"
         typeof(hip_like),
         typeof(gaia_like),
         fluxratio_var,
-    }(table, hgca, hip_like, gaia_like, fluxratio_var)
+    }(table, hgca, hip_like, gaia_like, fluxratio_var, include_dr3_vel)
 
 end
 
@@ -156,7 +157,9 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, 
         2hgca_like.hgca.nonlinear_dpmdec,
     ]
 
-    ll += logpdf(hgca_like.hgca.dist_gaia, μ_g)
+    if hgca_like.include_dr3_vel
+        ll += logpdf(hgca_like.hgca.dist_gaia, μ_g)
+    end
     ll += logpdf(hgca_like.hgca.dist_hip, μ_h)
     ll += logpdf(hgca_like.hgca.dist_hg, μ_hg)
 
