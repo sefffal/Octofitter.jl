@@ -18,6 +18,9 @@ struct PhotometryLikelihood{TTable<:Table} <: AbstractLikelihood
     table::TTable
     function PhotometryLikelihood(observations...)
         table = Table(observations...)
+        if !equal_length_cols(table)
+            error("The columns in the input data do not all have the same length")
+        end
         if !issubset(phot_cols, Tables.columnnames(table))
             error("Expected columns $phot_cols")
         end

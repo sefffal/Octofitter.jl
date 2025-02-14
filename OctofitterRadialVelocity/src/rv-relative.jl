@@ -23,6 +23,9 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP,jitter_symbol} <: Octofitter.
     jitter_symbol::Symbol
     function PlanetRelativeRVLikelihood(observations...; instrument_name="1", gaussian_process=nothing, jitter)
         table = Table(observations...)
+        if !Octofitter.equal_length_cols(table)
+            error("The columns in the input data do not all have the same length")
+        end
         if !issubset(rv_cols, Tables.columnnames(table))
             error("Expected columns $rv_cols")
         end

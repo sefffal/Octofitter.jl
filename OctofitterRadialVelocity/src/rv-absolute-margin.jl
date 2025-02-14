@@ -42,6 +42,9 @@ struct MarginalizedStarAbsoluteRVLikelihood{TTable<:Table,TF,jitter_symbol} <: O
         trend_function=(θ_system, epoch)->zero(Octofitter._system_number_type(θ_system)),
     )
         table = Table(observations...)
+        if !Octofitter.equal_length_cols(table)
+            error("The columns in the input data do not all have the same length")
+        end
         if !issubset(rv_cols, Tables.columnnames(table))
             error("Expected columns $rv_cols")
         end

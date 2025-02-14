@@ -40,6 +40,9 @@ struct StarAbsoluteRVLikelihood_Celerite{TTable<:Table,GP,TF,offset_symbol,jitte
         gaussian_process=nothing
     )
         table = Table(observations...)
+        if !Octofitter.equal_length_cols(table)
+            error("The columns in the input data do not all have the same length")
+        end
         if !issubset(rv_cols, Tables.columnnames(table))
             error("Expected columns $rv_cols")
         end

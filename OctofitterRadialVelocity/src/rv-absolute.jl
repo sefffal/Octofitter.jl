@@ -58,6 +58,9 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF,offset_symbol,jitter_symbol}
         if isnothing(instrument_name)
             instrument_name = string.(1:maximum(table.inst_idx))
         end
+        if !Octofitter.equal_length_cols(table)
+            error("The columns in the input data do not all have the same length")
+        end
         return new{typeof(table),typeof(gaussian_process),typeof(trend_function),offset, jitter, }(table, instrument_name, gaussian_process, trend_function, offset, jitter, )
     end
 end

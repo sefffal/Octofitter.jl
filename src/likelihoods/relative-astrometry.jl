@@ -20,6 +20,9 @@ struct PlanetRelAstromLikelihood{TTable<:Table} <: AbstractLikelihood
     table::TTable
     function PlanetRelAstromLikelihood(observations...)
         table = Table(observations...)
+        if !equal_length_cols(table)
+            error("The columns in the input data do not all have the same length")
+        end
         if !issubset(astrom_cols1, Tables.columnnames(table)) && 
            !issubset(astrom_cols3, Tables.columnnames(table))
             error("Expected columns $astrom_cols1 or $astrom_cols3")
