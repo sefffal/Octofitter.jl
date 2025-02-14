@@ -22,6 +22,8 @@ function Octofitter.octocorner(
     # Optionally include additional columns
     includecols=String[],
     excludecols=String[],
+    bottomleft=true,
+    topright=false,
     kwargs...
 )
     labels_gen = Dict{Symbol,Any}(
@@ -47,7 +49,7 @@ function Octofitter.octocorner(
     function preparechain(chain)
         prepped = _preparechain(chain)
         name = hasproperty(chain.info, :model_name) ? string(chain.info.model_name) : string(system.name)
-        pair = PairPlots.Series(prepped,label=name,color=colors[mod1(colori,end)]) => viz
+        pair = PairPlots.Series(prepped,label=name,color=colors[mod1(colori,end)]; topright, bottomleft) => viz
         colori += 1
         return pair
     end
