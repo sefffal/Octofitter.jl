@@ -34,7 +34,29 @@ save("orbit_plot.png", fig, px_per_unit=3)  # Higher resolution PNG
 function Octofitter.octoplot(
     model::Octofitter.LogDensityModel,
     results::Chains;
+    figure=(;),
     fname="$(model.system.name)-plot-grid.png",
+    kwargs...
+)
+    fig = Figure(;
+        figure...
+    )
+    Octofitter.octoplot!(fig.layout,model,results;kwargs...)
+
+
+    try
+        Makie.resize_to_layout!(fig)
+    catch
+        @warn "Erorr occurred with resize_to_layout!"
+    end
+
+    save(fname, fig)
+    return fig
+end
+function Octofitter.octoplot!(
+    fig::Makie.GridLayout,
+    model::Octofitter.LogDensityModel,
+    results::Chains;
     show_astrom=nothing,
     show_physical_orbit=nothing,
     show_astrom_time=nothing,
@@ -45,7 +67,6 @@ function Octofitter.octoplot(
     show_hipparcos=nothing,
     residuals=false,
     mark_epochs_mjd=Float64[],
-    figure=(;),
     # If less than 500 samples, just show all of them
     N  = min(size(results, 1)*size(results, 3), 250),
     ts = nothing,
@@ -268,9 +289,6 @@ function Octofitter.octoplot(
         end
     end
     
-    fig = Figure(;
-        figure...
-    )
     # Show a colorbar for only the first sub-plot, and don't repeat it.
     top_time_axis = true
     item = 0
@@ -427,7 +445,7 @@ function Octofitter.octoplot(
         Octofitter.masspostplot!(gl, model, results;)
         Makie.rowgap!(gl, 10.)
     end
-    Makie.rowgap!(fig.layout, 10.)
+    Makie.rowgap!(fig, 10.)
 
 
     if !isempty(axes_to_link)
@@ -437,14 +455,6 @@ function Octofitter.octoplot(
             ax.yticklabelspace = yspace + 30
         end
     end
-
-    try
-        Makie.resize_to_layout!(fig)
-    catch
-        @warn "Erorr occurred with resize_to_layout!"
-    end
-
-    save(fname, fig)
 
     return fig
 end
