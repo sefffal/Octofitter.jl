@@ -25,7 +25,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
     const sample_priors::TPriSamp
     # A set of starting points that can be sampled from to initialize a sampler, or nothing
     starting_points::Union{Nothing,Vector} 
-    function LogDensityModel(system::System; autodiff=AutoForwardDiff(), verbosity=0, chunk_sizes=nothing)
+    function LogDensityModel(system::System; autodiff=nothing, verbosity=0, chunk_sizes=nothing)
         verbosity >= 1 && @info "Preparing model"
 
         sample_priors = make_prior_sampler(system)
@@ -35,6 +35,9 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         D = length(initial_θ_0)
         verbosity >= 2 && @info "Determined number of free variables" D
 
+        if isnothing(autodiff)
+            autodiff = AutoForwardDiff(chunksize=D)
+        end
 
         ln_prior_transformed = make_ln_prior_transformed(system)
         # ln_prior = make_ln_prior(system)
