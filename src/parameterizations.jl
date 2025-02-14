@@ -98,23 +98,87 @@ function θ_sep_at_epoch_to_tperi_sma(system,planet,theta_epoch)
     ν = atan(y_over_r,x_over_r)
 
     # Mean anomaly (see Wikipedia page)
+    if !(0 < e  < 1)
+        # @show planet.sqrtecosω
+        # @show planet.sqrtesinω
+        # @show planet.ω
+        # @show e
+        return NaN, NaN
+    end
     MA = atan(-sqrt(1-e^2)*sin(ν), -e-cos(ν))+π-e*sqrt(1-e^2)*sin(ν)/(1+e*cos(ν))
 
     # r = a*(1 - e^2)/(1 + ecosν)
+    # # r_unit = (1 - e^2)/(1 + e*cos(ν))
     # r_unit = (1 - e^2)/(1 + e*cos(ν))
-    r_unit = (1 - e^2)/(1 + e*cos(ν))
 
-    # unitless projection vectors for case of a=1
-    xcart_unit = r_unit*(cos(ν+ω)*sin(Ω) + sin(ν+ω)*cos(i)*cos(Ω))
-    ycart_unit = r_unit*(cos(ν+ω)*cos(Ω) - sin(ν+ω)*cos(i)*sin(Ω))
-    zcart_unit = r_unit*(sin(ν+ω)*sin(i))
+    # # unitless projection vectors for case of a=1
+    # xcart_unit = r_unit*(cos(ν+ω)*sin(Ω) + sin(ν+ω)*cos(i)*cos(Ω))
+    # ycart_unit = r_unit*(cos(ν+ω)*cos(Ω) - sin(ν+ω)*cos(i)*sin(Ω))
+    # zcart_unit = r_unit*(sin(ν+ω)*sin(i))
 
     
-    # scale a until projected sep matches variable
+    # # # scale a until projected sep matches variable
     dist = 1000/plx * PlanetOrbits.pc2au
     cart2angle = PlanetOrbits.rad2as*1e3/dist
-    sep_unit = sqrt(xcart_unit^2 + ycart_unit^2)*cart2angle
-    a = sep/sep_unit
+    # sep_unit = sqrt(xcart_unit^2 + ycart_unit^2 + zcart_unit^2)*cart2angle
+    # a = sep/sep_unit
+    # # @show a
+
+    # So we had the direction, now we have the mean anomaly.
+    # We know the separation of a 1AU orbit at that mean anomaly 
+    # Then we scan the orbit SMA in AU to match
+    
+    
+    # Compute eccentric anomaly 
+    # Ideally we will adjust our actual orbit parameterization to prevent
+    # calculating this twice
+    # EA = kepler_solver(MA, eccentricity(elem))
+    
+    # Calculate true anomaly
+    # ν = 2*atan(elem.parent.ν_fact*tan(EA/2))
+ 
+    #  return orbitsolve_ν(elem, ν, EA)
+
+
+    sinν_ω, cosν_ω = sincos(ω + ν)
+    sinΩ, cosΩ = sincos(Ω)
+    ecosν = e*cos(ν)
+    cosi = cos(i)
+
+    # p = a*oneminusesq # semi-latus rectum [AU]
+    # r = p/(1 + ecosν)
+    # xcart = r*(cosν_ω*sinΩ + sinν_ω*cosi*cosΩ) # [AU]
+    # ycart = r*(cosν_ω*cosΩ - sinν_ω*cosi*sinΩ) # [AU]
+    # # Now we have sep in 
+    # sep_au = sqrt(xcart^2 + ycart^2)
+    # sep_mas = sep_au*cart2angle
+
+    ####
+
+    sep_au = sep/cart2angle
+    # sep_au = sqrt(
+    #     (r*(cosν_ω*sinΩ + sinν_ω*cosi*cosΩ))^2 + 
+    #     (r*(cosν_ω*cosΩ - sinν_ω*cosi*sinΩ))^2
+    # )
+    # sep_au = r*sqrt(
+    #     (cosν_ω*sinΩ + sinν_ω*cosi*cosΩ)^2 +
+    #     (cosν_ω*cosΩ - sinν_ω*cosi*sinΩ)^2
+    # )
+    r = sep_au / sqrt(
+        (cosν_ω*sinΩ + sinν_ω*cosi*cosΩ)^2 +
+        (cosν_ω*cosΩ - sinν_ω*cosi*sinΩ)^2
+    )
+    # r = p/(1 + ecosν)
+    p = r*(1+ecosν)
+    oneminusesq = (1 - e^2)
+    # p = a*oneminusesq # semi-latus rectum [AU]
+    # p = a*oneminusesq # semi-latus rectum [AU]
+    a = p/oneminusesq
+
+    # @show a
+
+
+
 
     period_days = √(a^3/M)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
     period_yrs = period_days/PlanetOrbits.year2day_julian
