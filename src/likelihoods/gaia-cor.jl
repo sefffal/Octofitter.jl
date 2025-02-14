@@ -227,13 +227,6 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
             orbit_solutions_i_epoch_start, T
         )
     end
-    # out = fit_4param(
-    #     gaialike.table[istart:iend],
-    #     Δα_mas,
-    #     Δδ_mas,
-    #     meta_gaia_DR3.ref_epoch_mjd,
-    #     meta_gaia_DR3.ref_epoch_mjd,
-    # )
     # Δα, Δδ, Δμα, Δμδ = out.parameters
     out = fit_4param_prepared(gaialike.A_prepared_4_dr3, gaialike.table, Δα_mas, Δδ_mas)
     Δα, Δδ, Δμα, Δμδ = out.parameters
@@ -242,102 +235,7 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
         # gaialike.dr3.dec + Δδ/60/60/1000/cosd(gaialike.dr3.dec),
         θ_system.pmra+Δμα, #gaialike.dr3.pmra+Δμα,
         θ_system.pmdec+Δμδ, #gaialike.dr3.pmdec+Δμδ
-    ] 
-
-
-                # # TODO: multi-planets
-                # planet_mass_msol = θ_system.planets.b.mass*Octofitter.mjup2msol
-                # Δα_mas, Δδ_mas = _simulate_skypath_observations(
-                #     gaialike,
-                #     only(orbits),
-                #     planet_mass_msol,
-                #     gaialike.dr3.ra,
-                #     gaialike.dr3.dec,
-                #     orbit_solutions, orbit_solutions_i_epoch_start,
-                # )
-                # # display(Main.scatter(Δα_mas, Δδ_mas))
-                # # gaialike,
-                # # sample_orbit::AbsoluteVisual,
-                # # planet_mass_msol,
-                # # orbit_solutions, orbit_solutions_i_epoch_start, T=Float64;
-
-                # # Δα_mas = (α_model .- gaialike.dr3.ra)*60*60*1000
-                # # Δδ_mas = (δ_model .- gaialike.dr3.dec)*60*60*1000*cosd(gaialike.dr3.dec)
-                # # display(Main.scatter(Δα_mas, Δδ_mas))
-
-                # out = fit_5param(
-                #     gaialike.table[istart:iend],
-                #     Δα_mas,
-                #     Δδ_mas,
-                #     meta_gaia_DR3.ref_epoch_mjd,
-                #     meta_gaia_DR3.ref_epoch_mjd,
-                # )
-                # Δα, Δδ, Δplx, Δμα, Δμδ= out.parameters
-                # modelled_gaia_parameters_dr3 = [
-                #     gaialike.dr3.ra + Δα,
-                #     gaialike.dr3.dec + Δδ,
-                #     Δμα, #gaialike.dr3.pmra+Δμα,
-                #     Δμδ, #gaialike.dr3.pmdec+Δμδ
-                # ] 
-
-                # o = only(orbits)
-                # o2 = orbit(
-                #     plx=o.plx,
-                #     ra=o.ra+Δα/60/60/1000,
-                #     dec=o.dec+Δδ/60/60/1000/cosd(gaialike.dr3.dec),
-                #     pmra=o.pmra+Δμα,
-                #     pmdec=o.pmdec+Δμδ,
-                #     ref_epoch=o.ref_epoch,
-                #     rv=o.rv,
-                #     M=o.parent.M,
-                #     a=o.parent.a,
-                #     e=o.parent.e,
-                #     i=o.parent.i,
-                #     ω=o.parent.ω,
-                #     Ω=o.parent.Ω,
-                #     tp=o.parent.tp,
-                # )
-                # display(o)
-                # display(o2)
-
-                # Δα_mas2, Δδ_mas2 = _simulate_skypath_observations(
-                #     gaialike,
-                #     o2,
-                #     planet_mass_msol,
-                #     gaialike.dr3.ra,
-                #     gaialike.dr3.dec,
-                #     orbit_solutions, orbit_solutions_i_epoch_start,
-                # )
-                # fap = Main.scatter(Δα_mas, Δδ_mas)
-                # # displa y(Main.scatter(Δα_mas, Δδ_mas))
-                # Main.scatter!(Δα_mas2, Δδ_mas2)
-                # display(fap)
-                # # gaialike,
-                # # sample_orbit::AbsoluteVisual,
-                # # planet_mass_msol,
-                # # orbit_solutions, orbit_solutions_i_epoch_start, T=Float64;
-
-                # # Δα_mas = (α_model .- gaialike.dr3.ra)*60*60*1000
-                # # Δδ_mas = (δ_model .- gaialike.dr3.dec)*60*60*1000*cosd(gaialike.dr3.dec)
-                # # display(Main.scatter(Δα_mas, Δδ_mas))
-
-                # out = fit_5param(
-                #     gaialike.table[istart:iend],
-                #     Δα_mas,
-                #     Δδ_mas,
-                #     meta_gaia_DR3.ref_epoch_mjd,
-                #     meta_gaia_DR3.ref_epoch_mjd,
-                # )
-                # Δα, Δδ, Δplx, Δμα, Δμδ= out.parameters
-                # modelled_gaia_parameters_dr3 = [
-                #     gaialike.dr3.ra + Δα/60/60/1000,
-                #     gaialike.dr3.dec + Δδ/60/60/1000/cosd(gaialike.dr3.dec),
-                #     Δμα, #gaialike.dr3.pmra+Δμα,
-                #     Δμδ, #gaialike.dr3.pmdec+Δμδ
-                # ] 
-
-
-
+    ]
 
 
     istart = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaialike.table.epoch))
@@ -371,8 +269,6 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
     out = fit_4param_prepared(gaialike.A_prepared_4_dr2, gaialike.table[istart:iend], Δα_mas, Δδ_mas)
     Δα, Δδ, Δμα, Δμδ = out.parameters
     modelled_gaia_parameters_dr2 = [
-        # gaialike.dr2.ra + Δα/60/60/1000,
-        # gaialike.dr2.dec + Δδ/60/60/1000/cosd(gaialike.dr2.dec),
         θ_system.pmra+Δμα, # gaialike.dr2.pmra+Δμα,
         θ_system.pmdec+Δμδ, # gaialike.dr2.pmdec+Δμδ
     ] 
@@ -384,15 +280,14 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
     # The Gaia DR2 reported parameter values are offset in various ways vs. DR2. 
     # Correct catalog values from DR2 for known effects:
     correction = @SVector [
-        # θ_system.dr2_systematic_Δplx,
-        # θ_system.dr2_systematic_Δra/60/60/1000/cosd(gaialike.dr2.dec),
-        # θ_system.dr2_systematic_Δdec/60/60/1000,
         θ_system.dr2_systematic_Δμ_ra,
         θ_system.dr2_systematic_Δμ_dec,
     ]
     μ_dr2_corrected = gaialike.μ_dr2 .+ correction
     μ_dr2_dr3 = [μ_dr2_corrected; μ_dr3]    
+  
     dist_dr2_dr3 = MvNormal(μ_dr2_dr3,Hermitian(gaialike.Σ_dr2_dr3))
+
     μ_dr2_dr3_modelled = [modelled_gaia_parameters_dr2; modelled_gaia_parameters_dr3]
     ll += logpdf(dist_dr2_dr3, μ_dr2_dr3_modelled)
 
