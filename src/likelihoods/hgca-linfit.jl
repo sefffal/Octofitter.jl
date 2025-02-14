@@ -156,7 +156,7 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, 
         2hgca_like.hgca.nonlinear_dpmdec,
     ]
 
-    # ll += logpdf(hgca_like.hgca.dist_gaia, μ_g)
+    ll += logpdf(hgca_like.hgca.dist_gaia, μ_g)
     ll += logpdf(hgca_like.hgca.dist_hip, μ_h)
     ll += logpdf(hgca_like.hgca.dist_hg, μ_hg)
 
