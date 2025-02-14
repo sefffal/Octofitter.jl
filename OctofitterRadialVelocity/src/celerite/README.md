@@ -1,0 +1,1 @@
+This folder contains a vendored version of Celerite.jl that has been updated to be compatible with modern Julia.

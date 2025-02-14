@@ -15,8 +15,16 @@ using Bumper
 # mjd2jd = Octofitter.mjd2jd
 # jd2mjd = Octofitter.jd2mjd
 
+# While the Celerite.jl library awaits updates, we have vendored out own 
+# copy that is compatible with modern Julia. We have only ported the minimal
+# set of features we need, so aren't publishing it elsewhere.
+# One major TODO is support for autodiff.
+# The only package requirement is Polynomials.jl
+include("celerite/Celerite.jl")
+using .Celerite: Celerite
 
 include("rv-absolute.jl")
+include("rv-absolute-celerite.jl")
 include("rv-absolute-margin.jl")
 include("rv-relative.jl")
 

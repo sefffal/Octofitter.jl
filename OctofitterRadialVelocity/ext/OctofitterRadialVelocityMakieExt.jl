@@ -52,7 +52,9 @@ function Octofitter.rvpostplot!(
 
 
     rv_likes = filter(model.system.observations) do obs
-        obs isa StarAbsoluteRVLikelihood || obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood
+        obs isa StarAbsoluteRVLikelihood || 
+        obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood ||
+        obs isa OctofitterRadialVelocity.StarAbsoluteRVLikelihood_Celerite
     end
     # if length(rv_likes) > 1
     #     error("`rvpostplot` requires a system with only one StarAbsoluteRVLikelihood. Combine the data together into a single likelihood object.")
@@ -402,7 +404,7 @@ function Octofitter.rvpostplot!(
             # )
             errs_data_jitter_gp = sqrt.(
                 data.σ_rv.^2 .+
-                jitter.^2 .+
+                jitters.^2 .+
                 var_at_dat
             )
 
@@ -431,7 +433,7 @@ function Octofitter.rvpostplot!(
             # )
             errs_data_jitter_gp = sqrt.(
                 data.σ_rv.^2 .+
-                jitter.^2 .+
+                jitters.^2 .+
                 mean_and_var(map_gp_posterior, vec(data.epoch))[2]
             )
         end
