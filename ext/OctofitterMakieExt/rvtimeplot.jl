@@ -79,11 +79,12 @@ function rvtimeplot!(
     like_objs = filter(model.system.observations) do like_obj
         nameof(typeof(like_obj)) ∈ (
             :MarginalizedStarAbsoluteRVLikelihood,
-            :StarAbsoluteRVLikelihood
+            :StarAbsoluteRVLikelihood,
+            :StarAbsoluteRVLikelihood_Celerite,
         )
     end
 
-    y_ax_limits = (0,0)
+    y_ax_limits = (Inf,-Inf)
 
     # CASE: no data, just plot model.
     if isempty(like_objs)
@@ -151,8 +152,7 @@ function rvtimeplot!(
             colormap,
             rasterize=4,
         )
-        y_ax_limits = extrema([y_ax_limits...; filter(isfinite, concat_with_nan(rv_star_model_t) .* kms_mult)])
-
+        y_ax_limits = extrema(filter(isfinite, [y_ax_limits...; concat_with_nan(rv_star_model_t) .* kms_mult]))
     end
 
 
@@ -332,8 +332,6 @@ function rvtimeplot!(
         )
 
 
-
-
     
         Makie.errorbars!(
             ax, epoch, rv_data .* kms_mult, σ_tot .* kms_mult;
@@ -352,10 +350,11 @@ function rvtimeplot!(
             strokecolor=:black,
             markersize=8, #1.5,
         )
-        y_ax_limits = extrema([y_ax_limits...; filter(isfinite, concat_with_nan(rv_star_model_t) .* kms_mult); rv_data .* kms_mult])
+        y_ax_limits = extrema(filter(isfinite, [y_ax_limits...; concat_with_nan(rv_star_model_t) .* kms_mult; rv_data .* kms_mult]))
     end
 
-    ylims!(ax, y_ax_limits...)
+    d = 0.1abs(maximum(y_ax_limits)-minimum(y_ax_limits))
+    ylims!(ax, y_ax_limits[1]-d, y_ax_limits[2]+d)
 
     if colorbar
         Colorbar(
@@ -421,6 +420,21 @@ function rvtimeplot_relative!(
 
     date_pos, date_strs, xminorticks = _date_ticks(ts)
 
+
+    if length(model.system.planets) == 1
+        colormaps = Dict(
+            first(keys(model.system.planets)) => colormap
+        )
+    else
+        colormaps = Dict(
+            begin
+                c = Makie.wong_colors()[i]
+                planet_key => Makie.cgrad([c, "#FAFAFA"])
+            end
+            for (i,planet_key) in enumerate(keys(model.system.planets))
+        )
+    end
+
     # Detect if should use km/s
     use_kms = false
     kms_mult = 1.0
@@ -478,7 +492,7 @@ function rvtimeplot_relative!(
             concat_with_nan(ts' .+ 0 .* ii),
             concat_with_nan(rv_model_t) .* kms_mult;
             color=concat_with_nan(color_model_t),
-            colormap,
+            colormap=colormaps[planet_key],
             alpha,
             rasterize=4,
         )
@@ -522,7 +536,7 @@ function rvtimeplot_relative!(
     if colorbar
         Colorbar(
             gs[1,2];
-            colormap,
+            colormap=first(values(colormaps)),
             label="mean anomaly",
             colorrange=(0,2pi),
             ticks=(
