@@ -37,6 +37,8 @@ function Octofitter.astromplot!(
     colorbar=true,
     mark_epochs_mjd=Float64[],
     alpha=min.(1, 100 / length(ii)),
+    show_post_pred_legend=true,
+    use_arcsec=nothing,
     ts,
     kwargs...
 )
@@ -50,7 +52,7 @@ function Octofitter.astromplot!(
         colormaps = Dict(
             begin
                 c = Makie.wong_colors()[i]
-                planet_key => Makie.cgrad([c, "#FAFAFA"])
+                planet_key => Makie.cgrad([c, "#DDDDDD"])
             end
             for (i,planet_key) in enumerate(keys(model.system.planets))
         )
@@ -60,33 +62,33 @@ function Octofitter.astromplot!(
 
 
     # Detect if should use arcseconds instead of mas for plotting
-    use_arcsec = false
-    axis_mult = 1.0
+    if isnothing(use_arcsec)
+        use_arcsec = false
+        for planet_key in keys(model.system.planets)
+            orbs = Octofitter.construct_elements(results, planet_key, ii)
 
-    for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
-
-        # Draws from the posterior
-        sols = orbitsolve_eccanom.(orbs, EAs')
-        # sols_0 = orbitsolve.(orbs, epoch_0)
-        try
-            raoff(first(sols))
-        catch
-            continue
-        end
-        s = maximum(projectedseparation, sols)
-        if s > 1500
-            axis_mult = 1e-3
-            use_arcsec = true
+            # Draws from the posterior
+            sols = orbitsolve_eccanom.(orbs, EAs')
+            # sols_0 = orbitsolve.(orbs, epoch_0)
+            try
+                raoff(first(sols))
+            catch
+                continue
+            end
+            s = maximum(projectedseparation, sols)
+            if s > 1500
+                use_arcsec = true
+            end
         end
     end
+    axis_mult = use_arcsec ? 1e-3 : 1.0 
 
     ax = Axis(
         gs[1, 1];
         autolimitaspect=1,
         xreversed=true,
-        xlabel= use_arcsec ? "Δra [as]" : "Δra [mas]",
-        ylabel= use_arcsec ? "Δdec [as]" : "Δdec [mas]",
+        xlabel= use_arcsec ? "Δα* [as]" : "Δα* [mas]",
+        ylabel= use_arcsec ? "Δδ [as]" : "Δδ [mas]",
         xgridvisible=false,
         ygridvisible=false,
         axis...
@@ -292,7 +294,7 @@ function Octofitter.astromplot!(
     end
 
     # The user can ask us to plot the position at a particular date
-    if !isempty(mark_epochs_mjd)
+    if !isempty(mark_epochs_mjd) 
         i = 0
         labels = map(mark_epochs_mjd) do epoch_mjd
             replace(string(mjd2date(epoch_mjd)), "T"=>" ") # TODO: better to use a format string
@@ -320,23 +322,26 @@ function Octofitter.astromplot!(
                     vec(raoff.(sols)).*axis_mult,
                     vec(decoff.(sols)).*axis_mult;
                     color,
+                    alpha,
                     markersize=6,
                     strokewidth=1,
-                    strokecolor=:black,
+                    strokecolor=(:black,alpha),
                     label = labels[i],
                 )
             end
         end
-        Legend(
-            gs[2,1:2],
-            ax,
-            "Posterior Predictions",
-            position=:rb,
-            # backgroundcolor=(:white, 0.65),
-            tellwidth=false,
-            tellheight=true,
-            width=Relative(1.0)
-        )
+        if show_post_pred_legend
+            Legend(
+                gs[2,1:2],
+                ax,
+                "Posterior Predictions",
+                position=:rb,
+                # backgroundcolor=(:white, 0.65),
+                tellwidth=false,
+                tellheight=true,
+                width=Relative(1.0)
+            )
+        end
     end
 
     if colorbar
