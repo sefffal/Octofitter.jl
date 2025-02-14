@@ -98,7 +98,7 @@ function plotchains! end
 
 """
     octoplot(
-        system::Union{System,Model,
+        system::Octofitter.Model,
         chain::MCMCChains.Chains;
         fname="\$(system.name)-plot-grid",
         color = "\$(first(keys(system.planets)))_e",
@@ -109,15 +109,18 @@ function plotchains! end
         kwargs...
     )
 
-Given a `System` or `LogDensityModel` and an MCMC Chain (sampled either from 
+Given a  `LogDensityModel` and an MCMC Chain (sampled either from 
 the posterior or the prior), produce a panel of 9 plots visualizing the orbits.
 The output is saved to a file based on the name of the system (`fname`).
 """
-function octoplot(model::System, ::Any)
+function octoplot(::Octofitter.LogDensityModel, ::Any)
+    error("You must load the Makie.jl package (`using CairoMakie`, or `using GLMakie`) before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+function octoplot!(::Octofitter.LogDensityModel, ::Any)
     error("You must load the Makie.jl package (`using CairoMakie`, or `using GLMakie`) before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
 end
 
-function octocorner(model::System, ::Any)
+function octocorner(::Octofitter.LogDensityModel, ::Any)
     error("You must load the Makie package (eg `using CairoMakie`) and PairPlots package (eg `using PairPlots`) before calling this function. Then, pass your model and chain result as arguments.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
 end
 function octocorner(model::LogDensityModel, args...; kwargs...)
