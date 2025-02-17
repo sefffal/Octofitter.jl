@@ -300,11 +300,6 @@ function pmaplot!(
 
 
 
-        colsize!(gs, 1, Auto(1 // 3))
-        colsize!(gs, 2, Auto(1 // 3))
-        colsize!(gs, 3, Auto(1 // 3))
-        rowsize!(gs, gs_row, Aspect(3, 1.0))
-
         ## Model
         ## Compute these for all results, not just `ii`
         θ_systems_from_chain = Octofitter.mcmcchain2result(model, results)
@@ -484,9 +479,6 @@ function pmaplot!(
 
 
 
-
-
-
     #######################
     # G DR3-2 difference
 
@@ -495,10 +487,16 @@ function pmaplot!(
         nameof(typeof(like_obj)) == :GaiaDifferenceLike
     end
     if !isempty(like_objs)
+
+
+        # Remove G if redundent 
+        if !isempty(cor_axes)
+            delete!(cor_axes[end])
+        end
             
 
         ax_dat1 = Axis(
-            gs[gs_row+=1, 2],
+            gs[gs_row+=1, 1],
             xlabel=pmra_label,
             ylabel=pmdec_label,
             autolimitaspect=1.0,
@@ -521,7 +519,7 @@ function pmaplot!(
         #     ylabelvisible=false,
         # )
         ax_dat3 = Axis(
-            gs[gs_row, 3],
+            gs[gs_row, 2],
             xlabel=pmra_label,
             ylabel=pmdec_label,
             autolimitaspect=1.0,
@@ -604,19 +602,19 @@ function pmaplot!(
         # ρ_diff = cov_diff / (σ_Δra * σ_Δdec)
 
         cor = [
-            gaialike.dr3.pmra_pmdec_corr
-            # ρ_diff
             gaialike.dr2.pmra_pmdec_corr
+            # ρ_diff
+            gaialike.dr3.pmra_pmdec_corr
         ]
         σ₁ = [
-            gaialike.dr3.pmra_error
-            # σ_Δra
             hypot(gaialike.dr2.pmra_error, σ_dr2_systematic_Δμ_ra)
+            # σ_Δra
+            gaialike.dr3.pmra_error
         ]
         σ₂ = [
-            gaialike.dr3.pmdec_error
+            hypot(gaialike.dr2.pmdec_error, σ_dr2_systematic_Δμ_dec)
             # σ_Δdec
-            hypot(gaialike.dr3.pmdec_error, σ_dr2_systematic_Δμ_dec)
+            gaialike.dr3.pmdec_error
         ]
 
         # # One more model-plot: add scatter points to existing lines at the 
@@ -809,7 +807,7 @@ function pmaplot!(
             tx,
             x,
             σ₁,
-            strokecolor=Makie.wong_colors()[[5,6]],
+            strokecolor=Makie.wong_colors()[[4,6]],
             color=:transparent,
             markersize=10,
             strokewidth=1.5,
@@ -819,7 +817,7 @@ function pmaplot!(
             ty,
             y,
             σ₂,
-            strokecolor=Makie.wong_colors()[1:length(x)],
+            strokecolor=Makie.wong_colors()[[4,6]],
             color=:transparent,
             markersize=10,
             strokewidth=1.5,
@@ -838,6 +836,17 @@ function pmaplot!(
         for ax in cor_axes
             ax.xticklabelspace = xspace + 20
         end
+
+
+        if gs.size[1] == 3
+            colsize!(gs, 1, Auto(1 // 3))
+            colsize!(gs, 2, Auto(1 // 3))
+            colsize!(gs, 3, Auto(1 // 3))
+        else
+            colsize!(gs, 1, Auto(1 // 2))
+            colsize!(gs, 2, Auto(1 // 2))
+        end
+        rowsize!(gs, gs_row, Aspect(3, 1.0))
     end
 
     return [ax_velra, ax_veldec]

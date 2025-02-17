@@ -18,8 +18,8 @@ function GaiaDifferenceLike(;
     source_id_dr2=nothing,
     source_id_dr3=nothing,
     scanlaw_table=nothing,
-    model_parallax=true,
-    inter_dr_correlation=nothing
+    dr2_error_inflation_factor=1,
+    dr3_error_inflation_factor=1,
 )
     if all(isnothing, (source_id_dr2,source_id_dr3))
         throw(ArgumentError("Please provide at least one of `source_id_dr1`, `source_id_dr2`, or `source_id_dr3`"))
@@ -31,7 +31,18 @@ function GaiaDifferenceLike(;
     dr2 = Octofitter._query_gaia_dr2(;gaia_id=source_id_dr2)
     ra_deg = dr3.ra
     dec_deg = dr3.dec
-   
+
+    # We might want to inflate the uncertainties by the same factors as the HGCA (DR2 and eDR3 respectively)
+    dr2 = (;
+        dr2...,
+        pmra_error=dr2.pmra_error*dr2_error_inflation_factor,
+        pmdec_error=dr2.pmdec_error*dr2_error_inflation_factor
+    )
+    dr3 = (;
+        dr3...,
+        pmra_error=dr3.pmra_error*dr3_error_inflation_factor,
+        pmdec_error=dr3.pmdec_error*dr3_error_inflation_factor
+    )
 
     if isnothing(scanlaw_table)
         @warn "No scan law table provided. We will fetch an approximate solution from the GHOST webservice, but for best results please use the `scanninglaw` python package, installable via pip, to query the RA and Dec of this target and supply it as `scanlaw_table`. Run: `import astropy.coordinates, scanninglaw, pandas; o = astropy.coordinates.SkyCoord(158.30707896392835, 40.42555422701387,unit='deg');t = scanninglaw.times.Times(version='dr3_nominal'); t.query(o,return_angles=True)`"
@@ -45,7 +56,6 @@ function GaiaDifferenceLike(;
         forecast_table.epoch = tcb_at_gaia_2mjd.(forecast_table.times)
         forecast_table.scanAngle_rad = deg2rad.(forecast_table.angles)
     end
-
 
     # Calculate the scan angle using the same convention that Hipparcos uses,
     # namely psi = π/2 + scanAngle
