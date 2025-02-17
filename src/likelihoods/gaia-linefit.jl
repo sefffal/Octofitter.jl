@@ -542,6 +542,28 @@ function fit_4param_prepared(
     # )
 end
 
+function compute_gaia_inter_mission_parameter_covariance(
+    A2_factored,  # Design matrix for system 2 (N×4)
+    A3_factored,  # Design matrix for system 3 (M×4)
+    σ2::Real,     # Uncertainty for system 2
+    σ3::Real      # Uncertainty for system 3
+)
+    n2 = size(A2_factored, 1)
+    n3 = size(A3_factored, 1)
+    
+    # Create scaled selection matrix [σ₂σ₃I_N 0]
+    I_shared = [σ2 * σ3 * Matrix(I, n2, n2) zeros(n2, n3 - n2)]
+    
+    # Compute (M₂ᵀM₂)⁻¹M₂ᵀ by solving against identity matrix
+    A2 = A2_factored \ Matrix(I, n2, n2)
+    
+    # Same for M₃
+    A3 = A3_factored \ Matrix(I, n3, n3)
+    
+    # Now compute the covariance
+    return A2 * I_shared * A3'
+end
+
 using HTTP
 
 const meta_gaia_DR1 = (;
@@ -827,6 +849,10 @@ The positions and velocities represent the Geocenter of the Earth relative to th
 barycenter.
 """
 function geocentre_position_query(epoch_MJD::Number)
+
+    if !isempty(get(ENV, "OCTO_SKIP_HORIZONS", ""))
+        return (; x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=0.0)
+    end
     
     fname = "_geocentre_pos/HORIZONS-Geocenter-$(epoch_MJD)mjd.txt"
     if !isfile(fname)
