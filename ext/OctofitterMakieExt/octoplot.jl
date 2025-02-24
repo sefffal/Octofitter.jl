@@ -84,7 +84,7 @@ function Octofitter.octoplot!(
     colorbar = true
 )
 
-    defaults_used = any(isnothing, (
+    defaults_used = all(isnothing, (
         show_astrom,
         show_physical_orbit,
         show_astrom_time,
@@ -189,7 +189,7 @@ function Octofitter.octoplot!(
             show_relative_rv,
             show_hipparcos,
         )
-        @info "pass true or false for each of these arguments to suppress this message."
+        @info "pass true or false for one of these arguments to suppress this message."
     end
 
 
