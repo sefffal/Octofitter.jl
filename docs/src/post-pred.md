@@ -41,7 +41,7 @@ We now have our posterior as approximated by the MCMC chain. Convert these poste
 # Instead of creating orbit objects for all rows in the chain, just pick
 # every twentieth row.
 ii = 1:20:1000
-orbits = Octofitter.construct_elements(chain, :b, ii)
+orbits = Octofitter.construct_elements(model, chain, :b, ii)
 ```
 
 Calculate and plot the location the planet would be at each observation epoch:

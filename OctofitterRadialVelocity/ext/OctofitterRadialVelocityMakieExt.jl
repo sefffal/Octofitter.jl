@@ -214,7 +214,7 @@ function Octofitter.rvpostplot!(
                 tellheight=false,
             )
             if show_summary
-                el = Octofitter.construct_elements(results,planet.name,:)
+                el = Octofitter.construct_elements(model, results,planet.name,:)
                 credP = cred_internal_format(quantile(period.(el), (0.14, 0.5,0.84))...)
                 text = Makie.rich( 
                     "P", Makie.subscript(string(planet.name)),

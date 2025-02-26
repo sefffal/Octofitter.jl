@@ -110,7 +110,7 @@ function astromtimeplot!(
     end
 
     for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
         # Now time-series
         sols = orbitsolve.(orbs, ts')
 
@@ -332,7 +332,7 @@ function astromtimeplot!(
             # In this case, put scatter points from the posterior
             
             for planet_key in keys(model.system.planets)
-                orbs = Octofitter.construct_elements(results, planet_key, ii)
+                orbs = Octofitter.construct_elements(model, results, planet_key, ii)
                 # Now time-series
                 sols = orbitsolve.(orbs, like_obj.table.epoch')
                 Makie.scatter!(
@@ -359,7 +359,7 @@ function astromtimeplot!(
         for epoch_mjd in mark_epochs_mjd
             i += 1
             for planet_key in keys(model.system.planets)
-                orbs = Octofitter.construct_elements(results, planet_key, ii)
+                orbs = Octofitter.construct_elements(model, results, planet_key, ii)
                 color = Makie.wong_colors()[mod1(i,end)]
                 sols = orbitsolve.(orbs, epoch_mjd)
                 Makie.scatter!(

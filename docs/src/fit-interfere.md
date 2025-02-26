@@ -114,7 +114,7 @@ octoplot(model, results)
 Plot only the position at each epoch:
 ```@example 1
 using PlanetOrbits
-els = Octofitter.construct_elements(results,:b,:);
+els = Octofitter.construct_elements(model, results,:b,:);
 fig = Makie.Figure()
 ax = Makie.Axis(
     fig[1,1],

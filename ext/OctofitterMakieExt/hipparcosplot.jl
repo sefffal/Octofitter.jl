@@ -73,7 +73,7 @@ function hipparcosplot!(
 
     planet_keys = keys(model.system.planets)
     orbits = map(planet_keys) do pk
-        Octofitter.construct_elements(results, pk, :)
+        Octofitter.construct_elements(model, results, pk, :)
     end
     nts = Octofitter.mcmcchain2result(model, results)
 

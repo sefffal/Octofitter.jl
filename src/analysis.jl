@@ -3,19 +3,19 @@
 using Dates
 
 """
-    projectpositions(chains.planets[1], mjd("2020-02-02"))
+    projectpositions(model, chains.planets[1], mjd("2020-02-02"))
 
 Given the posterior for a particular planet in the model and a modified julian date(s),
 return `ra` and `dec` offsets in mas for each sampling in the posterior.
 """
-function projectpositions(chains, planet_key, times)
+function projectpositions(model, chains, planet_key, times)
 
     ras = zeros(size(chains,1),size(chains,3),length(times))
     decs = zeros(size(chains,1),size(chains,3),length(times))
     
     for is in collect(Iterators.partition(1:size(chains,1), 5000))
         for j in 1:size(chains,3)
-            els = construct_elements(chains, planet_key, is .* j)
+            els = construct_elements(model, chains, planet_key, is .* j)
             for (i,el) in zip(is,els)
                 for (k, t) in enumerate(times)
                     o = orbitsolve(el, t)

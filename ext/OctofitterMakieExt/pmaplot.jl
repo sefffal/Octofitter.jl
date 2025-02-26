@@ -83,7 +83,7 @@ function pmaplot!(
     color_model_t = zeros(length(ii), length(ts))
     absolute_orbits = false
     for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
         absolute_orbits |= first(orbs) isa AbsoluteVisual
         # Draws from the posterior
         mass = results["$(planet_key)_mass"][ii] .* Octofitter.mjup2msol
@@ -311,7 +311,7 @@ function pmaplot!(
         sims = []
         for (θ_system, i) in zip(θ_systems_from_chain, jj)
             orbits = map(keys(model.system.planets)) do planet_key
-                Octofitter.construct_elements(results, planet_key, i)
+                Octofitter.construct_elements(model, results, planet_key, i)
             end
             solutions = map(orbits) do orbit
                 return orbitsolve.(orbit, hgca_like.table.epoch)
@@ -544,7 +544,7 @@ function pmaplot!(
         sims = []
         for (θ_system, i) in zip(θ_systems_from_chain, jj)
             orbits = map(keys(model.system.planets)) do planet_key
-                Octofitter.construct_elements(results, planet_key, i)
+                Octofitter.construct_elements(model, results, planet_key, i)
             end
             solutions = map(orbits) do orbit
                 return orbitsolve.(orbit, gaialike.table.epoch)
@@ -555,8 +555,8 @@ function pmaplot!(
 
 
         # Add these to the catalog DR2
-        dr2_systematic_Δra = median([θnt.dr2_systematic_Δra for θnt in θ_systems_from_chain])
-        dr2_systematic_Δdec = median([θnt.dr2_systematic_Δdec for θnt in θ_systems_from_chain])
+        # dr2_systematic_Δra = median([θnt.dr2_systematic_Δra for θnt in θ_systems_from_chain])
+        # dr2_systematic_Δdec = median([θnt.dr2_systematic_Δdec for θnt in θ_systems_from_chain])
         dr2_systematic_Δμ_ra = median([θnt.dr2_systematic_Δμ_ra for θnt in θ_systems_from_chain])
         dr2_systematic_Δμ_dec = median([θnt.dr2_systematic_Δμ_dec for θnt in θ_systems_from_chain])
     
@@ -588,8 +588,8 @@ function pmaplot!(
         ]
 
         # Calculate uncertainties in the differences
-        σ_Δra = sqrt(gaialike.dr3.ra_error^2 + gaialike.dr2.ra_error^2)
-        σ_Δdec = sqrt(gaialike.dr3.dec_error^2 + gaialike.dr2.dec_error^2)
+        # σ_Δra = sqrt(gaialike.dr3.ra_error^2 + gaialike.dr2.ra_error^2)
+        # σ_Δdec = sqrt(gaialike.dr3.dec_error^2 + gaialike.dr2.dec_error^2)
         
         # # Calculate covariances for each DR
         # cov_dr3 = gaialike.dr3.ra_dec_corr * gaialike.dr3.ra_error * gaialike.dr3.dec_error

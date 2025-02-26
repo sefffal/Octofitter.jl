@@ -29,104 +29,31 @@ Given a named tuple for of parameters from a System (θ_system) and Planet (θ_p
 return a `Visual{KepOrbit} PlanetOrbits.jl.
 """
 function construct_elements(::Type{Visual{KepOrbit}}, θ_system, θ_planet)
-    return Visual{KepOrbit}(;(;
-        θ_system.M,
-        θ_system.plx,
-        θ_planet.i,
-        θ_planet.Ω,
-        θ_planet.ω,
-        θ_planet.e,
-        θ_planet.tp,
-        θ_planet.a,
-    )...)
+    return Visual{KepOrbit}(merge(θ_system,θ_planet))
 end
 function construct_elements(::Type{AbsoluteVisual{KepOrbit}}, θ_system, θ_planet)
-    return AbsoluteVisual{KepOrbit}(;(;
-        θ_system.M,
-        θ_system.ref_epoch,
-        θ_system.ra,
-        θ_system.dec,
-        θ_system.rv,
-        θ_system.pmra,
-        θ_system.pmdec,
-        θ_system.plx,
-        θ_planet.i,
-        θ_planet.Ω,
-        θ_planet.ω,
-        θ_planet.e,
-        θ_planet.tp,
-        θ_planet.a,
-    )...)
+    return AbsoluteVisual{KepOrbit}(merge(θ_system,θ_planet))
 end
 function construct_elements(::Type{KepOrbit}, θ_system, θ_planet)
-    return KepOrbit(;(;
-        θ_system.M,
-        θ_planet.i,
-        θ_planet.Ω,
-        θ_planet.ω,
-        θ_planet.e,
-        θ_planet.tp,
-        θ_planet.a,
-    )...)
+    return KepOrbit(merge(θ_system,θ_planet))
 end
 function construct_elements(::Type{ThieleInnesOrbit}, θ_system, θ_planet)
-    return ThieleInnesOrbit(;(;
-        θ_system.M,
-        θ_system.plx,
-        θ_planet.A,
-        θ_planet.B,
-        θ_planet.F,
-        θ_planet.G,
-        θ_planet.e,
-        θ_planet.tp,
-    )...)
+    return ThieleInnesOrbit(merge(θ_system,θ_planet))
 end
 function construct_elements(::Type{RadialVelocityOrbit}, θ_system, θ_planet)
-    return RadialVelocityOrbit(;(;
-        θ_system.M,
-        θ_planet.ω,
-        θ_planet.e,
-        θ_planet.tp,
-        θ_planet.a,
-    )...)
+    return RadialVelocityOrbit(merge(θ_system,θ_planet))
 end
 function construct_elements(::Type{CartesianOrbit}, θ_system, θ_planet)
-    return CartesianOrbit(;(;
-        θ_system.M,
-        θ_planet.x,
-        θ_planet.y,
-        θ_planet.z,
-        θ_planet.vx,
-        θ_planet.vy,
-        θ_planet.vz,
-    )...)
+    return CartesianOrbit(merge(θ_system,θ_planet))
 end
 function construct_elements(::Type{Visual{CartesianOrbit}}, θ_system, θ_planet)
-    return Visual{CartesianOrbit}(;(;
-        θ_system.M,
-        θ_system.plx,
-        θ_planet.x,
-        θ_planet.y,
-        θ_planet.z,
-        θ_planet.vx,
-        θ_planet.vy,
-        θ_planet.vz,
-    )...)
+    return Visual{CartesianOrbit}(merge(θ_system,θ_planet))
 end
 function construct_elements(::Type{FixedPosition}, θ_system, θ_planet)
-    return FixedPosition(;(;
-        θ_planet.x,
-        θ_planet.y,
-        z = hasproperty(θ_planet, :z) ? θ_planet.z : zero(θ_planet.x)
-    )...)
+    return FixedPosition(merge(θ_system,θ_planet))
 end
 function construct_elements(::Type{Visual{FixedPosition}}, θ_system, θ_planet)
-    return Visual{FixedPosition}(;(;
-        θ_system.plx,
-        θ_planet.x,
-        θ_planet.y,
-        z = hasproperty(θ_planet, :z) ? θ_planet.z : zero(θ_planet.x)
-    )...)
+    return Visual{FixedPosition}(merge(θ_system,θ_planet))
 end
 
 """
@@ -135,429 +62,19 @@ end
 Given a Chains object, a symbol matching the name of a planet, and an index,
 construct a PlanetOrbits.jl orbit object.
 """
-function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, i::Union{Integer,CartesianIndex})
-    pk = string(planet_key)
-    if haskey(chain, :ra) && haskey(chain, :ref_epoch) && haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
-        o = AbsoluteVisual{KepOrbit}(;(;
-            M=chain["M"][i],
-            ref_epoch=chain["ref_epoch"][i],
-            ra=chain["ra"][i],
-            dec=chain["dec"][i],
-            rv=chain["rv"][i],
-            pmra=chain["pmra"][i],
-            pmdec=chain["pmdec"][i],
-            plx=chain["plx"][i],
-            i=chain[pk*"_i"][i],
-            Ω=chain[pk*"_Ω"][i],
-            ω=chain[pk*"_ω"][i],
-            e=chain[pk*"_e"][i],
-            tp=chain[pk*"_tp"][i],
-            a=chain[pk*"_a"][i],
-        )...)
-        return o
-    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
-        return Visual{KepOrbit}(;(;
-            M=chain["M"][i],
-            plx=chain["plx"][i],
-            i=chain[pk*"_i"][i],
-            Ω=chain[pk*"_Ω"][i],
-            ω=chain[pk*"_ω"][i],
-            e=chain[pk*"_e"][i],
-            tp=chain[pk*"_tp"][i],
-            a=chain[pk*"_a"][i],
-        )...)
-    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*"_A")) && haskey(chain, Symbol(pk*"_B")) && haskey(chain, Symbol(pk*"_G"))&& haskey(chain, Symbol(pk*"_F"))
-        return ThieleInnesOrbit(;(;
-            M=chain["M"][i],
-            plx=chain["plx"][i],
-            e=chain[pk*"_e"][i],
-            tp=chain[pk*"_tp"][i],
-            A=chain[pk*"_A"][i],
-            B=chain[pk*"_B"][i],
-            F=chain[pk*"_F"][i],
-            G=chain[pk*"_G"][i],
-        )...)
-    elseif haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
-        return KepOrbit(;(;
-            M=chain["M"][i],
-            i=chain[pk*"_i"][i],
-            Ω=chain[pk*"_Ω"][i],
-            ω=chain[pk*"_ω"][i],
-            e=chain[pk*"_e"][i],
-            tp=chain[pk*"_tp"][i],
-            a=chain[pk*"_a"][i],
-        )...)
-    elseif haskey(chain, :ra) && haskey(chain, :ref_epoch) && haskey(chain, :plx) && haskey(chain, :M) && haskey(chain, :rv)
-        return AbsoluteVisual{RadialVelocityOrbit}(;(;
-            ref_epoch=chain["ref_epoch"][i],
-            ra=chain["ra"][i],
-            dec=chain["dec"][i],
-            rv=chain["rv"][i],
-            pmra=chain["pmra"][i],
-            pmdec=chain["pmdec"][i],
-            plx=chain["plx"][i],
-            M=chain["M"][i],
-            ω=chain[pk*"_ω"][i],
-            e=chain[pk*"_e"][i],
-            tp=chain[pk*"_tp"][i],
-            a=chain[pk*"_a"][i],
-        )...)
-    elseif haskey(chain, :plx) && haskey(chain, :M) 
-        return Visual{RadialVelocityOrbit}(;(;
-            pmra=chain["pmra"][i],
-            pmdec=chain["pmdec"][i],
-            plx=chain["plx"][i],
-            M=chain["M"][i],
-            ω=chain[pk*"_ω"][i],
-            e=chain[pk*"_e"][i],
-            tp=chain[pk*"_tp"][i],
-            a=chain[pk*"_a"][i],
-        )...)
-    elseif haskey(chain, :M)
-        return RadialVelocityOrbit(;(;
-            M=chain["M"][i],
-            ω=chain[pk*"_ω"][i],
-            e=chain[pk*"_e"][i],
-            tp=chain[pk*"_tp"][i],
-            a=chain[pk*"_a"][i],
-        )...)
-    else
-        error("Unrecognized column combinations for $pk: $(keys(chain))")
+function construct_elements(model::LogDensityModel, chain::Chains, planet_key::Union{String,Symbol}, i)
+    nts = mcmcchain2result(model,chain,i)
+    return map(nts) do nt
+        θ_planet = getproperty(nt.planets, planet_key)
+        return orbit(;merge(nt,θ_planet)...)
     end
 end
-
-"""
-    construct_elements(chains, :b, [4,5,10])
-
-Given a Chains object, a symbol matching the name of a planet, and an array of indices,
-construct a `Visual{KepOrbit} DirectOrbits of that planet from those indices
-of the chains.
-"""
-function construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
-    pk = string(planet_key)
-    if haskey(chain, :ra) && haskey(chain, :ref_epoch) && haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
-        Ms=chain["M"]
-        ref_epochs=chain["ref_epoch"]
-        ras=chain["ra"]
-        decs=chain["dec"]
-        rvs=chain["rv"]
-        pmras=chain["pmra"]
-        pmdecs=chain["pmdec"]
-        plxs=chain["plx"]
-        plxs=chain["plx"]
-        is=chain[pk*"_i"]
-        Ωs=chain[pk*"_Ω"]
-        ωs=chain[pk*"_ω"]
-        es=chain[pk*"_e"]
-        tps=chain[pk*"_tp"]
-        as=chain[pk*"_a"]
-        return map(ii) do i
-            AbsoluteVisual{KepOrbit}(;(;
-                M=Ms[i],
-                ref_epoch=ref_epochs[i],
-                ra=ras[i],
-                dec=decs[i],
-                rv=rvs[i],
-                pmra=pmras[i],
-                pmdec=pmdecs[i],
-                plx=plxs[i],
-                i=is[i],
-                Ω=Ωs[i],
-                ω=ωs[i],
-                e=es[i],
-                tp=tps[i],
-                a=as[i],
-            )...)
-        end
-    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
-        Ms=chain["M"]
-        plxs=chain["plx"]
-        is=chain[pk*"_i"]
-        Ωs=chain[pk*"_Ω"]
-        ωs=chain[pk*"_ω"]
-        es=chain[pk*"_e"]
-        tps=chain[pk*"_tp"]
-        as=chain[pk*"_a"]
-        return map(ii) do i
-            Visual{KepOrbit}(;(;
-                M=Ms[i],
-                plx=plxs[i],
-                i=is[i],
-                Ω=Ωs[i],
-                ω=ωs[i],
-                e=es[i],
-                tp=tps[i],
-                a=as[i],
-            )...)
-        end
-    elseif haskey(chain, Symbol(pk*"_i")) && haskey(chain, Symbol(pk*"_Ω"))
-        Ms=chain["M"]
-        is=chain[pk*"_i"]
-        Ωs=chain[pk*"_Ω"]
-        ωs=chain[pk*"_ω"]
-        es=chain[pk*"_e"]
-        tps=chain[pk*"_tp"]
-        as=chain[pk*"_a"]
-        return map(ii) do i
-            KepOrbit(;(;
-                M=Ms[i],
-                i=is[i],
-                Ω=Ωs[i],
-                ω=ωs[i],
-                e=es[i],
-                tp=tps[i],
-                a=as[i],
-            )...)
-        end
-    elseif haskey(chain, :plx) && haskey(chain, Symbol(pk*"_A")) && haskey(chain, Symbol(pk*"_B"))
-        Ms=chain["M"]
-        plxs=chain["plx"]
-        As=chain[pk*"_A"]
-        Bs=chain[pk*"_B"]
-        Fs=chain[pk*"_F"]
-        Gs=chain[pk*"_G"]
-        es=chain[pk*"_e"]
-        tps=chain[pk*"_tp"]
-        return map(ii) do i
-            ThieleInnesOrbit(;(;
-                M=Ms[i],
-                plx=plxs[i],
-                e=es[i],
-                tp=tps[i],
-                A=As[i],
-                B=Bs[i],
-                F=Fs[i],
-                G=Gs[i],
-            )...)
-        end
-    elseif haskey(chain, Symbol(pk*"_vx")) && haskey(chain, Symbol("plx"))
-        M=chain["M"]
-        plx=chain["plx"]
-
-         x=chain[ pk*"_x"]
-         y=chain[ pk*"_y"]
-         z=chain[ pk*"_z"]
-        vx=chain[pk*"_vx"]
-        vy=chain[pk*"_vy"]
-        vz=chain[pk*"_vz"]
-        pkkey = pk*"_tref"
-        if haskey(chain, pkkey)
-            tref=chain[pkkey]
-        else
-            tref = fill(0.0, size(x))
-        end
-        return map(ii) do i
-            Visual{CartesianOrbit}(;(;
-                x = x[i],
-                y = y[i],
-                z = z[i],
-                vx = vx[i],
-                vy = vy[i],
-                vz = vz[i],           
-                M = M[i],
-                tref = tref[i],
-                plx = plx[i],
-            )...)
-        end
-    elseif haskey(chain, Symbol(pk*"_vx"))
-        M=chain["M"]
-         x=chain[ pk*"_x"]
-         y=chain[ pk*"_y"]
-         z=chain[ pk*"_z"]
-        vx=chain[pk*"_vx"]
-        vy=chain[pk*"_vy"]
-        vz=chain[pk*"_vz"]
-        tref=chain[pk*"_tref"]
-        return map(ii) do i
-            CartesianOrbit(;(;
-                x = x[i],
-                y = y[i],
-                z = z[i],
-                vx = vx[i],
-                vy = vy[i],
-                vz = vz[i],           
-                M = M[i],
-                tref = tref[i],
-            )...)
-        end
-    elseif haskey(chain, Symbol(pk*"_x")) && haskey(chain,  Symbol(pk*"_y")) && haskey(chain, Symbol("plx"))
-        plx=chain["plx"]
-         x=chain[ pk*"_x"]
-         y=chain[ pk*"_y"]
-        pkkey = pk*"_z"
-        if haskey(chain, pkkey)
-            z=chain[pkkey]
-        else
-            z = fill(0.0, size(x))
-        end
-        return map(ii) do i
-            Visual{FixedPosition}(;(;
-                x = x[i],
-                y = y[i],
-                z = z[i],
-                plx = plx[i],
-            )...)
-        end
-    elseif haskey(chain, Symbol(pk*"_sep")) && haskey(chain,  Symbol(pk*"_pa")) && haskey(chain, Symbol("plx"))
-        plx=chain["plx"]
-        sep=chain[ pk*"_sep"]
-        pa=chain[ pk*"_pa"]
-        pkkey = pk*"_z"
-        if haskey(chain, pkkey)
-            z=chain[pkkey]
-        else
-            z = fill(0.0, size(sep))
-        end
-        return map(ii) do i
-            Visual{FixedPosition}(;(;
-                sep = sep[i],
-                pa = pa[i],
-                z = z[i],
-                plx = plx[i],
-            )...)
-        end
-    elseif haskey(chain, Symbol(pk*"_ra")) && haskey(chain,  Symbol(pk*"_dec")) && haskey(chain, Symbol("plx"))
-        plx=chain["plx"]
-        ra=chain[ pk*"_ra"]
-        dec=chain[ pk*"_dec"]
-        pkkey = pk*"_z"
-        if haskey(chain, pkkey)
-            z=chain[pkkey]
-        else
-            z = fill(0.0, size(ra))
-        end
-        return map(ii) do i
-            Visual{FixedPosition}(;(;
-                ra = ra[i],
-                dec = dec[i],
-                z = z[i],
-                plx = plx[i],
-            )...)
-        end
-    elseif haskey(chain, Symbol(pk*"_x")) && haskey(chain,  Symbol(pk*"_y"))
-         x=chain[ pk*"_x"]
-         y=chain[ pk*"_y"]
-        pkkey = pk*"_z"
-        if haskey(chain, pkkey)
-            z=chain[pkkey]
-        else
-            z = fill(0.0, size(x))
-        end
-        return map(ii) do i
-            FixedPosition(;(;
-                x = x[i],
-                y = y[i],
-                z = z[i],
-            )...)
-        end
-    elseif haskey(chain, Symbol(pk*"_sep")) && haskey(chain,  Symbol(pk*"_pa"))
-        sep=chain[ pk*"_sep"]
-        pa=chain[ pk*"_pa"]
-       pkkey = pk*"_z"
-       if haskey(chain, pkkey)
-           z=chain[pkkey]
-       else
-           z = fill(0.0, size(sep))
-       end
-       return map(ii) do i
-           FixedPosition(;(;
-               sep = sep[i],
-               pa = pa[i],
-               z = z[i],
-           )...)
-       end
-
-    elseif haskey(chain, :M) && haskey(chain, :ra) && haskey(chain, :ref_epoch) && haskey(chain, :plx)
-        Ms=chain["M"]
-        ωs=chain[pk*"_ω"]
-        es=chain[pk*"_e"]
-        tps=chain[pk*"_tp"]
-        as=chain[pk*"_a"]
-        plx=chain[:plx]
-        ref_epochs=chain["ref_epoch"]
-        ras=chain["ra"]
-        decs=chain["dec"]
-        rvs=chain["rv"]
-        pmras=chain["pmra"]
-        pmdecs=chain["pmdec"]
-        return map(ii) do i
-            AbsoluteVisual{RadialVelocityOrbit}(;(;
-                M=Ms[i],
-                ω=ωs[i],
-                e=es[i],
-                tp=tps[i],
-                a=as[i],
-                plx=plx[i],
-                ref_epoch=ref_epochs[i],
-                ra=ras[i],
-                dec=decs[i],
-                rv=rvs[i],
-                pmra=pmras[i],
-                pmdec=pmdecs[i],
-            )...)
-        end
-
-    elseif haskey(chain, :M) && haskey(chain, :plx)
-        Ms=chain["M"]
-        ωs=chain[pk*"_ω"]
-        es=chain[pk*"_e"]
-        tps=chain[pk*"_tp"]
-        as=chain[pk*"_a"]
-        plx=chain[:plx]
-        return map(ii) do i
-            Visual{RadialVelocityOrbit}(;(;
-                M=Ms[i],
-                ω=ωs[i],
-                e=es[i],
-                tp=tps[i],
-                a=as[i],
-                plx=plx[i],
-            )...)
-        end
-    elseif haskey(chain, :M)
-        Ms=chain["M"]
-        ωs=chain[pk*"_ω"]
-        es=chain[pk*"_e"]
-        tps=chain[pk*"_tp"]
-        as=chain[pk*"_a"]
-        return map(ii) do i
-            RadialVelocityOrbit(;(;
-                M=Ms[i],
-                ω=ωs[i],
-                e=es[i],
-                tp=tps[i],
-                a=as[i],
-            )...)
-        end
-    else
-        error("Unrecognized chain format")
-    end
+function construct_elements(model::LogDensityModel, chain::Chains, planet_key::Union{String,Symbol}, i::Number)
+    nt = mcmcchain2result(model,chain,i)
+    θ_planet = getproperty(nt.planets, planet_key)
+    return orbit(;merge(nt,θ_planet)...)
 end
-construct_elements(chain::Chains, planet_key::Union{String,Symbol}, ii::Colon) = construct_elements(chain, planet_key, 1:size(chain,1)*size(chain,3))
-# function construct_elements(chain, planet_key::Union{String,Symbol}, ii::AbstractArray{<:Union{Integer,CartesianIndex}})
-#     pk = string(planet_key)
-#     Ms=chain[:,"M"]
-#     plxs=chain[:,"plx"]
-#     is=chain[:,pk*"_i"]
-#     Ωs=chain[:,pk*"_Ω"]
-#     ωs=chain[:,pk*"_ω"]
-#     es=chain[:,pk*"_e"]
-#     tps=chain[:,pk*"_tp"]
-#     as=chain[:,pk*"_a"]
-#     return map(ii) do i
-#         Visual{KepOrbit}((;
-#             M=Ms[i],
-#             plx=plxs[i],
-#             i=is[i],
-#             Ω=Ωs[i],
-#             ω=ωs[i],
-#             e=es[i],
-#             tp=tps[i],
-#             a=as[i],
-#         ))
-#     end
-# end
-construct_elements(chain::Chains, planet::Planet, args...; kwargs...) = construct_elements(chain, planet.name, args...; kwargs...) 
+construct_elements(model::LogDensityModel, chain::Chains, planet::Planet, args...; kwargs...) = construct_elements(model, chain, planet.name, args...; kwargs...) 
 
 
 # Fallback when no random number generator is provided (as is usually the case)
@@ -933,7 +450,7 @@ function mcmcchain2result(model, chain, ii=(:))
     IIs = broadcast(1:size(chain,1),(1:size(chain,3))') do i,j
         return (i,j)
     end
-    return broadcast(IIs[ii]) do (i,j)
+    function reform((i,j))
         # Take existing NT and recurse through it. replace elements
         nt_sys = Dict{Symbol,Any}()
         for (kout,kins) in key_mapping
@@ -941,7 +458,11 @@ function mcmcchain2result(model, chain, ii=(:))
                 continue
             end
             if length(kins) == 1
-                nt_sys[kout] = chain[i,kins[],j]
+                if haskey(chain, kins[])
+                    nt_sys[kout] = chain[i,kins[],j]
+                else
+                    nt_sys[kout] = missing
+                end
             else
                 nt_sys[kout] = [
                     chain[i,kin,j]
@@ -964,7 +485,11 @@ function mcmcchain2result(model, chain, ii=(:))
                 end
                 kout = Symbol(replace(string(kout), r"^"*string(pk)*"_" =>""))
                 if length(kins) == 1
-                    nt_pl[kout] = chain[i,kins[],j]
+                    if haskey(chain, kins[])
+                        nt_pl[kout] = chain[i,kins[],j]
+                    else
+                        nt_pl[kout] = missing
+                    end
                 else
                     nt_pl[kout] = [
                         chain[i,kin,j]
@@ -981,6 +506,11 @@ function mcmcchain2result(model, chain, ii=(:))
         else
             return namedtuple(nt_sys)
         end
+    end
+    if ii isa Number
+        return reform(IIs[ii])
+    else
+        return broadcast(reform, IIs[ii])
     end
 end
 

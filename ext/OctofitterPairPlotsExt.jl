@@ -67,7 +67,9 @@ function Octofitter.octocorner(
         end
 
         if small
-            push!(table_cols, :M => vec(chain_notinternal["M"]))
+            if haskey(chain_notinternal, :M)
+                push!(table_cols, :M => vec(chain_notinternal["M"]))
+            end
             planetkeys = string.(keys(system.planets))
             for obs in system.observations
                 if hasproperty(obs,:table) && hasproperty(obs.table, :band)

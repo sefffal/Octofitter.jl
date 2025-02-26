@@ -119,7 +119,7 @@ function Octofitter.hgcaplot!(
     color_model_t = zeros(length(ii), length(ts))
     absolute_orbits = false
     for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
         absolute_orbits |= first(orbs) isa AbsoluteVisual
         # Draws from the posterior
         mass = results["$(planet_key)_mass"][ii] .* Octofitter.mjup2msol
@@ -306,7 +306,7 @@ function Octofitter.hgcaplot!(
     sims = []
     for (θ_system, i) in zip(θ_systems_from_chain, jj)
         orbits = map(keys(model.system.planets)) do planet_key
-            Octofitter.construct_elements(results, planet_key, i)
+            Octofitter.construct_elements(model, results, planet_key, i)
         end
         solutions = map(orbits) do orbit
             return orbitsolve.(orbit, hgca_like.table.epoch)

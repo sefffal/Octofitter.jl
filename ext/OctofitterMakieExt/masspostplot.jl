@@ -66,7 +66,7 @@ function Octofitter.masspostplot!(
     xlims!(ax_scat_ecc, 0, 1)
     cred_intervals = []
     for planet_key in keys(model.system.planets)
-        els = Octofitter.construct_elements(results, planet_key, :);
+        els = Octofitter.construct_elements(model, results, planet_key, :);
         mk = Symbol("$(planet_key)_mass")
         if !haskey(results, mk)
             continue

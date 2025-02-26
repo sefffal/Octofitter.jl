@@ -56,7 +56,7 @@ function rvtimeplot!(
     use_kms = false
     kms_mult = 1.0
     for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
         sols = orbitsolve.(orbs, ts')
         if !hasproperty(first(nt_format[ii]).planets[planet_key], :mass)
             continue
@@ -124,7 +124,7 @@ function rvtimeplot!(
         color_model_t = zeros(length(ii), length(ts))
         for (i_planet, planet_key) in enumerate(keys(model.system.planets))
         
-            orbs = Octofitter.construct_elements(results, planet_key, ii)
+            orbs = Octofitter.construct_elements(model, results, planet_key, ii)
             sols = orbitsolve.(orbs, ts')
 
             # Draws from the posterior
@@ -199,7 +199,7 @@ function rvtimeplot!(
         # Then for each orbit draw, add the difference between the mean rv0 across all instruments, and the above
 
         orbits = map(keys(model.system.planets)) do planet_key
-            Octofitter.construct_elements(results, planet_key, ii)
+            Octofitter.construct_elements(model, results, planet_key, ii)
         end
         epoch = vec(like_obj.table.epoch)
         rv_data = collect(vec(like_obj.table.rv))
@@ -238,7 +238,7 @@ function rvtimeplot!(
         # Model: add influences of each planet
         for (i_planet, planet_key) in enumerate(keys(model.system.planets))
         
-            orbs = Octofitter.construct_elements(results, planet_key, ii)
+            orbs = Octofitter.construct_elements(model, results, planet_key, ii)
             sols = orbitsolve.(orbs, ts')
             sols_data = orbitsolve.(orbs, epoch')
 
@@ -439,7 +439,7 @@ function rvtimeplot_relative!(
     use_kms = false
     kms_mult = 1.0
     for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
         sols = orbitsolve.(orbs, ts')
         rv_model_t = radvel.(sols)
         if median(abs.(vec(rv_model_t))) > 1000
@@ -480,7 +480,7 @@ function rvtimeplot_relative!(
 
     for (i_planet, planet_key) in enumerate(keys(model.system.planets))
         # Plot each relative RV separately
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
 
         sols = orbitsolve.(orbs, ts')
         

@@ -205,7 +205,7 @@ octocorner(model,chain,small=true,)
 
 And finally let's look at the posterior predictive distributions at both epochs:
 ```@example 1
-els = Octofitter.construct_elements(chain,:b, :)
+els = Octofitter.construct_elements(model, chain,:b, :)
 x = raoff.(els, loglikemap.table.epoch[1])
 y = decoff.(els, loglikemap.table.epoch[1])
 pairplot(

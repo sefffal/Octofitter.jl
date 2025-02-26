@@ -65,7 +65,7 @@ function Octofitter.astromplot!(
     if isnothing(use_arcsec)
         use_arcsec = false
         for planet_key in keys(model.system.planets)
-            orbs = Octofitter.construct_elements(results, planet_key, ii)
+            orbs = Octofitter.construct_elements(model, results, planet_key, ii)
 
             # Draws from the posterior
             sols = orbitsolve_eccanom.(orbs, EAs')
@@ -108,7 +108,7 @@ function Octofitter.astromplot!(
 
 
     for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
 
         # Draws from the posterior
         if first(orbs) isa AbsoluteVisual
@@ -279,7 +279,7 @@ function Octofitter.astromplot!(
         elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :GRAVITYWideCPLikelihood)
             
             for planet_key in keys(model.system.planets)
-                orbs = Octofitter.construct_elements(results, planet_key, ii)
+                orbs = Octofitter.construct_elements(model, results, planet_key, ii)
                 # Now time-series
                 sols = orbitsolve.(orbs, like_obj.table.epoch')
                 Makie.scatter!(
@@ -314,7 +314,7 @@ function Octofitter.astromplot!(
         for i in eachindex(mark_epochs_mjd)
             epoch_mjd = mark_epochs_mjd[i]
             for planet_key in keys(model.system.planets)
-                orbs = Octofitter.construct_elements(results, planet_key, ii)
+                orbs = Octofitter.construct_elements(model, results, planet_key, ii)
                 color = Makie.wong_colors()[mod1(i,end)]
                 sols = orbitsolve.(orbs, epoch_mjd)
                 Makie.scatter!(
@@ -447,7 +447,7 @@ function physorbplot!(
 
 
     for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
 
         # Draws from the posterior
         if first(orbs) isa AbsoluteVisual
@@ -502,7 +502,7 @@ function physorbplot!(
         for i in eachindex(mark_epochs_mjd)
             epoch_mjd = mark_epochs_mjd[i]
             for planet_key in keys(model.system.planets)
-                orbs = Octofitter.construct_elements(results, planet_key, ii)
+                orbs = Octofitter.construct_elements(model, results, planet_key, ii)
                 color = Makie.wong_colors()[mod1(i,end)]
                 sols = orbitsolve.(orbs, epoch_mjd)
                 Makie.scatter!(

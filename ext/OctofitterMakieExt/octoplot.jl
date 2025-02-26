@@ -197,7 +197,7 @@ function Octofitter.octoplot!(
     # Find the minimum time step size
     periods = Float64[]
     for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
         append!(periods, period.(orbs))
     end
 

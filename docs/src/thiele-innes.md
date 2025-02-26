@@ -62,7 +62,7 @@ octocorner(model, results, small=false)
 To convert our chain into the more familiar Campbell parameterization, we have to do a few steps. We start by turning the chain table into a an array of orbit objects, and then convert their type:
 
 ```@example 1
-orbits_ti = Octofitter.construct_elements(results, :b, :) # colon means all rows
+orbits_ti = Octofitter.construct_elements(model, results, :b, :) # colon means all rows
 ```
 
 Here is one of those entries:

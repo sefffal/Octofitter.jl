@@ -4,8 +4,7 @@ using Octofitter.StaticArrays
 # We want this to work with both Campbell and Thiele-Innes parameterizations
 export θ_at_epoch_to_tperi
 function θ_at_epoch_to_tperi(system,planet,theta_epoch)
-    (;M) = system
-    (;e,θ) = planet
+    (;M,e,θ) = merge(system,planet)
     if  hasproperty(planet, :B) &&
         hasproperty(planet, :G) &&
         hasproperty(planet, :A) &&
@@ -68,8 +67,7 @@ function θ_at_epoch_to_tperi(system,planet,theta_epoch)
 end
 
 function θ_sep_at_epoch_to_tperi_sma(system,planet,theta_epoch)
-    (;M,plx) = system
-    (;e,i, Ω, ω, θ, sep) = planet
+    (;M,plx,e,θ,e,i, Ω, ω, θ, sep) = merge(system,planet)
     A = ( cos(Ω)*cos(ω)-sin(Ω)*sin(ω)*cos(i))
     B = ( sin(Ω)*cos(ω)+cos(Ω)*sin(ω)*cos(i))
     F = (-cos(Ω)*sin(ω)-sin(Ω)*cos(ω)*cos(i))
