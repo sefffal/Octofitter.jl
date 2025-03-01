@@ -19,18 +19,24 @@ Supported bands:
 Supported metalicities:
 "+0.0", "-0.5", "+0.5"
 """
-function sonora_photometry_interpolator(band, metalicity="+0.0";catalog=datadep"SonoraBobcatEvoPhot")
+function sonora_photometry_interpolator(band, metalicity="+0.0";jwst=false,catalog=datadep"SonoraBobcatEvoPhot")
 
 
     #  Load Sonora magnitude table
-    mag_table = load_table(joinpath(catalog, "photometry_tables", "mag_table"*metalicity))
-
+    if jwst
+        mag_table = load_table(joinpath(catalog, "photometry_tables", "mag_table_JWST"*metalicity); jwst)
+    else
+        mag_table = load_table(joinpath(catalog, "photometry_tables", "mag_table"*metalicity); jwst)
+    end
     # We first use BasicInterpolators to grid the sparsely sampled models
     # Then we use Interpolations to make a fast, autodiff compatible 
     # linear interpolator of the resulting data.
     points = [ 
         mag_table.Teff./10 mag_table.mass
     ]
+    if !(hasproperty(mag_table,band))
+        error("not a valid band: $(keys(mag_table))")
+    end
     samples = collect(mag_table[band])
 
     sitp = RBFInterpolator(points, samples, 2)
@@ -124,7 +130,7 @@ end
 export sonora_cooling_interpolator
 
 
-function load_table(fname)
+function load_table(fname; jwst)
 
     headers = open(fname, lock = false, read = true) do f
         readline(f)
@@ -142,8 +148,16 @@ function load_table(fname)
         headers_2 = strip.(split(h2, r"  +"))
 
         # Starting after 6
-        headers_2_1_indices =
-            [2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7]
+        if jwst
+            headers_2_1_indices =
+            [
+                fill(2, 29)
+                fill(3,14)
+            ]
+        else
+            headers_2_1_indices =
+                [2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7]
+        end
 
         combined = vcat(
             headers_2[1:6],
@@ -154,6 +168,9 @@ function load_table(fname)
         combined = replace.(combined, ' ' => "")
         combined = replace.(combined, "/" => '_')
         combined = replace.(combined, "2MASS" => "TwoMASS")
+        combined = replace.(combined, "JWST" => "")
+        combined = replace.(combined, "NIRCamNIRCamNIRCamNIRCam" => "NIRCam")
+        combined = replace.(combined, "MIRIMIRI" => "MIRI")
         combined = replace.(combined, r"[^\w′_]" => "")
         return combined
     end
