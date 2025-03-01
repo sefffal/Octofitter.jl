@@ -97,7 +97,7 @@ function Octofitter.masspostplot!(
     if !isempty(cred_intervals)
         Label(
             gs[0,1],
-            reduce(*, cred_intervals),
+            Makie.latexstring(join(cred_intervals, L"\;\;")),
             tellwidth=false
         )
     end
