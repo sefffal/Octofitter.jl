@@ -68,7 +68,7 @@ function StarAbsoluteRVLikelihood_Celerite(
     # Here we leave it empty.
     held_out_table = empty(table)
 
-    return new{typeof(table),typeof(gaussian_process),typeof(trend_function),offset, jitter, }(
+    return StarAbsoluteRVLikelihood_Celerite{typeof(table),typeof(gaussian_process),typeof(trend_function),offset, jitter, }(
         table, held_out_table, instrument_name, gaussian_process, trend_function, offset, jitter
     )
 end
