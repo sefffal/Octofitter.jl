@@ -39,17 +39,18 @@ function astromtimeplot!(
     top_time_axis=true,
     bottom_time_axis=true,
     mark_epochs_mjd=Float64[],
+    residuals,
     alpha,
     kwargs...
 )
     gs = gridspec_or_fig
 
-     # Detect if should use arcseconds instead of mas for plotting
-     use_arcsec = false
-     axis_mult = 1.0
- 
+    # Detect if should use arcseconds instead of mas for plotting
+    use_arcsec = false
+    axis_mult = 1.0
+
     for planet_key in keys(model.system.planets)
-        orbs = Octofitter.construct_elements(results, planet_key, ii)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
         # Now time-series
         sols = orbitsolve.(orbs, ts')
         # sols_0 = orbitsolve.(orbs, epoch_0)
@@ -66,6 +67,8 @@ function astromtimeplot!(
     end
     
     date_pos, date_strs, xminorticks = _date_ticks(ts)
+    row = 1
+    all_axes = Axis[]
     ax_sep = Axis(
         gs[1, 1];
         ylabel=use_arcsec ? "sep [as] " : "sep [mas]",
@@ -79,8 +82,27 @@ function astromtimeplot!(
         xticklabelsvisible=top_time_axis,
         axis...
     )
+    push!(all_axes, ax_sep)
+    if residuals
+        row+=1
+        ax_sep_resid = Axis(
+            gs[row, 1];
+            # ylabel=use_arcsec ? "sep [as] " : "sep [mas]",
+            xaxisposition=:top,
+            xticks=(date_pos, date_strs),
+            xgridvisible=false,
+            ygridvisible=false,
+            xminorticksvisible=false,
+            xticksvisible=false,
+            xticklabelsvisible=false,
+            axis...
+        )
+        push!(all_axes, ax_sep_resid)
+        Makie.rowgap!(gs, row-1, 0)
+    end
+    row+=1
     ax_pa = Axis(
-        gs[2, 1];
+        gs[row, 1];
         xlabel="MJD",
         ylabel="PA [°]",
         xgridvisible=false,
@@ -90,9 +112,27 @@ function astromtimeplot!(
         xlabelvisible=bottom_time_axis,
         axis...
     )
-    linkxaxes!(ax_sep, ax_pa)
+    push!(all_axes, ax_pa)
+    Makie.rowgap!(gs, row-1, 10)
     xlims!(ax_sep, extrema(ts))
     xlims!(ax_pa, extrema(ts))
+    if residuals
+        row+=1
+        ax_pa_resid = Axis(
+            gs[row, 1];
+            xlabel="MJD",
+            ylabel="PA [°]",
+            xgridvisible=false,
+            ygridvisible=false,
+            xticksvisible=bottom_time_axis,
+            xticklabelsvisible=bottom_time_axis,
+            xlabelvisible=bottom_time_axis,
+            axis...
+        )
+        Makie.rowgap!(gs, row-1, 0)
+        push!(all_axes, ax_pa)
+    end
+    linkxaxes!(all_axes...)
 
 
     if length(model.system.planets) == 1
