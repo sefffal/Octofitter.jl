@@ -180,9 +180,15 @@ function likeobj_from_epoch_subset(obs::UnitLengthPrior{X,Y}, obs_inds) where {X
 end
 TypedTables.Table(like::UnitLengthPrior) = nothing
 
-function ln_like(::UnitLengthPrior{X,Y}, θ_planet_or_system, orbit, _solutions, _i) where {X,Y}
-    x = getproperty(θ_planet_or_system, X)
-    y = getproperty(θ_planet_or_system, Y)
+function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, _args...) where {X,Y}
+    x = getproperty(θ_system, X)
+    y = getproperty(θ_system, Y)
+    vector_length = sqrt(x^2 + y^2)
+    return logpdf(LogNormal(log(1.0), 0.1), vector_length);
+end
+function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, θ_planet::NamedTuple, _args...) where {X,Y}
+    x = getproperty(θ_planet, X)
+    y = getproperty(θ_planet, Y)
     vector_length = sqrt(x^2 + y^2)
     return logpdf(LogNormal(log(1.0), 0.1), vector_length);
 end

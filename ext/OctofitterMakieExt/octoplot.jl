@@ -43,7 +43,6 @@ function Octofitter.octoplot(
     )
     Octofitter.octoplot!(fig.layout,model,results;kwargs...)
 
-
     try
         Makie.resize_to_layout!(fig)
     catch
@@ -293,169 +292,193 @@ function Octofitter.octoplot!(
     top_time_axis = true
     item = 0
     cols = 1
-   
-    if show_astrom
-        item += 1
-        col = mod1(item, cols)
-        row = cld(item, cols)
-        gl = GridLayout(
-            fig[row,col],
-            width=500figscale,
-            height=(400+40*length(mark_epochs_mjd)+ 155*(length(mark_epochs_mjd)>0))*figscale,
-        )
-        Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha)
-        colorbar = false
-    end
-    if show_physical_orbit
-        item += 1
-        col = mod1(item, cols)
-        row = cld(item, cols)
-        gl = GridLayout(
-            fig[row,col],
-            width=500figscale,
-            height=(400+40*length(mark_epochs_mjd)+ 155*(length(mark_epochs_mjd)>0))*figscale,
-        )
-        physorbplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha)
-        colorbar = false
-    end
-
-    axes_to_link = []
-
-    if show_astrom_time
-        item += 1
-        col = mod1(item, cols)
-        row = cld(item, cols)
-        gl = GridLayout(
-            fig[row,col],
-            width=500figscale,
-            height=300figscale,
-        )
-        bottom_time_axis = !(show_pma || show_rv || show_relative_rv || show_hipparcos)
-        ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, mark_epochs_mjd, alpha, residuals)
-        top_time_axis = false
-        append!(axes_to_link,ax)
-    end
 
 
-    if show_rv
-        item += 1
-        col = mod1(item, cols)
-        row = cld(item, cols)
-        matching_like_objs = filter(model.system.observations) do like_obj
-            nameof(typeof(like_obj)) ∈ (
-                :MarginalizedStarAbsoluteRVLikelihood,
-                :StarAbsoluteRVLikelihood
+    # Prevent figure updates from computing while we are drawing
+    # Speeds up figure creation
+    fig = update(fig) do fig
+    
+        if show_astrom
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            gl = GridLayout(
+                fig[row,col],
+                width=500figscale,
+                height=(400+40*length(mark_epochs_mjd)+ 155*(length(mark_epochs_mjd)>0))*figscale,
             )
+            Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha)
+            colorbar = false
         end
-        gl = GridLayout(
-            fig[row,col],
-            width=500figscale,
-            height=(135 * max(1, length(matching_like_objs)) *figscale),
-        )
-        bottom_time_axis = !(show_pma || show_relative_rv || show_hipparcos)
-        ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
-        top_time_axis = false
-        Makie.rowgap!(gl, 10.)
-        append!(axes_to_link,ax)
-    end
+        if show_physical_orbit
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            gl = GridLayout(
+                fig[row,col],
+                width=500figscale,
+                height=(400+40*length(mark_epochs_mjd)+ 155*(length(mark_epochs_mjd)>0))*figscale,
+            )
+            physorbplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha)
+            colorbar = false
+        end
+
+        axes_to_link = []
+
+        if show_astrom_time
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            gl = GridLayout(
+                fig[row,col],
+                width=500figscale,
+                height=300figscale,
+            )
+            bottom_time_axis = !(show_pma || show_rv || show_relative_rv || show_hipparcos)
+            ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, mark_epochs_mjd, alpha, residuals)
+            top_time_axis = false
+            append!(axes_to_link,ax)
+        end
 
 
-    if show_relative_rv
-        item += 1
-        col = mod1(item, cols)
-        row = cld(item, cols)
-        gl = GridLayout(
-            fig[row,col],
-            width=500figscale,
-            height=135figscale,
-        )
-        bottom_time_axis = !(show_pma || show_hipparcos)
-        ax = rvtimeplot_relative!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
-        top_time_axis = false
-        Makie.rowgap!(gl, 10.)
-        append!(axes_to_link,ax)
-    end
+        if show_rv
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            matching_like_objs = filter(model.system.observations) do like_obj
+                nameof(typeof(like_obj)) ∈ (
+                    :MarginalizedStarAbsoluteRVLikelihood,
+                    :StarAbsoluteRVLikelihood
+                )
+            end
+            gl = GridLayout(
+                fig[row,col],
+                width=500figscale,
+                height=(135 * max(1, length(matching_like_objs)) *figscale),
+            )
+            bottom_time_axis = !(show_pma || show_relative_rv || show_hipparcos)
+            ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
+            top_time_axis = false
+            Makie.rowgap!(gl, 10.)
+            append!(axes_to_link,ax)
+        end
 
-    # if show_hgca
-    #     item += 1
-    #     col = mod1(item, cols)
-    #     row = cld(item, cols)
-    #     gl = GridLayout(
-    #         fig[row,col],
-    #         width=500figscale,
-    #         height=480figscale,
-    #     )
-    #     ax = Octofitter.hgcaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
-    #     top_time_axis = false
-    #     Makie.rowgap!(gl, 10.)
-    #     append!(axes_to_link,ax)
-    # end
 
-    if show_pma
-        item += 1
-        col = mod1(item, cols)
-        row = cld(item, cols)
-        height=300figscale
-        for like_obj in model.system.observations
-            if like_obj isa HGCALikelihood
-                height+=180figscale
+        if show_relative_rv
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            gl = GridLayout(
+                fig[row,col],
+                width=500figscale,
+                height=135figscale,
+            )
+            bottom_time_axis = !(show_pma || show_hipparcos)
+            ax = rvtimeplot_relative!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
+            top_time_axis = false
+            Makie.rowgap!(gl, 10.)
+            append!(axes_to_link,ax)
+        end
+
+        # if show_hgca
+        #     item += 1
+        #     col = mod1(item, cols)
+        #     row = cld(item, cols)
+        #     gl = GridLayout(
+        #         fig[row,col],
+        #         width=500figscale,
+        #         height=480figscale,
+        #     )
+        #     ax = Octofitter.hgcaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
+        #     top_time_axis = false
+        #     Makie.rowgap!(gl, 10.)
+        #     append!(axes_to_link,ax)
+        # end
+
+        if show_pma
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            height=300figscale
+            for like_obj in model.system.observations
+                if like_obj isa HGCALikelihood
+                    height+=180figscale
+                end
+            end
+            for like_obj in model.system.observations
+                if like_obj isa Octofitter.GaiaDifferenceLike
+                    height+=180figscale
+                end
+            end
+            gl = GridLayout(
+                fig[row,col];
+                width=500figscale,
+                height,
+            )
+            ax = pmaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
+            top_time_axis = false
+            Makie.rowgap!(gl, 10.)
+            append!(axes_to_link,ax)
+        end
+
+        if show_hipparcos
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            gl = GridLayout(
+                fig[row,col],
+                width=500figscale,
+                height=480figscale,
+            )
+            ax = hipparcosplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
+            top_time_axis = false
+            Makie.rowgap!(gl, 10.)
+            append!(axes_to_link,ax)
+        end
+
+
+        if show_mass
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            gl = GridLayout(
+                fig[row,col],
+                width=500figscale,
+                height=400figscale,
+            )
+            Octofitter.masspostplot!(gl, model, results;)
+            Makie.rowgap!(gl, 10.)
+        end
+        Makie.rowgap!(fig, 10.)
+
+
+        if !isempty(axes_to_link)
+            Makie.linkxaxes!(axes_to_link...)
+            yspace = maximum(Makie.tight_yticklabel_spacing!, axes_to_link)
+            for ax in axes_to_link
+                ax.yticklabelspace = yspace + 30
             end
         end
-        for like_obj in model.system.observations
-            if like_obj isa Octofitter.GaiaDifferenceLike
-                height+=180figscale
-            end
-        end
-        gl = GridLayout(
-            fig[row,col];
-            width=500figscale,
-            height,
-        )
-        ax = pmaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
-        top_time_axis = false
-        Makie.rowgap!(gl, 10.)
-        append!(axes_to_link,ax)
+
+        return fig
     end
-
-    if show_hipparcos
-        item += 1
-        col = mod1(item, cols)
-        row = cld(item, cols)
-        gl = GridLayout(
-            fig[row,col],
-            width=500figscale,
-            height=480figscale,
-        )
-        ax = hipparcosplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
-        top_time_axis = false
-        Makie.rowgap!(gl, 10.)
-        append!(axes_to_link,ax)
-    end
-
-
-    if show_mass
-        item += 1
-        col = mod1(item, cols)
-        row = cld(item, cols)
-        gl = GridLayout(
-            fig[row,col],
-            width=500figscale,
-            height=400figscale,
-        )
-        Octofitter.masspostplot!(gl, model, results;)
-        Makie.rowgap!(gl, 10.)
-    end
-    Makie.rowgap!(fig, 10.)
-
-
-    if !isempty(axes_to_link)
-        Makie.linkxaxes!(axes_to_link...)
-        yspace = maximum(Makie.tight_yticklabel_spacing!, axes_to_link)
-        for ax in axes_to_link
-            ax.yticklabelspace = yspace + 30
-        end
-    end
-
     return fig
 end
  
+
+# Helper from AlgebraOfGraphics -- prevent computing layout updates after adding
+# each series
+get_layout(gl::Makie.GridLayout) = gl
+get_layout(f::Union{Makie.Figure, Makie.GridPosition}) = f.layout
+get_layout(l::Union{Makie.Block, Makie.GridSubposition}) = get_layout(l.parent)
+
+# Wrap layout updates in an update block to avoid triggering multiple updates
+function update(f, fig)
+    layout = get_layout(fig)
+    block_updates = layout.block_updates
+    layout.block_updates = true
+    output = f(fig)
+    layout.block_updates = block_updates
+    block_updates || Makie.GridLayoutBase.update!(layout)
+    return output
+end

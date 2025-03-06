@@ -134,7 +134,6 @@ function rvtimeplot!(
             else
                 M_planet = zeros(length(ii))
             end
-            M_tot = results["M"][ii]
 
             ### Star RV    
             rv_star_model_t .+= radvel.(sols, M_planet)
@@ -249,8 +248,8 @@ function rvtimeplot!(
             else
                 M_planet = zeros(length(ii))
             end
-            M_tot = results["M"][ii]
-            M_star = M_tot - M_planet
+            M_tot = totalmass.(orbits[i_planet])
+            # M_star = M_tot - M_planet
 
             # Star RV  influence from this planet   
             rv_star_model_t .+= radvel.(sols, M_planet)

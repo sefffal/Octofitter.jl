@@ -123,39 +123,58 @@ end
 """
 Likelihood of there being planets in a sequence of images.
 """
-function Octofitter.ln_like(images::ImageLikelihood, θ_planet, orbit, orbit_solutions, solution_i_start)
+function Octofitter.ln_like(images::ImageLikelihood, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
     
     # Resolve the combination of system and planet parameters
     # as a Visual{KepOrbit} object. This pre-computes
     # some factors used in various calculations.
     # elements = construct_elements(θ_system, θ_planet)
+    this_orbit = orbits[i_planet]
 
     imgtable = images.table
     T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
-    for i in eachindex(imgtable.epoch)
+    for i_epoch in eachindex(imgtable.epoch)
 
-        soln = orbit_solutions[i+solution_i_start]
-        
-        band = imgtable.band[i]
+        band = imgtable.band[i_epoch]
+
+        # Account for any inner planets
+        ra_host_perturbation = zero(T)
+        dec_host_perturbation = zero(T)
+        for i_other_planet in eachindex(orbits)
+            orbit_other = orbits[i_other_planet]
+            # Only account for inner planets
+            if semimajoraxis(orbit_other) < semimajoraxis(this_orbit)
+                θ_planet′ = θ_system.planets[i_other_planet]
+                mass_other = θ_planet′.mass*Octofitter.mjup2msol
+                sol = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                # Note about `total mass`: for this to be correct, user will have to specify
+                # `M` at the planet level such that it doesn't include the outer planets.
+                ra_host_perturbation += raoff(sol)*mass_other/totalmass(orbit_other)   
+                dec_host_perturbation += decoff(sol)*mass_other/totalmass(orbit_other)
+            end
+        end
+
+        # Take the measurement, and *add* the Delta, to get what we compare to the model
+        sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
 
         # Note the x reversal between RA and image coordinates
-        x = -raoff(soln)
-        y = +decoff(soln)
+        x = -(raoff(sol) + ra_host_perturbation )
+        y = (decoff(sol) + dec_host_perturbation )
 
         # Get the photometry in this image at that location
         # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
-        platescale = imgtable.platescale[i]
-        f̃ₓ = imgtable.imageinterp[i](x/platescale, y/platescale)
+        platescale = imgtable.platescale[i_epoch]
+        f̃ₓ = imgtable.imageinterp[i_epoch](x/platescale, y/platescale)
 
         # Find the uncertainty in that photometry value (i.e. the contrast)
         if hasproperty(imgtable, :contrastmap)
             # If we have a 2D map
-            σₓ = imgtable.contrastmapinterp[i](x/platescale, y/platescale)
+            σₓ = imgtable.contrastmapinterp[i_epoch](x/platescale, y/platescale)
         else
             # We have a 1D contrast curve
             r = √(x^2 + y^2)
-            σₓ = imgtable.contrast[i](r / platescale)
+            σₓ = imgtable.contrast[i_epoch](r / platescale)
         end
 
         # Verify the user has specified a prior or model for this band.

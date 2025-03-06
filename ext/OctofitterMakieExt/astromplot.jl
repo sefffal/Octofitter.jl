@@ -111,27 +111,53 @@ function Octofitter.astromplot!(
         orbs = Octofitter.construct_elements(model, results, planet_key, ii)
 
         # Draws from the posterior
-        if first(orbs) isa AbsoluteVisual
+        # Normally we want to sample in equal steps of eccentric anomaly to get
+        # nice smooth curves with few points
+        # if first(orbs) isa AbsoluteVisual
+            # ...but this orbit type have certain non-linear effects which make the orbits
+            # not repeat each orbit period, and we need to step in time.
             # Solve from an initial epoch, then in equal steps of mean anomaly (best we can do, ideally we'd do steps of eccentic anomaly)
-            MAs = range(0, 2pi, length=150)
-            ts_prime = first(ts) .+ range(0, 1 + 1/150, length=150)' .* period.(orbs)
+            ts_prime = first(ts) .+ range(0, stop=1, length=150)' .* period.(orbs)
             sols = orbitsolve.(orbs, ts_prime)
-        else
-            # Orbit is perfectly periodic, so take equal steps in 
-            sols = orbitsolve_eccanom.(orbs, EAs')
-        end
+        # else
+        #     # Orbit is perfectly periodic, so take equal steps in 
+        #     sols = orbitsolve_eccanom.(orbs, EAs')
+        # end
         
 
-
+        # Skip orbits that don't have enough information to plot in sky coordinates
         try
             raoff(first(sols))
         catch
             continue
         end
 
+        ra_host_perturbation = zeros(size(ts_prime))
+        dec_host_perturbation = zeros(size(ts_prime))
+        for planet_key′ in keys(model.system.planets)
+
+            if !haskey(results, "$(planet_key′)_mass")
+                continue
+            end
+
+            other_planet_mass = results["$(planet_key′)_mass"][ii]
+            orbit_other = Octofitter.construct_elements(model, results, planet_key′, ii)
+            # Only account for interior planets
+            mask = semimajoraxis.(orbit_other) .< semimajoraxis.(orbs)
+            total_mass = totalmass.(orbit_other)
+
+            sols′ = orbitsolve.(orbit_other, ts_prime)
+            
+            ra_host_perturbation .+= mask .* raoff.(sols′).*other_planet_mass.*Octofitter.mjup2msol./total_mass   
+            dec_host_perturbation .+= mask .* decoff.(sols′).*other_planet_mass.*Octofitter.mjup2msol./total_mass
+        end
+
+        ra_model = (raoff.(sols) .+ ra_host_perturbation)
+        dec_model = (decoff.(sols) .+ dec_host_perturbation)
+        
         lines!(ax,
-            concat_with_nan(raoff.(sols)).*axis_mult,
-            concat_with_nan(decoff.(sols)).*axis_mult;
+            concat_with_nan(ra_model).*axis_mult,
+            concat_with_nan(dec_model).*axis_mult;
             color=concat_with_nan(
                 # rem2pi.(EAs' .- eccanom.(sols_0), RoundDown) .+ 0 .* ii
                 rem2pi.(meananom.(sols), RoundDown) .+ 0 .* ii
@@ -151,7 +177,8 @@ function Octofitter.astromplot!(
     append!(like_objs, model.system.observations)
 
     for like_obj in like_objs
-        if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+        if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood || 
+            nameof(typeof(like_obj)) == :EpicycleRelAstromLikelihood_v2
 
             x = Float64[]
             y = Float64[]

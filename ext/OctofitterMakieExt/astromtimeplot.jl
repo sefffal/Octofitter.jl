@@ -151,24 +151,61 @@ function astromtimeplot!(
 
     for planet_key in keys(model.system.planets)
         orbs = Octofitter.construct_elements(model, results, planet_key, ii)
-        # Now time-series
+
         sols = orbitsolve.(orbs, ts')
 
         # Some orbit models provide position angles but not projected separation
-        sep_model_t = try
-            projectedseparation.(sols)
-        catch
-            fill(NaN, length(sols))
-        end
+        # TODO: we had to disable the ability to plot orbits giving PA but 
+        # not sep and vise-versa to add the other-planet perturbations
+        # We should find a way to reenable it
+        # sep_model_t = try
+        #     projectedseparation.(sols)
+        # catch
+        #     fill(NaN, length(sols))
+        # end
         
-        # Other orbit models e.g. RadialVelocityOrbit provide neither
-        pa_model_t = try
-            rem2pi.(posangle.(sols), RoundDown)
-        catch
-            continue
-        end
+        # # Other orbit models e.g. RadialVelocityOrbit provide neither
+        # pa_model_t = try
+        #     rem2pi.(posangle.(sols), RoundDown)
+        # catch
+        #     fill(NaN, length(sols))
+        # end
         color_model_t = rem2pi.(
             eccanom.(sols), RoundDown)
+
+        # Account for planet-star interactions from interior planets
+        ra_host_perturbation = zeros(size(sols), )
+        dec_host_perturbation = zeros(size(sols), )
+        for planet_key′ in keys(model.system.planets)
+
+            if !haskey(results, "$(planet_key′)_mass")
+                continue
+            end
+
+            other_planet_mass = results["$(planet_key′)_mass"][ii]
+            orbit_other = Octofitter.construct_elements(model, results, planet_key′, ii)
+            try
+                raoff.(orbit_other, 0)
+            catch
+                continue
+            end
+
+            # TODO: currently working on adding epicycle perturbations to separation and PA plots
+
+            # Only account for interior planets
+            mask = semimajoraxis.(orbit_other) .< semimajoraxis.(orbs)
+            total_mass = totalmass.(orbit_other)
+
+            sols′ = orbitsolve.(orbit_other, ts')
+            
+            ra_host_perturbation .+= mask .* raoff.(sols′).*other_planet_mass.*Octofitter.mjup2msol./total_mass   
+            dec_host_perturbation .+= mask .* decoff.(sols′).*other_planet_mass.*Octofitter.mjup2msol./total_mass
+        end
+
+        ra_model = (raoff.(sols) .+ ra_host_perturbation)
+        dec_model = (decoff.(sols) .+ dec_host_perturbation)
+        sep_model_t = hypot.(ra_model, dec_model)
+        pa_model_t = rem2pi.(atan.(ra_model, dec_model), RoundDown)
         
         if any(isfinite, sep_model_t)
             lines!(ax_sep,
