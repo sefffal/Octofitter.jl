@@ -1,33 +1,43 @@
 
-
-"""
-    pointwise_like(model, chain)
-
-Given a model and posterior sample chain split out the posterior probability into prior and columns for each datapoint.
-"""
-function pointwise_like(model, chain)
-
-    # Resolve the array back into the nested named tuple structure used internally.
-    sample_nts = mcmcchain2result(model, chain,)
-
-    # Got this part done!
-    # Now need to construct a list of System objects from model, where each one only
-    # has one datapoint.
-    # Then loop through sample_nts * System_objects' and compute ln_like.
-
-    per_obs_systems = generate_system_per_epoch(model.system)
-
-    # Convert these system definitions into ln_like functions
-    ln_likes = map(per_obs_systems) do system
-        Octofitter.make_ln_like(system, first(sample_nts))
+    function run_all_functions(func_tuple::Tuple, systems_tuple::Tuple, params)
+        return ntuple(i -> func_tuple[i](systems_tuple[i], params), length(func_tuple))
     end
-
-    return broadcast(sample_nts, reshape(per_obs_systems,1,:), reshape(ln_likes,1,:)) do sample_nt, system, ln_like
-        loglike = ln_like(system, sample_nt)
-        return loglike
+    
+    function pointwise_like(model, chain)
+        # Resolve the array back into the nested named tuple structure used internally
+        sample_nts = mcmcchain2result(model, chain)
+    
+        # Create system objects for each observation
+        per_obs_systems = generate_system_per_epoch(model.system)
+    
+        # Convert these system definitions into ln_like functions
+        ln_likes = map(per_obs_systems) do system
+            Octofitter.make_ln_like(system, first(sample_nts))
+        end
+    
+        # Convert to tuples for better type stability and compile-time specialization
+        ln_likes_tuple = Tuple(ln_likes)
+        systems_tuple = Tuple(per_obs_systems)
+        
+        # Preallocate output array
+        LL_out = zeros(length(sample_nts), length(per_obs_systems))
+        
+        # Disable threading in the solver
+        Octofitter._kepsolve_use_threads[] = false
+        
+        # Compute likelihoods for each sample
+        for i_sample in 1:size(LL_out, 1)
+            # Use the specialized function to get all likelihoods at once
+            likelihoods = run_all_functions(ln_likes_tuple, systems_tuple, sample_nts[i_sample])
+            
+            # Store results in output array
+            for i_obs in 1:size(LL_out, 2)
+                LL_out[i_sample, i_obs] = likelihoods[i_obs]
+            end
+        end
+        
+        return LL_out
     end
-
-end
 
 
 
