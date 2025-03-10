@@ -94,7 +94,7 @@ Both tools use the same orbit conventions so this is fairly straightforward.
 If you pass `numchains` as a second argument, the array will be interpretted
 as coming from multiple chains concatenated together, 
 """
-function loadhdf5(fname_or_targetname, numchains=1)
+function loadhdf5(fname_or_targetname, numchains=1; colnames=nothing)
     if !(occursin(".hdf5", fname_or_targetname) || occursin(".h5", fname_or_targetname))
         fname = Whereistheplanet_search(fname_or_targetname)
     else
@@ -113,48 +113,110 @@ function loadhdf5(fname_or_targetname, numchains=1)
                 ),
             )
         end
-        # TODO: should read the `colnames` property instead of assuming:
-        chn =  MCMCChains.Chains(
-            arr,
-            [
-                :b_a,
-                :b_e,
-                :b_i,
-                :b_ω,
-                :b_Ω,
-                :b_τ,
-                :plx,
-                :M
-            ],
+        if isnothing(colnames)
+            try
+                colnames = read_attribute(f, "parameter_labels")
+            catch
+                @warn "`parameter_labels` not present, will have to fall back on a guess. You can also provide a vector of colname strings with the argument `colnames`"
+                colnames = ["sma1","ecc1","inc1","aop1","pan1","tau1","plx","M"]
+            end
+        end
+        num_planets = 0
+        num_planets += "sma1" ∈ colnames
+        num_planets += "sma2" ∈ colnames
+        num_planets += "sma3" ∈ colnames
+        num_planets += "sma4" ∈ colnames
+        planet_keys = ["b", "c", "d", "e"]
+        replace!(colnames,
+            "sma1"=>"b_a",
+            "ecc1"=>"b_e",
+            "inc1"=>"b_i",
+            "aop1"=>"b_ω",
+            "pan1"=>"b_Ω",
+            "tau1"=>"b_τ",
+            "sma2"=>"c_a",
+            "ecc2"=>"c_e",
+            "inc2"=>"c_i",
+            "aop2"=>"c_ω",
+            "pan2"=>"c_Ω",
+            "tau2"=>"c_τ",
+            "sma3"=>"d_a",
+            "ecc3"=>"d_e",
+            "inc3"=>"d_i",
+            "aop3"=>"d_ω",
+            "pan3"=>"d_Ω",
+            "tau3"=>"d_τ",
+            "sma4"=>"e_a",
+            "ecc4"=>"e_e",
+            "inc4"=>"e_i",
+            "aop4"=>"e_ω",
+            "pan4"=>"e_Ω",
+            "tau4"=>"e_τ",
+            # "plx"
+            "m1"=>"b_mass",
+            "m2"=>"c_mass",
+            "m3"=>"d_mass",
+            "m4"=>"e_mass",
+            "m0"=>"M_pri",
+            "mtot"=>"M",
         )
 
+
+        # We need to add total mass columns planet_M for each planet that
+        # include the mass of each body and those interior to it
+        for i_planet in 1:num_planets
+
+            ind = findfirst(==("M_pri"), colnames)
+            if isnothing(ind) 
+                # We just have mtot
+                continue
+            end
+            M_tot = arr[:,ind]
+            for j_planet in 1:num_planets
+                # Only add influce if sma is less than current
+                sma_this = arr[:,findfirst(==(string(planet_keys[i_planet], "_a")),colnames)]
+                sma_other = arr[:,findfirst(==(string(planet_keys[j_planet], "_a")),colnames)]
+                mask_sma_lower =  sma_other .<= sma_this
+                # mask_sma_lower = sma_other .== sma_this
+                m_planet =  arr[:,findfirst(==(string(planet_keys[j_planet], "_mass")),colnames)]
+                M_tot .+= mask_sma_lower .* m_planet
+            end
+            arr = hcat(arr, M_tot)
+            push!(colnames, string(planet_keys[i_planet], "_M"))
+        end
+
+        for (col, colname) in zip(eachcol(arr), colnames)
+            if endswith(colname, "_mass")
+                col ./= mjup2msol
+            end
+        end
+
+
+        chn =  MCMCChains.Chains(arr, Symbol.(colnames))
         # Calculate epoch of periastron passage from Orbitize tau variable:
         tau_ref_epoch = 58849
         if haskey(attrs(f),"tau_ref_epoch")
             tau_ref_epoch = attrs(f)["tau_ref_epoch"]
         end
+        tps = map(1:num_planets) do i_planet
+            a = chn[Symbol("$(planet_keys[i_planet])_a")]
+            τ = chn[Symbol("$(planet_keys[i_planet])_τ")]
+            k1 = :M
+            k2 = Symbol("$(planet_keys[i_planet])_M")
+            if haskey(chn,k1)
+                M = chn[k1]
+            else
+                M = chn[k2]
+            end
+            period_days = @. √(a^3/M)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
+            tp = @. τ * period_days + tau_ref_epoch
+            return tp
+        end
+        tp_keys = map(1:num_planets) do i_planet
+            Symbol("$(planet_keys[i_planet])_tp")
+        end
 
-        a = chn[:b_a]
-        τ = chn[:b_τ]
-        M = chn[:M]
-        period_days = @. √(a^3/M)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
-            
-        tp = @. τ * period_days + tau_ref_epoch
-
-        chn =  MCMCChains.Chains(
-            hcat(arr, tp),
-            [
-                :b_a,
-                :b_e,
-                :b_i,
-                :b_ω,
-                :b_Ω,
-                :b_τ,
-                :plx,
-                :M,
-                :b_tp
-            ],
-        )
+        chn =  MCMCChains.Chains(hcat(arr, tps...), [Symbol.(colnames)..., tp_keys...])
 
         # Read additional attributes in and convert to named tuple
         metadata = [Symbol(k)=>v for (k,v) in attrs(f)]

@@ -100,22 +100,31 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, orbits
         for i_other_planet in eachindex(orbits)
             orbit_other = orbits[i_other_planet]
             # Only account for inner planets
+            # if semimajoraxis(orbit_other) == semimajoraxis(this_orbit)
             if semimajoraxis(orbit_other) < semimajoraxis(this_orbit)
                 θ_planet′ = θ_system.planets[i_other_planet]
                 mass_other = θ_planet′.mass*Octofitter.mjup2msol
-                sol = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
                 # Note about `total mass`: for this to be correct, user will have to specify
                 # `M` at the planet level such that it doesn't include the outer planets.
-                ra_host_perturbation += raoff(sol)*mass_other/totalmass(orbit_other)   
-                dec_host_perturbation += decoff(sol)*mass_other/totalmass(orbit_other)
+
+                # raoff(sol′) is the distance from the inner planet to the star
+                # raoff(sol, θ_planet.mass * mjup2msol) is the displacement of the star vs the barycentre
+
+                ra_host_perturbation += raoff(sol′, mass_other)
+                dec_host_perturbation += decoff(sol′, mass_other)
             end
         end
 
         # Take the measurement, and *add* the Delta, to get what we compare to the model
         sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
 
-        ra_model = (raoff(sol) + ra_host_perturbation )
-        dec_model = (decoff(sol) + dec_host_perturbation )
+        # Add the distance from the outer planet to the (inner planets + star) barcentre,
+        # and then add the distance from the (inner planet + star) barycentre to the star
+
+        # This is distance(outer planet, inner barycentre) + distance(inner barycentre, star)
+        ra_model = (raoff(sol) - ra_host_perturbation )
+        dec_model = (decoff(sol) - dec_host_perturbation )
 
         # PA and Sep specified
         if hasproperty(astrom.table, :pa) && hasproperty(astrom.table, :sep)

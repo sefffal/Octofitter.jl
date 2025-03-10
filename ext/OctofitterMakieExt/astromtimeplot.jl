@@ -177,8 +177,7 @@ function astromtimeplot!(
         ra_host_perturbation = zeros(size(sols), )
         dec_host_perturbation = zeros(size(sols), )
         for planet_key′ in keys(model.system.planets)
-
-            if !haskey(results, "$(planet_key′)_mass")
+            if !haskey(results, Symbol("$(planet_key′)_mass"))
                 continue
             end
 
@@ -198,12 +197,12 @@ function astromtimeplot!(
 
             sols′ = orbitsolve.(orbit_other, ts')
             
-            ra_host_perturbation .+= mask .* raoff.(sols′).*other_planet_mass.*Octofitter.mjup2msol./total_mass   
-            dec_host_perturbation .+= mask .* decoff.(sols′).*other_planet_mass.*Octofitter.mjup2msol./total_mass
+            ra_host_perturbation .+= mask .* raoff.(sols′, other_planet_mass.*Octofitter.mjup2msol)
+            dec_host_perturbation .+= mask .* decoff.(sols′, other_planet_mass.*Octofitter.mjup2msol)
         end
 
-        ra_model = (raoff.(sols) .+ ra_host_perturbation)
-        dec_model = (decoff.(sols) .+ dec_host_perturbation)
+        ra_model = (raoff.(sols) .- ra_host_perturbation)
+        dec_model = (decoff.(sols) .- dec_host_perturbation)
         sep_model_t = hypot.(ra_model, dec_model)
         pa_model_t = rem2pi.(atan.(ra_model, dec_model), RoundDown)
         

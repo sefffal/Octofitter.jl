@@ -262,7 +262,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
                         return
                     end
                 end
-                error("Could not find starting point within 0.001 - 0.999 quantiles of priors.")
+                error("Within pathfinder, could not find a finite starting point within 0.001 - 0.999 quantiles of priors.")
             end
             errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
             initial_mt = _kepsolve_use_threads[]

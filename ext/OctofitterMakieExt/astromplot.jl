@@ -132,11 +132,11 @@ function Octofitter.astromplot!(
             continue
         end
 
+
         ra_host_perturbation = zeros(size(ts_prime))
         dec_host_perturbation = zeros(size(ts_prime))
         for planet_key′ in keys(model.system.planets)
-
-            if !haskey(results, "$(planet_key′)_mass")
+            if !haskey(results, Symbol("$(planet_key′)_mass"))
                 continue
             end
 
@@ -144,16 +144,15 @@ function Octofitter.astromplot!(
             orbit_other = Octofitter.construct_elements(model, results, planet_key′, ii)
             # Only account for interior planets
             mask = semimajoraxis.(orbit_other) .< semimajoraxis.(orbs)
-            total_mass = totalmass.(orbit_other)
 
             sols′ = orbitsolve.(orbit_other, ts_prime)
-            
-            ra_host_perturbation .+= mask .* raoff.(sols′).*other_planet_mass.*Octofitter.mjup2msol./total_mass   
-            dec_host_perturbation .+= mask .* decoff.(sols′).*other_planet_mass.*Octofitter.mjup2msol./total_mass
+
+            ra_host_perturbation .+= mask .* raoff.(sols′, other_planet_mass.*Octofitter.mjup2msol)
+            dec_host_perturbation .+= mask .* decoff.(sols′, other_planet_mass.*Octofitter.mjup2msol)
         end
 
-        ra_model = (raoff.(sols) .+ ra_host_perturbation)
-        dec_model = (decoff.(sols) .+ dec_host_perturbation)
+        ra_model = (raoff.(sols) .- ra_host_perturbation)
+        dec_model = (decoff.(sols) .- dec_host_perturbation)
         
         lines!(ax,
             concat_with_nan(ra_model).*axis_mult,
@@ -177,8 +176,7 @@ function Octofitter.astromplot!(
     append!(like_objs, model.system.observations)
 
     for like_obj in like_objs
-        if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood || 
-            nameof(typeof(like_obj)) == :EpicycleRelAstromLikelihood_v2
+        if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
 
             x = Float64[]
             y = Float64[]

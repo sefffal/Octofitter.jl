@@ -150,8 +150,8 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_system, θ_planet, orbit
                 sol = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
                 # Note about `total mass`: for this to be correct, user will have to specify
                 # `M` at the planet level such that it doesn't include the outer planets.
-                ra_host_perturbation += raoff(sol)*mass_other/totalmass(orbit_other)   
-                dec_host_perturbation += decoff(sol)*mass_other/totalmass(orbit_other)
+                ra_host_perturbation += raoff(sol′, mass_other)
+                dec_host_perturbation += decoff(sol′, mass_other)
             end
         end
 
@@ -159,8 +159,8 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_system, θ_planet, orbit
         sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
 
         # Note the x reversal between RA and image coordinates
-        x = -(raoff(sol) + ra_host_perturbation )
-        y = (decoff(sol) + dec_host_perturbation )
+        x = -(raoff(sol) - ra_host_perturbation )
+        y = (decoff(sol) - dec_host_perturbation )
 
         # Get the photometry in this image at that location
         # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)

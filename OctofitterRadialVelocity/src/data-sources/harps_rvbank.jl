@@ -9,7 +9,7 @@ function HARPS_RVBank_observations(target, catalog=datadep"HARPS_RVBank")
 
     target_matched_i = findall(==(target), rvbank.target)
 
-    if isnothing(target_matched_i)
+    if isempty(target_matched_i)
         avail_filt = unique(rvbank.target[rvbank.target.!=""])
         similarity = evaluate.(Ref(Levenshtein()), target, avail_filt)
         ii = sortperm(similarity)
