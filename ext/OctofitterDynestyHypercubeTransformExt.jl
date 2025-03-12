@@ -37,8 +37,8 @@ function Dynesty.dysample(model::Octofitter.LogDensityModel, args...; kwargs...)
     stats = (logl = Dynesty.PythonCall.pyconvert(Vector, res["logl"]), weights = weights,)
     logz = Dynesty.PythonCall.pyconvert(Float64, res["logz"][-1])
     logzerr = Dynesty.PythonCall.pyconvert(Float64, res["logzerr"][-1])
-    inds = sample(1:size(samples)[1], Weights(stats.weights), length(samples)÷50)
-    esamples = samples[inds, :]
+    inds = sample(1:size(samples)[1], Weights(stats.weights), min(length(samples)÷50, 50_000))
+    esamples = @views samples[inds, :]
 
     ln_prior = Octofitter.make_ln_prior(model.system)
     chain_res = map(eachrow(esamples)) do θ
@@ -66,8 +66,6 @@ function Dynesty.dysample(model::Octofitter.LogDensityModel, args...; kwargs...)
             stop_time,
             logz,
             logzerr,
-            samples,
-            stats,
             model_name=model.system.name
         )
     )
