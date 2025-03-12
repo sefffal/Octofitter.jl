@@ -16,8 +16,7 @@ measurement process and linear models.
 Upon first load, you will be prompted to accept the download of the eDR3 version of the HGCA 
 catalog.
 """
-struct HGCALikelihood{TTable<:Table,THGCA,THip,TGaia,fluxratio_var} <: AbstractLikelihood
-    table::TTable
+struct HGCALikelihood{THGCA,THip,TGaia,fluxratio_var} <: AbstractLikelihood
     hgca::THGCA
     hiplike::THip
     gaialike::TGaia
@@ -25,7 +24,7 @@ struct HGCALikelihood{TTable<:Table,THGCA,THip,TGaia,fluxratio_var} <: AbstractL
     include_dr3_vel::Bool
 end
 
-function _getparams(::HGCALikelihood{TTable,THGCA,THip,TGaia,fluxratio_var}, θ_planet) where {TTable,THGCA,THip,TGaia,fluxratio_var}
+function _getparams(::HGCALikelihood{THGCA,THip,TGaia,fluxratio_var}, θ_planet) where {THGCA,THip,TGaia,fluxratio_var}
     if fluxratio_var == :__dark
         return (;fluxratio=zero(Octofitter._system_number_type(θ_planet)))
     end
@@ -64,15 +63,15 @@ function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"
 
     # Besides epoch and catalog, I'm not sure we will really use this data table
     # except maybe for plotting
-    table = Table(;
-        epoch=[hipparcos_catalog_epoch_mjd, meta_gaia_DR2.ref_epoch_mjd],
-        catalog=[:hipparcos, :gaia],
-        ra=[hip_like.hip_sol.radeg, gaia_like.gaia_sol.ra],
-        dec=[hip_like.hip_sol.dedeg, gaia_like.gaia_sol.dec],
-        plx=[hip_like.hip_sol.plx, gaia_like.gaia_sol.parallax],
-        pmra=[hip_like.hip_sol.pm_ra, gaia_like.gaia_sol.pmra],
-        pmdec=[hip_like.hip_sol.pm_de, gaia_like.gaia_sol.pmdec],
-    )
+    # table = Table(;
+    #     epoch=[hipparcos_catalog_epoch_mjd, meta_gaia_DR2.ref_epoch_mjd],
+    #     catalog=[:hipparcos, :gaia],
+    #     ra=[hip_like.hip_sol.radeg, gaia_like.gaia_sol.ra],
+    #     dec=[hip_like.hip_sol.dedeg, gaia_like.gaia_sol.dec],
+    #     plx=[hip_like.hip_sol.plx, gaia_like.gaia_sol.parallax],
+    #     pmra=[hip_like.hip_sol.pm_ra, gaia_like.gaia_sol.pmra],
+    #     pmdec=[hip_like.hip_sol.pm_de, gaia_like.gaia_sol.pmdec],
+    # )
 
 
     # Precompute MvNormal distributions for correlation between ra and dec
@@ -111,18 +110,18 @@ function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"
     end
 
     return HGCALikelihood{
-        typeof(table),
+        # typeof(table),
         typeof(hgca),
         typeof(hip_like),
         typeof(gaia_like),
         fluxratio_var,
-    }(table, hgca, hip_like, gaia_like, fluxratio_var, include_dr3_vel)
+    }(#=table,=# hgca, hip_like, gaia_like, fluxratio_var, include_dr3_vel)
 
 end
 
-function likeobj_from_epoch_subset(obs::HGCALikelihood, obs_inds)
-    # return HGCALikelihood(obs.table[obs_inds, :, 1], obs.hgca, obs.fluxratio_vars) # TODO
-end
+# function likeobj_from_epoch_subset(obs::HGCALikelihood, obs_inds)
+#     # return HGCALikelihood(obs.table[obs_inds, :, 1], obs.hgca, obs.fluxratio_vars) # TODO
+# end
 
 function ln_like(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     T = Octofitter._system_number_type(θ_system)
