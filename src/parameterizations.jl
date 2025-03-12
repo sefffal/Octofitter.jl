@@ -25,7 +25,7 @@ function θ_at_epoch_to_tperi(system,planet,theta_epoch)
             (;a) = planet
         elseif hasproperty(planet, :P)
             (; P) = planet
-            a = ∛(system.M * b.P^2) # TODO
+            a = ∛(system.M * b.P^2)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
         else
             error("Your planet must specify either i, Ω, ω, and a/P, or B, G, A, F.")
         end
