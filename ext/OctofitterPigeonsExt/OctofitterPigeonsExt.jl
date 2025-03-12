@@ -185,6 +185,7 @@ Base.@nospecializeinfer function MCMCChains.Chains(
     try
         samples = get_sample(pt, chain_num)
     catch
+        @warn "Chain not available, falling back"
         samples = get_sample(pt)
     end
     chain_res = map(samples) do sample 
