@@ -314,7 +314,7 @@ function pmaplot!(
                 Octofitter.construct_elements(model, results, planet_key, i)
             end
             solutions = map(orbits) do orbit
-                return orbitsolve.(orbit, hgca_like.table.epoch)
+                return orbitsolve.(orbit, years2mjd.([hgca_like.hgca.epoch_ra_hip, hgca_like.hgca.epoch_ra_gaia]))
             end
             sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, 0)
             push!(sims, sim)
