@@ -71,8 +71,11 @@ function construct_elements(model::LogDensityModel, chain::Chains, planet_key::U
 end
 function construct_elements(model::LogDensityModel, chain::Chains, planet_key::Union{String,Symbol}, i::Number)
     nt = mcmcchain2result(model,chain,i)
-    θ_planet = getproperty(nt.planets, planet_key)
-    return orbit(;merge(nt,θ_planet)...)
+    return construct_elements(nt, planet_key)
+end
+function construct_elements(result::NamedTuple, planet_key::Union{String,Symbol})
+    θ_planet = getproperty(result.planets, planet_key)
+    return orbit(;merge(result,θ_planet)...)
 end
 construct_elements(model::LogDensityModel, chain::Chains, planet::Planet, args...; kwargs...) = construct_elements(model, chain, planet.name, args...; kwargs...) 
 

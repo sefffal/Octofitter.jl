@@ -196,8 +196,7 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
     # Generate new orbits for each planet in the system
     orbits = map(eachindex(system.planets)) do i
         planet = system.planets[i]
-        θ_newplanet = θ_newsystem.planets[i]
-        neworbit = Octofitter.construct_elements(Octofitter.orbittype(planet), θ_newsystem, θ_newplanet)
+        neworbit = Octofitter.construct_elements(θ_newsystem, planet.name)
         return neworbit
     end
 
