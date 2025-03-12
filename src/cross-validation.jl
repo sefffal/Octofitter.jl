@@ -1,43 +1,44 @@
 
-    function run_all_functions(func_tuple::Tuple, systems_tuple::Tuple, params)
-        return ntuple(i -> func_tuple[i](systems_tuple[i], params), length(func_tuple))
+function run_all_functions(func_tuple::Tuple, systems_tuple::Tuple, params)
+    return ntuple(i -> func_tuple[i](systems_tuple[i], params), length(func_tuple))
+end
+
+function pointwise_like(model, chain)
+    # Resolve the array back into the nested named tuple structure used internally
+    sample_nts = mcmcchain2result(model, chain)
+
+    # Create system objects for each observation
+    per_obs_systems = generate_system_per_epoch(model.system)
+
+    # Convert these system definitions into ln_like functions
+    ln_likes = map(per_obs_systems) do system
+        Octofitter.make_ln_like(system, first(sample_nts))
+    end
+
+    # Convert to tuples for better type stability and compile-time specialization
+    ln_likes_tuple = Tuple(ln_likes)
+    systems_tuple = Tuple(per_obs_systems)
+    
+    # Preallocate output array
+    LL_out = zeros(length(sample_nts), length(per_obs_systems))
+    
+    # Disable threading in the solver -- we will thread in the outer loop
+    Octofitter._kepsolve_use_threads[] = false
+    
+    # Compute likelihoods for each sample
+    Threads.@threads for i_sample in 1:size(LL_out, 1)
+        # Use the specialized function to get all likelihoods at once -- this compiles into faster code
+        # than just looping through them here (triggers a bunch of dynamic dispatches)
+        likelihoods = run_all_functions(ln_likes_tuple, systems_tuple, sample_nts[i_sample])
+        
+        # Store results in output array
+        for i_obs in 1:size(LL_out, 2)
+            LL_out[i_sample, i_obs] = likelihoods[i_obs]
+        end
     end
     
-    function pointwise_like(model, chain)
-        # Resolve the array back into the nested named tuple structure used internally
-        sample_nts = mcmcchain2result(model, chain)
-    
-        # Create system objects for each observation
-        per_obs_systems = generate_system_per_epoch(model.system)
-    
-        # Convert these system definitions into ln_like functions
-        ln_likes = map(per_obs_systems) do system
-            Octofitter.make_ln_like(system, first(sample_nts))
-        end
-    
-        # Convert to tuples for better type stability and compile-time specialization
-        ln_likes_tuple = Tuple(ln_likes)
-        systems_tuple = Tuple(per_obs_systems)
-        
-        # Preallocate output array
-        LL_out = zeros(length(sample_nts), length(per_obs_systems))
-        
-        # Disable threading in the solver
-        Octofitter._kepsolve_use_threads[] = false
-        
-        # Compute likelihoods for each sample
-        for i_sample in 1:size(LL_out, 1)
-            # Use the specialized function to get all likelihoods at once
-            likelihoods = run_all_functions(ln_likes_tuple, systems_tuple, sample_nts[i_sample])
-            
-            # Store results in output array
-            for i_obs in 1:size(LL_out, 2)
-                LL_out[i_sample, i_obs] = likelihoods[i_obs]
-            end
-        end
-        
-        return LL_out
-    end
+    return LL_out
+end
 
 
 
@@ -150,35 +151,36 @@ function generate_system_filtered_like(user_predicate, system)
     to_include_planets = []
     included_j_obs = Int[]
     for obs in system.observations
-        if _isprior(obs)
-            push!(to_include_system, obs)
-        else
+        # if _isprior(obs)
+            # push!(to_include_system, obs)
+        # else
             j_obs += 1
             if user_predicate(obs)
                 push!(to_include_system, likeobj_from_epoch_subset(obs, :))
                 push!(included_j_obs, j_obs)
             end
-        end
-        # TODO, if prior always include
+        # end
     end
     for planet in system.planets
         to_include_planet = []
         push!(to_include_planets, to_include_planet)
         for obs in planet.observations
-            if _isprior(obs)
-                push!(to_include_planet, obs)
-            else
+            # if _isprior(obs)
+                # push!(to_include_planet, obs)
+            # else
                 j_obs += 1
                 if user_predicate(obs)
                     obs_row = likeobj_from_epoch_subset(obs, :)
                     push!(to_include_planet, likeobj_from_epoch_subset(obs, :))
                     push!(included_j_obs, j_obs)
                 end
-            end
+            # end
         end
     end
 
+
     planets_new = map(system.planets, to_include_planets) do planet, like_objs
+        # println.(typeof.(like_objs))
         planet = Planet{orbittype(planet)}(
             planet.priors,
             planet.derived,
@@ -322,7 +324,12 @@ function generate_system_per_epoch(system)
                 current_epoch += 1
                 if current_epoch == i_obs
                     # This is the matching epoch, add just this row
-                    push!(to_include_system, likeobj_from_epoch_subset(tab_obs.obs, k_row))
+                    o = likeobj_from_epoch_subset(tab_obs.obs, k_row)
+                    if isnothing(o)
+                        @show typeof(tab_obs.obs)
+                        error("os is nothign",)
+                    end
+                    push!(to_include_system, o)
                     break
                 end
             end
