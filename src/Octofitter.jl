@@ -124,6 +124,13 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
     # Some octofitter likelihoods can cause errors when nansafe_mode isn't set to true.
     set_preferences!(ForwardDiff, "nansafe_mode" => true)
 
+    # JPL Horizons seems to allow their SSL certifcates to expire all the time.
+    # We have to disable certificate checking in order to be able to query it
+    # consistently
+    if !haskey(ENV, "JULIA_NO_VERIFY_HOSTS")
+        ENV["JULIA_NO_VERIFY_HOSTS"] = "ssd.jpl.nasa.gov"
+    end
+
     # List DataDeps here.
     # These are optional, automatic downloads required for certain
     # functionality.
