@@ -13,7 +13,7 @@
 Model Hipparcos-Gaia Catalog of Accelerations (Brandt et al) data using a full model of the Gaia and Hipparcos
 measurement process and linear models.
 
-Upon first load, you will be prompted to accept the download of the eDR3 version of the HGCA 
+Upon first load, you will be prompted to accept the download of the eDR3 version of the HGCA
 catalog.
 """
 struct HGCALikelihood{THGCA,THip,TGaia,fluxratio_var} <: AbstractLikelihood
@@ -126,21 +126,21 @@ end
 function ln_like(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
-    
+
     (;μ_g, μ_h, μ_hg) = simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
     absolute_orbits = false
     for orbit in orbits
         absolute_orbits |= orbit isa AbsoluteVisual
         # TODO: could check in a more user-friendly way
-        # that we don't have a mismatch of different orbit types 
+        # that we don't have a mismatch of different orbit types
         # for different planets?
     end
 
-    # If we have propagated the barycentric motion ourselves, we want to remove the 
+    # If we have propagated the barycentric motion ourselves, we want to remove the
     # nonlinear correction already applied to the HGCA by Tim Brandt (private communications)/
 
-    # Rather than subtract it from the HGCA observed values (which are here, already 
+    # Rather than subtract it from the HGCA observed values (which are here, already
     # baked into the pre-computed MvNormal distributions), just add them to the model
     # values
     μ_hg += @SVector [
@@ -180,14 +180,12 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
     for orbit in orbits
         absolute_orbits |= orbit isa AbsoluteVisual
         # TODO: could check in a more user-friendly way
-        # that we don't have a mismatch of different orbit types 
+        # that we don't have a mismatch of different orbit types
         # for different planets?
     end
 
 
 
-    # So we've calculated a delta PM
-    # Now what? 
     # I guess we add that delta PM to our propagated PM, and compare vs the catalog.
 
     # Helper functions to either get the static pmra from the orbital elements,
@@ -233,7 +231,8 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         #     hgca_like.hgca.epoch_dec_gaia_mjd,
         # )
 
-        out = fit_4param_prepared(hgca_like.gaialike.A_prepared_4, hgca_like.gaialike.table, Δα_mas, Δδ_mas)
+        out = fit_5param_prepared(hgca_like.gaialike.A_prepared_5, hgca_like.gaialike.table, Δα_mas, Δδ_mas)
+        # out = fit_4param_prepared(hgca_like.gaialike.A_prepared_4, hgca_like.gaialike.table, Δα_mas, Δδ_mas)
         Δα_g, Δδ_g, Δpmra_g, Δpmdec_g = out.parameters
         α_g₀, δ_g₀, pmra_g₀, pmdec_g₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_gaia_mjd, hgca_like.hgca.epoch_dec_gaia_mjd)
         μ_g = @SVector [pmra_g₀ + Δpmra_g, pmdec_g₀ + Δpmdec_g]
@@ -263,7 +262,8 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         #     hgca_like.hgca.epoch_dec_hip_mjd,
         #     hgca_like.hiplike.table.sres_renorm
         # )
-        out = fit_4param_prepared(hgca_like.hiplike.A_prepared_4, hgca_like.hiplike.table, Δα_mas, Δδ_mas, hgca_like.hiplike.table.sres)
+        out = fit_5param_prepared(hgca_like.hiplike.A_prepared_5, hgca_like.hiplike.table, Δα_mas, Δδ_mas, hgca_like.hiplike.table.res, hgca_like.hiplike.table.sres)
+        # out = fit_4param_prepared(hgca_like.hiplike.A_prepared_4, hgca_like.hiplike.table, Δα_mas, Δδ_mas, hgca_like.hiplike.table.sres)
         Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
         α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_hip_mjd, hgca_like.hgca.epoch_dec_hip_mjd)
         μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
@@ -289,13 +289,13 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
     end
 
     μ_hg = @SVector [pmra_hg_model, pmdec_hg_model]
-  
+
     return (;
         # Packaged up nicely
         μ_g,
         μ_h,
         μ_hg,
-        # Individual 
+        # Individual
         pmra_hip_model=μ_h[1],
         pmdec_hip_model=μ_h[2],
         pmra_gaia_model=μ_g[1],

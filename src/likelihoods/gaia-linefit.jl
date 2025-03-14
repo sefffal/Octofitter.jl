@@ -542,6 +542,52 @@ function fit_4param_prepared(
     # )
 end
 
+function fit_5param_prepared(
+    A_factored,
+    table,
+    Δα_mas,
+    Δδ_mas,
+    residuals=0.0,
+    σ_formal=0.0;
+    # include_chi2=false,
+)
+    n_obs = size(table, 1)
+
+    T = promote_type(eltype(Δα_mas), eltype(Δδ_mas))
+
+    # Use Bumper to elide allocations
+    @no_escape begin
+        b = @alloc(T, n_obs)
+        x = @alloc(T, 5)
+       
+        # for i in 1:n_obs
+        #     # Along-scan measurement
+        #     # b[i] = Δα_mas[i] * table.cosϕ[i] - Δδ_mas[i] * table.sinϕ[i]
+        # end
+        @. b = Δα_mas * table.cosϕ + Δδ_mas * table.sinϕ + residuals
+
+
+        if σ_formal != 0.
+            # weighted solution (allocates, to avoid re-writing)
+            # A is already weighted at preparation time
+            @. b *= 1/σ_formal  # Weight observations in-place
+        end
+
+        # differentiable_calc_x = DifferentiateWith(AutoFiniteDiff()) do b
+        #     x = A \ b
+        # end
+
+
+
+        # Straight-forward solution
+        x = A_factored \ b
+
+        parameters = @SVector [x[1], x[2], x[4], x[5], x[3]]
+    end
+
+    return (; parameters) 
+end
+
 function compute_gaia_inter_mission_parameter_covariance(
     A2_factored,  # Design matrix for system 2 (N×4)
     A3_factored,  # Design matrix for system 3 (M×4)

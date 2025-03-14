@@ -338,12 +338,18 @@ function HipparcosIADLikelihood(;
     table.α✱ₘ = collect(eachrow(@. [-1, 1]' * table.sinϕ + table.α✱ₐ))
     table.δₘ = collect(eachrow(@. [1, -1]' * table.cosϕ + table.δₐ))
 
+    table.scanAngle_rad = @. atan(table.sinϕ, table.cosϕ)
+    
+    table.parallaxFactorAlongScan = @. (
+        (table.x * sind(α₀) - table.y * cosd(α₀)) * table.cosϕ +
+        (table.x * cosd(α₀) * sind(δ₀) + table.y * sind(α₀) * sind(δ₀) - table.z * cosd(δ₀)) * table.sinϕ
+    )
+
     table = Table(table)
 
     # Prepare some factorized matrices for linear system solves
     A_prepared_4 = prepare_A_4param(table, hipparcos_catalog_epoch_mjd, hipparcos_catalog_epoch_mjd, table.sres)
-    # A_prepared_5 = prepare_A_5param(table, hipparcos_catalog_epoch_mjd, hipparcos_catalog_epoch_mjd)
-    A_prepared_5 = A_prepared_4 # TODO
+    A_prepared_5 = prepare_A_5param(table, hipparcos_catalog_epoch_mjd, hipparcos_catalog_epoch_mjd)
 
 
     return HipparcosIADLikelihood(hip_sol, table, dist, A_prepared_4, A_prepared_5)
