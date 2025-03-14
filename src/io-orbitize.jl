@@ -270,6 +270,7 @@ function savehdf5(fname::AbstractString, model::Octofitter.LogDensityModel, chai
         f["col_names"] = ["sma", "ecc", "inc", "aop", "pan", "tau", "plx", "mtot"]
 
         attrs(f)["tau_ref_epoch"] = tau_ref_epoch
+        attrs(f)["sampler_name"] = "Octofitter"
         
         dset = create_dataset(f, "post", Float32, size(dat))
         write(dset, convert(Matrix{Float32}, dat))
