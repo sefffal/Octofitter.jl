@@ -22,6 +22,7 @@ struct HGCALikelihood{THGCA,THip,TGaia,fluxratio_var} <: AbstractLikelihood
     gaialike::TGaia
     fluxratio_var::Symbol
     include_dr3_vel::Bool
+    include_iad::Bool
 end
 
 function _getparams(::HGCALikelihood{THGCA,THip,TGaia,fluxratio_var}, θ_planet) where {THGCA,THip,TGaia,fluxratio_var}
@@ -32,7 +33,7 @@ function _getparams(::HGCALikelihood{THGCA,THip,TGaia,fluxratio_var}, θ_planet)
     return (;fluxratio)
 end
 
-function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits", include_dr3_vel=true)
+function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits", include_dr3_vel=true, include_iad=true)
 
     # Load the HCGA
     hgca = FITS(hgca_catalog, "r") do fits
@@ -115,7 +116,7 @@ function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"
         typeof(hip_like),
         typeof(gaia_like),
         fluxratio_var,
-    }(#=table,=# hgca, hip_like, gaia_like, fluxratio_var, include_dr3_vel)
+    }(#=table,=# hgca, hip_like, gaia_like, fluxratio_var, include_dr3_vel, include_iad)
 
 end
 
@@ -262,7 +263,15 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         #     hgca_like.hgca.epoch_dec_hip_mjd,
         #     hgca_like.hiplike.table.sres_renorm
         # )
-        out = fit_5param_prepared(hgca_like.hiplike.A_prepared_5, hgca_like.hiplike.table, Δα_mas, Δδ_mas, hgca_like.hiplike.table.res, hgca_like.hiplike.table.sres)
+        # TODO: make part of struct
+        if hgca_like.include_iad
+            out = fit_5param_prepared(hgca_like.hiplike.A_prepared_5, hgca_like.hiplike.table, Δα_mas, Δδ_mas, hgca_like.hiplike.table.res, hgca_like.hiplike.table.sres)
+        else
+            out = fit_5param_prepared(hgca_like.hiplike.A_prepared_5, hgca_like.hiplike.table, Δα_mas, Δδ_mas)
+        end
+        # Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
+        # α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_hip_mjd, hgca_like.hgca.epoch_dec_hip_mjd)
+        # μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
         # out = fit_4param_prepared(hgca_like.hiplike.A_prepared_4, hgca_like.hiplike.table, Δα_mas, Δδ_mas, hgca_like.hiplike.table.sres)
         Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
         α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_hip_mjd, hgca_like.hgca.epoch_dec_hip_mjd)
