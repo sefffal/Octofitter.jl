@@ -17,16 +17,23 @@ function make_ln_like(system::System, θ_system)
     # The solutions will be ordered first, each epoch in the system observations,
     # then, each epoch in that planet's observations.
     # Note that in practice MA is always fixed when solving; it's only e that we might want the gradient for.
-    all_epochs = Float64[]    
+    all_epochs = Float64[]
+    epoch_start_index_mapping = Dict{Any,Int}()
+    j = 1
     for obs in system.observations
         if hasproperty(obs, :table) && hasproperty(obs.table, :epoch)
             # TODO: deal with HGCA
+            epoch_start_index_mapping[obs] = j
+            j += length(obs.table.epoch)
+            @show length(obs.table.epoch)
             append!(all_epochs, obs.table.epoch)
         end
     end
     for i in 1:length(system.planets)
         for like in system.planets[i].observations
             if hasproperty(like, :table) && hasproperty(like.table, :epoch)
+                epoch_start_index_mapping[like] = j
+                j += length(like.table.epoch)
                 append!(all_epochs, like.table.epoch)
             end
         end
@@ -53,12 +60,7 @@ function make_ln_like(system::System, θ_system)
         key = Symbol("planet_$i")
         sols_key = planet_sol_keys[i]
         likelihood_exprs = map(enumerate(planet.observations)) do (i_like, like)
-            if hasproperty(like, :table) && hasproperty(like.table, :epoch)
-                i_epoch_start = findfirst(==(first(like.table.epoch)), all_epochs)
-                # i_epoch_end   = findlast(==(last(like.table.epoch)), all_epochs) - 1
-            else
-                i_epoch_start = 0
-            end
+            i_epoch_start = get(epoch_start_index_mapping, like, 0)
             expr = :(
                 $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
                     system.planets[$(Meta.quot(i))].observations[$i_like],
@@ -112,15 +114,10 @@ function make_ln_like(system::System, θ_system)
     end
 
 
-    i_epoch_start = 1
+    
     sys_exprs = map(eachindex(system.observations)) do i
         like = system.observations[i]
-        num_epochs_this_obs = 0
-        if hasproperty(like, :table) && hasproperty(like.table, :epoch)
-            num_epochs_this_obs = length(like.table.epoch)
-        end
-        i_epoch_end = i_epoch_start + num_epochs_this_obs - 1
-        # Provide the number of observations as a compile time constant 
+        i_epoch_start = get(epoch_start_index_mapping, like, 0)
         expr = :(
             $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
                 system.observations[$i], θ_system, elems,
@@ -131,7 +128,6 @@ function make_ln_like(system::System, θ_system)
             #     println("invalid likelihood value encountered")
             # end
         )
-        i_epoch_start = i_epoch_end + 1
         j+=1
         return expr
     end
