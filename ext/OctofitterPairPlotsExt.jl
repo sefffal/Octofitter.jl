@@ -159,7 +159,7 @@ function Octofitter.octocorner(
                     labels_gen[Symbol(pk_*"i")] = "$(planetkey)_i [°]\ninclination"
                 end
                 if k=="Ω"
-                    labels_gen[Symbol(pk_*"Ω")] = "$(planetkey)_Ω [°]\nlongitude of\nascending node"
+                    labels_gen[Symbol(pk_*"Ω")] = "$(planetkey)_Ω [°]\nposition angle of\nascending node"
                 end
                 if k=="ω"
                     labels_gen[Symbol(pk_*"ω")] = "$(planetkey)_ω [°]\nargument of\nperiapsis"
