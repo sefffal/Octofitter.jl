@@ -210,27 +210,34 @@ function Octofitter.astromplot!(
 
                     xvals = [
                         # Major axis
-                        x - length_major * cos(α),
-                        x,
-                        x + length_major * cos(α),
-                        NaN,
+                        x .+ range(
+                            start=- length_major,
+                            stop =+ length_major,
+                            length=9
+                        ).*cos(α)
+                        NaN
                         # Minor axis
-                        x - length_minor * cos(α + π / 2),
-                        x,
-                        x + length_minor * cos(α + π / 2),
-                        NaN,
+                        x .+ range(
+                            start=- length_minor,
+                            stop =+ length_minor,
+                            length=9
+                        ).* cos(α + π / 2)
+                        NaN
                     ]
                     yvals = [
-                        # Major axis
-                        y - length_major * sin(α),
-                        y,
-                        y + length_major * sin(α),
-                        NaN,
+                        y .+ range(
+                            start= - length_major,
+                            stop = + length_major,
+                            length=9
+                        ).*sin(α)
+                        NaN
                         # Minor axis
-                        y - length_minor * sin(α + π / 2),
-                        y,
-                        y + length_minor * sin(α + π / 2),
-                        NaN,
+                        y .+ range(
+                            start= - length_minor,
+                            stop = + length_minor,
+                            length=9
+                        ).* sin(α + π / 2)
+                        NaN
                     ]
                     xvals, yvals
                 end
