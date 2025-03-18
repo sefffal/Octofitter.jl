@@ -25,7 +25,6 @@ function make_ln_like(system::System, θ_system)
             # TODO: deal with HGCA
             epoch_start_index_mapping[obs] = j
             j += length(obs.table.epoch)
-            @show length(obs.table.epoch)
             append!(all_epochs, obs.table.epoch)
         end
     end
