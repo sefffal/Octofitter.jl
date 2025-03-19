@@ -135,10 +135,12 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, orbits
         dec_host_perturbation = zero(T)
         for (i_other_planet, key) in enumerate(keys(θ_system.planets))
             orbit_other = orbits[i_other_planet]
-            # Only account for inner planets
-            # if semimajoraxis(orbit_other) == semimajoraxis(this_orbit)
+            # Only account for inner planets with non-zero mass
             if semimajoraxis(orbit_other) < semimajoraxis(this_orbit)
                 θ_planet′ = θ_system.planets[key]
+                if !hasproperty(θ_planet′, :mass)
+                    continue
+                end
                 mass_other = θ_planet′.mass*Octofitter.mjup2msol
                 sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
                 # Note about `total mass`: for this to be correct, user will have to specify
@@ -154,9 +156,6 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, orbits
                 @assert astrom.table.epoch[i_epoch] == PlanetOrbits.soltime(sol′)
             end
         end
-
-        # Take the measurement, and *add* the Delta, to get what we compare to the model
-        sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
 
         # Add the distance from the outer planet to the (inner planets + star) barcentre,
         # and then add the distance from the (inner planet + star) barycentre to the star

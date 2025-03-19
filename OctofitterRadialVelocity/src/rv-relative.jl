@@ -63,13 +63,9 @@ end
 """
 Radial velocity likelihood.
 """
-function Octofitter.ln_like(
-    rvlike::PlanetRelativeRVLikelihood,
-    θ_planet,
-    planet_orbit::AbstractOrbit,
-    orbit_solutions,
-    orbit_solutions_i_epoch_start
-)
+function ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+
+
     L = length(rvlike.table.epoch)
     T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
@@ -101,7 +97,27 @@ function Octofitter.ln_like(
         # You could consider `rv_star` as the residuals after subtracting these.
         # Threads.@threads 
         for epoch_i in eachindex(epochs)
-            rv_star_buf[epoch_i] -= radvel(orbit_solutions[epoch_i+orbit_solutions_i_epoch_start])
+            sol = orbit_solutions[i_planet][epoch_i+orbit_solutions_i_epoch_start]
+            @assert rvlike.table.epoch[i_epoch] == PlanetOrbits.soltime(sol)
+            # Relative RV due to planet
+            rv_star_buf[epoch_i] -= radvel(sol)
+
+            for (i_other_planet, key) in enumerate(keys(θ_system.planets))
+                orbit_other = orbits[i_other_planet]
+                # Account for perturbation due to any inner planets with non-zero mass
+                if semimajoraxis(orbit_other) < semimajoraxis(this_orbit)
+                    θ_planet′ = θ_system.planets[key]
+                    if !hasproperty(θ_planet′, :mass)
+                        continue
+                    end
+                    mass_other = θ_planet′.mass*Octofitter.mjup2msol
+                    sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                    
+                    rv_star_buf[epoch_i] -= radvel(sol′, mass_other)
+                    
+                    @assert astrom.table.epoch[i_epoch] == PlanetOrbits.soltime(sol′)
+                end
+            end
         end
 
         # The noise variance per observation is the measurement noise and the jitter added

@@ -71,9 +71,9 @@ function likeobj_from_epoch_subset(obs::ObsPriorAstromONeil2019, obs_inds)
     )
 end
 
-function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_planet, orbit, orbit_solutions, i_orbsol_start) 
-# function Octofitter.ln_like(like::ObsPriorAstromONeil2019, θ_planet, orbit,) 
+function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
+    orbit = orbits[i_planet]
     # Add period prior
     ln_prior = 0.0
     P = period(orbit)/365.25
@@ -90,8 +90,8 @@ function Octofitter.ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikel
         current_epoch = like.wrapped_like.table.epoch[j]
         local sol
         found = false
-        for k in eachindex(orbit_solutions)
-            sol′ = orbit_solutions[k]
+        for k in eachindex(orbit_solutions[i_planet])
+            sol′ = orbit_solutions[i_planet][k]
             if hasproperty(sol′, :t) && sol′.t == current_epoch
                 found = true
                 sol = sol′

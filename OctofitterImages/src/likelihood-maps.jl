@@ -60,8 +60,8 @@ end
 """
 Likelihood of there being planets in a sequence of likemaps.
 """
-function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_planet, orbit, orbit_solutions, solution_i_start)
-    
+function ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+
     # Resolve the combination of system and planet parameters
     # as a Visual{KepOrbit} object. This pre-computes
     # some factors used in various calculations.
@@ -73,11 +73,36 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_planet, orbit, orbit_
     ll = zero(T)
     for i in eachindex(likemaps_table.epoch)
 
-        soln = orbit_solutions[i+solution_i_start]
+        sol = orbit_solutions[i_planet][i+orbit_solutions_i_epoch_start]
+        @assert astrom.table.epoch[i_epoch] == PlanetOrbits.soltime(sol)
+
+        ra_host_perturbation = zero(T)
+        dec_host_perturbation = zero(T)
+        for (i_other_planet, key) in enumerate(keys(θ_system.planets))
+            orbit_other = orbits[i_other_planet]
+            # Only account for inner planets with non-zero mass
+            if semimajoraxis(orbit_other) < semimajoraxis(this_orbit)
+                θ_planet′ = θ_system.planets[key]
+                if !hasproperty(θ_planet′, :mass)
+                    continue
+                end
+                mass_other = θ_planet′.mass*Octofitter.mjup2msol
+                sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                # Note about `total mass`: for this to be correct, user will have to specify
+                # `M` at the planet level such that it doesn't include the outer planets.
+
+                ra_host_perturbation += raoff(sol′, mass_other)
+                dec_host_perturbation += decoff(sol′, mass_other)
+
+                @assert astrom.table.epoch[i_epoch] == PlanetOrbits.soltime(sol)
+                @assert astrom.table.epoch[i_epoch] == PlanetOrbits.soltime(sol′)
+            end
+        end
+
 
         # Note the x reversal between RA and image coordinates
-        x = -raoff(soln)
-        y = +decoff(soln)
+        x = -(raoff(sol) - ra_host_perturbation)
+        y = +(decoff(sol) - dec_host_perturbation)
 
         # Get the photometry in this image at that location
         # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
