@@ -54,7 +54,19 @@ function Octofitter.rvpostplot!(
     rv_likes = filter(model.system.observations) do obs
         obs isa StarAbsoluteRVLikelihood || 
         obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood ||
-        obs isa OctofitterRadialVelocity.StarAbsoluteRVLikelihood_Celerite
+
+    #  filter RV objects to exclude any that are outside the plotted region
+    if isnothing(ts)
+        rv_likes = rv_likes_all
+    else
+        rv_likes = filter(rv_likes_all) do obs
+            f,l = extrema(obs.table.epoch)
+            range_overlaps = f <= last(ts) && l >= first(ts)
+            if range_overlaps
+                return any(epoch -> first(ts) <= epoch <= last(ts), obs.table.epoch)
+            end
+            return false
+        end
     end
     # if length(rv_likes) > 1
     #     error("`rvpostplot` requires a system with only one StarAbsoluteRVLikelihood. Combine the data together into a single likelihood object.")
