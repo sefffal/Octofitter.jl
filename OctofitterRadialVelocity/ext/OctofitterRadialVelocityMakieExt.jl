@@ -53,7 +53,8 @@ function Octofitter.rvpostplot!(
 
     rv_likes = filter(model.system.observations) do obs
         obs isa StarAbsoluteRVLikelihood || 
-        obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood ||
+        obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood
+    end
 
     #  filter RV objects to exclude any that are outside the plotted region
     if isnothing(ts)
