@@ -38,6 +38,7 @@ function Octofitter.astromplot!(
     mark_epochs_mjd=Float64[],
     alpha=min.(1, 100 / length(ii)),
     show_post_pred_legend=true,
+    show_instrument_names=true,
     use_arcsec=nothing,
     ts,
     kwargs...
@@ -118,6 +119,7 @@ function Octofitter.astromplot!(
             # not repeat each orbit period, and we need to step in time.
             # Solve from an initial epoch, then in equal steps of mean anomaly (best we can do, ideally we'd do steps of eccentic anomaly)
             ts_prime = first(ts) .+ range(0, stop=1, length=150)' .* period.(orbs)
+
             sols = orbitsolve.(orbs, ts_prime)
         # else
         #     # Orbit is perfectly periodic, so take equal steps in 
@@ -162,7 +164,7 @@ function Octofitter.astromplot!(
                 rem2pi.(meananom.(sols), RoundDown) .+ 0 .* ii
             ),
             alpha=alpha,
-            transparency=true,
+            # transparency=true,
             colormap=colormaps[planet_key],
             rasterize=4,
         )
@@ -175,9 +177,17 @@ function Octofitter.astromplot!(
     end
     append!(like_objs, model.system.observations)
 
+    # Colour data based on the instrument name
+    rel_astrom_likes = filter(like_objs) do like_obj
+        nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
+    end
+    rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :instrument_name)))
+    n_rel_astrom = length(rel_astrom_names)
+
+    i_like_obj = 0
     for like_obj in like_objs
         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
-
+            i_like_obj = findfirst(==(like_obj.instrument_name), rel_astrom_names)
             x = Float64[]
             y = Float64[]
             xs = Float64[]
@@ -297,15 +307,21 @@ function Octofitter.astromplot!(
             end
             Makie.lines!(ax, xs.*axis_mult, ys.*axis_mult, color=:white, linewidth=3,rasterize=4,)
             Makie.lines!(ax, xs.*axis_mult, ys.*axis_mult, color=:black, linewidth=2,rasterize=4,)
+            if n_rel_astrom == 1
+                color = :white
+            else
+                color = Makie.wong_colors()[mod1(i_like_obj,end)]
+            end
             Makie.scatter!(
                 ax,
                 vec(x).*axis_mult,
-                vec(y).*axis_mult,
-                color=:white,
+                vec(y).*axis_mult;
+                color,
                 strokewidth=2,
                 strokecolor=:black,
                 markersize=8,
             )
+
         # If the model, instead/in addition to astrometry, includes one of the following 
         # "position-like" observations, add scatter points at the posterior projected locatinos.
         elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :GRAVITYWideCPLikelihood)
@@ -323,6 +339,26 @@ function Octofitter.astromplot!(
                 )
             end
         end
+    end
+
+    row_i = 1
+    if show_instrument_names && n_rel_astrom > 1
+        row_i += 1
+        elements = [
+            MarkerElement(marker=:circle ,color=Makie.wong_colors()[mod1(i,end)],strokewidth=1,strokecolor=:black)
+            for i in 1:n_rel_astrom
+        ]
+        Legend(
+            gs[row_i,1:2],
+            elements,
+            rel_astrom_names,
+            "Instrument",
+            position=:rb,
+            # backgroundcolor=(:white, 0.65),
+            tellwidth=false,
+            tellheight=true,
+            width=Relative(1.0)
+        )
     end
 
     # The user can ask us to plot the position at a particular date
@@ -345,26 +381,33 @@ function Octofitter.astromplot!(
         end
         for i in eachindex(mark_epochs_mjd)
             epoch_mjd = mark_epochs_mjd[i]
-            for planet_key in keys(model.system.planets)
+            for (i_planet, planet_key) in enumerate(keys(model.system.planets))
                 orbs = Octofitter.construct_elements(model, results, planet_key, ii)
                 color = Makie.wong_colors()[mod1(i,end)]
                 sols = orbitsolve.(orbs, epoch_mjd)
+                kwargs = (;)
+                if i_planet == 1
+                    kwargs = (;kwargs..., label = labels[i])
+                end
                 Makie.scatter!(
                     ax,
                     vec(raoff.(sols)).*axis_mult,
                     vec(decoff.(sols)).*axis_mult;
                     color,
                     alpha,
+                    marker=:rect,
                     markersize=6,
                     strokewidth=1,
                     strokecolor=(:black,alpha),
-                    label = labels[i],
+                    kwargs...
                 )
             end
         end
+       
         if show_post_pred_legend
+            row_i += 1
             Legend(
-                gs[2,1:2],
+                gs[row_i,1:2],
                 ax,
                 "Posterior Predictions",
                 position=:rb,
@@ -395,7 +438,7 @@ function Octofitter.astromplot!(
                 Colorbar(
                     gs[1,col];
                     colormap=colormaps[planet_key],
-                    label="mean anomaly ($planet_key) →",
+                    label="mean anomaly →",
                     colorrange=(0,2pi),
                     ticks=(
                         [0,pi/2,pi,3pi/2,2pi],
@@ -403,7 +446,10 @@ function Octofitter.astromplot!(
                     ),
                     ticksvisible=col - 1 == length(colormaps),
                     ticklabelsvisible=col - 1 == length(colormaps),
+                    labelvisible=col - 1 == length(colormaps)
                 )
+                Label(gs[1,col,Top()],string(planet_key))
+                Makie.colgap!(gs, col-1, 4)
             end
         end
     end

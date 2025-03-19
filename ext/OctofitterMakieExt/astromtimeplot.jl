@@ -193,8 +193,6 @@ function astromtimeplot!(
 
             # Only account for interior planets
             mask = semimajoraxis.(orbit_other) .< semimajoraxis.(orbs)
-            total_mass = totalmass.(orbit_other)
-
             sols′ = orbitsolve.(orbit_other, ts')
             
             ra_host_perturbation .+= mask .* raoff.(sols′, other_planet_mass.*Octofitter.mjup2msol)
@@ -446,6 +444,7 @@ function astromtimeplot!(
                     markersize=6,
                     strokewidth=1,
                     strokecolor=:black,
+                    marker=:rect,
                     label = replace(string(mjd2date(epoch_mjd)), "T"=>" ") # TODO: better to use a format string
                 )
                 Makie.scatter!(
@@ -456,6 +455,7 @@ function astromtimeplot!(
                     markersize=6,
                     strokewidth=1,
                     strokecolor=:black,
+                    marker=:rect,
                     label = replace(string(mjd2date(epoch_mjd)), "T"=>" ") # TODO: better to use a format string
                 )
             end
