@@ -80,7 +80,8 @@ function Octofitter.octoplot!(
     colormap=Makie.cgrad(:plasma,rev=true),
     alpha=min.(1, 100 / length(ii)),
     figscale=0.6,
-    colorbar = true
+    colorbar = true,
+    show_post_pred_legend=false
 )
 
     defaults_used = all(isnothing, (
@@ -307,7 +308,7 @@ function Octofitter.octoplot!(
                 width=500figscale,
                 height=(400+40*length(mark_epochs_mjd)+ 155*(length(mark_epochs_mjd)>0))*figscale,
             )
-            Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha)
+            Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha, show_post_pred_legend)
             colorbar = false
         end
         if show_physical_orbit
