@@ -306,8 +306,17 @@ function astromtimeplot!(
         append!(like_objs, planet.observations)
     end
     append!(like_objs, model.system.observations)
+
+    # Colour data based on the instrument name
+    rel_astrom_likes = filter(like_objs) do like_obj
+        nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
+    end
+    rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :instrument_name)))
+    n_rel_astrom = length(rel_astrom_names)
+    
     for like_obj in like_objs
         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+            i_like_obj = findfirst(==(like_obj.instrument_name), rel_astrom_names)
             if hasproperty(like_obj.table, :sep)
                 epoch = like_obj.table.epoch
                 sep = like_obj.table.sep
@@ -378,6 +387,11 @@ function astromtimeplot!(
             else
                 error("invalid astrometry format")
             end
+            if n_rel_astrom == 1
+                color = :white
+            else
+                color = Makie.wong_colors()[mod1(i_like_obj,end)]
+            end
             Makie.errorbars!(
                 ax_sep, epoch, sep .* axis_mult, σ_sep.*axis_mult;
                 color=:black,
@@ -385,7 +399,7 @@ function astromtimeplot!(
             )
             Makie.scatter!(
                 ax_sep, epoch, sep .* axis_mult;
-                color=:white,
+                color,
                 strokewidth=2,
                 strokecolor=:black,
                 markersize=8,
@@ -397,7 +411,7 @@ function astromtimeplot!(
             )
             Makie.scatter!(
                 ax_pa, epoch, rad2deg.(pa);
-                color=:white,
+                color,
                 strokewidth=2,
                 strokecolor=:black,
                 markersize=8,

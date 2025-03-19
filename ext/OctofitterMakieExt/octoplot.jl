@@ -81,7 +81,8 @@ function Octofitter.octoplot!(
     alpha=min.(1, 100 / length(ii)),
     figscale=0.6,
     colorbar = true,
-    show_post_pred_legend=false
+    show_post_pred_legend=true,
+    show_instrument_names=true
 )
 
     defaults_used = all(isnothing, (
@@ -308,7 +309,7 @@ function Octofitter.octoplot!(
                 width=500figscale,
                 height=(400+40*length(mark_epochs_mjd)+ 155*(length(mark_epochs_mjd)>0))*figscale,
             )
-            Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha, show_post_pred_legend)
+            Octofitter.astromplot!(gl, model, results; ii, ts, colorbar, colormap, mark_epochs_mjd, alpha, show_post_pred_legend, show_instrument_names)
             colorbar = false
         end
         if show_physical_orbit

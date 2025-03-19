@@ -190,12 +190,24 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, orbits
         if jitter == 0.
             ll += logpdf(astrom.precomputed_pointwise_distributions[i_epoch], @SVector[resid1, resid2])
         else
+            # For data points with a non-zero correlation, we can speed things up slightly
+            # by pre-computing the appropriate 2x2 matrix factorizations. 
+            # Distributions.jl handles this all for us--we just create N MvNormal distributions
+            # PA and Sep specified
+            if hasproperty(astrom.table, :pa) && hasproperty(astrom.table, :sep)
+                σ₁ = astrom.table.σ_pa[i_epoch]
+                σ₂ = astrom.table.σ_sep[i_epoch]
+            # RA and DEC specified
+            else
+                σ₁ = astrom.table.σ_ra[i_epoch]
+                σ₂ = astrom.table.σ_dec[i_epoch]
+            end
             # Add jitter in quadrature
             σ₁ = hypot(σ₁, jitter)
             σ₂ = hypot(σ₂, jitter)
             # we have to compute the factorization on the fly
             if hasproperty(astrom.table, :cor)
-                cor = table.cor[i]
+                cor = astrom.table.cor[i_epoch]
                 Σ = @SArray[
                     σ₁^2        cor*σ₁*σ₂
                     cor*σ₁*σ₂   σ₂^2
