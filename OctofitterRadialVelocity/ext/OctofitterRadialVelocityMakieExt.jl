@@ -77,7 +77,7 @@ function Octofitter.rvpostplot!(
     # Start filling the RV plot
 
     els_by_planet = map(keys(model.system.planets)) do planet_key
-        Octofitter.construct_elements(results,planet_key, sample_idx)
+        Octofitter.construct_elements(model, results, planet_key, sample_idx)
     end
     M_by_planet = [
         results[string(planet_key)*"_mass"][sample_idx] .* Octofitter.mjup2msol
