@@ -128,8 +128,6 @@ using PairPlots, CairoMakie
         # Test orbit type extraction
         @test Octofitter.orbittype(b) == Visual{KepOrbit}
 
-        model = Octofitter.LogDensityModel(SimpleSystem)
-
         # Test element construction from parameters
         θ_system = (
             M = 1.2,
@@ -146,7 +144,7 @@ using PairPlots, CairoMakie
             )
         )
         
-        orbit = Octofitter.construct_elements(model, θ_system, θ_system.planets.b)
+        orbit = Octofitter.construct_elements(θ_system, :b)
         @test orbit isa Visual{KepOrbit{Float64},Float64}
         @test orbit.plx ≈ 50.0
         @test semimajoraxis(orbit) ≈ 5.0
@@ -187,9 +185,8 @@ using PairPlots, CairoMakie
                 ),
             )
         )
-        model = Octofitter.LogDensityModel(TISystem)
         
-        orbit = Octofitter.construct_elements(model, θ_system, θ_system.planets.b)
+        orbit = Octofitter.construct_elements(θ_system, :b)
         @test orbit isa ThieleInnesOrbit
         @test orbit.plx ≈ 50.0
         @test orbit.A ≈ 100.0
@@ -222,9 +219,7 @@ using PairPlots, CairoMakie
             )
         )
 
-        model = Octofitter.LogDensityModel(FixedSystem)
-        
-        orbit = Octofitter.construct_elements(model, θ_system, θ_system.planets.b)
+        orbit = Octofitter.construct_elements(θ_system, :b)
         @test orbit isa Visual{FixedPosition{Float64}}
         @test posx(orbit,0) ≈ 2000.0
     end
