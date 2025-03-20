@@ -51,7 +51,7 @@ function Octofitter.rvpostplot!(
     n_planet_count = length(model.system.planets)
 
 
-    rv_likes = filter(model.system.observations) do obs
+    rv_likes_all = filter(model.system.observations) do obs
         obs isa StarAbsoluteRVLikelihood || 
         obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood
     end
