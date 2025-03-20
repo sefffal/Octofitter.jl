@@ -60,7 +60,7 @@ end
 """
 Likelihood of there being planets in a sequence of likemaps.
 """
-function ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
     # Resolve the combination of system and planet parameters
     # as a Visual{KepOrbit} object. This pre-computes

@@ -63,7 +63,7 @@ end
 """
 Radial velocity likelihood.
 """
-function ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
 
     L = length(rvlike.table.epoch)
