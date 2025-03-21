@@ -58,7 +58,6 @@ fig
 @planet b RadialVelocityOrbit begin
     e ~ Uniform(0,0.999999)
     mass ~ Uniform(0, 10)
-    i ~ Sine()
     ω ~ Uniform(0,2pi)
     τ ~ Uniform(0,1.0)
 
@@ -70,7 +69,6 @@ end
 @planet c RadialVelocityOrbit begin
     e ~ Uniform(0,0.999999)
     mass ~ Uniform(0, 10)
-    i ~ Sine()
     ω ~ Uniform(0,2pi)
     τ ~ Uniform(0,1.0)
 
