@@ -71,7 +71,7 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, or
     likemaps_table = likemaps.table
     T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
-    for i in eachindex(likemaps_table.epoch)
+    for i_epoch in eachindex(likemaps_table.epoch)
 
         sol = orbit_solutions[i_planet][i+orbit_solutions_i_epoch_start]
         @assert likemaps.table.epoch[i_epoch] == PlanetOrbits.soltime(sol)
