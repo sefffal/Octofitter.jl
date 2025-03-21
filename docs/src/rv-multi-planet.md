@@ -56,8 +56,9 @@ fig
 
 ```@example 1
 @planet b RadialVelocityOrbit begin
+    M = system.M_pri + (system.M_b + system.M_c) * Octofitter.mjup2msol
     e ~ Uniform(0,0.999999)
-    mass ~ Uniform(0, 10)
+    mass = system.M_b
     ω ~ Uniform(0,2pi)
     τ ~ Uniform(0,1.0)
 
@@ -67,8 +68,9 @@ fig
 end
 
 @planet c RadialVelocityOrbit begin
+    M = system.M_pri + system.M_c * Octofitter.mjup2msol
     e ~ Uniform(0,0.999999)
-    mass ~ Uniform(0, 10)
+    mass = system.M_c
     ω ~ Uniform(0,2pi)
     τ ~ Uniform(0,1.0)
 
@@ -78,7 +80,9 @@ end
 end
 
 @system sim_2p begin
-    M = 1.0
+    M_pri = 1.0
+    mass_b ~ Uniform(0, 10)
+    mass_c ~ Uniform(0, 10)
     jitter1 ~ Uniform(0, 20_000)
     jitter2 ~ Uniform(0, 20_000)
 end rvlike1 rvlike2 b c
@@ -172,9 +176,9 @@ There are several ways we could do this. Here, we add a "nominal period" variabl
 
 ```@example 1
 @planet b RadialVelocityOrbit begin
+    M = system.M_pri + (system.M_b + system.M_c) * Octofitter.mjup2msol
     e ~ Uniform(0,0.999999)
-    mass ~ Uniform(0, 10)
-    i ~ Sine()
+    mass = system.M_b
     ω ~ Uniform(0,2pi)
     τ ~ Uniform(0,1.0)
 
@@ -184,9 +188,9 @@ There are several ways we could do this. Here, we add a "nominal period" variabl
 end
 
 @planet c RadialVelocityOrbit begin
+    M = system.M_pri + system.M_c * Octofitter.mjup2msol
     e ~ Uniform(0,0.999999)
-    mass ~ Uniform(0, 10)
-    i ~ Sine()
+    mass = system.M_c
     ω ~ Uniform(0,2pi)
     τ ~ Uniform(0,1.0)
 
@@ -195,8 +199,11 @@ end
     tp =  c.τ*c.P_kep_yrs*365.25 + 58400
 end
 
+
 @system sim_2p_v2 begin
-    M = 1.0
+    M_pri = 1.0
+    mass_b ~ Uniform(0, 10)
+    mass_c ~ Uniform(0, 10)
     jitter1 ~ Uniform(0, 20_000)
     jitter2 ~ Uniform(0, 20_000)
     
