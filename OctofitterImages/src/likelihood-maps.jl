@@ -66,6 +66,7 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, or
     # as a Visual{KepOrbit} object. This pre-computes
     # some factors used in various calculations.
     # elements = construct_elements(θ_system, θ_planet)
+    this_orbit = orbits[i_planet]
 
 
     likemaps_table = likemaps.table

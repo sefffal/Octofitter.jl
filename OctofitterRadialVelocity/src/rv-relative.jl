@@ -70,6 +70,8 @@ function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_pl
     T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
 
+    this_orbit = orbits[i_planet]
+
     # We don't support multiple instruments for relative RVs.
     # This isn't essential because there should be no zero point offsets that
     # differ by instrument.
