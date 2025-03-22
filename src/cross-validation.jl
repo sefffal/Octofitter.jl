@@ -5,12 +5,15 @@ end
 
 function pointwise_like(model, chain)
     # Resolve the array back into the nested named tuple structure used internally
+    @info "Resolving chain"
     sample_nts = mcmcchain2result(model, chain)
 
     # Create system objects for each observation
-    per_obs_systems = generate_system_per_epoch(model.system)
+    @info "Creating systems for each data point"
+    per_obs_systems, epochs = generate_system_per_epoch(model.system)
 
     # Convert these system definitions into ln_like functions
+    @info "Compiling likelihood functions"
     ln_likes = map(per_obs_systems) do system
         Octofitter.make_ln_like(system, first(sample_nts))
     end
@@ -24,20 +27,25 @@ function pointwise_like(model, chain)
     
     # Disable threading in the solver -- we will thread in the outer loop
     Octofitter._kepsolve_use_threads[] = false
+
+    @info "Calculating..."
     
     # Compute likelihoods for each sample
     Threads.@threads for i_sample in 1:size(LL_out, 1)
+        @printf("Sample %5d ", i_sample)
         # Use the specialized function to get all likelihoods at once -- this compiles into faster code
         # than just looping through them here (triggers a bunch of dynamic dispatches)
         likelihoods = run_all_functions(ln_likes_tuple, systems_tuple, sample_nts[i_sample])
         
         # Store results in output array
         for i_obs in 1:size(LL_out, 2)
+            print('.')
             LL_out[i_sample, i_obs] = likelihoods[i_obs]
         end
+        println()
     end
     
-    return LL_out
+    return LL_out, epochs
 end
 
 
@@ -292,11 +300,12 @@ function generate_system_per_epoch(system)
     # Calculate total epoch count from tabular observations
     total_epochs = sum(item -> item.row_count, tabular_observations)
     
-    # If there are no epochs, return the original system
     if total_epochs == 0
-        return [system]
+        return System[], Float64[]
     end
     
+    epochs = Float64[]
+
     # Create a system for each epoch
     per_obs_systems = map(1:total_epochs) do i_obs
         # Initialize collections for observations
@@ -325,10 +334,7 @@ function generate_system_per_epoch(system)
                 if current_epoch == i_obs
                     # This is the matching epoch, add just this row
                     o = likeobj_from_epoch_subset(tab_obs.obs, k_row)
-                    if isnothing(o)
-                        @show typeof(tab_obs.obs)
-                        error("os is nothign",)
-                    end
+                    push!(epochs, tab_obs.obs.table.epoch[k_row])
                     push!(to_include_system, o)
                     break
                 end
@@ -354,7 +360,9 @@ function generate_system_per_epoch(system)
                         current_epoch += 1
                         if current_epoch == i_obs
                             # This is the matching epoch, add just this row
-                            push!(to_include_planet, likeobj_from_epoch_subset(tab_obs.obs, k_row))
+                            o = likeobj_from_epoch_subset(tab_obs.obs, k_row)
+                            push!(epochs, tab_obs.obs.table.epoch[k_row])
+                            push!(to_include_planet, o)
                             break
                         end
                     end
@@ -381,5 +389,5 @@ function generate_system_per_epoch(system)
         )
     end
 
-    return per_obs_systems
+    return per_obs_systems, epochs
 end
