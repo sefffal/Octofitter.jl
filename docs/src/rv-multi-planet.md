@@ -81,8 +81,8 @@ end
 
 @system sim_2p begin
     M_pri = 1.0
-    mass_b ~ Uniform(0, 10)
-    mass_c ~ Uniform(0, 10)
+    M_b ~ Uniform(0, 10)
+    M_c ~ Uniform(0, 10)
     jitter1 ~ Uniform(0, 20_000)
     jitter2 ~ Uniform(0, 20_000)
 end rvlike1 rvlike2 b c

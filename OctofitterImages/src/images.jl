@@ -150,7 +150,7 @@ function Octofitter.ln_like(images::ImageLikelihood, θ_system, θ_planet, orbit
                     continue
                 end
                 mass_other = θ_planet′.mass*Octofitter.mjup2msol
-                sol = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
                 # Note about `total mass`: for this to be correct, user will have to specify
                 # `M` at the planet level such that it doesn't include the outer planets.
                 ra_host_perturbation += raoff(sol′, mass_other)

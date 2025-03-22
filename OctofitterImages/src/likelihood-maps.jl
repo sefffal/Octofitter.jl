@@ -107,21 +107,17 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, or
 
         # Get the photometry in this image at that location
         # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
-        platescale = likemaps_table.platescale[i]
-        χ² = likemaps_table.mapinterp[i](x/platescale, y/platescale)
+        platescale = likemaps_table.platescale[i_epoch]
+        χ² = likemaps_table.mapinterp[i_epoch](x/platescale, y/platescale)
 
         # When we get a position that falls outside of our available
         # data (e.g. under the coronagraph) we cannot say anything
         # about the likelihood. This is equivalent to σₓ→∞ or log likelihood 
         # of zero.
         if !isfinite(χ²)
-            ll += likemaps_table.fillvalue[i]
+            ll += likemaps_table.fillvalue[i_epoch]
         end
-        # if isfinite(ll)
-           ll += χ²
-        # else
-        #     ll = χ²
-        # end
+        ll += χ²
     end
 
     return ll
