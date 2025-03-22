@@ -163,7 +163,7 @@ function Octofitter.ln_like(
             local gp, fx
             try
                 gp = @inline rvlike.gaussian_process(θ_system)
-                if gp isa CeleriteGP
+                if gp isa Celerite.CeleriteGP
                     Celerite.compute!(gp, rvlike.table.epoch, sqrt.(rv_var_buf))# TODO: is this std or var?
                 else
                     fx = gp(rvlike.table.epoch, rv_var_buf)
@@ -186,7 +186,7 @@ function Octofitter.ln_like(
                 try
                     # Normal path: evaluate likelihood against all data
                     if isempty(rvlike.held_out_table)
-                        if gp isa CeleriteGP
+                        if gp isa Celerite.CeleriteGP
                             ll += Celerite.log_likelihood(gp, rv_buf)
                         else
                             ll += logpdf(fx, rv_buf)
@@ -232,7 +232,7 @@ function Octofitter.ln_like(
                         rv_var_buf_held_out .= rvlike.held_out_table.σ_rv.^2 .+ jitter^2
                         
                         # Compute GP model
-                        if gp isa CeleriteGP
+                        if gp isa Celerite.CeleriteGP
                             pred, var = Main.Celerite.predict(gp, rv_buf, rvlike.held_out_table.epoch; return_var=true)
                             for i_held_out in 1:size(rvlike.held_out_table.epoch,1)
                                 ll += logpdf(Normal(pred[i_held_out], sqrt(var[i_held_out] + rv_var_buf_held_out[i_held_out])), rv_buf_held_out[i_held_out])
