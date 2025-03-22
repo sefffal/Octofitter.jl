@@ -24,7 +24,6 @@ include("celerite/Celerite.jl")
 using .Celerite: Celerite
 
 include("rv-absolute.jl")
-include("rv-absolute-celerite.jl")
 include("rv-absolute-margin.jl")
 include("rv-relative.jl")
 
