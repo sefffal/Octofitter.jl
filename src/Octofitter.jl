@@ -64,7 +64,9 @@ include("likelihoods/gaia.jl") # remove this
 include("likelihoods/hipparcos.jl")
 include("likelihoods/hgca-linfit.jl")
 
-include("likelihoods/observable.jl")
+include("likelihoods/prior-observable.jl")
+include("likelihoods/prior-planet-order.jl")
+include("likelihoods/prior-non-crossing.jl")
 
 
 include("logdensitymodel.jl")
@@ -100,7 +102,7 @@ function __init__()
     if isinteractive() && get(ENV, "CI", "") != "true" 
         @info """\
 Welcome to Octofitter $(OCTO_VERSION_STR) 🐙
-Check for new releases: https://github.com/sefffal/Octofitter.jl/releases/tag/v5.2.1
+Check for new releases: https://github.com/sefffal/Octofitter.jl/releases/
 Read the documentation: https://sefffal.github.io/Octofitter.jl/dev/
 """
     end
@@ -149,6 +151,23 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
         # "http://physics.ucsb.edu/~tbrandt/HGCA_vEDR3.fits", # file is now 404
         "https://raw.githubusercontent.com/t-brandt/orvara/master/HGCA_vEDR3.fits",
         "23684d583baaa236775108b360c650e79770a695e16914b1201f290c1826065c"
+    ))
+
+    register(DataDep("HGCA_DR2",
+        """
+        Dataset: Hipparcos Gaia Catalog of Accelerations
+        Author: Brandt et al
+        License: arXiv.org Non-exclusive license to distribute
+        Website: https://arxiv.org/abs/2105.11662
+
+        A catalog by Brandt et al containing cross calibrated proper motions
+        between Hipparcos and GAIA eDR3.
+
+        File size: 19MiB
+        """,
+        "https://content.cld.iop.org/journals/0067-0049/241/2/39/revision1/apjsab13b2fits.tar.gz",
+        "a42b2046ba572c5cd74121a2d9c09b2baba1a63c2ab406b9c673c2544b8ee47a",
+        post_fetch_method=unpack
     ))
 
     register(DataDep("SonoraBobcatEvoPhot",

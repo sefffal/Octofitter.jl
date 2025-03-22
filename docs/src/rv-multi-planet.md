@@ -63,7 +63,7 @@ fig
     τ ~ Uniform(0,1.0)
 
     P_kep_yrs ~ Uniform(0, 100)
-    a = ∛(system.M * b.P_kep_yrs^2)
+    a = ∛(b.M * b.P_kep_yrs^2)
     tp =  b.τ*b.P_kep_yrs*365.25 + 58400
 end
 
@@ -75,7 +75,7 @@ end
     τ ~ Uniform(0,1.0)
 
     P_kep_yrs ~ Uniform(0, 100)
-    a = ∛(system.M * c.P_kep_yrs^2)
+    a = ∛(c.M * c.P_kep_yrs^2)
     tp =  c.τ*c.P_kep_yrs*365.25 + 58400
 end
 
@@ -202,8 +202,8 @@ end
 
 @system sim_2p_v2 begin
     M_pri = 1.0
-    mass_b ~ Uniform(0, 10)
-    mass_c ~ Uniform(0, 10)
+    M_b ~ Uniform(0, 10)
+    M_c ~ Uniform(0, 10)
     jitter1 ~ Uniform(0, 20_000)
     jitter2 ~ Uniform(0, 20_000)
     
