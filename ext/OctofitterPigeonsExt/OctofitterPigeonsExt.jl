@@ -174,7 +174,7 @@ end
 Base.@nospecializeinfer function MCMCChains.Chains(
     model::Octofitter.LogDensityModel,
     pt::Pigeons.PT,
-    chain_num::Int=pt.inputs.n_chains
+    chain_num::Int=pt.inputs.n_chains > 0 ? pt.inputs.n_chains : pt.inputs.n_chains_variational
 )
     ln_prior = Octofitter.make_ln_prior_transformed(model.system)
     ln_like = Octofitter.make_ln_like(model.system, model.arr2nt(model.sample_priors(Random.default_rng())))
