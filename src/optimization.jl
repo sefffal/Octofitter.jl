@@ -82,17 +82,8 @@ function _refine(model::LogDensityModel,initial_θ_t;verbosity=0)
     prob = OptimizationProblem(func, initial_θ_t, model)
     verbosity > 1 && @info "LBFGS optimization"
     sol = solve(prob, 
-        Optim.LBFGS(;
-            m=6,
-            linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
-            alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
-        ),
-        # Newton(
-        #     linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
-        #     alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
-        # ),
-        # NelderMead(),
-        g_tol=1e-10, show_trace=true, show_every=100, iterations=100000, allow_f_increases=true)
+        NelderMead(),
+        g_tol=1e-10, x_tol=1e-2, f_tol=1e-2, show_trace=true, show_every=100, iterations=100000, allow_f_increases=true)
     display(sol)
     display(sol.original)
     θ_map2 = sol.u
