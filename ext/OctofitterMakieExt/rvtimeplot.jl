@@ -80,7 +80,6 @@ function rvtimeplot!(
         nameof(typeof(like_obj)) ∈ (
             :MarginalizedStarAbsoluteRVLikelihood,
             :StarAbsoluteRVLikelihood,
-            :StarAbsoluteRVLikelihood_Celerite,
         )
     end
 

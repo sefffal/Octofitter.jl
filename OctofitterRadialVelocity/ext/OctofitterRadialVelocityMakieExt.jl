@@ -395,8 +395,7 @@ function Octofitter.rvpostplot!(
             map_gp = map_gp.f
         end
 
-
-        if isdefined(Main, :Celerite) && map_gp isa Main.Celerite.CeleriteGP
+        if map_gp isa OctofitterRadialVelocity.Celerite.CeleriteGP
 
             # Compute GP model
             Main.Celerite.compute!(map_gp, vec(rvs.table.epoch), vec(
