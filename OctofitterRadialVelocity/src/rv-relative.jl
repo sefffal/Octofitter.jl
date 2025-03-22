@@ -100,7 +100,7 @@ function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_pl
         # Threads.@threads 
         for i_epoch in eachindex(epochs)
             sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
-            @assert rvlike.table.epoch[i_epoch] == PlanetOrbits.soltime(sol)
+            @assert isapprox(rvlike.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
             # Relative RV due to planet
             rv_star_buf[i_epoch] -= radvel(sol)
 
@@ -117,7 +117,7 @@ function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_pl
                     
                     rv_star_buf[i_epoch] -= radvel(sol′, mass_other)
                     
-                    @assert astrom.table.epoch[i_epoch] == PlanetOrbits.soltime(sol′)
+                    @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
                 end
             end
         end

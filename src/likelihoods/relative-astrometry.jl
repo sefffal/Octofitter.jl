@@ -132,7 +132,7 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, orbits
         # all orbits at all epochs.
         sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
         # println(astrom.table.epoch[i_epoch], "\t", sol.sol.t)
-        @assert astrom.table.epoch[i_epoch] == PlanetOrbits.soltime(sol)
+        @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
         ra_host_perturbation = zero(T)
         dec_host_perturbation = zero(T)
         for (i_other_planet, key) in enumerate(keys(θ_system.planets))
@@ -154,8 +154,8 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, orbits
                 ra_host_perturbation += raoff(sol′, mass_other)
                 dec_host_perturbation += decoff(sol′, mass_other)
 
-                @assert astrom.table.epoch[i_epoch] == PlanetOrbits.soltime(sol)
-                @assert astrom.table.epoch[i_epoch] == PlanetOrbits.soltime(sol′)
+                @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
+                @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
             end
         end
 

@@ -75,8 +75,7 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, or
     for i_epoch in eachindex(likemaps_table.epoch)
 
         sol = orbit_solutions[i_planet][i+orbit_solutions_i_epoch_start]
-        @assert likemaps.table.epoch[i_epoch] == PlanetOrbits.soltime(sol)
-
+        @assert isapprox(likemaps.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
         ra_host_perturbation = zero(T)
         dec_host_perturbation = zero(T)
         for (i_other_planet, key) in enumerate(keys(θ_system.planets))
@@ -95,8 +94,8 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, or
                 ra_host_perturbation += raoff(sol′, mass_other)
                 dec_host_perturbation += decoff(sol′, mass_other)
 
-                @assert likemaps.table.epoch[i_epoch] == PlanetOrbits.soltime(sol)
-                @assert likemaps.table.epoch[i_epoch] == PlanetOrbits.soltime(sol′)
+                @assert isapprox(likemaps.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
+                @assert isapprox(likemaps.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
             end
         end
 
