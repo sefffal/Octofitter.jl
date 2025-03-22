@@ -183,7 +183,7 @@ There are several ways we could do this. Here, we add a "nominal period" variabl
     τ ~ Uniform(0,1.0)
 
     P_kep_yrs = system.P_yrs_nom * system.P_ratio_b
-    a = ∛(system.M * b.P_kep_yrs^2)
+    a = ∛(b.M * b.P_kep_yrs^2)
     tp =  b.τ*b.P_kep_yrs*365.25 + 58400
 end
 
@@ -195,7 +195,7 @@ end
     τ ~ Uniform(0,1.0)
 
     P_kep_yrs = system.P_yrs_nom * system.P_ratio_c
-    a = ∛(system.M * c.P_kep_yrs^2)
+    a = ∛(c.M * c.P_kep_yrs^2)
     tp =  c.τ*c.P_kep_yrs*365.25 + 58400
 end
 
