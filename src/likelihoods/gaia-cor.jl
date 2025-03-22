@@ -18,19 +18,51 @@ function GaiaDifferenceLike(;
     source_id_dr2=nothing,
     source_id_dr3=nothing,
     scanlaw_table=nothing,
-    dr2_error_inflation_factor=1,
-    dr3_error_inflation_factor=1,
+    dr2_error_inflation_factor=nothing,
+    dr3_error_inflation_factor=nothing,
 )
     if all(isnothing, (source_id_dr2,source_id_dr3))
         throw(ArgumentError("Please provide at least one of `source_id_dr1`, `source_id_dr2`, or `source_id_dr3`"))
     end
 
-
+    
     # Query Gaia archive for DR3 solution
     dr3 = Octofitter._query_gaia_dr3(;gaia_id=source_id_dr3)
     dr2 = Octofitter._query_gaia_dr2(;gaia_id=source_id_dr2)
     ra_deg = dr3.ra
     dec_deg = dr3.dec
+
+
+    if isnothing(dr2_error_inflation_factor)
+        hgca_dr2_all = FITS(joinpath(Octofitter.datadep"HGCA_DR2", "HGCA_vDR2_corrected.fits"), "r") do fits
+            Table(fits[2])
+        end
+        idx = findfirst(==(source_id_dr2), hgca_dr2_all.gaia_source_id)
+        if isnothing(idx)
+            @warn "The DR2 target was not found within the HGCA vDR2, so we have not applied an automatic error inflation to the formal uncertainties. Consider supplying a manual value on the order of `dr2_error_inflation_factor=1.5`"
+            dr2_error_inflation_factor = 1
+        else
+            hgca_dr2 = NamedTuple(hgca_dr2_all[idx])
+            dr2_error_inflation_factor = hgca_dr2.pmra_gaia_error / dr2.pmra_error
+        end
+    end
+
+    if isnothing(dr3_error_inflation_factor)
+        hgca_dr3_all = FITS(joinpath(joinpath(datadep"HGCA_eDR3", "HGCA_vEDR3.fits")), "r") do fits
+            Table(fits[2])
+        end
+        idx = findfirst(==(source_id_dr3), hgca_dr3_all.gaia_source_id)
+        if isnothing(idx)
+            @warn "The DR3 target was not found within the HGCA vEDR3, so we have not applied an automatic error inflation to the formal uncertainties. Consider supplying a manual value on the order of `dr3_error_inflation_factor=1.3`"
+            dr3_error_inflation_factor = 1
+        else
+            hgca_dr3 = NamedTuple(hgca_dr3_all[idx])
+            dr3_error_inflation_factor = hgca_dr3.pmra_gaia_error / dr3.pmra_error
+        end
+    end
+
+    @info "Formal proper motion uncertainty inflations:" dr2_error_inflation_factor dr3_error_inflation_factor
+    
 
     # We might want to inflate the uncertainties by the same factors as the HGCA (DR2 and eDR3 respectively)
     dr2 = (;
@@ -45,7 +77,7 @@ function GaiaDifferenceLike(;
     )
 
     if isnothing(scanlaw_table)
-        @warn "No scan law table provided. We will fetch an approximate solution from the GHOST webservice, but for best results please use the `scanninglaw` python package, installable via pip, to query the RA and Dec of this target and supply it as `scanlaw_table`. Run: `import astropy.coordinates, scanninglaw, pandas; o = astropy.coordinates.SkyCoord(158.30707896392835, 40.42555422701387,unit='deg');t = scanninglaw.times.Times(version='dr3_nominal'); t.query(o,return_angles=True)`"
+        # @warn "No scan law table provided. We will fetch an approximate solution from the GHOST webservice, but for best results please use the `scanninglaw` python package, installable via pip, to query the RA and Dec of this target and supply it as `scanlaw_table`. Run: `import astropy.coordinates, scanninglaw, pandas; o = astropy.coordinates.SkyCoord(158.30707896392835, 40.42555422701387,unit='deg');t = scanninglaw.times.Times(version='dr3_nominal'); t.query(o,return_angles=True)`"
         # Get predicted GAIA scan epochs and angles
         forecast_table = FlexTable(GHOST_forecast(ra_deg,dec_deg))
         forecast_table.epoch = jd2mjd.(forecast_table.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_)
