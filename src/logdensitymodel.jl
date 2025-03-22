@@ -47,7 +47,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # Check number type
         θ_nt = arr2nt(initial_θ_0)
         T = _system_number_type(θ_nt)
-        verbosity >= 2 && @info "Determined number type to use as T"
+        verbosity >= 2 && @info "Determined number type" T
         if !(T <: Real)
             error("Error: inferred that you wanted to use $(T) as the number type, which is not supported. It must be a floating point number or similar. Check that all the variables you provided in your model are promotable to a float (e.g. not `nothing` or `missing`)")
         end
