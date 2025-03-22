@@ -562,7 +562,12 @@ function pmaplot!(
     
         σ_dr2_systematic_Δμ_ra = std([θnt.dr2_systematic_Δμ_ra for θnt in θ_systems_from_chain])
         σ_dr2_systematic_Δμ_dec = std([θnt.dr2_systematic_Δμ_dec for θnt in θ_systems_from_chain])
-    
+        if !isfinite(σ_dr2_systematic_Δμ_ra)
+            σ_dr2_systematic_Δμ_ra = 0
+        end
+        if !isfinite(σ_dr2_systematic_Δμ_dec)
+            σ_dr2_systematic_Δμ_dec = 0
+        end
 
         tx = [
             Octofitter.meta_gaia_DR2.ref_epoch_mjd
