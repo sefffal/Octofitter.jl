@@ -107,7 +107,7 @@ Octofitter.rvpostplot(model_2p, results_2p)
 We now create a new system object that only includes one planet (we dropped c, in this case).
 ```@example 1
 @system sim_1p begin
-    M = 1.0 #~ truncated(Normal(1, 0.04),lower=0.1) # (Baines & Armstrong 2011).
+    M_pri = 1.0 #~ truncated(Normal(1, 0.04),lower=0.1) # (Baines & Armstrong 2011).
     jitter1 ~ Uniform(0, 20_000)
     jitter2 ~ Uniform(0, 20_000)
 end rvlike1 rvlike2 b
