@@ -1,6 +1,7 @@
 using Dates
 using LinearAlgebra
 using HORIZONS: HORIZONS
+using Combinatorics
 
 # Table 1.2.3 from the 1997 book, vol 1.
 # RV increasing away from the observer
