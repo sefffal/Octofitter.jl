@@ -22,8 +22,8 @@ chain = octofit(model)</code></pre><pre class="documenter-example-output"><code 
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 0.91 seconds
-Compute duration  = 0.91 seconds
+Wall duration     = 0.8 seconds
+Compute duration  = 0.8 seconds
 parameters        = M, plx, b_a, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_θy, b_θx, b_ω, b_Ω, b_θ, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -31,45 +31,45 @@ Summary Statistics
  <span class="sgr1"> parameters         mean         std       mcse    ess_bulk   ess_tail      r ⋯
  <span class="sgr90">     Symbol      Float64     Float64    Float64     Float64    Float64   Floa ⋯
 
-           M       1.1992      0.1006     0.0035    874.4261   566.3778    1.0 ⋯
-         plx      49.9993      0.0204     0.0007    936.7313   676.4312    1.0 ⋯
-         b_a      10.0800      1.0919     0.0457    619.8236   316.1480    1.0 ⋯
-         b_e       0.4890      0.2782     0.0085    990.3864   614.9544    1.0 ⋯
-         b_i       1.5835      0.6686     0.0200   1078.2827   769.3002    0.9 ⋯
-        b_ωy      -0.0379      0.7052     0.0327    509.2819   741.5125    0.9 ⋯
-        b_ωx       0.0779      0.7201     0.0379    404.1475   500.7570    0.9 ⋯
-        b_Ωy       0.0147      0.7247     0.0377    375.6385   789.4449    0.9 ⋯
-        b_Ωx       0.0625      0.7056     0.0366    377.7605   745.3954    0.9 ⋯
-        b_θy       0.0367      0.7175     0.0419    285.0305   792.1349    0.9 ⋯
-        b_θx       0.0255      0.7057     0.0372    383.1695   596.9429    1.0 ⋯
-         b_ω       0.1797      1.8441     0.0854    574.2227   868.2807    0.9 ⋯
-         b_Ω       0.1823      1.7964     0.0825    542.9553   661.3184    0.9 ⋯
-         b_θ       0.0971      1.7674     0.0821    533.2708   715.8530    1.0 ⋯
-        b_tp   45024.3925   4263.4986   150.8081    818.4966   743.4487    1.0 ⋯
+           M       1.1979      0.1037     0.0031   1145.2492   482.4900    0.9 ⋯
+         plx      49.9996      0.0199     0.0006   1083.2175   712.4667    1.0 ⋯
+         b_a      10.0690      0.9636     0.0289   1120.0647   496.0030    1.0 ⋯
+         b_e       0.4998      0.2759     0.0082   1071.8186   549.0207    1.0 ⋯
+         b_i       1.5318      0.7030     0.0248    739.9494   359.8334    1.0 ⋯
+        b_ωy      -0.0143      0.7142     0.0356    455.8501   720.8847    0.9 ⋯
+        b_ωx      -0.0230      0.7112     0.0410    342.8093   840.4579    1.0 ⋯
+        b_Ωy       0.0533      0.7157     0.0337    492.5810   929.5566    0.9 ⋯
+        b_Ωx       0.0405      0.7106     0.0333    495.6578   732.6694    1.0 ⋯
+        b_θy      -0.0234      0.7169     0.0371    417.2007   841.9656    1.0 ⋯
+        b_θx       0.0010      0.7004     0.0355    434.2525   783.5202    1.0 ⋯
+         b_ω      -0.0245      1.8307     0.0934    453.4350   811.6041    0.9 ⋯
+         b_Ω       0.1040      1.7525     0.0762    582.9501   655.3153    0.9 ⋯
+         b_θ      -0.0370      1.8457     0.0853    563.8540   837.9178    1.0 ⋯
+        b_tp   45123.4441   4220.0653   153.5460    814.9355   843.5914    0.9 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
   parameters         2.5%        25.0%        50.0%        75.0%        97.5%
  </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
 
-           M       0.9836       1.1371       1.1979       1.2630       1.3923
-         plx      49.9598      49.9857      49.9992      50.0131      50.0383
-         b_a       8.0404       9.3628      10.0605      10.7812      12.2996
-         b_e       0.0282       0.2583       0.4981       0.7306       0.9471
-         b_i       0.3913       1.0676       1.5752       2.0862       2.8344
-        b_ωy      -1.0874      -0.7156      -0.0904       0.6389       1.0593
-        b_ωx      -1.0773      -0.6261       0.1534       0.7691       1.0667
-        b_Ωy      -1.0676      -0.7054       0.0326       0.7462       1.0808
-        b_Ωx      -1.0779      -0.6232       0.1252       0.7498       1.0662
-        b_θy      -1.0408      -0.6777       0.0947       0.7381       1.0794
-        b_θx      -1.0665      -0.6709       0.0348       0.6894       1.0636
-         b_ω      -3.0046      -1.4495       0.3407       1.7844       2.9989
-         b_Ω      -2.9710      -1.2844       0.2498       1.7679       2.9992
-         b_θ      -2.9518      -1.3261       0.0486       1.6200       2.9055
-        b_tp   37258.9828   41277.7187   45210.5155   49420.5183   50399.6036
+           M       0.9960       1.1316       1.1985       1.2659       1.3955
+         plx      49.9630      49.9854      49.9992      50.0135      50.0389
+         b_a       8.2241       9.3851      10.0664      10.7009      11.9726
+         b_e       0.0286       0.2677       0.5011       0.7272       0.9634
+         b_i       0.2621       0.9946       1.5035       2.0776       2.8005
+        b_ωy      -1.0700      -0.7035      -0.0298       0.6846       1.0647
+        b_ωx      -1.0531      -0.6970      -0.0636       0.6749       1.0568
+        b_Ωy      -1.0728      -0.6373       0.1056       0.7374       1.0654
+        b_Ωx      -1.0468      -0.6679       0.0865       0.7353       1.0591
+        b_θy      -1.0752      -0.7226      -0.0088       0.6686       1.0599
+        b_θx      -1.0332      -0.6846      -0.0295       0.6963       1.0435
+         b_ω      -2.9839      -1.5834      -0.1366       1.6166       3.0291
+         b_Ω      -2.9482      -1.3196       0.1584       1.5980       2.9908
+         b_θ      -3.0146      -1.5971      -0.0466       1.5489       3.0011
+        b_tp   37926.2456   41249.8087   45349.0263   49438.5626   50403.3448
 </span></span></code></pre><p>We now examine the posterior and verify that it matches our KDE prior:</p><pre><code class="language-julia hljs">dat = chain[:b_a][:]
-@show mean(dat) std(dat)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">mean(dat) = 10.080030370224607
-std(dat) = 1.0919213483850636</code></pre><h2 id="Observable-Based-Priors"><a class="docs-heading-anchor" href="#Observable-Based-Priors">Observable Based Priors</a><a id="Observable-Based-Priors-1"></a><a class="docs-heading-anchor-permalink" href="#Observable-Based-Priors" title="Permalink"></a></h2><p>Octofitter implements observable-based priors from O&#39;Neil 2019 for relative astrometry. You can fit a model to astrometry using observable-based priors using the following recipe:</p><pre><code class="language-julia hljs">using Octofitter, Distributions
+@show mean(dat) std(dat)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">mean(dat) = 10.069043774384285
+std(dat) = 0.9636174036592088</code></pre><h2 id="Observable-Based-Priors"><a class="docs-heading-anchor" href="#Observable-Based-Priors">Observable Based Priors</a><a id="Observable-Based-Priors-1"></a><a class="docs-heading-anchor-permalink" href="#Observable-Based-Priors" title="Permalink"></a></h2><p>Octofitter implements observable-based priors from O&#39;Neil 2019 for relative astrometry. You can fit a model to astrometry using observable-based priors using the following recipe:</p><pre><code class="language-julia hljs">using Octofitter, Distributions
 
 astrom_like = PlanetRelAstromLikelihood(
     (;epoch=mjd(&quot;2020-12-20&quot;), ra=400.0, σ_ra=5.0, dec=400.0, σ_dec=5.0)
@@ -93,4 +93,4 @@ end astrom_like ObsPriorAstromONeil2019(astrom_like);
 @system System1 begin
     plx ~ Normal(21.219, 0.060)
 	M ~ truncated(Normal(1.1, 0.2),lower=0.1)
-end b</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../parallel-sampling/">« Distributed Sampling</a><a class="docs-footer-nextpage" href="../derived/">Derived Variables »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Thursday 30 January 2025 19:12">Thursday 30 January 2025</span>. Using Julia version 1.10.8.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end b</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../parallel-sampling/">« Distributed Sampling</a><a class="docs-footer-nextpage" href="../derived/">Derived Variables »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.9.0 on <span class="colophon-date" title="Monday 24 March 2025 06:45">Monday 24 March 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

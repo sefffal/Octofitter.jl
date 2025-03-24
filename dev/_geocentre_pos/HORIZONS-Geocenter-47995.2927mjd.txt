@@ -30,7 +30,7 @@
 
 
 *******************************************************************************
-Ephemeris / API_USER Thu Jan 30 09:06:22 2025 Pasadena, USA      / Horizons
+Ephemeris / API_USER Sun Mar 23 21:44:28 2025 Pasadena, USA      / Horizons
 *******************************************************************************
 Target body name: Earth (399)                     {source: DE441}
 Center body name: Solar System Barycenter (0)     {source: DE441}
@@ -114,7 +114,7 @@ Computations by ...
     Connect     : browser        https://ssd.jpl.nasa.gov/horizons/app.html#/x
                   API            https://ssd-api.jpl.nasa.gov/doc/horizons.html
                   command-line   telnet ssd.jpl.nasa.gov 6775
-                  e-mail/batch   https://ssd.jpl.nasa.gov/ftp/ssd/hrzn_batch.txt
+                  e-mail/batch   https://ssd.jpl.nasa.gov/ftp/ssd/horizons_batch.txt
                   scripts        https://ssd.jpl.nasa.gov/ftp/ssd/SCRIPTS
     Author      : Jon.D.Giorgini@jpl.nasa.gov
 *******************************************************************************

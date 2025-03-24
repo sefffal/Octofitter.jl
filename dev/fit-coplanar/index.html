@@ -4,39 +4,39 @@ using CairoMakie
 using PairPlots
 using Distributions
 using PlanetOrbits</code></pre><pre><code class="language-julia hljs">astrom_b = PlanetRelAstromLikelihood(
-    (epoch=53200.0, object=1, ra=1471.0, σ_ra=6.0, dec=887.0, σ_dec=6.0, cor=0, ),
-    (epoch=54314.0, object=1, ra=1504.0, σ_ra=3.0, dec=837.0, σ_dec=3.0, cor=0, ),
-    (epoch=54398.0, object=1, ra=1500.0, σ_ra=7.0, dec=836.0, σ_dec=7.0, cor=0, ),
-    (epoch=54727.0, object=1, ra=1516.0, σ_ra=4.0, dec=818.0, σ_dec=4.0, cor=0, ),
-    (epoch=55042.0, object=1, ra=1526.0, σ_ra=4.0, dec=797.0, σ_dec=4.0, cor=0, ),
-    (epoch=55044.0, object=1, ra=1531.0, σ_ra=7.0, dec=794.0, σ_dec=7.0, cor=0, ),
-    (epoch=55136.0, object=1, ra=1524.0, σ_ra=10.0, dec=795.0, σ_dec=10.0, cor=0, ),
-    (epoch=55390.0, object=1, ra=1532.0, σ_ra=5.0, dec=783.0, σ_dec=5.0, cor=0, ),
-    (epoch=55499.0, object=1, ra=1535.0, σ_ra=15.0, dec=766.0, σ_dec=15.0, cor=0, ),
-    (epoch=55763.0, object=1, ra=1541.0, σ_ra=5.0, dec=762.0, σ_dec=5.0, cor=0, ),
-    (epoch=56130.0, object=1, ra=1545.0, σ_ra=5.0, dec=747.0, σ_dec=5.0, cor=0, ),
-    (epoch=56226.0, object=1, ra=1549.0, σ_ra=4.0, dec=743.0, σ_dec=4.0, cor=0, ),
-    (epoch=56581.0, object=1, ra=1545.0, σ_ra=22.0, dec=724.0, σ_dec=22.0, cor=0, ),
-    (epoch=56855.0, object=1, ra=1560.0, σ_ra=13.0, dec=725.0, σ_dec=13.0, cor=0, ),
-    (epoch=58798.03906, object=1, ra=1611.002, σ_ra=0.133, dec=604.893, σ_dec=0.199, cor=-0.406, ),
-    (epoch=59453.245, object=1, ra=1622.924, σ_ra=0.32, dec=570.534, σ_dec=0.296, cor=-0.905, ),
-    (epoch=59454.231, object=1, ra=1622.872, σ_ra=0.204, dec=571.296, σ_dec=0.446, cor=-0.79, ),
+    (epoch=53200.0, ra=1471.0, σ_ra=6.0, dec=887.0, σ_dec=6.0, cor=0, ),
+    (epoch=54314.0, ra=1504.0, σ_ra=3.0, dec=837.0, σ_dec=3.0, cor=0, ),
+    (epoch=54398.0, ra=1500.0, σ_ra=7.0, dec=836.0, σ_dec=7.0, cor=0, ),
+    (epoch=54727.0, ra=1516.0, σ_ra=4.0, dec=818.0, σ_dec=4.0, cor=0, ),
+    (epoch=55042.0, ra=1526.0, σ_ra=4.0, dec=797.0, σ_dec=4.0, cor=0, ),
+    (epoch=55044.0, ra=1531.0, σ_ra=7.0, dec=794.0, σ_dec=7.0, cor=0, ),
+    (epoch=55136.0, ra=1524.0, σ_ra=10.0, dec=795.0, σ_dec=10.0, cor=0, ),
+    (epoch=55390.0, ra=1532.0, σ_ra=5.0, dec=783.0, σ_dec=5.0, cor=0, ),
+    (epoch=55499.0, ra=1535.0, σ_ra=15.0, dec=766.0, σ_dec=15.0, cor=0, ),
+    (epoch=55763.0, ra=1541.0, σ_ra=5.0, dec=762.0, σ_dec=5.0, cor=0, ),
+    (epoch=56130.0, ra=1545.0, σ_ra=5.0, dec=747.0, σ_dec=5.0, cor=0, ),
+    (epoch=56226.0, ra=1549.0, σ_ra=4.0, dec=743.0, σ_dec=4.0, cor=0, ),
+    (epoch=56581.0, ra=1545.0, σ_ra=22.0, dec=724.0, σ_dec=22.0, cor=0, ),
+    (epoch=56855.0, ra=1560.0, σ_ra=13.0, dec=725.0, σ_dec=13.0, cor=0, ),
+    (epoch=58798.03906, ra=1611.002, σ_ra=0.133, dec=604.893, σ_dec=0.199, cor=-0.406, ),
+    (epoch=59453.245, ra=1622.924, σ_ra=0.32, dec=570.534, σ_dec=0.296, cor=-0.905, ),
+    (epoch=59454.231, ra=1622.872, σ_ra=0.204, dec=571.296, σ_dec=0.446, cor=-0.79, ),
 )
 
 astrom_c = PlanetRelAstromLikelihood(
-    (epoch=53200.0, object=2, ra=-739.0, σ_ra=6.0, dec=612.0, σ_dec=6.0, cor=0, ),
-    (epoch=54314.0, object=2, ra=-683.0, σ_ra=4.0, dec=671.0, σ_dec=4.0, cor=0, ),
-    (epoch=54398.0, object=2, ra=-678.0, σ_ra=7.0, dec=678.0, σ_dec=7.0, cor=0, ),
-    (epoch=54727.0, object=2, ra=-663.0, σ_ra=3.0, dec=693.0, σ_dec=3.0, cor=0, ),
-    (epoch=55042.0, object=2, ra=-639.0, σ_ra=4.0, dec=712.0, σ_dec=4.0, cor=0, ),
-    (epoch=55136.0, object=2, ra=-636.0, σ_ra=9.0, dec=720.0, σ_dec=9.0, cor=0, ),
-    (epoch=55390.0, object=2, ra=-619.0, σ_ra=4.0, dec=728.0, σ_dec=4.0, cor=0, ),
-    (epoch=55499.0, object=2, ra=-607.0, σ_ra=12.0, dec=744.0, σ_dec=12.0, cor=0, ),
-    (epoch=55763.0, object=2, ra=-595.0, σ_ra=4.0, dec=747.0, σ_dec=4.0, cor=0, ),
-    (epoch=56130.0, object=2, ra=-578.0, σ_ra=5.0, dec=761.0, σ_dec=5.0, cor=0, ),
-    (epoch=56226.0, object=2, ra=-572.0, σ_ra=3.0, dec=768.0, σ_dec=3.0, cor=0, ),
-    (epoch=56581.0, object=2, ra=-542.0, σ_ra=22.0, dec=784.0, σ_dec=22.0, cor=0, ),
-    (epoch=56855.0, object=2, ra=-540.0, σ_ra=12.0, dec=799.0, σ_dec=12.0, cor=0, ),
+    (epoch=53200.0, ra=-739.0, σ_ra=6.0, dec=612.0, σ_dec=6.0, cor=0, ),
+    (epoch=54314.0, ra=-683.0, σ_ra=4.0, dec=671.0, σ_dec=4.0, cor=0, ),
+    (epoch=54398.0, ra=-678.0, σ_ra=7.0, dec=678.0, σ_dec=7.0, cor=0, ),
+    (epoch=54727.0, ra=-663.0, σ_ra=3.0, dec=693.0, σ_dec=3.0, cor=0, ),
+    (epoch=55042.0, ra=-639.0, σ_ra=4.0, dec=712.0, σ_dec=4.0, cor=0, ),
+    (epoch=55136.0, ra=-636.0, σ_ra=9.0, dec=720.0, σ_dec=9.0, cor=0, ),
+    (epoch=55390.0, ra=-619.0, σ_ra=4.0, dec=728.0, σ_dec=4.0, cor=0, ),
+    (epoch=55499.0, ra=-607.0, σ_ra=12.0, dec=744.0, σ_dec=12.0, cor=0, ),
+    (epoch=55763.0, ra=-595.0, σ_ra=4.0, dec=747.0, σ_dec=4.0, cor=0, ),
+    (epoch=56130.0, ra=-578.0, σ_ra=5.0, dec=761.0, σ_dec=5.0, cor=0, ),
+    (epoch=56226.0, ra=-572.0, σ_ra=3.0, dec=768.0, σ_dec=3.0, cor=0, ),
+    (epoch=56581.0, ra=-542.0, σ_ra=22.0, dec=784.0, σ_dec=22.0, cor=0, ),
+    (epoch=56855.0, ra=-540.0, σ_ra=12.0, dec=799.0, σ_dec=12.0, cor=0, ),
 )
 
 fig = Makie.scatter(astrom_b.table.ra, astrom_b.table.dec, axis=(;autolimitaspect=1))
@@ -45,6 +45,8 @@ Makie.scatter!([0], [0], marker=&#39;⋆&#39;, markersize=50, color=:black)
 fig</code></pre><img src="ca4033d5.png" alt="Example block output"/><p>We now specify our two planet model for planets b &amp; c.</p><pre><code class="language-julia hljs">@planet b Visual{KepOrbit} begin
     e = 0.0
     ω = 0.0
+    M = system.M_pri + system.M_b*Octofitter.mjup2msol  + system.M_c*Octofitter.mjup2msol
+    mass = system.M_b
 
     # Use the system inclination and longitude of ascending node
     # variables
@@ -55,13 +57,15 @@ fig</code></pre><img src="ca4033d5.png" alt="Example block output"/><p>We now sp
     P_mul ~ Normal(1, 0.1)
     P = 2*system.P_nominal * b.P_mul
 
-    a = cbrt(system.M * b.P^2)
+    a = cbrt(b.M * b.P^2)
     θ ~ UniformCircular()
     tp = θ_at_epoch_to_tperi(system,b,59454.231)  # reference epoch for θ. Choose an MJD date near your data.
 end astrom_b
 @planet c Visual{KepOrbit} begin
     e = 0.0
     ω = 0.0
+    M = system.M_pri + system.M_b*Octofitter.mjup2msol
+    mass = system.M_c
 
     # Use the system inclination and longitude of ascending node
     # variables
@@ -72,14 +76,16 @@ end astrom_b
     P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
     P = system.P_nominal * c.P_mul
 
-    a = cbrt(system.M * c.P^2)
+    a = cbrt(c.M * c.P^2)
 
     θ ~ UniformCircular()
     tp = θ_at_epoch_to_tperi(system,c,59454.231)  # reference epoch for θ. Choose an MJD date near your data.
 end astrom_c
 @system HR8799_res_co begin
     plx ~ gaia_plx(;gaia_id=2832463659640297472)
-    M ~ truncated(Normal(1.5, 0.02), lower=0.1)
+    M_pri ~ truncated(Normal(1.5, 0.02), lower=0.1)
+    M_b ~ Uniform(0, 12)
+    M_c ~ Uniform(0, 12)
     # We create inclination and longitude of ascending node variables at the
     # system level.
     i ~ Sine()
@@ -89,7 +95,7 @@ end astrom_c
 end b c
 
 
-model = Octofitter.LogDensityModel(HR8799_res_co)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HR8799_res_co of dimension 12 and 33 epochs with fields .ℓπcallback and .∇ℓπcallback
+model = Octofitter.LogDensityModel(HR8799_res_co)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HR8799_res_co of dimension 14 and 33 epochs with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>Let&#39;s now sample from the model:</p><pre><code class="language-julia hljs">using Pigeons
 results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: This model has priors that cannot be sampled IID.
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:105
@@ -98,24 +104,24 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 [ Info: Performing a global optimization to search for a starting position, bounded to the 0.1% to 99.9% percentiles of the priors.
 [ Info: Determining initial positions using pathfinder, around that location.
 ┌ Info: Found a sample of initial positions
-└   initial_logpost_range = (-174.08971007609162, -162.87839989620917)
+└   initial_logpost_range = (-173.42148308965042, -165.7761965584552)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       4.34       3.55      0.365   3.96e+06   -3.2e+07          0      0.745          1          1
-        4          0       5.07       3.58      0.364   1.42e+05  -2.73e+06          0      0.721          1          1
-        8          0       5.16       6.24      0.697    2.3e+05  -2.23e+04          0      0.632          1          1
-       16          0       5.84       6.79       1.35   4.03e+05  -2.86e+04          0      0.593          1          1
-       32          0       6.31        7.6       2.62   6.21e+05  -3.47e+03          0      0.551          1          1
-       64          0       7.23       6.16        5.1   6.62e+07      0.876          0      0.568          1          1
-      128          2       8.11       7.01       9.91    1.2e+08       -206    1.1e-27      0.512          1          1
-      256          2       8.76       7.99       19.4   2.37e+08       -204   3.19e-43       0.46          1          1
-      512          3       9.29       8.14         38   4.71e+08       -204   8.42e-11      0.438          1          1
- 1.02e+03         12       9.45       8.51       74.3    9.3e+08       -201   7.64e-13      0.421          1          1
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="b4417fd6.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="43711c0b.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
+        2          0       2.38       2.58      0.593    6.9e+06  -5.86e+06          0       0.84          1          1
+        4          0       3.46       4.67      0.733   1.42e+05  -1.86e+06          0      0.738          1          1
+        8          0       5.26       5.38       1.37   2.29e+05  -1.97e+03          0      0.657          1          1
+       16          0        6.6       6.82       2.68   4.07e+05  -6.38e+04          0      0.567          1          1
+       32          0       7.59        7.2        5.3   6.21e+05   -9.3e+03          0      0.523          1          1
+       64          0       8.47       5.89       10.4   7.29e+07       -167          0      0.537          1          1
+      128          3       8.78       6.59       20.4   1.35e+08       -207   7.98e-31      0.504          1          1
+      256          0       9.42       7.32       39.7   2.64e+08       -205   1.69e-16       0.46          1          1
+      512          2       9.42       8.25       78.3   5.24e+08       -204   2.84e-05       0.43          1          1
+ 1.02e+03         12       9.89       8.58        154   1.03e+09       -202   3.12e-06      0.404          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="00ddfa87.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="f19720fa.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
     results[:b_P][:] ./ results[:c_P][:],
     axis=(;
         xlabel=&quot;period ratio&quot;,
         ylabel=&quot;counts&quot;,
     )
-)</code></pre><img src="f5a8a56c.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Observable Priors</a><a class="docs-footer-nextpage" href="../thiele-innes/">Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Thursday 30 January 2025 19:12">Thursday 30 January 2025</span>. Using Julia version 1.10.8.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="02481920.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Observable Priors</a><a class="docs-footer-nextpage" href="../thiele-innes/">Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.9.0 on <span class="colophon-date" title="Monday 24 March 2025 06:45">Monday 24 March 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
