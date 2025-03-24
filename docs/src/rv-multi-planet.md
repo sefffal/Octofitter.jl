@@ -109,6 +109,7 @@ We now create a new system object that only includes one planet (we dropped c, i
 @system sim_1p begin
     M_pri = 1.0
     M_b ~ Uniform(0, 10)
+    M_c = 0.0
     jitter1 ~ Uniform(0, 20_000)
     jitter2 ~ Uniform(0, 20_000)
 end rvlike1 rvlike2 b
