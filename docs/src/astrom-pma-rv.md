@@ -245,8 +245,8 @@ end astrom_like  ObsPriorAstromONeil2019(astrom_like) # Note the relative astrom
     jitter_1 = 0.0
     offset_1 ~ Normal(0, 1000) # m/s
 
-    ra = hgca_like.gaialike.gaia_sol.ra
-    dec = hgca_like.gaialike.gaia_sol.dec
+    ra = $hgca_like.gaialike.gaia_sol.ra
+    dec = $hgca_like.gaialike.gaia_sol.dec
     rv = 0*1e3 # m/s
     ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 
