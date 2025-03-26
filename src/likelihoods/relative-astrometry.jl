@@ -26,13 +26,14 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple,jitter,platescale,nort
     precomputed_pointwise_distributions::TDistTuple
     instrument_name::String
     function PlanetRelAstromLikelihood(
-            observations,
-            (priors,derived)::Tuple{Priors,Derived};
+            observations;
+            variables::Tuple{Priors,Derived},
             jitter::Symbol=:__NA,
             platescale::Symbol=:__NA,
             northangle::Symbol=:__NA,
             instrument_name=""
         )
+        (priors,derived)=variables
         table = Table(observations)
         if !equal_length_cols(table)
             error("The columns in the input data do not all have the same length")
