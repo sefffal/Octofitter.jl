@@ -518,12 +518,123 @@ function make_arr2nt(system::System)
                 )
             )
         end
+
+        # Planets: priors & derived variables
+        planet_observations = Expr[]
+        for obs in planet.observations
+            
+            # Priors
+            planet_obs_priors = Expr[]
+            for key in keys(obs.priors.priors)
+                if length(obs.priors.priors[key]) > 1
+                    ex_is = []
+                    # Handle vector-valued distributions
+                    for _ in 1:length(obs.priors.priors[key])
+                        i += 1
+                        ex_i = :(arr[$i])
+                        push!(ex_is, ex_i)
+                    end
+                    ex  = :(
+                        $key = ($(ex_is...),)
+                    )
+                else
+                    i += 1
+                    ex  = :(
+                        $key = arr[$i]
+                    )
+                end
+
+
+                push!(planet_obs_priors,ex)
+            end
+            k = 0
+            planet_obs_determ = Expr[]
+            if !isnothing(obs.derived)
+                # Resolve derived vars.
+                for (key,func) in zip(keys(obs.derived.variables), values(obs.derived.variables))
+                    ex = :(
+                        $(Symbol("obs$(k+1)")) = (; $(Symbol("obs$k"))..., $key = $func((;$(Symbol("planet$(j)"))...,super=sys,), $(Symbol("obs$k"))))
+                    )
+                    push!(planet_obs_determ,ex)
+                    k += 1
+                end
+            end
+            name = normalizename(obs.instrument_name)
+            @show name
+            # ex = :(begin
+            #     obs0 = (;$(planet_obs_priors...));
+            #     $(planet_obs_determ...);
+            #     # (;$name = (;$(Symbol("obs$(k+1)")...)))
+            #     (;$name = $(Symbol("obs$k")))
+            # end)
+            ex = :($name = begin
+                obs0 = (;$(planet_obs_priors...));
+                $(planet_obs_determ...);
+                (;$(Symbol("obs$(k)"))...)
+            end)
+            @show ex
+            push!(planet_observations,ex)
+        end
+
+
         ex = :($(planet.name) = begin
             planet0 = (;$(body_planet_priors...));
             $(body_planet_determ...);
-            $(Symbol("planet$(j)"))
+            # $(Symbol("planet$(j)"))
+            (;(;$(Symbol("planet$(j)"))...)..., observations=(;$(planet_observations...)))
         end)
+        @show ex
         push!(body_planets,ex)
+    end
+
+    # Planets: priors & derived variables
+    body_observations = Expr[]
+    for obs in system.observations
+        
+        # Priors
+        body_obs_priors = Expr[]
+        for key in keys(obs.priors.priors)
+            if length(obs.priors.priors[key]) > 1
+                ex_is = []
+                # Handle vector-valued distributions
+                for _ in 1:length(obs.priors.priors[key])
+                    i += 1
+                    ex_i = :(arr[$i])
+                    push!(ex_is, ex_i)
+                end
+                ex  = :(
+                    $key = ($(ex_is...),)
+                )
+            else
+                i += 1
+                ex  = :(
+                    $key = arr[$i]
+                )
+            end
+
+
+            push!(body_obs_priors,ex)
+        end
+        j = 0
+        body_obs_determ = Expr[]
+        if !isnothing(obs.derived)
+            # Resolve derived vars.
+            for (key,func) in zip(keys(obs.derived.variables), values(obs.derived.variables))
+                ex = :(
+                    $(Symbol("obs$(j+1)")) = (; $(Symbol("obs$j"))..., $key = $func(sys, $(Symbol("obs$j"))))
+                )
+                push!(body_obs_determ,ex)
+                j += 1
+            end
+        end
+        name = normalizename(obs.instrument_name)
+        ex = :(
+            $name = (;
+                $(body_obs_priors...),
+                $(body_obs_determ...)
+            )
+        )
+        push!(body_observations,ex)
     end
 
     # Here is the function we return.
@@ -539,10 +650,12 @@ function make_arr2nt(system::System)
         sys0 = (;$(body_sys_priors...))
         # Resolve derived system variables
         $(body_sys_determ...)
+        # Get resolved observations
+        # obs = $(body_observations...)
         # Get resolved planets
         pln = (;$(body_planets...))
         # Merge planets into resolved system
-        sys_res_pln = (;sys..., planets=pln)
+        sys_res_pln = (;sys..., observations=(;$(body_observations...)), planets=pln)
         return sys_res_pln
     end))
 
@@ -550,8 +663,18 @@ function make_arr2nt(system::System)
 end
 
 
-
-
+# From CSV.jl:
+const RESERVED = Set(["local", "global", "export", "let",
+    "for", "struct", "while", "const", "continue", "import",
+    "function", "if", "else", "try", "begin", "break", "catch",
+    "return", "using", "baremodule", "macro", "finally",
+    "module", "elseif", "end", "quote", "do"])
+function normalizename(name::String)::Symbol
+    uname = lowercase(strip(Base.Unicode.normalize(name)))
+    id = Base.isidentifier(uname) ? uname : map(c->Base.is_id_char(c) ? c : '_', uname)
+    cleansed = string((isempty(id) || !Base.is_id_start_char(id[1]) || id in RESERVED) ? "_" : "", id)
+    return Symbol(replace(cleansed, r"(_)\1+"=>"_"))
+end
 
 # This is a straight forward implementation that unfortunately is not type stable.
 # This is because we are looping over a heterogeneous container
@@ -776,6 +899,16 @@ function make_prior_sampler(system::System)
             push!(prior_sample_expressions, :(prior_samples = (prior_samples..., sample[$i])))
         end
     end
+    for obs in system.observations
+        for prior_distribution in values(obs.priors.priors)
+            # Performance: Instead of splatting, loop through according to the
+            # statically known distribution length.
+            push!(prior_sample_expressions, :(sample = $rand(rng, $prior_distribution)))
+            for i in 1:length(prior_distribution)
+                push!(prior_sample_expressions, :(prior_samples = (prior_samples..., sample[$i])))
+            end
+        end
+    end
 
     # Planet priors
     for planet in system.planets
@@ -788,7 +921,19 @@ function make_prior_sampler(system::System)
                 push!(prior_sample_expressions, :(prior_samples = (prior_samples..., sample[$i])))
             end
         end
+        for obs in planet.observations
+            for prior_distribution in values(obs.priors.priors)
+                # Performance: Instead of splatting, loop through according to the
+                # statically known distribution length.
+                push!(prior_sample_expressions, :(sample = $rand(rng, $prior_distribution)))
+                for i in 1:length(prior_distribution)
+                    push!(prior_sample_expressions, :(prior_samples = (prior_samples..., sample[$i])))
+                end
+            end
+        end
     end
+
+    println.(prior_sample_expressions)
 
     # Here is the function we return.
     # It maps an array of parameters into our nested named tuple structure

@@ -26,6 +26,8 @@ In addition to the example above, any Tables.jl compatible source can be provide
 """
 struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF,offset_symbol,jitter_symbol} <: Octofitter.AbstractLikelihood
     table::TTable
+    priors::Octofitter.Priors
+    derived::Octofitter.Derived
     held_out_table::TTable
     instrument_name::String
     gaussian_process::GP
@@ -34,14 +36,15 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF,offset_symbol,jitter_symbol}
     jitter_symbol::Symbol
 end
 function StarAbsoluteRVLikelihood(
-    observations...;
+    observations,
+    (priors,derived)::Tuple{Octofitter.Priors,Octofitter.Derived};
     offset,
     jitter,
     trend_function=(θ_system, epoch)->zero(Octofitter._system_number_type(θ_system)),
     instrument_name="",
     gaussian_process=nothing
 )
-    table = Table(observations...)[:,:,1]
+    table = Table(observations)[:,:,1]
     if !Octofitter.equal_length_cols(table)
         error("The columns in the input data do not all have the same length")
     end
@@ -68,10 +71,10 @@ function StarAbsoluteRVLikelihood(
     held_out_table = empty(table)
 
     return StarAbsoluteRVLikelihood{typeof(table),typeof(gaussian_process),typeof(trend_function),offset, jitter, }(
-        table, held_out_table, instrument_name, gaussian_process, trend_function, offset, jitter
+        table, priors, derived, held_out_table, instrument_name, gaussian_process, trend_function, offset, jitter
     )
 end
-StarAbsoluteRVLikelihood(observations::NamedTuple...;kwargs...) = StarAbsoluteRVLikelihood(observations; kwargs...)
+# StarAbsoluteRVLikelihood(observations::NamedTuple...;kwargs...) = StarAbsoluteRVLikelihood(observations; kwargs...)
 function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVLikelihood, obs_inds)
     # Due to TypedTables bug, the line below creates a "matrix" table that isn't the same type as the input.
     # table = typeof(obs.table)(obs.table[setdiff(1:size(obs.table,1), obs_inds),:,1])

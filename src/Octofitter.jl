@@ -239,5 +239,5 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
     return
 end
 
-include("precompile.jl")
+# include("precompile.jl")
 end

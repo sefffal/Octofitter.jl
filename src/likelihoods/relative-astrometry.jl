@@ -18,13 +18,16 @@ In addition to the example above, any Tables.jl compatible source can be provide
 """
 struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple,jitter,platescale,northangle} <: AbstractLikelihood
     table::TTable
+    priors::Priors
+    derived::Derived
     jitter::Symbol
     platescale::Symbol
     northangle::Symbol
     precomputed_pointwise_distributions::TDistTuple
     instrument_name::String
     function PlanetRelAstromLikelihood(
-            observations;
+            observations,
+            (priors,derived)::Tuple{Priors,Derived};
             jitter::Symbol=:__NA,
             platescale::Symbol=:__NA,
             northangle::Symbol=:__NA,
@@ -81,11 +84,11 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple,jitter,platescale,nort
 
         precomputed_pointwise_distributions_tuple = (precomputed_pointwise_distributions...,)
         return new{typeof(table),typeof(precomputed_pointwise_distributions_tuple),jitter, platescale, northangle}(
-            table, jitter, platescale, northangle, precomputed_pointwise_distributions_tuple, instrument_name
+            table, priors, derived, jitter, platescale, northangle, precomputed_pointwise_distributions_tuple, instrument_name
         )
     end
 end
-PlanetRelAstromLikelihood(observations::NamedTuple...; kwargs...) = PlanetRelAstromLikelihood(observations; kwargs...)
+# PlanetRelAstromLikelihood(observations::NamedTuple..., (priors,derived)::Tuple{Priors,Derived}; kwargs...) = PlanetRelAstromLikelihood(observations, (priors,derived); kwargs...)
 export PlanetRelAstromLikelihood
 
 function _getparams(::PlanetRelAstromLikelihood{TTable,TDistTuple,jitter,platescale,northangle}, θ) where {TTable,TDistTuple,jitter,platescale,northangle}
