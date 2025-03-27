@@ -38,18 +38,18 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0        2.3       3.82      0.924   1.29e+09  -5.79e+07          0      0.803          1          1
-        4          0       3.52       4.26       1.36   2.49e+09  -3.75e+06          0      0.749          1          1
+        2          0        2.3       3.82      0.976   1.29e+09  -5.79e+07          0      0.803          1          1
+        4          0       3.52       4.26       1.38   2.49e+09  -3.75e+06          0      0.749          1          1
         8          0       4.44       3.76        2.7   4.88e+09  -6.07e+06          0      0.736          1          1
-       16          0       5.62       5.52        5.3   9.79e+09  -7.86e+05          0      0.641          1          1
-       32          0       5.96        5.9       10.5   1.95e+10  -1.39e+05          0      0.618          1          1
+       16          0       5.62       5.52       5.35   9.79e+09  -7.86e+05          0      0.641          1          1
+       32          0       5.96        5.9       10.6   1.95e+10  -1.39e+05          0      0.618          1          1
        64          5       6.63        2.4       21.4   3.91e+10      -17.7          0      0.709          1          1
       128         11       6.79       2.37         43   7.95e+10      -17.1  1.44e-159      0.704          1          1
-      256         30       7.52       2.51       85.4   1.58e+11      -17.2  1.37e-114      0.676          1          1
-      512         62       8.02       2.45        171   3.17e+11      -17.2   3.43e-10      0.662          1          1
- 1.02e+03        128       8.56       2.46        335   6.36e+11      -17.3    0.00546      0.644          1          1
- 2.05e+03        254       8.87       2.31        682   1.28e+12      -17.2    0.00392      0.639          1          1
-  4.1e+03        553       9.33       2.37   1.38e+03   2.57e+12      -17.1     0.0188      0.623          1          1
+      256         30       7.52       2.51       85.7   1.58e+11      -17.2  1.37e-114      0.676          1          1
+      512         62       8.02       2.45        172   3.17e+11      -17.2   3.43e-10      0.662          1          1
+ 1.02e+03        128       8.56       2.46        345   6.36e+11      -17.3    0.00546      0.644          1          1
+ 2.05e+03        254       8.87       2.31        693   1.28e+12      -17.2    0.00392      0.639          1          1
+  4.1e+03        553       9.33       2.37   1.39e+03   2.57e+12      -17.1     0.0188      0.623          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl:</p><pre><code class="language-julia hljs">pairplot(
     PairPlots.Series(
         (;
@@ -232,4 +232,4 @@ pairplot(
         :sma=&gt;&quot;log₂ Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log₂ Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="951093d9.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.9.0 on <span class="colophon-date" title="Monday 24 March 2025 06:45">Monday 24 March 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="951093d9.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.9.0 on <span class="colophon-date" title="Thursday 27 March 2025 23:02">Thursday 27 March 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
