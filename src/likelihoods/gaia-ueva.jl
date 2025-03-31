@@ -216,7 +216,6 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
     # ]
 
 
-
     # First part of the likelihood -- do we match the catalog plx, ra, dec, pmra, pmdec parameters?
     # ll += logpdf(gaialike.dist, modelled_gaia_parameters)
 
@@ -235,7 +234,6 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
         astrometric_excess_noise,
         ruwe,
     ) = gaialike.dr3
-
 
 
     # σ_formal = hypot(sigma_att, sigma_al)
@@ -280,38 +278,10 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
     UEVA_unc = σ_UEVA_single/3  # divide by 3 due to cube root transformation
     ll += logpdf(Normal(0, UEVA_unc), resid)
 
-    # @show θ_system.planets.b.mass
-    # @show UEVA
-    # @show UEVA_model
-
-    # @show gaia_n_dof
-    # @show σ_formal
-    # @show σ_att
-    # @show σ_AL
-    # @show astrometric_n_good_obs_al
-    # @show astrometric_matched_transits
-    # @show N_AL
-    # @show chi2_astro_scaled
-    # @show μ_UEVA_single
-    # @show σ_UEVA_single
-
-    # # Photocenter scaling
-    # @show l = 0
-    # @show q = planet_mass_msol / (θ_system.M - planet_mass_msol)
-    # @show photocenter_scalar = abs(q - l)/((1 + l) * (1 + q))
-
-    # # For a dark companion (l=0):
-    # @show photocenter_scalar = q/(1 + q)  # where q = m2/m1
-
-    # # Semi-major axis in mas
-    # @show  a = 1000 * ((θ_system.M)*θ_system.planets.b.P^2)^(1/3) / (1000/θ_system.plx)  # dist in pc
-
-    # # Photocenter semi-major axis
-    # @show  a_phot = a * photocenter_scalar
-
     return ll, (;
         # modelled_gaia_parameters,
         UEVA,
+        UEVA_unc,
         UEVA_model
     )
 end
