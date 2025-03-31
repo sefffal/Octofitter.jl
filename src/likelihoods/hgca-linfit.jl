@@ -235,6 +235,11 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         out = fit_5param_prepared(hgca_like.gaialike.A_prepared_5, hgca_like.gaialike.table, Δα_mas, Δδ_mas)
         # out = fit_4param_prepared(hgca_like.gaialike.A_prepared_4, hgca_like.gaialike.table, Δα_mas, Δδ_mas)
         Δα_g, Δδ_g, Δpmra_g, Δpmdec_g = out.parameters
+        # Propagate position coordinates to the right epoch for the comparison.
+        delta_t_ra = (hgca_like.hgca.epoch_ra_gaia_mjd - mean(hgca_like.gaialike.table.epoch))/ julian_year
+        delta_t_dec = (hgca_like.hgca.epoch_dec_gaia_mjd - mean(hgca_like.gaialike.table.epoch))/ julian_year
+        Δα_g += delta_t_ra*Δpmra_g
+        Δδ_g += delta_t_dec*Δpmdec_g
         α_g₀, δ_g₀, pmra_g₀, pmdec_g₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_gaia_mjd, hgca_like.hgca.epoch_dec_gaia_mjd)
         μ_g = @SVector [pmra_g₀ + Δpmra_g, pmdec_g₀ + Δpmdec_g]
 
@@ -274,6 +279,11 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         # μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
         # out = fit_4param_prepared(hgca_like.hiplike.A_prepared_4, hgca_like.hiplike.table, Δα_mas, Δδ_mas, hgca_like.hiplike.table.sres)
         Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
+        # Propagate position coordinates to the right epoch for the comparison.
+        delta_t_ra = (hgca_like.hgca.epoch_ra_hip_mjd - mean(hgca_like.hiplike.table.epoch))/ julian_year
+        delta_t_dec = (hgca_like.hgca.epoch_dec_hip_mjd - mean(hgca_like.hiplike.table.epoch))/ julian_year
+        Δα_h += delta_t_ra*Δpmra_h
+        Δδ_h += delta_t_dec*Δpmdec_h
         α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_hip_mjd, hgca_like.hgca.epoch_dec_hip_mjd)
         μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
     end
