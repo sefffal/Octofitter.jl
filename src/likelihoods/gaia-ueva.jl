@@ -101,18 +101,6 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
 
     σ_formal = sqrt(σ_att^2 + σ_AL^2)
 
-
-    # Generate simulated observations from this sample draw
-    # These are generated using whatever reference epoch the user has specified that corresponds
-    # TODO: in this specific case I should make sure these are generated e.g. using the same RV that gaia used,
-    # not whatever the user specified in the model
-    sample_orbit = only(orbits)
-    # (;α_model,δ_model,αₘ,δₘ) = _simulate_skypath_observations(gaialike, sample_orbit, planet_mass_msol, orbit_solutions, orbit_solutions_i_epoch_start, T)
-
-    # @show α_model δ_model
-
-    #TODO: next problem. Planet mass doesn't seem to be impacting model
-
     ll = zero(T)
 
     # TODO: need to deterministically remove the right epochs,
@@ -124,50 +112,16 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
     ii = sort(setdiff(1:length(gaialike.table.epoch), ii_skip))
     # ii = 1:length(gaialike.table.epoch)
 
-    # out = fit_5param(
-    #     # epochs and scan angle
-    #     gaialike.table[ii,:],
-    #     # simulated observations in ra and dec
-    #     α_model[ii,:] .- gaialike.dr3.ra,
-    #     δ_model[ii,:] .- gaialike.dr3.dec,
-    #     # catalog ra and dec -- we fit in this tangent plane. TODO: might need to iterate for high PM stars.
-    #     meta_gaia_DR3.ref_epoch_mjd,
-    #     meta_gaia_DR3.ref_epoch_mjd;
-    #     # uncertainty to use for chi^2 calculation
-    #     σ_formal,
-    #     include_chi2=true,
-    #     # n_noise_realizations=1000
-    # )
-    # α₀, δ₀, ϖ, μα, μδ = out.parameters
-    # # @show α₀, δ₀, ϖ, μα, μδ
-    # modelled_gaia_parameters = [
-    #     ϖ,
-    #     gaialike.dr3.ra + α₀/60/60/1000/cosd(gaialike.dr3.dec),
-    #     gaialike.dr3.dec + δ₀/60/60/1000, # cos delta?
-    #     μα,
-    #     μδ
-    # ]
-
-
     T = _system_number_type(θ_system)
 
     # TODO: expand to work with multiple, named planets
     planet_mass_msol = θ_system.planets.b.mass * Octofitter.mjup2msol
-
-    sample_orbit = only(orbits)
 
     ll = zero(T)
 
     Δα_mas = zeros(T, size(gaialike.table,1))
     Δδ_mas = zeros(T, size(gaialike.table,1))
 
-    # Δα_mas = (α_model .- gaialike.dr3.ra).*60*60*1000*cosd(gaialike.dr3.dec)
-    # Δδ_mas = (δ_model .- gaialike.dr3.dec).*60*60*1000
-    # α_modelδ_model
-    
-    # δ_model[ii,:] .- gaialike.dr3.dec
-
-    # @show α_model δ_model
     for (orbit, θ_planet) in zip(orbits, θ_system.planets)
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         # (;fluxratio) = _getparams(gaialike, θ_planet)
@@ -204,20 +158,6 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
         include_chi2=true,
     )
     Δα_g, Δδ_g, Δplx, Δpmra_g, Δpmdec_g = out.parameters
-    # @show  gaialike.table[ii].epoch Δα_mas[ii] Δδ_mas[ii] Δα_g Δδ_g Δplx Δpmra_g Δpmdec_g
-
-    # α_g₀, δ_g₀, pmra_g₀, pmdec_g₀ = propagate_astrom(first(orbits), ref_epoch)
-    # modelled_gaia_parameters_dr3 = @SVector [
-    #     gaialike.gaia_sol.parallax + Δplx,
-    #     α_g₀ + Δα_g/60/60/1000/cosd(δ_g₀),
-    #     δ_g₀ + Δδ_g/60/60/1000,
-    #     pmra_g₀ + Δpmra_g,
-    #     pmdec_g₀ + Δpmdec_g
-    # ]
-
-
-    # First part of the likelihood -- do we match the catalog plx, ra, dec, pmra, pmdec parameters?
-    # ll += logpdf(gaialike.dist, modelled_gaia_parameters)
 
 
     # Next part of the likelihood -- do the distribances introduced by the planet lead to fitting noise
@@ -225,12 +165,12 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
 
     # From Gaia catalog:
     (;
-        astrometric_chi2_al,         # Chi squared of along-scan measurements
+        #astrometric_chi2_al,         # Chi squared of along-scan measurements
         astrometric_n_good_obs_al,   # Number of good AL observations (N)  
         astrometric_matched_transits,# Number of field of view transits (N_FoV)
-        phot_g_mean_mag,             # G magnitude
-        bp_rp,                       # BP-RP color
-        ra, dec,                     # Position
+        # phot_g_mean_mag,             # G magnitude
+        # bp_rp,                       # BP-RP color
+        # ra, dec,                     # Position
         astrometric_excess_noise,
         ruwe,
     ) = gaialike.dr3
@@ -274,14 +214,25 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
     UEVA_model = (chi2_astro_scaled * σ_formal^2) / (N_AL * (N_FoV - gaia_n_dof))
     
     # Compare to expected single-star distribution
-    resid = UEVA^(1/3) - (UEVA_model + μ_UEVA_single)^(1/3)
-    UEVA_unc = σ_UEVA_single/3  # divide by 3 due to cube root transformation
-    ll += logpdf(Normal(0, UEVA_unc), resid)
+    μ_1_3 = UEVA^(1/3) 
+    UEVA_unc = σ_UEVA_single * UEVA^(-2/3) /3  # divide by 3 due to cube root transformation
+    if  !isfinite(UEVA) || !isfinite(UEVA_unc) || UEVA_unc <= eps()
+        # @warn "Invalid  " σ_UEVA_single UEVA UEVA_unc maxlog=10
+        ll = -Inf
+    else
+        try
+            ll += logpdf(Normal(μ_1_3, UEVA_unc), UEVA_model + μ_UEVA_single^(1/3))
+        catch
+            @error "Invalid" μ_1_3 UEVA UEVA_unc UEVA_model + μ_UEVA_single^(1/3)
+            error("invalid values encountered")
+        end
+    end
 
     return ll, (;
         # modelled_gaia_parameters,
         UEVA,
         UEVA_unc,
-        UEVA_model
+        UEVA_model,
+        # resid
     )
 end
