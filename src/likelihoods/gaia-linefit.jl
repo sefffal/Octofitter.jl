@@ -146,7 +146,15 @@ function simulate(gaialike::GaiaCatalogFitLikelihood, θ_system, orbits, orbit_s
     function propagate_astrom(orbit::PlanetOrbits.AbsoluteVisualOrbit, ref_epoch)
         sol = orbitsolve(orbit, ref_epoch)
         cmp = sol.compensated
-        return cmp.ra2, cmp.dec2, cmp.pmra2, cmp.pmdec2
+        t1 = ref_epoch
+        Δt = 100
+        t2 = t1 + Δt
+        sol′ = orbitsolve(orbit,t2)
+        # This isn't right! This is double counting the proper motion which already goes into ra/dec
+        # Take change in delta_time and multiply it by pmra/pmdec
+        diff_lt_app_pmra = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmra2
+        diff_lt_app_pmdec = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmdec2
+        return cmp.ra2, cmp.dec2, cmp.pmra2+diff_lt_app_pmra, cmp.pmdec2+diff_lt_app_pmdec
     end
     function propagate_astrom(orbit::Any, _, _)
         return 0.0, 0.0, θ_system.pmra, θ_system.pmdec

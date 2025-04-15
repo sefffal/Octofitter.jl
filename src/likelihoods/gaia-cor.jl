@@ -270,7 +270,17 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
             sol_dec = orbitsolve(orbit, epoch_dec)
         end
         cmp_dec = sol_dec.compensated
-        return cmp_ra.ra2, cmp_dec.dec2, cmp_ra.pmra2, cmp_dec.pmdec2
+        # return cmp_ra.ra2, cmp_dec.dec2, cmp_ra.pmra2, cmp_dec.pmdec2
+        t1 = max(epoch_ra, epoch_dec)
+        Δt = 100
+        t2 = t1 + Δt
+        sol = epoch_ra >= epoch_dec ? sol_ra : sol_dec
+        sol′ = orbitsolve(orbit,t2)
+        # This isn't right! This is double counting the proper motion which already goes into ra/dec
+        # Take change in delta_time and multiply it by pmra/pmdec
+        diff_lt_app_pmra = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmra2
+        diff_lt_app_pmdec = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmdec2
+        return cmp_ra.ra2, cmp_dec.dec2, cmp_ra.pmra2+diff_lt_app_pmra, cmp_dec.pmdec2+diff_lt_app_pmdec
     end
     function propagate_astrom(orbit::Any, epoch_ra, epoch_dec)
         dec = θ_system.dec + θ_system.pmdec/60/60/1000/365.25*(epoch_dec-θ_system.ref_epoch)
@@ -289,14 +299,15 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
     end
     Δα_mas = zeros(T, iend-istart+1)
     Δδ_mas = zeros(T, iend-istart+1)
-    for (orbit, θ_planet) in zip(orbits, θ_system.planets)
+    for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
+        planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         _simulate_skypath_perturbations!(
             Δα_mas, Δδ_mas,
             gaialike.table[istart:iend], orbit,
             planet_mass_msol, 0.0,
-            orbit_solutions,
-            orbit_solutions_i_epoch_start, T
+            orbit_solutions[i_planet],
+            orbit_solutions_i_epoch_start[i_planet], T
         )
     end
     # Δα, Δδ, Δμα, Δμδ = out.parameters
@@ -328,16 +339,17 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
     end
     Δα_mas = zeros(T, iend-istart+1)
     Δδ_mas = zeros(T, iend-istart+1)
-    for (orbit, θ_planet) in zip(orbits, θ_system.planets)
+    for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         _simulate_skypath_perturbations!(
             Δα_mas, Δδ_mas,
             gaialike.table[istart:iend], orbit,
             planet_mass_msol, 0.0,
-            orbit_solutions,
-            orbit_solutions_i_epoch_start, T
+            orbit_solutions[i_planet],
+            orbit_solutions_i_epoch_start[i_planet], T
         )
     end
+
     # out = fit_4param(
     #     gaialike.table[istart:iend],
     #     Δα_mas,

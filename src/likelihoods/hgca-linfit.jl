@@ -197,7 +197,18 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         cmp_ra = sol_ra.compensated
         sol_dec = orbitsolve(orbit, epoch_dec)
         cmp_dec = sol_dec.compensated
-        return cmp_ra.ra2, cmp_dec.dec2, cmp_ra.pmra2, cmp_dec.pmdec2
+        # Account for the instantaneous differential light travel time apparent acceleration.
+        # Treat as linear for the duration of Gaia or Hipparcos
+        t1 = max(epoch_ra, epoch_dec)
+        Δt = 100
+        t2 = t1 + Δt
+        sol = epoch_ra >= epoch_dec ? sol_ra : sol_dec
+        sol′ = orbitsolve(orbit,t2)
+        # This isn't right! This is double counting the proper motion which already goes into ra/dec
+        # Take change in delta_time and multiply it by pmra/pmdec
+        diff_lt_app_pmra = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmra2
+        diff_lt_app_pmdec = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmdec2
+        return cmp_ra.ra2, cmp_dec.dec2, cmp_ra.pmra2+diff_lt_app_pmra, cmp_dec.pmdec2+diff_lt_app_pmdec
     end
     function propagate_astrom(orbit::Any, _, _)
         return 0.0, 0.0, θ_system.pmra, θ_system.pmdec
