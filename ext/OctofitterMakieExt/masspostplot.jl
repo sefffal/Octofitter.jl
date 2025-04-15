@@ -39,7 +39,7 @@ function Octofitter.masspostplot!(
 )
     gs = gridspec_or_fig
 
-    ax_hist = Axis(gs[1:2,1];
+    ax_hist = Axis(gs[1,1];
         # ylabel=rich("mass [M", subscript("jup"), "]"),
         xlabel=mass_mjup_label,
         xgridvisible=false,
@@ -56,15 +56,9 @@ function Octofitter.masspostplot!(
         ygridvisible=false,
         axis...
     )
-    ax_scat_ecc = Axis(gs[2,2];
-        ylabel=mass_mjup_label,
-        xlabel="eccentricity",
-        xgridvisible=false,
-        ygridvisible=false,
-        axis...
-    )
-    xlims!(ax_scat_ecc, 0, 1)
     cred_intervals = []
+    local s
+    s = nothing
     for planet_key in keys(model.system.planets)
         els = Octofitter.construct_elements(model, results, planet_key, :);
         mk = Symbol("$(planet_key)_mass")
@@ -79,11 +73,10 @@ function Octofitter.masspostplot!(
             mass,
             linewidth=3
         )
-        scatter!(ax_scat_sma, sma, mass;
-            markersize=2,
-            rasterize=4,
-        )
-        scatter!(ax_scat_ecc, ecc, mass;
+        s = scatter!(ax_scat_sma, sma, mass;
+            color=ecc,
+            colorrange=(0,1),
+            colormap=:turbo,
             markersize=2,
             rasterize=4,
         )
@@ -100,6 +93,9 @@ function Octofitter.masspostplot!(
             Makie.latexstring(join(cred_intervals, L"\;\;")),
             tellwidth=false
         )
+    end
+    if !isnothing(s)
+        Colorbar(gs[end,end+1], s, label="eccentricity")
     end
 
 
