@@ -776,7 +776,16 @@ function _simulate_skypath_perturbations!(
     for i in eachindex(table.epoch)
         # TODO: make use of potentially multi-threaded kepsolve by ensuring `epoch` column is present,
         # and using above passed-in orbit solutions.
-        sol = orbitsolve(orbit, table.epoch[i])
+        # sol = orbitsolve(orbit, table.epoch[i])
+        if orbit_solutions_i_epoch_start >= 0
+            sol = orbit_solutions[orbit_solutions_i_epoch_start+i]
+            @assert isapprox(table.epoch[i], PlanetOrbits.soltime(sol), rtol=1e-2)
+        else
+            # TODO: this is a workaround for HGCA likelihoods not having a single table
+            # that can be used to precompute orbit solutions
+            sol = orbitsolve(orbit, table.epoch[i])
+        end
+
         # Add perturbation from planet in mas -- simplest model, unaffected by flux of planet
         # Δα_model[i] += raoff(sol, planet_mass_msol)
         # Δδ_model[i] += decoff(sol, planet_mass_msol)

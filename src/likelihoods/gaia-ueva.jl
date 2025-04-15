@@ -122,7 +122,7 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
     Δα_mas = zeros(T, size(gaialike.table,1))
     Δδ_mas = zeros(T, size(gaialike.table,1))
 
-    for (orbit, θ_planet) in zip(orbits, θ_system.planets)
+    for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         # (;fluxratio) = _getparams(gaialike, θ_planet)
         fluxratio =0.0# TODO
@@ -131,8 +131,8 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
             Δα_mas, Δδ_mas,
             gaialike.table, orbit,
             planet_mass_msol, fluxratio,
-            orbit_solutions,
-            orbit_solutions_i_epoch_start, T
+            orbit_solutions[i_planet],
+            orbit_solutions_i_epoch_start[i_planet], T
         )
     end
 

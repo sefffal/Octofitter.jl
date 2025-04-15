@@ -223,15 +223,15 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         Δδ_mas = @alloc(T, size(hgca_like.gaialike.table,1))
         fill!(Δδ_mas, 0)
 
-        for (orbit, θ_planet) in zip(orbits, θ_system.planets)
+        for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
             (;fluxratio) = _getparams(hgca_like, θ_planet)
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
                 hgca_like.gaialike.table, orbit,
                 planet_mass_msol, fluxratio,
-                orbit_solutions,
-                orbit_solutions_i_epoch_start, T
+                orbit_solutions[i_planet],
+                orbit_solutions_i_epoch_start[i_planet], T
             )
         end
 
@@ -249,8 +249,11 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         # Propagate position coordinates to the right epoch for the comparison.
         delta_t_ra = (hgca_like.hgca.epoch_ra_gaia_mjd - mean(hgca_like.gaialike.table.epoch))/ julian_year
         delta_t_dec = (hgca_like.hgca.epoch_dec_gaia_mjd - mean(hgca_like.gaialike.table.epoch))/ julian_year
+        # Calculate perturbation from planet
         Δα_g += delta_t_ra*Δpmra_g
         Δδ_g += delta_t_dec*Δpmdec_g
+        # Rigorously propagate the linear proper motion component in spherical coordinates
+        # Account for within-gaia differential light travel time 
         α_g₀, δ_g₀, pmra_g₀, pmdec_g₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_gaia_mjd, hgca_like.hgca.epoch_dec_gaia_mjd)
         μ_g = @SVector [pmra_g₀ + Δpmra_g, pmdec_g₀ + Δpmdec_g]
 
@@ -260,17 +263,18 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         Δδ_mas = @alloc(T, size(hgca_like.hiplike.table,1))
         fill!(Δδ_mas, 0)
 
-        for (orbit, θ_planet) in zip(orbits, θ_system.planets)
+        for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
             (;fluxratio) = _getparams(hgca_like, θ_planet)
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
                 hgca_like.hiplike.table, orbit,
                 planet_mass_msol, fluxratio,
-                orbit_solutions,
-                orbit_solutions_i_epoch_start, T
+                orbit_solutions[i_planet],
+                orbit_solutions_i_epoch_start[i_planet], T
             )
         end
+
         # out = fit_4param(
         #     hgca_like.hiplike.table,
         #     Δα_mas,
