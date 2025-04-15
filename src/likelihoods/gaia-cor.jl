@@ -11,8 +11,8 @@ struct GaiaDifferenceLike{TCat3,TCat2,TTable} <: AbstractLikelihood
     μ_dr2::Vector{Float64}
     Σ_dr2_dr3::Matrix{Float64}
     # GHOST predicted observations
-    A_prepared_4_dr3::Matrix{Float64}
-    A_prepared_4_dr2::Matrix{Float64}
+    A_prepared_5_dr3::Matrix{Float64}
+    A_prepared_5_dr2::Matrix{Float64}
 end
 function GaiaDifferenceLike(;
     source_id_dr2=nothing,
@@ -61,8 +61,14 @@ function GaiaDifferenceLike(;
         end
     end
 
+    # @show hgca_dr3.gaia_ra dr3.ra
+    # @show (hgca_dr3.gaia_ra - hgca_dr2.gaia_ra)/(hgca_dr3.epoch_ra_gaia - hgca_dr2.epoch_ra_gaia)*60*60*1000*cosd(hgca_dr3.gaia_dec)
+    # @show hgca_dr3.pmra_hg hgca_dr2.pmra_hg_error
+    # @show (hgca_dr3.gaia_dec - hgca_dr2.gaia_dec)/(hgca_dr3.epoch_dec_gaia - hgca_dr2.epoch_dec_gaia)*60*60*1000
+
+    # @show hgca_dr2.epoch_dec_gaia hgca_dr3.epoch_dec_gaia
+
     @info "Formal proper motion uncertainty inflations:" dr2_error_inflation_factor dr3_error_inflation_factor
-    
 
     # We might want to inflate the uncertainties by the same factors as the HGCA (DR2 and eDR3 respectively)
     dr2 = (;
@@ -133,32 +139,33 @@ function GaiaDifferenceLike(;
 
     μ_dr2 = [
         # dr2.parallax,
-        # dr2.ra,# deg
-        # dr2.dec,# deg
+        dr2.ra,# deg
+        dr2.dec,# deg
         dr2.pmra, 
         dr2.pmdec,
     ]
     σ_dr2 = [
         # dr2.parallax_error,
-        # dr2.ra_error/ 60/60/1000,
-        # dr2.dec_error / 60/60/1000 / cosd(dr2.dec),
+        dr2.ra_error/ 60/60/1000,
+        dr2.dec_error / 60/60/1000 / cosd(dr2.dec),
         dr2.pmra_error ,
         dr2.pmdec_error,
     ]
-    # C_dr2 = [
-    #     # plx                   ra                      dec                     pmra                    pmdec
-    #     1                       dr2.ra_parallax_corr    dr2.dec_parallax_corr   dr2.parallax_pmra_corr  dr2.parallax_pmdec_corr
-    #     dr2.ra_parallax_corr    1                       dr2.ra_dec_corr         dr2.ra_pmra_corr        dr2.ra_pmdec_corr
-    #     dr2.dec_parallax_corr   dr2.ra_dec_corr         1                       dr2.dec_pmra_corr       dr2.dec_pmdec_corr
-    #     dr2.parallax_pmra_corr  dr2.ra_pmra_corr        dr2.dec_pmra_corr       1                       dr2.pmra_pmdec_corr
-    #     dr2.parallax_pmdec_corr dr2.ra_pmdec_corr       dr2.dec_pmdec_corr      dr2.pmra_pmdec_corr     1
-    # ]
     C_dr2 = [
-        # pmra                    pmdec
-        1                       dr2.pmra_pmdec_corr
-        dr2.pmra_pmdec_corr     1
+        # plx                   ra                      dec                     pmra                    pmdec
+        1                       dr2.ra_parallax_corr    dr2.dec_parallax_corr   dr2.parallax_pmra_corr  dr2.parallax_pmdec_corr
+        dr2.ra_parallax_corr    1                       dr2.ra_dec_corr         dr2.ra_pmra_corr        dr2.ra_pmdec_corr
+        dr2.dec_parallax_corr   dr2.ra_dec_corr         1                       dr2.dec_pmra_corr       dr2.dec_pmdec_corr
+        dr2.parallax_pmra_corr  dr2.ra_pmra_corr        dr2.dec_pmra_corr       1                       dr2.pmra_pmdec_corr
+        dr2.parallax_pmdec_corr dr2.ra_pmdec_corr       dr2.dec_pmdec_corr      dr2.pmra_pmdec_corr     1
     ]
-    A_prepared_4_dr2 = prepare_A_4param(table[istart_dr2:iend_dr2], meta_gaia_DR2.ref_epoch_mjd,  meta_gaia_DR2.ref_epoch_mjd)
+    C_dr2 = C_dr2[2:end,2:end]
+    # C_dr2 = [
+    #     # pmra                    pmdec
+    #     1                       dr2.pmra_pmdec_corr
+    #     dr2.pmra_pmdec_corr     1
+    # ]
+    A_prepared_5_dr2 = prepare_A_5param(table[istart_dr2:iend_dr2], meta_gaia_DR2.ref_epoch_mjd,  meta_gaia_DR2.ref_epoch_mjd)
 
     
     # DR3
@@ -174,25 +181,26 @@ function GaiaDifferenceLike(;
     # ]
     σ_dr3 = [
         # dr3.parallax_error,
-        # dr3.ra_error/ 60/60/1000,
-        # dr3.dec_error / 60/60/1000 / cosd(dr3.dec),
+        dr3.ra_error/ 60/60/1000,
+        dr3.dec_error / 60/60/1000 / cosd(dr3.dec),
         dr3.pmra_error ,
         dr3.pmdec_error,
     ]
-    # C_dr3 = [
-    #     # plx                   ra                      dec                     pmra                    pmdec
-    #     1                       dr3.ra_parallax_corr    dr3.dec_parallax_corr   dr3.parallax_pmra_corr  dr3.parallax_pmdec_corr
-    #     dr3.ra_parallax_corr    1                       dr3.ra_dec_corr         dr3.ra_pmra_corr        dr3.ra_pmdec_corr
-    #     dr3.dec_parallax_corr   dr3.ra_dec_corr         1                       dr3.dec_pmra_corr       dr3.dec_pmdec_corr
-    #     dr3.parallax_pmra_corr  dr3.ra_pmra_corr        dr3.dec_pmra_corr       1                       dr3.pmra_pmdec_corr
-    #     dr3.parallax_pmdec_corr dr3.ra_pmdec_corr       dr3.dec_pmdec_corr      dr3.pmra_pmdec_corr     1
-    # ]
     C_dr3 = [
-        # pmra                    pmdec
-        1                       dr3.pmra_pmdec_corr
-        dr3.pmra_pmdec_corr     1
+        # plx                   ra                      dec                     pmra                    pmdec
+        1                       dr3.ra_parallax_corr    dr3.dec_parallax_corr   dr3.parallax_pmra_corr  dr3.parallax_pmdec_corr
+        dr3.ra_parallax_corr    1                       dr3.ra_dec_corr         dr3.ra_pmra_corr        dr3.ra_pmdec_corr
+        dr3.dec_parallax_corr   dr3.ra_dec_corr         1                       dr3.dec_pmra_corr       dr3.dec_pmdec_corr
+        dr3.parallax_pmra_corr  dr3.ra_pmra_corr        dr3.dec_pmra_corr       1                       dr3.pmra_pmdec_corr
+        dr3.parallax_pmdec_corr dr3.ra_pmdec_corr       dr3.dec_pmdec_corr      dr3.pmra_pmdec_corr     1
     ]
-    A_prepared_4_dr3 = prepare_A_4param(table[istart_dr3:iend_dr3], meta_gaia_DR3.ref_epoch_mjd,  meta_gaia_DR3.ref_epoch_mjd)
+    C_dr3 = C_dr3[2:end,2:end]
+    # C_dr3 = [
+    #     # pmra                    pmdec
+    #     1                       dr3.pmra_pmdec_corr
+    #     dr3.pmra_pmdec_corr     1
+    # ]
+    A_prepared_5_dr3 = prepare_A_5param(table[istart_dr3:iend_dr3], meta_gaia_DR3.ref_epoch_mjd,  meta_gaia_DR3.ref_epoch_mjd)
     
     table = Table(table[min_epoch .<= table.epoch .<= max_epoch,:])
 
@@ -201,11 +209,11 @@ function GaiaDifferenceLike(;
     # from the catalogs.
     Σ_dr2 = Diagonal(σ_dr2) * C_dr2 * Diagonal(σ_dr2)
     Σ_dr3 = Diagonal(σ_dr3) * C_dr3 * Diagonal(σ_dr3)
-    ρ = sqrt(size(A_prepared_4_dr2,1)/size(A_prepared_4_dr3,1))
+    ρ = sqrt(size(A_prepared_5_dr2,1)/size(A_prepared_5_dr3,1))
     K = ρ*sqrt(Σ_dr2)*sqrt(Σ_dr3)
     Σ_dr2_dr3 = [
         Σ_dr2  K 
-        K               Σ_dr3
+        K      Σ_dr3
     ]
 
 
@@ -218,8 +226,8 @@ function GaiaDifferenceLike(;
         table,
         μ_dr2,
         Σ_dr2_dr3,
-        A_prepared_4_dr3,
-        A_prepared_4_dr2,
+        A_prepared_5_dr3,
+        A_prepared_5_dr2,
     )
 
 end
@@ -249,6 +257,28 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
     # These should be fit using the appropriate catalog reference epoch so 
     # that they can be compared correctly.
 
+
+    # Helper functions to either get the static pmra from the orbital elements,
+    # or, if using an AbsoluteVisualOrbit, get the propagated pmra at the
+    # current epoch accounting for barycentric motion.
+    function propagate_astrom(orbit::PlanetOrbits.AbsoluteVisualOrbit, epoch_ra, epoch_dec)
+        sol_ra = orbitsolve(orbit, epoch_ra)
+        cmp_ra = sol_ra.compensated
+        if epoch_dec == epoch_ra
+            sol_dec = sol_ra
+        else
+            sol_dec = orbitsolve(orbit, epoch_dec)
+        end
+        cmp_dec = sol_dec.compensated
+        return cmp_ra.ra2, cmp_dec.dec2, cmp_ra.pmra2, cmp_dec.pmdec2
+    end
+    function propagate_astrom(orbit::Any, epoch_ra, epoch_dec)
+        dec = θ_system.dec + θ_system.pmdec/60/60/1000/365.25*(epoch_dec-θ_system.ref_epoch)
+        dec′ = θ_system.dec + θ_system.pmdec/60/60/1000/365.25*(epoch_ra-θ_system.ref_epoch)
+        ra = θ_system.ra + θ_system.pmra/60/60/1000/365.25*(epoch_ra-θ_system.ref_epoch)/cosd(dec′)
+        return ra, dec, θ_system.pmra, θ_system.pmdec
+    end
+
     istart = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaialike.table.epoch))
     iend = findlast(<=(meta_gaia_DR3.stop_mjd), vec(gaialike.table.epoch))
     if isnothing(istart)
@@ -270,14 +300,22 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
         )
     end
     # Δα, Δδ, Δμα, Δμδ = out.parameters
-    out = fit_4param_prepared(gaialike.A_prepared_4_dr3, gaialike.table, Δα_mas, Δδ_mas)
+    out = fit_5param_prepared(gaialike.A_prepared_5_dr3, gaialike.table, Δα_mas, Δδ_mas)
     Δα, Δδ, Δμα, Δμδ = out.parameters
+    
+    delta_t_ra = (meta_gaia_DR3.ref_epoch_mjd - mean(@view gaialike.table.epoch[istart:iend]))/ julian_year
+    delta_t_dec = (meta_gaia_DR3.ref_epoch_mjd - mean(@view gaialike.table.epoch[istart:iend]))/ julian_year
+    Δα += delta_t_ra*Δμα
+    Δδ += delta_t_dec*Δμδ
+
+    α_g₀, δ_g₀, pmra_g₀, pmdec_g₀ = propagate_astrom(first(orbits), meta_gaia_DR3.ref_epoch_mjd, meta_gaia_DR3.ref_epoch_mjd)
     modelled_gaia_parameters_dr3 = [
-        # gaialike.dr3.ra + Δα/60/60/1000,
-        # gaialike.dr3.dec + Δδ/60/60/1000/cosd(gaialike.dr3.dec),
-        θ_system.pmra+Δμα, #gaialike.dr3.pmra+Δμα,
-        θ_system.pmdec+Δμδ, #gaialike.dr3.pmdec+Δμδ
+        α_g₀ + Δα/60/60/1000,
+        δ_g₀ + Δδ/60/60/1000/cosd(gaialike.dr3.dec),
+        pmra_g₀+Δμα, #gaialike.dr3.pmra+Δμα,
+        pmdec_g₀+Δμδ, #gaialike.dr3.pmdec+Δμδ
     ]
+
 
 
     istart = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaialike.table.epoch))
@@ -308,48 +346,80 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
     #     meta_gaia_DR2.ref_epoch_mjd,
     # )
     # Δα, Δδ, Δμα, Δμδ = out.parameters
-    out = fit_4param_prepared(gaialike.A_prepared_4_dr2, gaialike.table[istart:iend], Δα_mas, Δδ_mas)
+    out = fit_5param_prepared(gaialike.A_prepared_5_dr2, gaialike.table[istart:iend], Δα_mas, Δδ_mas)
     Δα, Δδ, Δμα, Δμδ = out.parameters
+
+        
+    # TODO: First order of business is checking the HGCA modelling to make sure we are propagating to the right epoch
+    # for the perturbation
+    # TODO: We need to propagate the positions we find away from the average epoch and to the requested epoch..?
+    # TODO: what about pmra/pmdec? They are linear in this model, but non-linear in the other.
+    # In a way, we measured the pmra at the measurement epoch, and extrapolated it linearly to the comparison epoch.
+    # Maybe that's okay, maybe not? I guess it's okay since Gaia did it too! But we could get better accuracy by not
+    # doing that.
+    delta_t_ra = (meta_gaia_DR2.ref_epoch_mjd - mean(@view gaialike.table.epoch[istart:iend]))/ julian_year
+    delta_t_dec = (meta_gaia_DR2.ref_epoch_mjd - mean(@view gaialike.table.epoch[istart:iend]))/ julian_year
+    # @show delta_t_ra delta_t_dec Δμα Δμδ
+    Δα += delta_t_ra*Δμα
+    Δδ += delta_t_dec*Δμδ
+    α_g₀, δ_g₀, pmra_g₀, pmdec_g₀ = propagate_astrom(first(orbits), meta_gaia_DR2.ref_epoch_mjd, meta_gaia_DR2.ref_epoch_mjd)
     modelled_gaia_parameters_dr2 = [
-        θ_system.pmra+Δμα, # gaialike.dr2.pmra+Δμα,
-        θ_system.pmdec+Δμδ, # gaialike.dr2.pmdec+Δμδ
+        α_g₀ + Δα/60/60/1000,
+        δ_g₀ + Δδ/60/60/1000/cosd(gaialike.dr2.dec),
+        pmra_g₀+Δμα, # gaialike.dr2.pmra+Δμα,
+        pmdec_g₀+Δμδ, # gaialike.dr2.pmdec+Δμδ
     ] 
 
 
-    μ_dr3 = @SVector [gaialike.dr3.pmra, gaialike.dr3.pmdec]
+    μ_dr3 = @SVector [gaialike.dr3.ra, gaialike.dr3.dec, gaialike.dr3.pmra, gaialike.dr3.pmdec]
 
 
     # The Gaia DR2 reported parameter values are offset in various ways vs. DR2. 
     # Correct catalog values from DR2 for known effects:
     correction = @SVector [
+        θ_system.dr2_systematic_Δra/60/60/1000,
+        θ_system.dr2_systematic_Δdec/60/60/1000/cosd(gaialike.dr2.dec),
         θ_system.dr2_systematic_Δμ_ra,
         θ_system.dr2_systematic_Δμ_dec,
     ]
     μ_dr2_corrected = gaialike.μ_dr2 .+ correction
     μ_dr2_dr3 = [μ_dr2_corrected; μ_dr3]    
-  
+    
+        # dist_dr2_dr3 = MvNormal(μ_dr2_dr3,Hermitian(gaialike.Σ_dr2_dr3))
+
+        # μ_dr2_dr3_modelled = [modelled_gaia_parameters_dr2; modelled_gaia_parameters_dr3]
+        # ll += logpdf(dist_dr2_dr3, μ_dr2_dr3_modelled)
+
+
+          
     dist_dr2_dr3 = MvNormal(μ_dr2_dr3,Hermitian(gaialike.Σ_dr2_dr3))
 
     μ_dr2_dr3_modelled = [modelled_gaia_parameters_dr2; modelled_gaia_parameters_dr3]
     ll += logpdf(dist_dr2_dr3, μ_dr2_dr3_modelled)
 
-    # Δt = (Octofitter.meta_gaia_DR3.ref_epoch_mjd - Octofitter.meta_gaia_DR2.ref_epoch_mjd)/Octofitter.julian_year
+    # @show μ_dr2_dr3
+    # @show μ_dr2_dr3_modelled
+    # @show θ_system.dr2_systematic_Δra θ_system.dr2_systematic_Δdec
+    # @show (μ_dr2_dr3 .- μ_dr2_dr3_modelled) 
+    # @show (μ_dr2_dr3 .- μ_dr2_dr3_modelled) ./ sqrt.(diag(gaialike.Σ_dr2_dr3))
 
-    return ll, (;
+    Δt = (Octofitter.meta_gaia_DR3.ref_epoch_mjd - Octofitter.meta_gaia_DR2.ref_epoch_mjd)/Octofitter.julian_year
+
+    return convert(T,ll), (;
         modelled_gaia_parameters_dr3=modelled_gaia_parameters_dr3,
         modelled_gaia_parameters_dr2=modelled_gaia_parameters_dr2,#.-correction,
         
-        pmra_dr3_model = modelled_gaia_parameters_dr3[1],
-        pmdec_dr3_model = modelled_gaia_parameters_dr3[2],
+        pmra_dr3_model = modelled_gaia_parameters_dr3[3],
+        pmdec_dr3_model = modelled_gaia_parameters_dr3[4],
 
-        pmra_dr2_model = modelled_gaia_parameters_dr2[1],
-        pmdec_dr2_model = modelled_gaia_parameters_dr2[2],
-        # pmra_dr32_model=((
-        #     modelled_gaia_parameters_dr3[1]-modelled_gaia_parameters_dr2[1]
-        # )*60*60*1000*cosd((gaialike.dr3.dec+gaialike.dr2.dec)/2))/Δt,
-        # pmdec_dr32_model=((
-        #     modelled_gaia_parameters_dr3[2]-modelled_gaia_parameters_dr2[2]
-        # )*60*60*1000)/Δt,
+        pmra_dr2_model = modelled_gaia_parameters_dr2[3],
+        pmdec_dr2_model = modelled_gaia_parameters_dr2[4],
+        pmra_dr32_model=((
+            modelled_gaia_parameters_dr3[1]-modelled_gaia_parameters_dr2[1]
+        )*60*60*1000*cosd((gaialike.dr3.dec+gaialike.dr2.dec)/2))/Δt,
+        pmdec_dr32_model=((
+            modelled_gaia_parameters_dr3[2]-modelled_gaia_parameters_dr2[2]
+        )*60*60*1000)/Δt,
         correction,
     )
 end

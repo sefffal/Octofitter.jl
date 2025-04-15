@@ -506,20 +506,20 @@ function pmaplot!(
             xgridvisible=false,
             ygridvisible=false,
         )
-        # ax_dat2 = Axis(
-        #     gs[gs_row, 2],
-        #     xlabel=pmra_label,
-        #     ylabel=pmdec_label,
-        #     autolimitaspect=1.0,
-        #     title="DR 2-3",
-        #     # titlecolor=Makie.wong_colors()[5],
-        #     xticklabelrotation=pi / 4,
-        #     xgridvisible=false,
-        #     ygridvisible=false,
-        #     ylabelvisible=false,
-        # )
-        ax_dat3 = Axis(
+        ax_dat2 = Axis(
             gs[gs_row, 2],
+            xlabel=pmra_label,
+            ylabel=pmdec_label,
+            autolimitaspect=1.0,
+            title="DR 2-3",
+            # titlecolor=Makie.wong_colors()[5],
+            xticklabelrotation=pi / 4,
+            xgridvisible=false,
+            ygridvisible=false,
+            ylabelvisible=false,
+        )
+        ax_dat3 = Axis(
+            gs[gs_row, 3],
             xlabel=pmra_label,
             ylabel=pmdec_label,
             autolimitaspect=1.0,
@@ -555,8 +555,8 @@ function pmaplot!(
 
 
         # Add these to the catalog DR2
-        # dr2_systematic_Δra = median([θnt.dr2_systematic_Δra for θnt in θ_systems_from_chain])
-        # dr2_systematic_Δdec = median([θnt.dr2_systematic_Δdec for θnt in θ_systems_from_chain])
+        dr2_systematic_Δra = median([θnt.dr2_systematic_Δra for θnt in θ_systems_from_chain])
+        dr2_systematic_Δdec = median([θnt.dr2_systematic_Δdec for θnt in θ_systems_from_chain])
         dr2_systematic_Δμ_ra = median([θnt.dr2_systematic_Δμ_ra for θnt in θ_systems_from_chain])
         dr2_systematic_Δμ_dec = median([θnt.dr2_systematic_Δμ_dec for θnt in θ_systems_from_chain])
     
@@ -571,54 +571,54 @@ function pmaplot!(
 
         tx = [
             Octofitter.meta_gaia_DR2.ref_epoch_mjd
-            # (Octofitter.meta_gaia_DR2.ref_epoch_mjd+Octofitter.meta_gaia_DR3.ref_epoch_mjd)/2
+            (Octofitter.meta_gaia_DR2.ref_epoch_mjd+Octofitter.meta_gaia_DR3.ref_epoch_mjd)/2
             Octofitter.meta_gaia_DR3.ref_epoch_mjd
         ]
         ty = [
             Octofitter.meta_gaia_DR2.ref_epoch_mjd
-            # (Octofitter.meta_gaia_DR2.ref_epoch_mjd+Octofitter.meta_gaia_DR3.ref_epoch_mjd)/2
+            (Octofitter.meta_gaia_DR2.ref_epoch_mjd+Octofitter.meta_gaia_DR3.ref_epoch_mjd)/2
             Octofitter.meta_gaia_DR3.ref_epoch_mjd
         ]
         # TODO: have to add median calibration offset
         Δt = (Octofitter.meta_gaia_DR3.ref_epoch_mjd - Octofitter.meta_gaia_DR2.ref_epoch_mjd)/Octofitter.julian_year
         x = [
             gaialike.dr2.pmra + dr2_systematic_Δμ_ra
-            # ((gaialike.dr3.ra-gaialike.dr2.ra)*60*60*1000*cosd((gaialike.dr3.dec+gaialike.dr2.dec)/2) - dr2_systematic_Δra)/Δt
+            ((gaialike.dr3.ra-gaialike.dr2.ra)*60*60*1000*cosd((gaialike.dr3.dec+gaialike.dr2.dec)/2) - dr2_systematic_Δra)/Δt
             gaialike.dr3.pmra
         ]
         y = [
             gaialike.dr2.pmdec + dr2_systematic_Δμ_dec
-            # ((gaialike.dr3.dec-gaialike.dr2.dec)*60*60*1000 - dr2_systematic_Δdec)/Δt
+            ((gaialike.dr3.dec-gaialike.dr2.dec)*60*60*1000 - dr2_systematic_Δdec)/Δt
             gaialike.dr3.pmdec
         ]
 
         # Calculate uncertainties in the differences
-        # σ_Δra = sqrt(gaialike.dr3.ra_error^2 + gaialike.dr2.ra_error^2)
-        # σ_Δdec = sqrt(gaialike.dr3.dec_error^2 + gaialike.dr2.dec_error^2)
+        σ_Δra = sqrt(gaialike.dr3.ra_error^2 + gaialike.dr2.ra_error^2)
+        σ_Δdec = sqrt(gaialike.dr3.dec_error^2 + gaialike.dr2.dec_error^2)
         
-        # # Calculate covariances for each DR
-        # cov_dr3 = gaialike.dr3.ra_dec_corr * gaialike.dr3.ra_error * gaialike.dr3.dec_error
-        # cov_dr2 = gaialike.dr2.ra_dec_corr * gaialike.dr2.ra_error * gaialike.dr2.dec_error
+        # Calculate covariances for each DR
+        cov_dr3 = gaialike.dr3.ra_dec_corr * gaialike.dr3.ra_error * gaialike.dr3.dec_error
+        cov_dr2 = gaialike.dr2.ra_dec_corr * gaialike.dr2.ra_error * gaialike.dr2.dec_error
         
-        # # Calculate total covariance for the differences
-        # cov_diff = cov_dr3 + cov_dr2
+        # Calculate total covariance for the differences
+        cov_diff = cov_dr3 + cov_dr2
         
-        # # Calculate correlation coefficient for the differences
-        # ρ_diff = cov_diff / (σ_Δra * σ_Δdec)
+        # Calculate correlation coefficient for the differences
+        ρ_diff = cov_diff / (σ_Δra * σ_Δdec)
 
         cor = [
             gaialike.dr2.pmra_pmdec_corr
-            # ρ_diff
+            ρ_diff
             gaialike.dr3.pmra_pmdec_corr
         ]
         σ₁ = [
             hypot(gaialike.dr2.pmra_error, σ_dr2_systematic_Δμ_ra)
-            # σ_Δra
+            σ_Δra
             gaialike.dr3.pmra_error
         ]
         σ₂ = [
             hypot(gaialike.dr2.pmdec_error, σ_dr2_systematic_Δμ_dec)
-            # σ_Δdec
+            σ_Δdec
             gaialike.dr3.pmdec_error
         ]
 
@@ -703,27 +703,27 @@ function pmaplot!(
             markersize=3,
         )
         # # HG Epoch
-        # Makie.scatter!(
-        #     ax_dat2,
-        #     [only(sim.pmra_dr32_model) for sim in sims],
-        #     [only(sim.pmdec_dr32_model) for sim in sims],
-        #     color=:black,
-        #     markersize=2,
-        # )
-        # Makie.scatter!(
-        #     ax_velra,
-        #     [tx[2] for _ in sims],
-        #     [only(sim.pmra_dr32_model) for sim in sims],
-        #     color=:black,
-        #     markersize=3,
-        # )
-        # Makie.scatter!(
-        #     ax_veldec,
-        #     [tx[2] for _ in sims],
-        #     [only(sim.pmdec_dr32_model) for sim in sims],
-        #     color=:black,
-        #     markersize=3,
-        # )
+        Makie.scatter!(
+            ax_dat2,
+            [only(sim.pmra_dr32_model) for sim in sims],
+            [only(sim.pmdec_dr32_model) for sim in sims],
+            color=:black,
+            markersize=2,
+        )
+        Makie.scatter!(
+            ax_velra,
+            [tx[2] for _ in sims],
+            [only(sim.pmra_dr32_model) for sim in sims],
+            color=:black,
+            markersize=3,
+        )
+        Makie.scatter!(
+            ax_veldec,
+            [tx[2] for _ in sims],
+            [only(sim.pmdec_dr32_model) for sim in sims],
+            color=:black,
+            markersize=3,
+        )
         # GAIA Epoch
         Makie.scatter!(
             ax_dat3,
@@ -734,14 +734,14 @@ function pmaplot!(
         )
         Makie.scatter!(
             ax_velra,
-            [tx[2] for _ in sims],
+            [tx[3] for _ in sims],
             [only(sim.pmra_dr3_model) for sim in sims],
             color=:black,
             markersize=3,
         )
         Makie.scatter!(
             ax_veldec,
-            [tx[2] for _ in sims],
+            [tx[3] for _ in sims],
             [only(sim.pmdec_dr3_model) for sim in sims],
             color=:black,
             markersize=3,
@@ -762,29 +762,29 @@ function pmaplot!(
             strokewidth=1.5,
             strokecolor=:black
         )
-        # Makie.lines!(
-        #     ax_dat2,
-        #     error_ellipses[2][1],
-        #     error_ellipses[2][2],
-        #     color=Makie.wong_colors()[5],
-        #     linewidth=3.5,
-        # )
-        # Makie.scatter!(
-        #     ax_dat2, x[2], y[2],
-        #     color=Makie.wong_colors()[5],
-        #     markersize=10,
-        #     strokewidth=1.5,
-        #     strokecolor=:black
-        # )
         Makie.lines!(
-            ax_dat3,
+            ax_dat2,
             error_ellipses[2][1],
             error_ellipses[2][2],
+            color=Makie.wong_colors()[5],
+            linewidth=3.5,
+        )
+        Makie.scatter!(
+            ax_dat2, x[2], y[2],
+            color=Makie.wong_colors()[5],
+            markersize=10,
+            strokewidth=1.5,
+            strokecolor=:black
+        )
+        Makie.lines!(
+            ax_dat3,
+            error_ellipses[3][1],
+            error_ellipses[3][2],
             color=Makie.wong_colors()[6],
             linewidth=3.5,
         )
         Makie.scatter!(
-            ax_dat3, x[2], y[2],
+            ax_dat3, x[3], y[3],
             color=Makie.wong_colors()[6],
             markersize=10,
             strokewidth=1.5,
@@ -798,21 +798,21 @@ function pmaplot!(
             tx,
             x,
             σ₁,
-            color=Makie.wong_colors()[[4,6]],
+            color=Makie.wong_colors()[[4,5,6]],
         )
         Makie.errorbars!(
             ax_veldec,
             ty,
             y,
             σ₂,
-            color=Makie.wong_colors()[[4,6]],
+            color=Makie.wong_colors()[[4,5,6]],
         )
         Makie.scatter!(
             ax_velra,
             tx,
             x,
             σ₁,
-            strokecolor=Makie.wong_colors()[[4,6]],
+            strokecolor=Makie.wong_colors()[[4,5,6]],
             color=:transparent,
             markersize=10,
             strokewidth=1.5,
@@ -822,7 +822,7 @@ function pmaplot!(
             ty,
             y,
             σ₂,
-            strokecolor=Makie.wong_colors()[[4,6]],
+            strokecolor=Makie.wong_colors()[[4,5,6]],
             color=:transparent,
             markersize=10,
             strokewidth=1.5,
