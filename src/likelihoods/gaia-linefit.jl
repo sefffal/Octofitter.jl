@@ -284,14 +284,18 @@ function fit_5param(
         end
 
         # Calculate model predictions
-        if σ_formal == 0.
+        if σ_formal == 0. 
             # Straight-forward solution
             # x .= A\b
 
             # This in-place version uses way less memory, even though it is about 10% slower.
             # Net win when using more than one thread.
             Q = qr!(A)
-            ldiv!(x, Q, b)
+            try
+                ldiv!(x, Q, b)
+            catch LAPACKException
+                fill!(x, NaN)
+            end
 
         # Case of unceratinties provided.
         else
@@ -307,7 +311,11 @@ function fit_5param(
             @. A_w = A ./σ_formal  # Weight design matrix in-place
             @. b_w = b ./σ_formal  # Weight observations in-place
             Q = qr!(A_w)
-            ldiv!(x, Q, b_w)
+            try
+                ldiv!(x, Q, b_w)
+            catch LAPACKException
+                fill!(x, NaN)
+            end
 
             # undo for later
         end
@@ -326,8 +334,9 @@ function fit_5param(
     # Use SVD for numerical stability
 
     # TODO: is SVD correct here?
-    F = svd(A)
-    P = I - F.U * F.U'  # More stable than direct calculation
+    # P = I - A*pinv((A'*A))*A'
+    # F = svd(A)
+    # P = I - F.U * F.U'  # More stable than direct calculation
 
     #####
     # If separate  noise per epoch
@@ -344,19 +353,23 @@ function fit_5param(
     #####
     # If alsways same noise per epoch:
     # Signal term simplifies to (P*b_true)^2/σ^2
-    signal_contrib = P * b
-    signal_term = dot(signal_contrib, signal_contrib) / (σ_formal^2)
-    noise_term = tr(P)
+    # signal_contrib = P * b
+    # signal_term = dot(signal_contrib, signal_contrib) / (σ_formal^2)
+    # noise_term = tr(P)
 
-    # @show signal_term noise_term
-
-    expected_chisq = signal_term + noise_term
+    # expected_chisq = signal_term + noise_term
 
 
     # @show std(b)
     # @show std(residuals)
     # @show residuals
 
+    # For uniform errors, the weighted residuals are just residuals/σ
+    weighted_residuals = residuals ./ σ_formal
+    
+    # Chi-squared is the sum of squared weighted residuals
+    chisq_residual = dot(weighted_residuals, weighted_residuals)
+    expected_chisq = chisq_residual
 
     return (;
         parameters,
@@ -422,6 +435,7 @@ function prepare_A_5param(
     if σ_formal != 0.
         @. A = A .* 1 ./ σ_formal
     end
+
     return A#qr!(A)
     # b = zeros(4)
     # prob =  LinearProblem(A, b, OperatorAssumptions(false, condition=LinearSolve.OperatorCondition.WellConditioned))
@@ -584,6 +598,16 @@ function fit_5param_prepared(
 
         parameters = @SVector [x[1], x[2], x[4], x[5], x[3]]
     end
+
+
+        # # TODO: We need to propagate the positions we find away from the average epoch and to the requested epoch..?
+        # # TODO: what about pmra/pmdec? They are linear in this model, but non-linear in the other.
+        # # In a way, we measured the pmra at the measurement epoch, and extrapolated it linearly to the comparison epoch.
+        # # Maybe that's okay, maybe not? I guess it's okay since Gaia did it too! But we could get better accuracy by not
+        # # doing that.
+        # delta_t_ra = (reference_epoch_mjd_ra - mean(table.epoch))/ julian_year
+        # delta_t_dec = (reference_epoch_mjd_dec - mean(table.epoch))/ julian_year
+        # @show delta_t_ra delta_t_dec
 
     return (; parameters) 
 end
