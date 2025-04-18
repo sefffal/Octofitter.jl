@@ -16,7 +16,6 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
 
     if isnothing(model.starting_points) || !haskey(model.starting_points, chain_no)
         @show model.starting_points chain_no
-        @show checkbounds(model.starting_points, chain_no)
         error("Insufficient starting points provided. Provide at least one per chain. (model.starting_points is too short)")
     end
     initial_θ_t = collect(model.starting_points[chain_no])
@@ -63,7 +62,7 @@ function Pigeons.default_reference(target::Octofitter.LogDensityModel)
 end
 
 
-function Pigeons.default_explorer(target::Octofitter.LogDensityModel)
+function Pigeons.default_explorer(::Octofitter.LogDensityModel)
     return Pigeons.SliceSampler()
 end
 

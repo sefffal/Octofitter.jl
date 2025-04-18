@@ -1,10 +1,7 @@
 
 using LogDensityProblems
 
-const forward_diff_gradient_result_key = gensym(:fdgradkey)
-
 # Define the target distribution using the `LogDensityProblem` interface
-# TODO: in future, just roll this all into the System type.
 mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp,ADType}
     # Dimensionality
     const D::Int
@@ -25,7 +22,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
     const sample_priors::TPriSamp
     # A set of starting points that can be sampled from to initialize a sampler, or nothing
     starting_points::Union{Nothing,Vector} 
-    function LogDensityModel(system::System; autodiff=nothing, verbosity=0, chunk_sizes=nothing)
+    function LogDensityModel(system::System; autodiff=nothing, verbosity=2, chunk_sizes=nothing)
         verbosity >= 1 && @info "Preparing model"
 
         sample_priors = make_prior_sampler(system)
@@ -34,6 +31,14 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         initial_θ_0 = sample_priors(Random.default_rng())
         D = length(initial_θ_0)
         verbosity >= 2 && @info "Determined number of free variables" D
+
+        # We support models with discrete or mixed variables, but in these
+        # cases we can't support autodiff.
+        # Detect this case, warn the user, and skip over defining ∇ℓπcallback
+        contains_discrete_variables = any(isa.(sample_priors(Random.default_rng(), system),Integer))
+        if contains_discrete_variables && verbosity >= 1
+            @info "Model contains discrete variables; model gradients not supported."
+        end
 
         if isnothing(autodiff)
             autodiff = AutoForwardDiff(chunksize=D)
@@ -157,6 +162,9 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 end)(ℓπcallback, initial_θ_0_t)
             end
 
+            if contains_discrete_variables
+                return ℓπcallback, nothing
+            end
 
             ∇ℓπcallback =
             let ℓπcallback=ℓπcallback,
@@ -191,7 +199,9 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         
         # Perform some quick diagnostic checks to warn users for performance-gtochas
         out_type_model = Core.Compiler.return_type(ℓπcallback, typeof((initial_θ_0_t,)))
-        out_type_model_grad = Core.Compiler.return_type(∇ℓπcallback, typeof((initial_θ_0_t,)))
+        if !contains_discrete_variables
+            out_type_model_grad = Core.Compiler.return_type(∇ℓπcallback, typeof((initial_θ_0_t,)))
+        end
         out_type_arr2nt = Core.Compiler.return_type(arr2nt, typeof((initial_θ_0_t,)))
         out_type_prior = Core.Compiler.return_type(ln_prior_transformed, typeof((initial_θ_0,false,)))
         out_type_like = Core.Compiler.return_type(ln_like_generated, typeof((system,arr2nt(initial_θ_0),)))
@@ -202,7 +212,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             !isconcretetype(out_type_model)
             @warn "\nThis model's log density function is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub." out_type_prior out_type_like out_type_arr2nt out_type_model
         end
-        if !isconcretetype(out_type_model_grad)
+        if !contains_discrete_variables && !isconcretetype(out_type_model_grad)
             @warn "\nThis model's log density gradient is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
             end
         if !isconcretetype(out_type_prior)
@@ -242,7 +252,8 @@ end
 LogDensityProblems.logdensity(p::LogDensityModel, θ) = p.ℓπcallback(θ)
 LogDensityProblems.logdensity_and_gradient(p::LogDensityModel, θ) = p.∇ℓπcallback(θ)
 LogDensityProblems.dimension(p::LogDensityModel{D}) where D = D
-LogDensityProblems.capabilities(::Type{<:LogDensityModel}) = LogDensityProblems.LogDensityOrder{1}()
+LogDensityProblems.capabilities(::Type{<:LogDensityModel{D,Tℓπ,Nothing}}) where {D,Tℓπ} = LogDensityProblems.LogDensityOrder{0}()
+LogDensityProblems.capabilities(::Type{<:LogDensityModel{D,Tℓπ,T∇ℓπ}}) where {D,Tℓπ,T∇ℓπ} = LogDensityProblems.LogDensityOrder{1}()
 
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize p::LogDensityModel)
     L = _count_epochs(p.system)

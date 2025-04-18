@@ -661,12 +661,12 @@ function make_ln_prior_transformed(system::System)
             # Try and "heal" out of bounds values.
             # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
             # precision. 
-            if !isfinite(p)
+            if !isfinite(p) && $(eltype(prior_distribution) <: AbstractFloat)
                 # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", $sampled)=", p)
                 if sign(p) > 1
-                    return prevfloat(typemax(eltype(arr)))
+                    return prevfloat(typemax($(eltype(prior_distribution))))
                 else
-                    return nextfloat(typemin(eltype(arr)))
+                    return nextfloat(typemin($(eltype(prior_distribution))))
                 end
             end;
             lp += p
@@ -695,12 +695,12 @@ function make_ln_prior_transformed(system::System)
                 # Try and "heal" out of bounds values.
                 # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
                 # precision. 
-                if !isfinite(p)
+                if !isfinite(p) && $(eltype(prior_distribution) <: AbstractFloat)
                     # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", $sampled)=", p)
                     if sign(p) > 1
-                        return prevfloat(typemax(eltype(arr)))
+                        return prevfloat(typemax($(eltype(prior_distribution))))
                     else
-                        return nextfloat(typemin(eltype(arr)))
+                        return nextfloat(typemin($(eltype(prior_distribution))))
                     end
                 end;
                 lp += p

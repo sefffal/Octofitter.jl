@@ -22,39 +22,41 @@ sample_priors(rng::Random.AbstractRNG, model::LogDensityModel, N::Number) = [mod
 
 
 
-"""
-    construct_elements(θ_system, θ_planet)
+# """
+#     construct_elements(θ_system, θ_planet)
 
-Given a named tuple for of parameters from a System (θ_system) and Planet (θ_planet),
-return a `Visual{KepOrbit} PlanetOrbits.jl.
-"""
-function construct_elements(::Type{Visual{KepOrbit}}, θ_system, θ_planet)
-    return Visual{KepOrbit}(merge(θ_system,θ_planet))
-end
-function construct_elements(::Type{AbsoluteVisual{KepOrbit}}, θ_system, θ_planet)
-    return AbsoluteVisual{KepOrbit}(merge(θ_system,θ_planet))
-end
-function construct_elements(::Type{KepOrbit}, θ_system, θ_planet)
-    return KepOrbit(merge(θ_system,θ_planet))
-end
-function construct_elements(::Type{ThieleInnesOrbit}, θ_system, θ_planet)
-    return ThieleInnesOrbit(merge(θ_system,θ_planet))
-end
-function construct_elements(::Type{RadialVelocityOrbit}, θ_system, θ_planet)
-    return RadialVelocityOrbit(merge(θ_system,θ_planet))
-end
-function construct_elements(::Type{CartesianOrbit}, θ_system, θ_planet)
-    return CartesianOrbit(merge(θ_system,θ_planet))
-end
-function construct_elements(::Type{Visual{CartesianOrbit}}, θ_system, θ_planet)
-    return Visual{CartesianOrbit}(merge(θ_system,θ_planet))
-end
-function construct_elements(::Type{FixedPosition}, θ_system, θ_planet)
-    return FixedPosition(merge(θ_system,θ_planet))
-end
-function construct_elements(::Type{Visual{FixedPosition}}, θ_system, θ_planet)
-    return Visual{FixedPosition}(merge(θ_system,θ_planet))
-end
+# Given a named tuple for of parameters from a System (θ_system) and Planet (θ_planet),
+# return a `Visual{KepOrbit} PlanetOrbits.jl.
+# """
+# function construct_elements(::Type{Visual{KepOrbit}}, θ_system, θ_planet)
+#     return Visual{KepOrbit}(merge(θ_system,θ_planet))
+# end
+# function construct_elements(::Type{AbsoluteVisual{KepOrbit}}, θ_system, θ_planet)
+#     @show "dec"
+#     return AbsoluteVisual{KepOrbit}(merge(θ_system,θ_planet))
+# end
+# function construct_elements(::Type{KepOrbit}, θ_system, θ_planet)
+#     @show "abc"
+#     return KepOrbit(merge(θ_system,θ_planet))
+# end
+# function construct_elements(::Type{ThieleInnesOrbit}, θ_system, θ_planet)
+#     return ThieleInnesOrbit(merge(θ_system,θ_planet))
+# end
+# function construct_elements(::Type{RadialVelocityOrbit}, θ_system, θ_planet)
+#     return RadialVelocityOrbit(merge(θ_system,θ_planet))
+# end
+# function construct_elements(::Type{CartesianOrbit}, θ_system, θ_planet)
+#     return CartesianOrbit(merge(θ_system,θ_planet))
+# end
+# function construct_elements(::Type{Visual{CartesianOrbit}}, θ_system, θ_planet)
+#     return Visual{CartesianOrbit}(merge(θ_system,θ_planet))
+# end
+# function construct_elements(::Type{FixedPosition}, θ_system, θ_planet)
+#     return FixedPosition(merge(θ_system,θ_planet))
+# end
+# function construct_elements(::Type{Visual{FixedPosition}}, θ_system, θ_planet)
+#     return Visual{FixedPosition}(merge(θ_system,θ_planet))
+# end
 
 """
     construct_elements(chains, :b, 4)
@@ -105,7 +107,7 @@ end
 LogDensityProblems.logdensity(ldm_any::LogDensityModelAny, θ) = LogDensityProblems.logdensity(ldm_any.ldm, θ)
 LogDensityProblems.logdensity_and_gradient(ldm_any::LogDensityModelAny, θ) = LogDensityProblems.logdensity_and_gradient(ldm_any.ldm, θ)
 LogDensityProblems.dimension(ldm_any::LogDensityModelAny) = LogDensityProblems.dimension(ldm_any.ldm)
-LogDensityProblems.capabilities(::Type{<:LogDensityModelAny}) = LogDensityProblems.LogDensityOrder{1}()
+LogDensityProblems.capabilities(ldm_any::Type{<:LogDensityModelAny}) = LogDensityProblems.capabilities(ldm_any.ldm)
 
 
 

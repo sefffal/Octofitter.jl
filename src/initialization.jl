@@ -220,9 +220,22 @@ If this fails repeatedly, simply draw `initial_samples` from the prior and keepi
 function default_initializer!(model::LogDensityModel; kwargs...)
     return default_initializer!(Random.default_rng(), model; kwargs...)
 end
+_gradorder(::LogDensityProblems.LogDensityOrder{K}) where K = K
 function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; nruns=8, ntries=2, ndraws=1000, verbosity=1)
-    ldm_any = LogDensityModelAny(model)
+    order = _gradorder(LogDensityProblems.capabilities(model))
+    if order == 0
+        # Have to just guess by sampling
+        bestparams, bestlogpost = guess_starting_position(rng, model)
+        model.starting_points = fill(model.link(bestparams),ndraws)
+        logposts = fill(bestlogpost,ndraws)
+    else
+        # Can use global optimization followed by pathfinder
+        logposts = optimization_and_pathfinder_based_initializer(rng, model; nruns, ntries, ndraws, verbosity)
+    end
+    return model.arr2nt(model.invlink(model.starting_points[argmax(logposts)]))
+end
 
+function optimization_and_pathfinder_based_initializer(rng, model; nruns=8, ntries=2, ndraws=1000, verbosity=1)
     # Pathfinder (and especially multipathfinder) do not work well with global optimization methods.
     # Instead, we do a two-step process. 
     # Find the global MAP point, then initialize multi-pathfinder in Gaussian ball around that point.
@@ -269,7 +282,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
             _kepsolve_use_threads[] = nruns == 1
             result_pf = with_logger(errlogger) do 
                 result_pf = Pathfinder.multipathfinder(
-                    ldm_any, ndraws;
+                    model, ndraws;
                     nruns,
                     init_sampler,
                     progress=verbosity > 1,
@@ -322,7 +335,7 @@ function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; n
         end
     end
 
-    return model.arr2nt(model.invlink(model.starting_points[argmax(logposts)]))
+    return logposts
 end
 
 
