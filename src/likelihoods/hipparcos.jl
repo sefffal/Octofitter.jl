@@ -116,11 +116,20 @@ function HipparcosIADLikelihood(;
         catalog=(datadep"Hipparcos_IAD"),
         renormalize=true,
         attempt_correction=true,
-        is_van_leeuwen=true
+        is_van_leeuwen=true,
+        ref_epoch_ra=nothing,
+        ref_epoch_dec=nothing
     )
 
     if hip_id ∈ hipparcos_catalog_orbit_parameters_used
         @warn "This object was originally fit using an external orbit solution. The reconstructed IAD may not be correct."
+    end
+
+    if isnothing(ref_epoch_ra)
+        ref_epoch_ra = meta_gaia_DR3.ref_epoch_mjd
+    end
+    if isnothing(ref_epoch_dec)
+        ref_epoch_dec = meta_gaia_DR3.ref_epoch_mjd
     end
 
     file = @sprintf("H%06d.d", hip_id)
@@ -348,9 +357,9 @@ function HipparcosIADLikelihood(;
 
     table = Table(table)
 
-    # Prepare some factorized matrices for linear system solves
-    A_prepared_4 = prepare_A_4param(table, hipparcos_catalog_epoch_mjd, hipparcos_catalog_epoch_mjd, table.sres)
-    A_prepared_5 = prepare_A_5param(table, hipparcos_catalog_epoch_mjd, hipparcos_catalog_epoch_mjd)
+    # Prepare some matrices for linear system solves
+    A_prepared_4 = prepare_A_4param(table, ref_epoch_ra, ref_epoch_dec)
+    A_prepared_5 = prepare_A_5param(table, ref_epoch_ra, ref_epoch_dec)
 
 
     return HipparcosIADLikelihood(hip_sol, table, dist, A_prepared_4, A_prepared_5)

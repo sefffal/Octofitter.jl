@@ -26,16 +26,28 @@ function GaiaCatalogFitLikelihood(;
     gaia_id_dr2=nothing,
     gaia_id_dr3=nothing,
     scanlaw_table=nothing,
+    ref_epoch_ra=nothing,
+    ref_epoch_dec=nothing
 )
     # Query Gaia archive for DR3 solution
     if !isnothing(gaia_id_dr2)
         source_id = gaia_id_dr2
         gaia_sol = Octofitter._query_gaia_drs(; gaia_id=gaia_id_dr2)
-        ref_epoch = meta_gaia_DR2.ref_epoch_mjd
+        if isnothing(ref_epoch_ra)
+            ref_epoch_ra = meta_gaia_DR2.ref_epoch_mjd
+        end
+        if isnothing(ref_epoch_dec)
+            ref_epoch_dec = meta_gaia_DR2.ref_epoch_mjd
+        end
     elseif !isnothing(gaia_id_dr3)
         source_id = gaia_id_dr3
         gaia_sol = Octofitter._query_gaia_dr3(; gaia_id=gaia_id_dr3)
-        ref_epoch = meta_gaia_DR3.ref_epoch_mjd
+        if isnothing(ref_epoch_ra)
+            ref_epoch_ra = meta_gaia_DR3.ref_epoch_mjd
+        end
+        if isnothing(ref_epoch_dec)
+            ref_epoch_dec = meta_gaia_DR3.ref_epoch_mjd
+        end
     else
         throw(ArgumentError("Please provide at least one of `source_id_dr1`, `source_id_dr2`, or `source_id_dr3`"))
     end
@@ -96,8 +108,8 @@ function GaiaCatalogFitLikelihood(;
     table = Table(eachcol(forecast_table)..., eachcol(earth_pos_vel)...)
 
     # Prepare some factorized matrices for linear system solves
-    A_prepared_4 = prepare_A_4param(table, ref_epoch, ref_epoch)
-    A_prepared_5 = prepare_A_5param(table, ref_epoch, ref_epoch)
+    A_prepared_4 = prepare_A_4param(table, ref_epoch_ra, ref_epoch_dec)
+    A_prepared_5 = prepare_A_5param(table, ref_epoch_ra, ref_epoch_dec)
 
 
     return GaiaCatalogFitLikelihood(
@@ -391,7 +403,7 @@ function prepare_A_4param(
     table,
     reference_epoch_mjd_ra,
     reference_epoch_mjd_dec,
-    σ_formal=0.
+    # σ_formal=0.
 )
     n_obs = size(table, 1)
 
@@ -407,9 +419,9 @@ function prepare_A_4param(
     end
 
 
-    if σ_formal != 0.
-        @. A = A .* 1 ./ σ_formal
-    end
+    # if σ_formal != 0.
+    #     @. A = A .* 1 ./ σ_formal
+    # end
     return A
     # return qr!(A)
     # b = zeros(4)
@@ -423,7 +435,7 @@ function prepare_A_5param(
     table,
     reference_epoch_mjd_ra,
     reference_epoch_mjd_dec,
-    σ_formal=0.
+    # σ_formal=0.
 )
     n_obs = size(table, 1)
 
@@ -440,9 +452,9 @@ function prepare_A_5param(
         A[i, 4] = table.cosϕ[i] * (table.epoch[i] - reference_epoch_mjd_ra)/ julian_year  # μα*
         A[i, 5] = table.sinϕ[i] * (table.epoch[i] - reference_epoch_mjd_dec)/ julian_year # μδ
     end
-    if σ_formal != 0.
-        @. A = A .* 1 ./ σ_formal
-    end
+    # if σ_formal != 0.
+    #     @. A = A .* 1 ./ σ_formal
+    # end
 
     return A#qr!(A)
     # b = zeros(4)
@@ -565,13 +577,13 @@ function fit_4param_prepared(
 end
 
 function fit_5param_prepared(
-    A_factored,
+    A_prepared,
     table,
     Δα_mas,
     Δδ_mas,
     residuals=0.0,
     σ_formal=0.0;
-    # include_chi2=false,
+    include_chi2=Val(false),
 )
     n_obs = size(table, 1)
 
@@ -579,67 +591,66 @@ function fit_5param_prepared(
 
     # Use Bumper to elide allocations
     @no_escape begin
-        b = @alloc(T, n_obs)
-        x = @alloc(T, 5)
+        b_weighted = @alloc(T, n_obs)
+        A_weighted = @alloc(T, n_obs, size(A_prepared,2))
+        # x = @alloc(T, 5)
        
         # for i in 1:n_obs
         #     # Along-scan measurement
         #     # b[i] = Δα_mas[i] * table.cosϕ[i] - Δδ_mas[i] * table.sinϕ[i]
         # end
-        @. b = Δα_mas * table.cosϕ + Δδ_mas * table.sinϕ + residuals
+        @. b_weighted = Δα_mas * table.cosϕ + Δδ_mas * table.sinϕ + residuals
 
 
         if σ_formal != 0.
             # weighted solution (allocates, to avoid re-writing)
-            # A is already weighted at preparation time
-            @. b *= 1/σ_formal  # Weight observations in-place
+            @. A_weighted = A_prepared .* 1 ./ σ_formal
+            @. b_weighted *= 1/σ_formal
+        else
+            @. A_weighted = A_prepared
         end
 
         # differentiable_calc_x = DifferentiateWith(AutoFiniteDiff()) do b
         #     x = A \ b
         # end
 
-
-
         # Straight-forward solution
-        x = A_factored \ b
+        x = A_weighted \ b_weighted
+
+        # Q = qr!(A_weighted)
+        # try
+        #     ldiv!(x, Q, b_w)
+        # catch LAPACKException
+        #     fill!(x, NaN)
+        # end
 
         parameters = @SVector [x[1], x[2], x[4], x[5], x[3]]
+
+        if include_chi2 == Val(true)
+            model_predictions = @alloc(T, n_obs)
+            residuals = @alloc(T, n_obs)
+            mul!(model_predictions, A_weighted, x)
+            residuals .= b_weighted .- model_predictions
+            if σ_formal == 0
+                @show σ_formal
+                error("Asked for `include_chi2=true` but `σ_formal==0`")
+            end
+            # For uniform errors, the weighted residuals are just residuals/σ
+            residuals .= residuals ./ σ_formal
+        
+            # Chi-squared is the sum of squared weighted residuals
+            chi_squared_astro = dot(residuals, residuals)        
+        end
     end
 
+    if include_chi2 != Val(true)
+        return (; parameters) 
+    end
+    return (;
+        parameters,
+        chi_squared_astro=chi_squared_astro,
+    )
 
-        # # TODO: We need to propagate the positions we find away from the average epoch and to the requested epoch..?
-        # # TODO: what about pmra/pmdec? They are linear in this model, but non-linear in the other.
-        # # In a way, we measured the pmra at the measurement epoch, and extrapolated it linearly to the comparison epoch.
-        # # Maybe that's okay, maybe not? I guess it's okay since Gaia did it too! But we could get better accuracy by not
-        # # doing that.
-        # delta_t_ra = (reference_epoch_mjd_ra - mean(table.epoch))/ julian_year
-        # delta_t_dec = (reference_epoch_mjd_dec - mean(table.epoch))/ julian_year
-        # @show delta_t_ra delta_t_dec
-
-    return (; parameters) 
-end
-
-function compute_gaia_inter_mission_parameter_covariance(
-    A2_factored,  # Design matrix for system 2 (N×4)
-    A3_factored,  # Design matrix for system 3 (M×4)
-    σ2::Real,     # Uncertainty for system 2
-    σ3::Real      # Uncertainty for system 3
-)
-    n2 = size(A2_factored, 1)
-    n3 = size(A3_factored, 1)
-    
-    # Create scaled selection matrix [σ₂σ₃I_N 0]
-    I_shared = [σ2 * σ3 * Matrix(I, n2, n2) zeros(n2, n3 - n2)]
-    
-    # Compute (M₂ᵀM₂)⁻¹M₂ᵀ by solving against identity matrix
-    A2 = A2_factored \ Matrix(I, n2, n2)
-    
-    # Same for M₃
-    A3 = A3_factored \ Matrix(I, n3, n3)
-    
-    # Now compute the covariance
-    return A2 * I_shared * A3'
 end
 
 using HTTP

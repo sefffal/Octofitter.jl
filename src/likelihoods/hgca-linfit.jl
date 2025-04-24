@@ -33,7 +33,7 @@ function _getparams(::HGCALikelihood{THGCA,THip,TGaia,fluxratio_var}, θ_planet)
     return (;fluxratio)
 end
 
-function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits", include_dr3_vel=true, include_iad=true)
+function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits", include_dr3_vel=true, include_iad=false)
 
     # Load the HCGA
     hgca = FITS(hgca_catalog, "r") do fits
@@ -57,10 +57,18 @@ function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"
     (; hip_id) = hgca
 
     # Load the Hipparcos IAD data for epochs and scan angles
-    hip_like = HipparcosIADLikelihood(; hip_id)
+    hip_like = HipparcosIADLikelihood(;
+        hip_id,
+        ref_epoch_ra=hgca.epoch_ra_hip_mjd,
+        ref_epoch_dec=hgca.epoch_dec_hip_mjd
+    )
 
     # Load the Gaia scanlaw etc
-    gaia_like = GaiaCatalogFitLikelihood(; gaia_id_dr3=gaia_id)
+    gaia_like = GaiaCatalogFitLikelihood(;
+        gaia_id_dr3=gaia_id,
+        ref_epoch_ra=hgca.epoch_ra_gaia_mjd,
+        ref_epoch_dec=hgca.epoch_dec_gaia_mjd
+    )
 
     # Besides epoch and catalog, I'm not sure we will really use this data table
     # except maybe for plotting
@@ -130,6 +138,7 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, 
 
     (;μ_g, μ_h, μ_hg) = simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
+
     absolute_orbits = false
     for orbit in orbits
         absolute_orbits |= orbit isa AbsoluteVisual
@@ -162,6 +171,7 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, 
     end
     ll += logpdf(hgca_like.hgca.dist_hip, μ_h)
     ll += logpdf(hgca_like.hgca.dist_hg, μ_hg)
+    # @show μ_h μ_hg μ_g
 
     return ll
 end
@@ -204,8 +214,6 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         t2 = t1 + Δt
         sol = epoch_ra >= epoch_dec ? sol_ra : sol_dec
         sol′ = orbitsolve(orbit,t2)
-        # This isn't right! This is double counting the proper motion which already goes into ra/dec
-        # Take change in delta_time and multiply it by pmra/pmdec
         diff_lt_app_pmra = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmra2
         diff_lt_app_pmdec = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmdec2
         return cmp_ra.ra2, cmp_dec.dec2, cmp_ra.pmra2+diff_lt_app_pmra, cmp_dec.pmdec2+diff_lt_app_pmdec
@@ -235,23 +243,10 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
             )
         end
 
-        # out = fit_4param(
-        #     hgca_like.gaialike.table,
-        #     Δα_mas,
-        #     Δδ_mas,
-        #     hgca_like.hgca.epoch_ra_gaia_mjd,
-        #     hgca_like.hgca.epoch_dec_gaia_mjd,
-        # )
 
         out = fit_5param_prepared(hgca_like.gaialike.A_prepared_5, hgca_like.gaialike.table, Δα_mas, Δδ_mas)
         # out = fit_4param_prepared(hgca_like.gaialike.A_prepared_4, hgca_like.gaialike.table, Δα_mas, Δδ_mas)
         Δα_g, Δδ_g, Δpmra_g, Δpmdec_g = out.parameters
-        # Propagate position coordinates to the right epoch for the comparison.
-        delta_t_ra = (hgca_like.hgca.epoch_ra_gaia_mjd - mean(hgca_like.gaialike.table.epoch))/ julian_year
-        delta_t_dec = (hgca_like.hgca.epoch_dec_gaia_mjd - mean(hgca_like.gaialike.table.epoch))/ julian_year
-        # Calculate perturbation from planet
-        Δα_g += delta_t_ra*Δpmra_g
-        Δδ_g += delta_t_dec*Δpmdec_g
         # Rigorously propagate the linear proper motion component in spherical coordinates
         # Account for within-gaia differential light travel time 
         α_g₀, δ_g₀, pmra_g₀, pmdec_g₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_gaia_mjd, hgca_like.hgca.epoch_dec_gaia_mjd)
@@ -275,30 +270,13 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
             )
         end
 
-        # out = fit_4param(
-        #     hgca_like.hiplike.table,
-        #     Δα_mas,
-        #     Δδ_mas,
-        #     hgca_like.hgca.epoch_ra_hip_mjd,
-        #     hgca_like.hgca.epoch_dec_hip_mjd,
-        #     hgca_like.hiplike.table.sres_renorm
-        # )
-        # TODO: make part of struct
+
         if hgca_like.include_iad
             out = fit_5param_prepared(hgca_like.hiplike.A_prepared_5, hgca_like.hiplike.table, Δα_mas, Δδ_mas, hgca_like.hiplike.table.res, hgca_like.hiplike.table.sres)
         else
             out = fit_5param_prepared(hgca_like.hiplike.A_prepared_5, hgca_like.hiplike.table, Δα_mas, Δδ_mas)
         end
-        # Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
-        # α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_hip_mjd, hgca_like.hgca.epoch_dec_hip_mjd)
-        # μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
-        # out = fit_4param_prepared(hgca_like.hiplike.A_prepared_4, hgca_like.hiplike.table, Δα_mas, Δδ_mas, hgca_like.hiplike.table.sres)
         Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
-        # Propagate position coordinates to the right epoch for the comparison.
-        delta_t_ra = (hgca_like.hgca.epoch_ra_hip_mjd - mean(hgca_like.hiplike.table.epoch))/ julian_year
-        delta_t_dec = (hgca_like.hgca.epoch_dec_hip_mjd - mean(hgca_like.hiplike.table.epoch))/ julian_year
-        Δα_h += delta_t_ra*Δpmra_h
-        Δδ_h += delta_t_dec*Δpmdec_h
         α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_hip_mjd, hgca_like.hgca.epoch_dec_hip_mjd)
         μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
     end
