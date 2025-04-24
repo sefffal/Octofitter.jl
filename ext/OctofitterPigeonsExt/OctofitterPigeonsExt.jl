@@ -173,18 +173,16 @@ end
 Base.@nospecializeinfer function MCMCChains.Chains(
     model::Octofitter.LogDensityModel,
     pt::Pigeons.PT,
-    chain_num::Int=pt.inputs.n_chains > 0 ? pt.inputs.n_chains : pt.inputs.n_chains_variational
+    chain_num::Union{Nothing,Int}=nothing
 )
     ln_prior = Octofitter.make_ln_prior_transformed(model.system)
     ln_like = Octofitter.make_ln_like(model.system, model.arr2nt(model.sample_priors(Random.default_rng())))
 
     # Resolve the array back into the nested named tuple structure used internally.
     # Augment with some internal fields
-    local samples
-    try
+    if !isnothing(chain_num)
         samples = get_sample(pt, chain_num)
-    catch
-        @warn "Chain not available, falling back"
+    else
         samples = get_sample(pt)
     end
     chain_res = map(samples) do sample 
