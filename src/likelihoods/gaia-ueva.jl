@@ -1,3 +1,35 @@
+"""
+    obmt2mjd(obmt::Float64; modified::Bool=false)::Float64
+
+Convert Gaia On-Board Mission Timeline (OBMT) to Julian Date or Modified Julian Date.
+
+# Arguments
+- `obmt`: On-board mission timeline in units of six-hour revolutions since launch
+
+# Returns
+- Julian Date or Modified Julian Date (if modified=true)
+
+Based on the relationship defined in Gaia Data Release documentation:
+https://gea.esac.esa.int/archive/documentation/GDR2/Introduction/chap_cu0int/cu0int_sec_release_framework/cu0int_ssec_time_coverage.html
+"""
+function obmt2mjd(obmt::Float64)
+    # First convert to TCB Julian Year as in the Python version
+    tcbjy = 2015.0 + (obmt - 1717.6256) / 1461.0
+    
+    # Convert Julian Year to Julian Date
+    # Julian Year 2015.0 corresponds to JD 2457023.5
+    jd_at_2015 = 2457023.5
+    
+    # 365.25 days per Julian year
+    days_since_2015 = (tcbjy - 2015.0) * 365.25
+    
+    # Calculate Julian Date
+    jd = jd_at_2015 + days_since_2015
+    
+    # Return either Julian Date or Modified Julian Date
+    return jd - 2400000.5
+end
+
 
 """
 
@@ -8,6 +40,7 @@ o = astropy.coordinates.SkyCoord(158.30707896392835, 40.42555422701387,unit='deg
 t = scanninglaw.times.Times(version='dr3_nominal')
 t.query(o,return_angles=True)
 ```
+
 """
 struct GaiaUEVALikelihood{TCat,TTable,TDist} <: AbstractLikelihood
     # Source ID from each given catalog, if available
@@ -78,6 +111,26 @@ function GaiaUEVALikelihood(;
     table = FlexTable(eachcol(forecast_table)..., eachcol(earth_pos_vel)...)
     table = Table(table)
 
+    # Now remove any known gaps -- data sourced from HTOF.py; authors G.M. Brandt et al
+    gaps_dr2 = CSV.read(joinpath(@__DIR__, "astrometric_gaps_gaiadr2_08252020.csv"), FlexTable)
+    gaps_edr23 = CSV.read(joinpath(@__DIR__, "astrometric_gaps_gaiaedr3_12232020.csv"), FlexTable)
+    gaps = Table(
+        start_mjd=obmt2mjd.(vcat(gaps_dr2.start,gaps_edr23.start)),
+        stop_mjd=obmt2mjd.(vcat(gaps_dr2.end,gaps_edr23.end)),
+    )
+    table = filter(eachrow(table)) do row
+        row = row[]
+        for gap in eachrow(gaps)
+            gap = gap[]
+            if gap.start_mjd <= row.epoch <= gap.stop_mjd
+                @info "Detected known gap in Gaia scans; skipping."
+                return false
+            end
+        end
+        return true
+    end
+    table = Table(map(dat->dat[], table))
+
     return GaiaUEVALikelihood{typeof(dr3),typeof(table),typeof(dist_dr3)}(gaia_id, mode, dr3, table, dist_dr3)
 end
 
@@ -97,7 +150,7 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
 
 
     # (;σ_att, σ_AL, σ_calib, gaia_n_dof) = θ_system
-    (;σ_att, σ_AL, σ_calib, gaia_n_dof) = θ_system
+    (;σ_att, σ_AL, σ_calib, gaia_n_dof, missed_transits) = θ_system
 
     σ_formal = sqrt(σ_att^2 + σ_AL^2)
 
@@ -108,9 +161,15 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
     # ii_skip = rand(1:length(gaialike.table.epoch), 3)
     # ii_skip = 1:8:40
     # ii_skip = 1:18:50
-    ii_skip = 1:-1
-    ii = sort(setdiff(1:length(gaialike.table.epoch), ii_skip))
+    # ii_skip = 1:-1
+    # ii = sort(setdiff(1:length(gaialike.table.epoch), missed_transits))
     # ii = 1:length(gaialike.table.epoch)
+
+    # # TODO: figure out how to do sampling without replacement at the model level
+    if length(unique(missed_transits)) < length(missed_transits)
+        return -Inf, nothing
+    end
+    ii = sort(setdiff(1:length(gaialike.table.epoch), missed_transits))
 
     T = _system_number_type(θ_system)
 
@@ -189,7 +248,6 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
     else
         error("Unsupported mode (should be :EAN or :RUWE)")
     end
-
 
     N = astrometric_n_good_obs_al
     N_FoV = astrometric_matched_transits
