@@ -157,7 +157,6 @@ function GaiaHipparcosUEVAJointLikelihood_v1(;
     forecast_table.cosϕ = cos.(π/2 .+ forecast_table.scanAngle_rad)
     forecast_table.sinϕ = sin.(π/2 .+ forecast_table.scanAngle_rad)
 
-
     # Get the Earth's position at those epochs
     earth_pos_vel = geocentre_position_query.(forecast_table.epoch)
 
@@ -174,18 +173,18 @@ function GaiaHipparcosUEVAJointLikelihood_v1(;
         stop_mjd=obmt2mjd.(vcat(gaps_dr2.end,gaps_edr23.end)),
         note=[gaps_dr2.comment; gaps_edr23.description]
     )
-    # gaia_table = filter(eachrow(gaia_table)) do row
-    #     row = row[]
-    #     for gap in eachrow(gaps)
-    #         gap = gap[]
-    #         if gap.start_mjd <= row.epoch <= gap.stop_mjd
-    #             @info "Detected known gap in Gaia scans; skipping." window=row.epoch note=gap.note
-    #             return false
-    #         end
-    #     end
-    #     return true
-    # end
-    # gaia_table = Table(map(dat->dat[], gaia_table))
+    gaia_table = filter(eachrow(gaia_table)) do row
+        row = row[]
+        for gap in eachrow(gaps)
+            gap = gap[]
+            if gap.start_mjd <= row.epoch <= gap.stop_mjd
+                @info "Detected known gap in Gaia scans; skipping." window=row.epoch note=gap.note
+                return false
+            end
+        end
+        return true
+    end
+    gaia_table = Table(map(dat->dat[], gaia_table))
 
 
     # Determine fraction of epochs in DR2 that overlap with DR3
@@ -318,7 +317,9 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v1, θ_system, orbits, 
     (;σ_att, σ_AL, σ_calib, gaia_n_dof, missed_transits) = θ_system
     σ_formal = sqrt(σ_att^2 + σ_AL^2)
 
-
+    if eltype(missed_transits) <: AbstractFloat
+        missed_transits = Int.(missed_transits)
+    end
     if length(unique(missed_transits)) < length(missed_transits)
         return nothing
     end
@@ -567,7 +568,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v1, θ_system, orbits, 
     # Compare to expected single-star distribution
     μ_1_3 = UEVA^(1/3) 
     UEVA_unc = σ_UEVA_single * UEVA^(-2/3) /3  # divide by 3 due to cube root transformation
-    UEVA_model = UEVA_model_1 + μ_UEVA_single^(1/3)
+    UEVA_model = cbrt(UEVA_model_1 + μ_UEVA_single)
 
     end
 
