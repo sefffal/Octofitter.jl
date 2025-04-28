@@ -136,8 +136,12 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, 
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
-    (;μ_g, μ_h, μ_hg) = simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    sim = simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
+    if isnothing(sim)
+        return convert(T, -Inf)
+    end
+    (;μ_g, μ_h, μ_hg) = sim
 
     absolute_orbits = false
     for orbit in orbits
@@ -196,6 +200,21 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
     end
 
 
+    if hasproperty(θ_system, :missed_transits)
+        (;missed_transits) = θ_system
+        if eltype(missed_transits) <: AbstractFloat
+            missed_transits = Int.(missed_transits)
+        end
+        if length(unique(missed_transits)) < length(missed_transits)
+            return nothing
+        end
+        ii = sort(setdiff(1:length(hgca_like.gaialike.table.epoch), missed_transits))
+        gaia_table = hgca_like.gaialike.table[ii,:]
+        A_prepared_5 = hgca_like.gaialike.A_prepared_5[ii,:]
+    else
+        gaia_table = hgca_like.gaialike.table
+        A_prepared_5 = hgca_like.gaialike.A_prepared_5
+    end
 
     # I guess we add that delta PM to our propagated PM, and compare vs the catalog.
 
@@ -226,9 +245,9 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
 
         # First: Gaia
 
-        Δα_mas = @alloc(T, size(hgca_like.gaialike.table,1))
+        Δα_mas = @alloc(T, size(A_prepared_5,1))
         fill!(Δα_mas, 0)
-        Δδ_mas = @alloc(T, size(hgca_like.gaialike.table,1))
+        Δδ_mas = @alloc(T, size(A_prepared_5,1))
         fill!(Δδ_mas, 0)
 
         for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
@@ -236,7 +255,7 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
             (;fluxratio) = _getparams(hgca_like, θ_planet)
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
-                hgca_like.gaialike.table, orbit,
+                gaia_table, orbit,
                 planet_mass_msol, fluxratio,
                 orbit_solutions[i_planet],
                 orbit_solutions_i_epoch_start[i_planet], T
@@ -244,8 +263,8 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         end
 
 
-        out = fit_5param_prepared(hgca_like.gaialike.A_prepared_5, hgca_like.gaialike.table, Δα_mas, Δδ_mas)
-        # out = fit_4param_prepared(hgca_like.gaialike.A_prepared_4, hgca_like.gaialike.table, Δα_mas, Δδ_mas)
+        out = fit_5param_prepared(A_prepared_5, gaia_table, Δα_mas, Δδ_mas)
+        # out = fit_4param_prepared(A_prepared_4, gaia_table, Δα_mas, Δδ_mas)
         Δα_g, Δδ_g, Δpmra_g, Δpmdec_g = out.parameters
         # Rigorously propagate the linear proper motion component in spherical coordinates
         # Account for within-gaia differential light travel time 

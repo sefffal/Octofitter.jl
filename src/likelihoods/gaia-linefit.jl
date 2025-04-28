@@ -107,6 +107,27 @@ function GaiaCatalogFitLikelihood(;
     # merge the Gaia scan prediction and geocentre position results into one table
     table = Table(eachcol(forecast_table)..., eachcol(earth_pos_vel)...)
 
+    # Now remove any known gaps -- data sourced from HTOF.py; authors G.M. Brandt et al
+    gaps_dr2 = CSV.read(joinpath(@__DIR__, "astrometric_gaps_gaiadr2_08252020.csv"), FlexTable)
+    gaps_edr23 = CSV.read(joinpath(@__DIR__, "astrometric_gaps_gaiaedr3_12232020.csv"), FlexTable)
+    gaps = Table(
+        start_mjd=obmt2mjd.(vcat(gaps_dr2.start,gaps_edr23.start)),
+        stop_mjd=obmt2mjd.(vcat(gaps_dr2.end,gaps_edr23.end)),
+        note=[gaps_dr2.comment; gaps_edr23.description]
+    )
+    table = filter(eachrow(table)) do row
+        row = row[]
+        for gap in eachrow(gaps)
+            gap = gap[]
+            if gap.start_mjd <= row.epoch <= gap.stop_mjd
+                @info "Detected known gap in Gaia scans; skipping." window=row.epoch note=gap.note
+                return false
+            end
+        end
+        return true
+    end
+    table = Table(map(dat->dat[], table))
+
     # Prepare some factorized matrices for linear system solves
     A_prepared_4 = prepare_A_4param(table, ref_epoch_ra, ref_epoch_dec)
     A_prepared_5 = prepare_A_5param(table, ref_epoch_ra, ref_epoch_dec)
@@ -603,7 +624,6 @@ function fit_5param_prepared(
 
 
         if σ_formal != 0.
-            # weighted solution (allocates, to avoid re-writing)
             @. A_weighted = A_prepared .* 1 ./ σ_formal
             @. b_weighted *= 1/σ_formal
         else
