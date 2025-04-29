@@ -267,22 +267,23 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood_v1, θ_system, orbits, o
 
     # If we have propagated the barycentric motion ourselves, we want to remove the
     # nonlinear correction already applied to the HGCA by Tim Brandt (private communications)/
+    if absolute_orbits
+        # Rather than subtract it from the HGCA observed values (which are here, already
+        # baked into the pre-computed MvNormal distributions), just add them to the model
+        # values
+        μ_hg += @SVector [
+            like.catalog.nonlinear_dpmra,
+            like.catalog.nonlinear_dpmdec,
+        ]
 
-    # Rather than subtract it from the HGCA observed values (which are here, already
-    # baked into the pre-computed MvNormal distributions), just add them to the model
-    # values
-    μ_hg += @SVector [
-        like.catalog.nonlinear_dpmra,
-        like.catalog.nonlinear_dpmdec,
-    ]
-
-    # also have to remove the HGCA's nonlinear_dpmra/dec from the hipparcos epoch
-    # Note: factor of two needed since dpmra is defined to the HG epoch, so H epoch
-    # is twice as much. (T. Brandt, private communications).
-    μ_h += @SVector [
-        2like.catalog.nonlinear_dpmra,
-        2like.catalog.nonlinear_dpmdec,
-    ]
+        # also have to remove the HGCA's nonlinear_dpmra/dec from the hipparcos epoch
+        # Note: factor of two needed since dpmra is defined to the HG epoch, so H epoch
+        # is twice as much. (T. Brandt, private communications).
+        μ_h += @SVector [
+            2like.catalog.nonlinear_dpmra,
+            2like.catalog.nonlinear_dpmdec,
+        ]
+    end
 
     ll += logpdf(like.catalog.dist_hip, μ_h)
     ll += logpdf(like.catalog.dist_hg, μ_hg)
