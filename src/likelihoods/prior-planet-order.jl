@@ -24,7 +24,7 @@ function Octofitter.ln_like(prior::PlanetOrderPrior, θ_system, orbits, orbit_so
         i_b = findfirst(==(planet_b.name), keys(θ_system.planets))
         orbit_a = orbits[i_a]
         orbit_b = orbits[i_b]
-        if semimajoraxis(orbit_a) < semimajoraxis(orbit_b)
+        if semimajoraxis(orbit_a) >= semimajoraxis(orbit_b)
             ll += convert(T, -Inf)
         end
     end
