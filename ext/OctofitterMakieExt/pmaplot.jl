@@ -555,8 +555,14 @@ function pmaplot!(
 
 
         # Add these to the catalog DR2
-        dr2_systematic_Δra = median([θnt.dr2_systematic_Δra for θnt in θ_systems_from_chain])
-        dr2_systematic_Δdec = median([θnt.dr2_systematic_Δdec for θnt in θ_systems_from_chain])
+        if hasproperty(θ_systems_from_chain[1], :dr2_systematic_Δra) &&
+            hasproperty(θ_systems_from_chain[1], :dr2_systematic_Δdec)
+            dr2_systematic_Δra = median([θnt.dr2_systematic_Δra for θnt in θ_systems_from_chain])
+            dr2_systematic_Δdec = median([θnt.dr2_systematic_Δdec for θnt in θ_systems_from_chain])
+        else
+            dr2_systematic_Δra = zeros(length(θ_systems_from_chain))
+            dr2_systematic_Δdec = zeros(length(θ_systems_from_chain))
+        end
         dr2_systematic_Δμ_ra = median([θnt.dr2_systematic_Δμ_ra for θnt in θ_systems_from_chain])
         dr2_systematic_Δμ_dec = median([θnt.dr2_systematic_Δμ_dec for θnt in θ_systems_from_chain])
     
