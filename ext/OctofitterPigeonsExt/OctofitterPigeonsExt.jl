@@ -218,11 +218,14 @@ Base.@nospecializeinfer function MCMCChains.Chains(
             :pigeons_logpotential,
         ])
     )
+    global_barrier_variational = pt isa Pigeons.StabilizedPT ?  Pigeons.global_barrier(pt) : nothing
     mcmcchains_with_info = MCMCChains.setinfo(
         mcmcchains,
         (;
             model_name=pt.inputs.target.system.name,
             logevidence_ratio=Pigeons.stepping_stone(pt),
+            global_barrier_variational,
+            global_barrier=Pigeons.global_barrier(pt),
             start_time=0,
             stop_time=sum(pt.shared.reports.summary.last_round_max_time)
         )
