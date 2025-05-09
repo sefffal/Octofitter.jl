@@ -175,7 +175,6 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, 
     end
     ll += logpdf(hgca_like.hgca.dist_hip, μ_h)
     ll += logpdf(hgca_like.hgca.dist_hg, μ_hg)
-    # @show μ_h μ_hg μ_g
 
     return ll
 end
@@ -258,7 +257,7 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
                 gaia_table, orbit,
                 planet_mass_msol, fluxratio,
                 orbit_solutions[i_planet],
-                orbit_solutions_i_epoch_start[i_planet], T
+                orbit_solutions_i_epoch_start, T
             )
         end
 
@@ -285,7 +284,7 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
                 hgca_like.hiplike.table, orbit,
                 planet_mass_msol, fluxratio,
                 orbit_solutions[i_planet],
-                orbit_solutions_i_epoch_start[i_planet], T
+                orbit_solutions_i_epoch_start, T
             )
         end
 

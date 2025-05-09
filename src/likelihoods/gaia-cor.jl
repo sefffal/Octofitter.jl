@@ -203,7 +203,8 @@ function GaiaDifferenceLike(;
     A_prepared_5_dr3 = prepare_A_5param(table[istart_dr3:iend_dr3], meta_gaia_DR3.ref_epoch_mjd,  meta_gaia_DR3.ref_epoch_mjd)
     
     table = Table(table[min_epoch .<= table.epoch .<= max_epoch,:])
-
+    # Flatten the table
+    table = Table(map(col -> col[:], Tables.columns(table)))
 
     # Build our overall correlation matrix -- the top left and bottom right blocks come
     # from the catalogs.
@@ -304,10 +305,10 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         _simulate_skypath_perturbations!(
             Δα_mas, Δδ_mas,
-            gaialike.table[istart:iend], orbit,
+            @view(gaialike.table[istart:iend]), orbit,
             planet_mass_msol, 0.0,
             orbit_solutions[i_planet],
-            orbit_solutions_i_epoch_start[i_planet], T
+            orbit_solutions_i_epoch_start, T
         )
     end
     # Δα, Δδ, Δμα, Δμδ = out.parameters
@@ -343,10 +344,10 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         _simulate_skypath_perturbations!(
             Δα_mas, Δδ_mas,
-            gaialike.table[istart:iend], orbit,
+            @view(gaialike.table[istart:iend]), orbit,
             planet_mass_msol, 0.0,
             orbit_solutions[i_planet],
-            orbit_solutions_i_epoch_start[i_planet], T
+            orbit_solutions_i_epoch_start, T
         )
     end
 
@@ -358,7 +359,7 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
     #     meta_gaia_DR2.ref_epoch_mjd,
     # )
     # Δα, Δδ, Δμα, Δμδ = out.parameters
-    out = fit_5param_prepared(gaialike.A_prepared_5_dr2, gaialike.table[istart:iend], Δα_mas, Δδ_mas)
+    out = fit_5param_prepared(gaialike.A_prepared_5_dr2, @view(gaialike.table[istart:iend]), Δα_mas, Δδ_mas)
     Δα, Δδ, Δμα, Δμδ = out.parameters
 
         
@@ -388,9 +389,10 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
 
     # The Gaia DR2 reported parameter values are offset in various ways vs. DR2. 
     # Correct catalog values from DR2 for known effects:
+
     correction = @SVector [
-        θ_system.dr2_systematic_Δra/60/60/1000,
-        θ_system.dr2_systematic_Δdec/60/60/1000/cosd(gaialike.dr2.dec),
+        hasproperty(θ_system, :dr2_systematic_Δra) ? θ_system.dr2_systematic_Δra/60/60/1000 : 0.0,
+        hasproperty(θ_system, :dr2_systematic_Δdec) ? θ_system.dr2_systematic_Δdec/60/60/1000/cosd(gaialike.dr2.dec) : 0.0,
         θ_system.dr2_systematic_Δμ_ra,
         θ_system.dr2_systematic_Δμ_dec,
     ]
@@ -415,7 +417,7 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
     # @show (μ_dr2_dr3 .- μ_dr2_dr3_modelled) 
     # @show (μ_dr2_dr3 .- μ_dr2_dr3_modelled) ./ sqrt.(diag(gaialike.Σ_dr2_dr3))
 
-    Δt = (Octofitter.meta_gaia_DR3.ref_epoch_mjd - Octofitter.meta_gaia_DR2.ref_epoch_mjd)/Octofitter.julian_year
+    Δt′ = (Octofitter.meta_gaia_DR3.ref_epoch_mjd - Octofitter.meta_gaia_DR2.ref_epoch_mjd)/Octofitter.julian_year
 
     return convert(T,ll), (;
         modelled_gaia_parameters_dr3=modelled_gaia_parameters_dr3,
@@ -428,10 +430,10 @@ function simulate(gaialike::GaiaDifferenceLike, θ_system, orbits, orbit_solutio
         pmdec_dr2_model = modelled_gaia_parameters_dr2[4],
         pmra_dr32_model=((
             modelled_gaia_parameters_dr3[1]-modelled_gaia_parameters_dr2[1]
-        )*60*60*1000*cosd((gaialike.dr3.dec+gaialike.dr2.dec)/2))/Δt,
+        )*60*60*1000*cosd((gaialike.dr3.dec+gaialike.dr2.dec)/2))/Δt′,
         pmdec_dr32_model=((
             modelled_gaia_parameters_dr3[2]-modelled_gaia_parameters_dr2[2]
-        )*60*60*1000)/Δt,
+        )*60*60*1000)/Δt′,
         correction,
     )
 end

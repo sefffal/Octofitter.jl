@@ -191,7 +191,7 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
             gaialike.table, orbit,
             planet_mass_msol, fluxratio,
             orbit_solutions[i_planet],
-            orbit_solutions_i_epoch_start[i_planet], T
+            orbit_solutions_i_epoch_start, T
         )
     end
 
@@ -279,9 +279,9 @@ function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutio
         ll = -Inf
     else
         try
-            ll += logpdf(Normal(μ_1_3, UEVA_unc), UEVA_model + μ_UEVA_single^(1/3))
+            ll += logpdf(Normal(μ_1_3, UEVA_unc), (UEVA_model + μ_UEVA_single)^(1/3))
         catch
-            @error "Invalid" μ_1_3 UEVA UEVA_unc UEVA_model + μ_UEVA_single^(1/3)
+            @error "Invalid" μ_1_3 UEVA UEVA_unc (UEVA_model + μ_UEVA_single)^(1/3)
             error("invalid values encountered")
         end
     end

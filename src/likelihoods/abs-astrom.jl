@@ -151,6 +151,15 @@ function GaiaHipparcosUEVAJointLikelihood_v1(;
         forecast_table = FlexTable(scanlaw_table)
         forecast_table.epoch = tcb_at_gaia_2mjd.(forecast_table.times)
         forecast_table.scanAngle_rad = deg2rad.(forecast_table.angles)
+
+        earth_pos_vel = FlexTable(geocentre_position_query.(forecast_table.epoch))
+
+        f = @. earth_pos_vel.x * sind(dr3.ra)-earth_pos_vel.y*cosd(dr3.ra)
+        g = @. earth_pos_vel.x * cosd(dr3.ra) * sind(dr3.dec) + 
+            earth_pos_vel.y * sind(dr3.ra) * sind(dr3.dec) -
+            earth_pos_vel.z * cosd(dr3.dec)
+        forecast_table.parallaxFactorAlongScan = @. f*sin(forecast_table.scanAngle_rad) + g*cos(forecast_table.scanAngle_rad)
+
     end
     # Calculate the scan angle using the same convention that Hipparcos uses,
     # namely psi = π/2 + scanAngle
@@ -312,7 +321,6 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v1, θ_system, orbits, 
 
     T = _system_number_type(θ_system)
 
-
     # Generate simulated observations from this sample draw
     # (;missed_transits) = θ_system
     (;σ_att, σ_AL, σ_calib, gaia_n_dof, missed_transits) = θ_system
@@ -388,7 +396,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v1, θ_system, orbits, 
             like.hip_table, orbit,
             planet_mass_msol, fluxratio,
             orbit_solutions[i_planet],
-            orbit_solutions_i_epoch_start[i_planet], T
+            orbit_solutions_i_epoch_start, T
         )
     end
     out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas, Δδ_mas, like.hip_table.res, like.hip_table.sres)
@@ -423,7 +431,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v1, θ_system, orbits, 
             gaia_table[istart:iend], orbit,
             planet_mass_msol, fluxratio,
             orbit_solutions[i_planet],
-            orbit_solutions_i_epoch_start[i_planet], T
+            orbit_solutions_i_epoch_start, T
         )
     end
     out = fit_5param_prepared(A_prepared_5_dr2[istart:iend,:], gaia_table[istart:iend], Δα_mas, Δδ_mas)
@@ -454,7 +462,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v1, θ_system, orbits, 
             gaia_table[istart:iend], orbit,
             planet_mass_msol, fluxratio,
             orbit_solutions[i_planet],
-            orbit_solutions_i_epoch_start[i_planet], T,
+            orbit_solutions_i_epoch_start, T,
         )
     end
 
