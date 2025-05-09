@@ -117,7 +117,7 @@ function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_pl
                     
                     rv_star_buf[i_epoch] -= radvel(sol′, mass_other)
                     
-                    @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
+                    @assert isapprox(rvlike.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
                 end
             end
         end
