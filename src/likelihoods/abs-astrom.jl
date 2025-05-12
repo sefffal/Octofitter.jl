@@ -280,7 +280,9 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
             :dec_dr32
             :ra_dr3
             :dec_dr3
-        ]
+            :ueva_dr3
+        ],
+
     )
     if isempty(hip_table)
         splice!(table.epoch, 1:4)
@@ -428,14 +430,16 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, o
     end
 
     # UEVA: EAN/RUWE
-    if !isfinite(UEVA_unc) || UEVA_unc <= eps()
-        ll = -Inf
-    else
-        try
-            ll += logpdf(Normal(μ_1_3, UEVA_unc), UEVA_model)
-        catch
-            @error "Invalid" μ_1_3 UEVA_unc UEVA_model
-            error("invalid values encountered")
+    if :ueva_dr3 ∈ like.table.kind
+        if !isfinite(UEVA_unc) || UEVA_unc <= eps()
+            ll = -Inf
+        else
+            try
+                ll += logpdf(Normal(μ_1_3, UEVA_unc), UEVA_model)
+            catch
+                @error "Invalid" μ_1_3 UEVA_unc UEVA_model
+                error("invalid values encountered")
+            end
         end
     end
 
@@ -536,8 +540,6 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
                     -1, T
                 )
             end
-            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas, Δδ_mas, like.hip_table.res, like.hip_table.sres)
-            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas, Δδ_mas)
             if like.include_iad
                 out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas, Δδ_mas, like.hip_table.res, like.hip_table.sres)
             else
@@ -692,11 +694,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
         elseif like.ueva_mode == :RUWE
             # normalization factor for that G mag & BP-RP
             # eqn. (3) Kiefer et al 2024
-            # TODO: should this 5 change to be 6 if more dof?
-            if gaia_n_dof == 6
-                @warn "RUWE calculation: TODO: should the 5 become a 6 when doing 6-dof fits?" maxlog=10
-            end
-            u0 = 1/ruwe_dr3*sqrt(astrometric_chi2_al_dr3/(astrometric_n_good_obs_al_dr3-5))
+            u0 = 1/ruwe_dr3*sqrt(astrometric_chi2_al_dr3/(astrometric_n_good_obs_al_dr3-gaia_n_dof))
             UEVA = (ruwe_dr3 * u0)^2 * σ_formal^2
         else
             error("Unsupported mode (should be :EAN or :RUWE, was $(like.ueva_mode)")
@@ -759,4 +757,45 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
         
 
     )
+end
+
+
+
+# Generate new astrometry observations
+function generate_from_params(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_planet, orbit::PlanetOrbits.AbstractOrbit)
+
+    sim = simulate(like, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3) = sim  
+
+    # Get epochs and uncertainties from observations
+    epoch = like.table.epoch
+
+    if hasproperty(like.table, :pa) && hasproperty(like.table, :sep)
+
+        σ_sep = like.table.σ_sep 
+        σ_pa = like.table.σ_pa
+
+        # Generate now astrometry data
+        sep = projectedseparation.(orbit, epoch)
+        pa = posangle.(orbit, epoch)
+        if hasproperty(like.table, :cov)
+            astrometry_table = Table(;epoch, sep, pa, σ_sep, σ_pa, like.table.cov)
+        else
+            astrometry_table = Table(;epoch, sep, pa, σ_sep, σ_pa)
+        end
+    else
+        σ_ra = like.table.σ_ra 
+        σ_dec = like.table.σ_dec
+
+        # Generate now astrometry data
+        ra = raoff.(orbit, epoch)
+        dec = decoff.(orbit, epoch)
+        if hasproperty(like.table, :cov)
+            astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec, like.table.cov)
+        else
+            astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec)
+        end
+    end
+
+    return PlanetRelAstromLikelihood(astrometry_table)
 end
