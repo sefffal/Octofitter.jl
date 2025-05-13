@@ -34,13 +34,16 @@ function _getparams(::HGCALikelihood{THGCA,THip,TGaia,fluxratio_var}, θ_planet)
 end
 
 function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits", include_dr3_vel=true, include_iad=false)
-
     # Load the HCGA
     hgca = FITS(hgca_catalog, "r") do fits
         t = Table(fits[2])
         idx = findfirst(==(gaia_id), t.gaia_source_id)
         return NamedTuple(t[idx])
     end
+    return HGCALikelihood(hgca; fluxratio_var, include_dr3_vel, include_iad)
+end
+function HGCALikelihood(hgca::NamedTuple; fluxratio_var,include_dr3_vel, include_iad)
+
 
     # Convert measurement epochs to MJD.
     # Careful: these are Julian years, not decimal years (T. Brant., private communications)
@@ -65,7 +68,7 @@ function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"
 
     # Load the Gaia scanlaw etc
     gaia_like = GaiaCatalogFitLikelihood(;
-        gaia_id_dr3=gaia_id,
+        gaia_id_dr3=hgca.gaia_source_id,
         ref_epoch_ra=hgca.epoch_ra_gaia_mjd,
         ref_epoch_dec=hgca.epoch_dec_gaia_mjd
     )
@@ -343,3 +346,36 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
 
 end
 export HGCALikelihood
+
+
+
+# Generate new astrometry observations
+function generate_from_params(like::HGCALikelihood, θ_system, orbits)
+
+
+    sim = simulate(like::HGCALikelihood, θ_system, orbits, tuple([] for _ in orbits), -1)
+
+    (;μ_g, μ_h, μ_hg) = sim
+
+    # replace values in the HGCA with our new ones
+    hgca = (;
+        like.hgca...,
+        pmra_hip = μ_h[1],
+        pmdec_hip = μ_h[2],
+        pmra_hg = μ_hg[1],
+        pmdec_hg = μ_hg[2],
+        pmra_gaia = μ_g[1],
+        pmdec_gaia = μ_g[2],
+    )
+    new_hgca_like =  HGCALikelihood(hgca; like.fluxratio_var, like.include_dr3_vel, like.include_iad)
+    # What do we do about the Hipparcos residuals?
+    if like.include_iad
+        @warn "Hipparcos residuals are not currently handled in the simulation"
+        # We will need to simulate these too -- just run simulate sky path,
+        # then do the 5 param fit, then store the residuals
+    end
+    # zero out any hipparcos residuals
+    new_hgca_like.hiplike.table.res .= 0
+
+    return new_hgca_like
+end
