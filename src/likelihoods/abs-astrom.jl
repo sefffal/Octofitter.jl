@@ -268,6 +268,7 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
             catalog.epoch_dec_dr32,
             catalog.epoch_ra_dr3,
             catalog.epoch_dec_dr3,
+            (catalog.epoch_dec_dr3+catalog.epoch_dec_dr2)/2,
         ],
         kind=[
             :ra_hip
@@ -288,7 +289,6 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
         splice!(table.epoch, 1:4)
         splice!(table.kind, 1:4)
     end
-
     
     return GaiaHipparcosUEVAJointLikelihood_v2{
         typeof(table),
@@ -311,7 +311,40 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
 
 end
 
+function likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikelihood_v2, obs_inds)
+    (;  table,
+        hip_table,
+        gaia_table,
+        catalog,
+        A_prepared_5_hip,
+        A_prepared_5_dr2,
+        A_prepared_5_dr3,
+        fluxratio_var,
+        include_iad,
+        ueva_mode ) = like
+    
+    table = table[obs_inds,:]
+    return GaiaHipparcosUEVAJointLikelihood_v2{
+        typeof(table),
+        typeof(hip_table),
+        typeof(gaia_table),
+        typeof(catalog),
+        fluxratio_var,
+    }(
+        table,
+        hip_table,
+        gaia_table,
+        catalog,
+        A_prepared_5_hip,
+        A_prepared_5_dr2,
+        A_prepared_5_dr3,
+        fluxratio_var,
+        include_iad,
+        ueva_mode,
+    )
 
+    return GaiaHipparcosUEVAJointLikelihood_v2(obs.table[obs_inds,:,1]...)
+end
 
 function ln_like(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
