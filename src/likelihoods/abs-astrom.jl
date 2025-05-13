@@ -313,8 +313,6 @@ end
 
 
 
-
-
 function ln_like(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
     T = Octofitter._system_number_type(θ_system)
@@ -326,121 +324,127 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, o
         return convert(T,-Inf)
     end
 
-    (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3) = sim       
+    (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3, n_dr3, n_dr2) = sim       
 
+    # Check if we have absolute orbits
     absolute_orbits = false
     for orbit in orbits
         absolute_orbits |= orbit isa AbsoluteVisual
-        # TODO: could check in a more user-friendly way
-        # that we don't have a mismatch of different orbit types
-        # for different planets?
     end
 
+    # Get distribution objects from catalog
     dist_hip = like.catalog.dist_hip
     dist_hg = like.catalog.dist_hg
     dist_dr2 = like.catalog.dist_dr2
     dist_dr32 = like.catalog.dist_dr32
     dist_dr3 = like.catalog.dist_dr3
 
-    # If we have propagated the barycentric motion ourselves, we want to remove the
-    # nonlinear correction already applied to the HGCA by Tim Brandt (private communications)/
+    # Apply nonlinear correction for absolute orbits
     if absolute_orbits && !isnothing(dist_hip)
-        # Rather than subtract it from the HGCA observed values (which are here, already
-        # baked into the pre-computed MvNormal distributions), just add them to the model
-        # values
+        # Add nonlinear corrections to model values
         μ_hg += @SVector [
             like.catalog.nonlinear_dpmra,
             like.catalog.nonlinear_dpmdec,
         ]
 
-        # also have to remove the HGCA's nonlinear_dpmra/dec from the hipparcos epoch
-        # Note: factor of two needed since dpmra is defined to the HG epoch, so H epoch
-        # is twice as much. (T. Brandt, private communications).
+        # Remove HGCA's nonlinear correction from Hipparcos epoch
+        # Factor of two needed since dpmra is defined to the HG epoch
         μ_h += @SVector [
             2like.catalog.nonlinear_dpmra,
             2like.catalog.nonlinear_dpmdec,
         ]
     end
 
-    # The following looks really complicated but its basically just
-    # ll += logpdf(like.catalog.dist_hip, μ_h) for each dataset,
-    # with extra logic for optionally cross validataion (ignoring certain datasets)
-    # and/or ignoring ra or dec only for particular datasets.
+    # Define the order of all components in our unified system
+    # Order: ra_hip, dec_hip, ra_hg, dec_hg, ra_dr2, dec_dr2, ra_dr32, dec_dr32, ra_dr3, dec_dr3, ueva_dr3
+    component_flags = [
+        :ra_hip, :dec_hip,
+        :ra_hg, :dec_hg,
+        :ra_dr2, :dec_dr2,
+        :ra_dr32, :dec_dr32,
+        :ra_dr3, :dec_dr3,
+        :ueva_dr3
+    ]
 
-    if :ra_hip ∈ like.table.kind && :dec_hip ∈ like.table.kind
-        ll += logpdf(dist_hip, μ_h)
-    else
-        if :ra_hip ∈ like.table.kind
-            μ, Σ = params(dist_hip)
-            ll += logpdf(Normal(μ[1], sqrt(Σ[1,1])), μ_h[1])
-        end
-        if :dec_hip ∈ like.table.kind
-            μ, Σ = params(dist_hip)
-            ll += logpdf(Normal(μ[2], sqrt(Σ[2,2])), μ_h[2])
-        end
-    end
+    # Build index mask for which components are present
+    mask = [flag ∈ like.table.kind for flag in component_flags]
+    indices = findall(mask)
+    n_components = length(indices)
 
-    if :ra_hg ∈ like.table.kind && :dec_hg ∈ like.table.kind
-        ll += logpdf(dist_hg, μ_hg)
-    else
-        if :ra_hg ∈ like.table.kind
-            μ, Σ = params(dist_hg)
-            ll += logpdf(Normal(μ[1], sqrt(Σ[1,1])), μ_hg[1])
-        end
-        if :dec_hg ∈ like.table.kind
-            μ, Σ = params(dist_hg)
-            ll += logpdf(Normal(μ[2], sqrt(Σ[2,2])), μ_hg[2])
-        end
-    end
-    if :ra_dr2 ∈ like.table.kind && :dec_dr2 ∈ like.table.kind
-        ll += logpdf(dist_dr2, μ_dr2)
-    else
-        if :ra_dr2 ∈ like.table.kind
-            μ, Σ = params(dist_dr2)
-            ll += logpdf(Normal(μ[1], sqrt(Σ[1,1])), μ_dr2[1])
-        end
-        if :dec_dr2 ∈ like.table.kind
-            μ, Σ = params(dist_dr2)
-            ll += logpdf(Normal(μ[2], sqrt(Σ[2,2])), μ_dr2[2])
-        end
-    end
-    if :ra_dr32 ∈ like.table.kind && :dec_dr32 ∈ like.table.kind
-        ll += logpdf(dist_dr32, μ_dr32)
-    else
-        if :ra_dr32 ∈ like.table.kind
-            μ, Σ = params(dist_dr32)
-            ll += logpdf(Normal(μ[1], sqrt(Σ[1,1])), μ_dr32[1])
-        end
-        if :dec_dr32 ∈ like.table.kind
-            μ, Σ = params(dist_dr32)
-            ll += logpdf(Normal(μ[2], sqrt(Σ[2,2])), μ_dr32[2])
-        end
-    end
-    if :ra_dr3 ∈ like.table.kind && :dec_dr3 ∈ like.table.kind
-        ll += logpdf(dist_dr3, μ_dr3)
-    else
-        if :ra_dr3 ∈ like.table.kind
-            μ, Σ = params(dist_dr3)
-            ll += logpdf(Normal(μ[1], sqrt(Σ[1,1])), μ_dr3[1])
-        end
-        if :dec_dr3 ∈ like.table.kind
-            μ, Σ = params(dist_dr3)
-            ll += logpdf(Normal(μ[2], sqrt(Σ[2,2])), μ_dr3[2])
-        end
+    if n_components == 0
+        # No data to compare
+        return ll
     end
 
-    # UEVA: EAN/RUWE
-    if :ueva_dr3 ∈ like.table.kind
-        if !isfinite(UEVA_unc) || UEVA_unc <= eps()
-            ll = -Inf
-        else
-            try
-                ll += logpdf(Normal(μ_1_3, UEVA_unc), UEVA_model)
-            catch
-                @error "Invalid" μ_1_3 UEVA_unc UEVA_model
-                error("invalid values encountered")
-            end
-        end
+    # Extract catalog parameters
+    μ_h_cat, Σ_h = params(dist_hip)
+    μ_hg_cat, Σ_hg = params(dist_hg)
+    μ_dr2_cat, Σ_dr2 = params(dist_dr2)
+    μ_dr32_cat, Σ_dr32 = params(dist_dr32)
+    μ_dr3_cat, Σ_dr3 = params(dist_dr3)
+    Σ_h = SMatrix{2, 2, Float64, 4}(Σ_h)
+    Σ_hg = SMatrix{2, 2, Float64, 4}(Σ_hg)
+    Σ_dr2 = SMatrix{2, 2, Float64, 4}(Σ_dr2)
+    Σ_dr32 = SMatrix{2, 2, Float64, 4}(Σ_dr32)
+    Σ_dr3 = SMatrix{2, 2, Float64, 4}(Σ_dr3)
+
+    μ_catalog_full = @SVector [
+        μ_h_cat[1], μ_h_cat[2],     # ra_hip, dec_hip
+        μ_hg_cat[1], μ_hg_cat[2],   # ra_hg, dec_hg
+        μ_dr2_cat[1], μ_dr2_cat[2], # ra_dr2, dec_dr2
+        μ_dr32_cat[1], μ_dr32_cat[2], # ra_dr32, dec_dr32
+        μ_dr3_cat[1], μ_dr3_cat[2], # ra_dr3, dec_dr3
+        μ_1_3                       # ueva_dr3 catalog value
+    ]
+
+    μ_model_full = @SVector [
+        μ_h[1], μ_h[2],           # ra_hip, dec_hip
+        μ_hg[1], μ_hg[2],         # ra_hg, dec_hg
+        μ_dr2[1], μ_dr2[2],       # ra_dr2, dec_dr2
+        μ_dr32[1], μ_dr32[2],     # ra_dr32, dec_dr32
+        μ_dr3[1], μ_dr3[2],       # ra_dr3, dec_dr3
+        UEVA_model                # ueva_dr3 model value
+    ]
+
+    # Extract selected components
+    μ_catalog_selected = μ_catalog_full[indices]
+    μ_model_selected = μ_model_full[indices]
+
+    # Build full covariance matrix (11x11)
+    # Initialize with zeros
+    Σ_full = zeros(T, 11, 11)
+
+    # Fill in the block diagonal elements (within-epoch covariances)
+    Σ_full[1:2, 1:2] .= Σ_h     # Hipparcos
+    Σ_full[3:4, 3:4] .= Σ_hg    # HGCA
+    Σ_full[5:6, 5:6] .= Σ_dr2   # DR2
+    Σ_full[7:8, 7:8] .= Σ_dr32  # DR3-DR2
+    Σ_full[9:10, 9:10] .= Σ_dr3 # DR3
+
+    # UEVA variance
+    Σ_full[11, 11] = UEVA_unc^2
+
+    # Add cross-epoch correlations between DR2 and DR3
+    ρ_dr3_dr2 = √(min(n_dr2, n_dr3) / max(n_dr2, n_dr3))
+    
+    # Compute the cross-correlation matrix K
+    K = ρ_dr3_dr2 * sqrt(Σ_dr2) * sqrt(Σ_dr3)'
+    
+    # Fill in the cross-correlation blocks
+    Σ_full[5:6, 9:10] .= K      # DR2 -> DR3
+    Σ_full[9:10, 5:6] .= K'     # DR3 -> DR2 (transpose)
+
+    # Extract the submatrix for selected components
+    Σ_selected = Σ_full[indices, indices]
+
+    # Compute likelihood
+    if n_components == 1
+        # Single component - use univariate normal
+        ll += logpdf(Normal(μ_catalog_selected[1], sqrt(Σ_selected[1,1])), μ_model_selected[1])
+    else
+        # Multiple components - use multivariate normal
+        dist_selected = MvNormal(μ_catalog_selected, Hermitian(Σ_selected))
+        ll += logpdf(dist_selected, μ_model_selected)
     end
 
     return ll
@@ -464,10 +468,15 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
         if length(unique(missed_transits)) < length(missed_transits)
             return nothing
         end
+        # The gaia_table and A_prepared_5_dr3/A_prepared_5_dr2 include all available
+        # visibility windows, not filtered to specifically be DR2 or DR3. 
+        # Here we may further reject some more to marginalize over
+        # unknown missed/rejected transits.
+        # In theory these could be different between DR2 and DR3 but we assume they aren't.
         ii = sort(setdiff(1:length(like.gaia_table.epoch), missed_transits))
         gaia_table = like.gaia_table[ii,:]
-        A_prepared_5_dr3 = like.A_prepared_5_dr3[ii,:]
-        A_prepared_5_dr2 = like.A_prepared_5_dr2[ii,:]
+        A_prepared_5_dr3 = view(like.A_prepared_5_dr3, ii,:)
+        A_prepared_5_dr2 = view(like.A_prepared_5_dr2, ii,:)
     else
         gaia_table = like.gaia_table
         A_prepared_5_dr3 = like.A_prepared_5_dr3
@@ -553,28 +562,28 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
 
         ################################
         # DR2
-        istart = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaia_table.epoch))
-        iend = findlast(<=(meta_gaia_DR2.stop_mjd), vec(gaia_table.epoch))
-        if isnothing(istart)
-            istart = 1
+        istart_dr2 = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaia_table.epoch))
+        iend_dr2 = findlast(<=(meta_gaia_DR2.stop_mjd), vec(gaia_table.epoch))
+        if isnothing(istart_dr2)
+            istart_dr2 = 1
         end
-        if isnothing(iend)
-            iend = length(gaia_table.epoch)
+        if isnothing(iend_dr2)
+            iend_dr2 = length(gaia_table.epoch)
         end
-        Δα_mas = @alloc(T, iend-istart+1); fill!(Δα_mas, 0)
-        Δδ_mas = @alloc(T, iend-istart+1); fill!(Δδ_mas, 0)
+        Δα_mas = @alloc(T, iend_dr2-istart_dr2+1); fill!(Δα_mas, 0)
+        Δδ_mas = @alloc(T, iend_dr2-istart_dr2+1); fill!(Δδ_mas, 0)
         for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
             (;fluxratio) = _getparams(like, θ_planet)
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
-                gaia_table[istart:iend], orbit,
+                view(gaia_table, istart_dr2:iend_dr2), orbit,
                 planet_mass_msol, fluxratio,
                 orbit_solutions[i_planet],
                 -1, T
             )
         end
-        out = fit_5param_prepared(A_prepared_5_dr2[istart:iend,:], gaia_table[istart:iend], Δα_mas, Δδ_mas)
+        out = fit_5param_prepared(view(A_prepared_5_dr2, istart_dr2:iend_dr2,:), view(gaia_table, istart_dr2:iend_dr2), Δα_mas, Δδ_mas)
         # out = fit_4param_prepared(hgca_like.gaialike.A_prepared_4, gaia_table, Δα_mas, Δδ_mas)
         Δα_dr2, Δδ_dr2, Δpmra_dr2, Δpmdec_dr2 = out.parameters
         # Rigorously propagate the linear proper motion component in spherical coordinates
@@ -584,29 +593,29 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
 
         ################################
         # DR3
-        istart = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaia_table.epoch))
-        iend = findlast(<=(meta_gaia_DR3.stop_mjd), vec(gaia_table.epoch))
-        if isnothing(istart)
-            istart = 1
+        istart_dr3 = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaia_table.epoch))
+        iend_dr3 = findlast(<=(meta_gaia_DR3.stop_mjd), vec(gaia_table.epoch))
+        if isnothing(istart_dr3)
+            istart_dr3 = 1
         end
-        if isnothing(iend)
-            iend = length(gaia_table.epoch)
+        if isnothing(iend_dr3)
+            iend_dr3 = length(gaia_table.epoch)
         end
-        Δα_mas = @alloc(T, iend-istart+1); fill!(Δα_mas, 0)
-        Δδ_mas = @alloc(T, iend-istart+1); fill!(Δδ_mas, 0)
+        Δα_mas = @alloc(T, iend_dr3-istart_dr3+1); fill!(Δα_mas, 0)
+        Δδ_mas = @alloc(T, iend_dr3-istart_dr3+1); fill!(Δδ_mas, 0)
         for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
             (;fluxratio) = _getparams(like, θ_planet)
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
-                gaia_table[istart:iend], orbit,
+                view(gaia_table, istart_dr3:iend_dr3), orbit,
                 planet_mass_msol, fluxratio,
                 orbit_solutions[i_planet],
                 -1, T,
             )
         end
 
-        out_dr3 = fit_5param_prepared(A_prepared_5_dr3[istart:iend,:], gaia_table[istart:iend], Δα_mas, Δδ_mas, 0.0, σ_formal; include_chi2=Val(true))
+        out_dr3 = fit_5param_prepared(view(A_prepared_5_dr3, istart_dr3:iend_dr3,:), view(gaia_table, istart_dr3:iend_dr3), Δα_mas, Δδ_mas, 0.0, σ_formal; include_chi2=Val(true))
         Δα_dr3, Δδ_dr3, Δpmra_dr3, Δpmdec_dr3 = out_dr3.parameters
         # Rigorously propagate the linear proper motion component in spherical coordinates
         # Account for within-gaia differential light travel time 
@@ -673,6 +682,33 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
         μ_hg = @SVector [pmra_hg_model, pmdec_hg_model]
         μ_dr32 = @SVector [pmra_dr32_model, pmdec_dr32_model]
 
+        # A_dr2 = A_prepared_5_dr2[istart_dr2:iend_dr2,:]
+        # A_dr3 = A_prepared_5_dr3[istart_dr3:iend_dr3,:]
+
+        # pinv_dr2 = inv(A_dr2' * A_dr2) * A_dr2'
+        # pinv_dr3 = inv(A_dr3' * A_dr3) * A_dr3'
+
+        # # TODO: I think the assumed noise doesn't matter 
+        # σ² = 1.0 # we probably just have to assume it's the same between datasets
+
+        # # Individual covariances
+        # cov_x_dr2 = σ² * inv(A_dr2' * A_dr2)
+        # cov_x_dr3 = σ² * inv(A_dr3' * A_dr3)
+
+        # # @show cov_x_dr2 cov_x_dr3
+
+        # # Cross-covariance (A_dr3 contains A_dr2)
+        # # TODO: assumes DR2 shorter than DR3, and DR2 in first N slots of DR3 (not always true for odd solutions)
+        # n_dr2 = size(A_dr2, 1)
+        # cov_noise = σ² * I(size(A_dr3, 1))
+        # cov_x_dr2_x_dr3 = pinv_dr2 * cov_noise[1:n_dr2, :] * pinv_dr3'
+
+        # # Full covariance matrix
+        # Σ_dr2_dr3 = [
+        #     cov_x_dr2           cov_x_dr2_x_dr3
+        #     cov_x_dr2_x_dr3'    cov_x_dr3
+        # ]
+
 
         ##############################
         # DR3 UEVA calculation
@@ -726,6 +762,13 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
 
     end
 
+    # # for data simulation purposes, here is an estimate of what these parameters would produce for RUWE
+    # # given everything we know about the gaia uncertainties etc.
+    # # Given: UEVA, u0, σ_formal, calculate ruwe
+    # # u0 = 1/ruwe_dr3*sqrt(astrometric_chi2_al_dr3/(astrometric_n_good_obs_al_dr3-gaia_n_dof))
+    # # UEVA = ruwe_dr3^2 * u0^2 * σ_formal^2
+    # # UEVA/( u0^2 * σ_formal^2) = ruwe_dr3^2
+    # ruwe_dr3 = sqrt(UEVA_model/( u0^2 * σ_formal^2))
     
     return (;
 
@@ -741,6 +784,10 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
         μ_dr32,
         μ_dr3,
 
+        n_dr3 = iend_dr3 - istart_dr3 + 1,
+        n_dr2 = iend_dr2 - istart_dr2 + 1,
+
+
         # Individual
         # TODO: get rid of these
         pmra_hip_model=μ_h[1],
@@ -754,7 +801,6 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
         pmra_dr3_model=μ_dr3[1],
         pmdec_dr3_model=μ_dr3[2],
 
-        
 
     )
 end
@@ -767,35 +813,6 @@ function generate_from_params(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_plan
     sim = simulate(like, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3) = sim  
 
-    # Get epochs and uncertainties from observations
-    epoch = like.table.epoch
-
-    if hasproperty(like.table, :pa) && hasproperty(like.table, :sep)
-
-        σ_sep = like.table.σ_sep 
-        σ_pa = like.table.σ_pa
-
-        # Generate now astrometry data
-        sep = projectedseparation.(orbit, epoch)
-        pa = posangle.(orbit, epoch)
-        if hasproperty(like.table, :cov)
-            astrometry_table = Table(;epoch, sep, pa, σ_sep, σ_pa, like.table.cov)
-        else
-            astrometry_table = Table(;epoch, sep, pa, σ_sep, σ_pa)
-        end
-    else
-        σ_ra = like.table.σ_ra 
-        σ_dec = like.table.σ_dec
-
-        # Generate now astrometry data
-        ra = raoff.(orbit, epoch)
-        dec = decoff.(orbit, epoch)
-        if hasproperty(like.table, :cov)
-            astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec, like.table.cov)
-        else
-            astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec)
-        end
-    end
-
+    error("Simulating GaiaHipparcosUEVAJointLikelihood_v2 not implemented yet")
     return PlanetRelAstromLikelihood(astrometry_table)
 end
