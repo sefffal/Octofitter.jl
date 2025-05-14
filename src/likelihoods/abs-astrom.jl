@@ -270,6 +270,33 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
             catalog.epoch_dec_dr3,
             (catalog.epoch_dec_dr3+catalog.epoch_dec_dr2)/2,
         ],
+        # TODO:
+        start_epoch=[
+            isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
+            isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
+            isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
+            isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
+            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR2.start_mjd)]),
+            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR2.start_mjd)]),
+            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR2.start_mjd)]),
+            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR2.start_mjd)]),
+            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR3.start_mjd)]),
+            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR3.start_mjd)]),
+            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR3.start_mjd)]),
+        ],
+        stop_epoch=[
+            isnothing(hip_like) ? 0 : maximum(hip_table.epoch),
+            isnothing(hip_like) ? 0 : maximum(hip_table.epoch),
+            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR2.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR2.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
+        ],
         kind=[
             :ra_hip
             :dec_hip
@@ -286,8 +313,7 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
 
     )
     if isempty(hip_table)
-        splice!(table.epoch, 1:4)
-        splice!(table.kind, 1:4)
+        splice!(table, 1:4)
     end
     
     return GaiaHipparcosUEVAJointLikelihood_v2{
@@ -410,8 +436,8 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, o
     end
 
     # Extract catalog parameters
-    μ_h_cat, Σ_h = params(dist_hip)
-    μ_hg_cat, Σ_hg = params(dist_hg)
+    μ_h_cat, Σ_h = isnothing(dist_hip) ? (@SVector[0.,0.], @SMatrix zeros(2,2)) : params(dist_hip) 
+    μ_hg_cat, Σ_hg = isnothing(dist_hg) ? (@SVector[0.,0.], @SMatrix zeros(2,2)) : params(dist_hg) 
     μ_dr2_cat, Σ_dr2 = params(dist_dr2)
     μ_dr32_cat, Σ_dr32 = params(dist_dr32)
     μ_dr3_cat, Σ_dr3 = params(dist_dr3)
