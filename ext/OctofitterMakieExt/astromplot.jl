@@ -13,8 +13,9 @@ function Octofitter.astromplot(
     kwargs...
 )
     fig = Figure(; size=(700,600), figure...)
-    Octofitter.astromplot!(fig.layout, model, results, args...; kwargs...)
-
+    update(fig) do fig
+        Octofitter.astromplot!(fig.layout, model, results, args...; kwargs...)
+    end
     Makie.save(fname, fig, px_per_unit=3)
 
     return fig
