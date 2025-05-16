@@ -197,50 +197,6 @@ function initialize!(rng::Random.AbstractRNG,
 end
 
 
-"""
-Extract fixed parameters from a partial named tuple and return their values and indices.
-"""
-function extract_fixed_params(model, partial_nt)
-    # Create dummy parameter array to construct full named tuple
-    dummy_params = model.sample_priors(Random.default_rng())
-    full_nt = model.arr2nt(dummy_params)
-    
-    fixed_values = Float64[]
-    fixed_indices = Int[]
-    
-    function process_tuple!(current_partial, current_full, path="")
-        for name in propertynames(current_partial)
-            if !hasproperty(current_full, name)
-                @warn "Parameter $name at $path not found in model parameters"
-                continue
-            end
-            
-            val = getproperty(current_partial, name)
-            full_val = getproperty(current_full, name)
-            
-            if val isa NamedTuple
-                # Recursive case: nested named tuple
-                process_tuple!(val, full_val, path * "." * String(name))
-            else
-                # Find index in the flat array using sentinel values
-                sentinel_value = full_val
-                sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
-                
-                if sentinal_idx !== nothing
-                    push!(fixed_values, val)
-                    push!(fixed_indices, sentinal_idx)
-                else
-                    error("Could not find parameter $name in model priors. Is it a free parameter in your model? Derived parameters (`x = ...`) cannot be set directly, only sampled parameters (`x ~ ...`). `UniformCircular()` values also cannot be specified manually, change them to be `Uniform(0,2pi)`")
-                end
-            end
-        end
-    end
-    
-    # Start processing
-    process_tuple!(partial_nt, full_nt)
-    
-    return fixed_values, fixed_indices
-end
 
 """
 Sample from priors with fixed parameters.
@@ -682,3 +638,5 @@ end
 
 default_initializer! = initialize!
 export initialize!
+
+
