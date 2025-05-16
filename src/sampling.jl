@@ -177,12 +177,18 @@ Base.@nospecializeinfer function advancedhmc(
     # inialize if not already done or set by user
     get_starting_point!!(model)
 
-    local metric
-    try
-        # This can fail, triggering an exception
-        S =  (cov(SimpleCovariance(), stack(model.starting_points)'))
-        metric = DenseEuclideanMetric(S)
-    catch err
+    local metric = nothing
+    for diag_eps in [0; 10.0 .^ range(-8, 0)]
+        try
+            # This can fail, triggering an exception
+            S =  (cov(SimpleCovariance(), stack(model.starting_points)'))
+            metric = DenseEuclideanMetric(S .+ Diagonal(diag_eps .+ ones(model.D)))
+            break
+        catch err
+            continue
+        end
+    end
+    if isnothing(metric)
         verbosity > 1 && @warn("Falling back to initializing the diagonals with the prior interquartile ranges.")
         # We already sampled from the priors earlier to get the starting positon.
         # Use those variance estimates and transform them into the unconstrainted space.
