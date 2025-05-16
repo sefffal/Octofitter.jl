@@ -77,7 +77,7 @@ function Octofitter.octoplot!(
         rand(1:size(results, 1)*size(results, 3),N)
     ),
     # The user can of course just override the above directly.
-    colormap=Makie.cgrad(:plasma,rev=true),
+    colormap=Makie.cgrad([Makie.wong_colors()[1], "#FAFAFA"]),
     alpha=min.(1, 100 / length(ii)),
     figscale=0.6,
     colorbar = true,
