@@ -34,7 +34,9 @@ function Octofitter.astromplot!(
         rand(1:size(results, 1)*size(results, 3),N)
     ),
     axis=(;),
-    colormap=:plasma,
+    colormap=Makie.cgrad([Makie.wong_colors()[1], "#DDDDDD"]),
+    colormap_instruments=Makie.cgrad(:Egypt,categorical=true),
+    colormap_epochs=Makie.cgrad(:Lakota,categorical=true),
     colorbar=true,
     mark_epochs_mjd=Float64[],
     alpha=min.(1, 100 / length(ii)),
@@ -311,7 +313,7 @@ function Octofitter.astromplot!(
             if n_rel_astrom == 1
                 color = :white
             else
-                color = Makie.wong_colors()[mod1(i_like_obj,end)]
+                color = colormap_instruments[mod1(i_like_obj,end)]
             end
             Makie.scatter!(
                 ax,
@@ -346,7 +348,7 @@ function Octofitter.astromplot!(
     if show_instrument_names && n_rel_astrom > 1
         row_i += 1
         elements = [
-            MarkerElement(marker=:circle ,color=Makie.wong_colors()[mod1(i,end)],strokewidth=1,strokecolor=:black)
+            MarkerElement(marker=:circle ,color=colormap_instruments[mod1(i,end)],strokewidth=1,strokecolor=:black)
             for i in 1:n_rel_astrom
         ]
         Legend(
@@ -384,7 +386,7 @@ function Octofitter.astromplot!(
             epoch_mjd = mark_epochs_mjd[i]
             for (i_planet, planet_key) in enumerate(keys(model.system.planets))
                 orbs = Octofitter.construct_elements(model, results, planet_key, ii)
-                color = Makie.wong_colors()[mod1(i,end)]
+                color = colormap_epochs[mod1(i,end)]
                 sols = orbitsolve.(orbs, epoch_mjd)
                 kwargs = (;)
                 if i_planet == 1
@@ -402,6 +404,13 @@ function Octofitter.astromplot!(
                     strokecolor=(:black,alpha),
                     kwargs...
                 )
+
+                println("planet $planet_key astometry\t $epoch_mjd [MJD]")
+                @printf("\traoff:\t%.4g ± %.4g [mas]\n", mean(vec(raoff.(sols))), std(vec(raoff.(sols))))
+                @printf("\tdecoff:\t%.4g ± %.4g [mas]\n", mean(vec(decoff.(sols))), std(vec(decoff.(sols))))
+                @printf("\tsep:\t%.4g ± %.4g [mas]\n", mean(vec(projectedseparation.(sols))), std(vec(projectedseparation.(sols))))
+                @printf("\tpa:\t%.4g ± %.4g [deg]\n", mean(vec(rad2deg.(posangle.(sols)))), std(vec(rad2deg.(posangle.(sols)))))
+                println()
             end
         end
        
@@ -475,7 +484,8 @@ function physorbplot!(
         rand(1:size(results, 1)*size(results, 3),N)
     ),
     axis=(;),
-    colormap=:plasma,
+    colormap=Makie.cgrad([Makie.wong_colors()[1], "#DDDDDD"]),
+    colormap_epochs=Makie.cgrad(:Lakota,categorical=true),
     colorbar=true,
     mark_epochs_mjd=Float64[],
     alpha=min.(1, 100 / length(ii)),
@@ -581,8 +591,8 @@ function physorbplot!(
         for i in eachindex(mark_epochs_mjd)
             epoch_mjd = mark_epochs_mjd[i]
             for planet_key in keys(model.system.planets)
-                orbs = Octofitter.construct_elements(model, results, planet_key, ii)
-                color = Makie.wong_colors()[mod1(i,end)]
+                orbs = Octofitter.construct_elements(model, results, planet_key, ii)                
+                color = colormap_epochs[mod1(i,end)]
                 sols = orbitsolve.(orbs, epoch_mjd)
                 Makie.scatter!(
                     ax,
