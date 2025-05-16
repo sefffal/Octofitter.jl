@@ -637,6 +637,12 @@ function optimization_and_pathfinder_with_fixed(
             @info "Found sample of initial positions" logpost_range=extrema(logposts) mean_logpost=mean(logposts)
         end
     end
+
+    # Ensure discrete variables are still discrete (not promited to Float64)
+    s = model.sample_priors(rng)
+    model.starting_points = map(model.starting_points) do θ
+        convert.(typeof.(s), θ)
+    end
     
     return logposts
 end
