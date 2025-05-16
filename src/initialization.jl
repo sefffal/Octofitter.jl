@@ -170,8 +170,12 @@ function initialize!(rng::Random.AbstractRNG,
             logposts = fill(bestlogpost, ndraws)
         else
             # Optimize continuous parameters while keeping discrete and fixed parameters constant
-            combined_fixed_indices = union(fixed_indices, discrete_indices)
-            combined_fixed_values = vcat(fixed_values, bestparams[discrete_indices])
+            # De-duplicate in cases where we have *fixed* values provided for discrete variables
+            combined_fixed_indices = vcat(discrete_indices, fixed_indices)
+            combined_fixed_values = vcat(bestparams[discrete_indices], fixed_values)
+            d = Dict(zip(combined_fixed_indices,combined_fixed_values))
+            combined_fixed_indices = sort(collect(keys(d)))
+            combined_fixed_values = map(k->getindex(d,k), combined_fixed_indices)
             
             # bestparams, bestlogpost = optimize_continuous_params(
             #     rng, model, bestparams, combined_fixed_values, combined_fixed_indices, continuous_indices;
@@ -284,7 +288,7 @@ function extract_fixed_params(model, partial_nt)
                     push!(fixed_values, val)
                     push!(fixed_indices, sentinal_idx)
                 else
-                    @warn "Could not locate parameter $name at $path in flat array"
+                    error("Could not find parameter $name in model. You can only provide free parameters (e.g `x ~ ...`) and not derived parameters (e.g. `x = `). You also cannot provide values for variables that are e.g. `Ω ~ UniformCircular()`. You can instead supply `Ωx` and `Ωy`, or replace the distribution with `Uniform(0,2pi)`.")
                 end
             end
         end
