@@ -92,7 +92,7 @@ macro planet(args...)
     quoted_vals_escaped = quoted_vals_escaped[ii]
     return quote
         $(esc(name)) = (function($(quote_vars...))
-            return $Planet{$orbit_type}(
+            return $Planet{$(esc(orbit_type))}(
                 $Variables(;$(variables...))...,
                 $((esc(o) for o in likelihoods)...);
                 name=$(Meta.quot(name))
