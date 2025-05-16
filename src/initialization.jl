@@ -204,59 +204,6 @@ end
 
 
 """
-Sample from priors with fixed parameters.
-"""
-function guess_starting_position_with_fixed(
-    rng, model, fixed_values, fixed_indices, discrete_indices=Int[];
-    N=10_000, 
-)
-    # Sample parameters with fixed values inserted
-    function sample_with_fixed()
-        params = model.sample_priors(rng)
-        # Insert fixed values
-        for (i, idx) in enumerate(fixed_indices)
-            params[idx] = fixed_values[i]
-        end
-        return params
-    end
-    
-    # If we only care about discrete indices beyond the fixed ones
-    function sample_with_fixed_and_discrete()
-        params = collect(model.sample_priors(rng))
-        # Insert fixed values
-        for (i, idx) in enumerate(fixed_indices)
-            params[idx] = fixed_values[i]
-        end
-        # Only keep the discrete parameters we care about
-        # (the rest will be overwritten during optimization)
-        return params
-    end
-    
-    # Choose the appropriate sampling function
-    sample_fn = isempty(discrete_indices) ? sample_with_fixed : sample_with_fixed_and_discrete
-    
-    # Initialize with a valid sample
-    bestparams = sample_fn()
-    params_t = model.link(bestparams)
-    bestlogpost = model.ℓπcallback(params_t)
-    
-    # Sample and keep the best
-    for _ in 1:N
-        params = sample_fn()
-        params_t = model.link(params)
-        logpost = model.ℓπcallback(params_t)
-        
-       
-        
-        if logpost > bestlogpost
-            bestlogpost = logpost
-            bestparams = params
-        end
-    end
-    
-    return bestparams, bestlogpost
-end
-"""
 Extract fixed parameters from a partial named tuple and return their values and indices.
 """
 function extract_fixed_params(model, partial_nt)
