@@ -57,6 +57,10 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple,jitter,platescale,nort
         if hasproperty(table, :cor)
             cor = table.cor
 
+            if any(abs.(cor) .> 1 - 1e-5)
+                error("Correlation values may not be well-specified: $cor")
+            end
+
             precomputed_pointwise_distributions = broadcast(σ₁, σ₂, cor) do σ₁, σ₂, cor
                 Σ = @SArray[
                     σ₁^2        cor*σ₁*σ₂
