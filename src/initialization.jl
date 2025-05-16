@@ -82,135 +82,8 @@ end
 
 using OptimizationOptimJL, OptimizationBBO
 
-"""
-    default_initializer!(model::LogDensityModel; initial_samples=100_000)
 
-Prepare a set of possible starting points for a given LogDensityModel.
-Use multi-pathfinder (Pathfinder.jl) to optimize and fit a variational approximation.
-If this fails repeatedly, simply draw `initial_samples` from the prior and keeping
-`ndraws` samples with the highest posterior density.
-"""
-function default_initializer!(model::LogDensityModel; kwargs...)
-    return default_initializer!(Random.default_rng(), model; kwargs...)
-end
 _gradorder(::LogDensityProblems.LogDensityOrder{K}) where K = K
-# function default_initializer!(rng::Random.AbstractRNG, model::LogDensityModel; nruns=8, ntries=2, ndraws=1000, verbosity=1)
-#     order = _gradorder(LogDensityProblems.capabilities(model))
-#     if order == 0
-#         # Have to just guess by sampling
-#         bestparams, bestlogpost = guess_starting_position(rng, model)
-#         model.starting_points = fill(model.link(bestparams),ndraws)
-#         logposts = fill(bestlogpost,ndraws)
-#     else
-#         # Can use global optimization followed by pathfinder
-#         logposts = optimization_and_pathfinder_based_initializer(rng, model; nruns, ntries, ndraws, verbosity)
-#     end
-#     return model.arr2nt(model.invlink(model.starting_points[argmax(logposts)]))
-# end
-
-# function optimization_and_pathfinder_based_initializer(rng, model; nruns=8, ntries=2, ndraws=1000, verbosity=1)
-#     # Pathfinder (and especially multipathfinder) do not work well with global optimization methods.
-#     # Instead, we do a two-step process. 
-#     # Find the global MAP point, then initialize multi-pathfinder in Gaussian ball around that point.
-#     verbosity > 0 && @info "Performing a global optimization to search for a starting position, bounded to the 0.1% to 99.9% percentiles of the priors."
-
-#     priors = Octofitter._list_priors(model.system)
-#     lb = model.link(quantile.(priors,0.001))
-#     ub = model.link(quantile.(priors,0.999))
-#     f = OptimizationFunction(
-#         (u,p)->-p.ℓπcallback(u),
-#         grad=(G,u,p)->(G .= p.∇ℓπcallback(u)[2])
-#     )
-#     prob = Optimization.OptimizationProblem(f, model.link(model.sample(rng)), model; lb, ub)
-#     Random.seed!(rand(rng, UInt64))
-#     sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters = 1_000_000, )
-    
-#     model.starting_points = fill(sol.u, 1000)
-#     initial_logpost_range = (-sol.objective, -sol.objective)
-#     if verbosity > 1
-#         @info "Found the global maximum logpost" MAP=-sol.objective
-#     end
-
-#     # TODO: we don't really need to use pathfinder in this case, we should look into
-#     # more rigourous variational methods
-#     local result_pf = nothing
-#     verbosity >= 1 && @info "Determining initial positions using pathfinder, around that location."
-#     # It can sometimes hit a PosDefException sometimes when factoring a matrix.
-#     # When that happens, the next try usually succeeds.
-#     try
-#         for i in 1:ntries
-#             verbosity >= 3 && @info "Starting multipathfinder run"
-#             init_sampler = function(rng, x)
-#                 for _ in 1:10
-#                     # take a random step away from the MAP value according to the gradient
-#                     x .= sol.u -0.1 .* rand.(rng) .* model.∇ℓπcallback(sol.u)[2] 
-#                     if all(lb .< x .< ub) && isfinite(model.ℓπcallback(x))
-#                         return
-#                     end
-#                 end
-#                 error("Within pathfinder, could not find a finite starting point within 0.001 - 0.999 quantiles of priors.")
-#             end
-#             errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Info : Logging.Error)
-#             initial_mt = _kepsolve_use_threads[]
-#             _kepsolve_use_threads[] = nruns == 1
-#             result_pf = with_logger(errlogger) do 
-#                 result_pf = Pathfinder.multipathfinder(
-#                     model, ndraws;
-#                     nruns,
-#                     init_sampler,
-#                     progress=verbosity > 1,
-#                     maxiters=25_000,
-#                     reltol=1e-6,
-#                     rng=rng,
-#                     ntries=1,
-#                     executor=Pathfinder.Transducers.PreferParallel(),
-#                     optimizer=Pathfinder.Optim.BFGS(;
-#                         linesearch=Pathfinder.Optim.LineSearches.BackTracking(),
-#                         alphaguess=Pathfinder.Optim.LineSearches.InitialHagerZhang()
-#                     )
-#                 ) 
-#                 return result_pf
-#             end
-#             _kepsolve_use_threads[] = initial_mt
-#             # Check pareto shape diagnostic to see if we have a good approximation
-#             # If we don't, just try again
-#             if result_pf.psis_result.pareto_shape > 3
-#                 verbosity > 3 && display(result_pf)
-#                 verbosity >= 4 && display(result_pf.psis_result)
-#                 i<ntries && verbosity > 2 && @warn "Restarting pathfinder" i
-#                 continue
-#             end
-            
-#             verbosity >= 3 && "Pathfinder complete"
-#             verbosity > 2 &&  display(result_pf)
-#             break
-#         end
-#     catch err
-#         @warn err
-#     end
-
-#     if !isnothing(result_pf)
-#         model.starting_points = collect.(eachcol(result_pf.draws))
-#     end
-#     logposts = model.ℓπcallback.(model.starting_points)
-#     initial_logpost_range = extrema(logposts)
-
-#     if initial_logpost_range[2] < -sol.objective - 10 
-#         if verbosity >= 1
-#             @warn "Pathfinder produced samples with log-likelihood 10 worse than global max. Will just initialize at global max."
-#         end
-#         model.starting_points = fill(sol.u, 1000)
-#         logposts = fill(-sol.objective, 1000)
-#         initial_logpost_range = (-sol.objective, -sol.objective)
-#     else
-#         if verbosity >= 1
-#             @info "Found a sample of initial positions" initial_logpost_range
-#         end
-#     end
-
-#     return logposts
-# end
-
 
 # Helper function for testing that the pathfinder initialization gives reasonable results
 function _startingpoints2chain(model)
@@ -291,20 +164,27 @@ function default_initializer!(rng::Random.AbstractRNG,
         )
         
         # 2. If we have continuous parameters, optimize them
-        if !isempty(continuous_indices)
+        if isempty(continuous_indices)
+            # Store the results
+            model.starting_points = fill(model.link(bestparams), ndraws)
+            logposts = fill(bestlogpost, ndraws)
+        else
             # Optimize continuous parameters while keeping discrete and fixed parameters constant
             combined_fixed_indices = union(fixed_indices, discrete_indices)
             combined_fixed_values = vcat(fixed_values, bestparams[discrete_indices])
             
-            bestparams, bestlogpost = optimize_continuous_params(
-                rng, model, bestparams, combined_fixed_values, combined_fixed_indices, continuous_indices;
-                verbosity
+            # bestparams, bestlogpost = optimize_continuous_params(
+            #     rng, model, bestparams, combined_fixed_values, combined_fixed_indices, continuous_indices;
+            #     verbosity
+            # )
+
+            logposts = optimization_and_pathfinder_with_fixed(
+                rng, model, combined_fixed_values, combined_fixed_indices, variable_indices;
+                nruns, ntries, ndraws, verbosity
             )
         end
         
-        # Store the results
-        model.starting_points = fill(model.link(bestparams), ndraws)
-        logposts = fill(bestlogpost, ndraws)
+        
     else
         # Can use global optimization followed by pathfinder
         logposts = optimization_and_pathfinder_with_fixed(
@@ -367,7 +247,7 @@ Sample from priors with fixed parameters.
 """
 function guess_starting_position_with_fixed(
     rng, model, fixed_values, fixed_indices, discrete_indices=Int[];
-    N=10_000, enable_ofti=true
+    N=10_000, 
 )
     # Sample parameters with fixed values inserted
     function sample_with_fixed()
@@ -381,7 +261,7 @@ function guess_starting_position_with_fixed(
     
     # If we only care about discrete indices beyond the fixed ones
     function sample_with_fixed_and_discrete()
-        params = model.sample_priors(rng)
+        params = collect(model.sample_priors(rng))
         # Insert fixed values
         for (i, idx) in enumerate(fixed_indices)
             params[idx] = fixed_values[i]
@@ -405,20 +285,7 @@ function guess_starting_position_with_fixed(
         params_t = model.link(params)
         logpost = model.ℓπcallback(params_t)
         
-        # Optionally try an OFTI step
-        if enable_ofti
-            params_ofti = ofti_step(rng, model, params)
-            # Make sure fixed values remain fixed
-            for (i, idx) in enumerate(fixed_indices)
-                params_ofti[idx] = fixed_values[i]
-            end
-            params_ofti_t = model.link(params_ofti)
-            logpost_ofti = model.ℓπcallback(params_ofti_t)
-            if logpost_ofti > logpost
-                logpost = logpost_ofti
-                params = params_ofti
-            end
-        end
+       
         
         if logpost > bestlogpost
             bestlogpost = logpost
@@ -512,92 +379,6 @@ function guess_starting_position_with_fixed(
 end
 
 """
-Optimize continuous parameters while keeping discrete and fixed parameters constant.
-"""
-function optimize_continuous_params(
-    rng, model, initial_params, fixed_values, fixed_indices, continuous_indices;
-    verbosity=1
-)
-    # Create a mapping function to go from reduced space to full space
-    function reduced_to_full(reduced_params)
-        full_params = copy(initial_params)
-        # Fill in the continuous parameters
-        for (i, idx) in enumerate(continuous_indices)
-            full_params[idx] = reduced_params[i]
-        end
-        # Ensure fixed parameters stay fixed
-        for (i, idx) in enumerate(fixed_indices)
-            full_params[idx] = fixed_values[i]
-        end
-        return full_params
-    end
-    
-    # Create wrapper callbacks for reduced parameter space
-    function reduced_ℓπcallback(reduced_params)
-        full_params = reduced_to_full(reduced_params)
-        transformed = model.link(full_params)
-        return model.ℓπcallback(transformed)
-    end
-    
-    function reduced_∇ℓπcallback(reduced_params)
-        full_params = reduced_to_full(reduced_params)
-        transformed = model.link(full_params)
-        
-        # Get full gradient
-        logpost, full_grad = model.∇ℓπcallback(transformed)
-        
-        # Extract only the components for continuous parameters
-        reduced_grad = zeros(length(continuous_indices))
-        for (i, idx) in enumerate(continuous_indices)
-            reduced_grad[i] = full_grad[idx]
-        end
-        
-        return logpost, reduced_grad
-    end
-    
-    # Extract initial values for continuous parameters
-    reduced_initial = initial_params[continuous_indices]
-    
-    # Create reduced optimization problem
-    f = OptimizationFunction(
-        (u, p) -> -reduced_ℓπcallback(u),
-        grad = (G, u, p) -> begin
-            _, grad = reduced_∇ℓπcallback(u)
-            G .= -grad  # Negate for minimization
-        end
-    )
-    
-    # Get prior bounds for continuous parameters
-    priors = Octofitter._list_priors(model.system)
-    lb_full = model.link([eltype(p) <: Integer ? NaN : quantile(p, 0.001) for p in priors])
-    ub_full = model.link([eltype(p) <: Integer ? NaN : quantile(p, 0.999) for p in priors])
-    
-    # Extract bounds for continuous parameters
-    lb = lb_full[continuous_indices]
-    ub = ub_full[continuous_indices]
-    
-    # Create and solve reduced problem
-    prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
-    Random.seed!(rand(rng, UInt64))
-    
-    if verbosity > 0
-        @info "Optimizing $(length(continuous_indices)) continuous parameters"
-    end
-    
-    sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters=1_000_000)
-    
-    # Convert optimal solution back to full parameter space
-    optimal_params = reduced_to_full(sol.u)
-    optimal_logpost = -sol.objective
-    
-    if verbosity > 0
-        @info "Continuous parameter optimization complete" logpost=optimal_logpost
-    end
-    
-    return optimal_params, optimal_logpost
-end
-
-"""
 Run optimization and pathfinder with fixed parameters.
 """
 function optimization_and_pathfinder_with_fixed(
@@ -607,12 +388,12 @@ function optimization_and_pathfinder_with_fixed(
     # First, identify which parameters are discrete vs continuous
     sample = model.sample_priors(rng)
     discrete_indices = findall(x -> x isa Integer, sample)
-    continuous_indices = findall(x -> x isa AbstractFloat, sample)
+    # continuous_indices = findall(x -> x isa AbstractFloat, sample)
     
     # For BBO: keep all specified parameters fixed
     # For pathfinder: only keep discrete parameters fixed
     discrete_fixed_indices = intersect(fixed_indices, discrete_indices)
-    discrete_fixed_values = fixed_values[indexin(discrete_fixed_indices, fixed_indices)]
+    # discrete_fixed_values = fixed_values[indexin(discrete_fixed_indices, fixed_indices)]
     
     if verbosity > 2
         n_freed = length(setdiff(fixed_indices, discrete_fixed_indices))
@@ -647,50 +428,43 @@ function optimization_and_pathfinder_with_fixed(
         return model.ℓπcallback(full_params)
     end
     
-    function reduced_∇ℓπcallback(reduced_params)
-        full_params = reduced_to_full(reduced_params)
+    # function reduced_∇ℓπcallback(reduced_params)
+    #     full_params = reduced_to_full(reduced_params)
         
-        # Get full gradient
-        logpost, full_grad = model.∇ℓπcallback(full_params)
+    #     # Get full gradient
+    #     logpost, full_grad = model.∇ℓπcallback(full_params)
         
-        # Extract gradient components for variable parameters
-        reduced_grad = full_grad[variable_indices]
+    #     # Extract gradient components for variable parameters
+    #     reduced_grad = full_grad[variable_indices]
         
-        return logpost, reduced_grad
-    end
+    #     return logpost, reduced_grad
+    # end
+
+    # Get prior bounds for continuous parameters
+    samples = stack(model.link.([model.sample_priors(rng) for _ in 1:10000]))
+    lb_full = minimum(samples,dims=2)[:]
+    ub_full = maximum(samples,dims=2)[:]
     
-    # Get bounds for the reduced parameters for BBO
-    priors = Octofitter._list_priors(model.system)
-    lb_full = model.link(quantile.(priors, 0.00001))
-    ub_full = model.link(quantile.(priors, 0.99999))
-    
-    lb = lb_full[variable_indices]
-    ub = ub_full[variable_indices]
+    # Extract bounds for continuous parameters
+    lb = convert(Vector{Float64},lb_full[variable_indices])
+    ub = convert(Vector{Float64},ub_full[variable_indices])
+
+    # Extract initial values for continuous parameters
+    reduced_initial = convert(Vector{Float64}, median(samples,dims=2)[variable_indices])
     
     # Define optimization function for reduced parameters
     f = OptimizationFunction(
         (u, p) -> -reduced_ℓπcallback(u),
-        grad = (G, u, p) -> begin
-            _, grad = reduced_∇ℓπcallback(u)
-            G .= -grad  # Negate for minimization
-        end
+        # grad = (G, u, p) -> begin
+        #     _, grad = reduced_∇ℓπcallback(u)
+        #     G .= -grad  # Negate for minimization
+        # end
     )
     
     if verbosity > 0
-        @info "Performing global optimization. $(length(fixed_indices)) parameters are fixed by the user."
+        @info "Performing global optimization with $(length(fixed_indices)) parameters held fixed."
     end
     
-    # Initial reduced parameters (sample until all are in bounds)
-    local initial
-    for i in 1:100
-        initial = model.link(model.sample_priors(rng))
-        if any(.!(lb_full .< initial .< ub_full))
-            continue
-        else
-            break
-        end
-    end
-    reduced_initial = initial[variable_indices]
     
     # Set up and solve reduced optimization problem
     prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
@@ -735,7 +509,7 @@ function optimization_and_pathfinder_with_fixed(
     end
     
     function pathfinder_reduced_to_full(reduced_params)
-        full_params = zeros(model.D)
+        full_params = zeros(eltype(reduced_params), model.D)
         # Fill in variable parameters (which now include continuous fixed params)
         for (i, idx) in enumerate(pathfinder_variable_indices)
             full_params[idx] = reduced_params[i]
@@ -753,17 +527,19 @@ function optimization_and_pathfinder_with_fixed(
         return model.ℓπcallback(full_params)
     end
     
-    function pathfinder_∇ℓπcallback(reduced_params)
-        full_params = pathfinder_reduced_to_full(reduced_params)
+    # function pathfinder_∇ℓπcallback(reduced_params)
+    #     full_params = pathfinder_reduced_to_full(reduced_params)
         
-        # Get full gradient
-        logpost, full_grad = model.∇ℓπcallback(full_params)
+    #     # Get full gradient
+    #     logpost, full_grad = model.∇ℓπcallback(full_params)
         
-        # Extract gradient components for pathfinder variable parameters
-        reduced_grad = full_grad[pathfinder_variable_indices]
+    #     # Extract gradient components for pathfinder variable parameters
+    #     reduced_grad = full_grad[pathfinder_variable_indices]
         
-        return logpost, reduced_grad
-    end
+    #     return logpost, reduced_grad
+    # end
+
+    autodiff_type(model::LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp,ADType}) where {D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp,ADType} = ADType
     
     # Define optimization function for pathfinder
     pathfinder_f = OptimizationFunction(
@@ -775,10 +551,9 @@ function optimization_and_pathfinder_with_fixed(
             end
             l
         end,
-        grad = (G, u, p) -> begin
-            _, grad = pathfinder_∇ℓπcallback(u)
-            G .= -grad  # Negate for minimization
-        end
+        AutoForwardDiff()
+        # this is because users might pick finitediff for models with discrete variables
+        # but we still want to optimize efficiently here where we've masked out all the discrete variables
     )
     
     # Convert the BBO optimum to pathfinder reduced space
@@ -791,7 +566,7 @@ function optimization_and_pathfinder_with_fixed(
     local result_pf = nothing
     local draws_full = nothing
     
-    try
+    # try
         for i in 1:ntries
             verbosity >= 3 && @info "Starting multipathfinder run with only discrete parameters fixed" free_params=length(pathfinder_variable_indices) fixed_params=length(pathfinder_fixed_indices)
             
@@ -804,8 +579,8 @@ function optimization_and_pathfinder_with_fixed(
                 x = pathfinder_opt
 
                 # take a random step away from the max like solution and aim for a drop in
-                # log like of about 10
-                target_drop=30.0 + 10randn(rng)
+                # log like of about 200
+                target_drop=200.0 + 10randn(rng)
                 max_iter=20
 
                 d = randn(rng, length(x)) # Generate random unit vector
@@ -874,14 +649,15 @@ function optimization_and_pathfinder_with_fixed(
             verbosity > 2 && display(result_pf)
             break
         end
-    catch err
-        @warn "Pathfinder error: $err"
-        @warn "Using BBO result as fallback"
-    end
+    # catch err
+    #     @warn "Pathfinder error: $err"
+    #     @warn "Using BBO result as fallback"
+    # end
     
     # Use pathfinder results if available
     if !isnothing(result_pf) && !isnothing(draws_full)
-        model.starting_points = collect(eachrow(draws_full))
+        verbosity > 2 && @info "Saving starting positions"
+        model.starting_points = collect.(eachrow(draws_full))
     end
     
     # Calculate log posterior for starting points
