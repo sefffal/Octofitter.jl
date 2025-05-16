@@ -68,11 +68,11 @@ end
     θ_transformed = get_starting_point!!(rng=Random.default_rng(), model::LogDensityModel)
 
 Retrieve or generate a starting point for a model. Draws samples from `model.starting_points`.
-If `model.starting_points` has not yet been set, it first runs `Octofitter.default_initializer!(model)`.
+If `model.starting_points` has not yet been set, it first runs `Octofitter.initialize!(model)`.
 """
 function get_starting_point!!(rng::Random.AbstractRNG, model::LogDensityModel)
     if isnothing(model.starting_points)
-        default_initializer!(rng, model)
+        initialize!(rng, model)
     end
     return rand(rng, model.starting_points)
 end
@@ -108,16 +108,16 @@ function identify_param_types(model)
 end
 
 """
-    default_initializer!(model::LogDensityModel, fixed_params=nothing; kwargs...)
+    initialize!(model::LogDensityModel, fixed_params=nothing; kwargs...)
 
 Initialize the model with optional fixed parameters provided as a named tuple.
 Fixed parameters will be held constant during optimization and sampling.
 """
-function default_initializer!(model::LogDensityModel, fixed_params=nothing; kwargs...)
-    return default_initializer!(Random.default_rng(), model, fixed_params; kwargs...)
+function initialize!(model::LogDensityModel, fixed_params=nothing; kwargs...)
+    return initialize!(Random.default_rng(), model, fixed_params; kwargs...)
 end
 
-function default_initializer!(rng::Random.AbstractRNG, 
+function initialize!(rng::Random.AbstractRNG, 
                                        model::LogDensityModel, 
                                        fixed_params=nothing; 
                                        nruns=8, 
@@ -126,7 +126,7 @@ function default_initializer!(rng::Random.AbstractRNG,
                                        verbosity=1)
     # # If no fixed parameters, just call the original initializer
     # if isnothing(fixed_params)
-    #     return default_initializer!(rng, model; nruns, ntries, ndraws, verbosity)
+    #     return initialize!(rng, model; nruns, ntries, ndraws, verbosity)
     # end
     
     # Extract fixed parameters and their indices
@@ -678,3 +678,7 @@ function optimization_and_pathfinder_with_fixed(
     
     return logposts
 end
+
+
+default_initializer! = initialize!
+export initialize!
