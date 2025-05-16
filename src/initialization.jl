@@ -197,7 +197,8 @@ function initialize!(rng::Random.AbstractRNG,
         )
     end
     
-    return model.arr2nt(model.invlink(model.starting_points[argmax(logposts)]))
+    starting_point_chain = _startingpoints2chain(model)
+    return starting_point_chain
 end
 
 
@@ -357,7 +358,7 @@ function optimization_and_pathfinder_with_fixed(
     
     if verbosity > 2
         n_freed = length(setdiff(fixed_indices, discrete_fixed_indices))
-        @info "Parameter fixing strategy" total_fixed=length(fixed_indices) discrete_fixed=length(discrete_fixed_indices) continuous_freed=n_freed
+        @info "Parameter summary" total_fixed=length(fixed_indices) discrete_fixed=length(discrete_fixed_indices) continuous_free=n_freed
     end
     
     # Define conversion functions between reduced and full parameter spaces for BBO
@@ -422,7 +423,7 @@ function optimization_and_pathfinder_with_fixed(
     )
     
     if verbosity > 0
-        @info "Performing global optimization with $(length(fixed_indices)) parameters held fixed."
+        @info "Performing global optimization with $(length(variable_indices)) parameters ($(length(fixed_indices)) parameters held fixed)."
     end
     
     
@@ -447,7 +448,8 @@ function optimization_and_pathfinder_with_fixed(
     end
     
     if verbosity > 1
-        @info "Found global maximum logpost" MAP=initial_logpost opt_full
+        @info "Found global maximum logpost" MAP=initial_logpost
+        println(opt_full)
     end
     
     # -------------------------------------------------------------
