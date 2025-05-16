@@ -285,6 +285,7 @@ function default_initializer!(rng::Random.AbstractRNG,
         end
         
         # 1. Sample discrete parameters and combine with fixed parameters
+        verbosity > 0 && @info "Sampling for starting positions of discrete values"
         bestparams, bestlogpost = guess_starting_position_with_fixed(
             rng, model, fixed_values, fixed_indices, discrete_indices
         )
@@ -366,7 +367,7 @@ Sample from priors with fixed parameters.
 """
 function guess_starting_position_with_fixed(
     rng, model, fixed_values, fixed_indices, discrete_indices=Int[];
-    N=500_000, enable_ofti=true
+    N=10_000, enable_ofti=true
 )
     # Sample parameters with fixed values inserted
     function sample_with_fixed()
@@ -477,7 +478,7 @@ Sample from priors with fixed parameters.
 """
 function guess_starting_position_with_fixed(
     rng, model, fixed_values, fixed_indices, discrete_indices=Int[];
-    N=500_000, 
+    N=10_000, 
 )
     # Sample parameters with fixed values inserted
     function sample_with_fixed()
@@ -568,8 +569,8 @@ function optimize_continuous_params(
     
     # Get prior bounds for continuous parameters
     priors = Octofitter._list_priors(model.system)
-    lb_full = model.link([p isa Discrete ? NaN : quantile(p, 0.001) for p in priors])
-    ub_full = model.link([p isa Discrete ? NaN : quantile(p, 0.999) for p in priors])
+    lb_full = model.link([eltype(p) <: Integer ? NaN : quantile(p, 0.001) for p in priors])
+    ub_full = model.link([eltype(p) <: Integer ? NaN : quantile(p, 0.999) for p in priors])
     
     # Extract bounds for continuous parameters
     lb = lb_full[continuous_indices]

@@ -39,6 +39,8 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple,jitter,platescale,nort
             error("Expected columns $astrom_cols1 or $astrom_cols3")
         end
 
+        ii = sortperm(table.epoch)
+        table = table[ii]
 
         # For data points with a non-zero correlation, we can speed things up slightly
         # by pre-computing the appropriate 2x2 matrix factorizations. 

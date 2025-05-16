@@ -39,6 +39,8 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP,jitter_symbol} <: Octofitter.
             return row
         end
         table = Table(rows)
+        ii = sortperm(table.epoch)
+        table = table[ii]
 
         return new{typeof(table),typeof(gaussian_process),jitter}(table, instrument_name, gaussian_process, jitter)
     end
