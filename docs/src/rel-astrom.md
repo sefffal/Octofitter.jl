@@ -20,6 +20,8 @@ astrom_like = PlanetRelAstromLikelihood(
     (epoch = 50600, ra = -478.1095526888573, dec = 80.53589069730698, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
+
+    instrument_name = "GPI" # optional -- name for this group of data
 )
 ```
 
@@ -51,7 +53,11 @@ Finally we could also load the data from a file somewhere. Here is an example
 of loading a CSV:
 ```julia
 using CSV # must install CSV.jl first
-astrom_like = CSV.read("mydata.csv", PlanetRelAstromLikelihood)
+astrom_data = CSV.read("mydata.csv", Table)
+astrom_like = PlanetRelAstromLikelihood(
+    astrom_data,
+    instrument_name="GPI"
+)
 ```
 
 You can also pass a DataFrame or any other table format.
