@@ -254,8 +254,8 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
     # DR3
     A_prepared_5_dr3 = prepare_A_5param(gaia_table, catalog.epoch_ra_dr3_mjd,  catalog.epoch_dec_dr3_mjd)
 
-    # prepare a table that lists just the main epochs of catalogs we're using. 
-    # we will use this to handle susetting/cross validation
+    # This table serves only for plotting and keeping track of subsetting for cross-validation.
+    # The actual likelihood calculations happen against the prepared linear system matrices above.
     table = Table(
         epoch=[
             catalog.epoch_ra_hip,
@@ -270,7 +270,6 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
             catalog.epoch_dec_dr3,
             (catalog.epoch_dec_dr3+catalog.epoch_dec_dr2)/2,
         ],
-        # TODO:
         start_epoch=[
             isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
             isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
@@ -296,6 +295,32 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
             last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
             last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
             last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
+        ],
+        pm = [
+            catalog.pmra_hip,
+            catalog.pmdec_hip,
+            catalog.pmra_hg,
+            catalog.pmdec_hg, 
+            catalog.pmra_dr2,
+            catalog.pmdec_dr2,
+            catalog.pmra_dr32,
+            catalog.pmdec_dr32,
+            catalog.pmra_dr3,
+            catalog.pmdec_dr3,
+            ueva_mode == :RUWE ? catalog.ruwe_dr3 : catalog.astrometric_excess_noise_dr3
+        ],
+        σ_pm = [
+            catalog.pmra_hip_error,
+            catalog.pmdec_hip_error,
+            catalog.pmra_hg_error,
+            catalog.pmdec_hg_error,
+            catalog.pmra_dr2_error,
+            catalog.pmdec_dr2_error,
+            catalog.pmra_dr32_error,
+            catalog.pmdec_dr32_error,
+            catalog.pmra_dr3_error,
+            catalog.pmdec_dr3_error,
+            NaN
         ],
         kind=[
             :ra_hip
@@ -416,7 +441,7 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, o
 
     # Define the order of all components in our unified system
     # Order: ra_hip, dec_hip, ra_hg, dec_hg, ra_dr2, dec_dr2, ra_dr32, dec_dr32, ra_dr3, dec_dr3, ueva_dr3
-    component_flags = [
+    component_flags = @SVector [
         :ra_hip, :dec_hip,
         :ra_hg, :dec_hg,
         :ra_dr2, :dec_dr2,
@@ -519,19 +544,20 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
     (;σ_att, σ_AL, σ_calib, gaia_n_dof) = θ_system
     σ_formal = sqrt(σ_att^2 + σ_AL^2)
 
+    # The gaia_table and A_prepared_5_dr3/A_prepared_5_dr2 include all available
+    # visibility windows, not filtered to specifically be DR2 or DR3. 
+    # Here we may further reject some more to marginalize over
+    # unknown missed/rejected transits.
+    # In theory these could be different between DR2 and DR3 but we assume they aren't.
     if hasproperty(θ_system, :missed_transits)
         (;missed_transits) =θ_system 
         if eltype(missed_transits) <: AbstractFloat
             missed_transits = Int.(missed_transits)
         end
+        # The list of missed transits must be unique
         if length(unique(missed_transits)) < length(missed_transits)
             return nothing
         end
-        # The gaia_table and A_prepared_5_dr3/A_prepared_5_dr2 include all available
-        # visibility windows, not filtered to specifically be DR2 or DR3. 
-        # Here we may further reject some more to marginalize over
-        # unknown missed/rejected transits.
-        # In theory these could be different between DR2 and DR3 but we assume they aren't.
         ii = sort(setdiff(1:length(like.gaia_table.epoch), missed_transits))
         gaia_table = like.gaia_table[ii,:]
         A_prepared_5_dr3 = view(like.A_prepared_5_dr3, ii,:)
