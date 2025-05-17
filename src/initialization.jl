@@ -217,7 +217,7 @@ function extract_fixed_params(model, partial_nt)
     function process_tuple!(current_partial, current_full, path="")
         for name in propertynames(current_partial)
             if !hasproperty(current_full, name)
-                @warn "Parameter $name at $path not found in model parameters"
+                error("Could not find parameter $name in model. You can only provide free parameters (e.g `x ~ ...`) and not derived parameters (e.g. `x = `). You also cannot provide values for variables that are e.g. `Ω ~ UniformCircular()`. You can instead supply `Ωx` and `Ωy`, or replace the distribution with `Uniform(0,2pi)`.")
                 continue
             end
             
@@ -377,7 +377,7 @@ function optimization_and_pathfinder_with_fixed(
     # Set up and solve reduced optimization problem
     prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
     Random.seed!(rand(rng, UInt64))
-    sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters=1_000_000)
+    sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters=1_000_000, show_trace=verbosity>2, show_every=1000)
 
     verbosity > 2 && display(sol.original)
     
