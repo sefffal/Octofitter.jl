@@ -458,13 +458,17 @@ function make_arr2nt(system::System)
 
     # Deterministic variables for the system
     body_sys_determ = Expr[]
-    if !isnothing(system.derived)
-        for (key,func) in zip(keys(system.derived.variables), values(system.derived.variables))
+    if isnothing(system.derived)
+        push!(body_sys_determ,:(sys = sys0))
+    else
+        for (j,(key,func)) in enumerate(zip(keys(system.derived.variables), values(system.derived.variables)))
             ex = :(
-                sys = (; sys..., $key = $func(sys))
+                $(Symbol("sys$j")) = (; $(Symbol("sys$(j-1)"))..., $key = $func($(Symbol("sys$(j-1)"))))
             )
             push!(body_sys_determ,ex)
         end
+        l = length(keys(system.derived.variables))
+        push!(body_sys_determ,:(sys = $(Symbol("sys$l"))))
     end
 
     # Planets: priors & derived variables
@@ -532,7 +536,7 @@ function make_arr2nt(system::System)
             error("Expected exactly $l elements in array. Got ", length(arr))
         end
         # Expand system variables from priors
-        sys = (;$(body_sys_priors...))
+        sys0 = (;$(body_sys_priors...))
         # Resolve derived system variables
         $(body_sys_determ...)
         # Get resolved planets
