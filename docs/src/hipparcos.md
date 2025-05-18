@@ -47,6 +47,17 @@ end hip_like b
 model = Octofitter.LogDensityModel(c_Eri_straight_line)
 ```
 
+Let's initialize the starting point for the chains to reasonable values
+```@example 1
+initialize!(model, (;
+    plx=34.,
+    pmra=44.25,
+    pmdec=-64.5,
+    ra_hip_offset_mas=0.,
+    dec_hip_offset_mas=0.,
+))
+```
+
 We can now sample from the model using Hamiltonian Monte Carlo. This should only take about 15 seconds.
 ```@example 1
 using Pigeons
