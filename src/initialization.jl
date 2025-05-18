@@ -140,6 +140,7 @@ function initialize!(rng::Random.AbstractRNG,
     all_indices = collect(1:model.D)
     variable_indices = setdiff(all_indices, fixed_indices)
     
+    
     # Check if we have mixed data types
     order = _gradorder(LogDensityProblems.capabilities(model))
     
@@ -360,35 +361,43 @@ function optimization_and_pathfinder_with_fixed(
     # Extract initial values for continuous parameters
     reduced_initial = convert(Vector{Float64}, median(samples,dims=2)[variable_indices])
     
-    # Define optimization function for reduced parameters
-    f = OptimizationFunction(
-        (u, p) -> -reduced_ℓπcallback(u),
-        # grad = (G, u, p) -> begin
-        #     _, grad = reduced_∇ℓπcallback(u)
-        #     G .= -grad  # Negate for minimization
-        # end
-    )
-    
-    if verbosity > 0
-        @info "Performing global optimization with $(length(variable_indices)) parameters ($(length(fixed_indices)) parameters held fixed)."
+    if isempty(reduced_initial)
+        opt_full = reduced_to_full(reduced_initial)
+        model.starting_points = fill(opt_full, ndraws)
+        initial_logpost = model.ℓπcallback(opt_full)
+    else
+
+        # Define optimization function for reduced parameters
+        f = OptimizationFunction(
+            (u, p) -> -reduced_ℓπcallback(u),
+            # grad = (G, u, p) -> begin
+            #     _, grad = reduced_∇ℓπcallback(u)
+            #     G .= -grad  # Negate for minimization
+            # end
+        )
+        
+        if verbosity > 0
+            @info "Performing global optimization with $(length(variable_indices)) parameters ($(length(fixed_indices)) parameters held fixed)."
+        end
+        
+        
+        # Set up and solve reduced optimization problem
+        prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
+        Random.seed!(rand(rng, UInt64))
+        @show reduced_initial
+        sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters=1_000_000, show_trace=verbosity>2, show_every=1000)
+
+        verbosity > 2 && display(sol.original)
+        
+        # Convert solution to full parameter space
+        opt_full = reduced_to_full(sol.u)
+        
+        # Initialize starting points around optimum
+        model.starting_points = fill(opt_full, ndraws)
+        initial_logpost = -sol.objective
+
+        full_params = reduced_to_full(sol.u)
     end
-    
-    
-    # Set up and solve reduced optimization problem
-    prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
-    Random.seed!(rand(rng, UInt64))
-    sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters=1_000_000, show_trace=verbosity>2, show_every=1000)
-
-    verbosity > 2 && display(sol.original)
-    
-    # Convert solution to full parameter space
-    opt_full = reduced_to_full(sol.u)
-    
-    # Initialize starting points around optimum
-    model.starting_points = fill(opt_full, ndraws)
-    initial_logpost = -sol.objective
-
-    full_params = reduced_to_full(sol.u)
 
     if !isfinite(initial_logpost)
         error("Could not find finite starting point")
