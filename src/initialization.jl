@@ -384,7 +384,6 @@ function optimization_and_pathfinder_with_fixed(
         # Set up and solve reduced optimization problem
         prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
         Random.seed!(rand(rng, UInt64))
-        @show reduced_initial
         sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters=1_000_000, show_trace=verbosity>2, show_every=1000)
 
         verbosity > 2 && display(sol.original)
