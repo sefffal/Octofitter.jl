@@ -87,13 +87,13 @@ using PairPlots, CairoMakie
 
     @testset "Fixed Position Orbit" begin
         # Test basic constructor
-        fp = FixedPosition(1.0, 2.0, 3.0)
+        fp = Octofitter.FixedPosition(1.0, 2.0, 3.0)
         @test fp.x == 1.0
         @test fp.y == 2.0
         @test fp.z == 3.0
 
         # Test keyword constructor
-        fp = FixedPosition(x=1.0, y=2.0, z=3.0)
+        fp = Octofitter.FixedPosition(x=1.0, y=2.0, z=3.0)
         @test fp.x == 1.0
         @test fp.y == 2.0
         @test fp.z == 3.0
@@ -196,7 +196,7 @@ using PairPlots, CairoMakie
 
     @testset "FixedPosition Models" begin
 
-        @planet b Visual{FixedPosition} begin
+        @planet b Visual{Octofitter.FixedPosition} begin
             x ~ Uniform(-2000, 2000)
             y ~ Uniform(-2000, 2000)
         end 
@@ -206,7 +206,7 @@ using PairPlots, CairoMakie
         end b
 
         # Test orbit type extraction
-        @test Octofitter.orbittype(b) == Visual{FixedPosition}
+        @test Octofitter.orbittype(b) == Visual{Octofitter.FixedPosition}
 
         # Test element construction
         θ_system = (
@@ -220,7 +220,7 @@ using PairPlots, CairoMakie
         )
 
         orbit = Octofitter.construct_elements(θ_system, :b)
-        @test orbit isa Visual{FixedPosition{Float64}}
+        @test orbit isa Visual{Octofitter.FixedPosition{Float64}}
         @test posx(orbit,0) ≈ 2000.0
     end
 
