@@ -55,7 +55,7 @@ vis_like = GRAVITYWideKPLikelihood(
 For this example, we won't consider a full orbit. We will just sample from 2D separation and position angle coordinates. To this end, we will use the `FixedPosition` parameterization for the planet:
 ```@julia
 
-@planet b Visual{FixedPosition} begin
+@planet b Visual{Octofitter.FixedPosition} begin
     sep ~ Uniform(0, 10) # mas
     pa ~ Uniform(0,2pi)
 
@@ -160,7 +160,7 @@ fig
 
 This single-epoch model can then be extended by replacing the `FixedPosition` parameterization with an orbit type like `KepOrbit`:
 ```julia
-@planet b Visual{FixedPosition} begin
+@planet b Visual{Octofitter.FixedPosition} begin
     a ~ Uniform(0, 0.1)
     e ~ Uniform(0.0, 0.99)
     i ~ Sine()

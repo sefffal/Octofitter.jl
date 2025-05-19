@@ -56,7 +56,7 @@ Note that you can also supply a contrast curve or map directly. If not provided,
 
 Next create the simplest possible model of 2D position, plus a contrast variable matching the band name used in the `ImageLikelihood` above:
 ```@example 1
-@planet b Visual{FixedPosition} begin
+@planet b Visual{Octofitter.FixedPosition} begin
     sep ~ Uniform(0, 2000)
     pa ~ Uniform(0,2pi)
     # Contrast ratio
