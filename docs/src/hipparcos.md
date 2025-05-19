@@ -29,7 +29,7 @@ end
 @system c_Eri_straight_line begin
     M = 1.0 # Host mass not important for this example
     rv = 0.0 # system RV not significant for this example
-    plx ~ Uniform(0,100)
+    plx ~ Uniform(10,100)
     pmra ~ Uniform(-100, 100)
     pmdec ~  Uniform(-100, 100)
 
