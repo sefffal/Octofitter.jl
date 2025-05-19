@@ -10,7 +10,7 @@ struct GaiaDifferenceLike{TCat3,TCat2,TTable} <: AbstractLikelihood
     table::TTable
     μ_dr2::Vector{Float64}
     Σ_dr2_dr3::Matrix{Float64}
-    # GHOST predicted observations
+    # GOST predicted observations
     A_prepared_5_dr3::Matrix{Float64}
     A_prepared_5_dr2::Matrix{Float64}
 end
@@ -83,13 +83,13 @@ function GaiaDifferenceLike(;
     )
 
     if isnothing(scanlaw_table)
-        # @warn "No scan law table provided. We will fetch an approximate solution from the GHOST webservice, but for best results please use the `scanninglaw` python package, installable via pip, to query the RA and Dec of this target and supply it as `scanlaw_table`. Run: `import astropy.coordinates, scanninglaw, pandas; o = astropy.coordinates.SkyCoord(158.30707896392835, 40.42555422701387,unit='deg');t = scanninglaw.times.Times(version='dr3_nominal'); t.query(o,return_angles=True)`"
+        # @warn "No scan law table provided. We will fetch an approximate solution from the GOST webservice, but for best results please use the `scanninglaw` python package, installable via pip, to query the RA and Dec of this target and supply it as `scanlaw_table`. Run: `import astropy.coordinates, scanninglaw, pandas; o = astropy.coordinates.SkyCoord(158.30707896392835, 40.42555422701387,unit='deg');t = scanninglaw.times.Times(version='dr3_nominal'); t.query(o,return_angles=True)`"
         # Get predicted GAIA scan epochs and angles
-        forecast_table = FlexTable(GHOST_forecast(ra_deg,dec_deg))
+        forecast_table = FlexTable(GOST_forecast(ra_deg,dec_deg))
         forecast_table.epoch = jd2mjd.(forecast_table.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_)
         forecast_table.scanAngle_rad = forecast_table.scanAngle_rad_
     else
-        @info "Scanlaw table from the `scanninglaw` python package was provided, will not use GHOST."
+        @info "Scanlaw table from the `scanninglaw` python package was provided, will not use GOST."
         forecast_table = FlexTable(scanlaw_table)
         forecast_table.epoch = tcb_at_gaia_2mjd.(forecast_table.times)
         forecast_table.scanAngle_rad = deg2rad.(forecast_table.angles)

@@ -1,7 +1,7 @@
 using LinearSolve
 
 struct GaiaCatalogFitLikelihood{TTable,TCat,TDist,TFact} <: AbstractLikelihood
-    # predicted observations from GHOST or other scanlaw
+    # predicted observations from GOST or other scanlaw
     table::TTable
     # Source ID from each given catalog, if available
     source_id::Int
@@ -84,13 +84,13 @@ function GaiaCatalogFitLikelihood(;
 
 
     if isnothing(scanlaw_table)
-        @info "No scan law table provided. We will fetch an approximate solution from the GHOST webservice."
+        @info "No scan law table provided. We will fetch an approximate solution from the GOST webservice."
         # Get predicted GAIA scan epochs and angles
-        forecast_table = FlexTable(GHOST_forecast(ra_deg, dec_deg))
+        forecast_table = FlexTable(GOST_forecast(ra_deg, dec_deg))
         forecast_table.epoch = jd2mjd.(forecast_table.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_)
         forecast_table.scanAngle_rad = forecast_table.scanAngle_rad_
     else
-        @info "Scanlaw table was provided, will not query GHOST."
+        @info "Scanlaw table was provided, will not query GOST."
         forecast_table = FlexTable(scanlaw_table)
         forecast_table.epoch = tcb_at_gaia_2mjd.(forecast_table.times)
         forecast_table.scanAngle_rad = deg2rad.(forecast_table.angles)
@@ -1002,17 +1002,17 @@ end
 
 
 """
-    forecast_table = GHOST_forecast(ra_deg,dec_deg)
+    forecast_table = GOST_forecast(ra_deg,dec_deg)
 
-Given an Ra and Dec position, retreive a forecast of Gaia observations from the GHOST tool automatically.
+Given an Ra and Dec position, retreive a forecast of Gaia observations from the GOST tool automatically.
 See tool URL here: https://gaia.esac.esa.int/gost/
 
 Please be aware that others  might be able to discover the target coordinates you searched for
 (though not who performed the search) via information leaked to the external service.
 """
-function GHOST_forecast(ra_deg,dec_deg)
+function GOST_forecast(ra_deg,dec_deg)
 
-    fname = "GHOST-$ra_deg-$dec_deg.csv"
+    fname = "GOST-$ra_deg-$dec_deg.csv"
     if isfile(fname)
         forecast_table = CSV.read(fname, Table, normalizenames=true)
         return forecast_table
@@ -1035,14 +1035,14 @@ function GHOST_forecast(ra_deg,dec_deg)
     # Just pick a cookie ID to use. 
     # Might be better to let the service create one for us.
     cookiejar = HTTP.CookieJar()
-    @info "Contacting the GAIA scan forecast tool GHOST: https://gaia.esac.esa.int/gost/"
+    @info "Contacting the GAIA scan forecast tool GOST: https://gaia.esac.esa.int/gost/"
     resp0 = HTTP.get(
         "https://gaia.esac.esa.int/gost/",
         cookiejar=cookiejar,
     )
     if resp0.status != 200
         println(String(resp0.body))
-        error("Could not contact the GAIA scan forecast tool GHOST https://gaia.esac.esa.int See above error message.")
+        error("Could not contact the GAIA scan forecast tool GOST https://gaia.esac.esa.int See above error message.")
     end
     formdata = Dict([
         "serviceCode"=>"1",
@@ -1055,7 +1055,7 @@ function GHOST_forecast(ra_deg,dec_deg)
     ])
 
 
-    @info "Retrieving forecasted GAIA scans from GHOST: https://gaia.esac.esa.int/gost/"
+    @info "Retrieving forecasted GAIA scans from GOST: https://gaia.esac.esa.int/gost/"
     resp = HTTP.post(
         "https://gaia.esac.esa.int/gost/GostServlet",
         body=HTTP.Form(formdata),
@@ -1063,7 +1063,7 @@ function GHOST_forecast(ra_deg,dec_deg)
     )
     if resp.status != 200 || contains(String(collect(resp.body)),"error")
         println(String(resp.body))
-        error("Could not fetch GAIA scan forecast from GHOST. See above error message. Do you have an internet connection available?")
+        error("Could not fetch GAIA scan forecast from GOST. See above error message. Do you have an internet connection available?")
     end
 
     m = match(r"Submitted with id (\d+)", String(resp.body))
@@ -1086,6 +1086,9 @@ function GHOST_forecast(ra_deg,dec_deg)
     write(fname, body)
 
     io = IOBuffer(body)
+    if isempty(io)
+        error("Empty response from GOST service. Rate limited?")
+    end
     forecast_table = CSV.read(io, Table, normalizenames=true)
 
     return forecast_table
