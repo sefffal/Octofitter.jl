@@ -483,7 +483,7 @@ function optimization_and_pathfinder_with_fixed(
     local result_pf = nothing
     local draws_full = nothing
     
-    # try
+    try
         for i in 1:ntries
             verbosity >= 3 && @info "Starting multipathfinder run with only discrete parameters fixed" free_params=length(pathfinder_variable_indices) fixed_params=length(pathfinder_fixed_indices)
             
@@ -558,7 +558,7 @@ function optimization_and_pathfinder_with_fixed(
             if result_pf.psis_result.pareto_shape > 3
                 verbosity > 3 && display(result_pf)
                 verbosity >= 4 && display(result_pf.psis_result)
-                i < ntries && verbosity > 2 && @warn "Restarting pathfinder" i
+                i < ntries && verbosity > 2 && @warn "Restarting pathfinder from new starting points" i
                 continue
             end
             
@@ -566,10 +566,10 @@ function optimization_and_pathfinder_with_fixed(
             verbosity > 2 && display(result_pf)
             break
         end
-    # catch err
-    #     @warn "Pathfinder error: $err"
-    #     @warn "Using BBO result as fallback"
-    # end
+    catch err
+        @warn "Pathfinder error: $err"
+        @warn "Using BBO result as fallback"
+    end
     
     # Use pathfinder results if available
     if !isnothing(result_pf) && !isnothing(draws_full)
