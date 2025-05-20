@@ -320,7 +320,7 @@ function astromtimeplot!(
             if hasproperty(like_obj.table, :sep)
                 epoch = like_obj.table.epoch
                 sep = like_obj.table.sep
-                pa = like_obj.table.pa
+                pa = rem2pi.(like_obj.table.pa,RoundDown)
                 σ_sep = like_obj.table.σ_sep
                 σ_pa = like_obj.table.σ_pa
             elseif hasproperty(like_obj.table, :ra)
