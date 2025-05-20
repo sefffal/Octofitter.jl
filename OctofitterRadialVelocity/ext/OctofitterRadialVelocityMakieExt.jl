@@ -53,7 +53,8 @@ function Octofitter.rvpostplot!(
 
     rv_likes_all = filter(model.system.observations) do obs
         obs isa StarAbsoluteRVLikelihood || 
-        obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood
+        obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood# ||
+        # obs isa OctofitterRadialVelocity.StarAbsoluteRVLikelihood_Celerite_Shared
     end
 
     #  filter RV objects to exclude any that are outside the plotted region
@@ -69,6 +70,7 @@ function Octofitter.rvpostplot!(
             return false
         end
     end
+
     # if length(rv_likes) > 1
     #     error("`rvpostplot` requires a system with only one StarAbsoluteRVLikelihood. Combine the data together into a single likelihood object.")
     # end
@@ -355,12 +357,36 @@ function Octofitter.rvpostplot!(
             barycentric_rv_inst = _find_rv_zero_point_maxlike(rvs, nt_format, els_by_planet)
             jitter = nt_format[rvs.jitter_symbol]
         end
+        if ismissing(barycentric_rv_inst )
+            barycentric_rv_inst = 0.
+        end
+        if ismissing(jitter)
+            jitter = 0.
+        end
 
         # Apply barycentric rv offset correction for this instrument
         # using the MAP parameters
-        rvs_off_sub .-= barycentric_rv_inst
-        rvs_off_sub .-= rvs.trend_function.((nt_format,), rvs.table.epoch)
-        jitters .= jitter
+
+        # if rvs isa OctofitterRadialVelocity.StarAbsoluteRVLikelihood_Celerite_Shared
+        #     for i in eachindex(rvs_off_sub)
+        #         inst_idx = rvs.table.inst_idx[i]
+        #         rvs_off_sub[i] -= barycentric_rv_inst[inst_idx]
+        #         rvs_off_sub[i] -= rvs.trend_function(nt_format, rvs.table.epoch[i], inst_idx)
+        #         jitters[i] = jitter[inst_idx]
+        #     end
+        # else
+            rvs_off_sub .-= barycentric_rv_inst
+            trend = rvs.trend_function.((nt_format,), rvs.table.epoch)
+            trend = map(trend) do t
+                if ismissing(t) 
+                    0.
+                else
+                    t
+                end
+            end
+            rvs_off_sub .-= trend
+            jitters .= jitter
+        # end
 
         # Calculate the residuals minus the orbit model and any perspecive acceleration
         model_at_data_by_planet = map(els_by_planet,M_by_planet) do els, M
@@ -398,15 +424,14 @@ function Octofitter.rvpostplot!(
         if map_gp isa OctofitterRadialVelocity.Celerite.CeleriteGP
 
             # Compute GP model
-            Main.Celerite.compute!(map_gp, vec(rvs.table.epoch), vec(
+            OctofitterRadialVelocity.Celerite.compute!(map_gp, vec(rvs.table.epoch), vec(
                 sqrt.(rvs.table.σ_rv.^2 .+ jitters.^2)
             ))
 
-            y_inst, var = Main.Celerite.predict(map_gp, vec(resids), collect(ts_inst); return_var=true)
-            y_at_dat, var_at_dat = Main.Celerite.predict(map_gp, vec(resids), collect(vec(data.epoch)); return_var=true)
+            y_inst, var = OctofitterRadialVelocity.Celerite.predict(map_gp, vec(resids), collect(ts_inst); return_var=true)
+            y_at_dat, var_at_dat = OctofitterRadialVelocity.Celerite.predict(map_gp, vec(resids), collect(vec(data.epoch)); return_var=true)
             var = max.(0, var)
             var_at_dat = max.(0, var_at_dat)
-
 
             resids = resids .-= y_at_dat
 
@@ -419,9 +444,7 @@ function Octofitter.rvpostplot!(
                 jitters.^2 .+
                 var_at_dat
             )
-
         else
-
 
             fx = map_gp(
                 # x
@@ -441,7 +464,7 @@ function Octofitter.rvpostplot!(
 
             # errs_data_jitter = sqrt.(
             #     data.σ_rv.^2 .+
-            #     jitter.^2
+            #     jitters.^2
             # )
             errs_data_jitter_gp = sqrt.(
                 data.σ_rv.^2 .+
@@ -620,6 +643,10 @@ function Octofitter.rvpostplot!(
     end
 
 
+    # println(epochs_all)
+    # println(resids_all)
+    # println(uncer_all)
+
     # Now that we have gone through all datasets and have the residuals, go through 
     # each planet and plot binned residuals
     for (ax_phase, planet, els, M) in zip(ax_phase_by_planet, model.system.planets, els_by_planet, M_by_planet)
@@ -693,14 +720,14 @@ function Octofitter.rvpostplot!(
             # Group 1
             [
                 MarkerElement(color = Makie.wong_colors()[mod1(i,length(Makie.wong_colors()))], marker=marker_symbols[mod1(i,length(marker_symbols))], markersize = 15)
-                for i in 1:length(rv_likes)
+                for i in 1:length(rv_likes_all)
             ],
             # Group 2
             [
                 [
                     LineElement(color = Makie.wong_colors()[mod1(i,length(Makie.wong_colors()))], linestyle = :solid,
-                    points = Point2f[((-1+i)/length(rv_likes), 0), ((-1+i)/length(rv_likes), 1)])
-                    for i in 1:length(rv_likes)
+                    points = Point2f[((-1+i)/length(rv_likes_all), 0), ((-1+i)/length(rv_likes_all), 1)])
+                    for i in 1:length(rv_likes_all)
                 ],
                 LineElement(color = "#CCC", linestyle = :solid,
                     points = Point2f[(0.0, 0), (0.0, 1)]),
@@ -709,7 +736,7 @@ function Octofitter.rvpostplot!(
             ]
         ]
         labels = [
-            [rv.instrument_name for rv in rv_likes],
+            [rv.instrument_name for rv in rv_likes_all],
             [
                 "data uncertainty",
                 any_models_have_a_gp ? "uncertainty,\njitter, and GP" : "uncertainty and\njitter",

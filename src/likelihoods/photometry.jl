@@ -24,6 +24,8 @@ struct PhotometryLikelihood{TTable<:Table} <: AbstractLikelihood
         if !issubset(phot_cols, Tables.columnnames(table))
             error("Expected columns $phot_cols")
         end
+        ii = sortperm(table.epoch)
+        table = table[ii]
         return new{typeof(table)}(table)
     end
 end

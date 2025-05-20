@@ -124,5 +124,40 @@ function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_
     return ln_prior
 end
 
+function ln_like(like::ObsPriorAstromONeil2019{<:GaiaHipparcosUEVAJointLikelihood_v2}, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+
+    orbit = orbits[i_planet]
+    # Add period prior
+    ln_prior = 0.0
+    P = period(orbit)/365.25
+    e = eccentricity(orbit)
+    jac = 0.0
+    for j in 1:length(like.wrapped_like.gaia_table.epoch)
+        current_epoch = like.wrapped_like.gaia_table.epoch[j]
+        sol = orbitsolve(orbit, current_epoch)
+        M = meananom(sol)
+        E = eccanom(sol)
+        jac += abs(3M*(
+            e+cos(E)
+        ) + 2*(-2+e^2+e*cos(E)) *sin(E))
+    end
+    for j in 1:length(like.wrapped_like.hip_table.epoch)
+        current_epoch = like.wrapped_like.hip_table.epoch[j]
+        sol = orbitsolve(orbit, current_epoch)
+        M = meananom(sol)
+        E = eccanom(sol)
+        jac += abs(3M*(
+            e+cos(E)
+        ) + 2*(-2+e^2+e*cos(E)) *sin(E))
+    end
+
+    sqrt_eccen = sqrt(1-eccentricity(orbit)^2)
+    jac *= cbrt(P) / sqrt_eccen 
+
+    ln_prior += 2log(jac)
+
+    return ln_prior
+end
+
 
 # TODO: Add a RadialVelocity correction version in OctofitterRadialVelocity

@@ -64,7 +64,15 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
 
     @warn "TODO: make sure column makes it into final catalog, loading from Gaia for now"
     dr3 = Octofitter._query_gaia_dr3(;gaia_id)
-    catalog = (;catalog..., astrometric_chi2_al_dr3=dr3.astrometric_chi2_al, parallax_error=dr3.parallax_error)
+    # TODO: we should ensure the DR2 id is stored in the catalog too
+    dr2 = Octofitter._query_gaia_dr2(;gaia_id)
+    catalog = (;
+        catalog...,
+        astrometric_chi2_al_dr3=dr3.astrometric_chi2_al,
+        astrometric_chi2_al_dr2=dr2.astrometric_chi2_al,
+        astrometric_matched_observations_dr2=dr2.astrometric_matched_observations,
+        parallax_error=dr3.parallax_error
+    )
 
     if isnan(catalog.hip_id)
         @warn "No Hipparcos data found; will skip HGCA and IAD modelling"
@@ -558,7 +566,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
         if length(unique(missed_transits)) < length(missed_transits)
             return nothing
         end
-        ii = sort(setdiff(1:length(like.gaia_table.epoch), missed_transits))
+        ii = Int.(sort(setdiff(1:length(like.gaia_table.epoch), missed_transits)))
         gaia_table = like.gaia_table[ii,:]
         A_prepared_5_dr3 = view(like.A_prepared_5_dr3, ii,:)
         A_prepared_5_dr2 = view(like.A_prepared_5_dr2, ii,:)

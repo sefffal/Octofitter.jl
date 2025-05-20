@@ -1086,7 +1086,7 @@ function GOST_forecast(ra_deg,dec_deg)
     write(fname, body)
 
     io = IOBuffer(body)
-    if isempty(io)
+    if bytesavailable(io) == 0
         error("Empty response from GOST service. Rate limited?")
     end
     forecast_table = CSV.read(io, Table, normalizenames=true)

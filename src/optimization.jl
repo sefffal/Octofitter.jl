@@ -71,7 +71,7 @@ end
 
 
 # Returns the raw parameter vector
-function _refine(model::LogDensityModel,initial_θ_t;verbosity=0)
+function _refine(model::LogDensityModel,initial_θ_t;verbosity=0,iterations=100000,show_trace=true)
     func = OptimizationFunction(
         (θ,model)->-model.ℓπcallback(θ),
         grad=(G,θ,model)->G.=.-model.∇ℓπcallback(θ)[2],
@@ -82,10 +82,10 @@ function _refine(model::LogDensityModel,initial_θ_t;verbosity=0)
     prob = OptimizationProblem(func, initial_θ_t, model)
     verbosity > 1 && @info "LBFGS optimization"
     sol = solve(prob, 
-        NelderMead(),
-        g_tol=1e-10, x_tol=1e-2, f_tol=1e-2, show_trace=true, show_every=100, iterations=100000, allow_f_increases=true)
-    display(sol)
-    display(sol.original)
+        NelderMead();
+        g_tol=1e-10, x_tol=1e-2, f_tol=1e-2, show_trace, show_every=100, iterations, allow_f_increases=true)
+    # display(sol)
+    # display(sol.original)
     θ_map2 = sol.u
 
     return θ_map2

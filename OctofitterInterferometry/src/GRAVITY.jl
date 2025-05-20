@@ -324,6 +324,11 @@ function Octofitter.ln_like(
             P = PDMat(Σ_kp, Ch);
             dist = MvNormal(P);
             ll += logpdf(dist,kernphase_resids)
+            # L = -2(logpdf(dist,kernphase_resids) - logpdf(dist,kernphase_resids.*0))
+            # ll += L#logpdf(dist,kernphase_resids)
+            # @warn "# TODO: temporary, just to create a reduced chi^2 map" maxlog=1
+            # TODO: temporary, just to create a reduced chi^2 map
+            # ll -= logpdf(dist,kernphase_resids.*0)
         catch
             return convert(T,-Inf)
         end

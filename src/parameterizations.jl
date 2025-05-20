@@ -66,6 +66,97 @@ function θ_at_epoch_to_tperi(system,planet,theta_epoch)
     return tₚ
 end
 
+function θ_ωθ_at_epoch_to_ω_tperi(system,planet,theta_epoch)
+    (;M,e,θ) = merge(system,planet)
+   
+    if hasproperty(planet, :a)
+        (;a) = planet
+    elseif hasproperty(planet, :P)
+        (; P) = planet
+        a = ∛(system.M * P^2)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
+    else
+        error("Your planet must specify either i, Ω, ω, and a/P")
+    end
+
+    # # Old version
+    # (;i, Ω, ω) = planet
+    # A = ( cos(Ω)*cos(ω)-sin(Ω)*sin(ω)*cos(i))
+    # B = ( sin(Ω)*cos(ω)+cos(Ω)*sin(ω)*cos(i))
+    # F = (-cos(Ω)*sin(ω)-sin(Ω)*cos(ω)*cos(i))
+    # G = (-sin(Ω)*sin(ω)+cos(Ω)*cos(ω)*cos(i))
+
+    # New version
+    (;i, Ω, ωθ) = planet
+    # ω = atan(tan(ωθ) / cos(i)) - Ω
+    ω = atan(-tan(Ω - ωθ) / cos(i))
+
+    # note that 
+    # ωθ = atan2(B, A)
+    
+    # # start with calculation for position angle at mean anomaly = 0 and work backwards
+    # MA = atan(-sqrt(1-e^2)*sin(ν), -e-cos(ν))+π-e*sqrt(1-e^2)*sin(ν)/(1+e*cos(ν))
+    # 0 ==  atan(-sqrt(1-e^2)*sin(ν), -e-cos(ν))+π-e*sqrt(1-e^2)*sin(ν)/(1+e*cos(ν))
+    # e*sqrt(1-e^2)*sin(ν)/(1+e*cos(ν)) ==  atan(-sqrt(1-e^2)*sin(ν), -e-cos(ν))+π
+    # # so  if mean anomaly = 0, then true anomaly = 0
+
+    # 0 = ν = atan(y_over_r,x_over_r)
+    # tan(0) = y_over_r/ x_over_r
+    # -> y_over_r = 0.
+    # x_over_r, undefined?
+
+    # [x_over_r, 0] = T \ @SArray[
+    #     cos(ωθ)
+    #     sin(ωθ)
+    # ]
+    # T = [x_over_r, 0] * @SArray[
+    #     cos(ωθ)
+    #     sin(ωθ)
+    # ]
+    A = ( cos(Ω)*cos(ω)-sin(Ω)*sin(ω)*cos(i))
+    B = ( sin(Ω)*cos(ω)+cos(Ω)*sin(ω)*cos(i))
+    F = (-cos(Ω)*sin(ω)-sin(Ω)*cos(ω)*cos(i))
+    G = (-sin(Ω)*sin(ω)+cos(Ω)*cos(ω)*cos(i))
+
+
+    T = @SArray [
+        A F
+        B G
+    ]
+
+    # Note: this is missing the radius factor but we don't need it for true anomaly.
+    # r = sqrt((sol.x*sol.elem.B+sol.y*sol.elem.G)^2 + (sol.x*sol.elem.A + sol.y*sol.elem.F)^2 )
+
+    # True anomaly is now straightforward to calculate in the deprojected coordinate space
+
+
+
+    # Thiele-Innes transformation matrix
+    T = @SArray [
+        A F
+        B G
+    ]
+    x_over_r, y_over_r = T \ @SArray[
+        cos(θ)
+        sin(θ)
+    ]
+    # Note: this is missing the radius factor but we don't need it for true anomaly.
+    # r = sqrt((sol.x*sol.elem.B+sol.y*sol.elem.G)^2 + (sol.x*sol.elem.A + sol.y*sol.elem.F)^2 )
+
+    # True anomaly is now straightforward to calculate in the deprojected coordinate space
+    ν = atan(y_over_r,x_over_r)
+
+    # Mean anomaly (see Wikipedia page)
+    MA = atan(-sqrt(1-e^2)*sin(ν), -e-cos(ν))+π-e*sqrt(1-e^2)*sin(ν)/(1+e*cos(ν))
+
+    period_days = √(a^3/M)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
+    period_yrs = period_days/PlanetOrbits.year2day_julian
+    n = 2π/period_yrs # mean motion
+
+    # Get epoch of periastron passage
+    tₚ = theta_epoch - MA/n*PlanetOrbits.year2day_julian
+    return tₚ, ω
+end
+
 function θ_sep_at_epoch_to_tperi_sma(system,planet,theta_epoch)
     (;M,plx,e,θ,e,i, Ω, ω, θ, sep) = merge(system,planet)
     A = ( cos(Ω)*cos(ω)-sin(Ω)*sin(ω)*cos(i))
