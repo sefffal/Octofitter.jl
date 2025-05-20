@@ -77,6 +77,7 @@ makedocs(
         size_threshold=nothing
     ),
     pagesonly=true,
+    warnonly=:example_block
 )
 
 
