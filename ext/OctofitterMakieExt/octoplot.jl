@@ -454,6 +454,12 @@ function Octofitter.octoplot!(
         Makie.rowgap!(fig, 10.)
 
 
+        # Show warning about pathfinder approximation
+        if hasproperty(results.info, :sampler) && results.info.sampler == "pathfinder"
+            Label(fig[0,:], Makie.rich("pathfinder approximation",color=:darkred, font=:bold), tellwidth=false)
+        end
+
+
         if !isempty(axes_to_link)
             Makie.linkxaxes!(axes_to_link...)
             yspace = maximum(Makie.tight_yticklabel_spacing!, axes_to_link)
