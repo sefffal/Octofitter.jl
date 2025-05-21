@@ -535,7 +535,16 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, o
         ll += logpdf(Normal(μ_catalog_selected[1], sqrt(Σ_selected[1,1])), μ_model_selected[1])
     else
         # Multiple components - use multivariate normal
-        dist_selected = MvNormal(μ_catalog_selected, Hermitian(Σ_selected))
+        local dist_selected
+        try
+            dist_selected = MvNormal(μ_catalog_selected, Hermitian(Σ_selected))
+        catch err
+            if err isa PosDefException
+                return convert(T, -Inf)
+            else
+                rethrow(err)
+            end
+        end
         ll += logpdf(dist_selected, μ_model_selected)
     end
 
