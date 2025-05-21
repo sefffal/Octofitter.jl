@@ -75,7 +75,7 @@ octocorner(model, chain)   # Corner plot of posterior
 
 Save the results to a FITS file (see [Loading and Saving Data](@ref loading-saving) for other formats):
 ```julia
-savechain("output.fits", chain)
+Octofitter.savechain("output.fits", chain)
 ```
 
 ## Working with Dates
