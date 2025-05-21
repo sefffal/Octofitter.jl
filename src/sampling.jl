@@ -167,7 +167,8 @@ Base.@nospecializeinfer function advancedhmc(
         try
             # This can fail, triggering an exception
             S =  (cov(SimpleCovariance(), stack(model.starting_points)'))
-            metric = DenseEuclideanMetric(S .+ Diagonal(diag_eps .+ ones(model.D)))
+            metric = DenseEuclideanMetric(S .+ Diagonal(diag_eps .* ones(model.D)))
+            display(S .+ Diagonal(diag_eps .* ones(model.D)))
             break
         catch err
             continue
@@ -222,8 +223,6 @@ Base.@nospecializeinfer function advancedhmc(
         mma = MassMatrixAdaptor(metric)
         ssa = StepSizeAdaptor(target_accept, integrator)
         adaptor = StanHMCAdaptor(mma, ssa) 
-
-    # end
     # end
 
 
