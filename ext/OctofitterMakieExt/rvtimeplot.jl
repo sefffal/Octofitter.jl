@@ -159,6 +159,7 @@ function rvtimeplot!(
     # The only safe way to display these is with a separate panel per instrument
     gs_row = 0
     for (i_like, like_obj) in enumerate(like_objs)
+        y_ax_limits = (Inf,-Inf)
         gs_row += 1
         ax = Axis(
             gs[gs_row, 1];
@@ -349,10 +350,9 @@ function rvtimeplot!(
             markersize=8, #1.5,
         )
         y_ax_limits = extrema(filter(isfinite, [y_ax_limits...; concat_with_nan(rv_star_model_t) .* kms_mult; rv_data .* kms_mult]))
+        d = 0.1abs(maximum(y_ax_limits)-minimum(y_ax_limits))
+        ylims!(ax, y_ax_limits[1]-d, y_ax_limits[2]+d)
     end
-
-    d = 0.1abs(maximum(y_ax_limits)-minimum(y_ax_limits))
-    ylims!(ax, y_ax_limits[1]-d, y_ax_limits[2]+d)
 
     if colorbar
         Colorbar(
