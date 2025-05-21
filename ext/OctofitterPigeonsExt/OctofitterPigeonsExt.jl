@@ -67,16 +67,7 @@ function Pigeons.default_explorer(::Octofitter.LogDensityModel)
 end
 
 
-"""
-octofit_pigeons(model; nrounds, n_chains=[auto])
 
-Use Pigeons.jl to sample from intractable posterior distributions.
-
-```julia
-model = Octofitter.LogDensityModel(System, autodiff=:ForwardDiff, verbosity=4)
-chain, pt = octofit_pigeons(model)
-```
-"""
 Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     target::Octofitter.LogDensityModel;
     n_rounds::Int,

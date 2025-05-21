@@ -87,6 +87,25 @@ Base.@nospecializeinfer function advancedhmc(model::LogDensityModel, target_acce
     return advancedhmc(Random.default_rng(), model, target_accept; kwargs...)
 end
 
+"""
+    octofit(
+        [rng::Random.AbstractRNG],
+        model::Octofitter.LogDensityModel
+        target_accept::Number=0.8,
+        ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
+        adaptation,
+        iterations,
+        drop_warmup=true,
+        max_depth=12,
+        initial_samples= pathfinder ? 500 : 250_000,  # deprecated
+        initial_parameters=nothing, # deprecated
+        step_size=nothing,
+        verbosity=2,
+    )
+
+Sample from the posterior defined by `model` using Hamiltonian Monte Carlo with 
+the No U-Turn Sampler from AdvancedHMC.jl.
+"""
 Base.@nospecializeinfer function octofit(args...; kwargs...)
     return advancedhmc(args...; kwargs...)
 end
@@ -114,35 +133,18 @@ LogDensityProblems.capabilities(ldm_any::Type{<:LogDensityModelAny}) = LogDensit
 """
 The method signature of Octofitter.hmc is as follows:
 
-    advancedhmc(
+    chain = advancedhmc(
         [rng::Random.AbstractRNG],
         model::Octofitter.LogDensityModel
         target_accept::Number=0.8,
-        ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
-        adaptation,
-        iterations,
+        adaptation=1000,
+        iterations=1000,
         drop_warmup=true,
         max_depth=12,
-        initial_samples= pathfinder ? 500 : 250_000,  # deprecated
-        initial_parameters=nothing, # deprecated
-        step_size=nothing,
-        verbosity=2,
     )
 
-The only required arguments are system, adaptation, and iterations.
-The two positional arguments are system, the model you wish to sample;
-and target_accept, the acceptance rate that should be targeted during
-windowed adaptation. During this time, the step size and mass matrix
-will be adapted (see AdvancedHMC.jl for more information). The number
-of steps taken during adaptation is controlled by adaptation. You can
-prevent these samples from being dropped by pasing include_adaptation=false.
-The total number of posterior samples produced are given by iterations.
-These include the adaptation steps that may be discarded.
-tree_depth controls the maximum tree depth of the sampler.
-initial_parameters is an optional way to pass a starting point for the chain.
-If you don't pass a default position, one will be selected by drawing
-initial_samples from the priors.
-The sample with the highest posterior value will be used as the starting point.
+Sample from the posterior defined by `model` using Hamiltonian Monte Carlo with 
+the No U-Turn Sampler from AdvancedHMC.jl.
 """
 Base.@nospecializeinfer function advancedhmc(
     rng::Union{AbstractRNG, AbstractVector{<:AbstractRNG}},
