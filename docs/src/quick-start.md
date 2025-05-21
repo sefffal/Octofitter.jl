@@ -62,9 +62,22 @@ Compile the model into efficient sampling code:
 model = Octofitter.LogDensityModel(HD1234)
 ```
 
+Initialize the starting points for the chains. You can optionally provide starting values directly for certain variables.
+```julia
+init_chain = initialize!(model, (;
+    plx = 50.001,
+    M = 1.18
+)) 
+```
+
+Visualize the starting point. You can use this plot to make absolutely sure your data is entered in correctly:
+```julia
+octoplot(model, init_chain)
+```
+
 Sample from the posterior using Hamiltonian Monte Carlo (see [Samplers](@ref samplers) for other options):
 ```julia
-chain = octofit(model)
+chain = octofit(model, iterations=1000)
 ```
 
 Visualize the results with orbit plots and a corner plot:
