@@ -167,16 +167,7 @@ model = Octofitter.LogDensityModel(k2_132_gp)
 
 Initialize the starting points, and confirm the data are entered correcly:
 ```@example 1
-init_chain = initialize!(model, (;
-    gp_η₁=25,
-    gp_η₂=gp_explength_mean,
-    gp_η₃=gp_perlength_mean,
-    gp_η₄=gp_per_mean,
-
-    M = 0.82,
-    rv0_harps = -6693,
-    rv0_pfs = 0,
-))
+init_chain = initialize!(model)
 fig = Octofitter.rvpostplot(model, init_chain)
 ```
 
