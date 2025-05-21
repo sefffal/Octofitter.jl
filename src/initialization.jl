@@ -147,6 +147,7 @@ function initialize!(rng::Random.AbstractRNG,
     # Check if we have mixed data types
     order = _gradorder(LogDensityProblems.capabilities(model))
     
+    start_time = fill(time(), 1) 
     if order == 0
         # Identify discrete and continuous parameters
         sample = model.sample_priors(rng)
@@ -200,9 +201,23 @@ function initialize!(rng::Random.AbstractRNG,
             nruns, ntries, ndraws, verbosity, pathfinder_autodiff
         )
     end
+    stop_time = fill(time(), 1)
     
     starting_point_chain = _startingpoints2chain(model)
-    return starting_point_chain
+
+    # Store meta data, including flag that this was sampled just from pathfinder,
+    # not an mcmc
+    starting_point_chain_with_info = MCMCChains.setinfo(
+        starting_point_chain,
+        (;
+            start_time,
+            stop_time,
+            model_name=Symbol("$(model.system.name)-init"),
+            sample=:pathfinder
+        )
+    )
+
+    return starting_point_chain_with_info
 end
 
 
