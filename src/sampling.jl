@@ -168,7 +168,6 @@ Base.@nospecializeinfer function advancedhmc(
             # This can fail, triggering an exception
             S =  (cov(SimpleCovariance(), stack(model.starting_points)'))
             metric = DenseEuclideanMetric(S .+ Diagonal(diag_eps .* ones(model.D)))
-            display(S .+ Diagonal(diag_eps .* ones(model.D)))
             break
         catch err
             continue
