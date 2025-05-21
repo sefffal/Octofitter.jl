@@ -65,12 +65,9 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
     @warn "TODO: make sure column makes it into final catalog, loading from Gaia for now"
     dr3 = Octofitter._query_gaia_dr3(;gaia_id)
     # TODO: we should ensure the DR2 id is stored in the catalog too
-    dr2 = Octofitter._query_gaia_dr2(;gaia_id)
     catalog = (;
         catalog...,
         astrometric_chi2_al_dr3=dr3.astrometric_chi2_al,
-        astrometric_chi2_al_dr2=dr2.astrometric_chi2_al,
-        astrometric_matched_observations_dr2=dr2.astrometric_matched_observations,
         parallax_error=dr3.parallax_error
     )
 
