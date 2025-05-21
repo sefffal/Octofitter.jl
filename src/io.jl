@@ -11,6 +11,12 @@ and then convert back when reading them.
 using Latexify, MathTeXEngine
 
 using FITSIO
+
+"""
+    Octofitter.savechain("saved-chain.fits", chain)
+
+Save an MCMCChain to a FITS file binary table.
+"""
 function savechain(fname, chain::MCMCChains.Chains)
     # Need to massage data into the right format on the way out
     # data = permutedims(stack(row for row in Table(chain_octo)))
@@ -75,6 +81,11 @@ function coltitle_restorer(title::AbstractString)
     replace(title, replacements..., '$'=>"", '{'=>"", '}'=>"", "\\"=>"")
 end
 
+"""
+    Octofitter.loadchain("saved-chain.fits")
+
+Load an MCMCChain from a FITS file binary table.
+"""
 function loadchain(fname)
     return FITS(fname) do fits
         tbl = Table(fits[2])
