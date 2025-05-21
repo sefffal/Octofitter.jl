@@ -42,16 +42,18 @@ end b
 model = Octofitter.LogDensityModel(TutoriaPrime)
 ```
 
+Initialize the model starting points and confirm the data are entered correctly:
+```@example 1
+init_chain = initialize!(model,)
+octoplot(model, init_chain)
+```
 
 Now run the fit:
 ```@example 1
-using Random
-Random.seed!(0)
-
 results_obspri = octofit(model,iterations=5000,)
 ```
 
-
+Plot the MCMC results:
 ```@example 1
 octoplot(model, results_obspri)
 ```
@@ -77,7 +79,6 @@ end astrom_like # hide
     plx ~ truncated(Normal(50.0, 0.02), lower=0.1) # hide
 end b # hide
 model_with_uniform_priors = Octofitter.LogDensityModel(Tutoria) # hide
-Random.seed!(0) # hide
 results_unif_pri = octofit(model_with_uniform_priors,iterations=5000,verbosity=0) # hide
 octoplot(model_with_uniform_priors, results_unif_pri)
 ```

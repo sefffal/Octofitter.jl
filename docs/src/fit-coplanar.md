@@ -119,7 +119,20 @@ model = Octofitter.LogDensityModel(HR8799_res_co)
 ```
 
 
-Let's now sample from the model:
+Initialize the starting points, and confirm the data are entered correcly:
+```@example 1
+init_chain = initialize!(model, (;
+    plx =24.4549,
+  M_pri = 1.48,
+    M_b = 5.73,
+    M_c = 5.14,
+    P_nominal = 230,
+))
+octoplot(model, init_chain)
+```
+
+
+Now sample from the model using Pigeons parallel tempering:
 ```@example 1
 using Pigeons
 results,pt = octofit_pigeons(model, n_rounds=10);

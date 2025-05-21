@@ -45,7 +45,9 @@ rv_like = StarAbsoluteRVLikelihood(
     (epoch=jd2mjd(2455110.97985),  rv=−6.54, σ_rv=1.30),
     (epoch=jd2mjd(2455171.90825),  rv=−3.33, σ_rv=1.09),
     # ... etc.
-    instrument_name="insert name here"
+    instrument_name="insert name here",
+    offset=:rv0,
+    jitter=:gamma,
 )
 ```
 
@@ -126,6 +128,12 @@ We can now prepare our model for sampling.
 model = Octofitter.LogDensityModel(k2_132)
 ```
 
+Initialize the starting points, and confirm the data are entered correcly:
+```@example 1
+init_chain = initialize!(model)
+fig = Octofitter.rvpostplot(model, init_chain)
+```
+
 Sample:
 ```@example 1
 using Random
@@ -140,7 +148,7 @@ using CairoMakie: Makie
 fig = Octofitter.rvpostplot(model, chain) # saved to "k2_132-rvpostplot.png"
 ```
 
-We can also plot many number of samples from the posterior:
+We can also plot a sample of draws from the posterior:
 ```@example 1
 using CairoMakie: Makie
 octoplot(model, chain)

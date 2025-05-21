@@ -22,10 +22,10 @@ astrom_like = PlanetRelAstromLikelihood(
 )
 @planet b ThieleInnesOrbit begin
     e ~ Uniform(0.0, 0.5)
-    A ~ Normal(0, 10000) # milliarcseconds
-    B ~ Normal(0, 10000) # milliarcseconds
-    F ~ Normal(0, 10000) # milliarcseconds
-    G ~ Normal(0, 10000) # milliarcseconds
+    A ~ Normal(0, 1000) # milliarcseconds
+    B ~ Normal(0, 1000) # milliarcseconds
+    F ~ Normal(0, 1000) # milliarcseconds
+    G ~ Normal(0, 1000) # milliarcseconds
     
     θ ~ UniformCircular()
     tp = θ_at_epoch_to_tperi(system,b,50000.0)  # reference epoch for θ. Choose an MJD date near your data.
@@ -39,11 +39,15 @@ end b
 model = Octofitter.LogDensityModel(TutoriaPrime)
 ```
 
+
+Initialize the starting points, and confirm the data are entered correcly:
+```@example 1
+init_chain = initialize!(model)
+octoplot(model, init_chain)
+```
+
 We now sample from the model as usual:
 ```@example 1
-using Random
-Random.seed!(0)
-
 results = octofit(model)
 ```
 Notice that the fit was very very fast! The Thiele-Innes orbital paramterization is easier to explore than the default Campbell in 

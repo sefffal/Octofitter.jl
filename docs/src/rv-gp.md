@@ -165,7 +165,23 @@ end rvlike_harps rvlike_pfs b
 model = Octofitter.LogDensityModel(k2_132_gp)
 ```
 
-Sample from the model as before:
+Initialize the starting points, and confirm the data are entered correcly:
+```@example 1
+init_chain = initialize!(model, (;
+    gp_η₁=25,
+    gp_η₂=gp_explength_mean,
+    gp_η₃=gp_perlength_mean,
+    gp_η₄=gp_per_mean,
+
+    M = 0.82,
+    rv0_harps = -6693,
+    rv0_pfs = 0,
+))
+fig = Octofitter.rvpostplot(model, init_chain)
+```
+
+
+Sample from the model using MCMC (the no U-turn sampler)
 ```@example 1
 # Seed the random number generator
 using Random

@@ -12,6 +12,7 @@ We will create a likelihood object to contain our relative astrometry data. We c
 
 ```@example 1
 astrom_like = PlanetRelAstromLikelihood(
+    #        MJD         mas                       mas                        mas         mas
     (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
@@ -20,33 +21,33 @@ astrom_like = PlanetRelAstromLikelihood(
     (epoch = 50600, ra = -478.1095526888573, dec = 80.53589069730698, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
-
     instrument_name = "GPI" # optional -- name for this group of data
 )
 ```
-
-In Octofitter, `epoch` is always the modified Julian date (measured in days). If you're not sure what this is, you can get started by just putting in arbitrary time offsets measured in days.
-
-In this case, we specified `ra` and `dec` offsets in milliarcseconds. We could instead specify `sep` (projected separation) in milliarcseconds and `pa` in radians. You cannot mix the two formats in a single `PlanetRelAstromLikelihood` but you can create two different likelihood objects, one for each format.
 
 You can also specify it in separation (mas) and positon angle (rad):
 ```julia
 astrom_like_2 = PlanetRelAstromLikelihood(
     (epoch = 50000, sep = 505.7637580573554, pa = deg2rad(24.1), σ_sep = 10, σ_pa =deg2rad(1.2), cor=0),
     # ...etc.
+    instrument_name = "GPI" # optional -- name for this group of data
 )
 ```
 
 Another way we could specify the data is by column:
 ```@example 1
-astrom_like = PlanetRelAstromLikelihood(Table(;
-    epoch= [50000,  50120, 50240, 50360,50480, 50600, 50720, 50840,],
-    ra = [-505.764, -502.57, -498.209, -492.678,-485.977, -478.11, -469.08, -458.896,],
-    dec = [-66.9298, -37.4722, -7.92755, 21.6356, 51.1472,  80.5359,  109.729,  138.651, ],
-    σ_ra = fill(10.0, 8),
-    σ_dec = fill(10.0, 8),
-    cor = fill(0.0, 8)
-))
+astrom_like = PlanetRelAstromLikelihood(
+    Table(
+        epoch= [50000,  50120, 50240, 50360,50480, 50600, 50720, 50840,], # MJD
+        ra = [-505.764, -502.57, -498.209, -492.678,-485.977, -478.11, -469.08, -458.896,], # mas
+        dec = [-66.9298, -37.4722, -7.92755, 21.6356, 51.1472,  80.5359,  109.729,  138.651, ], # mas
+        σ_ra = fill(10.0, 8),
+        σ_dec = fill(10.0, 8),
+        cor = fill(0.0, 8),
+    ),
+    instrument_name = "GPI" # optional -- name for this group of data
+)
+nothing # hide
 ```
 
 Finally we could also load the data from a file somewhere. Here is an example 
@@ -61,6 +62,10 @@ astrom_like = PlanetRelAstromLikelihood(
 ```
 
 You can also pass a DataFrame or any other table format.
+
+In Octofitter, `epoch` is always the modified Julian date (measured in days). If you're not sure what this is, you can get started by just putting in arbitrary time offsets measured in days.
+
+In this case, we specified `ra` and `dec` offsets in milliarcseconds. We could instead specify `sep` (projected separation) in milliarcseconds and `pa` in radians. You cannot mix the two formats in a single `PlanetRelAstromLikelihood` but you can create two different likelihood objects, one for each format.
 
 ### Creating a planet
 
@@ -104,7 +109,6 @@ For a `KepOrbit` you must specify the following parameters:
 * `Ω`: Longitude of the ascending node, radians.
 * `tp`: Epoch of periastron passage
 
-
 Many different distributions are supported as priors, including `Uniform`, `LogNormal`, `LogUniform`, `Sine`, and `Beta`. See the section on [Priors](@ref priors) for more information.
 The parameters can be specified in any order.
 
@@ -116,11 +120,6 @@ This `=` syntax works for arbitrary mathematical expressions and even functions.
 After the variables block are zero or more `Likelihood` objects. These are observations specific to a given planet that you would like to include in the model. If you would like to sample from the priors only, don't pass in any observations.
 
 For this example, we specify `PlanetRelAstromLikelihood` block. This is where you can list the position of a planet relative to the star at different epochs.
-
-When you have created your planet, you should see the following output. If you don't, you can run `display(b)` to force the text to be output:
-```@example 1
-b # hide
-```
 
 
 ### Creating a system
@@ -138,20 +137,14 @@ nothing #hide
 `Tutoria` is the name we have given to the system. It could be eg `PDS70`, or anything that will help you keep track of the results.
 
 The variables block works just like it does for planets. Here, the two parameters you must provide are:
-* `M`: Gravitational parameter of the central body, expressed in units of Solar mass.
+* `M`: Gravitational parameter for the total mass of the system, expressed in units of Solar mass.
 * `plx`: Distance to the system expressed in milliarcseconds of parallax.
 
-`M` is always required for all choices of parameterizations supported by PlanetOrbits.jl. `plx` is needed due to our choice to use `Visual{...}` orbit and relative astrometry.
-The prior on `plx` can be looked up from GAIA for many targets by using the function `gaia_plx`:
-```julia
-    plx ~ gaia_plx(;gaia_id=12345678910)
-```
+Make sure to truncate the priors to prevent unphysical negative masses or parallaxes.
+
 
 After that, just list any planets that you want orbiting the star. Here, we pass planet `b`.
-
 This is also where we could pass likelihood objects for system-wide data like stellar radial velocity.
-
-You can display your system object by running `display(Tutoria)` (or whatever you chose to name your system).
 
 
 ### Prepare model
@@ -162,17 +155,47 @@ model = Octofitter.LogDensityModel(Tutoria)
 
 This type implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.
 
+
+### Initialize starting points for chains
+
+Run the `initialize!` function to find good starting points for the chain. You can provide guesses for parameters if you want to.
+```julia
+init_chain = initialize!(model) # No guesses provided, slower global optimization will be used
+```
+
+```@example 1
+init_chain = initialize!(model, (;
+    plx = 50,
+    M = 1.21,
+    planets = (;
+        b=(;
+            a = 10.0,
+            e = 0.01,
+            # note! Never initialize a value on the bound, exactly 0 eccentricity is disallowed by the `Uniform(0,1)` prior
+        )
+    )
+))
+```
+
+### Visualize the starting points
+
+Plot the inital values to make sure that they are reasonable, and match your data. This is a great time to confirm that your data were entered in correctly.
+
+```@example 1
+using CairoMakie
+octoplot(model, init_chain)
+```
+
+The starting points for sampling look reasonable!
+
+!!! note
+    The return value from `initialize!` is a "variational approximation". You can pass that chain to any function expecting a `chain` argument, like `Octofitter.savechain` or `octocorner`. It gives a rough approximation of the posterior we expect. The central values are probably close, but the uncertainties are unreliable.
+
 ### Sampling
 Now we are ready to draw samples from the posterior:
 ```@example 1
-
-# Provide a seeded random number generator for reproducibility of this example.
-# This is not necessary in general: you may simply omit the RNG parameter if you prefer.
-using Random
-rng = Random.Xoshiro(1234)
-
-octofit(rng, model, verbosity = 0,iterations=2,adaptation=2,); # hide
-chain = octofit(rng, model)
+octofit(model, verbosity = 0,iterations=2,adaptation=2,); # hide
+chain = octofit(model)
 ```
 
 You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the `verbosity` value down to 0.
@@ -180,10 +203,12 @@ You will get an output that looks something like this with a progress bar that u
 Once complete, the `chain` object will hold the sampler results. Displaying it prints out a summary table like the one shown above.
 For a basic model like this, sampling should take less than a minute on a typical laptop.
 
+Sampling can take much longer when you have measurements with very small uncertainties.
+
 ### Diagnostics
 The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.
 
-A few things to watch out for: check that you aren't getting many (any, really) numerical errors (`ratio_divergent_transitions`). 
+A few things to watch out for: check that you aren't getting many numerical errors (`ratio_divergent_transitions`). 
 This likely indicates a problem with your model: either invalid values of one or more parameters are encountered (e.g. the prior on semi-major axis includes negative values) or that there is a region of very high curvature that is failing to sample properly. This latter issue can lead to a bias in your results.
 
 One common mistake is to use a distribution like `Normal(10,3)` for semi-major axis. This left tail of this distribution includes negative values, and our orbit model is not defined for negative semi-major axes. A better choice is a `truncated(Normal(10,3), lower=0.1)` distribution (not including zero, since a=0 is not defined).
@@ -221,7 +246,7 @@ This plot shows that these samples are not correlated after only about 5 iterati
 
 To confirm convergence, you may also examine the `rhat` column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal `1.0` to one significant digit (3 recommended).
 
-Finaly, you might consider running multiple chains. Simply run `octofit` multiple times, and store the result in different variables. Ten you can combined the chains using `chainscat` and run additional inter-chain convergence diagnostics:
+Finaly, you might consider running multiple chains. Simply run `octofit` multiple times, and store the result in different variables. Then you can combine the chains using `chainscat` and run additional inter-chain convergence diagnostics:
 ```@example 1
 using MCMCChains
 chain1 = octofit(model)
@@ -230,7 +255,8 @@ chain3 = octofit(model)
 merged_chains = chainscat(chain1, chain2, chain3)
 gelmandiag(merged_chains)
 ```
-As an additional convergence test.
+
+This will check that the means and variances are similar between chains that were initialized at different starting points.
 
 ### Analysis
 As a first pass, let's plot a sample of orbits drawn from the posterior.
@@ -240,6 +266,8 @@ using CairoMakie
 octoplot(model,chain)
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
+
+You can control what panels are displayed, the time range, colourscheme, etc. See the documentation on `octoplot` for more details.
 
 ### Pair Plot
 A very useful visualization of our results is a pair-plot, or corner plot. We can use the `octocorner` function and our PairPlots.jl package for this purpose:
@@ -251,6 +279,7 @@ octocorner(model, chain, small=true)
 Remove `small=true` to display all variables.
 
 In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.
+
 
 ### Saving your chain
 
@@ -264,4 +293,11 @@ Octofitter.savechain("mychain.fits", chain)
 You can load it back via:
 ```julia
 chain = Octofitter.loadchain("mychain.fits")
+```
+
+
+### Comparing chains
+We can compare two different chains by passing them both to `octocorner`. Let's compare the `init_chain` with the full results from `octofit`:
+```@example 1
+octocorner(model, chain, init_chain, small=true)
 ```

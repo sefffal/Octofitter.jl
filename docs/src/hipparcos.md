@@ -175,6 +175,18 @@ end hip_like b
 model = Octofitter.LogDensityModel(cEri)
 ```
 
+Initialize the starting points, and confirm the data are entered correcly:
+```@example 1
+init_chain = initialize!(model, (;
+    plx=34.,
+    pmra=44.25,
+    pmdec=-64.5,
+    ra_hip_offset_mas=0.,
+    dec_hip_offset_mas=0.,
+))
+octoplot(model, init_chain)
+```
+
 
 Now we sample:
 ```@example 1
