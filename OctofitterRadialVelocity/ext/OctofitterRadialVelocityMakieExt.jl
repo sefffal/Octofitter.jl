@@ -27,6 +27,12 @@ function Octofitter.rvpostplot(
     )
     Octofitter.rvpostplot!(fig.layout, model, results,args...;kwargs...)
 
+    # Show warning about pathfinder approximation
+    if hasproperty(results.info, :sampler) && results.info.sampler == "pathfinder"
+        Label(fig[0,1], Makie.rich("pathfinder approximation",color=:darkred, font=:bold), tellwidth=false)
+    end
+
+
     Makie.save(fname, fig, px_per_unit=3)
 
     return fig
