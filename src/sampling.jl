@@ -351,7 +351,8 @@ Base.@nospecializeinfer function advancedhmc(
             samples_transformed=mc_samples,
             adaptor,
             initial_metric=metric,
-            model_name=model.system.name
+            model_name=model.system.name,
+            sampler="nuts"
         )
     )
     return mcmcchains_with_info

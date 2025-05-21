@@ -213,7 +213,7 @@ function initialize!(rng::Random.AbstractRNG,
             start_time,
             stop_time,
             model_name=Symbol("$(model.system.name)-init"),
-            sample=:pathfinder
+            sampler="pathfinder"
         )
     )
 

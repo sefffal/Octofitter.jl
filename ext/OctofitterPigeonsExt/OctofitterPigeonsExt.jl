@@ -137,7 +137,8 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
             mcmcchains.info,
             start_time,
             stop_time,
-            model_name=pt.inputs.target.system.name
+            model_name=pt.inputs.target.system.name,
+            sampler="pigeons"
         )
     )
     return (;chain=mcmcchains_with_info, pt)
@@ -168,6 +169,7 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
             mcmcchains.info,
             start_time,
             stop_time,
+            sampler="pigeons"
         )
     )
     return (;chain=mcmcchains_with_info, pt)
@@ -227,7 +229,8 @@ Base.@nospecializeinfer function MCMCChains.Chains(
             global_barrier_variational,
             global_barrier=Pigeons.global_barrier(pt),
             start_time=0,
-            stop_time=sum(pt.shared.reports.summary.last_round_max_time)
+            stop_time=sum(pt.shared.reports.summary.last_round_max_time),
+            sampler="pigeons"
         )
     )
     return mcmcchains_with_info
