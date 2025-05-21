@@ -123,7 +123,10 @@ function initialize!(rng::Random.AbstractRNG,
                                        nruns=8, 
                                        ntries=2, 
                                        ndraws=1000, 
-                                       verbosity=1)
+                                       verbosity=1,
+                                        pathfinder_autodiff=AutoForwardDiff(),
+
+                                       )
     # # If no fixed parameters, just call the original initializer
     # if isnothing(fixed_params)
     #     return initialize!(rng, model; nruns, ntries, ndraws, verbosity)
@@ -185,7 +188,7 @@ function initialize!(rng::Random.AbstractRNG,
 
             logposts = optimization_and_pathfinder_with_fixed(
                 rng, model, combined_fixed_values, combined_fixed_indices, variable_indices;
-                nruns, ntries, ndraws, verbosity
+                nruns, ntries, ndraws, verbosity, pathfinder_autodiff
             )
         end
         
@@ -194,7 +197,7 @@ function initialize!(rng::Random.AbstractRNG,
         # Can use global optimization followed by pathfinder
         logposts = optimization_and_pathfinder_with_fixed(
             rng, model, fixed_values, fixed_indices, variable_indices;
-            nruns, ntries, ndraws, verbosity
+            nruns, ntries, ndraws, verbosity, pathfinder_autodiff
         )
     end
     
@@ -292,7 +295,8 @@ Run optimization and pathfinder with fixed parameters.
 """
 function optimization_and_pathfinder_with_fixed(
     rng, model, fixed_values, fixed_indices, variable_indices;
-    nruns=8, ntries=2, ndraws=1000, verbosity=1
+    nruns=8, ntries=2, ndraws=1000, verbosity=1,
+    pathfinder_autodiff=AutoForwardDiff(),
 )
     # First, identify which parameters are discrete vs continuous
     sample = model.sample_priors(rng)
@@ -468,7 +472,7 @@ function optimization_and_pathfinder_with_fixed(
             end
             l
         end,
-        AutoForwardDiff()
+        pathfinder_autodiff
         # this is because users might pick finitediff for models with discrete variables
         # but we still want to optimize efficiently here where we've masked out all the discrete variables
     )
