@@ -153,27 +153,12 @@ Base.@nospecializeinfer function advancedhmc(
     drop_warmup::Bool=true,
     max_depth::Int=12,
     verbosity::Int=2,
-
-    # deprecated options: see model.starting_points and Octofitter.default_initializer!
-    pathfinder::Bool=true,
-    initial_parameters::Union{Nothing,Vector{Float64}}=nothing,
-    initial_samples::Int= pathfinder ? 10_000 : 250_000,
 )
     @nospecialize
     if adaptation < 1000
         @warn "At least 1000 steps of adapation are recomended for good sampling"
     end
 
-    if !pathfinder
-        error("pathfinder option is deprecated. Use model.starting_points and/or Octofitter.default_initializer!.")
-    end
-    if !isnothing(initial_parameters)
-        error("initial_parameters option is deprecated. Use model.starting_points and/or Octofitter.default_initializer!.")
-    end
-    if initial_samples != 10_000
-        error("initial_samples option is deprecated. Use model.starting_points and/or Octofitter.default_initializer!.")
-    end
-    
     # inialize if not already done or set by user
     get_starting_point!!(model)
 
