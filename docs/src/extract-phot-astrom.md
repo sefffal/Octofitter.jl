@@ -74,9 +74,11 @@ model = Octofitter.LogDensityModel(sys, verbosity=4)
 
 If you already know where the planet is and you only want to extract astrometry from that known location, you can specify a starting point and use hamiltonian monte carlo as follows. This will be very very fast.
 ```@example 1
-model.starting_points = model.link.([
-    [1704, deg2rad(70.63), 1e-4]
-])
+initialize!(model, (;
+    sep=1704,
+    pa=deg2rad(70.63),
+    L=1e-4,
+))
 chain = octofit(model, iterations=10000)
 ```
 
@@ -86,7 +88,7 @@ You could also try sampling across the entire image, without necessarily specify
 Note that if there are multiple candidates, taking the naive mean and standard deviation will average across all planets.
 ```@example 1
 using Pigeons
-model.starting_points = nothing # reset starting points
+initialize!(model)
 chain, pt = octofit_pigeons(model, n_rounds=11)
 ```
 
