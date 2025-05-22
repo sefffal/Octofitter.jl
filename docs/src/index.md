@@ -13,14 +13,12 @@ You can also use Octofitter from Python using the [Python guide](@ref python).
 
 ![](assets/gallery.png)
 
-!!! note
-    Octofitter is under active development and is only tested with the latest stable julia release (currently 1.10)
 
 **Supported data:**
 * Fit exoplanet orbits to relative astrometry
-* Fit radial velocity data
+* Fit radial velocity data (relative between a companion and host, and absolute)
 * Model stellar activity with Gaussian processes
-* Model stellar astrometric accerlation (Gaia-Hipparcos proper motion anomaly)
+* Model stellar astrometric accerlation (Gaia-Hipparcos proper motion anomaly, Hipparcos IAD)
 * "De-orbiting": combine a sequence of images with orbital motion to detect planets
 * Sample directly from images or interferometric visibilities
 * Experimental support for transit data based on Transits.jl
@@ -28,7 +26,7 @@ You can also use Octofitter from Python using the [Python guide](@ref python).
 You can freely combine any of the above data types.  Any and all combinations work together.
 
 **Modelling features:**
-* multiple planets (one or more)
+* multiple planets (zero or more)
 * hyperbolic orbits
 * co-planar, and non-coplanar systems
 * arbitrary priors and parameterizations
