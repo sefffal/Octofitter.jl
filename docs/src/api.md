@@ -13,8 +13,6 @@ ObsPriorAstromONeil2019
 Sine
 mjd
 years2mjd
-rad2deg
-deg2rad
 gaia_plx
 Octofitter.advancedhmc
 Visual{KepOrbit}
