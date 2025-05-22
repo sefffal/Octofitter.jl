@@ -103,7 +103,7 @@ model = Octofitter.LogDensityModel(HR8799_res_co)</code></pre><pre class="docume
     M_c = 5.14,
     P_nominal = 230,
 ))
-octoplot(model, init_chain)</code></pre><img src="927d2d8b.png" alt="Example block output"/><p>Now sample from the model using Pigeons parallel tempering:</p><pre><code class="language-julia hljs">using Pigeons
+octoplot(model, init_chain)</code></pre><img src="b3f14daf.png" alt="Example block output"/><p>Now sample from the model using Pigeons parallel tempering:</p><pre><code class="language-julia hljs">using Pigeons
 results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: This model has priors that cannot be sampled IID.
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:95
 [ Info: Sampler running with multiple threads     : true
@@ -111,20 +111,20 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.36       2.42      0.534    6.9e+06  -7.52e+06          0      0.813          1          1
-        4          0       5.12       4.31      0.625   1.42e+05  -1.83e+06          0      0.696          1          1
-        8          0       5.07       6.12       1.19   2.47e+05  -9.17e+04          0      0.639          1          1
-       16          0       5.49       6.44       2.33   4.17e+05  -2.92e+04          0      0.615          1          1
-       32          0        6.9       7.44       4.56   6.77e+05  -1.12e+04          0      0.537          1          1
-       64          0       8.32       6.43       8.93   7.22e+07       -202          0      0.524          1          1
-      128          2       8.61        7.6       17.6   1.33e+08       -206  1.16e-183      0.477          1          1
-      256          0       9.17       7.82       34.4   2.61e+08       -205   1.82e-60      0.452          1          1
-      512          7       9.32        8.4       67.6   5.16e+08       -205    0.00145      0.428          1          1
- 1.02e+03         12       9.83       8.57        133   1.03e+09       -203   1.87e-06      0.406          1          1
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="cd105e17.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="e114d22c.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
+        2          0       2.85       3.27      0.543    6.9e+06  -9.85e+06          0      0.803          1          1
+        4          0        6.2       5.48      0.625   1.39e+05  -1.27e+06          0      0.623          1          1
+        8          0       6.46          5       1.18    2.3e+05  -9.39e+04          0       0.63          1          1
+       16          0       9.24       6.26       2.22   3.62e+05  -1.48e+05          0        0.5          1          1
+       32          0       9.27       6.68       4.41   5.89e+05  -2.28e+04          0      0.486          1          1
+       64          0       9.46       5.59       8.64   7.33e+07       -158  1.28e-253      0.515          1          1
+      128          1       9.86       6.39       17.1   1.34e+08       -206   2.07e-06      0.476          1          1
+      256          2       10.2       7.15       33.9   2.65e+08       -207    0.00785       0.44          1          1
+      512          6       10.7       7.94       66.6   5.22e+08       -205     0.0119      0.399          1          1
+ 1.02e+03          7       10.8       8.42        132   1.03e+09       -203    0.00911       0.38          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="f3886a69.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="16728fda.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
     results[:b_P][:] ./ results[:c_P][:],
     axis=(;
         xlabel=&quot;period ratio&quot;,
         ylabel=&quot;counts&quot;,
     )
-)</code></pre><img src="8912e487.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Observable Priors</a><a class="docs-footer-nextpage" href="../thiele-innes/">Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Thursday 22 May 2025 03:49">Thursday 22 May 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="37b47eef.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Observable Priors</a><a class="docs-footer-nextpage" href="../thiele-innes/">Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Thursday 22 May 2025 17:31">Thursday 22 May 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
