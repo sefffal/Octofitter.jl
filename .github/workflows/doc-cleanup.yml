@@ -1,0 +1,55 @@
+name: Doc Preview Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+
+# Ensure that only one "Doc Preview Cleanup" workflow is force pushing at a time
+concurrency:
+  group: doc-preview-cleanup
+  cancel-in-progress: false
+
+jobs:
+  doc-preview-cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0  # Fetch full history to enable orphan branch creation
+      
+      - name: Configure Git
+        run: |
+          git config user.name "Documenter.jl"
+          git config user.email "documenter@juliadocs.github.io"
+      
+      - name: Delete preview directory (if exists)
+        run: |
+          if [ -d "${preview_dir}" ]; then
+            git rm -rf "${preview_dir}"
+            git commit -m "delete preview for closed PR" || echo "No preview to delete"
+          else
+            echo "No preview directory found to delete"
+          fi
+        env:
+          preview_dir: ${{ format('previews/PR{0}', github.event.pull_request.number) }}
+      
+      - name: Create new orphan branch with current state
+        run: |
+          # Create a new orphan branch to remove all history
+          git checkout --orphan gh-pages-temp
+          
+          # Add all current files to the new branch
+          git add -A
+          git commit -m "Reset gh-pages history - keep only latest state"
+          
+          # Force push the new branch to replace gh-pages
+          git push --force origin gh-pages-temp:gh-pages
+          
+          # Clean up the temporary branch
+          git checkout gh-pages
+          git branch -D gh-pages-temp
