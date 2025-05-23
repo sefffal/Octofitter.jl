@@ -150,7 +150,8 @@ function pmaplot!(
 
     # Now over plot any astrometry
     like_objs = filter(model.system.observations) do like_obj
-        nameof(typeof(like_obj)) == :HGCALikelihood
+        nameof(typeof(like_obj)) == :HGCALikelihood || 
+        nameof(typeof(like_obj)) == :HGCAInstantaneousLikelihood
     end
     if !isempty(like_objs)
         hgca_like = only(like_objs)
@@ -313,10 +314,15 @@ function pmaplot!(
             orbits = map(keys(model.system.planets)) do planet_key
                 Octofitter.construct_elements(model, results, planet_key, i)
             end
-            solutions = map(orbits) do orbit
-                return orbitsolve.(orbit, years2mjd.([hgca_like.hgca.epoch_ra_hip, hgca_like.hgca.epoch_ra_gaia]))
+            if hasproperty(hgca_like, :table)
+                solutions = map(orbits) do orbit
+                    return orbitsolve.(orbit, hgca_like.table.epoch)
+                end
+                sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, 0)
+            else
+                solutions = [() for _ in length(model.system.planets)]
+                sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, -1)
             end
-            sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, -1)
             push!(sims, sim)
         end
         # HIP Epoch

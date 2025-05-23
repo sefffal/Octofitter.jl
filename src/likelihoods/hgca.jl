@@ -156,7 +156,7 @@ function ln_like(hgca_like::HGCAInstantaneousLikelihood, θ_system, elements, or
         pmdec_gaia_model,
         pmra_hg_model,
         pmdec_hg_model,
-    ) = _simulate_hgca_instant(hgca_like, θ_system, elements, orbit_solutions, orbit_solutions_i_epoch_start)
+    ) = simulate(hgca_like, θ_system, elements, orbit_solutions, orbit_solutions_i_epoch_start)
 
 
     absolute_orbits = false
@@ -209,7 +209,7 @@ function ln_like(hgca_like::HGCAInstantaneousLikelihood, θ_system, elements, or
 end
 
 
-function _simulate_hgca_instant(pma, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function simulate(pma::HGCAInstantaneousLikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     T = Octofitter._system_number_type(θ_system)
 
     # This observation type just wraps one row from the HGCA (see hgca.jl)
@@ -258,7 +258,6 @@ function _simulate_hgca_instant(pma, θ_system, orbits, orbit_solutions, orbit_s
             if pma.table.inst[i_epoch] != :hip
                 continue
             end
-            
             sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
             if pma.table.meas[i_epoch] == :ra
                 N_ave_hip_ra += 1
@@ -361,7 +360,16 @@ function _simulate_hgca_instant(pma, θ_system, orbits, orbit_solutions, orbit_s
         pmdec_hg_model += θ_system.pmdec
     end
 
-    result = (;
+    μ_h = @SVector [pmra_hip_model, pmdec_hip_model]
+    μ_hg = @SVector [pmra_hg_model, pmdec_hg_model]
+    μ_g = @SVector [pmra_gaia_model, pmdec_gaia_model]
+    
+    return (;
+        # Packaged up nicely
+        μ_g,
+        μ_h,
+        μ_hg,
+        # Individual
         pmra_hip_model,
         pmdec_hip_model,
         pmra_gaia_model,
@@ -369,7 +377,6 @@ function _simulate_hgca_instant(pma, θ_system, orbits, orbit_solutions, orbit_s
         pmra_hg_model,
         pmdec_hg_model,
     )
-
     return result
 end
 

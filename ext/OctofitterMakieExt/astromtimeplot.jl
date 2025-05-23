@@ -189,8 +189,6 @@ function astromtimeplot!(
                 continue
             end
 
-            # TODO: currently working on adding epicycle perturbations to separation and PA plots
-
             # Only account for interior planets
             mask = semimajoraxis.(orbit_other) .< semimajoraxis.(orbs)
             sols′ = orbitsolve.(orbit_other, ts')
