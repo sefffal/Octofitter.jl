@@ -213,12 +213,27 @@ struct Planet{TElem<:AbstractOrbit, TP<:Priors,TD<:Union{Derived,Nothing},TObs<:
     derived::TD
     observations::TObs
     name::Symbol
-    Planet{O}(priors::Priors, det::Derived, like::Tuple; name::Symbol) where {O<:AbstractOrbit} = new{O,typeof(priors),typeof(det),typeof(like)}(priors,det,like,name)
 end
 export Planet
-Planet{O}((priors,det)::Tuple{Priors,Derived}, args...; kwargs...) where {O<:AbstractOrbit} = Planet{O}(priors, det, args...; kwargs...)
-Planet{O}(priors::Priors, like::AbstractLikelihood...; name) where {O<:AbstractOrbit} = Planet{O}(priors, nothing, like; name)
-Planet{O}(priors::Priors, det::Derived, like::AbstractLikelihood...; name) where {O<:AbstractOrbit} = Planet{O}(priors, det, like; name)
+function Planet(;
+    name::Symbol,
+    basis::Type,
+    variables::Tuple,
+    likelihoods::Union{NTuple{N,<:AbstractLikelihood} where N, AbstractArray{<:AbstractLikelihood}}=()
+)
+    (priors,derived,additional_likelihoods...)=variables
+    # Type asserts
+    priors::Priors
+    derived::Derived
+    for l in additional_likelihoods
+        l::AbstractLikelihood
+    end
+    likes = (likelihoods..., additional_likelihoods...)
+    return Planet{
+        basis,
+        typeof(priors),typeof(derived),typeof(likes)
+    }(priors, derived, likes, name)
+end
 
 
 """
@@ -252,34 +267,34 @@ struct System{TPriors<:Priors, TDet<:Union{Derived,Nothing},TObs<:NTuple{N,Abstr
     observations::TObs
     planets::TPlanet
     name::Symbol
-    function System(
-        system_priors::Priors,
-        system_det::Union{Derived,Nothing},
-        observations::NTuple{N,AbstractLikelihood} where N,
-        planets::NTuple{M,Planet} where M;
-        name
-    )
-        if isempty(planets)
-            planets_nt = (;)
-        else
-            planets_nt = namedtuple(
-                getproperty.(planets, :name),
-                planets
-            )
-        end
-        return new{typeof(system_priors), typeof(system_det), typeof(observations), typeof(planets_nt)}(
-            system_priors, system_det, observations, planets_nt, name
-        )
-    end
 end
 export System
-
-# Argument standardization / method cascade.
-# Allows users to pass arguments to System in any convenient order.
-System((priors,det)::Tuple{Priors,Derived}, args...; kwargs...) = System(priors, det, args...; kwargs...)
-System(planets::Planet...; kwargs...) = System(Priors(), nothing, planets...; kwargs...)
-System(priors::Priors, args::Union{AbstractLikelihood,Planet}...; kwargs...) = System(priors, nothing, args...; kwargs...)
-System(priors::Priors, det::Union{Derived,Nothing}, args::Union{AbstractLikelihood,Planet}...; kwargs...) = System(priors, det, group_obs_planets(args)...; kwargs...)
+function System(;
+    name::Symbol,
+    variables::Tuple,
+    companions::Union{NTuple{N,<:Planet} where N, AbstractArray{<:Planet}}=(),
+    likelihoods::Union{NTuple{N,<:AbstractLikelihood} where N, AbstractArray{<:AbstractLikelihood}}=()
+)
+    (priors,derived,additional_likelihoods...)=variables
+    # Type asserts
+    priors::Priors
+    derived::Derived
+    for l in additional_likelihoods
+        l::AbstractLikelihood
+    end
+    likes = (likelihoods..., additional_likelihoods...)
+    if isempty(companions)
+        planets_nt = (;)
+    else
+        planets_nt = namedtuple(
+            getproperty.(companions, :name),
+            companions
+        )
+    end
+    return System{
+        typeof(priors),typeof(derived),typeof(likes),typeof(planets_nt)
+    }(priors, derived, likes, planets_nt, name)
+end
 
 _isprior(::AbstractLikelihood) = false
 
@@ -379,9 +394,17 @@ any Planets, according to the same order as `make_arr2nt`.
 function _list_priors(system::System)
 
     priors_vec = []
+    
     # System priors
     for prior_distribution in values(system.priors.priors)
-        push!(priors_vec,prior_distribution)
+        push!(priors_vec, prior_distribution)
+    end
+
+    # System observation priors
+    for obs in system.observations
+        for prior_distribution in values(obs.priors.priors)
+            push!(priors_vec, prior_distribution)
+        end
     end
 
     # Planet priors
@@ -390,12 +413,18 @@ function _list_priors(system::System)
         for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
             push!(priors_vec, prior_distribution)
         end
+        
+        # Planet observation priors
+        for obs in planet.observations
+            for prior_distribution in values(obs.priors.priors)
+                push!(priors_vec, prior_distribution)
+            end
+        end
     end
 
     # narrow the type
     return map(identity, priors_vec)
 end
-
 
 """
     make_arr2nt(system::System)
@@ -461,7 +490,7 @@ function make_arr2nt(system::System)
     if !isnothing(system.derived)
         for (key,func) in zip(keys(system.derived.variables), values(system.derived.variables))
             ex = :(
-                sys = (; sys..., $key = $func(sys))
+                sys = (; sys..., $key = $func(nothing, sys))
             )
             push!(body_sys_determ,ex)
         end
@@ -556,7 +585,6 @@ function make_arr2nt(system::System)
                 end
             end
             name = normalizename(obs.instrument_name)
-            @show name
             # ex = :(begin
             #     obs0 = (;$(planet_obs_priors...));
             #     $(planet_obs_determ...);
@@ -568,7 +596,6 @@ function make_arr2nt(system::System)
                 $(planet_obs_determ...);
                 (;$(Symbol("obs$(k)"))...)
             end)
-            @show ex
             push!(planet_observations,ex)
         end
 
@@ -579,11 +606,10 @@ function make_arr2nt(system::System)
             # $(Symbol("planet$(j)"))
             (;(;$(Symbol("planet$(j)"))...)..., observations=(;$(planet_observations...)))
         end)
-        @show ex
         push!(body_planets,ex)
     end
 
-    # Planets: priors & derived variables
+    # System observations
     body_observations = Expr[]
     for obs in system.observations
         
@@ -607,10 +633,9 @@ function make_arr2nt(system::System)
                     $key = arr[$i]
                 )
             end
-
-
             push!(body_obs_priors,ex)
         end
+        
         j = 0
         body_obs_determ = Expr[]
         if !isnothing(obs.derived)
@@ -623,13 +648,13 @@ function make_arr2nt(system::System)
                 j += 1
             end
         end
+        
         name = normalizename(obs.instrument_name)
-        ex = :(
-            $name = (;
-                $(body_obs_priors...),
-                $(body_obs_determ...)
-            )
-        )
+        ex = :($name = begin
+            obs0 = (;$(body_obs_priors...));
+            $(body_obs_determ...);
+            (;$(Symbol("obs$(j)"))...)
+        end)
         push!(body_observations,ex)
     end
 
@@ -685,7 +710,6 @@ end
 #         return lp 
 #     end
 # end
-
 function make_ln_prior(system::System)
 
     # This function uses meta-programming to unroll all the code at compile time.
@@ -708,6 +732,21 @@ function make_ln_prior(system::System)
             end
         )
         push!(prior_evaluations,ex)
+    end
+
+    # System observation priors
+    for obs in system.observations
+        for prior_distribution in values(obs.priors.priors)
+            i += 1
+            ex = :(
+                lp += $logpdf($prior_distribution, arr[$i]);
+                if !isfinite(lp)
+                    println("invalid prior value encountered for prior: Distributions.logpdf(", $prior_distribution, ", ", arr[$i], ")")
+                    error()
+                end
+            )
+            push!(prior_evaluations,ex)
+        end
     end
 
     # Planet priors
@@ -736,6 +775,31 @@ function make_ln_prior(system::System)
             end
             push!(prior_evaluations,ex)
         end
+
+        # Planet observation priors
+        for obs in planet.observations
+            for prior_distribution in values(obs.priors.priors)
+                i += 1
+                # Apply same Beta distribution workaround if needed
+                if typeof(prior_distribution) <: Beta
+                    ex = :(
+                        lp += 0 <= arr[$i] < 1 ? $logpdf($prior_distribution, arr[$i]) : -Inf;
+                        if !isfinite(lp)
+                            println("invalid prior value encountered for prior: Distributions.logpdf(", $prior_distribution, ", ", arr[$i], ")")
+                            error()
+                        end
+                    )
+                else
+                    ex = :(
+                        lp += $logpdf($prior_distribution, arr[$i]);
+                        if !isfinite(lp)
+                            println("invalid prior value encountered for prior: Distributions.logpdf(", $prior_distribution, ", ", arr[$i], ")")
+                        end
+                    )
+                end
+                push!(prior_evaluations,ex)
+            end
+        end
     end
 
     # Here is the function we return.
@@ -748,10 +812,10 @@ function make_ln_prior(system::System)
             error("Expected exactly $l elements in array (got $(length(arr)))")
         end
         lp = zero(first(arr))
-        # Add contributions from planet priors
-        @inbounds begin
+        # Add contributions from all priors
+        # @inbounds begin
            $(prior_evaluations...) 
-        end
+        # end
         return lp
     end))
 end
@@ -797,6 +861,39 @@ function make_ln_prior_transformed(system::System)
         push!(prior_evaluations,ex)
     end
 
+    # System observation priors
+    for obs in system.observations
+        for prior_distribution in values(obs.priors.priors)
+            if length(prior_distribution) > 1
+                samples = []
+                for _ in 1:length(prior_distribution)
+                    i += 1
+                    samples = [samples; :(arr[$i])]
+                end
+                samples = :(SVector($(samples...),))
+            else
+                i += 1
+                samples = :(arr[$i])
+            end
+            ex = :(
+                p = $logpdf_with_trans($prior_distribution, $samples, sampled);
+                # Try and "heal" out of bounds values.
+                # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
+                # precision. 
+                if !isfinite(p)
+                    # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", $sampled)=", p)
+                    if sign(p) > 1
+                        return prevfloat(typemax(eltype(arr)))
+                    else
+                        return nextfloat(typemin(eltype(arr)))
+                    end
+                end;
+                lp += p
+            )
+            push!(prior_evaluations,ex)
+        end
+    end
+
     # Planet priors
     for planet in system.planets
         # for prior_distribution in values(planet.priors.priors)
@@ -830,30 +927,44 @@ function make_ln_prior_transformed(system::System)
                 )
             push!(prior_evaluations,ex)
         end
+
+        # Planet observation priors
+        for obs in planet.observations
+            for prior_distribution in values(obs.priors.priors)
+                if length(prior_distribution) > 1
+                    samples = []
+                    for _ in 1:length(prior_distribution)
+                        i += 1
+                        samples = [samples; :(arr[$i])]
+                    end
+                    samples = :(SVector($(samples...),))
+                else
+                    i += 1
+                    samples = :(arr[$i])
+                end
+                ex = :(
+                    p = $logpdf_with_trans($prior_distribution, $samples, sampled);
+                    # Try and "heal" out of bounds values.
+                    # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
+                    # precision. 
+                    if !isfinite(p)
+                        # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", $sampled)=", p)
+                        if sign(p) > 1
+                            return prevfloat(typemax(eltype(arr)))
+                        else
+                            return nextfloat(typemin(eltype(arr)))
+                        end
+                    end;
+                    lp += p
+                )
+                push!(prior_evaluations,ex)
+            end
+        end
     end
+    
     if isempty(prior_evaluations)
         error("Model includes no free variables")
     end
-    # # System priors
-    # for prior_distribution in values(system.priors.priors)
-    #     i += 1
-    #     ex = :(
-    #         lp += $logpdf_with_trans($prior_distribution, arr[$i], sampled)
-    #     )
-    #     push!(prior_evaluations,ex)
-    # end
-
-    # # Planet priors
-    # for planet in system.planets
-    #     # for prior_distribution in values(planet.priors.priors)
-    #     for (key, prior_distribution) in zip(keys(planet.priors.priors), values(planet.priors.priors))
-    #         i += 1
-    #         ex = :(
-    #             lp += $logpdf_with_trans($prior_distribution, arr[$i], sampled)
-    #         )
-    #         push!(prior_evaluations,ex)
-    #     end
-    # end
 
     # Here is the function we return.
     # It maps an array of parameters into our nested named tuple structure
