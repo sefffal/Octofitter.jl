@@ -295,6 +295,24 @@ You can load it back via:
 chain = Octofitter.loadchain("mychain.fits")
 ```
 
+### Saving your model
+
+You may choose to save your model so that you can reload it later to make plots, etc:
+```@example 1
+using Serialization
+serialize("model1.jls", model)
+```
+
+Which can then be loaded at a later time using:
+```julia
+using Serialization
+using Octofitter # must include all the same imports as your original script
+model = deserialize("model1.jls")
+```
+
+!!! warning
+    Serialized models are only loadable/restorable on the same computer, version of Octofitter, and version of Julia. They are not intended for long-term archiving. For reproducibility, make sure to keep your original model definition script.
+
 
 ### Comparing chains
 We can compare two different chains by passing them both to `octocorner`. Let's compare the `init_chain` with the full results from `octofit`:
