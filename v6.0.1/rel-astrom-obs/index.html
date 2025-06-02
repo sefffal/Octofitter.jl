@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Observable Priors · Octofitter.jl</title><meta name="title" content="Observable Priors · Octofitter.jl"/><meta property="og:title" content="Observable Priors · Octofitter.jl"/><meta property="twitter:title" content="Observable Priors · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox" checked/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li class="is-active"><a class="tocitem" href>Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Relative Astrometry</a></li><li class="is-active"><a href>Observable Priors</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Observable Priors</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/rel-astrom-obs.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Observable-Based-Priors"><a class="docs-heading-anchor" href="#Observable-Based-Priors">Observable-Based Priors</a><a id="Observable-Based-Priors-1"></a><a class="docs-heading-anchor-permalink" href="#Observable-Based-Priors" title="Permalink"></a></h1><p>This tutorial shows how to fit an orbit to relative astrometry using the observable-based priors of<a href="https://ui.adsabs.harvard.edu/abs/2019AJ....158....4O">O&#39;Neil et al. 2019</a>. Please cite that paper if you use this functionality.</p><p>We will fit the same astrometry as in the <a href="../rel-astrom/#fit-astrometry">previous tutorial</a>, and just change our priors.</p><pre><code class="language-julia hljs">using Octofitter
+using CairoMakie
+using PairPlots
+using Distributions
+
+astrom_like = PlanetRelAstromLikelihood(
+    (epoch = 50000, ra = -494.4, dec = -76.7, σ_ra =  12.6, σ_dec =  12.6, cor=  0.2),
+    (epoch = 50120, ra = -495.0, dec = -44.9, σ_ra =  10.4, σ_dec =  10.4, cor=  0.5),
+    (epoch = 50240, ra = -493.7, dec = -12.9, σ_ra =   9.9, σ_dec =   9.9, cor=  0.1),
+    (epoch = 50360, ra = -490.4, dec =  19.1, σ_ra =   8.7, σ_dec =   8.7, cor= -0.8),
+    (epoch = 50480, ra = -485.2, dec =  51.0, σ_ra =   8.0, σ_dec =   8.0, cor=  0.3),
+    (epoch = 50600, ra = -478.1, dec =  82.8, σ_ra =   6.9, σ_dec =   6.9, cor= -0.0),
+    (epoch = 50720, ra = -469.1, dec = 114.3, σ_ra =   5.8, σ_dec =   5.8, cor=  0.1),
+    (epoch = 50840, ra = -458.3, dec = 145.3, σ_ra =   4.2, σ_dec =   4.2, cor= -0.2),
+)
+obs_pri = ObsPriorAstromONeil2019(astrom_like)
+@planet b Visual{KepOrbit} begin
+    e ~ Uniform(0.0, 0.5)
+    i ~ Sine()
+    ω ~ UniformCircular()
+    Ω ~ UniformCircular()
+    # Results will be sensitive to the prior on period
+    P ~  LogUniform(0.1, 150) # Period, years
+    a = ∛(system.M * b.P^2)
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50420)
+end astrom_like obs_pri
+
+@system TutoriaPrime begin
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+end b
+
+model = Octofitter.LogDensityModel(TutoriaPrime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System TutoriaPrime of dimension 11 and 12 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>Initialize the model starting points and confirm the data are entered correctly:</p><pre><code class="language-julia hljs">init_chain = initialize!(model,)
+octoplot(model, init_chain)</code></pre><img src="2219c626.png" alt="Example block output"/><p>Now run the fit:</p><pre><code class="language-julia hljs">results_obspri = octofit(model,iterations=5000,)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (5000×29×1 Array{Float64, 3}):
+
+Iterations        = 1:1:5000
+Number of chains  = 1
+Samples per chain = 5000
+Wall duration     = 6.86 seconds
+Compute duration  = 6.86 seconds
+parameters        = M, plx, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_P, b_θy, b_θx, b_ω, b_Ω, b_a, b_θ, b_tp
+internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
+
+Summary Statistics
+ <span class="sgr1"> parameters         mean         std       mcse    ess_bulk    ess_tail       ⋯
+ <span class="sgr90">     Symbol      Float64     Float64    Float64     Float64     Float64   Flo ⋯
+
+           M       1.2165      0.0962     0.0127     64.9982     37.7014    1. ⋯
+         plx      49.9998      0.0190     0.0004   2753.4143   1719.2433    1. ⋯
+         b_e       0.0984      0.0687     0.0054    188.0304   1343.7429    1. ⋯
+         b_i       0.4805      0.1587     0.0203     57.7191     41.7867    1. ⋯
+        b_ωy      -0.0761      0.6668     0.0638    121.5000   1711.1788    1. ⋯
+        b_ωx      -0.0444      0.7529     0.0690    157.0360   1642.1563    1. ⋯
+        b_Ωy      -0.0983      0.7883     0.0890     88.1294    453.4278    1. ⋯
+        b_Ωx       0.0044      0.6200     0.0464    205.8828   1048.1021    1. ⋯
+         b_P      29.9620      5.1809     0.6138     88.7165    129.7613    1. ⋯
+        b_θy       0.0734      0.0090     0.0004    455.9070   3052.9545    1. ⋯
+        b_θx      -1.0115      0.1008     0.0070    224.2407   3203.2068    1. ⋯
+         b_ω      -0.4435      1.8054     0.1927     81.1189    115.0526    1. ⋯
+         b_Ω      -0.6215      1.9029     0.1311    234.6825     67.3985    1. ⋯
+         b_a      10.2603      1.2519     0.1799     66.6416    107.1422    1. ⋯
+         b_θ      -1.4984      0.0050     0.0001   3589.2378   3073.9981    1. ⋯
+        b_tp   44297.8994   2043.3335   307.3211     62.4712     48.5024    1. ⋯
+</span><span class="sgr36">                                                               2 columns omitted
+
+Quantiles
+  parameters         2.5%        25.0%        50.0%        75.0%        97.5%
+ </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
+
+           M       1.0428       1.1474       1.2082       1.2794       1.4226
+         plx      49.9623      49.9864      49.9999      50.0125      50.0374
+         b_e       0.0037       0.0410       0.0883       0.1470       0.2446
+         b_i       0.1614       0.3755       0.4816       0.5892       0.7642
+        b_ωy      -1.0333      -0.7100      -0.1263       0.5312       1.0323
+        b_ωx      -1.0824      -0.7659      -0.1822       0.7550       1.0689
+        b_Ωy      -1.1004      -0.8805      -0.2369       0.7657       1.0697
+        b_Ωx      -1.0318      -0.4995      -0.0236       0.5162       1.0353
+         b_P      21.0802      26.2573      29.1970      33.3555      41.0000
+        b_θy       0.0567       0.0670       0.0732       0.0795       0.0913
+        b_θx      -1.2067      -1.0859      -1.0079      -0.9392      -0.8269
+         b_ω      -2.9610      -2.1604      -0.5457       1.1293       2.8207
+         b_Ω      -3.0853      -2.5609      -0.1559       0.7714       3.0682
+         b_a       8.2471       9.3838      10.0032      10.9854      13.0020
+         b_θ      -1.5083      -1.5017      -1.4984      -1.4952      -1.4884
+        b_tp   39208.1609   43184.5734   44703.4934   45747.6023   47332.4163
+</span></span></code></pre><p>Plot the MCMC results:</p><pre><code class="language-julia hljs">octoplot(model, results_obspri)</code></pre><img src="5c880285.png" alt="Example block output"/><p>Compare this with the previous fit using uniform priors:</p><pre><code class="language-julia hljs">octoplot(model_with_uniform_priors, results_unif_pri)</code></pre><img src="1f5a6ab8.png" alt="Example block output"/><p>We can compare the results in a corner plot:</p><pre><code class="language-julia hljs">octocorner(model,results_unif_pri,results_obspri,small=true)</code></pre><img src="a59603e9.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom/">« Basic Astrom Fit</a><a class="docs-footer-nextpage" href="../fit-coplanar/">Resonant Co-Planar Model »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Monday 2 June 2025 16:19">Monday 2 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
