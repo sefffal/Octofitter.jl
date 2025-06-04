@@ -42,14 +42,44 @@ end imglike
 end b
 
 model = Octofitter.LogDensityModel(sys, verbosity=4)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System sys of dimension 3 and 1 epochs with fields .ℓπcallback and .∇ℓπcallback
-</code></pre><h2 id="Sample-from-the-model-(locally)"><a class="docs-heading-anchor" href="#Sample-from-the-model-(locally)">Sample from the model (locally)</a><a id="Sample-from-the-model-(locally)-1"></a><a class="docs-heading-anchor-permalink" href="#Sample-from-the-model-(locally)" title="Permalink"></a></h2><p>If you already know where the planet is and you only want to extract astrometry from that known location, you can specify a starting point and use hamiltonian monte carlo as follows. This will be very very fast.</p><pre><code class="language- hljs">initialize!(model, (;
-    sep=1704,
-    pa=deg2rad(70.63),
-    L=1e-4,
+</code></pre><h2 id="Sample-from-the-model-(locally)"><a class="docs-heading-anchor" href="#Sample-from-the-model-(locally)">Sample from the model (locally)</a><a id="Sample-from-the-model-(locally)-1"></a><a class="docs-heading-anchor-permalink" href="#Sample-from-the-model-(locally)" title="Permalink"></a></h2><p>If you already know where the planet is and you only want to extract astrometry from that known location, you can specify a starting point and use hamiltonian monte carlo as follows. This will be very very fast.</p><pre><code class="language-julia hljs">initialize!(model, (;
+    planets=(;b=(;
+        sep=1704,
+        pa=deg2rad(70.63),
+        L=1e-4,
+    ))
 ))
-chain = octofit(model, iterations=10000)</code></pre><h2 id="Sample-from-the-model-(globally)"><a class="docs-heading-anchor" href="#Sample-from-the-model-(globally)">Sample from the model (globally)</a><a id="Sample-from-the-model-(globally)-1"></a><a class="docs-heading-anchor-permalink" href="#Sample-from-the-model-(globally)" title="Permalink"></a></h2><p>You could also try sampling across the entire image, without necessarily specifying a starting position. Note that if there are multiple candidates, taking the naive mean and standard deviation will average across all planets.</p><pre><code class="language-julia hljs">using Pigeons
+chain = octofit(model, iterations=10000)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (10000×17×1 Array{Float64, 3}):
+
+Iterations        = 1:1:10000
+Number of chains  = 1
+Samples per chain = 10000
+Wall duration     = 2.51 seconds
+Compute duration  = 2.51 seconds
+parameters        = plx, b_sep, b_pa, b_L
+internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
+
+Summary Statistics
+ <span class="sgr1"> parameters        mean       std      mcse    ess_bulk    ess_tail      rhat ⋯
+ <span class="sgr90">     Symbol     Float64   Float64   Float64     Float64     Float64   Float64 ⋯
+
+         plx     24.4620    0.0000    0.0000         NaN         NaN       NaN ⋯
+       b_sep   1704.9253    5.5969    0.7298    150.5973     49.5409    1.0127 ⋯
+        b_pa      1.2330    0.0020    0.0000   5358.7813   6579.3077    0.9999 ⋯
+         b_L      0.0001    0.0000    0.0000   3325.9086   3270.3999    1.0002 ⋯
+</span><span class="sgr36">                                                                1 column omitted
+
+Quantiles
+  parameters        2.5%       25.0%       50.0%       75.0%       97.5%
+ </span><span class="sgr90">     Symbol     Float64     Float64     Float64     Float64     Float64
+
+         plx     24.4620     24.4620     24.4620     24.4620     24.4620
+       b_sep   1698.5799   1701.8618   1703.6193   1706.2652   1723.6437
+        b_pa      1.2297      1.2314      1.2328      1.2345      1.2370
+         b_L      0.0001      0.0001      0.0001      0.0001      0.0001
+</span></span></code></pre><h2 id="Sample-from-the-model-(globally)"><a class="docs-heading-anchor" href="#Sample-from-the-model-(globally)">Sample from the model (globally)</a><a id="Sample-from-the-model-(globally)-1"></a><a class="docs-heading-anchor-permalink" href="#Sample-from-the-model-(globally)" title="Permalink"></a></h2><p>You could also try sampling across the entire image, without necessarily specifying a starting position. Note that if there are multiple candidates, taking the naive mean and standard deviation will average across all planets.</p><pre><code class="language-julia hljs">using Pigeons
 initialize!(model)
 chain, pt = octofit_pigeons(model, n_rounds=11)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (2048×8×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><h2 id="Access-results"><a class="docs-heading-anchor" href="#Access-results">Access results</a><a id="Access-results-1"></a><a class="docs-heading-anchor-permalink" href="#Access-results" title="Permalink"></a></h2><pre><code class="language-julia hljs">samples_sep = chain[:b_sep]
 samples_pa = chain[:b_pa]
-println(&quot;The median separation is &quot;, median(samples_sep))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">The median separation is 1703.7058646958212</code></pre><h2 id="Visualize"><a class="docs-heading-anchor" href="#Visualize">Visualize</a><a id="Visualize-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize" title="Permalink"></a></h2><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model,chain)</code></pre><img src="532287bb.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Image Data (de-orbiting)</a><a class="docs-footer-nextpage" href="../mass-photometry/">Connect Mass and Photometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Wednesday 4 June 2025 16:46">Wednesday 4 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+println(&quot;The median separation is &quot;, median(samples_sep))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">The median separation is 1703.6672909468264</code></pre><h2 id="Visualize"><a class="docs-heading-anchor" href="#Visualize">Visualize</a><a id="Visualize-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize" title="Permalink"></a></h2><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model,chain)</code></pre><img src="42e5dcd3.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Image Data (de-orbiting)</a><a class="docs-footer-nextpage" href="../mass-photometry/">Connect Mass and Photometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Wednesday 4 June 2025 21:16">Wednesday 4 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
