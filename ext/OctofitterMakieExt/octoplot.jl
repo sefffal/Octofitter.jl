@@ -159,6 +159,7 @@ function Octofitter.octoplot!(
     hgca_detected = false
     for like_obj in model.system.observations
         hgca_detected |= like_obj isa HGCALikelihood
+        hgca_detected |= like_obj isa HGCAInstantaneousLikelihood
     end
 
 
@@ -403,7 +404,7 @@ function Octofitter.octoplot!(
             row = cld(item, cols)
             height=300figscale
             for like_obj in model.system.observations
-                if like_obj isa HGCALikelihood
+                if like_obj isa HGCALikelihood || like_obj isa HGCAInstantaneousLikelihood
                     height+=180figscale
                 end
             end
