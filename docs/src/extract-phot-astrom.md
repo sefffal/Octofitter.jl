@@ -75,9 +75,11 @@ model = Octofitter.LogDensityModel(sys, verbosity=4)
 If you already know where the planet is and you only want to extract astrometry from that known location, you can specify a starting point and use hamiltonian monte carlo as follows. This will be very very fast.
 ```@example 1
 initialize!(model, (;
-    sep=1704,
-    pa=deg2rad(70.63),
-    L=1e-4,
+    planets=(;b=(;
+        sep=1704,
+        pa=deg2rad(70.63),
+        L=1e-4,
+    ))
 ))
 chain = octofit(model, iterations=10000)
 ```
