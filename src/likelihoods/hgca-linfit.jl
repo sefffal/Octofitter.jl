@@ -8,32 +8,39 @@
 # Hence, our table just includes those two values.
 
 """
-    HGCALikelihood(;gaia_id=1234,N_ave=1)
+    HGCALikelihood(;
+        gaia_id=1234,
+        variables=@variables begin
+            fluxratio ~ [Uniform(0, 1), Uniform(0, 1)]  # array for each companion
+        end
+    )
 
 Model Hipparcos-Gaia Catalog of Accelerations (Brandt et al) data using a full model of the Gaia and Hipparcos
 measurement process and linear models.
 
+The `fluxratio` variable should be an array containing the flux ratio of each companion
+in the same order as the planets in the system.
+
 Upon first load, you will be prompted to accept the download of the eDR3 version of the HGCA
 catalog.
 """
-struct HGCALikelihood{THGCA,THip,TGaia,fluxratio_var} <: AbstractLikelihood
+struct HGCALikelihood{THGCA,THip,TGaia} <: AbstractLikelihood
     hgca::THGCA
+    priors::Priors
+    derived::Derived
     hiplike::THip
     gaialike::TGaia
-    fluxratio_var::Symbol
     include_dr3_vel::Bool
     include_iad::Bool
 end
 
-function _getparams(::HGCALikelihood{THGCA,THip,TGaia,fluxratio_var}, θ_planet) where {THGCA,THip,TGaia,fluxratio_var}
-    if fluxratio_var == :__dark
-        return (;fluxratio=zero(Octofitter._system_number_type(θ_planet)))
-    end
-    fluxratio = getproperty(θ_planet, fluxratio_var)
-    return (;fluxratio)
-end
+function HGCALikelihood(;
+    variables::Tuple{Priors,Derived}=(@variables begin;end ),
+    gaia_id, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits",
+    include_dr3_vel=true, include_iad=true)
 
-function HGCALikelihood(; gaia_id, fluxratio_var=nothing, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits", include_dr3_vel=true, include_iad=false)
+    (priors,derived)=variables
+
     # Load the HCGA
     hgca = FITS(hgca_catalog, "r") do fits
         t = Table(fits[2])
@@ -117,17 +124,11 @@ function HGCALikelihood(hgca::NamedTuple; fluxratio_var,include_dr3_vel, include
 
     hgca = (; hgca..., dist_hip, dist_hg, dist_gaia)
 
-    if isnothing(fluxratio_var)
-        fluxratio_var = :__dark
-    end
-
     return HGCALikelihood{
-        # typeof(table),
         typeof(hgca),
         typeof(hip_like),
         typeof(gaia_like),
-        fluxratio_var,
-    }(#=table,=# hgca, hip_like, gaia_like, fluxratio_var, include_dr3_vel, include_iad)
+    }(hgca, priors, derived, hip_like, gaia_like, include_dr3_vel, include_iad)
 
 end
 
@@ -135,11 +136,11 @@ end
 #     # return HGCALikelihood(obs.table[obs_inds, :, 1], obs.hgca, obs.fluxratio_vars) # TODO
 # end
 
-function ln_like(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function ln_like(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
-    sim = simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    sim = simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
     if isnothing(sim)
         return convert(T, -Inf)
@@ -183,7 +184,7 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, 
 end
 
 
-function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     T = Octofitter._system_number_type(θ_system)
 
     # * We compute the deviation caused by the planet(s) at each epoch of both likelihoods
@@ -252,9 +253,9 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         Δδ_mas = @alloc(T, size(A_prepared_5,1))
         fill!(Δδ_mas, 0)
 
-        for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
+        for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-            (;fluxratio) = _getparams(hgca_like, θ_planet)
+            fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
                 gaia_table, orbit,
@@ -279,9 +280,9 @@ function simulate(hgca_like::HGCALikelihood, θ_system, orbits, orbit_solutions,
         Δδ_mas = @alloc(T, size(hgca_like.hiplike.table,1))
         fill!(Δδ_mas, 0)
 
-        for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
+        for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-            (;fluxratio) = _getparams(hgca_like, θ_planet)
+            fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
                 hgca_like.hiplike.table, orbit,

@@ -2,26 +2,49 @@
     PlanetRelativeRVLikelihood(
         (;epoch=5000.0,  rv=−6.54, σ_rv=1.30),
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
-        (;epoch=5100.2,  rv=7.90,  σ_rv=.11),
-
-        jitter=:jitter_1,
+        (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
+        
         instrument_name="inst name",
+        variables=@variables begin
+            jitter ~ LogUniform(0.1, 100.0)  # RV jitter (m/s)
+        end
     )
 
-Represents a likelihood function of relative astometry between a host star and a secondary body.
+    # Example with Gaussian Process:
+    PlanetRelativeRVLikelihood(
+        (;epoch=5000.0,  rv=−6.54, σ_rv=1.30),
+        (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
+        (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
+        
+        instrument_name="inst name",
+        gaussian_process = θ_obs -> GP(θ_obs.gp_η₁^2 * SqExponentialKernel() ∘ ScaleTransform(1/θ_obs.gp_η₂)),
+        variables=@variables begin
+            jitter ~ LogUniform(0.1, 100.0)     # RV jitter (m/s)
+            gp_η₁ ~ LogUniform(1.0, 100.0)      # GP amplitude
+            gp_η₂ ~ LogUniform(1.0, 100.0)      # GP length scale
+        end
+    )
+
+Represents a likelihood function of relative radial velocity between a host star and a secondary body.
 `:epoch` (mjd), `:rv` (m/s), and `:σ_rv` (m/s) are all required.
 
 In addition to the example above, any Tables.jl compatible source can be provided.
 
-The  `jitter` parameter specify which variables should be read from the model for the 
-jitter of this instrument.
+The `jitter` variable should be defined in the variables block and represents additional 
+uncertainty to be added in quadrature to the formal measurement errors.
+
+When using a Gaussian process, the `gaussian_process` parameter should be a function that takes
+`θ_obs` (observation parameters) and returns a GP kernel. GP hyperparameters should be defined
+in the variables block and accessed via `θ_obs.parameter_name`.
 """
-struct PlanetRelativeRVLikelihood{TTable<:Table,GP,jitter_symbol} <: Octofitter.AbstractLikelihood
+struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikelihood
     table::TTable
     instrument_name::String
     gaussian_process::GP
-    jitter_symbol::Symbol
-    function PlanetRelativeRVLikelihood(observations...; instrument_name="1", gaussian_process=nothing, jitter)
+    priors::Octofitter.Priors
+    derived::Octofitter.Derived
+    function PlanetRelativeRVLikelihood(observations...; instrument_name="1", gaussian_process=nothing, variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end))
+        (priors,derived)=variables
         table = Table(observations...)
         if !Octofitter.equal_length_cols(table)
             error("The columns in the input data do not all have the same length")
@@ -42,7 +65,7 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP,jitter_symbol} <: Octofitter.
         ii = sortperm(table.epoch)
         table = table[ii]
 
-        return new{typeof(table),typeof(gaussian_process),jitter}(table, instrument_name, gaussian_process, jitter)
+        return new{typeof(table),typeof(gaussian_process)}(table, instrument_name, gaussian_process, priors, derived)
     end
 end
 PlanetRelativeRVLikelihood(observations::NamedTuple...;kwargs...) = PlanetRelativeRVLikelihood(observations; kwargs...)
@@ -50,22 +73,18 @@ function Octofitter.likeobj_from_epoch_subset(obs::PlanetRelativeRVLikelihood, o
     return PlanetRelativeRVLikelihood(
         obs.table[obs_inds,:,1]...;
         instrument_name=obs.instrument_name,
-        jitter=obs.jitter_symbol,
-        gaussian_process=obs.gaussian_process
+        gaussian_process=obs.gaussian_process,
+        variables=(obs.priors, obs.derived)
     )
 end
 export PlanetRelativeRVLikelihood
 
-function _getparams(::PlanetRelativeRVLikelihood{TTable,GP,jitter_symbol}, θ_planet) where {TTable,GP,jitter_symbol}
-    jitter = getproperty(θ_planet, jitter_symbol)
-    return (;jitter)
-end
 
 
 """
 Radial velocity likelihood.
 """
-function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
 
     L = length(rvlike.table.epoch)
@@ -83,7 +102,7 @@ function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_pl
     epochs = vec(rvlike.table.epoch)
     σ_rvs = vec(rvlike.table.σ_rv)
     rvs = vec(rvlike.table.rv)
-    jitter = _getparams(rvlike, θ_planet).jitter
+    jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero(T)
 
     @no_escape begin
         noise_var = @alloc(T, length(rvs))
@@ -138,7 +157,7 @@ function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_pl
             # Fit a GP
             local gp
             try
-                gp = @inline rvlike.gaussian_process(θ_system)
+                gp = @inline rvlike.gaussian_process(θ_obs)
                 fx = gp(epochs, noise_var)
                 ll += logpdf(fx, rv_star_buf)
             catch err
@@ -170,7 +189,12 @@ function Octofitter.generate_from_params(like::PlanetRelativeRVLikelihood, θ_pl
     rvs = radvel.(elem, epochs)
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
 
-    return PlanetRelativeRVLikelihood(radvel_table)
+    return PlanetRelativeRVLikelihood(
+        radvel_table;
+        instrument_name=like.instrument_name,
+        gaussian_process=like.gaussian_process,
+        variables=(like.priors, like.derived)
+    )
 end
 
 
@@ -186,7 +210,12 @@ function Octofitter.generate_from_params(like::PlanetRelativeRVLikelihood, θ_sy
     rvs = sum(rvs, dims=2)[:,1] .+ θ_system.rv
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
 
-    return PlanetRelativeRVLikelihood(radvel_table)
+    return PlanetRelativeRVLikelihood(
+        radvel_table;
+        instrument_name=like.instrument_name,
+        gaussian_process=like.gaussian_process,
+        variables=(like.priors, like.derived)
+    )
 end
 
 

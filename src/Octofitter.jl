@@ -49,6 +49,7 @@ include("orbit-models.jl")
 include("distributions.jl")
 include("variables.jl")
 include("parameterizations.jl")
+include("macros.jl")
 
 # Helper for checking tables are well-formed
 equal_length_cols(tab) = allequal(length(getproperty(tab, col)) for col in Tables.columnnames(tab))
@@ -76,7 +77,6 @@ include("optimization.jl")
 include("sampling.jl")
 
 include("analysis.jl")
-include("macros.jl")
 include("sonora.jl")
 include("BHAC.jl")
 

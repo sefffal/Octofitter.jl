@@ -61,19 +61,34 @@ function make_ln_like(system::System, θ_system)
         likelihood_exprs = map(enumerate(planet.observations)) do (i_like, like)
             i_epoch_start = get(epoch_start_index_mapping, like, 0)
             # Get the normalized observation name to access θ_obs
-            obs_name = normalizename(like.instrument_name)
-            expr = :(
-                $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
-                    system.planets[$(Meta.quot(i))].observations[$i_like],
-                    θ_system,
-                    θ_system.planets[$i],
-                    θ_system.planets[$i].observations.$obs_name,  # θ_obs
-                    elems,
-                    ($solutions_list), # all orbit solutions
-                    $i, # This planet index into orbit solutions
-                    $(i_epoch_start-1) # start epoch index
-                );
-            )
+            if hasproperty(like, :instrument_name)
+                obs_name = normalizename(like.instrument_name)
+                expr = :(
+                    $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
+                        system.planets[$(Meta.quot(i))].observations[$i_like],
+                        θ_system,
+                        θ_system.planets[$i],
+                        θ_system.planets[$i].observations.$obs_name,  # θ_obs
+                        elems,
+                        ($solutions_list), # all orbit solutions
+                        $i, # This planet index into orbit solutions
+                        $(i_epoch_start-1) # start epoch index
+                    );
+                )
+            else
+                expr = :(
+                    $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
+                        system.planets[$(Meta.quot(i))].observations[$i_like],
+                        θ_system,
+                        θ_system.planets[$i],
+                        (;),  # θ_obs
+                        elems,
+                        ($solutions_list), # all orbit solutions
+                        $i, # This planet index into orbit solutions
+                        $(i_epoch_start-1) # start epoch index
+                    );
+                )
+            end
             j+=1
             return expr
         end

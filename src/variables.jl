@@ -216,12 +216,13 @@ struct Planet{TElem<:AbstractOrbit, TP<:Priors,TD<:Union{Derived,Nothing},TObs<:
 end
 export Planet
 function Planet(;
-    name::Symbol,
+    name::Union{Symbol,AbstractString},
     basis::Type,
     variables::Tuple,
-    likelihoods::Union{NTuple{N,<:AbstractLikelihood} where N, AbstractArray{<:AbstractLikelihood}}=()
+    likelihoods=()
 )
     (priors,derived,additional_likelihoods...)=variables
+    name = Symbol(name)
     # Type asserts
     priors::Priors
     derived::Derived
@@ -270,17 +271,21 @@ struct System{TPriors<:Priors, TDet<:Union{Derived,Nothing},TObs<:NTuple{N,Abstr
 end
 export System
 function System(;
-    name::Symbol,
+    name::Union{Symbol,AbstractString},
     variables::Tuple,
-    companions::Union{NTuple{N,<:Planet} where N, AbstractArray{<:Planet}}=(),
-    likelihoods::Union{NTuple{N,<:AbstractLikelihood} where N, AbstractArray{<:AbstractLikelihood}}=()
+    companions=(),
+    likelihoods=()
 )
     (priors,derived,additional_likelihoods...)=variables
+    name = Symbol(name)
     # Type asserts
     priors::Priors
     derived::Derived
     for l in additional_likelihoods
         l::AbstractLikelihood
+    end
+    for p in companions
+        p::Planet
     end
     likes = (likelihoods..., additional_likelihoods...)
     if isempty(companions)
@@ -402,6 +407,9 @@ function _list_priors(system::System)
 
     # System observation priors
     for obs in system.observations
+        if !hasproperty(obs, :priors)
+            continue
+        end
         for prior_distribution in values(obs.priors.priors)
             push!(priors_vec, prior_distribution)
         end
@@ -416,6 +424,9 @@ function _list_priors(system::System)
         
         # Planet observation priors
         for obs in planet.observations
+            if !hasproperty(obs, :priors)
+                continue
+            end
             for prior_distribution in values(obs.priors.priors)
                 push!(priors_vec, prior_distribution)
             end
@@ -554,31 +565,31 @@ function make_arr2nt(system::System)
             
             # Priors
             planet_obs_priors = Expr[]
-            for key in keys(obs.priors.priors)
-                if length(obs.priors.priors[key]) > 1
-                    ex_is = []
-                    # Handle vector-valued distributions
-                    for _ in 1:length(obs.priors.priors[key])
+            if hasproperty(obs, :priors)
+                for key in keys(obs.priors.priors)
+                    if length(obs.priors.priors[key]) > 1
+                        ex_is = []
+                        # Handle vector-valued distributions
+                        for _ in 1:length(obs.priors.priors[key])
+                            i += 1
+                            ex_i = :(arr[$i])
+                            push!(ex_is, ex_i)
+                        end
+                        ex  = :(
+                            $key = ($(ex_is...),)
+                        )
+                    else
                         i += 1
-                        ex_i = :(arr[$i])
-                        push!(ex_is, ex_i)
+                        ex  = :(
+                            $key = arr[$i]
+                        )
                     end
-                    ex  = :(
-                        $key = ($(ex_is...),)
-                    )
-                else
-                    i += 1
-                    ex  = :(
-                        $key = arr[$i]
-                    )
+                    push!(planet_obs_priors,ex)
                 end
-
-
-                push!(planet_obs_priors,ex)
             end
             k = 0
             planet_obs_determ = Expr[]
-            if !isnothing(obs.derived)
+            if hasproperty(obs, :derived) && !isnothing(obs.derived)
                 # Resolve derived vars.
                 for (key,func) in zip(keys(obs.derived.variables), values(obs.derived.variables))
                     ex = :(
@@ -587,20 +598,20 @@ function make_arr2nt(system::System)
                     push!(planet_obs_determ,ex)
                     k += 1
                 end
+                name = normalizename(obs.instrument_name)
+                # ex = :(begin
+                #     obs0 = (;$(planet_obs_priors...));
+                #     $(planet_obs_determ...);
+                #     # (;$name = (;$(Symbol("obs$(k+1)")...)))
+                #     (;$name = $(Symbol("obs$k")))
+                # end)
+                ex = :($name = begin
+                    obs0 = (;$(planet_obs_priors...));
+                    $(planet_obs_determ...);
+                    (;$(Symbol("obs$(k)"))...)
+                end)
+                push!(planet_observations,ex)
             end
-            name = normalizename(obs.instrument_name)
-            # ex = :(begin
-            #     obs0 = (;$(planet_obs_priors...));
-            #     $(planet_obs_determ...);
-            #     # (;$name = (;$(Symbol("obs$(k+1)")...)))
-            #     (;$name = $(Symbol("obs$k")))
-            # end)
-            ex = :($name = begin
-                obs0 = (;$(planet_obs_priors...));
-                $(planet_obs_determ...);
-                (;$(Symbol("obs$(k)"))...)
-            end)
-            push!(planet_observations,ex)
         end
 
 
@@ -867,6 +878,9 @@ function make_ln_prior_transformed(system::System)
 
     # System observation priors
     for obs in system.observations
+        if !hasproperty(obs, :priors)
+            continue
+        end
         for prior_distribution in values(obs.priors.priors)
             if length(prior_distribution) > 1
                 samples = []
@@ -934,6 +948,9 @@ function make_ln_prior_transformed(system::System)
 
         # Planet observation priors
         for obs in planet.observations
+            if !hasproperty(obs, :priors)
+                continue
+            end
             for prior_distribution in values(obs.priors.priors)
                 if length(prior_distribution) > 1
                     samples = []
@@ -1011,6 +1028,9 @@ function make_prior_sampler(system::System)
         end
     end
     for obs in system.observations
+        if !hasproperty(obs, :priors)
+            continue
+        end
         for prior_distribution in values(obs.priors.priors)
             # Performance: Instead of splatting, loop through according to the
             # statically known distribution length.
@@ -1033,6 +1053,9 @@ function make_prior_sampler(system::System)
             end
         end
         for obs in planet.observations
+            if !hasproperty(obs, :priors)
+                continue
+            end
             for prior_distribution in values(obs.priors.priors)
                 # Performance: Instead of splatting, loop through according to the
                 # statically known distribution length.

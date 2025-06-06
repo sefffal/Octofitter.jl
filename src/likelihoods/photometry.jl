@@ -4,20 +4,35 @@ const phot_cols = (:band, :phot, :σ_phot)
 
 """
     PhotometryLikelihood(
-        (band = :Z, phot=15.0, σ_phot=3.),
+        (band = :H, phot=15.0, σ_phot=3.),
         (band = :J, phot=13.5, σ_phot=0.5),
-        (band = :L, phot=11.0, σ_phot=1.0)
+        (band = :K, phot=11.0, σ_phot=1.0);
+        variables=@variables begin
+            H ~ Uniform(0, 10)
+            J ~ Uniform(0, 10)
+            K ~ Uniform(0, 10)
+        end
     )
 
 A likelihood for comparing measured photometry points in one or more 
-filter bands to data (provided here). Requires the `:band`, `:phot',
+filter bands to data (provided here). Requires the `:band`, `:phot`,
 and `:σ_phot` columns. Can be provided with any Tables.jl compatible
 data source.
+
+Band variables (e.g., H, J, K) should be defined in the `variables` block
+rather than in the planet definition. These can be derived from physical
+models that take planet mass and other system parameters as input.
 """
 struct PhotometryLikelihood{TTable<:Table} <: AbstractLikelihood
     table::TTable
-    function PhotometryLikelihood(observations...)
-        table = Table(observations...)
+    priors::Priors
+    derived::Derived
+    function PhotometryLikelihood(
+            observations;
+            variables::Tuple{Priors,Derived}=(@variables begin;end)
+        )
+        (priors,derived)=variables
+        table = Table(observations)
         if !equal_length_cols(table)
             error("The columns in the input data do not all have the same length")
         end
@@ -26,24 +41,24 @@ struct PhotometryLikelihood{TTable<:Table} <: AbstractLikelihood
         end
         ii = sortperm(table.epoch)
         table = table[ii]
-        return new{typeof(table)}(table)
+        return new{typeof(table)}(table, priors, derived)
     end
 end
-PhotometryLikelihood(observations::NamedTuple...) = PhotometryLikelihood(observations)
+PhotometryLikelihood(observations::NamedTuple...; kwargs...) = PhotometryLikelihood(observations; kwargs...)
 export PhotometryLikelihood
 
 function likeobj_from_epoch_subset(obs::PhotometryLikelihood, obs_inds)
-    return PhotometryLikelihood(obs.table[obs_inds,:,1]...)
+    return PhotometryLikelihood(obs.table[obs_inds,:,1]; variables=(obs.priors, obs.derived))
 end
 
 # PhotometryLikelihood: attached to a system
-function ln_like(photometry::PhotometryLikelihood, θ_system, orbits::NTuple{N,<:AbstractOrbit}, args...) where N
+function ln_like(photometry::PhotometryLikelihood, θ_system, θ_obs, orbits::NTuple{N,<:AbstractOrbit}, args...) where N
     T = _system_number_type(θ_system)
     ll = zero(T)
 
     for i in eachindex(photometry.table.band)
         band = photometry.table.band[i]
-        phot_param = getproperty(θ_system, band)
+        phot_param = getproperty(θ_obs, band)
         phot_meas = photometry.table.phot[i]
         if !isfinite(phot_param)
             return -Inf
@@ -60,13 +75,13 @@ function ln_like(photometry::PhotometryLikelihood, θ_system, orbits::NTuple{N,<
 end
 
 # PhotometryLikelihood: attached to a planet
-function ln_like(photometry::PhotometryLikelihood, θ_planet, orbits::AbstractOrbit, args...)
-    T = _system_number_type(θ_planet)
+function ln_like(photometry::PhotometryLikelihood, θ_system, θ_planet, θ_obs, orbits::AbstractOrbit, args...)
+    T = _system_number_type(θ_system)
     ll = zero(T)
 
     for i in eachindex(photometry.table.band)
         band = photometry.table.band[i]
-        phot_param = getproperty(θ_planet, band)
+        phot_param = getproperty(θ_obs, band)
         phot_meas = photometry.table.phot[i]
         if !isfinite(phot_param)
             return -Inf
