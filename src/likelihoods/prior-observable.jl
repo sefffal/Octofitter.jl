@@ -124,7 +124,7 @@ function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_
     return ln_prior
 end
 
-function ln_like(like::ObsPriorAstromONeil2019{<:GaiaHipparcosUEVAJointLikelihood_v2}, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function ln_like(like::ObsPriorAstromONeil2019{<:GaiaHipparcosUEVAJointLikelihood}, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
     orbit = orbits[i_planet]
     # Add period prior

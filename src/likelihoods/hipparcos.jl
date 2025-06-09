@@ -541,7 +541,7 @@ function ln_like(
     return ll
 end
 
-function simulate(hiplike::HipparcosIADLikelihood, θ_system, θ_obs, orbits, orbit_solutions, sol_start_i)
+function simulate(hiplike::HipparcosIADLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
     T = _system_number_type(θ_system)
     α✱_model_with_perturbation_out = zeros(T, length(hiplike.table.epoch))
@@ -579,7 +579,7 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, θ_obs, orbits, or
             Δα_mas, Δδ_mas,
             hiplike.table, orbits[planet_i],
             planet_mass_msol, fluxratio,
-            orbit_solutions, orbit_solutions_i_epoch_start, T
+            orbit_solutions[planet_i], orbit_solutions_i_epoch_start[planet_i], T
         )
         
         # Add this planet's contribution to total perturbations
@@ -589,7 +589,7 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, θ_obs, orbits, or
 
     for i in eachindex(hiplike.table.epoch)
 
-        orbitsol_hip_epoch = first(orbit_solutions)[i+sol_start_i]
+        orbitsol_hip_epoch = first(orbit_solutions)[i+orbit_solutions_i_epoch_start]
 
         ##############
         # Non-linear version
