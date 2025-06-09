@@ -16,40 +16,44 @@ using PlanetOrbits
 ```
 
 ```@example 1
+astrom_dat_b = Table(;
+    epoch = [53200.0, 54314.0, 54398.0, 54727.0, 55042.0, 55044.0, 55136.0, 55390.0, 55499.0, 55763.0, 56130.0, 56226.0, 56581.0, 56855.0, 58798.03906, 59453.245, 59454.231],
+    ra    = [1471.0, 1504.0, 1500.0, 1516.0, 1526.0, 1531.0, 1524.0, 1532.0, 1535.0, 1541.0, 1545.0, 1549.0, 1545.0, 1560.0, 1611.002, 1622.924, 1622.872],
+    dec   = [887.0, 837.0, 836.0, 818.0, 797.0, 794.0, 795.0, 783.0, 766.0, 762.0, 747.0, 743.0, 724.0, 725.0, 604.893, 570.534, 571.296],
+    σ_ra  = [6.0, 3.0, 7.0, 4.0, 4.0, 7.0, 10.0, 5.0, 15.0, 5.0, 5.0, 4.0, 22.0, 13.0, 0.133, 0.32, 0.204],
+    σ_dec = [6.0, 3.0, 7.0, 4.0, 4.0, 7.0, 10.0, 5.0, 15.0, 5.0, 5.0, 4.0, 22.0, 13.0, 0.199, 0.296, 0.446],
+    cor   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.406, -0.905, -0.79]
+)
+
+astrom_dat_c = Table(;
+    epoch = [53200.0, 54314.0, 54398.0, 54727.0, 55042.0, 55136.0, 55390.0, 55499.0, 55763.0, 56130.0, 56226.0, 56581.0, 56855.0],
+    ra    = [-739.0, -683.0, -678.0, -663.0, -639.0, -636.0, -619.0, -607.0, -595.0, -578.0, -572.0, -542.0, -540.0],
+    dec   = [612.0, 671.0, 678.0, 693.0, 712.0, 720.0, 728.0, 744.0, 747.0, 761.0, 768.0, 784.0, 799.0],
+    σ_ra  = [6.0, 4.0, 7.0, 3.0, 4.0, 9.0, 4.0, 12.0, 4.0, 5.0, 3.0, 22.0, 12.0],
+    σ_dec = [6.0, 4.0, 7.0, 3.0, 4.0, 9.0, 4.0, 12.0, 4.0, 5.0, 3.0, 22.0, 12.0],
+    cor   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+)
+
 astrom_b = PlanetRelAstromLikelihood(
-    (epoch=53200.0, ra=1471.0, σ_ra=6.0, dec=887.0, σ_dec=6.0, cor=0, ),
-    (epoch=54314.0, ra=1504.0, σ_ra=3.0, dec=837.0, σ_dec=3.0, cor=0, ),
-    (epoch=54398.0, ra=1500.0, σ_ra=7.0, dec=836.0, σ_dec=7.0, cor=0, ),
-    (epoch=54727.0, ra=1516.0, σ_ra=4.0, dec=818.0, σ_dec=4.0, cor=0, ),
-    (epoch=55042.0, ra=1526.0, σ_ra=4.0, dec=797.0, σ_dec=4.0, cor=0, ),
-    (epoch=55044.0, ra=1531.0, σ_ra=7.0, dec=794.0, σ_dec=7.0, cor=0, ),
-    (epoch=55136.0, ra=1524.0, σ_ra=10.0, dec=795.0, σ_dec=10.0, cor=0, ),
-    (epoch=55390.0, ra=1532.0, σ_ra=5.0, dec=783.0, σ_dec=5.0, cor=0, ),
-    (epoch=55499.0, ra=1535.0, σ_ra=15.0, dec=766.0, σ_dec=15.0, cor=0, ),
-    (epoch=55763.0, ra=1541.0, σ_ra=5.0, dec=762.0, σ_dec=5.0, cor=0, ),
-    (epoch=56130.0, ra=1545.0, σ_ra=5.0, dec=747.0, σ_dec=5.0, cor=0, ),
-    (epoch=56226.0, ra=1549.0, σ_ra=4.0, dec=743.0, σ_dec=4.0, cor=0, ),
-    (epoch=56581.0, ra=1545.0, σ_ra=22.0, dec=724.0, σ_dec=22.0, cor=0, ),
-    (epoch=56855.0, ra=1560.0, σ_ra=13.0, dec=725.0, σ_dec=13.0, cor=0, ),
-    (epoch=58798.03906, ra=1611.002, σ_ra=0.133, dec=604.893, σ_dec=0.199, cor=-0.406, ),
-    (epoch=59453.245, ra=1622.924, σ_ra=0.32, dec=570.534, σ_dec=0.296, cor=-0.905, ),
-    (epoch=59454.231, ra=1622.872, σ_ra=0.204, dec=571.296, σ_dec=0.446, cor=-0.79, ),
+    astrom_dat_b,
+    instrument_name = "GPI",
+    variables = @variables begin
+        # Fixed values for this example - could be free variables:
+        jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
+        northangle = 0    # radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+    end
 )
 
 astrom_c = PlanetRelAstromLikelihood(
-    (epoch=53200.0, ra=-739.0, σ_ra=6.0, dec=612.0, σ_dec=6.0, cor=0, ),
-    (epoch=54314.0, ra=-683.0, σ_ra=4.0, dec=671.0, σ_dec=4.0, cor=0, ),
-    (epoch=54398.0, ra=-678.0, σ_ra=7.0, dec=678.0, σ_dec=7.0, cor=0, ),
-    (epoch=54727.0, ra=-663.0, σ_ra=3.0, dec=693.0, σ_dec=3.0, cor=0, ),
-    (epoch=55042.0, ra=-639.0, σ_ra=4.0, dec=712.0, σ_dec=4.0, cor=0, ),
-    (epoch=55136.0, ra=-636.0, σ_ra=9.0, dec=720.0, σ_dec=9.0, cor=0, ),
-    (epoch=55390.0, ra=-619.0, σ_ra=4.0, dec=728.0, σ_dec=4.0, cor=0, ),
-    (epoch=55499.0, ra=-607.0, σ_ra=12.0, dec=744.0, σ_dec=12.0, cor=0, ),
-    (epoch=55763.0, ra=-595.0, σ_ra=4.0, dec=747.0, σ_dec=4.0, cor=0, ),
-    (epoch=56130.0, ra=-578.0, σ_ra=5.0, dec=761.0, σ_dec=5.0, cor=0, ),
-    (epoch=56226.0, ra=-572.0, σ_ra=3.0, dec=768.0, σ_dec=3.0, cor=0, ),
-    (epoch=56581.0, ra=-542.0, σ_ra=22.0, dec=784.0, σ_dec=22.0, cor=0, ),
-    (epoch=56855.0, ra=-540.0, σ_ra=12.0, dec=799.0, σ_dec=12.0, cor=0, ),
+    astrom_dat_c,
+    instrument_name = "GPI",
+    variables = @variables begin
+        # Fixed values for this example - could be free variables:
+        jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
+        northangle = 0    # radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+    end
 )
 
 fig = Makie.scatter(astrom_b.table.ra, astrom_b.table.dec, axis=(;autolimitaspect=1))
@@ -62,60 +66,76 @@ fig
 We now specify our two planet model for planets b & c.
 
 ```@example 1
-@planet b Visual{KepOrbit} begin
-    e = 0.0
-    ω = 0.0
-    M = system.M_pri + system.M_b*Octofitter.mjup2msol  + system.M_c*Octofitter.mjup2msol
-    mass = system.M_b
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_b],
+    variables=@variables begin
+        e = 0.0
+        ω = 0.0
+        M = super.M_pri + super.M_b*Octofitter.mjup2msol  + super.M_c*Octofitter.mjup2msol
+        mass = super.M_b
 
-    # Use the system inclination and longitude of ascending node
-    # variables
-    i = system.i
-    Ω = system.Ω
+        # Use the system inclination and longitude of ascending node
+        # variables
+        i = super.i
+        Ω = super.Ω
 
-    # Specify the period as ~ 1% around 2X the P_nominal variable
-    P_mul ~ Normal(1, 0.1)
-    P = 2*system.P_nominal * b.P_mul
+        # Specify the period as ~ 1% around 2X the P_nominal variable
+        P_mul ~ Normal(1, 0.1)
+        P = 2*super.P_nominal * this.P_mul
 
-    a = cbrt(b.M * b.P^2)
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,59454.231)  # reference epoch for θ. Choose an MJD date near your data.
-end astrom_b
-@planet c Visual{KepOrbit} begin
-    e = 0.0
-    ω = 0.0
-    M = system.M_pri + system.M_b*Octofitter.mjup2msol
-    mass = system.M_c
+        a = cbrt(this.M * this.P^2)
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(super,this,59454.231)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
 
-    # Use the system inclination and longitude of ascending node
-    # variables
-    i = system.i
-    Ω = system.Ω
+planet_c = Planet(
+    name="c",
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_c],
+    variables=@variables begin
+        e = 0.0
+        ω = 0.0
+        M = super.M_pri + super.M_b*Octofitter.mjup2msol
+        mass = super.M_c
 
-    # Specify the period as ~ 1% the P_nominal variable
-    P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
-    P = system.P_nominal * c.P_mul
+        # Use the system inclination and longitude of ascending node
+        # variables
+        i = super.i
+        Ω = super.Ω
 
-    a = cbrt(c.M * c.P^2)
+        # Specify the period as ~ 1% the P_nominal variable
+        P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
+        P = super.P_nominal * this.P_mul
 
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,c,59454.231)  # reference epoch for θ. Choose an MJD date near your data.
-end astrom_c
-@system HR8799_res_co begin
-    plx ~ gaia_plx(;gaia_id=2832463659640297472)
-    M_pri ~ truncated(Normal(1.5, 0.02), lower=0.1)
-    M_b ~ Uniform(0, 12)
-    M_c ~ Uniform(0, 12)
-    # We create inclination and longitude of ascending node variables at the
-    # system level.
-    i ~ Sine()
-    Ω ~ UniformCircular()
-    # We create a nominal period of planet c variable. 
-    P_nominal ~ Uniform(50, 300) # years
-end b c
+        a = cbrt(this.M * this.P^2)
 
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(super,this,59454.231)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
 
-model = Octofitter.LogDensityModel(HR8799_res_co)
+sys = System(
+    name="HR8799_res_co",
+    companions=[planet_b, planet_c],
+    likelihoods=[],
+    variables=@variables begin
+        plx ~ gaia_plx(;gaia_id=2832463659640297472)
+        M_pri ~ truncated(Normal(1.5, 0.02), lower=0.1)
+        M_b ~ Uniform(0, 12)
+        M_c ~ Uniform(0, 12)
+        # We create inclination and longitude of ascending node variables at the
+        # system level.
+        i ~ Sine()
+        Ω ~ UniformCircular()
+        # We create a nominal period of planet c variable. 
+        P_nominal ~ Uniform(50, 300) # years
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
 ```
 
 

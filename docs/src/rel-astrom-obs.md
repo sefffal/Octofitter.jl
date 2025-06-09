@@ -11,35 +11,55 @@ using CairoMakie
 using PairPlots
 using Distributions
 
+astrom_dat = Table(;
+    epoch = [50000, 50120, 50240, 50360, 50480, 50600, 50720, 50840],
+    ra    = [-494.4, -495.0, -493.7, -490.4, -485.2, -478.1, -469.1, -458.3],
+    dec   = [-76.7, -44.9, -12.9, 19.1, 51.0, 82.8, 114.3, 145.3],
+    σ_ra  = [12.6, 10.4, 9.9, 8.7, 8.0, 6.9, 5.8, 4.2],
+    σ_dec = [12.6, 10.4, 9.9, 8.7, 8.0, 6.9, 5.8, 4.2],
+    cor   = [0.2, 0.5, 0.1, -0.8, 0.3, -0.0, 0.1, -0.2]
+)
+
 astrom_like = PlanetRelAstromLikelihood(
-    (epoch = 50000, ra = -494.4, dec = -76.7, σ_ra =  12.6, σ_dec =  12.6, cor=  0.2),
-    (epoch = 50120, ra = -495.0, dec = -44.9, σ_ra =  10.4, σ_dec =  10.4, cor=  0.5),
-    (epoch = 50240, ra = -493.7, dec = -12.9, σ_ra =   9.9, σ_dec =   9.9, cor=  0.1),
-    (epoch = 50360, ra = -490.4, dec =  19.1, σ_ra =   8.7, σ_dec =   8.7, cor= -0.8),
-    (epoch = 50480, ra = -485.2, dec =  51.0, σ_ra =   8.0, σ_dec =   8.0, cor=  0.3),
-    (epoch = 50600, ra = -478.1, dec =  82.8, σ_ra =   6.9, σ_dec =   6.9, cor= -0.0),
-    (epoch = 50720, ra = -469.1, dec = 114.3, σ_ra =   5.8, σ_dec =   5.8, cor=  0.1),
-    (epoch = 50840, ra = -458.3, dec = 145.3, σ_ra =   4.2, σ_dec =   4.2, cor= -0.2),
+    astrom_dat,
+    instrument_name = "obs_prior_example",
+    variables = @variables begin
+        # Fixed values for this example - could be free variables:
+        jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
+        northangle = 0    # radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+    end
 )
 obs_pri = ObsPriorAstromONeil2019(astrom_like)
-@planet b Visual{KepOrbit} begin
-    e ~ Uniform(0.0, 0.5)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    # Results will be sensitive to the prior on period
-    P ~  LogUniform(0.1, 150) # Period, years
-    a = ∛(system.M * b.P^2)
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,50420)
-end astrom_like obs_pri
 
-@system TutoriaPrime begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-end b
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_like, obs_pri],
+    variables=@variables begin
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        # Results will be sensitive to the prior on period
+        P ~  LogUniform(0.1, 150) # Period, years
+        a = ∛(super.M * this.P^2)
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(super,this,50420)
+    end
+)
 
-model = Octofitter.LogDensityModel(TutoriaPrime)
+sys = System(
+    name="TutoriaPrime",
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
 ```
 
 Initialize the model starting points and confirm the data are entered correctly:
@@ -60,25 +80,40 @@ octoplot(model, results_obspri)
 
 Compare this with the previous fit using uniform priors:
 ```@example 1
-@planet b Visual{KepOrbit} begin # hide
-    a ~ Uniform(0, 100) # hide
-    e ~ Uniform(0.0, 0.5) # hide
-    i ~ Sine() # hide
-    ω ~ UniformCircular() # hide
-    # Ω ~ UniformCircular() # hide
-    # P = √(b.a^3/system.M) # hide
-    # θ ~ UniformCircular() # hide
-    # ω ~ Uniform(0,2pi) # hide
-    Ω ~ Uniform(0,2pi) # hide
-    P = √(b.a^3/system.M) # hide
-    θ ~ Uniform(0,2pi) # hide
-    tp = θ_at_epoch_to_tperi(system,b,50420) # hide
-end astrom_like # hide
-@system Tutoria begin # hide
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1) # hide
-    plx ~ truncated(Normal(50.0, 0.02), lower=0.1) # hide
-end b # hide
-model_with_uniform_priors = Octofitter.LogDensityModel(Tutoria) # hide
+astrom_like_uniform = PlanetRelAstromLikelihood( # hide
+    astrom_dat, # hide
+    instrument_name = "uniform_prior_example", # hide
+    variables = @variables begin # hide
+        jitter = 0        # mas # hide
+        northangle = 0    # radians # hide
+        platescale = 1    # relative # hide
+    end # hide
+) # hide
+planet_b_uniform = Planet( # hide
+    name="b", # hide
+    basis=Visual{KepOrbit}, # hide
+    likelihoods=[astrom_like_uniform], # hide
+    variables=@variables begin # hide
+        a ~ Uniform(0, 100) # hide
+        e ~ Uniform(0.0, 0.5) # hide
+        i ~ Sine() # hide
+        ω ~ UniformCircular() # hide
+        Ω ~ Uniform(0,2pi) # hide
+        P = √(this.a^3/super.M) # hide
+        θ ~ Uniform(0,2pi) # hide
+        tp = θ_at_epoch_to_tperi(super,this,50420) # hide
+    end # hide
+) # hide
+sys_uniform = System( # hide
+    name="Tutoria", # hide
+    companions=[planet_b_uniform], # hide
+    likelihoods=[], # hide
+    variables=@variables begin # hide
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1) # hide
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1) # hide
+    end # hide
+) # hide
+model_with_uniform_priors = Octofitter.LogDensityModel(sys_uniform) # hide
 results_unif_pri = octofit(model_with_uniform_priors,iterations=5000,verbosity=0) # hide
 octoplot(model_with_uniform_priors, results_unif_pri)
 ```

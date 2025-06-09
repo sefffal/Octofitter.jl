@@ -86,6 +86,7 @@ function prior_only_model(system::System;exclude_all=false)
             return BlankLikelihood((obs.priors,obs.derived),instrument_name(obs))
         end
     end
+    newsys_obs = filter(!isnothing, newsys_obs)
     # Generate new system with observations
     newsystem = System(
         variables=(system.priors, system.derived),

@@ -71,7 +71,7 @@ function likeobj_from_epoch_subset(obs::ObsPriorAstromONeil2019, obs_inds)
     )
 end
 
-function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
     orbit = orbits[i_planet]
     # Add period prior

@@ -185,6 +185,7 @@ struct UnitLengthPrior{X,Y} <: AbstractLikelihood where {X,Y}
     UnitLengthPrior(xsymbol, ysymbol) = new{xsymbol, ysymbol}()
 end
 _isprior(::UnitLengthPrior) = true
+instrument_name(::UnitLengthPrior{X,Y}) where {X,Y} = "unitlengthprior-$X-$Y" 
 function likeobj_from_epoch_subset(obs::UnitLengthPrior{X,Y}, obs_inds) where {X,Y}
     return UnitLengthPrior(X,Y)
 end
@@ -196,9 +197,10 @@ function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, _args...) where 
     vector_length = sqrt(x^2 + y^2)
     return logpdf(LogNormal(log(1.0), 0.1), vector_length);
 end
-function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, θ_planet::NamedTuple, _args...) where {X,Y}
-    x = getproperty(θ_planet, X)
-    y = getproperty(θ_planet, Y)
+function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, θ_planet::NamedTuple, θ_obs::NamedTuple, _args...) where {X,Y}
+    θ = merge(θ_planet, θ_obs)
+    x = getproperty(θ, X)
+    y = getproperty(θ, Y)
     vector_length = sqrt(x^2 + y^2)
     return logpdf(LogNormal(log(1.0), 0.1), vector_length);
 end
@@ -571,7 +573,7 @@ function make_arr2nt(system::System)
         
         j = 0
         body_obs_determ = Expr[]
-        if !isnothing(obs.derived)
+        if hasproperty(obs, :priors) && !isnothing(obs.derived)
             # Resolve derived vars.
             for (key,func) in zip(keys(obs.derived.variables), values(obs.derived.variables))
                 ex = :(
