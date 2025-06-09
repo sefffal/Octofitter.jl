@@ -150,18 +150,22 @@ imview(10 .^ image2_offset)
 
 
 Okay, we have our synthetic data. We now set up a `LogLikelihoodMap` object to contain our matrices of log likelihood values:
+
+First, create a table of our likelihood map observations:
 ```@example 1
+likemap_dat = Table(;
+    epoch = epochs,
+    map = [image1_offset, image2_offset],
+    platescale = [1.0, 1.0] # milliarcseconds/pixel of the map
+)
+
 loglikemap = LogLikelihoodMap(
-    (;
-        epoch=epochs[1],
-        map=image1_offset,
-        platescale=1.0 # milliarcseconds/pixel of the map
-    ),
-    (;
-        epoch=epochs[2],
-        map=image2_offset,
-        platescale=1.0 # milliarcseconds/pixel of the map
-    )
+    likemap_dat,
+    instrument_name="GRAVITY",
+    variables=@variables begin
+        platescale = 1.0               # Platescale multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        northangle = 0.0               # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+    end
 );
 ```
 
@@ -171,20 +175,32 @@ loglikemap = LogLikelihoodMap(
 We now create a one-planet model and run the fit using `octofit_pigeons`. This parallel-tempered sampler is slower than the regular `octofit`, but is recommended over the default Hamiltonian Monte Carlo sampler due to the multi-modal nature of the data. 
 ```@example 1
 
-@planet b Visual{KepOrbit} begin
-    a ~ Uniform(0, 10)
-    e ~ Uniform(0.0, 0.5)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,60339.0)  # reference epoch for θ. Choose an MJD date near your data.
-end loglikemap
-@system Tutoria begin
-    M ~ truncated(Normal(1.0, 0.1), lower=0.1)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-end b 
-model = Octofitter.LogDensityModel(Tutoria)
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[loglikemap],
+    variables=@variables begin
+        a ~ Uniform(0, 10)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(super,this,60339.0)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
+
+sys = System(
+    name="Tutoria",
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        M ~ truncated(Normal(1.0, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
 chain, pt = octofit_pigeons(model, n_rounds=10) # increase n_rounds until log(Z₁/Z₀) converges.
 display(chain)
 ```
@@ -194,6 +210,7 @@ display(chain)
 
 Display the results:
 ```@example 1
+using CairoMakie
 octoplot(model, chain)
 ```
 

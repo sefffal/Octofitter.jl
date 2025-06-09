@@ -78,28 +78,25 @@ struct HipparcosIADLikelihood{THipSol,TIADTable<:Table,TDist,TFact} <: AbstractL
     table::TIADTable
     priors::Priors
     derived::Derived
+    instrument_name::String
     # precomputed MvNormal distribution
     dist::TDist
     A_prepared_4::TFact
     A_prepared_5::TFact
-    # function HipparcosIADLikelihood(hip_sol, observations...)
-    #     iad_table = Table(observations...)
-    #     if !issubset(hip_iad_cols, Tables.columnnames(iad_table))
-    #         error("Expected columns $hip_iad_cols, got ", Tables.columnnames(iad_table))
-    #     end
-    #     return new{typeof(hip_sol),typeof(iad_table)}(hip_sol, iad_table)
-    # end
 end
 
+# Add instrument_name method
+instrument_name(::HipparcosIADLikelihood) = "Hipparcos IAD"
+
 function likeobj_from_epoch_subset(obs::HipparcosIADLikelihood, obs_inds)
-    return HipparcosIADLikelihood(obs.hip_sol, obs.table[obs_inds, :, 1], obs.priors, obs.derived, obs.dist, obs.A_prepared_4, obs.A_prepared_5)
+    return HipparcosIADLikelihood(obs.hip_sol, obs.table[obs_inds, :, 1], obs.priors, obs.derived, obs.instrument_name, obs.dist, obs.A_prepared_4, obs.A_prepared_5)
 end
 
 """
     HipparcosIADLikelihood(;
         hip_id,
         variables=@variables begin
-            fluxratio ~ [Uniform(0, 1), Uniform(0, 1)]  # array for each companion
+            fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1)])  # one entry for each companion
         end
     )
 
@@ -107,7 +104,7 @@ Load the Hipparcos IAD likelihood.
 By default, this fetches and catches the extracted Java Tool edition of the
 van Leeuwan reduction. 
 
-The `fluxratio` variable should be an array containing the flux ratio of each companion
+The `fluxratio` variable should be a Product distribution containing the flux ratio of each companion
 in the same order as the planets in the system.
 
 Additional arguments:
@@ -374,7 +371,7 @@ function HipparcosIADLikelihood(;
     A_prepared_5 = prepare_A_5param(table, ref_epoch_ra, ref_epoch_dec)
 
 
-    return HipparcosIADLikelihood(hip_sol, table, priors, derived, dist, A_prepared_4, A_prepared_5)
+    return HipparcosIADLikelihood(hip_sol, table, priors, derived, "Hipparcos IAD", dist, A_prepared_4, A_prepared_5)
 end
 export HipparcosIADLikelihood
 

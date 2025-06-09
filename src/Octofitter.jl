@@ -120,6 +120,14 @@ Read the documentation: https://sefffal.github.io/Octofitter.jl/$(OCTO_VERSION_S
 """
     end
 
+    if isinteractive() && get(ENV, "CI", "") != "true" && Threads.nthreads() == 1
+        @info """\
+Note: Julia was started with only one thread. Some models may run faster if you start julia with 
+`julia --threads=auto ...` or you set the environment variable `JULIA_NUM_THREADS=auto` and restart.
+"""
+    end
+
+
     # if running on a Mac, prompt users to load AppleAccelerate
     if Sys.isapple()
         apple_accelerate_loaded = 
