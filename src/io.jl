@@ -52,7 +52,7 @@ function savechain(fname, chain::MCMCChains.Chains)
             )
         end
 
-        write(fits,zeros(0), header=h)
+        write(fits,zeros(1,1), header=h)
         col_titles = ["iteration"; "chain"; string.(keys(chain))]
 
         write(
