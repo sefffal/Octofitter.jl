@@ -31,10 +31,16 @@ To make this parameterization change, we specify priors on both masses in the `@
 ### Retrieving the HGCA
 To start, we retrieve the HGCA data for this object.
 ```julia
-hgca_like = HGCALikelihood(;gaia_id=3937211745905473024)
+hgca_like = HGCALikelihood(
+    gaia_id=3937211745905473024,
+    variables=@variables begin
+        # Optional: flux ratio for luminous companions, one entry per companion
+        # fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1), ])  # uncomment if needed for unresolved companions
+    end
+)
 ```
 
-You can optionally provide an argument `fluxratio_var=:FR` giving a variable name to represent the flux ratio of the companions to the host, if you don't want to approximate it as zero. This is to handle luminous companions that are unresolved by gaia. You can then provide a `FR ~ SomeDistributionOrFunction()` definition in each `@planet` model.
+You can optionally provide flux ratio priors in the variables block to represent the flux ratio of the companions to the host, if you don't want to approximate it as zero. This is to handle luminous companions that are unresolved by gaia.
 
 
 If you're in a hurry, and you're study orbits with periods much longer than the mission durations of Gaia or Hipparcos (>> 4 years) then you might consider using a faster approximation that the Gaia and Hipparcos measurements were instantaneous. You can do so as follows:
@@ -47,18 +53,22 @@ hgca_like = HGCAInstantaneousLikelihood(gaia_id=756291174721509376, N_ave=1)
 ### Planet Model
 
 ```@example 1
-@planet b Visual{KepOrbit} begin
-    a ~ LogUniform(0.1,20)
-    e ~ Uniform(0,0.999)
-    ω ~ UniformCircular()
-    i ~ Sine() # The Sine() distribution is defined by Octofitter
-    Ω ~ UniformCircular()
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    variables=@variables begin
+        a ~ LogUniform(0.1,20)
+        e ~ Uniform(0,0.999)
+        ω ~ UniformCircular()
+        i ~ Sine() # The Sine() distribution is defined by Octofitter
+        Ω ~ UniformCircular()
 
-    mass = system.M_sec
+        mass = super.M_sec
 
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,57423.0) # epoch of GAIA measurement
-end
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(super,this,57423.0) # epoch of GAIA measurement
+    end
+)
 ```
 
 
@@ -71,20 +81,24 @@ We also add parameters for the star's long term proper motion. This is usually c
 
 
 ```@example 1
-@system HD91312_pma begin
-    
-    M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
-    M_sec ~ LogUniform(0.5, 1000) # MJup
-    M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
+sys = System(
+    name="HD91312_pma",
+    companions=[planet_b],
+    likelihoods=[hgca_like],
+    variables=@variables begin
+        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
+        M_sec ~ LogUniform(0.5, 1000) # MJup
+        M = this.M_pri + this.M_sec*Octofitter.mjup2msol # Msol
 
-    plx ~ gaia_plx(gaia_id=756291174721509376)
-            
-    # Priors on the center of mass proper motion
-    pmra ~ Normal(-137, 10)
-    pmdec ~ Normal(2,  10)
-end hgca_like b
+        plx ~ gaia_plx(gaia_id=756291174721509376)
+                
+        # Priors on the center of mass proper motion
+        pmra ~ Normal(-137, 10)
+        pmdec ~ Normal(2,  10)
+    end
+)
 
-model_pma = Octofitter.LogDensityModel(HD91312_pma)
+model_pma = Octofitter.LogDensityModel(sys)
 ```
 
 

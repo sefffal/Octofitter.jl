@@ -363,7 +363,8 @@ function Octofitter.rvpostplot!(
             # TODO: marginalized RV likelihood
 
             barycentric_rv_inst = _find_rv_zero_point_maxlike(rvs, nt_format, els_by_planet)
-            jitter = nt_format[rvs.jitter_symbol]
+            like_obj_name = Octofitter.normalizename(instrument_name(rvs))
+            jitter = nt_format.observations[like_obj_name].jitter
         else
             error("plotting not yet implemented for this type of data")
         end
@@ -835,7 +836,8 @@ function _find_rv_zero_point_maxlike(
     σ_rvs = rvlike.table.σ_rv
     rvs = rvlike.table.rv
 
-    jitter = getproperty(θ_system, rvlike.jitter_symbol)
+    like_obj_name = Octofitter.normalizename(instrument_name(rvlike))
+    jitter = θ_system.observations[like_obj_name].jitter
 
     # RV residual calculation: measured RV - model
     resid = zeros(T, length(rvs))

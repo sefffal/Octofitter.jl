@@ -34,6 +34,9 @@ struct HGCALikelihood{THGCA,THip,TGaia} <: AbstractLikelihood
     include_iad::Bool
 end
 
+# Special method for HGCALikelihood which doesn't have an instrument_name field
+instrument_name(::HGCALikelihood) = "HGCA"
+
 function HGCALikelihood(;
     variables::Tuple{Priors,Derived}=(@variables begin;end ),
     gaia_id, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits",
@@ -47,9 +50,9 @@ function HGCALikelihood(;
         idx = findfirst(==(gaia_id), t.gaia_source_id)
         return NamedTuple(t[idx])
     end
-    return HGCALikelihood(hgca; fluxratio_var, include_dr3_vel, include_iad)
+    return HGCALikelihood(hgca, priors, derived; include_dr3_vel, include_iad)
 end
-function HGCALikelihood(hgca::NamedTuple; fluxratio_var,include_dr3_vel, include_iad)
+function HGCALikelihood(hgca::NamedTuple, priors::Priors, derived::Derived; include_dr3_vel, include_iad)
 
 
     # Convert measurement epochs to MJD.
@@ -351,10 +354,9 @@ export HGCALikelihood
 
 
 # Generate new astrometry observations
-function generate_from_params(like::HGCALikelihood, θ_system, orbits)
+function generate_from_params(like::HGCALikelihood, θ_system, θ_obs, orbits, solutions, sol_start_i)
 
-
-    sim = simulate(like::HGCALikelihood, θ_system, orbits, tuple([] for _ in orbits), -1)
+    sim = simulate(like::HGCALikelihood, θ_system, θ_obs, orbits, solutions, sol_start_i)
 
     (;μ_g, μ_h, μ_hg) = sim
 
@@ -368,7 +370,7 @@ function generate_from_params(like::HGCALikelihood, θ_system, orbits)
         pmra_gaia = μ_g[1],
         pmdec_gaia = μ_g[2],
     )
-    new_hgca_like =  HGCALikelihood(hgca; like.fluxratio_var, like.include_dr3_vel, like.include_iad)
+    new_hgca_like = HGCALikelihood(hgca, like.priors, like.derived; like.include_dr3_vel, like.include_iad)
     # What do we do about the Hipparcos residuals?
     if like.include_iad
         @warn "Hipparcos residuals are not currently handled in the simulation"

@@ -35,13 +35,25 @@ Makie.lines(orb_template,axis=(;autolimitaspect=1))
 Sample position and store as relative astrometry measurements:
 ```@example 1
 epochs = [58849,58852,58858,58890]
-astrom = PlanetRelAstromLikelihood(Table(
+astrom_dat = Table(
     epoch=epochs,
     ra=raoff.(orb_template, epochs),
     dec=decoff.(orb_template, epochs),
     σ_ra=fill(1.0, size(epochs)),
     σ_dec=fill(1.0, size(epochs)),
-))
+    cor=fill(0.0, size(epochs))
+)
+
+astrom = PlanetRelAstromLikelihood(
+    astrom_dat,
+    instrument_name = "simulated",
+    variables = @variables begin
+        # Fixed values for this example - could be free variables:
+        jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
+        northangle = 0    # radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+    end
+)
 ```
 
 And plot our simulated astrometry measurments:
@@ -96,23 +108,33 @@ fap
 Now specify model and fit it:
 ```@example 1
 
-@planet b Visual{KepOrbit} begin
-    e ~ Uniform(0,0.999999)
-    a ~ truncated(Normal(1, 1),lower=0.1)
-    mass ~ truncated(Normal(1, 1), lower=0.)
-    i ~ Sine()
-    Ω ~ UniformCircular()
-    ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,58849.0)  # reference epoch for θ. Choose an MJD date near your data.
-end astrom
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom],
+    variables=@variables begin
+        e ~ Uniform(0,0.999999)
+        a ~ truncated(Normal(1, 1),lower=0.1)
+        mass ~ truncated(Normal(1, 1), lower=0.)
+        i ~ Sine()
+        Ω ~ UniformCircular()
+        ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(super,this,58849.0)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
 
-@system test begin
-    M ~ truncated(Normal(1, 0.04),lower=0.1) # (Baines & Armstrong 2011).
-    plx = 100.0
-end rvlike rvlike2 b
+sys = System(
+    name="test",
+    companions=[planet_b],
+    likelihoods=[rvlike, rvlike2],
+    variables=@variables begin
+        M ~ truncated(Normal(1, 0.04),lower=0.1) # (Baines & Armstrong 2011).
+        plx = 100.0
+    end
+)
 
-model = Octofitter.LogDensityModel(test)
+model = Octofitter.LogDensityModel(sys)
 
 using Random
 rng = Xoshiro(0) # seed the random number generator for reproducible results
