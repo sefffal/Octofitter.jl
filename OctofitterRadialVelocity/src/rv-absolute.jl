@@ -108,7 +108,7 @@ function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVLikelihood, obs
     return StarAbsoluteRVLikelihood{
         typeof(table),typeof(obs.gaussian_process),typeof(obs.trend_function)
     }(
-        table, obs.priors, obs.derived, held_out_table, obs.instrument_name, obs.gaussian_process, obs.trend_function
+        table, obs.priors, obs.derived, held_out_table, instrument_name(obs), obs.gaussian_process, obs.trend_function
     )
 end
 export StarAbsoluteRVLikelihood
@@ -297,7 +297,7 @@ function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_syst
 
     return StarAbsoluteRVLikelihood(
         radvel_table;
-        instrument_name=like.instrument_name,
+        instrument_name=instrument_name(like),
         gaussian_process=like.gaussian_process,
         trend_function=like.trend_function,
         variables=(like.priors, like.derived)

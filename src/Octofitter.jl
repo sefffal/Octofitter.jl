@@ -116,7 +116,7 @@ function __init__()
         @info """\
 Welcome to Octofitter $(OCTO_VERSION_STR) 🐙
 Check for new releases: https://github.com/sefffal/Octofitter.jl/releases/
-Read the documentation: https://sefffal.github.io/Octofitter.jl/dev/
+Read the documentation: https://sefffal.github.io/Octofitter.jl/$(OCTO_VERSION_STR)
 """
     end
 

@@ -357,8 +357,8 @@ function Octofitter.rvpostplot!(
         marker_symbol = marker_symbols[mod1(rv_like_idx, length(marker_symbols))]
 
         if rvs isa StarAbsoluteRVLikelihood
-            jitter = nt_format.observations[Octofitter.normalizename(rvs.instrument_name)].jitter
-            barycentric_rv_inst = nt_format.observations[Octofitter.normalizename(rvs.instrument_name)].offset
+            jitter = nt_format.observations[Octofitter.normalizename(instrument_name(rvs))].jitter
+            barycentric_rv_inst = nt_format.observations[Octofitter.normalizename(instrument_name(rvs))].offset
         elseif rvs isa MarginalizedStarAbsoluteRVLikelihood
             # TODO: marginalized RV likelihood
 
@@ -419,7 +419,7 @@ function Octofitter.rvpostplot!(
         # If not using a GP, we fit a GP with a "ZeroKernel"
         map_gp = nothing
         if hasproperty(rvs, :gaussian_process) && !isnothing(rvs.gaussian_process)
-            θ_obs = nt_format.observations[Octofitter.normalizename(rvs.instrument_name)]
+            θ_obs = nt_format.observations[Octofitter.normalizename(instrument_name(rvs))]
             map_gp = rvs.gaussian_process(θ_obs)
         end
         if isnothing(map_gp)
@@ -745,7 +745,7 @@ function Octofitter.rvpostplot!(
             ]
         ]
         labels = [
-            [rv.instrument_name for rv in rv_likes_all],
+            [instrument_name(rv) for rv in rv_likes_all],
             [
                 "data uncertainty",
                 any_models_have_a_gp ? "uncertainty,\njitter, and GP" : "uncertainty and\njitter",

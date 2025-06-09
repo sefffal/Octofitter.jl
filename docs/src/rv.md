@@ -17,18 +17,23 @@ using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, CairoMa
 gaia_id = 5164707970261890560 
 
 
-@planet b Visual{KepOrbit} begin
-    # For speed of example, we are fitting a circular orbit only.s
-    e = 0
-    ω=0.0
-    mass ~ Uniform(0, 3)
-    a ~ Uniform(3, 10)
-    i ~ Sine()
-    Ω ~ Uniform(0,2pi)
-    τ ~ Uniform(0,1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
-end # No planet astrometry is included since it has not yet been directly detected
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[], # No planet astrometry is included since it has not yet been directly detected
+    variables=@variables begin
+        # For speed of example, we are fitting a circular orbit only.
+        e = 0
+        ω = 0.0
+        mass ~ Uniform(0, 3)
+        a ~ Uniform(3, 10)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
+        τ ~ Uniform(0, 1.0)
+        P = √(this.a^3/super.M)
+        tp = this.τ*this.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    end
+)
 
 
 # We will load in data from one RV instruments.
@@ -39,7 +44,9 @@ hires_data = OctofitterRadialVelocity.HIRES_rvs("HD22049")
 rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
     hires_data,
     instrument_name="HIRES",
-    jitter=:jitter_hires,
+    variables=@variables begin
+        jitter ~ LogUniform(0.1, 100) # m/s
+    end
 )
 ```
 
@@ -51,18 +58,25 @@ In the interests of time, we use the `HGCAInstantaneousLikelihood` approximation
 
 
 ```@example 1
-@system ϵEri begin
-    M ~ truncated(Normal(0.82, 0.02),lower=0.5, upper=1.5) # (Baines & Armstrong 2011).
-    plx ~ gaia_plx(;gaia_id)
-    pmra ~ Normal(-975, 10)
-    pmdec ~ Normal(20,  10)
-
-    # Jitter per instrument
-    jitter_hires ~ LogUniform(0.1, 100) # m/s
-
-end hgca_like rvlike_hires b
+ϵEri = System(
+    name="ϵEri",
+    companions=[planet_b],
+    likelihoods=[hgca_like, rvlike_hires],
+    variables=@variables begin
+        M ~ truncated(Normal(0.82, 0.02),lower=0.5, upper=1.5) # (Baines & Armstrong 2011).
+        plx ~ gaia_plx(;gaia_id)
+        pmra ~ Normal(-975, 10)
+        pmdec ~ Normal(20,  10)
+    end
+)
 # Build model
 model = Octofitter.LogDensityModel(ϵEri)
+```
+
+Find good starting points and visualize the starting position + data:
+```@example 1
+init_chain = initialize!(model)
+octoplot(model, init_chain, show_mass=true)
 ```
 
 

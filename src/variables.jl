@@ -21,6 +21,16 @@ This allows sub-setting data for various statistical checks.
 """
 function likeobj_from_epoch_subset end
 
+"""
+    instrument_name(likeobj::AbstractLikelihood)
+
+Return the instrument name for a likelihood object. 
+Most likelihood objects have an `instrument_name` field, but some specialized
+types may override this function to provide their instrument name differently.
+"""
+instrument_name(likeobj::AbstractLikelihood) = likeobj.instrument_name
+export instrument_name
+
 
 
 """
@@ -207,7 +217,7 @@ struct BlankLikelihood <: AbstractLikelihood
     derived::Derived
     instrument_name::String
     function BlankLikelihood(
-        variables::Tuple{Priors,Derived}=(@variables begin;end),
+        variables::Tuple{Priors,Derived}=(Priors(),Derived()),
         instrument_name=""
     )
         (priors,derived)=variables
@@ -572,7 +582,7 @@ function make_arr2nt(system::System)
             end
         end
         
-        name = normalizename(obs.instrument_name)
+        name = normalizename(instrument_name(obs))
         ex = :($name = begin
             obs0 = (;$(body_obs_priors...));
             $(body_obs_determ...);
@@ -668,7 +678,7 @@ function make_arr2nt(system::System)
                     push!(planet_obs_determ,ex)
                     k += 1
                 end
-                name = normalizename(obs.instrument_name)
+                name = normalizename(instrument_name(obs))
                 # ex = :(begin
                 #     obs0 = (;$(planet_obs_priors...));
                 #     $(planet_obs_determ...);

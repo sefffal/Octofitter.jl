@@ -27,16 +27,20 @@ epochs = (58400:150:69400) .+ 10 .* randn.()
 rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
 rvlike1 = MarginalizedStarAbsoluteRVLikelihood(
     Table(epoch=epochs, rv=rv .+ 4 .* randn.(), σ_rv=[4 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
-    jitter=:jitter1,
-    instrument_name="DATA 1"
+    instrument_name="DATA 1",
+    variables=@variables begin
+        jitter ~ LogUniform(0.1, 100) # m/s
+    end
 )
 
 epochs = (65400:100:71400) .+ 10 .* randn.()
 rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
 rvlike2 = MarginalizedStarAbsoluteRVLikelihood(
     Table(epoch=epochs, rv=rv .+ 2 .* randn.() .+ 7, σ_rv=[2 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
-    jitter=:jitter2,
-    instrument_name="DATA 2"
+    instrument_name="DATA 2",
+    variables=@variables begin
+        jitter ~ LogUniform(0.1, 100) # m/s
+    end
 )
 
 fig = Figure()
@@ -83,8 +87,6 @@ end
     M_pri = 1.0
     M_b ~ Uniform(0, 10)
     M_c ~ Uniform(0, 10)
-    jitter1 ~ Uniform(0, 20_000)
-    jitter2 ~ Uniform(0, 20_000)
 end rvlike1 rvlike2 b c
 
 model_2p = Octofitter.LogDensityModel(sim_2p)
@@ -110,8 +112,6 @@ We now create a new system object that only includes one planet (we dropped c, i
     M_pri = 1.0
     M_b ~ Uniform(0, 10)
     M_c = 0.0
-    jitter1 ~ Uniform(0, 20_000)
-    jitter2 ~ Uniform(0, 20_000)
 end rvlike1 rvlike2 b
 
 model_1p = Octofitter.LogDensityModel(sim_1p)
@@ -206,8 +206,6 @@ end
     M_pri = 1.0
     M_b ~ Uniform(0, 10)
     M_c ~ Uniform(0, 10)
-    jitter1 ~ Uniform(0, 20_000)
-    jitter2 ~ Uniform(0, 20_000)
     
     P_yrs_nom ~ Uniform(0, 100)
     P_ratio_b ~ Uniform(0, 0.5)

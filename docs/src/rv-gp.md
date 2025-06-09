@@ -281,7 +281,6 @@ sys = System(
 
 using DifferentiationInterface
 using FiniteDiff
-Enzyme.API.strictAliasing!(true)
 model = Octofitter.LogDensityModel(sys, autodiff=AutoFiniteDiff())
 ```
 
