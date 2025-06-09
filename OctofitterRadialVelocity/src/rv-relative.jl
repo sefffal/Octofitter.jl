@@ -87,7 +87,6 @@ Radial velocity likelihood.
 function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
 
-    L = length(rvlike.table.epoch)
     T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
 

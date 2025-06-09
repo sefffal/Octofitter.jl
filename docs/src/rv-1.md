@@ -31,25 +31,32 @@ The following functions allow you to directly load data from various public RV d
 * `Lick_rvs("star-name")`
 * `HIRES_rvs("star-name")`
 
-## Basic Fit
-Start by fitting a 1-planet Keplerian model.
-
+Make sure to credit the sources using the citation printed when you first access the catalog.
 Calling those functions with the name of a star will return a [`StarAbsoluteRVLikelihood`](@ref) table. 
+
 
 If you would like to manually specify RV data, use the following format:
 ```julia
-rv_like = StarAbsoluteRVLikelihood(
-    # epoch is in units of MJD. `jd2mjd` is a helper function to convert.
+rv_data = Table(
+     # epoch is in units of MJD. `jd2mjd` is a helper function to convert.
     # you can also put `years2mjd(2016.1231)`.
     # rv and σ_rv are in units of meters/second
-    (epoch=jd2mjd(2455110.97985),  rv=−6.54, σ_rv=1.30),
-    (epoch=jd2mjd(2455171.90825),  rv=−3.33, σ_rv=1.09),
-    # ... etc.
+    epoch=jd2mjd.([2455110.97985, 2455171.90825]),
+    rv=[-6.54, -3.33],
+    σ_rv=[1.30, 1.09]
+)
+
+rv_like = StarAbsoluteRVLikelihood(rv_data, 
     instrument_name="insert name here",
-    offset=:rv0,
-    jitter=:gamma,
+    variables=@variables begin
+        offset ~ Uniform(-1000, 1000) # m/s
+        jitter ~ LogUniform(0.01, 10) # m/s
+    end
 )
 ```
+
+## Basic Fit
+
 
 For this example, to replicate the results of RadVel, we will download their example data for K2-131 and format it for Octofitter:
 ```@example 1
@@ -66,14 +73,18 @@ tels = sort(unique(rv_dat_raw.tel))
 rvlike_harps = StarAbsoluteRVLikelihood(
     rv_dat[rv_dat_raw.tel .== "harps-n",:],
     instrument_name="harps-n",
-    offset=:rv0_harps,
-    jitter=:jitter_harps,
+    variables=@variables begin
+        offset ~ Normal(-6693,100) # m/s
+        jitter ~ LogUniform(0.1,100) # m/s
+    end
 )
 rvlike_pfs = StarAbsoluteRVLikelihood(
     rv_dat[rv_dat_raw.tel .== "pfs",:],
     instrument_name="pfs",
-    offset=:rv0_pfs,
-    jitter=:jitter_pfs,
+    variables=@variables begin
+        offset ~ Normal(0,100) # m/s
+        jitter ~ LogUniform(0.1,100) # m/s
+    end
 )
 ```
 
@@ -83,36 +94,34 @@ if we wanted to include these parameters and visualize the orbit in the plane of
 
 
 ```@example 1
-@planet b RadialVelocityOrbit begin
-    e = 0
-    ω = 0.0
+planet_1 = Planet(
+    name="b",
+    basis=RadialVelocityOrbit,
+    likelihoods=[],
+    variables=@variables begin
+        e = 0
+        ω = 0.0
+        # To match RadVel, we set a prior on Period and calculate semi-major axis from it
+        P ~ truncated(
+            Normal(0.3693038/365.256360417, 0.0000091/365.256360417),
+            lower=0.0001
+        )
+        a = cbrt(super.M * this.P^2) # note the equals sign. 
+        τ ~ UniformCircular(1.0)
+        tp = this.τ*this.P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
+        # minimum planet mass [jupiter masses]. really m*sin(i)
+        mass ~ LogUniform(0.001, 10)
+    end
+)
 
-    # To match RadVel, we set a prior on Period and calculate semi-major axis from it
-    P ~ truncated(
-        Normal(0.3693038/365.256360417, 0.0000091/365.256360417),
-        lower=0.0001
-    )
-    a = cbrt(system.M * b.P^2) # note the equals sign. 
-
-    τ ~ UniformCircular(1.0)
-    tp = b.τ*b.P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
-    
-    # minimum planet mass [jupiter masses]. really m*sin(i)
-    mass ~ LogUniform(0.001, 10)
-end
-
-
-@system k2_132 begin
-    # total mass [solar masses]
-    M ~ truncated(Normal(0.82, 0.02),lower=0.1) # (Baines & Armstrong 2011).
-
-    rv0_harps ~ Normal(-6693,100) # m/s
-    rv0_pfs ~ Normal(0,100) # m/s
-
-    jitter_harps ~ LogUniform(0.1,100) # m/s
-    jitter_pfs ~ LogUniform(0.1,100) # m/s
-
-end rvlike_harps rvlike_pfs b
+sys = System(
+    name = "k2_132",
+    companions=[planet_1],
+    likelihoods=[rvlike_harps, rvlike_pfs],
+    variables=@variables begin
+        M ~ truncated(Normal(0.82, 0.02),lower=0.1) # (Baines & Armstrong 2011).
+    end
+)
 
 ```
 
@@ -125,12 +134,14 @@ Note also here that the `mass` variable is really `msini`, or the minimum mass o
 
 We can now prepare our model for sampling.
 ```@example 1
-model = Octofitter.LogDensityModel(k2_132)
+model = Octofitter.LogDensityModel(sys)
 ```
 
 Initialize the starting points, and confirm the data are entered correcly:
 ```@example 1
 init_chain = initialize!(model)
+
+using CairoMakie
 fig = Octofitter.rvpostplot(model, init_chain)
 ```
 
@@ -144,7 +155,7 @@ chain = octofit(rng, model)
 
 Excellent! Let's plot an orbit sampled from the posterior:
 ```@example 1
-using CairoMakie: Makie
+using CairoMakie
 fig = Octofitter.rvpostplot(model, chain) # saved to "k2_132-rvpostplot.png"
 ```
 
@@ -157,8 +168,7 @@ octoplot(model, chain)
 
 And create a corner plot:
 ```@example 1
-using PairPlots
-using CairoMakie: Makie
+using PairPlots, CairoMakie
 octocorner(model, chain)
 ```
 

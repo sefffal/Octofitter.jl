@@ -31,12 +31,12 @@ In this case, we specified `ra` and `dec` offsets in milliarcseconds. We could i
 You can also specify it in separation (mas) and positon angle (rad):
 ```julia
 astrom_dat_2 = Table(
-    epoch = [50000, ], # MJD
+    epoch = [42000, ], # MJD
     sep = [505.7637580573554, ], # mas
     pa = [deg2rad(24.1), ], # radians
     # Tip! Type this as \sigma + <TAB key>!
-    σ_sep = [10, ],
-    σ_pa = [deg2rad(1.2), ],
+    σ_sep = [70, ],
+    σ_pa = [deg2rad(10.2), ],
 )
 astrom_like_2 = PlanetRelAstromLikelihood(astrom_dat_2)
 ```
@@ -54,7 +54,7 @@ You can group your data in different likelihood objects, each with their own ins
 
 ```@example 1
 astrom_like_1 = PlanetRelAstromLikelihood(
-    astrom_dat,
+    astrom_dat_1,
     instrument_name = "GPI",
     variables = @variables begin
         jitter ~ Uniform(0, 10) # mas [optional]
@@ -96,6 +96,7 @@ planet_1 = Planet(
     basis=Visual{KepOrbit},
     likelihoods=[astrom_like_1, astrom_like_2],
     variables=@variables begin
+        plx = super.plx
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         a ~ Uniform(0, 100)
         e ~ Uniform(0.0, 0.5)
@@ -133,7 +134,7 @@ The parameters can be specified in any order.
 
 You can also hardcode a particular value for any parameter if you don't want it to vary. Simply replace eg. `e ~ Uniform(0, 0.999)` with `e = 0.1`.
 This `=` syntax works for arbitrary mathematical expressions and even functions. We use it here to reparameterize `tp` as a function of the planet's position angle on a given date.
-
+The `=` syntax also works to access variables from higher levels of the system.
 
 !!! warning
     You must specify a proper prior for any quantity which is allowed to vary. 
@@ -148,7 +149,7 @@ This `=` syntax works for arbitrary mathematical expressions and even functions.
 Now, we add our planets to a "system". Properties of the whole system are specified here, like parallax distance. For multi-planet systems, it makes sense to create shared variables here for e.g. the mass of the primary which is then used in all planet models. This is also where you will supply data like images, astrometric acceleration, or stellar radial velocity since they don't belong to any planet in particular.
 
 ```@example 1
-system = System(
+sys = System(
     name = "Tutoria",
     companions=[planet_1],
     likelihoods=[],
@@ -171,7 +172,7 @@ The variables block works just like it does for planets. Here, we provided the p
 ### Prepare model
 We now convert our declarative model into efficient, compiled code:
 ```@example 1
-model = Octofitter.LogDensityModel(system)
+model = Octofitter.LogDensityModel(sys)
 ```
 
 This type implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.
@@ -187,9 +188,9 @@ init_chain = initialize!(model) # No guesses provided, slower global optimizatio
 ```@example 1
 init_chain = initialize!(model, (;
     plx = 50,
-    M = 1.21,
     planets = (;
         b=(;
+            M = 1.21,
             a = 10.0,
             e = 0.01,
             # note! Never initialize a value on the bound, exactly 0 eccentricity is disallowed by the `Uniform(0,1)` prior
@@ -210,21 +211,22 @@ octoplot(model, init_chain)
 The starting points for sampling look reasonable!
 
 !!! note
-    The return value from `initialize!` is a "variational approximation". You can pass that chain to any function expecting a `chain` argument, like `Octofitter.savechain` or `octocorner`. It gives a rough approximation of the posterior we expect. The central values are probably close, but the uncertainties are unreliable.
+    The return value from `initialize!` is a "variational approximation". You can pass that chain to any function expecting a `chain` argument, like `Octofitter.savechain` or `octocorner`. It gives a very rough approximation of the posterior we expect.
 
 ### Sampling
 Now we are ready to draw samples from the posterior:
 ```@example 1
 octofit(model, verbosity = 0,iterations=2,adaptation=2,); # hide
-chain = octofit(model)
+chain = octofit(model, iterations=1000)
 ```
 
-You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the `verbosity` value down to 0.
+You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the `verbosity` value down to 0 from a default of 2 (or get more info with `verbosity=4`).
 
-Once complete, the `chain` object will hold the sampler results. Displaying it prints out a summary table like the one shown above.
-For a basic model like this, sampling should take less than a minute on a typical laptop.
+Once complete, the `chain` object will hold the posterior samples. Displaying it prints out a summary table like the one shown above.
 
-Sampling can take much longer when you have measurements with very small uncertainties.
+For a basic model like this with few epochs and well-specified uncertainties, sampling should take less than a minute on a typical laptop.
+
+Sampling can take much longer when you have measurements with very small uncertainties (e.g. VLTI-GRAVITY).
 
 ### Diagnostics
 The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.
@@ -233,11 +235,6 @@ A few things to watch out for: check that you aren't getting many numerical erro
 This likely indicates a problem with your model: either invalid values of one or more parameters are encountered (e.g. the prior on semi-major axis includes negative values) or that there is a region of very high curvature that is failing to sample properly. This latter issue can lead to a bias in your results.
 
 One common mistake is to use a distribution like `Normal(10,3)` for semi-major axis. This left tail of this distribution includes negative values, and our orbit model is not defined for negative semi-major axes. A better choice is a `truncated(Normal(10,3), lower=0.1)` distribution (not including zero, since a=0 is not defined).
-
-You may see some warnings during initial step-size adaptation. These are probably nothing to worry about if sampling proceeds normally afterwards.
-
-You should also check the acceptance rate (`mean_accept`) is reasonably high and the mean tree depth (`mean_tree_depth`) is reasonable (~4-8). 
-Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than this and it might be being too conservative. 
 
 Next, you can make a trace plot of different variabes to visually inspect the chain:
 ```@example 1
@@ -284,7 +281,7 @@ As a first pass, let's plot a sample of orbits drawn from the posterior.
 The function `octoplot` is a conveninient way to generate a 9-panel plot of velocities and position:
 ```@example 1
 using CairoMakie
-octoplot(model,chain)
+octoplot(model,merged_chains)
 ```
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
 
@@ -295,7 +292,7 @@ A very useful visualization of our results is a pair-plot, or corner plot. We ca
 ```@example 1
 using CairoMakie
 using PairPlots
-octocorner(model, chain, small=true)
+octocorner(model, merged_chain, small=true)
 ```
 Remove `small=true` to display all variables.
 

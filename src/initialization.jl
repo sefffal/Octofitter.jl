@@ -396,7 +396,7 @@ function optimization_and_pathfinder_with_fixed(
         )
         
         if verbosity > 0
-            @info "Performing global optimization with $(length(variable_indices)) parameters ($(length(fixed_indices)) parameters held fixed)."
+            @info "Performing global optimization with $(length(variable_indices)) parameters ($(length(fixed_indices)) initial parameter value provided)."
         end
         
         

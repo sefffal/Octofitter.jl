@@ -597,7 +597,7 @@ function physorbplot!(
                 Makie.scatter!(
                     ax,
                     vec(posx.(sols)),
-                    vec(posy.(sols)),
+                    vec(posy.(sols));
                     color,
                     markersize=6,
                     strokewidth=1,

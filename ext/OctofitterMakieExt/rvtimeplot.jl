@@ -204,8 +204,12 @@ function rvtimeplot!(
         rv_data = collect(vec(like_obj.table.rv))
         σ_rv = vec(like_obj.table.σ_rv)
 
-        jitter_symbol = like_obj.jitter_symbol
-        jitter = map(sample->sample[jitter_symbol], nt_format)
+        like_obj_name = Octofitter.normalizename(like_obj.instrument_name)
+
+        jitter = map(nt_format) do θ_system
+            θ_system.observations[like_obj_name].jitter
+        end
+
         σ_tot = sqrt.(σ_rv .^2 .+ mean(jitter) .^2)
 
         # instead of each 
@@ -213,8 +217,8 @@ function rvtimeplot!(
             θ_system = nt_format[i]
 
             # StarAbsoluteRVLikelihood have an RV0 parameter in the model
-            if hasproperty(like_obj,:offset_symbol)
-                return θ_system[like_obj.offset_symbol]
+            if nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
+                return θ_system.observations[like_obj_name].offset
             end
 
             # MarginalizedStarAbsoluteRVLikelihood do not, we can compute it in
@@ -281,9 +285,8 @@ function rvtimeplot!(
                 map_gp = nothing
                 # TODO: hacky interdependency
                 if hasproperty(like_obj, :gaussian_process) && !isnothing(like_obj.gaussian_process) 
-                    row = nt_format[i,:,:];
-                    nt = (Table((row)))[1]
-                    map_gp = like_obj.gaussian_process(nt)
+                    θ_obs = nt_format[i].observations[Octofitter.normalizename(like_obj.instrument_name)]
+                    map_gp = like_obj.gaussian_process(θ_obs)
                 end
                 if isnothing(map_gp)
                     map_gp = Main.AbstractGPs.GP(Main.AbstractGPs.ZeroKernel())
@@ -473,8 +476,8 @@ function rvtimeplot_relative!(
         axis...
     )
     linkxaxes!(ax, ax_secondary)
-    xlims!(ax, extrema(ts))
-    xlims!(ax_secondary, extrema(ts))
+    # xlims!(ax, extrema(ts))
+    # xlims!(ax_secondary, extrema(ts))
 
     for (i_planet, planet_key) in enumerate(keys(model.system.planets))
         # Plot each relative RV separately
@@ -508,9 +511,10 @@ function rvtimeplot_relative!(
             rv = vec(like_obj.table.rv)
             σ_rv = vec(like_obj.table.σ_rv)
             jitter = map(nt_format) do θ_system
-                θ_system.planets[planet_key][like_obj.jitter_symbol]
+                θ_system.planets[planet_key].observations[Octofitter.normalizename(like_obj.instrument_name)].jitter
             end
             σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
+
             Makie.errorbars!(
                 ax, epoch, rv .* kms_mult, σ_tot .* kms_mult;
                 color =  :grey,

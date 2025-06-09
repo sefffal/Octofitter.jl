@@ -356,12 +356,16 @@ function Octofitter.rvpostplot!(
         color = Makie.wong_colors()[mod1(rv_like_idx, length(Makie.wong_colors()))]
         marker_symbol = marker_symbols[mod1(rv_like_idx, length(marker_symbols))]
 
-        if hasproperty(rvs,:offset_symbol)
-            barycentric_rv_inst = nt_format[rvs.offset_symbol]
-            jitter = nt_format[rvs.jitter_symbol]
-        else
+        if rvs isa StarAbsoluteRVLikelihood
+            jitter = nt_format.observations[Octofitter.normalizename(rvs.instrument_name)].jitter
+            barycentric_rv_inst = nt_format.observations[Octofitter.normalizename(rvs.instrument_name)].offset
+        elseif rvs isa MarginalizedStarAbsoluteRVLikelihood
+            # TODO: marginalized RV likelihood
+
             barycentric_rv_inst = _find_rv_zero_point_maxlike(rvs, nt_format, els_by_planet)
             jitter = nt_format[rvs.jitter_symbol]
+        else
+            error("plotting not yet implemented for this type of data")
         end
         if ismissing(barycentric_rv_inst )
             barycentric_rv_inst = 0.
@@ -415,9 +419,8 @@ function Octofitter.rvpostplot!(
         # If not using a GP, we fit a GP with a "ZeroKernel"
         map_gp = nothing
         if hasproperty(rvs, :gaussian_process) && !isnothing(rvs.gaussian_process)
-            row = results[sample_idx,:,:];
-            nt = (Table((row)))[1]
-            map_gp = rvs.gaussian_process(nt)
+            θ_obs = nt_format.observations[Octofitter.normalizename(rvs.instrument_name)]
+            map_gp = rvs.gaussian_process(θ_obs)
         end
         if isnothing(map_gp)
             map_gp = GP(ZeroKernel())

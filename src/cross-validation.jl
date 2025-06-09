@@ -63,15 +63,36 @@ function prior_only_model(system::System;exclude_all=false)
     # Generate new observations for each planet in the system
     newplanets = map(1:length(system.planets)) do i
         planet = system.planets[i]
-        newplanet_obs = exclude_all ? AbstractLikelihood[] : filter(_isprior, planet.observations)
-        newplanet = Planet{Octofitter.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
+        # newplanet_obs = exclude_all ? AbstractLikelihood[] : filter(_isprior, planet.observations)
+        newplanet_obs = map(planet.observations) do obs
+            if exclude_all || !_isprior(obs)
+                # We have to make sure we have the same variables even if we drop the data
+                return BlankLikelihood((obs.priors,obs.derived),obs.instrument_name)
+            end
+        end
+        newplanet_obs = filter(!isnothing, newplanet_obs)
+        newplanet = Planet(
+            basis=Octofitter.orbittype(planet),
+            variables=(planet.priors, planet.derived),
+            likelihoods=newplanet_obs,
+            name=planet.name
+        )
         return newplanet
     end
 
-    newsys_obs = exclude_all ? AbstractLikelihood[] : filter(_isprior, system.observations)
-
+    newsys_obs = map(system.observations) do obs
+        if exclude_all || !_isprior(obs)
+            # We have to make sure we have the same variables even if we drop the data
+            return BlankLikelihood((obs.priors,obs.derived),obs.instrument_name)
+        end
+    end
     # Generate new system with observations
-    newsystem = System(system.priors, system.derived, newsys_obs..., newplanets..., name=system.name)
+    newsystem = System(
+        variables=(system.priors, system.derived),
+        likelihoods=newsys_obs,
+        companions=newplanets,
+        name=system.name
+    )
 
     return newsystem
 end
