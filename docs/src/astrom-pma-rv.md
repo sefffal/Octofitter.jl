@@ -64,7 +64,8 @@ planet_b = Planet(
         mass = super.M_sec
 
         θ ~ Uniform(0, 2pi)
-        tp = θ_at_epoch_to_tperi(super,this,57423.0) # epoch of GAIA measurement
+        M = super.M
+        tp = θ_at_epoch_to_tperi(θ, 57423.0; M, e, a, i, ω, Ω) # epoch of GAIA measurement
 
         F = 0.0 # optional: set gaia flux ratio of secondary to host
     end
@@ -88,7 +89,7 @@ sys = System(
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
         M_sec ~ LogUniform(0.5, 1000) # MJup
-        M = this.M_pri + this.M_sec*Octofitter.mjup2msol # Msol
+        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
 
         plx ~ gaia_plx(gaia_id=756291174721509376)
                 
@@ -202,7 +203,8 @@ planet_b = Planet(
         mass = super.M_sec
 
         θ ~ Uniform(0, 2pi)
-        tp = θ_at_epoch_to_tperi(super,this,57737.0) # epoch of astrometry
+        M = super.M
+        tp = θ_at_epoch_to_tperi(θ, 57737.0; M, e, a, i, ω, Ω) # epoch of astrometry
 
         F = 0.0
     end
@@ -215,7 +217,7 @@ sys_astrom = System(
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
         M_sec ~ LogUniform(0.5, 1000) # MJup
-        M = this.M_pri + this.M_sec*Octofitter.mjup2msol
+        M = M_pri + M_sec*Octofitter.mjup2msol
 
         plx ~ gaia_plx(gaia_id=756291174721509376)
 
@@ -271,11 +273,16 @@ planet_b_rv = Planet(
         mass = super.M_sec
 
         θ ~ Uniform(0, 2pi)
-        tp = θ_at_epoch_to_tperi(super,this,57737.0) # epoch of astrometry
+        M = super.M
+        tp = θ_at_epoch_to_tperi(θ, 57737.0; M, e, a, i, ω, Ω) # epoch of astrometry
 
         F = 0.0
     end
 )
+
+
+ra = 158.30707896392835
+dec = 40.42555422701387
 
 sys_rv_astrom = System(
     name="HD91312_pma_rv_astrom",
@@ -284,7 +291,7 @@ sys_rv_astrom = System(
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
         M_sec ~ LogUniform(0.5, 1000) # MJup
-        M = this.M_pri + this.M_sec*Octofitter.mjup2msol
+        M = M_pri + M_sec*Octofitter.mjup2msol
 
         plx ~ gaia_plx(gaia_id=756291174721509376)
                 
@@ -292,8 +299,8 @@ sys_rv_astrom = System(
         pmra ~ Normal(-137, 10)
         pmdec ~ Normal(2,  10)
 
-        ra = hgca_like.gaialike.gaia_sol.ra
-        dec = hgca_like.gaialike.gaia_sol.dec
+        ra = $ra
+        dec = $dec
         rv = 0*1e3 # m/s
         ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd
     end
@@ -346,7 +353,8 @@ planet_b_final = Planet(
         mass = super.M_sec
 
         θ ~ Uniform(0, 2pi)
-        tp = θ_at_epoch_to_tperi(super,this,57737.0) # epoch of astrometry
+        M = super.M
+        tp = θ_at_epoch_to_tperi(θ, 57737.0; M, e, a, i, ω, Ω) # epoch of astrometry
     end
 )
 
@@ -357,7 +365,7 @@ sys_final = System(
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
         M_sec ~ LogUniform(0.5, 1000) # MJup
-        M = this.M_pri + this.M_sec*Octofitter.mjup2msol
+        M = M_pri + M_sec*Octofitter.mjup2msol
 
         plx ~ gaia_plx(gaia_id=756291174721509376)
     end

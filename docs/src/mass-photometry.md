@@ -14,24 +14,24 @@ First, create your photometry observations and likelihoods. Each PhotometryLikel
 ```julia
 # Create separate photometry likelihoods for each band
 H_band_table = Table(
-    (phot=15.2, σ_phot=0.5),
+    phot=[15.2], σ_phot=[0.5],
 )
 H_band_data = PhotometryLikelihood(
     H_band_table,
     instrument_name="H_band",
     variables=@variables begin
-        flux = H_band_contrast_interp(this.mass)
+        flux = $H_band_contrast_interp(super.mass)
     end
 )
 
 J_band_table = Table(
-    (phot=14.8, σ_phot=0.3),
+    phot=[14.8], σ_phot=[0.3],
 )
 J_band_data = PhotometryLikelihood(
     J_band_table,
     instrument_name="J_band", 
     variables=@variables begin
-        flux = J_band_contrast_interp(this.mass)
+        flux = $J_band_contrast_interp(super.mass)
     end
 )
 
@@ -48,9 +48,12 @@ planet_b = Planet(
         Ω ~ Normal(0.0, 0.2)
         mass ~ Uniform(0, 1)
         
-        τ ~ UniformCircular(1.0)
-        P = √(this.a^3/super.M)
-        tp = this.τ*this.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+        M = super.M
+        τ_x ~ Normal()
+        τ_y ~ Normal()
+        τ = atan(τ_y, τ_x)/2π*1.0
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
     end
 )
 ```
@@ -64,13 +67,13 @@ K_band_contrast_interp(mass, age, temp) = sqrt(mass) * (age/10) * sqrt(temp/1000
 
 # Photometry likelihood with derived variable using system and planet properties
 K_band_table = Table(
-    (phot=13.5, σ_phot=0.4),
+    phot=[13.5], σ_phot=[0.4],
 )
 K_band_data = PhotometryLikelihood(
     K_band_table,
     instrument_name="K_band",
     variables=@variables begin
-        flux = K_band_contrast_interp(this.mass, super.age, this.temp)
+        flux = $K_band_contrast_interp(super.mass, super.age, super.temp)
     end
 )
 
@@ -87,10 +90,14 @@ planet_b = Planet(
         Ω ~ Normal(0.0, 0.2)
         mass ~ Uniform(0, 1)
         temp ~ Normal(1200, 500)
+        age = super.age
         
-        τ ~ UniformCircular(1.0)
-        P = √(this.a^3/super.M)
-        tp = this.τ*this.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+        M = super.M
+        τ_x ~ Normal()
+        τ_y ~ Normal()
+        τ = atan(τ_y, τ_x)/2π*1.0
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
     end
 )
 

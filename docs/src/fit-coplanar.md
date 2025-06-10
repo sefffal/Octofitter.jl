@@ -73,8 +73,11 @@ planet_b = Planet(
     variables=@variables begin
         e = 0.0
         ω = 0.0
-        M = super.M_pri + super.M_b*Octofitter.mjup2msol  + super.M_c*Octofitter.mjup2msol
-        mass = super.M_b
+        M_pri = super.M_pri
+        M_b = super.M_b
+        M_c = super.M_c
+        M = M_pri + M_b*Octofitter.mjup2msol + M_c*Octofitter.mjup2msol
+        mass = M_b
 
         # Use the system inclination and longitude of ascending node
         # variables
@@ -83,11 +86,14 @@ planet_b = Planet(
 
         # Specify the period as ~ 1% around 2X the P_nominal variable
         P_mul ~ Normal(1, 0.1)
-        P = 2*super.P_nominal * this.P_mul
+        P_nominal = super.P_nominal
+        P = 2*P_nominal * P_mul
 
-        a = cbrt(this.M * this.P^2)
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(super,this,59454.231)  # reference epoch for θ. Choose an MJD date near your data.
+        a = cbrt(M * P^2)
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 59454.231; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
     end
 )
 
@@ -98,8 +104,11 @@ planet_c = Planet(
     variables=@variables begin
         e = 0.0
         ω = 0.0
-        M = super.M_pri + super.M_b*Octofitter.mjup2msol
-        mass = super.M_c
+        M_pri = super.M_pri
+        M_b = super.M_b
+        M_c = super.M_c
+        M = M_pri + M_b*Octofitter.mjup2msol
+        mass = M_c
 
         # Use the system inclination and longitude of ascending node
         # variables
@@ -108,12 +117,15 @@ planet_c = Planet(
 
         # Specify the period as ~ 1% the P_nominal variable
         P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
-        P = super.P_nominal * this.P_mul
+        P_nominal = super.P_nominal
+        P = P_nominal * P_mul
 
-        a = cbrt(this.M * this.P^2)
+        a = cbrt(M * P^2)
 
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(super,this,59454.231)  # reference epoch for θ. Choose an MJD date near your data.
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 59454.231; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
     end
 )
 
@@ -129,7 +141,9 @@ sys = System(
         # We create inclination and longitude of ascending node variables at the
         # system level.
         i ~ Sine()
-        Ω ~ UniformCircular()
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
         # We create a nominal period of planet c variable. 
         P_nominal ~ Uniform(50, 300) # years
     end

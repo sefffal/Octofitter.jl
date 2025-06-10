@@ -77,7 +77,7 @@ function ln_like(photometry::PhotometryLikelihood, θ_system, θ_obs, orbits::NT
 end
 
 # PhotometryLikelihood: attached to a planet
-function ln_like(photometry::PhotometryLikelihood, θ_system, θ_planet, θ_obs, orbits::AbstractOrbit, args...)
+function ln_like(photometry::PhotometryLikelihood, θ_system, θ_planet, θ_obs, args...)
     T = _system_number_type(θ_system)
     ll = zero(T)
 

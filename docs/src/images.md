@@ -104,10 +104,17 @@ planet_b = Planet(
         a ~ truncated(Normal(13, 4), lower=0.1, upper=100)
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
-        ω ~ UniformCircular()
-        Ω ~ UniformCircular()
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(super,this,1238.6)
+        M = super.M
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 1238.6; M, e, a, i, ω, Ω)
     end
 )
 ```

@@ -49,8 +49,8 @@ sys = System(
         # It is convenient to put a prior of the catalog value +- 10,000 mas on position
         ra_hip_offset_mas ~  Normal(0, 10000)
         dec_hip_offset_mas ~ Normal(0, 10000)
-        dec = hip_like.hip_sol.dedeg + this.ra_hip_offset_mas/60/60/1000
-        ra = hip_like.hip_sol.radeg + this.dec_hip_offset_mas/60/60/1000/cosd(this.dec)
+        dec = $hip_like.hip_sol.dedeg + ra_hip_offset_mas/60/60/1000
+        ra = $hip_like.hip_sol.radeg + dec_hip_offset_mas/60/60/1000/cosd(dec)
 
         ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
     end
@@ -167,7 +167,8 @@ planet_b_mass = Planet(
         i ~ Sine()
         Ω ~ Uniform(0, 2pi)
         θ ~ Uniform(0, 2pi)
-        tp = θ_at_epoch_to_tperi(super,this,58442.2) 
+        M = super.M
+        tp = θ_at_epoch_to_tperi(θ, 58442.2; M, e, a, i, ω, Ω) 
         mass = super.M_sec
     end
 )
@@ -179,7 +180,7 @@ sys_mass = System(
     variables=@variables begin
         M_pri ~ truncated(Normal(1.75,0.05), lower=0.03) # Msol
         M_sec ~ LogUniform(0.1, 100) # MJup
-        M = this.M_pri + this.M_sec*Octofitter.mjup2msol # Msol
+        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
 
         rv =  12.60e3 # m/s
         plx ~ Uniform(20,40)
@@ -189,8 +190,8 @@ sys_mass = System(
         # It is convenient to put a prior of the catalog value +- 1000 mas on position
         ra_hip_offset_mas ~  Normal(0, 1000)
         dec_hip_offset_mas ~ Normal(0, 1000)
-        dec = hip_like.hip_sol.dedeg + this.ra_hip_offset_mas/60/60/1000
-        ra = hip_like.hip_sol.radeg + this.dec_hip_offset_mas/60/60/1000/cos(this.dec)
+        dec = $hip_like.hip_sol.dedeg + ra_hip_offset_mas/60/60/1000
+        ra = $hip_like.hip_sol.radeg + dec_hip_offset_mas/60/60/1000/cos(dec)
 
         ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
     end

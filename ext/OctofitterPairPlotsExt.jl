@@ -5,7 +5,7 @@ using Tables
 using NamedTupleTools
 using MCMCChains
 
-unitlengthprior_vars(::Octofitter.UnitLengthPrior{VX,VY}) where {VX, VY} = (VX, VY)
+# unitlengthprior_vars(::Octofitter.UnitLengthPrior{VX,VY}) where {VX, VY} = (VX, VY)
 
 Octofitter.octocorner(
     model::Octofitter.LogDensityModel,
@@ -128,12 +128,12 @@ function Octofitter.octocorner(
                         return true
                     end
                     for obs in planet.observations
-                        if obs isa Octofitter.UnitLengthPrior
-                            varx, vary = unitlengthprior_vars(obs)
-                            if k == varx || k == vary
-                                return true
-                            end
-                        end
+                        # if obs isa Octofitter.UnitLengthPrior
+                        #     varx, vary = unitlengthprior_vars(obs)
+                        #     if k == varx || k == vary
+                        #         return true
+                        #     end
+                        # end
                     end
                     return false
                 end)

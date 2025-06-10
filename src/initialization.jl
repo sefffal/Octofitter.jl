@@ -600,9 +600,9 @@ function optimization_and_pathfinder_with_fixed(
     logposts = model.ℓπcallback.(model.starting_points)
     
     # Check if pathfinder produced good results
-    if maximum(logposts) < initial_logpost - 10
+    if maximum(logposts) < initial_logpost - 20
         if verbosity >= 1
-            @warn "Pathfinder produced samples with log-likelihood 10 worse than global max. Will just initialize at global max."
+            @warn "Pathfinder produced samples with log-likelihood 20 worse than global max. Will just initialize at global max."
         end
         model.starting_points = fill(opt_full, ndraws)
         logposts = fill(initial_logpost, ndraws)

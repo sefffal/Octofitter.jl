@@ -37,15 +37,22 @@ planet_b = Planet(
     basis=Visual{KepOrbit},
     likelihoods=[astrom_like, obs_pri],
     variables=@variables begin
+        M = super.M
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
-        ω ~ UniformCircular()
-        Ω ~ UniformCircular()
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
         # Results will be sensitive to the prior on period
         P ~  LogUniform(0.1, 150) # Period, years
-        a = ∛(super.M * this.P^2)
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(super,this,50420)
+        a = ∛(M * P^2)
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 50420; M, e, a, i, ω, Ω)
     end
 )
 
@@ -94,14 +101,17 @@ planet_b_uniform = Planet( # hide
     basis=Visual{KepOrbit}, # hide
     likelihoods=[astrom_like_uniform], # hide
     variables=@variables begin # hide
+        M = super.M # hide
         a ~ Uniform(0, 100) # hide
         e ~ Uniform(0.0, 0.5) # hide
         i ~ Sine() # hide
-        ω ~ UniformCircular() # hide
+        ω_x ~ Normal() # hide
+        ω_y ~ Normal() # hide
+        ω = atan(ω_y, ω_x) # hide
         Ω ~ Uniform(0,2pi) # hide
-        P = √(this.a^3/super.M) # hide
+        P = √(a^3/M) # hide
         θ ~ Uniform(0,2pi) # hide
-        tp = θ_at_epoch_to_tperi(super,this,50420) # hide
+        tp = θ_at_epoch_to_tperi(θ, 50420; M, e, a, i, ω, Ω) # hide
     end # hide
 ) # hide
 sys_uniform = System( # hide

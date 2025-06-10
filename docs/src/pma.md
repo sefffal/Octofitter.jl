@@ -59,14 +59,21 @@ planet_b = Planet(
     variables=@variables begin
         a ~ LogUniform(0.1,20)
         e ~ Uniform(0,0.999)
-        ω ~ UniformCircular()
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)
         i ~ Sine() # The Sine() distribution is defined by Octofitter
-        Ω ~ UniformCircular()
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
 
         mass = super.M_sec
 
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(super,this,57423.0) # epoch of GAIA measurement
+        M = super.M
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 57423.0; M, e, a, i, ω, Ω) # epoch of GAIA measurement
     end
 )
 ```
@@ -88,7 +95,7 @@ sys = System(
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
         M_sec ~ LogUniform(0.5, 1000) # MJup
-        M = this.M_pri + this.M_sec*Octofitter.mjup2msol # Msol
+        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
 
         plx ~ gaia_plx(gaia_id=756291174721509376)
                 

@@ -295,7 +295,7 @@ A very useful visualization of our results is a pair-plot, or corner plot. We ca
 ```@example 1
 using CairoMakie
 using PairPlots
-octocorner(model, merged_chain, small=true)
+octocorner(model, merged_chains, small=true)
 ```
 Remove `small=true` to display all variables.
 

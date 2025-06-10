@@ -106,9 +106,12 @@ planet_1 = Planet(
             Normal(0.3693038/365.256360417, 0.0000091/365.256360417),
             lower=0.0001
         )
-        a = cbrt(super.M * this.P^2) # note the equals sign. 
-        τ ~ UniformCircular(1.0)
-        tp = this.τ*this.P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
+        M = super.M
+        a = cbrt(M * P^2) # note the equals sign. 
+        τ_x ~ Normal()
+        τ_y ~ Normal()
+        τ = atan(τ_y, τ_x)/2π*1.0
+        tp = τ*P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
         # minimum planet mass [jupiter masses]. really m*sin(i)
         mass ~ LogUniform(0.001, 10)
     end

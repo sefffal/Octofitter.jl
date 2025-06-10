@@ -117,10 +117,17 @@ planet_b = Planet(
         a ~ truncated(Normal(1, 1),lower=0.1)
         mass ~ truncated(Normal(1, 1), lower=0.)
         i ~ Sine()
-        Ω ~ UniformCircular()
-        ω ~ UniformCircular()
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(super,this,58849.0)  # reference epoch for θ. Choose an MJD date near your data.
+        M = super.M
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 58849.0; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
     end
 )
 

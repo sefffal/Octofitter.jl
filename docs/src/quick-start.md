@@ -37,17 +37,22 @@ planet_b = Planet(
     basis=Visual{KepOrbit},
     likelihoods=[astrom],
     variables=@variables begin
-        plx = super.plx            # Parallax from system level
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)  # Total mass (solar masses)
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)  # Total mass (solar masses) for this orbit
         a ~ Uniform(0, 100)        # Semi-major axis [AU]
         e ~ Uniform(0.0, 0.5)      # Eccentricity  
         i ~ Sine()                 # Inclination [rad]
-        ω ~ UniformCircular()      # Argument of periastron [rad]
-        Ω ~ UniformCircular()      # Longitude of ascending node [rad]
-        θ ~ UniformCircular()      # Position angle at reference epoch [rad]
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)      # Argument of periastron [rad]
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)      # Longitude of ascending node [rad]
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)      # Position angle at reference epoch [rad]
         # Epoch of periastron passage
         # We calculate it from the position angle above
-        tp = θ_at_epoch_to_tperi(super,this,50000)  
+        tp = θ_at_epoch_to_tperi(θ, 50000; M, e, a, i, ω, Ω)  
     end
 )
 ```
@@ -101,6 +106,9 @@ chain = octofit(model, iterations=1000)
 Visualize the results with orbit plots and a corner plot:
 ```julia
 octoplot(model, chain)     # Plot orbits and data
+```
+
+```julia
 octocorner(model, chain)   # Corner plot of posterior
 ```
 

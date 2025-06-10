@@ -58,16 +58,23 @@ end
 """
     Derived(key=func, ...)
 
-A group of zero or more functions that resolve to a parameter for the model.
-Derived parameters must be functions accepting one argument if applied to a System,
-or two arguments if applied to a Planet.
-Must always return the same value for the same input (be a pure function) and 
+A group of zero or more expressions that resolve to a parameter for the model.
+Captures support access to constant variables.
+Must always return the same value for the same input (be a pure expression) and 
 support autodifferentiation.
 """
 struct Derived
-    variables::OrderedDict{Symbol,Base.Callable}
+    variables::OrderedDict{Symbol}
+    captured_names::Tuple
+    captured_vals::Tuple
 end
-Derived(;variables...) = Derived(OrderedDict(variables))
+
+function Derived(;_captured=nothing, variables...)
+    captured_names = isnothing(_captured) ? () : _captured[1]
+    captured_vals = isnothing(_captured) ? () : _captured[2]
+    return Derived(OrderedDict(variables), captured_names, captured_vals)
+end
+
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize det::Derived)
     print(io, "Derived:\n  ")
     for k in keys(det.variables)
@@ -97,6 +104,7 @@ Example:
 ```
 """
 function Variables(; kwargs...)
+
     # Start by expaning parameterizations.
     # Users can make anything they want using functions, but we
     # have a nice mechanism for pre-canned parameterizations
@@ -112,23 +120,27 @@ function Variables(; kwargs...)
         push!(extra_obs_likelihoods, extra_obs_likelihood)
     end
     kwargs_dict = OrderedDict(kwargs_expanded)
+    display(kwargs_dict)
     # Now divide the list into priors (random variables) and derived (functions of random variables)
     isdist(v) = typeof(v) <: Distribution
     priors = filter(isdist ∘ last, kwargs_dict)
     derived = filter(!(isdist ∘ last), kwargs_dict)
+
+    @show priors
+    @show derived
     observation_likelihoods = filter(!isnothing, extra_obs_likelihoods)
     
     return (Priors(priors), Derived(derived), observation_likelihoods...)
 end
 
 
-
 abstract type Parameterization end
+
 """
     UniformCircular(domain=2π)
 
 Creates a variable parameterized on a continuous, periodic domain.
-Creates two normally diastributed random variables :Ωx and :Ωy 
+Creates two normally distributed random variables :Ωx and :Ωy 
 and maps them to a circular domain using a derived variable 
 according to `atan(:Ωy, :Ωx)`.
 This may be more efficient than using e.g. `Ω = Uniform(-pi, pi)`
@@ -136,11 +148,11 @@ because the sampler can wrap around freely.
 
 Example:
 ```julia
-Variables(;
-    a = Uniform(1, 10),
-    e = Uniform(0, 1),
-    UniformCircular(:Ω)...,
-)
+@variables begin
+    a ~ Uniform(1, 10)
+    e ~ Uniform(0, 1)
+    Ω ~ UniformCircular()
+end
 ```
 """
 struct UniformCircular <: Parameterization
@@ -148,67 +160,66 @@ struct UniformCircular <: Parameterization
 end
 UniformCircular() = UniformCircular(2π)
 export UniformCircular
-expandparam(var, n::Number) = OrderedDict(var => Returns(n)), nothing
-expandparam(var, f::Base.Callable) = OrderedDict(var => f), nothing
-expandparam(var, d::Distribution) = OrderedDict(var => d), nothing
 
+# # We need to create a "prior" on the length of the unit vector so that it doesn't get pinched at (0,0)
+# struct UnitLengthPrior <: Parameterization
+#     varx::Symbol
+#     vary::Symbol
+# end
 
-function expandparam(var, p::UniformCircular)
+# # Generic expandparam for regular distributions/values
+# expandparam(var, d::Distribution) = (priors=[(var, d)], derived=[], extra_priors=[])
+# expandparam(var, n::Number) = (priors=[], derived=[(var, Meta.quot(:($n)))], extra_priors=[])
+# expandparam(var, f::Expr) = (priors=[], derived=[(var, Meta.quot(f))], extra_priors=[])
 
-    varx = Symbol("$(var)y")
-    vary = Symbol("$(var)x")
+# # Expand UniformCircular into priors and derived variables
+# function expandparam(var::Symbol, p::UniformCircular)
+#     varx = Symbol("$(var)x")
+#     vary = Symbol("$(var)y")
+    
+#     # The derived expression to compute the angle
+#     derived_expr = :(atan($vary, $varx) / 2π * $(p.domain))
+    
+#     # Create the unit length prior
+#     unit_length_prior = UnitLengthPrior(varx, vary)
+    
+#     return (
+#         priors = [
+#             (varx, Normal(0, 1)),
+#             (vary, Normal(0, 1))
+#         ],
+#         derived = [
+#             (var, derived_expr)
+#         ],
+#         extra_priors = [unit_length_prior]
+#     )
+# end
 
-    callback_inner = @RuntimeGeneratedFunction(:(
-        # This parameterization needs to work for either a planet
-        # or a system as a whole.
-        function (body)
-            atan(body.$vary, body.$varx)/2pi*$(p.domain)
-        end
-    ))
-    callback(sys,pl) = callback_inner(pl)
-    callback(sys) = callback_inner(sys)
+# _isprior(::UnitLengthPrior) = true
+# instrument_name(::UnitLengthPrior{X,Y}) where {X,Y} = "unitlengthprior-$X-$Y" 
+# function likeobj_from_epoch_subset(obs::UnitLengthPrior{X,Y}, obs_inds) where {X,Y}
+#     return UnitLengthPrior(X,Y)
+# end
+# TypedTables.Table(like::UnitLengthPrior) = nothing
 
-    # We need to create a "prior" on the length of the unit vector so that it doesn't get pinched at (0,0)
-    # This has no observable effect on the results of the model as whole, it just improves sampling.
-    prior = UnitLengthPrior(varx, vary)
-
-    return OrderedDict(
-        varx => Normal(0,1),
-        vary => Normal(0,1),
-        var  => callback,
-    ), prior
-end
-
-# This likelihood can be attached to put a prior on the two variables repsenting a uniform circular distribtion.
-# It makes sure they keep away from the origin for better sampling.
-struct UnitLengthPrior{X,Y} <: AbstractLikelihood where {X,Y}
-    UnitLengthPrior(xsymbol, ysymbol) = new{xsymbol, ysymbol}()
-end
-_isprior(::UnitLengthPrior) = true
-instrument_name(::UnitLengthPrior{X,Y}) where {X,Y} = "unitlengthprior-$X-$Y" 
-function likeobj_from_epoch_subset(obs::UnitLengthPrior{X,Y}, obs_inds) where {X,Y}
-    return UnitLengthPrior(X,Y)
-end
-TypedTables.Table(like::UnitLengthPrior) = nothing
-
-function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, _args...) where {X,Y}
-    x = getproperty(θ_system, X)
-    y = getproperty(θ_system, Y)
-    vector_length = sqrt(x^2 + y^2)
-    return logpdf(LogNormal(log(1.0), 0.1), vector_length);
-end
-function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, θ_planet::NamedTuple, θ_obs::NamedTuple, _args...) where {X,Y}
-    θ = merge(θ_planet, θ_obs)
-    x = getproperty(θ, X)
-    y = getproperty(θ, Y)
-    vector_length = sqrt(x^2 + y^2)
-    return logpdf(LogNormal(log(1.0), 0.1), vector_length);
-end
-function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::UnitLengthPrior{X,Y}) where {X,Y}
-    T = typeof(like)
-    println(io, "$(T): √($X^2+$Y^2) ~ LogNormal(log(1), 0.02)")
-end
-generate_from_params(like::UnitLengthPrior, θ_planet, orbit) = like
+# function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, _args...) where {X,Y}
+#     x = getproperty(θ_system, X)
+#     y = getproperty(θ_system, Y)
+#     vector_length = sqrt(x^2 + y^2)
+#     return logpdf(LogNormal(log(1.0), 0.1), vector_length);
+# end
+# function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, θ_planet::NamedTuple, θ_obs::NamedTuple, _args...) where {X,Y}
+#     θ = merge(θ_planet, θ_obs)
+#     x = getproperty(θ, X)
+#     y = getproperty(θ, Y)
+#     vector_length = sqrt(x^2 + y^2)
+#     return logpdf(LogNormal(log(1.0), 0.1), vector_length);
+# end
+# function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::UnitLengthPrior{X,Y}) where {X,Y}
+#     T = typeof(like)
+#     println(io, "$(T): √($X^2+$Y^2) ~ LogNormal(log(1), 0.02)")
+# end
+# generate_from_params(like::UnitLengthPrior, θ_planet, orbit) = like
 
 # We need a blank likelihood type to hold variables when constructing
 # e.g. prior only models.
@@ -532,9 +543,24 @@ function make_arr2nt(system::System)
     if isnothing(system.derived)
         push!(body_sys_determ,:(sys = sys0))
     else
-        for (j,(key,func)) in enumerate(zip(keys(system.derived.variables), values(system.derived.variables)))
+        for (j,(key,expr)) in enumerate(zip(keys(system.derived.variables), values(system.derived.variables)))
+            # Create let bindings with the actual captured values
+            captured_bindings = [:($(system.derived.captured_names[i]) = $(system.derived.captured_vals[i])) 
+                               for i in 1:length(system.derived.captured_names)]
+            
+            # Get all variable names available up to this point
+            prior_keys = collect(keys(system.priors.priors))
+            derived_keys_so_far = j == 1 ? Symbol[] : collect(keys(system.derived.variables))[1:j-1]
+            all_available_keys = vcat(prior_keys, derived_keys_so_far)
+            
             ex = :(
-                $(Symbol("sys$j")) = (; $(Symbol("sys$(j-1)"))..., $key = $func(nothing, $(Symbol("sys$(j-1)"))))
+                $(Symbol("sys$j")) = let super=nothing, _prev=$(Symbol("sys$(j-1)"))
+                    (; _prev..., $key = let $(captured_bindings...)
+                        # Make previous variables available
+                        $([:($(k) = _prev.$k) for k in all_available_keys]...)
+                        $expr
+                    end)
+                end
             )
             push!(body_sys_determ,ex)
         end
@@ -542,7 +568,7 @@ function make_arr2nt(system::System)
         push!(body_sys_determ,:(sys = $(Symbol("sys$l"))))
     end
 
-    # System observations - MOVED TO MATCH ORDER IN OTHER FUNCTIONS
+    # System observations
     body_observations = Expr[]
     for obs in system.observations
         
@@ -574,10 +600,24 @@ function make_arr2nt(system::System)
         j = 0
         body_obs_determ = Expr[]
         if hasproperty(obs, :priors) && !isnothing(obs.derived)
-            # Resolve derived vars.
-            for (key,func) in zip(keys(obs.derived.variables), values(obs.derived.variables))
+            # Build let bindings with actual captured values
+            captured_bindings = [:($(obs.derived.captured_names[i]) = $(obs.derived.captured_vals[i])) 
+                            for i in 1:length(obs.derived.captured_names)]
+            
+            for (key,expr) in zip(keys(obs.derived.variables), values(obs.derived.variables))
+                # Get all observation variable names available up to this point
+                obs_prior_keys = hasproperty(obs, :priors) ? collect(keys(obs.priors.priors)) : Symbol[]
+                obs_derived_keys_so_far = j == 0 ? Symbol[] : collect(keys(obs.derived.variables))[1:j]
+                all_obs_keys = vcat(obs_prior_keys, obs_derived_keys_so_far)
+                
                 ex = :(
-                    $(Symbol("obs$(j+1)")) = (; $(Symbol("obs$j"))..., $key = $func(sys, $(Symbol("obs$j"))))
+                    $(Symbol("obs$(j+1)")) = let super=sys, _prev=$(Symbol("obs$j"))
+                        (; _prev..., $key = let $(captured_bindings...)
+                            # Make previous observation variables available
+                            $([:($(k) = _prev.$k) for k in all_obs_keys]...)
+                            $expr
+                        end)
+                    end
                 )
                 push!(body_obs_determ,ex)
                 j += 1
@@ -617,31 +657,37 @@ function make_arr2nt(system::System)
                     $key = arr[$i]
                 )
             end
-
-
             push!(body_planet_priors,ex)
         end
+        
         j = 0
         body_planet_determ = Expr[]
         if !isnothing(planet.derived)
-            # Resolve derived vars.
-            for (key,func) in zip(keys(planet.derived.variables), values(planet.derived.variables))
+            # Build let bindings with actual captured values
+            captured_bindings = [:($(planet.derived.captured_names[i]) = $(planet.derived.captured_vals[i])) 
+                            for i in 1:length(planet.derived.captured_names)]
+            
+            for (key,expr) in zip(keys(planet.derived.variables), values(planet.derived.variables))
+                # Get all variable names available up to this point
+                prior_keys = collect(keys(planet.priors.priors))
+                derived_keys_so_far = j == 0 ? Symbol[] : collect(keys(planet.derived.variables))[1:j]
+                all_available_keys = vcat(prior_keys, derived_keys_so_far)
+                
                 ex = :(
-                    $(Symbol("planet$(j+1)")) = (; $(Symbol("planet$j"))..., $key = $func(sys, $(Symbol("planet$j"))))
+                    $(Symbol("planet$(j+1)")) = let super=sys, _prev=$(Symbol("planet$j"))
+                        (; _prev..., $key = let $(captured_bindings...)
+                            # Make previous planet variables available
+                            $([:($(k) = _prev.$k) for k in all_available_keys]...)
+                            $expr
+                        end)
+                    end
                 )
                 push!(body_planet_determ,ex)
                 j += 1
             end
-
-            ex = :(
-                $(planet.name) = (;
-                    $(body_planet_priors...),
-                    $(body_planet_determ...)
-                )
-            )
         end
 
-        # Planets: priors & derived variables
+        # Planet observations
         planet_observations = Expr[]
         for obs in planet.observations
             
@@ -669,38 +715,50 @@ function make_arr2nt(system::System)
                     push!(planet_obs_priors,ex)
                 end
             end
+            
             k = 0
             planet_obs_determ = Expr[]
+            # For planet observations with derived variables:
             if hasproperty(obs, :derived) && !isnothing(obs.derived)
-                # Resolve derived vars.
-                for (key,func) in zip(keys(obs.derived.variables), values(obs.derived.variables))
+                # Build let bindings with actual captured values
+                captured_bindings = [:($(obs.derived.captured_names[i]) = $(obs.derived.captured_vals[i])) 
+                                for i in 1:length(obs.derived.captured_names)]
+                
+                for (key,expr) in zip(keys(obs.derived.variables), values(obs.derived.variables))
+                    # Get all planet and observation variable names available
+                    planet_prior_keys = collect(keys(planet.priors.priors))
+                    planet_derived_keys = !isnothing(planet.derived) ? collect(keys(planet.derived.variables)) : Symbol[]
+                    obs_prior_keys = hasproperty(obs, :priors) ? collect(keys(obs.priors.priors)) : Symbol[]
+                    obs_derived_keys_so_far = k == 0 ? Symbol[] : collect(keys(obs.derived.variables))[1:k]
+                    
+                    # Include both planet variables and observation variables
                     ex = :(
-                        $(Symbol("obs$(k+1)")) = (; $(Symbol("obs$k"))..., $key = $func((;$(Symbol("planet$(j)"))...,super=sys,), $(Symbol("obs$k"))))
+                        $(Symbol("obs$(k+1)")) = let super=$(Symbol("planet$(j)")), _prev=$(Symbol("obs$k"))
+                            (; _prev..., $key = let $(captured_bindings...)
+                                # Make planet and previous observation variables available
+                                $([:($(pk) = super.$pk) for pk in vcat(planet_prior_keys, planet_derived_keys)]...)
+                                $([:($(ok) = _prev.$ok) for ok in vcat(obs_prior_keys, obs_derived_keys_so_far)]...)
+                                $expr
+                            end)
+                        end
                     )
                     push!(planet_obs_determ,ex)
                     k += 1
                 end
-                name = normalizename(instrument_name(obs))
-                # ex = :(begin
-                #     obs0 = (;$(planet_obs_priors...));
-                #     $(planet_obs_determ...);
-                #     # (;$name = (;$(Symbol("obs$(k+1)")...)))
-                #     (;$name = $(Symbol("obs$k")))
-                # end)
-                ex = :($name = begin
-                    obs0 = (;$(planet_obs_priors...));
-                    $(planet_obs_determ...);
-                    (;$(Symbol("obs$(k)"))...)
-                end)
-                push!(planet_observations,ex)
             end
+            
+            name = normalizename(instrument_name(obs))
+            ex = :($name = begin
+                obs0 = (;$(planet_obs_priors...));
+                $(planet_obs_determ...);
+                (;$(Symbol("obs$(k)"))...)
+            end)
+            push!(planet_observations,ex)
         end
-
 
         ex = :($(planet.name) = begin
             planet0 = (;$(body_planet_priors...));
             $(body_planet_determ...);
-            # $(Symbol("planet$(j)"))
             (;(;$(Symbol("planet$(j)"))...)..., observations=(;$(planet_observations...)))
         end)
         push!(body_planets,ex)
@@ -708,7 +766,7 @@ function make_arr2nt(system::System)
 
     # Here is the function we return.
     # It maps an array of parameters into our nested named tuple structure
-    # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
+    # Note: eval() would normally work fine here, but sometimes we can hit "world age problems"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
     func = @RuntimeGeneratedFunction(:(function (arr)
         l = $i
@@ -730,7 +788,6 @@ function make_arr2nt(system::System)
 
     return func
 end
-
 
 # From CSV.jl:
 const RESERVED = Set(["local", "global", "export", "let",

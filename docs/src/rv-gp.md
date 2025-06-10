@@ -61,17 +61,17 @@ rvlike_harps = StarAbsoluteRVLikelihood(
         offset ~ Normal(-6693,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s
         # Add priors on GP kernel hyper-parameters.
-        η₁ ~ truncated(Normal(25,10),lower=0.1,upper=100)
+        η_1 ~ truncated(Normal(25,10),lower=0.1,upper=100)
         # Important: ensure the period and exponential length scales
         # have physically plausible lower and upper limits to avoid poor numerical conditioning
-        η₂ ~ truncated(Normal(gp_explength_mean,gp_explength_unc),lower=5,upper=100)
-        η₃ ~ truncated(Normal(gp_per_mean,1),lower=2, upper=100)
-        η₄ ~ truncated(Normal(gp_perlength_mean,gp_perlength_unc),lower=0.2, upper=10)
+        η_2 ~ truncated(Normal(gp_explength_mean,gp_explength_unc),lower=5,upper=100)
+        η_3 ~ truncated(Normal(gp_per_mean,1),lower=2, upper=100)
+        η_4 ~ truncated(Normal(gp_perlength_mean,gp_perlength_unc),lower=0.2, upper=10)
     end),
     gaussian_process = θ_obs -> GP(
-        θ_obs.η₁^2 *  
-        (SqExponentialKernel() ∘ ScaleTransform(1/(θ_obs.η₂))) *
-        (PeriodicKernel(r=[θ_obs.η₄]) ∘ ScaleTransform(1/(θ_obs.η₃)))
+        θ_obs.η_1^2 *  
+        (SqExponentialKernel() ∘ ScaleTransform(1/(θ_obs.η_2))) *
+        (PeriodicKernel(r=[θ_obs.η_4]) ∘ ScaleTransform(1/(θ_obs.η_3)))
     )
 )
 rvlike_pfs = StarAbsoluteRVLikelihood(
@@ -81,20 +81,19 @@ rvlike_pfs = StarAbsoluteRVLikelihood(
         offset ~ Normal(0,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s
         # Add priors on GP kernel hyper-parameters.
-        η₁ ~ truncated(Normal(25,10),lower=0.1,upper=100)
+        η_1 ~ truncated(Normal(25,10),lower=0.1,upper=100)
         # Important: ensure the period and exponential length scales
         # have physically plausible lower and upper limits to avoid poor numerical conditioning
-        η₂ ~ truncated(Normal(gp_explength_mean,gp_explength_unc),lower=5,upper=100)
-        η₃ ~ truncated(Normal(gp_per_mean,1),lower=2, upper=100)
-        η₄ ~ truncated(Normal(gp_perlength_mean,gp_perlength_unc),lower=0.2, upper=10)
+        η_2 ~ truncated(Normal(gp_explength_mean,gp_explength_unc),lower=5,upper=100)
+        η_3 ~ truncated(Normal(gp_per_mean,1),lower=2, upper=100)
+        η_4 ~ truncated(Normal(gp_perlength_mean,gp_perlength_unc),lower=0.2, upper=10)
     end),
     gaussian_process = θ_obs -> GP(
-        θ_obs.η₁^2 *  
-        (SqExponentialKernel() ∘ ScaleTransform(1/(θ_obs.η₂))) *
-        (PeriodicKernel(r=[θ_obs.η₄]) ∘ ScaleTransform(1/(θ_obs.η₃)))
+        θ_obs.η_1^2 *  
+        (SqExponentialKernel() ∘ ScaleTransform(1/(θ_obs.η_2))) *
+        (PeriodicKernel(r=[θ_obs.η_4]) ∘ ScaleTransform(1/(θ_obs.η_3)))
     )
 )
-
 ## No change to the rest of the model
 
 planet_1 = Planet(
@@ -109,9 +108,12 @@ planet_1 = Planet(
             Normal(0.3693038/365.256360417, 0.0000091/365.256360417),
             lower=0.0001
         )
-        a = cbrt(super.M * this.P^2) # note the equals sign. 
-        τ ~ UniformCircular(1.0)
-        tp = this.τ*this.P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
+        M = super.M
+        a = cbrt(M * P^2) # note the equals sign. 
+        τ_x ~ Normal()
+        τ_y ~ Normal()
+        τ = atan(τ_y, τ_x)/2π*1.0
+        tp = τ*P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
         # minimum planet mass [jupiter masses]. really m*sin(i)
         mass ~ LogUniform(0.001, 10)
     end
@@ -262,9 +264,12 @@ planet_1 = Planet(
             Normal(0.3693038/365.256360417, 0.0000091/365.256360417),
             lower=0.0001
         )
-        a = cbrt(super.M * this.P^2) # note the equals sign. 
-        τ ~ UniformCircular(1.0)
-        tp = this.τ*this.P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
+        M = super.M
+        a = cbrt(M * P^2) # note the equals sign. 
+        τ_x ~ Normal()
+        τ_y ~ Normal()
+        τ = atan(τ_y, τ_x)/2π*1.0
+        tp = τ*P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
         # minimum planet mass [jupiter masses]. really m*sin(i)
         mass ~ LogUniform(0.001, 10)
     end

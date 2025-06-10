@@ -9,13 +9,19 @@ macro variables(variables_block_input)
     variables_block = filter(variables_block_input.args) do expr
         !(expr isa LineNumberNode)
     end
-    quote_vars = Symbol[]
-    quote_vals = Expr[]
-    variables = map(variables_block) do statement
+    
+    # Global captured variables for all derived expressions
+    all_quote_vars = Symbol[]
+    all_quote_vals = Any[]
+    
+    priors = []
+    derived_vars = OrderedDict{Symbol,Any}()
+    
+    for statement in variables_block
         if statement.head == :call && statement.args[1] == :~
             varname = statement.args[2]
             expression = statement.args[3]
-            return :($(esc(varname)) = (
+            push!(priors, :($(esc(varname)) = ( 
                 distribution = try
                     $(esc(expression))
                 catch err
@@ -29,74 +35,86 @@ macro variables(variables_block_input)
                     error("prior on variable $($(Meta.quot(varname))) must be a UnivariateDistribution, Octofitter.Parameterization")
                 end;
                 distribution
-            ))
+            )))
         elseif statement.head == :(=)
             varname = statement.args[1]
             expression = statement.args[2]
-            expression = quasiquote!(expression, quote_vars, quote_vals)
-            esc(:(
-                $varname = ((super, this) -> $expression
-            )))
-            # TODO: can we constant-ify the arguments they passed in to avoid performance issues? Or wrap in a let block?
-            # We would need to recurse through their expression and find all variabels, then put them in a let.
+            
+            # Process the expression to extract interpolated variables
+            local_quote_vars = Symbol[]
+            local_quote_vals = Any[]
+            processed_expr = quasiquote!(deepcopy(expression), local_quote_vars, local_quote_vals)
+            
+            # Add to global captured variables (avoiding duplicates)
+            for (var, val) in zip(local_quote_vars, local_quote_vals)
+                if !(var in all_quote_vars)
+                    push!(all_quote_vars, var)
+                    push!(all_quote_vals, val)
+                end
+            end
+            
+            # Store the processed expression directly (not wrapped in a function)
+            derived_vars[varname] = processed_expr
         else
-            error("invalid statement encoutered $(statement.head)")
+            error("invalid statement encountered $(statement.head)")
         end
     end
 
-    # We allow users to interpolate local variables into the model definition 
-    # with `$`.
-    # We wrap the model definition in a local anonymous function and use 
-    # the arguments to pass in these local variables.
-    quote_vars = map(quote_vals) do val
-        return esc(val.args[1])
+    # Create escaped versions of captured variable names and values
+    escaped_vars = [esc(var) for var in all_quote_vars]
+    # Properly escape the full interpolation expression to evaluate in caller's scope
+    escaped_vals = [esc(val.args[1]) for val in all_quote_vals]
+    
+    # Build the Derived constructor call with OrderedDict
+    derived_dict_expr = if isempty(derived_vars)
+        :(OrderedDict{Symbol,Any}())
+    else
+        :(OrderedDict{Symbol,Any}($([:($(QuoteNode(k)) => $(Meta.quot(v))) for (k,v) in derived_vars]...)))
     end
-    quoted_vals_escaped = map(quote_vals) do val
-        return quote
-            $(esc(val.args[1]))
-        end
-    end
-    # Drop any duplicates (if the same variable is interpolated in twice)
-    ii = []
-    for j in eachindex(quote_vars)
-        found = false
-        for i in ii
-            if quote_vars[i] == quote_vars[j]
-                found = true
-                break
-            end
-        end
-        if !found
-            push!(ii, j)
-        end
-    end
-    quote_vars = quote_vars[ii]
-    quoted_vals_escaped = quoted_vals_escaped[ii]
+    
+    # Don't escape the variable names in the tuple - they should be symbols
+    captured_names_tuple = Expr(:tuple, [QuoteNode(var) for var in all_quote_vars]...)
+    
     return quote
-        (function($(quote_vars...),)
-            return $Variables(;$(variables...))
-        end)($(quoted_vals_escaped...))
+        # Create the function with unescaped parameter names
+        local captured_vals = tuple($([esc(val.args[1]) for val in all_quote_vals]...))
+        local captured_names = $captured_names_tuple
+        Priors(;$(priors...))
+         $derived_dict_expr
+         Derived(
+                $derived_dict_expr,
+                captured_names,
+                captured_vals
+            )
+        (
+            Priors(;$(priors...)), 
+            Derived(
+                $derived_dict_expr,
+                captured_names,
+                captured_vals
+            )
+        )
     end
 end
+
 export @variables
 
-# Copied from BenchmarkTools
+# Adapted from BenchmarkTools
 # We use this for $variable interpolation into models.
 # Users can do this to avoid type-instabilities / global variable 
 # access when using constants etc. in their models.
 # This only applies to deterministic variables, sampled variables already
 # resolve any variables at model-creation time.
-"""
-    quasiquote!(expr::Expr, vars::Vector{Symbol}, vals::Vector{Expr})
-
-Replace every interpolated value in `expr` with a placeholder variable and
-store the resulting variable / value pairings in `vars` and `vals`.
-"""
-quasiquote!(ex, _...) = ex
-function quasiquote!(ex::Expr, vars::Vector{Symbol}, vals::Vector{Expr})
+function quasiquote!(ex, vars::Vector{Symbol}, vals::Vector)
+    ex
+end
+function quasiquote!(ex::Symbol, vars::Vector{Symbol}, vals::Vector)
+    ex
+end
+function quasiquote!(ex::Expr, vars::Vector{Symbol}, vals::Vector)
     if ex.head === :($)
-        var = isa(ex.args[1], Symbol) ? gensym(ex.args[1]) : gensym()
-        var = ex.args[1]
+        # Don't use gensym - keep the original variable name
+        var = isa(ex.args[1], Symbol) ? ex.args[1] : gensym()
         push!(vars, var)
         push!(vals, ex)
         return var
@@ -107,4 +125,3 @@ function quasiquote!(ex::Expr, vars::Vector{Symbol}, vals::Vector{Expr})
     end
     return ex
 end
-
