@@ -6,7 +6,7 @@ LimitClosestApproachAUPrior(soft_closest_approach_au) = LimitClosestApproachAUPr
 NonCrossingPrior() = LimitClosestApproachAUPrior(0.0, 0.0)
 export NonCrossingPrior, LimitClosestApproachAUPrior
 Octofitter._isprior(::LimitClosestApproachAUPrior) = true
-function Octofitter.ln_like(prior::LimitClosestApproachAUPrior, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function Octofitter.ln_like(prior::LimitClosestApproachAUPrior, θ_system,θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)

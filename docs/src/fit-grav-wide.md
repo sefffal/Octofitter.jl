@@ -55,24 +55,35 @@ vis_like = GRAVITYWideKPLikelihood(
 For this example, we won't consider a full orbit. We will just sample from 2D separation and position angle coordinates. To this end, we will use the `FixedPosition` parameterization for the planet:
 ```@julia
 
-@planet b Visual{Octofitter.FixedPosition} begin
-    sep ~ Uniform(0, 10) # mas
-    pa ~ Uniform(0,2pi)
+planet_b = Planet(
+    name="b",
+    basis=Visual{Octofitter.FixedPosition},
+    likelihoods=[],
+    variables=@variables begin
+        sep ~ Uniform(0, 10) # mas
+        pa ~ Uniform(0,2pi)
 
-    # We will sample using a flat contrast ratio versus spectrum
-    K ~ Uniform(0, 1) # contrast ratio variable
-    K_band_spectrum = fill(b.K, $(length(vis_like.table.eff_wave[1])))
+        # We will sample using a flat contrast ratio versus spectrum
+        K ~ Uniform(0, 1) # contrast ratio variable
+        K_band_spectrum = fill(K, $(length(vis_like.table.eff_wave[1])))
 
-    # You could alternatively let the flux vary by wavelength:
-    # K_band_spectrum = Product(fill(Uniform(0,1),length(vis_like.table.eff_wave[1])))
-end
+        # You could alternatively let the flux vary by wavelength:
+        # K_band_spectrum = Product(fill(Uniform(0,1),length(vis_like.table.eff_wave[1])))
+    end
+)
 
-@system sys begin
-    plx = 173.5740
-    # Kernel phase jitters per epoch
-    kp_jit ~ Uniform(0,180)# 12.8
-    kp_Cy ~ Uniform(-1,1)
-end vis_like b;
+sys = System(
+    name="sys",
+    companions=[planet_b],
+    likelihoods=[vis_like],
+    variables=@variables begin
+        M ~ Normal(1.0, 0.1) # Add mass for orbit models
+        plx = 173.5740
+        # Kernel phase jitters per epoch
+        kp_jit ~ Uniform(0,180)# 12.8
+        kp_Cy ~ Uniform(-1,1)
+    end
+)
 
 model = Octofitter.LogDensityModel(sys, verbosity=4)
 ```
@@ -160,19 +171,30 @@ fig
 
 This single-epoch model can then be extended by replacing the `FixedPosition` parameterization with an orbit type like `KepOrbit`:
 ```julia
-@planet b Visual{Octofitter.FixedPosition} begin
-    a ~ Uniform(0, 0.1)
-    e ~ Uniform(0.0, 0.99)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,60676)
+planet_b_orbit = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[],
+    variables=@variables begin
+        M = super.M
+        a ~ Uniform(0, 0.1)
+        e ~ Uniform(0.0, 0.99)
+        i ~ Sine()
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 60676; M, e, a, i, ω, Ω)
 
-    # We will sample using a flat contrast ratio versus spectrum
-    K ~ Uniform(0, 1) # contrast ratio variable
-    K_band_spectrum = fill(b.K, $(length(vis_like.table.eff_wave[1])))
-
-end
+        # We will sample using a flat contrast ratio versus spectrum
+        K ~ Uniform(0, 1) # contrast ratio variable
+        K_band_spectrum = fill(K, $(length(vis_like.table.eff_wave[1])))
+    end
+)
 ```
 

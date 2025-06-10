@@ -386,14 +386,78 @@ function result2mcmcchain(chain_in, sectionmap=Dict())
     # accordingly (see flatten_named_tuple)
     flattened_labels = keys(flatten_named_tuple(first(chain_in)))
     data = zeros(length(chain_in), length(flattened_labels))
+    
     for (i, sample) in enumerate(chain_in)
-        for (j, val) in enumerate(Iterators.flatten(Iterators.flatten(Iterators.flatten(sample))))
+        # Instead of using nested Iterators.flatten, we need to extract values
+        # in the same order as flatten_named_tuple creates keys
+        vals = Float64[]
+        
+        # System-level variables
+        for key in keys(sample)
+            if key in (:planets, :observations)
+                continue
+            end
+            if sample[key] isa Number
+                push!(vals, sample[key])
+            else
+                for val in sample[key]
+                    push!(vals, val)
+                end
+            end
+        end
+        
+        # System observations
+        for obs in keys(get(sample, :observations, (;)))
+            for key in keys(sample.observations[obs])
+                if sample.observations[obs][key] isa Number
+                    push!(vals, sample.observations[obs][key])
+                else
+                    for val in sample.observations[obs][key]
+                        push!(vals, val)
+                    end
+                end
+            end
+        end
+        
+        # Planet-level variables and their observations
+        for pl in keys(get(sample, :planets, (;)))
+            for key in keys(sample.planets[pl])
+                if key == :observations
+                    continue
+                end
+                if sample.planets[pl][key] isa Number
+                    push!(vals, sample.planets[pl][key])
+                else
+                    for val in sample.planets[pl][key]
+                        push!(vals, val)
+                    end
+                end
+            end
+            
+            # Planet observations
+            for obs in keys(get(sample.planets[pl], :observations, (;)))
+                for key in keys(sample.planets[pl].observations[obs])
+                    if sample.planets[pl].observations[obs][key] isa Number
+                        push!(vals, sample.planets[pl].observations[obs][key])
+                    else
+                        for val in sample.planets[pl].observations[obs][key]
+                            push!(vals, val)
+                        end
+                    end
+                end
+            end
+        end
+        
+        # Fill the data matrix
+        for (j, val) in enumerate(vals)
             data[i,j] = val
         end
     end
+    
     c = Chains(data, [string(l) for l in flattened_labels], sectionmap)
     return c
 end
+
 
 """
     mcmcchain2result(model, chain_in,)
@@ -407,13 +471,22 @@ function mcmcchain2result(model, chain, ii=(:))
     nt = model.arr2nt(θ)
 
     planetkeys = string.(keys(model.system.planets))
+    
+    # Get observation keys
+    sysobs_keys = string.(keys(get(nt, :observations, (;))))
+    planet_obs_keys = Dict{String, Vector{String}}()
+    for pl in keys(get(nt, :planets, (;)))
+        planet_obs_keys[string(pl)] = collect(string.(keys(get(nt.planets[pl], :observations, (;)))))
+    end
 
     # Map output keys in the named tuple to one or more input keys in the chain
     # Complicated because in the chain representation, array-valued variables get
     # flattened out; e.g. (;a=1,b=(1,2,3)) becomes four columns [a, b_1, b_2, b_3]
     key_mapping = Pair{Symbol,Vector{Symbol}}[]
+    
+    # System variables
     for key in keys(nt)
-        if key == :planets
+        if key in (:planets, :observations)
             continue
         end
         if nt[key] isa Number
@@ -427,8 +500,30 @@ function mcmcchain2result(model, chain, ii=(:))
             end
         end
     end
+    
+    # System observations
+    for obs in keys(get(nt, :observations, (;)))
+        for key in keys(nt.observations[obs])
+            if nt.observations[obs][key] isa Number
+                k = Symbol(obs, '_', key)
+                push!(key_mapping, k => [k])
+            else
+                arr = Symbol[]
+                push!(key_mapping, Symbol(obs, '_', key) => arr)
+                for i in eachindex(nt.observations[obs][key])
+                    key_i = Symbol(obs, '_', key, '_', i)
+                    push!(arr, key_i)
+                end
+            end
+        end
+    end
+    
+    # Planet variables
     for pl in keys(get(nt, :planets, (;)))
         for key in keys(nt.planets[pl])
+            if key == :observations
+                continue
+            end
             if nt.planets[pl][key] isa Number
                 k = Symbol(pl, '_', key)
                 push!(key_mapping, k => [k])
@@ -441,17 +536,37 @@ function mcmcchain2result(model, chain, ii=(:))
                 end
             end
         end
+        
+        # Planet observations
+        for obs in keys(get(nt.planets[pl], :observations, (;)))
+            for key in keys(nt.planets[pl].observations[obs])
+                if nt.planets[pl].observations[obs][key] isa Number
+                    k = Symbol(pl, '_', obs, '_', key)
+                    push!(key_mapping, k => [k])
+                else
+                    arr = Symbol[]
+                    push!(key_mapping, Symbol(pl, '_', obs, '_', key) => arr)
+                    for i in eachindex(nt.planets[pl].observations[obs][key])
+                        key_i = Symbol(pl, '_', obs, '_', key, '_', i)
+                        push!(arr, key_i)
+                    end
+                end
+            end
+        end
     end
     
     # These are the labels corresponding to the flattened named tuple without the *planet_key* prepended
     IIs = broadcast(1:size(chain,1),(1:size(chain,3))') do i,j
         return (i,j)
     end
+    
     function reform((i,j))
-        # Take existing NT and recurse through it. replace elements
+        # System variables
         nt_sys = Dict{Symbol,Any}()
         for (kout,kins) in key_mapping
-            if any(map(pk->startswith(string(kout),pk*"_"), planetkeys))
+            # Skip if this is a planet or observation key
+            if any(map(pk->startswith(string(kout),pk*"_"), planetkeys)) || 
+               any(map(ok->startswith(string(kout),ok*"_"), sysobs_keys))
                 continue
             end
             if length(kins) == 1
@@ -466,44 +581,123 @@ function mcmcchain2result(model, chain, ii=(:))
                     for kin in kins
                 ]
             end
-            # this search operation could be sped up by computing a set
-            # of valid keys *once*
         end
-        nt_planets = map(collect(planetkeys)) do pk
-            # return Symbol(pk)=>namedtuple(Dict(
-            #     replace(string(k), r"^"*string(pk)*"_" =>"") => chain[i,k,j] 
-            #     for k in flattened_labels
-            #     if startswith(string(k),pk*"_")
-            # ))
-            nt_pl = Dict{Symbol,Any}()
+        
+        # System observations
+        nt_observations = map(collect(sysobs_keys)) do ok
+            nt_obs = Dict{Symbol,Any}()
             for (kout,kins) in key_mapping
-                if !startswith(string(kout),pk*"_")
+                if !startswith(string(kout),ok*"_")
                     continue
                 end
-                kout = Symbol(replace(string(kout), r"^"*string(pk)*"_" =>""))
+                # Skip if this is actually a planet observation
+                is_planet_obs = false
+                for pk in planetkeys
+                    if startswith(string(kout),pk*"_"*ok*"_")
+                        is_planet_obs = true
+                        break
+                    end
+                end
+                if is_planet_obs
+                    continue
+                end
+                
+                kout_clean = Symbol(replace(string(kout), r"^"*string(ok)*"_" =>""))
                 if length(kins) == 1
                     if haskey(chain, kins[])
-                        nt_pl[kout] = chain[i,kins[],j]
+                        nt_obs[kout_clean] = chain[i,kins[],j]
                     else
-                        nt_pl[kout] = missing
+                        nt_obs[kout_clean] = missing
                     end
                 else
-                    nt_pl[kout] = [
+                    nt_obs[kout_clean] = [
                         chain[i,kin,j]
                         for kin in kins
                     ]
                 end
-                # this search operation could be sped up by computing a set
-                # of valid keys *once*
             end
+            return Symbol(ok) => namedtuple(nt_obs)
+        end
+        
+        # Planets and their observations
+        nt_planets = map(collect(planetkeys)) do pk
+            nt_pl = Dict{Symbol,Any}()
+            nt_pl_obs = Dict{Symbol,Dict}()
+            
+            for (kout,kins) in key_mapping
+                if !startswith(string(kout),pk*"_")
+                    continue
+                end
+                
+                # Check if this is a planet observation
+                is_obs = false
+                obs_name = ""
+                for ok in get(planet_obs_keys, pk, String[])
+                    if startswith(string(kout),pk*"_"*ok*"_")
+                        is_obs = true
+                        obs_name = ok
+                        break
+                    end
+                end
+                
+                if is_obs
+                    # This is a planet observation variable
+                    kout_clean = Symbol(replace(string(kout), r"^"*string(pk)*"_"*obs_name*"_" =>""))
+                    if !haskey(nt_pl_obs, Symbol(obs_name))
+                        nt_pl_obs[Symbol(obs_name)] = Dict{Symbol,Any}()
+                    end
+                    obs_dict = nt_pl_obs[Symbol(obs_name)]
+                    if length(kins) == 1
+                        if haskey(chain, kins[])
+                            obs_dict[kout_clean] = chain[i,kins[],j]
+                        else
+                            obs_dict[kout_clean] = missing
+                        end
+                    else
+                    obs_dict[kout_clean] = [
+                            chain[i,kin,j]
+                            for kin in kins
+                        ]
+                    end
+                else
+                    # This is a regular planet variable
+                    kout_clean = Symbol(replace(string(kout), r"^"*string(pk)*"_" =>""))
+                    if length(kins) == 1
+                        if haskey(chain, kins[])
+                            nt_pl[kout_clean] = chain[i,kins[],j]
+                        else
+                            nt_pl[kout_clean] = missing
+                        end
+                    else
+                            nt_pl[kout_clean] = [
+                            chain[i,kin,j]
+                            for kin in kins
+                        ]
+                    end
+                end
+            end
+            # Convert observation dicts to named tuples
+            if !isempty(nt_pl_obs)
+                nt_pl[:observations] = namedtuple(Dict(
+                    k => namedtuple(v)
+                    for (k,v) in nt_pl_obs
+                ))
+            end
+            
             return Symbol(pk) => namedtuple(nt_pl)
         end
-        if length(planetkeys) > 0 
-            return merge(namedtuple(nt_sys), (;planets=namedtuple(nt_planets)))
-        else
-            return namedtuple(nt_sys)
+        
+        # Construct final result
+        result = namedtuple(nt_sys)
+        if length(sysobs_keys) > 0
+            result = merge(result, (;observations=namedtuple(nt_observations)))
         end
+        if length(planetkeys) > 0 
+            result = merge(result, (;planets=namedtuple(nt_planets)))
+        end
+        return result
     end
+    
     if ii isa Number
         return reform(IIs[ii])
     else
@@ -515,10 +709,14 @@ end
 
 # Used for flattening a nested named tuple posterior sample into a flat named tuple
 # suitable to be used as a Tables.jl table row.
+# Used for flattening a nested named tuple posterior sample into a flat named tuple
+# suitable to be used as a Tables.jl table row.
 function flatten_named_tuple(nt)
     pairs = Pair{Symbol, Float64}[]
+    
+    # System-level variables
     for key in keys(nt)
-        if key == :planets
+        if key in (:planets, :observations)
             continue
         end
         if nt[key] isa Number
@@ -530,17 +728,49 @@ function flatten_named_tuple(nt)
             end
         end
     end
-    for pl in keys(get(nt, :planets, (;)))
-        for key in keys(nt.planets[pl])
-            if nt.planets[pl][key] isa Number
-                push!(pairs, Symbol(pl, '_', key) =>  nt.planets[pl][key])
+    
+    # System observations
+    for obs in keys(get(nt, :observations, (;)))
+        for key in keys(nt.observations[obs])
+            if nt.observations[obs][key] isa Number
+                push!(pairs, Symbol(obs, '_', key) => nt.observations[obs][key])
             else
-                for i in eachindex(nt.planets[pl][key])
-                    push!(pairs, Symbol(pl, '_', key, '_', i) =>  nt.planets[pl][key][i])
+                for i in eachindex(nt.observations[obs][key])
+                    push!(pairs, Symbol(obs, '_', key, '_', i) => nt.observations[obs][key][i])
                 end
             end
         end
     end
+    
+    # Planet-level variables and their observations
+    for pl in keys(get(nt, :planets, (;)))
+        for key in keys(nt.planets[pl])
+            if key == :observations
+                continue
+            end
+            if nt.planets[pl][key] isa Number
+                push!(pairs, Symbol(pl, '_', key) => nt.planets[pl][key])
+            else
+                for i in eachindex(nt.planets[pl][key])
+                    push!(pairs, Symbol(pl, '_', key, '_', i) => nt.planets[pl][key][i])
+                end
+            end
+        end
+        
+        # Planet observations
+        for obs in keys(get(nt.planets[pl], :observations, (;)))
+            for key in keys(nt.planets[pl].observations[obs])
+                if nt.planets[pl].observations[obs][key] isa Number
+                    push!(pairs, Symbol(pl, '_', obs, '_', key) => nt.planets[pl].observations[obs][key])
+                else
+                    for i in eachindex(nt.planets[pl].observations[obs][key])
+                        push!(pairs, Symbol(pl, '_', obs, '_', key, '_', i) => nt.planets[pl].observations[obs][key][i])
+                    end
+                end
+            end
+        end
+    end
+    
     return namedtuple(pairs)
 end
 

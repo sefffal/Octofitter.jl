@@ -11,35 +11,46 @@ using OctofitterRadialVelocity
 using CairoMakie
 using Distributions
 
-rel_rv_like = PlanetRelativeRVLikelihood(
-    (epoch=5000, rv=-24022.74287804528, σ_rv=15000.0),
-    (epoch=5100, rv=-18571.333891168735, σ_rv=15000.0),
-    (epoch=5200, rv= 14221.562142944855, σ_rv=15000.0),
-    (epoch=5300, rv= 26076.885281031347, σ_rv=15000.0),
-    (epoch=5400, rv=  -459.2622916989299, σ_rv=15000.0),
-    (epoch=5500, rv=-26319.264894263993, σ_rv=15000.0),
-    (epoch=5600, rv=-13430.95547916007, σ_rv=15000.0),
-    (epoch=5700, rv= 19230.962951723584, σ_rv=15000.0),
-    (epoch=5800, rv= 23580.261108170227, σ_rv=15000.0),
-    (epoch=5900, rv= -6786.277919597756, σ_rv=15000.0),
-    (epoch=6000, rv=-27161.777481651112, σ_rv=15000.0),
-    (epoch=6100, rv= -7548.583094927461, σ_rv=15000.0),
-    (epoch=6200, rv= 23177.948014103342, σ_rv=15000.0),
-    (epoch=6300, rv= 19780.94394128632, σ_rv=15000.0),
-    (epoch=6400, rv=-12738.38520102873, σ_rv=15000.0),
-    (epoch=6500, rv=-26503.73597982596, σ_rv=15000.0),
-    (epoch=6600, rv= -1249.188767321913, σ_rv=15000.0),
-    (epoch=6700, rv= 25844.465894406647, σ_rv=15000.0),
-    (epoch=6800, rv= 14888.827293969505, σ_rv=15000.0),
-    (epoch=6900, rv=-17986.75959839915, σ_rv=15000.0),
-    (epoch=7000, rv=-24381.49393255423, σ_rv=15000.0),
-    (epoch=7100, rv=  5119.21707156116, σ_rv=15000.0),
-    (epoch=7200, rv= 27083.2046462065, σ_rv=15000.0),
-    (epoch=7300, rv=  9174.176455190982, σ_rv=15000.0),
-    (epoch=7400, rv=-22241.45434114139, σ_rv=15000.0),
+rv_dat_1 = Table(
+    epoch=55000:100:57400,
+    rv = [
+         -24022.74
+        -18571.33
+        14221.56
+        26076.89
+        -459.26
+        -26319.26
+        -13430.96
+        19230.96
+        23580.26
+        -6786.28
+        -27161.78
+        -7548.58
+        23177.95
+        19780.94
+        -12738.39
+        -26503.74
+        -1249.19
+        25844.47
+        14888.83
+        -17986.76
+        -24381.49
+        5119.22
+        27083.2
+        9174.18
+        -22241.45
+    ],
+    # Hint! Type as \sigma + <TAB>
+    σ_rv= fill(15000.0, 25),
+)
 
+
+rel_rv_like = PlanetRelativeRVLikelihood(
+    rv_dat_1, 
     instrument_name="simulated data",
-    jitter=:gamma # name of jitter variable to use
+    variables = @variables begin
+        jitter ~ LogUniform(0.1, 1000) # m/s
+    end
 )
 ```
 See the standard radial velocity tutorial for examples on how this data can be loaded from a CSV file.
@@ -49,24 +60,41 @@ The relative RV likelihood does not incorporate an instrument-specific RV offset
 Next, create a planet and system model, attaching the relative rv likelihood to the planet. Make sure to add a `jitter` parameter (optionally jitter=0) to the planet.
 
 ```@example 1
-@planet b KepOrbit begin
-    a ~ Uniform(0,10)
-    e ~ Uniform(0.0, 0.5)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 6000 # reference epoch for τ. Choose an MJD date near your data.
+planet_1 = Planet(
+    name="b",
+    basis=RadialVelocityOrbit,
+    likelihoods=[rel_rv_like],
+    variables=@variables begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1) # total mass in solar masses
+        a ~ Uniform(0,10)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        τ ~ UniformCircular(1.0)
+        P = √(this.a^3/this.M)
+        tp =  this.τ*this.P*365.25 + 60000 # reference epoch for τ. Choose an MJD date near your data.
 
-    gamma ~ LogUniform(0.1, 1000) # m/s
-end rel_rv_like
+    end
+)
+sys = System(
+    name = "Example-System",
+    companions=[planet_1],
+    likelihoods=[],
+    variables=@variables begin
+    end
+)
 
-@system ExampleSystem begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-end b
+model = Octofitter.LogDensityModel(sys)
+```
 
-model = Octofitter.LogDensityModel(ExampleSystem)
+
+### Initialize the model and verify starting point
+
+```@example 1
+init_chain = initialize!(model)
+
+octoplot(model, init_chain)
 ```
 
 
@@ -78,5 +106,5 @@ chain = octofit(rng, model)
 
 
 ```@example 1
-octoplot(model, chain, ts=range(4500, 8000, length=200), show_physical_orbit=true)
+octoplot(model, chain, show_physical_orbit=true, mark_epochs_mjd=[mjd("2015-07-15")])
 ```

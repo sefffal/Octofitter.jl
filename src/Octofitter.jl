@@ -49,6 +49,7 @@ include("orbit-models.jl")
 include("distributions.jl")
 include("variables.jl")
 include("parameterizations.jl")
+include("macros.jl")
 
 # Helper for checking tables are well-formed
 equal_length_cols(tab) = allequal(length(getproperty(tab, col)) for col in Tables.columnnames(tab))
@@ -78,7 +79,6 @@ include("optimization.jl")
 include("sampling.jl")
 
 include("analysis.jl")
-include("macros.jl")
 include("sonora.jl")
 include("BHAC.jl")
 
@@ -118,9 +118,17 @@ function __init__()
         @info """\
 Welcome to Octofitter $(OCTO_VERSION_STR) 🐙
 Check for new releases: https://github.com/sefffal/Octofitter.jl/releases/
-Read the documentation: https://sefffal.github.io/Octofitter.jl/dev/
+Read the documentation: https://sefffal.github.io/Octofitter.jl/$(OCTO_VERSION_STR)
 """
     end
+
+    if isinteractive() && get(ENV, "CI", "") != "true" && Threads.nthreads() == 1
+        @info """\
+Note: Julia was started with only one thread. Some models may run faster if you start julia with 
+`julia --threads=auto ...` or you set the environment variable `JULIA_NUM_THREADS=auto` and restart.
+"""
+    end
+
 
     # if running on a Mac, prompt users to load AppleAccelerate
     if Sys.isapple()
@@ -241,5 +249,5 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
     return
 end
 
-include("precompile.jl")
+# include("precompile.jl")
 end

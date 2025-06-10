@@ -3,34 +3,34 @@ using Octofitter.StaticArrays
 
 # We want this to work with both Campbell and Thiele-Innes parameterizations
 export θ_at_epoch_to_tperi
-function θ_at_epoch_to_tperi(system,planet,theta_epoch)
-    (;M,e,θ) = merge(system,planet)
-    if  hasproperty(planet, :B) &&
-        hasproperty(planet, :G) &&
-        hasproperty(planet, :A) &&
-        hasproperty(planet, :F)
-        (;B,G,A,F) = planet
-        (;plx) = system
+function θ_at_epoch_to_tperi(θ, theta_epoch; M, e, kwargs...)
+
+    kw = NamedTuple(kwargs)
+    if  haskey(kw, :B) &&
+        haskey(kw, :G) &&
+        haskey(kw, :A) &&
+        haskey(kw, :F)
+        (;plx,B,G,A,F) = kw
 
         # Math in order to get semi-major axis -> mean motion and period (already in TI constructor)
         u = (A^2 + B^2 + F^2 + G^2)/2
         v = A*G - B * F
         α = sqrt(u + sqrt((u+v)*(u-v)))
         a = α/plx
-    elseif hasproperty(planet, :i) &&
-           hasproperty(planet, :Ω) &&
-           hasproperty(planet, :ω)
+    elseif haskey(kw, :i) &&
+           haskey(kw, :Ω) &&
+           haskey(kw, :ω)
 
-        if hasproperty(planet, :a)
-            (;a) = planet
-        elseif hasproperty(planet, :P)
-            (; P) = planet
+        if haskey(kw, :a)
+            (;a) = kw
+        elseif haskey(kw, :P)
+            (; P) = kw
             a = ∛(system.M * b.P^2)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
         else
             error("Your planet must specify either i, Ω, ω, and a/P, or B, G, A, F.")
         end
 
-        (;i, Ω, ω) = planet
+        (;i, Ω, ω) = kw
         A = ( cos(Ω)*cos(ω)-sin(Ω)*sin(ω)*cos(i))
         B = ( sin(Ω)*cos(ω)+cos(Ω)*sin(ω)*cos(i))
         F = (-cos(Ω)*sin(ω)-sin(Ω)*cos(ω)*cos(i))

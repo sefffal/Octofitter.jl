@@ -44,20 +44,39 @@ Note that in Octofitter the KDE will have its support truncated to the minimum a
 
 Now add it to your model as a prior:
 ```@example 1
-@planet b Visual{KepOrbit} begin
-    a ~ kde # Sample from the KDE here
-    e ~ Uniform(0.0, 0.99)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,50000)
-end 
-@system Tutoria begin 
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-end b
-model = Octofitter.LogDensityModel(Tutoria)
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[],
+    variables=@variables begin
+        a ~ kde # Sample from the KDE here
+        e ~ Uniform(0.0, 0.99)
+        i ~ Sine()
+        M = super.M
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 50000; M, e, a, i, ω, Ω)
+    end
+)
+
+sys = System(
+    name="Tutoria",
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
 chain = octofit(model)
 ```
 
@@ -76,27 +95,49 @@ Octofitter implements observable-based priors from O'Neil 2019 for relative astr
 ```julia
 using Octofitter, Distributions
 
-astrom_like = PlanetRelAstromLikelihood(
-    (;epoch=mjd("2020-12-20"), ra=400.0, σ_ra=5.0, dec=400.0, σ_dec=5.0)
+astrom_dat = Table(
+    epoch=[mjd("2020-12-20")], 
+    ra=[400.0], 
+    σ_ra=[5.0], 
+    dec=[400.0], 
+    σ_dec=[5.0]
+)
+astrom_like = PlanetRelAstromLikelihood(astrom_dat)
+
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_like, ObsPriorAstromONeil2019(astrom_like)],
+    variables=@variables begin
+        # For using with ObsPriors:
+        P ~ Uniform(0.001, 1000)
+        M = super.M
+        a = cbrt(M * P^2)
+
+        e ~ Uniform(0.0, 1.0)
+        i ~ Sine()
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
+        mass ~ LogUniform(0.01, 100)
+
+        τ_x ~ Normal()
+        τ_y ~ Normal()
+        τ = atan(τ_y, τ_x)/2π*1.0
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    end
 )
 
-@planet b Visual{KepOrbit} begin
-    # For using with ObsPriors:
-    P ~ Uniform(0.001, 1000)
-    a = cbrt(system.M * b.P^2)
-
-    e ~ Uniform(0.0, 1.0)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    mass ~ LogUniform(0.01, 100)
-
-    τ ~ UniformCircular(1.0)
-    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
-end astrom_like ObsPriorAstromONeil2019(astrom_like);
-
-@system System1 begin
-    plx ~ Normal(21.219, 0.060)
-	M ~ truncated(Normal(1.1, 0.2),lower=0.1)
-end b
+sys = System(
+    name="System1",
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        plx ~ Normal(21.219, 0.060)
+        M ~ truncated(Normal(1.1, 0.2),lower=0.1)
+    end
+)
 ```

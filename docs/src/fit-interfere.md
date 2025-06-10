@@ -60,25 +60,42 @@ fig
 ```
 
 ```@example 1
-@planet b Visual{KepOrbit} begin
-    a ~ truncated(Normal(2,0.1), lower=0.1)
-    e ~ truncated(Normal(0, 0.05),lower=0, upper=0.90)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[],
+    variables=@variables begin
+        M = super.M
+        a ~ truncated(Normal(2,0.1), lower=0.1)
+        e ~ truncated(Normal(0, 0.05),lower=0, upper=0.90)
+        i ~ Sine()
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
 
-    # Our prior on the planet's photometry
-    # 0 +- 10% of stars brightness (assuming this is unit of data files)
-    contrast_F480M ~ truncated(Normal(0, 0.1),lower=0)
+        # Our prior on the planet's photometry
+        # 0 +- 10% of stars brightness (assuming this is unit of data files)
+        contrast_F480M ~ truncated(Normal(0, 0.1),lower=0)
 
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,60171)  # reference epoch for θ. Choose an MJD date near your data.
-end
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 60171; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
 
-@system Tutoria begin
-    M ~ truncated(Normal(1.5, 0.01), lower=0.1)
-    plx ~ truncated(Normal(100., 0.1), lower=0.1)
-end vis_like b
+Tutoria = System(
+    name="Tutoria",
+    companions=[planet_b],
+    likelihoods=[vis_like],
+    variables=@variables begin
+        M ~ truncated(Normal(1.5, 0.01), lower=0.1)
+        plx ~ truncated(Normal(100., 0.1), lower=0.1)
+    end
+)
 ```
 
 Create the model object and run `octofit_pigeons`:

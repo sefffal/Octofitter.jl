@@ -2,30 +2,49 @@
 const likemap_cols = (:map, :epoch, :platescale,)
 
 """
-    LogLikelihoodMap(...)
+    LogLikelihoodMap(
+        table,
+        instrument_name="likemap",
+        variables=@variables begin
+        end
+    )
 
 One or more maps of likelihood vs Δright-ascension and Δdeclination computed with some other tool.
 The platescale column maps pixels in the matrix to separation in milliarcseconds.
-Pass a vector of named tuples with the following fields:
+Pass a Table with the following columns:
 $likemap_cols
 
 For example:
 ```julia
+likemap_dat = Table(;
+    epoch = [1234.0, 1584.7],
+    map = [readfits("map1.fits"), readfits("map2.fits")],
+    platescale = [19.4, 19.4]
+)
+
 LogLikelihoodMap(
-    (; epoch=1234.0, map=readfits("abc.fits"), platescale=19.4)
+    likemap_dat,
+    instrument_name="GRAVITY",
+    variables=@variables begin
+        platescale = 1.0               # Platescale multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        northangle = 0.0               # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+    end
 )
 ```
-Contrast can be a function that returns the 1 sigma contrast of the image from a separation in mas to the same units as the image file.
-Or, simply leave it out and it will be calculated for you.
 Epoch is in MJD.
-Band is a symbol which matches the one used in the planet's `Priors()` block.
 Platescale is in mas/px.
 """
 struct LogLikelihoodMap{TTable<:Table} <: Octofitter.AbstractLikelihood
     table::TTable
-    function LogLikelihoodMap(observations...)
-        table = Table(observations...)
-        # Fallback to calculating contrast automatically
+    priors::Octofitter.Priors
+    derived::Octofitter.Derived
+    instrument_name::String
+    function LogLikelihoodMap(
+        table;
+        instrument_name::String="likemap",
+        variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin end)
+    )
+        (priors, derived) = variables
         if !issubset(likemap_cols, columnnames(table))
             error("Expected columns $likemap_cols")
         end
@@ -47,10 +66,11 @@ struct LogLikelihoodMap{TTable<:Table} <: Octofitter.AbstractLikelihood
             LinearInterpolation(parent.(dims(img)), data, extrapolation_bc=convert(eltype(img), row[].fillvalue))
         end
         table = Table(table; mapinterp)
-        return new{typeof(table)}(table)
+        return new{typeof(table)}(table, priors, derived, instrument_name)
     end
 end
-LogLikelihoodMap(observations::NamedTuple...) = LogLikelihoodMap(observations)
+# Legacy constructor for backward compatibility
+LogLikelihoodMap(observations::NamedTuple...; kwargs...) = LogLikelihoodMap(Table(observations...); kwargs...)
 export LogLikelihoodMap
 
 function Octofitter.likeobj_from_epoch_subset(obs::LogLikelihoodMap, obs_inds)
@@ -60,7 +80,7 @@ end
 """
 Likelihood of there being planets in a sequence of likemaps.
 """
-function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
     # Resolve the combination of system and planet parameters
     # as a Visual{KepOrbit} object. This pre-computes
@@ -72,6 +92,11 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, or
     likemaps_table = likemaps.table
     T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
+    
+    # Get calibration parameters from observation variables
+    platescale_multiplier = hasproperty(θ_obs, :platescale) ? θ_obs.platescale : one(T)
+    northangle_offset = hasproperty(θ_obs, :northangle) ? θ_obs.northangle : zero(T)
+    
     for i_epoch in eachindex(likemaps_table.epoch)
 
         sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
@@ -100,13 +125,23 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMap, θ_system, θ_planet, or
         end
 
 
-        # Note the x reversal between RA and image coordinates
-        x = -(raoff(sol) - ra_host_perturbation)
-        y = +(decoff(sol) - dec_host_perturbation)
+        # Apply north angle rotation and platescale correction
+        ra_raw = raoff(sol) - ra_host_perturbation
+        dec_raw = decoff(sol) - dec_host_perturbation
+        
+        # Apply north angle rotation
+        cos_θ = cos(northangle_offset)
+        sin_θ = sin(northangle_offset)
+        ra_rotated = ra_raw * cos_θ - dec_raw * sin_θ
+        dec_rotated = ra_raw * sin_θ + dec_raw * cos_θ
 
-        # Get the photometry in this image at that location
+        # Note the x reversal between RA and image coordinates
+        x = -ra_rotated
+        y = +dec_rotated
+
+        # Get the log-likelihood at this position
         # Note in the following equations, subscript x (ₓ) represents the current position (both x and y)
-        platescale = likemaps_table.platescale[i_epoch]
+        platescale = likemaps_table.platescale[i_epoch] * platescale_multiplier
         χ² = likemaps_table.mapinterp[i_epoch](x/platescale, y/platescale)
 
         # When we get a position that falls outside of our available
