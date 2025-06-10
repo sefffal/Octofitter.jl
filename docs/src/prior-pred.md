@@ -20,19 +20,37 @@ astrom_like = PlanetRelAstromLikelihood(Table(;
     σ_dec = fill(10.0, 8),
     cor = fill(0.0, 8)
 ))
-@planet b Visual{KepOrbit} begin
-    a ~ truncated(Normal(10, 4), lower=0, upper=100)
-    e ~ Uniform(0.0, 0.5)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,50420)  # reference epoch for θ. Choose an MJD date near your data.
-end astrom_like
-@system Tutoria begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-end b
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_like],
+    variables=@variables begin
+        M = super.M
+        a ~ truncated(Normal(10, 4), lower=0, upper=100)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 50420; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
+
+Tutoria = System(
+    name="Tutoria",
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
 nothing #hide
 ```
 

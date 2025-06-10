@@ -52,10 +52,17 @@ planet_b = Planet(
         a ~ kde # Sample from the KDE here
         e ~ Uniform(0.0, 0.99)
         i ~ Sine()
-        ω ~ UniformCircular()
-        Ω ~ UniformCircular()
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(super,this,50000)
+        M = super.M
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 50000; M, e, a, i, ω, Ω)
     end
 )
 
@@ -104,16 +111,23 @@ planet_b = Planet(
     variables=@variables begin
         # For using with ObsPriors:
         P ~ Uniform(0.001, 1000)
-        a = cbrt(super.M * this.P^2)
+        M = super.M
+        a = cbrt(M * P^2)
 
         e ~ Uniform(0.0, 1.0)
         i ~ Sine()
-        ω ~ UniformCircular()
-        Ω ~ UniformCircular()
+        ω_x ~ Normal()
+        ω_y ~ Normal()
+        ω = atan(ω_y, ω_x)
+        Ω_x ~ Normal()
+        Ω_y ~ Normal()
+        Ω = atan(Ω_y, Ω_x)
         mass ~ LogUniform(0.01, 100)
 
-        τ ~ UniformCircular(1.0)
-        tp = this.τ*this.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+        τ_x ~ Normal()
+        τ_y ~ Normal()
+        τ = atan(τ_y, τ_x)/2π*1.0
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
     end
 )
 

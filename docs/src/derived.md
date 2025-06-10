@@ -32,7 +32,7 @@ sys = System(
     variables=@variables begin
         plx ~ Normal(45., 0.02)
         logM ~ Normal(45., 0.02)
-        M = 10^this.logM
+        M = 10^logM
     end
 )
 ```
@@ -56,12 +56,15 @@ planet_b = Planet(
         Ω ~ Normal(0.0, deg2rad(30.))
         loge ~ Uniform(-4, 1)
         loga ~ Normal(1, 1)
-        e = 10^this.loge
-        a = 10^this.loga
+        e = 10^loge
+        a = 10^loga
 
-        τ ~ UniformCircular(1.0)
-        P = √(this.a^3/super.M)
-        tp = this.τ*this.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+        M = super.M
+        τ_x ~ Normal()
+        τ_y ~ Normal()
+        τ = atan(τ_y, τ_x)/2π*1.0
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
     end
 )
 ```
@@ -84,9 +87,12 @@ planet_b = Planet(
         i = super.i
         Ω = super.Ω
 
-        τ ~ UniformCircular(1.0)
-        P = √(this.a^3/super.M)
-        tp = this.τ*this.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+        M = super.M
+        τ_x ~ Normal()
+        τ_y ~ Normal()
+        τ = atan(τ_y, τ_x)/2π*1.0
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
     end
 )
 
@@ -101,9 +107,12 @@ planet_c = Planet(
         i = super.i
         Ω = super.Ω
 
-        τ ~ UniformCircular(1.0)
-        P = √(this.a^3/super.M)
-        tp = this.τ*this.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+        M = super.M
+        τ_x ~ Normal()
+        τ_y ~ Normal()
+        τ = atan(τ_y, τ_x)/2π*1.0
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
     end
 )
 

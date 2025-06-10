@@ -59,35 +59,55 @@ fig
 ## Two Planet Model
 
 ```@example 1
-@planet b RadialVelocityOrbit begin
-    M = system.M_pri + (system.M_b + system.M_c) * Octofitter.mjup2msol
-    e ~ Uniform(0,0.999999)
-    mass = system.M_b
-    ω ~ Uniform(0,2pi)
-    τ ~ Uniform(0,1.0)
+planet_b = Planet(
+    name="b",
+    basis=RadialVelocityOrbit,
+    likelihoods=[],
+    variables=@variables begin
+        M_pri = super.M_pri
+        M_b = super.M_b
+        M_c = super.M_c
+        M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_b
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
 
-    P_kep_yrs ~ Uniform(0, 100)
-    a = ∛(b.M * b.P_kep_yrs^2)
-    tp =  b.τ*b.P_kep_yrs*365.25 + 58400
-end
+        P_kep_yrs ~ Uniform(0, 100)
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
 
-@planet c RadialVelocityOrbit begin
-    M = system.M_pri + system.M_c * Octofitter.mjup2msol
-    e ~ Uniform(0,0.999999)
-    mass = system.M_c
-    ω ~ Uniform(0,2pi)
-    τ ~ Uniform(0,1.0)
+planet_c = Planet(
+    name="c",
+    basis=RadialVelocityOrbit,
+    likelihoods=[],
+    variables=@variables begin
+        M_pri = super.M_pri
+        M_c = super.M_c
+        M = M_pri + M_c * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_c
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
 
-    P_kep_yrs ~ Uniform(0, 100)
-    a = ∛(c.M * c.P_kep_yrs^2)
-    tp =  c.τ*c.P_kep_yrs*365.25 + 58400
-end
+        P_kep_yrs ~ Uniform(0, 100)
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
 
-@system sim_2p begin
-    M_pri = 1.0
-    M_b ~ Uniform(0, 10)
-    M_c ~ Uniform(0, 10)
-end rvlike1 rvlike2 b c
+sim_2p = System(
+    name="sim_2p",
+    companions=[planet_b, planet_c],
+    likelihoods=[rvlike1, rvlike2],
+    variables=@variables begin
+        M_pri = 1.0
+        M_b ~ Uniform(0, 10)
+        M_c ~ Uniform(0, 10)
+    end
+)
 
 model_2p = Octofitter.LogDensityModel(sim_2p)
 ```
@@ -108,11 +128,16 @@ Octofitter.rvpostplot(model_2p, results_2p)
 
 We now create a new system object that only includes one planet (we dropped c, in this case).
 ```@example 1
-@system sim_1p begin
-    M_pri = 1.0
-    M_b ~ Uniform(0, 10)
-    M_c = 0.0
-end rvlike1 rvlike2 b
+sim_1p = System(
+    name="sim_1p",
+    companions=[planet_b],
+    likelihoods=[rvlike1, rvlike2],
+    variables=@variables begin
+        M_pri = 1.0
+        M_b ~ Uniform(0, 10)
+        M_c = 0.0
+    end
+)
 
 model_1p = Octofitter.LogDensityModel(sim_1p)
 ```
@@ -177,40 +202,64 @@ There are several ways we could do this. Here, we add a "nominal period" variabl
 
 
 ```@example 1
-@planet b RadialVelocityOrbit begin
-    M = system.M_pri + (system.M_b + system.M_c) * Octofitter.mjup2msol
-    e ~ Uniform(0,0.999999)
-    mass = system.M_b
-    ω ~ Uniform(0,2pi)
-    τ ~ Uniform(0,1.0)
+planet_b_v2 = Planet(
+    name="b",
+    basis=RadialVelocityOrbit,
+    likelihoods=[],
+    variables=@variables begin
+        M_pri = super.M_pri
+        M_b = super.M_b
+        M_c = super.M_c
+        M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_b
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
 
-    P_kep_yrs = system.P_yrs_nom * system.P_ratio_b
-    a = ∛(b.M * b.P_kep_yrs^2)
-    tp =  b.τ*b.P_kep_yrs*365.25 + 58400
-end
+        P_yrs_nom = super.P_yrs_nom
+        P_ratio_b = super.P_ratio_b
+        P_kep_yrs = P_yrs_nom * P_ratio_b
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
 
-@planet c RadialVelocityOrbit begin
-    M = system.M_pri + system.M_c * Octofitter.mjup2msol
-    e ~ Uniform(0,0.999999)
-    mass = system.M_c
-    ω ~ Uniform(0,2pi)
-    τ ~ Uniform(0,1.0)
+planet_c_v2 = Planet(
+    name="c",
+    basis=RadialVelocityOrbit,
+    likelihoods=[],
+    variables=@variables begin
+        M_pri = super.M_pri
+        M_c = super.M_c
+        M = M_pri + M_c * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_c
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
 
-    P_kep_yrs = system.P_yrs_nom * system.P_ratio_c
-    a = ∛(c.M * c.P_kep_yrs^2)
-    tp =  c.τ*c.P_kep_yrs*365.25 + 58400
-end
+        P_yrs_nom = super.P_yrs_nom
+        P_ratio_c = super.P_ratio_c
+        P_kep_yrs = P_yrs_nom * P_ratio_c
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
 
 
-@system sim_2p_v2 begin
-    M_pri = 1.0
-    M_b ~ Uniform(0, 10)
-    M_c ~ Uniform(0, 10)
-    
-    P_yrs_nom ~ Uniform(0, 100)
-    P_ratio_b ~ Uniform(0, 0.5)
-    P_ratio_c ~ Uniform(0.5, 1)
-end rvlike1 rvlike2 b c
+sim_2p_v2 = System(
+    name="sim_2p_v2",
+    companions=[planet_b_v2, planet_c_v2],
+    likelihoods=[rvlike1, rvlike2],
+    variables=@variables begin
+        M_pri = 1.0
+        M_b ~ Uniform(0, 10)
+        M_c ~ Uniform(0, 10)
+        
+        P_yrs_nom ~ Uniform(0, 100)
+        P_ratio_b ~ Uniform(0, 0.5)
+        P_ratio_c ~ Uniform(0.5, 1)
+    end
+)
 
 model_2p_v2 = Octofitter.LogDensityModel(sim_2p_v2)
 ```
