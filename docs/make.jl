@@ -83,5 +83,6 @@ makedocs(
 
 deploydocs(
     repo = "github.com/sefffal/Octofitter.jl.git",
-    devbranch = "main"
+    devbranch = "main",
+    push_preview = true
 )
