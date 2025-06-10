@@ -11,20 +11,30 @@ Derived variables allow you to mark certain properties as constants, reparameter
 Derived variables for the system as a whole can be created as follows:
 
 ```julia
-@system HD12345 begin
-    M = 1.0
-    plx ~ Normal(45., 0.02)
-end
+sys = System(
+    name="HD12345",
+    companions=[],
+    likelihoods=[],
+    variables=@variables begin
+        M = 1.0
+        plx ~ Normal(45., 0.02)
+    end
+)
 ```
 In this case, instead of including `M` as a variable in the model, we define it as a function that always returns `1.0`. This is equivalent to passing `M=1.0`.
 
 In the following case, let's define `M` as being calculated based on another variable in the model. This is how you can do reparameterizations in Octofitter.jl
 ```julia
-@system HD12345 begin
-    plx ~ Normal(45., 0.02)
-    logM ~Normal(45., 0.02)
-    M = 10^system.logM
-end
+sys = System(
+    name="HD12345",
+    companions=[],
+    likelihoods=[],
+    variables=@variables begin
+        plx ~ Normal(45., 0.02)
+        logM ~ Normal(45., 0.02)
+        M = 10^this.logM
+    end
+)
 ```
 We defined a new variable `logM` as a prior, and then calculate M from it.
 
@@ -36,19 +46,24 @@ Derived variables for an individual planet are similar, but have access to both 
 
 Here is an example of reparameterizing `e` and `a` on a planet to be logarithmic quantities:
 ```julia
-@planet b Visual{KepOrbit} begin
-    ω ~ Normal(0.1, deg2rad(30.))
-    i ~ Normal(0.1, deg2rad(30.))
-    Ω ~ Normal(0.0, deg2rad(30.))
-    loge ~ Uniform(-4, 1)
-    loga ~ Normal(1, 1)
-    e = 10^b.loge
-    a = 10^b.loga
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[],
+    variables=@variables begin
+        ω ~ Normal(0.1, deg2rad(30.))
+        i ~ Normal(0.1, deg2rad(30.))
+        Ω ~ Normal(0.0, deg2rad(30.))
+        loge ~ Uniform(-4, 1)
+        loga ~ Normal(1, 1)
+        e = 10^this.loge
+        a = 10^this.loga
 
-    τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
-end
+        τ ~ UniformCircular(1.0)
+        P = √(this.a^3/super.M)
+        tp = this.τ*this.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    end
+)
 ```
 Here `e` is defined as log-uniform, and `a` as log-normal.
 
@@ -58,34 +73,51 @@ Planets can have Derived variables that are calculated from variables defined on
 This makes it easy to, for example, create a system of two planets that are co-planar.
 
 ```julia
-@planet b Visual{KepOrbit} begin
-    a ~ Uniform(0, 15)
-    e ~ TruncatedNormal(0, 0.1, 0, 1)
-    ω ~ Normal(0.1, deg2rad(30.))
-    i = system.i
-    Ω = system.Ω
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[],
+    variables=@variables begin
+        a ~ Uniform(0, 15)
+        e ~ Uniform(0,0.99)
+        ω ~ Normal(0.1, deg2rad(30.))
+        i = super.i
+        Ω = super.Ω
 
-    τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
-end
-@planet c Visual{KepOrbit} begin
-    a ~ Uniform(15, 45)
-    e ~ TruncatedNormal(0, 0.1, 0, 1)
-    ω ~ Normal(0.1, deg2rad(30.))
-    i = system.i
-    Ω = system.Ω
+        τ ~ UniformCircular(1.0)
+        P = √(this.a^3/super.M)
+        tp = this.τ*this.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    end
+)
 
-    τ ~ UniformCircular(1.0)
-    P = √(c.a^3/system.M)
-    tp =  c.τ*c.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
-end
-@system HD12345 begin
-    plx ~ Normal(45., 0.02)
-    M ~ Normal(45., 0.02)
-    i ~ Normal(0.1, deg2rad(30.))
-    Ω ~ Normal(0.0, deg2rad(30.))
-end b c
+planet_c = Planet(
+    name="c",
+    basis=Visual{KepOrbit},
+    likelihoods=[],
+    variables=@variables begin
+        a ~ Uniform(15, 45)
+        e ~ Uniform(0,0.99)
+        ω ~ Normal(0.1, deg2rad(30.))
+        i = super.i
+        Ω = super.Ω
+
+        τ ~ UniformCircular(1.0)
+        P = √(this.a^3/super.M)
+        tp = this.τ*this.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    end
+)
+
+sys = System(
+    name="HD12345",
+    companions=[planet_b, planet_c],
+    likelihoods=[],
+    variables=@variables begin
+        plx ~ Normal(45., 0.02)
+        M ~ Normal(45., 0.02)
+        i ~ Normal(0.1, deg2rad(30.))
+        Ω ~ Normal(0.0, deg2rad(30.))
+    end
+)
 ```
 Notice how `i` and `Ω` are defined as variables on the System. The two planets B & C instead just take their values from the System. This way we can enforce co-planarity between planets without e.g. rejection sampling.
 
@@ -95,5 +127,8 @@ The order that variables are resolved is as follows:
 * Derived variables on the system
 * Derived variables on each planet
 
-You can use one derived variable from another based on their order in the `@system` or `@planet` block. 
-You cannot access variables from a different planet inside a `@planet` block. If you need to do this, move the variable up to the `@system` block.
+You can use one derived variable from another based on their order in the `@variables` block within `System()` or `Planet()` constructors. 
+You cannot access variables from a different planet inside a `Planet` variables block. If you need to do this, move the variable up to the `System` variables block.
+
+
+## `this` and `super`

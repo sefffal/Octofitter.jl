@@ -103,8 +103,8 @@ planet_1 = Planet(
         i ~ Sine()
         ω ~ Uniform(0,2pi)
         Ω ~ Uniform(0,2pi)
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(super,this,50420)
+        θ ~ Uniform(0,2pi)
+        tp = θ_at_epoch_to_tperi(θ, 50420; M, e, a, i, ω, Ω)
     end
 )
 nothing # hide
@@ -193,11 +193,14 @@ init_chain = initialize!(model, (;
             M = 1.21,
             a = 10.0,
             e = 0.01,
-            # note! Never initialize a value on the bound, exactly 0 eccentricity is disallowed by the `Uniform(0,1)` prior
+           
         )
     )
 ))
 ```
+
+!!! warning
+    Never initialize a value on the bounds of the prior. For example, exactly 0.00000 eccentricity is disallowed by the `Uniform(0,1)` prior. 
 
 ### Visualize the starting points
 
