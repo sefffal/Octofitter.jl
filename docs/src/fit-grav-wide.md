@@ -18,7 +18,7 @@ You will probably want on the order of 30 cores and 1-5 days, depending on the s
 
 
 
-```@julia
+```julia
 using Octofitter
 using OctofitterInterferometry
 using Distributions
@@ -35,53 +35,56 @@ vis_like = GRAVITYWideKPLikelihood(
         epoch=60676.00776748842,
         wavelength_min_meters=2.025e-6,
         wavelength_max_meters=2.15e-6,
-        spectrum_var=:K_band_spectrum,
         jitter=:kp_jit,
         kp_Cy=:kp_Cy,
-    )
+    ),
     # Add more exposures / epochs here if desired...
+    variables=@variables begin
+        # For single planet:
+        flux ~ [Uniform(0, 1)]       # Planet flux/contrast ratio (array with one element)
+        
+        # For multiple planets (array - one per planet):
+        # flux ~ Product([Uniform(0, 1), Uniform(0, 1)])  # flux ratio for each planet
+        
+        # Optional: observation-specific variables can be defined here
+        # kp_jit ~ Uniform(0, 180)  # kernel phase jitter
+        # kp_Cy ~ Uniform(-1, 1)     # spectral correlation parameter
+    end
 )
 ```
 
 - `filename` is the path from your current working directory to the GRAVITY OI-FITS file.
 - `epoch` is the average time of the exposure in MJD (not the start of the exposure!).
 - `wavelength_min_meters` and `wavelength_max_meters` are wavelength cutoffs for the data if you want to restrict to only include some channels from the file (optional)
-- `spectrum_var` is the variable name of the spectrum in the model. This is an array of contrast-ratios between the companion and the primary.
-- `jitter` is a symbol giving the name of a  kernel phase jitter variable in the model to use for this exposure.
-- `kp_Cy` is a symbol giving the name of the spectral correlation variable to use for this exposure (optional)
+- `flux` variable should be defined in the likelihood's `variables` block to specify the planet flux/contrast ratio. For multiple planets, use `Product([...])` with one distribution per planet.
+- `jitter` is a symbol giving the name of a kernel phase jitter variable to use for this exposure. This can be defined in the likelihood's `variables` block or in the system/planet variables.
+- `kp_Cy` is a symbol giving the name of the spectral correlation variable to use for this exposure (optional). This can be defined in the likelihood's `variables` block or in the system/planet variables.
 
 
 
 For this example, we won't consider a full orbit. We will just sample from 2D separation and position angle coordinates. To this end, we will use the `FixedPosition` parameterization for the planet:
-```@julia
+```julia
 
 planet_b = Planet(
     name="b",
     basis=Visual{Octofitter.FixedPosition},
-    likelihoods=[],
+    likelihoods=[vis_like],
     variables=@variables begin
         sep ~ Uniform(0, 10) # mas
         pa ~ Uniform(0,2pi)
-
-        # We will sample using a flat contrast ratio versus spectrum
-        K ~ Uniform(0, 1) # contrast ratio variable
-        K_band_spectrum = fill(K, $(length(vis_like.table.eff_wave[1])))
-
-        # You could alternatively let the flux vary by wavelength:
-        # K_band_spectrum = Product(fill(Uniform(0,1),length(vis_like.table.eff_wave[1])))
     end
 )
 
 sys = System(
     name="sys",
     companions=[planet_b],
-    likelihoods=[vis_like],
+    likelihoods=[],
     variables=@variables begin
         M ~ Normal(1.0, 0.1) # Add mass for orbit models
         plx = 173.5740
-        # Kernel phase jitters per epoch
-        kp_jit ~ Uniform(0,180)# 12.8
-        kp_Cy ~ Uniform(-1,1)
+        # Optional: Kernel phase jitters per epoch can be defined here
+        # kp_jit ~ Uniform(0,180)# 12.8
+        # kp_Cy ~ Uniform(-1,1)
     end
 )
 
@@ -89,7 +92,7 @@ model = Octofitter.LogDensityModel(sys, verbosity=4)
 ```
 
 It is recommended to use Pigeons parallel tempered sampling, and to use the SliceSampler explorer. This non-default option avoids calculating the gradient of the model, which is expensive in this case.
-```@julia
+```julia
 Octofitter.default_initializer!(model,ntries=0)
 
 using Pigeons
@@ -97,7 +100,7 @@ chain, pt = octofit_pigeons(model, n_chains=8, n_chains_variational=0, n_rounds=
 ```
 
 
-```@julia
+```julia
 fig = Figure()
 ax = Axis(
     fig[1,1],
@@ -116,7 +119,7 @@ fig
 
 Since we are only considering a single epoch, we can also go ahead and generate a detection map by performing a grid-search over positions.
 
-```@julia
+```julia
 ks = 0.5:0.5#0.4:0.1:0.6 #0.01:0.1:1.0
 xs =  (-10:0.25:10) .+ 1e-6
 ys = (-10:0.25:10)
@@ -139,7 +142,7 @@ Cy = 0.02
 end
 ```
 
-```@julia
+```julia
 fig = Figure()
 ax = Axis(
     fig[1,1],
@@ -174,7 +177,7 @@ This single-epoch model can then be extended by replacing the `FixedPosition` pa
 planet_b_orbit = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[],
+    likelihoods=[vis_like],
     variables=@variables begin
         M = super.M
         a ~ Uniform(0, 0.1)
@@ -190,10 +193,6 @@ planet_b_orbit = Planet(
         θ_y ~ Normal()
         θ = atan(θ_y, θ_x)
         tp = θ_at_epoch_to_tperi(θ, 60676; M, e, a, i, ω, Ω)
-
-        # We will sample using a flat contrast ratio versus spectrum
-        K ~ Uniform(0, 1) # contrast ratio variable
-        K_band_spectrum = fill(K, $(length(vis_like.table.eff_wave[1])))
     end
 )
 ```

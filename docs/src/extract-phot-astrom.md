@@ -45,10 +45,11 @@ First, we create a table of our image data that will be attached to the `Planet`
 
 ```@example 1
 imglike = ImageLikelihood(
-    (
-        band=:L,
-        image=AstroImages.recenter(image), platescale=9.971,
-        epoch=mjd("2021")
+    Table(
+        band=[:L],
+        image=[AstroImages.recenter(image)],
+        platescale=[9.971],
+        epoch=[mjd("2021")]
     ),
 )
 ```
@@ -56,16 +57,26 @@ Note that you can also supply a contrast curve or map directly. If not provided,
 
 Next create the simplest possible model of 2D position, plus a contrast variable matching the band name used in the `ImageLikelihood` above:
 ```@example 1
-@planet b Visual{Octofitter.FixedPosition} begin
-    sep ~ Uniform(0, 2000)
-    pa ~ Uniform(0,2pi)
-    # Contrast ratio
-    L ~ Uniform(0, 1)
-end imglike
+planet_b = Planet(
+    name="b",
+    basis=Visual{Octofitter.FixedPosition},
+    likelihoods=[imglike],
+    variables=@variables begin
+        sep ~ Uniform(0, 2000)
+        pa ~ Uniform(0,2pi)
+        # Contrast ratio
+        L ~ Uniform(0, 1)
+    end
+)
 
-@system sys begin
-    plx = 24.4620
-end b
+sys = System(
+    name="sys",
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        plx = 24.4620
+    end
+)
 
 model = Octofitter.LogDensityModel(sys, verbosity=4)
 ```
@@ -75,9 +86,9 @@ model = Octofitter.LogDensityModel(sys, verbosity=4)
 If you already know where the planet is and you only want to extract astrometry from that known location, you can specify a starting point and use hamiltonian monte carlo as follows. This will be very very fast.
 ```@example 1
 initialize!(model, (;
-    sep=1704,
-    pa=deg2rad(70.63),
-    L=1e-4,
+    b_sep=1704,
+    b_pa=deg2rad(70.63),
+    b_L=1e-4,
 ))
 chain = octofit(model, iterations=10000)
 ```

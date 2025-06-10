@@ -28,12 +28,33 @@ download("https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Si
 
 Create the likelihood object:
 ```@example 1
+data = Table([
+    (; filename="Sim_data_2023_1_.oifits", epoch=mjd("2023-06-01"), use_vis2=false),
+    (; filename="Sim_data_2023_2_.oifits", epoch=mjd("2023-08-15"), use_vis2=false),
+    (; filename="Sim_data_2024_1_.oifits", epoch=mjd("2024-06-01"), use_vis2=false),
+])
 vis_like = InterferometryLikelihood(
-    (; filename="Sim_data_2023_1_.oifits", epoch=mjd("2023-06-01"), spectrum_var=:contrast_F480M, use_vis2=false),
-    (; filename="Sim_data_2023_2_.oifits", epoch=mjd("2023-08-15"), spectrum_var=:contrast_F480M, use_vis2=false),
-    (; filename="Sim_data_2024_1_.oifits", epoch=mjd("2024-06-01"), spectrum_var=:contrast_F480M, use_vis2=false),
+    data,
+    instrument_name="NIRISS-AMI",
+    variables=@variables begin
+        # For single planet:
+        flux ~ truncated(Normal(0, 0.1), lower=0)  # Planet flux/contrast (array with one element)
+        
+        # For multiple planets (array - one per planet):
+        # flux ~ Product([truncated(Normal(0, 0.1), lower=0), truncated(Normal(0, 0.1), lower=0)])
+        
+        # Optional calibration parameters:
+        platescale = 1.0               # Platescale multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        northangle = 0.0               # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        σ_cp_jitter ~ LogUniform(0.1, 100)  # closure phase jitter (optional)
+    end
 )
 ```
+
+!!! note
+    If you want to include multiple bands, group these into different `InterferometryLikelihood` objects
+    with different instrument names (i.e. include the band in the name for the sake of bookkeeping)
+
 
 Plot the closure phases:
 ```@example 1
@@ -76,10 +97,6 @@ planet_b = Planet(
         Ω_y ~ Normal()
         Ω = atan(Ω_y, Ω_x)
 
-        # Our prior on the planet's photometry
-        # 0 +- 10% of stars brightness (assuming this is unit of data files)
-        contrast_F480M ~ truncated(Normal(0, 0.1),lower=0)
-
         θ_x ~ Normal()
         θ_y ~ Normal()
         θ = atan(θ_y, θ_x)
@@ -112,13 +129,13 @@ Note that we use Pigeons paralell tempered sampling (`octofit_pigeons`) instead 
 
 Examine the recovered photometry posterior:
 ```@example 1
-hist(results[:b_contrast_F480M][:], axis=(;xlabel="F480M"))
+hist(results[:b_niriss_ami_flux][:], axis=(;xlabel="flux"))
 ```
 
 Determine the significance of the detection:
 ```@example 1
 using Statistics
-phot = results[:b_contrast_F480M][:]
+phot = results[:b_niriss_ami_flux][:]
 snr = mean(phot)/std(phot)
 ```
 
