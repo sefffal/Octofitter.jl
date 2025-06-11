@@ -54,7 +54,7 @@ B = Planet(
 HD91312_pma = System(
     name="HD91312_pma",
     companions=[B],
-    likelihoods=[HGCALikelihood(gaia_id=6166183842771027328)],
+    likelihoods=[HGCAInstantaneousLikelihood(gaia_id=6166183842771027328)],
     variables=@variables begin
         M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
         M_sec ~ LogUniform(0.2, 65) # MJup
@@ -112,9 +112,22 @@ download(
 
 # Or multi-extension FITS (this example)
 image = AstroImages.load("image-examples-1.fits").*2e-7 # units of contrast
+img_dat_table = Table([
+     (image=AstroImages.recenter(image), platescale=4.0, epoch=57423.6),
+])
 
 image_data = ImageLikelihood(
-    (band=:L, image=AstroImages.recenter(image), platescale=4.0, epoch=57423.6),
+    img_dat_table,
+    instrument_name="imgdat-sim",
+    variables=@variables begin
+        # Planet flux in image units -- could be contrast, mags, Jy, or arb. as long as it's consistent with the units of the data you provide
+        flux = super.L
+        # The following are optional parameters for marginalizing over instrument systematics:
+        # Platescale uncertainty multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        platescale = 1.0
+        # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        northangle = 0.0
+    end
 )
 ```
 
@@ -134,9 +147,9 @@ B = Planet(
         mass = super.M_sec
 
         # Calculate planet temperature from cooling track and planet mass variable
-        tempK = cooling_tracks(super.age, mass)
+        tempK = $cooling_tracks(super.age, mass)
         # Calculate absolute magnitude
-        abs_mag_L = sonora_temp_mass_L(tempK, mass)
+        abs_mag_L = $sonora_temp_mass_L(tempK, mass)
         # Deal with out-of-grid values by clamping to grid max and min
         abs_mal_L′ = if isfinite(abs_mag_L)
             abs_mag_L
@@ -229,9 +242,9 @@ B = Planet(
         mass = super.M_sec
 
         # Calculate planet temperature from cooling track and planet mass variable
-        tempK = cooling_tracks(super.age, mass)
+        tempK = $cooling_tracks(super.age, mass)
         # Calculate absolute magnitude
-        abs_mag_L = sonora_temp_mass_L(tempK, mass)
+        abs_mag_L = $sonora_temp_mass_L(tempK, mass)
         # Deal with out-of-grid values by clamping to grid max and min
         abs_mal_L′ = if isfinite(abs_mag_L)
             abs_mag_L
@@ -255,7 +268,7 @@ B = Planet(
 HD91312_both = System(
     name="HD91312_both",
     companions=[B],
-    likelihoods=[HGCALikelihood(gaia_id=6166183842771027328)],
+    likelihoods=[HGCAInstantaneousLikelihood(gaia_id=6166183842771027328)],
     variables=@variables begin
         # age ~ truncated(Normal(40, 15),lower=0, upper=200)
         age = 10
