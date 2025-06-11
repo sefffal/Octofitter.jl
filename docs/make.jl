@@ -34,6 +34,7 @@ makedocs(
             "Absolute Astrometry" => [
                 "Proper Motion Anomaly" => "pma.md",
                 "Hipparcos IAD" => "hipparcos.md",
+                "Gaia DR4 IAD" => "gaia-iad.md"
             ],
             "Images and More" => [
                 "Image Data (de-orbiting)" => "images.md",
