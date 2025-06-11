@@ -67,8 +67,8 @@ rvlike = StarAbsoluteRVLikelihood(
     dfrv,
     name="GaiaRV",
     variables=@variables begin
-        offset_gaiarv ~ Normal(mean_rv, 10_000)  # wide prior on RV offset centred on mean RV  
-        jitter_gaiarv ~ LogUniform(0.01, 100_000)  # RV jitter parameter
+        offset ~ Normal(mean_rv, 10_000)  # wide prior on RV offset centred on mean RV  
+        jitter ~ LogUniform(0.01, 100_000)  # RV jitter parameter
     end
 )
 errorbars(
@@ -147,11 +147,11 @@ init_chain = initialize!(model, (;
     dec_offset_mas=0.0,
     # RV variables are now prefixed with likelihood name:
     observations=(;
-        GaiaRV=(;
-            starabsoluterv_offset_gaiarv=mean_rv,
-            starabsoluterv_jitter_gaiarv=0.11,
+        gaiarv=(;
+            offset=mean_rv,
+            jitter=0.11,
         ),
-        GaiaDR4=(;
+        gaiadr4=(;
             astrometric_jitter=0.1,
         )
     )
