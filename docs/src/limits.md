@@ -118,7 +118,7 @@ img_dat_table = Table([
 
 image_data = ImageLikelihood(
     img_dat_table,
-    instrument_name="imgdat-sim",
+    name="imgdat-sim",
     variables=@variables begin
         # Planet flux in image units -- could be contrast, mags, Jy, or arb. as long as it's consistent with the units of the data you provide
         flux = super.L

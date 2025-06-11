@@ -22,14 +22,14 @@ This allows sub-setting data for various statistical checks.
 function likeobj_from_epoch_subset end
 
 """
-    instrument_name(likeobj::AbstractLikelihood)
+    likelihoodname(likeobj::AbstractLikelihood)
 
-Return the instrument name for a likelihood object. 
-Most likelihood objects have an `instrument_name` field, but some specialized
-types may override this function to provide their instrument name differently.
+Return the name for a likelihood object. 
+Most likelihood objects have a `name` field, but some specialized
+types may override this function to provide their name differently.
 """
-instrument_name(likeobj::AbstractLikelihood) = likeobj.instrument_name
-export instrument_name
+likelihoodname(likeobj::AbstractLikelihood) = likeobj.name
+export likelihoodname
 
 
 
@@ -228,13 +228,13 @@ export UniformCircular
 struct BlankLikelihood <: AbstractLikelihood
     priors::Priors
     derived::Derived
-    instrument_name::String
+    name::String
     function BlankLikelihood(
         variables::Tuple{Priors,Derived}=(Priors(),Derived()),
-        instrument_name=""
+        name=""
     )
         (priors,derived)=variables
-        return new(priors,derived,instrument_name)
+        return new(priors,derived,name)
     end
 end
 function Octofitter.ln_like(::BlankLikelihood, θ_system, args...)
@@ -624,7 +624,7 @@ function make_arr2nt(system::System)
             end
         end
         
-        name = normalizename(instrument_name(obs))
+        name = normalizename(likelihoodname(obs))
         ex = :($name = begin
             obs0 = (;$(body_obs_priors...));
             $(body_obs_determ...);
@@ -747,7 +747,7 @@ function make_arr2nt(system::System)
                 end
             end
             
-            name = normalizename(instrument_name(obs))
+            name = normalizename(likelihoodname(obs))
             ex = :($name = begin
                 obs0 = (;$(planet_obs_priors...));
                 $(planet_obs_determ...);

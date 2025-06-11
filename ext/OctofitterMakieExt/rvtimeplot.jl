@@ -163,7 +163,7 @@ function rvtimeplot!(
         gs_row += 1
         ax = Axis(
             gs[gs_row, 1];
-            ylabel= string(instrument_name(like_obj)) * "\n" * (use_kms ? "rv [km/s]" : "rv [m/s]"),
+            ylabel= string(likelihoodname(like_obj)) * "\n" * (use_kms ? "rv [km/s]" : "rv [m/s]"),
             xaxisposition=:top,
             xticks=(date_pos, date_strs),
             xgridvisible=false,
@@ -204,7 +204,7 @@ function rvtimeplot!(
         rv_data = collect(vec(like_obj.table.rv))
         σ_rv = vec(like_obj.table.σ_rv)
 
-        like_obj_name = Octofitter.normalizename(instrument_name(like_obj))
+        like_obj_name = Octofitter.normalizename(likelihoodname(like_obj))
 
         jitter = map(nt_format) do θ_system
             θ_system.observations[like_obj_name].jitter
@@ -285,7 +285,7 @@ function rvtimeplot!(
                 map_gp = nothing
                 # TODO: hacky interdependency
                 if hasproperty(like_obj, :gaussian_process) && !isnothing(like_obj.gaussian_process) 
-                    θ_obs = nt_format[i].observations[Octofitter.normalizename(instrument_name(like_obj))]
+                    θ_obs = nt_format[i].observations[Octofitter.normalizename(likelihoodname(like_obj))]
                     map_gp = like_obj.gaussian_process(θ_obs)
                 end
                 if isnothing(map_gp)
@@ -511,7 +511,7 @@ function rvtimeplot_relative!(
             rv = vec(like_obj.table.rv)
             σ_rv = vec(like_obj.table.σ_rv)
             jitter = map(nt_format) do θ_system
-                θ_system.planets[planet_key].observations[Octofitter.normalizename(instrument_name(like_obj))].jitter
+                θ_system.planets[planet_key].observations[Octofitter.normalizename(likelihoodname(like_obj))].jitter
             end
             σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
 
@@ -566,7 +566,7 @@ function _find_rv_zero_point_maxlike(
     σ_rvs = rvlike.table.σ_rv
     rvs = rvlike.table.rv
 
-    like_obj_name = Octofitter.normalizename(instrument_name(rvlike))
+    like_obj_name = Octofitter.normalizename(likelihoodname(rvlike))
     jitter = θ_system.observations[like_obj_name].jitter
     
     # RV residual calculation: measured RV - model

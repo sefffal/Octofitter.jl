@@ -7,7 +7,7 @@ const rv_cols = (:epoch, :rv, :σ_rv)
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
         
-        instrument_name="inst name",
+        name="inst name",
         variables=@variables begin
             offset ~ Normal(0, 100)           # RV zero-point (m/s)
             jitter ~ LogUniform(0.1, 100.0)  # RV jitter (m/s)
@@ -20,7 +20,7 @@ const rv_cols = (:epoch, :rv, :σ_rv)
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
         
-        instrument_name="inst name",
+        name="inst name",
         trend_function = (θ_obs, epoch) -> θ_obs.trend_slope * (epoch - 57000),  # Linear trend
         gaussian_process = θ_obs -> GP(θ_obs.gp_η₁^2 * SqExponentialKernel() ∘ ScaleTransform(1/θ_obs.gp_η₂)),
         variables=@variables begin
@@ -52,7 +52,7 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF} <: Octofitter.AbstractLikel
     priors::Octofitter.Priors
     derived::Octofitter.Derived
     held_out_table::TTable
-    instrument_name::String
+    name::String
     gaussian_process::GP
     trend_function::TF
 end
@@ -60,7 +60,7 @@ function StarAbsoluteRVLikelihood(
     observations;
     variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end),
     trend_function=(θ_obs, epoch)->zero(Octofitter._system_number_type(θ_obs)),
-    instrument_name="",
+    name="",
     gaussian_process=nothing
 )
     (priors,derived)=variables
@@ -81,8 +81,8 @@ function StarAbsoluteRVLikelihood(
     # We sort the data first by instrument index then by epoch to make some later code faster
     ii = sortperm([r.epoch for r in rows])
     table = Table(rows[ii])
-    if isnothing(instrument_name)
-        instrument_name = string.(1:maximum(table.inst_idx))
+    if isnothing(name)
+        name = string.(1:maximum(table.inst_idx))
     end
 
     # We need special book keeping for computing cross-validataion scores
@@ -91,7 +91,7 @@ function StarAbsoluteRVLikelihood(
     held_out_table = empty(table)
 
     return StarAbsoluteRVLikelihood{typeof(table),typeof(gaussian_process),typeof(trend_function)}(
-        table, priors, derived, held_out_table, instrument_name, gaussian_process, trend_function
+        table, priors, derived, held_out_table, name, gaussian_process, trend_function
     )
 end
 # StarAbsoluteRVLikelihood(observations::NamedTuple...;kwargs...) = StarAbsoluteRVLikelihood(observations; kwargs...)
@@ -108,7 +108,7 @@ function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVLikelihood, obs
     return StarAbsoluteRVLikelihood{
         typeof(table),typeof(obs.gaussian_process),typeof(obs.trend_function)
     }(
-        table, obs.priors, obs.derived, held_out_table, instrument_name(obs), obs.gaussian_process, obs.trend_function
+        table, obs.priors, obs.derived, held_out_table, likelihoodname(obs), obs.gaussian_process, obs.trend_function
     )
 end
 export StarAbsoluteRVLikelihood
@@ -297,7 +297,7 @@ function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_syst
 
     return StarAbsoluteRVLikelihood(
         radvel_table;
-        instrument_name=instrument_name(like),
+        name=likelihoodname(like),
         gaussian_process=like.gaussian_process,
         trend_function=like.trend_function,
         variables=(like.priors, like.derived)

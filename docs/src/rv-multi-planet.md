@@ -27,7 +27,7 @@ epochs = (58400:150:69400) .+ 10 .* randn.()
 rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
 rvlike1 = MarginalizedStarAbsoluteRVLikelihood(
     Table(epoch=epochs, rv=rv .+ 4 .* randn.(), σ_rv=[4 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
-    instrument_name="DATA 1",
+    name="DATA 1",
     variables=@variables begin
         jitter ~ LogUniform(0.1, 100) # m/s
     end
@@ -37,7 +37,7 @@ epochs = (65400:100:71400) .+ 10 .* randn.()
 rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
 rvlike2 = MarginalizedStarAbsoluteRVLikelihood(
     Table(epoch=epochs, rv=rv .+ 2 .* randn.() .+ 7, σ_rv=[2 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
-    instrument_name="DATA 2",
+    name="DATA 2",
     variables=@variables begin
         jitter ~ LogUniform(0.1, 100) # m/s
     end

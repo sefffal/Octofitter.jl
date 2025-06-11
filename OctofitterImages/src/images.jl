@@ -4,7 +4,7 @@ const images_cols = (:image, :epoch, :platescale,)
 """
     ImageLikelihood(
         table,
-        instrument_name="images",
+        name="images",
         variables=@variables begin
         end
     )
@@ -22,7 +22,7 @@ image_dat = Table(;
 
 ImageLikelihood(
     image_dat,
-    instrument_name="SPHERE",
+    name="SPHERE",
     variables=@variables begin
         flux ~ Normal(3.8, 0.5)        # Planet flux in image units
         platescale = 1.0               # Platescale multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
@@ -39,10 +39,10 @@ struct ImageLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
     table::TTable
     priors::Octofitter.Priors
     derived::Octofitter.Derived
-    instrument_name::String
+    name::String
     function ImageLikelihood(
         table;
-        instrument_name::String="images",
+        name::String="images",
         variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin end)
     )
         (priors, derived) = variables
@@ -67,7 +67,7 @@ struct ImageLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
             end
             table = Table(table; contrastmapinterp)
         end
-        return new{typeof(table)}(table, priors, derived, instrument_name)
+        return new{typeof(table)}(table, priors, derived, name)
     end
 end
 # Legacy constructor for backward compatibility

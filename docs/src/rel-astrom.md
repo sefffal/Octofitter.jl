@@ -55,7 +55,7 @@ You can group your data in different likelihood objects, each with their own ins
 ```@example 1
 astrom_like_1 = PlanetRelAstromLikelihood(
     astrom_dat_1,
-    instrument_name = "GPI",
+    name = "GPI",
     variables = @variables begin
         jitter ~ Uniform(0, 10) # mas [optional]
         northangle ~ Normal(0, deg2rad(1)) # radians of offset [optional]
@@ -65,7 +65,7 @@ astrom_like_1 = PlanetRelAstromLikelihood(
 
 astrom_like_2 = PlanetRelAstromLikelihood(
     astrom_dat_2,
-    instrument_name = "SPHERE",
+    name = "SPHERE",
     variables = @variables begin
         jitter ~ Uniform(0, 10) # mas [optional]
         northangle ~ Normal(0, deg2rad(1)) # radians of offset [optional]

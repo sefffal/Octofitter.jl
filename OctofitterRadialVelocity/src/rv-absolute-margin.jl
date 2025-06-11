@@ -12,7 +12,7 @@ using Bumper
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
         
-        instrument_name="inst name",
+        name="inst name",
         variables=@variables begin
             jitter ~ LogUniform(0.1, 100.0)  # RV jitter (m/s)
         end
@@ -37,13 +37,13 @@ struct MarginalizedStarAbsoluteRVLikelihood{TTable<:Table,TF} <: Octofitter.Abst
     table::TTable
     priors::Octofitter.Priors
     derived::Octofitter.Derived
-    instrument_name::String
+    name::String
     trend_function::TF
 end
 function MarginalizedStarAbsoluteRVLikelihood(
     observations;
     variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end),
-    instrument_name="",
+    name="",
     trend_function=(θ_obs, epoch)->zero(Octofitter._system_number_type(θ_obs)),
 )
     (priors,derived)=variables
@@ -62,7 +62,7 @@ function MarginalizedStarAbsoluteRVLikelihood(
     table = Table(rows[ii])
     
     return MarginalizedStarAbsoluteRVLikelihood{typeof(table),typeof(trend_function)}(
-        table, priors, derived, instrument_name, trend_function
+        table, priors, derived, name, trend_function
     )
 end
 function Octofitter.likeobj_from_epoch_subset(obs::MarginalizedStarAbsoluteRVLikelihood, obs_inds)
@@ -70,7 +70,7 @@ function Octofitter.likeobj_from_epoch_subset(obs::MarginalizedStarAbsoluteRVLik
     return MarginalizedStarAbsoluteRVLikelihood{
         typeof(table),typeof(obs.trend_function)
     }(
-        table, obs.priors, obs.derived, instrument_name(obs), obs.trend_function
+        table, obs.priors, obs.derived, likelihoodname(obs), obs.trend_function
     )
 end
 export MarginalizedStarAbsoluteRVLikelihood

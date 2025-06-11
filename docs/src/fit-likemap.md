@@ -161,7 +161,7 @@ likemap_dat = Table(;
 
 loglikemap = LogLikelihoodMap(
     likemap_dat,
-    instrument_name="GRAVITY",
+    name="GRAVITY",
     variables=@variables begin
         platescale = 1.0               # Platescale multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
         northangle = 0.0               # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]

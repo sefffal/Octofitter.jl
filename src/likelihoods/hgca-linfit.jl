@@ -35,7 +35,7 @@ struct HGCALikelihood{THGCA,THip,TGaia} <: AbstractLikelihood
 end
 
 # Special method for HGCALikelihood which doesn't have an instrument_name field
-instrument_name(::HGCALikelihood) = "HGCA"
+likelihoodname(::HGCALikelihood) = "HGCA"
 
 function HGCALikelihood(;
     variables::Tuple{Priors,Derived}=(@variables begin;end ),

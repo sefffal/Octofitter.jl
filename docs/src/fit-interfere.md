@@ -35,7 +35,7 @@ data = Table([
 ])
 vis_like = InterferometryLikelihood(
     data,
-    instrument_name="NIRISS-AMI",
+    name="NIRISS-AMI",
     variables=@variables begin
         # For single planet:
         flux ~ truncated(Normal(0, 0.1), lower=0)  # Planet flux/contrast (array with one element)

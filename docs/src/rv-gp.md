@@ -56,7 +56,7 @@ gp_per_unc = 0.12
 
 rvlike_harps = StarAbsoluteRVLikelihood(
     rv_dat[rv_dat_raw.tel .== "harps-n",:],
-    instrument_name="harps-n",
+    name="harps-n",
     variables=(@variables begin
         offset ~ Normal(-6693,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s
@@ -76,7 +76,7 @@ rvlike_harps = StarAbsoluteRVLikelihood(
 )
 rvlike_pfs = StarAbsoluteRVLikelihood(
     rv_dat[rv_dat_raw.tel .== "pfs",:],
-    instrument_name="pfs",
+    name="pfs",
     variables=(@variables begin
         offset ~ Normal(0,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s
@@ -203,7 +203,7 @@ using OctofitterRadialVelocity.Celerite
 
 rvlike_harps = StarAbsoluteRVLikelihood(
     rv_dat[rv_dat_raw.tel .== "harps-n",:],
-    instrument_name="harps-n",
+    name="harps-n",
     variables=(@variables begin
         offset ~ Normal(-6693,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s
@@ -227,7 +227,7 @@ rvlike_harps = StarAbsoluteRVLikelihood(
 )
 rvlike_pfs = StarAbsoluteRVLikelihood(
     rv_dat[rv_dat_raw.tel .== "pfs",:],
-    instrument_name="pfs",
+    name="pfs",
     variables=(@variables begin
         offset ~ Normal(0,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s

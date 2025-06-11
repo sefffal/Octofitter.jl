@@ -47,7 +47,7 @@ rv_data = Table(
 )
 
 rv_like = StarAbsoluteRVLikelihood(rv_data, 
-    instrument_name="insert name here",
+    name="insert name here",
     variables=@variables begin
         offset ~ Uniform(-1000, 1000) # m/s
         jitter ~ LogUniform(0.01, 10) # m/s
@@ -72,7 +72,7 @@ tels = sort(unique(rv_dat_raw.tel))
 # likelihood object for each:
 rvlike_harps = StarAbsoluteRVLikelihood(
     rv_dat[rv_dat_raw.tel .== "harps-n",:],
-    instrument_name="harps-n",
+    name="harps-n",
     variables=@variables begin
         offset ~ Normal(-6693,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s
@@ -80,7 +80,7 @@ rvlike_harps = StarAbsoluteRVLikelihood(
 )
 rvlike_pfs = StarAbsoluteRVLikelihood(
     rv_dat[rv_dat_raw.tel .== "pfs",:],
-    instrument_name="pfs",
+    name="pfs",
     variables=@variables begin
         offset ~ Normal(0,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s

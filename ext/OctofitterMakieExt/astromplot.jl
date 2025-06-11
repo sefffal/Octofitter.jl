@@ -190,7 +190,7 @@ function Octofitter.astromplot!(
     i_like_obj = 0
     for like_obj in like_objs
         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
-            i_like_obj = findfirst(==(instrument_name(like_obj)), rel_astrom_names)
+            i_like_obj = findfirst(==(likelihoodname(like_obj)), rel_astrom_names)
             x = Float64[]
             y = Float64[]
             xs = Float64[]

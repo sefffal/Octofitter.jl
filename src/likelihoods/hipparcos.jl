@@ -78,18 +78,18 @@ struct HipparcosIADLikelihood{THipSol,TIADTable<:Table,TDist,TFact} <: AbstractL
     table::TIADTable
     priors::Priors
     derived::Derived
-    instrument_name::String
+    name::String
     # precomputed MvNormal distribution
     dist::TDist
     A_prepared_4::TFact
     A_prepared_5::TFact
 end
 
-# Add instrument_name method
-instrument_name(::HipparcosIADLikelihood) = "Hipparcos IAD"
+# Add likelihoodname method
+likelihoodname(::HipparcosIADLikelihood) = "Hipparcos IAD"
 
 function likeobj_from_epoch_subset(obs::HipparcosIADLikelihood, obs_inds)
-    return HipparcosIADLikelihood(obs.hip_sol, obs.table[obs_inds, :, 1], obs.priors, obs.derived, obs.instrument_name, obs.dist, obs.A_prepared_4, obs.A_prepared_5)
+    return HipparcosIADLikelihood(obs.hip_sol, obs.table[obs_inds, :, 1], obs.priors, obs.derived, obs.name, obs.dist, obs.A_prepared_4, obs.A_prepared_5)
 end
 
 """

@@ -15,13 +15,13 @@ include("GRAVITY-correlation.jl")
 struct GRAVITYWideKPLikelihood{TTable<:Table,TInterp} <: AbstractInterferometryLikelihood
     table::TTable
     fiber_coupling_interpolator::TInterp
-    instrument_name::String
+    name::String
     priors::Octofitter.Priors
     derived::Octofitter.Derived
 end
 function GRAVITYWideKPLikelihood(
     observations...;
-    instrument_name="GRAVITY-WIDE",
+    name="GRAVITY-WIDE",
     variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(@variables begin;end)
 )
     input_table = Table(observations...)
@@ -90,12 +90,12 @@ function GRAVITYWideKPLikelihood(
     coupling_interp = LinearInterpolation((sep_mas, λs), fiber_coupling, extrapolation_bc=0.0)
 
     (priors,derived) = variables
-    return GRAVITYWideKPLikelihood{typeof(table),typeof(coupling_interp)}(table, coupling_interp, instrument_name, priors, derived)
+    return GRAVITYWideKPLikelihood{typeof(table),typeof(coupling_interp)}(table, coupling_interp, name, priors, derived)
 end
 function Octofitter.likeobj_from_epoch_subset(obs::GRAVITYWideKPLikelihood, obs_inds)
     return GRAVITYWideKPLikelihood(
         obs.table[obs_inds,:,1]...,
-        instrument_name=obs.instrument_name,
+        name=obs.name,
         variables=(obs.priors, obs.derived)
     )
 end

@@ -62,7 +62,7 @@ struct ObsPriorAstromONeil2019{Likelihood<:AbstractLikelihood} <: AbstractLikeli
 	end
 end
 export ObsPriorAstromONeil2019
-instrument_name(::ObsPriorAstromONeil2019) = "obspri"
+likelihoodname(::ObsPriorAstromONeil2019) = "obspri"
 _isprior(::ObsPriorAstromONeil2019) = true
 
 function likeobj_from_epoch_subset(obs::ObsPriorAstromONeil2019, obs_inds)

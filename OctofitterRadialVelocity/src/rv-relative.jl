@@ -4,7 +4,7 @@
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
         
-        instrument_name="inst name",
+        name="inst name",
         variables=@variables begin
             jitter ~ LogUniform(0.1, 100.0)  # RV jitter (m/s)
         end
@@ -16,7 +16,7 @@
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
         
-        instrument_name="inst name",
+        name="inst name",
         gaussian_process = θ_obs -> GP(θ_obs.gp_η₁^2 * SqExponentialKernel() ∘ ScaleTransform(1/θ_obs.gp_η₂)),
         variables=@variables begin
             jitter ~ LogUniform(0.1, 100.0)     # RV jitter (m/s)
@@ -39,11 +39,11 @@ in the variables block and accessed via `θ_obs.parameter_name`.
 """
 struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikelihood
     table::TTable
-    instrument_name::String
+    name::String
     gaussian_process::GP
     priors::Octofitter.Priors
     derived::Octofitter.Derived
-    function PlanetRelativeRVLikelihood(observations...; instrument_name="1", gaussian_process=nothing, variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end))
+    function PlanetRelativeRVLikelihood(observations...; name="1", gaussian_process=nothing, variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end))
         (priors,derived)=variables
         table = Table(observations...)
         if !Octofitter.equal_length_cols(table)
@@ -65,14 +65,14 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikeli
         ii = sortperm(table.epoch)
         table = table[ii]
 
-        return new{typeof(table),typeof(gaussian_process)}(table, instrument_name, gaussian_process, priors, derived)
+        return new{typeof(table),typeof(gaussian_process)}(table, name, gaussian_process, priors, derived)
     end
 end
 PlanetRelativeRVLikelihood(observations::NamedTuple...;kwargs...) = PlanetRelativeRVLikelihood(observations; kwargs...)
 function Octofitter.likeobj_from_epoch_subset(obs::PlanetRelativeRVLikelihood, obs_inds)
     return PlanetRelativeRVLikelihood(
         obs.table[obs_inds,:,1]...;
-        instrument_name=instrument_name(obs),
+        name=likelihoodname(obs),
         gaussian_process=obs.gaussian_process,
         variables=(obs.priors, obs.derived)
     )
@@ -190,7 +190,7 @@ function Octofitter.generate_from_params(like::PlanetRelativeRVLikelihood, θ_pl
 
     return PlanetRelativeRVLikelihood(
         radvel_table;
-        instrument_name=instrument_name(like),
+        name=likelihoodname(like),
         gaussian_process=like.gaussian_process,
         variables=(like.priors, like.derived)
     )
@@ -211,7 +211,7 @@ function Octofitter.generate_from_params(like::PlanetRelativeRVLikelihood, θ_sy
 
     return PlanetRelativeRVLikelihood(
         radvel_table;
-        instrument_name=instrument_name(like),
+        name=likelihoodname(like),
         gaussian_process=like.gaussian_process,
         variables=(like.priors, like.derived)
     )

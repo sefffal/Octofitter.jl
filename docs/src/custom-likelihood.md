@@ -20,7 +20,7 @@ The first step is to create a new data type to hold the observations.
     )
     MyLikelihood(
         data,
-        instrument_name="MY_INSTRUMENT",
+        name="MY_INSTRUMENT",
         variables=@variables begin
             my_parameter ~ Normal(0, 1)
         end
@@ -30,12 +30,12 @@ A custom likelihood for my specific type of observations.
 """
 struct MyLikelihood{TTable<:Table} <: AbstractLikelihood
     table::TTable
-    instrument_name::String
+    name::String
     priors::Priors
     derived::Derived
     function MyLikelihood(
             observations;
-            instrument_name="MY_LIKELIHOOD",
+            name="MY_LIKELIHOOD",
             variables::Tuple{Priors,Derived}=(@variables begin;end)
         )
         (priors,derived)=variables
@@ -48,7 +48,7 @@ struct MyLikelihood{TTable<:Table} <: AbstractLikelihood
         # if !issubset(expected_cols, Tables.columnnames(table))
         #     error("Expected columns $expected_cols")
         # end
-        return new{typeof(table)}(table, instrument_name, priors, derived)
+        return new{typeof(table)}(table, name, priors, derived)
     end
 end
 export MyLikelihood
@@ -57,7 +57,7 @@ export MyLikelihood
 Here we create a struct `MyLikelihood` that is a subtype of `AbstractLikelihood`. The new API includes:
 
 - **`table`**: The observational data as a TypedTables.Table
-- **`instrument_name`**: Used for variable naming in MCMC chains
+- **`name`**: Used for variable naming in MCMC chains
 - **`priors`** and **`derived`**: Observation-specific variables from the `@variables` block
 
 Try to follow the advice in the Julia Manual's performance tips section to ensure you've created a fully "concrete" type. This won't affect correctness, but will be important for performance down the road.
@@ -214,7 +214,7 @@ data = Table(
 # Create the likelihood with observation-specific variables
 my_like = MyLikelihood(
     data,
-    instrument_name="MY_INSTRUMENT",
+    name="MY_INSTRUMENT",
     variables=@variables begin
         my_parameter ~ Normal(0, 0.5)  # Some calibration parameter
         jitter ~ LogUniform(0.01, 1.0)  # Additional uncertainty
@@ -270,7 +270,7 @@ function Octofitter.generate_from_params(like::MyLikelihood, orbit::PlanetOrbits
     # Return new likelihood object with simulated data
     return MyLikelihood(
         simulated_table,
-        instrument_name=like.instrument_name,
+        name=like.name,
         variables=(like.priors, like.derived)
     )
 end
@@ -285,7 +285,7 @@ You may also need to implement:
 function Octofitter.likeobj_from_epoch_subset(obs::MyLikelihood, obs_inds)
     return MyLikelihood(
         obs.table[obs_inds,:,1]; 
-        instrument_name=obs.instrument_name, 
+        name=obs.name, 
         variables=(obs.priors, obs.derived)
     )
 end

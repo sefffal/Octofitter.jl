@@ -44,7 +44,7 @@ planet_b = Planet(
 hires_data = OctofitterRadialVelocity.HIRES_rvs("HD22049")
 rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
     hires_data,
-    instrument_name="HIRES",
+    name="HIRES",
     variables=@variables begin
         jitter ~ LogUniform(0.1, 100) # m/s
     end

@@ -36,7 +36,7 @@ function likeobj_from_epoch_subset(obs::HGCAInstantaneousLikelihood, obs_inds)
     return HGCAInstantaneousLikelihood(obs.table[obs_inds,:,1], obs.hgca, obs.priors, obs.derived)
 end
 # Special method for HGCAInstantaneousLikelihood which doesn't have an instrument_name field
-instrument_name(::HGCAInstantaneousLikelihood) = "HGCA"
+likelihoodname(::HGCAInstantaneousLikelihood) = "HGCA"
 export HGCAInstantaneousLikelihood
 
 

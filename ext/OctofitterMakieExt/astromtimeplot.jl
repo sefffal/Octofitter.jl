@@ -316,7 +316,7 @@ function astromtimeplot!(
     
     for like_obj in like_objs
         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
-            i_like_obj = findfirst(==(instrument_name(like_obj)), rel_astrom_names)
+            i_like_obj = findfirst(==(likelihoodname(like_obj)), rel_astrom_names)
             if hasproperty(like_obj.table, :sep)
                 epoch = like_obj.table.epoch
                 sep = like_obj.table.sep

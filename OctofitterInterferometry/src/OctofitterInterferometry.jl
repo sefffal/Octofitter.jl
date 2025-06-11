@@ -11,20 +11,20 @@ abstract type AbstractInterferometryLikelihood <: Octofitter.AbstractLikelihood 
 const required_cols = (:epoch, :u, :v, :cps_data, :dcps, :vis2_data, :dvis2, :index_cps1, :index_cps2, :index_cps3, :use_vis2)
 struct InterferometryLikelihood{TTable<:Table} <: AbstractInterferometryLikelihood
     table::TTable
-    instrument_name::String
+    name::String
     priors::Octofitter.Priors
     derived::Octofitter.Derived
 end
 function Octofitter.likeobj_from_epoch_subset(obs::InterferometryLikelihood, obs_inds)
     return InterferometryLikelihood(
         obs.table[obs_inds,:,1]...,
-        instrument_name=obs.instrument_name,
+        name=obs.name,
         variables=(obs.priors, obs.derived)
     )
 end
 function InterferometryLikelihood(
     observations...;
-    instrument_name,
+    name,
     variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(@variables begin;end)
 )
     input_table = Table(observations...)
@@ -41,7 +41,7 @@ function InterferometryLikelihood(
         error("Expected columns $vis_cols")
     end
     (priors,derived) = variables
-    return InterferometryLikelihood{typeof(table)}(table, instrument_name, priors, derived)
+    return InterferometryLikelihood{typeof(table)}(table, name, priors, derived)
 end
 InterferometryLikelihood(observations::NamedTuple...) = InterferometryLikelihood(observations)
 export InterferometryLikelihood
@@ -436,7 +436,7 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, θ_syst
 
     # return with same number of rows: epoch
     # position of point source according to orbit, θ_system, θ_planet
-    return InterferometryLikelihood(new_vis_like_table; instrument_name=like.instrument_name, variables=(like.priors, like.derived))
+    return InterferometryLikelihood(new_vis_like_table; name=like.name, variables=(like.priors, like.derived))
 end
 
 include("GRAVITY.jl")

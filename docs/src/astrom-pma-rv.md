@@ -157,7 +157,7 @@ astrom_dat = Table(;
 
 astrom_like = PlanetRelAstromLikelihood(
     astrom_dat,
-    instrument_name = "SCExAO",
+    name = "SCExAO",
     variables = @variables begin
         # Fixed values for this example - could be free variables:
         jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
@@ -183,7 +183,7 @@ rv_dat = Table(;
 
 rvlike = PlanetRelativeRVLikelihood(
     rv_dat,
-    instrument_name="SOPHIE",
+    name="SOPHIE",
     variables=@variables begin
         jitter ~ truncated(Normal(10, 5), lower=0)  # m/s [could fix: jitter = 0]
     end
@@ -252,7 +252,7 @@ rv_dat_abs = Table(;
 
 rvlike = StarAbsoluteRVLikelihood(
     rv_dat_abs,
-    instrument_name="SOPHIE",
+    name="SOPHIE",
     variables=@variables begin
         jitter ~ truncated(Normal(10, 5), lower=0)  # m/s
         offset ~ Normal(0, 1000)  # m/s

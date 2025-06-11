@@ -9,7 +9,7 @@ const phot_cols = (:phot, :σ_phot)
     )
     PhotometryLikelihood(
         data,
-        instrument_name="INSTRUMENT",
+        name="INSTRUMENT",
         variables=@variables begin
             flux ~ Uniform(0, 10)
         end
@@ -25,16 +25,16 @@ The flux variable should be defined in the `variables` block rather than
 in the planet definition. This can be derived from physical models that 
 take planet mass and other system parameters as input.
 
-The `instrument_name` is used for variable naming in the chain output.
+The `name` is used for variable naming in the chain output.
 """
 struct PhotometryLikelihood{TTable<:Table} <: AbstractLikelihood
     table::TTable
-    instrument_name::String
+    name::String
     priors::Priors
     derived::Derived
     function PhotometryLikelihood(
             observations;
-            instrument_name="PHOTOMETRY",
+            name="PHOTOMETRY",
             variables::Tuple{Priors,Derived}=(@variables begin;end)
         )
         (priors,derived)=variables
@@ -45,14 +45,14 @@ struct PhotometryLikelihood{TTable<:Table} <: AbstractLikelihood
         if !issubset(phot_cols, Tables.columnnames(table))
             error("Expected columns $phot_cols")
         end
-        return new{typeof(table)}(table, instrument_name, priors, derived)
+        return new{typeof(table)}(table, name, priors, derived)
     end
 end
 # PhotometryLikelihood(observations::NamedTuple...; kwargs...) = PhotometryLikelihood(observations; kwargs...)
 export PhotometryLikelihood
 
 function likeobj_from_epoch_subset(obs::PhotometryLikelihood, obs_inds)
-    return PhotometryLikelihood(obs.table[obs_inds,:,1]; instrument_name=obs.instrument_name, variables=(obs.priors, obs.derived))
+    return PhotometryLikelihood(obs.table[obs_inds,:,1]; name=obs.name, variables=(obs.priors, obs.derived))
 end
 
 # PhotometryLikelihood: attached to a system

@@ -73,7 +73,7 @@ image_dat = Table(;
 
 image_data = ImageLikelihood(
     image_dat,
-    instrument_name="SPHERE",
+    name="SPHERE",
     variables=@variables begin
         # Planet flux in image units -- could be contrast, mags, Jy, or arb. as long as it's consistent
         flux ~ Normal(3.8, 0.5)

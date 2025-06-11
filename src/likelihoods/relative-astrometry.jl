@@ -22,11 +22,11 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple} <: AbstractLikelihood
     priors::Priors
     derived::Derived
     precomputed_pointwise_distributions::TDistTuple
-    instrument_name::String
+    name::String
     function PlanetRelAstromLikelihood(
             observations;
             variables::Tuple{Priors,Derived}=(@variables begin;end),
-            instrument_name=""
+            name=""
         )
         (priors,derived)=variables
         table = Table(observations)
@@ -80,7 +80,7 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple} <: AbstractLikelihood
 
         precomputed_pointwise_distributions_tuple = (precomputed_pointwise_distributions...,)
         return new{typeof(table),typeof(precomputed_pointwise_distributions_tuple),}(
-            table, priors, derived, precomputed_pointwise_distributions_tuple, instrument_name
+            table, priors, derived, precomputed_pointwise_distributions_tuple, name
         )
     end
 end

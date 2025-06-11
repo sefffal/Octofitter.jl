@@ -61,8 +61,8 @@ function make_ln_like(system::System, θ_system)
         likelihood_exprs = map(enumerate(planet.observations)) do (i_like, like)
             i_epoch_start = get(epoch_start_index_mapping, like, 0)
             # Get the normalized observation name to access θ_obs
-            if hasproperty(like, :instrument_name)
-                obs_name = normalizename(instrument_name(like))
+            if hasproperty(like, :name)
+                obs_name = normalizename(likelihoodname(like))
                 expr = :(
                     $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
                         system.planets[$(Meta.quot(i))].observations[$i_like],
@@ -134,7 +134,7 @@ function make_ln_like(system::System, θ_system)
         like = system.observations[i]
         i_epoch_start = get(epoch_start_index_mapping, like, 0)
         # Get the normalized observation name to access θ_obs
-        obs_name = normalizename(instrument_name(like))
+        obs_name = normalizename(likelihoodname(like))
         expr = :(
             $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
                 system.observations[$i], 

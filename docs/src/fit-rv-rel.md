@@ -47,7 +47,7 @@ rv_dat_1 = Table(
 
 rel_rv_like = PlanetRelativeRVLikelihood(
     rv_dat_1, 
-    instrument_name="simulated data",
+    name="simulated data",
     variables = @variables begin
         jitter ~ LogUniform(0.1, 1000) # m/s
     end

@@ -4,7 +4,7 @@ const likemap_cols = (:map, :epoch, :platescale,)
 """
     LogLikelihoodMap(
         table,
-        instrument_name="likemap",
+        name="likemap",
         variables=@variables begin
         end
     )
@@ -24,7 +24,7 @@ likemap_dat = Table(;
 
 LogLikelihoodMap(
     likemap_dat,
-    instrument_name="GRAVITY",
+    name="GRAVITY",
     variables=@variables begin
         platescale = 1.0               # Platescale multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
         northangle = 0.0               # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
@@ -38,10 +38,10 @@ struct LogLikelihoodMap{TTable<:Table} <: Octofitter.AbstractLikelihood
     table::TTable
     priors::Octofitter.Priors
     derived::Octofitter.Derived
-    instrument_name::String
+    name::String
     function LogLikelihoodMap(
         table;
-        instrument_name::String="likemap",
+        name::String="likemap",
         variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin end)
     )
         (priors, derived) = variables
@@ -66,7 +66,7 @@ struct LogLikelihoodMap{TTable<:Table} <: Octofitter.AbstractLikelihood
             LinearInterpolation(parent.(dims(img)), data, extrapolation_bc=convert(eltype(img), row[].fillvalue))
         end
         table = Table(table; mapinterp)
-        return new{typeof(table)}(table, priors, derived, instrument_name)
+        return new{typeof(table)}(table, priors, derived, name)
     end
 end
 # Legacy constructor for backward compatibility

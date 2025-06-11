@@ -357,13 +357,13 @@ function Octofitter.rvpostplot!(
         marker_symbol = marker_symbols[mod1(rv_like_idx, length(marker_symbols))]
 
         if rvs isa StarAbsoluteRVLikelihood
-            jitter = nt_format.observations[Octofitter.normalizename(instrument_name(rvs))].jitter
-            barycentric_rv_inst = nt_format.observations[Octofitter.normalizename(instrument_name(rvs))].offset
+            jitter = nt_format.observations[Octofitter.normalizename(likelihoodname(rvs))].jitter
+            barycentric_rv_inst = nt_format.observations[Octofitter.normalizename(likelihoodname(rvs))].offset
         elseif rvs isa MarginalizedStarAbsoluteRVLikelihood
             # TODO: marginalized RV likelihood
 
             barycentric_rv_inst = _find_rv_zero_point_maxlike(rvs, nt_format, els_by_planet)
-            like_obj_name = Octofitter.normalizename(instrument_name(rvs))
+            like_obj_name = Octofitter.normalizename(likelihoodname(rvs))
             jitter = nt_format.observations[like_obj_name].jitter
         else
             error("plotting not yet implemented for this type of data")
@@ -420,7 +420,7 @@ function Octofitter.rvpostplot!(
         # If not using a GP, we fit a GP with a "ZeroKernel"
         map_gp = nothing
         if hasproperty(rvs, :gaussian_process) && !isnothing(rvs.gaussian_process)
-            θ_obs = nt_format.observations[Octofitter.normalizename(instrument_name(rvs))]
+            θ_obs = nt_format.observations[Octofitter.normalizename(likelihoodname(rvs))]
             map_gp = rvs.gaussian_process(θ_obs)
         end
         if isnothing(map_gp)
@@ -746,7 +746,7 @@ function Octofitter.rvpostplot!(
             ]
         ]
         labels = [
-            [instrument_name(rv) for rv in rv_likes_all],
+            [likelihoodname(rv) for rv in rv_likes_all],
             [
                 "data uncertainty",
                 any_models_have_a_gp ? "uncertainty,\njitter, and GP" : "uncertainty and\njitter",
@@ -836,7 +836,7 @@ function _find_rv_zero_point_maxlike(
     σ_rvs = rvlike.table.σ_rv
     rvs = rvlike.table.rv
 
-    like_obj_name = Octofitter.normalizename(instrument_name(rvlike))
+    like_obj_name = Octofitter.normalizename(likelihoodname(rvlike))
     jitter = θ_system.observations[like_obj_name].jitter
 
     # RV residual calculation: measured RV - model

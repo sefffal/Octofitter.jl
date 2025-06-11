@@ -21,7 +21,7 @@ astrom_dat = Table(;
 
 astrom_like = PlanetRelAstromLikelihood(
     astrom_dat,
-    instrument_name = "GPI",
+    name = "GPI",
     variables = @variables begin
         # Fixed values for this example - could be free variables:
         jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]

@@ -67,7 +67,7 @@ function prior_only_model(system::System;exclude_all=false)
         newplanet_obs = map(planet.observations) do obs
             if exclude_all || !_isprior(obs)
                 # We have to make sure we have the same variables even if we drop the data
-                return BlankLikelihood((obs.priors,obs.derived),instrument_name(obs))
+                return BlankLikelihood((obs.priors,obs.derived),likelihoodname(obs))
             end
         end
         newplanet_obs = filter(!isnothing, newplanet_obs)
@@ -83,7 +83,7 @@ function prior_only_model(system::System;exclude_all=false)
     newsys_obs = map(system.observations) do obs
         if exclude_all || !_isprior(obs)
             # We have to make sure we have the same variables even if we drop the data
-            return BlankLikelihood((obs.priors,obs.derived),instrument_name(obs))
+            return BlankLikelihood((obs.priors,obs.derived),likelihoodname(obs))
         end
     end
     newsys_obs = filter(!isnothing, newsys_obs)

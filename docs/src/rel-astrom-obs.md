@@ -22,7 +22,7 @@ astrom_dat = Table(;
 
 astrom_like = PlanetRelAstromLikelihood(
     astrom_dat,
-    instrument_name = "obs_prior_example",
+    name = "obs_prior_example",
     variables = @variables begin
         # Fixed values for this example - could be free variables:
         jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
@@ -89,7 +89,7 @@ Compare this with the previous fit using uniform priors:
 ```@example 1
 astrom_like_uniform = PlanetRelAstromLikelihood( # hide
     astrom_dat, # hide
-    instrument_name = "uniform_prior_example", # hide
+    name = "uniform_prior_example", # hide
     variables = @variables begin # hide
         jitter = 0        # mas # hide
         northangle = 0    # radians # hide

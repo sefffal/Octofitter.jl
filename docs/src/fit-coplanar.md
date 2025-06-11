@@ -36,7 +36,7 @@ astrom_dat_c = Table(;
 
 astrom_b = PlanetRelAstromLikelihood(
     astrom_dat_b,
-    instrument_name = "GPI",
+    name = "GPI",
     variables = @variables begin
         # Fixed values for this example - could be free variables:
         jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
@@ -47,7 +47,7 @@ astrom_b = PlanetRelAstromLikelihood(
 
 astrom_c = PlanetRelAstromLikelihood(
     astrom_dat_c,
-    instrument_name = "GPI",
+    name = "GPI",
     variables = @variables begin
         # Fixed values for this example - could be free variables:
         jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]

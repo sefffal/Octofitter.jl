@@ -46,7 +46,7 @@ astrom_dat = Table(
 
 astrom = PlanetRelAstromLikelihood(
     astrom_dat,
-    instrument_name = "simulated",
+    name = "simulated",
     variables = @variables begin
         # Fixed values for this example - could be free variables:
         jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
@@ -79,7 +79,7 @@ rvlike = MarginalizedStarAbsoluteRVLikelihood(
         rv=radvel.(orb_template, epochs, planet_sim_mass) .+ 150,
         σ_rv=fill(5.0, size(epochs)),
     ),
-    instrument_name="inst1",
+    name="inst1",
     variables=@variables begin
         jitter ~ LogUniform(0.1, 100) # m/s
     end
@@ -93,7 +93,7 @@ rvlike2 = MarginalizedStarAbsoluteRVLikelihood(
         rv=radvel.(orb_template, epochs, planet_sim_mass) .- 150,
         σ_rv=fill(5.0, size(epochs)),
     ),
-    instrument_name="inst2",
+    name="inst2",
     variables=@variables begin
         jitter ~ LogUniform(0.1, 100) # m/s
     end

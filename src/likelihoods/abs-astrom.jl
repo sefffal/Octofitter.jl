@@ -37,14 +37,14 @@ struct GaiaHipparcosUEVAJointLikelihood{TTable,TTableH,TTableG,TCat} <: Abstract
     A_prepared_5_dr3::Matrix{Float64}
     priors::Octofitter.Priors
     derived::Octofitter.Derived
-    instrument_name::String
+    name::String
     include_iad::Bool
     ueva_mode::Symbol
 end
 
 
-function instrument_name(like::GaiaHipparcosUEVAJointLikelihood)
-    return like.instrument_name
+function likelihoodname(like::GaiaHipparcosUEVAJointLikelihood)
+    return like.name
 end
 
 function GaiaHipparcosUEVAJointLikelihood(;
@@ -52,7 +52,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
         scanlaw_table=nothing,
         catalog,
         variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin end),
-        instrument_name="GaiaHipparcos",
+        name="GaiaHipparcos",
         include_iad=false,
         ueva_mode::Symbol=:RUWE,
     )
@@ -380,7 +380,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
         A_prepared_5_dr3,
         priors,
         derived,
-        instrument_name,
+        name,
         include_iad,
         ueva_mode,
     )
@@ -397,7 +397,7 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
         A_prepared_5_dr3,
         priors,
         derived,
-        instrument_name,
+        name,
         include_iad,
         ueva_mode ) = like
     
@@ -417,7 +417,7 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
         A_prepared_5_dr3,
         priors,
         derived,
-        instrument_name,
+        name,
         include_iad,
         ueva_mode,
     )
