@@ -26,7 +26,7 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple} <: AbstractLikelihood
     function PlanetRelAstromLikelihood(
             observations;
             variables::Tuple{Priors,Derived}=(@variables begin;end),
-            name=""
+            name
         )
         (priors,derived)=variables
         table = Table(observations)
@@ -38,7 +38,7 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple} <: AbstractLikelihood
             error("Expected columns $astrom_cols1 or $astrom_cols3")
         end
 
-        ii = sortperm(table.epoch)
+        ii = sortperm(vec(table.epoch))
         table = table[ii]
 
         # For data points with a non-zero correlation, we can speed things up slightly
@@ -89,7 +89,11 @@ export PlanetRelAstromLikelihood
 
 
 function likeobj_from_epoch_subset(obs::PlanetRelAstromLikelihood, obs_inds)
-    return PlanetRelAstromLikelihood(obs.table[obs_inds,:,1]...)
+    return PlanetRelAstromLikelihood(
+        obs.table[obs_inds,:,1];
+        obs.name,
+        variables=(obs.priors, obs.derived,)
+    )
 end
 
 # Plot recipe for astrometry data
