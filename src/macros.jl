@@ -79,13 +79,6 @@ macro variables(variables_block_input)
         # Create the function with unescaped parameter names
         local captured_vals = tuple($([esc(val.args[1]) for val in all_quote_vals]...))
         local captured_names = $captured_names_tuple
-        Priors(;$(priors...))
-         $derived_dict_expr
-         Derived(
-                $derived_dict_expr,
-                captured_names,
-                captured_vals
-            )
         (
             Priors(;$(priors...)), 
             Derived(
