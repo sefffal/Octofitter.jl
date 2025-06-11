@@ -311,7 +311,7 @@ function astromtimeplot!(
     rel_astrom_likes = filter(like_objs) do like_obj
         nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
     end
-    rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :instrument_name)))
+    rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :name)))
     n_rel_astrom = length(rel_astrom_names)
     
     for like_obj in like_objs

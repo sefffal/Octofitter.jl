@@ -170,7 +170,7 @@ scatter(astrom_like.table.ra, astrom_like.table.dec)
 
 
 We use the same model as before, but now condition the planet model `B` on the astrometry data by
-adding `astrom_like` to the end of the `@planet` defintion.
+adding `astrom_like` to the list of `likelihoods` in the planet model.
 
 ```@example 1
 using OctofitterRadialVelocity

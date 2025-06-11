@@ -62,23 +62,25 @@ function Whereistheplanet_astrom(target, catalog=datadep"Whereistheplanet"; obje
 
         out = PlanetRelAstromLikelihood[]
         if length(seppa) > 0
-            astrom_seppa = PlanetRelAstromLikelihood(map(seppa) do row
+            dat = map(seppa) do row
                 cor=row.quant12_corr
                 if !isfinite(cor)
                     cor = 0.0
                 end
                 (;row.epoch, sep=row.quant1, σ_sep=row.quant1_err, pa=deg2rad(row.quant2), σ_pa=deg2rad(row.quant2_err), cor)
-            end)
+            end
+            astrom_seppa = PlanetRelAstromLikelihood(dat, name="relastromwip")
             push!(out, astrom_seppa)
         end
         if length(radec) > 0
-            astrom_radec = PlanetRelAstromLikelihood(map(radec) do row
+            dat = map(radec) do row
                 cor=row.quant12_corr
                 if !isfinite(cor)
                     cor = 0.0
                 end
                 (;row.epoch, ra=row.quant1, σ_ra=row.quant1_err, dec=row.quant2, σ_dec=row.quant2_err, cor)
-            end)
+            end
+            astrom_radec = PlanetRelAstromLikelihood(dat, name="relastromwip")
             push!(out, astrom_radec)
         end
 
