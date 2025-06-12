@@ -74,6 +74,9 @@ macro variables(variables_block_input)
                         @error "There is an error in your prior specification for $($(Meta.quot(varname))). The right-hand side of the ~ must be a Distributions.jl distribution. Did you run `using Distributions`? This is what we got:" expression=$(string(expression))
                         rethrow(err)
                     end;
+                    if distribution isa Tuple || distribution isa AbstractArray
+                        distribution = Product([distribution...])
+                    end;
                     if !(
                         distribution isa Distributions.Distribution ||
                         distribution isa Octofitter.Parameterization

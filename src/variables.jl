@@ -244,6 +244,9 @@ generate_from_params(like::UserLikelihood, θ_planet, orbit) = like
 # System-level likelihood
 function ln_like(user_like::UserLikelihood{TDist, TSym}, θ_system::NamedTuple, _args...) where {TDist, TSym}
     value = getproperty(θ_system, TSym)
+    if value isa NTuple{N,<:Number} where N
+        value = SVector(value)
+    end
     return logpdf(user_like.distribution, value)
 end
 
@@ -251,6 +254,9 @@ end
 function ln_like(user_like::UserLikelihood{TDist, TSym}, θ_system::NamedTuple, θ_planet::NamedTuple, θ_obs::NamedTuple, _args...) where {TDist, TSym}
     θ = merge(θ_planet, θ_obs)
     value = getproperty(θ, TSym)
+    if value isa NTuple{N,<:Number} where N
+        value = SVector(value)
+    end
     return logpdf(user_like.distribution, value)
 end
 
