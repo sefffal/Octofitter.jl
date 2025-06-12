@@ -90,9 +90,7 @@ planet_b = Planet(
         P = 2*P_nominal * P_mul
 
         a = cbrt(M * P^2)
-        θ_x ~ Normal()
-        θ_y ~ Normal()
-        θ = atan(θ_y, θ_x)
+        θ ~ UniformCircular()
         tp = θ_at_epoch_to_tperi(θ, 59454.231; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
     end
 )
@@ -122,9 +120,7 @@ planet_c = Planet(
 
         a = cbrt(M * P^2)
 
-        θ_x ~ Normal()
-        θ_y ~ Normal()
-        θ = atan(θ_y, θ_x)
+        θ ~ UniformCircular()
         tp = θ_at_epoch_to_tperi(θ, 59454.231; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
     end
 )
@@ -141,9 +137,7 @@ sys = System(
         # We create inclination and longitude of ascending node variables at the
         # system level.
         i ~ Sine()
-        Ω_x ~ Normal()
-        Ω_y ~ Normal()
-        Ω = atan(Ω_y, Ω_x)
+        Ω ~ UniformCircular()
         # We create a nominal period of planet c variable. 
         P_nominal ~ Uniform(50, 300) # years
     end

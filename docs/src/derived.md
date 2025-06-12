@@ -60,9 +60,7 @@ planet_b = Planet(
         a = 10^loga
 
         M = super.M
-        τ_x ~ Normal()
-        τ_y ~ Normal()
-        τ = atan(τ_y, τ_x)/2π*1.0
+        τ ~ UniformCircular(1.0)
         P = √(a^3/M)
         tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
     end
@@ -88,9 +86,7 @@ planet_b = Planet(
         Ω = super.Ω
 
         M = super.M
-        τ_x ~ Normal()
-        τ_y ~ Normal()
-        τ = atan(τ_y, τ_x)/2π*1.0
+        τ ~ UniformCircular(1.0)
         P = √(a^3/M)
         tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
     end
@@ -108,9 +104,7 @@ planet_c = Planet(
         Ω = super.Ω
 
         M = super.M
-        τ_x ~ Normal()
-        τ_y ~ Normal()
-        τ = atan(τ_y, τ_x)/2π*1.0
+        τ ~ UniformCircular(1.0)
         P = √(a^3/M)
         tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
     end

@@ -40,12 +40,8 @@ planet_b = Planet(
         M = super.M
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
-        ω_x ~ Normal()
-        ω_y ~ Normal()
-        ω = atan(ω_y, ω_x)
-        Ω_x ~ Normal()
-        Ω_y ~ Normal()
-        Ω = atan(Ω_y, Ω_x)
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
         # Results will be sensitive to the prior on period
         P ~  LogUniform(0.1, 150) # Period, years
         a = ∛(M * P^2)

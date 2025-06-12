@@ -59,20 +59,14 @@ planet_b = Planet(
     variables=@variables begin
         a ~ LogUniform(0.1,20)
         e ~ Uniform(0,0.999)
-        ω_x ~ Normal()
-        ω_y ~ Normal()
-        ω = atan(ω_y, ω_x)
+        ω ~ UniformCircular()
         i ~ Sine() # The Sine() distribution is defined by Octofitter
-        Ω_x ~ Normal()
-        Ω_y ~ Normal()
-        Ω = atan(Ω_y, Ω_x)
+        Ω ~ UniformCircular()
 
         mass = super.M_sec
 
         M = super.M
-        θ_x ~ Normal()
-        θ_y ~ Normal()
-        θ = atan(θ_y, θ_x)
+        θ ~ UniformCircular()
         tp = θ_at_epoch_to_tperi(θ, 57423.0; M, e, a, i, ω, Ω) # epoch of GAIA measurement
     end
 )

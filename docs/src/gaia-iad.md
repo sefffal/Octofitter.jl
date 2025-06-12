@@ -92,16 +92,10 @@ b = Planet(
     variables=@variables begin
         a ~ Uniform(0, 1000)
         e ~ Uniform(0, 0.99)
-        ω_x ~ Normal()
-        ω_y ~ Normal()
-        ω = atan(ω_y, ω_x)
+        ω ~ UniformCircular()
         i ~ Sine()
-        Ω_x ~ Normal()
-        Ω_y ~ Normal() 
-        Ω = atan(Ω_y, Ω_x)
-        θ_x ~ Normal()
-        θ_y ~ Normal()
-        θ = atan(θ_y, θ_x)
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
         tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=super.M, e, a, i, ω, Ω)
         mass = super.M_sec / mjup2msol
     end

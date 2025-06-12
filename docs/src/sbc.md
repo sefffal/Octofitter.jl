@@ -41,15 +41,9 @@ planet_b = Planet(
         a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
-        ω_x ~ Normal()
-        ω_y ~ Normal()
-        ω = atan(ω_y, ω_x)
-        Ω_x ~ Normal()
-        Ω_y ~ Normal()
-        Ω = atan(Ω_y, Ω_x)
-        τ_x ~ Normal()
-        τ_y ~ Normal()
-        τ = atan(τ_y, τ_x)/2π*1.0
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        τ ~ UniformCircular(1.0)
         P = √(a^3/M)
         tp = τ*P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
     end

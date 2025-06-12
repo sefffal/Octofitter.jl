@@ -53,15 +53,9 @@ planet_b = Planet(
         e ~ Uniform(0.0, 0.99)
         i ~ Sine()
         M = super.M
-        ω_x ~ Normal()
-        ω_y ~ Normal()
-        ω = atan(ω_y, ω_x)
-        Ω_x ~ Normal()
-        Ω_y ~ Normal()
-        Ω = atan(Ω_y, Ω_x)
-        θ_x ~ Normal()
-        θ_y ~ Normal()
-        θ = atan(θ_y, θ_x)
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ = UniformCircular()
         tp = θ_at_epoch_to_tperi(θ, 50000; M, e, a, i, ω, Ω)
     end
 )
@@ -116,17 +110,11 @@ planet_b = Planet(
 
         e ~ Uniform(0.0, 1.0)
         i ~ Sine()
-        ω_x ~ Normal()
-        ω_y ~ Normal()
-        ω = atan(ω_y, ω_x)
-        Ω_x ~ Normal()
-        Ω_y ~ Normal()
-        Ω = atan(Ω_y, Ω_x)
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
         mass ~ LogUniform(0.01, 100)
 
-        τ_x ~ Normal()
-        τ_y ~ Normal()
-        τ = atan(τ_y, τ_x)/2π*1.0
+        τ ~ UniformCircular(1.0)
         tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
     end
 )

@@ -90,16 +90,10 @@ planet_b = Planet(
         a ~ truncated(Normal(2,0.1), lower=0.1)
         e ~ truncated(Normal(0, 0.05),lower=0, upper=0.90)
         i ~ Sine()
-        ω_x ~ Normal()
-        ω_y ~ Normal()
-        ω = atan(ω_y, ω_x)
-        Ω_x ~ Normal()
-        Ω_y ~ Normal()
-        Ω = atan(Ω_y, Ω_x)
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
 
-        θ_x ~ Normal()
-        θ_y ~ Normal()
-        θ = atan(θ_y, θ_x)
+        θ ~ UniformCircular()
         tp = θ_at_epoch_to_tperi(θ, 60171; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
     end
 )
