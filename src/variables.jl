@@ -126,8 +126,6 @@ function Variables(; kwargs...)
     priors = filter(isdist ∘ last, kwargs_dict)
     derived = filter(!(isdist ∘ last), kwargs_dict)
 
-    @show priors
-    @show derived
     observation_likelihoods = filter(!isnothing, extra_obs_likelihoods)
     
     return (Priors(priors), Derived(derived), observation_likelihoods...)
@@ -668,6 +666,9 @@ function make_arr2nt(system::System)
             end
         end
         
+        if isempty(body_obs_priors) && isempty(body_obs_determ)
+            continue
+        end
         name = normalizename(likelihoodname(obs))
         ex = :($name = begin
             obs0 = (;$(body_obs_priors...));
@@ -790,6 +791,10 @@ function make_arr2nt(system::System)
                     k += 1
                 end
             end
+
+            if isempty(planet_obs_priors) && isempty(planet_obs_determ)
+                continue
+            end
             
             name = normalizename(likelihoodname(obs))
             ex = :($name = begin
@@ -840,7 +845,7 @@ const RESERVED = Set(["local", "global", "export", "let",
     "return", "using", "baremodule", "macro", "finally",
     "module", "elseif", "end", "quote", "do"])
 function normalizename(name::String)::Symbol
-    uname = lowercase(strip(Base.Unicode.normalize(name)))
+    uname = strip(Base.Unicode.normalize(name))
     id = Base.isidentifier(uname) ? uname : map(c->Base.is_id_char(c) ? c : '_', uname)
     cleansed = string((isempty(id) || !Base.is_id_start_char(id[1]) || id in RESERVED) ? "_" : "", id)
     return Symbol(replace(cleansed, r"(_)\1+"=>"_"))
