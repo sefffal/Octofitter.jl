@@ -307,7 +307,7 @@ function Planet(;
     variables::Tuple,
     likelihoods=()
 )
-    (priors,derived,additional_likelihoods)=variables
+    (priors,derived,additional_likelihoods...)=variables
     name = Symbol(name)
     # Type asserts
     priors::Priors
@@ -362,7 +362,7 @@ function System(;
     companions=(),
     likelihoods=()
 )
-    (priors,derived,additional_likelihoods)=variables
+    (priors,derived,additional_likelihoods...)=variables
     name = Symbol(name)
     # Type asserts
     priors::Priors

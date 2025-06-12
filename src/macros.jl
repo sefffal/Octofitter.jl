@@ -150,15 +150,26 @@ macro variables(variables_block_input)
         user_likes = [$(user_likelihoods...)]
         append!(likelihoods_out, user_likes)
         
-        (
-            Priors(;[l=>r for (l,r) in priors_out]...), 
-            Derived(
-                OrderedDict{Symbol,Any}([l=>r for (l,r) in derived_out]),
-                captured_names,
-                captured_vals
-            ),
-            likelihoods_out
-        )
+        if isempty(likelihoods_out)
+            (
+                Priors(;[l=>r for (l,r) in priors_out]...), 
+                Derived(
+                    OrderedDict{Symbol,Any}([l=>r for (l,r) in derived_out]),
+                    captured_names,
+                    captured_vals
+                ),
+            )
+        else
+            (
+                Priors(;[l=>r for (l,r) in priors_out]...), 
+                Derived(
+                    OrderedDict{Symbol,Any}([l=>r for (l,r) in derived_out]),
+                    captured_names,
+                    captured_vals
+                ),
+                likelihoods_out...
+            )
+        end
     end
 end
 

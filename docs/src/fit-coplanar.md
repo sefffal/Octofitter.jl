@@ -2,10 +2,13 @@
 
 This example shows how you can fit a two planet model to relative astrometry data. This functionality would work equally well with RV, images, etc.
 
-We will restrict the two planets to being exactly co-planar, and have a near 2:1 period resonance, and zero-eccentricity.
+
+We will demonstrate two models: the first, where the planets are exactly co-planar (using a single set of variables for the inlination and position angle of ascending node for both planets), and a second, where the planets are approximately co-planar according to a custom prior.
+
 
 For this example, we will use astrometry from the HR8799 system collated by Jason Wang and retrieved from the website [Whereistheplanet.com](http://whereistheplanet.com).
 
+## Data
 
 ```@example 1
 using Octofitter
@@ -56,14 +59,16 @@ astrom_c = PlanetRelAstromLikelihood(
     end
 )
 
-fig = Makie.scatter(astrom_b.table.ra, astrom_b.table.dec, axis=(;autolimitaspect=1))
-Makie.scatter!(astrom_c.table.ra, astrom_c.table.dec)
-Makie.scatter!([0], [0], marker='⋆', markersize=50, color=:black)
+fig = scatter(astrom_b.table.ra, astrom_b.table.dec, axis=(;autolimitaspect=1))
+scatter!(astrom_c.table.ra, astrom_c.table.dec)
+scatter!([0], [0], marker='⋆', markersize=50, color=:black)
 fig
 ```
 
 
-We now specify our two planet model for planets b & c.
+## Exact Co-Planar Model
+
+This model will use a single pair of `i` and `Ω` variables for both planets to enforce exact co-planarity.
 
 ```@example 1
 planet_b = Planet(
@@ -183,6 +188,148 @@ hist(
     results[:b_P][:] ./ results[:c_P][:],
     axis=(;
         xlabel="period ratio",
+        ylabel="counts",
+    )
+)
+```
+
+
+## Approximately Co-Planar Model
+
+We now set up two planets with their own separate `i` and `Ω` variables, calculate the mutual inclination, and add a prior that this mutual inclination is $0 \pm 10 \degree$.
+
+
+```@example 1
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_b],
+    variables=@variables begin
+        e = 0.0
+        ω = 0.0
+        M_pri = super.M_pri
+        M_b = super.M_b
+        M_c = super.M_c
+        M = M_pri + M_b*Octofitter.mjup2msol + M_c*Octofitter.mjup2msol
+        mass = M_b
+
+        # Use the system inclination and longitude of ascending node
+        # variables
+        i = super.i_b
+        Ω = super.Ω_b
+
+        # Specify the period as ~ 1% around 2X the P_nominal variable
+        P_mul ~ Normal(1, 0.1)
+        P_nominal = super.P_nominal
+        P = 2*P_nominal * P_mul
+
+        a = cbrt(M * P^2)
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(θ, 59454.231; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
+
+planet_c = Planet(
+    name="c",
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_c],
+    variables=@variables begin
+        e = 0.0
+        ω = 0.0
+        M_pri = super.M_pri
+        M_b = super.M_b
+        M_c = super.M_c
+        M = M_pri + M_b*Octofitter.mjup2msol
+        mass = M_c
+
+        # Use the system inclination and longitude of ascending node
+        # variables
+        i = super.i_c
+        Ω = super.Ω_c
+
+        # Specify the period as ~ 1% the P_nominal variable
+        P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
+        P_nominal = super.P_nominal
+        P = P_nominal * P_mul
+
+        a = cbrt(M * P^2)
+
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(θ, 59454.231; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
+
+sys = System(
+    name="HR8799_res_co",
+    companions=[planet_b, planet_c],
+    likelihoods=[],
+    variables=@variables begin
+        plx ~ gaia_plx(;gaia_id=2832463659640297472)
+        M_pri ~ truncated(Normal(1.5, 0.02), lower=0.1)
+        M_b ~ Uniform(0, 12)
+        M_c ~ Uniform(0, 12)
+        # We create inclination and longitude of ascending node variables at the
+        # system level.
+        i_b ~ Sine()
+        Ω_b ~ UniformCircular()
+
+        i_c ~ Sine()
+        Ω_c ~ UniformCircular()
+
+
+        # Calculate the mutual inclination
+        mut_inc_b_c = acos(
+            cos(i_b) * cos(i_c) +
+            sin(i_b) * sin(i_c) * cos(Ω_b - Ω_c)
+        )
+        # Add a prior on the mutual inclination
+        truncated(Normal(0, 10), lower=0) ~ mut_inc_b_c
+
+        # We create a nominal period of planet c variable. 
+        P_nominal ~ Uniform(50, 300) # years
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
+```
+
+
+Initialize the starting points, and confirm the data are entered correcly:
+```@example 1
+init_chain = initialize!(model, (;
+    plx =24.4549,
+    M_pri = 1.48,
+    M_b = 5.73,
+    M_c = 5.14,
+    P_nominal = 230,
+))
+octoplot(model, init_chain)
+```
+
+
+Now sample from the model using Pigeons parallel tempering:
+```@example 1
+using Pigeons
+results,pt = octofit_pigeons(model, n_rounds=10);
+nothing # hide
+```
+
+Plots the orbits:
+```@example 1
+octoplot(model, results)
+```
+
+Corner plot:
+```@example 1
+octocorner(model, results, small=true)
+```
+
+Now examine the mutual inclination:
+```@example 1
+hist(
+    rad2deg.( results[:mut_inc_b_c][:] ),
+    axis=(;
+        xlabel="mutual inclination [deg]",
         ylabel="counts",
     )
 )

@@ -101,9 +101,9 @@ planet_1 = Planet(
         a ~ Uniform(0, 100)
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
-        ω ~ Uniform(0,2pi)
-        Ω ~ Uniform(0,2pi)
-        θ ~ Uniform(0,2pi)
+        ω ~ UniformCircular(0,2pi)
+        Ω ~ UniformCircular(0,2pi)
+        θ ~ UniformCircular(0,2pi)
         tp = θ_at_epoch_to_tperi(θ, 50420; M, e, a, i, ω, Ω)
     end
 )
