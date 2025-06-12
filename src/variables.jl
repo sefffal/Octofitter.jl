@@ -161,65 +161,103 @@ end
 UniformCircular() = UniformCircular(2π)
 export UniformCircular
 
-# # We need to create a "prior" on the length of the unit vector so that it doesn't get pinched at (0,0)
-# struct UnitLengthPrior <: Parameterization
-#     varx::Symbol
-#     vary::Symbol
-# end
+# We need to create a "prior" on the length of the unit vector so that it doesn't get pinched at (0,0)
+struct UnitLengthPrior{X,Y} <: AbstractLikelihood
+    varx::Symbol
+    vary::Symbol
+end
+likelihoodname(::UnitLengthPrior{X,Y}) where {X,Y} = "unitlengthprior_$(X)_$(Y)"
 
-# # Generic expandparam for regular distributions/values
-# expandparam(var, d::Distribution) = (priors=[(var, d)], derived=[], extra_priors=[])
-# expandparam(var, n::Number) = (priors=[], derived=[(var, Meta.quot(:($n)))], extra_priors=[])
-# expandparam(var, f::Expr) = (priors=[], derived=[(var, Meta.quot(f))], extra_priors=[])
+# Generic expandparam for regular distributions/values
+expandparam(var, d::Distribution) = (priors=[(var, d)], derived=[], likelihoods=[])
+expandparam(var, n::Number) = (priors=[], derived=[(var, n)], likelihoods=[])
+expandparam(var, f::Expr) = (priors=[], derived=[(var, f)], likelihoods=[])
 
-# # Expand UniformCircular into priors and derived variables
-# function expandparam(var::Symbol, p::UniformCircular)
-#     varx = Symbol("$(var)x")
-#     vary = Symbol("$(var)y")
+# Expand UniformCircular into priors and derived variables
+function expandparam(var::Symbol, p::UniformCircular)
+    varx = Symbol("$(var)x")
+    vary = Symbol("$(var)y")
     
-#     # The derived expression to compute the angle
-#     derived_expr = :(atan($vary, $varx) / 2π * $(p.domain))
+    # The derived expression to compute the angle
+    derived_expr = :(atan($vary, $varx) / 2π * $(p.domain))
     
-#     # Create the unit length prior
-#     unit_length_prior = UnitLengthPrior(varx, vary)
+    # Create the unit length prior
+    unit_length_prior = UnitLengthPrior{varx,vary}(varx, vary)
     
-#     return (
-#         priors = [
-#             (varx, Normal(0, 1)),
-#             (vary, Normal(0, 1))
-#         ],
-#         derived = [
-#             (var, derived_expr)
-#         ],
-#         extra_priors = [unit_length_prior]
-#     )
-# end
+    return (
+        priors = [
+            (varx, Normal(0, 1)),
+            (vary, Normal(0, 1))
+        ],
+        derived = [
+            (var, derived_expr)
+        ],
+        likelihoods = [unit_length_prior]
+    )
+end
 
-# _isprior(::UnitLengthPrior) = true
-# instrument_name(::UnitLengthPrior{X,Y}) where {X,Y} = "unitlengthprior-$X-$Y" 
-# function likeobj_from_epoch_subset(obs::UnitLengthPrior{X,Y}, obs_inds) where {X,Y}
-#     return UnitLengthPrior(X,Y)
-# end
-# TypedTables.Table(like::UnitLengthPrior) = nothing
+_isprior(::UnitLengthPrior) = true
+instrument_name(::UnitLengthPrior{X,Y}) where {X,Y} = "unitlengthprior-$X-$Y" 
+function likeobj_from_epoch_subset(obs::UnitLengthPrior{X,Y}, obs_inds) where {X,Y}
+    return UnitLengthPrior(X,Y)
+end
+TypedTables.Table(like::UnitLengthPrior) = nothing
 
-# function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, _args...) where {X,Y}
-#     x = getproperty(θ_system, X)
-#     y = getproperty(θ_system, Y)
-#     vector_length = sqrt(x^2 + y^2)
-#     return logpdf(LogNormal(log(1.0), 0.1), vector_length);
-# end
-# function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, θ_planet::NamedTuple, θ_obs::NamedTuple, _args...) where {X,Y}
-#     θ = merge(θ_planet, θ_obs)
-#     x = getproperty(θ, X)
-#     y = getproperty(θ, Y)
-#     vector_length = sqrt(x^2 + y^2)
-#     return logpdf(LogNormal(log(1.0), 0.1), vector_length);
-# end
-# function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::UnitLengthPrior{X,Y}) where {X,Y}
-#     T = typeof(like)
-#     println(io, "$(T): √($X^2+$Y^2) ~ LogNormal(log(1), 0.02)")
-# end
-# generate_from_params(like::UnitLengthPrior, θ_planet, orbit) = like
+function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, _args...) where {X,Y}
+    x = getproperty(θ_system, X)
+    y = getproperty(θ_system, Y)
+    vector_length = sqrt(x^2 + y^2)
+    return logpdf(LogNormal(log(1.0), 0.1), vector_length);
+end
+function ln_like(::UnitLengthPrior{X,Y}, θ_system::NamedTuple, θ_planet::NamedTuple, _args...) where {X,Y}
+    θ = merge(θ_system, θ_planet)
+    x = getproperty(θ, X)
+    y = getproperty(θ, Y)
+    vector_length = sqrt(x^2 + y^2)
+    return logpdf(LogNormal(log(1.0), 0.1), vector_length);
+end
+function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::UnitLengthPrior{X,Y}) where {X,Y}
+    T = typeof(like)
+    println(io, "$(T): √($X^2+$Y^2) ~ LogNormal(log(1), 0.02)")
+end
+generate_from_params(like::UnitLengthPrior, θ_planet, orbit) = like
+
+
+# User-defined likelihood for expressions that should follow a distribution
+struct UserLikelihood{TDist<:Distribution, TSym} <: AbstractLikelihood
+    distribution::TDist
+    name::String
+end
+
+# Constructor to embed the symbol as a type parameter
+UserLikelihood(dist::TDist, sym::Symbol, name::String) where TDist = 
+    UserLikelihood{TDist, sym}(dist, name)
+
+# Required AbstractLikelihood interface methods
+likelihoodname(like::UserLikelihood) = like.name
+_isprior(::UserLikelihood) = true
+instrument_name(like::UserLikelihood) = like.name
+likeobj_from_epoch_subset(like::UserLikelihood, obs_inds) = like
+TypedTables.Table(::UserLikelihood) = nothing
+generate_from_params(like::UserLikelihood, θ_planet, orbit) = like
+
+# System-level likelihood
+function ln_like(user_like::UserLikelihood{TDist, TSym}, θ_system::NamedTuple, _args...) where {TDist, TSym}
+    value = getproperty(θ_system, TSym)
+    return logpdf(user_like.distribution, value)
+end
+
+# Planet-level likelihood
+function ln_like(user_like::UserLikelihood{TDist, TSym}, θ_system::NamedTuple, θ_planet::NamedTuple, θ_obs::NamedTuple, _args...) where {TDist, TSym}
+    θ = merge(θ_planet, θ_obs)
+    value = getproperty(θ, TSym)
+    return logpdf(user_like.distribution, value)
+end
+
+# Show method
+function Base.show(io::IO, mime::MIME"text/plain", like::UserLikelihood{TDist, TSym}) where {TDist, TSym}
+    println(io, "UserLikelihood: $(TSym) ~ $(like.distribution)")
+end
 
 # We need a blank likelihood type to hold variables when constructing
 # e.g. prior only models.
@@ -263,7 +301,7 @@ function Planet(;
     variables::Tuple,
     likelihoods=()
 )
-    (priors,derived,additional_likelihoods...)=variables
+    (priors,derived,additional_likelihoods)=variables
     name = Symbol(name)
     # Type asserts
     priors::Priors
@@ -318,7 +356,7 @@ function System(;
     companions=(),
     likelihoods=()
 )
-    (priors,derived,additional_likelihoods...)=variables
+    (priors,derived,additional_likelihoods)=variables
     name = Symbol(name)
     # Type asserts
     priors::Priors
