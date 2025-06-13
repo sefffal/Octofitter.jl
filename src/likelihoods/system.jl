@@ -68,7 +68,9 @@ function make_ln_like(system::System, θ_system)
                         system.planets[$(Meta.quot(i))].observations[$i_like],
                         θ_system,
                         θ_system.planets[$i],
-                        θ_system.planets[$i].observations.$obs_name,  # θ_obs
+                        hasproperty(θ_system.planets[$i].observations, $(Meta.quot(obs_name))) ? 
+                            θ_system.planets[$i].observations.$obs_name :
+                            (;),
                         elems,
                         ($solutions_list), # all orbit solutions
                         $i, # This planet index into orbit solutions
@@ -139,7 +141,9 @@ function make_ln_like(system::System, θ_system)
             $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
                 system.observations[$i], 
                 θ_system, 
-                θ_system.observations.$obs_name,  # θ_obs
+                hasproperty(θ_system.observations, $(Meta.quot(obs_name))) ? 
+                    θ_system.observations.$obs_name :
+                    (;),
                 elems,
                 ($solutions_list),
                 $(i_epoch_start-1)
