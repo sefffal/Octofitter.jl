@@ -5,7 +5,6 @@
         calculation_3 = obs.[prior_1] + obs.[prior_2]
     end
 """
-# Modify the @variables macro to handle distribution ~ expression syntax
 macro variables(variables_block_input)
     variables_block = filter(variables_block_input.args) do expr
         !(expr isa LineNumberNode)

@@ -12,14 +12,15 @@ using CairoMakie
 using PairPlots
 using Distributions
 
-astrom_like = PlanetRelAstromLikelihood(Table(;
+astrom_dat = Table(;
     epoch= [50000,50120,50240,50360,50480,50600,50720,50840,],
     ra = [-505.764,-502.57,-498.209,-492.678,-485.977,-478.11,-469.08,-458.896,],
     dec = [-66.9298,-37.4722,-7.92755,21.6356, 51.1472, 80.5359, 109.729, 138.651,],
     σ_ra = fill(10.0, 8),
     σ_dec = fill(10.0, 8),
     cor = fill(0.0, 8)
-))
+)
+astrom_like = PlanetRelAstromLikelihood(astrom_dat, name="relastrom")
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
@@ -38,7 +39,7 @@ planet_b = Planet(
     end
 )
 
-Tutoria = System(
+sys = System(
     name="Tutoria",
     companions=[planet_b],
     likelihoods=[],
@@ -52,7 +53,7 @@ nothing #hide
 
 We can now draw one sample from the prior:
 ```@example 1
-prior_draw_system = generate_from_params(Tutoria)
+prior_draw_system = generate_from_params(sys)
 prior_draw_astrometry = prior_draw_system.planets.b.observations[4]
 ```
 
@@ -75,7 +76,7 @@ ax = Axis(
     aspect=1
 )
 for i in 1:50
-    prior_draw_system = generate_from_params(Tutoria)
+    prior_draw_system = generate_from_params(sys)
     prior_draw_astrometry = prior_draw_system.planets.b.observations[4]
     Makie.scatter!(
         ax,

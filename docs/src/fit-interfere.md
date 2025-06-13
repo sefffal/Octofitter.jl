@@ -98,7 +98,7 @@ planet_b = Planet(
     end
 )
 
-Tutoria = System(
+sys = System(
     name="Tutoria",
     companions=[planet_b],
     likelihoods=[vis_like],
@@ -111,7 +111,7 @@ Tutoria = System(
 
 Create the model object and run `octofit_pigeons`:
 ```@example 1
-model = Octofitter.LogDensityModel(Tutoria)
+model = Octofitter.LogDensityModel(sys)
 
 using Pigeons
 results,pt = octofit_pigeons(model, n_rounds=10);

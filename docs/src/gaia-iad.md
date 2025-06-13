@@ -133,30 +133,14 @@ model = Octofitter.LogDensityModel(sys, verbosity=4)
 
 We will initialize the model starting positions and visualize them:
 ```@example 1
-init_chain = initialize!(model, (;
-    plx=gaiaIADlike.gaia_sol.parallax,
-    pmra=gaiaIADlike.gaia_sol.pmra,
-    pmdec=gaiaIADlike.gaia_sol.pmdec,
-    ra_offset_mas=0.0,
-    dec_offset_mas=0.0,
-    # RV variables are now prefixed with likelihood name:
-    observations=(;
-        gaiarv=(;
-            offset=mean_rv,
-            jitter=0.11,
-        ),
-        gaiadr4=(;
-            astrometric_jitter=0.1,
-        )
-    )
-))
+init_chain = initialize!(model)
 octoplot(model, init_chain, show_rv=true)
 ```
 
 Now, we can perform the fit. It is a little slow since we have many hundreds of RV and astrometry data points.
 ```@example 1
 using Pigeons
-chain, pt = octofit_pigeons(model, n_rounds=10) # might need more rounds to converge
+chain, pt = octofit_pigeons(model, n_rounds=7, n_chains=30, ) # might need more rounds to converge
 ```
 
 Finally, we can visualize the results:
