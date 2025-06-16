@@ -46,7 +46,7 @@ vis_like = InterferometryLikelihood(
         # Optional calibration parameters:
         platescale = 1.0               # Platescale multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
         northangle = 0.0               # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
-        σ_cp_jitter ~ LogUniform(0.1, 100)  # closure phase jitter (optional)
+        σ_cp_jitter = 0.0  # closure phase jitter [could use ~ LogUniform(0.1, 100))
     end
 )
 ```
@@ -123,13 +123,13 @@ Note that we use Pigeons paralell tempered sampling (`octofit_pigeons`) instead 
 
 Examine the recovered photometry posterior:
 ```@example 1
-hist(results[:b_niriss_ami_flux][:], axis=(;xlabel="flux"))
+hist(results[:NIRISS_AMI_flux][:], axis=(;xlabel="flux"))
 ```
 
 Determine the significance of the detection:
 ```@example 1
 using Statistics
-phot = results[:b_niriss_ami_flux][:]
+phot = results[:NIRISS_AMI_flux][:]
 snr = mean(phot)/std(phot)
 ```
 
