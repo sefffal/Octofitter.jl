@@ -314,6 +314,27 @@ function Planet(;
         l::AbstractLikelihood
     end
     likes = (likelihoods..., additional_likelihoods...)
+    
+    # Check for duplicate observation/likelihood names on this planet
+    like_names = String[]
+    for like in likes
+        like_name = likelihoodname(like)
+        if like_name in like_names
+            error("Planet $name: Duplicate observation/likelihood name '$like_name'. Each observation/likelihood attached to a planet must have a unique name.")
+        end
+        push!(like_names, like_name)
+    end
+    
+    # Check for duplicate variables in Prior and Derived blocks
+    prior_keys = Set(keys(priors.priors))
+    if !isnothing(derived)
+        derived_keys = Set(keys(derived.variables))
+        overlap = intersect(prior_keys, derived_keys)
+        if !isempty(overlap)
+            error("Planet $name: Variables $(collect(overlap)) are defined as both a prior (~) and derived variable (=). Each variable must be defined only once.")
+        end
+    end
+    
     return Planet{
         basis,
         typeof(priors),typeof(derived),typeof(likes)
@@ -372,6 +393,27 @@ function System(;
         p::Planet
     end
     likes = (likelihoods..., additional_likelihoods...)
+    
+    # Check for duplicate observation/likelihood names at system level
+    like_names = String[]
+    for like in likes
+        like_name = likelihoodname(like)
+        if like_name in like_names
+            error("System $name: Duplicate observation/likelihood name '$like_name'. Each observation/likelihood attached to a system must have a unique name.")
+        end
+        push!(like_names, like_name)
+    end
+    
+    # Check for duplicate variables in Prior and Derived blocks
+    prior_keys = Set(keys(priors.priors))
+    if !isnothing(derived)
+        derived_keys = Set(keys(derived.variables))
+        overlap = intersect(prior_keys, derived_keys)
+        if !isempty(overlap)
+            error("System $name: Variables $(collect(overlap)) are defined as both a prior (~) and derived variable (=). Each variable must be defined only once.")
+        end
+    end
+    
     if isempty(companions)
         planets_nt = (;)
     else
@@ -600,7 +642,11 @@ function make_arr2nt(system::System)
                     (; _prev..., $key = let $(captured_bindings...)
                         # Make previous variables available
                         $([:($(k) = _prev.$k) for k in all_available_keys]...)
-                        $expr
+                        result = $expr
+                        if result isa Distributions.Distribution
+                            error("System derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
+                        end
+                        result
                     end)
                 end
             )
@@ -657,7 +703,11 @@ function make_arr2nt(system::System)
                         (; _prev..., $key = let $(captured_bindings...)
                             # Make previous observation variables available
                             $([:($(k) = _prev.$k) for k in all_obs_keys]...)
-                            $expr
+                            result = $expr
+                            if result isa Distributions.Distribution
+                                error("System observation derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
+                            end
+                            result
                         end)
                     end
                 )
@@ -723,7 +773,11 @@ function make_arr2nt(system::System)
                         (; _prev..., $key = let $(captured_bindings...)
                             # Make previous planet variables available
                             $([:($(k) = _prev.$k) for k in all_available_keys]...)
-                            $expr
+                            result = $expr
+                            if result isa Distributions.Distribution
+                                error("Planet derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
+                            end
+                            result
                         end)
                     end
                 )
@@ -783,7 +837,11 @@ function make_arr2nt(system::System)
                                 # Make planet and previous observation variables available
                                 $([:($(pk) = super.$pk) for pk in vcat(planet_prior_keys, planet_derived_keys)]...)
                                 $([:($(ok) = _prev.$ok) for ok in vcat(obs_prior_keys, obs_derived_keys_so_far)]...)
-                                $expr
+                                result = $expr
+                                if result isa Distributions.Distribution
+                                    error("Planet observation derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
+                                end
+                                result
                             end)
                         end
                     )

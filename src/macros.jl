@@ -19,6 +19,10 @@ macro variables(variables_block_input)
     derived_vars = OrderedDict{Symbol,Any}()
     user_likelihoods = []
     
+    # Track variable names for duplicate detection
+    seen_prior_vars = Set{Symbol}()
+    seen_derived_vars = Set{Symbol}()
+    
     for statement in variables_block
         if statement.head == :call && statement.args[1] == :~
             # Check if LHS is a distribution (Distribution(...) ~ expression)
@@ -29,6 +33,12 @@ macro variables(variables_block_input)
                 
                 # Generate unique symbol for the derived variable
                 derived_sym = Symbol("rhs_",generate_userlike_name(rhs_expr))
+                
+                # Check for duplicate derived variable names (including generated ones)
+                if derived_sym in seen_derived_vars
+                    error("Generated derived variable name '$derived_sym' conflicts with existing variable. Please use a different expression or variable name.")
+                end
+                push!(seen_derived_vars, derived_sym)
                 
                 # Process the RHS expression for variable capture
                 local_quote_vars = Symbol[]
@@ -66,6 +76,16 @@ macro variables(variables_block_input)
                 # Regular prior: varname ~ Distribution
                 varname = statement.args[2]
                 expression = statement.args[3]
+                
+                # Check for duplicate prior variable names
+                if varname in seen_prior_vars
+                    error("Duplicate prior variable '$varname'. Each variable can only be defined once with ~.")
+                end
+                if varname in seen_derived_vars
+                    error("Variable '$varname' is already defined as a derived variable (=). Each variable can only be defined once.")
+                end
+                push!(seen_prior_vars, varname)
+                
                 push!(priors, :( 
                     distribution = try
                         $(esc(expression))
@@ -89,6 +109,15 @@ macro variables(variables_block_input)
         elseif statement.head == :(=)
             varname = statement.args[1]
             expression = statement.args[2]
+            
+            # Check for duplicate derived variable names
+            if varname in seen_derived_vars
+                error("Duplicate derived variable '$varname'. Each variable can only be defined once with =.")
+            end
+            if varname in seen_prior_vars
+                error("Variable '$varname' is already defined as a prior variable (~). Each variable can only be defined once.")
+            end
+            push!(seen_derived_vars, varname)
             
             # Process the expression to extract interpolated variables
             local_quote_vars = Symbol[]
