@@ -27,7 +27,7 @@ astrom_dat = Table(
     σ_dec = [10.0, 10.0, 10.0],         # [mas] Uncertainties
     cor = [0.0, 0.0, 0.0]               # RA/Dec correlations
 )
-astrom = PlanetRelAstromLikelihood(astrom_dat)
+astrom = PlanetRelAstromLikelihood(astrom_dat, name="GPI astrom") # must give a name for each group of observations
 ```
 
 Define a planet model with orbital elements and their [prior distributions](@ref priors):
@@ -73,7 +73,7 @@ Compile the model into efficient sampling code:
 model = Octofitter.LogDensityModel(sys)
 ```
 
-Initialize the starting points for the chains. You can optionally provide starting values directly for certain variables.
+Initialize the starting points for the chains. You can optionally provide starting values directly for certain variables (UniformCircular priors are a special case, see docs for details).
 ```julia
 init_chain = initialize!(model, (;
     plx = 50.001,
@@ -113,7 +113,7 @@ Octofitter.savechain("output.fits", chain)
 
 ## Working with Dates
 
-Convert dates to and from Modified Julian Days using these helper functions:
+These functions may help you convert dates to and from Modified Julian Days using these helper functions:
 ```julia
 mjd("2020-01-01")     # Date string to MJD
 years2mjd(2020.0)     # Decimal year to MJD
