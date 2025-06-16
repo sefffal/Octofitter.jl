@@ -41,9 +41,9 @@ planet_b = Planet(
         F ~ Normal(0, 1000) # milliarcseconds
         G ~ Normal(0, 1000) # milliarcseconds
         
-        M = super.M
+        M = system.M
         θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, 50000.0; super.plx, M, e, A, B, F, G)  # reference epoch for θ. Choose an MJD date near your data.
+        tp = θ_at_epoch_to_tperi(θ, 50000.0; system.plx, M, e, A, B, F, G)  # reference epoch for θ. Choose an MJD date near your data.
     end
 )
 

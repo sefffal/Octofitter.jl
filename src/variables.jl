@@ -638,7 +638,7 @@ function make_arr2nt(system::System)
             all_available_keys = vcat(prior_keys, derived_keys_so_far)
             
             ex = :(
-                $(Symbol("sys$j")) = let super=nothing, _prev=$(Symbol("sys$(j-1)"))
+                $(Symbol("sys$j")) = let _prev=$(Symbol("sys$(j-1)"))
                     (; _prev..., $key = let $(captured_bindings...)
                         # Make previous variables available
                         $([:($(k) = _prev.$k) for k in all_available_keys]...)
@@ -699,7 +699,7 @@ function make_arr2nt(system::System)
                 all_obs_keys = vcat(obs_prior_keys, obs_derived_keys_so_far)
                 
                 ex = :(
-                    $(Symbol("obs$(j+1)")) = let super=sys, _prev=$(Symbol("obs$j"))
+                    $(Symbol("obs$(j+1)")) = let system=sys, _prev=$(Symbol("obs$j"))
                         (; _prev..., $key = let $(captured_bindings...)
                             # Make previous observation variables available
                             $([:($(k) = _prev.$k) for k in all_obs_keys]...)
@@ -769,7 +769,7 @@ function make_arr2nt(system::System)
                 all_available_keys = vcat(prior_keys, derived_keys_so_far)
                 
                 ex = :(
-                    $(Symbol("planet$(j+1)")) = let super=sys, _prev=$(Symbol("planet$j"))
+                    $(Symbol("planet$(j+1)")) = let system=sys, _prev=$(Symbol("planet$j"))
                         (; _prev..., $key = let $(captured_bindings...)
                             # Make previous planet variables available
                             $([:($(k) = _prev.$k) for k in all_available_keys]...)
@@ -832,10 +832,10 @@ function make_arr2nt(system::System)
                     
                     # Include both planet variables and observation variables
                     ex = :(
-                        $(Symbol("obs$(k+1)")) = let super=$(Symbol("planet$(j)")), _prev=$(Symbol("obs$k"))
+                        $(Symbol("obs$(k+1)")) = let planet=$(Symbol("planet$(j)")), _prev=$(Symbol("obs$k"))
                             (; _prev..., $key = let $(captured_bindings...)
                                 # Make planet and previous observation variables available
-                                $([:($(pk) = super.$pk) for pk in vcat(planet_prior_keys, planet_derived_keys)]...)
+                                $([:($(pk) = planet.$pk) for pk in vcat(planet_prior_keys, planet_derived_keys)]...)
                                 $([:($(ok) = _prev.$ok) for ok in vcat(obs_prior_keys, obs_derived_keys_so_far)]...)
                                 result = $expr
                                 if result isa Distributions.Distribution

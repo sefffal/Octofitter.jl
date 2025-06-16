@@ -29,7 +29,7 @@ planet_b = Planet(
         a ~ Uniform(3, 10)
         i ~ Sine()
         Ω ~ Uniform(0, 2pi)
-        M = super.M
+        M = system.M
         τ ~ Uniform(0, 1.0)
         P = √(a^3/M)
         tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.

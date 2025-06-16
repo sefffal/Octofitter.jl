@@ -29,7 +29,7 @@ planet_b = Planet(
         ω ~ UniformCircular()
         Ω ~ UniformCircular()
         θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ,50420; super.M, a, e, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+        tp = θ_at_epoch_to_tperi(θ,50420; system.M, a, e, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
     end
 )
 

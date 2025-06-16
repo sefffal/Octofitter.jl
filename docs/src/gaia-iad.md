@@ -96,8 +96,8 @@ b = Planet(
         i ~ Sine()
         Ω ~ UniformCircular()
         θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=super.M, e, a, i, ω, Ω)
-        mass = super.M_sec / mjup2msol
+        tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=system.M, e, a, i, ω, Ω)
+        mass = system.M_sec / mjup2msol
     end
 )
 gaia_ra = 294.82786250815144

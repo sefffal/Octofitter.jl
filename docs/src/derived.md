@@ -59,7 +59,7 @@ planet_b = Planet(
         e = 10^loge
         a = 10^loga
 
-        M = super.M
+        M = system.M
         τ ~ UniformCircular(1.0)
         P = √(a^3/M)
         tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
@@ -82,10 +82,10 @@ planet_b = Planet(
         a ~ Uniform(0, 15)
         e ~ Uniform(0,0.99)
         ω ~ Normal(0.1, deg2rad(30.))
-        i = super.i
-        Ω = super.Ω
+        i = system.i
+        Ω = system.Ω
 
-        M = super.M
+        M = system.M
         τ ~ UniformCircular(1.0)
         P = √(a^3/M)
         tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
@@ -100,10 +100,10 @@ planet_c = Planet(
         a ~ Uniform(15, 45)
         e ~ Uniform(0,0.99)
         ω ~ Normal(0.1, deg2rad(30.))
-        i = super.i
-        Ω = super.Ω
+        i = system.i
+        Ω = system.Ω
 
-        M = super.M
+        M = system.M
         τ ~ UniformCircular(1.0)
         P = √(a^3/M)
         tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
@@ -134,6 +134,3 @@ You can use one derived variable from another based on their order in the `@vari
 You cannot access variables from a different planet inside a `Planet` variables block. If you need to do this, move the variable up to the `System` variables block.
 
 
-## `this` and `super`
-
-The variable `this

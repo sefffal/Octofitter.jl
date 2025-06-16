@@ -61,10 +61,10 @@ planet_b = Planet(
         i ~ Sine() # The Sine() distribution is defined by Octofitter
         Ω ~ Uniform(0, 2pi)
 
-        mass = super.M_sec
+        mass = system.M_sec
 
         θ ~ Uniform(0, 2pi)
-        M = super.M
+        M = system.M
         tp = θ_at_epoch_to_tperi(θ, 57423.0; M, e, a, i, ω, Ω) # epoch of GAIA measurement
 
         F = 0.0 # optional: set gaia flux ratio of secondary to host
@@ -200,10 +200,10 @@ planet_b = Planet(
         i ~ Sine()
         Ω ~ Uniform(0, 2pi)
 
-        mass = super.M_sec
+        mass = system.M_sec
 
         θ ~ Uniform(0, 2pi)
-        M = super.M
+        M = system.M
         tp = θ_at_epoch_to_tperi(θ, 57737.0; M, e, a, i, ω, Ω) # epoch of astrometry
 
         F = 0.0
@@ -270,10 +270,10 @@ planet_b_rv = Planet(
         i ~ Sine()
         Ω ~ Uniform(0, 2pi)
 
-        mass = super.M_sec
+        mass = system.M_sec
 
         θ ~ Uniform(0, 2pi)
-        M = super.M
+        M = system.M
         tp = θ_at_epoch_to_tperi(θ, 57737.0; M, e, a, i, ω, Ω) # epoch of astrometry
 
         F = 0.0
@@ -350,10 +350,10 @@ planet_b_final = Planet(
         i ~ Sine()
         Ω ~ Uniform(0, 2pi)
 
-        mass = super.M_sec
+        mass = system.M_sec
 
         θ ~ Uniform(0, 2pi)
-        M = super.M
+        M = system.M
         tp = θ_at_epoch_to_tperi(θ, 57737.0; M, e, a, i, ω, Ω) # epoch of astrometry
     end
 )

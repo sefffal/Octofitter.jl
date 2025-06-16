@@ -108,7 +108,7 @@ planet_1 = Planet(
             Normal(0.3693038/365.256360417, 0.0000091/365.256360417),
             lower=0.0001
         )
-        M = super.M
+        M = system.M
         a = cbrt(M * P^2) # note the equals sign. 
         τ ~ UniformCircular(1.0)
         tp = τ*P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
@@ -133,7 +133,7 @@ model = Octofitter.LogDensityModel(sys)
 Note that the two instruments do not need to use the same Gaussian process kernels, nor the same hyper parameter names. 
 
 !!! note
-    Tip: If you want the instruments to *share* the Gaussian process kernel hyper parameters, move the variables up to the system's `@variables` block, and forward them to the observation variables block e.g. `η₁ = super.η₁`, `η₂ = super.η₂`.
+    Tip: If you want the instruments to *share* the Gaussian process kernel hyper parameters, move the variables up to the system's `@variables` block, and forward them to the observation variables block e.g. `η₁ = system.η₁`, `η₂ = system.η₂`.
 
 
 Initialize the starting points, and confirm the data are entered correcly:
@@ -262,7 +262,7 @@ planet_1 = Planet(
             Normal(0.3693038/365.256360417, 0.0000091/365.256360417),
             lower=0.0001
         )
-        M = super.M
+        M = system.M
         a = cbrt(M * P^2) # note the equals sign. 
         τ ~ UniformCircular(1.0)
         tp = τ*P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.

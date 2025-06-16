@@ -64,9 +64,9 @@ planet_b = Planet(
     basis=RadialVelocityOrbit,
     likelihoods=[],
     variables=@variables begin
-        M_pri = super.M_pri
-        M_b = super.M_b
-        M_c = super.M_c
+        M_pri = system.M_pri
+        M_b = system.M_b
+        M_c = system.M_c
         M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
         e ~ Uniform(0,0.999999)
         mass = M_b
@@ -84,8 +84,8 @@ planet_c = Planet(
     basis=RadialVelocityOrbit,
     likelihoods=[],
     variables=@variables begin
-        M_pri = super.M_pri
-        M_c = super.M_c
+        M_pri = system.M_pri
+        M_c = system.M_c
         M = M_pri + M_c * Octofitter.mjup2msol
         e ~ Uniform(0,0.999999)
         mass = M_c
@@ -207,17 +207,17 @@ planet_b_v2 = Planet(
     basis=RadialVelocityOrbit,
     likelihoods=[],
     variables=@variables begin
-        M_pri = super.M_pri
-        M_b = super.M_b
-        M_c = super.M_c
+        M_pri = system.M_pri
+        M_b = system.M_b
+        M_c = system.M_c
         M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
         e ~ Uniform(0,0.999999)
         mass = M_b
         ω ~ Uniform(0,2pi)
         τ ~ Uniform(0,1.0)
 
-        P_yrs_nom = super.P_yrs_nom
-        P_ratio_b = super.P_ratio_b
+        P_yrs_nom = system.P_yrs_nom
+        P_ratio_b = system.P_ratio_b
         P_kep_yrs = P_yrs_nom * P_ratio_b
         a = ∛(M * P_kep_yrs^2)
         tp = τ*P_kep_yrs*365.25 + 58400
@@ -229,16 +229,16 @@ planet_c_v2 = Planet(
     basis=RadialVelocityOrbit,
     likelihoods=[],
     variables=@variables begin
-        M_pri = super.M_pri
-        M_c = super.M_c
+        M_pri = system.M_pri
+        M_c = system.M_c
         M = M_pri + M_c * Octofitter.mjup2msol
         e ~ Uniform(0,0.999999)
         mass = M_c
         ω ~ Uniform(0,2pi)
         τ ~ Uniform(0,1.0)
 
-        P_yrs_nom = super.P_yrs_nom
-        P_ratio_c = super.P_ratio_c
+        P_yrs_nom = system.P_yrs_nom
+        P_ratio_c = system.P_ratio_c
         P_kep_yrs = P_yrs_nom * P_ratio_c
         a = ∛(M * P_kep_yrs^2)
         tp = τ*P_kep_yrs*365.25 + 58400

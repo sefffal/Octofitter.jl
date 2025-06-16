@@ -167,9 +167,9 @@ planet_b_mass = Planet(
         i ~ Sine()
         Ω ~ Uniform(0, 2pi)
         θ ~ Uniform(0, 2pi)
-        M = super.M
+        M = system.M
         tp = θ_at_epoch_to_tperi(θ, 58442.2; M, e, a, i, ω, Ω) 
-        mass = super.M_sec
+        mass = system.M_sec
     end
 )
 

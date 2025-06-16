@@ -106,7 +106,7 @@ planet_1 = Planet(
             Normal(0.3693038/365.256360417, 0.0000091/365.256360417),
             lower=0.0001
         )
-        M = super.M
+        M = system.M
         a = cbrt(M * P^2) # note the equals sign. 
         τ ~ UniformCircular(1.0)
         tp = τ*P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.

@@ -179,7 +179,7 @@ planet_b_orbit = Planet(
     basis=Visual{KepOrbit},
     likelihoods=[vis_like],
     variables=@variables begin
-        M = super.M
+        M = system.M
         a ~ Uniform(0, 0.1)
         e ~ Uniform(0.0, 0.99)
         i ~ Sine()

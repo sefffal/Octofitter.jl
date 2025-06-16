@@ -52,7 +52,7 @@ planet_b = Planet(
         a ~ kde # Sample from the KDE here
         e ~ Uniform(0.0, 0.99)
         i ~ Sine()
-        M = super.M
+        M = system.M
         ω ~ UniformCircular()
         Ω ~ UniformCircular()
         θ ~ UniformCircular()
@@ -105,7 +105,7 @@ planet_b = Planet(
     variables=@variables begin
         # For using with ObsPriors:
         P ~ Uniform(0.001, 1000)
-        M = super.M
+        M = system.M
         a = cbrt(M * P^2)
 
         e ~ Uniform(0.0, 1.0)

@@ -46,9 +46,9 @@ B = Planet(
         ω ~ Uniform(0,2pi)
         i ~ Sine() # The Sine() distribution is defined by Octofitter
         Ω ~ Uniform(0,pi)
-        mass = super.M_sec
+        mass = system.M_sec
         θ ~ Uniform(0,2pi)
-        tp = θ_at_epoch_to_tperi(θ, 57423.0; M=super.M, e, a, i, ω, Ω) # epoch of GAIA measurement
+        tp = θ_at_epoch_to_tperi(θ, 57423.0; M=system.M, e, a, i, ω, Ω) # epoch of GAIA measurement
     end
 )
 HD91312_pma = System(
@@ -121,7 +121,7 @@ image_data = ImageLikelihood(
     name="imgdat-sim",
     variables=@variables begin
         # Planet flux in image units -- could be contrast, mags, Jy, or arb. as long as it's consistent with the units of the data you provide
-        flux = super.L
+        flux = system.L
         # The following are optional parameters for marginalizing over instrument systematics:
         # Platescale uncertainty multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
         platescale = 1.0
@@ -144,10 +144,10 @@ B = Planet(
         ω ~ Uniform(0,2pi)
         i ~ Sine() # The Sine() distribution is defined by Octofitter
         Ω ~ Uniform(0,pi)
-        mass = super.M_sec
+        mass = system.M_sec
 
         # Calculate planet temperature from cooling track and planet mass variable
-        tempK = $cooling_tracks(super.age, mass)
+        tempK = $cooling_tracks(system.age, mass)
         # Calculate absolute magnitude
         abs_mag_L = $sonora_temp_mass_L(tempK, mass)
         # Deal with out-of-grid values by clamping to grid max and min
@@ -159,12 +159,12 @@ B = Planet(
             16.7 # jump to absurdly dim
         end
         # Calculate relative magnitude
-        rel_mag_L = abs_mal_L′ - super.rel_mag + 5log10(1000/super.plx)
+        rel_mag_L = abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
         # Convert to contrast (same units as image)
         L = 10.0^(rel_mag_L/-2.5)
 
         θ ~ Uniform(0,2pi)
-        tp = θ_at_epoch_to_tperi(θ, 57423.6; M=super.M, e, a, i, ω, Ω)
+        tp = θ_at_epoch_to_tperi(θ, 57423.6; M=system.M, e, a, i, ω, Ω)
     end
 )
 
@@ -239,10 +239,10 @@ B = Planet(
         ω ~ Uniform(0,2pi)
         i ~ Sine() # The Sine() distribution is defined by Octofitter
         Ω ~ Uniform(0,pi)
-        mass = super.M_sec
+        mass = system.M_sec
 
         # Calculate planet temperature from cooling track and planet mass variable
-        tempK = $cooling_tracks(super.age, mass)
+        tempK = $cooling_tracks(system.age, mass)
         # Calculate absolute magnitude
         abs_mag_L = $sonora_temp_mass_L(tempK, mass)
         # Deal with out-of-grid values by clamping to grid max and min
@@ -254,14 +254,14 @@ B = Planet(
             16.7 # jump to absurdly dim
         end
         # Calculate relative magnitude
-        rel_mag_L = abs_mal_L′ - super.rel_mag + 5log10(1000/super.plx)
+        rel_mag_L = abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
         # Convert to contrast (same units as image)
         L = 10.0^(rel_mag_L/-2.5)
 
         # L ~ Uniform(0,1)
 
         θ ~ Uniform(0,2pi)
-        tp = θ_at_epoch_to_tperi(θ, 57423.6; M=super.M, e, a, i, ω, Ω)
+        tp = θ_at_epoch_to_tperi(θ, 57423.6; M=system.M, e, a, i, ω, Ω)
     end
 )
 

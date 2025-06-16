@@ -104,7 +104,7 @@ planet_b = Planet(
         a ~ truncated(Normal(13, 4), lower=0.1, upper=100)
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
-        M = super.M
+        M = system.M
         ω ~ UniformCircular()
         Ω ~ UniformCircular()
         θ ~ UniformCircular()

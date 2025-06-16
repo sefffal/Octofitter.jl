@@ -78,20 +78,20 @@ planet_b = Planet(
     variables=@variables begin
         e = 0.0
         ω = 0.0
-        M_pri = super.M_pri
-        M_b = super.M_b
-        M_c = super.M_c
+        M_pri = system.M_pri
+        M_b = system.M_b
+        M_c = system.M_c
         M = M_pri + M_b*Octofitter.mjup2msol + M_c*Octofitter.mjup2msol
         mass = M_b
 
         # Use the system inclination and longitude of ascending node
         # variables
-        i = super.i
-        Ω = super.Ω
+        i = system.i
+        Ω = system.Ω
 
         # Specify the period as ~ 1% around 2X the P_nominal variable
         P_mul ~ Normal(1, 0.1)
-        P_nominal = super.P_nominal
+        P_nominal = system.P_nominal
         P = 2*P_nominal * P_mul
 
         a = cbrt(M * P^2)
@@ -107,20 +107,20 @@ planet_c = Planet(
     variables=@variables begin
         e = 0.0
         ω = 0.0
-        M_pri = super.M_pri
-        M_b = super.M_b
-        M_c = super.M_c
+        M_pri = system.M_pri
+        M_b = system.M_b
+        M_c = system.M_c
         M = M_pri + M_b*Octofitter.mjup2msol
         mass = M_c
 
         # Use the system inclination and longitude of ascending node
         # variables
-        i = super.i
-        Ω = super.Ω
+        i = system.i
+        Ω = system.Ω
 
         # Specify the period as ~ 1% the P_nominal variable
         P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
-        P_nominal = super.P_nominal
+        P_nominal = system.P_nominal
         P = P_nominal * P_mul
 
         a = cbrt(M * P^2)
@@ -207,20 +207,20 @@ planet_b = Planet(
     variables=@variables begin
         e = 0.0
         ω = 0.0
-        M_pri = super.M_pri
-        M_b = super.M_b
-        M_c = super.M_c
+        M_pri = system.M_pri
+        M_b = system.M_b
+        M_c = system.M_c
         M = M_pri + M_b*Octofitter.mjup2msol + M_c*Octofitter.mjup2msol
         mass = M_b
 
         # Use the system inclination and longitude of ascending node
         # variables
-        i = super.i_b
-        Ω = super.Ω_b
+        i = system.i_b
+        Ω = system.Ω_b
 
         # Specify the period as ~ 1% around 2X the P_nominal variable
         P_mul ~ Normal(1, 0.1)
-        P_nominal = super.P_nominal
+        P_nominal = system.P_nominal
         P = 2*P_nominal * P_mul
 
         a = cbrt(M * P^2)
@@ -236,20 +236,20 @@ planet_c = Planet(
     variables=@variables begin
         e = 0.0
         ω = 0.0
-        M_pri = super.M_pri
-        M_b = super.M_b
-        M_c = super.M_c
+        M_pri = system.M_pri
+        M_b = system.M_b
+        M_c = system.M_c
         M = M_pri + M_b*Octofitter.mjup2msol
         mass = M_c
 
         # Use the system inclination and longitude of ascending node
         # variables
-        i = super.i_c
-        Ω = super.Ω_c
+        i = system.i_c
+        Ω = system.Ω_c
 
         # Specify the period as ~ 1% the P_nominal variable
         P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
-        P_nominal = super.P_nominal
+        P_nominal = system.P_nominal
         P = P_nominal * P_mul
 
         a = cbrt(M * P^2)

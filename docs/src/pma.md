@@ -63,9 +63,9 @@ planet_b = Planet(
         i ~ Sine() # The Sine() distribution is defined by Octofitter
         Ω ~ UniformCircular()
 
-        mass = super.M_sec
+        mass = system.M_sec
 
-        M = super.M
+        M = system.M
         θ ~ UniformCircular()
         tp = θ_at_epoch_to_tperi(θ, 57423.0; M, e, a, i, ω, Ω) # epoch of GAIA measurement
     end

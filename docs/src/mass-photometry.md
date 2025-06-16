@@ -20,7 +20,7 @@ H_band_data = PhotometryLikelihood(
     H_band_table,
     name="H_band",
     variables=@variables begin
-        flux = $H_band_contrast_interp(super.mass)
+        flux = $H_band_contrast_interp(system.mass)
     end
 )
 
@@ -31,7 +31,7 @@ J_band_data = PhotometryLikelihood(
     J_band_table,
     name="J_band", 
     variables=@variables begin
-        flux = $J_band_contrast_interp(super.mass)
+        flux = $J_band_contrast_interp(system.mass)
     end
 )
 
@@ -48,7 +48,7 @@ planet_b = Planet(
         Ω ~ Normal(0.0, 0.2)
         mass ~ Uniform(0, 1)
         
-        M = super.M
+        M = system.M
         τ ~ UniformCircular(1.0)
         P = √(a^3/M)
         tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
@@ -71,7 +71,7 @@ K_band_data = PhotometryLikelihood(
     K_band_table,
     name="K_band",
     variables=@variables begin
-        flux = $K_band_contrast_interp(super.mass, super.age, super.temp)
+        flux = $K_band_contrast_interp(system.mass, system.age, system.temp)
     end
 )
 
@@ -88,9 +88,9 @@ planet_b = Planet(
         Ω ~ Normal(0.0, 0.2)
         mass ~ Uniform(0, 1)
         temp ~ Normal(1200, 500)
-        age = super.age
+        age = system.age
         
-        M = super.M
+        M = system.M
         τ ~ UniformCircular(1.0)
         P = √(a^3/M)
         tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.

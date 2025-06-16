@@ -86,7 +86,7 @@ planet_b = Planet(
     basis=Visual{KepOrbit},
     likelihoods=[],
     variables=@variables begin
-        M = super.M
+        M = system.M
         a ~ truncated(Normal(2,0.1), lower=0.1)
         e ~ truncated(Normal(0, 0.05),lower=0, upper=0.90)
         i ~ Sine()

@@ -37,7 +37,7 @@ planet_b = Planet(
     basis=Visual{KepOrbit},
     likelihoods=[astrom_like, obs_pri],
     variables=@variables begin
-        M = super.M
+        M = system.M
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
         ω ~ UniformCircular()
@@ -97,7 +97,7 @@ planet_b_uniform = Planet( # hide
     basis=Visual{KepOrbit}, # hide
     likelihoods=[astrom_like_uniform], # hide
     variables=@variables begin # hide
-        M = super.M # hide
+        M = system.M # hide
         a ~ Uniform(0, 100) # hide
         e ~ Uniform(0.0, 0.5) # hide
         i ~ Sine() # hide

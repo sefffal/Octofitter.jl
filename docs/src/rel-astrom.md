@@ -96,7 +96,7 @@ planet_1 = Planet(
     basis=Visual{KepOrbit},
     likelihoods=[astrom_like_1, astrom_like_2],
     variables=@variables begin
-        plx = super.plx
+        plx = system.plx
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         a ~ Uniform(0, 100)
         e ~ Uniform(0.0, 0.5)

@@ -26,7 +26,7 @@ planet_b = Planet(
     basis=Visual{KepOrbit},
     likelihoods=[astrom_like],
     variables=@variables begin
-        M = super.M
+        M = system.M
         a ~ truncated(Normal(10, 4), lower=0, upper=100)
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
