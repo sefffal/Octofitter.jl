@@ -16,7 +16,7 @@ astrom_dat = Table(
     σ_dec = fill(10.0, 8),
     cor = fill(0.0, 8)
 )
-astrom_like = PlanetRelAstromLikelihood(astrom_dat)
+astrom_like = PlanetRelAstromLikelihood(astrom_dat, name="simulated astrom")
 
 planet_b = Planet(
     name="b",
@@ -29,7 +29,7 @@ planet_b = Planet(
         ω ~ UniformCircular()
         Ω ~ UniformCircular()
         θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(super,this,50420)  # reference epoch for θ. Choose an MJD date near your data.
+        tp = θ_at_epoch_to_tperi(θ,50420; super.M, a, e, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
     end
 )
 

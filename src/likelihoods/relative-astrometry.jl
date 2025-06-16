@@ -248,5 +248,5 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_planet, orbit:
         end
     end
 
-    return PlanetRelAstromLikelihood(astrometry_table)
+    return PlanetRelAstromLikelihood(astrometry_table; like.name)
 end

@@ -71,7 +71,7 @@ image_dat = Table(;
     platescale = [10.0, 10.0, 10.0, 10.0, 10.0]
 )
 
-image_data = ImageLikelihood(
+image_like = ImageLikelihood(
     image_dat,
     name="SPHERE",
     variables=@variables begin
@@ -99,7 +99,7 @@ Now specify the planet:
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[image_data],
+    likelihoods=[image_like],
     variables=@variables begin
         a ~ truncated(Normal(13, 4), lower=0.1, upper=100)
         e ~ Uniform(0.0, 0.5)
@@ -247,13 +247,13 @@ We start by plotting the marginal distribution of the flux parameter, `H`:
 
 
 ```@example 1
-hist(chain["b_sphere_flux"][:], axis=(xlabel="flux", ylabel="counts"))
+hist(chain["b_SPHERE_flux"][:], axis=(xlabel="flux", ylabel="counts"))
 ```
 
 
 We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:
 ```@example 1
-flux = chain["b_sphere_flux"]
+flux = chain["b_SPHERE_flux"]
 snr = mean(flux)/std(flux)
 ```
 It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.

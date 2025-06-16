@@ -55,7 +55,7 @@ planet_b = Planet(
         M = super.M
         ω ~ UniformCircular()
         Ω ~ UniformCircular()
-        θ = UniformCircular()
+        θ ~ UniformCircular()
         tp = θ_at_epoch_to_tperi(θ, 50000; M, e, a, i, ω, Ω)
     end
 )
@@ -96,7 +96,7 @@ astrom_dat = Table(
     dec=[400.0], 
     σ_dec=[5.0]
 )
-astrom_like = PlanetRelAstromLikelihood(astrom_dat)
+astrom_like = PlanetRelAstromLikelihood(astrom_dat, name="rel astrom. 1")
 
 planet_b = Planet(
     name="b",

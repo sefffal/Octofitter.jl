@@ -29,7 +29,7 @@ In Octofitter, `epoch` is always the modified Julian date (measured in days). If
 In this case, we specified `ra` and `dec` offsets in milliarcseconds. We could instead specify `sep` (projected separation) in milliarcseconds and `pa` in radians. You cannot mix the two formats in a single `PlanetRelAstromLikelihood` but you can create two different likelihood objects, one for each format, and add them both to your model:
 
 You can also specify it in separation (mas) and positon angle (rad):
-```julia
+```@example 1
 astrom_dat_2 = Table(
     epoch = [42000, ], # MJD
     sep = [505.7637580573554, ], # mas
