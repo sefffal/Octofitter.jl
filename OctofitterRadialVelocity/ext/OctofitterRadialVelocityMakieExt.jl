@@ -839,6 +839,11 @@ function _find_rv_zero_point_maxlike(
     like_obj_name = Octofitter.normalizename(likelihoodname(rvlike))
     jitter = θ_system.observations[like_obj_name].jitter
 
+    if hasproperty(θ_system, :observations) && hasproperty(θ_system.observations, like_obj_name)
+        θ_obs = θ_system.observations[like_obj_name]
+        jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : 0
+    end
+
     # RV residual calculation: measured RV - model
     resid = zeros(T, length(rvs))
     resid .+= rvs

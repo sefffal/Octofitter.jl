@@ -207,7 +207,12 @@ function rvtimeplot!(
         like_obj_name = Octofitter.normalizename(likelihoodname(like_obj))
 
         jitter = map(nt_format) do θ_system
-            θ_system.observations[like_obj_name].jitter
+            jitter = 0
+            if hasproperty(θ_system, :observations) && hasproperty(θ_system.observations, like_obj_name)
+                θ_obs = θ_system.observations[like_obj_name]
+                jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : 0
+            end
+            return jitter
         end
 
         σ_tot = sqrt.(σ_rv .^2 .+ mean(jitter) .^2)
