@@ -101,7 +101,6 @@ planet_1 = Planet(
         a ~ Uniform(0, 100)
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
-        i = 1
         ω ~ UniformCircular()
         Ω ~ UniformCircular()
         θ ~ UniformCircular()

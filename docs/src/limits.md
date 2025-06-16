@@ -105,10 +105,10 @@ pairplot(
 
 ```@example 1
 using AstroImages
-download(
-    "https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits",
-    "image-examples-1.fits"
-)
+# download(
+#     "https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits",
+#     "image-examples-1.fits"
+# )
 
 # Or multi-extension FITS (this example)
 image = AstroImages.load("image-examples-1.fits").*2e-7 # units of contrast
@@ -121,7 +121,7 @@ image_data = ImageLikelihood(
     name="imgdat-sim",
     variables=@variables begin
         # Planet flux in image units -- could be contrast, mags, Jy, or arb. as long as it's consistent with the units of the data you provide
-        flux = system.L
+        flux = planet.L
         # The following are optional parameters for marginalizing over instrument systematics:
         # Platescale uncertainty multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
         platescale = 1.0
