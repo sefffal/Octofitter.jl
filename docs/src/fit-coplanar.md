@@ -260,7 +260,7 @@ planet_c = Planet(
 )
 
 sys = System(
-    name="HR8799_res_co",
+    name="HR8799_approx_res_co",
     companions=[planet_b, planet_c],
     likelihoods=[],
     variables=@variables begin
