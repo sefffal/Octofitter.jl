@@ -677,7 +677,9 @@ function mcmcchain2result(model, chain, ii=(:))
                 end
             end
             # Convert observation dicts to named tuples
-            if !isempty(nt_pl_obs)
+            if isempty(nt_pl_obs)
+                nt_pl[:observations] = (;)
+            else
                 nt_pl[:observations] = namedtuple(Dict(
                     k => namedtuple(v)
                     for (k,v) in nt_pl_obs
@@ -689,12 +691,8 @@ function mcmcchain2result(model, chain, ii=(:))
         
         # Construct final result
         result = namedtuple(nt_sys)
-        if length(sysobs_keys) > 0
-            result = merge(result, (;observations=namedtuple(nt_observations)))
-        end
-        if length(planetkeys) > 0 
-            result = merge(result, (;planets=namedtuple(nt_planets)))
-        end
+        result = merge(result, (;observations=isempty(nt_observations) ? (;) : namedtuple(nt_observations)))
+        result = merge(result, (;planets=isempty(nt_planets) ? (;) : namedtuple(nt_planets)))
         return result
     end
     

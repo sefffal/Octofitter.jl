@@ -14,19 +14,29 @@ using Random
         (epoch = 50720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
         (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
     )
-    @planet b Visual{KepOrbit} begin
-        a ~ Uniform(0, 100) # AU
-        e ~ Uniform(0.0, 0.99)
-        i ~ Sine() # radians
-        ω ~ UniformCircular()
-        Ω ~ UniformCircular()
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(system,b,50000) # use MJD epoch of your data here!!
-    end astrom_like
-    @system TestSys begin # replace TestSys with the name of your planetary system
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-    end b
+    b = Planet(
+        name="b",
+        basis=Visual{KepOrbit},
+        likelihoods=[astrom_like],
+        variables=@variables begin
+            a ~ Uniform(0, 100) # AU
+            e ~ Uniform(0.0, 0.99)
+            i ~ Sine() # radians
+            ω ~ UniformCircular()
+            Ω ~ UniformCircular()
+            θ ~ UniformCircular()
+            tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω) # use MJD epoch of your data here!!
+        end
+    )
+    TestSys = System(
+        name="TestSys",
+        companions=[b],
+        likelihoods=[],
+        variables=@variables begin
+            M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+            plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+        end
+    )
     model_a = Octofitter.LogDensityModel(TestSys, autodiff=:FiniteDiff)
     # Correct dimensionality of problem
     @test model_a.D == 11

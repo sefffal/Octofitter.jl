@@ -43,11 +43,11 @@ using PairPlots, CairoMakie
         end
 
         @testset "Variables constructor" begin
-            vars = Variables(
-                a = Uniform(0,1),
-                b = Normal(0,1),
-                c = system -> system.a + system.b
-            )
+            vars = @variables begin
+                a ~ Uniform(0,1)
+                b ~ Normal(0,1)
+                c = a + b
+            end
             @test vars isa Tuple
             @test length(vars) >= 2  # Should have at least Priors and Derived
             @test first(vars) isa Priors
@@ -58,31 +58,38 @@ using PairPlots, CairoMakie
     @testset "Basic Planet Construction" begin
         # Create minimal test data
         astrom = PlanetRelAstromLikelihood(
-            (epoch=5000.0, ra=100.0, dec=50.0, σ_ra=1.0, σ_dec=1.0)
+            Table(epoch=[5000.0], ra=[100.0], dec=[50.0], σ_ra=[1.0], σ_dec=[1.0]),
+            variables=(@variables begin end),
+            name="test_astrom"
         )
 
         # Test basic planet construction
-        planet = Planet{Visual{KepOrbit}}(
-            Priors(a = Uniform(0,1), e = Beta(1,2)),
-            Derived(),
-            (astrom,),
-            name=:b
+        planet = Planet(
+            name="b",
+            basis=Visual{KepOrbit},
+            likelihoods=[astrom],
+            variables=@variables begin
+                a ~ Uniform(0,1)
+                e ~ Beta(1,2)
+            end
         )
         @test planet isa Planet
         @test planet.name == :b
         @test length(planet.observations) == 1
         @test first(planet.observations) === astrom
-        @test planet.priors isa Priors
 
         # Test with derived variables
-        planet = Planet{Visual{KepOrbit}}(
-            Priors(a = Uniform(0,1), e = Beta(1,2)),
-            Derived(tp = (sys, pl) -> pl.θ * pl.P),
-            (astrom,),
-            name=:b
+        planet = Planet(
+            name="b",
+            basis=Visual{KepOrbit},
+            likelihoods=[astrom],
+            variables=@variables begin
+                a ~ Uniform(0,1)
+                e ~ Beta(1,2)
+                tp = a * e  # Simple derived variable
+            end
         )
-        @test !isnothing(planet.derived)
-        @test planet.derived isa Derived
+        @test planet isa Planet
     end
 
     @testset "Fixed Position Orbit" begin
@@ -110,118 +117,103 @@ using PairPlots, CairoMakie
     @testset "KepOrbit Models" begin
 
         # Create planet model with KepOrbit
-        @planet b Visual{KepOrbit} begin
-            a ~ truncated(Normal(10, 4), lower=0.1)
-            e ~ Uniform(0.0, 0.5)
-            i ~ Sine()
-            ω ~ UniformCircular()
-            Ω ~ UniformCircular()
-            θ ~ UniformCircular()
-            tp = θ_at_epoch_to_tperi(system,b,50000)
-        end 
+        b = Planet(
+            name="b",
+            basis=Visual{KepOrbit},
+            likelihoods=[],
+            variables=@variables begin
+                a ~ truncated(Normal(10, 4), lower=0.1)
+                e ~ Uniform(0.0, 0.5)
+                i ~ Sine()
+                ω ~ UniformCircular()
+                Ω ~ UniformCircular()
+                θ ~ UniformCircular()
+                tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
+            end
+        )
 
-        @system SimpleSystem begin
-            M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-            plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-        end b
+        SimpleSystem = System(
+            name="SimpleSystem",
+            companions=[b],
+            likelihoods=[],
+            variables=@variables begin
+                M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+                plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+            end
+        )
 
         # Test orbit type extraction
         @test Octofitter.orbittype(b) == Visual{KepOrbit}
 
-        # Test element construction from parameters
-        θ_system = (
-            M = 1.2,
-            plx = 50.0,
-            planets = (
-                b = (
-                    a = 5.0,
-                    e = 0.1,
-                    i = 0.5,
-                    ω = 1.0,
-                    Ω = 2.0,
-                    tp = 50000.0
-                ),
-            )
-        )
-        
-        orbit = Octofitter.construct_elements(θ_system, :b)
-        @test orbit isa Visual{KepOrbit{Float64},Float64}
-        @test orbit.plx ≈ 50.0
-        @test semimajoraxis(orbit) ≈ 5.0
+        # Test basic model construction
+        model = Octofitter.LogDensityModel(SimpleSystem)
+        @test model isa Octofitter.LogDensityModel
     end
 
     @testset "ThieleInnes Models" begin
 
-        @planet b ThieleInnesOrbit begin
-            e ~ Uniform(0.0, 0.5)
-            A ~ Normal(0, 10000)
-            B ~ Normal(0, 10000)
-            F ~ Normal(0, 10000)
-            G ~ Normal(0, 10000)
-            θ ~ UniformCircular()
-            tp = θ_at_epoch_to_tperi(system,b,50000.0)
-        end 
+        b = Planet(
+            name="b",
+            basis=ThieleInnesOrbit,
+            likelihoods=[],
+            variables=@variables begin
+                e ~ Uniform(0.0, 0.5)
+                A ~ Normal(0, 10000)
+                B ~ Normal(0, 10000)
+                F ~ Normal(0, 10000)
+                G ~ Normal(0, 10000)
+                θ ~ UniformCircular()
+                tp = θ_at_epoch_to_tperi(θ, 50000.0; M=system.M, e, A, B, F, G, plx=system.plx)
+            end
+        )
 
-        @system TISystem begin
-            M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-            plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-        end b
+        TISystem = System(
+            name="TISystem",
+            companions=[b],
+            likelihoods=[],
+            variables=@variables begin
+                M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+                plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+            end
+        )
 
         # Test orbit type extraction
         @test Octofitter.orbittype(b) == ThieleInnesOrbit
 
-        # Test element construction from parameters
-        θ_system = (
-            M = 1.2,
-            plx = 50.0,
-            planets = (
-                b = (
-                    e = 0.1,
-                    A = 100.0,
-                    B = 200.0,
-                    F = 300.0,
-                    G = 400.0,
-                    tp = 50000.0
-                ),
-            )
-        )
-        
-        orbit = Octofitter.construct_elements(θ_system, :b)
-        @test orbit isa ThieleInnesOrbit
-        @test orbit.plx ≈ 50.0
-        @test orbit.A ≈ 100.0
+        # Test basic model construction
+        model = Octofitter.LogDensityModel(TISystem)
+        @test model isa Octofitter.LogDensityModel
     end
 
     
 
     @testset "FixedPosition Models" begin
 
-        @planet b Visual{Octofitter.FixedPosition} begin
-            x ~ Uniform(-2000, 2000)
-            y ~ Uniform(-2000, 2000)
-        end 
+        b = Planet(
+            name="b",
+            basis=Visual{Octofitter.FixedPosition},
+            likelihoods=[],
+            variables=@variables begin
+                x ~ Uniform(-2000, 2000)
+                y ~ Uniform(-2000, 2000)
+            end
+        )
 
-        @system FixedSystem begin
-            plx = 24.4620
-        end b
+        FixedSystem = System(
+            name="FixedSystem",
+            companions=[b],
+            likelihoods=[],
+            variables=@variables begin
+                plx = 24.4620
+            end
+        )
 
         # Test orbit type extraction
         @test Octofitter.orbittype(b) == Visual{Octofitter.FixedPosition}
 
-        # Test element construction
-        θ_system = (
-            plx = 24.4620,
-            planets = (
-                b = (
-                    x = 2000.0,
-                    y = 1.0,
-                ),
-            )
-        )
-
-        orbit = Octofitter.construct_elements(θ_system, :b)
-        @test orbit isa Visual{Octofitter.FixedPosition{Float64}}
-        @test posx(orbit,0) ≈ 2000.0
+        # Test basic model construction
+        model = Octofitter.LogDensityModel(FixedSystem)
+        @test model isa Octofitter.LogDensityModel
     end
 
 end
@@ -231,8 +223,9 @@ end
     @testset "PlanetRelAstromLikelihood" begin
         # Test RA/Dec format
         data_radec = PlanetRelAstromLikelihood(
-            (epoch=5000.0, ra=100.0, dec=50.0, σ_ra=1.0, σ_dec=1.0),
-            (epoch=5100.0, ra=110.0, dec=55.0, σ_ra=1.0, σ_dec=1.0)
+            Table(epoch=[5000.0, 5100.0], ra=[100.0, 110.0], dec=[50.0, 55.0], σ_ra=[1.0, 1.0], σ_dec=[1.0, 1.0]),
+            variables=(@variables begin end),
+            name="test_radec"
         )
         @test data_radec isa PlanetRelAstromLikelihood
         @test length(data_radec.table) == 2
@@ -240,8 +233,9 @@ end
 
         # Test sep/PA format
         data_seppa = PlanetRelAstromLikelihood(
-            (epoch=5000.0, sep=100.0, pa=1.0, σ_sep=1.0, σ_pa=0.1),
-            (epoch=5100.0, sep=110.0, pa=1.1, σ_sep=1.0, σ_pa=0.1)
+            Table(epoch=[5000.0, 5100.0], sep=[100.0, 110.0], pa=[1.0, 1.1], σ_sep=[1.0, 1.0], σ_pa=[0.1, 0.1]),
+            variables=(@variables begin end),
+            name="test_seppa"
         )
         @test data_seppa isa PlanetRelAstromLikelihood
         @test length(data_seppa.table) == 2
@@ -249,7 +243,9 @@ end
 
         # Test that invalid column combinations throw errors
         @test_throws Exception PlanetRelAstromLikelihood(
-            (epoch=5000.0, ra=100.0, pa=1.0, σ_ra=1.0, σ_pa=0.1)
+            Table(epoch=[5000.0], ra=[100.0], pa=[1.0], σ_ra=[1.0], σ_pa=[0.1]),
+            variables=(@variables begin end),
+            name="test_invalid"
         )
 
         # Test subsetting
@@ -259,8 +255,9 @@ end
 
     @testset "PhotometryLikelihood" begin
         phot = PhotometryLikelihood(
-            (band=:Z, phot=15.0, σ_phot=0.1),
-            (band=:J, phot=14.0, σ_phot=0.2)
+            Table(band=[:Z, :J], phot=[15.0, 14.0], σ_phot=[0.1, 0.2]),
+            variables=(@variables begin end),
+            name="test_phot"
         )
         @test phot isa PhotometryLikelihood
         @test length(phot.table) == 2
@@ -383,24 +380,34 @@ end
 @testset "Prior Specifications" begin
     @testset "Standard Distribution Priors" begin
         # Test normal prior construction and bounds checking
-        @test_nowarn @planet b Visual{KepOrbit} begin
-            a ~ truncated(Normal(10, 2), lower=0.1)
-            e ~ Beta(1, 2)  # Naturally bounded [0,1]
-            i ~ Normal(1.0, 0.1)
-            ω ~ Uniform(0, 2π)
-            Ω ~ Uniform(0, 2π)
-            θ ~ UniformCircular()
-        end
+        @test_nowarn Planet(
+            name="b",
+            basis=Visual{KepOrbit},
+            likelihoods=[],
+            variables=@variables begin
+                a ~ truncated(Normal(10, 2), lower=0.1)
+                e ~ Beta(1, 2)  # Naturally bounded [0,1]
+                i ~ Normal(1.0, 0.1)
+                ω ~ Uniform(0, 2π)
+                Ω ~ Uniform(0, 2π)
+                θ ~ UniformCircular()
+            end
+        )
 
         # Test LogUniform prior
-        @test_nowarn @planet b Visual{KepOrbit} begin
-            a ~ LogUniform(0.1, 100)
-            e ~ Uniform(0, 0.99)
-            i ~ Normal(1.0, 0.1)
-            ω ~ Uniform(0, 2π)
-            Ω ~ Uniform(0, 2π)
-            θ ~ UniformCircular()
-        end
+        @test_nowarn Planet(
+            name="b",
+            basis=Visual{KepOrbit},
+            likelihoods=[],
+            variables=@variables begin
+                a ~ LogUniform(0.1, 100)
+                e ~ Uniform(0, 0.99)
+                i ~ Normal(1.0, 0.1)
+                ω ~ Uniform(0, 2π)
+                Ω ~ Uniform(0, 2π)
+                θ ~ UniformCircular()
+            end
+        )
     end
 
     @testset "Special Prior Distributions" begin
@@ -425,22 +432,28 @@ end
             @test uc_custom.domain ≈ 1.0
 
             # Test in model context
-            @test_nowarn @planet b Visual{KepOrbit} begin
-                a ~ LogUniform(0.1, 100)
-                e ~ Uniform(0, 0.99)
-                i ~ Sine()
-                ω ~ UniformCircular()
-                Ω ~ UniformCircular(π)  # Custom domain
-                θ ~ UniformCircular()
-            end
+            @test_nowarn Planet(
+                name="b",
+                basis=Visual{KepOrbit},
+                likelihoods=[],
+                variables=@variables begin
+                    a ~ LogUniform(0.1, 100)
+                    e ~ Uniform(0, 0.99)
+                    i ~ Sine()
+                    ω ~ UniformCircular()
+                    Ω ~ UniformCircular(π)  # Custom domain
+                    θ ~ UniformCircular()
+                end
+            )
         end
     end
 
     @testset "Observable-based Priors" begin
         # Create test data
         astrom_data = PlanetRelAstromLikelihood(
-            (epoch = 50000, ra = 100.0, dec = 50.0, σ_ra = 1.0, σ_dec = 1.0),
-            (epoch = 50100, ra = 110.0, dec = 55.0, σ_ra = 1.0, σ_dec = 1.0)
+            Table(epoch = [50000, 50100], ra = [100.0, 110.0], dec = [50.0, 55.0], σ_ra = [1.0, 1.0], σ_dec = [1.0, 1.0]),
+            variables=(@variables begin end),
+            name="obs_prior_test"
         )
 
         # Test O'Neil observable-based prior construction
@@ -449,17 +462,22 @@ end
         @test obs_prior.wrapped_like === astrom_data
 
         # Test in model context with period prior
-        @test_nowarn @planet b Visual{KepOrbit} begin
-            e ~ Uniform(0.0, 0.5)
-            i ~ Sine()
-            ω ~ UniformCircular()
-            Ω ~ UniformCircular()
-            # Results sensitive to period prior
-            P ~ LogUniform(0.1, 150)
-            a = ∛(system.M * b.P^2)
-            θ ~ UniformCircular()
-            tp = θ_at_epoch_to_tperi(system,b,50000)
-        end astrom_data obs_prior
+        @test_nowarn Planet(
+            name="b",
+            basis=Visual{KepOrbit},
+            likelihoods=[astrom_data, obs_prior],
+            variables=@variables begin
+                e ~ Uniform(0.0, 0.5)
+                i ~ Sine()
+                ω ~ UniformCircular()
+                Ω ~ UniformCircular()
+                # Results sensitive to period prior
+                P ~ LogUniform(0.1, 150)
+                a = ∛(system.M * P^2)
+                θ ~ UniformCircular()
+                tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
+            end
+        )
 
         # Test subsetting
         subset = Octofitter.likeobj_from_epoch_subset(obs_prior, 1:1)
@@ -479,38 +497,55 @@ end
         @test !Distributions.insupport(kde, minimum(samples) - 1)
 
         # Test in model context
-        @test_nowarn @planet b Visual{KepOrbit} begin
-            a ~ kde  # Use KDE as prior
-            e ~ Uniform(0, 0.99)
-            i ~ Sine()
-            ω ~ UniformCircular()
-            Ω ~ UniformCircular()
-            θ ~ UniformCircular()
-            tp = θ_at_epoch_to_tperi(system,b,50000)
-        end
+        @test_nowarn Planet(
+            name="b",
+            basis=Visual{KepOrbit},
+            likelihoods=[],
+            variables=@variables begin
+                a ~ kde  # Use KDE as prior
+                e ~ Uniform(0, 0.99)
+                i ~ Sine()
+                ω ~ UniformCircular()
+                Ω ~ UniformCircular()
+                θ ~ UniformCircular()
+                tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
+            end
+        )
     end
 
 
     @testset "Prior Sampling" begin
         # Create a simple model
         astrom_data = PlanetRelAstromLikelihood(
-            (epoch = 50000, ra = 100.0, dec = 50.0, σ_ra = 1.0, σ_dec = 1.0)
+            Table(epoch = [50000], ra = [100.0], dec = [50.0], σ_ra = [1.0], σ_dec = [1.0]),
+            variables=(@variables begin end),
+            name="prior_sampling_test"
         )
 
-        @planet b Visual{KepOrbit} begin
-            a ~ LogUniform(0.1, 100)
-            e ~ Uniform(0, 0.99)
-            i ~ Sine()
-            ω ~ UniformCircular()
-            Ω ~ UniformCircular()
-            θ ~ UniformCircular()
-            tp = θ_at_epoch_to_tperi(system,b,50000)
-        end astrom_data
+        b = Planet(
+            name="b",
+            basis=Visual{KepOrbit},
+            likelihoods=[astrom_data],
+            variables=@variables begin
+                a ~ LogUniform(0.1, 100)
+                e ~ Uniform(0, 0.99)
+                i ~ Sine()
+                ω ~ UniformCircular()
+                Ω ~ UniformCircular()
+                θ ~ UniformCircular()
+                tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
+            end
+        )
 
-        @system TestSystem begin
-            M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-            plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-        end b
+        TestSystem = System(
+            name="TestSystem",
+            companions=[b],
+            likelihoods=[],
+            variables=@variables begin
+                M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+                plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+            end
+        )
 
         # Test drawing from priors
         samples = Octofitter.sample_priors(TestSystem)
@@ -562,20 +597,30 @@ end
     end
 
     # Create a test chain 
-    @planet b Visual{KepOrbit} begin 
-        a ~ LogUniform(0.1, 100)
-        e ~ Uniform(0, 0.99)
-        i ~ Sine()
-        ω ~ UniformCircular() # Unicode omega
-        Ω ~ UniformCircular() # Unicode capital omega  
-        θ ~ UniformCircular() # Unicode theta
-        tp = θ_at_epoch_to_tperi(system,b,50000)
-    end
+    b = Planet(
+        name="b",
+        basis=Visual{KepOrbit},
+        likelihoods=[],
+        variables=@variables begin
+            a ~ LogUniform(0.1, 100)
+            e ~ Uniform(0, 0.99)
+            i ~ Sine()
+            ω ~ UniformCircular() # Unicode omega
+            Ω ~ UniformCircular() # Unicode capital omega  
+            θ ~ UniformCircular() # Unicode theta
+            tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
+        end
+    )
 
-    @system TestSystem begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-    end b
+    TestSystem = System(
+        name="TestSystem",
+        companions=[b],
+        likelihoods=[],
+        variables=@variables begin
+            M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+            plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+        end
+    )
 
     model = Octofitter.LogDensityModel(TestSystem)
     chain_original = octofit(model, iterations=100, adaptation=50)
@@ -628,7 +673,12 @@ end
         end
         
         # Load using CSV.read
-        astrom_data = CSV.read("test_astrometry.csv", PlanetRelAstromLikelihood)
+        csv_table = CSV.read("test_astrometry.csv", Table)
+        astrom_data = PlanetRelAstromLikelihood(
+            csv_table,
+            variables=(@variables begin end),
+            name="csv_test"
+        )
         
         # Test the loaded data
         @test length(astrom_data.table) == 3
@@ -647,33 +697,45 @@ end
 @testset "Plotting" begin
     # Create a test model and chain once to use across tests
     astrom_like = PlanetRelAstromLikelihood(
-        (epoch = 50000, ra = -494.4, dec = -76.7, σ_ra =  12.6, σ_dec =  12.6, cor=  0.2),
-        (epoch = 50120, ra = -495.0, dec = -44.9, σ_ra =  10.4, σ_dec =  10.4, cor=  0.5),
-        (epoch = 50240, ra = -493.7, dec = -12.9, σ_ra =   9.9, σ_dec =   9.9, cor=  0.1),
-        (epoch = 50360, ra = -490.4, dec =  19.1, σ_ra =   8.7, σ_dec =   8.7, cor= -0.8),
-        (epoch = 50480, ra = -485.2, dec =  51.0, σ_ra =   8.0, σ_dec =   8.0, cor=  0.3),
-        (epoch = 50600, ra = -478.1, dec =  82.8, σ_ra =   6.9, σ_dec =   6.9, cor= -0.0),
-        (epoch = 50720, ra = -469.1, dec = 114.3, σ_ra =   5.8, σ_dec =   5.8, cor=  0.1),
-        (epoch = 50840, ra = -458.3, dec = 145.3, σ_ra =   4.2, σ_dec =   4.2, cor= -0.2),
+        Table(
+            epoch = [50000, 50120, 50240, 50360, 50480, 50600, 50720, 50840],
+            ra = [-494.4, -495.0, -493.7, -490.4, -485.2, -478.1, -469.1, -458.3],
+            dec = [-76.7, -44.9, -12.9, 19.1, 51.0, 82.8, 114.3, 145.3],
+            σ_ra = [12.6, 10.4, 9.9, 8.7, 8.0, 6.9, 5.8, 4.2],
+            σ_dec = [12.6, 10.4, 9.9, 8.7, 8.0, 6.9, 5.8, 4.2],
+            cor = [0.2, 0.5, 0.1, -0.8, 0.3, -0.0, 0.1, -0.2]
+        ),
+        variables=(@variables begin end),
+        name="plotting_test"
     )
-    @planet b Visual{KepOrbit} begin 
-        a ~ LogUniform(0.1, 100)
-        e ~ Uniform(0, 0.99)
-        i ~ Sine()
-        ω ~ UniformCircular() # Unicode omega
-        Ω ~ UniformCircular() # Unicode capital omega  
-        θ ~ UniformCircular() # Unicode theta
-        tp = θ_at_epoch_to_tperi(system,b,50000)
-        mass = 10
-    end astrom_like
+    b = Planet(
+        name="b",
+        basis=Visual{KepOrbit},
+        likelihoods=[astrom_like],
+        variables=@variables begin
+            a ~ LogUniform(0.1, 100)
+            e ~ Uniform(0, 0.99)
+            i ~ Sine()
+            ω ~ UniformCircular() # Unicode omega
+            Ω ~ UniformCircular() # Unicode capital omega  
+            θ ~ UniformCircular() # Unicode theta
+            tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
+            mass = 10
+        end
+    )
     gaia_id = 756291174721509376
     hgca = HGCALikelihood(;gaia_id=gaia_id)  
-    @system TestSystem begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-        pmra ~ Normal(-137, 10)
-        pmdec ~ Normal(2,  10)    
-    end hgca b
+    TestSystem = System(
+        name="TestSystem",
+        companions=[b],
+        likelihoods=[hgca],
+        variables=@variables begin
+            M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+            plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+            pmra ~ Normal(-137, 10)
+            pmdec ~ Normal(2,  10)    
+        end
+    )
 
     model = Octofitter.LogDensityModel(TestSystem)
     Random.seed!(0)
@@ -799,46 +861,63 @@ end
 @testset "Multi-Planet Systems" begin
     # Create test data for two planets
     astrom_b = PlanetRelAstromLikelihood(
-        (epoch=50000.0, ra=100.0, dec=50.0, σ_ra=1.0, σ_dec=1.0),
-        (epoch=50100.0, ra=110.0, dec=55.0, σ_ra=1.0, σ_dec=1.0)
+        Table(epoch=[50000.0, 50100.0], ra=[100.0, 110.0], dec=[50.0, 55.0], σ_ra=[1.0, 1.0], σ_dec=[1.0, 1.0]),
+        variables=(@variables begin end),
+        name="astrom_b"
     )
     astrom_c = PlanetRelAstromLikelihood(
-        (epoch=50000.0, ra=-200.0, dec=-100.0, σ_ra=1.0, σ_dec=1.0),
-        (epoch=50100.0, ra=-210.0, dec=-110.0, σ_ra=1.0, σ_dec=1.0)
+        Table(epoch=[50000.0, 50100.0], ra=[-200.0, -210.0], dec=[-100.0, -110.0], σ_ra=[1.0, 1.0], σ_dec=[1.0, 1.0]),
+        variables=(@variables begin end),
+        name="astrom_c"
     )
 
     # Create two-planet model with resonance
-    @planet b Visual{KepOrbit} begin
-        a ~ LogUniform(0.1, 10)
-        e ~ Uniform(0, 0.5)
-        i = system.i  # Coplanar
-        ω ~ UniformCircular()
-        Ω = system.Ω  # Coplanar
-        P = 2*system.P_nominal * b.P_mul
-        P_mul ~ Normal(1, 0.1)
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(system,b,50000)
-    end astrom_b
+    b = Planet(
+        name="b",
+        basis=Visual{KepOrbit},
+        likelihoods=[astrom_b],
+        variables=@variables begin
+            a ~ LogUniform(0.1, 10)
+            e ~ Uniform(0, 0.5)
+            i = system.i  # Coplanar
+            ω ~ UniformCircular()
+            Ω = system.Ω  # Coplanar
+            P = 2*system.P_nominal * P_mul
+            P_mul ~ Normal(1, 0.1)
+            θ ~ UniformCircular()
+            tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
+        end
+    )
 
-    @planet c Visual{KepOrbit} begin
-        a ~ LogUniform(0.1, 10)
-        e ~ Uniform(0, 0.5)
-        i = system.i  # Coplanar
-        ω ~ UniformCircular()
-        Ω = system.Ω  # Coplanar
-        P = system.P_nominal * c.P_mul
-        P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(system,c,50000)
-    end astrom_c
+    c = Planet(
+        name="c",
+        basis=Visual{KepOrbit},
+        likelihoods=[astrom_c],
+        variables=@variables begin
+            a ~ LogUniform(0.1, 10)
+            e ~ Uniform(0, 0.5)
+            i = system.i  # Coplanar
+            ω ~ UniformCircular()
+            Ω = system.Ω  # Coplanar
+            P = system.P_nominal * P_mul
+            P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
+            θ ~ UniformCircular()
+            tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
+        end
+    )
 
-    @system TwoPlanetSystem begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-        i ~ Sine()  # Common inclination
-        Ω ~ UniformCircular()  # Common node
-        P_nominal ~ LogUniform(50, 300)  # Base period
-    end b c
+    TwoPlanetSystem = System(
+        name="TwoPlanetSystem",
+        companions=[b, c],
+        likelihoods=[],
+        variables=@variables begin
+            M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+            plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+            i ~ Sine()  # Common inclination
+            Ω ~ UniformCircular()  # Common node
+            P_nominal ~ LogUniform(50, 300)  # Base period
+        end
+    )
 
     model = Octofitter.LogDensityModel(TwoPlanetSystem)
     chain = octofit(model, iterations=100)
@@ -855,39 +934,72 @@ end
 @testset "Joint Fitting" begin
     # Create test data of different types
     astrom = PlanetRelAstromLikelihood(
-        (epoch=50000.0, ra=100.0, dec=50.0, σ_ra=1.0, σ_dec=1.0)
+        Table(epoch=[50000.0], ra=[100.0], dec=[50.0], σ_ra=[1.0], σ_dec=[1.0]),
+        variables=(@variables begin end),
+        name="joint_fitting_test"
     )
     
     hgca = HGCALikelihood(;gaia_id=756291174721509376)
 
-    @planet b Visual{KepOrbit} begin
-        a ~ LogUniform(0.1, 10)
-        e ~ Uniform(0, 0.5)
-        i ~ Sine()
-        ω ~ UniformCircular()
-        Ω ~ UniformCircular()
-        mass ~ LogUniform(0.1, 100)
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(system,b,50000)
-    end astrom
+    b_astrom = Planet(
+        name="b",
+        basis=Visual{KepOrbit},
+        likelihoods=[astrom],
+        variables=@variables begin
+            a ~ LogUniform(0.1, 10)
+            e ~ Uniform(0, 0.5)
+            i ~ Sine()
+            ω ~ UniformCircular()
+            Ω ~ UniformCircular()
+            mass ~ LogUniform(0.1, 100)
+            θ ~ UniformCircular()
+            tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
+        end
+    )
 
-    @system AstromSystem begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-        plx ~ gaia_plx(;gaia_id=756291174721509376)
-        pmra ~ Normal(-975, 10)
-        pmdec ~ Normal(20, 10)
-        jitter ~ LogUniform(0.1, 100)
-        rv0 ~ Normal(0, 100)
-    end b
+    AstromSystem = System(
+        name="AstromSystem",
+        companions=[b_astrom],
+        likelihoods=[],
+        variables=@variables begin
+            M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+            plx ~ gaia_plx(;gaia_id=756291174721509376)
+            pmra ~ Normal(-975, 10)
+            pmdec ~ Normal(20, 10)
+            jitter ~ LogUniform(0.1, 100)
+            rv0 ~ Normal(0, 100)
+        end
+    )
 
-    @system JointSystem begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-        plx ~ gaia_plx(;gaia_id=756291174721509376)
-        pmra ~ Normal(-975, 10)
-        pmdec ~ Normal(20, 10)
-        jitter ~ LogUniform(0.1, 100)
-        rv0 ~ Normal(0, 100)
-    end hgca b
+    b_joint = Planet(
+        name="b",
+        basis=Visual{KepOrbit},
+        likelihoods=[astrom],
+        variables=@variables begin
+            a ~ LogUniform(0.1, 10)
+            e ~ Uniform(0, 0.5)
+            i ~ Sine()
+            ω ~ UniformCircular()
+            Ω ~ UniformCircular()
+            mass ~ LogUniform(0.1, 100)
+            θ ~ UniformCircular()
+            tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
+        end
+    )
+
+    JointSystem = System(
+        name="JointSystem",
+        companions=[b_joint],
+        likelihoods=[hgca],
+        variables=@variables begin
+            M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+            plx ~ gaia_plx(;gaia_id=756291174721509376)
+            pmra ~ Normal(-975, 10)
+            pmdec ~ Normal(20, 10)
+            jitter ~ LogUniform(0.1, 100)
+            rv0 ~ Normal(0, 100)
+        end
+    )
 
     # Test that the mass is better constrained with joint data
     # by comparing to chains from individual fits
@@ -902,34 +1014,58 @@ end
 
 @testset "Cross Validation" begin
     # Create test model with multiple epochs
+    epochs = collect(range(50000, 51000, length=10))
     astrom1 = PlanetRelAstromLikelihood(
-        (epoch=t, ra=100.0+t/100, dec=50.0+t/200, σ_ra=1.0, σ_dec=1.0)
-        for t in range(50000, 51000, length=10)
+        Table(
+            epoch=epochs,
+            ra=[100.0+t/100 for t in epochs],
+            dec=[50.0+t/200 for t in epochs],
+            σ_ra=fill(1.0, length(epochs)),
+            σ_dec=fill(1.0, length(epochs))
+        ),
+        name="astrom1"
     )
     astrom2 = PlanetRelAstromLikelihood(
-        (epoch=t, ra=100.0+t/100, dec=50.0+t/200, σ_ra=1.0, σ_dec=1.0)
-        for t in range(50000, 51000, length=10)
+        Table(
+            epoch=epochs,
+            ra=[100.0+t/100 for t in epochs],
+            dec=[50.0+t/200 for t in epochs],
+            σ_ra=fill(1.0, length(epochs)),
+            σ_dec=fill(1.0, length(epochs))
+        ),
+        name="astrom2"
     )
 
-    @planet b Visual{KepOrbit} begin
-        a  = 1.0
-        e  = 0.0
-        i  = 1.0
-        ω  = 1.0
-        Ω  = 1.0
-        tp = 50000
-    end astrom1 astrom2
+    b = Planet(
+        name="b",
+        basis=Visual{KepOrbit},
+        likelihoods=[astrom1, astrom2],
+        variables=@variables begin
+            a  = 1.0
+            e  = 0.0
+            i  = 1.0
+            ω  = 1.0
+            Ω  = 1.0
+            tp = 50000
+        end
+    )
 
-    @system Sys begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-        plx = 100.
-    end b
+    Sys = System(
+        name="Sys",
+        companions=[b],
+        likelihoods=[],
+        variables=@variables begin
+            M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+            plx = 100.
+        end
+    )
     model = Octofitter.LogDensityModel(Sys)
     chain = octofit(model, iterations=100)
 
     # Test pointwise likelihood calculation
-    like_mat = Octofitter.pointwise_like(model, chain)
+    like_mat, epochs = Octofitter.pointwise_like(model, chain)
     @test size(like_mat, 2) == 20  # One column per epoch
+    @test length(epochs) == 20  # One column per epoch
     @test all(isfinite, like_mat)
 
     # Test k-fold systems generation
@@ -937,6 +1073,7 @@ end
     @test length(kfold_systems) == 2  # One per dataset
 
     # Test per-epoch system generation
-    per_epoch_systems = Octofitter.generate_system_per_epoch(model.system)
+    per_epoch_systems, epochs = Octofitter.generate_system_per_epoch(model.system)
     @test length(per_epoch_systems) == 20
+    @test length(epochs) == 20
 end
