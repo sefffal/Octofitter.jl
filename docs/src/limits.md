@@ -36,27 +36,37 @@ const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)
 ## Proper Motion Anomaly Data
 We start by defining and sampling from a model that only includes proper motion anomaly data from the HGCA:
 ```@example 1
-@planet B Visual{KepOrbit} begin
-    a ~ LogUniform(1, 65)
-    e ~ Uniform(0,0.9)
-    ω ~ Uniform(0,2pi)
-    i ~ Sine() # The Sine() distribution is defined by Octofitter
-    Ω ~ Uniform(0,pi)# ~ UniformCircular()
-    mass = system.M_sec
-    θ ~ Uniform(0,2pi)
-    tp = θ_at_epoch_to_tperi(system,B,57423.0) # epoch of GAIA measurement
-end
-@system HD91312_pma begin
-    M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
-    M_sec ~ LogUniform(0.2, 65) # MJup
-    M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
+B = Planet(
+    name="B",
+    basis=Visual{KepOrbit},
+    likelihoods=[],
+    variables=@variables begin
+        a ~ LogUniform(1, 65)
+        e ~ Uniform(0,0.9)
+        ω ~ Uniform(0,2pi)
+        i ~ Sine() # The Sine() distribution is defined by Octofitter
+        Ω ~ Uniform(0,pi)
+        mass = system.M_sec
+        θ ~ Uniform(0,2pi)
+        tp = θ_at_epoch_to_tperi(θ, 57423.0; M=system.M, e, a, i, ω, Ω) # epoch of GAIA measurement
+    end
+)
+HD91312_pma = System(
+    name="HD91312_pma",
+    companions=[B],
+    likelihoods=[HGCAInstantaneousLikelihood(gaia_id=6166183842771027328)],
+    variables=@variables begin
+        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
+        M_sec ~ LogUniform(0.2, 65) # MJup
+        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
 
-    plx ~ gaia_plx(gaia_id=6166183842771027328)
-            
-    # Priors on the center of mass proper motion
-    pmra ~ Normal(0, 1000)
-    pmdec ~ Normal(0,  1000)
-end HGCALikelihood(gaia_id=6166183842771027328) B
+        plx ~ gaia_plx(gaia_id=6166183842771027328)
+                
+        # Priors on the center of mass proper motion
+        pmra ~ Normal(0, 1000)
+        pmdec ~ Normal(0,  1000)
+    end
+)
 model_pma = Octofitter.LogDensityModel(HD91312_pma)
 ```
 
@@ -95,65 +105,88 @@ pairplot(
 
 ```@example 1
 using AstroImages
-download(
-    "https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits",
-    "image-examples-1.fits"
-)
+# download(
+#     "https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits",
+#     "image-examples-1.fits"
+# )
 
 # Or multi-extension FITS (this example)
 image = AstroImages.load("image-examples-1.fits").*2e-7 # units of contrast
+img_dat_table = Table([
+     (image=AstroImages.recenter(image), platescale=4.0, epoch=57423.6),
+])
 
 image_data = ImageLikelihood(
-    (band=:L, image=AstroImages.recenter(image), platescale=4.0, epoch=57423.6),
+    img_dat_table,
+    name="imgdat-sim",
+    variables=@variables begin
+        # Planet flux in image units -- could be contrast, mags, Jy, or arb. as long as it's consistent with the units of the data you provide
+        flux = planet.L
+        # The following are optional parameters for marginalizing over instrument systematics:
+        # Platescale uncertainty multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        platescale = 1.0
+        # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        northangle = 0.0
+    end
 )
 ```
 
 
 
 ```@example 1
-@planet B Visual{KepOrbit} begin
-    a ~ LogUniform(1, 65)
-    e ~ Uniform(0,0.9)
-    ω ~ Uniform(0,2pi)
-    i ~ Sine() # The Sine() distribution is defined by Octofitter
-    Ω ~ Uniform(0,pi)
-    mass = system.M_sec
+B = Planet(
+    name="B",
+    basis=Visual{KepOrbit},
+    likelihoods=[image_data],
+    variables=@variables begin
+        a ~ LogUniform(1, 65)
+        e ~ Uniform(0,0.9)
+        ω ~ Uniform(0,2pi)
+        i ~ Sine() # The Sine() distribution is defined by Octofitter
+        Ω ~ Uniform(0,pi)
+        mass = system.M_sec
 
-    # Calculate planet temperature from cooling track and planet mass variable
-    tempK = cooling_tracks(system.age, B.mass)
-    # Calculate absolute magnitude
-    abs_mag_L = sonora_temp_mass_L(B.tempK, B.mass)
-    # Deal with out-of-grid values by clamping to grid max and min
-    abs_mal_L′ = if isfinite(B.abs_mag_L)
-        B.abs_mag_L
-    elseif B.mass > 10 
-        8.2 # jump to absurdly bright
-    else
-        16.7 # jump to absurdly dim
+        # Calculate planet temperature from cooling track and planet mass variable
+        tempK = $cooling_tracks(system.age, mass)
+        # Calculate absolute magnitude
+        abs_mag_L = $sonora_temp_mass_L(tempK, mass)
+        # Deal with out-of-grid values by clamping to grid max and min
+        abs_mal_L′ = if isfinite(abs_mag_L)
+            abs_mag_L
+        elseif mass > 10 
+            8.2 # jump to absurdly bright
+        else
+            16.7 # jump to absurdly dim
+        end
+        # Calculate relative magnitude
+        rel_mag_L = abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
+        # Convert to contrast (same units as image)
+        L = 10.0^(rel_mag_L/-2.5)
+
+        θ ~ Uniform(0,2pi)
+        tp = θ_at_epoch_to_tperi(θ, 57423.6; M=system.M, e, a, i, ω, Ω)
     end
-    # Calculate relative magnitude
-    rel_mag_L = B.abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
-    # Convert to contrast (same units as image)
-    L = 10.0^(B.rel_mag_L/-2.5)
+)
 
-    θ ~ Uniform(0,2pi)
-    tp = θ_at_epoch_to_tperi(system,B,57423.6)
-end image_data 
-
-@system HD91312_img begin
-    # age ~ truncated(Normal(40, 15),lower=0, upper=200)
-    age = 10
-    M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
-    # Mass of secondary
-    # Make sure to pick only a mass range that is covered by your models
-    M_sec ~ LogUniform(0.55, 65) # MJup
-    M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
-    plx ~ gaia_plx(gaia_id=6166183842771027328)
-    # Priors on the center of mass proper motion
-    # pmra ~ Normal(0, 1000)
-    # pmdec ~ Normal(0,  1000)
-    rel_mag = 5.65
-end  B
+HD91312_img = System(
+    name="HD91312_img",
+    companions=[B],
+    likelihoods=[],
+    variables=@variables begin
+        # age ~ truncated(Normal(40, 15),lower=0, upper=200)
+        age = 10
+        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
+        # Mass of secondary
+        # Make sure to pick only a mass range that is covered by your models
+        M_sec ~ LogUniform(0.55, 65) # MJup
+        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
+        plx ~ gaia_plx(gaia_id=6166183842771027328)
+        # Priors on the center of mass proper motion
+        # pmra ~ Normal(0, 1000)
+        # pmdec ~ Normal(0,  1000)
+        rel_mag = 5.65
+    end
+)
 model_img = Octofitter.LogDensityModel(HD91312_img)
 ```
 
@@ -196,51 +229,61 @@ pairplot(
 # Image and PMA data
 
 ```@example 1
-@planet B Visual{KepOrbit} begin
-    a ~ LogUniform(1, 65)
-    e ~ Uniform(0,0.9)
-    ω ~ Uniform(0,2pi)
-    i ~ Sine() # The Sine() distribution is defined by Octofitter
-    Ω ~ Uniform(0,pi)
-    mass = system.M_sec
+B = Planet(
+    name="B",
+    basis=Visual{KepOrbit},
+    likelihoods=[image_data],
+    variables=@variables begin
+        a ~ LogUniform(1, 65)
+        e ~ Uniform(0,0.9)
+        ω ~ Uniform(0,2pi)
+        i ~ Sine() # The Sine() distribution is defined by Octofitter
+        Ω ~ Uniform(0,pi)
+        mass = system.M_sec
 
-    # Calculate planet temperature from cooling track and planet mass variable
-    tempK = cooling_tracks(system.age, B.mass)
-    # Calculate absolute magnitude
-    abs_mag_L = sonora_temp_mass_L(B.tempK, B.mass)
-    # Deal with out-of-grid values by clamping to grid max and min
-    abs_mal_L′ = if isfinite(B.abs_mag_L)
-        B.abs_mag_L
-    elseif B.mass > 10 
-        8.2 # jump to absurdly bright
-    else
-        16.7 # jump to absurdly dim
+        # Calculate planet temperature from cooling track and planet mass variable
+        tempK = $cooling_tracks(system.age, mass)
+        # Calculate absolute magnitude
+        abs_mag_L = $sonora_temp_mass_L(tempK, mass)
+        # Deal with out-of-grid values by clamping to grid max and min
+        abs_mal_L′ = if isfinite(abs_mag_L)
+            abs_mag_L
+        elseif mass > 10 
+            8.2 # jump to absurdly bright
+        else
+            16.7 # jump to absurdly dim
+        end
+        # Calculate relative magnitude
+        rel_mag_L = abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
+        # Convert to contrast (same units as image)
+        L = 10.0^(rel_mag_L/-2.5)
+
+        # L ~ Uniform(0,1)
+
+        θ ~ Uniform(0,2pi)
+        tp = θ_at_epoch_to_tperi(θ, 57423.6; M=system.M, e, a, i, ω, Ω)
     end
-    # Calculate relative magnitude
-    rel_mag_L = B.abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
-    # Convert to contrast (same units as image)
-    L = 10.0^(B.rel_mag_L/-2.5)
+)
 
-    # L ~ Uniform(0,1)
-
-    θ ~ Uniform(0,2pi)
-    tp = θ_at_epoch_to_tperi(system,B,57423.6)
-end image_data 
-
-@system HD91312_both begin
-    # age ~ truncated(Normal(40, 15),lower=0, upper=200)
-    age = 10
-    M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
-    # Mass of secondary
-    # Make sure to pick only a mass range that is covered by your models
-    M_sec ~ LogUniform(0.55, 65) # MJup
-    M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
-    plx ~ gaia_plx(gaia_id=6166183842771027328)
-    # Priors on the center of mass proper motion
-    pmra ~ Normal(0, 1000)
-    pmdec ~ Normal(0,  1000)
-    rel_mag = 5.65
-end HGCALikelihood(gaia_id=6166183842771027328) B
+HD91312_both = System(
+    name="HD91312_both",
+    companions=[B],
+    likelihoods=[HGCAInstantaneousLikelihood(gaia_id=6166183842771027328)],
+    variables=@variables begin
+        # age ~ truncated(Normal(40, 15),lower=0, upper=200)
+        age = 10
+        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
+        # Mass of secondary
+        # Make sure to pick only a mass range that is covered by your models
+        M_sec ~ LogUniform(0.55, 65) # MJup
+        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
+        plx ~ gaia_plx(gaia_id=6166183842771027328)
+        # Priors on the center of mass proper motion
+        pmra ~ Normal(0, 1000)
+        pmdec ~ Normal(0,  1000)
+        rel_mag = 5.65
+    end
+)
 model_both = Octofitter.LogDensityModel(HD91312_both)
 
 using Pigeons

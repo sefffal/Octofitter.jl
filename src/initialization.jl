@@ -112,6 +112,34 @@ end
 
 Initialize the model with optional fixed parameters provided as a named tuple.
 Fixed parameters will be held constant during optimization and sampling.
+
+The `fixed_params` can include:
+- System-level variables: `(; plx=24.4, pmra=10.2, ...)`
+- Planet variables: `(; planets=(; b=(; a=1.5, e=0.1, ...), ...))`  
+- Observation variables: `(; observations=(; ObsName=(; var1=val1, var2=val2, ...), ...))`
+
+Example:
+```julia
+init_chain = initialize!(model, (;
+    plx=24.4,
+    pmra=10.2,
+    planets=(;
+        b=(;
+            a=1.5,
+            e=0.1,
+        )
+    ),
+    observations=(;
+        GaiaRV=(;
+            offset_gaiarv=-50.0,
+            jitter_gaiarv=0.1,
+        ),
+        GaiaDR4=(;
+            astrometric_jitter=0.05,
+        )
+    )
+))
+```
 """
 function initialize!(model::LogDensityModel, fixed_params=nothing; kwargs...)
     return initialize!(Random.default_rng(), model, fixed_params; kwargs...)
@@ -224,6 +252,7 @@ end
 
 """
 Extract fixed parameters from a partial named tuple and return their values and indices.
+Supports system variables, planet variables, and observation variables.
 """
 function extract_fixed_params(model, partial_nt)
     # Create dummy parameter array to construct full named tuple
@@ -235,12 +264,19 @@ function extract_fixed_params(model, partial_nt)
     
     function process_tuple!(current_partial, current_full, path="")
         for name in propertynames(current_partial)
+            val = getproperty(current_partial, name)
+            
+            # Special handling for observations
+            if name == :observations && val isa NamedTuple
+                process_observations!(val, current_full, path * ".observations")
+                continue
+            end
+            
             if !hasproperty(current_full, name)
                 error("Could not find parameter $name in model. You can only provide free parameters (e.g `x ~ ...`) and not derived parameters (e.g. `x = `). You also cannot provide values for variables that are e.g. `Ω ~ UniformCircular()`. You can instead supply `Ωx` and `Ωy`, or replace the distribution with `Uniform(0,2pi)`.")
                 continue
             end
             
-            val = getproperty(current_partial, name)
             full_val = getproperty(current_full, name)
             
             if val isa NamedTuple
@@ -256,6 +292,92 @@ function extract_fixed_params(model, partial_nt)
                     push!(fixed_indices, sentinal_idx)
                 else
                     error("Could not find parameter $name in model. You can only provide free parameters (e.g `x ~ ...`) and not derived parameters (e.g. `x = `). You also cannot provide values for variables that are e.g. `Ω ~ UniformCircular()`. You can instead supply `Ωx` and `Ωy`, or replace the distribution with `Uniform(0,2pi)`.")
+                end
+            end
+        end
+    end
+    
+    function process_observations!(obs_partial, current_full, path)
+        # Process observation variables: observations=(; ObsName=(; var1=val1, var2=val2, ...), ...)
+        for obs_name in propertynames(obs_partial)
+            obs_vars = getproperty(obs_partial, obs_name)
+            
+            if !(obs_vars isa NamedTuple)
+                error("Expected observation variables for $obs_name to be a NamedTuple, got $(typeof(obs_vars))")
+            end
+            
+            # Normalize the observation name to match how it's stored in the model
+            normalized_obs_name = Octofitter.normalizename(string(obs_name))
+            
+            # For observation variables, we need to look them up in the full_nt.observations
+            for var_name in propertynames(obs_vars)
+                var_value = getproperty(obs_vars, var_name)
+                
+                # Try to find the variable in observations
+                found = false
+                if hasproperty(current_full, :observations)
+                    # Look for the normalized observation name first
+                    if hasproperty(current_full.observations, normalized_obs_name)
+                        full_obs_vars = getproperty(current_full.observations, normalized_obs_name)
+                        
+                        # Look for the exact variable name
+                        if hasproperty(full_obs_vars, var_name)
+                            sentinel_value = getproperty(full_obs_vars, var_name)
+                            sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
+                            
+                            if sentinal_idx !== nothing
+                                push!(fixed_values, var_value)
+                                push!(fixed_indices, sentinal_idx)
+                                found = true
+                            end
+                        end
+                        
+                        # Also try prefixed versions (e.g., likelihoodname_varname)
+                        if !found
+                            var_name_str = string(var_name)
+                            prefixed_name = Symbol(string(normalized_obs_name) * "_" * var_name_str)
+                            
+                            if hasproperty(full_obs_vars, prefixed_name)
+                                sentinel_value = getproperty(full_obs_vars, prefixed_name)
+                                sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
+                                
+                                if sentinal_idx !== nothing
+                                    push!(fixed_values, var_value)
+                                    push!(fixed_indices, sentinal_idx)
+                                    found = true
+                                end
+                            end
+                        end
+                    end
+                    
+                    # If not found with normalized name, try all observation names
+                    if !found
+                        for full_obs_name in propertynames(current_full.observations)
+                            full_obs_vars = getproperty(current_full.observations, full_obs_name)
+                            
+                            # Look for the exact variable name
+                            if hasproperty(full_obs_vars, var_name)
+                                sentinel_value = getproperty(full_obs_vars, var_name)
+                                sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
+                                
+                                if sentinal_idx !== nothing
+                                    push!(fixed_values, var_value)
+                                    push!(fixed_indices, sentinal_idx)
+                                    found = true
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                if !found
+                    available_obs = if hasproperty(current_full, :observations)
+                        [(obs_name, propertynames(getproperty(current_full.observations, obs_name))) for obs_name in propertynames(current_full.observations)]
+                    else
+                        "none"
+                    end
+                    error("Could not find observation variable $var_name for observation $obs_name (normalized: $normalized_obs_name) in model. Available observations and their variables: $available_obs")
                 end
             end
         end
@@ -396,7 +518,7 @@ function optimization_and_pathfinder_with_fixed(
         )
         
         if verbosity > 0
-            @info "Performing global optimization with $(length(variable_indices)) parameters ($(length(fixed_indices)) parameters held fixed)."
+            @info "Performing global optimization with $(length(variable_indices)) parameters ($(length(fixed_indices)) initial parameter value provided)."
         end
         
         
@@ -600,9 +722,9 @@ function optimization_and_pathfinder_with_fixed(
     logposts = model.ℓπcallback.(model.starting_points)
     
     # Check if pathfinder produced good results
-    if maximum(logposts) < initial_logpost - 10
+    if maximum(logposts) < initial_logpost - 20
         if verbosity >= 1
-            @warn "Pathfinder produced samples with log-likelihood 10 worse than global max. Will just initialize at global max."
+            @warn "Pathfinder produced samples with log-likelihood 20 worse than global max. Will just initialize at global max."
         end
         model.starting_points = fill(opt_full, ndraws)
         logposts = fill(initial_logpost, ndraws)

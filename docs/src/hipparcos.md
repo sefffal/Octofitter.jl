@@ -12,39 +12,51 @@ using Octofitter
 using Distributions
 using CairoMakie
 
-hip_like = Octofitter.HipparcosIADLikelihood(;
+hip_like = Octofitter.HipparcosIADLikelihood(
     hip_id=21547,
     renormalize=true, # default: true
+    variables=@variables begin
+        # Optional: flux ratio for luminous companions, one entry per companion
+        # fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1)])  # uncomment if needed for unresolved companions
+    end
 )
 
-@planet b AbsoluteVisual{KepOrbit} begin
-    mass = 0.
-    e = 0. 
-    ω = 0. 
-    a = 1.
-    i = 0
-    Ω = 0.
-    tp = 0.
-end
-@system c_Eri_straight_line begin
-    M = 1.0 # Host mass not important for this example
-    rv = 0.0 # system RV not significant for this example
-    plx ~ Uniform(10,100)
-    pmra ~ Uniform(-100, 100)
-    pmdec ~  Uniform(-100, 100)
+planet_b = Planet(
+    name="b",
+    basis=AbsoluteVisual{KepOrbit},
+    variables=@variables begin
+        mass = 0.
+        e = 0. 
+        ω = 0. 
+        a = 1.
+        i = 0
+        Ω = 0.
+        tp = 0.
+    end
+)
 
+sys = System(
+    name="c_Eri_straight_line",
+    companions=[planet_b],
+    likelihoods=[hip_like],
+    variables=@variables begin
+        M = 1.0 # Host mass not important for this example
+        rv = 0.0 # system RV not significant for this example
+        plx ~ Uniform(10,100)
+        pmra ~ Uniform(-100, 100)
+        pmdec ~  Uniform(-100, 100)
 
-    # It is convenient to put a prior of the catalog value +- 10,000 mas on position
-    ra_hip_offset_mas ~  Normal(0, 10000)
-    dec_hip_offset_mas ~ Normal(0, 10000)
-    dec = $hip_like.hip_sol.dedeg + system.ra_hip_offset_mas/60/60/1000
-    ra = $hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cosd(system.dec)
+        # It is convenient to put a prior of the catalog value +- 10,000 mas on position
+        ra_hip_offset_mas ~  Normal(0, 10000)
+        dec_hip_offset_mas ~ Normal(0, 10000)
+        dec = $hip_like.hip_sol.dedeg + ra_hip_offset_mas/60/60/1000
+        ra = $hip_like.hip_sol.radeg + dec_hip_offset_mas/60/60/1000/cosd(dec)
 
-    ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
+        ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
+    end
+)
 
-end hip_like b
-
-model = Octofitter.LogDensityModel(c_Eri_straight_line)
+model = Octofitter.LogDensityModel(sys)
 ```
 
 Let's initialize the starting point for the chains to reasonable values
@@ -122,57 +134,70 @@ fig
 We now allow the planet to have a non zero mass and have free orbit. We start by specifying relative astrometry data on the planet, collated by Jason Wang and co. on [whereistheplanet.com](http://whereistheplanet.com).
 
 ```@example 1
+astrom_dat = Table(;
+    epoch = [57009.1, 57052.1, 57053.1, 57054.3, 57266.4, 57332.2, 57374.2, 57376.2, 57415.0, 57649.4, 57652.4, 57739.1, 58068.3, 58442.2],
+    sep   = [454.24, 451.81, 456.8, 461.5, 455.1, 452.88, 455.91, 455.01, 454.46, 454.81, 451.43, 449.39, 447.54, 434.22],
+    σ_sep = [1.88, 2.06, 2.57, 23.9, 2.23, 5.41, 6.23, 3.03, 6.03, 2.02, 2.67, 2.15, 3.02, 2.01],
+    pa    = [2.98835, 2.96723, 2.97038, 2.97404, 2.91994, 2.89934, 2.89131, 2.89184, 2.8962, 2.82394, 2.82272, 2.79357, 2.70927, 2.61171],
+    σ_pa  = [0.00401426, 0.00453786, 0.00523599, 0.0523599, 0.00453786, 0.00994838, 0.00994838, 0.00750492, 0.00890118, 0.00453786, 0.00541052, 0.00471239, 0.00680678, 0.00401426]
+)
+
 astrom_like1 = PlanetRelAstromLikelihood(
-    (;epoch=57009.1, sep=454.24,  σ_sep=1.88, pa=2.98835, σ_pa=0.00401426),
-    (;epoch=57052.1, sep=451.81,  σ_sep=2.06, pa=2.96723, σ_pa=0.00453786),
-    (;epoch=57053.1, sep=456.8 ,  σ_sep=2.57, pa=2.97038, σ_pa=0.00523599),
-    (;epoch=57054.3, sep=461.5 ,  σ_sep=23.9 ,pa=2.97404, σ_pa=0.0523599 ,),
-    (;epoch=57266.4, sep=455.1 ,  σ_sep=2.23, pa=2.91994, σ_pa=0.00453786),
-    (;epoch=57332.2, sep=452.88,  σ_sep=5.41, pa=2.89934, σ_pa=0.00994838),
-    (;epoch=57374.2, sep=455.91,  σ_sep=6.23, pa=2.89131, σ_pa=0.00994838),
-    (;epoch=57376.2, sep=455.01,  σ_sep=3.03, pa=2.89184, σ_pa=0.00750492),
-    (;epoch=57415.0, sep=454.46,  σ_sep=6.03, pa=2.8962 , σ_pa=0.00890118),
-    (;epoch=57649.4, sep=454.81,  σ_sep=2.02, pa=2.82394, σ_pa=0.00453786),
-    (;epoch=57652.4, sep=451.43,  σ_sep=2.67, pa=2.82272, σ_pa=0.00541052),
-    (;epoch=57739.1, sep=449.39,  σ_sep=2.15, pa=2.79357, σ_pa=0.00471239),
-    (;epoch=58068.3, sep=447.54,  σ_sep=3.02, pa=2.70927, σ_pa=0.00680678),
-    (;epoch=58442.2, sep=434.22,  σ_sep=2.01, pa=2.61171, σ_pa=0.00401426),
+    astrom_dat,
+    name="VLT/SPHERE",
+    variables=@variables begin
+        # Fixed values for this example - could be free variables:
+        jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
+        northangle = 0    # radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+    end
 )
 ```
 
 We specify our full model:
 ```@example 1
-@planet b AbsoluteVisual{KepOrbit} begin
-    a ~ truncated(Normal(10,1),lower=0.1)
-    e ~ Uniform(0,0.99)
-    ω ~ Uniform(0, 2pi)
-    i ~ Sine()
-    Ω ~ Uniform(0, 2pi)
-    θ ~ Uniform(0, 2pi)
-    tp = θ_at_epoch_to_tperi(system,b,58442.2) 
-    mass = system.M_sec
-end astrom_like1
+planet_b_mass = Planet(
+    name="b",
+    basis=AbsoluteVisual{KepOrbit},
+    likelihoods=[astrom_like1],
+    variables=@variables begin
+        a ~ truncated(Normal(10,1),lower=0.1)
+        e ~ Uniform(0,0.99)
+        ω ~ Uniform(0, 2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
+        θ ~ Uniform(0, 2pi)
+        M = system.M
+        tp = θ_at_epoch_to_tperi(θ, 58442.2; M, e, a, i, ω, Ω) 
+        mass = system.M_sec
+    end
+)
 
-@system cEri begin
-    M_pri ~ truncated(Normal(1.75,0.05), lower=0.03) # Msol
-    M_sec ~ LogUniform(0.1, 100) # MJup
-    M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
+sys_mass = System(
+    name="cEri",
+    companions=[planet_b_mass],
+    likelihoods=[hip_like],
+    variables=@variables begin
+        M_pri ~ truncated(Normal(1.75,0.05), lower=0.03) # Msol
+        M_sec ~ LogUniform(0.1, 100) # MJup
+        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
 
-    rv =  12.60e3 # m/s
-    plx ~ Uniform(20,40)
-    pmra ~ Uniform(-100, 100)
-    pmdec ~  Uniform(-100, 100)
+        rv =  12.60e3 # m/s
+        plx ~ Uniform(20,40)
+        pmra ~ Uniform(-100, 100)
+        pmdec ~  Uniform(-100, 100)
 
-    # It is convenient to put a prior of the catalog value +- 1000 mas on position
-    ra_hip_offset_mas ~  Normal(0, 1000)
-    dec_hip_offset_mas ~ Normal(0, 1000)
-    dec = $hip_like.hip_sol.dedeg + system.ra_hip_offset_mas/60/60/1000
-    ra = $hip_like.hip_sol.radeg + system.dec_hip_offset_mas/60/60/1000/cos(system.dec)
+        # It is convenient to put a prior of the catalog value +- 1000 mas on position
+        ra_hip_offset_mas ~  Normal(0, 1000)
+        dec_hip_offset_mas ~ Normal(0, 1000)
+        dec = $hip_like.hip_sol.dedeg + ra_hip_offset_mas/60/60/1000
+        ra = $hip_like.hip_sol.radeg + dec_hip_offset_mas/60/60/1000/cos(dec)
 
-    ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
-end hip_like b
+        ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
+    end
+)
 
-model = Octofitter.LogDensityModel(cEri)
+model = Octofitter.LogDensityModel(sys_mass)
 ```
 
 Initialize the starting points, and confirm the data are entered correcly:

@@ -10,7 +10,7 @@ using Random
         rvlike = StarAbsoluteRVLikelihood(
             (epoch=50000.0, rv=100.0, σ_rv=10.0),
             (epoch=50100.0, rv=110.0, σ_rv=10.0),
-            instrument_name="RVDat",
+            name="RVDat",
             offset=:rv0,
             jitter=:jitter
         )
@@ -49,7 +49,7 @@ using Random
         rvlike = PlanetRelativeRVLikelihood(
             (epoch=50000.0, rv=100.0, σ_rv=10.0),
             (epoch=50100.0, rv=110.0, σ_rv=10.0),
-            instrument_name="test",
+            name="test",
             jitter=:gamma
         )
         
@@ -67,7 +67,7 @@ end
     # Create test RV data
     rvlike = StarAbsoluteRVLikelihood(
         (epoch=50000.0, rv=100.0, σ_rv=10.0),
-        instrument_name="test",
+        name="test",
         offset=:rv0,
         jitter=:jitter
     )
@@ -148,7 +148,7 @@ using AbstractGPs
     ]
     rvlike = StarAbsoluteRVLikelihood(
         dat...,
-        instrument_name="HARPS",
+        name="HARPS",
         offset=:rv0,
         jitter=:jitter,
         gaussian_process=quasi_periodic_kernel

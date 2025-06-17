@@ -36,29 +36,40 @@ To make this parameterization change, we specify priors on both masses in the `@
 ### Retrieving the HGCA
 To start, we retrieve the HGCA data for this object.
 ```@example 1
-hgca_like = HGCALikelihood(gaia_id=756291174721509376,fluxratio_var=:F)
+hgca_like = HGCALikelihood(
+    gaia_id=756291174721509376,
+    variables=@variables begin
+        # Optional: flux ratio for luminous companions
+        # fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1), ])  # uncomment if needed for unresolved companions
+    end
+)
 ```
 
-The symbol `:F` here will be the variable used to represent the flux ratio of the planet(s) compared to the host star. This is used to account for photocentre offsets caused by luminous companions. You can pick a different name if you like.
-For typical exoplanets this can often just be set to `0` in the model definition, since they are so dim compared to the star.
+You can optionally provide flux ratio priors in the variables block to represent the flux ratio of the companions to the host star. This is used to account for photocentre offsets caused by luminous companions.
+For typical exoplanets this can often just be set to `0` in the planet model definition, since they are so dim compared to the star.
 
 ### Planet Model
 
 ```@example 1
-@planet b Visual{KepOrbit} begin
-    a ~ LogUniform(0.1,20)
-    e ~ Uniform(0,0.999)
-    ω ~ Uniform(0, 2pi)
-    i ~ Sine() # The Sine() distribution is defined by Octofitter
-    Ω ~ Uniform(0, 2pi)
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    variables=@variables begin
+        a ~ LogUniform(0.1,20)
+        e ~ Uniform(0,0.999)
+        ω ~ Uniform(0, 2pi)
+        i ~ Sine() # The Sine() distribution is defined by Octofitter
+        Ω ~ Uniform(0, 2pi)
 
-    mass = system.M_sec
+        mass = system.M_sec
 
-    θ ~ Uniform(0, 2pi)
-    tp = θ_at_epoch_to_tperi(system,b,57423.0) # epoch of GAIA measurement
+        θ ~ Uniform(0, 2pi)
+        M = system.M
+        tp = θ_at_epoch_to_tperi(θ, 57423.0; M, e, a, i, ω, Ω) # epoch of GAIA measurement
 
-    F = 0.0 # optional: set gaia flux ratio of secondary to host
-end
+        F = 0.0 # optional: set gaia flux ratio of secondary to host
+    end
+)
 ```
 
 
@@ -71,20 +82,24 @@ We also add parameters for the star's long term proper motion. This is usually c
 
 
 ```@example 1
-@system HD91312_pma begin
-    
-    M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
-    M_sec ~ LogUniform(0.5, 1000) # MJup
-    M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
+sys = System(
+    name="HD91312_pma",
+    companions=[planet_b],
+    likelihoods=[hgca_like],
+    variables=@variables begin
+        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
+        M_sec ~ LogUniform(0.5, 1000) # MJup
+        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
 
-    plx ~ gaia_plx(gaia_id=756291174721509376)
-            
-    # Priors on the center of mass proper motion
-    pmra ~ Normal(-137, 10)
-    pmdec ~ Normal(2,  10)
-end hgca_like b
+        plx ~ gaia_plx(gaia_id=756291174721509376)
+                
+        # Priors on the center of mass proper motion
+        pmra ~ Normal(-137, 10)
+        pmdec ~ Normal(2,  10)
+    end
+)
 
-model_pma = Octofitter.LogDensityModel(HD91312_pma)
+model_pma = Octofitter.LogDensityModel(sys)
 ```
 
 
@@ -131,64 +146,88 @@ relative astrometry (measured from direct images) gathered from the [discovery p
 
 
 ```@example 1
+astrom_dat = Table(;
+    epoch = [mjd("2016-12-15"), mjd("2017-03-12"), mjd("2017-03-13"), mjd("2018-02-08"), mjd("2018-11-28"), mjd("2018-12-15")],
+    ra    = [133., 126., 127., 083., 058., 056.],
+    dec   = [-174., -176., -172., -133., -122., -104.],
+    σ_ra  = [07.0, 04.0, 04.0, 10.0, 10.0, 08.0],
+    σ_dec = [07.0, 04.0, 04.0, 10.0, 20.0, 08.0],
+    cor   = [0.2, 0.3, 0.1, 0.4, 0.3, 0.2]
+)
+
 astrom_like = PlanetRelAstromLikelihood(
-    (epoch=mjd("2016-12-15"), ra=133., dec=-174., σ_ra=07.0, σ_dec=07., cor=0.2),
-    (epoch=mjd("2017-03-12"), ra=126., dec=-176., σ_ra=04.0, σ_dec=04., cor=0.3),
-    (epoch=mjd("2017-03-13"), ra=127., dec=-172., σ_ra=04.0, σ_dec=04., cor=0.1),
-    (epoch=mjd("2018-02-08"), ra=083., dec=-133., σ_ra=10.0, σ_dec=10., cor=0.4),
-    (epoch=mjd("2018-11-28"), ra=058., dec=-122., σ_ra=10.0, σ_dec=20., cor=0.3),
-    (epoch=mjd("2018-12-15"), ra=056., dec=-104., σ_ra=08.0, σ_dec=08., cor=0.2),
+    astrom_dat,
+    name = "SCExAO",
+    variables = @variables begin
+        # Fixed values for this example - could be free variables:
+        jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
+        northangle = 0    # radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+    end
 )
 scatter(astrom_like.table.ra, astrom_like.table.dec)
 ```
 
 
 We use the same model as before, but now condition the planet model `B` on the astrometry data by
-adding `astrom_like` to the end of the `@planet` defintion.
+adding `astrom_like` to the list of `likelihoods` in the planet model.
 
 ```@example 1
 using OctofitterRadialVelocity
 
-rvlike = PlanetRelativeRVLikelihood(
-    (epoch=mjd("2008-05-01"), rv=1300, σ_rv=150, inst_idx=1),
-    (epoch=mjd("2010-02-15"), rv=700, σ_rv=150, inst_idx=1),
-    (epoch=mjd("2016-03-01"), rv=-2700, σ_rv=150, inst_idx=1),
-    jitter=:jitter_1,
-    instrument_name=""
+rv_dat = Table(;
+    epoch = [mjd("2008-05-01"), mjd("2010-02-15"), mjd("2016-03-01")],
+    rv    = [1300, 700, -2700],
+    σ_rv  = [150, 150, 150]
 )
 
-@planet b Visual{KepOrbit} begin
-    a ~ LogUniform(0.1,400)
-    e ~ Uniform(0,0.999)
-    ω ~ Uniform(0, 2pi)
-    i ~ Sine()
-    Ω ~ Uniform(0, 2pi)
+rvlike = PlanetRelativeRVLikelihood(
+    rv_dat,
+    name="SOPHIE",
+    variables=@variables begin
+        jitter ~ truncated(Normal(10, 5), lower=0)  # m/s [could fix: jitter = 0]
+    end
+)
 
-    mass = system.M_sec
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_like],
+    variables=@variables begin
+        a ~ LogUniform(0.1,400)
+        e ~ Uniform(0,0.999)
+        ω ~ Uniform(0, 2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
 
-    θ ~ Uniform(0, 2pi)
-    tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
+        mass = system.M_sec
 
-    jitter_1 = 0.0
-    F = 0.0
+        θ ~ Uniform(0, 2pi)
+        M = system.M
+        tp = θ_at_epoch_to_tperi(θ, 57737.0; M, e, a, i, ω, Ω) # epoch of astrometry
 
-end astrom_like # Note the relative astrometry added here!
+        F = 0.0
+    end
+)
 
-@system HD91312_pma_astrom begin
-    
-    M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
-    M_sec ~ LogUniform(0.5, 1000) # MJup
-    M = system.M_pri + system.M_sec*Octofitter.mjup2msol
+sys_astrom = System(
+    name="HD91312_pma_astrom",
+    companions=[planet_b],
+    likelihoods=[hgca_like],
+    variables=@variables begin
+        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
+        M_sec ~ LogUniform(0.5, 1000) # MJup
+        M = M_pri + M_sec*Octofitter.mjup2msol
 
-    plx ~ gaia_plx(gaia_id=756291174721509376)
+        plx ~ gaia_plx(gaia_id=756291174721509376)
 
-    # Priors on the centre of mass proper motion
-    pmra ~ Normal(-137, 10)
-    pmdec ~ Normal(2,  10)
+        # Priors on the centre of mass proper motion
+        pmra ~ Normal(-137, 10)
+        pmdec ~ Normal(2,  10)
+    end
+)
 
-end hgca_like b
-
-model_pma_astrom = Octofitter.LogDensityModel(HD91312_pma_astrom,verbosity=4)
+model_pma_astrom = Octofitter.LogDensityModel(sys_astrom,verbosity=4)
 
 using Pigeons
 chain_pma_astrom, pt = octofit_pigeons(model_pma_astrom, n_rounds=7, explorer=SliceSampler())
@@ -205,54 +244,69 @@ We now add in three additional epochs of stellar RVs.
 ```@example 1
 using OctofitterRadialVelocity
 
-rvlike = StarAbsoluteRVLikelihood(
-    (epoch=mjd("2008-05-01"), rv=1300, σ_rv=150),
-    (epoch=mjd("2010-02-15"), rv=700, σ_rv=150),
-    (epoch=mjd("2016-03-01"), rv=-2700, σ_rv=150),
-    instrument_name="SOPHIE",
-    jitter=:jitter_1,
-    offset=:offset_1,
+rv_dat_abs = Table(;
+    epoch = [mjd("2008-05-01"), mjd("2010-02-15"), mjd("2016-03-01")],
+    rv    = [1300, 700, -2700],
+    σ_rv  = [150, 150, 150]
 )
 
-@planet b AbsoluteVisual{KepOrbit} begin
-    a ~ LogUniform(0.1,400)
-    e ~ Uniform(0,0.999)
-    ω ~ Uniform(0, 2pi)
-    i ~ Sine()
-    Ω ~ Uniform(0, 2pi)
+rvlike = StarAbsoluteRVLikelihood(
+    rv_dat_abs,
+    name="SOPHIE",
+    variables=@variables begin
+        jitter ~ truncated(Normal(10, 5), lower=0)  # m/s
+        offset ~ Normal(0, 1000)  # m/s
+    end
+)
 
-    mass = system.M_sec
+planet_b_rv = Planet(
+    name="b",
+    basis=AbsoluteVisual{KepOrbit},
+    likelihoods=[astrom_like, ObsPriorAstromONeil2019(astrom_like)],
+    variables=@variables begin
+        a ~ LogUniform(0.1,400)
+        e ~ Uniform(0,0.999)
+        ω ~ Uniform(0, 2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
 
-    θ ~ Uniform(0, 2pi)
-    tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
+        mass = system.M_sec
 
-    F = 0.0
+        θ ~ Uniform(0, 2pi)
+        M = system.M
+        tp = θ_at_epoch_to_tperi(θ, 57737.0; M, e, a, i, ω, Ω) # epoch of astrometry
 
-end astrom_like  ObsPriorAstromONeil2019(astrom_like) # Note the relative astrometry added here!
+        F = 0.0
+    end
+)
 
-@system HD91312_pma_rv_astrom begin
-    
-    M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
-    M_sec ~ LogUniform(0.5, 1000) # MJup
-    M = system.M_pri + system.M_sec*Octofitter.mjup2msol
 
-    plx ~ gaia_plx(gaia_id=756291174721509376)
-            
-    # Priors on the centre of mass proper motion
-    pmra ~ Normal(-137, 10)
-    pmdec ~ Normal(2,  10)
+ra = 158.30707896392835
+dec = 40.42555422701387
 
-    jitter_1 = 0.0
-    offset_1 ~ Normal(0, 1000) # m/s
+sys_rv_astrom = System(
+    name="HD91312_pma_rv_astrom",
+    companions=[planet_b_rv],
+    likelihoods=[hgca_like, rvlike],
+    variables=@variables begin
+        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
+        M_sec ~ LogUniform(0.5, 1000) # MJup
+        M = M_pri + M_sec*Octofitter.mjup2msol
 
-    ra = $hgca_like.gaialike.gaia_sol.ra
-    dec = $hgca_like.gaialike.gaia_sol.dec
-    rv = 0*1e3 # m/s
-    ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+        plx ~ gaia_plx(gaia_id=756291174721509376)
+                
+        # Priors on the centre of mass proper motion
+        pmra ~ Normal(-137, 10)
+        pmdec ~ Normal(2,  10)
 
-end hgca_like rvlike b
+        ra = $ra
+        dec = $dec
+        rv = 0*1e3 # m/s
+        ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+    end
+)
 
-model_pma_rv_astrom = Octofitter.LogDensityModel(HD91312_pma_rv_astrom,verbosity=4)
+model_pma_rv_astrom = Octofitter.LogDensityModel(sys_rv_astrom,verbosity=4)
 chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=7, explorer=SliceSampler())
 display(chain_pma_rv_astrom)
 ```
@@ -285,32 +339,39 @@ There is a final model we should consider: one using the RV and astrometry data,
 ```@example 1
 using OctofitterRadialVelocity
 
-@planet b Visual{KepOrbit} begin
-    a ~ LogUniform(0.1,400)
-    e ~ Uniform(0,0.999)
-    ω ~ Uniform(0, 2pi)
-    i ~ Sine()
-    Ω ~ Uniform(0, 2pi)
+planet_b_final = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_like],
+    variables=@variables begin
+        a ~ LogUniform(0.1,400)
+        e ~ Uniform(0,0.999)
+        ω ~ Uniform(0, 2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
 
-    mass = system.M_sec
+        mass = system.M_sec
 
-    θ ~ Uniform(0, 2pi)
-    tp = θ_at_epoch_to_tperi(system,b,57737.0) # epoch of astrometry
+        θ ~ Uniform(0, 2pi)
+        M = system.M
+        tp = θ_at_epoch_to_tperi(θ, 57737.0; M, e, a, i, ω, Ω) # epoch of astrometry
+    end
+)
 
-end astrom_like # Note the relative astrometry added here!
+sys_final = System(
+    name="HD91312_rv_astrom",
+    companions=[planet_b_final],
+    likelihoods=[rvlike],
+    variables=@variables begin
+        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
+        M_sec ~ LogUniform(0.5, 1000) # MJup
+        M = M_pri + M_sec*Octofitter.mjup2msol
 
-@system HD91312_rv_astrom begin
-    
-    M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
-    M_sec ~ LogUniform(0.5, 1000) # MJup
-    M = system.M_pri + system.M_sec*Octofitter.mjup2msol
+        plx ~ gaia_plx(gaia_id=756291174721509376)
+    end
+)
 
-    plx ~ gaia_plx(gaia_id=756291174721509376)
-    jitter_1 = 0.0
-    offset_1 ~ Normal(0, 1000) # m/s
-end rvlike b
-
-model_rv_astrom = Octofitter.LogDensityModel(HD91312_rv_astrom,verbosity=4)
+model_rv_astrom = Octofitter.LogDensityModel(sys_final,verbosity=4)
 
 chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)
 nothing # hide

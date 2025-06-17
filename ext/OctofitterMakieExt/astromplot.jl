@@ -184,13 +184,13 @@ function Octofitter.astromplot!(
     rel_astrom_likes = filter(like_objs) do like_obj
         nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
     end
-    rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :instrument_name)))
+    rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :name)))
     n_rel_astrom = length(rel_astrom_names)
 
     i_like_obj = 0
     for like_obj in like_objs
         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
-            i_like_obj = findfirst(==(like_obj.instrument_name), rel_astrom_names)
+            i_like_obj = findfirst(==(likelihoodname(like_obj)), rel_astrom_names)
             x = Float64[]
             y = Float64[]
             xs = Float64[]
@@ -597,7 +597,7 @@ function physorbplot!(
                 Makie.scatter!(
                     ax,
                     vec(posx.(sols)),
-                    vec(posy.(sols)),
+                    vec(posy.(sols));
                     color,
                     markersize=6,
                     strokewidth=1,

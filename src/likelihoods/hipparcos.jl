@@ -76,29 +76,36 @@ const hip_iad_cols = (:iorb, :epoch, :parf, :cosϕ, :sinϕ, :res, :sres)
 struct HipparcosIADLikelihood{THipSol,TIADTable<:Table,TDist,TFact} <: AbstractLikelihood
     hip_sol::THipSol
     table::TIADTable
+    priors::Priors
+    derived::Derived
+    name::String
     # precomputed MvNormal distribution
     dist::TDist
     A_prepared_4::TFact
     A_prepared_5::TFact
-    # function HipparcosIADLikelihood(hip_sol, observations...)
-    #     iad_table = Table(observations...)
-    #     if !issubset(hip_iad_cols, Tables.columnnames(iad_table))
-    #         error("Expected columns $hip_iad_cols, got ", Tables.columnnames(iad_table))
-    #     end
-    #     return new{typeof(hip_sol),typeof(iad_table)}(hip_sol, iad_table)
-    # end
 end
 
+# Add likelihoodname method
+likelihoodname(::HipparcosIADLikelihood) = "Hipparcos IAD"
+
 function likeobj_from_epoch_subset(obs::HipparcosIADLikelihood, obs_inds)
-    return HipparcosIADLikelihood(obs.hip_sol, obs.table[obs_inds, :, 1]...)
+    return HipparcosIADLikelihood(obs.hip_sol, obs.table[obs_inds, :, 1], obs.priors, obs.derived, obs.name, obs.dist, obs.A_prepared_4, obs.A_prepared_5)
 end
 
 """
-    HipparcosIADLikelihood(;hip_id)
+    HipparcosIADLikelihood(;
+        hip_id,
+        variables=@variables begin
+            fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1)])  # one entry for each companion
+        end
+    )
 
 Load the Hipparcos IAD likelihood.
 By default, this fetches and catches the extracted Java Tool edition of the
 van Leeuwan reduction. 
+
+The `fluxratio` variable should be a Product distribution containing the flux ratio of each companion
+in the same order as the planets in the system.
 
 Additional arguments:
 * `catalog`: path to the data directory. By default, will fetch from online and cache.
@@ -118,8 +125,10 @@ function HipparcosIADLikelihood(;
         attempt_correction=true,
         is_van_leeuwen=true,
         ref_epoch_ra=nothing,
-        ref_epoch_dec=nothing
+        ref_epoch_dec=nothing,
+        variables::Tuple{Priors,Derived}=(@variables begin;end)
     )
+    (priors,derived)=variables
 
     if hip_id ∈ hipparcos_catalog_orbit_parameters_used
         @warn "This object was originally fit using an external orbit solution. The reconstructed IAD may not be correct."
@@ -362,7 +371,7 @@ function HipparcosIADLikelihood(;
     A_prepared_5 = prepare_A_5param(table, ref_epoch_ra, ref_epoch_dec)
 
 
-    return HipparcosIADLikelihood(hip_sol, table, dist, A_prepared_4, A_prepared_5)
+    return HipparcosIADLikelihood(hip_sol, table, priors, derived, "Hipparcos IAD", dist, A_prepared_4, A_prepared_5)
 end
 export HipparcosIADLikelihood
 
@@ -513,6 +522,7 @@ end
 function ln_like(
     hiplike::HipparcosIADLikelihood,
     θ_system,
+    θ_obs,
     orbits,
     orbit_solutions,
     sol_start_i
@@ -520,7 +530,7 @@ function ln_like(
     T = _system_number_type(θ_system)
     ll = zero(T)
 
-    hip_model = simulate(hiplike, θ_system, orbits, orbit_solutions, sol_start_i)
+    hip_model = simulate(hiplike, θ_system, θ_obs, orbits, orbit_solutions, sol_start_i)
     for i in eachindex(hip_model.resid)
         if hiplike.table.reject[i]
             continue
@@ -531,7 +541,7 @@ function ln_like(
     return ll
 end
 
-function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits, orbit_solutions, sol_start_i)
+function simulate(hiplike::HipparcosIADLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
     T = _system_number_type(θ_system)
     α✱_model_with_perturbation_out = zeros(T, length(hiplike.table.epoch))
@@ -553,9 +563,33 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits, orbit_solu
         end
     end
 
+    # Pre-compute perturbations from all planets for all epochs using standardized function
+    α✱_perturbations_total = zeros(T, length(hiplike.table.epoch))
+    δ_perturbations_total = zeros(T, length(hiplike.table.epoch))
+    
+    for planet_i in eachindex(orbits)
+        planet_mass_msol = θ_system.planets[planet_i].mass * Octofitter.mjup2msol
+        fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[planet_i] : zero(T)
+        
+        # Create temporary arrays for this planet's contribution
+        Δα_mas = zeros(T, length(hiplike.table.epoch))
+        Δδ_mas = zeros(T, length(hiplike.table.epoch))
+        
+        _simulate_skypath_perturbations!(
+            Δα_mas, Δδ_mas,
+            hiplike.table, orbits[planet_i],
+            planet_mass_msol, fluxratio,
+            orbit_solutions[planet_i], orbit_solutions_i_epoch_start[planet_i], T
+        )
+        
+        # Add this planet's contribution to total perturbations
+        α✱_perturbations_total .+= Δα_mas
+        δ_perturbations_total .+= Δδ_mas
+    end
+
     for i in eachindex(hiplike.table.epoch)
 
-        orbitsol_hip_epoch = first(orbit_solutions)[i+sol_start_i]
+        orbitsol_hip_epoch = first(orbit_solutions)[i+orbit_solutions_i_epoch_start]
 
         ##############
         # Non-linear version
@@ -614,18 +648,9 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, orbits, orbit_solu
         # ) + delta_time_julian_year * orbit.pmdec
 
 
-        α✱_perturbation = zero(T)
-        δ_perturbation = zero(T)
-
-        # Add perturbations from all planets
-        # TODO: these perturbations are added with a linear approximation. 
-        # For truly huge companions or extreme accuracy, an angle formula should be used instead
-        for planet_i in eachindex(orbits)
-            sol = orbit_solutions[planet_i][i+sol_start_i]
-            # Add perturbation from planet
-            α✱_perturbation += raoff(sol, θ_system.planets[planet_i].mass * Octofitter.mjup2msol)
-            δ_perturbation += decoff(sol, θ_system.planets[planet_i].mass * Octofitter.mjup2msol)
-        end
+        # Use pre-computed perturbations for this epoch
+        α✱_perturbation = α✱_perturbations_total[i]
+        δ_perturbation = δ_perturbations_total[i]
         # coordinates in degrees of RA*cos(dec) and Dec
         α✱_model_with_perturbation = α✱_model + α✱_perturbation #/ cosd(hiplike.hip_sol.dedeg)
         δ_model_with_perturbation = δ_model + δ_perturbation

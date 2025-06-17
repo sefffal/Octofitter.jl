@@ -37,7 +37,7 @@ rvlike = StarAbsoluteRVLikelihood(
         rv=radvel.(orb_template, epochs, planet_sim_mass),
         σ_rv=fill(5.0, size(epochs)),
     ),
-    instrument_names=["simulated"]
+    name=["simulated"]
 )
 
 

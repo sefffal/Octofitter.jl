@@ -17,18 +17,24 @@ using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, CairoMa
 gaia_id = 5164707970261890560 
 
 
-@planet b Visual{KepOrbit} begin
-    # For speed of example, we are fitting a circular orbit only.s
-    e = 0
-    ω=0.0
-    mass ~ Uniform(0, 3)
-    a ~ Uniform(3, 10)
-    i ~ Sine()
-    Ω ~ Uniform(0,2pi)
-    τ ~ Uniform(0,1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
-end # No planet astrometry is included since it has not yet been directly detected
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[], # No planet astrometry is included since it has not yet been directly detected
+    variables=@variables begin
+        # For speed of example, we are fitting a circular orbit only.
+        e = 0
+        ω = 0.0
+        mass ~ Uniform(0, 3)
+        a ~ Uniform(3, 10)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
+        M = system.M
+        τ ~ Uniform(0, 1.0)
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    end
+)
 
 
 # We will load in data from one RV instruments.
@@ -38,31 +44,46 @@ end # No planet astrometry is included since it has not yet been directly detect
 hires_data = OctofitterRadialVelocity.HIRES_rvs("HD22049")
 rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
     hires_data,
-    instrument_name="HIRES",
-    jitter=:jitter_hires,
+    name="HIRES",
+    variables=@variables begin
+        jitter ~ LogUniform(0.1, 100) # m/s
+    end
 )
 ```
 
 We load the HGCA data for this target:
 ```@example 1
-hgca_like = HGCAInstantaneousLikelihood(;gaia_id)
+hgca_like = HGCAInstantaneousLikelihood(
+    gaia_id=gaia_id,
+    variables=@variables begin
+        # Optional: flux ratio for luminous companions
+        # fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1), ])  # uncomment if needed for unresolved companions
+    end
+)
 ```
 In the interests of time, we use the `HGCAInstantaneousLikelihood` approximation to speed up the computation. This parameter controls how the model smears out the simulated Gaia and Hipparcos measurements in time. For a real target, leave it at the default value once you have completed testing.
 
 
 ```@example 1
-@system ϵEri begin
-    M ~ truncated(Normal(0.82, 0.02),lower=0.5, upper=1.5) # (Baines & Armstrong 2011).
-    plx ~ gaia_plx(;gaia_id)
-    pmra ~ Normal(-975, 10)
-    pmdec ~ Normal(20,  10)
-
-    # Jitter per instrument
-    jitter_hires ~ LogUniform(0.1, 100) # m/s
-
-end hgca_like rvlike_hires b
+sys = System(
+    name="ϵEri",
+    companions=[planet_b],
+    likelihoods=[hgca_like, rvlike_hires],
+    variables=@variables begin
+        M ~ truncated(Normal(0.82, 0.02),lower=0.5, upper=1.5) # (Baines & Armstrong 2011).
+        plx ~ gaia_plx(;gaia_id)
+        pmra ~ Normal(-975, 10)
+        pmdec ~ Normal(20,  10)
+    end
+)
 # Build model
-model = Octofitter.LogDensityModel(ϵEri)
+model = Octofitter.LogDensityModel(sys)
+```
+
+Find good starting points and visualize the starting position + data:
+```@example 1
+init_chain = initialize!(model)
+octoplot(model, init_chain, show_mass=true)
 ```
 
 

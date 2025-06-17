@@ -2,8 +2,9 @@
 
 
 ```@docs
-@planet
-@system
+@variables
+Planet
+System
 PlanetRelAstromLikelihood
 StarAbsoluteRVLikelihood              
 PlanetRelativeRVLikelihood              

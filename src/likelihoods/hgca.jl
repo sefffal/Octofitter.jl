@@ -26,14 +26,17 @@ export gaia_plx
 
 # function ghca_pmra(;gaia_id)
 
-struct HGCAInstantaneousLikelihood{TTable<:Table,THGCA,flux_vars} <: AbstractLikelihood
+struct HGCAInstantaneousLikelihood{TTable<:Table,THGCA} <: AbstractLikelihood
     table::TTable
     hgca::THGCA
-    flux_vars::flux_vars
+    priors::Priors
+    derived::Derived
 end
 function likeobj_from_epoch_subset(obs::HGCAInstantaneousLikelihood, obs_inds)
-    return HGCAInstantaneousLikelihood(obs.table[obs_inds,:,1], obs.hgca, obs.flux_vars)
+    return HGCAInstantaneousLikelihood(obs.table[obs_inds,:,1], obs.hgca, obs.priors, obs.derived)
 end
+# Special method for HGCAInstantaneousLikelihood which doesn't have an instrument_name field
+likelihoodname(::HGCAInstantaneousLikelihood) = "HGCA"
 export HGCAInstantaneousLikelihood
 
 
@@ -55,9 +58,10 @@ function HGCAInstantaneousLikelihood(;
     catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits",
     N_ave=1,
     factor=1,
-    flux_variables=(),
+    variables::Tuple{Priors,Derived}=(@variables begin;end)
 )
-
+    (priors,derived)=variables
+    
 # hgca_all = Table([h])
     hgca_all = FITS(catalog, "r") do fits
         Table(fits[2])
@@ -137,7 +141,7 @@ function HGCAInstantaneousLikelihood(;
     
     hgca = (;hgca...,dist_hip,dist_hg,dist_gaia)
 
-    return HGCAInstantaneousLikelihood(Table(rows), hgca, flux_variables)
+    return HGCAInstantaneousLikelihood(Table(rows), hgca, priors, derived)
 end
 export HGCAInstantaneousLikelihood
 
@@ -146,7 +150,7 @@ export HGCAInstantaneousLikelihood
 Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
 using 5 position measurements averaged at each of their epochs.
 """
-function ln_like(hgca_like::HGCAInstantaneousLikelihood, θ_system, elements, orbit_solutions, orbit_solutions_i_epoch_start)
+function ln_like(hgca_like::HGCAInstantaneousLikelihood, θ_system, θ_obs,  elements, orbit_solutions, orbit_solutions_i_epoch_start)
     ll = 0.0
 
     (;
@@ -156,7 +160,7 @@ function ln_like(hgca_like::HGCAInstantaneousLikelihood, θ_system, elements, or
         pmdec_gaia_model,
         pmra_hg_model,
         pmdec_hg_model,
-    ) = simulate(hgca_like, θ_system, elements, orbit_solutions, orbit_solutions_i_epoch_start)
+    ) = simulate(hgca_like, θ_system, θ_obs, elements, orbit_solutions, orbit_solutions_i_epoch_start)
 
 
     absolute_orbits = false
@@ -209,11 +213,8 @@ function ln_like(hgca_like::HGCAInstantaneousLikelihood, θ_system, elements, or
 end
 
 
-function simulate(pma::HGCAInstantaneousLikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function simulate(pma::HGCAInstantaneousLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     T = Octofitter._system_number_type(θ_system)
-
-    # This observation type just wraps one row from the HGCA (see hgca.jl)
-    hgca = pma.hgca
 
     # Look at the position of the star around both epochs to calculate 
     # our modelled delta-position proper motion
@@ -387,7 +388,7 @@ end
 Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
 using 25 position measurements averaged at each of their epochs.
 """
-function generate_from_params(hgca_like::HGCAInstantaneousLikelihood, θ_system, orbits, solutions, sol_start_i)
+function generate_from_params(hgca_like::HGCAInstantaneousLikelihood, θ_system, θ_obs, orbits, solutions, sol_start_i)
 
     (;
         pmra_hip_model,
@@ -396,7 +397,7 @@ function generate_from_params(hgca_like::HGCAInstantaneousLikelihood, θ_system,
         pmdec_gaia_model,
         pmra_hg_model,
         pmdec_hg_model,
-    ) = _simulate_hgca(hgca_like, θ_system, orbits, solutions, sol_start_i)
+    ) = simulate(hgca_like, θ_system, θ_obs, orbits, solutions, sol_start_i)
 
     # Merge the measurements together into a new observation and add noise according to the sigma
     # we were passed in from the original measurements
@@ -407,7 +408,7 @@ function generate_from_params(hgca_like::HGCAInstantaneousLikelihood, θ_system,
         pmdec_gaia=pmdec_gaia_model,
         pmra_hg=pmra_hg_model,
         pmdec_hg=pmdec_hg_model,
-    )))
+    )), hgca_like.priors, hgca_like.derived)
 
 end
 

@@ -163,7 +163,7 @@ function rvtimeplot!(
         gs_row += 1
         ax = Axis(
             gs[gs_row, 1];
-            ylabel= string(like_obj.instrument_name) * "\n" * (use_kms ? "rv [km/s]" : "rv [m/s]"),
+            ylabel= string(likelihoodname(like_obj)) * "\n" * (use_kms ? "rv [km/s]" : "rv [m/s]"),
             xaxisposition=:top,
             xticks=(date_pos, date_strs),
             xgridvisible=false,
@@ -204,8 +204,17 @@ function rvtimeplot!(
         rv_data = collect(vec(like_obj.table.rv))
         σ_rv = vec(like_obj.table.σ_rv)
 
-        jitter_symbol = like_obj.jitter_symbol
-        jitter = map(sample->sample[jitter_symbol], nt_format)
+        like_obj_name = Octofitter.normalizename(likelihoodname(like_obj))
+
+        jitter = map(nt_format) do θ_system
+            jitter = 0
+            if hasproperty(θ_system, :observations) && hasproperty(θ_system.observations, like_obj_name)
+                θ_obs = θ_system.observations[like_obj_name]
+                jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : 0
+            end
+            return jitter
+        end
+
         σ_tot = sqrt.(σ_rv .^2 .+ mean(jitter) .^2)
 
         # instead of each 
@@ -213,8 +222,8 @@ function rvtimeplot!(
             θ_system = nt_format[i]
 
             # StarAbsoluteRVLikelihood have an RV0 parameter in the model
-            if hasproperty(like_obj,:offset_symbol)
-                return θ_system[like_obj.offset_symbol]
+            if nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
+                return θ_system.observations[like_obj_name].offset
             end
 
             # MarginalizedStarAbsoluteRVLikelihood do not, we can compute it in
@@ -281,9 +290,8 @@ function rvtimeplot!(
                 map_gp = nothing
                 # TODO: hacky interdependency
                 if hasproperty(like_obj, :gaussian_process) && !isnothing(like_obj.gaussian_process) 
-                    row = nt_format[i,:,:];
-                    nt = (Table((row)))[1]
-                    map_gp = like_obj.gaussian_process(nt)
+                    θ_obs = nt_format[i].observations[Octofitter.normalizename(likelihoodname(like_obj))]
+                    map_gp = like_obj.gaussian_process(θ_obs)
                 end
                 if isnothing(map_gp)
                     map_gp = Main.AbstractGPs.GP(Main.AbstractGPs.ZeroKernel())
@@ -473,8 +481,8 @@ function rvtimeplot_relative!(
         axis...
     )
     linkxaxes!(ax, ax_secondary)
-    xlims!(ax, extrema(ts))
-    xlims!(ax_secondary, extrema(ts))
+    # xlims!(ax, extrema(ts))
+    # xlims!(ax_secondary, extrema(ts))
 
     for (i_planet, planet_key) in enumerate(keys(model.system.planets))
         # Plot each relative RV separately
@@ -508,9 +516,10 @@ function rvtimeplot_relative!(
             rv = vec(like_obj.table.rv)
             σ_rv = vec(like_obj.table.σ_rv)
             jitter = map(nt_format) do θ_system
-                θ_system.planets[planet_key][like_obj.jitter_symbol]
+                θ_system.planets[planet_key].observations[Octofitter.normalizename(likelihoodname(like_obj))].jitter
             end
             σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
+
             Makie.errorbars!(
                 ax, epoch, rv .* kms_mult, σ_tot .* kms_mult;
                 color =  :grey,
@@ -562,8 +571,9 @@ function _find_rv_zero_point_maxlike(
     σ_rvs = rvlike.table.σ_rv
     rvs = rvlike.table.rv
 
-    jitter = getproperty(θ_system, rvlike.jitter_symbol)
-
+    like_obj_name = Octofitter.normalizename(likelihoodname(rvlike))
+    jitter = θ_system.observations[like_obj_name].jitter
+    
     # RV residual calculation: measured RV - model
     resid = zeros(T, length(rvs))
     resid .+= rvs

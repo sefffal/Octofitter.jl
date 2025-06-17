@@ -56,15 +56,33 @@ If you want to perform the convolution in Julia, see ImageFiltering.jl.
 
 ## Build the model
 
-First, we create a table of our image data that will be attached to the `Planet`:
+First, we create a table of our image observations:
 
 ```@example 1
-image_data = ImageLikelihood(
-    (band=:H, image=AstroImages.recenter(images[1]), platescale=10.0, epoch=1238.6),
-    (band=:H, image=AstroImages.recenter(images[2]), platescale=10.0, epoch=1584.7),
-    (band=:H, image=AstroImages.recenter(images[3]), platescale=10.0, epoch=3220.0),
-    (band=:H, image=AstroImages.recenter(images[4]), platescale=10.0, epoch=7495.9),
-    (band=:H, image=AstroImages.recenter(images[5]), platescale=10.0, epoch=7610.4),
+image_dat = Table(;
+    epoch = [1238.6, 1584.7, 3220.0, 7495.9, 7610.4],
+    image = [
+        AstroImages.recenter(images[1]),
+        AstroImages.recenter(images[2]), 
+        AstroImages.recenter(images[3]),
+        AstroImages.recenter(images[4]),
+        AstroImages.recenter(images[5])
+    ],
+    platescale = [10.0, 10.0, 10.0, 10.0, 10.0]
+)
+
+image_like = ImageLikelihood(
+    image_dat,
+    name="SPHERE",
+    variables=@variables begin
+        # Planet flux in image units -- could be contrast, mags, Jy, or arb. as long as it's consistent
+        flux ~ Normal(3.8, 0.5)
+        # The following are optional parameters for marginalizing over instrument systematics:
+        # Platescale uncertainty multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        platescale = 1.0
+        # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        northangle = 0.0
+    end
 )
 ```
 Provide one entry for each image you want to sample from. Ensure that each image has been re-centered so that index `[0,0]` is the position of the star. Areas of the image where there is no data should be filled with `NaN` and will not contribute to the likelihood of your model. `platescale` should be the pixel scale of your images, in milliarseconds / pixel. `epoch` should be the Modified Julian Day (MJD) that your image was taken. You can use the `mjd("2021-09-09")` function to calculate this for you.
@@ -78,28 +96,38 @@ You can also provide images from multiple bands and they will be sampled indepen
 
 Now specify the planet:
 ```@example 1
-@planet b Visual{KepOrbit} begin
-    H ~ Normal(3.8, 0.5)
-    a ~ truncated(Normal(13, 4), lower=0.1, upper=100)
-    e ~ Uniform(0.0, 0.5)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,1238.6)
-end image_data
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[image_like],
+    variables=@variables begin
+        a ~ truncated(Normal(13, 4), lower=0.1, upper=100)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        M = system.M
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(θ, 1238.6; M, e, a, i, ω, Ω)
+    end
+)
 ```
-Note how we also provided a prior on the photometry called `H`. We can put any name we want here, as long as it's used consistently throughout the model specification.
+Note how we provided a prior on the photometry called `flux` in the variables block of the ImageLikelihood. This represents the expected flux of the planet in the image units.
 
 See [Fit PlanetRelAstromLikelihood](@ref fit-astrometry) for a description of the different orbital parameters, and conventions used.
 
 
 Finally, create the system and pass in the planet.
 ```@example 1
-@system HD82134 begin
-    M ~ truncated(Normal(2.0, 0.1),lower=0.1)
-    plx ~ truncated(Normal(45., 0.02),lower=0.1)
-end b
+sys = System(
+    name="HD82134",
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        M ~ truncated(Normal(2.0, 0.1),lower=0.1)
+        plx ~ truncated(Normal(45., 0.02),lower=0.1)
+    end
+)
 ```
 
 If you want to search for two or more planets in the same images, just create multiple `Planet`s and pass the same images to each. You'll need to adjust the priors in some way to prevent overlap.
@@ -115,7 +143,7 @@ To encourage the sampler to take larger steps and explore the images,
 it's recommended to lower the target acceptance ratio to around 0.5±0.2 and also increase the number of adapataion steps.
 
 ```@example 1
-model = Octofitter.LogDensityModel(HD82134)
+model = Octofitter.LogDensityModel(sys)
 
 chain, pt = octofit_pigeons(model, n_rounds=10)
 display(chain)
@@ -167,11 +195,11 @@ With a bit of work, we can plot one of the images under the orbit.
 fig = octoplot(model, chain)
 ax = fig.content[1] # grap first axis in the figure
 
-# We have to do some annoying work to get the image orientated correctly
+# We have to do some annoying work to get the image orientated correctly,
 # since we want the RA axis increasing to the left.
 image_idx = 2
-platescale = image_data.table.platescale[image_idx]
-img = AstroImages.recenter(AstroImage(collect(image_data.table.image[image_idx])[end:-1:begin,:]))
+platescale = image_dat.platescale[image_idx]
+img = AstroImages.recenter(AstroImage(collect(image_dat.image[image_idx])[end:-1:begin,:]))
 imgax1 = dims(img,1) .* platescale
 imgax2 = dims(img,2) .* platescale
 h = heatmap!(ax, imgax1, imgax2, collect(img), colormap=:greys)
@@ -191,8 +219,8 @@ ax = fig.content[1] # grap first axis in the figure
 
 # We have to do some annoying work to get the image orientated correctly
 # since we want the RA axis increasing to the left.
-platescale = image_data.table.platescale[image_idx]
-imgs = maximum(stack(image_data.table.image),dims=3)[:,:]
+platescale = image_dat.platescale[image_idx]
+imgs = maximum(stack(image_dat.image),dims=3)[:,:]
 img = AstroImages.recenter(AstroImage(imgs[end:-1:begin,:]))
 imgax1 = dims(img,1) .* platescale
 imgax2 = dims(img,2) .* platescale
@@ -219,13 +247,13 @@ We start by plotting the marginal distribution of the flux parameter, `H`:
 
 
 ```@example 1
-hist(chain["b_H"][:], axis=(xlabel="H", ylabel="counts"))
+hist(chain["b_SPHERE_flux"][:], axis=(xlabel="flux", ylabel="counts"))
 ```
 
 
 We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:
 ```@example 1
-flux = chain["b_H"]
+flux = chain["b_SPHERE_flux"]
 snr = mean(flux)/std(flux)
 ```
 It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.

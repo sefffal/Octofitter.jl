@@ -28,12 +28,33 @@ download("https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Si
 
 Create the likelihood object:
 ```@example 1
+data = Table([
+    (; filename="Sim_data_2023_1_.oifits", epoch=mjd("2023-06-01"), use_vis2=false),
+    (; filename="Sim_data_2023_2_.oifits", epoch=mjd("2023-08-15"), use_vis2=false),
+    (; filename="Sim_data_2024_1_.oifits", epoch=mjd("2024-06-01"), use_vis2=false),
+])
 vis_like = InterferometryLikelihood(
-    (; filename="Sim_data_2023_1_.oifits", epoch=mjd("2023-06-01"), spectrum_var=:contrast_F480M, use_vis2=false),
-    (; filename="Sim_data_2023_2_.oifits", epoch=mjd("2023-08-15"), spectrum_var=:contrast_F480M, use_vis2=false),
-    (; filename="Sim_data_2024_1_.oifits", epoch=mjd("2024-06-01"), spectrum_var=:contrast_F480M, use_vis2=false),
+    data,
+    name="NIRISS-AMI",
+    variables=@variables begin
+        # For single planet:
+        flux ~ truncated(Normal(0, 0.1), lower=0)  # Planet flux/contrast (array with one element)
+        
+        # For multiple planets (array - one per planet):
+        # flux ~ Product([truncated(Normal(0, 0.1), lower=0), truncated(Normal(0, 0.1), lower=0)])
+        
+        # Optional calibration parameters:
+        platescale = 1.0               # Platescale multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        northangle = 0.0               # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        σ_cp_jitter = 0.0  # closure phase jitter [could use ~ LogUniform(0.1, 100))
+    end
 )
 ```
+
+!!! note
+    If you want to include multiple bands, group these into different `InterferometryLikelihood` objects
+    with different instrument names (i.e. include the band in the name for the sake of bookkeeping)
+
 
 Plot the closure phases:
 ```@example 1
@@ -60,30 +81,37 @@ fig
 ```
 
 ```@example 1
-@planet b Visual{KepOrbit} begin
-    a ~ truncated(Normal(2,0.1), lower=0.1)
-    e ~ truncated(Normal(0, 0.05),lower=0, upper=0.90)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[],
+    variables=@variables begin
+        M = system.M
+        a ~ truncated(Normal(2,0.1), lower=0.1)
+        e ~ truncated(Normal(0, 0.05),lower=0, upper=0.90)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
 
-    # Our prior on the planet's photometry
-    # 0 +- 10% of stars brightness (assuming this is unit of data files)
-    contrast_F480M ~ truncated(Normal(0, 0.1),lower=0)
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(θ, 60171; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
 
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,60171)  # reference epoch for θ. Choose an MJD date near your data.
-end
-
-@system Tutoria begin
-    M ~ truncated(Normal(1.5, 0.01), lower=0.1)
-    plx ~ truncated(Normal(100., 0.1), lower=0.1)
-end vis_like b
+sys = System(
+    name="Tutoria",
+    companions=[planet_b],
+    likelihoods=[vis_like],
+    variables=@variables begin
+        M ~ truncated(Normal(1.5, 0.01), lower=0.1)
+        plx ~ truncated(Normal(100., 0.1), lower=0.1)
+    end
+)
 ```
 
 Create the model object and run `octofit_pigeons`:
 ```@example 1
-model = Octofitter.LogDensityModel(Tutoria)
+model = Octofitter.LogDensityModel(sys)
 
 using Pigeons
 results,pt = octofit_pigeons(model, n_rounds=10);
@@ -95,13 +123,13 @@ Note that we use Pigeons paralell tempered sampling (`octofit_pigeons`) instead 
 
 Examine the recovered photometry posterior:
 ```@example 1
-hist(results[:b_contrast_F480M][:], axis=(;xlabel="F480M"))
+hist(results[:NIRISS_AMI_flux][:], axis=(;xlabel="flux"))
 ```
 
 Determine the significance of the detection:
 ```@example 1
 using Statistics
-phot = results[:b_contrast_F480M][:]
+phot = results[:NIRISS_AMI_flux][:]
 snr = mean(phot)/std(phot)
 ```
 

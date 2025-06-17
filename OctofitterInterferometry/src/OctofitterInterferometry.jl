@@ -8,15 +8,24 @@ using FITSIO, OIFITS
 
 abstract type AbstractInterferometryLikelihood <: Octofitter.AbstractLikelihood end
 
-const required_cols = (:epoch, :u, :v, :cps_data, :dcps, :vis2_data, :dvis2, :index_cps1, :index_cps2, :index_cps3, :spectrum_var, :use_vis2)
+const required_cols = (:epoch, :u, :v, :cps_data, :dcps, :vis2_data, :dvis2, :index_cps1, :index_cps2, :index_cps3, :use_vis2)
 struct InterferometryLikelihood{TTable<:Table} <: AbstractInterferometryLikelihood
     table::TTable
+    name::String
+    priors::Octofitter.Priors
+    derived::Octofitter.Derived
 end
 function Octofitter.likeobj_from_epoch_subset(obs::InterferometryLikelihood, obs_inds)
-    return InterferometryLikelihood(obs.table[obs_inds,:,1]...)
+    return InterferometryLikelihood(
+        obs.table[obs_inds,:,1]...,
+        name=obs.name,
+        variables=(obs.priors, obs.derived)
+    )
 end
 function InterferometryLikelihood(
     observations...;
+    name,
+    variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(@variables begin;end)
 )
     input_table = Table(observations...)
     if :filename ∈ Tables.columnnames(input_table)
@@ -31,7 +40,8 @@ function InterferometryLikelihood(
     if !issubset(required_cols, Tables.columnnames(table))
         error("Expected columns $vis_cols")
     end
-    return InterferometryLikelihood{typeof(table)}(table)
+    (priors,derived) = variables
+    return InterferometryLikelihood{typeof(table)}(table, name, priors, derived)
 end
 InterferometryLikelihood(observations::NamedTuple...) = InterferometryLikelihood(observations)
 export InterferometryLikelihood
@@ -86,7 +96,6 @@ function _prepare_input_row(row)
         return (;
             row...,
             row.epoch,
-            row.spectrum_var,
             use_vis2 = hasproperty(row, :use_vis2) ? row.use_vis2 : nothing,
             u=u[:, mask],
             v=v[:, mask],
@@ -105,25 +114,28 @@ end
 """
 Visibliitiy modelling likelihood for point sources.
 """
-function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits,     orbit_solutions,
-    orbit_solutions_i_epoch_start)
+function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
-    T = typeof(θ_system.M)
+    T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
     # Access the data here: 
     epochs = vis.table.epoch
-    spectrum_var = vis.table.spectrum_var
 
-    # Add an extra optional uncertainty
-    # in quadrature
-    σ_cp_jitter = hasproperty(θ_system, :σ_cp_jitter) ? θ_system.σ_cp_jitter : zero(T)
+    # Add an extra optional uncertainty in quadrature
+    σ_cp_jitter = hasproperty(θ_obs, :σ_cp_jitter) ? θ_obs.σ_cp_jitter : zero(T)
+    
+    # Get flux array from observation variables (one per planet)
+    flux = θ_obs.flux
+    
+    # Get calibration parameters from observation variables
+    platescale = hasproperty(θ_obs, :platescale) ? θ_obs.platescale : one(T)
+    northangle = hasproperty(θ_obs, :northangle) ? θ_obs.northangle : zero(T)
 
     # Loop through epochs
     for i_epoch in eachindex(epochs)
 
         epoch = epochs[i_epoch]
-        this_spectrum_var = spectrum_var[i_epoch]
 
         index_cps1 = vis.table.index_cps1[i_epoch]
         index_cps2 = vis.table.index_cps2[i_epoch]
@@ -132,8 +144,6 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits,   
 
         cps_model = zeros(T, size(vis.table.cps_data[i_epoch][:, 1]))
         cvis_model = zeros(complex(T), size(vis.table.u[i_epoch][:, 1]))
-
-        contrasts = T[getproperty(θ_planet, this_spectrum_var) for θ_planet in θ_system.planets]
 
         # Loop through wavelengths
         for i_wave in axes(vis.table.u[i_epoch], 2)
@@ -152,16 +162,55 @@ function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, orbits,   
 
             # Consider all planets
             for i_planet in eachindex(orbits)
-                # All parameters relevant to this planet
-                # Get model contrast parameter in this band (band provided as a symbol, e.g. :L along with data in table row.)
-                contrast = contrasts[i_planet]
-                Δra = raoff(orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start])  # in mas
-                Δdec = decoff(orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]) # in mas
+                # Get the orbital solution for this planet at this epoch
+                sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
+                
+                # Epicycle approximation: consider the effect of inner planets on the photocentre
+                ra_host_perturbation = zero(T)
+                dec_host_perturbation = zero(T)
+                this_orbit = orbits[i_planet]
+                
+                # Account for inner planets that shift the photocentre
+                for (i_other_planet, key) in enumerate(keys(θ_system.planets))
+                    if i_other_planet == i_planet
+                        continue  # Skip self
+                    end
+                    orbit_other = orbits[i_other_planet]
+                    # Only account for inner planets with non-zero mass
+                    if semimajoraxis(orbit_other) < semimajoraxis(this_orbit)
+                        θ_planet_other = θ_system.planets[key]
+                        if !hasproperty(θ_planet_other, :mass)
+                            continue
+                        end
+                        mass_other = θ_planet_other.mass * Octofitter.mjup2msol
+                        sol_other = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                        
+                        # Add the photocentre shift due to this inner planet
+                        ra_host_perturbation += raoff(sol_other, mass_other)
+                        dec_host_perturbation += decoff(sol_other, mass_other)
+                    end
+                end
+                
+                # Get the position of this planet relative to the (inner planets + star) barycentre
+                ra_raw = raoff(sol) - ra_host_perturbation  # in mas
+                dec_raw = decoff(sol) - dec_host_perturbation # in mas
+                
+                # Apply north angle rotation and platescale correction
+                cos_θ = cos(northangle)
+                sin_θ = sin(northangle)
+                ra_rotated = ra_raw * cos_θ - dec_raw * sin_θ
+                dec_rotated = ra_raw * sin_θ + dec_raw * cos_θ
+                
+                # Apply platescale correction
+                Δra = ra_rotated * platescale  # in mas
+                Δdec = dec_rotated * platescale # in mas
 
-                # add complex visibilities from all planets at a single epoch, for this wavelength
+                # add complex visibilities from this planet at this epoch, for this wavelength
+                contrast = flux[i_planet]
                 cvis_bin!(cvis_model; Δdec, Δra, contrast, u, v)
                 norm_factor_model += contrast
             end
+            
             cvis_model .+= 1.0 #add contribution from the primary primary
             cvis_model .*= 1.0 / (1.0 + norm_factor_model)
             # Compute closure phases
@@ -285,12 +334,19 @@ function cp_indices(; vis2_index::Matrix{<:Int64}, cp_index::Matrix{<:Int64})
     return i_cps1, i_cps2, i_cps3
 end
 
-# Generate new observations for a system of possibly multiple planets
-function Octofitter.generate_from_params(like::InterferometryLikelihood, θ_system, orbits::Vector{<:AbstractOrbit})
+# Generate new observations for multiple planets
+function Octofitter.generate_from_params(like::InterferometryLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
-    # # Get epochs, uncertainties, and planet masses from observations and parameters
+    # Get flux array from observation variables (one per planet)
+    flux = θ_obs.flux
+    
+    # Get calibration parameters from observation variables
+    T = Octofitter._system_number_type(θ_system)
+    platescale = hasproperty(θ_obs, :platescale) ? θ_obs.platescale : one(T)
+    northangle = hasproperty(θ_obs, :northangle) ? θ_obs.northangle : zero(T)
+    
+    # Get epochs, uncertainties, and other data from observations
     epochs = like.table.epoch
-    bands = like.table.band
     u = like.table.u
     v = like.table.v
     cps_data = like.table.cps_data
@@ -303,29 +359,68 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, θ_syst
     use_vis2 = like.table.use_vis2
     cp_all = []
     vis2_all = []
+    
     for j in eachindex(epochs)
-        band = bands[j]
         epoch = epochs[j]
         complexvis_model = zeros(Complex{Float64}, length(u[j]))
         norm_factor = 0.0 # to normalize complex visibilities 
-        for i in eachindex(orbits)
-            # All parameters relevant to this planet
-            θ_planet = θ_system.planets[i]
 
-            # orbit object pre-created from above parameters (shared between all likelihood functions)
-            orbit = orbits[i]
-            contrast = getproperty(θ_planet, band) #secondary/primary
-            sol = orbitsolve(orbit, epoch)
-            Δra = raoff(sol)  # in mas
-            Δdec = decoff(sol) # in mas
+        # Consider all planets
+        for i_planet in eachindex(orbits)
+            sol = orbit_solutions[i_planet][j + orbit_solutions_i_epoch_start]
+            
+            # Epicycle approximation: consider the effect of inner planets on the photocentre
+            ra_host_perturbation = zero(T)
+            dec_host_perturbation = zero(T)
+            this_orbit = orbits[i_planet]
+            
+            # Account for inner planets that shift the photocentre
+            for (i_other_planet, key) in enumerate(keys(θ_system.planets))
+                if i_other_planet == i_planet
+                    continue  # Skip self
+                end
+                orbit_other = orbits[i_other_planet]
+                # Only account for inner planets with non-zero mass
+                if semimajoraxis(orbit_other) < semimajoraxis(this_orbit)
+                    θ_planet_other = θ_system.planets[key]
+                    if !hasproperty(θ_planet_other, :mass)
+                        continue
+                    end
+                    mass_other = θ_planet_other.mass * Octofitter.mjup2msol
+                    sol_other = orbit_solutions[i_other_planet][j + orbit_solutions_i_epoch_start]
+                    
+                    # Add the photocentre shift due to this inner planet
+                    ra_host_perturbation += raoff(sol_other, mass_other)
+                    dec_host_perturbation += decoff(sol_other, mass_other)
+                end
+            end
+            
+            # Get the position of this planet relative to the (inner planets + star) barycentre
+            ra_raw = raoff(sol) - ra_host_perturbation  # in mas
+            dec_raw = decoff(sol) - dec_host_perturbation # in mas
+            
+            # Apply north angle rotation and platescale correction
+            cos_θ = cos(northangle)
+            sin_θ = sin(northangle)
+            ra_rotated = ra_raw * cos_θ - dec_raw * sin_θ
+            dec_rotated = ra_raw * sin_θ + dec_raw * cos_θ
+            
+            # Apply platescale correction
+            Δra = ra_rotated * platescale  # in mas
+            Δdec = dec_rotated * platescale # in mas
+            contrast = flux[i_planet]
+            
             # Accumulate into cvis
             cvis_bin!(complexvis_model; Δdec, Δra, contrast, u=u[j], v=v[j])
             norm_factor += contrast
         end
+        
         complexvis_model .+= 1.0 #add contribution from the primary 
         complexvis_model ./= 1.0 + norm_factor
+        
         # compute closure phase
-        cp_model = closurephase(vis=complexvis_model, index_cps1=i_cps1[j], index_cps2=i_cps2[j], index_cps3=i_cps3[j])
+        cp_model = zeros(size(i_cps1[j], 1))
+        closurephase!(cp_model; vis=complexvis_model, index_cps1=i_cps1[j], index_cps2=i_cps2[j], index_cps3=i_cps3[j])
         #compute squared visibilities
         vis2_model = abs.(complexvis_model) .^ 2
 
@@ -336,12 +431,12 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, θ_syst
     vis2_all = identity.(vis2_all)
     new_vis_like_table = Table(epoch=epochs, u=u, v=v, cps_data=cp_all, dcps=dcps,
         vis2_data=vis2_all, dvis2=dvis2, index_cps1=i_cps1,
-        index_cps2=i_cps2, index_cps3=i_cps3, band=bands, use_vis2=use_vis2)
+        index_cps2=i_cps2, index_cps3=i_cps3, use_vis2=use_vis2)
 
 
-    # return with same number of rows: band, epoch
-    # position(s) of point sources according to orbits, θ_system
-    return InterferometryLikelihood(new_vis_like_table)
+    # return with same number of rows: epoch
+    # position of point source according to orbit, θ_system, θ_planet
+    return InterferometryLikelihood(new_vis_like_table; name=like.name, variables=(like.priors, like.derived))
 end
 
 include("GRAVITY.jl")

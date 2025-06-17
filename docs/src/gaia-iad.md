@@ -35,7 +35,13 @@ scatter(
 
 We can now construct a likelihood object for this data. We must also supply the Gaia ID, which will be used to query the full Gaia solution for this object (for now, using DR3):
 ```@example 1
-gaiaIADLike = GaiaDR4Astrom(df, gaia_id=4318465066420528000)
+gaiaIADlike = GaiaDR4Astrom(
+    df, 
+    gaia_id=4318465066420528000,
+    variables=@variables begin
+        astrometric_jitter = 0.0 # [mas]. Could use e.g. `~ LogUniform(0.00001, 10)
+    end
+)
 ```
 
 This object also has published RV data from Gaia, which we can load and use as normal:
@@ -54,10 +60,16 @@ dfrv.epoch = jd2mjd.(dfrv.obs_time_tcb)
 dfrv.rv = dfrv.radial_velocity_kms * 1e3
 dfrv.σ_rv = dfrv.radial_velocity_err_kms * 1e3
 
+# Calculate mean RV for the prior
+mean_rv = mean(dfrv.rv)
+
 rvlike = StarAbsoluteRVLikelihood(
     dfrv,
-    offset=:offset_gaiarv,
-    jitter=:jitter_gaiarv,
+    name="GaiaRV",
+    variables=@variables begin
+        offset ~ Normal(mean_rv, 10_000)  # wide prior on RV offset centred on mean RV  
+        jitter ~ LogUniform(0.01, 100_000)  # RV jitter parameter
+    end
 )
 errorbars(
     dfrv.obs_time_tcb,
@@ -71,55 +83,56 @@ Now, we define a model that incorporates this data:
 mjup2msol = Octofitter.mjup2msol
 ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 orbit_ref_epoch = mean(gaiaIADlike.table.epoch)
-mean_rv = mean(dfrv.rv)
-@planet b Visual{KepOrbit} begin
-    a ~ Uniform(0, 1000)
-    e ~ Uniform(0, 0.99)
-    ω ~ UniformCircular()
-    i ~ Sine()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system, b, $orbit_ref_epoch)
-    mass = system.M_sec / $mjup2msol
-end
-sys = @system gaiadr4test begin
-    M_pri = 0.76
-    M_sec ~ LogUniform(1, 1000) # Msol
-    M = system.M_pri + system.M_sec# 
-    plx ~ Uniform(0.01, 100)
-    pmra ~ Uniform(-1000, 1000)
-    pmdec ~ Uniform(-1000, 1000)
+DR4_REFERENCE_EPOCH = 2457936.875 # J2017.5 
 
-    # Put a prior of the catalog value +- 10,000 mas on position
-    # We could just fit the deltas directly, but we can propagate 
-    # handling all non-linear effects if we know the actual ra, 
-    # dec, and rv.
-    ra_offset_mas ~ Normal(0, 100)
-    dec_offset_mas ~ Normal(0, 100)
-    dec = $gaiaIADlike.gaia_sol.dec + system.ra_offset_mas / 60 / 60 / 1000
-    ra = $gaiaIADlike.gaia_sol.ra + system.dec_offset_mas / 60 / 60 / 1000 / cosd(system.dec)
+b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    likelihoods=[],
+    variables=@variables begin
+        a ~ Uniform(0, 1000)
+        e ~ Uniform(0, 0.99)
+        ω ~ UniformCircular()
+        i ~ Sine()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=system.M, e, a, i, ω, Ω)
+        mass = system.M_sec / mjup2msol
+    end
+)
+gaia_ra = 294.82786250815144
+gaia_dec = 14.930979608612361
 
-    # Absolutely no idea what range is reasonable here
-    astrometric_jitter ~ LogUniform(0.00001, 10) # mas
-    offset_gaiarv ~ Normal(mean_rv, 10_000) # wide prior on RV offset centred on mean RV
-    jitter_gaiarv ~ LogUniform(0.01, 100_000)
-end gaiaIADlike rvlike b
+sys = System(
+    name="gaiadr4test",
+    companions=[b],
+    likelihoods=[gaiaIADlike, rvlike],
+    variables=@variables begin
+        M_pri = 0.76
+        M_sec ~ LogUniform(1, 1000) # Msol
+        M = M_pri + M_sec
+        plx ~ Uniform(0.01, 100)
+        pmra ~ Uniform(-1000, 1000)
+        pmdec ~ Uniform(-1000, 1000)
 
+        # Put a prior of the catalog value +- 10,000 mas on position
+        # We could just fit the deltas directly, but we can propagate 
+        # handling all non-linear effects if we know the actual ra, 
+        # dec, and rv.
+        ra_offset_mas ~ Normal(0, 100)
+        dec_offset_mas ~ Normal(0, 100)
+        dec = $gaia_dec + ra_offset_mas / 60 / 60 / 1000
+        ra = $gaia_ra + dec_offset_mas / 60 / 60 / 1000 / cosd(dec)
+        ref_epoch = $DR4_REFERENCE_EPOCH
+    end
+)
 model = Octofitter.LogDensityModel(sys, verbosity=4)
 ```
 
 
 We will initialize the model starting positions and visualize them:
 ```@example 1
-init_chain = initialize!(model, (;
-    plx=gaiaIADlike.gaia_sol.parallax,
-    pmra=gaiaIADlike.gaia_sol.pmra,
-    pmdec=gaiaIADlike.gaia_sol.pmdec,
-    ra_offset_mas=0.0,
-    dec_offset_mas=0.0,
-    astrometric_jitter=0.1,
-    jitter_gaiarv=0.11,
-))
+init_chain = initialize!(model)
 octoplot(model, init_chain, show_rv=true)
 ```
 

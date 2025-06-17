@@ -55,28 +55,46 @@ function make_ln_like(system::System, θ_system)
     for i in 1:length(system.planets)
         planet = system.planets[i]
         OrbitType = _planet_orbit_type(planet)
-        # θ_planet = θ_system.planets[i]
         key = Symbol("planet_$i")
         sols_key = planet_sol_keys[i]
+        
         likelihood_exprs = map(enumerate(planet.observations)) do (i_like, like)
             i_epoch_start = get(epoch_start_index_mapping, like, 0)
-            expr = :(
-                $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
-                    system.planets[$(Meta.quot(i))].observations[$i_like],
-                    θ_system,
-                    θ_system.planets[$i],
-                    elems,
-                    ($solutions_list), # all orbit solutions
-                    $i, # This planet index into orbit solutions
-                    $(i_epoch_start-1) # start epoch index
-                );
-                # if !isfinite($(Symbol("ll$(j+1)")))
-                #     println("invalid likelihood value encountered")
-                # end
-            )
+            # Get the normalized observation name to access θ_obs
+            if hasproperty(like, :name)
+                obs_name = normalizename(likelihoodname(like))
+                expr = :(
+                    $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
+                        system.planets[$(Meta.quot(i))].observations[$i_like],
+                        θ_system,
+                        θ_system.planets[$i],
+                        hasproperty(θ_system.planets[$i].observations, $(Meta.quot(obs_name))) ? 
+                            θ_system.planets[$i].observations.$obs_name :
+                            (;),
+                        elems,
+                        ($solutions_list), # all orbit solutions
+                        $i, # This planet index into orbit solutions
+                        $(i_epoch_start-1) # start epoch index
+                    );
+                )
+            else
+                expr = :(
+                    $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
+                        system.planets[$(Meta.quot(i))].observations[$i_like],
+                        θ_system,
+                        θ_system.planets[$i],
+                        (;),  # θ_obs
+                        elems,
+                        ($solutions_list), # all orbit solutions
+                        $i, # This planet index into orbit solutions
+                        $(i_epoch_start-1) # start epoch index
+                    );
+                )
+            end
             j+=1
             return expr
         end
+
         likelihood_expr = quote
             $(likelihood_exprs...)
         end
@@ -114,12 +132,19 @@ function make_ln_like(system::System, θ_system)
 
 
     
-    sys_exprs = map(eachindex(system.observations)) do i
+     sys_exprs = map(eachindex(system.observations)) do i
         like = system.observations[i]
         i_epoch_start = get(epoch_start_index_mapping, like, 0)
+        # Get the normalized observation name to access θ_obs
+        obs_name = normalizename(likelihoodname(like))
         expr = :(
             $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
-                system.observations[$i], θ_system, elems,
+                system.observations[$i], 
+                θ_system, 
+                hasproperty(θ_system.observations, $(Meta.quot(obs_name))) ? 
+                    θ_system.observations.$obs_name :
+                    (;),
+                elems,
                 ($solutions_list),
                 $(i_epoch_start-1)
             );
@@ -203,7 +228,12 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
         newplanet_obs = map(planet.observations) do obs
             return generate_from_params(obs, θ_newplanet, orbit)
         end
-        newplanet = Planet{Octofitter.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
+        newplanet = Planet(
+            variables=(planet.priors, planet.derived),
+            basis=Octofitter.orbittype(planet),
+            likelihoods=newplanet_obs,
+            name=planet.name
+        )
         return newplanet
     end
 
@@ -213,7 +243,12 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
     end
 
     # Generate new system
-    newsystem = System(system.priors, system.derived, newstar_obs..., newplanets..., name=system.name)
+    newsystem = System(
+        variables=(system.priors, system.derived),
+        likelihoods=newstar_obs,
+        companions=newplanets,
+        name=system.name
+    )
 
     return newsystem
 end

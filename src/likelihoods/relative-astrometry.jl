@@ -4,11 +4,12 @@ const astrom_cols1 = (:epoch, :ra, :dec, :σ_ra, :σ_dec)
 const astrom_cols3 = (:epoch, :pa, :sep, :σ_pa, :σ_sep)
 
 """
-    PlanetRelAstromLikelihood(
+    data = Table(
         (epoch = 5000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
         (epoch = 5050, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
         (epoch = 5100, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     )
+    PlanetRelAstromLikelihood(data)
 
 Represents a likelihood function of relative astometry between a host star and a secondary body.
 `:epoch` is a required column, in addition to either `:ra`, `:dec`, `:σ_ra`, `:σ_dec` or `:pa`, `:sep`, `:σ_pa`, `:σ_sep`.
@@ -16,20 +17,18 @@ All units are in **milliarcseconds** or **radians** as appropriate.
 
 In addition to the example above, any Tables.jl compatible source can be provided.
 """
-struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple,jitter,platescale,northangle} <: AbstractLikelihood
+struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple} <: AbstractLikelihood
     table::TTable
-    jitter::Symbol
-    platescale::Symbol
-    northangle::Symbol
+    priors::Priors
+    derived::Derived
     precomputed_pointwise_distributions::TDistTuple
-    instrument_name::String
+    name::String
     function PlanetRelAstromLikelihood(
             observations;
-            jitter::Symbol=:__NA,
-            platescale::Symbol=:__NA,
-            northangle::Symbol=:__NA,
-            instrument_name=""
+            variables::Tuple{Priors,Derived}=(@variables begin;end),
+            name
         )
+        (priors,derived)=variables
         table = Table(observations)
         if !equal_length_cols(table)
             error("The columns in the input data do not all have the same length")
@@ -39,7 +38,7 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple,jitter,platescale,nort
             error("Expected columns $astrom_cols1 or $astrom_cols3")
         end
 
-        ii = sortperm(table.epoch)
+        ii = sortperm(vec(table.epoch))
         table = table[ii]
 
         # For data points with a non-zero correlation, we can speed things up slightly
@@ -80,50 +79,37 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple,jitter,platescale,nort
         end
 
         precomputed_pointwise_distributions_tuple = (precomputed_pointwise_distributions...,)
-        return new{typeof(table),typeof(precomputed_pointwise_distributions_tuple),jitter, platescale, northangle}(
-            table, jitter, platescale, northangle, precomputed_pointwise_distributions_tuple, instrument_name
+        return new{typeof(table),typeof(precomputed_pointwise_distributions_tuple),}(
+            table, priors, derived, precomputed_pointwise_distributions_tuple, name
         )
     end
 end
-PlanetRelAstromLikelihood(observations::NamedTuple...; kwargs...) = PlanetRelAstromLikelihood(observations; kwargs...)
+# PlanetRelAstromLikelihood(observations::NamedTuple..., (priors,derived)::Tuple{Priors,Derived}; kwargs...) = PlanetRelAstromLikelihood(observations, (priors,derived); kwargs...)
 export PlanetRelAstromLikelihood
 
-function _getparams(::PlanetRelAstromLikelihood{TTable,TDistTuple,jitter,platescale,northangle}, θ) where {TTable,TDistTuple,jitter,platescale,northangle}
-
-    jitter,platescale,northangle
-
-    jitter_val = zero(Octofitter._system_number_type(θ))
-    if jitter != :__NA
-        jitter_val = getproperty(θ, jitter)
-    end
-    platescale_val = one(Octofitter._system_number_type(θ))
-    if platescale != :__NA
-        platescale_val = getproperty(θ, platescale)
-    end
-    northangle_val = zero(Octofitter._system_number_type(θ))
-    if northangle != :__NA
-        northangle_val = getproperty(θ, northangle)
-    end
-    return (;
-        jitter=jitter_val,
-        platescale=platescale_val,
-        northangle=northangle_val,
-    )
-end
 
 function likeobj_from_epoch_subset(obs::PlanetRelAstromLikelihood, obs_inds)
-    return PlanetRelAstromLikelihood(obs.table[obs_inds,:,1]...)
+    return PlanetRelAstromLikelihood(
+        obs.table[obs_inds,:,1];
+        obs.name,
+        variables=(obs.priors, obs.derived,)
+    )
 end
 
 # Plot recipe for astrometry data
 using LinearAlgebra
 
 # PlanetRelAstromLikelihood likelihood function
-function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
     # Note: since astrometry data is stored in a typed-table, the column name
     # checks using `hasproperty` ought to be compiled out completely.
-    (;jitter, platescale, northangle,) = _getparams(astrom, merge(θ_system, θ_planet))
+
+    T = Octofitter._system_number_type(θ_system)
+   
+    jitter = hasproperty(θ_obs, :jitter) ? getproperty(θ_obs, :jitter) : zero(T)
+    platescale = hasproperty(θ_obs, :platescale) ? getproperty(θ_obs, :platescale) : one(T)
+    northangle = hasproperty(θ_obs, :northangle) ? getproperty(θ_obs, :northangle) : zero(T)
 
     this_orbit = orbits[i_planet]
     T = _system_number_type(θ_system)
@@ -262,5 +248,5 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_planet, orbit:
         end
     end
 
-    return PlanetRelAstromLikelihood(astrometry_table)
+    return PlanetRelAstromLikelihood(astrometry_table; like.name)
 end

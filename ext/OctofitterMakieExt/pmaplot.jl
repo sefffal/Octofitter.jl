@@ -314,14 +314,19 @@ function pmaplot!(
             orbits = map(keys(model.system.planets)) do planet_key
                 Octofitter.construct_elements(model, results, planet_key, i)
             end
+            θ_obs = (;)
+            name = Octofitter.normalizename(likelihoodname(hgca_like))
+            if hasproperty(θ_system, :observations) && hasproperty(θ_system.observations, name)
+                θ_obs = θ_system.observations[name]
+            end
             if hasproperty(hgca_like, :table)
                 solutions = map(orbits) do orbit
                     return orbitsolve.(orbit, hgca_like.table.epoch)
                 end
-                sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, 0)
+                sim = Octofitter.simulate(hgca_like, θ_system, θ_obs, orbits, solutions, 0)
             else
                 solutions = [() for _ in length(model.system.planets)]
-                sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, -1)
+                sim = Octofitter.simulate(hgca_like, θ_system, θ_obs, orbits, solutions, -1)
             end
             push!(sims, sim)
         end

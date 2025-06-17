@@ -63,15 +63,37 @@ function prior_only_model(system::System;exclude_all=false)
     # Generate new observations for each planet in the system
     newplanets = map(1:length(system.planets)) do i
         planet = system.planets[i]
-        newplanet_obs = exclude_all ? AbstractLikelihood[] : filter(_isprior, planet.observations)
-        newplanet = Planet{Octofitter.orbittype(planet)}(planet.priors, planet.derived, newplanet_obs..., name=planet.name)
+        # newplanet_obs = exclude_all ? AbstractLikelihood[] : filter(_isprior, planet.observations)
+        newplanet_obs = map(planet.observations) do obs
+            if exclude_all || !_isprior(obs)
+                # We have to make sure we have the same variables even if we drop the data
+                return BlankLikelihood((obs.priors,obs.derived),likelihoodname(obs))
+            end
+        end
+        newplanet_obs = filter(!isnothing, newplanet_obs)
+        newplanet = Planet(
+            basis=Octofitter.orbittype(planet),
+            variables=(planet.priors, planet.derived),
+            likelihoods=newplanet_obs,
+            name=planet.name
+        )
         return newplanet
     end
 
-    newsys_obs = exclude_all ? AbstractLikelihood[] : filter(_isprior, system.observations)
-
+    newsys_obs = map(system.observations) do obs
+        if exclude_all || !_isprior(obs)
+            # We have to make sure we have the same variables even if we drop the data
+            return BlankLikelihood((obs.priors,obs.derived),likelihoodname(obs))
+        end
+    end
+    newsys_obs = filter(!isnothing, newsys_obs)
     # Generate new system with observations
-    newsystem = System(system.priors, system.derived, newsys_obs..., newplanets..., name=system.name)
+    newsystem = System(
+        variables=(system.priors, system.derived),
+        likelihoods=newsys_obs,
+        companions=newplanets,
+        name=system.name
+    )
 
     return newsystem
 end
@@ -121,20 +143,19 @@ function generate_kfold_systems(system)
         end
 
         planets_new = map(system.planets, to_include_planets) do planet, like_objs
-            planet = Planet{orbittype(planet)}(
-                planet.priors,
-                planet.derived,
-                like_objs...;
-                planet.name
+            planet = Planet(
+                basis=Octofitter.orbittype(planet),
+                variables=(planet.priors, planet.derived),    
+                likelihoods=like_objs,
+                name=planet.name,
             )
         end
 
         new_name = Symbol(string(system.name, "_kfold_$i_obs"))
         return System(
-            system.priors,
-            system.derived,
-            to_include_system...,
-            planets_new...;
+            variables=(system.priors, system.derived),
+            likelihoods=to_include_system,
+            companions=planets_new,
             name=new_name
         )
     end
@@ -188,21 +209,19 @@ function generate_system_filtered_like(user_predicate, system)
 
 
     planets_new = map(system.planets, to_include_planets) do planet, like_objs
-        # println.(typeof.(like_objs))
-        planet = Planet{orbittype(planet)}(
-            planet.priors,
-            planet.derived,
-            like_objs...;
-            planet.name
+        planet = Planet(
+            basis=Octofitter.orbittype(planet),
+            variables=(planet.priors, planet.derived),    
+            likelihoods=like_objs,
+            name=planet.name,
         )
     end
 
     new_name = Symbol(string(system.name, "_filt_obs_", join(included_j_obs, '_')))
     return System(
-        system.priors,
-        system.derived,
-        to_include_system...,
-        planets_new...;
+        variables=(system.priors, system.derived),
+        likelihoods=to_include_system,
+        companions=planets_new,
         name=new_name
     )
 
@@ -251,20 +270,19 @@ function generate_systems_per_like(system)
         end
 
         planets_new = map(system.planets, to_include_planets) do planet, like_objs
-            planet = Planet{orbittype(planet)}(
-                planet.priors,
-                planet.derived,
-                like_objs...;
-                planet.name
+            planet = Planet(
+                basis=Octofitter.orbittype(planet),
+                variables=(planet.priors, planet.derived),    
+                likelihoods=like_objs,
+                name=planet.name,
             )
         end
 
         new_name = Symbol(string(system.name, "_like_$i_obs"))
         return System(
-            system.priors,
-            system.derived,
-            to_include_system...,
-            planets_new...;
+            variables=(system.priors, system.derived),
+            likelihoods=to_include_system,
+            companions=planets_new,
             name=new_name
         )
     end
@@ -370,22 +388,21 @@ function generate_system_per_epoch(system)
             end
             
             # Create new planet with included observations
-            return Planet{orbittype(planet)}(
-                planet.priors,
-                planet.derived,
-                to_include_planet...;
-                name=planet.name
+            return Planet(
+                basis=Octofitter.orbittype(planet),
+                variables=(planet.priors, planet.derived),    
+                likelihoods=to_include_planet,
+                name=planet.name,
             )
         end
         
         # Create the new system with all planets
         new_name = Symbol(string(system.name, "_epoch_$i_obs"))
         return System(
-            system.priors,
-            system.derived,
-            to_include_system...,
-            planets_new...;
-            name=new_name
+            variables=(system.priors, system.derived),
+            likelihoods=to_include_system,
+            companions=planets_new,
+            name=system.name
         )
     end
 

@@ -83,7 +83,12 @@ function hipparcosplot!(
         solutions = map(orbits) do orbit
             return orbitsolve.(orbit[i], hip_like.table.epoch)
         end
-        sim = Octofitter.simulate(hip_like, nts[i,], getindex.(orbits,i), solutions, 0)
+        nt_obs = (;)
+        name = Octofitter.normalizename(likelihoodname(hip_like))
+        if hasproperty(nts[i], :observations) && hasproperty(nts[i].observations, name)
+            nt_obs = nts[i].observations[name]
+        end
+        sim = Octofitter.simulate(hip_like, nts[i,], nt_obs, getindex.(orbits,i), solutions, 0)
         
         # Model
         scatterlines!(ax_main,

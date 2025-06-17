@@ -1,6 +1,33 @@
 
 
-struct GaiaHipparcosUEVAJointLikelihood_v2{TTable,TTableH,TTableG,TCat,fluxratio_var} <: AbstractLikelihood
+"""
+    GaiaHipparcosUEVAJointLikelihood(
+        gaia_id=1234567890,
+        catalog=catalog_table,
+        variables=@variables begin
+            fluxratio ~ Product([
+                LogUniform(1e-6, 1e-1) for _ in 1:N_planets
+            ])  # Flux ratios for each planet
+            missed_transits ~ DiscreteUniform(1, 100)  # Number of missed Gaia transits (optional)
+            σ_att ~ LogUniform(0.01, 1.0)     # Attitude error (mas)
+            σ_AL ~ LogUniform(0.01, 1.0)      # Along-scan error (mas) 
+            σ_calib ~ LogUniform(0.01, 1.0)   # Calibration error (mas)
+            gaia_n_dof = 5                    # Gaia degrees of freedom
+        end,
+        include_iad=false,
+        ueva_mode=:RUWE
+    )
+
+A likelihood for joint Gaia-Hipparcos astrometry including proper motion accelerations
+and unit weight error variance analysis (UEVA).
+
+The `fluxratio` variable should be a Product distribution with one component per planet.
+The `missed_transits` variable is optional and represents the number of Gaia transits
+that were missed or rejected during data processing.
+The `σ_att`, `σ_AL`, and `σ_calib` variables represent Gaia attitude, along-scan, and
+calibration errors respectively. `gaia_n_dof` is the number of degrees of freedom (typically 5).
+"""
+struct GaiaHipparcosUEVAJointLikelihood{TTable,TTableH,TTableG,TCat} <: AbstractLikelihood
     table::TTable
     hip_table::TTableH
     gaia_table::TTableG
@@ -8,29 +35,28 @@ struct GaiaHipparcosUEVAJointLikelihood_v2{TTable,TTableH,TTableG,TCat,fluxratio
     A_prepared_5_hip::Matrix{Float64}
     A_prepared_5_dr2::Matrix{Float64}
     A_prepared_5_dr3::Matrix{Float64}
-    fluxratio_var::Symbol
+    priors::Octofitter.Priors
+    derived::Octofitter.Derived
+    name::String
     include_iad::Bool
     ueva_mode::Symbol
 end
-GaiaHipparcosUEVAJointLikelihood = GaiaHipparcosUEVAJointLikelihood_v2
 
 
-function _getparams(::GaiaHipparcosUEVAJointLikelihood_v2{TTable,TTableH,TTableG,TCat,fluxratio_var}, θ_planet) where {TTable,TTableH,TTableG,TCat,fluxratio_var}
-    if fluxratio_var == :__NA
-        return (;fluxratio=zero(Octofitter._system_number_type(θ_planet)))
-    end
-    fluxratio = getproperty(θ_planet, fluxratio_var)
-    return (;fluxratio)
+function likelihoodname(like::GaiaHipparcosUEVAJointLikelihood)
+    return like.name
 end
 
-function GaiaHipparcosUEVAJointLikelihood_v2(;
+function GaiaHipparcosUEVAJointLikelihood(;
         gaia_id,
-        fluxratio_var=nothing,
         scanlaw_table=nothing,
         catalog,
+        variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin end),
+        name="GaiaHipparcos",
         include_iad=false,
         ueva_mode::Symbol=:RUWE,
     )
+    (priors, derived) = variables
 
     # allow passing in table directly
     if Tables.istable(catalog)
@@ -161,13 +187,6 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
     )
 
     catalog = (; catalog..., dist_hip, dist_hg, dist_dr2, dist_dr32, dist_dr3)
-
-    if isnothing(fluxratio_var)
-        fluxratio_var = :__NA
-    end
-
-
-
 
     if isnothing(scanlaw_table)
         # @warn "No scan law table provided. We will fetch an approximate solution from the GOST webservice, but for best results please use the `scanninglaw` python package, installable via pip, to query the RA and Dec of this target and supply it as `scanlaw_table`. Run: `import astropy.coordinates, scanninglaw, pandas; o = astropy.coordinates.SkyCoord(158.30707896392835, 40.42555422701387,unit='deg');t = scanninglaw.times.Times(version='dr3_nominal'); t.query(o,return_angles=True)`"
@@ -346,12 +365,11 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
         splice!(table, 1:4)
     end
     
-    return GaiaHipparcosUEVAJointLikelihood_v2{
+    return GaiaHipparcosUEVAJointLikelihood{
         typeof(table),
         typeof(hip_table),
         typeof(gaia_table),
         typeof(catalog),
-        fluxratio_var,
     }(
         table,
         hip_table,
@@ -360,14 +378,16 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
         A_prepared_5_hip,
         A_prepared_5_dr2,
         A_prepared_5_dr3,
-        fluxratio_var,
+        priors,
+        derived,
+        name,
         include_iad,
         ueva_mode,
     )
 
 end
 
-function likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikelihood_v2, obs_inds)
+function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikelihood, obs_inds)
     (;  table,
         hip_table,
         gaia_table,
@@ -375,17 +395,18 @@ function likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikelihood_v2, ob
         A_prepared_5_hip,
         A_prepared_5_dr2,
         A_prepared_5_dr3,
-        fluxratio_var,
+        priors,
+        derived,
+        name,
         include_iad,
         ueva_mode ) = like
     
     table = table[obs_inds,:]
-    return GaiaHipparcosUEVAJointLikelihood_v2{
+    return GaiaHipparcosUEVAJointLikelihood{
         typeof(table),
         typeof(hip_table),
         typeof(gaia_table),
         typeof(catalog),
-        fluxratio_var,
     }(
         table,
         hip_table,
@@ -394,20 +415,20 @@ function likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikelihood_v2, ob
         A_prepared_5_hip,
         A_prepared_5_dr2,
         A_prepared_5_dr3,
-        fluxratio_var,
+        priors,
+        derived,
+        name,
         include_iad,
         ueva_mode,
     )
-
-    return GaiaHipparcosUEVAJointLikelihood_v2(obs.table[obs_inds,:,1]...)
 end
 
-function ln_like(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function Octofitter.ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
-    sim = simulate(like, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
     if isnothing(sim)
         return convert(T,-Inf)
@@ -549,22 +570,25 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, o
 end
 
 
-function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function Octofitter.simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
     T = _system_number_type(θ_system)
 
     # Generate simulated observations from this sample draw
-    # (;missed_transits) = θ_system
-    (;σ_att, σ_AL, σ_calib, gaia_n_dof) = θ_system
+    # Get Gaia noise parameters from observation variables
+    (;σ_att, σ_AL, σ_calib,) = θ_obs
     σ_formal = sqrt(σ_att^2 + σ_AL^2)
+
+    gaia_n_dof = like.catalog.astrometric_params_solved_dr3 == 31 ? 5 : 6
+
 
     # The gaia_table and A_prepared_5_dr3/A_prepared_5_dr2 include all available
     # visibility windows, not filtered to specifically be DR2 or DR3. 
     # Here we may further reject some more to marginalize over
     # unknown missed/rejected transits.
     # In theory these could be different between DR2 and DR3 but we assume they aren't.
-    if hasproperty(θ_system, :missed_transits)
-        (;missed_transits) =θ_system 
+    if hasproperty(θ_obs, :missed_transits)
+        (;missed_transits) = θ_obs 
         if eltype(missed_transits) <: AbstractFloat
             missed_transits = Int.(missed_transits)
         end
@@ -639,7 +663,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
 
             for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
                 planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-                (;fluxratio) = _getparams(like, θ_planet)
+                fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
                 _simulate_skypath_perturbations!(
                     Δα_mas, Δδ_mas,
                     like.hip_table, orbit,
@@ -673,7 +697,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
         Δδ_mas = @alloc(T, iend_dr2-istart_dr2+1); fill!(Δδ_mas, 0)
         for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-            (;fluxratio) = _getparams(like, θ_planet)
+            fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
                 view(gaia_table, istart_dr2:iend_dr2), orbit,
@@ -704,7 +728,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_system, orbits, 
         Δδ_mas = @alloc(T, iend_dr3-istart_dr3+1); fill!(Δδ_mas, 0)
         for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-            (;fluxratio) = _getparams(like, θ_planet)
+            fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
                 view(gaia_table, istart_dr3:iend_dr3), orbit,
@@ -907,11 +931,14 @@ end
 
 
 # Generate new astrometry observations
-function generate_from_params(like::GaiaHipparcosUEVAJointLikelihood_v2, θ_planet, orbit::PlanetOrbits.AbstractOrbit)
+function Octofitter.generate_from_params(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
-    sim = simulate(like, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3) = sim  
 
-    error("Simulating GaiaHipparcosUEVAJointLikelihood_v2 not implemented yet")
-    return PlanetRelAstromLikelihood(astrometry_table)
+    error("Simulating GaiaHipparcosUEVAJointLikelihood not implemented yet")
+    return like
 end
+
+
+export GaiaHipparcosUEVAJointLikelihood

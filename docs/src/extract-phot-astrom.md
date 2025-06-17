@@ -45,27 +45,45 @@ First, we create a table of our image data that will be attached to the `Planet`
 
 ```@example 1
 imglike = ImageLikelihood(
-    (
-        band=:L,
-        image=AstroImages.recenter(image), platescale=9.971,
-        epoch=mjd("2021")
+    Table(
+        image=[AstroImages.recenter(image)],
+        platescale=[9.971],
+        epoch=[mjd("2021")]
     ),
+    variables=@variables begin
+        # Planet flux in image units -- could be contrast, mags, Jy, or arb. as long as it's consistent with the units of the data you provide
+        flux ~ Uniform(0, 1)
+        # The following are optional parameters for marginalizing over instrument systematics:
+        # Platescale uncertainty multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        platescale = 1.0
+        # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        northangle = 0.0
+    end
 )
 ```
 Note that you can also supply a contrast curve or map directly. If not provided, a simple contrast curve will be calculated directly from the data.
 
 Next create the simplest possible model of 2D position, plus a contrast variable matching the band name used in the `ImageLikelihood` above:
 ```@example 1
-@planet b Visual{Octofitter.FixedPosition} begin
-    sep ~ Uniform(0, 2000)
-    pa ~ Uniform(0,2pi)
-    # Contrast ratio
-    L ~ Uniform(0, 1)
-end imglike
+planet_b = Planet(
+    name="b",
+    basis=Visual{Octofitter.FixedPosition},
+    likelihoods=[imglike],
+    variables=@variables begin
+        sep ~ Uniform(0, 2000)
+        pa ~ Uniform(0,2pi)
+        # Contrast ratio
+    end
+)
 
-@system sys begin
-    plx = 24.4620
-end b
+sys = System(
+    name="sys",
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        plx = 24.4620
+    end
+)
 
 model = Octofitter.LogDensityModel(sys, verbosity=4)
 ```
@@ -75,11 +93,12 @@ model = Octofitter.LogDensityModel(sys, verbosity=4)
 If you already know where the planet is and you only want to extract astrometry from that known location, you can specify a starting point and use hamiltonian monte carlo as follows. This will be very very fast.
 ```@example 1
 initialize!(model, (;
-    planets=(;b=(;
-        sep=1704,
-        pa=deg2rad(70.63),
-        L=1e-4,
-    ))
+    planets=(;
+        b=(;
+            sep=1704,
+            pa=deg2rad(70.63),
+        )
+    )
 ))
 chain = octofit(model, iterations=10000)
 ```
@@ -99,6 +118,10 @@ chain, pt = octofit_pigeons(model, n_rounds=11)
 samples_sep = chain[:b_sep]
 samples_pa = chain[:b_pa]
 println("The median separation is ", median(samples_sep))
+
+flux = chain[:b_images_flux]
+println("The flux is ", mean(flux), " ± ", std(flux))
+println("The \"SNR\" is ", mean(flux)/std(flux))
 ```
 
 ## Visualize

@@ -34,7 +34,9 @@ function astromtimeplot!(
         rand(1:size(results, 1)*size(results, 3),N)
     ),
     axis=(;),
-    colormap=:plasma,
+    colormap=Makie.cgrad([Makie.wong_colors()[1], "#DDDDDD"]),
+    colormap_instruments=Makie.cgrad(:Egypt,categorical=true),
+    colormap_epochs=Makie.cgrad(:Lakota,categorical=true),
     colorbar=true,
     top_time_axis=true,
     bottom_time_axis=true,
@@ -309,12 +311,12 @@ function astromtimeplot!(
     rel_astrom_likes = filter(like_objs) do like_obj
         nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
     end
-    rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :instrument_name)))
+    rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :name)))
     n_rel_astrom = length(rel_astrom_names)
     
     for like_obj in like_objs
         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
-            i_like_obj = findfirst(==(like_obj.instrument_name), rel_astrom_names)
+            i_like_obj = findfirst(==(likelihoodname(like_obj)), rel_astrom_names)
             if hasproperty(like_obj.table, :sep)
                 epoch = like_obj.table.epoch
                 sep = like_obj.table.sep
@@ -388,7 +390,7 @@ function astromtimeplot!(
             if n_rel_astrom == 1
                 color = :white
             else
-                color = Makie.wong_colors()[mod1(i_like_obj,end)]
+                color = colormap_instruments[mod1(i_like_obj,end)]
             end
             Makie.errorbars!(
                 ax_sep, epoch, sep .* axis_mult, σ_sep.*axis_mult;
@@ -446,7 +448,7 @@ function astromtimeplot!(
             i += 1
             for planet_key in keys(model.system.planets)
                 orbs = Octofitter.construct_elements(model, results, planet_key, ii)
-                color = Makie.wong_colors()[mod1(i,end)]
+                color = colormap_epochs[mod1(i,end)]
                 sols = orbitsolve.(orbs, epoch_mjd)
                 Makie.scatter!(
                     ax_sep,

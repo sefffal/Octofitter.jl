@@ -1,21 +1,55 @@
 # const DR4_REFERENCE_EPOCH = 2457936.875 # J2017.5 
+
+"""
+    GaiaDR4Astrom(
+        observations_table,
+        gaia_id=1234567890,
+        variables=@variables begin
+            astrometric_jitter ~ LogUniform(0.00001, 10)  # mas
+        end,
+        name="GaiaDR4"
+    )
+
+A likelihood for fitting Gaia DR4 Individual Astronomical Data (IAD). 
+This includes along-scan astrometric measurements from Gaia.
+
+The `astrometric_jitter` variable should be defined in the variables block
+to account for systematic astrometric uncertainties.
+"""
 struct GaiaDR4Astrom{TTable<:Table,TSol<:NamedTuple} <: Octofitter.AbstractLikelihood
     table::TTable
     gaia_sol::TSol
+    priors::Octofitter.Priors
+    derived::Octofitter.Derived
+    name::String
 end
 export GaiaDR4Astrom
-function GaiaDR4Astrom(observations_table; gaia_id)
+
+function GaiaDR4Astrom(
+    observations_table;
+    gaia_id,
+    variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin end),
+    name="GaiaDR4"
+)
+    (priors, derived) = variables
     table = Table(observations_table)
     gaia_sol = Octofitter._query_gaia_dr3(; gaia_id=gaia_id)
-    return GaiaDR4Astrom{typeof(table),typeof(gaia_sol)}(table,gaia_sol)
+    return GaiaDR4Astrom{typeof(table),typeof(gaia_sol)}(table, gaia_sol, priors, derived, name)
 end
-function likeobj_from_epoch_subset(obs::GaiaDR4Astrom, obs_inds)
-    return GaiaDR4Astrom(obs.table[obs_inds,:,1], obs.gaia_sol)
+function Octofitter.likeobj_from_epoch_subset(obs::GaiaDR4Astrom, obs_inds)
+    return GaiaDR4Astrom(
+        obs.table[obs_inds,:,1]...,
+        gaia_id=obs.gaia_sol.source_id,
+        variables=(obs.priors, obs.derived),
+        name=obs.name
+    )
+
 end
 #  likelihood function
 function Octofitter.ln_like(
     likeobj::GaiaDR4Astrom,
     θ_system,
+    θ_obs,
     orbits,
     orbit_solutions,
     orbit_solutions_i_epoch_start
@@ -29,8 +63,8 @@ function Octofitter.ln_like(
     # This way we can re-use the simulator for plots, generating fake data,
     # etc.
 
-    # Let's just assume the user calls their variable `astrometric_jitter`
-    astrometric_jitter = θ_system.astrometric_jitter
+    # Get astrometric jitter from observation variables
+    astrometric_jitter = hasproperty(θ_obs, :astrometric_jitter) ? θ_obs.astrometric_jitter : zero(T)
     astrometric_var = astrometric_jitter^2
 
     # Use Bumper.jl to avoid memory allocation overhead
@@ -40,6 +74,7 @@ function Octofitter.ln_like(
         centroid_pos_al_model = Octofitter.simulate(
             likeobj,
             θ_system,
+            θ_obs,
             orbits,
             orbit_solutions,
             orbit_solutions_i_epoch_start,
@@ -62,6 +97,7 @@ end
 function Octofitter.simulate(
     likeobj::GaiaDR4Astrom,
     θ_system,
+    θ_obs,
     orbits,
     orbit_solutions,
     orbit_solutions_i_epoch_start,
@@ -77,10 +113,9 @@ function Octofitter.simulate(
         for i in eachindex(orbits)[2:end]
             if orbits[i].ra != orbit.ra ||
                orbits[i].dec != orbit.dec ||
-               orbits[i].pmra != orbit.rpma ||
-               orbits[i].pmdec != orbit.ra
-                pmdec
-                error("Planet orbits do not have matching ra, dec, pmpra, and pmdec.")
+               orbits[i].pmra != orbit.pmra ||
+               orbits[i].pmdec != orbit.pmdec
+                error("Planet orbits do not have matching ra, dec, pmra, and pmdec.")
             end
         end
     end
@@ -137,12 +172,16 @@ end
 
 
 # Generate new astrometry observations
-function generate_from_params(like::GaiaDR4Astrom, θ_system, orbits, solutions, sol_start_i)
-    along_scan_residuals_buffer_sim = simulate(like, θ_system, orbits, solutions, sol_start_i)
+function Octofitter.generate_from_params(like::GaiaDR4Astrom, θ_system, θ_obs, orbits, solutions, sol_start_i)
+    along_scan_residuals_buffer_sim = simulate(like, θ_system, θ_obs, orbits, solutions, sol_start_i)
 
     new_table = deepcopy(like.table)
     new_table.centroid_pos_al .= along_scan_residuals_buffer_sim
 
-    return GaiaDR4Astrom(obs.table[obs_inds,:,1], obs.gaia_sol)
-
+    return GaiaDR4Astrom(
+        new_table,
+        gaia_id=like.gaia_sol.source_id,
+        variables=(like.priors, like.derived),
+        name=like.name
+    )
 end

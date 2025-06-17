@@ -62,7 +62,7 @@ struct ObsPriorAstromONeil2019{Likelihood<:AbstractLikelihood} <: AbstractLikeli
 	end
 end
 export ObsPriorAstromONeil2019
-
+likelihoodname(::ObsPriorAstromONeil2019) = "obspri"
 _isprior(::ObsPriorAstromONeil2019) = true
 
 function likeobj_from_epoch_subset(obs::ObsPriorAstromONeil2019, obs_inds)
@@ -71,7 +71,7 @@ function likeobj_from_epoch_subset(obs::ObsPriorAstromONeil2019, obs_inds)
     )
 end
 
-function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
     orbit = orbits[i_planet]
     # Add period prior
@@ -124,7 +124,7 @@ function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_
     return ln_prior
 end
 
-function ln_like(like::ObsPriorAstromONeil2019{<:GaiaHipparcosUEVAJointLikelihood_v2}, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function ln_like(like::ObsPriorAstromONeil2019{<:GaiaHipparcosUEVAJointLikelihood}, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
     orbit = orbits[i_planet]
     # Add period prior

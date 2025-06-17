@@ -8,16 +8,21 @@ using PDMats
 This file implements a variant of InterferometryLikelihood
 that accounts for Fiber positioning throughput loss.
 =#
-const required_cols_grav_wide2 = (:epoch, :u, :v, :cps_data, :dcps, :index_cps1, :index_cps2, :index_cps3, :spectrum_var,)
+const required_cols_grav_wide2 = (:epoch, :u, :v, :cps_data, :dcps, :index_cps1, :index_cps2, :index_cps3,)
 
 include("GRAVITY-correlation.jl")
 
-struct GRAVITYWideKPLikelihood{TTable<:Table,TInterp,spectrum_vars} <: AbstractInterferometryLikelihood
+struct GRAVITYWideKPLikelihood{TTable<:Table,TInterp} <: AbstractInterferometryLikelihood
     table::TTable
     fiber_coupling_interpolator::TInterp
+    name::String
+    priors::Octofitter.Priors
+    derived::Octofitter.Derived
 end
 function GRAVITYWideKPLikelihood(
     observations...;
+    name="GRAVITY-WIDE",
+    variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(@variables begin;end)
 )
     input_table = Table(observations...)
     if :filename ∈ Tables.columnnames(input_table)
@@ -84,26 +89,21 @@ function GRAVITYWideKPLikelihood(
     ])
     coupling_interp = LinearInterpolation((sep_mas, λs), fiber_coupling, extrapolation_bc=0.0)
 
-    spectrum_vars = tuple(Symbol.(vec(table.spectrum_var))...)
-    return GRAVITYWideKPLikelihood{typeof(table),typeof(coupling_interp),spectrum_vars}(table, coupling_interp)
+    (priors,derived) = variables
+    return GRAVITYWideKPLikelihood{typeof(table),typeof(coupling_interp)}(table, coupling_interp, name, priors, derived)
+end
+function Octofitter.likeobj_from_epoch_subset(obs::GRAVITYWideKPLikelihood, obs_inds)
+    return GRAVITYWideKPLikelihood(
+        obs.table[obs_inds,:,1]...,
+        name=obs.name,
+        variables=(obs.priors, obs.derived)
+    )
 end
 GRAVITYWideKPLikelihood(observations::NamedTuple...) = GRAVITYWideKPLikelihood(observations)
 export GRAVITYWideKPLikelihood
 
 
 
-@generated function _getparams(::GRAVITYWideKPLikelihood{TTable,TInterp,spectrum_vars}, θ_planet) where
-    {TTable,TInterp,spectrum_vars}
-    # build an expression up using the types, and return it
-    exprs = [
-        :(θ_planet.$(spectrum_vars[i_epoch])) for i_epoch in eachindex(spectrum_vars)
-    ]
-    return quote
-        spectrum_vals = ($(exprs...),)
-        nt = (;spectrum_vals)
-        return nt
-    end
-end
 
 
 # theta = range(0, 100, length=250)
@@ -129,24 +129,16 @@ end
 Visibliitiy modelling likelihood for point sources.
 """
 function Octofitter.ln_like(
-    vis::GRAVITYWideKPLikelihood, θ_system, orbits,
-    orbit_solutions,
-    orbit_solutions_i_epoch_start
+    vis::GRAVITYWideKPLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start
 )
 
     # Convoluted way to get either Float64 normally or a Dual{Float64} if using ForwardDiff
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
+    
+    # Get flux array from observation variables (one per planet)
+    flux = θ_obs.flux
 
-
-    # Assume that the fiber is positioned at the photocentre, averaged over wavelengths
-    # mean_constrasts_by_planet = zeros(T,length(orbits))
-    # for i_planet in eachindex(orbits)
-    #     θ_planet = θ_system.planets[i_planet]
-    #     (;spectrum_vals) = _getparams(vis, θ_planet)
-    #     @show spectrum_vals
-    #     mean_constrasts_by_planet[i_planet] = mean(spectrum_vals)
-    # end
 
     # Access the data here: 
     epochs = vis.table.epoch
@@ -164,7 +156,6 @@ function Octofitter.ln_like(
         index_cps1 = vis.table.index_cps1[i_epoch]
         index_cps2 = vis.table.index_cps2[i_epoch]
         index_cps3 = vis.table.index_cps3[i_epoch]
-        # use_vis2 = vis.table.use_vis2[i_epoch]
 
         # Re-use buffers between iterations if they are all the same shape (typical)
         if size(cps_model) == size(vis.table.cps_data[i_epoch][:, 1]) && size(cvis_model) == size(vis.table.u[i_epoch][:, 1])
@@ -175,18 +166,15 @@ function Octofitter.ln_like(
             cvis_model = zeros(complex(T), size(vis.table.u[i_epoch], 1))
         end
 
-        if i_epoch == 1 || size(throughputs) == (length(orbits), length(vis.table.eff_wave[i_epoch]))
+        # Calculate throughput for all planets
+        if i_epoch == 1 || size(throughputs) != (length(orbits), length(vis.table.eff_wave[i_epoch]))
             throughputs = zeros(T, length(orbits), length(vis.table.eff_wave[i_epoch]))
         end
+        
         for i_planet in 1:length(orbits)
-
-            θ_planet = θ_system.planets[i_planet]
-            (;spectrum_vals) = _getparams(vis, θ_planet)
-            mean_constrast = mean(spectrum_vals[i_epoch])::Union{T,Float64}
             for i_wave in 1:length(vis.table.eff_wave[i_epoch])
                 sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
-                # flux_ratio = mean_constrasts_by_planet[i_planet]
-                flux_ratio = mean_constrast
+                flux_ratio = flux[i_planet]
                 wavelength_m = vis.table.eff_wave[i_epoch][i_wave]
                 # Model the fiber as placed at the photocentre of the two bodies
                 secondary_offset_mas = projectedseparation(sol)
@@ -194,7 +182,7 @@ function Octofitter.ln_like(
                 # fiber (assumed to be at photocentre)
                 fiber_offset_mas = (flux_ratio * secondary_offset_mas) / (1.0 + flux_ratio)
                 coupling = vis.fiber_coupling_interpolator(fiber_offset_mas, wavelength_m)
-                throughputs[i_planet,i_wave] = coupling
+                throughputs[i_planet, i_wave] = coupling
             end
         end
 
@@ -219,13 +207,8 @@ function Octofitter.ln_like(
 
             # Consider all planets
             for i_planet in eachindex(orbits)
-                θ_planet = θ_system.planets[i_planet]
-                (;spectrum_vals) = _getparams(vis, θ_planet)
-                # spectrum_vals::Union{Vector{Vector{T}},Vector{Vector{Float64}}}
-                # All parameters relevant to this planet
-                # Get model contrast parameter in this band (band provided as a symbol, e.g. :L along with data in table row.)
-                contrast = spectrum_vals[i_epoch][i_wave]::Union{Float64,T}
-                throughput = throughputs[i_planet,i_wave]
+                contrast = flux[i_planet]
+                throughput = throughputs[i_planet, i_wave]
                 sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
                 Δra = raoff(sol)  # in mas
                 Δdec = decoff(sol) # in mas
@@ -263,17 +246,28 @@ function Octofitter.ln_like(
         ## Diagonalized covariance Kernphases
         if hasproperty(vis.table, :jitter)
             kp_jitter_name =  vis.table.jitter[i_epoch]
-            kp_jitter = convert(T, getproperty(θ_system, kp_jitter_name))
+            kp_jitter = if hasproperty(θ_obs, kp_jitter_name)
+                convert(T, getproperty(θ_obs, kp_jitter_name))
+            elseif hasproperty(vis.derived, kp_jitter_name)
+                convert(T, vis.derived[kp_jitter_name](θ_system))
+            else
+                convert(T, getproperty(θ_system, kp_jitter_name))
+            end
             kp_jitter = max(eps(),kp_jitter)
         else
             kp_jitter = zero(T)
         end
 
         # Generate the semi-analytic correlation matrix from Jens
-        # CT3_y = hasproperty(θ_system, :CT3_y) ? float(θ_system.CT3_y) : zero(T)
         if hasproperty(vis.table, :kp_Cy)
-            kp_Cy =  vis.table.kp_Cy[i_epoch]
-            kp_Cy = convert(T, getproperty(θ_system, kp_Cy))
+            kp_Cy_name =  vis.table.kp_Cy[i_epoch]
+            kp_Cy = if hasproperty(θ_obs, kp_Cy_name)
+                convert(T, getproperty(θ_obs, kp_Cy_name))
+            elseif hasproperty(vis.derived, kp_Cy_name)
+                convert(T, vis.derived[kp_Cy_name](θ_system))
+            else
+                convert(T, getproperty(θ_system, kp_Cy_name))
+            end
             kp_Cy = max(eps(),kp_Cy)
         else
             kp_Cy = zero(T)
@@ -344,11 +338,14 @@ end
 """
 Visibliitiy modelling likelihood for point sources.
 """
-function Octofitter.simulate(vis::GRAVITYWideKPLikelihood, θ_system, orbits, num_epochs::Val{L}=Val(length(vis.table))) where {L}
+function Octofitter.simulate(vis::GRAVITYWideKPLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start, num_epochs::Val{L}=Val(length(vis.table))) where {L}
 
     # Convoluted way to get either Float64 normally or a Dual{Float64} if using ForwardDiff
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
+    
+    # Get flux array from observation variables (one per planet)
+    flux = θ_obs.flux
 
 
     # Assume that the fiber is positioned at the photocentre, averaged over wavelengths
@@ -388,18 +385,14 @@ function Octofitter.simulate(vis::GRAVITYWideKPLikelihood, θ_system, orbits, nu
             cvis_model = zeros(complex(T), size(vis.table.u[i_epoch], 1))
         end
 
-        if i_epoch == 1 || size(throughputs) == (length(orbits), length(vis.table.eff_wave[i_epoch]))
+        if i_epoch == 1 || size(throughputs) != (length(orbits), length(vis.table.eff_wave[i_epoch]))
             throughputs = zeros(T, length(orbits), length(vis.table.eff_wave[i_epoch]))
         end
+        
         for i_planet in 1:length(orbits)
-
-            θ_planet = θ_system.planets[i_planet]
-            (;spectrum_vals) = _getparams(vis, θ_planet)
-            mean_constrast = mean(spectrum_vals[i_epoch])::Union{T,Float64}
             for i_wave in 1:length(vis.table.eff_wave[i_epoch])
                 sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
-                # flux_ratio = mean_constrasts_by_planet[i_planet]
-                flux_ratio = mean_constrast
+                flux_ratio = flux[i_planet]
                 wavelength_m = vis.table.eff_wave[i_epoch][i_wave]
                 # Model the fiber as placed at the photocentre of the two bodies
                 secondary_offset_mas = projectedseparation(sol)
@@ -407,7 +400,7 @@ function Octofitter.simulate(vis::GRAVITYWideKPLikelihood, θ_system, orbits, nu
                 # fiber (assumed to be at photocentre)
                 fiber_offset_mas = (flux_ratio * secondary_offset_mas) / (1.0 + flux_ratio)
                 coupling = vis.fiber_coupling_interpolator(fiber_offset_mas, wavelength_m)
-                throughputs[i_planet,i_wave] = coupling
+                throughputs[i_planet, i_wave] = coupling
             end
         end
 
@@ -433,17 +426,12 @@ function Octofitter.simulate(vis::GRAVITYWideKPLikelihood, θ_system, orbits, nu
 
             # Consider all planets
             for i_planet in eachindex(orbits)
-                θ_planet = θ_system.planets[i_planet]
-                (;spectrum_vals) = _getparams(vis, θ_planet)
-                # spectrum_vals::Union{Vector{Vector{T}},Vector{Vector{Float64}}}
-                # All parameters relevant to this planet
-                # Get model contrast parameter in this band (band provided as a symbol, e.g. :L along with data in table row.)
-                contrast = spectrum_vals[i_epoch][i_wave]::Union{Float64,T}
-                throughput = throughputs[i_planet,i_wave]
+                contrast = flux[i_planet]
+                throughput = throughputs[i_planet, i_wave]
                 Δra = raoff(orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start])  # in mas
                 Δdec = decoff(orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]) # in mas
 
-                # add complex visibilities from all planets at a single epoch, for this wavelength
+                # add complex visibilities from all planets at this epoch, for this wavelength
                 cvis_bin!(cvis_model; Δdec, Δra, contrast=contrast * throughput, u, v)
                 norm_factor_model += contrast
             end
