@@ -198,8 +198,8 @@ ax = fig.content[1] # grap first axis in the figure
 # We have to do some annoying work to get the image orientated correctly,
 # since we want the RA axis increasing to the left.
 image_idx = 2
-platescale = image_dat.table.platescale[image_idx]
-img = AstroImages.recenter(AstroImage(collect(image_dat.table.image[image_idx])[end:-1:begin,:]))
+platescale = image_dat.platescale[image_idx]
+img = AstroImages.recenter(AstroImage(collect(image_dat.image[image_idx])[end:-1:begin,:]))
 imgax1 = dims(img,1) .* platescale
 imgax2 = dims(img,2) .* platescale
 h = heatmap!(ax, imgax1, imgax2, collect(img), colormap=:greys)
@@ -219,8 +219,8 @@ ax = fig.content[1] # grap first axis in the figure
 
 # We have to do some annoying work to get the image orientated correctly
 # since we want the RA axis increasing to the left.
-platescale = image_dat.table.platescale[image_idx]
-imgs = maximum(stack(image_dat.table.image),dims=3)[:,:]
+platescale = image_dat.platescale[image_idx]
+imgs = maximum(stack(image_dat.image),dims=3)[:,:]
 img = AstroImages.recenter(AstroImage(imgs[end:-1:begin,:]))
 imgax1 = dims(img,1) .* platescale
 imgax2 = dims(img,2) .* platescale
