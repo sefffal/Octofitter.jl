@@ -2,12 +2,10 @@ name: Documentation
 
 on:
   push:
-    branches:
-      - main
+    branches-ignore:
+      - 'dependabot/**'  # Optional: ignore dependabot branches
     tags: '*'
   pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
