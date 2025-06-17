@@ -39,7 +39,7 @@ gaiaIADlike = GaiaDR4Astrom(
     df, 
     gaia_id=4318465066420528000,
     variables=@variables begin
-        astrometric_jitter ~ LogUniform(0.00001, 10)  # mas
+        astrometric_jitter = 0.0 # [mas]. Could use e.g. `~ LogUniform(0.00001, 10)
     end
 )
 ```
@@ -126,7 +126,6 @@ sys = System(
         ref_epoch = $DR4_REFERENCE_EPOCH
     end
 )
-
 model = Octofitter.LogDensityModel(sys, verbosity=4)
 ```
 
@@ -140,7 +139,7 @@ octoplot(model, init_chain, show_rv=true)
 Now, we can perform the fit. It is a little slow since we have many hundreds of RV and astrometry data points.
 ```@example 1
 using Pigeons
-chain, pt = octofit_pigeons(model, n_rounds=7, n_chains=30, ) # might need more rounds to converge
+chain, pt = octofit_pigeons(model, n_rounds=10) # might need more rounds to converge
 ```
 
 Finally, we can visualize the results:

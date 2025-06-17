@@ -159,6 +159,7 @@ function Octofitter.octoplot!(
     hgca_detected = false
     for like_obj in model.system.observations
         hgca_detected |= like_obj isa HGCALikelihood
+        hgca_detected |= like_obj isa HGCAInstantaneousLikelihood
     end
 
 

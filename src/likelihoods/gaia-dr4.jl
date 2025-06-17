@@ -43,6 +43,7 @@ function Octofitter.likeobj_from_epoch_subset(obs::GaiaDR4Astrom, obs_inds)
         variables=(obs.priors, obs.derived),
         name=obs.name
     )
+
 end
 #  likelihood function
 function Octofitter.ln_like(
