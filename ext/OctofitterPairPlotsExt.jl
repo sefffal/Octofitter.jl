@@ -5,6 +5,8 @@ using Tables
 using NamedTupleTools
 using MCMCChains
 
+unitlengthprior_vars(::Octofitter.UnitLengthPrior{VX,VY}) where {VX, VY} = (VX, VY)
+
 Octofitter.octocorner(
     model::Octofitter.LogDensityModel,
     chains::MCMCChains.Chains...; 
