@@ -145,8 +145,8 @@ function GaiaHipparcosUEVAJointLikelihood_v2(;
     dist_dr32 = MvNormal(
         @SVector([catalog.pmra_dr32, catalog.pmdec_dr32]),
         @SArray [
-            catalog.pmra_dr3_error[1]^2 c
-            c catalog.pmdec_dr3_error[1]^2
+            catalog.pmra_dr32_error[1]^2 c
+            c catalog.pmdec_dr32_error[1]^2
         ]
     )
 
