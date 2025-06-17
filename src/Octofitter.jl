@@ -246,6 +246,26 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
         post_fetch_method=unpack
     ))
 
+    register(DataDep("DE440_Ephemeris",
+        """
+        Dataset: JPL Development Ephemeris DE440
+        Author: NASA Jet Propulsion Laboratory
+        License: Public Domain
+        Website: https://naif.jpl.nasa.gov/
+
+        High-precision planetary ephemeris from NASA JPL covering years 1550-2650 CE.
+        Used for calculating Earth's barycentric position relative to the Solar System Barycenter.
+        Replaces online NASA Horizons queries with offline SPICE calculations.
+
+        File size: 128MiB
+        """,
+        [
+            "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440.bsp",
+            "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/naif0012.tls"
+        ],
+        "c340a944068f6ffdb3b2ce755cf736895917b0251a175c4578a36abb9ffdc72e"
+    ))
+
     return
 end
 

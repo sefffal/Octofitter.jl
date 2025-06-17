@@ -1,6 +1,5 @@
 using Dates
 using LinearAlgebra
-using HORIZONS: HORIZONS
 using Combinatorics
 
 # Table 1.2.3 from the 1997 book, vol 1.
@@ -242,7 +241,7 @@ function HipparcosIADLikelihood(;
     iad_table.epoch = hipparcos_catalog_epoch_mjd .+ iad_table.epoch_yrs * julian_year
 
 
-    # Query earth position vs time from HORIZONS (cached for later offline use)
+    # Query earth position vs time using SPICE ephemeris (offline)
     earth_pos_vel = geocentre_position_query.(iad_table.epoch)
     table = FlexTable(eachcol(iad_table)..., eachcol(earth_pos_vel)...)
 
