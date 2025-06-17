@@ -63,7 +63,6 @@ include("likelihoods/gaia-linefit.jl")
 include("likelihoods/gaia-cor.jl")
 include("likelihoods/gaia-ueva.jl")
 include("likelihoods/gaia.jl") # remove this
-include("likelihoods/gaia-dr4.jl") # remove this
 include("likelihoods/hipparcos.jl")
 include("likelihoods/hgca-linfit.jl")
 include("likelihoods/abs-astrom.jl")
