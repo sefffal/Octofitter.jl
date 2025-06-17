@@ -9,10 +9,41 @@ export sample_priors
 sample_priors(arg::Union{Planet,System,<:LogDensityModel}, args...; kwargs...) = sample_priors(Random.default_rng(), arg, args...; kwargs...)
 # Sample priors from system once
 function sample_priors(rng::Random.AbstractRNG, system::System)
-    priors_flat_sampled = map(((k,v),)->rand(rng, v), Iterators.flatten([
-        system.priors.priors,
-        [planet.priors.priors for planet in system.planets]...
-    ]))
+    # Collect all priors in the same order as _list_priors and make_arr2nt
+    all_priors = []
+    
+    # System priors
+    for prior_distribution in values(system.priors.priors)
+        push!(all_priors, prior_distribution)
+    end
+    
+    # System observation priors
+    for obs in system.observations
+        if hasproperty(obs, :priors)
+            for prior_distribution in values(obs.priors.priors)
+                push!(all_priors, prior_distribution)
+            end
+        end
+    end
+    
+    # Planet priors
+    for planet in system.planets
+        for prior_distribution in values(planet.priors.priors)
+            push!(all_priors, prior_distribution)
+        end
+        
+        # Planet observation priors
+        for obs in planet.observations
+            if hasproperty(obs, :priors)
+                for prior_distribution in values(obs.priors.priors)
+                    push!(all_priors, prior_distribution)
+                end
+            end
+        end
+    end
+    
+    # Sample from all priors
+    priors_flat_sampled = map(prior -> rand(rng, prior), all_priors)
     return priors_flat_sampled
 end
 # Sample priors from system many times
