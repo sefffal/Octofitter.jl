@@ -1,4 +1,7 @@
 using LinearSolve
+using SPICE
+using DataDeps
+using Dates
 
 struct GaiaCatalogFitLikelihood{TTable,TCat,TDist,TFact} <: AbstractLikelihood
     # predicted observations from GOST or other scanlaw
@@ -954,49 +957,83 @@ function _query_gaia_dr1(;gaia_id)
     return namedtuple(headers, data)
 end
 
+# Global variable to track if SPICE kernels are loaded
+const _SPICE_KERNELS_LOADED = Ref(false)
+
+"""
+    _ensure_spice_kernels_loaded()
+
+Ensure that SPICE kernels are loaded for Earth barycentric position calculations.
+Downloads DE440 ephemeris and leap seconds kernel if not already present.
+"""
+function _ensure_spice_kernels_loaded()
+    if _SPICE_KERNELS_LOADED[]
+        return
+    end
+    
+    # Get data directory from DataDeps
+    data_dir = @datadep_str "DE440_Ephemeris"
+    
+    # Load leap seconds kernel
+    lsk_path = joinpath(data_dir, "naif0012.tls")
+    if isfile(lsk_path)
+        furnsh(lsk_path)
+    else
+        error("Leap seconds kernel not found at $lsk_path")
+    end
+    
+    # Load planetary ephemeris kernel
+    spk_path = joinpath(data_dir, "de440.bsp")
+    if isfile(spk_path)
+        furnsh(spk_path)
+    else
+        error("DE440 ephemeris kernel not found at $spk_path")
+    end
+    
+    _SPICE_KERNELS_LOADED[] = true
+    @info "SPICE kernels loaded successfully for Earth barycentric position calculations"
+end
+
 """
     geocentre_position_query(epoch_MJD)
 
 Given a date+time in MJD format, return a named tuple of Earth position and velocity in AU 
-on that date. The results are cached in a local `_geocentre_pos` directory for offline use.
+on that date. Uses SPICE.jl with JPL DE440 ephemeris data for offline calculations.
 
-Currently these are queried from the NASA HORIZONS online system, but this detail is subject
-to change in future minor versions of the package.
-
-The positions and velocities represent the Geocenter of the Earth relative to the solar sysytem
-barycenter.
+The positions and velocities represent the Geocenter of the Earth relative to the solar system
+barycenter in the J2000 reference frame.
 """
 function geocentre_position_query(epoch_MJD::Number)
+    
+    # Ensure SPICE kernels are loaded
+    _ensure_spice_kernels_loaded()
+    
+    # Convert MJD to Julian Date
+    jd = epoch_MJD + 2400000.5  # MJD to JD conversion
+    
+    # Convert JD to DateTime
+    # JD 2451545.0 = January 1, 2000, 12:00:00 TT (J2000.0 epoch)
+    # Use Dates.julian2datetime for conversion
+    dt = Dates.julian2datetime(jd)
+    
+    # Convert to ephemeris time string for SPICE
+    et = utc2et(string(dt))
+    
+    # Get Earth's state relative to Solar System Barycenter
+    # 399 = Earth geocenter, 0 = Solar System Barycenter
+    state, _ = spkez(399, et, "J2000", "NONE", 0)
 
-    if !isempty(get(ENV, "OCTO_SKIP_HORIZONS", ""))
-        return (; x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=0.0)
-    end
+    # Extract position and velocity, convert to AU and AU/day
+    pos_km = state[1:3]    # Position in km
+    vel_km_s = state[4:6]  # Velocity in km/s
     
-    fname = "_geocentre_pos/HORIZONS-Geocenter-$(epoch_MJD)mjd.txt"
-    if !isfile(fname)
-        if !isdir("_geocentre_pos")
-            mkdir("_geocentre_pos")
-        end
-        # Query the HORIZONS system for the Earth-Moon barycentre position at each specific epoch
-        # of the dataset. 
-        # This incurs a separate query for each epoch.
-        t = DateTime(mjd2date(epoch_MJD))
-        @info "Querying Earth Geocentre position from HORIZONS" epoch_MJD date=t
-        HORIZONS.vec_tbl("Geocenter", t, t + Hour(1), Day(1); FILENAME=fname, CENTER="@ssb", REF_PLANE="FRAME", OUT_UNITS="AU-D", CSV_FORMAT=true, VEC_TABLE=2)
-    end
-        
-    lines = readlines(fname)
-    i = 0
-    for line in lines
-        i += 1
-        if startswith(line, raw"$$SOE")
-            break
-        end
-    end
-    record = split(rstrip(lines[i+1], ','), ", ")
-    x, y, z, vx, vy, vz = parse.(Float64, record[3:8])
+    # Convert to AU (1 AU = 149,597,870.7 km)
+    AU_KM = Octofitter.PlanetOrbits.au2m / 1e3
+    pos_au = pos_km ./ AU_KM
+    vel_au_day = vel_km_s .* 86400 ./ AU_KM  # km/s to AU/day
     
-    return (; x, y, z, vx, vy, vz)
+    return (; x=pos_au[1], y=pos_au[2], z=pos_au[3], 
+              vx=vel_au_day[1], vy=vel_au_day[2], vz=vel_au_day[3])
 end
 
 
