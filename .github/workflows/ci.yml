@@ -1,12 +1,10 @@
 name: CI
 on:
-  pull_request:
-    branches:
-      - main
   push:
-    branches:
-      - main
+    branches-ignore:
+      - 'dependabot/**'  # Optional: ignore dependabot branches
     tags: '*'
+  pull_request:
   workflow_dispatch:
 jobs:
   test:
