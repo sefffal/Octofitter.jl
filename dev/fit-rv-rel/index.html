@@ -4,125 +4,135 @@ using OctofitterRadialVelocity
 using CairoMakie
 using Distributions
 
-rel_rv_like = PlanetRelativeRVLikelihood(
-    (epoch=5000, rv=-24022.74287804528, σ_rv=15000.0),
-    (epoch=5100, rv=-18571.333891168735, σ_rv=15000.0),
-    (epoch=5200, rv= 14221.562142944855, σ_rv=15000.0),
-    (epoch=5300, rv= 26076.885281031347, σ_rv=15000.0),
-    (epoch=5400, rv=  -459.2622916989299, σ_rv=15000.0),
-    (epoch=5500, rv=-26319.264894263993, σ_rv=15000.0),
-    (epoch=5600, rv=-13430.95547916007, σ_rv=15000.0),
-    (epoch=5700, rv= 19230.962951723584, σ_rv=15000.0),
-    (epoch=5800, rv= 23580.261108170227, σ_rv=15000.0),
-    (epoch=5900, rv= -6786.277919597756, σ_rv=15000.0),
-    (epoch=6000, rv=-27161.777481651112, σ_rv=15000.0),
-    (epoch=6100, rv= -7548.583094927461, σ_rv=15000.0),
-    (epoch=6200, rv= 23177.948014103342, σ_rv=15000.0),
-    (epoch=6300, rv= 19780.94394128632, σ_rv=15000.0),
-    (epoch=6400, rv=-12738.38520102873, σ_rv=15000.0),
-    (epoch=6500, rv=-26503.73597982596, σ_rv=15000.0),
-    (epoch=6600, rv= -1249.188767321913, σ_rv=15000.0),
-    (epoch=6700, rv= 25844.465894406647, σ_rv=15000.0),
-    (epoch=6800, rv= 14888.827293969505, σ_rv=15000.0),
-    (epoch=6900, rv=-17986.75959839915, σ_rv=15000.0),
-    (epoch=7000, rv=-24381.49393255423, σ_rv=15000.0),
-    (epoch=7100, rv=  5119.21707156116, σ_rv=15000.0),
-    (epoch=7200, rv= 27083.2046462065, σ_rv=15000.0),
-    (epoch=7300, rv=  9174.176455190982, σ_rv=15000.0),
-    (epoch=7400, rv=-22241.45434114139, σ_rv=15000.0),
+rv_dat_1 = Table(
+    epoch=55000:100:57400,
+    rv = [
+         -24022.74
+        -18571.33
+        14221.56
+        26076.89
+        -459.26
+        -26319.26
+        -13430.96
+        19230.96
+        23580.26
+        -6786.28
+        -27161.78
+        -7548.58
+        23177.95
+        19780.94
+        -12738.39
+        -26503.74
+        -1249.19
+        25844.47
+        14888.83
+        -17986.76
+        -24381.49
+        5119.22
+        27083.2
+        9174.18
+        -22241.45
+    ],
+    # Hint! Type as \sigma + &lt;TAB&gt;
+    σ_rv= fill(15000.0, 25),
+)
 
-    instrument_name=&quot;simulated data&quot;,
-    jitter=:gamma # name of jitter variable to use
+
+rel_rv_like = PlanetRelativeRVLikelihood(
+    rv_dat_1,
+    name=&quot;simulated data&quot;,
+    variables = @variables begin
+        jitter ~ LogUniform(0.1, 1000) # m/s
+    end
 )</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PlanetRelativeRVLikelihood Table with 3 columns and 25 rows:
       epoch  rv        σ_rv
     ┌─────────────────────────
- 1  │ 5000   -24022.7  15000.0
- 2  │ 5100   -18571.3  15000.0
- 3  │ 5200   14221.6   15000.0
- 4  │ 5300   26076.9   15000.0
- 5  │ 5400   -459.262  15000.0
- 6  │ 5500   -26319.3  15000.0
- 7  │ 5600   -13431.0  15000.0
- 8  │ 5700   19231.0   15000.0
- 9  │ 5800   23580.3   15000.0
- 10 │ 5900   -6786.28  15000.0
- 11 │ 6000   -27161.8  15000.0
- 12 │ 6100   -7548.58  15000.0
- 13 │ 6200   23177.9   15000.0
- 14 │ 6300   19780.9   15000.0
- 15 │ 6400   -12738.4  15000.0
- 16 │ 6500   -26503.7  15000.0
- 17 │ 6600   -1249.19  15000.0
- ⋮  │   ⋮       ⋮         ⋮</code></pre><p>See the standard radial velocity tutorial for examples on how this data can be loaded from a CSV file.</p><p>The relative RV likelihood does not incorporate an instrument-specific RV offset. A jitter parameter called can still be specified in the <code>@planet</code> block, as can parameters for a gaussian process model of stellar noise. Currently only a single instrument jitter parameter is supported. If you need to model relative radial velocities from multiple instruments with different jitters, please open an issue on GitHub.</p><p>Next, create a planet and system model, attaching the relative rv likelihood to the planet. Make sure to add a <code>jitter</code> parameter (optionally jitter=0) to the planet.</p><pre><code class="language-julia hljs">@planet b KepOrbit begin
-    a ~ Uniform(0,10)
-    e ~ Uniform(0.0, 0.5)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 6000 # reference epoch for τ. Choose an MJD date near your data.
+ 1  │ 55000  -24022.7  15000.0
+ 2  │ 55100  -18571.3  15000.0
+ 3  │ 55200  14221.6   15000.0
+ 4  │ 55300  26076.9   15000.0
+ 5  │ 55400  -459.26   15000.0
+ 6  │ 55500  -26319.3  15000.0
+ 7  │ 55600  -13431.0  15000.0
+ 8  │ 55700  19231.0   15000.0
+ 9  │ 55800  23580.3   15000.0
+ 10 │ 55900  -6786.28  15000.0
+ 11 │ 56000  -27161.8  15000.0
+ 12 │ 56100  -7548.58  15000.0
+ 13 │ 56200  23178.0   15000.0
+ 14 │ 56300  19780.9   15000.0
+ 15 │ 56400  -12738.4  15000.0
+ 16 │ 56500  -26503.7  15000.0
+ 17 │ 56600  -1249.19  15000.0
+ ⋮  │   ⋮       ⋮         ⋮</code></pre><p>See the standard radial velocity tutorial for examples on how this data can be loaded from a CSV file.</p><p>The relative RV likelihood does not incorporate an instrument-specific RV offset. A jitter parameter can still be specified in the likelihood&#39;s <code>@variables</code> block, as can parameters for a gaussian process model of stellar noise. Currently only a single instrument jitter parameter is supported. If you need to model relative radial velocities from multiple instruments with different jitters, please open an issue on GitHub.</p><p>Next, create a planet and system model, attaching the relative rv likelihood to the planet.</p><pre><code class="language-julia hljs">planet_1 = Planet(
+    name=&quot;b&quot;,
+    basis=RadialVelocityOrbit,
+    likelihoods=[rel_rv_like],
+    variables=@variables begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1) # total mass in solar masses
+        a ~ Uniform(0,10)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        ω ~ Uniform(0, 2pi)
+        Ω ~ Uniform(0, 2pi)
+        τ ~ Uniform(0, 1.0)
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 60000 # reference epoch for τ. Choose an MJD date near your data.
 
-    gamma ~ LogUniform(0.1, 1000) # m/s
-end rel_rv_like
+    end
+)
+sys = System(
+    name = &quot;Example-System&quot;,
+    companions=[planet_1],
+    likelihoods=[],
+    variables=@variables begin
+    end
+)
 
-@system ExampleSystem begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-end b
+model = Octofitter.LogDensityModel(sys)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System Example-System of dimension 8 and 25 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><h3 id="Initialize-the-model-and-verify-starting-point"><a class="docs-heading-anchor" href="#Initialize-the-model-and-verify-starting-point">Initialize the model and verify starting point</a><a id="Initialize-the-model-and-verify-starting-point-1"></a><a class="docs-heading-anchor-permalink" href="#Initialize-the-model-and-verify-starting-point" title="Permalink"></a></h3><pre><code class="language-julia hljs">init_chain = initialize!(model)
 
-model = Octofitter.LogDensityModel(ExampleSystem)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System ExampleSystem of dimension 11 and 28 epochs with fields .ℓπcallback and .∇ℓπcallback
-</code></pre><pre><code class="language-julia hljs">using Random
+octoplot(model, init_chain)</code></pre><img src="f3ba4f88.png" alt="Example block output"/><pre><code class="language-julia hljs">using Random
 rng = Random.Xoshiro(123)
-chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×29×1 Array{Float64, 3}):
+chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×23×1 Array{Float64, 3}):
 
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 2.76 seconds
-Compute duration  = 2.76 seconds
-parameters        = M, b_a, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_τy, b_τx, b_gamma, b_ω, b_Ω, b_τ, b_P, b_tp
+Wall duration     = 1.33 seconds
+Compute duration  = 1.33 seconds
+parameters        = b_M, b_a, b_e, b_i, b_ω, b_Ω, b_τ, b_P, b_tp, b_simulated_data_jitter
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Summary Statistics
- <span class="sgr1"> parameters        mean        std      mcse   ess_bulk   ess_tail      rhat  ⋯
- <span class="sgr90">     Symbol     Float64    Float64   Float64    Float64    Float64   Float64  ⋯
+ <span class="sgr1">              parameters         mean        std      mcse    ess_bulk   ess_ ⋯
+ <span class="sgr90">                  Symbol      Float64    Float64   Float64     Float64    Flo ⋯
 
-           M      1.2007     0.0979    0.0032   954.5945   768.6321    0.9998  ⋯
-         b_a      1.2782     0.0379    0.0012   987.3897   652.0875    0.9992  ⋯
-         b_e      0.1353     0.1008    0.0029   945.2043   280.9825    1.0020  ⋯
-         b_i      1.5684     0.4577    0.0155   988.7199   867.7391    1.0002  ⋯
-        b_ωy      0.0377     0.7223    0.0400   360.4699   765.2233    1.0000  ⋯
-        b_ωx      0.0005     0.7039    0.0363   415.5202   724.7436    0.9992  ⋯
-        b_Ωy     -0.0494     0.7157    0.0392   357.0653   749.6718    1.0088  ⋯
-        b_Ωx     -0.0313     0.7113    0.0396   354.9997   738.2311    1.0020  ⋯
-        b_τy     -0.0299     0.7199    0.0404   345.3452   807.1401    1.0000  ⋯
-        b_τx      0.0097     0.7011    0.0368   383.5041   760.7764    1.0002  ⋯
-     b_gamma    126.7252   223.0967    9.4672   670.8349   540.9203    0.9991  ⋯
-         b_ω      0.0114     1.7739    0.0852   482.8644   867.4562    0.9993  ⋯
-         b_Ω     -0.0692     1.8650    0.0936   464.2544   720.1504    1.0076  ⋯
-         b_τ     -0.0058     0.2962    0.0135   564.0753   707.4387    1.0011  ⋯
-         b_P      1.3204     0.0242    0.0009   749.6561   582.5428    1.0019  ⋯
-        b_tp   5997.2667   143.0543    6.4889   567.2519   623.2923    1.0010  ⋯
-</span><span class="sgr36">                                                                1 column omitted
+                      b_M       1.1909     0.0943    0.0037    658.8695   464. ⋯
+                      b_a       1.2733     0.0373    0.0017    511.5274   528. ⋯
+                      b_e       0.1230     0.0958    0.0035    675.3891   363. ⋯
+                      b_i       1.5572     0.6764    0.0231    860.9770   676. ⋯
+                      b_ω       2.6080     1.5833    0.0687    491.3326   351. ⋯
+                      b_Ω       3.1460     1.8494    0.0502   1381.8426   569. ⋯
+                      b_τ       0.6059     0.2474    0.0101    557.9129   540. ⋯
+                      b_P       1.3180     0.0218    0.0009    588.9291   432. ⋯
+                     b_tp   60292.1324   119.8290    4.8772    564.9357   495. ⋯
+  b_simulated_data_jitter      99.6248   191.4899    6.3200    987.2941   760. ⋯
+</span><span class="sgr36">                                                               3 columns omitted
 
 Quantiles
-  parameters        2.5%       25.0%       50.0%       75.0%       97.5%
- </span><span class="sgr90">     Symbol     Float64     Float64     Float64     Float64     Float64
+               parameters         2.5%        25.0%        50.0%        75.0%  ⋯
+ </span><span class="sgr90">                  Symbol      Float64      Float64      Float64      Float64  ⋯
 
-           M      0.9980      1.1400      1.2008      1.2680      1.3854
-         b_a      1.2006      1.2536      1.2794      1.3047      1.3492
-         b_e      0.0041      0.0555      0.1124      0.1949      0.3829
-         b_i      0.7657      1.1709      1.5942      1.9570      2.3137
-        b_ωy     -1.0819     -0.6916      0.0908      0.7402      1.0721
-        b_ωx     -1.0537     -0.6985      0.0334      0.6579      1.0464
-        b_Ωy     -1.0361     -0.7541     -0.0807      0.6724      1.0628
-        b_Ωx     -1.0763     -0.7358     -0.0361      0.6471      1.0690
-        b_τy     -1.0586     -0.7414     -0.0761      0.6916      1.0542
-        b_τx     -1.0606     -0.6470     -0.0168      0.7122      1.0533
-     b_gamma      0.1223      1.2254     14.1802    144.0705    833.9762
-         b_ω     -2.9914     -1.5087      0.0612      1.4632      2.9776
-         b_Ω     -2.9683     -1.7508     -0.0741      1.5996      2.9753
-         b_τ     -0.4827     -0.2692     -0.0041      0.2528      0.4748
-         b_P      1.2750      1.3024      1.3204      1.3372      1.3692
-        b_tp   5767.9028   5870.0958   5998.0379   6122.6241   6229.7113
-</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain, ts=range(4500, 8000, length=200), show_physical_orbit=true)</code></pre><img src="869d4576.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-multi-planet/">« Multiple Planets</a><a class="docs-footer-nextpage" href="../pma/">Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.12.0 on <span class="colophon-date" title="Tuesday 17 June 2025 23:24">Tuesday 17 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+                      b_M       1.0058       1.1305       1.1907       1.2552  ⋯
+                      b_a       1.1988       1.2488       1.2732       1.2993  ⋯
+                      b_e       0.0030       0.0483       0.1041       0.1733  ⋯
+                      b_i       0.3899       1.0382       1.5516       2.0632  ⋯
+                      b_ω       0.0938       1.2198       2.5363       3.8649  ⋯
+                      b_Ω       0.1754       1.5060       3.1311       4.7767  ⋯
+                      b_τ       0.1355       0.4089       0.6139       0.8229  ⋯
+                      b_P       1.2782       1.3032       1.3176       1.3327  ⋯
+                     b_tp   60064.1822   60196.1475   60296.1756   60396.7878  ⋯
+  b_simulated_data_jitter       0.1437       1.0496       9.7640      89.5023  ⋯
+</span><span class="sgr36">                                                                1 column omitted
+</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain, show_physical_orbit=true, mark_epochs_mjd=[mjd(&quot;2015-07-15&quot;)])</code></pre><img src="dfe01305.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-multi-planet/">« Multiple Planets</a><a class="docs-footer-nextpage" href="../pma/">Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.12.0 on <span class="colophon-date" title="Wednesday 18 June 2025 03:38">Wednesday 18 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

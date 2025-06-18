@@ -3,28 +3,41 @@
 
 # create a smoothed KDE estimate of the samples from a 10+-1 gaussian
 kde = Octofitter.KDEDist(randn(1000).+10)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">KDEDist kernel density estimate distribution
-</code></pre><p>Note that in Octofitter the KDE will have its support truncated to the minimum and maximum values that occur in your dataset, ie. it doesn&#39;t allow for infinite long tails.</p><p>Now add it to your model as a prior:</p><pre><code class="language-julia hljs">@planet b Visual{KepOrbit} begin
-    a ~ kde # Sample from the KDE here
-    e ~ Uniform(0.0, 0.99)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,50000)
-end
-@system Tutoria begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-end b
-model = Octofitter.LogDensityModel(Tutoria)
-chain = octofit(model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×28×1 Array{Float64, 3}):
+</code></pre><p>Note that in Octofitter the KDE will have its support truncated to the minimum and maximum values that occur in your dataset, ie. it doesn&#39;t allow for infinite long tails.</p><p>Now add it to your model as a prior:</p><pre><code class="language-julia hljs">planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    likelihoods=[],
+    variables=@variables begin
+        a ~ kde # Sample from the KDE here
+        e ~ Uniform(0.0, 0.99)
+        i ~ Sine()
+        M = system.M
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(θ, 50000; M, e, a, i, ω, Ω)
+    end
+)
+
+sys = System(
+    name=&quot;Tutoria&quot;,
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
+chain = octofit(model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×29×1 Array{Float64, 3}):
 
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 0.72 seconds
-Compute duration  = 0.72 seconds
-parameters        = M, plx, b_a, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_θy, b_θx, b_ω, b_Ω, b_θ, b_tp
+Wall duration     = 0.75 seconds
+Compute duration  = 0.75 seconds
+parameters        = M, plx, b_a, b_e, b_i, b_ωx, b_ωy, b_Ωx, b_Ωy, b_θx, b_θy, b_ω, b_Ω, b_θ, b_M, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Summary Statistics
@@ -36,16 +49,17 @@ Summary Statistics
          b_a      10.0311      1.0784     0.0329   1089.6567   349.7724    1.0 ⋯
          b_e       0.5068      0.2871     0.0099    729.6395   359.5738    1.0 ⋯
          b_i       1.5383      0.6715     0.0214    941.3463   702.8012    1.0 ⋯
-        b_ωy      -0.0112      0.7108     0.0352    439.4023   720.8847    1.0 ⋯
-        b_ωx      -0.0196      0.7214     0.0440    288.2921   757.8167    0.9 ⋯
-        b_Ωy      -0.0495      0.7181     0.0427    296.5901   633.5273    1.0 ⋯
-        b_Ωx      -0.0788      0.7021     0.0361    403.4391   850.2053    1.0 ⋯
-        b_θy      -0.0017      0.7004     0.0383    355.1467   687.9573    1.0 ⋯
-        b_θx       0.0333      0.7329     0.0395    382.7063   738.6797    0.9 ⋯
+        b_ωx      -0.0112      0.7108     0.0352    439.4023   720.8847    1.0 ⋯
+        b_ωy      -0.0196      0.7214     0.0440    288.2921   757.8167    0.9 ⋯
+        b_Ωx      -0.0495      0.7181     0.0427    296.5901   633.5273    1.0 ⋯
+        b_Ωy      -0.0788      0.7021     0.0361    403.4391   850.2053    1.0 ⋯
+        b_θx      -0.0017      0.7004     0.0383    355.1467   687.9573    1.0 ⋯
+        b_θy       0.0333      0.7329     0.0395    382.7063   738.6797    0.9 ⋯
          b_ω       0.0061      1.8210     0.0951    424.4454   679.5607    1.0 ⋯
          b_Ω      -0.2495      1.8647     0.0826    610.2832   686.4671    1.0 ⋯
          b_θ       0.0793      1.7907     0.0848    543.8003   752.2815    1.0 ⋯
-        b_tp   44997.8373   4217.1820   149.8135    859.8357   799.3961    0.9 ⋯
+         b_M       1.2032      0.1034     0.0036    839.9493   550.5438    0.9 ⋯
+        b_tp   44577.8373   4217.1820   149.8135    859.8357   799.3961    0.9 ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
@@ -57,40 +71,57 @@ Quantiles
          b_a       8.0080       9.2891      10.0166      10.7825      12.0118
          b_e       0.0169       0.2627       0.5163       0.7584       0.9663
          b_i       0.3201       1.0239       1.5349       2.0352       2.7911
-        b_ωy      -1.0807      -0.7118      -0.0036       0.6734       1.0674
-        b_ωx      -1.0602      -0.7308      -0.0144       0.6914       1.0788
-        b_Ωy      -1.0628      -0.7467      -0.1158       0.6630       1.0459
-        b_Ωx      -1.0633      -0.7421      -0.1546       0.5978       1.0510
-        b_θy      -1.0598      -0.6634      -0.0026       0.6677       1.0887
-        b_θx      -1.0585      -0.7012       0.0726       0.7668       1.0611
+        b_ωx      -1.0807      -0.7118      -0.0036       0.6734       1.0674
+        b_ωy      -1.0602      -0.7308      -0.0144       0.6914       1.0788
+        b_Ωx      -1.0628      -0.7467      -0.1158       0.6630       1.0459
+        b_Ωy      -1.0633      -0.7421      -0.1546       0.5978       1.0510
+        b_θx      -1.0598      -0.6634      -0.0026       0.6677       1.0887
+        b_θy      -1.0585      -0.7012       0.0726       0.7668       1.0611
          b_ω      -2.9499      -1.5592      -0.0404       1.6231       3.0122
          b_Ω      -3.0457      -1.8875      -0.4049       1.3877       2.9854
          b_θ      -2.9633      -1.4932       0.1215       1.6175       2.9381
-        b_tp   38040.4104   41139.2805   44967.2410   49379.9744   50405.6974
+         b_M       1.0036       1.1360       1.2004       1.2715       1.4099
+        b_tp   37620.4104   40719.2805   44547.2410   48959.9744   49985.6974
 </span></span></code></pre><p>We now examine the posterior and verify that it matches our KDE prior:</p><pre><code class="language-julia hljs">dat = chain[:b_a][:]
 @show mean(dat) std(dat)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">mean(dat) = 10.031054759955724
 std(dat) = 1.0783668738628527</code></pre><h2 id="Observable-Based-Priors"><a class="docs-heading-anchor" href="#Observable-Based-Priors">Observable Based Priors</a><a id="Observable-Based-Priors-1"></a><a class="docs-heading-anchor-permalink" href="#Observable-Based-Priors" title="Permalink"></a></h2><p>Octofitter implements observable-based priors from O&#39;Neil 2019 for relative astrometry. You can fit a model to astrometry using observable-based priors using the following recipe:</p><pre><code class="language-julia hljs">using Octofitter, Distributions
 
-astrom_like = PlanetRelAstromLikelihood(
-    (;epoch=mjd(&quot;2020-12-20&quot;), ra=400.0, σ_ra=5.0, dec=400.0, σ_dec=5.0)
+astrom_dat = Table(
+    epoch=[mjd(&quot;2020-12-20&quot;)], 
+    ra=[400.0], 
+    σ_ra=[5.0], 
+    dec=[400.0], 
+    σ_dec=[5.0]
+)
+astrom_like = PlanetRelAstromLikelihood(astrom_dat, name=&quot;rel astrom. 1&quot;)
+
+planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_like, ObsPriorAstromONeil2019(astrom_like)],
+    variables=@variables begin
+        # For using with ObsPriors:
+        P ~ Uniform(0.001, 1000)
+        M = system.M
+        a = cbrt(M * P^2)
+
+        e ~ Uniform(0.0, 1.0)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        mass ~ LogUniform(0.01, 100)
+
+        τ ~ UniformCircular(1.0)
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    end
 )
 
-@planet b Visual{KepOrbit} begin
-    # For using with ObsPriors:
-    P ~ Uniform(0.001, 1000)
-    a = cbrt(system.M * b.P^2)
-
-    e ~ Uniform(0.0, 1.0)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    mass ~ LogUniform(0.01, 100)
-
-    τ ~ UniformCircular(1.0)
-    tp =  b.τ*b.P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
-end astrom_like ObsPriorAstromONeil2019(astrom_like);
-
-@system System1 begin
-    plx ~ Normal(21.219, 0.060)
-	M ~ truncated(Normal(1.1, 0.2),lower=0.1)
-end b</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../parallel-sampling/">« Distributed Sampling</a><a class="docs-footer-nextpage" href="../derived/">Derived Variables »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.12.0 on <span class="colophon-date" title="Tuesday 17 June 2025 23:24">Tuesday 17 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+sys = System(
+    name=&quot;System1&quot;,
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        plx ~ Normal(21.219, 0.060)
+        M ~ truncated(Normal(1.1, 0.2),lower=0.1)
+    end
+)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../parallel-sampling/">« Distributed Sampling</a><a class="docs-footer-nextpage" href="../derived/">Derived Variables »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.12.0 on <span class="colophon-date" title="Wednesday 18 June 2025 03:38">Wednesday 18 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

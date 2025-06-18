@@ -4,38 +4,53 @@ using CairoMakie
 using PairPlots
 using Distributions
 
-astrom_like = PlanetRelAstromLikelihood(Table(;
+astrom_dat = Table(;
     epoch= [50000,50120,50240,50360,50480,50600,50720,50840,],
     ra = [-505.764,-502.57,-498.209,-492.678,-485.977,-478.11,-469.08,-458.896,],
     dec = [-66.9298,-37.4722,-7.92755,21.6356, 51.1472, 80.5359, 109.729, 138.651,],
-    σ_ra = fill(10.0, 8),
-    σ_dec = fill(10.0, 8),
+    σ_ra = fill(50.0, 8),
+    σ_dec = fill(50.0, 8),
     cor = fill(0.0, 8)
-))
-@planet b Visual{KepOrbit} begin
-    a ~ truncated(Normal(10, 4), lower=0, upper=100)
-    e ~ Uniform(0.0, 0.5)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,50420)  # reference epoch for θ. Choose an MJD date near your data.
-end astrom_like
-@system Tutoria begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-end b</code></pre><p>We can now draw one sample from the prior:</p><pre><code class="language-julia hljs">prior_draw_system = generate_from_params(Tutoria)
-prior_draw_astrometry = prior_draw_system.planets.b.observations[4]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PlanetRelAstromLikelihood Table with 5 columns and 8 rows:
+)
+astrom_like = PlanetRelAstromLikelihood(astrom_dat, name=&quot;relastrom&quot;)
+planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_like],
+    variables=@variables begin
+        M = system.M
+        a ~ truncated(Normal(10, 4), lower=0, upper=100)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        tp = θ_at_epoch_to_tperi(θ, 50420; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
+
+sys = System(
+    name=&quot;Tutoria&quot;,
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)</code></pre><p>We can now draw one sample from the prior:</p><pre><code class="language-julia hljs">prior_draw_system = generate_from_params(sys)
+prior_draw_astrometry = prior_draw_system.planets.b.observations[1]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PlanetRelAstromLikelihood Table with 5 columns and 8 rows:
      epoch  ra        dec       σ_ra  σ_dec
    ┌───────────────────────────────────────
- 1 │ 50000  -44.3638  -80.2534  10.0  10.0
- 2 │ 50120  -38.722   -44.9657  10.0  10.0
- 3 │ 50240  -32.9211  -9.49359  10.0  10.0
- 4 │ 50360  -26.9825  26.0178   10.0  10.0
- 5 │ 50480  -20.9293  61.418    10.0  10.0
- 6 │ 50600  -14.7856  96.5523   10.0  10.0
- 7 │ 50720  -8.57705  131.262   10.0  10.0
- 8 │ 50840  -2.33035  165.387   10.0  10.0</code></pre><p>And plot the generated astrometry:</p><pre><code class="language-julia hljs">Makie.scatter(prior_draw_astrometry.table.ra, prior_draw_astrometry.table.dec,color=:black, axis=(;autolimitaspect=1,xreversed=true))</code></pre><img src="ff258ba3.png" alt="Example block output"/><p>We can repeat this many times to get a feel for our chosen priors in the domain of our data:</p><pre><code class="language-julia hljs">using Random
+ 1 │ 50000  -626.594  -157.979  50.0  50.0
+ 2 │ 50120  -633.621  -130.863  50.0  50.0
+ 3 │ 50240  -639.311  -103.472  50.0  50.0
+ 4 │ 50360  -643.656  -75.8623  50.0  50.0
+ 5 │ 50480  -646.647  -48.0931  50.0  50.0
+ 6 │ 50600  -648.276  -20.2227  50.0  50.0
+ 7 │ 50720  -648.537  7.69028   50.0  50.0
+ 8 │ 50840  -647.426  35.587    50.0  50.0</code></pre><p>And plot the generated astrometry:</p><pre><code class="language-julia hljs">Makie.scatter(prior_draw_astrometry.table.ra, prior_draw_astrometry.table.dec,color=:black, axis=(;autolimitaspect=1,xreversed=true))</code></pre><img src="1cc65939.png" alt="Example block output"/><p>We can repeat this many times to get a feel for our chosen priors in the domain of our data:</p><pre><code class="language-julia hljs">using Random
 Random.seed!(1)
 
 
@@ -46,8 +61,8 @@ ax = Axis(
     aspect=1
 )
 for i in 1:50
-    prior_draw_system = generate_from_params(Tutoria)
-    prior_draw_astrometry = prior_draw_system.planets.b.observations[4]
+    prior_draw_system = generate_from_params(sys)
+    prior_draw_astrometry = prior_draw_system.planets.b.observations[1]
     Makie.scatter!(
         ax,
         prior_draw_astrometry.table.ra,
@@ -56,4 +71,8 @@ for i in 1:50
     )
 end
 
-fig</code></pre><img src="5990f4cb.png" alt="Example block output"/><p>The heavy black crosses are our actual data, while the colored ones are simulations drawn from our priors. Notice that our real data lies at a greater separation than most draws from the prior? That might mean the priors could be tweaked.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../limits/">« Calculate Detection Limits</a><a class="docs-footer-nextpage" href="../post-pred/">Posterior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.12.0 on <span class="colophon-date" title="Tuesday 17 June 2025 23:24">Tuesday 17 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+
+Makie.errorbars!(ax,astrom_dat.ra,astrom_dat.dec,astrom_dat.σ_dec,color=:black,linewidth=3)
+Makie.errorbars!(ax,astrom_dat.ra,astrom_dat.dec,astrom_dat.σ_ra,direction=:x,color=:black,linewidth=3)
+
+fig</code></pre><img src="403ef499.png" alt="Example block output"/><p>The heavy black crosses are our actual data, while the colored ones are simulations drawn from our priors. Notice that our real data lies at a greater separation than most draws from the prior? That might mean the priors could be tweaked.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../limits/">« Calculate Detection Limits</a><a class="docs-footer-nextpage" href="../post-pred/">Posterior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.12.0 on <span class="colophon-date" title="Wednesday 18 June 2025 03:38">Wednesday 18 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
