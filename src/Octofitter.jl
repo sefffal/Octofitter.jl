@@ -124,8 +124,12 @@ Read the documentation: https://sefffal.github.io/Octofitter.jl/$(OCTO_VERSION_S
 
     if isinteractive() && get(ENV, "CI", "") != "true" && Threads.nthreads() == 1
         @info """\
-Note: Julia was started with only one thread. Some models may run faster if you start julia with 
-`julia --threads=auto ...` or you set the environment variable `JULIA_NUM_THREADS=auto` and restart.
+Note: Julia was started with only one thread. Some models may run faster if you supply multiple threads.
+To enable multithreading, run:
+
+        julia --threads=auto
+
+or set the environment variable `JULIA_NUM_THREADS=auto` and restart julia.
 """
     end
 
