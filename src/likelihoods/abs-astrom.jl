@@ -29,30 +29,28 @@ calibration errors respectively. `gaia_n_dof` is the number of degrees of freedo
 """
 struct GaiaHipparcosUEVAJointLikelihood{TTable,TTableH,TTableG,TCat} <: AbstractLikelihood
     table::TTable
+    priors::Priors
+    derived::Derived
     hip_table::TTableH
     gaia_table::TTableG
     catalog::TCat
     A_prepared_5_hip::Matrix{Float64}
     A_prepared_5_dr2::Matrix{Float64}
     A_prepared_5_dr3::Matrix{Float64}
-    priors::Octofitter.Priors
-    derived::Octofitter.Derived
-    name::String
     include_iad::Bool
     ueva_mode::Symbol
 end
 
 
 function likelihoodname(like::GaiaHipparcosUEVAJointLikelihood)
-    return like.name
+    return "GaiaHipparcosUEVA"
 end
 
 function GaiaHipparcosUEVAJointLikelihood(;
         gaia_id,
         scanlaw_table=nothing,
         catalog,
-        variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin end),
-        name="GaiaHipparcos",
+        variables::Tuple{Priors,Derived}=(@variables begin;end),
         include_iad=false,
         ueva_mode::Symbol=:RUWE,
     )
@@ -111,7 +109,8 @@ function GaiaHipparcosUEVAJointLikelihood(;
         hip_like = HipparcosIADLikelihood(;
             catalog.hip_id,
             ref_epoch_ra=catalog.epoch_ra_hip_mjd,
-            ref_epoch_dec=catalog.epoch_dec_hip_mjd
+            ref_epoch_dec=catalog.epoch_dec_hip_mjd,
+            variables=(Priors(),Derived())
         )
         A_prepared_5_hip = hip_like.A_prepared_5
         hip_table = hip_like.table
@@ -372,15 +371,14 @@ function GaiaHipparcosUEVAJointLikelihood(;
         typeof(catalog),
     }(
         table,
+        priors,
+        derived,
         hip_table,
         gaia_table,
         catalog,
         A_prepared_5_hip,
         A_prepared_5_dr2,
         A_prepared_5_dr3,
-        priors,
-        derived,
-        name,
         include_iad,
         ueva_mode,
     )
@@ -389,14 +387,14 @@ end
 
 function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikelihood, obs_inds)
     (;  table,
+        priors,
+        derived,
         hip_table,
         gaia_table,
         catalog,
         A_prepared_5_hip,
         A_prepared_5_dr2,
         A_prepared_5_dr3,
-        priors,
-        derived,
         name,
         include_iad,
         ueva_mode ) = like
@@ -423,9 +421,9 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
     )
 end
 
-function Octofitter.ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
-    T = Octofitter._system_number_type(θ_system)
+    T = _system_number_type(θ_system)
     ll = zero(T)
 
     sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
@@ -570,7 +568,7 @@ function Octofitter.ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
 end
 
 
-function Octofitter.simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
     T = _system_number_type(θ_system)
 
