@@ -447,6 +447,73 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
     dist_dr32 = like.catalog.dist_dr32
     dist_dr3 = like.catalog.dist_dr3
 
+    # If the user is fitting jitters, we have to regenerate these distributions 
+    if !isnothing(dist_hip) && (hasproperty(θ_obs, :σ_hip_pmra) || hasproperty(θ_obs, :σ_hip_pmdec))
+        c = like.catalog.pmra_pmdec_hip[1] * like.catalog.pmra_hip_error[1] * like.catalog.pmdec_hip_error[1]
+        pmra_var = like.catalog.pmra_hip_error[1]^2 + (hasproperty(θ_obs, :σ_hip_pmra) ? θ_obs.σ_hip_pmra : zero(T))
+        pmdec_var = like.catalog.pmdec_hip_error[1]^2 + (hasproperty(θ_obs, :σ_hip_pmdec) ? θ_obs.σ_hip_pmdec : zero(T))
+        dist_hip = MvNormal(
+            @SVector([like.catalog.pmra_hip, like.catalog.pmdec_hip]),
+            @SArray[
+                pmra_var c
+                c pmdec_var
+            ]
+        )
+    end
+
+    if !isnothing(dist_hg) && (hasproperty(θ_obs, :σ_hg_pmra) || hasproperty(θ_obs, :σ_hg_pmdec))
+        c = like.catalog.pmra_pmdec_hg[1] * like.catalog.pmra_hg_error[1] * like.catalog.pmdec_hg_error[1]
+        pmra_var = like.catalog.pmra_hg_error[1]^2 + (hasproperty(θ_obs, :σ_hg_pmra) ? θ_obs.σ_hg_pmra : zero(T))
+        pmdec_var = like.catalog.pmdec_hg_error[1]^2 + (hasproperty(θ_obs, :σ_hg_pmdec) ? θ_obs.σ_hg_pmdec : zero(T))
+        dist_hg = MvNormal(
+            @SVector([like.catalog.pmra_hg, like.catalog.pmdec_hg]),
+            @SArray[
+                pmra_var c
+                c pmdec_var
+            ]
+        )
+    end
+
+    if !isnothing(dist_dr2) && (hasproperty(θ_obs, :σ_dr2_pmra) || hasproperty(θ_obs, :σ_dr2_pmdec))
+        c = like.catalog.pmra_pmdec_dr2[1] * like.catalog.pmra_dr2_error[1] * like.catalog.pmdec_dr2_error[1]
+        pmra_var = like.catalog.pmra_dr2_error[1]^2 + (hasproperty(θ_obs, :σ_dr2_pmra) ? θ_obs.σ_dr2_pmra : zero(T))
+        pmdec_var = like.catalog.pmdec_dr2_error[1]^2 + (hasproperty(θ_obs, :σ_dr2_pmdec) ? θ_obs.σ_dr2_pmdec : zero(T))
+        dist_dr2 = MvNormal(
+            @SVector([like.catalog.pmra_dr2, like.catalog.pmdec_dr2]),
+            @SArray[
+                pmra_var c
+                c pmdec_var
+            ]
+        )
+    end
+
+    if !isnothing(dist_dr32) && (hasproperty(θ_obs, :σ_dr32_pmra) || hasproperty(θ_obs, :σ_dr32_pmdec))
+        c = like.catalog.pmra_pmdec_dr32[1] * like.catalog.pmra_dr32_error[1] * like.catalog.pmdec_dr32_error[1]
+        pmra_var = like.catalog.pmra_dr32_error[1]^2 + (hasproperty(θ_obs, :σ_dr32_pmra) ? θ_obs.σ_dr32_pmra : zero(T))
+        pmdec_var = like.catalog.pmdec_dr32_error[1]^2 + (hasproperty(θ_obs, :σ_dr32_pmdec) ? θ_obs.σ_dr32_pmdec : zero(T))
+        dist_dr32 = MvNormal(
+            @SVector([like.catalog.pmra_dr32, like.catalog.pmdec_dr32]),
+            @SArray[
+                pmra_var c
+                c pmdec_var
+            ]
+        )
+    end
+
+    if !isnothing(dist_dr3) && (hasproperty(θ_obs, :σ_dr3_pmra) || hasproperty(θ_obs, :σ_dr3_pmdec))
+        c = like.catalog.pmra_pmdec_dr3[1] * like.catalog.pmra_dr3_error[1] * like.catalog.pmdec_dr3_error[1]
+        pmra_var = like.catalog.pmra_dr3_error[1]^2 + (hasproperty(θ_obs, :σ_dr3_pmra) ? θ_obs.σ_dr3_pmra : zero(T))
+        pmdec_var = like.catalog.pmdec_dr3_error[1]^2 + (hasproperty(θ_obs, :σ_dr3_pmdec) ? θ_obs.σ_dr3_pmdec : zero(T))
+        dist_dr3 = MvNormal(
+            @SVector([like.catalog.pmra_dr2, like.catalog.pmdec_dr2]),
+            @SArray[
+                pmra_var c
+                c pmdec_var
+            ]
+        )
+    end
+
+
     # Apply nonlinear correction for absolute orbits
     if absolute_orbits && !isnothing(dist_hip)
         # Add nonlinear corrections to model values
