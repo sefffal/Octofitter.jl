@@ -406,14 +406,14 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
         typeof(catalog),
     }(
         table,
+        priors,
+        derived,
         hip_table,
         gaia_table,
         catalog,
         A_prepared_5_hip,
         A_prepared_5_dr2,
         A_prepared_5_dr3,
-        priors,
-        derived,
         include_iad,
         ueva_mode,
     )
