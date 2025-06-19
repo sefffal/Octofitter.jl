@@ -395,7 +395,6 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
         A_prepared_5_hip,
         A_prepared_5_dr2,
         A_prepared_5_dr3,
-        name,
         include_iad,
         ueva_mode ) = like
     
@@ -415,7 +414,6 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
         A_prepared_5_dr3,
         priors,
         derived,
-        name,
         include_iad,
         ueva_mode,
     )
