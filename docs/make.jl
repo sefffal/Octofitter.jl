@@ -17,6 +17,7 @@ makedocs(
         "Getting Started" => [
             "Installation" => "installation.md",
             "Quick Start" => "quick-start.md",
+            "Migration Guide" => "migration.md",
         ],
         "Tutorials" => [
             "Relative Astrometry" => [
