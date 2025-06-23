@@ -55,23 +55,29 @@ end astrom_like obs_prior
 """
 struct ObsPriorAstromONeil2019{Likelihood<:AbstractLikelihood} <: AbstractLikelihood
 	wrapped_like::Likelihood
+	table
+	priors::Priors
+	derived::Derived
 	function ObsPriorAstromONeil2019(
         obs::AbstractLikelihood;
     )
-		return new{typeof(obs)}(obs)
+		return new{typeof(obs)}(obs, obs.table, obs.priors, obs.derived)
 	end
 end
 export ObsPriorAstromONeil2019
-likelihoodname(::ObsPriorAstromONeil2019) = "obspri"
+likelihoodname(obs::ObsPriorAstromONeil2019) = "obspri_" * likelihoodname(obs.wrapped_like)
 _isprior(::ObsPriorAstromONeil2019) = true
 
 function likeobj_from_epoch_subset(obs::ObsPriorAstromONeil2019, obs_inds)
     return ObsPriorAstromONeil2019(
-        likeobj_from_epoch_subset(obs.wrapped_like, obs_inds)
+        likeobj_from_epoch_subset(obs.wrapped_like, obs_inds);
     )
 end
 
 function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+
+    # Call the wrapped likelihood's ln_like method
+    ln_like_wrapped = ln_like(like.wrapped_like, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
     orbit = orbits[i_planet]
     # Add period prior
@@ -121,10 +127,13 @@ function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_
 
     ln_prior += 2log(jac)
 
-    return ln_prior
+    return ln_like_wrapped + ln_prior
 end
 
 function ln_like(like::ObsPriorAstromONeil2019{<:GaiaHipparcosUEVAJointLikelihood}, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+
+    # Call the wrapped likelihood's ln_like method
+    ln_like_wrapped = ln_like(like.wrapped_like, θ_system, θ_planet, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
     orbit = orbits[i_planet]
     # Add period prior
@@ -156,7 +165,7 @@ function ln_like(like::ObsPriorAstromONeil2019{<:GaiaHipparcosUEVAJointLikelihoo
 
     ln_prior += 2log(jac)
 
-    return ln_prior
+    return ln_like_wrapped + ln_prior
 end
 
 
