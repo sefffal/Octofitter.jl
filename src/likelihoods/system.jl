@@ -157,28 +157,34 @@ function make_ln_like(system::System, θ_system)
     end
 
     return @RuntimeGeneratedFunction(:(function (system::System, θ_system)
-        ll0 = zero(_system_number_type(θ_system))
+        T = _system_number_type(θ_system)
+        ll0 = zero(T)
 
-        @no_escape begin
+        ll_out = @no_escape begin
 
-            # Construct all orbit elements
-            $(planet_construction_exprs...)
+            try
+                # Construct all orbit elements
+                $(planet_construction_exprs...)
 
-            # Construct a tuple of existing planet orbital elements
-            elems = tuple($(planet_keys...))
+                # Construct a tuple of existing planet orbital elements
+                elems = tuple($(planet_keys...))
 
-            # Solve all orbits
-            $(planet_orbit_solution_exprs...)
+                # Solve all orbits
+                $(planet_orbit_solution_exprs...)
 
-            # evaluate all their individual observation likelihoods
-            $(planet_like_exprs...)
-            
-            # And evaluate the overall system likelihoods
-            $(sys_exprs...)
+                # evaluate all their individual observation likelihoods
+                $(planet_like_exprs...)
+                
+                # And evaluate the overall system likelihoods
+                $(sys_exprs...)
 
+                $(Symbol("ll$j"))
+            catch err
+                convert(T, -Inf)
+            end
         end
 
-        return $(Symbol("ll$j"))
+        return ll_out
     end))
 end
 
