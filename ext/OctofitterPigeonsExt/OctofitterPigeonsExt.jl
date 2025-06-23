@@ -125,7 +125,7 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     mcmcchains_with_info = MCMCChains.setinfo(
         mcmcchains,
         (;
-            mcmcchains.info,
+            mcmcchains.info...,
             start_time,
             stop_time,
             model_name=pt.inputs.target.system.name,
