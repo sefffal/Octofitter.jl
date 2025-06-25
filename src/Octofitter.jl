@@ -157,7 +157,7 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
     # We have to disable certificate checking in order to be able to query it
     # consistently
     if !haskey(ENV, "JULIA_NO_VERIFY_HOSTS")
-        ENV["JULIA_NO_VERIFY_HOSTS"] = "ssd.jpl.nasa.gov"
+        ENV["JULIA_NO_VERIFY_HOSTS"] = "**.nasa.gov"
     end
 
     # List DataDeps here.
