@@ -1,5 +1,4 @@
-# Octofitter.jl v7 Migration Guide
-
+#  [Octofitter.jl v7 Migration Guide] (@id migration)
 This guide helps you migrate your code from Octofitter.jl v6 to v7, which introduced a significant API redesign.
 
 ## Overview of Changes
