@@ -157,7 +157,7 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
     mcmcchains_with_info = MCMCChains.setinfo(
         mcmcchains,
         (;
-            mcmcchains.info,
+            mcmcchains.info...,
             start_time,
             stop_time,
             sampler="pigeons"
@@ -215,6 +215,7 @@ Base.@nospecializeinfer function MCMCChains.Chains(
     mcmcchains_with_info = MCMCChains.setinfo(
         mcmcchains,
         (;
+            mcmcchains.info...,
             model_name=try;pt.inputs.target.system.name; catch; nothing; end,
             logevidence_ratio=try;Pigeons.stepping_stone(pt); catch; nothing; end,
             global_barrier_variational,
