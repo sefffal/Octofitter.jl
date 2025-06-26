@@ -688,10 +688,11 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orb
     # Helper functions to either get the static pmra from the orbital elements,
     # or, if using an AbsoluteVisualOrbit, get the propagated pmra at the
     # current epoch accounting for barycentric motion.
-    function propagate_astrom(orbit::PlanetOrbits.AbsoluteVisualOrbit, epoch_ra, epoch_dec)
-        sol_ra = orbitsolve(orbit, epoch_ra)
+    function propagate_astrom(orbits::NTuple{N,<:PlanetOrbits.AbsoluteVisualOrbit} where N, epoch_ra, epoch_dec)
+        o = first(orbits)
+        sol_ra = orbitsolve(o, epoch_ra)
         cmp_ra = sol_ra.compensated
-        sol_dec = orbitsolve(orbit, epoch_dec)
+        sol_dec = orbitsolve(o, epoch_dec)
         cmp_dec = sol_dec.compensated
         # Account for the instantaneous differential light travel time apparent acceleration.
         # Treat as linear for the duration of Gaia or Hipparcos
@@ -699,16 +700,20 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orb
         Δt = 100
         t2 = t1 + Δt
         sol = epoch_ra >= epoch_dec ? sol_ra : sol_dec
-        sol′ = orbitsolve(orbit,t2)
+        sol′ = orbitsolve(o,t2)
         # This isn't right! This is double counting the proper motion which already goes into ra/dec
         # Take change in delta_time and multiply it by pmra/pmdec
         diff_lt_app_pmra = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmra2
         diff_lt_app_pmdec = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmdec2
         return cmp_ra.ra2, cmp_dec.dec2, cmp_ra.pmra2+diff_lt_app_pmra, cmp_dec.pmdec2+diff_lt_app_pmdec
     end
-    function propagate_astrom(orbit::Any, _, _)
+    function propagate_astrom(orbits::Tuple{}, _, _)
         return 0.0, 0.0, θ_system.pmra, θ_system.pmdec
     end
+    function propagate_astrom(orbits::Any, _, _)
+        return 0.0, 0.0, θ_system.pmra, θ_system.pmdec
+    end
+
 
     @no_escape begin
 
@@ -741,7 +746,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orb
                 out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas, Δδ_mas)
             end
             Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
-            α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(first(orbits), like.catalog.epoch_ra_hip_mjd, like.catalog.epoch_dec_hip_mjd)
+            α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(orbits, like.catalog.epoch_ra_hip_mjd, like.catalog.epoch_dec_hip_mjd)
             μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
         end
 
@@ -774,7 +779,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orb
         Δα_dr2, Δδ_dr2, Δpmra_dr2, Δpmdec_dr2 = out.parameters
         # Rigorously propagate the linear proper motion component in spherical coordinates
         # Account for within-gaia differential light travel time 
-        α_dr2₀, δ_dr2₀, pmra_dr2₀, pmdec_dr2₀ = propagate_astrom(first(orbits), like.catalog.epoch_ra_dr2_mjd, like.catalog.epoch_dec_dr2_mjd)
+        α_dr2₀, δ_dr2₀, pmra_dr2₀, pmdec_dr2₀ = propagate_astrom(orbits, like.catalog.epoch_ra_dr2_mjd, like.catalog.epoch_dec_dr2_mjd)
         μ_dr2 = @SVector [pmra_dr2₀ + Δpmra_dr2, pmdec_dr2₀ + Δpmdec_dr2]
 
         ################################
@@ -805,7 +810,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orb
         Δα_dr3, Δδ_dr3, Δpmra_dr3, Δpmdec_dr3 = out_dr3.parameters
         # Rigorously propagate the linear proper motion component in spherical coordinates
         # Account for within-gaia differential light travel time 
-        α_dr3₀, δ_dr3₀, pmra_dr3₀, pmdec_dr3₀ = propagate_astrom(first(orbits), like.catalog.epoch_ra_dr3_mjd, like.catalog.epoch_dec_dr3_mjd)
+        α_dr3₀, δ_dr3₀, pmra_dr3₀, pmdec_dr3₀ = propagate_astrom(orbits, like.catalog.epoch_ra_dr3_mjd, like.catalog.epoch_dec_dr3_mjd)
         μ_dr3 = @SVector [pmra_dr3₀ + Δpmra_dr3, pmdec_dr3₀ + Δpmdec_dr3]
 
 
