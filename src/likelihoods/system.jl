@@ -51,12 +51,17 @@ function make_ln_like(system::System, θ_system)
     planet_construction_exprs = Expr[]
     planet_like_exprs = Expr[]
     planet_orbit_solution_exprs = Expr[]
+    # Add planet declarations here
+    planet_declarations = Expr[]
     j = 0
     for i in 1:length(system.planets)
         planet = system.planets[i]
         OrbitType = _planet_orbit_type(planet)
         key = Symbol("planet_$i")
         sols_key = planet_sol_keys[i]
+        
+        # Add declaration for this planet
+        push!(planet_declarations, :($key = nothing))
         
         likelihood_exprs = map(enumerate(planet.observations)) do (i_like, like)
             i_epoch_start = get(epoch_start_index_mapping, like, 0)
@@ -159,29 +164,34 @@ function make_ln_like(system::System, θ_system)
     return @RuntimeGeneratedFunction(:(function (system::System, θ_system)
         T = _system_number_type(θ_system)
         ll0 = zero(T)
+        
+        # Declare all planet variables before the try block
+        $(planet_declarations...)
 
+        # Try-catch only for planet construction
+        try
+            # Construct all orbit elements
+            $(planet_construction_exprs...)
+        catch err
+            # Return -Inf if planet construction fails
+            return convert(T, -Inf)
+        end
+        
         ll_out = @no_escape begin
 
-            try
-                # Construct all orbit elements
-                $(planet_construction_exprs...)
+            # Construct a tuple of existing planet orbital elements
+            elems = tuple($(planet_keys...))
 
-                # Construct a tuple of existing planet orbital elements
-                elems = tuple($(planet_keys...))
+            # Solve all orbits
+            $(planet_orbit_solution_exprs...)
 
-                # Solve all orbits
-                $(planet_orbit_solution_exprs...)
+            # evaluate all their individual observation likelihoods
+            $(planet_like_exprs...)
+            
+            # And evaluate the overall system likelihoods
+            $(sys_exprs...)
 
-                # evaluate all their individual observation likelihoods
-                $(planet_like_exprs...)
-                
-                # And evaluate the overall system likelihoods
-                $(sys_exprs...)
-
-                $(Symbol("ll$j"))
-            catch err
-                convert(T, -Inf)
-            end
+            $(Symbol("ll$j"))
         end
 
         return ll_out
