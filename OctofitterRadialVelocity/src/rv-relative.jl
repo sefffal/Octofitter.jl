@@ -43,7 +43,7 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikeli
     gaussian_process::GP
     priors::Octofitter.Priors
     derived::Octofitter.Derived
-    function PlanetRelativeRVLikelihood(observations...; name="1", gaussian_process=nothing, variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end))
+    function PlanetRelativeRVLikelihood(observations...; name::String, gaussian_process=nothing, variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end))
         (priors,derived)=variables
         table = Table(observations...)
         if !Octofitter.equal_length_cols(table)
@@ -56,6 +56,10 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikeli
         # We sort the data first by instrument index then by epoch to make some later code faster
         ii = sortperm(table.epoch)
         table = table[ii,:]
+
+        if any(>=(mjd("2050")),  table.epoch) || any(<=(mjd("1950")),  table.epoch)
+            @warn "The data you entered fell outside the range year 1950 to year 2050. The expected input format is MJD (modified julian date). We suggest you double check your input data!"
+        end
 
         rows = map(eachrow(table)) do row′
             row = (;row′[1]..., rv=float(row′[1].rv[1]))

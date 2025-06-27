@@ -43,7 +43,7 @@ end
 function MarginalizedStarAbsoluteRVLikelihood(
     observations;
     variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end),
-    name="",
+    name::String,
     trend_function=(θ_obs, epoch)->zero(Octofitter._system_number_type(θ_obs)),
 )
     (priors,derived)=variables
@@ -60,6 +60,10 @@ function MarginalizedStarAbsoluteRVLikelihood(
     end
     ii = sortperm([r.epoch for r in rows])
     table = Table(rows[ii])
+
+    if any(>=(mjd("2050")),  table.epoch) || any(<=(mjd("1950")),  table.epoch)
+        @warn "The data you entered fell outside the range year 1950 to year 2050. The expected input format is MJD (modified julian date). We suggest you double check your input data!"
+    end
     
     return MarginalizedStarAbsoluteRVLikelihood{typeof(table),typeof(trend_function)}(
         table, priors, derived, name, trend_function

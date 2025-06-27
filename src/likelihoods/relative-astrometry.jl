@@ -38,6 +38,11 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple} <: AbstractLikelihood
             error("Expected columns $astrom_cols1 or $astrom_cols3")
         end
 
+        if any(>=(mjd("2050")),  table.epoch) || any(<=(mjd("1950")),  table.epoch)
+            @warn "The data you entered fell outside the range year 1950 to year 2050. The expected input format is MJD (modified julian date). We suggest you double check your input data!"
+        end
+
+
         ii = sortperm(vec(table.epoch))
         table = table[ii]
 
@@ -48,6 +53,10 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple} <: AbstractLikelihood
         if hasproperty(table, :pa) && hasproperty(table, :sep)
             σ₁ = table.σ_pa
             σ₂ = table.σ_sep
+
+            if any(>=(2pi),  table.pa) || any(<=(-2pi),  table.pa)
+                @warn "The data you entered fell outside the range [-2pi, +2pi]. The expected input format is radians (you can use `deg2rad` to convert). We suggest you double check your input data!"
+            end
         # RA and DEC specified
         else
             σ₁ = table.σ_ra
@@ -180,6 +189,13 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_obs
         end
 
         if jitter == 0.
+            # @show  logpdf(astrom.precomputed_pointwise_distributions[i_epoch], @SVector[resid1, resid2])
+            # d = sqrt.(diag(params(astrom.precomputed_pointwise_distributions[i_epoch])[2]))
+            # resid = [resid1, resid2]
+            # l = logpdf(astrom.precomputed_pointwise_distributions[i_epoch], @SVector[resid1, resid2])
+            # @show d resid l
+
+            # println()
             ll += logpdf(astrom.precomputed_pointwise_distributions[i_epoch], @SVector[resid1, resid2])
         else
             # For data points with a non-zero correlation, we can speed things up slightly
