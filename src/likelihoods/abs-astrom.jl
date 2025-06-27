@@ -774,6 +774,17 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orb
                 -1, T
             )
         end
+
+        if hasproperty(θ_obs,:scan_disturb_func)
+            for (j,i) in enumerate(istart_dr2:iend_dr2)
+                # function of scan angle and time:
+                perturb = θ_obs.scan_disturb_func.(gaia_table.epoch[i], gaia_table.scanAngle_rad[i])
+                # Need to store into Δα_mas and Δδ_mas:
+                Δα_mas[j] += perturb * cos(gaia_table.scanAngle_rad[i])
+                Δδ_mas[j] += perturb * sin(gaia_table.scanAngle_rad[i])
+            end
+        end
+
         out = fit_5param_prepared(view(A_prepared_5_dr2, istart_dr2:iend_dr2,:), view(gaia_table, istart_dr2:iend_dr2), Δα_mas, Δδ_mas)
         # out = fit_4param_prepared(hgca_like.gaialike.A_prepared_4, gaia_table, Δα_mas, Δδ_mas)
         Δα_dr2, Δδ_dr2, Δpmra_dr2, Δpmdec_dr2 = out.parameters
@@ -804,6 +815,16 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orb
                 orbit_solutions[i_planet],
                 -1, T,
             )
+        end
+
+        if hasproperty(θ_obs,:scan_disturb_func)
+            for (j,i) in enumerate(istart_dr3:iend_dr3)
+                # function of scan angle and time:
+                perturb = θ_obs.scan_disturb_func.(gaia_table.epoch[i], gaia_table.scanAngle_rad[i])
+                # Need to store into Δα_mas and Δδ_mas:
+                Δα_mas[j] += perturb * cos(gaia_table.scanAngle_rad[i])
+                Δδ_mas[j] += perturb * sin(gaia_table.scanAngle_rad[i])
+            end
         end
 
         out_dr3 = fit_5param_prepared(view(A_prepared_5_dr3, istart_dr3:iend_dr3,:), view(gaia_table, istart_dr3:iend_dr3), Δα_mas, Δδ_mas, 0.0, σ_formal; include_chi2=Val(true))
