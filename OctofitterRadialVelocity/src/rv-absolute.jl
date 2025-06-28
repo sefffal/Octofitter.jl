@@ -60,7 +60,7 @@ function StarAbsoluteRVLikelihood(
     observations;
     variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end),
     trend_function=(θ_obs, epoch)->zero(Octofitter._system_number_type(θ_obs)),
-    name::String;
+    name::String,
     gaussian_process=nothing
 )
     (priors,derived)=variables
