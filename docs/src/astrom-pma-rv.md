@@ -192,7 +192,7 @@ rvlike = PlanetRelativeRVLikelihood(
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_like],
+    likelihoods=[ObsPriorAstromONeil2019(astrom_like)],
     variables=@variables begin
         a ~ LogUniform(0.1,400)
         e ~ Uniform(0,0.999)
@@ -262,7 +262,7 @@ rvlike = StarAbsoluteRVLikelihood(
 planet_b_rv = Planet(
     name="b",
     basis=AbsoluteVisual{KepOrbit},
-    likelihoods=[astrom_like, ObsPriorAstromONeil2019(astrom_like)],
+    likelihoods=[ObsPriorAstromONeil2019(astrom_like)],
     variables=@variables begin
         a ~ LogUniform(0.1,400)
         e ~ Uniform(0,0.999)
@@ -342,7 +342,7 @@ using OctofitterRadialVelocity
 planet_b_final = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_like],
+    likelihoods=[ObsPriorAstromONeil2019(astrom_like)],
     variables=@variables begin
         a ~ LogUniform(0.1,400)
         e ~ Uniform(0,0.999)
