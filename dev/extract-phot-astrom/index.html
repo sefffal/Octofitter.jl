@@ -73,8 +73,8 @@ chain = octofit(model, iterations=10000)</code></pre><pre class="documenter-exam
 Iterations        = 1:1:10000
 Number of chains  = 1
 Samples per chain = 10000
-Wall duration     = 3.3 seconds
-Compute duration  = 3.3 seconds
+Wall duration     = 3.63 seconds
+Compute duration  = 3.63 seconds
 parameters        = plx, b_sep, b_pa, b_images_flux, b_images_platescale, b_images_northangle
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -83,9 +83,9 @@ Summary Statistics
  <span class="sgr90">              Symbol     Float64   Float64   Float64     Float64     Float64  ⋯
 
                   plx     24.4620    0.0000    0.0000         NaN         NaN  ⋯
-                b_sep   1705.4933    6.3104    0.7515    188.9238    115.0074  ⋯
-                 b_pa      1.2330    0.0020    0.0000   5267.0078   6984.2690  ⋯
-        b_images_flux      0.0001    0.0000    0.0000   3149.1638   3621.7738  ⋯
+                b_sep   1704.1421    3.8125    0.2421    942.3971    303.6133  ⋯
+                 b_pa      1.2330    0.0020    0.0000   5614.1070   7108.1362  ⋯
+        b_images_flux      0.0001    0.0000    0.0000   3146.4616   3747.7791  ⋯
   b_images_platescale      1.0000    0.0000       NaN         NaN         NaN  ⋯
   b_images_northangle      0.0000    0.0000       NaN         NaN         NaN  ⋯
 </span><span class="sgr36">                                                               2 columns omitted
@@ -95,8 +95,8 @@ Quantiles
  </span><span class="sgr90">              Symbol     Float64     Float64     Float64     Float64     Floa ⋯
 
                   plx     24.4620     24.4620     24.4620     24.4620     24.4 ⋯
-                b_sep   1698.7167   1701.8895   1703.6818   1706.6254   1724.1 ⋯
-                 b_pa      1.2296      1.2315      1.2328      1.2345      1.2 ⋯
+                b_sep   1698.7420   1701.8255   1703.4929   1705.8986   1711.8 ⋯
+                 b_pa      1.2296      1.2314      1.2327      1.2345      1.2 ⋯
         b_images_flux      0.0001      0.0001      0.0001      0.0001      0.0 ⋯
   b_images_platescale      1.0000      1.0000      1.0000      1.0000      1.0 ⋯
   b_images_northangle      0.0000      0.0000      0.0000      0.0000      0.0 ⋯
@@ -109,7 +109,7 @@ println(&quot;The median separation is &quot;, median(samples_sep))
 
 flux = chain[:b_images_flux]
 println(&quot;The flux is &quot;, mean(flux), &quot; ± &quot;, std(flux))
-println(&quot;The \&quot;SNR\&quot; is &quot;, mean(flux)/std(flux))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">The median separation is 1703.7115658151463
-The flux is 7.746696100318994e-5 ± 6.420095450960099e-6
-The &quot;SNR&quot; is 12.066325430037816</code></pre><h2 id="Visualize"><a class="docs-heading-anchor" href="#Visualize">Visualize</a><a id="Visualize-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize" title="Permalink"></a></h2><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model,chain)</code></pre><img src="4a809d83.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Image Data (de-orbiting)</a><a class="docs-footer-nextpage" href="../mass-photometry/">Connect Mass and Photometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.13.0 on <span class="colophon-date" title="Saturday 28 June 2025 04:34">Saturday 28 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+println(&quot;The \&quot;SNR\&quot; is &quot;, mean(flux)/std(flux))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">The median separation is 1703.9000831776243
+The flux is 7.752671725175985e-5 ± 6.4661909077156e-6
+The &quot;SNR&quot; is 11.989549699074502</code></pre><h2 id="Visualize"><a class="docs-heading-anchor" href="#Visualize">Visualize</a><a id="Visualize-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize" title="Permalink"></a></h2><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model,chain)</code></pre><img src="aa5eebdb.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../images/">« Image Data (de-orbiting)</a><a class="docs-footer-nextpage" href="../mass-photometry/">Connect Mass and Photometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.13.0 on <span class="colophon-date" title="Saturday 28 June 2025 20:22">Saturday 28 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
