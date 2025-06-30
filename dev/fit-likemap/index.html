@@ -156,8 +156,8 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
 └   D = 11
 ┌ Info: Determined number type
 └   T = Float64
-ℓπcallback(θ): 0.000015 seconds
-∇ℓπcallback(θ): 0.000025 seconds (1 allocation: 32 bytes)
+ℓπcallback(θ): 0.000013 seconds
+∇ℓπcallback(θ): 0.000021 seconds (1 allocation: 32 bytes)
 ┌ Warning: This model has priors that cannot be sampled IID.
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:95
 [ Info: Sampler running with multiple threads     : true
@@ -169,16 +169,16 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0        2.4       2.62      0.228   4.15e+06      -41.8   3.36e-25      0.838          1          1
-        4          0       3.89       4.53     0.0622   1.49e+05      -24.7   4.81e-05      0.728          1          1
-        8          0       3.34       4.29      0.121   2.54e+05      -18.7     0.0599      0.754          1          1
-       16          0       5.05       3.67      0.239   4.86e+05      -20.5      0.175      0.719          1          1
-       32          0       4.77       4.56      0.475   7.01e+05      -21.7      0.354      0.699          1          1
-       64          3        4.7       3.04        1.1   4.64e+07      -21.4      0.436       0.75          1          1
-      128         17       4.72       3.03       1.85    7.9e+07      -20.7      0.556       0.75          1          1
-      256         35       4.64       3.23       3.79   1.58e+08      -20.8      0.572      0.746          1          1
-      512         71        4.7       3.12       7.52   3.14e+08        -21      0.621      0.748          1          1
- 1.02e+03        161       4.84       3.05         15   6.27e+08      -21.1      0.645      0.745          1          1
+        2          0        2.4       2.62      0.232   4.15e+06      -41.8   3.36e-25      0.838          1          1
+        4          0       3.89       4.53      0.063   1.49e+05      -24.7   4.81e-05      0.728          1          1
+        8          0       3.34       4.29      0.123   2.54e+05      -18.7     0.0599      0.754          1          1
+       16          0       5.05       3.67      0.241   4.86e+05      -20.5      0.175      0.719          1          1
+       32          0       4.77       4.56       0.48   7.01e+05      -21.7      0.354      0.699          1          1
+       64          3        4.7       3.04       1.13   4.64e+07      -21.4      0.436       0.75          1          1
+      128         17       4.72       3.03       1.88    7.9e+07      -20.7      0.556       0.75          1          1
+      256         35       4.64       3.23       3.77   1.58e+08      -20.8      0.572      0.746          1          1
+      512         71        4.7       3.12       7.64   3.14e+08        -21      0.621      0.748          1          1
+ 1.02e+03        161       4.84       3.05       15.2   6.27e+08      -21.1      0.645      0.745          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info" id="Note-f785fb93d91435e8"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-f785fb93d91435e8" title="Permalink"></a></header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>Display the results:</p><pre><code class="language-julia hljs">using CairoMakie
 octoplot(model, chain)</code></pre><img src="595ecbe9.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 octocorner(model,chain,small=true,)</code></pre><img src="97fe58a9.png" alt="Example block output"/><p>And finally let&#39;s look at the posterior predictive distributions at both epochs:</p><pre><code class="language-julia hljs">els = Octofitter.construct_elements(model, chain,:b, :)
@@ -208,4 +208,4 @@ pairplot(
     )
 )</code></pre><img src="ada01d42.png" alt="Example block output"/><h2 id="Resume-sampling-for-additional-rounds"><a class="docs-heading-anchor" href="#Resume-sampling-for-additional-rounds">Resume sampling for additional rounds</a><a id="Resume-sampling-for-additional-rounds-1"></a><a class="docs-heading-anchor-permalink" href="#Resume-sampling-for-additional-rounds" title="Permalink"></a></h2><p>If you would like to add additional rounds of sampling, you may do the following:</p><pre><code class="language-julia hljs">pt = increment_n_rounds!(pt, 2)
 chain, pt = octofit_pigeons(pt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (4096×22×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Updated corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model,chain,small=false,)</code></pre><img src="22b531a6.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Interferometer Data</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.13.0 on <span class="colophon-date" title="Monday 30 June 2025 23:03">Monday 30 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model,chain,small=false,)</code></pre><img src="22b531a6.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Interferometer Data</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.13.0 on <span class="colophon-date" title="Monday 30 June 2025 23:08">Monday 30 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
