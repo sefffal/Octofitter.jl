@@ -284,7 +284,7 @@ end
 
 
 # Generate new radial velocity observations for a star
-function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_system, orbits::Vector{<:Visual{KepOrbit}})
+function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_system,  θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
     # Get epochs, uncertainties, and planet masses from observations and parameters
     epochs = like.table.epoch 
@@ -292,7 +292,7 @@ function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_syst
     planet_masses = [θ_planet.mass for θ_planet in θ_system.planets] .* 0.000954588 # Mjup -> Msun
 
     # Generate new star radial velocity data
-    rvs = radvel.(reshape(orbits, :, 1), epochs, transpose(planet_masses))
+    rvs = radvel.(reshape(collect(orbits), :, 1), epochs, transpose(planet_masses))
     rvs = sum(rvs, dims=2)[:,1] .+ θ_system.rv
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
 

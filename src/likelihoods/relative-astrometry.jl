@@ -232,10 +232,13 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_obs
 end
 
 # Generate new astrometry observations
-function generate_from_params(like::PlanetRelAstromLikelihood, θ_planet, orbit::PlanetOrbits.AbstractOrbit)
+function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    this_orbit = orbits[i_planet]
 
     # Get epochs and uncertainties from observations
     epoch = like.table.epoch
+
+    # TODO: account for platescale and northangle when generating data
 
     if hasproperty(like.table, :pa) && hasproperty(like.table, :sep)
 
@@ -243,8 +246,8 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_planet, orbit:
         σ_pa = like.table.σ_pa
 
         # Generate now astrometry data
-        sep = projectedseparation.(orbit, epoch)
-        pa = posangle.(orbit, epoch)
+        sep = projectedseparation.(this_orbit, epoch)
+        pa = posangle.(this_orbit, epoch)
         if hasproperty(like.table, :cov)
             astrometry_table = Table(;epoch, sep, pa, σ_sep, σ_pa, like.table.cov)
         else
@@ -255,8 +258,8 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_planet, orbit:
         σ_dec = like.table.σ_dec
 
         # Generate now astrometry data
-        ra = raoff.(orbit, epoch)
-        dec = decoff.(orbit, epoch)
+        ra = raoff.(this_orbit, epoch)
+        dec = decoff.(this_orbit, epoch)
         if hasproperty(like.table, :cov)
             astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec, like.table.cov)
         else
