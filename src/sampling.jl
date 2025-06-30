@@ -522,7 +522,7 @@ function mcmcchain2result(model, chain, ii=(:))
         end
         if nt[key] isa Number
             push!(key_mapping, key => [key])
-        else
+        elseif  nt[key] isa Tuple
             arr = Symbol[]
             push!(key_mapping, key => arr)
             for i in eachindex(nt[key])
@@ -538,7 +538,7 @@ function mcmcchain2result(model, chain, ii=(:))
             if nt.observations[obs][key] isa Number
                 k = Symbol(obs, '_', key)
                 push!(key_mapping, k => [k])
-            else
+            elseif  nt.observations[obs][key] isa Tuple
                 arr = Symbol[]
                 push!(key_mapping, Symbol(obs, '_', key) => arr)
                 for i in eachindex(nt.observations[obs][key])
@@ -558,7 +558,7 @@ function mcmcchain2result(model, chain, ii=(:))
             if nt.planets[pl][key] isa Number
                 k = Symbol(pl, '_', key)
                 push!(key_mapping, k => [k])
-            else
+            elseif  nt.planets[pl][key] isa Tuple
                 arr = Symbol[]
                 push!(key_mapping, Symbol(pl, '_', key) => arr)
                 for i in eachindex(nt.planets[pl][key])
@@ -574,7 +574,7 @@ function mcmcchain2result(model, chain, ii=(:))
                 if nt.planets[pl].observations[obs][key] isa Number
                     k = Symbol(pl, '_', obs, '_', key)
                     push!(key_mapping, k => [k])
-                else
+                elseif  nt.planets[pl].observations[obs][key] isa Tuple
                     arr = Symbol[]
                     push!(key_mapping, Symbol(pl, '_', obs, '_', key) => arr)
                     for i in eachindex(nt.planets[pl].observations[obs][key])
