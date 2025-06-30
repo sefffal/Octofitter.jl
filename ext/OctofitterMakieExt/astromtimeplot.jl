@@ -309,13 +309,16 @@ function astromtimeplot!(
 
     # Colour data based on the instrument name
     rel_astrom_likes = filter(like_objs) do like_obj
-        nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
+        nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood ||
+        (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromLikelihood)
     end
     rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :name)))
     n_rel_astrom = length(rel_astrom_names)
     
     for like_obj in like_objs
-        if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+        if  nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood ||
+            (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromLikelihood)
+
             i_like_obj = findfirst(==(likelihoodname(like_obj)), rel_astrom_names)
             if hasproperty(like_obj.table, :sep)
                 epoch = like_obj.table.epoch
