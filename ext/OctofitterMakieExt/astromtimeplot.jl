@@ -312,7 +312,7 @@ function astromtimeplot!(
         nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood ||
         (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromLikelihood)
     end
-    rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :name)))
+    rel_astrom_names = sort(unique(likelihoodname.(rel_astrom_likes)))
     n_rel_astrom = length(rel_astrom_names)
     
     for like_obj in like_objs
