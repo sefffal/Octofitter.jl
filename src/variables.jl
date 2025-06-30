@@ -222,45 +222,52 @@ generate_from_params(like::UnitLengthPrior, θ_planet, orbit) = like
 
 
 # User-defined likelihood for expressions that should follow a distribution
-struct UserLikelihood{TDist<:Distribution, TSym} <: AbstractLikelihood
-    distribution::TDist
+struct UserLikelihood{TSym_LHS, TSym_RHS} <: AbstractLikelihood
+    priors::Priors
+    derived::Derived
     name::String
 end
-
 # Constructor to embed the symbol as a type parameter
-UserLikelihood(dist::TDist, sym::Symbol, name::String) where TDist = 
-    UserLikelihood{TDist, sym}(dist, name)
+UserLikelihood(sym_lhs::Symbol, sym_rhs::Symbol, name::String) =  UserLikelihood{sym_lhs, sym_rhs}(Priors(), Derived(), name)
+UserLikelihood(sym_lhs::Symbol, sym_rhs::Symbol, name::Symbol) =  UserLikelihood{sym_lhs, sym_rhs}(Priors(), Derived(), String(name))
 
 # Required AbstractLikelihood interface methods
 likelihoodname(like::UserLikelihood) = like.name
 _isprior(::UserLikelihood) = true
-instrument_name(like::UserLikelihood) = like.name
 likeobj_from_epoch_subset(like::UserLikelihood, obs_inds) = like
 TypedTables.Table(::UserLikelihood) = nothing
 generate_from_params(like::UserLikelihood, θ_planet, orbit) = like
 
 # System-level likelihood
-function ln_like(user_like::UserLikelihood{TDist, TSym}, θ_system::NamedTuple, _args...) where {TDist, TSym}
-    value = getproperty(θ_system, TSym)
-    if value isa NTuple{N,<:Number} where N
-        value = SVector(value)
+function ln_like(user_like::UserLikelihood{TSym_LHS, TSym_RHS}, θ_system::NamedTuple, _args...) where {TSym_LHS, TSym_RHS}
+    lhs = getproperty(θ_system, TSym_LHS)
+    rhs = getproperty(θ_system, TSym_RHS)
+    if rhs isa NTuple{N,<:Number} where N
+        rhs = SVector(rhs)
     end
-    return logpdf(user_like.distribution, value)
+    if lhs isa Distribution
+        return logpdf(lhs, rhs)
+    elseif rhs isa Distribution
+        return logpdf(rhs, lhs)
+    else
+        error("neither the left nor right hand side of the `~` expression evaluated to a distribution")
+    end
 end
 
 # Planet-level likelihood
-function ln_like(user_like::UserLikelihood{TDist, TSym}, θ_system::NamedTuple, θ_planet::NamedTuple, θ_obs::NamedTuple, _args...) where {TDist, TSym}
+function ln_like(user_like::UserLikelihood{TSym_LHS, TSym_RHS}, θ_system::NamedTuple, θ_planet::NamedTuple, θ_obs::NamedTuple, _args...) where {TSym_LHS, TSym_RHS}
     θ = merge(θ_planet, θ_obs)
-    value = getproperty(θ, TSym)
-    if value isa NTuple{N,<:Number} where N
-        value = SVector(value)
+    lhs = getproperty(θ, TSym_LHS)
+    rhs = getproperty(θ, TSym_RHS)
+    if rhs isa NTuple{N,<:Number} where N
+        rhs = SVector(rhs)
     end
-    return logpdf(user_like.distribution, value)
+    return logpdf(lhs, rhs)
 end
 
 # Show method
-function Base.show(io::IO, mime::MIME"text/plain", like::UserLikelihood{TDist, TSym}) where {TDist, TSym}
-    println(io, "UserLikelihood: $(TSym) ~ $(like.distribution)")
+function Base.show(io::IO, mime::MIME"text/plain", like::UserLikelihood{TSym_LHS, TSym_RHS}) where {TSym_LHS, TSym_RHS}
+    println(io, "UserLikelihood: $TSym_LHS ~ $TSym_RHS")
 end
 
 # We need a blank likelihood type to hold variables when constructing
@@ -643,9 +650,6 @@ function make_arr2nt(system::System)
                         # Make previous variables available
                         $([:($(k) = _prev.$k) for k in all_available_keys]...)
                         result = $expr
-                        if result isa Distributions.Distribution
-                            error("System derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
-                        end
                         result
                     end)
                 end
