@@ -84,23 +84,59 @@ end
 export PlanetRelativeRVLikelihood
 
 
+# In-place simulation logic for PlanetRelativeRVLikelihood (performance-critical)
+function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    this_orbit = orbits[i_planet]
+    
+    # Data for this instrument:
+    epochs = vec(rvlike.table.epoch)
+    
+    # Compute the model RV values (what we expect to observe)
+    fill!(rv_model_buf, 0)
+    
+    # Add RV contribution from this planet and any inner planets:
+    for i_epoch in eachindex(epochs)
+        sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
+        @assert isapprox(rvlike.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
+        # Relative RV due to planet
+        rv_model_buf[i_epoch] += radvel(sol)
+
+        for (i_other_planet, key) in enumerate(keys(θ_system.planets))
+            orbit_other = orbits[i_other_planet]
+            # Account for perturbation due to any inner planets with non-zero mass
+            if semimajoraxis(orbit_other) < semimajoraxis(this_orbit)
+                θ_planet′ = θ_system.planets[key]
+                if !hasproperty(θ_planet′, :mass)
+                    continue
+                end
+                mass_other = θ_planet′.mass*Octofitter.mjup2msol
+                sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                
+                rv_model_buf[i_epoch] += radvel(sol′, mass_other)
+                
+                @assert isapprox(rvlike.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
+            end
+        end
+    end
+    
+    return (rv_model = rv_model_buf, epochs = epochs)
+end
+
+# Allocating simulation logic for PlanetRelativeRVLikelihood (convenience method)
+function Octofitter.simulate(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    T = Octofitter._system_number_type(θ_planet)
+    rv_model_buf = Vector{T}(undef, length(rvlike.table.epoch))
+    return Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+end
+
 
 """
 Radial velocity likelihood.
 """
 function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
-
-
     T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
-
-    this_orbit = orbits[i_planet]
-
-    # We don't support multiple instruments for relative RVs.
-    # This isn't essential because there should be no zero point offsets that
-    # differ by instrument.
-    # The only thing that could differ would be the jitter
-
+    
     # Data for this instrument:
     epochs = vec(rvlike.table.epoch)
     σ_rvs = vec(rvlike.table.σ_rv)
@@ -108,43 +144,16 @@ function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_pl
     jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero(T)
 
     @no_escape begin
-        noise_var = @alloc(T, length(rvs))
-        fill!(noise_var, 0)
-
-        # RV "data" calculation: measured RV + our barycentric rv calculation
-        rv_star_buf = @alloc(T, length(rvs))
-        fill!(rv_star_buf, 0)
-        rv_star_buf .+= rvs
+        # Allocate buffers using bump allocator
+        rv_model_buf = @alloc(T, length(epochs))
+        rv_residuals = @alloc(T, length(epochs))
+        noise_var = @alloc(T, length(epochs))
         
-        ## Zygote version:
-        # rv_star_buf = @view(rv_star_buf_all_inst[istart:iend])
+        # Use in-place simulation method to get model values
+        sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
-        # Go through all planets and subtract their modelled influence on the RV signal:
-        # You could consider `rv_star` as the residuals after subtracting these.
-        # Threads.@threads 
-        for i_epoch in eachindex(epochs)
-            sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
-            @assert isapprox(rvlike.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
-            # Relative RV due to planet
-            rv_star_buf[i_epoch] -= radvel(sol)
-
-            for (i_other_planet, key) in enumerate(keys(θ_system.planets))
-                orbit_other = orbits[i_other_planet]
-                # Account for perturbation due to any inner planets with non-zero mass
-                if semimajoraxis(orbit_other) < semimajoraxis(this_orbit)
-                    θ_planet′ = θ_system.planets[key]
-                    if !hasproperty(θ_planet′, :mass)
-                        continue
-                    end
-                    mass_other = θ_planet′.mass*Octofitter.mjup2msol
-                    sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
-                    
-                    rv_star_buf[i_epoch] -= radvel(sol′, mass_other)
-                    
-                    @assert isapprox(rvlike.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
-                end
-            end
-        end
+        # Compute residuals: observed - model
+        rv_residuals .= rvs .- rv_model_buf
 
         # The noise variance per observation is the measurement noise and the jitter added
         # in quadrature
@@ -155,14 +164,14 @@ function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_pl
         if isnothing(rvlike.gaussian_process)
             # Don't fit a GP
             fx = MvNormal(Diagonal((noise_var)))
-            ll += logpdf(fx, rv_star_buf)
+            ll += logpdf(fx, rv_residuals)
         else
             # Fit a GP
             local gp
             try
                 gp = @inline rvlike.gaussian_process(θ_obs)
                 fx = gp(epochs, noise_var)
-                ll += logpdf(fx, rv_star_buf)
+                ll += logpdf(fx, rv_residuals)
             catch err
                 if err isa PosDefException
                     # @warn "err" exception=(err, catch_backtrace()) maxlog=1

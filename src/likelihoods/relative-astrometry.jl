@@ -97,6 +97,57 @@ end
 export PlanetRelAstromLikelihood
 
 
+# In-place simulation logic for PlanetRelAstromLikelihood (performance-critical)
+function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    T = _system_number_type(θ_system)
+    this_orbit = orbits[i_planet]
+    
+    # Compute model astrometry for each epoch
+    for i_epoch in eachindex(astrom.table.epoch)
+        # Get the orbit solution for this planet at this epoch
+        sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
+        @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
+        
+        # Calculate perturbations from inner planets
+        ra_host_perturbation = zero(T)
+        dec_host_perturbation = zero(T)
+        for (i_other_planet, key) in enumerate(keys(θ_system.planets))
+            orbit_other = orbits[i_other_planet]
+            # Only account for inner planets with non-zero mass
+            if semimajoraxis(orbit_other) < semimajoraxis(this_orbit)
+                θ_planet′ = θ_system.planets[key]
+                if !hasproperty(θ_planet′, :mass)
+                    continue
+                end
+                mass_other = θ_planet′.mass*Octofitter.mjup2msol
+                sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                
+                ra_host_perturbation += raoff(sol′, mass_other)
+                dec_host_perturbation += decoff(sol′, mass_other)
+                
+                @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
+            end
+        end
+
+        # Compute the model astrometry values
+        # This is distance(outer planet, inner barycentre) + distance(inner barycentre, star)
+        ra_model_buf[i_epoch] = raoff(sol) - ra_host_perturbation
+        dec_model_buf[i_epoch] = decoff(sol) - dec_host_perturbation
+    end
+    
+    return (ra_model = ra_model_buf, dec_model = dec_model_buf, epochs = astrom.table.epoch)
+end
+
+# Allocating simulation logic for PlanetRelAstromLikelihood (convenience method)
+function simulate(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    T = _system_number_type(θ_system)
+    L = length(astrom.table.epoch)
+    ra_model_buf = Vector{T}(undef, L)
+    dec_model_buf = Vector{T}(undef, L)
+    return simulate!(ra_model_buf, dec_model_buf, astrom, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+end
+
+
 function likeobj_from_epoch_subset(obs::PlanetRelAstromLikelihood, obs_inds)
     return PlanetRelAstromLikelihood(
         obs.table[obs_inds,:,1];
@@ -110,122 +161,81 @@ using LinearAlgebra
 
 # PlanetRelAstromLikelihood likelihood function
 function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
-
-    # Note: since astrometry data is stored in a typed-table, the column name
-    # checks using `hasproperty` ought to be compiled out completely.
-
     T = Octofitter._system_number_type(θ_system)
    
     jitter = hasproperty(θ_obs, :jitter) ? getproperty(θ_obs, :jitter) : zero(T)
     platescale = hasproperty(θ_obs, :platescale) ? getproperty(θ_obs, :platescale) : one(T)
     northangle = hasproperty(θ_obs, :northangle) ? getproperty(θ_obs, :northangle) : zero(T)
 
-    this_orbit = orbits[i_planet]
-    T = _system_number_type(θ_system)
+    L = length(astrom.table.epoch)
     ll = zero(T)
-    for i_epoch in eachindex(astrom.table.epoch)
+    
+    @no_escape begin
+        # Allocate buffers using bump allocator
+        ra_model_buf = @alloc(T, L)
+        dec_model_buf = @alloc(T, L)
+        
+        # Use in-place simulation method to get model values
+        sim = Octofitter.simulate!(ra_model_buf, dec_model_buf, astrom, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
-        # Epicycle approximation: consider outer planets
-        # orbit the centre of mass of the star and any inner planets.
-        # Account for the shifting photocentre (assume the star dominates)
-        # due to inner orbits.
-        # Note! this is essentially free to calculate, since we already pre-solved
-        # all orbits at all epochs.
-        sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
-        # println(astrom.table.epoch[i_epoch], "\t", sol.sol.t)
-        @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
-        ra_host_perturbation = zero(T)
-        dec_host_perturbation = zero(T)
-        for (i_other_planet, key) in enumerate(keys(θ_system.planets))
-            orbit_other = orbits[i_other_planet]
-            # Only account for inner planets with non-zero mass
-            if semimajoraxis(orbit_other) < semimajoraxis(this_orbit)
-                θ_planet′ = θ_system.planets[key]
-                if !hasproperty(θ_planet′, :mass)
-                    continue
-                end
-                mass_other = θ_planet′.mass*Octofitter.mjup2msol
-                sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
-                # Note about `total mass`: for this to be correct, user will have to specify
-                # `M` at the planet level such that it doesn't include the outer planets.
+        # Process each epoch to compute residuals and likelihood
+        for i_epoch in eachindex(astrom.table.epoch)
+            ra_model = ra_model_buf[i_epoch]
+            dec_model = dec_model_buf[i_epoch]
 
-                # raoff(sol′) is the distance from the inner planet to the star
-                # raoff(sol, θ_planet.mass * mjup2msol) is the displacement of the star vs the barycentre
-
-                ra_host_perturbation += raoff(sol′, mass_other)
-                dec_host_perturbation += decoff(sol′, mass_other)
-
-                @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
-                @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
-            end
-        end
-
-        # Add the distance from the outer planet to the (inner planets + star) barcentre,
-        # and then add the distance from the (inner planet + star) barycentre to the star
-
-        # This is distance(outer planet, inner barycentre) + distance(inner barycentre, star)
-        ra_model = (raoff(sol) - ra_host_perturbation )
-        dec_model = (decoff(sol) - dec_host_perturbation )
-
-        # PA and Sep specified
-        if hasproperty(astrom.table, :pa) && hasproperty(astrom.table, :sep)
-            ρ = hypot(ra_model,dec_model)
-            pa = atan(ra_model,dec_model)
-
-            pa_dat = astrom.table.pa[i_epoch] + northangle
-            pa_diff = ( pa_dat - pa + π) % 2π - π;
-            pa_diff = pa_diff < -π ? pa_diff + 2π : pa_diff;
-            resid1 = pa_diff
-            resid2 = astrom.table.sep[i_epoch]*platescale - ρ
-
-        # RA and DEC specified
-        else
-            pa_dat = atan(astrom.table.dec[i_epoch], astrom.table.ra[i_epoch]) + northangle
-            sep_dat = hypot(astrom.table.dec[i_epoch], astrom.table.ra[i_epoch])*platescale
-            ra_dat = sep_dat * cos(pa_dat)
-            dec_dat = sep_dat * sin(pa_dat)
-            resid1 = ra_dat - ra_model
-            resid2 = dec_dat -  dec_model
-        end
-
-        if jitter == 0.
-            # @show  logpdf(astrom.precomputed_pointwise_distributions[i_epoch], @SVector[resid1, resid2])
-            # d = sqrt.(diag(params(astrom.precomputed_pointwise_distributions[i_epoch])[2]))
-            # resid = [resid1, resid2]
-            # l = logpdf(astrom.precomputed_pointwise_distributions[i_epoch], @SVector[resid1, resid2])
-            # @show d resid l
-
-            # println()
-            ll += logpdf(astrom.precomputed_pointwise_distributions[i_epoch], @SVector[resid1, resid2])
-        else
-            # For data points with a non-zero correlation, we can speed things up slightly
-            # by pre-computing the appropriate 2x2 matrix factorizations. 
-            # Distributions.jl handles this all for us--we just create N MvNormal distributions
             # PA and Sep specified
             if hasproperty(astrom.table, :pa) && hasproperty(astrom.table, :sep)
-                σ₁ = astrom.table.σ_pa[i_epoch]
-                σ₂ = astrom.table.σ_sep[i_epoch]
+                ρ = hypot(ra_model, dec_model)
+                pa = atan(ra_model, dec_model)
+
+                pa_dat = astrom.table.pa[i_epoch] + northangle
+                pa_diff = (pa_dat - pa + π) % 2π - π
+                pa_diff = pa_diff < -π ? pa_diff + 2π : pa_diff
+                resid1 = pa_diff
+                resid2 = astrom.table.sep[i_epoch] * platescale - ρ
+
             # RA and DEC specified
             else
-                σ₁ = astrom.table.σ_ra[i_epoch]
-                σ₂ = astrom.table.σ_dec[i_epoch]
+                pa_dat = atan(astrom.table.dec[i_epoch], astrom.table.ra[i_epoch]) + northangle
+                sep_dat = hypot(astrom.table.dec[i_epoch], astrom.table.ra[i_epoch]) * platescale
+                ra_dat = sep_dat * cos(pa_dat)
+                dec_dat = sep_dat * sin(pa_dat)
+                resid1 = ra_dat - ra_model
+                resid2 = dec_dat - dec_model
             end
-            # Add jitter in quadrature
-            σ₁ = hypot(σ₁, jitter)
-            σ₂ = hypot(σ₂, jitter)
-            # we have to compute the factorization on the fly
-            if hasproperty(astrom.table, :cor)
-                cor = astrom.table.cor[i_epoch]
-                Σ = @SArray[
-                    σ₁^2        cor*σ₁*σ₂
-                    cor*σ₁*σ₂   σ₂^2
-                ]
-                dist = MvNormal(Σ)
+
+            if jitter == 0.
+                ll += logpdf(astrom.precomputed_pointwise_distributions[i_epoch], @SVector[resid1, resid2])
             else
-                Σ = Diagonal(@SArray[σ₁^2, σ₂^2])
-                dist = MvNormal(Σ)
+                # For data points with a non-zero correlation, we can speed things up slightly
+                # by pre-computing the appropriate 2x2 matrix factorizations. 
+                # Distributions.jl handles this all for us--we just create N MvNormal distributions
+                # PA and Sep specified
+                if hasproperty(astrom.table, :pa) && hasproperty(astrom.table, :sep)
+                    σ₁ = astrom.table.σ_pa[i_epoch]
+                    σ₂ = astrom.table.σ_sep[i_epoch]
+                # RA and DEC specified
+                else
+                    σ₁ = astrom.table.σ_ra[i_epoch]
+                    σ₂ = astrom.table.σ_dec[i_epoch]
+                end
+                # Add jitter in quadrature
+                σ₁ = hypot(σ₁, jitter)
+                σ₂ = hypot(σ₂, jitter)
+                # we have to compute the factorization on the fly
+                if hasproperty(astrom.table, :cor)
+                    cor = astrom.table.cor[i_epoch]
+                    Σ = @SArray[
+                        σ₁^2        cor*σ₁*σ₂
+                        cor*σ₁*σ₂   σ₂^2
+                    ]
+                    dist = MvNormal(Σ)
+                else
+                    Σ = Diagonal(@SArray[σ₁^2, σ₂^2])
+                    dist = MvNormal(Σ)
+                end
+                ll += logpdf(dist, @SVector[resid1, resid2])
             end
-            ll += logpdf(dist, @SVector[resid1, resid2])
         end
     end
     return ll
@@ -233,21 +243,26 @@ end
 
 # Generate new astrometry observations
 function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
-    this_orbit = orbits[i_planet]
-
     # Get epochs and uncertainties from observations
     epoch = like.table.epoch
 
-    # TODO: account for platescale and northangle when generating data
+    # Use the same simulation method as ln_like to generate model astrometry values  
+    sim = Octofitter.simulate(like, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    ra_model = sim.ra_model
+    dec_model = sim.dec_model
+
+    # Apply platescale and northangle corrections (which ln_like also handles)
+    platescale = hasproperty(θ_obs, :platescale) ? θ_obs.platescale : 1.0
+    northangle = hasproperty(θ_obs, :northangle) ? θ_obs.northangle : 0.0
 
     if hasproperty(like.table, :pa) && hasproperty(like.table, :sep)
-
         σ_sep = like.table.σ_sep 
         σ_pa = like.table.σ_pa
 
-        # Generate now astrometry data
-        sep = projectedseparation.(this_orbit, epoch)
-        pa = posangle.(this_orbit, epoch)
+        # Convert ra/dec model to pa/sep
+        sep = hypot.(ra_model, dec_model) ./ platescale
+        pa = atan.(ra_model, dec_model) .- northangle
+        
         if hasproperty(like.table, :cov)
             astrometry_table = Table(;epoch, sep, pa, σ_sep, σ_pa, like.table.cov)
         else
@@ -257,9 +272,17 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_pl
         σ_ra = like.table.σ_ra 
         σ_dec = like.table.σ_dec
 
-        # Generate now astrometry data
-        ra = raoff.(this_orbit, epoch)
-        dec = decoff.(this_orbit, epoch)
+        # Convert ra/dec model to observed ra/dec with corrections
+        sep_model = hypot.(ra_model, dec_model)
+        pa_model = atan.(ra_model, dec_model)
+        
+        # Apply corrections
+        pa_corrected = pa_model .- northangle
+        sep_corrected = sep_model ./ platescale
+        
+        ra = sep_corrected .* cos.(pa_corrected)
+        dec = sep_corrected .* sin.(pa_corrected)
+        
         if hasproperty(like.table, :cov)
             astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec, like.table.cov)
         else
