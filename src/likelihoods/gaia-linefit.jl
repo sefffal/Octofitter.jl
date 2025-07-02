@@ -804,9 +804,6 @@ function _simulate_skypath_perturbations!(
     flux_ratio,
     orbit_solutions, orbit_solutions_i_epoch_start, T=Float64;
 )
-    if flux_ratio != 0
-        throw(NotImplementedException())
-    end
     for i in eachindex(table.epoch)
         # TODO: make use of potentially multi-threaded kepsolve by ensuring `epoch` column is present,
         # and using above passed-in orbit solutions.
