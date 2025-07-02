@@ -118,6 +118,13 @@ The `fixed_params` can include:
 - Planet variables: `(; planets=(; b=(; a=1.5, e=0.1, ...), ...))`  
 - Observation variables: `(; observations=(; ObsName=(; var1=val1, var2=val2, ...), ...))`
 
+Available keyword arguments include:
+ - `verbosity=1`: control extra logging, can be 0 for silent, up to 4 for debugging info
+ - `pathfinder_autodiff=AutoForwardDiff()`: what autodiff backend to use for initialization (not necessarily the same one used for the model in general)
+ - `nruns=8`: how many runs of multi-pathfinder to use 
+ - `ntries=2`: how many times can pathfinder fail and restart
+ - `ndraws=1000`: how many draws to return from the pathfinder approximation
+
 Example:
 ```julia
 init_chain = initialize!(model, (;
