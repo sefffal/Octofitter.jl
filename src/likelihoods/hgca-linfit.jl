@@ -356,7 +356,7 @@ export HGCALikelihood
 # Generate new astrometry observations
 function generate_from_params(like::HGCALikelihood, θ_system, θ_obs, orbits, solutions, sol_start_i)
 
-    sim = I
+    sim = simulate(like, θ_system, θ_obs, orbits, solutions, sol_start_i)
 
     (;μ_g, μ_h, μ_hg) = sim
 
