@@ -87,16 +87,20 @@ function Octofitter.astromplot!(
     end
     axis_mult = use_arcsec ? 1e-3 : 1.0 
 
-    ax = Axis(
-        gs[1, 1];
-        autolimitaspect=1,
-        xreversed=true,
-        xlabel= use_arcsec ? "Δα* [as]" : "Δα* [mas]",
-        ylabel= use_arcsec ? "Δδ [as]" : "Δδ [mas]",
-        xgridvisible=false,
-        ygridvisible=false,
-        axis...
-    )
+    if gs isa Axis
+        ax = gs
+    else
+        ax = Axis(
+            gs[1, 1];
+            autolimitaspect=1,
+            xreversed=true,
+            xlabel= use_arcsec ? "Δα* [as]" : "Δα* [mas]",
+            ylabel= use_arcsec ? "Δδ [as]" : "Δδ [mas]",
+            xgridvisible=false,
+            ygridvisible=false,
+            axis...
+        )
+    end
 
     # Start by plotting the orbits
 
@@ -417,7 +421,7 @@ function Octofitter.astromplot!(
             end
         end
        
-        if show_post_pred_legend
+        if show_post_pred_legend && !(gs isa Axis)
             row_i += 1
             Legend(
                 gs[row_i,1:2],
@@ -432,7 +436,7 @@ function Octofitter.astromplot!(
         end
     end
 
-    if colorbar
+    if colorbar && !(gs isa Axis)
         if length(colormaps) == 1
             Colorbar(
                 gs[1,2];
