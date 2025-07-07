@@ -280,8 +280,8 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_pl
         pa_corrected = pa_model .- northangle
         sep_corrected = sep_model ./ platescale
         
-        ra = sep_corrected .* cos.(pa_corrected)
-        dec = sep_corrected .* sin.(pa_corrected)
+        ra = sep_corrected .* sin.(pa_corrected)
+        dec = sep_corrected .* cos.(pa_corrected)
         
         if hasproperty(like.table, :cov)
             astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec, like.table.cov)

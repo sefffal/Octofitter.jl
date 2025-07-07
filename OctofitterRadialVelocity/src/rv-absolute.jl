@@ -205,8 +205,10 @@ function Octofitter.ln_like(
             local gp, fx
             try
                 gp = @inline rvlike.gaussian_process(θ_obs)
+                # Celerite GP:
                 if gp isa Celerite.CeleriteGP
                     Celerite.compute!(gp, rvlike.table.epoch, sqrt.(rv_var_buf))# TODO: is this std or var?
+                # AbstractGPs GP:
                 else
                     fx = gp(rvlike.table.epoch, rv_var_buf)
                 end
@@ -228,8 +230,10 @@ function Octofitter.ln_like(
                 try
                     # Normal path: evaluate likelihood against all data
                     if isempty(rvlike.held_out_table)
+                        # Celerite GP:
                         if gp isa Celerite.CeleriteGP
                             ll += Celerite.log_likelihood(gp, rv_residuals)
+                        # AbstractGPs GP:
                         else
                             ll += logpdf(fx, rv_residuals)
                         end
