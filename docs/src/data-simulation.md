@@ -23,7 +23,7 @@ For this example, we'll use the combined astrometry, proper motion anomaly, and 
 # HGCA likelihood for HD 91312
 hgca_like = HGCALikelihood(gaia_id=756291174721509376)
 
-# Simulated relative astrometry data (from discovery paper)
+#  relative astrometry data (from discovery paper)
 astrom_dat = Table(;
     epoch = [mjd("2016-12-15"), mjd("2017-03-12"), mjd("2017-03-13"), mjd("2018-02-08"), mjd("2018-11-28"), mjd("2018-12-15")],
     ra    = [133., 126., 127., 083., 058., 056.],
@@ -43,7 +43,7 @@ astrom_like = PlanetRelAstromLikelihood(
     end
 )
 
-# Simulated RV data
+#  RV data
 rv_dat = Table(;
     epoch = [mjd("2008-05-01"), mjd("2010-02-15"), mjd("2016-03-01")],
     rv    = [1300, 700, -2700],
