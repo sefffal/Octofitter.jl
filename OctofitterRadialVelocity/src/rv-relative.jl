@@ -215,7 +215,7 @@ end
 
 
 # Generate new radial velocity observations for a star
-function Octofitter.generate_from_params(like::PlanetRelativeRVLikelihood, θ_system, orbits::Vector{<:Visual{KepOrbit}}; add_noise)
+function generate_from_params(like::PlanetRelativeRVLikelihood, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
 
     # Get epochs, uncertainties, and planet masses from observations and parameters
     epochs = like.table.epoch 
@@ -227,7 +227,8 @@ function Octofitter.generate_from_params(like::PlanetRelativeRVLikelihood, θ_sy
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
 
     if add_noise
-        radvel_table.rv .+= randn.() .* σ_rvs
+        jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero(T)
+        radvel_table.rv .+= randn.() .* hypot.(σ_rvs, jitter)
     end
 
     return PlanetRelativeRVLikelihood(

@@ -54,6 +54,7 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple} <: AbstractLikelihood
             σ₁ = table.σ_pa
             σ₂ = table.σ_sep
 
+            @show table.pa
             if any(>=(2pi),  table.pa) || any(<=(-2pi),  table.pa)
                 @warn "The data you entered fell outside the range [-2pi, +2pi]. The expected input format is radians (you can use `deg2rad` to convert). We suggest you double check your input data!"
             end
@@ -254,6 +255,7 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_pl
     # Apply platescale and northangle corrections (which ln_like also handles)
     platescale = hasproperty(θ_obs, :platescale) ? θ_obs.platescale : 1.0
     northangle = hasproperty(θ_obs, :northangle) ? θ_obs.northangle : 0.0
+    jitter = hasproperty(θ_obs, :jitter) ? getproperty(θ_obs, :jitter) : zero(T)
 
     if hasproperty(like.table, :pa) && hasproperty(like.table, :sep)
         σ_sep = like.table.σ_sep 
@@ -295,9 +297,10 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_pl
         end
 
         if add_noise
-            astrometry_table.ra .+= randn.() .* σ_ra
-            astrometry_table.dec .+= randn.() .* σ_dec
+            astrometry_table.ra .+= randn.() .* hypot.(σ_ra, jitter)
+            astrometry_table.dec .+= randn.() .* hypot.(σ_dec, jitter)
         end
+        display(astrometry_table)
     end
 
     return PlanetRelAstromLikelihood(astrometry_table; like.name)
