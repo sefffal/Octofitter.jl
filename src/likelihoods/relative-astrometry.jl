@@ -242,7 +242,7 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_obs
 end
 
 # Generate new astrometry observations
-function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
     # Get epochs and uncertainties from observations
     epoch = like.table.epoch
 
@@ -268,6 +268,11 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_pl
         else
             astrometry_table = Table(;epoch, sep, pa, σ_sep, σ_pa)
         end
+
+        if add_noise
+            astrometry_table.sep .+= randn.() .* σ_sep
+            astrometry_table.pa .+= randn.() .* σ_pa
+        end
     else
         σ_ra = like.table.σ_ra 
         σ_dec = like.table.σ_dec
@@ -287,6 +292,11 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_pl
             astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec, like.table.cov)
         else
             astrometry_table = Table(;epoch, ra, dec, σ_ra, σ_dec)
+        end
+
+        if add_noise
+            astrometry_table.ra .+= randn.() .* σ_ra
+            astrometry_table.dec .+= randn.() .* σ_dec
         end
     end
 

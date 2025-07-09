@@ -223,11 +223,11 @@ end
 
 # Generate calibration data
 """
-    generate_from_params(system, θ=drawfrompriors(system))
+    generate_from_params(system, θ=drawfrompriors(system); add_noise=false)
 
 Generate a new system and observations from an existing model.
 """
-function generate_from_params(system::System, θ_newsystem = drawfrompriors(system))
+function generate_from_params(system::System, θ_newsystem = drawfrompriors(system); add_noise=false)
 
     # First, we need to gather all epochs just like in make_ln_like
     all_epochs = Float64[]
@@ -299,7 +299,8 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
                 orbits,
                 orbit_solutions,
                 i,  # planet index
-                i_epoch_start - 1  # start epoch index (0-based)
+                i_epoch_start - 1;  # start epoch index (0-based)
+                add_noise
             )
         end
         
@@ -329,7 +330,8 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
             θ_obs,
             orbits,
             orbit_solutions,
-            i_epoch_start - 1  # start epoch index (0-based)
+            i_epoch_start - 1;  # start epoch index (0-based)
+            add_noise
         )
     end
 

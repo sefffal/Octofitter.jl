@@ -168,7 +168,7 @@ end
 
 
 # Generate new radial velocity observations for a star
-function Octofitter.generate_from_params(like::MarginalizedStarAbsoluteRVLikelihood, θ_system,  θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function Octofitter.generate_from_params(like::MarginalizedStarAbsoluteRVLikelihood, θ_system,  θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start; add_noise)
 
     # Get epochs and uncertainties from observations
     epochs = like.table.epoch 
@@ -181,6 +181,10 @@ function Octofitter.generate_from_params(like::MarginalizedStarAbsoluteRVLikelih
     rvs = sim.rv_model .+ 0.0
     
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
+
+    if add_noise
+        radvel_table.rv .+= randn.() .* σ_rvs
+    end
 
     return MarginalizedStarAbsoluteRVLikelihood(
         radvel_table;

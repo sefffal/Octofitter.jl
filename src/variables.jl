@@ -218,7 +218,7 @@ function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::UnitLengt
     T = typeof(like)
     println(io, "$(T): √($X^2+$Y^2) ~ LogNormal(log(1), 0.02)")
 end
-generate_from_params(like::UnitLengthPrior, args...) = like
+generate_from_params(like::UnitLengthPrior, args...; kwargs...) = like
 
 
 # User-defined likelihood for expressions that should follow a distribution
