@@ -254,7 +254,7 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_pl
     # Apply platescale and northangle corrections (which ln_like also handles)
     platescale = hasproperty(θ_obs, :platescale) ? θ_obs.platescale : 1.0
     northangle = hasproperty(θ_obs, :northangle) ? θ_obs.northangle : 0.0
-    jitter = hasproperty(θ_obs, :jitter) ? getproperty(θ_obs, :jitter) : zero(T)
+    jitter = hasproperty(θ_obs, :jitter) ? getproperty(θ_obs, :jitter) : 0.0
 
     if hasproperty(like.table, :pa) && hasproperty(like.table, :sep)
         σ_sep = like.table.σ_sep 
