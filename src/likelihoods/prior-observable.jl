@@ -131,8 +131,8 @@ function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_
 end
 
 
-function generate_from_params(like::ObsPriorAstromONeil2019, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
-    return generate_from_params(like.wrapped_like, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function generate_from_params(like::ObsPriorAstromONeil2019, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
+    return generate_from_params(like.wrapped_like, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
 end
 
 # TODO: Add a RadialVelocity correction version in OctofitterRadialVelocity
