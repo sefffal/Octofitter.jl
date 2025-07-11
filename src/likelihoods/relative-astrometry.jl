@@ -54,7 +54,6 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple} <: AbstractLikelihood
             σ₁ = table.σ_pa
             σ₂ = table.σ_sep
 
-            @show table.pa
             if any(>=(2pi),  table.pa) || any(<=(-2pi),  table.pa)
                 @warn "The data you entered fell outside the range [-2pi, +2pi]. The expected input format is radians (you can use `deg2rad` to convert). We suggest you double check your input data!"
             end
