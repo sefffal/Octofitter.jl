@@ -39,7 +39,7 @@ gaiaIADlike = GaiaDR4Astrom(
     df, 
     gaia_id=4318465066420528000,
     variables=@variables begin
-        astrometric_jitter = 0.0 # [mas]. Could use e.g. `~ LogUniform(0.00001, 10)
+        astrometric_jitter ~ LogUniform(0.00001, 10) # mas
     end
 )
 ```
@@ -83,11 +83,10 @@ Now, we define a model that incorporates this data:
 mjup2msol = Octofitter.mjup2msol
 ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 orbit_ref_epoch = mean(gaiaIADlike.table.epoch)
-DR4_REFERENCE_EPOCH = 2457936.875 # J2017.5 
 
 b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
+    name="BH",
+    basis=AbsoluteVisual{KepOrbit},
     likelihoods=[],
     variables=@variables begin
         a ~ Uniform(0, 1000)
@@ -100,30 +99,31 @@ b = Planet(
         mass = system.M_sec / mjup2msol
     end
 )
+# DR3 catalog position and reference epoch
 gaia_ra = 294.82786250815144
 gaia_dec = 14.930979608612361
-
+ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 sys = System(
     name="gaiadr4test",
     companions=[b],
-    likelihoods=[gaiaIADlike, rvlike],
+    likelihoods=[gaiaIADlike, rvlike,],
     variables=@variables begin
-        M_pri = 0.76
-        M_sec ~ LogUniform(1, 1000) # Msol
+        M_pri ~ truncated(Normal(0.76,0.05),lower=0.1) # M sun
+        M_sec ~ LogUniform(1, 1000) # M sun
         M = M_pri + M_sec
-        plx ~ Uniform(0.01, 100)
-        pmra ~ Uniform(-1000, 1000)
-        pmdec ~ Uniform(-1000, 1000)
+        # Note: keep these physically plausible to prevent numerical errors
+        plx ~ Uniform(0.01,100) # mas
+        pmra ~ Uniform(-1000, 1000) # mas/yr
+        pmdec ~  Uniform(-1000, 1000) # mas/yr
+        rv = −333.2e3 # m/s
 
         # Put a prior of the catalog value +- 10,000 mas on position
-        # We could just fit the deltas directly, but we can propagate 
-        # handling all non-linear effects if we know the actual ra, 
-        # dec, and rv.
-        ra_offset_mas ~ Normal(0, 100)
-        dec_offset_mas ~ Normal(0, 100)
+        ra_offset_mas ~ Normal(0, 10000)
+        dec_offset_mas ~ Normal(0, 10000)
         dec = $gaia_dec + ra_offset_mas / 60 / 60 / 1000
         ra = $gaia_ra + dec_offset_mas / 60 / 60 / 1000 / cosd(dec)
-        ref_epoch = $DR4_REFERENCE_EPOCH
+        # Important! This is the reference epoch for the ra and dec provided above, *not* necessarily DR4.
+        ref_epoch = $ref_epoch_mjd
     end
 )
 model = Octofitter.LogDensityModel(sys, verbosity=4)
@@ -132,14 +132,36 @@ model = Octofitter.LogDensityModel(sys, verbosity=4)
 
 We will initialize the model starting positions and visualize them:
 ```@example 1
-init_chain = initialize!(model)
+# Note: you can see the required format for paramter initialization by running:
+# nt = Octofitter.drawfrompriors(model.system);
+# println(nt)
+
+init_chain = initialize!(model, (;
+    plx =               1.67,
+    pmra =              -28.5,
+    pmdec =            -155.17,
+    M_pri =              0.76,
+    M_sec =              32.70,
+    observations = (;
+        GaiaRV = (;
+            offset = -357200
+        ),
+    ),
+    planets = (;
+        BH = (;
+            a = 16.17,
+            e = 0.7291,
+            i = deg2rad(110.580),
+        )
+    )
+); verbosity=4)
 octoplot(model, init_chain, show_rv=true)
 ```
 
 Now, we can perform the fit. It is a little slow since we have many hundreds of RV and astrometry data points.
 ```@example 1
 using Pigeons
-chain, pt = octofit_pigeons(model, n_rounds=10) # might need more rounds to converge
+chain, pt = octofit_pigeons(model, n_rounds=6) # might need more rounds to converge
 ```
 
 Finally, we can visualize the results:
