@@ -59,8 +59,8 @@ model = Octofitter.LogDensityModel(sys)</code></pre><pre class="documenter-examp
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 3.06 seconds
-Compute duration  = 3.06 seconds
+Wall duration     = 3.07 seconds
+Compute duration  = 3.07 seconds
 parameters        = plx, pmra, pmdec, ra_hip_offset_mas, dec_hip_offset_mas, M, rv, dec, ra, ref_epoch, b_mass, b_e, b_ω, b_a, b_i, b_Ω, b_tp
 internals         = logpost
 
@@ -233,15 +233,15 @@ model = Octofitter.LogDensityModel(sys_mass)</code></pre><pre class="documenter-
     ra_hip_offset_mas=0.,
     dec_hip_offset_mas=0.,
 ))
-octoplot(model, init_chain)</code></pre><img src="1452c54f.png" alt="Example block output"/><p>Now we sample:</p><pre><code class="language-julia hljs">using Pigeons
+octoplot(model, init_chain)</code></pre><img src="b16291e4.png" alt="Example block output"/><p>Now we sample:</p><pre><code class="language-julia hljs">using Pigeons
 chain,pt = octofit_pigeons(model, n_rounds=8, explorer=SliceSampler())
 chain</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (256×28×1 Array{Float64, 3}):
 
 Iterations        = 1:1:256
 Number of chains  = 1
 Samples per chain = 256
-Wall duration     = 473.12 seconds
-Compute duration  = 473.12 seconds
+Wall duration     = 488.42 seconds
+Compute duration  = 488.42 seconds
 parameters        = M_pri, M_sec, plx, pmra, pmdec, ra_hip_offset_mas, dec_hip_offset_mas, M, rv, dec, ra, ref_epoch, b_a, b_e, b_ω, b_i, b_Ω, b_θ, b_M, b_tp, b_mass, b_VLT_SPHERE_jitter, b_VLT_SPHERE_northangle, b_VLT_SPHERE_platescale
 internals         = loglike, logpost, logprior, pigeons_logpotential
 
@@ -249,23 +249,23 @@ Summary Statistics
  <span class="sgr1">          parameters         mean        std       mcse   ess_bulk   ess_tail ⋯
  <span class="sgr90">              Symbol      Float64    Float64    Float64    Float64    Float64 ⋯
 
-                M_pri       1.7475     0.0492     0.0057    78.1539   178.0162 ⋯
-                M_sec      26.9069    35.8649     6.6931    30.0818   122.0133 ⋯
-                  plx      33.9560     0.3400     0.0237   205.3933   197.3019 ⋯
-                 pmra      44.7649     0.8434     0.1366    46.0978   246.3629 ⋯
-                pmdec     -64.2144     0.3935     0.0290   167.6616   195.1355 ⋯
-    ra_hip_offset_mas      -5.9463     8.1096     1.5016    42.4042   151.2808 ⋯
-   dec_hip_offset_mas      -1.4275     1.8722     0.2884    40.1104   139.0824 ⋯
-                    M       1.7732     0.0664     0.0101    46.7210   200.2393 ⋯
+                M_pri       1.7454     0.0506     0.0059    74.4489   103.4569 ⋯
+                M_sec       9.3246    18.7704     2.0394    55.0849    59.1922 ⋯
+                  plx      34.0178     0.2993     0.0391    58.0786   145.4202 ⋯
+                 pmra      44.3892     0.4757     0.0461   100.8497   213.1303 ⋯
+                pmdec     -64.3413     0.5102     0.0686    72.4489    54.6510 ⋯
+    ra_hip_offset_mas      -1.9054     3.3968     0.3937    37.0119    59.1922 ⋯
+   dec_hip_offset_mas      -0.4979     1.9094     0.2903    35.2068    42.2239 ⋯
+                    M       1.7543     0.0535     0.0052   106.2786   138.0816 ⋯
                    rv   12600.0000     0.0000        NaN        NaN        NaN ⋯
-                  dec      -2.4734     0.0000     0.0000    42.4042   151.2808 ⋯
-                   ra      69.4004     0.0000     0.0000    40.1104   139.0824 ⋯
+                  dec      -2.4734     0.0000     0.0000    37.0119    59.1922 ⋯
+                   ra      69.4004     0.0000     0.0000    35.2068    42.2239 ⋯
             ref_epoch   48348.5625     0.0000        NaN        NaN        NaN ⋯
-                  b_a      10.6531     0.7028     0.2057   163.1165    19.2279 ⋯
-                  b_e       0.5513     0.0671     0.0175    41.9941    12.4342 ⋯
-                  b_ω       2.2648     1.6037     0.1071   211.5730   191.8005 ⋯
-                  b_i       2.4046     0.0797     0.0164    93.1482    16.1362 ⋯
-                  b_Ω       1.8002     1.8319     0.1336    14.7048    25.7725 ⋯
+                  b_a      10.0733     0.6241     0.2663     5.2385    57.5294 ⋯
+                  b_e       0.5991     0.0636     0.0262     5.6518    40.2523 ⋯
+                  b_ω       2.9020     1.5242     0.2712     4.7600    36.3926 ⋯
+                  b_i       2.4910     0.0995     0.0509     4.3138    56.1493 ⋯
+                  b_Ω       2.6592     1.5500     0.4985     4.7205    29.7343 ⋯
            ⋮                ⋮           ⋮          ⋮          ⋮          ⋮     ⋱
 </span><span class="sgr36">                                                    2 columns and 7 rows omitted
 
@@ -273,23 +273,23 @@ Quantiles
            parameters         2.5%        25.0%        50.0%        75.0%      ⋯
  </span><span class="sgr90">              Symbol      Float64      Float64      Float64      Float64      ⋯
 
-                M_pri       1.6578       1.7112       1.7506       1.7810      ⋯
-                M_sec       0.1130       0.5094       2.7644      66.2746      ⋯
-                  plx      33.3412      33.7111      33.9676      34.2013      ⋯
-                 pmra      43.7333      44.1439      44.4435      45.6177      ⋯
-                pmdec     -64.9039     -64.4992     -64.2299     -63.9306      ⋯
-    ra_hip_offset_mas     -20.5706     -14.4452      -0.6219      -0.1432      ⋯
-   dec_hip_offset_mas      -5.4899      -2.6184      -0.3490       0.0059      ⋯
-                    M       1.6596       1.7281       1.7643       1.8248      ⋯
+                M_pri       1.6484       1.7107       1.7446       1.7802      ⋯
+                M_sec       0.1041       0.3644       1.7816       8.4456      ⋯
+                  plx      33.4348      33.8257      33.9990      34.2101      ⋯
+                 pmra      43.6512      44.0739      44.3258      44.6451      ⋯
+                pmdec     -64.9831     -64.6073     -64.3783     -64.1827      ⋯
+    ra_hip_offset_mas     -14.3591      -1.9178      -0.4699      -0.1411      ⋯
+   dec_hip_offset_mas      -8.5630      -0.3536      -0.1125       0.1461      ⋯
+                    M       1.6620       1.7197       1.7506       1.7904      ⋯
                    rv   12600.0000   12600.0000   12600.0000   12600.0000   12 ⋯
                   dec      -2.4734      -2.4734      -2.4734      -2.4734      ⋯
                    ra      69.4004      69.4004      69.4004      69.4004      ⋯
             ref_epoch   48348.5625   48348.5625   48348.5625   48348.5625   48 ⋯
-                  b_a       9.4950      10.2052      10.5708      10.8262      ⋯
-                  b_e       0.3595       0.5103       0.5650       0.5976      ⋯
-                  b_ω       0.9023       1.1213       1.2919       4.2788      ⋯
-                  b_i       2.2425       2.3693       2.4195       2.4516      ⋯
-                  b_Ω       0.1078       0.3884       0.6469       3.6923      ⋯
+                  b_a       8.9456       9.6216      10.0328      10.4983      ⋯
+                  b_e       0.3754       0.5881       0.6149       0.6357      ⋯
+                  b_ω       1.0612       1.7483       1.8969       4.5274      ⋯
+                  b_i       2.2539       2.4396       2.4921       2.5573      ⋯
+                  b_Ω       0.2888       1.6603       1.9241       4.1662      ⋯
            ⋮                ⋮            ⋮            ⋮            ⋮           ⋱
 </span><span class="sgr36">                                                     1 column and 7 rows omitted
-</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain, show_mass=true)</code></pre><img src="d27f87b3.png" alt="Example block output"/><p>We see that we constrained both the orbit and the parallax. The mass is not strongly constrained by Hipparcos.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../pma/">« Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../gaia-iad/">Gaia DR4 IAD »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Tuesday 15 July 2025 20:06">Tuesday 15 July 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain, show_mass=true)</code></pre><img src="ca6f0bd3.png" alt="Example block output"/><p>We see that we constrained both the orbit and the parallax. The mass is not strongly constrained by Hipparcos.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../pma/">« Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../gaia-iad/">Gaia DR4 IAD »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Wednesday 16 July 2025 08:07">Wednesday 16 July 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
