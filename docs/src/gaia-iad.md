@@ -162,6 +162,9 @@ init_chain = initialize!(model, (;
 octoplot(model, init_chain, show_rv=true)
 ```
 
+!!! note
+    If you don't pick the starting point, you cabn also just run Pigeons for 8-10 rounds, which is recommended anyways for convergence, and the sampler will find this result.
+
 Now, we can perform the fit. It is a little slow since we have many hundreds of RV and astrometry data points.
 ```@example 1
 using Pigeons
