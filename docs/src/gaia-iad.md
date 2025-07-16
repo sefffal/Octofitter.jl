@@ -135,26 +135,30 @@ We will initialize the model starting positions and visualize them:
 # Note: you can see the required format for paramter initialization by running:
 # nt = Octofitter.drawfrompriors(model.system);
 # println(nt)
+# then remove any derived parameters (parameters in your model that are on the right of an `=`)
 
 init_chain = initialize!(model, (;
-    plx =               1.67,
-    pmra =              -28.5,
-    pmdec =            -155.17,
-    M_pri =              0.76,
-    M_sec =              32.70,
-    observations = (;
-        GaiaRV = (;
-            offset = -357200
-        ),
+    M_pri = 0.7792923132247755,
+    M_sec = 36.032664849109906,
+    plx = 1.6686144513164856,
+    pmra = -27.89740759925553,
+    pmdec = -156.1023951519146,
+    ra_offset_mas = 236.8072112885035,
+    dec_offset_mas = 45.781075653307376,
+    observations = (GaiaDR4 = (astrometric_jitter = 0.027554101045898238,),
+    GaiaRV = (offset = -359481.6706770764,jitter = 2143.4793485877644)),
+    planets = (BH = (
+        a = 18.905647598089196,
+        e = 0.7583328001601555,
+        ωx = -0.19433584569119122,
+        ωy = -0.9414842877197981,
+        i = 1.9216027029499319,
+        Ωx = -0.9890745570284801,
+        Ωy = 0.9268637554445821,
+        θx = 0.4250634152645573,
+        θy = -0.19794636356747858,
     ),
-    planets = (;
-        BH = (;
-            a = 16.17,
-            e = 0.7291,
-            i = deg2rad(110.580),
-        )
-    )
-); verbosity=4)
+)); verbosity=4)
 octoplot(model, init_chain, show_rv=true)
 ```
 
@@ -162,6 +166,11 @@ Now, we can perform the fit. It is a little slow since we have many hundreds of 
 ```@example 1
 using Pigeons
 chain, pt = octofit_pigeons(model, n_rounds=6) # might need more rounds to converge
+```
+
+```julia
+increment_n_rounds!(pt,1)
+chain,pt = octofit_pigeons(pt)
 ```
 
 Finally, we can visualize the results:
