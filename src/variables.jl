@@ -708,9 +708,9 @@ function make_arr2nt(system::System)
                             # Make previous observation variables available
                             $([:($(k) = _prev.$k) for k in all_obs_keys]...)
                             result = $expr
-                            if result isa Distributions.Distribution
-                                error("System observation derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
-                            end
+                            # if result isa Distributions.Distribution
+                            #     error("System observation derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
+                            # end
                             result
                         end)
                     end
@@ -778,9 +778,9 @@ function make_arr2nt(system::System)
                             # Make previous planet variables available
                             $([:($(k) = _prev.$k) for k in all_available_keys]...)
                             result = $expr
-                            if result isa Distributions.Distribution
-                                error("Planet derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
-                            end
+                            # if result isa Distributions.Distribution
+                            #     error("Planet derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
+                            # end
                             result
                         end)
                     end
@@ -842,9 +842,9 @@ function make_arr2nt(system::System)
                                 $([:($(pk) = planet.$pk) for pk in vcat(planet_prior_keys, planet_derived_keys)]...)
                                 $([:($(ok) = _prev.$ok) for ok in vcat(obs_prior_keys, obs_derived_keys_so_far)]...)
                                 result = $expr
-                                if result isa Distributions.Distribution
-                                    error("Planet observation derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
-                                end
+                                # if result isa Distributions.Distribution
+                                #     error("Planet observation derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
+                                # end
                                 result
                             end)
                         end
