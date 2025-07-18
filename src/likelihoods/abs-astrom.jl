@@ -965,11 +965,11 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orb
             N_FoV*σ_AL^4 + 2*N_FoV*σ_AL^2*σ_calib^2
         ))
 
-        UEVA_model_1 = (chi2_astro_scaled * σ_formal^2) / (N_AL * (N_FoV - gaia_n_dof))
+        UEVA_model_1 = (chi2_astro_scaled * σ_formal^2) / (N_AL * N_FoV - gaia_n_dof)
         
         # Compare to expected single-star distribution
         μ_1_3 = UEVA^(1/3) 
-        UEVA_unc = σ_UEVA_single * UEVA^(-2/3) /3  # divide by 3 due to cube root transformation
+        UEVA_unc = σ_UEVA_single * μ_UEVA_single^(-2/3) / 3 # divide by 3 due to cube root transformation
         UEVA_model = cbrt(UEVA_model_1 + μ_UEVA_single)
 
     end

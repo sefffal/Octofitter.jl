@@ -659,7 +659,6 @@ function fit_5param_prepared(
                 error("Asked for `include_chi2=true` but `σ_formal==0`")
             end
             # For uniform errors, the weighted residuals are just residuals/σ
-            residuals .= residuals ./ σ_formal
         
             # Chi-squared is the sum of squared weighted residuals
             chi_squared_astro = dot(residuals, residuals)        
