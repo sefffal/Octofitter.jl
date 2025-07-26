@@ -608,8 +608,13 @@ function mcmcchain2result(model, chain, ii=(:))
                 end
             else
                 nt_sys[kout] = [
-                    chain[i,kin,j]
+                    if haskey(chain, kin)
+                        chain[i,kin,j]
+                    else
+                        missing
+                    end
                     for kin in kins
+                    
                 ]
             end
         end
@@ -642,7 +647,11 @@ function mcmcchain2result(model, chain, ii=(:))
                     end
                 else
                     nt_obs[kout_clean] = [
-                        chain[i,kin,j]
+                        if haskey(chain, kin)
+                            chain[i,kin,j]
+                        else
+                            missing
+                        end
                         for kin in kins
                     ]
                 end
