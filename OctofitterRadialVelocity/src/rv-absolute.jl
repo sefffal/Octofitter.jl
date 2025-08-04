@@ -46,6 +46,10 @@ and `epoch` and returns an RV offset. Trend parameters should be defined in the 
 When using a Gaussian process, the `gaussian_process` parameter should be a function that takes
 `θ_obs` (observation parameters) and returns a GP kernel. GP hyperparameters should be defined
 in the variables block and accessed via `θ_obs.parameter_name`.
+
+!!! note
+    If you don't supply a `variables` argument, the detault priors are `offset ~ Uniform(-1000, 1000)` and `jitter ~ LogUniform(0.001, 100)`
+
 """
 struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF} <: Octofitter.AbstractLikelihood
     table::TTable
@@ -58,7 +62,10 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF} <: Octofitter.AbstractLikel
 end
 function StarAbsoluteRVLikelihood(
     observations;
-    variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end),
+    variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin
+        offset ~ Uniform(-1000, 1000)
+        jitter ~ LogUniform(0.001, 100)
+    end),
     trend_function=(θ_obs, epoch)->zero(Octofitter._system_number_type(θ_obs)),
     name::String,
     gaussian_process=nothing

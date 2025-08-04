@@ -43,9 +43,16 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikeli
     gaussian_process::GP
     priors::Octofitter.Priors
     derived::Octofitter.Derived
-    function PlanetRelativeRVLikelihood(observations...; name::String, gaussian_process=nothing, variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end))
+    function PlanetRelativeRVLikelihood(
+        observations;
+        name::String,
+        gaussian_process=nothing,
+        variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin
+            jitter ~ LogUniform(0.001, 100)
+        end),
+    )
         (priors,derived)=variables
-        table = Table(observations...)
+        table = Table(observations)
         if !Octofitter.equal_length_cols(table)
             error("The columns in the input data do not all have the same length")
         end

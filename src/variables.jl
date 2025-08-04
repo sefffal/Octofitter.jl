@@ -49,7 +49,7 @@ Priors(;priors...) = Priors(OrderedDict(priors))
 function Base.show(io::IO, mime::MIME"text/plain", priors::Priors)
     println(io, "Priors:")
     for (k,prior) in zip(keys(priors.priors), values(priors.priors))
-        print(io, "  ", k, "\t")
+        print(io, @sprintf("%20s ~ ", k))
         show(io, mime, prior)
         print(io, "\n")
     end
@@ -77,8 +77,9 @@ end
 
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize det::Derived)
     print(io, "Derived:\n  ")
-    for k in keys(det.variables)
-        print(io, k, ", ")
+    for (k,expr) in zip(keys(det.variables),values(det.variables))
+        print(io, @sprintf("%20s = %s\n", k, string(expr)))
+        # print(io, k, " = ")
     end
     print(io, "\n")
 end

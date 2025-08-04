@@ -50,16 +50,14 @@ function GaiaHipparcosUEVAJointLikelihood(;
         gaia_id,
         scanlaw_table=nothing,
         catalog,
-        variables::Tuple{Priors,Derived}=(@variables begin;end),
+        variables::Union{Nothing,Tuple{Priors,Derived}}=nothing,
         include_iad=false,
         ueva_mode::Symbol=:RUWE,
     )
-    (priors, derived) = variables
 
     # allow passing in table directly
     if Tables.istable(catalog)
         idx = findfirst(==(gaia_id), catalog.gaia_source_id)
-        @show idx gaia_id
         catalog = NamedTuple(catalog[idx,:])
     else
         # Load the catalog row for this system
@@ -289,29 +287,30 @@ function GaiaHipparcosUEVAJointLikelihood(;
     # The actual likelihood calculations happen against the prepared linear system matrices above.
     table = Table(
         epoch=[
-            isnothing(hip_like) ? 0 : mean(hip_like.table.epoch),
-            catalog.epoch_ra_hip,
-            catalog.epoch_dec_hip,
-            catalog.epoch_ra_hg,
-            catalog.epoch_dec_hg,
-            catalog.epoch_ra_dr2,
-            catalog.epoch_dec_dr2,
-            catalog.epoch_ra_dr32,
-            catalog.epoch_dec_dr32,
-            catalog.epoch_ra_dr3,
-            catalog.epoch_dec_dr3,
-            (catalog.epoch_dec_dr3+catalog.epoch_dec_dr2)/2,
+            isnothing(hip_like) ? NaN : mean(hip_like.table.epoch),
+            isnothing(hip_like) ? NaN : years2mjd(catalog.epoch_ra_hip),
+            isnothing(hip_like) ? NaN : years2mjd(catalog.epoch_dec_hip),
+            isnothing(hip_like) ? NaN : years2mjd(catalog.epoch_ra_hg),
+            isnothing(hip_like) ? NaN : years2mjd(catalog.epoch_dec_hg),
+            years2mjd(catalog.epoch_ra_dr2),
+            years2mjd(catalog.epoch_dec_dr2),
+            years2mjd(catalog.epoch_ra_dr32),
+            years2mjd(catalog.epoch_dec_dr32),
+            years2mjd(catalog.epoch_ra_dr3),
+            years2mjd(catalog.epoch_dec_dr3),
+            years2mjd((catalog.epoch_dec_dr3+catalog.epoch_dec_dr2)/2),
         ],
+        # TODO: use central epochs for start and end epochs of G-H, and 3-2
         start_epoch=[
             isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
             isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
             isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
-            isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
-            isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
+            isnothing(hip_like) ? 0 : years2mjd(catalog.epoch_ra_hip),
+            isnothing(hip_like) ? 0 : years2mjd(catalog.epoch_dec_hip),
             first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR2.start_mjd)]),
             first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR2.start_mjd)]),
-            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR2.start_mjd)]),
-            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR2.start_mjd)]),
+            years2mjd(catalog.epoch_ra_dr2),
+            years2mjd(catalog.epoch_dec_dr2),
             first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR3.start_mjd)]),
             first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR3.start_mjd)]),
             first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR3.start_mjd)]),
@@ -320,12 +319,12 @@ function GaiaHipparcosUEVAJointLikelihood(;
             isnothing(hip_like) ? 0 : maximum(hip_table.epoch),
             isnothing(hip_like) ? 0 : maximum(hip_table.epoch),
             isnothing(hip_like) ? 0 : maximum(hip_table.epoch),
-            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
-            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
+            isnothing(hip_like) ? 0 : years2mjd(catalog.epoch_ra_dr3),
+            isnothing(hip_like) ? 0 : years2mjd(catalog.epoch_dec_dr3),
             last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR2.stop_mjd)]),
             last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR2.stop_mjd)]),
-            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
-            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
+            years2mjd(catalog.epoch_ra_dr3),
+            years2mjd(catalog.epoch_dec_dr3),
             last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
             last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
             last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
@@ -377,6 +376,91 @@ function GaiaHipparcosUEVAJointLikelihood(;
     if isempty(hip_table)
         splice!(table, 1:5)
     end
+
+
+
+    if isnothing(variables)
+
+        len_epochs = length(gaia_table.epoch)
+        missed_transits = Int(len_epochs - catalog.astrometric_matched_transits_dr3)
+        dec = catalog.dec
+        ra = catalog.ra
+        n_dof = catalog.astrometric_params_solved_dr3 == 31 ? 5 : 6
+        if missed_transits < 0
+            @warn "Transits missing from GOST (more matched transits than visibility windows)"
+            missed_transits = 0
+        end
+        @info "Missed transits:"  dr3=missed_transits
+
+        if missed_transits == 1
+            variables = @variables begin
+                σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
+                σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
+                σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
+
+                Δepoch_dr2_days = 0.0 #~ Normal(0, 6/24)
+                Δepoch_dr3_days = 0.0 #~ Normal(0, 6/24)
+
+                gaia_n_dof = $n_dof
+
+                hip_iad_jitter ~ LogUniform(0.001, 100)
+                iad_Δra        ~ Uniform(-1000, 1000)
+                iad_Δdec       ~ Uniform(-1000, 1000)
+                Δiad_pmra       ~ Uniform(-1000, 1000)
+                Δiad_pmdec      ~ Uniform(-1000, 1000)
+                iad_pmra = $(catalog.pmra_hip) + Δiad_pmra
+                iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
+
+                missed_transits ~ DiscreteUniform(1,length(gaia_table.epoch) )
+            end
+        elseif missed_transits > 1
+            variables = @variables begin
+                σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
+                σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
+                σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
+
+                Δepoch_dr2_days = 0.0 #~ Normal(0, 6/24)
+                Δepoch_dr3_days = 0.0 #~ Normal(0, 6/24)
+
+                gaia_n_dof = $n_dof
+
+                hip_iad_jitter ~ LogUniform(0.001, 100)
+                iad_Δra        ~ Uniform(-1000, 1000)
+                iad_Δdec       ~ Uniform(-1000, 1000)
+                Δiad_pmra       ~ Uniform(-1000, 1000)
+                Δiad_pmdec      ~ Uniform(-1000, 1000)
+                iad_pmra = $(catalog.pmra_hip) + Δiad_pmra
+                iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
+
+                missed_transits ~ Product(fill(
+                    DiscreteUniform(1,length(gaia_table.epoch) ),
+                    missed_transits
+                ))
+            end
+        else
+            variables = @variables begin
+                σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
+                σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
+                σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
+
+                gaia_n_dof = $n_dof
+
+                hip_iad_jitter ~ LogUniform(0.001, 100)
+                iad_Δra        ~ Uniform(-1000, 1000)
+                iad_Δdec       ~ Uniform(-1000, 1000)
+                Δiad_pmra       ~ Uniform(-1000, 1000)
+                Δiad_pmdec      ~ Uniform(-1000, 1000)
+                iad_pmra = $(catalog.pmra_hip) + Δiad_pmra
+                iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
+            end
+        end
+        @info "Added the following observation variables:"
+        display(variables[1])
+        display(variables[2])
+    end
+    (priors,derived)=variables
+
+
     
     return GaiaHipparcosUEVAJointLikelihood{
         typeof(table),
@@ -679,6 +763,9 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
                 # Extract the submatrix for selected components
                 Σ_selected = Σ_full[indices, indices]
 
+                # @show (μ_catalog_selected .- μ_model_selected ) ./ sqrt.(diag(Σ_selected))
+                # @show μ_catalog_selected μ_model_selected
+
                 # Compute likelihood
                 if n_components == 1
                     # Single component - use univariate normal
@@ -757,13 +844,14 @@ end
 
 function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
-    (;Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3, iad_resid) = buffers
+    (;Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3, iad_resid, ) = buffers
+
 
     T = _system_number_type(θ_system)
 
     # Generate simulated observations from this sample draw
     # Get Gaia noise parameters from observation variables
-    (;σ_att, σ_AL, σ_calib,) = θ_obs
+    (;σ_att, σ_AL, σ_calib,Δepoch_dr2_days, Δepoch_dr3_days) = θ_obs
     σ_formal = sqrt(σ_att^2 + σ_AL^2)
 
     gaia_n_dof = like.catalog.astrometric_params_solved_dr3 == 31 ? 5 : 6
@@ -969,13 +1057,14 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     if isnothing(iend_dr2)
         iend_dr2 = length(gaia_table.epoch)
     end
-    
+    gaia_table_dr2 = gaia_table[istart_dr2:iend_dr2]
+    gaia_table_dr2.epoch .+= Δepoch_dr2_days
     for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
         _simulate_skypath_perturbations!(
             Δα_mas_dr2, Δδ_mas_dr2,
-            view(gaia_table, istart_dr2:iend_dr2), orbit,
+            gaia_table_dr2, orbit,
             planet_mass_msol, fluxratio,
             orbit_solutions[i_planet],
             -1, T
@@ -1011,13 +1100,14 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     if isnothing(iend_dr3)
         iend_dr3 = length(gaia_table.epoch)
     end
-
+    gaia_table_dr3 = gaia_table[istart_dr3:iend_dr3]
+    gaia_table_dr3.epoch .+= Δepoch_dr3_days
     for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
         _simulate_skypath_perturbations!(
             Δα_mas_dr3, Δδ_mas_dr3,
-            view(gaia_table, istart_dr3:iend_dr3), orbit,
+            gaia_table_dr3, orbit,
             planet_mass_msol, fluxratio,
             orbit_solutions[i_planet],
             -1, T,
@@ -1159,7 +1249,7 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
 
     N = astrometric_n_good_obs_al_dr3
     N_FoV = astrometric_matched_transits_dr3
-    N_AL = N/N_FoV # TODO: why isn't this an integer always?
+    N_AL = N/N_FoV
     
     chi2_astro_scaled = out_dr3.chi_squared_astro * N_AL
 
