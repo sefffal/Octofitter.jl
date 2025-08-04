@@ -509,6 +509,12 @@ function optimization_and_pathfinder_with_fixed(
 
     # Extract initial values for continuous parameters
     reduced_initial = convert(Vector{Float64}, median(samples,dims=2)[variable_indices])
+
+    if !isfinite(reduced_ℓπcallback(reduced_initial))
+        opt_full = reduced_to_full(reduced_initial)
+        @show opt_full model.invlink(opt_full) model.arr2nt(model.invlink(opt_full))
+        error("Starting point for global optimization is not finite; did you fix parameters to invalid values?")
+    end
     
     if isempty(reduced_initial)
         opt_full = reduced_to_full(reduced_initial)
@@ -528,7 +534,6 @@ function optimization_and_pathfinder_with_fixed(
         if verbosity > 0
             @info "Starting values not provided for all parameters! Guessing starting point using global optimization:" num_params=length(variable_indices) num_fixed=length(fixed_indices)
         end
-        
         
         # Set up and solve reduced optimization problem
         prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
