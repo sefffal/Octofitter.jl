@@ -32,6 +32,10 @@ That said, if you have a specific prior you want to apply for the RV zero point,
 zero points, hierarchical models, etc, you should use `StarAbsoluteRVLikelihood`.
 
 Additionally, a gaussian process is not supported with the analytical marginalization.
+
+!!! note
+    If you don't supply a `variables` argument, the detault priors are `jitter ~ LogUniform(0.001, 100)`
+
 """
 struct MarginalizedStarAbsoluteRVLikelihood{TTable<:Table,TF} <: Octofitter.AbstractLikelihood
     table::TTable
@@ -42,7 +46,9 @@ struct MarginalizedStarAbsoluteRVLikelihood{TTable<:Table,TF} <: Octofitter.Abst
 end
 function MarginalizedStarAbsoluteRVLikelihood(
     observations;
-    variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin;end),
+    variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin
+        jitter ~ LogUniform(0.001, 100)
+    end),
     name::String,
     trend_function=(θ_obs, epoch)->zero(Octofitter._system_number_type(θ_obs)),
 )
