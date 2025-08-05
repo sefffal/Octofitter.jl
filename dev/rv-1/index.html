@@ -98,15 +98,21 @@ sys = System(
 Derived:
   
 Priors:
-  M	Truncated(Distributions.Normal{Float64}(μ=0.82, σ=0.02); lower=0.1)
+                   M ~ Truncated(Distributions.Normal{Float64}(μ=0.82, σ=0.02); lower=0.1)
 Planet b
 Derived:
-  τ, e, ω, M, a, tp, 
+                     τ = (atan(τy, τx) / (2π)) * 1.0
+                   e = 0
+                   ω = 0.0
+                   M = system.M
+                   a = cbrt(M * P ^ 2)
+                  tp = τ * P * 365.256360417 + 57782
+
 Priors:
-  P	Truncated(Distributions.Normal{Float64}(μ=0.001011081092683449, σ=2.4914008313533153e-8); lower=0.0001)
-  τx	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
-  τy	Distributions.Normal{Float64}(μ=0.0, σ=1.0)
-  mass	Distributions.LogUniform{Float64}(a=0.001, b=10.0)
+                   P ~ Truncated(Distributions.Normal{Float64}(μ=0.001011081092683449, σ=2.4914008313533153e-8); lower=0.0001)
+                  τx ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                  τy ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                mass ~ Distributions.LogUniform{Float64}(a=0.001, b=10.0)
 Octofitter.UnitLengthPrior{:τx, :τy}: √(τx^2+τy^2) ~ LogNormal(log(1), 0.02)
 
 
@@ -164,8 +170,8 @@ chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 20.22 seconds
-Compute duration  = 20.22 seconds
+Wall duration     = 20.49 seconds
+Compute duration  = 20.49 seconds
 parameters        = M, harps_n_offset, harps_n_jitter, pfs_offset, pfs_jitter, b_P, b_τx, b_τy, b_mass, b_τ, b_e, b_ω, b_M, b_a, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -213,4 +219,4 @@ Quantiles
 </span></span></code></pre><p>Excellent! Let&#39;s plot an orbit sampled from the posterior:</p><pre><code class="language-julia hljs">using CairoMakie
 fig = Octofitter.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="f3252e1c.png" alt="Example block output"/><p>We can also plot a sample of draws from the posterior:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
 octoplot(model, chain)</code></pre><img src="e2bf443c.png" alt="Example block output"/><p>And create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots, CairoMakie
-octocorner(model, chain)</code></pre><img src="041b095d.png" alt="Example block output"/><p>This example continues in <a href="../rv-gp/#fit-rv-gp">Fit Gaussian Process</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../thiele-innes/">« Thiele-Innes Parameters</a><a class="docs-footer-nextpage" href="../rv-gp/">Gaussian Process »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Sunday 27 July 2025 23:55">Sunday 27 July 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model, chain)</code></pre><img src="041b095d.png" alt="Example block output"/><p>This example continues in <a href="../rv-gp/#fit-rv-gp">Fit Gaussian Process</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../thiele-innes/">« Thiele-Innes Parameters</a><a class="docs-footer-nextpage" href="../rv-gp/">Gaussian Process »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Tuesday 5 August 2025 02:32">Tuesday 5 August 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

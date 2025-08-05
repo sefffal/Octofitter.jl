@@ -25,14 +25,18 @@
     end
 )</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Planet b
 Derived:
-  mass, M, tp, F, 
+                  mass = system.M_sec
+                   M = system.M
+                  tp = θ_at_epoch_to_tperi(θ, 57423.0; M, e, a, i, ω, Ω)
+                   F = 0.0
+
 Priors:
-  a	Distributions.LogUniform{Float64}(a=0.1, b=20.0)
-  e	Distributions.Uniform{Float64}(a=0.0, b=0.999)
-  ω	Distributions.Uniform{Float64}(a=0.0, b=6.283185307179586)
-  i	Sine()
-  Ω	Distributions.Uniform{Float64}(a=0.0, b=6.283185307179586)
-  θ	Distributions.Uniform{Float64}(a=0.0, b=6.283185307179586)
+                   a ~ Distributions.LogUniform{Float64}(a=0.1, b=20.0)
+                   e ~ Distributions.Uniform{Float64}(a=0.0, b=0.999)
+                   ω ~ Distributions.Uniform{Float64}(a=0.0, b=6.283185307179586)
+                   i ~ Sine()
+                   Ω ~ Distributions.Uniform{Float64}(a=0.0, b=6.283185307179586)
+                   θ ~ Distributions.Uniform{Float64}(a=0.0, b=6.283185307179586)
 
 
 </code></pre><h3 id="System-Model-and-Specifying-Proper-Motion-Anomaly"><a class="docs-heading-anchor" href="#System-Model-and-Specifying-Proper-Motion-Anomaly">System Model &amp; Specifying Proper Motion Anomaly</a><a id="System-Model-and-Specifying-Proper-Motion-Anomaly-1"></a><a class="docs-heading-anchor-permalink" href="#System-Model-and-Specifying-Proper-Motion-Anomaly" title="Permalink"></a></h3><p>Now that we have our planet model, we create a system model to contain it.</p><p>We specify priors on <code>plx</code> as usual, but here we use the <code>gaia_plx</code> helper function to read the parallax and uncertainty directly from the HGCA catalog using its source ID.</p><p>We also add parameters for the star&#39;s long term proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements. If you&#39;re not sure what to use here, try <code>Normal(0, 1000)</code>; that is, assume a long-term proper motion of 0 +- 1000 milliarcseconds / year.</p><pre><code class="language- hljs">sys = System(
@@ -251,10 +255,8 @@ chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)</code></pre>
 └   D = 11
 ┌ Info: Determined number type
 └   T = Float64
-ℓπcallback(θ): 0.000036 seconds
-∇ℓπcallback(θ): 0.000037 seconds (1 allocation: 32 bytes)
-┌ Warning: This model has priors that cannot be sampled IID.
-└ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:95
+ℓπcallback(θ): 0.000021 seconds
+∇ℓπcallback(θ): 0.000038 seconds (1 allocation: 32 bytes)
 [ Info: Sampler running with multiple threads     : true
 [ Info: Likelihood evaluated with multiple threads: false
 ┌ Info: Starting values not provided for all parameters! Guessing starting point using global optimization:
@@ -266,18 +268,18 @@ chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)</code></pre>
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.27       2.54      0.714   2.43e+07       -206          0      0.845          1          1
-        4          0       3.69       4.43      0.167   1.36e+05      -89.3   2.98e-31      0.738          1          1
-        8          0       6.57       6.29      0.323   2.42e+05      -83.7   3.68e-15      0.585          1          1
-       16          0       6.53       7.42      0.631   3.96e+05      -76.5      0.129       0.55          1          1
+        2          0       2.27       2.54      0.787   2.43e+07       -206          0      0.845          1          1
+        4          0       3.69       4.43      0.166   1.36e+05      -89.3   2.98e-31      0.738          1          1
+        8          0       6.57       6.29      0.322   2.42e+05      -83.7   3.68e-15      0.585          1          1
+       16          0       6.53       7.42       0.63   3.96e+05      -76.5      0.129       0.55          1          1
        32          0       7.64       7.74       1.26   5.82e+05      -75.8      0.268      0.504          1          1
-       64          2       7.13       3.15       2.73   5.37e+07      -87.1      0.237      0.668          1          1
-      128          2       7.57       3.58        5.1   9.02e+07      -75.1      0.386      0.641          1          1
-      256         27       7.33       3.35       10.2    1.8e+08      -75.4      0.396      0.656          1          1
-      512         45       7.59       3.46       20.1   3.56e+08      -75.2      0.402      0.644          1          1
- 1.02e+03        115       7.49       3.06       40.3   7.11e+08      -75.4      0.434       0.66          1          1
- 2.05e+03        231       7.51       3.04       80.9   1.42e+09      -75.3       0.48       0.66          1          1
-  4.1e+03        403       7.52       3.43        162   2.84e+09      -75.2      0.463      0.647          1          1
+       64          2       7.13       3.15       2.75   5.37e+07      -87.1      0.237      0.668          1          1
+      128          2       7.57       3.58       5.09   9.02e+07      -75.1      0.386      0.641          1          1
+      256         27       7.33       3.35       10.1    1.8e+08      -75.4      0.396      0.656          1          1
+      512         45       7.59       3.46       20.2   3.56e+08      -75.2      0.402      0.644          1          1
+ 1.02e+03        115       7.49       3.06       40.1   7.11e+08      -75.4      0.434       0.66          1          1
+ 2.05e+03        231       7.51       3.04       80.5   1.42e+09      -75.3       0.48       0.66          1          1
+  4.1e+03        403       7.52       3.43        161   2.84e+09      -75.2      0.463      0.647          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><pre><code class="language-julia hljs">octoplot(model_rv_astrom, chain_rv_astrom)</code></pre><img src="0f4f3ad6.png" alt="Example block output"/><h2 id="Model-Comparison"><a class="docs-heading-anchor" href="#Model-Comparison">Model Comparison</a><a id="Model-Comparison-1"></a><a class="docs-heading-anchor-permalink" href="#Model-Comparison" title="Permalink"></a></h2><p>Let&#39;s now display the constraints provided by each data set in a single corner plot</p><pre><code class="language- hljs"># Create a corner plot / pair plot.
 using CairoMakie: Makie
 using PairPlots
@@ -295,4 +297,4 @@ octocorner(
         PairPlots.MarginDensity(),
         PairPlots.Scatter()
     )
-)</code></pre><p>We see that the constraints provided by the PMA, the astrometry, and the radial velocity data all individually overlap, and agree with the joint model constraint.  This is means that none of the datasets are in tension with each other, which might suggest an issue with the data or with the modelling assumptions (e.g. single planet). </p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-grav-wide/">« GRAVITY Wide Data</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Sunday 27 July 2025 23:55">Sunday 27 July 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><p>We see that the constraints provided by the PMA, the astrometry, and the radial velocity data all individually overlap, and agree with the joint model constraint.  This is means that none of the datasets are in tension with each other, which might suggest an issue with the data or with the modelling assumptions (e.g. single planet). </p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-grav-wide/">« GRAVITY Wide Data</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Tuesday 5 August 2025 02:32">Tuesday 5 August 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
