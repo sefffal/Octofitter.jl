@@ -300,7 +300,6 @@ function GaiaHipparcosUEVAJointLikelihood(;
             years2mjd(catalog.epoch_dec_dr3),
             years2mjd((catalog.epoch_dec_dr3+catalog.epoch_dec_dr2)/2),
         ],
-        # TODO: use central epochs for start and end epochs of G-H, and 3-2
         start_epoch=[
             isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
             isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
