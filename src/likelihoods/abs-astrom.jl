@@ -826,13 +826,13 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orb
         iend_dr3 = length(gaia_table.epoch)
     end
 
-    iad_resid  = zeros(T, size(like.hip_table,1)); fill!(iad_resid, 0)
-    Δα_mas_hip = zeros(T, size(like.hip_table,1)); fill!(Δα_mas_hip, 0)
-    Δδ_mas_hip = zeros(T, size(like.hip_table,1)); fill!(Δδ_mas_hip, 0)
-    Δα_mas_dr2 = zeros(T, iend_dr2-istart_dr2+1); fill!(Δα_mas_dr2, 0)
-    Δδ_mas_dr2 = zeros(T, iend_dr2-istart_dr2+1); fill!(Δδ_mas_dr2, 0)
-    Δα_mas_dr3 = zeros(T, iend_dr3-istart_dr3+1); fill!(Δα_mas_dr3, 0)
-    Δδ_mas_dr3 = zeros(T, iend_dr3-istart_dr3+1); fill!(Δδ_mas_dr3, 0)
+    iad_resid  = zeros(size(like.hip_table,1)); fill!(iad_resid, 0)
+    Δα_mas_hip = zeros(size(like.hip_table,1)); fill!(Δα_mas_hip, 0)
+    Δδ_mas_hip = zeros(size(like.hip_table,1)); fill!(Δδ_mas_hip, 0)
+    Δα_mas_dr2 = zeros(iend_dr2-istart_dr2+1); fill!(Δα_mas_dr2, 0)
+    Δδ_mas_dr2 = zeros(iend_dr2-istart_dr2+1); fill!(Δδ_mas_dr2, 0)
+    Δα_mas_dr3 = zeros(iend_dr3-istart_dr3+1); fill!(Δα_mas_dr3, 0)
+    Δδ_mas_dr3 = zeros(iend_dr3-istart_dr3+1); fill!(Δδ_mas_dr3, 0)
 
     buffers = (;iad_resid, Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3)
 
@@ -1294,6 +1294,7 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         μ_dr2,
         μ_dr32,
         μ_dr3,
+        μ = (@SVector [μ_h[1],μ_h[2],μ_hg[1],μ_hg[2],μ_dr2[1],μ_dr2[2],μ_dr32[1],μ_dr32[2],μ_dr3[1],μ_dr3[2],UEVA_model]),
 
         n_dr3 = iend_dr3 - istart_dr3 + 1,
         n_dr2 = iend_dr2 - istart_dr2 + 1,

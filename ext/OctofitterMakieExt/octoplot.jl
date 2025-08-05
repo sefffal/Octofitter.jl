@@ -57,6 +57,7 @@ function Octofitter.octoplot!(
     model::Octofitter.LogDensityModel,
     results::Chains;
     show_astrom=nothing,
+    show_absastrom=nothing,
     show_physical_orbit=nothing,
     show_astrom_time=nothing,
     show_pma=nothing,
@@ -90,6 +91,7 @@ function Octofitter.octoplot!(
         show_physical_orbit,
         show_astrom_time,
         show_pma,
+        show_absastrom,
         show_mass,
         show_rv,
         show_relative_rv,
@@ -156,10 +158,18 @@ function Octofitter.octoplot!(
         end
     end
 
+
     hgca_detected = false
     for like_obj in model.system.observations
         hgca_detected |= like_obj isa HGCALikelihood
         hgca_detected |= like_obj isa HGCAInstantaneousLikelihood
+    end
+
+    if isnothing(show_absastrom)
+        show_absastrom = false
+        for like_obj in model.system.observations
+            show_absastrom |= like_obj isa Octofitter.GaiaHipparcosUEVAJointLikelihood
+        end
     end
 
 
@@ -194,6 +204,11 @@ function Octofitter.octoplot!(
         @info "pass true or false for one of these arguments to suppress this message."
     end
 
+    if isempty(model.system.planets)
+        @warn "No planets in this model"
+        return Figure()
+    end
+
 
     # determine a consistent time axis/scale for all kinds of data
     # Find the minimum time step size
@@ -204,7 +219,7 @@ function Octofitter.octoplot!(
     end
 
     if isempty(periods)
-        @warn "No planets in this model"
+        @warn "No samples in this chain"
         return Figure()
     end
     min_period = minimum(periods)
@@ -337,7 +352,7 @@ function Octofitter.octoplot!(
                 width=500figscale,
                 height=300figscale,
             )
-            bottom_time_axis = !(show_pma || show_rv || show_relative_rv || show_hipparcos)
+            bottom_time_axis = !(show_pma || show_rv || show_relative_rv || show_absastrom || show_hipparcos)
             ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, mark_epochs_mjd, alpha, residuals)
             top_time_axis = false
             append!(axes_to_link,ax)
@@ -359,7 +374,7 @@ function Octofitter.octoplot!(
                 width=500figscale,
                 height=(135 * max(1, length(matching_like_objs)) *figscale),
             )
-            bottom_time_axis = !(show_pma || show_relative_rv || show_hipparcos)
+            bottom_time_axis = !(show_pma || show_relative_rv || show_absastrom || show_hipparcos)
             ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
             top_time_axis = false
             Makie.rowgap!(gl, 10.)
@@ -376,7 +391,7 @@ function Octofitter.octoplot!(
                 width=500figscale,
                 height=135figscale,
             )
-            bottom_time_axis = !(show_pma || show_hipparcos)
+            bottom_time_axis = !(show_pma || show_absastrom || show_hipparcos)
             ax = rvtimeplot_relative!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
             top_time_axis = false
             Makie.rowgap!(gl, 10.)
@@ -419,6 +434,22 @@ function Octofitter.octoplot!(
                 height,
             )
             ax = pmaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
+            top_time_axis = false
+            Makie.rowgap!(gl, 10.)
+            append!(axes_to_link,ax)
+        end
+
+         if show_absastrom
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            height=460figscale
+            gl = GridLayout(
+                fig[row,col];
+                width=500figscale,
+                height,
+            )
+            ax = absastromplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
             top_time_axis = false
             Makie.rowgap!(gl, 10.)
             append!(axes_to_link,ax)
