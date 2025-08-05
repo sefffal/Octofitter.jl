@@ -125,10 +125,9 @@ function Octofitter.octoplot!(
     if isnothing(show_astrom_time)
         show_astrom_time = false
         for planet in model.system.planets
-            show_astrom_time |= 
-                Octofitter.orbittype(planet) <: Visual{KepOrbit} || 
-                Octofitter.orbittype(planet) <: AbsoluteVisual{KepOrbit} || 
-                Octofitter.orbittype(planet) <: ThieleInnesOrbit
+            for like_obj in planet.observations
+                show_astrom_time |=  nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+            end
         end
     end
 
