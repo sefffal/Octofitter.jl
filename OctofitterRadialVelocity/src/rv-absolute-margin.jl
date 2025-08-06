@@ -189,7 +189,7 @@ function Octofitter.generate_from_params(like::MarginalizedStarAbsoluteRVLikelih
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
 
     if add_noise
-        jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero(T)
+        jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero()
         radvel_table.rv .+= randn.() .* hypot.(σ_rvs, jitter)
     end
 
