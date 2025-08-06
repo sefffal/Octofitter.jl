@@ -328,7 +328,7 @@ function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_syst
     radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
 
     if add_noise
-        jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero()
+        jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : 0.0
         radvel_table.rv .+= randn.() .* hypot.(σ_rvs, jitter)
     end
 
