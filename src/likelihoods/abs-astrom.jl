@@ -397,16 +397,13 @@ function GaiaHipparcosUEVAJointLikelihood(;
                 σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
                 σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
 
-                Δepoch_dr2_days = 0.0 #~ Normal(0, 6/24)
-                Δepoch_dr3_days = 0.0 #~ Normal(0, 6/24)
-
                 gaia_n_dof = $n_dof
 
                 hip_iad_jitter ~ LogUniform(0.001, 100)
                 iad_Δra        ~ Uniform(-1000, 1000)
                 iad_Δdec       ~ Uniform(-1000, 1000)
-                Δiad_pmra       ~ Uniform(-1000, 1000)
-                Δiad_pmdec      ~ Uniform(-1000, 1000)
+                Δiad_pmra      ~ Uniform(-1000, 1000)
+                Δiad_pmdec     ~ Uniform(-1000, 1000)
                 iad_pmra = $(catalog.pmra_hip) + Δiad_pmra
                 iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
 
@@ -418,16 +415,11 @@ function GaiaHipparcosUEVAJointLikelihood(;
                 σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
                 σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
 
-                Δepoch_dr2_days = 0.0 #~ Normal(0, 6/24)
-                Δepoch_dr3_days = 0.0 #~ Normal(0, 6/24)
-
-                gaia_n_dof = $n_dof
-
                 hip_iad_jitter ~ LogUniform(0.001, 100)
                 iad_Δra        ~ Uniform(-1000, 1000)
                 iad_Δdec       ~ Uniform(-1000, 1000)
-                Δiad_pmra       ~ Uniform(-1000, 1000)
-                Δiad_pmdec      ~ Uniform(-1000, 1000)
+                Δiad_pmra      ~ Uniform(-1000, 1000)
+                Δiad_pmdec     ~ Uniform(-1000, 1000)
                 iad_pmra = $(catalog.pmra_hip) + Δiad_pmra
                 iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
 
@@ -441,8 +433,6 @@ function GaiaHipparcosUEVAJointLikelihood(;
                 σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
                 σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
                 σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
-
-                gaia_n_dof = $n_dof
 
                 hip_iad_jitter ~ LogUniform(0.001, 100)
                 iad_Δra        ~ Uniform(-1000, 1000)
@@ -850,7 +840,7 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
 
     # Generate simulated observations from this sample draw
     # Get Gaia noise parameters from observation variables
-    (;σ_att, σ_AL, σ_calib,Δepoch_dr2_days, Δepoch_dr3_days) = θ_obs
+    (;σ_att, σ_AL, σ_calib,) = θ_obs
     σ_formal = sqrt(σ_att^2 + σ_AL^2)
 
     gaia_n_dof = like.catalog.astrometric_params_solved_dr3 == 31 ? 5 : 6
@@ -1056,8 +1046,8 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     if isnothing(iend_dr2)
         iend_dr2 = length(gaia_table.epoch)
     end
-    gaia_table_dr2 = gaia_table[istart_dr2:iend_dr2]
-    gaia_table_dr2.epoch .+= Δepoch_dr2_days
+    gaia_table_dr2 = @views gaia_table[istart_dr2:iend_dr2]
+    # gaia_table_dr2.epoch .+= Δepoch_dr2_days
     for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
@@ -1099,8 +1089,8 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     if isnothing(iend_dr3)
         iend_dr3 = length(gaia_table.epoch)
     end
-    gaia_table_dr3 = gaia_table[istart_dr3:iend_dr3]
-    gaia_table_dr3.epoch .+= Δepoch_dr3_days
+    gaia_table_dr3 = @views gaia_table[istart_dr3:iend_dr3]
+    # gaia_table_dr3.epoch .+= Δepoch_dr3_days
     for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
