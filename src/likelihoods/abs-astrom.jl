@@ -408,6 +408,8 @@ function GaiaHipparcosUEVAJointLikelihood(;
                 iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
 
                 missed_transits ~ DiscreteUniform(1,length(gaia_table.epoch) )
+
+                fluxratio = hasproperty(system, :fluxratio) ? system.fluxratio : 0.0
             end
         elseif missed_transits > 1
             variables = @variables begin
@@ -427,6 +429,8 @@ function GaiaHipparcosUEVAJointLikelihood(;
                     DiscreteUniform(1,length(gaia_table.epoch) ),
                     missed_transits
                 ))
+
+                fluxratio = hasproperty(system, :fluxratio) ? system.fluxratio : 0.0
             end
         else
             variables = @variables begin
@@ -441,6 +445,8 @@ function GaiaHipparcosUEVAJointLikelihood(;
                 Δiad_pmdec      ~ Uniform(-1000, 1000)
                 iad_pmra = $(catalog.pmra_hip) + Δiad_pmra
                 iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
+
+                fluxratio = hasproperty(system, :fluxratio) ? system.fluxratio : 0.0
             end
         end
         @info "Added the following observation variables:"
