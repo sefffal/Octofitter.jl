@@ -265,3 +265,140 @@ function generate_userlike_name(rhs_expr)
     
     return normalizename(expr_str)
 end
+
+
+"""
+    Base.vcat for Variables blocks
+    
+Concatenates two or more @variables blocks together, combining their priors,
+derived variables, and likelihoods. Throws an error if any variable names
+are duplicated across the blocks.
+
+Example:
+```julia
+vars1 = @variables begin
+    a ~ Normal()
+    b = 2a
+end
+
+vars2 = @variables begin
+    d ~ Normal()
+    e = 2d^2
+end
+
+vars = vcat(vars1, vars2)
+```
+"""
+function Base.vcat(vars1::Tuple, vars2::Tuple, vars_rest::Tuple...)
+    # Check that these are actually @variables outputs
+    # They should have at least Priors and Derived as first two elements
+    if length(vars1) < 2 || !isa(vars1[1], Priors) || !isa(vars1[2], Derived)
+        throw(ArgumentError("First argument does not appear to be from @variables macro"))
+    end
+    if length(vars2) < 2 || !isa(vars2[1], Priors) || !isa(vars2[2], Derived)
+        throw(ArgumentError("Second argument does not appear to be from @variables macro"))
+    end
+    
+    # Start with vars1 and vars2
+    result = _vcat_two_variables(vars1, vars2)
+    
+    # If there are more variable blocks, concatenate them iteratively
+    for vars in vars_rest
+        if length(vars) < 2 || !isa(vars[1], Priors) || !isa(vars[2], Derived)
+            throw(ArgumentError("Additional argument does not appear to be from @variables macro"))
+        end
+        result = _vcat_two_variables(result, vars)
+    end
+    
+    return result
+end
+
+# Helper function to concatenate exactly two variable blocks
+function _vcat_two_variables(vars1::Tuple, vars2::Tuple)
+    priors1 = vars1[1]
+    derived1 = vars1[2]
+    likelihoods1 = length(vars1) > 2 ? vars1[3:end] : ()
+    
+    priors2 = vars2[1]
+    derived2 = vars2[2]
+    likelihoods2 = length(vars2) > 2 ? vars2[3:end] : ()
+    
+    # Check for duplicate variable names
+    prior_names1 = Set(keys(priors1.priors))
+    prior_names2 = Set(keys(priors2.priors))
+    derived_names1 = Set(keys(derived1.variables))
+    derived_names2 = Set(keys(derived2.variables))
+    
+    # Check for duplicates between priors
+    duplicate_priors = intersect(prior_names1, prior_names2)
+    if !isempty(duplicate_priors)
+        error("Duplicate prior variable(s) found when concatenating @variables blocks: $(join(duplicate_priors, ", "))")
+    end
+    
+    # Check for duplicates between derived variables
+    duplicate_derived = intersect(derived_names1, derived_names2)
+    if !isempty(duplicate_derived)
+        error("Duplicate derived variable(s) found when concatenating @variables blocks: $(join(duplicate_derived, ", "))")
+    end
+    
+    # Check for cross-duplicates (prior in one, derived in another)
+    cross_duplicates1 = intersect(prior_names1, derived_names2)
+    if !isempty(cross_duplicates1)
+        error("Variable(s) defined as prior in first block but derived in second block: $(join(cross_duplicates1, ", "))")
+    end
+    
+    cross_duplicates2 = intersect(prior_names2, derived_names1)
+    if !isempty(cross_duplicates2)
+        error("Variable(s) defined as prior in second block but derived in first block: $(join(cross_duplicates2, ", "))")
+    end
+    
+    # Merge priors
+    merged_priors_dict = OrderedDict{Symbol,Distribution}()
+    for (k, v) in priors1.priors
+        merged_priors_dict[k] = v
+    end
+    for (k, v) in priors2.priors
+        merged_priors_dict[k] = v
+    end
+    merged_priors = Priors(merged_priors_dict)
+    
+    # Merge derived variables
+    merged_derived_dict = OrderedDict{Symbol,Any}()
+    for (k, v) in derived1.variables
+        merged_derived_dict[k] = v
+    end
+    for (k, v) in derived2.variables
+        merged_derived_dict[k] = v
+    end
+    
+    # Merge captured variables
+    # We need to combine the captured names and values from both blocks
+    captured_names = (derived1.captured_names..., derived2.captured_names...)
+    captured_vals = (derived1.captured_vals..., derived2.captured_vals...)
+    
+    # Remove duplicates in captured variables (keeping first occurrence)
+    unique_captures = OrderedDict{Symbol,Any}()
+    for (name, val) in zip(captured_names, captured_vals)
+        if !haskey(unique_captures, name)
+            unique_captures[name] = val
+        end
+    end
+    
+    merged_captured_names = tuple(keys(unique_captures)...)
+    merged_captured_vals = tuple(values(unique_captures)...)
+    
+    merged_derived = Derived(merged_derived_dict, merged_captured_names, merged_captured_vals)
+    
+    # Merge likelihoods
+    merged_likelihoods = (likelihoods1..., likelihoods2...)
+    
+    # Return in the same format as @variables macro
+    if isempty(merged_likelihoods)
+        return (merged_priors, merged_derived)
+    else
+        return (merged_priors, merged_derived, merged_likelihoods...)
+    end
+end
+
+# Also support concatenating more than 2 blocks at once using varargs
+Base.vcat(vars::Tuple...) = Base.vcat(vars[1], vars[2], vars[3:end]...)
