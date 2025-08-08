@@ -391,53 +391,32 @@ function GaiaHipparcosUEVAJointLikelihood(;
         end
         @info "Missed transits:"  dr3=missed_transits
 
-        if missed_transits == 1
-            variables = @variables begin
-                σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
-                σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
-                σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
+        variables = @variables begin
+            σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
+            σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
+            σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
+            fluxratio = hasproperty(sys, :fluxratio) ? sys.fluxratio : 0.0
+        end
 
-                gaia_n_dof = $n_dof
-
-                hip_iad_jitter ~ LogUniform(0.001, 100)
-                iad_Δra        ~ Uniform(-1000, 1000)
-                iad_Δdec       ~ Uniform(-1000, 1000)
-                Δiad_pmra      ~ Uniform(-1000, 1000)
-                Δiad_pmdec     ~ Uniform(-1000, 1000)
-                iad_pmra = $(catalog.pmra_hip) + Δiad_pmra
-                iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
-
-                missed_transits ~ DiscreteUniform(1,length(gaia_table.epoch) )
-
-                fluxratio = hasproperty(system, :fluxratio) ? system.fluxratio : 0.0
+        if missed_transits > 0
+            if missed_transits == 1
+                missed_vars = @variables begin
+                    missed_transits ~ DiscreteUniform(1,length(gaia_table.epoch) )
+                end
+            else
+                missed_vars = @variables begin
+                    missed_transits ~ Product(fill(
+                        DiscreteUniform(1,length(gaia_table.epoch) ),
+                        missed_transits
+                    ))
+                end
             end
-        elseif missed_transits > 1
-            variables = @variables begin
-                σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
-                σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
-                σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
+            variables = vcat(variables, missed_vars)
+        end
 
-                hip_iad_jitter ~ LogUniform(0.001, 100)
-                iad_Δra        ~ Uniform(-1000, 1000)
-                iad_Δdec       ~ Uniform(-1000, 1000)
-                Δiad_pmra      ~ Uniform(-1000, 1000)
-                Δiad_pmdec     ~ Uniform(-1000, 1000)
-                iad_pmra = $(catalog.pmra_hip) + Δiad_pmra
-                iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
 
-                missed_transits ~ Product(fill(
-                    DiscreteUniform(1,length(gaia_table.epoch) ),
-                    missed_transits
-                ))
-
-                fluxratio = hasproperty(system, :fluxratio) ? system.fluxratio : 0.0
-            end
-        else
-            variables = @variables begin
-                σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
-                σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
-                σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
-
+        if !isnothing(hip_like)
+            variables_iad = @variables begin
                 hip_iad_jitter ~ LogUniform(0.001, 100)
                 iad_Δra        ~ Uniform(-1000, 1000)
                 iad_Δdec       ~ Uniform(-1000, 1000)
@@ -445,16 +424,14 @@ function GaiaHipparcosUEVAJointLikelihood(;
                 Δiad_pmdec      ~ Uniform(-1000, 1000)
                 iad_pmra = $(catalog.pmra_hip) + Δiad_pmra
                 iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
-
-                fluxratio = hasproperty(system, :fluxratio) ? system.fluxratio : 0.0
             end
+            variables = vcat(variables, variables_iad)
         end
         @info "Added the following observation variables:"
         display(variables[1])
         display(variables[2])
     end
     (priors,derived)=variables
-
 
     
     return GaiaHipparcosUEVAJointLikelihood{
