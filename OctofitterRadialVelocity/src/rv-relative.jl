@@ -47,10 +47,16 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikeli
         observations;
         name::String,
         gaussian_process=nothing,
-        variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin
-            jitter ~ LogUniform(0.001, 100)
-        end),
-    )
+        variables::Union{Nothing,Tuple{Octofitter.Priors,Octofitter.Derived}}=nothing,
+    )    
+        if isnothing(variables)
+            variables = @variables begin
+                jitter ~ LogUniform(0.001, 100)
+            end
+            @info "Added the following observation variables:"
+            display(variables[1])
+            display(variables[2])
+        end
         (priors,derived)=variables
         table = Table(observations)
         if !Octofitter.equal_length_cols(table)

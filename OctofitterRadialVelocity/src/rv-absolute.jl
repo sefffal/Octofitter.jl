@@ -62,14 +62,20 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF} <: Octofitter.AbstractLikel
 end
 function StarAbsoluteRVLikelihood(
     observations;
-    variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin
-        offset ~ Uniform(-1000, 1000)
-        jitter ~ LogUniform(0.001, 100)
-    end),
+    variables::Union{Nothing,Tuple{Octofitter.Priors,Octofitter.Derived}}=nothing,
     trend_function=(θ_obs, epoch)->zero(Octofitter._system_number_type(θ_obs)),
     name::String,
     gaussian_process=nothing
 )
+    if isnothing(variables)
+        variables = @variables begin
+            offset ~ Uniform(-1000, 1000)
+            jitter ~ LogUniform(0.001, 100)
+        end
+        @info "Added the following observation variables:"
+        display(variables[1])
+        display(variables[2])
+    end
     (priors,derived)=variables
     table = Table(observations)[:,:,1]
     if !Octofitter.equal_length_cols(table)
