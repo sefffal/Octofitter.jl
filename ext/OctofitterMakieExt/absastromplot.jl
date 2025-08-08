@@ -267,7 +267,7 @@ function absastromplot!(
 
 
         jj = findall(sim_mask)
-        mask = [flag ∈ component_flags for flag in  absastrom.table.kind]
+        mask = [flag ∈ component_flags for flag in vec(absastrom.table.kind)]
         ax_Z = Axis(
             gs[gs_row += 1, 1:3];
             ylabel="Z-scores",
