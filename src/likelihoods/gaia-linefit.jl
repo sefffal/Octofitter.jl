@@ -1066,8 +1066,31 @@ Please be aware that others  might be able to discover the target coordinates yo
 """
 function GOST_forecast(ra_deg,dec_deg)
 
+    if haskey(ENV, "OCTO_GOST_CATALOG")
+        fname = ENV["OCTO_GOST_CATALOG"]
+        @info "Using provided Gaia scan forecast database $fname"
+        forecast_table = CSV.read(fname, Table, normalizenames=true)
+        # mask = isapprox.(forecast_table.ra_rad_, deg2rad(ra_deg)) .& isapprox.(forecast_table.dec_rad_, deg2rad(dec_deg))
+        themin, idx = findmin(hypot.(
+            (forecast_table.ra_rad_ .- deg2rad(ra_deg)) .*60 .*60 .*1000 .* cos(dec_deg),
+            (forecast_table.dec_rad_ .- deg2rad(dec_deg)).*60 .*60 .*1000
+        ))
+        if themin > 500
+            error("Could not find this target within the provided Gaia scan forecast database file set through OCTO_GOST_CATALOG=$fname Closest target: $themin [mas]")
+        end
+        ra_rad = forecast_table.ra_rad_[idx]
+        dec_rad = forecast_table.dec_rad_[idx]
+        mask = isapprox.(forecast_table.ra_rad_, ra_rad) .& isapprox.(forecast_table.dec_rad_, dec_rad)
+        @info "Found forecasted visibility windows" windows=count(mask)
+        if isempty(mask)
+            error("Invalid condition: no visibility windows.")
+        end
+        return forecast_table[mask,:]
+    end
+
     fname = "GOST-$ra_deg-$dec_deg.csv"
     if isfile(fname)
+        @info "Using cached Gaia scan forecast $fname"
         forecast_table = CSV.read(fname, Table, normalizenames=true)
         return forecast_table
     end
