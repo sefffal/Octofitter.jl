@@ -49,7 +49,7 @@ Priors(;priors...) = Priors(OrderedDict(priors))
 function Base.show(io::IO, mime::MIME"text/plain", priors::Priors)
     println(io, "Priors:")
     for (k,prior) in zip(keys(priors.priors), values(priors.priors))
-        print(io, "  ", k, "\t")
+        print(io, @sprintf("%20s ~ ", k))
         show(io, mime, prior)
         print(io, "\n")
     end
@@ -77,8 +77,9 @@ end
 
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize det::Derived)
     print(io, "Derived:\n  ")
-    for k in keys(det.variables)
-        print(io, k, ", ")
+    for (k,expr) in zip(keys(det.variables),values(det.variables))
+        print(io, @sprintf("%20s = %s\n", k, string(expr)))
+        # print(io, k, " = ")
     end
     print(io, "\n")
 end
@@ -218,49 +219,56 @@ function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::UnitLengt
     T = typeof(like)
     println(io, "$(T): √($X^2+$Y^2) ~ LogNormal(log(1), 0.02)")
 end
-generate_from_params(like::UnitLengthPrior, θ_planet, orbit) = like
+generate_from_params(like::UnitLengthPrior, args...; kwargs...) = like
 
 
 # User-defined likelihood for expressions that should follow a distribution
-struct UserLikelihood{TDist<:Distribution, TSym} <: AbstractLikelihood
-    distribution::TDist
+struct UserLikelihood{TSym_LHS, TSym_RHS} <: AbstractLikelihood
+    priors::Priors
+    derived::Derived
     name::String
 end
-
 # Constructor to embed the symbol as a type parameter
-UserLikelihood(dist::TDist, sym::Symbol, name::String) where TDist = 
-    UserLikelihood{TDist, sym}(dist, name)
+UserLikelihood(sym_lhs::Symbol, sym_rhs::Symbol, name::String) =  UserLikelihood{sym_lhs, sym_rhs}(Priors(), Derived(), name)
+UserLikelihood(sym_lhs::Symbol, sym_rhs::Symbol, name::Symbol) =  UserLikelihood{sym_lhs, sym_rhs}(Priors(), Derived(), String(name))
 
 # Required AbstractLikelihood interface methods
 likelihoodname(like::UserLikelihood) = like.name
 _isprior(::UserLikelihood) = true
-instrument_name(like::UserLikelihood) = like.name
 likeobj_from_epoch_subset(like::UserLikelihood, obs_inds) = like
 TypedTables.Table(::UserLikelihood) = nothing
 generate_from_params(like::UserLikelihood, θ_planet, orbit) = like
 
 # System-level likelihood
-function ln_like(user_like::UserLikelihood{TDist, TSym}, θ_system::NamedTuple, _args...) where {TDist, TSym}
-    value = getproperty(θ_system, TSym)
-    if value isa NTuple{N,<:Number} where N
-        value = SVector(value)
+function ln_like(user_like::UserLikelihood{TSym_LHS, TSym_RHS}, θ_system::NamedTuple, _args...) where {TSym_LHS, TSym_RHS}
+    lhs = getproperty(θ_system, TSym_LHS)
+    rhs = getproperty(θ_system, TSym_RHS)
+    if rhs isa NTuple{N,<:Number} where N
+        rhs = SVector(rhs)
     end
-    return logpdf(user_like.distribution, value)
+    if lhs isa Distribution
+        return logpdf(lhs, rhs)
+    elseif rhs isa Distribution
+        return logpdf(rhs, lhs)
+    else
+        error("neither the left nor right hand side of the `~` expression evaluated to a distribution")
+    end
 end
 
 # Planet-level likelihood
-function ln_like(user_like::UserLikelihood{TDist, TSym}, θ_system::NamedTuple, θ_planet::NamedTuple, θ_obs::NamedTuple, _args...) where {TDist, TSym}
+function ln_like(user_like::UserLikelihood{TSym_LHS, TSym_RHS}, θ_system::NamedTuple, θ_planet::NamedTuple, θ_obs::NamedTuple, _args...) where {TSym_LHS, TSym_RHS}
     θ = merge(θ_planet, θ_obs)
-    value = getproperty(θ, TSym)
-    if value isa NTuple{N,<:Number} where N
-        value = SVector(value)
+    lhs = getproperty(θ, TSym_LHS)
+    rhs = getproperty(θ, TSym_RHS)
+    if rhs isa NTuple{N,<:Number} where N
+        rhs = SVector(rhs)
     end
-    return logpdf(user_like.distribution, value)
+    return logpdf(lhs, rhs)
 end
 
 # Show method
-function Base.show(io::IO, mime::MIME"text/plain", like::UserLikelihood{TDist, TSym}) where {TDist, TSym}
-    println(io, "UserLikelihood: $(TSym) ~ $(like.distribution)")
+function Base.show(io::IO, mime::MIME"text/plain", like::UserLikelihood{TSym_LHS, TSym_RHS}) where {TSym_LHS, TSym_RHS}
+    println(io, "UserLikelihood: $TSym_LHS ~ $TSym_RHS")
 end
 
 # We need a blank likelihood type to hold variables when constructing
@@ -643,9 +651,6 @@ function make_arr2nt(system::System)
                         # Make previous variables available
                         $([:($(k) = _prev.$k) for k in all_available_keys]...)
                         result = $expr
-                        if result isa Distributions.Distribution
-                            error("System derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
-                        end
                         result
                     end)
                 end
@@ -704,9 +709,9 @@ function make_arr2nt(system::System)
                             # Make previous observation variables available
                             $([:($(k) = _prev.$k) for k in all_obs_keys]...)
                             result = $expr
-                            if result isa Distributions.Distribution
-                                error("System observation derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
-                            end
+                            # if result isa Distributions.Distribution
+                            #     error("System observation derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
+                            # end
                             result
                         end)
                     end
@@ -774,9 +779,9 @@ function make_arr2nt(system::System)
                             # Make previous planet variables available
                             $([:($(k) = _prev.$k) for k in all_available_keys]...)
                             result = $expr
-                            if result isa Distributions.Distribution
-                                error("Planet derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
-                            end
+                            # if result isa Distributions.Distribution
+                            #     error("Planet derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
+                            # end
                             result
                         end)
                     end
@@ -838,9 +843,9 @@ function make_arr2nt(system::System)
                                 $([:($(pk) = planet.$pk) for pk in vcat(planet_prior_keys, planet_derived_keys)]...)
                                 $([:($(ok) = _prev.$ok) for ok in vcat(obs_prior_keys, obs_derived_keys_so_far)]...)
                                 result = $expr
-                                if result isa Distributions.Distribution
-                                    error("Planet observation derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
-                                end
+                                # if result isa Distributions.Distribution
+                                #     error("Planet observation derived variable '$($(Meta.quot(key)))' evaluated to a Distribution object ($result). Did you mean to sample from it using '~' instead of '='?")
+                                # end
                                 result
                             end)
                         end
@@ -1098,12 +1103,12 @@ function make_ln_prior_transformed(system::System)
                 # Try and "heal" out of bounds values.
                 # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
                 # precision. 
-                if !isfinite(p)
+                if !isfinite(p) && $(eltype(prior_distribution) <: AbstractFloat)
                     # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", $sampled)=", p)
                     if sign(p) > 1
-                        return prevfloat(typemax(eltype(arr)))
+                        return prevfloat(typemax($(eltype(prior_distribution))))
                     else
-                        return nextfloat(typemin(eltype(arr)))
+                        return nextfloat(typemin($(eltype(prior_distribution))))
                     end
                 end;
                 lp += p
@@ -1168,12 +1173,12 @@ function make_ln_prior_transformed(system::System)
                     # Try and "heal" out of bounds values.
                     # Since we are sampling from the unconstrained space they only happen due to insufficient numerical 
                     # precision. 
-                    if !isfinite(p)
+                    if !isfinite(p) && $(eltype(prior_distribution) <: AbstractFloat)
                         # println("invalid prior value encountered for prior: Bijectors.logpdf_with_trans(", $prior_distribution, ", ", arr[$i], ", $sampled)=", p)
                         if sign(p) > 1
-                            return prevfloat(typemax(eltype(arr)))
+                            return prevfloat(typemax($(eltype(prior_distribution))))
                         else
-                            return nextfloat(typemin(eltype(arr)))
+                            return nextfloat(typemin($(eltype(prior_distribution))))
                         end
                     end;
                     lp += p

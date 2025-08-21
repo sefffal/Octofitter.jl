@@ -101,7 +101,7 @@ astrom_like = PlanetRelAstromLikelihood(astrom_dat, name="rel astrom. 1")
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_like, ObsPriorAstromONeil2019(astrom_like)],
+    likelihoods=[ObsPriorAstromONeil2019(astrom_like)],
     variables=@variables begin
         # For using with ObsPriors:
         P ~ Uniform(0.001, 1000)

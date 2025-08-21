@@ -17,6 +17,7 @@ makedocs(
         "Getting Started" => [
             "Installation" => "installation.md",
             "Quick Start" => "quick-start.md",
+            "Migration Guide" => "migration.md",
         ],
         "Tutorials" => [
             "Relative Astrometry" => [
@@ -51,6 +52,7 @@ makedocs(
                 "Calculate Detection Limits" => "limits.md",
             ],
             "Bayesian Workflows" => [
+                "Generating and Fitting Simulated Data" => "data-simulation.md",
                 "Prior Predictive Checks" => "prior-pred.md",
                 "Posterior Predictive Checks" => "post-pred.md",
                 "Cross Validation" => "cross-validation.md",

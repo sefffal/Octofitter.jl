@@ -354,21 +354,21 @@ export HGCALikelihood
 
 
 # Generate new astrometry observations
-function generate_from_params(like::HGCALikelihood, θ_system, θ_obs, orbits, solutions, sol_start_i)
+function generate_from_params(like::HGCALikelihood, θ_system, θ_obs, orbits, solutions, sol_start_i; add_noise)
 
-    sim = simulate(like::HGCALikelihood, θ_system, θ_obs, orbits, solutions, sol_start_i)
+    sim = simulate(like, θ_system, θ_obs, orbits, solutions, sol_start_i)
 
     (;μ_g, μ_h, μ_hg) = sim
 
     # replace values in the HGCA with our new ones
     hgca = (;
         like.hgca...,
-        pmra_hip = μ_h[1],
-        pmdec_hip = μ_h[2],
-        pmra_hg = μ_hg[1],
-        pmdec_hg = μ_hg[2],
-        pmra_gaia = μ_g[1],
-        pmdec_gaia = μ_g[2],
+        pmra_hip = add_noise    ? μ_h[1]  + randn()*like.hgca.pmra_hip_error   : μ_h[1],
+        pmdec_hip = add_noise   ? μ_h[2]  + randn()*like.hgca.pmdec_hip_error  : μ_h[2],
+        pmra_hg = add_noise     ? μ_hg[1] + randn()*like.hgca.pmra_hg_error    : μ_hg[1],
+        pmdec_hg = add_noise    ? μ_hg[2] + randn()*like.hgca.pmdec_hg_error   : μ_hg[2],
+        pmra_gaia = add_noise   ? μ_g[1]  + randn()*like.hgca.pmra_gaia_error  : μ_g[1],
+        pmdec_gaia = add_noise  ? μ_g[2]  + randn()*like.hgca.pmdec_gaia_error : μ_g[2],
     )
     new_hgca_like = HGCALikelihood(hgca, like.priors, like.derived; like.include_dr3_vel, like.include_iad)
     # What do we do about the Hipparcos residuals?

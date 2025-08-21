@@ -8,7 +8,7 @@ The closure phases are mapped to a set of non-redundant kernel phases. All spect
     GRAVITY modelling is supported in Octofitter via the extension package OctofitterInterferometry. To install it, run 
     `pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterInterferometry`
 
-The only supported astrophysical sources at this time are zero or more point sources orbitting a primary body.
+The only supported astrophysical sources at this time are zero or more point sources orbiting a primary body.
 
 Interferometer data is almost always multi-modal, requiring the use of parallel tempering.
 Multi-wavelength GRAVITY-WIDE data with multiple epochs is fairly expensive to model (can take on the order of 1ms per likelihood evaluation), so one after running some tests locally, one should consider using a compute cluster.

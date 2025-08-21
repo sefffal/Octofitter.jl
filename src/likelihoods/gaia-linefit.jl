@@ -659,10 +659,28 @@ function fit_5param_prepared(
                 error("Asked for `include_chi2=true` but `σ_formal==0`")
             end
             # For uniform errors, the weighted residuals are just residuals/σ
-            residuals .= residuals ./ σ_formal
         
             # Chi-squared is the sum of squared weighted residuals
-            chi_squared_astro = dot(residuals, residuals)        
+            # Used for UEVA calculations
+            chi_squared_astro = dot(residuals, residuals)
+
+            # # Compute the uncertainties based on sigma_formal
+            # # Compute (A^T W A)^{-1} for the covariance matrix
+            # # W = I/σ_formal² for uniform errors
+            # AtWA = A_weighted' * A_weighted
+            # cov_matrix = inv(AtWA)
+            # parameter_uncertainties = sqrt.(diag(cov_matrix))
+
+            # # Compute inflated uncertainties based on scatter in residuals
+            # n_parameters = 5
+            # dof = length(b_weighted) - n_parameters
+            
+            # # Reduced chi-squared
+            # chi2_reduced = chi_squared_astro / dof
+            
+            # # Inflation factor
+            # inflation_factor = sqrt(chi2_reduced)
+            # @show chi_squared_astro parameter_uncertainties chi2_reduced inflation_factor
         end
     end
 
@@ -671,7 +689,9 @@ function fit_5param_prepared(
     end
     return (;
         parameters,
-        chi_squared_astro=chi_squared_astro,
+        # parameter_uncertainties,
+        chi_squared_astro,
+        # inflation_factor,
     )
 
 end
@@ -804,9 +824,6 @@ function _simulate_skypath_perturbations!(
     flux_ratio,
     orbit_solutions, orbit_solutions_i_epoch_start, T=Float64;
 )
-    if flux_ratio != 0
-        throw(NotImplementedException())
-    end
     for i in eachindex(table.epoch)
         # TODO: make use of potentially multi-threaded kepsolve by ensuring `epoch` column is present,
         # and using above passed-in orbit solutions.
@@ -1049,8 +1066,31 @@ Please be aware that others  might be able to discover the target coordinates yo
 """
 function GOST_forecast(ra_deg,dec_deg)
 
+    if haskey(ENV, "OCTO_GOST_CATALOG")
+        fname = ENV["OCTO_GOST_CATALOG"]
+        @info "Using provided Gaia scan forecast database $fname"
+        forecast_table = CSV.read(fname, Table, normalizenames=true)
+        # mask = isapprox.(forecast_table.ra_rad_, deg2rad(ra_deg)) .& isapprox.(forecast_table.dec_rad_, deg2rad(dec_deg))
+        themin, idx = findmin(hypot.(
+            (forecast_table.ra_rad_ .- deg2rad(ra_deg)) .*60 .*60 .*1000 .* cos(dec_deg),
+            (forecast_table.dec_rad_ .- deg2rad(dec_deg)).*60 .*60 .*1000
+        ))
+        if themin > 500
+            error("Could not find this target within the provided Gaia scan forecast database file set through OCTO_GOST_CATALOG=$fname Closest target: $themin [mas]")
+        end
+        ra_rad = forecast_table.ra_rad_[idx]
+        dec_rad = forecast_table.dec_rad_[idx]
+        mask = isapprox.(forecast_table.ra_rad_, ra_rad) .& isapprox.(forecast_table.dec_rad_, dec_rad)
+        @info "Found forecasted visibility windows" windows=count(mask)
+        if isempty(mask)
+            error("Invalid condition: no visibility windows.")
+        end
+        return forecast_table[mask,:]
+    end
+
     fname = "GOST-$ra_deg-$dec_deg.csv"
     if isfile(fname)
+        @info "Using cached Gaia scan forecast $fname"
         forecast_table = CSV.read(fname, Table, normalizenames=true)
         return forecast_table
     end
