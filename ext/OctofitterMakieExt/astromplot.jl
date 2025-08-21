@@ -43,7 +43,7 @@ function Octofitter.astromplot!(
     show_post_pred_legend=true,
     show_instrument_names=true,
     use_arcsec=nothing,
-    ts,
+    ts=0:1,
     kwargs...
 )
     gs = gridspec_or_fig
