@@ -83,7 +83,7 @@ function absastromplot!(
     color_model_t = zeros(length(ii), length(ts))
 
     # Add in a non-linear effect due to light travel time changes
-    els = Octofitter.construct_elements(model, results, first(keys(model.system.planets)), :)
+    els = Octofitter.construct_elements(model, results, first(keys(model.system.planets)), ii)
     for (j, orb) in enumerate(els)
         for (i,t1) in enumerate(ts)
             sol = orbitsolve(orb, t1)
@@ -93,8 +93,8 @@ function absastromplot!(
             diff_lt_app_pmra = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmra2
             diff_lt_app_pmdec = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmdec2
  
-            pmra_model_t[j,i] += results[:pmra][j] +diff_lt_app_pmra
-            pmdec_model_t[j,i] += results[:pmdec][j] +diff_lt_app_pmdec
+            pmra_model_t[j,i] += results[:pmra][ii[j]] +diff_lt_app_pmra
+            pmdec_model_t[j,i] += results[:pmdec][ii[j]] +diff_lt_app_pmdec
         end
     end
 
