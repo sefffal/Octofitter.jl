@@ -1066,7 +1066,7 @@ Please be aware that others  might be able to discover the target coordinates yo
 """
 function GOST_forecast(ra_deg,dec_deg)
 
-    if haskey(ENV, "OCTO_GOST_CATALOG")
+    if haskey(ENV, "OCTO_GOST_CATALOG") && !isempty(ENV["OCTO_GOST_CATALOG"])
         fname = ENV["OCTO_GOST_CATALOG"]
         @info "Using provided Gaia scan forecast database $fname"
         forecast_table = CSV.read(fname, Table, normalizenames=true)
