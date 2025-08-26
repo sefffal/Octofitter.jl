@@ -81,10 +81,27 @@ function absastromplot!(
     pmra_model_t = zeros(length(ii), length(ts))
     pmdec_model_t = zeros(length(ii), length(ts))
     color_model_t = zeros(length(ii), length(ts))
-    absolute_orbits = false
+
+    # Add in a non-linear effect due to light travel time changes
+    els = Octofitter.construct_elements(model, results, first(keys(model.system.planets)), :)
+    for (j, orb) in enumerate(els)
+        for (i,t1) in enumerate(ts)
+            sol = orbitsolve(orb, t1)
+            Δt = 100
+            t2 = t1 + Δt
+            sol′ = orbitsolve(orb,t2)
+            diff_lt_app_pmra = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmra2
+            diff_lt_app_pmdec = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmdec2
+ 
+            pmra_model_t[j,i] += results[:pmra][j] +diff_lt_app_pmra
+            pmdec_model_t[j,i] += results[:pmdec][j] +diff_lt_app_pmdec
+        end
+    end
+
+    
     for planet_key in keys(model.system.planets)
         orbs = Octofitter.construct_elements(model, results, planet_key, ii)
-        absolute_orbits |= first(orbs) isa AbsoluteVisual
+    
         # Draws from the posterior
         mass = results["$(planet_key)_mass"][ii] .* Octofitter.mjup2msol
 
@@ -98,15 +115,11 @@ function absastromplot!(
         # TODO: Can we use the existing simulator for this please?
         pmra_model_t .+= pmra.(sols, mass)
         pmdec_model_t .+= pmdec.(sols, mass)
+        
         color_model_t .= rem2pi.(
             meananom.(sols), RoundDown) .+ 0 .* ii
     end
-    if haskey(results, :pmra)
-        pmra_model_t .+= results[:pmra][ii]
-    end
-    if haskey(results, :pmdec)
-        pmdec_model_t .+= results[:pmdec][ii]
-    end
+
     if colorbar
         Colorbar(
             gs[1:2, 4];
@@ -159,17 +172,17 @@ function absastromplot!(
         # If we are doing our own rigorous propagation we don't need this
         # correction. We could subtract it from the measurements, but 
         # here we just add it to our model so that they match
-        if absolute_orbits
+        # if absolute_orbits
             hg_nonlinear_dpmra = absastrom.catalog.nonlinear_dpmra[1]
             hg_nonlinear_dpmdec = absastrom.catalog.nonlinear_dpmdec[1]
             hip_nonlinear_dpmra = 2absastrom.catalog.nonlinear_dpmra[1]
             hip_nonlinear_dpmdec = 2absastrom.catalog.nonlinear_dpmdec[1]
-        else
-            hg_nonlinear_dpmra = 
-            hg_nonlinear_dpmdec = 
-            hip_nonlinear_dpmra = 
-            hip_nonlinear_dpmdec = zero(absastrom.catalog.nonlinear_dpmra[1])
-        end
+        # else
+        #     hg_nonlinear_dpmra = 
+        #     hg_nonlinear_dpmdec = 
+        #     hip_nonlinear_dpmra = 
+        #     hip_nonlinear_dpmdec = zero(absastrom.catalog.nonlinear_dpmra[1])
+        # end
 
 
         θ_systems_from_chain = Octofitter.mcmcchain2result(model, results)
@@ -215,6 +228,17 @@ function absastromplot!(
         y = vec(absastrom.table.pm)
         σ = vec(absastrom.table.σ_pm)
         if !isempty(mask)
+            # Apply nonlinear correction to get true proper motion for plotting
+            y_corrected = copy(y)
+            # if absolute_orbits
+                # Remove nonlinear corrections from Hipparcos and HGCA measurements 
+                # to show true proper motion consistently with model lines
+                hip_ra_mask = [k == :ra_hip for k in absastrom.table.kind]
+                hg_ra_mask = [k == :ra_hg for k in absastrom.table.kind]
+                y_corrected[hip_ra_mask] .-= hip_nonlinear_dpmra
+                y_corrected[hg_ra_mask] .-= hg_nonlinear_dpmra
+            # end
+            
             scatter!(
                 ax_velra,
                 concat_with_nan(stack(x[mask] for _ in 1:length(sims))),
@@ -224,16 +248,16 @@ function absastromplot!(
             )
             errorbars!(
                 ax_velra,
-                x[mask], y[mask],
+                x[mask], y_corrected[mask],
                 x[mask] .- (absastrom.table.start_epoch[mask]),
                 (absastrom.table.stop_epoch[mask]) .- x[mask],
                 color=:black,
                 direction=:x, linewidth=0.7
             )
-            errorbars!(ax_velra, x[mask], y[mask], σ[mask], color=:black, linewidth=0.7)
-            scatter!(ax_velra, x[mask], y[mask], color=:black)
-            ymin = minimum(y[mask] .-  1.5σ[mask])
-            ymax = maximum(y[mask] .+  1.5σ[mask])
+            errorbars!(ax_velra, x[mask], y_corrected[mask], σ[mask], color=:black, linewidth=0.7)
+            scatter!(ax_velra, x[mask], y_corrected[mask], color=:black)
+            ymin = minimum(y_corrected[mask] .-  3σ[mask])
+            ymax = maximum(y_corrected[mask] .+  3σ[mask])
             ylims!(ax_velra, ymin, ymax)
         end
 
@@ -243,6 +267,17 @@ function absastromplot!(
         y = vec(absastrom.table.pm)
         σ = vec(absastrom.table.σ_pm)
         if !isempty(mask)
+            # Apply nonlinear correction to get true proper motion for plotting
+            y_corrected = copy(y)
+            # if absolute_orbits
+                # Remove nonlinear corrections from Hipparcos and HGCA measurements 
+                # to show true proper motion consistently with model lines
+                hip_dec_mask = [k == :dec_hip for k in absastrom.table.kind]
+                hg_dec_mask = [k == :dec_hg for k in absastrom.table.kind]
+                y_corrected[hip_dec_mask] .-= hip_nonlinear_dpmdec
+                y_corrected[hg_dec_mask] .-= hg_nonlinear_dpmdec
+            # end
+            
             scatter!(
                 ax_veldec,
                 concat_with_nan(stack(x[mask] for _ in 1:length(sims))),
@@ -252,16 +287,16 @@ function absastromplot!(
             )
             errorbars!(
                 ax_veldec,
-                x[mask], y[mask],
+                x[mask], y_corrected[mask],
                 x[mask] .- (absastrom.table.start_epoch[mask]),
                 (absastrom.table.stop_epoch[mask]) .- x[mask],
                 color=:black,
                 direction=:x, linewidth=0.7
             )
-            errorbars!(ax_veldec, x[mask], y[mask], σ[mask], color=:black, linewidth=0.7)
-            scatter!(ax_veldec, x[mask], y[mask], color=:black)
-            ymin = minimum(y[mask] .-  1.5σ[mask])
-            ymax = maximum(y[mask] .+  1.5σ[mask])
+            errorbars!(ax_veldec, x[mask], y_corrected[mask], σ[mask], color=:black, linewidth=0.7)
+            scatter!(ax_veldec, x[mask], y_corrected[mask], color=:black)
+            ymin = minimum(y_corrected[mask] .-  3σ[mask])
+            ymax = maximum(y_corrected[mask] .+  3σ[mask])
             ylims!(ax_veldec, ymin, ymax)
         end
 
@@ -301,6 +336,30 @@ function absastromplot!(
 
         z_scores = map(sims) do sim
             y = collect(vec(absastrom.table.pm))
+            
+            # Apply the same nonlinear corrections as in the plots above for consistency
+            # if absolute_orbits
+                # Remove nonlinear corrections from Hipparcos and HGCA measurements 
+                # to show true proper motion consistently
+                hip_ra_idx = findfirst(==(:ra_hip), absastrom.table.kind)
+                hip_dec_idx = findfirst(==(:dec_hip), absastrom.table.kind) 
+                hg_ra_idx = findfirst(==(:ra_hg), absastrom.table.kind)
+                hg_dec_idx = findfirst(==(:dec_hg), absastrom.table.kind)
+                
+                if !isnothing(hip_ra_idx)
+                    y[hip_ra_idx] -= hip_nonlinear_dpmra
+                end
+                if !isnothing(hip_dec_idx)
+                    y[hip_dec_idx] -= hip_nonlinear_dpmdec
+                end
+                if !isnothing(hg_ra_idx)
+                    y[hg_ra_idx] -= hg_nonlinear_dpmra
+                end
+                if !isnothing(hg_dec_idx)
+                    y[hg_dec_idx] -= hg_nonlinear_dpmdec
+                end
+            # end
+            
             idx = findfirst(==(:ueva_dr3), absastrom.table.kind)
             if !isnothing(idx)
                 y[idx] = sim.μ_1_3
