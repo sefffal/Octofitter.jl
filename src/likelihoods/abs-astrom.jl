@@ -85,7 +85,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
     )
 
 
-    if !hasproperty(catalog, :astrometric_chi2_al_dr3) || !hasproperty(catalog, :visibility_periods_used_dr3)
+    if !hasproperty(catalog, :astrometric_chi2_al_dr3) || !hasproperty(catalog, :rv_nb_transits) 
         @warn "Column missing from catalog, querying Gaia DR3 TAP server (or using cached value)"
 
         dr3 = Octofitter._query_gaia_dr3(;gaia_id)
@@ -93,9 +93,8 @@ function GaiaHipparcosUEVAJointLikelihood(;
             catalog...,
             astrometric_chi2_al_dr3=dr3.astrometric_chi2_al,
             parallax_error=dr3.parallax_error,
-            visibility_periods_used_dr3=dr3.visibility_periods_used,
-            rv_nb_transits_dr3=dr3.rv_nb_transits,
-            radial_velocity_error_dr3=dr3.radial_velocity_error,
+            rv_nb_transits=dr3.rv_nb_transits,
+            radial_velocity_error=dr3.radial_velocity_error,
         )
     end
 
@@ -447,11 +446,11 @@ function GaiaHipparcosUEVAJointLikelihood(;
 
             len_epochs = length(gaia_table.epoch)
             variables_rv = @variables begin
-                σ_rv_per_transit ~ truncated(Normal(exp(rv_ln_uncert_dr3), exp(rv_ln_uncert_err_dr3)), lower=eps())
+                σ_rv_per_transit ~ truncated(Normal(exp(catalog.rv_ln_uncert_dr3), exp(catalog.rv_ln_uncert_err_dr3)), lower=eps())
             end
             variables = vcat(variables, variables_rv)
 
-            transits_rv = Int(len_epochs - catalog.rv_nb_transits_dr3)
+            transits_rv = Int(len_epochs - catalog.rv_nb_transits)
             @info "Count of RV transits:"  transits_rv total_transits=len_epochs
            
             if transits_rv > 0
@@ -718,8 +717,8 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
             #     # Calculate log-likelihood
             #     # We want P(observing the catalog sample variance | our model)
             #     # The catalog reports error on median, we need to convert back to sample variance
-            #     ε_catalog = like.catalog.radial_velocity_error_dr3
-            #     N_rv = like.catalog.rv_nb_transits_dr3
+            #     ε_catalog = like.catalog.radial_velocity_error
+            #     N_rv = like.catalog.rv_nb_transits
             #     s_catalog_squared = (2 * N_rv / π) * (ε_catalog^2 - 0.113^2)  # Equation 4 from paper
                 
             #     ξ_catalog_squared = (N_rv - 1) * s_catalog_squared / θ_obs.σ_rv_per_transit^2 # these are all in km/s
@@ -730,8 +729,8 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
             #     ll += @show logpdf(rv_chi2_dist, ξ_catalog_squared)
             # end
             if :rv_dr3 ∈ like.table.kind
-                ε_catalog = like.catalog.radial_velocity_error_dr3
-                N_rv = like.catalog.rv_nb_transits_dr3
+                ε_catalog = like.catalog.radial_velocity_error
+                N_rv = like.catalog.rv_nb_transits
                 σ_rv_per_transit = θ_obs.σ_rv_per_transit  # per-transit uncertainty in km/s
                 
                 # Convert catalog error to sample variance
@@ -1396,14 +1395,14 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         # @show rv_mean sample_variance
         
         # The chi-squared statistic (equation 6)
-        N_rv = like.catalog.rv_nb_transits_dr3
+        N_rv = like.catalog.rv_nb_transits
         ξ_squared = (N_rv - 1) * sample_variance / σ_rv_per_transit^2
 
         # Store for likelihood calculation
         # rv_chi2_stat = ξ_squared
         rv_dof = N_rv - 1
 
-        ε_catalog = like.catalog.radial_velocity_error_dr3
+        ε_catalog = like.catalog.radial_velocity_error
 
         # Convert catalog error to sample variance
         s_catalog_squared = (2 * N_rv / π) * (ε_catalog^2 - 0.113^2)
