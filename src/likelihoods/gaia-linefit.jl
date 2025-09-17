@@ -865,7 +865,7 @@ end
 
 
 function _query_gaia_dr3(;gaia_id)
-    fname = "_gaia_dr3/source-$gaia_id.csv"
+    fname = "_gaia_dr3_final/source-$gaia_id.csv"
     if !isfile(fname)
         @info "Querying gea.esac.esa.int/tap-server" source_id=gaia_id
         resp = HTTP.get(
@@ -874,15 +874,15 @@ function _query_gaia_dr3(;gaia_id)
                 "REQUEST"=>"doQuery",
                 "LANG"=>"ADQL",
                 "FORMAT"=>"CSV",
-                "QUERY"=>"SELECT * FROM gaiaedr3.gaia_source WHERE source_id=$gaia_id"
+                "QUERY"=>"SELECT * FROM gaiadr3.gaia_source WHERE source_id=$gaia_id"
             ],
             cookies=false,
         )
         if resp.status != 200
             error("Error with GAIA query: $(resp.status)")
         end
-        if !isdir("_gaia_dr3")
-            mkdir("_gaia_dr3")
+        if !isdir("_gaia_dr3_final")
+            mkdir("_gaia_dr3_final")
         end
         open(fname, write=true) do f
             write(f, resp.body)
