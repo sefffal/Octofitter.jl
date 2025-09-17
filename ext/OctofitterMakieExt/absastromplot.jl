@@ -218,7 +218,7 @@ function absastromplot!(
             :ra_dr2, :dec_dr2,
             :ra_dr32, :dec_dr32,
             :ra_dr3, :dec_dr3,
-            :ueva_dr3
+            :ueva_dr3,
         ]
         sim_mask = [flag ∈ absastrom.table.kind for flag in component_flags]
 
@@ -265,7 +265,7 @@ function absastromplot!(
         sim_mask_dec = findall([contains(string(k),"dec") && k ∈ absastrom.table.kind for k in component_flags])
         x = vec(absastrom.table.epoch)
         y = vec(absastrom.table.pm)
-        σ = vec(absastrom.table.σ_pm)
+        σ = vec(absastrom.table.σ_pm) 
         if !isempty(mask)
             # Apply nonlinear correction to get true proper motion for plotting
             y_corrected = copy(y)
@@ -313,7 +313,7 @@ function absastromplot!(
             xlabelvisible=bottom_time_axis,
             xticks = (
                 1:length(jj),
-                replace.(string.(vec(absastrom.table.kind[mask])),"_" => " ")
+                replace.(string.(vec(absastrom.table.kind[mask])),"_" => " ", "ra"=>"μα*", "dec"=>"μδ")
             ),
             xticklabelrotation=pi/2,
             axis...
@@ -321,7 +321,6 @@ function absastromplot!(
 
         # plot all of ra,dec, ueva on axis in order of epochs
         # plot iad in another panel
-
 
         μ_h_cat, Σ_h = isnothing(absastrom.catalog.dist_hip) ? ([0.,0.], zeros(2,2)) : params(absastrom.catalog.dist_hip) 
         μ_hg_cat, Σ_hg = isnothing(absastrom.catalog.dist_hg) ? ([0.,0.], zeros(2,2)) : params(absastrom.catalog.dist_hg) 
@@ -341,30 +340,32 @@ function absastromplot!(
             # if absolute_orbits
                 # Remove nonlinear corrections from Hipparcos and HGCA measurements 
                 # to show true proper motion consistently
-                hip_ra_idx = findfirst(==(:ra_hip), absastrom.table.kind)
-                hip_dec_idx = findfirst(==(:dec_hip), absastrom.table.kind) 
-                hg_ra_idx = findfirst(==(:ra_hg), absastrom.table.kind)
-                hg_dec_idx = findfirst(==(:dec_hg), absastrom.table.kind)
-                
-                if !isnothing(hip_ra_idx)
-                    y[hip_ra_idx] -= hip_nonlinear_dpmra
-                end
-                if !isnothing(hip_dec_idx)
-                    y[hip_dec_idx] -= hip_nonlinear_dpmdec
-                end
-                if !isnothing(hg_ra_idx)
-                    y[hg_ra_idx] -= hg_nonlinear_dpmra
-                end
-                if !isnothing(hg_dec_idx)
-                    y[hg_dec_idx] -= hg_nonlinear_dpmdec
-                end
+            hip_ra_idx = findfirst(==(:ra_hip), absastrom.table.kind)
+            hip_dec_idx = findfirst(==(:dec_hip), absastrom.table.kind) 
+            hg_ra_idx = findfirst(==(:ra_hg), absastrom.table.kind)
+            hg_dec_idx = findfirst(==(:dec_hg), absastrom.table.kind)
+            
+            if !isnothing(hip_ra_idx)
+                y[hip_ra_idx] -= hip_nonlinear_dpmra
+            end
+            if !isnothing(hip_dec_idx)
+                y[hip_dec_idx] -= hip_nonlinear_dpmdec
+            end
+            if !isnothing(hg_ra_idx)
+                y[hg_ra_idx] -= hg_nonlinear_dpmra
+            end
+            if !isnothing(hg_dec_idx)
+                y[hg_dec_idx] -= hg_nonlinear_dpmdec
+            end
             # end
             
             idx = findfirst(==(:ueva_dr3), absastrom.table.kind)
             if !isnothing(idx)
                 y[idx] = sim.μ_1_3
             end
+           
             resids = sim.μ[jj] .- y[mask]
+
             sigmas = [
                 sqrt.(diag(Σ_h))
                 sqrt.(diag(Σ_hg))

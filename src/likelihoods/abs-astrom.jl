@@ -85,14 +85,17 @@ function GaiaHipparcosUEVAJointLikelihood(;
     )
 
 
-    if !hasproperty(catalog, :astrometric_chi2_al_dr3)
+    if !hasproperty(catalog, :astrometric_chi2_al_dr3) || !hasproperty(catalog, :visibility_periods_used_dr3)
         @warn "Column missing from catalog, querying Gaia DR3 TAP server (or using cached value)"
 
         dr3 = Octofitter._query_gaia_dr3(;gaia_id)
         catalog = (;
             catalog...,
             astrometric_chi2_al_dr3=dr3.astrometric_chi2_al,
-            parallax_error=dr3.parallax_error
+            parallax_error=dr3.parallax_error,
+            visibility_periods_used_dr3=dr3.visibility_periods_used,
+            rv_nb_transits_dr3=dr3.rv_nb_transits,
+            radial_velocity_error_dr3=dr3.radial_velocity_error,
         )
     end
 
@@ -374,6 +377,17 @@ function GaiaHipparcosUEVAJointLikelihood(;
         ],
 
     )
+
+
+    has_rv = !ismissing(catalog.rv_ln_uncert_dr3) && !ismissing(catalog.rv_ln_uncert_err_dr3)
+    if has_rv
+        push!(table.epoch, mean(gaia_table.epoch))  # or use RV-specific epoch if available
+        push!(table.start_epoch, first(gaia_table.epoch))
+        push!(table.stop_epoch, last(gaia_table.epoch))
+        push!(table.pm, NaN)  # RV doesn't have a "pm" equivalent
+        push!(table.σ_pm, NaN)
+        push!(table.kind, :rv_dr3)
+    end
     if isempty(hip_table)
         splice!(table, 1:5)
     end
@@ -386,12 +400,11 @@ function GaiaHipparcosUEVAJointLikelihood(;
         missed_transits = Int(len_epochs - catalog.astrometric_matched_transits_dr3)
         dec = catalog.dec
         ra = catalog.ra
-        n_dof = catalog.astrometric_params_solved_dr3 == 31 ? 5 : 6
         if missed_transits < 0
-            @warn "Transits missing from GOST (more matched transits than visibility windows)"
+            @warn "Transits missing from GOST (more matched transits than available options from GOST)"
             missed_transits = 0
         end
-        @info "Missed transits:"  dr3=missed_transits
+        @info "Count of missed or rejected transits:"  dr3=missed_transits
 
         variables = @variables begin
             σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
@@ -429,6 +442,28 @@ function GaiaHipparcosUEVAJointLikelihood(;
             end
             variables = vcat(variables, variables_iad)
         end
+
+        if has_rv
+
+            len_epochs = length(gaia_table.epoch)
+            variables_rv = @variables begin
+                σ_rv_per_transit ~ truncated(Normal(exp(rv_ln_uncert_dr3), exp(rv_ln_uncert_err_dr3)), lower=eps())
+            end
+            variables = vcat(variables, variables_rv)
+
+            transits_rv = Int(len_epochs - catalog.rv_nb_transits_dr3)
+            @info "Count of RV transits:"  transits_rv total_transits=len_epochs
+           
+            if transits_rv > 0
+                missed_vars = @variables begin
+                    rv_transit_priorities ~ MvNormal(zeros(len_epochs), I)
+                    transits_rv = partialsortperm(SVector(rv_transit_priorities), 1:$transits_rv, rev=true)
+                end
+                variables = vcat(variables, missed_vars)
+            end
+
+        end
+
         @info "Added the following observation variables:"
         display(variables[1])
         display(variables[2])
@@ -674,6 +709,49 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
                 end
             end
 
+            # # We handle the RV unceratinties separatley for the same reasons
+            # if :rv_dr3 ∈ like.table.kind
+            #     # The likelihood is based on chi-squared distribution
+            #     # From the paper: ξ² follows χ²(N-1) distribution
+            #     rv_chi2_dist = Chisq(sim.rv_dof)
+                
+            #     # Calculate log-likelihood
+            #     # We want P(observing the catalog sample variance | our model)
+            #     # The catalog reports error on median, we need to convert back to sample variance
+            #     ε_catalog = like.catalog.radial_velocity_error_dr3
+            #     N_rv = like.catalog.rv_nb_transits_dr3
+            #     s_catalog_squared = (2 * N_rv / π) * (ε_catalog^2 - 0.113^2)  # Equation 4 from paper
+                
+            #     ξ_catalog_squared = (N_rv - 1) * s_catalog_squared / θ_obs.σ_rv_per_transit^2 # these are all in km/s
+
+            #     @show s_catalog_squared ξ_catalog_squared rv_chi2_dist
+                
+            #     # Compare model to catalog
+            #     ll += @show logpdf(rv_chi2_dist, ξ_catalog_squared)
+            # end
+            if :rv_dr3 ∈ like.table.kind
+                ε_catalog = like.catalog.radial_velocity_error_dr3
+                N_rv = like.catalog.rv_nb_transits_dr3
+                σ_rv_per_transit = θ_obs.σ_rv_per_transit  # per-transit uncertainty in km/s
+                
+                # Convert catalog error to sample variance
+                s_catalog_squared = (2 * N_rv / π) * (ε_catalog^2 - 0.113^2)
+
+                # non centrality parameter
+                ncp = (N_rv - 1) * sim.sample_variance / σ_rv_per_transit^2
+                
+                # Use NON-CENTRAL chi-squared with signal included
+                rv_chi2_dist = NoncentralChisq(N_rv - 1, ncp)
+                
+                # Catalog's chi-squared statistic
+                ξ_catalog_squared = (N_rv - 1) * s_catalog_squared / σ_rv_per_transit^2
+                
+                # Now this correctly penalizes high-amplitude models
+                ll += logpdf(rv_chi2_dist, ξ_catalog_squared)
+
+            end
+
+
             if n_components > 1
 
                 # Extract catalog parameters
@@ -830,7 +908,6 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
 
     gaia_n_dof = like.catalog.astrometric_params_solved_dr3 == 31 ? 5 : 6
 
-
     # The gaia_table and A_prepared_5_dr3/A_prepared_5_dr2 include all available
     # visibility windows, not filtered to specifically be DR2 or DR3. 
     # Here we may further reject some more to marginalize over
@@ -853,6 +930,22 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         gaia_table = like.gaia_table
         A_prepared_5_dr3 = like.A_prepared_5_dr3
         A_prepared_5_dr2 = like.A_prepared_5_dr2
+    end
+
+    if hasproperty(θ_obs, :transits_rv)
+        (;transits_rv) = θ_obs 
+        if eltype(transits_rv) <: AbstractFloat
+            transits_rv = Int.(transits_rv)
+        end
+        # @show length(unique(transits_rv))  length(transits_rv)
+        # The list of missed transits must be unique
+        if length(unique(transits_rv)) < length(transits_rv)
+            return nothing
+        end
+        jj = collect(transits_rv)#Int.(sort(setdiff(1:length(like.gaia_table.epoch), transits_rv)))
+        gaia_table_rv = like.gaia_table[jj,:]
+    else
+        gaia_table_rv = like.gaia_table
     end
 
     # Now we fit a no-planet (zero mass planet) sky path model to this data.
@@ -914,7 +1007,15 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
 
         for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-            fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
+            if hasproperty(θ_obs, :fluxratio)
+                if θ_obs.fluxratio isa Number
+                    fluxratio = θ_obs.fluxratio
+                else
+                    fluxratio = θ_obs.fluxratio[i_planet]
+                end
+            else
+                fluxratio = 0.0
+            end
             _simulate_skypath_perturbations!(
                 Δα_mas_hip, Δδ_mas_hip,
                 like.hip_table, orbit,
@@ -1035,7 +1136,15 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     # gaia_table_dr2.epoch .+= Δepoch_dr2_days
     for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-        fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
+        if hasproperty(θ_obs, :fluxratio)
+            if θ_obs.fluxratio isa Number
+                fluxratio = θ_obs.fluxratio
+            else
+                fluxratio = θ_obs.fluxratio[i_planet]
+            end
+        else
+            fluxratio = 0.0
+        end
         _simulate_skypath_perturbations!(
             Δα_mas_dr2, Δδ_mas_dr2,
             gaia_table_dr2, orbit,
@@ -1078,7 +1187,15 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     # gaia_table_dr3.epoch .+= Δepoch_dr3_days
     for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-        fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
+        if hasproperty(θ_obs, :fluxratio)
+            if θ_obs.fluxratio isa Number
+                fluxratio = θ_obs.fluxratio
+            else
+                fluxratio = θ_obs.fluxratio[i_planet]
+            end
+        else
+            fluxratio = 0.0
+        end
         _simulate_skypath_perturbations!(
             Δα_mas_dr3, Δδ_mas_dr3,
             gaia_table_dr3, orbit,
@@ -1254,6 +1371,51 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     # # UEVA/( u0^2 * σ_formal^2) = ruwe_dr3^2
     # ruwe_dr3 = sqrt(UEVA_model/( u0^2 * σ_formal^2))
 
+    # Forward-model the Gaia RV uncertainty using approach from the "paired" tool:
+    # https://arxiv.org/pdf/2206.11275
+    if :rv_dr3 ∈ like.table.kind
+        # Get the per-transit RV uncertainty from catalog
+        σ_rv_per_transit = exp(θ_obs.σ_rv_per_transit)  # Convert from log space to km/s
+        
+        # Simulate RV measurements at Gaia epochs
+        rv_model = zeros(T, length(gaia_table_rv.epoch))
+        
+        for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
+            planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
+            # Calculate RV at each epoch
+            for (i, epoch) in enumerate(gaia_table_rv.epoch)
+                sol = orbitsolve(orbit, epoch)
+                # Add the RV component from this planet
+                rv_model[i] = radvel(sol, planet_mass_msol)/1e3 # barycentric rv in km/s
+            end
+        end
+        
+        # Calculate sample variance
+        rv_mean = mean(rv_model)
+        sample_variance = sum((rv_model .- rv_mean).^2) / (length(rv_model) - 1)
+        # @show rv_mean sample_variance
+        
+        # The chi-squared statistic (equation 6)
+        N_rv = like.catalog.rv_nb_transits_dr3
+        ξ_squared = (N_rv - 1) * sample_variance / σ_rv_per_transit^2
+
+        # Store for likelihood calculation
+        # rv_chi2_stat = ξ_squared
+        rv_dof = N_rv - 1
+
+        ε_catalog = like.catalog.radial_velocity_error_dr3
+
+        # Convert catalog error to sample variance
+        s_catalog_squared = (2 * N_rv / π) * (ε_catalog^2 - 0.113^2)
+    else
+        # rv_chi2_stat = convert(T, NaN)
+        rv_dof = convert(T, NaN)
+        s_catalog_squared  = convert(T, NaN)
+        rv_dof = convert(T, NaN)
+        rv_mean = convert(T, NaN)
+        sample_variance = convert(T, NaN)
+        s_catalog_squared = convert(T, NaN)
+    end
 
 
     return (;
@@ -1269,11 +1431,16 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         μ_dr2,
         μ_dr32,
         μ_dr3,
-        μ = (@SVector [μ_h[1],μ_h[2],μ_hg[1],μ_hg[2],μ_dr2[1],μ_dr2[2],μ_dr32[1],μ_dr32[2],μ_dr3[1],μ_dr3[2],UEVA_model]),
+        μ = (@SVector [μ_h[1],μ_h[2],μ_hg[1],μ_hg[2],μ_dr2[1],μ_dr2[2],μ_dr32[1],μ_dr32[2],μ_dr3[1],μ_dr3[2],UEVA_model,sample_variance]),
 
         n_dr3 = iend_dr3 - istart_dr3 + 1,
         n_dr2 = iend_dr2 - istart_dr2 + 1,
 
+        # rv_chi2_stat,
+        rv_dof,
+        rv_mean,
+        sample_variance,
+        s_catalog_squared,
 
         # Individual
         # TODO: get rid of these

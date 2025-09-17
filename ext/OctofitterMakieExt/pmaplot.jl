@@ -95,7 +95,6 @@ function pmaplot!(
         catch
             continue
         end
-        # TODO: Can we use the existing simulator for this please?
         pmra_model_t .+= pmra.(sols, mass)
         pmdec_model_t .+= pmdec.(sols, mass)
         color_model_t .= rem2pi.(
