@@ -266,13 +266,12 @@ function extract_fixed_params(model, partial_nt)
     dummy_params = model.sample_priors(Random.default_rng())
     full_nt = model.arr2nt(dummy_params)
     
-    fixed_values = Float64[]
+    fixed_values = []
     fixed_indices = Int[]
     
     function process_tuple!(current_partial, current_full, path="")
         for name in propertynames(current_partial)
             val = getproperty(current_partial, name)
-            
             # Special handling for observations
             if name == :observations && val isa NamedTuple
                 process_observations!(val, current_full, path * ".observations")
@@ -291,7 +290,7 @@ function extract_fixed_params(model, partial_nt)
                 process_tuple!(val, full_val, path * "." * String(name))
             else
                 # Find index in the flat array using sentinel values
-                sentinel_value = full_val
+                sentinel_value = full_val[1]
                 sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
                 
                 if sentinal_idx !== nothing
@@ -329,7 +328,7 @@ function extract_fixed_params(model, partial_nt)
                         
                         # Look for the exact variable name
                         if hasproperty(full_obs_vars, var_name)
-                            sentinel_value = getproperty(full_obs_vars, var_name)
+                            sentinel_value = getproperty(full_obs_vars, var_name)[1]
                             sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
                             
                             if sentinal_idx !== nothing
@@ -345,7 +344,7 @@ function extract_fixed_params(model, partial_nt)
                             prefixed_name = Symbol(string(normalized_obs_name) * "_" * var_name_str)
                             
                             if hasproperty(full_obs_vars, prefixed_name)
-                                sentinel_value = getproperty(full_obs_vars, prefixed_name)
+                                sentinel_value = getproperty(full_obs_vars, prefixed_name)[1]
                                 sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
                                 
                                 if sentinal_idx !== nothing
@@ -361,12 +360,10 @@ function extract_fixed_params(model, partial_nt)
                     if !found
                         for full_obs_name in propertynames(current_full.observations)
                             full_obs_vars = getproperty(current_full.observations, full_obs_name)
-                            
                             # Look for the exact variable name
                             if hasproperty(full_obs_vars, var_name)
-                                sentinel_value = getproperty(full_obs_vars, var_name)
+                                sentinel_value = getproperty(full_obs_vars, var_name)[1]
                                 sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
-                                
                                 if sentinal_idx !== nothing
                                     push!(fixed_values, var_value)
                                     push!(fixed_indices, sentinal_idx)
@@ -408,7 +405,12 @@ function guess_starting_position_with_fixed(
         params = collect(model.sample_priors(rng))
         # Insert fixed values
         for (i, idx) in enumerate(fixed_indices)
-            params[idx] = fixed_values[i]
+            val = fixed_values[i]
+            if val isa Number
+                params[idx] = val
+            else
+                params[idx:(idx+length(val)-1)] .= val
+            end
         end
         return params
     end
