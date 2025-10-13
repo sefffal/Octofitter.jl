@@ -51,9 +51,10 @@ function GaiaHipparcosUEVAJointLikelihood(;
         scanlaw_table=nothing,
         catalog,
         variables::Union{Nothing,Tuple{Priors,Derived}}=nothing,
-        include_iad=false,
+        include_rv=true,
         ueva_mode::Symbol=:RUWE,
     )
+    include_iad=false
 
     # allow passing in table directly
     if Tables.istable(catalog)
@@ -378,7 +379,9 @@ function GaiaHipparcosUEVAJointLikelihood(;
     )
 
 
-    has_rv = !ismissing(catalog.rv_ln_uncert_dr3) && !ismissing(catalog.rv_ln_uncert_err_dr3)
+    has_rv = include_rv && (
+        hasproperty(catalog, :rv_ln_uncert_dr3) && !ismissing(catalog.rv_ln_uncert_dr3) && !ismissing(catalog.rv_ln_uncert_err_dr3)
+    )
     if has_rv
         push!(table.epoch, mean(gaia_table.epoch))  # or use RV-specific epoch if available
         push!(table.start_epoch, first(gaia_table.epoch))
