@@ -93,7 +93,7 @@ sys = System(
     variables=@variables begin
         M ~ truncated(Normal(1.5, 0.06),lower=0.1, upper=10)
 
-        m_lope ~ Uniform(-1,1)  # <-----  
+        trend_slope ~ Uniform(-1,1)  # <-----  
     end
 )
 ```
