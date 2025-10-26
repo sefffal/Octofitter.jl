@@ -655,7 +655,6 @@ function fit_5param_prepared(
             mul!(model_predictions, A_weighted, x)
             residuals .= b_weighted .- model_predictions
             if σ_formal == 0
-                @show σ_formal
                 error("Asked for `include_chi2=true` but `σ_formal==0`")
             end
             # For uniform errors, the weighted residuals are just residuals/σ
@@ -664,23 +663,26 @@ function fit_5param_prepared(
             # Used for UEVA calculations
             chi_squared_astro = dot(residuals, residuals)
 
-            # # Compute the uncertainties based on sigma_formal
-            # # Compute (A^T W A)^{-1} for the covariance matrix
-            # # W = I/σ_formal² for uniform errors
+            # Determine parameter uncertainties
+
+            # Compute the uncertainties based on sigma_formal
+            # Compute (A^T W A)^{-1} for the covariance matrix
+            # W = I/σ_formal² for uniform errors
             # AtWA = A_weighted' * A_weighted
             # cov_matrix = inv(AtWA)
             # parameter_uncertainties = sqrt.(diag(cov_matrix))
 
-            # # Compute inflated uncertainties based on scatter in residuals
-            # n_parameters = 5
-            # dof = length(b_weighted) - n_parameters
+            # Chi-squared is the sum of squared weighted residuals
+            chi_squared_astro = dot(residuals, residuals)
+
+            # Determine parameter uncertainties
+            n_parameters = 5
+            dof = length(b_weighted) - n_parameters
             
-            # # Reduced chi-squared
-            # chi2_reduced = chi_squared_astro / dof
+            # Reduced chi-squared
+            chi2_reduced = chi_squared_astro / dof
             
-            # # Inflation factor
-            # inflation_factor = sqrt(chi2_reduced)
-            # @show chi_squared_astro parameter_uncertainties chi2_reduced inflation_factor
+            # @show chi_squared_astro chi2_reduced inflation_factor
         end
     end
 
@@ -689,9 +691,9 @@ function fit_5param_prepared(
     end
     return (;
         parameters,
-        # parameter_uncertainties,
         chi_squared_astro,
-        # inflation_factor,
+        chi2_reduced,
+        dof
     )
 
 end

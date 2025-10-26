@@ -586,7 +586,7 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
         else
 
             (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3, n_dr3, n_dr2) = sim       
-
+            (;deflation_factor_dr3) = sim
             # Check if we have absolute orbits
             absolute_orbits = false
             for orbit in orbits
@@ -756,17 +756,86 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
 
             if n_components > 1
 
+
+                # Important: we can de-inflate the Gaia DR3 uncertainties since
+                # we know the astrometric excess noise they applied and we are assuming a-priori that the
+                # EAN is well-accounted for by a planet
+                # TODO: this isn't quite right just yet -- we want to reduce it only by the factor caused by the planet
+                # it already includes sigma_formal=hypot(sigma_att, sigma_AL), but not yet sigma_cal
+                μ_dr3_cat, Σ_dr3 = params(dist_dr3)
+                # Σ_dr3 .*= deflation_factor_dr3^2
+
+                # TODO: what about Hipparcos - Gaia scaled position difference?
+                # we can also improve the uncertainty on the Gaia position
+                # uncertainty in velocity is sqrt(sigma_H^2 + sigma_G^2)/(delta T)
+                # if we scale down sigma_G
+                # uncertainty in velocity is sqrt(sigma_H^2 + sigma_G^2*deflation_factor_dr3^2)/(delta T)
+                # so we can't scale the full thing -- we 
+
+                #############################################
+                # Account for the UEVA-based potential uncertainty delfation of Gaia DR3 positions, 
+                
+                # DR3 position covariance at central epoch (already inflated by Gaia)
+                σ_ra_dr3 = like.catalog.ra_error_central_dr3
+                σ_dec_dr3 = like.catalog.dec_error_central_dr3
+                ρ_radec_dr3 = like.catalog.ra_dec_corr_central_dr3
+
+                Σ_pos_dr3 = @SMatrix [
+                    σ_ra_dr3^2                    ρ_radec_dr3*σ_ra_dr3*σ_dec_dr3
+                    ρ_radec_dr3*σ_ra_dr3*σ_dec_dr3    σ_dec_dr3^2
+                ]
+
+                # DR2 position covariance at central epoch
+                σ_ra_dr2 = like.catalog.ra_error_central_dr2
+                σ_dec_dr2 = like.catalog.dec_error_central_dr2
+                ρ_radec_dr2 = like.catalog.ra_dec_corr_central_dr2
+
+                Σ_pos_dr2 = @SMatrix [
+                    σ_ra_dr2^2                    ρ_radec_dr2*σ_ra_dr2*σ_dec_dr2
+                    ρ_radec_dr2*σ_ra_dr2*σ_dec_dr2    σ_dec_dr2^2
+                ]
+                
+                ρ_23 = like.catalog.rho_dr2_dr3
+                Σ_cross = @SMatrix [
+                    ρ_23*σ_ra_dr3*σ_ra_dr2                        ρ_23*ρ_radec_dr3*σ_ra_dr3*σ_dec_dr2
+                    ρ_23*ρ_radec_dr2*σ_dec_dr3*σ_ra_dr2          ρ_23*σ_dec_dr3*σ_dec_dr2
+                ]
+                
+                # Time baselines for DR3-DR2 scaled position difference
+                Δt_ra = (like.catalog.epoch_ra_dr3_mjd - like.catalog.epoch_ra_dr2_mjd) * julian_year
+                Δt_dec = (like.catalog.epoch_dec_dr3_mjd - like.catalog.epoch_dec_dr2_mjd) * julian_year
+                
+                # Deflation adjustment for DR32 proper motions
+                # Only the DR3-contributed terms get deflated
+                d = deflation_factor_dr3
+
+                # Position covariance adjustment (in mas²)
+                # ΔΣ_pos = (d^2 - 1) * Σ_pos_dr3 - 2 * (d - 1) * Σ_cross
+                ΔΣ_pos = (d^2 - 1) * Σ_pos_dr3 - (d - 1) * (Σ_cross + Σ_cross')
+
+                # Transform to proper motion covariance (mas²/yr²)
+                # Different time baselines for RA and Dec
+                Tr = @SMatrix [
+                    1/Δt_ra    0.0
+                    0.0        1/Δt_dec
+                ]
+
+                ΔΣ_dr32 = Tr * ΔΣ_pos * Tr'
+
                 # Extract catalog parameters
                 μ_h_cat, Σ_h = isnothing(dist_hip) ? (@SVector[0.,0.], @SMatrix zeros(2,2)) : params(dist_hip) 
                 μ_hg_cat, Σ_hg = isnothing(dist_hg) ? (@SVector[0.,0.], @SMatrix zeros(2,2)) : params(dist_hg) 
                 μ_dr2_cat, Σ_dr2 = params(dist_dr2)
                 μ_dr32_cat, Σ_dr32 = params(dist_dr32)
-                μ_dr3_cat, Σ_dr3 = params(dist_dr3)
                 Σ_h = SMatrix{2, 2, Float64, 4}(Σ_h)
                 Σ_hg = SMatrix{2, 2, Float64, 4}(Σ_hg)
                 Σ_dr2 = SMatrix{2, 2, Float64, 4}(Σ_dr2)
-                Σ_dr32 = SMatrix{2, 2, Float64, 4}(Σ_dr32)
-                Σ_dr3 = SMatrix{2, 2, Float64, 4}(Σ_dr3)
+                # Apply deflation adjustment to DR32 covariance
+                Σ_dr32 = SMatrix{2, 2, Float64, 4}(Σ_dr32 .+ ΔΣ_dr32)
+                # Apply deflation adjustment to DR3 proper motions
+                Σ_dr3 = SMatrix{2, 2, Float64, 4}(Σ_dr3 .* deflation_factor_dr3^2)
+
+                
 
                 μ_catalog_full = @SVector [
                     μ_h_cat[1], μ_h_cat[2],     # ra_hip, dec_hip
@@ -1219,7 +1288,12 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         end
     end
 
-    out_dr3 = fit_5param_prepared(view(A_prepared_5_dr3, istart_dr3:iend_dr3,:), view(gaia_table, istart_dr3:iend_dr3), Δα_mas_dr3, Δδ_mas_dr3, 0.0, σ_formal; include_chi2=Val(true))
+    out_dr3 = fit_5param_prepared(
+        view(A_prepared_5_dr3, istart_dr3:iend_dr3,:),
+        view(gaia_table, istart_dr3:iend_dr3),
+        Δα_mas_dr3, Δδ_mas_dr3, 0.0, σ_formal;
+        include_chi2=Val(true)
+    )
     Δα_dr3, Δδ_dr3, Δpmra_dr3, Δpmdec_dr3 = out_dr3.parameters
     # Rigorously propagate the linear proper motion component in spherical coordinates
     # Account for within-gaia differential light travel time 
@@ -1286,84 +1360,71 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     μ_hg = @SVector [pmra_hg_model, pmdec_hg_model]
     μ_dr32 = @SVector [pmra_dr32_model, pmdec_dr32_model]
 
-    # A_dr2 = A_prepared_5_dr2[istart_dr2:iend_dr2,:]
-    # A_dr3 = A_prepared_5_dr3[istart_dr3:iend_dr3,:]
-
-    # pinv_dr2 = inv(A_dr2' * A_dr2) * A_dr2'
-    # pinv_dr3 = inv(A_dr3' * A_dr3) * A_dr3'
-
-    # # TODO: I think the assumed noise doesn't matter 
-    # σ² = 1.0 # we probably just have to assume it's the same between datasets
-
-    # # Individual covariances
-    # cov_x_dr2 = σ² * inv(A_dr2' * A_dr2)
-    # cov_x_dr3 = σ² * inv(A_dr3' * A_dr3)
-
-    # # @show cov_x_dr2 cov_x_dr3
-
-    # # Cross-covariance (A_dr3 contains A_dr2)
-    # # TODO: assumes DR2 shorter than DR3, and DR2 in first N slots of DR3 (not always true for odd solutions)
-    # n_dr2 = size(A_dr2, 1)
-    # cov_noise = σ² * I(size(A_dr3, 1))
-    # cov_x_dr2_x_dr3 = pinv_dr2 * cov_noise[1:n_dr2, :] * pinv_dr3'
-
-    # # Full covariance matrix
-    # Σ_dr2_dr3 = [
-    #     cov_x_dr2           cov_x_dr2_x_dr3
-    #     cov_x_dr2_x_dr3'    cov_x_dr3
-    # ]
-
-
     ##############################
-    # DR3 UEVA calculation
+    # DR3 UEVA calculation and uncertainty deflation
     # From Gaia catalog:
     (;
-        astrometric_chi2_al_dr3,         # Chi squared of along-scan measurements
-        astrometric_n_good_obs_al_dr3,   # Number of good AL observations (N)  
-        astrometric_matched_transits_dr3,# Number of field of view transits (N_FoV)
-        # phot_g_mean_mag,             # G magnitude
-        # bp_rp,                       # BP-RP color
-        # ra, dec,                     # Position
+        astrometric_chi2_al_dr3,         
+        astrometric_n_good_obs_al_dr3,   
+        astrometric_matched_transits_dr3,
         astrometric_excess_noise_dr3,
         ruwe_dr3,
     ) = like.catalog
 
-    # Observed UEVA
+    N = astrometric_n_good_obs_al_dr3
+    N_FoV = astrometric_matched_transits_dr3
+    N_AL = N / N_FoV
+
+    # Calculate Gaia's published UEVA (what they measured)
     if like.ueva_mode == :EAN
-        UEVA = astrometric_excess_noise_dr3^2 + σ_att^2 + σ_AL^2
+        UEVA_Gaia = astrometric_excess_noise_dr3^2 + σ_att^2 + σ_AL^2
     elseif like.ueva_mode == :RUWE
-        # normalization factor for that G mag & BP-RP
-        # eqn. (3) Kiefer et al 2024
-        u0 = 1/ruwe_dr3*sqrt(astrometric_chi2_al_dr3/(astrometric_n_good_obs_al_dr3-gaia_n_dof))
-        UEVA = (ruwe_dr3 * u0)^2 * σ_formal^2
+        u0 = 1/ruwe_dr3 * sqrt(astrometric_chi2_al_dr3/(N - gaia_n_dof))
+        UEVA_Gaia = (ruwe_dr3 * u0)^2 * σ_formal^2
     else
         error("Unsupported mode (should be :EAN or :RUWE, was $(like.ueva_mode)")
     end
 
-    N = astrometric_n_good_obs_al_dr3
-    N_FoV = astrometric_matched_transits_dr3
-    N_AL = N/N_FoV
-    
-    chi2_astro_scaled = out_dr3.chi_squared_astro * N_AL
+    # Calculate expected UEVA for a single star (Eq. D.8 from paper)
+    μ_UEVA_single = (N_AL / (N - gaia_n_dof)) * 
+                ((N_FoV - gaia_n_dof) * σ_calib^2 + N_FoV * σ_AL^2)
 
-    # Expected UEVA for a single star
-    μ_UEVA_single = (N_AL/(N_AL*N_FoV - gaia_n_dof)) * 
-    ((N_FoV - gaia_n_dof)*σ_calib^2 + N_FoV*σ_AL^2)
+    # And its standard deviation (Eq. D.9)
+    σ_UEVA_single = sqrt(
+        2 * N_AL / (N - gaia_n_dof)^2 * (
+            N_AL * (N_FoV - gaia_n_dof) * σ_calib^4 + 
+            N_FoV * σ_AL^4 + 
+            2 * N_FoV * σ_AL^2 * σ_calib^2
+        )
+    )
 
-    # And its variance
-    σ_UEVA_single = sqrt(2*N_AL/(N_AL*N_FoV - gaia_n_dof)^2 * 
-    (
-        N_AL*(N_FoV - gaia_n_dof)*σ_calib^4 + 
-        N_FoV*σ_AL^4 + 2*N_FoV*σ_AL^2*σ_calib^2
-    ))
-
-    UEVA_model_1 = (chi2_astro_scaled * σ_formal^2) / (N_AL * N_FoV - gaia_n_dof)
-    
-    # Compare to expected single-star distribution
-    μ_1_3 = UEVA^(1/3) 
+    μ_1_3 = UEVA_Gaia^(1/3)
     UEVA_unc = σ_UEVA_single * μ_UEVA_single^(-2/3) / 3 # divide by 3 due to cube root transformation
+
+    # Calculate model-predicted UEVA from our fit
+    chi2_astro_scaled = out_dr3.chi_squared_astro * N_AL
+    UEVA_model_raw = (chi2_astro_scaled * σ_formal^2) / (N - gaia_n_dof)
+
+    # For the UEVA likelihood, use cube-root transformation (Eq. 27, Sect 5.1.1)
+    UEVA_model_1 = (chi2_astro_scaled * σ_formal^2) / (N_AL * N_FoV - gaia_n_dof)
     UEVA_model = cbrt(UEVA_model_1 + μ_UEVA_single)
 
+    # Calculate the "deflation factor" -- the amount of Gaia's inflated uncertainties
+    # that come from our now-explained companion model
+
+    # What a 5-param fit would measure with this companion model
+    UEVA_predicted = UEVA_model_raw + μ_UEVA_single
+
+    # Deflation factor
+    deflation_factor_raw = sqrt(μ_UEVA_single / UEVA_Gaia)
+    # equivalent to :
+    # deflation_factor_raw = sqrt(1 - UEVA_orbital_perturb / UEVA_Gaia) 
+
+
+    # @show deflation_factor_raw 
+
+    # Clamp to valid range
+    deflation_factor_dr3 = deflation_factor_raw > 1.0 ? 1.0 : deflation_factor_raw
 
     # # for data simulation purposes, here is an estimate of what these parameters would produce for RUWE
     # # given everything we know about the gaia uncertainties etc.
@@ -1395,7 +1456,6 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         # Calculate sample variance
         rv_mean = mean(rv_model)
         sample_variance = sum((rv_model .- rv_mean).^2) / (length(rv_model) - 1)
-        # @show rv_mean sample_variance
         
         # The chi-squared statistic (equation 6)
         N_rv = like.catalog.rv_nb_transits
@@ -1443,6 +1503,8 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         rv_mean,
         sample_variance,
         s_catalog_squared,
+
+        deflation_factor_dr3,
 
         # Individual
         # TODO: get rid of these
