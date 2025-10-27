@@ -853,12 +853,12 @@ function _simulate_skypath_perturbations!(
         ra_host_vs_bary = raoff(sol, planet_mass_msol)
         ra_planet_vs_host = raoff(sol)
         ra_planet_vs_bary = ra_host_vs_bary + ra_planet_vs_host
-        ra_photocentre = ra_host_vs_bary * (1-flux_ratio) + ra_planet_vs_bary * flux_ratio
+        ra_photocentre = (ra_host_vs_bary + ra_planet_vs_bary * flux_ratio) / (1 + flux_ratio)
         Δα_model[i] += ra_photocentre
         dec_host_vs_bary = decoff(sol, planet_mass_msol)
         dec_planet_vs_host = decoff(sol)
         dec_planet_vs_bary = dec_host_vs_bary + dec_planet_vs_host
-        dec_photocentre = dec_host_vs_bary * (1-flux_ratio) + dec_planet_vs_bary * flux_ratio
+        dec_photocentre = (dec_host_vs_bary + dec_planet_vs_bary * flux_ratio) / (1 + flux_ratio)
         Δδ_model[i] += dec_photocentre
     end
     return
