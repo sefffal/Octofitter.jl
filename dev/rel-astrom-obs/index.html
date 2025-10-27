@@ -59,37 +59,37 @@ sys = System(
 
 model = Octofitter.LogDensityModel(sys)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System TutoriaPrime of dimension 11 and 10 epochs with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>Initialize the model starting points and confirm the data are entered correctly:</p><pre><code class="language-julia hljs">init_chain = initialize!(model,)
-octoplot(model, init_chain)</code></pre><img src="6ccdec73.png" alt="Example block output"/><p>Now run the fit:</p><pre><code class="language-julia hljs">results_obspri = octofit(model,iterations=5000,)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (5000×33×1 Array{Float64, 3}):
+octoplot(model, init_chain)</code></pre><img src="9c4e5930.png" alt="Example block output"/><p>Now run the fit:</p><pre><code class="language-julia hljs">results_obspri = octofit(model,iterations=5000,)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (5000×33×1 Array{Float64, 3}):
 
 Iterations        = 1:1:5000
 Number of chains  = 1
 Samples per chain = 5000
-Wall duration     = 12.88 seconds
-Compute duration  = 12.88 seconds
+Wall duration     = 13.8 seconds
+Compute duration  = 13.8 seconds
 parameters        = M, plx, b_e, b_i, b_ωx, b_ωy, b_Ωx, b_Ωy, b_P, b_θ_x, b_θ_y, b_ω, b_Ω, b_M, b_a, b_θ, b_tp, b_obspri_obs_prior_example_jitter, b_obspri_obs_prior_example_northangle, b_obspri_obs_prior_example_platescale
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Summary Statistics
- <span class="sgr1">                            parameters         mean         std      mcse     ⋯
- <span class="sgr90">                                Symbol      Float64     Float64   Float64     ⋯
+ <span class="sgr1">                            parameters         mean         std       mcse    ⋯
+ <span class="sgr90">                                Symbol      Float64     Float64    Float64    ⋯
 
-                                      M       1.2039      0.0862    0.0019   2 ⋯
-                                    plx      50.0000      0.0202    0.0003   5 ⋯
-                                    b_e       0.0981      0.0709    0.0023     ⋯
-                                    b_i       0.4529      0.1506    0.0058     ⋯
-                                   b_ωx       0.0312      0.6607    0.0385     ⋯
-                                   b_ωy      -0.0004      0.7639    0.0511     ⋯
-                                   b_Ωx       0.0104      0.7635    0.0574     ⋯
-                                   b_Ωy       0.0485      0.6585    0.0455     ⋯
-                                    b_P      29.1906      5.0955    0.1946     ⋯
-                                  b_θ_x       0.0897      0.0485    0.0013   1 ⋯
-                                  b_θ_y      -1.2391      0.6645    0.0176   1 ⋯
-                                    b_ω      -0.1950      1.7277    0.1019     ⋯
-                                    b_Ω      -0.4098      1.7945    0.1165     ⋯
-                                    b_M       1.2039      0.0862    0.0019   2 ⋯
-                                    b_a      10.0430      1.1611    0.0461     ⋯
-                                    b_θ      -1.4985      0.0051    0.0001   3 ⋯
-                                   b_tp   44544.4415   1915.9581   67.8278     ⋯
+                                      M       1.2095      0.0852     0.0036    ⋯
+                                    plx      50.0001      0.0191     0.0003    ⋯
+                                    b_e       0.0980      0.0690     0.0020    ⋯
+                                    b_i       0.4726      0.1657     0.0176    ⋯
+                                   b_ωx       0.0179      0.6677     0.0507    ⋯
+                                   b_ωy       0.0022      0.7604     0.0670    ⋯
+                                   b_Ωx       0.0321      0.7701     0.0794    ⋯
+                                   b_Ωy      -0.0290      0.6550     0.0451    ⋯
+                                    b_P      29.7165      5.6519     0.6144    ⋯
+                                  b_θ_x       0.0910      0.0456     0.0012    ⋯
+                                  b_θ_y      -1.2508      0.6223     0.0163    ⋯
+                                    b_ω      -0.2172      1.7417     0.1282    ⋯
+                                    b_Ω      -0.5507      1.7235     0.1259    ⋯
+                                    b_M       1.2095      0.0852     0.0036    ⋯
+                                    b_a      10.1770      1.3123     0.1496    ⋯
+                                    b_θ      -1.4982      0.0053     0.0001    ⋯
+                                   b_tp   44427.0162   2020.5553   188.9620    ⋯
                     ⋮                         ⋮            ⋮          ⋮        ⋱
 </span><span class="sgr36">                                                    4 columns and 3 rows omitted
 
@@ -97,23 +97,23 @@ Quantiles
                              parameters         2.5%        25.0%        50.0% ⋯
  </span><span class="sgr90">                                Symbol      Float64      Float64      Float64 ⋯
 
-                                      M       1.0431       1.1444       1.2019 ⋯
-                                    plx      49.9616      49.9857      49.9999 ⋯
-                                    b_e       0.0038       0.0402       0.0856 ⋯
-                                    b_i       0.1475       0.3527       0.4588 ⋯
-                                   b_ωx      -1.0415      -0.5643       0.0724 ⋯
-                                   b_ωy      -1.0769      -0.7848       0.0166 ⋯
-                                   b_Ωx      -1.0752      -0.7891       0.0237 ⋯
-                                   b_Ωy      -1.0421      -0.5144       0.1044 ⋯
-                                    b_P      20.6424      25.7928      28.5054 ⋯
-                                  b_θ_x       0.0155       0.0534       0.0834 ⋯
-                                  b_θ_y      -2.7191      -1.6545      -1.1556 ⋯
-                                    b_ω      -2.9100      -1.8704       0.0270 ⋯
-                                    b_Ω      -3.0005      -2.2984       0.1545 ⋯
-                                    b_M       1.0431       1.1444       1.2019 ⋯
-                                    b_a       8.1364       9.2796       9.8551 ⋯
-                                    b_θ      -1.5086      -1.5019      -1.4985 ⋯
-                                   b_tp   39952.5884   43545.8256   44856.6461 ⋯
+                                      M       1.0486       1.1503       1.2094 ⋯
+                                    plx      49.9618      49.9878      50.0003 ⋯
+                                    b_e       0.0033       0.0383       0.0899 ⋯
+                                    b_i       0.1494       0.3649       0.4721 ⋯
+                                   b_ωx      -1.0302      -0.6003       0.0354 ⋯
+                                   b_ωy      -1.0863      -0.7749       0.0181 ⋯
+                                   b_Ωx      -1.0702      -0.7643       0.0282 ⋯
+                                   b_Ωy      -1.0493      -0.6140       0.0077 ⋯
+                                    b_P      20.9256      25.7981      28.6565 ⋯
+                                  b_θ_x       0.0173       0.0571       0.0874 ⋯
+                                  b_θ_y      -2.6662      -1.6286      -1.1758 ⋯
+                                    b_ω      -2.8877      -1.9305       0.0381 ⋯
+                                    b_Ω      -2.9690      -2.2669       0.0178 ⋯
+                                    b_M       1.0486       1.1503       1.2094 ⋯
+                                    b_a       8.1767       9.2788       9.8911 ⋯
+                                    b_θ      -1.5086      -1.5018      -1.4979 ⋯
+                                   b_tp   40058.8813   43438.1344   44874.1646 ⋯
                     ⋮                         ⋮            ⋮            ⋮      ⋱
 </span><span class="sgr36">                                                    2 columns and 3 rows omitted
-</span></span></code></pre><p>Plot the MCMC results:</p><pre><code class="language-julia hljs">octoplot(model, results_obspri)</code></pre><img src="699188e4.png" alt="Example block output"/><p>Compare this with the previous fit using uniform priors:</p><pre><code class="language-julia hljs">octoplot(model_with_uniform_priors, results_unif_pri)</code></pre><img src="1a0dfdca.png" alt="Example block output"/><p>We can compare the results in a corner plot:</p><pre><code class="language-julia hljs">octocorner(model,results_unif_pri,results_obspri,small=true)</code></pre><img src="5078db98.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom/">« Basic Astrom Fit</a><a class="docs-footer-nextpage" href="../fit-coplanar/">Resonant Co-Planar Model »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Monday 27 October 2025 00:32">Monday 27 October 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</span></span></code></pre><p>Plot the MCMC results:</p><pre><code class="language-julia hljs">octoplot(model, results_obspri)</code></pre><img src="ad6d8b3d.png" alt="Example block output"/><p>Compare this with the previous fit using uniform priors:</p><pre><code class="language-julia hljs">octoplot(model_with_uniform_priors, results_unif_pri)</code></pre><img src="acb36640.png" alt="Example block output"/><p>We can compare the results in a corner plot:</p><pre><code class="language-julia hljs">octocorner(model,results_unif_pri,results_obspri,small=true)</code></pre><img src="3c58ddc5.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom/">« Basic Astrom Fit</a><a class="docs-footer-nextpage" href="../fit-coplanar/">Resonant Co-Planar Model »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Monday 27 October 2025 03:40">Monday 27 October 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
