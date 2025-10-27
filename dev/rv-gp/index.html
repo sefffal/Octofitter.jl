@@ -97,7 +97,7 @@ sys = System(
 
 model = Octofitter.LogDensityModel(sys)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System k2_132 of dimension 17 and 71 epochs with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>Note that the two instruments do not need to use the same Gaussian process kernels, nor the same hyper parameter names. </p><div class="admonition is-info" id="Note-41b6ef2e92b8b09"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-41b6ef2e92b8b09" title="Permalink"></a></header><div class="admonition-body"><p>Tip: If you want the instruments to <em>share</em> the Gaussian process kernel hyper parameters, move the variables up to the system&#39;s <code>@variables</code> block, and forward them to the observation variables block e.g. <code>η₁ = system.η₁</code>, <code>η₂ = system.η₂</code>.</p></div></div><p>Initialize the starting points, and confirm the data are entered correcly:</p><pre><code class="language-julia hljs">init_chain = initialize!(model)
-fig = Octofitter.rvpostplot(model, init_chain)</code></pre><img src="37922a27.png" alt="Example block output"/><p>Sample from the model using MCMC (the no U-turn sampler)</p><pre><code class="language-julia hljs"># Seed the random number generator
+fig = Octofitter.rvpostplot(model, init_chain)</code></pre><img src="b9e97cb4.png" alt="Example block output"/><p>Sample from the model using MCMC (the no U-turn sampler)</p><pre><code class="language-julia hljs"># Seed the random number generator
 using Random
 rng = Random.Xoshiro(0)
 
@@ -110,8 +110,8 @@ chain = octofit(
 Iterations        = 1:1:100
 Number of chains  = 1
 Samples per chain = 100
-Wall duration     = 758.28 seconds
-Compute duration  = 758.28 seconds
+Wall duration     = 206.16 seconds
+Compute duration  = 206.16 seconds
 parameters        = M, harps_n_offset, harps_n_jitter, harps_n_η_1, harps_n_η_2, harps_n_η_3, harps_n_η_4, pfs_offset, pfs_jitter, pfs_η_1, pfs_η_2, pfs_η_3, pfs_η_4, b_P, b_τx, b_τy, b_mass, b_τ, b_e, b_ω, b_M, b_a, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -119,23 +119,23 @@ Summary Statistics
  <span class="sgr1">     parameters         mean       std      mcse   ess_bulk   ess_tail      r ⋯
  <span class="sgr90">         Symbol      Float64   Float64   Float64    Float64    Float64   Floa ⋯
 
-               M       0.8205    0.0210    0.0020   111.0992    71.2875    0.9 ⋯
-  harps_n_offset   -6694.2905    5.4177    1.8384     8.1972    12.7391    1.1 ⋯
-  harps_n_jitter       0.8519    0.8166    0.0916    74.4397    71.2875    1.0 ⋯
-     harps_n_η_1      26.1276    5.9770    0.6381    84.4280    76.6284    0.9 ⋯
-     harps_n_η_2      13.2556    1.1971    0.1264   103.3189    78.2186    0.9 ⋯
-     harps_n_η_3       9.5074    0.8905    0.0975    84.4467   108.1275    0.9 ⋯
-     harps_n_η_4       0.3870    0.0183    0.0018   106.3134    47.6969    1.0 ⋯
-      pfs_offset      -7.1869    9.4457    4.2139     5.1096    21.0246    1.1 ⋯
-      pfs_jitter       4.8323    1.1132    0.1220    77.1372   113.4378    0.9 ⋯
-         pfs_η_1      28.4449    5.6439    1.0164    37.0701   112.1358    1.0 ⋯
-         pfs_η_2      13.4724    1.4587    0.1265   135.9332    69.6192    1.0 ⋯
-         pfs_η_3       9.3979    0.8516    0.1231    45.0039    92.5822    1.0 ⋯
-         pfs_η_4       0.3862    0.0178    0.0017   110.0190    69.7188    0.9 ⋯
-             b_P       0.0010    0.0000    0.0000   160.3737    37.7807    1.1 ⋯
-            b_τx       0.6186    0.1643    0.0184    81.5852    98.4042    1.0 ⋯
-            b_τy      -0.7608    0.1352    0.0137    94.7558    98.4042    0.9 ⋯
-          b_mass       0.0213    0.0045    0.0005    68.9883    79.5401    0.9 ⋯
+               M       0.8201    0.0209    0.0023    86.3866    92.5822    1.0 ⋯
+  harps_n_offset   -6697.9586   11.4834    3.2142    13.4283    18.2997    1.0 ⋯
+  harps_n_jitter       0.9854    0.9891    0.1132    46.3464    34.3628    0.9 ⋯
+     harps_n_η_1      26.4170    6.1476    0.6361   101.6083   101.7705    0.9 ⋯
+     harps_n_η_2      13.5570    1.4212    0.1264   106.7330   113.4378    1.0 ⋯
+     harps_n_η_3       9.2670    0.9087    0.0822   112.0375    89.8328    1.0 ⋯
+     harps_n_η_4       0.3894    0.0186    0.0023    73.8619    76.6284    1.0 ⋯
+      pfs_offset     -10.8068   17.5073    8.2524     6.3366    20.8493    1.1 ⋯
+      pfs_jitter       4.9689    1.4044    0.1280   121.5333   112.1358    0.9 ⋯
+         pfs_η_1      29.1601    5.4248    0.5488    91.8188   113.4378    0.9 ⋯
+         pfs_η_2      13.3605    1.4563    0.1125   174.4630   116.7774    0.9 ⋯
+         pfs_η_3       9.4066    0.8720    0.0711   194.0291    92.5822    1.0 ⋯
+         pfs_η_4       0.3877    0.0179    0.0017   103.6183    79.5401    1.0 ⋯
+             b_P       0.0010    0.0000    0.0000   101.0021   112.1358    1.0 ⋯
+            b_τx       0.6313    0.1673    0.0186    81.7382    64.1247    0.9 ⋯
+            b_τy      -0.7656    0.1682    0.0211    65.9564    78.3393    1.0 ⋯
+          b_mass       0.0207    0.0051    0.0005    94.3165    65.7763    1.0 ⋯
         ⋮              ⋮           ⋮         ⋮         ⋮          ⋮          ⋮ ⋱
 </span><span class="sgr36">                                                    2 columns and 6 rows omitted
 
@@ -143,26 +143,26 @@ Quantiles
       parameters         2.5%        25.0%        50.0%        75.0%        97 ⋯
  </span><span class="sgr90">         Symbol      Float64      Float64      Float64      Float64      Floa ⋯
 
-               M       0.7801       0.8081       0.8219       0.8325       0.8 ⋯
-  harps_n_offset   -6709.2725   -6697.4330   -6693.2857   -6690.8998   -6685.6 ⋯
-  harps_n_jitter       0.1125       0.2384       0.5829       1.3601       2.9 ⋯
-     harps_n_η_1      16.0176      21.7129      25.3225      30.6801      37.7 ⋯
-     harps_n_η_2      11.1884      12.4777      13.0618      14.0479      16.0 ⋯
-     harps_n_η_3       8.0815       8.8948       9.4409      10.1300      11.1 ⋯
-     harps_n_η_4       0.3558       0.3752       0.3859       0.3969       0.4 ⋯
-      pfs_offset     -18.0059     -13.9379     -11.1466      -0.4196      14.1 ⋯
-      pfs_jitter       2.7711       4.1827       4.7079       5.4451       7.1 ⋯
-         pfs_η_1      18.2031      24.2889      27.8962      31.7546      41.2 ⋯
-         pfs_η_2      10.9578      12.3208      13.3372      14.3322      16.4 ⋯
-         pfs_η_3       7.7478       8.9499       9.2661      10.0380      11.0 ⋯
-         pfs_η_4       0.3522       0.3757       0.3858       0.3984       0.4 ⋯
+               M       0.7852       0.8043       0.8173       0.8335       0.8 ⋯
+  harps_n_offset   -6718.1102   -6705.4300   -6699.5574   -6691.2949   -6677.3 ⋯
+  harps_n_jitter       0.1106       0.2991       0.5805       1.5347       3.4 ⋯
+     harps_n_η_1      17.4116      22.5054      25.6189      31.0860      38.3 ⋯
+     harps_n_η_2      10.6513      12.5841      13.5650      14.5785      15.8 ⋯
+     harps_n_η_3       7.3310       8.7600       9.3736       9.8021      10.8 ⋯
+     harps_n_η_4       0.3548       0.3782       0.3902       0.3996       0.4 ⋯
+      pfs_offset     -34.5651     -24.0106     -19.6207       5.6203      24.1 ⋯
+      pfs_jitter       2.7640       3.9258       4.9111       5.8671       8.2 ⋯
+         pfs_η_1      19.1125      25.4201      28.4834      32.3598      39.7 ⋯
+         pfs_η_2       9.6967      12.5129      13.4613      14.2713      16.1 ⋯
+         pfs_η_3       7.7974       8.7759       9.5282       9.9679      10.8 ⋯
+         pfs_η_4       0.3527       0.3745       0.3867       0.4016       0.4 ⋯
              b_P       0.0010       0.0010       0.0010       0.0010       0.0 ⋯
-            b_τx       0.2691       0.5208       0.6258       0.7147       0.9 ⋯
-            b_τy      -1.0228      -0.8445      -0.7615      -0.6772      -0.5 ⋯
-          b_mass       0.0114       0.0187       0.0215       0.0240       0.0 ⋯
+            b_τx       0.3053       0.5149       0.6350       0.7608       0.8 ⋯
+            b_τy      -1.0733      -0.8730      -0.7789      -0.6462      -0.4 ⋯
+          b_mass       0.0109       0.0179       0.0210       0.0238       0.0 ⋯
         ⋮              ⋮            ⋮            ⋮            ⋮            ⋮   ⋱
 </span><span class="sgr36">                                                     1 column and 6 rows omitted
-</span></span></code></pre><p>For real data, we would want to increase the adaptation and iterations to about 1000 each.</p><p>Plot one sample from the results:</p><pre><code class="language-julia hljs">fig = Octofitter.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="c0fe7b85.png" alt="Example block output"/><p>Plot many samples from the results:</p><pre><code class="language-julia hljs">fig = octoplot(
+</span></span></code></pre><p>For real data, we would want to increase the adaptation and iterations to about 1000 each.</p><p>Plot one sample from the results:</p><pre><code class="language-julia hljs">fig = Octofitter.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="da05d97f.png" alt="Example block output"/><p>Plot many samples from the results:</p><pre><code class="language-julia hljs">fig = octoplot(
     model,
     chain,
     # Some optional tweaks to the appearance:
@@ -170,7 +170,7 @@ Quantiles
     figscale=1.5, # make it larger
     alpha=0.05, # make each sample more transparent
     colormap=&quot;#0072b2&quot;,
-) # saved to &quot;k2_132-plot-grid.png&quot;</code></pre><img src="303a0c24.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, chain, small=true) # saved to &quot;k2_132-pairplot-small.png&quot;</code></pre><img src="6b6de276.png" alt="Example block output"/><h2 id="Gaussian-Process-Fit-with-Celerite"><a class="docs-heading-anchor" href="#Gaussian-Process-Fit-with-Celerite">Gaussian Process Fit with Celerite</a><a id="Gaussian-Process-Fit-with-Celerite-1"></a><a class="docs-heading-anchor-permalink" href="#Gaussian-Process-Fit-with-Celerite" title="Permalink"></a></h2><p>We now demonstrate an approximate quasi-static kernel implemented using Celerite.  For the class of kernels supported by Celerite, the performance scales much better with the number of data points. This makes it a good choice for modelling large RV datasets.</p><div class="admonition is-warning" id="Warning-868109a834debdb"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-868109a834debdb" title="Permalink"></a></header><div class="admonition-body"><p>Make sure that you type <code>using OctofitterRadialVelocity.Celerite</code> and not <code>using Celerite</code>.  Celerite.jl does not support Julia 1.0+, so we currently bundle a fork that has been patched to work. When / if Celerite.jl is updated we will switch back to the public package.</p></div></div><pre><code class="language-julia hljs">using OctofitterRadialVelocity.Celerite
+) # saved to &quot;k2_132-plot-grid.png&quot;</code></pre><img src="ce504e87.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, chain, small=true) # saved to &quot;k2_132-pairplot-small.png&quot;</code></pre><img src="bf3b9548.png" alt="Example block output"/><h2 id="Gaussian-Process-Fit-with-Celerite"><a class="docs-heading-anchor" href="#Gaussian-Process-Fit-with-Celerite">Gaussian Process Fit with Celerite</a><a id="Gaussian-Process-Fit-with-Celerite-1"></a><a class="docs-heading-anchor-permalink" href="#Gaussian-Process-Fit-with-Celerite" title="Permalink"></a></h2><p>We now demonstrate an approximate quasi-static kernel implemented using Celerite.  For the class of kernels supported by Celerite, the performance scales much better with the number of data points. This makes it a good choice for modelling large RV datasets.</p><div class="admonition is-warning" id="Warning-868109a834debdb"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-868109a834debdb" title="Permalink"></a></header><div class="admonition-body"><p>Make sure that you type <code>using OctofitterRadialVelocity.Celerite</code> and not <code>using Celerite</code>.  Celerite.jl does not support Julia 1.0+, so we currently bundle a fork that has been patched to work. When / if Celerite.jl is updated we will switch back to the public package.</p></div></div><pre><code class="language-julia hljs">using OctofitterRadialVelocity.Celerite
 
 rvlike_harps = StarAbsoluteRVLikelihood(
     rv_dat[rv_dat_raw.tel .== &quot;harps-n&quot;,:],
@@ -257,6 +257,6 @@ using DifferentiationInterface
 using FiniteDiff
 model = Octofitter.LogDensityModel(sys, autodiff=AutoFiniteDiff())</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System k2_132 of dimension 17 and 71 epochs with fields .ℓπcallback and .∇ℓπcallback
 </code></pre><p>The Celerite implementation doesn&#39;t support our default autodiff-backend (ForwardDiff.jl), so we disable autodiff by setting it to finite differences, and then using the Pigeons slice sampler which doesn&#39;t require gradients or (B) use Enzyme autodiff, </p><p>Initialize the starting points, and confirm the data are entered correcly:</p><pre><code class="language-julia hljs">init_chain = initialize!(model)
-fig = Octofitter.rvpostplot(model, init_chain)</code></pre><img src="f75b0c61.png" alt="Example block output"/><pre><code class="language-julia hljs">using Pigeons
+fig = Octofitter.rvpostplot(model, init_chain)</code></pre><img src="a450c1d6.png" alt="Example block output"/><pre><code class="language-julia hljs">using Pigeons
 chain, pt = octofit_pigeons(model, n_rounds=7)
-fig = Octofitter.rvpostplot(model, chain)</code></pre><img src="650b4ee0.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Basic RV Fit</a><a class="docs-footer-nextpage" href="../rv-multi-planet/">Multiple Planets »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Thursday 16 October 2025 17:15">Thursday 16 October 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+fig = Octofitter.rvpostplot(model, chain)</code></pre><img src="33c96c12.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Basic RV Fit</a><a class="docs-footer-nextpage" href="../rv-multi-planet/">Multiple Planets »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Monday 27 October 2025 00:32">Monday 27 October 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
