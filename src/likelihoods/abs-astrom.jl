@@ -508,6 +508,15 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
         ueva_mode ) = like
     
     table = table[obs_inds,:]
+    if  (
+            :iad_hip ∉ like.table.kind && 
+            :ra_hip ∉ like.table.kind && 
+            :dec_hip ∉ like.table.kind && 
+            :ra_hg ∉ like.table.kind && 
+            :dec_hg ∉ like.table.kind
+        )
+        catalog = (;catalog..., dist_hip = nothing, dist_hg=nothing)
+    end
     return GaiaHipparcosUEVAJointLikelihood{
         typeof(table),
         typeof(hip_table),
@@ -754,157 +763,155 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
             end
 
 
-            if n_components > 1
 
 
-                # Important: we can de-inflate the Gaia DR3 uncertainties since
-                # we know the astrometric excess noise they applied and we are assuming a-priori that the
-                # EAN is well-accounted for by a planet
-                # TODO: this isn't quite right just yet -- we want to reduce it only by the factor caused by the planet
-                # it already includes sigma_formal=hypot(sigma_att, sigma_AL), but not yet sigma_cal
-                μ_dr3_cat, Σ_dr3 = params(dist_dr3)
-                # Σ_dr3 .*= deflation_factor_dr3^2
+            # Important: we can de-inflate the Gaia DR3 uncertainties since
+            # we know the astrometric excess noise they applied and we are assuming a-priori that the
+            # EAN is well-accounted for by a planet
+            # TODO: this isn't quite right just yet -- we want to reduce it only by the factor caused by the planet
+            # it already includes sigma_formal=hypot(sigma_att, sigma_AL), but not yet sigma_cal
+            μ_dr3_cat, Σ_dr3 = params(dist_dr3)
+            # Σ_dr3 .*= deflation_factor_dr3^2
 
-                # TODO: what about Hipparcos - Gaia scaled position difference?
-                # we can also improve the uncertainty on the Gaia position
-                # uncertainty in velocity is sqrt(sigma_H^2 + sigma_G^2)/(delta T)
-                # if we scale down sigma_G
-                # uncertainty in velocity is sqrt(sigma_H^2 + sigma_G^2*deflation_factor_dr3^2)/(delta T)
-                # so we can't scale the full thing -- we 
+            # TODO: what about Hipparcos - Gaia scaled position difference?
+            # we can also improve the uncertainty on the Gaia position
+            # uncertainty in velocity is sqrt(sigma_H^2 + sigma_G^2)/(delta T)
+            # if we scale down sigma_G
+            # uncertainty in velocity is sqrt(sigma_H^2 + sigma_G^2*deflation_factor_dr3^2)/(delta T)
+            # so we can't scale the full thing -- we 
 
-                #############################################
-                # Account for the UEVA-based potential uncertainty delfation of Gaia DR3 positions, 
-                
-                # DR3 position covariance at central epoch (already inflated by Gaia)
-                σ_ra_dr3 = like.catalog.ra_error_central_dr3
-                σ_dec_dr3 = like.catalog.dec_error_central_dr3
-                ρ_radec_dr3 = like.catalog.ra_dec_corr_central_dr3
+            #############################################
+            # Account for the UEVA-based potential uncertainty delfation of Gaia DR3 positions, 
+            
+            # DR3 position covariance at central epoch (already inflated by Gaia)
+            σ_ra_dr3 = like.catalog.ra_error_central_dr3
+            σ_dec_dr3 = like.catalog.dec_error_central_dr3
+            ρ_radec_dr3 = like.catalog.ra_dec_corr_central_dr3
 
-                Σ_pos_dr3 = @SMatrix [
-                    σ_ra_dr3^2                    ρ_radec_dr3*σ_ra_dr3*σ_dec_dr3
-                    ρ_radec_dr3*σ_ra_dr3*σ_dec_dr3    σ_dec_dr3^2
-                ]
+            Σ_pos_dr3 = @SMatrix [
+                σ_ra_dr3^2                    ρ_radec_dr3*σ_ra_dr3*σ_dec_dr3
+                ρ_radec_dr3*σ_ra_dr3*σ_dec_dr3    σ_dec_dr3^2
+            ]
 
-                # DR2 position covariance at central epoch
-                σ_ra_dr2 = like.catalog.ra_error_central_dr2
-                σ_dec_dr2 = like.catalog.dec_error_central_dr2
-                ρ_radec_dr2 = like.catalog.ra_dec_corr_central_dr2
+            # DR2 position covariance at central epoch
+            σ_ra_dr2 = like.catalog.ra_error_central_dr2
+            σ_dec_dr2 = like.catalog.dec_error_central_dr2
+            ρ_radec_dr2 = like.catalog.ra_dec_corr_central_dr2
 
-                Σ_pos_dr2 = @SMatrix [
-                    σ_ra_dr2^2                    ρ_radec_dr2*σ_ra_dr2*σ_dec_dr2
-                    ρ_radec_dr2*σ_ra_dr2*σ_dec_dr2    σ_dec_dr2^2
-                ]
-                
-                ρ_23 = like.catalog.rho_dr2_dr3
-                Σ_cross = @SMatrix [
-                    ρ_23*σ_ra_dr3*σ_ra_dr2                        ρ_23*ρ_radec_dr3*σ_ra_dr3*σ_dec_dr2
-                    ρ_23*ρ_radec_dr2*σ_dec_dr3*σ_ra_dr2          ρ_23*σ_dec_dr3*σ_dec_dr2
-                ]
-                
-                # Time baselines for DR3-DR2 scaled position difference
-                Δt_ra = (like.catalog.epoch_ra_dr3_mjd - like.catalog.epoch_ra_dr2_mjd) * julian_year
-                Δt_dec = (like.catalog.epoch_dec_dr3_mjd - like.catalog.epoch_dec_dr2_mjd) * julian_year
-                
-                # Deflation adjustment for DR32 proper motions
-                # Only the DR3-contributed terms get deflated
-                d = deflation_factor_dr3
+            Σ_pos_dr2 = @SMatrix [
+                σ_ra_dr2^2                    ρ_radec_dr2*σ_ra_dr2*σ_dec_dr2
+                ρ_radec_dr2*σ_ra_dr2*σ_dec_dr2    σ_dec_dr2^2
+            ]
+            
+            ρ_23 = like.catalog.rho_dr2_dr3
+            Σ_cross = @SMatrix [
+                ρ_23*σ_ra_dr3*σ_ra_dr2                        ρ_23*ρ_radec_dr3*σ_ra_dr3*σ_dec_dr2
+                ρ_23*ρ_radec_dr2*σ_dec_dr3*σ_ra_dr2          ρ_23*σ_dec_dr3*σ_dec_dr2
+            ]
+            
+            # Time baselines for DR3-DR2 scaled position difference
+            Δt_ra = (like.catalog.epoch_ra_dr3_mjd - like.catalog.epoch_ra_dr2_mjd) * julian_year
+            Δt_dec = (like.catalog.epoch_dec_dr3_mjd - like.catalog.epoch_dec_dr2_mjd) * julian_year
+            
+            # Deflation adjustment for DR32 proper motions
+            # Only the DR3-contributed terms get deflated
+            d = deflation_factor_dr3
 
-                # Position covariance adjustment (in mas²)
-                # ΔΣ_pos = (d^2 - 1) * Σ_pos_dr3 - 2 * (d - 1) * Σ_cross
-                ΔΣ_pos = (d^2 - 1) * Σ_pos_dr3 - (d - 1) * (Σ_cross + Σ_cross')
+            # Position covariance adjustment (in mas²)
+            # ΔΣ_pos = (d^2 - 1) * Σ_pos_dr3 - 2 * (d - 1) * Σ_cross
+            ΔΣ_pos = (d^2 - 1) * Σ_pos_dr3 - (d - 1) * (Σ_cross + Σ_cross')
 
-                # Transform to proper motion covariance (mas²/yr²)
-                # Different time baselines for RA and Dec
-                Tr = @SMatrix [
-                    1/Δt_ra    0.0
-                    0.0        1/Δt_dec
-                ]
+            # Transform to proper motion covariance (mas²/yr²)
+            # Different time baselines for RA and Dec
+            Tr = @SMatrix [
+                1/Δt_ra    0.0
+                0.0        1/Δt_dec
+            ]
 
-                ΔΣ_dr32 = Tr * ΔΣ_pos * Tr'
+            ΔΣ_dr32 = Tr * ΔΣ_pos * Tr'
 
-                # Extract catalog parameters
-                μ_h_cat, Σ_h = isnothing(dist_hip) ? (@SVector[0.,0.], @SMatrix zeros(2,2)) : params(dist_hip) 
-                μ_hg_cat, Σ_hg = isnothing(dist_hg) ? (@SVector[0.,0.], @SMatrix zeros(2,2)) : params(dist_hg) 
-                μ_dr2_cat, Σ_dr2 = params(dist_dr2)
-                μ_dr32_cat, Σ_dr32 = params(dist_dr32)
-                Σ_h = SMatrix{2, 2, Float64, 4}(Σ_h)
-                Σ_hg = SMatrix{2, 2, Float64, 4}(Σ_hg)
-                Σ_dr2 = SMatrix{2, 2, Float64, 4}(Σ_dr2)
-                # Apply deflation adjustment to DR32 covariance
-                Σ_dr32 = SMatrix{2, 2, Float64, 4}(Σ_dr32 .+ ΔΣ_dr32)
-                # Apply deflation adjustment to DR3 proper motions
-                Σ_dr3 = SMatrix{2, 2, Float64, 4}(Σ_dr3 .* deflation_factor_dr3^2)
+            # Extract catalog parameters
+            μ_h_cat, Σ_h = isnothing(dist_hip) ? (@SVector[0.,0.], @SMatrix zeros(2,2)) : params(dist_hip) 
+            μ_hg_cat, Σ_hg = isnothing(dist_hg) ? (@SVector[0.,0.], @SMatrix zeros(2,2)) : params(dist_hg) 
+            μ_dr2_cat, Σ_dr2 = params(dist_dr2)
+            μ_dr32_cat, Σ_dr32 = params(dist_dr32)
+            Σ_h = SMatrix{2, 2, Float64, 4}(Σ_h)
+            Σ_hg = SMatrix{2, 2, Float64, 4}(Σ_hg)
+            Σ_dr2 = SMatrix{2, 2, Float64, 4}(Σ_dr2)
+            # Apply deflation adjustment to DR32 covariance
+            Σ_dr32 = SMatrix{2, 2, Float64, 4}(Σ_dr32 .+ ΔΣ_dr32)
+            # Apply deflation adjustment to DR3 proper motions
+            Σ_dr3 = SMatrix{2, 2, Float64, 4}(Σ_dr3 .* deflation_factor_dr3^2)
 
-                
+            
 
-                μ_catalog_full = @SVector [
-                    μ_h_cat[1], μ_h_cat[2],     # ra_hip, dec_hip
-                    μ_hg_cat[1], μ_hg_cat[2],   # ra_hg, dec_hg
-                    μ_dr2_cat[1], μ_dr2_cat[2], # ra_dr2, dec_dr2
-                    μ_dr32_cat[1], μ_dr32_cat[2], # ra_dr32, dec_dr32
-                    μ_dr3_cat[1], μ_dr3_cat[2], # ra_dr3, dec_dr3
-                    μ_1_3                       # ueva_dr3 catalog value
-                ]
+            μ_catalog_full = @SVector [
+                μ_h_cat[1], μ_h_cat[2],     # ra_hip, dec_hip
+                μ_hg_cat[1], μ_hg_cat[2],   # ra_hg, dec_hg
+                μ_dr2_cat[1], μ_dr2_cat[2], # ra_dr2, dec_dr2
+                μ_dr32_cat[1], μ_dr32_cat[2], # ra_dr32, dec_dr32
+                μ_dr3_cat[1], μ_dr3_cat[2], # ra_dr3, dec_dr3
+                μ_1_3                       # ueva_dr3 catalog value
+            ]
 
-                μ_model_full = @SVector [
-                    μ_h[1], μ_h[2],           # ra_hip, dec_hip
-                    μ_hg[1], μ_hg[2],         # ra_hg, dec_hg
-                    μ_dr2[1], μ_dr2[2],       # ra_dr2, dec_dr2
-                    μ_dr32[1], μ_dr32[2],     # ra_dr32, dec_dr32
-                    μ_dr3[1], μ_dr3[2],       # ra_dr3, dec_dr3
-                    UEVA_model                # ueva_dr3 model value
-                ]
+            μ_model_full = @SVector [
+                μ_h[1], μ_h[2],           # ra_hip, dec_hip
+                μ_hg[1], μ_hg[2],         # ra_hg, dec_hg
+                μ_dr2[1], μ_dr2[2],       # ra_dr2, dec_dr2
+                μ_dr32[1], μ_dr32[2],     # ra_dr32, dec_dr32
+                μ_dr3[1], μ_dr3[2],       # ra_dr3, dec_dr3
+                UEVA_model                # ueva_dr3 model value
+            ]
 
-                # Extract selected components
-                μ_catalog_selected = μ_catalog_full[indices]
-                μ_model_selected = μ_model_full[indices]
+            # Extract selected components
+            μ_catalog_selected = μ_catalog_full[indices]
+            μ_model_selected = μ_model_full[indices]
 
-                # Build full covariance matrix (11x11)
-                # Initialize with zeros
-                Σ_full = zeros(T, 11, 11)
+            # Build full covariance matrix (11x11)
+            # Initialize with zeros
+            Σ_full = zeros(T, 11, 11)
 
-                # Fill in the block diagonal elements (within-epoch covariances)
-                Σ_full[1:2, 1:2] .= Σ_h     # Hipparcos
-                Σ_full[3:4, 3:4] .= Σ_hg    # HGCA
-                Σ_full[5:6, 5:6] .= Σ_dr2   # DR2
-                Σ_full[7:8, 7:8] .= Σ_dr32  # DR3-DR2
-                Σ_full[9:10, 9:10] .= Σ_dr3 # DR3
+            # Fill in the block diagonal elements (within-epoch covariances)
+            Σ_full[1:2, 1:2] .= Σ_h     # Hipparcos
+            Σ_full[3:4, 3:4] .= Σ_hg    # HGCA
+            Σ_full[5:6, 5:6] .= Σ_dr2   # DR2
+            Σ_full[7:8, 7:8] .= Σ_dr32  # DR3-DR2
+            Σ_full[9:10, 9:10] .= Σ_dr3 # DR3
 
-                # UEVA variance
-                Σ_full[11, 11] = UEVA_unc^2
+            # UEVA variance
+            Σ_full[11, 11] = UEVA_unc^2
 
-                # Add cross-epoch correlations between DR2 and DR3
-                ρ_dr3_dr2 = √(min(n_dr2, n_dr3) / max(n_dr2, n_dr3))
-                
-                # Compute the cross-correlation matrix K
-                K = ρ_dr3_dr2 * sqrt(Σ_dr2) * sqrt(Σ_dr3)'
-                
-                # Fill in the cross-correlation blocks
-                Σ_full[5:6, 9:10] .= K      # DR2 -> DR3
-                Σ_full[9:10, 5:6] .= K'     # DR3 -> DR2 (transpose)
+            # Add cross-epoch correlations between DR2 and DR3
+            ρ_dr3_dr2 = √(min(n_dr2, n_dr3) / max(n_dr2, n_dr3))
+            
+            # Compute the cross-correlation matrix K
+            K = ρ_dr3_dr2 * sqrt(Σ_dr2) * sqrt(Σ_dr3)'
+            
+            # Fill in the cross-correlation blocks
+            Σ_full[5:6, 9:10] .= K      # DR2 -> DR3
+            Σ_full[9:10, 5:6] .= K'     # DR3 -> DR2 (transpose)
 
-                # Extract the submatrix for selected components
-                Σ_selected = Σ_full[indices, indices]
+            # Extract the submatrix for selected components
+            Σ_selected = Σ_full[indices, indices]
 
-                # @show (μ_catalog_selected .- μ_model_selected ) ./ sqrt.(diag(Σ_selected))
-                # @show μ_catalog_selected μ_model_selected
+            # @show (μ_catalog_selected .- μ_model_selected ) ./ sqrt.(diag(Σ_selected))
+            # @show μ_catalog_selected μ_model_selected
 
-                # Compute likelihood
-                if n_components == 1
-                    # Single component - use univariate normal
-                    ll += logpdf(Normal(μ_catalog_selected[1], sqrt(Σ_selected[1,1])), μ_model_selected[1])
-                else
-                    # Multiple components - use multivariate normal
-                    local dist_selected
-                    try
-                        dist_selected = MvNormal(μ_catalog_selected, Hermitian(Σ_selected))
-                        ll += logpdf(dist_selected, μ_model_selected)
-                    catch err
-                        if err isa PosDefException
-                            ll = convert(T, -Inf)
-                        else
-                            rethrow(err)
-                        end
+            # Compute likelihood
+            if n_components == 1
+                # Single component - use univariate normal
+                ll += logpdf(Normal(μ_catalog_selected[1], sqrt(Σ_selected[1,1])), μ_model_selected[1])
+            else
+                # Multiple components - use multivariate normal
+                local dist_selected
+                try
+                    dist_selected = MvNormal(μ_catalog_selected, Hermitian(Σ_selected))
+                    ll += logpdf(dist_selected, μ_model_selected)
+                catch err
+                    if err isa PosDefException
+                        ll = convert(T, -Inf)
+                    else
+                        rethrow(err)
                     end
                 end
             end
