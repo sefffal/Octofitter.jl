@@ -124,7 +124,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
         # we add 0.140 mas to the residuals and 2.25 mas additional dispersion to the unceratinties
         # this mitigates overfitting.
         hip_table.res .+= 0.140
-        hip_table.sres .= hypot.(hip_table.sres, 2.25)
+        hip_table.sres_renorm .= hypot.(hip_table.sres_renorm, 2.25)
 
         # Precompute MvNormal distributions for correlation between ra and dec
         # Hipparcos epoch
@@ -437,7 +437,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
                 hip_iad_jitter ~ LogUniform(0.001, 100)
                 iad_Δra        ~ Uniform(-1000, 1000)
                 iad_Δdec       ~ Uniform(-1000, 1000)
-                Δiad_pmra       ~ Uniform(-1000, 1000)
+                Δiad_pmra       ~ Uniform(-1000, 1000) 
                 Δiad_pmdec      ~ Uniform(-1000, 1000)
                 iad_pmra = $(catalog.pmra_hip) + Δiad_pmra
                 iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
