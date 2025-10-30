@@ -139,16 +139,16 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.99       3.36      0.567   7.19e+06   -2.9e+07          0      0.795          1          1
-        4          0       5.84       5.89      0.618   1.31e+05  -2.48e+04          0      0.622          1          1
+        2          0       2.99       3.36      0.611   7.19e+06   -2.9e+07          0      0.795          1          1
+        4          0       5.84       5.89      0.619   1.31e+05  -2.48e+04          0      0.622          1          1
         8          0       8.24       6.59       1.08   2.06e+05  -5.64e+03          0      0.521          1          1
        16          0        9.2       8.11       2.11   3.55e+05  -2.63e+03          0      0.442          1          1
-       32          0       9.29       9.42       4.14   5.73e+05       -340  1.28e-140      0.396          1          1
-       64          0       9.96       6.22       8.42   7.13e+07       -196   3.45e-40      0.478          1          1
-      128          1       10.6        7.2       16.8   1.33e+08       -208   1.48e-06      0.425          1          1
-      256          4       11.1       7.32       33.2   2.64e+08       -204   4.37e-08      0.406          1          1
-      512         11       11.1       7.64         65   5.13e+08       -205     0.0222      0.395          1          1
- 1.02e+03         13       11.2       8.13        129   1.03e+09       -205     0.0137      0.377          1          1
+       32          0       9.29       9.42       4.15   5.73e+05       -340  1.28e-140      0.396          1          1
+       64          0       9.96       6.22       8.47   7.13e+07       -196   3.45e-40      0.478          1          1
+      128          1       10.6        7.2       16.9   1.33e+08       -208   1.48e-06      0.425          1          1
+      256          4       11.1       7.32       33.4   2.64e+08       -204   4.37e-08      0.406          1          1
+      512         11       11.1       7.64       65.3   5.13e+08       -205     0.0222      0.395          1          1
+ 1.02e+03         13       11.2       8.13        130   1.03e+09       -205     0.0137      0.377          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="8627f5e1.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="67d80416.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
     results[:b_P][:] ./ results[:c_P][:],
     axis=(;
@@ -261,15 +261,15 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.54        2.1       0.64   7.19e+06  -2.01e+06          0       0.85          1          1
-        4          0       7.27       7.92      0.706    1.4e+05   -7.1e+04          0       0.51          1          1
+        2          0       2.54        2.1      0.639   7.19e+06  -2.01e+06          0       0.85          1          1
+        4          0       7.27       7.92       0.71    1.4e+05   -7.1e+04          0       0.51          1          1
         8          0       8.88       10.2       1.32   1.92e+05  -5.04e+03          0      0.384          1          1
        16          0       9.07       9.41       2.56   3.44e+05       -783          0      0.404          1          1
-       32          0       9.73       10.5          5    5.3e+05       -538  5.78e-295      0.346          1          1
+       32          0       9.73       10.5       4.99    5.3e+05       -538  5.78e-295      0.346          1          1
        64          0       10.3       6.18       10.1   8.11e+07       -132   5.44e-08      0.467          1          1
-      128          0       10.8       8.41       19.9   1.54e+08       -213   1.19e-05      0.382          1          1
-      256          0         11       8.07       39.5   3.03e+08       -212   1.57e-06      0.386          1          1
-      512          5       11.2       8.47       78.6   6.02e+08       -213    0.00205      0.366          1          1
+      128          0       10.8       8.41       20.1   1.54e+08       -213   1.19e-05      0.382          1          1
+      256          0         11       8.07       39.7   3.03e+08       -212   1.57e-06      0.386          1          1
+      512          5       11.2       8.47       78.9   6.02e+08       -213    0.00205      0.366          1          1
  1.02e+03         13       11.4        8.6        156   1.19e+09       -211      0.011      0.355          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="208d3386.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="d06f4bcf.png" alt="Example block output"/><p>Now examine the mutual inclination:</p><pre><code class="language-julia hljs">hist(
     rad2deg.( results[:mut_inc_b_c][:] ),
@@ -277,4 +277,4 @@ results,pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="docume
         xlabel=&quot;mutual inclination [deg]&quot;,
         ylabel=&quot;counts&quot;,
     )
-)</code></pre><img src="dee66384.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Observable Priors</a><a class="docs-footer-nextpage" href="../thiele-innes/">Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Wednesday 29 October 2025 21:04">Wednesday 29 October 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="dee66384.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Observable Priors</a><a class="docs-footer-nextpage" href="../thiele-innes/">Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Thursday 30 October 2025 06:01">Thursday 30 October 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
