@@ -27,13 +27,14 @@ that were missed or rejected during data processing.
 The `σ_att`, `σ_AL`, and `σ_calib` variables represent Gaia attitude, along-scan, and
 calibration errors respectively. `gaia_n_dof` is the number of degrees of freedom (typically 5).
 """
-struct GaiaHipparcosUEVAJointLikelihood{TTable,TTableH,TTableG,TCat} <: AbstractLikelihood
+struct GaiaHipparcosUEVAJointLikelihood{TTable,TTableH,TTableG,TCat,THip} <: AbstractLikelihood
     table::TTable
     priors::Priors
     derived::Derived
     hip_table::TTableH
     gaia_table::TTableG
     catalog::TCat
+    hip_sol::THip
     A_prepared_5_hip::Matrix{Float64}
     A_prepared_5_dr2::Matrix{Float64}
     A_prepared_5_dr3::Matrix{Float64}
@@ -102,6 +103,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
     if isnan(catalog.hip_id)
         @warn "No Hipparcos data found; will skip HGCA and IAD modelling"
         hip_like = nothing
+        hip_sol = nothing
         dist_hip = nothing
         dist_hg  = nothing
         hip_table = Table(
@@ -118,6 +120,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
         )
         A_prepared_5_hip = hip_like.A_prepared_5
         hip_table = hip_like.table
+        hip_sol = hip_like.hip_sol
 
         # Following "Statistical properties of Hipparcos 2, caveats on its use, and a recalibration of the intermediate astrometric data"
         # by G Mirek Brandt,  Daniel Michalik,  Timothy D Brandt; 
@@ -435,12 +438,13 @@ function GaiaHipparcosUEVAJointLikelihood(;
         if !isnothing(hip_like)
             variables_iad = @variables begin
                 hip_iad_jitter ~ LogUniform(0.001, 100)
-                iad_Δra        ~ Uniform(-1000, 1000)
-                iad_Δdec       ~ Uniform(-1000, 1000)
-                Δiad_pmra       ~ Uniform(-1000, 1000) 
-                Δiad_pmdec      ~ Uniform(-1000, 1000)
-                iad_pmra = $(catalog.pmra_hip) + Δiad_pmra
-                iad_pmdec = $(catalog.pmdec_hip) + Δiad_pmdec
+                iad_Δra     ~ Uniform(-1000, 1000)
+                iad_Δdec    ~ Uniform(-1000, 1000)
+                iad_Δplx    ~ Uniform(-10, 10)
+                iad_Δpmra   ~ Uniform(-1000, 1000) 
+                iad_Δpmdec  ~ Uniform(-1000, 1000)
+                iad_pmra = $(hip_sol.pm_ra) + iad_Δpmra
+                iad_pmdec = $(hip_sol.pm_de) + iad_Δpmdec
             end
             variables = vcat(variables, variables_iad)
         end
@@ -478,6 +482,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
         typeof(hip_table),
         typeof(gaia_table),
         typeof(catalog),
+        typeof(hip_sol),
     }(
         table,
         priors,
@@ -485,6 +490,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
         hip_table,
         gaia_table,
         catalog,
+        hip_sol,
         A_prepared_5_hip,
         A_prepared_5_dr2,
         A_prepared_5_dr3,
@@ -501,6 +507,7 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
         hip_table,
         gaia_table,
         catalog,
+        hip_sol,
         A_prepared_5_hip,
         A_prepared_5_dr2,
         A_prepared_5_dr3,
@@ -522,6 +529,7 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
         typeof(hip_table),
         typeof(gaia_table),
         typeof(catalog),
+        typeof(hip_sol),
     }(
         table,
         priors,
@@ -529,6 +537,7 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
         hip_table,
         gaia_table,
         catalog,
+        hip_sol,
         A_prepared_5_hip,
         A_prepared_5_dr2,
         A_prepared_5_dr3,
@@ -1040,8 +1049,6 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
 
 
 
-    # I guess we add that delta PM to our propagated PM, and compare vs the catalog.
-
     # Helper functions to either get the static pmra from the orbital elements,
     # or, if using an AbsoluteVisualOrbit, get the propagated pmra at the
     # current epoch accounting for barycentric motion.
@@ -1063,6 +1070,12 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         diff_lt_app_pmra = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmra2
         diff_lt_app_pmdec = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmdec2
         return cmp_ra.ra2, cmp_dec.dec2, cmp_ra.pmra2+diff_lt_app_pmra, cmp_dec.pmdec2+diff_lt_app_pmdec
+        # return (
+        #     cmp_ra.ra2 - Δα_dr3/60/60/1000/cosd(cmp_dec.dec2),
+        #     cmp_dec.dec2 - Δδ_dr3/60/60/1000,
+        #     cmp_ra.pmra2+diff_lt_app_pmra - Δpmra_dr3,
+        #     cmp_dec.pmdec2+diff_lt_app_pmdec - Δpmdec_dr3
+        # )
     end
     function propagate_astrom(orbits::Tuple{}, _, _)
         return 0.0, 0.0, θ_system.pmra, θ_system.pmdec
@@ -1072,7 +1085,102 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     end
 
 
-    
+
+
+    ################################
+    # DR3
+    istart_dr3 = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaia_table.epoch))
+    iend_dr3 = findlast(<=(meta_gaia_DR3.stop_mjd), vec(gaia_table.epoch))
+    if isnothing(istart_dr3)
+        istart_dr3 = 1
+    end
+    if isnothing(iend_dr3)
+        iend_dr3 = length(gaia_table.epoch)
+    end
+    gaia_table_dr3 = @views gaia_table[istart_dr3:iend_dr3]
+    # gaia_table_dr3.epoch .+= Δepoch_dr3_days
+    for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
+        planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
+        if hasproperty(θ_obs, :fluxratio)
+            if θ_obs.fluxratio isa Number
+                fluxratio = θ_obs.fluxratio
+            else
+                fluxratio = θ_obs.fluxratio[i_planet]
+            end
+        else
+            fluxratio = 0.0
+        end
+        _simulate_skypath_perturbations!(
+            Δα_mas_dr3, Δδ_mas_dr3,
+            gaia_table_dr3, orbit,
+            planet_mass_msol, fluxratio,
+            orbit_solutions[i_planet],
+            -1, T,
+        )
+    end
+
+
+    out_dr3 = fit_5param_prepared(
+        view(A_prepared_5_dr3, istart_dr3:iend_dr3,:),
+        view(gaia_table, istart_dr3:iend_dr3),
+        Δα_mas_dr3, Δδ_mas_dr3, 0.0, σ_formal;
+        include_chi2=Val(true)
+    )
+    Δα_dr3, Δδ_dr3, Δpmra_dr3, Δpmdec_dr3 = out_dr3.parameters
+    # Rigorously propagate the linear proper motion component in spherical coordinates
+    # Account for within-gaia differential light travel time 
+    α_dr3₀, δ_dr3₀, pmra_dr3₀, pmdec_dr3₀ = propagate_astrom(orbits, like.catalog.epoch_ra_dr3_mjd, like.catalog.epoch_dec_dr3_mjd)
+    μ_dr3 = @SVector [pmra_dr3₀ + Δpmra_dr3 - Δpmra_dr3, pmdec_dr3₀ + Δpmdec_dr3 - Δpmdec_dr3]
+
+    # Note: we shift the entire reference frame so that the proper motion is defined on the primary star
+    # all proper motions derived below are shifted the perturbation in DR3 
+    # This vastly improves sampling efficiency.
+    # Leave Δpmdec_dr3 - Δpmdec_dr3 above as an explicit reminder about this ^
+
+    # TODO: efficiency: since we assume all DR2 epochs are a subset of DR3, we
+    # could re-use part of the _simulate_skypath_perturbations! done for DR3
+
+    ################################
+    # DR2
+    istart_dr2 = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaia_table.epoch))
+    iend_dr2 = findlast(<=(meta_gaia_DR2.stop_mjd), vec(gaia_table.epoch))
+    if isnothing(istart_dr2)
+        istart_dr2 = 1
+    end
+    if isnothing(iend_dr2)
+        iend_dr2 = length(gaia_table.epoch)
+    end
+    gaia_table_dr2 = @views gaia_table[istart_dr2:iend_dr2]
+    # gaia_table_dr2.epoch .+= Δepoch_dr2_days
+    for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
+        planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
+        if hasproperty(θ_obs, :fluxratio)
+            if θ_obs.fluxratio isa Number
+                fluxratio = θ_obs.fluxratio
+            else
+                fluxratio = θ_obs.fluxratio[i_planet]
+            end
+        else
+            fluxratio = 0.0
+        end
+        _simulate_skypath_perturbations!(
+            Δα_mas_dr2, Δδ_mas_dr2,
+            gaia_table_dr2, orbit,
+            planet_mass_msol, fluxratio,
+            orbit_solutions[i_planet],
+            -1, T
+        )
+    end
+
+    out = fit_5param_prepared(view(A_prepared_5_dr2, istart_dr2:iend_dr2,:), view(gaia_table, istart_dr2:iend_dr2), Δα_mas_dr2, Δδ_mas_dr2)
+    # out = fit_4param_prepared(hgca_like.gaialike.A_prepared_4, gaia_table, Δα_mas_dr2, Δδ_mas_dr2)
+    Δα_dr2, Δδ_dr2, Δpmra_dr2, Δpmdec_dr2 = out.parameters
+    # Rigorously propagate the linear proper motion component in spherical coordinates
+    # Account for within-gaia differential light travel time 
+    α_dr2₀, δ_dr2₀, pmra_dr2₀, pmdec_dr2₀ = propagate_astrom(orbits, like.catalog.epoch_ra_dr2_mjd, like.catalog.epoch_dec_dr2_mjd)
+    μ_dr2 = @SVector [pmra_dr2₀ + Δpmra_dr2 - Δpmra_dr3, pmdec_dr2₀ + Δpmdec_dr2 - Δpmdec_dr3]
+
+        
 
     ################################
     # Hipparcos
@@ -1109,7 +1217,7 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         end
         Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
         α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(orbits, like.catalog.epoch_ra_hip_mjd, like.catalog.epoch_dec_hip_mjd)
-        μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
+        μ_h = @SVector [pmra_h₀ + Δpmra_h - Δpmra_dr3, pmdec_h₀ + Δpmdec_h - Δpmdec_dr3]
 
 
         ################################
@@ -1136,34 +1244,45 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
             (;iad_Δra,
                 iad_Δdec,
                 iad_pmra,
-                iad_pmdec,) = θ_obs
+                iad_pmdec,
+                iad_Δplx) = θ_obs
+
 
             # like.hip_table.res, like.hip_table.sres
             # Δα_mas_hip, Δδ_mas_hip
 
-            # α✱_models=[]
-            # δ_models=[]
+            α✱_models=[]
+            δ_models=[]
             for i_epoch in eachindex(like.hip_table.epoch, Δα_mas_hip, Δδ_mas_hip)
-                # TODO: go through orbit solution for better accuracy; doubt it matters though.
-                # orbitsol_hip_epoch = orbitsolve(first(orbit_solutions)[i+orbit_solutions_i_epoch_start]
-                # delta_t_days = orbitsol_hip_epoch.t - hipparcos_catalog_epoch_mjd
                 delta_time_julian_year = (like.hip_table.epoch[i_epoch] - hipparcos_catalog_epoch_mjd) / julian_year
-                plx_at_epoch = θ_system.plx # TODO: go through orbit solution for better accuracy; doubt it matters though.
-                α✱_model = iad_Δra + plx_at_epoch * (
-                            like.hip_table.x[i_epoch] * sind(θ_system.ra) -
-                            like.hip_table.y[i_epoch] * cosd(θ_system.ra)
-                ) + delta_time_julian_year * iad_pmra
-                δ_model = iad_Δdec + plx_at_epoch * (
-                            like.hip_table.x[i_epoch] * cosd(θ_system.ra) * sind(θ_system.dec) +
-                            like.hip_table.y[i_epoch] * sind(θ_system.ra) * sind(θ_system.dec) -
-                            like.hip_table.z[i_epoch] * cosd(θ_system.dec)
-                ) + delta_time_julian_year * iad_pmdec
-
-                # push!(α✱_models,α✱_model)
-                # push!(δ_models, δ_model)
-
+                plx_at_epoch = like.hip_sol.plx + iad_Δplx
+                # TODO: for very very nearby or high RV objects with specific IDs, our main Hipparcos code correctly
+                # accounts for changing parallax vs time. This does not.
+                α✱_model = iad_Δra - Δα_h + plx_at_epoch * (
+                            like.hip_table.x[i_epoch] * sind(like.hip_sol.radeg) -
+                            like.hip_table.y[i_epoch] * cosd(like.hip_sol.radeg)
+                ) + delta_time_julian_year * (iad_pmra - Δpmra_h)
+                δ_model = iad_Δdec - Δδ_h + plx_at_epoch * (
+                            like.hip_table.x[i_epoch] * cosd(like.hip_sol.radeg) * sind(like.hip_sol.dedeg) +
+                            like.hip_table.y[i_epoch] * sind(like.hip_sol.radeg) * sind(like.hip_sol.dedeg) -
+                            like.hip_table.z[i_epoch] * cosd(like.hip_sol.dedeg)
+                ) + delta_time_julian_year * (iad_pmdec - Δpmdec_h)
+                
                 α✱_model_with_perturbation = α✱_model + Δα_mas_hip[i_epoch]
                 δ_model_with_perturbation = δ_model + Δδ_mas_hip[i_epoch]
+
+                # We've hit the same problem again. As the perturbation gets huge, we
+                # start to need to adjust these parameters to bring the measurements back over to near
+                # the Hipparcos measurements.
+                # But in this case, do we really care? We are only fitting curvature.
+                # Can we subtract the average or something?
+
+
+
+
+                # push!(α✱_models,α✱_model_with_perturbation)
+                # push!(δ_models, δ_model_with_perturbation)
+
 
                 # Calculate differences in milliarcseconds by mapping into a local tangent plane,
                 # with the local coordinate defined by the Hipparcos solution at this *epoch* (not 
@@ -1190,122 +1309,14 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
             end
 
             # @show θ_system.ra  θ_system.dec iad_Δra iad_Δdec iad_pmra iad_pmdec
-            # Main.scatter(
+            # f,a,p=Main.scatterlines(
             #     α✱_models, δ_models
-            # )|>display
-
+            # )
+            # Main.stem(f[2,1], α✱_models, iad_resid)
+            # f|>display
         # end
 
     end
-
-
-
-    ################################
-    # DR2
-    istart_dr2 = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaia_table.epoch))
-    iend_dr2 = findlast(<=(meta_gaia_DR2.stop_mjd), vec(gaia_table.epoch))
-    if isnothing(istart_dr2)
-        istart_dr2 = 1
-    end
-    if isnothing(iend_dr2)
-        iend_dr2 = length(gaia_table.epoch)
-    end
-    gaia_table_dr2 = @views gaia_table[istart_dr2:iend_dr2]
-    # gaia_table_dr2.epoch .+= Δepoch_dr2_days
-    for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
-        planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-        if hasproperty(θ_obs, :fluxratio)
-            if θ_obs.fluxratio isa Number
-                fluxratio = θ_obs.fluxratio
-            else
-                fluxratio = θ_obs.fluxratio[i_planet]
-            end
-        else
-            fluxratio = 0.0
-        end
-        _simulate_skypath_perturbations!(
-            Δα_mas_dr2, Δδ_mas_dr2,
-            gaia_table_dr2, orbit,
-            planet_mass_msol, fluxratio,
-            orbit_solutions[i_planet],
-            -1, T
-        )
-    end
-
-    # Option for adding a custom perturbation function to simulated Gaia scan data, for testing things like GP
-    if hasproperty(θ_obs,:scan_disturb_func)
-        for (j,i) in enumerate(istart_dr2:iend_dr2)
-            # function of scan angle and time:
-            perturb = θ_obs.scan_disturb_func.(gaia_table.epoch[i], gaia_table.scanAngle_rad[i])
-            # Need to store into Δα_mas_dr2 and Δδ_mas_dr2:
-            Δα_mas_dr2[j] += perturb * cos(gaia_table.scanAngle_rad[i])
-            Δδ_mas_dr2[j] += perturb * sin(gaia_table.scanAngle_rad[i])
-        end
-    end
-
-    out = fit_5param_prepared(view(A_prepared_5_dr2, istart_dr2:iend_dr2,:), view(gaia_table, istart_dr2:iend_dr2), Δα_mas_dr2, Δδ_mas_dr2)
-    # out = fit_4param_prepared(hgca_like.gaialike.A_prepared_4, gaia_table, Δα_mas_dr2, Δδ_mas_dr2)
-    Δα_dr2, Δδ_dr2, Δpmra_dr2, Δpmdec_dr2 = out.parameters
-    # Rigorously propagate the linear proper motion component in spherical coordinates
-    # Account for within-gaia differential light travel time 
-    α_dr2₀, δ_dr2₀, pmra_dr2₀, pmdec_dr2₀ = propagate_astrom(orbits, like.catalog.epoch_ra_dr2_mjd, like.catalog.epoch_dec_dr2_mjd)
-    μ_dr2 = @SVector [pmra_dr2₀ + Δpmra_dr2, pmdec_dr2₀ + Δpmdec_dr2]
-
-    ################################
-    # DR3
-    istart_dr3 = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaia_table.epoch))
-    iend_dr3 = findlast(<=(meta_gaia_DR3.stop_mjd), vec(gaia_table.epoch))
-    if isnothing(istart_dr3)
-        istart_dr3 = 1
-    end
-    if isnothing(iend_dr3)
-        iend_dr3 = length(gaia_table.epoch)
-    end
-    gaia_table_dr3 = @views gaia_table[istart_dr3:iend_dr3]
-    # gaia_table_dr3.epoch .+= Δepoch_dr3_days
-    for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
-        planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-        if hasproperty(θ_obs, :fluxratio)
-            if θ_obs.fluxratio isa Number
-                fluxratio = θ_obs.fluxratio
-            else
-                fluxratio = θ_obs.fluxratio[i_planet]
-            end
-        else
-            fluxratio = 0.0
-        end
-        _simulate_skypath_perturbations!(
-            Δα_mas_dr3, Δδ_mas_dr3,
-            gaia_table_dr3, orbit,
-            planet_mass_msol, fluxratio,
-            orbit_solutions[i_planet],
-            -1, T,
-        )
-    end
-
-    #
-    # Option for adding a custom perturbation function to simulated Gaia scan data, for testing things like GP
-    if hasproperty(θ_obs,:scan_disturb_func)
-        for (j,i) in enumerate(istart_dr3:iend_dr3)
-            # function of scan angle and time:
-            perturb = θ_obs.scan_disturb_func.(gaia_table.epoch[i], gaia_table.scanAngle_rad[i])
-            # Need to store into Δα_mas_dr3 and Δδ_mas_dr3:
-            Δα_mas_dr3[j] += perturb * cos(gaia_table.scanAngle_rad[i])
-            Δδ_mas_dr3[j] += perturb * sin(gaia_table.scanAngle_rad[i])
-        end
-    end
-
-    out_dr3 = fit_5param_prepared(
-        view(A_prepared_5_dr3, istart_dr3:iend_dr3,:),
-        view(gaia_table, istart_dr3:iend_dr3),
-        Δα_mas_dr3, Δδ_mas_dr3, 0.0, σ_formal;
-        include_chi2=Val(true)
-    )
-    Δα_dr3, Δδ_dr3, Δpmra_dr3, Δpmdec_dr3 = out_dr3.parameters
-    # Rigorously propagate the linear proper motion component in spherical coordinates
-    # Account for within-gaia differential light travel time 
-    α_dr3₀, δ_dr3₀, pmra_dr3₀, pmdec_dr3₀ = propagate_astrom(orbits, like.catalog.epoch_ra_dr3_mjd, like.catalog.epoch_dec_dr3_mjd)
-    μ_dr3 = @SVector [pmra_dr3₀ + Δpmra_dr3, pmdec_dr3₀ + Δpmdec_dr3]
 
 
     ################################
@@ -1364,8 +1375,8 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     end
 
 
-    μ_hg = @SVector [pmra_hg_model, pmdec_hg_model]
-    μ_dr32 = @SVector [pmra_dr32_model, pmdec_dr32_model]
+    μ_hg = @SVector [pmra_hg_model - Δpmra_dr3, pmdec_hg_model - Δpmdec_dr3]
+    μ_dr32 = @SVector [pmra_dr32_model - Δpmra_dr3, pmdec_dr32_model - Δpmdec_dr3]
 
     ##############################
     # DR3 UEVA calculation and uncertainty deflation
@@ -1525,6 +1536,8 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         pmdec_dr32_model=μ_dr32[2],
         pmra_dr3_model=μ_dr3[1],
         pmdec_dr3_model=μ_dr3[2],
+
+        Δα_dr3, Δδ_dr3, Δpmra_dr3, Δpmdec_dr3
 
 
     )
