@@ -1090,6 +1090,9 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     # gaia_table_dr3.epoch .+= Δepoch_dr3_days
     for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
+        if planet_mass_msol == 0.0
+            continue
+        end
         if hasproperty(θ_obs, :fluxratio)
             if θ_obs.fluxratio isa Number
                 fluxratio = θ_obs.fluxratio
@@ -1142,6 +1145,9 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     # gaia_table_dr2.epoch .+= Δepoch_dr2_days
     for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
+        if planet_mass_msol == 0.0
+            continue
+        end
         if hasproperty(θ_obs, :fluxratio)
             if θ_obs.fluxratio isa Number
                 fluxratio = θ_obs.fluxratio
@@ -1181,6 +1187,9 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
 
         for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
+            if planet_mass_msol == 0.0
+                continue
+            end
             if hasproperty(θ_obs, :fluxratio)
                 if θ_obs.fluxratio isa Number
                     fluxratio = θ_obs.fluxratio
@@ -1453,6 +1462,9 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         
         for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
+            if planet_mass_msol == 0.0
+                continue
+            end
             # Calculate RV at each epoch
             for (i, epoch) in enumerate(gaia_table_rv.epoch)
                 sol = orbitsolve(orbit, epoch)
