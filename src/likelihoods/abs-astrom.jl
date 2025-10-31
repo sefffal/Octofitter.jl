@@ -1130,7 +1130,7 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     # Rigorously propagate the linear proper motion component in spherical coordinates
     # Account for within-gaia differential light travel time 
     α_dr3₀, δ_dr3₀, pmra_dr3₀, pmdec_dr3₀ = propagate_astrom(orbits, like.catalog.epoch_ra_dr3_mjd, like.catalog.epoch_dec_dr3_mjd)
-    μ_dr3 = @SVector [pmra_dr3₀ + Δpmra_dr3 - Δpmra_dr3, pmdec_dr3₀ + Δpmdec_dr3 - Δpmdec_dr3]
+    μ_dr3 = @SVector [pmra_dr3₀ + Δpmra_dr3, pmdec_dr3₀ + Δpmdec_dr3]
 
     # Note: we shift the entire reference frame so that the proper motion is defined on the primary star
     # all proper motions derived below are shifted the perturbation in DR3 
@@ -1178,7 +1178,7 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     # Rigorously propagate the linear proper motion component in spherical coordinates
     # Account for within-gaia differential light travel time 
     α_dr2₀, δ_dr2₀, pmra_dr2₀, pmdec_dr2₀ = propagate_astrom(orbits, like.catalog.epoch_ra_dr2_mjd, like.catalog.epoch_dec_dr2_mjd)
-    μ_dr2 = @SVector [pmra_dr2₀ + Δpmra_dr2 - Δpmra_dr3, pmdec_dr2₀ + Δpmdec_dr2 - Δpmdec_dr3]
+    μ_dr2 = @SVector [pmra_dr2₀ + Δpmra_dr2, pmdec_dr2₀ + Δpmdec_dr2]
 
         
 
@@ -1217,7 +1217,7 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         end
         Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
         α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(orbits, like.catalog.epoch_ra_hip_mjd, like.catalog.epoch_dec_hip_mjd)
-        μ_h = @SVector [pmra_h₀ + Δpmra_h - Δpmra_dr3, pmdec_h₀ + Δpmdec_h - Δpmdec_dr3]
+        μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
 
 
         ################################
@@ -1375,8 +1375,10 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     end
 
 
-    μ_hg = @SVector [pmra_hg_model - Δpmra_dr3, pmdec_hg_model - Δpmdec_dr3]
-    μ_dr32 = @SVector [pmra_dr32_model - Δpmra_dr3, pmdec_dr32_model - Δpmdec_dr3]
+    # μ_hg = @SVector [pmra_hg_model - Δpmra_dr3, pmdec_hg_model - Δpmdec_dr3]
+    # μ_dr32 = @SVector [pmra_dr32_model - Δpmra_dr3, pmdec_dr32_model - Δpmdec_dr3]
+    μ_hg = @SVector [pmra_hg_model, pmdec_hg_model]
+    μ_dr32 = @SVector [pmra_dr32_model, pmdec_dr32_model]
 
     ##############################
     # DR3 UEVA calculation and uncertainty deflation
@@ -1496,6 +1498,15 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         sample_variance = convert(T, NaN)
         s_catalog_squared = convert(T, NaN)
     end
+
+    # Adjust the reference frame such that, effectively, the pmra/pmdec system variables are referring to the primary
+    # instead of the barycentre.
+    # Specifically, the primary's proper motion at this epoch:
+    μ_h    = μ_h     .- @SVector [Δpmra_dr3, Δpmdec_dr3,]
+    μ_hg   = μ_hg    .- @SVector [Δpmra_dr3, Δpmdec_dr3,]
+    μ_dr2  = μ_dr2   .- @SVector [Δpmra_dr3, Δpmdec_dr3,]
+    μ_dr32 = μ_dr32  .- @SVector [Δpmra_dr3, Δpmdec_dr3,]
+    μ_dr3  = μ_dr3   .- @SVector [Δpmra_dr3, Δpmdec_dr3,]
 
 
     return (;
