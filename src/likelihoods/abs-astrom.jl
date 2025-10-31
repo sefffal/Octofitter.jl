@@ -927,6 +927,10 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
         end
     end
 
+    if isnan(ll)
+        return convert(T, -Inf)
+    end
+
     return ll
 end
 
