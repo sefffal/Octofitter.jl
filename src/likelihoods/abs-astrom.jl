@@ -402,7 +402,8 @@ function GaiaHipparcosUEVAJointLikelihood(;
     if isnothing(variables)
 
         len_epochs = length(gaia_table.epoch)
-        missed_transits = Int(len_epochs - catalog.astrometric_matched_transits_dr3)
+        astrometric_matched_transits_dr3 = catalog.astrometric_matched_transits_dr3
+        missed_transits = Int(len_epochs - astrometric_matched_transits_dr3)
         dec = catalog.dec
         ra = catalog.ra
         if missed_transits < 0
@@ -416,22 +417,8 @@ function GaiaHipparcosUEVAJointLikelihood(;
             σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
             σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
             fluxratio = hasproperty(sys, :fluxratio) ? sys.fluxratio : 0.0
-        end
-
-        if missed_transits > 0
-            if missed_transits == 1
-                missed_vars = @variables begin
-                    missed_transits ~ DiscreteUniform(1,length(gaia_table.epoch) )
-                end
-            else
-                missed_vars = @variables begin
-                    missed_transits ~ Product(fill(
-                        DiscreteUniform(1,length(gaia_table.epoch) ),
-                        missed_transits
-                    ))
-                end
-            end
-            variables = vcat(variables, missed_vars)
+            transit_priorities ~ MvNormal(zeros(len_epochs), I)
+            transits = partialsortperm(SVector(transit_priorities), 1:$astrometric_matched_transits_dr3, rev=true)
         end
 
 
@@ -462,8 +449,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
            
             if transits_rv > 0
                 missed_vars = @variables begin
-                    rv_transit_priorities ~ MvNormal(zeros(len_epochs), I)
-                    transits_rv = partialsortperm(SVector(rv_transit_priorities), 1:$transits_rv, rev=true)
+                    transits_rv = partialsortperm(SVector(transit_priorities), 1:$transits_rv, rev=true)
                 end
                 variables = vcat(variables, missed_vars)
             end
@@ -552,16 +538,16 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
     ll = zero(T)
 
     # TODO: optimize this, we only need to grab the epochs here -- it'll be faster
-    if hasproperty(θ_obs, :missed_transits)
-        (;missed_transits) = θ_obs 
-        if eltype(missed_transits) <: AbstractFloat
-            missed_transits = Int.(missed_transits)
+    if hasproperty(θ_obs, :transits)
+        (;transits) = θ_obs 
+        if eltype(transits) <: AbstractFloat
+            transits = Int.(transits)
         end
         # The list of missed transits must be unique
-        if length(unique(missed_transits)) < length(missed_transits)
-            return convert(T, -Inf)
+        if length(unique(transits)) < length(transits)
+            return nothing
         end
-        ii = Int.(sort(setdiff(1:length(like.gaia_table.epoch), missed_transits)))
+        ii = transits
         gaia_table = like.gaia_table[ii,:]
     else
         gaia_table = like.gaia_table
@@ -937,16 +923,16 @@ end
 function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
     # TODO: optimize this, we only need to grab the epochs here -- it'll be faster
-    if hasproperty(θ_obs, :missed_transits)
-        (;missed_transits) = θ_obs 
-        if eltype(missed_transits) <: AbstractFloat
-            missed_transits = Int.(missed_transits)
+    if hasproperty(θ_obs, :transits)
+        (;transits) = θ_obs 
+        if eltype(transits) <: AbstractFloat
+            transits = Int.(transits)
         end
         # The list of missed transits must be unique
-        if length(unique(missed_transits)) < length(missed_transits)
+        if length(unique(transits)) < length(transits)
             return nothing
         end
-        ii = Int.(sort(setdiff(1:length(like.gaia_table.epoch), missed_transits)))
+        ii = transits
         gaia_table = like.gaia_table[ii,:]
     else
         gaia_table = like.gaia_table
@@ -1004,16 +990,16 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
     # Here we may further reject some more to marginalize over
     # unknown missed/rejected transits.
     # In theory these could be different between DR2 and DR3 but we assume they aren't.
-    if hasproperty(θ_obs, :missed_transits)
-        (;missed_transits) = θ_obs 
-        if eltype(missed_transits) <: AbstractFloat
-            missed_transits = Int.(missed_transits)
+    if hasproperty(θ_obs, :transits)
+        (;transits) = θ_obs 
+        if eltype(transits) <: AbstractFloat
+            transits = Int.(transits)
         end
         # The list of missed transits must be unique
-        if length(unique(missed_transits)) < length(missed_transits)
+        if length(unique(transits)) < length(transits)
             return nothing
         end
-        ii = Int.(sort(setdiff(1:length(like.gaia_table.epoch), missed_transits)))
+        ii = transits
         gaia_table = like.gaia_table[ii,:]
         A_prepared_5_dr3 = view(like.A_prepared_5_dr3, ii,:)
         A_prepared_5_dr2 = view(like.A_prepared_5_dr2, ii,:)
@@ -1028,7 +1014,6 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
         if eltype(transits_rv) <: AbstractFloat
             transits_rv = Int.(transits_rv)
         end
-        # @show length(unique(transits_rv))  length(transits_rv)
         # The list of missed transits must be unique
         if length(unique(transits_rv)) < length(transits_rv)
             return nothing
@@ -1122,7 +1107,6 @@ function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, �
             -1, T,
         )
     end
-
 
     out_dr3 = fit_5param_prepared(
         view(A_prepared_5_dr3, istart_dr3:iend_dr3,:),
