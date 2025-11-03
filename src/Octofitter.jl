@@ -151,7 +151,9 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
     end
 
     # Some octofitter likelihoods can cause errors when nansafe_mode isn't set to true.
-    set_preferences!(ForwardDiff, "nansafe_mode" => true)
+    if !load_preference(ForwardDiff, "nansafe_mode")
+        set_preferences!(ForwardDiff, "nansafe_mode" => true)
+    end
 
     # JPL Horizons seems to allow their SSL certifcates to expire all the time.
     # We have to disable certificate checking in order to be able to query it
