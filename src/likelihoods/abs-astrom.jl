@@ -54,6 +54,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
         variables::Union{Nothing,Tuple{Priors,Derived}}=nothing,
         include_rv=true,
         ueva_mode::Symbol=:RUWE,
+        freeze_epochs=false
     )
     include_iad=false
 
@@ -383,7 +384,8 @@ function GaiaHipparcosUEVAJointLikelihood(;
 
 
     has_rv = include_rv && (
-        hasproperty(catalog, :rv_ln_uncert_dr3) && !ismissing(catalog.rv_ln_uncert_dr3) && !ismissing(catalog.rv_ln_uncert_err_dr3)
+        hasproperty(catalog, :rv_ln_uncert_dr3) && !ismissing(catalog.rv_ln_uncert_dr3) && !ismissing(catalog.rv_ln_uncert_err_dr3) &&
+        isfinite(catalog.rv_ln_uncert_dr3) && isfinite(catalog.rv_ln_uncert_err_dr3)
     )
     if has_rv
         push!(table.epoch, mean(gaia_table.epoch))  # or use RV-specific epoch if available
@@ -417,10 +419,40 @@ function GaiaHipparcosUEVAJointLikelihood(;
             σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
             σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
             fluxratio = hasproperty(sys, :fluxratio) ? sys.fluxratio : 0.0
-            transit_priorities ~ MvNormal(zeros(len_epochs), I)
-            transits = partialsortperm(SVector(transit_priorities), 1:$astrometric_matched_transits_dr3, rev=true)
         end
 
+        if(len_epochs) < astrometric_matched_transits_dr3
+            @warn "Fewer epochs in GOST forecast than `astrometric_matched_transits` reported by Gaia. Results by be innaccurate."
+            variables = vcat(variables, @variables begin
+                transits = $(1:len_epochs)
+            end)
+        else
+            # This is an optional approximation that can massievly speed up sampling -- 
+            # sample the epochs randomly once and fix them for all remaining sampling
+            if freeze_epochs
+                transit_priorities = (randn(len_epochs)...,)
+                transits = partialsortperm(SVector(transit_priorities), 1:astrometric_matched_transits_dr3, rev=true)
+                variables = vcat(variables, @variables begin
+                    transits = $transits
+                end)
+            else
+                # Full model:
+                # include the epochs of the Gaia observations as variables 
+                # Our goal is to sample the *indices* of the subset of possible observation epochs
+                # reported by GOST. We assume that the same subset of epochs used by DR2 are also used
+                # in DR3. We assume that the RV epochs used by DR3 are a subset of the astrometry epochs
+                # ie any rejected or skipped astrometry epochs are also skipped for RV. This is just to 
+                # make the problem tractable.
+                # 
+                # We sample the discrete set of epochs used by a having a full set of continuous variables
+                # corresponding to each possible observing epoch. At any given point, the epochs used in the model
+                # are the values with the highest values.
+                variables = vcat(variables, @variables begin
+                    transit_priorities ~ MvNormal(zeros(len_epochs), I)
+                    transits = partialsortperm(SVector(transit_priorities), 1:$astrometric_matched_transits_dr3, rev=true)
+                end)
+            end
+        end
 
         if !isnothing(hip_like)
             variables_iad = @variables begin
