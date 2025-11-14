@@ -853,18 +853,28 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
             μ_hg_cat, Σ_hg = isnothing(dist_hg) ? (@SVector[0.,0.], @SMatrix zeros(2,2)) : params(dist_hg) 
             μ_dr2_cat, Σ_dr2 = params(dist_dr2)
             μ_dr32_cat, Σ_dr32 = params(dist_dr32)
-            Σ_h = SMatrix{2, 2, Float64, 4}(Σ_h)
-            Σ_hg = SMatrix{2, 2, Float64, 4}(Σ_hg)
-            Σ_dr2 = SMatrix{2, 2, Float64, 4}(Σ_dr2)
+            T = promote_type(
+                eltype(Σ_dr32),
+                eltype(Σ_h),
+                eltype(Σ_hg),
+                eltype(Σ_dr2),
+                eltype(Σ_dr32),
+                eltype(ΔΣ_dr32),
+                eltype(Σ_dr3),
+                typeof(deflation_factor_dr3)
+            )
+            Σ_h = SMatrix{2, 2, T, 4}(Σ_h)
+            Σ_hg = SMatrix{2, 2, T, 4}(Σ_hg)
+            Σ_dr2 = SMatrix{2, 2, T, 4}(Σ_dr2)
             # Apply deflation adjustment to DR32 covariance
-            Σ_dr32 = SMatrix{2, 2, Float64, 4}(Σ_dr32 .+ ΔΣ_dr32)
-            # Σ_dr32 = SMatrix{2, 2, Float64, 4}(Σ_dr32)
-            # Σ_dr32 =SMatrix{2, 2, Float64, 4}( [
+            Σ_dr32 = SMatrix{2, 2, T, 4}(Σ_dr32 .+ ΔΣ_dr32)
+            # Σ_dr32 = SMatrix{2, 2, T, 4}(Σ_dr32)
+            # Σ_dr32 =SMatrix{2, 2, T, 4}( [
             #     Σ_dr32[1,1] 0
             #     0           Σ_dr32[1,1]
             # ] .+ ΔΣ_dr32)
             # Apply deflation adjustment to DR3 proper motions
-            Σ_dr3 = SMatrix{2, 2, Float64, 4}(Σ_dr3 .* deflation_factor_dr3^2)
+            Σ_dr3 = SMatrix{2, 2, T, 4}(Σ_dr3 .* deflation_factor_dr3^2)
 
             
 
