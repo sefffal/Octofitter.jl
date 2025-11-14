@@ -1130,7 +1130,7 @@ function GOST_forecast(ra_deg,dec_deg)
         "srcra" => string(round(ra_deg,digits=7)),
         "srcdec" => string(round(dec_deg,digits=7)),
         "from" => "2014-07-25T10:31:26",
-        "to" => "2017-05-28T00:00:00",
+        "to" => "2017-06-28T00:00:00",
     ])
 
 
