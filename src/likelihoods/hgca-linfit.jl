@@ -422,6 +422,15 @@ function simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_so
 
     μ_hg = @SVector [pmra_hg_model, pmdec_hg_model]
 
+    # Adjust the reference frame such that, effectively, the pmra/pmdec system variables are referring to the primary
+    # instead of the barycentre.
+    # Specifically, the primary's proper motion at this epoch:
+    μ_h  = μ_h  .- @SVector [Δpmra_g, Δpmdec_g,]
+    μ_hg = μ_hg .- @SVector [Δpmra_g, Δpmdec_g,]
+    μ_g  = μ_g  .- @SVector [Δpmra_g, Δpmdec_g,]
+
+    # this drastically improves convergence for wide orbits / massive companions
+
     return (;
         # Packaged up nicely
         μ_g,
