@@ -151,7 +151,8 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
     end
 
     # Some octofitter likelihoods can cause errors when nansafe_mode isn't set to true.
-    if !load_preference(ForwardDiff, "nansafe_mode")
+    nansafe_mode = load_preference(ForwardDiff, "nansafe_mode")
+    if isnothing(nansafe_mode) || !nansafe_mode
         set_preferences!(ForwardDiff, "nansafe_mode" => true)
     end
 
