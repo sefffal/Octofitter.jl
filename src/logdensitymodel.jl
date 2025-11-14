@@ -119,7 +119,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 # Stop right away if we are given non-finite arguments
                 if any(!isfinite, θ_transformed)
                     # @warn "non finite parameters encountered (maxlog=1)" θ_transformed maxlog=1
-                    lpost += NaN
+                    lpost = convert(eltype(θ_transformed), -Inf)
                     return lpost
                 end
                 # Transform back from the unconstrained support to constrained support for the likelihood function
@@ -140,7 +140,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 #     θ_transformed_primals = ForwardDiff.value.(θ_transformed)
                 #     θ_structured = arr2nt(Bijector_invlinkvec(θ_transformed_primals))
                 #     llike = ln_like_generated(system, θ_structured)
-                #     @warn "Invalid log likelihood encountered. (maxlog=1)" θ=θ_structured llike θ_transformed=θ_transformed_primals  maxlog=1
+                #     @warn "Invalid log likelihood encountered. (maxlog=1)" θ=θ_structured llike θ_transformed=θ_transformed_primals
                 # end
                 return lpost
             end

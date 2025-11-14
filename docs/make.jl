@@ -53,6 +53,7 @@ makedocs(
                 "Calculate Detection Limits" => "limits.md",
             ],
             "Bayesian Workflows" => [
+                "Circular or Eccentric? Model Comparison" => "eccentric-or-circular.md",
                 "Generating and Fitting Simulated Data" => "data-simulation.md",
                 "Prior Predictive Checks" => "prior-pred.md",
                 "Posterior Predictive Checks" => "post-pred.md",

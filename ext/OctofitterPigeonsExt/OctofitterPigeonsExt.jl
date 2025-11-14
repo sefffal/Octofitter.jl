@@ -90,6 +90,16 @@ Base.@nospecializeinfer function Octofitter.octofit_pigeons(
         Octofitter._kepsolve_use_threads[] = Octofitter._count_epochs(target.system) > 15*Threads.nthreads()
     end
 
+    # Variational rereference often causes errors when used on models with 
+    # discrete variables.
+    # We disable that for now. 
+    contains_discrete_variables = any(isa.(sample_priors(Random.default_rng(), target.system),Integer))
+    if contains_discrete_variables && ( !isnothing(variational) || n_chains_variational != 0)
+        @info "Variational reference is not supported with discrete variables; disabling and setting n_chains_variational=0."
+        variational = nothing
+        n_chains_variational = 0
+    end
+
 
     if _has_non_sampleable_priors(target)
         @warn "This model has priors that cannot be sampled IID."
