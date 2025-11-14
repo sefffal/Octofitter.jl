@@ -256,8 +256,8 @@ function absastromplot!(
             )
             errorbars!(ax_velra, x[mask], y_corrected[mask], σ[mask], color=:black, linewidth=0.7)
             scatter!(ax_velra, x[mask], y_corrected[mask], color=:black)
-            ymin = minimum(y_corrected[mask] .-  3σ[mask])
-            ymax = maximum(y_corrected[mask] .+  3σ[mask])
+            ymin = minimum(y_corrected[mask] .-  10σ[mask])
+            ymax = maximum(y_corrected[mask] .+  10σ[mask])
             ylims!(ax_velra, ymin, ymax)
         end
 
@@ -295,8 +295,8 @@ function absastromplot!(
             )
             errorbars!(ax_veldec, x[mask], y_corrected[mask], σ[mask], color=:black, linewidth=0.7)
             scatter!(ax_veldec, x[mask], y_corrected[mask], color=:black)
-            ymin = minimum(y_corrected[mask] .-  3σ[mask])
-            ymax = maximum(y_corrected[mask] .+  3σ[mask])
+            ymin = minimum(y_corrected[mask] .-  10σ[mask])
+            ymax = maximum(y_corrected[mask] .+  10σ[mask])
             ylims!(ax_veldec, ymin, ymax)
         end
 
