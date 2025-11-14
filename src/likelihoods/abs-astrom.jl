@@ -790,26 +790,13 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
             end
 
 
-
-
-            # Important: we can de-inflate the Gaia DR3 uncertainties since
-            # we know the astrometric excess noise they applied and we are assuming a-priori that the
-            # EAN is well-accounted for by a planet
-            # TODO: this isn't quite right just yet -- we want to reduce it only by the factor caused by the planet
-            # it already includes sigma_formal=hypot(sigma_att, sigma_AL), but not yet sigma_cal
             μ_dr3_cat, Σ_dr3 = params(dist_dr3)
-            # Σ_dr3 .*= deflation_factor_dr3^2
-
-            # TODO: what about Hipparcos - Gaia scaled position difference?
-            # we can also improve the uncertainty on the Gaia position
-            # uncertainty in velocity is sqrt(sigma_H^2 + sigma_G^2)/(delta T)
-            # if we scale down sigma_G
-            # uncertainty in velocity is sqrt(sigma_H^2 + sigma_G^2*deflation_factor_dr3^2)/(delta T)
-            # so we can't scale the full thing -- we 
 
             #############################################
-            # Account for the UEVA-based potential uncertainty delfation of Gaia DR3 positions, 
-            
+            # Account for the UEVA-based potential uncertainty delfation of Gaia DR3 positions
+            # we know the astrometric excess noise they applied and we are assuming a-priori that the
+            # EAN is well-accounted for by a planet
+
             # DR3 position covariance at central epoch (already inflated by Gaia)
             σ_ra_dr3 = like.catalog.ra_error_central_dr3
             σ_dec_dr3 = like.catalog.dec_error_central_dr3
@@ -830,18 +817,22 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
                 ρ_radec_dr2*σ_ra_dr2*σ_dec_dr2    σ_dec_dr2^2
             ]
             
-            ρ_23 = like.catalog.rho_dr2_dr3
+            # ρ_23 = like.catalog.rho_dr2_dr3
+            ρ_dr3_dr2 = √(min(n_dr2, n_dr3) / max(n_dr2, n_dr3))
+            # ρ_dr3_dr2 = θ_obs.ρ_dr3_dr2
+            
             Σ_cross = @SMatrix [
-                ρ_23*σ_ra_dr3*σ_ra_dr2                        ρ_23*ρ_radec_dr3*σ_ra_dr3*σ_dec_dr2
-                ρ_23*ρ_radec_dr2*σ_dec_dr3*σ_ra_dr2          ρ_23*σ_dec_dr3*σ_dec_dr2
+                ρ_dr3_dr2*σ_ra_dr3*σ_ra_dr2                        ρ_dr3_dr2*ρ_radec_dr3*σ_ra_dr3*σ_dec_dr2
+                ρ_dr3_dr2*ρ_radec_dr2*σ_dec_dr3*σ_ra_dr2          ρ_dr3_dr2*σ_dec_dr3*σ_dec_dr2
             ]
             
             # Time baselines for DR3-DR2 scaled position difference
-            Δt_ra = (like.catalog.epoch_ra_dr3_mjd - like.catalog.epoch_ra_dr2_mjd) * julian_year
-            Δt_dec = (like.catalog.epoch_dec_dr3_mjd - like.catalog.epoch_dec_dr2_mjd) * julian_year
+            Δt_ra = (like.catalog.epoch_ra_dr3_mjd - like.catalog.epoch_ra_dr2_mjd) / julian_year
+            Δt_dec = (like.catalog.epoch_dec_dr3_mjd - like.catalog.epoch_dec_dr2_mjd) / julian_year
             
             # Deflation adjustment for DR32 proper motions
             # Only the DR3-contributed terms get deflated
+            # deflation_factor_dr3 = 1.0
             d = deflation_factor_dr3
 
             # Position covariance adjustment (in mas²)
@@ -867,6 +858,11 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
             Σ_dr2 = SMatrix{2, 2, Float64, 4}(Σ_dr2)
             # Apply deflation adjustment to DR32 covariance
             Σ_dr32 = SMatrix{2, 2, Float64, 4}(Σ_dr32 .+ ΔΣ_dr32)
+            # Σ_dr32 = SMatrix{2, 2, Float64, 4}(Σ_dr32)
+            # Σ_dr32 =SMatrix{2, 2, Float64, 4}( [
+            #     Σ_dr32[1,1] 0
+            #     0           Σ_dr32[1,1]
+            # ] .+ ΔΣ_dr32)
             # Apply deflation adjustment to DR3 proper motions
             Σ_dr3 = SMatrix{2, 2, Float64, 4}(Σ_dr3 .* deflation_factor_dr3^2)
 
@@ -909,7 +905,6 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
             Σ_full[11, 11] = UEVA_unc^2
 
             # Add cross-epoch correlations between DR2 and DR3
-            ρ_dr3_dr2 = √(min(n_dr2, n_dr3) / max(n_dr2, n_dr3))
             
             # Compute the cross-correlation matrix K
             K = ρ_dr3_dr2 * sqrt(Σ_dr2) * sqrt(Σ_dr3)'
