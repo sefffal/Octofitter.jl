@@ -24,13 +24,13 @@ in the same order as the planets in the system.
 Upon first load, you will be prompted to accept the download of the eDR3 version of the HGCA
 catalog.
 """
-struct HGCALikelihood{THGCA,THip,TGaia} <: AbstractLikelihood
+struct HGCALikelihood{TTable,THGCA,THip,TGaia} <: AbstractLikelihood
+    table::TTable
     hgca::THGCA
     priors::Priors
     derived::Derived
-    hiplike::THip
-    gaialike::TGaia
-    include_dr3_vel::Bool
+    hip_like::THip
+    gaia_like::TGaia
     include_iad::Bool
 end
 
@@ -40,7 +40,7 @@ likelihoodname(::HGCALikelihood) = "HGCA"
 function HGCALikelihood(;
     variables::Tuple{Priors,Derived}=(@variables begin;end ),
     gaia_id, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits",
-    include_dr3_vel=true, include_iad=true)
+    include_iad=true)
 
     (priors,derived)=variables
 
@@ -50,9 +50,9 @@ function HGCALikelihood(;
         idx = findfirst(==(gaia_id), t.gaia_source_id)
         return NamedTuple(t[idx])
     end
-    return HGCALikelihood(hgca, priors, derived; include_dr3_vel, include_iad)
+    return HGCALikelihood(hgca, priors, derived; include_iad)
 end
-function HGCALikelihood(hgca::NamedTuple, priors::Priors, derived::Derived; include_dr3_vel, include_iad)
+function HGCALikelihood(hgca::NamedTuple, priors::Priors, derived::Derived; include_iad)
 
 
     # Convert measurement epochs to MJD.
@@ -127,23 +127,96 @@ function HGCALikelihood(hgca::NamedTuple, priors::Priors, derived::Derived; incl
 
     hgca = (; hgca..., dist_hip, dist_hg, dist_gaia)
 
+
+    # This table serves only for plotting and keeping track of subsetting for cross-validation.
+    # The actual likelihood calculations happen against the prepared linear system matrices above.
+    table = Table(
+        epoch=[
+            isnothing(hip_like) ? NaN : years2mjd(hgca.epoch_ra_hip),
+            isnothing(hip_like) ? NaN : years2mjd(hgca.epoch_dec_hip),
+            isnothing(hip_like) ? NaN : years2mjd((hgca.epoch_ra_hip+hgca.epoch_ra_gaia)/2),
+            isnothing(hip_like) ? NaN : years2mjd((hgca.epoch_dec_hip+hgca.epoch_dec_gaia)/2),
+            years2mjd(hgca.epoch_ra_gaia),
+            years2mjd(hgca.epoch_dec_gaia),
+        ],
+        start_epoch=[
+            isnothing(hip_like) ? 0 : minimum(hip_like.table.epoch),
+            isnothing(hip_like) ? 0 : minimum(hip_like.table.epoch),
+            isnothing(hip_like) ? 0 : years2mjd(hgca.epoch_ra_hip),
+            isnothing(hip_like) ? 0 : years2mjd(hgca.epoch_dec_hip),
+            first(gaia_like.table.epoch[gaia_like.table.epoch.>=(meta_gaia_DR3.start_mjd)]),
+            first(gaia_like.table.epoch[gaia_like.table.epoch.>=(meta_gaia_DR3.start_mjd)]),
+        ],
+        stop_epoch=[
+            isnothing(hip_like) ? 0 : maximum(hip_like.table.epoch),
+            isnothing(hip_like) ? 0 : maximum(hip_like.table.epoch),
+            isnothing(hip_like) ? 0 : years2mjd(hgca.epoch_ra_gaia),
+            isnothing(hip_like) ? 0 : years2mjd(hgca.epoch_dec_gaia),
+            last(gaia_like.table.epoch[gaia_like.table.epoch.<=(meta_gaia_DR2.stop_mjd)]),
+            last(gaia_like.table.epoch[gaia_like.table.epoch.<=(meta_gaia_DR2.stop_mjd)]),
+        ],
+        pm = [
+            hgca.pmra_hip,
+            hgca.pmdec_hip,
+            hgca.pmra_hg,
+            hgca.pmdec_hg, 
+            hgca.pmra_gaia,
+            hgca.pmdec_gaia,
+        ],
+        σ_pm = [
+            hgca.pmra_hip_error,
+            hgca.pmdec_hip_error,
+            hgca.pmra_hg_error,
+            hgca.pmdec_hg_error,
+            hgca.pmra_gaia_error,
+            hgca.pmdec_gaia_error,
+        ],
+        kind=[
+            :ra_hip,
+            :dec_hip,
+            :ra_hg,
+            :dec_hg,
+            :ra_gaia,
+            :dec_gaia,
+        ],
+
+    )
+
+
     return HGCALikelihood{
+        typeof(table),
         typeof(hgca),
         typeof(hip_like),
         typeof(gaia_like),
-    }(hgca, priors, derived, hip_like, gaia_like, include_dr3_vel, include_iad)
+    }(table, hgca, priors, derived, hip_like, gaia_like, include_iad)
 
 end
 
-# function likeobj_from_epoch_subset(obs::HGCALikelihood, obs_inds)
-#     # return HGCALikelihood(obs.table[obs_inds, :, 1], obs.hgca, obs.fluxratio_vars) # TODO
-# end
+function Octofitter.likeobj_from_epoch_subset(like::HGCALikelihood, obs_inds)
+    (;
+        table,
+        hgca,
+        priors,
+        derived,
+        hip_like,
+        gaia_like,
+        include_iad,
+    ) = like
+    
+    table = table[obs_inds,:]
+    return HGCALikelihood{
+        typeof(table),
+        typeof(hgca),
+        typeof(hip_like),
+        typeof(gaia_like),
+    }(table, hgca, priors, derived, hip_like, gaia_like, include_iad)
+end
 
 function ln_like(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
-    sim = simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    sim = simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_solutions, -1)
 
     if isnothing(sim)
         return convert(T, -Inf)
@@ -177,11 +250,33 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_sol
         2hgca_like.hgca.nonlinear_dpmdec,
     ]
 
-    if hgca_like.include_dr3_vel
+    if :ra_gaia ∈ hgca_like.table.kind && :dec_gaia ∈ hgca_like.table.kind
         ll += logpdf(hgca_like.hgca.dist_gaia, μ_g)
+    elseif :ra_gaia ∈ hgca_like.table.kind
+        μ, Σ = params(hgca_like.hgca.dist_gaia) 
+        ll += logpdf(Normal(μ[1], sqrt(Σ[1,1])), μ_g[1])
+    elseif :dec_gaia ∈ hgca_like.table.kind
+        μ, Σ = params(hgca_like.hgca.dist_gaia) 
+        ll += logpdf(Normal(μ[2], sqrt(Σ[2,2])), μ_g[2])
     end
-    ll += logpdf(hgca_like.hgca.dist_hip, μ_h)
-    ll += logpdf(hgca_like.hgca.dist_hg, μ_hg)
+    if :ra_hip ∈ hgca_like.table.kind && :dec_hip ∈ hgca_like.table.kind
+        ll += logpdf(hgca_like.hgca.dist_hip, μ_h)
+    elseif :ra_hip ∈ hgca_like.table.kind
+        μ, Σ = params(hgca_like.hgca.dist_hip) 
+        ll += logpdf(Normal(μ[1], sqrt(Σ[1,1])), μ_h[1])
+    elseif :dec_hip ∈ hgca_like.table.kind
+        μ, Σ = params(hgca_like.hgca.dist_hip) 
+        ll += logpdf(Normal(μ[2], sqrt(Σ[2,2])), μ_h[2])
+    end
+    if :ra_hg ∈ hgca_like.table.kind && :dec_hg ∈ hgca_like.table.kind
+        ll += logpdf(hgca_like.hgca.dist_hg, μ_hg)
+    elseif :ra_hg ∈ hgca_like.table.kind
+        μ, Σ = params(hgca_like.hgca.dist_hg) 
+        ll += logpdf(Normal(μ[1], sqrt(Σ[1,1])), μ_hg[1])
+    elseif :dec_hg ∈ hgca_like.table.kind
+        μ, Σ = params(hgca_like.hgca.dist_hg) 
+        ll += logpdf(Normal(μ[2], sqrt(Σ[2,2])), μ_hg[2])
+    end
 
     return ll
 end
@@ -214,12 +309,12 @@ function simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_so
         if length(unique(missed_transits)) < length(missed_transits)
             return nothing
         end
-        ii = sort(setdiff(1:length(hgca_like.gaialike.table.epoch), missed_transits))
-        gaia_table = hgca_like.gaialike.table[ii,:]
-        A_prepared_5 = hgca_like.gaialike.A_prepared_5[ii,:]
+        ii = sort(setdiff(1:length(hgca_like.gaia_like.table.epoch), missed_transits))
+        gaia_table = hgca_like.gaia_like.table[ii,:]
+        A_prepared_5 = hgca_like.gaia_like.A_prepared_5[ii,:]
     else
-        gaia_table = hgca_like.gaialike.table
-        A_prepared_5 = hgca_like.gaialike.A_prepared_5
+        gaia_table = hgca_like.gaia_like.table
+        A_prepared_5 = hgca_like.gaia_like.A_prepared_5
     end
 
     # I guess we add that delta PM to our propagated PM, and compare vs the catalog.
@@ -278,9 +373,9 @@ function simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_so
         μ_g = @SVector [pmra_g₀ + Δpmra_g, pmdec_g₀ + Δpmdec_g]
 
         # Now: Hiparcos
-        Δα_mas = @alloc(T, size(hgca_like.hiplike.table,1))
+        Δα_mas = @alloc(T, size(hgca_like.hip_like.table,1))
         fill!(Δα_mas, 0)
-        Δδ_mas = @alloc(T, size(hgca_like.hiplike.table,1))
+        Δδ_mas = @alloc(T, size(hgca_like.hip_like.table,1))
         fill!(Δδ_mas, 0)
 
         for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
@@ -288,7 +383,7 @@ function simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_so
             fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
-                hgca_like.hiplike.table, orbit,
+                hgca_like.hip_like.table, orbit,
                 planet_mass_msol, fluxratio,
                 orbit_solutions[i_planet],
                 orbit_solutions_i_epoch_start, T
@@ -297,9 +392,9 @@ function simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_so
 
 
         if hgca_like.include_iad
-            out = fit_5param_prepared(hgca_like.hiplike.A_prepared_5, hgca_like.hiplike.table, Δα_mas, Δδ_mas, hgca_like.hiplike.table.res, hgca_like.hiplike.table.sres)
+            out = fit_5param_prepared(hgca_like.hip_like.A_prepared_5, hgca_like.hip_like.table, Δα_mas, Δδ_mas, hgca_like.hip_like.table.res, hgca_like.hip_like.table.sres)
         else
-            out = fit_5param_prepared(hgca_like.hiplike.A_prepared_5, hgca_like.hiplike.table, Δα_mas, Δδ_mas)
+            out = fit_5param_prepared(hgca_like.hip_like.A_prepared_5, hgca_like.hip_like.table, Δα_mas, Δδ_mas)
         end
         Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
         α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_hip_mjd, hgca_like.hgca.epoch_dec_hip_mjd)
@@ -370,7 +465,7 @@ function generate_from_params(like::HGCALikelihood, θ_system, θ_obs, orbits, s
         pmra_gaia = add_noise   ? μ_g[1]  + randn()*like.hgca.pmra_gaia_error  : μ_g[1],
         pmdec_gaia = add_noise  ? μ_g[2]  + randn()*like.hgca.pmdec_gaia_error : μ_g[2],
     )
-    new_hgca_like = HGCALikelihood(hgca, like.priors, like.derived; like.include_dr3_vel, like.include_iad)
+    new_hgca_like = HGCALikelihood(hgca, like.priors, like.derived; like.include_iad)
     # What do we do about the Hipparcos residuals?
     if like.include_iad
         @warn "Hipparcos residuals are not currently handled in the simulation"
@@ -378,7 +473,7 @@ function generate_from_params(like::HGCALikelihood, θ_system, θ_obs, orbits, s
         # then do the 5 param fit, then store the residuals
     end
     # zero out any hipparcos residuals
-    new_hgca_like.hiplike.table.res .= 0
+    new_hgca_like.hip_like.table.res .= 0
 
     return new_hgca_like
 end
