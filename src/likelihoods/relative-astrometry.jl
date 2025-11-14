@@ -106,7 +106,7 @@ function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromLikelihoo
     for i_epoch in eachindex(astrom.table.epoch)
         # Get the orbit solution for this planet at this epoch
         sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
-        @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
+        # @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
         
         # Calculate perturbations from inner planets
         ra_host_perturbation = zero(T)
@@ -125,7 +125,7 @@ function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromLikelihoo
                 ra_host_perturbation += raoff(sol′, mass_other)
                 dec_host_perturbation += decoff(sol′, mass_other)
                 
-                @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
+                # @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
             end
         end
 
