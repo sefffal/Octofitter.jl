@@ -509,9 +509,12 @@ function optimization_and_pathfinder_with_fixed(
     lb = convert(Vector{Float64},lb_full[variable_indices])
     ub = convert(Vector{Float64},ub_full[variable_indices])
 
-    # Extract initial values for continuous parameters
-    reduced_initial = convert(Vector{Float64}, median(samples,dims=2)[variable_indices])
-
+    fixed_values = []
+    fixed_indices = Int[]
+    reduced_initial_prime, bestlogpost = guess_starting_position_with_fixed(
+        rng, model, fixed_values, fixed_indices, discrete_indices
+    )
+    reduced_initial = model.link(reduced_initial_prime)
     if !isfinite(reduced_ℓπcallback(reduced_initial))
         opt_full = reduced_to_full(reduced_initial)
         @show opt_full model.invlink(opt_full) model.arr2nt(model.invlink(opt_full))
