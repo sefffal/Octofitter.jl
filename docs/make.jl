@@ -75,6 +75,9 @@ makedocs(
             "Kepler Solver" => "kepler.md",
             "Orbitize! Compatibility" => "compat-orbitize.md",
             "Full API Documentation" => "api.md"
+        ],
+        "Developer Documentation" => [
+            "Architecture Overview" => "dev/architecture.md"
         ]
     ],
     format = Documenter.HTML(
