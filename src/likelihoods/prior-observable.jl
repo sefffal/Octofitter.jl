@@ -53,13 +53,13 @@ obs_prior = ObsPriorAstromONeil2019(astrom_like)
 end astrom_like obs_prior
 ```
 """
-struct ObsPriorAstromONeil2019{Likelihood<:AbstractLikelihood} <: AbstractLikelihood
+struct ObsPriorAstromONeil2019{Likelihood<:AbstractObs} <: AbstractObs
 	wrapped_like::Likelihood
 	table
 	priors::Priors
 	derived::Derived
 	function ObsPriorAstromONeil2019(
-        obs::AbstractLikelihood;
+        obs::AbstractObs;
     )
 		return new{typeof(obs)}(obs, obs.table, obs.priors, obs.derived)
 	end
@@ -75,11 +75,15 @@ function likeobj_from_epoch_subset(obs::ObsPriorAstromONeil2019, obs_inds)
     )
 end
 
-function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function ln_like(
+    like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood},
+    context::PlanetObservationContext{TCur,TSys,TPla,TObs,TOrb,TSol}
+) where {TCur,TSys,TPla,TObs,TOrb,TSol}
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = context
     T = _system_number_type(θ_system)
 
     # Call the wrapped likelihood's ln_like method
-    ln_like_wrapped = ln_like(like.wrapped_like, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    ln_like_wrapped = ln_like(like.wrapped_like, context)
 
     orbit = orbits[i_planet]
     # Add period prior
@@ -132,12 +136,15 @@ function ln_like(like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood}, θ_
     return ln_like_wrapped + ln_prior
 end
 
-function ln_like(like::ObsPriorAstromONeil2019{<:Any}, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
-
+function ln_like(
+    like::ObsPriorAstromONeil2019{<:Any},
+    context::SystemObservationContext{TCur,TSys,TObs,TOrb,TSol}
+) where {TCur,TSys,TObs,TOrb,TSol}
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = context
     T = _system_number_type(θ_system)
 
     # Call the wrapped likelihood's ln_like method
-    ln_like_wrapped = ln_like(like.wrapped_like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    ln_like_wrapped = ln_like(like.wrapped_like, context)
     ln_prior = zero(T)
 
     for (i_planet, orbit) in enumerate(orbits)
@@ -192,8 +199,12 @@ function ln_like(like::ObsPriorAstromONeil2019{<:Any}, θ_system, θ_obs, orbits
 end
 
 
-function generate_from_params(like::ObsPriorAstromONeil2019, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
-    return generate_from_params(like.wrapped_like, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
+function generate_from_params(
+    like::ObsPriorAstromONeil2019,
+    context::PlanetObservationContext;
+    add_noise
+)
+    return generate_from_params(like.wrapped_like, context; add_noise)
 end
 
 # TODO: Add a RadialVelocity correction version in OctofitterRadialVelocity

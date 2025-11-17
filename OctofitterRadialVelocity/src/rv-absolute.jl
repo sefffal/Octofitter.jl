@@ -2,11 +2,11 @@
 const rv_cols = (:epoch, :rv, :σ_rv)
 
 """
-    StarAbsoluteRVLikelihood(
+    StarAbsoluteRVObs(
         (;epoch=5000.0,  rv=−6.54, σ_rv=1.30),
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
-        
+
         name="inst name",
         variables=@variables begin
             offset ~ Normal(0, 100)           # RV zero-point (m/s)
@@ -15,11 +15,11 @@ const rv_cols = (:epoch, :rv, :σ_rv)
     )
 
     # Example with trend function and Gaussian Process:
-    StarAbsoluteRVLikelihood(
+    StarAbsoluteRVObs(
         (;epoch=5000.0,  rv=−6.54, σ_rv=1.30),
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
-        
+
         name="inst name",
         trend_function = (θ_obs, epoch) -> θ_obs.trend_slope * (epoch - 57000),  # Linear trend
         gaussian_process = θ_obs -> GP(θ_obs.gp_η₁^2 * SqExponentialKernel() ∘ ScaleTransform(1/θ_obs.gp_η₂)),
@@ -37,10 +37,10 @@ Represents a likelihood function of absolute radial velocity of a host star.
 
 In addition to the example above, any Tables.jl compatible source can be provided.
 
-The `offset` and `jitter` variables should be defined in the variables block and represent the 
+The `offset` and `jitter` variables should be defined in the variables block and represent the
 RV zero-point and additional uncertainty to be added in quadrature to the formal measurement errors.
 
-When using a trend function, it should be a function that takes `θ_obs` (observation parameters) 
+When using a trend function, it should be a function that takes `θ_obs` (observation parameters)
 and `epoch` and returns an RV offset. Trend parameters should be defined in the variables block.
 
 When using a Gaussian process, the `gaussian_process` parameter should be a function that takes
@@ -51,7 +51,7 @@ in the variables block and accessed via `θ_obs.parameter_name`.
     If you don't supply a `variables` argument, the detault priors are `offset ~ Uniform(-1000, 1000)` and `jitter ~ LogUniform(0.001, 100)`
 
 """
-struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF} <: Octofitter.AbstractLikelihood
+struct StarAbsoluteRVObs{TTable<:Table,GP,TF} <: Octofitter.AbstractObs
     table::TTable
     priors::Octofitter.Priors
     derived::Octofitter.Derived
@@ -60,7 +60,8 @@ struct StarAbsoluteRVLikelihood{TTable<:Table,GP,TF} <: Octofitter.AbstractLikel
     gaussian_process::GP
     trend_function::TF
 end
-function StarAbsoluteRVLikelihood(
+const StarAbsoluteRVLikelihood = StarAbsoluteRVObs
+function StarAbsoluteRVObs(
     observations;
     variables::Union{Nothing,Tuple{Octofitter.Priors,Octofitter.Derived}}=nothing,
     trend_function=(θ_obs, epoch)->zero(Octofitter._system_number_type(θ_obs)),
@@ -104,12 +105,12 @@ function StarAbsoluteRVLikelihood(
     # Here we leave it empty.
     held_out_table = empty(table)
 
-    return StarAbsoluteRVLikelihood{typeof(table),typeof(gaussian_process),typeof(trend_function)}(
+    return StarAbsoluteRVObs{typeof(table),typeof(gaussian_process),typeof(trend_function)}(
         table, priors, derived, held_out_table, name, gaussian_process, trend_function
     )
 end
-# StarAbsoluteRVLikelihood(observations::NamedTuple...;kwargs...) = StarAbsoluteRVLikelihood(observations; kwargs...)
-function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVLikelihood, obs_inds)
+# StarAbsoluteRVObs(observations::NamedTuple...;kwargs...) = StarAbsoluteRVObs(observations; kwargs...)
+function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVObs, obs_inds)
     # Due to TypedTables bug, the line below creates a "matrix" table that isn't the same type as the input.
     # table = typeof(obs.table)(obs.table[setdiff(1:size(obs.table,1), obs_inds),:,1])
     # table = Table(collect(eachrow(obs.table))[setdiff(1:size(obs.table,1), obs_inds)]...)
@@ -119,17 +120,17 @@ function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVLikelihood, obs
     else
         held_out_table = Table(first(eachcol(obs.table[obs_inds])))
     end
-    return StarAbsoluteRVLikelihood{
+    return StarAbsoluteRVObs{
         typeof(table),typeof(obs.gaussian_process),typeof(obs.trend_function)
     }(
         table, obs.priors, obs.derived, held_out_table, likelihoodname(obs), obs.gaussian_process, obs.trend_function
     )
 end
-export StarAbsoluteRVLikelihood
+export StarAbsoluteRVObs, StarAbsoluteRVLikelihood
 
 
-# In-place simulation logic for StarAbsoluteRVLikelihood (performance-critical)
-function Octofitter.simulate!(rv_model_buf, rvlike::StarAbsoluteRVLikelihood, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions, orbit_solutions_i_epoch_start)
+# In-place simulation logic for StarAbsoluteRVObs (performance-critical)
+function Octofitter.simulate!(rv_model_buf, rvlike::StarAbsoluteRVObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions, orbit_solutions_i_epoch_start)
     L = length(rvlike.table.epoch)
     T = Octofitter._system_number_type(θ_system)
     
@@ -154,8 +155,8 @@ function Octofitter.simulate!(rv_model_buf, rvlike::StarAbsoluteRVLikelihood, θ
     return (rv_model = rv_model_buf, epochs = rvlike.table.epoch)
 end
 
-# Allocating simulation logic for StarAbsoluteRVLikelihood (convenience method)
-function Octofitter.simulate(rvlike::StarAbsoluteRVLikelihood, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions, orbit_solutions_i_epoch_start)
+# Allocating simulation logic for StarAbsoluteRVObs (convenience method)
+function Octofitter.simulate(rvlike::StarAbsoluteRVObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions, orbit_solutions_i_epoch_start)
     T = Octofitter._system_number_type(θ_system)
     L = length(rvlike.table.epoch)
     rv_model_buf = Vector{T}(undef, L)
@@ -167,12 +168,8 @@ end
 Absolute radial velocity likelihood (for a star).
 """
 function Octofitter.ln_like(
-    rvlike::StarAbsoluteRVLikelihood,
-    θ_system,
-    θ_obs,
-    planet_orbits::Tuple,
-    orbit_solutions,
-    orbit_solutions_i_epoch_start
+    rvlike::StarAbsoluteRVObs,
+    (;θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)::SystemObservationContext
 )
     L = length(rvlike.table.epoch)
     T = Octofitter._system_number_type(θ_system)
@@ -187,7 +184,7 @@ function Octofitter.ln_like(
         rv_var_buf = @alloc(T, L)
 
         # Use in-place simulation method to get model values
-        sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, planet_orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+        sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
         # Compute residuals: observed - model
         rv_residuals .= rvlike.table.rv .- rv_model_buf
@@ -267,12 +264,12 @@ function Octofitter.ln_like(
                         rv_model_held_out .= offset .+ rvlike.trend_function.(Ref(θ_obs), rvlike.held_out_table.epoch)
 
                         # Add RV contribution from all planets:
-                        for planet_i in eachindex(planet_orbits)
-                            orbit = planet_orbits[planet_i]
+                        for planet_i in eachindex(orbits)
+                            orbit = orbits[planet_i]
                             planet_mass = θ_system.planets[planet_i].mass
                             for epoch_i in eachindex(rvlike.held_out_table.epoch)
                                 rv_model_held_out[epoch_i] += radvel(
-                                    # We can't look into the pre-populated orbit solutions here, since these 
+                                    # We can't look into the pre-populated orbit solutions here, since these
                                     # are only generated for entries in an likelihood objects `table`.
                                     # We have to solve it ourselves as we go. This should have negligible
                                     # performance impact unless we are holding out many data points and
@@ -321,7 +318,7 @@ end
 
 
 # Generate new radial velocity observations for a star
-function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_system,  θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start; add_noise)
+function Octofitter.generate_from_params(like::StarAbsoluteRVObs, θ_system,  θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start; add_noise)
 
     # Get epochs and uncertainties from observations
     epochs = like.table.epoch 
@@ -338,7 +335,7 @@ function Octofitter.generate_from_params(like::StarAbsoluteRVLikelihood, θ_syst
         radvel_table.rv .+= randn.() .* hypot.(σ_rvs, jitter)
     end
 
-    return StarAbsoluteRVLikelihood(
+    return StarAbsoluteRVObs(
         radvel_table;
         name=likelihoodname(like),
         gaussian_process=like.gaussian_process,

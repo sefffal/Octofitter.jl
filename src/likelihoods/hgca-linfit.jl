@@ -8,7 +8,7 @@
 # Hence, our table just includes those two values.
 
 """
-    HGCALikelihood(;
+    HGCAObs(;
         gaia_id=1234,
         variables=@variables begin
             fluxratio ~ [Uniform(0, 1), Uniform(0, 1)]  # array for each companion
@@ -24,7 +24,7 @@ in the same order as the planets in the system.
 Upon first load, you will be prompted to accept the download of the eDR3 version of the HGCA
 catalog.
 """
-struct HGCALikelihood{TTable,THGCA,THip,TGaia} <: AbstractLikelihood
+struct HGCAObs{TTable,THGCA,THip,TGaia} <: AbstractObs
     table::TTable
     hgca::THGCA
     priors::Priors
@@ -34,10 +34,13 @@ struct HGCALikelihood{TTable,THGCA,THip,TGaia} <: AbstractLikelihood
     include_iad::Bool
 end
 
-# Special method for HGCALikelihood which doesn't have an instrument_name field
-likelihoodname(::HGCALikelihood) = "HGCA"
+# Backwards compatibility alias
+const HGCALikelihood = HGCAObs
 
-function HGCALikelihood(;
+# Special method for HGCAObs which doesn't have an instrument_name field
+likelihoodname(::HGCAObs) = "HGCA"
+
+function HGCAObs(;
     variables::Tuple{Priors,Derived}=(@variables begin;end ),
     gaia_id, hgca_catalog=(datadep"HGCA_eDR3") * "/HGCA_vEDR3.fits",
     include_iad=true)
@@ -50,9 +53,9 @@ function HGCALikelihood(;
         idx = findfirst(==(gaia_id), t.gaia_source_id)
         return NamedTuple(t[idx])
     end
-    return HGCALikelihood(hgca, priors, derived; include_iad)
+    return HGCAObs(hgca, priors, derived; include_iad)
 end
-function HGCALikelihood(hgca::NamedTuple, priors::Priors, derived::Derived; include_iad)
+function HGCAObs(hgca::NamedTuple, priors::Priors, derived::Derived; include_iad)
 
 
     # Convert measurement epochs to MJD.
@@ -183,7 +186,7 @@ function HGCALikelihood(hgca::NamedTuple, priors::Priors, derived::Derived; incl
     )
 
 
-    return HGCALikelihood{
+    return HGCAObs{
         typeof(table),
         typeof(hgca),
         typeof(hip_like),
@@ -192,7 +195,7 @@ function HGCALikelihood(hgca::NamedTuple, priors::Priors, derived::Derived; incl
 
 end
 
-function Octofitter.likeobj_from_epoch_subset(like::HGCALikelihood, obs_inds)
+function Octofitter.likeobj_from_epoch_subset(like::HGCAObs, obs_inds)
     (;
         table,
         hgca,
@@ -202,9 +205,9 @@ function Octofitter.likeobj_from_epoch_subset(like::HGCALikelihood, obs_inds)
         gaia_like,
         include_iad,
     ) = like
-    
+
     table = table[obs_inds,:]
-    return HGCALikelihood{
+    return HGCAObs{
         typeof(table),
         typeof(hgca),
         typeof(hip_like),
@@ -212,11 +215,12 @@ function Octofitter.likeobj_from_epoch_subset(like::HGCALikelihood, obs_inds)
     }(table, hgca, priors, derived, hip_like, gaia_like, include_iad)
 end
 
-function ln_like(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function ln_like(obs::HGCAObs, ctx::SystemObservationContext)
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
-    sim = simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_solutions, -1)
+    sim = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, -1)
 
     if isnothing(sim)
         return convert(T, -Inf)
@@ -238,43 +242,43 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_sol
     # baked into the pre-computed MvNormal distributions), just add them to the model
     # values
     μ_hg += @SVector [
-        hgca_like.hgca.nonlinear_dpmra,
-        hgca_like.hgca.nonlinear_dpmdec,
+        obs.hgca.nonlinear_dpmra,
+        obs.hgca.nonlinear_dpmdec,
     ]
 
     # also have to remove the HGCA's nonlinear_dpmra/dec from the hipparcos epoch
     # Note: factor of two needed since dpmra is defined to the HG epoch, so H epoch
     # is twice as much. (T. Brandt, private communications).
     μ_h += @SVector [
-        2hgca_like.hgca.nonlinear_dpmra,
-        2hgca_like.hgca.nonlinear_dpmdec,
+        2obs.hgca.nonlinear_dpmra,
+        2obs.hgca.nonlinear_dpmdec,
     ]
 
-    if :ra_gaia ∈ hgca_like.table.kind && :dec_gaia ∈ hgca_like.table.kind
-        ll += logpdf(hgca_like.hgca.dist_gaia, μ_g)
-    elseif :ra_gaia ∈ hgca_like.table.kind
-        μ, Σ = params(hgca_like.hgca.dist_gaia) 
+    if :ra_gaia ∈ obs.table.kind && :dec_gaia ∈ obs.table.kind
+        ll += logpdf(obs.hgca.dist_gaia, μ_g)
+    elseif :ra_gaia ∈ obs.table.kind
+        μ, Σ = params(obs.hgca.dist_gaia)
         ll += logpdf(Normal(μ[1], sqrt(Σ[1,1])), μ_g[1])
-    elseif :dec_gaia ∈ hgca_like.table.kind
-        μ, Σ = params(hgca_like.hgca.dist_gaia) 
+    elseif :dec_gaia ∈ obs.table.kind
+        μ, Σ = params(obs.hgca.dist_gaia)
         ll += logpdf(Normal(μ[2], sqrt(Σ[2,2])), μ_g[2])
     end
-    if :ra_hip ∈ hgca_like.table.kind && :dec_hip ∈ hgca_like.table.kind
-        ll += logpdf(hgca_like.hgca.dist_hip, μ_h)
-    elseif :ra_hip ∈ hgca_like.table.kind
-        μ, Σ = params(hgca_like.hgca.dist_hip) 
+    if :ra_hip ∈ obs.table.kind && :dec_hip ∈ obs.table.kind
+        ll += logpdf(obs.hgca.dist_hip, μ_h)
+    elseif :ra_hip ∈ obs.table.kind
+        μ, Σ = params(obs.hgca.dist_hip)
         ll += logpdf(Normal(μ[1], sqrt(Σ[1,1])), μ_h[1])
-    elseif :dec_hip ∈ hgca_like.table.kind
-        μ, Σ = params(hgca_like.hgca.dist_hip) 
+    elseif :dec_hip ∈ obs.table.kind
+        μ, Σ = params(obs.hgca.dist_hip)
         ll += logpdf(Normal(μ[2], sqrt(Σ[2,2])), μ_h[2])
     end
-    if :ra_hg ∈ hgca_like.table.kind && :dec_hg ∈ hgca_like.table.kind
-        ll += logpdf(hgca_like.hgca.dist_hg, μ_hg)
-    elseif :ra_hg ∈ hgca_like.table.kind
-        μ, Σ = params(hgca_like.hgca.dist_hg) 
+    if :ra_hg ∈ obs.table.kind && :dec_hg ∈ obs.table.kind
+        ll += logpdf(obs.hgca.dist_hg, μ_hg)
+    elseif :ra_hg ∈ obs.table.kind
+        μ, Σ = params(obs.hgca.dist_hg)
         ll += logpdf(Normal(μ[1], sqrt(Σ[1,1])), μ_hg[1])
-    elseif :dec_hg ∈ hgca_like.table.kind
-        μ, Σ = params(hgca_like.hgca.dist_hg) 
+    elseif :dec_hg ∈ obs.table.kind
+        μ, Σ = params(obs.hgca.dist_hg)
         ll += logpdf(Normal(μ[2], sqrt(Σ[2,2])), μ_hg[2])
     end
 
@@ -282,7 +286,7 @@ function ln_like(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_sol
 end
 
 
-function simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function simulate(hgca_like::HGCAObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     T = Octofitter._system_number_type(θ_system)
 
     # * We compute the deviation caused by the planet(s) at each epoch of both likelihoods
@@ -453,12 +457,12 @@ function simulate(hgca_like::HGCALikelihood, θ_system, θ_obs, orbits, orbit_so
     # then we should subtract it from our results before the comparison
 
 end
-export HGCALikelihood
+export HGCAObs, HGCALikelihood
 
 
 
 # Generate new astrometry observations
-function generate_from_params(like::HGCALikelihood, θ_system, θ_obs, orbits, solutions, sol_start_i; add_noise)
+function generate_from_params(like::HGCAObs, θ_system, θ_obs, orbits, solutions, sol_start_i; add_noise)
 
     sim = simulate(like, θ_system, θ_obs, orbits, solutions, sol_start_i)
 
@@ -474,7 +478,7 @@ function generate_from_params(like::HGCALikelihood, θ_system, θ_obs, orbits, s
         pmra_gaia = add_noise   ? μ_g[1]  + randn()*like.hgca.pmra_gaia_error  : μ_g[1],
         pmdec_gaia = add_noise  ? μ_g[2]  + randn()*like.hgca.pmdec_gaia_error : μ_g[2],
     )
-    new_hgca_like = HGCALikelihood(hgca, like.priors, like.derived; like.include_iad)
+    new_hgca_like = HGCAObs(hgca, like.priors, like.derived; like.include_iad)
     # What do we do about the Hipparcos residuals?
     if like.include_iad
         @warn "Hipparcos residuals are not currently handled in the simulation"

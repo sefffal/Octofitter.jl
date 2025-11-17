@@ -6,14 +6,14 @@ using Octofitter
 const light_curve_cols = (:epoch, :phot, :σ_phot)
 
 """
-    LightCurve(AbstractLimbDark, observation_table) <: AbstractLikelihood
+    LightCurve(AbstractLimbDark, observation_table) <: AbstractObs
 
-Construct a LightCuve observation using a limb darkening type from 
+Construct a LightCuve observation using a limb darkening type from
 Tranits.jl and a table of observations.
 """
-struct LightCurveLikelihood{TLimbDark, TTable<:Table} <: Octofitter.AbstractLikelihood
+struct LightCurveObs{TLimbDark, TTable<:Table} <: Octofitter.AbstractObs
     table::TTable
-    function LightCurveLikelihood(ld::Type{<:AbstractLimbDark}, observations...)
+    function LightCurveObs(ld::Type{<:AbstractLimbDark}, observations...)
         table = Table(observations...)
         if !issubset(light_curve_cols, Tables.columnnames(table))
             error("Ecpected columns $light_curve_cols")
@@ -21,16 +21,21 @@ struct LightCurveLikelihood{TLimbDark, TTable<:Table} <: Octofitter.AbstractLike
         return new{ld, typeof(table)}(table)
     end
 end
-LightCurveLikelihood(observations::NamedTuple...) = LightCurveLikelihood(observations)
-export LightCurveLikelihood
+LightCurveObs(observations::NamedTuple...) = LightCurveObs(observations)
 
-limbdarkfunc(lightcurve::LightCurveLikelihood{limbdark}) where limbdark = limbdark
+# Backwards compatibility alias
+const LightCurveLikelihood = LightCurveObs
+
+export LightCurveObs, LightCurveLikelihood
+
+limbdarkfunc(lightcurve::LightCurveObs{limbdark}) where limbdark = limbdark
 
 
 """
 Transit likelihood. Uses Transits.jl QuadLimbDark.
 """
-function ln_like(lc::LightCurveLikelihood, θ_system, elements)
+function ln_like(lc::LightCurveObs, ctx::Octofitter.SystemObservationContext)
+    (; θ_system, orbits) = ctx
     T = Float64
     ll = zero(T)
 
@@ -57,10 +62,10 @@ function ln_like(lc::LightCurveLikelihood, θ_system, elements)
 
         # TODO: Handle multiple transiting bodies at once
         phot_star = zero(T)
-        # for j in eachindex(elements)
-        j = firstindex(elements)
+        # for j in eachindex(orbits)
+        j = firstindex(orbits)
         θ_planet = θ_system.planets[j]
-        orbit = elements[j]
+        orbit = orbits[j]
         t = lc.table.epoch[i]
         r = θ_planet.r
 

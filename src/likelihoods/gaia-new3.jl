@@ -7,17 +7,20 @@ Either the model parameters (plx,ra,dec,pmra,pmdec) can vary, or the along-scan 
 can. In the former case, you infer the model from the data. In the later case, you infer the 
 underlying data from reported model parameters.
 """ 
-struct ParallacticMotionLikelihood_v7{TTable,catalog_parameters,along_scan_residuals,σ_scan,excess_noise} <: AbstractLikelihood
+struct ParallacticMotionObs_v7{TTable,catalog_parameters,along_scan_residuals,σ_scan,excess_noise} <: AbstractObs
     table::TTable
     ref_epoch::Float64
     catalog_rv_m_s::Float64
 end
-function ParallacticMotionLikelihood_v7(
+# Backwards compatibility alias
+const ParallacticMotionLikelihood_v7 = ParallacticMotionObs_v7
+
+function ParallacticMotionObs_v7(
     table;
     catalog_parameters,along_scan_residuals,σ_scan,excess_noise,ref_epoch,catalog_rv_m_s=0
 )
     table = Table(table)
-    return ParallacticMotionLikelihood_v7{typeof(table),catalog_parameters,along_scan_residuals,σ_scan,excess_noise}(table,ref_epoch,catalog_rv_m_s)
+    return ParallacticMotionObs_v7{typeof(table),catalog_parameters,along_scan_residuals,σ_scan,excess_noise}(table,ref_epoch,catalog_rv_m_s)
 end
 
 function ParallacticMotionLikelihood_DR2(;
@@ -75,7 +78,7 @@ function ParallacticMotionLikelihood_DR2(;
 
     table = table[meta_gaia_DR2.start_mjd .<= table.epoch .<= meta_gaia_DR2.stop_mjd,:]
 
-    return ParallacticMotionLikelihood_v7(table;catalog_parameters,along_scan_residuals,σ_scan,excess_noise,ref_epoch,catalog_rv_m_s)
+    return ParallacticMotionObs_v7(table;catalog_parameters,along_scan_residuals,σ_scan,excess_noise,ref_epoch,catalog_rv_m_s)
 end
 
 
@@ -130,11 +133,11 @@ function ParallacticMotionLikelihood_DR3(;
 
     table = table[meta_gaia_DR3.start_mjd .<= table.epoch .<= meta_gaia_DR3.stop_mjd,:]
 
-    return ParallacticMotionLikelihood_v7(table;catalog_parameters,along_scan_residuals,σ_scan,excess_noise,ref_epoch,catalog_rv_m_s)
+    return ParallacticMotionObs_v7(table;catalog_parameters,along_scan_residuals,σ_scan,excess_noise,ref_epoch,catalog_rv_m_s)
 end
 
 
-function _getparams(skypathlike::ParallacticMotionLikelihood_v7{TTable,catalog_parameters,along_scan_residuals,σ_scan,excess_noise}, θ_system) where
+function _getparams(skypathlike::ParallacticMotionObs_v7{TTable,catalog_parameters,along_scan_residuals,σ_scan,excess_noise}, θ_system) where
     {TTable,catalog_parameters,along_scan_residuals,σ_scan,excess_noise}
     P = getproperty(θ_system, catalog_parameters)
     (
@@ -149,7 +152,7 @@ function _getparams(skypathlike::ParallacticMotionLikelihood_v7{TTable,catalog_p
     val_excess_noise = getproperty(θ_system, excess_noise)
     return (;plx, ra, dec, pmra, pmdec, along_scan_residuals=val_along_scan_residuals, σ_scan=val_σ_scan,excess_noise=val_excess_noise, skypathlike.ref_epoch)
 end
-function ln_like(skypathlike::ParallacticMotionLikelihood_v7, θ_system, orbits, num_epochs::Val{L}=Val(length(skypathlike.table))) where L
+function ln_like((; obs=skypathlike)::SystemObservationContext{<:ParallacticMotionObs_v7}, θ_system, orbits, num_epochs::Val{L}=Val(length(skypathlike.table))) where L
     T = _system_number_type(θ_system)
     ll = zero(T)
     (;

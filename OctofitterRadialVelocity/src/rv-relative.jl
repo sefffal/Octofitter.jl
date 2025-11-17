@@ -1,9 +1,9 @@
 """
-    PlanetRelativeRVLikelihood(
+    PlanetRelativeRVObs(
         (;epoch=5000.0,  rv=−6.54, σ_rv=1.30),
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
-        
+
         name="inst name",
         variables=@variables begin
             jitter ~ LogUniform(0.1, 100.0)  # RV jitter (m/s)
@@ -11,11 +11,11 @@
     )
 
     # Example with Gaussian Process:
-    PlanetRelativeRVLikelihood(
+    PlanetRelativeRVObs(
         (;epoch=5000.0,  rv=−6.54, σ_rv=1.30),
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
-        
+
         name="inst name",
         gaussian_process = θ_obs -> GP(θ_obs.gp_η₁^2 * SqExponentialKernel() ∘ ScaleTransform(1/θ_obs.gp_η₂)),
         variables=@variables begin
@@ -30,20 +30,20 @@ Represents a likelihood function of relative radial velocity between a host star
 
 In addition to the example above, any Tables.jl compatible source can be provided.
 
-The `jitter` variable should be defined in the variables block and represents additional 
+The `jitter` variable should be defined in the variables block and represents additional
 uncertainty to be added in quadrature to the formal measurement errors.
 
 When using a Gaussian process, the `gaussian_process` parameter should be a function that takes
 `θ_obs` (observation parameters) and returns a GP kernel. GP hyperparameters should be defined
 in the variables block and accessed via `θ_obs.parameter_name`.
 """
-struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikelihood
+struct PlanetRelativeRVObs{TTable<:Table,GP} <: Octofitter.AbstractObs
     table::TTable
     name::String
     gaussian_process::GP
     priors::Octofitter.Priors
     derived::Octofitter.Derived
-    function PlanetRelativeRVLikelihood(
+    function PlanetRelativeRVObs(
         observations;
         name::String,
         gaussian_process=nothing,
@@ -85,20 +85,24 @@ struct PlanetRelativeRVLikelihood{TTable<:Table,GP} <: Octofitter.AbstractLikeli
         return new{typeof(table),typeof(gaussian_process)}(table, name, gaussian_process, priors, derived)
     end
 end
-PlanetRelativeRVLikelihood(observations::NamedTuple...;kwargs...) = PlanetRelativeRVLikelihood(observations; kwargs...)
-function Octofitter.likeobj_from_epoch_subset(obs::PlanetRelativeRVLikelihood, obs_inds)
-    return PlanetRelativeRVLikelihood(
+PlanetRelativeRVObs(observations::NamedTuple...;kwargs...) = PlanetRelativeRVObs(observations; kwargs...)
+function Octofitter.likeobj_from_epoch_subset(obs::PlanetRelativeRVObs, obs_inds)
+    return PlanetRelativeRVObs(
         obs.table[obs_inds,:,1]...;
         name=likelihoodname(obs),
         gaussian_process=obs.gaussian_process,
         variables=(obs.priors, obs.derived)
     )
 end
-export PlanetRelativeRVLikelihood
+
+# Backwards compatibility
+const PlanetRelativeRVLikelihood = PlanetRelativeRVObs
+
+export PlanetRelativeRVObs, PlanetRelativeRVLikelihood
 
 
-# In-place simulation logic for PlanetRelativeRVLikelihood (performance-critical)
-function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+# In-place simulation logic for PlanetRelativeRVObs (performance-critical)
+function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
     this_orbit = orbits[i_planet]
     
     # Data for this instrument:
@@ -135,8 +139,8 @@ function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVLikelihood, 
     return (rv_model = rv_model_buf, epochs = epochs)
 end
 
-# Allocating simulation logic for PlanetRelativeRVLikelihood (convenience method)
-function Octofitter.simulate(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+# Allocating simulation logic for PlanetRelativeRVObs (convenience method)
+function Octofitter.simulate(rvlike::PlanetRelativeRVObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
     T = Octofitter._system_number_type(θ_planet)
     rv_model_buf = Vector{T}(undef, length(rvlike.table.epoch))
     return Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
@@ -146,7 +150,8 @@ end
 """
 Radial velocity likelihood.
 """
-function Octofitter.ln_like(rvlike::PlanetRelativeRVLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function Octofitter.ln_like(rvlike::PlanetRelativeRVObs, ctx::Octofitter.PlanetObservationContext)
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
     T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
     
@@ -204,11 +209,11 @@ end
 
 
 # Generate new radial velocity observations for a planet
-function Octofitter.generate_from_params(like::PlanetRelativeRVLikelihood, θ_planet, elem::PlanetOrbits.AbstractOrbit; add_noise)
+function Octofitter.generate_from_params(like::PlanetRelativeRVObs, θ_planet, elem::PlanetOrbits.AbstractOrbit; add_noise)
 
     # Get epochs and uncertainties from observations
-    epochs = like.table.epoch 
-    σ_rvs = like.table.σ_rv 
+    epochs = like.table.epoch
+    σ_rvs = like.table.σ_rv
 
     # Generate new planet radial velocity data
     rvs = radvel.(elem, epochs)
@@ -218,7 +223,7 @@ function Octofitter.generate_from_params(like::PlanetRelativeRVLikelihood, θ_pl
         radvel_table.rv .+= randn.() .* σ_rvs
     end
 
-    return PlanetRelativeRVLikelihood(
+    return PlanetRelativeRVObs(
         radvel_table;
         name=likelihoodname(like),
         gaussian_process=like.gaussian_process,
@@ -228,11 +233,11 @@ end
 
 
 # Generate new radial velocity observations for a star
-function generate_from_params(like::PlanetRelativeRVLikelihood, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
+function generate_from_params(like::PlanetRelativeRVObs, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
 
     # Get epochs, uncertainties, and planet masses from observations and parameters
-    epochs = like.table.epoch 
-    σ_rvs = like.table.σ_rv 
+    epochs = like.table.epoch
+    σ_rvs = like.table.σ_rv
 
     # Generate new star radial velocity data
     rvs = radvel.(reshape(orbits, :, 1), epochs)
@@ -244,7 +249,7 @@ function generate_from_params(like::PlanetRelativeRVLikelihood, θ_system,  θ_p
         radvel_table.rv .+= randn.() .* hypot.(σ_rvs, jitter)
     end
 
-    return PlanetRelativeRVLikelihood(
+    return PlanetRelativeRVObs(
         radvel_table;
         name=likelihoodname(like),
         gaussian_process=like.gaussian_process,
@@ -255,7 +260,7 @@ end
 
 
 # # Plot recipe for astrometry data
-# @recipe function f(rv::PlanetRelativeRVLikelihood)
+# @recipe function f(rv::PlanetRelativeRVObs)
    
 #     xguide --> "time (mjd)"
 #     yguide --> "radvel (m/s)"
