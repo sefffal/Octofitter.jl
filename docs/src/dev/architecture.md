@@ -677,7 +677,7 @@ Octofitter's architecture achieves high performance through aggressive compile-t
 3. **Sampler uses**: Fast, allocation-efficient evaluation of log posterior and gradients
 4. **User receives**: Structured results with named parameters and derived quantities
 
-The key insight is that while each user's model is different, the *structure* of the transformation pipeline is the same. By generating custom code for each model, we combine the flexibility of a high-level PPL with the performance of hand-written, specialized code.
+
 
 ---
 
