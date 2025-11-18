@@ -36,7 +36,7 @@ To make this parameterization change, we specify priors on both masses in the `@
 ### Retrieving the HGCA
 To start, we retrieve the HGCA data for this object.
 ```@example 1
-hgca_like = HGCAObs(
+hgca_obs = HGCAObs(
     gaia_id=756291174721509376,
     variables=@variables begin
         # Optional: flux ratio for luminous companions
@@ -85,7 +85,7 @@ We also add parameters for the star's long term proper motion. This is usually c
 sys = System(
     name="HD91312_pma",
     companions=[planet_b],
-    likelihoods=[hgca_like],
+    likelihoods=[hgca_obs],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
         M_sec ~ LogUniform(0.5, 1000) # MJup
@@ -155,7 +155,7 @@ astrom_dat = Table(;
     cor   = [0.2, 0.3, 0.1, 0.4, 0.3, 0.2]
 )
 
-astrom_like = PlanetRelAstromObs(
+astrom_obs = PlanetRelAstromObs(
     astrom_dat,
     name = "SCExAO",
     variables = @variables begin
@@ -165,12 +165,12 @@ astrom_like = PlanetRelAstromObs(
         platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
     end
 )
-scatter(astrom_like.table.ra, astrom_like.table.dec)
+scatter(astrom_obs.table.ra, astrom_obs.table.dec)
 ```
 
 
 We use the same model as before, but now condition the planet model `B` on the astrometry data by
-adding `astrom_like` to the list of `likelihoods` in the planet model.
+adding `astrom_obs` to the list of `likelihoods` in the planet model.
 
 ```@example 1
 using OctofitterRadialVelocity
@@ -192,7 +192,7 @@ rvlike = PlanetRelativeRVObs(
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[ObsPriorAstromONeil2019(astrom_like)],
+    likelihoods=[ObsPriorAstromONeil2019(astrom_obs)],
     variables=@variables begin
         a ~ LogUniform(0.1,400)
         e ~ Uniform(0,0.999)
@@ -213,7 +213,7 @@ planet_b = Planet(
 sys_astrom = System(
     name="HD91312_pma_astrom",
     companions=[planet_b],
-    likelihoods=[hgca_like],
+    likelihoods=[hgca_obs],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
         M_sec ~ LogUniform(0.5, 1000) # MJup
@@ -262,7 +262,7 @@ rvlike = StarAbsoluteRVObs(
 planet_b_rv = Planet(
     name="b",
     basis=AbsoluteVisual{KepOrbit},
-    likelihoods=[ObsPriorAstromONeil2019(astrom_like)],
+    likelihoods=[ObsPriorAstromONeil2019(astrom_obs)],
     variables=@variables begin
         a ~ LogUniform(0.1,400)
         e ~ Uniform(0,0.999)
@@ -287,7 +287,7 @@ dec = 40.42555422701387
 sys_rv_astrom = System(
     name="HD91312_pma_rv_astrom",
     companions=[planet_b_rv],
-    likelihoods=[hgca_like, rvlike],
+    likelihoods=[hgca_obs, rvlike],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
         M_sec ~ LogUniform(0.5, 1000) # MJup
@@ -342,7 +342,7 @@ using OctofitterRadialVelocity
 planet_b_final = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[ObsPriorAstromONeil2019(astrom_like)],
+    likelihoods=[ObsPriorAstromONeil2019(astrom_obs)],
     variables=@variables begin
         a ~ LogUniform(0.1,400)
         e ~ Uniform(0,0.999)

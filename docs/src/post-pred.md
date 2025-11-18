@@ -16,12 +16,12 @@ astrom_dat = Table(
     σ_dec = fill(10.0, 8),
     cor = fill(0.0, 8)
 )
-astrom_like = PlanetRelAstromObs(astrom_dat, name="simulated astrom")
+astrom_obs = PlanetRelAstromObs(astrom_dat, name="simulated astrom")
 
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_like],
+    likelihoods=[astrom_obs],
     variables=@variables begin
         a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
         e ~ Uniform(0.0, 0.5)
@@ -62,7 +62,7 @@ Calculate and plot the location the planet would be at each observation epoch:
 ```@example 1
 using CairoMakie 
 
-epochs = astrom_like.table.epoch' # transpose
+epochs = astrom_obs.table.epoch' # transpose
 
 x = raoff.(orbits, epochs)[:]
 y = decoff.(orbits, epochs)[:]
@@ -84,7 +84,7 @@ Makie.scatter!(
 )
 fig
 
-Makie.scatter!(ax, astrom_like.table.ra, astrom_like.table.dec,color=:black, label="observed")
+Makie.scatter!(ax, astrom_obs.table.ra, astrom_obs.table.dec,color=:black, label="observed")
 Makie.scatter!(ax, [0],[0], marker='⋆', color=:black, markersize=20,label="")
 Makie.xlims!(400,-700)
 Makie.ylims!(-200,200)

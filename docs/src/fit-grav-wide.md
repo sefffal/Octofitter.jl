@@ -29,7 +29,7 @@ using PairPlots
 To model orbits / brightness of a companion from GRAVITY-WIDE data, use the following observation:
 
 ```julia
-vis_like = GRAVITYWideKPObs(
+vis_obs = GRAVITYWideKPObs(
     (;
         filename="./GRAVI.2025-01-01T00:11:11.111_dualscivis.fits",
         epoch=60676.00776748842,
@@ -68,7 +68,7 @@ For this example, we won't consider a full orbit. We will just sample from 2D se
 planet_b = Planet(
     name="b",
     basis=Visual{Octofitter.FixedPosition},
-    likelihoods=[vis_like],
+    likelihoods=[vis_obs],
     variables=@variables begin
         sep ~ Uniform(0, 10) # mas
         pa ~ Uniform(0,2pi)
@@ -152,7 +152,7 @@ ax = Axis(
     title="spec corr = 0.02"
 )
 
-N_dat = length(vis_like.table.epoch)*length(vis_like.table.eff_wave[1])*3 # 3 kern phases
+N_dat = length(vis_obs.table.epoch)*length(vis_obs.table.eff_wave[1])*3 # 3 kern phases
 N_param = 3
 χ²_max = maximum(LL,dims=3)[:,:] ./ (N_dat + N_param)
 h = heatmap!(ax,
@@ -177,7 +177,7 @@ This single-epoch model can then be extended by replacing the `FixedPosition` pa
 planet_b_orbit = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[vis_like],
+    likelihoods=[vis_obs],
     variables=@variables begin
         M = system.M
         a ~ Uniform(0, 0.1)

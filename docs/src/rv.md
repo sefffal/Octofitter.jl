@@ -53,7 +53,7 @@ rvlike_hires = MarginalizedStarAbsoluteRVObs(
 
 We load the HGCA data for this target:
 ```@example 1
-hgca_like = HGCAInstantaneousObs(
+hgca_obs = HGCAInstantaneousObs(
     gaia_id=gaia_id,
     variables=@variables begin
         # Optional: flux ratio for luminous companions
@@ -68,7 +68,7 @@ In the interests of time, we use the `HGCAInstantaneousObs` approximation to spe
 sys = System(
     name="ϵEri",
     companions=[planet_b],
-    likelihoods=[hgca_like, rvlike_hires],
+    likelihoods=[hgca_obs, rvlike_hires],
     variables=@variables begin
         M ~ truncated(Normal(0.82, 0.02),lower=0.5, upper=1.5) # (Baines & Armstrong 2011).
         plx ~ gaia_plx(;gaia_id)

@@ -21,7 +21,7 @@ We will assume you have saved this as `sbc-model.jl`.
 ```julia
 using Octofitter, Distributions
 
-astrom_like = PlanetRelAstromObs(
+astrom_obs = PlanetRelAstromObs(
     (epoch=50000, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
     (epoch=50120, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
     (epoch=50240, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
@@ -35,7 +35,7 @@ astrom_like = PlanetRelAstromObs(
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_like],
+    likelihoods=[astrom_obs],
     variables=@variables begin
         M = system.M
         a ~ truncated(Normal(10, 4), lower=0.1, upper=100)

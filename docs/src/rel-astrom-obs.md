@@ -20,7 +20,7 @@ astrom_dat = Table(;
     cor   = [0.2, 0.5, 0.1, -0.8, 0.3, -0.0, 0.1, -0.2]
 )
 
-astrom_like = PlanetRelAstromObs(
+astrom_obs = PlanetRelAstromObs(
     astrom_dat,
     name = "obs_prior_example",
     variables = @variables begin
@@ -31,13 +31,13 @@ astrom_like = PlanetRelAstromObs(
     end
 )
 # We wrap the likelihood in this prior
-obs_pri_astrom_like = ObsPriorAstromONeil2019(astrom_like)
+obs_pri_astrom_obs = ObsPriorAstromONeil2019(astrom_obs)
 
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    # NOTE! We only provide the wrapped obs_pri_astrom_like
-    likelihoods=[obs_pri_astrom_like],
+    # NOTE! We only provide the wrapped obs_pri_astrom_obs
+    likelihoods=[obs_pri_astrom_obs],
     variables=@variables begin
         M = system.M
         e ~ Uniform(0.0, 0.5)
@@ -85,7 +85,7 @@ octoplot(model, results_obspri)
 
 Compare this with the previous fit using uniform priors:
 ```@example 1
-astrom_like_uniform = PlanetRelAstromObs( # hide
+astrom_obs_uniform = PlanetRelAstromObs( # hide
     astrom_dat, # hide
     name = "uniform_prior_example", # hide
     variables = @variables begin # hide
@@ -97,7 +97,7 @@ astrom_like_uniform = PlanetRelAstromObs( # hide
 planet_b_uniform = Planet( # hide
     name="b", # hide
     basis=Visual{KepOrbit}, # hide
-    likelihoods=[astrom_like_uniform], # hide
+    likelihoods=[astrom_obs_uniform], # hide
     variables=@variables begin # hide
         M = system.M # hide
         a ~ Uniform(0, 100) # hide

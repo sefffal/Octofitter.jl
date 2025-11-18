@@ -19,7 +19,7 @@ astrom_dat = Table(;
     cor   = [0, 0, 0, 0, 0, 0, 0, 0]
 )
 
-astrom_like = PlanetRelAstromObs(
+astrom_obs = PlanetRelAstromObs(
     astrom_dat,
     name = "GPI",
     variables = @variables begin
@@ -33,7 +33,7 @@ astrom_like = PlanetRelAstromObs(
 planet_b = Planet(
     name="b",
     basis=ThieleInnesOrbit,
-    likelihoods=[astrom_like],
+    likelihoods=[astrom_obs],
     variables=@variables begin
         e ~ Uniform(0.0, 0.5)
         A ~ Normal(0, 1000) # milliarcseconds

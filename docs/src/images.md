@@ -71,7 +71,7 @@ image_dat = Table(;
     platescale = [10.0, 10.0, 10.0, 10.0, 10.0]
 )
 
-image_like = ImageObs(
+image_obs = ImageObs(
     image_dat,
     name="SPHERE",
     variables=@variables begin
@@ -99,7 +99,7 @@ Now specify the planet:
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[image_like],
+    likelihoods=[image_obs],
     variables=@variables begin
         a ~ truncated(Normal(13, 4), lower=0.1, upper=100)
         e ~ Uniform(0.0, 0.5)

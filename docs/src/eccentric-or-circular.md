@@ -67,7 +67,7 @@ astrom_dat = Table(;
     σ_dec = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0,], # mas
     cor   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,]
 )
-astrom_like = PlanetRelAstromObs(astrom_dat, name="relastrom")
+astrom_obs = PlanetRelAstromObs(astrom_dat, name="relastrom")
 ```
 
 Now we define our planet model with the spike-and-slab prior on eccentricity:
@@ -76,7 +76,7 @@ Now we define our planet model with the spike-and-slab prior on eccentricity:
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_like],
+    likelihoods=[astrom_obs],
     variables=@variables begin
         M = system.M
         plx = system.plx

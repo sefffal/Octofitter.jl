@@ -21,7 +21,7 @@ astrom_dat_1 = Table(;
     σ_dec = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, ], # mas
     cor =  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ]
 )
-astrom_like_1 = PlanetRelAstromObs(astrom_dat_1, name="relastrom")
+astrom_obs_1 = PlanetRelAstromObs(astrom_dat_1, name="relastrom")
 ```
 
 In Octofitter, `epoch` is always the modified Julian date (measured in days). If you're not sure what this is, you can get started by just putting in arbitrary time offsets measured in days.
@@ -38,7 +38,7 @@ astrom_dat_2 = Table(
     σ_sep = [70, ],
     σ_pa = [deg2rad(10.2), ],
 )
-astrom_like_2 = PlanetRelAstromObs(astrom_dat_2, name="relastrom2")
+astrom_obs_2 = PlanetRelAstromObs(astrom_dat_2, name="relastrom2")
 ```
 
 !!! note
@@ -53,7 +53,7 @@ astrom_like_2 = PlanetRelAstromObs(astrom_dat_2, name="relastrom2")
 You can group your data in different likelihood objects, each with their own instrument name. Each group can have its own `platescale`, `northangle`, and astrometric `jitter` variables for modelling instrument-specific systematics.
 
 ```@example 1
-astrom_like_1 = PlanetRelAstromObs(
+astrom_obs_1 = PlanetRelAstromObs(
     astrom_dat_1,
     name = "GPI astrom",
     variables = @variables begin
@@ -63,7 +63,7 @@ astrom_like_1 = PlanetRelAstromObs(
     end
 )
 
-astrom_like_2 = PlanetRelAstromObs(
+astrom_obs_2 = PlanetRelAstromObs(
     astrom_dat_2,
     name = "SPHERE astrom",
     variables = @variables begin
@@ -94,7 +94,7 @@ We now create a planet model incorporating our likelihoods and specify our prior
 planet_1 = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_like_1, astrom_like_2],
+    likelihoods=[astrom_obs_1, astrom_obs_2],
     variables=@variables begin
         plx = system.plx
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)

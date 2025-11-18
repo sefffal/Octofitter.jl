@@ -46,7 +46,7 @@ rv_data = Table(
     σ_rv=[1.30, 1.09]
 )
 
-rv_like = StarAbsoluteRVObs(rv_data, 
+rv_obs = StarAbsoluteRVObs(rv_data, 
     name="insert name here",
     variables=@variables begin
         offset ~ Uniform(-1000, 1000) # m/s

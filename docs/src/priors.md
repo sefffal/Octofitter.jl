@@ -96,12 +96,12 @@ astrom_dat = Table(
     dec=[400.0], 
     σ_dec=[5.0]
 )
-astrom_like = PlanetRelAstromObs(astrom_dat, name="rel astrom. 1")
+astrom_obs = PlanetRelAstromObs(astrom_dat, name="rel astrom. 1")
 
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[ObsPriorAstromONeil2019(astrom_like)],
+    likelihoods=[ObsPriorAstromONeil2019(astrom_obs)],
     variables=@variables begin
         # For using with ObsPriors:
         P ~ Uniform(0.001, 1000)

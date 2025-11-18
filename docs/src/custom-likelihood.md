@@ -68,13 +68,13 @@ Try to follow the advice in the Julia Manual's performance tips section to ensur
 
 ## Create likelihood functions
 
-Now, create a method that extends `Octofitter.ln_like` for your custom observation type.
+Now, create a method that extends `Octofitter.ln_obs` for your custom observation type.
 
 If the observations are specific to a planet (like astrometry, where the data is attached to a planet instead of the system) then the method signature should use `PlanetObservationContext`:
 
 ```julia
 # MyObs: attached to a planet
-function Octofitter.ln_like(obs::MyObs, ctx::PlanetObservationContext)
+function Octofitter.ln_obs(obs::MyObs, ctx::PlanetObservationContext)
     # Destructure the context to access parameters
     (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
 
@@ -118,7 +118,7 @@ end
 If the observations are attached to the system as a whole (like radial velocity), the method signature should use `SystemObservationContext`:
 ```julia
 # MyObs: attached to a system
-function Octofitter.ln_like(obs::MyObs, ctx::SystemObservationContext)
+function Octofitter.ln_obs(obs::MyObs, ctx::SystemObservationContext)
     # Destructure the context to access parameters
     (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 

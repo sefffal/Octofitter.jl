@@ -33,7 +33,7 @@ data = Table([
     (; filename="Sim_data_2023_2_.oifits", epoch=mjd("2023-08-15"), use_vis2=false),
     (; filename="Sim_data_2024_1_.oifits", epoch=mjd("2024-06-01"), use_vis2=false),
 ])
-vis_like = InterferometryObs(
+vis_obs = InterferometryObs(
     data,
     name="NIRISS-AMI",
     variables=@variables begin
@@ -65,15 +65,15 @@ ax = Axis(
     ylabel="closure phase",
 )
 Makie.stem!(
-    vis_like.table.cps_data[1][:],
+    vis_obs.table.cps_data[1][:],
     label="epoch 1",
 )
 Makie.stem!(
-    vis_like.table.cps_data[2][:],
+    vis_obs.table.cps_data[2][:],
     label="epoch 2"
 )
 Makie.stem!(
-    vis_like.table.cps_data[3][:],
+    vis_obs.table.cps_data[3][:],
     label="epoch 3"
 )
 Makie.Legend(fig[1,2], ax)
@@ -101,7 +101,7 @@ planet_b = Planet(
 sys = System(
     name="Tutoria",
     companions=[planet_b],
-    likelihoods=[vis_like],
+    likelihoods=[vis_obs],
     variables=@variables begin
         M ~ truncated(Normal(1.5, 0.01), lower=0.1)
         plx ~ truncated(Normal(100., 0.1), lower=0.1)
@@ -151,7 +151,7 @@ ax = Makie.Axis(
     xlabel="ΔR.A. (mas)",
     ylabel="ΔDec. (mas)",
 )
-for epoch in vis_like.table.epoch
+for epoch in vis_obs.table.epoch
     Makie.scatter!(
         ax,
         raoff.(els, epoch)[:],
