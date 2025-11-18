@@ -143,6 +143,9 @@ function Octofitter.octoplot!(
     if isnothing(show_rv)
         show_rv = false
         for like_obj in model.system.observations
+            show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVObs
+            show_rv |=  nameof(typeof(like_obj)) == :MarginalizedStarAbsoluteRVObs
+            # Also check old names for backwards compatibility
             show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
             show_rv |=  nameof(typeof(like_obj)) == :MarginalizedStarAbsoluteRVLikelihood
         end
@@ -151,23 +154,23 @@ function Octofitter.octoplot!(
     if isnothing(show_pma)
         show_pma = false
         for like_obj in model.system.observations
-            show_pma |= like_obj isa Octofitter.HGCALikelihood
-            show_pma |= like_obj isa Octofitter.HGCAInstantaneousLikelihood
-            show_pma |= like_obj isa Octofitter.GaiaDifferenceLike
+            show_pma |= like_obj isa Octofitter.HGCAObs
+            show_pma |= like_obj isa Octofitter.HGCAInstantaneousObs
+            show_pma |= like_obj isa Octofitter.GaiaDifferenceObs
         end
     end
 
 
     hgca_detected = false
     for like_obj in model.system.observations
-        hgca_detected |= like_obj isa HGCALikelihood
-        hgca_detected |= like_obj isa HGCAInstantaneousLikelihood
+        hgca_detected |= like_obj isa HGCAObs
+        hgca_detected |= like_obj isa HGCAInstantaneousObs
     end
 
     if isnothing(show_absastrom)
         show_absastrom = false
         for like_obj in model.system.observations
-            show_absastrom |= like_obj isa Octofitter.GaiaHipparcosUEVAJointLikelihood
+            show_absastrom |= like_obj isa Octofitter.GaiaHipparcosUEVAJointObs
         end
     end
 
@@ -175,7 +178,7 @@ function Octofitter.octoplot!(
     if isnothing(show_hipparcos)
         show_hipparcos = false
         for like_obj in model.system.observations
-            if like_obj isa HipparcosIADLikelihood
+            if like_obj isa HipparcosIADObs
                 show_hipparcos = true
             end
         end
@@ -418,12 +421,12 @@ function Octofitter.octoplot!(
             row = cld(item, cols)
             height=300figscale
             for like_obj in model.system.observations
-                if like_obj isa HGCALikelihood || like_obj isa HGCAInstantaneousLikelihood
+                if like_obj isa HGCAObs || like_obj isa HGCAInstantaneousObs
                     height+=180figscale
                 end
             end
             for like_obj in model.system.observations
-                if like_obj isa Octofitter.GaiaDifferenceLike
+                if like_obj isa Octofitter.GaiaDifferenceObs
                     height+=180figscale
                 end
             end
