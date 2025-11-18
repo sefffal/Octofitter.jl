@@ -2,7 +2,7 @@
 const images_cols = (:image, :epoch, :platescale,)
 
 """
-    ImageLikelihood(
+    ImageObs(
         table,
         name="images",
         variables=@variables begin
@@ -20,7 +20,7 @@ image_dat = Table(;
     platescale = [19.4, 19.4]
 )
 
-ImageLikelihood(
+ImageObs(
     image_dat,
     name="SPHERE",
     variables=@variables begin

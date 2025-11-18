@@ -38,11 +38,11 @@ planet_b = Planet(
 
 
 # We will load in data from one RV instruments.
-# We use `StarAbsoluteRVMarginObs` instead of 
+# We use `MarginalizedStarAbsoluteRVObs` instead of 
 # `StarAbsoluteRVObs` to automatically marginalize out
 # the radial velocity zero point of each instrument, saving one parameter.
 hires_data = OctofitterRadialVelocity.HIRES_rvs("HD22049")
-rvlike_hires = StarAbsoluteRVMarginObs(
+rvlike_hires = MarginalizedStarAbsoluteRVObs(
     hires_data,
     name="HIRES",
     variables=@variables begin

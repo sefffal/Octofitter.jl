@@ -144,7 +144,7 @@ function Octofitter.octoplot!(
         show_rv = false
         for like_obj in model.system.observations
             show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVObs
-            show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVMarginObs
+            show_rv |=  nameof(typeof(like_obj)) == :MarginalizedStarAbsoluteRVObs
         end
     end
 
@@ -364,7 +364,7 @@ function Octofitter.octoplot!(
             row = cld(item, cols)
             matching_like_objs = filter(model.system.observations) do like_obj
                 nameof(typeof(like_obj)) ∈ (
-                    :StarAbsoluteRVMarginObs,
+                    :MarginalizedStarAbsoluteRVObs,
                     :StarAbsoluteRVObs
                 )
             end

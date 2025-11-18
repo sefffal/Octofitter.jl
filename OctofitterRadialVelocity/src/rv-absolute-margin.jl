@@ -8,7 +8,7 @@ using Bumper
 using Octofitter: SystemObservationContext
 
 """
-    StarAbsoluteRVMarginObs(
+    MarginalizedStarAbsoluteRVObs(
         (;epoch=5000.0,  rv=−6.54, σ_rv=1.30),
         (;epoch=5050.1,  rv=−3.33, σ_rv=1.09),
         (;epoch=5100.2,  rv=7.90,  σ_rv=.11);
@@ -38,14 +38,14 @@ Additionally, a gaussian process is not supported with the analytical marginaliz
     If you don't supply a `variables` argument, the detault priors are `jitter ~ LogUniform(0.001, 100)`
 
 """
-struct StarAbsoluteRVMarginObs{TTable<:Table,TF} <: Octofitter.AbstractObs
+struct MarginalizedStarAbsoluteRVObs{TTable<:Table,TF} <: Octofitter.AbstractObs
     table::TTable
     priors::Octofitter.Priors
     derived::Octofitter.Derived
     name::String
     trend_function::TF
 end
-function StarAbsoluteRVMarginObs(
+function MarginalizedStarAbsoluteRVObs(
     observations;
     variables::Union{Nothing,Tuple{Octofitter.Priors,Octofitter.Derived}}=nothing,
     name::String,
@@ -78,13 +78,13 @@ function StarAbsoluteRVMarginObs(
         @warn "The data you entered fell outside the range year 1950 to year 2050. The expected input format is MJD (modified julian date). We suggest you double check your input data!"
     end
 
-    return StarAbsoluteRVMarginObs{typeof(table),typeof(trend_function)}(
+    return MarginalizedStarAbsoluteRVObs{typeof(table),typeof(trend_function)}(
         table, priors, derived, name, trend_function
     )
 end
-function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVMarginObs, obs_inds)
+function Octofitter.likeobj_from_epoch_subset(obs::MarginalizedStarAbsoluteRVObs, obs_inds)
     table = Table(first(eachcol(obs.table[obs_inds])))
-    return StarAbsoluteRVMarginObs{
+    return MarginalizedStarAbsoluteRVObs{
         typeof(table),typeof(obs.trend_function)
     }(
         table, obs.priors, obs.derived, likelihoodname(obs), obs.trend_function
@@ -92,14 +92,14 @@ function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVMarginObs, obs_
 end
 
 # Backwards compatibility aliases
-const MarginalizedStarAbsoluteRVLikelihood = StarAbsoluteRVMarginObs
-const StarAbsoluteRVMarginLikelihood = StarAbsoluteRVMarginObs
+const MarginalizedStarAbsoluteRVLikelihood = MarginalizedStarAbsoluteRVObs
+const StarAbsoluteRVMarginLikelihood = MarginalizedStarAbsoluteRVObs
 
-export StarAbsoluteRVMarginObs, MarginalizedStarAbsoluteRVLikelihood, StarAbsoluteRVMarginLikelihood
+export MarginalizedStarAbsoluteRVObs, MarginalizedStarAbsoluteRVLikelihood, StarAbsoluteRVMarginLikelihood
 
 
-# In-place simulation logic for StarAbsoluteRVMarginObs (performance-critical)
-function Octofitter.simulate!(rv_model_buf, rvlike::StarAbsoluteRVMarginObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions, orbit_solutions_i_epoch_start)
+# In-place simulation logic for MarginalizedStarAbsoluteRVObs (performance-critical)
+function Octofitter.simulate!(rv_model_buf, rvlike::MarginalizedStarAbsoluteRVObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions, orbit_solutions_i_epoch_start)
     L = length(rvlike.table.epoch)
     T = Octofitter._system_number_type(θ_system)
     
@@ -121,8 +121,8 @@ function Octofitter.simulate!(rv_model_buf, rvlike::StarAbsoluteRVMarginObs, θ_
     return (rv_model = rv_model_buf, epochs = rvlike.table.epoch)
 end
 
-# Allocating simulation logic for StarAbsoluteRVMarginObs (convenience method)
-function Octofitter.simulate(rvlike::StarAbsoluteRVMarginObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions, orbit_solutions_i_epoch_start)
+# Allocating simulation logic for MarginalizedStarAbsoluteRVObs (convenience method)
+function Octofitter.simulate(rvlike::MarginalizedStarAbsoluteRVObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions, orbit_solutions_i_epoch_start)
     T = Octofitter._system_number_type(θ_system)
     L = length(rvlike.table.epoch)
     rv_model_buf = Vector{T}(undef, L)
@@ -134,7 +134,7 @@ end
 Absolute radial velocity likelihood (for a star) with analytical marginalization over RV zero point.
 """
 function Octofitter.ln_like(
-    rvlike::StarAbsoluteRVMarginObs,
+    rvlike::MarginalizedStarAbsoluteRVObs,
     ctx::SystemObservationContext
 )
     (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
@@ -183,7 +183,7 @@ end
 
 
 # Generate new radial velocity observations for a star
-function Octofitter.generate_from_params(like::StarAbsoluteRVMarginObs, θ_system,  θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start; add_noise)
+function Octofitter.generate_from_params(like::MarginalizedStarAbsoluteRVObs, θ_system,  θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start; add_noise)
 
     # Get epochs and uncertainties from observations
     epochs = like.table.epoch
@@ -202,7 +202,7 @@ function Octofitter.generate_from_params(like::StarAbsoluteRVMarginObs, θ_syste
         radvel_table.rv .+= randn.() .* hypot.(σ_rvs, jitter)
     end
 
-    return StarAbsoluteRVMarginObs(
+    return MarginalizedStarAbsoluteRVObs(
         radvel_table;
         name=likelihoodname(like),
         trend_function=like.trend_function,

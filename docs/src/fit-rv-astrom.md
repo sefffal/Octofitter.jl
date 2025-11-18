@@ -73,7 +73,7 @@ epochs = 58849 .+ range(0,step=1.5, length=20)
 planet_sim_mass = 0.001 # solar masses here
 
 
-rvlike = StarAbsoluteRVMarginObs(
+rvlike = MarginalizedStarAbsoluteRVObs(
     Table(
         epoch=epochs,
         rv=radvel.(orb_template, epochs, planet_sim_mass) .+ 150,
@@ -87,7 +87,7 @@ rvlike = StarAbsoluteRVMarginObs(
 
 epochs = 58949 .+ range(0,step=1.5, length=20)
 
-rvlike2 = StarAbsoluteRVMarginObs(
+rvlike2 = MarginalizedStarAbsoluteRVObs(
     Table(
         epoch=epochs,
         rv=radvel.(orb_template, epochs, planet_sim_mass) .- 150,

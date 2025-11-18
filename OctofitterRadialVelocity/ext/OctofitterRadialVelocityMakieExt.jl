@@ -59,7 +59,7 @@ function Octofitter.rvpostplot!(
 
     rv_likes_all = filter(model.system.observations) do obs
         obs isa StarAbsoluteRVObs ||
-        obs isa OctofitterRadialVelocity.StarAbsoluteRVMarginObs# ||
+        obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVObs# ||
         # obs isa OctofitterRadialVelocity.StarAbsoluteRVLikelihood_Celerite_Shared
     end
 
@@ -361,7 +361,7 @@ function Octofitter.rvpostplot!(
         if rvs isa StarAbsoluteRVObs
             jitter = nt_format.observations[like_obj_name].jitter
             barycentric_rv_inst = nt_format.observations[like_obj_name].offset
-        elseif rvs isa StarAbsoluteRVMarginObs
+        elseif rvs isa MarginalizedStarAbsoluteRVObs
             # TODO: marginalized RV observation
 
             barycentric_rv_inst = _find_rv_zero_point_maxlike(rvs, nt_format, els_by_planet)

@@ -20,8 +20,8 @@ Apply these replacements to update your code:
 | `PhotometryLikelihood` | `PhotometryObs` |
 | `PlanetRelAstromLikelihood` | `PlanetRelAstromObs` |
 | `StarAbsoluteRVLikelihood` | `StarAbsoluteRVObs` |
-| `MarginalizedStarAbsoluteRVLikelihood` | `StarAbsoluteRVMarginObs` |
-| `StarAbsoluteRVMarginLikelihood` | `StarAbsoluteRVMarginObs` |
+| `MarginalizedStarAbsoluteRVLikelihood` | `MarginalizedStarAbsoluteRVObs` |
+| `StarAbsoluteRVMarginLikelihood` | `MarginalizedStarAbsoluteRVObs` |
 | `PlanetRelativeRVLikelihood` | `PlanetRelativeRVObs` |
 | `HGCALikelihood` | `HGCAObs` |
 | `HGCAInstantaneousLikelihood` | `HGCAInstantaneousObs` |
