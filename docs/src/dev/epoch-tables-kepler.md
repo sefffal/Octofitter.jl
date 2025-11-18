@@ -4,20 +4,12 @@ This document explains how Octofitter manages observation epochs and implements 
 
 ## Overview
 
-Solving Kepler's equation is one of the most expensive operations in orbit fitting. For a system with multiple planets and hundreds of observations, naively solving the orbit at each observation for each planet would result in redundant computation.
-
-Octofitter optimizes this through:
-
-1. **Epoch collection**: Gathering all unique observation epochs upfront
-2. **Pre-solving**: Computing orbit solutions for all planets at all epochs once
-3. **Index mapping**: Allowing likelihoods to efficiently access their pre-computed solutions
-4. **Smart threading**: Parallelizing orbit solving when beneficial
-
+Octofitter makes the assumption that all observations will require solving Kepler's equation for all planets (N_planets x N_epochs). For code convenience and potential speedups (through better cache hits, multi-threading, and hopefully future GPU/SIMD), Octofitter pre-solves all orbits X all epochs upfront for every likelihood evaluation, and then passes the orbit solutions to each likelihood function.
 ## Observation Epoch Tables
 
 ### Table Structure
 
-All observation likelihoods that depend on orbital positions must provide their data as a `TypedTables.Table` with an `:epoch` column:
+All observation likelihoods that involve computing an orbit store the observation data data as a `TypedTables.Table` with an `:epoch` column:
 
 ```julia
 using TypedTables
@@ -36,36 +28,23 @@ astrom_like = PlanetRelAstromLikelihood(astrom_table)
 
 ### Why TypedTables?
 
-`TypedTables.jl` provides:
-
-- **Type stability**: Each column has a concrete element type
-- **Efficient access**: Fast indexing without type checks
-- **Immutability**: Tables can't be accidentally modified during sampling
-- **Named columns**: Clear, self-documenting data structure
+`TypedTables.jl` provides a DataFrame-like object that is completely concretely typed to avoid any runtime dispatch. Everything is compiled out.
 
 ### Common Epoch Column Patterns
 
-Different likelihood types access epochs differently:
-
+Typical structure:
 ```julia
 # Most likelihoods: epoch column in main table
 struct PlanetRelAstromLikelihood{TTable<:Table}
     table::TTable  # Must have :epoch column
 end
-
-# Some likelihoods: nested tables
-struct HGCALikelihood{TTable<:Table}
-    table::TTable  # :hip and :gaia sub-tables, each with :epoch
-end
-
-# System-level: epochs at observation level
-struct GaiaDR4Likelihood{TTable<:Table}
-    table::TTable  # :epoch column for entire system
-end
 ```
+
+Exception: we currently also overload the meaning of the table to refer to discrete "observation" rows for the sake of e.g. cross-validation. For a couple of absolute astrometry types, which involve solving many different orbit solutions per discrete "observation data point" (e.g. Hipparcos proper motion in RA), we create a dummy table with one row per observation and then just solve the orbits manually in the ln_like function.
 
 ## Epoch Collection Process
 
+Octofitter uses run time metaprogramming. When compiling the user model, we loop through all likelihoods and collect the list of epochs. These epochs are inlined directly into the generated likelihood function.
 **Location**: [`src/likelihoods/system.jl:6-40`](../../src/likelihoods/system.jl)
 
 ### Collection Algorithm
@@ -112,41 +91,6 @@ function make_ln_like(system::System, θ_system_sample)
 end
 ```
 
-### Index Mapping
-
-The `epoch_start_index_mapping` dictionary is crucial for efficiency:
-
-```julia
-# Example system:
-# - HGCALikelihood (system): epochs [50000, 50100, 50200]  → starts at index 1
-# - PlanetRelAstrom (planet b): epochs [50050, 50150]      → starts at index 4
-# - PlanetRelAstrom (planet c): epochs [50000, 50100]      → starts at index 6
-
-epoch_start_index_mapping = Dict(
-    hgca_like => 1,
-    planet_b_astrom => 4,
-    planet_c_astrom => 6
-)
-
-all_epochs = [50000, 50100, 50200,  # HGCA
-              50050, 50150,          # Planet b
-              50000, 50100]          # Planet c
-```
-
-### Handling Duplicate Epochs
-
-Currently, Octofitter does **not** deduplicate epochs across observations. This is intentional:
-
-**Advantages**:
-- Simpler indexing: Each observation has its own contiguous slice
-- Easier debugging: One-to-one mapping between table rows and solutions
-- Thread safety: No shared indices between observations
-
-**Disadvantage**:
-- Some redundant computation if multiple observations share epochs
-
-**Future optimization**: Could deduplicate and use indirect indexing, but profiling shows Kepler solving is fast enough (~32ns per call) that the added complexity isn't worth it for typical use cases.
-
 ## Kepler Equation Pre-Solving
 
 ### The Kepler Problem
@@ -159,13 +103,13 @@ M = E - e sin(E)           # Kepler's equation (must solve for E)
 ν = 2 atan(√((1+e)/(1-e)) * tan(E/2))  # True anomaly from E
 ```
 
-Kepler's equation has no closed-form solution, requiring iterative methods (Newton-Raphson).
+Kepler's equation has no closed-form solution, requiring iterative methods (e.g. Newton-Raphson) or another approximation, like the Markley algorithm we use by default.
 
 ### Pre-Solving Strategy
 
 **Location**: [`src/likelihoods/system.jl:111-131`](../../src/likelihoods/system.jl)
 
-Instead of solving during likelihood evaluation, Octofitter pre-solves at the start of each likelihood call:
+Octofitter pre-solves at the start of each likelihood call:
 
 ```julia
 # Generated code pattern
@@ -211,49 +155,6 @@ function ln_like_generated(system::System, θ_system)
 end
 ```
 
-### Why Pre-Solve?
-
-Consider a planet with astrometry measurements:
-
-```julia
-# Each observation has RA and Dec at same epoch
-observations = [
-    (epoch=50000, ra=100, dec=50),
-    (epoch=50100, ra=98, dec=52),
-    # ... 100 more epochs
-]
-```
-
-**Without pre-solving**:
-```julia
-for obs in observations
-    sol = orbitsolve(orbit, obs.epoch)  # Solve Kepler
-    ra_model = raoff(sol)
-    sol = orbitsolve(orbit, obs.epoch)  # SOLVE AGAIN!
-    dec_model = decoff(sol)
-    # 2N solves for N epochs
-end
-```
-
-**With pre-solving**:
-```julia
-# Solve once per epoch
-sols = [orbitsolve(orbit, epoch) for epoch in unique_epochs]
-
-# Reuse solutions
-for i in eachindex(observations)
-    ra_model = raoff(sols[i])
-    dec_model = decoff(sols[i])
-    # N solves for N epochs
-end
-```
-
-For systems with multiple instruments observing simultaneously, savings are even larger.
-
-## Solver Implementations
-
-**Location**: [`src/likelihoods/system.jl:201-221`](../../src/likelihoods/system.jl)
-
 ### Single-Threaded Solver
 
 ```julia
@@ -265,7 +166,7 @@ function _kepsolve_all_singlethread!(solutions, orbit, epochs)
 end
 ```
 
-Simple, predictable, low overhead.
+Used for either small numbers of observations, or when the outer sampler is multi-threaded.
 
 ### Multi-Threaded Solver
 
@@ -356,6 +257,7 @@ end
 
 ## Likelihood Interface
 
+TODO: update this to match the new Observation Context system.
 ### Standard Signature
 
 Likelihoods receive pre-solved orbits via this interface:
@@ -482,56 +384,6 @@ sols = @alloc(typeof(sol0), length(epochs))
 
 This ensures type stability for the entire solution array.
 
-## Performance Characteristics
-
-### Benchmark Results
-
-Typical timings on modern CPU (Apple M1):
-
-| Operation | Time | Notes |
-|-----------|------|-------|
-| `orbitsolve` (low e) | ~32 ns | Newton-Raphson, 2-3 iterations |
-| `orbitsolve` (high e) | ~80 ns | More iterations required |
-| Thread spawn overhead | ~450 ns | `Threads.@threads` |
-| `@alloc` array | ~2 ns | Bump allocator |
-| Heap allocation | ~50 ns | `Vector{Float64}(undef, 100)` |
-
-### Scaling Analysis
-
-For a system with:
-- `N_p` = number of planets
-- `N_e` = number of epochs
-- `N_like` = number of likelihood evaluations per sample
-
-**Pre-solving cost**: `O(N_p × N_e)` per likelihood call
-
-**Savings**: Each likelihood that would solve `k` times per epoch saves `O(N_p × N_e × (k-1))` solves
-
-**Typical case**: Astrometry with RA/Dec at same epoch → `k=2` → **50% reduction**
-
-### Threading Speedup
-
-On a machine with `T` threads:
-
-```julia
-# Single-threaded time
-t_single = N_p × N_e × t_solve
-
-# Multi-threaded time (ideal)
-t_multi = N_p × N_e × t_solve / T + t_overhead
-
-# Speedup
-speedup = t_single / t_multi
-        ≈ T × (N_e × t_solve) / (N_e × t_solve + T × t_overhead)
-```
-
-For `N_e = 100`, `t_solve = 32ns`, `t_overhead = 450ns`, `T = 8`:
-
-```
-speedup ≈ 8 × 3200ns / (3200ns + 3600ns) ≈ 3.8x
-```
-
-Real speedup ~3-4x on 8 cores due to memory bandwidth and cache effects.
 
 ## Diagram: Epoch Collection and Pre-Solving
 
@@ -569,28 +421,7 @@ flowchart TD
 
 ## Special Cases
 
-### System-Level Observations
 
-Some observations (like Hipparcos-Gaia proper motion anomaly) need solutions for **all** planets:
-
-```julia
-function ln_like(
-    like::HGCALikelihood,
-    θ_system,
-    θ_obs,
-    orbits,              # All planet orbits
-    orbit_solutions,     # All planet solutions
-    planet_index        # = 0 for system-level
-)
-    # Access ALL planets' solutions
-    for i_planet in eachindex(orbits)
-        planet_sol = orbit_solutions[i_planet][epoch_index]
-        # Accumulate contributions
-    end
-end
-```
-
-The `planet_index = 0` indicates system-level, allowing the likelihood to loop over all planets.
 
 ### Observations Without Epochs
 
@@ -622,7 +453,7 @@ end
 
 The likelihood implementation handles its own epoch indexing into the pre-solved arrays.
 
-## Debugging Tips
+## Debugging
 
 ### Verifying Epoch Collection
 
@@ -662,7 +493,7 @@ To measure Kepler solving cost:
 using BenchmarkTools
 
 # Create orbit
-orbit = Visual{KepOrbit}(M=1.0, plx=50.0, a=10.0, e=0.2, i=π/4, ω=0, Ω=0, tp=50000)
+orbit = (M=1.0, plx=50.0, a=10.0, e=0.2, i=π/4, ω=0, Ω=0, tp=50000)
 
 # Benchmark single solve
 @btime orbitsolve($orbit, 50100.0)
@@ -674,22 +505,6 @@ sols = similar(epochs, Any)
 ```
 
 ## Future Optimizations
-
-### Epoch Deduplication
-
-Currently, duplicate epochs across observations are not merged. Potential improvement:
-
-```julia
-# Collect unique epochs
-unique_epochs = unique(all_epochs)
-
-# Create mapping: observation → indices into unique_epochs
-epoch_index_map = Dict{Any, Vector{Int}}()
-
-# Would reduce N_e in best case, but adds indexing complexity
-```
-
-**Trade-off**: Complexity vs. performance gain. Current profiling suggests Kepler solving is not the bottleneck for typical systems.
 
 ### Adaptive Threading
 
@@ -706,21 +521,14 @@ optimal_threshold = ceil(Int, thread_overhead / (solve_times / n_epochs))
 
 **Benefit**: Adapt to different CPUs and orbit complexities automatically.
 
-### GPU Acceleration
+### SIMD
 
-For very large systems (100+ planets, 10,000+ epochs), could use GPU:
-
-```julia
-using CUDA
-
-epochs_gpu = CuArray(epochs)
-sols_gpu = CuArray{OrbitSolution}(undef, length(epochs))
+It would be great to develop (in PlanetOrbits.jl) a version of `orbitsolve` that works over an array of orbits
+using SIMD. I think this could be a big improvement.
 
 # Kernel: solve Kepler equation on GPU
-@cuda threads=256 blocks=ceil(Int, length(epochs)/256) kepler_kernel!(sols_gpu, orbit, epochs_gpu)
-```
 
-**Challenge**: Kepler solving involves iterative Newton-Raphson, which is branchy and has variable iteration counts (bad for GPU).
+Likewise, for systems with many epochs it would be great if the SIMD-capable algorithm could be used on a GPU.
 
 ## See Also
 
