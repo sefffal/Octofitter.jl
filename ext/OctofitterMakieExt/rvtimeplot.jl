@@ -80,9 +80,6 @@ function rvtimeplot!(
         nameof(typeof(like_obj)) ∈ (
             :MarginalizedStarAbsoluteRVObs,
             :StarAbsoluteRVObs,
-            # Backwards compatibility
-            :MarginalizedStarAbsoluteRVLikelihood,
-            :StarAbsoluteRVLikelihood,
         )
     end
 
@@ -225,7 +222,7 @@ function rvtimeplot!(
             θ_system = nt_format[i]
 
             # StarAbsoluteRVObs have an RV0 parameter in the model
-            if nameof(typeof(like_obj)) == :StarAbsoluteRVObs || nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
+            if nameof(typeof(like_obj)) == :StarAbsoluteRVObs
                 return θ_system.observations[like_obj_name].offset
             end
 
@@ -512,7 +509,7 @@ function rvtimeplot_relative!(
     for planet_key in keys(model.system.planets)
         planet = getproperty(model.system.planets, planet_key)
         for like_obj in planet.observations
-            if nameof(typeof(like_obj)) != :PlanetRelativeRVObs && nameof(typeof(like_obj)) != :PlanetRelativeRVLikelihood
+            if nameof(typeof(like_obj)) != :PlanetRelativeRVObs
                 continue
             end
             epoch = vec(like_obj.table.epoch)
