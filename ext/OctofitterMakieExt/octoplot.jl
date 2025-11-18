@@ -144,7 +144,7 @@ function Octofitter.octoplot!(
         show_rv = false
         for like_obj in model.system.observations
             show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVObs
-            show_rv |=  nameof(typeof(like_obj)) == :MarginalizedStarAbsoluteRVObs
+            show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVMarginObs
         end
     end
 
