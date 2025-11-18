@@ -144,10 +144,11 @@ function Octofitter.octoplot!(
         show_rv = false
         for like_obj in model.system.observations
             show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVObs
-            show_rv |=  nameof(typeof(like_obj)) == :MarginalizedStarAbsoluteRVObs
+            show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVMarginObs
             # Also check old names for backwards compatibility
             show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
             show_rv |=  nameof(typeof(like_obj)) == :MarginalizedStarAbsoluteRVLikelihood
+            show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVMarginLikelihood
         end
     end
 

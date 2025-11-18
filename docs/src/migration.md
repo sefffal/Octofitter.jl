@@ -20,7 +20,7 @@ Apply these replacements to update your code:
 | `PhotometryLikelihood` | `PhotometryObs` |
 | `PlanetRelAstromLikelihood` | `PlanetRelAstromObs` |
 | `StarAbsoluteRVLikelihood` | `StarAbsoluteRVObs` |
-| `MarginalizedStarAbsoluteRVLikelihood` | `MarginalizedStarAbsoluteRVObs` |
+| `MarginalizedStarAbsoluteRVLikelihood` | `StarAbsoluteRVMarginObs` |
 | `StarAbsoluteRVMarginLikelihood` | `StarAbsoluteRVMarginObs` |
 | `PlanetRelativeRVLikelihood` | `PlanetRelativeRVObs` |
 | `HGCALikelihood` | `HGCAObs` |
@@ -32,8 +32,11 @@ Apply these replacements to update your code:
 | `GaiaUEVALikelihood` | `GaiaUEVAObs` |
 | `ParallacticMotionLikelihood_v7` | `ParallacticMotionObs_v7` |
 | `ImageLikelihood` | `ImageObs` |
+| `LogLikelihoodMap` | `LogLikelihoodMapObs` |
 | `InterferometryLikelihood` | `InterferometryObs` |
 | `AbstractInterferometryLikelihood` | `AbstractInterferometryObs` |
+| `GRAVITYWideKPLikelihood` | `GRAVITYWideKPObs` |
+| `LightCurveLikelihood` | `LightCurveObs` |
 
 **Note:** Types ending in `Prior` (e.g., `PlanetOrderPrior`, `UnitLengthPrior`) and `UserLikelihood` keep their original names.
 
