@@ -40,15 +40,15 @@ function hipparcosplot!(
 
     hip_like = nothing
     for like_obs in model.system.observations
-        if like_obs isa HipparcosIADLikelihood
+        if like_obs isa HipparcosIADObs
             if !isnothing(hip_like)
-                error("more than one HipparcosIADLikelihood present")
+                error("more than one HipparcosIAD observation present")
             end
             hip_like = like_obs
         end
     end
     if isnothing(hip_like)
-        error("No HipparcosIADLikelihood present")
+        error("No HipparcosIAD observation present")
     end
 
    
