@@ -49,8 +49,9 @@ end
 #  likelihood function
 function Octofitter.ln_like(
     likeobj::GaiaDR4AstromObs,
-    (;θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)::SystemObservationContext
+    ctx::SystemObservationContext
 )
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 

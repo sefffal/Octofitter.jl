@@ -7,8 +7,8 @@ NonCrossingPrior() = LimitClosestApproachAUPrior(0.0, 0.0)
 likelihoodname(likeobj::LimitClosestApproachAUPrior) = "LimitClosestApproachAUPrior"
 export NonCrossingPrior, LimitClosestApproachAUPrior
 Octofitter._isprior(::LimitClosestApproachAUPrior) = true
-function Octofitter.ln_like(prior::LimitClosestApproachAUPrior, (; θ_system, orbits)::SystemObservationContext)
-
+function Octofitter.ln_like(prior::LimitClosestApproachAUPrior, ctx::SystemObservationContext)
+    (; θ_system, orbits) = ctx
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
   

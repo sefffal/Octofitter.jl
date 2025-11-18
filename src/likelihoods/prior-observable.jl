@@ -76,9 +76,9 @@ function likeobj_from_epoch_subset(obs::ObsPriorAstromONeil2019, obs_inds)
 end
 
 function ln_like(
-    like::ObsPriorAstromONeil2019{<:PlanetRelAstromLikelihood},
-    context::PlanetObservationContext{TCur,TSys,TPla,TObs,TOrb,TSol}
-) where {TCur,TSys,TPla,TObs,TOrb,TSol}
+    like::ObsPriorAstromONeil2019{<:PlanetRelAstromObs},
+    context::PlanetObservationContext
+)
     (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = context
     T = _system_number_type(θ_system)
 
@@ -138,8 +138,8 @@ end
 
 function ln_like(
     like::ObsPriorAstromONeil2019{<:Any},
-    context::SystemObservationContext{TCur,TSys,TObs,TOrb,TSol}
-) where {TCur,TSys,TObs,TOrb,TSol}
+    context::SystemObservationContext
+)
     (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = context
     T = _system_number_type(θ_system)
 

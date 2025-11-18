@@ -8,8 +8,8 @@ end
 export PlanetOrderPrior
 Octofitter._isprior(::PlanetOrderPrior) = true
 likelihoodname(likeobj::PlanetOrderPrior) = "PlanetOrderPrior_"*join(string.(p.name for p in likeobj.planets),"_")
-function Octofitter.ln_like(prior::PlanetOrderPrior, (; θ_system, orbits)::SystemObservationContext) 
-
+function Octofitter.ln_like(prior::PlanetOrderPrior, ctx::SystemObservationContext)
+    (; θ_system, orbits) = ctx
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
   

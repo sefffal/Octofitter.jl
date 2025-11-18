@@ -152,7 +152,8 @@ function _getparams(skypathlike::ParallacticMotionObs_v7{TTable,catalog_paramete
     val_excess_noise = getproperty(θ_system, excess_noise)
     return (;plx, ra, dec, pmra, pmdec, along_scan_residuals=val_along_scan_residuals, σ_scan=val_σ_scan,excess_noise=val_excess_noise, skypathlike.ref_epoch)
 end
-function ln_like((; obs=skypathlike)::SystemObservationContext{<:ParallacticMotionObs_v7}, θ_system, orbits, num_epochs::Val{L}=Val(length(skypathlike.table))) where L
+function ln_like(skypathlike::ParallacticMotionObs_v7, ctx::SystemObservationContext, num_epochs::Val{L}=Val(length(skypathlike.table))) where L
+    (; θ_system, orbits) = ctx
     T = _system_number_type(θ_system)
     ll = zero(T)
     (;
