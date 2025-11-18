@@ -8,7 +8,7 @@ except for the observation/likelihood object itself.
 abstract type AbstractObservationContext end
 
 """
-    SystemObservationContext{T,N,TOrbit,TSolutions}
+    SystemObservationContext{TSystem,TObs,N,TOrbit,TSolutions}
 
 Evaluation context for system-level observations (e.g., RV, proper motion anomaly).
 
@@ -19,16 +19,29 @@ Evaluation context for system-level observations (e.g., RV, proper motion anomal
 - `orbit_solutions::NTuple{N,TSolutions}` - Pre-solved orbit solutions for all planets
 - `orbit_solutions_i_epoch_start::Int` - Starting index into solutions array (0-based)
 """
-struct SystemObservationContext{T,N,TOrbit<:AbstractOrbit,TSolutions} <: AbstractObservationContext
-    θ_system::NamedTuple
-    θ_obs::NamedTuple
+struct SystemObservationContext{TSystem<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions} <: AbstractObservationContext
+    θ_system::TSystem
+    θ_obs::TObs
     orbits::NTuple{N,TOrbit}
     orbit_solutions::NTuple{N,TSolutions}
     orbit_solutions_i_epoch_start::Int
 end
 
+# Outer constructor with type inference
+function SystemObservationContext(
+    θ_system::TSystem,
+    θ_obs::TObs,
+    orbits::NTuple{N,TOrbit},
+    orbit_solutions::NTuple{N,TSolutions},
+    orbit_solutions_i_epoch_start::Int
+) where {TSystem<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions}
+    return SystemObservationContext{TSystem,TObs,N,TOrbit,TSolutions}(
+        θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start
+    )
+end
+
 """
-    PlanetObservationContext{T,N,TOrbit,TSolutions}
+    PlanetObservationContext{TSystem,TPlanet,TObs,N,TOrbit,TSolutions}
 
 Evaluation context for planet-level observations (e.g., relative astrometry).
 
@@ -41,14 +54,29 @@ Evaluation context for planet-level observations (e.g., relative astrometry).
 - `i_planet::Int` - Index of this planet in the orbits/solutions arrays
 - `orbit_solutions_i_epoch_start::Int` - Starting index into solutions array (0-based)
 """
-struct PlanetObservationContext{T,N,TOrbit<:AbstractOrbit,TSolutions} <: AbstractObservationContext
-    θ_system::NamedTuple
-    θ_planet::NamedTuple
-    θ_obs::NamedTuple
+struct PlanetObservationContext{TSystem<:NamedTuple,TPlanet<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions} <: AbstractObservationContext
+    θ_system::TSystem
+    θ_planet::TPlanet
+    θ_obs::TObs
     orbits::NTuple{N,TOrbit}
     orbit_solutions::NTuple{N,TSolutions}
     i_planet::Int
     orbit_solutions_i_epoch_start::Int
+end
+
+# Outer constructor with type inference
+function PlanetObservationContext(
+    θ_system::TSystem,
+    θ_planet::TPlanet,
+    θ_obs::TObs,
+    orbits::NTuple{N,TOrbit},
+    orbit_solutions::NTuple{N,TSolutions},
+    i_planet::Int,
+    orbit_solutions_i_epoch_start::Int
+) where {TSystem<:NamedTuple,TPlanet<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions}
+    return PlanetObservationContext{TSystem,TPlanet,TObs,N,TOrbit,TSolutions}(
+        θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start
+    )
 end
 
 
