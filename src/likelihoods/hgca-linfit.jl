@@ -462,9 +462,10 @@ export HGCAObs, HGCALikelihood
 
 
 # Generate new astrometry observations
-function generate_from_params(like::HGCAObs, θ_system, θ_obs, orbits, solutions, sol_start_i; add_noise)
+function generate_from_params(like::HGCAObs, ctx::SystemObservationContext; add_noise)
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
-    sim = simulate(like, θ_system, θ_obs, orbits, solutions, sol_start_i)
+    sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
     (;μ_g, μ_h, μ_hg) = sim
 

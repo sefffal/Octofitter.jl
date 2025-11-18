@@ -246,11 +246,13 @@ function ln_like(astrom::PlanetRelAstromObs, ctx::PlanetObservationContext)
 end
 
 # Generate new astrometry observations
-function generate_from_params(like::PlanetRelAstromObs, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
+function generate_from_params(like::PlanetRelAstromObs, ctx::PlanetObservationContext; add_noise)
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+
     # Get epochs and uncertainties from observations
     epoch = like.table.epoch
 
-    # Use the same simulation method as ln_like to generate model astrometry values  
+    # Use the same simulation method as ln_like to generate model astrometry values
     sim = Octofitter.simulate(like, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
     ra_model = sim.ra_model
     dec_model = sim.dec_model
