@@ -29,13 +29,13 @@ end
 
 # Outer constructor with type inference
 function SystemObservationContext(
-    θ_system::TSystem,
-    θ_obs::TObs,
-    orbits::NTuple{N,TOrbit},
-    orbit_solutions::NTuple{N,TSolutions},
+    θ_system,
+    θ_obs,
+    orbits,
+    orbit_solutions,
     orbit_solutions_i_epoch_start::Int
-) where {TSystem<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions}
-    return SystemObservationContext{TSystem,TObs,N,TOrbit,TSolutions}(
+)
+    return SystemObservationContext{typeof(θ_system),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions)}(
         θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start
     )
 end
@@ -66,15 +66,15 @@ end
 
 # Outer constructor with type inference
 function PlanetObservationContext(
-    θ_system::TSystem,
-    θ_planet::TPlanet,
-    θ_obs::TObs,
-    orbits::NTuple{N,TOrbit},
-    orbit_solutions::NTuple{N,TSolutions},
+    θ_system,
+    θ_planet,
+    θ_obs,
+    orbits,
+    orbit_solutions,
     i_planet::Int,
     orbit_solutions_i_epoch_start::Int
-) where {TSystem<:NamedTuple,TPlanet<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions}
-    return PlanetObservationContext{TSystem,TPlanet,TObs,N,TOrbit,TSolutions}(
+)
+    return PlanetObservationContext{typeof(θ_system),typeof(θ_planet),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions)}(
         θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start
     )
 end
