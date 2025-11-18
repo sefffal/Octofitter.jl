@@ -126,7 +126,7 @@ function Octofitter.octoplot!(
         show_astrom_time = false
         for planet in model.system.planets
             for like_obj in planet.observations
-                show_astrom_time |=  nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+                show_astrom_time |=  nameof(typeof(like_obj)) == :PlanetRelAstromObs
             end
         end
     end
@@ -135,7 +135,7 @@ function Octofitter.octoplot!(
         show_relative_rv = false
         for planet in model.system.planets
             for like_obj in planet.observations
-                show_relative_rv |=  nameof(typeof(like_obj)) == :PlanetRelativeRVLikelihood
+                show_relative_rv |=  nameof(typeof(like_obj)) == :PlanetRelativeRVObs
             end
         end
     end
@@ -145,9 +145,6 @@ function Octofitter.octoplot!(
         for like_obj in model.system.observations
             show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVObs
             show_rv |=  nameof(typeof(like_obj)) == :MarginalizedStarAbsoluteRVObs
-            # Also check old names for backwards compatibility
-            show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
-            show_rv |=  nameof(typeof(like_obj)) == :MarginalizedStarAbsoluteRVLikelihood
         end
     end
 
@@ -367,8 +364,8 @@ function Octofitter.octoplot!(
             row = cld(item, cols)
             matching_like_objs = filter(model.system.observations) do like_obj
                 nameof(typeof(like_obj)) ∈ (
-                    :MarginalizedStarAbsoluteRVLikelihood,
-                    :StarAbsoluteRVLikelihood
+                    :StarAbsoluteRVMarginObs,
+                    :StarAbsoluteRVObs
                 )
             end
             gl = GridLayout(
