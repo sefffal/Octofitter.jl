@@ -149,7 +149,10 @@ function pmaplot!(
 
     # Now over plot any astrometry
     like_objs = filter(model.system.observations) do like_obj
-        nameof(typeof(like_obj)) == :HGCALikelihood || 
+        nameof(typeof(like_obj)) == :HGCAObs ||
+        nameof(typeof(like_obj)) == :HGCAInstantaneousObs ||
+        # Backwards compatibility
+        nameof(typeof(like_obj)) == :HGCALikelihood ||
         nameof(typeof(like_obj)) == :HGCAInstantaneousLikelihood
     end
     if !isempty(like_objs)

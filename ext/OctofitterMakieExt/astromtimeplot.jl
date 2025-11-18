@@ -309,15 +309,17 @@ function astromtimeplot!(
 
     # Colour data based on the instrument name
     rel_astrom_likes = filter(like_objs) do like_obj
+        nameof(typeof(like_obj)) == :PlanetRelAstromObs ||
         nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood ||
-        (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromLikelihood)
+        (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && (nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromObs || nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromLikelihood))
     end
     rel_astrom_names = sort(unique(likelihoodname.(rel_astrom_likes)))
     n_rel_astrom = length(rel_astrom_names)
-    
+
     for like_obj in like_objs
-        if  nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood ||
-            (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromLikelihood)
+        if  nameof(typeof(like_obj)) == :PlanetRelAstromObs ||
+            nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood ||
+            (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && (nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromObs || nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromLikelihood))
 
             i_like_obj = findfirst(==(likelihoodname(like_obj)), rel_astrom_names)
             if hasproperty(like_obj.table, :sep)
@@ -419,7 +421,7 @@ function astromtimeplot!(
                 strokecolor=:black,
                 markersize=8,
             )
-        elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :GRAVITYWideCPLikelihood)
+        elseif nameof(typeof(like_obj)) in (:ImageObs, :ImageLikelihood, :LogLikelihoodMapObs, :LogLikelihoodMap, :InterferometryObs, :InterferometryLikelihood, :GRAVITYWideKPObs, :GRAVITYWideCPLikelihood)
             # In this case, put scatter points from the posterior
             
             for planet_key in keys(model.system.planets)

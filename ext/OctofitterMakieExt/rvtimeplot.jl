@@ -78,6 +78,9 @@ function rvtimeplot!(
     all_axes = Axis[]
     like_objs = filter(model.system.observations) do like_obj
         nameof(typeof(like_obj)) ∈ (
+            :MarginalizedStarAbsoluteRVObs,
+            :StarAbsoluteRVObs,
+            # Backwards compatibility
             :MarginalizedStarAbsoluteRVLikelihood,
             :StarAbsoluteRVLikelihood,
         )
@@ -217,16 +220,16 @@ function rvtimeplot!(
 
         σ_tot = sqrt.(σ_rv .^2 .+ mean(jitter) .^2)
 
-        # instead of each 
+        # instead of each
         rv0 = map(enumerate(ii)) do (i_sol, i)
             θ_system = nt_format[i]
 
-            # StarAbsoluteRVLikelihood have an RV0 parameter in the model
-            if nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
+            # StarAbsoluteRVObs have an RV0 parameter in the model
+            if nameof(typeof(like_obj)) == :StarAbsoluteRVObs || nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
                 return θ_system.observations[like_obj_name].offset
             end
 
-            # MarginalizedStarAbsoluteRVLikelihood do not, we can compute it in
+            # MarginalizedStarAbsoluteRVObs do not, we can compute it in
             # closed form (just like in the likelihood evaluation)
             planet_orbits_this_sample = getindex.(orbits, i_sol)
             return _find_rv_zero_point_maxlike(like_obj, θ_system, planet_orbits_this_sample)
@@ -509,7 +512,7 @@ function rvtimeplot_relative!(
     for planet_key in keys(model.system.planets)
         planet = getproperty(model.system.planets, planet_key)
         for like_obj in planet.observations
-            if nameof(typeof(like_obj)) != :PlanetRelativeRVLikelihood
+            if nameof(typeof(like_obj)) != :PlanetRelativeRVObs && nameof(typeof(like_obj)) != :PlanetRelativeRVLikelihood
                 continue
             end
             epoch = vec(like_obj.table.epoch)

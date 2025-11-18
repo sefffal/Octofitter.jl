@@ -332,9 +332,9 @@ function Octofitter.astromplot!(
                 markersize=8,
             )
 
-        # If the model, instead/in addition to astrometry, includes one of the following 
-        # "position-like" observations, add scatter points at the posterior projected locatinos.
-        elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :GRAVITYWideCPLikelihood)
+        # If the model, instead/in addition to astrometry, includes one of the following
+        # "position-like" observations, add scatter points at the posterior projected locations.
+        elseif nameof(typeof(like_obj)) in (:ImageObs, :ImageLikelihood, :LogLikelihoodMapObs, :LogLikelihoodMap, :InterferometryObs, :InterferometryLikelihood, :GRAVITYWideKPObs, :GRAVITYWideCPLikelihood)
             
             for planet_key in keys(model.system.planets)
                 orbs = Octofitter.construct_elements(model, results, planet_key, ii)

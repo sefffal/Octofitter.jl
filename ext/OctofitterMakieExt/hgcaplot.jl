@@ -176,7 +176,7 @@ function Octofitter.hgcaplot!(
 
     # Now over plot any astrometry
     like_objs = filter(model.system.observations) do like_obj
-        nameof(typeof(like_obj)) == :HGCALikelihood
+        nameof(typeof(like_obj)) == :HGCAObs || nameof(typeof(like_obj)) == :HGCALikelihood
     end
     if isempty(like_objs)
         return [ax_velra, ax_veldec]
