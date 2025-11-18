@@ -1,3 +1,5 @@
+using Octofitter: SystemObservationContext
+
 # Radial Velocity data type
 const rv_cols = (:epoch, :rv, :σ_rv)
 
