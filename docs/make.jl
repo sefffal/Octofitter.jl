@@ -77,7 +77,9 @@ makedocs(
             "Full API Documentation" => "api.md"
         ],
         "Developer Documentation" => [
-            "Architecture Overview" => "dev/architecture.md"
+            "Architecture Overview" => "dev/architecture.md",
+            "Orbit Bases and Parameterizations" => "dev/orbit-bases.md",
+            "Epoch Tables and Kepler Pre-Solving" => "dev/epoch-tables-kepler.md"
         ]
     ],
     format = Documenter.HTML(
