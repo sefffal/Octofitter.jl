@@ -10,13 +10,13 @@ H_band_contrast_interp(mass) = sqrt(mass) # your model or function here
 J_band_contrast_interp(mass) = sqrt(mass) # your model or function here
 ```
 
-First, create your photometry observations and likelihoods. Each PhotometryLikelihood handles a single band with a `flux` variable defined in its variables block rather than in the planet definition. The `name` parameter is used for variable naming in the MCMC chain output (e.g., "b_H_band_flux"). This way, the flux variables will be calculated off of your model's mass parameter before getting compared to the photometry:
+First, create your photometry observations and likelihoods. Each PhotometryObs handles a single band with a `flux` variable defined in its variables block rather than in the planet definition. The `name` parameter is used for variable naming in the MCMC chain output (e.g., "b_H_band_flux"). This way, the flux variables will be calculated off of your model's mass parameter before getting compared to the photometry:
 ```julia
 # Create separate photometry likelihoods for each band
 H_band_table = Table(
     phot=[15.2], σ_phot=[0.5],
 )
-H_band_data = PhotometryLikelihood(
+H_band_data = PhotometryObs(
     H_band_table,
     name="H_band",
     variables=@variables begin
@@ -27,7 +27,7 @@ H_band_data = PhotometryLikelihood(
 J_band_table = Table(
     phot=[14.8], σ_phot=[0.3],
 )
-J_band_data = PhotometryLikelihood(
+J_band_data = PhotometryObs(
     J_band_table,
     name="J_band", 
     variables=@variables begin
@@ -67,7 +67,7 @@ K_band_contrast_interp(mass, age, temp) = sqrt(mass) * (age/10) * sqrt(temp/1000
 K_band_table = Table(
     phot=[13.5], σ_phot=[0.4],
 )
-K_band_data = PhotometryLikelihood(
+K_band_data = PhotometryObs(
     K_band_table,
     name="K_band",
     variables=@variables begin

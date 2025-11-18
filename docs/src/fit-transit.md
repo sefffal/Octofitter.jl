@@ -129,7 +129,7 @@ end
 
 Now provide this function when we construct our likelihood object:
 ```@example 1
-rvlike = StarAbsoluteRVLikelihood(rv_dat,
+rvlike = StarAbsoluteRVObs(rv_dat,
     name=["harps-n", "psf"],
     gaussian_process = gauss_proc_quasi_periodic
 )

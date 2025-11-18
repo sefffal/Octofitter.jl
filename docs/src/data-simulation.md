@@ -21,7 +21,7 @@ For this example, we'll use the combined astrometry, proper motion anomaly, and 
 
 ```@example 1
 # HGCA likelihood for HD 91312
-hgca_like = HGCALikelihood(gaia_id=756291174721509376)
+hgca_like = HGCAObs(gaia_id=756291174721509376)
 
 #  relative astrometry data (from discovery paper)
 astrom_dat = Table(;
@@ -33,7 +33,7 @@ astrom_dat = Table(;
     cor   = [0.2, 0.3, 0.1, 0.4, 0.3, 0.2]
 )
 
-astrom_like = PlanetRelAstromLikelihood(
+astrom_like = PlanetRelAstromObs(
     astrom_dat,
     name = "SCExAO",
     variables = @variables begin
@@ -50,7 +50,7 @@ rv_dat = Table(;
     σ_rv  = [150, 150, 150]
 )
 
-rvlike = StarAbsoluteRVLikelihood(
+rvlike = StarAbsoluteRVObs(
     rv_dat,
     name="SOPHIE",
     variables=@variables begin

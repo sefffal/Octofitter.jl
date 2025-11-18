@@ -19,7 +19,7 @@ astrom_dat = Table(;
     cor   = [0, 0, 0, 0, 0, 0, 0, 0]
 )
 
-astrom_like = PlanetRelAstromLikelihood(
+astrom_like = PlanetRelAstromObs(
     astrom_dat,
     name = "GPI",
     variables = @variables begin

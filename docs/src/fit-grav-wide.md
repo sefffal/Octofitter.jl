@@ -26,10 +26,10 @@ using CairoMakie
 using PairPlots
 ```
 
-To model orbits / brightness of a companion from, GRAVITY-WIDE data you will want to use the following Likelihood object:
+To model orbits / brightness of a companion from GRAVITY-WIDE data, use the following observation:
 
 ```julia
-vis_like = GRAVITYWideKPLikelihood(
+vis_like = GRAVITYWideKPObs(
     (;
         filename="./GRAVI.2025-01-01T00:11:11.111_dualscivis.fits",
         epoch=60676.00776748842,

@@ -38,11 +38,11 @@ planet_b = Planet(
 
 
 # We will load in data from one RV instruments.
-# We use `MarginalizedStarAbsoluteRVLikelihood` instead of 
-# `StarAbsoluteRVLikelihood` to automatically marginalize out
+# We use `StarAbsoluteRVMarginObs` instead of 
+# `StarAbsoluteRVObs` to automatically marginalize out
 # the radial velocity zero point of each instrument, saving one parameter.
 hires_data = OctofitterRadialVelocity.HIRES_rvs("HD22049")
-rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
+rvlike_hires = StarAbsoluteRVMarginObs(
     hires_data,
     name="HIRES",
     variables=@variables begin
@@ -53,7 +53,7 @@ rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
 
 We load the HGCA data for this target:
 ```@example 1
-hgca_like = HGCAInstantaneousLikelihood(
+hgca_like = HGCAInstantaneousObs(
     gaia_id=gaia_id,
     variables=@variables begin
         # Optional: flux ratio for luminous companions
@@ -61,7 +61,7 @@ hgca_like = HGCAInstantaneousLikelihood(
     end
 )
 ```
-In the interests of time, we use the `HGCAInstantaneousLikelihood` approximation to speed up the computation. This parameter controls how the model smears out the simulated Gaia and Hipparcos measurements in time. For a real target, leave it at the default value once you have completed testing.
+In the interests of time, we use the `HGCAInstantaneousObs` approximation to speed up the computation. This parameter controls how the model smears out the simulated Gaia and Hipparcos measurements in time. For a real target, leave it at the default value once you have completed testing.
 
 
 ```@example 1

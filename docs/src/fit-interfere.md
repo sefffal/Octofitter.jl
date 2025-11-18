@@ -33,7 +33,7 @@ data = Table([
     (; filename="Sim_data_2023_2_.oifits", epoch=mjd("2023-08-15"), use_vis2=false),
     (; filename="Sim_data_2024_1_.oifits", epoch=mjd("2024-06-01"), use_vis2=false),
 ])
-vis_like = InterferometryLikelihood(
+vis_like = InterferometryObs(
     data,
     name="NIRISS-AMI",
     variables=@variables begin
@@ -52,7 +52,7 @@ vis_like = InterferometryLikelihood(
 ```
 
 !!! note
-    If you want to include multiple bands, group these into different `InterferometryLikelihood` objects
+    If you want to include multiple bands, group these into different `InterferometryObs` objects
     with different instrument names (i.e. include the band in the name for the sake of bookkeeping)
 
 

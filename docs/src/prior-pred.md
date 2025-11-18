@@ -20,7 +20,7 @@ astrom_dat = Table(;
     σ_dec = fill(50.0, 8),
     cor = fill(0.0, 8)
 )
-astrom_like = PlanetRelAstromLikelihood(astrom_dat, name="relastrom")
+astrom_like = PlanetRelAstromObs(astrom_dat, name="relastrom")
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},

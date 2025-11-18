@@ -149,7 +149,7 @@ imview(10 .^ image2_offset)
 ```
 
 
-Okay, we have our synthetic data. We now set up a `LogLikelihoodMap` object to contain our matrices of log likelihood values:
+Okay, we have our synthetic data. We now set up a `LogLikelihoodMapObs` object to contain our matrices of log likelihood values:
 
 First, create a table of our likelihood map observations:
 ```@example 1
@@ -159,7 +159,7 @@ likemap_dat = Table(;
     platescale = [1.0, 1.0] # milliarcseconds/pixel of the map
 )
 
-loglikemap = LogLikelihoodMap(
+loglikemap = LogLikelihoodMapObs(
     likemap_dat,
     name="GRAVITY",
     variables=@variables begin

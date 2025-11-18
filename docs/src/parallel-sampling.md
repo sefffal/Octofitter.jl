@@ -25,7 +25,7 @@ using DataFrames
 using Distributions
 
 # Specify your data as usual
-astrom_like = PlanetRelAstromLikelihood(
+astrom_like = PlanetRelAstromObs(
     # Your data here:
     (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),

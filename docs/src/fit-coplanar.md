@@ -37,7 +37,7 @@ astrom_dat_c = Table(;
     cor   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 )
 
-astrom_b = PlanetRelAstromLikelihood(
+astrom_b = PlanetRelAstromObs(
     astrom_dat_b,
     name = "GPI",
     variables = @variables begin
@@ -48,7 +48,7 @@ astrom_b = PlanetRelAstromLikelihood(
     end
 )
 
-astrom_c = PlanetRelAstromLikelihood(
+astrom_c = PlanetRelAstromObs(
     astrom_dat_c,
     name = "GPI",
     variables = @variables begin

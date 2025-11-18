@@ -45,7 +45,7 @@ rv_dat_1 = Table(
 )
 
 
-rel_rv_like = PlanetRelativeRVLikelihood(
+rel_rv_like = PlanetRelativeRVObs(
     rv_dat_1, 
     name="simulated data",
     variables = @variables begin

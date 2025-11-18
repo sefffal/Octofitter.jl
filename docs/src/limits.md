@@ -54,7 +54,7 @@ B = Planet(
 HD91312_pma = System(
     name="HD91312_pma",
     companions=[B],
-    likelihoods=[HGCAInstantaneousLikelihood(gaia_id=6166183842771027328)],
+    likelihoods=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
     variables=@variables begin
         M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
         M_sec ~ LogUniform(0.2, 65) # MJup
@@ -116,7 +116,7 @@ img_dat_table = Table([
      (image=AstroImages.recenter(image), platescale=4.0, epoch=57423.6),
 ])
 
-image_data = ImageLikelihood(
+image_data = ImageObs(
     img_dat_table,
     name="imgdat-sim",
     variables=@variables begin
@@ -268,7 +268,7 @@ B = Planet(
 HD91312_both = System(
     name="HD91312_both",
     companions=[B],
-    likelihoods=[HGCAInstantaneousLikelihood(gaia_id=6166183842771027328)],
+    likelihoods=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
     variables=@variables begin
         # age ~ truncated(Normal(40, 15),lower=0, upper=200)
         age = 10

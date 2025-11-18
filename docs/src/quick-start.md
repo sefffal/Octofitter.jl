@@ -1,7 +1,7 @@
 # Quick Start (@id quick-start)
 
-This guide introduces the key concepts in Octofitter: 
-* Likelihood objects to hold your data
+This guide introduces the key concepts in Octofitter:
+* Observation objects to hold your data
 * `Planet` and `System` models to specify variables, priors, and system architecture
 * Sampling from the posterior using MCMC
 * Plotting the results
@@ -17,7 +17,7 @@ Load the required packages:
 using Octofitter, Distributions, CairoMakie, PairPlots
 ```
 
-Create a [`PlanetRelAstromLikelihood`](@ref) object containing your observational data. In this case its the position of the planet relative to the star, but many other kinds of data are supported:
+Create a [`PlanetRelAstromObs`](@ref) object containing your observational data. In this case its the position of the planet relative to the star, but many other kinds of data are supported:
 ```julia
 astrom_dat = Table(
     epoch = [50000, 50120, 50240],      # Dates in MJD
@@ -27,7 +27,7 @@ astrom_dat = Table(
     σ_dec = [10.0, 10.0, 10.0],         # [mas] Uncertainties
     cor = [0.0, 0.0, 0.0]               # RA/Dec correlations
 )
-astrom = PlanetRelAstromLikelihood(astrom_dat, name="GPI astrom") # must give a name for each group of observations
+astrom = PlanetRelAstromObs(astrom_dat, name="GPI astrom") # must give a name for each group of observations
 ```
 
 Define a planet model with orbital elements and their [prior distributions](@ref priors):

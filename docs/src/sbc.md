@@ -21,7 +21,7 @@ We will assume you have saved this as `sbc-model.jl`.
 ```julia
 using Octofitter, Distributions
 
-astrom_like = PlanetRelAstromLikelihood(
+astrom_like = PlanetRelAstromObs(
     (epoch=50000, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
     (epoch=50120, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
     (epoch=50240, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),

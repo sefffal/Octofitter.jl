@@ -25,7 +25,7 @@ mass_2 = 1.0*1e-3
 
 epochs = (58400:150:69400) .+ 10 .* randn.()
 rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
-rvlike1 = MarginalizedStarAbsoluteRVLikelihood(
+rvlike1 = StarAbsoluteRVMarginObs(
     Table(epoch=epochs, rv=rv .+ 4 .* randn.(), σ_rv=[4 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
     name="DATA 1",
     variables=@variables begin
@@ -35,7 +35,7 @@ rvlike1 = MarginalizedStarAbsoluteRVLikelihood(
 
 epochs = (65400:100:71400) .+ 10 .* randn.()
 rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
-rvlike2 = MarginalizedStarAbsoluteRVLikelihood(
+rvlike2 = StarAbsoluteRVMarginObs(
     Table(epoch=epochs, rv=rv .+ 2 .* randn.() .+ 7, σ_rv=[2 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
     name="DATA 2",
     variables=@variables begin

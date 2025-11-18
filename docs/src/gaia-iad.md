@@ -63,7 +63,7 @@ dfrv.σ_rv = dfrv.radial_velocity_err_kms * 1e3
 # Calculate mean RV for the prior
 mean_rv = mean(dfrv.rv)
 
-rvlike = StarAbsoluteRVLikelihood(
+rvlike = StarAbsoluteRVObs(
     dfrv,
     name="GaiaRV",
     variables=@variables begin

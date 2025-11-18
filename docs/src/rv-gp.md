@@ -54,7 +54,7 @@ gp_perlength_unc = 0.019
 gp_per_mean = 9.64 # T_bar in Dai+ 2017 [days]
 gp_per_unc = 0.12
 
-rvlike_harps = StarAbsoluteRVLikelihood(
+rvlike_harps = StarAbsoluteRVObs(
     rv_dat[rv_dat_raw.tel .== "harps-n",:],
     name="harps-n",
     variables=(@variables begin
@@ -74,7 +74,7 @@ rvlike_harps = StarAbsoluteRVLikelihood(
         (PeriodicKernel(r=[θ_obs.η_4]) ∘ ScaleTransform(1/(θ_obs.η_3)))
     )
 )
-rvlike_pfs = StarAbsoluteRVLikelihood(
+rvlike_pfs = StarAbsoluteRVObs(
     rv_dat[rv_dat_raw.tel .== "pfs",:],
     name="pfs",
     variables=(@variables begin
@@ -199,7 +199,7 @@ for modelling large RV datasets.
 ```@example 1
 using OctofitterRadialVelocity.Celerite
 
-rvlike_harps = StarAbsoluteRVLikelihood(
+rvlike_harps = StarAbsoluteRVObs(
     rv_dat[rv_dat_raw.tel .== "harps-n",:],
     name="harps-n",
     variables=(@variables begin
@@ -223,7 +223,7 @@ rvlike_harps = StarAbsoluteRVLikelihood(
         )
     )
 )
-rvlike_pfs = StarAbsoluteRVLikelihood(
+rvlike_pfs = StarAbsoluteRVObs(
     rv_dat[rv_dat_raw.tel .== "pfs",:],
     name="pfs",
     variables=(@variables begin

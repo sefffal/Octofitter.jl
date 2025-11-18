@@ -71,7 +71,7 @@ image_dat = Table(;
     platescale = [10.0, 10.0, 10.0, 10.0, 10.0]
 )
 
-image_like = ImageLikelihood(
+image_like = ImageObs(
     image_dat,
     name="SPHERE",
     variables=@variables begin
@@ -112,9 +112,9 @@ planet_b = Planet(
     end
 )
 ```
-Note how we provided a prior on the photometry called `flux` in the variables block of the ImageLikelihood. This represents the expected flux of the planet in the image units.
+Note how we provided a prior on the photometry called `flux` in the variables block of the ImageObs. This represents the expected flux of the planet in the image units.
 
-See [Fit PlanetRelAstromLikelihood](@ref fit-astrometry) for a description of the different orbital parameters, and conventions used.
+See [Fit PlanetRelAstromObs](@ref fit-astrometry) for a description of the different orbital parameters, and conventions used.
 
 
 Finally, create the system and pass in the planet.

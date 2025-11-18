@@ -12,7 +12,7 @@ using Octofitter
 using Distributions
 using CairoMakie
 
-hip_like = Octofitter.HipparcosIADLikelihood(
+hip_like = Octofitter.HipparcosIADObs(
     hip_id=21547,
     renormalize=true, # default: true
     variables=@variables begin
@@ -142,7 +142,7 @@ astrom_dat = Table(;
     σ_pa  = [0.00401426, 0.00453786, 0.00523599, 0.0523599, 0.00453786, 0.00994838, 0.00994838, 0.00750492, 0.00890118, 0.00453786, 0.00541052, 0.00471239, 0.00680678, 0.00401426]
 )
 
-astrom_like1 = PlanetRelAstromLikelihood(
+astrom_like1 = PlanetRelAstromObs(
     astrom_dat,
     name="VLT/SPHERE",
     variables=@variables begin
