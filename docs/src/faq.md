@@ -97,3 +97,24 @@ sys = System(
     end
 )
 ```
+
+
+## What Coordinate System does Octofitter use?
+Octofitter uses a coordinate system where
+* $+x$ increases to the East (ie, x increases with increasing Right Ascension)
+* $+y$ increases to the North
+* $+z$ increases away from the observer.
+
+This coordinate system has several nice properties: $+x$ increases with Right Ascension, $+y$ increases with Declination, and $\frac{\partial z}{\partial t}$ is positive for positive radial velocity / positive redshift.
+**Note!** Since x increases with Right Ascension, that means +X is towards the **left** in the sky, and in most plots. If this bothers you, one thing to note is that it's also in the direction of increasing "time" as the sky rotates overhead AND this convention predates the modern concept of a cartesian graph :-) 
+
+You can read more in the PlanetOrbits.jl docs.
+
+## What is the definition of $\omega$?
+$\omega$ is the argument of periastron, which is the location where the **planet** makes its closest approach to the star, measured from the ascending node. This is consistent with most direct imaging conventions. 
+
+**Note:** this is 180° offset from the typical definition used by codes that only fit radial velocity and/or transit, where the convention it to report the argument of periastron for the star. This is a significant potential source of confusion when comparing results between codes.
+
+## What is the definition of $\Omega$?
+$\Omega$ is the position angle of ascending node, also known as the longitude of ascending node. It is the point in an orbit where the planet (or equivalently, the star) moves from having a negative $z$ coordinate to having a positive $z$ coordinate. This happens where the planet (or star) moves cross the plane of the sky going **away from the observer**. 
+Why "away" from the observer? That is because Octofitter uses a coordinate system where $+z$ increases away from the observer, such that radial velocity measured as a positive redshift corresponds to a positive velocity.
