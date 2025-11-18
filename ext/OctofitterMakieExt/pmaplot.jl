@@ -150,7 +150,7 @@ function pmaplot!(
     # Now over plot any astrometry
     like_objs = filter(model.system.observations) do like_obj
         nameof(typeof(like_obj)) == :HGCAObs ||
-        nameof(typeof(like_obj)) == :HGCAInstantaneousObs ||
+        nameof(typeof(like_obj)) == :HGCAInstantaneousObs
     end
     if !isempty(like_objs)
         hgca_like = only(like_objs)
