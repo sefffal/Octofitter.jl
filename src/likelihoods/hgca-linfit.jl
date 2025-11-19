@@ -465,7 +465,7 @@ export HGCAObs, HGCALikelihood
 function generate_from_params(like::HGCAObs, ctx::SystemObservationContext; add_noise)
     (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
-    sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, -1)
 
     (;μ_g, μ_h, μ_hg) = sim
 

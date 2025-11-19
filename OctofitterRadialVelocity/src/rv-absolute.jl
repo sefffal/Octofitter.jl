@@ -321,8 +321,8 @@ end
 
 
 # Generate new radial velocity observations for a star
-function Octofitter.generate_from_params(like::StarAbsoluteRVObs, θ_system,  θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start; add_noise)
-
+function Octofitter.generate_from_params(like::StarAbsoluteRVObs, ctx::SystemObservationContext; add_noise)
+   (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
     # Get epochs and uncertainties from observations
     epochs = like.table.epoch 
     σ_rvs = like.table.σ_rv 

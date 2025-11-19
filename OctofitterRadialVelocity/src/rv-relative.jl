@@ -209,7 +209,9 @@ end
 
 
 # Generate new radial velocity observations for a planet
-function Octofitter.generate_from_params(like::PlanetRelativeRVObs, θ_planet, elem::PlanetOrbits.AbstractOrbit; add_noise)
+function Octofitter.generate_from_params(like::MarginalizedStarAbsoluteRVObs, ctx::PlanetObservationContext; add_noise)
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    
 
     # Get epochs and uncertainties from observations
     epochs = like.table.epoch
