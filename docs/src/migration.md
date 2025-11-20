@@ -1,4 +1,4 @@
-# Migration Guide (@id migration)
+# [Migration Guide] (@id migration)
 
 ## Table of Contents
 - [Migrating to v8](#migrating-to-v8)
