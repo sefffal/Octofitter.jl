@@ -8,7 +8,8 @@
 
 ## Migrating to v8
 
-Octofitter.jl v8 renames observation types from `*Likelihood` to `*Obs` for clarity. All old names remain as aliases for backwards compatibility, so **no code changes are required**. However, updating to the new names is recommended.
+Octofitter.jl v8 renames observation types from `*Likelihood` to `*Obs` (short for observation) for clarity. E.g., `PlanetRelAstromLikelihood` has been renamed `PlanetRelAstromObs`.
+At the same time, the argument `likelihoods=[...]` to both `Planet` and `System` has been renamed `observations=[...]`. Replace 
 
 ### Global Find & Replace
 
@@ -16,7 +17,7 @@ Apply these replacements to update your code:
 
 | Old Name (v7) | New Name (v8) |
 |---------------|---------------|
-| `AbstractLikelihood` | `AbstractObs` |
+| `likelihoods=[...]` | `observations=[...]` |
 | `PhotometryLikelihood` | `PhotometryObs` |
 | `PlanetRelAstromLikelihood` | `PlanetRelAstromObs` |
 | `StarAbsoluteRVLikelihood` | `StarAbsoluteRVObs` |
@@ -30,13 +31,11 @@ Apply these replacements to update your code:
 | `GaiaDifferenceLikelihood` | `GaiaDifferenceObs` |
 | `GaiaCatalogFitLikelihood` | `GaiaCatalogFitObs` |
 | `GaiaUEVALikelihood` | `GaiaUEVAObs` |
-| `ParallacticMotionLikelihood_v7` | `ParallacticMotionObs_v7` |
 | `ImageLikelihood` | `ImageObs` |
 | `LogLikelihoodMap` | `LogLikelihoodMapObs` |
 | `InterferometryLikelihood` | `InterferometryObs` |
 | `AbstractInterferometryLikelihood` | `AbstractInterferometryObs` |
 | `GRAVITYWideKPLikelihood` | `GRAVITYWideKPObs` |
-| `LightCurveLikelihood` | `LightCurveObs` |
 
 **Note:** Types ending in `Prior` (e.g., `PlanetOrderPrior`, `UnitLengthPrior`) and `UserLikelihood` keep their original names.
 
