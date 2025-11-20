@@ -334,7 +334,8 @@ likelihoodname(like::UserLikelihood) = like.name
 _isprior(::UserLikelihood) = true
 likeobj_from_epoch_subset(like::UserLikelihood, obs_inds) = like
 TypedTables.Table(::UserLikelihood) = nothing
-generate_from_params(like::UserLikelihood, θ_planet, orbit) = like
+generate_from_params(like::UserLikelihood, ctx::SystemObservationContext; add_noise) = like
+generate_from_params(like::UserLikelihood, ctx::PlanetObservationContext; add_noise) = like
 
 # System-level likelihood
 function ln_like(user_like::UserLikelihood{TSym_LHS, TSym_RHS}, ctx::SystemObservationContext) where {TSym_LHS, TSym_RHS}

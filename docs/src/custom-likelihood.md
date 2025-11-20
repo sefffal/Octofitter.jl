@@ -253,7 +253,9 @@ Simply extend the `Octofitter.generate_from_params` function for your data type:
 
 ```julia
 # Generate new observations from model parameters
-function Octofitter.generate_from_params(like::MyObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
+function Octofitter.generate_from_params(like::MyObs, ctx::Octofitter.PlanetObservationContext; add_noise)
+    # Unpack context
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
 
     # Get epochs from original observations
     epochs = like.table.epoch

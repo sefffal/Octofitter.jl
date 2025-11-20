@@ -341,11 +341,12 @@ function cp_indices(; vis2_index::Matrix{<:Int64}, cp_index::Matrix{<:Int64})
 end
 
 # Generate new observations for multiple planets
-function Octofitter.generate_from_params(like::InterferometryLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function Octofitter.generate_from_params(like::InterferometryLikelihood, ctx::Octofitter.SystemObservationContext; add_noise)
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
     # Get flux array from observation variables (one per planet)
     flux = θ_obs.flux
-    
+
     # Get calibration parameters from observation variables
     T = Octofitter._system_number_type(θ_system)
     platescale = hasproperty(θ_obs, :platescale) ? θ_obs.platescale : one(T)

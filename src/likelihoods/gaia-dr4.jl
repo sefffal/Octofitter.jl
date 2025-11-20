@@ -170,8 +170,9 @@ end
 
 
 # Generate new astrometry observations
-function Octofitter.generate_from_params(like::GaiaDR4AstromObs, θ_system, θ_obs, orbits, solutions, sol_start_i)
-    along_scan_residuals_buffer_sim = simulate(like, θ_system, θ_obs, orbits, solutions, sol_start_i)
+function Octofitter.generate_from_params(like::GaiaDR4AstromObs, ctx::SystemObservationContext; add_noise)
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    along_scan_residuals_buffer_sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
     new_table = deepcopy(like.table)
     new_table.centroid_pos_al .= along_scan_residuals_buffer_sim

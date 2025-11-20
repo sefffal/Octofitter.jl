@@ -257,12 +257,13 @@ end
 
 
 
-# Generate new images  
-function Octofitter.generate_from_params(like::ImageLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+# Generate new images
+function Octofitter.generate_from_params(like::ImageLikelihood, ctx::Octofitter.SystemObservationContext; add_noise)
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
     # For image likelihood, we don't actually simulate new images in the standard sense
     # This function would need specific planet information to work properly
     # For now, return the original likelihood
-    @warn "generate_from_params for ImageLikelihood not fully implemented with new API"
+    @warn "generate_from_params for ImageLikelihood not fully implemented"
     return like
 end

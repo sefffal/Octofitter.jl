@@ -1595,7 +1595,8 @@ end
 
 
 # Generate new astrometry observations
-function Octofitter.generate_from_params(like::GaiaHipparcosUEVAJointObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function Octofitter.generate_from_params(like::GaiaHipparcosUEVAJointObs, ctx::SystemObservationContext; add_noise)
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
     sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3) = sim
