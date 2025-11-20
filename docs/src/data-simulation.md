@@ -63,7 +63,7 @@ rvlike = StarAbsoluteRVObs(
 planet_b = Planet(
     name="b",
     basis=AbsoluteVisual{KepOrbit},
-    likelihoods=[ObsPriorAstromONeil2019(astrom_obs)],
+    observations=[ObsPriorAstromONeil2019(astrom_obs)],
     variables=@variables begin
         a ~ LogUniform(0.1,400)
         e ~ Uniform(0,0.999)
@@ -85,7 +85,7 @@ dec = 40.42555422701387
 sys = System(
     name="HD91312_simulation",
     companions=[planet_b],
-    likelihoods=[hgca_obs, rvlike],
+    observations=[hgca_obs, rvlike],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
         M_sec ~ LogUniform(0.5, 1000)

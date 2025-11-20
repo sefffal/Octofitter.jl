@@ -68,7 +68,7 @@ Next create the simplest possible model of 2D position, plus a contrast variable
 planet_b = Planet(
     name="b",
     basis=Visual{Octofitter.FixedPosition},
-    likelihoods=[imglike],
+    observations=[imglike],
     variables=@variables begin
         sep ~ Uniform(0, 2000)
         pa ~ Uniform(0,2pi)
@@ -79,7 +79,7 @@ planet_b = Planet(
 sys = System(
     name="sys",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         plx = 24.4620
     end

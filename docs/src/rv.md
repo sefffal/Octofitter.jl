@@ -20,7 +20,7 @@ gaia_id = 5164707970261890560
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[], # No planet astrometry is included since it has not yet been directly detected
+    observations=[], # No planet astrometry is included since it has not yet been directly detected
     variables=@variables begin
         # For speed of example, we are fitting a circular orbit only.
         e = 0
@@ -68,7 +68,7 @@ In the interests of time, we use the `HGCAInstantaneousObs` approximation to spe
 sys = System(
     name="ϵEri",
     companions=[planet_b],
-    likelihoods=[hgca_obs, rvlike_hires],
+    observations=[hgca_obs, rvlike_hires],
     variables=@variables begin
         M ~ truncated(Normal(0.82, 0.02),lower=0.5, upper=1.5) # (Baines & Armstrong 2011).
         plx ~ gaia_plx(;gaia_id)

@@ -414,7 +414,7 @@ function Planet(;
     name::Union{Symbol,AbstractString},
     basis::Type,
     variables::Tuple,
-    likelihoods=()
+    observations=()
 )
     (priors,derived,additional_likelihoods...)=variables
     name = Symbol(name)
@@ -424,7 +424,7 @@ function Planet(;
     for l in additional_likelihoods
         l::AbstractLikelihood
     end
-    likes = (likelihoods..., additional_likelihoods...)
+    likes = (observations..., additional_likelihoods...)
     
     # Check for duplicate observation/likelihood names on this planet
     like_names = String[]
@@ -490,7 +490,7 @@ function System(;
     name::Union{Symbol,AbstractString},
     variables::Tuple,
     companions=(),
-    likelihoods=()
+    observations=()
 )
     (priors,derived,additional_likelihoods...)=variables
     name = Symbol(name)
@@ -503,7 +503,7 @@ function System(;
     for p in companions
         p::Planet
     end
-    likes = (likelihoods..., additional_likelihoods...)
+    likes = (observations..., additional_likelihoods...)
     
     # Check for duplicate observation/likelihood names at system level
     like_names = String[]

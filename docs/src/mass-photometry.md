@@ -39,7 +39,7 @@ J_band_data = PhotometryObs(
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[H_band_data, J_band_data],
+    observations=[H_band_data, J_band_data],
     variables=@variables begin
         a ~ Normal(16, 3)
         e ~ truncated(Normal(0.2, 0.2), lower=0, upper=0.99)
@@ -79,7 +79,7 @@ K_band_data = PhotometryObs(
 planet_b = Planet(
     name="b", 
     basis=Visual{KepOrbit},
-    likelihoods=[K_band_data],
+    observations=[K_band_data],
     variables=@variables begin
         a ~ Normal(16, 3)
         e ~ truncated(Normal(0.2, 0.2), lower=0, upper=0.99)
@@ -101,7 +101,7 @@ planet_b = Planet(
 sys = System(
     name="HD12345",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M ~ Normal(1.0, 0.1)
         plx ~ Normal(12, 0.01)

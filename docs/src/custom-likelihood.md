@@ -236,7 +236,7 @@ my_obs = MyObs(
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[my_obs],  # Include your custom observation
+    observations=[my_obs],  # Include your custom observation
     variables=@variables begin
         # Planet orbital parameters...
         a ~ Uniform(0, 100)

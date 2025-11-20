@@ -76,7 +76,7 @@ Now we define our planet model with the spike-and-slab prior on eccentricity:
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_obs],
+    observations=[astrom_obs],
     variables=@variables begin
         M = system.M
         plx = system.plx
@@ -110,7 +110,7 @@ Now we complete the system definition:
 sys = System(
     name="CircularOrEccentric",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)

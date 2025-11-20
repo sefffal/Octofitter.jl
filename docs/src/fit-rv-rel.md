@@ -63,7 +63,7 @@ Next, create a planet and system model, attaching the relative rv likelihood to 
 planet_1 = Planet(
     name="b",
     basis=RadialVelocityOrbit,
-    likelihoods=[rel_rv_obs],
+    observations=[rel_rv_obs],
     variables=@variables begin
         M ~ truncated(Normal(1.2, 0.1), lower=0.1) # total mass in solar masses
         a ~ Uniform(0,10)
@@ -80,7 +80,7 @@ planet_1 = Planet(
 sys = System(
     name = "Example-System",
     companions=[planet_1],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
     end
 )

@@ -85,7 +85,7 @@ We also add parameters for the star's long term proper motion. This is usually c
 sys = System(
     name="HD91312_pma",
     companions=[planet_b],
-    likelihoods=[hgca_obs],
+    observations=[hgca_obs],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
         M_sec ~ LogUniform(0.5, 1000) # MJup

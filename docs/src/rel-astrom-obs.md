@@ -37,7 +37,7 @@ planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
     # NOTE! We only provide the wrapped obs_pri_astrom_obs
-    likelihoods=[obs_pri_astrom_obs],
+    observations=[obs_pri_astrom_obs],
     variables=@variables begin
         M = system.M
         e ~ Uniform(0.0, 0.5)
@@ -57,7 +57,7 @@ planet_b = Planet(
 sys = System(
     name="TutoriaPrime",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
@@ -97,7 +97,7 @@ astrom_obs_uniform = PlanetRelAstromObs( # hide
 planet_b_uniform = Planet( # hide
     name="b", # hide
     basis=Visual{KepOrbit}, # hide
-    likelihoods=[astrom_obs_uniform], # hide
+    observations=[astrom_obs_uniform], # hide
     variables=@variables begin # hide
         M = system.M # hide
         a ~ Uniform(0, 100) # hide
@@ -115,7 +115,7 @@ planet_b_uniform = Planet( # hide
 sys_uniform = System( # hide
     name="Tutoria", # hide
     companions=[planet_b_uniform], # hide
-    likelihoods=[], # hide
+    observations=[], # hide
     variables=@variables begin # hide
         M ~ truncated(Normal(1.2, 0.1), lower=0.1) # hide
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1) # hide

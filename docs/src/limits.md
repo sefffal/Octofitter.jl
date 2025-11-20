@@ -39,7 +39,7 @@ We start by defining and sampling from a model that only includes proper motion 
 B = Planet(
     name="B",
     basis=Visual{KepOrbit},
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         a ~ LogUniform(1, 65)
         e ~ Uniform(0,0.9)
@@ -54,7 +54,7 @@ B = Planet(
 HD91312_pma = System(
     name="HD91312_pma",
     companions=[B],
-    likelihoods=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
+    observations=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
     variables=@variables begin
         M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
         M_sec ~ LogUniform(0.2, 65) # MJup
@@ -137,7 +137,7 @@ image_data = ImageObs(
 B = Planet(
     name="B",
     basis=Visual{KepOrbit},
-    likelihoods=[image_data],
+    observations=[image_data],
     variables=@variables begin
         a ~ LogUniform(1, 65)
         e ~ Uniform(0,0.9)
@@ -171,7 +171,7 @@ B = Planet(
 HD91312_img = System(
     name="HD91312_img",
     companions=[B],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         # age ~ truncated(Normal(40, 15),lower=0, upper=200)
         age = 10
@@ -232,7 +232,7 @@ pairplot(
 B = Planet(
     name="B",
     basis=Visual{KepOrbit},
-    likelihoods=[image_data],
+    observations=[image_data],
     variables=@variables begin
         a ~ LogUniform(1, 65)
         e ~ Uniform(0,0.9)
@@ -268,7 +268,7 @@ B = Planet(
 HD91312_both = System(
     name="HD91312_both",
     companions=[B],
-    likelihoods=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
+    observations=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
     variables=@variables begin
         # age ~ truncated(Normal(40, 15),lower=0, upper=200)
         age = 10

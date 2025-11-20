@@ -314,7 +314,7 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
         newplanet = Planet(
             variables=(planet.priors, planet.derived),
             basis=Octofitter.orbittype(planet),
-            likelihoods=newplanet_obs,
+            observations=newplanet_obs,
             name=planet.name
         )
         return newplanet
@@ -346,7 +346,7 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
     # Generate new system
     newsystem = System(
         variables=(system.priors, system.derived),
-        likelihoods=newstar_obs,
+        observations=newstar_obs,
         companions=newplanets,
         name=system.name
     )

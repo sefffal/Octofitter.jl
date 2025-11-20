@@ -35,7 +35,7 @@ astrom_obs = PlanetRelAstromObs(
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_obs],
+    observations=[astrom_obs],
     variables=@variables begin
         M = system.M
         a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
@@ -52,7 +52,7 @@ planet_b = Planet(
 SBC = System(
     name="SBC",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)

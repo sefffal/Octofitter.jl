@@ -94,7 +94,7 @@ We now create a planet model incorporating our likelihoods and specify our prior
 planet_1 = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_obs_1, astrom_obs_2],
+    observations=[astrom_obs_1, astrom_obs_2],
     variables=@variables begin
         plx = system.plx
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
@@ -152,7 +152,7 @@ Now, we add our planets to a "system". Properties of the whole system are specif
 sys = System(
     name = "Tutoria",
     companions=[planet_1],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
     end

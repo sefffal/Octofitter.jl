@@ -99,7 +99,7 @@ Now specify the planet:
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[image_obs],
+    observations=[image_obs],
     variables=@variables begin
         a ~ truncated(Normal(13, 4), lower=0.1, upper=100)
         e ~ Uniform(0.0, 0.5)
@@ -122,7 +122,7 @@ Finally, create the system and pass in the planet.
 sys = System(
     name="HD82134",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M ~ truncated(Normal(2.0, 0.1),lower=0.1)
         plx ~ truncated(Normal(45., 0.02),lower=0.1)

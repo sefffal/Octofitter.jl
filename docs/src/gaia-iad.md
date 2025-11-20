@@ -87,7 +87,7 @@ orbit_ref_epoch = mean(gaiaIADlike.table.epoch)
 b = Planet(
     name="BH",
     basis=AbsoluteVisual{KepOrbit},
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         a ~ Uniform(0, 1000)
         e ~ Uniform(0, 0.99)
@@ -106,7 +106,7 @@ ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 sys = System(
     name="gaiadr4test",
     companions=[b],
-    likelihoods=[gaiaIADlike, rvlike,],
+    observations=[gaiaIADlike, rvlike,],
     variables=@variables begin
         M_pri ~ truncated(Normal(0.76,0.05),lower=0.1) # M sun
         M_sec ~ LogUniform(1, 1000) # M sun

@@ -68,7 +68,7 @@ For this example, we won't consider a full orbit. We will just sample from 2D se
 planet_b = Planet(
     name="b",
     basis=Visual{Octofitter.FixedPosition},
-    likelihoods=[vis_obs],
+    observations=[vis_obs],
     variables=@variables begin
         sep ~ Uniform(0, 10) # mas
         pa ~ Uniform(0,2pi)
@@ -78,7 +78,7 @@ planet_b = Planet(
 sys = System(
     name="sys",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M ~ Normal(1.0, 0.1) # Add mass for orbit models
         plx = 173.5740
@@ -177,7 +177,7 @@ This single-epoch model can then be extended by replacing the `FixedPosition` pa
 planet_b_orbit = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[vis_obs],
+    observations=[vis_obs],
     variables=@variables begin
         M = system.M
         a ~ Uniform(0, 0.1)

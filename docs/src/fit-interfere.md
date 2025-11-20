@@ -84,7 +84,7 @@ fig
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M = system.M
         a ~ truncated(Normal(2,0.1), lower=0.1)
@@ -101,7 +101,7 @@ planet_b = Planet(
 sys = System(
     name="Tutoria",
     companions=[planet_b],
-    likelihoods=[vis_obs],
+    observations=[vis_obs],
     variables=@variables begin
         M ~ truncated(Normal(1.5, 0.01), lower=0.1)
         plx ~ truncated(Normal(100., 0.1), lower=0.1)

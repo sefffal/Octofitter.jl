@@ -67,7 +67,7 @@ using PairPlots, CairoMakie
         planet = Planet(
             name="b",
             basis=Visual{KepOrbit},
-            likelihoods=[astrom],
+            observations=[astrom],
             variables=@variables begin
                 a ~ Uniform(0,1)
                 e ~ Beta(1,2)
@@ -82,7 +82,7 @@ using PairPlots, CairoMakie
         planet = Planet(
             name="b",
             basis=Visual{KepOrbit},
-            likelihoods=[astrom],
+            observations=[astrom],
             variables=@variables begin
                 a ~ Uniform(0,1)
                 e ~ Beta(1,2)
@@ -120,7 +120,7 @@ using PairPlots, CairoMakie
         b = Planet(
             name="b",
             basis=Visual{KepOrbit},
-            likelihoods=[],
+            observations=[],
             variables=@variables begin
                 a ~ truncated(Normal(10, 4), lower=0.1)
                 e ~ Uniform(0.0, 0.5)
@@ -135,7 +135,7 @@ using PairPlots, CairoMakie
         SimpleSystem = System(
             name="SimpleSystem",
             companions=[b],
-            likelihoods=[],
+            observations=[],
             variables=@variables begin
                 M ~ truncated(Normal(1.2, 0.1), lower=0.1)
                 plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
@@ -155,7 +155,7 @@ using PairPlots, CairoMakie
         b = Planet(
             name="b",
             basis=ThieleInnesOrbit,
-            likelihoods=[],
+            observations=[],
             variables=@variables begin
                 e ~ Uniform(0.0, 0.5)
                 A ~ Normal(0, 10000)
@@ -170,7 +170,7 @@ using PairPlots, CairoMakie
         TISystem = System(
             name="TISystem",
             companions=[b],
-            likelihoods=[],
+            observations=[],
             variables=@variables begin
                 M ~ truncated(Normal(1.2, 0.1), lower=0.1)
                 plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
@@ -192,7 +192,7 @@ using PairPlots, CairoMakie
         b = Planet(
             name="b",
             basis=Visual{Octofitter.FixedPosition},
-            likelihoods=[],
+            observations=[],
             variables=@variables begin
                 x ~ Uniform(-2000, 2000)
                 y ~ Uniform(-2000, 2000)
@@ -202,7 +202,7 @@ using PairPlots, CairoMakie
         FixedSystem = System(
             name="FixedSystem",
             companions=[b],
-            likelihoods=[],
+            observations=[],
             variables=@variables begin
                 plx = 24.4620
             end
@@ -383,7 +383,7 @@ end
         @test_nowarn Planet(
             name="b",
             basis=Visual{KepOrbit},
-            likelihoods=[],
+            observations=[],
             variables=@variables begin
                 a ~ truncated(Normal(10, 2), lower=0.1)
                 e ~ Beta(1, 2)  # Naturally bounded [0,1]
@@ -398,7 +398,7 @@ end
         @test_nowarn Planet(
             name="b",
             basis=Visual{KepOrbit},
-            likelihoods=[],
+            observations=[],
             variables=@variables begin
                 a ~ LogUniform(0.1, 100)
                 e ~ Uniform(0, 0.99)
@@ -435,7 +435,7 @@ end
             @test_nowarn Planet(
                 name="b",
                 basis=Visual{KepOrbit},
-                likelihoods=[],
+                observations=[],
                 variables=@variables begin
                     a ~ LogUniform(0.1, 100)
                     e ~ Uniform(0, 0.99)
@@ -465,7 +465,7 @@ end
         @test_nowarn Planet(
             name="b",
             basis=Visual{KepOrbit},
-            likelihoods=[astrom_data, obs_prior],
+            observations=[astrom_data, obs_prior],
             variables=@variables begin
                 e ~ Uniform(0.0, 0.5)
                 i ~ Sine()
@@ -500,7 +500,7 @@ end
         @test_nowarn Planet(
             name="b",
             basis=Visual{KepOrbit},
-            likelihoods=[],
+            observations=[],
             variables=@variables begin
                 a ~ kde  # Use KDE as prior
                 e ~ Uniform(0, 0.99)
@@ -525,7 +525,7 @@ end
         b = Planet(
             name="b",
             basis=Visual{KepOrbit},
-            likelihoods=[astrom_data],
+            observations=[astrom_data],
             variables=@variables begin
                 a ~ LogUniform(0.1, 100)
                 e ~ Uniform(0, 0.99)
@@ -540,7 +540,7 @@ end
         TestSystem = System(
             name="TestSystem",
             companions=[b],
-            likelihoods=[],
+            observations=[],
             variables=@variables begin
                 M ~ truncated(Normal(1.2, 0.1), lower=0.1)
                 plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
@@ -600,7 +600,7 @@ end
     b = Planet(
         name="b",
         basis=Visual{KepOrbit},
-        likelihoods=[],
+        observations=[],
         variables=@variables begin
             a ~ LogUniform(0.1, 100)
             e ~ Uniform(0, 0.99)
@@ -615,7 +615,7 @@ end
     TestSystem = System(
         name="TestSystem",
         companions=[b],
-        likelihoods=[],
+        observations=[],
         variables=@variables begin
             M ~ truncated(Normal(1.2, 0.1), lower=0.1)
             plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
@@ -711,7 +711,7 @@ end
     b = Planet(
         name="b",
         basis=Visual{KepOrbit},
-        likelihoods=[astrom_like],
+        observations=[astrom_like],
         variables=@variables begin
             a ~ LogUniform(0.1, 100)
             e ~ Uniform(0, 0.99)
@@ -728,7 +728,7 @@ end
     TestSystem = System(
         name="TestSystem",
         companions=[b],
-        likelihoods=[hgca],
+        observations=[hgca],
         variables=@variables begin
             M ~ truncated(Normal(1.2, 0.1), lower=0.1)
             plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
@@ -875,7 +875,7 @@ end
     b = Planet(
         name="b",
         basis=Visual{KepOrbit},
-        likelihoods=[astrom_b],
+        observations=[astrom_b],
         variables=@variables begin
             a ~ LogUniform(0.1, 10)
             e ~ Uniform(0, 0.5)
@@ -892,7 +892,7 @@ end
     c = Planet(
         name="c",
         basis=Visual{KepOrbit},
-        likelihoods=[astrom_c],
+        observations=[astrom_c],
         variables=@variables begin
             a ~ LogUniform(0.1, 10)
             e ~ Uniform(0, 0.5)
@@ -909,7 +909,7 @@ end
     TwoPlanetSystem = System(
         name="TwoPlanetSystem",
         companions=[b, c],
-        likelihoods=[],
+        observations=[],
         variables=@variables begin
             M ~ truncated(Normal(1.2, 0.1), lower=0.1)
             plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
@@ -944,7 +944,7 @@ end
     b_astrom = Planet(
         name="b",
         basis=Visual{KepOrbit},
-        likelihoods=[astrom],
+        observations=[astrom],
         variables=@variables begin
             a ~ LogUniform(0.1, 10)
             e ~ Uniform(0, 0.5)
@@ -960,7 +960,7 @@ end
     AstromSystem = System(
         name="AstromSystem",
         companions=[b_astrom],
-        likelihoods=[],
+        observations=[],
         variables=@variables begin
             M ~ truncated(Normal(1.2, 0.1), lower=0.1)
             plx ~ gaia_plx(;gaia_id=756291174721509376)
@@ -974,7 +974,7 @@ end
     b_joint = Planet(
         name="b",
         basis=Visual{KepOrbit},
-        likelihoods=[astrom],
+        observations=[astrom],
         variables=@variables begin
             a ~ LogUniform(0.1, 10)
             e ~ Uniform(0, 0.5)
@@ -990,7 +990,7 @@ end
     JointSystem = System(
         name="JointSystem",
         companions=[b_joint],
-        likelihoods=[hgca],
+        observations=[hgca],
         variables=@variables begin
             M ~ truncated(Normal(1.2, 0.1), lower=0.1)
             plx ~ gaia_plx(;gaia_id=756291174721509376)
@@ -1039,7 +1039,7 @@ end
     b = Planet(
         name="b",
         basis=Visual{KepOrbit},
-        likelihoods=[astrom1, astrom2],
+        observations=[astrom1, astrom2],
         variables=@variables begin
             a  = 1.0
             e  = 0.0
@@ -1053,7 +1053,7 @@ end
     Sys = System(
         name="Sys",
         companions=[b],
-        likelihoods=[],
+        observations=[],
         variables=@variables begin
             M ~ truncated(Normal(1.2, 0.1), lower=0.1)
             plx = 100.

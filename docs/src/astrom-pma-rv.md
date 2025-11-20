@@ -85,7 +85,7 @@ We also add parameters for the star's long term proper motion. This is usually c
 sys = System(
     name="HD91312_pma",
     companions=[planet_b],
-    likelihoods=[hgca_obs],
+    observations=[hgca_obs],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
         M_sec ~ LogUniform(0.5, 1000) # MJup
@@ -192,7 +192,7 @@ rvlike = PlanetRelativeRVObs(
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[ObsPriorAstromONeil2019(astrom_obs)],
+    observations=[ObsPriorAstromONeil2019(astrom_obs)],
     variables=@variables begin
         a ~ LogUniform(0.1,400)
         e ~ Uniform(0,0.999)
@@ -213,7 +213,7 @@ planet_b = Planet(
 sys_astrom = System(
     name="HD91312_pma_astrom",
     companions=[planet_b],
-    likelihoods=[hgca_obs],
+    observations=[hgca_obs],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
         M_sec ~ LogUniform(0.5, 1000) # MJup
@@ -262,7 +262,7 @@ rvlike = StarAbsoluteRVObs(
 planet_b_rv = Planet(
     name="b",
     basis=AbsoluteVisual{KepOrbit},
-    likelihoods=[ObsPriorAstromONeil2019(astrom_obs)],
+    observations=[ObsPriorAstromONeil2019(astrom_obs)],
     variables=@variables begin
         a ~ LogUniform(0.1,400)
         e ~ Uniform(0,0.999)
@@ -287,7 +287,7 @@ dec = 40.42555422701387
 sys_rv_astrom = System(
     name="HD91312_pma_rv_astrom",
     companions=[planet_b_rv],
-    likelihoods=[hgca_obs, rvlike],
+    observations=[hgca_obs, rvlike],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
         M_sec ~ LogUniform(0.5, 1000) # MJup
@@ -342,7 +342,7 @@ using OctofitterRadialVelocity
 planet_b_final = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[ObsPriorAstromONeil2019(astrom_obs)],
+    observations=[ObsPriorAstromONeil2019(astrom_obs)],
     variables=@variables begin
         a ~ LogUniform(0.1,400)
         e ~ Uniform(0,0.999)
@@ -361,7 +361,7 @@ planet_b_final = Planet(
 sys_final = System(
     name="HD91312_rv_astrom",
     companions=[planet_b_final],
-    likelihoods=[rvlike],
+    observations=[rvlike],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
         M_sec ~ LogUniform(0.5, 1000) # MJup
