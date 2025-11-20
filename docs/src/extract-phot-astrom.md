@@ -44,7 +44,7 @@ Note that to accurately extract astrometry and photometry, the input image shoul
 First, we create a table of our image data that will be attached to the `Planet`:
 
 ```@example 1
-imglike = ImageLikelihood(
+imglike = ImageObs(
     Table(
         image=[AstroImages.recenter(image)],
         platescale=[9.971],
@@ -63,12 +63,12 @@ imglike = ImageLikelihood(
 ```
 Note that you can also supply a contrast curve or map directly. If not provided, a simple contrast curve will be calculated directly from the data.
 
-Next create the simplest possible model of 2D position, plus a contrast variable matching the band name used in the `ImageLikelihood` above:
+Next create the simplest possible model of 2D position, plus a contrast variable matching the band name used in the `ImageObs` above:
 ```@example 1
 planet_b = Planet(
     name="b",
     basis=Visual{Octofitter.FixedPosition},
-    likelihoods=[imglike],
+    observations=[imglike],
     variables=@variables begin
         sep ~ Uniform(0, 2000)
         pa ~ Uniform(0,2pi)
@@ -79,7 +79,7 @@ planet_b = Planet(
 sys = System(
     name="sys",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         plx = 24.4620
     end

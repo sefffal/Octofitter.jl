@@ -31,7 +31,7 @@ orb_template = orbit(
 # Makie.lines(orb_template)
 
 
-rvlike = StarAbsoluteRVLikelihood(
+rvlike = StarAbsoluteRVObs(
     Table(
         epoch=epochs,
         rv=radvel.(orb_template, epochs, planet_sim_mass),

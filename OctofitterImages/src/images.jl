@@ -2,7 +2,7 @@
 const images_cols = (:image, :epoch, :platescale,)
 
 """
-    ImageLikelihood(
+    ImageObs(
         table,
         name="images",
         variables=@variables begin
@@ -20,7 +20,7 @@ image_dat = Table(;
     platescale = [19.4, 19.4]
 )
 
-ImageLikelihood(
+ImageObs(
     image_dat,
     name="SPHERE",
     variables=@variables begin
@@ -35,12 +35,12 @@ Or, simply leave it out and it will be calculated for you.
 Epoch is in MJD.
 Platescale is in mas/px.
 """
-struct ImageLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
+struct ImageObs{TTable<:Table} <: Octofitter.AbstractObs
     table::TTable
     priors::Octofitter.Priors
     derived::Octofitter.Derived
     name::String
-    function ImageLikelihood(
+    function ImageObs(
         table;
         name::String="images",
         variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin end)
@@ -71,12 +71,16 @@ struct ImageLikelihood{TTable<:Table} <: Octofitter.AbstractLikelihood
     end
 end
 # Legacy constructor for backward compatibility
-ImageLikelihood(observations::NamedTuple...; kwargs...) = ImageLikelihood(Table(observations...); kwargs...)
-export ImageLikelihood
+ImageObs(observations::NamedTuple...; kwargs...) = ImageObs(Table(observations...); kwargs...)
+
+# Backwards compatibility alias
+const ImageLikelihood = ImageObs
+
+export ImageObs, ImageLikelihood
 
 
-function Octofitter.likeobj_from_epoch_subset(obs::ImageLikelihood, obs_inds)
-    return ImageLikelihood(obs.table[obs_inds,:,1]...)
+function Octofitter.likeobj_from_epoch_subset(obs::ImageObs, obs_inds)
+    return ImageObs(obs.table[obs_inds,:,1]...)
 end
 
 
@@ -147,7 +151,8 @@ end
 """
 Likelihood of there being planets in a sequence of images.
 """
-function Octofitter.ln_like(images::ImageLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function Octofitter.ln_like(images::ImageObs, ctx::Octofitter.PlanetObservationContext)
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
     
     # Resolve the combination of system and planet parameters
     # as a Visual{KepOrbit} object. This pre-computes

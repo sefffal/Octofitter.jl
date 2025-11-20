@@ -1,6 +1,7 @@
 module OctofitterRadialVelocity
 
 using Octofitter
+using Octofitter: SystemObservationContext, PlanetObservationContext
 using PlanetOrbits
 using Tables, TypedTables
 using Distributions

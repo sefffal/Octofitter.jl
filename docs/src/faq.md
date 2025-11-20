@@ -59,7 +59,7 @@ You can share instrument parameters such as linear our quadratic terms between i
 
 ```
 # Instrument 1 likelihood
-rvlike_apf = StarAbsoluteRVLikelihood(
+rvlike_apf = StarAbsoluteRVObs(
     rv_dat_apf,
     name="APF",
 
@@ -73,7 +73,7 @@ rvlike_apf = StarAbsoluteRVLikelihood(
     end
 )
 # Instrument 2 likelihood
-rvlike_hires = StarAbsoluteRVLikelihood(
+rvlike_hires = StarAbsoluteRVObs(
     rv_dat_hires,
     name="HIRES",
     
@@ -89,7 +89,7 @@ rvlike_hires = StarAbsoluteRVLikelihood(
 sys = System(
     name = "Star1",
     companions=[planet_1],
-    likelihoods=[rvlike_apf, rvlike_hires],
+    observations=[rvlike_apf, rvlike_hires],
     variables=@variables begin
         M ~ truncated(Normal(1.5, 0.06),lower=0.1, upper=10)
 

@@ -16,16 +16,17 @@ This includes along-scan astrometric measurements from Gaia.
 The `astrometric_jitter` variable should be defined in the variables block
 to account for systematic astrometric uncertainties.
 """
-struct GaiaDR4Astrom{TTable<:Table,TSol<:NamedTuple} <: Octofitter.AbstractLikelihood
+struct GaiaDR4AstromObs{TTable<:Table,TSol<:NamedTuple} <: Octofitter.AbstractObs
     table::TTable
     gaia_sol::TSol
     priors::Octofitter.Priors
     derived::Octofitter.Derived
     name::String
 end
-export GaiaDR4Astrom
+const GaiaDR4Astrom = GaiaDR4AstromObs
+export GaiaDR4AstromObs, GaiaDR4Astrom
 
-function GaiaDR4Astrom(
+function GaiaDR4AstromObs(
     observations_table;
     gaia_id,
     variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin end),
@@ -34,10 +35,10 @@ function GaiaDR4Astrom(
     (priors, derived) = variables
     table = Table(observations_table)
     gaia_sol = Octofitter._query_gaia_dr3(; gaia_id=gaia_id)
-    return GaiaDR4Astrom{typeof(table),typeof(gaia_sol)}(table, gaia_sol, priors, derived, name)
+    return GaiaDR4AstromObs{typeof(table),typeof(gaia_sol)}(table, gaia_sol, priors, derived, name)
 end
-function Octofitter.likeobj_from_epoch_subset(obs::GaiaDR4Astrom, obs_inds)
-    return GaiaDR4Astrom(
+function Octofitter.likeobj_from_epoch_subset(obs::GaiaDR4AstromObs, obs_inds)
+    return GaiaDR4AstromObs(
         obs.table[obs_inds,:,1]...,
         gaia_id=obs.gaia_sol.source_id,
         variables=(obs.priors, obs.derived),
@@ -47,13 +48,10 @@ function Octofitter.likeobj_from_epoch_subset(obs::GaiaDR4Astrom, obs_inds)
 end
 #  likelihood function
 function Octofitter.ln_like(
-    likeobj::GaiaDR4Astrom,
-    θ_system,
-    θ_obs,
-    orbits,
-    orbit_solutions,
-    orbit_solutions_i_epoch_start
+    likeobj::GaiaDR4AstromObs,
+    ctx::SystemObservationContext
 )
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
@@ -95,7 +93,7 @@ function Octofitter.ln_like(
 end
 
 function Octofitter.simulate(
-    likeobj::GaiaDR4Astrom,
+    likeobj::GaiaDR4AstromObs,
     θ_system,
     θ_obs,
     orbits,
@@ -172,13 +170,13 @@ end
 
 
 # Generate new astrometry observations
-function Octofitter.generate_from_params(like::GaiaDR4Astrom, θ_system, θ_obs, orbits, solutions, sol_start_i)
+function Octofitter.generate_from_params(like::GaiaDR4AstromObs, θ_system, θ_obs, orbits, solutions, sol_start_i)
     along_scan_residuals_buffer_sim = simulate(like, θ_system, θ_obs, orbits, solutions, sol_start_i)
 
     new_table = deepcopy(like.table)
     new_table.centroid_pos_al .= along_scan_residuals_buffer_sim
 
-    return GaiaDR4Astrom(
+    return GaiaDR4AstromObs(
         new_table,
         gaia_id=like.gaia_sol.source_id,
         variables=(like.priors, like.derived),

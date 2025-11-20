@@ -71,28 +71,32 @@ function make_ln_like(system::System, θ_system)
                 expr = :(
                     $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
                         system.planets[$(Meta.quot(i))].observations[$i_like],
-                        θ_system,
-                        θ_system.planets[$i],
-                        hasproperty(θ_system.planets[$i].observations, $(Meta.quot(obs_name))) ? 
-                            θ_system.planets[$i].observations.$obs_name :
-                            (;),
-                        elems,
-                        ($solutions_list), # all orbit solutions
-                        $i, # This planet index into orbit solutions
-                        $(i_epoch_start-1) # start epoch index
+                        PlanetObservationContext(
+                            θ_system,
+                            θ_system.planets[$i],
+                            hasproperty(θ_system.planets[$i].observations, $(Meta.quot(obs_name))) ?
+                                θ_system.planets[$i].observations.$obs_name :
+                                (;),
+                            elems,
+                            ($solutions_list), # all orbit solutions
+                            $i, # This planet index into orbit solutions
+                            $(i_epoch_start-1) # start epoch index
+                        )
                     );
                 )
             else
                 expr = :(
                     $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
                         system.planets[$(Meta.quot(i))].observations[$i_like],
-                        θ_system,
-                        θ_system.planets[$i],
-                        (;),  # θ_obs
-                        elems,
-                        ($solutions_list), # all orbit solutions
-                        $i, # This planet index into orbit solutions
-                        $(i_epoch_start-1) # start epoch index
+                        PlanetObservationContext(
+                            θ_system,
+                            θ_system.planets[$i],
+                            (;),  # θ_obs
+                            elems,
+                            ($solutions_list), # all orbit solutions
+                            $i, # This planet index into orbit solutions
+                            $(i_epoch_start-1) # start epoch index
+                        )
                     );
                 )
             end
@@ -144,14 +148,16 @@ function make_ln_like(system::System, θ_system)
         obs_name = normalizename(likelihoodname(like))
         expr = :(
             $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
-                system.observations[$i], 
-                θ_system, 
-                hasproperty(θ_system.observations, $(Meta.quot(obs_name))) ? 
-                    θ_system.observations.$obs_name :
-                    (;),
-                elems,
-                ($solutions_list),
-                $(i_epoch_start-1)
+                system.observations[$i],
+                SystemObservationContext(
+                    θ_system,
+                    hasproperty(θ_system.observations, $(Meta.quot(obs_name))) ?
+                        θ_system.observations.$obs_name :
+                        (;),
+                    elems,
+                    ($solutions_list),
+                    $(i_epoch_start-1)
+                )
             );
             # if !isfinite($(Symbol("ll$(j+1)")))
             #     println("invalid likelihood value encountered")
@@ -284,30 +290,31 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
         newplanet_obs = map(planet.observations) do obs
             # Get the observation-specific variables if they exist
             obs_name = normalizename(likelihoodname(obs))
-            θ_obs = hasproperty(θ_newplanet.observations, obs_name) ? 
-                    getproperty(θ_newplanet.observations, obs_name) : 
+            θ_obs = hasproperty(θ_newplanet.observations, obs_name) ?
+                    getproperty(θ_newplanet.observations, obs_name) :
                     (;)
-            
+
             i_epoch_start = get(epoch_start_index_mapping, obs, 0)
-            
-            # Call with the same signature as ln_like for planet observations
-            return generate_from_params(
-                obs, 
+
+            # Construct context object
+            ctx = PlanetObservationContext(
                 θ_newsystem,
-                θ_newplanet, 
-                θ_obs, 
+                θ_newplanet,
+                θ_obs,
                 orbits,
                 orbit_solutions,
                 i,  # planet index
-                i_epoch_start - 1;  # start epoch index (0-based)
-                add_noise
+                i_epoch_start - 1  # start epoch index (0-based)
             )
+
+            # Call with context
+            return generate_from_params(obs, ctx; add_noise)
         end
         
         newplanet = Planet(
             variables=(planet.priors, planet.derived),
             basis=Octofitter.orbittype(planet),
-            likelihoods=newplanet_obs,
+            observations=newplanet_obs,
             name=planet.name
         )
         return newplanet
@@ -317,28 +324,29 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
     newstar_obs = map(system.observations) do obs
         # Get the observation-specific variables if they exist
         obs_name = normalizename(likelihoodname(obs))
-        θ_obs = hasproperty(θ_newsystem.observations, obs_name) ? 
-                getproperty(θ_newsystem.observations, obs_name) : 
+        θ_obs = hasproperty(θ_newsystem.observations, obs_name) ?
+                getproperty(θ_newsystem.observations, obs_name) :
                 (;)
-        
+
         i_epoch_start = get(epoch_start_index_mapping, obs, 0)
-        
-        # Call with the same signature as ln_like for system observations
-        return generate_from_params(
-            obs,
+
+        # Construct context object
+        ctx = SystemObservationContext(
             θ_newsystem,
             θ_obs,
             orbits,
             orbit_solutions,
-            i_epoch_start - 1;  # start epoch index (0-based)
-            add_noise
+            i_epoch_start - 1  # start epoch index (0-based)
         )
+
+        # Call with context
+        return generate_from_params(obs, ctx; add_noise)
     end
 
     # Generate new system
     newsystem = System(
         variables=(system.priors, system.derived),
-        likelihoods=newstar_obs,
+        observations=newstar_obs,
         companions=newplanets,
         name=system.name
     )

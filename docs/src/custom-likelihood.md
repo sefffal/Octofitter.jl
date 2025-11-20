@@ -1,4 +1,4 @@
-# Adding a Custom Likelihood Function
+# Adding a Custom Observation Type
 
 It's fairly straightforward to add support for a new kind of observation to Octofitter.jl
 You can also follow the same workflow if you want to handle an existing kind of observation in a new way—say, tweaking a calculation, or using Gaussian processes to better model noise in radial velocity data.
@@ -8,9 +8,9 @@ and can be used as examples.
 
 Note that these examples won't run if you copy and paste them, you'll need to modify them to suite your purposes.
 
-## Creating a Likelihood type
+## Creating an Observation type
 
-The first step is to create a new data type to hold the observations. 
+The first step is to create a new data type to hold the observations.
 
 ```julia
 """
@@ -18,7 +18,7 @@ The first step is to create a new data type to hold the observations.
         (epoch=50000, my_measurement=1.2, σ_measurement=0.1),
         (epoch=50100, my_measurement=1.5, σ_measurement=0.1),
     )
-    MyLikelihood(
+    MyObs(
         data,
         name="MY_INSTRUMENT",
         variables=@variables begin
@@ -26,16 +26,16 @@ The first step is to create a new data type to hold the observations.
         end
     )
 
-A custom likelihood for my specific type of observations.
+A custom observation type for my specific type of data.
 """
-struct MyLikelihood{TTable<:Table} <: AbstractLikelihood
+struct MyObs{TTable<:Table} <: AbstractObs
     table::TTable
     name::String
     priors::Priors
     derived::Derived
-    function MyLikelihood(
+    function MyObs(
             observations;
-            name="MY_LIKELIHOOD",
+            name="MY_OBS",
             variables::Tuple{Priors,Derived}=(@variables begin;end)
         )
         (priors,derived)=variables
@@ -51,10 +51,14 @@ struct MyLikelihood{TTable<:Table} <: AbstractLikelihood
         return new{typeof(table)}(table, name, priors, derived)
     end
 end
-export MyLikelihood
+
+# Backwards compatibility alias (optional but recommended)
+const MyLikelihood = MyObs
+
+export MyObs, MyLikelihood
 ```
 
-Here we create a struct `MyLikelihood` that is a subtype of `AbstractLikelihood`. The new API includes:
+Here we create a struct `MyObs` that is a subtype of `AbstractObs` (previously called `AbstractLikelihood`). The observation type includes:
 
 - **`table`**: The observational data as a TypedTables.Table
 - **`name`**: Used for variable naming in MCMC chains
@@ -64,108 +68,115 @@ Try to follow the advice in the Julia Manual's performance tips section to ensur
 
 ## Create likelihood functions
 
-Now, create a method that extends `Octofitter.ln_like` for your custom observation type. 
+Now, create a method that extends `Octofitter.ln_obs` for your custom observation type.
 
-If the likelihood function is specific to a planet (like astrometry, where the data is attached to a planet instead of the system) then the method signature should look like:
+If the observations are specific to a planet (like astrometry, where the data is attached to a planet instead of the system) then the method signature should use `PlanetObservationContext`:
 
 ```julia
-# MyLikelihood: attached to a planet
-function Octofitter.ln_like(like::MyLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+# MyObs: attached to a planet
+function Octofitter.ln_obs(obs::MyObs, ctx::PlanetObservationContext)
+    # Destructure the context to access parameters
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
     # Access your data from the table
-    for i_epoch in eachindex(like.table.epoch)
-        epoch = like.table.epoch[i_epoch]
-        measurement = like.table.my_measurement[i_epoch]
-        σ_measurement = like.table.σ_measurement[i_epoch]
-        
+    for i_epoch in eachindex(obs.table.epoch)
+        epoch = obs.table.epoch[i_epoch]
+        measurement = obs.table.my_measurement[i_epoch]
+        σ_measurement = obs.table.σ_measurement[i_epoch]
+
         # Access planet variables
         # θ_planet.e, θ_planet.a, etc.
-        
-        # Access observation-specific variables  
+
+        # Access observation-specific variables
         my_param = θ_obs.my_parameter
-        
+
         # Method 1: Use pre-solved orbit solutions (efficient!)
         # Get the pre-solved orbit solution for this planet at this epoch
         sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
-        
+
         # Extract position from pre-solved solution
         predicted = raoff(sol) + my_param  # example calculation using pre-solved position
-        
+
         # Method 2: Alternative - solve orbit on-the-fly (less efficient)
         # this_orbit = orbits[i_planet]
         # predicted = raoff(this_orbit, epoch) + my_param
-        
+
         # Calculate likelihood contribution
         resid = predicted - measurement
         σ² = σ_measurement^2
         χ² = -(1/2) * resid^2 / σ² - log(sqrt(2π * σ²))
         ll += χ²
     end
-    
+
     return ll
 end
 ```
 
-If the data is attached to the system as a whole, like radial velocity, the method signature should look like:
+If the observations are attached to the system as a whole (like radial velocity), the method signature should use `SystemObservationContext`:
 ```julia
-# MyLikelihood: attached to a system  
-function Octofitter.ln_like(like::MyLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+# MyObs: attached to a system
+function Octofitter.ln_obs(obs::MyObs, ctx::SystemObservationContext)
+    # Destructure the context to access parameters
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
     # Access your data from the table
-    for i_epoch in eachindex(like.table.epoch)
-        epoch = like.table.epoch[i_epoch]
-        measurement = like.table.my_measurement[i_epoch]
-        σ_measurement = like.table.σ_measurement[i_epoch]
-        
+    for i_epoch in eachindex(obs.table.epoch)
+        epoch = obs.table.epoch[i_epoch]
+        measurement = obs.table.my_measurement[i_epoch]
+        σ_measurement = obs.table.σ_measurement[i_epoch]
+
         # Access system variables
         # θ_system.M, θ_system.plx, etc.
-        
+
         # Access observation-specific variables
         my_param = θ_obs.my_parameter
-        
+
         # Method 1: Use pre-solved orbit solutions for all planets (efficient!)
         predicted = zero(T)
         for planet_i in eachindex(orbits)
             # Get pre-solved solution for this planet at this epoch
-            sol = orbit_solutions[planet_i][i_epoch + orbit_solutions_i_epoch_start[planet_i]]
-            
+            sol = orbit_solutions[planet_i][i_epoch + orbit_solutions_i_epoch_start]
+
             # Access planet-specific variables from θ_system.planets
             planet_keys = keys(θ_system.planets)
             planet_key = planet_keys[planet_i]
             θ_planet = θ_system.planets[planet_key]
-            
+
             # Example: sum radial velocity contributions from all planets
             predicted += radvel(sol) * θ_planet.mass  # example calculation
         end
         predicted += my_param  # Add observation-specific offset
-        
+
         # Method 2: Alternative - solve orbits on-the-fly (less efficient)
         # for planet_i in eachindex(orbits)
         #     orbit = orbits[planet_i]
         #     predicted += radvel(orbit, epoch) * θ_system.planets[planet_i].mass
         # end
-        
+
         # Calculate likelihood contribution
         resid = predicted - measurement
         σ² = σ_measurement^2
         χ² = -(1/2) * resid^2 / σ² - log(sqrt(2π * σ²))
         ll += χ²
     end
-    
+
     return ll
 end
 ```
 
-Inside your method, you should calculate the log-likelihood of the data stored in your likelihood object given the parameters.
+Inside your method, you should calculate the log-likelihood of the data stored in your observation object given the parameters.
 
-The new API separates parameters into three categories:
+The observation context bundles all parameters needed for evaluation:
 - **`θ_system`**: System-level parameters like `M` (total mass), `plx` (parallax)
-- **`θ_planet`**: Planet-specific parameters like `a` (semi-major axis), `e` (eccentricity) 
-- **`θ_obs`**: Observation-specific parameters defined in the likelihood's `@variables` block
+- **`θ_planet`**: Planet-specific parameters like `a` (semi-major axis), `e` (eccentricity) (only in `PlanetObservationContext`)
+- **`θ_obs`**: Observation-specific parameters defined in the observation's `@variables` block
+- **`orbits`**, **`orbit_solutions`**, **`i_planet`**, **`orbit_solutions_i_epoch_start`**: Pre-computed orbital information for performance
 
 ## Pre-solved Orbit Solutions (Performance Optimization)
 
@@ -199,9 +210,9 @@ If your likelihood requires new parameters, define them in the `variables` block
 
 If any parameter has a restricted domain where it is valid, ensure the prior is truncated using `Distributions.truncated()`. The code will automatically remap the variable using Bijectors.jl to prevent invalid values.
 
-## Using your custom likelihood
+## Using your custom observation
 
-Once you've defined your likelihood type and methods, you can use it in a model like any other likelihood:
+Once you've defined your observation type and methods, you can use it in a model like any other observation:
 
 ```julia
 # Create your data table
@@ -211,8 +222,8 @@ data = Table(
     (epoch=50200, my_measurement=1.1, σ_measurement=0.1),
 )
 
-# Create the likelihood with observation-specific variables
-my_like = MyLikelihood(
+# Create the observation with observation-specific variables
+my_obs = MyObs(
     data,
     name="MY_INSTRUMENT",
     variables=@variables begin
@@ -225,7 +236,7 @@ my_like = MyLikelihood(
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[my_like],  # Include your custom likelihood
+    observations=[my_obs],  # Include your custom observation
     variables=@variables begin
         # Planet orbital parameters...
         a ~ Uniform(0, 100)
@@ -242,33 +253,36 @@ Simply extend the `Octofitter.generate_from_params` function for your data type:
 
 ```julia
 # Generate new observations from model parameters
-function Octofitter.generate_from_params(like::MyLikelihood, orbit::PlanetOrbits.AbstractOrbit, θ_planet, θ_obs)
-    
+function Octofitter.generate_from_params(like::MyObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
+
     # Get epochs from original observations
     epochs = like.table.epoch
-    
+
     # Generate new data at those epochs based on current parameters
     # i.e. "what would we observe at epoch X if the true parameters were θ_planet and θ_obs"
     simulated_measurements = []
-    for epoch in epochs
-        # Calculate predicted measurement using orbit and parameters
-        predicted = raoff(orbit, epoch) + θ_obs.my_parameter  # example
-        
-        # Add noise based on original uncertainties
-        σ = like.table.σ_measurement[findfirst(==(epoch), like.table.epoch)]
-        noisy_measurement = predicted + σ * randn()
+    for i_epoch in eachindex(like.table.epoch)
+        # Get the pre-solved orbit solution for this planet at this epoch
+        sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
+
+        # Calculate predicted measurement using pre-solved position
+        predicted = raoff(sol) + θ_obs.my_parameter  # example
+
+        # Add noise based on original uncertainties if requested
+        σ = like.table.σ_measurement[i_epoch]
+        noisy_measurement = add_noise ? predicted + σ * randn() : predicted
         push!(simulated_measurements, noisy_measurement)
     end
-    
+
     # Create new table with simulated data
     simulated_table = Table(
         epoch=epochs,
         my_measurement=simulated_measurements,
         σ_measurement=like.table.σ_measurement  # Keep original uncertainties
     )
-    
-    # Return new likelihood object with simulated data
-    return MyLikelihood(
+
+    # Return new observation object with simulated data
+    return MyObs(
         simulated_table,
         name=like.name,
         variables=(like.priors, like.derived)
@@ -282,10 +296,10 @@ You may also need to implement:
 
 ```julia
 # For epoch subsetting (used in cross-validation)
-function Octofitter.likeobj_from_epoch_subset(obs::MyLikelihood, obs_inds)
-    return MyLikelihood(
-        obs.table[obs_inds,:,1]; 
-        name=obs.name, 
+function Octofitter.likeobj_from_epoch_subset(obs::MyObs, obs_inds)
+    return MyObs(
+        obs.table[obs_inds,:,1];
+        name=obs.name,
         variables=(obs.priors, obs.derived)
     )
 end

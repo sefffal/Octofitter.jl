@@ -6,23 +6,24 @@ using Tables, TypedTables
 
 using FITSIO, OIFITS
 
-abstract type AbstractInterferometryLikelihood <: Octofitter.AbstractLikelihood end
+abstract type AbstractInterferometryObs <: Octofitter.AbstractObs end
+const AbstractInterferometryLikelihood = AbstractInterferometryObs
 
 const required_cols = (:epoch, :u, :v, :cps_data, :dcps, :vis2_data, :dvis2, :index_cps1, :index_cps2, :index_cps3, :use_vis2)
-struct InterferometryLikelihood{TTable<:Table} <: AbstractInterferometryLikelihood
+struct InterferometryObs{TTable<:Table} <: AbstractInterferometryObs
     table::TTable
     name::String
     priors::Octofitter.Priors
     derived::Octofitter.Derived
 end
-function Octofitter.likeobj_from_epoch_subset(obs::InterferometryLikelihood, obs_inds)
-    return InterferometryLikelihood(
+function Octofitter.likeobj_from_epoch_subset(obs::InterferometryObs, obs_inds)
+    return InterferometryObs(
         obs.table[obs_inds,:,1]...,
         name=obs.name,
         variables=(obs.priors, obs.derived)
     )
 end
-function InterferometryLikelihood(
+function InterferometryObs(
     observations...;
     name,
     variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(@variables begin;end)
@@ -41,10 +42,14 @@ function InterferometryLikelihood(
         error("Expected columns $vis_cols")
     end
     (priors,derived) = variables
-    return InterferometryLikelihood{typeof(table)}(table, name, priors, derived)
+    return InterferometryObs{typeof(table)}(table, name, priors, derived)
 end
-InterferometryLikelihood(observations::NamedTuple...) = InterferometryLikelihood(observations)
-export InterferometryLikelihood
+InterferometryObs(observations::NamedTuple...) = InterferometryObs(observations)
+
+# Backwards compatibility alias
+const InterferometryLikelihood = InterferometryObs
+
+export InterferometryObs, InterferometryLikelihood, AbstractInterferometryObs, AbstractInterferometryLikelihood
 
 # Prepare closure phases etc
 function _prepare_input_row(row)
@@ -114,7 +119,8 @@ end
 """
 Visibliitiy modelling likelihood for point sources.
 """
-function Octofitter.ln_like(vis::InterferometryLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function Octofitter.ln_like(vis::InterferometryObs, ctx::Octofitter.SystemObservationContext)
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)

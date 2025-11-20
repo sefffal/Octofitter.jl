@@ -3,7 +3,7 @@ using SPICE
 using DataDeps
 using Dates
 
-struct GaiaCatalogFitLikelihood{TTable,TCat,TDist,TFact} <: AbstractLikelihood
+struct GaiaCatalogFitObs{TTable,TCat,TDist,TFact} <: AbstractObs
     # predicted observations from GOST or other scanlaw
     table::TTable
     # Source ID from each given catalog, if available
@@ -16,8 +16,13 @@ struct GaiaCatalogFitLikelihood{TTable,TCat,TDist,TFact} <: AbstractLikelihood
     A_prepared_5::TFact
 end
 
+# Backwards compatibility alias
+const GaiaCatalogFitLikelihood = GaiaCatalogFitObs
+
+export GaiaCatalogFitObs, GaiaCatalogFitLikelihood
+
 # TODO: add flux ratio var
-function _getparams(::GaiaCatalogFitLikelihood{TTable,TCat,TDist}, θ_planet) where {TTable,TCat,TDist}
+function _getparams(::GaiaCatalogFitObs{TTable,TCat,TDist}, θ_planet) where {TTable,TCat,TDist}
     # if fluxratio_var == :__dark
         return (;fluxratio=zero(Octofitter._system_number_type(θ_planet)))
     # end
@@ -25,7 +30,7 @@ function _getparams(::GaiaCatalogFitLikelihood{TTable,TCat,TDist}, θ_planet) wh
     # return (;fluxratio)
 end
 
-function GaiaCatalogFitLikelihood(;
+function GaiaCatalogFitObs(;
     gaia_id_dr2=nothing,
     gaia_id_dr3=nothing,
     scanlaw_table=nothing,
@@ -136,7 +141,7 @@ function GaiaCatalogFitLikelihood(;
     A_prepared_5 = prepare_A_5param(table, ref_epoch_ra, ref_epoch_dec)
 
 
-    return GaiaCatalogFitLikelihood(
+    return GaiaCatalogFitObs(
         table,
         source_id,
         gaia_sol,
@@ -148,12 +153,13 @@ end
 
 
 
-function ln_like(gaialike::GaiaCatalogFitLikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function ln_like(gaialike::GaiaCatalogFitObs, context::SystemObservationContext)
+    (; θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = context
     ll, _ = simulate(gaialike, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     return ll
 end
 
-function simulate(gaialike::GaiaCatalogFitLikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function simulate(gaialike::GaiaCatalogFitObs, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
     T = _system_number_type(θ_system)
 
