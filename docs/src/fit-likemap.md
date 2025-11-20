@@ -178,7 +178,7 @@ We now create a one-planet model and run the fit using `octofit_pigeons`. This p
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[loglikemap],
+    observations=[loglikemap],
     variables=@variables begin
         a ~ Uniform(0, 10)
         e ~ Uniform(0.0, 0.5)
@@ -194,7 +194,7 @@ planet_b = Planet(
 sys = System(
     name="Tutoria",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M ~ truncated(Normal(1.0, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)

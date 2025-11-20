@@ -37,7 +37,7 @@ end b
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom],
+    observations=[astrom],
     variables=@variables begin
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)  # Total mass for this orbit
         a ~ Uniform(0, 100)
@@ -53,7 +53,7 @@ planet_b = Planet(
 sys = System(
     name="HD1234",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
     end
@@ -156,7 +156,7 @@ M = system.M  # if planet needs system mass
 ## Key Differences Summary
 
 1. **Model Construction**: Replace `@planet` and `@system` macros with explicit `Planet()` and `System()` constructors
-2. **Likelihood Names**: Most likelihoods now require a `name` parameter
+2. **Observation Names**: Most observations now require a `name` parameter
 3. **Variable Scoping**: Use direct variable names in derived expressions instead of qualified access
 4. **Observation Variables**: Likelihood-specific variables are now defined in the likelihood's `@variables` block
 

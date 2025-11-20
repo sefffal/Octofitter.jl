@@ -89,7 +89,7 @@ rvlike_hires = StarAbsoluteRVLikelihood(
 sys = System(
     name = "Star1",
     companions=[planet_1],
-    likelihoods=[rvlike_apf, rvlike_hires],
+    observations=[rvlike_apf, rvlike_hires],
     variables=@variables begin
         M ~ truncated(Normal(1.5, 0.06),lower=0.1, upper=10)
 

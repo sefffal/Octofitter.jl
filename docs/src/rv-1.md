@@ -97,7 +97,7 @@ if we wanted to include these parameters and visualize the orbit in the plane of
 planet_1 = Planet(
     name="b",
     basis=RadialVelocityOrbit,
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         e = 0
         ω = 0.0
@@ -118,7 +118,7 @@ planet_1 = Planet(
 sys = System(
     name = "k2_132",
     companions=[planet_1],
-    likelihoods=[rvlike_harps, rvlike_pfs],
+    observations=[rvlike_harps, rvlike_pfs],
     variables=@variables begin
         M ~ truncated(Normal(0.82, 0.02),lower=0.1) # (Baines & Armstrong 2011).
     end

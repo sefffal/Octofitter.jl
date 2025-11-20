@@ -38,7 +38,7 @@ planet_b = Planet(
 sys = System(
     name="c_Eri_straight_line",
     companions=[planet_b],
-    likelihoods=[hip_like],
+    observations=[hip_like],
     variables=@variables begin
         M = 1.0 # Host mass not important for this example
         rv = 0.0 # system RV not significant for this example
@@ -159,7 +159,7 @@ We specify our full model:
 planet_b_mass = Planet(
     name="b",
     basis=AbsoluteVisual{KepOrbit},
-    likelihoods=[astrom_like1],
+    observations=[astrom_like1],
     variables=@variables begin
         a ~ truncated(Normal(10,1),lower=0.1)
         e ~ Uniform(0,0.99)
@@ -176,7 +176,7 @@ planet_b_mass = Planet(
 sys_mass = System(
     name="cEri",
     companions=[planet_b_mass],
-    likelihoods=[hip_like],
+    observations=[hip_like],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.75,0.05), lower=0.03) # Msol
         M_sec ~ LogUniform(0.1, 100) # MJup

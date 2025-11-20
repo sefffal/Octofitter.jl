@@ -33,7 +33,7 @@ astrom_like = PlanetRelAstromLikelihood(
 planet_b = Planet(
     name="b",
     basis=ThieleInnesOrbit,
-    likelihoods=[astrom_like],
+    observations=[astrom_like],
     variables=@variables begin
         e ~ Uniform(0.0, 0.5)
         A ~ Normal(0, 1000) # milliarcseconds
@@ -50,7 +50,7 @@ planet_b = Planet(
 sys = System(
     name="TutoriaPrime",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)

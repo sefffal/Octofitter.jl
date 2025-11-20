@@ -89,12 +89,12 @@ In Octofitter, we specify planet and system models using a "probabilistic
 programming language". Quantities with a `~` are random variables. The distributions on the right hand sides are **priors**. You must specify a 
 proper prior for any quantity which is allowed to vary. 
 
-We now create a planet model incorporating our likelihoods and specify our priors.
+We now create a planet model incorporating our observations and specify our priors.
 ```@example 1
 planet_1 = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_like_1, astrom_like_2],
+    observations=[astrom_like_1, astrom_like_2],
     variables=@variables begin
         plx = system.plx
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
@@ -114,7 +114,7 @@ nothing # hide
 
 **`basis`**: `Visual{KepOrbit}` is the type of orbit parameterization. There are several options available in the [PlanetOrbits.jl documentation](https://sefffal.github.io/PlanetOrbits.jl/dev/api/). The basis controls how how the orbit is calculated and what variables must be supplied.
 
-**`likelihoods`**: A list of zero or more likelihood objects containing our data
+**`observations`**: A list of zero or more observation objects containing our data
 
 **`variables`**: The variables block specifies our priors. You must supply every variable needed by your chosen `basis`, in this case:
 * `M`, the total mass of the system in solar masses
@@ -152,7 +152,7 @@ Now, we add our planets to a "system". Properties of the whole system are specif
 sys = System(
     name = "Tutoria",
     companions=[planet_1],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
     end

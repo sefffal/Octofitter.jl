@@ -111,7 +111,7 @@ Now specify model and fit it:
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom],
+    observations=[astrom],
     variables=@variables begin
         e ~ Uniform(0,0.999999)
         a ~ truncated(Normal(1, 1),lower=0.1)
@@ -128,7 +128,7 @@ planet_b = Planet(
 sys = System(
     name="test",
     companions=[planet_b],
-    likelihoods=[rvlike, rvlike2],
+    observations=[rvlike, rvlike2],
     variables=@variables begin
         M ~ truncated(Normal(1, 0.04),lower=0.1) # (Baines & Armstrong 2011).
         plx = 100.0

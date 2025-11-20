@@ -177,8 +177,8 @@ For performance, Octofitter pre-solves orbits at all observation epochs and pass
 
 **Key advantages of using pre-solved solutions:**
 - **Much faster**: Orbit solving is expensive, pre-solving avoids repeated calculations
-- **Shared across likelihoods**: Multiple likelihood objects can use the same pre-solved positions
-- **Consistent**: All likelihoods see the same orbital positions for the same parameters
+- **Shared across observations**: Multiple observation objects can use the same pre-solved positions
+- **Consistent**: All observations see the same orbital positions for the same parameters
 
 **Usage patterns:**
 ```julia
@@ -225,7 +225,7 @@ my_like = MyLikelihood(
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[my_like],  # Include your custom likelihood
+    observations=[my_like],  # Include your custom likelihood
     variables=@variables begin
         # Planet orbital parameters...
         a ~ Uniform(0, 100)

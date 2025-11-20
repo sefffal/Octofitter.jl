@@ -85,7 +85,7 @@ System(
         plx ~ Normal(50.0, 0.02)
     end,
     companions=[planet_b, planet_c],
-    likelihoods=[hgca_likelihood, gaia_likelihood]
+    observations=[hgca_likelihood, gaia_likelihood]
 )
 ```
 
@@ -176,7 +176,7 @@ end
 
 - **Type stability**: By unrolling everything, Julia can infer concrete types
 - **Zero runtime overhead**: All indexing and structure construction is known at compile time
-- **Named access in likelihoods**: Derived variable expressions can use descriptive names (e.g., `θ_system.distance`) rather than array indices
+- **Named access in observations**: Derived variable expressions can use descriptive names (e.g., `θ_system.distance`) rather than array indices
 
 ## 3. Bijection Mechanisms
 
@@ -328,7 +328,7 @@ function (system::System, θ_system)
         sols_planet_1 = [orbitsolve(planet_1, epoch) for epoch in epochs]
         sols_planet_2 = [orbitsolve(planet_2, epoch) for epoch in epochs]
 
-        # Evaluate planet observation likelihoods
+        # Evaluate planet observations
         ll1 = ll0 + ln_like(
             system.planets[1].observations[1],  # e.g., PlanetRelAstromLikelihood
             θ_system,                            # System parameters
@@ -340,7 +340,7 @@ function (system::System, θ_system)
             0                                    # Epoch start index
         )
 
-        # Evaluate system observation likelihoods
+        # Evaluate system observations
         ll2 = ll1 + ln_like(
             system.observations[1],              # e.g., HGCALikelihood
             θ_system,
@@ -553,7 +553,7 @@ Likelihoods implement a common interface and compose freely:
 
 ```julia
 System(
-    likelihoods=[
+    observations=[
         HGCALikelihood(...),
         GaiaDR4Likelihood(...),
         CustomLikelihood(...)

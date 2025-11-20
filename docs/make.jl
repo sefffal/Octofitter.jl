@@ -71,7 +71,7 @@ makedocs(
             "Distributed Sampling" => "parallel-sampling.md",
             "Priors" => "priors.md",
             "Derived Variables" => "derived.md",
-            "Custom Likelihoods" => "custom-likelihood.md",
+            "Custom Observations" => "custom-likelihood.md",
             "Kepler Solver" => "kepler.md",
             "Orbitize! Compatibility" => "compat-orbitize.md",
             "Full API Documentation" => "api.md"

@@ -170,27 +170,27 @@ macro variables(variables_block_input)
         local captured_names = $captured_names_tuple
         priors_out = []
         derived_out = []
-        likelihoods_out = AbstractLikelihood[]
+        observations_out = AbstractLikelihood[]
         priors_evaled = [$(priors...)]
         for (varname, prior) in zip($priors_varnames, priors_evaled)
             out = expandparam(varname, prior)
             append!(priors_out, out.priors)
             append!(derived_out, out.derived)
-            append!(likelihoods_out, out.likelihoods)
+            append!(observations_out, out.observations)
         end
-        
+
         # Add derived_vars to derived_out - THIS IS THE FIX
         for (k, v) in $derived_dict_expr
             push!(derived_out, k => v)
         end
-        
+
         # Add user likelihoods
         user_likes = [$(user_likelihoods...)]
-        append!(likelihoods_out, user_likes)
-        
-        if isempty(likelihoods_out)
+        append!(observations_out, user_likes)
+
+        if isempty(observations_out)
             (
-                Priors(;[l=>r for (l,r) in priors_out]...), 
+                Priors(;[l=>r for (l,r) in priors_out]...),
                 Derived(
                     OrderedDict{Symbol,Any}([l=>r for (l,r) in derived_out]),
                     captured_names,
@@ -199,13 +199,13 @@ macro variables(variables_block_input)
             )
         else
             (
-                Priors(;[l=>r for (l,r) in priors_out]...), 
+                Priors(;[l=>r for (l,r) in priors_out]...),
                 Derived(
                     OrderedDict{Symbol,Any}([l=>r for (l,r) in derived_out]),
                     captured_names,
                     captured_vals
                 ),
-                likelihoods_out...
+                observations_out...
             )
         end
     end
@@ -317,11 +317,11 @@ end
 function _vcat_two_variables(vars1::Tuple, vars2::Tuple)
     priors1 = vars1[1]
     derived1 = vars1[2]
-    likelihoods1 = length(vars1) > 2 ? vars1[3:end] : ()
-    
+    observations1 = length(vars1) > 2 ? vars1[3:end] : ()
+
     priors2 = vars2[1]
     derived2 = vars2[2]
-    likelihoods2 = length(vars2) > 2 ? vars2[3:end] : ()
+    observations2 = length(vars2) > 2 ? vars2[3:end] : ()
     
     # Check for duplicate variable names
     prior_names1 = Set(keys(priors1.priors))
@@ -388,15 +388,15 @@ function _vcat_two_variables(vars1::Tuple, vars2::Tuple)
     merged_captured_vals = tuple(values(unique_captures)...)
     
     merged_derived = Derived(merged_derived_dict, merged_captured_names, merged_captured_vals)
-    
-    # Merge likelihoods
-    merged_likelihoods = (likelihoods1..., likelihoods2...)
-    
+
+    # Merge observations
+    merged_observations = (observations1..., observations2...)
+
     # Return in the same format as @variables macro
-    if isempty(merged_likelihoods)
+    if isempty(merged_observations)
         return (merged_priors, merged_derived)
     else
-        return (merged_priors, merged_derived, merged_likelihoods...)
+        return (merged_priors, merged_derived, merged_observations...)
     end
 end
 

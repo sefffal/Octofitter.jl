@@ -35,7 +35,7 @@ Define a planet model with orbital elements and their [prior distributions](@ref
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom],
+    observations=[astrom],
     variables=@variables begin
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)  # Total mass (solar masses) for this orbit
         a ~ Uniform(0, 100)        # Semi-major axis [AU]
@@ -59,7 +59,7 @@ Define the system with its mass and distance - see [System Construction](@ref de
 sys = System(
     name="HD1234",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)  # Parallax (mas)
     end

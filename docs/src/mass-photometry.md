@@ -10,9 +10,9 @@ H_band_contrast_interp(mass) = sqrt(mass) # your model or function here
 J_band_contrast_interp(mass) = sqrt(mass) # your model or function here
 ```
 
-First, create your photometry observations and likelihoods. Each PhotometryLikelihood handles a single band with a `flux` variable defined in its variables block rather than in the planet definition. The `name` parameter is used for variable naming in the MCMC chain output (e.g., "b_H_band_flux"). This way, the flux variables will be calculated off of your model's mass parameter before getting compared to the photometry:
+First, create your photometry observations. Each PhotometryLikelihood handles a single band with a `flux` variable defined in its variables block rather than in the planet definition. The `name` parameter is used for variable naming in the MCMC chain output (e.g., "b_H_band_flux"). This way, the flux variables will be calculated off of your model's mass parameter before getting compared to the photometry:
 ```julia
-# Create separate photometry likelihoods for each band
+# Create separate photometry observations for each band
 H_band_table = Table(
     phot=[15.2], σ_phot=[0.5],
 )
@@ -39,7 +39,7 @@ J_band_data = PhotometryLikelihood(
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[H_band_data, J_band_data],
+    observations=[H_band_data, J_band_data],
     variables=@variables begin
         a ~ Normal(16, 3)
         e ~ truncated(Normal(0.2, 0.2), lower=0, upper=0.99)
@@ -79,7 +79,7 @@ K_band_data = PhotometryLikelihood(
 planet_b = Planet(
     name="b", 
     basis=Visual{KepOrbit},
-    likelihoods=[K_band_data],
+    observations=[K_band_data],
     variables=@variables begin
         a ~ Normal(16, 3)
         e ~ truncated(Normal(0.2, 0.2), lower=0, upper=0.99)
@@ -101,7 +101,7 @@ planet_b = Planet(
 sys = System(
     name="HD12345",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M ~ Normal(1.0, 0.1)
         plx ~ Normal(12, 0.01)

@@ -62,7 +62,7 @@ fig
 planet_b = Planet(
     name="b",
     basis=RadialVelocityOrbit,
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M_pri = system.M_pri
         M_b = system.M_b
@@ -82,7 +82,7 @@ planet_b = Planet(
 planet_c = Planet(
     name="c",
     basis=RadialVelocityOrbit,
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M_pri = system.M_pri
         M_c = system.M_c
@@ -101,7 +101,7 @@ planet_c = Planet(
 sim_2p = System(
     name="sim_2p",
     companions=[planet_b, planet_c],
-    likelihoods=[rvlike1, rvlike2],
+    observations=[rvlike1, rvlike2],
     variables=@variables begin
         M_pri = 1.0
         M_b ~ Uniform(0, 10)
@@ -131,7 +131,7 @@ We now create a new system object that only includes one planet (we dropped c, i
 sim_1p = System(
     name="sim_1p",
     companions=[planet_b],
-    likelihoods=[rvlike1, rvlike2],
+    observations=[rvlike1, rvlike2],
     variables=@variables begin
         M_pri = 1.0
         M_b ~ Uniform(0, 10)
@@ -205,7 +205,7 @@ There are several ways we could do this. Here, we add a "nominal period" variabl
 planet_b_v2 = Planet(
     name="b",
     basis=RadialVelocityOrbit,
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M_pri = system.M_pri
         M_b = system.M_b
@@ -227,7 +227,7 @@ planet_b_v2 = Planet(
 planet_c_v2 = Planet(
     name="c",
     basis=RadialVelocityOrbit,
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M_pri = system.M_pri
         M_c = system.M_c
@@ -249,7 +249,7 @@ planet_c_v2 = Planet(
 sim_2p_v2 = System(
     name="sim_2p_v2",
     companions=[planet_b_v2, planet_c_v2],
-    likelihoods=[rvlike1, rvlike2],
+    observations=[rvlike1, rvlike2],
     variables=@variables begin
         M_pri = 1.0
         M_b ~ Uniform(0, 10)

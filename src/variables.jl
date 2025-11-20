@@ -168,9 +168,9 @@ end
 likelihoodname(::UnitLengthPrior{X,Y}) where {X,Y} = "unitlengthprior_$(X)_$(Y)"
 
 # Generic expandparam for regular distributions/values
-expandparam(var, d::Distribution) = (priors=[(var, d)], derived=[], likelihoods=[])
-expandparam(var, n::Number) = (priors=[], derived=[(var, n)], likelihoods=[])
-expandparam(var, f::Expr) = (priors=[], derived=[(var, f)], likelihoods=[])
+expandparam(var, d::Distribution) = (priors=[(var, d)], derived=[], observations=[])
+expandparam(var, n::Number) = (priors=[], derived=[(var, n)], observations=[])
+expandparam(var, f::Expr) = (priors=[], derived=[(var, f)], observations=[])
 
 # Expand UniformCircular into priors and derived variables
 function expandparam(var::Symbol, p::UniformCircular)
@@ -191,7 +191,7 @@ function expandparam(var::Symbol, p::UniformCircular)
         derived = [
             (var, derived_expr)
         ],
-        likelihoods = [unit_length_prior]
+        observations = [unit_length_prior]
     )
 end
 
@@ -311,7 +311,7 @@ function Planet(;
     name::Union{Symbol,AbstractString},
     basis::Type,
     variables::Tuple,
-    likelihoods=()
+    observations=()
 )
     (priors,derived,additional_likelihoods...)=variables
     name = Symbol(name)
@@ -321,7 +321,7 @@ function Planet(;
     for l in additional_likelihoods
         l::AbstractLikelihood
     end
-    likes = (likelihoods..., additional_likelihoods...)
+    likes = (observations..., additional_likelihoods...)
     
     # Check for duplicate observation/likelihood names on this planet
     like_names = String[]
@@ -387,7 +387,7 @@ function System(;
     name::Union{Symbol,AbstractString},
     variables::Tuple,
     companions=(),
-    likelihoods=()
+    observations=()
 )
     (priors,derived,additional_likelihoods...)=variables
     name = Symbol(name)
@@ -400,7 +400,7 @@ function System(;
     for p in companions
         p::Planet
     end
-    likes = (likelihoods..., additional_likelihoods...)
+    likes = (observations..., additional_likelihoods...)
     
     # Check for duplicate observation/likelihood names at system level
     like_names = String[]

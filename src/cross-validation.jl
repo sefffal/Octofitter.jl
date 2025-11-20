@@ -74,7 +74,7 @@ function prior_only_model(system::System;exclude_all=false)
         newplanet = Planet(
             basis=Octofitter.orbittype(planet),
             variables=(planet.priors, planet.derived),
-            likelihoods=newplanet_obs,
+            observations=newplanet_obs,
             name=planet.name
         )
         return newplanet
@@ -90,7 +90,7 @@ function prior_only_model(system::System;exclude_all=false)
     # Generate new system with observations
     newsystem = System(
         variables=(system.priors, system.derived),
-        likelihoods=newsys_obs,
+        observations=newsys_obs,
         companions=newplanets,
         name=system.name
     )
@@ -146,7 +146,7 @@ function generate_kfold_systems(system)
             planet = Planet(
                 basis=Octofitter.orbittype(planet),
                 variables=(planet.priors, planet.derived),    
-                likelihoods=like_objs,
+                observations=like_objs,
                 name=planet.name,
             )
         end
@@ -154,7 +154,7 @@ function generate_kfold_systems(system)
         new_name = Symbol(string(system.name, "_kfold_$i_obs"))
         return System(
             variables=(system.priors, system.derived),
-            likelihoods=to_include_system,
+            observations=to_include_system,
             companions=planets_new,
             name=new_name
         )
@@ -212,7 +212,7 @@ function generate_system_filtered_like(user_predicate, system)
         planet = Planet(
             basis=Octofitter.orbittype(planet),
             variables=(planet.priors, planet.derived),    
-            likelihoods=like_objs,
+            observations=like_objs,
             name=planet.name,
         )
     end
@@ -220,7 +220,7 @@ function generate_system_filtered_like(user_predicate, system)
     new_name = Symbol(string(system.name, "_filt_obs_", join(included_j_obs, '_')))
     return System(
         variables=(system.priors, system.derived),
-        likelihoods=to_include_system,
+        observations=to_include_system,
         companions=planets_new,
         name=new_name
     )
@@ -273,7 +273,7 @@ function generate_systems_per_like(system)
             planet = Planet(
                 basis=Octofitter.orbittype(planet),
                 variables=(planet.priors, planet.derived),    
-                likelihoods=like_objs,
+                observations=like_objs,
                 name=planet.name,
             )
         end
@@ -281,7 +281,7 @@ function generate_systems_per_like(system)
         new_name = Symbol(string(system.name, "_like_$i_obs"))
         return System(
             variables=(system.priors, system.derived),
-            likelihoods=to_include_system,
+            observations=to_include_system,
             companions=planets_new,
             name=new_name
         )
@@ -419,7 +419,7 @@ function generate_systems_with_epoch_groups(system, epoch_groups, name_suffix_fu
             return Planet(
                 basis=Octofitter.orbittype(planet),
                 variables=(planet.priors, planet.derived),    
-                likelihoods=to_include_planet,
+                observations=to_include_planet,
                 name=planet.name,
             )
         end
@@ -428,7 +428,7 @@ function generate_systems_with_epoch_groups(system, epoch_groups, name_suffix_fu
         suffix = name_suffix_func(group_idx)
         return System(
             variables=(system.priors, system.derived),
-            likelihoods=to_include_system,
+            observations=to_include_system,
             companions=planets_new,
             name=system.name
         )
