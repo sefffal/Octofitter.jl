@@ -18,6 +18,7 @@ to account for systematic astrometric uncertainties.
 """
 struct GaiaDR4AstromObs{TTable<:Table,TSol<:NamedTuple} <: Octofitter.AbstractObs
     table::TTable
+    gaia_id::Int
     gaia_sol::TSol
     priors::Octofitter.Priors
     derived::Octofitter.Derived
@@ -34,13 +35,18 @@ function GaiaDR4AstromObs(
 )
     (priors, derived) = variables
     table = Table(observations_table)
+    if hasproperty(table, :obs_time_tcb) && !hasproperty(table, :epoch)
+        table = Table(table; epoch=jd2mjd.(table.obs_time_tcb))
+    end
+    (;x,y,z) = Table(Octofitter.geocentre_position_query.(table.epoch))
+    table = Table(table; x,y,z)
     gaia_sol = Octofitter._query_gaia_dr3(; gaia_id=gaia_id)
-    return GaiaDR4AstromObs{typeof(table),typeof(gaia_sol)}(table, gaia_sol, priors, derived, name)
+    return GaiaDR4AstromObs{typeof(table),typeof(gaia_sol)}(table,gaia_id, gaia_sol, priors, derived, name)
 end
 function Octofitter.likeobj_from_epoch_subset(obs::GaiaDR4AstromObs, obs_inds)
     return GaiaDR4AstromObs(
         obs.table[obs_inds,:,1]...,
-        gaia_id=obs.gaia_sol.source_id,
+        gaia_id=obs.gaia_id,
         variables=(obs.priors, obs.derived),
         name=obs.name
     )
@@ -81,7 +87,7 @@ function Octofitter.ln_like(
         # TODO: do we want to fit for a correlation parameter within each visibility window?
         for i in eachindex(likeobj.table.centroid_pos_al, centroid_pos_al_model)
             # There's an "outlier flag" -- I assume we should ignore ones that are flagged?
-            if likeobj.table.outlier_flag[i] > 0
+            if hasproperty(likeobj.table, :outlier_flag) && likeobj.table.outlier_flag[i] > 0
                 continue
             end
             σ = sqrt(astrometric_var + likeobj.table.centroid_pos_error_al[i]^2)
@@ -123,18 +129,18 @@ function Octofitter.simulate(
 
         orbitsol = first(orbit_solutions)[i+orbit_solutions_i_epoch_start]
 
+        # Faster to compute both sine and cos at the same time
+        s, c = sincos(likeobj.table.scan_pos_angle[i])
+        
         # fast path, not accounting for higher order effects
         if !(orbitsol isa PlanetOrbits.OrbitSolutionAbsoluteVisual)
             # Our orbit solutions calculate an updated Ra and Dec for the system's barycentre
             # with various non-linear corrections (see PlanetOrbits.jl for more details)
             # Careful of units: proper motion is defined in mas per *Julian year*
             
-            # Faster to compute both sine and cos at the same time
-            s, c = sincosd(likeobj.table.scan_pos_angle[i])
-            
             astrometric_measurement_mas = 
-                θ_system.ra_offset_mas + θ_system.pmra*(likeobj.table.epoch[i]-θ_system.ref_epoch)/365.25*s + 
-                θ_system.dec_offset_mas + θ_system.pmdec*(likeobj.table.epoch[i]-θ_system.ref_epoch)/365.25*c + 
+                (θ_obs.ra_offset_mas + θ_obs.pmra*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)*s + 
+                (θ_obs.dec_offset_mas + θ_obs.pmdec*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)*c + 
                 θ_system.plx*likeobj.table.parallax_factor_al[i]
         else
             # Our orbit solutions calculate an updated Ra and Dec for the system's barycentre
@@ -144,11 +150,11 @@ function Octofitter.simulate(
             plx_at_epoch = orbitsol.compensated.parallax2 # Parallax distance may be changing
 
             # Faster to compute both sine and cos at the same time
-            s, c = sincosd(likeobj.table.scan_pos_angle[i])
             astrometric_measurement_mas = 
                 (α - likeobj.gaia_sol.ra)*60*60*1000*cosd(δ)*s + 
                 (δ - likeobj.gaia_sol.dec)*60*60*1000*c + 
                 plx_at_epoch*likeobj.table.parallax_factor_al[i]
+
         end
 
         # Add perturbations from all planets
@@ -157,9 +163,10 @@ function Octofitter.simulate(
         for planet_i in eachindex(orbits)
             sol = orbit_solutions[planet_i][i+orbit_solutions_i_epoch_start]
             # Add perturbation from planet
-            x = raoff(sol, θ_system.planets[planet_i].mass * Octofitter.mjup2msol)
-            y = decoff(sol, θ_system.planets[planet_i].mass * Octofitter.mjup2msol)
-            astrometric_measurement_mas += x*sind(likeobj.table.scan_pos_angle[i]) + y*cosd(likeobj.table.scan_pos_angle[i]) # yes, this convention is correct
+            x = raoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
+            y = decoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
+            Δ = x*s + y*c # yes, this convention is correct
+            astrometric_measurement_mas += Δ
         end
         along_scan_residuals_buffer[i] = astrometric_measurement_mas
     end
@@ -170,17 +177,24 @@ end
 
 
 # Generate new astrometry observations
-function Octofitter.generate_from_params(like::GaiaDR4AstromObs, ctx::SystemObservationContext; add_noise)
+function Octofitter.generate_from_params(obs::GaiaDR4AstromObs, ctx::SystemObservationContext; add_noise)
     (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
-    along_scan_residuals_buffer_sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    along_scan_residuals_buffer_sim = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
-    new_table = deepcopy(like.table)
-    new_table.centroid_pos_al .= along_scan_residuals_buffer_sim
+    new_table = deepcopy(obs.table)
+    if add_noise
+        for i in eachindex(new_table.centroid_pos_al)
+            σ = new_table.centroid_pos_error_al[i]
+            new_table.centroid_pos_al[i] = along_scan_residuals_buffer_sim[i] + randn() * σ
+        end
+    else
+        new_table.centroid_pos_al .= along_scan_residuals_buffer_sim
+    end
 
     return GaiaDR4AstromObs(
         new_table,
-        gaia_id=like.gaia_sol.source_id,
-        variables=(like.priors, like.derived),
-        name=like.name
+        gaia_id=obs.gaia_id,
+        variables=(obs.priors, obs.derived),
+        name=obs.name
     )
 end

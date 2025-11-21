@@ -65,6 +65,7 @@ function Octofitter.octoplot!(
     show_rv=nothing,
     show_relative_rv=nothing,
     show_hipparcos=nothing,
+    show_gaia=nothing,
     residuals=false,
     mark_epochs_mjd=Float64[],
     # If less than 500 samples, just show all of them
@@ -96,6 +97,7 @@ function Octofitter.octoplot!(
         show_rv,
         show_relative_rv,
         show_hipparcos,
+        show_gaia,
     ))
 
     if colormap isa Symbol || colormap isa String
@@ -181,6 +183,15 @@ function Octofitter.octoplot!(
         end
     end
 
+    if isnothing(show_gaia)
+        show_gaia = false
+        for like_obj in model.system.observations
+            if like_obj isa Octofitter.GaiaDR4AstromObs
+                show_gaia = true
+            end
+        end
+    end
+
     if isnothing(show_mass)
         show_mass = false
         for planet_key in keys(model.system.planets)
@@ -199,6 +210,7 @@ function Octofitter.octoplot!(
             show_rv,
             show_relative_rv,
             show_hipparcos,
+            show_gaia,
         )
         @info "pass true or false for one of these arguments to suppress this message."
     end
@@ -469,6 +481,21 @@ function Octofitter.octoplot!(
             append!(axes_to_link,ax)
         end
 
+        if show_gaia
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            gl = GridLayout(
+                fig[row,col],
+                width=500figscale,
+                height=350figscale,
+            )
+            bottom_time_axis = !show_mass
+            ax = Octofitter.gaiatimeplot!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis, alpha)
+            top_time_axis = false
+            Makie.rowgap!(gl, 10.)
+            append!(axes_to_link, ax)
+        end
 
         if show_mass
             item += 1

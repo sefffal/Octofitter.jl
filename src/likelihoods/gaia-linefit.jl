@@ -1064,15 +1064,24 @@ end
 
 
 """
-    forecast_table = GOST_forecast(ra_deg,dec_deg)
+    forecast_table = GOST_forecast(ra_deg,dec_deg;baseline=:dr3)
 
 Given an Ra and Dec position, retreive a forecast of Gaia observations from the GOST tool automatically.
 See tool URL here: https://gaia.esac.esa.int/gost/
 
 Please be aware that others  might be able to discover the target coordinates you searched for
 (though not who performed the search) via information leaked to the external service.
+
+Baseline can be :dr3, :dr4, or :dr5.
 """
-function GOST_forecast(ra_deg,dec_deg)
+function GOST_forecast(ra_deg,dec_deg;baseline=:dr3)
+    if baseline == :dr3
+        to = "2017-06-28T00:00:00"
+    elseif baseline == :dr4
+        to = "2020-01-20T00:00:00"
+    elseif baseline == :dr5
+        to = "2025-01-15T06:16:00"
+    end
 
     if haskey(ENV, "OCTO_GOST_CATALOG") && !isempty(ENV["OCTO_GOST_CATALOG"])
         fname = ENV["OCTO_GOST_CATALOG"]
@@ -1096,7 +1105,7 @@ function GOST_forecast(ra_deg,dec_deg)
         return forecast_table[mask,:]
     end
 
-    fname = "GOST-$ra_deg-$dec_deg.csv"
+    fname = "GOST-$ra_deg-$dec_deg-$baseline.csv"
     if isfile(fname)
         @info "Using cached Gaia scan forecast $fname"
         forecast_table = CSV.read(fname, Table, normalizenames=true)
@@ -1136,7 +1145,7 @@ function GOST_forecast(ra_deg,dec_deg)
         "srcra" => string(round(ra_deg,digits=7)),
         "srcdec" => string(round(dec_deg,digits=7)),
         "from" => "2014-07-25T10:31:26",
-        "to" => "2017-06-28T00:00:00",
+        "to" => to,
     ])
 
 
