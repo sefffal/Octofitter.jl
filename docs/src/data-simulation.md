@@ -134,7 +134,7 @@ draw_number = 1
 params_to_simulate = Octofitter.mcmcchain2result(model, chain_real, draw_number)
 ```
 
-### Specifying values manually
+### 3. Specifying values manually
 We can also specify all values for the simulation manually. This process is a bit more involved. 
 
 Start by drawing parameters from the priors:
