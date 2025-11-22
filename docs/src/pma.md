@@ -31,7 +31,7 @@ To make this parameterization change, we specify priors on both masses in the `@
 ### Retrieving the HGCA
 To start, we retrieve the HGCA data for this object.
 ```julia
-hgca_like = HGCALikelihood(
+hgca_obs = HGCAObs(
     gaia_id=3937211745905473024,
     variables=@variables begin
         # Optional: flux ratio for luminous companions, one entry per companion
@@ -46,7 +46,7 @@ You can optionally provide flux ratio priors in the variables block to represent
 If you're in a hurry, and you're study orbits with periods much longer than the mission durations of Gaia or Hipparcos (>> 4 years) then you might consider using a faster approximation that the Gaia and Hipparcos measurements were instantaneous. You can do so as follows:
 
 ```@example 1
-hgca_like = HGCAInstantaneousLikelihood(gaia_id=756291174721509376, N_ave=1) 
+hgca_obs = HGCAInstantaneousObs(gaia_id=756291174721509376, N_ave=1) 
 ```
 `N_ave` is an optional argument to control over how many epochs the measurements are approximated, e.g. N_ave=10 implies that the position and proper motion was measured instantaneously 10 times over each mission and averaged.
 
@@ -85,7 +85,7 @@ We also add parameters for the star's long term proper motion. This is usually c
 sys = System(
     name="HD91312_pma",
     companions=[planet_b],
-    likelihoods=[hgca_like],
+    observations=[hgca_obs],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
         M_sec ~ LogUniform(0.5, 1000) # MJup

@@ -1,4 +1,4 @@
-struct PlanetOrderPrior{T} <: Octofitter.AbstractLikelihood
+struct PlanetOrderPrior{T} <: Octofitter.AbstractObs
     planets::T
     function PlanetOrderPrior(planets::Planet...) 
         tup = tuple(planets...)
@@ -8,8 +8,8 @@ end
 export PlanetOrderPrior
 Octofitter._isprior(::PlanetOrderPrior) = true
 likelihoodname(likeobj::PlanetOrderPrior) = "PlanetOrderPrior_"*join(string.(p.name for p in likeobj.planets),"_")
-function Octofitter.ln_like(prior::PlanetOrderPrior, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
-
+function Octofitter.ln_like(prior::PlanetOrderPrior, ctx::SystemObservationContext)
+    (; θ_system, orbits) = ctx
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
   

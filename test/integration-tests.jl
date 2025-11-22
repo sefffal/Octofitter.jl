@@ -17,7 +17,7 @@ using Random
     b = Planet(
         name="b",
         basis=Visual{KepOrbit},
-        likelihoods=[astrom_like],
+        observations=[astrom_like],
         variables=@variables begin
             a ~ Uniform(0, 100) # AU
             e ~ Uniform(0.0, 0.99)
@@ -31,7 +31,7 @@ using Random
     TestSys = System(
         name="TestSys",
         companions=[b],
-        likelihoods=[],
+        observations=[],
         variables=@variables begin
             M ~ truncated(Normal(1.2, 0.1), lower=0.1)
             plx ~ truncated(Normal(50.0, 0.02), lower=0.1)

@@ -509,12 +509,10 @@ function optimization_and_pathfinder_with_fixed(
     lb = convert(Vector{Float64},lb_full[variable_indices])
     ub = convert(Vector{Float64},ub_full[variable_indices])
 
-    fixed_values = []
-    fixed_indices = Int[]
     reduced_initial_prime, bestlogpost = guess_starting_position_with_fixed(
         rng, model, fixed_values, fixed_indices, discrete_indices
     )
-    reduced_initial = model.link(reduced_initial_prime)
+    reduced_initial = model.link(reduced_initial_prime)[variable_indices]
     if !isfinite(reduced_ℓπcallback(reduced_initial))
         opt_full = reduced_to_full(reduced_initial)
         @show opt_full model.invlink(opt_full) model.arr2nt(model.invlink(opt_full))
@@ -539,7 +537,7 @@ function optimization_and_pathfinder_with_fixed(
         if verbosity > 0
             @info "Starting values not provided for all parameters! Guessing starting point using global optimization:" num_params=length(variable_indices) num_fixed=length(fixed_indices)
         end
-        
+
         # Set up and solve reduced optimization problem
         prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
         Random.seed!(rand(rng, UInt64))

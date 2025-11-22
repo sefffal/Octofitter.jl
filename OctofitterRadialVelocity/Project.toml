@@ -1,7 +1,7 @@
 name = "OctofitterRadialVelocity"
 uuid = "c6a353d9-c9c1-48aa-9c23-64f4679bd07d"
 authors = ["William Thompson <will.thompson@outlook.com>"]
-version = "7.0.0"
+version = "8.0.0-beta"
 
 [deps]
 AbstractGPs = "99985d1d-32ba-4be9-9821-2ec096f28918"
@@ -43,7 +43,7 @@ Distances = "0.10"
 Distributions = "0.25"
 FITSIO = "0.16, 0.17"
 MCMCChains = "6.0"
-Octofitter = "7"
+Octofitter = "8"
 PlanetOrbits = "0.11"
 Polynomials = "4.0.19"
 Random = "1"

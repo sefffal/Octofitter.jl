@@ -1,5 +1,5 @@
 
-# PlanetRelAstromLikelihood Data type
+# PlanetRelAstromObs Data type
 const astrom_cols1 = (:epoch, :ra, :dec, :σ_ra, :σ_dec)
 const astrom_cols3 = (:epoch, :pa, :sep, :σ_pa, :σ_sep)
 
@@ -9,21 +9,21 @@ const astrom_cols3 = (:epoch, :pa, :sep, :σ_pa, :σ_sep)
         (epoch = 5050, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
         (epoch = 5100, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     )
-    PlanetRelAstromLikelihood(data)
+    PlanetRelAstromObs(data)
 
-Represents a likelihood function of relative astometry between a host star and a secondary body.
+Represents relative astrometry observations between a host star and a secondary body.
 `:epoch` is a required column, in addition to either `:ra`, `:dec`, `:σ_ra`, `:σ_dec` or `:pa`, `:sep`, `:σ_pa`, `:σ_sep`.
 All units are in **milliarcseconds** or **radians** as appropriate.
 
 In addition to the example above, any Tables.jl compatible source can be provided.
 """
-struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple} <: AbstractLikelihood
+struct PlanetRelAstromObs{TTable<:Table,TDistTuple} <: AbstractObs
     table::TTable
     priors::Priors
     derived::Derived
     precomputed_pointwise_distributions::TDistTuple
     name::String
-    function PlanetRelAstromLikelihood(
+    function PlanetRelAstromObs(
             observations;
             variables::Tuple{Priors,Derived}=(@variables begin;end),
             name
@@ -93,12 +93,15 @@ struct PlanetRelAstromLikelihood{TTable<:Table,TDistTuple} <: AbstractLikelihood
         )
     end
 end
-# PlanetRelAstromLikelihood(observations::NamedTuple..., (priors,derived)::Tuple{Priors,Derived}; kwargs...) = PlanetRelAstromLikelihood(observations, (priors,derived); kwargs...)
-export PlanetRelAstromLikelihood
+
+# Backwards compatibility alias
+const PlanetRelAstromLikelihood = PlanetRelAstromObs
+
+export PlanetRelAstromObs, PlanetRelAstromLikelihood
 
 
-# In-place simulation logic for PlanetRelAstromLikelihood (performance-critical)
-function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+# In-place simulation logic for PlanetRelAstromObs (performance-critical)
+function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
     T = _system_number_type(θ_system)
     this_orbit = orbits[i_planet]
     
@@ -138,8 +141,8 @@ function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromLikelihoo
     return (ra_model = ra_model_buf, dec_model = dec_model_buf, epochs = astrom.table.epoch)
 end
 
-# Allocating simulation logic for PlanetRelAstromLikelihood (convenience method)
-function simulate(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+# Allocating simulation logic for PlanetRelAstromObs (convenience method)
+function simulate(astrom::PlanetRelAstromObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
     T = _system_number_type(θ_system)
     L = length(astrom.table.epoch)
     ra_model_buf = Vector{T}(undef, L)
@@ -148,8 +151,8 @@ function simulate(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_ob
 end
 
 
-function likeobj_from_epoch_subset(obs::PlanetRelAstromLikelihood, obs_inds)
-    return PlanetRelAstromLikelihood(
+function likeobj_from_epoch_subset(obs::PlanetRelAstromObs, obs_inds)
+    return PlanetRelAstromObs(
         obs.table[obs_inds,:,1];
         obs.name,
         variables=(obs.priors, obs.derived,)
@@ -159,8 +162,9 @@ end
 # Plot recipe for astrometry data
 using LinearAlgebra
 
-# PlanetRelAstromLikelihood likelihood function
-function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+# PlanetRelAstromObs likelihood function
+function ln_like(astrom::PlanetRelAstromObs, ctx::PlanetObservationContext)
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
     T = Octofitter._system_number_type(θ_system)
    
     jitter = hasproperty(θ_obs, :jitter) ? getproperty(θ_obs, :jitter) : zero(T)
@@ -242,11 +246,13 @@ function ln_like(astrom::PlanetRelAstromLikelihood, θ_system, θ_planet, θ_obs
 end
 
 # Generate new astrometry observations
-function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start; add_noise)
+function generate_from_params(like::PlanetRelAstromObs, ctx::PlanetObservationContext; add_noise)
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+
     # Get epochs and uncertainties from observations
     epoch = like.table.epoch
 
-    # Use the same simulation method as ln_like to generate model astrometry values  
+    # Use the same simulation method as ln_like to generate model astrometry values
     sim = Octofitter.simulate(like, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
     ra_model = sim.ra_model
     dec_model = sim.dec_model
@@ -302,5 +308,5 @@ function generate_from_params(like::PlanetRelAstromLikelihood, θ_system,  θ_pl
         display(astrometry_table)
     end
 
-    return PlanetRelAstromLikelihood(astrometry_table; like.name)
+    return PlanetRelAstromObs(astrometry_table; like.name)
 end

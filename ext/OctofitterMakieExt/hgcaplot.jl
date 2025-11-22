@@ -28,6 +28,8 @@ function Octofitter.hgcaplot!(
     # If less than 500 samples, just show all of them
     # N=min(size(results, 1) * size(results, 3), 500),
     ts,
+    # If less than 500 samples, just show all of them
+    N  = min(size(results, 1)*size(results, 3), 250),
     # If showing all samples, include each sample once.
     # Otherwise, sample randomly with replacement
     ii=(
@@ -114,6 +116,35 @@ function Octofitter.hgcaplot!(
     xlims!(ax_velra, extrema(ts))
     xlims!(ax_veldec, extrema(ts))
 
+    # Now over plot any astrometry
+    like_objs = filter(model.system.observations) do like_obj
+        nameof(typeof(like_obj)) == :HGCAObs
+    end
+    if isempty(like_objs)
+        return [ax_velra, ax_veldec]
+    end
+    hgca_like = only(like_objs)
+
+    ## Model
+    ## Compute these for all results, not just `ii`
+    θ_systems_from_chain = Octofitter.mcmcchain2result(model, results)
+    # Display all points, unless there are more than 10k 
+    jj = 1:size(results,1)*size(results,3)
+    if size(results,1)*size(results,3) > 5_000
+        jj = ii
+    end
+    sims = []
+    for (θ_system, i) in zip(θ_systems_from_chain, jj)
+        orbits = map(keys(model.system.planets)) do planet_key
+            Octofitter.construct_elements(model, results, planet_key, i)
+        end
+        solutions = map(orbits) do orbit
+            return orbitsolve.(orbit, hgca_like.table.epoch)
+        end
+        sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, 0)
+        push!(sims, sim)
+    end
+
     pmra_model_t = zeros(length(ii), length(ts))
     pmdec_model_t = zeros(length(ii), length(ts))
     color_model_t = zeros(length(ii), length(ts))
@@ -137,11 +168,13 @@ function Octofitter.hgcaplot!(
         color_model_t .= rem2pi.(
             meananom.(sols), RoundDown) .+ 0 .* ii
     end
+    @show  [only(sim.Δpmra_g) for sim in sims]
+    @show [only(sim.Δpmdec_g) for sim in sims]
     if haskey(results, :pmra)
-        pmra_model_t .+= results[:pmra][ii]
+        pmra_model_t .+= results[:pmra][ii] .+  [only(sim.Δpmra_g) for sim in sims]
     end
     if haskey(results, :pmdec)
-        pmdec_model_t .+= results[:pmdec][ii]
+        pmdec_model_t .+= results[:pmdec][ii] .+  [only(sim.Δpmdec_g) for sim in sims]
     end
     if colorbar
         Colorbar(
@@ -174,14 +207,7 @@ function Octofitter.hgcaplot!(
         rasterize=4,
     )
 
-    # Now over plot any astrometry
-    like_objs = filter(model.system.observations) do like_obj
-        nameof(typeof(like_obj)) == :HGCALikelihood
-    end
-    if isempty(like_objs)
-        return [ax_velra, ax_veldec]
-    end
-    hgca_like = only(like_objs)
+
 
     # The HGCA catalog values have an non-linearity correction added.
     # If we are doing our own rigorous propagation we don't need this
@@ -295,52 +321,34 @@ function Octofitter.hgcaplot!(
     colsize!(gs, 3, Auto(1 // 3))
     rowsize!(gs, 3, Aspect(3, 1.0))
 
-    ## Model
-    ## Compute these for all results, not just `ii`
-    θ_systems_from_chain = Octofitter.mcmcchain2result(model, results)
-    # Display all points, unless there are more than 10k 
-    jj = 1:size(results,1)*size(results,3)
-    if size(results,1)*size(results,3) > 5_000
-        jj = ii
-    end
-    sims = []
-    for (θ_system, i) in zip(θ_systems_from_chain, jj)
-        orbits = map(keys(model.system.planets)) do planet_key
-            Octofitter.construct_elements(model, results, planet_key, i)
-        end
-        solutions = map(orbits) do orbit
-            return orbitsolve.(orbit, hgca_like.table.epoch)
-        end
-        sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, 0)
-        push!(sims, sim)
-    end
+   
     # HIP Epoch
     Makie.scatter!(
         ax_dat1,
-        [only(sim.pmra_hip_model) for sim in sims ],
-        [only(sim.pmdec_hip_model) for sim in sims],
+        [only(sim.pmra_hip_model) + only(sim.Δpmra_g) for sim in sims ],
+        [only(sim.pmdec_hip_model) + only(sim.Δpmdec_g) for sim in sims],
         color=:black,
         markersize=2,
     )
     Makie.scatter!(
         ax_velra,
-        [only(hgca_like.hgca.epoch_ra_hip_mjd) for sim in sims],
-        [only(sim.pmra_hip_model) for sim in sims],
+        [only(hgca_like.hgca.epoch_ra_hip_mjd) + only(sim.Δpmra_g) for sim in sims],
+        [only(sim.pmra_hip_model) + only(sim.Δpmdec_g) for sim in sims],
         color=:black,
         markersize=3,
     )
     Makie.scatter!(
         ax_veldec,
-        [only(hgca_like.hgca.epoch_dec_hip_mjd) for sim in sims],
-        [only(sim.pmdec_hip_model) for sim in sims],
+        [only(hgca_like.hgca.epoch_dec_hip_mjd) + only(sim.Δpmra_g) for sim in sims],
+        [only(sim.pmdec_hip_model) + only(sim.Δpmdec_g) for sim in sims],
         color=:black,
         markersize=3,
     )
     # HG Epoch
     Makie.scatter!(
         ax_dat2,
-        [only(sim.pmra_hg_model) for sim in sims],
-        [only(sim.pmdec_hg_model) for sim in sims],
+        [only(sim.pmra_hg_model) + only(sim.Δpmra_g) for sim in sims],
+        [only(sim.pmdec_hg_model) + only(sim.Δpmdec_g) for sim in sims],
         color=:black,
         markersize=2,
     )
@@ -351,36 +359,36 @@ function Octofitter.hgcaplot!(
     Makie.scatter!(
         ax_velra,
         hg_ra_epoch,
-        [only(sim.pmra_hg_model) for sim in sims],
+        [only(sim.pmra_hg_model) + only(sim.Δpmra_g) for sim in sims],
         color=:black,
         markersize=3,
     )
     Makie.scatter!(
         ax_veldec,
         hg_dec_epoch,
-        [only(sim.pmdec_hg_model) for sim in sims],
+        [only(sim.pmdec_hg_model) + only(sim.Δpmdec_g) for sim in sims],
         color=:black,
         markersize=3,
     )
     # GAIA Epoch
     Makie.scatter!(
         ax_dat3,
-        [only(sim.pmra_gaia_model) for sim in sims],
-        [only(sim.pmdec_gaia_model) for sim in sims],
+        [only(sim.pmra_gaia_model) + only(sim.Δpmra_g) for sim in sims],
+        [only(sim.pmdec_gaia_model) + only(sim.Δpmdec_g) for sim in sims],
         color=:black,
         markersize=2,
     )
     Makie.scatter!(
         ax_velra,
-        [only(hgca_like.hgca.epoch_ra_gaia_mjd) for sim in sims],
-        [only(sim.pmra_gaia_model) for sim in sims],
+        [only(hgca_like.hgca.epoch_ra_gaia_mjd) + only(sim.Δpmra_g) for sim in sims],
+        [only(sim.pmra_gaia_model) + only(sim.Δpmdec_g) for sim in sims],
         color=:black,
         markersize=3,
     )
     Makie.scatter!(
         ax_veldec,
-        [only(hgca_like.hgca.epoch_dec_gaia_mjd) for sim in sims],
-        [only(sim.pmdec_gaia_model) for sim in sims],
+        [only(hgca_like.hgca.epoch_dec_gaia_mjd) + only(sim.Δpmra_g) for sim in sims],
+        [only(sim.pmdec_gaia_model) + only(sim.Δpmdec_g) for sim in sims],
         color=:black,
         markersize=3,
     )

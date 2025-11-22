@@ -1,20 +1,64 @@
-#  [Octofitter.jl v7 Migration Guide] (@id migration)
+# [Migration Guide] (@id migration)
+
+## Table of Contents
+- [Migrating to v8](#migrating-to-v8)
+- [Migrating to v7](#migrating-to-v7)
+
+---
+
+## Migrating to v8
+
+Octofitter.jl v8 renames observation types from `*Likelihood` to `*Obs` (short for observation) for clarity. E.g., `PlanetRelAstromLikelihood` has been renamed `PlanetRelAstromObs`.
+At the same time, the argument `likelihoods=[...]` to both `Planet` and `System` has been renamed `observations=[...]`. Replace 
+
+### Global Find & Replace
+
+Apply these replacements to update your code:
+
+| Old Name (v7) | New Name (v8) |
+|---------------|---------------|
+| `likelihoods=[...]` | `observations=[...]` |
+| `PhotometryLikelihood` | `PhotometryObs` |
+| `PlanetRelAstromLikelihood` | `PlanetRelAstromObs` |
+| `StarAbsoluteRVLikelihood` | `StarAbsoluteRVObs` |
+| `MarginalizedStarAbsoluteRVLikelihood` | `MarginalizedStarAbsoluteRVObs` |
+| `StarAbsoluteRVMarginLikelihood` | `MarginalizedStarAbsoluteRVObs` |
+| `PlanetRelativeRVLikelihood` | `PlanetRelativeRVObs` |
+| `HGCALikelihood` | `HGCAObs` |
+| `HGCAInstantaneousLikelihood` | `HGCAInstantaneousObs` |
+| `HipparcosIADLikelihood` | `HipparcosIADObs` |
+| `GaiaHipparcosUEVAJointLikelihood` | `GaiaHipparcosUEVAJointObs` |
+| `GaiaDifferenceLikelihood` | `GaiaDifferenceObs` |
+| `GaiaCatalogFitLikelihood` | `GaiaCatalogFitObs` |
+| `GaiaUEVALikelihood` | `GaiaUEVAObs` |
+| `ImageLikelihood` | `ImageObs` |
+| `LogLikelihoodMap` | `LogLikelihoodMapObs` |
+| `InterferometryLikelihood` | `InterferometryObs` |
+| `AbstractInterferometryLikelihood` | `AbstractInterferometryObs` |
+| `GRAVITYWideKPLikelihood` | `GRAVITYWideKPObs` |
+
+**Note:** Types ending in `Prior` (e.g., `PlanetOrderPrior`, `UnitLengthPrior`) and `UserLikelihood` keep their original names.
+
+---
+
+## Migrating to v7
+
 This guide helps you migrate your code from Octofitter.jl v6 to v7, which introduced a significant API redesign.
 
-## Overview of Changes
+### Overview of Changes
 
 The v7 API redesign eliminates the `@planet` and `@system` macros in favor of explicit `Planet()` and `System()` constructors. This change provides better error handling, clearer variable scoping, and more flexible model composition.
 
 This upgrade is particularly useful for large batch processing systems, and for models with large numbers of instruments.
 
 !!! note
-    Pro-tip: paste your old Octofitter scripts and this migration guide into an LLM---it 
+    Pro-tip: paste your old Octofitter scripts and this migration guide into an LLM---it
 
-## Key Migration Steps
+### Key Migration Steps
 
-### 1. Model Definition Syntax
+#### 1. Model Definition Syntax
 
-#### Old Syntax (v6):
+##### Old Syntax (v6):
 ```julia
 @planet b Visual{KepOrbit} begin
     a ~ Uniform(0, 100)
@@ -32,7 +76,7 @@ end astrom
 end b
 ```
 
-#### New Syntax (v7):
+##### New Syntax (v7):
 ```julia
 planet_b = Planet(
     name="b",
@@ -60,9 +104,9 @@ sys = System(
 )
 ```
 
-### 2. Likelihood Construction
+#### 2. Likelihood Construction
 
-#### Old Syntax (v6):
+##### Old Syntax (v6):
 ```julia
 astrom = PlanetRelAstromLikelihood(Table(
     epoch = [50000, 50120, 50240],
@@ -74,7 +118,7 @@ astrom = PlanetRelAstromLikelihood(Table(
 ))
 ```
 
-#### New Syntax (v7):
+##### New Syntax (v7):
 
 Your likelihood objects must be given a name in most cases:
 ```julia
@@ -103,9 +147,9 @@ astrom = PlanetRelAstromLikelihood(
 )
 ```
 
-### 3. Radial Velocity Models
+#### 3. Radial Velocity Models
 
-#### Old Syntax (v6):
+##### Old Syntax (v6):
 ```julia
 rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
     hires_data,
@@ -114,7 +158,7 @@ rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
 )
 ```
 
-#### New Syntax (v7):
+##### New Syntax (v7):
 Instrument-specific variables are handled directly in the likelihood definition.
 ```julia
 rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
@@ -126,20 +170,20 @@ rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
 )
 ```
 
-### 4. Variable Access in Derived Parameters
+#### 4. Variable Access in Derived Parameters
 
 You no longer have to prefix with the planet name or `system`. Just use variabels directly.
 
-The `θ_at_epoch_to_tperi` function syntax has changed. You now provided the necessary parameters for the calculation directly.   
+The `θ_at_epoch_to_tperi` function syntax has changed. You now provided the necessary parameters for the calculation directly.
 
-#### Old Syntax (v6):
+##### Old Syntax (v6):
 ```julia
 P = √(b.a^3/system.M)
 
 tp = θ_at_epoch_to_tperi(system, b, 50000)
 ```
 
-#### New Syntax (v7):
+##### New Syntax (v7):
 
 
 ```julia
@@ -153,7 +197,7 @@ M = system.M  # if planet needs system mass
 ```
 
 
-## Key Differences Summary
+### Key Differences Summary
 
 1. **Model Construction**: Replace `@planet` and `@system` macros with explicit `Planet()` and `System()` constructors
 2. **Likelihood Names**: Most likelihoods now require a `name` parameter
