@@ -447,6 +447,8 @@ function simulate(hgca_like::HGCAObs, θ_system, θ_obs, orbits, orbit_solutions
         pmdec_gaia_model=μ_g[2],
         pmra_hg_model=μ_hg[1],
         pmdec_hg_model=μ_hg[2],
+        Δpmra_g,
+        Δpmdec_g,
     )
 
 

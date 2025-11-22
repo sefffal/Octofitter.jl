@@ -367,6 +367,13 @@ function simulate(pma::HGCAInstantaneousObs, θ_system, θ_obs, orbits, orbit_so
     μ_h = @SVector [pmra_hip_model, pmdec_hip_model]
     μ_hg = @SVector [pmra_hg_model, pmdec_hg_model]
     μ_g = @SVector [pmra_gaia_model, pmdec_gaia_model]
+
+    # Adjust the reference frame such that, effectively, the pmra/pmdec system variables are referring to the primary
+    # instead of the barycentre.
+    # Specifically, the primary's proper motion at this epoch:
+    μ_h  = μ_h  .- @SVector [Δpmra_g, Δpmdec_g,]
+    μ_hg = μ_hg .- @SVector [Δpmra_g, Δpmdec_g,]
+    μ_g  = μ_g  .- @SVector [Δpmra_g, Δpmdec_g,]
     
     return (;
         # Packaged up nicely
@@ -380,6 +387,8 @@ function simulate(pma::HGCAInstantaneousObs, θ_system, θ_obs, orbits, orbit_so
         pmdec_gaia_model,
         pmra_hg_model,
         pmdec_hg_model,
+        Δpmra_g,
+        Δpmdec_g,
     )
     return result
 end
