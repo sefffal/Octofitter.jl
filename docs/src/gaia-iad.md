@@ -16,10 +16,16 @@ using CSV, DataFrames
 ## OHP Gaia Splinter Session
 
 Download and plot the data:
-```@example 1
+```julia
 fname = download("https://dace.unige.ch/downloads/open_data/dace-gaia-ohp/files/target_1.csv")
 df = CSV.read(fname, DataFrame);
 ```
+
+```@example 1
+df = CSV.read(joinpath(@__DIR__, "target_1.csv"), DataFrame); # hide
+```
+
+
 
 
 We can now construct a likelihood object for this data. We must also supply the Gaia ID, which will be used to query the full Gaia solution for this object (for now, using DR3):
