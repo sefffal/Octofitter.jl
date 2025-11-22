@@ -320,7 +320,7 @@ chain, pt = octofit_pigeons(sim_model, n_rounds=9)
 
 
 ```@example 1
-octoplot(model, chain)
+octoplot(sim_model, chain)
 ```
 
 
