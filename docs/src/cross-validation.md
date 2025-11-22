@@ -13,7 +13,8 @@ After you have defined a model and sampled from its posterior (eg. via `octofit`
 ```julia
 # already have defined `model` and `chain` ...
 
-likelihood_mat = Octofitter.pointwise_obs(model, chain)
+likelihood_mat, epochs = Octofitter.pointwise_like(model, chain)
+
 ```
 
 `likelihood_mat` is now a N_sample x N_data matrix. 

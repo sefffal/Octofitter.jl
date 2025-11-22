@@ -158,6 +158,37 @@ using PairPlots
 octocorner(model, chain, small=true)
 ```
 
+### Cross-validation
+You can use the full suite of tools for construting models that subset different amounts of data in different ways. See "Cross Validataion".
+
+The most powerful is exhaustive leave-one-out cross validataion plus calculation of expected log pointwise density (ELPD) to score the fit.
+
+```julia
+likelihood_mat, epochs = Octofitter.pointwise_like(model, chain)
+# `likelihood_mat` is now a N_sample x N_data matrix. 
+using ParetoSmooth
+result = psis_loo(
+    collect(likelihood_mat'),
+    chain_index=ones(Int,size(chain,1))
+)
+```
+
+
+### Simulate data from a posterior draw, and re-fit with or without noise
+Optional consistency checks---could be used in a loop as part of e.g. simulation based calibration.
+```julia
+template = Octofitter.mcmcchain2result(model,chain,1)
+sim_system = Octofitter.generate_from_params(model.system, template; add_noise=true)
+sim_model = Octofitter.LogDensityModel(sim_system)
+
+# Optional initialization speed up hack:
+sim_model.starting_points = model.starting_points;
+
+# then re-fit...
+sim_chain, pt = octofit_pigeons(sim_model, n_rounds=5)
+Octofitter.gaiastarplot(sim_model, sim_chain)
+```
+
 
 ## Gaia BH 3
 

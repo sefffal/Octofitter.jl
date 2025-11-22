@@ -42,9 +42,9 @@ gaia_id = 5064625130502952704
 # or Thompson et al in-prep.
 
 # look these up, or download the tables and interpolate
-σ_att = 0.5
-σ_AL = 0.5
-σ_cal = 0.5
+σ_att = 0.04
+σ_AL = 0.04
+σ_cal = 0.04
 σ_formal = sqrt(σ_att^2 + σ_AL^2)
 σ_true = sqrt(σ_att^2 + σ_AL^2 + σ_cal^2)
 
@@ -160,8 +160,8 @@ df = [df earth_pos_vel]
 
 # Then project onto the scan direction using the scan angle
 df.parallax_factor_al = @. (
-    (df.x * sind(dr3.ra) - df.y * cosd(dr3.ra)) * cosd(df.scan_pos_angle) +
-    (df.x * cosd(dr3.ra) * sind(dr3.dec) + df.y * sind(dr3.ra) * sind(dr3.dec) - df.z * cosd(dr3.dec)) * sind(df.scan_pos_angle)
+    (df.x * sind(dr3.ra) - df.y * cosd(dr3.ra)) * cos(df.scan_pos_angle) +
+    (df.x * cosd(dr3.ra) * sind(dr3.dec) + df.y * sind(dr3.ra) * sind(dr3.dec) - df.z * cosd(dr3.dec)) * sin(df.scan_pos_angle)
 )
 
 # now construct the observation template
@@ -190,43 +190,34 @@ gaiaIADobs = GaiaDR4AstromObs(df;
 
 Now, we define a model that incorporates this data:
 ```@example 1
+
 mjup2msol = Octofitter.mjup2msol
 ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
-orbit_ref_epoch = mean(gaiaIADobs.table.epoch)
+orbit_ref_epoch = mean(gaia_dr4_obs.table.epoch)
 
 b = Planet(
     name="b",
     basis=Visual{KepOrbit},
     observations=[],
     variables=@variables begin
-        mass ~ LogUniform(1, 1000) # M jup
-        M = system.M_pri + mass*Octofitter.mjup2msol
-        a ~ LogUniform(0.01, 1000)
+        a ~ LogUniform(0.01, 100)
         e ~ Uniform(0, 0.99)
-        ω ~ Uniform(0, 2pi)
+        ω ~ Uniform(0,2pi)
         i ~ Sine()
-        Ω ~ Uniform(0, 2pi)
-        # A convenient parameterization for epoch of periastron passage
-        # Specify the *position angle* on a particular reference epoch,
-        # chosen to be where we have the strongest orbit constraints. 
-        # Much more efficient for incomplete orbits.
-        θ ~ Uniform(0, 2pi)
-        tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M, e, a, i, ω, Ω)
+        Ω ~ Uniform(0,2pi)
+        θ ~ Uniform(0,2pi)
+        tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=system.M, e, a, i, ω, Ω)
+        mass ~ LogUniform(0.01, 1000)
     end
 )
-# DR3 catalog position and reference epoch
-ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
-gaia_ra = dr3.ra
-gaia_dec = dr3.dec
 sys = System(
-    name="gaiadr4test",
+    name="target_1",
     companions=[b],
     observations=[gaiaIADobs,],
     variables=@variables begin
-        M_pri ~ truncated(Normal(1.0,0.05),lower=0.1) # M sun
-
-        # Note: keep these physically plausible to prevent numerical errors -- 0 parallax is not allowed!
-        plx ~ truncated(Normal(dr3.parallax,dr3.parallax_error),lower=1,upper=1000) # mas
+        M = 1.0
+        # Note: keep these physically plausible to prevent numerical errors
+        plx ~ Uniform(0.01,100) # mas
     end
 )
 model = Octofitter.LogDensityModel(sys, verbosity=4)
@@ -268,103 +259,45 @@ Copy this output as a template, and replace values as needed. Note that if some 
 
 
 ```@example 1
-template = Octofitter.drawfrompriors(model.system)
-params_to_simulate = (;
-    template...,
-    planets=(;b=(;
-        template.planets.b...,
-        M = 50.0,
-        mass = 50.0,
-        e = 0.1,
-        a = 0.6,
-        i = deg2rad(34),
-        tp = mjd("2017-06-01")
-    ))
+params_to_simulate = (
+    plx = 16.138978209522527,
+    M = 1.0,
+    observations = (
+        GaiaDR4 = (
+            pmdec = -24.188882826919325,
+            plx = 16.138978209522527,
+            ra_offset_mas = 0.05413791355838311,
+            pmra = 5.301074192615374,
+            astrometric_jitter = 0.015590772157762368,
+            ref_epoch = 57936.375,
+            dec_offset_mas = 0.0889816167388366
+        ),
+    ),
+    planets = (
+        b = (
+            a = 6.7518821210581095,
+            Ω = 0.6671794428080836,
+            e = 0.740266879281894,
+            ω = 2.6979685078495095,
+            tp = 51710.01947449644,
+            mass = 7.837431179003128,
+            i = 1.2116635149564277,
+            θ = 3.5226970272017826),
+        )
 )
 ```
 
 
 ## Generate synthetic system with simulated data
 
-We will call `Octofitter.generate_from_params` to generate new synthetic observations.
+We will call `Octofitter.generate_from_params` to generate a model with new synthetic observations.
 If you set `add_noise = true`, the generated data points will have scatter according to the `centroid_pos_error_al` specified above. 
 
 
-### Option 1: fit using the same priors used to generate the data
 ```julia
-sim_system = Octofitter.generate_from_params(model.system, params_to_simulate; add_noise=true)
+sim_system = Octofitter.generate_from_params(model.system, params_to_simulate; add_noise=false)
 sim_model = Octofitter.LogDensityModel(sim_system)
 ```
-
-
-### Option 2: fit using wide open priors
-```@example 1
-
-sim_system = Octofitter.generate_from_params(model.system, params_to_simulate; add_noise=true)
-sim_obs = sim_system.observations[1]
-
-# reset the uncertainty to the underestimated σ_formal
-# Note: there is some correlation expected in the noise that we could simulate here
-sim_obs.table.centroid_pos_error_al .= σ_formal
-nothing #hide
-```
-
-```@example 1
-
-mjup2msol = Octofitter.mjup2msol
-ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
-orbit_ref_epoch = mean(gaiaIADobs.table.epoch)
-
-b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
-    observations=[],
-    variables=@variables begin
-        mass ~ LogUniform(1, 1000) # M jup
-        M = system.M_pri + mass*Octofitter.mjup2msol
-        a ~ LogUniform(0.01, 1000)
-        e ~ Uniform(0, 0.99)
-        ω ~ Uniform(0, 2pi)
-        i ~ Sine()
-        Ω ~ Uniform(0, 2pi)
-        # A convenient parameterization for epoch of periastron passage
-        # Specify the *position angle* on a particular reference epoch,
-        # chosen to be where we have the strongest orbit constraints. 
-        # Much more efficient for incomplete orbits.
-        θ ~ Uniform(0, 2pi)
-        tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M, e, a, i, ω, Ω)
-    end
-)
-# DR3 catalog position and reference epoch
-ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
-gaia_ra = dr3.ra
-gaia_dec = dr3.dec
-sys = System(
-    name="gaiadr4test",
-    companions=[b],
-    observations=[sim_obs,], # <-------- Note: simulated observation here
-    variables=@variables begin
-        M_pri ~ truncated(Normal(1.0,0.05),lower=0.1) # M sun
-        # Note: keep these physically plausible to prevent numerical errors -- 0 parallax is not allowed!
-        plx ~ Uniform(1, 1000) # mas
-    end
-)
-sim_model = Octofitter.LogDensityModel(sys, verbosity=4)
-```
-
-
-## Examine simulated data
-Let's plot the simulated orbit and data to see what we generated:
-
-```@example 1
-# Convert true parameters to chain format for plotting
-true_chain = Octofitter.result2mcmcchain([params_to_simulate])
-
-# Plot the simulated system with true parameters
-fig = octoplot(sim_model, true_chain, colormap=:red)
-fig
-```
-
 
 
 ## Fit simulated data
@@ -381,7 +314,7 @@ octoplot(sim_model, init_chain)
 Fit:
 ```@example 1
 using Pigeons
-chain, pt = octofit_pigeons(sim_model, n_rounds=9)
+chain, pt = octofit_pigeons(sim_model, n_rounds=5)
 ```
 
 
@@ -392,7 +325,7 @@ octoplot(model, chain)
 
 ```@example 1
 # Picks MAP sample
-Octofitter.gaiastarplot(model, chain,)
+Octofitter.gaiastarplot(sim_model, chain,)
 ```
 
 

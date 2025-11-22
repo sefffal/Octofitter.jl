@@ -38,14 +38,19 @@ function GaiaDR4AstromObs(
     if hasproperty(table, :obs_time_tcb) && !hasproperty(table, :epoch)
         table = Table(table; epoch=jd2mjd.(table.obs_time_tcb))
     end
-    (;x,y,z) = Table(Octofitter.geocentre_position_query.(table.epoch))
-    table = Table(table; x,y,z)
+    xyz = Table(Octofitter.geocentre_position_query.(table.epoch))
+    table = Table(table; xyz)
     gaia_sol = Octofitter._query_gaia_dr3(; gaia_id=gaia_id)
     return GaiaDR4AstromObs{typeof(table),typeof(gaia_sol)}(table,gaia_id, gaia_sol, priors, derived, name)
 end
 function Octofitter.likeobj_from_epoch_subset(obs::GaiaDR4AstromObs, obs_inds)
+    
+    # Due to TypedTables bug, the line below creates a "matrix" table that isn't the same type as the input.
+    # table = typeof(obs.table)(obs.table[setdiff(1:size(obs.table,1), obs_inds),:,1])
+    # table = Table(collect(eachrow(obs.table))[setdiff(1:size(obs.table,1), obs_inds)]...)
+    table = Table(first(eachcol(obs.table[setdiff(1:size(obs.table,1), obs_inds)])))
     return GaiaDR4AstromObs(
-        obs.table[obs_inds,:,1]...,
+        table;
         gaia_id=obs.gaia_id,
         variables=(obs.priors, obs.derived),
         name=obs.name
