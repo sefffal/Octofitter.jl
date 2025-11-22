@@ -29,6 +29,7 @@ function Octofitter.gaiastarplot!(
     results::Chains,
     sample_idx=argmax(results["logpost"][:]);
     axis=(;),
+    colormap_instruments=Makie.cgrad(:Egypt,categorical=true)
 )
     if gridspec_or_fig isa Figure
         gs = GridLayout(gridspec_or_fig[1, 1])
@@ -136,16 +137,30 @@ function Octofitter.gaiastarplot!(
         y_bars[3i] = NaN
     end
 
+
+    # Connect data points to their corresponding positions on the Keplerian orbit
+    for i in 1:n
+        lines!(ax, 
+            [Δα_kep_track[i] + alpha_res[i], Δα_kep_track[i]],
+            [Δδ_kep_track[i] + delta_res[i], Δδ_kep_track[i]],
+            color=:grey,
+            linestyle=:dot,
+            linewidth=1
+        )
+    end
+
     lines!(ax, x_bars, y_bars, color=:black)
 
     # Plot data points
     scatter!(ax,
         Δα_kep_track .+ alpha_res,
         Δδ_kep_track .+ delta_res,
-        marker=:rect,
-        markersize=5,
-        color=:black
+        color=colormap_instruments[1], # gaia
+        strokewidth=2,
+        strokecolor=:black,
+        markersize=8,
     )
+
 
     # Plot star at origin
     scatter!(ax, [0], [0], marker='★', markersize=20, color=:white, strokecolor=:black, strokewidth=1.5)

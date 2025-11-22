@@ -118,7 +118,7 @@ A good practice is to plot a few different values from the posterior, or e.g. pl
 
 Here, we show semi-major axis/period
 ```@example 1
-fig = Figure(size=(800,300))
+fig = Figure(size=(920,345))
 
 percentile_positions = round.(Int, [0.05, 0.50, 0.95] .* size(chain,1))
 indices = [partialsortperm(chain["b_a"][:], k) for k in percentile_positions]

@@ -42,9 +42,9 @@ gaia_id = 5064625130502952704
 # or Thompson et al in-prep.
 
 # look these up, or download the tables and interpolate
-σ_att = 0.1
-σ_AL = 0.1
-σ_cal = 0.1
+σ_att = 0.5
+σ_AL = 0.5
+σ_cal = 0.5
 σ_formal = sqrt(σ_att^2 + σ_AL^2)
 σ_true = sqrt(σ_att^2 + σ_AL^2 + σ_cal^2)
 
@@ -271,13 +271,12 @@ Copy this output as a template, and replace values as needed. Note that if some 
 template = Octofitter.drawfrompriors(model.system)
 params_to_simulate = (;
     template...,
-    plx=10.0,
     planets=(;b=(;
         template.planets.b...,
         M = 50.0,
-        mass = 10.0,
+        mass = 50.0,
         e = 0.1,
-        a = 2.1,
+        a = 0.6,
         i = deg2rad(34),
         tp = mjd("2017-06-01")
     ))
@@ -388,6 +387,12 @@ chain, pt = octofit_pigeons(sim_model, n_rounds=9)
 
 ```@example 1
 octoplot(model, chain)
+```
+
+
+```@example 1
+# Picks MAP sample
+Octofitter.gaiastarplot(model, chain,)
 ```
 
 
