@@ -275,15 +275,16 @@ params_to_simulate = (
     ),
     planets = (
         b = (
-            a = 6.7518821210581095,
-            Ω = 0.6671794428080836,
-            e = 0.740266879281894,
-            ω = 2.6979685078495095,
+            a = 2.0,
+            Ω = 0.6,
+            e = 0.01,
+            ω = 0.01,
             tp = 51710.01947449644,
-            mass = 7.837431179003128,
-            i = 1.2116635149564277,
-            θ = 3.5226970272017826),
-        )
+            mass = 10.0,
+            i = 0.01,
+            θ = 3.5226970272017826
+        ),
+    )
 )
 ```
 
@@ -295,7 +296,7 @@ If you set `add_noise = true`, the generated data points will have scatter accor
 
 
 ```julia
-sim_system = Octofitter.generate_from_params(model.system, params_to_simulate; add_noise=false)
+sim_system = Octofitter.generate_from_params(model.system, params_to_simulate; add_noise=true)
 sim_model = Octofitter.LogDensityModel(sim_system)
 ```
 
@@ -314,7 +315,7 @@ octoplot(sim_model, init_chain)
 Fit:
 ```@example 1
 using Pigeons
-chain, pt = octofit_pigeons(sim_model, n_rounds=5)
+chain, pt = octofit_pigeons(sim_model, n_rounds=9)
 ```
 
 
