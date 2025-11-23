@@ -53,6 +53,8 @@ gaia_id = 5064625130502952704
 dr3 = Octofitter._query_gaia_dr3(;gaia_id)
 # TODO: we have on average ~8 scans per epoch
 gost = DataFrame(Octofitter.GOST_forecast(dr3.ra,dr3.dec;baseline=:dr4))
+
+nothing # hide
 ```
 
 
@@ -181,9 +183,10 @@ gaiaIADobs = GaiaDR4AstromObs(df;
         ref_epoch = $ref_epoch_mjd
     end
 )
+
+nothing # hide
 ```
 
-#TODO: RV observations
 
 ## Define the Model
 
@@ -249,10 +252,6 @@ params_to_simulate = Octofitter.drawfrompriors(model.system)
 ### 3. Specifying values manually
 We can also specify all values for the simulation manually. This process is a bit more involved. 
 
-
-```
-
-Copy this output as a template, and replace values as needed. Note that if some parameters are calculated based on others in your model, you will have to repeat those calculations here.
 
 !!! warning
     Note that the output below is just an example, you must generate your own template from your model and modify it as needed. The exact structure is not garuanteed to be stable between versions of Octofitter.
