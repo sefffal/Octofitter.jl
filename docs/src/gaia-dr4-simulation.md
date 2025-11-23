@@ -337,6 +337,7 @@ fig = Octofitter.astromplot(sim_model, chain, use_arcsec=false, ts=1:2)
 ax = fig.content[1]
 
 # Add true orbit in red
+true_chain = Octofitter.result2mcmcchain([params_to_simulate])
 Octofitter.astromplot!(ax, sim_model, true_chain, use_arcsec=false, ts=1:2, colormap=Makie.cgrad([:red]))
 
 # Make true orbit line more visible
