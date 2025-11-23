@@ -2,7 +2,6 @@ using Test
 using Octofitter
 using Distributions
 using Random
-using Pigeons
 
 # Set a fixed seed for reproducibility
 Random.seed!(42)
@@ -113,8 +112,8 @@ Random.seed!(42)
         model_pma = Octofitter.LogDensityModel(sys)
         @test model_pma isa Octofitter.LogDensityModel
 
-        # Sample using Pigeons (recommended for PMA due to multimodality)
-        chain_pma, pt = octofit_pigeons(model_pma, n_rounds=6, explorer=SliceSampler())
+        # Sample from the posterior
+        chain_pma = octofit(model_pma, iterations=100, adaptation=100)
         @test chain_pma isa Octofitter.Chains
         @test size(chain_pma, 1) > 0
     end
@@ -234,8 +233,8 @@ Random.seed!(42)
         model = Octofitter.LogDensityModel(sys)
         @test model isa Octofitter.LogDensityModel
 
-        # Sample using Pigeons
-        results, pt = octofit_pigeons(model, n_rounds=6)
+        # Sample from the posterior
+        results = octofit(model, iterations=100, adaptation=100)
         @test results isa Octofitter.Chains
         @test size(results, 1) > 0
     end
@@ -288,8 +287,8 @@ Random.seed!(42)
         model = Octofitter.LogDensityModel(sys)
         @test model isa Octofitter.LogDensityModel
 
-        # Sample using Pigeons
-        chain, pt = octofit_pigeons(model, n_rounds=6)
+        # Sample from the posterior
+        chain = octofit(model, iterations=100, adaptation=100)
         @test chain isa Octofitter.Chains
         @test size(chain, 1) > 0
     end
@@ -365,8 +364,8 @@ Random.seed!(42)
         model = Octofitter.LogDensityModel(sys_mass)
         @test model isa Octofitter.LogDensityModel
 
-        # Sample using Pigeons with SliceSampler
-        chain, pt = octofit_pigeons(model, n_rounds=6, explorer=SliceSampler())
+        # Sample from the posterior
+        chain = octofit(model, iterations=100, adaptation=100)
         @test chain isa Octofitter.Chains
         @test size(chain, 1) > 0
     end
