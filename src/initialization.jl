@@ -539,6 +539,9 @@ function optimization_and_pathfinder_with_fixed(
         end
 
         # Set up and solve reduced optimization problem
+        reduced_initial = convert(Vector{Float64}, reduced_initial)
+        lb = convert(Vector{Float64}, lb)
+        ub = convert(Vector{Float64}, ub)
         prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
         Random.seed!(rand(rng, UInt64))
         sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters=1_000_000, show_trace=verbosity>2, show_every=1000)
