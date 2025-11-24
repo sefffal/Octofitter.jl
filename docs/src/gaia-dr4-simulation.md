@@ -196,7 +196,7 @@ Now, we define a model that incorporates this data:
 
 mjup2msol = Octofitter.mjup2msol
 ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
-orbit_ref_epoch = mean(gaia_dr4_obs.table.epoch)
+orbit_ref_epoch = mean(gaiaIADobs.table.epoch)
 
 b = Planet(
     name="b",
