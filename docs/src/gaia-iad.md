@@ -22,7 +22,8 @@ df = CSV.read(fname, DataFrame);
 ```
 
 ```@example 1
-df = CSV.read(joinpath(@__DIR__, "target_1.csv"), DataFrame); # hide
+df = CSV.read(joinpath(@__DIR__, "target_1.csv"), DataFrame)
+nothing # hide
 ```
 
 
