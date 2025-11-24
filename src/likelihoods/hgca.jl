@@ -262,7 +262,12 @@ function simulate(pma::HGCAInstantaneousObs, θ_system, θ_obs, orbits, orbit_so
             if pma.table.inst[i_epoch] != :hip
                 continue
             end
-            sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
+            if orbit_solutions_i_epoch_start >= 0
+                sol = orbit_solutions[i_planet][orbit_solutions_i_epoch_start+i_epoch]
+                @assert isapprox(pma.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
+            else
+                sol = orbitsolve(orbit, pma.table.epoch[i_epoch])
+            end
             if pma.table.meas[i_epoch] == :ra
                 N_ave_hip_ra += 1
                 epoch_hip_ra += pma.table.epoch[i_epoch]
@@ -316,8 +321,12 @@ function simulate(pma::HGCAInstantaneousObs, θ_system, θ_obs, orbits, orbit_so
             if pma.table.inst[i_epoch] != :gaia
                 continue
             end
-            
-            sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
+            if orbit_solutions_i_epoch_start >= 0
+                sol = orbit_solutions[i_planet][orbit_solutions_i_epoch_start+i_epoch]
+                @assert isapprox(pma.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
+            else
+                sol = orbitsolve(orbit, pma.table.epoch[i_epoch])
+            end
             if pma.table.meas[i_epoch] == :ra
                 N_ave_gaia_ra += 1
                 epoch_gaia_ra += pma.table.epoch[i_epoch]
@@ -345,6 +354,9 @@ function simulate(pma::HGCAInstantaneousObs, θ_system, θ_obs, orbits, orbit_so
     epoch_gaia_dec /= N_ave_gaia_dec
     pmra_gaia_model += θ_system.pmra
     pmdec_gaia_model += θ_system.pmdec
+
+    Δpmra_g = pmra_gaia_model - θ_system.pmra
+    Δpmdec_g = pmdec_gaia_model - θ_system.pmdec
 
     # Model the GAIA-Hipparcos delta-position velocity in mas/yr
     if absolute_orbits
