@@ -167,6 +167,8 @@ df.parallax_factor_al = @. (
 )
 
 # now construct the observation template
+ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+
 gaiaIADobs = GaiaDR4AstromObs(df;
     gaia_id=gaia_id,
     variables=@variables begin
@@ -195,7 +197,6 @@ Now, we define a model that incorporates this data:
 ```@example 1
 
 mjup2msol = Octofitter.mjup2msol
-ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 orbit_ref_epoch = mean(gaiaIADobs.table.epoch)
 
 b = Planet(
