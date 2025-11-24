@@ -542,18 +542,24 @@ function optimization_and_pathfinder_with_fixed(
         reduced_initial = convert(Vector{Float64}, reduced_initial)
         lb = convert(Vector{Float64}, lb)
         ub = convert(Vector{Float64}, ub)
-        prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
-        Random.seed!(rand(rng, UInt64))
-        sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters=1_000_000, show_trace=verbosity>2, show_every=1000)
+        if !all(lb .< reduced_initial .< ub)
+            @warn "The initial guess parameters fell outside the 0.00001 or 0.9999 quantile range of the priors, so global optimization search is disabled. Returning initial guess only, which may be far from the global mode."
+            opt_full = reduced_to_full(sol.u)
+            initial_logpost = model.ℓπcallback(opt_full)
+        else
+            prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
+            Random.seed!(rand(rng, UInt64))
+            sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters=1_000_000, show_trace=verbosity>2, show_every=1000)
 
-        verbosity > 2 && display(sol.original)
-        
-        # Convert solution to full parameter space
-        opt_full = reduced_to_full(sol.u)
-        
+            verbosity > 2 && display(sol.original)
+            
+            # Convert solution to full parameter space
+            opt_full = reduced_to_full(sol.u)
+                    
+            initial_logpost = -sol.objective
+        end
         # Initialize starting points around optimum
         model.starting_points = fill(opt_full, ndraws)
-        initial_logpost = -sol.objective
 
         full_params = reduced_to_full(sol.u)
     end
