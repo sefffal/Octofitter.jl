@@ -544,7 +544,7 @@ function optimization_and_pathfinder_with_fixed(
         ub = convert(Vector{Float64}, ub)
         if !all(lb .< reduced_initial .< ub)
             @warn "The initial guess parameters fell outside the 0.00001 or 0.9999 quantile range of the priors, so global optimization search is disabled. Returning initial guess only, which may be far from the global mode."
-            opt_full = reduced_to_full(sol.u)
+            opt_full = reduced_to_full(reduced_initial)
             initial_logpost = model.ℓπcallback(opt_full)
         else
             prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
