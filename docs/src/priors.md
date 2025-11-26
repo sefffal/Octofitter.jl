@@ -47,7 +47,7 @@ Now add it to your model as a prior:
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         a ~ kde # Sample from the KDE here
         e ~ Uniform(0.0, 0.99)
@@ -63,7 +63,7 @@ planet_b = Planet(
 sys = System(
     name="Tutoria",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
@@ -96,12 +96,12 @@ astrom_dat = Table(
     dec=[400.0], 
     σ_dec=[5.0]
 )
-astrom_like = PlanetRelAstromLikelihood(astrom_dat, name="rel astrom. 1")
+astrom_obs = PlanetRelAstromObs(astrom_dat, name="rel astrom. 1")
 
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[ObsPriorAstromONeil2019(astrom_like)],
+    observations=[ObsPriorAstromONeil2019(astrom_obs)],
     variables=@variables begin
         # For using with ObsPriors:
         P ~ Uniform(0.001, 1000)
@@ -122,7 +122,7 @@ planet_b = Planet(
 sys = System(
     name="System1",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         plx ~ Normal(21.219, 0.060)
         M ~ truncated(Normal(1.1, 0.2),lower=0.1)

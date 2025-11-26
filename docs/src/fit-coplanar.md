@@ -37,7 +37,7 @@ astrom_dat_c = Table(;
     cor   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 )
 
-astrom_b = PlanetRelAstromLikelihood(
+astrom_b = PlanetRelAstromObs(
     astrom_dat_b,
     name = "GPI",
     variables = @variables begin
@@ -48,7 +48,7 @@ astrom_b = PlanetRelAstromLikelihood(
     end
 )
 
-astrom_c = PlanetRelAstromLikelihood(
+astrom_c = PlanetRelAstromObs(
     astrom_dat_c,
     name = "GPI",
     variables = @variables begin
@@ -74,7 +74,7 @@ This model will use a single pair of `i` and `Ω` variables for both planets to 
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_b],
+    observations=[astrom_b],
     variables=@variables begin
         e = 0.0
         ω = 0.0
@@ -103,7 +103,7 @@ planet_b = Planet(
 planet_c = Planet(
     name="c",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_c],
+    observations=[astrom_c],
     variables=@variables begin
         e = 0.0
         ω = 0.0
@@ -133,7 +133,7 @@ planet_c = Planet(
 sys = System(
     name="HR8799_res_co",
     companions=[planet_b, planet_c],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         plx ~ gaia_plx(;gaia_id=2832463659640297472)
         M_pri ~ truncated(Normal(1.5, 0.02), lower=0.1)
@@ -203,7 +203,7 @@ We now set up two planets with their own separate `i` and `Ω` variables, calcul
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_b],
+    observations=[astrom_b],
     variables=@variables begin
         e = 0.0
         ω = 0.0
@@ -232,7 +232,7 @@ planet_b = Planet(
 planet_c = Planet(
     name="c",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_c],
+    observations=[astrom_c],
     variables=@variables begin
         e = 0.0
         ω = 0.0
@@ -262,7 +262,7 @@ planet_c = Planet(
 sys = System(
     name="HR8799_approx_res_co",
     companions=[planet_b, planet_c],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         plx ~ gaia_plx(;gaia_id=2832463659640297472)
         M_pri ~ truncated(Normal(1.5, 0.02), lower=0.1)

@@ -108,7 +108,7 @@ function Octofitter.astromplot!(
     # epoch_0 = mjd("2020")
     # for planet in model.system.planets
     #     for like_obj in planet.observations
-    #         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+    #         if nameof(typeof(like_obj)) == :PlanetRelAstromObs
     #             epoch_0 = min(epoch_0, minimum(like_obj.table.epoch))
     #         end
     #     end
@@ -186,16 +186,16 @@ function Octofitter.astromplot!(
 
     # Colour data based on the instrument name
     rel_astrom_likes = filter(like_objs) do like_obj
-        nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood ||
-        (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromLikelihood)
+        nameof(typeof(like_obj)) == :PlanetRelAstromObs ||
+        (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromObs)
     end
     rel_astrom_names = sort(unique(likelihoodname.(rel_astrom_likes)))
     n_rel_astrom = length(rel_astrom_names)
 
     i_like_obj = 0
     for like_obj in like_objs
-        if  nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood ||
-            (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromLikelihood)
+        if  nameof(typeof(like_obj)) == :PlanetRelAstromObs ||
+            (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromObs)
 
             i_like_obj = findfirst(==(likelihoodname(like_obj)), rel_astrom_names)
             x = Float64[]
@@ -332,9 +332,9 @@ function Octofitter.astromplot!(
                 markersize=8,
             )
 
-        # If the model, instead/in addition to astrometry, includes one of the following 
-        # "position-like" observations, add scatter points at the posterior projected locatinos.
-        elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :GRAVITYWideCPLikelihood)
+        # If the model, instead/in addition to astrometry, includes one of the following
+        # "position-like" observations, add scatter points at the posterior projected locations.
+        elseif nameof(typeof(like_obj)) in (:ImageObs, :LogLikelihoodMapObs, :InterferometryObs, :GRAVITYWideKPObs,)
             
             for planet_key in keys(model.system.planets)
                 orbs = Octofitter.construct_elements(model, results, planet_key, ii)
@@ -535,7 +535,7 @@ function physorbplot!(
     # epoch_0 = mjd("2020")
     # for planet in model.system.planets
     #     for like_obj in planet.observations
-    #         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+    #         if nameof(typeof(like_obj)) == :PlanetRelAstromObs
     #             epoch_0 = min(epoch_0, minimum(like_obj.table.epoch))
     #         end
     #     end

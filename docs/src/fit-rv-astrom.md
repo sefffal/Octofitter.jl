@@ -44,7 +44,7 @@ astrom_dat = Table(
     cor=fill(0.0, size(epochs))
 )
 
-astrom = PlanetRelAstromLikelihood(
+astrom = PlanetRelAstromObs(
     astrom_dat,
     name = "simulated",
     variables = @variables begin
@@ -73,7 +73,7 @@ epochs = 58849 .+ range(0,step=1.5, length=20)
 planet_sim_mass = 0.001 # solar masses here
 
 
-rvlike = MarginalizedStarAbsoluteRVLikelihood(
+rvlike = MarginalizedStarAbsoluteRVObs(
     Table(
         epoch=epochs,
         rv=radvel.(orb_template, epochs, planet_sim_mass) .+ 150,
@@ -87,7 +87,7 @@ rvlike = MarginalizedStarAbsoluteRVLikelihood(
 
 epochs = 58949 .+ range(0,step=1.5, length=20)
 
-rvlike2 = MarginalizedStarAbsoluteRVLikelihood(
+rvlike2 = MarginalizedStarAbsoluteRVObs(
     Table(
         epoch=epochs,
         rv=radvel.(orb_template, epochs, planet_sim_mass) .- 150,
@@ -111,7 +111,7 @@ Now specify model and fit it:
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom],
+    observations=[astrom],
     variables=@variables begin
         e ~ Uniform(0,0.999999)
         a ~ truncated(Normal(1, 1),lower=0.1)
@@ -128,7 +128,7 @@ planet_b = Planet(
 sys = System(
     name="test",
     companions=[planet_b],
-    likelihoods=[rvlike, rvlike2],
+    observations=[rvlike, rvlike2],
     variables=@variables begin
         M ~ truncated(Normal(1, 0.04),lower=0.1) # (Baines & Armstrong 2011).
         plx = 100.0

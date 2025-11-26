@@ -1,7 +1,7 @@
 
 
 """
-    GaiaHipparcosUEVAJointLikelihood(
+    GaiaHipparcosUEVAJointObs(
         gaia_id=1234567890,
         catalog=catalog_table,
         variables=@variables begin
@@ -10,7 +10,7 @@
             ])  # Flux ratios for each planet
             missed_transits ~ DiscreteUniform(1, 100)  # Number of missed Gaia transits (optional)
             σ_att ~ LogUniform(0.01, 1.0)     # Attitude error (mas)
-            σ_AL ~ LogUniform(0.01, 1.0)      # Along-scan error (mas) 
+            σ_AL ~ LogUniform(0.01, 1.0)      # Along-scan error (mas)
             σ_calib ~ LogUniform(0.01, 1.0)   # Calibration error (mas)
             gaia_n_dof = 5                    # Gaia degrees of freedom
         end,
@@ -27,7 +27,7 @@ that were missed or rejected during data processing.
 The `σ_att`, `σ_AL`, and `σ_calib` variables represent Gaia attitude, along-scan, and
 calibration errors respectively. `gaia_n_dof` is the number of degrees of freedom (typically 5).
 """
-struct GaiaHipparcosUEVAJointLikelihood{TTable,TTableH,TTableG,TCat,THip} <: AbstractLikelihood
+struct GaiaHipparcosUEVAJointObs{TTable,TTableH,TTableG,TCat,THip} <: AbstractObs
     table::TTable
     priors::Priors
     derived::Derived
@@ -43,11 +43,11 @@ struct GaiaHipparcosUEVAJointLikelihood{TTable,TTableH,TTableG,TCat,THip} <: Abs
 end
 
 
-function likelihoodname(like::GaiaHipparcosUEVAJointLikelihood)
+function likelihoodname(like::GaiaHipparcosUEVAJointObs)
     return "GaiaHipparcosUEVA"
 end
 
-function GaiaHipparcosUEVAJointLikelihood(;
+function GaiaHipparcosUEVAJointObs(;
         gaia_id,
         scanlaw_table=nothing,
         catalog,
@@ -494,8 +494,8 @@ function GaiaHipparcosUEVAJointLikelihood(;
     end
     (priors,derived)=variables
 
-    
-    return GaiaHipparcosUEVAJointLikelihood{
+
+    return GaiaHipparcosUEVAJointObs{
         typeof(table),
         typeof(hip_table),
         typeof(gaia_table),
@@ -518,7 +518,7 @@ function GaiaHipparcosUEVAJointLikelihood(;
 
 end
 
-function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikelihood, obs_inds)
+function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointObs, obs_inds)
     (;  table,
         priors,
         derived,
@@ -531,18 +531,18 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
         A_prepared_5_dr3,
         include_iad,
         ueva_mode ) = like
-    
+
     table = table[obs_inds,:]
     if  (
-            :iad_hip ∉ like.table.kind && 
-            :ra_hip ∉ like.table.kind && 
-            :dec_hip ∉ like.table.kind && 
-            :ra_hg ∉ like.table.kind && 
+            :iad_hip ∉ like.table.kind &&
+            :ra_hip ∉ like.table.kind &&
+            :dec_hip ∉ like.table.kind &&
+            :ra_hg ∉ like.table.kind &&
             :dec_hg ∉ like.table.kind
         )
         catalog = (;catalog..., dist_hip = nothing, dist_hg=nothing)
     end
-    return GaiaHipparcosUEVAJointLikelihood{
+    return GaiaHipparcosUEVAJointObs{
         typeof(table),
         typeof(hip_table),
         typeof(gaia_table),
@@ -564,7 +564,8 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointLikeli
     )
 end
 
-function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function ln_like(like::GaiaHipparcosUEVAJointObs, ctx::SystemObservationContext)
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx 
 
     T = _system_number_type(θ_system)
     ll = zero(T)
@@ -957,7 +958,7 @@ function ln_like(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbi
     return ll
 end
 
-function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function simulate(like::GaiaHipparcosUEVAJointObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
     # TODO: optimize this, we only need to grab the epochs here -- it'll be faster
     if hasproperty(θ_obs, :transits)
@@ -1008,7 +1009,7 @@ function simulate(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orb
     return out 
 end
 
-function simulate!(buffers, like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function simulate!(buffers, like::GaiaHipparcosUEVAJointObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
     (;Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3, iad_resid, ) = buffers
 
@@ -1594,14 +1595,17 @@ end
 
 
 # Generate new astrometry observations
-function Octofitter.generate_from_params(like::GaiaHipparcosUEVAJointLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function Octofitter.generate_from_params(like::GaiaHipparcosUEVAJointObs, ctx::SystemObservationContext; add_noise)
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
     sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
-    (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3) = sim  
+    (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3) = sim
 
-    error("Simulating GaiaHipparcosUEVAJointLikelihood not implemented yet")
+    error("Simulating GaiaHipparcosUEVAJointObs not implemented yet")
     return like
 end
 
+# Backwards compatibility alias
+const GaiaHipparcosUEVAJointLikelihood = GaiaHipparcosUEVAJointObs
 
-export GaiaHipparcosUEVAJointLikelihood
+export GaiaHipparcosUEVAJointObs, GaiaHipparcosUEVAJointLikelihood

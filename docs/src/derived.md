@@ -14,7 +14,7 @@ Derived variables for the system as a whole can be created as follows:
 sys = System(
     name="HD12345",
     companions=[],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M = 1.0
         plx ~ Normal(45., 0.02)
@@ -28,7 +28,7 @@ In the following case, let's define `M` as being calculated based on another var
 sys = System(
     name="HD12345",
     companions=[],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         plx ~ Normal(45., 0.02)
         logM ~ Normal(45., 0.02)
@@ -49,7 +49,7 @@ Here is an example of reparameterizing `e` and `a` on a planet to be logarithmic
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         ω ~ Normal(0.1, deg2rad(30.))
         i ~ Normal(0.1, deg2rad(30.))
@@ -77,7 +77,7 @@ This makes it easy to, for example, create a system of two planets that are co-p
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         a ~ Uniform(0, 15)
         e ~ Uniform(0,0.99)
@@ -95,7 +95,7 @@ planet_b = Planet(
 planet_c = Planet(
     name="c",
     basis=Visual{KepOrbit},
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         a ~ Uniform(15, 45)
         e ~ Uniform(0,0.99)
@@ -113,7 +113,7 @@ planet_c = Planet(
 sys = System(
     name="HD12345",
     companions=[planet_b, planet_c],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         plx ~ Normal(45., 0.02)
         M ~ Normal(45., 0.02)

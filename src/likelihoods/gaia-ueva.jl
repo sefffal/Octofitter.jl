@@ -42,7 +42,7 @@ t.query(o,return_angles=True)
 ```
 
 """
-struct GaiaUEVALikelihood{TCat,TTable,TDist} <: AbstractLikelihood
+struct GaiaUEVAObs{TCat,TTable,TDist} <: AbstractObs
     # Source ID from each given catalog, if available
     gaia_id::Int
     mode::Symbol
@@ -53,7 +53,13 @@ struct GaiaUEVALikelihood{TCat,TTable,TDist} <: AbstractLikelihood
     # Precomputed MVNormal distribution from Gaia catalog
     dist::TDist
 end
-function GaiaUEVALikelihood(;
+
+# Backwards compatibility alias
+const GaiaUEVALikelihood = GaiaUEVAObs
+
+export GaiaUEVAObs, GaiaUEVALikelihood
+
+function GaiaUEVAObs(;
     gaia_id,
     scanlaw_table,
     mode::Symbol
@@ -131,15 +137,16 @@ function GaiaUEVALikelihood(;
     end
     table = Table(map(dat->dat[], table))
 
-    return GaiaUEVALikelihood{typeof(dr3),typeof(table),typeof(dist_dr3)}(gaia_id, mode, dr3, table, dist_dr3)
+    return GaiaUEVAObs{typeof(dr3),typeof(table),typeof(dist_dr3)}(gaia_id, mode, dr3, table, dist_dr3)
 end
 
-function ln_like(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
-    ll, _ = simulate(gaialike, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function ln_like(obs::GaiaUEVAObs, ctx::SystemObservationContext)
+    (; θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    ll, _ = simulate(obs, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     return ll
 end
 
-function simulate(gaialike::GaiaUEVALikelihood, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function simulate(gaialike::GaiaUEVAObs, θ_system, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
 
 

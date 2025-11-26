@@ -39,7 +39,7 @@ flowchart TD
 
 ### The `@variables` Macro
 
-**Location**: [`src/macros.jl`](https://github.com/sefffal/Octofitter.jl/blob/main/src/macros.jl), [`src/variables.jl`](https://github.com/sefffal/Octofitter.jl/blob/main/src/variables.jl)
+**Location**: `src/macros.jl`, `src/variables.jl`
 
 The `@variables` macro is Octofitter's PPL interface. It parses variable definitions into prior distributions and derived variables:
 
@@ -96,7 +96,7 @@ System(
 
 ## 2. The `arr2nt` Transformation
 
-**Location**: [`src/variables.jl:600-902`](https://github.com/sefffal/Octofitter.jl/blob/main/src/variables.jl)
+**Location**: `src/variables.jl`
 
 ### Purpose
 
@@ -180,7 +180,7 @@ end
 
 ## 3. Bijection Mechanisms
 
-**Location**: [`src/logdensitymodel.jl:61-84`](https://github.com/sefffal/Octofitter.jl/blob/main/src/logdensitymodel.jl), [`src/variables.jl:1289-1335`](https://github.com/sefffal/Octofitter.jl/blob/main/src/variables.jl)
+**Location**: `src/logdensitymodel.jl
 
 ### Purpose
 
@@ -232,7 +232,7 @@ When sampling in transformed space, we must account for the change of variables 
 
 ## 4. Log Prior Generation
 
-**Location**: [`src/variables.jl:1047-1211`](https://github.com/sefffal/Octofitter.jl/blob/main/src/variables.jl)
+**Location**: `src/variables.jl`
 
 ### Purpose
 
@@ -279,7 +279,7 @@ end
 
 ## 5. Log Likelihood Generation
 
-**Location**: [`src/likelihoods/system.jl`](https://github.com/sefffal/Octofitter.jl/blob/main/src/likelihoods/system.jl)
+**Location**: `src/likelihoods/system.jl`
 
 ### Purpose
 
@@ -398,7 +398,7 @@ This is crucial for performance since likelihood evaluation happens millions of 
 
 ## 6. The `LogDensityModel` Orchestrator
 
-**Location**: [`src/logdensitymodel.jl`](https://github.com/sefffal/Octofitter.jl/blob/main/src/logdensitymodel.jl)
+**Location**: `src/logdensitymodel.jl`
 
 ### Purpose
 

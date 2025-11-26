@@ -5,11 +5,11 @@
 @variables
 Planet
 System
-PlanetRelAstromLikelihood
-StarAbsoluteRVLikelihood              
-PlanetRelativeRVLikelihood              
-PhotometryLikelihood
-HGCALikelihood
+PlanetRelAstromObs
+StarAbsoluteRVObs              
+PlanetRelativeRVObs              
+PhotometryObs
+HGCAObs
 ObsPriorAstromONeil2019
 Sine
 mjd

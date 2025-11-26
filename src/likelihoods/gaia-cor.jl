@@ -1,6 +1,6 @@
 
 
-struct GaiaDifferenceLike{TCat3,TCat2,TTable} <: AbstractLikelihood
+struct GaiaDifferenceObs{TCat3,TCat2,TTable} <: AbstractObs
     priors::Priors
     derived::Derived
     # Source ID from each given catalog, if available
@@ -16,8 +16,13 @@ struct GaiaDifferenceLike{TCat3,TCat2,TTable} <: AbstractLikelihood
     A_prepared_5_dr3::Matrix{Float64}
     A_prepared_5_dr2::Matrix{Float64}
 end
-likelihoodname(likeobj::GaiaDifferenceLike)  = "GaiaDR3DR2Diff"
-function GaiaDifferenceLike(;
+# Backwards compatibility aliases
+const GaiaDifferenceLike = GaiaDifferenceObs
+const GaiaDifferenceLikelihood = GaiaDifferenceObs
+likelihoodname(likeobj::GaiaDifferenceObs)  = "GaiaDR3DR2Diff"
+export GaiaDifferenceObs, GaiaDifferenceLike, GaiaDifferenceLikelihood
+
+function GaiaDifferenceObs(;
     source_id_dr2=nothing,
     source_id_dr3=nothing,
     scanlaw_table=nothing,
@@ -224,7 +229,7 @@ function GaiaDifferenceLike(;
 
 
 
-    return GaiaDifferenceLike{typeof(dr3),typeof(dr2),typeof(table),}(
+    return GaiaDifferenceObs{typeof(dr3),typeof(dr2),typeof(table),}(
         priors,
         derived,
         source_id_dr3,
@@ -242,13 +247,14 @@ end
 
 
 
-function ln_like(gaialike::GaiaDifferenceLike, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function ln_like(gaialike::GaiaDifferenceObs, ctx::SystemObservationContext)
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
     ll, _ = simulate(gaialike, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     return ll
 end
 
 
-function simulate(gaialike::GaiaDifferenceLike, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function simulate(gaialike::GaiaDifferenceObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
     T = _system_number_type(θ_system)
 
