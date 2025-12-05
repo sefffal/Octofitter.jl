@@ -17,6 +17,7 @@ makedocs(
         "Getting Started" => [
             "Installation" => "installation.md",
             "Quick Start" => "quick-start.md",
+            "FAQ" => "faq.md",
             "Migration Guide" => "migration.md",
         ],
         "Tutorials" => [
@@ -52,6 +53,8 @@ makedocs(
                 "Calculate Detection Limits" => "limits.md",
             ],
             "Bayesian Workflows" => [
+                "Circular or Eccentric? Model Comparison" => "eccentric-or-circular.md",
+                "Generating and Fitting Simulated Data" => "data-simulation.md",
                 "Prior Predictive Checks" => "prior-pred.md",
                 "Posterior Predictive Checks" => "post-pred.md",
                 "Cross Validation" => "cross-validation.md",
@@ -72,6 +75,9 @@ makedocs(
             "Kepler Solver" => "kepler.md",
             "Orbitize! Compatibility" => "compat-orbitize.md",
             "Full API Documentation" => "api.md"
+        ],
+        "Developer Documentation" => [
+            "Architecture Overview" => "dev/architecture.md"
         ]
     ],
     format = Documenter.HTML(

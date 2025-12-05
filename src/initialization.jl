@@ -118,6 +118,13 @@ The `fixed_params` can include:
 - Planet variables: `(; planets=(; b=(; a=1.5, e=0.1, ...), ...))`  
 - Observation variables: `(; observations=(; ObsName=(; var1=val1, var2=val2, ...), ...))`
 
+Available keyword arguments include:
+ - `verbosity=1`: control extra logging, can be 0 for silent, up to 4 for debugging info
+ - `pathfinder_autodiff=AutoForwardDiff()`: what autodiff backend to use for initialization (not necessarily the same one used for the model in general)
+ - `nruns=8`: how many runs of multi-pathfinder to use 
+ - `ntries=2`: how many times can pathfinder fail and restart
+ - `ndraws=1000`: how many draws to return from the pathfinder approximation
+
 Example:
 ```julia
 init_chain = initialize!(model, (;
@@ -146,15 +153,15 @@ function initialize!(model::LogDensityModel, fixed_params=nothing; kwargs...)
 end
 
 function initialize!(rng::Random.AbstractRNG, 
-                                       model::LogDensityModel, 
-                                       fixed_params=nothing; 
-                                       nruns=8, 
-                                       ntries=2, 
-                                       ndraws=1000, 
-                                       verbosity=1,
-                                        pathfinder_autodiff=AutoForwardDiff(),
-
-                                       )
+    model::LogDensityModel, 
+    fixed_params=nothing; 
+    nruns=8, 
+    ntries=2, 
+    ndraws=1000, 
+    verbosity=1,
+    pathfinder_autodiff=AutoForwardDiff(),
+    use_pathfinder=true,
+)
     # # If no fixed parameters, just call the original initializer
     # if isnothing(fixed_params)
     #     return initialize!(rng, model; nruns, ntries, ndraws, verbosity)
@@ -217,7 +224,7 @@ function initialize!(rng::Random.AbstractRNG,
 
             logposts = optimization_and_pathfinder_with_fixed(
                 rng, model, combined_fixed_values, combined_fixed_indices, variable_indices;
-                nruns, ntries, ndraws, verbosity, pathfinder_autodiff
+                nruns, ntries, ndraws, verbosity, pathfinder_autodiff, use_pathfinder
             )
         end
         
@@ -226,7 +233,7 @@ function initialize!(rng::Random.AbstractRNG,
         # Can use global optimization followed by pathfinder
         logposts = optimization_and_pathfinder_with_fixed(
             rng, model, fixed_values, fixed_indices, variable_indices;
-            nruns, ntries, ndraws, verbosity, pathfinder_autodiff
+            nruns, ntries, ndraws, verbosity, pathfinder_autodiff, use_pathfinder
         )
     end
     stop_time = fill(time(), 1)
@@ -259,13 +266,12 @@ function extract_fixed_params(model, partial_nt)
     dummy_params = model.sample_priors(Random.default_rng())
     full_nt = model.arr2nt(dummy_params)
     
-    fixed_values = Float64[]
+    fixed_values = []
     fixed_indices = Int[]
     
     function process_tuple!(current_partial, current_full, path="")
         for name in propertynames(current_partial)
             val = getproperty(current_partial, name)
-            
             # Special handling for observations
             if name == :observations && val isa NamedTuple
                 process_observations!(val, current_full, path * ".observations")
@@ -284,7 +290,7 @@ function extract_fixed_params(model, partial_nt)
                 process_tuple!(val, full_val, path * "." * String(name))
             else
                 # Find index in the flat array using sentinel values
-                sentinel_value = full_val
+                sentinel_value = full_val[1]
                 sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
                 
                 if sentinal_idx !== nothing
@@ -322,7 +328,7 @@ function extract_fixed_params(model, partial_nt)
                         
                         # Look for the exact variable name
                         if hasproperty(full_obs_vars, var_name)
-                            sentinel_value = getproperty(full_obs_vars, var_name)
+                            sentinel_value = getproperty(full_obs_vars, var_name)[1]
                             sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
                             
                             if sentinal_idx !== nothing
@@ -338,7 +344,7 @@ function extract_fixed_params(model, partial_nt)
                             prefixed_name = Symbol(string(normalized_obs_name) * "_" * var_name_str)
                             
                             if hasproperty(full_obs_vars, prefixed_name)
-                                sentinel_value = getproperty(full_obs_vars, prefixed_name)
+                                sentinel_value = getproperty(full_obs_vars, prefixed_name)[1]
                                 sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
                                 
                                 if sentinal_idx !== nothing
@@ -354,12 +360,10 @@ function extract_fixed_params(model, partial_nt)
                     if !found
                         for full_obs_name in propertynames(current_full.observations)
                             full_obs_vars = getproperty(current_full.observations, full_obs_name)
-                            
                             # Look for the exact variable name
                             if hasproperty(full_obs_vars, var_name)
-                                sentinel_value = getproperty(full_obs_vars, var_name)
+                                sentinel_value = getproperty(full_obs_vars, var_name)[1]
                                 sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
-                                
                                 if sentinal_idx !== nothing
                                     push!(fixed_values, var_value)
                                     push!(fixed_indices, sentinal_idx)
@@ -401,7 +405,12 @@ function guess_starting_position_with_fixed(
         params = collect(model.sample_priors(rng))
         # Insert fixed values
         for (i, idx) in enumerate(fixed_indices)
-            params[idx] = fixed_values[i]
+            val = fixed_values[i]
+            if val isa Number
+                params[idx] = val
+            else
+                params[idx:(idx+length(val)-1)] .= val
+            end
         end
         return params
     end
@@ -434,6 +443,7 @@ function optimization_and_pathfinder_with_fixed(
     rng, model, fixed_values, fixed_indices, variable_indices;
     nruns=8, ntries=2, ndraws=1000, verbosity=1,
     pathfinder_autodiff=AutoForwardDiff(),
+    use_pathfinder=true,
 )
     # First, identify which parameters are discrete vs continuous
     sample = model.sample_priors(rng)
@@ -499,8 +509,17 @@ function optimization_and_pathfinder_with_fixed(
     lb = convert(Vector{Float64},lb_full[variable_indices])
     ub = convert(Vector{Float64},ub_full[variable_indices])
 
-    # Extract initial values for continuous parameters
-    reduced_initial = convert(Vector{Float64}, median(samples,dims=2)[variable_indices])
+    fixed_values = []
+    fixed_indices = Int[]
+    reduced_initial_prime, bestlogpost = guess_starting_position_with_fixed(
+        rng, model, fixed_values, fixed_indices, discrete_indices
+    )
+    reduced_initial = model.link(reduced_initial_prime)
+    if !isfinite(reduced_ℓπcallback(reduced_initial))
+        opt_full = reduced_to_full(reduced_initial)
+        @show opt_full model.invlink(opt_full) model.arr2nt(model.invlink(opt_full))
+        error("Starting point for global optimization is not finite; did you fix parameters to invalid values?")
+    end
     
     if isempty(reduced_initial)
         opt_full = reduced_to_full(reduced_initial)
@@ -518,9 +537,8 @@ function optimization_and_pathfinder_with_fixed(
         )
         
         if verbosity > 0
-            @info "Performing global optimization with $(length(variable_indices)) parameters ($(length(fixed_indices)) initial parameter value provided)."
+            @info "Starting values not provided for all parameters! Guessing starting point using global optimization:" num_params=length(variable_indices) num_fixed=length(fixed_indices)
         end
-        
         
         # Set up and solve reduced optimization problem
         prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
@@ -552,164 +570,167 @@ function optimization_and_pathfinder_with_fixed(
     # For pathfinder: create new conversion functions that only fix discrete parameters
     # -------------------------------------------------------------
     
-    # Determine which indices are free for pathfinder (all except discrete fixed params)
-    pathfinder_fixed_indices = discrete_fixed_indices
-    pathfinder_variable_indices = setdiff(1:model.D, pathfinder_fixed_indices)
-    
-    # Define a new reduced to full mapping for pathfinder
-    pathfinder_fixed_values_linked = zeros(model.D)
-    for (i, idx) in enumerate(discrete_fixed_indices)
-        # Find the original index in the fixed_indices array
-        orig_idx = findfirst(x -> x == idx, fixed_indices)
-        if orig_idx !== nothing
-            pathfinder_fixed_values_linked[idx] = fixed_values_linked[idx]
-        end
-    end
-    
-    function pathfinder_reduced_to_full(reduced_params)
-        full_params = zeros(eltype(reduced_params), model.D)
-        # Fill in variable parameters (which now include continuous fixed params)
-        for (i, idx) in enumerate(pathfinder_variable_indices)
-            full_params[idx] = reduced_params[i]
-        end
-        # Fill in only the discrete fixed parameters
-        for idx in pathfinder_fixed_indices
-            full_params[idx] = pathfinder_fixed_values_linked[idx]
-        end
-        return full_params
-    end
-    
-    # Create new callback functions for pathfinder
-    function pathfinder_ℓπcallback(reduced_params)
-        full_params = pathfinder_reduced_to_full(reduced_params)
-        return model.ℓπcallback(full_params)
-    end
-    
-    # function pathfinder_∇ℓπcallback(reduced_params)
-    #     full_params = pathfinder_reduced_to_full(reduced_params)
-        
-    #     # Get full gradient
-    #     logpost, full_grad = model.∇ℓπcallback(full_params)
-        
-    #     # Extract gradient components for pathfinder variable parameters
-    #     reduced_grad = full_grad[pathfinder_variable_indices]
-        
-    #     return logpost, reduced_grad
-    # end
-
-    autodiff_type(model::LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp,ADType}) where {D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp,ADType} = ADType
-    
-    # Define optimization function for pathfinder
-    pathfinder_f = OptimizationFunction(
-        # (u, p) -> -pathfinder_ℓπcallback(u),
-        (u, p) -> begin
-            l = -pathfinder_ℓπcallback(u)
-            if !isfinite(l)
-                @warn "no finite " l maxlog=10
-            end
-            l
-        end,
-        pathfinder_autodiff
-        # this is because users might pick finitediff for models with discrete variables
-        # but we still want to optimize efficiently here where we've masked out all the discrete variables
-    )
-    
-    # Convert the BBO optimum to pathfinder reduced space
-    pathfinder_opt = zeros(length(pathfinder_variable_indices))
-    for (i, idx) in enumerate(pathfinder_variable_indices)
-        pathfinder_opt[i] = opt_full[idx]
-    end
-    
-    # Run multipathfinder with only discrete parameters fixed
     local result_pf = nothing
     local draws_full = nothing
     
-    try
-        for i in 1:ntries
-            verbosity >= 3 && @info "Starting multipathfinder run with only discrete parameters fixed" free_params=length(pathfinder_variable_indices) fixed_params=length(pathfinder_fixed_indices)
-            
-            errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Debug : Logging.Error)
-            initial_mt = _kepsolve_use_threads[]
-            _kepsolve_use_threads[] = nruns == 1
-
-            # Generate initial values for pathfinder
-            initial_vals = map(1:nruns) do _
-                x = pathfinder_opt
-
-                # take a random step away from the max like solution and aim for a drop in
-                # log like of about 200
-                target_drop=200.0 + 10randn(rng)
-                max_iter=20
-
-                d = randn(rng, length(x)) # Generate random unit vector
-                d = d / norm(d)
-                L₀ = pathfinder_ℓπcallback(x) # initial value
-                α_min, α_max = 0.0, 0.1 # Binary search for step size
-                # Expand upper bound if needed
-                while (L₀ - pathfinder_ℓπcallback(x + α_max * d) < target_drop) && (α_max < 1e6)
-                    α_max *= 2.0
-                end
-                
-                new_x = x
-                for _ in 1:max_iter # Binary search - always same number of iterations
-                    α_mid = (α_min + α_max) / 2.0
-                    new_x = x + α_mid * d
-                    drop = L₀ - pathfinder_ℓπcallback(new_x)
-                    if drop < target_drop
-                        α_min = α_mid
-                    else
-                        α_max = α_mid
-                    end
-                    new_x = new_x
-                end
-                return new_x
+    if use_pathfinder
+    
+        # Determine which indices are free for pathfinder (all except discrete fixed params)
+        pathfinder_fixed_indices = discrete_fixed_indices
+        pathfinder_variable_indices = setdiff(1:model.D, pathfinder_fixed_indices)
+        
+        # Define a new reduced to full mapping for pathfinder
+        pathfinder_fixed_values_linked = zeros(model.D)
+        for (i, idx) in enumerate(discrete_fixed_indices)
+            # Find the original index in the fixed_indices array
+            orig_idx = findfirst(x -> x == idx, fixed_indices)
+            if orig_idx !== nothing
+                pathfinder_fixed_values_linked[idx] = fixed_values_linked[idx]
             end
-                
-            result_pf, draws_full = with_logger(errlogger) do 
-                # Use pathfinder-specific reduced model
-                result_reduced = Pathfinder.multipathfinder(
-                    pathfinder_f, ndraws;
-                    nruns, init=initial_vals,
-                    progress = verbosity > 1,
-                    maxiters = 25_000,
-                    reltol = 1e-6,
-                    rng = rng,
-                    ntries = 1,
-                    executor = Pathfinder.Transducers.SequentialEx(),
-                    # executor = Pathfinder.Transducers.PreferParallel(),
-                    optimizer = Pathfinder.Optim.BFGS(;
-                        linesearch = Pathfinder.Optim.LineSearches.BackTracking(),
-                        alphaguess = Pathfinder.Optim.LineSearches.InitialHagerZhang()
-                    )
-                )
-                verbosity > 1 && @info "Done pathfinder"
-                
-                # Convert reduced pathfinder result to full space
-                draws_full = zeros(ndraws, model.D)
-                for j in 1:ndraws
-                    draws_full[j, :] .= pathfinder_reduced_to_full(result_reduced.draws[:, j])
-                end
-                
-                return result_reduced, draws_full
-            end
-            
-            _kepsolve_use_threads[] = initial_mt
-            
-            # Check pareto shape diagnostic
-            if result_pf.psis_result.pareto_shape > 3
-                verbosity > 3 && display(result_pf)
-                verbosity >= 4 && display(result_pf.psis_result)
-                i < ntries && verbosity > 2 && @warn "Restarting pathfinder from new starting points" i
-                continue
-            end
-            
-            verbosity >= 3 && @info "Pathfinder complete"
-            verbosity > 2 && display(result_pf)
-            break
         end
-    catch err
-        @warn "Pathfinder error: $err"
-        @warn "Using BBO result as fallback"
+        
+        function pathfinder_reduced_to_full(reduced_params)
+            full_params = zeros(eltype(reduced_params), model.D)
+            # Fill in variable parameters (which now include continuous fixed params)
+            for (i, idx) in enumerate(pathfinder_variable_indices)
+                full_params[idx] = reduced_params[i]
+            end
+            # Fill in only the discrete fixed parameters
+            for idx in pathfinder_fixed_indices
+                full_params[idx] = pathfinder_fixed_values_linked[idx]
+            end
+            return full_params
+        end
+        
+        # Create new callback functions for pathfinder
+        function pathfinder_ℓπcallback(reduced_params)
+            full_params = pathfinder_reduced_to_full(reduced_params)
+            return model.ℓπcallback(full_params)
+        end
+        
+        # function pathfinder_∇ℓπcallback(reduced_params)
+        #     full_params = pathfinder_reduced_to_full(reduced_params)
+            
+        #     # Get full gradient
+        #     logpost, full_grad = model.∇ℓπcallback(full_params)
+            
+        #     # Extract gradient components for pathfinder variable parameters
+        #     reduced_grad = full_grad[pathfinder_variable_indices]
+            
+        #     return logpost, reduced_grad
+        # end
+
+        autodiff_type(model::LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp,ADType}) where {D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp,ADType} = ADType
+        
+        # Define optimization function for pathfinder
+        pathfinder_f = OptimizationFunction(
+            # (u, p) -> -pathfinder_ℓπcallback(u),
+            (u, p) -> begin
+                l = -pathfinder_ℓπcallback(u)
+                if !isfinite(l)
+                    @warn "no finite " l maxlog=10
+                end
+                l
+            end,
+            pathfinder_autodiff
+            # this is because users might pick finitediff for models with discrete variables
+            # but we still want to optimize efficiently here where we've masked out all the discrete variables
+        )
+        
+        # Convert the BBO optimum to pathfinder reduced space
+        pathfinder_opt = zeros(length(pathfinder_variable_indices))
+        for (i, idx) in enumerate(pathfinder_variable_indices)
+            pathfinder_opt[i] = opt_full[idx]
+        end
+        
+
+        try
+            for i in 1:ntries
+                verbosity >= 3 && @info "Starting multipathfinder run with only discrete parameters fixed" free_params=length(pathfinder_variable_indices) fixed_params=length(pathfinder_fixed_indices)
+                
+                errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Debug : Logging.Error)
+                initial_mt = _kepsolve_use_threads[]
+                _kepsolve_use_threads[] = nruns == 1
+
+                # Generate initial values for pathfinder
+                initial_vals = map(1:nruns) do _
+                    x = pathfinder_opt
+
+                    # take a random step away from the max like solution and aim for a drop in
+                    # log like of about 200
+                    target_drop=200.0 + 10randn(rng)
+                    max_iter=20
+
+                    d = randn(rng, length(x)) # Generate random unit vector
+                    d = d / norm(d)
+                    L₀ = pathfinder_ℓπcallback(x) # initial value
+                    α_min, α_max = 0.0, 0.1 # Binary search for step size
+                    # Expand upper bound if needed
+                    while (L₀ - pathfinder_ℓπcallback(x + α_max * d) < target_drop) && (α_max < 1e6)
+                        α_max *= 2.0
+                    end
+                    
+                    new_x = x
+                    for _ in 1:max_iter # Binary search - always same number of iterations
+                        α_mid = (α_min + α_max) / 2.0
+                        new_x = x + α_mid * d
+                        drop = L₀ - pathfinder_ℓπcallback(new_x)
+                        if drop < target_drop
+                            α_min = α_mid
+                        else
+                            α_max = α_mid
+                        end
+                        new_x = new_x
+                    end
+                    return new_x
+                end
+                    
+                result_pf, draws_full = with_logger(errlogger) do 
+                    # Use pathfinder-specific reduced model
+                    result_reduced = Pathfinder.multipathfinder(
+                        pathfinder_f, ndraws;
+                        nruns, init=initial_vals,
+                        progress = verbosity > 1,
+                        maxiters = 25_000,
+                        reltol = 1e-6,
+                        rng = rng,
+                        ntries = 1,
+                        executor = Pathfinder.Transducers.SequentialEx(),
+                        # executor = Pathfinder.Transducers.PreferParallel(),
+                        optimizer = Pathfinder.Optim.BFGS(;
+                            linesearch = Pathfinder.Optim.LineSearches.BackTracking(),
+                            alphaguess = Pathfinder.Optim.LineSearches.InitialHagerZhang()
+                        )
+                    )
+                    verbosity > 1 && @info "Done pathfinder"
+                    
+                    # Convert reduced pathfinder result to full space
+                    draws_full = zeros(ndraws, model.D)
+                    for j in 1:ndraws
+                        draws_full[j, :] .= pathfinder_reduced_to_full(result_reduced.draws[:, j])
+                    end
+                    
+                    return result_reduced, draws_full
+                end
+                
+                _kepsolve_use_threads[] = initial_mt
+                
+                # Check pareto shape diagnostic
+                if result_pf.psis_result.pareto_shape > 3
+                    verbosity > 3 && display(result_pf)
+                    verbosity >= 4 && display(result_pf.psis_result)
+                    i < ntries && verbosity > 2 && @warn "Restarting pathfinder from new starting points" i
+                    continue
+                end
+                
+                verbosity >= 3 && @info "Pathfinder complete"
+                verbosity > 2 && display(result_pf)
+                break
+            end
+        catch err
+            @warn "Pathfinder error: $err"
+            @warn "Using BBO result as fallback"
+        end
     end
     
     # Use pathfinder results if available
@@ -724,7 +745,7 @@ function optimization_and_pathfinder_with_fixed(
     # Check if pathfinder produced good results
     if maximum(logposts) < initial_logpost - 20
         if verbosity >= 1
-            @warn "Pathfinder produced samples with log-likelihood 20 worse than global max. Will just initialize at global max."
+            @warn "Pathfinder produced samples with log-likelihood 20 worse than global max. Will just initialize at global max." logpost_range=extrema(logposts) mean_logpost=mean(logposts) initial_logpost
         end
         model.starting_points = fill(opt_full, ndraws)
         logposts = fill(initial_logpost, ndraws)

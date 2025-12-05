@@ -25,25 +25,35 @@ macro variables(variables_block_input)
     
     for statement in variables_block
         if statement.head == :call && statement.args[1] == :~
+            varname = statement.args[2]
+            expression = statement.args[3]
+
             # Check if LHS is a distribution (Distribution(...) ~ expression)
-            if statement.args[2] isa Expr && statement.args[2].head == :call
+            u = union(seen_prior_vars, seen_derived_vars)
+            if varname in u || expression in u || (statement.args[2] isa Expr && statement.args[2].head == :call)
                 # This is a user likelihood: Distribution(...) ~ expression
-                dist_expr = statement.args[2]
-                rhs_expr = statement.args[3]
+                lhs_expr = varname
+                rhs_expr = expression
                 
                 # Generate unique symbol for the derived variable
-                derived_sym = Symbol("rhs_",generate_userlike_name(rhs_expr))
+                derived_sym_lhs = Symbol("lhs_",generate_userlike_name(rhs_expr))
+                derived_sym_rhs = Symbol("rhs_",generate_userlike_name(rhs_expr))
                 
                 # Check for duplicate derived variable names (including generated ones)
-                if derived_sym in seen_derived_vars
-                    error("Generated derived variable name '$derived_sym' conflicts with existing variable. Please use a different expression or variable name.")
+                if derived_sym_rhs in seen_derived_vars
+                    error("Generated derived variable name '$derived_sym_rhs' conflicts with existing variable. Please use a different expression or variable name.")
                 end
-                push!(seen_derived_vars, derived_sym)
+                if derived_sym_lhs in seen_derived_vars
+                    error("Generated derived variable name '$derived_sym_lhs' conflicts with existing variable. Please use a different expression or variable name.")
+                end
+                push!(seen_derived_vars, derived_sym_lhs)
+                push!(seen_derived_vars, derived_sym_rhs)
                 
                 # Process the RHS expression for variable capture
                 local_quote_vars = Symbol[]
                 local_quote_vals = Any[]
-                processed_expr = quasiquote!(deepcopy(rhs_expr), local_quote_vars, local_quote_vals)
+                processed_expr_lhs = quasiquote!(deepcopy(lhs_expr), local_quote_vars, local_quote_vals)
+                processed_expr_rhs = quasiquote!(deepcopy(rhs_expr), local_quote_vars, local_quote_vals)
                 
                 # Add to global captured variables
                 for (var, val) in zip(local_quote_vars, local_quote_vals)
@@ -54,36 +64,36 @@ macro variables(variables_block_input)
                 end
                 
                 # Add to derived variables
-                derived_vars[derived_sym] = processed_expr
+                derived_vars[derived_sym_rhs] = processed_expr_rhs
+                derived_vars[derived_sym_lhs] = processed_expr_lhs
                 
                 # Create UserLikelihood
                 # Generate name from distribution type and expression
                 like_name = generate_userlike_name(rhs_expr)
                 
-                push!(user_likelihoods, quote
-                    distribution = try
-                        $(esc(dist_expr))
-                    catch err
-                        @error "Error creating distribution for user likelihood" expression=$(string(dist_expr))
-                        rethrow(err)
-                    end
-                    if !(distribution isa Distributions.Distribution)
-                        error("Left-hand side of ~ must be a Distribution when used for user likelihood")
-                    end
-                    UserLikelihood(distribution, $(Meta.quot(derived_sym)), $(string(like_name)))
-                end)
+                push!(user_likelihoods, UserLikelihood(derived_sym_lhs, derived_sym_rhs, like_name))
+                # push!(user_likelihoods, quote
+                #     distribution = try
+                #         $(esc(dist_expr))
+                #     catch err
+                #         @error "Error creating distribution for user likelihood" expression=$(string(lhs_expr))
+                #         rethrow(err)
+                #     end
+                #     if !(distribution isa Distributions.Distribution)
+                #         error("Left-hand side of ~ must be a Distribution when used for user likelihood")
+                #     end
+                #     UserLikelihood(distribution, $(Meta.quot(derived_sym)), $(string(like_name)))
+                # end)
             else
                 # Regular prior: varname ~ Distribution
-                varname = statement.args[2]
-                expression = statement.args[3]
                 
                 # Check for duplicate prior variable names
                 if varname in seen_prior_vars
                     error("Duplicate prior variable '$varname'. Each variable can only be defined once with ~.")
                 end
-                if varname in seen_derived_vars
-                    error("Variable '$varname' is already defined as a derived variable (=). Each variable can only be defined once.")
-                end
+                # if varname in seen_derived_vars
+                #     error("Variable '$varname' is already defined as a derived variable (=). Each variable can only be defined once.")
+                # end
                 push!(seen_prior_vars, varname)
                 
                 push!(priors, :( 
@@ -255,3 +265,140 @@ function generate_userlike_name(rhs_expr)
     
     return normalizename(expr_str)
 end
+
+
+"""
+    Base.vcat for Variables blocks
+    
+Concatenates two or more @variables blocks together, combining their priors,
+derived variables, and likelihoods. Throws an error if any variable names
+are duplicated across the blocks.
+
+Example:
+```julia
+vars1 = @variables begin
+    a ~ Normal()
+    b = 2a
+end
+
+vars2 = @variables begin
+    d ~ Normal()
+    e = 2d^2
+end
+
+vars = vcat(vars1, vars2)
+```
+"""
+function Base.vcat(vars1::Tuple, vars2::Tuple, vars_rest::Tuple...)
+    # Check that these are actually @variables outputs
+    # They should have at least Priors and Derived as first two elements
+    if length(vars1) < 2 || !isa(vars1[1], Priors) || !isa(vars1[2], Derived)
+        throw(ArgumentError("First argument does not appear to be from @variables macro"))
+    end
+    if length(vars2) < 2 || !isa(vars2[1], Priors) || !isa(vars2[2], Derived)
+        throw(ArgumentError("Second argument does not appear to be from @variables macro"))
+    end
+    
+    # Start with vars1 and vars2
+    result = _vcat_two_variables(vars1, vars2)
+    
+    # If there are more variable blocks, concatenate them iteratively
+    for vars in vars_rest
+        if length(vars) < 2 || !isa(vars[1], Priors) || !isa(vars[2], Derived)
+            throw(ArgumentError("Additional argument does not appear to be from @variables macro"))
+        end
+        result = _vcat_two_variables(result, vars)
+    end
+    
+    return result
+end
+
+# Helper function to concatenate exactly two variable blocks
+function _vcat_two_variables(vars1::Tuple, vars2::Tuple)
+    priors1 = vars1[1]
+    derived1 = vars1[2]
+    likelihoods1 = length(vars1) > 2 ? vars1[3:end] : ()
+    
+    priors2 = vars2[1]
+    derived2 = vars2[2]
+    likelihoods2 = length(vars2) > 2 ? vars2[3:end] : ()
+    
+    # Check for duplicate variable names
+    prior_names1 = Set(keys(priors1.priors))
+    prior_names2 = Set(keys(priors2.priors))
+    derived_names1 = Set(keys(derived1.variables))
+    derived_names2 = Set(keys(derived2.variables))
+    
+    # Check for duplicates between priors
+    duplicate_priors = intersect(prior_names1, prior_names2)
+    if !isempty(duplicate_priors)
+        error("Duplicate prior variable(s) found when concatenating @variables blocks: $(join(duplicate_priors, ", "))")
+    end
+    
+    # Check for duplicates between derived variables
+    duplicate_derived = intersect(derived_names1, derived_names2)
+    if !isempty(duplicate_derived)
+        error("Duplicate derived variable(s) found when concatenating @variables blocks: $(join(duplicate_derived, ", "))")
+    end
+    
+    # Check for cross-duplicates (prior in one, derived in another)
+    cross_duplicates1 = intersect(prior_names1, derived_names2)
+    if !isempty(cross_duplicates1)
+        error("Variable(s) defined as prior in first block but derived in second block: $(join(cross_duplicates1, ", "))")
+    end
+    
+    cross_duplicates2 = intersect(prior_names2, derived_names1)
+    if !isempty(cross_duplicates2)
+        error("Variable(s) defined as prior in second block but derived in first block: $(join(cross_duplicates2, ", "))")
+    end
+    
+    # Merge priors
+    merged_priors_dict = OrderedDict{Symbol,Distribution}()
+    for (k, v) in priors1.priors
+        merged_priors_dict[k] = v
+    end
+    for (k, v) in priors2.priors
+        merged_priors_dict[k] = v
+    end
+    merged_priors = Priors(merged_priors_dict)
+    
+    # Merge derived variables
+    merged_derived_dict = OrderedDict{Symbol,Any}()
+    for (k, v) in derived1.variables
+        merged_derived_dict[k] = v
+    end
+    for (k, v) in derived2.variables
+        merged_derived_dict[k] = v
+    end
+    
+    # Merge captured variables
+    # We need to combine the captured names and values from both blocks
+    captured_names = (derived1.captured_names..., derived2.captured_names...)
+    captured_vals = (derived1.captured_vals..., derived2.captured_vals...)
+    
+    # Remove duplicates in captured variables (keeping first occurrence)
+    unique_captures = OrderedDict{Symbol,Any}()
+    for (name, val) in zip(captured_names, captured_vals)
+        if !haskey(unique_captures, name)
+            unique_captures[name] = val
+        end
+    end
+    
+    merged_captured_names = tuple(keys(unique_captures)...)
+    merged_captured_vals = tuple(values(unique_captures)...)
+    
+    merged_derived = Derived(merged_derived_dict, merged_captured_names, merged_captured_vals)
+    
+    # Merge likelihoods
+    merged_likelihoods = (likelihoods1..., likelihoods2...)
+    
+    # Return in the same format as @variables macro
+    if isempty(merged_likelihoods)
+        return (merged_priors, merged_derived)
+    else
+        return (merged_priors, merged_derived, merged_likelihoods...)
+    end
+end
+
+# Also support concatenating more than 2 blocks at once using varargs
+Base.vcat(vars::Tuple...) = Base.vcat(vars[1], vars[2], vars[3:end]...)

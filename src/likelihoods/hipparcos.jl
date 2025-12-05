@@ -188,8 +188,8 @@ function HipparcosIADLikelihood(;
         e_ddpmra, e_ddpmde, upsra, upsde, e_upsra, e_upsde, var
     )
 
-    if isol_n ∉ (5,)#7,9)
-        @warn("Only stars with solution types 5 are currently supported. This sol is $isol_n. If you need solution type 1, 7, or 9, please open an issue on GitHub and we would be happy to add it.")
+    if isol_n ∉ (5,7,9)
+        @warn("Only stars with solution types 5, 7, and 9 are currently supported. This sol is $isol_n. If you need another solution type, please open an issue on GitHub and we would be happy to add it.")
     end
 
     iad_table_rows = NamedTuple[]
@@ -580,6 +580,9 @@ function simulate(hiplike::HipparcosIADLikelihood, θ_system, θ_obs, orbits, or
             planet_mass_msol, fluxratio,
             orbit_solutions[planet_i], orbit_solutions_i_epoch_start[planet_i], T
         )
+        # TODO: I think _simulate_skypath_perturbations just accumulates in place-- 
+        # confirm if we really need these temporary variables and can't just pass
+        # in one set for multiple planet contributions
         
         # Add this planet's contribution to total perturbations
         α✱_perturbations_total .+= Δα_mas

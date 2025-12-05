@@ -11,31 +11,33 @@ against a wide variety of exoplanet / binary star data.
 You can also use Octofitter from Python using the [Python guide](@ref python).
 
 !!! warning "Upgrading from v6?"
-    **If you're upgrading from Octofitter v6, please see our [Migration Guide](@ref migration) for help updating your code to the new v7 API.**
+    **If you're upgrading from Octofitter v6 or below, please see our [Migration Guide](@ref migration)**
 
 
 ![](assets/gallery.png)
 
 
 **Supported data:**
-* Fit exoplanet orbits to relative astrometry
-* Fit radial velocity data (relative between a companion and host, and absolute)
-* Model stellar activity with Gaussian processes
-* Model stellar astrometric accerlation (Gaia-Hipparcos proper motion anomaly, Hipparcos IAD)
-* "De-orbiting": combine a sequence of images with orbital motion to detect planets
-* Sample directly from images or interferometric visibilities
-* Experimental support for transit data based on Transits.jl
+Fit exoplanet orbits to
+* relative astrometry
+* absolute astrometry (Gaia or Hipparcos)
+* absolute radial velocity data (of a star)
+* relative radial velocity data (of a planet relative to a star)
+* sample directly from images (also known as "deorbiting")
+* sample directly from interferometric visibilities (NIRISS-AMI, or GRAVITY)
 
 You can freely combine any of the above data types.  Any and all combinations work together.
 
 **Modelling features:**
 * multiple planets (zero or more)
+* gaussian processes (AbstractGPs or Celerite)
 * hyperbolic orbits
 * co-planar, and non-coplanar systems
 * arbitrary priors and parameterizations
 * optional O'Neil "observable based priors"
 * link mass to photometry via atmosphere models
 * hierarchical models (with a bit of work from the user)
+* Model stellar activity with Gaussian processes
 
 **Speed:**
 
@@ -45,7 +47,6 @@ Fit astrometry on your laptop in seconds!
 * Higher order sampler (No U-Turn sampler) which explores the parameter space very efficiently 
 * The sampler is automatically warmed up using a variational approximation from the Pathfinder algorithm (Pathfinder.jl) 
 
-Multi-body physics is not currently supported. A Pull-request to PlanetOrbits.jl implementing this functionality would be welcome.
 
 See also: the python libraries [Orbitize!](https://orbitize.readthedocs.io/en/latest/), [orvara](https://github.com/t-brandt/orvara), and [exoplanet](https://docs.exoplanet.codes/en/latest/).
 

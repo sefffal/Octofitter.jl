@@ -51,12 +51,17 @@ function make_ln_like(system::System, θ_system)
     planet_construction_exprs = Expr[]
     planet_like_exprs = Expr[]
     planet_orbit_solution_exprs = Expr[]
+    # Add planet declarations here
+    planet_declarations = Expr[]
     j = 0
     for i in 1:length(system.planets)
         planet = system.planets[i]
         OrbitType = _planet_orbit_type(planet)
         key = Symbol("planet_$i")
         sols_key = planet_sol_keys[i]
+        
+        # Add declaration for this planet
+        push!(planet_declarations, :($key = nothing))
         
         likelihood_exprs = map(enumerate(planet.observations)) do (i_like, like)
             i_epoch_start = get(epoch_start_index_mapping, like, 0)
@@ -157,12 +162,22 @@ function make_ln_like(system::System, θ_system)
     end
 
     return @RuntimeGeneratedFunction(:(function (system::System, θ_system)
-        ll0 = zero(_system_number_type(θ_system))
+        T = _system_number_type(θ_system)
+        ll0 = zero(T)
+        
+        # Declare all planet variables before the try block
+        $(planet_declarations...)
 
-        @no_escape begin
-
+        # Try-catch only for planet construction
+        try
             # Construct all orbit elements
             $(planet_construction_exprs...)
+        catch err
+            # Return -Inf if planet construction fails
+            return convert(T, -Inf)
+        end
+        
+        ll_out = @no_escape begin
 
             # Construct a tuple of existing planet orbital elements
             elems = tuple($(planet_keys...))
@@ -176,9 +191,10 @@ function make_ln_like(system::System, θ_system)
             # And evaluate the overall system likelihoods
             $(sys_exprs...)
 
+            $(Symbol("ll$j"))
         end
 
-        return $(Symbol("ll$j"))
+        return ll_out
     end))
 end
 
@@ -207,11 +223,36 @@ end
 
 # Generate calibration data
 """
-    generate_from_params(system, θ=drawfrompriors(system))
+    generate_from_params(system, θ=drawfrompriors(system); add_noise=false)
 
 Generate a new system and observations from an existing model.
 """
-function generate_from_params(system::System, θ_newsystem = drawfrompriors(system))
+function generate_from_params(system::System, θ_newsystem = drawfrompriors(system); add_noise=false)
+
+    # First, we need to gather all epochs just like in make_ln_like
+    all_epochs = Float64[]
+    epoch_start_index_mapping = Dict{Any,Int}()
+    j = 1
+    
+    # System observation epochs
+    for obs in system.observations
+        if hasproperty(obs, :table) && hasproperty(obs.table, :epoch)
+            epoch_start_index_mapping[obs] = j
+            j += length(obs.table.epoch)
+            append!(all_epochs, obs.table.epoch)
+        end
+    end
+    
+    # Planet observation epochs
+    for i in 1:length(system.planets)
+        for like in system.planets[i].observations
+            if hasproperty(like, :table) && hasproperty(like.table, :epoch)
+                epoch_start_index_mapping[like] = j
+                j += length(like.table.epoch)
+                append!(all_epochs, like.table.epoch)
+            end
+        end
+    end
 
     # Generate new orbits for each planet in the system
     orbits = map(eachindex(system.planets)) do i
@@ -220,14 +261,49 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
         return neworbit
     end
 
+    # Pre-solve all orbits at all epochs (like in make_ln_like)
+    orbit_solutions = if isempty(all_epochs)
+        ntuple(_ -> (), length(orbits))
+    else
+        ntuple(length(orbits)) do i
+            orbit = orbits[i]
+            sols = Vector{Any}(undef, length(all_epochs))
+            for (j, epoch) in enumerate(all_epochs)
+                sols[j] = orbitsolve(orbit, epoch)
+            end
+            sols
+        end
+    end
+
     # Generate new observations for each planet in the system
     newplanets = map(1:length(system.planets)) do i
         planet = system.planets[i]
         orbit = orbits[i]
         θ_newplanet = θ_newsystem.planets[i]
+        
         newplanet_obs = map(planet.observations) do obs
-            return generate_from_params(obs, θ_newplanet, orbit)
+            # Get the observation-specific variables if they exist
+            obs_name = normalizename(likelihoodname(obs))
+            θ_obs = hasproperty(θ_newplanet.observations, obs_name) ? 
+                    getproperty(θ_newplanet.observations, obs_name) : 
+                    (;)
+            
+            i_epoch_start = get(epoch_start_index_mapping, obs, 0)
+            
+            # Call with the same signature as ln_like for planet observations
+            return generate_from_params(
+                obs, 
+                θ_newsystem,
+                θ_newplanet, 
+                θ_obs, 
+                orbits,
+                orbit_solutions,
+                i,  # planet index
+                i_epoch_start - 1;  # start epoch index (0-based)
+                add_noise
+            )
         end
+        
         newplanet = Planet(
             variables=(planet.priors, planet.derived),
             basis=Octofitter.orbittype(planet),
@@ -239,7 +315,24 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
 
     # Generate new observations for the star
     newstar_obs = map(system.observations) do obs
-        return generate_from_params(obs, θ_newsystem, collect(orbits))
+        # Get the observation-specific variables if they exist
+        obs_name = normalizename(likelihoodname(obs))
+        θ_obs = hasproperty(θ_newsystem.observations, obs_name) ? 
+                getproperty(θ_newsystem.observations, obs_name) : 
+                (;)
+        
+        i_epoch_start = get(epoch_start_index_mapping, obs, 0)
+        
+        # Call with the same signature as ln_like for system observations
+        return generate_from_params(
+            obs,
+            θ_newsystem,
+            θ_obs,
+            orbits,
+            orbit_solutions,
+            i_epoch_start - 1;  # start epoch index (0-based)
+            add_noise
+        )
     end
 
     # Generate new system

@@ -53,8 +53,10 @@ function θ_at_epoch_to_tperi(θ, theta_epoch; M, e, kwargs...)
 
     # True anomaly is now straightforward to calculate in the deprojected coordinate space
     ν = atan(y_over_r,x_over_r)
+    if e >= 1
+        error("e > 1 not supported with θ_at_epoch_to_tperi")
+    end
 
-    # Mean anomaly (see Wikipedia page)
     MA = atan(-sqrt(1-e^2)*sin(ν), -e-cos(ν))+π-e*sqrt(1-e^2)*sin(ν)/(1+e*cos(ν))
 
     period_days = √(a^3/M)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
@@ -187,6 +189,9 @@ function θ_sep_at_epoch_to_tperi_sma(system,planet,theta_epoch)
     ν = atan(y_over_r,x_over_r)
 
     # Mean anomaly (see Wikipedia page)
+    if e == 0.0
+        e = eps()
+    end
     if !(0 < e  < 1)
         # @show planet.sqrtecosω
         # @show planet.sqrtesinω

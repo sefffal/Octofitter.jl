@@ -356,14 +356,15 @@ function Octofitter.rvpostplot!(
         color = Makie.wong_colors()[mod1(rv_like_idx, length(Makie.wong_colors()))]
         marker_symbol = marker_symbols[mod1(rv_like_idx, length(marker_symbols))]
 
+        like_obj_name = Octofitter.normalizename(likelihoodname(rvs))
+
         if rvs isa StarAbsoluteRVLikelihood
-            jitter = nt_format.observations[Octofitter.normalizename(likelihoodname(rvs))].jitter
-            barycentric_rv_inst = nt_format.observations[Octofitter.normalizename(likelihoodname(rvs))].offset
+            jitter = nt_format.observations[like_obj_name].jitter
+            barycentric_rv_inst = nt_format.observations[like_obj_name].offset
         elseif rvs isa MarginalizedStarAbsoluteRVLikelihood
             # TODO: marginalized RV likelihood
 
             barycentric_rv_inst = _find_rv_zero_point_maxlike(rvs, nt_format, els_by_planet)
-            like_obj_name = Octofitter.normalizename(likelihoodname(rvs))
             jitter = nt_format.observations[like_obj_name].jitter
         else
             error("plotting not yet implemented for this type of data")
@@ -387,7 +388,8 @@ function Octofitter.rvpostplot!(
         #     end
         # else
             rvs_off_sub .-= barycentric_rv_inst
-            trend = rvs.trend_function.((nt_format,), rvs.table.epoch)
+            θ_obs = nt_format.observations[like_obj_name]
+            trend = rvs.trend_function.((θ_obs,), rvs.table.epoch)
             trend = map(trend) do t
                 if ismissing(t) 
                     0.

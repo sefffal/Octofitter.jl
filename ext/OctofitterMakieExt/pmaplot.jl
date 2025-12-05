@@ -95,7 +95,6 @@ function pmaplot!(
         catch
             continue
         end
-        # TODO: Can we use the existing simulator for this please?
         pmra_model_t .+= pmra.(sols, mass)
         pmdec_model_t .+= pmdec.(sols, mass)
         color_model_t .= rem2pi.(
@@ -553,6 +552,7 @@ function pmaplot!(
             jj = ii
         end
         sims = []
+        name = Octofitter.normalizename(likelihoodname(gaialike))
         for (θ_system, i) in zip(θ_systems_from_chain, jj)
             orbits = map(keys(model.system.planets)) do planet_key
                 Octofitter.construct_elements(model, results, planet_key, i)
@@ -560,7 +560,13 @@ function pmaplot!(
             solutions = map(orbits) do orbit
                 return orbitsolve.(orbit, gaialike.table.epoch)
             end
-            sim = Octofitter.simulate(gaialike, θ_system, orbits, solutions, 0)
+
+            θ_obs = (;)
+            if hasproperty(θ_system, :observations) && hasproperty(θ_system.observations, name)
+                θ_obs = θ_system.observations[name]
+            end
+
+            sim = Octofitter.simulate(gaialike, θ_system,θ_obs, orbits, solutions, 0)
             push!(sims, sim[2])
         end
 

@@ -1,7 +1,7 @@
 name = "Octofitter"
 uuid = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
 authors = ["William Thompson <will.thompson@outlook.com>", "Jensen Lawrence", "Dori Blakely", "Clarissa R. Do O"]
-version = "7.0.0"
+version = "7.0.1"
 
 [deps]
 AbstractMCMC = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
@@ -98,10 +98,10 @@ LinearSolve = "2, 3"
 LogDensityProblems = "2"
 Logging = "1"
 MCMCChains = "6.0"
-Makie = "0.21, 0.22, 0.24"
+Makie = "0.21,0.22,0.23,0.24"
 MathTeXEngine = "0.6"
 NamedTupleTools = "0.13, 0.14"
-Optimization = "4"
+Optimization = "4, 5"
 OptimizationBBO = "0.4"
 OptimizationOptimJL = "0.4"
 OrderedCollections = "1.6"

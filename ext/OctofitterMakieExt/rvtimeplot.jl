@@ -236,8 +236,8 @@ function rvtimeplot!(
         # Rather than subtract it from the data, we add it to the model draw.
         # In extreme cases this could look a little weird
         trend_funcs = map(enumerate(ii)) do (i_sol, i)
-            θ_system = nt_format[i]
-            return epoch -> like_obj.trend_function(θ_system, epoch)
+            θ_obs = nt_format[i].observations[like_obj_name]
+            return epoch -> like_obj.trend_function(θ_obs, epoch)
         end
            
         rv_star_model_t = zeros(length(ii), length(ts))

@@ -1,10 +1,14 @@
-# Octofitter.jl v7 Migration Guide
-
+#  [Octofitter.jl v7 Migration Guide] (@id migration)
 This guide helps you migrate your code from Octofitter.jl v6 to v7, which introduced a significant API redesign.
 
 ## Overview of Changes
 
 The v7 API redesign eliminates the `@planet` and `@system` macros in favor of explicit `Planet()` and `System()` constructors. This change provides better error handling, clearer variable scoping, and more flexible model composition.
+
+This upgrade is particularly useful for large batch processing systems, and for models with large numbers of instruments.
+
+!!! note
+    Pro-tip: paste your old Octofitter scripts and this migration guide into an LLM---it 
 
 ## Key Migration Steps
 
@@ -85,6 +89,20 @@ astrom_dat = Table(
 astrom = PlanetRelAstromLikelihood(astrom_dat, name="GPI astrom")
 ```
 
+**Alternative: Vector-of-NamedTuples (still supported):**
+You can still use the vector-of-namedtuples syntax from v6, but now it must be wrapped in a Table first:
+```julia
+# This still works in v7:
+astrom = PlanetRelAstromLikelihood(
+    Table([
+        (epoch=50000, ra=-505.7, dec=-66.9, σ_ra=10.0, σ_dec=10.0, cor=0.0),
+        (epoch=50120, ra=-502.5, dec=-37.4, σ_ra=10.0, σ_dec=10.0, cor=0.0),
+        (epoch=50240, ra=-498.2, dec=-7.9,  σ_ra=10.0, σ_dec=10.0, cor=0.0),
+    ]),
+    name="GPI astrom"
+)
+```
+
 ### 3. Radial Velocity Models
 
 #### Old Syntax (v6):
@@ -110,6 +128,10 @@ rvlike_hires = MarginalizedStarAbsoluteRVLikelihood(
 
 ### 4. Variable Access in Derived Parameters
 
+You no longer have to prefix with the planet name or `system`. Just use variabels directly.
+
+The `θ_at_epoch_to_tperi` function syntax has changed. You now provided the necessary parameters for the calculation directly.   
+
 #### Old Syntax (v6):
 ```julia
 P = √(b.a^3/system.M)
@@ -119,9 +141,6 @@ tp = θ_at_epoch_to_tperi(system, b, 50000)
 
 #### New Syntax (v7):
 
-You no longer have to prefix with the planet name or `system`. Just use variabels directly.
-
-The `θ_at_epoch_to_tperi` function syntax has changed. You now provided the necessary parameters for the calculation directly.
 
 ```julia
 P = √(a^3/M)

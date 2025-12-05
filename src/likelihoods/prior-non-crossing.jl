@@ -4,6 +4,7 @@ struct LimitClosestApproachAUPrior <: Octofitter.AbstractLikelihood
 end
 LimitClosestApproachAUPrior(soft_closest_approach_au) = LimitClosestApproachAUPrior(0, soft_closest_approach_au)
 NonCrossingPrior() = LimitClosestApproachAUPrior(0.0, 0.0)
+likelihoodname(likeobj::LimitClosestApproachAUPrior) = "LimitClosestApproachAUPrior"
 export NonCrossingPrior, LimitClosestApproachAUPrior
 Octofitter._isprior(::LimitClosestApproachAUPrior) = true
 function Octofitter.ln_like(prior::LimitClosestApproachAUPrior, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 

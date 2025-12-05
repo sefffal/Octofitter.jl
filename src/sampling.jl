@@ -430,9 +430,11 @@ function result2mcmcchain(chain_in, sectionmap=Dict())
             end
             if sample[key] isa Number
                 push!(vals, sample[key])
-            else
+            elseif sample[key] isa AbstractArray || sample[key] isa Tuple
                 for val in sample[key]
-                    push!(vals, val)
+                    if val isa Number
+                        push!(vals, val)
+                    end
                 end
             end
         end
@@ -442,9 +444,11 @@ function result2mcmcchain(chain_in, sectionmap=Dict())
             for key in keys(sample.observations[obs])
                 if sample.observations[obs][key] isa Number
                     push!(vals, sample.observations[obs][key])
-                else
+                elseif sample.observations[obs][key] isa AbstractArray || sample.observations[obs][key] isa Tuple
                     for val in sample.observations[obs][key]
-                        push!(vals, val)
+                        if val isa Number
+                            push!(vals, val)
+                        end
                     end
                 end
             end
@@ -458,9 +462,11 @@ function result2mcmcchain(chain_in, sectionmap=Dict())
                 end
                 if sample.planets[pl][key] isa Number
                     push!(vals, sample.planets[pl][key])
-                else
+                elseif sample.planets[pl][key] isa AbstractArray || sample.planets[pl][key] isa Tuple
                     for val in sample.planets[pl][key]
-                        push!(vals, val)
+                        if val isa Number
+                            push!(vals, val)
+                        end
                     end
                 end
             end
@@ -470,9 +476,11 @@ function result2mcmcchain(chain_in, sectionmap=Dict())
                 for key in keys(sample.planets[pl].observations[obs])
                     if sample.planets[pl].observations[obs][key] isa Number
                         push!(vals, sample.planets[pl].observations[obs][key])
-                    else
+                    elseif sample.planets[pl].observations[obs][key] isa AbstractArray || sample.planets[pl].observations[obs][key] isa Tuple
                         for val in sample.planets[pl].observations[obs][key]
-                            push!(vals, val)
+                            if val isa Number
+                                push!(vals, val)
+                            end
                         end
                     end
                 end
@@ -522,7 +530,7 @@ function mcmcchain2result(model, chain, ii=(:))
         end
         if nt[key] isa Number
             push!(key_mapping, key => [key])
-        else
+        elseif  nt[key] isa Tuple
             arr = Symbol[]
             push!(key_mapping, key => arr)
             for i in eachindex(nt[key])
@@ -538,7 +546,7 @@ function mcmcchain2result(model, chain, ii=(:))
             if nt.observations[obs][key] isa Number
                 k = Symbol(obs, '_', key)
                 push!(key_mapping, k => [k])
-            else
+            elseif  nt.observations[obs][key] isa Tuple
                 arr = Symbol[]
                 push!(key_mapping, Symbol(obs, '_', key) => arr)
                 for i in eachindex(nt.observations[obs][key])
@@ -558,7 +566,7 @@ function mcmcchain2result(model, chain, ii=(:))
             if nt.planets[pl][key] isa Number
                 k = Symbol(pl, '_', key)
                 push!(key_mapping, k => [k])
-            else
+            elseif  nt.planets[pl][key] isa Tuple
                 arr = Symbol[]
                 push!(key_mapping, Symbol(pl, '_', key) => arr)
                 for i in eachindex(nt.planets[pl][key])
@@ -574,7 +582,7 @@ function mcmcchain2result(model, chain, ii=(:))
                 if nt.planets[pl].observations[obs][key] isa Number
                     k = Symbol(pl, '_', obs, '_', key)
                     push!(key_mapping, k => [k])
-                else
+                elseif  nt.planets[pl].observations[obs][key] isa Tuple
                     arr = Symbol[]
                     push!(key_mapping, Symbol(pl, '_', obs, '_', key) => arr)
                     for i in eachindex(nt.planets[pl].observations[obs][key])
@@ -608,8 +616,13 @@ function mcmcchain2result(model, chain, ii=(:))
                 end
             else
                 nt_sys[kout] = [
-                    chain[i,kin,j]
+                    if haskey(chain, kin)
+                        chain[i,kin,j]
+                    else
+                        missing
+                    end
                     for kin in kins
+                    
                 ]
             end
         end
@@ -642,7 +655,11 @@ function mcmcchain2result(model, chain, ii=(:))
                     end
                 else
                     nt_obs[kout_clean] = [
-                        chain[i,kin,j]
+                        if haskey(chain, kin)
+                            chain[i,kin,j]
+                        else
+                            missing
+                        end
                         for kin in kins
                     ]
                 end
@@ -750,10 +767,13 @@ function flatten_named_tuple(nt)
         end
         if nt[key] isa Number
             push!(pairs, key => nt[key])
-        else
+        elseif nt[key] isa AbstractArray || nt[key] isa Tuple
             for i in eachindex(nt[key])
                 key_i = Symbol(key, '_', i)
-                push!(pairs, key_i => nt[key][i])
+                val = nt[key][i]
+                if val isa Number
+                    push!(pairs, key_i => val)
+                end
             end
         end
     end
@@ -763,9 +783,12 @@ function flatten_named_tuple(nt)
         for key in keys(nt.observations[obs])
             if nt.observations[obs][key] isa Number
                 push!(pairs, Symbol(obs, '_', key) => nt.observations[obs][key])
-            else
+            elseif nt.observations[obs][key] isa AbstractArray || nt.observations[obs][key] isa Tuple
                 for i in eachindex(nt.observations[obs][key])
-                    push!(pairs, Symbol(obs, '_', key, '_', i) => nt.observations[obs][key][i])
+                    val = nt.observations[obs][key][i]
+                    if val isa Number
+                        push!(pairs, Symbol(obs, '_', key, '_', i) => val)
+                    end
                 end
             end
         end
@@ -779,9 +802,12 @@ function flatten_named_tuple(nt)
             end
             if nt.planets[pl][key] isa Number
                 push!(pairs, Symbol(pl, '_', key) => nt.planets[pl][key])
-            else
+            elseif nt.planets[pl][key] isa AbstractArray || nt.planets[pl][key] isa Tuple
                 for i in eachindex(nt.planets[pl][key])
-                    push!(pairs, Symbol(pl, '_', key, '_', i) => nt.planets[pl][key][i])
+                    val = nt.planets[pl][key][i]
+                    if val isa Number
+                        push!(pairs, Symbol(pl, '_', key, '_', i) => val)
+                    end
                 end
             end
         end
@@ -791,9 +817,12 @@ function flatten_named_tuple(nt)
             for key in keys(nt.planets[pl].observations[obs])
                 if nt.planets[pl].observations[obs][key] isa Number
                     push!(pairs, Symbol(pl, '_', obs, '_', key) => nt.planets[pl].observations[obs][key])
-                else
+                elseif nt.planets[pl].observations[obs][key] isa AbstractArray || nt.planets[pl].observations[obs][key] isa Tuple
                     for i in eachindex(nt.planets[pl].observations[obs][key])
-                        push!(pairs, Symbol(pl, '_', obs, '_', key, '_', i) => nt.planets[pl].observations[obs][key][i])
+                        val = nt.planets[pl].observations[obs][key][i]
+                        if val isa Number
+                            push!(pairs, Symbol(pl, '_', obs, '_', key, '_', i) => val)
+                        end
                     end
                 end
             end

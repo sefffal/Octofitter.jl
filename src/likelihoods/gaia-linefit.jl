@@ -655,14 +655,34 @@ function fit_5param_prepared(
             mul!(model_predictions, A_weighted, x)
             residuals .= b_weighted .- model_predictions
             if σ_formal == 0
-                @show σ_formal
                 error("Asked for `include_chi2=true` but `σ_formal==0`")
             end
             # For uniform errors, the weighted residuals are just residuals/σ
-            residuals .= residuals ./ σ_formal
         
             # Chi-squared is the sum of squared weighted residuals
-            chi_squared_astro = dot(residuals, residuals)        
+            # Used for UEVA calculations
+            chi_squared_astro = dot(residuals, residuals)
+
+            # Determine parameter uncertainties
+
+            # Compute the uncertainties based on sigma_formal
+            # Compute (A^T W A)^{-1} for the covariance matrix
+            # W = I/σ_formal² for uniform errors
+            # AtWA = A_weighted' * A_weighted
+            # cov_matrix = inv(AtWA)
+            # parameter_uncertainties = sqrt.(diag(cov_matrix))
+
+            # Chi-squared is the sum of squared weighted residuals
+            chi_squared_astro = dot(residuals, residuals)
+
+            # Determine parameter uncertainties
+            n_parameters = 5
+            dof = length(b_weighted) - n_parameters
+            
+            # Reduced chi-squared
+            chi2_reduced = chi_squared_astro / dof
+            
+            # @show chi_squared_astro chi2_reduced inflation_factor
         end
     end
 
@@ -671,7 +691,9 @@ function fit_5param_prepared(
     end
     return (;
         parameters,
-        chi_squared_astro=chi_squared_astro,
+        chi_squared_astro,
+        chi2_reduced,
+        dof
     )
 
 end
@@ -804,9 +826,6 @@ function _simulate_skypath_perturbations!(
     flux_ratio,
     orbit_solutions, orbit_solutions_i_epoch_start, T=Float64;
 )
-    if flux_ratio != 0
-        throw(NotImplementedException())
-    end
     for i in eachindex(table.epoch)
         # TODO: make use of potentially multi-threaded kepsolve by ensuring `epoch` column is present,
         # and using above passed-in orbit solutions.
@@ -834,12 +853,12 @@ function _simulate_skypath_perturbations!(
         ra_host_vs_bary = raoff(sol, planet_mass_msol)
         ra_planet_vs_host = raoff(sol)
         ra_planet_vs_bary = ra_host_vs_bary + ra_planet_vs_host
-        ra_photocentre = ra_host_vs_bary * (1-flux_ratio) + ra_planet_vs_bary * flux_ratio
+        ra_photocentre = (ra_host_vs_bary + ra_planet_vs_bary * flux_ratio) / (1 + flux_ratio)
         Δα_model[i] += ra_photocentre
         dec_host_vs_bary = decoff(sol, planet_mass_msol)
         dec_planet_vs_host = decoff(sol)
         dec_planet_vs_bary = dec_host_vs_bary + dec_planet_vs_host
-        dec_photocentre = dec_host_vs_bary * (1-flux_ratio) + dec_planet_vs_bary * flux_ratio
+        dec_photocentre = (dec_host_vs_bary + dec_planet_vs_bary * flux_ratio) / (1 + flux_ratio)
         Δδ_model[i] += dec_photocentre
     end
     return
@@ -848,7 +867,7 @@ end
 
 
 function _query_gaia_dr3(;gaia_id)
-    fname = "_gaia_dr3/source-$gaia_id.csv"
+    fname = "_gaia_dr3_final/source-$gaia_id.csv"
     if !isfile(fname)
         @info "Querying gea.esac.esa.int/tap-server" source_id=gaia_id
         resp = HTTP.get(
@@ -857,15 +876,15 @@ function _query_gaia_dr3(;gaia_id)
                 "REQUEST"=>"doQuery",
                 "LANG"=>"ADQL",
                 "FORMAT"=>"CSV",
-                "QUERY"=>"SELECT * FROM gaiaedr3.gaia_source WHERE source_id=$gaia_id"
+                "QUERY"=>"SELECT * FROM gaiadr3.gaia_source WHERE source_id=$gaia_id"
             ],
             cookies=false,
         )
         if resp.status != 200
             error("Error with GAIA query: $(resp.status)")
         end
-        if !isdir("_gaia_dr3")
-            mkdir("_gaia_dr3")
+        if !isdir("_gaia_dr3_final")
+            mkdir("_gaia_dr3_final")
         end
         open(fname, write=true) do f
             write(f, resp.body)
@@ -1049,8 +1068,31 @@ Please be aware that others  might be able to discover the target coordinates yo
 """
 function GOST_forecast(ra_deg,dec_deg)
 
+    if haskey(ENV, "OCTO_GOST_CATALOG") && !isempty(ENV["OCTO_GOST_CATALOG"])
+        fname = ENV["OCTO_GOST_CATALOG"]
+        @info "Using provided Gaia scan forecast database $fname"
+        forecast_table = CSV.read(fname, Table, normalizenames=true)
+        # mask = isapprox.(forecast_table.ra_rad_, deg2rad(ra_deg)) .& isapprox.(forecast_table.dec_rad_, deg2rad(dec_deg))
+        themin, idx = findmin(hypot.(
+            (forecast_table.ra_rad_ .- deg2rad(ra_deg)) .*60 .*60 .*1000 .* cos(dec_deg),
+            (forecast_table.dec_rad_ .- deg2rad(dec_deg)).*60 .*60 .*1000
+        ))
+        if themin > 500
+            error("Could not find this target within the provided Gaia scan forecast database file set through OCTO_GOST_CATALOG=$fname Closest target: $themin [mas]")
+        end
+        ra_rad = forecast_table.ra_rad_[idx]
+        dec_rad = forecast_table.dec_rad_[idx]
+        mask = isapprox.(forecast_table.ra_rad_, ra_rad) .& isapprox.(forecast_table.dec_rad_, dec_rad)
+        @info "Found forecasted visibility windows" windows=count(mask)
+        if isempty(mask)
+            error("Invalid condition: no visibility windows.")
+        end
+        return forecast_table[mask,:]
+    end
+
     fname = "GOST-$ra_deg-$dec_deg.csv"
     if isfile(fname)
+        @info "Using cached Gaia scan forecast $fname"
         forecast_table = CSV.read(fname, Table, normalizenames=true)
         return forecast_table
     end
@@ -1088,7 +1130,7 @@ function GOST_forecast(ra_deg,dec_deg)
         "srcra" => string(round(ra_deg,digits=7)),
         "srcdec" => string(round(dec_deg,digits=7)),
         "from" => "2014-07-25T10:31:26",
-        "to" => "2017-05-28T00:00:00",
+        "to" => "2017-06-28T00:00:00",
     ])
 
 

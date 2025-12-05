@@ -18,7 +18,7 @@ function obmt2mjd(obmt::Float64)
     
     # Convert Julian Year to Julian Date
     # Julian Year 2015.0 corresponds to JD 2457023.5
-    jd_at_2015 = 2457023.5
+    jd_at_2015 = 2457023.75
     
     # 365.25 days per Julian year
     days_since_2015 = (tcbjy - 2015.0) * 365.25

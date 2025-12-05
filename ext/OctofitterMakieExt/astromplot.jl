@@ -43,7 +43,7 @@ function Octofitter.astromplot!(
     show_post_pred_legend=true,
     show_instrument_names=true,
     use_arcsec=nothing,
-    ts,
+    ts=0:1,
     kwargs...
 )
     gs = gridspec_or_fig
@@ -87,16 +87,20 @@ function Octofitter.astromplot!(
     end
     axis_mult = use_arcsec ? 1e-3 : 1.0 
 
-    ax = Axis(
-        gs[1, 1];
-        autolimitaspect=1,
-        xreversed=true,
-        xlabel= use_arcsec ? "Δα* [as]" : "Δα* [mas]",
-        ylabel= use_arcsec ? "Δδ [as]" : "Δδ [mas]",
-        xgridvisible=false,
-        ygridvisible=false,
-        axis...
-    )
+    if gs isa Axis
+        ax = gs
+    else
+        ax = Axis(
+            gs[1, 1];
+            autolimitaspect=1,
+            xreversed=true,
+            xlabel= use_arcsec ? "Δα* [as]" : "Δα* [mas]",
+            ylabel= use_arcsec ? "Δδ [as]" : "Δδ [mas]",
+            xgridvisible=false,
+            ygridvisible=false,
+            axis...
+        )
+    end
 
     # Start by plotting the orbits
 
@@ -182,14 +186,17 @@ function Octofitter.astromplot!(
 
     # Colour data based on the instrument name
     rel_astrom_likes = filter(like_objs) do like_obj
-        nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
+        nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood ||
+        (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromLikelihood)
     end
-    rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :name)))
+    rel_astrom_names = sort(unique(likelihoodname.(rel_astrom_likes)))
     n_rel_astrom = length(rel_astrom_names)
 
     i_like_obj = 0
     for like_obj in like_objs
-        if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
+        if  nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood ||
+            (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromLikelihood)
+
             i_like_obj = findfirst(==(likelihoodname(like_obj)), rel_astrom_names)
             x = Float64[]
             y = Float64[]
@@ -414,7 +421,7 @@ function Octofitter.astromplot!(
             end
         end
        
-        if show_post_pred_legend
+        if show_post_pred_legend && !(gs isa Axis)
             row_i += 1
             Legend(
                 gs[row_i,1:2],
@@ -429,7 +436,7 @@ function Octofitter.astromplot!(
         end
     end
 
-    if colorbar
+    if colorbar && !(gs isa Axis)
         if length(colormaps) == 1
             Colorbar(
                 gs[1,2];

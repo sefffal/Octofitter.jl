@@ -283,7 +283,7 @@ sys = System(
             sin(i_b) * sin(i_c) * cos(Ω_b - Ω_c)
         )
         # Add a prior on the mutual inclination
-        truncated(Normal(0, 10), lower=0) ~ mut_inc_b_c
+        mut_inc_b_c ~ truncated(Normal(0, 10), lower=0)
 
         # We create a nominal period of planet c variable. 
         P_nominal ~ Uniform(50, 300) # years

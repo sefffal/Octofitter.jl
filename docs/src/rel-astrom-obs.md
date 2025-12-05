@@ -30,12 +30,14 @@ astrom_like = PlanetRelAstromLikelihood(
         platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
     end
 )
-obs_pri = ObsPriorAstromONeil2019(astrom_like)
+# We wrap the likelihood in this prior
+obs_pri_astrom_like = ObsPriorAstromONeil2019(astrom_like)
 
 planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
-    likelihoods=[astrom_like, obs_pri],
+    # NOTE! We only provide the wrapped obs_pri_astrom_like
+    likelihoods=[obs_pri_astrom_like],
     variables=@variables begin
         M = system.M
         e ~ Uniform(0.0, 0.5)

@@ -155,30 +155,30 @@ Octofitter.rvpostplot(model_1p, results_1p)
 
 ## Model Comparison: Bayesian Evidence
 
-Octofitter with Pigeons directly calculates the log Bayesian evidence using the "stepping stone" method. This should be more reliable than even nested sampling, and certainly more reliable than approximate methods like the BIC etc.
+Octofitter with Pigeons directly calculates the (natural) log Bayesian evidence using the "stepping stone" method. This should be more reliable than even nested sampling, and certainly more reliable than approximate methods like the BIC/WAIC etc.
 
 ```@example 1
 Z1 = stepping_stone(pt_1p)
 Z2 = stepping_stone(pt_2p)
 
-log_BF₁₀ = Z2-Z1
+ln_BF₁₀ = Z2-Z1
 ```
 
 Here is a standard guideline you can use to interpret the evidence:
 
-| Log Bayes Factor log(BF₁₀) | Interpretation                 |
-|----------------------------|--------------------------------|
-| > 4.61                     | Extreme evidence for $H_A$     |
-| 3.40 - 4.61                | Very strong evidence for $H_A$ |
-| 2.30 - 3.40                | Strong evidence for $H_A$      |
-| 1.10 - 2.30                | Moderate evidence for $H_A$    |
-| 0 - 1.10                   | Anecdotal evidence for $H_A$   |
-| 0                          | No evidence                    |
-| -1.10 - 0                  | Anecdotal evidence for $H_B$   |
-| -2.30 - -1.10              | Moderate evidence for $H_B$    |
-| -3.40 - -2.30              | Strong evidence for $H_B$      |
-| -4.61 - -3.40              | Very strong evidence for $H_B$ |
-| < -4.61                    | Extreme evidence for $H_B$     |
+| Log Bayes Factor ln(BF₁₀) | Interpretation                 |
+|---------------------------|--------------------------------|
+| > 3.00                    | Extreme evidence for $H_A$     |
+| 1.61 - 3.00               | Very strong evidence for $H_A$ |
+| 1.10 - 1.61               | Strong evidence for $H_A$      |
+| 0.69 - 1.10               | Moderate evidence for $H_A$    |
+| 0 - 0.69                  | Anecdotal evidence for $H_A$   |
+| 0                         | No evidence                    |
+| -0.69 - 0                 | Anecdotal evidence for $H_B$   |
+| -1.10 - -0.69             | Moderate evidence for $H_B$    |
+| -1.61 - -1.10             | Strong evidence for $H_B$      |
+| -3.00 - -1.61             | Very strong evidence for $H_B$ |
+| < -3.00                   | Extreme evidence for $H_B$     |
 
 As you can see, the evidence for there being two planets is "extreme" in this case.
 Try adjusting the masses of the two planets and see how this changes!

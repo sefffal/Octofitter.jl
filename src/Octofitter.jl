@@ -151,13 +151,16 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
     end
 
     # Some octofitter likelihoods can cause errors when nansafe_mode isn't set to true.
-    set_preferences!(ForwardDiff, "nansafe_mode" => true)
+    nansafe_mode = load_preference(ForwardDiff, "nansafe_mode")
+    if isnothing(nansafe_mode) || !nansafe_mode
+        set_preferences!(ForwardDiff, "nansafe_mode" => true)
+    end
 
     # JPL Horizons seems to allow their SSL certifcates to expire all the time.
     # We have to disable certificate checking in order to be able to query it
     # consistently
     if !haskey(ENV, "JULIA_NO_VERIFY_HOSTS")
-        ENV["JULIA_NO_VERIFY_HOSTS"] = "ssd.jpl.nasa.gov"
+        ENV["JULIA_NO_VERIFY_HOSTS"] = "**.nasa.gov"
     end
 
     # List DataDeps here.
@@ -268,6 +271,17 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
             "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/naif0012.tls"
         ],
         "c340a944068f6ffdb3b2ce755cf736895917b0251a175c4578a36abb9ffdc72e"
+    ))
+
+    register(DataDep("BHAC15_GAIA", 
+        """
+        Dataset: BHA15 Isochrone models
+        Author: Isabelle Baraffe, Derek Homeier, France Allard, and Gilles Chabrier
+        Publication: "New evolutionary models for pre-main sequence and main sequence low-mass stars down to the hydrogen-burning limit"
+        
+        """,
+        "https://perso.ens-lyon.fr/isabelle.baraffe/BHAC15dir/BHAC15_iso.GAIA",
+        "43ba70b5ae87d32fdc2cd8b1346ad705b24c97d17b223510aa8a7bc8d753ab76"
     ))
 
     return

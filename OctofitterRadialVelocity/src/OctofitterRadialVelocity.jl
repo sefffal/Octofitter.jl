@@ -26,6 +26,7 @@ using .Celerite: Celerite
 include("rv-absolute.jl")
 include("rv-absolute-margin.jl")
 include("rv-relative.jl")
+include("prior-observable-rv.jl")
 
 include("data-sources/harps_rvbank.jl")
 include("data-sources/harps_dr1.jl")
