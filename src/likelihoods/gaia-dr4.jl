@@ -79,6 +79,8 @@ function Octofitter.ln_like(
     # Use Bumper.jl to avoid memory allocation overhead
     @no_escape begin
         # Allocate memory to simulate the along scan residuals
+        ra_offset_buffer = @alloc(T, size(likeobj.table,1))
+        dec_offset_buffer = @alloc(T, size(likeobj.table,1))
         centroid_pos_al_model_buffer = @alloc(T, size(likeobj.table,1))
         centroid_pos_al_model = Octofitter.simulate(
             likeobj,
@@ -87,7 +89,9 @@ function Octofitter.ln_like(
             orbits,
             orbit_solutions,
             orbit_solutions_i_epoch_start,
-            centroid_pos_al_model_buffer
+            ra_offset_buffer,
+            dec_offset_buffer,
+            centroid_pos_al_model_buffer,
         )
         # TODO: do we want to fit for a correlation parameter within each visibility window?
         for i in eachindex(likeobj.table.centroid_pos_al, centroid_pos_al_model)
@@ -110,7 +114,9 @@ function Octofitter.simulate(
     orbits,
     orbit_solutions,
     orbit_solutions_i_epoch_start,
-    along_scan_residuals_buffer=zeros(size(likeobj.table.epoch))
+    ra_offset_buffer=zeros(size(likeobj.table.epoch)),
+    dec_offset_buffer=zeros(size(likeobj.table.epoch)),
+    along_scan_residuals_buffer=zeros(size(likeobj.table.epoch)),
 )
 
     T = Octofitter._system_number_type(θ_system)
@@ -142,11 +148,9 @@ function Octofitter.simulate(
             # Our orbit solutions calculate an updated Ra and Dec for the system's barycentre
             # with various non-linear corrections (see PlanetOrbits.jl for more details)
             # Careful of units: proper motion is defined in mas per *Julian year*
-            
-            astrometric_measurement_mas = 
-                (θ_obs.ra_offset_mas + θ_obs.pmra*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)*s + 
-                (θ_obs.dec_offset_mas + θ_obs.pmdec*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)*c + 
-                θ_system.plx*likeobj.table.parallax_factor_al[i]
+            ra_offset_buffer[i] = (θ_obs.ra_offset_mas + θ_obs.pmra*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)
+            dec_offset_buffer[i] = (θ_obs.dec_offset_mas + θ_obs.pmdec*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)
+
         else
             # Our orbit solutions calculate an updated Ra and Dec for the system's barycentre
             # with various non-linear corrections (see PlanetOrbits.jl for more details)
@@ -155,10 +159,8 @@ function Octofitter.simulate(
             plx_at_epoch = orbitsol.compensated.parallax2 # Parallax distance may be changing
 
             # Faster to compute both sine and cos at the same time
-            astrometric_measurement_mas = 
-                (α - likeobj.gaia_sol.ra)*60*60*1000*cosd(δ)*s + 
-                (δ - likeobj.gaia_sol.dec)*60*60*1000*c + 
-                plx_at_epoch*likeobj.table.parallax_factor_al[i]
+            ra_offset_buffer[i] = (α - likeobj.gaia_sol.ra)*60*60*1000*cosd(δ)
+            dec_offset_buffer[i] = (δ - likeobj.gaia_sol.dec)*60*60*1000
 
         end
 
@@ -168,15 +170,21 @@ function Octofitter.simulate(
         for planet_i in eachindex(orbits)
             sol = orbit_solutions[planet_i][i+orbit_solutions_i_epoch_start]
             # Add perturbation from planet
-            x = raoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
-            y = decoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
-            Δ = x*s + y*c # yes, this convention is correct
-            astrometric_measurement_mas += Δ
+            ra_offset_buffer[i] += raoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
+            dec_offset_buffer[i] += decoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
+
         end
-        along_scan_residuals_buffer[i] = astrometric_measurement_mas
+        along_scan_residuals_buffer[i] = 
+            ra_offset_buffer[i]*s + 
+            dec_offset_buffer[i]*c + 
+            θ_system.plx*likeobj.table.parallax_factor_al[i]
     end
 
-    return along_scan_residuals_buffer
+    return (;
+        along_scan_residuals_buffer,      # η = Δα* sin(ψ) + Δδ cos(ψ) — what we currently return
+        ra_offset_buffer,       # Δα* in mas (total: PM + parallax + planets)
+        dec_offset_buffer,      # Δδ in mas (total: PM + parallax + planets)
+    )
 end
 
 
