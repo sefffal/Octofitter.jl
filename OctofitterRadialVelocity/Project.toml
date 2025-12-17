@@ -1,7 +1,7 @@
 name = "OctofitterRadialVelocity"
 uuid = "c6a353d9-c9c1-48aa-9c23-64f4679bd07d"
 authors = ["William Thompson <will.thompson@outlook.com>"]
-version = "7.0.0"
+version = "7.0.1"
 
 [deps]
 AbstractGPs = "99985d1d-32ba-4be9-9821-2ec096f28918"
