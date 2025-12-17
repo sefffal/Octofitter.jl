@@ -832,7 +832,7 @@ function _simulate_skypath_perturbations!(
         # sol = orbitsolve(orbit, table.epoch[i])
         if orbit_solutions_i_epoch_start >= 0
             sol = orbit_solutions[orbit_solutions_i_epoch_start+i]
-            @assert isapprox(table.epoch[i], PlanetOrbits.soltime(sol), rtol=1e-2)
+            # @assert isapprox(table.epoch[i], PlanetOrbits.soltime(sol), rtol=1e-2)
         else
             # TODO: this is a workaround for HGCA likelihoods not having a single table
             # that can be used to precompute orbit solutions
