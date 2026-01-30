@@ -561,7 +561,7 @@ function optimization_and_pathfinder_with_fixed(
         # Initialize starting points around optimum
         model.starting_points = fill(opt_full, ndraws)
 
-        full_params = reduced_to_full(sol.u)
+        full_params = opt_full  # Use opt_full which is set in both branches
     end
 
     if !isfinite(initial_logpost)
