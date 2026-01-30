@@ -377,21 +377,18 @@ function generate_systems_with_epoch_groups(system, epoch_groups, name_suffix_fu
             end
         end
         
-        # Store epochs for this system
-        push!(epochs, copy(epoch_list))
-        
         # Process all planets
         planets_new = map(1:length(system.planets)) do p_idx
             planet = system.planets[p_idx]
             to_include_planet = []
-            
+
             # Always include non-tabular observations for this planet
             for obs in planet.observations
                 if !hasproperty(obs, :table)
                     push!(to_include_planet, obs)
                 end
             end
-            
+
             # Add specified tabular observations for this planet if they exist
             for tab_obs in tabular_observations
                 if tab_obs.planet_idx == p_idx
@@ -400,9 +397,11 @@ function generate_systems_with_epoch_groups(system, epoch_groups, name_suffix_fu
                         current_epoch += 1
                         if current_epoch in epoch_indices
                             push!(rows_to_include, k_row)
+                            # Also add epoch to epoch_list for planet observations
+                            push!(epoch_list, tab_obs.obs.table.epoch[k_row])
                         end
                     end
-                    
+
                     # Create observation with specified rows if any rows to include
                     if !isempty(rows_to_include)
                         if length(rows_to_include) == 1
@@ -414,7 +413,7 @@ function generate_systems_with_epoch_groups(system, epoch_groups, name_suffix_fu
                     end
                 end
             end
-            
+
             # Create new planet with included observations
             return Planet(
                 basis=Octofitter.orbittype(planet),
@@ -423,6 +422,9 @@ function generate_systems_with_epoch_groups(system, epoch_groups, name_suffix_fu
                 name=planet.name,
             )
         end
+
+        # Store epochs for this system (after processing both system and planet observations)
+        push!(epochs, copy(epoch_list))
 
         # Create the new system with all planets
         suffix = name_suffix_func(group_idx)
