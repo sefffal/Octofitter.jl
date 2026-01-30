@@ -4,6 +4,7 @@ using Distributions
 using TypedTables
 using CSV
 using HDF5
+using DifferentiationInterface: AutoFiniteDiff, AutoForwardDiff
 
 # Check for test mode environment variable
 # Run with: OCTOFITTER_TEST_MODE=unit julia --project=. -e 'using Pkg; Pkg.test()'
