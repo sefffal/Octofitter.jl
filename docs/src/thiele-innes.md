@@ -1,6 +1,14 @@
 # Fit with a Thiele-Innes Basis
 
-This example shows how to fit relative astrometry using a Thiele-Innes orbital basis instead of the traditional Campbell basis used in other tutorials. The Thiele-Innes basis is more suitable then Campbell for fitting low-eccentricity orbits, because it does not have the issues where `ω`, `Ω`, and `tp` become degenerate as eccentricity and/or inclination fall to zero.
+This example shows how to fit relative astrometry using a Thiele-Innes orbital basis instead of the traditional Campbell basis used in other tutorials. The Thiele-Innes basis can be advantageous for fitting low-eccentricity and/or low-inclination orbits, because it avoids the degeneracies where `ω`, `Ω`, and `tp` become poorly constrained as eccentricity and/or inclination approach zero.
+
+!!! tip "When to use Thiele-Innes"
+    The Thiele-Innes parameterization is most beneficial when:
+    - The orbit is nearly circular (e < 0.1) **and** orbital phase coverage is limited
+    - The orbit is nearly face-on (i near 0° or 180°)
+    - You observe sampling difficulties (high tree depths, slow mixing) with Campbell elements
+
+    For well-sampled orbits with moderate eccentricity, Campbell (`Visual{KepOrbit}`) often performs equally well or better.
 
 At the end, we will convert our results back into the Campbell basis to compare.
 
@@ -36,11 +44,14 @@ planet_b = Planet(
     observations=[astrom_obs],
     variables=@variables begin
         e ~ Uniform(0.0, 0.5)
+        # Thiele-Innes constants A, B, F, G are in milliarcseconds (not AU like semi-major axis).
+        # Set the prior width to encompass the expected angular separation of your target.
+        # A rough guide: if your astrometry spans ~500 mas, use Normal(0, 1000) or similar.
         A ~ Normal(0, 1000) # milliarcseconds
         B ~ Normal(0, 1000) # milliarcseconds
         F ~ Normal(0, 1000) # milliarcseconds
         G ~ Normal(0, 1000) # milliarcseconds
-        
+
         M = system.M
         θ ~ UniformCircular()
         tp = θ_at_epoch_to_tperi(θ, 50000.0; system.plx, M, e, A, B, F, G)  # reference epoch for θ. Choose an MJD date near your data.
@@ -71,8 +82,9 @@ We now sample from the model as usual:
 ```@example 1
 results = octofit(model)
 ```
-Notice that the fit was very very fast! The Thiele-Innes orbital paramterization is easier to explore than the default Campbell in 
-many cases.
+
+!!! note
+    The Thiele-Innes parameterization may reveal more complex posterior structure (e.g., multimodality) that Campbell masks through its angular parameterization. If your corner plot shows unexpected bimodality in the A, B, F, G parameters, this may reflect genuine orbital ambiguities rather than sampling issues.
 
 We now display the results:
 ```@example 1
