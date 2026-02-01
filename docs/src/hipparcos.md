@@ -1,4 +1,4 @@
-# Hipparcos Modelling
+# [Hipparcos IAD](@id fit-hipparcos)
 
 This tutorial explains how to model Hipparcos IAD data. The first example reproduces the catalog values of position, parallax, and proper motion. The second uses Hipparcos to constrain the mass of a directly imaged planet.
 
