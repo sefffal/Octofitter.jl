@@ -58,6 +58,20 @@ fig
 
 ## Two Planet Model
 
+!!! note "Unit Conventions"
+    Octofitter uses the following unit conventions:
+    - **Semi-major axis (`a`)**: AU
+    - **Period**: No standard—you can reparameterize period in any units you prefer
+    - **Time of periastron (`tp`)**: MJD (days)
+    - **Epochs**: MJD (days)
+
+    In this tutorial, we use Julian years for period (via the custom variable `P_kep_yrs`) because it works naturally with Kepler's law: `a = ∛(M * P^2)` when M is in solar masses and P is in Julian years.
+
+    When converting from period to `tp`, remember to convert to days. For Julian years, multiply by 365.25:
+    ```julia
+    tp = τ * P_kep_yrs * 365.25 + reference_epoch_mjd
+    ```
+
 ```@example 1
 planet_b = Planet(
     name="b",
@@ -296,6 +310,28 @@ Octofitter.rvpostplot_animated(model_2p_v2, results_2p_v2)
 ```
 
 
+## Analyzing Period Ratios
+
+For studies of mean motion resonances, it's useful to examine the posterior distribution of the period ratio between planets. You can compute this directly from the chains:
+
+```@example 1
+# Extract period samples for each planet
+P_b_samples = vec(results_2p_v2[:b_P_kep_yrs])
+P_c_samples = vec(results_2p_v2[:c_P_kep_yrs])
+
+# Compute period ratio (outer/inner)
+period_ratios = P_c_samples ./ P_b_samples
+
+# Plot histogram
+fig = Figure()
+ax = Axis(fig[1,1], xlabel="Period Ratio (Pc/Pb)", ylabel="Density")
+hist!(ax, period_ratios, bins=50, normalization=:pdf)
+# Mark common resonances
+vlines!(ax, [2.0, 3/2, 5/3], color=:red, linestyle=:dash, label="Common MMRs")
+fig
+```
+
+This approach works for any multi-planet model and can help identify potential mean motion resonances.
 
 ## Note about the evidence ratio
 The pigeons method returns the log evidence ratio. If the priors are properly normalized, this is equal to the log evidence.

@@ -116,5 +116,16 @@ $\omega$ is the argument of periastron, which is the location where the **planet
 **Note:** this is 180° offset from the typical definition used by codes that only fit radial velocity and/or transit, where the convention it to report the argument of periastron for the star. This is a significant potential source of confusion when comparing results between codes.
 
 ## What is the definition of $\Omega$?
-$\Omega$ is the position angle of ascending node, also known as the longitude of ascending node. It is the point in an orbit where the planet (or equivalently, the star) moves from having a negative $z$ coordinate to having a positive $z$ coordinate. This happens where the planet (or star) moves cross the plane of the sky going **away from the observer**. 
+$\Omega$ is the position angle of ascending node, also known as the longitude of ascending node. It is the point in an orbit where the planet (or equivalently, the star) moves from having a negative $z$ coordinate to having a positive $z$ coordinate. This happens where the planet (or star) moves cross the plane of the sky going **away from the observer**.
 Why "away" from the observer? That is because Octofitter uses a coordinate system where $+z$ increases away from the observer, such that radial velocity measured as a positive redshift corresponds to a positive velocity.
+
+## What does the warning "Too many steps without any function evaluations" mean?
+
+During model initialization, you may see a warning like:
+```
+Warning: Unrecognized stop reason: Too many steps (101) without any function evaluations
+```
+
+This warning comes from the underlying optimization library (Optim.jl) and indicates that the optimizer's line search has converged or reached a point where it cannot make further progress. **This warning is generally benign and can be safely ignored.** It typically appears when the optimizer has found a good starting point and the line search algorithm determines that no additional step would improve the solution.
+
+If you see this warning alongside successful sampling results, your fit has proceeded correctly.

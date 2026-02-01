@@ -130,7 +130,33 @@ The order that variables are resolved is as follows:
 * Derived variables on the system
 * Derived variables on each planet
 
-You can use one derived variable from another based on their order in the `@variables` block within `System()` or `Planet()` constructors. 
+You can use one derived variable from another based on their order in the `@variables` block within `System()` or `Planet()` constructors.
 You cannot access variables from a different planet inside a `Planet` variables block. If you need to do this, move the variable up to the `System` variables block.
+
+!!! warning "Common Pitfall: Accessing Variables"
+    Inside a `Planet` variables block, you **cannot** use `planet.variable_name` to access the current planet's variables. Instead:
+
+    - Use the variable name directly if it's defined earlier in the same `@variables` block
+    - Use `system.variable_name` to access system-level variables
+
+    ```julia
+    # ❌ WRONG - cannot use planet.P_days inside the same planet block
+    variables=@variables begin
+        P_days ~ Uniform(1, 100)
+        tp = planet.P_days * τ  # This will NOT work!
+    end
+
+    # ✅ CORRECT - use the variable name directly
+    variables=@variables begin
+        P_days ~ Uniform(1, 100)
+        tp = P_days * τ  # Use P_days directly
+    end
+
+    # ✅ CORRECT - access system variables via system.
+    variables=@variables begin
+        P_inner = system.P_inner  # Access from system
+        tp = P_inner * τ
+    end
+    ```
 
 
