@@ -17,6 +17,9 @@ include("absastromplot.jl")
 include("masspostplot.jl")
 include("rvtimeplot.jl")
 include("hipparcosplot.jl")
+include("gaiatimeplot.jl")
+include("gaiastarplot.jl")
+include("skytrackplot.jl")
 include("octoplot.jl")
 
 end

@@ -12,14 +12,14 @@ const required_cols_grav_wide2 = (:epoch, :u, :v, :cps_data, :dcps, :index_cps1,
 
 include("GRAVITY-correlation.jl")
 
-struct GRAVITYWideKPLikelihood{TTable<:Table,TInterp} <: AbstractInterferometryLikelihood
+struct GRAVITYWideKPObs{TTable<:Table,TInterp} <: Octofitter.AbstractObs
     table::TTable
     fiber_coupling_interpolator::TInterp
     name::String
     priors::Octofitter.Priors
     derived::Octofitter.Derived
 end
-function GRAVITYWideKPLikelihood(
+function GRAVITYWideKPObs(
     observations...;
     name="GRAVITY-WIDE",
     variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(@variables begin;end)
@@ -90,17 +90,21 @@ function GRAVITYWideKPLikelihood(
     coupling_interp = LinearInterpolation((sep_mas, λs), fiber_coupling, extrapolation_bc=0.0)
 
     (priors,derived) = variables
-    return GRAVITYWideKPLikelihood{typeof(table),typeof(coupling_interp)}(table, coupling_interp, name, priors, derived)
+    return GRAVITYWideKPObs{typeof(table),typeof(coupling_interp)}(table, coupling_interp, name, priors, derived)
 end
-function Octofitter.likeobj_from_epoch_subset(obs::GRAVITYWideKPLikelihood, obs_inds)
-    return GRAVITYWideKPLikelihood(
+function Octofitter.likeobj_from_epoch_subset(obs::GRAVITYWideKPObs, obs_inds)
+    return GRAVITYWideKPObs(
         obs.table[obs_inds,:,1]...,
         name=obs.name,
         variables=(obs.priors, obs.derived)
     )
 end
-GRAVITYWideKPLikelihood(observations::NamedTuple...) = GRAVITYWideKPLikelihood(observations)
-export GRAVITYWideKPLikelihood
+GRAVITYWideKPObs(observations::NamedTuple...) = GRAVITYWideKPObs(observations)
+
+# Backwards compatibility alias
+const GRAVITYWideKPLikelihood = GRAVITYWideKPObs
+
+export GRAVITYWideKPObs, GRAVITYWideKPLikelihood
 
 
 
@@ -129,13 +133,15 @@ end
 Visibliitiy modelling likelihood for point sources.
 """
 function Octofitter.ln_like(
-    vis::GRAVITYWideKPLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start
+    vis::GRAVITYWideKPObs,
+    ctx::Octofitter.SystemObservationContext
 )
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
     # Convoluted way to get either Float64 normally or a Dual{Float64} if using ForwardDiff
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
-    
+
     # Get flux array from observation variables (one per planet)
     flux = θ_obs.flux
 
@@ -338,12 +344,17 @@ end
 """
 Visibliitiy modelling likelihood for point sources.
 """
-function Octofitter.simulate(vis::GRAVITYWideKPLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start, num_epochs::Val{L}=Val(length(vis.table))) where {L}
+function Octofitter.simulate(
+    vis::GRAVITYWideKPObs,
+    ctx::Octofitter.SystemObservationContext,
+    num_epochs::Val{L}=Val(length(vis.table))
+) where {L}
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
     # Convoluted way to get either Float64 normally or a Dual{Float64} if using ForwardDiff
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
-    
+
     # Get flux array from observation variables (one per planet)
     flux = θ_obs.flux
 

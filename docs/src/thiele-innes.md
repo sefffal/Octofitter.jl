@@ -1,6 +1,13 @@
 # Fit with a Thiele-Innes Basis
 
-This example shows how to fit relative astrometry using a Thiele-Innes orbital basis instead of the traditional Campbell basis used in other tutorials. The Thiele-Innes basis is more suitable then Campbell for fitting low-eccentricity orbits, because it does not have the issues where `ω`, `Ω`, and `tp` become degenerate as eccentricity and/or inclination fall to zero.
+This example shows how to fit relative astrometry using a Thiele-Innes orbital basis instead of the traditional Campbell basis used in other tutorials. The Thiele-Innes basis is an alternative parameterization that replaces the angular elements (inclination `i`, longitude of ascending node `Ω`, and argument of periastron `ω`) with the Thiele-Innes constants (A, B, F, G). This avoids the coordinate singularities where `ω`, `Ω`, and `tp` become poorly defined as eccentricity and/or inclination approach zero.
+
+!!! tip "When to consider Thiele-Innes"
+    The Thiele-Innes parameterization may be useful when:
+    - The orbit is nearly circular (e < 0.1) and/or nearly face-on (i near 0° or 180°)
+    - You want to avoid angular coordinate singularities
+
+    Both parameterizations should give consistent results for the physical orbital parameters. Choose based on your preference or specific analysis needs.
 
 At the end, we will convert our results back into the Campbell basis to compare.
 
@@ -19,7 +26,7 @@ astrom_dat = Table(;
     cor   = [0, 0, 0, 0, 0, 0, 0, 0]
 )
 
-astrom_like = PlanetRelAstromLikelihood(
+astrom_obs = PlanetRelAstromObs(
     astrom_dat,
     name = "GPI",
     variables = @variables begin
@@ -33,14 +40,17 @@ astrom_like = PlanetRelAstromLikelihood(
 planet_b = Planet(
     name="b",
     basis=ThieleInnesOrbit,
-    likelihoods=[astrom_like],
+    observations=[astrom_obs],
     variables=@variables begin
         e ~ Uniform(0.0, 0.5)
+        # Thiele-Innes constants A, B, F, G are in milliarcseconds (not AU like semi-major axis).
+        # Set the prior width to encompass the expected angular separation of your target.
+        # A rough guide: if your astrometry spans ~500 mas, use Normal(0, 1000) or similar.
         A ~ Normal(0, 1000) # milliarcseconds
         B ~ Normal(0, 1000) # milliarcseconds
         F ~ Normal(0, 1000) # milliarcseconds
         G ~ Normal(0, 1000) # milliarcseconds
-        
+
         M = system.M
         θ ~ UniformCircular()
         tp = θ_at_epoch_to_tperi(θ, 50000.0; system.plx, M, e, A, B, F, G)  # reference epoch for θ. Choose an MJD date near your data.
@@ -50,7 +60,7 @@ planet_b = Planet(
 sys = System(
     name="TutoriaPrime",
     companions=[planet_b],
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
@@ -60,6 +70,16 @@ sys = System(
 model = Octofitter.LogDensityModel(sys)
 ```
 
+!!! warning "Different syntax for `θ_at_epoch_to_tperi`"
+    When using `ThieleInnesOrbit`, the `θ_at_epoch_to_tperi` function requires the Thiele-Innes constants `A`, `B`, `F`, `G` as keyword arguments instead of the Campbell angular elements `i`, `Ω`, `ω`:
+    ```julia
+    # Campbell (Visual{KepOrbit}):
+    tp = θ_at_epoch_to_tperi(θ, epoch; M, e, a, i, Ω, ω)
+
+    # Thiele-Innes:
+    tp = θ_at_epoch_to_tperi(θ, epoch; system.plx, M, e, A, B, F, G)
+    ```
+    Note that `system.plx` (parallax) is also required for Thiele-Innes since the constants are in angular units.
 
 Initialize the starting points, and confirm the data are entered correcly:
 ```@example 1
@@ -71,8 +91,9 @@ We now sample from the model as usual:
 ```@example 1
 results = octofit(model)
 ```
-Notice that the fit was very very fast! The Thiele-Innes orbital paramterization is easier to explore than the default Campbell in 
-many cases.
+
+!!! note
+    The Thiele-Innes parameterization may reveal more complex posterior structure (e.g., multimodality) that Campbell masks through its angular parameterization. If your corner plot shows unexpected bimodality in the A, B, F, G parameters, this may reflect genuine orbital ambiguities rather than sampling issues.
 
 We now display the results:
 ```@example 1

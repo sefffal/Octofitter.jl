@@ -7,7 +7,7 @@ const phot_cols = (:phot, :σ_phot)
         (phot=15.0, σ_phot=3.0),
         (phot=14.8, σ_phot=0.5),
     )
-    PhotometryLikelihood(
+    PhotometryObs(
         data,
         name="INSTRUMENT",
         variables=@variables begin
@@ -15,24 +15,24 @@ const phot_cols = (:phot, :σ_phot)
         end
     )
 
-A likelihood for comparing measured photometry points in a single
+An observation type for comparing measured photometry points in a single
 filter band to data (provided here). Requires the `:phot` and `:σ_phot`
 columns. Can be provided with any Tables.jl compatible data source.
 
-For multiple bands, create separate PhotometryLikelihood objects.
+For multiple bands, create separate PhotometryObs objects.
 
-The flux variable should be defined in the `variables` block rather than 
-in the planet definition. This can be derived from physical models that 
+The flux variable should be defined in the `variables` block rather than
+in the planet definition. This can be derived from physical models that
 take planet mass and other system parameters as input.
 
 The `name` is used for variable naming in the chain output.
 """
-struct PhotometryLikelihood{TTable<:Table} <: AbstractLikelihood
+struct PhotometryObs{TTable<:Table} <: AbstractObs
     table::TTable
     name::String
     priors::Priors
     derived::Derived
-    function PhotometryLikelihood(
+    function PhotometryObs(
             observations;
             name="PHOTOMETRY",
             variables::Tuple{Priors,Derived}=(@variables begin;end)
@@ -48,16 +48,20 @@ struct PhotometryLikelihood{TTable<:Table} <: AbstractLikelihood
         return new{typeof(table)}(table, name, priors, derived)
     end
 end
-# PhotometryLikelihood(observations::NamedTuple...; kwargs...) = PhotometryLikelihood(observations; kwargs...)
-export PhotometryLikelihood
 
-function likeobj_from_epoch_subset(obs::PhotometryLikelihood, obs_inds)
-    return PhotometryLikelihood(obs.table[obs_inds,:,1]; name=obs.name, variables=(obs.priors, obs.derived))
+# Backwards compatibility alias
+const PhotometryLikelihood = PhotometryObs
+
+export PhotometryObs, PhotometryLikelihood
+
+function likeobj_from_epoch_subset(obs::PhotometryObs, obs_inds)
+    return PhotometryObs(obs.table[obs_inds,:,1]; name=obs.name, variables=(obs.priors, obs.derived))
 end
 
-# PhotometryLikelihood: attached to a system
-function ln_like(photometry::PhotometryLikelihood, θ_system, θ_obs, orbits::NTuple{N,<:AbstractOrbit}, args...) where N
-    T = _system_number_type(θ_system)
+# PhotometryObs: attached to a system
+function ln_like(photometry::PhotometryObs, ctx::SystemObservationContext)
+    (; θ_obs) = ctx
+    T = _system_number_type(ctx.θ_system)
     ll = zero(T)
 
     for i in eachindex(photometry.table.phot)
@@ -76,9 +80,10 @@ function ln_like(photometry::PhotometryLikelihood, θ_system, θ_obs, orbits::NT
     return ll
 end
 
-# PhotometryLikelihood: attached to a planet
-function ln_like(photometry::PhotometryLikelihood, θ_system, θ_planet, θ_obs, args...)
-    T = _system_number_type(θ_system)
+# PhotometryObs: attached to a planet
+function ln_like(photometry::PhotometryObs, ctx::PlanetObservationContext)
+    (; θ_obs) = ctx
+    T = _system_number_type(ctx.θ_system)
     ll = zero(T)
 
     for i in eachindex(photometry.table.phot)

@@ -70,9 +70,9 @@ hipparcos_catalog_orbit_parameters_used = [
 ]
 
 ###########################
-# Stores data:
+# Stores observations data:
 const hip_iad_cols = (:iorb, :epoch, :parf, :cosϕ, :sinϕ, :res, :sres)
-struct HipparcosIADLikelihood{THipSol,TIADTable<:Table,TDist,TFact} <: AbstractLikelihood
+struct HipparcosIADObs{THipSol,TIADTable<:Table,TDist,TFact} <: AbstractObs
     hip_sol::THipSol
     table::TIADTable
     priors::Priors
@@ -84,24 +84,27 @@ struct HipparcosIADLikelihood{THipSol,TIADTable<:Table,TDist,TFact} <: AbstractL
     A_prepared_5::TFact
 end
 
-# Add likelihoodname method
-likelihoodname(::HipparcosIADLikelihood) = "Hipparcos IAD"
+# Backwards compatibility alias
+const HipparcosIADLikelihood = HipparcosIADObs
 
-function likeobj_from_epoch_subset(obs::HipparcosIADLikelihood, obs_inds)
-    return HipparcosIADLikelihood(obs.hip_sol, obs.table[obs_inds, :, 1], obs.priors, obs.derived, obs.name, obs.dist, obs.A_prepared_4, obs.A_prepared_5)
+# Add likelihoodname method
+likelihoodname(::HipparcosIADObs) = "Hipparcos IAD"
+
+function likeobj_from_epoch_subset(obs::HipparcosIADObs, obs_inds)
+    return HipparcosIADObs(obs.hip_sol, obs.table[obs_inds, :, 1], obs.priors, obs.derived, obs.name, obs.dist, obs.A_prepared_4, obs.A_prepared_5)
 end
 
 """
-    HipparcosIADLikelihood(;
+    HipparcosIADObs(;
         hip_id,
         variables=@variables begin
             fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1)])  # one entry for each companion
         end
     )
 
-Load the Hipparcos IAD likelihood.
+Load the Hipparcos IAD observations.
 By default, this fetches and catches the extracted Java Tool edition of the
-van Leeuwan reduction. 
+van Leeuwan reduction.
 
 The `fluxratio` variable should be a Product distribution containing the flux ratio of each companion
 in the same order as the planets in the system.
@@ -111,13 +114,13 @@ Additional arguments:
 * `renormalize=true`: renormalize the uncertainties according to Nielsen et al. (2020)
 * `attempt_correction=true`: perform ad-hoc correction of any corrupted scans according to G. Brandt et al. (2021)
 * `is_van_leeuwen=true`: set to false if using e.g. the 1997 reduction.
-    This impacts how the residuals are reconstructed. The 1997 version applied a time varying 
+    This impacts how the residuals are reconstructed. The 1997 version applied a time varying
     parallax to high RV stars, while the van Leeuwan reduction did not. The van Leeuwan reduction
     residuals are relative to the 7 or 9 parameter model (when applicable) while the 1997 version
-    is always relative to the 5 parameter solution, even when higher order terms are reported.  
+    is always relative to the 5 parameter solution, even when higher order terms are reported.
 
 """
-function HipparcosIADLikelihood(;
+function HipparcosIADObs(;
         hip_id,
         catalog=(datadep"Hipparcos_IAD"),
         renormalize=true,
@@ -370,9 +373,9 @@ function HipparcosIADLikelihood(;
     A_prepared_5 = prepare_A_5param(table, ref_epoch_ra, ref_epoch_dec)
 
 
-    return HipparcosIADLikelihood(hip_sol, table, priors, derived, "Hipparcos IAD", dist, A_prepared_4, A_prepared_5)
+    return HipparcosIADObs(hip_sol, table, priors, derived, "Hipparcos IAD", dist, A_prepared_4, A_prepared_5)
 end
-export HipparcosIADLikelihood
+export HipparcosIADObs, HipparcosIADLikelihood
 
 
 """
@@ -517,30 +520,27 @@ end
 
 
 ##########################
-# Computes likelihood
-function ln_like(
-    hiplike::HipparcosIADLikelihood,
-    θ_system,
-    θ_obs,
-    orbits,
-    orbit_solutions,
-    sol_start_i
-)
+# Computes log-likelihood
+function ln_like(obs::HipparcosIADObs, ctx::PlanetObservationContext)
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+
     T = _system_number_type(θ_system)
     ll = zero(T)
 
-    hip_model = simulate(hiplike, θ_system, θ_obs, orbits, orbit_solutions, sol_start_i)
+    # Use the first element of orbit_solutions_i_epoch_start for compatibility
+    sol_start_i = first(orbit_solutions_i_epoch_start)
+    hip_model = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, sol_start_i)
     for i in eachindex(hip_model.resid)
-        if hiplike.table.reject[i]
+        if obs.table.reject[i]
             continue
         end
-        ll += logpdf(Normal(0, hiplike.table.sres_renorm[i]), hip_model.resid[i])
+        ll += logpdf(Normal(0, obs.table.sres_renorm[i]), hip_model.resid[i])
     end
 
     return ll
 end
 
-function simulate(hiplike::HipparcosIADLikelihood, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function simulate(hiplike::HipparcosIADObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
 
     T = _system_number_type(θ_system)
     α✱_model_with_perturbation_out = zeros(T, length(hiplike.table.epoch))

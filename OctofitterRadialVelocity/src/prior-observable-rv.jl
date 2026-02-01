@@ -1,9 +1,13 @@
 
-function Octofitter.ln_like(like::Union{ObsPriorAstromONeil2019{StarAbsoluteRVLikelihood}, ObsPriorAstromONeil2019{MarginalizedStarAbsoluteRVLikelihood}}, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function Octofitter.ln_like(
+    like::Union{Octofitter.ObsPriorAstromONeil2019{StarAbsoluteRVObs}, Octofitter.ObsPriorAstromONeil2019{MarginalizedStarAbsoluteRVObs}},
+    context::Octofitter.PlanetObservationContext
+)
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = context
     T = Octofitter._system_number_type(θ_system)
 
     # Call the wrapped likelihood's ln_like method
-    ln_like_wrapped = Octofitter.ln_like(like.wrapped_like, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    ln_like_wrapped = Octofitter.ln_like(like.wrapped_like, context)
 
     orbit = orbits[i_planet]
     # Add period prior
@@ -49,7 +53,7 @@ function Octofitter.ln_like(like::Union{ObsPriorAstromONeil2019{StarAbsoluteRVLi
     end
 
     sqrt_eccen = sqrt(1-eccentricity(orbit)^2)
-    jac *= cbrt(P) / sqrt_eccen 
+    jac *= cbrt(P) / sqrt_eccen
 
     ln_prior += 2log(jac)
 

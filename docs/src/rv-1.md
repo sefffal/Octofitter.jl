@@ -22,7 +22,7 @@ using DataFrames
 using Distributions
 ```
 
-We will start by downloading and preparing a table of radial velocity measurements, and create a [`StarAbsoluteRVLikelihood`](@ref) object to hold them.
+We will start by downloading and preparing a table of radial velocity measurements, and create a [`StarAbsoluteRVObs`](@ref) object to hold them.
 
 
 The following functions allow you to directly load data from various public RV databases:
@@ -32,7 +32,7 @@ The following functions allow you to directly load data from various public RV d
 * `HIRES_rvs("star-name")`
 
 Make sure to credit the sources using the citation printed when you first access the catalog.
-Calling those functions with the name of a star will return a [`StarAbsoluteRVLikelihood`](@ref) table. 
+Calling those functions with the name of a star will return a [`StarAbsoluteRVObs`](@ref) table. 
 
 
 If you would like to manually specify RV data, use the following format:
@@ -46,7 +46,7 @@ rv_data = Table(
     σ_rv=[1.30, 1.09]
 )
 
-rv_like = StarAbsoluteRVLikelihood(rv_data, 
+rv_obs = StarAbsoluteRVObs(rv_data, 
     name="insert name here",
     variables=@variables begin
         offset ~ Uniform(-1000, 1000) # m/s
@@ -70,7 +70,7 @@ tels = sort(unique(rv_dat_raw.tel))
 
 # This table includes data from two insturments. We create a separate
 # likelihood object for each:
-rvlike_harps = StarAbsoluteRVLikelihood(
+rvlike_harps = StarAbsoluteRVObs(
     rv_dat[rv_dat_raw.tel .== "harps-n",:],
     name="harps-n",
     variables=@variables begin
@@ -78,7 +78,7 @@ rvlike_harps = StarAbsoluteRVLikelihood(
         jitter ~ LogUniform(0.1,100) # m/s
     end
 )
-rvlike_pfs = StarAbsoluteRVLikelihood(
+rvlike_pfs = StarAbsoluteRVObs(
     rv_dat[rv_dat_raw.tel .== "pfs",:],
     name="pfs",
     variables=@variables begin
@@ -97,7 +97,7 @@ if we wanted to include these parameters and visualize the orbit in the plane of
 planet_1 = Planet(
     name="b",
     basis=RadialVelocityOrbit,
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         e = 0
         ω = 0.0
@@ -118,7 +118,7 @@ planet_1 = Planet(
 sys = System(
     name = "k2_132",
     companions=[planet_1],
-    likelihoods=[rvlike_harps, rvlike_pfs],
+    observations=[rvlike_harps, rvlike_pfs],
     variables=@variables begin
         M ~ truncated(Normal(0.82, 0.02),lower=0.1) # (Baines & Armstrong 2011).
     end
@@ -174,3 +174,25 @@ octocorner(model, chain)
 ```
 
 This example continues in [Fit Gaussian Process](@ref fit-rv-gp).
+
+## Simulating RV Data
+
+To generate synthetic radial velocity data for testing, the recommended approach is to use Octofitter's built-in simulation capabilities. See the [Generating and Fitting Simulated Data](@ref data-simulation) tutorial for a complete guide on simulating data from models.
+
+Alternatively, you can generate RV data directly using the `radvel` function from [PlanetOrbits.jl](https://sefffal.github.io/PlanetOrbits.jl/dev/api/):
+
+```julia
+using PlanetOrbits
+
+# Create an orbit
+orb = orbit(a=1.0, e=0.1, ω=0.5, M=1.0, tp=58000.0)
+
+# Calculate radial velocity at a given epoch
+# Units: epoch in MJD, mass in solar masses (not Jupiter masses!)
+epoch = 58100.0
+companion_mass_msol = 0.001  # ~1 Jupiter mass in solar masses
+rv = radvel(orb, epoch, companion_mass_msol)  # returns m/s
+```
+
+!!! warning
+    The `radvel` function takes companion mass in **solar masses**, unlike most places in Octofitter which use Jupiter masses. Use `Octofitter.mjup2msol` to convert if needed.

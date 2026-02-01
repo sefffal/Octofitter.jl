@@ -115,15 +115,21 @@ Fixed parameters will be held constant during optimization and sampling.
 
 The `fixed_params` can include:
 - System-level variables: `(; plx=24.4, pmra=10.2, ...)`
-- Planet variables: `(; planets=(; b=(; a=1.5, e=0.1, ...), ...))`  
+- Planet variables: `(; planets=(; b=(; a=1.5, e=0.1, ...), ...))`
 - Observation variables: `(; observations=(; ObsName=(; var1=val1, var2=val2, ...), ...))`
 
 Available keyword arguments include:
  - `verbosity=1`: control extra logging, can be 0 for silent, up to 4 for debugging info
  - `pathfinder_autodiff=AutoForwardDiff()`: what autodiff backend to use for initialization (not necessarily the same one used for the model in general)
- - `nruns=8`: how many runs of multi-pathfinder to use 
+ - `nruns=8`: how many runs of multi-pathfinder to use
  - `ntries=2`: how many times can pathfinder fail and restart
  - `ndraws=1000`: how many draws to return from the pathfinder approximation
+
+!!! note "Benign warning about 'Too many steps'"
+    During initialization, you may see a warning like "Unrecognized stop reason: Too many
+    steps (101) without any function evaluations". This warning comes from the underlying
+    optimizer and is safe to ignore - it indicates the optimization has converged. See the
+    FAQ for more details.
 
 Example:
 ```julia
@@ -509,12 +515,10 @@ function optimization_and_pathfinder_with_fixed(
     lb = convert(Vector{Float64},lb_full[variable_indices])
     ub = convert(Vector{Float64},ub_full[variable_indices])
 
-    fixed_values = []
-    fixed_indices = Int[]
     reduced_initial_prime, bestlogpost = guess_starting_position_with_fixed(
         rng, model, fixed_values, fixed_indices, discrete_indices
     )
-    reduced_initial = model.link(reduced_initial_prime)
+    reduced_initial = model.link(reduced_initial_prime)[variable_indices]
     if !isfinite(reduced_ℓπcallback(reduced_initial))
         opt_full = reduced_to_full(reduced_initial)
         @show opt_full model.invlink(opt_full) model.arr2nt(model.invlink(opt_full))
@@ -539,22 +543,31 @@ function optimization_and_pathfinder_with_fixed(
         if verbosity > 0
             @info "Starting values not provided for all parameters! Guessing starting point using global optimization:" num_params=length(variable_indices) num_fixed=length(fixed_indices)
         end
-        
-        # Set up and solve reduced optimization problem
-        prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
-        Random.seed!(rand(rng, UInt64))
-        sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters=1_000_000, show_trace=verbosity>2, show_every=1000)
 
-        verbosity > 2 && display(sol.original)
-        
-        # Convert solution to full parameter space
-        opt_full = reduced_to_full(sol.u)
-        
+        # Set up and solve reduced optimization problem
+        reduced_initial = convert(Vector{Float64}, reduced_initial)
+        lb = convert(Vector{Float64}, lb)
+        ub = convert(Vector{Float64}, ub)
+        if !all(lb .< reduced_initial .< ub)
+            @warn "The initial guess parameters fell outside the 0.00001 or 0.9999 quantile range of the priors, so global optimization search is disabled. Returning initial guess only, which may be far from the global mode."
+            opt_full = reduced_to_full(reduced_initial)
+            initial_logpost = model.ℓπcallback(opt_full)
+        else
+            prob = Optimization.OptimizationProblem(f, reduced_initial, nothing; lb, ub)
+            Random.seed!(rand(rng, UInt64))
+            sol = solve(prob, BBO_adaptive_de_rand_1_bin(), rel_tol=1e-3, maxiters=1_000_000, show_trace=verbosity>2, show_every=1000)
+
+            verbosity > 2 && display(sol.original)
+            
+            # Convert solution to full parameter space
+            opt_full = reduced_to_full(sol.u)
+                    
+            initial_logpost = -sol.objective
+        end
         # Initialize starting points around optimum
         model.starting_points = fill(opt_full, ndraws)
-        initial_logpost = -sol.objective
 
-        full_params = reduced_to_full(sol.u)
+        full_params = opt_full  # Use opt_full which is set in both branches
     end
 
     if !isfinite(initial_logpost)

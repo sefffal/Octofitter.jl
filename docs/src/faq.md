@@ -59,7 +59,7 @@ You can share instrument parameters such as linear our quadratic terms between i
 
 ```
 # Instrument 1 likelihood
-rvlike_apf = StarAbsoluteRVLikelihood(
+rvlike_apf = StarAbsoluteRVObs(
     rv_dat_apf,
     name="APF",
 
@@ -73,7 +73,7 @@ rvlike_apf = StarAbsoluteRVLikelihood(
     end
 )
 # Instrument 2 likelihood
-rvlike_hires = StarAbsoluteRVLikelihood(
+rvlike_hires = StarAbsoluteRVObs(
     rv_dat_hires,
     name="HIRES",
     
@@ -89,7 +89,7 @@ rvlike_hires = StarAbsoluteRVLikelihood(
 sys = System(
     name = "Star1",
     companions=[planet_1],
-    likelihoods=[rvlike_apf, rvlike_hires],
+    observations=[rvlike_apf, rvlike_hires],
     variables=@variables begin
         M ~ truncated(Normal(1.5, 0.06),lower=0.1, upper=10)
 
@@ -116,8 +116,89 @@ $\omega$ is the argument of periastron, which is the location where the **planet
 **Note:** this is 180° offset from the typical definition used by codes that only fit radial velocity and/or transit, where the convention it to report the argument of periastron for the star. This is a significant potential source of confusion when comparing results between codes.
 
 ## What is the definition of $\Omega$?
-$\Omega$ is the position angle of ascending node, also known as the longitude of ascending node. It is the point in an orbit where the planet (or equivalently, the star) moves from having a negative $z$ coordinate to having a positive $z$ coordinate. This happens where the planet (or star) moves cross the plane of the sky going **away from the observer**. 
+$\Omega$ is the position angle of ascending node, also known as the longitude of ascending node. It is the point in an orbit where the planet (or equivalently, the star) moves from having a negative $z$ coordinate to having a positive $z$ coordinate. This happens where the planet (or star) moves cross the plane of the sky going **away from the observer**.
 Why "away" from the observer? That is because Octofitter uses a coordinate system where $+z$ increases away from the observer, such that radial velocity measured as a positive redshift corresponds to a positive velocity.
+
+## I get a syntax error with `$` interpolation in `@variables`
+
+If you see an error like `syntax: "$" expression outside quote` when using `$` interpolation in derived variables, it's likely because you have a complex expression inside `$()`.
+
+The `$` interpolation only works for **simple references** to external variables or functions. For example:
+
+```julia
+# ❌ This FAILS - nested $ or complex expressions don't work
+flux = $mass_to_L_contrast(planet.mass, system.age, $HOST_L_MAG)
+
+# ✅ This WORKS - simple function reference, model variables without $
+flux = $mass_to_L_contrast(planet.mass, system.age, planet.temp)
+```
+
+**Solution**: Create a wrapper function that captures your constants:
+
+```julia
+HOST_L_MAG = 4.5
+TRUE_AGE = 10.0
+
+function mass_to_L_contrast_wrapper(mass)
+    return mass_to_L_contrast(mass, TRUE_AGE, HOST_L_MAG)
+end
+
+# Then use the simple wrapper
+flux = $mass_to_L_contrast_wrapper(mass)
+```
+
+See [Derived Variables - Interpolation Syntax](@ref derived) for more details.
+
+## Should I use `planet.X` or `system.X` in observation variables?
+
+It depends on **where the observation is attached** and **where the variable is defined**:
+
+- **Observation attached to a Planet** (e.g., `PhotometryObs`, `PlanetRelAstromObs`):
+  - Use `planet.X` for variables defined on the Planet
+  - Use `system.X` for variables defined on the System
+
+- **Observation attached to a System** (e.g., `StarAbsoluteRVObs`):
+  - Use `system.X` for variables defined on the System
+
+```julia
+# PhotometryObs attached to a planet:
+H_band_data = PhotometryObs(
+    data_table,
+    name="H_band",
+    variables=@variables begin
+        # mass is on planet, age is on system
+        flux = $H_band_contrast_interp(planet.mass, system.age)
+    end
+)
+
+planet_b = Planet(
+    name="b",
+    observations=[H_band_data],  # Attached to planet
+    variables=@variables begin
+        mass ~ Uniform(0, 10)  # Access via planet.mass
+        # ...
+    end
+)
+```
+
+See [Derived Variables - Variable Scoping in Observations](@ref derived) for more details.
+
+## What does the warning "Too many steps without any function evaluations" mean?
+
+During model initialization with `initialize!()`, you may see a warning like:
+```
+Warning: Unrecognized stop reason: Too many steps (101) without any function evaluations
+```
+
+!!! info "This warning is safe to ignore"
+    This warning comes from the underlying optimization library (Optim.jl via Pathfinder.jl) and indicates that the optimizer's line search has converged or reached a point where it cannot make further progress. **This warning is completely benign and does not affect your results.**
+
+The warning typically appears when:
+- The optimizer has already found a good starting point
+- The line search algorithm determines no further step would improve the solution
+- The optimization has effectively converged
+
+**Your fit will proceed correctly.** Check the output of `initialize!()` - if it returns a valid chain with reasonable parameter values, the initialization was successful regardless of this warning.
 
 ## How to load past rounds saved with the Pigeons MCMC?
 When using the Pigeons MCMC with Octofitter there is a checkpoint feature which is automatically set as false. When set as true, each round completed using the Pigeons MCMC will be saved to a results folder that will be automatically created. Inside this folder there will be two additional folders, all and latest. The former holders all past Pigeons runs while the latest folder contains the results from the most recent run. From these folders, you can reload old Pigeons MCMC rounds and start a run again from the saved checkpoint location (the last round found in a given folder). This can save time when running particularily long models.

@@ -137,7 +137,7 @@ using DataFrames
 using Distributions
 
 # Specify your data as usual
-astrom_like = PlanetRelAstromLikelihood(
+astrom_obs = PlanetRelAstromObs(
     # Your data here:
     (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
@@ -158,7 +158,7 @@ astrom_like = PlanetRelAstromLikelihood(
     Ω ~ UniformCircular()
     θ ~ UniformCircular()
     tp = θ_at_epoch_to_tperi(system,b,50000) # use MJD epoch of your data here!!
-end astrom_like
+end astrom_obs
 @system Tutoria begin # replace Tutoria with the name of your planetary system
     M ~ truncated(Normal(1.2, 0.1), lower=0.1)
     plx ~ truncated(Normal(50.0, 0.02), lower=0.1)

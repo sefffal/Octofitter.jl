@@ -10,6 +10,9 @@ This example shows how to fit a Gaussian process to model stellar activity in RV
 
 There are two different GP packages supported by OctofitterRadialVelocity: AbstractGPs, and Celerite. Important note: Celerite.jl does not support Julia 1.0+, so we currently bundle a fork that has been patched to work. When / if Celerite.jl is updated we will switch back to the public package.
 
+!!! note "Computational cost"
+    GP models are significantly more computationally expensive than non-GP models. Plan for longer sampling times when using Gaussian processes.
+
 
 For this example, we will fit the orbit of the planet K2-131 to perform the same fit as in the RadVel [Gaussian Process Fitting](https://radvel.readthedocs.io/en/latest/tutorials/GaussianProcess-tutorial.html) tutorial.
 
@@ -54,10 +57,16 @@ gp_perlength_unc = 0.019
 gp_per_mean = 9.64 # T_bar in Dai+ 2017 [days]
 gp_per_unc = 0.12
 
-rvlike_harps = StarAbsoluteRVLikelihood(
+rvlike_harps = StarAbsoluteRVObs(
     rv_dat[rv_dat_raw.tel .== "harps-n",:],
     name="harps-n",
-    variables=(@variables begin
+    gaussian_process = θ_obs -> GP(
+        θ_obs.η_1^2 *
+        (SqExponentialKernel() ∘ ScaleTransform(1/(θ_obs.η_2))) *
+        (PeriodicKernel(r=[θ_obs.η_4]) ∘ ScaleTransform(1/(θ_obs.η_3)))
+    ),
+    # Note: variables= must come last
+    variables=@variables begin
         offset ~ Normal(-6693,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s
         # Add priors on GP kernel hyper-parameters.
@@ -67,17 +76,18 @@ rvlike_harps = StarAbsoluteRVLikelihood(
         η_2 ~ truncated(Normal(gp_explength_mean,gp_explength_unc),lower=5,upper=100)
         η_3 ~ truncated(Normal(gp_per_mean,1),lower=2, upper=100)
         η_4 ~ truncated(Normal(gp_perlength_mean,gp_perlength_unc),lower=0.2, upper=10)
-    end),
-    gaussian_process = θ_obs -> GP(
-        θ_obs.η_1^2 *  
-        (SqExponentialKernel() ∘ ScaleTransform(1/(θ_obs.η_2))) *
-        (PeriodicKernel(r=[θ_obs.η_4]) ∘ ScaleTransform(1/(θ_obs.η_3)))
-    )
+    end
 )
-rvlike_pfs = StarAbsoluteRVLikelihood(
+rvlike_pfs = StarAbsoluteRVObs(
     rv_dat[rv_dat_raw.tel .== "pfs",:],
     name="pfs",
-    variables=(@variables begin
+    gaussian_process = θ_obs -> GP(
+        θ_obs.η_1^2 *
+        (SqExponentialKernel() ∘ ScaleTransform(1/(θ_obs.η_2))) *
+        (PeriodicKernel(r=[θ_obs.η_4]) ∘ ScaleTransform(1/(θ_obs.η_3)))
+    ),
+    # Note: variables= must come last
+    variables=@variables begin
         offset ~ Normal(0,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s
         # Add priors on GP kernel hyper-parameters.
@@ -87,19 +97,14 @@ rvlike_pfs = StarAbsoluteRVLikelihood(
         η_2 ~ truncated(Normal(gp_explength_mean,gp_explength_unc),lower=5,upper=100)
         η_3 ~ truncated(Normal(gp_per_mean,1),lower=2, upper=100)
         η_4 ~ truncated(Normal(gp_perlength_mean,gp_perlength_unc),lower=0.2, upper=10)
-    end),
-    gaussian_process = θ_obs -> GP(
-        θ_obs.η_1^2 *  
-        (SqExponentialKernel() ∘ ScaleTransform(1/(θ_obs.η_2))) *
-        (PeriodicKernel(r=[θ_obs.η_4]) ∘ ScaleTransform(1/(θ_obs.η_3)))
-    )
+    end
 )
 ## No change to the rest of the model
 
 planet_1 = Planet(
     name="b",
     basis=RadialVelocityOrbit,
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         e = 0
         ω = 0.0
@@ -120,7 +125,7 @@ planet_1 = Planet(
 sys = System(
     name = "k2_132",
     companions=[planet_1],
-    likelihoods=[rvlike_harps, rvlike_pfs],
+    observations=[rvlike_harps, rvlike_pfs],
     variables=@variables begin
         M ~ truncated(Normal(0.82, 0.02),lower=0.1) # (Baines & Armstrong 2011).
     end
@@ -199,10 +204,22 @@ for modelling large RV datasets.
 ```@example 1
 using OctofitterRadialVelocity.Celerite
 
-rvlike_harps = StarAbsoluteRVLikelihood(
+rvlike_harps = StarAbsoluteRVObs(
     rv_dat[rv_dat_raw.tel .== "harps-n",:],
     name="harps-n",
-    variables=(@variables begin
+    gaussian_process = θ_obs -> Celerite.CeleriteGP(
+        Celerite.RealTerm(
+            #=log_a=# log(θ_obs.B*(1+θ_obs.C)/(2+θ_obs.C)),
+            #=log_c=# log(1/θ_obs.L)
+        ) + Celerite.ComplexTerm(
+            #=log_a=#  log(θ_obs.B/(2+θ_obs.C)),
+            #=log_b=#  -Inf,
+            #=log_c=#  log(1/θ_obs.L),
+            #=log_d=#  log(2pi/θ_obs.Prot)
+        )
+    ),
+    # Note: variables= must come last
+    variables=@variables begin
         offset ~ Normal(-6693,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s
         # Add priors on GP kernel hyper-parameters.
@@ -210,7 +227,11 @@ rvlike_harps = StarAbsoluteRVLikelihood(
         C ~ Uniform(0.00001, 200)
         L ~ Uniform(2, 200)
         Prot ~ Uniform(8.5, 20)#Uniform(0, 20)
-    end),
+    end
+)
+rvlike_pfs = StarAbsoluteRVObs(
+    rv_dat[rv_dat_raw.tel .== "pfs",:],
+    name="pfs",
     gaussian_process = θ_obs -> Celerite.CeleriteGP(
         Celerite.RealTerm(
             #=log_a=# log(θ_obs.B*(1+θ_obs.C)/(2+θ_obs.C)),
@@ -221,12 +242,9 @@ rvlike_harps = StarAbsoluteRVLikelihood(
             #=log_c=#  log(1/θ_obs.L),
             #=log_d=#  log(2pi/θ_obs.Prot)
         )
-    )
-)
-rvlike_pfs = StarAbsoluteRVLikelihood(
-    rv_dat[rv_dat_raw.tel .== "pfs",:],
-    name="pfs",
-    variables=(@variables begin
+    ),
+    # Note: variables= must come last
+    variables=@variables begin
         offset ~ Normal(0,100) # m/s
         jitter ~ LogUniform(0.1,100) # m/s
         # Add priors on GP kernel hyper-parameters.
@@ -234,18 +252,7 @@ rvlike_pfs = StarAbsoluteRVLikelihood(
         C ~ Uniform(0.00001, 200)
         L ~ Uniform(2, 200)
         Prot ~ Uniform(8.5, 20)#Uniform(0, 20)
-    end),
-    gaussian_process = θ_obs -> Celerite.CeleriteGP(
-        Celerite.RealTerm(
-            #=log_a=# log(θ_obs.B*(1+θ_obs.C)/(2+θ_obs.C)),
-            #=log_c=# log(1/θ_obs.L)
-        ) + Celerite.ComplexTerm(
-            #=log_a=#  log(θ_obs.B/(2+θ_obs.C)),
-            #=log_b=#  -Inf,
-            #=log_c=#  log(1/θ_obs.L),
-            #=log_d=#  log(2pi/θ_obs.Prot)
-        )
-    )
+    end
 )
 
 ## No change to the rest of the model
@@ -253,7 +260,7 @@ rvlike_pfs = StarAbsoluteRVLikelihood(
 planet_1 = Planet(
     name="b",
     basis=RadialVelocityOrbit,
-    likelihoods=[],
+    observations=[],
     variables=@variables begin
         e = 0
         ω = 0.0
@@ -274,7 +281,7 @@ planet_1 = Planet(
 sys = System(
     name = "k2_132",
     companions=[planet_1],
-    likelihoods=[rvlike_harps, rvlike_pfs],
+    observations=[rvlike_harps, rvlike_pfs],
     variables=@variables begin
         M ~ truncated(Normal(0.82, 0.02),lower=0.1) # (Baines & Armstrong 2011).
     end

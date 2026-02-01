@@ -36,7 +36,10 @@ makedocs(
             "Absolute Astrometry" => [
                 "Proper Motion Anomaly" => "pma.md",
                 "Hipparcos IAD" => "hipparcos.md",
-                "Gaia DR4 IAD" => "gaia-iad.md"
+                "Joint Gaia-Hipparcos (G23H)" => "g23h.md",
+                "G23H Full Example" => "g23h-example.md",
+                "Gaia DR4 Epoch Astrometry" => "gaia-iad.md",
+                "Gaia DR4 Simulation" => "gaia-dr4-simulation.md",
             ],
             "Images and More" => [
                 "Image Data (de-orbiting)" => "images.md",

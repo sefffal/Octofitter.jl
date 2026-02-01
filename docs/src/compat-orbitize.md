@@ -33,7 +33,7 @@ chain = Octofitter.loadhdf5("51erib",)
 ## Loading Astrometry Data saved to Whereistheplanet.com
 
 ```julia
-astrom_like1, astro_like2 = Octofitter.Whereistheplanet_astrom("51erib"; object=1)
+astrom_obs1, astro_obs2 = Octofitter.Whereistheplanet_astrom("51erib"; object=1)
 ```
 
 Two different astrometry likelihood objects are returned since orbitize supports both PA/sep and RA/DEC formats. Octofitter also supports both formats, but they must be placed into separate likelihood objects. Simply add both to the model to include all data.

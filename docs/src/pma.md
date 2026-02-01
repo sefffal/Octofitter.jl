@@ -31,7 +31,7 @@ To make this parameterization change, we specify priors on both masses in the `@
 ### Retrieving the HGCA
 To start, we retrieve the HGCA data for this object.
 ```julia
-hgca_like = HGCALikelihood(
+hgca_obs = HGCAObs(
     gaia_id=3937211745905473024,
     variables=@variables begin
         # Optional: flux ratio for luminous companions, one entry per companion
@@ -46,7 +46,7 @@ You can optionally provide flux ratio priors in the variables block to represent
 If you're in a hurry, and you're study orbits with periods much longer than the mission durations of Gaia or Hipparcos (>> 4 years) then you might consider using a faster approximation that the Gaia and Hipparcos measurements were instantaneous. You can do so as follows:
 
 ```@example 1
-hgca_like = HGCAInstantaneousLikelihood(gaia_id=756291174721509376, N_ave=1) 
+hgca_obs = HGCAInstantaneousObs(gaia_id=756291174721509376, N_ave=1) 
 ```
 `N_ave` is an optional argument to control over how many epochs the measurements are approximated, e.g. N_ave=10 implies that the position and proper motion was measured instantaneously 10 times over each mission and averaged.
 
@@ -78,14 +78,19 @@ Now that we have our planet model, we create a system model to contain it.
 
 We specify priors on `plx` as usual, but here we use the `gaia_plx` helper function to read the parallax and uncertainty directly from the HGCA catalog using its source ID.
 
-We also add parameters for the star's long term proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements. If you're not sure what to use here, try `Normal(0, 1000)`; that is, assume a long-term proper motion of 0 +- 1000 milliarcseconds / year.
+We also add parameters for the star's long term proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements.
+
+!!! warning "Use wide priors for pmra/pmdec with HGCA data"
+    When fitting HGCA data, use **wide, uninformative priors** for `pmra` and `pmdec`, such as `Normal(0, 1000)` (0 ± 1000 mas/yr). **Do not** use Gaia DR3 proper motion values as informative priors—this would double-count the information since the HGCA already incorporates Gaia astrometry and will constrain the system's proper motion through the likelihood. The pmra/pmdec parameters represent the center-of-mass proper motion, which the HGCA measurements help determine.
+
+    The example below uses `Normal(-137, 10)` only because we have independent prior knowledge of this system's proper motion from other sources—for a typical analysis, you should use wide priors like `Normal(0, 1000)`.
 
 
 ```@example 1
 sys = System(
     name="HD91312_pma",
     companions=[planet_b],
-    likelihoods=[hgca_like],
+    observations=[hgca_obs],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
         M_sec ~ LogUniform(0.5, 1000) # MJup

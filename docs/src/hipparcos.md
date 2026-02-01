@@ -12,7 +12,7 @@ using Octofitter
 using Distributions
 using CairoMakie
 
-hip_like = Octofitter.HipparcosIADLikelihood(
+hip_obs = Octofitter.HipparcosIADObs(
     hip_id=21547,
     renormalize=true, # default: true
     variables=@variables begin
@@ -38,7 +38,7 @@ planet_b = Planet(
 sys = System(
     name="c_Eri_straight_line",
     companions=[planet_b],
-    likelihoods=[hip_like],
+    observations=[hip_obs],
     variables=@variables begin
         M = 1.0 # Host mass not important for this example
         rv = 0.0 # system RV not significant for this example
@@ -49,8 +49,8 @@ sys = System(
         # It is convenient to put a prior of the catalog value +- 10,000 mas on position
         ra_hip_offset_mas ~  Normal(0, 10000)
         dec_hip_offset_mas ~ Normal(0, 10000)
-        dec = $hip_like.hip_sol.dedeg + ra_hip_offset_mas/60/60/1000
-        ra = $hip_like.hip_sol.radeg + dec_hip_offset_mas/60/60/1000/cosd(dec)
+        dec = $hip_obs.hip_sol.dedeg + ra_hip_offset_mas/60/60/1000
+        ra = $hip_obs.hip_sol.radeg + dec_hip_offset_mas/60/60/1000/cosd(dec)
 
         ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
     end
@@ -104,9 +104,9 @@ for prop in (
         j+=1
         i = 1
     end
-    unc = hip_like.hip_sol[prop.hip_err]
+    unc = hip_obs.hip_sol[prop.hip_err]
     if prop.chain == :ra
-        unc /= 60*60*1000 * cosd(hip_like.hip_sol.dedeg)
+        unc /= 60*60*1000 * cosd(hip_obs.hip_sol.dedeg)
     end
     if prop.chain == :dec
         unc /= 60*60*1000
@@ -114,7 +114,7 @@ for prop in (
     if prop.hip == :zero
         n = Normal(0, unc)
     else
-        mu = hip_like.hip_sol[prop.hip]
+        mu = hip_obs.hip_sol[prop.hip]
         n = Normal(mu, unc)
     end
     n0,n1=quantile.(n,(1e-4, 1-1e-4))
@@ -142,7 +142,7 @@ astrom_dat = Table(;
     σ_pa  = [0.00401426, 0.00453786, 0.00523599, 0.0523599, 0.00453786, 0.00994838, 0.00994838, 0.00750492, 0.00890118, 0.00453786, 0.00541052, 0.00471239, 0.00680678, 0.00401426]
 )
 
-astrom_like1 = PlanetRelAstromLikelihood(
+astrom_obs1 = PlanetRelAstromObs(
     astrom_dat,
     name="VLT/SPHERE",
     variables=@variables begin
@@ -159,7 +159,7 @@ We specify our full model:
 planet_b_mass = Planet(
     name="b",
     basis=AbsoluteVisual{KepOrbit},
-    likelihoods=[astrom_like1],
+    observations=[astrom_obs1],
     variables=@variables begin
         a ~ truncated(Normal(10,1),lower=0.1)
         e ~ Uniform(0,0.99)
@@ -176,7 +176,7 @@ planet_b_mass = Planet(
 sys_mass = System(
     name="cEri",
     companions=[planet_b_mass],
-    likelihoods=[hip_like],
+    observations=[hip_obs],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.75,0.05), lower=0.03) # Msol
         M_sec ~ LogUniform(0.1, 100) # MJup
@@ -190,8 +190,8 @@ sys_mass = System(
         # It is convenient to put a prior of the catalog value +- 1000 mas on position
         ra_hip_offset_mas ~  Normal(0, 1000)
         dec_hip_offset_mas ~ Normal(0, 1000)
-        dec = $hip_like.hip_sol.dedeg + ra_hip_offset_mas/60/60/1000
-        ra = $hip_like.hip_sol.radeg + dec_hip_offset_mas/60/60/1000/cos(dec)
+        dec = $hip_obs.hip_sol.dedeg + ra_hip_offset_mas/60/60/1000
+        ra = $hip_obs.hip_sol.radeg + dec_hip_offset_mas/60/60/1000/cos(dec)
 
         ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
     end
