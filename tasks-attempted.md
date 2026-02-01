@@ -2,7 +2,7 @@
 
 1. [ADDRESSED] **Mean Motion Resonance Detection via Bayesian Model Comparison** - Simulate a 2:1 resonant two-planet RV system and compare Bayesian evidence between unconstrained and resonance-constrained models.
 2. [ADDRESSED] **Dynamical Mass from Astrometry + Parallax via Kepler's Third Law** - Simulate a brown dwarf companion, fit with relative astrometry only, and test mass recovery using orbital dynamics (no RV/PMA).
-3. **Gaussian Process Stellar Activity Modeling in RV Data** - Simulate RV data with quasi-periodic stellar activity plus planetary signal, fit with/without GP, test activity mitigation and parameter recovery.
+3. [ADDRESSED] **Gaussian Process Stellar Activity Modeling in RV Data** - Simulate RV data with quasi-periodic stellar activity plus planetary signal, fit with/without GP, test activity mitigation and parameter recovery.
 4. **Cross-Validation Outlier Detection with PSIS-LOO** - Simulate RV data with one injected outlier, fit a model, and use Pareto-Smoothed Importance Sampling Leave-One-Out cross-validation to identify the outlier data point.
 5. **Thiele-Innes vs Campbell Basis Comparison for Low-Eccentricity Orbits** - Simulate a nearly-circular orbit (e≈0.05), fit with both Campbell (KepOrbit) and Thiele-Innes parameterizations, compare sampling efficiency and parameter recovery to test the claim that TI is better for low-e orbits.
 6. **Photometry-Constrained Mass via Sonora Cooling Tracks** - Simulate a brown dwarf companion with known mass, generate synthetic relative astrometry and photometry, fit using mass-photometry connection through Sonora cooling models, and verify mass recovery through the photometric constraint.
