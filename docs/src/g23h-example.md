@@ -41,12 +41,11 @@ Before running this script, ensure you have installed the necessary packages:
 The script is organized into several sections:
 
 1. **Argument Parsing** - Command-line interface for specifying targets and options
-2. **Catalog Loading** - Load the G23H catalog and resolve target
-3. **Observation Setup** - Create G23H astrometry likelihood object
-4. **RV Data Loading** - Load RV data from DACE or RDB files
-5. **Model Definition** - Define planet and system models with optional GP
-6. **Sampling** - Run MCMC with Pigeons
-7. **Analysis** - Generate plots and save results
+2. **Observation Setup** - Create G23H astrometry likelihood object (catalog downloaded automatically)
+3. **RV Data Loading** - Load RV data from DACE or RDB files
+4. **Model Definition** - Define planet and system models with optional GP
+5. **Sampling** - Run MCMC with Pigeons
+6. **Analysis** - Generate plots and save results
 
 ## Complete Script
 
@@ -160,49 +159,36 @@ output_dir = "results"
 mkpath(output_dir)
 
 ## ============================================================================
-## LOAD CATALOG
+## CREATE G23H OBSERVATION OBJECT
 ## ============================================================================
 
-# Load the G23H catalog (do this once per session)
-# Update this path to your local copy, or use datadep"G23H_Catalog"
-if !@isdefined(catalog)
-    catalog = DataFrame(Arrow.Table("/path/to/G23H-v1.0.feather"))
-    @info "Loaded catalog"
-end
-
-## ============================================================================
-## RESOLVE TARGET
-## ============================================================================
-
+# G23HObs accepts either gaia_id or hip_id directly.
+# The G23H catalog is automatically downloaded on first use via DataDeps.
 if !isnothing(args["hip"])
     hip_id = args["hip"]
     sysname′ = "HIP$hip_id"
-    gaia_id = catalog.gaia_source_id[catalog.hip_id .== hip_id][]
+    absastrom = Octofitter.G23HObs(;
+        hip_id=hip_id,
+        include_rv=use_gaia_rv,
+    )
 else
     gaia_id = args["gaia"]
-    hip_id_matches = catalog.hip_id[catalog.gaia_source_id .== gaia_id]
-    if !isempty(hip_id_matches) && isfinite(hip_id_matches[])
-        hip_id = round(Int, hip_id_matches[])
+    absastrom = Octofitter.G23HObs(;
+        gaia_id=gaia_id,
+        include_rv=use_gaia_rv,
+    )
+    # Determine system name from catalog
+    if isfinite(absastrom.catalog.hip_id)
+        hip_id = round(Int, absastrom.catalog.hip_id)
         sysname′ = "HIP$hip_id"
     else
         sysname′ = "GDR3$gaia_id"
     end
 end
 
-i = findfirst(==(gaia_id), catalog.gaia_source_id)
-ra = catalog.ra[i]
-dec = catalog.dec[i]
+ra = absastrom.catalog.ra
+dec = absastrom.catalog.dec
 println("Found target: RA=$ra, Dec=$dec")
-
-## ============================================================================
-## CREATE G23H OBSERVATION OBJECT
-## ============================================================================
-
-absastrom = Octofitter.GaiaHipparcosUEVAJointObs(;
-    gaia_id=gaia_id,
-    catalog=catalog,
-    include_rv=use_gaia_rv,
-)
 
 # Determine which observation types to include
 if isnothing(args["obs-types"])
@@ -389,7 +375,7 @@ if use_dace_rv
     using PythonCall
     dace_spectroscopy = pyimport("dace_query.spectroscopy")
 
-    hip_for_dace = !isnothing(args["hip"]) ? args["hip"] : catalog.hip_id[i]
+    hip_for_dace = !isnothing(args["hip"]) ? args["hip"] : absastrom.catalog.hip_id
     result = dace_spectroscopy.Spectroscopy.get_timeseries(
         target="HIP $(Int(hip_for_dace))",
         sorted_by_instrument=false,
@@ -705,9 +691,8 @@ julia script.jl --hip 12345 --host-mass 1.0 --obs-types "ra_hip,dec_hip,ra_hg,de
 
 2. **Use `freeze_epochs=true`** for faster sampling during testing:
    ```julia
-   absastrom = GaiaHipparcosUEVAJointObs(;
+   absastrom = G23HObs(;
        gaia_id=gaia_id,
-       catalog=catalog,
        freeze_epochs=true,  # Faster but approximate
    )
    ```

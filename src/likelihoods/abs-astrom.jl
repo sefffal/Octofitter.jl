@@ -1,31 +1,43 @@
 
 
 """
-    GaiaHipparcosUEVAJointObs(
-        gaia_id=1234567890,
-        catalog=catalog_table,
-        variables=@variables begin
-            fluxratio ~ Product([
-                LogUniform(1e-6, 1e-1) for _ in 1:N_planets
-            ])  # Flux ratios for each planet
-            missed_transits ~ DiscreteUniform(1, 100)  # Number of missed Gaia transits (optional)
-            σ_att ~ LogUniform(0.01, 1.0)     # Attitude error (mas)
-            σ_AL ~ LogUniform(0.01, 1.0)      # Along-scan error (mas)
-            σ_calib ~ LogUniform(0.01, 1.0)   # Calibration error (mas)
-            gaia_n_dof = 5                    # Gaia degrees of freedom
-        end,
-        include_iad=false,
-        ueva_mode=:RUWE
-    )
+    G23HObs(; gaia_id=nothing, hip_id=nothing, include_rv=true, ...)
+    GaiaHipparcosUEVAJointObs(; gaia_id=nothing, hip_id=nothing, include_rv=true, ...)
 
-A likelihood for joint Gaia-Hipparcos astrometry including proper motion accelerations
-and unit weight error variance analysis (UEVA).
+A likelihood for joint Gaia-Hipparcos astrometry using the G23H catalog, including
+proper motion accelerations and unit weight error variance analysis (UEVA).
 
-The `fluxratio` variable should be a Product distribution with one component per planet.
-The `missed_transits` variable is optional and represents the number of Gaia transits
-that were missed or rejected during data processing.
-The `σ_att`, `σ_AL`, and `σ_calib` variables represent Gaia attitude, along-scan, and
-calibration errors respectively. `gaia_n_dof` is the number of degrees of freedom (typically 5).
+# Arguments
+- `gaia_id`: Gaia DR3 source ID (provide either this or `hip_id`)
+- `hip_id`: Hipparcos ID (provide either this or `gaia_id`)
+- `catalog`: Path to G23H catalog file, or a loaded DataFrame/Table.
+  Defaults to the automatically downloaded G23H catalog via DataDeps.
+- `include_rv`: Whether to include Gaia RV variability constraints (default: true)
+- `ueva_mode`: Either `:RUWE` (default) or `:EAN` for astrometric excess noise modeling
+- `freeze_epochs`: If true, fix Gaia observation epochs for faster sampling (default: false)
+- `variables`: Optional custom priors (defaults are set from catalog values)
+
+# Examples
+```julia
+# Using Gaia DR3 source ID
+absastrom = G23HObs(gaia_id=756291174721509376)
+
+# Using Hipparcos ID (automatically resolved to Gaia ID)
+absastrom = G23HObs(hip_id=21547)
+```
+
+The G23H catalog (~14 GB) is automatically downloaded on first use.
+
+# Variable Priors
+Default priors are set automatically from the catalog. Custom priors can be specified:
+```julia
+variables=@variables begin
+    fluxratio ~ Product([LogUniform(1e-6, 1e-1) for _ in 1:N_planets])  # For luminous companions
+    σ_att ~ LogUniform(0.01, 1.0)     # Attitude error (mas)
+    σ_AL ~ LogUniform(0.01, 1.0)      # Along-scan error (mas)
+    σ_calib ~ LogUniform(0.01, 1.0)   # Calibration error (mas)
+end
+```
 """
 struct GaiaHipparcosUEVAJointObs{TTable,TTableH,TTableG,TCat,THip} <: AbstractObs
     table::TTable
@@ -48,9 +60,10 @@ function likelihoodname(like::GaiaHipparcosUEVAJointObs)
 end
 
 function GaiaHipparcosUEVAJointObs(;
-        gaia_id,
+        gaia_id=nothing,
+        hip_id=nothing,
         scanlaw_table=nothing,
-        catalog,
+        catalog=joinpath(datadep"G23H_Catalog", "G23H-v1.0.feather"),
         variables::Union{Nothing,Tuple{Priors,Derived}}=nothing,
         include_rv=true,
         ueva_mode::Symbol=:RUWE,
@@ -58,17 +71,43 @@ function GaiaHipparcosUEVAJointObs(;
     )
     include_iad=false
 
+    # Validate that exactly one of gaia_id or hip_id is provided
+    if isnothing(gaia_id) && isnothing(hip_id)
+        error("Either gaia_id or hip_id must be specified")
+    end
+    if !isnothing(gaia_id) && !isnothing(hip_id)
+        error("Specify either gaia_id or hip_id, not both")
+    end
+
     # allow passing in table directly
     if Tables.istable(catalog)
+        # If hip_id provided, look up gaia_id
+        if !isnothing(hip_id)
+            hip_matches = findall(==(hip_id), catalog.hip_id)
+            if isempty(hip_matches)
+                error("The requested Hipparcos ID $hip_id was not found in the catalog.")
+            end
+            gaia_id = catalog.gaia_source_id[hip_matches[1]]
+            @info "Resolved HIP $hip_id to Gaia DR3 source ID $gaia_id"
+        end
         idx = findfirst(==(gaia_id), catalog.gaia_source_id)
         catalog = NamedTuple(catalog[idx,:])
     else
         # Load the catalog row for this system
         catalog = FITS(catalog, "r") do fits
             t = Table(fits[2])
+            # If hip_id provided, look up gaia_id
+            if !isnothing(hip_id)
+                hip_matches = findall(==(hip_id), t.hip_id)
+                if isempty(hip_matches)
+                    error("The requested Hipparcos ID $hip_id was not found in the catalog file $catalog.")
+                end
+                gaia_id = t.gaia_source_id[hip_matches[1]]
+                @info "Resolved HIP $hip_id to Gaia DR3 source ID $gaia_id"
+            end
             idx = findfirst(==(gaia_id), t.gaia_source_id)
             if isnothing(idx)
-                error("The requested gaia source ID $gaia_id was not found in the catlog file $catalog.")
+                error("The requested gaia source ID $gaia_id was not found in the catalog file $catalog.")
             end
             return NamedTuple(t[idx])
         end
@@ -1608,4 +1647,7 @@ end
 # Backwards compatibility alias
 const GaiaHipparcosUEVAJointLikelihood = GaiaHipparcosUEVAJointObs
 
-export GaiaHipparcosUEVAJointObs, GaiaHipparcosUEVAJointLikelihood
+# User-friendly alias
+const G23HObs = GaiaHipparcosUEVAJointObs
+
+export GaiaHipparcosUEVAJointObs, GaiaHipparcosUEVAJointLikelihood, G23HObs
