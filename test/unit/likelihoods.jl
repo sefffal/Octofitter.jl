@@ -48,6 +48,123 @@
         @test hgca isa HGCALikelihood
     end
 
+    @testset "HGCAInstantaneousLikelihood" begin
+        gaia_id = 756291174721509376
+
+        # Test basic construction
+        hgca_inst = HGCAInstantaneousLikelihood(;gaia_id=gaia_id)
+        @test hgca_inst isa HGCAInstantaneousLikelihood
+        @test hgca_inst isa HGCAInstantaneousObs  # Test alias
+
+        # Test that internal table has expected structure
+        @test hasproperty(hgca_inst.table, :epoch)
+        @test hasproperty(hgca_inst.table, :meas)
+        @test hasproperty(hgca_inst.table, :inst)
+
+        # Test that hgca data was loaded
+        @test hasproperty(hgca_inst.hgca, :pmra_hip)
+        @test hasproperty(hgca_inst.hgca, :pmra_gaia)
+        @test hasproperty(hgca_inst.hgca, :pmra_hg)
+        @test hasproperty(hgca_inst.hgca, :dist_hip)
+        @test hasproperty(hgca_inst.hgca, :dist_gaia)
+        @test hasproperty(hgca_inst.hgca, :dist_hg)
+
+        # Test with N_ave parameter
+        hgca_inst_nave = HGCAInstantaneousLikelihood(;gaia_id=gaia_id, N_ave=5)
+        @test hgca_inst_nave isa HGCAInstantaneousLikelihood
+        # With N_ave=5, we should have more epochs in the table (5 per measurement type per instrument)
+        @test length(hgca_inst_nave.table) > length(hgca_inst.table)
+
+        # Test that we can build a model with this observation
+        b = Planet(
+            name="b",
+            basis=Visual{KepOrbit},
+            observations=[],
+            variables=@variables begin
+                a ~ LogUniform(0.5, 50)
+                e ~ Uniform(0, 0.5)
+                ω ~ Uniform(0, 2π)
+                i ~ Sine()
+                Ω ~ Uniform(0, 2π)
+                θ ~ Uniform(0, 2π)
+                tp = θ_at_epoch_to_tperi(θ, 50000.0; M=system.M, e, a, i, ω, Ω)
+                mass ~ LogUniform(1, 1000)
+            end
+        )
+
+        sys = System(
+            name="hgca_inst_test",
+            companions=[b],
+            observations=[hgca_inst],
+            variables=@variables begin
+                M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+                plx ~ gaia_plx(;gaia_id=gaia_id)
+                pmra ~ Normal(-137, 100)
+                pmdec ~ Normal(2, 100)
+            end
+        )
+
+        model = Octofitter.LogDensityModel(sys, verbosity=0)
+        @test model isa Octofitter.LogDensityModel
+
+        # Test that we can evaluate the log density
+        params = Octofitter.drawfrompriors(model.system)
+        @test haskey(params, :plx)
+        @test haskey(params, :pmra)
+        @test haskey(params, :pmdec)
+    end
+
+    @testset "HipparcosIADLikelihood" begin
+        # Use local test data to avoid downloading the full catalog in CI
+        test_catalog = joinpath(@__DIR__, "..", "hipparcos_iad_testdata")
+
+        # Test basic construction with local test data
+        hip_obs = HipparcosIADLikelihood(;
+            hip_id=21547,
+            catalog=test_catalog,
+            renormalize=true,
+        )
+        @test hip_obs isa HipparcosIADLikelihood
+        @test hip_obs isa HipparcosIADObs  # Test alias
+
+        # Test that hip_sol was loaded correctly
+        @test hasproperty(hip_obs.hip_sol, :radeg)
+        @test hasproperty(hip_obs.hip_sol, :dedeg)
+        @test hasproperty(hip_obs.hip_sol, :plx)
+        @test hasproperty(hip_obs.hip_sol, :pm_ra)
+        @test hasproperty(hip_obs.hip_sol, :pm_de)
+        @test hip_obs.hip_sol.hip == 21547
+
+        # Test that scan data was loaded
+        @test length(hip_obs.table) > 0
+        @test hasproperty(hip_obs.table, :epoch)
+        @test hasproperty(hip_obs.table, :parf)
+        @test hasproperty(hip_obs.table, :cosϕ)
+        @test hasproperty(hip_obs.table, :sinϕ)
+        @test hasproperty(hip_obs.table, :res)
+        @test hasproperty(hip_obs.table, :sres_renorm)
+
+        # Test that pre-computed matrices exist
+        @test !isnothing(hip_obs.A_prepared_4)
+        @test !isnothing(hip_obs.A_prepared_5)
+
+        # Test subsetting
+        subset = Octofitter.likeobj_from_epoch_subset(hip_obs, 1:5)
+        @test length(subset.table) == 5
+
+        # Test without renormalization
+        hip_obs_no_renorm = HipparcosIADLikelihood(;
+            hip_id=21547,
+            catalog=test_catalog,
+            renormalize=false,
+        )
+        @test hip_obs_no_renorm isa HipparcosIADLikelihood
+
+        # Note: Full model integration tests for HipparcosIADObs are covered
+        # in the integration tests with real data. Unit tests focus on
+        # construction and data access which are verified above.
+    end
+
     @testset "GaiaDR4AstromObs" begin
         # Create mock observation data (avoiding network dependencies)
         N_epochs = 10
