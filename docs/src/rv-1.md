@@ -174,3 +174,25 @@ octocorner(model, chain)
 ```
 
 This example continues in [Fit Gaussian Process](@ref fit-rv-gp).
+
+## Simulating RV Data
+
+To generate synthetic radial velocity data for testing, the recommended approach is to use Octofitter's built-in simulation capabilities. See the [Generating and Fitting Simulated Data](@ref data-simulation) tutorial for a complete guide on simulating data from models.
+
+Alternatively, you can generate RV data directly using the `radvel` function from [PlanetOrbits.jl](https://sefffal.github.io/PlanetOrbits.jl/dev/api/):
+
+```julia
+using PlanetOrbits
+
+# Create an orbit
+orb = orbit(a=1.0, e=0.1, ω=0.5, M=1.0, tp=58000.0)
+
+# Calculate radial velocity at a given epoch
+# Units: epoch in MJD, mass in solar masses (not Jupiter masses!)
+epoch = 58100.0
+companion_mass_msol = 0.001  # ~1 Jupiter mass in solar masses
+rv = radvel(orb, epoch, companion_mass_msol)  # returns m/s
+```
+
+!!! warning
+    The `radvel` function takes companion mass in **solar masses**, unlike most places in Octofitter which use Jupiter masses. Use `Octofitter.mjup2msol` to convert if needed.
