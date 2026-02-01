@@ -263,3 +263,106 @@ octocorner(
     ),)
 )
 ```
+
+## Using PlanetOrbits Directly for Synthetic Data
+
+Sometimes you may want to generate synthetic astrometry data directly from orbital parameters, without going through the full Octofitter model setup. This is useful for quick tests, validation studies, or when you want fine-grained control over the simulation process.
+
+Octofitter uses [PlanetOrbits.jl](https://github.com/sefffal/PlanetOrbits.jl) for orbital calculations. For full details on orbit types, coordinate conventions, and available functions, see the PlanetOrbits.jl documentation:
+- [Introduction to PlanetOrbits](https://sefffal.github.io/PlanetOrbits.jl/dev/introduction/) - Getting started with orbit creation
+- [Coordinate Conventions](https://sefffal.github.io/PlanetOrbits.jl/dev/conventions/) - Coordinate system and orbital element definitions
+- [API Reference](https://sefffal.github.io/PlanetOrbits.jl/dev/api/) - Complete function reference
+
+### Example: Generating Synthetic Astrometry
+
+Here's a complete example generating synthetic astrometry data for testing:
+
+```@example 2
+using Random
+Random.seed!(42)
+
+# True orbital parameters
+true_a = 5.0      # AU
+true_e = 0.3
+true_i = deg2rad(68.8)
+true_Ω = deg2rad(45.0)
+true_ω = deg2rad(85.0)
+true_tp = 55000.0
+true_M = 1.05     # Solar masses (star + companion)
+true_plx = 50.0   # mas
+
+# Create the orbit
+true_orb = Visual(orbit(
+    a = true_a, e = true_e, i = true_i,
+    Ω = true_Ω, ω = true_ω, tp = true_tp, M = true_M
+), true_plx)
+
+# Generate observation epochs (25 epochs over 2 orbital periods)
+period_days = Octofitter.period(true_orb)
+epochs = range(55000, 55000 + 2*period_days, length=25)
+
+# Measurement uncertainty
+σ_astrom = 5.0  # mas
+
+# Generate synthetic observations
+ra_obs = Float64[]
+dec_obs = Float64[]
+for ep in epochs
+    sol = orbitsolve(true_orb, ep)
+    # True position plus Gaussian noise
+    push!(ra_obs, raoff(sol) + σ_astrom * randn())
+    push!(dec_obs, decoff(sol) + σ_astrom * randn())
+end
+
+# Create an Octofitter-compatible data table
+astrom_data = Table(
+    epoch = collect(epochs),
+    ra = ra_obs,
+    dec = dec_obs,
+    σ_ra = fill(σ_astrom, length(epochs)),
+    σ_dec = fill(σ_astrom, length(epochs)),
+    cor = zeros(length(epochs))  # no correlation between RA and Dec errors
+)
+
+println("Generated $(length(epochs)) synthetic astrometry points")
+println("Period: $(round(period_days/365.25, digits=2)) years")
+display(first(astrom_data, 5))
+```
+
+You can now use this synthetic data with Octofitter:
+
+```@example 2
+astrom_obs = PlanetRelAstromObs(astrom_data, name="Synthetic")
+
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    observations=[astrom_obs],
+    variables=@variables begin
+        a ~ LogUniform(1, 20)
+        e ~ Uniform(0, 0.9)
+        ω ~ Uniform(0, 2π)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2π)
+        θ ~ Uniform(0, 2π)
+        M = system.M
+        tp = θ_at_epoch_to_tperi(θ, 55000.0; M, e, a, i, ω, Ω)
+    end
+)
+
+sys = System(
+    name="SyntheticTest",
+    companions=[planet_b],
+    observations=[],
+    variables=@variables begin
+        M ~ truncated(Normal(1.05, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.5), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
+init_chain = initialize!(model, (; M=1.05, plx=50.0, planets=(; b=(; a=5.0, e=0.3))))
+
+# Visualize the initial fit
+octoplot(model, init_chain)
+```

@@ -121,11 +121,17 @@ Why "away" from the observer? That is because Octofitter uses a coordinate syste
 
 ## What does the warning "Too many steps without any function evaluations" mean?
 
-During model initialization, you may see a warning like:
+During model initialization with `initialize!()`, you may see a warning like:
 ```
 Warning: Unrecognized stop reason: Too many steps (101) without any function evaluations
 ```
 
-This warning comes from the underlying optimization library (Optim.jl) and indicates that the optimizer's line search has converged or reached a point where it cannot make further progress. **This warning is generally benign and can be safely ignored.** It typically appears when the optimizer has found a good starting point and the line search algorithm determines that no additional step would improve the solution.
+!!! info "This warning is safe to ignore"
+    This warning comes from the underlying optimization library (Optim.jl via Pathfinder.jl) and indicates that the optimizer's line search has converged or reached a point where it cannot make further progress. **This warning is completely benign and does not affect your results.**
 
-If you see this warning alongside successful sampling results, your fit has proceeded correctly.
+The warning typically appears when:
+- The optimizer has already found a good starting point
+- The line search algorithm determines no further step would improve the solution
+- The optimization has effectively converged
+
+**Your fit will proceed correctly.** Check the output of `initialize!()` - if it returns a valid chain with reasonable parameter values, the initialization was successful regardless of this warning.
