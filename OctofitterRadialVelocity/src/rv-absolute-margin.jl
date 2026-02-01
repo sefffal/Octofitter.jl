@@ -83,12 +83,16 @@ function MarginalizedStarAbsoluteRVObs(
     )
 end
 function Octofitter.likeobj_from_epoch_subset(obs::MarginalizedStarAbsoluteRVObs, obs_inds)
-    table = Table(first(eachcol(obs.table[obs_inds])))
-    return MarginalizedStarAbsoluteRVObs{
-        typeof(table),typeof(obs.trend_function)
-    }(
-        table, obs.priors, obs.derived, likelihoodname(obs), obs.trend_function
-    )
+    error("""
+    Data subsetting is not supported for MarginalizedStarAbsoluteRVObs.
+
+    MarginalizedStarAbsoluteRVObs analytically marginalizes over the RV zero point,
+    which couples all observations together. This makes it incompatible with
+    cross-validation and PSIS-LOO methods that require independent pointwise likelihoods.
+
+    To use cross-validation or PSIS-LOO with absolute RV data, use `StarAbsoluteRVObs`
+    instead, which explicitly models the RV zero point as a parameter.
+    """)
 end
 
 # Backwards compatibility aliases
