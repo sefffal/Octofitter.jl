@@ -279,6 +279,8 @@ Here's a complete example generating synthetic astrometry data for testing:
 
 ```@example 2
 using Random
+using PlanetOrbits
+
 Random.seed!(42)
 
 # True orbital parameters
@@ -292,10 +294,11 @@ true_M = 1.05     # Solar masses (star + companion)
 true_plx = 50.0   # mas
 
 # Create the orbit
-true_orb = Visual(orbit(
+true_orb = orbit(
     a = true_a, e = true_e, i = true_i,
-    Ω = true_Ω, ω = true_ω, tp = true_tp, M = true_M
-), true_plx)
+    Ω = true_Ω, ω = true_ω, tp = true_tp, M = true_M,
+    plx=true_plx
+)
 
 # Generate observation epochs (25 epochs over 2 orbital periods)
 period_days = Octofitter.period(true_orb)
