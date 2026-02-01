@@ -115,15 +115,21 @@ Fixed parameters will be held constant during optimization and sampling.
 
 The `fixed_params` can include:
 - System-level variables: `(; plx=24.4, pmra=10.2, ...)`
-- Planet variables: `(; planets=(; b=(; a=1.5, e=0.1, ...), ...))`  
+- Planet variables: `(; planets=(; b=(; a=1.5, e=0.1, ...), ...))`
 - Observation variables: `(; observations=(; ObsName=(; var1=val1, var2=val2, ...), ...))`
 
 Available keyword arguments include:
  - `verbosity=1`: control extra logging, can be 0 for silent, up to 4 for debugging info
  - `pathfinder_autodiff=AutoForwardDiff()`: what autodiff backend to use for initialization (not necessarily the same one used for the model in general)
- - `nruns=8`: how many runs of multi-pathfinder to use 
+ - `nruns=8`: how many runs of multi-pathfinder to use
  - `ntries=2`: how many times can pathfinder fail and restart
  - `ndraws=1000`: how many draws to return from the pathfinder approximation
+
+!!! note "Benign warning about 'Too many steps'"
+    During initialization, you may see a warning like "Unrecognized stop reason: Too many
+    steps (101) without any function evaluations". This warning comes from the underlying
+    optimizer and is safe to ignore - it indicates the optimization has converged. See the
+    FAQ for more details.
 
 Example:
 ```julia

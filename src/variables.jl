@@ -115,6 +115,19 @@ This allows sub-setting data for various statistical checks.
 """
 function likeobj_from_epoch_subset end
 
+# Generic fallback method for observation types that don't support subsetting
+function likeobj_from_epoch_subset(obs::AbstractObs, obs_inds)
+    error("""
+    Data subsetting is not supported for observation type $(typeof(obs)).
+
+    This observation type has not implemented the `likeobj_from_epoch_subset` method,
+    which is required for cross-validation, PSIS-LOO, and other data subsetting operations.
+
+    If you need cross-validation support, consider using an alternative observation type
+    that supports subsetting, or file an issue requesting this feature.
+    """)
+end
+
 """
     likelihoodname(obs::AbstractObs)
 

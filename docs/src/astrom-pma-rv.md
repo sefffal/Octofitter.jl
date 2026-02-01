@@ -78,7 +78,12 @@ Now that we have our planet model, we create a system model to contain it.
 
 We specify priors on `plx` as usual, but here we use the `gaia_plx` helper function to read the parallax and uncertainty directly from the HGCA catalog using its source ID.
 
-We also add parameters for the star's long term proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements. If you're not sure what to use here, try `Normal(0, 1000)`; that is, assume a long-term proper motion of 0 +- 1000 milliarcseconds / year.
+We also add parameters for the star's long term proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements.
+
+!!! warning "Use wide priors for pmra/pmdec with HGCA data"
+    When fitting HGCA data, use **wide, uninformative priors** for `pmra` and `pmdec`, such as `Normal(0, 1000)` (0 ± 1000 mas/yr). **Do not** use Gaia DR3 proper motion values as informative priors—this would double-count the information since the HGCA already incorporates Gaia astrometry and will constrain the system's proper motion through the likelihood. The pmra/pmdec parameters represent the center-of-mass proper motion, which the HGCA measurements help determine.
+
+    The example below uses `Normal(-137, 10)` only because we have independent prior knowledge of this system's proper motion from other sources—for a typical analysis, you should use wide priors like `Normal(0, 1000)`.
 
 
 ```@example 1
