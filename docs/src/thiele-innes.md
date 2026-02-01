@@ -1,14 +1,13 @@
 # Fit with a Thiele-Innes Basis
 
-This example shows how to fit relative astrometry using a Thiele-Innes orbital basis instead of the traditional Campbell basis used in other tutorials. The Thiele-Innes basis can be advantageous for fitting low-eccentricity and/or low-inclination orbits, because it avoids the degeneracies where `ω`, `Ω`, and `tp` become poorly constrained as eccentricity and/or inclination approach zero.
+This example shows how to fit relative astrometry using a Thiele-Innes orbital basis instead of the traditional Campbell basis used in other tutorials. The Thiele-Innes basis is an alternative parameterization that replaces the angular elements (inclination `i`, longitude of ascending node `Ω`, and argument of periastron `ω`) with the Thiele-Innes constants (A, B, F, G). This avoids the coordinate singularities where `ω`, `Ω`, and `tp` become poorly defined as eccentricity and/or inclination approach zero.
 
-!!! tip "When to use Thiele-Innes"
-    The Thiele-Innes parameterization is most beneficial when:
-    - The orbit is nearly circular (e < 0.1) **and** orbital phase coverage is limited
-    - The orbit is nearly face-on (i near 0° or 180°)
-    - You observe sampling difficulties (high tree depths, slow mixing) with Campbell elements
+!!! tip "When to consider Thiele-Innes"
+    The Thiele-Innes parameterization may be useful when:
+    - The orbit is nearly circular (e < 0.1) and/or nearly face-on (i near 0° or 180°)
+    - You want to avoid angular coordinate singularities
 
-    For well-sampled orbits with moderate eccentricity, Campbell (`Visual{KepOrbit}`) often performs equally well or better.
+    Both parameterizations should give consistent results for the physical orbital parameters. Choose based on your preference or specific analysis needs.
 
 At the end, we will convert our results back into the Campbell basis to compare.
 
@@ -71,6 +70,16 @@ sys = System(
 model = Octofitter.LogDensityModel(sys)
 ```
 
+!!! warning "Different syntax for `θ_at_epoch_to_tperi`"
+    When using `ThieleInnesOrbit`, the `θ_at_epoch_to_tperi` function requires the Thiele-Innes constants `A`, `B`, `F`, `G` as keyword arguments instead of the Campbell angular elements `i`, `Ω`, `ω`:
+    ```julia
+    # Campbell (Visual{KepOrbit}):
+    tp = θ_at_epoch_to_tperi(θ, epoch; M, e, a, i, Ω, ω)
+
+    # Thiele-Innes:
+    tp = θ_at_epoch_to_tperi(θ, epoch; system.plx, M, e, A, B, F, G)
+    ```
+    Note that `system.plx` (parallax) is also required for Thiele-Innes since the constants are in angular units.
 
 Initialize the starting points, and confirm the data are entered correcly:
 ```@example 1
