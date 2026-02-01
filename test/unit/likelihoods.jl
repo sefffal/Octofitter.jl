@@ -47,4 +47,110 @@
         hgca = HGCALikelihood(;gaia_id=gaia_id)
         @test hgca isa HGCALikelihood
     end
+
+    @testset "GaiaDR4AstromObs" begin
+        # Create mock observation data (avoiding network dependencies)
+        N_epochs = 10
+        mock_epochs = collect(range(58000.0, 59000.0, length=N_epochs))
+        mock_scan_angles = range(0.0, 2π, length=N_epochs)
+
+        # Mock Earth position data (simplified)
+        mock_xyz = Table(
+            x = fill(0.5, N_epochs),
+            y = fill(0.5, N_epochs),
+            z = fill(0.2, N_epochs),
+            vx = fill(0.0, N_epochs),
+            vy = fill(0.0, N_epochs),
+            vz = fill(0.0, N_epochs),
+        )
+
+        mock_table = Table(
+            epoch = mock_epochs,
+            scan_pos_angle = collect(mock_scan_angles),
+            centroid_pos_al = zeros(N_epochs),
+            centroid_pos_error_al = fill(0.1, N_epochs),
+            parallax_factor_al = fill(0.5, N_epochs),
+            outlier_flag = fill(false, N_epochs),
+            xyz = collect(eachrow(mock_xyz)),
+        )
+
+        # Mock Gaia solution (minimal fields needed by simulate)
+        mock_gaia_sol = (
+            ra = 180.0,
+            dec = 45.0,
+            pmra = 5.0,
+            pmdec = -10.0,
+            parallax = 20.0,
+        )
+
+        # Create observation object using inner constructor (bypasses network)
+        ref_epoch_mjd = 57936.375  # DR3 reference epoch
+        priors, derived = @variables begin
+            astrometric_jitter ~ LogUniform(0.00001, 10)
+            ra_offset_mas ~ Normal(0, 100)
+            dec_offset_mas ~ Normal(0, 100)
+            pmra ~ Normal(5, 10)
+            pmdec ~ Normal(-10, 10)
+            plx = system.plx
+            ref_epoch = $ref_epoch_mjd
+        end
+
+        gaia_obs = Octofitter.GaiaDR4AstromObs{typeof(mock_table), typeof(mock_gaia_sol)}(
+            mock_table,
+            123456789,  # mock gaia_id
+            mock_gaia_sol,
+            priors,
+            derived,
+            "GaiaDR4"
+        )
+
+        @test gaia_obs isa GaiaDR4AstromObs
+        @test length(gaia_obs.table) == N_epochs
+
+        # Test that we can build a full model with this observation
+        # This tests the ln_like function compiles correctly
+        orbit_ref_epoch = mean(mock_epochs)
+        b = Planet(
+            name="b",
+            basis=Visual{KepOrbit},
+            observations=[],
+            variables=@variables begin
+                a ~ LogUniform(0.5, 20)
+                e ~ Uniform(0, 0.5)
+                ω ~ Uniform(0, 2π)
+                i ~ Sine()
+                Ω ~ Uniform(0, 2π)
+                θ ~ Uniform(0, 2π)
+                tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=system.M, e, a, i, ω, Ω)
+                mass ~ LogUniform(1, 100)
+            end
+        )
+
+        sys = System(
+            name="gaia_test",
+            companions=[b],
+            observations=[gaia_obs],
+            variables=@variables begin
+                M = 1.0
+                plx ~ Uniform(10, 30)
+            end
+        )
+
+        # This would have failed before the fix due to NamedTuple/Vector mismatch
+        model = Octofitter.LogDensityModel(sys, verbosity=0)
+        @test model isa Octofitter.LogDensityModel
+
+        # Test that we can draw from priors
+        params = Octofitter.drawfrompriors(model.system)
+        @test haskey(params, :plx)
+        @test haskey(params.planets, :b)
+
+        # Test generate_from_params - this also would have failed before the fix
+        sim_system = Octofitter.generate_from_params(model.system, params; add_noise=false)
+        @test sim_system isa System
+
+        # Verify the simulated system can also create a valid model
+        sim_model = Octofitter.LogDensityModel(sim_system, verbosity=0)
+        @test sim_model isa Octofitter.LogDensityModel
+    end
 end

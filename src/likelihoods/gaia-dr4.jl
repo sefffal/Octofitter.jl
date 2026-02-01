@@ -94,13 +94,15 @@ function Octofitter.ln_like(
             centroid_pos_al_model_buffer,
         )
         # TODO: do we want to fit for a correlation parameter within each visibility window?
-        for i in eachindex(likeobj.table.centroid_pos_al, centroid_pos_al_model)
+        # Extract the along-scan residuals from the NamedTuple returned by simulate
+        along_scan_model = centroid_pos_al_model.along_scan_residuals_buffer
+        for i in eachindex(likeobj.table.centroid_pos_al, along_scan_model)
             # There's an "outlier flag" -- I assume we should ignore ones that are flagged?
             if hasproperty(likeobj.table, :outlier_flag) && likeobj.table.outlier_flag[i] > 0
                 continue
             end
             σ = sqrt(astrometric_var + likeobj.table.centroid_pos_error_al[i]^2)
-            ll += logpdf(Normal(likeobj.table.centroid_pos_al[i], σ), centroid_pos_al_model[i])
+            ll += logpdf(Normal(likeobj.table.centroid_pos_al[i], σ), along_scan_model[i])
         end
     end
 
@@ -192,22 +194,27 @@ end
 # Generate new astrometry observations
 function Octofitter.generate_from_params(obs::GaiaDR4AstromObs, ctx::SystemObservationContext; add_noise)
     (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
-    along_scan_residuals_buffer_sim = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    sim_result = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    # Extract the along-scan residuals from the NamedTuple returned by simulate
+    along_scan_residuals = sim_result.along_scan_residuals_buffer
 
     new_table = deepcopy(obs.table)
     if add_noise
         for i in eachindex(new_table.centroid_pos_al)
             σ = new_table.centroid_pos_error_al[i]
-            new_table.centroid_pos_al[i] = along_scan_residuals_buffer_sim[i] + randn() * σ
+            new_table.centroid_pos_al[i] = along_scan_residuals[i] + randn() * σ
         end
     else
-        new_table.centroid_pos_al .= along_scan_residuals_buffer_sim
+        new_table.centroid_pos_al .= along_scan_residuals
     end
 
-    return GaiaDR4AstromObs(
+    # Use inner constructor to preserve gaia_sol and avoid network query
+    return GaiaDR4AstromObs{typeof(new_table), typeof(obs.gaia_sol)}(
         new_table,
-        gaia_id=obs.gaia_id,
-        variables=(obs.priors, obs.derived),
-        name=obs.name
+        obs.gaia_id,
+        obs.gaia_sol,
+        obs.priors,
+        obs.derived,
+        obs.name
     )
 end
