@@ -199,3 +199,31 @@ The warning typically appears when:
 - The optimization has effectively converged
 
 **Your fit will proceed correctly.** Check the output of `initialize!()` - if it returns a valid chain with reasonable parameter values, the initialization was successful regardless of this warning.
+
+## How to load past rounds saved with the Pigeons MCMC?
+When using the Pigeons MCMC with Octofitter there is a checkpoint feature which is automatically set as false. When set as true, each round completed using the Pigeons MCMC will be saved to a results folder that will be automatically created. Inside this folder there will be two additional folders, all and latest. The former holders all past Pigeons runs while the latest folder contains the results from the most recent run. From these folders, you can reload old Pigeons MCMC rounds and start a run again from the saved checkpoint location (the last round found in a given folder). This can save time when running particularily long models.
+
+When starting a new model with the Pigeons MCMC, compute the chain in the regular method but set the checkpoint variable to true,
+
+```
+chain, pt = octofit_pigeons(model, n_rounds=12, checkpoint=true)
+```
+
+Then, in future runs you can load past Pigeons MCMC rounds using the following:
+
+```
+pt = PT("path/to/results/folder")
+pt = increment_n_rounds!(pt, number_of_rounds_to_add)
+chain, pt = octofit_pigeons(pt)
+```
+
+For example, if I wanted to add 1 additional round to my model starting from the last round I ran, my code would look as follows:
+
+```
+#chain, pt = octofit_pigeons(model, n_rounds=12, checkpoint=true)
+pt = PT("results/latest")
+pt = increment_n_rounds!(pt, 1)
+chain, pt = octofit_pigeons(pt)
+```
+
+Always be sure to comment out the initial creation of the chain and pt when you want to load and use past rounds. This will allow you to reload the last round and run additional rounds without having to restart the entire model.
