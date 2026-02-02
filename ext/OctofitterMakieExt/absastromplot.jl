@@ -163,7 +163,7 @@ function absastromplot!(
 
     # Now over plot any astrometry
     like_objs = filter(model.system.observations) do like_obj
-        nameof(typeof(like_obj)) == :GaiaHipparcosUEVAJointObs
+        nameof(typeof(like_obj)) == :G23HObs
     end
     if !isempty(like_objs)
         absastrom = only(like_objs)
