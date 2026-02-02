@@ -277,7 +277,7 @@ Octofitter uses [PlanetOrbits.jl](https://github.com/sefffal/PlanetOrbits.jl) fo
 
 Here's a complete example generating synthetic astrometry data for testing:
 
-```@example 2
+```@example 1
 using Random
 using PlanetOrbits
 
@@ -334,7 +334,7 @@ display(first(astrom_data, 5))
 
 You can now use this synthetic data with Octofitter:
 
-```@example 2
+```@example 1
 astrom_obs = PlanetRelAstromObs(astrom_data, name="Synthetic")
 
 planet_b = Planet(

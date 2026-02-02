@@ -295,7 +295,7 @@ We will call `Octofitter.generate_from_params` to generate a model with new synt
 If you set `add_noise = true`, the generated data points will have scatter according to the `centroid_pos_error_al` specified above. 
 
 
-```julia
+```@example 1
 sim_system = Octofitter.generate_from_params(model.system, params_to_simulate; add_noise=true)
 sim_model = Octofitter.LogDensityModel(sim_system)
 ```
