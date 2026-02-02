@@ -198,7 +198,7 @@ function Octofitter.dotplot!(
         Colorbar(gs[2, 3], s; label="eccentricity")
     end
 
-    Label(fig[0,1], "$sysname",tellwidth=false, font=:bold)
+    Label(gs[1,1,Top()], string(model.system.name),tellwidth=false, font=:bold,halign=:left)
 
     return ax
 end
