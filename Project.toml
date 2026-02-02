@@ -1,11 +1,12 @@
 name = "Octofitter"
 uuid = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
-authors = ["William Thompson <will.thompson@outlook.com>", "Jensen Lawrence", "Dori Blakely", "Clarissa R. Do O"]
 version = "8.0.0"
+authors = ["William Thompson <will.thompson@outlook.com>", "Jensen Lawrence", "Dori Blakely", "Clarissa R. Do O"]
 
 [deps]
 AbstractMCMC = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
 AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
+Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
 BasicInterpolators = "26cce99e-4866-4b6d-ab74-862489e035e0"
 Bijectors = "76274a88-744f-5084-9051-94815aaf08c4"
 Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
@@ -70,6 +71,7 @@ OctofitterPigeonsExt = "Pigeons"
 [compat]
 AbstractMCMC = "4,5"
 AdvancedHMC = "0.6, 0.7"
+Arrow = "2.8.1"
 BasicInterpolators = "0.7"
 Bijectors = "0.14, 0.15"
 Bumper = "0.7.0"

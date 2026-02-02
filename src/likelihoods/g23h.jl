@@ -1,8 +1,8 @@
-
+using Arrow
 
 """
     G23HObs(; gaia_id=nothing, hip_id=nothing, include_rv=true, ...)
-    GaiaHipparcosUEVAJointObs(; gaia_id=nothing, hip_id=nothing, include_rv=true, ...)
+    G23HObs(; gaia_id=nothing, hip_id=nothing, include_rv=true, ...)
 
 A likelihood for joint Gaia-Hipparcos astrometry using the G23H catalog, including
 proper motion accelerations and unit weight error variance analysis (UEVA).
@@ -39,7 +39,7 @@ variables=@variables begin
 end
 ```
 """
-struct GaiaHipparcosUEVAJointObs{TTable,TTableH,TTableG,TCat,THip} <: AbstractObs
+struct G23HObs{TTable,TTableH,TTableG,TCat,THip} <: AbstractObs
     table::TTable
     priors::Priors
     derived::Derived
@@ -55,11 +55,11 @@ struct GaiaHipparcosUEVAJointObs{TTable,TTableH,TTableG,TCat,THip} <: AbstractOb
 end
 
 
-function likelihoodname(like::GaiaHipparcosUEVAJointObs)
-    return "GaiaHipparcosUEVA"
+function likelihoodname(like::G23HObs)
+    return "G23H"
 end
 
-function GaiaHipparcosUEVAJointObs(;
+function G23HObs(;
         gaia_id=nothing,
         hip_id=nothing,
         scanlaw_table=nothing,
@@ -527,7 +527,7 @@ function GaiaHipparcosUEVAJointObs(;
     (priors,derived)=variables
 
 
-    return GaiaHipparcosUEVAJointObs{
+    return G23HObs{
         typeof(table),
         typeof(hip_table),
         typeof(gaia_table),
@@ -550,7 +550,7 @@ function GaiaHipparcosUEVAJointObs(;
 
 end
 
-function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointObs, obs_inds)
+function Octofitter.likeobj_from_epoch_subset(like::G23HObs, obs_inds)
     (;  table,
         priors,
         derived,
@@ -574,7 +574,7 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointObs, o
         )
         catalog = (;catalog..., dist_hip = nothing, dist_hg=nothing)
     end
-    return GaiaHipparcosUEVAJointObs{
+    return G23HObs{
         typeof(table),
         typeof(hip_table),
         typeof(gaia_table),
@@ -596,7 +596,7 @@ function Octofitter.likeobj_from_epoch_subset(like::GaiaHipparcosUEVAJointObs, o
     )
 end
 
-function ln_like(like::GaiaHipparcosUEVAJointObs, ctx::SystemObservationContext)
+function ln_like(like::G23HObs, ctx::SystemObservationContext)
     (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx 
 
     T = _system_number_type(θ_system)
@@ -990,7 +990,7 @@ function ln_like(like::GaiaHipparcosUEVAJointObs, ctx::SystemObservationContext)
     return ll
 end
 
-function simulate(like::GaiaHipparcosUEVAJointObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function simulate(like::G23HObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
     # TODO: optimize this, we only need to grab the epochs here -- it'll be faster
     if hasproperty(θ_obs, :transits)
@@ -1041,7 +1041,7 @@ function simulate(like::GaiaHipparcosUEVAJointObs, θ_system, θ_obs, orbits, or
     return out 
 end
 
-function simulate!(buffers, like::GaiaHipparcosUEVAJointObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
     (;Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3, iad_resid, ) = buffers
 
@@ -1627,13 +1627,13 @@ end
 
 
 # Generate new astrometry observations
-function Octofitter.generate_from_params(like::GaiaHipparcosUEVAJointObs, ctx::SystemObservationContext; add_noise)
+function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationContext; add_noise)
     (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
     sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
     (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3) = sim
 
-    error("Simulating GaiaHipparcosUEVAJointObs not implemented yet")
+    error("Simulating G23HObs not implemented yet")
     return like
 end
 
