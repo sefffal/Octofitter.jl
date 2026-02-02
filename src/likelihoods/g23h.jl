@@ -81,22 +81,6 @@ function GaiaHipparcosUEVAJointObs(;
 
     # allow passing in table directly
     if Tables.istable(catalog)
-        # If hip_id provided, look up gaia_id
-        if !isnothing(hip_id)
-            hip_matches = findall(==(hip_id), catalog.hip_id)
-            if isempty(hip_matches)
-                error("The requested Hipparcos ID $hip_id was not found in the catalog.")
-            end
-            gaia_id = catalog.gaia_source_id[hip_matches[1]]
-            @info "Resolved HIP $hip_id to Gaia DR3 source ID $gaia_id"
-        end
-        idx = findfirst(==(gaia_id), catalog.gaia_source_id)
-        catalog = NamedTuple(catalog[idx,:])
-    else
-
-
-    # allow passing in table directly
-    if Tables.istable(catalog)
         idx = findfirst(==(gaia_id), catalog.gaia_source_id)
         if isnothing(idx)
             error("The requested gaia source ID $gaia_id was not found in the catlog file $catalog.")
