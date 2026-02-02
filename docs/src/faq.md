@@ -2,6 +2,10 @@
 
 
 
+## How do you define position angle of the ascending node / longitude of the ascending node?
+
+Ω is the point where moves through the sky plane away from the observer, which is to say, moving from negative to positive on the z-axis (consistent with positive RV = redshift).
+
 ## How do we calculate the position of a planet at a future epoch?
 
 After fitting an orbit, there are two ways to calculate its projected position in the sky at a future epoch.
