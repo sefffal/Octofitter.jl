@@ -813,13 +813,19 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
                 ncp = (N_rv - 1) * sim.sample_variance / σ_rv_per_transit^2
                 
                 # Use NON-CENTRAL chi-squared with signal included
-                rv_chi2_dist = NoncentralChisq(N_rv - 1, ncp)
+                try
+                    rv_chi2_dist = NoncentralChisq(N_rv - 1, ncp)
+                    
+                    # Catalog's chi-squared statistic
+                    ξ_catalog_squared = (N_rv - 1) * s_catalog_squared / σ_rv_per_transit^2
+                    
+                    # Now this correctly penalizes high-amplitude models
+                    ll += logpdf(rv_chi2_dist, ξ_catalog_squared)
+                catch
+                    ll += -Inf
+                end
                 
-                # Catalog's chi-squared statistic
-                ξ_catalog_squared = (N_rv - 1) * s_catalog_squared / σ_rv_per_transit^2
-                
-                # Now this correctly penalizes high-amplitude models
-                ll += logpdf(rv_chi2_dist, ξ_catalog_squared)
+
 
             end
 
