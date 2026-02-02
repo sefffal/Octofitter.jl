@@ -93,9 +93,18 @@ function GaiaHipparcosUEVAJointObs(;
         idx = findfirst(==(gaia_id), catalog.gaia_source_id)
         catalog = NamedTuple(catalog[idx,:])
     else
+
+
+    # allow passing in table directly
+    if Tables.istable(catalog)
+        idx = findfirst(==(gaia_id), catalog.gaia_source_id)
+        if isnothing(idx)
+            error("The requested gaia source ID $gaia_id was not found in the catlog file $catalog.")
+        end
+        catalog = NamedTuple(catalog[idx,:])
+    else
         # Load the catalog row for this system
-        catalog = FITS(catalog, "r") do fits
-            t = Table(fits[2])
+        catalog =let t = Arrow.Table(catalog)
             # If hip_id provided, look up gaia_id
             if !isnothing(hip_id)
                 hip_matches = findall(==(hip_id), t.hip_id)
@@ -109,7 +118,7 @@ function GaiaHipparcosUEVAJointObs(;
             if isnothing(idx)
                 error("The requested gaia source ID $gaia_id was not found in the catalog file $catalog.")
             end
-            return NamedTuple(t[idx])
+            NamedTuple(t[idx])
         end
     end
 
@@ -1644,10 +1653,4 @@ function Octofitter.generate_from_params(like::GaiaHipparcosUEVAJointObs, ctx::S
     return like
 end
 
-# Backwards compatibility alias
-const GaiaHipparcosUEVAJointLikelihood = GaiaHipparcosUEVAJointObs
-
-# User-friendly alias
-const G23HObs = GaiaHipparcosUEVAJointObs
-
-export GaiaHipparcosUEVAJointObs, GaiaHipparcosUEVAJointLikelihood, G23HObs
+export G23HObs
