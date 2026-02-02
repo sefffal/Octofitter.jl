@@ -102,7 +102,7 @@ function G23HObs(;
             if isnothing(idx)
                 error("The requested gaia source ID $gaia_id was not found in the catalog file $catalog.")
             end
-            NamedTuple(t[idx])
+            NamedTuple(Table(t)[idx])
         end
     end
 
