@@ -465,6 +465,7 @@ function G23HObs(;
                 transit_priorities = (randn(len_epochs)...,)
                 transits = partialsortperm(SVector(transit_priorities), 1:astrometric_matched_transits_dr3, rev=true)
                 variables = vcat(variables, @variables begin
+                    transit_priorities = $transit_priorities
                     transits = $transits
                 end)
             else

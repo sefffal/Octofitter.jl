@@ -179,6 +179,7 @@ function make_ln_like(system::System, θ_system)
             # Construct all orbit elements
             $(planet_construction_exprs...)
         catch err
+            @warn "Failed to constructor orbit:" exception=(err, catch_backtrace())
             # Return -Inf if planet construction fails
             return convert(T, -Inf)
         end

@@ -521,7 +521,8 @@ function optimization_and_pathfinder_with_fixed(
     reduced_initial = model.link(reduced_initial_prime)[variable_indices]
     if !isfinite(reduced_ℓπcallback(reduced_initial))
         opt_full = reduced_to_full(reduced_initial)
-        @show opt_full model.invlink(opt_full) model.arr2nt(model.invlink(opt_full))
+        LL = reduced_ℓπcallback(reduced_initial)
+        @show opt_full model.invlink(opt_full) model.arr2nt(model.invlink(opt_full)) LL
         error("Starting point for global optimization is not finite; did you fix parameters to invalid values?")
     end
     

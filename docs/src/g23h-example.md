@@ -27,6 +27,8 @@ Before running this script, ensure you have installed the necessary packages:
        "MCMCChains",
        "ArgParse",
        "DelimitedFiles",
+       "FiniteDiff",
+       "DifferentiationInterface",
    ])
    ```
 
@@ -82,6 +84,7 @@ using Statistics
 using StatsBase
 using MCMCChains
 using DelimitedFiles
+using FiniteDiff, DifferentiationInterface
 
 ## ============================================================================
 ## ARGUMENT PARSING

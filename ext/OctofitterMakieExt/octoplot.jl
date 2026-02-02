@@ -169,7 +169,7 @@ function Octofitter.octoplot!(
     if isnothing(show_absastrom)
         show_absastrom = false
         for like_obj in model.system.observations
-            show_absastrom |= like_obj isa Octofitter.GaiaHipparcosUEVAJointObs
+            show_absastrom |= like_obj isa Octofitter.G23HObs
         end
     end
 

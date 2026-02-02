@@ -20,6 +20,7 @@ include("hipparcosplot.jl")
 include("gaiatimeplot.jl")
 include("gaiastarplot.jl")
 include("skytrackplot.jl")
+include("dotplot.jl")
 include("octoplot.jl")
 
 end

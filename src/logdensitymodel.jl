@@ -35,7 +35,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # We support models with discrete or mixed variables, but in these
         # cases we can't support autodiff.
         # Detect this case, warn the user, and skip over defining ∇ℓπcallback
-        contains_discrete_variables = any(isa.(sample_priors(Random.default_rng(), system),Integer))
+        contains_discrete_variables = autodiff === false || any(isa.(sample_priors(Random.default_rng(), system),Integer))
         if contains_discrete_variables && verbosity >= 1
             @info "Model contains discrete variables; model gradients not supported."
         end

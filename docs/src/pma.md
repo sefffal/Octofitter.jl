@@ -57,17 +57,22 @@ planet_b = Planet(
     name="b",
     basis=Visual{KepOrbit},
     variables=@variables begin
-        a ~ LogUniform(0.1,20)
-        e ~ Uniform(0,0.999)
-        ω ~ UniformCircular()
-        i ~ Sine() # The Sine() distribution is defined by Octofitter
-        Ω ~ UniformCircular()
-
-        mass = system.M_sec
-
-        M = system.M
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, 57423.0; M, e, a, i, ω, Ω) # epoch of GAIA measurement
+        P ~ LogUniform(1/365.25, 10000)# Period in Julian years (1 day to 10000yrs)
+        # Now convert to the units expected by Kepler's third law
+        # The conversion factor accounts for the IAU definitions
+        P_for_kepler = P * Octofitter.PlanetOrbits.year2day_julian / Octofitter.PlanetOrbits.kepler_year_to_julian_day_conversion_factor
+        q ~ LogUniform(1e-5, 1)
+        mass = q * system.M_pri / Octofitter.mjup2msol
+        e ~ Uniform(0, 0.9)  # Eccentricity
+        ω ~ Uniform(0, 2pi)  # Argument of periastron
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
+        τ ~ Uniform(0.0, 1.0)  # Fraction of period past periastron
+        M = system.M_pri + mass * Octofitter.mjup2msol
+        # Now apply Kepler's third law: a^3 = P^2 * M
+        # where P is in "Keplerian years", a in AU, M in solar masses
+        a = cbrt(P_for_kepler^2 * M)
+        tp = τ * P * 365.25 + 57388.5  # Time of periastron [MJD]
     end
 )
 ```
@@ -93,14 +98,12 @@ sys = System(
     observations=[hgca_obs],
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
-        M_sec ~ LogUniform(0.5, 1000) # MJup
-        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
 
         plx ~ gaia_plx(gaia_id=756291174721509376)
                 
         # Priors on the center of mass proper motion
-        pmra ~ Normal(-137, 10)
-        pmdec ~ Normal(2,  10)
+        pmra ~ Uniform((-137 .+ (-100,100))...)
+        pmdec ~ Uniform((2 .+ ( -100,100))...)
     end
 )
 
@@ -123,7 +126,7 @@ To install and use `Pigeons.jl` with Octofitter, type `using Pigeons` at in the 
 We now sample from our model using Pigeons:
 ```@example 1
 using Pigeons
-chain_pma, pt = octofit_pigeons(model_pma, n_rounds=13, explorer=SliceSampler()) 
+chain_pma, pt = octofit_pigeons(model_pma, n_rounds=13) 
 display(chain_pma)
 ```
 
@@ -155,24 +158,8 @@ Notice how there are completely separated peaks? The default Octofitter sample (
 
 ### Posterior Mass vs. Semi-Major Axis
 
-Given that this posterior is quite unconstrained, it is useful to make a simplified plot marginalizing over all orbital 
-parameters besides semi-major axis. We can do this using PairPlots.jl:
+Given that this posterior is quite unconstrained, it is useful to make a simplified plot marginalizing over all orbital parameters besides separation. We can do this using `dotplot`:
 ```@example 1
-using CairoMakie, PairPlots
-pairplot(
-    (; a=chain_pma["b_a"][:], mass=chain_pma["b_mass"][:]) =>
-        (
-            PairPlots.Scatter(color=:red),
-            PairPlots.MarginHist(),
-            PairPlots.MarginQuantileLines(),
-            PairPlots.MarginQuantileText(),
-        ),
-    labels=Dict(:mass=>"mass [Mⱼᵤₚ]", :a=>"sma. [au]"),
-    axis = (;
-        a = (;
-            scale=Makie.pseudolog10,
-            ticks=2 .^ (0:1:6)
-        )
-    )
-)
+using CairoMakie
+Octofitter.dotplot(model_pma, chain_pma, mode=:period)
 ```

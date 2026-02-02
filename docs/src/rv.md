@@ -61,7 +61,7 @@ hgca_obs = HGCAInstantaneousObs(
     end
 )
 ```
-In the interests of time, we use the `HGCAInstantaneousObs` approximation to speed up the computation. This parameter controls how the model smears out the simulated Gaia and Hipparcos measurements in time. For a real target, leave it at the default value once you have completed testing.
+In the interests of time, we use the `HGCAInstantaneousObs` approximation to speed up the computation. This parameter controls how the model smears out the simulated Gaia and Hipparcos measurements in time. For a real target, use `HGCAObs` instead which will simulate the Gaia and Hipparcos fits with greater fidelity.
 
 
 ```@example 1
