@@ -581,7 +581,7 @@ chain, pt = octofit_pigeons(
     variational=nothing,
     n_rounds=1,
     explorer=explorer,
-    multithreaded=false,
+    multithreaded=true,
 )
 
 ## ============================================================================
@@ -599,6 +599,9 @@ while length(pt.shared.reports.summary.last_round_max_time) < n_rounds
         logevidence_ratio=Pigeons.stepping_stone_pair(pt)[2]))
     chain_file = joinpath(output_dir, "$sysname-post-round$(pt.inputs.n_rounds).fits")
     Octofitter.savechain(chain_file, chain)
+
+    # generate dotplot
+    Octofitter.dotplot(model, chain)
 
     # Save sampling summary
     CSV.write(joinpath(output_dir, "$(sysname)-pigeons-summary.csv"),
