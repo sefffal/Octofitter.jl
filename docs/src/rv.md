@@ -14,7 +14,9 @@ Datasets from two different radial velocity insturments are included and modelle
 
 using Octofitter, OctofitterRadialVelocity, Distributions, PlanetOrbits, CairoMakie
 
-gaia_id = 5164707970261890560 
+gaia_id = 5164707970261890560
+hgca_test_catalog = joinpath(@__DIR__, "..", "..", "test", "data", "HGCA-test-subset.fits") # hide
+hires_test_catalog = joinpath(@__DIR__, "..", "..", "test", "data", "HIRES-HD22049.txt") # hide 
 
 
 planet_b = Planet(
@@ -38,10 +40,11 @@ planet_b = Planet(
 
 
 # We will load in data from one RV instruments.
-# We use `MarginalizedStarAbsoluteRVObs` instead of 
+# We use `MarginalizedStarAbsoluteRVObs` instead of
 # `StarAbsoluteRVObs` to automatically marginalize out
 # the radial velocity zero point of each instrument, saving one parameter.
-hires_data = OctofitterRadialVelocity.HIRES_rvs("HD22049")
+hires_data = OctofitterRadialVelocity.HIRES_rvs("HD22049", dirname(hires_test_catalog)) # hide
+# hires_data = OctofitterRadialVelocity.HIRES_rvs("HD22049")
 rvlike_hires = MarginalizedStarAbsoluteRVObs(
     hires_data,
     name="HIRES",
@@ -55,6 +58,7 @@ We load the HGCA data for this target:
 ```@example 1
 hgca_obs = HGCAInstantaneousObs(
     gaia_id=gaia_id,
+    catalog=hgca_test_catalog, # hide
     variables=@variables begin
         # Optional: flux ratio for luminous companions
         # fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1), ])  # uncomment if needed for unresolved companions
@@ -71,7 +75,8 @@ sys = System(
     observations=[hgca_obs, rvlike_hires],
     variables=@variables begin
         M ~ truncated(Normal(0.82, 0.02),lower=0.5, upper=1.5) # (Baines & Armstrong 2011).
-        plx ~ gaia_plx(;gaia_id)
+        plx ~ gaia_plx(;gaia_id, catalog=hgca_test_catalog) # hide
+        # plx ~ gaia_plx(;gaia_id)
         pmra ~ Normal(-975, 10)
         pmdec ~ Normal(20,  10)
     end

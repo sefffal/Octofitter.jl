@@ -46,7 +46,12 @@ You can optionally provide flux ratio priors in the variables block to represent
 If you're in a hurry, and you're study orbits with periods much longer than the mission durations of Gaia or Hipparcos (>> 4 years) then you might consider using a faster approximation that the Gaia and Hipparcos measurements were instantaneous. You can do so as follows:
 
 ```@example 1
-hgca_obs = HGCAInstantaneousObs(gaia_id=756291174721509376, N_ave=1) 
+hgca_test_catalog = joinpath(@__DIR__, "..", "..", "test", "data", "HGCA-test-subset.fits") # hide
+hgca_obs = HGCAInstantaneousObs(gaia_id=756291174721509376, N_ave=1, catalog=hgca_test_catalog) # hide
+nothing # hide
+```
+```julia
+hgca_obs = HGCAInstantaneousObs(gaia_id=756291174721509376, N_ave=1)
 ```
 `N_ave` is an optional argument to control over how many epochs the measurements are approximated, e.g. N_ave=10 implies that the position and proper motion was measured instantaneously 10 times over each mission and averaged.
 
@@ -99,8 +104,9 @@ sys = System(
     variables=@variables begin
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
 
-        plx ~ gaia_plx(gaia_id=756291174721509376)
-                
+        plx ~ gaia_plx(gaia_id=756291174721509376, catalog=hgca_test_catalog) # hide
+        # plx ~ gaia_plx(gaia_id=756291174721509376)
+
         # Priors on the center of mass proper motion
         pmra ~ Uniform((-137 .+ (-100,100))...)
         pmdec ~ Uniform((2 .+ ( -100,100))...)

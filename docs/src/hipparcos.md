@@ -12,8 +12,11 @@ using Octofitter
 using Distributions
 using CairoMakie
 
+# For documentation builds, use local test data to avoid large downloads # hide
+hip_test_catalog = joinpath(@__DIR__, "..", "..", "test", "data", "hipparcos_iad") # hide
 hip_obs = Octofitter.HipparcosIADObs(
     hip_id=21547,
+    catalog=hip_test_catalog, # hide
     renormalize=true, # default: true
     variables=@variables begin
         # Optional: flux ratio for luminous companions, one entry per companion

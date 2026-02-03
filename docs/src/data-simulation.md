@@ -11,6 +11,7 @@ We'll simulate data from a known set of parameters, fit a model to recover those
 using Octofitter, OctofitterRadialVelocity, Distributions
 using CairoMakie, PairPlots, Pigeons
 using CSV, DataFrames
+hgca_test_catalog = joinpath(@__DIR__, "..", "..", "test", "data", "HGCA-test-subset.fits") # hide
 ```
 
 ## Define the Model
@@ -21,7 +22,8 @@ For this example, we'll use the combined astrometry, proper motion anomaly, and 
 
 ```@example 1
 # HGCA likelihood for HD 91312
-hgca_obs = HGCAObs(gaia_id=756291174721509376)
+hgca_obs = HGCAObs(gaia_id=756291174721509376, hgca_catalog=hgca_test_catalog) # hide
+# hgca_obs = HGCAObs(gaia_id=756291174721509376)
 
 #  relative astrometry data (from discovery paper)
 astrom_dat = Table(;
@@ -90,7 +92,8 @@ sys = System(
         M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
         M_sec ~ LogUniform(0.5, 1000)
         M = M_pri + M_sec*Octofitter.mjup2msol
-        plx ~ gaia_plx(gaia_id=756291174721509376)
+        plx ~ gaia_plx(gaia_id=756291174721509376, catalog=hgca_test_catalog) # hide
+        # plx ~ gaia_plx(gaia_id=756291174721509376)
         pmra ~ Normal(-137, 10)
         pmdec ~ Normal(2, 10)
         ra = $ra
