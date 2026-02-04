@@ -22,11 +22,13 @@ Octofitter.jl v8 introduces a cleaner naming convention and several new features
 Apply these replacements to update your code:
 
 **Constructor keyword:**
+
 | Old (v7) | New (v8) |
 |----------|----------|
 | `likelihoods=[...]` | `observations=[...]` |
 
 **Core Octofitter types:**
+
 | Old Name (v7) | New Name (v8) |
 |---------------|---------------|
 | `PhotometryLikelihood` | `PhotometryObs` |
@@ -41,6 +43,7 @@ Apply these replacements to update your code:
 | `LogLikelihoodMap` | `LogLikelihoodMapObs` |
 
 **OctofitterRadialVelocity types:**
+
 | Old Name (v7) | New Name (v8) |
 |---------------|---------------|
 | `StarAbsoluteRVLikelihood` | `StarAbsoluteRVObs` |
