@@ -455,9 +455,19 @@ function G23HObs(;
 
         if(len_epochs) < astrometric_matched_transits_dr3
             @warn "Fewer epochs in GOST forecast than `astrometric_matched_transits` reported by Gaia. Results by be innaccurate."
-            variables = vcat(variables, @variables begin
-                transits = $(1:len_epochs)
-            end)
+            if has_rv 
+                # Still need to marginalize over RV epochs
+                variables = vcat(variables, @variables begin
+                    transit_priorities ~ MvNormal(zeros(len_epochs), I)
+                    transits = $(1:len_epochs) # but we don't need to sort each time for astrometry; we're using all of them.
+                end)
+            else
+                transit_priorities = (randn(len_epochs)...,)
+                variables = vcat(variables, @variables begin
+                    transit_priorities = $transit_priorities
+                    transits = $(1:len_epochs)
+                end)
+            end
         else
             # This is an optional approximation that can massievly speed up sampling -- 
             # sample the epochs randomly once and fix them for all remaining sampling
