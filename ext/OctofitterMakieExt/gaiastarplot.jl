@@ -102,7 +102,7 @@ function Octofitter.gaiastarplot!(
     lines!(ax, Δα_kep, Δδ_kep, color=Makie.wong_colors()[1], linewidth=2)
 
     # Calculate residuals and project them back on the orbit
-    resids = sim .- likeobj.table.centroid_pos_al
+    resids = sim.along_scan_residuals_buffer .- likeobj.table.centroid_pos_al
     s = sin.(likeobj.table.scan_pos_angle)
     c = cos.(likeobj.table.scan_pos_angle)
     alpha_res = @. resids * s
