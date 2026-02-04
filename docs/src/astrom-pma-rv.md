@@ -22,6 +22,7 @@ Depth = 5
 Initial setup:
 ```@example 1
 using Octofitter, Distributions, Random
+hgca_test_catalog = joinpath(@__DIR__, "..", "..", "test", "data", "HGCA-test-subset.fits") # hide
 ```
 
 We begin by finding orbits that are consistent with the astrometric motion. Later, we will add in relative astrometry to the fit from direct imaging to further constrain the planet's orbit and mass.
@@ -38,6 +39,7 @@ To start, we retrieve the HGCA data for this object.
 ```@example 1
 hgca_obs = HGCAObs(
     gaia_id=756291174721509376,
+    hgca_catalog=hgca_test_catalog, # hide
     variables=@variables begin
         # Optional: flux ratio for luminous companions
         # fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1), ])  # uncomment if needed for unresolved companions
@@ -96,8 +98,9 @@ sys = System(
         M_sec ~ LogUniform(0.5, 1000) # MJup
         M = M_pri + M_sec*Octofitter.mjup2msol # Msol
 
-        plx ~ gaia_plx(gaia_id=756291174721509376)
-                
+        plx ~ gaia_plx(gaia_id=756291174721509376, catalog=hgca_test_catalog) # hide
+        # plx ~ gaia_plx(gaia_id=756291174721509376)
+
         # Priors on the center of mass proper motion
         pmra ~ Normal(-137, 10)
         pmdec ~ Normal(2,  10)
@@ -224,7 +227,8 @@ sys_astrom = System(
         M_sec ~ LogUniform(0.5, 1000) # MJup
         M = M_pri + M_sec*Octofitter.mjup2msol
 
-        plx ~ gaia_plx(gaia_id=756291174721509376)
+        plx ~ gaia_plx(gaia_id=756291174721509376, catalog=hgca_test_catalog) # hide
+        # plx ~ gaia_plx(gaia_id=756291174721509376)
 
         # Priors on the centre of mass proper motion
         pmra ~ Normal(-137, 10)
@@ -298,8 +302,9 @@ sys_rv_astrom = System(
         M_sec ~ LogUniform(0.5, 1000) # MJup
         M = M_pri + M_sec*Octofitter.mjup2msol
 
-        plx ~ gaia_plx(gaia_id=756291174721509376)
-                
+        plx ~ gaia_plx(gaia_id=756291174721509376, catalog=hgca_test_catalog) # hide
+        # plx ~ gaia_plx(gaia_id=756291174721509376)
+
         # Priors on the centre of mass proper motion
         pmra ~ Normal(-137, 10)
         pmdec ~ Normal(2,  10)
@@ -372,7 +377,8 @@ sys_final = System(
         M_sec ~ LogUniform(0.5, 1000) # MJup
         M = M_pri + M_sec*Octofitter.mjup2msol
 
-        plx ~ gaia_plx(gaia_id=756291174721509376)
+        plx ~ gaia_plx(gaia_id=756291174721509376, catalog=hgca_test_catalog) # hide
+        # plx ~ gaia_plx(gaia_id=756291174721509376)
     end
 )
 

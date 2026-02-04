@@ -14,7 +14,10 @@ function Octofitter.skytrackplot(
     fig = Figure(
         size=(700, 500)
     )
-    Octofitter.skytrackplot!(fig.layout, model, results, args...; kwargs...)
+    # Wrap in update() to prevent StackOverflow from circular Observable updates
+    update(fig) do fig
+        Octofitter.skytrackplot!(fig.layout, model, results, args...; kwargs...)
+    end
 
     Makie.save(fname, fig, px_per_unit=3)
 
@@ -126,7 +129,8 @@ function Octofitter.skytrackplot!(
     )
 
     # Calculate residuals and project them back on the track
-    resids = sim .- likeobj.table.centroid_pos_al
+    # sim is a NamedTuple with along_scan_residuals_buffer, ra_offset_buffer, dec_offset_buffer
+    resids = sim.along_scan_residuals_buffer .- likeobj.table.centroid_pos_al
     s = sin.(likeobj.table.scan_pos_angle)
     c = cos.(likeobj.table.scan_pos_angle)
     alpha_res = @. resids * s
@@ -149,8 +153,9 @@ function Octofitter.skytrackplot!(
     end
 
     # Parallax displacement at data epochs
-    Δα_dat = @. θ_obs.plx * (likeobj.table.x * sin(α_track_dat) - likeobj.table.y * cos(α_track_dat))
-    Δδ_dat = @. θ_obs.plx * (likeobj.table.x * cos(α_track_dat) * sin(δ_track_dat) + likeobj.table.y * sin(α_track_dat) * sin(δ_track_dat) - likeobj.table.z * cos(δ_track_dat))
+    # Note: xyz coordinates are nested in likeobj.table.xyz for GaiaDR4AstromObs
+    Δα_dat = @. θ_obs.plx * (likeobj.table.xyz.x * sin(α_track_dat) - likeobj.table.xyz.y * cos(α_track_dat))
+    Δδ_dat = @. θ_obs.plx * (likeobj.table.xyz.x * cos(α_track_dat) * sin(δ_track_dat) + likeobj.table.xyz.y * sin(α_track_dat) * sin(δ_track_dat) - likeobj.table.xyz.z * cos(δ_track_dat))
 
     # Plot data points
     scatter!(ax,

@@ -116,7 +116,7 @@
 
     @testset "HipparcosIADLikelihood" begin
         # Use local test data to avoid downloading the full catalog in CI
-        test_catalog = joinpath(@__DIR__, "..", "hipparcos_iad_testdata")
+        test_catalog = joinpath(@__DIR__, "..", "data", "hipparcos_iad")
 
         # Test basic construction with local test data
         hip_obs = HipparcosIADLikelihood(;

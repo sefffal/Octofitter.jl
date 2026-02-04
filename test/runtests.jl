@@ -4,7 +4,11 @@ using Distributions
 using TypedTables
 using CSV
 using HDF5
+using DataFrames
+using Statistics
+using Random
 using DifferentiationInterface: AutoFiniteDiff, AutoForwardDiff
+using PlanetOrbits
 
 # Check for test mode environment variable
 # Run with: OCTOFITTER_TEST_MODE=unit julia --project=. -e 'using Pkg; Pkg.test()'
@@ -40,6 +44,10 @@ if TEST_MODE in ("all", "unit")
         @testset "I/O" begin
             include("unit/io.jl")
         end
+
+        @testset "Gaia DR4" begin
+            include("unit/gaia_dr4.jl")
+        end
     end
 end
 
@@ -68,6 +76,10 @@ if TEST_MODE in ("all", "integration")
 
         @testset "Plotting" begin
             include("integration/plotting.jl")
+        end
+
+        @testset "Gaia DR4" begin
+            include("integration/gaia_dr4.jl")
         end
     end
 end

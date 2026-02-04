@@ -23,6 +23,7 @@ using Distributions
 using Pigeons
 using CairoMakie
 using PairPlots
+hgca_test_catalog = joinpath(@__DIR__, "..", "..", "test", "data", "HGCA-test-subset.fits") # hide
 ```
 
 ## Photometry Model
@@ -54,14 +55,16 @@ B = Planet(
 HD91312_pma = System(
     name="HD91312_pma",
     companions=[B],
-    observations=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
+    observations=[HGCAInstantaneousObs(gaia_id=6166183842771027328, catalog=hgca_test_catalog)], # hide
+    # observations=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
     variables=@variables begin
         M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
         M_sec ~ LogUniform(0.2, 65) # MJup
         M = M_pri + M_sec*Octofitter.mjup2msol # Msol
 
-        plx ~ gaia_plx(gaia_id=6166183842771027328)
-                
+        plx ~ gaia_plx(gaia_id=6166183842771027328, catalog=hgca_test_catalog) # hide
+        # plx ~ gaia_plx(gaia_id=6166183842771027328)
+
         # Priors on the center of mass proper motion
         pmra ~ Normal(0, 1000)
         pmdec ~ Normal(0,  1000)
@@ -180,7 +183,8 @@ HD91312_img = System(
         # Make sure to pick only a mass range that is covered by your models
         M_sec ~ LogUniform(0.55, 65) # MJup
         M = M_pri + M_sec*Octofitter.mjup2msol # Msol
-        plx ~ gaia_plx(gaia_id=6166183842771027328)
+        plx ~ gaia_plx(gaia_id=6166183842771027328, catalog=hgca_test_catalog) # hide
+        # plx ~ gaia_plx(gaia_id=6166183842771027328)
         # Priors on the center of mass proper motion
         # pmra ~ Normal(0, 1000)
         # pmdec ~ Normal(0,  1000)
@@ -268,7 +272,8 @@ B = Planet(
 HD91312_both = System(
     name="HD91312_both",
     companions=[B],
-    observations=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
+    observations=[HGCAInstantaneousObs(gaia_id=6166183842771027328, catalog=hgca_test_catalog)], # hide
+    # observations=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
     variables=@variables begin
         # age ~ truncated(Normal(40, 15),lower=0, upper=200)
         age = 10
@@ -277,7 +282,8 @@ HD91312_both = System(
         # Make sure to pick only a mass range that is covered by your models
         M_sec ~ LogUniform(0.55, 65) # MJup
         M = M_pri + M_sec*Octofitter.mjup2msol # Msol
-        plx ~ gaia_plx(gaia_id=6166183842771027328)
+        plx ~ gaia_plx(gaia_id=6166183842771027328, catalog=hgca_test_catalog) # hide
+        # plx ~ gaia_plx(gaia_id=6166183842771027328)
         # Priors on the center of mass proper motion
         pmra ~ Normal(0, 1000)
         pmdec ~ Normal(0,  1000)
