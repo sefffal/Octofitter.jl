@@ -530,21 +530,5 @@ function Octofitter.octoplot!(
     end
     return fig
 end
- 
 
-# Helper from AlgebraOfGraphics -- prevent computing layout updates after adding
-# each series
-get_layout(gl::Makie.GridLayout) = gl
-get_layout(f::Union{Makie.Figure, Makie.GridPosition}) = f.layout
-get_layout(l::Union{Makie.Block, Makie.GridSubposition}) = get_layout(l.parent)
-
-# Wrap layout updates in an update block to avoid triggering multiple updates
-function update(f, fig)
-    layout = get_layout(fig)
-    block_updates = layout.block_updates
-    layout.block_updates = true
-    output = f(fig)
-    layout.block_updates = block_updates
-    block_updates || Makie.GridLayoutBase.update!(layout)
-    return output
-end
+# Note: update() function is defined in util.jl

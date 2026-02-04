@@ -125,3 +125,21 @@ end
 
 concat_with_nan(mat) =
     reduce((row_A, row_B) -> [row_A; NaN; row_B], eachrow(mat), init=Float64[])
+
+
+# Helper from AlgebraOfGraphics -- prevent computing layout updates after adding
+# each series. This speeds up figure creation and can prevent StackOverflow errors
+# from circular Observable dependencies during axis limit adjustments.
+get_layout(gl::Makie.GridLayout) = gl
+get_layout(f::Union{Makie.Figure, Makie.GridPosition}) = f.layout
+get_layout(l::Union{Makie.Block, Makie.GridSubposition}) = get_layout(l.parent)
+
+function update(f, fig)
+    layout = get_layout(fig)
+    block_updates = layout.block_updates
+    layout.block_updates = true
+    output = f(fig)
+    layout.block_updates = block_updates
+    block_updates || Makie.GridLayoutBase.update!(layout)
+    return output
+end

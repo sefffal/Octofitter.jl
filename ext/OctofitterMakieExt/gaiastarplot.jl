@@ -16,7 +16,10 @@ function Octofitter.gaiastarplot(
     fig = Figure(
         size=(600, 600)
     )
-    Octofitter.gaiastarplot!(fig.layout, model, results, args...; kwargs...)
+    # Wrap in update() to prevent StackOverflow from circular Observable updates
+    update(fig) do fig
+        Octofitter.gaiastarplot!(fig.layout, model, results, args...; kwargs...)
+    end
 
     Makie.save(fname, fig, px_per_unit=3)
 
@@ -102,7 +105,8 @@ function Octofitter.gaiastarplot!(
     lines!(ax, Δα_kep, Δδ_kep, color=Makie.wong_colors()[1], linewidth=2)
 
     # Calculate residuals and project them back on the orbit
-    resids = sim .- likeobj.table.centroid_pos_al
+    # sim is a NamedTuple with along_scan_residuals_buffer, ra_offset_buffer, dec_offset_buffer
+    resids = sim.along_scan_residuals_buffer .- likeobj.table.centroid_pos_al
     s = sin.(likeobj.table.scan_pos_angle)
     c = cos.(likeobj.table.scan_pos_angle)
     alpha_res = @. resids * s
