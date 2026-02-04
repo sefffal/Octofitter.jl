@@ -3,31 +3,234 @@ name: Documentation
 on:
   push:
     branches-ignore:
-      - 'dependabot/**'  # Optional: ignore dependabot branches
+      - 'dependabot/**'
     tags: '*'
   pull_request:
   workflow_dispatch:
 
-# concurrency:
-  # group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  # cancel-in-progress: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  # ==========================================================================
+  # Parallel build jobs - each builds a subset of pages
+  # ==========================================================================
+
+  build-partition-1:
+    name: "Build: Getting Started + Docs"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@latest
         with:
           version: '1.10'
+      - uses: julia-actions/cache@v2
       - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; Pkg.develop([PackageSpec(path=pwd()), PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")), PackageSpec(path=joinpath(pwd(),"OctofitterImages")), PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))]);'
-      - uses: julia-actions/cache@v1
-      - uses: julia-actions/julia-buildpkg@v1
-      - name: Build and deploy
+        run: |
+          julia --project=docs/ -e '
+            using Pkg
+            Pkg.develop([
+              PackageSpec(path=pwd()),
+              PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")),
+              PackageSpec(path=joinpath(pwd(),"OctofitterImages")),
+              PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))
+            ])
+            Pkg.instantiate()'
+      - name: Build partition 1
         env:
+          DOCS_PARTITION: "1"
           DATADEPS_ALWAYS_ACCEPT: true
-          GKSwstype: 100 # use software renderer for Plots.jl since headless
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
-          # DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key
+          GKSwstype: 100
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: julia --project=docs/ docs/make.jl
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-partition-1
+          path: docs/build
+          retention-days: 1
+
+  build-partition-2:
+    name: "Build: Rel. Astrometry + Images"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@latest
+        with:
+          version: '1.10'
+      - uses: julia-actions/cache@v2
+      - name: Install dependencies
+        run: |
+          julia --project=docs/ -e '
+            using Pkg
+            Pkg.develop([
+              PackageSpec(path=pwd()),
+              PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")),
+              PackageSpec(path=joinpath(pwd(),"OctofitterImages")),
+              PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))
+            ])
+            Pkg.instantiate()'
+      - name: Build partition 2
+        env:
+          DOCS_PARTITION: "2"
+          DATADEPS_ALWAYS_ACCEPT: true
+          GKSwstype: 100
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: julia --project=docs/ docs/make.jl
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-partition-2
+          path: docs/build
+          retention-days: 1
+
+  build-partition-3:
+    name: "Build: Abs. Astrometry + Limits"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@latest
+        with:
+          version: '1.10'
+      - uses: julia-actions/cache@v2
+      - name: Install dependencies
+        run: |
+          julia --project=docs/ -e '
+            using Pkg
+            Pkg.develop([
+              PackageSpec(path=pwd()),
+              PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")),
+              PackageSpec(path=joinpath(pwd(),"OctofitterImages")),
+              PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))
+            ])
+            Pkg.instantiate()'
+      - name: Build partition 3
+        env:
+          DOCS_PARTITION: "3"
+          DATADEPS_ALWAYS_ACCEPT: true
+          GKSwstype: 100
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: julia --project=docs/ docs/make.jl
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-partition-3
+          path: docs/build
+          retention-days: 1
+
+  build-partition-4:
+    name: "Build: RV + Joint + Bayesian"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@latest
+        with:
+          version: '1.10'
+      - uses: julia-actions/cache@v2
+      - name: Install dependencies
+        run: |
+          julia --project=docs/ -e '
+            using Pkg
+            Pkg.develop([
+              PackageSpec(path=pwd()),
+              PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")),
+              PackageSpec(path=joinpath(pwd(),"OctofitterImages")),
+              PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))
+            ])
+            Pkg.instantiate()'
+      - name: Build partition 4
+        env:
+          DOCS_PARTITION: "4"
+          DATADEPS_ALWAYS_ACCEPT: true
+          GKSwstype: 100
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: julia --project=docs/ docs/make.jl
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-partition-4
+          path: docs/build
+          retention-days: 1
+
+  # ==========================================================================
+  # Merge and deploy job - combines all partitions and deploys
+  # ==========================================================================
+
+  merge-and-deploy:
+    name: "Merge & Deploy"
+    needs: [build-partition-1, build-partition-2, build-partition-3, build-partition-4]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@latest
+        with:
+          version: '1.10'
+      - uses: julia-actions/cache@v2
+
+      # Download all partition artifacts
+      - name: Download partition 1
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-partition-1
+          path: docs/build-1
+      - name: Download partition 2
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-partition-2
+          path: docs/build-2
+      - name: Download partition 3
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-partition-3
+          path: docs/build-3
+      - name: Download partition 4
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-partition-4
+          path: docs/build-4
+
+      # Merge all builds into docs/build
+      - name: Merge partition builds
+        run: |
+          mkdir -p docs/build
+
+          # Copy partition 1 first (has index.html and base structure)
+          cp -r docs/build-1/* docs/build/
+
+          # Merge other partitions (they add tutorial pages)
+          for dir in docs/build-2 docs/build-3 docs/build-4; do
+            if [ -d "$dir" ]; then
+              # Copy all files, overwriting if needed (each partition has unique pages)
+              cp -r "$dir"/* docs/build/
+            fi
+          done
+
+          echo "Merged build contents:"
+          find docs/build -type f -name "*.html" | head -50
+
+      # Install dependencies for deploydocs
+      - name: Install dependencies
+        run: |
+          julia --project=docs/ -e '
+            using Pkg
+            Pkg.develop([
+              PackageSpec(path=pwd()),
+              PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")),
+              PackageSpec(path=joinpath(pwd(),"OctofitterImages")),
+              PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))
+            ])
+            Pkg.instantiate()'
+
+      # Deploy the merged docs
+      - name: Deploy documentation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          julia --project=docs/ -e '
+            using Documenter
+            deploydocs(
+              repo = "github.com/sefffal/Octofitter.jl.git",
+              devbranch = "main",
+              push_preview = true
+            )'
