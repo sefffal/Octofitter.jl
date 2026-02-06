@@ -78,6 +78,8 @@ function absastromplot!(
     xlims!(ax_velra, extrema(ts))
     xlims!(ax_veldec, extrema(ts))
 
+    θ_systems_from_chain = Octofitter.mcmcchain2result(model, results)
+
     pmra_model_t = zeros(length(ii), length(ts))
     pmdec_model_t = zeros(length(ii), length(ts))
     color_model_t = zeros(length(ii), length(ts))
@@ -118,6 +120,34 @@ function absastromplot!(
         
         color_model_t .= rem2pi.(
             meananom.(sols), RoundDown) .+ 0 .* ii
+    end
+
+    # Correct time-series lines for the G23H reference frame shift.
+    # In simulate!, all model proper motions are shifted by -[Δpmra_dr3, Δpmdec_dr3]
+    # so that θ_system.pmra/pmdec refer to the primary star instead of the barycenter.
+    # The lines above use θ_system.pmra + pmra(sol, mass) which double-counts
+    # the companion perturbation. Subtract Δpmra_dr3 to recover the photocenter PM.
+    _g23h_likes = filter(model.system.observations) do obs
+        nameof(typeof(obs)) == :G23HObs
+    end
+    if !isempty(_g23h_likes)
+        _g23h = only(_g23h_likes)
+        for (j, sample_i) in enumerate(ii)
+            _θ_sys = θ_systems_from_chain[sample_i]
+            _orbs = map(keys(model.system.planets)) do pk
+                Octofitter.construct_elements(model, results, pk, sample_i)
+            end
+            _name = Octofitter.normalizename(likelihoodname(_g23h))
+            _θ_obs = _θ_sys.observations[_name]
+            _sols = map(_orbs) do orbit
+                orbitsolve.(orbit, _g23h.table.epoch)
+            end
+            _sim = Octofitter.simulate(_g23h, _θ_sys, _θ_obs, _orbs, _sols, 0)
+            if !isnothing(_sim)
+                pmra_model_t[j, :] .-= _sim.Δpmra_dr3
+                pmdec_model_t[j, :] .-= _sim.Δpmdec_dr3
+            end
+        end
     end
 
     if colorbar
@@ -185,8 +215,7 @@ function absastromplot!(
         # end
 
 
-        θ_systems_from_chain = Octofitter.mcmcchain2result(model, results)
-        # Display all points, unless there are more than 5k 
+        # Display all points, unless there are more than 5k
         jj = 1:size(results,1)*size(results,3)
         if size(results,1)*size(results,3) > 5_000
             jj = ii
