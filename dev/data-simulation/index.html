@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Generating and Fitting Simulated Data · Octofitter.jl</title><meta name="title" content="Generating and Fitting Simulated Data · Octofitter.jl"/><meta property="og:title" content="Generating and Fitting Simulated Data · Octofitter.jl"/><meta property="twitter:title" content="Generating and Fitting Simulated Data · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 Epoch Astrometry</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox" checked/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li class="is-active"><a class="tocitem" href>Generating and Fitting Simulated Data</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Define-the-Model"><span>Define the Model</span></a></li><li><a class="tocitem" href="#Generate-Synthetic-Data"><span>Generate Synthetic Data</span></a></li><li><a class="tocitem" href="#Generate-synthetic-system-with-simulated-data"><span>Generate synthetic system with simulated data</span></a></li><li><a class="tocitem" href="#Fit-the-Simulated-Data"><span>Fit the Simulated Data</span></a></li><li><a class="tocitem" href="#Compare-Results"><span>Compare Results</span></a></li><li><a class="tocitem" href="#Overlay-True-and-Recovered-Parameters"><span>Overlay True and Recovered Parameters</span></a></li><li><a class="tocitem" href="#Corner-Plot-Comparison"><span>Corner Plot Comparison</span></a></li><li><a class="tocitem" href="#Using-PlanetOrbits-Directly-for-Synthetic-Data"><span>Using PlanetOrbits Directly for Synthetic Data</span></a></li></ul></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Bayesian Workflows</a></li><li class="is-active"><a href>Generating and Fitting Simulated Data</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Generating and Fitting Simulated Data</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/data-simulation.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="data-simulation"><a class="docs-heading-anchor" href="#data-simulation">Generating and Fitting Simulated Data</a><a id="data-simulation-1"></a><a class="docs-heading-anchor-permalink" href="#data-simulation" title="Permalink"></a></h1><p>This tutorial demonstrates how to use Octofitter to simulate synthetic data, fit models to that data, and validate the results. This is a crucial workflow for understanding model performance and testing analysis pipelines.</p><p>We&#39;ll simulate data from a known set of parameters, fit a model to recover those parameters, and compare the posterior to the true values used for simulation.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Octofitter, OctofitterRadialVelocity, Distributions
+using CairoMakie, PairPlots, Pigeons
+using CSV, DataFrames</code></pre><h2 id="Define-the-Model"><a class="docs-heading-anchor" href="#Define-the-Model">Define the Model</a><a id="Define-the-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Define-the-Model" title="Permalink"></a></h2><p>In order to simulate data from Octofitter, you start by defining a real model with data. The simulate step will use the provided epochs, data types, and uncertainties when simulating data. If you don&#39;t have real data, you can enter in arbitrary values for e.g. delta R.A., but use expected epochs and uncertainties.</p><p>For this example, we&#39;ll use the combined astrometry, proper motion anomaly, and radial velocity model from the <a href="../astrom-pma-rv/#astrom-pma-rv">Astrometry, PMA, and RV</a> tutorial to define the epochs and uncertainties.</p><pre><code class="language-julia hljs"># HGCA likelihood for HD 91312
+hgca_obs = HGCAObs(gaia_id=756291174721509376)
+
+#  relative astrometry data (from discovery paper)
+astrom_dat = Table(;
+    epoch = [mjd(&quot;2016-12-15&quot;), mjd(&quot;2017-03-12&quot;), mjd(&quot;2017-03-13&quot;), mjd(&quot;2018-02-08&quot;), mjd(&quot;2018-11-28&quot;), mjd(&quot;2018-12-15&quot;)],
+    ra    = [133., 126., 127., 083., 058., 056.],
+    dec   = [-174., -176., -172., -133., -122., -104.],
+    σ_ra  = [07.0, 04.0, 04.0, 10.0, 10.0, 08.0],
+    σ_dec = [07.0, 04.0, 04.0, 10.0, 20.0, 08.0],
+    cor   = [0.2, 0.3, 0.1, 0.4, 0.3, 0.2]
+)
+
+astrom_obs = PlanetRelAstromObs(
+    astrom_dat,
+    name = &quot;SCExAO&quot;,
+    variables = @variables begin
+        jitter = 0
+        northangle = 0
+        platescale = 1
+    end
+)
+
+#  RV data
+rv_dat = Table(;
+    epoch = [mjd(&quot;2008-05-01&quot;), mjd(&quot;2010-02-15&quot;), mjd(&quot;2016-03-01&quot;)],
+    rv    = [1300, 700, -2700],
+    σ_rv  = [150, 150, 150]
+)
+
+rvlike = StarAbsoluteRVObs(
+    rv_dat,
+    name=&quot;SOPHIE&quot;,
+    variables=@variables begin
+        jitter ~ truncated(Normal(10, 5), lower=0)
+        offset ~ Normal(0, 1000)
+    end
+)
+
+# Planet model
+planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=AbsoluteVisual{KepOrbit},
+    observations=[ObsPriorAstromONeil2019(astrom_obs)],
+    variables=@variables begin
+        a ~ LogUniform(0.1,400)
+        e ~ Uniform(0,0.999)
+        ω ~ Uniform(0, 2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
+        mass = system.M_sec
+        θ ~ Uniform(0, 2pi)
+        M = system.M
+        tp = θ_at_epoch_to_tperi(θ, 57737.0; M, e, a, i, ω, Ω)
+        F = 0.0
+    end
+)
+
+# System model
+ra = 158.30707896392835
+dec = 40.42555422701387
+
+sys = System(
+    name=&quot;HD91312_simulation&quot;,
+    companions=[planet_b],
+    observations=[hgca_obs, rvlike],
+    variables=@variables begin
+        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
+        M_sec ~ LogUniform(0.5, 1000)
+        M = M_pri + M_sec*Octofitter.mjup2msol
+        plx ~ gaia_plx(gaia_id=756291174721509376)
+        pmra ~ Normal(-137, 10)
+        pmdec ~ Normal(2, 10)
+        ra = $ra
+        dec = $dec
+        rv = 0*1e3
+        ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: renormalizing hipparcos uncertainties according to Nielsen et al (2020). Pass `renormalize=false` to disable.
+[ Info: No scan law table provided. We will fetch an approximate solution from the GOST webservice.
+[ Info: Using cached Gaia scan forecast GOST-158.30707896392835-40.42555422701387-dr3.csv
+┌ Info: Detected known gap in Gaia scans; skipping.
+│   window = 57175.48233750556
+└   note = &quot;Decontamination&quot;
+[ Info: Preparing model
+┌ Info: Determined number of free variables
+└   D = 13
+┌ Info: Determined number type
+└   T = Float64
+ℓπcallback(θ): 0.000149 seconds (78 allocations: 84.312 KiB)
+∇ℓπcallback(θ): 0.000967 seconds (24 allocations: 152.391 KiB)</code></pre><h2 id="Generate-Synthetic-Data"><a class="docs-heading-anchor" href="#Generate-Synthetic-Data">Generate Synthetic Data</a><a id="Generate-Synthetic-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Generate-Synthetic-Data" title="Permalink"></a></h2><p>We have three choices for generating simulated data:</p><ol><li>Draw values from the priors</li><li>Use values from a fitted posterior </li><li>Specifying values manually</li></ol><p>We will look at each.</p><h3 id="1.-Draw-values-from-the-priors"><a class="docs-heading-anchor" href="#1.-Draw-values-from-the-priors">1. Draw values from the priors</a><a id="1.-Draw-values-from-the-priors-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Draw-values-from-the-priors" title="Permalink"></a></h3><p>We can draw a value from the priors like so:</p><pre><code class="language-julia hljs">params_to_simulate = Octofitter.drawfrompriors(model.system)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(M_pri = 1.6090627898634127, M_sec = 0.5715689772044468, plx = 28.9862823771075, pmra = -134.1769920150621, pmdec = 8.17478314019436, M = 1.6096084063133678, ra = 158.30707896392835, dec = 40.42555422701387, rv = 0.0, ref_epoch = 57388.5, observations = (SOPHIE = (jitter = 8.372188139978977, offset = -1148.7792141540567),), planets = (b = (a = 0.15424768470538736, e = 0.9874922296226674, ω = 1.229145153539755, i = 1.596739160271695, Ω = 3.5205209888077365, θ = 1.0025677139271598, mass = 0.5715689772044468, M = 1.6096084063133678, tp = 57736.99893454085, F = 0.0, observations = (obspri_SCExAO = (jitter = 0, northangle = 0, platescale = 1),)),))</code></pre><h3 id="2.-Use-values-from-a-fitted-posterior"><a class="docs-heading-anchor" href="#2.-Use-values-from-a-fitted-posterior">2. Use values from a fitted posterior</a><a id="2.-Use-values-from-a-fitted-posterior-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Use-values-from-a-fitted-posterior" title="Permalink"></a></h3><p>We can select a particular draw from the posterior and use this to generate new data</p><pre><code class="language-julia hljs"># Perform MCMC fitting on real data
+using Pigeons
+chain_real, pt = octofit_pigeons(model, n_rounds=5)
+
+# Use one particular draw as the basis of our simulation
+draw_number = 1
+params_to_simulate = Octofitter.mcmcchain2result(model, chain_real, draw_number)</code></pre><h3 id="3.-Specifying-values-manually"><a class="docs-heading-anchor" href="#3.-Specifying-values-manually">3. Specifying values manually</a><a id="3.-Specifying-values-manually-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Specifying-values-manually" title="Permalink"></a></h3><p>We can also specify all values for the simulation manually. This process is a bit more involved. </p><p>Start by drawing parameters from the priors:</p><pre><code class="language-julia hljs">template = Octofitter.drawfrompriors(model.system)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(M_pri = 1.4632551207342206, M_sec = 250.31391755127152, plx = 29.174341586037038, pmra = -133.00947828996217, pmdec = -5.876278570723761, M = 1.7022033431109374, ra = 158.30707896392835, dec = 40.42555422701387, rv = 0.0, ref_epoch = 57388.5, observations = (SOPHIE = (jitter = 10.278024168035582, offset = 128.99809793754042),), planets = (b = (a = 29.775214698939422, e = 0.7029059402236087, ω = 4.877277853581889, i = 1.6992667716542393, Ω = 1.8145945320048544, θ = 1.2704662532037636, mass = 250.31391755127152, M = 1.7022033431109374, tp = 44967.91541875137, F = 0.0, observations = (obspri_SCExAO = (jitter = 0, northangle = 0, platescale = 1),)),))</code></pre><p>Copy this output as a template, and replace values as needed. Note that if some parameters are calculated based on others in your model, you will have to repeat those calculations here.</p><div class="admonition is-warning" id="Warning-16272b6c0b535b6f"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-16272b6c0b535b6f" title="Permalink"></a></header><div class="admonition-body"><p>Note that the output below is just an example, you must generate your own template from your model and modify it as needed. The exact structure is not garuanteed to be stable between versions of Octofitter.</p></div></div><pre><code class="language-julia hljs"># Define our &quot;true&quot; parameter values for simulation
+M_pri = 1.61
+M_sec = 85.0
+M = M_pri + M_sec*Octofitter.mjup2msol
+params_to_simulate = (
+    M_pri = M_pri,
+    M_sec = M_sec,  # Jupiter masses
+    M = M,
+    plx = 21.5,
+    pmra = -137.0,
+    pmdec = 2.0,
+    ra = ra,
+    dec = dec,
+    rv = 0.0,
+    ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd,
+    observations = (
+        SOPHIE = (jitter = 15.0, offset = 0.0),
+    ),
+    planets = (
+        b = (
+            a = 45.0,
+            e = 0.15,
+            ω = 1.2,
+            mass = M_sec,
+            i = 0.8,
+            Ω = 2.1,
+            θ = 1.5,
+            M = M,
+            tp = θ_at_epoch_to_tperi(1.5, 57737.0; M=M, e=0.15, a=45.0, i=0.8, ω=1.2, Ω=2.1),
+            F = 0.0,
+            observations = NamedTuple()
+        ),
+    )
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(M_pri = 1.61, M_sec = 85.0, M = 1.6911405098873926, plx = 21.5, pmra = -137.0, pmdec = 2.0, ra = 158.30707896392835, dec = 40.42555422701387, rv = 0.0, ref_epoch = 57388.5, observations = (SOPHIE = (jitter = 15.0, offset = 0.0),), planets = (b = (a = 45.0, e = 0.15, ω = 1.2, mass = 85.0, i = 0.8, Ω = 2.1, θ = 1.5, M = 1.6911405098873926, tp = -4260.340997684594, F = 0.0, observations = NamedTuple()),))</code></pre><h2 id="Generate-synthetic-system-with-simulated-data"><a class="docs-heading-anchor" href="#Generate-synthetic-system-with-simulated-data">Generate synthetic system with simulated data</a><a id="Generate-synthetic-system-with-simulated-data-1"></a><a class="docs-heading-anchor-permalink" href="#Generate-synthetic-system-with-simulated-data" title="Permalink"></a></h2><pre><code class="language-julia hljs">sim_system = Octofitter.generate_from_params(model.system, params_to_simulate)
+sim_model = Octofitter.LogDensityModel(sim_system)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HD91312_simulation of dimension 13 and 15 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>Let&#39;s plot the simulated orbit and data to see what we generated:</p><pre><code class="language- hljs"># Convert true parameters to chain format for plotting
+true_chain = Octofitter.result2mcmcchain([params_to_simulate])
+
+# Plot the simulated system with true parameters
+fig = octoplot(sim_model, true_chain, colormap=:red)
+fig</code></pre><h2 id="Fit-the-Simulated-Data"><a class="docs-heading-anchor" href="#Fit-the-Simulated-Data">Fit the Simulated Data</a><a id="Fit-the-Simulated-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Fit-the-Simulated-Data" title="Permalink"></a></h2><p>Now we&#39;ll sample from the posterior using the simulated data:</p><pre><code class="language-julia hljs"># Sample from the simulated data
+chain, pt = octofit_pigeons(sim_model, n_rounds=8, explorer=SliceSampler())
+display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Sampler running with multiple threads     : true
+[ Info: Likelihood evaluated with multiple threads: false
+┌ Info: Starting values not provided for all parameters! Guessing starting point using global optimization:
+│   num_params = 13
+└   num_fixed = 0
+┌ Info: Found sample of initial positions
+│   logpost_range = (-79.87031492299019, -68.35877711046983)
+└   mean_logpost = -72.13418783242683
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
+────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
+        2          0        2.4       3.26       4.08   2.27e+09  -1.45e+05          0      0.817          1          1
+        4          0       5.28       5.66       7.39   4.34e+09  -7.89e+03          0      0.647          1          1
+        8          0       6.48       5.85       14.4   8.49e+09       -303  8.17e-207      0.602          1          1
+       16          0       6.75       6.24       28.6   1.68e+10       -129   1.22e-54      0.581          1          1
+       32          0        7.1       7.59       55.7   3.27e+10      -97.1   1.26e-24      0.526          1          1
+       64          0       7.52       4.47        111   6.52e+10      -76.6   1.09e-08      0.613          1          1
+      128          2       8.42       5.19        221    1.3e+11      -79.9   0.000109      0.561          1          1
+      256          6       8.89       5.36        437   2.59e+11      -79.6     0.0483       0.54          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><h2 id="Compare-Results"><a class="docs-heading-anchor" href="#Compare-Results">Compare Results</a><a id="Compare-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Compare-Results" title="Permalink"></a></h2><p>Let&#39;s visualize how well our sampling recovered the true parameters:</p><pre><code class="language- hljs"># Plot the posterior from fitting simulated data
+fig = octoplot(sim_model, chain)
+fig</code></pre><h2 id="Overlay-True-and-Recovered-Parameters"><a class="docs-heading-anchor" href="#Overlay-True-and-Recovered-Parameters">Overlay True and Recovered Parameters</a><a id="Overlay-True-and-Recovered-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Overlay-True-and-Recovered-Parameters" title="Permalink"></a></h2><p>For a direct comparison, we can overlay the true orbit with the posterior samples:</p><pre><code class="language- hljs"># Create astrometry plot showing both posterior and true orbit
+fig = Octofitter.astromplot(sim_model, chain, use_arcsec=false, ts=1:2)
+ax = fig.content[1]
+
+# Add true orbit in red
+Octofitter.astromplot!(ax, sim_model, true_chain, use_arcsec=false, ts=1:2, colormap=Makie.cgrad([:red]))
+
+# Make true orbit line more visible
+ax.scene.plots[6].linewidth = 6
+
+fig</code></pre><h2 id="Corner-Plot-Comparison"><a class="docs-heading-anchor" href="#Corner-Plot-Comparison">Corner Plot Comparison</a><a id="Corner-Plot-Comparison-1"></a><a class="docs-heading-anchor-permalink" href="#Corner-Plot-Comparison" title="Permalink"></a></h2><p>Compare the parameters used to generate the simulated data, and the recovered posterior:</p><pre><code class="language-julia hljs"># Create corner plot showing both posterior and true values
+octocorner(
+    sim_model,
+    chain,
+    small=true,
+    truth=(PairPlots.Truth((;
+        M=collect(true_chain[:M][:]),
+        b_a=collect(true_chain[:b_a][:]),
+        b_e=collect(true_chain[:b_e][:]),
+        b_i=collect(true_chain[:b_i][:]),
+        b_mass=collect(true_chain[:b_mass][:]),
+    ),label=&quot;Simulated Orbit&quot;, color=:red)=&gt;(
+        PairPlots.MarginLines(),
+        PairPlots.BodyLines(),
+    ),)
+)</code></pre><img src="50b94259.png" alt="Example block output"/><h2 id="Using-PlanetOrbits-Directly-for-Synthetic-Data"><a class="docs-heading-anchor" href="#Using-PlanetOrbits-Directly-for-Synthetic-Data">Using PlanetOrbits Directly for Synthetic Data</a><a id="Using-PlanetOrbits-Directly-for-Synthetic-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Using-PlanetOrbits-Directly-for-Synthetic-Data" title="Permalink"></a></h2><p>Sometimes you may want to generate synthetic astrometry data directly from orbital parameters, without going through the full Octofitter model setup. This is useful for quick tests, validation studies, or when you want fine-grained control over the simulation process.</p><p>Octofitter uses <a href="https://github.com/sefffal/PlanetOrbits.jl">PlanetOrbits.jl</a> for orbital calculations. For full details on orbit types, coordinate conventions, and available functions, see the PlanetOrbits.jl documentation:</p><ul><li><a href="https://sefffal.github.io/PlanetOrbits.jl/dev/introduction/">Introduction to PlanetOrbits</a> - Getting started with orbit creation</li><li><a href="https://sefffal.github.io/PlanetOrbits.jl/dev/conventions/">Coordinate Conventions</a> - Coordinate system and orbital element definitions</li><li><a href="https://sefffal.github.io/PlanetOrbits.jl/dev/api/">API Reference</a> - Complete function reference</li></ul><h3 id="Example:-Generating-Synthetic-Astrometry"><a class="docs-heading-anchor" href="#Example:-Generating-Synthetic-Astrometry">Example: Generating Synthetic Astrometry</a><a id="Example:-Generating-Synthetic-Astrometry-1"></a><a class="docs-heading-anchor-permalink" href="#Example:-Generating-Synthetic-Astrometry" title="Permalink"></a></h3><p>Here&#39;s a complete example generating synthetic astrometry data for testing:</p><pre><code class="language-julia hljs">using Random
+using PlanetOrbits
+
+Random.seed!(42)
+
+# True orbital parameters
+true_a = 5.0      # AU
+true_e = 0.3
+true_i = deg2rad(68.8)
+true_Ω = deg2rad(45.0)
+true_ω = deg2rad(85.0)
+true_tp = 55000.0
+true_M = 1.05     # Solar masses (star + companion)
+true_plx = 50.0   # mas
+
+# Create the orbit
+true_orb = orbit(
+    a = true_a, e = true_e, i = true_i,
+    Ω = true_Ω, ω = true_ω, tp = true_tp, M = true_M,
+    plx=true_plx
+)
+
+# Generate observation epochs (25 epochs over 2 orbital periods)
+period_days = Octofitter.period(true_orb)
+epochs = range(55000, 55000 + 2*period_days, length=25)
+
+# Measurement uncertainty
+σ_astrom = 5.0  # mas
+
+# Generate synthetic observations
+ra_obs = Float64[]
+dec_obs = Float64[]
+for ep in epochs
+    sol = orbitsolve(true_orb, ep)
+    # True position plus Gaussian noise
+    push!(ra_obs, raoff(sol) + σ_astrom * randn())
+    push!(dec_obs, decoff(sol) + σ_astrom * randn())
+end
+
+# Create an Octofitter-compatible data table
+astrom_data = Table(
+    epoch = collect(epochs),
+    ra = ra_obs,
+    dec = dec_obs,
+    σ_ra = fill(σ_astrom, length(epochs)),
+    σ_dec = fill(σ_astrom, length(epochs)),
+    cor = zeros(length(epochs))  # no correlation between RA and Dec errors
+)
+
+println(&quot;Generated $(length(epochs)) synthetic astrometry points&quot;)
+println(&quot;Period: $(round(period_days/365.25, digits=2)) years&quot;)
+display(first(astrom_data, 5))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Generated 25 synthetic astrometry points
+Period: 10.91 years</code></pre><p>You can now use this synthetic data with Octofitter:</p><pre><code class="language- hljs">astrom_obs = PlanetRelAstromObs(astrom_data, name=&quot;Synthetic&quot;)
+
+planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    observations=[astrom_obs],
+    variables=@variables begin
+        a ~ LogUniform(1, 20)
+        e ~ Uniform(0, 0.9)
+        ω ~ Uniform(0, 2π)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2π)
+        θ ~ Uniform(0, 2π)
+        M = system.M
+        tp = θ_at_epoch_to_tperi(θ, 55000.0; M, e, a, i, ω, Ω)
+    end
+)
+
+sys = System(
+    name=&quot;SyntheticTest&quot;,
+    companions=[planet_b],
+    observations=[],
+    variables=@variables begin
+        M ~ truncated(Normal(1.05, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.5), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
+init_chain = initialize!(model, (; M=1.05, plx=50.0, planets=(; b=(; a=5.0, e=0.3))))
+
+# Visualize the initial fit
+octoplot(model, init_chain)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../eccentric-or-circular/">« Circular or Eccentric? Model Comparison</a><a class="docs-footer-nextpage" href="../prior-pred/">Prior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 2 February 2026 21:38">Monday 2 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

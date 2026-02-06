@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Image Data (de-orbiting) · Octofitter.jl</title><meta name="title" content="Image Data (de-orbiting) · Octofitter.jl"/><meta property="og:title" content="Image Data (de-orbiting) · Octofitter.jl"/><meta property="twitter:title" content="Image Data (de-orbiting) · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 Epoch Astrometry</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox" checked/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li class="is-active"><a class="tocitem" href>Image Data (de-orbiting)</a><ul class="internal"><li><a class="tocitem" href="#Preparing-images"><span>Preparing images</span></a></li><li><a class="tocitem" href="#Build-the-model"><span>Build the model</span></a></li><li><a class="tocitem" href="#Sampling"><span>Sampling</span></a></li><li><a class="tocitem" href="#Diagnostics"><span>Diagnostics</span></a></li><li><a class="tocitem" href="#Analysis"><span>Analysis</span></a></li><li><a class="tocitem" href="#Pair-Plot"><span>Pair Plot</span></a></li><li><a class="tocitem" href="#Assessing-Detections"><span>Assessing Detections</span></a></li></ul></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Images and More</a></li><li class="is-active"><a href>Image Data (de-orbiting)</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Image Data (de-orbiting)</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/images.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="fit-images"><a class="docs-heading-anchor" href="#fit-images">Fitting Images</a><a id="fit-images-1"></a><a class="docs-heading-anchor-permalink" href="#fit-images" title="Permalink"></a></h1><p>One of the key features of Octofitter.jl is the ability to search for planets directly from images of the system. Sampling from images is much more computationally demanding than sampling from astrometry, but it allows for a few very powerful results:</p><ol><li>You can search for a planet that is not well detected in a single image</li></ol><p>By this, we mean you can feed in images of a system with no clear detections, and see if a planet is hiding in the noise based off of its Kepelerian motion.</p><ol><li>Not detecting a planet in a given image can be almost as useful as a detection for constraining its orbit. </li></ol><p>If you have a clear detection in one epoch, but no detection in another, Octofitter can use the image from the second epoch to rule out large swathes of possible orbits.</p><p>Sampling from images can be freely combined with any known astrometry points, as well as astrometric acceleration. See advanced models for more details.</p><div class="admonition is-info" id="Note-c907dc70ee14226c"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-c907dc70ee14226c" title="Permalink"></a></header><div class="admonition-body"><p>Image modelling is supported in Octofitter via the extension package OctofitterImages. To install it, run  <code>pkg&gt; add http://github.com/sefffal/Octofitter.jl:OctofitterImages</code></p></div></div><h2 id="Preparing-images"><a class="docs-heading-anchor" href="#Preparing-images">Preparing images</a><a id="Preparing-images-1"></a><a class="docs-heading-anchor-permalink" href="#Preparing-images" title="Permalink"></a></h2><p>The first step will be to load your images. For this, we will use our AstroImages.jl package.</p><p>Start by loading your images:</p><pre><code class="language-julia hljs">using Octofitter
+using OctofitterImages
+using Distributions
+using Pigeons
+using AstroImages
+using CairoMakie
+
+# Load individual iamges
+# image1 = load(&quot;image1.fits&quot;)
+# image2 = load(&quot;image2.fits&quot;)
+
+# Or slices from a cube:
+# cube = load(&quot;cube1.fits&quot;)
+# image1 = cube[:,:,1]
+
+# Download sample images from GitHub
+download(
+    &quot;https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits&quot;,
+    &quot;image-examples-1.fits&quot;
+)
+
+# Or multi-extension FITS (this example)
+images = AstroImages.load(&quot;image-examples-1.fits&quot;,:)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5-element Vector{AstroImages.AstroImageMat{Float64, Tuple{DimensionalData.Dimensions.X{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, DimensionalData.Dimensions.Y{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, Tuple{}, Matrix{Float64}, Tuple{DimensionalData.Dimensions.X{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, DimensionalData.Dimensions.Y{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}}}:
+ [-0.340230578841865 -0.31239887526186355 … -0.2903753168231458 -0.34686827004814064; -0.29826568928566355 -0.27872689920999305 … -0.246452640103626 -0.2873140658333837; … ; 0.2673577868138141 0.2674003307584391 … -0.35696041486602914 -0.4320582965232348; 0.34147717271077094 0.3420908537177248 … -0.3358061981896538 -0.4139117427343716]
+ [-1.0477769487233675 -0.903332487139985 … 1.4299602191511185 1.5070937596027922; -0.9888724404777535 -0.8589483767137767 … 1.1201264194935676 1.1803510698319304; … ; -0.43042419506343155 -0.46545013356425746 … -0.7066171674807686 -0.8619933383603304; -0.5837006039738425 -0.6021768042432977 … -0.8745923304009366 -1.0622653729194567]
+ [-1.3673176596472436 -1.1985348376204175 … 1.1486692344915643 1.2929199629807906; -1.1143572848991925 -0.9810874969329584 … 0.9739105840286464 1.079311141942771; … ; 1.0292715351056276 0.8022139684685823 … 0.674123592556085 0.8519386886571362; 1.2170463982677187 0.9582307659215409 … 0.7602550494569255 0.959778160219427]
+ [-0.16664741987337547 -0.13437529569419648 … -1.2963013699793633 -1.413565369547865; -0.2149990713151032 -0.1847368741065949 … -1.0549153738841368 -1.1490484959706464; … ; -0.5872462145987273 -0.5703179209210852 … 0.19469039731388912 0.31932314143450863; -0.7173113967617594 -0.6848676990867931 … 0.19122281859925802 0.3434506497145075]
+ [0.47470453920043826 0.4747486393369815 … -0.16662161045865695 -0.16297895606178783; 0.4078627130832368 0.4041383409077344 … -0.18122203442704718 -0.17883512905931084; … ; 0.07003384675445126 0.19916060264117244 … -0.44137489323835993 -0.5253547777211444; 0.023766763613137065 0.1809119688664255 … -0.5699244785815155 -0.6776496918698217]</code></pre><p>You can preview the image using <code>imview</code> from AstroImages:</p><pre><code class="language-julia hljs"># imshow2(image1, cmap=:magma) # for a single image
+hcat(imview.(images, clims=(-1.0, 4.0))...)</code></pre><img src="ba7e7695.png" alt="Example block output"/><p>Your images should either be convolved with a gaussian of diameter one λ/D, or be matched filtered. This is so that the values of the pixels in the image represent the photometry at that location. </p><p>If you want to perform the convolution in Julia, see ImageFiltering.jl.</p><h2 id="Build-the-model"><a class="docs-heading-anchor" href="#Build-the-model">Build the model</a><a id="Build-the-model-1"></a><a class="docs-heading-anchor-permalink" href="#Build-the-model" title="Permalink"></a></h2><p>First, we create a table of our image observations:</p><pre><code class="language-julia hljs">image_dat = Table(;
+    epoch = [1238.6, 1584.7, 3220.0, 7495.9, 7610.4],
+    image = [
+        AstroImages.recenter(images[1]),
+        AstroImages.recenter(images[2]),
+        AstroImages.recenter(images[3]),
+        AstroImages.recenter(images[4]),
+        AstroImages.recenter(images[5])
+    ],
+    platescale = [10.0, 10.0, 10.0, 10.0, 10.0]
+)
+
+image_obs = ImageObs(
+    image_dat,
+    name=&quot;SPHERE&quot;,
+    variables=@variables begin
+        # Planet flux in image units -- could be contrast, mags, Jy, or arb. as long as it&#39;s consistent
+        flux ~ Normal(3.8, 0.5)
+        # The following are optional parameters for marginalizing over instrument systematics:
+        # Platescale uncertainty multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        platescale = 1.0
+        # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        northangle = 0.0
+    end
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">OctofitterImages.ImageObs Table with 5 columns and 5 rows:
+     epoch   image                 platescale  contrast              ⋯
+   ┌──────────────────────────────────────────────────────────────────
+ 1 │ 1238.6  [-0.340231 -0.31239…  10.0        65-element extrapol…  ⋯
+ 2 │ 1584.7  [-1.04778 -0.903332…  10.0        65-element extrapol…  ⋯
+ 3 │ 3220.0  [-1.36732 -1.19853 …  10.0        65-element extrapol…  ⋯
+ 4 │ 7495.9  [-0.166647 -0.13437…  10.0        65-element extrapol…  ⋯
+ 5 │ 7610.4  [0.474705 0.474749 …  10.0        65-element extrapol…  ⋯</code></pre><p>Provide one entry for each image you want to sample from. Ensure that each image has been re-centered so that index <code>[0,0]</code> is the position of the star. Areas of the image where there is no data should be filled with <code>NaN</code> and will not contribute to the likelihood of your model. <code>platescale</code> should be the pixel scale of your images, in milliarseconds / pixel. <code>epoch</code> should be the Modified Julian Day (MJD) that your image was taken. You can use the <code>mjd(&quot;2021-09-09&quot;)</code> function to calculate this for you. <code>band</code> should be a symbol that matches the name you supplied when you created the <code>Planet</code>.</p><p>By default, the contrast of the images is calculated automatically, but you can supply your own contrast curve as well by also passing <code>contrast=OctofitterImages.contrast_interp(AstroImages.recenter(my_image))</code>.</p><p>You can freely mix and match images from different instruments as long as you specify the correct platescale.  You can also provide images from multiple bands and they will be sampled independently. If you wish to tie them together, see <a href="../mass-photometry/#mass-photometry">Connecting Mass with Photometry</a>.</p><p>Now specify the planet:</p><pre><code class="language-julia hljs">planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    observations=[image_obs],
+    variables=@variables begin
+        a ~ truncated(Normal(13, 4), lower=0.1, upper=100)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        M = system.M
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(θ, 1238.6; M, e, a, i, ω, Ω)
+    end
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Planet b
+Derived:
+                     ω = (atan(ωy, ωx) / (2π)) * 6.283185307179586
+                   Ω = (atan(Ωy, Ωx) / (2π)) * 6.283185307179586
+                   θ = (atan(θy, θx) / (2π)) * 6.283185307179586
+                   M = system.M
+                  tp = θ_at_epoch_to_tperi(θ, 1238.6; M, e, a, i, ω, Ω)
+
+Priors:
+                   a ~ Truncated(Distributions.Normal{Float64}(μ=13.0, σ=4.0); lower=0.1, upper=100.0)
+                   e ~ Distributions.Uniform{Float64}(a=0.0, b=0.5)
+                   i ~ Sine()
+                  ωx ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                  ωy ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                  Ωx ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                  Ωy ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                  θx ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                  θy ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+OctofitterImages.ImageObs Table with 5 columns and 5 rows:
+     epoch   image                 platescale  contrast              ⋯
+   ┌──────────────────────────────────────────────────────────────────
+ 1 │ 1238.6  [-0.340231 -0.31239…  10.0        65-element extrapol…  ⋯
+ 2 │ 1584.7  [-1.04778 -0.903332…  10.0        65-element extrapol…  ⋯
+ 3 │ 3220.0  [-1.36732 -1.19853 …  10.0        65-element extrapol…  ⋯
+ 4 │ 7495.9  [-0.166647 -0.13437…  10.0        65-element extrapol…  ⋯
+ 5 │ 7610.4  [0.474705 0.474749 …  10.0        65-element extrapol…  ⋯Octofitter.UnitLengthPrior{:ωx, :ωy}: √(ωx^2+ωy^2) ~ LogNormal(log(1), 0.02)
+Octofitter.UnitLengthPrior{:Ωx, :Ωy}: √(Ωx^2+Ωy^2) ~ LogNormal(log(1), 0.02)
+Octofitter.UnitLengthPrior{:θx, :θy}: √(θx^2+θy^2) ~ LogNormal(log(1), 0.02)
+
+
+</code></pre><p>Note how we provided a prior on the photometry called <code>flux</code> in the variables block of the ImageObs. This represents the expected flux of the planet in the image units.</p><p>See <a href="../rel-astrom/#fit-astrometry">Fit PlanetRelAstromObs</a> for a description of the different orbital parameters, and conventions used.</p><p>Finally, create the system and pass in the planet.</p><pre><code class="language-julia hljs">sys = System(
+    name=&quot;HD82134&quot;,
+    companions=[planet_b],
+    observations=[],
+    variables=@variables begin
+        M ~ truncated(Normal(2.0, 0.1),lower=0.1)
+        plx ~ truncated(Normal(45., 0.02),lower=0.1)
+    end
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">System model HD82134
+Derived:
+  
+Priors:
+                   M ~ Truncated(Distributions.Normal{Float64}(μ=2.0, σ=0.1); lower=0.1)
+                 plx ~ Truncated(Distributions.Normal{Float64}(μ=45.0, σ=0.02); lower=0.1)
+Planet b
+Derived:
+                     ω = (atan(ωy, ωx) / (2π)) * 6.283185307179586
+                   Ω = (atan(Ωy, Ωx) / (2π)) * 6.283185307179586
+                   θ = (atan(θy, θx) / (2π)) * 6.283185307179586
+                   M = system.M
+                  tp = θ_at_epoch_to_tperi(θ, 1238.6; M, e, a, i, ω, Ω)
+
+Priors:
+                   a ~ Truncated(Distributions.Normal{Float64}(μ=13.0, σ=4.0); lower=0.1, upper=100.0)
+                   e ~ Distributions.Uniform{Float64}(a=0.0, b=0.5)
+                   i ~ Sine()
+                  ωx ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                  ωy ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                  Ωx ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                  Ωy ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                  θx ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+                  θy ~ Distributions.Normal{Float64}(μ=0.0, σ=1.0)
+OctofitterImages.ImageObs Table with 5 columns and 5 rows:
+     epoch   image                 platescale  contrast              ⋯
+   ┌──────────────────────────────────────────────────────────────────
+ 1 │ 1238.6  [-0.340231 -0.31239…  10.0        65-element extrapol…  ⋯
+ 2 │ 1584.7  [-1.04778 -0.903332…  10.0        65-element extrapol…  ⋯
+ 3 │ 3220.0  [-1.36732 -1.19853 …  10.0        65-element extrapol…  ⋯
+ 4 │ 7495.9  [-0.166647 -0.13437…  10.0        65-element extrapol…  ⋯
+ 5 │ 7610.4  [0.474705 0.474749 …  10.0        65-element extrapol…  ⋯Octofitter.UnitLengthPrior{:ωx, :ωy}: √(ωx^2+ωy^2) ~ LogNormal(log(1), 0.02)
+Octofitter.UnitLengthPrior{:Ωx, :Ωy}: √(Ωx^2+Ωy^2) ~ LogNormal(log(1), 0.02)
+Octofitter.UnitLengthPrior{:θx, :θy}: √(θx^2+θy^2) ~ LogNormal(log(1), 0.02)
+
+
+
+
+</code></pre><p>If you want to search for two or more planets in the same images, just create multiple <code>Planet</code>s and pass the same images to each. You&#39;ll need to adjust the priors in some way to prevent overlap.</p><p>You can also do some very clever things like searching for planets that are co-planar and/or have a specific resonance between their periods. To do this, put the planet of the system or base period as variables of the system and derive the planet variables from those values of the system. </p><h2 id="Sampling"><a class="docs-heading-anchor" href="#Sampling">Sampling</a><a id="Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling" title="Permalink"></a></h2><p>Sampling from images is much more challenging than relative astrometry or proper motion anomaly, so the fitting process tends to take longer.</p><p>This is because the posterior is much &quot;bumpier&quot; with images. One way this manifests is very high tree depths. You might see a sampling report that says <code>max_tree_depth_frac = 0.9</code> or even <code>1.0</code>. To encourage the sampler to take larger steps and explore the images, it&#39;s recommended to lower the target acceptance ratio to around 0.5±0.2 and also increase the number of adapataion steps.</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(sys)
+
+chain, pt = octofit_pigeons(model, n_rounds=10)
+display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
+┌ Info: Determined number of free variables
+└   D = 12
+┌ Info: Determined number type
+└   T = Float64
+ℓπcallback(θ): 0.000013 seconds
+∇ℓπcallback(θ): 0.000029 seconds (1 allocation: 32 bytes)
+┌ Warning: This model has priors that cannot be sampled IID.
+└ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:105
+[ Info: Sampler running with multiple threads     : true
+[ Info: Likelihood evaluated with multiple threads: false
+┌ Info: Starting values not provided for all parameters! Guessing starting point using global optimization:
+│   num_params = 12
+└   num_fixed = 0
+┌ Info: Found sample of initial positions
+│   logpost_range = (-1.0836851303933974, 10.909424914174284)
+└   mean_logpost = 7.043529144935388
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
+────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
+        2          0       3.33       2.86      0.252   4.15e+06      -10.2   2.76e-08      0.801          1          1
+        4          0       4.16       4.17      0.112   1.41e+05       2.84      0.128      0.731          1          1
+        8          0       4.55       3.75      0.225   2.29e+05       1.47     0.0143      0.732          1          1
+       16          0       4.71       5.73      0.471   4.05e+05       2.97      0.305      0.663          1          1
+       32          0       5.62       6.33      0.961   6.57e+05       13.5       0.38      0.615          1          1
+       64          0       5.79        4.7       2.22   5.66e+07         54   7.64e-05      0.662          1          1
+      128          4       5.64       4.48       3.97   9.66e+07       65.5      0.207      0.674          1          1
+      256         14       5.44       4.69       8.14   1.93e+08       65.1      0.241      0.673          1          1
+      512         26       5.27       4.76       16.1   3.86e+08       65.4      0.486      0.676          1          1
+ 1.02e+03         66       5.37       4.76       31.7   7.67e+08       65.5      0.517      0.673          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info" id="Note-885630c21c612562"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-885630c21c612562" title="Permalink"></a></header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><h2 id="Diagnostics"><a class="docs-heading-anchor" href="#Diagnostics">Diagnostics</a><a id="Diagnostics-1"></a><a class="docs-heading-anchor-permalink" href="#Diagnostics" title="Permalink"></a></h2><p>The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.</p><p>The acceptance rate should be somewhat lower than when fitting just astrometry, e.g. around the 0.6 target.</p><p>You can make a trace plot:</p><pre><code class="language-julia hljs">lines(
+    chain[&quot;b_a&quot;][:],
+    axis=(;
+        xlabel=&quot;iteration&quot;,
+        ylabel=&quot;semi-major axis (aU)&quot;
+    )
+)</code></pre><img src="908b5758.png" alt="Example block output"/><p>And an auto-correlation plot:</p><pre><code class="language-julia hljs">using StatsBase
+lines(
+    autocor(chain[&quot;b_e&quot;][:], 1:500),
+    axis=(;
+        xlabel=&quot;lag&quot;,
+        ylabel=&quot;autocorrelation&quot;,
+    )
+)</code></pre><img src="b8be3755.png" alt="Example block output"/><p>For this model, there is somewhat higher correlation between samples. Some thinning to remove this correlation is recommended.</p><h2 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h2><p>We can now view the orbit fit:</p><pre><code class="language- hljs">fig = octoplot(model, chain)</code></pre><p>With a bit of work, we can plot one of the images under the orbit.</p><pre><code class="language- hljs">fig = octoplot(model, chain)
+ax = fig.content[1] # grap first axis in the figure
+
+# We have to do some annoying work to get the image orientated correctly,
+# since we want the RA axis increasing to the left.
+image_idx = 2
+platescale = image_dat.platescale[image_idx]
+img = AstroImages.recenter(AstroImage(collect(image_dat.image[image_idx])[end:-1:begin,:]))
+imgax1 = dims(img,1) .* platescale
+imgax2 = dims(img,2) .* platescale
+h = heatmap!(ax, imgax1, imgax2, collect(img), colormap=:greys)
+Makie.translate!(h, 0,0,-1) # Send heatmap to back of the plot
+
+# Add colorbar for image
+Colorbar(fig[1,2], h, label=&quot;image flux&quot;)
+
+Makie.resize_to_layout!(fig)
+fig</code></pre><p>Another useful view would be the orbits over a stack of the maximum pixel values of all images.</p><pre><code class="language- hljs">fig = octoplot(model, chain)
+ax = fig.content[1] # grap first axis in the figure
+
+# We have to do some annoying work to get the image orientated correctly
+# since we want the RA axis increasing to the left.
+platescale = image_dat.platescale[image_idx]
+imgs = maximum(stack(image_dat.image),dims=3)[:,:]
+img = AstroImages.recenter(AstroImage(imgs[end:-1:begin,:]))
+imgax1 = dims(img,1) .* platescale
+imgax2 = dims(img,2) .* platescale
+h = heatmap!(ax, imgax1, imgax2, collect(img), colormap=:greys)
+Makie.translate!(h, 0,0,-1) # Send heatmap to back of the plot
+Makie.resize_to_layout!(fig)
+fig</code></pre><h2 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h2><p>We can show the relationships between variables on a pair plot (aka corner plot):</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model, chain, small=true)</code></pre><img src="4bfc4e5c.png" alt="Example block output"/><p>Note that this time, we also show the recovered photometry in the corner plot.</p><h2 id="Assessing-Detections"><a class="docs-heading-anchor" href="#Assessing-Detections">Assessing Detections</a><a id="Assessing-Detections-1"></a><a class="docs-heading-anchor-permalink" href="#Assessing-Detections" title="Permalink"></a></h2><p>To assess a detection, we can treat all the orbital variables as nuisance parameters.  We start by plotting the marginal distribution of the flux parameter, <code>H</code>:</p><pre><code class="language-julia hljs">hist(chain[&quot;b_SPHERE_flux&quot;][:], axis=(xlabel=&quot;flux&quot;, ylabel=&quot;counts&quot;))</code></pre><img src="282c6dde.png" alt="Example block output"/><p>We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:</p><pre><code class="language-julia hljs">flux = chain[&quot;b_SPHERE_flux&quot;]
+snr = mean(flux)/std(flux)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">14.233989270458702</code></pre><p>It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../gaia-dr4-simulation/">« Gaia DR4 Simulation</a><a class="docs-footer-nextpage" href="../extract-phot-astrom/">Extract Astrom. and Photometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 2 February 2026 21:38">Monday 2 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
