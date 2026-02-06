@@ -212,6 +212,9 @@ function absastromplot!(
         end
 
 
+        # Detect absolute orbits for conditional nonlinear corrections
+        absolute_orbits = first(els) isa AbsoluteVisual
+
         component_flags =  [
             :ra_hip, :dec_hip,
             :ra_hg, :dec_hg,
@@ -230,15 +233,15 @@ function absastromplot!(
         if !isempty(mask)
             # Apply nonlinear correction to get true proper motion for plotting
             y_corrected = copy(y)
-            # if absolute_orbits
-                # Remove nonlinear corrections from Hipparcos and HGCA measurements 
+            if absolute_orbits
+                # Remove nonlinear corrections from Hipparcos and HGCA measurements
                 # to show true proper motion consistently with model lines
                 hip_ra_mask = [k == :ra_hip for k in absastrom.table.kind]
                 hg_ra_mask = [k == :ra_hg for k in absastrom.table.kind]
                 y_corrected[hip_ra_mask] .-= hip_nonlinear_dpmra
                 y_corrected[hg_ra_mask] .-= hg_nonlinear_dpmra
-            # end
-            
+            end
+
             scatter!(
                 ax_velra,
                 concat_with_nan(stack(x[mask] for _ in 1:length(sims))),
@@ -269,14 +272,14 @@ function absastromplot!(
         if !isempty(mask)
             # Apply nonlinear correction to get true proper motion for plotting
             y_corrected = copy(y)
-            # if absolute_orbits
-                # Remove nonlinear corrections from Hipparcos and HGCA measurements 
+            if absolute_orbits
+                # Remove nonlinear corrections from Hipparcos and HGCA measurements
                 # to show true proper motion consistently with model lines
                 hip_dec_mask = [k == :dec_hip for k in absastrom.table.kind]
                 hg_dec_mask = [k == :dec_hg for k in absastrom.table.kind]
                 y_corrected[hip_dec_mask] .-= hip_nonlinear_dpmdec
                 y_corrected[hg_dec_mask] .-= hg_nonlinear_dpmdec
-            # end
+            end
             
             scatter!(
                 ax_veldec,
@@ -322,8 +325,8 @@ function absastromplot!(
         # plot all of ra,dec, ueva on axis in order of epochs
         # plot iad in another panel
 
-        μ_h_cat, Σ_h = isnothing(absastrom.catalog.dist_hip) ? ([0.,0.], zeros(2,2)) : params(absastrom.catalog.dist_hip) 
-        μ_hg_cat, Σ_hg = isnothing(absastrom.catalog.dist_hg) ? ([0.,0.], zeros(2,2)) : params(absastrom.catalog.dist_hg) 
+        μ_h_cat, Σ_h = isnothing(absastrom.catalog.dist_hip) ? ([0.,0.], zeros(2,2)) : params(absastrom.catalog.dist_hip)
+        μ_hg_cat, Σ_hg = isnothing(absastrom.catalog.dist_hg) ? ([0.,0.], zeros(2,2)) : params(absastrom.catalog.dist_hg)
         μ_dr2_cat, Σ_dr2 = params(absastrom.catalog.dist_dr2)
         μ_dr32_cat, Σ_dr32 = params(absastrom.catalog.dist_dr32)
         μ_dr3_cat, Σ_dr3 = params(absastrom.catalog.dist_dr3)
@@ -335,43 +338,74 @@ function absastromplot!(
 
         z_scores = map(sims) do sim
             y = collect(vec(absastrom.table.pm))
-            
-            # Apply the same nonlinear corrections as in the plots above for consistency
-            # if absolute_orbits
-                # Remove nonlinear corrections from Hipparcos and HGCA measurements 
-                # to show true proper motion consistently
-            hip_ra_idx = findfirst(==(:ra_hip), absastrom.table.kind)
-            hip_dec_idx = findfirst(==(:dec_hip), absastrom.table.kind) 
-            hg_ra_idx = findfirst(==(:ra_hg), absastrom.table.kind)
-            hg_dec_idx = findfirst(==(:dec_hg), absastrom.table.kind)
-            
-            if !isnothing(hip_ra_idx)
-                y[hip_ra_idx] -= hip_nonlinear_dpmra
+
+            # Apply nonlinear corrections only for absolute orbits,
+            # matching the likelihood code (g23h.jl lines 750-764)
+            if absolute_orbits
+                hip_ra_idx = findfirst(==(:ra_hip), absastrom.table.kind)
+                hip_dec_idx = findfirst(==(:dec_hip), absastrom.table.kind)
+                hg_ra_idx = findfirst(==(:ra_hg), absastrom.table.kind)
+                hg_dec_idx = findfirst(==(:dec_hg), absastrom.table.kind)
+
+                if !isnothing(hip_ra_idx)
+                    y[hip_ra_idx] -= hip_nonlinear_dpmra
+                end
+                if !isnothing(hip_dec_idx)
+                    y[hip_dec_idx] -= hip_nonlinear_dpmdec
+                end
+                if !isnothing(hg_ra_idx)
+                    y[hg_ra_idx] -= hg_nonlinear_dpmra
+                end
+                if !isnothing(hg_dec_idx)
+                    y[hg_dec_idx] -= hg_nonlinear_dpmdec
+                end
             end
-            if !isnothing(hip_dec_idx)
-                y[hip_dec_idx] -= hip_nonlinear_dpmdec
-            end
-            if !isnothing(hg_ra_idx)
-                y[hg_ra_idx] -= hg_nonlinear_dpmra
-            end
-            if !isnothing(hg_dec_idx)
-                y[hg_dec_idx] -= hg_nonlinear_dpmdec
-            end
-            # end
-            
+
             idx = findfirst(==(:ueva_dr3), absastrom.table.kind)
             if !isnothing(idx)
                 y[idx] = sim.μ_1_3
             end
-           
+
             resids = sim.μ[jj] .- y[mask]
+
+            # Apply the same covariance adjustments as the likelihood
+            # (g23h.jl lines 845-974) so z-scores reflect the actual fit quality.
+
+            # DR3 deflation: the companion explains some astrometric excess noise,
+            # so the effective DR3 uncertainties should be deflated.
+            d = sim.deflation_factor_dr3
+            Σ_dr3_adj = Σ_dr3 .* d^2
+
+            # DR32 covariance adjustment: account for deflation effect on DR3
+            # position contribution to the scaled position difference.
+            σ_ra_dr3 = absastrom.catalog.ra_error_central_dr3
+            σ_dec_dr3 = absastrom.catalog.dec_error_central_dr3
+            ρ_radec_dr3 = absastrom.catalog.ra_dec_corr_central_dr3
+            Σ_pos_dr3 = [
+                σ_ra_dr3^2                         ρ_radec_dr3*σ_ra_dr3*σ_dec_dr3
+                ρ_radec_dr3*σ_ra_dr3*σ_dec_dr3     σ_dec_dr3^2
+            ]
+            σ_ra_dr2 = absastrom.catalog.ra_error_central_dr2
+            σ_dec_dr2 = absastrom.catalog.dec_error_central_dr2
+            ρ_radec_dr2 = absastrom.catalog.ra_dec_corr_central_dr2
+            ρ_dr3_dr2 = √(min(sim.n_dr2, sim.n_dr3) / max(sim.n_dr2, sim.n_dr3))
+            Σ_cross = [
+                ρ_dr3_dr2*σ_ra_dr3*σ_ra_dr2                    ρ_dr3_dr2*ρ_radec_dr3*σ_ra_dr3*σ_dec_dr2
+                ρ_dr3_dr2*ρ_radec_dr2*σ_dec_dr3*σ_ra_dr2      ρ_dr3_dr2*σ_dec_dr3*σ_dec_dr2
+            ]
+            Δt_ra = (absastrom.catalog.epoch_ra_dr3_mjd - absastrom.catalog.epoch_ra_dr2_mjd) / Octofitter.julian_year
+            Δt_dec = (absastrom.catalog.epoch_dec_dr3_mjd - absastrom.catalog.epoch_dec_dr2_mjd) / Octofitter.julian_year
+            ΔΣ_pos = (d^2 - 1) * Σ_pos_dr3 - (d - 1) * (Σ_cross + Σ_cross')
+            Tr = [1/Δt_ra 0.0; 0.0 1/Δt_dec]
+            ΔΣ_dr32 = Tr * ΔΣ_pos * Tr'
+            Σ_dr32_adj = Σ_dr32 .+ ΔΣ_dr32
 
             sigmas = [
                 sqrt.(diag(Σ_h))
                 sqrt.(diag(Σ_hg))
                 sqrt.(diag(Σ_dr2))
-                sqrt.(diag(Σ_dr32))
-                sqrt.(diag(Σ_dr3))
+                sqrt.(max.(diag(Σ_dr32_adj), 0.0))
+                sqrt.(diag(Σ_dr3_adj))
                 sim.UEVA_unc
             ][jj]
             return resids ./ sigmas
