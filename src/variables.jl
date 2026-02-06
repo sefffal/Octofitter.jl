@@ -374,7 +374,13 @@ function ln_like(user_like::UserLikelihood{TSym_LHS, TSym_RHS}, ctx::PlanetObser
     if rhs isa NTuple{N,<:Number} where N
         rhs = SVector(rhs)
     end
-    return logpdf(lhs, rhs)
+    if lhs isa Distribution
+        return logpdf(lhs, rhs)
+    elseif rhs isa Distribution
+        return logpdf(rhs, lhs)
+    else
+        error("neither the left nor right hand side of the `~` expression evaluated to a distribution")
+    end
 end
 
 # Show method
