@@ -738,7 +738,7 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
                 pmra_var = like.catalog.pmra_dr3_error[1]^2 + (hasproperty(θ_obs, :σ_dr3_pmra) ? θ_obs.σ_dr3_pmra : zero(T))^2
                 pmdec_var = like.catalog.pmdec_dr3_error[1]^2 + (hasproperty(θ_obs, :σ_dr3_pmdec) ? θ_obs.σ_dr3_pmdec : zero(T))^2
                 dist_dr3 = MvNormal(
-                    @SVector([like.catalog.pmra_dr2, like.catalog.pmdec_dr2]),
+                    @SVector([like.catalog.pmra_dr3, like.catalog.pmdec_dr3]),
                     @SArray[
                         pmra_var c
                         c pmdec_var
