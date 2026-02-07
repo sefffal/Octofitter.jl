@@ -156,7 +156,7 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
 └   D = 12
 ┌ Info: Determined number type
 └   T = Float64
-ℓπcallback(θ): 0.000013 seconds
+ℓπcallback(θ): 0.000017 seconds
 ∇ℓπcallback(θ): 0.000029 seconds (1 allocation: 32 bytes)
 ┌ Warning: This model has priors that cannot be sampled IID.
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:105
@@ -171,16 +171,16 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.33       2.86      0.252   4.15e+06      -10.2   2.76e-08      0.801          1          1
-        4          0       4.16       4.17      0.112   1.41e+05       2.84      0.128      0.731          1          1
-        8          0       4.55       3.75      0.225   2.29e+05       1.47     0.0143      0.732          1          1
-       16          0       4.71       5.73      0.471   4.05e+05       2.97      0.305      0.663          1          1
-       32          0       5.62       6.33      0.961   6.57e+05       13.5       0.38      0.615          1          1
-       64          0       5.79        4.7       2.22   5.66e+07         54   7.64e-05      0.662          1          1
-      128          4       5.64       4.48       3.97   9.66e+07       65.5      0.207      0.674          1          1
-      256         14       5.44       4.69       8.14   1.93e+08       65.1      0.241      0.673          1          1
-      512         26       5.27       4.76       16.1   3.86e+08       65.4      0.486      0.676          1          1
- 1.02e+03         66       5.37       4.76       31.7   7.67e+08       65.5      0.517      0.673          1          1
+        2          0       3.33       2.86      0.267   4.15e+06      -10.2   2.76e-08      0.801          1          1
+        4          0       4.16       4.17      0.113   1.41e+05       2.84      0.128      0.731          1          1
+        8          0       4.55       3.75      0.228   2.29e+05       1.47     0.0143      0.732          1          1
+       16          0       4.71       5.73      0.477   4.05e+05       2.97      0.305      0.663          1          1
+       32          0       5.62       6.33      0.991   6.57e+05       13.5       0.38      0.615          1          1
+       64          0       5.79        4.7       2.21   5.66e+07         54   7.64e-05      0.662          1          1
+      128          4       5.64       4.48       4.07   9.66e+07       65.5      0.207      0.674          1          1
+      256         14       5.44       4.69        8.2   1.93e+08       65.1      0.241      0.673          1          1
+      512         26       5.27       4.76       16.3   3.86e+08       65.4      0.486      0.676          1          1
+ 1.02e+03         66       5.37       4.76       32.2   7.67e+08       65.5      0.517      0.673          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info" id="Note-885630c21c612562"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-885630c21c612562" title="Permalink"></a></header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><h2 id="Diagnostics"><a class="docs-heading-anchor" href="#Diagnostics">Diagnostics</a><a id="Diagnostics-1"></a><a class="docs-heading-anchor-permalink" href="#Diagnostics" title="Permalink"></a></h2><p>The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.</p><p>The acceptance rate should be somewhat lower than when fitting just astrometry, e.g. around the 0.6 target.</p><p>You can make a trace plot:</p><pre><code class="language-julia hljs">lines(
     chain[&quot;b_a&quot;][:],
     axis=(;
@@ -194,7 +194,7 @@ lines(
         xlabel=&quot;lag&quot;,
         ylabel=&quot;autocorrelation&quot;,
     )
-)</code></pre><img src="b8be3755.png" alt="Example block output"/><p>For this model, there is somewhat higher correlation between samples. Some thinning to remove this correlation is recommended.</p><h2 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h2><p>We can now view the orbit fit:</p><pre><code class="language- hljs">fig = octoplot(model, chain)</code></pre><p>With a bit of work, we can plot one of the images under the orbit.</p><pre><code class="language- hljs">fig = octoplot(model, chain)
+)</code></pre><img src="b8be3755.png" alt="Example block output"/><p>For this model, there is somewhat higher correlation between samples. Some thinning to remove this correlation is recommended.</p><h2 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h2><p>We can now view the orbit fit:</p><pre><code class="language-julia hljs">fig = octoplot(model, chain)</code></pre><img src="9deeca0d.png" alt="Example block output"/><p>With a bit of work, we can plot one of the images under the orbit.</p><pre><code class="language-julia hljs">fig = octoplot(model, chain)
 ax = fig.content[1] # grap first axis in the figure
 
 # We have to do some annoying work to get the image orientated correctly,
@@ -211,7 +211,7 @@ Makie.translate!(h, 0,0,-1) # Send heatmap to back of the plot
 Colorbar(fig[1,2], h, label=&quot;image flux&quot;)
 
 Makie.resize_to_layout!(fig)
-fig</code></pre><p>Another useful view would be the orbits over a stack of the maximum pixel values of all images.</p><pre><code class="language- hljs">fig = octoplot(model, chain)
+fig</code></pre><img src="21061388.png" alt="Example block output"/><p>Another useful view would be the orbits over a stack of the maximum pixel values of all images.</p><pre><code class="language-julia hljs">fig = octoplot(model, chain)
 ax = fig.content[1] # grap first axis in the figure
 
 # We have to do some annoying work to get the image orientated correctly
@@ -224,6 +224,6 @@ imgax2 = dims(img,2) .* platescale
 h = heatmap!(ax, imgax1, imgax2, collect(img), colormap=:greys)
 Makie.translate!(h, 0,0,-1) # Send heatmap to back of the plot
 Makie.resize_to_layout!(fig)
-fig</code></pre><h2 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h2><p>We can show the relationships between variables on a pair plot (aka corner plot):</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+fig</code></pre><img src="a803281f.png" alt="Example block output"/><h2 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h2><p>We can show the relationships between variables on a pair plot (aka corner plot):</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 octocorner(model, chain, small=true)</code></pre><img src="4bfc4e5c.png" alt="Example block output"/><p>Note that this time, we also show the recovered photometry in the corner plot.</p><h2 id="Assessing-Detections"><a class="docs-heading-anchor" href="#Assessing-Detections">Assessing Detections</a><a id="Assessing-Detections-1"></a><a class="docs-heading-anchor-permalink" href="#Assessing-Detections" title="Permalink"></a></h2><p>To assess a detection, we can treat all the orbital variables as nuisance parameters.  We start by plotting the marginal distribution of the flux parameter, <code>H</code>:</p><pre><code class="language-julia hljs">hist(chain[&quot;b_SPHERE_flux&quot;][:], axis=(xlabel=&quot;flux&quot;, ylabel=&quot;counts&quot;))</code></pre><img src="282c6dde.png" alt="Example block output"/><p>We can calculate an analog of the traditional signal to noise ratio (SNR) using that same histogram:</p><pre><code class="language-julia hljs">flux = chain[&quot;b_SPHERE_flux&quot;]
-snr = mean(flux)/std(flux)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">14.233989270458702</code></pre><p>It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../gaia-dr4-simulation/">« Gaia DR4 Simulation</a><a class="docs-footer-nextpage" href="../extract-phot-astrom/">Extract Astrom. and Photometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 2 February 2026 21:38">Monday 2 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+snr = mean(flux)/std(flux)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">14.233989270458702</code></pre><p>It might be better to consider a related measure, like the median flux over the interquartile distance. This will depend on your application.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../gaia-dr4-simulation/">« Gaia DR4 Simulation</a><a class="docs-footer-nextpage" href="../extract-phot-astrom/">Extract Astrom. and Photometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Saturday 7 February 2026 03:56">Saturday 7 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

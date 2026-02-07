@@ -90,17 +90,17 @@ sys = System(
 )
 
 model = Octofitter.LogDensityModel(sys)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System Example-System of dimension 8 and 25 epochs with fields .ℓπcallback and .∇ℓπcallback
-</code></pre><h3 id="Initialize-the-model-and-verify-starting-point"><a class="docs-heading-anchor" href="#Initialize-the-model-and-verify-starting-point">Initialize the model and verify starting point</a><a id="Initialize-the-model-and-verify-starting-point-1"></a><a class="docs-heading-anchor-permalink" href="#Initialize-the-model-and-verify-starting-point" title="Permalink"></a></h3><pre><code class="language- hljs">init_chain = initialize!(model)
+</code></pre><h3 id="Initialize-the-model-and-verify-starting-point"><a class="docs-heading-anchor" href="#Initialize-the-model-and-verify-starting-point">Initialize the model and verify starting point</a><a id="Initialize-the-model-and-verify-starting-point-1"></a><a class="docs-heading-anchor-permalink" href="#Initialize-the-model-and-verify-starting-point" title="Permalink"></a></h3><pre><code class="language-julia hljs">init_chain = initialize!(model)
 
-octoplot(model, init_chain)</code></pre><pre><code class="language-julia hljs">using Random
+octoplot(model, init_chain)</code></pre><img src="43a64504.png" alt="Example block output"/><pre><code class="language-julia hljs">using Random
 rng = Random.Xoshiro(123)
 chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×23×1 Array{Float64, 3}):
 
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 3.91 seconds
-Compute duration  = 3.91 seconds
+Wall duration     = 4.0 seconds
+Compute duration  = 4.0 seconds
 parameters        = b_M, b_a, b_e, b_i, b_ω, b_Ω, b_τ, b_P, b_tp, b_simulated_data_jitter
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -108,31 +108,31 @@ Summary Statistics
  <span class="sgr1">              parameters         mean        std      mcse    ess_bulk   ess_ ⋯
  <span class="sgr90">                  Symbol      Float64    Float64   Float64     Float64    Flo ⋯
 
-                      b_M       1.1893     0.0991    0.0029   1128.9704   583. ⋯
-                      b_a       1.2718     0.0379    0.0011   1210.9592   597. ⋯
-                      b_e       0.1259     0.0994    0.0032    853.0464   415. ⋯
-                      b_i       1.5902     0.6750    0.0203   1058.7600   636. ⋯
-                      b_ω       2.5784     1.5425    0.0706    416.8616   277. ⋯
-                      b_Ω       3.1524     1.8000    0.0531   1155.5250   632. ⋯
-                      b_τ       0.5944     0.2526    0.0110    441.5035   263. ⋯
-                      b_P       1.3168     0.0214    0.0007    953.4333   742. ⋯
-                     b_tp   60286.4873   122.5315    5.2730    432.9380   314. ⋯
-  b_simulated_data_jitter      98.6873   197.3427    7.0197   1006.3918   708. ⋯
+                      b_M       1.1916     0.0962    0.0029   1083.6297   520. ⋯
+                      b_a       1.2731     0.0369    0.0011   1063.5628   438. ⋯
+                      b_e       0.1176     0.0827    0.0023   1010.7674   503. ⋯
+                      b_i       1.5727     0.6680    0.0195   1142.0421   600. ⋯
+                      b_ω       2.4974     1.5047    0.0671    383.1422   197. ⋯
+                      b_Ω       3.1077     1.7735    0.0524   1104.7354   577. ⋯
+                      b_τ       0.5854     0.2411    0.0111    459.3067   515. ⋯
+                      b_P       1.3175     0.0212    0.0007    839.5689   588. ⋯
+                     b_tp   60282.1922   116.8188    5.3430    460.7221   515. ⋯
+  b_simulated_data_jitter     110.4958   198.1335    6.5064    847.7922   502. ⋯
 </span><span class="sgr36">                                                               3 columns omitted
 
 Quantiles
                parameters         2.5%        25.0%        50.0%        75.0%  ⋯
  </span><span class="sgr90">                  Symbol      Float64      Float64      Float64      Float64  ⋯
 
-                      b_M       1.0080       1.1195       1.1902       1.2553  ⋯
-                      b_a       1.1971       1.2451       1.2733       1.2967  ⋯
-                      b_e       0.0036       0.0465       0.1054       0.1824  ⋯
-                      b_i       0.3512       1.0510       1.5714       2.1176  ⋯
-                      b_ω       0.1199       1.2221       2.5002       3.8300  ⋯
-                      b_Ω       0.1606       1.5518       3.1230       4.7633  ⋯
-                      b_τ       0.1206       0.3957       0.6150       0.8165  ⋯
-                      b_P       1.2757       1.3025       1.3156       1.3308  ⋯
-                     b_tp   60056.8100   60189.7240   60297.2629   60393.1140  ⋯
-  b_simulated_data_jitter       0.1209       1.0661       9.2801      84.7962  ⋯
+                      b_M       1.0100       1.1277       1.1923       1.2537  ⋯
+                      b_a       1.1974       1.2496       1.2738       1.2980  ⋯
+                      b_e       0.0090       0.0505       0.0997       0.1670  ⋯
+                      b_i       0.3170       1.0583       1.5760       2.1006  ⋯
+                      b_ω       0.1634       1.2349       2.4132       3.6328  ⋯
+                      b_Ω       0.1950       1.6013       3.0940       4.6506  ⋯
+                      b_τ       0.1364       0.3969       0.5932       0.7876  ⋯
+                      b_P       1.2790       1.3024       1.3172       1.3319  ⋯
+                     b_tp   60064.4876   60189.8956   60286.8165   60380.1405  ⋯
+  b_simulated_data_jitter       0.1215       1.0360      11.9378     127.9525  ⋯
 </span><span class="sgr36">                                                                1 column omitted
-</span></span></code></pre><pre><code class="language- hljs">octoplot(model, chain, show_physical_orbit=true, mark_epochs_mjd=[mjd(&quot;2015-07-15&quot;)])</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-multi-planet/">« Multiple Planets</a><a class="docs-footer-nextpage" href="../pma/">Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 2 February 2026 21:38">Monday 2 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</span></span></code></pre><pre><code class="language-julia hljs">octoplot(model, chain, show_physical_orbit=true, mark_epochs_mjd=[mjd(&quot;2015-07-15&quot;)])</code></pre><img src="b770c9f9.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-multi-planet/">« Multiple Planets</a><a class="docs-footer-nextpage" href="../pma/">Proper Motion Anomaly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Saturday 7 February 2026 03:56">Saturday 7 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

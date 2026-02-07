@@ -162,7 +162,7 @@ StarAbsoluteRVObs Table with 3 columns and 39 rows:
 </code></pre><p>Initialize the starting points, and confirm the data are entered correcly:</p><pre><code class="language-julia hljs">init_chain = initialize!(model)
 
 using CairoMakie
-fig = Octofitter.rvpostplot(model, init_chain)</code></pre><img src="7ae06365.png" alt="Example block output"/><p>Sample:</p><pre><code class="language-julia hljs">using Random
+fig = Octofitter.rvpostplot(model, init_chain)</code></pre><img src="0d6fffee.png" alt="Example block output"/><p>Sample:</p><pre><code class="language-julia hljs">using Random
 rng = Random.Xoshiro(0)
 
 chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×28×1 Array{Float64, 3}):
@@ -170,8 +170,8 @@ chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 21.07 seconds
-Compute duration  = 21.07 seconds
+Wall duration     = 21.61 seconds
+Compute duration  = 21.61 seconds
 parameters        = M, harps_n_offset, harps_n_jitter, pfs_offset, pfs_jitter, b_P, b_τx, b_τy, b_mass, b_τ, b_e, b_ω, b_M, b_a, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
@@ -179,47 +179,47 @@ Summary Statistics
  <span class="sgr1">     parameters         mean       std      mcse    ess_bulk   ess_tail       ⋯
  <span class="sgr90">         Symbol      Float64   Float64   Float64     Float64    Float64   Flo ⋯
 
-               M       0.8200    0.0200    0.0006   1094.3941   661.4249    0. ⋯
-  harps_n_offset   -6693.6747    2.3139    0.0919    670.5496   389.2724    1. ⋯
-  harps_n_jitter      14.0085    2.1772    0.0818    734.0813   599.6008    1. ⋯
-      pfs_offset       1.6048    3.1663    0.0907   1233.4440   871.0140    1. ⋯
-      pfs_jitter      17.5767    2.6411    0.0814   1185.0594   762.3618    1. ⋯
-             b_P       0.0010    0.0000    0.0000   1027.5182   623.2084    0. ⋯
-            b_τx       0.7191    0.1874    0.0069    919.8760   455.2879    0. ⋯
-            b_τy      -0.6639    0.1808    0.0060    911.7025   698.9634    1. ⋯
-          b_mass       0.0413    0.0088    0.0003    915.4500   395.5100    0. ⋯
-             b_τ      -0.1189    0.0384    0.0015    777.8353   435.5290    0. ⋯
+               M       0.8204    0.0199    0.0007    895.8447   657.4061    0. ⋯
+  harps_n_offset   -6693.6781    2.7164    0.0827   1104.4964   565.5679    1. ⋯
+  harps_n_jitter      13.9717    2.0354    0.0945    511.2727   386.1550    1. ⋯
+      pfs_offset       1.7417    3.3583    0.1133    887.1306   562.2308    1. ⋯
+      pfs_jitter      17.5636    2.7912    0.0953    927.9957   595.4326    0. ⋯
+             b_P       0.0010    0.0000    0.0000    930.8766   573.3838    1. ⋯
+            b_τx       0.7181    0.1876    0.0081    606.4267   374.1887    1. ⋯
+            b_τy      -0.6582    0.1839    0.0068    753.7918   544.8004    1. ⋯
+          b_mass       0.0410    0.0093    0.0005    608.7501   191.4465    1. ⋯
+             b_τ      -0.1184    0.0394    0.0017    570.9152   421.4968    1. ⋯
              b_e       0.0000    0.0000       NaN         NaN        NaN       ⋯
              b_ω       0.0000    0.0000       NaN         NaN        NaN       ⋯
-             b_M       0.8200    0.0200    0.0006   1094.3941   661.4249    0. ⋯
-             b_a       0.0094    0.0001    0.0000   1094.2496   661.4249    0. ⋯
-            b_tp   57781.9561    0.0142    0.0005    777.9044   435.5290    0. ⋯
+             b_M       0.8204    0.0199    0.0007    895.8447   657.4061    0. ⋯
+             b_a       0.0094    0.0001    0.0000    897.4676   657.4061    0. ⋯
+            b_tp   57781.9563    0.0145    0.0006    570.9399   421.4968    1. ⋯
 </span><span class="sgr36">                                                               2 columns omitted
 
 Quantiles
       parameters         2.5%        25.0%        50.0%        75.0%        97 ⋯
  </span><span class="sgr90">         Symbol      Float64      Float64      Float64      Float64      Floa ⋯
 
-               M       0.7778       0.8077       0.8199       0.8327       0.8 ⋯
-  harps_n_offset   -6698.7350   -6695.1396   -6693.6353   -6692.1010   -6689.4 ⋯
-  harps_n_jitter      10.3631      12.4617      13.8409      15.3154      18.8 ⋯
-      pfs_offset      -4.3280      -0.5807       1.5840       3.7816       7.7 ⋯
-      pfs_jitter      13.3812      15.6783      17.3156      19.1101      23.6 ⋯
+               M       0.7805       0.8078       0.8209       0.8339       0.8 ⋯
+  harps_n_offset   -6698.9349   -6695.4928   -6693.7344   -6691.9160   -6688.3 ⋯
+  harps_n_jitter      10.4391      12.5129      13.7117      15.1366      18.4 ⋯
+      pfs_offset      -4.7440      -0.4614       1.8213       4.0239       8.3 ⋯
+      pfs_jitter      13.0994      15.6403      17.2548      19.0810      24.1 ⋯
              b_P       0.0010       0.0010       0.0010       0.0010       0.0 ⋯
-            b_τx       0.2754       0.6165       0.7401       0.8384       1.0 ⋯
-            b_τy      -1.0098      -0.7835      -0.6729      -0.5530      -0.3 ⋯
-          b_mass       0.0244       0.0355       0.0414       0.0470       0.0 ⋯
-             b_τ      -0.2056      -0.1431      -0.1167      -0.0947      -0.0 ⋯
+            b_τx       0.3170       0.6045       0.7357       0.8459       1.0 ⋯
+            b_τy      -0.9756      -0.7944      -0.6618      -0.5432      -0.2 ⋯
+          b_mass       0.0239       0.0355       0.0412       0.0472       0.0 ⋯
+             b_τ      -0.1979      -0.1435      -0.1178      -0.0916      -0.0 ⋯
              b_e       0.0000       0.0000       0.0000       0.0000       0.0 ⋯
              b_ω       0.0000       0.0000       0.0000       0.0000       0.0 ⋯
-             b_M       0.7778       0.8077       0.8199       0.8327       0.8 ⋯
+             b_M       0.7805       0.8078       0.8209       0.8339       0.8 ⋯
              b_a       0.0093       0.0094       0.0094       0.0095       0.0 ⋯
-            b_tp   57781.9241   57781.9472   57781.9569   57781.9650   57781.9 ⋯
+            b_tp   57781.9269   57781.9470   57781.9565   57781.9662   57781.9 ⋯
 </span><span class="sgr36">                                                                1 column omitted
 </span></span></code></pre><p>Excellent! Let&#39;s plot an orbit sampled from the posterior:</p><pre><code class="language-julia hljs">using CairoMakie
-fig = Octofitter.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="b751d692.png" alt="Example block output"/><p>We can also plot a sample of draws from the posterior:</p><pre><code class="language- hljs">using CairoMakie: Makie
-octoplot(model, chain)</code></pre><p>And create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots, CairoMakie
-octocorner(model, chain)</code></pre><img src="29a47f6b.png" alt="Example block output"/><p>This example continues in <a href="../rv-gp/#fit-rv-gp">Fit Gaussian Process</a>.</p><h2 id="Simulating-RV-Data"><a class="docs-heading-anchor" href="#Simulating-RV-Data">Simulating RV Data</a><a id="Simulating-RV-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Simulating-RV-Data" title="Permalink"></a></h2><p>To generate synthetic radial velocity data for testing, the recommended approach is to use Octofitter&#39;s built-in simulation capabilities. See the <a href="../data-simulation/#data-simulation">Generating and Fitting Simulated Data</a> tutorial for a complete guide on simulating data from models.</p><p>Alternatively, you can generate RV data directly using the <code>radvel</code> function from <a href="https://sefffal.github.io/PlanetOrbits.jl/dev/api/">PlanetOrbits.jl</a>:</p><pre><code class="language-julia hljs">using PlanetOrbits
+fig = Octofitter.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="dc14e4b2.png" alt="Example block output"/><p>We can also plot a sample of draws from the posterior:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
+octoplot(model, chain)</code></pre><img src="b8859985.png" alt="Example block output"/><p>And create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots, CairoMakie
+octocorner(model, chain)</code></pre><img src="753483cd.png" alt="Example block output"/><p>This example continues in <a href="../rv-gp/#fit-rv-gp">Fit Gaussian Process</a>.</p><h2 id="Simulating-RV-Data"><a class="docs-heading-anchor" href="#Simulating-RV-Data">Simulating RV Data</a><a id="Simulating-RV-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Simulating-RV-Data" title="Permalink"></a></h2><p>To generate synthetic radial velocity data for testing, the recommended approach is to use Octofitter&#39;s built-in simulation capabilities. See the <a href="../data-simulation/#data-simulation">Generating and Fitting Simulated Data</a> tutorial for a complete guide on simulating data from models.</p><p>Alternatively, you can generate RV data directly using the <code>radvel</code> function from <a href="https://sefffal.github.io/PlanetOrbits.jl/dev/api/">PlanetOrbits.jl</a>:</p><pre><code class="language-julia hljs">using PlanetOrbits
 
 # Create an orbit
 orb = orbit(a=1.0, e=0.1, ω=0.5, M=1.0, tp=58000.0)
@@ -228,4 +228,4 @@ orb = orbit(a=1.0, e=0.1, ω=0.5, M=1.0, tp=58000.0)
 # Units: epoch in MJD, mass in solar masses (not Jupiter masses!)
 epoch = 58100.0
 companion_mass_msol = 0.001  # ~1 Jupiter mass in solar masses
-rv = radvel(orb, epoch, companion_mass_msol)  # returns m/s</code></pre><div class="admonition is-warning" id="Warning-dfd708f7ebe99ef6"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-dfd708f7ebe99ef6" title="Permalink"></a></header><div class="admonition-body"><p>The <code>radvel</code> function takes companion mass in <strong>solar masses</strong>, unlike most places in Octofitter which use Jupiter masses. Use <code>Octofitter.mjup2msol</code> to convert if needed.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../thiele-innes/">« Thiele-Innes Parameters</a><a class="docs-footer-nextpage" href="../rv-gp/">Gaussian Process »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 2 February 2026 21:38">Monday 2 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+rv = radvel(orb, epoch, companion_mass_msol)  # returns m/s</code></pre><div class="admonition is-warning" id="Warning-dfd708f7ebe99ef6"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-dfd708f7ebe99ef6" title="Permalink"></a></header><div class="admonition-body"><p>The <code>radvel</code> function takes companion mass in <strong>solar masses</strong>, unlike most places in Octofitter which use Jupiter masses. Use <code>Octofitter.mjup2msol</code> to convert if needed.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../thiele-innes/">« Thiele-Innes Parameters</a><a class="docs-footer-nextpage" href="../rv-gp/">Gaussian Process »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Saturday 7 February 2026 03:56">Saturday 7 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
