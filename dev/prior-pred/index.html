@@ -41,16 +41,16 @@ sys = System(
     end
 )</code></pre><p>We can now draw one sample from the prior:</p><pre><code class="language-julia hljs">prior_draw_system = generate_from_params(sys)
 prior_draw_astrometry = prior_draw_system.planets.b.observations[1]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PlanetRelAstromObs Table with 5 columns and 8 rows:
-     epoch  ra       dec       σ_ra  σ_dec
-   ┌──────────────────────────────────────
- 1 │ 50000  215.151  65.6113   50.0  50.0
- 2 │ 50120  187.894  37.5653   50.0  50.0
- 3 │ 50240  159.719  9.33707   50.0  50.0
- 4 │ 50360  130.706  -18.9385  50.0  50.0
- 5 │ 50480  100.958  -47.1052  50.0  50.0
- 6 │ 50600  70.6004  -74.985   50.0  50.0
- 7 │ 50720  39.7884  -102.378  50.0  50.0
- 8 │ 50840  8.70411  -129.062  50.0  50.0</code></pre><p>And plot the generated astrometry:</p><pre><code class="language-julia hljs">Makie.scatter(prior_draw_astrometry.table.ra, prior_draw_astrometry.table.dec,color=:black, axis=(;autolimitaspect=1,xreversed=true))</code></pre><img src="4ff2ec65.png" alt="Example block output"/><p>We can repeat this many times to get a feel for our chosen priors in the domain of our data:</p><pre><code class="language-julia hljs">using Random
+     epoch  ra        dec       σ_ra  σ_dec
+   ┌───────────────────────────────────────
+ 1 │ 50000  -72.4139  154.007   50.0  50.0
+ 2 │ 50120  -47.1304  133.54    50.0  50.0
+ 3 │ 50240  -20.0197  107.933   50.0  50.0
+ 4 │ 50360  7.7989    78.5787   50.0  50.0
+ 5 │ 50480  35.3856   46.7408   50.0  50.0
+ 6 │ 50600  61.9601   13.5402   50.0  50.0
+ 7 │ 50720  86.8766   -20.0344  50.0  50.0
+ 8 │ 50840  109.598   -53.109   50.0  50.0</code></pre><p>And plot the generated astrometry:</p><pre><code class="language-julia hljs">Makie.scatter(prior_draw_astrometry.table.ra, prior_draw_astrometry.table.dec,color=:black, axis=(;autolimitaspect=1,xreversed=true))</code></pre><img src="f3491298.png" alt="Example block output"/><p>We can repeat this many times to get a feel for our chosen priors in the domain of our data:</p><pre><code class="language-julia hljs">using Random
 Random.seed!(1)
 
 
@@ -75,4 +75,4 @@ end
 Makie.errorbars!(ax,astrom_dat.ra,astrom_dat.dec,astrom_dat.σ_dec,color=:black,linewidth=3)
 Makie.errorbars!(ax,astrom_dat.ra,astrom_dat.dec,astrom_dat.σ_ra,direction=:x,color=:black,linewidth=3)
 
-fig</code></pre><img src="b197786a.png" alt="Example block output"/><p>The heavy black crosses are our actual data, while the colored ones are simulations drawn from our priors. Notice that our real data lies at a greater separation than most draws from the prior? That might mean the priors could be tweaked.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../data-simulation/">« Generating and Fitting Simulated Data</a><a class="docs-footer-nextpage" href="../post-pred/">Posterior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Saturday 7 February 2026 03:56">Saturday 7 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+fig</code></pre><img src="b197786a.png" alt="Example block output"/><p>The heavy black crosses are our actual data, while the colored ones are simulations drawn from our priors. Notice that our real data lies at a greater separation than most draws from the prior? That might mean the priors could be tweaked.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../data-simulation/">« Generating and Fitting Simulated Data</a><a class="docs-footer-nextpage" href="../post-pred/">Posterior Predictive Checks »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Saturday 14 February 2026 21:07">Saturday 14 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -45,23 +45,23 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
 │   num_params = 11
 └   num_fixed = 0
 ┌ Info: Found sample of initial positions
-│   logpost_range = (-27.525410151437285, -15.472239835075007)
-└   mean_logpost = -17.23899154539307
+│   logpost_range = (-27.525384764969427, -15.472239835075007)
+└   mean_logpost = -17.23899048452106
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.94       2.15       0.24   4.14e+06  -1.66e+08          0      0.804          1          1
-        4          0       4.52        3.5     0.0735   1.45e+05  -8.06e+06          0      0.741          1          1
-        8          0       4.17       4.62      0.145   2.68e+05  -4.43e+05          0      0.717          1          1
-       16          0       4.51       5.62      0.287   4.37e+05  -2.73e+05          0      0.673          1          1
-       32          0       5.32        5.9      0.562    7.8e+05   -9.5e+03          0      0.638          1          1
+        2          0       3.94       2.15      0.231   4.14e+06  -1.66e+08          0      0.804          1          1
+        4          0       4.52        3.5     0.0728   1.45e+05  -8.06e+06          0      0.741          1          1
+        8          0       4.17       4.62      0.144   2.68e+05  -4.43e+05          0      0.717          1          1
+       16          0       4.51       5.62      0.283   4.37e+05  -2.73e+05          0      0.673          1          1
+       32          0       5.32        5.9      0.559    7.8e+05   -9.5e+03          0      0.638          1          1
        64          1       6.02       2.99       1.26   4.33e+07      -15.8          0      0.709          1          1
-      128          7       6.74       3.28       2.15   7.33e+07        -17          0      0.677          1          1
-      256         20       6.99       2.98       4.45   1.46e+08      -17.1          0      0.678          1          1
-      512         44       7.53       3.54       8.73   2.93e+08      -17.3   2.73e-37      0.643          1          1
- 1.02e+03         95       7.88       3.08       17.5   5.81e+08      -17.3    0.00179      0.647          1          1
- 2.05e+03        201       8.43       2.95       35.2   1.16e+09      -17.2   0.000102      0.633          1          1
-  4.1e+03        327       8.77       3.62       70.9   2.33e+09      -17.1    0.00241        0.6          1          1
+      128          7       6.74       3.28       2.19   7.33e+07        -17          0      0.677          1          1
+      256         20       6.99       2.98       4.29   1.46e+08      -17.1          0      0.678          1          1
+      512         42       7.57       3.47       8.74   2.93e+08      -17.1   3.51e-37      0.644          1          1
+ 1.02e+03         98       7.94       3.27       17.3    5.8e+08      -17.2   0.000809      0.638          1          1
+ 2.05e+03        181       8.19       3.44       34.9   1.16e+09      -17.1    0.00166      0.625          1          1
+  4.1e+03        355       8.72       3.59       69.9   2.32e+09      -17.2    0.00185      0.603          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl:</p><pre><code class="language-julia hljs">pairplot(
     PairPlots.Series(
         (;
@@ -79,7 +79,7 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="9ed45da4.png" alt="Example block output"/><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><pre><code class="language-julia hljs">using AstroImages
+)</code></pre><img src="67029fcf.png" alt="Example block output"/><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><pre><code class="language-julia hljs">using AstroImages
 # download(
 #     &quot;https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits&quot;,
 #     &quot;image-examples-1.fits&quot;
@@ -186,7 +186,7 @@ pairplot(
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="49afe470.png" alt="Example block output"/><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">B = Planet(
+)</code></pre><img src="5e5a94c7.png" alt="Example block output"/><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">B = Planet(
     name=&quot;B&quot;,
     basis=Visual{KepOrbit},
     observations=[image_data],
@@ -277,4 +277,4 @@ pairplot(
         :sma=&gt;&quot;log₂ Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log₂ Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="54fe94d4.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Saturday 7 February 2026 03:56">Saturday 7 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="c11533df.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Saturday 14 February 2026 21:07">Saturday 14 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

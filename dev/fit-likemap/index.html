@@ -156,8 +156,8 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
 └   D = 11
 ┌ Info: Determined number type
 └   T = Float64
-ℓπcallback(θ): 0.000014 seconds
-∇ℓπcallback(θ): 0.000021 seconds (1 allocation: 32 bytes)
+ℓπcallback(θ): 0.000013 seconds
+∇ℓπcallback(θ): 0.000023 seconds (1 allocation: 32 bytes)
 ┌ Warning: This model has priors that cannot be sampled IID.
 └ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:105
 [ Info: Sampler running with multiple threads     : true
@@ -166,24 +166,24 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
 │   num_params = 11
 └   num_fixed = 0
 ┌ Info: Found sample of initial positions
-│   logpost_range = (-16.89293247067628, -9.172936303919617)
-└   mean_logpost = -11.827422848122817
+│   logpost_range = (-19.278484978810805, -8.801384444977625)
+└   mean_logpost = -12.688439059204113
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.54       1.56      0.243   4.14e+06      -34.2   4.22e-25      0.836          1          1
-        4          0       3.83       4.04     0.0659   1.48e+05      -17.4   0.000277      0.746          1          1
-        8          0       4.58       3.87      0.126    2.6e+05      -20.4     0.0138      0.727          1          1
-       16          0       4.63       5.08      0.249   4.43e+05      -20.8      0.192      0.687          1          1
-       32          2       4.84       4.51      0.502   7.54e+05      -22.2      0.418      0.698          1          1
-       64          3       4.68       3.13       1.17   4.64e+07      -21.3      0.553      0.748          1          1
-      128         10       4.61       3.35       1.97   7.92e+07      -21.1      0.547      0.743          1          1
-      256         41       4.81       3.14       4.02   1.58e+08      -21.1      0.577      0.743          1          1
-      512         76       4.71       3.22       7.92   3.14e+08      -21.1       0.63      0.744          1          1
- 1.02e+03        157       4.79       3.12         16   6.28e+08      -20.9      0.639      0.745          1          1
+        2          0       2.87       2.82      0.229   4.15e+06        -46   1.81e-26      0.816          1          1
+        4          0        4.6       3.79     0.0637   1.41e+05      -20.8     0.0105      0.729          1          1
+        8          0       5.23       4.31      0.125   2.53e+05      -18.9      0.146      0.692          1          1
+       16          0       5.16       4.54      0.243   4.15e+05      -19.6      0.181      0.687          1          1
+       32          0       4.84       4.94      0.496   7.29e+05      -20.9      0.395      0.684          1          1
+       64          5       4.94       3.03       1.15   4.66e+07      -21.1      0.516      0.743          1          1
+      128         16       4.93       2.73       1.93   7.94e+07      -20.8      0.568      0.753          1          1
+      256         33       4.71        3.2       3.99   1.59e+08      -21.1      0.578      0.745          1          1
+      512         79       4.77       2.96       7.76   3.14e+08      -20.9      0.568      0.751          1          1
+ 1.02e+03        155       4.75       3.09       15.7   6.29e+08      -20.9      0.652      0.747          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info" id="Note-885630c21c612562"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-885630c21c612562" title="Permalink"></a></header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>Display the results:</p><pre><code class="language-julia hljs">using CairoMakie
-octoplot(model, chain)</code></pre><img src="84aa3073.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model,chain,small=true,)</code></pre><img src="504e9529.png" alt="Example block output"/><p>And finally let&#39;s look at the posterior predictive distributions at both epochs:</p><pre><code class="language-julia hljs">els = Octofitter.construct_elements(model, chain,:b, :)
+octoplot(model, chain)</code></pre><img src="89beb254.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model,chain,small=true,)</code></pre><img src="0343405b.png" alt="Example block output"/><p>And finally let&#39;s look at the posterior predictive distributions at both epochs:</p><pre><code class="language-julia hljs">els = Octofitter.construct_elements(model, chain,:b, :)
 x = raoff.(els, loglikemap.table.epoch[1])
 y = decoff.(els, loglikemap.table.epoch[1])
 pairplot(
@@ -196,7 +196,7 @@ pairplot(
             lims=(low=-100,high=100)
         )
     )
-)</code></pre><img src="7a33f623.png" alt="Example block output"/><pre><code class="language-julia hljs">x = raoff.(els, loglikemap.table.epoch[2])
+)</code></pre><img src="fe37f54e.png" alt="Example block output"/><pre><code class="language-julia hljs">x = raoff.(els, loglikemap.table.epoch[2])
 y = decoff.(els, loglikemap.table.epoch[2])
 pairplot(
     (;x,y),
@@ -208,6 +208,6 @@ pairplot(
             lims=(low=-100,high=100)
         )
     )
-)</code></pre><img src="1a4e8744.png" alt="Example block output"/><h2 id="Resume-sampling-for-additional-rounds"><a class="docs-heading-anchor" href="#Resume-sampling-for-additional-rounds">Resume sampling for additional rounds</a><a id="Resume-sampling-for-additional-rounds-1"></a><a class="docs-heading-anchor-permalink" href="#Resume-sampling-for-additional-rounds" title="Permalink"></a></h2><p>If you would like to add additional rounds of sampling, you may do the following:</p><pre><code class="language-julia hljs">pt = increment_n_rounds!(pt, 2)
+)</code></pre><img src="39c4e0a8.png" alt="Example block output"/><h2 id="Resume-sampling-for-additional-rounds"><a class="docs-heading-anchor" href="#Resume-sampling-for-additional-rounds">Resume sampling for additional rounds</a><a id="Resume-sampling-for-additional-rounds-1"></a><a class="docs-heading-anchor-permalink" href="#Resume-sampling-for-additional-rounds" title="Permalink"></a></h2><p>If you would like to add additional rounds of sampling, you may do the following:</p><pre><code class="language-julia hljs">pt = increment_n_rounds!(pt, 2)
 chain, pt = octofit_pigeons(pt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (4096×22×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Updated corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model,chain,small=false,)</code></pre><img src="4682901e.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Interferometer Data</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Saturday 7 February 2026 03:56">Saturday 7 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+octocorner(model,chain,small=false,)</code></pre><img src="bcd5e993.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Interferometer Data</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Saturday 14 February 2026 21:07">Saturday 14 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
