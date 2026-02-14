@@ -212,13 +212,23 @@
             ref_epoch = $ref_epoch_mjd
         end
 
+        # Precompute detrending coefficients (same as outer constructor)
+        mean_epoch = sum(mock_epochs) / length(mock_epochs)
+        detrend_Δt = collect((mock_epochs .- mean_epoch) ./ 365.25)
+        detrend_inv_N = 1.0 / length(mock_epochs)
+        detrend_inv_sum_Δt² = 1.0 / sum(detrend_Δt .^ 2)
+
         gaia_obs = Octofitter.GaiaDR4AstromObs{typeof(mock_table), typeof(mock_gaia_sol)}(
             mock_table,
             123456789,  # mock gaia_id
             mock_gaia_sol,
             priors,
             derived,
-            "GaiaDR4"
+            "GaiaDR4",
+            false,
+            detrend_Δt,
+            detrend_inv_N,
+            detrend_inv_sum_Δt²,
         )
 
         @test gaia_obs isa GaiaDR4AstromObs
@@ -269,5 +279,37 @@
         # Verify the simulated system can also create a valid model
         sim_model = Octofitter.LogDensityModel(sim_system, verbosity=0)
         @test sim_model isa Octofitter.LogDensityModel
+
+        # Test primary_star_perturbation mode
+        gaia_obs_psp = Octofitter.GaiaDR4AstromObs{typeof(mock_table), typeof(mock_gaia_sol)}(
+            mock_table,
+            123456789,
+            mock_gaia_sol,
+            priors,
+            derived,
+            "GaiaDR4",
+            true,  # primary_star_perturbation=true
+            detrend_Δt,
+            detrend_inv_N,
+            detrend_inv_sum_Δt²,
+        )
+        @test gaia_obs_psp.primary_star_perturbation == true
+        @test length(gaia_obs_psp.detrend_Δt) == N_epochs
+
+        sys_psp = System(
+            name="gaia_test_psp",
+            companions=[b],
+            observations=[gaia_obs_psp],
+            variables=@variables begin
+                M = 1.0
+                plx ~ Uniform(10, 30)
+            end
+        )
+        model_psp = Octofitter.LogDensityModel(sys_psp, verbosity=0)
+        @test model_psp isa Octofitter.LogDensityModel
+
+        params_psp = Octofitter.drawfrompriors(model_psp.system)
+        sim_system_psp = Octofitter.generate_from_params(model_psp.system, params_psp; add_noise=false)
+        @test sim_system_psp isa System
     end
 end
