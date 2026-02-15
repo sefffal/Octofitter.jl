@@ -28,8 +28,7 @@ using Reexport
 
 export KernelDensity
 
-# Re-export from TypedTables
-export Table, FlexTable
+# TypedTables used internally; extensions should import directly
 
 using Base.Threads: @threads
 using StaticArrays 
