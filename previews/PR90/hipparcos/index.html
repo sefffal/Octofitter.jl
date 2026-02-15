@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Hipparcos IAD · Octofitter.jl</title><meta name="title" content="Hipparcos IAD · Octofitter.jl"/><meta property="og:title" content="Hipparcos IAD · Octofitter.jl"/><meta property="twitter:title" content="Hipparcos IAD · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox" checked/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li class="is-active"><a class="tocitem" href>Hipparcos IAD</a><ul class="internal"><li><a class="tocitem" href="#Reproduce-Catalog-Values"><span>Reproduce Catalog Values</span></a></li><li><a class="tocitem" href="#Constrain-Planet-Mass"><span>Constrain Planet Mass</span></a></li></ul></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 Epoch Astrometry</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Absolute Astrometry</a></li><li class="is-active"><a href>Hipparcos IAD</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Hipparcos IAD</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/hipparcos.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="fit-hipparcos"><a class="docs-heading-anchor" href="#fit-hipparcos">Hipparcos IAD</a><a id="fit-hipparcos-1"></a><a class="docs-heading-anchor-permalink" href="#fit-hipparcos" title="Permalink"></a></h1><p>This tutorial explains how to model Hipparcos IAD data. The first example reproduces the catalog values of position, parallax, and proper motion. The second uses Hipparcos to constrain the mass of a directly imaged planet.</p><h2 id="Reproduce-Catalog-Values"><a class="docs-heading-anchor" href="#Reproduce-Catalog-Values">Reproduce Catalog Values</a><a id="Reproduce-Catalog-Values-1"></a><a class="docs-heading-anchor-permalink" href="#Reproduce-Catalog-Values" title="Permalink"></a></h2><p>This is the so-called &quot;Nielsen&quot; test from Nielsen et al (2020) and available in Orbitize!.</p><p>We start by using a system with a planet with zero mass to fit the straight line motion.</p><pre><code class="language- hljs">using Octofitter
+using Distributions
+using CairoMakie
+
+hip_obs = Octofitter.HipparcosIADObs(
+    hip_id=21547,
+    renormalize=true, # default: true
+    variables=@variables begin
+        # Optional: flux ratio for luminous companions, one entry per companion
+        # fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1)])  # uncomment if needed for unresolved companions
+    end
+)
+
+planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=AbsoluteVisual{KepOrbit},
+    variables=@variables begin
+        mass = 0.
+        e = 0. 
+        ω = 0. 
+        a = 1.
+        i = 0
+        Ω = 0.
+        tp = 0.
+    end
+)
+
+sys = System(
+    name=&quot;c_Eri_straight_line&quot;,
+    companions=[planet_b],
+    observations=[hip_obs],
+    variables=@variables begin
+        M = 1.0 # Host mass not important for this example
+        rv = 0.0 # system RV not significant for this example
+        plx ~ Uniform(10,100)
+        pmra ~ Uniform(-100, 100)
+        pmdec ~  Uniform(-100, 100)
+
+        # It is convenient to put a prior of the catalog value +- 10,000 mas on position
+        ra_hip_offset_mas ~  Normal(0, 10000)
+        dec_hip_offset_mas ~ Normal(0, 10000)
+        dec = $hip_obs.hip_sol.dedeg + ra_hip_offset_mas/60/60/1000
+        ra = $hip_obs.hip_sol.radeg + dec_hip_offset_mas/60/60/1000/cosd(dec)
+
+        ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)</code></pre><p>Let&#39;s initialize the starting point for the chains to reasonable values</p><pre><code class="language- hljs">initialize!(model, (;
+    plx=34.,
+    pmra=44.25,
+    pmdec=-64.5,
+    ra_hip_offset_mas=0.,
+    dec_hip_offset_mas=0.,
+))</code></pre><p>We can now sample from the model using Hamiltonian Monte Carlo. This should only take about 15 seconds.</p><pre><code class="language- hljs">using Pigeons
+chain,pt = octofit_pigeons(model, n_rounds=6)</code></pre><p>Plot the posterior values:</p><pre><code class="language- hljs">octoplot(model,chain,show_astrom=false,show_astrom_time=false)</code></pre><p>We now visualize the model fit compared to the Hipparcos catalog values:</p><pre><code class="language- hljs">using LinearAlgebra, StatsBase
+fig = Figure(size=(1080,720))
+j = i = 1
+for prop in (
+    (;chain=:ra, hip=:radeg, hip_err=:e_ra), 
+    (;chain=:dec, hip=:dedeg, hip_err=:e_de),
+    (;chain=:plx, hip=:plx, hip_err=:e_plx), 
+    (;chain=:pmra, hip=:pm_ra, hip_err=:e_pmra), 
+    (;chain=:pmdec, hip=:pm_de, hip_err=:e_pmde)
+)
+    global i, j, ax
+    ax = Axis(
+        fig[j,i],
+        xlabel=string(prop.chain),
+    )
+    i+=1
+    if i &gt; 3
+        j+=1
+        i = 1
+    end
+    unc = hip_obs.hip_sol[prop.hip_err]
+    if prop.chain == :ra
+        unc /= 60*60*1000 * cosd(hip_obs.hip_sol.dedeg)
+    end
+    if prop.chain == :dec
+        unc /= 60*60*1000
+    end
+    if prop.hip == :zero
+        n = Normal(0, unc)
+    else
+        mu = hip_obs.hip_sol[prop.hip]
+        n = Normal(mu, unc)
+    end
+    n0,n1=quantile.(n,(1e-4, 1-1e-4))
+    nxs = range(n0,n1,length=200)
+    h = fit(Histogram, chain[prop.chain][:], nbins=55)
+    h = normalize(h, mode=:pdf)
+    barplot!(ax, (h.edges[1][1:end-1] .+ h.edges[1][2:end])./2, h.weights, gap=0, color=:red, label=&quot;posterior&quot;)
+    lines!(ax, nxs, pdf.(n,nxs), label=&quot;Hipparcos Catalog&quot;, color=:black, linewidth=2)
+end
+Legend(fig[i-1,j+1],ax,tellwidth=false)
+fig</code></pre><h2 id="Constrain-Planet-Mass"><a class="docs-heading-anchor" href="#Constrain-Planet-Mass">Constrain Planet Mass</a><a id="Constrain-Planet-Mass-1"></a><a class="docs-heading-anchor-permalink" href="#Constrain-Planet-Mass" title="Permalink"></a></h2><p>We now allow the planet to have a non zero mass and have free orbit. We start by specifying relative astrometry data on the planet, collated by Jason Wang and co. on <a href="http://whereistheplanet.com">whereistheplanet.com</a>.</p><pre><code class="language-julia hljs">astrom_dat = Table(;
+    epoch = [57009.1, 57052.1, 57053.1, 57054.3, 57266.4, 57332.2, 57374.2, 57376.2, 57415.0, 57649.4, 57652.4, 57739.1, 58068.3, 58442.2],
+    sep   = [454.24, 451.81, 456.8, 461.5, 455.1, 452.88, 455.91, 455.01, 454.46, 454.81, 451.43, 449.39, 447.54, 434.22],
+    σ_sep = [1.88, 2.06, 2.57, 23.9, 2.23, 5.41, 6.23, 3.03, 6.03, 2.02, 2.67, 2.15, 3.02, 2.01],
+    pa    = [2.98835, 2.96723, 2.97038, 2.97404, 2.91994, 2.89934, 2.89131, 2.89184, 2.8962, 2.82394, 2.82272, 2.79357, 2.70927, 2.61171],
+    σ_pa  = [0.00401426, 0.00453786, 0.00523599, 0.0523599, 0.00453786, 0.00994838, 0.00994838, 0.00750492, 0.00890118, 0.00453786, 0.00541052, 0.00471239, 0.00680678, 0.00401426]
+)
+
+astrom_obs1 = PlanetRelAstromObs(
+    astrom_dat,
+    name=&quot;VLT/SPHERE&quot;,
+    variables=@variables begin
+        # Fixed values for this example - could be free variables:
+        jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
+        northangle = 0    # radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+    end
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PlanetRelAstromObs Table with 5 columns and 14 rows:
+      epoch    sep     σ_sep  pa       σ_pa
+    ┌────────────────────────────────────────────
+ 1  │ 57009.1  454.24  1.88   2.98835  0.00401426
+ 2  │ 57052.1  451.81  2.06   2.96723  0.00453786
+ 3  │ 57053.1  456.8   2.57   2.97038  0.00523599
+ 4  │ 57054.3  461.5   23.9   2.97404  0.0523599
+ 5  │ 57266.4  455.1   2.23   2.91994  0.00453786
+ 6  │ 57332.2  452.88  5.41   2.89934  0.00994838
+ 7  │ 57374.2  455.91  6.23   2.89131  0.00994838
+ 8  │ 57376.2  455.01  3.03   2.89184  0.00750492
+ 9  │ 57415.0  454.46  6.03   2.8962   0.00890118
+ 10 │ 57649.4  454.81  2.02   2.82394  0.00453786
+ 11 │ 57652.4  451.43  2.67   2.82272  0.00541052
+ 12 │ 57739.1  449.39  2.15   2.79357  0.00471239
+ 13 │ 58068.3  447.54  3.02   2.70927  0.00680678
+ 14 │ 58442.2  434.22  2.01   2.61171  0.00401426</code></pre><p>We specify our full model:</p><pre><code class="language- hljs">planet_b_mass = Planet(
+    name=&quot;b&quot;,
+    basis=AbsoluteVisual{KepOrbit},
+    observations=[astrom_obs1],
+    variables=@variables begin
+        a ~ truncated(Normal(10,1),lower=0.1)
+        e ~ Uniform(0,0.99)
+        ω ~ Uniform(0, 2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
+        θ ~ Uniform(0, 2pi)
+        M = system.M
+        tp = θ_at_epoch_to_tperi(θ, 58442.2; M, e, a, i, ω, Ω) 
+        mass = system.M_sec
+    end
+)
+
+sys_mass = System(
+    name=&quot;cEri&quot;,
+    companions=[planet_b_mass],
+    observations=[hip_obs],
+    variables=@variables begin
+        M_pri ~ truncated(Normal(1.75,0.05), lower=0.03) # Msol
+        M_sec ~ LogUniform(0.1, 100) # MJup
+        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
+
+        rv =  12.60e3 # m/s
+        plx ~ Uniform(20,40)
+        pmra ~ Uniform(-100, 100)
+        pmdec ~  Uniform(-100, 100)
+
+        # It is convenient to put a prior of the catalog value +- 1000 mas on position
+        ra_hip_offset_mas ~  Normal(0, 1000)
+        dec_hip_offset_mas ~ Normal(0, 1000)
+        dec = $hip_obs.hip_sol.dedeg + ra_hip_offset_mas/60/60/1000
+        ra = $hip_obs.hip_sol.radeg + dec_hip_offset_mas/60/60/1000/cos(dec)
+
+        ref_epoch = Octofitter.hipparcos_catalog_epoch_mjd
+    end
+)
+
+model = Octofitter.LogDensityModel(sys_mass)</code></pre><p>Initialize the starting points, and confirm the data are entered correcly:</p><pre><code class="language- hljs">init_chain = initialize!(model, (;
+    plx=34.,
+    pmra=44.25,
+    pmdec=-64.5,
+    ra_hip_offset_mas=0.,
+    dec_hip_offset_mas=0.,
+))
+octoplot(model, init_chain)</code></pre><p>Now we sample:</p><pre><code class="language- hljs">using Pigeons
+chain,pt = octofit_pigeons(model, n_rounds=8, explorer=SliceSampler())
+chain</code></pre><pre><code class="language- hljs">octoplot(model, chain, show_mass=true)</code></pre><p>We see that we constrained both the orbit and the parallax. The mass is not strongly constrained by Hipparcos.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../pma/">« Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../g23h/">Joint Gaia-Hipparcos (G23H) »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Sunday 15 February 2026 03:33">Sunday 15 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Derived Variables · Octofitter.jl</title><meta name="title" content="Derived Variables · Octofitter.jl"/><meta property="og:title" content="Derived Variables · Octofitter.jl"/><meta property="twitter:title" content="Derived Variables · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 Epoch Astrometry</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li class="is-active"><a class="tocitem" href>Derived Variables</a><ul class="internal"><li><a class="tocitem" href="#System-Variables"><span>System Variables</span></a></li><li><a class="tocitem" href="#Planet-Variables"><span>Planet Variables</span></a></li><li><a class="tocitem" href="#Linking-Planets"><span>Linking Planets</span></a></li><li><a class="tocitem" href="#Resolution-Order"><span>Resolution Order</span></a></li><li><a class="tocitem" href="#Interpolation-Syntax-with"><span>Interpolation Syntax with <code>$</code></span></a></li><li><a class="tocitem" href="#Variable-Scoping-in-Observations"><span>Variable Scoping in Observations</span></a></li></ul></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Documentation</a></li><li class="is-active"><a href>Derived Variables</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Derived Variables</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/derived.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="derived"><a class="docs-heading-anchor" href="#derived">Derived Variables</a><a id="derived-1"></a><a class="docs-heading-anchor-permalink" href="#derived" title="Permalink"></a></h1><p>Octofitter has a concept called &quot;derived variables&quot; that are inspired by PyMC3. Derived variables are quantities that either have a fixed value, or a fixed mathematical relationship with the main variables in a model.</p><p>This concept is extremely powerful, as it lets you quickly create very sophisticated models.</p><p>Derived variables allow you to mark certain properties as constants, reparameterize models, link properties between planets in multi-planet systems, plug in physical models, and more.</p><h2 id="System-Variables"><a class="docs-heading-anchor" href="#System-Variables">System Variables</a><a id="System-Variables-1"></a><a class="docs-heading-anchor-permalink" href="#System-Variables" title="Permalink"></a></h2><p>Derived variables for the system as a whole can be created as follows:</p><pre><code class="language-julia hljs">sys = System(
+    name=&quot;HD12345&quot;,
+    companions=[],
+    observations=[],
+    variables=@variables begin
+        M = 1.0
+        plx ~ Normal(45., 0.02)
+    end
+)</code></pre><p>In this case, instead of including <code>M</code> as a variable in the model, we define it as a function that always returns <code>1.0</code>. This is equivalent to passing <code>M=1.0</code>.</p><p>In the following case, let&#39;s define <code>M</code> as being calculated based on another variable in the model. This is how you can do reparameterizations in Octofitter.jl</p><pre><code class="language-julia hljs">sys = System(
+    name=&quot;HD12345&quot;,
+    companions=[],
+    observations=[],
+    variables=@variables begin
+        plx ~ Normal(45., 0.02)
+        logM ~ Normal(45., 0.02)
+        M = 10^logM
+    end
+)</code></pre><p>We defined a new variable <code>logM</code> as a prior, and then calculate M from it.</p><p>In general, you can write any function you want to map from any of combination of constants and variables in the model to new variables. The only constraints are that your functions always return the same outputs for the same inputs, and are differentiable. These functions will be called in a tight loop, so you should try to make sure they are as efficient as possible.</p><h2 id="Planet-Variables"><a class="docs-heading-anchor" href="#Planet-Variables">Planet Variables</a><a id="Planet-Variables-1"></a><a class="docs-heading-anchor-permalink" href="#Planet-Variables" title="Permalink"></a></h2><p>Derived variables for an individual planet are similar, but have access to both the planet&#39;s variables and the system as a whole.</p><p>Here is an example of reparameterizing <code>e</code> and <code>a</code> on a planet to be logarithmic quantities:</p><pre><code class="language-julia hljs">planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    observations=[],
+    variables=@variables begin
+        ω ~ Normal(0.1, deg2rad(30.))
+        i ~ Normal(0.1, deg2rad(30.))
+        Ω ~ Normal(0.0, deg2rad(30.))
+        loge ~ Uniform(-4, 1)
+        loga ~ Normal(1, 1)
+        e = 10^loge
+        a = 10^loga
+
+        M = system.M
+        τ ~ UniformCircular(1.0)
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    end
+)</code></pre><p>Here <code>e</code> is defined as log-uniform, and <code>a</code> as log-normal.</p><h2 id="Linking-Planets"><a class="docs-heading-anchor" href="#Linking-Planets">Linking Planets</a><a id="Linking-Planets-1"></a><a class="docs-heading-anchor-permalink" href="#Linking-Planets" title="Permalink"></a></h2><p>Planets can have Derived variables that are calculated from variables defined on the system as a whole. This makes it easy to, for example, create a system of two planets that are co-planar.</p><pre><code class="language-julia hljs">planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    observations=[],
+    variables=@variables begin
+        a ~ Uniform(0, 15)
+        e ~ Uniform(0,0.99)
+        ω ~ Normal(0.1, deg2rad(30.))
+        i = system.i
+        Ω = system.Ω
+
+        M = system.M
+        τ ~ UniformCircular(1.0)
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    end
+)
+
+planet_c = Planet(
+    name=&quot;c&quot;,
+    basis=Visual{KepOrbit},
+    observations=[],
+    variables=@variables begin
+        a ~ Uniform(15, 45)
+        e ~ Uniform(0,0.99)
+        ω ~ Normal(0.1, deg2rad(30.))
+        i = system.i
+        Ω = system.Ω
+
+        M = system.M
+        τ ~ UniformCircular(1.0)
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 58849 # reference epoch for τ. Choose an MJD date near your data.
+    end
+)
+
+sys = System(
+    name=&quot;HD12345&quot;,
+    companions=[planet_b, planet_c],
+    observations=[],
+    variables=@variables begin
+        plx ~ Normal(45., 0.02)
+        M ~ Normal(45., 0.02)
+        i ~ Normal(0.1, deg2rad(30.))
+        Ω ~ Normal(0.0, deg2rad(30.))
+    end
+)</code></pre><p>Notice how <code>i</code> and <code>Ω</code> are defined as variables on the System. The two planets B &amp; C instead just take their values from the System. This way we can enforce co-planarity between planets without e.g. rejection sampling.</p><h2 id="Resolution-Order"><a class="docs-heading-anchor" href="#Resolution-Order">Resolution Order</a><a id="Resolution-Order-1"></a><a class="docs-heading-anchor-permalink" href="#Resolution-Order" title="Permalink"></a></h2><p>The order that variables are resolved is as follows:</p><ul><li>Variables defined as priors for the system and planets</li><li>Derived variables on the system</li><li>Derived variables on each planet</li></ul><p>You can use one derived variable from another based on their order in the <code>@variables</code> block within <code>System()</code> or <code>Planet()</code> constructors. You cannot access variables from a different planet inside a <code>Planet</code> variables block. If you need to do this, move the variable up to the <code>System</code> variables block.</p><div class="admonition is-warning" id="Common-Pitfall:-Accessing-Variables-894d763fd976d976"><header class="admonition-header">Common Pitfall: Accessing Variables<a class="admonition-anchor" href="#Common-Pitfall:-Accessing-Variables-894d763fd976d976" title="Permalink"></a></header><div class="admonition-body"><p>Inside a <code>Planet</code> variables block, you <strong>cannot</strong> use <code>planet.variable_name</code> to access the current planet&#39;s variables. Instead:</p><ul><li>Use the variable name directly if it&#39;s defined earlier in the same <code>@variables</code> block</li><li>Use <code>system.variable_name</code> to access system-level variables</li></ul><pre><code class="language-julia hljs"># ❌ WRONG - cannot use planet.P_days inside the same planet block
+variables=@variables begin
+    P_days ~ Uniform(1, 100)
+    tp = planet.P_days * τ  # This will NOT work!
+end
+
+# ✅ CORRECT - use the variable name directly
+variables=@variables begin
+    P_days ~ Uniform(1, 100)
+    tp = P_days * τ  # Use P_days directly
+end
+
+# ✅ CORRECT - access system variables via system.
+variables=@variables begin
+    P_inner = system.P_inner  # Access from system
+    tp = P_inner * τ
+end</code></pre></div></div><h2 id="Interpolation-Syntax-with"><a class="docs-heading-anchor" href="#Interpolation-Syntax-with">Interpolation Syntax with <code>$</code></a><a id="Interpolation-Syntax-with-1"></a><a class="docs-heading-anchor-permalink" href="#Interpolation-Syntax-with" title="Permalink"></a></h2><p>The <code>$</code> symbol in <code>@variables</code> blocks allows you to inject external values and functions into derived variable expressions. This is useful for referencing constants, interpolation functions, or any value defined outside the model.</p><pre><code class="language-julia hljs"># Define constants and functions outside the model
+HOST_L_MAG = 4.5
+mass_to_contrast(m) = m^0.5  # Simple example; use real atmosphere models in practice
+
+planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    observations=[...],
+    variables=@variables begin
+        mass ~ Uniform(0, 10)
+        flux = $mass_to_contrast(mass)  # Interpolate the function
+    end
+)</code></pre><div class="admonition is-warning" id="Interpolation-Limitations-6219d12c71118a02"><header class="admonition-header">Interpolation Limitations<a class="admonition-anchor" href="#Interpolation-Limitations-6219d12c71118a02" title="Permalink"></a></header><div class="admonition-body"><p>The <code>$</code> interpolation only works for <strong>simple references</strong>. Complex expressions inside <code>$()</code> will cause a syntax error:</p><pre><code class="language-julia hljs"># ❌ This will FAIL with &quot;syntax: $ expression outside quote&quot;
+flux = $mass_to_L_contrast(planet.mass, system.age, $HOST_L_MAG)</code></pre><p><strong>Workaround</strong>: Create a wrapper function that captures any constants:</p><pre><code class="language-julia hljs"># Define constants
+HOST_L_MAG = 4.5
+TRUE_AGE = 10.0  # Myr
+
+# Create wrapper function that bakes in constants
+function mass_to_L_contrast_wrapper(mass)
+    return mass_to_L_contrast(mass, TRUE_AGE, HOST_L_MAG)
+end
+
+# ✅ Now use the simple wrapper
+variables=@variables begin
+    mass ~ Uniform(0, 10)
+    flux = $mass_to_L_contrast_wrapper(mass)
+end</code></pre><p>Alternatively, if you need to use model variables (not constants), include them as arguments without <code>$</code>:</p><pre><code class="language-julia hljs"># ✅ Model variables don&#39;t need $ - they&#39;re resolved at runtime
+variables=@variables begin
+    mass ~ Uniform(0, 10)
+    flux = $mass_to_L_contrast(mass, system.age, planet.temp)
+end</code></pre></div></div><h2 id="Variable-Scoping-in-Observations"><a class="docs-heading-anchor" href="#Variable-Scoping-in-Observations">Variable Scoping in Observations</a><a id="Variable-Scoping-in-Observations-1"></a><a class="docs-heading-anchor-permalink" href="#Variable-Scoping-in-Observations" title="Permalink"></a></h2><p>When you define derived variables in an observation&#39;s <code>@variables</code> block, the available variable namespaces depend on <strong>where the observation is attached</strong>:</p><h3 id="Observations-Attached-to-a-Planet"><a class="docs-heading-anchor" href="#Observations-Attached-to-a-Planet">Observations Attached to a Planet</a><a id="Observations-Attached-to-a-Planet-1"></a><a class="docs-heading-anchor-permalink" href="#Observations-Attached-to-a-Planet" title="Permalink"></a></h3><p>When an observation (like <code>PhotometryObs</code> or <code>PlanetRelAstromObs</code>) is attached to a <code>Planet</code>, you can access:</p><ul><li><code>planet.X</code> - variables defined on the planet</li><li><code>system.X</code> - variables defined on the system</li></ul><pre><code class="language-julia hljs">H_band_data = PhotometryObs(
+    data_table,
+    name=&quot;H_band&quot;,
+    variables=@variables begin
+        # planet.mass comes from the Planet&#39;s variables block
+        # system.age comes from the System&#39;s variables block
+        flux = $H_band_contrast_interp(planet.mass, system.age)
+    end
+)
+
+planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    observations=[H_band_data],  # Observation attached to planet
+    variables=@variables begin
+        mass ~ Uniform(0, 10)  # Accessed as planet.mass in observations
+        # ...
+    end
+)
+
+sys = System(
+    name=&quot;HD12345&quot;,
+    companions=[planet_b],
+    observations=[],
+    variables=@variables begin
+        age ~ Normal(15, 1)  # Accessed as system.age in observations
+        # ...
+    end
+)</code></pre><h3 id="Observations-Attached-to-a-System"><a class="docs-heading-anchor" href="#Observations-Attached-to-a-System">Observations Attached to a System</a><a id="Observations-Attached-to-a-System-1"></a><a class="docs-heading-anchor-permalink" href="#Observations-Attached-to-a-System" title="Permalink"></a></h3><p>When an observation (like <code>StarAbsoluteRVObs</code>) is attached directly to the <code>System</code>, you can access:</p><ul><li><code>system.X</code> - variables defined on the system</li></ul><pre><code class="language-julia hljs">rv_obs = StarAbsoluteRVObs(
+    rv_table,
+    name=&quot;HARPS&quot;,
+    variables=@variables begin
+        offset ~ Normal(0, 10)
+        jitter ~ LogUniform(0.1, 10)
+        trend_slope = system.trend_slope  # From system variables
+    end
+)
+
+sys = System(
+    name=&quot;HD12345&quot;,
+    companions=[...],
+    observations=[rv_obs],  # Observation attached to system
+    variables=@variables begin
+        trend_slope ~ Uniform(-1, 1)  # Accessed as system.trend_slope
+        # ...
+    end
+)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../priors/">« Priors</a><a class="docs-footer-nextpage" href="../custom-likelihood/">Custom Likelihoods »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Sunday 15 February 2026 03:33">Sunday 15 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

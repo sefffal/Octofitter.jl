@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>G23H Full Example · Octofitter.jl</title><meta name="title" content="G23H Full Example · Octofitter.jl"/><meta property="og:title" content="G23H Full Example · Octofitter.jl"/><meta property="twitter:title" content="G23H Full Example · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox" checked/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li class="is-active"><a class="tocitem" href>G23H Full Example</a><ul class="internal"><li><a class="tocitem" href="#Prerequisites"><span>Prerequisites</span></a></li><li><a class="tocitem" href="#Script-Overview"><span>Script Overview</span></a></li><li><a class="tocitem" href="#Complete-Script"><span>Complete Script</span></a></li><li><a class="tocitem" href="#Command-Line-Usage"><span>Command Line Usage</span></a></li><li><a class="tocitem" href="#Command-Line-Arguments"><span>Command Line Arguments</span></a></li><li><a class="tocitem" href="#Performance-Tips"><span>Performance Tips</span></a></li><li><a class="tocitem" href="#See-Also"><span>See Also</span></a></li></ul></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 Epoch Astrometry</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Absolute Astrometry</a></li><li class="is-active"><a href>G23H Full Example</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>G23H Full Example</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/g23h-example.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="g23h-example"><a class="docs-heading-anchor" href="#g23h-example">Full G23H Example Script</a><a id="g23h-example-1"></a><a class="docs-heading-anchor-permalink" href="#g23h-example" title="Permalink"></a></h1><p>This page provides a complete, production-ready script for fitting orbital models using the G23H catalog. This script supports:</p><ul><li>Single or multi-planet systems</li><li>Optional Gaussian Process modeling of stellar activity in RV data</li><li>RV data from DACE or custom RDB files</li><li>Flexible selection of which astrometric observation types to include</li><li>Incremental sampling with checkpoint saving</li></ul><h2 id="Prerequisites"><a class="docs-heading-anchor" href="#Prerequisites">Prerequisites</a><a id="Prerequisites-1"></a><a class="docs-heading-anchor-permalink" href="#Prerequisites" title="Permalink"></a></h2><p>Before running this script, ensure you have installed the necessary packages:</p><ol><li><p><strong>Required packages</strong>:</p><pre><code class="language-julia hljs">using Pkg
+Pkg.add([
+    &quot;Octofitter&quot;,
+    &quot;OctofitterRadialVelocity&quot;,
+    &quot;Arrow&quot;,
+    &quot;DataFrames&quot;,
+    &quot;Distributions&quot;,
+    &quot;CairoMakie&quot;,
+    &quot;PairPlots&quot;,
+    &quot;Pigeons&quot;,
+    &quot;MCMCChains&quot;,
+    &quot;ArgParse&quot;,
+    &quot;DelimitedFiles&quot;,
+    &quot;FiniteDiff&quot;,
+    &quot;DifferentiationInterface&quot;,
+])</code></pre></li><li><p><strong>Optional for DACE RV data</strong>:</p><pre><code class="language-julia hljs">using CondaPkg
+# Then in Pkg mode: conda pip_add dace-query</code></pre></li></ol><h2 id="Script-Overview"><a class="docs-heading-anchor" href="#Script-Overview">Script Overview</a><a id="Script-Overview-1"></a><a class="docs-heading-anchor-permalink" href="#Script-Overview" title="Permalink"></a></h2><p>The script is organized into several sections:</p><ol><li><strong>Argument Parsing</strong> - Command-line interface for specifying targets and options</li><li><strong>Observation Setup</strong> - Create G23H astrometry likelihood object (catalog downloaded automatically)</li><li><strong>RV Data Loading</strong> - Load RV data from DACE or RDB files</li><li><strong>Model Definition</strong> - Define planet and system models with optional GP</li><li><strong>Sampling</strong> - Run MCMC with Pigeons</li><li><strong>Analysis</strong> - Generate plots and save results</li></ol><h2 id="Complete-Script"><a class="docs-heading-anchor" href="#Complete-Script">Complete Script</a><a id="Complete-Script-1"></a><a class="docs-heading-anchor-permalink" href="#Complete-Script" title="Permalink"></a></h2><pre><code class="language-julia hljs">#=
+G23H Joint Astrometry + RV Fitting Script
+=========================================
+
+This script fits orbital models using the G23H catalog for joint
+Gaia-Hipparcos astrometry modeling, optionally combined with RV data.
+
+Usage:
+    julia script.jl --hip 12345 --host-mass 1.0 --n-rounds 10
+    julia script.jl --gaia 756291174721509376 --host-mass 1.0 --dace-rv
+    julia script.jl --hip 12345 --host-mass 1.0 --rdb-rv mydata.rdb --gp
+
+=#
+
+# First time only: install dace-query
+# using CondaPkg;  Then type &quot;]&quot; to go into Pkg-mode and paste: conda pip_add dace-query
+
+using ArgParse
+using Arrow
+using CairoMakie
+using DataFrames
+using Dates
+using Distributions
+using Octofitter, OctofitterRadialVelocity
+using LinearAlgebra
+using PairPlots
+using Pigeons
+using Printf
+using Statistics
+using StatsBase
+using MCMCChains
+using DelimitedFiles
+using FiniteDiff, DifferentiationInterface
+
+## ============================================================================
+## ARGUMENT PARSING
+## ============================================================================
+
+function parse_commandline()
+    s = ArgParseSettings()
+
+    @add_arg_table! s begin
+        &quot;--host-mass&quot;
+            help = &quot;Host star mass in solar masses&quot;
+            arg_type = Float64
+            required = true
+        &quot;--n-planets&quot;
+            help = &quot;Number of planets in the system&quot;
+            arg_type = Int
+            default = 1
+        &quot;--hip&quot;
+            help = &quot;Hipparcos ID (mutually exclusive with --gaia)&quot;
+            arg_type = Int
+        &quot;--gaia&quot;
+            help = &quot;Gaia source ID (mutually exclusive with --hip)&quot;
+            arg_type = Int64
+        &quot;--gaia-rv&quot;
+            help = &quot;Include Gaia DR3 RV in astrometry likelihood&quot;
+            action = :store_true
+        &quot;--dace-rv&quot;
+            help = &quot;Query DACE for RV data&quot;
+            action = :store_true
+        &quot;--rdb-rv&quot;
+            help = &quot;Load RV data from RDB file (can be specified multiple times)&quot;
+            action = :append_arg
+        &quot;--gp&quot;
+            help = &quot;Enable Gaussian Process kernel for stellar activity&quot;
+            action = :store_true
+        &quot;--n-rounds&quot;
+            help = &quot;Number of MCMC rounds&quot;
+            arg_type = Int
+            default = 12
+        &quot;--obs-types&quot;
+            help = &quot;Comma-separated list of observation types to include (default: all)&quot;
+            arg_type = String
+        &quot;--circular&quot;
+            help = &quot;Force a circular (e=0) orbit for all companions&quot;
+            action = :store_true
+    end
+
+    return parse_args(s)
+end
+
+args = parse_commandline()
+
+# Validate mutually exclusive arguments
+if isnothing(args[&quot;hip&quot;]) &amp;&amp; isnothing(args[&quot;gaia&quot;])
+    error(&quot;Either --hip or --gaia must be specified&quot;)
+end
+if !isnothing(args[&quot;hip&quot;]) &amp;&amp; !isnothing(args[&quot;gaia&quot;])
+    error(&quot;Cannot specify both --hip and --gaia&quot;)
+end
+
+# Extract configuration
+host_mass = args[&quot;host-mass&quot;]
+num_planets = args[&quot;n-planets&quot;]
+n_rounds = args[&quot;n-rounds&quot;]
+use_gaia_rv = args[&quot;gaia-rv&quot;]
+use_dace_rv = args[&quot;dace-rv&quot;]
+rdb_files = isnothing(args[&quot;rdb-rv&quot;]) ? String[] : args[&quot;rdb-rv&quot;]
+use_gp = args[&quot;gp&quot;]
+circular = args[&quot;circular&quot;]
+
+# Generate planet names
+planet_names = Symbol.(Char.(Int(&#39;b&#39;) .+ (0:num_planets-1)))
+
+output_dir = &quot;results&quot;
+mkpath(output_dir)
+
+## ============================================================================
+## CREATE G23H OBSERVATION OBJECT
+## ============================================================================
+
+# G23HObs accepts either gaia_id or hip_id directly.
+# The G23H catalog is automatically downloaded on first use via DataDeps.
+if !isnothing(args[&quot;hip&quot;])
+    hip_id = args[&quot;hip&quot;]
+    sysname′ = &quot;HIP$hip_id&quot;
+    absastrom = Octofitter.G23HObs(;
+        hip_id=hip_id,
+        include_rv=use_gaia_rv,
+    )
+else
+    gaia_id = args[&quot;gaia&quot;]
+    absastrom = Octofitter.G23HObs(;
+        gaia_id=gaia_id,
+        include_rv=use_gaia_rv,
+    )
+    # Determine system name from catalog
+    if isfinite(absastrom.catalog.hip_id)
+        hip_id = round(Int, absastrom.catalog.hip_id)
+        sysname′ = &quot;HIP$hip_id&quot;
+    else
+        sysname′ = &quot;GDR3$gaia_id&quot;
+    end
+end
+
+ra = absastrom.catalog.ra
+dec = absastrom.catalog.dec
+println(&quot;Found target: RA=$ra, Dec=$dec&quot;)
+
+# Determine which observation types to include
+if isnothing(args[&quot;obs-types&quot;])
+    # Default: include all available types
+    obs_to_include = [
+        :iad_hip,
+        :ra_hip,  :dec_hip,
+        :ra_hg,   :dec_hg,
+        :ra_dr2,  :dec_dr2,
+        :ra_dr32, :dec_dr32,
+        :ra_dr3,  :dec_dr3,
+        :ueva_dr3,
+    ]
+    if use_gaia_rv
+        push!(obs_to_include, :rv_dr3)
+    end
+else
+    # Parse user-specified observation types
+    obs_to_include = Symbol.(split(args[&quot;obs-types&quot;], &quot;,&quot;))
+    # Add rv_dr3 if --gaia-rv is specified
+    if use_gaia_rv &amp;&amp; !(:rv_dr3 in obs_to_include)
+        push!(obs_to_include, :rv_dr3)
+    end
+end
+
+indices = findall([
+    available_obs_kind ∈ obs_to_include
+    for available_obs_kind in absastrom.table.kind
+])
+absastrom = Octofitter.likeobj_from_epoch_subset(absastrom, indices)
+
+sysname = &quot;$sysname′-&quot; * join(string.(absastrom.table.kind), &quot;-&quot;)
+
+## ============================================================================
+## GAUSSIAN PROCESS KERNEL (OPTIONAL)
+## ============================================================================
+
+if use_gp
+    function gauss_proc_approx_quasi_periodic(θ_system)
+        B = θ_system.gp_B
+        C = θ_system.gp_C
+        L = θ_system.gp_L
+        Prot = θ_system.gp_Prot
+
+        kernel = OctofitterRadialVelocity.Celerite.RealTerm(
+            log(B * (1 + C) / (2 + C)),  # log_a
+            log(1 / L)                    # log_c
+        ) + OctofitterRadialVelocity.Celerite.ComplexTerm(
+            log(B / (2 + C)),            # log_a
+            -Inf,                         # log_b
+            log(1 / L),                  # log_c
+            log(2π / Prot)               # log_d
+        )
+
+        return OctofitterRadialVelocity.Celerite.CeleriteGP(kernel)
+    end
+end
+
+## ============================================================================
+## RV HELPER FUNCTIONS
+## ============================================================================
+
+&quot;&quot;&quot;
+Create RV likelihood for a single instrument.
+Handles both GP and non-GP cases using composable variable blocks.
+&quot;&quot;&quot;
+function create_rv_likelihood(dat, name, mean_epoch, use_gp)
+    # Base variables always present
+    base_vars = @variables begin
+        offset ~ Uniform(-1000, 1000)
+        jitter ~ LogUniform(0.1, 100)
+        m = system.m
+    end
+
+    # GP variables (conditional)
+    gp_vars = @variables begin
+        gp_B = system.gp_B
+        gp_C = system.gp_C
+        gp_L = system.gp_L
+        gp_Prot = system.gp_Prot
+    end
+
+    # Combine variables based on whether GP is enabled
+    vars = use_gp ? vcat(base_vars, gp_vars) : base_vars
+
+    # Create likelihood with appropriate configuration
+    return StarAbsoluteRVObs(
+        dat;
+        name,
+        gaussian_process = use_gp ? gauss_proc_approx_quasi_periodic : nothing,
+        variables = vars,
+        trend_function = (θ_obs, epoch) -&gt; θ_obs.m * (epoch - mean_epoch)
+    )
+end
+
+&quot;&quot;&quot;
+Perform outlier rejection on RV data using MAD (Median Absolute Deviation).
+&quot;&quot;&quot;
+function reject_rv_outliers(d, inst_names; clip_threshold=3.0)
+    d_filt_parts = DataFrame[]
+    total_original = 0
+    total_filtered = 0
+
+    for inst in inst_names
+        d_inst = d[d.ins_name .== inst, :]
+        n_inst_original = nrow(d_inst)
+        total_original += n_inst_original
+
+        # Outlier rejection using MAD within this instrument
+        sigma = 1.4826 * mad(d_inst.rv)  # MAD to std conversion
+        median_rv = median(d_inst.rv)
+
+        # Create mask for non-outliers
+        rv_mask = abs.(d_inst.rv .- median_rv) .&lt; (clip_threshold * sigma)
+        d_inst_filt = d_inst[rv_mask, :]
+
+        n_inst_filtered = nrow(d_inst_filt)
+        n_inst_rejected = n_inst_original - n_inst_filtered
+
+        println(&quot;  $inst: kept $n_inst_filtered/$n_inst_original (rejected $n_inst_rejected)&quot;)
+
+        if n_inst_filtered &lt; 3
+            @warn &quot;Too few measurements for $inst after filtering ($n_inst_filtered &lt; 3); keeping all for this instrument&quot;
+            d_inst_filt = d_inst
+        end
+
+        d_inst_filt.rv .-= median(d_inst_filt.rv)
+
+        push!(d_filt_parts, d_inst_filt)
+        total_filtered += nrow(d_inst_filt)
+    end
+
+    d_filt = vcat(d_filt_parts...)
+    println(&quot;Total: kept $total_filtered/$total_original measurements across all instruments&quot;)
+
+    return d_filt
+end
+
+&quot;&quot;&quot;
+Process RV data for multiple instruments: outlier rejection, plotting, and likelihood creation.
+Reusable for both DACE and RDB data sources.
+&quot;&quot;&quot;
+function process_rv_data(d_filt, inst_names; sysname, use_gp, source_name=&quot;&quot;)
+    # Plot the filtered data
+    f, a, p = errorbars(
+        d_filt.rjd,
+        d_filt.rv,
+        d_filt.rv_err,
+        color = map(i -&gt; findfirst(==(i), inst_names), d_filt.ins_name),
+        colormap = :turbo,
+        axis = (; xlabel=&quot;time&quot;, ylabel=&quot;rv [m/s]&quot;, title=source_name)
+    )
+
+    plot_filename = isempty(source_name) ?
+        &quot;$sysname-rvs.png&quot; :
+        &quot;$sysname-rvs-$(lowercase(source_name)).png&quot;
+    save(plot_filename, f, px_per_unit=4)
+
+    # Create observations for each instrument
+    observations = map(inst_names) do name
+        dat = d_filt[d_filt.ins_name .== name, :]
+        dat.epoch .= dat.rjd
+        dat.rv .= dat.rv
+        dat.σ_rv .= dat.rv_err
+        dat.rv .-= median(dat.rv)
+
+        mean_epoch = mean(dat.epoch)
+
+        create_rv_likelihood(dat, name, mean_epoch, use_gp)
+    end
+
+    return observations
+end
+
+## ============================================================================
+## LOAD RV DATA
+## ============================================================================
+
+rvlikes = []
+
+# Load RV data from DACE
+if use_dace_rv
+    @info &quot;Loading RV data from DACE&quot;
+    using PythonCall
+    dace_spectroscopy = pyimport(&quot;dace_query.spectroscopy&quot;)
+
+    hip_for_dace = !isnothing(args[&quot;hip&quot;]) ? args[&quot;hip&quot;] : absastrom.catalog.hip_id
+    result = dace_spectroscopy.Spectroscopy.get_timeseries(
+        target=&quot;HIP $(Int(hip_for_dace))&quot;,
+        sorted_by_instrument=false,
+        output_format=&quot;pandas&quot;
+    )
+    d = DataFrame(pyconvert(PyTable, result))
+
+    if isempty(d)
+        @warn &quot;NO RVS Found from DACE!&quot;
+    else
+        # Perform outlier rejection per instrument
+        println(&quot;Performing per-instrument outlier rejection for DACE data...&quot;)
+        d_insts = unique(d.ins_name)
+
+        d_filt = reject_rv_outliers(d, d_insts)
+
+        # Process and create observations using helper function
+        dace_likes = process_rv_data(d_filt, d_insts; sysname, use_gp, source_name=&quot;dace&quot;)
+        append!(rvlikes, dace_likes)
+    end
+end
+
+# Load RV data from RDB files
+for rdb_file in rdb_files
+    @info &quot;Loading RV data from RDB file: $rdb_file&quot;
+
+    if !isfile(rdb_file)
+        @warn &quot;RDB file not found: $rdb_file&quot;
+        continue
+    end
+
+    # Read RDB file (tab-separated, skip first 2 header lines)
+    d_raw = readdlm(rdb_file, &#39;\t&#39;, skipstart=2)
+
+    # Create DataFrame from RDB data
+    # Columns: rjd, vrad, svrad, s_mw, sig_s, ha, sig_ha, weight
+    d = DataFrame(
+        rjd = Float64.(d_raw[:, 1]),
+        rv = Float64.(d_raw[:, 2]),      # vrad
+        rv_err = Float64.(d_raw[:, 3]),  # svrad
+    )
+
+    # Use filename as instrument name
+    inst_name = replace(basename(rdb_file), &quot;.rdb&quot; =&gt; &quot;&quot;)
+    d.ins_name .= inst_name
+
+    # Basic outlier rejection using MAD
+    println(&quot;Performing outlier rejection for RDB file: $inst_name...&quot;)
+    d_insts = [inst_name]
+
+    d_filt = reject_rv_outliers(d, d_insts)
+
+    # Process and create observations using helper function
+    rdb_likes = process_rv_data(d_filt, d_insts; sysname, use_gp, source_name=inst_name)
+    append!(rvlikes, rdb_likes)
+end
+
+if isempty(rvlikes)
+    @info &quot;No RV data loaded&quot;
+end
+
+has_rv_data = !isempty(rvlikes)
+
+## ============================================================================
+## DEFINE PLANET MODEL(S)
+## ============================================================================
+
+# We should always use RUWE mode
+ueva_mode = :RUWE
+OrbitType = AbsoluteVisual{KepOrbit}
+
+ref_planet_pos = mean(absastrom.gaia_table.epoch)
+
+planets = Planet[]
+for planet_i in 1:num_planets
+    planet = Planet(
+        name=planet_names[planet_i],
+        basis=OrbitType,
+        observations=[],
+        variables=@variables begin
+            planet_i = $planet_i
+            a ~ LogUniform(0.001, 1024)
+            planet_present = system.n_planets &gt;= planet_i
+            mass′ ~ LogUniform(0.01, host_mass / Octofitter.mjup2msol)
+            mass = mass′ * planet_present
+            e ~ Uniform(0, 0.9)
+            M = system.M_pri + mass * Octofitter.mjup2msol
+            ω ~ Uniform(0, 2pi)
+            i = system.i
+            Ω = system.Ω
+            τ ~ Uniform(0.0, 1.0)
+            P = √(a^3 / M)
+            tp = τ * P * 365.25 + $ref_planet_pos
+        end
+    )
+    push!(planets, planet)
+end
+
+if num_planets == 0
+    planets = [Planet(name=:b, basis=OrbitType, variables=@variables begin
+        a = 1.0
+        mass = 0.0
+        e = 0.0
+        M = system.M_pri
+        ω = 0.0
+        i = 0.0
+        Ω = 0.0
+        tp = 0.0
+    end)]
+end
+
+## ============================================================================
+## DEFINE SYSTEM MODEL
+## ============================================================================
+
+rv = isnan(absastrom.catalog.radial_velocity) ? 0 : absastrom.catalog.radial_velocity * 1e3
+
+observations = []
+push!(observations, absastrom)
+append!(observations, rvlikes)
+
+if num_planets &gt; 1
+    push!(observations, PlanetOrderPrior(planets...))
+    push!(observations, NonCrossingPrior())
+end
+
+ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+
+# Base system variables
+base_system_vars = @variables begin
+    M_pri = $host_mass
+
+    n_planets ~ truncated(NegativeBinomial(), upper=num_planets)
+
+    ref_epoch = $ref_epoch
+    plx ~ truncated(Normal(absastrom.catalog.parallax, absastrom.catalog.parallax_error),
+                    lower=absastrom.catalog.parallax / 2)
+
+    pmra ~ Uniform((Float64(absastrom.catalog.pmra_dr3) .+ (-10, 10))...)
+    pmdec ~ Uniform((Float64(absastrom.catalog.pmdec_dr3) .+ (-10, 10))...)
+
+    dec = $dec
+    ra = $ra
+    rv = $rv
+
+    i ~ Sine()
+    Ω ~ Uniform(0, 2pi)
+end
+
+# RV trend variable (conditional on having RV data)
+rv_trend_vars = @variables begin
+    m ~ Normal(0, 0.1)  # m/s/d trend
+end
+
+# GP hyperparameters (conditional on GP being enabled)
+gp_system_vars = @variables begin
+    gp_B ~ Uniform(0.00001, 2000000)
+    gp_C ~ Uniform(0.00001, 200)
+    gp_L ~ Uniform(40, 2000)
+    gp_Prot ~ Uniform(35, 45)
+end
+
+# Compose system variables based on configuration
+system_vars = base_system_vars
+if has_rv_data
+    system_vars = vcat(system_vars, rv_trend_vars)
+end
+if use_gp
+    system_vars = vcat(system_vars, gp_system_vars)
+end
+
+sys = System(;
+    name=sysname,
+    companions=planets,
+    observations,
+    variables=system_vars
+)
+
+model = Octofitter.LogDensityModel(sys; verbosity=4, autodiff=AutoFiniteDiff())
+
+## ============================================================================
+## INITIALIZE AND SAMPLE
+## ============================================================================
+
+# Enable threaded Kepler solving for performance
+Octofitter._kepsolve_use_threads[] = true
+
+# Find good starting positions
+initial_θ = collect(Octofitter.guess_starting_position(model, 10000)[1])
+model.starting_points = fill(collect(model.link(initial_θ)), 100)
+@time model.ℓπcallback(model.starting_points[1])
+
+# Run initial sampling
+explorer = SliceSampler()
+
+chain, pt = octofit_pigeons(
+    model,
+    n_chains=32,
+    n_chains_variational=0,
+    variational=nothing,
+    n_rounds=1,
+    explorer=explorer,
+    multithreaded=true,
+)
+
+## ============================================================================
+## INCREMENTAL SAMPLING WITH CHECKPOINTS
+## ============================================================================
+
+while length(pt.shared.reports.summary.last_round_max_time) &lt; n_rounds
+    global chain, pt
+    increment_n_rounds!(pt, 1)
+    chain, pt = octofit_pigeons(pt)
+    display(chain)
+
+    # Save checkpoint
+    chain = MCMCChains.setinfo(chain, (; chain.info...,
+        logevidence_ratio=Pigeons.stepping_stone_pair(pt)[2]))
+    chain_file = joinpath(output_dir, &quot;$sysname-post-round$(pt.inputs.n_rounds).fits&quot;)
+    Octofitter.savechain(chain_file, chain)
+
+    # generate dotplot
+    Octofitter.dotplot(model, chain)
+
+    # Save sampling summary
+    CSV.write(joinpath(output_dir, &quot;$(sysname)-pigeons-summary.csv&quot;),
+              pt.shared.reports.summary)
+end
+
+## ============================================================================
+## ANALYSIS AND VISUALIZATION
+## ============================================================================
+
+# Final chain summary
+println(&quot;\n&quot; * &quot;=&quot;^60)
+println(&quot;FINAL RESULTS&quot;)
+println(&quot;=&quot;^60)
+display(chain)
+
+# Corner plot
+corner_fig = octocorner(model, chain, small=true)
+save(joinpath(output_dir, &quot;$(sysname)-corner.png&quot;), corner_fig, px_per_unit=2)
+
+# Orbit plot
+orbit_fig = octoplot(model, chain)
+save(joinpath(output_dir, &quot;$(sysname)-orbits.png&quot;), orbit_fig, px_per_unit=2)
+
+# RV plot (if we have RV data)
+if has_rv_data
+    chain_pl = chain[chain[&quot;b_planet_present&quot;][:] .&gt; 0]
+    fig = Octofitter.rvpostplot(model, chain_pl, rand(1:size(chain_pl, 1)),
+                                 show_summary=true,
+                                 fname=&quot;$sysname-rvpostplot.png&quot;)
+end
+
+println(&quot;\nResults saved to: $output_dir&quot;)</code></pre><h2 id="Command-Line-Usage"><a class="docs-heading-anchor" href="#Command-Line-Usage">Command Line Usage</a><a id="Command-Line-Usage-1"></a><a class="docs-heading-anchor-permalink" href="#Command-Line-Usage" title="Permalink"></a></h2><p>Run the script from the command line with various options:</p><pre><code class="language-bash hljs"># Basic usage with Hipparcos ID
+julia script.jl --hip 12345 --host-mass 1.0 --n-rounds 10
+
+# Using Gaia source ID
+julia script.jl --gaia 756291174721509376 --host-mass 1.0
+
+# With RV data from DACE
+julia script.jl --hip 12345 --host-mass 1.0 --dace-rv
+
+# With RV data from an RDB file
+julia script.jl --hip 12345 --host-mass 1.0 --rdb-rv harps_data.rdb
+
+# Multiple RDB files
+julia script.jl --hip 12345 --host-mass 1.0 --rdb-rv harps.rdb --rdb-rv hires.rdb
+
+# With Gaussian Process for stellar activity
+julia script.jl --hip 12345 --host-mass 1.0 --dace-rv --gp
+
+# Multi-planet fit
+julia script.jl --hip 12345 --host-mass 1.0 --n-planets 2 --n-rounds 15
+
+# Force circular orbits
+julia script.jl --hip 12345 --host-mass 1.0 --circular
+
+# Include Gaia DR3 RV variability constraint
+julia script.jl --hip 12345 --host-mass 1.0 --gaia-rv
+
+# Select specific observation types
+julia script.jl --hip 12345 --host-mass 1.0 --obs-types &quot;ra_hip,dec_hip,ra_hg,dec_hg,ueva_dr3&quot;</code></pre><h2 id="Command-Line-Arguments"><a class="docs-heading-anchor" href="#Command-Line-Arguments">Command Line Arguments</a><a id="Command-Line-Arguments-1"></a><a class="docs-heading-anchor-permalink" href="#Command-Line-Arguments" title="Permalink"></a></h2><table><tr><th style="text-align: right">Argument</th><th style="text-align: right">Type</th><th style="text-align: right">Required</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>--hip</code></td><td style="text-align: right">Int</td><td style="text-align: right">Yes*</td><td style="text-align: right">Hipparcos ID</td></tr><tr><td style="text-align: right"><code>--gaia</code></td><td style="text-align: right">Int64</td><td style="text-align: right">Yes*</td><td style="text-align: right">Gaia DR3 source ID</td></tr><tr><td style="text-align: right"><code>--host-mass</code></td><td style="text-align: right">Float64</td><td style="text-align: right">Yes</td><td style="text-align: right">Host star mass in solar masses</td></tr><tr><td style="text-align: right"><code>--n-planets</code></td><td style="text-align: right">Int</td><td style="text-align: right">No</td><td style="text-align: right">Number of planets (default: 1)</td></tr><tr><td style="text-align: right"><code>--n-rounds</code></td><td style="text-align: right">Int</td><td style="text-align: right">No</td><td style="text-align: right">Number of MCMC rounds (default: 12)</td></tr><tr><td style="text-align: right"><code>--dace-rv</code></td><td style="text-align: right">Flag</td><td style="text-align: right">No</td><td style="text-align: right">Query DACE for RV data</td></tr><tr><td style="text-align: right"><code>--rdb-rv</code></td><td style="text-align: right">String</td><td style="text-align: right">No</td><td style="text-align: right">Path to RDB file (can repeat)</td></tr><tr><td style="text-align: right"><code>--gp</code></td><td style="text-align: right">Flag</td><td style="text-align: right">No</td><td style="text-align: right">Enable GP for stellar activity</td></tr><tr><td style="text-align: right"><code>--gaia-rv</code></td><td style="text-align: right">Flag</td><td style="text-align: right">No</td><td style="text-align: right">Include Gaia RV variability</td></tr><tr><td style="text-align: right"><code>--obs-types</code></td><td style="text-align: right">String</td><td style="text-align: right">No</td><td style="text-align: right">Comma-separated observation types</td></tr><tr><td style="text-align: right"><code>--circular</code></td><td style="text-align: right">Flag</td><td style="text-align: right">No</td><td style="text-align: right">Force circular orbits</td></tr></table><p>*One of <code>--hip</code> or <code>--gaia</code> must be specified.</p><h2 id="Performance-Tips"><a class="docs-heading-anchor" href="#Performance-Tips">Performance Tips</a><a id="Performance-Tips-1"></a><a class="docs-heading-anchor-permalink" href="#Performance-Tips" title="Permalink"></a></h2><ol><li><p><strong>Start with fewer rounds</strong> for initial exploration, then increase for publication-quality results.</p></li><li><p><strong>Use <code>freeze_epochs=true</code></strong> for faster sampling during testing:</p><pre><code class="language-julia hljs">absastrom = G23HObs(;
+    gaia_id=gaia_id,
+    freeze_epochs=true,  # Faster but approximate
+)</code></pre></li><li><p><strong>Run Julia with multiple threads</strong>:</p><pre><code class="language-bash hljs">julia --threads=auto script.jl --hip 12345 --host-mass 1.0</code></pre></li><li><p><strong>Consider using a subset of observations</strong> for initial exploration, then add more data for final fits.</p></li></ol><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../g23h/#fit-g23h">G23H Overview</a> - Conceptual overview of the G23H method</li><li><a href="../cross-validation/#cross-validation">Cross Validation</a> - Techniques for model validation</li><li><a href="../samplers/#samplers">Samplers</a> - More on MCMC sampling options</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../g23h/">« Joint Gaia-Hipparcos (G23H)</a><a class="docs-footer-nextpage" href="../gaia-iad/">Gaia DR4 Epoch Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Sunday 15 February 2026 03:33">Sunday 15 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
