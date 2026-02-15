@@ -29,7 +29,7 @@ using Reexport
 export KernelDensity
 
 # Re-export from TypedTables
-export Table, FlexTable
+export Table
 
 using Base.Threads: @threads
 using StaticArrays 
@@ -58,11 +58,6 @@ include("likelihoods/system.jl")
 include("likelihoods/relative-astrometry.jl")
 include("likelihoods/photometry.jl")
 include("likelihoods/hgca.jl")
-# TODO: consolidate some of these
-include("likelihoods/gaia-linefit.jl")
-include("likelihoods/gaia-cor.jl")
-include("likelihoods/gaia-ueva.jl")
-include("likelihoods/gaia.jl") # remove this
 include("likelihoods/hipparcos.jl")
 include("likelihoods/hgca-linfit.jl")
 include("likelihoods/g23h.jl")
@@ -75,7 +70,6 @@ include("likelihoods/prior-non-crossing.jl")
 
 include("logdensitymodel.jl")
 include("initialization.jl")
-include("optimization.jl")
 include("sampling.jl")
 
 include("analysis.jl")
@@ -86,7 +80,6 @@ include("io.jl")
 include("io-orbitize.jl")
 
 include("sbc.jl")
-include("predictive-distributions.jl")
 include("cross-validation.jl")
 
 """
@@ -317,6 +310,4 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
 
     return
 end
-
-# include("precompile.jl")
 end

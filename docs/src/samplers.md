@@ -7,24 +7,11 @@ We recommend using one of the following MCMC samplers:
 Many additional samplers can be used through the LogDensityProblems.jl interface, but they are not tested.
 
 ## Workflow
-When you're testing a new model and/or data, we recommend you test it quickly with Pathfinder (`chains = octoquick(model)`). This will return a rough approximation of the posterior and will pick up if it contains multiple modes. 
-
 If the posterior is unimodal (even if it has a complicated shape), go ahead and use AdvancedHMC (`chains = octofit(model)`). This uses a single computer core and is in many cases very efficient.
 
 If the posterior is multimodal, and the modes are quite separated, then use Pigeons (`chains, pt = octofit_pigeons(model, n_rounds=12)`).
 
-Read mode about these samplers below.
-
-
-## Pathfinder
-You can use the function `octoquick` to generate a very rough approximation of the posterior. This uses the multi-pathfinder approximate inference algorithm.
-
-The useage of `octoquick` is similar to `octofit`:
-```julia
-chain = octoquick(model)
-```
-
-These results are not statistically meaningful, but should give you some very rough idea of how the model fits the data in just a few seconds.
+Read more about these samplers below.
 
 
 ## Hamiltonian Monte Carlo (NUTS)
