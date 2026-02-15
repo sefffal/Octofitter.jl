@@ -640,7 +640,7 @@ function GaiaCatalogFitObs(;
 
     earth_pos_vel = geocentre_position_query.(forecast_table.epoch)
 
-    table = Table(eachcol(forecast_table)..., eachcol(earth_pos_vel)...)
+    table = FlexTable(eachcol(forecast_table)..., eachcol(earth_pos_vel)...)
 
     gaps_dr2 = CSV.read(joinpath(@__DIR__, "astrometric_gaps_gaiadr2_08252020.csv"), FlexTable)
     gaps_edr23 = CSV.read(joinpath(@__DIR__, "astrometric_gaps_gaiaedr3_12232020.csv"), FlexTable)
