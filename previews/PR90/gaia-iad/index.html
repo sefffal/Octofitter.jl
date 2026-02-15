@@ -3,10 +3,10 @@
 using Octofitter
 using Distributions
 using CSV, DataFrames</code></pre><h2 id="OHP-Gaia-Splinter-Session"><a class="docs-heading-anchor" href="#OHP-Gaia-Splinter-Session">OHP Gaia Splinter Session</a><a id="OHP-Gaia-Splinter-Session-1"></a><a class="docs-heading-anchor-permalink" href="#OHP-Gaia-Splinter-Session" title="Permalink"></a></h2><p>Download and plot the data:</p><pre><code class="language-julia hljs">fname = download(&quot;https://dace.unige.ch/downloads/open_data/dace-gaia-ohp/files/target_1.csv&quot;)
-df = CSV.read(fname, DataFrame);</code></pre><pre><code class="language-julia hljs">df = CSV.read(joinpath(@__DIR__, &quot;target_1.csv&quot;), DataFrame)</code></pre><p>We can now construct a likelihood object for this data. We must also supply the Gaia ID, which will be used to query the full Gaia solution for this object (for now, using DR3):</p><pre><code class="language- hljs">ref_epoch_mjd = 57936.375
+df = CSV.read(fname, DataFrame);</code></pre><pre><code class="language-julia hljs">df = CSV.read(joinpath(@__DIR__, &quot;target_1.csv&quot;), DataFrame)</code></pre><p>We can now construct a likelihood object for this data. We must also supply the Gaia ID, which will be used to query the full Gaia solution for this object (for now, using DR3):</p><pre><code class="language-julia hljs">ref_epoch_mjd = 57936.375
 
 gaia_dr4_obs = GaiaDR4AstromObs(
-    df, 
+    df,
     # For plotting reasons, you need to supply a Gaia ID to know e.g. the absolute Ra and Dec
     # For these ~simulated examples, you can pick one at random
     gaia_id=4373465352415301632,
@@ -23,7 +23,27 @@ gaia_dr4_obs = GaiaDR4AstromObs(
         plx = system.plx
         ref_epoch = $ref_epoch_mjd
     end
-)</code></pre><pre><code class="language- hljs">mjup2msol = Octofitter.mjup2msol
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">GaiaDR4AstromObs Table with 8 columns and 102 rows:
+      obs_time_tcb  centroid_pos_al  centroid_pos_error_…  parallax_factor_al  ⋯
+    ┌───────────────────────────────────────────────────────────────────────────
+ 1  │ 2.45704e6     -48.1529         0.044486              0.694068            ⋯
+ 2  │ 2.45706e6     -40.9114         0.0447412             -0.583294           ⋯
+ 3  │ 2.45716e6     36.8968          0.0441832             0.36178             ⋯
+ 4  │ 2.45716e6     36.6379          0.0488587             0.358281            ⋯
+ 5  │ 2.45717e6     -20.7433         0.061433              -0.522976           ⋯
+ 6  │ 2.45717e6     -20.9825         0.0470352             -0.526464           ⋯
+ 7  │ 2.45721e6     60.4545          0.0409268             0.7256              ⋯
+ 8  │ 2.45721e6     60.3531          0.0423611             0.725443            ⋯
+ 9  │ 2.45724e6     14.2189          0.0413549             -0.611316           ⋯
+ 10 │ 2.45724e6     14.3917          0.0447546             -0.609065           ⋯
+ 11 │ 2.45727e6     45.7711          0.0384871             0.385425            ⋯
+ 12 │ 2.45727e6     45.7168          0.0406302             0.387544            ⋯
+ 13 │ 2.45733e6     9.56681          0.0398049             -0.162231           ⋯
+ 14 │ 2.45733e6     9.15272          0.0394856             -0.156233           ⋯
+ 15 │ 2.45733e6     9.0219           0.0425311             -0.153719           ⋯
+ 16 │ 2.45733e6     8.60603          0.0402893             -0.147658           ⋯
+ 17 │ 2.45733e6     8.43312          0.0416049             -0.145114           ⋯
+ ⋮  │      ⋮               ⋮                  ⋮                    ⋮           ⋱</code></pre><pre><code class="language-julia hljs">mjup2msol = Octofitter.mjup2msol
 ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 orbit_ref_epoch = mean(gaia_dr4_obs.table.epoch)
 
@@ -52,7 +72,8 @@ sys = System(
         plx ~ Uniform(0.01,100) # mas
     end
 )
-model = Octofitter.LogDensityModel(sys, verbosity=4)</code></pre><p>Find a starting point via global optimization and variational approximation, and plot the initial points against the data:</p><pre><code class="language- hljs">init_chain = initialize!(model)
+model = Octofitter.LogDensityModel(sys, verbosity=4)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System target_1 of dimension 13 and 102 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>Find a starting point via global optimization and variational approximation, and plot the initial points against the data:</p><pre><code class="language- hljs">init_chain = initialize!(model)
 octoplot(model, init_chain)</code></pre><p>Sample using parallel tempering (could also use HMC for these unimodel distributions):</p><pre><code class="language- hljs">using Pigeons
 chain, pt = octofit_pigeons(model, n_rounds=10)</code></pre><p>Plot the results:</p><pre><code class="language- hljs">octoplot(model, chain)</code></pre><p>If we pick an individual draw, we can also plot the orbit against the Gaia data more directly. Like RV, this only works with individual draws because the Gaia points are &quot;detrended&quot; in a sense from the values of a particular draw (they move around the plot depending on the draw).</p><pre><code class="language- hljs"># Picks MAP sample
 # gaiastarplot(model, chain)           
@@ -215,4 +236,4 @@ chain,pt = octofit_pigeons(pt)</code></pre><p>Finally, we can visualize the resu
     &quot;2022&quot;
     &quot;2027&quot;
 ]))</code></pre><pre><code class="language-julia hljs"># Picks MAP sample
-Octofitter.gaiastarplot(model, chain)</code></pre><pre><code class="language-julia hljs">octocorner(model, chain, small=true)</code></pre><pre><code class="language-julia hljs">Octofitter.rvpostplot(model, chain)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../g23h-example/">« G23H Full Example</a><a class="docs-footer-nextpage" href="../gaia-dr4-simulation/">Gaia DR4 Simulation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Sunday 15 February 2026 03:33">Sunday 15 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Octofitter.gaiastarplot(model, chain)</code></pre><pre><code class="language-julia hljs">octocorner(model, chain, small=true)</code></pre><pre><code class="language-julia hljs">Octofitter.rvpostplot(model, chain)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../g23h-example/">« G23H Full Example</a><a class="docs-footer-nextpage" href="../gaia-dr4-simulation/">Gaia DR4 Simulation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Sunday 15 February 2026 04:21">Sunday 15 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
