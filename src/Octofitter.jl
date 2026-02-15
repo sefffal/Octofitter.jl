@@ -29,7 +29,7 @@ using Reexport
 export KernelDensity
 
 # Re-export from TypedTables
-export Table
+export Table, FlexTable
 
 using Base.Threads: @threads
 using StaticArrays 
