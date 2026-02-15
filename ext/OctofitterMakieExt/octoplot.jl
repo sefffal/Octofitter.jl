@@ -155,7 +155,6 @@ function Octofitter.octoplot!(
         for like_obj in model.system.observations
             show_pma |= like_obj isa Octofitter.HGCAObs
             show_pma |= like_obj isa Octofitter.HGCAInstantaneousObs
-            show_pma |= like_obj isa Octofitter.GaiaDifferenceObs
         end
     end
 
@@ -431,11 +430,6 @@ function Octofitter.octoplot!(
             height=300figscale
             for like_obj in model.system.observations
                 if like_obj isa HGCAObs || like_obj isa HGCAInstantaneousObs
-                    height+=180figscale
-                end
-            end
-            for like_obj in model.system.observations
-                if like_obj isa Octofitter.GaiaDifferenceObs
                     height+=180figscale
                 end
             end
