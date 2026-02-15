@@ -185,7 +185,32 @@ The `@variables` macro returns a raw `Tuple` of `(Priors, Derived, likelihoods..
 
 ---
 
-## 10. Minor: Commented-Out Code and Duplicated Comments
+## 10. `ln_like` Methods Are Duplicated Across Context Types
+
+**Location:** `variables.jl:313-416`
+
+Several observation types define near-identical `ln_like` methods for both `SystemObservationContext` and `PlanetObservationContext`. The core logic is the same; only the parameter extraction differs:
+
+**`UnitLengthPrior`** (lines 313-327) — two methods that differ only in how `x` and `y` are extracted:
+```julia
+# System version (line 314):
+x = getproperty(ctx.θ_system, X)
+# Planet version (line 322):
+θ = merge(ctx.θ_system, ctx.θ_planet)
+x = getproperty(θ, X)
+```
+
+**`UserLikelihood`** (lines 354-384) — two 14-line methods with identical logic after the first line of parameter extraction.
+
+**`BlankLikelihood`** (lines 409-416) — two methods that are 100% identical in their bodies.
+
+This pattern also appears in `generate_from_params` which has duplicate one-liner methods for both context types (line 350-351).
+
+**Suggested simplification:** Add a `get_params(ctx::SystemObservationContext)` / `get_params(ctx::PlanetObservationContext)` helper that returns a merged parameter named tuple, then write each `ln_like` once against the unified parameter set. Alternatively, use `AbstractObservationContext` dispatch with a shared implementation.
+
+---
+
+## 11. Minor: Commented-Out Code and Duplicated Comments
 
 Several files contain substantial blocks of commented-out code that add noise:
 
@@ -215,6 +240,8 @@ Several files contain substantial blocks of commented-out code that add noise:
 
 8. **Low impact:** Extract type-stability checking helper in `logdensitymodel.jl`.
 
-9. **Low impact:** Introduce a `VariablesBlock` struct for the `@variables` macro output.
+9. **Low impact:** Add a `get_params(ctx)` helper to unify `ln_like` implementations across `SystemObservationContext` and `PlanetObservationContext`.
 
-10. **Low impact:** Remove commented-out code and duplicated comments.
+10. **Low impact:** Introduce a `VariablesBlock` struct for the `@variables` macro output.
+
+11. **Low impact:** Remove commented-out code and duplicated comments.
