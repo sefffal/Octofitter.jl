@@ -21,8 +21,6 @@ AbsoluteVisual{KepOrbit}
 RadialVelocityOrbit
 sonora_photometry_interpolator
 sonora_cooling_interpolator
-plotchains
-projectpositions
 octofit
 octofit_pigeons
 initialize!
