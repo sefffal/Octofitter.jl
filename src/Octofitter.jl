@@ -26,6 +26,8 @@ export CSV
 using Reexport
 @reexport using PlanetOrbits
 
+export Table, FlexTable
+
 export KernelDensity
 
 # TypedTables used internally; extensions should import directly
