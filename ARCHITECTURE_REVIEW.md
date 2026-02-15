@@ -97,7 +97,36 @@ end
 
 ---
 
-## 5. `solutions_list` Tuple Passed Redundantly to Every Likelihood
+## 5. `simulate()` Functions Bypass Context Structs, Taking 8-10 Loose Arguments
+
+**Location:** `likelihoods/relative-astrometry.jl`, `likelihoods/g23h.jl`, `likelihoods/hgca.jl`, `likelihoods/hgca-linfit.jl`, `likelihoods/hipparcos.jl`
+
+The codebase defines `SystemObservationContext` and `PlanetObservationContext` structs to bundle observation parameters. The `ln_like` methods correctly use these context types. However, the companion `simulate()` functions bypass these structs entirely and take the same parameters as 5-10 loose arguments:
+
+```julia
+# relative-astrometry.jl:104 — 10 arguments!
+function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromObs,
+    θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet,
+    orbit_solutions_i_epoch_start)
+
+# hgca-linfit.jl:289 — 6 arguments
+function simulate(hgca_like::HGCAObs,
+    θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+
+# hipparcos.jl:543 — 6 arguments
+function simulate(hiplike::HipparcosIADObs,
+    θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+```
+
+The argument group `(θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)` is repeated across at least 7 files. This is exactly the set of fields in `SystemObservationContext`. For planet observations, `(θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)` matches `PlanetObservationContext`.
+
+Some `simulate()` functions are also pure pass-throughs that just forward all arguments (e.g., `relative-astrometry.jl:145-150` allocates buffers then passes all 8 args to `simulate!`).
+
+**Suggested simplification:** Refactor `simulate()` to accept the context struct, matching the `ln_like` signature. This eliminates the repeated argument lists and makes the API consistent.
+
+---
+
+## 6. `solutions_list` Tuple Passed Redundantly to Every Likelihood
 
 **Location:** `likelihoods/system.jl:48, 81, 96, 158`
 
@@ -228,20 +257,22 @@ Several files contain substantial blocks of commented-out code that add noise:
 
 2. **High impact:** Unify `make_ln_prior` and `make_ln_prior_transformed` via a shared parameterized code generator.
 
-3. **Medium impact:** Extract `gather_epochs(system)` to deduplicate epoch collection in `likelihoods/system.jl`.
+3. **Medium impact:** Refactor `simulate()` functions to accept the existing context structs instead of 5-10 loose arguments. This affects ~8 functions across 5+ likelihood files.
 
-4. **Medium impact:** Pass per-planet solutions to `PlanetObservationContext` instead of the full solutions tuple.
+4. **Medium impact:** Extract `gather_epochs(system)` to deduplicate epoch collection in `likelihoods/system.jl`.
 
-5. **Medium impact:** Replace string-based key reconstruction in `mcmcchain2result` with a structural approach.
+5. **Medium impact:** Pass per-planet solutions to `PlanetObservationContext` instead of the full solutions tuple.
 
-6. **Low impact:** Fix O(N^2) variable rebinding in `make_arr2nt` derived variable expansion.
+6. **Medium impact:** Replace string-based key reconstruction in `mcmcchain2result` with a structural approach.
 
-7. **Low impact:** Simplify the IIFE closure pattern in `logdensitymodel.jl` to a `let` block.
+7. **Low impact:** Fix O(N^2) variable rebinding in `make_arr2nt` derived variable expansion.
 
-8. **Low impact:** Extract type-stability checking helper in `logdensitymodel.jl`.
+8. **Low impact:** Simplify the IIFE closure pattern in `logdensitymodel.jl` to a `let` block.
 
-9. **Low impact:** Add a `get_params(ctx)` helper to unify `ln_like` implementations across `SystemObservationContext` and `PlanetObservationContext`.
+9. **Low impact:** Extract type-stability checking helper in `logdensitymodel.jl`.
 
-10. **Low impact:** Introduce a `VariablesBlock` struct for the `@variables` macro output.
+10. **Low impact:** Add a `get_params(ctx)` helper to unify `ln_like` implementations across `SystemObservationContext` and `PlanetObservationContext`.
 
-11. **Low impact:** Remove commented-out code and duplicated comments.
+11. **Low impact:** Introduce a `VariablesBlock` struct for the `@variables` macro output.
+
+12. **Low impact:** Remove commented-out code and duplicated comments.
