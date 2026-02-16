@@ -141,7 +141,12 @@ function Octofitter.hgcaplot!(
         solutions = map(orbits) do orbit
             return orbitsolve.(orbit, hgca_like.table.epoch)
         end
-        sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, 0)
+        θ_obs = (;)
+        name = Octofitter.normalizename(likelihoodname(hgca_like))
+        if hasproperty(θ_system, :observations) && hasproperty(θ_system.observations, name)
+            θ_obs = θ_system.observations[name]
+        end
+        sim = Octofitter.simulate(hgca_like, θ_system, θ_obs, orbits, solutions)
         push!(sims, sim)
     end
 
