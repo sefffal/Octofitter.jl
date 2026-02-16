@@ -216,11 +216,11 @@ function Octofitter.likeobj_from_epoch_subset(like::HGCAObs, obs_inds)
 end
 
 function ln_like(obs::HGCAObs, ctx::SystemObservationContext)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
-    sim = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, -1)
+    sim = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions)
 
     if isnothing(sim)
         return convert(T, -Inf)
@@ -286,7 +286,7 @@ function ln_like(obs::HGCAObs, ctx::SystemObservationContext)
 end
 
 
-function simulate(hgca_like::HGCAObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function simulate(hgca_like::HGCAObs, θ_system, θ_obs, orbits, orbit_solutions)
     T = Octofitter._system_number_type(θ_system)
 
     # * We compute the deviation caused by the planet(s) at each epoch of both likelihoods
@@ -358,12 +358,13 @@ function simulate(hgca_like::HGCAObs, θ_system, θ_obs, orbits, orbit_solutions
         for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
             fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
+            # Solve orbit at Gaia epochs for this planet
+            gaia_sols = [orbitsolve(orbit, ep) for ep in gaia_table.epoch]
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
                 gaia_table, orbit,
                 planet_mass_msol, fluxratio,
-                orbit_solutions[i_planet],
-                orbit_solutions_i_epoch_start, T
+                gaia_sols, T
             )
         end
 
@@ -385,12 +386,13 @@ function simulate(hgca_like::HGCAObs, θ_system, θ_obs, orbits, orbit_solutions
         for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
             fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
+            # Solve orbit at Hipparcos epochs for this planet
+            hip_sols = [orbitsolve(orbit, ep) for ep in hgca_like.hip_like.table.epoch]
             _simulate_skypath_perturbations!(
                 Δα_mas, Δδ_mas,
                 hgca_like.hip_like.table, orbit,
                 planet_mass_msol, fluxratio,
-                orbit_solutions[i_planet],
-                orbit_solutions_i_epoch_start, T
+                hip_sols, T
             )
         end
 
@@ -465,9 +467,9 @@ export HGCAObs, HGCALikelihood
 
 # Generate new astrometry observations
 function generate_from_params(like::HGCAObs, ctx::SystemObservationContext; add_noise)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
 
-    sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, -1)
+    sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions)
 
     (;μ_g, μ_h, μ_hg) = sim
 

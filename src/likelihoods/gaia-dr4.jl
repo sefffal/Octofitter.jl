@@ -90,12 +90,12 @@ function Octofitter.ln_like(
     likeobj::GaiaDR4AstromObs,
     ctx::SystemObservationContext
 )
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
 
-    # We separate out the the likelihood function into a `simulate` phase, 
+    # We separate out the the likelihood function into a `simulate` phase,
     # and then use the results here to compute the lieklihood.
     # This way we can re-use the simulator for plots, generating fake data,
     # etc.
@@ -120,7 +120,6 @@ function Octofitter.ln_like(
             θ_obs,
             orbits,
             orbit_solutions,
-            orbit_solutions_i_epoch_start,
             ra_offset_buffer,
             dec_offset_buffer,
             centroid_pos_al_model_buffer,
@@ -149,7 +148,6 @@ function Octofitter.simulate(
     θ_obs,
     orbits,
     orbit_solutions,
-    orbit_solutions_i_epoch_start,
     ra_offset_buffer=zeros(size(likeobj.table.epoch)),
     dec_offset_buffer=zeros(size(likeobj.table.epoch)),
     along_scan_residuals_buffer=zeros(size(likeobj.table.epoch)),
@@ -176,7 +174,7 @@ function Octofitter.simulate(
     # Compute position + proper motion at each epoch
     for i in eachindex(likeobj.table.epoch)
 
-        orbitsol = first(orbit_solutions)[i+orbit_solutions_i_epoch_start]
+        orbitsol = first(orbit_solutions)[i]
 
         # fast path, not accounting for higher order effects
         if !(orbitsol isa PlanetOrbits.OrbitSolutionAbsoluteVisual)
@@ -210,7 +208,7 @@ function Octofitter.simulate(
             pert_ra = zero(T)
             pert_dec = zero(T)
             for planet_i in eachindex(orbits)
-                sol = orbit_solutions[planet_i][i+orbit_solutions_i_epoch_start]
+                sol = orbit_solutions[planet_i][i]
                 pert_ra += raoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
                 pert_dec += decoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
             end
@@ -235,7 +233,7 @@ function Octofitter.simulate(
         # Original mode: add full perturbation (barycentric parameterization)
         for i in eachindex(likeobj.table.epoch)
             for planet_i in eachindex(orbits)
-                sol = orbit_solutions[planet_i][i+orbit_solutions_i_epoch_start]
+                sol = orbit_solutions[planet_i][i]
                 ra_offset_buffer[i] += raoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
                 dec_offset_buffer[i] += decoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
             end
@@ -262,8 +260,8 @@ end
 
 # Generate new astrometry observations
 function Octofitter.generate_from_params(obs::GaiaDR4AstromObs, ctx::SystemObservationContext; add_noise)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
-    sim_result = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
+    sim_result = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions)
     # Extract the along-scan residuals from the NamedTuple returned by simulate
     along_scan_residuals = sim_result.along_scan_residuals_buffer
 

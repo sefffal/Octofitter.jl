@@ -608,14 +608,14 @@ function Octofitter.likeobj_from_epoch_subset(like::G23HObs, obs_inds)
 end
 
 function ln_like(like::G23HObs, ctx::SystemObservationContext)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx 
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
 
     T = _system_number_type(θ_system)
     ll = zero(T)
 
     # TODO: optimize this, we only need to grab the epochs here -- it'll be faster
     if hasproperty(θ_obs, :transits)
-        (;transits) = θ_obs 
+        (;transits) = θ_obs
         if eltype(transits) <: AbstractFloat
             transits = Int.(transits)
         end
@@ -628,7 +628,7 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
     else
         gaia_table = like.gaia_table
     end
-    
+
     istart_dr2 = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaia_table.epoch))
     iend_dr2 = findlast(<=(meta_gaia_DR2.stop_mjd), vec(gaia_table.epoch))
     if isnothing(istart_dr2)
@@ -659,7 +659,7 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
         Δδ_mas_dr3 = @alloc(T, iend_dr3-istart_dr3+1); fill!(Δδ_mas_dr3, 0)
         buffers = (;iad_resid, Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3)
 
-        sim = simulate!(buffers, like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+        sim = simulate!(buffers, like, θ_system, θ_obs, orbits, orbit_solutions)
 
         if isnothing(sim)
             ll = convert(T,-Inf)
@@ -1007,7 +1007,7 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
     return ll
 end
 
-function simulate(like::G23HObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function simulate(like::G23HObs, θ_system, θ_obs, orbits, orbit_solutions)
 
     # TODO: optimize this, we only need to grab the epochs here -- it'll be faster
     if hasproperty(θ_obs, :transits)
@@ -1053,12 +1053,12 @@ function simulate(like::G23HObs, θ_system, θ_obs, orbits, orbit_solutions, orb
 
     buffers = (;iad_resid, Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3)
 
-    out = simulate!(buffers, like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+    out = simulate!(buffers, like, θ_system, θ_obs, orbits, orbit_solutions)
 
-    return out 
+    return out
 end
 
-function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
+function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solutions)
 
     (;Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3, iad_resid, ) = buffers
 
@@ -1189,12 +1189,13 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         else
             fluxratio = 0.0
         end
+        # Solve orbit at DR3 epochs for this planet
+        dr3_sols = [orbitsolve(orbit, ep) for ep in gaia_table_dr3.epoch]
         _simulate_skypath_perturbations!(
             Δα_mas_dr3, Δδ_mas_dr3,
             gaia_table_dr3, orbit,
             planet_mass_msol, fluxratio,
-            orbit_solutions[i_planet],
-            -1, T,
+            dr3_sols, T,
         )
     end
 
@@ -1244,12 +1245,13 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         else
             fluxratio = 0.0
         end
+        # Solve orbit at DR2 epochs for this planet
+        dr2_sols = [orbitsolve(orbit, ep) for ep in gaia_table_dr2.epoch]
         _simulate_skypath_perturbations!(
             Δα_mas_dr2, Δδ_mas_dr2,
             gaia_table_dr2, orbit,
             planet_mass_msol, fluxratio,
-            orbit_solutions[i_planet],
-            -1, T
+            dr2_sols, T
         )
     end
 
@@ -1286,12 +1288,13 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
             else
                 fluxratio = 0.0
             end
+            # Solve orbit at Hipparcos epochs for this planet
+            hip_sols = [orbitsolve(orbit, ep) for ep in like.hip_table.epoch]
             _simulate_skypath_perturbations!(
                 Δα_mas_hip, Δδ_mas_hip,
                 like.hip_table, orbit,
                 planet_mass_msol, fluxratio,
-                orbit_solutions[i_planet],
-                -1, T
+                hip_sols, T
             )
         end
         if like.include_iad
@@ -1645,9 +1648,9 @@ end
 
 # Generate new astrometry observations
 function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationContext; add_noise)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
 
-    sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions)
     (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3) = sim
 
     error("Simulating G23HObs not implemented yet")

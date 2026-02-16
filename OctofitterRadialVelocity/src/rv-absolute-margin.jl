@@ -103,7 +103,7 @@ export MarginalizedStarAbsoluteRVObs, MarginalizedStarAbsoluteRVLikelihood, Star
 
 
 # In-place simulation logic for MarginalizedStarAbsoluteRVObs (performance-critical)
-function Octofitter.simulate!(rv_model_buf, rvlike::MarginalizedStarAbsoluteRVObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions, orbit_solutions_i_epoch_start)
+function Octofitter.simulate!(rv_model_buf, rvlike::MarginalizedStarAbsoluteRVObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions)
     L = length(rvlike.table.epoch)
     T = Octofitter._system_number_type(θ_system)
     
@@ -116,21 +116,21 @@ function Octofitter.simulate!(rv_model_buf, rvlike::MarginalizedStarAbsoluteRVOb
         planet_mass = θ_system.planets[planet_i].mass
         for epoch_i in eachindex(rvlike.table.epoch)
             rv_model_buf[epoch_i] += radvel(
-                orbit_solutions[planet_i][epoch_i+orbit_solutions_i_epoch_start],
+                orbit_solutions[planet_i][epoch_i],
                 planet_mass*Octofitter.mjup2msol
             )
         end
-    end        
-    
+    end
+
     return (rv_model = rv_model_buf, epochs = rvlike.table.epoch)
 end
 
 # Allocating simulation logic for MarginalizedStarAbsoluteRVObs (convenience method)
-function Octofitter.simulate(rvlike::MarginalizedStarAbsoluteRVObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions, orbit_solutions_i_epoch_start)
+function Octofitter.simulate(rvlike::MarginalizedStarAbsoluteRVObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions)
     T = Octofitter._system_number_type(θ_system)
     L = length(rvlike.table.epoch)
     rv_model_buf = Vector{T}(undef, L)
-    return Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, planet_orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    return Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, planet_orbits, orbit_solutions)
 end
 
 
@@ -141,11 +141,11 @@ function Octofitter.ln_like(
     rvlike::MarginalizedStarAbsoluteRVObs,
     ctx::SystemObservationContext
 )
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
     L = length(rvlike.table.epoch)
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
-    
+
     jitter = θ_obs.jitter
 
     @no_escape begin
@@ -154,7 +154,7 @@ function Octofitter.ln_like(
         resid = @alloc(T, L)
 
         # Use in-place simulation method to get model values
-        sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+        sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, orbits, orbit_solutions)
 
         # Data for this instrument:
         epochs = rvlike.table.epoch
@@ -188,13 +188,13 @@ end
 
 # Generate new radial velocity observations for a star
 function Octofitter.generate_from_params(like::MarginalizedStarAbsoluteRVObs, ctx::SystemObservationContext; add_noise)
-   (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+   (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
     # Get epochs and uncertainties from observations
     epochs = like.table.epoch
     σ_rvs = like.table.σ_rv
 
     # Use the same simulation method as ln_like to generate model RV values
-    sim = Octofitter.simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    sim = Octofitter.simulate(like, θ_system, θ_obs, orbits, orbit_solutions)
 
     # For generate_from_params, we add a zero offset (since marginalized version doesn't have offset parameter)
     rvs = sim.rv_model .+ 0.0

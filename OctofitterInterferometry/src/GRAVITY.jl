@@ -136,7 +136,7 @@ function Octofitter.ln_like(
     vis::GRAVITYWideKPObs,
     ctx::Octofitter.SystemObservationContext
 )
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
 
     # Convoluted way to get either Float64 normally or a Dual{Float64} if using ForwardDiff
     T = Octofitter._system_number_type(θ_system)
@@ -146,7 +146,7 @@ function Octofitter.ln_like(
     flux = θ_obs.flux
 
 
-    # Access the data here: 
+    # Access the data here:
     epochs = vis.table.epoch
 
     if length(epochs) > 0
@@ -179,12 +179,12 @@ function Octofitter.ln_like(
         
         for i_planet in 1:length(orbits)
             for i_wave in 1:length(vis.table.eff_wave[i_epoch])
-                sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
+                sol = orbit_solutions[i_planet][i_epoch]
                 flux_ratio = flux[i_planet]
                 wavelength_m = vis.table.eff_wave[i_epoch][i_wave]
                 # Model the fiber as placed at the photocentre of the two bodies
                 secondary_offset_mas = projectedseparation(sol)
-                # Now calculate throughput loss on the secondary due to it being offset wrt. the 
+                # Now calculate throughput loss on the secondary due to it being offset wrt. the
                 # fiber (assumed to be at photocentre)
                 fiber_offset_mas = (flux_ratio * secondary_offset_mas) / (1.0 + flux_ratio)
                 coupling = vis.fiber_coupling_interpolator(fiber_offset_mas, wavelength_m)
@@ -206,7 +206,7 @@ function Octofitter.ln_like(
             # vis2_data = @views vis.table.vis2_data[i_epoch][:, i_wave]
             # dvis2 = @views vis.table.dvis2[i_epoch][:, i_wave]
 
-            # to normalize complex visibilities 
+            # to normalize complex visibilities
             cvis_model .= 0
             cps_model .= 0
             norm_factor_model = zero(T)
@@ -215,7 +215,7 @@ function Octofitter.ln_like(
             for i_planet in eachindex(orbits)
                 contrast = flux[i_planet]
                 throughput = throughputs[i_planet, i_wave]
-                sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
+                sol = orbit_solutions[i_planet][i_epoch]
                 Δra = raoff(sol)  # in mas
                 Δdec = decoff(sol) # in mas
 
@@ -349,7 +349,7 @@ function Octofitter.simulate(
     ctx::Octofitter.SystemObservationContext,
     num_epochs::Val{L}=Val(length(vis.table))
 ) where {L}
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
 
     # Convoluted way to get either Float64 normally or a Dual{Float64} if using ForwardDiff
     T = Octofitter._system_number_type(θ_system)
@@ -402,12 +402,12 @@ function Octofitter.simulate(
         
         for i_planet in 1:length(orbits)
             for i_wave in 1:length(vis.table.eff_wave[i_epoch])
-                sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
+                sol = orbit_solutions[i_planet][i_epoch]
                 flux_ratio = flux[i_planet]
                 wavelength_m = vis.table.eff_wave[i_epoch][i_wave]
                 # Model the fiber as placed at the photocentre of the two bodies
                 secondary_offset_mas = projectedseparation(sol)
-                # Now calculate throughput loss on the secondary due to it being offset wrt. the 
+                # Now calculate throughput loss on the secondary due to it being offset wrt. the
                 # fiber (assumed to be at photocentre)
                 fiber_offset_mas = (flux_ratio * secondary_offset_mas) / (1.0 + flux_ratio)
                 coupling = vis.fiber_coupling_interpolator(fiber_offset_mas, wavelength_m)
@@ -439,8 +439,8 @@ function Octofitter.simulate(
             for i_planet in eachindex(orbits)
                 contrast = flux[i_planet]
                 throughput = throughputs[i_planet, i_wave]
-                Δra = raoff(orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start])  # in mas
-                Δdec = decoff(orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]) # in mas
+                Δra = raoff(orbit_solutions[i_planet][i_epoch])  # in mas
+                Δdec = decoff(orbit_solutions[i_planet][i_epoch]) # in mas
 
                 # add complex visibilities from all planets at this epoch, for this wavelength
                 cvis_bin!(cvis_model; Δdec, Δra, contrast=contrast * throughput, u, v)
