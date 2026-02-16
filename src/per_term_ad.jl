@@ -6,6 +6,17 @@ The `resolve_ad_backend` function resolves the final backend to use, considering
 model-level overrides.
 =#
 
+using ADTypes: AutoForwardDiff, AutoFiniteDiff
+
+"""
+Backends compatible with Bumper.jl's `@no_escape`/`@alloc` pattern.
+Non-Bumper backends (Enzyme, Reactant, Mooncake, etc.) use plain heap allocation.
+"""
+_uses_bumper(::AutoForwardDiff) = true
+_uses_bumper(::AutoFiniteDiff) = true
+_uses_bumper(::Nothing) = true
+_uses_bumper(_) = false
+
 """
     ad_backend(obs::AbstractObs)
 
@@ -99,37 +110,57 @@ end
 #=
 Type-stable per-term gradient infrastructure.
 
-Each term's closure, AD backend, prep object, and gradient buffer are bundled
-into a TermGradSpec and stored in a heterogeneous Tuple. This allows the
-gradient loop to be fully type-stable via recursive dispatch.
+Each term's closure, AD backend, and factories for prep/gradient objects are
+bundled into a TermGradSpec and stored in a heterogeneous Tuple. Actual mutable
+buffers are obtained via task-local storage for parallel MCMC chain safety.
 =#
 
 """
-    TermGradSpec{TC,TB,TP,TG}
+    _get_task_local(key, factory)
+
+Get or create a task-local value. Uses `Base.task_local_storage` so that each
+MCMC chain (running on its own Task) gets independent mutable buffers.
+"""
+function _get_task_local(key, factory)
+    get!(factory, task_local_storage(), key)
+end
+
+"""
+    TermGradSpec{TC,TB,TPF,TGF}
 
 Bundles a single term's gradient infrastructure for type-stable storage
-in a heterogeneous Tuple.
+in a heterogeneous Tuple. Stores factories rather than mutable buffers
+so that task-local copies can be created on demand.
 """
-struct TermGradSpec{TC,TB,TP,TG}
+struct TermGradSpec{TC,TB,TPF,TGF}
     closure::TC
     backend::TB
-    prep::TP
-    grad::TG
+    prep_factory::TPF
+    grad_factory::TGF
+    tls_prep_key::Symbol
+    tls_grad_key::Symbol
 end
 
 """
     _prepare_term_specs(closures::Tuple, backends::Tuple, θ_example) -> Tuple{TermGradSpec...}
 
-Recursively build a type-stable heterogeneous tuple of TermGradSpec, calling
-`prepare_gradient` for each (closure, backend) pair.
+Recursively build a type-stable heterogeneous tuple of TermGradSpec, storing
+factories for `prepare_gradient` and gradient buffers instead of mutable state.
 """
 _prepare_term_specs(::Tuple{}, ::Tuple{}, θ_example) = ()
 function _prepare_term_specs(closures::Tuple, backends::Tuple, θ_example)
     c = first(closures)
     b = first(backends)
-    prep = prepare_gradient(c, b, zero(θ_example))
-    grad = similar(θ_example)
-    spec = TermGradSpec(c, b, prep, grad)
+    θ_zero = zero(θ_example)
+    prep_factory = let c=c, b=b, θ_zero=θ_zero
+        () -> prepare_gradient(c, b, θ_zero)
+    end
+    grad_factory = let θ_example=θ_example
+        () -> similar(θ_example)
+    end
+    key_id = gensym(:term)
+    spec = TermGradSpec(c, b, prep_factory, grad_factory,
+                        Symbol(key_id, :_prep), Symbol(key_id, :_grad))
     rest = _prepare_term_specs(Base.tail(closures), Base.tail(backends), θ_example)
     return (spec, rest...)
 end
@@ -139,13 +170,15 @@ end
 
 Recursively evaluate each term's gradient and accumulate into `total_grad`.
 Type-stable because each recursive call peels off a concrete element from
-the heterogeneous tuple.
+the heterogeneous tuple. Gradient buffers and prep objects are task-local.
 """
 _accumulate_term_gradients!(total_grad, ll, ::Tuple{}, θ) = ll
 function _accumulate_term_gradients!(total_grad, ll, specs::Tuple, θ)
     spec = first(specs)
-    ll_i, _ = value_and_gradient!(spec.closure, spec.grad, spec.prep, spec.backend, θ)
+    prep = _get_task_local(spec.tls_prep_key, spec.prep_factory)
+    grad = _get_task_local(spec.tls_grad_key, spec.grad_factory)
+    ll_i, _ = value_and_gradient!(spec.closure, grad, prep, spec.backend, θ)
     ll += ll_i
-    total_grad .+= spec.grad
+    total_grad .+= grad
     return _accumulate_term_gradients!(total_grad, ll, Base.tail(specs), θ)
 end
