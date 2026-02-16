@@ -34,14 +34,13 @@ function _make_per_term_solve_exprs(term_id::String, like, planet_keys::Vector{S
             sk = Symbol("sols_$(term_id)_p$(ip)")
             push!(sol_keys, sk)
             pk = planet_keys[ip]
+            sol0_sym = Symbol("_sol0_$(term_id)_p$(ip)")
             push!(sol_exprs, quote
-                let _orbit = $pk, _eps = $epochs_sym
-                    _sol0 = orbitsolve(_orbit, _eps[1])
-                    $sk = @alloc(typeof(_sol0), $n_epochs)
-                    $(sk)[1] = _sol0
-                    for _j in 2:$n_epochs
-                        $(sk)[_j] = orbitsolve(_orbit, _eps[_j])
-                    end
+                $sol0_sym = orbitsolve($pk, $epochs_sym[1])
+                $sk = @alloc(typeof($sol0_sym), $n_epochs)
+                $(sk)[1] = $sol0_sym
+                for _j in 2:$n_epochs
+                    $(sk)[_j] = orbitsolve($pk, $epochs_sym[_j])
                 end
             end)
         end
@@ -117,9 +116,10 @@ function make_ln_like(system::System, θ_system)
                     end
                 ))
             else
-                push!(term_exprs, :(
+                push!(term_exprs, quote
+                    $(sol_exprs...)
                     $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + $ll_call
-                ))
+                end)
             end
             j += 1
         end
@@ -151,9 +151,10 @@ function make_ln_like(system::System, θ_system)
                 end
             ))
         else
-            push!(term_exprs, :(
+            push!(term_exprs, quote
+                $(sol_exprs...)
                 $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + $ll_call
-            ))
+            end)
         end
         j += 1
     end
