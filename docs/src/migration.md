@@ -36,10 +36,6 @@ Apply these replacements to update your code:
 | `HGCALikelihood` | `HGCAObs` |
 | `HGCAInstantaneousLikelihood` | `HGCAInstantaneousObs` |
 | `HipparcosIADLikelihood` | `HipparcosIADObs` |
-| `GaiaHipparcosUEVAJointLikelihood` | `GaiaHipparcosUEVAJointObs` |
-| `GaiaDifferenceLikelihood` | `GaiaDifferenceObs` |
-| `GaiaCatalogFitLikelihood` | `GaiaCatalogFitObs` |
-| `GaiaUEVALikelihood` | `GaiaUEVAObs` |
 | `LogLikelihoodMap` | `LogLikelihoodMapObs` |
 
 **OctofitterRadialVelocity types:**

@@ -80,7 +80,7 @@ function get_starting_point!!(model::LogDensityModel; kwargs...)
     return get_starting_point!!(Random.default_rng(), model; kwargs...)
 end
 
-using OptimizationOptimJL, OptimizationBBO
+using Optimization, OptimizationOptimJL, OptimizationBBO
 
 
 _gradorder(::LogDensityProblems.LogDensityOrder{K}) where K = K
