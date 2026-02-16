@@ -4,6 +4,7 @@ authors = ["William Thompson <will.thompson@outlook.com>"]
 version = "8.0.0"
 
 [deps]
+ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
 AbstractGPs = "99985d1d-32ba-4be9-9821-2ec096f28918"
 AstroImages = "fe3fc30c-9b16-11e9-1c73-17dabf39f4ad"
 Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
@@ -12,6 +13,7 @@ DataDeps = "124859b0-ceae-595e-8997-d05f6a7a8dfe"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 FITSIO = "525bcba6-941b-5504-bd06-fd0dc1a4d2eb"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
@@ -34,6 +36,7 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 OctofitterRadialVelocityMakieExt = ["Makie"]
 
 [compat]
+ADTypes = "1"
 AbstractGPs = "0.5"
 AstroImages = "0.5"
 Bumper = "0.7.0"
@@ -41,6 +44,7 @@ CSV = "0.10"
 DataDeps = "0.7"
 Distances = "0.10"
 Distributions = "0.25"
+Enzyme = "0.13"
 FITSIO = "0.16, 0.17"
 MCMCChains = "6.0"
 Octofitter = "8"

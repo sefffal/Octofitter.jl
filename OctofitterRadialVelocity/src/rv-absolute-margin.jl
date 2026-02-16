@@ -6,6 +6,7 @@
 
 using Bumper
 using Octofitter: SystemObservationContext
+using ADTypes: AutoEnzyme
 
 """
     MarginalizedStarAbsoluteRVObs(
@@ -100,6 +101,11 @@ const MarginalizedStarAbsoluteRVLikelihood = MarginalizedStarAbsoluteRVObs
 const StarAbsoluteRVMarginLikelihood = MarginalizedStarAbsoluteRVObs
 
 export MarginalizedStarAbsoluteRVObs, MarginalizedStarAbsoluteRVLikelihood, StarAbsoluteRVMarginLikelihood
+
+# Use Enzyme reverse-mode AD for this observation type.
+# MarginalizedStarAbsoluteRVObs is a good candidate because its ln_like
+# is a simple loop without complex control flow.
+Octofitter.ad_backend(::MarginalizedStarAbsoluteRVObs) = AutoEnzyme()
 
 
 # In-place simulation logic for MarginalizedStarAbsoluteRVObs (performance-critical)
