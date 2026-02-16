@@ -198,9 +198,11 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             # Resolve prior backend (prior has no ad_backend, always use default)
             prior_backend = isnothing(autodiff) ? AutoForwardDiff(chunksize=D) : autodiff
 
-            # Build per-term closures and resolve backends
-            term_closures = Any[]
-            term_backends = Any[]
+            # Build per-term closures and backends as tuples for type stability.
+            # Each term gets a unique closure type, so we accumulate into a
+            # heterogeneous Tuple rather than a Vector{Any}.
+            term_closures = ()
+            term_backends = ()
 
             # Planet observation closures
             for i in 1:n_planets
@@ -208,10 +210,12 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 for (i_like, obs) in enumerate(planet.observations)
                     obs_name = hasproperty(obs, :name) ? normalizename(likelihoodname(obs)) : nothing
                     epochs = _get_obs_epochs(obs)
+                    has_epochs = !isempty(epochs)
 
                     closure = let i=i, obs=obs, obs_name=obs_name, epochs=epochs,
-                                  invlink=Bijector_invlinkvec, arr2nt=arr2nt,
-                                  orbit_constructors=orbit_constructors, n_planets=n_planets
+                                  has_epochs=has_epochs, invlink=Bijector_invlinkvec,
+                                  arr2nt=arr2nt, orbit_constructors=orbit_constructors,
+                                  n_planets=n_planets
                         function(θ_transformed)
                             θ_natural = invlink(θ_transformed)
                             θ_system = arr2nt(θ_natural)
@@ -221,19 +225,27 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                             catch
                                 return convert(eltype(θ_transformed), -Inf)
                             end
-                            solutions = _solve_all_orbits(orbits, epochs)
                             θ_planet = θ_system.planets[i]
                             θ_obs = if obs_name !== nothing && hasproperty(θ_planet.observations, obs_name)
                                 getproperty(θ_planet.observations, obs_name)
                             else
                                 (;)
                             end
-                            ctx = PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, solutions, i)
-                            ln_like(obs, ctx)
+                            if has_epochs
+                                @no_escape begin
+                                    solutions = _solve_all_orbits_bumper(orbits, epochs)
+                                    ctx = PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, solutions, i)
+                                    ln_like(obs, ctx)
+                                end
+                            else
+                                solutions = _solve_all_orbits(orbits, epochs)
+                                ctx = PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, solutions, i)
+                                ln_like(obs, ctx)
+                            end
                         end
                     end
-                    push!(term_closures, closure)
-                    push!(term_backends, resolve_ad_backend(obs, autodiff, D))
+                    term_closures = (term_closures..., closure)
+                    term_backends = (term_backends..., resolve_ad_backend(obs, autodiff, D))
                 end
             end
 
@@ -241,10 +253,12 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             for (i_obs, obs) in enumerate(system.observations)
                 obs_name = normalizename(likelihoodname(obs))
                 epochs = _get_obs_epochs(obs)
+                has_epochs = !isempty(epochs)
 
                 closure = let obs=obs, obs_name=obs_name, epochs=epochs,
-                              invlink=Bijector_invlinkvec, arr2nt=arr2nt,
-                              orbit_constructors=orbit_constructors, n_planets=n_planets
+                              has_epochs=has_epochs, invlink=Bijector_invlinkvec,
+                              arr2nt=arr2nt, orbit_constructors=orbit_constructors,
+                              n_planets=n_planets
                     function(θ_transformed)
                         θ_natural = invlink(θ_transformed)
                         θ_system = arr2nt(θ_natural)
@@ -254,35 +268,38 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                         catch
                             return convert(eltype(θ_transformed), -Inf)
                         end
-                        solutions = _solve_all_orbits(orbits, epochs)
                         θ_obs = if hasproperty(θ_system.observations, obs_name)
                             getproperty(θ_system.observations, obs_name)
                         else
                             (;)
                         end
-                        ctx = SystemObservationContext(θ_system, θ_obs, orbits, solutions)
-                        ln_like(obs, ctx)
+                        if has_epochs
+                            @no_escape begin
+                                solutions = _solve_all_orbits_bumper(orbits, epochs)
+                                ctx = SystemObservationContext(θ_system, θ_obs, orbits, solutions)
+                                ln_like(obs, ctx)
+                            end
+                        else
+                            solutions = _solve_all_orbits(orbits, epochs)
+                            ctx = SystemObservationContext(θ_system, θ_obs, orbits, solutions)
+                            ln_like(obs, ctx)
+                        end
                     end
                 end
-                push!(term_closures, closure)
-                push!(term_backends, resolve_ad_backend(obs, autodiff, D))
+                term_closures = (term_closures..., closure)
+                term_backends = (term_backends..., resolve_ad_backend(obs, autodiff, D))
             end
 
-            # Prepare gradient infrastructure for each term
+            # Prepare gradient infrastructure: type-stable heterogeneous tuple
             prior_prep = prepare_gradient(prior_closure, prior_backend, zero(initial_θ_0_t))
             prior_grad = similar(initial_θ_0_t)
-
-            n_terms = length(term_closures)
-            term_preps = [prepare_gradient(term_closures[i], term_backends[i], zero(initial_θ_0_t)) for i in 1:n_terms]
-            term_grads = [similar(initial_θ_0_t) for _ in 1:n_terms]
+            term_specs = _prepare_term_specs(term_closures, term_backends, initial_θ_0_t)
             total_grad = similar(initial_θ_0_t)
 
             ∇ℓπcallback =
             let prior_closure=prior_closure, prior_backend=prior_backend,
                 prior_prep=prior_prep, prior_grad=prior_grad,
-                term_closures=term_closures, term_backends=term_backends,
-                term_preps=term_preps, term_grads=term_grads,
-                total_grad=total_grad, n_terms=n_terms
+                term_specs=term_specs, total_grad=total_grad
                 function(θ_transformed)
                     # Prior gradient
                     ll_p, _ = value_and_gradient!(prior_closure, prior_grad, prior_prep, prior_backend, θ_transformed)
@@ -292,15 +309,10 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                         return ll_p, total_grad
                     end
 
-                    ll = ll_p
                     copyto!(total_grad, prior_grad)
 
-                    # Per-term gradients
-                    for i in 1:n_terms
-                        ll_i, _ = value_and_gradient!(term_closures[i], term_grads[i], term_preps[i], term_backends[i], θ_transformed)
-                        ll += ll_i
-                        total_grad .+= term_grads[i]
-                    end
+                    # Per-term gradients (type-stable recursion over heterogeneous tuple)
+                    ll = _accumulate_term_gradients!(total_grad, ll_p, term_specs, θ_transformed)
 
                     return ll, total_grad
                 end
