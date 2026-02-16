@@ -152,7 +152,7 @@ end
 Likelihood of there being planets in a sequence of images.
 """
 function Octofitter.ln_like(images::ImageObs, ctx::Octofitter.PlanetObservationContext)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = ctx
     
     # Resolve the combination of system and planet parameters
     # as a Visual{KepOrbit} object. This pre-computes
@@ -182,7 +182,7 @@ function Octofitter.ln_like(images::ImageObs, ctx::Octofitter.PlanetObservationC
                     continue
                 end
                 mass_other = θ_planet′.mass*Octofitter.mjup2msol
-                sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                sol′ = orbit_solutions[i_other_planet][i_epoch]
                 # Note about `total mass`: for this to be correct, user will have to specify
                 # `M` at the planet level such that it doesn't include the outer planets.
                 ra_host_perturbation += raoff(sol′, mass_other)
@@ -191,7 +191,7 @@ function Octofitter.ln_like(images::ImageObs, ctx::Octofitter.PlanetObservationC
         end
 
         # Take the measurement, and *add* the Delta, to get what we compare to the model
-        sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
+        sol = orbit_solutions[i_planet][i_epoch]
 
         # Apply north angle rotation and platescale correction
         ra_raw = raoff(sol) - ra_host_perturbation
@@ -259,7 +259,7 @@ end
 
 # Generate new images
 function Octofitter.generate_from_params(like::ImageLikelihood, ctx::Octofitter.SystemObservationContext; add_noise)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
 
     # For image likelihood, we don't actually simulate new images in the standard sense
     # This function would need specific planet information to work properly

@@ -85,7 +85,7 @@ end
 Likelihood of there being planets in a sequence of likemaps.
 """
 function Octofitter.ln_like(likemaps::LogLikelihoodMapObs, ctx::Octofitter.PlanetObservationContext)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = ctx
 
     # Resolve the combination of system and planet parameters
     # as a Visual{KepOrbit} object. This pre-computes
@@ -104,7 +104,7 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMapObs, ctx::Octofitter.Plane
     
     for i_epoch in eachindex(likemaps_table.epoch)
 
-        sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
+        sol = orbit_solutions[i_planet][i_epoch]
         @assert isapprox(likemaps.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
         ra_host_perturbation = zero(T)
         dec_host_perturbation = zero(T)
@@ -117,7 +117,7 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMapObs, ctx::Octofitter.Plane
                     continue
                 end
                 mass_other = θ_planet′.mass*Octofitter.mjup2msol
-                sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                sol′ = orbit_solutions[i_other_planet][i_epoch]
                 # Note about `total mass`: for this to be correct, user will have to specify
                 # `M` at the planet level such that it doesn't include the outer planets.
 

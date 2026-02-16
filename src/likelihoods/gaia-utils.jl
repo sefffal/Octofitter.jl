@@ -419,14 +419,10 @@ function _simulate_skypath_perturbations!(
     orbit::AbstractOrbit,
     planet_mass_msol,
     flux_ratio,
-    orbit_solutions, orbit_solutions_i_epoch_start, T=Float64;
+    orbit_solutions, T=Float64;
 )
     for i in eachindex(table.epoch)
-        if orbit_solutions_i_epoch_start >= 0
-            sol = orbit_solutions[orbit_solutions_i_epoch_start+i]
-        else
-            sol = orbitsolve(orbit, table.epoch[i])
-        end
+        sol = orbit_solutions[i]
 
         # Add perturbation to photocentre from (possibly luminous) planet in mas
         ra_host_vs_bary = raoff(sol, planet_mass_msol)
