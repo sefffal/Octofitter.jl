@@ -80,7 +80,6 @@ function make_ln_like(system::System, θ_system)
                             elems,
                             ($solutions_list), # all orbit solutions
                             $i, # This planet index into orbit solutions
-                            $(i_epoch_start-1) # start epoch index
                         )
                     );
                 )
@@ -95,7 +94,6 @@ function make_ln_like(system::System, θ_system)
                             elems,
                             ($solutions_list), # all orbit solutions
                             $i, # This planet index into orbit solutions
-                            $(i_epoch_start-1) # start epoch index
                         )
                     );
                 )
@@ -156,7 +154,6 @@ function make_ln_like(system::System, θ_system)
                         (;),
                     elems,
                     ($solutions_list),
-                    $(i_epoch_start-1)
                 )
             );
             # if !isfinite($(Symbol("ll$(j+1)")))
@@ -236,31 +233,6 @@ Generate a new system and observations from an existing model.
 """
 function generate_from_params(system::System, θ_newsystem = drawfrompriors(system); add_noise=false)
 
-    # First, we need to gather all epochs just like in make_ln_like
-    all_epochs = Float64[]
-    epoch_start_index_mapping = Dict{Any,Int}()
-    j = 1
-    
-    # System observation epochs
-    for obs in system.observations
-        if hasproperty(obs, :table) && hasproperty(obs.table, :epoch)
-            epoch_start_index_mapping[obs] = j
-            j += length(obs.table.epoch)
-            append!(all_epochs, obs.table.epoch)
-        end
-    end
-    
-    # Planet observation epochs
-    for i in 1:length(system.planets)
-        for like in system.planets[i].observations
-            if hasproperty(like, :table) && hasproperty(like.table, :epoch)
-                epoch_start_index_mapping[like] = j
-                j += length(like.table.epoch)
-                append!(all_epochs, like.table.epoch)
-            end
-        end
-    end
-
     # Generate new orbits for each planet in the system
     orbits = map(eachindex(system.planets)) do i
         planet = system.planets[i]
@@ -268,17 +240,15 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
         return neworbit
     end
 
-    # Pre-solve all orbits at all epochs (like in make_ln_like)
-    orbit_solutions = if isempty(all_epochs)
-        ntuple(_ -> (), length(orbits))
-    else
-        ntuple(length(orbits)) do i
-            orbit = orbits[i]
-            sols = Vector{Any}(undef, length(all_epochs))
-            for (j, epoch) in enumerate(all_epochs)
-                sols[j] = orbitsolve(orbit, epoch)
+    # Helper: solve all orbits at a given set of epochs
+    function _solve_at_epochs(obs)
+        if hasproperty(obs, :table) && hasproperty(obs.table, :epoch)
+            epochs = obs.table.epoch
+            return ntuple(length(orbits)) do i
+                [orbitsolve(orbits[i], ep) for ep in epochs]
             end
-            sols
+        else
+            return ntuple(_ -> [], length(orbits))
         end
     end
 
@@ -287,7 +257,7 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
         planet = system.planets[i]
         orbit = orbits[i]
         θ_newplanet = θ_newsystem.planets[i]
-        
+
         newplanet_obs = map(planet.observations) do obs
             # Get the observation-specific variables if they exist
             obs_name = normalizename(likelihoodname(obs))
@@ -295,7 +265,8 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
                     getproperty(θ_newplanet.observations, obs_name) :
                     (;)
 
-            i_epoch_start = get(epoch_start_index_mapping, obs, 0)
+            # Solve all orbits at this observation's epochs
+            orbit_solutions = _solve_at_epochs(obs)
 
             # Construct context object
             ctx = PlanetObservationContext(
@@ -305,13 +276,12 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
                 orbits,
                 orbit_solutions,
                 i,  # planet index
-                i_epoch_start - 1  # start epoch index (0-based)
             )
 
             # Call with context
             return generate_from_params(obs, ctx; add_noise)
         end
-        
+
         newplanet = Planet(
             variables=(planet.priors, planet.derived),
             basis=Octofitter.orbittype(planet),
@@ -329,7 +299,8 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
                 getproperty(θ_newsystem.observations, obs_name) :
                 (;)
 
-        i_epoch_start = get(epoch_start_index_mapping, obs, 0)
+        # Solve all orbits at this observation's epochs
+        orbit_solutions = _solve_at_epochs(obs)
 
         # Construct context object
         ctx = SystemObservationContext(
@@ -337,7 +308,6 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
             θ_obs,
             orbits,
             orbit_solutions,
-            i_epoch_start - 1  # start epoch index (0-based)
         )
 
         # Call with context

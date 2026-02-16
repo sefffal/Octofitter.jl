@@ -522,14 +522,12 @@ end
 ##########################
 # Computes log-likelihood
 function ln_like(obs::HipparcosIADObs, ctx::PlanetObservationContext)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = ctx
 
     T = _system_number_type(θ_system)
     ll = zero(T)
 
-    # Use the first element of orbit_solutions_i_epoch_start for compatibility
-    sol_start_i = first(orbit_solutions_i_epoch_start)
-    hip_model = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, sol_start_i)
+    hip_model = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions)
     for i in eachindex(hip_model.resid)
         if obs.table.reject[i]
             continue
@@ -540,7 +538,7 @@ function ln_like(obs::HipparcosIADObs, ctx::PlanetObservationContext)
     return ll
 end
 
-function simulate(hiplike::HipparcosIADObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function simulate(hiplike::HipparcosIADObs, θ_system, θ_obs, orbits, orbit_solutions)
 
     T = _system_number_type(θ_system)
     α✱_model_with_perturbation_out = zeros(T, length(hiplike.table.epoch))
@@ -578,7 +576,7 @@ function simulate(hiplike::HipparcosIADObs, θ_system, θ_obs, orbits, orbit_sol
             Δα_mas, Δδ_mas,
             hiplike.table, orbits[planet_i],
             planet_mass_msol, fluxratio,
-            orbit_solutions[planet_i], orbit_solutions_i_epoch_start[planet_i], T
+            orbit_solutions[planet_i], T
         )
         # TODO: I think _simulate_skypath_perturbations just accumulates in place-- 
         # confirm if we really need these temporary variables and can't just pass
@@ -591,7 +589,7 @@ function simulate(hiplike::HipparcosIADObs, θ_system, θ_obs, orbits, orbit_sol
 
     for i in eachindex(hiplike.table.epoch)
 
-        orbitsol_hip_epoch = first(orbit_solutions)[i+orbit_solutions_i_epoch_start]
+        orbitsol_hip_epoch = first(orbit_solutions)[i]
 
         ##############
         # Non-linear version

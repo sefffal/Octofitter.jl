@@ -3,7 +3,7 @@ function Octofitter.ln_like(
     like::Union{Octofitter.ObsPriorAstromONeil2019{StarAbsoluteRVObs}, Octofitter.ObsPriorAstromONeil2019{MarginalizedStarAbsoluteRVObs}},
     context::Octofitter.PlanetObservationContext
 )
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = context
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = context
     T = Octofitter._system_number_type(θ_system)
 
     # Call the wrapped likelihood's ln_like method

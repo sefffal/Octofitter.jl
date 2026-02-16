@@ -79,7 +79,7 @@ function ln_like(
     like::ObsPriorAstromONeil2019{<:PlanetRelAstromObs},
     context::PlanetObservationContext
 )
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = context
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = context
     T = _system_number_type(θ_system)
 
     # Call the wrapped likelihood's ln_like method
@@ -140,7 +140,7 @@ function ln_like(
     like::ObsPriorAstromONeil2019{<:Any},
     context::SystemObservationContext
 )
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = context
+    (; θ_system, θ_obs, orbits, orbit_solutions) = context
     T = _system_number_type(θ_system)
 
     # Call the wrapped likelihood's ln_like method

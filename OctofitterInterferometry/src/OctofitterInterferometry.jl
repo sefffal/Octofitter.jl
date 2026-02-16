@@ -120,12 +120,12 @@ end
 Visibliitiy modelling likelihood for point sources.
 """
 function Octofitter.ln_like(vis::InterferometryObs, ctx::Octofitter.SystemObservationContext)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
 
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
-    # Access the data here: 
+    # Access the data here:
     epochs = vis.table.epoch
 
     # Add an extra optional uncertainty in quadrature
@@ -169,13 +169,13 @@ function Octofitter.ln_like(vis::InterferometryObs, ctx::Octofitter.SystemObserv
             # Consider all planets
             for i_planet in eachindex(orbits)
                 # Get the orbital solution for this planet at this epoch
-                sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
-                
+                sol = orbit_solutions[i_planet][i_epoch]
+
                 # Epicycle approximation: consider the effect of inner planets on the photocentre
                 ra_host_perturbation = zero(T)
                 dec_host_perturbation = zero(T)
                 this_orbit = orbits[i_planet]
-                
+
                 # Account for inner planets that shift the photocentre
                 for (i_other_planet, key) in enumerate(keys(θ_system.planets))
                     if i_other_planet == i_planet
@@ -189,7 +189,7 @@ function Octofitter.ln_like(vis::InterferometryObs, ctx::Octofitter.SystemObserv
                             continue
                         end
                         mass_other = θ_planet_other.mass * Octofitter.mjup2msol
-                        sol_other = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                        sol_other = orbit_solutions[i_other_planet][i_epoch]
                         
                         # Add the photocentre shift due to this inner planet
                         ra_host_perturbation += raoff(sol_other, mass_other)
@@ -342,7 +342,7 @@ end
 
 # Generate new observations for multiple planets
 function Octofitter.generate_from_params(like::InterferometryLikelihood, ctx::Octofitter.SystemObservationContext; add_noise)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
 
     # Get flux array from observation variables (one per planet)
     flux = θ_obs.flux
@@ -374,13 +374,13 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, ctx::Oc
 
         # Consider all planets
         for i_planet in eachindex(orbits)
-            sol = orbit_solutions[i_planet][j + orbit_solutions_i_epoch_start]
-            
+            sol = orbit_solutions[i_planet][j]
+
             # Epicycle approximation: consider the effect of inner planets on the photocentre
             ra_host_perturbation = zero(T)
             dec_host_perturbation = zero(T)
             this_orbit = orbits[i_planet]
-            
+
             # Account for inner planets that shift the photocentre
             for (i_other_planet, key) in enumerate(keys(θ_system.planets))
                 if i_other_planet == i_planet
@@ -394,7 +394,7 @@ function Octofitter.generate_from_params(like::InterferometryLikelihood, ctx::Oc
                         continue
                     end
                     mass_other = θ_planet_other.mass * Octofitter.mjup2msol
-                    sol_other = orbit_solutions[i_other_planet][j + orbit_solutions_i_epoch_start]
+                    sol_other = orbit_solutions[i_other_planet][j]
                     
                     # Add the photocentre shift due to this inner planet
                     ra_host_perturbation += raoff(sol_other, mass_other)
