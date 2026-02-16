@@ -17,14 +17,12 @@ Evaluation context for system-level observations (e.g., RV, proper motion anomal
 - `θ_obs::NamedTuple` - Observation-specific parameters (offset, jitter, etc.)
 - `orbits::NTuple{N,TOrbit}` - Tuple of all planet orbits
 - `orbit_solutions::NTuple{N,TSolutions}` - Pre-solved orbit solutions for all planets
-- `orbit_solutions_i_epoch_start::Int` - Starting index into solutions array (0-based)
 """
 struct SystemObservationContext{TSystem<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions} <: AbstractObservationContext
     θ_system::TSystem
     θ_obs::TObs
     orbits::NTuple{N,TOrbit}
     orbit_solutions::NTuple{N,TSolutions}
-    orbit_solutions_i_epoch_start::Int
 end
 
 # Outer constructor with type inference
@@ -33,10 +31,9 @@ function SystemObservationContext(
     θ_obs,
     orbits,
     orbit_solutions,
-    orbit_solutions_i_epoch_start::Int
 )
     return SystemObservationContext{typeof(θ_system),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions)}(
-        θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start
+        θ_system, θ_obs, orbits, orbit_solutions
     )
 end
 
@@ -52,7 +49,6 @@ Evaluation context for planet-level observations (e.g., relative astrometry).
 - `orbits::NTuple{N,TOrbit}` - Tuple of all planet orbits
 - `orbit_solutions::NTuple{N,TSolutions}` - Pre-solved orbit solutions for all planets
 - `i_planet::Int` - Index of this planet in the orbits/solutions arrays
-- `orbit_solutions_i_epoch_start::Int` - Starting index into solutions array (0-based)
 """
 struct PlanetObservationContext{TSystem<:NamedTuple,TPlanet<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions} <: AbstractObservationContext
     θ_system::TSystem
@@ -61,7 +57,6 @@ struct PlanetObservationContext{TSystem<:NamedTuple,TPlanet<:NamedTuple,TObs<:Na
     orbits::NTuple{N,TOrbit}
     orbit_solutions::NTuple{N,TSolutions}
     i_planet::Int
-    orbit_solutions_i_epoch_start::Int
 end
 
 # Outer constructor with type inference
@@ -72,10 +67,9 @@ function PlanetObservationContext(
     orbits,
     orbit_solutions,
     i_planet::Int,
-    orbit_solutions_i_epoch_start::Int
 )
     return PlanetObservationContext{typeof(θ_system),typeof(θ_planet),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions)}(
-        θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start
+        θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet
     )
 end
 
