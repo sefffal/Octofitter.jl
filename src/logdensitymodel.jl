@@ -171,6 +171,17 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
             n_planets = length(system.planets)
 
+            # Compute per-term active parameter indices for gradient sparsity
+            active_indices_all, _D_check = _compute_active_indices(system)
+            @assert _D_check == D "Active index computation disagrees on D: $_D_check vs $D"
+
+            # Task-local full-θ base vector (Float64) for embedding active subsets
+            tls_θ_full_id = gensym(:octofitter_θ_full)
+            tls_θ_full_key = Symbol(tls_θ_full_id, :_base)
+            θ_full_factory = let D=D
+                () -> Vector{Float64}(undef, D)
+            end
+
             # Build orbit constructors: one closure per planet capturing its OrbitType
             orbit_constructors = ntuple(n_planets) do i
                 OT = _planet_orbit_type(system.planets[i])
@@ -205,15 +216,19 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             term_backends = ()
 
             # Planet observation closures
+            term_idx = 0
             for i in 1:n_planets
                 planet = system.planets[i]
                 for (i_like, obs) in enumerate(planet.observations)
+                    term_idx += 1
+                    active = active_indices_all[term_idx]
+                    D_active = length(active)
                     obs_name = hasproperty(obs, :name) ? normalizename(likelihoodname(obs)) : nothing
                     epochs = _get_obs_epochs(obs)
                     has_epochs = !isempty(epochs)
-                    obs_backend = resolve_ad_backend(obs, autodiff, D)
+                    obs_backend = resolve_ad_backend(obs, autodiff, D_active)
 
-                    closure = let i=i, obs=obs, obs_name=obs_name, epochs=epochs,
+                    inner_closure = let i=i, obs=obs, obs_name=obs_name, epochs=epochs,
                                   has_epochs=has_epochs, invlink=Bijector_invlinkvec,
                                   arr2nt=arr2nt, orbit_constructors=orbit_constructors,
                                   n_planets=n_planets, obs_backend=obs_backend
@@ -251,6 +266,35 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                             end
                         end
                     end
+
+                    # Wrap with active-parameter embedding
+                    closure = if D_active == D
+                        inner_closure
+                    elseif _uses_bumper(obs_backend)
+                        let inner=inner_closure, active_indices=active, D=D,
+                            tls_key=tls_θ_full_key, factory=θ_full_factory
+                            function(θ_active)
+                                θ_full_base = _get_task_local(tls_key, factory)
+                                @no_escape begin
+                                    buf = Bumper.default_buffer()
+                                    θ_embedded = Bumper.alloc!(buf, eltype(θ_active), D)
+                                    _embed_active!(θ_embedded, θ_full_base, θ_active, active_indices)
+                                    inner(θ_embedded)
+                                end
+                            end
+                        end
+                    else
+                        let inner=inner_closure, active_indices=active, D=D,
+                            tls_key=tls_θ_full_key, factory=θ_full_factory
+                            function(θ_active)
+                                θ_full_base = _get_task_local(tls_key, factory)
+                                θ_embedded = similar(θ_active, D)
+                                _embed_active!(θ_embedded, θ_full_base, θ_active, active_indices)
+                                inner(θ_embedded)
+                            end
+                        end
+                    end
+
                     term_closures = (term_closures..., closure)
                     term_backends = (term_backends..., obs_backend)
                 end
@@ -258,12 +302,15 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
             # System observation closures
             for (i_obs, obs) in enumerate(system.observations)
+                term_idx += 1
+                active = active_indices_all[term_idx]
+                D_active = length(active)
                 obs_name = normalizename(likelihoodname(obs))
                 epochs = _get_obs_epochs(obs)
                 has_epochs = !isempty(epochs)
-                obs_backend = resolve_ad_backend(obs, autodiff, D)
+                obs_backend = resolve_ad_backend(obs, autodiff, D_active)
 
-                closure = let obs=obs, obs_name=obs_name, epochs=epochs,
+                inner_closure = let obs=obs, obs_name=obs_name, epochs=epochs,
                               has_epochs=has_epochs, invlink=Bijector_invlinkvec,
                               arr2nt=arr2nt, orbit_constructors=orbit_constructors,
                               n_planets=n_planets, obs_backend=obs_backend
@@ -300,12 +347,41 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                         end
                     end
                 end
+
+                # Wrap with active-parameter embedding
+                closure = if D_active == D
+                    inner_closure
+                elseif _uses_bumper(obs_backend)
+                    let inner=inner_closure, active_indices=active, D=D,
+                        tls_key=tls_θ_full_key, factory=θ_full_factory
+                        function(θ_active)
+                            θ_full_base = _get_task_local(tls_key, factory)
+                            @no_escape begin
+                                buf = Bumper.default_buffer()
+                                θ_embedded = Bumper.alloc!(buf, eltype(θ_active), D)
+                                _embed_active!(θ_embedded, θ_full_base, θ_active, active_indices)
+                                inner(θ_embedded)
+                            end
+                        end
+                    end
+                else
+                    let inner=inner_closure, active_indices=active, D=D,
+                        tls_key=tls_θ_full_key, factory=θ_full_factory
+                        function(θ_active)
+                            θ_full_base = _get_task_local(tls_key, factory)
+                            θ_embedded = similar(θ_active, D)
+                            _embed_active!(θ_embedded, θ_full_base, θ_active, active_indices)
+                            inner(θ_embedded)
+                        end
+                    end
+                end
+
                 term_closures = (term_closures..., closure)
                 term_backends = (term_backends..., obs_backend)
             end
 
             # Prepare gradient infrastructure: type-stable heterogeneous tuple
-            term_specs = _prepare_term_specs(term_closures, term_backends, initial_θ_0_t)
+            term_specs = _prepare_term_specs(term_closures, term_backends, active_indices_all, initial_θ_0_t)
 
             # Factories for task-local gradient buffers (parallel MCMC chain safety)
             θ_zero = zero(initial_θ_0_t)
@@ -331,13 +407,18 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 prior_prep_factory=prior_prep_factory, prior_grad_factory=prior_grad_factory,
                 total_grad_factory=total_grad_factory, term_specs=term_specs,
                 tls_prior_prep_key=tls_prior_prep_key, tls_prior_grad_key=tls_prior_grad_key,
-                tls_total_grad_key=tls_total_grad_key
+                tls_total_grad_key=tls_total_grad_key,
+                tls_θ_full_key=tls_θ_full_key, θ_full_factory=θ_full_factory
                 function(θ_transformed)
                     prior_prep = _get_task_local(tls_prior_prep_key, prior_prep_factory)
                     prior_grad = _get_task_local(tls_prior_grad_key, prior_grad_factory)
                     total_grad = _get_task_local(tls_total_grad_key, total_grad_factory)
 
-                    # Prior gradient
+                    # Update task-local full-θ base for sparse embedding closures
+                    θ_full_base = _get_task_local(tls_θ_full_key, θ_full_factory)
+                    copyto!(θ_full_base, θ_transformed)
+
+                    # Prior gradient (full-D — prior touches all params)
                     ll_p, _ = value_and_gradient!(prior_closure, prior_grad, prior_prep, prior_backend, θ_transformed)
 
                     if !isfinite(ll_p)
@@ -347,7 +428,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
                     copyto!(total_grad, prior_grad)
 
-                    # Per-term gradients (type-stable recursion over heterogeneous tuple)
+                    # Per-term sparse gradients (type-stable recursion over heterogeneous tuple)
                     ll = _accumulate_term_gradients!(total_grad, ll_p, term_specs, θ_transformed)
 
                     return ll, total_grad
