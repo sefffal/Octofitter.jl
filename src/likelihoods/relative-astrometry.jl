@@ -101,16 +101,15 @@ export PlanetRelAstromObs, PlanetRelAstromLikelihood
 
 
 # In-place simulation logic for PlanetRelAstromObs (performance-critical)
-function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
     T = _system_number_type(θ_system)
     this_orbit = orbits[i_planet]
-    
+
     # Compute model astrometry for each epoch
     for i_epoch in eachindex(astrom.table.epoch)
         # Get the orbit solution for this planet at this epoch
-        sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
-        # @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
-        
+        sol = orbit_solutions[i_planet][i_epoch]
+
         # Calculate perturbations from inner planets
         ra_host_perturbation = zero(T)
         dec_host_perturbation = zero(T)
@@ -123,12 +122,10 @@ function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromObs, θ_s
                     continue
                 end
                 mass_other = θ_planet′.mass*Octofitter.mjup2msol
-                sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
-                
+                sol′ = orbit_solutions[i_other_planet][i_epoch]
+
                 ra_host_perturbation += raoff(sol′, mass_other)
                 dec_host_perturbation += decoff(sol′, mass_other)
-                
-                # @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
             end
         end
 
@@ -137,17 +134,17 @@ function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromObs, θ_s
         ra_model_buf[i_epoch] = raoff(sol) - ra_host_perturbation
         dec_model_buf[i_epoch] = decoff(sol) - dec_host_perturbation
     end
-    
+
     return (ra_model = ra_model_buf, dec_model = dec_model_buf, epochs = astrom.table.epoch)
 end
 
 # Allocating simulation logic for PlanetRelAstromObs (convenience method)
-function simulate(astrom::PlanetRelAstromObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function simulate(astrom::PlanetRelAstromObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
     T = _system_number_type(θ_system)
     L = length(astrom.table.epoch)
     ra_model_buf = Vector{T}(undef, L)
     dec_model_buf = Vector{T}(undef, L)
-    return simulate!(ra_model_buf, dec_model_buf, astrom, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    return simulate!(ra_model_buf, dec_model_buf, astrom, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
 end
 
 
@@ -164,7 +161,7 @@ using LinearAlgebra
 
 # PlanetRelAstromObs likelihood function
 function ln_like(astrom::PlanetRelAstromObs, ctx::PlanetObservationContext)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = ctx
     T = Octofitter._system_number_type(θ_system)
    
     jitter = hasproperty(θ_obs, :jitter) ? getproperty(θ_obs, :jitter) : zero(T)
@@ -180,7 +177,7 @@ function ln_like(astrom::PlanetRelAstromObs, ctx::PlanetObservationContext)
         dec_model_buf = @alloc(T, L)
         
         # Use in-place simulation method to get model values
-        sim = Octofitter.simulate!(ra_model_buf, dec_model_buf, astrom, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+        sim = Octofitter.simulate!(ra_model_buf, dec_model_buf, astrom, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
 
         # Process each epoch to compute residuals and likelihood
         for i_epoch in eachindex(astrom.table.epoch)
@@ -247,13 +244,13 @@ end
 
 # Generate new astrometry observations
 function generate_from_params(like::PlanetRelAstromObs, ctx::PlanetObservationContext; add_noise)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = ctx
 
     # Get epochs and uncertainties from observations
     epoch = like.table.epoch
 
     # Use the same simulation method as ln_like to generate model astrometry values
-    sim = Octofitter.simulate(like, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    sim = Octofitter.simulate(like, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
     ra_model = sim.ra_model
     dec_model = sim.dec_model
 
