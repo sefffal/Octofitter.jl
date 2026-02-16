@@ -40,6 +40,10 @@ if TEST_MODE in ("all", "unit")
         @testset "I/O" begin
             include("unit/io.jl")
         end
+
+        @testset "Enzyme RV" begin
+            include("unit/enzyme_rv.jl")
+        end
     end
 end
 
