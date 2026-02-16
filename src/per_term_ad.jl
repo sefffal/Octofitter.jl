@@ -42,3 +42,30 @@ function resolve_ad_backend(obs, model_override, D::Int)
         return AutoForwardDiff(chunksize=D)
     end
 end
+
+"""
+    _get_obs_epochs(obs)
+
+Get the epochs from an observation object, or an empty Float64 vector if none.
+"""
+function _get_obs_epochs(obs)
+    if hasproperty(obs, :table) && hasproperty(obs.table, :epoch)
+        return collect(Float64, obs.table.epoch)
+    end
+    return Float64[]
+end
+
+"""
+    _solve_all_orbits(orbits::NTuple{N}, epochs) where N
+
+Solve all orbits at given epochs. Returns a tuple of solution vectors.
+Uses heap allocation for use in per-term gradient closures.
+"""
+function _solve_all_orbits(orbits::NTuple{N}, epochs) where N
+    if isempty(epochs)
+        return ntuple(Returns(()), Val(N))
+    end
+    ntuple(Val(N)) do i
+        map(ep -> orbitsolve(orbits[i], ep), epochs)
+    end
+end
