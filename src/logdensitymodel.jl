@@ -40,9 +40,8 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             @info "Model contains discrete variables; model gradients not supported."
         end
 
-        if isnothing(autodiff)
-            autodiff = AutoForwardDiff(chunksize=D)
-        end
+        # autodiff is kept as-is (nothing, false, or a specific backend).
+        # Per-term backend resolution happens in resolve_ad_backend().
 
         ln_prior_transformed = make_ln_prior_transformed(system)
         # ln_prior = make_ln_prior(system)
@@ -166,24 +165,155 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 return ℓπcallback, nothing
             end
 
-            ∇ℓπcallback =
-            let ℓπcallback=ℓπcallback,
-                autodiff=autodiff,
-                prep = prepare_gradient(ℓπcallback, autodiff, zero(initial_θ_0_t)),
-                grad = similar(initial_θ_0_t)
-                function(initial_θ_0_t)
-                    return value_and_gradient!(ℓπcallback, grad, prep, autodiff, initial_θ_0_t)
+            # --- Per-term gradient composition ---
+            # Each observation term gets its own AD closure so different terms
+            # can use different backends (e.g. ForwardDiff vs Enzyme).
+
+            n_planets = length(system.planets)
+
+            # Build orbit constructors: one closure per planet capturing its OrbitType
+            orbit_constructors = ntuple(n_planets) do i
+                OT = _planet_orbit_type(system.planets[i])
+                let OT=OT, i=i
+                    (θ_system) -> OT(;merge(θ_system, θ_system.planets[i])...)
                 end
             end
 
-            # Run the callback once right away. If there is a coding error in the users 
+            # Helper: construct all orbits from structured parameters
+            function _build_orbits(orbit_constructors, θ_system, n_planets)
+                ntuple(i -> orbit_constructors[i](θ_system), n_planets)
+            end
+
+            # Prior closure: θ_transformed → scalar prior log-density
+            prior_closure = let invlink=Bijector_invlinkvec, ln_prior=ln_prior_transformed
+                function(θ_transformed)
+                    if any(!isfinite, θ_transformed)
+                        return convert(eltype(θ_transformed), -Inf)
+                    end
+                    θ_natural = invlink(θ_transformed)
+                    ln_prior(θ_natural, true)
+                end
+            end
+
+            # Resolve prior backend (prior has no ad_backend, always use default)
+            prior_backend = isnothing(autodiff) ? AutoForwardDiff(chunksize=D) : autodiff
+
+            # Build per-term closures and resolve backends
+            term_closures = Any[]
+            term_backends = Any[]
+
+            # Planet observation closures
+            for i in 1:n_planets
+                planet = system.planets[i]
+                for (i_like, obs) in enumerate(planet.observations)
+                    obs_name = hasproperty(obs, :name) ? normalizename(likelihoodname(obs)) : nothing
+                    epochs = _get_obs_epochs(obs)
+
+                    closure = let i=i, obs=obs, obs_name=obs_name, epochs=epochs,
+                                  invlink=Bijector_invlinkvec, arr2nt=arr2nt,
+                                  orbit_constructors=orbit_constructors, n_planets=n_planets
+                        function(θ_transformed)
+                            θ_natural = invlink(θ_transformed)
+                            θ_system = arr2nt(θ_natural)
+                            local orbits
+                            try
+                                orbits = _build_orbits(orbit_constructors, θ_system, n_planets)
+                            catch
+                                return convert(eltype(θ_transformed), -Inf)
+                            end
+                            solutions = _solve_all_orbits(orbits, epochs)
+                            θ_planet = θ_system.planets[i]
+                            θ_obs = if obs_name !== nothing && hasproperty(θ_planet.observations, obs_name)
+                                getproperty(θ_planet.observations, obs_name)
+                            else
+                                (;)
+                            end
+                            ctx = PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, solutions, i)
+                            ln_like(obs, ctx)
+                        end
+                    end
+                    push!(term_closures, closure)
+                    push!(term_backends, resolve_ad_backend(obs, autodiff, D))
+                end
+            end
+
+            # System observation closures
+            for (i_obs, obs) in enumerate(system.observations)
+                obs_name = normalizename(likelihoodname(obs))
+                epochs = _get_obs_epochs(obs)
+
+                closure = let obs=obs, obs_name=obs_name, epochs=epochs,
+                              invlink=Bijector_invlinkvec, arr2nt=arr2nt,
+                              orbit_constructors=orbit_constructors, n_planets=n_planets
+                    function(θ_transformed)
+                        θ_natural = invlink(θ_transformed)
+                        θ_system = arr2nt(θ_natural)
+                        local orbits
+                        try
+                            orbits = _build_orbits(orbit_constructors, θ_system, n_planets)
+                        catch
+                            return convert(eltype(θ_transformed), -Inf)
+                        end
+                        solutions = _solve_all_orbits(orbits, epochs)
+                        θ_obs = if hasproperty(θ_system.observations, obs_name)
+                            getproperty(θ_system.observations, obs_name)
+                        else
+                            (;)
+                        end
+                        ctx = SystemObservationContext(θ_system, θ_obs, orbits, solutions)
+                        ln_like(obs, ctx)
+                    end
+                end
+                push!(term_closures, closure)
+                push!(term_backends, resolve_ad_backend(obs, autodiff, D))
+            end
+
+            # Prepare gradient infrastructure for each term
+            prior_prep = prepare_gradient(prior_closure, prior_backend, zero(initial_θ_0_t))
+            prior_grad = similar(initial_θ_0_t)
+
+            n_terms = length(term_closures)
+            term_preps = [prepare_gradient(term_closures[i], term_backends[i], zero(initial_θ_0_t)) for i in 1:n_terms]
+            term_grads = [similar(initial_θ_0_t) for _ in 1:n_terms]
+            total_grad = similar(initial_θ_0_t)
+
+            ∇ℓπcallback =
+            let prior_closure=prior_closure, prior_backend=prior_backend,
+                prior_prep=prior_prep, prior_grad=prior_grad,
+                term_closures=term_closures, term_backends=term_backends,
+                term_preps=term_preps, term_grads=term_grads,
+                total_grad=total_grad, n_terms=n_terms
+                function(θ_transformed)
+                    # Prior gradient
+                    ll_p, _ = value_and_gradient!(prior_closure, prior_grad, prior_prep, prior_backend, θ_transformed)
+
+                    if !isfinite(ll_p)
+                        fill!(total_grad, zero(eltype(θ_transformed)))
+                        return ll_p, total_grad
+                    end
+
+                    ll = ll_p
+                    copyto!(total_grad, prior_grad)
+
+                    # Per-term gradients
+                    for i in 1:n_terms
+                        ll_i, _ = value_and_gradient!(term_closures[i], term_grads[i], term_preps[i], term_backends[i], θ_transformed)
+                        ll += ll_i
+                        total_grad .+= term_grads[i]
+                    end
+
+                    return ll, total_grad
+                end
+            end
+
+            # Run the callback once right away. If there is a coding error in the users
             # model, we want to surface it ASAP.
             if verbosity >= 1
                 (function(∇ℓπcallback, θ)
                     @showtime ∇ℓπcallback(θ)
                 end)(∇ℓπcallback, initial_θ_0_t)
             else
-                ∇ℓπcallback(initial_θ_0_t) 
+                ∇ℓπcallback(initial_θ_0_t)
             end
 
 
