@@ -107,6 +107,125 @@ function _solve_all_orbits_bumper(orbits::NTuple{N}, epochs) where N
     end
 end
 
+"""
+    _embed_active!(θ_embedded, θ_full_base, θ_active, active_indices)
+
+Embed active parameters into a full-length vector. Inactive positions
+get Float64 base values (with zero AD partials), active positions get
+the AD-tracked values from θ_active.
+"""
+@inline function _embed_active!(θ_embedded, θ_full_base, θ_active, active_indices)
+    @inbounds for k in eachindex(θ_embedded)
+        θ_embedded[k] = θ_full_base[k]
+    end
+    @inbounds for (j, idx) in enumerate(active_indices)
+        θ_embedded[idx] = θ_active[j]
+    end
+    return θ_embedded
+end
+
+"""
+    _compute_active_indices(system) -> (Tuple of Vector{Int}, D)
+
+Compute per-term active parameter indices. Returns a tuple of Vector{Int}
+(one per observation term, in closure construction order: planet obs first,
+then system obs) and the total parameter count D.
+
+Each term's active indices include:
+- All system prior indices (always needed for orbit construction)
+- All planet prior indices (always needed — epicycle approximation)
+- This observation's own prior indices
+
+Parameters from other observations are excluded (structurally zero gradient).
+"""
+function _compute_active_indices(system)
+    idx = 0
+
+    # System priors
+    sys_prior_start = idx + 1
+    for key in keys(system.priors.priors)
+        idx += length(system.priors.priors[key])
+    end
+    sys_prior_end = idx
+
+    # System observation priors — track each obs separately
+    sys_obs_ranges = UnitRange{Int}[]
+    for obs in system.observations
+        obs_start = idx + 1
+        if hasproperty(obs, :priors)
+            for key in keys(obs.priors.priors)
+                idx += length(obs.priors.priors[key])
+            end
+        end
+        push!(sys_obs_ranges, obs_start:idx)
+    end
+
+    # Planet priors and planet observation priors
+    planet_prior_ranges = UnitRange{Int}[]
+    planet_obs_ranges = Vector{UnitRange{Int}}[]
+    for planet in system.planets
+        planet_start = idx + 1
+        for key in keys(planet.priors.priors)
+            idx += length(planet.priors.priors[key])
+        end
+        push!(planet_prior_ranges, planet_start:idx)
+
+        obs_ranges = UnitRange{Int}[]
+        for obs in planet.observations
+            obs_start = idx + 1
+            if hasproperty(obs, :priors)
+                for key in keys(obs.priors.priors)
+                    idx += length(obs.priors.priors[key])
+                end
+            end
+            push!(obs_ranges, obs_start:idx)
+        end
+        push!(planet_obs_ranges, obs_ranges)
+    end
+
+    D = idx
+
+    # "Always active" = system priors + all planet priors
+    always_active = Int[]
+    for i in sys_prior_start:sys_prior_end
+        push!(always_active, i)
+    end
+    for r in planet_prior_ranges
+        for i in r
+            push!(always_active, i)
+        end
+    end
+    sort!(always_active)
+
+    # Build active indices per term, in closure order:
+    # Planet obs first, then system obs
+    active_indices_list = Vector{Int}[]
+
+    for (ip, planet) in enumerate(system.planets)
+        for (io, obs) in enumerate(planet.observations)
+            obs_range = planet_obs_ranges[ip][io]
+            if isempty(obs_range)
+                push!(active_indices_list, copy(always_active))
+            else
+                active = sort!(union(always_active, collect(obs_range)))
+                push!(active_indices_list, active)
+            end
+        end
+    end
+
+    for (io, obs) in enumerate(system.observations)
+        obs_range = sys_obs_ranges[io]
+        if isempty(obs_range)
+            push!(active_indices_list, copy(always_active))
+        else
+            active = sort!(union(always_active, collect(obs_range)))
+            push!(active_indices_list, active)
+        end
+    end
+
+    return Tuple(active_indices_list), D
+end
+
 #=
 Type-stable per-term gradient infrastructure.
 
@@ -139,29 +258,34 @@ struct TermGradSpec{TC,TB,TPF,TGF}
     grad_factory::TGF
     tls_prep_key::Symbol
     tls_grad_key::Symbol
+    active_indices::Vector{Int}
 end
 
 """
-    _prepare_term_specs(closures::Tuple, backends::Tuple, θ_example) -> Tuple{TermGradSpec...}
+    _prepare_term_specs(closures::Tuple, backends::Tuple, active_indices_tuple::Tuple, θ_example) -> Tuple{TermGradSpec...}
 
 Recursively build a type-stable heterogeneous tuple of TermGradSpec, storing
 factories for `prepare_gradient` and gradient buffers instead of mutable state.
+Each term uses D_active-length buffers based on its active parameter indices.
 """
-_prepare_term_specs(::Tuple{}, ::Tuple{}, θ_example) = ()
-function _prepare_term_specs(closures::Tuple, backends::Tuple, θ_example)
+_prepare_term_specs(::Tuple{}, ::Tuple{}, ::Tuple{}, θ_example) = ()
+function _prepare_term_specs(closures::Tuple, backends::Tuple, active_indices_tuple::Tuple, θ_example)
     c = first(closures)
     b = first(backends)
-    θ_zero = zero(θ_example)
+    active = first(active_indices_tuple)
+    θ_active_example = θ_example[active]
+    θ_zero = zero(θ_active_example)
     prep_factory = let c=c, b=b, θ_zero=θ_zero
         () -> prepare_gradient(c, b, θ_zero)
     end
-    grad_factory = let θ_example=θ_example
-        () -> similar(θ_example)
+    grad_factory = let θ_ex=θ_active_example
+        () -> similar(θ_ex)
     end
     key_id = gensym(:term)
     spec = TermGradSpec(c, b, prep_factory, grad_factory,
-                        Symbol(key_id, :_prep), Symbol(key_id, :_grad))
-    rest = _prepare_term_specs(Base.tail(closures), Base.tail(backends), θ_example)
+                        Symbol(key_id, :_prep), Symbol(key_id, :_grad),
+                        active)
+    rest = _prepare_term_specs(Base.tail(closures), Base.tail(backends), Base.tail(active_indices_tuple), θ_example)
     return (spec, rest...)
 end
 
@@ -171,14 +295,27 @@ end
 Recursively evaluate each term's gradient and accumulate into `total_grad`.
 Type-stable because each recursive call peels off a concrete element from
 the heterogeneous tuple. Gradient buffers and prep objects are task-local.
+
+Each term operates on a reduced-dimension active subset of θ, then scatters
+its gradient contributions back to the full-D total_grad vector.
 """
 _accumulate_term_gradients!(total_grad, ll, ::Tuple{}, θ) = ll
 function _accumulate_term_gradients!(total_grad, ll, specs::Tuple, θ)
     spec = first(specs)
     prep = _get_task_local(spec.tls_prep_key, spec.prep_factory)
-    grad = _get_task_local(spec.tls_grad_key, spec.grad_factory)
-    ll_i, _ = value_and_gradient!(spec.closure, grad, prep, spec.backend, θ)
+    active_grad = _get_task_local(spec.tls_grad_key, spec.grad_factory)
+
+    # Extract active subset
+    θ_active = θ[spec.active_indices]
+
+    # Gradient on reduced-dimension input
+    ll_i, _ = value_and_gradient!(spec.closure, active_grad, prep, spec.backend, θ_active)
     ll += ll_i
-    total_grad .+= grad
+
+    # Scatter back to full gradient
+    @inbounds for (j, idx) in enumerate(spec.active_indices)
+        total_grad[idx] += active_grad[j]
+    end
+
     return _accumulate_term_gradients!(total_grad, ll, Base.tail(specs), θ)
 end
