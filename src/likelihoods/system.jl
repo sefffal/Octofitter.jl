@@ -183,28 +183,8 @@ function make_ln_like(system::System, θ_system)
     end))
 end
 
+# Threading flag used by sampling/initialization for outer-loop parallelism
 const _kepsolve_use_threads = Ref(false)
-function _kepsolve_all!(solutions, orbit, epochs)
-    if _kepsolve_use_threads[]
-        return _kepsolve_all_multithread!(solutions, orbit, epochs)
-    else
-        return _kepsolve_all_singlethread!(solutions, orbit, epochs)
-    end
-end
-function _kepsolve_all_singlethread!(solutions, orbit, epochs)
-    for epoch_i in eachindex(epochs)
-        solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
-    end
-    return solutions
-end
-
-function _kepsolve_all_multithread!(solutions, orbit, epochs)
-    Threads.@threads for epoch_i in 1:length(epochs)
-        solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
-    end
-    return solutions
-end
-
 
 # Generate calibration data
 """
