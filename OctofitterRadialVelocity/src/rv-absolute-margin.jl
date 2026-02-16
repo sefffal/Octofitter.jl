@@ -4,9 +4,9 @@
 # This object only supports one instrument, but you can add as many
 # observation objects as you want (one per instrument).
 
-using Bumper
 using Octofitter: SystemObservationContext
 using ADTypes: AutoEnzyme
+using Enzyme: Const, Reverse, set_runtime_activity
 
 """
     MarginalizedStarAbsoluteRVObs(
@@ -105,7 +105,7 @@ export MarginalizedStarAbsoluteRVObs, MarginalizedStarAbsoluteRVLikelihood, Star
 # Use Enzyme reverse-mode AD for this observation type.
 # MarginalizedStarAbsoluteRVObs is a good candidate because its ln_like
 # is a simple loop without complex control flow.
-Octofitter.ad_backend(::MarginalizedStarAbsoluteRVObs) = AutoEnzyme()
+Octofitter.ad_backend(::MarginalizedStarAbsoluteRVObs) = AutoEnzyme(mode=set_runtime_activity(Reverse), function_annotation=Const)
 
 
 # In-place simulation logic for MarginalizedStarAbsoluteRVObs (performance-critical)
@@ -154,38 +154,35 @@ function Octofitter.ln_like(
 
     jitter = θ_obs.jitter
 
-    @no_escape begin
-        # Allocate buffers using bump allocator
-        rv_model_buf = @alloc(T, L)
-        resid = @alloc(T, L)
+    rv_model_buf = Vector{T}(undef, L)
+    resid = Vector{T}(undef, L)
 
-        # Use in-place simulation method to get model values
-        sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, orbits, orbit_solutions)
+    # Use in-place simulation method to get model values
+    sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, orbits, orbit_solutions)
 
-        # Data for this instrument:
-        epochs = rvlike.table.epoch
-        σ_rvs = rvlike.table.σ_rv
-        rvs = rvlike.table.rv
+    # Data for this instrument:
+    epochs = rvlike.table.epoch
+    σ_rvs = rvlike.table.σ_rv
+    rvs = rvlike.table.rv
 
-        # RV residual calculation: measured RV - model
-        resid .= rvs .- rv_model_buf
-        
-        # Marginalize out the instrument zero point using math from the Orvara paper
-        A = zero(T)
-        B = zero(T)
-        C = zero(T)
-        for i_epoch in eachindex(epochs)
-            # The noise variance per observation is the measurement noise and the jitter added
-            # in quadrature
-            var = σ_rvs[i_epoch]^2 + jitter^2
-            A += 1/var
-            B -= 2resid[i_epoch]/var
-            C += resid[i_epoch]^2/var
-            # Penalize RV likelihood by total variance 
-            ll -= log(2π*var) #  ll += log(1/var)
-        end
-        ll -= -B^2 / (4A) + C + log(A)
+    # RV residual calculation: measured RV - model
+    resid .= rvs .- rv_model_buf
+
+    # Marginalize out the instrument zero point using math from the Orvara paper
+    A = zero(T)
+    B = zero(T)
+    C = zero(T)
+    for i_epoch in eachindex(epochs)
+        # The noise variance per observation is the measurement noise and the jitter added
+        # in quadrature
+        var = σ_rvs[i_epoch]^2 + jitter^2
+        A += 1/var
+        B -= 2resid[i_epoch]/var
+        C += resid[i_epoch]^2/var
+        # Penalize RV likelihood by total variance
+        ll -= log(2π*var) #  ll += log(1/var)
     end
+    ll -= -B^2 / (4A) + C + log(A)
 
     return ll
 end

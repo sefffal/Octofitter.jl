@@ -211,11 +211,12 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                     obs_name = hasproperty(obs, :name) ? normalizename(likelihoodname(obs)) : nothing
                     epochs = _get_obs_epochs(obs)
                     has_epochs = !isempty(epochs)
+                    obs_backend = resolve_ad_backend(obs, autodiff, D)
 
                     closure = let i=i, obs=obs, obs_name=obs_name, epochs=epochs,
                                   has_epochs=has_epochs, invlink=Bijector_invlinkvec,
                                   arr2nt=arr2nt, orbit_constructors=orbit_constructors,
-                                  n_planets=n_planets
+                                  n_planets=n_planets, obs_backend=obs_backend
                         function(θ_transformed)
                             θ_natural = invlink(θ_transformed)
                             θ_system = arr2nt(θ_natural)
@@ -232,8 +233,14 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                                 (;)
                             end
                             if has_epochs
-                                @no_escape begin
-                                    solutions = _solve_all_orbits_bumper(orbits, epochs)
+                                if _uses_bumper(obs_backend)
+                                    @no_escape begin
+                                        solutions = _solve_all_orbits_bumper(orbits, epochs)
+                                        ctx = PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, solutions, i)
+                                        ln_like(obs, ctx)
+                                    end
+                                else
+                                    solutions = _solve_all_orbits(orbits, epochs)
                                     ctx = PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, solutions, i)
                                     ln_like(obs, ctx)
                                 end
@@ -245,7 +252,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                         end
                     end
                     term_closures = (term_closures..., closure)
-                    term_backends = (term_backends..., resolve_ad_backend(obs, autodiff, D))
+                    term_backends = (term_backends..., obs_backend)
                 end
             end
 
@@ -254,11 +261,12 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 obs_name = normalizename(likelihoodname(obs))
                 epochs = _get_obs_epochs(obs)
                 has_epochs = !isempty(epochs)
+                obs_backend = resolve_ad_backend(obs, autodiff, D)
 
                 closure = let obs=obs, obs_name=obs_name, epochs=epochs,
                               has_epochs=has_epochs, invlink=Bijector_invlinkvec,
                               arr2nt=arr2nt, orbit_constructors=orbit_constructors,
-                              n_planets=n_planets
+                              n_planets=n_planets, obs_backend=obs_backend
                     function(θ_transformed)
                         θ_natural = invlink(θ_transformed)
                         θ_system = arr2nt(θ_natural)
@@ -274,8 +282,14 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                             (;)
                         end
                         if has_epochs
-                            @no_escape begin
-                                solutions = _solve_all_orbits_bumper(orbits, epochs)
+                            if _uses_bumper(obs_backend)
+                                @no_escape begin
+                                    solutions = _solve_all_orbits_bumper(orbits, epochs)
+                                    ctx = SystemObservationContext(θ_system, θ_obs, orbits, solutions)
+                                    ln_like(obs, ctx)
+                                end
+                            else
+                                solutions = _solve_all_orbits(orbits, epochs)
                                 ctx = SystemObservationContext(θ_system, θ_obs, orbits, solutions)
                                 ln_like(obs, ctx)
                             end
@@ -287,20 +301,42 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                     end
                 end
                 term_closures = (term_closures..., closure)
-                term_backends = (term_backends..., resolve_ad_backend(obs, autodiff, D))
+                term_backends = (term_backends..., obs_backend)
             end
 
             # Prepare gradient infrastructure: type-stable heterogeneous tuple
-            prior_prep = prepare_gradient(prior_closure, prior_backend, zero(initial_θ_0_t))
-            prior_grad = similar(initial_θ_0_t)
             term_specs = _prepare_term_specs(term_closures, term_backends, initial_θ_0_t)
-            total_grad = similar(initial_θ_0_t)
+
+            # Factories for task-local gradient buffers (parallel MCMC chain safety)
+            θ_zero = zero(initial_θ_0_t)
+            prior_prep_factory = let pc=prior_closure, pb=prior_backend, θz=θ_zero
+                () -> prepare_gradient(pc, pb, θz)
+            end
+            prior_grad_factory = let θ_ex=initial_θ_0_t
+                () -> similar(θ_ex)
+            end
+            total_grad_factory = let θ_ex=initial_θ_0_t
+                () -> similar(θ_ex)
+            end
+
+            # Eagerly populate task-local storage for the current task so the
+            # warm-up evaluation below doesn't pay the factory cost twice.
+            tls_id = gensym(:octofitter_grad)
+            tls_prior_prep_key = Symbol(tls_id, :_prior_prep)
+            tls_prior_grad_key = Symbol(tls_id, :_prior_grad)
+            tls_total_grad_key = Symbol(tls_id, :_total_grad)
 
             ∇ℓπcallback =
             let prior_closure=prior_closure, prior_backend=prior_backend,
-                prior_prep=prior_prep, prior_grad=prior_grad,
-                term_specs=term_specs, total_grad=total_grad
+                prior_prep_factory=prior_prep_factory, prior_grad_factory=prior_grad_factory,
+                total_grad_factory=total_grad_factory, term_specs=term_specs,
+                tls_prior_prep_key=tls_prior_prep_key, tls_prior_grad_key=tls_prior_grad_key,
+                tls_total_grad_key=tls_total_grad_key
                 function(θ_transformed)
+                    prior_prep = _get_task_local(tls_prior_prep_key, prior_prep_factory)
+                    prior_grad = _get_task_local(tls_prior_grad_key, prior_grad_factory)
+                    total_grad = _get_task_local(tls_total_grad_key, total_grad_factory)
+
                     # Prior gradient
                     ll_p, _ = value_and_gradient!(prior_closure, prior_grad, prior_prep, prior_backend, θ_transformed)
 
