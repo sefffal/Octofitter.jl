@@ -235,13 +235,15 @@ buffers are obtained via task-local storage for parallel MCMC chain safety.
 =#
 
 """
-    _get_task_local(key, factory)
+    _get_task_local(::Type{T}, key, factory) where T
 
 Get or create a task-local value. Uses `Base.task_local_storage` so that each
 MCMC chain (running on its own Task) gets independent mutable buffers.
+The type parameter `T` is required for type stability, since `task_local_storage()`
+returns `Dict{Symbol, Any}`.
 """
-function _get_task_local(key, factory)
-    get!(factory, task_local_storage(), key)
+@inline function _get_task_local(::Type{T}, key, factory) where T
+    get!(factory, task_local_storage(), key)::T
 end
 
 """
@@ -251,14 +253,20 @@ Bundles a single term's gradient infrastructure for type-stable storage
 in a heterogeneous Tuple. Stores factories rather than mutable buffers
 so that task-local copies can be created on demand.
 """
-struct TermGradSpec{TC,TB,TPF,TGF}
+struct TermGradSpec{TC,TB,TPF,TGF,TAF,TP,TG,TA}
     closure::TC
     backend::TB
     prep_factory::TPF
     grad_factory::TGF
+    θ_active_factory::TAF
     tls_prep_key::Symbol
     tls_grad_key::Symbol
+    tls_θ_active_key::Symbol
     active_indices::Vector{Int}
+    all_active::Bool  # true when active_indices == 1:D (skip copy)
+    prep_type::Type{TP}
+    grad_type::Type{TG}
+    θ_active_type::Type{TA}
 end
 
 """
@@ -275,16 +283,28 @@ function _prepare_term_specs(closures::Tuple, backends::Tuple, active_indices_tu
     active = first(active_indices_tuple)
     θ_active_example = θ_example[active]
     θ_zero = zero(θ_active_example)
+    D_total = length(θ_example)
+    D_active = length(active)
     prep_factory = let c=c, b=b, θ_zero=θ_zero
         () -> prepare_gradient(c, b, θ_zero)
     end
     grad_factory = let θ_ex=θ_active_example
         () -> similar(θ_ex)
     end
+    θ_active_factory = let θ_ex=θ_active_example
+        () -> similar(θ_ex)
+    end
+    # Compute concrete types for type-stable task-local retrieval
+    prep_example = prep_factory()
+    grad_example = grad_factory()
+    θ_active_example_buf = θ_active_factory()
     key_id = gensym(:term)
-    spec = TermGradSpec(c, b, prep_factory, grad_factory,
+    spec = TermGradSpec(c, b, prep_factory, grad_factory, θ_active_factory,
                         Symbol(key_id, :_prep), Symbol(key_id, :_grad),
-                        active)
+                        Symbol(key_id, :_θ_active),
+                        active, D_active == D_total,
+                        typeof(prep_example), typeof(grad_example),
+                        typeof(θ_active_example_buf))
     rest = _prepare_term_specs(Base.tail(closures), Base.tail(backends), Base.tail(active_indices_tuple), θ_example)
     return (spec, rest...)
 end
@@ -302,19 +322,31 @@ its gradient contributions back to the full-D total_grad vector.
 _accumulate_term_gradients!(total_grad, ll, ::Tuple{}, θ) = ll
 function _accumulate_term_gradients!(total_grad, ll, specs::Tuple, θ)
     spec = first(specs)
-    prep = _get_task_local(spec.tls_prep_key, spec.prep_factory)
-    active_grad = _get_task_local(spec.tls_grad_key, spec.grad_factory)
+    prep = _get_task_local(spec.prep_type, spec.tls_prep_key, spec.prep_factory)
+    active_grad = _get_task_local(spec.grad_type, spec.tls_grad_key, spec.grad_factory)
 
-    # Extract active subset
-    θ_active = θ[spec.active_indices]
+    if spec.all_active
+        # Fast path: all parameters active, no subsetting needed
+        ll_i, _ = value_and_gradient!(spec.closure, active_grad, prep, spec.backend, θ)
+        ll += ll_i
+        @inbounds for k in eachindex(total_grad)
+            total_grad[k] += active_grad[k]
+        end
+    else
+        # Extract active subset into preallocated buffer
+        θ_active = _get_task_local(spec.θ_active_type, spec.tls_θ_active_key, spec.θ_active_factory)
+        @inbounds for (j, idx) in enumerate(spec.active_indices)
+            θ_active[j] = θ[idx]
+        end
 
-    # Gradient on reduced-dimension input
-    ll_i, _ = value_and_gradient!(spec.closure, active_grad, prep, spec.backend, θ_active)
-    ll += ll_i
+        # Gradient on reduced-dimension input
+        ll_i, _ = value_and_gradient!(spec.closure, active_grad, prep, spec.backend, θ_active)
+        ll += ll_i
 
-    # Scatter back to full gradient
-    @inbounds for (j, idx) in enumerate(spec.active_indices)
-        total_grad[idx] += active_grad[j]
+        # Scatter back to full gradient
+        @inbounds for (j, idx) in enumerate(spec.active_indices)
+            total_grad[idx] += active_grad[j]
+        end
     end
 
     return _accumulate_term_gradients!(total_grad, ll, Base.tail(specs), θ)
