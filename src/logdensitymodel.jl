@@ -190,9 +190,13 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 end
             end
 
-            # Helper: construct all orbits from structured parameters
-            function _build_orbits(orbit_constructors, θ_system, n_planets)
-                ntuple(i -> orbit_constructors[i](θ_system), n_planets)
+            # Pre-compute orbit solution types for non-Bumper buffer pre-allocation.
+            # This runs once at model construction time using the initial parameters.
+            _θ_nat_0 = Bijector_invlinkvec(initial_θ_0_t)
+            _θ_sys_0 = arr2nt(_θ_nat_0)
+            _orbits_0 = ntuple(i -> orbit_constructors[i](_θ_sys_0), n_planets)
+            _sol_type_examples = ntuple(n_planets) do ip
+                orbitsolve(_orbits_0[ip], 50000.0)  # arbitrary epoch for type inference
             end
 
             # Prior closure: θ_transformed → scalar prior log-density
@@ -212,6 +216,8 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             # Build per-term closures and backends as tuples for type stability.
             # Each term gets a unique closure type, so we accumulate into a
             # heterogeneous Tuple rather than a Vector{Any}.
+            mcfg = ModelEvalConfig(Bijector_invlinkvec, arr2nt, orbit_constructors, n_planets)
+
             term_closures = ()
             term_backends = ()
 
@@ -225,101 +231,12 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                     D_active = length(active)
                     obs_name = hasproperty(obs, :name) ? normalizename(likelihoodname(obs)) : nothing
                     epochs = _get_obs_epochs(obs)
-                    has_epochs = !isempty(epochs)
                     obs_backend = resolve_ad_backend(obs, autodiff, D_active)
 
-                    # Branch at construction time so each closure only compiles the path it needs.
-                    # This avoids dead code (e.g. @no_escape) bloating the closure and potentially
-                    # interfering with compiler escape analysis / SROA.
-                    use_bumper = has_epochs && _uses_bumper(obs_backend)
-                    inner_closure = if has_epochs && use_bumper
-                        let i=i, obs=obs, obs_name=obs_name, epochs=epochs,
-                            invlink=Bijector_invlinkvec, arr2nt=arr2nt,
-                            orbit_constructors=orbit_constructors, n_planets=n_planets
-                            function(θ_transformed)
-                                θ_natural = invlink(θ_transformed)
-                                θ_system = arr2nt(θ_natural)
-                                orbits = _build_orbits(orbit_constructors, θ_system, n_planets)
-                                θ_planet = θ_system.planets[i]
-                                θ_obs = if obs_name !== nothing && hasproperty(θ_planet.observations, obs_name)
-                                    getproperty(θ_planet.observations, obs_name)
-                                else
-                                    (;)
-                                end
-                                @no_escape begin
-                                    solutions = _solve_all_orbits_bumper(orbits, epochs)
-                                    ctx = PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, solutions, i)
-                                    ln_like(obs, ctx)
-                                end
-                            end
-                        end
-                    elseif has_epochs
-                        let i=i, obs=obs, obs_name=obs_name, epochs=epochs,
-                            invlink=Bijector_invlinkvec, arr2nt=arr2nt,
-                            orbit_constructors=orbit_constructors, n_planets=n_planets
-                            function(θ_transformed)
-                                θ_natural = invlink(θ_transformed)
-                                θ_system = arr2nt(θ_natural)
-                                orbits = _build_orbits(orbit_constructors, θ_system, n_planets)
-                                θ_planet = θ_system.planets[i]
-                                θ_obs = if obs_name !== nothing && hasproperty(θ_planet.observations, obs_name)
-                                    getproperty(θ_planet.observations, obs_name)
-                                else
-                                    (;)
-                                end
-                                solutions = _solve_all_orbits(orbits, epochs)
-                                ctx = PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, solutions, i)
-                                ln_like(obs, ctx)
-                            end
-                        end
-                    else
-                        let i=i, obs=obs, obs_name=obs_name,
-                            invlink=Bijector_invlinkvec, arr2nt=arr2nt,
-                            orbit_constructors=orbit_constructors, n_planets=n_planets
-                            function(θ_transformed)
-                                θ_natural = invlink(θ_transformed)
-                                θ_system = arr2nt(θ_natural)
-                                orbits = _build_orbits(orbit_constructors, θ_system, n_planets)
-                                θ_planet = θ_system.planets[i]
-                                θ_obs = if obs_name !== nothing && hasproperty(θ_planet.observations, obs_name)
-                                    getproperty(θ_planet.observations, obs_name)
-                                else
-                                    (;)
-                                end
-                                solutions = _solve_all_orbits(orbits, epochs)
-                                ctx = PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, solutions, i)
-                                ln_like(obs, ctx)
-                            end
-                        end
-                    end
-
-                    # Wrap with active-parameter embedding
-                    closure = if D_active == D
-                        inner_closure
-                    elseif _uses_bumper(obs_backend)
-                        let inner=inner_closure, active_indices=active, D=D,
-                            tls_key=tls_θ_full_key, factory=θ_full_factory
-                            function(θ_active)
-                                θ_full_base = _get_task_local(Vector{Float64}, tls_key, factory)
-                                @no_escape begin
-                                    buf = Bumper.default_buffer()
-                                    θ_embedded = Bumper.alloc!(buf, eltype(θ_active), D)
-                                    _embed_active!(θ_embedded, θ_full_base, θ_active, active_indices)
-                                    inner(θ_embedded)
-                                end
-                            end
-                        end
-                    else
-                        let inner=inner_closure, active_indices=active, D=D,
-                            tls_key=tls_θ_full_key, factory=θ_full_factory
-                            function(θ_active)
-                                θ_full_base = _get_task_local(Vector{Float64}, tls_key, factory)
-                                θ_embedded = similar(θ_active, D)
-                                _embed_active!(θ_embedded, θ_full_base, θ_active, active_indices)
-                                inner(θ_embedded)
-                            end
-                        end
-                    end
+                    tcfg = TermEvalConfig(obs, obs_name, epochs, active, i)
+                    closure, obs_backend = _make_term_closure(
+                        mcfg, tcfg, obs_backend, _uses_bumper(obs_backend), D_active, D,
+                        _sol_type_examples, epochs)
 
                     term_closures = (term_closures..., closure)
                     term_backends = (term_backends..., obs_backend)
@@ -333,102 +250,20 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 D_active = length(active)
                 obs_name = normalizename(likelihoodname(obs))
                 epochs = _get_obs_epochs(obs)
-                has_epochs = !isempty(epochs)
                 obs_backend = resolve_ad_backend(obs, autodiff, D_active)
 
-                use_bumper = has_epochs && _uses_bumper(obs_backend)
-                inner_closure = if has_epochs && use_bumper
-                    let obs=obs, obs_name=obs_name, epochs=epochs,
-                        invlink=Bijector_invlinkvec, arr2nt=arr2nt,
-                        orbit_constructors=orbit_constructors, n_planets=n_planets
-                        function(θ_transformed)
-                            θ_natural = invlink(θ_transformed)
-                            θ_system = arr2nt(θ_natural)
-                            orbits = _build_orbits(orbit_constructors, θ_system, n_planets)
-                            θ_obs = if hasproperty(θ_system.observations, obs_name)
-                                getproperty(θ_system.observations, obs_name)
-                            else
-                                (;)
-                            end
-                            @no_escape begin
-                                solutions = _solve_all_orbits_bumper(orbits, epochs)
-                                ctx = SystemObservationContext(θ_system, θ_obs, orbits, solutions)
-                                ln_like(obs, ctx)
-                            end
-                        end
-                    end
-                elseif has_epochs
-                    let obs=obs, obs_name=obs_name, epochs=epochs,
-                        invlink=Bijector_invlinkvec, arr2nt=arr2nt,
-                        orbit_constructors=orbit_constructors, n_planets=n_planets
-                        function(θ_transformed)
-                            θ_natural = invlink(θ_transformed)
-                            θ_system = arr2nt(θ_natural)
-                            orbits = _build_orbits(orbit_constructors, θ_system, n_planets)
-                            θ_obs = if hasproperty(θ_system.observations, obs_name)
-                                getproperty(θ_system.observations, obs_name)
-                            else
-                                (;)
-                            end
-                            solutions = _solve_all_orbits(orbits, epochs)
-                            ctx = SystemObservationContext(θ_system, θ_obs, orbits, solutions)
-                            ln_like(obs, ctx)
-                        end
-                    end
-                else
-                    let obs=obs, obs_name=obs_name,
-                        invlink=Bijector_invlinkvec, arr2nt=arr2nt,
-                        orbit_constructors=orbit_constructors, n_planets=n_planets
-                        function(θ_transformed)
-                            θ_natural = invlink(θ_transformed)
-                            θ_system = arr2nt(θ_natural)
-                            orbits = _build_orbits(orbit_constructors, θ_system, n_planets)
-                            θ_obs = if hasproperty(θ_system.observations, obs_name)
-                                getproperty(θ_system.observations, obs_name)
-                            else
-                                (;)
-                            end
-                            solutions = _solve_all_orbits(orbits, epochs)
-                            ctx = SystemObservationContext(θ_system, θ_obs, orbits, solutions)
-                            ln_like(obs, ctx)
-                        end
-                    end
-                end
-
-                # Wrap with active-parameter embedding
-                closure = if D_active == D
-                    inner_closure
-                elseif _uses_bumper(obs_backend)
-                    let inner=inner_closure, active_indices=active, D=D,
-                        tls_key=tls_θ_full_key, factory=θ_full_factory
-                        function(θ_active)
-                            θ_full_base = _get_task_local(Vector{Float64}, tls_key, factory)
-                            @no_escape begin
-                                buf = Bumper.default_buffer()
-                                θ_embedded = Bumper.alloc!(buf, eltype(θ_active), D)
-                                _embed_active!(θ_embedded, θ_full_base, θ_active, active_indices)
-                                inner(θ_embedded)
-                            end
-                        end
-                    end
-                else
-                    let inner=inner_closure, active_indices=active, D=D,
-                        tls_key=tls_θ_full_key, factory=θ_full_factory
-                        function(θ_active)
-                            θ_full_base = _get_task_local(Vector{Float64}, tls_key, factory)
-                            θ_embedded = similar(θ_active, D)
-                            _embed_active!(θ_embedded, θ_full_base, θ_active, active_indices)
-                            inner(θ_embedded)
-                        end
-                    end
-                end
+                tcfg = TermEvalConfig(obs, obs_name, epochs, active, 0)
+                closure, obs_backend = _make_term_closure(
+                    mcfg, tcfg, obs_backend, _uses_bumper(obs_backend), D_active, D,
+                    _sol_type_examples, epochs)
 
                 term_closures = (term_closures..., closure)
                 term_backends = (term_backends..., obs_backend)
             end
 
             # Prepare gradient infrastructure: type-stable heterogeneous tuple
-            term_specs = _prepare_term_specs(term_closures, term_backends, active_indices_all, initial_θ_0_t)
+            term_specs = _prepare_term_specs(term_closures, term_backends, active_indices_all,
+                                             initial_θ_0_t, initial_θ_0_t)
 
             # Factories for task-local gradient buffers (parallel MCMC chain safety)
             θ_zero = zero(initial_θ_0_t)
@@ -484,7 +319,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                     copyto!(total_grad, prior_grad)
 
                     # Per-term sparse gradients (type-stable recursion over heterogeneous tuple)
-                    ll = _accumulate_term_gradients!(total_grad, ll_p, term_specs, θ_transformed)
+                    ll = _accumulate_term_gradients!(total_grad, ll_p, term_specs, θ_transformed, θ_full_base)
 
                     return ll, total_grad
                 end
