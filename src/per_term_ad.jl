@@ -4,27 +4,39 @@ Per-term AD backend dispatch and resolution.
 Each observation type can declare a preferred AD backend via `ad_backend(obs)`.
 The `resolve_ad_backend` function resolves the final backend to use, considering
 model-level overrides.
+
+Workspace model:
+- Model = immutable configuration (no closures, no mutable state)
+- Workspace = mutable state (pre-allocated buffers, gradient infrastructure)
+- Callbacks = plain functions taking (model, θ, workspace) instead of stored closures
+
+All backends are Enzyme-based (reverse-mode, source-to-source AD). Enzyme keeps
+the element type as Float64 and tracks derivatives via shadow memory, so all
+pre-allocated workspace buffers can be plain Float64 arrays.
 =#
 
 using ADTypes: AutoForwardDiff, AutoFiniteDiff, AutoEnzyme
-using Bumper: @no_escape
 using Enzyme: Duplicated, Reverse, Const, set_runtime_activity
 
+"""Default Enzyme backend for all observation terms. Uses reverse-mode with
+runtime activity for maximum compatibility."""
+const _default_enzyme_backend = AutoEnzyme(mode=set_runtime_activity(Reverse), function_annotation=Const)
+
 """
-Backends compatible with Bumper.jl's `@no_escape`/`@alloc` pattern.
-Non-Bumper backends (Enzyme, Reactant, Mooncake, etc.) use plain heap allocation.
+    alloc_obs_workspace(obs::AbstractObs, ::Type{T}) where T
+
+Allocate observation-specific workspace buffers typed with element type `T`.
+Returns `nothing` by default. Observation types that need pre-allocated buffers
+should specialize this method to return a named tuple of typed arrays.
 """
-_uses_bumper(::AutoForwardDiff) = true
-_uses_bumper(::AutoFiniteDiff) = true
-_uses_bumper(::Nothing) = true
-_uses_bumper(_) = false
+alloc_obs_workspace(::AbstractObs, ::Type{T}) where T = nothing
 
 """
     ad_backend(obs::AbstractObs)
 
 Return the preferred AD backend for this observation type, or `nothing` to use
-the default (ForwardDiff). External packages can specialize this to request
-e.g. `AutoEnzyme()` for specific observation types.
+the default (Enzyme reverse-mode). External packages can specialize this to request
+a different backend for specific observation types.
 
 This function is public but not exported. Access as `Octofitter.ad_backend(obs)`.
 """
@@ -37,7 +49,7 @@ Resolve which AD backend to use for a given observation term.
 
 - If `model_override` is an AD backend type (from DifferentiationInterface) -> use it
 - If `model_override === false` -> return `nothing` (no gradients)
-- If `model_override === nothing` -> check `ad_backend(obs)`, fall back to `AutoForwardDiff(chunksize=D)`
+- If `model_override === nothing` -> check `ad_backend(obs)`, fall back to Enzyme reverse-mode
 """
 function resolve_ad_backend(obs, model_override, D::Int)
     if model_override === false
@@ -51,8 +63,8 @@ function resolve_ad_backend(obs, model_override, D::Int)
         if !isnothing(backend)
             return backend
         end
-        # Default to ForwardDiff
-        return AutoForwardDiff(chunksize=D)
+        # Default to Enzyme reverse-mode
+        return _default_enzyme_backend
     end
 end
 
@@ -70,17 +82,26 @@ _ensure_duplicated(b) = b  # non-Enzyme backends unchanged
 # --- Config and workspace types for per-term evaluation ---
 
 """
-    ModelEvalConfig{TInvlink, TArr2nt, TOCs}
+    ModelEvalConfig{TInvlink, TArr2nt, N, TOCs}
 
 Immutable model-level configuration captured once and shared by all per-term
 evaluation closures. Replaces per-closure captures of invlink, arr2nt, etc.
+
+The number of planets `N` is encoded as a type parameter to enable `ntuple(f, Val(N))`
+to produce concrete tuple types. Without this, `ntuple(f, n::Int)` returns
+`Tuple{Vararg{...}}` which is abstract, causing type instabilities that propagate
+through orbit construction, context creation, and ln_like — preventing the Julia
+compiler from eliding merge/splat and causing Enzyme to allocate.
 """
-struct ModelEvalConfig{TInvlink, TArr2nt, TOCs}
+struct ModelEvalConfig{TInvlink, TArr2nt, N, TOCs<:NTuple{N}}
     invlink::TInvlink
     arr2nt::TArr2nt
-    orbit_constructors::TOCs   # NTuple of per-planet closures
-    n_planets::Int
+    orbit_constructors::TOCs   # NTuple{N} of per-planet closures
+    function ModelEvalConfig(invlink::TI, arr2nt::TA, orbit_constructors::TOCs) where {TI, TA, N, TOCs<:NTuple{N}}
+        new{TI, TA, N, TOCs}(invlink, arr2nt, orbit_constructors)
+    end
 end
+@inline _n_planets(::ModelEvalConfig{<:Any, <:Any, N}) where N = Val(N)
 
 """
     TermEvalConfig{TObs, IsPlanet}
@@ -106,14 +127,87 @@ function TermEvalConfig(obs, obs_name, epochs, active_indices, planet_index)
     TermEvalConfig(obs, obs_name, epochs, active_indices, planet_index, is_planet)
 end
 
-"""Zero-size sentinel for Bumper-based workspace (ForwardDiff/FiniteDiff)."""
-struct BumperTermWS end
+"""
+    TermWorkspace{T, TSolBufs, TθEmbed, TObsWS}
 
-"""Pre-allocated workspace for non-Bumper backends (Enzyme/Mooncake/Reactant)."""
-struct PreallocTermWS{TSolBufs}
-    sol_bufs::TSolBufs         # NTuple{N, Vector{OrbitSolution{Float64}}}
-    θ_embedded::Vector{Float64}
+Pre-allocated workspace for per-term evaluation. Replaces BumperTermWS and
+PreallocTermWS with a single unified type.
+
+# Fields
+- `sol_bufs` — NTuple{N, Vector{OrbitSolution{...}}} for orbit solutions
+- `θ_embedded` — Vector{T} for sparse parameter embedding, or nothing
+- `obs_workspace` — observation-specific buffers from `alloc_obs_workspace`
+"""
+struct TermWorkspace{T, TSolBufs, TθEmbed, TObsWS}
+    sol_bufs::TSolBufs
+    θ_embedded::TθEmbed
+    obs_workspace::TObsWS
 end
+
+"""
+    TermEvaluator{TMcfg, TTcfg, TWs}
+
+Callable struct replacing closures for per-term evaluation.
+Enzyme can create `Duplicated` shadows for this struct's mutable fields.
+"""
+struct TermEvaluator{TMcfg, TTcfg, TWs}
+    mcfg::TMcfg
+    tcfg::TTcfg
+    workspace::TWs
+end
+(te::TermEvaluator)(θ) = eval_term(θ, te.mcfg, te.tcfg, te.workspace)
+
+"""
+    SparseTermEvaluator{TMcfg, TTcfg, TWs}
+
+Callable struct for sparse (active parameter subset) evaluation.
+Takes `(θ_active, θ_full_base)` where `θ_active` contains only the
+parameters with non-zero gradient for this term.
+"""
+struct SparseTermEvaluator{TMcfg, TTcfg, TWs}
+    mcfg::TMcfg
+    tcfg::TTcfg
+    workspace::TWs
+end
+(te::SparseTermEvaluator)(θ_active, θ_full_base) =
+    eval_term_sparse(θ_active, te.mcfg, te.tcfg, te.workspace, θ_full_base)
+
+"""
+    PriorEvaluator{TInvlink, TLnPrior}
+
+Callable struct replacing the prior closure. Combines inverse link transform
+and prior evaluation into a single callable.
+"""
+struct PriorEvaluator{TInvlink, TLnPrior}
+    invlink::TInvlink
+    ln_prior::TLnPrior
+end
+function (pe::PriorEvaluator)(θ_transformed)
+    if any(!isfinite, θ_transformed)
+        return convert(eltype(θ_transformed), -Inf)
+    end
+    θ_natural = pe.invlink(θ_transformed)
+    pe.ln_prior(θ_natural, true)
+end
+
+"""
+    TermGradSpec{TEval, TB, TP, TG, TA}
+
+Bundles a single term's gradient infrastructure for type-stable storage
+in a heterogeneous Tuple. Stores direct buffer references (no factories,
+no task-local storage).
+"""
+struct TermGradSpec{TEval, TB, TP, TG, TA}
+    evaluator::TEval
+    backend::TB
+    prep::TP
+    grad_buf::TG
+    θ_active_buf::TA
+    active_indices::Vector{Int}
+    all_active::Bool
+end
+
+# --- Observation parameter extraction and context construction ---
 
 @inline function _get_obs_params(tcfg::TermEvalConfig{<:Any, Val{true}}, θ_system)
     θ_planet = θ_system.planets[tcfg.planet_index]
@@ -129,6 +223,14 @@ end
     return (;), θ_obs
 end
 
+@inline function _make_obs_context(tcfg::TermEvalConfig{<:Any, Val{true}}, θ_system, θ_planet, θ_obs, orbits, solutions, obs_workspace)
+    PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, solutions, tcfg.planet_index, obs_workspace)
+end
+@inline function _make_obs_context(tcfg::TermEvalConfig{<:Any, Val{false}}, θ_system, θ_planet, θ_obs, orbits, solutions, obs_workspace)
+    SystemObservationContext(θ_system, θ_obs, orbits, solutions, obs_workspace)
+end
+
+# Backward-compatible method without workspace
 @inline function _make_obs_context(tcfg::TermEvalConfig{<:Any, Val{true}}, θ_system, θ_planet, θ_obs, orbits, solutions)
     PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, solutions, tcfg.planet_index)
 end
@@ -136,84 +238,40 @@ end
     SystemObservationContext(θ_system, θ_obs, orbits, solutions)
 end
 
-function eval_term(θ, mcfg::ModelEvalConfig, tcfg::TermEvalConfig, ::BumperTermWS)
-    θ_natural = mcfg.invlink(θ)
-    θ_system  = mcfg.arr2nt(θ_natural)
-    orbits    = ntuple(i -> mcfg.orbit_constructors[i](θ_system), mcfg.n_planets)
-    θ_planet, θ_obs = _get_obs_params(tcfg, θ_system)
-    @no_escape begin
-        solutions = _solve_all_orbits_bumper(orbits, tcfg.epochs)
-        ctx = _make_obs_context(tcfg, θ_system, θ_planet, θ_obs, orbits, solutions)
-        ln_like(tcfg.obs, ctx)
-    end
-end
+# --- Unified eval_term (no Bumper, no branching) ---
 
-function eval_term(θ, mcfg::ModelEvalConfig, tcfg::TermEvalConfig, ws::PreallocTermWS)
+"""
+    eval_term(θ, mcfg, tcfg, tw::TermWorkspace)
+
+Evaluate a single observation term with pre-allocated workspace.
+Single unified method — no branching on backend type.
+
+Enzyme keeps the element type as Float64, so all pre-allocated buffers
+(sol_bufs, obs_workspace) are directly usable without type conversion.
+"""
+function eval_term(θ, mcfg::ModelEvalConfig, tcfg::TermEvalConfig, tw::TermWorkspace)
     θ_natural = mcfg.invlink(θ)
     θ_system  = mcfg.arr2nt(θ_natural)
-    orbits    = ntuple(i -> mcfg.orbit_constructors[i](θ_system), mcfg.n_planets)
+    orbits    = ntuple(i -> mcfg.orbit_constructors[i](θ_system), _n_planets(mcfg))
     θ_planet, θ_obs = _get_obs_params(tcfg, θ_system)
-    solutions = _solve_all_orbits!(ws.sol_bufs, orbits, tcfg.epochs)
-    ctx = _make_obs_context(tcfg, θ_system, θ_planet, θ_obs, orbits, solutions)
+    _solve_all_orbits!(tw.sol_bufs, orbits, tcfg.epochs)
+    ctx = _make_obs_context(tcfg, θ_system, θ_planet, θ_obs, orbits, tw.sol_bufs, tw.obs_workspace)
     ln_like(tcfg.obs, ctx)
 end
 
-function eval_term_sparse(θ_active, mcfg::ModelEvalConfig, tcfg::TermEvalConfig,
-                          ::BumperTermWS, θ_full_base)
-    @no_escape begin
-        buf = Bumper.default_buffer()
-        θ = Bumper.alloc!(buf, eltype(θ_active), length(θ_full_base))
-        _embed_active!(θ, θ_full_base, θ_active, tcfg.active_indices)
-        eval_term(θ, mcfg, tcfg, BumperTermWS())
-    end
-end
-
-function eval_term_sparse(θ_active, mcfg::ModelEvalConfig, tcfg::TermEvalConfig,
-                          ws::PreallocTermWS, θ_full_base)
-    _embed_active!(ws.θ_embedded, θ_full_base, θ_active, tcfg.active_indices)
-    eval_term(ws.θ_embedded, mcfg, tcfg, ws)
-end
-
 """
-    _make_term_closure(mcfg, tcfg, obs_backend, use_bumper, D_active, D,
-                       sol_type_examples, epochs)
+    eval_term_sparse(θ_active, mcfg, tcfg, tw::TermWorkspace, θ_full_base)
 
-Build a per-term evaluation closure and (possibly mutated) backend.
-Replaces the 12-path closure matrix with 4 paths: {Bumper,Prealloc} × {all-active,sparse}.
+Evaluate with sparse active parameter subsetting. Embeds active parameters
+into the full-length vector, then calls eval_term.
 """
-function _make_term_closure(mcfg, tcfg, obs_backend, use_bumper, D_active, D,
-                            sol_type_examples, epochs)
-    all_active = D_active == D
-    n_planets = mcfg.n_planets
-
-    if use_bumper
-        if all_active
-            closure = let mcfg=mcfg, tcfg=tcfg
-                (θ,) -> eval_term(θ, mcfg, tcfg, BumperTermWS())
-            end
-        else
-            closure = let mcfg=mcfg, tcfg=tcfg
-                (θ_active, θ_fb) -> eval_term_sparse(θ_active, mcfg, tcfg, BumperTermWS(), θ_fb)
-            end
-        end
-    else
-        sol_bufs = ntuple(n_planets) do ip
-            Vector{typeof(sol_type_examples[ip])}(undef, length(epochs))
-        end
-        ws = PreallocTermWS(sol_bufs, Vector{Float64}(undef, D))
-        obs_backend = _ensure_duplicated(obs_backend)
-        if all_active
-            closure = let mcfg=mcfg, tcfg=tcfg, ws=ws
-                (θ,) -> eval_term(θ, mcfg, tcfg, ws)
-            end
-        else
-            closure = let mcfg=mcfg, tcfg=tcfg, ws=ws
-                (θ_active, θ_fb) -> eval_term_sparse(θ_active, mcfg, tcfg, ws, θ_fb)
-            end
-        end
-    end
-    return closure, obs_backend
+function eval_term_sparse(θ_active, mcfg::ModelEvalConfig, tcfg::TermEvalConfig,
+                          tw::TermWorkspace, θ_full_base)
+    _embed_active!(tw.θ_embedded, θ_full_base, θ_active, tcfg.active_indices)
+    eval_term(tw.θ_embedded, mcfg, tcfg, tw)
 end
+
+# --- Helper functions ---
 
 """
     _get_obs_epochs(obs)
@@ -240,31 +298,6 @@ function _solve_all_orbits(orbits::NTuple{N}, epochs) where N
     end
     ntuple(Val(N)) do i
         map(ep -> orbitsolve(orbits[i], ep), epochs)
-    end
-end
-
-"""
-    _solve_all_orbits_bumper(orbits::NTuple{N}, epochs) where N
-
-Solve all orbits at given epochs using Bumper allocation.
-**Must be called from within a `@no_escape` block.**
-Uses `Bumper.alloc!` (the function) rather than `@alloc` (the macro)
-so it can be called from a separate function scope.
-"""
-function _solve_all_orbits_bumper(orbits::NTuple{N}, epochs) where N
-    if isempty(epochs)
-        return ntuple(Returns(()), Val(N))
-    end
-    buf = Bumper.default_buffer()
-    ntuple(Val(N)) do i
-        orbit = orbits[i]
-        sol0 = orbitsolve(orbit, first(epochs))
-        sols = Bumper.alloc!(buf, typeof(sol0), length(epochs))
-        sols[1] = sol0
-        for j in 2:length(epochs)
-            sols[j] = orbitsolve(orbit, epochs[j])
-        end
-        sols
     end
 end
 
@@ -411,66 +444,115 @@ function _compute_active_indices(system)
     return Tuple(active_indices_list), D
 end
 
+# --- Workspace construction helpers ---
+
+"""
+    _make_typed_sol_bufs(orbit_constructors::NTuple{N}, θ_system, epochs, ::Type{T}) where {N, T}
+
+Create pre-allocated orbit solution buffers with the correct element type.
+Runs `orbitsolve` once to determine the concrete `OrbitSolution{T}` type,
+then pre-allocates vectors of that type.
+"""
+function _make_typed_sol_bufs(orbit_constructors::NTuple{N}, θ_system, epochs, ::Type{T}) where {N, T}
+    if isempty(epochs) || N == 0
+        return ntuple(i -> Vector{Nothing}(undef, 0), Val(N))
+    end
+    orbits_example = ntuple(i -> orbit_constructors[i](θ_system), Val(N))
+    ntuple(Val(N)) do ip
+        sol0 = orbitsolve(orbits_example[ip], first(epochs))
+        Vector{typeof(sol0)}(undef, length(epochs))
+    end
+end
+
+"""
+    _make_term_workspace(mcfg, tcfg, θ_system_example, ::Type{T}, D) where T
+
+Create a TermWorkspace{T} with pre-allocated buffers for a single term.
+"""
+function _make_term_workspace(mcfg, tcfg, θ_system_example, ::Type{T}, D) where T
+    sol_bufs = _make_typed_sol_bufs(mcfg.orbit_constructors, θ_system_example, tcfg.epochs, T)
+    θ_embedded = Vector{T}(undef, D)
+    obs_ws = alloc_obs_workspace(tcfg.obs, T)
+    TermWorkspace{T, typeof(sol_bufs), typeof(θ_embedded), typeof(obs_ws)}(sol_bufs, θ_embedded, obs_ws)
+end
+
+# --- Primal and gradient workspace types ---
+
+"""
+    PrimalWorkspace{TTermWS}
+
+Pre-allocated workspace for primal (non-gradient) evaluation.
+Contains a heterogeneous Tuple of TermWorkspace{Float64}, one per observation term.
+"""
+struct PrimalWorkspace{TTermWS}
+    term_workspaces::TTermWS
+end
+
+"""
+    GradWorkspace{TTermSpecs, TPriorEval, TPriorPrep}
+
+Pre-allocated workspace for gradient evaluation.
+Contains per-term gradient specs (with typed buffers), prior evaluator,
+and shared gradient accumulation buffers.
+"""
+struct GradWorkspace{TTermSpecs, TPriorEval, TPriorPrep}
+    term_specs::TTermSpecs
+    prior_evaluator::TPriorEval
+    prior_prep::TPriorPrep
+    prior_grad::Vector{Float64}
+    total_grad::Vector{Float64}
+    θ_full_base::Vector{Float64}
+end
+
+# --- Prepare functions ---
+
+"""
+    _build_term_workspaces(mcfg, tcfgs, θ_system_example, ::Type{T}, D)
+
+Recursively build a type-stable heterogeneous tuple of TermWorkspace{T}.
+"""
+_build_term_workspaces(mcfg, ::Tuple{}, θ_system_example, ::Type{T}, D) where T = ()
+function _build_term_workspaces(mcfg, tcfgs::Tuple, θ_system_example, ::Type{T}, D) where T
+    tw = _make_term_workspace(mcfg, first(tcfgs), θ_system_example, T, D)
+    (tw, _build_term_workspaces(mcfg, Base.tail(tcfgs), θ_system_example, T, D)...)
+end
+
+"""
+    _sum_term_likelihoods(θ_sys, orbits, tcfgs, tws)
+
+Recursive type-stable tuple peeling for summing term likelihoods.
+Replaces `ln_like_generated` RuntimeGeneratedFunction.
+"""
+_sum_term_likelihoods(θ_sys, orbits, ::Tuple{}, ::Tuple{}) = 0.0
+function _sum_term_likelihoods(θ_sys, orbits, tcfgs::Tuple, tws::Tuple)
+    tcfg = first(tcfgs)
+    tw = first(tws)
+    θ_planet, θ_obs = _get_obs_params(tcfg, θ_sys)
+    _solve_all_orbits!(tw.sol_bufs, orbits, tcfg.epochs)
+    ctx = _make_obs_context(tcfg, θ_sys, θ_planet, θ_obs, orbits, tw.sol_bufs, tw.obs_workspace)
+    ll = ln_like(tcfg.obs, ctx)
+    ll + _sum_term_likelihoods(θ_sys, orbits, Base.tail(tcfgs), Base.tail(tws))
+end
+
 #=
 Type-stable per-term gradient infrastructure.
 
-Each term's closure, AD backend, and factories for prep/gradient objects are
-bundled into a TermGradSpec and stored in a heterogeneous Tuple. Actual mutable
-buffers are obtained via task-local storage for parallel MCMC chain safety.
+Each term's evaluator, AD backend, prep, and gradient buffers are
+bundled into a TermGradSpec and stored in a heterogeneous Tuple.
+Buffers are stored directly (no factories, no task-local storage).
 =#
 
 """
-    _get_task_local(::Type{T}, key, factory) where T
-
-Get or create a task-local value. Uses `Base.task_local_storage` so that each
-MCMC chain (running on its own Task) gets independent mutable buffers.
-The type parameter `T` is required for type stability, since `task_local_storage()`
-returns `Dict{Symbol, Any}`.
-"""
-@inline function _get_task_local(::Type{T}, key, factory) where T
-    get!(factory, task_local_storage(), key)::T
-end
-
-"""
-    TermGradSpec{TC,TB,TPF,TGF,TAF,TP,TG,TA}
-
-Bundles a single term's gradient infrastructure for type-stable storage
-in a heterogeneous Tuple. Stores factories rather than mutable buffers
-so that task-local copies can be created on demand.
-
-Non-all-active terms always receive `θ_full_base` as a second argument
-passed via `DifferentiationInterface.Constant` context.
-"""
-struct TermGradSpec{TC,TB,TPF,TGF,TAF,TP,TG,TA}
-    closure::TC
-    backend::TB
-    prep_factory::TPF
-    grad_factory::TGF
-    θ_active_factory::TAF
-    tls_prep_key::Symbol
-    tls_grad_key::Symbol
-    tls_θ_active_key::Symbol
-    active_indices::Vector{Int}
-    all_active::Bool  # true when active_indices == 1:D (skip copy)
-    prep_type::Type{TP}
-    grad_type::Type{TG}
-    θ_active_type::Type{TA}
-end
-
-"""
-    _prepare_term_specs(closures, backends, active_indices_tuple, θ_example, θ_full_example)
+    _prepare_term_specs(evaluators, backends, active_indices_tuple, θ_example, θ_full_example)
 
 Recursively build a type-stable heterogeneous tuple of TermGradSpec, storing
-factories for `prepare_gradient` and gradient buffers instead of mutable state.
+direct buffer references for `prepare_gradient` and gradient buffers.
 Each term uses D_active-length buffers based on its active parameter indices.
-
-Non-all-active terms automatically get `prepare_gradient` called with a
-`DifferentiationInterface.Constant` context to match `_accumulate_term_gradients!`.
 """
 _prepare_term_specs(::Tuple{}, ::Tuple{}, ::Tuple{}, θ_example, θ_full_example) = ()
-function _prepare_term_specs(closures::Tuple, backends::Tuple, active_indices_tuple::Tuple,
+function _prepare_term_specs(evaluators::Tuple, backends::Tuple, active_indices_tuple::Tuple,
                              θ_example, θ_full_example)
-    c = first(closures)
+    eval = first(evaluators)
     b = first(backends)
     active = first(active_indices_tuple)
     θ_active_example = θ_example[active]
@@ -479,37 +561,19 @@ function _prepare_term_specs(closures::Tuple, backends::Tuple, active_indices_tu
     D_active = length(active)
     all_active = D_active == D_total
 
-    # Create prep factory — includes Constant context for sparse terms
-    prep_factory = if !all_active
-        let c=c, b=b, θ_zero=θ_zero, ctx=DifferentiationInterface.Constant(zero(θ_full_example))
-            () -> prepare_gradient(c, b, θ_zero, ctx)
-        end
+    # Create prep — includes Constant context for sparse terms
+    prep = if !all_active
+        prepare_gradient(eval, b, θ_zero, DifferentiationInterface.Constant(zero(θ_full_example)))
     else
-        let c=c, b=b, θ_zero=θ_zero
-            () -> prepare_gradient(c, b, θ_zero)
-        end
+        prepare_gradient(eval, b, θ_zero)
     end
 
-    grad_factory = let θ_ex=θ_active_example
-        () -> similar(θ_ex)
-    end
-    θ_active_factory = let θ_ex=θ_active_example
-        () -> similar(θ_ex)
-    end
-    # Compute concrete types for type-stable task-local retrieval
-    prep_example = prep_factory()
-    grad_example = grad_factory()
-    θ_active_example_buf = θ_active_factory()
-    key_id = gensym(:term)
-    spec = TermGradSpec(c, b, prep_factory, grad_factory, θ_active_factory,
-                        Symbol(key_id, :_prep), Symbol(key_id, :_grad),
-                        Symbol(key_id, :_θ_active),
-                        active, all_active,
-                        typeof(prep_example), typeof(grad_example),
-                        typeof(θ_active_example_buf))
-    rest = _prepare_term_specs(Base.tail(closures), Base.tail(backends),
-                               Base.tail(active_indices_tuple), θ_example,
-                               θ_full_example)
+    grad_buf = similar(θ_active_example)
+    θ_active_buf = similar(θ_active_example)
+
+    spec = TermGradSpec(eval, b, prep, grad_buf, θ_active_buf, active, all_active)
+    rest = _prepare_term_specs(Base.tail(evaluators), Base.tail(backends),
+                               Base.tail(active_indices_tuple), θ_example, θ_full_example)
     return (spec, rest...)
 end
 
@@ -518,43 +582,36 @@ end
 
 Recursively evaluate each term's gradient and accumulate into `total_grad`.
 Type-stable because each recursive call peels off a concrete element from
-the heterogeneous tuple. Gradient buffers and prep objects are task-local.
+the heterogeneous tuple. Gradient buffers are stored directly in the spec.
 
 Each term operates on a reduced-dimension active subset of θ, then scatters
 its gradient contributions back to the full-D total_grad vector.
-
-`θ_full_base` is a `Vector{Float64}` with the current (untransformed) parameter
-values, passed as `Constant` context to closures that use the sparse embedding
-pattern (avoids `task_local_storage` inside the AD boundary).
 """
 _accumulate_term_gradients!(total_grad, ll, ::Tuple{}, θ, θ_full_base) = ll
 function _accumulate_term_gradients!(total_grad, ll, specs::Tuple, θ, θ_full_base)
     spec = first(specs)
-    prep = _get_task_local(spec.prep_type, spec.tls_prep_key, spec.prep_factory)
-    active_grad = _get_task_local(spec.grad_type, spec.tls_grad_key, spec.grad_factory)
 
     if spec.all_active
         # Fast path: all parameters active, no subsetting needed
-        ll_i, _ = value_and_gradient!(spec.closure, active_grad, prep, spec.backend, θ)
+        ll_i, _ = value_and_gradient!(spec.evaluator, spec.grad_buf, spec.prep, spec.backend, θ)
         ll += ll_i
         @inbounds for k in eachindex(total_grad)
-            total_grad[k] += active_grad[k]
+            total_grad[k] += spec.grad_buf[k]
         end
     else
         # Extract active subset into preallocated buffer
-        θ_active = _get_task_local(spec.θ_active_type, spec.tls_θ_active_key, spec.θ_active_factory)
         @inbounds for (j, idx) in enumerate(spec.active_indices)
-            θ_active[j] = θ[idx]
+            spec.θ_active_buf[j] = θ[idx]
         end
 
         # Gradient on reduced-dimension input — always pass θ_full_base via Constant
-        ll_i, _ = value_and_gradient!(spec.closure, active_grad, prep, spec.backend,
-                                      θ_active, DifferentiationInterface.Constant(θ_full_base))
+        ll_i, _ = value_and_gradient!(spec.evaluator, spec.grad_buf, spec.prep, spec.backend,
+                                      spec.θ_active_buf, DifferentiationInterface.Constant(θ_full_base))
         ll += ll_i
 
         # Scatter back to full gradient
         @inbounds for (j, idx) in enumerate(spec.active_indices)
-            total_grad[idx] += active_grad[j]
+            total_grad[idx] += spec.grad_buf[j]
         end
     end
 

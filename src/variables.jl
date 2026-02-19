@@ -18,23 +18,35 @@ Evaluation context for system-level observations (e.g., RV, proper motion anomal
 - `orbits::NTuple{N,TOrbit}` - Tuple of all planet orbits
 - `orbit_solutions::NTuple{N,TSolutions}` - Pre-solved orbit solutions for all planets
 """
-struct SystemObservationContext{TSystem<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions} <: AbstractObservationContext
+struct SystemObservationContext{TSystem<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions,TWS} <: AbstractObservationContext
     θ_system::TSystem
     θ_obs::TObs
     orbits::NTuple{N,TOrbit}
     orbit_solutions::NTuple{N,TSolutions}
+    workspace::TWS
 end
 
-# Outer constructor with type inference
+# Full constructor with workspace
+function SystemObservationContext(
+    θ_system,
+    θ_obs,
+    orbits,
+    orbit_solutions,
+    workspace,
+)
+    return SystemObservationContext{typeof(θ_system),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions),typeof(workspace)}(
+        θ_system, θ_obs, orbits, orbit_solutions, workspace
+    )
+end
+
+# Backward-compatible constructor (workspace defaults to nothing)
 function SystemObservationContext(
     θ_system,
     θ_obs,
     orbits,
     orbit_solutions,
 )
-    return SystemObservationContext{typeof(θ_system),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions)}(
-        θ_system, θ_obs, orbits, orbit_solutions
-    )
+    return SystemObservationContext(θ_system, θ_obs, orbits, orbit_solutions, nothing)
 end
 
 """
@@ -50,16 +62,32 @@ Evaluation context for planet-level observations (e.g., relative astrometry).
 - `orbit_solutions::NTuple{N,TSolutions}` - Pre-solved orbit solutions for all planets
 - `i_planet::Int` - Index of this planet in the orbits/solutions arrays
 """
-struct PlanetObservationContext{TSystem<:NamedTuple,TPlanet<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions} <: AbstractObservationContext
+struct PlanetObservationContext{TSystem<:NamedTuple,TPlanet<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions,TWS} <: AbstractObservationContext
     θ_system::TSystem
     θ_planet::TPlanet
     θ_obs::TObs
     orbits::NTuple{N,TOrbit}
     orbit_solutions::NTuple{N,TSolutions}
     i_planet::Int
+    workspace::TWS
 end
 
-# Outer constructor with type inference
+# Full constructor with workspace
+function PlanetObservationContext(
+    θ_system,
+    θ_planet,
+    θ_obs,
+    orbits,
+    orbit_solutions,
+    i_planet::Int,
+    workspace,
+)
+    return PlanetObservationContext{typeof(θ_system),typeof(θ_planet),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions),typeof(workspace)}(
+        θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, workspace
+    )
+end
+
+# Backward-compatible constructor (workspace defaults to nothing)
 function PlanetObservationContext(
     θ_system,
     θ_planet,
@@ -68,9 +96,7 @@ function PlanetObservationContext(
     orbit_solutions,
     i_planet::Int,
 )
-    return PlanetObservationContext{typeof(θ_system),typeof(θ_planet),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions)}(
-        θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet
-    )
+    return PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, nothing)
 end
 
 
