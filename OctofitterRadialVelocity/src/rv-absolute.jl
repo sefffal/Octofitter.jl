@@ -217,96 +217,89 @@ function Octofitter.ln_like(
         ll += logpdf(fx, rv_residuals)
     else
         # Fit a GP
-        local gp, fx
-        try
-            gp = @inline rvlike.gaussian_process(θ_obs)
-            # Celerite GP:
-            if gp isa Celerite.CeleriteGP
-                Celerite.compute!(gp, rvlike.table.epoch, sqrt.(rv_var_buf))
-            # AbstractGPs GP:
+        # Note: try-catch removed for Enzyme AD compatibility.
+        # Invalid GP parameters (e.g. DomainError from log of negative) will
+        # produce NaN, which we detect and convert to -Inf.
+        gp = @inline rvlike.gaussian_process(θ_obs)
+        # Celerite GP:
+        if gp isa Celerite.CeleriteGP
+            Celerite.compute!(gp, rvlike.table.epoch, sqrt.(rv_var_buf))
+            # Normal path: evaluate likelihood against all data
+            if isempty(rvlike.held_out_table)
+                ll += Celerite.log_likelihood(gp, rv_residuals)
             else
-                fx = gp(rvlike.table.epoch, rv_var_buf)
+                ll += _rv_crossval_ll(rvlike, gp, rv_residuals, θ_system, θ_obs, orbits, offset, jitter)
             end
-
-        catch err
-            if err isa DomainError
-                ll = convert(T,-Inf)
-            elseif err isa PosDefException
-                ll = convert(T,-Inf)
-            elseif err isa ArgumentError
-                ll = convert(T,-Inf)
+        # AbstractGPs GP:
+        else
+            fx = gp(rvlike.table.epoch, rv_var_buf)
+            if isempty(rvlike.held_out_table)
+                ll += logpdf(fx, rv_residuals)
             else
-                rethrow(err)
+                ll += _rv_crossval_ll(rvlike, gp, rv_residuals, θ_system, θ_obs, orbits, offset, jitter)
             end
         end
-
-        if isfinite(ll)
-            try
-                # Normal path: evaluate likelihood against all data
-                if isempty(rvlike.held_out_table)
-                    # Celerite GP:
-                    if gp isa Celerite.CeleriteGP
-                        ll += Celerite.log_likelihood(gp, rv_residuals)
-                    # AbstractGPs GP:
-                    else
-                        ll += logpdf(fx, rv_residuals)
-                    end
-                # Cross validation path: condition against rvlike.table, but evaluate against
-                # rvlike.held_out_table
-                else
-                    # Held-out data buffers (not pre-allocated since cross-validation is rare)
-                    L_held = length(rvlike.held_out_table.epoch)
-                    rv_model_held_out = Vector{T}(undef, L_held)
-                    rv_residuals_held_out = Vector{T}(undef, L_held)
-                    rv_var_buf_held_out = Vector{T}(undef, L_held)
-
-                    # Compute model RV values for held-out data: start with offset and trend
-                    rv_model_held_out .= offset .+ rvlike.trend_function.(Ref(θ_obs), rvlike.held_out_table.epoch)
-
-                    # Add RV contribution from all planets:
-                    for planet_i in eachindex(orbits)
-                        orbit = orbits[planet_i]
-                        planet_mass = θ_system.planets[planet_i].mass
-                        for epoch_i in eachindex(rvlike.held_out_table.epoch)
-                            rv_model_held_out[epoch_i] += radvel(
-                                orbitsolve(orbit, rvlike.held_out_table.epoch[epoch_i]),
-                                planet_mass*Octofitter.mjup2msol
-                            )
-                        end
-                    end
-
-                    # Compute residuals: observed - model
-                    rv_residuals_held_out .= rvlike.held_out_table.rv .- rv_model_held_out
-
-                    # The noise variance per observation
-                    rv_var_buf_held_out .= rvlike.held_out_table.σ_rv.^2 .+ jitter^2
-
-                    # Compute GP model
-                    if gp isa Celerite.CeleriteGP
-                        pred, var = Main.Celerite.predict(gp, rv_residuals, rvlike.held_out_table.epoch; return_var=true)
-                        for i_held_out in 1:size(rvlike.held_out_table.epoch,1)
-                            ll += logpdf(Normal(pred[i_held_out], sqrt(var[i_held_out] + rv_var_buf_held_out[i_held_out])), rv_residuals_held_out[i_held_out])
-                        end
-                    else
-                        # TODO: need to implement the prediction for the AbstractGPs case
-                        throw(NotImplementedException())
-                    end
-                end
-
-            catch err
-                if err isa PosDefException || err isa DomainError
-                    @warn "err" exception=(err, catch_backtrace()) θ_system
-                    ll = convert(T,-Inf)
-                else
-                    rethrow(err)
-                end
-            end
+        # Convert NaN (from invalid GP params like log of negative) to -Inf
+        if !isfinite(ll)
+            ll = convert(T, -Inf)
         end
     end
     return ll
 end
 
+"""
+Cross-validation log-likelihood for held-out RV data with a GP model.
+Extracted to a separate function so Enzyme doesn't need to compile
+`Celerite.predict` (which triggers a Julia 1.12 type analysis bug).
+This function is marked inactive for Enzyme since cross-validation
+is never used during gradient-based sampling.
+"""
+@noinline function _rv_crossval_ll(rvlike, gp, rv_residuals, θ_system, θ_obs, orbits, offset, jitter)
+    T = eltype(rv_residuals)
+    L_held = length(rvlike.held_out_table.epoch)
+    rv_model_held_out = Vector{T}(undef, L_held)
+    rv_residuals_held_out = Vector{T}(undef, L_held)
+    rv_var_buf_held_out = Vector{T}(undef, L_held)
 
+    # Compute model RV values for held-out data: start with offset and trend
+    rv_model_held_out .= offset .+ rvlike.trend_function.(Ref(θ_obs), rvlike.held_out_table.epoch)
+
+    # Add RV contribution from all planets:
+    for planet_i in eachindex(orbits)
+        orbit = orbits[planet_i]
+        planet_mass = θ_system.planets[planet_i].mass
+        for epoch_i in eachindex(rvlike.held_out_table.epoch)
+            rv_model_held_out[epoch_i] += radvel(
+                orbitsolve(orbit, rvlike.held_out_table.epoch[epoch_i]),
+                planet_mass * Octofitter.mjup2msol
+            )
+        end
+    end
+
+    # Compute residuals: observed - model
+    rv_residuals_held_out .= rvlike.held_out_table.rv .- rv_model_held_out
+
+    # The noise variance per observation
+    rv_var_buf_held_out .= rvlike.held_out_table.σ_rv .^ 2 .+ jitter^2
+
+    # Compute GP model
+    ll = zero(T)
+    if gp isa Celerite.CeleriteGP
+        pred, var = Celerite.predict(gp, rv_residuals, rvlike.held_out_table.epoch; return_var=true)
+        for i_held_out in 1:size(rvlike.held_out_table.epoch, 1)
+            ll += logpdf(Normal(pred[i_held_out], sqrt(var[i_held_out] + rv_var_buf_held_out[i_held_out])), rv_residuals_held_out[i_held_out])
+        end
+    else
+        # TODO: need to implement the prediction for the AbstractGPs case
+        error("Cross-validation prediction not yet implemented for AbstractGPs")
+    end
+    return ll
+end
+
+# Tell Enzyme that the cross-validation helper has zero derivative
+# (it is never called during gradient-based sampling)
+using EnzymeCore.EnzymeRules
+EnzymeRules.inactive(::typeof(_rv_crossval_ll), args...) = nothing
 
 
 # Generate new radial velocity observations for a star
