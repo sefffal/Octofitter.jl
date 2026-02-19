@@ -8,7 +8,7 @@ model-level overrides.
 
 using ADTypes: AutoForwardDiff, AutoFiniteDiff, AutoEnzyme
 using Bumper: @no_escape
-using Enzyme: Duplicated
+using Enzyme: Duplicated, Reverse, Const, set_runtime_activity
 
 """
 Backends compatible with Bumper.jl's `@no_escape`/`@alloc` pattern.

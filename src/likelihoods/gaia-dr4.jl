@@ -39,6 +39,12 @@ end
 const GaiaDR4Astrom = GaiaDR4AstromObs
 export GaiaDR4AstromObs, GaiaDR4Astrom
 
+# Use Enzyme reverse-mode AD for this observation type.
+# GaiaDR4AstromObs benefits from Enzyme because the gradient cost is
+# independent of parameter count (reverse mode), and the per-epoch
+# loop structure is well-suited to Enzyme's source-to-source AD.
+Octofitter.ad_backend(::GaiaDR4AstromObs) = AutoEnzyme(mode=set_runtime_activity(Reverse), function_annotation=Const)
+
 function GaiaDR4AstromObs(
     observations_table;
     gaia_id,
@@ -104,39 +110,34 @@ function Octofitter.ln_like(
     astrometric_jitter = hasproperty(θ_obs, :astrometric_jitter) ? θ_obs.astrometric_jitter : zero(T)
     astrometric_var = astrometric_jitter^2
 
-    # Use Bumper.jl to avoid memory allocation overhead
-    @no_escape begin
-        N = size(likeobj.table,1)
-        # Allocate memory to simulate the along scan residuals
-        ra_offset_buffer = @alloc(T, N)
-        dec_offset_buffer = @alloc(T, N)
-        centroid_pos_al_model_buffer = @alloc(T, N)
-        # Extra buffers for primary_star_perturbation detrending
-        pert_ra_buffer = likeobj.primary_star_perturbation ? @alloc(T, N) : nothing
-        pert_dec_buffer = likeobj.primary_star_perturbation ? @alloc(T, N) : nothing
-        centroid_pos_al_model = Octofitter.simulate(
-            likeobj,
-            θ_system,
-            θ_obs,
-            orbits,
-            orbit_solutions,
-            ra_offset_buffer,
-            dec_offset_buffer,
-            centroid_pos_al_model_buffer,
-            pert_ra_buffer,
-            pert_dec_buffer,
-        )
-        # TODO: do we want to fit for a correlation parameter within each visibility window?
-        # Extract the along-scan residuals from the NamedTuple returned by simulate
-        along_scan_model = centroid_pos_al_model.along_scan_residuals_buffer
-        for i in eachindex(likeobj.table.centroid_pos_al, along_scan_model)
-            # There's an "outlier flag" -- I assume we should ignore ones that are flagged?
-            if hasproperty(likeobj.table, :outlier_flag) && likeobj.table.outlier_flag[i] > 0
-                continue
-            end
-            σ = sqrt(astrometric_var + likeobj.table.centroid_pos_error_al[i]^2)
-            ll += logpdf(Normal(likeobj.table.centroid_pos_al[i], σ), along_scan_model[i])
+    N = size(likeobj.table,1)
+    # Allocate buffers for simulation (plain Vector for Enzyme compatibility)
+    ra_offset_buffer = Vector{T}(undef, N)
+    dec_offset_buffer = Vector{T}(undef, N)
+    centroid_pos_al_model_buffer = Vector{T}(undef, N)
+    pert_ra_buffer = likeobj.primary_star_perturbation ? Vector{T}(undef, N) : nothing
+    pert_dec_buffer = likeobj.primary_star_perturbation ? Vector{T}(undef, N) : nothing
+    centroid_pos_al_model = Octofitter.simulate(
+        likeobj,
+        θ_system,
+        θ_obs,
+        orbits,
+        orbit_solutions,
+        ra_offset_buffer,
+        dec_offset_buffer,
+        centroid_pos_al_model_buffer,
+        pert_ra_buffer,
+        pert_dec_buffer,
+    )
+    # Extract the along-scan residuals from the NamedTuple returned by simulate
+    along_scan_model = centroid_pos_al_model.along_scan_residuals_buffer
+    for i in eachindex(likeobj.table.centroid_pos_al, along_scan_model)
+        if hasproperty(likeobj.table, :outlier_flag) && likeobj.table.outlier_flag[i] > 0
+            continue
         end
+        var_i = astrometric_var + likeobj.table.centroid_pos_error_al[i]^2
+        resid = along_scan_model[i] - likeobj.table.centroid_pos_al[i]
+        ll -= (resid^2 / var_i + log(var_i) + log(T(2π))) / 2
     end
 
     return ll
