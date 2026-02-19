@@ -11,7 +11,6 @@ using AbstractGPs
 using FITSIO
 using StaticArrays
 using LinearAlgebra
-using Bumper
 import Enzyme  # Triggers DifferentiationInterface's Enzyme extension
 
 # mjd2jd = Octofitter.mjd2jd
