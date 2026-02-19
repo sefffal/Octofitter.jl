@@ -130,6 +130,13 @@ function Octofitter.likeobj_from_epoch_subset(obs::StarAbsoluteRVObs, obs_inds)
 end
 export StarAbsoluteRVObs, StarAbsoluteRVLikelihood
 
+function Octofitter.alloc_obs_workspace(obs::StarAbsoluteRVObs, ::Type{T}) where T
+    L = length(obs.table.epoch)
+    rv_model_buf = Vector{T}(undef, L)
+    rv_residuals = Vector{T}(undef, L)
+    rv_var_buf = Vector{T}(undef, L)
+    return (; rv_model_buf, rv_residuals, rv_var_buf)
+end
 
 # In-place simulation logic for StarAbsoluteRVObs (performance-critical)
 function Octofitter.simulate!(rv_model_buf, rvlike::StarAbsoluteRVObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions)
@@ -173,143 +180,125 @@ function Octofitter.ln_like(
     rvlike::StarAbsoluteRVObs,
     ctx::SystemObservationContext
 )
-    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions, workspace) = ctx
     L = length(rvlike.table.epoch)
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
     jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero(T)
+    offset = hasproperty(θ_obs, :offset) ? θ_obs.offset : zero(T)
 
-    @no_escape begin
-        # Allocate buffers using bump allocator
-        rv_model_buf = @alloc(T, L)
-        rv_residuals = @alloc(T, L)
-        rv_var_buf = @alloc(T, L)
+    # Use pre-allocated workspace buffers if available, otherwise allocate
+    if workspace !== nothing
+        rv_model_buf = workspace.rv_model_buf
+        rv_residuals = workspace.rv_residuals
+        rv_var_buf = workspace.rv_var_buf
+    else
+        rv_model_buf = Vector{T}(undef, L)
+        rv_residuals = Vector{T}(undef, L)
+        rv_var_buf = Vector{T}(undef, L)
+    end
 
-        # Use in-place simulation method to get model values
-        sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, orbits, orbit_solutions)
+    # Use in-place simulation method to get model values
+    sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, orbits, orbit_solutions)
 
-        # Compute residuals: observed - model
-        rv_residuals .= rvlike.table.rv .- rv_model_buf
+    # Compute residuals: observed - model
+    rv_residuals .= rvlike.table.rv .- rv_model_buf
 
-        # The noise variance per observation is the measurement noise and the jitter added
-        # in quadrature
-        rv_var_buf .= rvlike.table.σ_rv.^2 .+ jitter^2
+    # The noise variance per observation is the measurement noise and the jitter added
+    # in quadrature
+    rv_var_buf .= rvlike.table.σ_rv.^2 .+ jitter^2
 
-        # Two code paths, depending on if we are modelling the residuals by 
-        # a Gaussian process or not.
-        if isnothing(rvlike.gaussian_process)
-            # Don't fit a GP
-            fx = MvNormal(Diagonal((rv_var_buf)))
-            ll += logpdf(fx, rv_residuals)
-        else
-            # Fit a GP
-            local gp
-            try
-                gp = @inline rvlike.gaussian_process(θ_obs)
-            catch err
-                if err isa DomainError
-                    ll = convert(T,-Inf)
-                else
-                    rethrow(err)
-                end
+    # Two code paths, depending on if we are modelling the residuals by
+    # a Gaussian process or not.
+    if isnothing(rvlike.gaussian_process)
+        # Don't fit a GP
+        fx = MvNormal(Diagonal((rv_var_buf)))
+        ll += logpdf(fx, rv_residuals)
+    else
+        # Fit a GP
+        local gp, fx
+        try
+            gp = @inline rvlike.gaussian_process(θ_obs)
+            # Celerite GP:
+            if gp isa Celerite.CeleriteGP
+                Celerite.compute!(gp, rvlike.table.epoch, sqrt.(rv_var_buf))
+            # AbstractGPs GP:
+            else
+                fx = gp(rvlike.table.epoch, rv_var_buf)
             end
 
-            local gp, fx
+        catch err
+            if err isa DomainError
+                ll = convert(T,-Inf)
+            elseif err isa PosDefException
+                ll = convert(T,-Inf)
+            elseif err isa ArgumentError
+                ll = convert(T,-Inf)
+            else
+                rethrow(err)
+            end
+        end
+
+        if isfinite(ll)
             try
-                gp = @inline rvlike.gaussian_process(θ_obs)
-                # Celerite GP:
-                if gp isa Celerite.CeleriteGP
-                    Celerite.compute!(gp, rvlike.table.epoch, sqrt.(rv_var_buf))# TODO: is this std or var?
-                # AbstractGPs GP:
+                # Normal path: evaluate likelihood against all data
+                if isempty(rvlike.held_out_table)
+                    # Celerite GP:
+                    if gp isa Celerite.CeleriteGP
+                        ll += Celerite.log_likelihood(gp, rv_residuals)
+                    # AbstractGPs GP:
+                    else
+                        ll += logpdf(fx, rv_residuals)
+                    end
+                # Cross validation path: condition against rvlike.table, but evaluate against
+                # rvlike.held_out_table
                 else
-                    fx = gp(rvlike.table.epoch, rv_var_buf)
+                    # Held-out data buffers (not pre-allocated since cross-validation is rare)
+                    L_held = length(rvlike.held_out_table.epoch)
+                    rv_model_held_out = Vector{T}(undef, L_held)
+                    rv_residuals_held_out = Vector{T}(undef, L_held)
+                    rv_var_buf_held_out = Vector{T}(undef, L_held)
+
+                    # Compute model RV values for held-out data: start with offset and trend
+                    rv_model_held_out .= offset .+ rvlike.trend_function.(Ref(θ_obs), rvlike.held_out_table.epoch)
+
+                    # Add RV contribution from all planets:
+                    for planet_i in eachindex(orbits)
+                        orbit = orbits[planet_i]
+                        planet_mass = θ_system.planets[planet_i].mass
+                        for epoch_i in eachindex(rvlike.held_out_table.epoch)
+                            rv_model_held_out[epoch_i] += radvel(
+                                orbitsolve(orbit, rvlike.held_out_table.epoch[epoch_i]),
+                                planet_mass*Octofitter.mjup2msol
+                            )
+                        end
+                    end
+
+                    # Compute residuals: observed - model
+                    rv_residuals_held_out .= rvlike.held_out_table.rv .- rv_model_held_out
+
+                    # The noise variance per observation
+                    rv_var_buf_held_out .= rvlike.held_out_table.σ_rv.^2 .+ jitter^2
+
+                    # Compute GP model
+                    if gp isa Celerite.CeleriteGP
+                        pred, var = Main.Celerite.predict(gp, rv_residuals, rvlike.held_out_table.epoch; return_var=true)
+                        for i_held_out in 1:size(rvlike.held_out_table.epoch,1)
+                            ll += logpdf(Normal(pred[i_held_out], sqrt(var[i_held_out] + rv_var_buf_held_out[i_held_out])), rv_residuals_held_out[i_held_out])
+                        end
+                    else
+                        # TODO: need to implement the prediction for the AbstractGPs case
+                        throw(NotImplementedException())
+                    end
                 end
 
             catch err
-                if err isa DomainError
-                    ll = convert(T,-Inf)
-                elseif err isa PosDefException
-                    ll = convert(T,-Inf)
-                elseif err isa ArgumentError
+                if err isa PosDefException || err isa DomainError
+                    @warn "err" exception=(err, catch_backtrace()) θ_system
                     ll = convert(T,-Inf)
                 else
                     rethrow(err)
-                end
-            end 
-
-            # early return not allowed with Bumper
-            if isfinite(ll)
-                try
-                    # Normal path: evaluate likelihood against all data
-                    if isempty(rvlike.held_out_table)
-                        # Celerite GP:
-                        if gp isa Celerite.CeleriteGP
-                            ll += Celerite.log_likelihood(gp, rv_residuals)
-                        # AbstractGPs GP:
-                        else
-                            ll += logpdf(fx, rv_residuals)
-                        end
-                    # Cross validation path: condition against rvlike.table, but evaluate against
-                    # rvlike.held_out_table
-                    else
-                        # If we have held out data, that means we are doing cross-validataion ----
-                        # we are conditioning on a subset of data, and computing the likelihood for
-                        # the held out data. 
-
-
-                        # Vector of radial velocity model and residuals for held-out data
-                        rv_model_held_out = @alloc(T, length(rvlike.held_out_table.epoch))
-                        rv_residuals_held_out = @alloc(T, length(rvlike.held_out_table.epoch))
-                        rv_var_buf_held_out = @alloc(T, length(rvlike.held_out_table.epoch))
-
-                        # Compute model RV values for held-out data: start with offset and trend
-                        rv_model_held_out .= offset .+ rvlike.trend_function.(Ref(θ_obs), rvlike.held_out_table.epoch)
-
-                        # Add RV contribution from all planets:
-                        for planet_i in eachindex(orbits)
-                            orbit = orbits[planet_i]
-                            planet_mass = θ_system.planets[planet_i].mass
-                            for epoch_i in eachindex(rvlike.held_out_table.epoch)
-                                rv_model_held_out[epoch_i] += radvel(
-                                    # We can't look into the pre-populated orbit solutions here, since these
-                                    # are only generated for entries in an likelihood objects `table`.
-                                    # We have to solve it ourselves as we go. This should have negligible
-                                    # performance impact unless we are holding out many data points and
-                                    # we would miss the multi-threaded solve.
-                                    # orbit_solutions[planet_i][epoch_i],
-                                    orbitsolve(orbit, rvlike.held_out_table.epoch[epoch_i]),
-                                    planet_mass*Octofitter.mjup2msol
-                                )
-                            end
-                        end        
-
-                        # Compute residuals: observed - model
-                        rv_residuals_held_out .= rvlike.held_out_table.rv .- rv_model_held_out
-
-                        # The noise variance per observation is the measurement noise and the jitter added
-                        # in quadrature
-                        rv_var_buf_held_out .= rvlike.held_out_table.σ_rv.^2 .+ jitter^2
-                        
-                        # Compute GP model
-                        if gp isa Celerite.CeleriteGP
-                            pred, var = Main.Celerite.predict(gp, rv_residuals, rvlike.held_out_table.epoch; return_var=true)
-                            for i_held_out in 1:size(rvlike.held_out_table.epoch,1)
-                                ll += logpdf(Normal(pred[i_held_out], sqrt(var[i_held_out] + rv_var_buf_held_out[i_held_out])), rv_residuals_held_out[i_held_out])
-                            end
-                        else
-                            # TODO: need to implement the prediction for the AbstractGPs case
-                            throw(NotImplementedException())
-                        end
-                    end
-
-                catch err
-                    if err isa PosDefException || err isa DomainError
-                        @warn "err" exception=(err, catch_backtrace()) θ_system
-                        ll = convert(T,-Inf)
-                    else
-                        rethrow(err)
-                    end
                 end
             end
         end

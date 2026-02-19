@@ -39,11 +39,18 @@ end
 const GaiaDR4Astrom = GaiaDR4AstromObs
 export GaiaDR4AstromObs, GaiaDR4Astrom
 
-# Use Enzyme reverse-mode AD for this observation type.
-# GaiaDR4AstromObs benefits from Enzyme because the gradient cost is
-# independent of parameter count (reverse mode), and the per-epoch
-# loop structure is well-suited to Enzyme's source-to-source AD.
-Octofitter.ad_backend(::GaiaDR4AstromObs) = AutoEnzyme(mode=set_runtime_activity(Reverse), function_annotation=Const)
+# Enzyme is now the default for all observation types via _default_enzyme_backend.
+# No need for a per-type ad_backend override.
+
+function Octofitter.alloc_obs_workspace(obs::GaiaDR4AstromObs, ::Type{T}) where T
+    N = size(obs.table, 1)
+    ra_offset = Vector{T}(undef, N)
+    dec_offset = Vector{T}(undef, N)
+    along_scan = Vector{T}(undef, N)
+    pert_ra = obs.primary_star_perturbation ? Vector{T}(undef, N) : nothing
+    pert_dec = obs.primary_star_perturbation ? Vector{T}(undef, N) : nothing
+    return (; ra_offset, dec_offset, along_scan, pert_ra, pert_dec)
+end
 
 function GaiaDR4AstromObs(
     observations_table;
@@ -96,27 +103,29 @@ function Octofitter.ln_like(
     likeobj::GaiaDR4AstromObs,
     ctx::SystemObservationContext
 )
-    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions, workspace) = ctx
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
-
-
-    # We separate out the the likelihood function into a `simulate` phase,
-    # and then use the results here to compute the lieklihood.
-    # This way we can re-use the simulator for plots, generating fake data,
-    # etc.
 
     # Get astrometric jitter from observation variables
     astrometric_jitter = hasproperty(θ_obs, :astrometric_jitter) ? θ_obs.astrometric_jitter : zero(T)
     astrometric_var = astrometric_jitter^2
 
     N = size(likeobj.table,1)
-    # Allocate buffers for simulation (plain Vector for Enzyme compatibility)
-    ra_offset_buffer = Vector{T}(undef, N)
-    dec_offset_buffer = Vector{T}(undef, N)
-    centroid_pos_al_model_buffer = Vector{T}(undef, N)
-    pert_ra_buffer = likeobj.primary_star_perturbation ? Vector{T}(undef, N) : nothing
-    pert_dec_buffer = likeobj.primary_star_perturbation ? Vector{T}(undef, N) : nothing
+    # Use pre-allocated workspace buffers if available, otherwise allocate
+    if workspace !== nothing
+        ra_offset_buffer = workspace.ra_offset
+        dec_offset_buffer = workspace.dec_offset
+        centroid_pos_al_model_buffer = workspace.along_scan
+        pert_ra_buffer = workspace.pert_ra
+        pert_dec_buffer = workspace.pert_dec
+    else
+        ra_offset_buffer = Vector{T}(undef, N)
+        dec_offset_buffer = Vector{T}(undef, N)
+        centroid_pos_al_model_buffer = Vector{T}(undef, N)
+        pert_ra_buffer = likeobj.primary_star_perturbation ? Vector{T}(undef, N) : nothing
+        pert_dec_buffer = likeobj.primary_star_perturbation ? Vector{T}(undef, N) : nothing
+    end
     centroid_pos_al_model = Octofitter.simulate(
         likeobj,
         θ_system,

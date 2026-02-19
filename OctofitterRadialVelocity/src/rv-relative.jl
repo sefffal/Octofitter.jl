@@ -100,6 +100,13 @@ const PlanetRelativeRVLikelihood = PlanetRelativeRVObs
 
 export PlanetRelativeRVObs, PlanetRelativeRVLikelihood
 
+function Octofitter.alloc_obs_workspace(obs::PlanetRelativeRVObs, ::Type{T}) where T
+    L = length(obs.table.epoch)
+    rv_model_buf = Vector{T}(undef, L)
+    rv_residuals = Vector{T}(undef, L)
+    noise_var = Vector{T}(undef, L)
+    return (; rv_model_buf, rv_residuals, noise_var)
+end
 
 # In-place simulation logic for PlanetRelativeRVObs (performance-critical)
 function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
@@ -151,7 +158,7 @@ end
 Radial velocity likelihood.
 """
 function Octofitter.ln_like(rvlike::PlanetRelativeRVObs, ctx::Octofitter.PlanetObservationContext)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, workspace) = ctx
     T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
 
@@ -161,46 +168,48 @@ function Octofitter.ln_like(rvlike::PlanetRelativeRVObs, ctx::Octofitter.PlanetO
     rvs = vec(rvlike.table.rv)
     jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero(T)
 
-    @no_escape begin
-        # Allocate buffers using bump allocator
-        rv_model_buf = @alloc(T, length(epochs))
-        rv_residuals = @alloc(T, length(epochs))
-        noise_var = @alloc(T, length(epochs))
+    # Use pre-allocated workspace buffers if available, otherwise allocate
+    if workspace !== nothing
+        rv_model_buf = workspace.rv_model_buf
+        rv_residuals = workspace.rv_residuals
+        noise_var = workspace.noise_var
+    else
+        rv_model_buf = Vector{T}(undef, length(epochs))
+        rv_residuals = Vector{T}(undef, length(epochs))
+        noise_var = Vector{T}(undef, length(epochs))
+    end
 
-        # Use in-place simulation method to get model values
-        sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
+    # Use in-place simulation method to get model values
+    sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
 
-        # Compute residuals: observed - model
-        rv_residuals .= rvs .- rv_model_buf
+    # Compute residuals: observed - model
+    rv_residuals .= rvs .- rv_model_buf
 
-        # The noise variance per observation is the measurement noise and the jitter added
-        # in quadrature
-        noise_var .= σ_rvs.^2 .+ jitter^2
+    # The noise variance per observation is the measurement noise and the jitter added
+    # in quadrature
+    noise_var .= σ_rvs.^2 .+ jitter^2
 
-        # Two code paths, depending on if we are modelling the residuals by 
-        # a Gaussian process or not.
-        if isnothing(rvlike.gaussian_process)
-            # Don't fit a GP
-            fx = MvNormal(Diagonal((noise_var)))
+    # Two code paths, depending on if we are modelling the residuals by
+    # a Gaussian process or not.
+    if isnothing(rvlike.gaussian_process)
+        # Don't fit a GP
+        fx = MvNormal(Diagonal((noise_var)))
+        ll += logpdf(fx, rv_residuals)
+    else
+        # Fit a GP
+        local gp
+        try
+            gp = @inline rvlike.gaussian_process(θ_obs)
+            fx = gp(epochs, noise_var)
             ll += logpdf(fx, rv_residuals)
-        else
-            # Fit a GP
-            local gp
-            try
-                gp = @inline rvlike.gaussian_process(θ_obs)
-                fx = gp(epochs, noise_var)
-                ll += logpdf(fx, rv_residuals)
-            catch err
-                if err isa PosDefException
-                    # @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                    ll = convert(T, -Inf)
-                elseif err isa ArgumentError
-                    # @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                    ll = convert(T, -Inf)
-                else
-                    rethrow(err)
-                end
-            end                
+        catch err
+            if err isa PosDefException
+                ll = convert(T, -Inf)
+            elseif err isa ArgumentError
+                ll = convert(T, -Inf)
+            else
+                rethrow(err)
+            end
         end
     end
 

@@ -607,8 +607,22 @@ function Octofitter.likeobj_from_epoch_subset(like::G23HObs, obs_inds)
     )
 end
 
+function alloc_obs_workspace(obs::G23HObs, ::Type{T}) where T
+    N_hip = size(obs.hip_table, 1)
+    N_gaia = size(obs.gaia_table, 1)
+    iad_resid = Vector{T}(undef, N_hip)
+    Δα_mas_hip = Vector{T}(undef, N_hip)
+    Δδ_mas_hip = Vector{T}(undef, N_hip)
+    # DR2 and DR3 subsets are at most N_gaia elements
+    Δα_mas_dr2 = Vector{T}(undef, N_gaia)
+    Δδ_mas_dr2 = Vector{T}(undef, N_gaia)
+    Δα_mas_dr3 = Vector{T}(undef, N_gaia)
+    Δδ_mas_dr3 = Vector{T}(undef, N_gaia)
+    return (; iad_resid, Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3)
+end
+
 function ln_like(like::G23HObs, ctx::SystemObservationContext)
-    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions, workspace) = ctx
 
     T = _system_number_type(θ_system)
     ll = zero(T)
@@ -647,17 +661,37 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
         iend_dr3 = length(gaia_table.epoch)
     end
 
-    @no_escape begin
+    # Use pre-allocated workspace buffers if available, otherwise allocate
+    N_hip = size(like.hip_table, 1)
+    N_dr2 = iend_dr2 - istart_dr2 + 1
+    N_dr3 = iend_dr3 - istart_dr3 + 1
+    if workspace !== nothing
+        iad_resid = workspace.iad_resid
+        Δα_mas_hip = workspace.Δα_mas_hip
+        Δδ_mas_hip = workspace.Δδ_mas_hip
+        Δα_mas_dr2 = @view workspace.Δα_mas_dr2[1:N_dr2]
+        Δδ_mas_dr2 = @view workspace.Δδ_mas_dr2[1:N_dr2]
+        Δα_mas_dr3 = @view workspace.Δα_mas_dr3[1:N_dr3]
+        Δδ_mas_dr3 = @view workspace.Δδ_mas_dr3[1:N_dr3]
+    else
+        iad_resid = Vector{T}(undef, N_hip)
+        Δα_mas_hip = Vector{T}(undef, N_hip)
+        Δδ_mas_hip = Vector{T}(undef, N_hip)
+        Δα_mas_dr2 = Vector{T}(undef, N_dr2)
+        Δδ_mas_dr2 = Vector{T}(undef, N_dr2)
+        Δα_mas_dr3 = Vector{T}(undef, N_dr3)
+        Δδ_mas_dr3 = Vector{T}(undef, N_dr3)
+    end
+    fill!(iad_resid, 0)
+    fill!(Δα_mas_hip, 0)
+    fill!(Δδ_mas_hip, 0)
+    fill!(Δα_mas_dr2, 0)
+    fill!(Δδ_mas_dr2, 0)
+    fill!(Δα_mas_dr3, 0)
+    fill!(Δδ_mas_dr3, 0)
+    buffers = (;iad_resid, Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3)
 
-
-        iad_resid  = @alloc(T, size(like.hip_table,1)); fill!(iad_resid, 0)
-        Δα_mas_hip = @alloc(T, size(like.hip_table,1)); fill!(Δα_mas_hip, 0)
-        Δδ_mas_hip = @alloc(T, size(like.hip_table,1)); fill!(Δδ_mas_hip, 0)
-        Δα_mas_dr2 = @alloc(T, iend_dr2-istart_dr2+1); fill!(Δα_mas_dr2, 0)
-        Δδ_mas_dr2 = @alloc(T, iend_dr2-istart_dr2+1); fill!(Δδ_mas_dr2, 0)
-        Δα_mas_dr3 = @alloc(T, iend_dr3-istart_dr3+1); fill!(Δα_mas_dr3, 0)
-        Δδ_mas_dr3 = @alloc(T, iend_dr3-istart_dr3+1); fill!(Δδ_mas_dr3, 0)
-        buffers = (;iad_resid, Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3)
+    begin
 
         sim = simulate!(buffers, like, θ_system, θ_obs, orbits, orbit_solutions)
 

@@ -1,190 +1,5 @@
-using Bumper
 
-
-# Helper to generate orbit-solving expressions for a single observation term.
-# Returns (solve_exprs, sol_keys) where sol_keys are symbols for per-planet solution arrays.
-function _make_per_term_solve_exprs(term_id::String, like, planet_keys::Vector{Symbol}, n_planets::Int)
-    epochs = if hasproperty(like, :table) && hasproperty(like.table, :epoch)
-        collect(Float64, like.table.epoch)
-    else
-        Float64[]
-    end
-    n_epochs = length(epochs)
-
-    sol_exprs = Expr[]
-    sol_keys = Symbol[]
-
-    if n_epochs == 0 || n_planets == 0
-        # No epochs or no planets: empty solution tuples
-        for ip in 1:n_planets
-            sk = Symbol("sols_$(term_id)_p$(ip)")
-            push!(sol_keys, sk)
-            push!(sol_exprs, :($sk = ()))
-        end
-    else
-        # Allocate epochs array (shared by all planets for this term)
-        epochs_sym = Symbol("epochs_$(term_id)")
-        push!(sol_exprs, quote
-            $epochs_sym = @alloc(Float64, $n_epochs)
-            $((:($(epochs_sym)[$je] = $(epochs[je])) for je in 1:n_epochs)...)
-        end)
-
-        # For each planet, solve at this term's epochs
-        for ip in 1:n_planets
-            sk = Symbol("sols_$(term_id)_p$(ip)")
-            push!(sol_keys, sk)
-            pk = planet_keys[ip]
-            sol0_sym = Symbol("_sol0_$(term_id)_p$(ip)")
-            push!(sol_exprs, quote
-                $sol0_sym = orbitsolve($pk, $epochs_sym[1])
-                $sk = @alloc(typeof($sol0_sym), $n_epochs)
-                $(sk)[1] = $sol0_sym
-                for _j in 2:$n_epochs
-                    $(sk)[_j] = orbitsolve($pk, $epochs_sym[_j])
-                end
-            end)
-        end
-    end
-
-    return sol_exprs, sol_keys, n_epochs
-end
-
-function make_ln_like(system::System, θ_system)
-
-    # --- Planet orbit construction (shared across all terms) ---
-    planet_keys = Symbol[]
-    planet_construction_exprs = Expr[]
-    planet_declarations = Expr[]
-    n_planets = length(system.planets)
-
-    for i in 1:n_planets
-        planet = system.planets[i]
-        OrbitType = _planet_orbit_type(planet)
-        key = Symbol("planet_$i")
-        push!(planet_declarations, :($key = nothing))
-        push!(planet_keys, key)
-        push!(planet_construction_exprs, quote
-            $key = $(OrbitType)(;merge(θ_system, θ_system.planets[$i])...)
-        end)
-    end
-
-    # --- Per-term evaluation expressions ---
-    # Each observation term gets its own @no_escape block that solves orbits
-    # at only its own epochs. This enables per-term differentiation in Stage 5.
-    j = 0  # running ll variable counter
-    term_exprs = Expr[]
-
-    # Planet observations
-    for i in 1:n_planets
-        planet = system.planets[i]
-        for (i_like, like) in enumerate(planet.observations)
-            term_id = "p$(i)_o$(i_like)"
-            sol_exprs, sol_keys, n_epochs = _make_per_term_solve_exprs(term_id, like, planet_keys, n_planets)
-            solutions_tuple = :(tuple($(sol_keys...)))
-
-            # Build context expression
-            obs_name = hasproperty(like, :name) ? normalizename(likelihoodname(like)) : nothing
-            if !isnothing(obs_name)
-                ctx_expr = :(PlanetObservationContext(
-                    θ_system,
-                    θ_system.planets[$i],
-                    hasproperty(θ_system.planets[$i].observations, $(Meta.quot(obs_name))) ?
-                        θ_system.planets[$i].observations.$(obs_name) :
-                        (;),
-                    elems,
-                    $solutions_tuple,
-                    $i,
-                ))
-            else
-                ctx_expr = :(PlanetObservationContext(
-                    θ_system,
-                    θ_system.planets[$i],
-                    (;),
-                    elems,
-                    $solutions_tuple,
-                    $i,
-                ))
-            end
-
-            ll_call = :(ln_like(system.planets[$i].observations[$i_like], $ctx_expr))
-
-            if n_epochs > 0
-                push!(term_exprs, :(
-                    $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + @no_escape begin
-                        $(sol_exprs...)
-                        $ll_call
-                    end
-                ))
-            else
-                push!(term_exprs, quote
-                    $(sol_exprs...)
-                    $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + $ll_call
-                end)
-            end
-            j += 1
-        end
-    end
-
-    # System observations
-    for (i_obs, like) in enumerate(system.observations)
-        term_id = "sys_o$(i_obs)"
-        sol_exprs, sol_keys, n_epochs = _make_per_term_solve_exprs(term_id, like, planet_keys, n_planets)
-        solutions_tuple = :(tuple($(sol_keys...)))
-
-        obs_name = normalizename(likelihoodname(like))
-        ctx_expr = :(SystemObservationContext(
-            θ_system,
-            hasproperty(θ_system.observations, $(Meta.quot(obs_name))) ?
-                θ_system.observations.$(obs_name) :
-                (;),
-            elems,
-            $solutions_tuple,
-        ))
-
-        ll_call = :(ln_like(system.observations[$i_obs], $ctx_expr))
-
-        if n_epochs > 0
-            push!(term_exprs, :(
-                $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + @no_escape begin
-                    $(sol_exprs...)
-                    $ll_call
-                end
-            ))
-        else
-            push!(term_exprs, quote
-                $(sol_exprs...)
-                $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + $ll_call
-            end)
-        end
-        j += 1
-    end
-
-    return @RuntimeGeneratedFunction(:(function (system::System, θ_system)
-        T = _system_number_type(θ_system)
-        ll0 = zero(T)
-
-        # Declare all planet variables before the try block
-        $(planet_declarations...)
-
-        # Try-catch only for planet construction
-        try
-            $(planet_construction_exprs...)
-        catch err
-            @warn "Failed to constructor orbit:" exception=(err, catch_backtrace())
-            return convert(T, -Inf)
-        end
-
-        # Construct a tuple of existing planet orbital elements
-        elems = tuple($(planet_keys...))
-
-        # Evaluate each term with per-term orbit solving
-        $(term_exprs...)
-
-        $(Symbol("ll$j"))
-    end))
-end
-
-# Threading flag used by sampling/initialization for outer-loop parallelism
+# Threading coordination flag for initialization parallelism
 const _kepsolve_use_threads = Ref(false)
 
 # Generate calibration data
@@ -288,3 +103,70 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
 end
 export generate_from_params
 
+"""
+    make_ln_like(system, θ_system_example)
+
+Build a log-likelihood function `(system, θ_system) -> ll::Float64` for post-processing
+(chain diagnostics, SBC, cross-validation). Not used in the hot sampling path.
+"""
+function make_ln_like(system::System, θ_system_example)
+    n_planets = length(system.planets)
+    val_n = Val(n_planets)
+
+    orbit_constructors = ntuple(n_planets) do i
+        OT = _planet_orbit_type(system.planets[i])
+        let OT=OT, i=i
+            (θ_system) -> OT(;merge(θ_system, θ_system.planets[i])...)
+        end
+    end
+
+    let orbit_constructors=orbit_constructors, val_n=val_n
+        function (system::System, θ_system)
+            T = _system_number_type(θ_system)
+            ll = zero(T)
+
+            orbits = ntuple(i -> orbit_constructors[i](θ_system), val_n)
+
+            # Helper: solve orbits at an observation's epochs
+            function _solve_at(obs)
+                if hasproperty(obs, :table) && hasproperty(obs.table, :epoch)
+                    epochs = obs.table.epoch
+                    return ntuple(val_n) do i
+                        [orbitsolve(orbits[i], ep) for ep in epochs]
+                    end
+                else
+                    return ntuple(_ -> [], val_n)
+                end
+            end
+
+            # Planet observations
+            for i in 1:n_planets
+                planet = system.planets[i]
+                θ_planet = θ_system.planets[i]
+                for obs in planet.observations
+                    orbit_solutions = _solve_at(obs)
+                    obs_name = hasproperty(obs, :name) ? normalizename(likelihoodname(obs)) : nothing
+                    θ_obs = if !isnothing(obs_name) && hasproperty(θ_planet.observations, obs_name)
+                        getproperty(θ_planet.observations, obs_name)
+                    else
+                        (;)
+                    end
+                    ctx = PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i)
+                    ll += ln_like(obs, ctx)
+                end
+            end
+
+            # System observations
+            for obs in system.observations
+                orbit_solutions = _solve_at(obs)
+                obs_name = normalizename(likelihoodname(obs))
+                θ_obs = hasproperty(θ_system.observations, obs_name) ?
+                        getproperty(θ_system.observations, obs_name) : (;)
+                ctx = SystemObservationContext(θ_system, θ_obs, orbits, orbit_solutions)
+                ll += ln_like(obs, ctx)
+            end
+
+            return ll
+        end
+    end
+end

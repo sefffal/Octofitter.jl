@@ -357,40 +357,37 @@ function fit_5param_prepared(
 
     T = promote_type(eltype(Δα_mas), eltype(Δδ_mas))
 
-    # Use Bumper to elide allocations
-    @no_escape begin
-        b_weighted = @alloc(T, n_obs)
-        A_weighted = @alloc(T, n_obs, size(A_prepared,2))
+    b_weighted = Vector{T}(undef, n_obs)
+    A_weighted = Matrix{T}(undef, n_obs, size(A_prepared,2))
 
-        @. b_weighted = Δα_mas * table.cosϕ + Δδ_mas * table.sinϕ + residuals
+    @. b_weighted = Δα_mas * table.cosϕ + Δδ_mas * table.sinϕ + residuals
 
-        if σ_formal != 0.
-            @. A_weighted = A_prepared .* 1 ./ σ_formal
-            @. b_weighted *= 1/σ_formal
-        else
-            @. A_weighted = A_prepared
+    if σ_formal != 0.
+        @. A_weighted = A_prepared .* 1 ./ σ_formal
+        @. b_weighted *= 1/σ_formal
+    else
+        @. A_weighted = A_prepared
+    end
+
+    x = A_weighted \ b_weighted
+
+    parameters = @SVector [x[1], x[2], x[4], x[5], x[3]]
+
+    if include_chi2 == Val(true)
+        model_predictions = Vector{T}(undef, n_obs)
+        residuals_fit = Vector{T}(undef, n_obs)
+        mul!(model_predictions, A_weighted, x)
+        residuals_fit .= b_weighted .- model_predictions
+        if σ_formal == 0
+            error("Asked for `include_chi2=true` but `σ_formal==0`")
         end
 
-        x = A_weighted \ b_weighted
+        chi_squared_astro = dot(residuals_fit, residuals_fit)
 
-        parameters = @SVector [x[1], x[2], x[4], x[5], x[3]]
+        n_parameters = 5
+        dof = length(b_weighted) - n_parameters
 
-        if include_chi2 == Val(true)
-            model_predictions = @alloc(T, n_obs)
-            residuals = @alloc(T, n_obs)
-            mul!(model_predictions, A_weighted, x)
-            residuals .= b_weighted .- model_predictions
-            if σ_formal == 0
-                error("Asked for `include_chi2=true` but `σ_formal==0`")
-            end
-
-            chi_squared_astro = dot(residuals, residuals)
-
-            n_parameters = 5
-            dof = length(b_weighted) - n_parameters
-
-            chi2_reduced = chi_squared_astro / dof
-        end
+        chi2_reduced = chi_squared_astro / dof
     end
 
     if include_chi2 != Val(true)
