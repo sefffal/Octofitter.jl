@@ -330,11 +330,21 @@ end
 TypedTables.Table(like::UnitLengthPrior) = nothing
 
 # System-level UnitLengthPrior
+# Inlined logpdf of LogNormal(0, σ) to avoid Distributions.jl constructor
+# which pulls in Roots.jl → BigFloat, breaking Enzyme AD.
+# logpdf(LogNormal(0, σ), x) = -log(x) - log(σ) - 0.5*log(2π) - 0.5*(log(x)/σ)^2
+const _ulp_σ = 0.1
+const _ulp_const = -log(_ulp_σ) - 0.5*log(2π)
+@inline function _ulp_logpdf(vector_length)
+    lx = log(vector_length)
+    return _ulp_const - lx - 0.5*(lx/_ulp_σ)^2
+end
+
 function ln_like(::UnitLengthPrior{X,Y}, ctx::SystemObservationContext) where {X,Y}
     x = getproperty(ctx.θ_system, X)
     y = getproperty(ctx.θ_system, Y)
     vector_length = sqrt(x^2 + y^2)
-    return logpdf(LogNormal(log(1.0), 0.1), vector_length);
+    return _ulp_logpdf(vector_length)
 end
 
 # Planet-level UnitLengthPrior
@@ -343,7 +353,7 @@ function ln_like(::UnitLengthPrior{X,Y}, ctx::PlanetObservationContext) where {X
     x = getproperty(θ, X)
     y = getproperty(θ, Y)
     vector_length = sqrt(x^2 + y^2)
-    return logpdf(LogNormal(log(1.0), 0.1), vector_length);
+    return _ulp_logpdf(vector_length)
 end
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::UnitLengthPrior{X,Y}) where {X,Y}
     T = typeof(like)
