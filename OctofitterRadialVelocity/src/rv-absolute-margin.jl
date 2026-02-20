@@ -142,33 +142,51 @@ end
 
 """
 Absolute radial velocity likelihood (for a star) with analytical marginalization over RV zero point.
+
+Uses `orbitsolve_bulk` for Reactant/XLA traceability. All array operations use explicit
+loops (no broadcasting) so that Reactant can trace them into an XLA graph.
 """
 function Octofitter.ln_like(
     rvlike::MarginalizedStarAbsoluteRVObs,
     ctx::SystemObservationContext
 )
-    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
-    L = length(rvlike.table.epoch)
+    (; θ_system, θ_obs, orbits) = ctx
     T = Octofitter._system_number_type(θ_system)
-    ll = zero(T)
+    epochs = rvlike.table.epoch
+    L = length(epochs)
 
     jitter = θ_obs.jitter
 
-    rv_model_buf = Vector{T}(undef, L)
-    resid = Vector{T}(undef, L)
+    # Allocate model RV buffer (Enzyme auto-shadows this)
+    rv_model = zeros(T, L)
 
-    # Use in-place simulation method to get model values
-    sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, orbits, orbit_solutions)
+    # Apply trend function
+    for j in 1:L
+        rv_model[j] = rvlike.trend_function(θ_obs, epochs[j])
+    end
 
-    # Data for this instrument:
-    epochs = rvlike.table.epoch
+    # Bulk solve + RV for each planet
+    for planet_i in eachindex(orbits)
+        sol = orbitsolve_bulk(orbits[planet_i], epochs)
+        planet_mass = θ_system.planets[planet_i].mass
+        planet_rv = radvel(sol, planet_mass * Octofitter.mjup2msol)
+        for j in 1:L
+            rv_model[j] += planet_rv[j]
+        end
+    end
+
+    # Data for this instrument
     σ_rvs = rvlike.table.σ_rv
     rvs = rvlike.table.rv
 
-    # RV residual calculation: measured RV - model
-    resid .= rvs .- rv_model_buf
+    # Compute residuals
+    resid = Vector{T}(undef, L)
+    for j in 1:L
+        resid[j] = rvs[j] - rv_model[j]
+    end
 
     # Marginalize out the instrument zero point using math from the Orvara paper
+    ll = zero(T)
     A = zero(T)
     B = zero(T)
     C = zero(T)
@@ -180,7 +198,7 @@ function Octofitter.ln_like(
         B -= 2resid[i_epoch]/var
         C += resid[i_epoch]^2/var
         # Penalize RV likelihood by total variance
-        ll -= log(2π*var) #  ll += log(1/var)
+        ll -= log(2π*var)
     end
     ll -= -B^2 / (4A) + C + log(A)
 
