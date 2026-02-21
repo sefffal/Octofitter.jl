@@ -43,6 +43,21 @@ This function is public but not exported. Access as `Octofitter.ad_backend(obs)`
 ad_backend(::AbstractObs) = nothing
 
 """
+    ReactantBackend{TD}
+
+Backend sentinel for Reactant/XLA compilation. Returned by `ad_backend(obs)` when
+an observation type opts in to Reactant acceleration (e.g., via a `device` field).
+
+The `device` field carries the target device (e.g., `Reactant.CPU()`).
+The type is defined in core Octofitter so that both the main Reactant extension
+and per-package extensions can dispatch on it. The actual compilation logic lives
+in `OctofitterReactantExt`.
+"""
+struct ReactantBackend{TD}
+    device::TD
+end
+
+"""
     resolve_ad_backend(obs, model_override, D::Int)
 
 Resolve which AD backend to use for a given observation term.
@@ -171,6 +186,19 @@ struct SparseTermEvaluator{TMcfg, TTcfg, TWs}
 end
 (te::SparseTermEvaluator)(θ_active, θ_full_base) =
     eval_term_sparse(θ_active, te.mcfg, te.tcfg, te.workspace, θ_full_base)
+
+"""
+    ReactantTermEvaluator{TMcfg, TTcfg}
+
+Callable struct for Reactant-compiled term evaluation.
+No mutable workspace — Reactant allocates arrays via broadcasting inside the
+compiled XLA graph. This struct is what gets passed to `@compile`.
+"""
+struct ReactantTermEvaluator{TMcfg, TTcfg}
+    mcfg::TMcfg
+    tcfg::TTcfg
+end
+# Callable defined in OctofitterReactantExt (uses @allowscalar from Reactant)
 
 """
     PriorEvaluator{TInvlink, TLnPrior}
@@ -323,6 +351,34 @@ function _solve_all_orbits!(sol_bufs::NTuple{N}, orbits::NTuple{N}, epochs) wher
         end
     end
     return sol_bufs
+end
+
+"""
+    _solve_all_orbits_bulk(orbits::NTuple{N}, epochs) where N
+
+Solve all orbits at given epochs using `orbitsolve_bulk`, returning
+`NTuple{N, OrbitSolutionBulk}`. Fully vectorized for Reactant/XLA traceability.
+"""
+function _solve_all_orbits_bulk(orbits::NTuple{N}, epochs) where N
+    if isempty(epochs)
+        return ntuple(Returns(()), Val(N))
+    end
+    ntuple(i -> orbitsolve_bulk(orbits[i], epochs), Val(N))
+end
+
+"""
+    _embed_active_broadcast(θ_base, θ_active, active_indices)
+
+Embed active parameters into a copy of the base vector using broadcasting.
+Unlike `_embed_active!`, this creates a new array (no mutation), making it
+suitable for use inside Reactant's traced computation graph.
+"""
+function _embed_active_broadcast(θ_base, θ_active, active_indices)
+    θ_full = copy(θ_base)
+    for (j, idx) in enumerate(active_indices)
+        θ_full[idx] = θ_active[j]
+    end
+    θ_full
 end
 
 """
@@ -543,18 +599,15 @@ Buffers are stored directly (no factories, no task-local storage).
 =#
 
 """
-    _prepare_term_specs(evaluators, backends, active_indices_tuple, θ_example, θ_full_example)
+    _prepare_one_term(eval, backend, active, θ_example, θ_full_example)
 
-Recursively build a type-stable heterogeneous tuple of TermGradSpec, storing
-direct buffer references for `prepare_gradient` and gradient buffers.
-Each term uses D_active-length buffers based on its active parameter indices.
+Prepare a single term's gradient infrastructure: create prep via `prepare_gradient`,
+allocate gradient buffers, and bundle into a `TermGradSpec`.
+
+This is a dispatch point — extensions (e.g., OctofitterReactantExt) can override
+this method for custom backends to provide alternative compilation strategies.
 """
-_prepare_term_specs(::Tuple{}, ::Tuple{}, ::Tuple{}, θ_example, θ_full_example) = ()
-function _prepare_term_specs(evaluators::Tuple, backends::Tuple, active_indices_tuple::Tuple,
-                             θ_example, θ_full_example)
-    eval = first(evaluators)
-    b = first(backends)
-    active = first(active_indices_tuple)
+function _prepare_one_term(eval, backend, active, θ_example, θ_full_example)
     θ_active_example = θ_example[active]
     θ_zero = zero(θ_active_example)
     D_total = length(θ_example)
@@ -563,15 +616,31 @@ function _prepare_term_specs(evaluators::Tuple, backends::Tuple, active_indices_
 
     # Create prep — includes Constant context for sparse terms
     prep = if !all_active
-        prepare_gradient(eval, b, θ_zero, DifferentiationInterface.Constant(zero(θ_full_example)))
+        prepare_gradient(eval, backend, θ_zero, DifferentiationInterface.Constant(zero(θ_full_example)))
     else
-        prepare_gradient(eval, b, θ_zero)
+        prepare_gradient(eval, backend, θ_zero)
     end
 
     grad_buf = similar(θ_active_example)
     θ_active_buf = similar(θ_active_example)
+    TermGradSpec(eval, backend, prep, grad_buf, θ_active_buf, active, all_active)
+end
 
-    spec = TermGradSpec(eval, b, prep, grad_buf, θ_active_buf, active, all_active)
+"""
+    _prepare_term_specs(evaluators, backends, active_indices_tuple, θ_example, θ_full_example)
+
+Recursively build a type-stable heterogeneous tuple of TermGradSpec, storing
+direct buffer references for `prepare_gradient` and gradient buffers.
+Each term uses D_active-length buffers based on its active parameter indices.
+
+Delegates per-term work to `_prepare_one_term`, which is a dispatch point
+for extension backends.
+"""
+_prepare_term_specs(::Tuple{}, ::Tuple{}, ::Tuple{}, θ_example, θ_full_example) = ()
+function _prepare_term_specs(evaluators::Tuple, backends::Tuple, active_indices_tuple::Tuple,
+                             θ_example, θ_full_example)
+    spec = _prepare_one_term(first(evaluators), first(backends), first(active_indices_tuple),
+                              θ_example, θ_full_example)
     rest = _prepare_term_specs(Base.tail(evaluators), Base.tail(backends),
                                Base.tail(active_indices_tuple), θ_example, θ_full_example)
     return (spec, rest...)

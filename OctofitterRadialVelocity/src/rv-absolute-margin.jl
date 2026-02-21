@@ -39,18 +39,20 @@ Additionally, a gaussian process is not supported with the analytical marginaliz
     If you don't supply a `variables` argument, the detault priors are `jitter ~ LogUniform(0.001, 100)`
 
 """
-struct MarginalizedStarAbsoluteRVObs{TTable<:Table,TF} <: Octofitter.AbstractObs
+struct MarginalizedStarAbsoluteRVObs{TTable<:Table,TF,TDevice} <: Octofitter.AbstractObs
     table::TTable
     priors::Octofitter.Priors
     derived::Octofitter.Derived
     name::String
     trend_function::TF
+    device::TDevice
 end
 function MarginalizedStarAbsoluteRVObs(
     observations;
     variables::Union{Nothing,Tuple{Octofitter.Priors,Octofitter.Derived}}=nothing,
     name::String,
-    trend_function=(θ_obs, epoch)->zero(Octofitter._system_number_type(θ_obs)),
+    trend_function=(θ_obs, epoch)->zero(typeof(epoch)),
+    device=nothing,
 )
     if isnothing(variables)
         variables = @variables begin
@@ -79,8 +81,8 @@ function MarginalizedStarAbsoluteRVObs(
         @warn "The data you entered fell outside the range year 1950 to year 2050. The expected input format is MJD (modified julian date). We suggest you double check your input data!"
     end
 
-    return MarginalizedStarAbsoluteRVObs{typeof(table),typeof(trend_function)}(
-        table, priors, derived, name, trend_function
+    return MarginalizedStarAbsoluteRVObs{typeof(table),typeof(trend_function),typeof(device)}(
+        table, priors, derived, name, trend_function, device
     )
 end
 function Octofitter.likeobj_from_epoch_subset(obs::MarginalizedStarAbsoluteRVObs, obs_inds)
@@ -102,10 +104,12 @@ const StarAbsoluteRVMarginLikelihood = MarginalizedStarAbsoluteRVObs
 
 export MarginalizedStarAbsoluteRVObs, MarginalizedStarAbsoluteRVLikelihood, StarAbsoluteRVMarginLikelihood
 
-# Use Enzyme reverse-mode AD for this observation type.
+# Use Enzyme reverse-mode AD for this observation type (when no device is set).
 # MarginalizedStarAbsoluteRVObs is a good candidate because its ln_like
 # is a simple loop without complex control flow.
-Octofitter.ad_backend(::MarginalizedStarAbsoluteRVObs) = AutoEnzyme(mode=set_runtime_activity(Reverse), function_annotation=Const)
+# The explicit Nothing constraint avoids ambiguity with extension methods
+# that dispatch on specific device types (e.g., Reactant.XLA.AbstractDevice).
+Octofitter.ad_backend(::MarginalizedStarAbsoluteRVObs{<:Any, <:Any, Nothing}) = AutoEnzyme(mode=set_runtime_activity(Reverse), function_annotation=Const)
 
 
 # In-place simulation logic for MarginalizedStarAbsoluteRVObs (performance-critical)
@@ -143,63 +147,42 @@ end
 """
 Absolute radial velocity likelihood (for a star) with analytical marginalization over RV zero point.
 
-Uses `orbitsolve_bulk` for Reactant/XLA traceability. All array operations use explicit
-loops (no broadcasting) so that Reactant can trace them into an XLA graph.
+Uses `orbitsolve_bulk` for vectorized orbit solving. All array operations use
+broadcasting for Reactant/XLA traceability.
 """
 function Octofitter.ln_like(
     rvlike::MarginalizedStarAbsoluteRVObs,
     ctx::SystemObservationContext
 )
     (; θ_system, θ_obs, orbits) = ctx
-    T = Octofitter._system_number_type(θ_system)
     epochs = rvlike.table.epoch
-    L = length(epochs)
-
     jitter = θ_obs.jitter
 
-    # Allocate model RV buffer (Enzyme auto-shadows this)
-    rv_model = zeros(T, L)
-
-    # Apply trend function
-    for j in 1:L
-        rv_model[j] = rvlike.trend_function(θ_obs, epochs[j])
+    # Bulk solve + RV for each planet (vectorized)
+    # Initialize rv_model from the first planet to establish the correct element type
+    # (TracedRNumber during Reactant tracing, Float64 for Enzyme)
+    rv_model = let
+        sol = orbitsolve_bulk(orbits[1], epochs)
+        planet_mass = θ_system.planets[1].mass
+        radvel(sol, planet_mass * Octofitter.mjup2msol)
     end
-
-    # Bulk solve + RV for each planet
-    for planet_i in eachindex(orbits)
+    for planet_i in 2:length(orbits)
         sol = orbitsolve_bulk(orbits[planet_i], epochs)
         planet_mass = θ_system.planets[planet_i].mass
-        planet_rv = radvel(sol, planet_mass * Octofitter.mjup2msol)
-        for j in 1:L
-            rv_model[j] += planet_rv[j]
-        end
+        rv_model = rv_model .+ radvel(sol, planet_mass * Octofitter.mjup2msol)
     end
 
-    # Data for this instrument
-    σ_rvs = rvlike.table.σ_rv
-    rvs = rvlike.table.rv
+    # Residuals (vectorized)
+    resid = rvlike.table.rv .- rv_model
 
-    # Compute residuals
-    resid = Vector{T}(undef, L)
-    for j in 1:L
-        resid[j] = rvs[j] - rv_model[j]
-    end
+    # Variance per observation (vectorized)
+    var = rvlike.table.σ_rv .^ 2 .+ jitter^2
 
-    # Marginalize out the instrument zero point using math from the Orvara paper
-    ll = zero(T)
-    A = zero(T)
-    B = zero(T)
-    C = zero(T)
-    for i_epoch in eachindex(epochs)
-        # The noise variance per observation is the measurement noise and the jitter added
-        # in quadrature
-        var = σ_rvs[i_epoch]^2 + jitter^2
-        A += 1/var
-        B -= 2resid[i_epoch]/var
-        C += resid[i_epoch]^2/var
-        # Penalize RV likelihood by total variance
-        ll -= log(2π*var)
-    end
+    # Marginalize out the instrument zero point (Orvara paper)
+    A = sum(1.0 ./ var)
+    B = -2.0 * sum(resid ./ var)
+    C = sum(resid .^ 2 ./ var)
+    ll = -sum(log.(2π .* var))
     ll -= -B^2 / (4A) + C + log(A)
 
     return ll
@@ -231,7 +214,8 @@ function Octofitter.generate_from_params(like::MarginalizedStarAbsoluteRVObs, ct
         radvel_table;
         name=likelihoodname(like),
         trend_function=like.trend_function,
-        variables=(like.priors, like.derived)
+        variables=(like.priors, like.derived),
+        device=like.device,
     )
 end
 

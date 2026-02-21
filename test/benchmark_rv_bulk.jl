@@ -3,7 +3,7 @@
 Benchmark: MarginalizedStarAbsoluteRVObs primal and gradient evaluation
 as a function of the number of RV observations.
 
-This establishes a baseline before Reactant/XLA compilation (Part 3).
+Compares Enzyme (baseline) vs Reactant/XLA compiled gradients.
 Run with:
     julia --project=. test/benchmark_rv_bulk.jl
 =#
@@ -17,8 +17,13 @@ using BenchmarkTools
 using Random
 using Printf
 
+const USE_REACTANT = "--reactant" in ARGS || "-r" in ARGS
+if USE_REACTANT
+    using Reactant
+end
+
 # ─── Build a model with N_rv radial velocity observations ────────────
-function build_rv_model(N_rv; seed=42)
+function build_rv_model(N_rv; seed=42, device=nothing)
     rng = Random.Xoshiro(seed)
     epochs = collect(range(50_000.0, 50_000.0 + 2000.0, length=N_rv))
     rv_table = Table(
@@ -28,6 +33,7 @@ function build_rv_model(N_rv; seed=42)
     )
 
     rvlike = MarginalizedStarAbsoluteRVObs(rv_table; name="RV",
+        device=device,
         variables=@variables begin
             jitter ~ LogUniform(0.001, 100)
         end
@@ -75,8 +81,8 @@ function find_finite_theta(model; max_attempts=50)
 end
 
 # ─── Benchmark a single configuration ────────────────────────────────
-function bench_config(N_rv; samples=200, evals=3)
-    model = build_rv_model(N_rv)
+function bench_config(N_rv; samples=200, evals=3, device=nothing)
+    model = build_rv_model(N_rv; device=device)
     θ_t, ll = find_finite_theta(model)
 
     # Warm up both paths
@@ -146,3 +152,36 @@ for r in results
             r.N_rv, scale_p, n_ratio, scale_g, n_ratio)
 end
 println()
+
+# ═══════════════════════════════════════════════════════════════════════
+# Reactant benchmarks (when --reactant flag is passed)
+# ═══════════════════════════════════════════════════════════════════════
+if USE_REACTANT
+    println("\n", "="^78)
+    println("  Benchmark: Reactant/XLA compiled gradients")
+    println("  1 planet, RadialVelocityOrbit basis, device=Reactant.CPU()")
+    println("="^78)
+
+    results_reactant = []
+    for N in N_values
+        print("  N_rv = $N ... ")
+        r_reactant = bench_config(N; device=Reactant.CPU())
+        @printf("primal: %8.1f μs | grad: %8.1f μs | ratio: %.1fx\n",
+                r_reactant.t_primal, r_reactant.t_grad, r_reactant.ratio)
+        push!(results_reactant, r_reactant)
+    end
+
+    # ─── Comparison table ─────────────────────────────────────────────
+    println("\n", "="^78)
+    println("  COMPARISON: Enzyme vs Reactant")
+    println("="^78)
+    @printf("  %6s  %12s  %12s  %10s\n",
+            "N_rv", "Enzyme(μs)", "Reactant(μs)", "Speedup")
+    println("  ", "-"^46)
+    for (re, rr) in zip(results, results_reactant)
+        speedup = re.t_grad / rr.t_grad
+        @printf("  %6d  %12.1f  %12.1f  %9.1fx\n",
+                re.N_rv, re.t_grad, rr.t_grad, speedup)
+    end
+    println("="^78)
+end
