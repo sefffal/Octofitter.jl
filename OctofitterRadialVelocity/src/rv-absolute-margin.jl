@@ -107,6 +107,12 @@ export MarginalizedStarAbsoluteRVObs, MarginalizedStarAbsoluteRVLikelihood, Star
 # is a simple loop without complex control flow.
 Octofitter.ad_backend(::MarginalizedStarAbsoluteRVObs) = AutoEnzyme(mode=set_runtime_activity(Reverse), function_annotation=Const)
 
+function Octofitter.alloc_obs_workspace(obs::MarginalizedStarAbsoluteRVObs, ::Type{T}) where T
+    L = length(obs.table.epoch)
+    rv_model_buf = Vector{T}(undef, L)
+    resid = Vector{T}(undef, L)
+    return (; rv_model_buf, resid)
+end
 
 # In-place simulation logic for MarginalizedStarAbsoluteRVObs (performance-critical)
 function Octofitter.simulate!(rv_model_buf, rvlike::MarginalizedStarAbsoluteRVObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions)
@@ -147,15 +153,21 @@ function Octofitter.ln_like(
     rvlike::MarginalizedStarAbsoluteRVObs,
     ctx::SystemObservationContext
 )
-    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions, workspace) = ctx
     L = length(rvlike.table.epoch)
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
     jitter = θ_obs.jitter
 
-    rv_model_buf = Vector{T}(undef, L)
-    resid = Vector{T}(undef, L)
+    # Use pre-allocated workspace buffers if available, otherwise allocate
+    if workspace !== nothing
+        rv_model_buf = workspace.rv_model_buf
+        resid = workspace.resid
+    else
+        rv_model_buf = Vector{T}(undef, L)
+        resid = Vector{T}(undef, L)
+    end
 
     # Use in-place simulation method to get model values
     sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, orbits, orbit_solutions)

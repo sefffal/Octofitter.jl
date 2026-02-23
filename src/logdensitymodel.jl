@@ -194,61 +194,37 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
         # --- Build gradient workspace and callback ---
 
-        # Resolve per-term backends
+        # Resolve per-term backends, evaluators, and workspaces.
+        # Evaluators hold only immutable config; workspaces are separate so they
+        # can be passed as Duplicated (via DI.Cache) to Enzyme.
+        # Iterates over tcfgs (built above) to guarantee identical term ordering.
         term_backends = ()
         term_evaluators = ()
-        term_idx = 0
-
-        for i in 1:n_planets
-            planet = system.planets[i]
-            for (i_like, obs) in enumerate(planet.observations)
-                term_idx += 1
-                active = active_indices_all[term_idx]
-                D_active = length(active)
-                obs_backend = resolve_ad_backend(obs, autodiff, D_active)
-                all_active = D_active == D
-
-                # Create typed workspace for gradient evaluation
-                # For Enzyme: Float64; for ForwardDiff: Dual type
-                tw = _make_term_workspace(mcfg, tcfgs[term_idx], _θ_sys_0, Float64, D)
-
-                # Need Duplicated for Enzyme when workspace has mutable fields
-                obs_backend = _ensure_duplicated(obs_backend)
-
-                if all_active
-                    evaluator = TermEvaluator(mcfg, tcfgs[term_idx], tw)
-                else
-                    evaluator = SparseTermEvaluator(mcfg, tcfgs[term_idx], tw)
-                end
-
-                term_evaluators = (term_evaluators..., evaluator)
-                term_backends = (term_backends..., obs_backend)
-            end
-        end
-
-        for (i_obs, obs) in enumerate(system.observations)
-            term_idx += 1
-            active = active_indices_all[term_idx]
+        term_workspaces = ()
+        for term_idx in 1:length(tcfgs)
+            tcfg_i = tcfgs[term_idx]
+            active = tcfg_i.active_indices
             D_active = length(active)
-            obs_backend = resolve_ad_backend(obs, autodiff, D_active)
+            obs_backend = resolve_ad_backend(tcfg_i.obs, autodiff, D_active)
             all_active = D_active == D
 
-            tw = _make_term_workspace(mcfg, tcfgs[term_idx], _θ_sys_0, Float64, D)
-            obs_backend = _ensure_duplicated(obs_backend)
+            tw = _make_term_workspace(mcfg, tcfg_i, _θ_sys_0, Float64, D)
 
             if all_active
-                evaluator = TermEvaluator(mcfg, tcfgs[term_idx], tw)
+                evaluator = TermEvaluator(mcfg, tcfg_i)
             else
-                evaluator = SparseTermEvaluator(mcfg, tcfgs[term_idx], tw)
+                evaluator = SparseTermEvaluator(mcfg, tcfg_i)
             end
 
             term_evaluators = (term_evaluators..., evaluator)
             term_backends = (term_backends..., obs_backend)
+            term_workspaces = (term_workspaces..., tw)
         end
 
         # Prepare gradient infrastructure: type-stable heterogeneous tuple
+        # Workspaces are passed separately and wrapped as DI.Cache for Enzyme Duplicated
         term_specs = _prepare_term_specs(term_evaluators, term_backends, active_indices_all,
-                                         initial_θ_0_t, initial_θ_0_t)
+                                         term_workspaces, initial_θ_0_t, initial_θ_0_t)
 
         # Prior evaluator and gradient prep
         prior_evaluator = PriorEvaluator(Bijector_invlinkvec, ln_prior_transformed)
