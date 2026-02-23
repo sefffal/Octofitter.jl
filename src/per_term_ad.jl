@@ -68,17 +68,6 @@ function resolve_ad_backend(obs, model_override, D::Int)
     end
 end
 
-"""
-    _ensure_duplicated(backend::AutoEnzyme)
-
-Override function_annotation to Duplicated for Enzyme backends.
-Required when the differentiated closure captures pre-allocated mutable
-buffers (orbit solution buffers, θ_embedded buffer) that Enzyme must
-create shadows for.
-"""
-_ensure_duplicated(b::AutoEnzyme) = AutoEnzyme(mode=b.mode, function_annotation=Duplicated)
-_ensure_duplicated(b) = b  # non-Enzyme backends unchanged
-
 # --- Config and workspace types for per-term evaluation ---
 
 """
@@ -145,32 +134,44 @@ struct TermWorkspace{T, TSolBufs, TθEmbed, TObsWS}
 end
 
 """
-    TermEvaluator{TMcfg, TTcfg, TWs}
+    TermEvaluator{TMcfg, TTcfg}
 
 Callable struct replacing closures for per-term evaluation.
-Enzyme can create `Duplicated` shadows for this struct's mutable fields.
+Contains only immutable configuration — no mutable workspace.
+Workspace is passed separately as a `DI.Cache` context so that
+Enzyme receives it as `Duplicated` (not hidden inside a `Const` struct).
+
+Two call signatures:
+- `(θ, workspace)`: Enzyme path — uses pre-allocated workspace (zero alloc)
+- `(θ)`: ForwardDiff path — allocating, workspace-free (dual numbers change element type)
 """
-struct TermEvaluator{TMcfg, TTcfg, TWs}
+struct TermEvaluator{TMcfg, TTcfg}
     mcfg::TMcfg
     tcfg::TTcfg
-    workspace::TWs
 end
-(te::TermEvaluator)(θ) = eval_term(θ, te.mcfg, te.tcfg, te.workspace)
+(te::TermEvaluator)(θ, workspace) = eval_term(θ, te.mcfg, te.tcfg, workspace)
+(te::TermEvaluator)(θ) = eval_term_alloc(θ, te.mcfg, te.tcfg)
 
 """
-    SparseTermEvaluator{TMcfg, TTcfg, TWs}
+    SparseTermEvaluator{TMcfg, TTcfg}
 
 Callable struct for sparse (active parameter subset) evaluation.
-Takes `(θ_active, θ_full_base)` where `θ_active` contains only the
-parameters with non-zero gradient for this term.
+Takes `(θ_active, θ_full_base, workspace)` where `θ_active` contains only the
+parameters with non-zero gradient for this term. `θ_full_base` is passed
+as `DI.Constant` and `workspace` as `DI.Cache`.
+
+Two call signatures:
+- `(θ_active, θ_full_base, workspace)`: Enzyme path
+- `(θ_active, θ_full_base)`: ForwardDiff path — allocating
 """
-struct SparseTermEvaluator{TMcfg, TTcfg, TWs}
+struct SparseTermEvaluator{TMcfg, TTcfg}
     mcfg::TMcfg
     tcfg::TTcfg
-    workspace::TWs
 end
+(te::SparseTermEvaluator)(θ_active, θ_full_base, workspace) =
+    eval_term_sparse(θ_active, te.mcfg, te.tcfg, workspace, θ_full_base)
 (te::SparseTermEvaluator)(θ_active, θ_full_base) =
-    eval_term_sparse(θ_active, te.mcfg, te.tcfg, te.workspace, θ_full_base)
+    eval_term_sparse_alloc(θ_active, te.mcfg, te.tcfg, θ_full_base)
 
 """
     PriorEvaluator{TInvlink, TLnPrior}
@@ -191,13 +192,21 @@ function (pe::PriorEvaluator)(θ_transformed)
 end
 
 """
-    TermGradSpec{TEval, TB, TP, TG, TA}
+    TermGradSpec{TEval, TB, TP, TG, TA, TWs}
 
 Bundles a single term's gradient infrastructure for type-stable storage
 in a heterogeneous Tuple. Stores direct buffer references (no factories,
 no task-local storage).
+
+Backend dispatch determines the gradient computation path:
+- **Enzyme** (`AutoEnzyme`): DI's `value_and_gradient!` with workspace passed as
+  `DI.Cache`. DI wraps this as `Duplicated(workspace, shadow)` for Enzyme, ensuring
+  mutable workspace buffers are properly tracked (not hidden inside a `Const` struct).
+- **ForwardDiff** (`AutoForwardDiff`): DI's `value_and_gradient!` with allocating eval.
+  ForwardDiff dual numbers change element type, so Float64 workspace isn't used.
+  `workspace` is `nothing`.
 """
-struct TermGradSpec{TEval, TB, TP, TG, TA}
+struct TermGradSpec{TEval, TB, TP, TG, TA, TWs}
     evaluator::TEval
     backend::TB
     prep::TP
@@ -205,6 +214,7 @@ struct TermGradSpec{TEval, TB, TP, TG, TA}
     θ_active_buf::TA
     active_indices::Vector{Int}
     all_active::Bool
+    workspace::TWs
 end
 
 # --- Observation parameter extraction and context construction ---
@@ -269,6 +279,37 @@ function eval_term_sparse(θ_active, mcfg::ModelEvalConfig, tcfg::TermEvalConfig
                           tw::TermWorkspace, θ_full_base)
     _embed_active!(tw.θ_embedded, θ_full_base, θ_active, tcfg.active_indices)
     eval_term(tw.θ_embedded, mcfg, tcfg, tw)
+end
+
+"""
+    eval_term_alloc(θ, mcfg, tcfg)
+
+Allocating version of eval_term for use with ForwardDiff.
+ForwardDiff changes the element type to Dual numbers, so pre-allocated
+Float64 workspace buffers cannot be used. Allocates fresh buffers instead.
+"""
+function eval_term_alloc(θ, mcfg::ModelEvalConfig, tcfg::TermEvalConfig)
+    θ_natural = mcfg.invlink(θ)
+    θ_system  = mcfg.arr2nt(θ_natural)
+    orbits    = ntuple(i -> mcfg.orbit_constructors[i](θ_system), _n_planets(mcfg))
+    θ_planet, θ_obs = _get_obs_params(tcfg, θ_system)
+    solutions = _solve_all_orbits(orbits, tcfg.epochs)
+    ctx = _make_obs_context(tcfg, θ_system, θ_planet, θ_obs, orbits, solutions)
+    ln_like(tcfg.obs, ctx)
+end
+
+"""
+    eval_term_sparse_alloc(θ_active, mcfg, tcfg, θ_full_base)
+
+Allocating sparse eval for ForwardDiff. Creates a fresh embedded vector
+since ForwardDiff dual numbers change the element type.
+"""
+function eval_term_sparse_alloc(θ_active, mcfg::ModelEvalConfig, tcfg::TermEvalConfig, θ_full_base)
+    θ_embedded = copy(θ_full_base)
+    @inbounds for (j, idx) in enumerate(tcfg.active_indices)
+        θ_embedded[idx] = θ_active[j]
+    end
+    eval_term_alloc(θ_embedded, mcfg, tcfg)
 end
 
 # --- Helper functions ---
@@ -543,38 +584,70 @@ Buffers are stored directly (no factories, no task-local storage).
 =#
 
 """
-    _prepare_term_specs(evaluators, backends, active_indices_tuple, θ_example, θ_full_example)
+    _prepare_term_specs(evaluators, backends, active_indices_tuple, workspaces, θ_example, θ_full_example)
 
-Recursively build a type-stable heterogeneous tuple of TermGradSpec, storing
-direct buffer references for `prepare_gradient` and gradient buffers.
+Recursively build a type-stable heterogeneous tuple of term gradient specs, storing
+direct buffer references and gradient buffers.
 Each term uses D_active-length buffers based on its active parameter indices.
+
+For Enzyme backends: creates EnzymeTermGradSpec with workspace + shadow for
+zero-allocation hot path. Workspace shadow created via `make_zero()` and
+zeroed via `make_zero!` before each call.
+
+For ForwardDiff backends: creates ForwardDiffTermGradSpec with DI prep.
+Uses allocating eval path since ForwardDiff dual numbers change element type.
+
+Also triggers compilation eagerly at model construction time.
 """
-_prepare_term_specs(::Tuple{}, ::Tuple{}, ::Tuple{}, θ_example, θ_full_example) = ()
+_prepare_term_specs(::Tuple{}, ::Tuple{}, ::Tuple{}, ::Tuple{}, θ_example, θ_full_example) = ()
 function _prepare_term_specs(evaluators::Tuple, backends::Tuple, active_indices_tuple::Tuple,
-                             θ_example, θ_full_example)
+                             workspaces::Tuple, θ_example, θ_full_example)
     eval = first(evaluators)
     b = first(backends)
     active = first(active_indices_tuple)
+    workspace = first(workspaces)
     θ_active_example = θ_example[active]
     θ_zero = zero(θ_active_example)
     D_total = length(θ_example)
     D_active = length(active)
     all_active = D_active == D_total
 
-    # Create prep — includes Constant context for sparse terms
-    prep = if !all_active
-        prepare_gradient(eval, b, θ_zero, DifferentiationInterface.Constant(zero(θ_full_example)))
-    else
-        prepare_gradient(eval, b, θ_zero)
-    end
-
     grad_buf = similar(θ_active_example)
     θ_active_buf = similar(θ_active_example)
 
-    spec = TermGradSpec(eval, b, prep, grad_buf, θ_active_buf, active, all_active)
+    spec = _make_term_grad_spec(eval, b, workspace, θ_zero, θ_full_example,
+                                 grad_buf, θ_active_buf, active, all_active)
+
     rest = _prepare_term_specs(Base.tail(evaluators), Base.tail(backends),
-                               Base.tail(active_indices_tuple), θ_example, θ_full_example)
+                               Base.tail(active_indices_tuple), Base.tail(workspaces),
+                               θ_example, θ_full_example)
     return (spec, rest...)
+end
+
+# Enzyme backend: DI with workspace as DI.Cache (→ Duplicated for Enzyme)
+function _make_term_grad_spec(eval, b::AutoEnzyme, workspace, θ_zero, θ_full_example,
+                               grad_buf, θ_active_buf, active, all_active)
+    prep = if !all_active
+        prepare_gradient(eval, b, θ_zero,
+            DifferentiationInterface.Constant(zero(θ_full_example)),
+            DifferentiationInterface.Cache(workspace))
+    else
+        prepare_gradient(eval, b, θ_zero,
+            DifferentiationInterface.Cache(workspace))
+    end
+    TermGradSpec(eval, b, prep, grad_buf, θ_active_buf, active, all_active, workspace)
+end
+
+# Non-Enzyme backend (ForwardDiff, FiniteDiff, etc.): DI with allocating eval (no workspace)
+function _make_term_grad_spec(eval, b, workspace, θ_zero, θ_full_example,
+                               grad_buf, θ_active_buf, active, all_active)
+    prep = if !all_active
+        prepare_gradient(eval, b, θ_zero,
+            DifferentiationInterface.Constant(zero(θ_full_example)))
+    else
+        prepare_gradient(eval, b, θ_zero)
+    end
+    TermGradSpec(eval, b, prep, grad_buf, θ_active_buf, active, all_active, nothing)
 end
 
 """
@@ -586,34 +659,71 @@ the heterogeneous tuple. Gradient buffers are stored directly in the spec.
 
 Each term operates on a reduced-dimension active subset of θ, then scatters
 its gradient contributions back to the full-D total_grad vector.
+
+Backend dispatch:
+- Enzyme: direct `autodiff` with `Duplicated(workspace, shadow)`, shadow zeroed via `make_zero!`
+- ForwardDiff: DI's `value_and_gradient!` with allocating eval (no workspace)
 """
 _accumulate_term_gradients!(total_grad, ll, ::Tuple{}, θ, θ_full_base) = ll
 function _accumulate_term_gradients!(total_grad, ll, specs::Tuple, θ, θ_full_base)
     spec = first(specs)
+    ll = _eval_term_gradient!(total_grad, ll, spec, θ, θ_full_base)
+    return _accumulate_term_gradients!(total_grad, ll, Base.tail(specs), θ, θ_full_base)
+end
+
+# --- Enzyme path: DI value_and_gradient! with workspace as DI.Cache ---
+function _eval_term_gradient!(total_grad, ll, spec::TermGradSpec{<:Any, <:AutoEnzyme}, θ, θ_full_base)
+    fill!(spec.grad_buf, zero(eltype(spec.grad_buf)))
 
     if spec.all_active
-        # Fast path: all parameters active, no subsetting needed
+        ll_i, _ = value_and_gradient!(spec.evaluator, spec.grad_buf, spec.prep, spec.backend,
+                                       θ, DifferentiationInterface.Cache(spec.workspace))
+        ll += ll_i
+        @inbounds for k in eachindex(total_grad)
+            total_grad[k] += spec.grad_buf[k]
+        end
+    else
+        @inbounds for (j, idx) in enumerate(spec.active_indices)
+            spec.θ_active_buf[j] = θ[idx]
+        end
+
+        ll_i, _ = value_and_gradient!(spec.evaluator, spec.grad_buf, spec.prep, spec.backend,
+                                       spec.θ_active_buf,
+                                       DifferentiationInterface.Constant(θ_full_base),
+                                       DifferentiationInterface.Cache(spec.workspace))
+        ll += ll_i
+
+        @inbounds for (j, idx) in enumerate(spec.active_indices)
+            total_grad[idx] += spec.grad_buf[j]
+        end
+    end
+    return ll
+end
+
+# --- Non-Enzyme path (ForwardDiff, FiniteDiff, etc.): DI value_and_gradient! ---
+function _eval_term_gradient!(total_grad, ll, spec::TermGradSpec, θ, θ_full_base)
+    fill!(spec.grad_buf, zero(eltype(spec.grad_buf)))
+
+    if spec.all_active
         ll_i, _ = value_and_gradient!(spec.evaluator, spec.grad_buf, spec.prep, spec.backend, θ)
         ll += ll_i
         @inbounds for k in eachindex(total_grad)
             total_grad[k] += spec.grad_buf[k]
         end
     else
-        # Extract active subset into preallocated buffer
         @inbounds for (j, idx) in enumerate(spec.active_indices)
             spec.θ_active_buf[j] = θ[idx]
         end
 
-        # Gradient on reduced-dimension input — always pass θ_full_base via Constant
         ll_i, _ = value_and_gradient!(spec.evaluator, spec.grad_buf, spec.prep, spec.backend,
-                                      spec.θ_active_buf, DifferentiationInterface.Constant(θ_full_base))
+                                       spec.θ_active_buf,
+                                       DifferentiationInterface.Constant(θ_full_base))
         ll += ll_i
 
-        # Scatter back to full gradient
         @inbounds for (j, idx) in enumerate(spec.active_indices)
             total_grad[idx] += spec.grad_buf[j]
         end
     end
-
-    return _accumulate_term_gradients!(total_grad, ll, Base.tail(specs), θ, θ_full_base)
+    return ll
 end
+

@@ -197,49 +197,19 @@ function Octofitter.ln_like(rvlike::PlanetRelativeRVObs, ctx::Octofitter.PlanetO
         ll += logpdf(fx, rv_residuals)
     else
         # Fit a GP
-        local gp
-        try
-            gp = @inline rvlike.gaussian_process(θ_obs)
-            fx = gp(epochs, noise_var)
-            ll += logpdf(fx, rv_residuals)
-        catch err
-            if err isa PosDefException
-                ll = convert(T, -Inf)
-            elseif err isa ArgumentError
-                ll = convert(T, -Inf)
-            else
-                rethrow(err)
-            end
+        # Note: try-catch removed for Enzyme AD compatibility.
+        # Invalid GP parameters (e.g. DomainError from log of negative) will
+        # produce NaN, which we detect and convert to -Inf.
+        gp = @inline rvlike.gaussian_process(θ_obs)
+        fx = gp(epochs, noise_var)
+        ll += logpdf(fx, rv_residuals)
+        # Convert NaN (from invalid GP params like log of negative) to -Inf
+        if !isfinite(ll)
+            ll = convert(T, -Inf)
         end
     end
 
     return ll
-end
-
-
-# Generate new radial velocity observations for a planet
-function Octofitter.generate_from_params(like::MarginalizedStarAbsoluteRVObs, ctx::PlanetObservationContext; add_noise)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = ctx
-    
-
-    # Get epochs and uncertainties from observations
-    epochs = like.table.epoch
-    σ_rvs = like.table.σ_rv
-
-    # Generate new planet radial velocity data
-    rvs = radvel.(elem, epochs)
-    radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
-
-    if add_noise
-        radvel_table.rv .+= randn.() .* σ_rvs
-    end
-
-    return PlanetRelativeRVObs(
-        radvel_table;
-        name=likelihoodname(like),
-        gaussian_process=like.gaussian_process,
-        variables=(like.priors, like.derived)
-    )
 end
 
 

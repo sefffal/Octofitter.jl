@@ -306,7 +306,6 @@ function generate_from_params(like::PlanetRelAstromObs, ctx::PlanetObservationCo
             astrometry_table.ra .+= randn.() .* hypot.(σ_ra, jitter)
             astrometry_table.dec .+= randn.() .* hypot.(σ_dec, jitter)
         end
-        display(astrometry_table)
     end
 
     return PlanetRelAstromObs(astrometry_table; like.name)
