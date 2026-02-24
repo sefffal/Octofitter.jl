@@ -6,7 +6,7 @@ specific observation types — works for any obs that provides a vectorized `ln_
 
 Provides:
 - `ReactantGradSpec` — compiled gradient spec using `@compile`d Enzyme.gradient
-- Override of `_prepare_one_term` for `ReactantBackend`
+- Override of `_make_term_grad_spec` for `ReactantBackend`
 - Override of `_accumulate_term_gradients!` for `ReactantGradSpec`
 - Callable for `ReactantTermEvaluator` using `@allowscalar arr2nt`
 """
@@ -15,32 +15,12 @@ module OctofitterReactantExt
 using Octofitter
 using Octofitter: ReactantBackend, ReactantTermEvaluator,
                   _n_planets, _get_obs_params, _make_obs_context,
-                  _solve_all_orbits_bulk, _embed_active_broadcast, ln_like
+                  _embed_active_broadcast, ln_like,
+                  _make_term_grad_spec
 using Reactant
 using Reactant: @compile, @allowscalar, ConcreteRArray
 using Enzyme
 using Distributions: Distribution
-
-# ── Reactant math overrides ──────────────────────────────────────────
-# LogExpFunctions functions used by Bijectors.jl invlink transforms.
-# Reactant TracedRNumber doesn't have methods for these, so we provide
-# fallbacks using basic arithmetic that Reactant can trace.
-# Access LogExpFunctions through Distributions (which loads it transitively).
-const _LogExpFunctions = let
-    pkgid = Base.PkgId(Base.UUID("2ab3a3ac-af41-5b50-aa03-7779005ae688"), "LogExpFunctions")
-    Base.loaded_modules[pkgid]
-end
-
-_LogExpFunctions.logistic(x::Reactant.TracedRNumber) = one(x) / (one(x) + exp(-x))
-_LogExpFunctions.logit(x::Reactant.TracedRNumber) = log(x / (one(x) - x))
-
-# Workaround for Reactant bug: stablehlo.atan2 gradient is sign-flipped.
-# Use the half-angle identity: atan(y,x) = 2*atan(y/(sqrt(x²+y²)+x))
-# which decomposes into 1-arg atan (correct gradient) + standard arithmetic.
-# Valid for all (x, y) except the negative real axis (x < 0, y = 0), which
-# does not occur in our orbital mechanics use case (true anomaly computation).
-Base.atan(y::Reactant.TracedRNumber, x::Reactant.TracedRNumber) =
-    2 * atan(y / (sqrt(x^2 + y^2) + x))
 
 # ── Reactant tracing overrides ────────────────────────────────────────
 # Tell Reactant to treat these types as opaque constants (not traced).
@@ -86,9 +66,12 @@ function (te::ReactantTermEvaluator)(θ)
     # during Reactant tracing — the MLIR compiler optimizes away the overhead.
     θ_natural = @allowscalar mcfg.invlink(θ)
     θ_system  = @allowscalar mcfg.arr2nt(θ_natural)
-    orbits    = ntuple(i -> mcfg.orbit_constructors[i](θ_system), _n_planets(mcfg))
+    orbits    = @allowscalar mcfg.construct_orbits(θ_system)
     θ_planet, θ_obs = _get_obs_params(tcfg, θ_system)
-    orbit_solutions = _solve_all_orbits_bulk(orbits, tcfg.epochs)
+    # Pass orbits to ln_like via context — orbit solving is done inside ln_like
+    # itself (e.g., via orbitsolve_bulk for vectorized Reactant-traceable evaluation).
+    # We pass empty orbit_solutions; the Reactant ln_like method must not rely on them.
+    orbit_solutions = ntuple(Returns(()), _n_planets(mcfg))
     ctx = _make_obs_context(tcfg, θ_system, θ_planet, θ_obs, orbits, orbit_solutions)
     ln_like(tcfg.obs, ctx)
 end
@@ -99,33 +82,31 @@ end
     ReactantGradSpec
 
 Pre-compiled gradient spec for a Reactant-compiled term.
-Stores a compiled gradient thunk (from `@compile Enzyme.gradient(...)`)
-and a compiled forward evaluation thunk.
+Stores a single compiled thunk (from `@compile Enzyme.gradient(ReverseWithPrimal, ...)`)
+that returns both the primal value and gradient in one pass.
 
 The `eval_fn` field stores the callable that was compiled (either a
 `ReactantTermEvaluator` for all-active, or a sparse closure for sparse terms).
 This must be re-passed to the compiled gradient thunk at call time per the
 `@compile` calling convention.
 """
-struct ReactantGradSpec{TCompiledGrad, TCompiledFwd, TEvalFn}
+struct ReactantGradSpec{TCompiledGrad, TEvalFn}
     compiled_grad::TCompiledGrad
-    compiled_fwd::TCompiledFwd
     eval_fn::TEvalFn
     grad_buf::Vector{Float64}
     active_indices::Vector{Int}
     all_active::Bool
 end
 
-# ── _prepare_one_term override for ReactantBackend ────────────────────
+# ── _make_term_grad_spec override for ReactantBackend ─────────────────
 
-function Octofitter._prepare_one_term(eval, backend::ReactantBackend, active, θ_example, θ_full_example)
+function Octofitter._make_term_grad_spec(eval, b::ReactantBackend, workspace, tcfg, θ_zero, θ_full_base,
+                                          grad_buf, θ_active_buf, active, all_active)
     D_active = length(active)
-    D_total = length(θ_example)
-    all_active = D_active == D_total
+    D_total = length(θ_full_base)
 
-    # Extract mcfg and tcfg from the evaluator
+    # Extract mcfg from the evaluator; tcfg is passed separately
     mcfg = eval.mcfg
-    tcfg = eval.tcfg
 
     # Build ReactantTermEvaluator (no mutable workspace needed)
     rt_eval = ReactantTermEvaluator(mcfg, tcfg)
@@ -134,28 +115,23 @@ function Octofitter._prepare_one_term(eval, backend::ReactantBackend, active, θ
         # Example input as ConcreteRArray
         θ_ra = ConcreteRArray(zeros(Float64, D_total))
 
-        # Compile gradient: θ → gradient(ll) w.r.t. θ
-        # @compile calling convention: compiled(Reverse, f, args...)
-        compiled_grad = @compile Enzyme.gradient(Enzyme.Reverse, rt_eval, θ_ra)
-
-        # Compile forward pass: θ → ll value
-        compiled_fwd = @compile rt_eval(θ_ra)
+        # Compile gradient+primal: θ → (gradient(ll), ll) in a single pass
+        compiled_grad = @compile Enzyme.gradient(Enzyme.ReverseWithPrimal, rt_eval, θ_ra)
 
         eval_fn = rt_eval
     else
         # Sparse case: build a callable struct that embeds active params into full vector
-        sparse_eval = SparseReactantEval(rt_eval, copy(θ_full_example), collect(Int, active))
+        sparse_eval = SparseReactantEval(rt_eval, copy(θ_full_base), collect(Int, active))
 
         θ_ra = ConcreteRArray(zeros(Float64, D_active))
 
-        compiled_grad = @compile Enzyme.gradient(Enzyme.Reverse, sparse_eval, θ_ra)
-        compiled_fwd = @compile sparse_eval(θ_ra)
+        compiled_grad = @compile Enzyme.gradient(Enzyme.ReverseWithPrimal, sparse_eval, θ_ra)
 
         eval_fn = sparse_eval
     end
 
     grad_buf = zeros(Float64, D_active)
-    ReactantGradSpec(compiled_grad, compiled_fwd, eval_fn, grad_buf, collect(Int, active), all_active)
+    ReactantGradSpec(compiled_grad, eval_fn, grad_buf, collect(Int, active), all_active)
 end
 
 """
@@ -178,7 +154,7 @@ end
 # ── _accumulate_term_gradients! override for ReactantGradSpec ─────────
 
 function Octofitter._accumulate_term_gradients!(
-    total_grad, ll, specs::Tuple{<:ReactantGradSpec, Vararg}, θ, θ_full_base
+    total_grad, ll, specs::Tuple{<:ReactantGradSpec, Vararg}, θ
 )
     spec = first(specs)
 
@@ -189,18 +165,14 @@ function Octofitter._accumulate_term_gradients!(
         ConcreteRArray(collect(Float64, θ[spec.active_indices]))
     end
 
-    # Call compiled gradient — must pass Reverse + eval_fn + data
-    grad_result = spec.compiled_grad(Enzyme.Reverse, spec.eval_fn, θ_input)
+    # Call compiled gradient+primal — returns (gradient, primal) in one pass
+    result = spec.compiled_grad(Enzyme.ReverseWithPrimal, spec.eval_fn, θ_input)
 
-    # Extract gradient as Julia array
-    grad_jl = Array(grad_result[1])
-
-    # Forward pass for ll value
-    # @compile f(args) calling convention: compiled(args) — f is NOT re-passed
-    ll_ra = spec.compiled_fwd(θ_input)
-    # ll_ra is a ConcreteRNumber (scalar) — convert directly to Float64
-    ll_val = Float64(ll_ra)
-    ll += ll_val
+    # Extract gradient and primal value
+    # Enzyme.gradient(ReverseWithPrimal, f, x) returns ((df/dx,), f(x))
+    # result[1] is a tuple of gradients (one per positional arg), result[2] is the primal
+    grad_jl = Array(result[1][1])
+    ll += Float64(result[2])
 
     # Scatter gradient to total
     if spec.all_active
@@ -213,7 +185,7 @@ function Octofitter._accumulate_term_gradients!(
         end
     end
 
-    return Octofitter._accumulate_term_gradients!(total_grad, ll, Base.tail(specs), θ, θ_full_base)
+    return Octofitter._accumulate_term_gradients!(total_grad, ll, Base.tail(specs), θ)
 end
 
 end # module OctofitterReactantExt

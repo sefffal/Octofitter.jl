@@ -111,6 +111,12 @@ export MarginalizedStarAbsoluteRVObs, MarginalizedStarAbsoluteRVLikelihood, Star
 # that dispatch on specific device types (e.g., Reactant.XLA.AbstractDevice).
 Octofitter.ad_backend(::MarginalizedStarAbsoluteRVObs{<:Any, <:Any, Nothing}) = AutoEnzyme(mode=set_runtime_activity(Reverse), function_annotation=Const)
 
+function Octofitter.alloc_obs_workspace(obs::MarginalizedStarAbsoluteRVObs, ::Type{T}) where T
+    L = length(obs.table.epoch)
+    rv_model_buf = Vector{T}(undef, L)
+    resid = Vector{T}(undef, L)
+    return (; rv_model_buf, resid)
+end
 
 # In-place simulation logic for MarginalizedStarAbsoluteRVObs (performance-critical)
 function Octofitter.simulate!(rv_model_buf, rvlike::MarginalizedStarAbsoluteRVObs, θ_system, θ_obs, planet_orbits::Tuple, orbit_solutions)
@@ -147,46 +153,60 @@ end
 """
 Absolute radial velocity likelihood (for a star) with analytical marginalization over RV zero point.
 
-Uses `orbitsolve_bulk` for vectorized orbit solving. All array operations use
-broadcasting for Reactant/XLA traceability.
+Enzyme path: uses pre-allocated workspace buffers and in-place simulation.
+The explicit `Nothing` device constraint avoids ambiguity with the broadcasting
+fallback method used by Reactant/XLA backends.
 """
 function Octofitter.ln_like(
-    rvlike::MarginalizedStarAbsoluteRVObs,
+    rvlike::MarginalizedStarAbsoluteRVObs{<:Any, <:Any, Nothing},
     ctx::SystemObservationContext
 )
-    (; θ_system, θ_obs, orbits) = ctx
-    epochs = rvlike.table.epoch
+    (; θ_system, θ_obs, orbits, orbit_solutions, workspace) = ctx
+    L = length(rvlike.table.epoch)
+    T = Octofitter._system_number_type(θ_system)
+    ll = zero(T)
+
     jitter = θ_obs.jitter
 
-    # Bulk solve + RV for each planet (vectorized)
-    # Initialize rv_model from the first planet to establish the correct element type
-    # (TracedRNumber during Reactant tracing, Float64 for Enzyme)
-    rv_model = let
-        sol = orbitsolve_bulk(orbits[1], epochs)
-        planet_mass = θ_system.planets[1].mass
-        radvel(sol, planet_mass * Octofitter.mjup2msol)
-    end
-    for planet_i in 2:length(orbits)
-        sol = orbitsolve_bulk(orbits[planet_i], epochs)
-        planet_mass = θ_system.planets[planet_i].mass
-        rv_model = rv_model .+ radvel(sol, planet_mass * Octofitter.mjup2msol)
+    # Use pre-allocated workspace buffers if available, otherwise allocate
+    if workspace !== nothing
+        rv_model_buf = workspace.rv_model_buf
+        resid = workspace.resid
+    else
+        rv_model_buf = Vector{T}(undef, L)
+        resid = Vector{T}(undef, L)
     end
 
-    # Residuals (vectorized)
-    resid = rvlike.table.rv .- rv_model
+    # Use in-place simulation method to get model values
+    sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_obs, orbits, orbit_solutions)
 
-    # Variance per observation (vectorized)
-    var = rvlike.table.σ_rv .^ 2 .+ jitter^2
+    # Data for this instrument:
+    epochs = rvlike.table.epoch
+    σ_rvs = rvlike.table.σ_rv
+    rvs = rvlike.table.rv
 
-    # Marginalize out the instrument zero point (Orvara paper)
-    A = sum(1.0 ./ var)
-    B = -2.0 * sum(resid ./ var)
-    C = sum(resid .^ 2 ./ var)
-    ll = -sum(log.(2π .* var))
+    # RV residual calculation: measured RV - model
+    resid .= rvs .- rv_model_buf
+
+    # Marginalize out the instrument zero point using math from the Orvara paper
+    A = zero(T)
+    B = zero(T)
+    C = zero(T)
+    for i_epoch in eachindex(epochs)
+        # The noise variance per observation is the measurement noise and the jitter added
+        # in quadrature
+        var = σ_rvs[i_epoch]^2 + jitter^2
+        A += 1/var
+        B -= 2resid[i_epoch]/var
+        C += resid[i_epoch]^2/var
+        # Penalize RV likelihood by total variance
+        ll -= log(2π*var) #  ll += log(1/var)
+    end
     ll -= -B^2 / (4A) + C + log(A)
 
     return ll
 end
+
 
 
 

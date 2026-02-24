@@ -621,7 +621,12 @@ end
 function list_parameter_names(system::System)
     return map(((k,v),)->k, Iterators.flatten([
         system.priors.priors,
-        [planet.priors.priors for planet in system.planets]...
+        [obs.priors.priors for obs in system.observations if hasproperty(obs, :priors)]...,
+        Iterators.flatten([
+            [planet.priors.priors,
+             [obs.priors.priors for obs in planet.observations if hasproperty(obs, :priors)]...]
+            for planet in system.planets
+        ])...,
     ]))
 end
 
