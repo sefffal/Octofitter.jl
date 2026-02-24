@@ -89,23 +89,16 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         active_indices_all, _D_check = _compute_active_indices(system)
         @assert _D_check == D "Active index computation disagrees on D: $_D_check vs $D"
 
-        # Build orbit constructors: one closure per planet capturing its OrbitType
-        orbit_constructors = ntuple(n_planets) do i
-            OT = _planet_orbit_type(system.planets[i])
-            let OT=OT, i=i
-                (θ_system) -> OT(;merge(θ_system, θ_system.planets[i])...)
-            end
-        end
+        # Build orbit constructor: a RuntimeGeneratedFunction with orbit types
+        # and planet indices interpolated as compile-time constants.
+        construct_orbits = _make_construct_orbits(system)
 
-        mcfg = ModelEvalConfig(Bijector_invlinkvec, arr2nt, orbit_constructors)
-
-        # Capture Val(n_planets) for type-stable ntuple dispatch
-        _val_n_planets = Val(n_planets)
+        mcfg = ModelEvalConfig(Bijector_invlinkvec, arr2nt, construct_orbits, Val(n_planets))
 
         # Pre-compute orbit solution types for buffer pre-allocation.
         _θ_nat_0 = Bijector_invlinkvec(initial_θ_0_t)
         _θ_sys_0 = arr2nt(_θ_nat_0)
-        _orbits_0 = ntuple(i -> orbit_constructors[i](_θ_sys_0), _val_n_planets)
+        _orbits_0 = construct_orbits(_θ_sys_0)
 
         # --- Build per-term configs ---
         tcfgs = ()
@@ -138,10 +131,10 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         primal_tws = _build_term_workspaces(mcfg, tcfgs, _θ_sys_0, Float64, D)
 
         # Test primal evaluation
-        ℓπcallback = let mcfg=mcfg, tcfgs=tcfgs, primal_tws=primal_tws,
+        ℓπcallback = let tcfgs=tcfgs, primal_tws=primal_tws,
                         invlink=Bijector_invlinkvec, arr2nt=arr2nt,
-                        ln_prior_transformed=ln_prior_transformed, orbit_constructors=orbit_constructors,
-                        val_n_planets=_val_n_planets
+                        ln_prior_transformed=ln_prior_transformed,
+                        construct_orbits=construct_orbits
             @inline function(θ_transformed)
                 lpost = zero(eltype(θ_transformed))
                 @inbounds for k in eachindex(θ_transformed)
@@ -154,7 +147,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                     return lpost
                 end
                 # Sum term likelihoods using pre-allocated workspaces
-                orbits = ntuple(i -> orbit_constructors[i](θ_structured), val_n_planets)
+                orbits = construct_orbits(θ_structured)
                 lpost += _sum_term_likelihoods(θ_structured, orbits, tcfgs, primal_tws)
                 return lpost
             end
@@ -195,8 +188,9 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # --- Build gradient workspace and callback ---
 
         # Resolve per-term backends, evaluators, and workspaces.
-        # Evaluators hold only immutable config; workspaces are separate so they
-        # can be passed as Duplicated (via DI.Cache) to Enzyme.
+        # Evaluators hold only mcfg (with zero-size RuntimeGeneratedFunctions) so
+        # Enzyme can prove them readonly for Const annotation. tcfg (with heap data)
+        # is passed via DI.Constant, workspace via DI.Cache (→ Duplicated).
         # Iterates over tcfgs (built above) to guarantee identical term ordering.
         term_backends = ()
         term_evaluators = ()
@@ -211,20 +205,15 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             tw = _make_term_workspace(mcfg, tcfg_i, _θ_sys_0, Float64, D)
 
             if all_active
-                evaluator = TermEvaluator(mcfg, tcfg_i)
+                evaluator = TermEvaluator(mcfg)
             else
-                evaluator = SparseTermEvaluator(mcfg, tcfg_i)
+                evaluator = SparseTermEvaluator(mcfg)
             end
 
             term_evaluators = (term_evaluators..., evaluator)
             term_backends = (term_backends..., obs_backend)
             term_workspaces = (term_workspaces..., tw)
         end
-
-        # Prepare gradient infrastructure: type-stable heterogeneous tuple
-        # Workspaces are passed separately and wrapped as DI.Cache for Enzyme Duplicated
-        term_specs = _prepare_term_specs(term_evaluators, term_backends, active_indices_all,
-                                         term_workspaces, initial_θ_0_t, initial_θ_0_t)
 
         # Prior evaluator and gradient prep
         prior_evaluator = PriorEvaluator(Bijector_invlinkvec, ln_prior_transformed)
@@ -236,10 +225,21 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         total_grad = similar(initial_θ_0_t)
         θ_full_base = Vector{Float64}(undef, D)
 
+        # Prepare gradient infrastructure: type-stable heterogeneous tuple
+        # DI context wrappers (Constant, Cache) are pre-created inside each TermGradSpec
+        # and reused every gradient call — θ_full_base is shared with the closure below.
+        term_specs = _prepare_term_specs(term_evaluators, term_backends, active_indices_all,
+                                         term_workspaces, tcfgs, initial_θ_0_t, θ_full_base)
+
+        # Wrap term_specs in a Ref so the closure captures an 8-byte pointer instead
+        # of storing the large heterogeneous Tuple inline (~2400 bytes). Without this,
+        # sizeof(closure) ≈ 2440 bytes and Julia heap-allocates a copy on every call.
+        term_specs_ref = Ref(term_specs)
+
         ∇ℓπcallback =
         let prior_evaluator=prior_evaluator, prior_backend=prior_backend,
             prior_prep=prior_prep, prior_grad=prior_grad,
-            total_grad=total_grad, term_specs=term_specs,
+            total_grad=total_grad, term_specs_ref=term_specs_ref,
             θ_full_base=θ_full_base
             function(θ_transformed)
                 copyto!(θ_full_base, θ_transformed)
@@ -255,7 +255,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 copyto!(total_grad, prior_grad)
 
                 # Per-term sparse gradients (type-stable recursion over heterogeneous tuple)
-                ll = _accumulate_term_gradients!(total_grad, ll_p, term_specs, θ_transformed, θ_full_base)
+                ll = _accumulate_term_gradients!(total_grad, ll_p, term_specs_ref[], θ_transformed)
 
                 return ll, total_grad
             end

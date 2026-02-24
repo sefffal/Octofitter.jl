@@ -113,19 +113,14 @@ function make_ln_like(system::System, θ_system_example)
     n_planets = length(system.planets)
     val_n = Val(n_planets)
 
-    orbit_constructors = ntuple(n_planets) do i
-        OT = _planet_orbit_type(system.planets[i])
-        let OT=OT, i=i
-            (θ_system) -> OT(;merge(θ_system, θ_system.planets[i])...)
-        end
-    end
+    construct_orbits = _make_construct_orbits(system)
 
-    let orbit_constructors=orbit_constructors, val_n=val_n
+    let construct_orbits=construct_orbits, val_n=val_n
         function (system::System, θ_system)
             T = _system_number_type(θ_system)
             ll = zero(T)
 
-            orbits = ntuple(i -> orbit_constructors[i](θ_system), val_n)
+            orbits = construct_orbits(θ_system)
 
             # Helper: solve orbits at an observation's epochs
             function _solve_at(obs)
