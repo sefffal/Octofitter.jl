@@ -69,13 +69,8 @@ end
 θ_sys = arr2nt(θ_natural)
 
 n_planets = length(sys.planets)
-orbit_constructors = ntuple(n_planets) do i
-    OT = Octofitter._planet_orbit_type(sys.planets[i])
-    let OT=OT, i=i
-        (θ_system) -> OT(;merge(θ_system, θ_system.planets[i])...)
-    end
-end
-mcfg = Octofitter.ModelEvalConfig(invlink, arr2nt, orbit_constructors, n_planets)
+construct_orbits = Octofitter._make_construct_orbits(sys)
+mcfg = Octofitter.ModelEvalConfig(invlink, arr2nt, construct_orbits, Val(n_planets))
 
 active_indices_all, _ = Octofitter._compute_active_indices(sys)
 tcfgs = let tcfgs = ()
@@ -113,8 +108,8 @@ println("\n--- invlink(θ) ---\n")
 println("\n--- arr2nt(θ_natural) ---\n")
 @code_warntype arr2nt(θ_natural)
 
-println("\n--- orbit_constructors[1](θ_sys) ---\n")
-@code_warntype orbit_constructors[1](θ_sys)
+println("\n--- construct_orbits(θ_sys) ---\n")
+@code_warntype construct_orbits(θ_sys)
 
 println("\n--- merge(θ_sys, θ_sys.planets.b) ---\n")
 @code_warntype merge(θ_sys, θ_sys.planets.b)
@@ -122,7 +117,7 @@ println("\n--- merge(θ_sys, θ_sys.planets.b) ---\n")
 println("\n--- _get_obs_params ---\n")
 @code_warntype Octofitter._get_obs_params(tcfg1, θ_sys)
 
-orbits = ntuple(i -> orbit_constructors[i](θ_sys), n_planets)
+orbits = construct_orbits(θ_sys)
 println("\n--- _solve_all_orbits! ---\n")
 @code_warntype Octofitter._solve_all_orbits!(tw1.sol_bufs, orbits, tcfg1.epochs)
 
@@ -137,20 +132,17 @@ println("\n--- ln_like ---\n")
 @code_warntype Octofitter.ln_like(tcfg1.obs, ctx)
 
 println("\n" * "="^70)
-println("CHECK 3: ntuple with runtime n_planets")
+println("CHECK 3: construct_orbits RuntimeGeneratedFunction")
 println("="^70)
-println("\n--- ntuple(f, n_planets::Int) ---\n")
-@code_warntype ntuple(i -> orbit_constructors[i](θ_sys), n_planets)
-
-println("\n--- ntuple(f, Val(1)) ---\n")
-@code_warntype ntuple(i -> orbit_constructors[i](θ_sys), Val(1))
+println("\n--- construct_orbits(θ_sys) ---\n")
+@code_warntype construct_orbits(θ_sys)
 
 println("\n" * "="^70)
 println("CHECK 4: TermEvaluator call")
 println("="^70)
-evaluator = Octofitter.TermEvaluator(mcfg, tcfg1, tw1)
+evaluator = Octofitter.TermEvaluator(mcfg)
 println("\n--- evaluator(θ) ---\n")
-@code_warntype evaluator(theta)
+@code_warntype evaluator(theta, tcfg1)
 
 println("\n" * "="^70)
 println("CHECK 5: PriorEvaluator call")
