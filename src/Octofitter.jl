@@ -44,7 +44,7 @@ const mjup2msol = PlanetOrbits.mjup2msol_IAU
 
 # Re-export the Chains constructor.
 export Chains 
-
+export describe
 include("units.jl")
 include("orbit-models.jl")
 include("distributions.jl")
