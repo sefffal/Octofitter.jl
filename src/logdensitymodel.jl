@@ -218,7 +218,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # Prior evaluator and gradient prep
         prior_evaluator = PriorEvaluator(Bijector_invlinkvec, ln_prior_transformed)
         # Prior evaluator has no mutable state → Const annotation is fine
-        prior_backend = isnothing(autodiff) ? _default_enzyme_backend : autodiff
+        prior_backend = isnothing(autodiff) ? AutoForwardDiff() : autodiff
         θ_zero = zero(initial_θ_0_t)
         prior_prep = prepare_gradient(prior_evaluator, prior_backend, θ_zero)
         prior_grad = similar(initial_θ_0_t)
