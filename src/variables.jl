@@ -453,18 +453,20 @@ Must be constructed with a block of priors, and optionally
 additional derived parameters and/or sastrometry.
 `name` must be a symbol, e.g. `:b`.
 """
-struct Planet{TElem<:AbstractOrbit, TP<:Priors,TD<:Union{Derived,Nothing},TObs<:Tuple}
+struct Planet{TElem<:AbstractOrbit, TP<:Priors,TD<:Union{Derived,Nothing},TObs<:Tuple,TSolver<:PlanetOrbits.AbstractSolver}
     priors::TP
     derived::TD
     observations::TObs
     name::Symbol
+    solver::TSolver
 end
 export Planet
 function Planet(;
     name::Union{Symbol,AbstractString},
     basis::Type,
     variables::Tuple,
-    observations=()
+    observations=(),
+    solver::PlanetOrbits.AbstractSolver=PlanetOrbits.Auto()
 )
     (priors,derived,additional_likelihoods...)=variables
     name = Symbol(name)
@@ -475,7 +477,7 @@ function Planet(;
         l::AbstractLikelihood
     end
     likes = (observations..., additional_likelihoods...)
-    
+
     # Check for duplicate observation/likelihood names on this planet
     like_names = String[]
     for like in likes
@@ -485,7 +487,7 @@ function Planet(;
         end
         push!(like_names, like_name)
     end
-    
+
     # Check for duplicate variables in Prior and Derived blocks
     prior_keys = Set(keys(priors.priors))
     if !isnothing(derived)
@@ -495,11 +497,11 @@ function Planet(;
             error("Planet $name: Variables $(collect(overlap)) are defined as both a prior (~) and derived variable (=). Each variable must be defined only once.")
         end
     end
-    
+
     return Planet{
         basis,
-        typeof(priors),typeof(derived),typeof(likes)
-    }(priors, derived, likes, name)
+        typeof(priors),typeof(derived),typeof(likes),typeof(solver)
+    }(priors, derived, likes, name, solver)
 end
 
 

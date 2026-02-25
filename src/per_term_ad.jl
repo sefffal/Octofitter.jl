@@ -16,11 +16,81 @@ pre-allocated workspace buffers can be plain Float64 arrays.
 =#
 
 using ADTypes: AutoForwardDiff, AutoFiniteDiff, AutoEnzyme
-using Enzyme: Duplicated, Reverse, Const, set_runtime_activity
+using Enzyme: Duplicated, Reverse, Const, set_runtime_activity, EnzymeCore, EnzymeRules
 
 """Default Enzyme backend for all observation terms. Uses reverse-mode with
 runtime activity for maximum compatibility."""
 const _default_enzyme_backend = AutoEnzyme(mode=set_runtime_activity(Reverse), function_annotation=Const)
+
+# --- Custom Enzyme rules ---
+# rem2pi(x, mode) shifts x by a constant multiple of 2π so its derivative is 1.
+# The default Julia implementation uses extended-precision arithmetic (MPFR BigFloat)
+# whose `setprecision` uses ScopedValues, triggering ~200 Scope allocations per call.
+# This custom rule uses a simple modular arithmetic implementation for the primal
+# and passes the gradient through unchanged.
+#
+# The simple rem2pi loses a few ULPs of precision vs the MPFR version, but for
+# orbital mechanics (angles in [-100π, 100π]) this is completely negligible.
+@inline function _simple_rem2pi(x::T, ::RoundingMode{:Nearest}) where T <: AbstractFloat
+    twopi = T(2π)
+    return x - twopi * round(x / twopi)
+end
+@inline function _simple_rem2pi(x::T, ::RoundingMode{:ToZero}) where T <: AbstractFloat
+    twopi = T(2π)
+    return x - twopi * trunc(x / twopi)
+end
+@inline function _simple_rem2pi(x::T, ::RoundingMode{:Down}) where T <: AbstractFloat
+    twopi = T(2π)
+    return x - twopi * floor(x / twopi)
+end
+@inline function _simple_rem2pi(x::T, ::RoundingMode{:Up}) where T <: AbstractFloat
+    twopi = T(2π)
+    return x - twopi * ceil(x / twopi)
+end
+
+# Reverse-mode rule
+function EnzymeRules.augmented_primal(
+    config::EnzymeRules.RevConfigWidth{1},
+    func::EnzymeCore.Const{typeof(rem2pi)},
+    ::Type{<:EnzymeCore.Active},
+    x::EnzymeCore.Active{T},
+    mode::EnzymeCore.Const,
+) where T <: AbstractFloat
+    # Use simple modular arithmetic to avoid MPFR/ScopedValues allocations
+    return EnzymeRules.AugmentedReturn(_simple_rem2pi(x.val, mode.val), nothing, nothing)
+end
+function EnzymeRules.reverse(
+    config::EnzymeRules.RevConfigWidth{1},
+    func::EnzymeCore.Const{typeof(rem2pi)},
+    dret::EnzymeCore.Active,
+    tape::Nothing,
+    x::EnzymeCore.Active{T},
+    mode::EnzymeCore.Const,
+) where T <: AbstractFloat
+    # d(rem2pi(x))/dx = 1  (shift by constant 2kπ)
+    return (dret.val, nothing)
+end
+
+# Forward-mode rule (including batched forward mode used by DI for gradient computation)
+function EnzymeRules.forward(
+    config::EnzymeRules.FwdConfigWidth{1},
+    func::EnzymeCore.Const{typeof(rem2pi)},
+    ::Type{<:EnzymeCore.Duplicated},
+    x::EnzymeCore.Duplicated{T},
+    mode::EnzymeCore.Const,
+) where T <: AbstractFloat
+    return EnzymeCore.Duplicated(_simple_rem2pi(x.val, mode.val), x.dval)
+end
+function EnzymeRules.forward(
+    config::EnzymeRules.FwdConfigWidth{N},
+    func::EnzymeCore.Const{typeof(rem2pi)},
+    ::Type{<:EnzymeCore.BatchDuplicated},
+    x::EnzymeCore.BatchDuplicated{T,N},
+    mode::EnzymeCore.Const,
+) where {T <: AbstractFloat, N}
+    # Batched forward: primal is _simple_rem2pi, all tangents pass through (derivative = 1)
+    return EnzymeCore.BatchDuplicated(_simple_rem2pi(x.val, mode.val), x.dval)
+end
 
 """
     alloc_obs_workspace(obs::AbstractObs, ::Type{T}) where T
@@ -71,6 +141,26 @@ end
 # --- Config and workspace types for per-term evaluation ---
 
 """
+    _orbit_param_names(::Type{OrbitType}) -> NTuple{N, Symbol}
+
+Return the keyword argument names needed to construct an orbit of the given type.
+Used by `_make_construct_orbits` to extract only the required fields from the
+merged parameter NamedTuple, avoiding `kwargs...` splatting that causes
+type-instantiation allocations inside the Enzyme AD boundary.
+
+Orbit types not listed here fall back to the old `merge(...)+splat` path.
+"""
+_orbit_param_names(::Type{<:KepOrbit}) = (:a, :e, :i, :ω, :Ω, :tp, :M)
+_orbit_param_names(::Type{<:PlanetOrbits.RadialVelocityOrbit}) = (:a, :e, :ω, :tp, :M)
+_orbit_param_names(::Type{<:PlanetOrbits.ThieleInnesOrbit}) = (:e, :tp, :M, :plx, :A, :B, :F, :G)
+_orbit_param_names(::Type{<:PlanetOrbits.CartesianOrbit}) = (:x, :y, :z, :vx, :vy, :vz, :M)
+# Visual and AbsoluteVisual wrap an inner orbit type
+_orbit_param_names(::Type{<:Visual{OT}}) where OT = (:plx, _orbit_param_names(OT)...)
+_orbit_param_names(::Type{<:PlanetOrbits.AbsoluteVisual{OT}}) where OT = (:ref_epoch, :ra, :dec, :plx, :rv, :pmra, :pmdec, _orbit_param_names(OT)...)
+# Fallback: unknown orbit type — return nothing to use the old splatting path
+_orbit_param_names(::Type) = nothing
+
+"""
     _make_construct_orbits(system::System)
 
 Build a `RuntimeGeneratedFunction` that constructs all planet orbits from
@@ -78,13 +168,31 @@ structured parameters `θ_system`. Orbit types and planet indices are
 interpolated as compile-time constants, guaranteeing type stability
 regardless of the caller's closure complexity.
 
+When `_orbit_param_names` is defined for an orbit type, only the required
+fields are extracted from `merge(θ_system, θ_system.planets[i])`, avoiding
+the `kwargs...` splatting in PlanetOrbits constructors that causes
+NTuple/SimpleVector allocations inside Enzyme's reverse pass.
+
 Returns `θ_system -> (orbit_1, orbit_2, ...)`.
 """
 function _make_construct_orbits(system::System)
     n_planets = length(system.planets)
     planet_exprs = map(1:n_planets) do i
         OT = _planet_orbit_type(system.planets[i])
-        :($(OT)(;merge(θ_system, θ_system.planets[$i])...))
+        param_names = _orbit_param_names(OT)
+        if param_names === nothing
+            # Fallback: unknown orbit type — use the old merge+splat path
+            :($(OT)(;merge(θ_system, θ_system.planets[$i])...))
+        else
+            # Targeted extraction: only pass the fields the constructor needs
+            merged = gensym("merged")
+            kwargs_exprs = [Expr(:kw, k, :($merged.$k)) for k in param_names]
+            quote
+                let $merged = merge(θ_system, θ_system.planets[$i])
+                    $(Expr(:call, OT, Expr(:parameters, kwargs_exprs...)))
+                end
+            end
+        end
     end
     @RuntimeGeneratedFunction(:(function(θ_system)
         tuple($(planet_exprs...))
@@ -102,12 +210,13 @@ The number of planets `N` is encoded as a type parameter for `_n_planets`.
 and returns an `NTuple{N}` of orbits with all types and indices as
 compile-time constants, ensuring type stability.
 """
-struct ModelEvalConfig{TInvlink, TArr2nt, N, TConstructOrbits}
+struct ModelEvalConfig{TInvlink, TArr2nt, N, TConstructOrbits, TSolvers}
     invlink::TInvlink
     arr2nt::TArr2nt
     construct_orbits::TConstructOrbits
-    function ModelEvalConfig(invlink::TI, arr2nt::TA, construct_orbits::TCO, ::Val{N}) where {TI, TA, TCO, N}
-        new{TI, TA, N, TCO}(invlink, arr2nt, construct_orbits)
+    solvers::TSolvers  # NTuple{N, <:AbstractSolver} — per-planet Kepler solvers
+    function ModelEvalConfig(invlink::TI, arr2nt::TA, construct_orbits::TCO, solvers::TS, ::Val{N}) where {TI, TA, TCO, TS, N}
+        new{TI, TA, N, TCO, TS}(invlink, arr2nt, construct_orbits, solvers)
     end
 end
 @inline _n_planets(::ModelEvalConfig{<:Any, <:Any, N}) where N = Val(N)
@@ -289,7 +398,7 @@ function eval_term(θ, mcfg::ModelEvalConfig, tcfg::TermEvalConfig, tw::TermWork
     θ_system  = mcfg.arr2nt(θ_natural)
     orbits    = mcfg.construct_orbits(θ_system)
     θ_planet, θ_obs = _get_obs_params(tcfg, θ_system)
-    _solve_all_orbits!(tw.sol_bufs, orbits, tcfg.epochs)
+    _solve_all_orbits!(tw.sol_bufs, orbits, tcfg.epochs, mcfg.solvers)
     ctx = _make_obs_context(tcfg, θ_system, θ_planet, θ_obs, orbits, tw.sol_bufs, tw.obs_workspace)
     ln_like(tcfg.obs, ctx)
 end
@@ -318,7 +427,7 @@ function eval_term_alloc(θ, mcfg::ModelEvalConfig, tcfg::TermEvalConfig)
     θ_system  = mcfg.arr2nt(θ_natural)
     orbits    = mcfg.construct_orbits(θ_system)
     θ_planet, θ_obs = _get_obs_params(tcfg, θ_system)
-    solutions = _solve_all_orbits(orbits, tcfg.epochs)
+    solutions = _solve_all_orbits(orbits, tcfg.epochs, mcfg.solvers)
     ctx = _make_obs_context(tcfg, θ_system, θ_planet, θ_obs, orbits, solutions)
     ln_like(tcfg.obs, ctx)
 end
@@ -352,7 +461,7 @@ function _get_obs_epochs(obs)
 end
 
 """
-    _solve_all_orbits(orbits::NTuple{N}, epochs) where N
+    _solve_all_orbits(orbits::NTuple{N}, epochs[, solvers]) where N
 
 Solve all orbits at given epochs. Returns a tuple of solution vectors.
 Uses heap allocation — for use in `generate_from_params` and other
@@ -366,9 +475,17 @@ function _solve_all_orbits(orbits::NTuple{N}, epochs) where N
         map(ep -> orbitsolve(orbits[i], ep), epochs)
     end
 end
+function _solve_all_orbits(orbits::NTuple{N}, epochs, solvers::NTuple{N}) where N
+    if isempty(epochs)
+        return ntuple(Returns(()), Val(N))
+    end
+    ntuple(Val(N)) do i
+        map(ep -> orbitsolve(orbits[i], ep, solvers[i]), epochs)
+    end
+end
 
 """
-    _solve_all_orbits!(sol_bufs::NTuple{N}, orbits::NTuple{N}, epochs) where N
+    _solve_all_orbits!(sol_bufs::NTuple{N}, orbits::NTuple{N}, epochs[, solvers]) where N
 
 Solve all orbits at given epochs, writing into pre-allocated buffers.
 Returns `sol_bufs` (as a Tuple) for use as `solutions` in observation contexts.
@@ -376,6 +493,10 @@ Returns `sol_bufs` (as a Tuple) for use as `solutions` in observation contexts.
 Pre-allocated buffers avoid heap allocation inside the differentiated closure,
 which is critical for Enzyme performance (each heap alloc inside the AD boundary
 requires shadow memory and bookkeeping).
+
+When `solvers` is provided, each planet uses its specified Kepler solver method
+(e.g. `Markley()`) instead of `Auto()`, which avoids Enzyme having to shadow
+unused solver branches (like the `e >= 1` Roots.jl fallback).
 """
 function _solve_all_orbits!(sol_bufs::NTuple{N}, orbits::NTuple{N}, epochs) where N
     if isempty(epochs)
@@ -386,6 +507,20 @@ function _solve_all_orbits!(sol_bufs::NTuple{N}, orbits::NTuple{N}, epochs) wher
         buf = sol_bufs[i]
         for j in eachindex(epochs)
             buf[j] = orbitsolve(orbit, epochs[j])
+        end
+    end
+    return sol_bufs
+end
+function _solve_all_orbits!(sol_bufs::NTuple{N}, orbits::NTuple{N}, epochs, solvers::NTuple{N}) where N
+    if isempty(epochs)
+        return sol_bufs
+    end
+    for i in 1:N
+        orbit = orbits[i]
+        buf = sol_bufs[i]
+        solver = solvers[i]
+        for j in eachindex(epochs)
+            buf[j] = orbitsolve(orbit, epochs[j], solver)
         end
     end
     return sol_bufs
@@ -584,20 +719,20 @@ function _build_term_workspaces(mcfg, tcfgs::Tuple, θ_system_example, ::Type{T}
 end
 
 """
-    _sum_term_likelihoods(θ_sys, orbits, tcfgs, tws)
+    _sum_term_likelihoods(θ_sys, orbits, tcfgs, tws, solvers)
 
 Recursive type-stable tuple peeling for summing term likelihoods.
 Replaces `ln_like_generated` RuntimeGeneratedFunction.
 """
-_sum_term_likelihoods(θ_sys, orbits, ::Tuple{}, ::Tuple{}) = 0.0
-function _sum_term_likelihoods(θ_sys, orbits, tcfgs::Tuple, tws::Tuple)
+_sum_term_likelihoods(θ_sys, orbits, ::Tuple{}, ::Tuple{}, solvers) = 0.0
+function _sum_term_likelihoods(θ_sys, orbits, tcfgs::Tuple, tws::Tuple, solvers)
     tcfg = first(tcfgs)
     tw = first(tws)
     θ_planet, θ_obs = _get_obs_params(tcfg, θ_sys)
-    _solve_all_orbits!(tw.sol_bufs, orbits, tcfg.epochs)
+    _solve_all_orbits!(tw.sol_bufs, orbits, tcfg.epochs, solvers)
     ctx = _make_obs_context(tcfg, θ_sys, θ_planet, θ_obs, orbits, tw.sol_bufs, tw.obs_workspace)
     ll = ln_like(tcfg.obs, ctx)
-    ll + _sum_term_likelihoods(θ_sys, orbits, Base.tail(tcfgs), Base.tail(tws))
+    ll + _sum_term_likelihoods(θ_sys, orbits, Base.tail(tcfgs), Base.tail(tws), solvers)
 end
 
 #=

@@ -93,7 +93,11 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # and planet indices interpolated as compile-time constants.
         construct_orbits = _make_construct_orbits(system)
 
-        mcfg = ModelEvalConfig(Bijector_invlinkvec, arr2nt, construct_orbits, Val(n_planets))
+        # Extract per-planet Kepler solvers. Specifying e.g. Markley() avoids
+        # Enzyme having to shadow unused solver branches (like the e>=1 Roots.jl fallback).
+        planet_solvers = ntuple(i -> system.planets[i].solver, Val(n_planets))
+
+        mcfg = ModelEvalConfig(Bijector_invlinkvec, arr2nt, construct_orbits, planet_solvers, Val(n_planets))
 
         # Pre-compute orbit solution types for buffer pre-allocation.
         _θ_nat_0 = Bijector_invlinkvec(initial_θ_0_t)
@@ -134,7 +138,8 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         ℓπcallback = let tcfgs=tcfgs, primal_tws=primal_tws,
                         invlink=Bijector_invlinkvec, arr2nt=arr2nt,
                         ln_prior_transformed=ln_prior_transformed,
-                        construct_orbits=construct_orbits
+                        construct_orbits=construct_orbits,
+                        planet_solvers=planet_solvers
             @inline function(θ_transformed)
                 lpost = zero(eltype(θ_transformed))
                 @inbounds for k in eachindex(θ_transformed)
@@ -148,7 +153,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
                 end
                 # Sum term likelihoods using pre-allocated workspaces
                 orbits = construct_orbits(θ_structured)
-                lpost += _sum_term_likelihoods(θ_structured, orbits, tcfgs, primal_tws)
+                lpost += _sum_term_likelihoods(θ_structured, orbits, tcfgs, primal_tws, planet_solvers)
                 return lpost
             end
         end
