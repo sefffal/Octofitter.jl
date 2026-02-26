@@ -22,7 +22,7 @@ struct SystemObservationContext{TSystem<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:A
     θ_system::TSystem
     θ_obs::TObs
     orbits::NTuple{N,TOrbit}
-    orbit_solutions::NTuple{N,TSolutions}
+    orbit_solutions::TSolutions
     workspace::TWS
 end
 
@@ -34,7 +34,7 @@ function SystemObservationContext(
     orbit_solutions,
     workspace,
 )
-    return SystemObservationContext{typeof(θ_system),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions),typeof(workspace)}(
+    return SystemObservationContext{typeof(θ_system),typeof(θ_obs),length(orbits),eltype(orbits),typeof(orbit_solutions),typeof(workspace)}(
         θ_system, θ_obs, orbits, orbit_solutions, workspace
     )
 end
@@ -67,7 +67,7 @@ struct PlanetObservationContext{TSystem<:NamedTuple,TPlanet<:NamedTuple,TObs<:Na
     θ_planet::TPlanet
     θ_obs::TObs
     orbits::NTuple{N,TOrbit}
-    orbit_solutions::NTuple{N,TSolutions}
+    orbit_solutions::TSolutions
     i_planet::Int
     workspace::TWS
 end
@@ -82,7 +82,7 @@ function PlanetObservationContext(
     i_planet::Int,
     workspace,
 )
-    return PlanetObservationContext{typeof(θ_system),typeof(θ_planet),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions),typeof(workspace)}(
+    return PlanetObservationContext{typeof(θ_system),typeof(θ_planet),typeof(θ_obs),length(orbits),eltype(orbits),typeof(orbit_solutions),typeof(workspace)}(
         θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, workspace
     )
 end
