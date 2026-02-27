@@ -325,30 +325,32 @@ Base.@nospecializeinfer function advancedhmc(
 
     # Resolve the array back into the nested named tuple structure used internally.
     # Augment with some internal fields
-    chain_res = map(zip(stats, mc_samples)) do (stat, θ_t)
-        # Map the variables back to the constrained domain and reconstruct the parameter
-        # named tuple structure.
-        θ = model.invlink(θ_t)
-        resolved_namedtuple = model.arr2nt(θ)
-        # Add log posterior, tree depth, and numerical error reported by
-        # the sampler.
-        # Also recompute the log-likelihood and add that too.
-        loglike = ln_like(model.system, resolved_namedtuple)
-        return merge((;
-            stat.n_steps,
-            stat.is_accept,
-            stat.acceptance_rate,
-            stat.hamiltonian_energy,
-            stat.hamiltonian_energy_error,
-            stat.max_hamiltonian_energy_error,
-            stat.tree_depth,
-            stat.numerical_error,
-            stat.step_size,
-            stat.nom_step_size,
-            stat.is_adapt,
-            loglike = loglike,
-            logpost = stat.log_density,
-        ), resolved_namedtuple)
+    chain_res = Base.invokelatest() do 
+        map(zip(stats, mc_samples)) do (stat, θ_t)
+            # Map the variables back to the constrained domain and reconstruct the parameter
+            # named tuple structure.
+            θ = model.invlink(θ_t)
+            resolved_namedtuple = model.arr2nt(θ)
+            # Add log posterior, tree depth, and numerical error reported by
+            # the sampler.
+            # Also recompute the log-likelihood and add that too.
+            loglike = ln_like(model.system, resolved_namedtuple)
+            return merge((;
+                stat.n_steps,
+                stat.is_accept,
+                stat.acceptance_rate,
+                stat.hamiltonian_energy,
+                stat.hamiltonian_energy_error,
+                stat.max_hamiltonian_energy_error,
+                stat.tree_depth,
+                stat.numerical_error,
+                stat.step_size,
+                stat.nom_step_size,
+                stat.is_adapt,
+                loglike = loglike,
+                logpost = stat.log_density,
+            ), resolved_namedtuple)
+        end
     end
     # Then finally flatten and convert into an MCMCChain object / table.
     # Mark the posterior, likelihood, numerical error flag, and tree depth as internal
