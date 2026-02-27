@@ -99,18 +99,24 @@ const PlanetRelAstromLikelihood = PlanetRelAstromObs
 
 export PlanetRelAstromObs, PlanetRelAstromLikelihood
 
+function Octofitter.alloc_obs_workspace(obs::PlanetRelAstromObs, ::Type{T}) where T
+    L = length(obs.table.epoch)
+    ra_model = Vector{T}(undef, L)
+    dec_model = Vector{T}(undef, L)
+    return (; ra_model, dec_model)
+end
+
 
 # In-place simulation logic for PlanetRelAstromObs (performance-critical)
-function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
     T = _system_number_type(θ_system)
     this_orbit = orbits[i_planet]
-    
+
     # Compute model astrometry for each epoch
     for i_epoch in eachindex(astrom.table.epoch)
         # Get the orbit solution for this planet at this epoch
-        sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
-        # @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
-        
+        sol = orbit_solutions[i_planet][i_epoch]
+
         # Calculate perturbations from inner planets
         ra_host_perturbation = zero(T)
         dec_host_perturbation = zero(T)
@@ -123,12 +129,10 @@ function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromObs, θ_s
                     continue
                 end
                 mass_other = θ_planet′.mass*Octofitter.mjup2msol
-                sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
-                
+                sol′ = orbit_solutions[i_other_planet][i_epoch]
+
                 ra_host_perturbation += raoff(sol′, mass_other)
                 dec_host_perturbation += decoff(sol′, mass_other)
-                
-                # @assert isapprox(astrom.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
             end
         end
 
@@ -137,17 +141,17 @@ function simulate!(ra_model_buf, dec_model_buf, astrom::PlanetRelAstromObs, θ_s
         ra_model_buf[i_epoch] = raoff(sol) - ra_host_perturbation
         dec_model_buf[i_epoch] = decoff(sol) - dec_host_perturbation
     end
-    
+
     return (ra_model = ra_model_buf, dec_model = dec_model_buf, epochs = astrom.table.epoch)
 end
 
 # Allocating simulation logic for PlanetRelAstromObs (convenience method)
-function simulate(astrom::PlanetRelAstromObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function simulate(astrom::PlanetRelAstromObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
     T = _system_number_type(θ_system)
     L = length(astrom.table.epoch)
     ra_model_buf = Vector{T}(undef, L)
     dec_model_buf = Vector{T}(undef, L)
-    return simulate!(ra_model_buf, dec_model_buf, astrom, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    return simulate!(ra_model_buf, dec_model_buf, astrom, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
 end
 
 
@@ -164,82 +168,79 @@ using LinearAlgebra
 
 # PlanetRelAstromObs likelihood function
 function ln_like(astrom::PlanetRelAstromObs, ctx::PlanetObservationContext)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, workspace) = ctx
     T = Octofitter._system_number_type(θ_system)
-   
+
     jitter = hasproperty(θ_obs, :jitter) ? getproperty(θ_obs, :jitter) : zero(T)
     platescale = hasproperty(θ_obs, :platescale) ? getproperty(θ_obs, :platescale) : one(T)
     northangle = hasproperty(θ_obs, :northangle) ? getproperty(θ_obs, :northangle) : zero(T)
 
     L = length(astrom.table.epoch)
     ll = zero(T)
-    
-    @no_escape begin
-        # Allocate buffers using bump allocator
-        ra_model_buf = @alloc(T, L)
-        dec_model_buf = @alloc(T, L)
-        
-        # Use in-place simulation method to get model values
-        sim = Octofitter.simulate!(ra_model_buf, dec_model_buf, astrom, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
 
-        # Process each epoch to compute residuals and likelihood
-        for i_epoch in eachindex(astrom.table.epoch)
-            ra_model = ra_model_buf[i_epoch]
-            dec_model = dec_model_buf[i_epoch]
+    # Use pre-allocated workspace buffers if available, otherwise allocate
+    if workspace !== nothing
+        ra_model_buf = workspace.ra_model
+        dec_model_buf = workspace.dec_model
+    else
+        ra_model_buf = Vector{T}(undef, L)
+        dec_model_buf = Vector{T}(undef, L)
+    end
 
-            # PA and Sep specified
+    # Use in-place simulation method to get model values
+    sim = Octofitter.simulate!(ra_model_buf, dec_model_buf, astrom, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
+
+    # Process each epoch to compute residuals and likelihood
+    for i_epoch in eachindex(astrom.table.epoch)
+        ra_model = ra_model_buf[i_epoch]
+        dec_model = dec_model_buf[i_epoch]
+
+        # PA and Sep specified
+        if hasproperty(astrom.table, :pa) && hasproperty(astrom.table, :sep)
+            ρ = hypot(ra_model, dec_model)
+            pa = atan(ra_model, dec_model)
+
+            pa_dat = astrom.table.pa[i_epoch] + northangle
+            pa_diff = (pa_dat - pa + π) % 2π - π
+            pa_diff = pa_diff < -π ? pa_diff + 2π : pa_diff
+            resid1 = pa_diff
+            resid2 = astrom.table.sep[i_epoch] * platescale - ρ
+
+        # RA and DEC specified
+        else
+            pa_dat = atan(astrom.table.dec[i_epoch], astrom.table.ra[i_epoch]) + northangle
+            sep_dat = hypot(astrom.table.dec[i_epoch], astrom.table.ra[i_epoch]) * platescale
+            ra_dat = sep_dat * cos(pa_dat)
+            dec_dat = sep_dat * sin(pa_dat)
+            resid1 = ra_dat - ra_model
+            resid2 = dec_dat - dec_model
+        end
+
+        if jitter == 0.
+            ll += logpdf(astrom.precomputed_pointwise_distributions[i_epoch], @SVector[resid1, resid2])
+        else
             if hasproperty(astrom.table, :pa) && hasproperty(astrom.table, :sep)
-                ρ = hypot(ra_model, dec_model)
-                pa = atan(ra_model, dec_model)
-
-                pa_dat = astrom.table.pa[i_epoch] + northangle
-                pa_diff = (pa_dat - pa + π) % 2π - π
-                pa_diff = pa_diff < -π ? pa_diff + 2π : pa_diff
-                resid1 = pa_diff
-                resid2 = astrom.table.sep[i_epoch] * platescale - ρ
-
-            # RA and DEC specified
+                σ₁ = astrom.table.σ_pa[i_epoch]
+                σ₂ = astrom.table.σ_sep[i_epoch]
             else
-                pa_dat = atan(astrom.table.dec[i_epoch], astrom.table.ra[i_epoch]) + northangle
-                sep_dat = hypot(astrom.table.dec[i_epoch], astrom.table.ra[i_epoch]) * platescale
-                ra_dat = sep_dat * cos(pa_dat)
-                dec_dat = sep_dat * sin(pa_dat)
-                resid1 = ra_dat - ra_model
-                resid2 = dec_dat - dec_model
+                σ₁ = astrom.table.σ_ra[i_epoch]
+                σ₂ = astrom.table.σ_dec[i_epoch]
             end
-
-            if jitter == 0.
-                ll += logpdf(astrom.precomputed_pointwise_distributions[i_epoch], @SVector[resid1, resid2])
+            # Add jitter in quadrature
+            σ₁ = hypot(σ₁, jitter)
+            σ₂ = hypot(σ₂, jitter)
+            if hasproperty(astrom.table, :cor)
+                cor = astrom.table.cor[i_epoch]
+                Σ = @SArray[
+                    σ₁^2        cor*σ₁*σ₂
+                    cor*σ₁*σ₂   σ₂^2
+                ]
+                dist = MvNormal(Σ)
             else
-                # For data points with a non-zero correlation, we can speed things up slightly
-                # by pre-computing the appropriate 2x2 matrix factorizations. 
-                # Distributions.jl handles this all for us--we just create N MvNormal distributions
-                # PA and Sep specified
-                if hasproperty(astrom.table, :pa) && hasproperty(astrom.table, :sep)
-                    σ₁ = astrom.table.σ_pa[i_epoch]
-                    σ₂ = astrom.table.σ_sep[i_epoch]
-                # RA and DEC specified
-                else
-                    σ₁ = astrom.table.σ_ra[i_epoch]
-                    σ₂ = astrom.table.σ_dec[i_epoch]
-                end
-                # Add jitter in quadrature
-                σ₁ = hypot(σ₁, jitter)
-                σ₂ = hypot(σ₂, jitter)
-                # we have to compute the factorization on the fly
-                if hasproperty(astrom.table, :cor)
-                    cor = astrom.table.cor[i_epoch]
-                    Σ = @SArray[
-                        σ₁^2        cor*σ₁*σ₂
-                        cor*σ₁*σ₂   σ₂^2
-                    ]
-                    dist = MvNormal(Σ)
-                else
-                    Σ = Diagonal(@SArray[σ₁^2, σ₂^2])
-                    dist = MvNormal(Σ)
-                end
-                ll += logpdf(dist, @SVector[resid1, resid2])
+                Σ = Diagonal(@SArray[σ₁^2, σ₂^2])
+                dist = MvNormal(Σ)
             end
+            ll += logpdf(dist, @SVector[resid1, resid2])
         end
     end
     return ll
@@ -247,13 +248,13 @@ end
 
 # Generate new astrometry observations
 function generate_from_params(like::PlanetRelAstromObs, ctx::PlanetObservationContext; add_noise)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = ctx
 
     # Get epochs and uncertainties from observations
     epoch = like.table.epoch
 
     # Use the same simulation method as ln_like to generate model astrometry values
-    sim = Octofitter.simulate(like, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    sim = Octofitter.simulate(like, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
     ra_model = sim.ra_model
     dec_model = sim.dec_model
 
@@ -305,7 +306,6 @@ function generate_from_params(like::PlanetRelAstromObs, ctx::PlanetObservationCo
             astrometry_table.ra .+= randn.() .* hypot.(σ_ra, jitter)
             astrometry_table.dec .+= randn.() .* hypot.(σ_dec, jitter)
         end
-        display(astrometry_table)
     end
 
     return PlanetRelAstromObs(astrometry_table; like.name)

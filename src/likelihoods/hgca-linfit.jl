@@ -215,12 +215,22 @@ function Octofitter.likeobj_from_epoch_subset(like::HGCAObs, obs_inds)
     }(table, hgca, priors, derived, hip_like, gaia_like, include_iad)
 end
 
+function alloc_obs_workspace(obs::HGCAObs, ::Type{T}) where T
+    N_gaia = size(obs.gaia_like.table, 1)
+    N_hip = size(obs.hip_like.table, 1)
+    Δα_mas_gaia = Vector{T}(undef, N_gaia)
+    Δδ_mas_gaia = Vector{T}(undef, N_gaia)
+    Δα_mas_hip = Vector{T}(undef, N_hip)
+    Δδ_mas_hip = Vector{T}(undef, N_hip)
+    return (; Δα_mas_gaia, Δδ_mas_gaia, Δα_mas_hip, Δδ_mas_hip)
+end
+
 function ln_like(obs::HGCAObs, ctx::SystemObservationContext)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions, workspace) = ctx
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
 
-    sim = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, -1)
+    sim = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions; workspace)
 
     if isnothing(sim)
         return convert(T, -Inf)
@@ -286,7 +296,7 @@ function ln_like(obs::HGCAObs, ctx::SystemObservationContext)
 end
 
 
-function simulate(hgca_like::HGCAObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function simulate(hgca_like::HGCAObs, θ_system, θ_obs, orbits, orbit_solutions; workspace=nothing)
     T = Octofitter._system_number_type(θ_system)
 
     # * We compute the deviation caused by the planet(s) at each epoch of both likelihoods
@@ -346,64 +356,70 @@ function simulate(hgca_like::HGCAObs, θ_system, θ_obs, orbits, orbit_solutions
         return 0.0, 0.0, θ_system.pmra, θ_system.pmdec
     end
 
-    @no_escape begin
-
-        # First: Gaia
-
-        Δα_mas = @alloc(T, size(A_prepared_5,1))
-        fill!(Δα_mas, 0)
-        Δδ_mas = @alloc(T, size(A_prepared_5,1))
-        fill!(Δδ_mas, 0)
-
-        for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
-            planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-            fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
-            _simulate_skypath_perturbations!(
-                Δα_mas, Δδ_mas,
-                gaia_table, orbit,
-                planet_mass_msol, fluxratio,
-                orbit_solutions[i_planet],
-                orbit_solutions_i_epoch_start, T
-            )
-        end
-
-
-        out = fit_5param_prepared(A_prepared_5, gaia_table, Δα_mas, Δδ_mas)
-        # out = fit_4param_prepared(A_prepared_4, gaia_table, Δα_mas, Δδ_mas)
-        Δα_g, Δδ_g, Δpmra_g, Δpmdec_g = out.parameters
-        # Rigorously propagate the linear proper motion component in spherical coordinates
-        # Account for within-gaia differential light travel time 
-        α_g₀, δ_g₀, pmra_g₀, pmdec_g₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_gaia_mjd, hgca_like.hgca.epoch_dec_gaia_mjd)
-        μ_g = @SVector [pmra_g₀ + Δpmra_g, pmdec_g₀ + Δpmdec_g]
-
-        # Now: Hiparcos
-        Δα_mas = @alloc(T, size(hgca_like.hip_like.table,1))
-        fill!(Δα_mas, 0)
-        Δδ_mas = @alloc(T, size(hgca_like.hip_like.table,1))
-        fill!(Δδ_mas, 0)
-
-        for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
-            planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-            fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
-            _simulate_skypath_perturbations!(
-                Δα_mas, Δδ_mas,
-                hgca_like.hip_like.table, orbit,
-                planet_mass_msol, fluxratio,
-                orbit_solutions[i_planet],
-                orbit_solutions_i_epoch_start, T
-            )
-        end
-
-
-        if hgca_like.include_iad
-            out = fit_5param_prepared(hgca_like.hip_like.A_prepared_5, hgca_like.hip_like.table, Δα_mas, Δδ_mas, hgca_like.hip_like.table.res, hgca_like.hip_like.table.sres)
-        else
-            out = fit_5param_prepared(hgca_like.hip_like.A_prepared_5, hgca_like.hip_like.table, Δα_mas, Δδ_mas)
-        end
-        Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
-        α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_hip_mjd, hgca_like.hgca.epoch_dec_hip_mjd)
-        μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
+    # Use pre-allocated workspace buffers if available, otherwise allocate
+    N_gaia = size(A_prepared_5, 1)
+    N_hip = size(hgca_like.hip_like.table, 1)
+    if workspace !== nothing
+        Δα_mas_gaia = @view workspace.Δα_mas_gaia[1:N_gaia]
+        Δδ_mas_gaia = @view workspace.Δδ_mas_gaia[1:N_gaia]
+        Δα_mas_hip = workspace.Δα_mas_hip
+        Δδ_mas_hip = workspace.Δδ_mas_hip
+    else
+        Δα_mas_gaia = Vector{T}(undef, N_gaia)
+        Δδ_mas_gaia = Vector{T}(undef, N_gaia)
+        Δα_mas_hip = Vector{T}(undef, N_hip)
+        Δδ_mas_hip = Vector{T}(undef, N_hip)
     end
+
+    # First: Gaia
+    fill!(Δα_mas_gaia, 0)
+    fill!(Δδ_mas_gaia, 0)
+
+    for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
+        planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
+        fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
+        # Solve orbit at Gaia epochs for this planet
+        gaia_sols = [orbitsolve(orbit, ep) for ep in gaia_table.epoch]
+        _simulate_skypath_perturbations!(
+            Δα_mas_gaia, Δδ_mas_gaia,
+            gaia_table, orbit,
+            planet_mass_msol, fluxratio,
+            gaia_sols, T
+        )
+    end
+
+    out = fit_5param_prepared(A_prepared_5, gaia_table, Δα_mas_gaia, Δδ_mas_gaia)
+    Δα_g, Δδ_g, Δpmra_g, Δpmdec_g = out.parameters
+    # Rigorously propagate the linear proper motion component in spherical coordinates
+    # Account for within-gaia differential light travel time
+    α_g₀, δ_g₀, pmra_g₀, pmdec_g₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_gaia_mjd, hgca_like.hgca.epoch_dec_gaia_mjd)
+    μ_g = @SVector [pmra_g₀ + Δpmra_g, pmdec_g₀ + Δpmdec_g]
+
+    # Now: Hipparcos
+    fill!(Δα_mas_hip, 0)
+    fill!(Δδ_mas_hip, 0)
+
+    for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
+        planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
+        fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[i_planet] : zero(T)
+        # Solve orbit at Hipparcos epochs for this planet
+        hip_sols = [orbitsolve(orbit, ep) for ep in hgca_like.hip_like.table.epoch]
+        _simulate_skypath_perturbations!(
+            Δα_mas_hip, Δδ_mas_hip,
+            hgca_like.hip_like.table, orbit,
+            planet_mass_msol, fluxratio,
+            hip_sols, T
+        )
+    end
+
+    if hgca_like.include_iad
+        out = fit_5param_prepared(hgca_like.hip_like.A_prepared_5, hgca_like.hip_like.table, Δα_mas_hip, Δδ_mas_hip, hgca_like.hip_like.table.res, hgca_like.hip_like.table.sres)
+    else
+        out = fit_5param_prepared(hgca_like.hip_like.A_prepared_5, hgca_like.hip_like.table, Δα_mas_hip, Δδ_mas_hip)
+    end
+    Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
+    α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(first(orbits), hgca_like.hgca.epoch_ra_hip_mjd, hgca_like.hgca.epoch_dec_hip_mjd)
+    μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
 
     # Simple linear approximation: don't deal with curvature & secular acceleration directly
     if absolute_orbits
@@ -465,9 +481,9 @@ export HGCAObs, HGCALikelihood
 
 # Generate new astrometry observations
 function generate_from_params(like::HGCAObs, ctx::SystemObservationContext; add_noise)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
 
-    sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, -1)
+    sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions)
 
     (;μ_g, μ_h, μ_hg) = sim
 

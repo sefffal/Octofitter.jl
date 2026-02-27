@@ -37,14 +37,12 @@ using StaticArrays
 using MCMCChains: MCMCChains, Chains
 using Random
 using DataDeps
-using RuntimeGeneratedFunctions
-RuntimeGeneratedFunctions.init(@__MODULE__)
 
 const mjup2msol = PlanetOrbits.mjup2msol_IAU
 
 # Re-export the Chains constructor.
 export Chains 
-
+export describe
 include("units.jl")
 include("orbit-models.jl")
 include("distributions.jl")
@@ -55,6 +53,7 @@ include("macros.jl")
 # Helper for checking tables are well-formed
 equal_length_cols(tab) = allequal(length(getproperty(tab, col)) for col in Tables.columnnames(tab))
 
+include("per_term_ad.jl")
 include("likelihoods/system.jl")
 include("likelihoods/relative-astrometry.jl")
 include("likelihoods/photometry.jl")

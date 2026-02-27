@@ -17,27 +17,36 @@ Evaluation context for system-level observations (e.g., RV, proper motion anomal
 - `θ_obs::NamedTuple` - Observation-specific parameters (offset, jitter, etc.)
 - `orbits::NTuple{N,TOrbit}` - Tuple of all planet orbits
 - `orbit_solutions::NTuple{N,TSolutions}` - Pre-solved orbit solutions for all planets
-- `orbit_solutions_i_epoch_start::Int` - Starting index into solutions array (0-based)
 """
-struct SystemObservationContext{TSystem<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions} <: AbstractObservationContext
+struct SystemObservationContext{TSystem<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions,TWS} <: AbstractObservationContext
     θ_system::TSystem
     θ_obs::TObs
     orbits::NTuple{N,TOrbit}
-    orbit_solutions::NTuple{N,TSolutions}
-    orbit_solutions_i_epoch_start::Int
+    orbit_solutions::TSolutions
+    workspace::TWS
 end
 
-# Outer constructor with type inference
+# Full constructor with workspace
 function SystemObservationContext(
     θ_system,
     θ_obs,
     orbits,
     orbit_solutions,
-    orbit_solutions_i_epoch_start::Int
+    workspace,
 )
-    return SystemObservationContext{typeof(θ_system),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions)}(
-        θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start
+    return SystemObservationContext{typeof(θ_system),typeof(θ_obs),length(orbits),eltype(orbits),typeof(orbit_solutions),typeof(workspace)}(
+        θ_system, θ_obs, orbits, orbit_solutions, workspace
     )
+end
+
+# Backward-compatible constructor (workspace defaults to nothing)
+function SystemObservationContext(
+    θ_system,
+    θ_obs,
+    orbits,
+    orbit_solutions,
+)
+    return SystemObservationContext(θ_system, θ_obs, orbits, orbit_solutions, nothing)
 end
 
 """
@@ -52,19 +61,18 @@ Evaluation context for planet-level observations (e.g., relative astrometry).
 - `orbits::NTuple{N,TOrbit}` - Tuple of all planet orbits
 - `orbit_solutions::NTuple{N,TSolutions}` - Pre-solved orbit solutions for all planets
 - `i_planet::Int` - Index of this planet in the orbits/solutions arrays
-- `orbit_solutions_i_epoch_start::Int` - Starting index into solutions array (0-based)
 """
-struct PlanetObservationContext{TSystem<:NamedTuple,TPlanet<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions} <: AbstractObservationContext
+struct PlanetObservationContext{TSystem<:NamedTuple,TPlanet<:NamedTuple,TObs<:NamedTuple,N,TOrbit<:AbstractOrbit,TSolutions,TWS} <: AbstractObservationContext
     θ_system::TSystem
     θ_planet::TPlanet
     θ_obs::TObs
     orbits::NTuple{N,TOrbit}
-    orbit_solutions::NTuple{N,TSolutions}
+    orbit_solutions::TSolutions
     i_planet::Int
-    orbit_solutions_i_epoch_start::Int
+    workspace::TWS
 end
 
-# Outer constructor with type inference
+# Full constructor with workspace
 function PlanetObservationContext(
     θ_system,
     θ_planet,
@@ -72,11 +80,23 @@ function PlanetObservationContext(
     orbits,
     orbit_solutions,
     i_planet::Int,
-    orbit_solutions_i_epoch_start::Int
+    workspace,
 )
-    return PlanetObservationContext{typeof(θ_system),typeof(θ_planet),typeof(θ_obs),length(orbits),eltype(orbits),eltype(orbit_solutions)}(
-        θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start
+    return PlanetObservationContext{typeof(θ_system),typeof(θ_planet),typeof(θ_obs),length(orbits),eltype(orbits),typeof(orbit_solutions),typeof(workspace)}(
+        θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, workspace
     )
+end
+
+# Backward-compatible constructor (workspace defaults to nothing)
+function PlanetObservationContext(
+    θ_system,
+    θ_planet,
+    θ_obs,
+    orbits,
+    orbit_solutions,
+    i_planet::Int,
+)
+    return PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, nothing)
 end
 
 
@@ -310,11 +330,21 @@ end
 TypedTables.Table(like::UnitLengthPrior) = nothing
 
 # System-level UnitLengthPrior
+# Inlined logpdf of LogNormal(0, σ) to avoid Distributions.jl constructor
+# which pulls in Roots.jl → BigFloat, breaking Enzyme AD.
+# logpdf(LogNormal(0, σ), x) = -log(x) - log(σ) - 0.5*log(2π) - 0.5*(log(x)/σ)^2
+const _ulp_σ = 0.1
+const _ulp_const = -log(_ulp_σ) - 0.5*log(2π)
+@inline function _ulp_logpdf(vector_length)
+    lx = log(vector_length)
+    return _ulp_const - lx - 0.5*(lx/_ulp_σ)^2
+end
+
 function ln_like(::UnitLengthPrior{X,Y}, ctx::SystemObservationContext) where {X,Y}
     x = getproperty(ctx.θ_system, X)
     y = getproperty(ctx.θ_system, Y)
     vector_length = sqrt(x^2 + y^2)
-    return logpdf(LogNormal(log(1.0), 0.1), vector_length);
+    return _ulp_logpdf(vector_length)
 end
 
 # Planet-level UnitLengthPrior
@@ -323,7 +353,7 @@ function ln_like(::UnitLengthPrior{X,Y}, ctx::PlanetObservationContext) where {X
     x = getproperty(θ, X)
     y = getproperty(θ, Y)
     vector_length = sqrt(x^2 + y^2)
-    return logpdf(LogNormal(log(1.0), 0.1), vector_length);
+    return _ulp_logpdf(vector_length)
 end
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize like::UnitLengthPrior{X,Y}) where {X,Y}
     T = typeof(like)
@@ -423,18 +453,20 @@ Must be constructed with a block of priors, and optionally
 additional derived parameters and/or sastrometry.
 `name` must be a symbol, e.g. `:b`.
 """
-struct Planet{TElem<:AbstractOrbit, TP<:Priors,TD<:Union{Derived,Nothing},TObs<:Tuple}
+struct Planet{TElem<:AbstractOrbit, TP<:Priors,TD<:Union{Derived,Nothing},TObs<:Tuple,TSolver<:PlanetOrbits.AbstractSolver}
     priors::TP
     derived::TD
     observations::TObs
     name::Symbol
+    solver::TSolver
 end
 export Planet
 function Planet(;
     name::Union{Symbol,AbstractString},
     basis::Type,
     variables::Tuple,
-    observations=()
+    observations=(),
+    solver::PlanetOrbits.AbstractSolver=PlanetOrbits.Auto()
 )
     (priors,derived,additional_likelihoods...)=variables
     name = Symbol(name)
@@ -445,7 +477,7 @@ function Planet(;
         l::AbstractLikelihood
     end
     likes = (observations..., additional_likelihoods...)
-    
+
     # Check for duplicate observation/likelihood names on this planet
     like_names = String[]
     for like in likes
@@ -455,7 +487,7 @@ function Planet(;
         end
         push!(like_names, like_name)
     end
-    
+
     # Check for duplicate variables in Prior and Derived blocks
     prior_keys = Set(keys(priors.priors))
     if !isnothing(derived)
@@ -465,11 +497,11 @@ function Planet(;
             error("Planet $name: Variables $(collect(overlap)) are defined as both a prior (~) and derived variable (=). Each variable must be defined only once.")
         end
     end
-    
+
     return Planet{
         basis,
-        typeof(priors),typeof(derived),typeof(likes)
-    }(priors, derived, likes, name)
+        typeof(priors),typeof(derived),typeof(likes),typeof(solver)
+    }(priors, derived, likes, name, solver)
 end
 
 
@@ -591,7 +623,12 @@ end
 function list_parameter_names(system::System)
     return map(((k,v),)->k, Iterators.flatten([
         system.priors.priors,
-        [planet.priors.priors for planet in system.planets]...
+        [obs.priors.priors for obs in system.observations if hasproperty(obs, :priors)]...,
+        Iterators.flatten([
+            [planet.priors.priors,
+             [obs.priors.priors for obs in planet.observations if hasproperty(obs, :priors)]...]
+            for planet in system.planets
+        ])...,
     ]))
 end
 
@@ -1003,7 +1040,7 @@ function make_arr2nt(system::System)
     # It maps an array of parameters into our nested named tuple structure
     # Note: eval() would normally work fine here, but sometimes we can hit "world age problems"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
-    func = @RuntimeGeneratedFunction(:(function (arr)
+    func = eval(:(function (arr)
         l = $i
         @boundscheck if length(arr) != l
             error("Expected exactly $l elements in array. Got ", length(arr))
@@ -1149,7 +1186,7 @@ function make_ln_prior(system::System)
     # It maps an array of parameters into our nested named tuple structure
     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (arr)
+    return eval(:(function (arr)
         l = $i
         @boundscheck if length(arr) != l
             error("Expected exactly $l elements in array (got $(length(arr)))")
@@ -1319,7 +1356,7 @@ function make_ln_prior_transformed(system::System)
     # It maps an array of parameters into our nested named tuple structure
     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (arr,sampled)
+    return eval(:(function (arr,sampled)
         l = $i
         @boundscheck if length(arr) != l
             error("Expected exactly $l elements in array (got $(length(arr)))")
@@ -1399,7 +1436,7 @@ function make_prior_sampler(system::System)
     # It maps an array of parameters into our nested named tuple structure
     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (rng)
+    return eval(:(function (rng)
         prior_samples = ()
         @inbounds begin
            $(prior_sample_expressions...)
@@ -1441,7 +1478,7 @@ function make_Bijector_invlinkvec(priors_vec)
     # It maps an array of parameters into our nested named tuple structure
     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (arr)
+    return eval(:(function (arr)
         l = $i
         # theta_out = zeros(eltype(arr), l)
         @boundscheck if length(arr) != l

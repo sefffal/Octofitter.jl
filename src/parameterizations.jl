@@ -1,55 +1,54 @@
 
 using Octofitter.StaticArrays
 
-# We want this to work with both Campbell and Thiele-Innes parameterizations
+# We want this to work with both Campbell and Thiele-Innes parameterizations.
+# All keyword arguments are listed explicitly (no kwargs... splatting) to avoid
+# NTuple/SimpleVector allocations inside the Enzyme AD boundary.
 export θ_at_epoch_to_tperi
-function θ_at_epoch_to_tperi(θ, theta_epoch; M, e, kwargs...)
-
-    kw = NamedTuple(kwargs)
-    if  haskey(kw, :B) &&
-        haskey(kw, :G) &&
-        haskey(kw, :A) &&
-        haskey(kw, :F)
-        (;plx,B,G,A,F) = kw
-
-        # Math in order to get semi-major axis -> mean motion and period (already in TI constructor)
+@inline function θ_at_epoch_to_tperi(θ, theta_epoch;
+    M, e,
+    # Campbell parameterization (pass NaN for unused params to keep all-Float64 kwargs)
+    a=NaN, P=NaN, i=NaN, ω=NaN, Ω=NaN,
+    # Thiele-Innes parameterization
+    plx=NaN, B=NaN, G=NaN, A=NaN, F=NaN,
+)
+    if !isnan(B) && !isnan(G) && !isnan(A) && !isnan(F)
+        # Thiele-Innes parameterization
         u = (A^2 + B^2 + F^2 + G^2)/2
         v = A*G - B * F
         α = sqrt(u + sqrt((u+v)*(u-v)))
-        a = α/plx
-    elseif haskey(kw, :i) &&
-           haskey(kw, :Ω) &&
-           haskey(kw, :ω)
-
-        if haskey(kw, :a)
-            (;a) = kw
-        elseif haskey(kw, :P)
-            (; P) = kw
-            a = ∛(system.M * b.P^2)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
+        a_val = α/plx
+        _θ_at_epoch_to_tperi_inner(θ, theta_epoch, M, e, a_val, A, B, F, G)
+    elseif !isnan(i) && !isnan(Ω) && !isnan(ω)
+        # Campbell parameterization
+        if !isnan(a)
+            a_val = a
+        elseif !isnan(P)
+            a_val = ∛(M * P^2)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
         else
             error("Your planet must specify either i, Ω, ω, and a/P, or B, G, A, F.")
         end
-
-        (;i, Ω, ω) = kw
-        A = ( cos(Ω)*cos(ω)-sin(Ω)*sin(ω)*cos(i))
-        B = ( sin(Ω)*cos(ω)+cos(Ω)*sin(ω)*cos(i))
-        F = (-cos(Ω)*sin(ω)-sin(Ω)*cos(ω)*cos(i))
-        G = (-sin(Ω)*sin(ω)+cos(Ω)*cos(ω)*cos(i))
+        A_val = ( cos(Ω)*cos(ω)-sin(Ω)*sin(ω)*cos(i))
+        B_val = ( sin(Ω)*cos(ω)+cos(Ω)*sin(ω)*cos(i))
+        F_val = (-cos(Ω)*sin(ω)-sin(Ω)*cos(ω)*cos(i))
+        G_val = (-sin(Ω)*sin(ω)+cos(Ω)*cos(ω)*cos(i))
+        _θ_at_epoch_to_tperi_inner(θ, theta_epoch, M, e, a_val, A_val, B_val, F_val, G_val)
     else
         error("Your planet must specify either i, Ω, ω, and a/P, or B, G, A, F.")
     end
+end
 
-    # Thiele-Innes transformation matrix
-    T = @SArray [
-        A F
-        B G
-    ]
-    x_over_r, y_over_r = T \ @SArray[
-        cos(θ)
-        sin(θ)
-    ]
-    # Note: this is missing the radius factor but we don't need it for true anomaly.
-    # r = sqrt((sol.x*sol.elem.B+sol.y*sol.elem.G)^2 + (sol.x*sol.elem.A + sol.y*sol.elem.F)^2 )
+# Shared inner computation: all parameterizations converge here after computing a, A, B, F, G.
+@inline function _θ_at_epoch_to_tperi_inner(θ, theta_epoch, M, e, a, A, B, F, G)
+    # Deproject observed position angle through Thiele-Innes matrix T = [A F; B G].
+    # Mathematically equivalent to: x_over_r, y_over_r = T \ [cos(θ), sin(θ)]
+    # Inlined as Cramer's rule so Enzyme only sees scalar arithmetic — the SMatrix `\`
+    # reverse pass falls through to LAPACK and allocates workspace buffers per call.
+    cosθ = cos(θ)
+    sinθ = sin(θ)
+    det_T = A*G - F*B
+    x_over_r = ( G*cosθ - F*sinθ) / det_T
+    y_over_r = (A*sinθ - B*cosθ) / det_T
 
     # True anomaly is now straightforward to calculate in the deprojected coordinate space
     ν = atan(y_over_r,x_over_r)
@@ -120,29 +119,15 @@ function θ_ωθ_at_epoch_to_ω_tperi(system,planet,theta_epoch)
     G = (-sin(Ω)*sin(ω)+cos(Ω)*cos(ω)*cos(i))
 
 
-    T = @SArray [
-        A F
-        B G
-    ]
-
-    # Note: this is missing the radius factor but we don't need it for true anomaly.
-    # r = sqrt((sol.x*sol.elem.B+sol.y*sol.elem.G)^2 + (sol.x*sol.elem.A + sol.y*sol.elem.F)^2 )
-
-    # True anomaly is now straightforward to calculate in the deprojected coordinate space
-
-
-
-    # Thiele-Innes transformation matrix
-    T = @SArray [
-        A F
-        B G
-    ]
-    x_over_r, y_over_r = T \ @SArray[
-        cos(θ)
-        sin(θ)
-    ]
-    # Note: this is missing the radius factor but we don't need it for true anomaly.
-    # r = sqrt((sol.x*sol.elem.B+sol.y*sol.elem.G)^2 + (sol.x*sol.elem.A + sol.y*sol.elem.F)^2 )
+    # Deproject observed position angle through Thiele-Innes matrix T = [A F; B G].
+    # Mathematically equivalent to: x_over_r, y_over_r = T \ [cos(θ), sin(θ)]
+    # Inlined as Cramer's rule so Enzyme only sees scalar arithmetic — the SMatrix `\`
+    # reverse pass falls through to LAPACK and allocates workspace buffers per call.
+    cosθ = cos(θ)
+    sinθ = sin(θ)
+    det_T = A*G - F*B
+    x_over_r = ( G*cosθ - F*sinθ) / det_T
+    y_over_r = (A*sinθ - B*cosθ) / det_T
 
     # True anomaly is now straightforward to calculate in the deprojected coordinate space
     ν = atan(y_over_r,x_over_r)
@@ -166,23 +151,15 @@ function θ_sep_at_epoch_to_tperi_sma(system,planet,theta_epoch)
     F = (-cos(Ω)*sin(ω)-sin(Ω)*cos(ω)*cos(i))
     G = (-sin(Ω)*sin(ω)+cos(Ω)*cos(ω)*cos(i))
 
-    # Thiele-Innes transformation matrix
-    T = @SArray [
-        A F
-        B G
-    ]
-    x_over_r, y_over_r = T \ @SArray[
-        cos(θ)
-        sin(θ)
-    ]
-    # Note: this is missing the radius factor but we don't need it for true anomaly.
-    # r = sqrt((sol.x*sol.elem.B+sol.y*sol.elem.G)^2 + (sol.x*sol.elem.A + sol.y*sol.elem.F)^2 )
-    #  sqrt(r^2* (x*B+y*G)^2 + r^2 * (x*A + y*F)^2)
-    #  sqrt(r^2* (x*B+y*G)^2 + r^2 * (x*A + y*F)^2)
-    # r * sqrt(r^2* (x*B+y*G)^2 + r^2 * (x*A + y*F)^2)
-    # r_unit = sqrt(
-    #     (x_over_r*B+y_over_r*G)^2 + (x_over_r*A + y_over_r*F)^2
-    # )
+    # Deproject observed position angle through Thiele-Innes matrix T = [A F; B G].
+    # Mathematically equivalent to: x_over_r, y_over_r = T \ [cos(θ), sin(θ)]
+    # Inlined as Cramer's rule so Enzyme only sees scalar arithmetic — the SMatrix `\`
+    # reverse pass falls through to LAPACK and allocates workspace buffers per call.
+    cosθ = cos(θ)
+    sinθ = sin(θ)
+    det_T = A*G - F*B
+    x_over_r = ( G*cosθ - F*sinθ) / det_T
+    y_over_r = (A*sinθ - B*cosθ) / det_T
 
 
     # True anomaly is now straightforward to calculate in the deprojected coordinate space

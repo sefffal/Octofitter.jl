@@ -39,6 +39,23 @@ end
 const GaiaDR4Astrom = GaiaDR4AstromObs
 export GaiaDR4AstromObs, GaiaDR4Astrom
 
+# Use plain Enzyme reverse-mode without runtime activity overhead.
+# The Const/Active mixing issues in construct_orbits and solve_ephemerides have been
+# resolved (merge elimination, Duplicated workspace epochs), so static activity
+# analysis succeeds. Requires Enzyme.API.maxtypeoffset!(1024) due to KepOrbit's
+# 23-field (184-byte) inline struct.
+Octofitter.ad_backend(::GaiaDR4AstromObs) = AutoEnzyme(mode=Reverse, function_annotation=Const)
+
+function Octofitter.alloc_obs_workspace(obs::GaiaDR4AstromObs, ::Type{T}) where T
+    N = size(obs.table, 1)
+    ra_offset = Vector{T}(undef, N)
+    dec_offset = Vector{T}(undef, N)
+    along_scan = Vector{T}(undef, N)
+    pert_ra = obs.primary_star_perturbation ? Vector{T}(undef, N) : nothing
+    pert_dec = obs.primary_star_perturbation ? Vector{T}(undef, N) : nothing
+    return (; ra_offset, dec_offset, along_scan, pert_ra, pert_dec)
+end
+
 function GaiaDR4AstromObs(
     observations_table;
     gaia_id,
@@ -90,54 +107,50 @@ function Octofitter.ln_like(
     likeobj::GaiaDR4AstromObs,
     ctx::SystemObservationContext
 )
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions, workspace) = ctx
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
-
-
-    # We separate out the the likelihood function into a `simulate` phase, 
-    # and then use the results here to compute the lieklihood.
-    # This way we can re-use the simulator for plots, generating fake data,
-    # etc.
 
     # Get astrometric jitter from observation variables
     astrometric_jitter = hasproperty(θ_obs, :astrometric_jitter) ? θ_obs.astrometric_jitter : zero(T)
     astrometric_var = astrometric_jitter^2
 
-    # Use Bumper.jl to avoid memory allocation overhead
-    @no_escape begin
-        N = size(likeobj.table,1)
-        # Allocate memory to simulate the along scan residuals
-        ra_offset_buffer = @alloc(T, N)
-        dec_offset_buffer = @alloc(T, N)
-        centroid_pos_al_model_buffer = @alloc(T, N)
-        # Extra buffers for primary_star_perturbation detrending
-        pert_ra_buffer = likeobj.primary_star_perturbation ? @alloc(T, N) : nothing
-        pert_dec_buffer = likeobj.primary_star_perturbation ? @alloc(T, N) : nothing
-        centroid_pos_al_model = Octofitter.simulate(
-            likeobj,
-            θ_system,
-            θ_obs,
-            orbits,
-            orbit_solutions,
-            orbit_solutions_i_epoch_start,
-            ra_offset_buffer,
-            dec_offset_buffer,
-            centroid_pos_al_model_buffer,
-            pert_ra_buffer,
-            pert_dec_buffer,
-        )
-        # TODO: do we want to fit for a correlation parameter within each visibility window?
-        # Extract the along-scan residuals from the NamedTuple returned by simulate
-        along_scan_model = centroid_pos_al_model.along_scan_residuals_buffer
-        for i in eachindex(likeobj.table.centroid_pos_al, along_scan_model)
-            # There's an "outlier flag" -- I assume we should ignore ones that are flagged?
-            if hasproperty(likeobj.table, :outlier_flag) && likeobj.table.outlier_flag[i] > 0
-                continue
-            end
-            σ = sqrt(astrometric_var + likeobj.table.centroid_pos_error_al[i]^2)
-            ll += logpdf(Normal(likeobj.table.centroid_pos_al[i], σ), along_scan_model[i])
+    N = size(likeobj.table,1)
+    # Use pre-allocated workspace buffers if available, otherwise allocate
+    if workspace !== nothing
+        ra_offset_buffer = workspace.ra_offset
+        dec_offset_buffer = workspace.dec_offset
+        centroid_pos_al_model_buffer = workspace.along_scan
+        pert_ra_buffer = workspace.pert_ra
+        pert_dec_buffer = workspace.pert_dec
+    else
+        ra_offset_buffer = Vector{T}(undef, N)
+        dec_offset_buffer = Vector{T}(undef, N)
+        centroid_pos_al_model_buffer = Vector{T}(undef, N)
+        pert_ra_buffer = likeobj.primary_star_perturbation ? Vector{T}(undef, N) : nothing
+        pert_dec_buffer = likeobj.primary_star_perturbation ? Vector{T}(undef, N) : nothing
+    end
+    centroid_pos_al_model = @inline Octofitter.simulate(
+        likeobj,
+        θ_system,
+        θ_obs,
+        orbits,
+        orbit_solutions,
+        ra_offset_buffer,
+        dec_offset_buffer,
+        centroid_pos_al_model_buffer,
+        pert_ra_buffer,
+        pert_dec_buffer,
+    )
+    # Extract the along-scan residuals from the NamedTuple returned by simulate
+    along_scan_model = centroid_pos_al_model.along_scan_residuals_buffer
+    for i in eachindex(likeobj.table.centroid_pos_al, along_scan_model)
+        if hasproperty(likeobj.table, :outlier_flag) && likeobj.table.outlier_flag[i] > 0
+            continue
         end
+        var_i = astrometric_var + likeobj.table.centroid_pos_error_al[i]^2
+        resid = along_scan_model[i] - likeobj.table.centroid_pos_al[i]
+        ll -= (resid^2 / var_i + log(var_i) + log(T(2π))) / 2
     end
 
     return ll
@@ -149,7 +162,6 @@ function Octofitter.simulate(
     θ_obs,
     orbits,
     orbit_solutions,
-    orbit_solutions_i_epoch_start,
     ra_offset_buffer=zeros(size(likeobj.table.epoch)),
     dec_offset_buffer=zeros(size(likeobj.table.epoch)),
     along_scan_residuals_buffer=zeros(size(likeobj.table.epoch)),
@@ -176,7 +188,7 @@ function Octofitter.simulate(
     # Compute position + proper motion at each epoch
     for i in eachindex(likeobj.table.epoch)
 
-        orbitsol = first(orbit_solutions)[i+orbit_solutions_i_epoch_start]
+        orbitsol = first(orbit_solutions)[i]
 
         # fast path, not accounting for higher order effects
         if !(orbitsol isa PlanetOrbits.OrbitSolutionAbsoluteVisual)
@@ -210,7 +222,7 @@ function Octofitter.simulate(
             pert_ra = zero(T)
             pert_dec = zero(T)
             for planet_i in eachindex(orbits)
-                sol = orbit_solutions[planet_i][i+orbit_solutions_i_epoch_start]
+                sol = orbit_solutions[planet_i][i]
                 pert_ra += raoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
                 pert_dec += decoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
             end
@@ -235,7 +247,7 @@ function Octofitter.simulate(
         # Original mode: add full perturbation (barycentric parameterization)
         for i in eachindex(likeobj.table.epoch)
             for planet_i in eachindex(orbits)
-                sol = orbit_solutions[planet_i][i+orbit_solutions_i_epoch_start]
+                sol = orbit_solutions[planet_i][i]
                 ra_offset_buffer[i] += raoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
                 dec_offset_buffer[i] += decoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
             end
@@ -262,8 +274,8 @@ end
 
 # Generate new astrometry observations
 function Octofitter.generate_from_params(obs::GaiaDR4AstromObs, ctx::SystemObservationContext; add_noise)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
-    sim_result = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
+    sim_result = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions)
     # Extract the along-scan residuals from the NamedTuple returned by simulate
     along_scan_residuals = sim_result.along_scan_residuals_buffer
 

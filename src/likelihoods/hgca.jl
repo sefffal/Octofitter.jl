@@ -153,7 +153,7 @@ Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motio
 using 5 position measurements averaged at each of their epochs.
 """
 function ln_like(obs::HGCAInstantaneousObs, ctx::SystemObservationContext)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
     ll = 0.0
 
     (;
@@ -163,7 +163,7 @@ function ln_like(obs::HGCAInstantaneousObs, ctx::SystemObservationContext)
         pmdec_gaia_model,
         pmra_hg_model,
         pmdec_hg_model,
-    ) = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    ) = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions)
 
 
     absolute_orbits = false
@@ -216,7 +216,7 @@ function ln_like(obs::HGCAInstantaneousObs, ctx::SystemObservationContext)
 end
 
 
-function simulate(pma::HGCAInstantaneousObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+function simulate(pma::HGCAInstantaneousObs, θ_system, θ_obs, orbits, orbit_solutions)
     T = Octofitter._system_number_type(θ_system)
 
     # Look at the position of the star around both epochs to calculate 
@@ -262,12 +262,7 @@ function simulate(pma::HGCAInstantaneousObs, θ_system, θ_obs, orbits, orbit_so
             if pma.table.inst[i_epoch] != :hip
                 continue
             end
-            if orbit_solutions_i_epoch_start >= 0
-                sol = orbit_solutions[i_planet][orbit_solutions_i_epoch_start+i_epoch]
-                @assert isapprox(pma.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
-            else
-                sol = orbitsolve(orbit, pma.table.epoch[i_epoch])
-            end
+            sol = orbit_solutions[i_planet][i_epoch]
             if pma.table.meas[i_epoch] == :ra
                 N_ave_hip_ra += 1
                 epoch_hip_ra += pma.table.epoch[i_epoch]
@@ -321,12 +316,7 @@ function simulate(pma::HGCAInstantaneousObs, θ_system, θ_obs, orbits, orbit_so
             if pma.table.inst[i_epoch] != :gaia
                 continue
             end
-            if orbit_solutions_i_epoch_start >= 0
-                sol = orbit_solutions[i_planet][orbit_solutions_i_epoch_start+i_epoch]
-                @assert isapprox(pma.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
-            else
-                sol = orbitsolve(orbit, pma.table.epoch[i_epoch])
-            end
+            sol = orbit_solutions[i_planet][i_epoch]
             if pma.table.meas[i_epoch] == :ra
                 N_ave_gaia_ra += 1
                 epoch_gaia_ra += pma.table.epoch[i_epoch]
@@ -412,7 +402,7 @@ end
 Specific HGCA proper motion modelling. Model the GAIA-Hipparcos/Δt proper motion
 using 25 position measurements averaged at each of their epochs.
 """
-function simulate_observation(hgca_like::HGCAInstantaneousObs, θ_system, θ_obs, orbits, solutions, sol_start_i)
+function simulate_observation(hgca_like::HGCAInstantaneousObs, θ_system, θ_obs, orbits, solutions)
 
     (;
         pmra_hip_model,
@@ -421,7 +411,7 @@ function simulate_observation(hgca_like::HGCAInstantaneousObs, θ_system, θ_obs
         pmdec_gaia_model,
         pmra_hg_model,
         pmdec_hg_model,
-    ) = simulate(hgca_like, θ_system, θ_obs, orbits, solutions, sol_start_i)
+    ) = simulate(hgca_like, θ_system, θ_obs, orbits, solutions)
 
     # Merge the measurements together into a new observation and add noise according to the sigma
     # we were passed in from the original measurements

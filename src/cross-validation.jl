@@ -22,27 +22,30 @@ function pointwise_like(model, chain)
     ln_likes_tuple = Tuple(ln_likes)
     systems_tuple = Tuple(per_obs_systems)
     
-    # Preallocate output array
-    LL_out = zeros(length(sample_nts), length(per_obs_systems))
-    
     # Disable threading in the solver -- we will thread in the outer loop
     Octofitter._kepsolve_use_threads[] = false
 
     @info "Calculating..."
+
+    LL_out = Base.invokelatest() do 
     
-    # Compute likelihoods for each sample
-    Threads.@threads for i_sample in 1:size(LL_out, 1)
-        @printf("Sample %5d ", i_sample)
-        # Use the specialized function to get all likelihoods at once -- this compiles into faster code
-        # than just looping through them here (triggers a bunch of dynamic dispatches)
-        likelihoods = run_all_functions(ln_likes_tuple, systems_tuple, sample_nts[i_sample])
+        # Preallocate output array
+        LL_out = zeros(length(sample_nts), length(per_obs_systems))
         
-        # Store results in output array
-        for i_obs in 1:size(LL_out, 2)
-            print('.')
-            LL_out[i_sample, i_obs] = likelihoods[i_obs]
+        # Compute likelihoods for each sample
+        Threads.@threads for i_sample in 1:size(LL_out, 1)
+            @printf("Sample %5d ", i_sample)
+            # Use the specialized function to get all likelihoods at once -- this compiles into faster code
+            # than just looping through them here (triggers a bunch of dynamic dispatches)
+            likelihoods = run_all_functions(ln_likes_tuple, systems_tuple, sample_nts[i_sample])
+            
+            # Store results in output array
+            for i_obs in 1:size(LL_out, 2)
+                print('.')
+                LL_out[i_sample, i_obs] = likelihoods[i_obs]
+            end
+            println()
         end
-        println()
     end
     
     return LL_out, epochs

@@ -320,10 +320,10 @@ function pmaplot!(
             end
             if hasproperty(hgca_like, :table)
                 solutions = [() for _ in length(model.system.planets)]
-                sim = Octofitter.simulate(hgca_like, θ_system, θ_obs, orbits, solutions, -1)
+                sim = Octofitter.simulate(hgca_like, θ_system, θ_obs, orbits, solutions)
             else
                 solutions = [() for _ in length(model.system.planets)]
-                sim = Octofitter.simulate(hgca_like, θ_system, θ_obs, orbits, solutions, -1)
+                sim = Octofitter.simulate(hgca_like, θ_system, θ_obs, orbits, solutions)
             end
             push!(sims, sim)
         end
@@ -564,7 +564,7 @@ function pmaplot!(
                 θ_obs = θ_system.observations[name]
             end
 
-            sim = Octofitter.simulate(gaialike, θ_system,θ_obs, orbits, solutions, 0)
+            sim = Octofitter.simulate(gaialike, θ_system,θ_obs, orbits, solutions)
             push!(sims, sim[2])
         end
 

@@ -100,9 +100,16 @@ const PlanetRelativeRVLikelihood = PlanetRelativeRVObs
 
 export PlanetRelativeRVObs, PlanetRelativeRVLikelihood
 
+function Octofitter.alloc_obs_workspace(obs::PlanetRelativeRVObs, ::Type{T}) where T
+    L = length(obs.table.epoch)
+    rv_model_buf = Vector{T}(undef, L)
+    rv_residuals = Vector{T}(undef, L)
+    noise_var = Vector{T}(undef, L)
+    return (; rv_model_buf, rv_residuals, noise_var)
+end
 
 # In-place simulation logic for PlanetRelativeRVObs (performance-critical)
-function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
     this_orbit = orbits[i_planet]
     
     # Data for this instrument:
@@ -113,7 +120,7 @@ function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVObs, θ_syst
     
     # Add RV contribution from this planet and any inner planets:
     for i_epoch in eachindex(epochs)
-        sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
+        sol = orbit_solutions[i_planet][i_epoch]
         @assert isapprox(rvlike.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
         # Relative RV due to planet
         rv_model_buf[i_epoch] += radvel(sol)
@@ -127,7 +134,7 @@ function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVObs, θ_syst
                     continue
                 end
                 mass_other = θ_planet′.mass*Octofitter.mjup2msol
-                sol′ = orbit_solutions[i_other_planet][i_epoch + orbit_solutions_i_epoch_start]
+                sol′ = orbit_solutions[i_other_planet][i_epoch]
                 
                 rv_model_buf[i_epoch] += radvel(sol′, mass_other)
                 
@@ -140,10 +147,10 @@ function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVObs, θ_syst
 end
 
 # Allocating simulation logic for PlanetRelativeRVObs (convenience method)
-function Octofitter.simulate(rvlike::PlanetRelativeRVObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+function Octofitter.simulate(rvlike::PlanetRelativeRVObs, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
     T = Octofitter._system_number_type(θ_planet)
     rv_model_buf = Vector{T}(undef, length(rvlike.table.epoch))
-    return Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    return Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
 end
 
 
@@ -151,56 +158,54 @@ end
 Radial velocity likelihood.
 """
 function Octofitter.ln_like(rvlike::PlanetRelativeRVObs, ctx::Octofitter.PlanetObservationContext)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, workspace) = ctx
     T = Octofitter._system_number_type(θ_planet)
     ll = zero(T)
-    
+
     # Data for this instrument:
     epochs = vec(rvlike.table.epoch)
     σ_rvs = vec(rvlike.table.σ_rv)
     rvs = vec(rvlike.table.rv)
     jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero(T)
 
-    @no_escape begin
-        # Allocate buffers using bump allocator
-        rv_model_buf = @alloc(T, length(epochs))
-        rv_residuals = @alloc(T, length(epochs))
-        noise_var = @alloc(T, length(epochs))
-        
-        # Use in-place simulation method to get model values
-        sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start)
+    # Use pre-allocated workspace buffers if available, otherwise allocate
+    if workspace !== nothing
+        rv_model_buf = workspace.rv_model_buf
+        rv_residuals = workspace.rv_residuals
+        noise_var = workspace.noise_var
+    else
+        rv_model_buf = Vector{T}(undef, length(epochs))
+        rv_residuals = Vector{T}(undef, length(epochs))
+        noise_var = Vector{T}(undef, length(epochs))
+    end
 
-        # Compute residuals: observed - model
-        rv_residuals .= rvs .- rv_model_buf
+    # Use in-place simulation method to get model values
+    sim = Octofitter.simulate!(rv_model_buf, rvlike, θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet)
 
-        # The noise variance per observation is the measurement noise and the jitter added
-        # in quadrature
-        noise_var .= σ_rvs.^2 .+ jitter^2
+    # Compute residuals: observed - model
+    rv_residuals .= rvs .- rv_model_buf
 
-        # Two code paths, depending on if we are modelling the residuals by 
-        # a Gaussian process or not.
-        if isnothing(rvlike.gaussian_process)
-            # Don't fit a GP
-            fx = MvNormal(Diagonal((noise_var)))
-            ll += logpdf(fx, rv_residuals)
-        else
-            # Fit a GP
-            local gp
-            try
-                gp = @inline rvlike.gaussian_process(θ_obs)
-                fx = gp(epochs, noise_var)
-                ll += logpdf(fx, rv_residuals)
-            catch err
-                if err isa PosDefException
-                    # @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                    ll = convert(T, -Inf)
-                elseif err isa ArgumentError
-                    # @warn "err" exception=(err, catch_backtrace()) maxlog=1
-                    ll = convert(T, -Inf)
-                else
-                    rethrow(err)
-                end
-            end                
+    # The noise variance per observation is the measurement noise and the jitter added
+    # in quadrature
+    noise_var .= σ_rvs.^2 .+ jitter^2
+
+    # Two code paths, depending on if we are modelling the residuals by
+    # a Gaussian process or not.
+    if isnothing(rvlike.gaussian_process)
+        # Don't fit a GP
+        fx = MvNormal(Diagonal((noise_var)))
+        ll += logpdf(fx, rv_residuals)
+    else
+        # Fit a GP
+        # Note: try-catch removed for Enzyme AD compatibility.
+        # Invalid GP parameters (e.g. DomainError from log of negative) will
+        # produce NaN, which we detect and convert to -Inf.
+        gp = @inline rvlike.gaussian_process(θ_obs)
+        fx = gp(epochs, noise_var)
+        ll += logpdf(fx, rv_residuals)
+        # Convert NaN (from invalid GP params like log of negative) to -Inf
+        if !isfinite(ll)
+            ll = convert(T, -Inf)
         end
     end
 
@@ -208,35 +213,9 @@ function Octofitter.ln_like(rvlike::PlanetRelativeRVObs, ctx::Octofitter.PlanetO
 end
 
 
-# Generate new radial velocity observations for a planet
-function Octofitter.generate_from_params(like::MarginalizedStarAbsoluteRVObs, ctx::PlanetObservationContext; add_noise)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
-    
-
-    # Get epochs and uncertainties from observations
-    epochs = like.table.epoch
-    σ_rvs = like.table.σ_rv
-
-    # Generate new planet radial velocity data
-    rvs = radvel.(elem, epochs)
-    radvel_table = Table(epoch=epochs, rv=rvs, σ_rv=σ_rvs)
-
-    if add_noise
-        radvel_table.rv .+= randn.() .* σ_rvs
-    end
-
-    return PlanetRelativeRVObs(
-        radvel_table;
-        name=likelihoodname(like),
-        gaussian_process=like.gaussian_process,
-        variables=(like.priors, like.derived)
-    )
-end
-
-
 # Generate new radial velocity observations for a star
 function generate_from_params(like::PlanetRelativeRVObs, ctx::Octofitter.PlanetObservationContext; add_noise)
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = ctx
 
     # Get epochs, uncertainties, and planet masses from observations and parameters
     epochs = like.table.epoch

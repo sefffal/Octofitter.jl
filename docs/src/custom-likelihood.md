@@ -68,15 +68,15 @@ Try to follow the advice in the Julia Manual's performance tips section to ensur
 
 ## Create likelihood functions
 
-Now, create a method that extends `Octofitter.ln_obs` for your custom observation type.
+Now, create a method that extends `Octofitter.ln_like` for your custom observation type.
 
 If the observations are specific to a planet (like astrometry, where the data is attached to a planet instead of the system) then the method signature should use `PlanetObservationContext`:
 
 ```julia
 # MyObs: attached to a planet
-function Octofitter.ln_obs(obs::MyObs, ctx::PlanetObservationContext)
+function Octofitter.ln_like(obs::MyObs, ctx::PlanetObservationContext)
     # Destructure the context to access parameters
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = ctx
 
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
@@ -95,7 +95,7 @@ function Octofitter.ln_obs(obs::MyObs, ctx::PlanetObservationContext)
 
         # Method 1: Use pre-solved orbit solutions (efficient!)
         # Get the pre-solved orbit solution for this planet at this epoch
-        sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
+        sol = orbit_solutions[i_planet][i_epoch]
 
         # Extract position from pre-solved solution
         predicted = raoff(sol) + my_param  # example calculation using pre-solved position
@@ -118,9 +118,9 @@ end
 If the observations are attached to the system as a whole (like radial velocity), the method signature should use `SystemObservationContext`:
 ```julia
 # MyObs: attached to a system
-function Octofitter.ln_obs(obs::MyObs, ctx::SystemObservationContext)
+function Octofitter.ln_like(obs::MyObs, ctx::SystemObservationContext)
     # Destructure the context to access parameters
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_obs, orbits, orbit_solutions) = ctx
 
     T = Octofitter._system_number_type(θ_system)
     ll = zero(T)
@@ -141,7 +141,7 @@ function Octofitter.ln_obs(obs::MyObs, ctx::SystemObservationContext)
         predicted = zero(T)
         for planet_i in eachindex(orbits)
             # Get pre-solved solution for this planet at this epoch
-            sol = orbit_solutions[planet_i][i_epoch + orbit_solutions_i_epoch_start]
+            sol = orbit_solutions[planet_i][i_epoch]
 
             # Access planet-specific variables from θ_system.planets
             planet_keys = keys(θ_system.planets)
@@ -176,7 +176,7 @@ The observation context bundles all parameters needed for evaluation:
 - **`θ_system`**: System-level parameters like `M` (total mass), `plx` (parallax)
 - **`θ_planet`**: Planet-specific parameters like `a` (semi-major axis), `e` (eccentricity) (only in `PlanetObservationContext`)
 - **`θ_obs`**: Observation-specific parameters defined in the observation's `@variables` block
-- **`orbits`**, **`orbit_solutions`**, **`i_planet`**, **`orbit_solutions_i_epoch_start`**: Pre-computed orbital information for performance
+- **`orbits`**, **`orbit_solutions`**, **`i_planet`**: Pre-computed orbital information for performance
 
 ## Pre-solved Orbit Solutions (Performance Optimization)
 
@@ -184,7 +184,6 @@ For performance, Octofitter pre-solves orbits at all observation epochs and pass
 
 - **`orbits`**: PlanetOrbits.jl orbit objects, one per planet
 - **`orbit_solutions`**: Pre-solved orbit positions at each epoch
-- **`orbit_solutions_i_epoch_start`**: Starting indices for epoch arrays (planet case) or per-planet (system case)
 
 **Key advantages of using pre-solved solutions:**
 - **Much faster**: Orbit solving is expensive, pre-solving avoids repeated calculations
@@ -194,10 +193,10 @@ For performance, Octofitter pre-solves orbits at all observation epochs and pass
 **Usage patterns:**
 ```julia
 # Planet case: Get solution for this planet at epoch i
-sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
+sol = orbit_solutions[i_planet][i_epoch]
 
-# System case: Get solution for planet j at epoch i  
-sol = orbit_solutions[j][i_epoch + orbit_solutions_i_epoch_start[j]]
+# System case: Get solution for planet j at epoch i
+sol = orbit_solutions[j][i_epoch]
 
 # Extract positions from solution
 ra_offset = raoff(sol)      # RA offset in mas
@@ -255,7 +254,7 @@ Simply extend the `Octofitter.generate_from_params` function for your data type:
 # Generate new observations from model parameters
 function Octofitter.generate_from_params(like::MyObs, ctx::Octofitter.PlanetObservationContext; add_noise)
     # Unpack context
-    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet, orbit_solutions_i_epoch_start) = ctx
+    (; θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i_planet) = ctx
 
     # Get epochs from original observations
     epochs = like.table.epoch
@@ -265,7 +264,7 @@ function Octofitter.generate_from_params(like::MyObs, ctx::Octofitter.PlanetObse
     simulated_measurements = []
     for i_epoch in eachindex(like.table.epoch)
         # Get the pre-solved orbit solution for this planet at this epoch
-        sol = orbit_solutions[i_planet][i_epoch + orbit_solutions_i_epoch_start]
+        sol = orbit_solutions[i_planet][i_epoch]
 
         # Calculate predicted measurement using pre-solved position
         predicted = raoff(sol) + θ_obs.my_parameter  # example

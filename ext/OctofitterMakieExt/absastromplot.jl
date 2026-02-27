@@ -142,7 +142,7 @@ function absastromplot!(
             _sols = map(_orbs) do orbit
                 orbitsolve.(orbit, _g23h.table.epoch)
             end
-            _sim = Octofitter.simulate(_g23h, _θ_sys, _θ_obs, _orbs, _sols, 0)
+            _sim = Octofitter.simulate(_g23h, _θ_sys, _θ_obs, _orbs, _sols)
             if !isnothing(_sim)
                 pmra_model_t[j, :] .-= _sim.Δpmra_dr3
                 pmdec_model_t[j, :] .-= _sim.Δpmdec_dr3
@@ -232,10 +232,10 @@ function absastromplot!(
                 solutions = map(orbits) do orbit
                     return orbitsolve.(orbit, absastrom.table.epoch)
                 end
-                sim = Octofitter.simulate(absastrom, θ_system, θ_obs, orbits, solutions, 0)
+                sim = Octofitter.simulate(absastrom, θ_system, θ_obs, orbits, solutions)
             else
                 solutions = [() for _ in length(model.system.planets)]
-                sim = Octofitter.simulate(absastrom, θ_system, θ_obs, orbits, solutions, -1)
+                sim = Octofitter.simulate(absastrom, θ_system, θ_obs, orbits, solutions)
             end
             push!(sims, sim)
         end

@@ -1,232 +1,6 @@
-using Bumper
 
-
-
-
-function make_ln_like(system::System, θ_system)
-
-    # We want to gather up all observation epochs in a standardized order.
-    # That way we can loop through and solve each orbit at each epoch.
-
-    # We assume that all planets will need to be solved at every general system observation epoch
-    # We assume that each planet will need to be solved at every epoch it has attached observations
-    # We'll solve them once in a hot (possibly multi-threaded) loop, and pass views into each likelihood
-    # function.
-
-    # I want a vector of solution types per object
-    # The solutions will be ordered first, each epoch in the system observations,
-    # then, each epoch in that planet's observations.
-    # Note that in practice MA is always fixed when solving; it's only e that we might want the gradient for.
-    all_epochs = Float64[]
-    epoch_start_index_mapping = Dict{Any,Int}()
-    j = 1
-    for obs in system.observations
-        if hasproperty(obs, :table) && hasproperty(obs.table, :epoch)
-            # TODO: deal with HGCA
-            epoch_start_index_mapping[obs] = j
-            j += length(obs.table.epoch)
-            append!(all_epochs, obs.table.epoch)
-        end
-    end
-    for i in 1:length(system.planets)
-        for like in system.planets[i].observations
-            if hasproperty(like, :table) && hasproperty(like.table, :epoch)
-                epoch_start_index_mapping[like] = j
-                j += length(like.table.epoch)
-                append!(all_epochs, like.table.epoch)
-            end
-        end
-    end
-
-    planet_sol_keys = Symbol[]
-    for i in eachindex(system.planets)
-        sols_key = Symbol("sols_planet_$i")
-        push!(planet_sol_keys, sols_key)
-    end
-    # TODO: this seems way overcomplicated? Just need a list of symbols
-    # interpolated in.
-    solutions_list = :(tuple($((:($sols_key) for sols_key in planet_sol_keys)...)))
-    
-    planet_keys = Symbol[]
-    planet_construction_exprs = Expr[]
-    planet_like_exprs = Expr[]
-    planet_orbit_solution_exprs = Expr[]
-    # Add planet declarations here
-    planet_declarations = Expr[]
-    j = 0
-    for i in 1:length(system.planets)
-        planet = system.planets[i]
-        OrbitType = _planet_orbit_type(planet)
-        key = Symbol("planet_$i")
-        sols_key = planet_sol_keys[i]
-        
-        # Add declaration for this planet
-        push!(planet_declarations, :($key = nothing))
-        
-        likelihood_exprs = map(enumerate(planet.observations)) do (i_like, like)
-            i_epoch_start = get(epoch_start_index_mapping, like, 0)
-            # Get the normalized observation name to access θ_obs
-            if hasproperty(like, :name)
-                obs_name = normalizename(likelihoodname(like))
-                expr = :(
-                    $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
-                        system.planets[$(Meta.quot(i))].observations[$i_like],
-                        PlanetObservationContext(
-                            θ_system,
-                            θ_system.planets[$i],
-                            hasproperty(θ_system.planets[$i].observations, $(Meta.quot(obs_name))) ?
-                                θ_system.planets[$i].observations.$obs_name :
-                                (;),
-                            elems,
-                            ($solutions_list), # all orbit solutions
-                            $i, # This planet index into orbit solutions
-                            $(i_epoch_start-1) # start epoch index
-                        )
-                    );
-                )
-            else
-                expr = :(
-                    $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
-                        system.planets[$(Meta.quot(i))].observations[$i_like],
-                        PlanetObservationContext(
-                            θ_system,
-                            θ_system.planets[$i],
-                            (;),  # θ_obs
-                            elems,
-                            ($solutions_list), # all orbit solutions
-                            $i, # This planet index into orbit solutions
-                            $(i_epoch_start-1) # start epoch index
-                        )
-                    );
-                )
-            end
-            j+=1
-            return expr
-        end
-
-        likelihood_expr = quote
-            $(likelihood_exprs...)
-        end
-
-        planet_contruction = quote
-            $key = $(OrbitType)(;merge(θ_system, θ_system.planets[$i])...)
-        end
-    
-        if isempty(all_epochs)  
-            orbit_sol_expr = quote
-                $sols_key = ()
-            end
-        else
-            orbit_sol_expr = quote
-                # Pre-solve kepler's equation for all epochs
-                # epochs = Vector{Float64}(undef, $(length(epochs_planet_i)))
-                epochs = @alloc(Float64, $(length(all_epochs)))
-                $((
-                    :(epochs[$j] = $(all_epochs[j]))
-                    for j in 1:length(all_epochs)
-                )...)
-
-                sol0 = orbitsolve($key, first(epochs))
-                # $sols_key = Vector{typeof(sol0)}(undef, length(epochs))
-                $sols_key = @alloc(typeof(sol0), length(epochs))
-                $sols_key[begin] = sol0
-                $_kepsolve_all!(view($sols_key, 2:length(epochs)), $key, view(epochs, 2:length(epochs)))
-            end
-        end
-        push!(planet_keys, key)
-        push!(planet_construction_exprs, planet_contruction)
-        push!(planet_like_exprs, likelihood_expr)
-        push!(planet_orbit_solution_exprs, orbit_sol_expr)
-    end
-
-
-    
-     sys_exprs = map(eachindex(system.observations)) do i
-        like = system.observations[i]
-        i_epoch_start = get(epoch_start_index_mapping, like, 0)
-        # Get the normalized observation name to access θ_obs
-        obs_name = normalizename(likelihoodname(like))
-        expr = :(
-            $(Symbol("ll$(j+1)")) = $(Symbol("ll$j")) + ln_like(
-                system.observations[$i],
-                SystemObservationContext(
-                    θ_system,
-                    hasproperty(θ_system.observations, $(Meta.quot(obs_name))) ?
-                        θ_system.observations.$obs_name :
-                        (;),
-                    elems,
-                    ($solutions_list),
-                    $(i_epoch_start-1)
-                )
-            );
-            # if !isfinite($(Symbol("ll$(j+1)")))
-            #     println("invalid likelihood value encountered")
-            # end
-        )
-        j+=1
-        return expr
-    end
-
-    return @RuntimeGeneratedFunction(:(function (system::System, θ_system)
-        T = _system_number_type(θ_system)
-        ll0 = zero(T)
-        
-        # Declare all planet variables before the try block
-        $(planet_declarations...)
-
-        # Try-catch only for planet construction
-        try
-            # Construct all orbit elements
-            $(planet_construction_exprs...)
-        catch err
-            @warn "Failed to constructor orbit:" exception=(err, catch_backtrace())
-            # Return -Inf if planet construction fails
-            return convert(T, -Inf)
-        end
-        
-        ll_out = @no_escape begin
-
-            # Construct a tuple of existing planet orbital elements
-            elems = tuple($(planet_keys...))
-
-            # Solve all orbits
-            $(planet_orbit_solution_exprs...)
-
-            # evaluate all their individual observation likelihoods
-            $(planet_like_exprs...)
-            
-            # And evaluate the overall system likelihoods
-            $(sys_exprs...)
-
-            $(Symbol("ll$j"))
-        end
-
-        return ll_out
-    end))
-end
-
+# Threading coordination flag for initialization parallelism
 const _kepsolve_use_threads = Ref(false)
-function _kepsolve_all!(solutions, orbit, epochs)
-    if _kepsolve_use_threads[]
-        return _kepsolve_all_multithread!(solutions, orbit, epochs)
-    else
-        return _kepsolve_all_singlethread!(solutions, orbit, epochs)
-    end
-end
-function _kepsolve_all_singlethread!(solutions, orbit, epochs)
-    for epoch_i in eachindex(epochs)
-        solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
-    end
-    return solutions
-end
-
-function _kepsolve_all_multithread!(solutions, orbit, epochs)
-    Threads.@threads for epoch_i in 1:length(epochs)
-        solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
-    end
-    return solutions
-end
-
 
 # Generate calibration data
 """
@@ -236,31 +10,6 @@ Generate a new system and observations from an existing model.
 """
 function generate_from_params(system::System, θ_newsystem = drawfrompriors(system); add_noise=false)
 
-    # First, we need to gather all epochs just like in make_ln_like
-    all_epochs = Float64[]
-    epoch_start_index_mapping = Dict{Any,Int}()
-    j = 1
-    
-    # System observation epochs
-    for obs in system.observations
-        if hasproperty(obs, :table) && hasproperty(obs.table, :epoch)
-            epoch_start_index_mapping[obs] = j
-            j += length(obs.table.epoch)
-            append!(all_epochs, obs.table.epoch)
-        end
-    end
-    
-    # Planet observation epochs
-    for i in 1:length(system.planets)
-        for like in system.planets[i].observations
-            if hasproperty(like, :table) && hasproperty(like.table, :epoch)
-                epoch_start_index_mapping[like] = j
-                j += length(like.table.epoch)
-                append!(all_epochs, like.table.epoch)
-            end
-        end
-    end
-
     # Generate new orbits for each planet in the system
     orbits = map(eachindex(system.planets)) do i
         planet = system.planets[i]
@@ -268,17 +17,15 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
         return neworbit
     end
 
-    # Pre-solve all orbits at all epochs (like in make_ln_like)
-    orbit_solutions = if isempty(all_epochs)
-        ntuple(_ -> (), length(orbits))
-    else
-        ntuple(length(orbits)) do i
-            orbit = orbits[i]
-            sols = Vector{Any}(undef, length(all_epochs))
-            for (j, epoch) in enumerate(all_epochs)
-                sols[j] = orbitsolve(orbit, epoch)
+    # Helper: solve all orbits at a given set of epochs
+    function _solve_at_epochs(obs)
+        if hasproperty(obs, :table) && hasproperty(obs.table, :epoch)
+            epochs = obs.table.epoch
+            return ntuple(length(orbits)) do i
+                [orbitsolve(orbits[i], ep) for ep in epochs]
             end
-            sols
+        else
+            return ntuple(_ -> [], length(orbits))
         end
     end
 
@@ -287,7 +34,7 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
         planet = system.planets[i]
         orbit = orbits[i]
         θ_newplanet = θ_newsystem.planets[i]
-        
+
         newplanet_obs = map(planet.observations) do obs
             # Get the observation-specific variables if they exist
             obs_name = normalizename(likelihoodname(obs))
@@ -295,7 +42,8 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
                     getproperty(θ_newplanet.observations, obs_name) :
                     (;)
 
-            i_epoch_start = get(epoch_start_index_mapping, obs, 0)
+            # Solve all orbits at this observation's epochs
+            orbit_solutions = _solve_at_epochs(obs)
 
             # Construct context object
             ctx = PlanetObservationContext(
@@ -305,13 +53,12 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
                 orbits,
                 orbit_solutions,
                 i,  # planet index
-                i_epoch_start - 1  # start epoch index (0-based)
             )
 
             # Call with context
             return generate_from_params(obs, ctx; add_noise)
         end
-        
+
         newplanet = Planet(
             variables=(planet.priors, planet.derived),
             basis=Octofitter.orbittype(planet),
@@ -329,7 +76,8 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
                 getproperty(θ_newsystem.observations, obs_name) :
                 (;)
 
-        i_epoch_start = get(epoch_start_index_mapping, obs, 0)
+        # Solve all orbits at this observation's epochs
+        orbit_solutions = _solve_at_epochs(obs)
 
         # Construct context object
         ctx = SystemObservationContext(
@@ -337,7 +85,6 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
             θ_obs,
             orbits,
             orbit_solutions,
-            i_epoch_start - 1  # start epoch index (0-based)
         )
 
         # Call with context
@@ -356,3 +103,65 @@ function generate_from_params(system::System, θ_newsystem = drawfrompriors(syst
 end
 export generate_from_params
 
+"""
+    make_ln_like(system, θ_system_example)
+
+Build a log-likelihood function `(system, θ_system) -> ll::Float64` for post-processing
+(chain diagnostics, SBC, cross-validation). Not used in the hot sampling path.
+"""
+function make_ln_like(system::System, θ_system_example)
+    n_planets = length(system.planets)
+    val_n = Val(n_planets)
+
+    construct_orbits = _make_construct_orbits(system)
+
+    let construct_orbits=construct_orbits, val_n=val_n
+        function (system::System, θ_system)
+            T = _system_number_type(θ_system)
+            ll = zero(T)
+
+            orbits = construct_orbits(θ_system)
+
+            # Helper: solve orbits at an observation's epochs
+            function _solve_at(obs)
+                if hasproperty(obs, :table) && hasproperty(obs.table, :epoch)
+                    epochs = obs.table.epoch
+                    return ntuple(val_n) do i
+                        [orbitsolve(orbits[i], ep) for ep in epochs]
+                    end
+                else
+                    return ntuple(_ -> [], val_n)
+                end
+            end
+
+            # Planet observations
+            for i in 1:n_planets
+                planet = system.planets[i]
+                θ_planet = θ_system.planets[i]
+                for obs in planet.observations
+                    orbit_solutions = _solve_at(obs)
+                    obs_name = hasproperty(obs, :name) ? normalizename(likelihoodname(obs)) : nothing
+                    θ_obs = if !isnothing(obs_name) && hasproperty(θ_planet.observations, obs_name)
+                        getproperty(θ_planet.observations, obs_name)
+                    else
+                        (;)
+                    end
+                    ctx = PlanetObservationContext(θ_system, θ_planet, θ_obs, orbits, orbit_solutions, i)
+                    ll += ln_like(obs, ctx)
+                end
+            end
+
+            # System observations
+            for obs in system.observations
+                orbit_solutions = _solve_at(obs)
+                obs_name = normalizename(likelihoodname(obs))
+                θ_obs = hasproperty(θ_system.observations, obs_name) ?
+                        getproperty(θ_system.observations, obs_name) : (;)
+                ctx = SystemObservationContext(θ_system, θ_obs, orbits, orbit_solutions)
+                ll += ln_like(obs, ctx)
+            end
+
+            return ll
+        end
+    end
+end
