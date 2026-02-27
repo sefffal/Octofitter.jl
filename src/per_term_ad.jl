@@ -200,7 +200,7 @@ function _make_construct_orbits(system::System)
             Expr(:call, OT, Expr(:parameters, kwargs_exprs...))
         end
     end
-    @RuntimeGeneratedFunction(:(function(θ_system)
+    eval(:(function(θ_system)
         tuple($(planet_exprs...))
     end))
 end
@@ -242,7 +242,7 @@ function _make_solve_ephemerides(system::System)
         OT = _planet_orbit_type(system.planets[i])
         _solve_eph_expr(OT, i)
     end
-    @RuntimeGeneratedFunction(:(function(eph_arrays, orbits, epochs, solvers)
+    eval(:(function(eph_arrays, orbits, epochs, solvers)
         tuple($(planet_exprs...))
     end))
 end

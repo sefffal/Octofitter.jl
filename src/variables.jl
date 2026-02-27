@@ -1040,7 +1040,7 @@ function make_arr2nt(system::System)
     # It maps an array of parameters into our nested named tuple structure
     # Note: eval() would normally work fine here, but sometimes we can hit "world age problems"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
-    func = @RuntimeGeneratedFunction(:(function (arr)
+    func = eval(:(function (arr)
         l = $i
         @boundscheck if length(arr) != l
             error("Expected exactly $l elements in array. Got ", length(arr))
@@ -1186,7 +1186,7 @@ function make_ln_prior(system::System)
     # It maps an array of parameters into our nested named tuple structure
     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (arr)
+    return eval(:(function (arr)
         l = $i
         @boundscheck if length(arr) != l
             error("Expected exactly $l elements in array (got $(length(arr)))")
@@ -1356,7 +1356,7 @@ function make_ln_prior_transformed(system::System)
     # It maps an array of parameters into our nested named tuple structure
     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (arr,sampled)
+    return eval(:(function (arr,sampled)
         l = $i
         @boundscheck if length(arr) != l
             error("Expected exactly $l elements in array (got $(length(arr)))")
@@ -1436,7 +1436,7 @@ function make_prior_sampler(system::System)
     # It maps an array of parameters into our nested named tuple structure
     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (rng)
+    return eval(:(function (rng)
         prior_samples = ()
         @inbounds begin
            $(prior_sample_expressions...)
@@ -1478,7 +1478,7 @@ function make_Bijector_invlinkvec(priors_vec)
     # It maps an array of parameters into our nested named tuple structure
     # Note: eval() would normally work fine here, but sometimes we can hit "world age problemms"
     # The RuntimeGeneratedFunctions package avoids these in all cases.
-    return @RuntimeGeneratedFunction(:(function (arr)
+    return eval(:(function (arr)
         l = $i
         # theta_out = zeros(eltype(arr), l)
         @boundscheck if length(arr) != l

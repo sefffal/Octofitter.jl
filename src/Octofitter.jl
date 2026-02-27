@@ -37,8 +37,6 @@ using StaticArrays
 using MCMCChains: MCMCChains, Chains
 using Random
 using DataDeps
-using RuntimeGeneratedFunctions
-RuntimeGeneratedFunctions.init(@__MODULE__)
 
 const mjup2msol = PlanetOrbits.mjup2msol_IAU
 

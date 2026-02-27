@@ -28,14 +28,14 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         sample_priors = make_prior_sampler(system)
 
         # Choose parameter dimensionality and initial parameter value
-        initial_θ_0 = sample_priors(Random.default_rng())
+        initial_θ_0 = @invokelatest sample_priors(Random.default_rng())
         D = length(initial_θ_0)
         verbosity >= 2 && @info "Determined number of free variables" D
 
         # We support models with discrete or mixed variables, but in these
         # cases we can't support autodiff.
         # Detect this case, warn the user, and skip over defining ∇ℓπcallback
-        contains_discrete_variables = autodiff === false || any(isa.(sample_priors(Random.default_rng(), system),Integer))
+        contains_discrete_variables = autodiff === false || any(isa.((@invokelatest sample_priors(Random.default_rng())),Integer))
         if contains_discrete_variables && verbosity >= 1
             @info "Model contains discrete variables; model gradients not supported."
         end
@@ -47,7 +47,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         arr2nt = Octofitter.make_arr2nt(system)
 
         # Check number type
-        θ_nt = arr2nt(initial_θ_0)
+        θ_nt = @invokelatest arr2nt(initial_θ_0)
         T = _system_number_type(θ_nt)
         verbosity >= 2 && @info "Determined number type" T
         if !(T <: Real)
@@ -102,9 +102,9 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         mcfg = ModelEvalConfig(Bijector_invlinkvec, arr2nt, construct_orbits, planet_solvers, solve_ephemerides, Val(n_planets))
 
         # Pre-compute orbit solution types for buffer pre-allocation.
-        _θ_nat_0 = Bijector_invlinkvec(initial_θ_0_t)
-        _θ_sys_0 = arr2nt(_θ_nat_0)
-        _orbits_0 = construct_orbits(_θ_sys_0)
+        _θ_nat_0 = @invokelatest Bijector_invlinkvec(initial_θ_0_t)
+        _θ_sys_0 = @invokelatest arr2nt(_θ_nat_0)
+        # _orbits_0 = @invokelatest construct_orbits(_θ_sys_0)
 
         # --- Build per-term configs ---
         tcfgs = ()
@@ -163,7 +163,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
         # Test likelihood function immediately
         if verbosity >= 1
-            (function(ℓπcallback, θ)
+            @invokelatest (function(ℓπcallback, θ)
                 @showtime ℓπcallback(θ)
             end)(ℓπcallback, initial_θ_0_t)
         end
@@ -272,32 +272,34 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # Run the callback once right away. If there is a coding error in the users
         # model, we want to surface it ASAP.
         if verbosity >= 1
-            (function(∇ℓπcallback, θ)
+            @invokelatest (function(∇ℓπcallback, θ)
                 @showtime ∇ℓπcallback(θ)
             end)(∇ℓπcallback, initial_θ_0_t)
         else
-            ∇ℓπcallback(initial_θ_0_t)
+            @invokelatest ∇ℓπcallback(initial_θ_0_t)
         end
 
-        # Perform some quick diagnostic checks to warn users for performance-gotchas
-        out_type_model = Core.Compiler.return_type(ℓπcallback, typeof((initial_θ_0_t,)))
-        out_type_model_grad = Core.Compiler.return_type(∇ℓπcallback, typeof((initial_θ_0_t,)))
-        out_type_arr2nt = Core.Compiler.return_type(arr2nt, typeof((initial_θ_0_t,)))
-        out_type_prior = Core.Compiler.return_type(ln_prior_transformed, typeof((initial_θ_0,false,)))
+        Base.invokelatest() do 
+            # Perform some quick diagnostic checks to warn users for performance-gotchas
+            out_type_model = Core.Compiler.return_type(ℓπcallback, typeof((initial_θ_0_t,)))
+            out_type_model_grad = Core.Compiler.return_type(∇ℓπcallback, typeof((initial_θ_0_t,)))
+            out_type_arr2nt = Core.Compiler.return_type(arr2nt, typeof((initial_θ_0_t,)))
+            out_type_prior = Core.Compiler.return_type(ln_prior_transformed, typeof((initial_θ_0,false,)))
 
-        if isconcretetype(out_type_prior) &&
-            isconcretetype(out_type_arr2nt) &&
-            !isconcretetype(out_type_model)
-            @warn "\nThis model's log density function is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub." out_type_prior out_type_arr2nt out_type_model
-        end
-        if !isconcretetype(out_type_model_grad)
-            @warn "\nThis model's log density gradient is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
+            if isconcretetype(out_type_prior) &&
+                isconcretetype(out_type_arr2nt) &&
+                !isconcretetype(out_type_model)
+                @warn "\nThis model's log density function is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub." out_type_prior out_type_arr2nt out_type_model
             end
-        if !isconcretetype(out_type_prior)
-            @warn "\nThis model's prior sampler does not appear to be type stable, which will likely hurt sampling performance.\nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub." out_type_prior out_type_arr2nt out_type_model
-        end
-        if !isconcretetype(out_type_arr2nt)
-            @warn "\nThis model specification (arr2nt) is not type-stable, which will likely hurt sampling performance.\nCheck for global variables used within your model definition, and prepend these with `\$`.\nIf that doesn't work, you could trying running:\n`Cthulhu.@descend model.arr2nt(model.sample_priors(Random.Xoshiro(0)))` for more information.\nFor assistance, please file an issue on GitHub." out_type_prior out_type_arr2nt out_type_model
+            if !isconcretetype(out_type_model_grad)
+                @warn "\nThis model's log density gradient is not type stable, but all of its components are. \nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub."
+                end
+            if !isconcretetype(out_type_prior)
+                @warn "\nThis model's prior sampler does not appear to be type stable, which will likely hurt sampling performance.\nThis may indicate a performance bug in Octofitter; please consider filing an issue on GitHub." out_type_prior out_type_arr2nt out_type_model
+            end
+            if !isconcretetype(out_type_arr2nt)
+                @warn "\nThis model specification (arr2nt) is not type-stable, which will likely hurt sampling performance.\nCheck for global variables used within your model definition, and prepend these with `\$`.\nIf that doesn't work, you could trying running:\n`Cthulhu.@descend model.arr2nt(model.sample_priors(Random.Xoshiro(0)))` for more information.\nFor assistance, please file an issue on GitHub." out_type_prior out_type_arr2nt out_type_model
+            end
         end
 
         # Return fully concrete type wrapping all these functions
