@@ -197,6 +197,45 @@ Octofitter.gaiastarplot(sim_model, sim_chain)
 ```
 
 
+## Using NSS Catalog Solutions as Starting Points
+
+If your target has a published orbital solution in the Gaia Non-Single Star (NSS) catalog, you can use it to initialize your model. This is especially useful for Gaia DR4 targets where the NSS solution provides a good starting region for the sampler.
+
+NSS solutions are used as **starting points only** (not priors), because NSS uncertainties may be overly optimistic.
+
+```julia
+# Query the NSS catalog and use it to initialize
+chain = initialize_from_nss!(model; gaia_id=4373465352415301632)
+
+# Or step-by-step for more control:
+nss_sol = query_nss(gaia_id=4373465352415301632)
+fixed = nss_to_starting_point(nss_sol, model; planet_key=:b)
+chain = initialize!(model, fixed)
+```
+
+The function automatically detects whether your model uses Thiele-Innes or Campbell elements, and handles `UniformCircular` parameterizations. It maps the NSS period, eccentricity, and orbital geometry to whichever free parameters your model has.
+
+### Comparing posteriors with NSS solutions
+
+You can build a model and chain directly from an NSS solution for visual comparison with your posterior:
+
+```julia
+nss_sol = query_nss(gaia_id=4373465352415301632)
+nss_model, nss_chain = nss_to_model_chain(nss_sol)
+
+# Overlay in a pair plot
+using PairPlots
+pairplot(
+    "Posterior" => chain,
+    "NSS"       => nss_chain,
+)
+
+# Or use octoplot on the NSS solution directly
+octoplot(nss_model, nss_chain)
+```
+
+The returned `nss_chain` contains draws from Normal distributions centred on the NSS best-fit values with the NSS-reported uncertainties, so it represents the published NSS solution's uncertainty envelope. The system mass and parallax are derived automatically from the NSS solution.
+
 ## Gaia BH 3
 
 The following tutorial reproduces the fit to Gaia BH3. This one can take longer to run

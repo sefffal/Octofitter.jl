@@ -26,4 +26,8 @@ octofit_pigeons
 initialize!
 Octofitter.savechain
 Octofitter.loadchain
+query_nss
+nss_to_starting_point
+initialize_from_nss!
+nss_to_model_chain
 ```

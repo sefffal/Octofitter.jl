@@ -78,6 +78,7 @@ include("analysis.jl")
 include("sonora.jl")
 include("BHAC.jl")
 
+include("nss.jl")
 include("io.jl")
 include("io-orbitize.jl")
 

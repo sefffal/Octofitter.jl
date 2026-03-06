@@ -40,6 +40,10 @@ if TEST_MODE in ("all", "unit")
         @testset "I/O" begin
             include("unit/io.jl")
         end
+
+        @testset "NSS Catalog" begin
+            include("unit/nss.jl")
+        end
     end
 end
 
