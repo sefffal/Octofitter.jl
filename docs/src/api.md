@@ -23,6 +23,7 @@ sonora_photometry_interpolator
 sonora_cooling_interpolator
 octofit
 octofit_pigeons
+octofit_rejection
 initialize!
 Octofitter.savechain
 Octofitter.loadchain

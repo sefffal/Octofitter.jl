@@ -144,6 +144,33 @@ macro variables(variables_block_input)
             
             # Store the processed expression directly (not wrapped in a function)
             derived_vars[varname] = processed_expr
+        elseif statement.head == :(+=) && statement.args[1] == :LL
+            # LL += expr: add an arbitrary log-likelihood contribution
+            expression = statement.args[2]
+
+            # Generate a unique derived variable name for this LL term
+            ll_count = count(k -> startswith(string(k), "_LL_"), seen_derived_vars) + 1
+            derived_sym = Symbol("_LL_", ll_count)
+            push!(seen_derived_vars, derived_sym)
+
+            # Process the expression to extract interpolated variables
+            local_quote_vars = Symbol[]
+            local_quote_vals = Any[]
+            processed_expr = quasiquote!(deepcopy(expression), local_quote_vars, local_quote_vals)
+
+            # Add to global captured variables (avoiding duplicates)
+            for (var, val) in zip(local_quote_vars, local_quote_vals)
+                if !(var in all_quote_vars)
+                    push!(all_quote_vars, var)
+                    push!(all_quote_vals, val)
+                end
+            end
+
+            # Store as a derived variable
+            derived_vars[derived_sym] = processed_expr
+
+            # Create DirectLLObs to inject this value into the log-likelihood
+            push!(user_likelihoods, DirectLLObs(derived_sym, "LL_$ll_count"))
         else
             error("invalid statement encountered $(statement.head)")
         end

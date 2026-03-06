@@ -1,8 +1,9 @@
 # [Samplers](@id samplers)
 
-We recommend using one of the following MCMC samplers:
+Octofitter provides three built-in samplers:
 * No U-turn Hamiltonian Monte Carlo (via `octofit`)
 * Non-reversible parallel tempered Monte Carlo  (via `octofit_pigeons`)
+* Rejection sampling (via `octofit_rejection`)
 
 Many additional samplers can be used through the LogDensityProblems.jl interface, but they are not tested.
 
@@ -10,6 +11,8 @@ Many additional samplers can be used through the LogDensityProblems.jl interface
 If the posterior is unimodal (even if it has a complicated shape), go ahead and use AdvancedHMC (`chains = octofit(model)`). This uses a single computer core and is in many cases very efficient.
 
 If the posterior is multimodal, and the modes are quite separated, then use Pigeons (`chains, pt = octofit_pigeons(model, n_rounds=12)`).
+
+For very low-dimensional problems (1--3 parameters), or when you need independent samples, use rejection sampling (`chains = octofit_rejection(model, draws=1_000_000)`).
 
 Read more about these samplers below.
 
@@ -99,6 +102,32 @@ A nice feature of Pigeons is that you can resume sampler for additional rounds w
 pt = increment_n_rounds!(pt, 1)
 chain, pt = octofit_pigeons(pt)
 ```
+
+## Rejection Sampling
+
+Rejection sampling is the simplest sampling method. It draws samples from the prior and accepts or rejects each one based on the likelihood. Accepted samples are independent (no autocorrelation), making diagnostics straightforward. However, it can be very inefficient for high-dimensional problems or when the posterior is much narrower than the prior.
+
+Rejection sampling is a good choice when:
+* Your model has very few free parameters (1--3 dimensions)
+* You want independent, uncorrelated posterior samples
+* You want a quick sanity check before running a longer HMC chain
+* Gradient-based sampling is not possible (e.g. discrete parameters)
+
+```julia
+chain = octofit_rejection(model; draws=1_000_000)
+```
+
+The method signature of `octofit_rejection` is as follows:
+```julia
+octofit_rejection(
+    [rng::Random.AbstractRNG],
+    model::Octofitter.LogDensityModel;
+    draws=100_000,
+    verbosity=2,
+)
+```
+
+The `draws` parameter controls how many prior samples are drawn. The number of accepted posterior samples depends on the acceptance rate, which is reported after sampling. If the acceptance rate is very low, consider using `octofit` (HMC) instead.
 
 ## Distributed Sampling
 
