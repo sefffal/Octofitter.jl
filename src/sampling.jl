@@ -6,6 +6,7 @@ using Transducers
 using CovarianceEstimation
 export sample_priors
 
+
 sample_priors(arg::Union{Planet,System,<:LogDensityModel}, args...; kwargs...) = sample_priors(Random.default_rng(), arg, args...; kwargs...)
 # Sample priors from system once
 function sample_priors(rng::Random.AbstractRNG, system::System)
