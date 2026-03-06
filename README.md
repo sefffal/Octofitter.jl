@@ -1,7 +1,7 @@
 # Octofitter.jl
 
 
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/Octofitter.jl/)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/Octofitter.jl/dev/)
 
 Octofitter is a Julia package for performing Bayesian inference 
 against a wide variety of exoplanet / binary star data.
@@ -40,4 +40,4 @@ In addition to these documentation and tutorial pages, you can read the paper pu
 
 For instructions, see the documentation page:
 
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/Octofitter.jl)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/Octofitter.jl/dev/)
