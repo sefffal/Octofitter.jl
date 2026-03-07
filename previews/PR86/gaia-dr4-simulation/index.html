@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Gaia DR4 Simulation · Octofitter.jl</title><meta name="title" content="Gaia DR4 Simulation · Octofitter.jl"/><meta property="og:title" content="Gaia DR4 Simulation · Octofitter.jl"/><meta property="twitter:title" content="Gaia DR4 Simulation · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox" checked/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 Epoch Astrometry</a></li><li class="is-active"><a class="tocitem" href>Gaia DR4 Simulation</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Prepare-Star-Info-and-Noise"><span>Prepare Star Info and Noise</span></a></li><li><a class="tocitem" href="#Define-the-Model"><span>Define the Model</span></a></li><li><a class="tocitem" href="#Simulating-a-Planet"><span>Simulating a Planet</span></a></li><li><a class="tocitem" href="#Generate-Synthetic-Data"><span>Generate Synthetic Data</span></a></li><li><a class="tocitem" href="#Generate-synthetic-system-with-simulated-data"><span>Generate synthetic system with simulated data</span></a></li><li><a class="tocitem" href="#Fit-simulated-data"><span>Fit simulated data</span></a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Absolute Astrometry</a></li><li class="is-active"><a href>Gaia DR4 Simulation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Gaia DR4 Simulation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/gaia-dr4-simulation.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="data-simulation-dr4"><a class="docs-heading-anchor" href="#data-simulation-dr4">Simulating and Fitting Gaia DR4 Data</a><a id="data-simulation-dr4-1"></a><a class="docs-heading-anchor-permalink" href="#data-simulation-dr4" title="Permalink"></a></h1><p>This tutorial demonstrates how to use Octofitter to simulate Gaia DR4 data for a particular target. </p><p><strong>Before reading this, take a look at the general <a href="../data-simulation/#data-simulation">Generating and Fitting Simulated Data</a> tutorial.</strong></p><div class="admonition is-info" id="Note-9529ca9bc0e59c19"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-9529ca9bc0e59c19" title="Permalink"></a></header><div class="admonition-body"><p>Key concept: Octofitter can take a model with existing observations, a parameter vector, and then generate a new model with simulated observations, ready for-refitting. The input existing observations are used to set the epochs, scan angles, and uncertainties. You actual values are ignored and can be faked if you like.</p></div></div><hr/><p>To be as realistic as possible, we will select a particular star as the basis of our simulation. This will allow us to give reasonable estimates of</p><ul><li>the measurement epochs and scan angles (retrieved from GOST)</li><li>the measurement noise, representative of that coordinate and target photometry/colour</li></ul><blockquote><p><em>&quot;But wait, I just want to simulate a hypothetical planet, why do I have to pick a real star?&quot;</em></p></blockquote><p>Gaia&#39;s sensitivity is far from uniform! If you&#39;re not sure what star to use, just pick a the Gaia ID of your favourite star that has a representative magnitude and colour.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Octofitter, OctofitterRadialVelocity, Distributions
+using CairoMakie, PairPlots, Pigeons
+using CSV, DataFrames</code></pre><h2 id="Prepare-Star-Info-and-Noise"><a class="docs-heading-anchor" href="#Prepare-Star-Info-and-Noise">Prepare Star Info and Noise</a><a id="Prepare-Star-Info-and-Noise-1"></a><a class="docs-heading-anchor-permalink" href="#Prepare-Star-Info-and-Noise" title="Permalink"></a></h2><p>We now query the Gaia positions etc. from DR3, the scan law from GOST, and the uncertainties from Kiefer et al (2025) / Thompeon et al (in-prep.).</p><p>Key question: do you want to simulate on the level of individual CCD measurements, or bin the data by scan? We will assume the latter, but there is code below for the per/scan option.</p><pre><code class="language-julia hljs">gaia_id = 5064625130502952704
+# We will use the σ_att and σ_AL for this target&#39;s position, photometry, and colour as the
+# formal uncertainty on each scan. They can be retrieved or guessed from Keifer et al 2025,
+# or Thompson et al in-prep.
+
+# look these up, or download the tables and interpolate
+σ_att = 0.04
+σ_AL = 0.04
+σ_cal = 0.04
+σ_formal = sqrt(σ_att^2 + σ_AL^2)
+σ_true = sqrt(σ_att^2 + σ_AL^2 + σ_cal^2)
+
+
+
+dr3 = Octofitter._query_gaia_dr3(;gaia_id)
+# TODO: we have on average ~8 scans per epoch
+gost = DataFrame(Octofitter.GOST_forecast(dr3.ra,dr3.dec;baseline=:dr4))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Info: Querying gea.esac.esa.int/tap-server
+└   source_id = 5064625130502952704
+[ Info: Contacting the GAIA scan forecast tool GOST: https://gaia.esac.esa.int/gost/
+[ Info: Retrieving forecasted GAIA scans from GOST: https://gaia.esac.esa.int/gost/
+[ Info: done</code></pre><p><strong>If you want to simulate per CCD measurement (10x slower), run the following:</strong></p><pre><code class="language-julia hljs">&quot;&quot;&quot;
+    expand_scanlaw_to_scans(scanlaw_table::DataFrame, star_row::DataFrameRow, 
+                           avg_scans_per_window::Float64=9.0)
+
+Expand visibility window-level scanlaw to individual CCD scans.
+
+# Arguments
+- `scanlaw_table`: DataFrame with columns `times` (OBMT) and `angles` (degrees)
+- `star_row`: Row from star catalog containing stellar parameters
+- `avg_scans_per_window`: Average number of CCD scans per visibility window
+
+# Returns
+- DataFrame with expanded scan-level data
+&quot;&quot;&quot;
+function expand_scanlaw_to_scans(scanlaw_table, dr3, avg_scans_per_window=9.0)
+    # Calculate actual average if available
+    if hasproperty(dr3, :astrometric_n_good_obs_al_dr3) &amp;&amp; 
+       hasproperty(dr3, :astrometric_matched_transits_dr3) &amp;&amp;
+       dr3.astrometric_matched_transits_dr3 &gt; 0
+        avg_scans_per_window = dr3.astrometric_n_good_obs_al_dr3 / 
+                              dr3.astrometric_matched_transits_dr3
+    end
+    
+    expanded_data = []
+    
+    for (i, row) in enumerate(eachrow(scanlaw_table))
+        # Number of CCDs for this window (randomize around average)
+        n_ccds = rand(Poisson(avg_scans_per_window))
+        n_ccds = max(1, min(n_ccds, 12))  # Gaia has max 9 CCDs in practice
+        
+        # Time spread within window (typically ~40 seconds total)
+        window_duration_seconds = 40.0
+        dt_seconds = window_duration_seconds / max(n_ccds - 1, 1)
+        
+        # Small angle variation within window
+        angle_variation = 0.1  # degrees
+        
+        for j in 1:n_ccds
+            # Time offset from window center
+            time_offset_days = (j - (n_ccds + 1) / 2) * dt_seconds / 86400
+            obs_time_obmt = row.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_ + time_offset_days * 1461.0 / 365.25  # Convert days to OBMT
+            
+            # Small angle perturbation
+            angle_perturbation = angle_variation * (j - (n_ccds + 1) / 2) / n_ccds
+            scan_angle = row.scanAngle_rad_ + deg2rad(angle_perturbation)
+            
+            push!(expanded_data, (
+                transit_id = i,
+                ccd_id = j,
+                ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_ = obs_time_obmt,
+                scanAngle_rad_ = scan_angle,
+            ))
+        end
+    end
+    
+    return DataFrame(expanded_data)
+end
+
+gost_ex = expand_scanlaw_to_scans(gost, dr3)
+r = size(gost_ex,1)/size(gost,1)
+σ_formal /= r
+σ_true /= r
+gost = gost_ex</code></pre><pre><code class="language-julia hljs">N_epochs = size(gost,1)
+
+
+# σ_cal is *not* part of the Gaia formal uncertainties, it&#39;s noise above and beyond the stated uncertainties.
+# For an accurate simulation, we should randomize by the true uncertainty (both sigma_formal + sigma_cal) but report to the downstream fitter that the uncertainty is just σ_formal.
+
+df = DataFrame(
+    # Epoch of measurements in MJD
+    epoch = jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_),
+    # Scan angle in degrees
+    scan_pos_angle = gost.scanAngle_rad_,
+    # In theory you could just populate this vector with whatever measurements you want,
+    # BUT we can also leave it blank, and leverage Octofitter&#39;s built in data simulation
+    # capabilities below...
+    centroid_pos_al       = fill(0.0, N_epochs),
+    centroid_pos_error_al = fill(σ_true, N_epochs),
+    outlier_flag          = fill(false, N_epochs),
+)
+
+
+# The trickiest part: we have to calculate the parllax factors for each epoch
+earth_pos_vel = DataFrame(Octofitter.geocentre_position_query.(df.epoch))
+df = [df earth_pos_vel]
+# we now have columns x, y, z of the earth in AU, and can calculate the parallax factor
+# for each row
+
+# Calculate parallax factors for each epoch
+
+# For each epoch, calculate the parallax factor in along-scan direction
+# The parallax displacement has components in RA and Dec:
+# Δα* = plx * (x*sin(α) - y*cos(α))
+# Δδ  = plx * (x*cos(α)*sin(δ) + y*sin(α)*sin(δ) - z*cos(δ))
+
+# Then project onto the scan direction using the scan angle
+df.parallax_factor_al = @. (
+    (df.x * sind(dr3.ra) - df.y * cosd(dr3.ra)) * cos(df.scan_pos_angle) +
+    (df.x * cosd(dr3.ra) * sind(dr3.dec) + df.y * sind(dr3.ra) * sind(dr3.dec) - df.z * cosd(dr3.dec)) * sin(df.scan_pos_angle)
+)
+
+# now construct the observation template
+ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+
+gaiaIADobs = GaiaDR4AstromObs(df;
+    gaia_id=gaia_id,
+    variables=@variables begin
+        astrometric_jitter ~ LogUniform(0.00001, 10) # mas
+        ra_offset_mas  ~ Normal(0, 10000)
+        dec_offset_mas ~ Normal(0, 10000)
+        pmra ~ Uniform(-1000, 1000) # mas/yr
+        pmdec ~  Uniform(-1000, 1000) # mas/yr
+        # ra_offset_mas = -0.00154
+        # dec_offset_mas = 0.0019354
+        # pmra = 5.421
+        # pmdec = -24.121
+        plx = system.plx
+        ref_epoch = $ref_epoch_mjd
+    end
+)</code></pre><h2 id="Define-the-Model"><a class="docs-heading-anchor" href="#Define-the-Model">Define the Model</a><a id="Define-the-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Define-the-Model" title="Permalink"></a></h2><p>Now, we define a model that incorporates this data:</p><pre><code class="language- hljs">
+mjup2msol = Octofitter.mjup2msol
+orbit_ref_epoch = mean(gaiaIADobs.table.epoch)
+
+b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    observations=[],
+    variables=@variables begin
+        a ~ LogUniform(0.01, 100)
+        e ~ Uniform(0, 0.99)
+        ω ~ Uniform(0,2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0,2pi)
+        θ ~ Uniform(0,2pi)
+        tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=system.M, e, a, i, ω, Ω)
+        mass ~ LogUniform(0.01, 1000)
+    end
+)
+sys = System(
+    name=&quot;target_1&quot;,
+    companions=[b],
+    observations=[gaiaIADobs,],
+    variables=@variables begin
+        M = 1.0
+        # Note: keep these physically plausible to prevent numerical errors
+        plx ~ Uniform(0.01,100) # mas
+    end
+)
+model = Octofitter.LogDensityModel(sys, verbosity=4)</code></pre><h2 id="Simulating-a-Planet"><a class="docs-heading-anchor" href="#Simulating-a-Planet">Simulating a Planet</a><a id="Simulating-a-Planet-1"></a><a class="docs-heading-anchor-permalink" href="#Simulating-a-Planet" title="Permalink"></a></h2><p>Now we have defined our template model! Normally, we would just fit this... Here, we will hook into Octofitter&#39;s simulation capabilities to generate a new model for us with a simulated planet.</p><h2 id="Generate-Synthetic-Data"><a class="docs-heading-anchor" href="#Generate-Synthetic-Data">Generate Synthetic Data</a><a id="Generate-Synthetic-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Generate-Synthetic-Data" title="Permalink"></a></h2><p>We have three choices for generating simulated data:</p><ol><li>Draw values from the priors</li><li>Specifying values manually</li></ol><p>We will look at each.</p><h3 id="1.-Draw-values-from-the-priors"><a class="docs-heading-anchor" href="#1.-Draw-values-from-the-priors">1. Draw values from the priors</a><a id="1.-Draw-values-from-the-priors-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Draw-values-from-the-priors" title="Permalink"></a></h3><p>We can draw a value from the priors like so:</p><pre><code class="language- hljs">params_to_simulate = Octofitter.drawfrompriors(model.system)</code></pre><h3 id="3.-Specifying-values-manually"><a class="docs-heading-anchor" href="#3.-Specifying-values-manually">3. Specifying values manually</a><a id="3.-Specifying-values-manually-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Specifying-values-manually" title="Permalink"></a></h3><p>We can also specify all values for the simulation manually. This process is a bit more involved. </p><div class="admonition is-warning" id="Warning-16272b6c0b535b6f"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-16272b6c0b535b6f" title="Permalink"></a></header><div class="admonition-body"><p>Note that the output below is just an example, you must generate your own template from your model and modify it as needed. The exact structure is not garuanteed to be stable between versions of Octofitter.</p></div></div><pre><code class="language-julia hljs">params_to_simulate = (
+    plx = 16.138978209522527,
+    M = 1.0,
+    observations = (
+        GaiaDR4 = (
+            pmdec = -24.188882826919325,
+            plx = 16.138978209522527,
+            ra_offset_mas = 0.05413791355838311,
+            pmra = 5.301074192615374,
+            astrometric_jitter = 0.015590772157762368,
+            ref_epoch = 57936.375,
+            dec_offset_mas = 0.0889816167388366
+        ),
+    ),
+    planets = (
+        b = (
+            a = 2.0,
+            Ω = 0.6,
+            e = 0.01,
+            ω = 0.01,
+            tp = 51710.01947449644,
+            mass = 10.0,
+            i = 0.01,
+            θ = 3.5226970272017826
+        ),
+    )
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(plx = 16.138978209522527, M = 1.0, observations = (GaiaDR4 = (pmdec = -24.188882826919325, plx = 16.138978209522527, ra_offset_mas = 0.05413791355838311, pmra = 5.301074192615374, astrometric_jitter = 0.015590772157762368, ref_epoch = 57936.375, dec_offset_mas = 0.0889816167388366),), planets = (b = (a = 2.0, Ω = 0.6, e = 0.01, ω = 0.01, tp = 51710.01947449644, mass = 10.0, i = 0.01, θ = 3.5226970272017826),))</code></pre><h2 id="Generate-synthetic-system-with-simulated-data"><a class="docs-heading-anchor" href="#Generate-synthetic-system-with-simulated-data">Generate synthetic system with simulated data</a><a id="Generate-synthetic-system-with-simulated-data-1"></a><a class="docs-heading-anchor-permalink" href="#Generate-synthetic-system-with-simulated-data" title="Permalink"></a></h2><p>We will call <code>Octofitter.generate_from_params</code> to generate a model with new synthetic observations. If you set <code>add_noise = true</code>, the generated data points will have scatter according to the <code>centroid_pos_error_al</code> specified above. </p><pre><code class="language-julia hljs">sim_system = Octofitter.generate_from_params(model.system, params_to_simulate; add_noise=true)
+sim_model = Octofitter.LogDensityModel(sim_system)</code></pre><h2 id="Fit-simulated-data"><a class="docs-heading-anchor" href="#Fit-simulated-data">Fit simulated data</a><a id="Fit-simulated-data-1"></a><a class="docs-heading-anchor-permalink" href="#Fit-simulated-data" title="Permalink"></a></h2><p>Follow the usual flow documented elsewhere.</p><p>Find starting point for MCMC (via variational approximation)</p><pre><code class="language- hljs">init_chain = initialize!(sim_model)
+octoplot(sim_model, init_chain)</code></pre><p>Fit:</p><pre><code class="language- hljs">using Pigeons
+chain, pt = octofit_pigeons(sim_model, n_rounds=9)</code></pre><pre><code class="language- hljs">octoplot(sim_model, chain)</code></pre><pre><code class="language- hljs"># Picks MAP sample
+Octofitter.gaiastarplot(sim_model, chain,)</code></pre><pre><code class="language- hljs"># Create astrometry plot showing both posterior and true orbit
+fig = Octofitter.astromplot(sim_model, chain, use_arcsec=false, ts=1:2)
+ax = fig.content[1]
+
+# Add true orbit in red
+true_chain = Octofitter.result2mcmcchain([params_to_simulate])
+Octofitter.astromplot!(ax, sim_model, true_chain, use_arcsec=false, ts=1:2, colormap=Makie.cgrad([:red]))
+
+# Make true orbit line more visible
+# ax.scene.plots[5].linewidth = 6
+
+fig</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../gaia-iad/">« Gaia DR4 Epoch Astrometry</a><a class="docs-footer-nextpage" href="../images/">Image Data (de-orbiting) »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Friday 30 January 2026 17:48">Friday 30 January 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

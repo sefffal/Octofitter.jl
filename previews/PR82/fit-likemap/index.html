@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Likelihood Map · Octofitter.jl</title><meta name="title" content="Likelihood Map · Octofitter.jl"/><meta property="og:title" content="Likelihood Map · Octofitter.jl"/><meta property="twitter:title" content="Likelihood Map · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 IAD</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox" checked/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li class="is-active"><a class="tocitem" href>Likelihood Map</a><ul class="internal"><li><a class="tocitem" href="#Resume-sampling-for-additional-rounds"><span>Resume sampling for additional rounds</span></a></li></ul></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Images and More</a></li><li class="is-active"><a href>Likelihood Map</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Likelihood Map</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/fit-likemap.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="fit-likemap"><a class="docs-heading-anchor" href="#fit-likemap">Fitting Likelihood Maps</a><a id="fit-likemap-1"></a><a class="docs-heading-anchor-permalink" href="#fit-likemap" title="Permalink"></a></h1><p>There are circumstances where you might have a 2D map of planet likelihood vs. position in the plane of the sky (<span>$\Delta$</span> R.A. and Dec.). These could originate from:</p><ul><li>cleaned interferometer data </li><li>some kind of spectroscopic cube model fitting to detect planets</li><li>some other imaginative modelling process I haven&#39;t thought of!</li></ul><p>You can feed such 2D likelihood maps in to Octofitter. Simply pass in a list of maps and a platescale mapping the pixel size to a separation in milliarcseconds.  You can of course also mix these likelihood maps with relative astrometry, radial velocity, proper motion, images, etc.</p><p>If your likelihood map is not centered on the star, you can specify offset dimensions as shown below.</p><div class="admonition is-info" id="Note-c907dc70ee14226c"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-c907dc70ee14226c" title="Permalink"></a></header><div class="admonition-body"><p>Image modelling is supported in Octofitter via the extension package OctofitterImages. To install it, run  <code>pkg&gt; add http://github.com/sefffal/Octofitter.jl:OctofitterImages</code></p></div></div><div class="admonition is-info" id="Note-37e2f340ebcf120e"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-37e2f340ebcf120e" title="Permalink"></a></header><div class="admonition-body"><p>For simple models of interferometer data, OctofitterInterferometry.jl can already handle fitting point sources directly to visibilities.</p></div></div><pre><code class="language-julia hljs">using Octofitter
+using Distributions
+using OctofitterImages
+using Pigeons
+using AstroImages</code></pre><p>Typically one would load your likelihood maps from eg. FITS files like so:</p><pre><code class="language-julia hljs"># If centred at the star:
+image1 = AstroImages.recenter(AstroImages.load(&quot;image-example-1.fits&quot;,1))
+
+# If not centered at the star:
+image1 = AstroImages.load(&quot;image-example-1.fits&quot;)
+image1_offset = AstroImage(
+    image1,
+    # Specify coordinates here:
+    (
+        # X coordinates should go from negative to positive.
+        # The image should have +RA at the left.
+        X(-4.85878653527304:1.0:95.14121346472696),
+        Y(-69.0877222942365:1.0:30.9122777057635)
+    )
+    # Below, there is a platescale option. `platescale` multiplies
+    # these values by a scaling factor. It can be 1 if the coordinates
+    # above are already in milliarcseconds.
+)
+imview(image1_offset)</code></pre><p>If you&#39;re using a FITS file, make sure to store your data in 64-bit floating point format.</p><p>For this demonstration, however, we will construct two synthetic likelihood maps using a template orbit. We will create three peaks in two epochs.</p><pre><code class="language-julia hljs">orbit_template = orbit(
+    a = 1.0,
+    e = 0.1,
+    i = 0.0,
+    ω = 0.0,
+    Ω = 0.5,
+    plx = 50.0,
+    M = 1
+)
+epochs = [
+    mjd(&quot;2024-01-30&quot;),
+    mjd(&quot;2024-02-29&quot;),
+]
+
+## Create simulated data with three likelihood peaks at both epochs
+x1,y1 = raoff(orbit_template,epochs[1]), decoff(orbit_template,epochs[1])
+# The three peaks in our likelihood map
+d1 = MvNormal([x1, y1], [
+    5.0 0.2
+    0.2 8.0
+])
+d2 = MvNormal([x1+8.0,y1+4], [
+    5.0 0.6
+    0.6 5.0
+])
+d3 = MvNormal([x1+9.0, y1-10.0], [
+    6.0 0.6
+    0.6 6.0
+])
+d = MixtureModel([d1, d2, d3], [0.5, 0.3, 0.2])
+
+# Calculate a log-likelihood map over a +-50 mas patch around (x1, x2)
+lm1 = broadcast(x1 .+ (-50:50), y1 .+ (-50:1:50)&#39;) do x, y
+    logpdf(d, [x, y])
+end
+
+# Place in an AstroImage with appropriate offset coordinates
+image1_offset = AstroImage(
+    lm1,
+    # Specify coordinates here:
+    (
+        # X coordinates should go from negative to positive.
+        # The image should have +RA at the left.
+        X(x1 .+ (-50:50)),
+        Y(y1 .+ (-50:1:50))
+    )
+    # Below, there is a platescale option. `platescale` multiplies
+    # these values by a scaling factor. It can be 1 if the coordinates
+    # above are already in milliarcseconds.
+)
+imview(10 .^ image1_offset)</code></pre><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGUAAABlCAYAAABUfC3PAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAABGJJREFUeAHtwU2LlWUYwPH//TzXOac5Z5xUnHTUsTB7MZQwcVULo7BFtWgXUZAE9Q1atAjrM7RpodVWjFAIJKLohRJKNzalDsbIMI46L845M+f9uZ+rGQZJ9Atcz/H6/QREcaYIzhzBmSM4cwRnjuDMEZw5gjNHcOYIzhzBmSM4cwRnjuDMEZw5gjNHcOYIzhzBmSM4cwRnjuDMEZw5gjNHcOYIzhzBmSM4cwRnjuDMEZw5gjNHcOYIzhzBmSM4cwRnjuDMEZw5gjNHcOYID4DAmsA6RbFNGGCBVSElhDJJUmFNnndBu6jmWCUMiAAo/wsEQhDKpVEeqT3DmD5Ojz4z+he3m5NksY5qjkVCwQUChJRAAiiQA0pAqFS2cqDyOu+Ob+KVXbNcr49w/OoRzgDzyxdB2yj2CAUWQkKSVCnLRspSI+Z9elmDmHeRtMp49RDvj2/inVO70N2H2cGqw99y/uI+FpMrxLwDKNYIBRUIpMkwm4efZj8vMD5UZanXZ4IrzPcmSZMyT+oeXn3qGrr7MHdsf7hBmRKWCQUVQomR6qO8Vj3Cx8/NMv5Gk+VfG3z22z5O3xplMdygnCQsLNXYxLpkcpKz17ZzPfxOnncBxSKhgAKBJK3yRPo8nxyaYeybt1Bg+Ch8eOwLpk/s5pdWg+m4wPHJbbz50hlGNzQ5O7WdE9PzzLX+RrWHYpNQRCFQSod5trqFsa8OcLfk2FH2nPqZH9odpuIkJ5e28NPtx0goMxPOMdeaoNufRzVilVBIAUkrbK0mMDLCvdIAK/kc9fY1butVrvMHoMS8g2oP1YhlQiEpeR6p95T7dDr8uwzN3i2ybBmlD6qsUxT7hCJSpR9XmKiv0P7gOEOfv8cdN976mvONKu3eIkof1ZyiEQpJyWKTCc5x7PuX+ejtL9n4Yo3p05FPL+zkcn6GGFdAc4pIKCBllXZZaF7hZFLl8tmDbPmxxHS7xUW+o9GaQrWPUkxCUWlOFuvMLv/JYukq0qvQy5r0siXyvIWSc6/AOsU2oaAUCJoR4zKt2CIQUHLQiKLcLRAgpARSQIEImqMoFgkFpqzSHMhZo9wvhIQkDCGygVJaRTXSy5aJcQW0j6JYIwwI5X6BhCQMUX1oG6OVvWzWMdqhyc14iXpriizWQSPWCIMsJIhsYLSyl4PpfnbUhIVOzoUetGWBGFeAiGKLMKACEEgppVU26xg7asLOKqsShro1QkiBgEXCQFNUI+3QZKGTAwkzzYzFMEs/tlAiij3CgFLWRHrZMjfjJS70YKhbYzHMMtf9hyxrgEYsEgaZ5sS4Qr01RVsWCCGlH1tkWYNcOyiKRcIAUxS0TxbrxLgCBJQIGlEUq4QBpyhoBCJrFPuEB4RSHIIzR3DmCM4cwZkjOHMEZ47gzBGcOYIzR3DmCM4cwZkjOHMEZ47gzBGcOYIzR3DmCM4cwZkjOHMEZ47gzBGcOYIzR3DmCM4cwZkjOHMEZ47gzBGcOYIzR3Dm/AePnq8xxouxRgAAAABJRU5ErkJg"><p>That was the first epoch. We now generate data for the second epoch:</p><pre><code class="language-julia hljs">x2,y2 = raoff(orbit_template,epochs[2]), decoff(orbit_template,epochs[2])
+# The three peaks in our likelihood map
+d1 = MvNormal([x2, y2], [
+    5.0 0.2
+    0.2 8.0
+])
+d2 = MvNormal([x2+10.0,y2], [
+    5.0 0.6
+    0.6 5.0
+])
+d3 = MvNormal([x2-4.0, y2-10.0], [
+    6.0 0.6
+    0.6 6.0
+])
+d = MixtureModel([d1, d2, d3], [0.5, 0.3, 0.2])
+
+
+
+lm2 = broadcast(x2 .+ (-50:50), y2 .+ (-50:1:50)&#39;) do x, y
+    logpdf(d, [x, y])
+end
+# Place in an AstroImage with appropriate offset coordinates
+image2_offset = AstroImage(
+    lm2,
+    # Specify coordinates here:
+    (
+        # X coordinates should go from negative to positive.
+        # The image should have +RA at the left.
+        X(x2 .+ (-50:50)),
+        Y(y2 .+ (-50:1:50))
+    )
+    # Below, there is a platescale option. `platescale` multiplies
+    # these values by a scaling factor. It can be 1 if the coordinates
+    # above are already in milliarcseconds.
+)
+imview(10 .^ image2_offset)</code></pre><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGUAAABlCAYAAABUfC3PAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAABHJJREFUeAHtwU2LlWUYwPH//ZzrnJk54+g0qKkzYpCBklYYLXqBJgJxEdE6aJGu6hO0ioroI9Qm3USbQkQyMFwELsJAUZuMfMsUnVFmHGc6c86Z5zzPfV95EKPsC1zP4fr9BERxpgjOHMGZIzhzBGeO4MwRnDmCM0dw5gjOHMGZIzhzBGeO4MwRnDmCM0dw5gjOHMGZIzhzBGeO4MwRnDmCM0dw5gjOHMGZIzhzBGeO4MwRnDmCM0dw5gjOHMGZIzhzBGeO4MwRnDmCM0dw5gjOHMGZIwyIACiDQai4QIBQI5ABCkTQhFJdQoWFkJFlTRoyTkNGKVNOXiwR4wpBS5T/CvQFHlAUm4SKCgRq2Rom1uxgN6+wdWSEhbzg/PAZbrfOUcYl0Ehf4L5QI4QGWTZEX0o5aI5qwhqhokKos7a5jTeae/lwzxxb32qz9OMKn/30El+nLvOtcyTt0heC0KivZ+Po02zW7RT0uKm/cq99mTIuo5qwRKigQCCrNXmq9jKfvHCLTUfeRoF1++Gj9w7yyzcvclL+oFcUBAJDjQ08N/Im726dYN+2OW4tjXHo6l6OAgutGdAuih1CFYVAvTbGs6Pr2fTV8/zbyBcH2P3DSX4u1lGWfxGyBo83n2H/1gn2fzuFbp9mC/dNH+PMzC4Ws0vEtAooVgiVFJBag00jGaxZw6PGh0CyBiEIkjWZSk+y74lZdPs0D02Ot6jTwCKhkpSkkeWe8j+dDrc7UMYcRVESvdBjdmktm3kgXLnC8etbmA2nSCkHFEuEKlKlKNv8ttxm9f2DDH9+gIfuvHOEc61R8mIJ1R4xBm7oDF9eeZ00fYzJ8RbHr2/h0I0F5jsXUO2h2CJUVIwdLoTTfHriVT7Yf4i1r41z83DOx6enuJi+o4gtVAuiRu62L3KUyJmZXdRpMBtOMd+5QF4soBqxRqgkJWmPxe4VDi9NcPX7nTx2osafnS7n9QTLnWuo5qAJSJRxmYXWDIvZJfpSylHtoRqxSKikQF9ZrnCrc5bF+jVCL6Nb3GO1d5eUOqgm/qERtEtMqzygKHYJFRNCRkAIWYMQhDJ2aMU2KfVImqNaoJp4lNKnVIFQISFkZGGEuqxjqD5GIKMX2xRli5RylALVRNUJFREIZGGE5vBmNg7tZL1OkodV7uhlFjtXibENqgwCoSpCDZExNgztYE9tF1OjwmKeOJsnWrU5inIJlIEgVEAAAjXqtSYTupnJUWGqyX0ZQ6vDQACUQSFUhqIaWQ1t7q4mIONWu+RumKWIbVQjijIIhApQ+iK9ssXteJGzPRjOR1kMc8znv1OWLdDIoBCqQhMxrrDcuUZXFgihRhE7lGWLpF0UZVAIFaEoaEEZl4lxBQgoETSiKINEqBBFQSMQ6VMGk1BBymATnDmCM0dw5gjOHMGZIzhzBGeO4MwRnDmCM0dw5gjOHMGZIzhzBGeO4MwRnDmCM0dw5gjOHMGZIzhzBGeO4MwRnDmCM0dw5gjOHMGZIzhzBGeO4MwRnDmCM+dv1ajHqa3nmewAAAAASUVORK5C"><p>Okay, we have our synthetic data. We now set up a <code>LogLikelihoodMapObs</code> object to contain our matrices of log likelihood values:</p><p>First, create a table of our likelihood map observations:</p><pre><code class="language-julia hljs">likemap_dat = Table(;
+    epoch = epochs,
+    map = [image1_offset, image2_offset],
+    platescale = [1.0, 1.0] # milliarcseconds/pixel of the map
+)
+
+loglikemap = LogLikelihoodMapObs(
+    likemap_dat,
+    name=&quot;GRAVITY&quot;,
+    variables=@variables begin
+        platescale = 1.0               # Platescale multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        northangle = 0.0               # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+    end
+);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">OctofitterImages.LogLikelihoodMapObs Table with 5 columns and 2 rows:
+     epoch    map                   platescale  fillvalue  mapinterp
+   ┌───────────────────────────────────────────────────────────────────────────
+ 1 │ 60339.0  [-393.192 -387.534 …  1.0         -423.544   101×101 extrapolate…
+ 2 │ 60369.0  [-287.052 -281.177 …  1.0         -423.544   101×101 extrapolate…</code></pre><div class="admonition is-info" id="Note-2ec7b08b70aa0a08"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-2ec7b08b70aa0a08" title="Permalink"></a></header><div class="admonition-body"><p>The likelihood maps will be interpolated using a simple bi-linear interpolation. </p></div></div><p>We now create a one-planet model and run the fit using <code>octofit_pigeons</code>. This parallel-tempered sampler is slower than the regular <code>octofit</code>, but is recommended over the default Hamiltonian Monte Carlo sampler due to the multi-modal nature of the data. </p><pre><code class="language-julia hljs">planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    observations=[loglikemap],
+    variables=@variables begin
+        a ~ Uniform(0, 10)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        M = system.M
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(θ, 60339.0; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
+
+sys = System(
+    name=&quot;Tutoria&quot;,
+    companions=[planet_b],
+    observations=[],
+    variables=@variables begin
+        M ~ truncated(Normal(1.0, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
+chain, pt = octofit_pigeons(model, n_rounds=10) # increase n_rounds until log(Z₁/Z₀) converges.
+display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Preparing model
+┌ Info: Determined number of free variables
+└   D = 11
+┌ Info: Determined number type
+└   T = Float64
+ℓπcallback(θ): 0.000021 seconds
+∇ℓπcallback(θ): 0.000023 seconds (1 allocation: 32 bytes)
+┌ Warning: This model has priors that cannot be sampled IID.
+└ @ OctofitterPigeonsExt ~/work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt/OctofitterPigeonsExt.jl:105
+[ Info: Sampler running with multiple threads     : true
+[ Info: Likelihood evaluated with multiple threads: false
+┌ Info: Starting values not provided for all parameters! Guessing starting point using global optimization:
+│   num_params = 11
+└   num_fixed = 0
+┌ Info: Found sample of initial positions
+│   logpost_range = (-16.89293247067628, -9.172936303919617)
+└   mean_logpost = -11.827422848122817
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
+────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
+        2          0       3.54       1.56      0.226   4.14e+06      -34.2   4.22e-25      0.836          1          1
+        4          0       3.83       4.04     0.0637   1.48e+05      -17.4   0.000277      0.746          1          1
+        8          0       4.58       3.87      0.122    2.6e+05      -20.4     0.0138      0.727          1          1
+       16          0       4.63       5.08      0.241   4.43e+05      -20.8      0.192      0.687          1          1
+       32          2       4.84       4.51      0.483   7.54e+05      -22.2      0.418      0.698          1          1
+       64          3       4.68       3.13       1.14   4.64e+07      -21.3      0.553      0.748          1          1
+      128         10       4.61       3.35       1.92   7.92e+07      -21.1      0.547      0.743          1          1
+      256         41       4.81       3.14       3.84   1.58e+08      -21.1      0.577      0.743          1          1
+      512         76       4.71       3.22       7.79   3.14e+08      -21.1       0.63      0.744          1          1
+ 1.02e+03        157       4.79       3.12       15.4   6.28e+08      -20.9      0.639      0.745          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info" id="Note-885630c21c612562"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-885630c21c612562" title="Permalink"></a></header><div class="admonition-body"><p><code>octofit_pigeons</code> scales very well across multiple cores. Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>Display the results:</p><pre><code class="language-julia hljs">using CairoMakie
+octoplot(model, chain)</code></pre><img src="84aa3073.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model,chain,small=true,)</code></pre><img src="504e9529.png" alt="Example block output"/><p>And finally let&#39;s look at the posterior predictive distributions at both epochs:</p><pre><code class="language-julia hljs">els = Octofitter.construct_elements(model, chain,:b, :)
+x = raoff.(els, loglikemap.table.epoch[1])
+y = decoff.(els, loglikemap.table.epoch[1])
+pairplot(
+    (;x,y),
+    axis=(
+        x = (;
+            lims=(low=100,high=-100)
+        ),
+        y = (;
+            lims=(low=-100,high=100)
+        )
+    )
+)</code></pre><img src="7a33f623.png" alt="Example block output"/><pre><code class="language-julia hljs">x = raoff.(els, loglikemap.table.epoch[2])
+y = decoff.(els, loglikemap.table.epoch[2])
+pairplot(
+    (;x,y),
+    axis=(
+        x = (;
+            lims=(low=100,high=-100)
+        ),
+        y = (;
+            lims=(low=-100,high=100)
+        )
+    )
+)</code></pre><img src="1a4e8744.png" alt="Example block output"/><h2 id="Resume-sampling-for-additional-rounds"><a class="docs-heading-anchor" href="#Resume-sampling-for-additional-rounds">Resume sampling for additional rounds</a><a id="Resume-sampling-for-additional-rounds-1"></a><a class="docs-heading-anchor-permalink" href="#Resume-sampling-for-additional-rounds" title="Permalink"></a></h2><p>If you would like to add additional rounds of sampling, you may do the following:</p><pre><code class="language-julia hljs">pt = increment_n_rounds!(pt, 2)
+chain, pt = octofit_pigeons(pt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (4096×22×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Updated corner plot:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model,chain,small=false,)</code></pre><img src="4682901e.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-interfere/">« Interferometer Data</a><a class="docs-footer-nextpage" href="../fit-grav-wide/">GRAVITY Wide Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.0 on <span class="colophon-date" title="Thursday 20 November 2025 19:00">Thursday 20 November 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
