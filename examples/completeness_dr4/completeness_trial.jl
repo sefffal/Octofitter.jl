@@ -75,6 +75,9 @@ ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 # ──────────────────────────────────────────────────────────────────
 # Model definition
 # ──────────────────────────────────────────────────────────────────
+orbit_ref_epoch = Float64(mean(Octofitter.jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_)))
+plx_catalog = Float64(dr3.parallax)
+
 gaiaIADobs = GaiaDR4AstromObs(df;
     gaia_id=gaia_id,
     variables=@variables begin
@@ -84,11 +87,9 @@ gaiaIADobs = GaiaDR4AstromObs(df;
         pmra  ~ Uniform(-1000, 1000)
         pmdec ~ Uniform(-1000, 1000)
         plx = system.plx
-        ref_epoch = $ref_epoch_mjd
+        ref_epoch = $ref_epoch_mjd   # $ needed: derived variable with external value
     end
 )
-
-orbit_ref_epoch = mean(gaiaIADobs.table.epoch)
 
 b = Planet(
     name="b",
@@ -101,7 +102,7 @@ b = Planet(
         i    ~ Sine()
         Ω    ~ Uniform(0, 2pi)
         θ    ~ Uniform(0, 2pi)
-        tp   = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=system.M, e, a, i, ω, Ω)
+        tp   = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=system.M, e, a, i, ω, Ω)  # $ for external
         mass ~ LogUniform(0.01, 1000)
     end
 )
@@ -112,7 +113,7 @@ sys = System(
     observations=[gaiaIADobs],
     variables=@variables begin
         M   = 1.0
-        plx ~ truncated(Normal($(Float64(dr3.parallax)), 0.5), lower=0.1)
+        plx ~ truncated(Normal(plx_catalog, 0.5), lower=0.1)  # no $ needed: sampled variable
     end
 )
 
