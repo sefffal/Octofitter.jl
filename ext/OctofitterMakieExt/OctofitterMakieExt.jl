@@ -21,6 +21,7 @@ include("gaiatimeplot.jl")
 include("gaiastarplot.jl")
 include("skytrackplot.jl")
 include("dotplot.jl")
+include("completenessplot.jl")
 include("octoplot.jl")
 
 end
