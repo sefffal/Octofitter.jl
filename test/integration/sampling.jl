@@ -66,6 +66,26 @@ const TEST_ADAPTATION = 50
         @test mean(chain[:numerical_error]) < 0.15
     end
 
+    @testset "Rejection Sampling" begin
+        # Use a simpler model for rejection sampling (low-dimensional)
+        simple_sys = System(
+            name="SimpleRejTest",
+            companions=[],
+            observations=[],
+            variables=@variables begin
+                M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+                plx ~ truncated(Normal(50.0, 0.5), lower=0.1)
+            end
+        )
+        simple_model = Octofitter.LogDensityModel(simple_sys, verbosity=0)
+        chain_rej = octofit_rejection(rng, simple_model, draws=10_000, verbosity=0)
+
+        @test size(chain_rej, 1) > 10
+        @test chain_rej.info.sampler == "rejection"
+        @test chain_rej.info.draws == 10_000
+        @test 0 < chain_rej.info.acceptance_rate <= 1
+    end
+
     @testset "Chain I/O" begin
         chain = octofit(rng, model, iterations=TEST_ITERATIONS, adaptation=TEST_ADAPTATION)
 

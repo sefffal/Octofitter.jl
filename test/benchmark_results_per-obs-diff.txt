@@ -1,0 +1,43 @@
+========================================================================
+  Octofitter PR #91 Benchmarks
+  Branch: per-obs-diff  Commit: 9caf6a8
+  Julia: 1.12.4  Date: 2026-02-18T13:57:52.386
+========================================================================
+
+────────────────────────────────────────────────────────────────────────
+  TEST 1: Simple relative astrometry model
+────────────────────────────────────────────────────────────────────────
+  D = 9
+  logdensity          median:      2.7 μs  allocs: 0
+  logdensity+gradient  median:     15.4 μs  allocs: 9
+
+────────────────────────────────────────────────────────────────────────
+  TEST 2: 5-instrument StarAbsoluteRVObs (sparsity test)
+────────────────────────────────────────────────────────────────────────
+  D = 17
+    Term 1: D_active = 7 / 17  (41%)
+    Term 2: D_active = 9 / 17  (53%)
+    Term 3: D_active = 9 / 17  (53%)
+    Term 4: D_active = 9 / 17  (53%)
+    Term 5: D_active = 9 / 17  (53%)
+    Term 6: D_active = 9 / 17  (53%)
+  logdensity          median:     14.3 μs  allocs: 0
+  logdensity+gradient  median:     76.3 μs  allocs: 48
+
+────────────────────────────────────────────────────────────────────────
+  TEST 3: MarginalizedStarAbsoluteRVObs
+────────────────────────────────────────────────────────────────────────
+  D = 8
+  AD backend: ADTypes.AutoEnzyme(mode=EnzymeCore.ReverseMode{false, true, false, EnzymeCore.FFIABI, false, false}(), function_annotation=EnzymeCore.Const)
+  logdensity          median:      4.0 μs  allocs: 4
+  logdensity+gradient  median:     37.6 μs  allocs: 510
+
+========================================================================
+  SUMMARY — per-obs-diff (9caf6a8)
+========================================================================
+  Test                                        ℓπ (μs)   ∇ℓπ (μs)   allocs
+  --------------------------------------------------------------------
+  1. Simple astrometry (D=9)                      2.7       15.4        9
+  2. 5-inst RV sparsity (D=17)                   14.3       76.3       48
+  3. MarginalizedRV (D=8)                         4.0       37.6      510
+========================================================================

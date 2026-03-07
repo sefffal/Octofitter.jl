@@ -44,7 +44,11 @@
 
     @testset "HGCALikelihood" begin
         gaia_id = 756291174721509376
-        hgca = HGCALikelihood(;gaia_id=gaia_id)
+        # cd to test dir so the cached GOST scan-law CSV is found
+        # (avoids hitting the GOST web service during CI)
+        hgca = cd(joinpath(@__DIR__, "..")) do
+            HGCALikelihood(;gaia_id=gaia_id)
+        end
         @test hgca isa HGCALikelihood
     end
 

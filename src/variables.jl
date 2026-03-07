@@ -418,9 +418,48 @@ function Base.show(io::IO, mime::MIME"text/plain", like::UserLikelihood{TSym_LHS
     println(io, "UserLikelihood: $TSym_LHS ~ $TSym_RHS")
 end
 
+"""
+    DirectLLObs{TSym} <: AbstractObs
+
+A likelihood contribution specified directly as a log-likelihood value via `LL += expr`
+in a `@variables` block. The expression is evaluated as a derived variable and its
+numeric value is added directly to the log-likelihood.
+
+This is an escape hatch for cases where the likelihood cannot be expressed as
+`logpdf(Distribution, value)`, e.g. marginalized likelihoods from analytic integrals.
+"""
+struct DirectLLObs{TSym} <: AbstractObs
+    priors::Priors
+    derived::Derived
+    name::String
+end
+DirectLLObs(sym::Symbol, name::String) = DirectLLObs{sym}(Priors(), Derived(), name)
+
+likelihoodname(like::DirectLLObs) = like.name
+_isprior(::DirectLLObs) = true
+likeobj_from_epoch_subset(like::DirectLLObs, obs_inds) = like
+TypedTables.Table(::DirectLLObs) = nothing
+generate_from_params(like::DirectLLObs, ctx::SystemObservationContext; add_noise) = like
+generate_from_params(like::DirectLLObs, ctx::PlanetObservationContext; add_noise) = like
+
+function ln_like(like::DirectLLObs{TSym}, ctx::SystemObservationContext) where {TSym}
+    val = getproperty(ctx.θ_system, TSym)
+    return val
+end
+
+function ln_like(like::DirectLLObs{TSym}, ctx::PlanetObservationContext) where {TSym}
+    θ = merge(ctx.θ_planet, ctx.θ_obs)
+    val = getproperty(θ, TSym)
+    return val
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", like::DirectLLObs{TSym}) where {TSym}
+    println(io, "DirectLLObs: LL += $TSym")
+end
+
 # We need a blank likelihood type to hold variables when constructing
 # e.g. prior only models.
-# TODO: In future if/when we get RHS ~ working in our models, we can probably 
+# TODO: In future if/when we get RHS ~ working in our models, we can probably
 # use those objects for this purpose too.
 struct BlankLikelihood <: AbstractObs
     priors::Priors
