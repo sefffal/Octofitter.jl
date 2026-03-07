@@ -36,9 +36,8 @@ gaia_id = 5064625130502952704
 dr3 = Octofitter._query_gaia_dr3(; gaia_id)
 
 # Query GOST scan law; fall back to synthetic epochs if GOST is unavailable
-local gost
-try
-    gost = DataFrame(Octofitter.GOST_forecast(dr3.ra, dr3.dec; baseline=:dr4))
+gost = try
+    DataFrame(Octofitter.GOST_forecast(dr3.ra, dr3.dec; baseline=:dr4))
 catch e
     @warn "GOST unavailable, generating synthetic scan epochs" exception=(e,catch_backtrace())
     # DR4 baseline: ~2014-07-25 to ~2020-01-20 ≈ 2000 days, ~70 visibility windows
@@ -48,7 +47,7 @@ catch e
     t0_jd = 2456863.5  # 2014-07-25 in JD (start of Gaia science operations)
     epochs_jd = t0_jd .+ sort(rand(rng, N_synth) .* 2000)
     scan_angles = rand(rng, N_synth) .* 2π
-    gost = DataFrame(
+    DataFrame(
         ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_ = epochs_jd,
         scanAngle_rad_ = scan_angles,
     )
