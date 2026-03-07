@@ -49,7 +49,7 @@ serialize("completeness_map.jls", cmap)
 fig = Octofitter.completenessplot(
     cmap,
     "dr4_completeness_map.png";
-    title="Gaia DR4 Completeness (source $5064625130502952704)",
+    title="Gaia DR4 Completeness (source 5064625130502952704)",
     show_counts=true,
 )
 @info "Saved plot to dr4_completeness_map.png"
