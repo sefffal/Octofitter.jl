@@ -6,8 +6,13 @@ function of companion mass and separation (or any two parameters). The workflow
 supports both local execution and cluster-scale parallelism:
 
   Phase 1: `completeness_jobs()`       — generate lightweight job descriptions
-  Phase 2: `run_completeness_trial()`  — execute a single injection-recovery trial
-  Phase 3: `assemble_completeness()`   — combine results into a CompletenessMap
+  Phase 2: `run_completeness_trial()`  — inject, simulate, and sample (no detection decision)
+  Phase 3: `assemble_completeness()`   — apply detection criterion and build CompletenessMap
+
+Detection is *purely* a post-hoc step in Phase 3. Each trial stores the full
+posterior chain and true injected parameters, so you can iterate on detection
+thresholds, try different criteria, or inspect individual posteriors — all
+without re-running the sampler.
 
 For convenience, `completeness_map()` runs all three phases locally.
 
@@ -50,15 +55,19 @@ export CompletenessJob
 """
     CompletenessResult
 
-The outcome of a single injection-recovery trial.
+The output of a single injection-recovery trial. Stores the full posterior chain
+and the true injected parameters so that detection criteria can be applied (and
+re-applied) after the fact.
 
 # Fields
-- `job::CompletenessJob` — the job that produced this result
-- `detected::Bool` — whether the detection criterion was satisfied
+- `job::CompletenessJob` — the job description that produced this result
+- `chain::Chains` — full posterior chain from the sampler
+- `θ_true::NamedTuple` — the true injected parameter values
 """
-struct CompletenessResult
+struct CompletenessResult{TChain,TParams}
     job::CompletenessJob
-    detected::Bool
+    chain::TChain
+    θ_true::TParams
 end
 export CompletenessResult
 
@@ -109,7 +118,7 @@ independent and can be dispatched to separate processes or cluster nodes.
 jobs = completeness_jobs(masses=10 .^ range(-1, 2, 15), separations=10 .^ range(-0.3, 1.7, 15), n_trials=10)
 # Write job index from SLURM_ARRAY_TASK_ID
 job = jobs[parse(Int, ENV["SLURM_ARRAY_TASK_ID"])]
-result = run_completeness_trial(job, system, sampler, detection; inject=my_inject)
+result = run_completeness_trial(job, system, sampler; inject=my_inject)
 # Save result...
 ```
 """
@@ -136,20 +145,24 @@ export completeness_jobs
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Phase 2: Run a single trial
+# Phase 2: Run a single trial (inject → simulate → sample)
 # ──────────────────────────────────────────────────────────────────────
 
 """
-    run_completeness_trial(job, system, sampler, detection_criterion; inject, add_noise=true, verbosity=0)
+    run_completeness_trial(job, system, sampler; inject, add_noise=true, verbosity=0)
 
-Execute a single injection-recovery trial.
+Execute a single injection-recovery trial: inject a companion, simulate
+observations, and sample the posterior. No detection decision is made here —
+that happens in [`assemble_completeness`](@ref).
+
+The returned [`CompletenessResult`](@ref) stores the full posterior chain and
+the true injected parameters, allowing detection criteria to be applied and
+iterated on after the fact.
 
 # Arguments
 - `job::CompletenessJob` — job description (grid point + seed)
 - `system::System` — template system with priors, observations, and planets
 - `sampler` — callable `(model) -> chain`; e.g. `m -> octofit(m, iterations=5000)`
-- `detection_criterion` — callable `(chain, θ_true) -> Bool`; returns whether
-  the injected companion was recovered
 
 # Keyword Arguments
 - `inject` — callable `(mass, separation) -> NamedTuple`; maps grid values to
@@ -160,7 +173,7 @@ Execute a single injection-recovery trial.
 - `verbosity::Int=0` — logging verbosity (0=silent, 1=info, 2=debug)
 
 # Returns
-[`CompletenessResult`](@ref) — contains the job and whether detection succeeded.
+[`CompletenessResult`](@ref) containing the job, posterior chain, and true parameters.
 
 # Details
 1. Draws parameters from `system`'s priors using a seeded RNG
@@ -169,30 +182,24 @@ Execute a single injection-recovery trial.
 4. Builds a `LogDensityModel` from the simulated system
 5. **Initializes the sampler at the true parameters** (see module note)
 6. Calls `sampler(model)` to obtain a posterior chain
-7. Calls `detection_criterion(chain, θ_true)` to determine recovery
+7. Returns the chain and true parameters for later analysis
 
 # Example
 ```julia
-inject = (mass, sep) -> (; planets=(; b=(; planet_present=1.0, mass_prime=mass, a=sep)))
-
-detection = function(chain, θ_true)
-    p = mean(chain["b_planet_present"])
-    BF = p / (1 - p)
-    return BF > 3
-end
-
 result = run_completeness_trial(job, system,
-    model -> octofit(model, iterations=5000, verbosity=0),
-    detection;
-    inject=inject,
+    model -> octofit(model, iterations=5000, verbosity=0);
+    inject = (mass, sep) -> (; planets=(; b=(; mass=mass, a=sep))),
 )
+
+# Inspect the posterior chain
+result.chain
+result.θ_true
 ```
 """
 function run_completeness_trial(
     job::CompletenessJob,
     system::System,
-    sampler,
-    detection_criterion;
+    sampler;
     inject,
     add_noise::Bool=true,
     verbosity::Int=0,
@@ -224,35 +231,61 @@ function run_completeness_trial(
     verbosity >= 1 && @info "Sampling trial $(job.i_trial) at mass=$(round(job.mass, sigdigits=3)) Mjup, sep=$(round(job.separation, sigdigits=3)) AU"
     chain = sampler(model)
 
-    # 7. Check detection
-    detected = detection_criterion(chain, θ_nt)::Bool
+    verbosity >= 1 && @info "Trial $(job.i_trial) complete"
 
-    verbosity >= 1 && @info "Trial $(job.i_trial): detected=$(detected)"
-
-    return CompletenessResult(job, detected)
+    return CompletenessResult(job, chain, θ_nt)
 end
 export run_completeness_trial
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Phase 3: Assemble results
+# Phase 3: Apply detection criterion and assemble
 # ──────────────────────────────────────────────────────────────────────
 
 """
-    assemble_completeness(results; masses, separations)
+    assemble_completeness(results, detection_criterion; masses, separations)
 
-Combine a collection of [`CompletenessResult`](@ref)s into a [`CompletenessMap`](@ref).
+Apply a detection criterion to a collection of [`CompletenessResult`](@ref)s
+and assemble a [`CompletenessMap`](@ref).
+
+Detection is applied here — not during the trial — so you can call this
+function multiple times with different criteria to iterate on thresholds
+without re-running the sampler.
 
 # Arguments
 - `results` — iterable of `CompletenessResult`
+- `detection_criterion` — callable `(chain, θ_true) -> Bool`; returns whether
+  the injected companion was recovered in a given trial
 - `masses` — the mass grid used to generate the jobs
 - `separations` — the separation grid used to generate the jobs
 
 # Returns
 [`CompletenessMap`](@ref) with completeness fractions on the mass × separation grid.
+
+# Example
+```julia
+# Assemble with a Bayes factor threshold:
+cmap_bf3 = assemble_completeness(results,
+    (chain, θ) -> let p = mean(chain["b_planet_present"]); p/(1-p) > 3 end;
+    masses=masses, separations=seps,
+)
+
+# Try a stricter threshold on the same results:
+cmap_bf10 = assemble_completeness(results,
+    (chain, θ) -> let p = mean(chain["b_planet_present"]); p/(1-p) > 10 end;
+    masses=masses, separations=seps,
+)
+
+# Or a simple mass recovery criterion:
+cmap_mass = assemble_completeness(results,
+    (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 0.1;
+    masses=masses, separations=seps,
+)
+```
 """
 function assemble_completeness(
-    results;
+    results,
+    detection_criterion;
     masses,
     separations,
 )
@@ -266,8 +299,9 @@ function assemble_completeness(
 
     for r in results
         j = r.job
+        detected = detection_criterion(r.chain, r.θ_true)::Bool
         n_total[j.i_mass, j.i_sep] += 1
-        n_detected[j.i_mass, j.i_sep] += r.detected
+        n_detected[j.i_mass, j.i_sep] += detected
     end
 
     completeness = n_detected ./ max.(n_total, 1)
@@ -282,12 +316,14 @@ export assemble_completeness
 # ──────────────────────────────────────────────────────────────────────
 
 """
-    completeness_map(system, sampler, detection_criterion; inject, masses, separations, n_trials=5, add_noise=true, verbosity=1)
+    completeness_map(system, sampler, detection_criterion; inject, masses, separations, n_trials=5, add_noise=true, verbosity=1) -> (CompletenessMap, Vector{CompletenessResult})
 
 Compute a completeness map by running injection-recovery trials locally.
 
 This is a convenience wrapper that calls [`completeness_jobs`](@ref),
 [`run_completeness_trial`](@ref), and [`assemble_completeness`](@ref) in sequence.
+Returns both the map and the full results vector, so you can re-apply different
+detection criteria without re-sampling.
 
 For cluster-scale work, use the three-phase API directly.
 
@@ -305,47 +341,19 @@ For cluster-scale work, use the three-phase API directly.
 - `verbosity::Int=1` — logging level
 
 # Returns
-[`CompletenessMap`](@ref)
+`(cmap::CompletenessMap, results::Vector{CompletenessResult})` — the assembled
+map and the raw results for re-thresholding.
 
 # Example
 ```julia
 using Octofitter, Distributions
 
-# Define system with spike-and-slab detection model
-planet_b = Planet(
-    name = "b",
-    basis = Visual{KepOrbit},
-    observations = [my_rv_data, my_gaia_data],
-    variables = @variables begin
-        planet_present ~ Bernoulli(0.5)
-        mass_prime ~ LogUniform(0.01, 100)  # Mjup
-        mass = planet_present * mass_prime
-        a ~ LogUniform(0.1, 100)            # AU
-        e ~ Uniform(0, 0.5)
-        i ~ Sine()
-        Ω ~ UniformCircular()
-        ω ~ UniformCircular()
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, 50000.0; M=system.M, e, a, i, ω, Ω)
-    end,
-)
-
-sys = System(name="target", companions=[planet_b], observations=[...],
-    variables = @variables begin
-        M ~ truncated(Normal(1.0, 0.1), lower=0.1)
-        plx ~ truncated(Normal(50.0, 0.5), lower=0.1)
-    end,
-)
-
 # Run completeness map
-cmap = completeness_map(
+cmap, results = completeness_map(
     sys,
     model -> octofit(model, iterations=5000, verbosity=0),
-    (chain, θ) -> begin
-        p = mean(chain["b_planet_present"])
-        return p / (1 - p) > 3  # Bayes factor > 3
-    end;
-    inject = (mass, sep) -> (; planets=(; b=(; planet_present=1.0, mass_prime=mass, a=sep))),
+    (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 0.1;
+    inject = (mass, sep) -> (; planets=(; b=(; mass=mass, a=sep))),
     masses = 10 .^ range(-1, 2, length=12),
     separations = 10 .^ range(-0.3, 1.7, length=12),
     n_trials = 5,
@@ -354,6 +362,13 @@ cmap = completeness_map(
 # Plot
 using CairoMakie
 completenessplot(cmap)
+
+# Try a different threshold without re-running:
+cmap_strict = assemble_completeness(results,
+    (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 1.0;
+    masses = 10 .^ range(-1, 2, length=12),
+    separations = 10 .^ range(-0.3, 1.7, length=12),
+)
 ```
 """
 function completeness_map(
@@ -376,13 +391,13 @@ function completeness_map(
     for (i, job) in enumerate(jobs)
         verbosity >= 1 && print("\r  Trial $i / $n_jobs")
         results[i] = run_completeness_trial(
-            job, system, sampler, detection_criterion;
+            job, system, sampler;
             inject, add_noise, verbosity=max(0, verbosity - 1),
         )
     end
     verbosity >= 1 && println()
 
-    cmap = assemble_completeness(results; masses, separations)
+    cmap = assemble_completeness(results, detection_criterion; masses, separations)
 
     if verbosity >= 1
         detected_total = sum(cmap.n_detected)
@@ -390,7 +405,7 @@ function completeness_map(
         @info "Completeness map complete" detected=detected_total total=trials_total overall_rate=round(detected_total/max(trials_total,1), digits=3)
     end
 
-    return cmap
+    return cmap, results
 end
 export completeness_map
 

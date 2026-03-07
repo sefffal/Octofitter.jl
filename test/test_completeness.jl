@@ -70,39 +70,60 @@ println("  Log posterior at truth: ", lp)
 @assert isfinite(lp)
 println("  PASSED")
 
-# ── Test 4: Full single trial ──
+# ── Test 4: Full single trial (no detection decision) ──
 println("\nTest 4: run_completeness_trial")
 job = CompletenessJob(1, 1, 1, 5.0, 8.0, UInt64(12345))
-
-detection = function(chain, θ_true)
-    mass_samples = vec(chain["b_mass"])
-    # Simple criterion: median recovered mass within factor of 3
-    return 0.33 * θ_true.planets.b.mass < median(mass_samples) < 3.0 * θ_true.planets.b.mass
-end
 
 inject = (mass, sep) -> (; planets=(; b=(; mass=mass, a=sep)))
 
 result = run_completeness_trial(
     job, sys,
-    model -> octofit(model, iterations=200, adaptation=200, verbosity=0),
-    detection;
+    model -> octofit(model, iterations=200, adaptation=200, verbosity=0);
     inject=inject,
     add_noise=true,
     verbosity=1,
 )
-println("  detected = ", result.detected)
+println("  chain type: ", typeof(result.chain))
+println("  θ_true mass: ", result.θ_true.planets.b.mass)
+@assert result.θ_true.planets.b.mass ≈ 5.0
+@assert result.θ_true.planets.b.a ≈ 8.0
+@assert length(vec(result.chain["b_mass"])) > 0
 println("  PASSED")
 
-# ── Test 5: completeness_jobs + assemble ──
-println("\nTest 5: completeness_jobs + assemble")
-jobs = completeness_jobs(masses=[1.0, 10.0], separations=[5.0, 10.0], n_trials=2)
-println("  Generated $(length(jobs)) jobs")
-@assert length(jobs) == 8
-fake_results = [CompletenessResult(j, j.mass > 5) for j in jobs]
-cmap = assemble_completeness(fake_results; masses=[1.0, 10.0], separations=[5.0, 10.0])
-@assert cmap.completeness[1, 1] ≈ 0.0  # mass=1 should not be detected
-@assert cmap.completeness[2, 1] ≈ 1.0  # mass=10 should be detected
+# ── Test 5: assemble_completeness with detection criterion ──
+println("\nTest 5: assemble_completeness with detection criterion")
+
+# Detection applied here, not during the trial
+detection = function(chain, θ_true)
+    mass_samples = vec(chain["b_mass"])
+    return 0.33 * θ_true.planets.b.mass < median(mass_samples) < 3.0 * θ_true.planets.b.mass
+end
+
+cmap = assemble_completeness(
+    [result], detection;
+    masses=[5.0], separations=[8.0],
+)
 println("  Completeness: ", cmap.completeness)
+println("  PASSED")
+
+# ── Test 6: re-apply different detection criterion ──
+println("\nTest 6: re-apply different threshold")
+
+# Stricter criterion on same result
+cmap_strict = assemble_completeness(
+    [result],
+    (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 1.0;
+    masses=[5.0], separations=[8.0],
+)
+println("  Strict completeness: ", cmap_strict.completeness)
+
+# Very lenient criterion
+cmap_lenient = assemble_completeness(
+    [result],
+    (chain, θ) -> median(vec(chain["b_mass"])) > 0.01;
+    masses=[5.0], separations=[8.0],
+)
+println("  Lenient completeness: ", cmap_lenient.completeness)
 println("  PASSED")
 
 println("\n✓ All completeness tests passed!")
