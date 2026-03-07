@@ -5,9 +5,8 @@ injection-recovery. Given a model template and a grid of companion masses and
 separations, it systematically injects synthetic companions, simulates
 observations, fits the data, and tests whether the companion is recovered.
 
-The key design principle: **detection is a post-hoc decision**. Each trial
-stores the full posterior chain and the true injected parameters. You choose
-and apply your detection criterion *after* sampling, so you can iterate on
+Each trial stores the full posterior chain and the true injected parameters. You choose
+and apply your detection criterion after sampling, so you can iterate on
 thresholds without re-running the sampler.
 
 The framework supports both local execution and cluster-scale parallelism via
@@ -33,7 +32,7 @@ For convenience, [`completeness_map`](@ref) runs all three phases locally.
 ```julia
 using Octofitter, Distributions
 
-# ... (define your system with observations) ...
+# ... (define your system with observation templates) ...
 
 # Run completeness map
 cmap, results = completeness_map(
@@ -43,7 +42,7 @@ cmap, results = completeness_map(
     inject = (mass, sep) -> (; planets=(; b=(; mass=mass, a=sep))),
     masses = 10 .^ range(-1, 2, length=12),       # 0.1 to 100 Mjup
     separations = 10 .^ range(-0.3, 1.7, length=12), # 0.5 to 50 AU
-    n_trials = 5,
+    n_trials = 5, # trials per mass/separation combination
 )
 
 # Plot
