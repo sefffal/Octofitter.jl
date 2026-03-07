@@ -84,6 +84,7 @@ include("io-orbitize.jl")
 
 include("sbc.jl")
 include("cross-validation.jl")
+include("completeness.jl")
 
 """
     using Pigeons

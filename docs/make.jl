@@ -54,6 +54,7 @@ makedocs(
                 "RV and Relative Astrometry" => "fit-rv-astrom.md",
                 "RV and Proper Motion Anomaly" => "rv.md",
                 "Calculate Detection Limits" => "limits.md",
+                "Detection Completeness Mapping" => "completeness.md",
             ],
             "Bayesian Workflows" => [
                 "Circular or Eccentric? Model Comparison" => "eccentric-or-circular.md",

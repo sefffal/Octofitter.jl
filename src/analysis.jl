@@ -103,4 +103,12 @@ function dotplot!( args...; kwargs...)
 end
 
 
+function completenessplot( args...; kwargs...)
+    error("You must load the Makie package (eg `using CairoMakie`) before calling this function. Pass a CompletenessMap as the argument.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+function completenessplot!( args...; kwargs...)
+    error("You must load the Makie package (eg `using CairoMakie`) before calling this function. Pass a CompletenessMap as the argument.  If you're seeing this message despite loading those packages, check that you are passing the correct argument types.")
+end
+
+
 export octoplot, octocorner
