@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: [self-hosted, docs]
+    runs-on: [self-hosted, macOS, ARM64]
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@latest
