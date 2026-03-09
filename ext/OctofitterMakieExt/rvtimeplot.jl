@@ -489,9 +489,26 @@ function rvtimeplot_relative!(
         orbs = Octofitter.construct_elements(model, results, planet_key, ii)
 
         sols = orbitsolve.(orbs, ts')
-        
+
         rv_model_t = radvel.(sols)
         color_model_t = rem2pi.(meananom.(sols), RoundDown) .+ 0 .* ii
+
+        # Add offset and trend contributions from any PlanetRelativeRVObs
+        planet = getproperty(model.system.planets, planet_key)
+        for like_obj in planet.observations
+            if nameof(typeof(like_obj)) != :PlanetRelativeRVObs
+                continue
+            end
+            like_obj_name = Octofitter.normalizename(likelihoodname(like_obj))
+            for (j, i) in enumerate(ii)
+                θ_obs = nt_format[i].planets[planet_key].observations[like_obj_name]
+                offset = hasproperty(θ_obs, :offset) ? θ_obs.offset : 0.0
+                rv_model_t[j, :] .+= offset
+                if hasproperty(like_obj, :trend_function)
+                    rv_model_t[j, :] .+= like_obj.trend_function.((θ_obs,), ts)
+                end
+            end
+        end
 
         lines!(
             ax,
@@ -505,7 +522,6 @@ function rvtimeplot_relative!(
     end
 
     # Now overplot the data points, if any.
-    # We can do this for relative RV since there is no zero point offset
     for planet_key in keys(model.system.planets)
         planet = getproperty(model.system.planets, planet_key)
         for like_obj in planet.observations
@@ -515,8 +531,10 @@ function rvtimeplot_relative!(
             epoch = vec(like_obj.table.epoch)
             rv = vec(like_obj.table.rv)
             σ_rv = vec(like_obj.table.σ_rv)
+            like_obj_name = Octofitter.normalizename(likelihoodname(like_obj))
             jitter = map(nt_format) do θ_system
-                θ_system.planets[planet_key].observations[Octofitter.normalizename(likelihoodname(like_obj))].jitter
+                θ_obs = θ_system.planets[planet_key].observations[like_obj_name]
+                hasproperty(θ_obs, :jitter) ? θ_obs.jitter : 0.0
             end
             σ_tot = median(sqrt.(σ_rv .^2 .+ jitter' .^2),dims=2)[:]
 
