@@ -134,13 +134,14 @@ function Octofitter.hgcaplot!(
         jj = ii
     end
     sims = []
-    for (θ_system, i) in zip(θ_systems_from_chain, jj)
-        orbits = map(keys(model.system.planets)) do planet_key
+    for i in jj
+        θ_system = θ_systems_from_chain[i]
+        orbits = Tuple(map(keys(model.system.planets)) do planet_key
             Octofitter.construct_elements(model, results, planet_key, i)
-        end
-        solutions = map(orbits) do orbit
+        end)
+        solutions = Tuple(map(orbits) do orbit
             return orbitsolve.(orbit, hgca_like.table.epoch)
-        end
+        end)
         sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, 0)
         push!(sims, sim)
     end

@@ -52,14 +52,14 @@ function Octofitter.skytrackplot!(
     θ_obs = θ_system.observations[Octofitter.normalizename(Octofitter.likelihoodname(likeobj))]
 
     # Construct orbits for this sample
-    orbits = map(keys(model.system.planets)) do planet_key
+    orbits = Tuple(map(keys(model.system.planets)) do planet_key
         Octofitter.construct_elements(model, results, planet_key, sample_idx)
-    end
+    end)
 
     # Compute simulation at data epochs
-    solutions = map(orbits) do orbit
+    solutions = Tuple(map(orbits) do orbit
         return orbitsolve.(orbit, likeobj.table.epoch)
-    end
+    end)
     centroid_pos_al_model_buffer = zeros(size(likeobj.table, 1))
     sim = Octofitter.simulate(
         likeobj,

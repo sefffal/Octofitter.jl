@@ -134,14 +134,14 @@ function absastromplot!(
         _g23h = only(_g23h_likes)
         for (j, sample_i) in enumerate(ii)
             _θ_sys = θ_systems_from_chain[sample_i]
-            _orbs = map(keys(model.system.planets)) do pk
+            _orbs = Tuple(map(keys(model.system.planets)) do pk
                 Octofitter.construct_elements(model, results, pk, sample_i)
-            end
+            end)
             _name = Octofitter.normalizename(likelihoodname(_g23h))
             _θ_obs = _θ_sys.observations[_name]
-            _sols = map(_orbs) do orbit
+            _sols = Tuple(map(_orbs) do orbit
                 orbitsolve.(orbit, _g23h.table.epoch)
-            end
+            end)
             _sim = Octofitter.simulate(_g23h, _θ_sys, _θ_obs, _orbs, _sols, 0)
             if !isnothing(_sim)
                 pmra_model_t[j, :] .-= _sim.Δpmra_dr3
@@ -221,25 +221,27 @@ function absastromplot!(
             jj = ii
         end
         sims = []
-        for (θ_system, i) in zip(θ_systems_from_chain, jj)
-            orbits = map(keys(model.system.planets)) do planet_key
+        for i in jj
+            θ_system = θ_systems_from_chain[i]
+            # Use Tuple (not Vector) so that propagate_astrom dispatches correctly
+            # for AbsoluteVisual orbits (NTuple method vs Any fallback).
+            orbits = Tuple(map(keys(model.system.planets)) do planet_key
                 Octofitter.construct_elements(model, results, planet_key, i)
-            end
+            end)
             θ_obs = (;)
             name = Octofitter.normalizename(likelihoodname(absastrom))
             θ_obs = θ_system.observations[name]
             if hasproperty(absastrom, :table)
-                solutions = map(orbits) do orbit
+                solutions = Tuple(map(orbits) do orbit
                     return orbitsolve.(orbit, absastrom.table.epoch)
-                end
+                end)
                 sim = Octofitter.simulate(absastrom, θ_system, θ_obs, orbits, solutions, 0)
             else
-                solutions = [() for _ in length(model.system.planets)]
+                solutions = Tuple(() for _ in keys(model.system.planets))
                 sim = Octofitter.simulate(absastrom, θ_system, θ_obs, orbits, solutions, -1)
             end
             push!(sims, sim)
         end
-
 
         # Detect absolute orbits for conditional nonlinear corrections
         absolute_orbits = first(els) isa AbsoluteVisual
@@ -429,14 +431,15 @@ function absastromplot!(
             ΔΣ_dr32 = Tr * ΔΣ_pos * Tr'
             Σ_dr32_adj = Σ_dr32 .+ ΔΣ_dr32
 
-            sigmas = [
+            sigmas_full = [
                 sqrt.(diag(Σ_h))
                 sqrt.(diag(Σ_hg))
                 sqrt.(diag(Σ_dr2))
                 sqrt.(max.(diag(Σ_dr32_adj), 0.0))
                 sqrt.(diag(Σ_dr3_adj))
                 sim.UEVA_unc
-            ][jj]
+            ]
+            sigmas = sigmas_full[jj]
             return resids ./ sigmas
         end
 

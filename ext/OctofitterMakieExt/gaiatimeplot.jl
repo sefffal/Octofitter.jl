@@ -65,13 +65,14 @@ function Octofitter.gaiatimeplot!(
     end
 
     sims = []
-    for (θ_system, i) in zip(θ_systems_from_chain, jj)
-        orbits = map(keys(model.system.planets)) do planet_key
+    for i in jj
+        θ_system = θ_systems_from_chain[i]
+        orbits = Tuple(map(keys(model.system.planets)) do planet_key
             Octofitter.construct_elements(model, results, planet_key, i)
-        end
-        solutions = map(orbits) do orbit
+        end)
+        solutions = Tuple(map(orbits) do orbit
             return orbitsolve.(orbit, likeobj.table.epoch)
-        end
+        end)
         θ_obs = θ_system.observations[Octofitter.normalizename(Octofitter.likelihoodname(likeobj))]
         centroid_pos_al_model_buffer = zeros(size(likeobj.table, 1))
         sim = Octofitter.simulate(

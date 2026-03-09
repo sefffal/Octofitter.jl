@@ -309,20 +309,21 @@ function pmaplot!(
             jj = ii
         end
         sims = []
-        for (θ_system, i) in zip(θ_systems_from_chain, jj)
-            orbits = map(keys(model.system.planets)) do planet_key
+        for i in jj
+            θ_system = θ_systems_from_chain[i]
+            orbits = Tuple(map(keys(model.system.planets)) do planet_key
                 Octofitter.construct_elements(model, results, planet_key, i)
-            end
+            end)
             θ_obs = (;)
             name = Octofitter.normalizename(likelihoodname(hgca_like))
             if hasproperty(θ_system, :observations) && hasproperty(θ_system.observations, name)
                 θ_obs = θ_system.observations[name]
             end
             if hasproperty(hgca_like, :table)
-                solutions = [() for _ in length(model.system.planets)]
+                solutions = Tuple(() for _ in keys(model.system.planets))
                 sim = Octofitter.simulate(hgca_like, θ_system, θ_obs, orbits, solutions, -1)
             else
-                solutions = [() for _ in length(model.system.planets)]
+                solutions = Tuple(() for _ in keys(model.system.planets))
                 sim = Octofitter.simulate(hgca_like, θ_system, θ_obs, orbits, solutions, -1)
             end
             push!(sims, sim)
@@ -551,13 +552,14 @@ function pmaplot!(
         end
         sims = []
         name = Octofitter.normalizename(likelihoodname(gaialike))
-        for (θ_system, i) in zip(θ_systems_from_chain, jj)
-            orbits = map(keys(model.system.planets)) do planet_key
+        for i in jj
+            θ_system = θ_systems_from_chain[i]
+            orbits = Tuple(map(keys(model.system.planets)) do planet_key
                 Octofitter.construct_elements(model, results, planet_key, i)
-            end
-            solutions = map(orbits) do orbit
+            end)
+            solutions = Tuple(map(orbits) do orbit
                 return orbitsolve.(orbit, gaialike.table.epoch)
-            end
+            end)
 
             θ_obs = (;)
             if hasproperty(θ_system, :observations) && hasproperty(θ_system.observations, name)
