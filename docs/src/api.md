@@ -31,4 +31,8 @@ query_nss
 nss_to_starting_point
 initialize_from_nss!
 nss_to_model_chain
+completeness_jobs
+run_completeness_trial
+assemble_completeness
+completeness_map
 ```
