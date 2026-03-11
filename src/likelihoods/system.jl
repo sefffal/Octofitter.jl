@@ -120,7 +120,7 @@ function make_ln_like(system::System, θ_system_example)
             T = _system_number_type(θ_system)
             ll = zero(T)
 
-            orbits = construct_orbits(θ_system)
+            orbits = Base.invokelatest(construct_orbits, θ_system)
 
             # Helper: solve orbits at an observation's epochs
             function _solve_at(obs)

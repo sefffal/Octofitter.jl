@@ -754,12 +754,12 @@ function _make_term_grad_spec(eval, b::AutoEnzyme, workspace, tcfg, θ_zero, θ_
     if !all_active
         di_θ_full_base = DifferentiationInterface.Constant(θ_full_base)
         # Use zero vector for prep to ensure safe values during compilation
-        prep = prepare_gradient(eval, b, θ_zero,
+        prep = @invokelatest prepare_gradient(eval, b, θ_zero,
             DifferentiationInterface.Constant(zero(θ_full_base)),
             di_tcfg, di_cache)
     else
         di_θ_full_base = nothing
-        prep = prepare_gradient(eval, b, θ_zero, di_tcfg, di_cache)
+        prep = @invokelatest prepare_gradient(eval, b, θ_zero, di_tcfg, di_cache)
     end
     TermGradSpec(eval, b, prep, grad_buf, θ_active_buf, active, all_active,
                  workspace, tcfg, di_tcfg, di_cache, di_θ_full_base)
@@ -772,12 +772,12 @@ function _make_term_grad_spec(eval, b, workspace, tcfg, θ_zero, θ_full_base,
     di_tcfg = DifferentiationInterface.Constant(tcfg)
     if !all_active
         di_θ_full_base = DifferentiationInterface.Constant(θ_full_base)
-        prep = prepare_gradient(eval, b, θ_zero,
+        prep = @invokelatest prepare_gradient(eval, b, θ_zero,
             DifferentiationInterface.Constant(zero(θ_full_base)),
             di_tcfg)
     else
         di_θ_full_base = nothing
-        prep = prepare_gradient(eval, b, θ_zero, di_tcfg)
+        prep = @invokelatest prepare_gradient(eval, b, θ_zero, di_tcfg)
     end
     TermGradSpec(eval, b, prep, grad_buf, θ_active_buf, active, all_active,
                  nothing, tcfg, di_tcfg, nothing, di_θ_full_base)
