@@ -40,9 +40,7 @@ const GaiaDR4Astrom = GaiaDR4AstromObs
 export GaiaDR4AstromObs, GaiaDR4Astrom
 
 # Use plain Enzyme reverse-mode without runtime activity overhead.
-# The Const/Active mixing issues in construct_orbits and solve_ephemerides have been
-# resolved (merge elimination, Duplicated workspace epochs), so static activity
-# analysis succeeds. Requires Enzyme.API.maxtypeoffset!(1024) due to KepOrbit's
+# Requires Enzyme.API.maxtypeoffset!(1024) due to KepOrbit's
 # 23-field (184-byte) inline struct.
 Octofitter.ad_backend(::GaiaDR4AstromObs) = AutoEnzyme(mode=Reverse, function_annotation=Const)
 

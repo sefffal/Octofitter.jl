@@ -225,62 +225,6 @@ function _planet_field_keys(planet::Planet)
     return ks
 end
 
-"""
-    _make_solve_ephemerides(system::System)
-
-Build a RuntimeGeneratedFunction that fills pre-allocated ephemeris arrays and
-constructs immutable OrbitEphemeris/VisualEphemeris objects.
-
-Like `_make_construct_orbits`, orbit types and planet indices are baked in as
-compile-time constants, so Enzyme sees a plain function with a concrete return type.
-
-Returns `(eph_arrays, orbits, epochs, solvers) -> (eph_1, eph_2, ...)`.
-"""
-function _make_solve_ephemerides(system::System)
-    n_planets = length(system.planets)
-    planet_exprs = map(1:n_planets) do i
-        OT = _planet_orbit_type(system.planets[i])
-        _solve_eph_expr(OT, i)
-    end
-    eval(:(function(eph_arrays, orbits, epochs, solvers)
-        tuple($(planet_exprs...))
-    end))
-end
-
-# Dispatch-based helpers for _make_solve_ephemerides.
-# Using dispatch instead of `OT <: VisualOrbit` because the type alias
-# `Visual{KepOrbit}` = `VisualOrbit{<:Number, <:KepOrbit}` does NOT satisfy
-# `<: VisualOrbit` due to Julia's diagonal rule on the parametric constraint
-# `O <: AbstractOrbit{T}`. Dispatch on `::Type{<:Visual{OT}}` correctly
-# matches via the type alias.
-# Column layout for ephemeris matrices: 1=ν, 2=EA, 3=sinν_ω, 4=cosν_ω, 5=ecosν, 6=r, 7=t
-# Using column views of a single Matrix ensures LLVM can prove the arrays don't alias,
-# eliminating per-epoch caching in Enzyme's reverse pass.
-_solve_eph_expr(::Type{<:Visual{OT}}, i) where OT = quote
-    let mat = eph_arrays[$i]
-        ν = @view(mat[:, 1]); EA = @view(mat[:, 2])
-        sinν_ω = @view(mat[:, 3]); cosν_ω = @view(mat[:, 4])
-        ecosν = @view(mat[:, 5]); r = @view(mat[:, 6]); t = @view(mat[:, 7])
-        PlanetOrbits._fill_kep_ephemeris!(ν, EA, sinν_ω, cosν_ω, ecosν, r,
-            orbits[$i].parent, t, solvers[$i])
-        inner = PlanetOrbits.OrbitEphemeris(orbits[$i].parent,
-            ν, EA, sinν_ω, cosν_ω, ecosν, r, t)
-        PlanetOrbits.VisualEphemeris(orbits[$i], inner)
-    end
-end
-_solve_eph_expr(::Type{<:KepOrbit}, i) = quote
-    let mat = eph_arrays[$i]
-        ν = @view(mat[:, 1]); EA = @view(mat[:, 2])
-        sinν_ω = @view(mat[:, 3]); cosν_ω = @view(mat[:, 4])
-        ecosν = @view(mat[:, 5]); r = @view(mat[:, 6]); t = @view(mat[:, 7])
-        PlanetOrbits._fill_kep_ephemeris!(ν, EA, sinν_ω, cosν_ω, ecosν, r,
-            orbits[$i], t, solvers[$i])
-        PlanetOrbits.OrbitEphemeris(orbits[$i],
-            ν, EA, sinν_ω, cosν_ω, ecosν, r, t)
-    end
-end
-# Fallback: allocating solve (not pre-allocated, for unsupported orbit types)
-_solve_eph_expr(::Type, i) = :(PlanetOrbits.orbitsolve_ephemeris(orbits[$i], epochs, solvers[$i]))
 
 """
     ModelEvalConfig{TInvlink, TArr2nt, N, TConstructOrbits}
@@ -293,14 +237,12 @@ The number of planets `N` is encoded as a type parameter for `_n_planets`.
 and returns an `NTuple{N}` of orbits with all types and indices as
 compile-time constants, ensuring type stability.
 """
-struct ModelEvalConfig{TInvlink, TArr2nt, N, TConstructOrbits, TSolvers, TSolveEph}
+struct ModelEvalConfig{TInvlink, TArr2nt, N, TConstructOrbits}
     invlink::TInvlink
     arr2nt::TArr2nt
     construct_orbits::TConstructOrbits
-    solvers::TSolvers  # NTuple{N, <:AbstractSolver} — per-planet Kepler solvers
-    solve_ephemerides::TSolveEph  # RGF: (eph_arrays, orbits, epochs, solvers) -> Tuple{Ephemeris...}
-    function ModelEvalConfig(invlink::TI, arr2nt::TA, construct_orbits::TCO, solvers::TS, solve_eph::TSE, ::Val{N}) where {TI, TA, TCO, TS, TSE, N}
-        new{TI, TA, N, TCO, TS, TSE}(invlink, arr2nt, construct_orbits, solvers, solve_eph)
+    function ModelEvalConfig(invlink::TI, arr2nt::TA, construct_orbits::TCO, ::Val{N}) where {TI, TA, TCO, N}
+        new{TI, TA, N, TCO}(invlink, arr2nt, construct_orbits)
     end
 end
 @inline _n_planets(::ModelEvalConfig{<:Any, <:Any, N}) where N = Val(N)
@@ -330,18 +272,15 @@ function TermEvalConfig(obs, obs_name, epochs, active_indices, planet_index)
 end
 
 """
-    TermWorkspace{T, TSolBufs, TθEmbed, TObsWS}
+    TermWorkspace{T, TθEmbed, TObsWS}
 
-Pre-allocated workspace for per-term evaluation. Replaces BumperTermWS and
-PreallocTermWS with a single unified type.
+Pre-allocated workspace for per-term evaluation.
 
 # Fields
-- `sol_bufs` — NTuple{N, Vector{OrbitSolution{...}}} for orbit solutions
-- `θ_embedded` — Vector{T} for sparse parameter embedding, or nothing
+- `θ_embedded` — Vector{T} for sparse parameter embedding
 - `obs_workspace` — observation-specific buffers from `alloc_obs_workspace`
 """
-struct TermWorkspace{T, TSolBufs, TθEmbed, TObsWS}
-    sol_bufs::TSolBufs
+struct TermWorkspace{T, TθEmbed, TObsWS}
     θ_embedded::TθEmbed
     obs_workspace::TObsWS
 end
@@ -475,14 +414,14 @@ Evaluate a single observation term with pre-allocated workspace.
 Single unified method — no branching on backend type.
 
 Enzyme keeps the element type as Float64, so all pre-allocated buffers
-(sol_bufs, obs_workspace) are directly usable without type conversion.
+(obs_workspace) are directly usable without type conversion.
 """
 function eval_term(θ, mcfg::ModelEvalConfig, tcfg::TermEvalConfig, tw::TermWorkspace)
     θ_natural = @inline mcfg.invlink(θ)
     θ_system  = @inline mcfg.arr2nt(θ_natural)
     orbits    = @inline mcfg.construct_orbits(θ_system)
     θ_planet, θ_obs = _get_obs_params(tcfg, θ_system)
-    solutions = @inline mcfg.solve_ephemerides(tw.sol_bufs, orbits, tcfg.epochs, mcfg.solvers)
+    solutions = @inline _solve_all_orbits(orbits, tcfg.epochs)
     ctx = _make_obs_context(tcfg, θ_system, θ_planet, θ_obs, orbits, solutions, tw.obs_workspace)
     @inline ln_like(tcfg.obs, ctx)
 end
@@ -511,7 +450,7 @@ function eval_term_alloc(θ, mcfg::ModelEvalConfig, tcfg::TermEvalConfig)
     θ_system  = mcfg.arr2nt(θ_natural)
     orbits    = mcfg.construct_orbits(θ_system)
     θ_planet, θ_obs = _get_obs_params(tcfg, θ_system)
-    solutions = _solve_all_orbits(orbits, tcfg.epochs, mcfg.solvers)
+    solutions = _solve_all_orbits(orbits, tcfg.epochs)
     ctx = _make_obs_context(tcfg, θ_system, θ_planet, θ_obs, orbits, solutions)
     ln_like(tcfg.obs, ctx)
 end
@@ -545,25 +484,18 @@ function _get_obs_epochs(obs)
 end
 
 """
-    _solve_all_orbits(orbits::NTuple{N}, epochs[, solvers]) where N
+    _solve_all_orbits(orbits::NTuple{N}, epochs) where N
 
-Allocating solve — returns a tuple of freshly allocated OrbitEphemeris objects.
-For use with ForwardDiff (Dual numbers change element type) and non-hot paths.
+Solve all orbits at the given epochs using per-epoch `orbitsolve`.
+Returns a tuple of vectors of orbit solutions, one per planet.
+Works with all orbit types (KepOrbit, Visual, RadialVelocityOrbit, etc.).
 """
 function _solve_all_orbits(orbits::NTuple{N}, epochs) where N
     if isempty(epochs)
         return ntuple(Returns(nothing), Val(N))
     end
     ntuple(Val(N)) do i
-        orbitsolve_ephemeris(orbits[i], epochs)
-    end
-end
-function _solve_all_orbits(orbits::NTuple{N}, epochs, solvers::NTuple{N}) where N
-    if isempty(epochs)
-        return ntuple(Returns(nothing), Val(N))
-    end
-    ntuple(Val(N)) do i
-        orbitsolve_ephemeris(orbits[i], epochs, solvers[i])
+        [orbitsolve(orbits[i], ep) for ep in epochs]
     end
 end
 
@@ -689,49 +621,14 @@ end
 # --- Workspace construction helpers ---
 
 """
-    _make_typed_sol_bufs(construct_orbits, ::Val{N}, θ_system, epochs, ::Type{T}) where {N, T}
-
-Create pre-allocated ephemeris buffers for the solve_ephemerides RGF.
-Returns an NTuple{N} of `Matrix{T}` (one per planet), each of size
-`(n_epochs, 7)`. The 7 columns correspond to: ν, EA, sinν_ω, cosν_ω, ecosν,
-r, t. The RGF creates `@view` slices at call time.
-
-Using a single Matrix instead of 7 separate Vectors is critical for Enzyme:
-LLVM alias analysis can prove that column views of the same matrix don't alias
-each other, eliminating per-epoch caching in the reverse pass. With separate
-Vectors, LLVM cannot prove they don't alias (all are `ptr addrspace(10)`),
-forcing Enzyme to cache every element read before any write.
-
-Column 7 (`t`) is pre-filled with a copy of `epochs` so that `OrbitEphemeris.t`
-references a Duplicated buffer rather than the Const `tcfg.epochs`.
-"""
-function _make_typed_sol_bufs(construct_orbits, ::Val{N}, θ_system, epochs, ::Type{T}) where {N, T}
-    n_epochs = length(epochs)
-    if n_epochs == 0 || N == 0
-        return ntuple(Returns(nothing), Val(N))
-    end
-    ntuple(Val(N)) do ip
-        mat = Matrix{T}(undef, n_epochs, 7)
-        # Pre-fill column 7 (t) with epochs
-        @inbounds for j in 1:n_epochs
-            mat[j, 7] = T(epochs[j])
-        end
-        mat
-    end
-end
-
-"""
     _make_term_workspace(mcfg, tcfg, θ_system_example, ::Type{T}, D) where T
 
-Create a TermWorkspace{T} with pre-allocated ephemeris buffers for a single term.
+Create a TermWorkspace{T} for a single term.
 """
 function _make_term_workspace(mcfg, tcfg, θ_system_example, ::Type{T}, D) where T
-    sol_bufs = _make_typed_sol_bufs(mcfg.construct_orbits, _n_planets(mcfg),
-                                    θ_system_example, tcfg.epochs, T)
     θ_embedded = Vector{T}(undef, D)
     obs_ws = alloc_obs_workspace(tcfg.obs, T)
-    TermWorkspace{T, typeof(sol_bufs), typeof(θ_embedded), typeof(obs_ws)}(
-        sol_bufs, θ_embedded, obs_ws)
+    TermWorkspace{T, typeof(θ_embedded), typeof(obs_ws)}(θ_embedded, obs_ws)
 end
 
 # --- Primal and gradient workspace types ---
@@ -781,15 +678,15 @@ end
 Recursive type-stable tuple peeling for summing term likelihoods.
 Replaces `ln_like_generated` RuntimeGeneratedFunction.
 """
-_sum_term_likelihoods(θ_sys, orbits, ::Tuple{}, ::Tuple{}, solvers, solve_eph) = 0.0
-function _sum_term_likelihoods(θ_sys, orbits, tcfgs::Tuple, tws::Tuple, solvers, solve_eph)
+_sum_term_likelihoods(θ_sys, orbits, ::Tuple{}, ::Tuple{}) = 0.0
+function _sum_term_likelihoods(θ_sys, orbits, tcfgs::Tuple, tws::Tuple)
     tcfg = first(tcfgs)
     tw = first(tws)
     θ_planet, θ_obs = _get_obs_params(tcfg, θ_sys)
-    solutions = solve_eph(tw.sol_bufs, orbits, tcfg.epochs, solvers)
+    solutions = _solve_all_orbits(orbits, tcfg.epochs)
     ctx = _make_obs_context(tcfg, θ_sys, θ_planet, θ_obs, orbits, solutions, tw.obs_workspace)
     ll = ln_like(tcfg.obs, ctx)
-    ll + _sum_term_likelihoods(θ_sys, orbits, Base.tail(tcfgs), Base.tail(tws), solvers, solve_eph)
+    ll + _sum_term_likelihoods(θ_sys, orbits, Base.tail(tcfgs), Base.tail(tws))
 end
 
 #=

@@ -108,38 +108,48 @@ function run_benchmarks()
         println("="^60)
 
         sys = make_sys()
-        model = Octofitter.LogDensityModel(sys; verbosity=0)
+        model = Base.invokelatest(Octofitter.LogDensityModel, sys; verbosity=2)
 
         # Get a valid parameter vector
         Random.seed!(42)
-        θ_t = model.link(model.sample_priors(Random.default_rng()))
+        θ_t = Base.invokelatest(model.link, Base.invokelatest(model.sample_priors, Random.default_rng()))
 
-        # Warmup
-        logpost = model.ℓπcallback(θ_t)
-        println("  logposterior = $logpost")
+        # Report AD backend
+        ad_type = typeof(model).parameters[end]
+        println("  AD backend (type param): $ad_type")
 
-        grad_result = model.∇ℓπcallback(θ_t)
-        if grad_result isa Tuple
-            logpost_g, grad = grad_result
-        else
-            logpost_g = grad_result
-            grad = nothing
+        # Warmup + correctness via invokelatest
+        logpost, grad, b_primal, b_grad = Base.invokelatest() do
+            logpost = model.ℓπcallback(θ_t)
+            println("  logposterior = $logpost")
+
+            grad_result = model.∇ℓπcallback(θ_t)
+            if grad_result isa Tuple
+                logpost_g, grad = grad_result
+            else
+                logpost_g = grad_result
+                grad = nothing
+            end
+            println("  logposterior (from gradient) = $logpost_g")
+            if grad !== nothing
+                println("  gradient = ", repr(grad))
+                println("  gradient norm = $(sqrt(sum(abs2, grad)))")
+            end
+
+            # Benchmark primal
+            println("\n  Benchmarking primal evaluation...")
+            b_primal = @benchmark $(model.ℓπcallback)($θ_t)
+            display(b_primal)
+
+            # Benchmark gradient
+            println("\n  Benchmarking gradient evaluation...")
+            b_grad = @benchmark $(model.∇ℓπcallback)($θ_t)
+            display(b_grad)
+
+            logpost, grad, b_primal, b_grad
         end
-        println("  logposterior (from gradient) = $logpost_g")
-        if grad !== nothing
-            println("  gradient norm = $(sqrt(sum(abs2, grad)))")
-        end
 
-        # Benchmark primal
-        println("\n  Benchmarking primal evaluation...")
-        b_primal = @benchmark $(model.ℓπcallback)($θ_t)
-        display(b_primal)
         results["$(label)_primal"] = b_primal
-
-        # Benchmark gradient
-        println("\n  Benchmarking gradient evaluation...")
-        b_grad = @benchmark $(model.∇ℓπcallback)($θ_t)
-        display(b_grad)
         results["$(label)_gradient"] = b_grad
     end
 
