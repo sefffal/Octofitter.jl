@@ -39,10 +39,9 @@ end
 const GaiaDR4Astrom = GaiaDR4AstromObs
 export GaiaDR4AstromObs, GaiaDR4Astrom
 
-# Use plain Enzyme reverse-mode without runtime activity overhead.
-# Requires Enzyme.API.maxtypeoffset!(1024) due to KepOrbit's
-# 23-field (184-byte) inline struct.
-Octofitter.ad_backend(::GaiaDR4AstromObs) = AutoEnzyme(mode=Reverse, function_annotation=Const)
+# Use Enzyme reverse-mode with runtime activity for compatibility with
+# eval-generated closures in the per-term AD architecture.
+Octofitter.ad_backend(::GaiaDR4AstromObs) = AutoEnzyme(mode=set_runtime_activity(Reverse), function_annotation=Const)
 
 function Octofitter.alloc_obs_workspace(obs::GaiaDR4AstromObs, ::Type{T}) where T
     N = size(obs.table, 1)

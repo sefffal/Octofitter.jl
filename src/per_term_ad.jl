@@ -154,7 +154,9 @@ _orbit_param_names(::Type{<:KepOrbit}) = (:a, :e, :i, :ω, :Ω, :tp, :M)
 _orbit_param_names(::Type{<:PlanetOrbits.RadialVelocityOrbit}) = (:a, :e, :ω, :tp, :M)
 _orbit_param_names(::Type{<:PlanetOrbits.ThieleInnesOrbit}) = (:e, :tp, :M, :plx, :A, :B, :F, :G)
 _orbit_param_names(::Type{<:PlanetOrbits.CartesianOrbit}) = (:x, :y, :z, :vx, :vy, :vz, :M)
-_orbit_param_names(::Type{<:Octofitter.FixedPosition}) = (:x, :y, :z)
+# FixedPosition uses merge+splat fallback because Visual{FixedPosition}
+# has default keyword arguments (z=0) that may not be in the parameter NamedTuple.
+# _orbit_param_names(::Type{<:Octofitter.FixedPosition}) — intentionally not defined
 # Visual and AbsoluteVisual wrap an inner orbit type
 _orbit_param_names(::Type{<:Visual{OT}}) where OT = _orbit_param_names_visual(OT)
 _orbit_param_names(::Type{<:PlanetOrbits.AbsoluteVisual{OT}}) where OT = _orbit_param_names_absvisual(OT)
