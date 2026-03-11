@@ -1643,15 +1643,330 @@ end
 
 
 
-# Generate new astrometry observations
+# Generate new astrometry observations for completeness simulations
 function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationContext; add_noise)
     (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
     sim = simulate(like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
-    (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3) = sim
+    if isnothing(sim)
+        error("G23HObs simulate returned nothing during data generation (duplicate transit indices?)")
+    end
+    (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3, sample_variance) = sim
 
-    error("Simulating G23HObs not implemented yet")
-    return like
+    catalog = like.catalog
+    has_hip = !isnothing(catalog.dist_hip)
+
+    # ── 1. UEVA / RUWE / EAN simulation and DR3 uncertainty inflation ──
+    #
+    # When a companion is present, its astrometric perturbation degrades Gaia's
+    # 5-parameter fit, increasing the chi² and RUWE/EAN. Gaia then inflates all
+    # formal parameter uncertainties by this excess. Our likelihood deflates them
+    # back when the companion model explains the excess. For the simulation, we
+    # must produce catalog errors that are inflated by the companion we inject,
+    # so that the deflation mechanism works correctly during sampling.
+    #
+    # The inflation factor is √(UEVA_new / UEVA_original), which transforms
+    # the original catalog errors (already inflated by the real star's excess noise)
+    # to what Gaia would report with our injected companion instead.
+    # Correlations are invariant since the inflation is a scalar scaling of the
+    # covariance (all along-scan observations get the same noise increase).
+
+    (;σ_att, σ_AL, σ_calib) = θ_obs
+    σ_formal = sqrt(σ_att^2 + σ_AL^2)
+    N = catalog.astrometric_n_good_obs_al_dr3
+    N_FoV = catalog.astrometric_matched_transits_dr3
+    N_AL = N / N_FoV
+    gaia_n_dof = catalog.astrometric_params_solved_dr3 == 31 ? 5 : 6
+
+    # Add noise to cube-root UEVA (the space in which the likelihood operates)
+    new_UEVA_cuberoot = UEVA_model + (add_noise ? randn() * UEVA_unc : 0.0)
+    new_UEVA = max(new_UEVA_cuberoot, 0.0)^3
+
+    # Original catalog UEVA (what Gaia measured for the real star)
+    UEVA_original = μ_1_3^3
+
+    # Expected single-star UEVA (formal noise only, no companions)
+    μ_UEVA_single = (N_AL / (N - gaia_n_dof)) *
+        ((N_FoV - gaia_n_dof) * σ_calib^2 + N_FoV * σ_AL^2)
+
+    # DR3 uncertainty inflation factor:
+    # Deflate original errors to formal level, then re-inflate by the new companion.
+    # new_err = original_err × √(μ_UEVA_single / UEVA_original) × √(new_UEVA / μ_UEVA_single)
+    #         = original_err × √(new_UEVA / UEVA_original)
+    inflation_dr3 = sqrt(max(1.0, new_UEVA / max(eps(), UEVA_original)))
+
+    # Back-calculate astrometric_chi2_al from the new total UEVA
+    # UEVA_Gaia = chi2/(N-dof) * σ_formal²  ⟹  chi2 = UEVA * (N-dof) / σ_formal²
+    new_chi2_al = max(Float64(N - gaia_n_dof), new_UEVA * (N - gaia_n_dof) / σ_formal^2)
+
+    # Preserve the u0 calibration: new_ruwe = old_ruwe * √(new_chi2/old_chi2)
+    old_chi2 = catalog.astrometric_chi2_al_dr3
+    new_ruwe = old_chi2 > 0 ? catalog.ruwe_dr3 * sqrt(new_chi2_al / old_chi2) : catalog.ruwe_dr3
+
+    # Back-calculate EAN: UEVA_Gaia = ean² + σ_att² + σ_AL²
+    new_ean = sqrt(max(0.0, new_UEVA - σ_att^2 - σ_AL^2))
+
+    # Inflated DR3 errors (PM and central-epoch position)
+    new_pmra_dr3_error = catalog.pmra_dr3_error[1] * inflation_dr3
+    new_pmdec_dr3_error = catalog.pmdec_dr3_error[1] * inflation_dr3
+    new_ra_error_central_dr3 = catalog.ra_error_central_dr3 * inflation_dr3
+    new_dec_error_central_dr3 = catalog.dec_error_central_dr3 * inflation_dr3
+    # DR32 errors also inflate (they depend on DR3 positions).
+    # This slightly overestimates since DR2 contributes too, but the ΔΣ_dr32
+    # correction in ln_like handles the fine structure.
+    new_pmra_dr32_error = catalog.pmra_dr32_error[1] * inflation_dr3
+    new_pmdec_dr32_error = catalog.pmdec_dr32_error[1] * inflation_dr3
+
+    # ── 2. Generate new PM values with correlated noise ──
+    # Helper: draw correlated noise for a PM (ra,dec) pair
+    function _draw_correlated_pm(μ_model, pmra_err, pmdec_err, pmra_pmdec_corr)
+        if add_noise
+            c = pmra_pmdec_corr * pmra_err * pmdec_err
+            Σ = @SArray [
+                pmra_err^2 c
+                c pmdec_err^2
+            ]
+            noise = cholesky(Hermitian(Σ)).L * @SVector[randn(), randn()]
+            return μ_model .+ noise
+        else
+            return SVector{2,Float64}(μ_model)
+        end
+    end
+
+    # Hipparcos and HG: use original errors (not inflated by Gaia's DR3 pipeline)
+    if has_hip
+        new_pm_hip = _draw_correlated_pm(μ_h,
+            catalog.pmra_hip_error[1], catalog.pmdec_hip_error[1], catalog.pmra_pmdec_hip[1])
+        new_pm_hg = _draw_correlated_pm(μ_hg,
+            catalog.pmra_hg_error[1], catalog.pmdec_hg_error[1], catalog.pmra_pmdec_hg[1])
+    end
+    # DR2: use original errors (DR2 pipeline is different; we don't model its inflation)
+    new_pm_dr2 = _draw_correlated_pm(μ_dr2,
+        catalog.pmra_dr2_error[1], catalog.pmdec_dr2_error[1], catalog.pmra_pmdec_dr2[1])
+    # DR32: use inflated errors (DR3 position contribution inflated by companion)
+    new_pm_dr32 = _draw_correlated_pm(μ_dr32,
+        new_pmra_dr32_error, new_pmdec_dr32_error, catalog.pmra_pmdec_dr32[1])
+    # DR3: use inflated errors (companion degrades DR3 fit quality)
+    new_pm_dr3 = _draw_correlated_pm(μ_dr3,
+        new_pmra_dr3_error, new_pmdec_dr3_error, catalog.pmra_pmdec_dr3[1])
+
+    # ── 3. Hipparcos IAD residuals ──
+    # The residuals capture the companion's curvature signal (non-linear sky path
+    # after removing position, PM, and parallax via a 5-parameter fit) plus noise.
+    n_hip = size(like.hip_table, 1)
+    new_hip_res = zeros(n_hip)
+    if has_hip && n_hip > 0
+        Δα_hip = zeros(n_hip)
+        Δδ_hip = zeros(n_hip)
+        for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
+            planet_mass_msol = θ_planet.mass * Octofitter.mjup2msol
+            if planet_mass_msol == 0.0
+                continue
+            end
+            fluxratio = if hasproperty(θ_obs, :fluxratio)
+                θ_obs.fluxratio isa Number ? θ_obs.fluxratio : θ_obs.fluxratio[i_planet]
+            else
+                0.0
+            end
+            _simulate_skypath_perturbations!(
+                Δα_hip, Δδ_hip,
+                like.hip_table, orbit,
+                planet_mass_msol, fluxratio,
+                orbit_solutions[i_planet],
+                -1, Float64
+            )
+        end
+
+        # Project perturbation along scan direction
+        b_hip = zeros(n_hip)
+        for i in 1:n_hip
+            b_hip[i] = Δα_hip[i] * like.hip_table.cosϕ[i] + Δδ_hip[i] * like.hip_table.sinϕ[i]
+        end
+
+        # 5-param fit absorbs position, PM, parallax (linear part)
+        x_hip = like.A_prepared_5_hip \ b_hip
+        model_hip = like.A_prepared_5_hip * x_hip
+
+        # Curvature residual = perturbation - linear model
+        new_hip_res .= b_hip .- model_hip
+        if add_noise
+            for i in 1:n_hip
+                new_hip_res[i] += randn() * like.hip_table.sres_renorm[i]
+            end
+        end
+    end
+
+    # ── 4. Gaia RV simulation ──
+    has_rv = :rv_dr3 ∈ like.table.kind
+    new_rv_error = hasproperty(catalog, :radial_velocity_error) ? catalog.radial_velocity_error : NaN
+    if has_rv && isfinite(sample_variance)
+        σ_rv = θ_obs.σ_rv_per_transit  # per-transit RV uncertainty in km/s
+        N_rv = catalog.rv_nb_transits
+        # Non-centrality parameter from the companion's RV signal
+        ncp = max(0.0, (N_rv - 1) * sample_variance / σ_rv^2)
+        if add_noise
+            ξ² = rand(NoncentralChisq(max(1, N_rv - 1), ncp))
+        else
+            ξ² = ncp + (N_rv - 1)  # E[noncentral χ²] = dof + ncp
+        end
+        S² = ξ² * σ_rv^2 / max(1, N_rv - 1)
+        # Convert sample variance back to Gaia's reported radial_velocity_error
+        # s² = (2N/π)(ε² - 0.113²)  ⟹  ε = √(s²π/(2N) + 0.113²)
+        new_rv_error = sqrt(max(0.0, S² * π / (2 * N_rv) + 0.113^2))
+    end
+
+    # ── 5. Rebuild catalog with new values ──
+    new_catalog = (; catalog...)
+
+    if has_hip
+        new_catalog = (; new_catalog...,
+            pmra_hip = new_pm_hip[1],
+            pmdec_hip = new_pm_hip[2],
+            pmra_hg = new_pm_hg[1],
+            pmdec_hg = new_pm_hg[2],
+        )
+    end
+    new_catalog = (; new_catalog...,
+        pmra_dr2 = new_pm_dr2[1],
+        pmdec_dr2 = new_pm_dr2[2],
+        pmra_dr32 = new_pm_dr32[1],
+        pmdec_dr32 = new_pm_dr32[2],
+        pmra_dr3 = new_pm_dr3[1],
+        pmdec_dr3 = new_pm_dr3[2],
+        # UEVA-related fields
+        astrometric_chi2_al_dr3 = new_chi2_al,
+        ruwe_dr3 = new_ruwe,
+        astrometric_excess_noise_dr3 = new_ean,
+        # Inflated DR3 uncertainties (as Gaia would report with companion present)
+        pmra_dr3_error = new_pmra_dr3_error,
+        pmdec_dr3_error = new_pmdec_dr3_error,
+        ra_error_central_dr3 = new_ra_error_central_dr3,
+        dec_error_central_dr3 = new_dec_error_central_dr3,
+        pmra_dr32_error = new_pmra_dr32_error,
+        pmdec_dr32_error = new_pmdec_dr32_error,
+    )
+    if has_rv
+        new_catalog = (; new_catalog..., radial_velocity_error = new_rv_error)
+    end
+
+    # ── 6. Recompute MvNormal distributions from new PM values and inflated errors ──
+    if has_hip
+        c = catalog.pmra_pmdec_hip[1] * catalog.pmra_hip_error[1] * catalog.pmdec_hip_error[1]
+        dist_hip = MvNormal(
+            @SVector([new_catalog.pmra_hip, new_catalog.pmdec_hip]),
+            @SArray[
+                catalog.pmra_hip_error[1]^2 c
+                c catalog.pmdec_hip_error[1]^2
+            ]
+        )
+        c = catalog.pmra_pmdec_hg[1] * catalog.pmra_hg_error[1] * catalog.pmdec_hg_error[1]
+        dist_hg = MvNormal(
+            @SVector([new_catalog.pmra_hg, new_catalog.pmdec_hg]),
+            @SArray[
+                catalog.pmra_hg_error[1]^2 c
+                c catalog.pmdec_hg_error[1]^2
+            ]
+        )
+    else
+        dist_hip = nothing
+        dist_hg = nothing
+    end
+
+    c = catalog.pmra_pmdec_dr2[1] * catalog.pmra_dr2_error[1] * catalog.pmdec_dr2_error[1]
+    dist_dr2 = MvNormal(
+        @SVector([new_catalog.pmra_dr2, new_catalog.pmdec_dr2]),
+        @SArray[
+            catalog.pmra_dr2_error[1]^2 c
+            c catalog.pmdec_dr2_error[1]^2
+        ]
+    )
+
+    # DR32 and DR3: use inflated errors in the distributions
+    c = catalog.pmra_pmdec_dr32[1] * new_pmra_dr32_error * new_pmdec_dr32_error
+    dist_dr32 = MvNormal(
+        @SVector([new_catalog.pmra_dr32, new_catalog.pmdec_dr32]),
+        @SArray[
+            new_pmra_dr32_error^2 c
+            c new_pmdec_dr32_error^2
+        ]
+    )
+
+    c = catalog.pmra_pmdec_dr3[1] * new_pmra_dr3_error * new_pmdec_dr3_error
+    dist_dr3 = MvNormal(
+        @SVector([new_catalog.pmra_dr3, new_catalog.pmdec_dr3]),
+        @SArray[
+            new_pmra_dr3_error^2 c
+            c new_pmdec_dr3_error^2
+        ]
+    )
+
+    new_catalog = (; new_catalog..., dist_hip, dist_hg, dist_dr2, dist_dr32, dist_dr3)
+
+    # ── 7. Build new hip_table with simulated IAD residuals ──
+    if n_hip > 0
+        # Replace only the res column; all other columns (epochs, scan angles, etc.) stay
+        hip_cols = Tables.columntable(like.hip_table)
+        new_hip_table = Table(merge(hip_cols, (; res = new_hip_res)))
+    else
+        new_hip_table = like.hip_table
+    end
+
+    # ── 8. Update summary table pm values ──
+    new_pm = copy(like.table.pm)
+    new_σ_pm = copy(like.table.σ_pm)
+    for (i, kind) in enumerate(like.table.kind)
+        if kind == :ra_hip && has_hip
+            new_pm[i] = new_catalog.pmra_hip
+        elseif kind == :dec_hip && has_hip
+            new_pm[i] = new_catalog.pmdec_hip
+        elseif kind == :ra_hg && has_hip
+            new_pm[i] = new_catalog.pmra_hg
+        elseif kind == :dec_hg && has_hip
+            new_pm[i] = new_catalog.pmdec_hg
+        elseif kind == :ra_dr2
+            new_pm[i] = new_catalog.pmra_dr2
+        elseif kind == :dec_dr2
+            new_pm[i] = new_catalog.pmdec_dr2
+        elseif kind == :ra_dr32
+            new_pm[i] = new_catalog.pmra_dr32
+            new_σ_pm[i] = new_pmra_dr32_error
+        elseif kind == :dec_dr32
+            new_pm[i] = new_catalog.pmdec_dr32
+            new_σ_pm[i] = new_pmdec_dr32_error
+        elseif kind == :ra_dr3
+            new_pm[i] = new_catalog.pmra_dr3
+            new_σ_pm[i] = new_pmra_dr3_error
+        elseif kind == :dec_dr3
+            new_pm[i] = new_catalog.pmdec_dr3
+            new_σ_pm[i] = new_pmdec_dr3_error
+        elseif kind == :ueva_dr3
+            new_pm[i] = like.ueva_mode == :RUWE ? new_catalog.ruwe_dr3 : new_catalog.astrometric_excess_noise_dr3
+        end
+    end
+    table_cols = Tables.columntable(like.table)
+    new_table = Table(merge(table_cols, (; pm = new_pm, σ_pm = new_σ_pm)))
+
+    # ── 9. Construct new G23HObs ──
+    return G23HObs{
+        typeof(new_table),
+        typeof(new_hip_table),
+        typeof(like.gaia_table),
+        typeof(new_catalog),
+        typeof(like.hip_sol),
+    }(
+        new_table,
+        like.priors,
+        like.derived,
+        new_hip_table,
+        like.gaia_table,
+        new_catalog,
+        like.hip_sol,
+        like.A_prepared_5_hip,
+        like.A_prepared_5_dr2,
+        like.A_prepared_5_dr3,
+        like.include_iad,
+        like.ueva_mode,
+    )
 end
 
 export G23HObs
