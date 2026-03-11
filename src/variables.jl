@@ -1542,7 +1542,7 @@ Sample system parameters from prior distributions.
 function drawfrompriors(system::System)
     θ = Octofitter.sample_priors(system)
     arr2nt = Octofitter.make_arr2nt(system)
-    θnt = arr2nt(θ)
+    θnt = Base.invokelatest(arr2nt, θ)
     return θnt
 end
 export drawfrompriors

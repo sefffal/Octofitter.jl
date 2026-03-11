@@ -154,11 +154,16 @@ _orbit_param_names(::Type{<:KepOrbit}) = (:a, :e, :i, :ω, :Ω, :tp, :M)
 _orbit_param_names(::Type{<:PlanetOrbits.RadialVelocityOrbit}) = (:a, :e, :ω, :tp, :M)
 _orbit_param_names(::Type{<:PlanetOrbits.ThieleInnesOrbit}) = (:e, :tp, :M, :plx, :A, :B, :F, :G)
 _orbit_param_names(::Type{<:PlanetOrbits.CartesianOrbit}) = (:x, :y, :z, :vx, :vy, :vz, :M)
+_orbit_param_names(::Type{<:Octofitter.FixedPosition}) = (:x, :y, :z)
 # Visual and AbsoluteVisual wrap an inner orbit type
-_orbit_param_names(::Type{<:Visual{OT}}) where OT = (:plx, _orbit_param_names(OT)...)
-_orbit_param_names(::Type{<:PlanetOrbits.AbsoluteVisual{OT}}) where OT = (:ref_epoch, :ra, :dec, :plx, :rv, :pmra, :pmdec, _orbit_param_names(OT)...)
+_orbit_param_names(::Type{<:Visual{OT}}) where OT = _orbit_param_names_visual(OT)
+_orbit_param_names(::Type{<:PlanetOrbits.AbsoluteVisual{OT}}) where OT = _orbit_param_names_absvisual(OT)
 # Fallback: unknown orbit type — return nothing to use the old splatting path
 _orbit_param_names(::Type) = nothing
+
+# Helper functions that handle the case where inner orbit type has no known param names
+_orbit_param_names_visual(::Type{OT}) where OT = let inner = _orbit_param_names(OT); inner === nothing ? nothing : (:plx, inner...) end
+_orbit_param_names_absvisual(::Type{OT}) where OT = let inner = _orbit_param_names(OT); inner === nothing ? nothing : (:ref_epoch, :ra, :dec, :plx, :rv, :pmra, :pmdec, inner...) end
 
 """
     _make_construct_orbits(system::System)
