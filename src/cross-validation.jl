@@ -366,17 +366,21 @@ function generate_systems_with_epoch_groups(system, epoch_groups, name_suffix_fu
                 end
             end
             
-            # Create observation with specified rows if any rows to include
+            # Create observation with specified rows if any rows to include.
+            # Note: likeobj_from_epoch_subset *drops* the given indices (keeping the rest),
+            # so we pass the complement of rows_to_include to keep only the desired rows.
             if !isempty(rows_to_include)
-                if length(rows_to_include) == 1
-                    o = likeobj_from_epoch_subset(tab_obs.obs, rows_to_include[1])
+                rows_to_drop = setdiff(1:tab_obs.row_count, rows_to_include)
+                if isempty(rows_to_drop)
+                    # Keep all rows — use : to signal no dropping
+                    o = likeobj_from_epoch_subset(tab_obs.obs, :)
                 else
-                    o = likeobj_from_epoch_subset(tab_obs.obs, rows_to_include)
+                    o = likeobj_from_epoch_subset(tab_obs.obs, rows_to_drop)
                 end
                 push!(to_include_system, o)
             end
         end
-        
+
         # Process all planets
         planets_new = map(1:length(system.planets)) do p_idx
             planet = system.planets[p_idx]
@@ -402,12 +406,15 @@ function generate_systems_with_epoch_groups(system, epoch_groups, name_suffix_fu
                         end
                     end
 
-                    # Create observation with specified rows if any rows to include
+                    # Create observation with specified rows if any rows to include.
+                    # Note: likeobj_from_epoch_subset *drops* the given indices,
+                    # so we pass the complement to keep only the desired rows.
                     if !isempty(rows_to_include)
-                        if length(rows_to_include) == 1
-                            o = likeobj_from_epoch_subset(tab_obs.obs, rows_to_include[1])
+                        rows_to_drop = setdiff(1:tab_obs.row_count, rows_to_include)
+                        if isempty(rows_to_drop)
+                            o = likeobj_from_epoch_subset(tab_obs.obs, :)
                         else
-                            o = likeobj_from_epoch_subset(tab_obs.obs, rows_to_include)
+                            o = likeobj_from_epoch_subset(tab_obs.obs, rows_to_drop)
                         end
                         push!(to_include_planet, o)
                     end
