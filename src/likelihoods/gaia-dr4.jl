@@ -161,8 +161,8 @@ function Octofitter.simulate(
 
     # All planets in the system have orbits defined with the same ra, dec, and proper motion,
     # since these are properties of the system.
-    orbit = first(orbits)
-    if length(orbits) > 1
+    if length(orbits) > 1 && first(orbit) isa AbsoluteVisual
+        orbit = first(orbits)
         for i in eachindex(orbits)[2:end]
             if orbits[i].ra != orbit.ra ||
                orbits[i].dec != orbit.dec ||
@@ -174,26 +174,28 @@ function Octofitter.simulate(
     end
 
     # Compute position + proper motion at each epoch
-    for i in eachindex(likeobj.table.epoch)
+    if length(orbits) > 0
+        for i in eachindex(likeobj.table.epoch)
 
-        orbitsol = first(orbit_solutions)[i+orbit_solutions_i_epoch_start]
+            orbitsol = first(orbit_solutions)[i+orbit_solutions_i_epoch_start]
 
-        # fast path, not accounting for higher order effects
-        if !(orbitsol isa PlanetOrbits.OrbitSolutionAbsoluteVisual)
-            # Careful of units: proper motion is defined in mas per *Julian year*
-            ra_offset_buffer[i] = (θ_obs.ra_offset_mas + θ_obs.pmra*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)
-            dec_offset_buffer[i] = (θ_obs.dec_offset_mas + θ_obs.pmdec*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)
+            # fast path, not accounting for higher order effects
+            if !(orbitsol isa PlanetOrbits.OrbitSolutionAbsoluteVisual)
+                # Careful of units: proper motion is defined in mas per *Julian year*
+                ra_offset_buffer[i] = (θ_obs.ra_offset_mas + θ_obs.pmra*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)
+                dec_offset_buffer[i] = (θ_obs.dec_offset_mas + θ_obs.pmdec*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)
 
-        else
-            # Our orbit solutions calculate an updated Ra and Dec for the system's barycentre
-            # with various non-linear corrections (see PlanetOrbits.jl for more details)
-            α = orbitsol.compensated.ra2
-            δ = orbitsol.compensated.dec2
-            plx_at_epoch = orbitsol.compensated.parallax2 # Parallax distance may be changing
+            else
+                # Our orbit solutions calculate an updated Ra and Dec for the system's barycentre
+                # with various non-linear corrections (see PlanetOrbits.jl for more details)
+                α = orbitsol.compensated.ra2
+                δ = orbitsol.compensated.dec2
+                plx_at_epoch = orbitsol.compensated.parallax2 # Parallax distance may be changing
 
-            ra_offset_buffer[i] = (α - likeobj.gaia_sol.ra)*60*60*1000*cosd(δ)
-            dec_offset_buffer[i] = (δ - likeobj.gaia_sol.dec)*60*60*1000
+                ra_offset_buffer[i] = (α - likeobj.gaia_sol.ra)*60*60*1000*cosd(δ)
+                dec_offset_buffer[i] = (δ - likeobj.gaia_sol.dec)*60*60*1000
 
+            end
         end
     end
 
