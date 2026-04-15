@@ -31,47 +31,49 @@ macro variables(variables_block_input)
             # Check if LHS is a distribution (Distribution(...) ~ expression)
             u = union(seen_prior_vars, seen_derived_vars)
             if varname in u || expression in u || (statement.args[2] isa Expr && statement.args[2].head == :call)
-                # This is a user likelihood: Distribution(...) ~ expression
+                # This is a user likelihood: lhs_expr ~ Distribution
                 lhs_expr = varname
                 rhs_expr = expression
-                
-                # Generate unique symbol for the derived variable
-                derived_sym_lhs = Symbol("lhs_",generate_userlike_name(rhs_expr))
-                derived_sym_rhs = Symbol("rhs_",generate_userlike_name(rhs_expr))
-                
-                # Check for duplicate derived variable names (including generated ones)
+
+                # Name the likelihood after the LHS (the quantity being constrained) —
+                # this is typically a meaningful name the user already wrote, and
+                # avoids collisions when the same distribution is reused.
+                name_seed = generate_userlike_name(lhs_expr)
+
+                local_quote_vars = Symbol[]
+                local_quote_vals = Any[]
+                processed_expr_rhs = quasiquote!(deepcopy(rhs_expr), local_quote_vars, local_quote_vals)
+
+                # If the LHS is a bare Symbol already defined as a derived variable,
+                # reuse it directly instead of creating a redundant lhs_* copy.
+                # Otherwise (compound LHS like `a + b ~ ...`), synthesize lhs_<name_seed>.
+                if lhs_expr isa Symbol && lhs_expr in seen_derived_vars
+                    derived_sym_lhs = lhs_expr
+                else
+                    derived_sym_lhs = Symbol("lhs_", name_seed)
+                    if derived_sym_lhs in seen_derived_vars
+                        error("Generated derived variable name '$derived_sym_lhs' conflicts with existing variable. Please use a different expression or variable name.")
+                    end
+                    processed_expr_lhs = quasiquote!(deepcopy(lhs_expr), local_quote_vars, local_quote_vals)
+                    derived_vars[derived_sym_lhs] = processed_expr_lhs
+                    push!(seen_derived_vars, derived_sym_lhs)
+                end
+
+                derived_sym_rhs = Symbol("rhs_", name_seed)
                 if derived_sym_rhs in seen_derived_vars
                     error("Generated derived variable name '$derived_sym_rhs' conflicts with existing variable. Please use a different expression or variable name.")
                 end
-                if derived_sym_lhs in seen_derived_vars
-                    error("Generated derived variable name '$derived_sym_lhs' conflicts with existing variable. Please use a different expression or variable name.")
-                end
-                push!(seen_derived_vars, derived_sym_lhs)
                 push!(seen_derived_vars, derived_sym_rhs)
-                
-                # Process the RHS expression for variable capture
-                local_quote_vars = Symbol[]
-                local_quote_vals = Any[]
-                processed_expr_lhs = quasiquote!(deepcopy(lhs_expr), local_quote_vars, local_quote_vals)
-                processed_expr_rhs = quasiquote!(deepcopy(rhs_expr), local_quote_vars, local_quote_vals)
-                
-                # Add to global captured variables
+                derived_vars[derived_sym_rhs] = processed_expr_rhs
+
                 for (var, val) in zip(local_quote_vars, local_quote_vals)
                     if !(var in all_quote_vars)
                         push!(all_quote_vars, var)
                         push!(all_quote_vals, val)
                     end
                 end
-                
-                # Add to derived variables
-                derived_vars[derived_sym_rhs] = processed_expr_rhs
-                derived_vars[derived_sym_lhs] = processed_expr_lhs
-                
-                # Create UserLikelihood
-                # Generate name from distribution type and expression
-                like_name = generate_userlike_name(rhs_expr)
-                
-                push!(user_likelihoods, UserLikelihood(derived_sym_lhs, derived_sym_rhs, like_name))
+
+                push!(user_likelihoods, UserLikelihood(derived_sym_lhs, derived_sym_rhs, name_seed))
                 # push!(user_likelihoods, quote
                 #     distribution = try
                 #         $(esc(dist_expr))
@@ -268,10 +270,10 @@ function quasiquote!(ex::Expr, vars::Vector{Symbol}, vals::Vector)
 end
 
 # Helper function to create human-readable names for user likelihoods
-function generate_userlike_name(rhs_expr)
-   
+function generate_userlike_name(expr)
+
     # Simplify expression string
-    expr_str = string(rhs_expr)
+    expr_str = string(expr)
     
     # Replace common mathematical operators with words
     expr_str = replace(expr_str, "^" => "_pow_")
