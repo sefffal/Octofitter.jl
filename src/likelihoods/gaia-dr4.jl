@@ -161,7 +161,7 @@ function Octofitter.simulate(
 
     # All planets in the system have orbits defined with the same ra, dec, and proper motion,
     # since these are properties of the system.
-    if length(orbits) > 1 && first(orbit) isa AbsoluteVisual
+    if length(orbits) > 1 && first(orbits) isa AbsoluteVisual
         orbit = first(orbits)
         for i in eachindex(orbits)[2:end]
             if orbits[i].ra != orbit.ra ||
