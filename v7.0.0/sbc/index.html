@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Simulation Based Calibration · Octofitter.jl</title><meta name="title" content="Simulation Based Calibration · Octofitter.jl"/><meta property="og:title" content="Simulation Based Calibration · Octofitter.jl"/><meta property="twitter:title" content="Simulation Based Calibration · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 IAD</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox" checked/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li class="is-active"><a class="tocitem" href>Simulation Based Calibration</a><ul class="internal"><li><a class="tocitem" href="#Octofitter-Model-Template-Script"><span>Octofitter Model Template Script</span></a></li><li><a class="tocitem" href="#SBC-Trial-Script"><span>SBC Trial Script</span></a></li><li><a class="tocitem" href="#SBC-Analysis-Script"><span>SBC Analysis Script</span></a></li></ul></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Bayesian Workflows</a></li><li class="is-active"><a href>Simulation Based Calibration</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Simulation Based Calibration</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/sbc.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Simulation-Based-Calibration-(@id-sbc)"><a class="docs-heading-anchor" href="#Simulation-Based-Calibration-(@id-sbc)">Simulation Based Calibration (@id sbc)</a><a id="Simulation-Based-Calibration-(@id-sbc)-1"></a><a class="docs-heading-anchor-permalink" href="#Simulation-Based-Calibration-(@id-sbc)" title="Permalink"></a></h1><p>Simulation based calibration <a href="https://ui.adsabs.harvard.edu/abs/2018arXiv180406788T">Talts et al. 2020</a> is a way to test the correctness and accuracy of a Bayesian model. </p><p>It works by repeatedly generating simulated data from a model&#39;s priors, running inference, and examining the posterior.  The result is a histogram that indicates if there is a net bias in the sampling procedure. An unbiased procedure &amp; good model will result in flat histograms for each parameter.</p><p>Here is a worked example of performing simulated based calibration with an Octofitter model.</p><p>Note that this will not work well for models with very unconstrained priors on mass or semi-major axis / period. For example, if semi-major axis is set to a prior of LogUniform(0.0001, 10000) AU then many simulated systems will have planets unreasonably far or close the star and the uncertainties and epochs of observations will not make sense. Actually, this reveals that these models are not all that reasonable: usually we do have fore-knowledge about the planet&#39;s semi-major axis etc. before we run any fits just because we detected it! </p><p>We split this example in three parts: a model definition, a trial script that we run many times, and an analysis script that summarizes the results.</p><h2 id="Octofitter-Model-Template-Script"><a class="docs-heading-anchor" href="#Octofitter-Model-Template-Script">Octofitter Model Template Script</a><a id="Octofitter-Model-Template-Script-1"></a><a class="docs-heading-anchor-permalink" href="#Octofitter-Model-Template-Script" title="Permalink"></a></h2><p>This script defines the model we will be analyzing. The data likelihood we provide could be our real observations, or just arbitrary (even zero). The key parts are the epochs of the observations, number of observations, and uncertainties of the observations. The actual measured values will be repeatedly replaced by simulated values using Octofitter&#39;s generative models.</p><p>We will assume you have saved this as <code>sbc-model.jl</code>.</p><pre><code class="language-julia hljs">using Octofitter, Distributions
+
+astrom_like = PlanetRelAstromLikelihood(
+    (epoch=50000, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
+    (epoch=50120, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
+    (epoch=50240, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
+    (epoch=50360, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
+    (epoch=50480, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
+    (epoch=50600, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
+    (epoch=50720, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
+    (epoch=50840, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
+)
+
+planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    likelihoods=[astrom_like],
+    variables=@variables begin
+        M = system.M
+        a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        τ ~ UniformCircular(1.0)
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
+    end
+)
+
+SBC = System(
+    name=&quot;SBC&quot;,
+    companions=[planet_b],
+    likelihoods=[],
+    variables=@variables begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+model = Octofitter.LogDensityModel(SBC)</code></pre><h2 id="SBC-Trial-Script"><a class="docs-heading-anchor" href="#SBC-Trial-Script">SBC Trial Script</a><a id="SBC-Trial-Script-1"></a><a class="docs-heading-anchor-permalink" href="#SBC-Trial-Script" title="Permalink"></a></h2><p>This script runs a single SBC trial. If you name it <code>sbc-trial.jl</code>,  then you can run it as <code>julia sbc-trial.jl trial_num</code> where <code>trial_num</code> is a unique number to identify this trial. You would then run this script many times (say, 100+). You could run these trials on a compute cluster if desired.</p><pre><code class="language-julia hljs">using Octofitter, Distributions, PlanetOrbits
+using Printf
+
+include(&quot;sbc-model.jl&quot;)
+
+sbc_index = parse(Int, ARGS[1])
+
+
+@info &quot;Running SBC trial $sbc_index&quot;
+outname = @sprintf(&quot;sbctest-%04d&quot;, sbc_index)
+
+
+# Seed reproducibly from the index of this trial
+using Random
+rng = Random.Xoshiro(sbc_index)
+
+# Sample system parameters from priors
+θ_system_flat = model.sample_priors(rng)
+
+settings = (;
+    # Sampler parameters if desired:
+    # :target_accept=&gt;0.95,
+    # :adaptation=&gt;5000,
+    # :iterations=&gt;5000,
+    # :tree_depth=&gt;13,
+    # :verbosity=&gt;2,
+
+    # Model parameter values
+    θ = θ_system_flat
+)
+
+Octofitter.sbctrial(model.system, settings, outname);
+println(&quot;done $sbc_index&quot;)</code></pre><h2 id="SBC-Analysis-Script"><a class="docs-heading-anchor" href="#SBC-Analysis-Script">SBC Analysis Script</a><a id="SBC-Analysis-Script-1"></a><a class="docs-heading-anchor-permalink" href="#SBC-Analysis-Script" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Octofitter
+using DataFrames
+using MCMCChains
+using TOML
+using CairoMakie
+
+
+
+# These are the variables we would like to examine
+vars = [
+    :b_a,
+    :b_i,
+    :b_e,
+    :b_Ω,
+    :b_ω,
+    :b_τ,
+    :M,
+    :plx,
+]
+
+# Load statistics from each trial
+
+# Get list of trials
+rankfnames = filter(endswith(&quot;rank_stats.toml&quot;), readdir())
+chainnames = filter(endswith(&quot;chains.fits&quot;), readdir())
+
+# Check RHat convergence criteria of each posterior.
+ii = findall(map(eachindex(chainnames)) do i
+    chainfname = chainnames[i]
+    chn = Octofitter.loadchain(chainfname)
+    rhats = MCMCChains.rhat(chn)[vars][:,2]
+    passed = maximum(abs, 1 .- rhats) .&lt; 0.2
+    if !passed 
+        @warn &quot;Trial $(chainnames[i]) skipped due to poor convergence&quot;
+    end
+    return passed
+end)
+
+# gather rank statistics
+ranks = DataFrame(map(rankfnames[ii]) do rankfname
+    NamedTuple(Symbol(k)=&gt;float(v) for (k,v) in TOML.parsefile(rankfname))
+end)
+
+# How many bins per histogram
+nbins=floor(Int, sqrt(length(ii)))
+
+# How many columns for figure
+cols = 4
+
+
+
+fig = Figure(
+    size=(225cols,200cld(length(vars),cols))
+)
+
+
+for i in eachindex(vars)
+    col = mod1(i,cols)
+    row = fld1(i,cols)
+    ax = Axis(
+        fig[row,col];
+        xlabel=&quot;rank&quot;,
+        ylabel=&quot;counts&quot;,
+        title=string(vars[i]),
+        xgridvisible=false,
+        ygridvisible=false,
+        yaxisposition= col &lt; cols ? :left : :right
+    )
+    # nbins=25
+    xlims!(ax, 0, 100)
+    bin_edges = range(start=0,stop=100+0.001,length=nbins)#.*10
+    hist!(ax, getproperty(ranks, vars[i]), bins=bin_edges, color=Makie.wong_colors()[2])
+    expected = size(ranks,1)/nbins
+    p = Poisson(expected)
+    hspan!(ax,
+        quantile(p, [0.02,0.98])...,
+        color=(:black,0.15)
+    )
+    ylims!(ax, low=0, high=quantile(p, 0.999))
+
+    row == 1 &amp;&amp; Makie.hidexdecorations!(ax)
+    1 &lt; col &lt; cols &amp;&amp; Makie.hideydecorations!(ax)
+end
+Makie.colgap!.((fig.layout,), 1:(cols-1), 30.0)
+save(&quot;sbc-summary.png&quot;, fig)
+save(&quot;sbc-summary.pdf&quot;, fig)
+save(&quot;sbc-summary.svg&quot;, fig)
+fig</code></pre><p><img src="../assets/sbc-summary.svg" alt/></p><p>For a perfectly unbiased model &amp; sampling algorith, the histogram bins should be flat to within about the ±1σ shaded expected region.</p><p>In this example and model, see that the inclination parameter estimates are <em>under confident</em>. That is, on average the computed marginal posterior of the inclination parameter is slightly too wide and the true uncertainty is lower.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../cross-validation/">« Cross Validation</a><a class="docs-footer-nextpage" href="../python/">Using Python »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Tuesday 15 July 2025 21:22">Tuesday 15 July 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
