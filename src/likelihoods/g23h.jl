@@ -514,19 +514,30 @@ function G23HObs(;
         if has_rv
 
             len_epochs = length(gaia_table.epoch)
+            # The paired GP calibration reports the per-transit RV uncertainty in
+            # log space: `rv_ln_uncert_dr3` is the GP posterior mean of ln σ, and
+            # `rv_ln_uncert_err_dr3` is its posterior std dev. That makes σ itself
+            # LogNormal(μ_ln, σ_ln); we sample it directly to preserve the paired
+            # pipeline's uncertainty faithfully.
             variables_rv = @variables begin
-                σ_rv_per_transit ~ truncated(Normal(exp(catalog.rv_ln_uncert_dr3), exp(catalog.rv_ln_uncert_err_dr3)), lower=eps())
+                σ_rv_per_transit ~ LogNormal(catalog.rv_ln_uncert_dr3, catalog.rv_ln_uncert_err_dr3)
             end
             variables = vcat(variables, variables_rv)
 
-            transits_rv = Int(len_epochs - catalog.rv_nb_transits)
-            @info "Count of RV transits:"  transits_rv total_transits=len_epochs
-           
-            if transits_rv > 0
-                missed_vars = @variables begin
-                    transits_rv = partialsortperm(SVector(transit_priorities), 1:$transits_rv, rev=true)
+            n_rv = Int(catalog.rv_nb_transits)
+            @info "Count of RV transits:" n_rv total_transits=len_epochs
+
+            # RV transits are modeled as a subset of the astrometric-used transits:
+            # entirely-missed visits (e.g. gaps in Gaia coverage) are assumed missed
+            # for both astrometry and RV. Because `transit_priorities` is shared with
+            # the astrometric selection, the top-`n_rv` priorities automatically form
+            # a subset of the top-`astrometric_matched_transits_dr3` astrometric set
+            # (whenever n_rv ≤ astrometric_matched_transits_dr3).
+            if n_rv > 0 && n_rv < len_epochs
+                rv_vars = @variables begin
+                    transits_rv = partialsortperm(SVector(transit_priorities), 1:$n_rv, rev=true)
                 end
-                variables = vcat(variables, missed_vars)
+                variables = vcat(variables, rv_vars)
             end
 
         end
@@ -815,28 +826,32 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
                 ε_catalog = like.catalog.radial_velocity_error
                 N_rv = like.catalog.rv_nb_transits
                 σ_rv_per_transit = θ_obs.σ_rv_per_transit  # per-transit uncertainty in km/s
-                
-                # Convert catalog error to sample variance
+
+                # Convert catalog error to sample variance (Eq. A4, Chance et al. 2022)
                 s_catalog_squared = (2 * N_rv / π) * (ε_catalog^2 - 0.113^2)
 
-                # non centrality parameter
+                # Non-centrality parameter (Eq. C2). Since sim.sample_variance is
+                # computed from rv_model at N_rv RV epochs, the identity
+                #   (N_rv - 1) · sample_variance = Σ_n (μ(t_n) - μ̄)²
+                # reproduces λ = Σ_n ((μ_n - μ̄)/σ)² exactly.
                 ncp = (N_rv - 1) * sim.sample_variance / σ_rv_per_transit^2
-                
-                # Use NON-CENTRAL chi-squared with signal included
+
+                # The paper's Eq. C2 states the sampling distribution for ξ² is
+                # non-central χ² with N_k degrees of freedom, but the null in Eq. A6
+                # uses N_k - 1. The standard sampling-theory result for
+                # Σ(v_n - v̄)²/σ² with v_n ~ N(μ_n, σ²) is non-central χ²_{N-1}(λ),
+                # which reduces to central χ²_{N-1} under the null. We use N-1 to
+                # be self-consistent with the null.
                 try
                     rv_chi2_dist = NoncentralChisq(N_rv - 1, ncp)
-                    
-                    # Catalog's chi-squared statistic
+
+                    # Catalog's chi-squared statistic (Eq. A5)
                     ξ_catalog_squared = (N_rv - 1) * s_catalog_squared / σ_rv_per_transit^2
-                    
-                    # Now this correctly penalizes high-amplitude models
+
                     ll += logpdf(rv_chi2_dist, ξ_catalog_squared)
                 catch
                     ll += -Inf
                 end
-                
-
-
             end
 
 
@@ -1101,11 +1116,13 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         if eltype(transits_rv) <: AbstractFloat
             transits_rv = Int.(transits_rv)
         end
-        # The list of missed transits must be unique
+        # The list of RV transit indices must be unique
         if length(unique(transits_rv)) < length(transits_rv)
             return nothing
         end
-        jj = collect(transits_rv)#Int.(sort(setdiff(1:length(like.gaia_table.epoch), transits_rv)))
+        # `transits_rv` holds the indices of the RV-used transits (a subset of the
+        # astrometric-used set), so we select them directly.
+        jj = collect(transits_rv)
         gaia_table_rv = like.gaia_table[jj,:]
     else
         gaia_table_rv = like.gaia_table
@@ -1538,43 +1555,38 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
     # # UEVA/( u0^2 * σ_formal^2) = ruwe_dr3^2
     # ruwe_dr3 = sqrt(UEVA_model/( u0^2 * σ_formal^2))
 
-    # Forward-model the Gaia RV uncertainty using approach from the "paired" tool:
-    # https://arxiv.org/pdf/2206.11275
+    # Forward-model the Gaia RV uncertainty using the approach from the "paired"
+    # tool (Chance et al. 2022, https://arxiv.org/abs/2206.11275).
+    # σ_rv_per_transit is parameterized directly in linear km/s (matching the prior
+    # and likelihood usage); no log-space conversion here.
     if :rv_dr3 ∈ like.table.kind
-        # Get the per-transit RV uncertainty from catalog
-        σ_rv_per_transit = exp(θ_obs.σ_rv_per_transit)  # Convert from log space to km/s
-        
+        σ_rv_per_transit = θ_obs.σ_rv_per_transit  # per-transit RV uncertainty in km/s
+
         # Simulate RV measurements at Gaia epochs
         rv_model = zeros(T, length(gaia_table_rv.epoch))
-        
+
         for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
             if planet_mass_msol == 0.0
                 continue
             end
-            # Calculate RV at each epoch
+            # Accumulate the RV contribution from this planet at each epoch.
             for (i, epoch) in enumerate(gaia_table_rv.epoch)
                 sol = orbitsolve(orbit, epoch)
-                # Add the RV component from this planet
-                rv_model[i] = radvel(sol, planet_mass_msol)/1e3 # barycentric rv in km/s
+                rv_model[i] += radvel(sol, planet_mass_msol)/1e3 # barycentric rv in km/s
             end
         end
-        
-        # Calculate sample variance
+
+        # Calculate sample variance (Eq. A2 of Chance et al. 2022)
         rv_mean = mean(rv_model)
         sample_variance = sum((rv_model .- rv_mean).^2) / (length(rv_model) - 1)
-        
-        # The chi-squared statistic (equation 6)
-        N_rv = like.catalog.rv_nb_transits
-        ξ_squared = (N_rv - 1) * sample_variance / σ_rv_per_transit^2
 
-        # Store for likelihood calculation
-        # rv_chi2_stat = ξ_squared
+        N_rv = like.catalog.rv_nb_transits
         rv_dof = N_rv - 1
 
         ε_catalog = like.catalog.radial_velocity_error
 
-        # Convert catalog error to sample variance
+        # Convert catalog error back to sample variance (Eq. A4)
         s_catalog_squared = (2 * N_rv / π) * (ε_catalog^2 - 0.113^2)
     else
         # rv_chi2_stat = convert(T, NaN)
