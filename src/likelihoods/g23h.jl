@@ -514,8 +514,13 @@ function G23HObs(;
         if has_rv
 
             len_epochs = length(gaia_table.epoch)
+            # The paired GP calibration reports the per-transit RV uncertainty in
+            # log space: `rv_ln_uncert_dr3` is the GP posterior mean of ln σ, and
+            # `rv_ln_uncert_err_dr3` is its posterior std dev. That makes σ itself
+            # LogNormal(μ_ln, σ_ln); we sample it directly to preserve the paired
+            # pipeline's uncertainty faithfully.
             variables_rv = @variables begin
-                σ_rv_per_transit ~ truncated(Normal(exp(catalog.rv_ln_uncert_dr3), exp(catalog.rv_ln_uncert_err_dr3)), lower=eps())
+                σ_rv_per_transit ~ LogNormal(catalog.rv_ln_uncert_dr3, catalog.rv_ln_uncert_err_dr3)
             end
             variables = vcat(variables, variables_rv)
 
