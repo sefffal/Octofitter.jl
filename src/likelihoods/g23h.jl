@@ -32,9 +32,15 @@ The G23H catalog (~14 GB) is automatically downloaded on first use.
 Default priors are set automatically from the catalog. Custom priors can be specified:
 ```julia
 variables=@variables begin
-    fluxratio ~ Product([LogUniform(1e-6, 1e-1) for _ in 1:N_planets])  # For luminous companions
-    σ_att ~ LogUniform(0.01, 1.0)     # Attitude error (mas)
-    σ_AL ~ LogUniform(0.01, 1.0)      # Along-scan error (mas)
+    # G-band flux ratio per companion — used for the Gaia DR2/DR3 photocentre
+    fluxratio     ~ Product([LogUniform(1e-6, 1e-1) for _ in 1:N_planets])
+    # Hp-band flux ratio per companion — used for the Hipparcos abscissa branch.
+    # Required for any star with `has_hipparcos`. The Hipparcos likelihood uses
+    # this value with the BINARYS atan2 photocentre formula and σ inflation
+    # (Leclerc et al. 2023, A&A 672 A82).
+    fluxratio_hip ~ Product([LogUniform(1e-6, 1e-1) for _ in 1:N_planets])
+    σ_att   ~ LogUniform(0.01, 1.0)   # Attitude error (mas)
+    σ_AL    ~ LogUniform(0.01, 1.0)   # Along-scan error (mas)
     σ_calib ~ LogUniform(0.01, 1.0)   # Calibration error (mas)
 end
 ```
@@ -1289,32 +1295,38 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
     else
 
 
+        # Per-transit σ-inflation buffer for the BINARYS first-harmonic correction
+        # (Leclerc et al. 2023, Eq. 15). Initialised to 1 and accumulated
+        # multiplicatively per (luminous) planet; for non-luminous companions
+        # f_σ = 1 so it stays unchanged.
+        n_hip = length(like.hip_table.epoch)
+        σ_inflation_hip = ones(T, n_hip)
+
         for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
             if planet_mass_msol == 0.0
                 continue
             end
-            if hasproperty(θ_obs, :fluxratio)
-                if θ_obs.fluxratio isa Number
-                    fluxratio = θ_obs.fluxratio
-                else
-                    fluxratio = θ_obs.fluxratio[i_planet]
-                end
-            else
-                fluxratio = 0.0
-            end
+            # Hp-band per-companion flux ratio (M_Hp-derived). Required: this
+            # branch always uses BINARYS, which requires the Hp light fraction.
+            fluxratio_hip = θ_obs.fluxratio_hip isa Number ? θ_obs.fluxratio_hip :
+                            θ_obs.fluxratio_hip[i_planet]
             _simulate_skypath_perturbations!(
                 Δα_mas_hip, Δδ_mas_hip,
                 like.hip_table, orbit,
-                planet_mass_msol, fluxratio,
+                planet_mass_msol, fluxratio_hip,
                 orbit_solutions[i_planet],
-                -1, T
+                -1, T;
+                grid_step_arcsec = HIPPARCOS_GRID_STEP_ARCSEC,
+                σ_inflation = σ_inflation_hip,
             )
         end
+        # Inflate per-transit σ_residual by the BINARYS first-harmonic factor before LSQ.
+        sres_inflated = like.hip_table.sres .* σ_inflation_hip
         if like.include_iad
-            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, like.hip_table.res, like.hip_table.sres)
+            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, like.hip_table.res, sres_inflated)
         else
-            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip)
+            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, 0.0, sres_inflated)
         end
         Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
         α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(orbits, like.catalog.epoch_ra_hip_mjd, like.catalog.epoch_dec_hip_mjd)
@@ -1770,22 +1782,23 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
     if has_hip && n_hip > 0
         Δα_hip = zeros(n_hip)
         Δδ_hip = zeros(n_hip)
+        σ_inflation_hip = ones(n_hip)
         for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
             planet_mass_msol = θ_planet.mass * Octofitter.mjup2msol
             if planet_mass_msol == 0.0
                 continue
             end
-            fluxratio = if hasproperty(θ_obs, :fluxratio)
-                θ_obs.fluxratio isa Number ? θ_obs.fluxratio : θ_obs.fluxratio[i_planet]
-            else
-                0.0
-            end
+            # Hp-band per-companion flux ratio: required for the BINARYS Hipparcos branch.
+            fluxratio_hip = θ_obs.fluxratio_hip isa Number ? θ_obs.fluxratio_hip :
+                            θ_obs.fluxratio_hip[i_planet]
             _simulate_skypath_perturbations!(
                 Δα_hip, Δδ_hip,
                 like.hip_table, orbit,
-                planet_mass_msol, fluxratio,
+                planet_mass_msol, fluxratio_hip,
                 orbit_solutions[i_planet],
-                -1, Float64
+                -1, Float64;
+                grid_step_arcsec = HIPPARCOS_GRID_STEP_ARCSEC,
+                σ_inflation = σ_inflation_hip,
             )
         end
 
@@ -1802,8 +1815,10 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
         # Curvature residual = perturbation - linear model
         new_hip_res .= b_hip .- model_hip
         if add_noise
+            # Inflate per-transit residual σ by the BINARYS first-harmonic factor
+            # (Leclerc et al. 2023, Eq. 15) when generating synthetic noise.
             for i in 1:n_hip
-                new_hip_res[i] += randn() * like.hip_table.sres_renorm[i]
+                new_hip_res[i] += randn() * like.hip_table.sres_renorm[i] * σ_inflation_hip[i]
             end
         end
     end

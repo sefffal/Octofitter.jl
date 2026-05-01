@@ -98,7 +98,7 @@ end
     HipparcosIADObs(;
         hip_id,
         variables=@variables begin
-            fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1)])  # one entry for each companion
+            fluxratio_hip ~ Product([Uniform(0, 1), Uniform(0, 1)])  # one entry for each companion (Hp band)
         end
     )
 
@@ -106,8 +106,14 @@ Load the Hipparcos IAD observations.
 By default, this fetches and catches the extracted Java Tool edition of the
 van Leeuwan reduction.
 
-The `fluxratio` variable should be a Product distribution containing the flux ratio of each companion
-in the same order as the planets in the system.
+The Hipparcos abscissa likelihood applies the BINARYS atan2 photocentre formula
+and per-transit first-harmonic σ inflation (Leclerc et al. 2023, A&A 672 A82,
+Eq. 13 + Eq. 15).
+
+The `fluxratio_hip` variable is **required** and must be a Product distribution
+containing the Hp-band flux ratio of each companion in the same order as the
+planets in the system. (Note: distinct from `fluxratio`, which is the G-band
+ratio used by the Gaia DR2/DR3 photocentre branch in `G23HObs`.)
 
 Additional arguments:
 * `catalog`: path to the data directory. By default, will fetch from online and cache.
@@ -534,7 +540,9 @@ function ln_like(obs::HipparcosIADObs, ctx::PlanetObservationContext)
         if obs.table.reject[i]
             continue
         end
-        ll += logpdf(Normal(0, obs.table.sres_renorm[i]), hip_model.resid[i])
+        # σ inflated by BINARYS first-harmonic factor (Leclerc et al. 2023, Eq. 15).
+        ll += logpdf(Normal(0, obs.table.sres_renorm[i] * hip_model.σ_inflation[i]),
+                     hip_model.resid[i])
     end
 
     return ll
@@ -562,28 +570,32 @@ function simulate(hiplike::HipparcosIADObs, θ_system, θ_obs, orbits, orbit_sol
         end
     end
 
-    # Pre-compute perturbations from all planets for all epochs using standardized function
+    # Pre-compute perturbations from all planets for all epochs using standardized function.
+    # The Hipparcos abscissa likelihood always uses the BINARYS atan2 photocentre formula
+    # and accumulates the per-transit first-harmonic σ inflation (Leclerc et al. 2023,
+    # A&A 672 A82, Eq. 13 + Eq. 15).
     α✱_perturbations_total = zeros(T, length(hiplike.table.epoch))
     δ_perturbations_total = zeros(T, length(hiplike.table.epoch))
-    
+    σ_inflation_hip = ones(T, length(hiplike.table.epoch))
+
     for planet_i in eachindex(orbits)
         planet_mass_msol = θ_system.planets[planet_i].mass * Octofitter.mjup2msol
-        fluxratio = hasproperty(θ_obs, :fluxratio) ? θ_obs.fluxratio[planet_i] : zero(T)
-        
+        fluxratio_hip = θ_obs.fluxratio_hip isa Number ? θ_obs.fluxratio_hip :
+                        θ_obs.fluxratio_hip[planet_i]
+
         # Create temporary arrays for this planet's contribution
         Δα_mas = zeros(T, length(hiplike.table.epoch))
         Δδ_mas = zeros(T, length(hiplike.table.epoch))
-        
+
         _simulate_skypath_perturbations!(
             Δα_mas, Δδ_mas,
             hiplike.table, orbits[planet_i],
-            planet_mass_msol, fluxratio,
-            orbit_solutions[planet_i], orbit_solutions_i_epoch_start[planet_i], T
+            planet_mass_msol, fluxratio_hip,
+            orbit_solutions[planet_i], orbit_solutions_i_epoch_start[planet_i], T;
+            grid_step_arcsec = HIPPARCOS_GRID_STEP_ARCSEC,
+            σ_inflation = σ_inflation_hip,
         )
-        # TODO: I think _simulate_skypath_perturbations just accumulates in place-- 
-        # confirm if we really need these temporary variables and can't just pass
-        # in one set for multiple planet contributions
-        
+
         # Add this planet's contribution to total perturbations
         α✱_perturbations_total .+= Δα_mas
         δ_perturbations_total .+= Δδ_mas
@@ -690,7 +702,8 @@ function simulate(hiplike::HipparcosIADObs, θ_system, θ_obs, orbits, orbit_sol
     return (;
         α✱_model_with_perturbation=α✱_model_with_perturbation_out,
         δ_model_with_perturbation=δ_model_with_perturbation_out,
-        resid=resid_out
+        resid=resid_out,
+        σ_inflation=σ_inflation_hip,
     )
 end
 

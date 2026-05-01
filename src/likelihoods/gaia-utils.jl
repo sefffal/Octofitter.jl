@@ -409,9 +409,37 @@ end
 # Sky path perturbation simulation
 # ──────────────────────────────────────────────────────────────────────
 
+# Hipparcos main grid step (Lindegren 1997, ESA SP-1200 vol 3). Used to set
+# `grid_step_arcsec` when calling `_simulate_skypath_perturbations!` for the
+# Hipparcos abscissa branch — triggers the BINARYS atan2 photocentre formula.
+const HIPPARCOS_GRID_STEP_ARCSEC = 1.2074
+
 """
-Given scan epochs and angles, and an orbit describing perturbations
-from a planet, calculate the astrometric perturbations to the sky path.
+Given scan epochs and angles, and an orbit describing perturbations from a
+(possibly luminous) companion, accumulate the astrometric perturbations to
+the sky path.
+
+When `grid_step_arcsec == 0.0` (default, used for Gaia), the perturbation
+follows the linear photocentre formula `(host + f·planet)/(1+f)`.
+
+When `grid_step_arcsec > 0.0` (Hipparcos: pass `HIPPARCOS_GRID_STEP_ARCSEC`),
+the perturbation follows the BINARYS along-scan formula (Leclerc et al. 2023,
+A&A 672 A82, Eq. 13):
+
+    Δν_B = (s/(2π)) · atan2(β sin ζ, 1 − β + β cos ζ) − B · ρ_p
+
+where ρ_p is the planet–host separation projected on the scan, ζ = 2π ρ_p/s,
+β = f/(1+f) is the secondary light fraction, B = M₂/(M₁+M₂) is the secondary
+mass fraction (carried implicitly via `raoff(sol, planet_mass_msol)`), and s is
+the grid step. The result is written along scan into (Δα, Δδ) such that the
+downstream projection b = Δα·cosϕ + Δδ·sinϕ recovers Δν_B exactly. The cross-
+scan components of (Δα, Δδ) are zeroed in this branch — the abscissa likelihood
+projects them out anyway.
+
+If `σ_inflation !== nothing`, the BINARYS branch additionally accumulates the
+multiplicative first-harmonic σ-inflation factor f_σ = (1+r)/√(1+2r cos ζ + r²)
+per transit (Leclerc et al. Eq. 15, with r = f). The caller passes a buffer
+initialised to 1 and multiplies the per-transit σ by it before the LSQ.
 """
 function _simulate_skypath_perturbations!(
     Δα_model, Δδ_model,
@@ -420,7 +448,18 @@ function _simulate_skypath_perturbations!(
     planet_mass_msol,
     flux_ratio,
     orbit_solutions, orbit_solutions_i_epoch_start, T=Float64;
+    grid_step_arcsec::Float64 = 0.0,
+    σ_inflation = nothing,
 )
+    if grid_step_arcsec > 0.0
+        return _simulate_skypath_perturbations_binarys!(
+            Δα_model, Δδ_model, σ_inflation,
+            table, orbit, planet_mass_msol, flux_ratio,
+            orbit_solutions, orbit_solutions_i_epoch_start, T,
+            grid_step_arcsec,
+        )
+    end
+
     for i in eachindex(table.epoch)
         if orbit_solutions_i_epoch_start >= 0
             sol = orbit_solutions[orbit_solutions_i_epoch_start+i]
@@ -439,6 +478,59 @@ function _simulate_skypath_perturbations!(
         dec_planet_vs_bary = dec_host_vs_bary + dec_planet_vs_host
         dec_photocentre = (dec_host_vs_bary + dec_planet_vs_bary * flux_ratio) / (1 + flux_ratio)
         Δδ_model[i] += dec_photocentre
+    end
+    return
+end
+
+function _simulate_skypath_perturbations_binarys!(
+    Δα_model, Δδ_model, σ_inflation,
+    table,
+    orbit::AbstractOrbit,
+    planet_mass_msol,
+    flux_ratio,
+    orbit_solutions, orbit_solutions_i_epoch_start, T,
+    s::Float64,
+)
+    β = flux_ratio / (1 + flux_ratio)
+    inv_2π_over_s = s / (2π)
+    for i in eachindex(table.epoch)
+        if orbit_solutions_i_epoch_start >= 0
+            sol = orbit_solutions[orbit_solutions_i_epoch_start+i]
+        else
+            sol = orbitsolve(orbit, table.epoch[i])
+        end
+
+        cosϕ = table.cosϕ[i]
+        sinϕ = table.sinϕ[i]
+
+        # Host reflex (encodes mass fraction B implicitly: host_along = −B·ρ_p)
+        ra_host_vs_bary  = raoff(sol, planet_mass_msol)
+        dec_host_vs_bary = decoff(sol, planet_mass_msol)
+        host_along = ra_host_vs_bary * cosϕ + dec_host_vs_bary * sinϕ
+
+        # Planet–host separation projected on scan
+        ra_planet_vs_host  = raoff(sol)
+        dec_planet_vs_host = decoff(sol)
+        ρ_p = ra_planet_vs_host * cosϕ + dec_planet_vs_host * sinϕ
+
+        ζ = 2π * ρ_p / s
+        sin_ζ, cos_ζ = sin(ζ), cos(ζ)
+        # BINARYS phase: atan2(β sin ζ, 1 − β + β cos ζ)
+        φ = atan(β * sin_ζ, 1 - β + β * cos_ζ)
+
+        # Δν_B = (s/(2π))·φ − B·ρ_p; host_along = −B·ρ_p, so:
+        Δν_B = inv_2π_over_s * φ + host_along
+
+        Δα_model[i] += Δν_B * cosϕ
+        Δδ_model[i] += Δν_B * sinϕ
+
+        if σ_inflation !== nothing
+            # Multiplicative σ inflation across companions: exact for ≤1 luminous
+            # companion (the dominant case); approximation for multiple luminous.
+            r = flux_ratio
+            f_σ = (1 + r) / sqrt(1 + 2 * r * cos_ζ + r^2)
+            σ_inflation[i] *= f_σ
+        end
     end
     return
 end
