@@ -456,7 +456,11 @@ function G23HObs(;
             σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
             σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
             σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
+            # G-band flux ratio (used by Gaia DR2/DR3 photocentre branch).
             fluxratio = hasproperty(sys, :fluxratio) ? sys.fluxratio : 0.0
+            # Hp-band flux ratio (required by the BINARYS Hipparcos photocentre branch).
+            # Hard cut: must be supplied at the system level. No fallback.
+            fluxratio_hip = sys.fluxratio_hip
         end
 
         if(len_epochs) < astrometric_matched_transits_dr3
