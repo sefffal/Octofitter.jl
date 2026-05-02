@@ -409,37 +409,20 @@ end
 # Sky path perturbation simulation
 # ──────────────────────────────────────────────────────────────────────
 
-# Hipparcos main grid step (Lindegren 1997, ESA SP-1200 vol 3). Used to set
-# `grid_step_arcsec` when calling `_simulate_skypath_perturbations!` for the
-# Hipparcos abscissa branch — triggers the BINARYS atan2 photocentre formula.
+# Hipparcos main grid step (Lindegren 1997, ESA SP-1200 vol 3). Used as the
+# argument `s` to `_simulate_skypath_hippacentre_combined!` for the Hipparcos
+# abscissa branch.
 const HIPPARCOS_GRID_STEP_ARCSEC = 1.2074
 
 """
 Given scan epochs and angles, and an orbit describing perturbations from a
 (possibly luminous) companion, accumulate the astrometric perturbations to
-the sky path.
+the sky path using the linear photocentre formula `(host + f·planet)/(1+f)`.
 
-When `grid_step_arcsec == 0.0` (default, used for Gaia), the perturbation
-follows the linear photocentre formula `(host + f·planet)/(1+f)`.
-
-When `grid_step_arcsec > 0.0` (Hipparcos: pass `HIPPARCOS_GRID_STEP_ARCSEC`),
-the perturbation follows the BINARYS along-scan formula (Leclerc et al. 2023,
-A&A 672 A82, Eq. 13):
-
-    Δν_B = (s/(2π)) · atan2(β sin ζ, 1 − β + β cos ζ) − B · ρ_p
-
-where ρ_p is the planet–host separation projected on the scan, ζ = 2π ρ_p/s,
-β = f/(1+f) is the secondary light fraction, B = M₂/(M₁+M₂) is the secondary
-mass fraction (carried implicitly via `raoff(sol, planet_mass_msol)`), and s is
-the grid step. The result is written along scan into (Δα, Δδ) such that the
-downstream projection b = Δα·cosϕ + Δδ·sinϕ recovers Δν_B exactly. The cross-
-scan components of (Δα, Δδ) are zeroed in this branch — the abscissa likelihood
-projects them out anyway.
-
-If `σ_inflation !== nothing`, the BINARYS branch additionally accumulates the
-multiplicative first-harmonic σ-inflation factor f_σ = (1+r)/√(1+2r cos ζ + r²)
-per transit (Leclerc et al. Eq. 15, with r = f). The caller passes a buffer
-initialised to 1 and multiplies the per-transit σ by it before the LSQ.
+This is the Gaia / small-separation form. For the Hipparcos abscissa branch
+(BINARYS atan2 Hippacentre) use `_simulate_skypath_hippacentre_combined!`
+instead — that routine must be called once with all companions because the
+modulated-signal Hippacentre is not the sum of per-companion Hippacentres.
 """
 function _simulate_skypath_perturbations!(
     Δα_model, Δδ_model,
@@ -447,19 +430,8 @@ function _simulate_skypath_perturbations!(
     orbit::AbstractOrbit,
     planet_mass_msol,
     flux_ratio,
-    orbit_solutions, orbit_solutions_i_epoch_start, T=Float64;
-    grid_step_arcsec::Float64 = 0.0,
-    σ_inflation = nothing,
+    orbit_solutions, orbit_solutions_i_epoch_start, T=Float64,
 )
-    if grid_step_arcsec > 0.0
-        return _simulate_skypath_perturbations_binarys!(
-            Δα_model, Δδ_model, σ_inflation,
-            table, orbit, planet_mass_msol, flux_ratio,
-            orbit_solutions, orbit_solutions_i_epoch_start, T,
-            grid_step_arcsec,
-        )
-    end
-
     for i in eachindex(table.epoch)
         if orbit_solutions_i_epoch_start >= 0
             sol = orbit_solutions[orbit_solutions_i_epoch_start+i]
@@ -482,54 +454,108 @@ function _simulate_skypath_perturbations!(
     return
 end
 
-function _simulate_skypath_perturbations_binarys!(
+"""
+    _simulate_skypath_hippacentre_combined!(
+        Δα_model, Δδ_model, σ_inflation,
+        table, orbits, planet_masses_msol, flux_ratios,
+        orbit_solutions_per_planet, orbit_solutions_i_epoch_starts, T, s,
+    )
+
+Compute the BINARYS Hippacentre along-scan offset Δν_B from the *combined*
+multi-companion modulated signal (Leclerc et al. 2023, A&A 672 A82, Eq. 13 +
+Eq. 15) and accumulate it into (Δα_model, Δδ_model) such that the downstream
+scan projection `b = Δα·cosϕ + Δδ·sinϕ` recovers Δν_B exactly. Cross-scan
+components are zero (unobservable from a Hipparcos abscissa).
+
+For N companions (k = 1..N) at scan-projected separations ρ_p^(k) from the
+host, with Hp-band flux ratios f_k = L_k/L_host, the combined Hippacentre
+phase in the *host frame* is
+
+    φ = atan2( Σ_k f_k sin ζ_k ,  1 + Σ_k f_k cos ζ_k ),     ζ_k = 2π ρ_p^(k)/s
+
+so the Hippacentre offset from the system barycentre, projected on scan, is
+
+    Δν_B = (s/2π) · φ + Σ_k host_along^(k)
+
+where host_along^(k) is the host-vs-barycentre offset *due to companion k*
+projected on scan (encodes the per-companion mass fraction via
+`raoff(sol_k, m_k)`). Summing per-companion host-reflex contributions matches
+Octofitter's existing 2-body convention for `raoff(sol, m)`.
+
+The σ-inflation factor is the *combined* first-harmonic amplitude reduction
+(Leclerc et al. Eq. 15, generalised to N companions):
+
+    f_σ = (1 + Σ_k f_k) / sqrt( (1 + Σ_k f_k cos ζ_k)² + (Σ_k f_k sin ζ_k)² )
+
+Pass `σ_inflation` as a buffer initialised to 1; it is multiplied in place by
+f_σ per transit. For all-dark companions (every f_k = 0) this routine reduces
+to Δν_B = Σ_k host_along^(k) and f_σ = 1, identical to the linear photocentre.
+
+NOTE: The σ_inflation buffer is the noise-model correction for the *likelihood*
+comparison of the predicted abscissa to observed IAD residuals. It must NOT be
+folded into the weighting of any LSQ that reproduces the published catalog
+5-parameter solution, because the catalog fit was performed by the Hipparcos
+pipeline with point-source σ.
+"""
+function _simulate_skypath_hippacentre_combined!(
     Δα_model, Δδ_model, σ_inflation,
     table,
-    orbit::AbstractOrbit,
-    planet_mass_msol,
-    flux_ratio,
-    orbit_solutions, orbit_solutions_i_epoch_start, T,
+    orbits,                          # iterable of <:AbstractOrbit
+    planet_masses_msol,              # iterable of mass (Msol)
+    flux_ratios,                     # iterable of Hp-band L_k/L_host
+    orbit_solutions_per_planet,      # iterable of orbit_solutions arrays
+    orbit_solutions_i_epoch_starts,  # iterable of Int
+    T,
     s::Float64,
 )
-    β = flux_ratio / (1 + flux_ratio)
     inv_2π_over_s = s / (2π)
+    n_planets = length(orbits)
     for i in eachindex(table.epoch)
-        if orbit_solutions_i_epoch_start >= 0
-            sol = orbit_solutions[orbit_solutions_i_epoch_start+i]
-        else
-            sol = orbitsolve(orbit, table.epoch[i])
-        end
-
         cosϕ = table.cosϕ[i]
         sinϕ = table.sinϕ[i]
 
-        # Host reflex (encodes mass fraction B implicitly: host_along = −B·ρ_p)
-        ra_host_vs_bary  = raoff(sol, planet_mass_msol)
-        dec_host_vs_bary = decoff(sol, planet_mass_msol)
-        host_along = ra_host_vs_bary * cosϕ + dec_host_vs_bary * sinϕ
+        # Combined modulated signal in the host frame:
+        #   1 (host, by convention) + Σ_k f_k · exp(i·ζ_k)
+        # Initial (Re, Im) is the host (k=0) contribution: 1 + 0i; f_total starts at 0.
+        Re = one(T)
+        Im = zero(T)
+        f_total = zero(T)
+        host_along_total = zero(T)
 
-        # Planet–host separation projected on scan
-        ra_planet_vs_host  = raoff(sol)
-        dec_planet_vs_host = decoff(sol)
-        ρ_p = ra_planet_vs_host * cosϕ + dec_planet_vs_host * sinϕ
+        for k in 1:n_planets
+            i_start_k = orbit_solutions_i_epoch_starts[k]
+            sol_k = i_start_k >= 0 ?
+                orbit_solutions_per_planet[k][i_start_k + i] :
+                orbitsolve(orbits[k], table.epoch[i])
 
-        ζ = 2π * ρ_p / s
-        sin_ζ, cos_ζ = sin(ζ), cos(ζ)
-        # BINARYS phase: atan2(β sin ζ, 1 − β + β cos ζ)
-        φ = atan(β * sin_ζ, 1 - β + β * cos_ζ)
+            # Host reflex from companion k (projected) = −B_k · ρ_p^(k)
+            ra_h  = raoff(sol_k, planet_masses_msol[k])
+            dec_h = decoff(sol_k, planet_masses_msol[k])
+            host_along_total += ra_h * cosϕ + dec_h * sinϕ
 
-        # Δν_B = (s/(2π))·φ − B·ρ_p; host_along = −B·ρ_p, so:
-        Δν_B = inv_2π_over_s * φ + host_along
+            # Companion-k separation from host, projected on scan
+            ra_p  = raoff(sol_k)
+            dec_p = decoff(sol_k)
+            ρ_pk = ra_p * cosϕ + dec_p * sinϕ
+
+            ζ_k = 2π * ρ_pk / s
+            f_k = flux_ratios[k]
+            sin_ζk, cos_ζk = sin(ζ_k), cos(ζ_k)
+            Re += f_k * cos_ζk
+            Im += f_k * sin_ζk
+            f_total += f_k
+        end
+
+        # Combined Hippacentre phase (host frame) and barycentre-frame offset
+        φ = atan(Im, Re)
+        Δν_B = inv_2π_over_s * φ + host_along_total
 
         Δα_model[i] += Δν_B * cosϕ
         Δδ_model[i] += Δν_B * sinϕ
 
         if σ_inflation !== nothing
-            # Multiplicative σ inflation across companions: exact for ≤1 luminous
-            # companion (the dominant case); approximation for multiple luminous.
-            r = flux_ratio
-            f_σ = (1 + r) / sqrt(1 + 2 * r * cos_ζ + r^2)
-            σ_inflation[i] *= f_σ
+            amp = sqrt(Re*Re + Im*Im)
+            σ_inflation[i] *= (1 + f_total) / amp
         end
     end
     return

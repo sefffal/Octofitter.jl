@@ -678,7 +678,13 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
         Δδ_mas_dr2 = @alloc(T, iend_dr2-istart_dr2+1); fill!(Δδ_mas_dr2, 0)
         Δα_mas_dr3 = @alloc(T, iend_dr3-istart_dr3+1); fill!(Δα_mas_dr3, 0)
         Δδ_mas_dr3 = @alloc(T, iend_dr3-istart_dr3+1); fill!(Δδ_mas_dr3, 0)
-        buffers = (;iad_resid, Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3)
+        # σ-inflation buffer for the BINARYS first-harmonic correction
+        # (Leclerc et al. 2023, Eq. 15). Initialised to 1 (no inflation);
+        # populated in simulate! per transit from the *combined* multi-companion
+        # modulated signal. Used as the noise-model multiplier in the IAD-residual
+        # likelihood below — must NOT be used in the catalog-bias LSQ in simulate!.
+        σ_inflation_hip = @alloc(T, size(like.hip_table,1)); fill!(σ_inflation_hip, 1)
+        buffers = (;iad_resid, Δα_mas_hip, Δδ_mas_hip, σ_inflation_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3)
 
         sim = simulate!(buffers, like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
@@ -808,7 +814,13 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
                         continue
                     end
                     (;hip_iad_jitter) = θ_obs
-                    ll += logpdf(Normal(0, hypot(like.hip_table.sres_renorm[i], hip_iad_jitter) ), iad_resid[i])
+                    # Inflate per-transit residual σ by the BINARYS first-harmonic
+                    # factor (Leclerc et al. 2023, Eq. 15). σ_inflation_hip[i] = 1
+                    # in the unresolved limit and grows where the binary modulation
+                    # reduces the signal amplitude — the IAD residual noise scales
+                    # the same way.
+                    σ_iad = hypot(like.hip_table.sres_renorm[i] * σ_inflation_hip[i], hip_iad_jitter)
+                    ll += logpdf(Normal(0, σ_iad), iad_resid[i])
                 end
             end
 
@@ -1075,8 +1087,9 @@ function simulate(like::G23HObs, θ_system, θ_obs, orbits, orbit_solutions, orb
     Δδ_mas_dr2 = zeros(iend_dr2-istart_dr2+1); fill!(Δδ_mas_dr2, 0)
     Δα_mas_dr3 = zeros(iend_dr3-istart_dr3+1); fill!(Δα_mas_dr3, 0)
     Δδ_mas_dr3 = zeros(iend_dr3-istart_dr3+1); fill!(Δδ_mas_dr3, 0)
+    σ_inflation_hip = ones(size(like.hip_table,1))
 
-    buffers = (;iad_resid, Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3)
+    buffers = (;iad_resid, Δα_mas_hip, Δδ_mas_hip, σ_inflation_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3)
 
     out = simulate!(buffers, like, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
@@ -1085,7 +1098,7 @@ end
 
 function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) 
 
-    (;Δα_mas_hip, Δδ_mas_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3, iad_resid, ) = buffers
+    (;Δα_mas_hip, Δδ_mas_hip, σ_inflation_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3, iad_resid, ) = buffers
 
 
     T = _system_number_type(θ_system)
@@ -1299,38 +1312,42 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
     else
 
 
-        # Per-transit σ-inflation buffer for the BINARYS first-harmonic correction
-        # (Leclerc et al. 2023, Eq. 15). Initialised to 1 and accumulated
-        # multiplicatively per (luminous) planet; for non-luminous companions
-        # f_σ = 1 so it stays unchanged.
+        # σ_inflation_hip comes from the caller's buffer; reset it to 1 at the
+        # start of this evaluation. It will be populated *jointly* across all
+        # companions in a single call to `_simulate_skypath_hippacentre_combined!`
+        # below — multiplicative per-companion accumulation is wrong because the
+        # multi-source modulated signal is not the sum of per-companion signals.
         n_hip = length(like.hip_table.epoch)
-        σ_inflation_hip = ones(T, n_hip)
+        fill!(σ_inflation_hip, one(T))
 
-        for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
-            planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-            if planet_mass_msol == 0.0
-                continue
-            end
-            # Hp-band per-companion flux ratio (M_Hp-derived). Required: this
-            # branch always uses BINARYS, which requires the Hp light fraction.
-            fluxratio_hip = θ_obs.fluxratio_hip isa Number ? θ_obs.fluxratio_hip :
-                            θ_obs.fluxratio_hip[i_planet]
-            _simulate_skypath_perturbations!(
-                Δα_mas_hip, Δδ_mas_hip,
-                like.hip_table, orbit,
-                planet_mass_msol, fluxratio_hip,
-                orbit_solutions[i_planet],
-                -1, T;
-                grid_step_arcsec = HIPPARCOS_GRID_STEP_ARCSEC,
-                σ_inflation = σ_inflation_hip,
-            )
+        n_planets = length(orbits)
+        planet_masses_msol_hip = ntuple(i_planet -> θ_system.planets[i_planet].mass * Octofitter.mjup2msol, n_planets)
+        # Companions with mass = 0 contribute nothing — zero out their flux ratio so
+        # they fall out of both the modulated-signal sum and the host-reflex sum.
+        flux_ratios_hip = ntuple(n_planets) do i_planet
+            planet_masses_msol_hip[i_planet] == 0.0 ? zero(T) :
+                (θ_obs.fluxratio_hip isa Number ? θ_obs.fluxratio_hip : θ_obs.fluxratio_hip[i_planet])
         end
-        # Inflate per-transit σ_residual by the BINARYS first-harmonic factor before LSQ.
-        sres_inflated = like.hip_table.sres .* σ_inflation_hip
+        # G23H pipeline calls per-planet `orbit_solutions[i_planet]` with start index −1
+        orbit_sol_starts_hip = ntuple(_ -> -1, n_planets)
+
+        _simulate_skypath_hippacentre_combined!(
+            Δα_mas_hip, Δδ_mas_hip, σ_inflation_hip,
+            like.hip_table,
+            orbits, planet_masses_msol_hip, flux_ratios_hip,
+            orbit_solutions, orbit_sol_starts_hip, T,
+            HIPPARCOS_GRID_STEP_ARCSEC,
+        )
+
+        # NB: extract the catalog 5-parameter bias with the *uninflated* σ — the
+        # Hipparcos pipeline that produced the catalog used point-source σ, so to
+        # reproduce the bias it absorbed we must weight the LSQ the same way.
+        # σ_inflation_hip is propagated separately into the IAD-residual likelihood
+        # (`σ_iad = hypot(sres_renorm * σ_inflation_hip, hip_iad_jitter)` below).
         if like.include_iad
-            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, like.hip_table.res, sres_inflated)
+            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, like.hip_table.res, like.hip_table.sres)
         else
-            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, 0.0, sres_inflated)
+            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, 0.0, like.hip_table.sres)
         end
         Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
         α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(orbits, like.catalog.epoch_ra_hip_mjd, like.catalog.epoch_dec_hip_mjd)
@@ -1787,24 +1804,21 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
         Δα_hip = zeros(n_hip)
         Δδ_hip = zeros(n_hip)
         σ_inflation_hip = ones(n_hip)
-        for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
-            planet_mass_msol = θ_planet.mass * Octofitter.mjup2msol
-            if planet_mass_msol == 0.0
-                continue
-            end
-            # Hp-band per-companion flux ratio: required for the BINARYS Hipparcos branch.
-            fluxratio_hip = θ_obs.fluxratio_hip isa Number ? θ_obs.fluxratio_hip :
-                            θ_obs.fluxratio_hip[i_planet]
-            _simulate_skypath_perturbations!(
-                Δα_hip, Δδ_hip,
-                like.hip_table, orbit,
-                planet_mass_msol, fluxratio_hip,
-                orbit_solutions[i_planet],
-                -1, Float64;
-                grid_step_arcsec = HIPPARCOS_GRID_STEP_ARCSEC,
-                σ_inflation = σ_inflation_hip,
-            )
+        n_planets = length(orbits)
+        planet_masses_msol = ntuple(i_planet -> θ_system.planets[i_planet].mass * Octofitter.mjup2msol, n_planets)
+        # Companions with mass = 0 contribute nothing — zero out their flux ratio.
+        flux_ratios_hip = ntuple(n_planets) do i_planet
+            planet_masses_msol[i_planet] == 0.0 ? 0.0 :
+                (θ_obs.fluxratio_hip isa Number ? θ_obs.fluxratio_hip : θ_obs.fluxratio_hip[i_planet])
         end
+        orbit_sol_starts = ntuple(_ -> -1, n_planets)
+        _simulate_skypath_hippacentre_combined!(
+            Δα_hip, Δδ_hip, σ_inflation_hip,
+            like.hip_table,
+            orbits, planet_masses_msol, flux_ratios_hip,
+            orbit_solutions, orbit_sol_starts, Float64,
+            HIPPARCOS_GRID_STEP_ARCSEC,
+        )
 
         # Project perturbation along scan direction
         b_hip = zeros(n_hip)

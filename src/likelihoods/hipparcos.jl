@@ -570,36 +570,30 @@ function simulate(hiplike::HipparcosIADObs, θ_system, θ_obs, orbits, orbit_sol
         end
     end
 
-    # Pre-compute perturbations from all planets for all epochs using standardized function.
-    # The Hipparcos abscissa likelihood always uses the BINARYS atan2 photocentre formula
-    # and accumulates the per-transit first-harmonic σ inflation (Leclerc et al. 2023,
-    # A&A 672 A82, Eq. 13 + Eq. 15).
+    # Pre-compute perturbations from all planets for all epochs.
+    # The Hipparcos abscissa likelihood always uses the BINARYS atan2 photocentre
+    # formula; the multi-source modulated signal is computed jointly across all
+    # companions in a single pass (Leclerc et al. 2023, A&A 672 A82, Eq. 13 + Eq. 15).
     α✱_perturbations_total = zeros(T, length(hiplike.table.epoch))
     δ_perturbations_total = zeros(T, length(hiplike.table.epoch))
     σ_inflation_hip = ones(T, length(hiplike.table.epoch))
 
-    for planet_i in eachindex(orbits)
-        planet_mass_msol = θ_system.planets[planet_i].mass * Octofitter.mjup2msol
-        fluxratio_hip = θ_obs.fluxratio_hip isa Number ? θ_obs.fluxratio_hip :
-                        θ_obs.fluxratio_hip[planet_i]
-
-        # Create temporary arrays for this planet's contribution
-        Δα_mas = zeros(T, length(hiplike.table.epoch))
-        Δδ_mas = zeros(T, length(hiplike.table.epoch))
-
-        _simulate_skypath_perturbations!(
-            Δα_mas, Δδ_mas,
-            hiplike.table, orbits[planet_i],
-            planet_mass_msol, fluxratio_hip,
-            orbit_solutions[planet_i], orbit_solutions_i_epoch_start[planet_i], T;
-            grid_step_arcsec = HIPPARCOS_GRID_STEP_ARCSEC,
-            σ_inflation = σ_inflation_hip,
-        )
-
-        # Add this planet's contribution to total perturbations
-        α✱_perturbations_total .+= Δα_mas
-        δ_perturbations_total .+= Δδ_mas
+    n_planets = length(orbits)
+    planet_masses_msol = ntuple(i -> θ_system.planets[i].mass * Octofitter.mjup2msol, n_planets)
+    flux_ratios_hip = ntuple(n_planets) do i
+        θ_obs.fluxratio_hip isa Number ? θ_obs.fluxratio_hip : θ_obs.fluxratio_hip[i]
     end
+    # `orbit_solutions_i_epoch_start` is a scalar Int shared across planets;
+    # broadcast to a per-planet tuple for the combined Hippacentre routine.
+    orbit_sol_starts = ntuple(_ -> orbit_solutions_i_epoch_start, n_planets)
+
+    _simulate_skypath_hippacentre_combined!(
+        α✱_perturbations_total, δ_perturbations_total, σ_inflation_hip,
+        hiplike.table,
+        orbits, planet_masses_msol, flux_ratios_hip,
+        orbit_solutions, orbit_sol_starts, T,
+        HIPPARCOS_GRID_STEP_ARCSEC,
+    )
 
     for i in eachindex(hiplike.table.epoch)
 
