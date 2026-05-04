@@ -1595,18 +1595,65 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
     if :rv_dr3 ∈ like.table.kind
         σ_rv_per_transit = θ_obs.σ_rv_per_transit  # per-transit RV uncertainty in km/s
 
-        # Simulate RV measurements at Gaia epochs
+        # Simulate RV measurements at Gaia epochs.
+        #
+        # The Gaia DR3 RVS measurement is the *flux-weighted blend* of all sources
+        # whose spectra fall within the RVS extraction window — not the primary's
+        # reflex velocity alone.  For a single luminous companion in the BINARYS
+        # regime the blended-frame primary-component reflex amplitude is
+        #
+        #     v_blend = v_pri · (1 − β/B)     ≡ v_pri · (B − β)/B
+        #
+        # where β = f/(1+f) is the light fraction and B = M_comp/M_total.  In the
+        # dark-companion limit (f → 0) this collapses to v_pri, so single-planet
+        # exoplanet fits are bit-identical to the previous code path.  For
+        # near-equal-mass-equal-flux binaries (β ≈ B) the blended signal vanishes,
+        # and the correction is essential to avoid the model needing a phantom
+        # inner companion to absorb a non-existent RV reflex.
+        #
+        # Multi-companion form (with all per-planet light fractions f_k_eff already
+        # tapered for the RVS PSF below):
+        #
+        #     v_blend(t) = Σ_k radvel(sol_k(t), m_k) · (1 − f_k_eff·M_pri/M_k)
+        #                 / (1 + Σ_l f_l_eff)
+        #
+        # Per-epoch RVS spectral-blending taper.  The RVS slitless spectrograph
+        # has an across-scan window of ~1.77″ (10 × 0.177″ pixels; Cropper+2018,
+        # Sartoretti+2018) plus a small AC PSF, giving an effective Gaussian
+        # taper α(ρ) ≈ exp(−(ρ/σ_RVS)²) with σ_RVS ≈ 1.1″.  α(1″) ≈ 0.44, α(2″)
+        # ≈ 0.04, α(3″) ≈ 6×10⁻⁴ — consistent with the DR3 RV pipeline treating
+        # pairs <1.6″ as severely blended and >3″ as clean.
+        σ_RVS_arcsec = 1.1
+        M_pri = θ_system.M_pri
+
         rv_model = zeros(T, length(gaia_table_rv.epoch))
 
-        for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
-            planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-            if planet_mass_msol == 0.0
-                continue
+        n_planets = length(orbits)
+        for (i, epoch) in enumerate(gaia_table_rv.epoch)
+            # Per-planet orbit solution and projected separation at this epoch
+            sols    = ntuple(k -> orbitsolve(orbits[k], epoch), n_planets)
+            ρ_arcs  = ntuple(k -> projectedseparation(sols[k]) / 1000, n_planets)  # mas → ″
+
+            # Per-planet RVS-effective light fraction (un-gated MIST Hp value
+            # tapered by the RVS spectral-blending kernel; Hp ≈ RVS color for MS
+            # stars to within a few percent — adequate for the blending factor).
+            f_eff = ntuple(n_planets) do k
+                f_hip_k = θ_obs.fluxratio_hip isa Number ? θ_obs.fluxratio_hip :
+                          θ_obs.fluxratio_hip[k]
+                f_hip_k * exp(-(ρ_arcs[k] / σ_RVS_arcsec)^2)
             end
-            # Accumulate the RV contribution from this planet at each epoch.
-            for (i, epoch) in enumerate(gaia_table_rv.epoch)
-                sol = orbitsolve(orbit, epoch)
-                rv_model[i] += radvel(sol, planet_mass_msol)/1e3 # barycentric rv in km/s
+            f_total = one(T) + sum(f_eff)
+
+            for k in 1:n_planets
+                planet_mass_msol = θ_system.planets[k].mass * Octofitter.mjup2msol
+                planet_mass_msol == 0.0 && continue
+                v_pri_k = radvel(sols[k], planet_mass_msol) / 1e3   # km/s
+                # Blending: companion's anti-correlated velocity is
+                # v_sec_k = −(M_pri / m_k) · v_pri_k, so the per-companion
+                # blended contribution to the primary's spectroscopic frame is
+                # (1 − f_eff_k · M_pri/m_k) · v_pri_k / f_total.
+                blend_k = (one(T) - f_eff[k] * M_pri / planet_mass_msol) / f_total
+                rv_model[i] += blend_k * v_pri_k
             end
         end
 
