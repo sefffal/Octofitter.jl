@@ -414,6 +414,20 @@ end
 # abscissa branch.
 const HIPPARCOS_GRID_STEP_ARCSEC = 1.2074
 
+# Per-transit resolution gate for the BINARYS modulated photocentre.  At
+# projected separations ρ ≫ s, the Hipparcos pipeline either resolved the
+# components into separate Tycho/Hipparcos entries or rejected the row, so
+# the catalog point reflects the primary alone; the BINARYS atan2 modulation
+# must therefore taper to zero in this limit.  The atan2 formula does not do
+# this on its own — `(s/2π)·φ` keeps oscillating ±s/2 with separation.  We
+# gate the per-companion modulated-signal flux ratio by a Gaussian taper in
+# the *full* projected separation (not the along-scan projection ρ_pk, since
+# the resolution criterion is geometric, not abscissa-projected).  The
+# resolution scale is anchored to s = 1.207″ (Lindegren 1997 §3.3, ESA
+# SP-1200; van Leeuwen 2007 §6.4); refine empirically as needed.
+const HIPPARCOS_RESOLUTION_ARCSEC = 1.207
+α_resolve_hip(ρ_arcsec) = exp(-(ρ_arcsec / HIPPARCOS_RESOLUTION_ARCSEC)^2)
+
 """
 Given scan epochs and angles, and an orbit describing perturbations from a
 (possibly luminous) companion, accumulate the astrometric perturbations to
@@ -468,10 +482,11 @@ scan projection `b = Δα·cosϕ + Δδ·sinϕ` recovers Δν_B exactly. Cross-s
 components are zero (unobservable from a Hipparcos abscissa).
 
 For N companions (k = 1..N) at scan-projected separations ρ_p^(k) from the
-host, with Hp-band flux ratios f_k = L_k/L_host, the combined Hippacentre
-phase in the *host frame* is
+host, with Hp-band flux ratios f_k = L_k/L_host **gated by a per-transit
+resolution taper** α_k = α_resolve_hip(|ρ^(k)|), so that f_k_eff = f_k · α_k,
+the combined Hippacentre phase in the *host frame* is
 
-    φ = atan2( Σ_k f_k sin ζ_k ,  1 + Σ_k f_k cos ζ_k ),     ζ_k = 2π ρ_p^(k)/s
+    φ = atan2( Σ_k f_k_eff sin ζ_k ,  1 + Σ_k f_k_eff cos ζ_k ),     ζ_k = 2π ρ_p^(k)/s
 
 so the Hippacentre offset from the system barycentre, projected on scan, is
 
@@ -480,16 +495,22 @@ so the Hippacentre offset from the system barycentre, projected on scan, is
 where host_along^(k) is the host-vs-barycentre offset *due to companion k*
 projected on scan (encodes the per-companion mass fraction via
 `raoff(sol_k, m_k)`). Summing per-companion host-reflex contributions matches
-Octofitter's existing 2-body convention for `raoff(sol, m)`.
+Octofitter's existing 2-body convention for `raoff(sol, m)`.  The host-reflex
+sum is *not* gated by α — the host's barycentric motion is physical
+regardless of whether Hipparcos resolved the binary; only the modulated
+photocentre contribution tapers off in the resolved limit.
 
 The σ-inflation factor is the *combined* first-harmonic amplitude reduction
-(Leclerc et al. Eq. 15, generalised to N companions):
+(Leclerc et al. Eq. 15, generalised to N companions, using f_k_eff):
 
-    f_σ = (1 + Σ_k f_k) / sqrt( (1 + Σ_k f_k cos ζ_k)² + (Σ_k f_k sin ζ_k)² )
+    f_σ = (1 + Σ_k f_k_eff) / sqrt( (1 + Σ_k f_k_eff cos ζ_k)² + (Σ_k f_k_eff sin ζ_k)² )
 
 Pass `σ_inflation` as a buffer initialised to 1; it is multiplied in place by
 f_σ per transit. For all-dark companions (every f_k = 0) this routine reduces
 to Δν_B = Σ_k host_along^(k) and f_σ = 1, identical to the linear photocentre.
+For the wide-separation limit (every α_k → 0) it again reduces to
+Δν_B = Σ_k host_along^(k) and f_σ = 1 — the "resolved binary, primary alone"
+answer the Hipparcos pipeline would give.
 
 NOTE: The σ_inflation buffer is the noise-model correction for the *likelihood*
 comparison of the predicted abscissa to observed IAD residuals. It must NOT be
@@ -538,8 +559,21 @@ function _simulate_skypath_hippacentre_combined!(
             dec_p = decoff(sol_k)
             ρ_pk = ra_p * cosϕ + dec_p * sinϕ
 
+            # Per-transit resolution gate: the BINARYS modulated-signal
+            # contribution from companion k tapers to zero at ρ ≫ s, because
+            # at those separations the Hipparcos pipeline detected the pair
+            # as resolved (or rejected the row) and the catalog point is the
+            # primary alone.  Gate is applied to the modulated-signal f_k
+            # only — the host-reflex sum below is barycentric and remains
+            # physical regardless of resolution state.  In the resolved
+            # limit (α → 0) Re → 1, Im → 0, φ → 0, f_σ → 1, so Δν_B reduces
+            # to host_along_total exactly and no spurious σ inflation
+            # remains.
+            ρ_full_arcsec = sqrt(ra_p*ra_p + dec_p*dec_p) / 1000  # mas → arcsec
+            α_k = α_resolve_hip(ρ_full_arcsec)
+
             ζ_k = 2π * ρ_pk / s
-            f_k = flux_ratios[k]
+            f_k = flux_ratios[k] * α_k
             sin_ζk, cos_ζk = sin(ζ_k), cos(ζ_k)
             Re += f_k * cos_ζk
             Im += f_k * sin_ζk
