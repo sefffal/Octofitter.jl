@@ -681,8 +681,14 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
         # σ-inflation buffer for the BINARYS first-harmonic correction
         # (Leclerc et al. 2023, Eq. 15). Initialised to 1 (no inflation);
         # populated in simulate! per transit from the *combined* multi-companion
-        # modulated signal. Used as the noise-model multiplier in the IAD-residual
-        # likelihood below — must NOT be used in the catalog-bias LSQ in simulate!.
+        # modulated signal. Consumed in two places: (a) the IAD-residual
+        # likelihood when include_iad=true, scaling the per-transit residual
+        # σ; (b) the catalog covariance Σ_h below, scaling it by the
+        # transit-averaged f_σ² to reflect binary-induced uncertainty
+        # inflation on the published Hipparcos catalog point. Must NOT be
+        # used in the catalog-bias LSQ inside simulate!, because that LSQ
+        # reproduces the *catalog construction* under the Hipparcos
+        # pipeline's point-source σ.
         σ_inflation_hip = @alloc(T, size(like.hip_table,1)); fill!(σ_inflation_hip, 1)
         buffers = (;iad_resid, Δα_mas_hip, Δδ_mas_hip, σ_inflation_hip, Δα_mas_dr2, Δδ_mas_dr2, Δα_mas_dr3, Δδ_mas_dr3)
 
@@ -953,6 +959,38 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
             Σ_h = SMatrix{2, 2, T, 4}(Σ_h)
             Σ_hg = SMatrix{2, 2, T, 4}(Σ_hg)
             Σ_dr2 = SMatrix{2, 2, T, 4}(Σ_dr2)
+
+            # BINARYS f_σ inflation of the Hipparcos catalog covariance.  In
+            # the include_iad=false path the σ_inflation_hip buffer (the
+            # combined first-harmonic amplitude reduction from
+            # `_simulate_skypath_hippacentre_combined!`, Leclerc 2023 Eq. 15
+            # generalised) is otherwise dormant — the catalog 5-param fit at
+            # the Hipparcos pipeline used point-source σ, so the LSQ that
+            # reproduces the catalog bias must too, but the *uncertainty* on
+            # the catalog point itself should reflect the binary-induced
+            # increase in per-transit noise.  Multiply Σ_h by the
+            # transit-averaged f_σ² so that the catalog-likelihood
+            # covariance inflates regime-appropriately for luminous-binary
+            # configurations.  In the dark-companion / single-star /
+            # wide-resolved limit f_σ → 1 and this is a no-op.  Σ_hg is left
+            # uninflated for v1 (the long-baseline HG covariance has a Gaia
+            # endpoint as well, so the right multiplier would be < f_σ²; we
+            # take the conservative course and let HG self-calibrate via
+            # HGCA's renormalisation).
+            if !isnothing(dist_hip) && size(like.hip_table, 1) > 0
+                n_used_hip = 0
+                sumsq_inflate = zero(T)
+                for i in eachindex(σ_inflation_hip)
+                    like.hip_table.reject[i] && continue
+                    n_used_hip += 1
+                    sumsq_inflate += σ_inflation_hip[i]^2
+                end
+                if n_used_hip > 0
+                    hip_inflate_sq = sumsq_inflate / n_used_hip
+                    Σ_h = Σ_h * hip_inflate_sq
+                end
+            end
+
             # Apply deflation adjustment to DR32 covariance
             Σ_dr32 = SMatrix{2, 2, T, 4}(Σ_dr32 .+ ΔΣ_dr32)
             # Σ_dr32 = SMatrix{2, 2, T, 4}(Σ_dr32)
