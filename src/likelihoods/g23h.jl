@@ -698,8 +698,9 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
             ll = convert(T,-Inf)
         else
 
-            (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3, n_dr3, n_dr2) = sim       
+            (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3, n_dr3, n_dr2) = sim
             (;deflation_factor_dr3) = sim
+            (;hip_bias_pm_sq) = sim
             # Check if we have absolute orbits
             absolute_orbits = false
             for orbit in orbits
@@ -990,6 +991,31 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
                     Σ_h = Σ_h * hip_inflate_sq
                 end
             end
+
+            # BINARYS epistemic uncertainty on the catalog-bias correction.
+            # The model's predicted bias (Δpmra_h, Δpmdec_h) is the BINARYS
+            # photocentre modulation absorbed by the published Hipparcos
+            # catalog 5-param fit; it's correct only to the extent that our
+            # likelihood matches what the Hipparcos pipeline actually did.
+            # Known approximations:
+            #   * H1+H2 composite catalog point modelled with a single-IAD
+            #     basis matrix (one reduction's scan angles, weights, and
+            #     parallax factors);
+            #   * Hp-band MLR systematics in the per-companion fluxratio_hip
+            #     prediction, especially across the tip of the M-dwarf MS;
+            #   * partial resolution gate (Gaussian taper anchored to the
+            #     grating step rather than empirical detection efficiency).
+            # We absorb residual model error by adding ε² · |Δpm_h|² to Σ_h
+            # isotropically.  At the dark-companion / single-star limit the
+            # bias is zero and this is a no-op; at high f / sep ≈ s the bias
+            # grows and the catalog likelihood loosens by a regime-
+            # appropriate amount.  ε_binarys is the relative trust on the
+            # bias prediction (0.3 ≡ 30%, conservative first-pass value).
+            ε_binarys = T(0.3)
+            if !isnothing(dist_hip) && hip_bias_pm_sq > zero(T)
+                Σ_h = Σ_h + (ε_binarys^2 * hip_bias_pm_sq) * SMatrix{2, 2, T, 4}(I)
+            end
+
 
             # Apply deflation adjustment to DR32 covariance
             Σ_dr32 = SMatrix{2, 2, T, 4}(Σ_dr32 .+ ΔΣ_dr32)
@@ -1343,6 +1369,11 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
 
     ################################
     # Hipparcos
+    # Track |bias|² in PM space for the catalog-likelihood epistemic inflation
+    # downstream — see the ε_binarys block in ln_like.  Initialised here so the
+    # value flows through both branches of the if/else below into the return
+    # named tuple.
+    hip_bias_pm_sq = zero(T)
     if isnothing(like.catalog.dist_hip)
         # type stable since dist_hip is part of the likelihood type parameters
         # ie. we statically know which of these branches will be taken.
@@ -1388,6 +1419,11 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
             out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, 0.0, like.hip_table.sres)
         end
         Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
+        # Track magnitude of the BINARYS-predicted PM bias for the catalog-
+        # likelihood epistemic inflation downstream.  Σ_h compares against the
+        # Hipparcos catalog PMs (`dist_hip` is in mas/yr — see line 174), so
+        # the relevant bias components are Δpmra_h and Δpmdec_h.
+        hip_bias_pm_sq = Δpmra_h^2 + Δpmdec_h^2
         α_h₀, δ_h₀, pmra_h₀, pmdec_h₀ = propagate_astrom(orbits, like.catalog.epoch_ra_hip_mjd, like.catalog.epoch_dec_hip_mjd)
         μ_h = @SVector [pmra_h₀ + Δpmra_h, pmdec_h₀ + Δpmdec_h]
 
@@ -1740,6 +1776,11 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         μ_dr32,
         μ_dr3,
         μ = (@SVector [μ_h[1],μ_h[2],μ_hg[1],μ_hg[2],μ_dr2[1],μ_dr2[2],μ_dr32[1],μ_dr32[2],μ_dr3[1],μ_dr3[2],UEVA_model,sample_variance]),
+
+        # Magnitude (squared) of the BINARYS-predicted PM bias on the
+        # Hipparcos catalog point.  Consumed by the ε_binarys epistemic
+        # inflation in ln_like.  Zero when no Hipparcos data are present.
+        hip_bias_pm_sq,
 
         n_dr3 = iend_dr3 - istart_dr3 + 1,
         n_dr2 = iend_dr2 - istart_dr2 + 1,
