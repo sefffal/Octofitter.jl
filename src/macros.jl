@@ -318,7 +318,19 @@ end
 vars = vcat(vars1, vars2)
 ```
 """
-function Base.vcat(vars1::Tuple, vars2::Tuple, vars_rest::Tuple...)
+function Base.vcat(
+    vars1::Tuple{Priors,Derived,Vararg},
+    vars2::Tuple{Priors,Derived,Vararg},
+    vars_rest::Tuple{Priors,Derived,Vararg}...,
+)
+    # NOTE: dispatch is restricted to tuples whose first two elements are a
+    # `Priors` and a `Derived` (i.e. the output of the `@variables` macro). This
+    # avoids type-piracy on `Base.vcat(::Tuple, ...)`, which otherwise hijacks
+    # ordinary tuple `vcat`/matrix-literal calls in *other* packages (e.g. SIMD.jl's
+    # `const CAST_SIZE_CHANGE_FLOAT = [(:fptrunc, >); (:fpext, <)]`) and throws
+    # "First argument does not appear to be from @variables macro". That surfaces
+    # when those packages are loaded from source (e.g. Pigeons MPI child processes
+    # run with `--compiled-modules=no` on Julia < 1.11).
     # Check that these are actually @variables outputs
     # They should have at least Priors and Derived as first two elements
     if length(vars1) < 2 || !isa(vars1[1], Priors) || !isa(vars1[2], Derived)
@@ -429,5 +441,6 @@ function _vcat_two_variables(vars1::Tuple, vars2::Tuple)
     end
 end
 
-# Also support concatenating more than 2 blocks at once using varargs
-Base.vcat(vars::Tuple...) = Base.vcat(vars[1], vars[2], vars[3:end]...)
+# Also support concatenating more than 2 blocks at once using varargs.
+# Restricted to @variables-shaped tuples to avoid type-piracy (see note above).
+Base.vcat(vars::Tuple{Priors,Derived,Vararg}...) = Base.vcat(vars[1], vars[2], vars[3:end]...)
