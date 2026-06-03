@@ -749,14 +749,14 @@ function mcmcchain2result(model, chain, ii=(:))
                 continue
             end
             if length(kins) == 1
-                if haskey(chain, kins[])
+                if myhaskey(chain, kins[])
                     nt_sys[kout] = chain[i,kins[],j]
                 else
                     nt_sys[kout] = missing
                 end
             else
                 nt_sys[kout] = [
-                    if haskey(chain, kin)
+                    if myhaskey(chain, kin)
                         chain[i,kin,j]
                     else
                         missing
@@ -788,14 +788,14 @@ function mcmcchain2result(model, chain, ii=(:))
                 
                 kout_clean = Symbol(replace(string(kout), r"^"*string(ok)*"_" =>""))
                 if length(kins) == 1
-                    if haskey(chain, kins[])
+                    if myhaskey(chain, kins[])
                         nt_obs[kout_clean] = chain[i,kins[],j]
                     else
                         nt_obs[kout_clean] = missing
                     end
                 else
                     nt_obs[kout_clean] = [
-                        if haskey(chain, kin)
+                        if myhaskey(chain, kin)
                             chain[i,kin,j]
                         else
                             missing
@@ -831,12 +831,12 @@ function mcmcchain2result(model, chain, ii=(:))
                 if is_obs
                     # This is a planet observation variable
                     kout_clean = Symbol(replace(string(kout), r"^"*string(pk)*"_"*obs_name*"_" =>""))
-                    if !haskey(nt_pl_obs, Symbol(obs_name))
+                    if !myhaskey(nt_pl_obs, Symbol(obs_name))
                         nt_pl_obs[Symbol(obs_name)] = Dict{Symbol,Any}()
                     end
                     obs_dict = nt_pl_obs[Symbol(obs_name)]
                     if length(kins) == 1
-                        if haskey(chain, kins[])
+                        if myhaskey(chain, kins[])
                             obs_dict[kout_clean] = chain[i,kins[],j]
                         else
                             obs_dict[kout_clean] = missing
@@ -851,7 +851,7 @@ function mcmcchain2result(model, chain, ii=(:))
                     # This is a regular planet variable
                     kout_clean = Symbol(replace(string(kout), r"^"*string(pk)*"_" =>""))
                     if length(kins) == 1
-                        if haskey(chain, kins[])
+                        if myhaskey(chain, kins[])
                             nt_pl[kout_clean] = chain[i,kins[],j]
                         else
                             nt_pl[kout_clean] = missing
