@@ -635,8 +635,12 @@ function result2mcmcchain(chain_in, sectionmap=Dict())
     return c
 end
 
-# work around bug introduced into MCMCChains breaking has key?
-myhaskey(chain, key) = key ∈ names(chain)
+# MCMCChains v7 no longer defines `haskey` for `Chains`, which Octofitter and
+# its extensions rely on to test whether a parameter is present in a chain.
+# Restore the previous behaviour with a single method so that `haskey(chain, key)`
+# keeps working everywhere (including the Makie and PairPlots extensions) without
+# clobbering `Base.haskey` for Dicts/NamedTuples.
+Base.haskey(chain::MCMCChains.Chains, key) = key ∈ names(chain)
 
 """
     mcmcchain2result(model, chain_in,)
@@ -749,14 +753,14 @@ function mcmcchain2result(model, chain, ii=(:))
                 continue
             end
             if length(kins) == 1
-                if myhaskey(chain, kins[])
+                if haskey(chain, kins[])
                     nt_sys[kout] = chain[i,kins[],j]
                 else
                     nt_sys[kout] = missing
                 end
             else
                 nt_sys[kout] = [
-                    if myhaskey(chain, kin)
+                    if haskey(chain, kin)
                         chain[i,kin,j]
                     else
                         missing
@@ -788,14 +792,14 @@ function mcmcchain2result(model, chain, ii=(:))
                 
                 kout_clean = Symbol(replace(string(kout), r"^"*string(ok)*"_" =>""))
                 if length(kins) == 1
-                    if myhaskey(chain, kins[])
+                    if haskey(chain, kins[])
                         nt_obs[kout_clean] = chain[i,kins[],j]
                     else
                         nt_obs[kout_clean] = missing
                     end
                 else
                     nt_obs[kout_clean] = [
-                        if myhaskey(chain, kin)
+                        if haskey(chain, kin)
                             chain[i,kin,j]
                         else
                             missing
@@ -831,12 +835,12 @@ function mcmcchain2result(model, chain, ii=(:))
                 if is_obs
                     # This is a planet observation variable
                     kout_clean = Symbol(replace(string(kout), r"^"*string(pk)*"_"*obs_name*"_" =>""))
-                    if !myhaskey(nt_pl_obs, Symbol(obs_name))
+                    if !haskey(nt_pl_obs, Symbol(obs_name))
                         nt_pl_obs[Symbol(obs_name)] = Dict{Symbol,Any}()
                     end
                     obs_dict = nt_pl_obs[Symbol(obs_name)]
                     if length(kins) == 1
-                        if myhaskey(chain, kins[])
+                        if haskey(chain, kins[])
                             obs_dict[kout_clean] = chain[i,kins[],j]
                         else
                             obs_dict[kout_clean] = missing
@@ -851,7 +855,7 @@ function mcmcchain2result(model, chain, ii=(:))
                     # This is a regular planet variable
                     kout_clean = Symbol(replace(string(kout), r"^"*string(pk)*"_" =>""))
                     if length(kins) == 1
-                        if myhaskey(chain, kins[])
+                        if haskey(chain, kins[])
                             nt_pl[kout_clean] = chain[i,kins[],j]
                         else
                             nt_pl[kout_clean] = missing
