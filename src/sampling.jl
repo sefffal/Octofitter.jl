@@ -635,6 +635,8 @@ function result2mcmcchain(chain_in, sectionmap=Dict())
     return c
 end
 
+# work around bug introduced into MCMCChains breaking has key?
+myhaskey(chain, key) = key ∈ names(chain)
 
 """
     mcmcchain2result(model, chain_in,)
