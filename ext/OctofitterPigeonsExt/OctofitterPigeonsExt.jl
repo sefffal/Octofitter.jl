@@ -14,7 +14,7 @@ function Pigeons.initialization(model::Octofitter.LogDensityModel, rng::Abstract
 
     Octofitter.get_starting_point!!(rng, model)
 
-    if isnothing(model.starting_points) || !haskey(model.starting_points, chain_no)
+    if isnothing(model.starting_points) || !checkbounds(Bool, model.starting_points, chain_no)
         @show model.starting_points chain_no
         error("Insufficient starting points provided. Provide at least one per chain. (model.starting_points is too short)")
     end
