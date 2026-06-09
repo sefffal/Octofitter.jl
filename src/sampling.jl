@@ -635,6 +635,12 @@ function result2mcmcchain(chain_in, sectionmap=Dict())
     return c
 end
 
+# MCMCChains v7 no longer defines `haskey` for `Chains`, which Octofitter and
+# its extensions rely on to test whether a parameter is present in a chain.
+# Restore the previous behaviour with a single method so that `haskey(chain, key)`
+# keeps working everywhere (including the Makie and PairPlots extensions) without
+# clobbering `Base.haskey` for Dicts/NamedTuples.
+Base.haskey(chain::MCMCChains.Chains, key) = key ∈ names(chain)
 
 """
     mcmcchain2result(model, chain_in,)

@@ -44,7 +44,7 @@ function Octofitter.dotplot!(
 
     # Multi-planet colormaps
     colormaps = if num_planets > 1
-        [:blues, :reds, :greens, :oranges, :purples]
+        [:blues, :reds, :greens, :Oranges, :Purples]
     else
         [colormap]
     end
