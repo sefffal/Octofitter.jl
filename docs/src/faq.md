@@ -4,7 +4,7 @@
 
 ## How do you define position angle of the ascending node / longitude of the ascending node?
 
-Ω is the point where moves through the sky plane away from the observer, which is to say, moving from negative to positive on the z-axis (consistent with positive RV = redshift).
+Ω is the **angle** at which the planet (or star) crosses the plane of the sky moving away from the observer, which is to say, moving from negative to positive on the z-axis (consistent with positive RV = redshift). See the more detailed entry "What is the definition of $\Omega$?" below for a discussion of why this is consistent for both the planet and the star.
 
 ## How do we calculate the position of a planet at a future epoch?
 
@@ -103,6 +103,34 @@ sys = System(
 ```
 
 
+## What conventions does Octofitter use for orbital elements?
+
+Octofitter solves orbits using [PlanetOrbits.jl](https://github.com/sefffal/PlanetOrbits.jl), which adopts the same conventions as Orbitize!. The full reference (including a derivation of projected position, velocity, and acceleration) lives in the [PlanetOrbits.jl coordinate conventions docs](https://sefffal.github.io/PlanetOrbits.jl/dev/conventions/), but the key points are summarized here for convenience.
+
+**Coordinate system** (right-handed, observer-centric):
+
+| Axis | Direction |
+|------|-----------|
+| $+x$ | Toward the East — increasing Right Ascension (note: this points to the **left** in the sky and in most plots) |
+| $+y$ | Toward the North — increasing Declination |
+| $+z$ | **Away** from the observer, so that $\partial z / \partial t > 0$ corresponds to a positive radial velocity (redshift) |
+
+**Orbital elements:**
+
+| Element | Meaning |
+|---------|---------|
+| $a$ | Semi-major axis (au) |
+| $e$ | Eccentricity, range $[0, 1)$ |
+| $i$ | Inclination (rad). $i = 0$ is **face-on**; $i = 90°$ is **edge-on** |
+| $\omega$ | Argument of periastron of the **planet**, measured from the ascending node |
+| $\Omega$ | Position angle / longitude of the ascending node (rad), measured counter-clockwise in the sky plane from North ($+y$) |
+| $t_p$ | Epoch of periastron passage (MJD). Equivalent values differ by integer multiples of the period: $t_p' = t_p + iP$ |
+| $P$ | Orbital period |
+| $M$ | Total/central mass (solar masses) |
+| `plx` | Parallax (mas), setting the system distance |
+
+The individual elements are discussed in more detail in the entries below.
+
 ## What Coordinate System does Octofitter use?
 Octofitter uses a coordinate system where
 * $+x$ increases to the East (ie, x increases with increasing Right Ascension)
@@ -114,14 +142,36 @@ This coordinate system has several nice properties: $+x$ increases with Right As
 
 You can read more in the PlanetOrbits.jl docs.
 
+## What is the definition of inclination ($i$)?
+Octofitter (following PlanetOrbits.jl and Orbitize!) uses the convention where:
+
+- $i = 0°$ is a **face-on** orbit — the orbital plane lies in the plane of the sky.
+- $i = 90°$ is an **edge-on** orbit — the line of sight lies in the orbital plane.
+
+Be aware that both conventions for $i=0$ appear in the literature, so it is worth double-checking when comparing across packages.
+
+## What is the definition of $\Omega$?
+$\Omega$ is the position angle of the ascending node, also known as the longitude of the ascending node. It is the **angle** at which the planet (or equivalently, the star) crosses the plane of the sky moving from a negative $z$ coordinate to a positive $z$ coordinate, i.e. moving **away from the observer**. It is measured counter-clockwise in the sky plane starting from North ($+y$).
+
+Why "away" from the observer? That is because Octofitter uses a coordinate system where $+z$ increases away from the observer, such that radial velocity measured as a positive redshift corresponds to a positive velocity.
+
+#### But isn't that contradictory for the star and the planet?
+
+This is a common and very reasonable point of confusion. If $\Omega$ is defined where a body crosses the sky plane moving *away* from us (positive redshift), but the star and planet always move in opposite directions, then shouldn't $\Omega$ be different depending on whether you track the star or the planet?
+
+There is actually no contradiction. The key is that $\Omega$ is the **angle** of the ascending node, and this angle is identical whether you track the star or the planet — even though:
+
+- the two bodies pass through their respective ascending nodes at **different times** (180° out of phase), and
+- for eccentric orbits, or when the masses are unequal, they cross the sky plane at **different points in space**.
+
+Concretely: when the planet crosses the sky plane heading toward $+z$ (away from us, redshifted), that defines $\Omega$. At that *same instant* the star is crossing the sky plane heading toward $-z$ (toward us, blueshifted) — the star is at its *descending* node. Half an orbit later, the star reaches its own *ascending* node, crossing toward $+z$, and it does so at the same position angle $\Omega$. So both bodies share the same $\Omega$; they simply arrive there at opposite phases (and, in general, at different points along the line of nodes).
+
 ## What is the definition of $\omega$?
 $\omega$ is the argument of periastron, which is the location where the **planet** makes its closest approach to the star, measured from the ascending node. This is consistent with most direct imaging conventions. 
 
-**Note:** this is 180° offset from the typical definition used by codes that only fit radial velocity and/or transit, where the convention it to report the argument of periastron for the star. This is a significant potential source of confusion when comparing results between codes.
+**Note:** this is 180° offset from the typical definition used by codes that only fit radial velocity and/or transit, where the convention is to report the argument of periastron for the star. This is a significant potential source of confusion when comparing results between codes.
 
-## What is the definition of $\Omega$?
-$\Omega$ is the position angle of ascending node, also known as the longitude of ascending node. It is the point in an orbit where the planet (or equivalently, the star) moves from having a negative $z$ coordinate to having a positive $z$ coordinate. This happens where the planet (or star) moves cross the plane of the sky going **away from the observer**.
-Why "away" from the observer? That is because Octofitter uses a coordinate system where $+z$ increases away from the observer, such that radial velocity measured as a positive redshift corresponds to a positive velocity.
+Note the contrast with $\Omega$ above. For $\Omega$, the star and planet share the *same angle* but reach the ascending node at *different times* (180° out of phase). For $\omega$, it is inverted: the planet and star reach periastron at the *same time* (they are always collinear with the barycenter), but the planet-referenced and star-referenced values of $\omega$ differ by *180° in angle*.
 
 ## I get a syntax error with `$` interpolation in `@variables`
 

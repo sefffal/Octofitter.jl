@@ -3,6 +3,8 @@
 The heart of this package is being able to take a set of Keplerian elements and output relative positions, velocities, etc.
 For this, we use [PlanetOrbits.jl](https://github.com/sefffal/PlanetOrbits.jl) which adopts the same conventions as Orbitize!.
 
+For a quick summary of the coordinate system and orbital-element conventions ($a$, $e$, $i$, $\omega$, $\Omega$, $t_p$, ...), see [What conventions does Octofitter use for orbital elements?](@ref) in the FAQ.
+
 For full documentation on orbit types, coordinate conventions, and available functions, see the PlanetOrbits.jl documentation:
 - [Introduction](https://sefffal.github.io/PlanetOrbits.jl/dev/introduction/) - Getting started with orbit creation and solving
 - [Coordinate Conventions](https://sefffal.github.io/PlanetOrbits.jl/dev/conventions/) - Coordinate system and orbital element definitions
