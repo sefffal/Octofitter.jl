@@ -58,7 +58,28 @@ struct G23HObs{TTable,TTableH,TTableG,TCat,THip} <: AbstractObs
     A_prepared_5_dr3::Matrix{Float64}
     include_iad::Bool
     ueva_mode::Symbol
+    # Cached weighted pseudo-inverse for the Hipparcos 5-param fit:
+    # Q = pinv(A_prepared_5_hip ./ sres) ./ sres', so the per-call weighted
+    # LSQ reduces to a single 5×N matrix-vector multiply.  Both A and σ are
+    # fixed at construction, so this is initialised eagerly by the
+    # constructors (the lazy `_ensure_pinv_5_hip!` path remains only as a
+    # fallback and to keep `simulate!` self-contained).  The empty 0×0
+    # sentinel indicates "uninitialised".
+    _pinv_5_hip::Base.RefValue{Matrix{Float64}}
+    # Cached Hipparcos catalog-residual 5-param fit: x_const = Q_hip * residuals
+    # where residuals = like.hip_table.res (when include_iad=true) or zero.
+    # Used in the all-inactive (n=0) simulate! fast path to skip a per-call
+    # matrix-vector multiply.  Initialised eagerly alongside _pinv_5_hip.
+    _hip_x_const::Base.RefValue{NTuple{4, Float64}}
+    _hip_x_const_initialised::Base.RefValue{Bool}
 end
+
+# G23H short-circuits on mass == 0 everywhere it consumes per-planet orbit
+# solutions (DR2/DR3 skypath perturbations, the Hippacentre combined loop,
+# and the Gaia RV simulation all `continue` on zero-mass companions), so
+# `make_ln_like` may safely elide the per-epoch Kepler solves for absent
+# companions.
+requires_solutions_for_zero_mass(::G23HObs) = false
 
 
 function likelihoodname(like::G23HObs)
@@ -559,7 +580,7 @@ function G23HObs(;
     (priors,derived)=variables
 
 
-    return G23HObs{
+    obj = G23HObs{
         typeof(table),
         typeof(hip_table),
         typeof(gaia_table),
@@ -578,7 +599,16 @@ function G23HObs(;
         A_prepared_5_dr3,
         include_iad,
         ueva_mode,
+        Ref{Matrix{Float64}}(zeros(0, 0)),
+        Ref{NTuple{4, Float64}}((0.0, 0.0, 0.0, 0.0)),
+        Ref{Bool}(false),
     )
+    # Eagerly initialise the cached Hipparcos weighted pseudo-inverse and
+    # catalog-residual projection so no lazy mutation happens during
+    # (possibly multi-threaded) sampling.
+    _ensure_pinv_5_hip!(obj)
+    _ensure_hip_x_const!(obj)
+    return obj
 
 end
 
@@ -606,7 +636,7 @@ function Octofitter.likeobj_from_epoch_subset(like::G23HObs, obs_inds)
         )
         catalog = (;catalog..., dist_hip = nothing, dist_hg=nothing)
     end
-    return G23HObs{
+    obj = G23HObs{
         typeof(table),
         typeof(hip_table),
         typeof(gaia_table),
@@ -625,11 +655,66 @@ function Octofitter.likeobj_from_epoch_subset(like::G23HObs, obs_inds)
         A_prepared_5_dr3,
         include_iad,
         ueva_mode,
+        Ref{Matrix{Float64}}(zeros(0, 0)),
+        Ref{NTuple{4, Float64}}((0.0, 0.0, 0.0, 0.0)),
+        Ref{Bool}(false),
     )
+    _ensure_pinv_5_hip!(obj)
+    _ensure_hip_x_const!(obj)
+    return obj
+end
+
+function _ensure_pinv_5_hip!(like::G23HObs)
+    # Hip fit uses *per-epoch* σ from like.hip_table.sres, so the LSQ is
+    # weighted: x = (Aᵀ W A)⁻¹ Aᵀ W b with W = diag(1/σ_i²). Both A and σ
+    # are fixed at construction, so we can cache `Q = pinv(A/σ) ./ σ'` —
+    # one matvec `Q · b_orig` then reproduces the weighted-LSQ x exactly.
+    if isempty(like._pinv_5_hip[]) && !isempty(like.A_prepared_5_hip)
+        σ_hip = like.hip_table.sres
+        A = like.A_prepared_5_hip
+        # A_scaled[i, j] = A[i, j] / σ[i] (row-wise scale).  Then
+        # Q = pinv(A_scaled) is 5×n; weight back to x = Q·(b/σ) form by
+        # dividing each column by σ once at construction.
+        A_scaled = A ./ σ_hip
+        Q = pinv(A_scaled) ./ permutedims(σ_hip)
+        like._pinv_5_hip[] = Q
+    end
+    return like._pinv_5_hip[]
+end
+
+# Cache the Hipparcos catalog-residual LSQ projection x_const = Q_hip * b_const
+# where b_const = (Δα·cosϕ + Δδ·sinϕ + residuals) evaluated at zero
+# perturbations (Δα = Δδ = 0).  When include_iad=true, residuals = hip_table.res
+# (constant catalog residuals); otherwise residuals = 0 and x_const is zero.
+# Used in the all-inactive simulate! fast path.  Returned in
+# fit_5param_pinv's reordered convention: (Δα_h, Δδ_h, Δpmra_h, Δpmdec_h).
+function _ensure_hip_x_const!(like::G23HObs)
+    if like._hip_x_const_initialised[]
+        return like._hip_x_const[]
+    end
+    if isempty(like.A_prepared_5_hip) || isnothing(like.catalog.dist_hip)
+        like._hip_x_const[] = (0.0, 0.0, 0.0, 0.0)
+        like._hip_x_const_initialised[] = true
+        return like._hip_x_const[]
+    end
+    Q_hip = _ensure_pinv_5_hip!(like)
+    n_obs = size(like.hip_table, 1)
+    if like.include_iad
+        residuals = like.hip_table.res
+        # b = 0 + 0 + residuals; x_buf = Q_hip * residuals (5-vector)
+        x_buf = Q_hip * residuals
+        # fit_5param_pinv reorders parameters as (x[1], x[2], x[4], x[5], x[3])
+        # but only returns the first 4 in (Δα, Δδ, Δpmra, Δpmdec) form
+        like._hip_x_const[] = (x_buf[1], x_buf[2], x_buf[4], x_buf[5])
+    else
+        like._hip_x_const[] = (0.0, 0.0, 0.0, 0.0)
+    end
+    like._hip_x_const_initialised[] = true
+    return like._hip_x_const[]
 end
 
 function ln_like(like::G23HObs, ctx::SystemObservationContext)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx 
+    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
 
     T = _system_number_type(θ_system)
     ll = zero(T)
@@ -808,26 +893,54 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
                 :ueva_dr3
             ]
 
-            # Build index mask for which components are present
-            mask = [flag ∈ like.table.kind for flag in component_flags]
-            indices = findall(mask)
-            n_components = length(indices)
+            # Build index mask for which components are present.
+            # `like.table.kind` is fixed at construction time but we lack a
+            # cached form here, so we compute mask/indices into bump-allocated
+            # buffers (already inside @no_escape) instead of heap-allocating
+            # a Vector{Bool} + Vector{Int} per call.
+            mask = @alloc(Bool, 11)
+            @inbounds for i in 1:11
+                mask[i] = component_flags[i] ∈ like.table.kind
+            end
+            n_components = 0
+            @inbounds for i in 1:11
+                n_components += mask[i]
+            end
+            indices = @alloc(Int, n_components)
+            let k = 0
+                @inbounds for i in 1:11
+                    if mask[i]
+                        k += 1
+                        indices[k] = i
+                    end
+                end
+            end
 
             # We handle the iad separately from the big covariance matrix below, since it's not correlated
             # and we don't want to factorize a massively bigger matrix than necessary
             if :iad_hip ∈ like.table.kind
-                 for i in eachindex(iad_resid)
-                    if like.hip_table.reject[i]
-                        continue
-                    end
-                    (;hip_iad_jitter) = θ_obs
+                # Hoist `hip_iad_jitter` extraction and the Normal logpdf
+                # constant `-½log(2π)` out of the per-epoch loop, and inline
+                # the logpdf math to skip the `Normal(0, σ_iad)` constructor.
+                # Work in σ_iad² instead of σ_iad to drop the hypot's sqrt
+                # and use log(σ²)·½ in place of log(σ).  Math:
+                #   -½(z² + log σ²) - ½log 2π   where z² = r² / σ²
+                # is algebraically identical to the original
+                #   -½ z² - log σ - ½log 2π     with z = r/σ.
+                (;hip_iad_jitter) = θ_obs
+                _half_log2π = T(0.5) * log(T(2π))
+                jitter_sq = hip_iad_jitter * hip_iad_jitter
+                @inbounds for i in eachindex(iad_resid)
+                    like.hip_table.reject[i] && continue
                     # Inflate per-transit residual σ by the BINARYS first-harmonic
                     # factor (Leclerc et al. 2023, Eq. 15). σ_inflation_hip[i] = 1
                     # in the unresolved limit and grows where the binary modulation
                     # reduces the signal amplitude — the IAD residual noise scales
                     # the same way.
-                    σ_iad = hypot(like.hip_table.sres_renorm[i] * σ_inflation_hip[i], hip_iad_jitter)
-                    ll += logpdf(Normal(0, σ_iad), iad_resid[i])
+                    s = like.hip_table.sres_renorm[i] * σ_inflation_hip[i]
+                    σ_iad_sq = s * s + jitter_sq
+                    r = iad_resid[i]
+                    ll += -T(0.5) * (r * r / σ_iad_sq + log(σ_iad_sq)) - _half_log2π
                 end
             end
 
@@ -1047,49 +1160,62 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
                 UEVA_model                # ueva_dr3 model value
             ]
 
-            # Extract selected components
-            μ_catalog_selected = μ_catalog_full[indices]
-            μ_model_selected = μ_model_full[indices]
-
-            # Build full covariance matrix (11x11)
-            # Initialize with zeros
-            Σ_full = zeros(T, 11, 11)
-
-            # Fill in the block diagonal elements (within-epoch covariances)
+            # Build the full covariance matrix into a Bumper-allocated buffer
+            # (we're already inside @no_escape — no heap allocation).
+            Σ_full = @alloc(T, 11, 11); fill!(Σ_full, zero(T))
             Σ_full[1:2, 1:2] .= Σ_h     # Hipparcos
             Σ_full[3:4, 3:4] .= Σ_hg    # HGCA
             Σ_full[5:6, 5:6] .= Σ_dr2   # DR2
             Σ_full[7:8, 7:8] .= Σ_dr32  # DR3-DR2
             Σ_full[9:10, 9:10] .= Σ_dr3 # DR3
-
-            # UEVA variance
             Σ_full[11, 11] = UEVA_unc^2
-
-            # Add cross-epoch correlations between DR2 and DR3
-            
-            # Compute the cross-correlation matrix K
+            # Cross-epoch correlations between DR2 and DR3
             K = ρ_dr3_dr2 * sqrt(Σ_dr2) * sqrt(Σ_dr3)'
-            
-            # Fill in the cross-correlation blocks
-            Σ_full[5:6, 9:10] .= K      # DR2 -> DR3
-            Σ_full[9:10, 5:6] .= K'     # DR3 -> DR2 (transpose)
+            Σ_full[5:6, 9:10] .= K
+            Σ_full[9:10, 5:6] .= K'
 
-            # Extract the submatrix for selected components
-            Σ_selected = Σ_full[indices, indices]
-
-            # @show (μ_catalog_selected .- μ_model_selected ) ./ sqrt.(diag(Σ_selected))
-            # @show μ_catalog_selected μ_model_selected
+            # Extract selected components into Bumper-allocated scratch.
+            μ_catalog_selected = @alloc(T, n_components)
+            μ_model_selected = @alloc(T, n_components)
+            @inbounds for k in 1:n_components
+                μ_catalog_selected[k] = μ_catalog_full[indices[k]]
+                μ_model_selected[k] = μ_model_full[indices[k]]
+            end
+            Σ_selected = @alloc(T, n_components, n_components)
+            @inbounds for kj in 1:n_components, ki in 1:n_components
+                Σ_selected[ki, kj] = Σ_full[indices[ki], indices[kj]]
+            end
 
             # Compute likelihood
             if n_components == 1
-                # Single component - use univariate normal
                 ll += logpdf(Normal(μ_catalog_selected[1], sqrt(Σ_selected[1,1])), μ_model_selected[1])
             else
-                # Multiple components - use multivariate normal
-                local dist_selected
+                # Manual MvNormal logpdf via in-place cholesky on a Bumper
+                # buffer — skips the heap-allocating PDMat wrapper inside
+                # `Distributions.MvNormal`, which re-factorises Σ on every
+                # call. Math: log p = -½(δ'Σ⁻¹δ + n·log(2π) + log|Σ|),
+                # with δ'Σ⁻¹δ = ||L⁻¹δ||² and log|Σ| = 2·Σ log(L_ii).
+                L_buf = @alloc(T, n_components, n_components)
+                @inbounds for kj in 1:n_components, ki in 1:n_components
+                    L_buf[ki, kj] = Σ_selected[ki, kj]
+                end
+                δ_buf = @alloc(T, n_components)
+                @inbounds for k in 1:n_components
+                    δ_buf[k] = μ_model_selected[k] - μ_catalog_selected[k]
+                end
                 try
-                    dist_selected = MvNormal(μ_catalog_selected, Hermitian(Σ_selected))
-                    ll += logpdf(dist_selected, μ_model_selected)
+                    chol_F = cholesky!(Hermitian(L_buf, :L))
+                    ldiv!(chol_F.L, δ_buf)
+                    quad = zero(T)
+                    @inbounds for k in 1:n_components
+                        quad += δ_buf[k] * δ_buf[k]
+                    end
+                    logdet_Σ = zero(T)
+                    @inbounds for k in 1:n_components
+                        logdet_Σ += log(L_buf[k, k])
+                    end
+                    logdet_Σ *= 2
+                    ll += -T(0.5) * (quad + n_components * log(T(2π)) + logdet_Σ)
                 catch err
                     if err isa PosDefException
                         ll = convert(T, -Inf)
@@ -1227,6 +1353,174 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         # for different planets?
     end
 
+    # Fast path: all companions inactive (mass == 0).  Triggered by the
+    # n_planets prior's P(N=0)=0.5 + the active-flag pp_*=0 multiplier in the
+    # @variables block, so ~50% of prior draws (and most of the chain volume
+    # for sparse-companion stars) skip the full simulate! body.  In the
+    # all-inactive limit:
+    #   * every per-transit perturbation Δα_mas_*/Δδ_mas_* is exactly 0;
+    #   * the DR3/DR2 5-param fits on zero data return parameters = 0 and
+    #     chi_squared_astro = 0, so UEVA_model_raw = 0;
+    #   * the Hippacentre combined loop early-exits with σ_inflation = 1;
+    #   * the Hipparcos 5-param fit collapses to the catalog-residual
+    #     projection x_const = Q_hip * residuals, cached at construction
+    #     since it depends only on hip_table.res (constant);
+    #   * RV simulation produces an all-zero rv_model ⇒ sample_variance = 0.
+    # We restrict the fast path to non-AbsoluteVisual orbits — AbsoluteVisual
+    # needs the per-epoch propagate_astrom (barycentric motion, differential
+    # light-travel time), which doesn't simplify under all-inactive.
+    all_inactive = !absolute_orbits
+    if all_inactive
+        @inbounds for i in eachindex(orbits)
+            if θ_system.planets[i].mass != zero(θ_system.planets[i].mass)
+                all_inactive = false
+                break
+            end
+        end
+    end
+
+    if all_inactive
+        # Hipparcos catalog-residual cached LSQ projection.
+        x_const = _ensure_hip_x_const!(like)
+        Δα_h     = T(x_const[1])
+        Δδ_h     = T(x_const[2])
+        Δpmra_h  = T(x_const[3])
+        Δpmdec_h = T(x_const[4])
+
+        # IAD residual loop — identical to the slow path's loop but reading
+        # Δα_mas_hip = Δδ_mas_hip ≡ 0 and σ_inflation_hip ≡ 1.
+        if !isnothing(like.catalog.dist_hip)
+            (;iad_Δra, iad_Δdec, iad_pmra, iad_pmdec, iad_Δplx) = θ_obs
+            plx_at_epoch = like.hip_sol.plx + iad_Δplx
+            inv_julian_year = inv(julian_year)
+            iad_pmra_eff  = iad_pmra  - Δpmra_h
+            iad_pmdec_eff = iad_pmdec - Δpmdec_h
+            iad_Δra_eff   = iad_Δra   - Δα_h
+            iad_Δdec_eff  = iad_Δdec  - Δδ_h
+            hip_epoch    = like.hip_table.epoch
+            hip_cosϕ     = like.hip_table.cosϕ
+            hip_sinϕ     = like.hip_table.sinϕ
+            hip_plxFact  = like.hip_table.parallaxFactorAlongScan
+            hip_projMeas = like.hip_table.proj_meas_alongscan
+            @inbounds @simd for i_epoch in eachindex(hip_epoch, iad_resid)
+                cosϕ = hip_cosϕ[i_epoch]
+                sinϕ = hip_sinϕ[i_epoch]
+                Δt = (hip_epoch[i_epoch] - hipparcos_catalog_epoch_mjd) * inv_julian_year
+                α_off = iad_Δra_eff  + Δt * iad_pmra_eff
+                δ_off = iad_Δdec_eff + Δt * iad_pmdec_eff
+                proj_model = α_off * cosϕ + δ_off * sinϕ + plx_at_epoch * hip_plxFact[i_epoch]
+                iad_resid[i_epoch] = abs(hip_projMeas[i_epoch] - proj_model)
+            end
+            μ_h_fast = @SVector [θ_system.pmra + Δpmra_h, θ_system.pmdec + Δpmdec_h]
+            hip_bias_pm_sq = Δpmra_h*Δpmra_h + Δpmdec_h*Δpmdec_h
+        else
+            μ_h_fast = @SVector [zero(T), zero(T)]
+            hip_bias_pm_sq = zero(T)
+        end
+
+        pmra_sys = θ_system.pmra
+        pmdec_sys = θ_system.pmdec
+        μ_zero = @SVector [pmra_sys, pmdec_sys]
+        μ_dr3_fast  = μ_zero
+        μ_dr2_fast  = μ_zero
+        # Mirror the slow path's HG model PM exactly (non-absolute branch):
+        # with all perturbations zero, Δα_dr3 = Δδ_dr3 = 0, but the Hipparcos
+        # catalog-residual projection (Δα_h, Δδ_h) = x_const[1:2] can be
+        # nonzero, and it enters μ_hg through the long HG baseline.  Keep the
+        # exact operation order of the slow path so the two are bit-identical.
+        μ_hg_fast = if isnothing(like.catalog.dist_hip)
+            @SVector [zero(T), zero(T)]
+        else
+            @SVector [
+                (zero(T) - Δα_h) / (
+                    like.catalog.epoch_ra_dr3_mjd - like.catalog.epoch_ra_hip_mjd
+                )*julian_year + pmra_sys,
+                (zero(T) - Δδ_h) / (
+                    like.catalog.epoch_dec_dr3_mjd - like.catalog.epoch_dec_hip_mjd
+                )*julian_year + pmdec_sys,
+            ]
+        end
+        μ_dr32_fast = μ_zero
+
+        istart_dr3 = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaia_table.epoch))
+        iend_dr3 = findlast(<=(meta_gaia_DR3.stop_mjd), vec(gaia_table.epoch))
+        if isnothing(istart_dr3); istart_dr3 = 1; end
+        if isnothing(iend_dr3); iend_dr3 = length(gaia_table.epoch); end
+        istart_dr2 = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaia_table.epoch))
+        iend_dr2 = findlast(<=(meta_gaia_DR2.stop_mjd), vec(gaia_table.epoch))
+        if isnothing(istart_dr2); istart_dr2 = 1; end
+        if isnothing(iend_dr2); iend_dr2 = length(gaia_table.epoch); end
+
+        (;astrometric_chi2_al_dr3, astrometric_n_good_obs_al_dr3,
+           astrometric_matched_transits_dr3, astrometric_excess_noise_dr3, ruwe_dr3) = like.catalog
+        N = astrometric_n_good_obs_al_dr3
+        N_FoV = astrometric_matched_transits_dr3
+        N_AL = N / N_FoV
+        if like.ueva_mode == :EAN
+            UEVA_Gaia = astrometric_excess_noise_dr3^2 + σ_att^2 + σ_AL^2
+        elseif like.ueva_mode == :RUWE
+            u0 = 1/ruwe_dr3 * sqrt(astrometric_chi2_al_dr3/(N - gaia_n_dof))
+            UEVA_Gaia = (ruwe_dr3 * u0)^2 * σ_formal^2
+        else
+            error("Unsupported mode (should be :EAN or :RUWE, was $(like.ueva_mode)")
+        end
+        μ_UEVA_single = (N_AL / (N - gaia_n_dof)) *
+                    ((N_FoV - gaia_n_dof) * σ_calib^2 + N_FoV * σ_AL^2)
+        σ_UEVA_single = sqrt(
+            2 * N_AL / (N - gaia_n_dof)^2 * (
+                N_AL * (N_FoV - gaia_n_dof) * σ_calib^4 +
+                N_FoV * σ_AL^4 +
+                2 * N_FoV * σ_AL^2 * σ_calib^2
+            )
+        )
+        μ_1_3 = UEVA_Gaia^(1/3)
+        UEVA_unc = σ_UEVA_single * μ_UEVA_single^(-2/3) / 3
+        # chi_squared_astro = 0 ⇒ UEVA_model_1 = 0 ⇒ UEVA_model = cbrt(μ_UEVA_single)
+        UEVA_model = cbrt(μ_UEVA_single)
+        deflation_factor_raw = sqrt(μ_UEVA_single / UEVA_Gaia)
+        deflation_factor_dr3 = deflation_factor_raw > 1.0 ? 1.0 : deflation_factor_raw
+
+        if :rv_dr3 ∈ like.table.kind
+            N_rv = like.catalog.rv_nb_transits
+            rv_dof_fast = N_rv - 1
+            ε_catalog = like.catalog.radial_velocity_error
+            s_catalog_squared_fast = (2 * N_rv / π) * (ε_catalog^2 - 0.113^2)
+            rv_mean_fast = zero(T)
+            sample_variance_fast = zero(T)
+        else
+            rv_dof_fast = convert(T, NaN)
+            s_catalog_squared_fast = convert(T, NaN)
+            rv_mean_fast = convert(T, NaN)
+            sample_variance_fast = convert(T, NaN)
+        end
+
+        return (;
+            UEVA_model,
+            UEVA_unc,
+            μ_1_3,
+            μ_h = μ_h_fast,
+            μ_hg = μ_hg_fast,
+            μ_dr2 = μ_dr2_fast,
+            μ_dr32 = μ_dr32_fast,
+            μ_dr3 = μ_dr3_fast,
+            μ = (@SVector [μ_h_fast[1],μ_h_fast[2],μ_hg_fast[1],μ_hg_fast[2],μ_dr2_fast[1],μ_dr2_fast[2],μ_dr32_fast[1],μ_dr32_fast[2],μ_dr3_fast[1],μ_dr3_fast[2],UEVA_model,sample_variance_fast]),
+            hip_bias_pm_sq,
+            n_dr3 = iend_dr3 - istart_dr3 + 1,
+            n_dr2 = iend_dr2 - istart_dr2 + 1,
+            rv_dof = rv_dof_fast,
+            rv_mean = rv_mean_fast,
+            sample_variance = sample_variance_fast,
+            s_catalog_squared = s_catalog_squared_fast,
+            deflation_factor_dr3,
+            pmra_hip_model = μ_h_fast[1], pmdec_hip_model = μ_h_fast[2],
+            pmra_hg_model = μ_hg_fast[1], pmdec_hg_model = μ_hg_fast[2],
+            pmra_dr2_model = μ_dr2_fast[1], pmdec_dr2_model = μ_dr2_fast[2],
+            pmra_dr32_model = μ_dr32_fast[1], pmdec_dr32_model = μ_dr32_fast[2],
+            pmra_dr3_model = μ_dr3_fast[1], pmdec_dr3_model = μ_dr3_fast[2],
+            Δα_dr3 = zero(T), Δδ_dr3 = zero(T),
+            Δpmra_dr3 = zero(T), Δpmdec_dr3 = zero(T),
+        )
+    end
 
 
     # Helper functions to either get the static pmra from the orbital elements,
@@ -1267,6 +1561,44 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
 
 
 
+    # Pre-compute orbit solutions per active companion at every hip_table +
+    # gaia_table epoch.  Without this cache, simulate! would call orbitsolve
+    # three times per active planet per Hipparcos transit (Hippacentre combined,
+    # ~100 transits) and twice per planet per Gaia transit (DR3 and DR2 paths
+    # iterate over overlapping views into the same gaia_table, so they double-
+    # count the DR2-in-DR3 region).  Layout per planet: indices 1..n_hip = hip
+    # epochs, indices n_hip+1..n_hip+n_gaia = gaia epochs.  Bumper buffer is
+    # the caller's @no_escape (ln_like).  Allocated for every planet (3 in
+    # production) but only populated for active ones; downstream loops skip
+    # mass==0 planets without indexing into the array.
+    n_planets = length(orbits)
+    n_hip_cache = size(like.hip_table, 1)
+    n_gaia_cache = length(gaia_table.epoch)
+    n_total_cache = n_hip_cache + n_gaia_cache
+    _ref_epoch_cache = n_hip_cache > 0 ? like.hip_table.epoch[1] : gaia_table.epoch[1]
+    # NOTE: all companions are assumed to share a single orbit-solution type
+    # (true whenever the planets use the same orbit basis, as in the lumcomp
+    # pipeline). A heterogeneous mix would fail loudly on the setindex!
+    # below, not silently corrupt.
+    _sol0_cache = orbitsolve(first(orbits), _ref_epoch_cache)
+    _SolType = typeof(_sol0_cache)
+    _bumper = Bumper.default_buffer()
+    planet_sols_cache = ntuple(n_planets) do p
+        Bumper.alloc!(_bumper, _SolType, n_total_cache)
+    end
+    @inbounds for p in 1:n_planets
+        if θ_system.planets[p].mass != zero(θ_system.planets[p].mass)
+            sols = planet_sols_cache[p]
+            o = orbits[p]
+            for i in 1:n_hip_cache
+                sols[i] = orbitsolve(o, like.hip_table.epoch[i])
+            end
+            for i in 1:n_gaia_cache
+                sols[n_hip_cache + i] = orbitsolve(o, gaia_table.epoch[i])
+            end
+        end
+    end
+
     ################################
     # DR3
     istart_dr3 = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaia_table.epoch))
@@ -1278,7 +1610,10 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         iend_dr3 = length(gaia_table.epoch)
     end
     gaia_table_dr3 = @views gaia_table[istart_dr3:iend_dr3]
-    # gaia_table_dr3.epoch .+= Δepoch_dr3_days
+    # `_simulate_skypath_perturbations!` indexes `orbit_solutions[i_start + i]`
+    # with i in 1:length(table); offset so index lands in the gaia portion at
+    # the istart_dr3 row.
+    _dr3_sol_start = n_hip_cache + istart_dr3 - 1
     for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         if planet_mass_msol == 0.0
@@ -1297,8 +1632,8 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
             Δα_mas_dr3, Δδ_mas_dr3,
             gaia_table_dr3, orbit,
             planet_mass_msol, fluxratio,
-            orbit_solutions[i_planet],
-            -1, T,
+            planet_sols_cache[i_planet],
+            _dr3_sol_start, T,
         )
     end
 
@@ -1352,8 +1687,8 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
             Δα_mas_dr2, Δδ_mas_dr2,
             gaia_table_dr2, orbit,
             planet_mass_msol, fluxratio,
-            orbit_solutions[i_planet],
-            -1, T
+            planet_sols_cache[i_planet],
+            n_hip_cache + istart_dr2 - 1, T
         )
     end
 
@@ -1389,7 +1724,6 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         n_hip = length(like.hip_table.epoch)
         fill!(σ_inflation_hip, one(T))
 
-        n_planets = length(orbits)
         planet_masses_msol_hip = ntuple(i_planet -> θ_system.planets[i_planet].mass * Octofitter.mjup2msol, n_planets)
         # Companions with mass = 0 contribute nothing — zero out their flux ratio so
         # they fall out of both the modulated-signal sum and the host-reflex sum.
@@ -1397,14 +1731,16 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
             planet_masses_msol_hip[i_planet] == 0.0 ? zero(T) :
                 (θ_obs.fluxratio_hip isa Number ? θ_obs.fluxratio_hip : θ_obs.fluxratio_hip[i_planet])
         end
-        # G23H pipeline calls per-planet `orbit_solutions[i_planet]` with start index −1
-        orbit_sol_starts_hip = ntuple(_ -> -1, n_planets)
+        # Hippacentre indexes `orbit_solutions_per_planet[k][i_start + i]` for
+        # i in 1:n_hip; with the planet_sols_cache layout (hip rows first),
+        # i_start = 0 maps i directly to the hip portion.
+        orbit_sol_starts_hip = ntuple(_ -> 0, n_planets)
 
         _simulate_skypath_hippacentre_combined!(
             Δα_mas_hip, Δδ_mas_hip, σ_inflation_hip,
             like.hip_table,
             orbits, planet_masses_msol_hip, flux_ratios_hip,
-            orbit_solutions, orbit_sol_starts_hip, T,
+            planet_sols_cache, orbit_sol_starts_hip, T,
             HIPPARCOS_GRID_STEP_ARCSEC,
         )
 
@@ -1413,10 +1749,14 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         # reproduce the bias it absorbed we must weight the LSQ the same way.
         # σ_inflation_hip is propagated separately into the IAD-residual likelihood
         # (`σ_iad = hypot(sres_renorm * σ_inflation_hip, hip_iad_jitter)` below).
+        # Cached weighted-LSQ path: `_ensure_pinv_5_hip!` returns the
+        # `Q = pinv(A./σ) ./ σ'` matrix, so the LSQ solution is a single
+        # 5×N matrix-vector multiply against the *unscaled* RHS.
+        Q_hip = _ensure_pinv_5_hip!(like)
         if like.include_iad
-            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, like.hip_table.res, like.hip_table.sres)
+            out = fit_5param_pinv(Q_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, like.hip_table.res)
         else
-            out = fit_5param_prepared(like.A_prepared_5_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, 0.0, like.hip_table.sres)
+            out = fit_5param_pinv(Q_hip, like.hip_table, Δα_mas_hip, Δδ_mas_hip, 0.0)
         end
         Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
         # Track magnitude of the BINARYS-predicted PM bias for the catalog-
@@ -1459,61 +1799,46 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
             # like.hip_table.res, like.hip_table.sres
             # Δα_mas_hip, Δδ_mas_hip
 
-            α✱_models=[]
-            δ_models=[]
-            for i_epoch in eachindex(like.hip_table.epoch, Δα_mas_hip, Δδ_mas_hip)
-                delta_time_julian_year = (like.hip_table.epoch[i_epoch] - hipparcos_catalog_epoch_mjd) / julian_year
-                plx_at_epoch = like.hip_sol.plx + iad_Δplx
-                # TODO: for very very nearby or high RV objects with specific IDs, our main Hipparcos code correctly
-                # accounts for changing parallax vs time. This does not.
-                α✱_model = iad_Δra - Δα_h + plx_at_epoch * (
-                            like.hip_table.x[i_epoch] * sind(like.hip_sol.radeg) -
-                            like.hip_table.y[i_epoch] * cosd(like.hip_sol.radeg)
-                ) + delta_time_julian_year * (iad_pmra - Δpmra_h)
-                δ_model = iad_Δdec - Δδ_h + plx_at_epoch * (
-                            like.hip_table.x[i_epoch] * cosd(like.hip_sol.radeg) * sind(like.hip_sol.dedeg) +
-                            like.hip_table.y[i_epoch] * sind(like.hip_sol.radeg) * sind(like.hip_sol.dedeg) -
-                            like.hip_table.z[i_epoch] * cosd(like.hip_sol.dedeg)
-                ) + delta_time_julian_year * (iad_pmdec - Δpmdec_h)
-                
-                α✱_model_with_perturbation = α✱_model + Δα_mas_hip[i_epoch]
-                δ_model_with_perturbation = δ_model + Δδ_mas_hip[i_epoch]
+            # Hoist loop-invariant terms.  `hip_sol.plx + iad_Δplx`, the
+            # division by `julian_year`, and the PM-error effective values
+            # are all constant across i_epoch.
+            plx_at_epoch = like.hip_sol.plx + iad_Δplx
+            inv_julian_year = inv(julian_year)
+            iad_pmra_eff  = iad_pmra  - Δpmra_h
+            iad_pmdec_eff = iad_pmdec - Δpmdec_h
+            iad_Δra_eff   = iad_Δra   - Δα_h
+            iad_Δdec_eff  = iad_Δdec  - Δδ_h
 
-                # We've hit the same problem again. As the perturbation gets huge, we
-                # start to need to adjust these parameters to bring the measurements back over to near
-                # the Hipparcos measurements.
-                # But in this case, do we really care? We are only fitting curvature.
-                # Can we subtract the average or something?
-
-
-
-
-                # push!(α✱_models,α✱_model_with_perturbation)
-                # push!(δ_models, δ_model_with_perturbation)
-
-
-                # Calculate differences in milliarcseconds by mapping into a local tangent plane,
-                # with the local coordinate defined by the Hipparcos solution at this *epoch* (not 
-                # at the best solution)
-                point = @SVector [
-                    α✱_model_with_perturbation,
-                    δ_model_with_perturbation,
-                ]
-
-                # Two points defining a line along which the star's position was measured
-                line_point_1 = @SVector [
-                    like.hip_table.α✱ₘ[i_epoch][1],
-                    like.hip_table.δₘ[i_epoch][1],
-                ]
-                line_point_2 = @SVector [
-                    like.hip_table.α✱ₘ[i_epoch][2],
-                    like.hip_table.δₘ[i_epoch][2],
-                ]
-                # Distance from model star Delta position to this line where it was measured 
-                # by the satellite
-                resid = distance_point_to_line(point, line_point_1, line_point_2) # degrees
-
-                iad_resid[i_epoch] = resid
+            # The Hipparcos IAD residual is the perpendicular distance from
+            # the predicted model point (α✱_model_w_p, δ_model_w_p) to the
+            # measured abscissa line, which `distance_point_to_line` evaluates
+            # as |cross(r₂-r₁, r₁-r₀)| / ‖r₂-r₁‖.  By construction the line
+            # endpoints are α✱ₘ = α✱ₐ ± sinϕ and δₘ = δₐ ∓ cosϕ, so r₂-r₁ has
+            # length √(sin²ϕ + cos²ϕ)·2 = 2.  After substituting that and
+            # cancelling the per-axis sinϕ·cosϕ cross-terms, the distance
+            # reduces to the scalar scan-projection
+            #     resid = |α✱ₐ·cosϕ + δₐ·sinϕ
+            #            − (α✱_model_w_p·cosϕ + δ_model_w_p·sinϕ)|
+            # which we evaluate without ever forming the 2D vectors.  The
+            # parallax-along-scan factor is already precomputed in the table
+            # (`parallaxFactorAlongScan`), so the per-epoch x/y/z sind/cosd
+            # multiplies that this loop previously performed collapse to a
+            # single multiply.  α✱ₐ·cosϕ + δₐ·sinϕ = res + Δα✱·cosϕ +
+            # Δδ·sinϕ because α✱ₐ = res·cosϕ + Δα✱ and δₐ = res·sinϕ + Δδ
+            # (cos²+sin² = 1).
+            hip_epoch    = like.hip_table.epoch
+            hip_cosϕ     = like.hip_table.cosϕ
+            hip_sinϕ     = like.hip_table.sinϕ
+            hip_plxFact  = like.hip_table.parallaxFactorAlongScan
+            hip_projMeas = like.hip_table.proj_meas_alongscan
+            @inbounds @simd for i_epoch in eachindex(hip_epoch, Δα_mas_hip, Δδ_mas_hip)
+                cosϕ = hip_cosϕ[i_epoch]
+                sinϕ = hip_sinϕ[i_epoch]
+                Δt = (hip_epoch[i_epoch] - hipparcos_catalog_epoch_mjd) * inv_julian_year
+                α_off = iad_Δra_eff  + Δt * iad_pmra_eff  + Δα_mas_hip[i_epoch]
+                δ_off = iad_Δdec_eff + Δt * iad_pmdec_eff + Δδ_mas_hip[i_epoch]
+                proj_model = α_off * cosϕ + δ_off * sinϕ + plx_at_epoch * hip_plxFact[i_epoch]
+                iad_resid[i_epoch] = abs(hip_projMeas[i_epoch] - proj_model)
             end
 
             # @show θ_system.ra  θ_system.dec iad_Δra iad_Δdec iad_pmra iad_pmdec
@@ -1669,24 +1994,70 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
     if :rv_dr3 ∈ like.table.kind
         σ_rv_per_transit = θ_obs.σ_rv_per_transit  # per-transit RV uncertainty in km/s
 
-        # Simulate RV measurements at Gaia epochs
-        rv_model = zeros(T, length(gaia_table_rv.epoch))
+        # Simulate RV measurements at Gaia epochs — into a bump-allocated
+        # buffer (caller's @no_escape provides the scope) so we don't
+        # heap-alloc a fresh Vector per evaluation, and compute sample
+        # variance with an explicit Welford-style loop to avoid the
+        # `sum((rv_model .- rv_mean).^2)` broadcast temporary.
+        n_rv_ep = length(gaia_table_rv.epoch)
+        rv_model = Bumper.alloc!(Bumper.default_buffer(), T, n_rv_ep)
+        fill!(rv_model, zero(T))
 
-        for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
-            planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
-            if planet_mass_msol == 0.0
-                continue
+        # When `θ_obs.transits_rv` is a prefix of `θ_obs.transits` (guaranteed
+        # for constructor-built variables — both come from partialsortperm of
+        # the same transit_priorities, so the top n_rv selected for RV equal
+        # the first n_rv of the top N_FoV selected for astrometry),
+        # gaia_table_rv.epoch[i] == gaia_table.epoch[i] for i in 1..n_rv_ep.
+        # The planet_sols_cache's gaia portion (rows n_hip+1..n_hip+n_gaia)
+        # thus already holds the required orbit solutions; skip the per-epoch
+        # orbitsolve.  Verify the full epoch prefix (cheap, O(n_rv) compares)
+        # rather than assuming it, so user-supplied `variables` with an
+        # arbitrary transits_rv subset fall back to the exact path.
+        rv_use_cache = n_rv_ep <= n_gaia_cache
+        if rv_use_cache
+            @inbounds for i in 1:n_rv_ep
+                if gaia_table_rv.epoch[i] != gaia_table.epoch[i]
+                    rv_use_cache = false
+                    break
+                end
             end
-            # Accumulate the RV contribution from this planet at each epoch.
-            for (i, epoch) in enumerate(gaia_table_rv.epoch)
-                sol = orbitsolve(orbit, epoch)
-                rv_model[i] += radvel(sol, planet_mass_msol)/1e3 # barycentric rv in km/s
+        end
+        if rv_use_cache
+            @inbounds for i_planet in 1:n_planets
+                planet_mass_msol = θ_system.planets[i_planet].mass*Octofitter.mjup2msol
+                planet_mass_msol == 0.0 && continue
+                sols = planet_sols_cache[i_planet]
+                for i in 1:n_rv_ep
+                    sol = sols[n_hip_cache + i]
+                    rv_model[i] += radvel(sol, planet_mass_msol)/1e3
+                end
+            end
+        else
+            for (i_planet, (orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
+                planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
+                if planet_mass_msol == 0.0
+                    continue
+                end
+                # Accumulate the RV contribution from this planet at each epoch.
+                for (i, epoch) in enumerate(gaia_table_rv.epoch)
+                    sol = orbitsolve(orbit, epoch)
+                    rv_model[i] += radvel(sol, planet_mass_msol)/1e3 # barycentric rv in km/s
+                end
             end
         end
 
         # Calculate sample variance (Eq. A2 of Chance et al. 2022)
-        rv_mean = mean(rv_model)
-        sample_variance = sum((rv_model .- rv_mean).^2) / (length(rv_model) - 1)
+        rv_sum = zero(T)
+        @inbounds for i in 1:n_rv_ep
+            rv_sum += rv_model[i]
+        end
+        rv_mean = rv_sum / n_rv_ep
+        rv_sumsq = zero(T)
+        @inbounds for i in 1:n_rv_ep
+            d = rv_model[i] - rv_mean
+            rv_sumsq += d * d
+        end
+        sample_variance = rv_sumsq / (n_rv_ep - 1)
 
         N_rv = like.catalog.rv_nb_transits
         rv_dof = N_rv - 1
@@ -2071,7 +2442,7 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
     new_table = Table(merge(table_cols, (; pm = new_pm, σ_pm = new_σ_pm)))
 
     # ── 9. Construct new G23HObs ──
-    return G23HObs{
+    obj = G23HObs{
         typeof(new_table),
         typeof(new_hip_table),
         typeof(like.gaia_table),
@@ -2090,7 +2461,15 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
         like.A_prepared_5_dr3,
         like.include_iad,
         like.ueva_mode,
+        Ref{Matrix{Float64}}(zeros(0, 0)),
+        Ref{NTuple{4, Float64}}((0.0, 0.0, 0.0, 0.0)),
+        Ref{Bool}(false),
     )
+    # Note: the caches derive from hip_table.{sres,res}, which may differ in
+    # the newly generated table — recompute eagerly for the new object.
+    _ensure_pinv_5_hip!(obj)
+    _ensure_hip_x_const!(obj)
+    return obj
 end
 
 export G23HObs

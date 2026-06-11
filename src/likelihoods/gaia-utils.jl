@@ -357,37 +357,46 @@ function fit_5param_prepared(
 
     T = promote_type(eltype(Δα_mas), eltype(Δδ_mas))
 
-    # Use Bumper to elide allocations
+    # For a *scalar* weight the explicit σ_formal scaling is redundant: the
+    # LSQ x = (A/σ) \ (b/σ) is identical to x = A \ b — the σ cancels — so we
+    # solve unweighted and fold 1/σ² into the chi² at the end.  For a
+    # *per-epoch* σ vector (e.g. Hipparcos `sres`) the weights do NOT cancel
+    # and we perform the genuinely weighted solve.  Either way we solve
+    # against a Bumper-allocated copy of A_prepared (some `\` overloads
+    # require an owned matrix rather than a plain view).
     @no_escape begin
-        b_weighted = @alloc(T, n_obs)
-        A_weighted = @alloc(T, n_obs, size(A_prepared,2))
+        b = @alloc(T, n_obs)
+        A_dense = @alloc(T, n_obs, size(A_prepared, 2))
 
-        @. b_weighted = Δα_mas * table.cosϕ + Δδ_mas * table.sinϕ + residuals
-
-        if σ_formal != 0.
-            @. A_weighted = A_prepared .* 1 ./ σ_formal
-            @. b_weighted *= 1/σ_formal
+        @. b = Δα_mas * table.cosϕ + Δδ_mas * table.sinϕ + residuals
+        if σ_formal isa Number
+            @. A_dense = A_prepared
         else
-            @. A_weighted = A_prepared
+            @. A_dense = A_prepared / σ_formal
+            @. b = b / σ_formal
         end
 
-        x = A_weighted \ b_weighted
+        x = A_dense \ b
 
         parameters = @SVector [x[1], x[2], x[4], x[5], x[3]]
 
         if include_chi2 == Val(true)
-            model_predictions = @alloc(T, n_obs)
-            residuals = @alloc(T, n_obs)
-            mul!(model_predictions, A_weighted, x)
-            residuals .= b_weighted .- model_predictions
             if σ_formal == 0
                 error("Asked for `include_chi2=true` but `σ_formal==0`")
             end
+            model_predictions = @alloc(T, n_obs)
+            residuals_buf = @alloc(T, n_obs)
+            mul!(model_predictions, A_dense, x)
+            residuals_buf .= b .- model_predictions
 
-            chi_squared_astro = dot(residuals, residuals)
+            # Scalar σ: residuals are unweighted, apply 1/σ² here.
+            # Vector σ: residuals are already whitened by the weighted solve.
+            chi_squared_astro = σ_formal isa Number ?
+                dot(residuals_buf, residuals_buf) / (σ_formal * σ_formal) :
+                dot(residuals_buf, residuals_buf)
 
             n_parameters = 5
-            dof = length(b_weighted) - n_parameters
+            dof = n_obs - n_parameters
 
             chi2_reduced = chi_squared_astro / dof
         end
@@ -403,6 +412,26 @@ function fit_5param_prepared(
         dof
     )
 
+end
+
+"""
+    fit_5param_pinv(pinv_A, table, Δα_mas, Δδ_mas, residuals) -> nt
+
+Same as `fit_5param_prepared(...; include_chi2=Val(false))` but uses a
+pre-computed pseudo-inverse `pinv_A` (5×N) for the LSQ solve.  Returns
+just the SVector of parameters in the same order as fit_5param_prepared.
+"""
+function fit_5param_pinv(pinv_A, table, Δα_mas, Δδ_mas, residuals=0.0)
+    n_obs = size(pinv_A, 2)
+    T = promote_type(eltype(Δα_mas), eltype(Δδ_mas))
+    @no_escape begin
+        b = @alloc(T, n_obs)
+        @. b = Δα_mas * table.cosϕ + Δδ_mas * table.sinϕ + residuals
+        x_buf = @alloc(T, 5)
+        mul!(x_buf, pinv_A, b)
+        parameters = @SVector [x_buf[1], x_buf[2], x_buf[4], x_buf[5], x_buf[3]]
+    end
+    return (; parameters)
 end
 
 # ──────────────────────────────────────────────────────────────────────
@@ -446,24 +475,27 @@ function _simulate_skypath_perturbations!(
     flux_ratio,
     orbit_solutions, orbit_solutions_i_epoch_start, T=Float64,
 )
-    for i in eachindex(table.epoch)
-        if orbit_solutions_i_epoch_start >= 0
+    # The photocentre offset is `raoff(sol) · coeff` (and `decoff(sol) · coeff`)
+    # for the *same* `coeff` per call — derive it from the standard
+    # `(host_reflex + planet_bary · f) / (1 + f)` formula and hoist out of the
+    # loop. raoff(sol, m) = -m/M·raoff(sol) where M = totalmass(orbit). Use
+    # the `totalmass(orbit)` API so this works for Visual/AbsoluteVisual
+    # wrappers (no .M field) as well as bare KepOrbit.
+    M_tot = PlanetOrbits.totalmass(orbit)
+    m_host_eff = M_tot - planet_mass_msol
+    coeff = (-planet_mass_msol + flux_ratio * m_host_eff) / (M_tot * (1 + flux_ratio))
+    if orbit_solutions_i_epoch_start >= 0
+        @inbounds for i in eachindex(table.epoch)
             sol = orbit_solutions[orbit_solutions_i_epoch_start+i]
-        else
-            sol = orbitsolve(orbit, table.epoch[i])
+            Δα_model[i] += raoff(sol) * coeff
+            Δδ_model[i] += decoff(sol) * coeff
         end
-
-        # Add perturbation to photocentre from (possibly luminous) planet in mas
-        ra_host_vs_bary = raoff(sol, planet_mass_msol)
-        ra_planet_vs_host = raoff(sol)
-        ra_planet_vs_bary = ra_host_vs_bary + ra_planet_vs_host
-        ra_photocentre = (ra_host_vs_bary + ra_planet_vs_bary * flux_ratio) / (1 + flux_ratio)
-        Δα_model[i] += ra_photocentre
-        dec_host_vs_bary = decoff(sol, planet_mass_msol)
-        dec_planet_vs_host = decoff(sol)
-        dec_planet_vs_bary = dec_host_vs_bary + dec_planet_vs_host
-        dec_photocentre = (dec_host_vs_bary + dec_planet_vs_bary * flux_ratio) / (1 + flux_ratio)
-        Δδ_model[i] += dec_photocentre
+    else
+        @inbounds for i in eachindex(table.epoch)
+            sol = orbitsolve(orbit, table.epoch[i])
+            Δα_model[i] += raoff(sol) * coeff
+            Δδ_model[i] += decoff(sol) * coeff
+        end
     end
     return
 end
@@ -529,8 +561,28 @@ function _simulate_skypath_hippacentre_combined!(
     T,
     s::Float64,
 )
-    inv_2π_over_s = s / (2π)
     n_planets = length(orbits)
+    # Early-exit when no companion contributes (n_planets=0 has prior P=0.5,
+    # and any inactive companion has mass=0 from the @variables block).
+    # In that case the per-epoch loop reduces to: Re=1, Im=0, atan(0,1)=0,
+    # Δν_B=0 — so Δα/Δδ_model and σ_inflation are unchanged from their
+    # caller-initialised values (0 and 1 respectively).  Skip the
+    # transit loop entirely.
+    any_active = false
+    @inbounds for k in 1:n_planets
+        if planet_masses_msol[k] != zero(eltype(planet_masses_msol))
+            any_active = true
+            break
+        end
+    end
+    any_active || return
+
+    inv_2π_over_s = s / (2π)
+    two_π_over_s = (2π) / s
+    # Squared resolution scale in mas² — saves a sqrt per transit per active
+    # companion. α_resolve_hip(ρ) = exp(-(ρ/RES_arcsec)²) and ρ_arcsec =
+    # √(ra²+dec²)/1000, so (ρ_arcsec/RES_arcsec)² = (ra²+dec²)/(1000·RES_arcsec)².
+    inv_res_mas2 = 1 / (1000 * HIPPARCOS_RESOLUTION_ARCSEC)^2
     for i in eachindex(table.epoch)
         cosϕ = table.cosϕ[i]
         sinϕ = table.sinϕ[i]
@@ -544,6 +596,13 @@ function _simulate_skypath_hippacentre_combined!(
         host_along_total = zero(T)
 
         for k in 1:n_planets
+            # Absent companions (mass == 0 → host reflex 0; the calling site
+            # also forces flux_ratios[k] = 0 → modulated signal 0). Mirrors
+            # the DR2/DR3 _simulate_skypath_perturbations! short-circuit.
+            if planet_masses_msol[k] == zero(eltype(planet_masses_msol))
+                continue
+            end
+
             i_start_k = orbit_solutions_i_epoch_starts[k]
             sol_k = i_start_k >= 0 ?
                 orbit_solutions_per_planet[k][i_start_k + i] :
@@ -569,12 +628,12 @@ function _simulate_skypath_hippacentre_combined!(
             # limit (α → 0) Re → 1, Im → 0, φ → 0, f_σ → 1, so Δν_B reduces
             # to host_along_total exactly and no spurious σ inflation
             # remains.
-            ρ_full_arcsec = sqrt(ra_p*ra_p + dec_p*dec_p) / 1000  # mas → arcsec
-            α_k = α_resolve_hip(ρ_full_arcsec)
+            ρ_full_sq_mas2 = ra_p*ra_p + dec_p*dec_p
+            α_k = exp(-ρ_full_sq_mas2 * inv_res_mas2)
 
-            ζ_k = 2π * ρ_pk / s
+            ζ_k = two_π_over_s * ρ_pk
             f_k = flux_ratios[k] * α_k
-            sin_ζk, cos_ζk = sin(ζ_k), cos(ζ_k)
+            sin_ζk, cos_ζk = sincos(ζ_k)
             Re += f_k * cos_ζk
             Im += f_k * sin_ζk
             f_total += f_k
