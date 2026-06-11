@@ -1,6 +1,21 @@
 using Bumper
 
 
+"""
+    requires_solutions_for_zero_mass(likelihood) -> Bool
+
+Whether this likelihood may read per-planet orbit solutions for a planet
+whose sampled `mass` is exactly zero. Defaults to `true` (conservative).
+
+Likelihoods that internally short-circuit on `mass == 0` and never read a
+zero-mass planet's orbit solutions can override this to `false`. When every
+system-level likelihood returns `false` (and a planet has a `mass` variable
+and no planet-level likelihoods of its own), `make_ln_like` elides the
+per-epoch Kepler solves for that planet whenever its sampled mass is zero —
+a large win for multi-companion models with an `n_planets` prior that zeroes
+out absent companions.
+"""
+requires_solutions_for_zero_mass(::Any) = true
 
 
 function make_ln_like(system::System, θ_system)
@@ -112,9 +127,40 @@ function make_ln_like(system::System, θ_system)
             $key = $(OrbitType)(;merge(θ_system, θ_system.planets[$i])...)
         end
     
-        if isempty(all_epochs)  
+        # Skipping the per-epoch Kepler solves for an absent companion
+        # (sampled mass == 0) leaves $sols_key slots 2:end uninitialised, so
+        # it is only valid when nothing will ever read them. We decide this
+        # statically at codegen time: the planet must have a `mass` variable,
+        # must have no planet-level likelihoods of its own, and every
+        # system-level likelihood must declare via
+        # `requires_solutions_for_zero_mass` that it skips zero-mass
+        # companions internally (conservative default: it does not).
+        can_skip_zero_mass = hasproperty(θ_system.planets[i], :mass) &&
+            isempty(planet.observations) &&
+            all(!requires_solutions_for_zero_mass(obs) for obs in system.observations)
+        if isempty(all_epochs)
             orbit_sol_expr = quote
                 $sols_key = ()
+            end
+        elseif can_skip_zero_mass
+            orbit_sol_expr = quote
+                # Pre-solve kepler's equation for all epochs
+                epochs = @alloc(Float64, $(length(all_epochs)))
+                $((
+                    :(epochs[$j] = $(all_epochs[j]))
+                    for j in 1:length(all_epochs)
+                )...)
+
+                sol0 = orbitsolve($key, first(epochs))
+                $sols_key = @alloc(typeof(sol0), length(epochs))
+                $sols_key[begin] = sol0
+                # Skip per-epoch Kepler solves for absent companions (mass == 0).
+                # Verified safe at codegen time (see `can_skip_zero_mass` above):
+                # every consumer of these solutions short-circuits on mass == 0
+                # and never reads slots 2:end.
+                if θ_system.planets[$i].mass != zero(θ_system.planets[$i].mass)
+                    $_kepsolve_all!(view($sols_key, 2:length(epochs)), $key, view(epochs, 2:length(epochs)))
+                end
             end
         else
             orbit_sol_expr = quote
@@ -206,15 +252,20 @@ function make_ln_like(system::System, θ_system)
 end
 
 const _kepsolve_use_threads = Ref(false)
+# Threading is a net loss for short epoch loops: each Kepler solve costs
+# ~200 ns and `Threads.@threads` adds ~3–10 µs of orchestration. For small
+# N we always fall through to the single-thread path even when the user
+# has opted into threading.
+const _kepsolve_thread_min_n = 64
 function _kepsolve_all!(solutions, orbit, epochs)
-    if _kepsolve_use_threads[]
+    if _kepsolve_use_threads[] && length(epochs) >= _kepsolve_thread_min_n
         return _kepsolve_all_multithread!(solutions, orbit, epochs)
     else
         return _kepsolve_all_singlethread!(solutions, orbit, epochs)
     end
 end
 function _kepsolve_all_singlethread!(solutions, orbit, epochs)
-    for epoch_i in eachindex(epochs)
+    @inbounds for epoch_i in eachindex(epochs)
         solutions[epoch_i] = orbitsolve(orbit, epochs[epoch_i])
     end
     return solutions

@@ -372,6 +372,13 @@ function HipparcosIADObs(;
         (table.x * cosd(α₀) * sind(δ₀) + table.y * sind(α₀) * sind(δ₀) - table.z * cosd(δ₀)) * table.sinϕ
     )
 
+    # Per-epoch scan-projected measured abscissa: hot path in g23h IAD
+    # residual loop reads this as a single column instead of recomputing
+    # `res + Δα✱·cosϕ + Δδ·sinϕ` (3 reads + 2 muls + 2 adds → 1 read).
+    # Identity follows from α✱ₐ = res·cosϕ + Δα✱, δₐ = res·sinϕ + Δδ, and
+    # cos²ϕ + sin²ϕ = 1.
+    table.proj_meas_alongscan = @. table.res + table.Δα✱ * table.cosϕ + table.Δδ * table.sinϕ
+
     table = Table(table)
 
     # Prepare some matrices for linear system solves
