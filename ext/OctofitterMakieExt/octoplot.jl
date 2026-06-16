@@ -13,7 +13,7 @@ this by passing `fname="fname.png"`
 - `show_astrom_time=true`: Separation/PA vs time
 - `show_rv=true`: Stellar RV curve
 - `show_relative_rv=true`: Planet-star relative RV
-- `show_pma=true`: Proper motion anomaly
+- `show_pma=true`: Proper motion anomaly (also governs the G23H absolute-astrometry panel)
 - `show_mass=true`: Mass posterior
 
 # Optional Arguments
@@ -150,6 +150,12 @@ function Octofitter.octoplot!(
         end
     end
 
+    # Capture whether the user explicitly requested proper-motion panels.
+    # The G23H absolute-astrometry panel (`show_absastrom`) is also a
+    # proper-motion-anomaly panel, so an explicit `show_pma` value should
+    # govern it too (e.g. `show_pma=false` should suppress it).
+    show_pma_explicit = show_pma
+
     if isnothing(show_pma)
         show_pma = false
         for like_obj in model.system.observations
@@ -169,6 +175,12 @@ function Octofitter.octoplot!(
         show_absastrom = false
         for like_obj in model.system.observations
             show_absastrom |= like_obj isa Octofitter.G23HObs
+        end
+        # The G23H panel is a proper-motion-anomaly panel, so honor an
+        # explicit `show_pma` setting: `show_pma=false` suppresses it and
+        # `show_pma=true` only shows it when G23H data is actually present.
+        if !isnothing(show_pma_explicit)
+            show_absastrom &= show_pma_explicit
         end
     end
 
