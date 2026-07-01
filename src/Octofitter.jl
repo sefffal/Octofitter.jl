@@ -64,6 +64,7 @@ include("likelihoods/hipparcos.jl")
 include("likelihoods/hgca-linfit.jl")
 include("likelihoods/g23h.jl")
 include("likelihoods/gaia-dr4.jl")
+include("likelihoods/gaia-dr3-companion.jl")
 
 include("likelihoods/prior-observable.jl")
 include("likelihoods/prior-planet-order.jl")

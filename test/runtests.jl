@@ -44,6 +44,10 @@ if TEST_MODE in ("all", "unit")
         @testset "NSS Catalog" begin
             include("unit/nss.jl")
         end
+
+        @testset "Gaia DR3 Companion" begin
+            include("unit/gaia-dr3-companion.jl")
+        end
     end
 end
 
@@ -72,6 +76,10 @@ if TEST_MODE in ("all", "integration")
 
         @testset "Plotting" begin
             include("integration/plotting.jl")
+        end
+
+        @testset "Gaia DR3 Companion" begin
+            include("integration/gaia-dr3-companion.jl")
         end
     end
 end

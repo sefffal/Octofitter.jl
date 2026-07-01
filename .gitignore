@@ -12,3 +12,10 @@ _gaia_dr2
 _gaia_dr3
 _geocentre_pos
 GHOST*
+
+# Gaia archive query caches
+_gaia_dr1/
+_gaia_dr2/
+_gaia_dr3_final/
+_gaia_nss_dr3/
+_gaia_nss_dr4/
