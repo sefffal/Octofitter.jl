@@ -684,7 +684,7 @@ function GOST_forecast(ra_deg,dec_deg;baseline=:dr3)
         @info "Using provided Gaia scan forecast database $fname"
         forecast_table = CSV.read(fname, Table, normalizenames=true)
         themin, idx = findmin(hypot.(
-            (forecast_table.ra_rad_ .- deg2rad(ra_deg)) .*60 .*60 .*1000 .* cos(dec_deg),
+            (forecast_table.ra_rad_ .- deg2rad(ra_deg)) .*60 .*60 .*1000 .* cosd(dec_deg),
             (forecast_table.dec_rad_ .- deg2rad(dec_deg)).*60 .*60 .*1000
         ))
         if themin > 500
@@ -694,17 +694,17 @@ function GOST_forecast(ra_deg,dec_deg;baseline=:dr3)
         dec_rad = forecast_table.dec_rad_[idx]
         mask = isapprox.(forecast_table.ra_rad_, ra_rad) .& isapprox.(forecast_table.dec_rad_, dec_rad)
         @info "Found forecasted visibility windows" windows=count(mask)
-        if isempty(mask)
+        if !any(mask)
             error("Invalid condition: no visibility windows.")
         end
-        return forecast_table[mask,:]
+        return _sort_dedup_gost(forecast_table[mask,:])
     end
 
     fname = "GOST-$ra_deg-$dec_deg-$baseline.csv"
     if isfile(fname)
         @info "Using cached Gaia scan forecast $fname"
         forecast_table = CSV.read(fname, Table, normalizenames=true)
-        return forecast_table
+        return _sort_dedup_gost(forecast_table)
     end
 
     # Just pick a cookie ID to use.
@@ -761,7 +761,37 @@ function GOST_forecast(ra_deg,dec_deg;baseline=:dr3)
     end
     forecast_table = CSV.read(io, Table, normalizenames=true)
 
-    return forecast_table
+    return _sort_dedup_gost(forecast_table)
+end
+
+# Defensively sort and deduplicate a GOST forecast table.  User-supplied
+# catalogs have been observed to contain a target's entire forecast block
+# duplicated (even triplicated) verbatim, and everything downstream (window
+# slicing by findfirst/findlast, first/last epoch selection, missed-transit
+# accounting) assumes a time-sorted table of UNIQUE scans.  Real field-of-view
+# transits are ≥ 1.7 h apart (Gaia's 6 h spin, two FoVs), so rows closer than
+# ~10 s in time are duplicates of the same scan.
+function _sort_dedup_gost(tbl)
+    # vec(): table slices like `forecast_table[mask,:]` carry n×1 Matrix columns.
+    times = vec(collect(tbl.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_))
+    order = sortperm(times)
+    keep = Int[]
+    sizehint!(keep, length(order))
+    last_t = -Inf
+    for i in order
+        if times[i] - last_t > 1e-4  # days; ≈ 8.6 s
+            push!(keep, i)
+            last_t = times[i]
+        end
+    end
+    if length(keep) == length(times) && issorted(times)
+        return tbl  # already clean: return unchanged
+    end
+    @warn "GOST forecast contained duplicate and/or unsorted scan rows; sorted and deduplicated. Downstream results assume unique time-ordered scans." n_raw=length(times) n_unique=length(keep)
+    names = propertynames(tbl)
+    out = Table(NamedTuple{names}(map(p -> vec(getproperty(tbl, p))[keep], names)))
+    @assert issorted(vec(out.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_))
+    return out
 end
 
 

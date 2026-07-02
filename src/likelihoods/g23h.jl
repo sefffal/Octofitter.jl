@@ -74,6 +74,12 @@ struct G23HObs{TTable,TTableH,TTableG,TCat,THip} <: AbstractObs
     _hip_x_const_initialised::Base.RefValue{Bool}
 end
 
+# Diagnostic hook (off by default; zero hot-path cost when nothing).  When set to
+# a Vector, ln_like pushes a NamedTuple of the per-channel astrometry residuals
+# (catalog vs model μ and marginal σ) for the PM/UEVA MvNormal block — used to
+# numerically verify simulator/likelihood agreement (pulls ~ N(0,1) at truth).
+const _G23H_DEBUG_PULLS = Ref{Any}(nothing)
+
 # G23H short-circuits on mass == 0 everywhere it consumes per-planet orbit
 # solutions (DR2/DR3 skypath perturbations, the Hippacentre combined loop,
 # and the Gaia RV simulation all `continue` on zero-mass companions), so
@@ -188,6 +194,20 @@ function G23HObs(;
         # this mitigates overfitting.
         hip_table.res .+= 0.140
         hip_table.sres_renorm .= hypot.(hip_table.sres_renorm, 2.25)
+
+        # The HipparcosIADLikelihood constructor baked res-derived columns
+        # (α✱ₐ, δₐ, α✱ₘ, δₘ, proj_meas_alongscan) BEFORE this in-place
+        # recalibration, so recompute them here — otherwise the +0.140 mas
+        # shift never reaches the IAD channel, which reads
+        # proj_meas_alongscan (audit 2026-07-02).
+        hip_table.α✱ₐ .= hip_table.res .* hip_table.cosϕ .+ hip_table.Δα✱
+        hip_table.δₐ  .= hip_table.res .* hip_table.sinϕ .+ hip_table.Δδ
+        for i in eachindex(hip_table.α✱ₘ)
+            hip_table.α✱ₘ[i] .= [-1, 1] .* hip_table.sinϕ[i] .+ hip_table.α✱ₐ[i]
+            hip_table.δₘ[i]  .= [1, -1] .* hip_table.cosϕ[i] .+ hip_table.δₐ[i]
+        end
+        hip_table.proj_meas_alongscan .= hip_table.res .+
+            hip_table.Δα✱ .* hip_table.cosϕ .+ hip_table.Δδ .* hip_table.sinϕ
 
         # Precompute MvNormal distributions for correlation between ra and dec
         # Hipparcos epoch
@@ -316,6 +336,17 @@ function G23HObs(;
     end
     gaia_table = Table(map(dat->dat[], gaia_table))
 
+    # Trim to the DR3 window: GOST forecasts can extend well past the DR3 data
+    # span (often to 2018+). Epochs after meta_gaia_DR3.stop_mjd can never
+    # contribute to any modeled channel (the DR2/DR3 window slices exclude
+    # them), but left in the table they consume transit_priorities selection
+    # slots: chi_squared_astro is then summed over only the in-window survivors
+    # while its UEVA normalization uses the catalog astrometric_matched_transits
+    # count — understating the predicted companion-induced UEVA excess by ~the
+    # out-of-window fraction (median ~29% over the Hipparcos sample). Single
+    # stars are unaffected (zero signal either way); companion hosts need a
+    # spuriously larger companion to reproduce the observed RUWE/UEVA.
+    gaia_table = gaia_table[vec(gaia_table.epoch) .<= meta_gaia_DR3.stop_mjd]
 
     # Determine fraction of epochs in DR2 that overlap with DR3
 
@@ -504,7 +535,9 @@ function G23HObs(;
             # sample the epochs randomly once and fix them for all remaining sampling
             if freeze_epochs
                 transit_priorities = (randn(len_epochs)...,)
-                transits = partialsortperm(SVector(transit_priorities), 1:astrometric_matched_transits_dr3, rev=true)
+                # sort: downstream window logic (findfirst/findlast on gaia_table[transits,:].epoch)
+                # requires chronological order; partialsortperm returns priority order.
+                transits = sort(partialsortperm(SVector(transit_priorities), 1:astrometric_matched_transits_dr3, rev=true))
                 variables = vcat(variables, @variables begin
                     transit_priorities = $transit_priorities
                     transits = $transits
@@ -523,7 +556,10 @@ function G23HObs(;
                 # are the values with the highest values.
                 variables = vcat(variables, @variables begin
                     transit_priorities ~ MvNormal(zeros(len_epochs), I)
-                    transits = partialsortperm(SVector(transit_priorities), 1:$astrometric_matched_transits_dr3, rev=true)
+                    # sort: downstream window logic (findfirst/findlast on gaia_table[transits,:].epoch)
+                    # requires chronological order; partialsortperm returns priority order (unsorted
+                    # epochs collapse the DR2/DR3 windows onto each other: n_dr2≈n_dr3 → ρ_dr3_dr2≈1).
+                    transits = sort(partialsortperm(SVector(transit_priorities), 1:$astrometric_matched_transits_dr3, rev=true))
                 end)
             end
         end
@@ -557,6 +593,14 @@ function G23HObs(;
 
             n_rv = Int(catalog.rv_nb_transits)
             @info "Count of RV transits:" n_rv total_transits=len_epochs
+            if n_rv > len_epochs
+                # RV shortfall: catalog reports more RV transits than in-window
+                # GOST forecast epochs. All available epochs are used; the
+                # modeled sample variance stays unbiased (it is count-
+                # normalized, unlike the astrometric chi² sum) but samples the
+                # window more coarsely than Gaia did.
+                @warn "More Gaia RV transits than in-window GOST forecast epochs; modeling RV scatter with all available epochs." n_rv len_epochs
+            end
 
             # RV transits are modeled as a subset of the astrometric-used transits:
             # entirely-missed visits (e.g. gaps in Gaia coverage) are assumed missed
@@ -566,7 +610,7 @@ function G23HObs(;
             # (whenever n_rv ≤ astrometric_matched_transits_dr3).
             if n_rv > 0 && n_rv < len_epochs
                 rv_vars = @variables begin
-                    transits_rv = partialsortperm(SVector(transit_priorities), 1:$n_rv, rev=true)
+                    transits_rv = sort(partialsortperm(SVector(transit_priorities), 1:$n_rv, rev=true))
                 end
                 variables = vcat(variables, rv_vars)
             end
@@ -670,7 +714,13 @@ function _ensure_pinv_5_hip!(like::G23HObs)
     # are fixed at construction, so we can cache `Q = pinv(A/σ) ./ σ'` —
     # one matvec `Q · b_orig` then reproduces the weighted-LSQ x exactly.
     if isempty(like._pinv_5_hip[]) && !isempty(like.A_prepared_5_hip)
-        σ_hip = like.hip_table.sres
+        # sres ≤ 0 encodes scans the Hipparcos reduction REJECTED from its
+        # solution; give them zero weight (σ = Inf) so this catalog-reproduction
+        # LSQ matches what the catalog actually fit.  (A raw negative sres would
+        # sneak the scan back in at weight 1/|sres|, and sres == 0 would produce
+        # an Inf-weighted row.)  The IAD residual channel skips these rows
+        # separately (audit 2026-07-02).
+        σ_hip = map(s -> s > 0 ? float(s) : Inf, like.hip_table.sres)
         A = like.A_prepared_5_hip
         # A_scaled[i, j] = A[i, j] / σ[i] (row-wise scale).  Then
         # Q = pinv(A_scaled) is 5×n; weight back to x = Q·(b/σ) form by
@@ -1184,6 +1234,18 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
             Σ_selected = @alloc(T, n_components, n_components)
             @inbounds for kj in 1:n_components, ki in 1:n_components
                 Σ_selected[ki, kj] = Σ_full[indices[ki], indices[kj]]
+            end
+
+            # Diagnostic capture (no-op unless _G23H_DEBUG_PULLS holds a Vector).
+            if _G23H_DEBUG_PULLS[] !== nothing
+                lbls = [component_flags[indices[k]] for k in 1:n_components]
+                cat  = [Float64(μ_catalog_selected[k]) for k in 1:n_components]
+                mod  = [Float64(μ_model_selected[k]) for k in 1:n_components]
+                sig  = [sqrt(Float64(Σ_selected[k,k])) for k in 1:n_components]
+                Σcap = [Float64(Σ_selected[ki,kj]) for ki in 1:n_components, kj in 1:n_components]
+                push!(_G23H_DEBUG_PULLS[],
+                      (; labels=lbls, catalog=cat, model=mod, sigma=sig,
+                         pull=(cat .- mod) ./ sig, Σ=Σcap))
             end
 
             # Compute likelihood
@@ -1954,8 +2016,15 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
     μ_1_3 = UEVA_Gaia^(1/3)
     UEVA_unc = σ_UEVA_single * μ_UEVA_single^(-2/3) / 3 # divide by 3 due to cube root transformation
 
-    # Calculate model-predicted UEVA from our fit
-    chi2_astro_scaled = out_dr3.chi_squared_astro * N_AL
+    # Calculate model-predicted UEVA from our fit.
+    # chi_squared_astro sums squared residuals over the transits actually
+    # modeled (the DR3 window slice), while the UEVA normalizations below
+    # assume N_FoV of them. The counts agree except in the GOST-shortfall
+    # case (fewer in-window forecast epochs than catalog matched transits,
+    # where `transits` falls back to all epochs); rescale so the predicted
+    # excess per companion stays consistent with the N_FoV normalization.
+    n_dr3_modeled = iend_dr3 - istart_dr3 + 1
+    chi2_astro_scaled = out_dr3.chi_squared_astro * N_AL * (N_FoV / n_dr3_modeled)
     UEVA_model_raw = (chi2_astro_scaled * σ_formal^2) / (N - gaia_n_dof)
 
     # For the UEVA likelihood, use cube-root transformation (Eq. 27, Sect 5.1.1)
@@ -2146,10 +2215,28 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
     if isnothing(sim)
         error("G23HObs simulate returned nothing during data generation (duplicate transit indices?)")
     end
-    (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3, sample_variance) = sim
+    (; μ_h, μ_hg, μ_dr2, μ_dr32, μ_dr3, UEVA_model, UEVA_unc, μ_1_3, sample_variance, n_dr2, n_dr3) = sim
 
     catalog = like.catalog
     has_hip = !isnothing(catalog.dist_hip)
+
+    # ── 0. HGCA nonlinear proper-motion correction ──
+    # `ln_like` adds catalog.nonlinear_dpmra/dpmdec to the model μ_hg (and 2× to
+    # μ_h) for absolute orbits when Hipparcos is present (see the "Apply nonlinear
+    # correction for absolute orbits" block above).  The simulated catalog PMs are
+    # built below from the bare μ returned by `simulate`, so without mirroring the
+    # correction here the synthetic data sits on a different convention than the
+    # likelihood's model — a phantom HG/Hip proper-motion anomaly of magnitude
+    # nonlinear_dpm at the true parameters.  Apply the identical correction so the
+    # forward simulator and the likelihood agree.
+    absolute_orbits = false
+    for orbit in orbits
+        absolute_orbits |= orbit isa AbsoluteVisual
+    end
+    if absolute_orbits && has_hip
+        μ_hg = μ_hg + @SVector [catalog.nonlinear_dpmra, catalog.nonlinear_dpmdec]
+        μ_h  = μ_h  + @SVector [2catalog.nonlinear_dpmra, 2catalog.nonlinear_dpmdec]
+    end
 
     # ── 1. UEVA / RUWE / EAN simulation and DR3 uncertainty inflation ──
     #
@@ -2235,15 +2322,70 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
         new_pm_hg = _draw_correlated_pm(μ_hg,
             catalog.pmra_hg_error[1], catalog.pmdec_hg_error[1], catalog.pmra_pmdec_hg[1])
     end
-    # DR2: use original errors (DR2 pipeline is different; we don't model its inflation)
-    new_pm_dr2 = _draw_correlated_pm(μ_dr2,
-        catalog.pmra_dr2_error[1], catalog.pmdec_dr2_error[1], catalog.pmra_pmdec_dr2[1])
-    # DR32: use inflated errors (DR3 position contribution inflated by companion)
-    new_pm_dr32 = _draw_correlated_pm(μ_dr32,
-        new_pmra_dr32_error, new_pmdec_dr32_error, catalog.pmra_pmdec_dr32[1])
-    # DR3: use inflated errors (companion degrades DR3 fit quality)
-    new_pm_dr3 = _draw_correlated_pm(μ_dr3,
-        new_pmra_dr3_error, new_pmdec_dr3_error, catalog.pmra_pmdec_dr3[1])
+    # DR2/DR32/DR3: draw from the SAME covariance structure ln_like will assemble
+    # at the truth parameters, otherwise the synthetic data violates the
+    # likelihood's correlation model.  ln_like (a) couples the DR2 and DR3 PMs
+    # with the cross block K = ρ·√Σ_dr2·√Σ_dr3' where ρ = √(n_dr2/n_dr3)
+    # (shared transits), (b) deflates Σ_dr3 by deflation_factor_dr3² recomputed
+    # at fit time from the *simulated* catalog, and (c) adds the deflation-driven
+    # ΔΣ_dr32 adjustment to Σ_dr32.  Independent draws leave the two conditional
+    # DR2/DR3 directions over-dispersed by 1/(1-ρ²) in whitened space — the fit
+    # reads the excess as astrometric acceleration → spurious decades-period
+    # companions.  Mirror ln_like exactly (verified by the joint-χ² MC test).
+    ρ_dr3_dr2 = sqrt(min(n_dr2, n_dr3) / max(n_dr2, n_dr3))
+    # deflation the fit will apply at truth: UEVA_Gaia reconstructed from the
+    # NEW catalog is max(σ_formal², new_UEVA) in both :RUWE and :EAN modes
+    # (the new_chi2_al / new_ean clamps above make the two expressions agree).
+    UEVA_Gaia_fit = max(σ_formal^2, new_UEVA)
+    deflation_truth = min(1.0, sqrt(μ_UEVA_single / UEVA_Gaia_fit))
+
+    c2 = catalog.pmra_pmdec_dr2[1] * catalog.pmra_dr2_error[1] * catalog.pmdec_dr2_error[1]
+    Σ_dr2_gen = @SArray [
+        catalog.pmra_dr2_error[1]^2 c2
+        c2 catalog.pmdec_dr2_error[1]^2
+    ]
+    c3 = catalog.pmra_pmdec_dr3[1] * new_pmra_dr3_error * new_pmdec_dr3_error
+    Σ_dr3_gen = (@SArray [
+        new_pmra_dr3_error^2 c3
+        c3 new_pmdec_dr3_error^2
+    ]) .* deflation_truth^2
+
+    if add_noise
+        K_gen = ρ_dr3_dr2 * sqrt(Σ_dr2_gen) * sqrt(Σ_dr3_gen)'
+        Σ_23 = SMatrix{4,4,Float64,16}([Σ_dr2_gen K_gen; K_gen' Σ_dr3_gen])
+        noise_23 = cholesky(Hermitian(Σ_23)).L * @SVector[randn(), randn(), randn(), randn()]
+        new_pm_dr2 = μ_dr2 .+ @SVector[noise_23[1], noise_23[2]]
+        new_pm_dr3 = μ_dr3 .+ @SVector[noise_23[3], noise_23[4]]
+    else
+        new_pm_dr2 = SVector{2,Float64}(μ_dr2)
+        new_pm_dr3 = SVector{2,Float64}(μ_dr3)
+    end
+
+    # DR32 with the fit-time ΔΣ_dr32 deflation adjustment (mirrors ln_like).
+    Σ_pos_dr3_gen = @SMatrix [
+        new_ra_error_central_dr3^2  catalog.ra_dec_corr_central_dr3*new_ra_error_central_dr3*new_dec_error_central_dr3
+        catalog.ra_dec_corr_central_dr3*new_ra_error_central_dr3*new_dec_error_central_dr3  new_dec_error_central_dr3^2
+    ]
+    Σ_cross_gen = @SMatrix [
+        ρ_dr3_dr2*new_ra_error_central_dr3*catalog.ra_error_central_dr2  ρ_dr3_dr2*catalog.ra_dec_corr_central_dr3*new_ra_error_central_dr3*catalog.dec_error_central_dr2
+        ρ_dr3_dr2*catalog.ra_dec_corr_central_dr2*new_dec_error_central_dr3*catalog.ra_error_central_dr2  ρ_dr3_dr2*new_dec_error_central_dr3*catalog.dec_error_central_dr2
+    ]
+    ΔΣ_pos_gen = (deflation_truth^2 - 1) * Σ_pos_dr3_gen - (deflation_truth - 1) * (Σ_cross_gen + Σ_cross_gen')
+    Δt_ra_gen = (catalog.epoch_ra_dr3_mjd - catalog.epoch_ra_dr2_mjd) / julian_year
+    Δt_dec_gen = (catalog.epoch_dec_dr3_mjd - catalog.epoch_dec_dr2_mjd) / julian_year
+    Tr_gen = @SMatrix [1/Δt_ra_gen 0.0; 0.0 1/Δt_dec_gen]
+    ΔΣ_dr32_gen = Tr_gen * ΔΣ_pos_gen * Tr_gen'
+    c32 = catalog.pmra_pmdec_dr32[1] * new_pmra_dr32_error * new_pmdec_dr32_error
+    Σ_dr32_gen = (@SArray [
+        new_pmra_dr32_error^2 c32
+        c32 new_pmdec_dr32_error^2
+    ]) + ΔΣ_dr32_gen
+    if add_noise
+        noise_32 = cholesky(Hermitian(Σ_dr32_gen)).L * @SVector[randn(), randn()]
+        new_pm_dr32 = μ_dr32 .+ noise_32
+    else
+        new_pm_dr32 = SVector{2,Float64}(μ_dr32)
+    end
 
     # ── 3. Hipparcos IAD residuals ──
     # The residuals capture the companion's curvature signal (non-linear sky path

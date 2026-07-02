@@ -569,10 +569,9 @@ function simulate(hiplike::HipparcosIADObs, θ_system, θ_obs, orbits, orbit_sol
         for i in eachindex(orbits)[2:end]
             if orbits[i].ra != orbit.ra ||
                orbits[i].dec != orbit.dec ||
-               orbits[i].pmra != orbit.rpma ||
-               orbits[i].pmdec != orbit.ra
-                pmdec
-                error("Planet orbits do not have matching ra, dec, pmpra, and pmdec.")
+               orbits[i].pmra != orbit.pmra ||
+               orbits[i].pmdec != orbit.pmdec
+                error("Planet orbits do not have matching ra, dec, pmra, and pmdec.")
             end
         end
     end
