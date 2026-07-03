@@ -105,7 +105,9 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMapObs, ctx::Octofitter.Plane
     for i_epoch in eachindex(likemaps_table.epoch)
 
         sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
-        @assert isapprox(likemaps.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
+        # Bookkeeping check that this pre-solved solution belongs to this data
+        # epoch (exact identity; see rv-relative.jl for details).
+        @assert PlanetOrbits.soltime(sol) == likemaps.table.epoch[i_epoch] "pre-solved orbit solution does not match this epoch (indexing bug)"
         ra_host_perturbation = zero(T)
         dec_host_perturbation = zero(T)
         for (i_other_planet, key) in enumerate(keys(θ_system.planets))
@@ -124,8 +126,8 @@ function Octofitter.ln_like(likemaps::LogLikelihoodMapObs, ctx::Octofitter.Plane
                 ra_host_perturbation += raoff(sol′, mass_other)
                 dec_host_perturbation += decoff(sol′, mass_other)
 
-                @assert isapprox(likemaps.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
-                @assert isapprox(likemaps.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
+                @assert PlanetOrbits.soltime(sol) == likemaps.table.epoch[i_epoch] "pre-solved orbit solution does not match this epoch (indexing bug)"
+                @assert PlanetOrbits.soltime(sol′) == likemaps.table.epoch[i_epoch] "pre-solved orbit solution does not match this epoch (indexing bug)"
             end
         end
 
