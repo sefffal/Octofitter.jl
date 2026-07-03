@@ -2428,7 +2428,7 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
             # Inflate per-transit residual σ by the BINARYS first-harmonic factor
             # (Leclerc et al. 2023, Eq. 15) when generating synthetic noise.
             for i in 1:n_hip
-                new_hip_res[i] += randn() * like.hip_table.sres_renorm[i] * σ_inflation_hip[i]
+                new_hip_res[i] += randn() * hypot(like.hip_table.sres_renorm[i] * σ_inflation_hip[i], θ_obs.hip_iad_jitter)
             end
         end
     end
