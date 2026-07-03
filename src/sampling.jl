@@ -872,10 +872,15 @@ function mcmcchain2result(model, chain, ii=(:))
             if isempty(nt_pl_obs)
                 nt_pl[:observations] = (;)
             else
-                nt_pl[:observations] = namedtuple(Dict(
+                # Build from the actual values (not via a Dict) so the field
+                # types stay concrete: a Dict{Symbol,NamedTuple} with mixed
+                # observation variable sets has an abstract value type, which
+                # namedtuple() would bake into the result's type parameters
+                # and break _system_number_type downstream.
+                nt_pl[:observations] = (; (
                     k => namedtuple(v)
                     for (k,v) in nt_pl_obs
-                ))
+                )...)
             end
             
             return Symbol(pk) => namedtuple(nt_pl)

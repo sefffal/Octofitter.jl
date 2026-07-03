@@ -1517,7 +1517,14 @@ _system_number_type(T::NamedTuple) = _system_number_type(typeof(T))
         if V <: Number
             T = promote_type(T, V)
         elseif V <: NamedTuple
-            T = promote_type(T, _system_number_type(V))
+            # Only recurse into concretely-typed nested tuples. An abstractly
+            # typed field (e.g. a bare `NamedTuple`) can appear in values
+            # reconstructed outside the sampler hot path; its contents can't
+            # be inspected at compile time, so let the sibling numeric fields
+            # determine the number type instead of erroring.
+            if isconcretetype(V)
+                T = promote_type(T, _system_number_type(V))
+            end
         elseif V <: Tuple
             T = promote_type(T, eltype(V))
         end

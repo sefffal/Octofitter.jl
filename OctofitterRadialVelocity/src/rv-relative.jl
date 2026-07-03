@@ -133,7 +133,12 @@ function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVObs, θ_syst
     # Add RV contribution from this planet and any inner planets:
     for i_epoch in eachindex(epochs)
         sol = orbit_solutions[i_planet][i_epoch+orbit_solutions_i_epoch_start]
-        @assert isapprox(rvlike.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
+        # Bookkeeping check that this pre-solved solution belongs to this data
+        # epoch. `soltime` records the requested epoch verbatim for all orbit
+        # types (for AbsoluteVisual the light-travel-compensated emission time
+        # is stored separately), so this is an exact identity, not a physics
+        # tolerance.
+        @assert PlanetOrbits.soltime(sol) == rvlike.table.epoch[i_epoch] "pre-solved orbit solution does not match this epoch (indexing bug)"
         # Relative RV due to planet
         rv_model_buf[i_epoch] += radvel(sol)
 
@@ -150,7 +155,7 @@ function Octofitter.simulate!(rv_model_buf, rvlike::PlanetRelativeRVObs, θ_syst
                 
                 rv_model_buf[i_epoch] += radvel(sol′, mass_other)
                 
-                @assert isapprox(rvlike.table.epoch[i_epoch], PlanetOrbits.soltime(sol′), rtol=1e-2)
+                @assert PlanetOrbits.soltime(sol′) == rvlike.table.epoch[i_epoch] "pre-solved orbit solution does not match this epoch (indexing bug)"
             end
         end
     end

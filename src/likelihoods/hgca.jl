@@ -264,7 +264,9 @@ function simulate(pma::HGCAInstantaneousObs, θ_system, θ_obs, orbits, orbit_so
             end
             if orbit_solutions_i_epoch_start >= 0
                 sol = orbit_solutions[i_planet][orbit_solutions_i_epoch_start+i_epoch]
-                @assert isapprox(pma.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
+                # Bookkeeping check that this pre-solved solution belongs to this
+                # data epoch (exact identity; see rv-relative.jl for details).
+                @assert PlanetOrbits.soltime(sol) == pma.table.epoch[i_epoch] "pre-solved orbit solution does not match this epoch (indexing bug)"
             else
                 sol = orbitsolve(orbit, pma.table.epoch[i_epoch])
             end
@@ -323,7 +325,9 @@ function simulate(pma::HGCAInstantaneousObs, θ_system, θ_obs, orbits, orbit_so
             end
             if orbit_solutions_i_epoch_start >= 0
                 sol = orbit_solutions[i_planet][orbit_solutions_i_epoch_start+i_epoch]
-                @assert isapprox(pma.table.epoch[i_epoch], PlanetOrbits.soltime(sol), rtol=1e-2)
+                # Bookkeeping check that this pre-solved solution belongs to this
+                # data epoch (exact identity; see rv-relative.jl for details).
+                @assert PlanetOrbits.soltime(sol) == pma.table.epoch[i_epoch] "pre-solved orbit solution does not match this epoch (indexing bug)"
             else
                 sol = orbitsolve(orbit, pma.table.epoch[i_epoch])
             end
