@@ -564,7 +564,10 @@ function G23HObs(;
             end
         end
 
-        if !isnothing(hip_like)
+        # The IAD nuisance parameters are only meaningful while the :iad_hip
+        # likelihood row exists (likeobj_from_epoch_subset strips them again
+        # if a subset later removes that row).
+        if !isnothing(hip_like) && :iad_hip ∈ table.kind
             variables_iad = @variables begin
                 hip_iad_jitter ~ LogUniform(0.001, 100)
                 iad_Δra     ~ Uniform(-1000, 1000)
@@ -671,14 +674,31 @@ function Octofitter.likeobj_from_epoch_subset(like::G23HObs, obs_inds)
         ueva_mode ) = like
 
     table = table[obs_inds,:]
+    # NB: test the POST-subset table (`table`), not `like.table` — the whole
+    # point is to react to rows the subset removed. (Previously checked the
+    # original table, so the dist_hip/dist_hg nulling could never fire.)
     if  (
-            :iad_hip ∉ like.table.kind &&
-            :ra_hip ∉ like.table.kind &&
-            :dec_hip ∉ like.table.kind &&
-            :ra_hg ∉ like.table.kind &&
-            :dec_hg ∉ like.table.kind
+            :iad_hip ∉ table.kind &&
+            :ra_hip ∉ table.kind &&
+            :dec_hip ∉ table.kind &&
+            :ra_hg ∉ table.kind &&
+            :dec_hg ∉ table.kind
         )
         catalog = (;catalog..., dist_hip = nothing, dist_hg=nothing)
+    end
+    # When the subset removes the :iad_hip row, the six IAD nuisance
+    # parameters (hip_iad_jitter, iad_Δra/Δdec/Δplx/Δpmra/Δpmdec) and their
+    # two derived quantities (iad_pmra/iad_pmdec) no longer touch the
+    # likelihood anywhere — they would be sampled as pure prior draws,
+    # inflating the model dimension by 6 for nothing. Strip them so the
+    # model dimension matches the data channels actually in use.
+    if :iad_hip ∉ table.kind
+        iad_keys = (:hip_iad_jitter, :iad_Δra, :iad_Δdec, :iad_Δplx,
+                    :iad_Δpmra, :iad_Δpmdec, :iad_pmra, :iad_pmdec)
+        priors = Priors(OrderedDict(k => v for (k, v) in priors.priors if k ∉ iad_keys))
+        derived = Derived(
+            OrderedDict(k => v for (k, v) in derived.variables if k ∉ iad_keys),
+            derived.captured_names, derived.captured_vals)
     end
     obj = G23HObs{
         typeof(table),
@@ -966,6 +986,34 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
                 end
             end
 
+            # Change-of-variables Jacobian for the UEVA component (index 11).
+            # The MvNormal below treats t = UEVA_Gaia^(1/3) = μ_1_3 as the
+            # datum, but t is a parameter-dependent transform of the raw
+            # catalog datum:
+            #   :EAN  mode: t = (EAN² + σ_att² + σ_AL²)^(1/3),        datum EAN
+            #   :RUWE mode: t = (χ²_AL·(σ_att² + σ_AL²)/(N-dof))^(1/3), datum χ²_AL
+            #     (u0 cancels: (ruwe·u0)² = χ²_AL/(N-dof), and σ_formal² =
+            #      σ_att² + σ_AL² is parameter-dependent — see simulate!).
+            # A proper density in the raw datum needs log|dt/d(datum)|; the
+            # parameter-dependent parts (data-only constants omitted) are
+            #   :EAN : -(2/3)·log(UEVA_Gaia) = -2·log(μ_1_3)   [for EAN > 0]
+            #   :RUWE: +(1/3)·log(σ_att² + σ_AL²)
+            # Same class of bug as the rv_dr3 ξ² term (SBC 2026-07-04).
+            if mask[11]
+                if like.ueva_mode == :EAN
+                    # EAN == 0 is a boundary atom of the Gaia reduction (the
+                    # excess-noise fit pinned at zero); the continuous
+                    # change-of-variables does not apply there, so those stars
+                    # keep the untransformed density (flagged for a future
+                    # censored-likelihood treatment).
+                    if like.catalog.astrometric_excess_noise_dr3 > 0
+                        ll += -2 * log(μ_1_3)
+                    end
+                elseif like.ueva_mode == :RUWE
+                    ll += (T(1) / 3) * log(θ_obs.σ_att^2 + θ_obs.σ_AL^2)
+                end
+            end
+
             # We handle the iad separately from the big covariance matrix below, since it's not correlated
             # and we don't want to factorize a massively bigger matrix than necessary
             if :iad_hip ∈ like.table.kind
@@ -1040,7 +1088,15 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
                     # Catalog's chi-squared statistic (Eq. A5)
                     ξ_catalog_squared = (N_rv - 1) * s_catalog_squared / σ_rv_per_transit^2
 
-                    ll += logpdf(rv_chi2_dist, ξ_catalog_squared)
+                    # Change-of-variables Jacobian: the raw datum is the catalog
+                    # radial_velocity_error ε, but the density above is evaluated
+                    # in ξ² = (N-1)·(2N/π)(ε² - 0.113²)/σ², a transform that
+                    # depends on the parameter σ_rv_per_transit. A proper density
+                    # in ε needs log|dξ²/dε| = log(2ε·(N-1)·2N/π) - 2·log(σ);
+                    # the data-only constant is omitted, the parameter-dependent
+                    # -2·log(σ) is required (without it the posterior is biased
+                    # high by 2·sd(ln σ)² in log space; caught by SBC 2026-07-04).
+                    ll += logpdf(rv_chi2_dist, ξ_catalog_squared) - 2 * log(σ_rv_per_transit)
                 catch
                     ll += -Inf
                 end
@@ -1452,6 +1508,10 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         # IAD residual loop — identical to the slow path's loop but reading
         # Δα_mas_hip = Δδ_mas_hip ≡ 0 and σ_inflation_hip ≡ 1.
         if !isnothing(like.catalog.dist_hip)
+            # Only when the :iad_hip likelihood row is active: it is the sole
+            # consumer of iad_resid, and when it is excluded (epoch subset)
+            # the iad_* nuisance parameters are stripped from θ_obs entirely.
+            if :iad_hip ∈ like.table.kind
             (;iad_Δra, iad_Δdec, iad_pmra, iad_pmdec, iad_Δplx) = θ_obs
             plx_at_epoch = like.hip_sol.plx + iad_Δplx
             inv_julian_year = inv(julian_year)
@@ -1472,6 +1532,7 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
                 δ_off = iad_Δdec_eff + Δt * iad_pmdec_eff
                 proj_model = α_off * cosϕ + δ_off * sinϕ + plx_at_epoch * hip_plxFact[i_epoch]
                 iad_resid[i_epoch] = abs(hip_projMeas[i_epoch] - proj_model)
+            end
             end
             μ_h_fast = @SVector [θ_system.pmra + Δpmra_h, θ_system.pmdec + Δpmdec_h]
             hip_bias_pm_sq = Δpmra_h*Δpmra_h + Δpmdec_h*Δpmdec_h
@@ -1850,7 +1911,11 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
 
             Probably, one could put informed priors on most of these properies but we leave them wide open.
         =#
-        # if like.include_iad
+        # Only when the :iad_hip likelihood row is active: it is the sole
+        # consumer of iad_resid, and when it is excluded (epoch subset) the
+        # iad_* nuisance parameters are stripped from θ_obs entirely, so the
+        # destructure below would throw.
+        if :iad_hip ∈ like.table.kind
             (;iad_Δra,
                 iad_Δdec,
                 iad_pmra,
@@ -1909,7 +1974,7 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
             # )
             # Main.stem(f[2,1], α✱_models, iad_resid)
             # f|>display
-        # end
+        end
 
     end
 
@@ -2427,8 +2492,13 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
         if add_noise
             # Inflate per-transit residual σ by the BINARYS first-harmonic factor
             # (Leclerc et al. 2023, Eq. 15) when generating synthetic noise.
+            # hip_iad_jitter only exists in θ_obs while the :iad_hip likelihood
+            # row is active (the nuisance block is stripped otherwise); without
+            # it, simulate the residual noise with zero excess jitter — the
+            # residuals are not consumed by any active likelihood term then.
+            hip_jitter = :iad_hip ∈ like.table.kind ? θ_obs.hip_iad_jitter : 0.0
             for i in 1:n_hip
-                new_hip_res[i] += randn() * hypot(like.hip_table.sres_renorm[i] * σ_inflation_hip[i], θ_obs.hip_iad_jitter)
+                new_hip_res[i] += randn() * hypot(like.hip_table.sres_renorm[i] * σ_inflation_hip[i], hip_jitter)
             end
         end
     end
