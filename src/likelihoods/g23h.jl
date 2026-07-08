@@ -13,6 +13,11 @@ proper motion accelerations and unit weight error variance analysis (UEVA).
 - `catalog`: Path to G23H catalog file, or a loaded DataFrame/Table.
   Defaults to the automatically downloaded G23H catalog via DataDeps.
 - `include_rv`: Whether to include Gaia RV variability constraints (default: true)
+- `rv_ln_uncert_err_floor`: Minimum adopted uncertainty on the catalog per-transit
+  RV ln-σ calibration `rv_ln_uncert_err_dr3` (default: 0.30). The GP calibration is
+  Malmquist-biased for cool dwarfs — their calibration bins are dominated by distant
+  giants with sharper lines — so the quoted uncertainty can be unrealistically small
+  and over-constrain the σ_rv_per_transit prior. Set to `nothing` for the raw value.
 - `ueva_mode`: Either `:RUWE` (default) or `:EAN` for astrometric excess noise modeling
 - `freeze_epochs`: If true, fix Gaia observation epochs for faster sampling (default: false)
 - `variables`: Optional custom priors (defaults are set from catalog values)
@@ -144,11 +149,20 @@ function _g23h_merge_dr2_sidecar(catalog, gaia_id, dr2_transits_catalog)
         "matched-transit count (`astrometric_matched_observations_dr2`) is required to " *
         "set the DR2/DR3 correlation; there is no fallback.")
     srow = NamedTuple(Table(tbl)[idx])
-    haskey(srow, :astrometric_matched_observations_dr2) || error(
-        "The G23H_DR2Transits sidecar is missing the required column " *
-        "`astrometric_matched_observations_dr2`.")
-    return merge(catalog, (;
-        astrometric_matched_observations_dr2 = srow.astrometric_matched_observations_dr2))
+    # The published G23H_DR2Transits sidecar (CANFAR DOI 26.0016) carries the DR2
+    # count under its native Gaia column name `astrometric_matched_observations`
+    # (renamed `astrometric_matched_transits` in (E)DR3); accept either that or the
+    # `_dr2`-suffixed internal name, and store it internally as the latter.
+    n_dr2 = if haskey(srow, :astrometric_matched_observations_dr2)
+        srow.astrometric_matched_observations_dr2
+    elseif haskey(srow, :astrometric_matched_observations)
+        srow.astrometric_matched_observations
+    else
+        error("The G23H_DR2Transits sidecar is missing the DR2 matched-observation " *
+              "count (`astrometric_matched_observations_dr2` or " *
+              "`astrometric_matched_observations`).")
+    end
+    return merge(catalog, (; astrometric_matched_observations_dr2 = n_dr2))
 end
 
 # Number of DR3-used transits to force into the DR2 window (the stratification
@@ -182,6 +196,7 @@ function G23HObs(;
         catalog=joinpath(datadep"G23H_Catalog", "G23H-v1.0.feather"),
         variables::Union{Nothing,Tuple{Priors,Derived}}=nothing,
         include_rv=true,
+        rv_ln_uncert_err_floor::Union{Nothing,Real}=0.30,
         ueva_mode::Symbol=:RUWE,
         freeze_epochs=false,
         dr2_transits_catalog=nothing,
@@ -258,6 +273,19 @@ function G23HObs(;
     # See `_g23h_merge_dr2_sidecar` / `_g23h_dr2_target_transits`.
     if !isnothing(gaia_id)
         catalog = _g23h_merge_dr2_sidecar(catalog, gaia_id, dr2_transits_catalog)
+    end
+
+    # Floor the uncertainty of the per-transit RV ln-σ calibration. The GP
+    # calibration behind rv_ln_uncert_err_dr3 is Malmquist-biased for cool
+    # dwarfs: their (colour, magnitude) calibration bins are dominated by
+    # distant giants with sharper lines, so the quoted uncertainty on ln σ_rv
+    # is unrealistically small and over-constrains the σ_rv_per_transit prior.
+    if !isnothing(rv_ln_uncert_err_floor) &&
+            hasproperty(catalog, :rv_ln_uncert_err_dr3) &&
+            !ismissing(catalog.rv_ln_uncert_err_dr3) &&
+            isfinite(catalog.rv_ln_uncert_err_dr3)
+        catalog = merge(catalog, (;
+            rv_ln_uncert_err_dr3 = max(catalog.rv_ln_uncert_err_dr3, rv_ln_uncert_err_floor)))
     end
 
     if isnan(catalog.hip_id)
