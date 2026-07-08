@@ -92,6 +92,89 @@ function likelihoodname(like::G23HObs)
     return "G23H"
 end
 
+# ──────────────────────────────────────────────────────────────────────
+# DR2/DR3 matched-transit sidecar plumbing
+#
+# The Gaia DR2 astrometric solution is a time-subset of DR3 (shared start,
+# earlier stop) built from a subset of the same transits, so the DR2 and DR3
+# positions are correlated with ρ_dr3_dr2 = √(n_dr2/n_dr3), where n_dr2 is the
+# number of DR3-used transits that fall inside the DR2 window. Realizing that
+# correlation self-consistently requires knowing the DR2 matched-transit count.
+#
+# That count is NOT carried in the published G23H catalog, so it is supplied by
+# a mandatory companion sidecar (the `G23H_DR2Transits` DataDep, or the
+# `dr2_transits_catalog` keyword) via the column
+# `astrometric_matched_observations_dr2`. In Gaia DR2 this field is the number
+# of *FoV transits* matched to the source — it was renamed
+# `astrometric_matched_transits` in (E)DR3 — so it is directly comparable to
+# the DR3 count and needs no per-transit conversion. There is no fallback: if
+# the count cannot be resolved for a source, construction errors.
+# ──────────────────────────────────────────────────────────────────────
+
+const _G23H_DR2_SIDECAR = Ref{Any}(nothing)
+const _G23H_DR2_SIDECAR_LOCK = ReentrantLock()
+
+# Lazily load (and memoize) the sidecar table registered as the
+# `G23H_DR2Transits` DataDep. Returns a Tables.jl table.
+function _g23h_dr2_sidecar_datadep()
+    lock(_G23H_DR2_SIDECAR_LOCK) do
+        if isnothing(_G23H_DR2_SIDECAR[])
+            dir = datadep"G23H_DR2Transits"
+            feathers = filter(f -> endswith(f, ".feather"), readdir(dir; join=true))
+            isempty(feathers) && error("No .feather file found in the G23H_DR2Transits DataDep at $dir")
+            _G23H_DR2_SIDECAR[] = Arrow.Table(first(feathers))
+        end
+        return _G23H_DR2_SIDECAR[]
+    end
+end
+
+# Merge the DR2 matched-transit count for `gaia_id` into the catalog row from
+# the mandatory sidecar. No-op if the catalog already carries the column.
+# Errors (no fallback) if the sidecar or the source's row cannot be resolved.
+function _g23h_merge_dr2_sidecar(catalog, gaia_id, dr2_transits_catalog)
+    hasproperty(catalog, :astrometric_matched_observations_dr2) && return catalog
+    tbl = if !isnothing(dr2_transits_catalog)
+        Tables.istable(dr2_transits_catalog) ? dr2_transits_catalog : Arrow.Table(dr2_transits_catalog)
+    else
+        _g23h_dr2_sidecar_datadep()
+    end
+    idx = findfirst(==(gaia_id), Tables.getcolumn(tbl, :gaia_source_id))
+    isnothing(idx) && error(
+        "Gaia source $gaia_id was not found in the G23H_DR2Transits sidecar. The DR2 " *
+        "matched-transit count (`astrometric_matched_observations_dr2`) is required to " *
+        "set the DR2/DR3 correlation; there is no fallback.")
+    srow = NamedTuple(Table(tbl)[idx])
+    haskey(srow, :astrometric_matched_observations_dr2) || error(
+        "The G23H_DR2Transits sidecar is missing the required column " *
+        "`astrometric_matched_observations_dr2`.")
+    return merge(catalog, (;
+        astrometric_matched_observations_dr2 = srow.astrometric_matched_observations_dr2))
+end
+
+# Number of DR3-used transits to force into the DR2 window (the stratification
+# target), taken from the mandatory DR2 matched-transit count. Errors if it is
+# unavailable or non-finite (no fallback by design).
+function _g23h_dr2_target_transits(catalog, n_dr3::Integer)
+    hasproperty(catalog, :astrometric_matched_observations_dr2) || error(
+        "G23HObs requires the Gaia DR2 matched-transit count " *
+        "(`astrometric_matched_observations_dr2`) from the G23H_DR2Transits sidecar " *
+        "or the `dr2_transits_catalog` keyword; it was not found for this source.")
+    v = catalog.astrometric_matched_observations_dr2
+    (ismissing(v) || !isfinite(v)) && error(
+        "Gaia DR2 `astrometric_matched_observations_dr2` is missing/non-finite for this source.")
+    n_dr2 = round(Int, v)
+    if n_dr2 > n_dr3
+        # DR2 transits are a temporal subset of DR3, so n_dr2 ≤ n_dr3 must hold.
+        # A larger value almost certainly means the column holds CCD-level AL
+        # observations rather than FoV transits — flag it and clamp.
+        @warn "DR2 matched transits ($n_dr2) exceed DR3 matched transits ($n_dr3); the " *
+              "sidecar `astrometric_matched_observations_dr2` may be CCD-level AL " *
+              "observations rather than FoV transits. Clamping to $n_dr3."
+        n_dr2 = n_dr3
+    end
+    return max(n_dr2, 0)
+end
+
 function G23HObs(;
         gaia_id=nothing,
         hip_id=nothing,
@@ -100,7 +183,8 @@ function G23HObs(;
         variables::Union{Nothing,Tuple{Priors,Derived}}=nothing,
         include_rv=true,
         ueva_mode::Symbol=:RUWE,
-        freeze_epochs=false
+        freeze_epochs=false,
+        dr2_transits_catalog=nothing,
     )
     include_iad=false
 
@@ -164,6 +248,16 @@ function G23HObs(;
             rv_nb_transits=dr3.rv_nb_transits,
             radial_velocity_error=dr3.radial_velocity_error,
         )
+    end
+
+    # Resolve the Gaia DR2 matched-transit count (used to set the DR2/DR3
+    # stratified epoch-selection target). Not in the published G23H catalog;
+    # pulled from the `dr2_transits_catalog` keyword when given, else the
+    # mandatory `G23H_DR2Transits` sidecar DataDep, and merged into the catalog
+    # row. Errors if it cannot be resolved (no fallback).
+    # See `_g23h_merge_dr2_sidecar` / `_g23h_dr2_target_transits`.
+    if !isnothing(gaia_id)
+        catalog = _g23h_merge_dr2_sidecar(catalog, gaia_id, dr2_transits_catalog)
     end
 
     if isnan(catalog.hip_id)
@@ -504,6 +598,12 @@ function G23HObs(;
         end
         @info "Count of missed or rejected transits:"  dr3=missed_transits
 
+        # DR2/DR3 stratified epoch selection is configured in the full-model
+        # branch below (it needs len_epochs ≥ astrometric_matched_transits_dr3).
+        # It stays off only in the degenerate branch where the GOST forecast has
+        # fewer epochs than Gaia's matched-transit count.
+        stratify_dr2 = false
+
         variables = @variables begin
             σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
             σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
@@ -531,35 +631,59 @@ function G23HObs(;
                 end)
             end
         else
-            # This is an optional approximation that can massievly speed up sampling -- 
-            # sample the epochs randomly once and fix them for all remaining sampling
+            # Full model: sample the *indices* of the GOST-forecast epochs Gaia
+            # actually used via continuous `transit_priorities` (highest values
+            # win). We assume the DR2-used epochs are a subset of the DR3-used
+            # ones, and the RV epochs a subset of the astrometric ones (any
+            # skipped astrometry visit is also skipped for RV) to keep the
+            # problem tractable.
+            #
+            # DR2/DR3 stratified selection: partition the forecast epochs by the
+            # DR2 window stop and force exactly `n2_win` of the
+            # `astrometric_matched_transits_dr3` selected epochs into the DR2
+            # window, so ρ_dr3_dr2 = √(n_dr2/n_dr3) is realized self-consistently
+            # (downstream ρ reads n_dr2 off the count of selected in-window
+            # transits). A free top-k would leave n_dr2 random and biased low.
+            dr2_stop_mjd = meta_gaia_DR2.stop_mjd
+            dr2_epoch_all = vec(gaia_table.epoch)
+            dr2_in_win  = findall(<=(dr2_stop_mjd), dr2_epoch_all)
+            dr2_in_tail = findall(>(dr2_stop_mjd),  dr2_epoch_all)
+            n_dr2_target = _g23h_dr2_target_transits(catalog, astrometric_matched_transits_dr3)
+            n2_win = clamp(n_dr2_target, 0, length(dr2_in_win))
+            n_tail = astrometric_matched_transits_dr3 - n2_win
+            (0 <= n_tail <= length(dr2_in_tail)) || error(
+                "DR2/DR3 stratification infeasible: need $n_tail tail epochs of " *
+                "$(length(dr2_in_tail)) (n_dr2_target=$n_dr2_target, " *
+                "N_FoV=$astrometric_matched_transits_dr3).")
+            if length(dr2_in_win) < n_dr2_target
+                @warn "GOST forecast has fewer DR2-window epochs than the DR2 matched-transit count; ρ_dr3_dr2 under-realized for this star." n_win=length(dr2_in_win) n_dr2_target
+            end
+            stratify_dr2 = true
+            @info "DR2/DR3 stratified epoch selection" n_dr2_target n2_win n_tail ρ_dr3_dr2_target=sqrt(n2_win / astrometric_matched_transits_dr3)
+
+            # sort: downstream window logic (findfirst/findlast on
+            # gaia_table[transits,:].epoch) requires chronological order;
+            # partialsortperm returns priority order.
             if freeze_epochs
+                # Optional speed-up: sample the epochs once and fix them.
                 transit_priorities = (randn(len_epochs)...,)
-                # sort: downstream window logic (findfirst/findlast on gaia_table[transits,:].epoch)
-                # requires chronological order; partialsortperm returns priority order.
-                transits = sort(partialsortperm(SVector(transit_priorities), 1:astrometric_matched_transits_dr3, rev=true))
+                transits = sort(vcat(
+                    dr2_in_win[ partialsortperm(SVector(transit_priorities)[dr2_in_win],  1:n2_win, rev=true)],
+                    dr2_in_tail[partialsortperm(SVector(transit_priorities)[dr2_in_tail], 1:n_tail, rev=true)]))
                 variables = vcat(variables, @variables begin
                     transit_priorities = $transit_priorities
                     transits = $transits
                 end)
             else
-                # Full model:
-                # include the epochs of the Gaia observations as variables 
-                # Our goal is to sample the *indices* of the subset of possible observation epochs
-                # reported by GOST. We assume that the same subset of epochs used by DR2 are also used
-                # in DR3. We assume that the RV epochs used by DR3 are a subset of the astrometry epochs
-                # ie any rejected or skipped astrometry epochs are also skipped for RV. This is just to 
-                # make the problem tractable.
-                # 
-                # We sample the discrete set of epochs used by a having a full set of continuous variables
-                # corresponding to each possible observing epoch. At any given point, the epochs used in the model
-                # are the values with the highest values.
+                # Stratified two-pool selection every evaluation: n2_win from the
+                # DR2 window + n_tail from the DR3-only tail, so n_dr2 == n2_win
+                # and ρ_dr3_dr2 = √(n2_win/N_FoV). transit_priorities still chooses
+                # *which* epochs within each pool.
                 variables = vcat(variables, @variables begin
                     transit_priorities ~ MvNormal(zeros(len_epochs), I)
-                    # sort: downstream window logic (findfirst/findlast on gaia_table[transits,:].epoch)
-                    # requires chronological order; partialsortperm returns priority order (unsorted
-                    # epochs collapse the DR2/DR3 windows onto each other: n_dr2≈n_dr3 → ρ_dr3_dr2≈1).
-                    transits = sort(partialsortperm(SVector(transit_priorities), 1:$astrometric_matched_transits_dr3, rev=true))
+                    transits = sort(vcat(
+                        $(dr2_in_win)[ partialsortperm(SVector(transit_priorities)[$(dr2_in_win)],  1:$(n2_win), rev=true)],
+                        $(dr2_in_tail)[partialsortperm(SVector(transit_priorities)[$(dr2_in_tail)], 1:$(n_tail), rev=true)]))
                 end)
             end
         end
@@ -607,13 +731,23 @@ function G23HObs(;
 
             # RV transits are modeled as a subset of the astrometric-used transits:
             # entirely-missed visits (e.g. gaps in Gaia coverage) are assumed missed
-            # for both astrometry and RV. Because `transit_priorities` is shared with
-            # the astrometric selection, the top-`n_rv` priorities automatically form
-            # a subset of the top-`astrometric_matched_transits_dr3` astrometric set
-            # (whenever n_rv ≤ astrometric_matched_transits_dr3).
+            # for both astrometry and RV.
             if n_rv > 0 && n_rv < len_epochs
-                rv_vars = @variables begin
-                    transits_rv = sort(partialsortperm(SVector(transit_priorities), 1:$n_rv, rev=true))
+                if stratify_dr2
+                    # With stratification the astrometric set is no longer a plain
+                    # global top-k, so a global top-`n_rv` could pick epochs the
+                    # stratified set excluded. Select the top-`n_rv` priorities from
+                    # *within* `transits` to keep transits_rv ⊆ transits.
+                    rv_vars = @variables begin
+                        transits_rv = sort(transits[partialsortperm(SVector(transit_priorities)[transits], 1:$n_rv, rev=true)])
+                    end
+                else
+                    # Free selection: transit_priorities is shared, so the top-`n_rv`
+                    # priorities are automatically a subset of the top-N_FoV
+                    # astrometric set (whenever n_rv ≤ astrometric_matched_transits_dr3).
+                    rv_vars = @variables begin
+                        transits_rv = sort(partialsortperm(SVector(transit_priorities), 1:$n_rv, rev=true))
+                    end
                 end
                 variables = vcat(variables, rv_vars)
             end
