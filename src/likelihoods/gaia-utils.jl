@@ -633,7 +633,19 @@ function _simulate_skypath_hippacentre_combined!(
 
             ζ_k = two_π_over_s * ρ_pk
             f_k = flux_ratios[k] * α_k
-            sin_ζk, cos_ζk = sincos(ζ_k)
+            # A degenerate orbit proposal (e.g. an extreme sampler step) can
+            # make raoff/decoff — and hence ρ_pk and ζ_k — non-finite. Julia's
+            # `sincos` throws a DomainError on ±Inf/NaN, which would crash the
+            # whole evaluation. The host-reflex term below is already ±Inf for
+            # such a proposal, so the model is non-finite regardless; propagate
+            # NaN here instead of throwing so the sample is cleanly rejected
+            # (−Inf log-likelihood), mirroring the DR2/DR3 skypath path which
+            # never calls trig and just lets Inf flow downstream.
+            if isfinite(ζ_k)
+                sin_ζk, cos_ζk = sincos(ζ_k)
+            else
+                sin_ζk = cos_ζk = oftype(ζ_k, NaN)
+            end
             Re += f_k * cos_ζk
             Im += f_k * sin_ζk
             f_total += f_k
