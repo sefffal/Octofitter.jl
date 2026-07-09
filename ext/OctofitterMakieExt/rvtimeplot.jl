@@ -476,6 +476,56 @@ function rvtimeplot_relative!(
     xlims!(ax, extrema(ts))
     xlims!(ax_secondary, extrema(ts))
 
+    
+    for planet_key in keys(model.system.planets)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
+
+        sols = orbitsolve.(orbs, ts')
+
+        color_model_t = rem2pi.(
+            eccanom.(sols), RoundDown)
+
+        # Account for planet-star interactions from interior planets
+        ra_host_perturbation = zeros(size(sols), )
+        dec_host_perturbation = zeros(size(sols), )
+        for planet_key′ in keys(model.system.planets)
+            if !haskey(results, Symbol("$(planet_key′)_mass"))
+                continue
+            end
+
+            other_planet_mass = results["$(planet_key′)_mass"][ii]
+            orbit_other = Octofitter.construct_elements(model, results, planet_key′, ii)
+            try
+                raoff.(orbit_other, 0)
+            catch
+                continue
+            end
+
+            # Only account for interior planets
+            mask = semimajoraxis.(orbit_other) .< semimajoraxis.(orbs)
+            sols′ = orbitsolve.(orbit_other, ts')
+            
+            ra_host_perturbation .+= mask .* raoff.(sols′, other_planet_mass.*Octofitter.mjup2msol)
+            dec_host_perturbation .+= mask .* decoff.(sols′, other_planet_mass.*Octofitter.mjup2msol)
+        end
+
+        ra_model = (raoff.(sols) .- ra_host_perturbation)
+        dec_model = (decoff.(sols) .- dec_host_perturbation)
+        sep_model_t = hypot.(ra_model, dec_model)
+        pa_model_t = rem2pi.(atan.(ra_model, dec_model), RoundDown)
+
+        lines!(
+            ax,
+            concat_with_nan(ts' .+ 0 .* ii),
+            concat_with_nan(rv_model_t) .* kms_mult;
+            color=concat_with_nan(color_model_t),
+            colormap=colormaps[planet_key],
+            alpha,
+            rasterize=4,
+        )
+    end
+
+
     for (i_planet, planet_key) in enumerate(keys(model.system.planets))
         # Plot each relative RV separately
         orbs = Octofitter.construct_elements(model, results, planet_key, ii)
