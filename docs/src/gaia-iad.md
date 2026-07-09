@@ -35,7 +35,7 @@ scatter(
 
 We can now construct a likelihood object for this data. We must also supply the Gaia ID, which will be used to query the full Gaia solution for this object (for now, using DR3):
 ```@example 1
-gaiaIADLike = GaiaDR4Astrom(df, gaia_id=4318465066420528000)
+gaiaIADlike = GaiaDR4Astrom(df, gaia_id=4318465066420528000)
 ```
 
 This object also has published RV data from Gaia, which we can load and use as normal:
@@ -72,6 +72,8 @@ mjup2msol = Octofitter.mjup2msol
 ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 orbit_ref_epoch = mean(gaiaIADlike.table.epoch)
 mean_rv = mean(dfrv.rv)
+DR4_REFERENCE_EPOCH = 2457936.875 # J2017.5 
+
 @planet b Visual{KepOrbit} begin
     a ~ Uniform(0, 1000)
     e ~ Uniform(0, 0.99)
@@ -98,6 +100,7 @@ sys = @system gaiadr4test begin
     dec_offset_mas ~ Normal(0, 100)
     dec = $gaiaIADlike.gaia_sol.dec + system.ra_offset_mas / 60 / 60 / 1000
     ra = $gaiaIADlike.gaia_sol.ra + system.dec_offset_mas / 60 / 60 / 1000 / cosd(system.dec)
+    ref_epoch = $DR4_REFERENCE_EPOCH
 
     # Absolutely no idea what range is reasonable here
     astrometric_jitter ~ LogUniform(0.00001, 10) # mas
