@@ -6,13 +6,45 @@ using Transducers
 using CovarianceEstimation
 export sample_priors
 
+
 sample_priors(arg::Union{Planet,System,<:LogDensityModel}, args...; kwargs...) = sample_priors(Random.default_rng(), arg, args...; kwargs...)
 # Sample priors from system once
 function sample_priors(rng::Random.AbstractRNG, system::System)
-    priors_flat_sampled = map(((k,v),)->rand(rng, v), Iterators.flatten([
-        system.priors.priors,
-        [planet.priors.priors for planet in system.planets]...
-    ]))
+    # Collect all priors in the same order as _list_priors and make_arr2nt
+    all_priors = []
+    
+    # System priors
+    for prior_distribution in values(system.priors.priors)
+        push!(all_priors, prior_distribution)
+    end
+    
+    # System observation priors
+    for obs in system.observations
+        if hasproperty(obs, :priors)
+            for prior_distribution in values(obs.priors.priors)
+                push!(all_priors, prior_distribution)
+            end
+        end
+    end
+    
+    # Planet priors
+    for planet in system.planets
+        for prior_distribution in values(planet.priors.priors)
+            push!(all_priors, prior_distribution)
+        end
+        
+        # Planet observation priors
+        for obs in planet.observations
+            if hasproperty(obs, :priors)
+                for prior_distribution in values(obs.priors.priors)
+                    push!(all_priors, prior_distribution)
+                end
+            end
+        end
+    end
+    
+    # Sample from all priors
+    priors_flat_sampled = map(prior -> rand(rng, prior), all_priors)
     return priors_flat_sampled
 end
 # Sample priors from system many times
@@ -110,6 +142,143 @@ Base.@nospecializeinfer function octofit(args...; kwargs...)
     return advancedhmc(args...; kwargs...)
 end
 export octofit
+
+
+"""
+    octofit_rejection(
+        [rng::Random.AbstractRNG],
+        model::Octofitter.LogDensityModel;
+        draws=100_000,
+        verbosity=2,
+    )
+
+Sample from the posterior defined by `model` using rejection sampling with the
+prior as the proposal distribution.
+
+This sampler draws `draws` samples from the prior, evaluates the likelihood at
+each point, and accepts each sample with probability proportional to its
+likelihood. The accepted samples are independent (no autocorrelation), but the
+method can be very inefficient for high-dimensional problems or when the
+posterior is much narrower than the prior.
+
+Returns an `MCMCChains.Chains` object, consistent with `octofit` and
+`octofit_pigeons`.
+"""
+function octofit_rejection end
+octofit_rejection(model::LogDensityModel; kwargs...) = octofit_rejection(Random.default_rng(), model; kwargs...)
+function octofit_rejection(
+    rng::AbstractRNG,
+    model::LogDensityModel;
+    draws::Int=100_000,
+    verbosity::Int=2,
+)
+    start_time = fill(time(), 1)
+
+    # Sample from the prior (proposal distribution)
+    verbosity >= 1 && @info "Drawing $draws samples from prior..."
+    prior_samples = [model.sample_priors(rng) for _ in 1:draws]
+
+    # Build the likelihood function
+    θ_test = model.arr2nt(first(prior_samples))
+    ln_like = make_ln_like(model.system, θ_test)
+
+    # Evaluate log-likelihood for each prior sample.
+    # Use a function barrier so the compiler can specialize on the concrete
+    # types of arr2nt, ln_like, and system (these are abstract when accessed
+    # through model fields in the outer closure).
+    verbosity >= 1 && @info "Evaluating likelihoods..."
+    log_likes = _rejection_evaluate_likelihoods(
+        model.arr2nt, ln_like, model.system, prior_samples
+    )
+
+    # Find the maximum log-likelihood for numerical stability
+    max_ll = maximum(log_likes)
+
+    if !isfinite(max_ll)
+        error("All $(draws) prior samples produced non-finite log-likelihoods. Check your model and priors.")
+    end
+
+    # Accept/reject: accept with probability exp(loglike - max_loglike)
+    accepted_indices = Int[]
+    for i in 1:draws
+        if log_likes[i] == -Inf
+            continue
+        end
+        acceptance_prob = exp(log_likes[i] - max_ll)
+        if rand(rng) < acceptance_prob
+            push!(accepted_indices, i)
+        end
+    end
+
+    n_accepted = length(accepted_indices)
+    if n_accepted == 0
+        error("No samples were accepted out of $(draws) draws. The posterior may be extremely concentrated relative to the prior. Consider increasing `draws` or using a different sampler.")
+    end
+
+    acceptance_rate = n_accepted / draws
+    if verbosity >= 1
+        @info "Rejection sampling complete" draws n_accepted acceptance_rate
+    end
+    if acceptance_rate < 0.001 && verbosity >= 1
+        @warn "Very low acceptance rate ($(round(acceptance_rate*100, sigdigits=2))%). Consider using `octofit` (HMC) for more efficient sampling."
+    end
+
+    # Build the chain results in the same format as octofit.
+    # Again use a function barrier for the hot path.
+    chain_res = _rejection_build_chain(
+        model.arr2nt, model.link, model.ℓπcallback,
+        prior_samples, log_likes, accepted_indices,
+    )
+
+    mcmcchains = Octofitter.result2mcmcchain(
+        chain_res,
+        Dict(:internals => [
+            :loglike,
+            :logpost,
+        ])
+    )
+
+    stop_time = fill(time(), 1)
+
+    mcmcchains_with_info = MCMCChains.setinfo(
+        mcmcchains,
+        (;
+            start_time,
+            stop_time,
+            model_name=model.system.name,
+            sampler="rejection",
+            draws,
+            n_accepted,
+            acceptance_rate,
+        )
+    )
+    return mcmcchains_with_info
+end
+export octofit_rejection
+
+# Function barriers for rejection sampling so the compiler can specialize
+# on the concrete types of the closures stored in LogDensityModel.
+function _rejection_evaluate_likelihoods(arr2nt, ln_like, system, prior_samples)
+    log_likes = Vector{Float64}(undef, length(prior_samples))
+    for (i, θ) in enumerate(prior_samples)
+        resolved = arr2nt(θ)
+        ll = ln_like(system, resolved)
+        log_likes[i] = isfinite(ll) ? ll : -Inf
+    end
+    return log_likes
+end
+
+function _rejection_build_chain(arr2nt, link, ℓπcallback, prior_samples, log_likes, accepted_indices)
+    return map(accepted_indices) do i
+        θ = prior_samples[i]
+        resolved_namedtuple = arr2nt(θ)
+        loglike = log_likes[i]
+        θ_t = link(θ)
+        logpost = ℓπcallback(θ_t)
+        return merge((;loglike, logpost), resolved_namedtuple)
+    end
+end
+
 
 # Define some wrapper functions that hide type information
 # so that we don't have to recompile pathfinder() with each 
@@ -386,14 +555,92 @@ function result2mcmcchain(chain_in, sectionmap=Dict())
     # accordingly (see flatten_named_tuple)
     flattened_labels = keys(flatten_named_tuple(first(chain_in)))
     data = zeros(length(chain_in), length(flattened_labels))
+    
     for (i, sample) in enumerate(chain_in)
-        for (j, val) in enumerate(Iterators.flatten(Iterators.flatten(Iterators.flatten(sample))))
+        # Instead of using nested Iterators.flatten, we need to extract values
+        # in the same order as flatten_named_tuple creates keys
+        vals = Float64[]
+        
+        # System-level variables
+        for key in keys(sample)
+            if key in (:planets, :observations)
+                continue
+            end
+            if sample[key] isa Number
+                push!(vals, sample[key])
+            elseif sample[key] isa AbstractArray || sample[key] isa Tuple
+                for val in sample[key]
+                    if val isa Number
+                        push!(vals, val)
+                    end
+                end
+            end
+        end
+        
+        # System observations
+        for obs in keys(get(sample, :observations, (;)))
+            for key in keys(sample.observations[obs])
+                if sample.observations[obs][key] isa Number
+                    push!(vals, sample.observations[obs][key])
+                elseif sample.observations[obs][key] isa AbstractArray || sample.observations[obs][key] isa Tuple
+                    for val in sample.observations[obs][key]
+                        if val isa Number
+                            push!(vals, val)
+                        end
+                    end
+                end
+            end
+        end
+        
+        # Planet-level variables and their observations
+        for pl in keys(get(sample, :planets, (;)))
+            for key in keys(sample.planets[pl])
+                if key == :observations
+                    continue
+                end
+                if sample.planets[pl][key] isa Number
+                    push!(vals, sample.planets[pl][key])
+                elseif sample.planets[pl][key] isa AbstractArray || sample.planets[pl][key] isa Tuple
+                    for val in sample.planets[pl][key]
+                        if val isa Number
+                            push!(vals, val)
+                        end
+                    end
+                end
+            end
+            
+            # Planet observations
+            for obs in keys(get(sample.planets[pl], :observations, (;)))
+                for key in keys(sample.planets[pl].observations[obs])
+                    if sample.planets[pl].observations[obs][key] isa Number
+                        push!(vals, sample.planets[pl].observations[obs][key])
+                    elseif sample.planets[pl].observations[obs][key] isa AbstractArray || sample.planets[pl].observations[obs][key] isa Tuple
+                        for val in sample.planets[pl].observations[obs][key]
+                            if val isa Number
+                                push!(vals, val)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        
+        # Fill the data matrix
+        for (j, val) in enumerate(vals)
             data[i,j] = val
         end
     end
+    
     c = Chains(data, [string(l) for l in flattened_labels], sectionmap)
     return c
 end
+
+# MCMCChains v7 no longer defines `haskey` for `Chains`, which Octofitter and
+# its extensions rely on to test whether a parameter is present in a chain.
+# Restore the previous behaviour with a single method so that `haskey(chain, key)`
+# keeps working everywhere (including the Makie and PairPlots extensions) without
+# clobbering `Base.haskey` for Dicts/NamedTuples.
+Base.haskey(chain::MCMCChains.Chains, key) = key ∈ names(chain)
 
 """
     mcmcchain2result(model, chain_in,)
@@ -407,18 +654,27 @@ function mcmcchain2result(model, chain, ii=(:))
     nt = model.arr2nt(θ)
 
     planetkeys = string.(keys(model.system.planets))
+    
+    # Get observation keys
+    sysobs_keys = string.(keys(get(nt, :observations, (;))))
+    planet_obs_keys = Dict{String, Vector{String}}()
+    for pl in keys(get(nt, :planets, (;)))
+        planet_obs_keys[string(pl)] = collect(string.(keys(get(nt.planets[pl], :observations, (;)))))
+    end
 
     # Map output keys in the named tuple to one or more input keys in the chain
     # Complicated because in the chain representation, array-valued variables get
     # flattened out; e.g. (;a=1,b=(1,2,3)) becomes four columns [a, b_1, b_2, b_3]
     key_mapping = Pair{Symbol,Vector{Symbol}}[]
+    
+    # System variables
     for key in keys(nt)
-        if key == :planets
+        if key in (:planets, :observations)
             continue
         end
         if nt[key] isa Number
             push!(key_mapping, key => [key])
-        else
+        elseif  nt[key] isa Tuple
             arr = Symbol[]
             push!(key_mapping, key => arr)
             for i in eachindex(nt[key])
@@ -427,17 +683,56 @@ function mcmcchain2result(model, chain, ii=(:))
             end
         end
     end
+    
+    # System observations
+    for obs in keys(get(nt, :observations, (;)))
+        for key in keys(nt.observations[obs])
+            if nt.observations[obs][key] isa Number
+                k = Symbol(obs, '_', key)
+                push!(key_mapping, k => [k])
+            elseif  nt.observations[obs][key] isa Tuple
+                arr = Symbol[]
+                push!(key_mapping, Symbol(obs, '_', key) => arr)
+                for i in eachindex(nt.observations[obs][key])
+                    key_i = Symbol(obs, '_', key, '_', i)
+                    push!(arr, key_i)
+                end
+            end
+        end
+    end
+    
+    # Planet variables
     for pl in keys(get(nt, :planets, (;)))
         for key in keys(nt.planets[pl])
+            if key == :observations
+                continue
+            end
             if nt.planets[pl][key] isa Number
                 k = Symbol(pl, '_', key)
                 push!(key_mapping, k => [k])
-            else
+            elseif  nt.planets[pl][key] isa Tuple
                 arr = Symbol[]
                 push!(key_mapping, Symbol(pl, '_', key) => arr)
                 for i in eachindex(nt.planets[pl][key])
                     key_i = Symbol(pl, '_', key, '_', i)
                     push!(arr, key_i)
+                end
+            end
+        end
+        
+        # Planet observations
+        for obs in keys(get(nt.planets[pl], :observations, (;)))
+            for key in keys(nt.planets[pl].observations[obs])
+                if nt.planets[pl].observations[obs][key] isa Number
+                    k = Symbol(pl, '_', obs, '_', key)
+                    push!(key_mapping, k => [k])
+                elseif  nt.planets[pl].observations[obs][key] isa Tuple
+                    arr = Symbol[]
+                    push!(key_mapping, Symbol(pl, '_', obs, '_', key) => arr)
+                    for i in eachindex(nt.planets[pl].observations[obs][key])
+                        key_i = Symbol(pl, '_', obs, '_', key, '_', i)
+                        push!(arr, key_i)
+                    end
                 end
             end
         end
@@ -447,11 +742,14 @@ function mcmcchain2result(model, chain, ii=(:))
     IIs = broadcast(1:size(chain,1),(1:size(chain,3))') do i,j
         return (i,j)
     end
+    
     function reform((i,j))
-        # Take existing NT and recurse through it. replace elements
+        # System variables
         nt_sys = Dict{Symbol,Any}()
         for (kout,kins) in key_mapping
-            if any(map(pk->startswith(string(kout),pk*"_"), planetkeys))
+            # Skip if this is a planet or observation key
+            if any(map(pk->startswith(string(kout),pk*"_"), planetkeys)) || 
+               any(map(ok->startswith(string(kout),ok*"_"), sysobs_keys))
                 continue
             end
             if length(kins) == 1
@@ -462,48 +760,139 @@ function mcmcchain2result(model, chain, ii=(:))
                 end
             else
                 nt_sys[kout] = [
-                    chain[i,kin,j]
+                    if haskey(chain, kin)
+                        chain[i,kin,j]
+                    else
+                        missing
+                    end
                     for kin in kins
+                    
                 ]
             end
-            # this search operation could be sped up by computing a set
-            # of valid keys *once*
         end
+        
+        # System observations
+        nt_observations = map(collect(sysobs_keys)) do ok
+            nt_obs = Dict{Symbol,Any}()
+            for (kout,kins) in key_mapping
+                if !startswith(string(kout),ok*"_")
+                    continue
+                end
+                # Skip if this is actually a planet observation
+                is_planet_obs = false
+                for pk in planetkeys
+                    if startswith(string(kout),pk*"_"*ok*"_")
+                        is_planet_obs = true
+                        break
+                    end
+                end
+                if is_planet_obs
+                    continue
+                end
+                
+                kout_clean = Symbol(replace(string(kout), r"^"*string(ok)*"_" =>""))
+                if length(kins) == 1
+                    if haskey(chain, kins[])
+                        nt_obs[kout_clean] = chain[i,kins[],j]
+                    else
+                        nt_obs[kout_clean] = missing
+                    end
+                else
+                    nt_obs[kout_clean] = [
+                        if haskey(chain, kin)
+                            chain[i,kin,j]
+                        else
+                            missing
+                        end
+                        for kin in kins
+                    ]
+                end
+            end
+            return Symbol(ok) => namedtuple(nt_obs)
+        end
+        
+        # Planets and their observations
         nt_planets = map(collect(planetkeys)) do pk
-            # return Symbol(pk)=>namedtuple(Dict(
-            #     replace(string(k), r"^"*string(pk)*"_" =>"") => chain[i,k,j] 
-            #     for k in flattened_labels
-            #     if startswith(string(k),pk*"_")
-            # ))
             nt_pl = Dict{Symbol,Any}()
+            nt_pl_obs = Dict{Symbol,Dict}()
+            
             for (kout,kins) in key_mapping
                 if !startswith(string(kout),pk*"_")
                     continue
                 end
-                kout = Symbol(replace(string(kout), r"^"*string(pk)*"_" =>""))
-                if length(kins) == 1
-                    if haskey(chain, kins[])
-                        nt_pl[kout] = chain[i,kins[],j]
+                
+                # Check if this is a planet observation
+                is_obs = false
+                obs_name = ""
+                for ok in get(planet_obs_keys, pk, String[])
+                    if startswith(string(kout),pk*"_"*ok*"_")
+                        is_obs = true
+                        obs_name = ok
+                        break
+                    end
+                end
+                
+                if is_obs
+                    # This is a planet observation variable
+                    kout_clean = Symbol(replace(string(kout), r"^"*string(pk)*"_"*obs_name*"_" =>""))
+                    if !haskey(nt_pl_obs, Symbol(obs_name))
+                        nt_pl_obs[Symbol(obs_name)] = Dict{Symbol,Any}()
+                    end
+                    obs_dict = nt_pl_obs[Symbol(obs_name)]
+                    if length(kins) == 1
+                        if haskey(chain, kins[])
+                            obs_dict[kout_clean] = chain[i,kins[],j]
+                        else
+                            obs_dict[kout_clean] = missing
+                        end
                     else
-                        nt_pl[kout] = missing
+                    obs_dict[kout_clean] = [
+                            chain[i,kin,j]
+                            for kin in kins
+                        ]
                     end
                 else
-                    nt_pl[kout] = [
-                        chain[i,kin,j]
-                        for kin in kins
-                    ]
+                    # This is a regular planet variable
+                    kout_clean = Symbol(replace(string(kout), r"^"*string(pk)*"_" =>""))
+                    if length(kins) == 1
+                        if haskey(chain, kins[])
+                            nt_pl[kout_clean] = chain[i,kins[],j]
+                        else
+                            nt_pl[kout_clean] = missing
+                        end
+                    else
+                            nt_pl[kout_clean] = [
+                            chain[i,kin,j]
+                            for kin in kins
+                        ]
+                    end
                 end
-                # this search operation could be sped up by computing a set
-                # of valid keys *once*
             end
+            # Convert observation dicts to named tuples
+            if isempty(nt_pl_obs)
+                nt_pl[:observations] = (;)
+            else
+                # Build from the actual values (not via a Dict) so the field
+                # types stay concrete: a Dict{Symbol,NamedTuple} with mixed
+                # observation variable sets has an abstract value type, which
+                # namedtuple() would bake into the result's type parameters
+                # and break _system_number_type downstream.
+                nt_pl[:observations] = (; (
+                    k => namedtuple(v)
+                    for (k,v) in nt_pl_obs
+                )...)
+            end
+            
             return Symbol(pk) => namedtuple(nt_pl)
         end
-        if length(planetkeys) > 0 
-            return merge(namedtuple(nt_sys), (;planets=namedtuple(nt_planets)))
-        else
-            return namedtuple(nt_sys)
-        end
+        
+        # Construct final result
+        result = namedtuple(nt_sys)
+        result = merge(result, (;observations=isempty(nt_observations) ? (;) : namedtuple(nt_observations)))
+        result = merge(result, (;planets=isempty(nt_planets) ? (;) : namedtuple(nt_planets)))
+        return result
     end
+    
     if ii isa Number
         return reform(IIs[ii])
     else
@@ -515,33 +904,79 @@ end
 
 # Used for flattening a nested named tuple posterior sample into a flat named tuple
 # suitable to be used as a Tables.jl table row.
+# Used for flattening a nested named tuple posterior sample into a flat named tuple
+# suitable to be used as a Tables.jl table row.
 function flatten_named_tuple(nt)
     pairs = Pair{Symbol, Float64}[]
+    
+    # System-level variables
     for key in keys(nt)
-        if key == :planets
+        if key in (:planets, :observations)
             continue
         end
         if nt[key] isa Number
             push!(pairs, key => nt[key])
-        else
+        elseif nt[key] isa AbstractArray || nt[key] isa Tuple
             for i in eachindex(nt[key])
                 key_i = Symbol(key, '_', i)
-                push!(pairs, key_i => nt[key][i])
-            end
-        end
-    end
-    for pl in keys(get(nt, :planets, (;)))
-        for key in keys(nt.planets[pl])
-            if nt.planets[pl][key] isa Number
-                push!(pairs, Symbol(pl, '_', key) =>  nt.planets[pl][key])
-            else
-                for i in eachindex(nt.planets[pl][key])
-                    push!(pairs, Symbol(pl, '_', key, '_', i) =>  nt.planets[pl][key][i])
+                val = nt[key][i]
+                if val isa Number
+                    push!(pairs, key_i => val)
                 end
             end
         end
     end
+    
+    # System observations
+    for obs in keys(get(nt, :observations, (;)))
+        for key in keys(nt.observations[obs])
+            if nt.observations[obs][key] isa Number
+                push!(pairs, Symbol(obs, '_', key) => nt.observations[obs][key])
+            elseif nt.observations[obs][key] isa AbstractArray || nt.observations[obs][key] isa Tuple
+                for i in eachindex(nt.observations[obs][key])
+                    val = nt.observations[obs][key][i]
+                    if val isa Number
+                        push!(pairs, Symbol(obs, '_', key, '_', i) => val)
+                    end
+                end
+            end
+        end
+    end
+    
+    # Planet-level variables and their observations
+    for pl in keys(get(nt, :planets, (;)))
+        for key in keys(nt.planets[pl])
+            if key == :observations
+                continue
+            end
+            if nt.planets[pl][key] isa Number
+                push!(pairs, Symbol(pl, '_', key) => nt.planets[pl][key])
+            elseif nt.planets[pl][key] isa AbstractArray || nt.planets[pl][key] isa Tuple
+                for i in eachindex(nt.planets[pl][key])
+                    val = nt.planets[pl][key][i]
+                    if val isa Number
+                        push!(pairs, Symbol(pl, '_', key, '_', i) => val)
+                    end
+                end
+            end
+        end
+        
+        # Planet observations
+        for obs in keys(get(nt.planets[pl], :observations, (;)))
+            for key in keys(nt.planets[pl].observations[obs])
+                if nt.planets[pl].observations[obs][key] isa Number
+                    push!(pairs, Symbol(pl, '_', obs, '_', key) => nt.planets[pl].observations[obs][key])
+                elseif nt.planets[pl].observations[obs][key] isa AbstractArray || nt.planets[pl].observations[obs][key] isa Tuple
+                    for i in eachindex(nt.planets[pl].observations[obs][key])
+                        val = nt.planets[pl].observations[obs][key][i]
+                        if val isa Number
+                            push!(pairs, Symbol(pl, '_', obs, '_', key, '_', i) => val)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
     return namedtuple(pairs)
 end
-
-include("octoquick.jl")

@@ -25,18 +25,22 @@ mass_2 = 1.0*1e-3
 
 epochs = (58400:150:69400) .+ 10 .* randn.()
 rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
-rvlike1 = MarginalizedStarAbsoluteRVLikelihood(
+rvlike1 = MarginalizedStarAbsoluteRVObs(
     Table(epoch=epochs, rv=rv .+ 4 .* randn.(), σ_rv=[4 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
-    jitter=:jitter1,
-    instrument_name="DATA 1"
+    name="DATA 1",
+    variables=@variables begin
+        jitter ~ LogUniform(0.1, 100) # m/s
+    end
 )
 
 epochs = (65400:100:71400) .+ 10 .* randn.()
 rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
-rvlike2 = MarginalizedStarAbsoluteRVLikelihood(
+rvlike2 = MarginalizedStarAbsoluteRVObs(
     Table(epoch=epochs, rv=rv .+ 2 .* randn.() .+ 7, σ_rv=[2 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
-    jitter=:jitter2,
-    instrument_name="DATA 2"
+    name="DATA 2",
+    variables=@variables begin
+        jitter ~ LogUniform(0.1, 100) # m/s
+    end
 )
 
 fig = Figure()
@@ -54,38 +58,70 @@ fig
 
 ## Two Planet Model
 
+!!! note "Unit Conventions"
+    Octofitter uses the following unit conventions:
+    - **Semi-major axis (`a`)**: AU
+    - **Period**: No standard—you can reparameterize period in any units you prefer
+    - **Time of periastron (`tp`)**: MJD (days)
+    - **Epochs**: MJD (days)
+
+    In this tutorial, we use Julian years for period (via the custom variable `P_kep_yrs`) because it works naturally with Kepler's law: `a = ∛(M * P^2)` when M is in solar masses and P is in Julian years.
+
+    When converting from period to `tp`, remember to convert to days. For Julian years, multiply by 365.25:
+    ```julia
+    tp = τ * P_kep_yrs * 365.25 + reference_epoch_mjd
+    ```
+
 ```@example 1
-@planet b RadialVelocityOrbit begin
-    M = system.M_pri + (system.M_b + system.M_c) * Octofitter.mjup2msol
-    e ~ Uniform(0,0.999999)
-    mass = system.M_b
-    ω ~ Uniform(0,2pi)
-    τ ~ Uniform(0,1.0)
+planet_b = Planet(
+    name="b",
+    basis=RadialVelocityOrbit,
+    observations=[],
+    variables=@variables begin
+        M_pri = system.M_pri
+        M_b = system.M_b
+        M_c = system.M_c
+        M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_b
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
 
-    P_kep_yrs ~ Uniform(0, 100)
-    a = ∛(b.M * b.P_kep_yrs^2)
-    tp =  b.τ*b.P_kep_yrs*365.25 + 58400
-end
+        P_kep_yrs ~ Uniform(0, 100)
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
 
-@planet c RadialVelocityOrbit begin
-    M = system.M_pri + system.M_c * Octofitter.mjup2msol
-    e ~ Uniform(0,0.999999)
-    mass = system.M_c
-    ω ~ Uniform(0,2pi)
-    τ ~ Uniform(0,1.0)
+planet_c = Planet(
+    name="c",
+    basis=RadialVelocityOrbit,
+    observations=[],
+    variables=@variables begin
+        M_pri = system.M_pri
+        M_c = system.M_c
+        M = M_pri + M_c * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_c
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
 
-    P_kep_yrs ~ Uniform(0, 100)
-    a = ∛(c.M * c.P_kep_yrs^2)
-    tp =  c.τ*c.P_kep_yrs*365.25 + 58400
-end
+        P_kep_yrs ~ Uniform(0, 100)
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
 
-@system sim_2p begin
-    M_pri = 1.0
-    M_b ~ Uniform(0, 10)
-    M_c ~ Uniform(0, 10)
-    jitter1 ~ Uniform(0, 20_000)
-    jitter2 ~ Uniform(0, 20_000)
-end rvlike1 rvlike2 b c
+sim_2p = System(
+    name="sim_2p",
+    companions=[planet_b, planet_c],
+    observations=[rvlike1, rvlike2],
+    variables=@variables begin
+        M_pri = 1.0
+        M_b ~ Uniform(0, 10)
+        M_c ~ Uniform(0, 10)
+    end
+)
 
 model_2p = Octofitter.LogDensityModel(sim_2p)
 ```
@@ -106,13 +142,16 @@ Octofitter.rvpostplot(model_2p, results_2p)
 
 We now create a new system object that only includes one planet (we dropped c, in this case).
 ```@example 1
-@system sim_1p begin
-    M_pri = 1.0
-    M_b ~ Uniform(0, 10)
-    M_c = 0.0
-    jitter1 ~ Uniform(0, 20_000)
-    jitter2 ~ Uniform(0, 20_000)
-end rvlike1 rvlike2 b
+sim_1p = System(
+    name="sim_1p",
+    companions=[planet_b],
+    observations=[rvlike1, rvlike2],
+    variables=@variables begin
+        M_pri = 1.0
+        M_b ~ Uniform(0, 10)
+        M_c = 0.0
+    end
+)
 
 model_1p = Octofitter.LogDensityModel(sim_1p)
 ```
@@ -130,30 +169,30 @@ Octofitter.rvpostplot(model_1p, results_1p)
 
 ## Model Comparison: Bayesian Evidence
 
-Octofitter with Pigeons directly calculates the log Bayesian evidence using the "stepping stone" method. This should be more reliable than even nested sampling, and certainly more reliable than approximate methods like the BIC etc.
+Octofitter with Pigeons directly calculates the (natural) log Bayesian evidence using the "stepping stone" method. This should be more reliable than even nested sampling, and certainly more reliable than approximate methods like the BIC/WAIC etc.
 
 ```@example 1
 Z1 = stepping_stone(pt_1p)
 Z2 = stepping_stone(pt_2p)
 
-log_BF₁₀ = Z2-Z1
+ln_BF₁₀ = Z2-Z1
 ```
 
 Here is a standard guideline you can use to interpret the evidence:
 
-| Log Bayes Factor log(BF₁₀) | Interpretation                 |
-|----------------------------|--------------------------------|
-| > 4.61                     | Extreme evidence for $H_A$     |
-| 3.40 - 4.61                | Very strong evidence for $H_A$ |
-| 2.30 - 3.40                | Strong evidence for $H_A$      |
-| 1.10 - 2.30                | Moderate evidence for $H_A$    |
-| 0 - 1.10                   | Anecdotal evidence for $H_A$   |
-| 0                          | No evidence                    |
-| -1.10 - 0                  | Anecdotal evidence for $H_B$   |
-| -2.30 - -1.10              | Moderate evidence for $H_B$    |
-| -3.40 - -2.30              | Strong evidence for $H_B$      |
-| -4.61 - -3.40              | Very strong evidence for $H_B$ |
-| < -4.61                    | Extreme evidence for $H_B$     |
+| Log Bayes Factor ln(BF₁₀) | Interpretation                 |
+|---------------------------|--------------------------------|
+| > 3.00                    | Extreme evidence for $H_A$     |
+| 1.61 - 3.00               | Very strong evidence for $H_A$ |
+| 1.10 - 1.61               | Strong evidence for $H_A$      |
+| 0.69 - 1.10               | Moderate evidence for $H_A$    |
+| 0 - 0.69                  | Anecdotal evidence for $H_A$   |
+| 0                         | No evidence                    |
+| -0.69 - 0                 | Anecdotal evidence for $H_B$   |
+| -1.10 - -0.69             | Moderate evidence for $H_B$    |
+| -1.61 - -1.10             | Strong evidence for $H_B$      |
+| -3.00 - -1.61             | Very strong evidence for $H_B$ |
+| < -3.00                   | Extreme evidence for $H_B$     |
 
 As you can see, the evidence for there being two planets is "extreme" in this case.
 Try adjusting the masses of the two planets and see how this changes!
@@ -177,42 +216,64 @@ There are several ways we could do this. Here, we add a "nominal period" variabl
 
 
 ```@example 1
-@planet b RadialVelocityOrbit begin
-    M = system.M_pri + (system.M_b + system.M_c) * Octofitter.mjup2msol
-    e ~ Uniform(0,0.999999)
-    mass = system.M_b
-    ω ~ Uniform(0,2pi)
-    τ ~ Uniform(0,1.0)
+planet_b_v2 = Planet(
+    name="b",
+    basis=RadialVelocityOrbit,
+    observations=[],
+    variables=@variables begin
+        M_pri = system.M_pri
+        M_b = system.M_b
+        M_c = system.M_c
+        M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_b
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
 
-    P_kep_yrs = system.P_yrs_nom * system.P_ratio_b
-    a = ∛(b.M * b.P_kep_yrs^2)
-    tp =  b.τ*b.P_kep_yrs*365.25 + 58400
-end
+        P_yrs_nom = system.P_yrs_nom
+        P_ratio_b = system.P_ratio_b
+        P_kep_yrs = P_yrs_nom * P_ratio_b
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
 
-@planet c RadialVelocityOrbit begin
-    M = system.M_pri + system.M_c * Octofitter.mjup2msol
-    e ~ Uniform(0,0.999999)
-    mass = system.M_c
-    ω ~ Uniform(0,2pi)
-    τ ~ Uniform(0,1.0)
+planet_c_v2 = Planet(
+    name="c",
+    basis=RadialVelocityOrbit,
+    observations=[],
+    variables=@variables begin
+        M_pri = system.M_pri
+        M_c = system.M_c
+        M = M_pri + M_c * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_c
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
 
-    P_kep_yrs = system.P_yrs_nom * system.P_ratio_c
-    a = ∛(c.M * c.P_kep_yrs^2)
-    tp =  c.τ*c.P_kep_yrs*365.25 + 58400
-end
+        P_yrs_nom = system.P_yrs_nom
+        P_ratio_c = system.P_ratio_c
+        P_kep_yrs = P_yrs_nom * P_ratio_c
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
 
 
-@system sim_2p_v2 begin
-    M_pri = 1.0
-    M_b ~ Uniform(0, 10)
-    M_c ~ Uniform(0, 10)
-    jitter1 ~ Uniform(0, 20_000)
-    jitter2 ~ Uniform(0, 20_000)
-    
-    P_yrs_nom ~ Uniform(0, 100)
-    P_ratio_b ~ Uniform(0, 0.5)
-    P_ratio_c ~ Uniform(0.5, 1)
-end rvlike1 rvlike2 b c
+sim_2p_v2 = System(
+    name="sim_2p_v2",
+    companions=[planet_b_v2, planet_c_v2],
+    observations=[rvlike1, rvlike2],
+    variables=@variables begin
+        M_pri = 1.0
+        M_b ~ Uniform(0, 10)
+        M_c ~ Uniform(0, 10)
+        
+        P_yrs_nom ~ Uniform(0, 100)
+        P_ratio_b ~ Uniform(0, 0.5)
+        P_ratio_c ~ Uniform(0.5, 1)
+    end
+)
 
 model_2p_v2 = Octofitter.LogDensityModel(sim_2p_v2)
 ```
@@ -249,6 +310,28 @@ Octofitter.rvpostplot_animated(model_2p_v2, results_2p_v2)
 ```
 
 
+## Analyzing Period Ratios
+
+For studies of mean motion resonances, it's useful to examine the posterior distribution of the period ratio between planets. You can compute this directly from the chains:
+
+```@example 1
+# Extract period samples for each planet
+P_b_samples = vec(results_2p_v2[:b_P_kep_yrs])
+P_c_samples = vec(results_2p_v2[:c_P_kep_yrs])
+
+# Compute period ratio (outer/inner)
+period_ratios = P_c_samples ./ P_b_samples
+
+# Plot histogram
+fig = Figure()
+ax = Axis(fig[1,1], xlabel="Period Ratio (Pc/Pb)", ylabel="Density")
+hist!(ax, period_ratios, bins=50, normalization=:pdf)
+# Mark common resonances
+vlines!(ax, [2.0, 3/2, 5/3], color=:red, linestyle=:dash, label="Common MMRs")
+fig
+```
+
+This approach works for any multi-planet model and can help identify potential mean motion resonances.
 
 ## Note about the evidence ratio
 The pigeons method returns the log evidence ratio. If the priors are properly normalized, this is equal to the log evidence.

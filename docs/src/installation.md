@@ -25,7 +25,42 @@ pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterInterferometry
 ```
 
 These aren't included by default since they may include a number of heavier dependencies that aren't needed by all users.
-They are descibed further in relevant sections of the documentation.
+They are described further in relevant sections of the documentation.
+
+## Companion Packages by Use Case
+
+Depending on your analysis, you may need additional packages. Here's a guide organized by task:
+
+**For simulating orbital data:**
+```julia
+pkg> add PlanetOrbits  # Provides orbit() and radvel() for generating synthetic data
+```
+
+**For parallel tempered sampling (multi-modal posteriors) and Bayesian model comparison:**
+```julia
+pkg> add Pigeons  # Provides octofit_pigeons() for robust sampling and stepping_stone() for Bayes factors
+```
+
+**For radial velocity fitting:**
+```julia
+pkg> add OctofitterRadialVelocity
+```
+
+**For direct imaging:**
+```julia
+pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterImages
+```
+
+**For interferometry:**
+```julia
+pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterInterferometry
+```
+
+!!! tip "Quick install for common workflows"
+    For a typical multi-planet RV analysis with model comparison:
+    ```julia
+    pkg> add Octofitter OctofitterRadialVelocity Distributions CairoMakie PairPlots PlanetOrbits Pigeons
+    ```
 
 ## Fitting your first model
 Start with the [Quick Start](@ref fit-astrometry) tutorial. It shows how one can model the orbit of one planet based on relative astrometry points.

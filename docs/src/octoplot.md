@@ -25,7 +25,8 @@ fig = octoplot(model, chain;
     show_astrom_time=true,    # Show sep/PA vs time
     show_rv=true,             # Show stellar RV
     show_relative_rv=true,    # Show planet-star relative RV
-    show_pma=true,            # Show proper motion anomaly
+    show_pma=true,            # Show proper motion anomaly (HGCA)
+    show_absastrom=true,      # Show absolute astrometry / proper motion (G23H)
     show_mass=true            # Show mass posterior
 )
 ```
@@ -72,7 +73,7 @@ Shows the stellar radial velocity curve(s). If you have data from multiple instr
 If you specified `mark_epochs_mjd`, the predicted RV at those epochs will be marked. See `rvpostplot` for another way to plot RV data.
 
 ### Relative Radial Velocity (`show_relative_rv=true`)
-Shows the relative radial velocity between the planet and star. This panel appears when you have `PlanetRelativeRVLikelihood` data in your model.
+Shows the relative radial velocity between the planet and star. This panel appears when you have `PlanetRelativeRVObs` data in your model.
 
 ### Proper Motion Anomaly (`show_hgca=true`)
 Multiple panels showing proper motion data from the Hipparcos-Gaia Catalogue of Accelerations (HGCA):

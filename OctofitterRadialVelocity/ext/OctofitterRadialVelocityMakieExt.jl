@@ -58,8 +58,8 @@ function Octofitter.rvpostplot!(
 
 
     rv_likes_all = filter(model.system.observations) do obs
-        obs isa StarAbsoluteRVLikelihood || 
-        obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVLikelihood# ||
+        obs isa StarAbsoluteRVObs ||
+        obs isa OctofitterRadialVelocity.MarginalizedStarAbsoluteRVObs# ||
         # obs isa OctofitterRadialVelocity.StarAbsoluteRVLikelihood_Celerite_Shared
     end
 
@@ -356,12 +356,18 @@ function Octofitter.rvpostplot!(
         color = Makie.wong_colors()[mod1(rv_like_idx, length(Makie.wong_colors()))]
         marker_symbol = marker_symbols[mod1(rv_like_idx, length(marker_symbols))]
 
-        if hasproperty(rvs,:offset_symbol)
-            barycentric_rv_inst = nt_format[rvs.offset_symbol]
-            jitter = nt_format[rvs.jitter_symbol]
-        else
+        like_obj_name = Octofitter.normalizename(likelihoodname(rvs))
+
+        if rvs isa StarAbsoluteRVObs
+            jitter = nt_format.observations[like_obj_name].jitter
+            barycentric_rv_inst = nt_format.observations[like_obj_name].offset
+        elseif rvs isa MarginalizedStarAbsoluteRVObs
+            # TODO: marginalized RV observation
+
             barycentric_rv_inst = _find_rv_zero_point_maxlike(rvs, nt_format, els_by_planet)
-            jitter = nt_format[rvs.jitter_symbol]
+            jitter = nt_format.observations[like_obj_name].jitter
+        else
+            error("plotting not yet implemented for this type of data")
         end
         if ismissing(barycentric_rv_inst )
             barycentric_rv_inst = 0.
@@ -382,7 +388,8 @@ function Octofitter.rvpostplot!(
         #     end
         # else
             rvs_off_sub .-= barycentric_rv_inst
-            trend = rvs.trend_function.((nt_format,), rvs.table.epoch)
+            θ_obs = nt_format.observations[like_obj_name]
+            trend = rvs.trend_function.((θ_obs,), rvs.table.epoch)
             trend = map(trend) do t
                 if ismissing(t) 
                     0.
@@ -415,9 +422,8 @@ function Octofitter.rvpostplot!(
         # If not using a GP, we fit a GP with a "ZeroKernel"
         map_gp = nothing
         if hasproperty(rvs, :gaussian_process) && !isnothing(rvs.gaussian_process)
-            row = results[sample_idx,:,:];
-            nt = (Table((row)))[1]
-            map_gp = rvs.gaussian_process(nt)
+            θ_obs = nt_format.observations[Octofitter.normalizename(likelihoodname(rvs))]
+            map_gp = rvs.gaussian_process(θ_obs)
         end
         if isnothing(map_gp)
             map_gp = GP(ZeroKernel())
@@ -742,7 +748,7 @@ function Octofitter.rvpostplot!(
             ]
         ]
         labels = [
-            [rv.instrument_name for rv in rv_likes_all],
+            [likelihoodname(rv) for rv in rv_likes_all],
             [
                 "data uncertainty",
                 any_models_have_a_gp ? "uncertainty,\njitter, and GP" : "uncertainty and\njitter",
@@ -832,7 +838,13 @@ function _find_rv_zero_point_maxlike(
     σ_rvs = rvlike.table.σ_rv
     rvs = rvlike.table.rv
 
-    jitter = getproperty(θ_system, rvlike.jitter_symbol)
+    like_obj_name = Octofitter.normalizename(likelihoodname(rvlike))
+    jitter = θ_system.observations[like_obj_name].jitter
+
+    if hasproperty(θ_system, :observations) && hasproperty(θ_system.observations, like_obj_name)
+        θ_obs = θ_system.observations[like_obj_name]
+        jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : 0
+    end
 
     # RV residual calculation: measured RV - model
     resid = zeros(T, length(rvs))

@@ -1,7 +1,7 @@
 # Octofitter.jl
 
 
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/Octofitter.jl/)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/Octofitter.jl/dev/)
 
 Octofitter is a Julia package for performing Bayesian inference 
 against a wide variety of exoplanet / binary star data.
@@ -24,7 +24,7 @@ In addition to these documentation and tutorial pages, you can read the paper pu
 * If you use one of the included functions for automatically retreiving data from a public dataset, eg HARPS RVBank, please cite the source as appropriate.
 * If you adopt the O'Neil et al. 2019 observable based priors, please cite [O'Neil et al. 2019](https://ui.adsabs.harvard.edu/abs/2019AJ....158....4O).
 * Please also consider citing the HMC sampler backend, [Xu et al 2020](http://proceedings.mlr.press/v118/xu20a.html)
-* If you use the corner ploy functionality, please cite:
+* If you use the corner plot functionality, please cite:
 ```
 @misc{Thompson2023,
   author = {William Thompson},
@@ -40,4 +40,4 @@ In addition to these documentation and tutorial pages, you can read the paper pu
 
 For instructions, see the documentation page:
 
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/Octofitter.jl)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sefffal.github.io/Octofitter.jl/dev/)

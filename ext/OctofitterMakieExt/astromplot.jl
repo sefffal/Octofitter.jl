@@ -43,7 +43,7 @@ function Octofitter.astromplot!(
     show_post_pred_legend=true,
     show_instrument_names=true,
     use_arcsec=nothing,
-    ts,
+    ts=0:1,
     kwargs...
 )
     gs = gridspec_or_fig
@@ -87,16 +87,20 @@ function Octofitter.astromplot!(
     end
     axis_mult = use_arcsec ? 1e-3 : 1.0 
 
-    ax = Axis(
-        gs[1, 1];
-        autolimitaspect=1,
-        xreversed=true,
-        xlabel= use_arcsec ? "Δα* [as]" : "Δα* [mas]",
-        ylabel= use_arcsec ? "Δδ [as]" : "Δδ [mas]",
-        xgridvisible=false,
-        ygridvisible=false,
-        axis...
-    )
+    if gs isa Axis
+        ax = gs
+    else
+        ax = Axis(
+            gs[1, 1];
+            autolimitaspect=1,
+            xreversed=true,
+            xlabel= use_arcsec ? "Δα* [as]" : "Δα* [mas]",
+            ylabel= use_arcsec ? "Δδ [as]" : "Δδ [mas]",
+            xgridvisible=false,
+            ygridvisible=false,
+            axis...
+        )
+    end
 
     # Start by plotting the orbits
 
@@ -104,7 +108,7 @@ function Octofitter.astromplot!(
     # epoch_0 = mjd("2020")
     # for planet in model.system.planets
     #     for like_obj in planet.observations
-    #         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+    #         if nameof(typeof(like_obj)) == :PlanetRelAstromObs
     #             epoch_0 = min(epoch_0, minimum(like_obj.table.epoch))
     #         end
     #     end
@@ -182,15 +186,18 @@ function Octofitter.astromplot!(
 
     # Colour data based on the instrument name
     rel_astrom_likes = filter(like_objs) do like_obj
-        nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
+        nameof(typeof(like_obj)) == :PlanetRelAstromObs ||
+        (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromObs)
     end
-    rel_astrom_names = sort(unique(getproperty.(rel_astrom_likes, :instrument_name)))
+    rel_astrom_names = sort(unique(likelihoodname.(rel_astrom_likes)))
     n_rel_astrom = length(rel_astrom_names)
 
     i_like_obj = 0
     for like_obj in like_objs
-        if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood 
-            i_like_obj = findfirst(==(like_obj.instrument_name), rel_astrom_names)
+        if  nameof(typeof(like_obj)) == :PlanetRelAstromObs ||
+            (nameof(typeof(like_obj)) == :ObsPriorAstromONeil2019  && nameof(typeof(like_obj.wrapped_like)) == :PlanetRelAstromObs)
+
+            i_like_obj = findfirst(==(likelihoodname(like_obj)), rel_astrom_names)
             x = Float64[]
             y = Float64[]
             xs = Float64[]
@@ -325,9 +332,9 @@ function Octofitter.astromplot!(
                 markersize=8,
             )
 
-        # If the model, instead/in addition to astrometry, includes one of the following 
-        # "position-like" observations, add scatter points at the posterior projected locatinos.
-        elseif nameof(typeof(like_obj)) in (:ImageLikelihood, :LogLikelihoodMap, :InterferometryLikelihood, :GRAVITYWideCPLikelihood)
+        # If the model, instead/in addition to astrometry, includes one of the following
+        # "position-like" observations, add scatter points at the posterior projected locations.
+        elseif nameof(typeof(like_obj)) in (:ImageObs, :LogLikelihoodMapObs, :InterferometryObs, :GRAVITYWideKPObs,)
             
             for planet_key in keys(model.system.planets)
                 orbs = Octofitter.construct_elements(model, results, planet_key, ii)
@@ -414,7 +421,7 @@ function Octofitter.astromplot!(
             end
         end
        
-        if show_post_pred_legend
+        if show_post_pred_legend && !(gs isa Axis)
             row_i += 1
             Legend(
                 gs[row_i,1:2],
@@ -429,7 +436,7 @@ function Octofitter.astromplot!(
         end
     end
 
-    if colorbar
+    if colorbar && !(gs isa Axis)
         if length(colormaps) == 1
             Colorbar(
                 gs[1,2];
@@ -528,7 +535,7 @@ function physorbplot!(
     # epoch_0 = mjd("2020")
     # for planet in model.system.planets
     #     for like_obj in planet.observations
-    #         if nameof(typeof(like_obj)) == :PlanetRelAstromLikelihood
+    #         if nameof(typeof(like_obj)) == :PlanetRelAstromObs
     #             epoch_0 = min(epoch_0, minimum(like_obj.table.epoch))
     #         end
     #     end
@@ -597,7 +604,7 @@ function physorbplot!(
                 Makie.scatter!(
                     ax,
                     vec(posx.(sols)),
-                    vec(posy.(sols)),
+                    vec(posy.(sols));
                     color,
                     markersize=6,
                     strokewidth=1,

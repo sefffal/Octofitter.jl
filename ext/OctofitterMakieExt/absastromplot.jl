@@ -1,0 +1,468 @@
+
+##################################################
+# HGCA Plot
+function absastromplot(
+    model,
+    results,
+    fname="$(model.system.name)-absastromplot.png",
+    args...;
+    figure=(;),
+    kwargs...
+)
+    fig = Figure(;
+        size=(700, 600),
+        figure...
+    )
+    absastromplot!(fig.layout, model, results, args...; kwargs...)
+
+    Makie.save(fname, fig, px_per_unit=3)
+
+    return fig
+end
+function absastromplot!(
+    gridspec_or_fig,
+    model::Octofitter.LogDensityModel,
+    results::Chains;
+    # If less than 500 samples, just show all of them
+    # N=min(size(results, 1) * size(results, 3), 500),
+    ts,
+    # If showing all samples, include each sample once.
+    # Otherwise, sample randomly with replacement
+    ii=(
+        N == size(results, 1) * size(results, 3) ?
+        (1:size(results, 1)*size(results, 3)) :
+        rand(1:size(results, 1)*size(results, 3), N)
+    ),
+    axis=(;),
+    colormap=:plasma,
+    colorbar=true,
+    top_time_axis=true,
+    bottom_time_axis=true,
+    alpha=min.(1, 100 / length(ii)),
+    kwargs...
+)
+    gs = gridspec_or_fig
+
+    date_pos, date_strs, xminorticks = _date_ticks(ts)
+    gs_row = 0
+    ax_velra = Axis(
+        gs[gs_row += 1, 1:3];
+        ylabel=pmra_label,
+        xaxisposition=:top,
+        xticks=(date_pos, date_strs),
+        xgridvisible=false,
+        ygridvisible=false,
+        xticksvisible=top_time_axis,
+        xticklabelsvisible=top_time_axis,
+        xminorticks,
+        xminorticksvisible=top_time_axis,
+        axis...
+    )
+    ax_veldec = Axis(
+        gs[gs_row += 1, 1:3];
+        xlabel="MJD",
+        ylabel=pmdec_label,
+        xgridvisible=false,
+        ygridvisible=false,
+        xticksvisible=bottom_time_axis,
+        xticklabelsvisible=bottom_time_axis,
+        xlabelvisible=bottom_time_axis,
+        axis...
+    )
+    linkxaxes!(ax_velra, ax_veldec)
+
+    # linkxaxes!(ax_dat1,ax_dat2,ax_dat3)
+    # linkyaxes!(ax_dat1,ax_dat2,ax_dat3)
+
+
+    xlims!(ax_velra, extrema(ts))
+    xlims!(ax_veldec, extrema(ts))
+
+    θ_systems_from_chain = Octofitter.mcmcchain2result(model, results)
+
+    pmra_model_t = zeros(length(ii), length(ts))
+    pmdec_model_t = zeros(length(ii), length(ts))
+    color_model_t = zeros(length(ii), length(ts))
+
+    # Add in a non-linear effect due to light travel time changes
+    els = Octofitter.construct_elements(model, results, first(keys(model.system.planets)), ii)
+    for (j, orb) in enumerate(els)
+        for (i,t1) in enumerate(ts)
+            sol = orbitsolve(orb, t1)
+            Δt = 100
+            t2 = t1 + Δt
+            sol′ = orbitsolve(orb,t2)
+            diff_lt_app_pmra = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmra2
+            diff_lt_app_pmdec = (sol′.compensated.t_em_days - sol.compensated.t_em_days - Δt)/Δt*sol.compensated.pmdec2
+ 
+            pmra_model_t[j,i] += results[:pmra][ii[j]] +diff_lt_app_pmra
+            pmdec_model_t[j,i] += results[:pmdec][ii[j]] +diff_lt_app_pmdec
+        end
+    end
+
+    
+    for planet_key in keys(model.system.planets)
+        orbs = Octofitter.construct_elements(model, results, planet_key, ii)
+    
+        # Draws from the posterior
+        mass = results["$(planet_key)_mass"][ii] .* Octofitter.mjup2msol
+
+        # Now time-series
+        sols = orbitsolve.(orbs, ts')
+        try
+            pmra(first(sols), first(mass))
+        catch
+            continue
+        end
+        # TODO: Can we use the existing simulator for this please?
+        pmra_model_t .+= pmra.(sols, mass)
+        pmdec_model_t .+= pmdec.(sols, mass)
+        
+        color_model_t .= rem2pi.(
+            meananom.(sols), RoundDown) .+ 0 .* ii
+    end
+
+    # Correct time-series lines for the G23H reference frame shift.
+    # In simulate!, all model proper motions are shifted by -[Δpmra_dr3, Δpmdec_dr3]
+    # so that θ_system.pmra/pmdec refer to the primary star instead of the barycenter.
+    # The lines above use θ_system.pmra + pmra(sol, mass) which double-counts
+    # the companion perturbation. Subtract Δpmra_dr3 to recover the photocenter PM.
+    _g23h_likes = filter(model.system.observations) do obs
+        nameof(typeof(obs)) == :G23HObs
+    end
+    if !isempty(_g23h_likes)
+        _g23h = only(_g23h_likes)
+        for (j, sample_i) in enumerate(ii)
+            _θ_sys = θ_systems_from_chain[sample_i]
+            _orbs = Tuple(map(keys(model.system.planets)) do pk
+                Octofitter.construct_elements(model, results, pk, sample_i)
+            end)
+            _name = Octofitter.normalizename(likelihoodname(_g23h))
+            _θ_obs = _θ_sys.observations[_name]
+            _sols = Tuple(map(_orbs) do orbit
+                orbitsolve.(orbit, _g23h.table.epoch)
+            end)
+            _sim = Octofitter.simulate(_g23h, _θ_sys, _θ_obs, _orbs, _sols, 0)
+            if !isnothing(_sim)
+                pmra_model_t[j, :] .-= _sim.Δpmra_dr3
+                pmdec_model_t[j, :] .-= _sim.Δpmdec_dr3
+            end
+        end
+    end
+
+    if colorbar
+        Colorbar(
+            gs[1:2, 4];
+            colormap,
+            label="mean anomaly",
+            colorrange=(0,2pi),
+            ticks=(
+                [0,pi/2,pi,3pi/2,2pi],
+                ["0", "π/2", "π", "3π/2", "2π"]
+            )
+        )
+    end
+    lines!(ax_velra,
+        concat_with_nan(ts' .+ 0 .* pmra_model_t),
+        concat_with_nan(pmra_model_t);
+        alpha,
+        color=concat_with_nan(color_model_t),
+        colorrange=(0, 2pi),
+        colormap,
+        rasterize=4,
+    )
+    lines!(ax_veldec,
+        concat_with_nan(ts' .+ 0 .* pmdec_model_t),
+        concat_with_nan(pmdec_model_t);
+        alpha,
+        color=concat_with_nan(color_model_t),
+        colorrange=(0, 2pi),
+        colormap,
+        rasterize=4,
+    )
+
+
+
+
+    cor_axes = Axis[]
+
+
+
+    #########################################
+    # HGCA
+
+    # Now over plot any astrometry
+    like_objs = filter(model.system.observations) do like_obj
+        nameof(typeof(like_obj)) == :G23HObs
+    end
+    if !isempty(like_objs)
+        absastrom = only(like_objs)
+
+        # The HGCA catalog values have an non-linearity correction added.
+        # If we are doing our own rigorous propagation we don't need this
+        # correction. We could subtract it from the measurements, but 
+        # here we just add it to our model so that they match
+        # if absolute_orbits
+            hg_nonlinear_dpmra = absastrom.catalog.nonlinear_dpmra[1]
+            hg_nonlinear_dpmdec = absastrom.catalog.nonlinear_dpmdec[1]
+            hip_nonlinear_dpmra = 2absastrom.catalog.nonlinear_dpmra[1]
+            hip_nonlinear_dpmdec = 2absastrom.catalog.nonlinear_dpmdec[1]
+        # else
+        #     hg_nonlinear_dpmra = 
+        #     hg_nonlinear_dpmdec = 
+        #     hip_nonlinear_dpmra = 
+        #     hip_nonlinear_dpmdec = zero(absastrom.catalog.nonlinear_dpmra[1])
+        # end
+
+
+        # Display all points, unless there are more than 5k
+        jj = 1:size(results,1)*size(results,3)
+        if size(results,1)*size(results,3) > 5_000
+            jj = ii
+        end
+        sims = []
+        for i in jj
+            θ_system = θ_systems_from_chain[i]
+            # Use Tuple (not Vector) so that propagate_astrom dispatches correctly
+            # for AbsoluteVisual orbits (NTuple method vs Any fallback).
+            orbits = Tuple(map(keys(model.system.planets)) do planet_key
+                Octofitter.construct_elements(model, results, planet_key, i)
+            end)
+            θ_obs = (;)
+            name = Octofitter.normalizename(likelihoodname(absastrom))
+            θ_obs = θ_system.observations[name]
+            if hasproperty(absastrom, :table)
+                solutions = Tuple(map(orbits) do orbit
+                    return orbitsolve.(orbit, absastrom.table.epoch)
+                end)
+                sim = Octofitter.simulate(absastrom, θ_system, θ_obs, orbits, solutions, 0)
+            else
+                solutions = Tuple(() for _ in keys(model.system.planets))
+                sim = Octofitter.simulate(absastrom, θ_system, θ_obs, orbits, solutions, -1)
+            end
+            push!(sims, sim)
+        end
+
+        # Detect absolute orbits for conditional nonlinear corrections
+        absolute_orbits = first(els) isa AbsoluteVisual
+
+        component_flags =  [
+            :ra_hip, :dec_hip,
+            :ra_hg, :dec_hg,
+            :ra_dr2, :dec_dr2,
+            :ra_dr32, :dec_dr32,
+            :ra_dr3, :dec_dr3,
+            :ueva_dr3,
+        ]
+        sim_mask = [flag ∈ absastrom.table.kind for flag in component_flags]
+
+        mask = findall([contains(string(k),"ra") for k in absastrom.table.kind[:]])
+        sim_mask_ra = findall([contains(string(k),"ra") && k ∈ absastrom.table.kind for k in component_flags])
+        x = vec(absastrom.table.epoch)
+        y = vec(absastrom.table.pm)
+        σ = vec(absastrom.table.σ_pm)
+        if !isempty(mask)
+            # Apply nonlinear correction to get true proper motion for plotting
+            y_corrected = copy(y)
+            if absolute_orbits
+                # Remove nonlinear corrections from Hipparcos and HGCA measurements
+                # to show true proper motion consistently with model lines
+                hip_ra_mask = [k == :ra_hip for k in absastrom.table.kind]
+                hg_ra_mask = [k == :ra_hg for k in absastrom.table.kind]
+                y_corrected[hip_ra_mask] .-= hip_nonlinear_dpmra
+                y_corrected[hg_ra_mask] .-= hg_nonlinear_dpmra
+            end
+
+            scatter!(
+                ax_velra,
+                concat_with_nan(stack(x[mask] for _ in 1:length(sims))),
+                concat_with_nan(stack(map(sim->sim.μ[sim_mask_ra], sims))),
+                color=:grey,
+                markersize=2,
+            )
+            errorbars!(
+                ax_velra,
+                x[mask], y_corrected[mask],
+                x[mask] .- (absastrom.table.start_epoch[mask]),
+                (absastrom.table.stop_epoch[mask]) .- x[mask],
+                color=:black,
+                direction=:x, linewidth=0.7
+            )
+            errorbars!(ax_velra, x[mask], y_corrected[mask], σ[mask], color=:black, linewidth=0.7)
+            scatter!(ax_velra, x[mask], y_corrected[mask], color=:black)
+            ymin = minimum(y_corrected[mask] .-  10σ[mask])
+            ymax = maximum(y_corrected[mask] .+  10σ[mask])
+            ylims!(ax_velra, ymin, ymax)
+        end
+
+        mask = findall([contains(string(k),"dec") for k in absastrom.table.kind[:]])
+        sim_mask_dec = findall([contains(string(k),"dec") && k ∈ absastrom.table.kind for k in component_flags])
+        x = vec(absastrom.table.epoch)
+        y = vec(absastrom.table.pm)
+        σ = vec(absastrom.table.σ_pm) 
+        if !isempty(mask)
+            # Apply nonlinear correction to get true proper motion for plotting
+            y_corrected = copy(y)
+            if absolute_orbits
+                # Remove nonlinear corrections from Hipparcos and HGCA measurements
+                # to show true proper motion consistently with model lines
+                hip_dec_mask = [k == :dec_hip for k in absastrom.table.kind]
+                hg_dec_mask = [k == :dec_hg for k in absastrom.table.kind]
+                y_corrected[hip_dec_mask] .-= hip_nonlinear_dpmdec
+                y_corrected[hg_dec_mask] .-= hg_nonlinear_dpmdec
+            end
+            
+            scatter!(
+                ax_veldec,
+                concat_with_nan(stack(x[mask] for _ in 1:length(sims))),
+                concat_with_nan(stack(map(sim->sim.μ[sim_mask_dec], sims))),
+                color=:grey,
+                markersize=2,
+            )
+            errorbars!(
+                ax_veldec,
+                x[mask], y_corrected[mask],
+                x[mask] .- (absastrom.table.start_epoch[mask]),
+                (absastrom.table.stop_epoch[mask]) .- x[mask],
+                color=:black,
+                direction=:x, linewidth=0.7
+            )
+            errorbars!(ax_veldec, x[mask], y_corrected[mask], σ[mask], color=:black, linewidth=0.7)
+            scatter!(ax_veldec, x[mask], y_corrected[mask], color=:black)
+            ymin = minimum(y_corrected[mask] .-  10σ[mask])
+            ymax = maximum(y_corrected[mask] .+  10σ[mask])
+            ylims!(ax_veldec, ymin, ymax)
+        end
+
+
+        jj = findall(sim_mask)
+        mask = [flag ∈ component_flags for flag in vec(absastrom.table.kind)]
+        ax_Z = Axis(
+            gs[gs_row += 1, 1:3];
+            ylabel="Z-scores",
+            xgridvisible=false,
+            ygridvisible=false,
+            xticksvisible=bottom_time_axis,
+            xticklabelsvisible=bottom_time_axis,
+            xlabelvisible=bottom_time_axis,
+            xticks = (
+                1:length(jj),
+                replace.(string.(vec(absastrom.table.kind[mask])),"_" => " ", "ra"=>"μα*", "dec"=>"μδ")
+            ),
+            xticklabelrotation=pi/2,
+            axis...
+        )
+
+        # plot all of ra,dec, ueva on axis in order of epochs
+        # plot iad in another panel
+
+        μ_h_cat, Σ_h = isnothing(absastrom.catalog.dist_hip) ? ([0.,0.], zeros(2,2)) : params(absastrom.catalog.dist_hip)
+        μ_hg_cat, Σ_hg = isnothing(absastrom.catalog.dist_hg) ? ([0.,0.], zeros(2,2)) : params(absastrom.catalog.dist_hg)
+        μ_dr2_cat, Σ_dr2 = params(absastrom.catalog.dist_dr2)
+        μ_dr32_cat, Σ_dr32 = params(absastrom.catalog.dist_dr32)
+        μ_dr3_cat, Σ_dr3 = params(absastrom.catalog.dist_dr3)
+        Σ_h = Matrix(Σ_h)
+        Σ_hg = Matrix(Σ_hg)
+        Σ_dr2 = Matrix(Σ_dr2)
+        Σ_dr32 = Matrix(Σ_dr32)
+        Σ_dr3 = Matrix(Σ_dr3)
+
+        z_scores = map(sims) do sim
+            y = collect(vec(absastrom.table.pm))
+
+            # Apply nonlinear corrections only for absolute orbits,
+            # matching the likelihood code (g23h.jl lines 750-764)
+            if absolute_orbits
+                hip_ra_idx = findfirst(==(:ra_hip), absastrom.table.kind)
+                hip_dec_idx = findfirst(==(:dec_hip), absastrom.table.kind)
+                hg_ra_idx = findfirst(==(:ra_hg), absastrom.table.kind)
+                hg_dec_idx = findfirst(==(:dec_hg), absastrom.table.kind)
+
+                if !isnothing(hip_ra_idx)
+                    y[hip_ra_idx] -= hip_nonlinear_dpmra
+                end
+                if !isnothing(hip_dec_idx)
+                    y[hip_dec_idx] -= hip_nonlinear_dpmdec
+                end
+                if !isnothing(hg_ra_idx)
+                    y[hg_ra_idx] -= hg_nonlinear_dpmra
+                end
+                if !isnothing(hg_dec_idx)
+                    y[hg_dec_idx] -= hg_nonlinear_dpmdec
+                end
+            end
+
+            idx = findfirst(==(:ueva_dr3), absastrom.table.kind)
+            if !isnothing(idx)
+                y[idx] = sim.μ_1_3
+            end
+
+            resids = sim.μ[jj] .- y[mask]
+
+            # Apply the same covariance adjustments as the likelihood
+            # (g23h.jl lines 845-974) so z-scores reflect the actual fit quality.
+
+            # DR3 deflation: the companion explains some astrometric excess noise,
+            # so the effective DR3 uncertainties should be deflated.
+            d = sim.deflation_factor_dr3
+            Σ_dr3_adj = Σ_dr3 .* d^2
+
+            # DR32 covariance adjustment: account for deflation effect on DR3
+            # position contribution to the scaled position difference.
+            σ_ra_dr3 = absastrom.catalog.ra_error_central_dr3
+            σ_dec_dr3 = absastrom.catalog.dec_error_central_dr3
+            ρ_radec_dr3 = absastrom.catalog.ra_dec_corr_central_dr3
+            Σ_pos_dr3 = [
+                σ_ra_dr3^2                         ρ_radec_dr3*σ_ra_dr3*σ_dec_dr3
+                ρ_radec_dr3*σ_ra_dr3*σ_dec_dr3     σ_dec_dr3^2
+            ]
+            σ_ra_dr2 = absastrom.catalog.ra_error_central_dr2
+            σ_dec_dr2 = absastrom.catalog.dec_error_central_dr2
+            ρ_radec_dr2 = absastrom.catalog.ra_dec_corr_central_dr2
+            ρ_dr3_dr2 = √(min(sim.n_dr2, sim.n_dr3) / max(sim.n_dr2, sim.n_dr3))
+            Σ_cross = [
+                ρ_dr3_dr2*σ_ra_dr3*σ_ra_dr2                    ρ_dr3_dr2*ρ_radec_dr3*σ_ra_dr3*σ_dec_dr2
+                ρ_dr3_dr2*ρ_radec_dr2*σ_dec_dr3*σ_ra_dr2      ρ_dr3_dr2*σ_dec_dr3*σ_dec_dr2
+            ]
+            Δt_ra = (absastrom.catalog.epoch_ra_dr3_mjd - absastrom.catalog.epoch_ra_dr2_mjd) / Octofitter.julian_year
+            Δt_dec = (absastrom.catalog.epoch_dec_dr3_mjd - absastrom.catalog.epoch_dec_dr2_mjd) / Octofitter.julian_year
+            ΔΣ_pos = (d^2 - 1) * Σ_pos_dr3 - (d - 1) * (Σ_cross + Σ_cross')
+            Tr = [1/Δt_ra 0.0; 0.0 1/Δt_dec]
+            ΔΣ_dr32 = Tr * ΔΣ_pos * Tr'
+            Σ_dr32_adj = Σ_dr32 .+ ΔΣ_dr32
+
+            sigmas_full = [
+                sqrt.(diag(Σ_h))
+                sqrt.(diag(Σ_hg))
+                sqrt.(diag(Σ_dr2))
+                sqrt.(max.(diag(Σ_dr32_adj), 0.0))
+                sqrt.(diag(Σ_dr3_adj))
+                sim.UEVA_unc
+            ]
+            sigmas = sigmas_full[jj]
+            return resids ./ sigmas
+        end
+
+        hlines!(ax_Z, [0], linewidth=3, color=:black)
+        hlines!(ax_Z, [-1,1], linewidth=0.5, color=:black)
+        boxplot!(
+            ax_Z,
+            vec(stack(1:length(jj) for _ in 1:length(sims))),
+            vec(stack(z_scores)),
+            markersize=2,
+            color=:grey
+        )
+        # scatter!(
+        #     ax_Z,
+        #     concat_with_nan(stack(1:length(jj) for _ in 1:length(sims))),
+        #     concat_with_nan(stack(z_scores)),
+        # )
+
+
+    end
+
+
+
+
+    return [ax_velra, ax_veldec,]
+end

@@ -17,6 +17,8 @@ makedocs(
         "Getting Started" => [
             "Installation" => "installation.md",
             "Quick Start" => "quick-start.md",
+            "FAQ" => "faq.md",
+            "Migration Guide" => "migration.md",
         ],
         "Tutorials" => [
             "Relative Astrometry" => [
@@ -34,7 +36,10 @@ makedocs(
             "Absolute Astrometry" => [
                 "Proper Motion Anomaly" => "pma.md",
                 "Hipparcos IAD" => "hipparcos.md",
-                "Gaia DR4 IAD" => "gaia-iad.md"
+                "Joint Gaia-Hipparcos (G23H)" => "g23h.md",
+                "G23H Full Example" => "g23h-example.md",
+                "Gaia DR4 Epoch Astrometry" => "gaia-iad.md",
+                "Gaia DR4 Simulation" => "gaia-dr4-simulation.md",
             ],
             "Images and More" => [
                 "Image Data (de-orbiting)" => "images.md",
@@ -49,8 +54,11 @@ makedocs(
                 "RV and Relative Astrometry" => "fit-rv-astrom.md",
                 "RV and Proper Motion Anomaly" => "rv.md",
                 "Calculate Detection Limits" => "limits.md",
+                "Detection Completeness Mapping" => "completeness.md",
             ],
             "Bayesian Workflows" => [
+                "Circular or Eccentric? Model Comparison" => "eccentric-or-circular.md",
+                "Generating and Fitting Simulated Data" => "data-simulation.md",
                 "Prior Predictive Checks" => "prior-pred.md",
                 "Posterior Predictive Checks" => "post-pred.md",
                 "Cross Validation" => "cross-validation.md",
@@ -71,6 +79,9 @@ makedocs(
             "Kepler Solver" => "kepler.md",
             "Orbitize! Compatibility" => "compat-orbitize.md",
             "Full API Documentation" => "api.md"
+        ],
+        "Developer Documentation" => [
+            "Architecture Overview" => "dev/architecture.md"
         ]
     ],
     format = Documenter.HTML(

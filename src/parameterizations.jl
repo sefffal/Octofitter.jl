@@ -3,34 +3,34 @@ using Octofitter.StaticArrays
 
 # We want this to work with both Campbell and Thiele-Innes parameterizations
 export θ_at_epoch_to_tperi
-function θ_at_epoch_to_tperi(system,planet,theta_epoch)
-    (;M,e,θ) = merge(system,planet)
-    if  hasproperty(planet, :B) &&
-        hasproperty(planet, :G) &&
-        hasproperty(planet, :A) &&
-        hasproperty(planet, :F)
-        (;B,G,A,F) = planet
-        (;plx) = system
+function θ_at_epoch_to_tperi(θ, theta_epoch; M, e, kwargs...)
+
+    kw = NamedTuple(kwargs)
+    if  haskey(kw, :B) &&
+        haskey(kw, :G) &&
+        haskey(kw, :A) &&
+        haskey(kw, :F)
+        (;plx,B,G,A,F) = kw
 
         # Math in order to get semi-major axis -> mean motion and period (already in TI constructor)
         u = (A^2 + B^2 + F^2 + G^2)/2
         v = A*G - B * F
         α = sqrt(u + sqrt((u+v)*(u-v)))
         a = α/plx
-    elseif hasproperty(planet, :i) &&
-           hasproperty(planet, :Ω) &&
-           hasproperty(planet, :ω)
+    elseif haskey(kw, :i) &&
+           haskey(kw, :Ω) &&
+           haskey(kw, :ω)
 
-        if hasproperty(planet, :a)
-            (;a) = planet
-        elseif hasproperty(planet, :P)
-            (; P) = planet
+        if haskey(kw, :a)
+            (;a) = kw
+        elseif haskey(kw, :P)
+            (; P) = kw
             a = ∛(system.M * b.P^2)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
         else
             error("Your planet must specify either i, Ω, ω, and a/P, or B, G, A, F.")
         end
 
-        (;i, Ω, ω) = planet
+        (;i, Ω, ω) = kw
         A = ( cos(Ω)*cos(ω)-sin(Ω)*sin(ω)*cos(i))
         B = ( sin(Ω)*cos(ω)+cos(Ω)*sin(ω)*cos(i))
         F = (-cos(Ω)*sin(ω)-sin(Ω)*cos(ω)*cos(i))
@@ -53,8 +53,10 @@ function θ_at_epoch_to_tperi(system,planet,theta_epoch)
 
     # True anomaly is now straightforward to calculate in the deprojected coordinate space
     ν = atan(y_over_r,x_over_r)
+    if e >= 1
+        error("e > 1 not supported with θ_at_epoch_to_tperi")
+    end
 
-    # Mean anomaly (see Wikipedia page)
     MA = atan(-sqrt(1-e^2)*sin(ν), -e-cos(ν))+π-e*sqrt(1-e^2)*sin(ν)/(1+e*cos(ν))
 
     period_days = √(a^3/M)*PlanetOrbits.kepler_year_to_julian_day_conversion_factor
@@ -187,6 +189,9 @@ function θ_sep_at_epoch_to_tperi_sma(system,planet,theta_epoch)
     ν = atan(y_over_r,x_over_r)
 
     # Mean anomaly (see Wikipedia page)
+    if e == 0.0
+        e = eps()
+    end
     if !(0 < e  < 1)
         # @show planet.sqrtecosω
         # @show planet.sqrtesinω
@@ -277,3 +282,125 @@ function θ_sep_at_epoch_to_tperi_sma(system,planet,theta_epoch)
     tₚ = theta_epoch - MA/n*PlanetOrbits.year2day_julian
     return tₚ, a
 end
+
+
+"""
+    ofti_linear_solve(epochs, ra_data, dec_data, σ_ra, σ_dec, cor, σ_ABFG, e, a, tp, M, plx)
+
+Solve for the Thiele-Innes constants (A, B, F, G) given astrometry data and
+nonlinear orbital parameters, and return the marginalized log-likelihood.
+
+Given the nonlinear parameters (e, a, tp, M, plx), the sky-plane positions at
+each epoch are linear in (A, B, F, G). This function solves the linear system
+analytically and returns the marginalized likelihood integrated over
+(A, B, F, G) with an isotropic Gaussian prior.
+
+Use with `LL +=` in `@variables` blocks and `octofit_rejection` for
+OFTI-style rejection sampling over just the nonlinear parameters.
+
+# Arguments
+- `epochs`: vector of observation epochs (MJD)
+- `ra_data`, `dec_data`: observed RA and Dec offsets (mas)
+- `σ_ra`, `σ_dec`: measurement uncertainties (mas)
+- `cor`: correlation between RA and Dec errors
+- `σ_ABFG`: prior standard deviation on each of A, B, F, G (isotropic Gaussian, mas)
+- `e`: eccentricity
+- `a`: semi-major axis (AU)
+- `tp`: time of periapsis passage (MJD)
+- `M`: total system mass (M☉)
+- `plx`: parallax (mas)
+
+# Returns
+Named tuple `(; A, B, F, G, log_marginal_likelihood)` where A, B, F, G are the
+posterior mean values and `log_marginal_likelihood` is the log of the marginal
+likelihood (integrated over A, B, F, G).
+"""
+function ofti_linear_solve(epochs, ra_data, dec_data, σ_ra, σ_dec, cor, σ_ABFG, e, a, tp, M, plx)
+    T = promote_type(typeof(e), typeof(a), typeof(tp), typeof(M), typeof(plx))
+
+    # Compute orbital period and mean motion
+    period_days = √(a^3/M) * PlanetOrbits.kepler_year_to_julian_day_conversion_factor
+    n = 2π / (period_days / PlanetOrbits.year2day_julian) # mean motion [rad/year]
+
+    sqrt1me2 = sqrt(1 - e^2)
+    N = length(epochs)
+
+    # Build the design matrix D (2N × 4) and data vector d (2N)
+    # At each epoch: ra_j = x_j * B + y_j * G
+    #                dec_j = x_j * A + y_j * F
+    D = zeros(T, 2N, 4)
+    d = zeros(T, 2N)
+    W = zeros(T, 2N, 2N) # inverse covariance (block diagonal)
+
+    for j in 1:N
+        # Mean anomaly at this epoch
+        MA = n / T(PlanetOrbits.year2day_julian) * (epochs[j] - tp)
+
+        # Solve Kepler's equation
+        EA = PlanetOrbits.kepler_solver(MA, e, PlanetOrbits.Auto())
+
+        # Thiele-Innes x, y
+        sea, cea = sincos(EA)
+        x = cea - e
+        y = sea * sqrt1me2
+
+        # Design matrix: ra = x*B + y*G, dec = x*A + y*F
+        ra_row = 2j - 1
+        dec_row = 2j
+        D[ra_row, 2] = x   # B
+        D[ra_row, 4] = y   # G
+        D[dec_row, 1] = x  # A
+        D[dec_row, 3] = y  # F
+
+        d[ra_row] = ra_data[j]
+        d[dec_row] = dec_data[j]
+
+        # Inverse covariance for this epoch (2×2 block)
+        σr = σ_ra[j]
+        σd = σ_dec[j]
+        ρ = cor[j]
+        det_Σ = σr^2 * σd^2 * (1 - ρ^2)
+        W[ra_row, ra_row] = σd^2 / det_Σ
+        W[dec_row, dec_row] = σr^2 / det_Σ
+        W[ra_row, dec_row] = -ρ * σr * σd / det_Σ
+        W[dec_row, ra_row] = -ρ * σr * σd / det_Σ
+    end
+
+    # Prior: p(A,B,F,G) = N(0, σ_ABFG² I)
+    Λ_prior = (one(T) / σ_ABFG^2) * I(4)
+
+    # Posterior covariance: Σ_post = (D' W D + Λ_prior)⁻¹
+    DtW = D' * W
+    Σ_post_inv = DtW * D + Λ_prior
+    Σ_post = inv(Σ_post_inv)
+
+    # Posterior mean: μ_post = Σ_post * D' * W * d
+    μ_post = Σ_post * DtW * d
+
+    A_fit = μ_post[1]
+    B_fit = μ_post[2]
+    F_fit = μ_post[3]
+    G_fit = μ_post[4]
+
+    # Marginal log-likelihood: log p(d | nonlinear params)
+    # From completing the square in the Gaussian integral over (A,B,F,G).
+    data_quad = dot(d, W, d)
+    post_quad = dot(μ_post, Σ_post_inv, μ_post)
+
+    log_det_post_inv = logdet(Σ_post_inv)
+    log_det_prior_inv = 4 * log(one(T) / σ_ABFG^2)
+
+    # Log det of data covariance (sum of 2×2 block determinants)
+    log_det_data_cov = zero(T)
+    for j in 1:N
+        σr = σ_ra[j]
+        σd = σ_dec[j]
+        ρ = cor[j]
+        log_det_data_cov += log(σr^2 * σd^2 * (1 - ρ^2))
+    end
+
+    log_marginal = -T(0.5) * (data_quad - post_quad + log_det_post_inv - log_det_prior_inv + log_det_data_cov) - N * log(T(2π))
+
+    return (; A=A_fit, B=B_fit, F=F_fit, G=G_fit, log_marginal_likelihood=log_marginal)
+end
+export ofti_linear_solve

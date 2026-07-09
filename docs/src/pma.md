@@ -31,34 +31,50 @@ To make this parameterization change, we specify priors on both masses in the `@
 ### Retrieving the HGCA
 To start, we retrieve the HGCA data for this object.
 ```julia
-hgca_like = HGCALikelihood(;gaia_id=3937211745905473024)
+hgca_obs = HGCAObs(
+    gaia_id=3937211745905473024,
+    variables=@variables begin
+        # Optional: flux ratio for luminous companions, one entry per companion
+        # fluxratio ~ Product([Uniform(0, 1), Uniform(0, 1), ])  # uncomment if needed for unresolved companions
+    end
+)
 ```
 
-You can optionally provide an argument `fluxratio_var=:FR` giving a variable name to represent the flux ratio of the companions to the host, if you don't want to approximate it as zero. This is to handle luminous companions that are unresolved by gaia. You can then provide a `FR ~ SomeDistributionOrFunction()` definition in each `@planet` model.
+You can optionally provide flux ratio priors in the variables block to represent the flux ratio of the companions to the host, if you don't want to approximate it as zero. This is to handle luminous companions that are unresolved by gaia.
 
 
 If you're in a hurry, and you're study orbits with periods much longer than the mission durations of Gaia or Hipparcos (>> 4 years) then you might consider using a faster approximation that the Gaia and Hipparcos measurements were instantaneous. You can do so as follows:
 
 ```@example 1
-hgca_like = HGCAInstantaneousLikelihood(gaia_id=756291174721509376, N_ave=1) 
+hgca_obs = HGCAInstantaneousObs(gaia_id=756291174721509376, N_ave=1) 
 ```
 `N_ave` is an optional argument to control over how many epochs the measurements are approximated, e.g. N_ave=10 implies that the position and proper motion was measured instantaneously 10 times over each mission and averaged.
 
 ### Planet Model
 
 ```@example 1
-@planet b Visual{KepOrbit} begin
-    a ~ LogUniform(0.1,20)
-    e ~ Uniform(0,0.999)
-    ω ~ UniformCircular()
-    i ~ Sine() # The Sine() distribution is defined by Octofitter
-    Ω ~ UniformCircular()
-
-    mass = system.M_sec
-
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,57423.0) # epoch of GAIA measurement
-end
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    variables=@variables begin
+        P ~ LogUniform(1/365.25, 10000)# Period in Julian years (1 day to 10000yrs)
+        # Now convert to the units expected by Kepler's third law
+        # The conversion factor accounts for the IAU definitions
+        P_for_kepler = P * Octofitter.PlanetOrbits.year2day_julian / Octofitter.PlanetOrbits.kepler_year_to_julian_day_conversion_factor
+        q ~ LogUniform(1e-5, 1)
+        mass = q * system.M_pri / Octofitter.mjup2msol
+        e ~ Uniform(0, 0.9)  # Eccentricity
+        ω ~ Uniform(0, 2pi)  # Argument of periastron
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
+        τ ~ Uniform(0.0, 1.0)  # Fraction of period past periastron
+        M = system.M_pri + mass * Octofitter.mjup2msol
+        # Now apply Kepler's third law: a^3 = P^2 * M
+        # where P is in "Keplerian years", a in AU, M in solar masses
+        a = cbrt(P_for_kepler^2 * M)
+        tp = τ * P * 365.25 + 57388.5  # Time of periastron [MJD]
+    end
+)
 ```
 
 
@@ -67,24 +83,31 @@ Now that we have our planet model, we create a system model to contain it.
 
 We specify priors on `plx` as usual, but here we use the `gaia_plx` helper function to read the parallax and uncertainty directly from the HGCA catalog using its source ID.
 
-We also add parameters for the star's long term proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements. If you're not sure what to use here, try `Normal(0, 1000)`; that is, assume a long-term proper motion of 0 +- 1000 milliarcseconds / year.
+We also add parameters for the star's long term proper motion. This is usually close to the long term trend between the Hipparcos and GAIA measurements.
+
+!!! warning "Use wide priors for pmra/pmdec with HGCA data"
+    When fitting HGCA data, use **wide, uninformative priors** for `pmra` and `pmdec`, such as `Normal(0, 1000)` (0 ± 1000 mas/yr). **Do not** use Gaia DR3 proper motion values as informative priors—this would double-count the information since the HGCA already incorporates Gaia astrometry and will constrain the system's proper motion through the likelihood. The pmra/pmdec parameters represent the center-of-mass proper motion, which the HGCA measurements help determine.
+
+    The example below uses `Normal(-137, 10)` only because we have independent prior knowledge of this system's proper motion from other sources—for a typical analysis, you should use wide priors like `Normal(0, 1000)`.
 
 
 ```@example 1
-@system HD91312_pma begin
-    
-    M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
-    M_sec ~ LogUniform(0.5, 1000) # MJup
-    M = system.M_pri + system.M_sec*Octofitter.mjup2msol # Msol
+sys = System(
+    name="HD91312_pma",
+    companions=[planet_b],
+    observations=[hgca_obs],
+    variables=@variables begin
+        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1) # Msol
 
-    plx ~ gaia_plx(gaia_id=756291174721509376)
-            
-    # Priors on the center of mass proper motion
-    pmra ~ Normal(-137, 10)
-    pmdec ~ Normal(2,  10)
-end hgca_like b
+        plx ~ gaia_plx(gaia_id=756291174721509376)
+                
+        # Priors on the center of mass proper motion
+        pmra ~ Uniform((-137 .+ (-100,100))...)
+        pmdec ~ Uniform((2 .+ ( -100,100))...)
+    end
+)
 
-model_pma = Octofitter.LogDensityModel(HD91312_pma)
+model_pma = Octofitter.LogDensityModel(sys)
 ```
 
 
@@ -103,7 +126,7 @@ To install and use `Pigeons.jl` with Octofitter, type `using Pigeons` at in the 
 We now sample from our model using Pigeons:
 ```@example 1
 using Pigeons
-chain_pma, pt = octofit_pigeons(model_pma, n_rounds=10, explorer=SliceSampler()) 
+chain_pma, pt = octofit_pigeons(model_pma, n_rounds=10) 
 display(chain_pma)
 ```
 
@@ -135,24 +158,8 @@ Notice how there are completely separated peaks? The default Octofitter sample (
 
 ### Posterior Mass vs. Semi-Major Axis
 
-Given that this posterior is quite unconstrained, it is useful to make a simplified plot marginalizing over all orbital 
-parameters besides semi-major axis. We can do this using PairPlots.jl:
+Given that this posterior is quite unconstrained, it is useful to make a simplified plot marginalizing over all orbital parameters besides separation. We can do this using `dotplot`:
 ```@example 1
-using CairoMakie, PairPlots
-pairplot(
-    (; a=chain_pma["b_a"][:], mass=chain_pma["b_mass"][:]) =>
-        (
-            PairPlots.Scatter(color=:red),
-            PairPlots.MarginHist(),
-            PairPlots.MarginQuantileLines(),
-            PairPlots.MarginQuantileText(),
-        ),
-    labels=Dict(:mass=>"mass [Mⱼᵤₚ]", :a=>"sma. [au]"),
-    axis = (;
-        a = (;
-            scale=Makie.pseudolog10,
-            ticks=2 .^ (0:1:6)
-        )
-    )
-)
+using CairoMakie
+Octofitter.dotplot(model_pma, chain_pma, mode=:period)
 ```

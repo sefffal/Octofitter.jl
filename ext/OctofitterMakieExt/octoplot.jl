@@ -13,7 +13,8 @@ this by passing `fname="fname.png"`
 - `show_astrom_time=true`: Separation/PA vs time
 - `show_rv=true`: Stellar RV curve
 - `show_relative_rv=true`: Planet-star relative RV
-- `show_pma=true`: Proper motion anomaly
+- `show_pma=true`: Proper motion anomaly (HGCA)
+- `show_absastrom=true`: Absolute astrometry / proper motion (G23H)
 - `show_mass=true`: Mass posterior
 
 # Optional Arguments
@@ -57,6 +58,7 @@ function Octofitter.octoplot!(
     model::Octofitter.LogDensityModel,
     results::Chains;
     show_astrom=nothing,
+    show_absastrom=nothing,
     show_physical_orbit=nothing,
     show_astrom_time=nothing,
     show_pma=nothing,
@@ -64,6 +66,7 @@ function Octofitter.octoplot!(
     show_rv=nothing,
     show_relative_rv=nothing,
     show_hipparcos=nothing,
+    show_gaia=nothing,
     residuals=false,
     mark_epochs_mjd=Float64[],
     # If less than 500 samples, just show all of them
@@ -90,10 +93,12 @@ function Octofitter.octoplot!(
         show_physical_orbit,
         show_astrom_time,
         show_pma,
+        show_absastrom,
         show_mass,
         show_rv,
         show_relative_rv,
         show_hipparcos,
+        show_gaia,
     ))
 
     if colormap isa Symbol || colormap isa String
@@ -123,10 +128,9 @@ function Octofitter.octoplot!(
     if isnothing(show_astrom_time)
         show_astrom_time = false
         for planet in model.system.planets
-            show_astrom_time |= 
-                Octofitter.orbittype(planet) <: Visual{KepOrbit} || 
-                Octofitter.orbittype(planet) <: AbsoluteVisual{KepOrbit} || 
-                Octofitter.orbittype(planet) <: ThieleInnesOrbit
+            for like_obj in planet.observations
+                show_astrom_time |=  nameof(typeof(like_obj)) == :PlanetRelAstromObs
+            end
         end
     end
 
@@ -134,7 +138,7 @@ function Octofitter.octoplot!(
         show_relative_rv = false
         for planet in model.system.planets
             for like_obj in planet.observations
-                show_relative_rv |=  nameof(typeof(like_obj)) == :PlanetRelativeRVLikelihood
+                show_relative_rv |=  nameof(typeof(like_obj)) == :PlanetRelativeRVObs
             end
         end
     end
@@ -142,32 +146,48 @@ function Octofitter.octoplot!(
     if isnothing(show_rv)
         show_rv = false
         for like_obj in model.system.observations
-            show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVLikelihood
-            show_rv |=  nameof(typeof(like_obj)) == :MarginalizedStarAbsoluteRVLikelihood
+            show_rv |=  nameof(typeof(like_obj)) == :StarAbsoluteRVObs
+            show_rv |=  nameof(typeof(like_obj)) == :MarginalizedStarAbsoluteRVObs
         end
     end
 
     if isnothing(show_pma)
         show_pma = false
         for like_obj in model.system.observations
-            show_pma |= like_obj isa Octofitter.HGCALikelihood
-            show_pma |= like_obj isa Octofitter.HGCAInstantaneousLikelihood
-            show_pma |= like_obj isa Octofitter.GaiaDifferenceLike
+            show_pma |= like_obj isa Octofitter.HGCAObs
+            show_pma |= like_obj isa Octofitter.HGCAInstantaneousObs
         end
     end
 
+
     hgca_detected = false
     for like_obj in model.system.observations
-        hgca_detected |= like_obj isa HGCALikelihood
-        hgca_detected |= like_obj isa HGCAInstantaneousLikelihood
+        hgca_detected |= like_obj isa HGCAObs
+        hgca_detected |= like_obj isa HGCAInstantaneousObs
+    end
+
+    if isnothing(show_absastrom)
+        show_absastrom = false
+        for like_obj in model.system.observations
+            show_absastrom |= like_obj isa Octofitter.G23HObs
+        end
     end
 
 
     if isnothing(show_hipparcos)
         show_hipparcos = false
         for like_obj in model.system.observations
-            if like_obj isa HipparcosIADLikelihood
+            if like_obj isa HipparcosIADObs
                 show_hipparcos = true
+            end
+        end
+    end
+
+    if isnothing(show_gaia)
+        show_gaia = false
+        for like_obj in model.system.observations
+            if like_obj isa Octofitter.GaiaDR4AstromObs
+                show_gaia = true
             end
         end
     end
@@ -190,8 +210,14 @@ function Octofitter.octoplot!(
             show_rv,
             show_relative_rv,
             show_hipparcos,
+            show_gaia,
         )
         @info "pass true or false for one of these arguments to suppress this message."
+    end
+
+    if isempty(model.system.planets)
+        @warn "No planets in this model"
+        return Figure()
     end
 
 
@@ -204,7 +230,7 @@ function Octofitter.octoplot!(
     end
 
     if isempty(periods)
-        @warn "No planets in this model"
+        @warn "No samples in this chain"
         return Figure()
     end
     min_period = minimum(periods)
@@ -337,7 +363,7 @@ function Octofitter.octoplot!(
                 width=500figscale,
                 height=300figscale,
             )
-            bottom_time_axis = !(show_pma || show_rv || show_relative_rv || show_hipparcos)
+            bottom_time_axis = !(show_pma || show_rv || show_relative_rv || show_absastrom || show_hipparcos)
             ax = astromtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, mark_epochs_mjd, alpha, residuals)
             top_time_axis = false
             append!(axes_to_link,ax)
@@ -350,8 +376,8 @@ function Octofitter.octoplot!(
             row = cld(item, cols)
             matching_like_objs = filter(model.system.observations) do like_obj
                 nameof(typeof(like_obj)) ∈ (
-                    :MarginalizedStarAbsoluteRVLikelihood,
-                    :StarAbsoluteRVLikelihood
+                    :MarginalizedStarAbsoluteRVObs,
+                    :StarAbsoluteRVObs
                 )
             end
             gl = GridLayout(
@@ -359,7 +385,7 @@ function Octofitter.octoplot!(
                 width=500figscale,
                 height=(135 * max(1, length(matching_like_objs)) *figscale),
             )
-            bottom_time_axis = !(show_pma || show_relative_rv || show_hipparcos)
+            bottom_time_axis = !(show_pma || show_relative_rv || show_absastrom || show_hipparcos)
             ax = rvtimeplot!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
             top_time_axis = false
             Makie.rowgap!(gl, 10.)
@@ -376,7 +402,7 @@ function Octofitter.octoplot!(
                 width=500figscale,
                 height=135figscale,
             )
-            bottom_time_axis = !(show_pma || show_hipparcos)
+            bottom_time_axis = !(show_pma || show_absastrom || show_hipparcos)
             ax = rvtimeplot_relative!(gl, model, results; ii, ts, colorbar, top_time_axis, bottom_time_axis, colormap, alpha)
             top_time_axis = false
             Makie.rowgap!(gl, 10.)
@@ -404,12 +430,7 @@ function Octofitter.octoplot!(
             row = cld(item, cols)
             height=300figscale
             for like_obj in model.system.observations
-                if like_obj isa HGCALikelihood || like_obj isa HGCAInstantaneousLikelihood
-                    height+=180figscale
-                end
-            end
-            for like_obj in model.system.observations
-                if like_obj isa Octofitter.GaiaDifferenceLike
+                if like_obj isa HGCAObs || like_obj isa HGCAInstantaneousObs
                     height+=180figscale
                 end
             end
@@ -419,6 +440,22 @@ function Octofitter.octoplot!(
                 height,
             )
             ax = pmaplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
+            top_time_axis = false
+            Makie.rowgap!(gl, 10.)
+            append!(axes_to_link,ax)
+        end
+
+         if show_absastrom
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            height=460figscale
+            gl = GridLayout(
+                fig[row,col];
+                width=500figscale,
+                height,
+            )
+            ax = absastromplot!(gl, model, results; ii, ts, colorbar, top_time_axis, colormap, alpha)
             top_time_axis = false
             Makie.rowgap!(gl, 10.)
             append!(axes_to_link,ax)
@@ -439,6 +476,21 @@ function Octofitter.octoplot!(
             append!(axes_to_link,ax)
         end
 
+        if show_gaia
+            item += 1
+            col = mod1(item, cols)
+            row = cld(item, cols)
+            gl = GridLayout(
+                fig[row,col],
+                width=500figscale,
+                height=350figscale,
+            )
+            bottom_time_axis = !show_mass
+            ax = Octofitter.gaiatimeplot!(gl, model, results; ii, colorbar, top_time_axis, bottom_time_axis, alpha)
+            top_time_axis = false
+            Makie.rowgap!(gl, 10.)
+            append!(axes_to_link, ax)
+        end
 
         if show_mass
             item += 1

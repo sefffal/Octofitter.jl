@@ -40,15 +40,15 @@ function hipparcosplot!(
 
     hip_like = nothing
     for like_obs in model.system.observations
-        if like_obs isa HipparcosIADLikelihood
+        if like_obs isa HipparcosIADObs
             if !isnothing(hip_like)
-                error("more than one HipparcosIADLikelihood present")
+                error("more than one HipparcosIAD observation present")
             end
             hip_like = like_obs
         end
     end
     if isnothing(hip_like)
-        error("No HipparcosIADLikelihood present")
+        error("No HipparcosIAD observation present")
     end
 
    
@@ -83,7 +83,12 @@ function hipparcosplot!(
         solutions = map(orbits) do orbit
             return orbitsolve.(orbit[i], hip_like.table.epoch)
         end
-        sim = Octofitter.simulate(hip_like, nts[i,], getindex.(orbits,i), solutions, 0)
+        nt_obs = (;)
+        name = Octofitter.normalizename(likelihoodname(hip_like))
+        if hasproperty(nts[i], :observations) && hasproperty(nts[i].observations, name)
+            nt_obs = nts[i].observations[name]
+        end
+        sim = Octofitter.simulate(hip_like, nts[i,], nt_obs, getindex.(orbits,i), solutions, 0)
         
         # Model
         scatterlines!(ax_main,

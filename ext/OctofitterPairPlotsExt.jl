@@ -1,7 +1,7 @@
 module OctofitterPairPlotsExt
 using Octofitter
 using PairPlots
-using Tables
+using Tables, TypedTables
 using NamedTupleTools
 using MCMCChains
 

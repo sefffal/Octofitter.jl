@@ -1,7 +1,7 @@
 name = "OctofitterImages"
 uuid = "84041e37-8fdc-4d60-9e62-7240b7a8bcd7"
 authors = ["William Thompson <will.thompson@outlook.com>"]
-version = "0.7.1"
+version = "0.7.2"
 
 [deps]
 AstroImages = "fe3fc30c-9b16-11e9-1c73-17dabf39f4ad"
@@ -17,6 +17,7 @@ TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 
 [compat]
 AstroImages="0.5"
+PlanetOrbits = "0.11.1"
 
 [extras]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"

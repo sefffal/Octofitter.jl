@@ -21,7 +21,7 @@ We will assume you have saved this as `sbc-model.jl`.
 ```julia
 using Octofitter, Distributions
 
-astrom_like = PlanetRelAstromLikelihood(
+astrom_obs = PlanetRelAstromObs(
     (epoch=50000, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
     (epoch=50120, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
     (epoch=50240, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
@@ -32,20 +32,32 @@ astrom_like = PlanetRelAstromLikelihood(
     (epoch=50840, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
 )
 
-@planet b Visual{KepOrbit} begin
-    a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
-    e ~ Uniform(0.0, 0.5)
-    i ~ Sine()
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    τ ~ UniformCircular(1.0)
-    P = √(b.a^3/system.M)
-    tp =  b.τ*b.P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
-end astrom_like
-@system SBC begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-end b
+planet_b = Planet(
+    name="b",
+    basis=Visual{KepOrbit},
+    observations=[astrom_obs],
+    variables=@variables begin
+        M = system.M
+        a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        τ ~ UniformCircular(1.0)
+        P = √(a^3/M)
+        tp = τ*P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
+    end
+)
+
+SBC = System(
+    name="SBC",
+    companions=[planet_b],
+    observations=[],
+    variables=@variables begin
+        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
 model = Octofitter.LogDensityModel(SBC)
 ```
 

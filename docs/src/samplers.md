@@ -1,30 +1,20 @@
 # [Samplers](@id samplers)
 
-We recommend using one of the following MCMC samplers:
+Octofitter provides three built-in samplers:
 * No U-turn Hamiltonian Monte Carlo (via `octofit`)
 * Non-reversible parallel tempered Monte Carlo  (via `octofit_pigeons`)
+* Rejection sampling (via `octofit_rejection`)
 
 Many additional samplers can be used through the LogDensityProblems.jl interface, but they are not tested.
 
 ## Workflow
-When you're testing a new model and/or data, we recommend you test it quickly with Pathfinder (`chains = octoquick(model)`). This will return a rough approximation of the posterior and will pick up if it contains multiple modes. 
-
 If the posterior is unimodal (even if it has a complicated shape), go ahead and use AdvancedHMC (`chains = octofit(model)`). This uses a single computer core and is in many cases very efficient.
 
 If the posterior is multimodal, and the modes are quite separated, then use Pigeons (`chains, pt = octofit_pigeons(model, n_rounds=12)`).
 
-Read mode about these samplers below.
+For very low-dimensional problems (1--3 parameters), or when you need independent samples, use rejection sampling (`chains = octofit_rejection(model, draws=1_000_000)`).
 
-
-## Pathfinder
-You can use the function `octoquick` to generate a very rough approximation of the posterior. This uses the multi-pathfinder approximate inference algorithm.
-
-The useage of `octoquick` is similar to `octofit`:
-```julia
-chain = octoquick(model)
-```
-
-These results are not statistically meaningful, but should give you some very rough idea of how the model fits the data in just a few seconds.
+Read more about these samplers below.
 
 
 ## Hamiltonian Monte Carlo (NUTS)
@@ -113,6 +103,32 @@ pt = increment_n_rounds!(pt, 1)
 chain, pt = octofit_pigeons(pt)
 ```
 
+## Rejection Sampling
+
+Rejection sampling is the simplest sampling method. It draws samples from the prior and accepts or rejects each one based on the likelihood. Accepted samples are independent (no autocorrelation), making diagnostics straightforward. However, it can be very inefficient for high-dimensional problems or when the posterior is much narrower than the prior.
+
+Rejection sampling is a good choice when:
+* Your model has very few free parameters (1--3 dimensions)
+* You want independent, uncorrelated posterior samples
+* You want a quick sanity check before running a longer HMC chain
+* Gradient-based sampling is not possible (e.g. discrete parameters)
+
+```julia
+chain = octofit_rejection(model; draws=1_000_000)
+```
+
+The method signature of `octofit_rejection` is as follows:
+```julia
+octofit_rejection(
+    [rng::Random.AbstractRNG],
+    model::Octofitter.LogDensityModel;
+    draws=100_000,
+    verbosity=2,
+)
+```
+
+The `draws` parameter controls how many prior samples are drawn. The number of accepted posterior samples depends on the acceptance rate, which is reported after sampling. If the acceptance rate is very low, consider using `octofit` (HMC) instead.
+
 ## Distributed Sampling
 
 
@@ -137,7 +153,7 @@ using DataFrames
 using Distributions
 
 # Specify your data as usual
-astrom_like = PlanetRelAstromLikelihood(
+astrom_obs = PlanetRelAstromObs(
     # Your data here:
     (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
     (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
@@ -158,7 +174,7 @@ astrom_like = PlanetRelAstromLikelihood(
     Ω ~ UniformCircular()
     θ ~ UniformCircular()
     tp = θ_at_epoch_to_tperi(system,b,50000) # use MJD epoch of your data here!!
-end astrom_like
+end astrom_obs
 @system Tutoria begin # replace Tutoria with the name of your planetary system
     M ~ truncated(Normal(1.2, 0.1), lower=0.1)
     plx ~ truncated(Normal(50.0, 0.02), lower=0.1)

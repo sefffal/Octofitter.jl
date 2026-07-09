@@ -95,7 +95,6 @@ function pmaplot!(
         catch
             continue
         end
-        # TODO: Can we use the existing simulator for this please?
         pmra_model_t .+= pmra.(sols, mass)
         pmdec_model_t .+= pmdec.(sols, mass)
         color_model_t .= rem2pi.(
@@ -150,8 +149,8 @@ function pmaplot!(
 
     # Now over plot any astrometry
     like_objs = filter(model.system.observations) do like_obj
-        nameof(typeof(like_obj)) == :HGCALikelihood || 
-        nameof(typeof(like_obj)) == :HGCAInstantaneousLikelihood
+        nameof(typeof(like_obj)) == :HGCAObs ||
+        nameof(typeof(like_obj)) == :HGCAInstantaneousObs
     end
     if !isempty(like_objs)
         hgca_like = only(like_objs)
@@ -310,18 +309,22 @@ function pmaplot!(
             jj = ii
         end
         sims = []
-        for (θ_system, i) in zip(θ_systems_from_chain, jj)
-            orbits = map(keys(model.system.planets)) do planet_key
+        for i in jj
+            θ_system = θ_systems_from_chain[i]
+            orbits = Tuple(map(keys(model.system.planets)) do planet_key
                 Octofitter.construct_elements(model, results, planet_key, i)
+            end)
+            θ_obs = (;)
+            name = Octofitter.normalizename(likelihoodname(hgca_like))
+            if hasproperty(θ_system, :observations) && hasproperty(θ_system.observations, name)
+                θ_obs = θ_system.observations[name]
             end
             if hasproperty(hgca_like, :table)
-                solutions = map(orbits) do orbit
-                    return orbitsolve.(orbit, hgca_like.table.epoch)
-                end
-                sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, 0)
+                solutions = Tuple(() for _ in keys(model.system.planets))
+                sim = Octofitter.simulate(hgca_like, θ_system, θ_obs, orbits, solutions, -1)
             else
-                solutions = [() for _ in length(model.system.planets)]
-                sim = Octofitter.simulate(hgca_like, θ_system, orbits, solutions, -1)
+                solutions = Tuple(() for _ in keys(model.system.planets))
+                sim = Octofitter.simulate(hgca_like, θ_system, θ_obs, orbits, solutions, -1)
             end
             push!(sims, sim)
         end
@@ -548,14 +551,22 @@ function pmaplot!(
             jj = ii
         end
         sims = []
-        for (θ_system, i) in zip(θ_systems_from_chain, jj)
-            orbits = map(keys(model.system.planets)) do planet_key
+        name = Octofitter.normalizename(likelihoodname(gaialike))
+        for i in jj
+            θ_system = θ_systems_from_chain[i]
+            orbits = Tuple(map(keys(model.system.planets)) do planet_key
                 Octofitter.construct_elements(model, results, planet_key, i)
-            end
-            solutions = map(orbits) do orbit
+            end)
+            solutions = Tuple(map(orbits) do orbit
                 return orbitsolve.(orbit, gaialike.table.epoch)
+            end)
+
+            θ_obs = (;)
+            if hasproperty(θ_system, :observations) && hasproperty(θ_system.observations, name)
+                θ_obs = θ_system.observations[name]
             end
-            sim = Octofitter.simulate(gaialike, θ_system, orbits, solutions, 0)
+
+            sim = Octofitter.simulate(gaialike, θ_system,θ_obs, orbits, solutions, 0)
             push!(sims, sim[2])
         end
 

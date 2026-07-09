@@ -1,18 +1,20 @@
 
+
 # Logic to read each record array by age, and load using CSV
-function _load_bhac15_models(fname="BHAC15-models.dat")
+function _load_bhac15_models(fname)
     lines = readlines(fname)
-    colnames = [
-        :M_Ms
-        :Teff
-        :L_Ls
-        :g
-        :R_Rs
-        :Li_Li0
-        :Mj
-        :Mh
-        :Mk  
-    ]
+    # colnames = [
+    #     :M_Ms
+    #     :Teff
+    #     :L_Ls
+    #     :g
+    #     :R_Rs
+    #     :Li_Li0
+    #     :Mj
+    #     :Mh
+    #     :Mk  
+    # ]
+    local colnames
 
     record_start_i = 0
     record_stop_i = 0
@@ -22,6 +24,9 @@ function _load_bhac15_models(fname="BHAC15-models.dat")
         if contains(lines[i],"t (Gyr) = ",)
             age_Gyr = parse(Float64, split(lines[i],'=')[end])
             record_start_i = i + 4
+        end
+        if i == record_start_i - 2
+            colnames = map(match-> Symbol(match.captures[1]), eachmatch(r"([\w\/]+)", lines[i]))
         end
         if i < record_start_i
             continue
@@ -33,9 +38,17 @@ function _load_bhac15_models(fname="BHAC15-models.dat")
         if record_stop_i < i && record_stop_i > 0
             str = join(lines[record_start_i:record_stop_i], "\n")
             io = IOBuffer(str,)
-            df0 = CSV.read(io, DataFrame, header=0, normalizenames=true, delim=' ', ignorerepeated=true, skipto=4, comment="!")
-            df = FlexTable(df0, colnames)
-            df.age_Gyr = age_Gyr
+            df = CSV.read(
+                io,
+                FlexTable,
+                header=colnames,
+                normalizenames=true,
+                delim=' ',
+                ignorerepeated=true,
+                skipto=4,
+                comment="!"
+            )
+            df.age_Gyr = fill(age_Gyr, size(df,1))
             push!(records, df)
             record_stop_i = 0
             record_start_i = 0
@@ -52,22 +65,22 @@ Create a function mapping (age_Myr, mass_Mjup) -> absolute K band magnitude usin
 BHAC15 model grids.
     
 """
-function bhac15_mass_age_interpolator(fname="BHAC15-models.dat")
+function bhac15_mass_age_interpolator(fname;key)
     records = _load_bhac15_models(fname)
 
     # Need list grid of (age_myr X mass_jup) -> (K Mag) 
     dfall = reduce(vcat, records)
 
     agemyr = dfall.age_Gyr .* 1000
-    mmjup = dfall.M_Ms ./ mjup2msol
+    mmjup = dfall.var"M/Ms" ./ Octofitter.mjup2msol
 
 
     points = [ 
         log.(agemyr) log.(mmjup)
     ]
-    samples = dfall.Mk
+    samples = getproperty(dfall, key)
 
-    sitplog = RBFInterpolator(points, samples, 0.1)
+    sitplog = Octofitter.RBFInterpolator(points, samples, 0.1)
 
     sitp = (agemyr, mmjup) -> sitplog(log(agemyr), log(mmjup))
     # return (;sitp, agemyr, mmjup, teffk)
@@ -80,7 +93,7 @@ function bhac15_mass_age_interpolator(fname="BHAC15-models.dat")
     gridded = sitp.(agemyrrange, mmjuprange')
 
     # Now build linear interpolator
-    litp = LinearInterpolation((agemyrrange, mmjuprange), gridded, extrapolation_bc=NaN)
+    litp = Octofitter.LinearInterpolation((agemyrrange, mmjuprange), gridded, extrapolation_bc=NaN)
     function model_interpolator(agemyr, mmjup)
         if minagemyr <= agemyr <= maxagemyr && minmmjup < mmjup < maxmmjup
             return litp(agemyr, mmjup)
