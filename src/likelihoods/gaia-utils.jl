@@ -70,6 +70,30 @@ function obmt2mjd(obmt::Float64)
 end
 
 # ──────────────────────────────────────────────────────────────────────
+# AGIS astrometric input spans
+# ──────────────────────────────────────────────────────────────────────
+#
+# Time spans of the *input data actually used* by each release's astrometric
+# solution (AGIS), as published in the release astrometry papers. These differ
+# from the nominal data-collection spans in `meta_gaia_DR2`/`meta_gaia_DR3`
+# above: both the DR2 and (E)DR3 solutions excluded the first month of the
+# operational phase (the ecliptic-pole scanning-law period, OBMT < 1192.13
+# rev), and the boundaries fall mid-day, not at midnight UTC.
+#   DR2:   OBMT 1192.13–3750.56 rev (Lindegren et al. 2018, Sect. 2)
+#   (E)DR3: OBMT 1192.13–5230.09 rev (Lindegren et al. 2021, Sect. 2)
+# Transits forecast outside these spans can never have contributed to the
+# corresponding astrometric solution, regardless of the matched-transit
+# counts reported in the source catalogs.
+const gaia_agis_span_dr2 = (;
+    start_mjd = obmt2mjd(1192.13), # 2014-08-22
+    stop_mjd  = obmt2mjd(3750.56), # 2016-05-23 ~11:35 UTC
+)
+const gaia_agis_span_dr3 = (;
+    start_mjd = obmt2mjd(1192.13), # 2014-08-22
+    stop_mjd  = obmt2mjd(5230.09), # 2017-05-28 ~08:45 UTC
+)
+
+# ──────────────────────────────────────────────────────────────────────
 # SPICE-based Earth ephemeris
 # ──────────────────────────────────────────────────────────────────────
 
