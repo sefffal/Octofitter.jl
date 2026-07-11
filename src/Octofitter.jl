@@ -322,9 +322,9 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
         A mandatory companion table to the G23H catalog (26.0002) carrying the
         Gaia DR2 astrometric matched-transit count, keyed on `gaia_source_id`.
         This count is not present in the published G23H catalog but is required
-        by the G23HObs likelihood to set the DR2/DR3 shared-transit fraction
-        ρ_dr3_dr2 = √(n_dr2/n_dr3) self-consistently in its Gaia epoch-selection
-        prior.
+        by the G23HObs likelihood to size the Gaia DR2 epoch selection in its
+        epoch-marginalization prior (the DR2-used transit set is selected from
+        the DR2 window separately from the DR3-used set).
 
         Columns:
         - gaia_source_id                       :: Int64  (join key)
