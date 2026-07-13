@@ -13,6 +13,11 @@ proper motion accelerations and unit weight error variance analysis (UEVA).
 - `catalog`: Path to G23H catalog file, or a loaded DataFrame/Table.
   Defaults to the automatically downloaded G23H catalog via DataDeps.
 - `include_rv`: Whether to include Gaia RV variability constraints (default: true)
+- `rv_ln_uncert_err_floor`: Minimum adopted uncertainty on the catalog per-transit
+  RV ln-σ calibration `rv_ln_uncert_err_dr3` (default: 0.30). The GP calibration is
+  Malmquist-biased for cool dwarfs — their calibration bins are dominated by distant
+  giants with sharper lines — so the quoted uncertainty can be unrealistically small
+  and over-constrain the σ_rv_per_transit prior. Set to `nothing` for the raw value.
 - `ueva_mode`: Either `:RUWE` (default) or `:EAN` for astrometric excess noise modeling
 - `freeze_epochs`: If true, fix Gaia observation epochs for faster sampling (default: false)
 - `variables`: Optional custom priors (defaults are set from catalog values)
@@ -92,6 +97,134 @@ function likelihoodname(like::G23HObs)
     return "G23H"
 end
 
+# ──────────────────────────────────────────────────────────────────────
+# DR2/DR3 matched-transit sidecar plumbing
+#
+# The Gaia DR2 astrometric solution shares its input-span start with DR3 but
+# stops earlier. The two transit sets overlap but are NOT nested: DR3's
+# rebuilt crossmatch commonly used more transits inside the DR2 window than
+# DR2 itself matched (audit 2026-07-11: 23 of 153 sampled targets are
+# outright infeasible under a nesting assumption, and it is near-binding for
+# half the rest), and DR2 occasionally used transits DR3 later dropped
+# (n_dr2 > n_dr3 for ~10%). The epoch simulator therefore selects the two
+# sets separately — DR3's from the whole AGIS span, DR2's from the DR2
+# window — with the DR2 selection sized by the DR2 matched-transit count.
+# For bright stars that count additionally includes doubly-downlinked
+# transits (two windows per FoV crossing, both tallied by DR2's crossmatch;
+# resolved to one in (E)DR3): the DR2 count exceeds the geometric transit
+# pool by up to ~1.6× for G ≲ 6, monotonically in G, while DR3's never does.
+# These are modeled as repeated epochs with the distinct-crossing count
+# marginalized (see the DR2 epoch-selection block in the constructor).
+# The DR2/DR3 catalog-covariance correlation is NOT derived from these
+# counts; it is adopted directly from the published `rho_dr2_dr3`, against
+# which the catalog uncertainties were calibrated.
+#
+# That count is NOT carried in the published G23H catalog, so it is supplied by
+# a mandatory companion sidecar (the `G23H_DR2Transits` DataDep, or the
+# `dr2_transits_catalog` keyword) via the column
+# `astrometric_matched_observations_dr2`. In Gaia DR2 this field is the number
+# of *FoV transits* matched to the source — it was renamed
+# `astrometric_matched_transits` in (E)DR3 — so it is directly comparable to
+# the DR3 count and needs no per-transit conversion. There is no fallback: if
+# the count cannot be resolved for a source, construction errors.
+# ──────────────────────────────────────────────────────────────────────
+
+const _G23H_DR2_SIDECAR = Ref{Any}(nothing)
+const _G23H_DR2_SIDECAR_LOCK = ReentrantLock()
+
+# Lazily load (and memoize) the sidecar table registered as the
+# `G23H_DR2Transits` DataDep. Returns a Tables.jl table.
+function _g23h_dr2_sidecar_datadep()
+    lock(_G23H_DR2_SIDECAR_LOCK) do
+        if isnothing(_G23H_DR2_SIDECAR[])
+            dir = datadep"G23H_DR2Transits"
+            feathers = filter(f -> endswith(f, ".feather"), readdir(dir; join=true))
+            isempty(feathers) && error("No .feather file found in the G23H_DR2Transits DataDep at $dir")
+            _G23H_DR2_SIDECAR[] = Arrow.Table(first(feathers))
+        end
+        return _G23H_DR2_SIDECAR[]
+    end
+end
+
+# Merge the DR2 matched-transit count for `gaia_id` into the catalog row from
+# the mandatory sidecar. No-op if the catalog already carries the column.
+# Errors (no fallback) if the sidecar or the source's row cannot be resolved.
+function _g23h_merge_dr2_sidecar(catalog, gaia_id, dr2_transits_catalog)
+    hasproperty(catalog, :astrometric_matched_observations_dr2) && return catalog
+    tbl = if !isnothing(dr2_transits_catalog)
+        Tables.istable(dr2_transits_catalog) ? dr2_transits_catalog : Arrow.Table(dr2_transits_catalog)
+    else
+        _g23h_dr2_sidecar_datadep()
+    end
+    idx = findfirst(==(gaia_id), Tables.getcolumn(tbl, :gaia_source_id))
+    isnothing(idx) && error(
+        "Gaia source $gaia_id was not found in the G23H_DR2Transits sidecar. The DR2 " *
+        "matched-transit count (`astrometric_matched_observations_dr2`) is required to " *
+        "set the DR2/DR3 correlation; there is no fallback.")
+    srow = NamedTuple(Table(tbl)[idx])
+    # The published G23H_DR2Transits sidecar (CANFAR DOI 26.0016) carries the DR2
+    # count under its native Gaia column name `astrometric_matched_observations`
+    # (renamed `astrometric_matched_transits` in (E)DR3); accept either that or the
+    # `_dr2`-suffixed internal name, and store it internally as the latter.
+    n_dr2 = if haskey(srow, :astrometric_matched_observations_dr2)
+        srow.astrometric_matched_observations_dr2
+    elseif haskey(srow, :astrometric_matched_observations)
+        srow.astrometric_matched_observations
+    else
+        error("The G23H_DR2Transits sidecar is missing the DR2 matched-observation " *
+              "count (`astrometric_matched_observations_dr2` or " *
+              "`astrometric_matched_observations`).")
+    end
+    return merge(catalog, (; astrometric_matched_observations_dr2 = n_dr2))
+end
+
+# Total size of the DR2 epoch selection (drawn from the DR2-window forecast
+# pool), taken from the mandatory DR2 matched-transit count. NOTE: this total
+# includes DR2's doubly-downlinked bright-star transits, so it can exceed the
+# number of distinct crossings — see `_g23h_select_dr2_epochs`. Errors if it
+# is unavailable or non-finite (no fallback by design).
+function _g23h_dr2_target_transits(catalog, n_dr3::Integer)
+    hasproperty(catalog, :astrometric_matched_observations_dr2) || error(
+        "G23HObs requires the Gaia DR2 matched-transit count " *
+        "(`astrometric_matched_observations_dr2`) from the G23H_DR2Transits sidecar " *
+        "or the `dr2_transits_catalog` keyword; it was not found for this source.")
+    v = catalog.astrometric_matched_observations_dr2
+    (ismissing(v) || !isfinite(v)) && error(
+        "Gaia DR2 `astrometric_matched_observations_dr2` is missing/non-finite for this source.")
+    n_dr2 = round(Int, v)
+    if n_dr2 > 3 * n_dr3
+        # n_dr2 modestly above n_dr3 is genuine (DR2's set is not nested in
+        # DR3's, and DR3 dropped some DR2 transits), but a several-fold excess
+        # suggests the column holds CCD-level AL observations (~9 per FoV
+        # transit) rather than FoV transits. Flag it; downstream clamps to the
+        # window pool size anyway.
+        @warn "DR2 matched transits ($n_dr2) far exceed DR3 matched transits ($n_dr3); the " *
+              "sidecar `astrometric_matched_observations_dr2` may be CCD-level AL " *
+              "observations rather than FoV transits."
+    end
+    return max(n_dr2, 0)
+end
+
+# Materialize the DR2 epoch set from the sampled transit priorities:
+# `n_distinct` distinct crossings (the top-priority epochs of the DR2-window
+# pool) padded with repeats up to `n_total` entries. A repeated index puts
+# that epoch into the DR2 least-squares fit twice — the model of a
+# doubly-downlinked bright-star transit that DR2's matched-observation count
+# tallied twice. Which crossings carry the repeats is taken from the top of
+# the priority ordering; by exchangeability of the iid priorities this is
+# distributed as a uniform choice among the selected crossings. The returned
+# length is always `n_total` (fixed across samples, so chain storage and
+# likelihood buffers stay rectangular), except in the pathological case of an
+# empty pool.
+function _g23h_select_dr2_epochs(priorities::AbstractVector, pool::AbstractVector{<:Integer}, n_distinct::Integer, n_total::Integer)
+    (n_distinct <= 0 || n_total <= 0) && return Int[]
+    sel = pool[partialsortperm(priorities[pool], 1:n_distinct, rev=true)]  # priority order
+    n_rep = n_total - n_distinct
+    # mod1 wrap covers the extreme case n_rep > n_distinct (multiplicity ≥ 3).
+    reps = n_rep > 0 ? sel[mod1.(1:n_rep, n_distinct)] : Int[]
+    return sort!(vcat(sel, reps))
+end
+
 function G23HObs(;
         gaia_id=nothing,
         hip_id=nothing,
@@ -99,8 +232,14 @@ function G23HObs(;
         catalog=joinpath(datadep"G23H_Catalog", "G23H-v1.0.feather"),
         variables::Union{Nothing,Tuple{Priors,Derived}}=nothing,
         include_rv=true,
+        rv_ln_uncert_err_floor::Union{Nothing,Real}=0.30,
         ueva_mode::Symbol=:RUWE,
-        freeze_epochs=false
+        freeze_epochs=false,
+        dr2_transits_catalog=nothing,
+        # G-band threshold below which the DR2 duplicate-transit count is
+        # marginalized (doubly-downlinked bright-star transits; see the DR2
+        # epoch-selection comment). Set to -Inf to disable.
+        dr2_dup_gmag_threshold::Real=6.5,
     )
     include_iad=false
 
@@ -164,6 +303,29 @@ function G23HObs(;
             rv_nb_transits=dr3.rv_nb_transits,
             radial_velocity_error=dr3.radial_velocity_error,
         )
+    end
+
+    # Resolve the Gaia DR2 matched-transit count (used to size the DR2 epoch
+    # selection). Not in the published G23H catalog;
+    # pulled from the `dr2_transits_catalog` keyword when given, else the
+    # mandatory `G23H_DR2Transits` sidecar DataDep, and merged into the catalog
+    # row. Errors if it cannot be resolved (no fallback).
+    # See `_g23h_merge_dr2_sidecar` / `_g23h_dr2_target_transits`.
+    if !isnothing(gaia_id)
+        catalog = _g23h_merge_dr2_sidecar(catalog, gaia_id, dr2_transits_catalog)
+    end
+
+    # Floor the uncertainty of the per-transit RV ln-σ calibration. The GP
+    # calibration behind rv_ln_uncert_err_dr3 is Malmquist-biased for cool
+    # dwarfs: their (colour, magnitude) calibration bins are dominated by
+    # distant giants with sharper lines, so the quoted uncertainty on ln σ_rv
+    # is unrealistically small and over-constrains the σ_rv_per_transit prior.
+    if !isnothing(rv_ln_uncert_err_floor) &&
+            hasproperty(catalog, :rv_ln_uncert_err_dr3) &&
+            !ismissing(catalog.rv_ln_uncert_err_dr3) &&
+            isfinite(catalog.rv_ln_uncert_err_dr3)
+        catalog = merge(catalog, (;
+            rv_ln_uncert_err_dr3 = max(catalog.rv_ln_uncert_err_dr3, rv_ln_uncert_err_floor)))
     end
 
     if isnan(catalog.hip_id)
@@ -315,66 +477,57 @@ function G23HObs(;
 
 
 
-    # Now remove any known gaps -- data sourced from HTOF.py; authors G.M. Brandt et al
-    gaps_dr2 = CSV.read(joinpath(@__DIR__, "astrometric_gaps_gaiadr2_08252020.csv"), FlexTable)
-    gaps_edr23 = CSV.read(joinpath(@__DIR__, "astrometric_gaps_gaiaedr3_12232020.csv"), FlexTable)
-    gaps = Table(
-        start_mjd=obmt2mjd.(vcat(gaps_dr2.start,gaps_edr23.start)),
-        stop_mjd=obmt2mjd.(vcat(gaps_dr2.end,gaps_edr23.end)),
-        note=[gaps_dr2.comment; gaps_edr23.description]
-    )
-    gaia_table = filter(eachrow(gaia_table)) do row
-        row = row[]
-        for gap in eachrow(gaps)
-            gap = gap[]
-            if gap.start_mjd <= row.epoch <= gap.stop_mjd
-                @info "Detected known gap in Gaia scans; skipping." window=row.epoch note=gap.note
-                return false
-            end
-        end
-        return true
-    end
-    gaia_table = Table(map(dat->dat[], gaia_table))
-
-    # Trim to the DR3 window: GOST forecasts can extend well past the DR3 data
-    # span (often to 2018+). Epochs after meta_gaia_DR3.stop_mjd can never
-    # contribute to any modeled channel (the DR2/DR3 window slices exclude
-    # them), but left in the table they consume transit_priorities selection
-    # slots: chi_squared_astro is then summed over only the in-window survivors
+    # Trim to the (E)DR3 AGIS input span: GOST forecasts start at the beginning
+    # of science operations and can extend well past the DR3 data span (often
+    # to 2018+), but the DR2 and DR3 astrometric solutions both used only data
+    # from OBMT 1192.13 rev onward — excluding the first month of EPSL
+    # scanning — up to their respective stops (Lindegren et al. 2018, 2021).
+    # Out-of-span epochs can never contribute to any modeled channel, but left
+    # in the table they consume transit_priorities selection slots:
+    # chi_squared_astro is then summed over only the in-window survivors
     # while its UEVA normalization uses the catalog astrometric_matched_transits
     # count — understating the predicted companion-induced UEVA excess by ~the
     # out-of-window fraction (median ~29% over the Hipparcos sample). Single
     # stars are unaffected (zero signal either way); companion hosts need a
     # spuriously larger companion to reproduce the observed RUWE/UEVA.
-    gaia_table = gaia_table[vec(gaia_table.epoch) .<= meta_gaia_DR3.stop_mjd]
+    gaia_table = Table(gaia_table[gaia_agis_span_dr3.start_mjd .<= vec(gaia_table.epoch) .<= gaia_agis_span_dr3.stop_mjd, :])
 
-    # Determine fraction of epochs in DR2 that overlap with DR3
-
-    istart_dr2 = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaia_table.epoch))
-    iend_dr2 = findlast(<=(meta_gaia_DR2.stop_mjd), vec(gaia_table.epoch))
-    if isnothing(istart_dr2)
-        istart_dr2 = 1
+    # Known data gaps, applied PER RELEASE (audit 2026-07-11): the gap lists
+    # differ inside the DR2 window by ~13 days of DR2-valid time (VPU reset,
+    # PAA anomalies, lunar eclipses, ...) that only the (E)DR3 processing
+    # excluded, so removing the union from one shared pool undercounts the
+    # epochs DR2 could use. Each release gets its own usability mask instead:
+    #   DR2: its own hard (persistent=TRUE) gap list, within the DR2 span;
+    #   DR3: the EDR3 gap list.
+    # Rows dead for both releases are dropped. Non-persistent DR2 entries
+    # (e.g. lunar eclipses) stay DR2-selectable: empirically (HIP 56379,
+    # whose DR2 matched-transit count equals the raw forecast count minus
+    # only the hard gaps) DR2's AGIS did use those transits.
+    # Gap tables sourced from HTOF.py; authors G.M. Brandt et al.
+    gaps_dr2 = CSV.read(joinpath(@__DIR__, "astrometric_gaps_gaiadr2_08252020.csv"), FlexTable)
+    gaps_edr23 = CSV.read(joinpath(@__DIR__, "astrometric_gaps_gaiaedr3_12232020.csv"), FlexTable)
+    _persistent(x) = x === true || (x isa AbstractString && uppercase(strip(x)) == "TRUE")
+    dr2_hard = _persistent.(gaps_dr2.persistent)
+    gap_starts_dr2 = obmt2mjd.(gaps_dr2.start[dr2_hard])
+    gap_stops_dr2  = obmt2mjd.(gaps_dr2.end[dr2_hard])
+    gap_starts_dr3 = obmt2mjd.(gaps_edr23.start)
+    gap_stops_dr3  = obmt2mjd.(gaps_edr23.end)
+    _in_gaps(e, starts, stops) = any(s <= e <= p for (s, p) in zip(starts, stops))
+    epochs_all = vec(gaia_table.epoch)
+    dr2_ok_mask = (epochs_all .<= gaia_agis_span_dr2.stop_mjd) .&
+        .!_in_gaps.(epochs_all, Ref(gap_starts_dr2), Ref(gap_stops_dr2))
+    dr3_ok_mask = .!_in_gaps.(epochs_all, Ref(gap_starts_dr3), Ref(gap_stops_dr3))
+    keep = dr2_ok_mask .| dr3_ok_mask
+    if !all(keep)
+        @info "Removed forecast transits falling in data gaps of every applicable release." n_removed=count(.!keep)
     end
-    if isnothing(iend_dr2)
-        iend_dr2 = length(gaia_table.epoch)
+    n_dr2_only = count(dr2_ok_mask .& .!dr3_ok_mask)
+    if n_dr2_only > 0
+        @info "Keeping forecast transits usable by DR2 but excluded by the EDR3 gap list (DR2-only pool)." n=n_dr2_only
     end
-
-    istart_dr3 = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaia_table.epoch))
-    iend_dr3 = findlast(<=(meta_gaia_DR3.stop_mjd), vec(gaia_table.epoch))
-    if isnothing(istart_dr3)
-        istart_dr3 = 1
-    end
-    if isnothing(iend_dr3)
-        iend_dr3 = length(gaia_table.epoch)
-    end
-
-    min_epoch = +Inf
-    max_epoch = -Inf
-    min_epoch = min(min_epoch,meta_gaia_DR2.start_mjd)
-    max_epoch = max(max_epoch,meta_gaia_DR2.stop_mjd)
-    min_epoch = min(min_epoch,meta_gaia_DR3.start_mjd)
-    max_epoch = max(max_epoch,meta_gaia_DR3.stop_mjd)
-    gaia_table = Table(gaia_table[min_epoch .<= gaia_table.epoch .<= max_epoch,:])
+    gaia_table = Table(gaia_table[keep, :])
+    dr2_ok_mask = dr2_ok_mask[keep]
+    dr3_ok_mask = dr3_ok_mask[keep]
 
     # DR2
     A_prepared_5_dr2 = prepare_A_5param(gaia_table, catalog.epoch_ra_dr2_mjd,  catalog.epoch_dec_dr2_mjd)
@@ -405,13 +558,13 @@ function G23HObs(;
             isnothing(hip_like) ? 0 : minimum(hip_table.epoch),
             isnothing(hip_like) ? 0 : years2mjd(catalog.epoch_ra_hip),
             isnothing(hip_like) ? 0 : years2mjd(catalog.epoch_dec_hip),
-            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR2.start_mjd)]),
-            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR2.start_mjd)]),
+            first(gaia_table.epoch[gaia_table.epoch.>=(gaia_agis_span_dr2.start_mjd)]),
+            first(gaia_table.epoch[gaia_table.epoch.>=(gaia_agis_span_dr2.start_mjd)]),
             years2mjd(catalog.epoch_ra_dr2),
             years2mjd(catalog.epoch_dec_dr2),
-            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR3.start_mjd)]),
-            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR3.start_mjd)]),
-            first(gaia_table.epoch[gaia_table.epoch.>=(meta_gaia_DR3.start_mjd)]),
+            first(gaia_table.epoch[gaia_table.epoch.>=(gaia_agis_span_dr3.start_mjd)]),
+            first(gaia_table.epoch[gaia_table.epoch.>=(gaia_agis_span_dr3.start_mjd)]),
+            first(gaia_table.epoch[gaia_table.epoch.>=(gaia_agis_span_dr3.start_mjd)]),
         ],
         stop_epoch=[
             isnothing(hip_like) ? 0 : maximum(hip_table.epoch),
@@ -419,13 +572,13 @@ function G23HObs(;
             isnothing(hip_like) ? 0 : maximum(hip_table.epoch),
             isnothing(hip_like) ? 0 : years2mjd(catalog.epoch_ra_dr3),
             isnothing(hip_like) ? 0 : years2mjd(catalog.epoch_dec_dr3),
-            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR2.stop_mjd)]),
-            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR2.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(gaia_agis_span_dr2.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(gaia_agis_span_dr2.stop_mjd)]),
             years2mjd(catalog.epoch_ra_dr3),
             years2mjd(catalog.epoch_dec_dr3),
-            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
-            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
-            last(gaia_table.epoch[gaia_table.epoch.<=(meta_gaia_DR3.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(gaia_agis_span_dr3.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(gaia_agis_span_dr3.stop_mjd)]),
+            last(gaia_table.epoch[gaia_table.epoch.<=(gaia_agis_span_dr3.stop_mjd)]),
         ],
         pm = [
             NaN,
@@ -493,16 +646,10 @@ function G23HObs(;
 
     if isnothing(variables)
 
-        len_epochs = length(gaia_table.epoch)
+        len_epochs = length(gaia_table.epoch)   # union pool; transit_priorities spans it
         astrometric_matched_transits_dr3 = catalog.astrometric_matched_transits_dr3
-        missed_transits = Int(len_epochs - astrometric_matched_transits_dr3)
         dec = catalog.dec
         ra = catalog.ra
-        if missed_transits < 0
-            @warn "Transits missing from GOST (more matched transits than available options from GOST)"
-            missed_transits = 0
-        end
-        @info "Count of missed or rejected transits:"  dr3=missed_transits
 
         variables = @variables begin
             σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
@@ -510,56 +657,110 @@ function G23HObs(;
             σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
             # G-band flux ratio (used by Gaia DR2/DR3 photocentre branch).
             fluxratio = hasproperty(sys, :fluxratio) ? sys.fluxratio : 0.0
-            # Hp-band flux ratio (required by the BINARYS Hipparcos photocentre branch).
-            # Hard cut: must be supplied at the system level. No fallback.
-            fluxratio_hip = sys.fluxratio_hip
+            fluxratio_hip = hasproperty(sys, :fluxratio_hip) ? sys.fluxratio_hip : 0.0
         end
 
-        if(len_epochs) < astrometric_matched_transits_dr3
-            @warn "Fewer epochs in GOST forecast than `astrometric_matched_transits` reported by Gaia. Results by be innaccurate."
-            if has_rv 
-                # Still need to marginalize over RV epochs
-                variables = vcat(variables, @variables begin
-                    transit_priorities ~ MvNormal(zeros(len_epochs), I)
-                    transits = $(1:len_epochs) # but we don't need to sort each time for astrometry; we're using all of them.
-                end)
-            else
-                transit_priorities = (randn(len_epochs)...,)
-                variables = vcat(variables, @variables begin
-                    transit_priorities = $transit_priorities
-                    transits = $(1:len_epochs)
-                end)
-            end
+        # Per-release selection pools (see the gap-mask construction above).
+        # The table is already trimmed to the common AGIS start (DR2 and DR3
+        # both begin at OBMT 1192.13 rev), so the DR3-only "tail" pool is
+        # exactly the DR3-usable epochs after the DR2 stop.
+        dr2_stop_mjd = gaia_agis_span_dr2.stop_mjd
+        epochs_mjd = vec(gaia_table.epoch)
+        dr2_pool = findall(dr2_ok_mask)
+        dr3_win  = findall(dr3_ok_mask .& (epochs_mjd .<= dr2_stop_mjd))
+        dr3_tail = findall(dr3_ok_mask .& (epochs_mjd .> dr2_stop_mjd))
+        n_dr3_pool = length(dr3_win) + length(dr3_tail)
+        @info "Count of missed or rejected transits:" dr3=max(0, n_dr3_pool - astrometric_matched_transits_dr3)
+
+        # ---- DR3 epoch selection ----
+        # Sample the *indices* of the GOST-forecast epochs Gaia actually used
+        # via continuous `transit_priorities` (highest values win):
+        # `astrometric_matched_transits_dr3` epochs, split between the DR2
+        # window and the DR3-only tail in proportion to the pool sizes,
+        # clamped into the hard feasibility bounds (n_tail cannot exceed the
+        # tail pool, n2_win the window pool).
+        degenerate_dr3 = n_dr3_pool < astrometric_matched_transits_dr3
+        if degenerate_dr3
+            # Every DR3-usable forecast epoch is selected; the count shortfall
+            # is unmodelable from GOST.
+            @warn "Fewer usable epochs in GOST forecast than `astrometric_matched_transits` reported by Gaia. Results may be inaccurate."
+            n2_win = length(dr3_win)
+            n_tail = length(dr3_tail)
         else
-            # This is an optional approximation that can massievly speed up sampling -- 
-            # sample the epochs randomly once and fix them for all remaining sampling
-            if freeze_epochs
-                transit_priorities = (randn(len_epochs)...,)
-                # sort: downstream window logic (findfirst/findlast on gaia_table[transits,:].epoch)
-                # requires chronological order; partialsortperm returns priority order.
-                transits = sort(partialsortperm(SVector(transit_priorities), 1:astrometric_matched_transits_dr3, rev=true))
+            # The clamp interval is non-empty because n_dr3_pool ≥ n_dr3 here.
+            n2_win = clamp(
+                round(Int, astrometric_matched_transits_dr3 * length(dr3_win) / n_dr3_pool),
+                max(astrometric_matched_transits_dr3 - length(dr3_tail), 0),
+                min(length(dr3_win), astrometric_matched_transits_dr3))
+            n_tail = astrometric_matched_transits_dr3 - n2_win
+        end
+
+        # ---- DR2 epoch selection ----
+        # Selected separately from the DR3 set (the two are NOT nested; see
+        # the sidecar-plumbing comment above). `n_dr2_total` counts DR2's
+        # matched observations INCLUDING doubly-downlinked bright-star
+        # transits (audit 2026-07-11: DR2's count exceeds the geometric
+        # transit pool by up to ~1.6× for G ≲ 6, monotonically in G, while
+        # DR3's never does — DR2 tallied both windows of a doubled crossing
+        # where (E)DR3's rebuilt crossmatch resolves them to one). The DR2
+        # set is therefore `n_dr2_total` entries drawn as `n_dr2_distinct`
+        # distinct crossings plus repeats — a repeated index enters the DR2
+        # LSQ twice, exactly like a doubly-downlinked transit. For bright
+        # stars (G < dr2_dup_gmag_threshold) the distinct count is a latent
+        # marginalized between "every crossing doubled" (n_dr2_total/2) and
+        # "no duplicates"; for fainter stars duplicates are empirically rare,
+        # so only geometrically-forced repeats (count exceeding the pool)
+        # occur. The DR2/DR3 catalog correlation is NOT derived from these
+        # counts; it is adopted from the published `rho_dr2_dr3`.
+        n_dr2_total = _g23h_dr2_target_transits(catalog, astrometric_matched_transits_dr3)
+        n_dr2_hi = min(n_dr2_total, length(dr2_pool))    # max distinct crossings
+        if length(dr2_pool) < n_dr2_total
+            @warn "Gaia DR2 matched-transit count exceeds the geometric DR2-window pool; the excess must be duplicated (doubly-downlinked) transits and is modeled as repeated epochs." n_pool=length(dr2_pool) n_dr2_total
+        end
+        gmag = hasproperty(catalog, :phot_g_mean_mag_dr3) ? catalog.phot_g_mean_mag_dr3 : NaN
+        bright = !ismissing(gmag) && isfinite(gmag) && gmag < dr2_dup_gmag_threshold
+        n_dr2_lo = bright ? clamp(cld(n_dr2_total, 2), min(1, n_dr2_hi), n_dr2_hi) : n_dr2_hi
+        marginalize_dup = n_dr2_lo < n_dr2_hi
+        @info "DR2/DR3 epoch selection" n2_win n_tail n_dr2_total n_dr2_distinct_range=(n_dr2_lo, n_dr2_hi)
+
+        # sort: downstream window logic requires chronological order;
+        # partialsortperm returns priority order. Both selections read the
+        # SAME priorities vector, so within the DR2 window the smaller
+        # selection is automatically the top-k subset of the larger —
+        # maximal epoch overlap, on the grounds that a transit usable by
+        # DR2's pipeline was almost certainly reused by DR3.
+        if freeze_epochs
+            # Optional speed-up: draw the epoch sets once and fix them.
+            transit_priorities = (randn(len_epochs)...,)
+            n_dr2_distinct = rand(n_dr2_lo:max(n_dr2_lo, n_dr2_hi))
+            transits = sort(vcat(
+                dr3_win[ partialsortperm(SVector(transit_priorities)[dr3_win],  1:n2_win, rev=true)],
+                dr3_tail[partialsortperm(SVector(transit_priorities)[dr3_tail], 1:n_tail, rev=true)]))
+            transits_dr2 = _g23h_select_dr2_epochs(SVector(transit_priorities), dr2_pool, n_dr2_distinct, n_dr2_total)
+            variables = vcat(variables, @variables begin
+                transit_priorities = $transit_priorities
+                transits = $transits
+                transits_dr2 = $transits_dr2
+            end)
+        else
+            variables = vcat(variables, @variables begin
+                transit_priorities ~ MvNormal(zeros(len_epochs), I)
+                transits = sort(vcat(
+                    $(dr3_win)[ partialsortperm(SVector(transit_priorities)[$(dr3_win)],  1:$(n2_win), rev=true)],
+                    $(dr3_tail)[partialsortperm(SVector(transit_priorities)[$(dr3_tail)], 1:$(n_tail), rev=true)]))
+            end)
+            if marginalize_dup
+                # u_dup_dr2 maps uniformly onto the integer range of distinct
+                # crossing counts [n_dr2_lo, n_dr2_hi].
                 variables = vcat(variables, @variables begin
-                    transit_priorities = $transit_priorities
-                    transits = $transits
+                    u_dup_dr2 ~ Uniform(0, 1)
+                    transits_dr2 = _g23h_select_dr2_epochs(SVector(transit_priorities), $(dr2_pool),
+                        min($(n_dr2_lo) + floor(Int, u_dup_dr2 * $(n_dr2_hi - n_dr2_lo + 1)), $(n_dr2_hi)),
+                        $(n_dr2_total))
                 end)
             else
-                # Full model:
-                # include the epochs of the Gaia observations as variables 
-                # Our goal is to sample the *indices* of the subset of possible observation epochs
-                # reported by GOST. We assume that the same subset of epochs used by DR2 are also used
-                # in DR3. We assume that the RV epochs used by DR3 are a subset of the astrometry epochs
-                # ie any rejected or skipped astrometry epochs are also skipped for RV. This is just to 
-                # make the problem tractable.
-                # 
-                # We sample the discrete set of epochs used by a having a full set of continuous variables
-                # corresponding to each possible observing epoch. At any given point, the epochs used in the model
-                # are the values with the highest values.
                 variables = vcat(variables, @variables begin
-                    transit_priorities ~ MvNormal(zeros(len_epochs), I)
-                    # sort: downstream window logic (findfirst/findlast on gaia_table[transits,:].epoch)
-                    # requires chronological order; partialsortperm returns priority order (unsorted
-                    # epochs collapse the DR2/DR3 windows onto each other: n_dr2≈n_dr3 → ρ_dr3_dr2≈1).
-                    transits = sort(partialsortperm(SVector(transit_priorities), 1:$astrometric_matched_transits_dr3, rev=true))
+                    transits_dr2 = _g23h_select_dr2_epochs(SVector(transit_priorities), $(dr2_pool), $(n_dr2_hi), $(n_dr2_total))
                 end)
             end
         end
@@ -583,7 +784,6 @@ function G23HObs(;
 
         if has_rv
 
-            len_epochs = length(gaia_table.epoch)
             # The paired GP calibration reports the per-transit RV uncertainty in
             # log space: `rv_ln_uncert_dr3` is the GP posterior mean of ln σ, and
             # `rv_ln_uncert_err_dr3` is its posterior std dev. That makes σ itself
@@ -595,25 +795,34 @@ function G23HObs(;
             variables = vcat(variables, variables_rv)
 
             n_rv = Int(catalog.rv_nb_transits)
-            @info "Count of RV transits:" n_rv total_transits=len_epochs
-            if n_rv > len_epochs
-                # RV shortfall: catalog reports more RV transits than in-window
-                # GOST forecast epochs. All available epochs are used; the
-                # modeled sample variance stays unbiased (it is count-
-                # normalized, unlike the astrometric chi² sum) but samples the
-                # window more coarsely than Gaia did.
-                @warn "More Gaia RV transits than in-window GOST forecast epochs; modeling RV scatter with all available epochs." n_rv len_epochs
-            end
+            # Number of transits the astrometric selection actually contains
+            # (shorter than the catalog count only in the degenerate case).
+            n_astro_sel = min(Int(astrometric_matched_transits_dr3), n_dr3_pool)
+            @info "Count of RV transits:" n_rv n_astro_sel
 
-            # RV transits are modeled as a subset of the astrometric-used transits:
-            # entirely-missed visits (e.g. gaps in Gaia coverage) are assumed missed
-            # for both astrometry and RV. Because `transit_priorities` is shared with
-            # the astrometric selection, the top-`n_rv` priorities automatically form
-            # a subset of the top-`astrometric_matched_transits_dr3` astrometric set
-            # (whenever n_rv ≤ astrometric_matched_transits_dr3).
-            if n_rv > 0 && n_rv < len_epochs
+            # RV transits are modeled as a subset of the astrometric-used
+            # transits: entirely-missed visits (e.g. gaps in Gaia coverage)
+            # are assumed missed for both astrometry and RV. The astrometric
+            # set is not a plain global top-k, so select the top-`n_rv`
+            # priorities from *within* `transits` to keep transits_rv ⊆
+            # transits.
+            if 0 < n_rv < n_astro_sel
                 rv_vars = @variables begin
-                    transits_rv = sort(partialsortperm(SVector(transit_priorities), 1:$n_rv, rev=true))
+                    transits_rv = sort(transits[partialsortperm(SVector(transit_priorities)[transits], 1:$n_rv, rev=true)])
+                end
+                variables = vcat(variables, rv_vars)
+            elseif n_rv >= n_astro_sel > 0
+                # Gaia took an RV measurement on at least every modeled
+                # astrometric visit; under the RV ⊆ astrometry assumption the
+                # RV epochs are exactly the astrometric epochs. The modeled
+                # sample variance stays unbiased (it is count-normalized,
+                # unlike the astrometric chi² sum) but samples the window
+                # more coarsely than Gaia did.
+                if n_rv > n_astro_sel
+                    @warn "More Gaia RV transits than modeled astrometric transits; using all astrometric transits for RV." n_rv n_astro_sel
+                end
+                rv_vars = @variables begin
+                    transits_rv = transits
                 end
                 variables = vcat(variables, rv_vars)
             end
@@ -804,18 +1013,17 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
     else
         gaia_table = like.gaia_table
     end
-    
-    istart_dr2 = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaia_table.epoch))
-    iend_dr2 = findlast(<=(meta_gaia_DR2.stop_mjd), vec(gaia_table.epoch))
-    if isnothing(istart_dr2)
-        istart_dr2 = 1
-    end
-    if isnothing(iend_dr2)
-        iend_dr2 = length(gaia_table.epoch)
-    end
 
-    istart_dr3 = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaia_table.epoch))
-    iend_dr3 = findlast(<=(meta_gaia_DR3.stop_mjd), vec(gaia_table.epoch))
+    # The DR2 solution is simulated from its own epoch selection; every
+    # constructor branch emits this variable, so its absence means a custom
+    # `variables` set omitted it.
+    hasproperty(θ_obs, :transits_dr2) || error(
+        "G23HObs requires a `transits_dr2` observation variable (the DR2-used " *
+        "epoch selection). It is generated automatically unless custom " *
+        "`variables` are supplied — custom variable sets must define it.")
+
+    istart_dr3 = findfirst(>=(gaia_agis_span_dr3.start_mjd), vec(gaia_table.epoch))
+    iend_dr3 = findlast(<=(gaia_agis_span_dr3.stop_mjd), vec(gaia_table.epoch))
     if isnothing(istart_dr3)
         istart_dr3 = 1
     end
@@ -829,8 +1037,10 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
         iad_resid  = @alloc(T, size(like.hip_table,1)); fill!(iad_resid, 0)
         Δα_mas_hip = @alloc(T, size(like.hip_table,1)); fill!(Δα_mas_hip, 0)
         Δδ_mas_hip = @alloc(T, size(like.hip_table,1)); fill!(Δδ_mas_hip, 0)
-        Δα_mas_dr2 = @alloc(T, iend_dr2-istart_dr2+1); fill!(Δα_mas_dr2, 0)
-        Δδ_mas_dr2 = @alloc(T, iend_dr2-istart_dr2+1); fill!(Δδ_mas_dr2, 0)
+        # DR2 buffers match the DR2 epoch selection (see simulate!).
+        n_dr2_buf = length(θ_obs.transits_dr2)
+        Δα_mas_dr2 = @alloc(T, n_dr2_buf); fill!(Δα_mas_dr2, 0)
+        Δδ_mas_dr2 = @alloc(T, n_dr2_buf); fill!(Δδ_mas_dr2, 0)
         Δα_mas_dr3 = @alloc(T, iend_dr3-istart_dr3+1); fill!(Δα_mas_dr3, 0)
         Δδ_mas_dr3 = @alloc(T, iend_dr3-istart_dr3+1); fill!(Δδ_mas_dr3, 0)
         # σ-inflation buffer for the BINARYS first-harmonic correction
@@ -1130,8 +1340,8 @@ function ln_like(like::G23HObs, ctx::SystemObservationContext)
                 ρ_radec_dr2*σ_ra_dr2*σ_dec_dr2    σ_dec_dr2^2
             ]
             
-            # ρ_23 = like.catalog.rho_dr2_dr3
-            ρ_dr3_dr2 = √(min(n_dr2, n_dr3) / max(n_dr2, n_dr3))
+            ρ_dr3_dr2 = like.catalog.rho_dr2_dr3
+            # ρ_dr3_dr2 = √(min(n_dr2, n_dr3) / max(n_dr2, n_dr3))
             # ρ_dr3_dr2 = θ_obs.ρ_dr3_dr2
             
             Σ_cross = @SMatrix [
@@ -1370,17 +1580,16 @@ function simulate(like::G23HObs, θ_system, θ_obs, orbits, orbit_solutions, orb
         gaia_table = like.gaia_table
     end
 
-    istart_dr2 = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaia_table.epoch))
-    iend_dr2 = findlast(<=(meta_gaia_DR2.stop_mjd), vec(gaia_table.epoch))
-    if isnothing(istart_dr2)
-        istart_dr2 = 1
-    end
-    if isnothing(iend_dr2)
-        iend_dr2 = length(gaia_table.epoch)
-    end
+    # The DR2 solution is simulated from its own epoch selection; every
+    # constructor branch emits this variable, so its absence means a custom
+    # `variables` set omitted it.
+    hasproperty(θ_obs, :transits_dr2) || error(
+        "G23HObs requires a `transits_dr2` observation variable (the DR2-used " *
+        "epoch selection). It is generated automatically unless custom " *
+        "`variables` are supplied — custom variable sets must define it.")
 
-    istart_dr3 = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaia_table.epoch))
-    iend_dr3 = findlast(<=(meta_gaia_DR3.stop_mjd), vec(gaia_table.epoch))
+    istart_dr3 = findfirst(>=(gaia_agis_span_dr3.start_mjd), vec(gaia_table.epoch))
+    iend_dr3 = findlast(<=(gaia_agis_span_dr3.stop_mjd), vec(gaia_table.epoch))
     if isnothing(istart_dr3)
         istart_dr3 = 1
     end
@@ -1391,8 +1600,10 @@ function simulate(like::G23HObs, θ_system, θ_obs, orbits, orbit_solutions, orb
     iad_resid  = zeros(size(like.hip_table,1)); fill!(iad_resid, 0)
     Δα_mas_hip = zeros(size(like.hip_table,1)); fill!(Δα_mas_hip, 0)
     Δδ_mas_hip = zeros(size(like.hip_table,1)); fill!(Δδ_mas_hip, 0)
-    Δα_mas_dr2 = zeros(iend_dr2-istart_dr2+1); fill!(Δα_mas_dr2, 0)
-    Δδ_mas_dr2 = zeros(iend_dr2-istart_dr2+1); fill!(Δδ_mas_dr2, 0)
+    # DR2 buffers match the DR2 epoch selection (see simulate!).
+    n_dr2_buf = length(θ_obs.transits_dr2)
+    Δα_mas_dr2 = zeros(n_dr2_buf); fill!(Δα_mas_dr2, 0)
+    Δδ_mas_dr2 = zeros(n_dr2_buf); fill!(Δδ_mas_dr2, 0)
     Δα_mas_dr3 = zeros(iend_dr3-istart_dr3+1); fill!(Δα_mas_dr3, 0)
     Δδ_mas_dr3 = zeros(iend_dr3-istart_dr3+1); fill!(Δδ_mas_dr3, 0)
     σ_inflation_hip = ones(size(like.hip_table,1))
@@ -1418,13 +1629,12 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
 
     gaia_n_dof = like.catalog.astrometric_params_solved_dr3 == 31 ? 5 : 6
 
-    # The gaia_table and A_prepared_5_dr3/A_prepared_5_dr2 include all available
-    # visibility windows, not filtered to specifically be DR2 or DR3. 
+    # The gaia_table and A_prepared_5_dr3 include all available visibility
+    # windows, not filtered to specifically be DR2 or DR3.
     # Here we may further reject some more to marginalize over
     # unknown missed/rejected transits.
-    # In theory these could be different between DR2 and DR3 but we assume they aren't.
     if hasproperty(θ_obs, :transits)
-        (;transits) = θ_obs 
+        (;transits) = θ_obs
         if eltype(transits) <: AbstractFloat
             transits = Int.(transits)
         end
@@ -1435,12 +1645,23 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         ii = transits
         gaia_table = like.gaia_table[ii,:]
         A_prepared_5_dr3 = view(like.A_prepared_5_dr3, ii,:)
-        A_prepared_5_dr2 = view(like.A_prepared_5_dr2, ii,:)
     else
         gaia_table = like.gaia_table
         A_prepared_5_dr3 = like.A_prepared_5_dr3
-        A_prepared_5_dr2 = like.A_prepared_5_dr2
     end
+
+    # DR2's own epoch selection (see the construction-time selection block):
+    # the DR2-used transit set is not nested in the DR3-used set, so the DR2
+    # solution is simulated from exactly these `like.gaia_table` rows. Always
+    # present: every constructor branch emits it, and custom `variables` must
+    # define it (checked with a friendly error in ln_like / simulate).
+    # REPEATED indices are legitimate here (unlike `transits`): a repeat is a
+    # doubly-downlinked bright-star transit entering the DR2 fit twice.
+    (;transits_dr2) = θ_obs
+    if eltype(transits_dr2) <: AbstractFloat
+        transits_dr2 = Int.(transits_dr2)
+    end
+    kk_dr2 = collect(Int, transits_dr2)
 
     if hasproperty(θ_obs, :transits_rv)
         (;transits_rv) = θ_obs 
@@ -1565,14 +1786,10 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         end
         μ_dr32_fast = μ_zero
 
-        istart_dr3 = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaia_table.epoch))
-        iend_dr3 = findlast(<=(meta_gaia_DR3.stop_mjd), vec(gaia_table.epoch))
+        istart_dr3 = findfirst(>=(gaia_agis_span_dr3.start_mjd), vec(gaia_table.epoch))
+        iend_dr3 = findlast(<=(gaia_agis_span_dr3.stop_mjd), vec(gaia_table.epoch))
         if isnothing(istart_dr3); istart_dr3 = 1; end
         if isnothing(iend_dr3); iend_dr3 = length(gaia_table.epoch); end
-        istart_dr2 = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaia_table.epoch))
-        iend_dr2 = findlast(<=(meta_gaia_DR2.stop_mjd), vec(gaia_table.epoch))
-        if isnothing(istart_dr2); istart_dr2 = 1; end
-        if isnothing(iend_dr2); iend_dr2 = length(gaia_table.epoch); end
 
         (;astrometric_chi2_al_dr3, astrometric_n_good_obs_al_dr3,
            astrometric_matched_transits_dr3, astrometric_excess_noise_dr3, ruwe_dr3) = like.catalog
@@ -1629,7 +1846,7 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
             μ = (@SVector [μ_h_fast[1],μ_h_fast[2],μ_hg_fast[1],μ_hg_fast[2],μ_dr2_fast[1],μ_dr2_fast[2],μ_dr32_fast[1],μ_dr32_fast[2],μ_dr3_fast[1],μ_dr3_fast[2],UEVA_model,sample_variance_fast]),
             hip_bias_pm_sq,
             n_dr3 = iend_dr3 - istart_dr3 + 1,
-            n_dr2 = iend_dr2 - istart_dr2 + 1,
+            n_dr2 = length(kk_dr2),
             rv_dof = rv_dof_fast,
             rv_mean = rv_mean_fast,
             sample_variance = sample_variance_fast,
@@ -1688,16 +1905,20 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
     # gaia_table epoch.  Without this cache, simulate! would call orbitsolve
     # three times per active planet per Hipparcos transit (Hippacentre combined,
     # ~100 transits) and twice per planet per Gaia transit (DR3 and DR2 paths
-    # iterate over overlapping views into the same gaia_table, so they double-
-    # count the DR2-in-DR3 region).  Layout per planet: indices 1..n_hip = hip
-    # epochs, indices n_hip+1..n_hip+n_gaia = gaia epochs.  Bumper buffer is
-    # the caller's @no_escape (ln_like).  Allocated for every planet (3 in
-    # production) but only populated for active ones; downstream loops skip
-    # mass==0 planets without indexing into the array.
+    # iterate over overlapping epoch sets, so they double-count the shared
+    # DR2/DR3 region).  Layout per planet: indices 1..n_hip = hip epochs,
+    # n_hip+1..n_hip+n_gaia = (DR3-selected) gaia epochs, and — only when the
+    # model carries a separate DR2 selection — n_hip+n_gaia+1..end = the
+    # DR2-selected epochs (which need not be rows of the DR3-selected
+    # gaia_table).  Bumper buffer is the caller's @no_escape (ln_like).
+    # Allocated for every planet (3 in production) but only populated for
+    # active ones; downstream loops skip mass==0 planets without indexing
+    # into the array.
     n_planets = length(orbits)
     n_hip_cache = size(like.hip_table, 1)
     n_gaia_cache = length(gaia_table.epoch)
-    n_total_cache = n_hip_cache + n_gaia_cache
+    n_dr2_cache = length(kk_dr2)
+    n_total_cache = n_hip_cache + n_gaia_cache + n_dr2_cache
     _ref_epoch_cache = n_hip_cache > 0 ? like.hip_table.epoch[1] : gaia_table.epoch[1]
     # NOTE: all companions are assumed to share a single orbit-solution type
     # (true whenever the planets use the same orbit basis, as in the lumcomp
@@ -1719,13 +1940,16 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
             for i in 1:n_gaia_cache
                 sols[n_hip_cache + i] = orbitsolve(o, gaia_table.epoch[i])
             end
+            for i in 1:n_dr2_cache
+                sols[n_hip_cache + n_gaia_cache + i] = orbitsolve(o, like.gaia_table.epoch[kk_dr2[i]])
+            end
         end
     end
 
     ################################
     # DR3
-    istart_dr3 = findfirst(>=(meta_gaia_DR3.start_mjd), vec(gaia_table.epoch))
-    iend_dr3 = findlast(<=(meta_gaia_DR3.stop_mjd), vec(gaia_table.epoch))
+    istart_dr3 = findfirst(>=(gaia_agis_span_dr3.start_mjd), vec(gaia_table.epoch))
+    iend_dr3 = findlast(<=(gaia_agis_span_dr3.stop_mjd), vec(gaia_table.epoch))
     if isnothing(istart_dr3)
         istart_dr3 = 1
     end
@@ -1777,21 +2001,14 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
     # This vastly improves sampling efficiency.
     # Leave Δpmdec_dr3 - Δpmdec_dr3 above as an explicit reminder about this ^
 
-    # TODO: efficiency: since we assume all DR2 epochs are a subset of DR3, we
-    # could re-use part of the _simulate_skypath_perturbations! done for DR3
-
     ################################
     # DR2
-    istart_dr2 = findfirst(>=(meta_gaia_DR2.start_mjd), vec(gaia_table.epoch))
-    iend_dr2 = findlast(<=(meta_gaia_DR2.stop_mjd), vec(gaia_table.epoch))
-    if isnothing(istart_dr2)
-        istart_dr2 = 1
-    end
-    if isnothing(iend_dr2)
-        iend_dr2 = length(gaia_table.epoch)
-    end
-    gaia_table_dr2 = @views gaia_table[istart_dr2:iend_dr2]
-    # gaia_table_dr2.epoch .+= Δepoch_dr2_days
+    # Simulate the DR2 solution from exactly the `transits_dr2` forecast
+    # epochs (cached in the third planet_sols_cache segment; they need not be
+    # rows of the DR3-selected gaia_table).
+    gaia_table_dr2 = like.gaia_table[kk_dr2,:]
+    A_5_dr2_sel = view(like.A_prepared_5_dr2, kk_dr2,:)
+    _dr2_sol_start = n_hip_cache + n_gaia_cache
     for (i_planet,(orbit, θ_planet)) in enumerate(zip(orbits, θ_system.planets))
         planet_mass_msol = θ_planet.mass*Octofitter.mjup2msol
         if planet_mass_msol == 0.0
@@ -1811,11 +2028,11 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
             gaia_table_dr2, orbit,
             planet_mass_msol, fluxratio,
             planet_sols_cache[i_planet],
-            n_hip_cache + istart_dr2 - 1, T
+            _dr2_sol_start, T
         )
     end
 
-    out = fit_5param_prepared(view(A_prepared_5_dr2, istart_dr2:iend_dr2,:), view(gaia_table, istart_dr2:iend_dr2), Δα_mas_dr2, Δδ_mas_dr2)
+    out = fit_5param_prepared(A_5_dr2_sel, gaia_table_dr2, Δα_mas_dr2, Δδ_mas_dr2)
     # out = fit_4param_prepared(hgca_like.gaialike.A_prepared_4, gaia_table, Δα_mas_dr2, Δδ_mas_dr2)
     Δα_dr2, Δδ_dr2, Δpmra_dr2, Δpmdec_dr2 = out.parameters
     # Rigorously propagate the linear proper motion component in spherical coordinates
@@ -2241,7 +2458,7 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         hip_bias_pm_sq,
 
         n_dr3 = iend_dr3 - istart_dr3 + 1,
-        n_dr2 = iend_dr2 - istart_dr2 + 1,
+        n_dr2 = length(kk_dr2),
 
         # rv_chi2_stat,
         rv_dof,
@@ -2390,14 +2607,15 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
     # DR2/DR32/DR3: draw from the SAME covariance structure ln_like will assemble
     # at the truth parameters, otherwise the synthetic data violates the
     # likelihood's correlation model.  ln_like (a) couples the DR2 and DR3 PMs
-    # with the cross block K = ρ·√Σ_dr2·√Σ_dr3' where ρ = √(n_dr2/n_dr3)
-    # (shared transits), (b) deflates Σ_dr3 by deflation_factor_dr3² recomputed
+    # with the cross block K = ρ·√Σ_dr2·√Σ_dr3' where ρ is the published
+    # catalog `rho_dr2_dr3` (the catalog uncertainties were calibrated against
+    # it), (b) deflates Σ_dr3 by deflation_factor_dr3² recomputed
     # at fit time from the *simulated* catalog, and (c) adds the deflation-driven
     # ΔΣ_dr32 adjustment to Σ_dr32.  Independent draws leave the two conditional
     # DR2/DR3 directions over-dispersed by 1/(1-ρ²) in whitened space — the fit
     # reads the excess as astrometric acceleration → spurious decades-period
     # companions.  Mirror ln_like exactly (verified by the joint-χ² MC test).
-    ρ_dr3_dr2 = sqrt(min(n_dr2, n_dr3) / max(n_dr2, n_dr3))
+    ρ_dr3_dr2 = catalog.rho_dr2_dr3
     # deflation the fit will apply at truth: UEVA_Gaia reconstructed from the
     # NEW catalog is max(σ_formal², new_UEVA) in both :RUWE and :EAN modes
     # (the new_chi2_al / new_ean clamps above make the two expressions agree).

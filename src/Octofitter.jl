@@ -312,6 +312,36 @@ Place `using AppleAccelerate` at the start of your script to suppress this messa
         # No hash verification for this large file - users should verify integrity manually
     ))
 
+    register(DataDep("G23H_DR2Transits",
+        """
+        Dataset: G23H DR2 matched-transit sidecar
+        Author: Thompson et al.
+        License: Creative Commons
+        Website: http://dx.doi.org/10.11570/26.0016
+
+        A mandatory companion table to the G23H catalog (26.0002) carrying the
+        Gaia DR2 astrometric matched-transit count, keyed on `gaia_source_id`.
+        This count is not present in the published G23H catalog but is required
+        by the G23HObs likelihood to size the Gaia DR2 epoch selection in its
+        epoch-marginalization prior (the DR2-used transit set is selected from
+        the DR2 window separately from the DR3-used set).
+
+        Columns:
+        - gaia_source_id                       :: Int64  (join key)
+        - astrometric_matched_observations_dr2 :: Int    (DR2's name for the
+              number of FoV transits matched to the source — renamed
+              `astrometric_matched_transits` in (E)DR3 — so directly comparable
+              to the DR3 count.)
+
+        G23HObs errors if a modeled source is absent from this sidecar; there is
+        no fallback. File format: Apache Arrow (feather), ~300 MB.
+        For local testing, pass a path or table via the `dr2_transits_catalog`
+        keyword of G23HObs instead of downloading.
+        """,
+        "https://www.canfar.net/storage/vault/file/AstroDataCitationDOI/CISTI.CANFAR/26.0016/data/G23H-v1.0.dr2_matched_observations.feather",
+        # No hash verification for this large file - users should verify integrity manually
+    ))
+
     return
 end
 end

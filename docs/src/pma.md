@@ -126,7 +126,7 @@ To install and use `Pigeons.jl` with Octofitter, type `using Pigeons` at in the 
 We now sample from our model using Pigeons:
 ```@example 1
 using Pigeons
-chain_pma, pt = octofit_pigeons(model_pma, n_rounds=13) 
+chain_pma, pt = octofit_pigeons(model_pma, n_rounds=10) 
 display(chain_pma)
 ```
 
