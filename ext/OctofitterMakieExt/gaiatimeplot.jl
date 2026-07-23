@@ -64,7 +64,7 @@ function Octofitter.gaiatimeplot!(
         jj = ii
     end
 
-    sims = []
+    sims = Vector{Float64}[]
     for i in jj
         θ_system = θ_systems_from_chain[i]
         orbits = Tuple(map(keys(model.system.planets)) do planet_key
@@ -84,7 +84,7 @@ function Octofitter.gaiatimeplot!(
             0,
             centroid_pos_al_model_buffer
         )
-        push!(sims, sim)
+        push!(sims, sim.along_scan_residuals_buffer)
     end
 
     # Set up date ticks
