@@ -72,6 +72,19 @@ fig
     tp = τ * P_kep_yrs * 365.25 + reference_epoch_mjd
     ```
 
+!!! note "Which mass goes into `M`?"
+    Each planet's `M` is the mass that sets *that planet's* orbital period via Kepler's
+    law. Following the "epicycle" approximation, a planet orbits the total mass interior
+    to it: the primary, plus any companions on smaller orbits, plus its own mass.
+
+    So in the two-planet model below, where `b` is the inner planet and `c` the outer one:
+
+    - planet `b` (inner) sees `M_pri + M_b` — it does *not* see the outer planet `c`;
+    - planet `c` (outer) sees `M_pri + M_b + M_c` — the star plus the interior planet.
+
+    Masses are sampled in Jupiter masses here, so they are converted with
+    `Octofitter.mjup2msol` before being added to the primary mass in solar masses.
+
 ```@example 1
 planet_b = Planet(
     name="b",
@@ -80,8 +93,7 @@ planet_b = Planet(
     variables=@variables begin
         M_pri = system.M_pri
         M_b = system.M_b
-        M_c = system.M_c
-        M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
+        M = M_pri + M_b * Octofitter.mjup2msol
         e ~ Uniform(0,0.999999)
         mass = M_b
         ω ~ Uniform(0,2pi)
@@ -99,8 +111,9 @@ planet_c = Planet(
     observations=[],
     variables=@variables begin
         M_pri = system.M_pri
+        M_b = system.M_b
         M_c = system.M_c
-        M = M_pri + M_c * Octofitter.mjup2msol
+        M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
         e ~ Uniform(0,0.999999)
         mass = M_c
         ω ~ Uniform(0,2pi)
@@ -223,8 +236,7 @@ planet_b_v2 = Planet(
     variables=@variables begin
         M_pri = system.M_pri
         M_b = system.M_b
-        M_c = system.M_c
-        M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
+        M = M_pri + M_b * Octofitter.mjup2msol
         e ~ Uniform(0,0.999999)
         mass = M_b
         ω ~ Uniform(0,2pi)
@@ -244,8 +256,9 @@ planet_c_v2 = Planet(
     observations=[],
     variables=@variables begin
         M_pri = system.M_pri
+        M_b = system.M_b
         M_c = system.M_c
-        M = M_pri + M_c * Octofitter.mjup2msol
+        M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
         e ~ Uniform(0,0.999999)
         mass = M_c
         ω ~ Uniform(0,2pi)
