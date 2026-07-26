@@ -709,8 +709,8 @@ function optimization_and_pathfinder_with_fixed(
                         reltol = 1e-6,
                         rng = rng,
                         ntries = 1,
-                        executor = Pathfinder.Transducers.SequentialEx(),
-                        # executor = Pathfinder.Transducers.PreferParallel(),
+                        ntasks = 1,
+                        # ntasks = Threads.nthreads(),
                         optimizer = Pathfinder.Optim.BFGS(;
                             linesearch = Pathfinder.Optim.LineSearches.BackTracking(),
                             alphaguess = Pathfinder.Optim.LineSearches.InitialHagerZhang()
