@@ -2,7 +2,6 @@ using DiffResults
 using LinearAlgebra
 using Preferences
 using Pathfinder
-using Transducers
 using CovarianceEstimation
 export sample_priors
 
