@@ -10,5 +10,8 @@ sbctest-*
 _gaia_dr1
 _gaia_dr2
 _gaia_dr3
+_gaia_dr3_final
 _geocentre_pos
 GHOST*
+GOST-*
+.CondaPkg/
