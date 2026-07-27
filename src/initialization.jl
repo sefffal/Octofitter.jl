@@ -131,6 +131,21 @@ Available keyword arguments include:
     optimizer and is safe to ignore - it indicates the optimization has converged. See the
     FAQ for more details.
 
+!!! note "Reproducibility of the starting points"
+    Pass an explicit random number generator (`initialize!(Xoshiro(1), model)`) to pin the
+    starting points. For a fixed machine and a fixed set of package versions this is
+    deterministic: repeated calls return bit-identical starting points, regardless of
+    `Threads.nthreads()`.
+
+    The starting points are *not* guaranteed to match across different machines, Julia
+    versions, or dependency versions. Global optimization and pathfinder both run in
+    floating point, so platform differences in BLAS, CPU, and library versions propagate
+    into the result. Sampling itself is reproducible once the starting points are fixed,
+    so a fit reproduces exactly on the machine it was run on but may differ elsewhere.
+
+    Note also that this function reseeds the *global* RNG (from `rng`) as part of the
+    global optimization step, so it perturbs global random state as a side effect.
+
 Example:
 ```julia
 init_chain = initialize!(model, (;
@@ -709,6 +724,11 @@ function optimization_and_pathfinder_with_fixed(
                         reltol = 1e-6,
                         rng = rng,
                         ntries = 1,
+                        # Keep this at 1. With ntasks > 1 the paths run concurrently
+                        # against shared model/AD state and multipathfinder throws on
+                        # every call (ForwardDiff: MethodError converting a Dual;
+                        # FiniteDiff: NaN PSIS weights), which the catch block below
+                        # then silently downgrades to the single BBO point. See #122.
                         ntasks = 1,
                         # ntasks = Threads.nthreads(),
                         optimizer = Pathfinder.Optim.BFGS(;
