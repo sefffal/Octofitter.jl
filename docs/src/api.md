@@ -25,6 +25,7 @@ octofit
 octofit_pigeons
 octofit_rejection
 initialize!
+startingpoints!
 Octofitter.savechain
 Octofitter.loadchain
 query_nss

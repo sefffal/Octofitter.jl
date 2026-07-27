@@ -277,6 +277,190 @@ function initialize!(rng::Random.AbstractRNG,
 end
 
 
+"""
+    startingpoints!(model::LogDensityModel, point::NamedTuple; ndraws=1000)
+    startingpoints!(model::LogDensityModel, point1::NamedTuple, point2::NamedTuple, ...)
+
+Set the model's starting points directly, instead of having [`initialize!`](@ref) choose
+them by global optimization and pathfinder.
+
+Each `point` is a named tuple in the *natural* (constrained) parameter space, with the same
+shape as the optional second argument of `initialize!` — system variables at the top level,
+planet variables under `planets`, and observation variables under `observations`. Unlike
+`initialize!`, which accepts a partial named tuple and fits the rest, `startingpoints!`
+needs a value for **every** free variable in the model, since it is setting a complete
+starting point rather than pinning a few of them. Each point is transformed into the
+unconstrained space the sampler works in (via `model.link`) before being stored.
+
+Given a single point — the common case — every starting point is set to that same value:
+`model.starting_points = fill(mapped_point, ndraws)`. Given several points, one starting
+point is stored per named tuple, in the order given.
+
+Returns an `MCMCChains.Chains` of the starting points, as `initialize!` does, so you can
+inspect what was set.
+
+!!! note "Effect on the mass matrix"
+    `octofit` estimates the *initial* mass matrix from the spread of `model.starting_points`
+    (`cov` over the stored points). Identical starting points have no spread, so with a
+    single point that estimate is not positive definite and the sampler falls back to its
+    `1e-8 * I` diagonal metric, which warmup then adapts from scratch. With the default 1000
+    adaptation steps that recovers fine, but if you have several plausible points, passing
+    them all gives warmup a better metric to start from.
+
+!!! note "Reproducibility"
+    This is the reproducible route into sampling: `initialize!` is only deterministic given
+    an explicit RNG and a fixed machine, whereas `startingpoints!` involves no randomness.
+    Sampling itself is reproducible once the starting points and the sampler's RNG are fixed.
+
+Example:
+```julia
+startingpoints!(model, (;
+    M=1.05,
+    plx=50.0,
+    planets=(;
+        b=(;
+            a=5.0,
+            e=0.3,
+            i=0.6,
+            ω=1.2,
+            Ω=2.4,
+            θ=0.8,
+        )
+    ),
+))
+
+chain = octofit(model)
+```
+
+See also [`initialize!`](@ref).
+"""
+function startingpoints!(
+    model::LogDensityModel,
+    points::NamedTuple...;
+    ndraws::Int=1000,
+    verbosity::Int=1,
+)
+    if isempty(points)
+        error("Provide at least one starting point, e.g. `startingpoints!(model, (; M=1.05, plx=50.0, planets=(; b=(; a=5.0, ...))))`.")
+    end
+    if ndraws < 2
+        error("`ndraws` must be at least 2; the initial mass matrix is estimated from the spread of the starting points.")
+    end
+
+    θs = map(point -> _complete_point_from_nt(model, point), points)
+
+    # Transform into the unconstrained space the sampler consumes, preserving the
+    # element types of a prior draw so that discrete variables are not promoted to
+    # Float64 (the same invariant `initialize!` maintains).
+    s = model.sample_priors(Random.default_rng())
+    θ_ts = map(θ -> convert.(typeof.(s), model.link(θ)), θs)
+
+    if length(θ_ts) == 1
+        model.starting_points = fill(only(θ_ts), ndraws)
+    else
+        model.starting_points = collect(θ_ts)
+    end
+
+    if verbosity > 0
+        logposts = map(model.ℓπcallback, θ_ts)
+        if !all(isfinite, logposts)
+            @warn "Some starting points have a non-finite log-posterior density; sampling from them will likely fail. Check that the values are inside the support of your priors." logposts
+        elseif verbosity > 1
+            @info "Starting points set manually" points=length(model.starting_points) logpost_range=extrema(logposts)
+        end
+    end
+
+    start_time = fill(time(), 1)
+    stop_time = fill(time(), 1)
+    return MCMCChains.setinfo(
+        _startingpoints2chain(model),
+        (;
+            start_time,
+            stop_time,
+            model_name=Symbol("$(model.system.name)-init"),
+            sampler="manual"
+        )
+    )
+end
+export startingpoints!
+
+"""
+Build a complete flat parameter vector, in the natural (constrained) space, from a named
+tuple covering every free variable of the model. Errors — naming what is missing — if the
+named tuple is only partial.
+"""
+function _complete_point_from_nt(model::LogDensityModel, point::NamedTuple)
+    values, indices = extract_fixed_params(model, point)
+
+    # Start from a prior draw purely as a correctly-typed, correctly-sized template;
+    # every entry is overwritten below, or we error.
+    θ = collect(model.sample_priors(Random.default_rng()))
+    covered = falses(model.D)
+    for (i, idx) in enumerate(indices)
+        val = values[i]
+        if val isa Number
+            θ[idx] = val
+            covered[idx] = true
+        else
+            span = idx:(idx+length(val)-1)
+            θ[span] .= val
+            covered[span] .= true
+        end
+    end
+
+    if !all(covered)
+        names = _flat_param_names(model)
+        missing_names = map(findall(!, covered)) do i
+            isnothing(names[i]) ? "(unnamed free variable #$i)" : names[i]
+        end
+        error(
+            "`startingpoints!` sets a complete starting point, so it needs a value for " *
+            "every free variable in the model. $(length(missing_names)) of $(model.D) " *
+            "are missing: $(join(missing_names, ", ")). If you meant to pin only some " *
+            "variables and let the initializer choose the rest, use " *
+            "`initialize!(model, point)` instead."
+        )
+    end
+
+    return θ
+end
+
+"""
+Map each index of the flat parameter vector back to a dotted name like `planets.b.a`, for
+error messages. Uses the same sentinel-matching approach as `extract_fixed_params`; indices
+that cannot be named are left as `nothing`.
+"""
+function _flat_param_names(model::LogDensityModel)
+    dummy_params = model.sample_priors(Random.default_rng())
+    full_nt = model.arr2nt(dummy_params)
+    names = Vector{Union{Nothing,String}}(nothing, model.D)
+
+    function walk!(current, path)
+        for name in propertynames(current)
+            val = getproperty(current, name)
+            subpath = isempty(path) ? String(name) : path * "." * String(name)
+            if val isa NamedTuple
+                walk!(val, subpath)
+                continue
+            end
+            sentinel = if val isa Number
+                val
+            elseif val isa AbstractArray && !isempty(val)
+                first(val)
+            else
+                continue
+            end
+            idx = findfirst(==(sentinel), dummy_params)
+            if !isnothing(idx) && isnothing(names[idx])
+                names[idx] = subpath
+            end
+        end
+    end
+    walk!(full_nt, "")
+
+    return names
+end
+
 
 """
 Extract fixed parameters from a partial named tuple and return their values and indices.
