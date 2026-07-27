@@ -1,9 +1,27 @@
 using FiniteDiff
 using Random
 
-# Reduced iterations for faster tests
+# Reduced iterations for faster tests. These are only used by the chain
+# round-trip tests below, which exercise I/O rather than sampling quality — a
+# short chain is all they need.
 const TEST_ITERATIONS = 50
 const TEST_ADAPTATION = 50
+
+# The "Sampling" testset asserts on the divergence rate, so it has to run the
+# sampler in a regime where that statistic is meaningful. The old 50/50 was 20x
+# below the adaptation `octofit` itself warns about, so the test was asserting on
+# sampling quality in a regime the package documents as inadequate. These are
+# `octofit`'s own defaults.
+#
+# Failure rate of the assertion below, measured over 60 seeds of this model (#124):
+#   50/50       6.7%  (4/60)
+#   1000/1000   1.7%  (1/60)
+#   4000/1000   1.7%  (1/60)
+# Adaptation beyond 1000 bought no measurable improvement for ~2.5x the runtime.
+# The residual is this model's own high-curvature tail, not sample noise, and is
+# tracked separately on #124 — it is not something the test length can remove.
+const SAMPLING_ITERATIONS = 1000
+const SAMPLING_ADAPTATION = 1000
 
 @testset "Basic MCMC Sampling" begin
     rng = Random.Xoshiro(1)
@@ -59,7 +77,7 @@ const TEST_ADAPTATION = 50
     end
 
     @testset "Sampling" begin
-        chain = octofit(rng, model, iterations=TEST_ITERATIONS, adaptation=TEST_ADAPTATION)
+        chain = octofit(rng, model, iterations=SAMPLING_ITERATIONS, adaptation=SAMPLING_ADAPTATION)
 
         @test all(chain[:logpost] .> -1000)
         # Allow some numerical errors but not too many
