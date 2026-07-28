@@ -292,8 +292,19 @@ function G23HObs(;
     )
 
 
-    if !hasproperty(catalog, :astrometric_chi2_al_dr3) || !hasproperty(catalog, :rv_nb_transits) 
-        @warn "Column missing from catalog, querying Gaia DR3 TAP server (or using cached value)"
+    # Fire the DR3 top-up when the columns are absent *or* present-but-null.
+    # G23H carries astrometric_chi2_al_dr3 and parallax_error as nullable
+    # columns, so a source whose row simply has no value passed the old
+    # `hasproperty` gate and reached the model with `missing` in place of a
+    # parallax uncertainty.
+    needs_dr3_topup =
+        !hasproperty(catalog, :astrometric_chi2_al_dr3) ||
+        !hasproperty(catalog, :rv_nb_transits) ||
+        !hasproperty(catalog, :parallax_error) ||
+        ismissing(catalog.astrometric_chi2_al_dr3) ||
+        ismissing(catalog.parallax_error)
+    if needs_dr3_topup
+        @warn "Column missing or null in catalog, querying Gaia DR3 TAP server (or using cached value)"
 
         dr3 = Octofitter._query_gaia_dr3(;gaia_id)
         catalog = (;
