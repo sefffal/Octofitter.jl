@@ -18,7 +18,16 @@ proper motion accelerations and unit weight error variance analysis (UEVA).
   Malmquist-biased for cool dwarfs — their calibration bins are dominated by distant
   giants with sharper lines — so the quoted uncertainty can be unrealistically small
   and over-constrain the σ_rv_per_transit prior. Set to `nothing` for the raw value.
-- `ueva_mode`: Either `:RUWE` (default) or `:EAN` for astrometric excess noise modeling
+- `ueva_mode`: `:RUWE` (default), `:EAN`, or `:none` for astrometric excess noise modeling.
+  `:none` opts the star out of the UEVA channel entirely: the `:ueva_dr3` row is not
+  added to the observation table, the σ_AL/σ_att/σ_calib nuisance parameters become
+  fixed constants rather than catalog-calibrated priors (so no `variables` block is
+  required), and the UEVA-driven deflation of the published DR3/DR32 covariances is
+  disabled. Use it for sources where the G23H σ_AL/σ_att_radec/σ_cal calibration is
+  absent — in the released catalog these are predominantly the very brightest stars
+  (median G ≈ 5.7), where the calibration was not extrapolated. Everything else
+  (Hipparcos, the DR2/DR3 positions and proper motions, the PM anomaly and the Gaia
+  RV channel) is modelled exactly as usual.
 - `freeze_epochs`: If true, fix Gaia observation epochs for faster sampling (default: false)
 - `variables`: Optional custom priors (defaults are set from catalog values)
 
@@ -243,6 +252,10 @@ function G23HObs(;
     )
     include_iad=false
 
+    if ueva_mode ∉ (:RUWE, :EAN, :none)
+        error("ueva_mode should be :RUWE, :EAN, or :none, was $(ueva_mode)")
+    end
+
     # Validate that exactly one of gaia_id or hip_id is provided
     if isnothing(gaia_id) && isnothing(hip_id)
         error("Either gaia_id or hip_id must be specified")
@@ -296,7 +309,8 @@ function G23HObs(;
     # G23H carries astrometric_chi2_al_dr3 and parallax_error as nullable
     # columns, so a source whose row simply has no value passed the old
     # `hasproperty` gate and reached the model with `missing` in place of a
-    # parallax uncertainty.
+    # parallax uncertainty (Proxima Centauri is the one such source in
+    # G23H v1.1 / v6.1.0 — the very target this matters most for).
     needs_dr3_topup =
         !hasproperty(catalog, :astrometric_chi2_al_dr3) ||
         !hasproperty(catalog, :rv_nb_transits) ||
@@ -636,6 +650,14 @@ function G23HObs(;
 
     )
 
+    # `ueva_mode == :none`: drop the UEVA row before anything else touches the
+    # table, so the row indices the rest of the constructor (and any external
+    # `obs_subset` range) sees are simply the remaining channels in order.
+    # Every downstream consumer selects channels by `kind ∈ table.kind`, so no
+    # further bookkeeping is needed to remove UEVA from the likelihood.
+    if ueva_mode == :none
+        splice!(table, 12:12)
+    end
 
     has_rv = include_rv && (
         hasproperty(catalog, :rv_ln_uncert_dr3) && !ismissing(catalog.rv_ln_uncert_dr3) && !ismissing(catalog.rv_ln_uncert_err_dr3) &&
@@ -662,13 +684,35 @@ function G23HObs(;
         dec = catalog.dec
         ra = catalog.ra
 
-        variables = @variables begin
-            σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
-            σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
-            σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
-            # G-band flux ratio (used by Gaia DR2/DR3 photocentre branch).
-            fluxratio = hasproperty(sys, :fluxratio) ? sys.fluxratio : 0.0
-            fluxratio_hip = hasproperty(sys, :fluxratio_hip) ? sys.fluxratio_hip : 0.0
+        variables = if ueva_mode == :none
+            # No UEVA channel and no deflation ⇒ σ_AL/σ_att/σ_calib cannot
+            # influence the likelihood at all.  They survive only as the scalar
+            # weight `σ_formal = √(σ_att² + σ_AL²)` handed to the DR2/DR3
+            # 5-parameter refits, and a *scalar* weight cancels out of a linear
+            # least-squares solution — it rescales `chi_squared_astro`, which is
+            # consumed exclusively by the (now absent) UEVA channel.  So they are
+            # declared as fixed constants rather than sampled nuisances: this
+            # keeps `σ_formal` finite and positive without inventing a
+            # calibration the catalog does not have, and without inflating the
+            # model dimension by three pure prior draws.  Values are the nominal
+            # Gaia DR3 along-scan error budget.
+            @variables begin
+                σ_AL = 0.2
+                σ_att = 0.06
+                σ_calib = 0.02
+                # G-band flux ratio (used by Gaia DR2/DR3 photocentre branch).
+                fluxratio = hasproperty(sys, :fluxratio) ? sys.fluxratio : 0.0
+                fluxratio_hip = hasproperty(sys, :fluxratio_hip) ? sys.fluxratio_hip : 0.0
+            end
+        else
+            @variables begin
+                σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
+                σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
+                σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
+                # G-band flux ratio (used by Gaia DR2/DR3 photocentre branch).
+                fluxratio = hasproperty(sys, :fluxratio) ? sys.fluxratio : 0.0
+                fluxratio_hip = hasproperty(sys, :fluxratio_hip) ? sys.fluxratio_hip : 0.0
+            end
         end
 
         # Per-release selection pools (see the gap-mask construction above).
@@ -1812,8 +1856,14 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         elseif like.ueva_mode == :RUWE
             u0 = 1/ruwe_dr3 * sqrt(astrometric_chi2_al_dr3/(N - gaia_n_dof))
             UEVA_Gaia = (ruwe_dr3 * u0)^2 * σ_formal^2
+        elseif like.ueva_mode == :none
+            # Placeholder only: the UEVA channel is absent from table.kind, so
+            # μ_1_3 is masked out of the likelihood and the deflation factor is
+            # pinned to 1 below.  Kept finite and positive so nothing downstream
+            # sees a NaN.
+            UEVA_Gaia = σ_formal^2
         else
-            error("Unsupported mode (should be :EAN or :RUWE, was $(like.ueva_mode)")
+            error("Unsupported mode (should be :EAN, :RUWE or :none, was $(like.ueva_mode)")
         end
         μ_UEVA_single = (N_AL / (N - gaia_n_dof)) *
                     ((N_FoV - gaia_n_dof) * σ_calib^2 + N_FoV * σ_AL^2)
@@ -1829,7 +1879,11 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         # chi_squared_astro = 0 ⇒ UEVA_model_1 = 0 ⇒ UEVA_model = cbrt(μ_UEVA_single)
         UEVA_model = cbrt(μ_UEVA_single)
         deflation_factor_raw = sqrt(μ_UEVA_single / UEVA_Gaia)
-        deflation_factor_dr3 = deflation_factor_raw > 1.0 ? 1.0 : deflation_factor_raw
+        # With ueva_mode == :none there is no calibrated σ_AL/σ_att/σ_calib to
+        # compute μ_UEVA_single from, so the deflation is not identified — take
+        # Gaia's published DR3/DR32 uncertainties at face value.
+        deflation_factor_dr3 = like.ueva_mode == :none ? one(deflation_factor_raw) :
+            (deflation_factor_raw > 1.0 ? 1.0 : deflation_factor_raw)
 
         if :rv_dr3 ∈ like.table.kind
             N_rv = like.catalog.rv_nb_transits
@@ -2289,8 +2343,12 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
     elseif like.ueva_mode == :RUWE
         u0 = 1/ruwe_dr3 * sqrt(astrometric_chi2_al_dr3/(N - gaia_n_dof))
         UEVA_Gaia = (ruwe_dr3 * u0)^2 * σ_formal^2
+    elseif like.ueva_mode == :none
+        # See the matching branch in the all-inactive fast path: placeholder
+        # only, masked out of the likelihood, deflation pinned to 1 below.
+        UEVA_Gaia = σ_formal^2
     else
-        error("Unsupported mode (should be :EAN or :RUWE, was $(like.ueva_mode)")
+        error("Unsupported mode (should be :EAN, :RUWE or :none, was $(like.ueva_mode)")
     end
 
     # Calculate expected UEVA for a single star (Eq. D.8 from paper)
@@ -2338,8 +2396,11 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
 
     # @show deflation_factor_raw 
 
-    # Clamp to valid range
-    deflation_factor_dr3 = deflation_factor_raw > 1.0 ? 1.0 : deflation_factor_raw
+    # Clamp to valid range.  With ueva_mode == :none the deflation is not
+    # identified (no calibrated σ_AL/σ_att/σ_calib behind μ_UEVA_single), so
+    # Gaia's published DR3/DR32 uncertainties are used as-is.
+    deflation_factor_dr3 = like.ueva_mode == :none ? one(deflation_factor_raw) :
+        (deflation_factor_raw > 1.0 ? 1.0 : deflation_factor_raw)
 
     # # for data simulation purposes, here is an estimate of what these parameters would produce for RUWE
     # # given everything we know about the gaia uncertainties etc.
@@ -2568,7 +2629,11 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
     # Deflate original errors to formal level, then re-inflate by the new companion.
     # new_err = original_err × √(μ_UEVA_single / UEVA_original) × √(new_UEVA / μ_UEVA_single)
     #         = original_err × √(new_UEVA / UEVA_original)
-    inflation_dr3 = sqrt(max(1.0, new_UEVA / max(eps(), UEVA_original)))
+    # ueva_mode == :none: ln_like neither reads the UEVA datum nor deflates the
+    # published covariances, so the simulator must not inflate them either —
+    # otherwise simulated catalogs would carry an excess the fit never removes.
+    inflation_dr3 = like.ueva_mode == :none ? 1.0 :
+        sqrt(max(1.0, new_UEVA / max(eps(), UEVA_original)))
 
     # Back-calculate astrometric_chi2_al from the new total UEVA
     # UEVA_Gaia = chi2/(N-dof) * σ_formal²  ⟹  chi2 = UEVA * (N-dof) / σ_formal²
@@ -2631,7 +2696,8 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
     # NEW catalog is max(σ_formal², new_UEVA) in both :RUWE and :EAN modes
     # (the new_chi2_al / new_ean clamps above make the two expressions agree).
     UEVA_Gaia_fit = max(σ_formal^2, new_UEVA)
-    deflation_truth = min(1.0, sqrt(μ_UEVA_single / UEVA_Gaia_fit))
+    deflation_truth = like.ueva_mode == :none ? 1.0 :
+        min(1.0, sqrt(μ_UEVA_single / UEVA_Gaia_fit))
 
     c2 = catalog.pmra_pmdec_dr2[1] * catalog.pmra_dr2_error[1] * catalog.pmdec_dr2_error[1]
     Σ_dr2_gen = @SArray [
