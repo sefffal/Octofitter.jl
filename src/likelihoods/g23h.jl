@@ -685,21 +685,31 @@ function G23HObs(;
         ra = catalog.ra
 
         variables = if ueva_mode == :none
-            # No UEVA channel and no deflation ⇒ σ_AL/σ_att/σ_calib cannot
-            # influence the likelihood at all.  They survive only as the scalar
-            # weight `σ_formal = √(σ_att² + σ_AL²)` handed to the DR2/DR3
-            # 5-parameter refits, and a *scalar* weight cancels out of a linear
-            # least-squares solution — it rescales `chi_squared_astro`, which is
-            # consumed exclusively by the (now absent) UEVA channel.  So they are
-            # declared as fixed constants rather than sampled nuisances: this
-            # keeps `σ_formal` finite and positive without inventing a
-            # calibration the catalog does not have, and without inflating the
-            # model dimension by three pure prior draws.  Values are the nominal
-            # Gaia DR3 along-scan error budget.
+            # INERT PLACEHOLDERS.  With no UEVA channel and no deflation these
+            # three cannot influence the likelihood at all; they are declared
+            # only so that `σ_formal = √(σ_att² + σ_AL²)` stays finite and
+            # positive for the DR3 5-parameter refit, and as constants rather
+            # than sampled nuisances so the model dimension does not grow by
+            # three pure prior draws.
+            #
+            # Why they cannot matter: `σ_formal` reaches the model solely as a
+            # *scalar* weight in `fit_5param_prepared`, and a scalar weight
+            # cancels out of a linear least-squares solution (see the comment
+            # there) — it only rescales `chi_squared_astro`, which is consumed
+            # exclusively by the now-absent UEVA channel.  Every other use
+            # (μ_UEVA_single, σ_UEVA_single, the change-of-variables Jacobian)
+            # lives behind the `:ueva_dr3 ∈ table.kind` mask, and the deflation
+            # factor is pinned to 1.  Verified numerically: ln_like is
+            # bit-identical over a 200x range in these values under :none, and
+            # moves by ~1e7 over the same range under :RUWE.
+            #
+            # Values are the G23H population medians, so anything that reads
+            # them back off a chain sees a plausible number rather than a made-
+            # up one — but nothing depends on the choice.
             @variables begin
-                σ_AL = 0.2
-                σ_att = 0.06
-                σ_calib = 0.02
+                σ_AL = 0.132
+                σ_att = 0.0779
+                σ_calib = 0.0795
                 # G-band flux ratio (used by Gaia DR2/DR3 photocentre branch).
                 fluxratio = hasproperty(sys, :fluxratio) ? sys.fluxratio : 0.0
                 fluxratio_hip = hasproperty(sys, :fluxratio_hip) ? sys.fluxratio_hip : 0.0
