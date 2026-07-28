@@ -281,8 +281,8 @@ end
     startingpoints!(model::LogDensityModel, point::NamedTuple; ndraws=1000)
     startingpoints!(model::LogDensityModel, point1::NamedTuple, point2::NamedTuple, ...)
 
-Set the model's starting points directly, instead of having [`initialize!`](@ref) choose
-them by global optimization and pathfinder.
+Set the model's starting points to exactly the values you provide, instead of having
+[`initialize!`](@ref) choose them by global optimization and pathfinder.
 
 Each `point` is a named tuple in the *natural* (constrained) parameter space, with the same
 shape as the optional second argument of `initialize!` — system variables at the top level,
@@ -306,11 +306,6 @@ inspect what was set.
     `1e-8 * I` diagonal metric, which warmup then adapts from scratch. With the default 1000
     adaptation steps that recovers fine, but if you have several plausible points, passing
     them all gives warmup a better metric to start from.
-
-!!! note "Reproducibility"
-    This is the reproducible route into sampling: `initialize!` is only deterministic given
-    an explicit RNG and a fixed machine, whereas `startingpoints!` involves no randomness.
-    Sampling itself is reproducible once the starting points and the sampler's RNG are fixed.
 
 Example:
 ```julia
