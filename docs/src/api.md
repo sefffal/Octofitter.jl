@@ -10,6 +10,7 @@ StarAbsoluteRVObs
 PlanetRelativeRVObs              
 PhotometryObs
 HGCAObs
+FGSEpochAstromObs
 ObsPriorAstromONeil2019
 Sine
 mjd
