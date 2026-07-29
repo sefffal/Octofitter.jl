@@ -34,6 +34,7 @@ GaiaDR4AstromObs
 G23HObs
 HGCAObs
 HipparcosIADObs
+FGSEpochAstromObs
 ```
 
 These four live in the two unregistered subpackages, which `make.jl` loads so

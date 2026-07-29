@@ -113,6 +113,9 @@ include("likelihoods/hipparcos-obs.jl")
 include("likelihoods/g23h.jl")
 # `HGCAObs` is a helper constructor over `G23HObs`; it must see it.
 include("likelihoods/hgca-compat.jl")
+# HST FGS epoch astrometry. Uses the `skypath.jl` / `sky-offset.jl` front-ends
+# and the DR3 metadata pulled in by the Gaia likelihoods above.
+include("likelihoods/fgs-pickle.jl")
 
 include("logdensitymodel.jl")
 include("chains.jl")
