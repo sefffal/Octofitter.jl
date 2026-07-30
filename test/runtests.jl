@@ -45,6 +45,10 @@ if TEST_MODE in ("all", "unit")
             include("unit/startingpoints.jl")
         end
 
+        @testset "Initialization" begin
+            include("unit/initialization.jl")
+        end
+
         @testset "NSS Catalog" begin
             include("unit/nss.jl")
         end

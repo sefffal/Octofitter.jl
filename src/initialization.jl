@@ -13,26 +13,38 @@ end
 # are generated close to the data.
 function guess_starting_position(rng::Random.AbstractRNG, model::LogDensityModel, N=500_000, )
     if !_kepsolve_use_threads[]
-        # Seed RNGs for each thread
+        # Split the N draws into one chunk per thread, and index the per-chunk
+        # buffers by chunk number. Do *not* index them by `Threads.threadid()`:
+        # thread IDs are not valid buffer indices. They range up to
+        # `Threads.maxthreadid()`, which exceeds `Threads.nthreads()` whenever an
+        # interactive threadpool is present (`julia --threads=4` on 1.12 gives
+        # nthreads 4 but runs the default pool on thread IDs 2:5), and tasks may
+        # in any case migrate between threads part-way through the loop.
+        nchunks = max(1, min(Threads.nthreads(), N))
+        chunks = collect(Iterators.partition(1:N, cld(N, nchunks)))
+        # Seed one RNG per chunk
         rngs = [
             Xoshiro(reinterpret(UInt64,rand(rng)))
-            for i in 1: Threads.nthreads()
+            for _ in eachindex(chunks)
         ]
-        bestlogposts = fill(-Inf64, 1:Threads.nthreads())
-        bestparams = fill(model.sample_priors(rng), 1:Threads.nthreads())
+        bestlogposts = fill(-Inf64, length(chunks))
+        bestparams = fill(model.sample_priors(rng), length(chunks))
 
-        Threads.@threads for i in 1:N
-            tid = Threads.threadid()
-            params = model.sample_priors(rngs[tid])
-            params_t = model.link(params)
-            logpost = model.ℓπcallback(params_t)
-            
-
-            logpost = model.ℓπcallback(params_t)
-            if logpost > bestlogposts[tid]
-                bestparams[tid] = params
-                bestlogposts[tid] = logpost
+        Threads.@threads for ichunk in eachindex(chunks)
+            rng_chunk = rngs[ichunk]
+            bestlogpost_chunk = bestlogposts[ichunk]
+            bestparams_chunk = bestparams[ichunk]
+            for _ in chunks[ichunk]
+                params = model.sample_priors(rng_chunk)
+                params_t = model.link(params)
+                logpost = model.ℓπcallback(params_t)
+                if logpost > bestlogpost_chunk
+                    bestparams_chunk = params
+                    bestlogpost_chunk = logpost
+                end
             end
+            bestlogposts[ichunk] = bestlogpost_chunk
+            bestparams[ichunk] = bestparams_chunk
         end
         I_max = argmax(bestlogposts)
         return bestparams[I_max], bestlogposts[I_max]
