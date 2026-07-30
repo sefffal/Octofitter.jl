@@ -29,6 +29,16 @@ jobs:
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
+      # Fetch the network-backed DataDeps before the tests run, retrying with
+      # backoff. Without this, a single connect timeout to naif.jpl.nasa.gov
+      # errors the test job and reds the whole matrix -- see issue #128.
+      # Normally a no-op: DataDeps stores its downloads under the depot's
+      # `scratchspaces`, which julia-actions/cache already caches. This step is
+      # non-fatal by design; it never turns a network blip into a build failure.
+      - name: Pre-fetch DataDeps (with retry)
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true
+        run: julia --project=. --color=yes .github/scripts/prefetch_datadeps.jl
       - uses: julia-actions/julia-runtest@v1
         env:
           DATADEPS_ALWAYS_ACCEPT: true
