@@ -40,6 +40,7 @@ makedocs(
                 "G23H Full Example" => "g23h-example.md",
                 "Gaia DR4 Epoch Astrometry" => "gaia-iad.md",
                 "Gaia DR4 Simulation" => "gaia-dr4-simulation.md",
+                "Gaia DR4 Pre-Release Data" => "gaia-dr4-prerelease.md",
             ],
             "Images and More" => [
                 "Image Data (de-orbiting)" => "images.md",
