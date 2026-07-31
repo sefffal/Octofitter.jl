@@ -249,6 +249,10 @@ headers = [
 df = CSV.read(joinpath(@__DIR__, "astrom.dat"), DataFrame, skipto=7, header=headers, delim=' ', ignorerepeated=true)
 df.epoch = jd2mjd.(df.obs_time_tcb)
 
+# The table published with the BH3 paper gives scan_pos_angle in DEGREES, but
+# GaiaDR4Astrom takes sincos(scan_pos_angle) directly and so expects RADIANS.
+df.scan_pos_angle = deg2rad.(df.scan_pos_angle)
+
 scatter(
     df.obs_time_tcb,
     df.centroid_pos_al,
@@ -315,7 +319,7 @@ Now, we define a model that incorporates this data:
 ```julia
 mjup2msol = Octofitter.mjup2msol
 ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
-orbit_ref_epoch = mean(gaia_dr4_obs.table.epoch)
+orbit_ref_epoch = mean(gaia_bh3_astrom_obs.table.epoch)
 
 b = Planet(
     name="BH",
