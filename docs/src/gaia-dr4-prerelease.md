@@ -79,8 +79,9 @@ AF1–AF9). These are taken seconds apart, so for orbit fitting they carry essen
 same astrometric information but are *not* statistically independent — their errors share
 attitude and calibration systematics.
 
-A common approach is therefore to collapse each transit down to a single measurement.
-Here we drop the CCD observations not used by AGIS, then take the per-transit median row:
+We therefore collapse each transit down to a single measurement. The reduction we
+currently recommend is to drop the CCD observations not used by AGIS, then take the
+per-transit median row:
 
 ```julia
 function median_row(sdf; key=:centroid_pos_error_al)
@@ -111,13 +112,18 @@ println("$(nrow(transit_level_data)) transits over ",
 For Gaia-4 this leaves **93 transits** spanning MJD 57038.6 – 58843.2 (4.94 yr, a bit
 over three orbits at the published 571 day period).
 
-!!! warning "This binning is provisional"
-    Collapsing to the median row keeps the *formal* single-CCD uncertainty, which
-    understates how much is gained by averaging ~9 CCDs and ignores the correlated
-    attitude/calibration component. A better treatment is to take the median with
-    bootstrap uncertainties, floored at the IPD uncertainty divided by `sqrt(N_CCD)`
-    (hence the `ipd_error_al` column above). Treat the numbers you get from this
-    tutorial as a demonstration of the machinery, not as a publication-grade reduction.
+!!! note "What this binning does and does not model"
+    The median row keeps the *formal* single-CCD uncertainty. That does not credit the
+    averaging of ~9 CCD observations, and it does not model the correlated
+    attitude/calibration component shared within a transit — two omissions that push the
+    resulting error bar in opposite directions. We recommend this reduction as the
+    starting point today because it is simple and transparent about what it assumes.
+
+    A refinement worth exploring is to take the median with bootstrap uncertainties,
+    floored at the IPD uncertainty divided by `sqrt(N_CCD)`; the `ipd_error_al` column is
+    carried in the CSV above so you can try it without regenerating the data. As always
+    with pre-release data, check that your conclusions are not sensitive to the choice of
+    reduction before publishing them.
 
 ## Building the likelihood
 
