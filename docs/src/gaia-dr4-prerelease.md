@@ -293,11 +293,16 @@ transits, of which 824 are flagged as used by AGIS. The reference point for
 `centroid_pos_al` is `ra0 = 209.506326888 deg`, `dec0 = 31.695499700 deg`; these values,
 along with the full conversion, are recorded in the comment header of the CSV itself.
 
-!!! note "The pre-release does not contain Gaia BH3"
+!!! note "The pre-release includes Gaia BH3"
     The 12 pre-released sources are `2237987199365376`, `2309425390592896`,
     `10973744521070720`, `20694084440761600`, `60730287810150016`, `435469040545191680`,
     `1457486023639239296`, `1663617687609809280`, `3926186255616949504`,
-    `3937211745905473024`, `4181040337841125632` and `4318465066420528000`.
-    Gaia BH3 (`4373465352415301632`) is **not** among them, so the
-    [Gaia BH 3](@ref) example cannot be re-based onto the pre-release format; it continues
-    to use the table published with the BH3 paper.
+    `3937211745905473024`, `4181040337841125632` and `4318465066420528000` — the last of
+    which is **Gaia BH3** (α = 294.82786°, δ = +14.93098°, G = 11.23), with 77 transits.
+
+    The [Gaia BH 3](@ref) example nonetheless still uses `astrom.dat`, the table published
+    alongside the BH3 paper, which is already in the flat one-row-per-CCD-observation form
+    rather than the array-valued pre-release form. The two agree where they overlap: for a
+    shared `transit_id`, the paper table's scan angles reproduce the pre-release
+    `scan_pos_angle` (declared in the VOTABLE as `unit="deg"`) to five significant figures.
+    Re-basing that example onto the pre-release file has not been done.
