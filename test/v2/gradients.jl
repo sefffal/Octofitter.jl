@@ -81,3 +81,72 @@ end
     @test length(ep) == 14                      # both observations share epochs
     @test all(m -> m == 1:14, values(maps))
 end
+
+@testset "the scratch arena is sized to the model" begin
+    # Bumper's default buffer keeps only its first 1 MB slab across
+    # `@no_escape` boundaries and frees the rest, so a model whose per-sample
+    # scratch overflows one slab re-faults the excess every single evaluation
+    # (measured at 1.8-2.4x on the gradient past ~1000 epochs). `_slab_size`
+    # prices the trajectory at model-build time so the arena covers it in one
+    # slab. See `_slab_size` in src/model/codegen.jl.
+
+    # A small model must not pay for an arena it does not need: `nothing`
+    # means "keep Bumper's default buffer", so no second arena is held.
+    small = gradient_testmodel()
+    @test Octofitter._slab_size(small, first(Octofitter.epoch_plan(small))) === nothing
+
+    # A model with enough epochs to overflow the default slab gets its own.
+    function bigmodel(nep)
+        A = Octofitter.Body(name="A", variables=@variables begin
+            mass ~ Uniform(0.5, 2.0)
+        end)
+        b = Octofitter.Body(name="b", about=A, variables=@variables begin
+            mass = 0.001
+            a ~ LogUniform(0.1, 100)
+            e ~ Uniform(0, 0.9)
+            ω ~ Uniform(0, 2pi)
+            i ~ Sine()
+            Ω ~ Uniform(0, 2pi)
+            θ ~ Uniform(0, 2pi)
+            epoch = 57388.0
+        end)
+        ep = collect(range(55000.0, 60000.0, length=nep))
+        rv = RadialVelocityObs((epoch=ep, rv=10 .* sin.(ep ./ 700), σ_rv=fill(2.0, nep));
+            target=A, ref=Barycentre, name="rv",
+            variables=@variables begin
+                jitter ~ LogUniform(0.5, 20)
+            end)
+        return Octofitter.System(name="big", bodies=[A, b], observations=[rv],
+            variables=@variables begin plx ~ Uniform(5, 60) end)
+    end
+
+    big = bigmodel(2000)
+    slab = Octofitter._slab_size(big, first(Octofitter.epoch_plan(big)))
+    @test slab isa Int
+    D = length(Octofitter._list_priors(big))
+    # It has to actually cover one Dual{D} trajectory — being a hair too small
+    # costs the whole penalty, which is the failure mode this guards.
+    posys = Octofitter._example_posys(big)
+    need = PlanetOrbits.trajectory_storage(
+        Octofitter.ForwardDiff.Dual{Nothing,Float64,D}, posys, first(Octofitter.epoch_plan(big)))
+    @test slab > need
+    @test ispow2(slab)
+
+    # And the buffer it hands back is that size, task-locally, and stable
+    # across calls (a fresh buffer per evaluation would defeat the point).
+    buf1 = Octofitter._scratch_buffer(Val(slab))
+    buf2 = Octofitter._scratch_buffer(Val(slab))
+    @test buf1 === buf2
+    @test buf1 isa Octofitter.Bumper.SlabBuffer{slab}
+    @test Octofitter._scratch_buffer(Val(nothing)) === Octofitter.Bumper.default_buffer()
+
+    # The sizing is an optimization and must never change the answer.
+    m = Octofitter.LogDensityModel(big; verbosity=0)
+    θt = m.link(Octofitter.sample_priors(Random.Xoshiro(11), big))
+    lp = m.ℓπcallback(θt)
+    @test isfinite(lp)
+    @test (@allocated m.ℓπcallback(θt)) == 0
+    v, g = m.∇ℓπcallback(θt)
+    @test v ≈ lp
+    @test all(isfinite, g)
+end

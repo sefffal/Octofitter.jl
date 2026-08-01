@@ -124,7 +124,7 @@ function ln_like(obs::RelAstromObs, ctx::ObsContext)
 
     ll = zero(T)
     L = length(obs.table.epoch)
-    @no_escape begin
+    @no_escape ctx.buf begin
         ra_model = @alloc(T, L)
         dec_model = @alloc(T, L)
         simulate!(ra_model, dec_model, obs, ctx)

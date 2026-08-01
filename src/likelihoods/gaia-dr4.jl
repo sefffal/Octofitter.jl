@@ -133,7 +133,7 @@ function simulate!(along_scan, ra_offset, dec_offset, obs::GaiaDR4AstromObs, ctx
     if obs.detrend
         sum_ra = zero(T); dot_ra = zero(T)
         sum_dec = zero(T); dot_dec = zero(T)
-        @no_escape begin
+        @no_escape ctx.buf begin
             pra = @alloc(T, length(tab.epoch))
             pdec = @alloc(T, length(tab.epoch))
             @inbounds for i in eachindex(tab.epoch)
@@ -182,7 +182,7 @@ function ln_like(obs::GaiaDR4AstromObs, ctx::ObsContext)
     has_flag = hasproperty(tab, :outlier_flag)
     ll = zero(T)
     L = length(tab.epoch)
-    @no_escape begin
+    @no_escape ctx.buf begin
         along_scan = @alloc(T, L)
         ra_offset = @alloc(T, L)
         dec_offset = @alloc(T, L)

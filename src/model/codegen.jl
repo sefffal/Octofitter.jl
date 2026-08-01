@@ -370,6 +370,107 @@ end
 @inline (a::BumpAlloc)(::Type{S}, dims::Vararg{Integer,N}) where {S,N} =
     Bumper.alloc!(a.buf, S, dims...)
 
+# ---------------------------------------------------
+# Per-sample scratch arena
+#
+# Bumper's default buffer is a `SlabBuffer{1 MB}`, and its checkpoint restore
+# frees **every slab past the first** when a `@no_escape` block exits. Slab #1
+# is therefore the only storage that survives between evaluations: a model
+# whose per-sample scratch exceeds it hands the whole excess back to the
+# allocator every sample and pays to fault it in again on the next one.
+#
+# That is invisible on small models and brutal on large ones. Measured on a
+# 2-body RV model at ForwardDiff `Dual{10}` (∇ℓπ, µs), against the same
+# workload run on a buffer whose single slab covers the working set:
+#
+#   epochs |  500   1000   1500   2000   3000   4000   8000
+#   default|  393    797   2118   3915   5583   7557  15083
+#   sized  |  394    793   1206   1608   2421   3239   6723
+#
+# Linear up to ~1000 epochs, then 1.8-2.4x and staying there. The sized column
+# tracks a plain heap-allocated trajectory to within 4%, so this recovers the
+# whole gap rather than trading it somewhere else.
+#
+# So: size a slab to the model at build time and keep it in task-local
+# storage, exactly where Bumper keeps its own default buffer (which is what
+# makes the default thread-safe — one arena per task, not one per process).
+# Models that fit in the default 1 MB keep using it, so nothing changes for
+# them and no second arena is held.
+# ---------------------------------------------------
+
+# Task-local, keyed by the slab size, which is a build-time constant baked into
+# the generated likelihood. `Val{N}` rather than a tuple or an interpolated
+# symbol because task-local storage is an `IdDict`: the key has to be `===`
+# across calls, and types are interned while freshly-built tuples are not.
+@inline function _scratch_buffer(::Val{SlabSize}) where {SlabSize}
+    return get!(() -> Bumper.SlabBuffer{SlabSize}(),
+        task_local_storage(), Val{SlabSize})::Bumper.SlabBuffer{SlabSize}
+end
+@inline _scratch_buffer(::Val{nothing}) = Bumper.default_buffer()
+
+const _DEFAULT_SLAB = 1 << 20
+# A model wanting more than this per sample gets extra slabs and the cost above.
+# The cap exists because the arena is held for the life of the task: one 256 MB
+# buffer per sampling chain is already more than any real model needs, and
+# beyond it correctness (extra slabs) is preferable to the memory.
+const _MAX_SLAB = 1 << 28
+
+"""
+    _slab_size(sys, unique_ep, θ_example=nothing) -> Int or nothing
+
+Slab size for this model's scratch arena, or `nothing` to keep Bumper's
+default buffer.
+
+Sized for the widest single ForwardDiff chunk the model can ask for — one
+`Dual` partial per free parameter — since that is what `LogDensityModel`
+defaults to and it is the largest element type on the ordinary gradient path.
+Nested `Dual`s (Hessians) exceed it and fall back to extra slabs: slower, but
+correct, which is the right way round for a case nobody's inner loop is.
+
+Pass `θ_example` (a nested NamedTuple, as `make_ln_like` already receives) and
+`build` (the system constructor it already compiled) to avoid redoing either
+just to price the trajectory.
+"""
+function _slab_size(sys::System, unique_ep, θ_example=nothing, build=nothing)
+    D = length(_list_priors(sys))
+    T = ForwardDiff.Dual{Nothing,Float64,D}
+    posys = try
+        _example_posys(sys, θ_example, build)
+    catch err
+        err isa InterruptException && rethrow()
+        return nothing   # can't price it; the default buffer is always correct
+    end
+    isnothing(posys) && return nothing
+    bytes = PlanetOrbits.trajectory_storage(T, posys, unique_ep)
+    # Plus the likelihoods' own `@alloc` scratch, which shares this arena:
+    # no current one takes more than three columns of its own table.
+    bytes += 3 * sizeof(T) * sum(o -> length(epochs(o)), sys.observations; init=0)
+    # Headroom for the allocator's alignment padding, then round up: a slab
+    # that is a hair too small costs the whole penalty above.
+    want = nextpow(2, bytes + bytes ÷ 4 + 65536)
+    want <= _DEFAULT_SLAB && return nothing
+    return min(want, _MAX_SLAB)
+end
+
+# One PlanetOrbits.System, purely to price its trajectory. Returns `nothing`
+# if it cannot be built — sizing is an optimization, so it must never be the
+# thing that fails model construction.
+#
+# The RNG is local and fixed-seeded, not `Random.default_rng()`: model
+# construction must not consume the global stream, or a script that seeds
+# before building its model gets different samples depending on whether the
+# arena happened to need sizing.
+function _example_posys(sys::System, θ_example=nothing, build=nothing)
+    θ = isnothing(θ_example) ?
+        make_arr2nt(sys)(collect(make_prior_sampler(sys)(Random.Xoshiro(0)))) :
+        θ_example
+    f = isnothing(build) ? @RuntimeGeneratedFunction(:(function (θ)
+        T = $_system_number_type(θ)
+        $(_build_system_expr(sys)...)
+    end)) : build
+    return f(θ)
+end
+
 # Expression building the PlanetOrbits.Body / Orbit / System for one sample.
 function _build_system_expr(sys::System)
     stmts = Expr[]
@@ -438,24 +539,28 @@ function make_ln_like(sys::System, θ_example=nothing)
         θ_obs = :(hasproperty(θ.observations, $(QuoteNode(nm))) ? θ.observations.$nm : (;))
         push!(calls, :($(Symbol(:ll, j + 1)) = $(Symbol(:ll, j)) + ln_like(
             system.observations[$k],
-            ObsContext(θ, $θ_obs, posys, traj, $(maps[o])))))
+            ObsContext(θ, $θ_obs, posys, traj, $(maps[o]), buf))))
         j += 1
     end
     for (k, (owner, _)) in enumerate(sys.priorterms)
         θ_obs = owner === :system ? :(θ) : :(θ.bodies.$owner)
         push!(calls, :($(Symbol(:ll, j + 1)) = $(Symbol(:ll, j)) + ln_like(
             system.priorterms[$k][2],
-            ObsContext(θ, $θ_obs, posys, traj, $(Int[])))))
+            ObsContext(θ, $θ_obs, posys, traj, $(Int[]), buf))))
         j += 1
     end
 
     method = sys.method
     og = sys.observing_geometry
     blt = sys.barycentric_lighttime
+    slab = _slab_size(sys, unique_ep, θ_example, build)
 
     evaluate = @RuntimeGeneratedFunction(:(function (system, θ, posys)
         T = $_system_number_type(θ)
-        buf = Bumper.default_buffer()
+        # Sized to this model at build time; see `_slab_size`. The likelihoods
+        # get it through the context so their own `@alloc` scratch shares one
+        # arena rather than falling back to the default buffer's 1 MB slab.
+        buf = $_scratch_buffer($(Val(slab)))
         return @no_escape buf begin
             # One trajectory for the whole model. Its columns come from the
             # bump allocator through PlanetOrbits' caller-allocated

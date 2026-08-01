@@ -89,13 +89,21 @@ Use [`solutionat`](@ref) rather than indexing `traj` directly — the
 trajectory is over the *deduplicated, sorted* epoch union, not this
 observation's table order.
 """
-struct ObsContext{Tθ,TO,TS,TT,TE}
+struct ObsContext{Tθ,TO,TS,TT,TE,TB}
     θ_system::Tθ
     θ_obs::TO
     system::TS          # PlanetOrbits.System for this sample
     traj::TT            # solved PlanetOrbits.Trajectory
     epoch_index::TE     # row of this observation's table → column of `traj`
+    # The per-sample scratch arena the trajectory was carved out of. A
+    # likelihood needing its own temporaries should `@no_escape ctx.buf`
+    # rather than reach for `Bumper.default_buffer()`, so that one arena —
+    # sized to the model at build time — covers the whole evaluation. See
+    # `_slab_size` in codegen.jl for why the size matters.
+    buf::TB
 end
+ObsContext(θ_system, θ_obs, system, traj, epoch_index) =
+    ObsContext(θ_system, θ_obs, system, traj, epoch_index, Bumper.default_buffer())
 
 """
     solutionat(ctx, i)

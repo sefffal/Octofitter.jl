@@ -81,7 +81,7 @@ function ln_like(obs::RadialVelocityObs, ctx::ObsContext)
     jitter = hasproperty(ctx.θ_obs, :jitter) ? ctx.θ_obs.jitter : zero(T)
     ll = zero(T)
     L = length(obs.table.epoch)
-    @no_escape begin
+    @no_escape ctx.buf begin
         rv_model = @alloc(T, L)
         simulate!(rv_model, obs, ctx)
         for i in eachindex(obs.table.epoch)
