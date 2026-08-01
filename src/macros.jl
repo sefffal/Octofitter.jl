@@ -199,7 +199,7 @@ macro variables(variables_block_input)
         local captured_names = $captured_names_tuple
         priors_out = []
         derived_out = []
-        likelihoods_out = AbstractLikelihood[]
+        likelihoods_out = AbstractObs[]
         priors_evaled = [$(priors...)]
         for (varname, prior) in zip($priors_varnames, priors_evaled)
             out = expandparam(varname, prior)

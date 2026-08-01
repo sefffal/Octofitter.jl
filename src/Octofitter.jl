@@ -17,6 +17,7 @@ using NamedTupleTools
 using OrderedCollections
 using KernelDensity
 using LinearAlgebra
+using TOML
 
 # Many users are unfamiliar with Julia, and they want to load their data from CSV.
 # We export the CSV package to help them on their journey.
@@ -40,51 +41,49 @@ using DataDeps
 using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
-const mjup2msol = PlanetOrbits.mjup2msol_IAU
+using Bumper
+
+# Masses are in solar masses throughout: PlanetOrbits v2 dropped the
+# per-planet `M` bookkeeping, so there is one mass unit and `msun`, `mjup`,
+# `mearth` (re-exported above) are plain multiplicative constants —
+# `mass = 5.3mjup`.
+const mjup2msol = PlanetOrbits.mjup   # deprecated alias; masses are M⊙ now
 
 # Re-export the Chains constructor.
-export Chains 
+export Chains
 export describe
 include("units.jl")
-include("orbit-models.jl")
 include("distributions.jl")
-include("variables.jl")
-include("parameterizations.jl")
+
+# The model layer. Order matters only in that types must exist before the
+# constructors that assert on them; the `@variables` machinery and the
+# observation types refer to each other only inside function bodies.
+include("model/variables.jl")
+include("model/refs.jl")
+include("model/obs.jl")
+include("model/nodes.jl")
 include("macros.jl")
+include("model/codegen.jl")
 
 # Helper for checking tables are well-formed
 equal_length_cols(tab) = allequal(length(getproperty(tab, col)) for col in Tables.columnnames(tab))
 
-include("likelihoods/system.jl")
+include("gaia-utils.jl")
 include("likelihoods/relative-astrometry.jl")
-include("likelihoods/photometry.jl")
-include("likelihoods/hgca.jl")
-include("likelihoods/gaia-utils.jl")
-include("likelihoods/hipparcos.jl")
-include("likelihoods/hgca-linfit.jl")
-include("likelihoods/g23h.jl")
+include("likelihoods/radial-velocity.jl")
 include("likelihoods/gaia-dr4.jl")
 
-include("likelihoods/prior-observable.jl")
-include("likelihoods/prior-planet-order.jl")
-include("likelihoods/prior-non-crossing.jl")
-
-
 include("logdensitymodel.jl")
+include("chains.jl")
 include("initialization.jl")
 include("sampling.jl")
 
-include("analysis.jl")
-include("sonora.jl")
-include("BHAC.jl")
-
-include("nss.jl")
-include("io.jl")
-include("io-orbitize.jl")
-
-include("sbc.jl")
-include("cross-validation.jl")
-include("completeness.jl")
+# `src/legacy/` holds the v1 likelihoods and analysis code that has not been
+# ported to the v2 model surface yet (HGCA, Hipparcos, G23H, images,
+# interferometry, photometry, cross-validation, SBC, completeness, the
+# orbitize!/HDF5 IO, and the plotting-facing analysis helpers). They are kept
+# in the tree, unmodified, so the port is a diff rather than a rewrite; they
+# are deliberately not included here. See `docs/src/v2-migration.md`.
 
 """
     using Pigeons
