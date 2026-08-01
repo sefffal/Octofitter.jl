@@ -293,15 +293,19 @@ Base.@nospecializeinfer function advancedhmc(
     # end
 
 
-    # Turn on likelihood parallelism if we have ~15x more data than threads.
-    # This is based on some local benchmarks. Spawning tasks takes about 450ns;
-    # an orbit solve takes about 32ns, or 1/14 as long.
-    threads_avail = Threads.nthreads()
-    n_epochs = _count_epochs(model.system) 
-    Octofitter._kepsolve_use_threads[] = threads_avail > 1  && n_epochs > 15
-    if verbosity >= 1
-        @info "Kepler solver will use multiple threads: $(Octofitter._kepsolve_use_threads[] )" threads_avail n_epochs > 15
-    end
+    # v1 threaded the per-epoch Kepler solve inside the likelihood, and set this
+    # flag here to turn it on for any model with more data than orchestration
+    # overhead. v2 batches the solve across epochs with SIMD inside PlanetOrbits
+    # instead and threads nothing, so there is no inner parallelism for the flag
+    # to enable — and leaving the assignment in was actively harmful: the flag's
+    # only remaining reader is `guess_starting_position`, which uses it to avoid
+    # nesting threads inside a threaded solve. Setting it true therefore sent
+    # initialization down its *serial* path, so `octofit` on any model with more
+    # than 15 epochs ran 500k single-threaded prior evaluations for a solve that
+    # was never threaded in the first place.
+    #
+    # See `_kepsolve_use_threads` in model/codegen.jl. If inner threading is ever
+    # reintroduced, this is where it gets switched on.
 
     initial_parameters = initial_θ_t
 

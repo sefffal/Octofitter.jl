@@ -869,8 +869,14 @@ function optimization_and_pathfinder_with_fixed(
                 verbosity >= 3 && @info "Starting multipathfinder run with only discrete parameters fixed" free_params=length(pathfinder_variable_indices) fixed_params=length(pathfinder_fixed_indices)
                 
                 errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Debug : Logging.Error)
+                # v1 turned the inner threaded Kepler solve on here whenever the
+                # outer pathfinder loop was serial (`nruns == 1`), so exactly one
+                # level was threaded. v2 has no inner threading to hand back to,
+                # so this now only costs: it would take `guess_starting_position`
+                # down its serial path. Left as a no-op assignment rather than
+                # deleted so the save/restore pairing stays visible if inner
+                # threading returns. See model/codegen.jl.
                 initial_mt = _kepsolve_use_threads[]
-                _kepsolve_use_threads[] = nruns == 1
 
                 # Generate initial values for pathfinder
                 initial_vals = map(1:nruns) do _
