@@ -150,3 +150,46 @@ end
     @test v ≈ lp
     @test all(isfinite, g)
 end
+
+@testset "ForwardDiff chunk width" begin
+    # The balanced-split rule, checked against the widths that actually
+    # measured fastest on the N-companion models (see the table above
+    # `_chunk_heuristic` in src/logdensitymodel.jl).
+    @test Octofitter._chunk_heuristic(23) == 23     # measured: 23 beats 12/16/20
+    @test Octofitter._chunk_heuristic(30) == 15     # measured: 15 beats 10/12/18/20/24/30
+    @test Octofitter._chunk_heuristic(37) == 19     # measured: 19 beats 13/16/22/25/30/37
+
+    # Single chunk right up to the knee, never past it, and always balanced.
+    for D in 1:200
+        c = Octofitter._chunk_heuristic(D)
+        @test 1 <= c <= D
+        @test c <= max(D, Octofitter.CHUNK_WIDTH_MAX[])
+        # Balanced: dropping to one fewer chunk would exceed the width cap.
+        n = cld(D, c)
+        @test n == 1 || cld(D, n - 1) > Octofitter.CHUNK_WIDTH_MAX[]
+    end
+    @test Octofitter._chunk_heuristic(Octofitter.CHUNK_WIDTH_MAX[]) == Octofitter.CHUNK_WIDTH_MAX[]
+
+    # The measured probe is opt-in and must agree with the default's answer.
+    sys = gradient_testmodel()
+    D = length(Octofitter._list_priors(sys))
+    m_default = Octofitter.LogDensityModel(sys; verbosity=0)
+    m_probed = Octofitter.LogDensityModel(sys; verbosity=0, chunk_sizes=[2, 4, D])
+    θt = m_default.link(Octofitter.sample_priors(Random.Xoshiro(12), sys))
+    v1, g1 = m_default.∇ℓπcallback(θt)
+    v2, g2 = m_probed.∇ℓπcallback(θt)
+    @test v1 ≈ v2
+    @test g1 ≈ g2
+
+    # An explicit `autodiff` still wins over both.
+    m_explicit = Octofitter.LogDensityModel(sys; verbosity=0,
+        autodiff=Octofitter.AutoForwardDiff(chunksize=3))
+    v3, g3 = m_explicit.∇ℓπcallback(θt)
+    @test v3 ≈ v1
+    @test g3 ≈ g1
+
+    # Nonsense candidates fall back rather than failing model construction.
+    m_bad = (@test_logs (:warn,) match_mode=:any Octofitter.LogDensityModel(
+        sys; verbosity=0, chunk_sizes=[0, D + 50]))
+    @test m_bad.∇ℓπcallback(θt)[1] ≈ v1
+end
