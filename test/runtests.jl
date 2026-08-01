@@ -1,86 +1,41 @@
 using Test
 using Octofitter
 using Distributions
-using TypedTables
-using CSV
-using HDF5
-using DifferentiationInterface: AutoFiniteDiff, AutoForwardDiff
+using LinearAlgebra
+using Random
+using StaticArrays
+using DelimitedFiles
+using FiniteDiff
+using PlanetOrbits
 
-# Check for test mode environment variable
-# Run with: OCTOFITTER_TEST_MODE=unit julia --project=. -e 'using Pkg; Pkg.test()'
-# Run with: OCTOFITTER_TEST_MODE=integration julia --project=. -e 'using Pkg; Pkg.test()'
-# Default: run all tests
+# `test/legacy/` holds the v1 test suite, which exercises the model surface
+# this branch replaced. It is kept beside the v1 sources in `src/legacy/` so
+# each likelihood's port can bring its tests with it.
 const TEST_MODE = get(ENV, "OCTOFITTER_TEST_MODE", "all")
 
-@info "Running Octofitter tests" mode=TEST_MODE
+@info "Running Octofitter tests" mode = TEST_MODE
 
-# =============================================================================
-# Unit Tests (Fast - no MCMC sampling required)
-# =============================================================================
 if TEST_MODE in ("all", "unit")
-    @testset "Unit Tests" begin
-        @info "Running unit tests..."
-
-        @testset "Constructors" begin
-            include("unit/constructors.jl")
-        end
-
-        @testset "Likelihoods" begin
-            include("unit/likelihoods.jl")
-        end
-
-        @testset "Distributions" begin
-            include("unit/distributions.jl")
-        end
-
-        @testset "Priors" begin
-            include("unit/priors.jl")
-        end
-
-        @testset "I/O" begin
-            include("unit/io.jl")
-        end
-
-        @testset "Starting Points" begin
-            include("unit/startingpoints.jl")
-        end
-
-        @testset "Initialization" begin
-            include("unit/initialization.jl")
-        end
-
-        @testset "NSS Catalog" begin
-            include("unit/nss.jl")
-        end
+    @testset "Model surface" begin
+        include("v2/model.jl")
+    end
+    @testset "Observations" begin
+        include("v2/likelihoods.jl")
+    end
+    @testset "Hierarchies and propagators" begin
+        include("v2/hierarchy.jl")
+    end
+    @testset "Gradients and allocations" begin
+        include("v2/gradients.jl")
+    end
+    @testset "v1 numerical regression" begin
+        include("v2/v1-regression.jl")
     end
 end
 
-# =============================================================================
-# Integration Tests (Slower - requires MCMC sampling)
-# =============================================================================
 if TEST_MODE in ("all", "integration")
-    @testset "Integration Tests" begin
-        @info "Running integration tests..."
-
-        @testset "Sampling" begin
-            include("integration/sampling.jl")
-        end
-
-        @testset "Multi-Planet" begin
-            include("integration/multi_planet.jl")
-        end
-
-        @testset "Joint Fitting" begin
-            include("integration/joint_fitting.jl")
-        end
-
-        @testset "Cross Validation" begin
-            include("integration/cross_validation.jl")
-        end
-
-        @testset "Plotting" begin
-            include("integration/plotting.jl")
-        end
+    @testset "Sampling" begin
+        include("v2/sampling.jl")
     end
 end
 

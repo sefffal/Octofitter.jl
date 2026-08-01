@@ -122,6 +122,7 @@ _aboutspec1(s::AbstractString) = Symbol(s)
 
 # Anywhere a reference is expected, a model node names its body.
 refspec(b::Body) = BodyRefSpec{b.name}()
+_refname(b::Body) = b.name
 
 # --- variable-name bookkeeping ------------------------------------------------
 
@@ -246,24 +247,33 @@ function System(; name::Union{Symbol,AbstractString},
 
     # Rows: one per `Body` with `about=`, plus every explicit `Orbit` node.
     rows = Tuple{Symbol,Tuple{Vararg{Symbol}},Tuple{Vararg{Symbol}}}[]
-    roots = Symbol[]
     for n in nodes
         if n isa Body
-            if n.about === nothing
-                push!(roots, n.name)
-            else
-                push!(rows, (n.name, (n.name,), n.about))
-            end
+            n.about === nothing || push!(rows, (n.name, (n.name,), n.about))
         else
             push!(rows, (n.name, n.exterior, n.about))
         end
     end
+    # A body is *placed* by whichever row has it on the exterior side. That is
+    # not the same as "has an `about=`": in a 2+2 quadruple, `Ba` omits
+    # `about=` and is placed by the wide `Orbit` node's `exterior=(Ba, Bb)`.
+    # Testing placement rather than the keyword is what makes set exteriors
+    # work at all.
+    placed = Symbol[nm for (_, ext, _) in rows for nm in ext]
+    roots = setdiff(bodynames, placed)
     isempty(roots) && error(
-        "System $name: every body has an `about=`, so the hierarchy has no root. " *
-        "Exactly one body — normally the host star — must omit it.")
+        "System $name: every body is placed by some orbit, so the hierarchy has no root. " *
+        "Exactly one body — normally the host star — must be left unplaced.")
     length(roots) == 1 || error(
-        "System $name: bodies $(join(roots, ", ")) all omit `about=`, but a system has " *
-        "exactly one root. Give the others an `about=`.")
+        "System $name: bodies $(join(roots, ", ")) are not placed by any orbit, but a " *
+        "system has exactly one root. Give the others an `about=`, or list them in an " *
+        "`Orbit` node's `exterior=`.")
+    # Note there is deliberately no "each body appears in exactly one
+    # exterior" rule: in a 2+2 quadruple `Bb` appears both as the exterior of
+    # its own tight row and as a member of the wide row's *set* exterior,
+    # which places the pair's barycentre rather than `Bb` itself. Redundancy
+    # that this cannot see shows up as a singular hierarchy matrix, which
+    # PlanetOrbits reports with the offending rows listed.
     for (owner, ext, int) in rows, nm in (ext..., int...)
         nm in bodynames || error(
             "System $name: node $owner refers to :$nm, which is not a `Body` in this " *

@@ -317,6 +317,14 @@ export drawfrompriors
 
 # --- the likelihood -----------------------------------------------------------
 
+# v1 threaded the per-planet Kepler solve from here; v2 batches it inside
+# PlanetOrbits (SIMD across epochs, and across the Dual chunk), so Octofitter
+# owns no inner threading at all. The flag survives only as the guard that
+# stops the initializer's outer loops from nesting threads inside a threaded
+# solve — it is now always false, and the outer loops are always free to
+# thread.
+const _kepsolve_use_threads = Ref(false)
+
 """
     epoch_plan(system)
 

@@ -277,7 +277,9 @@ Base.@nospecializeinfer function advancedhmc(
     # integrator = JitteredLeapfrog(ϵ, 0.05) # 5% normal distribution on step size to help in areas of high curvature. 
 
     verbosity >= 3 && @info "Creating kernel"
-    kernel = HMCKernel(Trajectory{MultinomialTS}(integrator, GeneralisedNoUTurn(;max_depth)))
+    # Qualified: PlanetOrbits v2 also exports `Trajectory`, and Octofitter
+    # re-exports it.
+    kernel = HMCKernel(AdvancedHMC.Trajectory{MultinomialTS}(integrator, GeneralisedNoUTurn(;max_depth)))
 
     
     verbosity >= 3 && @info "Creating adaptor"
