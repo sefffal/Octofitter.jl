@@ -73,6 +73,8 @@ include("likelihoods/skypath.jl")
 include("likelihoods/relative-astrometry.jl")
 include("likelihoods/radial-velocity.jl")
 include("likelihoods/gaia-dr4.jl")
+include("likelihoods/hipparcos-iad.jl")
+include("likelihoods/g23h.jl")
 
 include("logdensitymodel.jl")
 include("chains.jl")
