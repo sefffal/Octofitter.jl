@@ -23,6 +23,42 @@ The interface is:
     observations that touch no orbit (priors, for instance).
   - `epochs(obs)` — the epochs it needs solved; `Float64[]` if none.
   - `likeobj_from_epoch_subset(obs, inds)` — optional, for cross-validation.
+
+# What an observation observes
+
+An observation names a *query* against the solved system — a target
+reference and a reference reference. Only *which question is asked* is
+static in the type; the answer is recomputed from that sample's masses and
+fluxes every draw.
+
+For a blended catalog source that means deciding **when** its membership is
+decided. There are three tiers, and they all land on the same primitive, a
+`PlanetOrbits.WeightedPoint`:
+
+ 1. **Build time.** `target=Photocentre(:G, (Aa, Ab))` — the subset spec.
+    For sources whose membership is structurally certain. It constant-folds,
+    appears in `refspecs(obs)`, is validated against the body list at
+    model-build time, and shows up in `show`.
+
+ 2. **Sample time.** The observation computes effective weights itself —
+    `w_j ∝ member_j · f_j`, with `member_j` from sampled or derived
+    variables (a resolved-flag, a source-assignment latent) — and builds the
+    `WeightedPoint` once per evaluation from
+    `PlanetOrbits.fluxes(ctx.system, band)`. Membership latents live at
+    *system* level; observations may read deferred system variables, so
+    blending state never has to round-trip through a body's `flux_<band>`
+    variable (which would be the body→deferred-system cycle codegen
+    rejects).
+
+ 3. **Scan time.** The same construction inside the epoch loop, for
+    membership that genuinely varies per transit — a resolution taper in
+    separation, or a scan-angle-dependent window. `WeightedPoint` is
+    `isbits`, so one per epoch is free.
+
+Tiers 2 and 3 are where instrument-specific blending behaviour belongs:
+PlanetOrbits owns per-body states and the two generic linear reductions
+(mass-weighted `barycentre`, flux-weighted `photocentre`), and everything an
+instrument does on top of those is the observation's business.
 """
 abstract type AbstractObs end
 TypedTables.Table(obs::AbstractObs) = obs.table

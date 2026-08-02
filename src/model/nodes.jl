@@ -319,6 +319,17 @@ function System(; name::Union{Symbol,AbstractString},
             "System $name: observation \"$(likelihoodname(o))\" references :$nm, which " *
             "is not a `Body` in this system (its bodies are $(join(bodynames, ", "))).")
     end
+    # …and so must the bands a photocentre names. A typo'd band is otherwise
+    # only found on the first likelihood evaluation, inside the sampler.
+    declaredbands = unique(Symbol[_flux_band(v) for n in bodynodes for v in _flux_vars(n)])
+    for o in obs, s in refspecs(o), band in _refbands(s)
+        band in declaredbands || error(
+            "System $name: observation \"$(likelihoodname(o))\" asks for the :$band " *
+            "photocentre, but no body declares a `flux_$band` variable" *
+            (isempty(declaredbands) ? " (no body declares any flux)." :
+             " (the bands declared here are $(join(declaredbands, ", "))).") *
+            " Photocentre weights come from the bodies' fluxes.")
+    end
     obsnames = String[likelihoodname(o) for o in obs]
     length(unique(obsnames)) == length(obsnames) || error(
         "System $name: duplicate observation name(s). Each observation needs a unique " *

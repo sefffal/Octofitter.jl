@@ -39,7 +39,8 @@ end
     @test Octofitter.refspec(:A) === Octofitter.BodyRefSpec{:A}()
     @test Barycentre === Octofitter.BarycentreSpec{()}()
     @test Barycentre(A, :b) === Octofitter.BarycentreSpec{(:A, :b)}()
-    @test Photocentre(:G) === Octofitter.PhotocentreSpec{:G}()
+    @test Photocentre === Octofitter.PhotocentreSpec{nothing,()}()
+    @test Photocentre(:G) === Octofitter.PhotocentreSpec{:G,()}()
     @test_throws r"must be a `Body`" Octofitter.refspec(3.0)
 
     # Resolution against a solved system produces PlanetOrbits references.
@@ -48,6 +49,79 @@ end
     wp = Octofitter.resolveref(posys, Barycentre)
     @test wp isa PlanetOrbits.WeightedPoint
     @test sum(wp.w) ≈ 1
+end
+
+@testset "photocentre subset grammar" begin
+    Aa = Octofitter.Body(name="Aa", variables=@variables begin mass = 1.0 end)
+    Ab = Octofitter.Body(name="Ab", variables=@variables begin mass = 0.5 end)
+
+    # All three spellings, plus the trailing-argument form.
+    @test Photocentre(:G, (Aa, Ab)) === Octofitter.PhotocentreSpec{:G,(:Aa, :Ab)}()
+    @test Photocentre(:G, Aa, Ab) === Octofitter.PhotocentreSpec{:G,(:Aa, :Ab)}()
+    @test Photocentre(:G, (:Aa, :Ab)) === Octofitter.PhotocentreSpec{:G,(:Aa, :Ab)}()
+    @test Photocentre((Aa, Ab)) === Octofitter.PhotocentreSpec{nothing,(:Aa, :Ab)}()
+    @test Photocentre([Aa, Ab]) === Octofitter.PhotocentreSpec{nothing,(:Aa, :Ab)}()
+    @test Photocentre(:G, (Aa,)) === Octofitter.PhotocentreSpec{:G,(:Aa,)}()
+    @test_throws r"empty member list" Photocentre(:G, ())
+    @test_throws r"must be a `Body` model node" Photocentre(:G, (3.0,))
+
+    # Every spec is a singleton — the content lives in type parameters, which
+    # is what makes `resolveref` constant-fold.
+    @test isbits(Photocentre(:G, (Aa, Ab)))
+    @test sizeof(Photocentre(:G, (Aa, Ab))) == 0
+
+    # `_refstr` round-trips the spelling; `_refnames` is what build-time
+    # validation checks against the body list.
+    @test Octofitter._refstr(Photocentre) == "Photocentre"
+    @test Octofitter._refstr(Photocentre(:G)) == "Photocentre(:G)"
+    @test Octofitter._refstr(Photocentre(:G, (Aa, Ab))) == "Photocentre(:G, (Aa, Ab))"
+    @test Octofitter._refstr(Photocentre((Aa, Ab))) == "Photocentre((Aa, Ab))"
+    @test Octofitter._refstr(Photocentre(:G, (Aa,))) == "Photocentre(:G, (Aa,))"
+    @test Octofitter._refnames(Photocentre(:G, (Aa, Ab))) === (:Aa, :Ab)
+    @test Octofitter._refnames(Photocentre(:G)) === ()
+    @test Octofitter._refbands(Photocentre(:G, (Aa, Ab))) === (:G,)
+    @test Octofitter._refbands(Photocentre) === ()
+    @test Octofitter._refbands(Barycentre) === ()
+
+    # Resolution forwards to PlanetOrbits' subset method, and agrees with it.
+    posys = PlanetOrbits.System(
+        (PlanetOrbits.Body(mass=1.0, flux=(G=1.0,), name=:A),
+         PlanetOrbits.Body(mass=0.5, flux=(G=0.25,), name=:b),
+         PlanetOrbits.Body(mass=0.2, flux=(G=4.0,), name=:c)),
+        (PlanetOrbits.Orbit(PlanetOrbits.Body(mass=0.5, name=:b),
+             about=PlanetOrbits.Body(mass=1.0, name=:A); a=1.0, tp=0.0),
+         PlanetOrbits.Orbit(PlanetOrbits.Body(mass=0.2, name=:c),
+             about=(PlanetOrbits.Body(mass=1.0, name=:A),
+                    PlanetOrbits.Body(mass=0.5, name=:b)); a=9.0, tp=0.0)); plx=25.0)
+    sub = Octofitter.resolveref(posys, Photocentre(:G, (:A, :b)))
+    @test sub isa PlanetOrbits.WeightedPoint
+    @test sub.w ≈ PlanetOrbits.photocentre(posys, :A, :b; band=:G).w
+    @test sub.w ≈ [1.0 / 1.25, 0.25 / 1.25, 0.0]
+    @test Octofitter.resolveref(posys, Photocentre(:G)).w ≈
+          PlanetOrbits.photocentre(posys; band=:G).w
+    # …and it constant-folds: the spec carries no runtime data at all.
+    @test (@allocated Octofitter.resolveref(posys, Photocentre(:G, (:A, :b)))) == 0
+end
+
+@testset "photocentre member and band typos are caught at model-build time" begin
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.0
+        flux_G = 1.0
+    end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass = 2mjup
+        flux_G = 0.1
+        a = 3.0; e = 0.1; i = 0.5; ω = 0.0; Ω = 0.0; tp = 55000.0
+    end)
+    mk(target) = RelAstromObs((epoch=[57000.0], ra=[1.0], dec=[1.0],
+        σ_ra=[1.0], σ_dec=[1.0]); target, ref=A, name="astrom")
+    build(target) = Octofitter.System(name="s", bodies=[A, b], observations=[mk(target)],
+        variables=@variables begin plx = 20.0 end)
+
+    @test build(Photocentre(:G, (A, b))) isa Octofitter.System   # the good case
+    @test_throws r"references :zzz" build(Photocentre(:G, (A, :zzz)))
+    @test_throws r"asks for the :Ks photocentre" build(Photocentre(:Ks, (A, b)))
+    @test_throws r"the bands declared here are G" build(Photocentre(:Ks))
 end
 
 @testset "an observation naming a body the system lacks fails at build time" begin
@@ -151,4 +225,137 @@ end
     Δt = obsd.detrend_Δt
     @test abs(sum(sim.ra_offset)) < 1e-9
     @test abs(sum(Δt .* sim.ra_offset)) < 1e-9
+end
+
+# ---------------------------------------------------------------------------
+# Two blended catalog sources in a 2+2 quadruple.
+#
+# Two tight pairs several arcseconds apart: only intra-pair blending is ever
+# possible, so each source's membership is structurally fixed and belongs in
+# the spec. What is under test is that the resulting signal carries *both*
+# levels of motion — the pair's wide orbit and the intra-pair photocentric
+# wobble — from one dot product over absolute body states.
+# ---------------------------------------------------------------------------
+
+const QUAD_EPOCHS = collect(range(56000.0, 59650.0, length=48))
+
+function quad_system(; target_A, target_B, flux_Ab=0.6, flux_Bb=0.45)
+    Aa = Octofitter.Body(name="Aa", variables=@variables begin
+        mass = 0.6
+        flux_G = 1.0
+    end)
+    Ab = Octofitter.Body(name="Ab", about=Aa, variables=@variables begin
+        mass = 0.4
+        flux_G = $flux_Ab
+        a = 0.5; e = 0.1; i = 0.3; ω = 0.2; Ω = 0.1; tp = 55000.0
+    end)
+    Ba = Octofitter.Body(name="Ba", variables=@variables begin
+        mass = 0.8
+        flux_G = 1.0
+    end)
+    Bb = Octofitter.Body(name="Bb", about=Ba, variables=@variables begin
+        mass = 0.7
+        flux_G = $flux_Bb
+        a = 0.6; e = 0.2; i = 0.4; ω = 0.3; Ω = 0.2; tp = 55100.0
+    end)
+    wide = Octofitter.Orbit(name="AB", exterior=(Ba, Bb), about=(Aa, Ab),
+        variables=@variables begin
+            a = 50.0; e = 0.3; i = 0.5; ω = 0.4; Ω = 0.3; tp = 50000.0
+        end)
+    scans = (epoch=QUAD_EPOCHS,
+        scan_pos_angle=[0.7 * k for k in eachindex(QUAD_EPOCHS)],
+        parallax_factor_al=[0.4 * sinpi(k / 7) for k in eachindex(QUAD_EPOCHS)],
+        centroid_pos_al=zeros(length(QUAD_EPOCHS)),
+        centroid_pos_error_al=fill(0.05, length(QUAD_EPOCHS)))
+    # No reference-point motion: `simulate` then returns the target-vs-ref
+    # excursion alone, which is the quantity under test.
+    quiet() = @variables begin
+        astrometric_jitter = 0.05
+        ra_offset_mas = 0.0; dec_offset_mas = 0.0
+        pmra = 0.0; pmdec = 0.0; ref_epoch = 57388.0
+    end
+    obsA = GaiaDR4AstromObs(scans; target=target_A, ref=Barycentre, name="srcA",
+        variables=quiet())
+    obsB = GaiaDR4AstromObs(scans; target=target_B, ref=Barycentre, name="srcB",
+        variables=quiet())
+    sys = Octofitter.System(name="quad", bodies=[Aa, Ab, Ba, Bb, wide],
+        observations=[obsA, obsB], variables=@variables begin plx = 20.0 end)
+    return sys, obsA, obsB
+end
+
+# Modelled RA/Dec excursions of one observation, in table order.
+function quad_simulate(sys, obs)
+    nt = Octofitter.make_arr2nt(sys)(Float64[])
+    posys = Octofitter.make_ln_like(sys).build(nt)
+    ep, maps = Octofitter.epoch_plan(sys)
+    traj = orbitsolve(posys, ep)
+    θ_obs = getproperty(nt.observations, Symbol(Octofitter.likelihoodname(obs)))
+    ctx = Octofitter.ObsContext(nt, θ_obs, posys, traj, maps[obs])
+    sim = Octofitter.simulate(obs, ctx)
+    return sim.ra_offset, sim.dec_offset
+end
+
+@testset "2+2 quadruple: two blended sources carry every level of motion" begin
+    # (0) The spec survives model construction and shows itself.
+    sys, obsA, obsB = quad_system(target_A=Photocentre(:G, (:Aa, :Ab)),
+        target_B=Photocentre(:G, (:Ba, :Bb)))
+    @test Octofitter.refspecs(obsA) === (Photocentre(:G, (:Aa, :Ab)), Barycentre)
+    @test occursin("Photocentre(:G, (Aa, Ab)) vs Barycentre",
+        sprint(show, MIME"text/plain"(), obsA))
+
+    raA, decA = quad_simulate(sys, obsA)
+    raB, _ = quad_simulate(sys, obsB)
+
+    # (1) Dark secondaries ⇒ each source degrades to its pair's primary,
+    # exactly. This is the check that the weighted-point path and the direct
+    # body path are the same physics for a subset, not just for the system.
+    darksys, darkA, darkB = quad_system(target_A=Photocentre(:G, (:Aa, :Ab)),
+        target_B=Photocentre(:G, (:Ba, :Bb)), flux_Ab=0.0, flux_Bb=0.0)
+    bodysys, bodyA, bodyB = quad_system(target_A=:Aa, target_B=:Ba,
+        flux_Ab=0.0, flux_Bb=0.0)
+    @test quad_simulate(darksys, darkA)[1] == quad_simulate(bodysys, bodyA)[1]
+    @test quad_simulate(darksys, darkB)[1] == quad_simulate(bodysys, bodyB)[1]
+
+    # (2) The wide-orbit motion is in each source. Against the *pair
+    # barycentre* target, the residual is the intra-pair wobble alone.
+    barysys, baryA, baryB = quad_system(target_A=Barycentre(:Aa, :Ab),
+        target_B=Barycentre(:Ba, :Bb))
+    raA_bary, _ = quad_simulate(barysys, baryA)
+    raB_bary, _ = quad_simulate(barysys, baryB)
+    @test maximum(abs, raA_bary) > 100          # mas — the 50 AU orbit at 20 mas plx
+    wobA = raA .- raA_bary
+    wobB = raB .- raB_bary
+    # the wide orbit dominates each source's track…
+    @test maximum(abs, wobA) < 0.2 * maximum(abs, raA_bary)
+    # …but the wobble is really there — the sources are not the barycentres.
+    # Predicted amplitudes: |f/(1+f) − m₂/M| × pair separation ≈ 0.025 × 10 mas
+    # for pair A and 0.156 × 12 mas for pair B. (3) pins them exactly; these
+    # only assert the signal is far above numerical noise.
+    @test maximum(abs, wobA) > 0.1
+    @test maximum(abs, wobB) > 1.0
+
+    # (3) The wobble is exactly the pair's flux-weighted photocentre offset:
+    # |f/(1+f) − m₂/M| times the pair's own separation, and its *sign* is
+    # load-bearing (here f/(1+f) < m₂/M, so it lands opposite the secondary).
+    relsys, relA, _ = quad_system(target_A=:Ab, target_B=:Bb)
+    # target=:Ab vs ref=Barycentre isn't the pair separation; build it directly
+    posys = Octofitter.make_ln_like(sys).build(Octofitter.make_arr2nt(sys)(Float64[]))
+    ep, _ = Octofitter.epoch_plan(sys)
+    traj = orbitsolve(posys, ep)
+    idx = Octofitter.epoch_plan(sys)[2][obsA]
+    rel = [raoff(traj[idx[k]], :Ab, :Aa) for k in eachindex(QUAD_EPOCHS)]
+    coeffA = 0.6 / 1.6 - 0.4 / 1.0
+    @test coeffA < 0
+    @test maximum(abs, wobA .- coeffA .* rel) < 1e-9 * maximum(abs, rel)
+
+    # (4) Changing one source's secondary flux moves that source and no other.
+    sys2, obsA2, obsB2 = quad_system(target_A=Photocentre(:G, (:Aa, :Ab)),
+        target_B=Photocentre(:G, (:Ba, :Bb)), flux_Bb=0.9)
+    @test quad_simulate(sys2, obsA2)[1] == raA
+    @test quad_simulate(sys2, obsB2)[1] != raB
+
+    # (5) A whole-system photocentre is a *different* model from two blended
+    # sources, and must not be silently substituted for one.
+    allsys, allA, _ = quad_system(target_A=Photocentre(:G), target_B=Photocentre(:G))
+    @test maximum(abs, quad_simulate(allsys, allA)[1] .- raA) > 1.0
 end

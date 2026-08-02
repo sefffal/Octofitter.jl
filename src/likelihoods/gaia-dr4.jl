@@ -47,6 +47,40 @@ barycentre.
 `astrometric_jitter` [mas] adds in quadrature to the per-transit formal
 error; `ra_offset_mas`, `dec_offset_mas`, `pmra`, `pmdec`, `ref_epoch`
 define the reference-point motion. The parallax comes from the system block.
+
+# Blended sources
+
+`target` is what the *catalog source* is, and a catalog source is not
+generally a body: it is whatever flux the pipeline blended into one
+centroid. `Photocentre` (the default) is the whole system's flux-weighted
+point; `Photocentre(:G, (Aa, Ab))` is the point over a named subset.
+
+Two sources in a 2+2 quadruple — two tight pairs several arcseconds apart,
+so that only intra-pair blending is possible — are two instances of this
+observation, each with its own nuisance parameters, sharing the system's
+`plx` and frame:
+
+    System(name=:quad, bodies=(Aa, Ab, Ba, Bb, wide), observations=(
+        GaiaDR4AstromObs(scans_A; target=Photocentre(:G, (Aa, Ab)),
+                         ref=Barycentre, name="srcA", variables=@variables begin
+                             ra_offset_mas ~ Normal(0, 100); dec_offset_mas ~ Normal(0, 100)
+                             pmra ~ Normal(0, 100); pmdec ~ Normal(0, 100); ref_epoch = 57388.5
+                         end),
+        GaiaDR4AstromObs(scans_B; target=Photocentre(:G, (Ba, Bb)),
+                         ref=Barycentre, name="srcB", variables=…),
+    ), variables=…)
+
+Each source's modelled signal then carries *both* its pair's wide-orbit
+motion and the intra-pair photocentric wobble, because a photocentre is one
+dot product over absolute body states — there is no per-level bookkeeping to
+get wrong. Bodies declare `flux_G` in their own blocks; setting the host's
+to 1.0 makes the others contrast ratios.
+
+Membership that is not structurally fixed — a sampled resolved-flag, a
+scan-angle-dependent window — is not expressible as a static spec, and is
+not meant to be: an observation of that kind reads
+`PlanetOrbits.fluxes(sys, band)` and builds its own `WeightedPoint` per draw
+or per epoch.
 """
 struct GaiaDR4AstromObs{TTable<:Table,TT,TR} <: AbstractObs
     table::TTable
