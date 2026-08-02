@@ -192,6 +192,9 @@ function ln_like(astrom::PlanetRelAstromObs, ctx::PlanetObservationContext)
                 ρ = hypot(ra_model, dec_model)
                 pa = atan(ra_model, dec_model)
 
+                # Sign convention for `northangle`: the corrected position angle
+                # is the reported position angle *plus* northangle, where
+                # position angle is measured North through East.
                 pa_dat = astrom.table.pa[i_epoch] + northangle
                 pa_diff = (pa_dat - pa + π) % 2π - π
                 pa_diff = pa_diff < -π ? pa_diff + 2π : pa_diff
@@ -200,7 +203,11 @@ function ln_like(astrom::PlanetRelAstromObs, ctx::PlanetObservationContext)
 
             # RA and DEC specified
             else
-                pa_dat = atan(astrom.table.dec[i_epoch], astrom.table.ra[i_epoch]) + northangle
+                # Note this angle is measured East through North, i.e. it runs in
+                # the opposite direction to the position angle used above -- hence
+                # `northangle` is *subtracted* here so that both branches rotate
+                # the data the same way on the sky.
+                pa_dat = atan(astrom.table.dec[i_epoch], astrom.table.ra[i_epoch]) - northangle
                 sep_dat = hypot(astrom.table.dec[i_epoch], astrom.table.ra[i_epoch]) * platescale
                 ra_dat = sep_dat * cos(pa_dat)
                 dec_dat = sep_dat * sin(pa_dat)
