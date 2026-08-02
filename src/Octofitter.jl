@@ -75,6 +75,7 @@ include("likelihoods/gaia-dr4.jl")
 
 include("logdensitymodel.jl")
 include("chains.jl")
+include("plotting-api.jl")
 include("initialization.jl")
 include("sampling.jl")
 

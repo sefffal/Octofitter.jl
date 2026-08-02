@@ -218,9 +218,16 @@ it in `test/legacy/`.
   order / non-crossing priors.
 - Analysis and IO: cross-validation, SBC, completeness, the NSS catalogue
   reader, orbitize!/HDF5 IO, and the plotting-facing helpers in `analysis.jl`.
-- The four package extensions (Makie, PairPlots, Pigeons, Dynesty). Every plot
-  recipe reaches into `system.planets`; they are not declared in
-  `Project.toml` while unported.
+- The v1 package extensions (the old Makie recipe set, PairPlots, Pigeons,
+  Dynesty), parked in `src/legacy/ext/`. Every v1 plot recipe reaches into
+  `system.planets`; they are not declared in `Project.toml` while unported.
+
+Plotting itself is **not** on that list any more: `ext/OctofitterMakieExt.jl`
+is the new v2 plotting layer, built on the backend-agnostic API in
+`src/plotting-api.jl` (`octoplot`, `PosteriorSeries`, `ObservableQuery`,
+`plotchannels`/`Octofitter.residuals`, `timeseriespanel!`, `skypanel!`).
+v1 plot names not yet reproduced (`hgcaplot`, `pmaplot`, `rvpostplot`'s
+phase-folding, `octocorner`, …) return with their observation types' ports.
 
 Porting a likelihood is mostly deletion: replace the per-companion
 superposition loop with one `raoff(sol, target, ref)`, take the references as

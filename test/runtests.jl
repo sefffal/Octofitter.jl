@@ -25,6 +25,9 @@ if TEST_MODE in ("all", "unit")
     @testset "Hierarchies and propagators" begin
         include("v2/hierarchy.jl")
     end
+    @testset "Plotting API" begin
+        include("v2/plotting.jl")
+    end
     @testset "Gradients and allocations" begin
         include("v2/gradients.jl")
     end

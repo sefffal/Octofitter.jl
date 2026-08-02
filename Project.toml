@@ -56,10 +56,18 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 
-# The four package extensions (Makie, PairPlots, Pigeons, Dynesty) are part of
-# the v1 model surface's long tail — every plot recipe reaches into
-# `system.planets` — and are not declared while they are unported. Their
-# sources are untouched in `ext/`; see `docs/src/v2-migration.md`.
+# The v1 package extensions (the old Makie recipe set, PairPlots, Pigeons,
+# Dynesty) are part of the v1 model surface's long tail — every v1 plot
+# recipe reaches into `system.planets` — and are not declared while they are
+# unported. Their sources are parked unmodified in `src/legacy/ext/`; see
+# `docs/src/v2-migration.md`. The Makie extension declared below is the new
+# v2 plotting layer (`ext/OctofitterMakieExt.jl`).
+
+[weakdeps]
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+
+[extensions]
+OctofitterMakieExt = "Makie"
 
 [compat]
 AbstractMCMC = "4,5"
@@ -89,6 +97,7 @@ Latexify = "0.15, 0.16"
 LogDensityProblems = "2"
 Logging = "1"
 MCMCChains = "7"
+Makie = "0.24"
 MathTeXEngine = "0.6"
 NamedTupleTools = "0.13, 0.14"
 Optimization = "4, 5"
