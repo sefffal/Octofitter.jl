@@ -29,6 +29,71 @@
         @test length(subset.table) == 1
     end
 
+    @testset "northangle sign convention (issue #141)" begin
+        # The `northangle` nuisance variable must rotate the data the same way on
+        # the sky whether the astrometry is given as (sep, pa) or as (ra, dec).
+        # Regression test for sefffal/Octofitter.jl#141, where the two branches of
+        # `ln_like` applied it in opposite directions.
+
+        epochs = [50000.0, 50300.0, 50600.0, 50900.0, 51200.0]
+        orb = Visual{KepOrbit}(plx=50.0, M=1.2, a=15.0, e=0.2, i=0.6, ω=0.3, Ω=1.1, tp=50000.0)
+        sols = orbitsolve.(orb, epochs)
+        ra_m, dec_m = raoff.(sols), decoff.(sols)
+
+        # Position angle measured North through East, as used by the `:pa` column.
+        pa_m = atan.(ra_m, dec_m)
+        sep_m = hypot.(ra_m, dec_m)
+
+        # Synthetic data: the model rotated by a known offset in position angle.
+        # The same sky positions are then written out both ways.
+        ε = 0.05 # radians
+        pa_d = pa_m .+ ε
+        ra_d = sep_m .* sin.(pa_d)
+        dec_d = sep_m .* cos.(pa_d)
+
+        n = length(epochs)
+        tab_seppa = Table(; epoch=epochs, sep=sep_m, pa=pa_d,
+                            σ_sep=fill(1.0, n), σ_pa=fill(0.001, n))
+        tab_radec = Table(; epoch=epochs, ra=ra_d, dec=dec_d,
+                            σ_ra=fill(1.0, n), σ_dec=fill(1.0, n))
+
+        function northangle_model(tab)
+            obs = PlanetRelAstromObs(tab, name="inst", variables=@variables begin
+                northangle ~ Normal(0, deg2rad(30))
+            end)
+            pl = Planet(name="b", basis=Visual{KepOrbit}, observations=[obs],
+                variables=@variables begin
+                    plx = system.plx
+                    M = 1.2; a = 15.0; e = 0.2
+                    i = 0.6; ω = 0.3; Ω = 1.1; tp = 50000.0
+                end)
+            sys = System(name="northangle_test", companions=[pl], observations=[],
+                variables=@variables begin
+                    plx = 50.0
+                end)
+            model = Octofitter.LogDensityModel(sys, verbosity=0)
+            ln_like = Octofitter.make_ln_like(model.system, model.arr2nt([0.0]))
+            # Pure log-likelihood (no prior) as a function of the northangle value
+            return δ -> ln_like(model.system, model.arr2nt([δ]))
+        end
+
+        ll_seppa = northangle_model(tab_seppa)
+        ll_radec = northangle_model(tab_radec)
+
+        grid = range(-0.1, 0.1, length=2001)
+        best_seppa = grid[argmax(ll_seppa.(grid))]
+        best_radec = grid[argmax(ll_radec.(grid))]
+
+        # Data rotated by +ε must be undone by a northangle of -ε, in both formats.
+        @test best_seppa ≈ -ε atol=1e-3
+        @test best_radec ≈ -ε atol=1e-3
+        @test sign(best_radec) == sign(best_seppa)
+
+        # A zero northangle must be a no-op regardless of format.
+        @test ll_seppa(0.0) == ll_seppa(-0.0)
+        @test ll_radec(0.0) == ll_radec(-0.0)
+    end
+
     @testset "PhotometryLikelihood" begin
         phot = PhotometryLikelihood(
             Table(band=[:Z, :J], phot=[15.0, 14.0], σ_phot=[0.1, 0.2]),
