@@ -91,7 +91,8 @@ likelihoods is gone.
 | `tp = θ_at_epoch_to_tperi(θ, ep; M, e, a, i, ω, Ω)` | `θ ~ …` and `epoch = ep` |
 | `τ ~ UniformCircular(1.0)` | `tp`, `M0`+`epoch`, or `θ`+`epoch` |
 | `Planet(…, observations=[astrom])` | `System(…, observations=[astrom])` with `target=`/`ref=` |
-| `fluxratio` on the observation | `flux` / `flux_<band>` on the body |
+| `fluxratio` on the observation | `flux` / `flux_<band>` on the body (but see G23H below) |
+| `G23HObs(gaia_id=…)` | `G23HObs(gaia_id=…, host=A, companions=(b, c))` |
 | `construct_elements(chain, :b, i)` | `construct_system(model, chain, i)` |
 | chain column `b_a` | chain column `b_a` (unchanged) |
 
@@ -207,15 +208,78 @@ light-travel retardation, per-body depth scaling and line-of-sight projection,
 and costs 13.9 / 22.8 µs and 195 / 509 µs; it is more accurate, not
 equivalent. Both are allocation-free.
 
+## G23H — what changed in the port
+
+`G23HObs` is ported (`src/likelihoods/g23h.jl`). Four differences are
+user-visible.
+
+**Membership is declared.** The constructor takes `host=` and
+`companions=(…)`:
+
+```julia
+absastrom = G23HObs(; gaia_id=…, host=A, companions=(b, c, d), …)
+```
+
+`companions=` fixes the order the flux-ratio vectors are indexed in — v1
+indexed them by position in `system.planets`, which was implicit and easy to
+get wrong. The names are validated against the system's bodies at model-build
+time.
+
+**The flux ratios stay on the observation.** Unlike other v2 observations,
+G23H does *not* read `flux_G` off the bodies: `fluxratio` (Gaia G) and
+`fluxratio_hip` (Hipparcos Hp) are per-instrument contrast ratios against
+*this source's* host, computed per draw, and are usually derived from system
+variables — including deferred ones, so a sampled resolved-flag latent can
+gate a companion out of the Gaia photocentre without the blending state ever
+round-tripping through a body's own flux variable. They must now be
+length-`length(companions)` containers; a bare scalar is accepted only when
+there is exactly one companion.
+
+**Multiple luminous companions give different numbers, on purpose.** v1
+normalized each companion's photocentre term by its own `(1 + f_k)` and
+superposed them. The photocentre of several luminous bodies is the
+flux-weighted mean of their *apparent positions*, which normalizes by
+`(1 + Σ f_k)` — the non-superposition point BINARYS makes. v2 builds one
+`WeightedPoint` per draw and asks for `raoff(sol, photocentre, barycentre)`,
+which is exact for any number of companions and any hierarchy. With a single
+luminous companion the two are algebraically identical, and v2 reproduces v1
+to roundoff (gate: `test/v2/g23h.jl`). With two, on a representative draw,
+they differ by 0.30 mas of sky path — 1.3% of the signal, and 0.10 mas/yr on
+the fitted DR3 proper motion, about 5σ of the catalog uncertainty. There is
+no legacy-compatibility mode.
+
+**Absolute-frame propagation goes through the frame observables.** v1's
+`propagate_astrom` carried a differential-light-travel term its own source
+flagged as double counting the proper motion. It is deleted: the
+absolute-frame branch reads `frame_ra`/`frame_dec`/`frame_pmra`/`frame_pmdec`
+at the catalog reference epochs, which are part of the observation's declared
+epochs and so are solved with everything else.
+
+Two smaller notes. The Hipparcos grating response (the BINARYS atan2
+"Hippacentre", its resolution taper and σ inflation) is *not* a photocentre
+and stays G23H-internal — it is an instrument response, and lives with the
+observation that owns the instrument. And `ueva_mode=:none` is now accepted
+alongside `:RUWE`/`:EAN`, for stars whose `sig_AL`/`sig_att_radec`/`sig_cal`
+calibration is absent: it drops the `:ueva_dr3` datum and the UEVA-driven DR3
+covariance deflation and leaves every other channel untouched.
+
+!!! warning "The Gaia RV channel is not differentiable"
+    `Distributions.NoncentralChisq` cannot evaluate its log-density at a
+    `ForwardDiff.Dual`, so with the `:rv_dr3` channel active the whole log
+    density is `-Inf` under any gradient-based sampler, while the primal path
+    stays finite. This is inherited from v1, where the failure was silent; it
+    now warns once. Use a derivative-free sampler (the production driver uses
+    Pigeons), or `include_rv=false`.
+
 ## What is not ported yet
 
 `src/legacy/` holds the v1 code that has not moved to the new surface, kept
 unmodified so each port is a diff rather than a rewrite. Its tests are beside
 it in `test/legacy/`.
 
-- Likelihoods: HGCA and its linear-fit variant, Hipparcos IAD, G23H, images,
-  interferometry, likelihood maps, photometry, and the observable / planet
-  order / non-crossing priors.
+- Likelihoods: HGCA and its linear-fit variant, a standalone Hipparcos IAD
+  observation, images, interferometry, likelihood maps, photometry, and the
+  observable / planet order / non-crossing priors.
 - Analysis and IO: cross-validation, SBC, completeness, the NSS catalogue
   reader, orbitize!/HDF5 IO, and the plotting-facing helpers in `analysis.jl`.
 - The v1 package extensions (the old Makie recipe set, PairPlots, Pigeons,
