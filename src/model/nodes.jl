@@ -288,10 +288,28 @@ function System(; name::Union{Symbol,AbstractString},
     # blocks (§8.4 tier 1). Detection is a static walk over the *unevaluated*
     # expressions the `@variables` macro already stored, and only qualified
     # access (`b.i`) counts — a bare `b` is far more likely to be a local.
+    #
+    # Deferral is **transitive**: a system line that reads a deferred system
+    # variable must itself wait. Without the fixed point, `f = g ? 0 : 1`
+    # where `g = u < b.a` is evaluated in step 1 while `g` only exists after
+    # step 3, and the failure is an `UndefVarError` naming a variable the user
+    # did write — at evaluation time, inside the sampler.
     deferred = Symbol[]
-    for (k, expr) in derived.variables
-        _mentions_node(expr, allnames) && push!(deferred, k)
+    let changed = true
+        while changed
+            changed = false
+            for (k, expr) in derived.variables
+                k in deferred && continue
+                if _mentions_node(expr, allnames) || _mentions_symbol(expr, deferred)
+                    push!(deferred, k)
+                    changed = true
+                end
+            end
+        end
     end
+    # Back into declaration order: the generated code evaluates them in the
+    # order of this vector, and a later line may read an earlier one.
+    deferred = Symbol[k for k in keys(derived.variables) if k in deferred]
     # A body block reading a deferred system variable is a cycle: the system
     # line needs the body, and the body needs the system line.
     for n in nodes, (k, expr) in n.derived.variables
@@ -350,6 +368,14 @@ function _mentions_node(ex::Expr, names)
         return true
     end
     return any(a -> _mentions_node(a, names), ex.args)
+end
+
+"""Whether the expression mentions any of `names` as a bare identifier."""
+_mentions_symbol(x, names) = x isa Symbol && x in names
+function _mentions_symbol(ex::Expr, names)
+    # `a.b` is a field access, not a use of the local `b`.
+    ex.head === :. && return _mentions_symbol(ex.args[1], names)
+    return any(a -> _mentions_symbol(a, names), ex.args)
 end
 
 """Names `Y` such that the expression reads `system.Y`."""
