@@ -25,6 +25,9 @@ if TEST_MODE in ("all", "unit")
     @testset "Sky-path helpers" begin
         include("v2/skypath.jl")
     end
+    @testset "G23H joint Gaia/Hipparcos astrometry" begin
+        include("v2/g23h.jl")
+    end
     @testset "Hierarchies and propagators" begin
         include("v2/hierarchy.jl")
     end
