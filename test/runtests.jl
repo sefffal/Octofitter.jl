@@ -22,6 +22,9 @@ if TEST_MODE in ("all", "unit")
     @testset "Observations" begin
         include("v2/likelihoods.jl")
     end
+    @testset "Sky-path helpers" begin
+        include("v2/skypath.jl")
+    end
     @testset "Hierarchies and propagators" begin
         include("v2/hierarchy.jl")
     end

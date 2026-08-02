@@ -69,6 +69,7 @@ include("model/codegen.jl")
 equal_length_cols(tab) = allequal(length(getproperty(tab, col)) for col in Tables.columnnames(tab))
 
 include("gaia-utils.jl")
+include("likelihoods/skypath.jl")
 include("likelihoods/relative-astrometry.jl")
 include("likelihoods/radial-velocity.jl")
 include("likelihoods/gaia-dr4.jl")

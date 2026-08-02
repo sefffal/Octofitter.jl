@@ -153,11 +153,7 @@ function simulate!(along_scan, ra_offset, dec_offset, obs::GaiaDR4AstromObs, ctx
             end
         end
     else
-        @inbounds for i in eachindex(tab.epoch)
-            sol = solutionat(ctx, i)
-            ra_offset[i] += raoff(sol, target, reference)
-            dec_offset[i] += decoff(sol, target, reference)
-        end
+        accumulate_offsets!(ra_offset, dec_offset, ctx, target, reference)
     end
 
     plx = ctx.θ_system.plx
