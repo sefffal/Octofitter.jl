@@ -65,9 +65,11 @@ TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 
 [weakdeps]
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 
 [extensions]
 OctofitterMakieExt = "Makie"
+OctofitterPairPlotsExt = "PairPlots"
 
 [compat]
 AbstractMCMC = "4,5"
@@ -98,6 +100,7 @@ LogDensityProblems = "2"
 Logging = "1"
 MCMCChains = "7"
 Makie = "0.24"
+PairPlots = "3"
 MathTeXEngine = "0.6"
 NamedTupleTools = "0.13, 0.14"
 Optimization = "4, 5"

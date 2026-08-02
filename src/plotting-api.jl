@@ -93,6 +93,145 @@ function evalquery(q::ObservableQuery, posys, traj)
 end
 
 # ---------------------------------------------------
+# Row signals — the part of a query attributable to one hierarchy row
+# ---------------------------------------------------
+
+# Observables linear in the target−ref separation (or its velocity), so a
+# query over them telescopes exactly into per-row contributions. (Nonlinear
+# ones — projectedseparation, posangle — are still foldable when a single
+# row is the whole signal.)
+const _LINEAR_OBSERVABLES = (
+    PlanetOrbits.posx, PlanetOrbits.posy, PlanetOrbits.posz,
+    PlanetOrbits.velx, PlanetOrbits.vely, PlanetOrbits.velz,
+    PlanetOrbits.radvel, PlanetOrbits.raoff, PlanetOrbits.decoff,
+    PlanetOrbits.pmra, PlanetOrbits.pmdec,
+)
+
+# A leaf-name view of a spec, used only for colour matching in the Makie
+# extension (a planet's panels take its sky-track accent colour).
+_leafnames(sys::System, ::BodyRefSpec{Name}) where {Name} = (Name,)
+_leafnames(sys::System, ::BarycentreSpec{()}) = Tuple(sys.bodynames)
+_leafnames(sys::System, ::BarycentreSpec{Names}) where {Names} = Names
+_leafnames(sys::System, @nospecialize _) = nothing
+
+# The body-weight vector of a resolved reference point (a body's indicator,
+# a barycentre's mass weights, a photocentre's flux weights), as a tuple.
+function _pointweights(posys::PlanetOrbits.System{NB}, spec) where {NB}
+    p = resolveref(posys, spec)
+    p isa PlanetOrbits.WeightedPoint && return Tuple(p.w)
+    return ntuple(j -> j == p.idx ? 1.0 : 0.0, NB)
+end
+
+# Δ_k for every row: how much of each row's relative coordinate enters
+# `target − ref`. Positions are linear in the row coordinates
+# (`pos_i = Σ_k Ainv[i,k]·r_k`), so this is exact under every hierarchy
+# convention — Jacobi, astrocentric, mixed — with no set bookkeeping. The
+# coefficients depend on the draw's masses, so they are recomputed per draw.
+function _rowcoeffs(posys::PlanetOrbits.System{NB,NR}, tspec, rspec) where {NB,NR}
+    wt = _pointweights(posys, tspec)
+    wr = _pointweights(posys, rspec)
+    dw = wt .- wr
+    return ntuple(k -> sum(dw .* Tuple(posys.Ainv[:, k])), NR)
+end
+
+"""
+    RowSignal
+
+The component of an [`ObservableQuery`](@ref) attributable to one hierarchy
+row: built by [`rowsignal`](@ref), evaluated by [`evalsignal`](@ref).
+Because the signal is referenced within the row itself, frame effects
+(perspective acceleration, proper motion) drop out — it is purely orbital.
+"""
+struct RowSignal{Q,TT,TR}
+    query::Q      # the observable evaluated per epoch
+    k::Int
+    scaled::Bool  # multiply by the draw's Δ_k (linear multi-row case)
+    target::TT    # the original endpoints, for recomputing Δ_k per draw
+    ref::TR
+end
+
+# The draw-dependent scale factor of the row's relative-coordinate signal.
+signalcoeff(sig::RowSignal, posys) =
+    sig.scaled ? _rowcoeffs(posys, sig.target, sig.ref)[sig.k] : 1.0
+
+evalsignal(sig::RowSignal, posys, traj) =
+    signalcoeff(sig, posys) .* evalquery(sig.query, posys, traj)
+
+"""
+    rowsignal(posys, query, k) -> RowSignal | nothing
+
+The part of `query` contributed by hierarchy row `k` of a
+`PlanetOrbits.System` (e.g. a `PosteriorSeries`' `sys_map`), or `nothing`
+when it cannot be isolated. When row `k` is the only row moving the query,
+the signal is the query itself — exact for any observable. Otherwise, for
+observables linear in the separation, the contribution is
+`Δ_k · f(Bc(ext_k), Bc(int_k))` with `Δ_k` from the hierarchy's topology
+matrix — e.g. the row-1 part of `radvel(:A, Barycentre)` in a two-planet
+system is planet b's reflex alone, with planet c's signal and any
+perspective acceleration removed exactly.
+"""
+function rowsignal(posys::PlanetOrbits.System{NB,NR}, q::ObservableQuery, k::Integer) where {NB,NR}
+    1 <= k <= NR || return nothing
+    Δ = _rowcoeffs(posys, q.target, q.ref)
+    scale = maximum(abs, Δ; init=0.0)
+    scale > 0 || return nothing
+    affecting = findall(j -> abs(Δ[j]) > 1e-12 * scale, 1:NR)
+    k in affecting || return nothing
+    affecting == [k] && return RowSignal(q, k, false, q.target, q.ref)
+    q.func in _LINEAR_OBSERVABLES || return nothing
+    names = PlanetOrbits._names(posys)
+    ext = PlanetOrbits._setnames(names, posys.specs[k].ext)
+    int = PlanetOrbits._setnames(names, posys.specs[k].int)
+    rowq = ObservableQuery(q.func,
+        length(ext) == 1 ? refspec(ext[1]) : BarycentreSpec{ext}(),
+        length(int) == 1 ? refspec(int[1]) : BarycentreSpec{int}())
+    return RowSignal(rowq, k, true, q.target, q.ref)
+end
+
+"""
+    foldablerows(posys, query) -> Vector{Int}
+
+The hierarchy rows a phase-fold panel of `query` can be made for (those
+with an isolable [`rowsignal`](@ref)).
+"""
+foldablerows(posys::PlanetOrbits.System{NB,NR}, q) where {NB,NR} =
+    [k for k in 1:NR if rowsignal(posys, _query(q), k) !== nothing]
+
+"""
+    foldephemeris(sig, posys, tmid; solvekw=(;)) -> (P, t0)
+
+The fold ephemeris of a [`RowSignal`](@ref) under one posterior draw: the
+row period and the epoch of phase zero, chosen in the cycle containing
+`tmid`. Radial velocity keeps the v1 rvpostplot convention — phase 0 at the
+signal's upward zero crossing; everything else puts periastron at phase 0.
+Under the N-body propagator these are the drawn (osculating) elements — see
+`phasefoldpanel!` for what a fold means there.
+"""
+function foldephemeris(sig::RowSignal, posys, tmid::Real; solvekw=(;))
+    P = PlanetOrbits.period(posys, sig.k)
+    tp = posys.rows[sig.k].tp
+    t0 = tp + floor((tmid - tp) / P) * P
+    if sig.query.func === PlanetOrbits.radvel
+        ts = collect(range(t0, t0 + P, length=201))
+        traj = orbitsolve(posys, ts; solvekw...)
+        v = evalsignal(sig, posys, traj)
+        for i in 2:length(v)
+            if v[i-1] <= 0 <= v[i]
+                return (P, (ts[i-1] + ts[i]) / 2)
+            end
+        end
+    end
+    return (P, t0)
+end
+
+"""
+    foldphase(t, P, t0) -> Float64
+
+Epoch `t` folded on period `P` about `t0`, in [-0.5, 0.5).
+"""
+foldphase(t, P, t0) = mod((t - t0) / P + 0.5, 1.0) - 0.5
+
+# ---------------------------------------------------
 # Observation plotting protocol
 # ---------------------------------------------------
 
@@ -158,6 +297,26 @@ Not exported to avoid clashing with `StatsBase.residuals`; call it as
 `Octofitter.residuals`.
 """
 function residuals end
+
+"""
+    defaultpanels(obs) -> Tuple
+
+The escape hatch for observations that are not epoch series (an HGCA row, a
+catalog solution): bespoke panels instead of the generic time-series ones.
+Return `()` (the default) to use the generic panels derived from
+[`plotchannels`](@ref); return `(name => build, …)` pairs to opt out —
+`octoplot` then calls each `build(gridposition, series)` in the panel stack
+and merges its returned NamedTuple of axes under `name`. Include a
+`timeaxes` key (a tuple of epoch axes) in that NamedTuple to have them
+linked with the figure's shared time axis.
+
+A bespoke panel special-cases the *drawing*, not the plumbing: it still
+receives the shared [`PosteriorSeries`](@ref) (same draws as every other
+panel) and should source its residuals/whitening from
+[`residuals`](@ref)/`ln_like` machinery, never re-derive it.
+"""
+defaultpanels(::AbstractObs) = ()
+export defaultpanels
 
 # --- RelAstromObs -------------------------------------------------------------
 
@@ -550,3 +709,33 @@ Requires Makie. See [`octoplot`](@ref).
 """
 function skypanel! end
 export skypanel!
+
+"""
+    octocorner(model, chains...; small=false, includecols=[], excludecols=[],
+               labels=Dict(), truth=(), fname=nothing, kwargs...)
+
+Corner (pair) plot of the fit parameters. Labels, units, and radian→degree
+conversions come from `PlanetOrbits.paraminfo` — the same resolver table
+the axis labels use — keyed by the flat `<owner>_<var>` chain naming, so
+custom parameters simply show their column name. `small=true` keeps only
+each body's `a`, `e`, `i`, `mass`. `UniformCircular` helper pairs, fixed
+values, and `tp` duplicated by a sampled `θ`/`M0` are dropped;
+`includecols` forces columns in, `excludecols` out. Extra keywords pass
+through to `PairPlots.pairplot`. Nothing is written unless `fname` is set.
+
+Requires both a Makie backend and PairPlots to be loaded.
+"""
+function octocorner end
+octocorner(args...; kwargs...) = _require_makie("octocorner (also load PairPlots)")
+export octocorner
+
+"""
+    phasefoldpanel!(gridposition, series, entries; row, kwargs...)
+
+Data-vs-model panel folded on hierarchy row `row`'s orbital phase: the
+row's isolated signal ([`rowsignal`](@ref)) per posterior draw, calibrated
+data with the other rows' signals removed, noise-weighted binned means, and
+a phase-folded residual strip. Requires Makie. See [`octoplot`](@ref).
+"""
+function phasefoldpanel! end
+export phasefoldpanel!

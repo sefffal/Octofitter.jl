@@ -134,6 +134,101 @@ end
     @test Octofitter._refstr(qs[1][1].ref) == "A"
 end
 
+@testset "row signals and phase folding" begin
+    model, obs = _plotting_test_model()
+    rng = Xoshiro(4)
+    nts = [model.arr2nt(collect(model.sample_priors(rng))) for _ in 1:20]
+    chain = Octofitter.result2mcmcchain(nts)
+    series = PosteriorSeries(model, chain; N=5)
+    posys = series.sys_map
+
+    # single row: every signal is the full query, exactly
+    q = ObservableQuery(radvel, :A, Barycentre)
+    @test Octofitter.foldablerows(posys, q) == [1]
+    sig = Octofitter.rowsignal(posys, q, 1)
+    @test !sig.scaled
+    @test Octofitter.signalcoeff(sig, posys) == 1.0
+    traj = series.data_traj_map
+    @test Octofitter.evalsignal(sig, posys, traj) ≈ Octofitter.evalquery(q, posys, traj)
+
+    # nonlinear observables fold too when a single row is the whole signal
+    qsep = ObservableQuery(projectedseparation, :b, :A)
+    @test Octofitter.foldablerows(posys, qsep) == [1]
+
+    # out-of-range and unaffected rows return nothing
+    @test Octofitter.rowsignal(posys, q, 2) === nothing
+
+    # fold ephemeris: phase zero is in the cycle containing tmid; radvel
+    # convention pins an upward zero crossing of the signal at phase 0
+    tmid = sum(extrema(series.data_epochs)) / 2
+    P, t0 = Octofitter.foldephemeris(sig, posys, tmid)
+    @test P ≈ Octofitter.PlanetOrbits.period(posys, 1)
+    @test abs(t0 - tmid) <= P
+    v = Octofitter.evalsignal(sig, posys,
+        orbitsolve(posys, [t0 - 0.005P, t0 + 0.005P]))
+    @test v[1] <= v[2]                       # increasing through the crossing
+    @test abs(Octofitter.foldphase(t0, P, t0)) < 1e-12
+    @test Octofitter.foldphase(t0 + 0.25P, P, t0) ≈ 0.25
+    @test Octofitter.foldphase(t0 + 0.75P, P, t0) ≈ -0.25
+
+    # defaultpanels: the generic default opts in to generic panels
+    @test defaultpanels(obs.rvs) === ()
+end
+
+@testset "multi-row signal decomposition" begin
+    # Two planets about one star (astrocentric rows): the row signals of a
+    # linear observable must sum to the full query.
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.0
+    end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass = 0.01
+        a ~ Uniform(2.9, 3.1)
+        e = 0.2
+        i = 0.6
+        ω = 1.0
+        Ω = 2.0
+        tp = 59200.0
+    end)
+    c = Octofitter.Body(name="c", about=A, variables=@variables begin
+        mass = 0.004
+        a = 1.0
+        e = 0.05
+        i = 0.7
+        ω = 0.3
+        Ω = 2.0
+        tp = 59250.0
+    end)
+    rvs = RadialVelocityObs(
+        Table(epoch=[59050.0, 59250.0, 59450.0], rv=[1.0, -1.0, 0.5], σ_rv=[3.0, 3.0, 3.0]);
+        target=A, ref=Barycentre, name="RV")
+    sys = Octofitter.System(name="rowsigtest", bodies=[A, b, c], observations=[rvs],
+        variables=@variables begin
+            plx = 50.0
+        end)
+    model = Octofitter.LogDensityModel(sys, verbosity=0)
+    rng = Xoshiro(5)
+    nts = [model.arr2nt(collect(model.sample_priors(rng))) for _ in 1:10]
+    series = PosteriorSeries(model, Octofitter.result2mcmcchain(nts); N=3)
+    posys = series.sys_map
+    traj = series.data_traj_map
+
+    q = ObservableQuery(radvel, :A, Barycentre)
+    @test Octofitter.foldablerows(posys, q) == [1, 2]
+    s1 = Octofitter.rowsignal(posys, q, 1)
+    s2 = Octofitter.rowsignal(posys, q, 2)
+    @test s1.scaled && s2.scaled
+    full = Octofitter.evalquery(q, posys, traj)
+    parts = Octofitter.evalsignal(s1, posys, traj) .+ Octofitter.evalsignal(s2, posys, traj)
+    @test full ≈ parts rtol = 1e-10
+
+    # sep(b, A) is moved only by row 1 under astrocentric rows — exact fold —
+    # and row 2's contribution to it cannot be isolated (nonlinear)
+    qsep = ObservableQuery(projectedseparation, :b, :A)
+    @test Octofitter.foldablerows(posys, qsep) == [1]
+    @test !Octofitter.rowsignal(posys, qsep, 1).scaled
+end
+
 @testset "octoplot without Makie errors helpfully" begin
     # (Makie is not loaded in the test env, so the stub must fire.)
     if !haskey(Base.loaded_modules_array() |> ms -> Dict(nameof(m) => m for m in ms), :Makie)
