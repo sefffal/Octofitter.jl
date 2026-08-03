@@ -8,21 +8,30 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Group by ref, not run_id. The old `github.head_ref || github.run_id` fallback
+# gave every push its own group (head_ref is empty for pushes), so pushes never
+# superseded each other -- they all queued. With a single self-hosted runner and
+# a multi-hour docs build, a handful of pushes to main meant days of backlog.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: [self-hosted, Linux, X64]
+    # The default job timeout is 360 min, which is shorter than a full docs
+    # build. Without this the job is killed partway through and nothing deploys.
+    timeout-minutes: 1440
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@latest
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
         with:
           version: '1.10'
+      # Restore the depot *before* resolving docs/, otherwise the first (and
+      # most expensive) resolve+precompile always runs cold.
+      - uses: julia-actions/cache@v3
       - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; Pkg.develop([PackageSpec(path=pwd()), PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")), PackageSpec(path=joinpath(pwd(),"OctofitterImages")), PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))]);'
-      - uses: julia-actions/cache@v1
+        run: julia --project=docs/ --color=yes -e 'using Pkg; Pkg.develop([PackageSpec(path=pwd()), PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")), PackageSpec(path=joinpath(pwd(),"OctofitterImages")), PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))]);'
       - uses: julia-actions/julia-buildpkg@v1
       - name: Build and deploy
         env:
@@ -30,4 +39,4 @@ jobs:
           GKSwstype: 100 # use software renderer for Plots.jl since headless
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
           # DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key
-        run: julia --project=docs/ docs/make.jl
+        run: julia --project=docs/ --color=yes docs/make.jl
