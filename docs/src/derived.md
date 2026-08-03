@@ -1,4 +1,4 @@
-#  [Derived Variables] (@id derived)
+#  [Derived Variables](@id derived)
 
 Octofitter has a concept called "derived variables" that are inspired by PyMC3.
 Derived variables are quantities that either have a fixed value, or a fixed mathematical relationship with the main variables in a model.

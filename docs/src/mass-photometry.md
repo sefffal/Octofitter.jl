@@ -1,4 +1,4 @@
-#  [Connecting Mass with Photometry] (@id mass-photometry)
+#  [Connecting Mass with Photometry](@id mass-photometry)
 
 You can make connections between model variables using physical models with the help of [Derived variables](@ref derived).
 
