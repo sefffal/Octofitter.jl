@@ -16,5 +16,13 @@ PlanetOrbits = "fd6f9641-d78f-43ce-a379-ceb0bddb468a"
 Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 
+[compat]
+# OIFITS 2.0 dropped FITSIO.jl and moved to AstroFITS.jl: read(OIDataBlock, ...)
+# now takes an AstroFITS.FitsTableHDU, while this package opens files with
+# FITSIO.FITS and passes a FITSIO.TableHDU. With no bound here the resolver took
+# 2.0.0 and every read failed, which is what broke the fit-interfere.md tutorial.
+# Pin to 1, which is the FITSIO-based line, until this package is ported.
+OIFITS = "1"
+
 [extras]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
