@@ -19,6 +19,12 @@ concurrency:
 jobs:
   build:
     runs-on: [self-hosted, Linux, X64]
+    # deploydocs pushes to gh-pages with GITHUB_TOKEN (DOCUMENTER_KEY is unset),
+    # so the job needs contents: write. TagBot.yml and doc-cleanup.yml already
+    # declare this; docs.yml was the only write-capable workflow relying on
+    # whatever the repository default happens to be.
+    permissions:
+      contents: write
     # The default job timeout is 360 min, which is shorter than a full docs
     # build. Without this the job is killed partway through and nothing deploys.
     timeout-minutes: 1440
