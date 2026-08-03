@@ -36,4 +36,7 @@ completeness_jobs
 run_completeness_trial
 assemble_completeness
 completeness_map
+CompletenessJob
+CompletenessResult
+CompletenessMap
 ```
