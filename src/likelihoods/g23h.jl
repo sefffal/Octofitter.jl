@@ -27,7 +27,12 @@ proper motion accelerations and unit weight error variance analysis (UEVA).
   absent — in the released catalog these are predominantly the very brightest stars
   (median G ≈ 5.7), where the calibration was not extrapolated. Everything else
   (Hipparcos, the DR2/DR3 positions and proper motions, the PM anomaly and the Gaia
-  RV channel) is modelled exactly as usual.
+  RV channel) is modelled exactly as usual. `:none` also does not read the
+  `ruwe_dr3` / `astrometric_excess_noise_dr3` columns at all, so it works on
+  catalog rows where those are absent; and `generate_from_params` writes
+  `missing` for `ruwe_dr3`, `astrometric_chi2_al_dr3` and
+  `astrometric_excess_noise_dr3` in simulated catalogs, since under `:none`
+  there is no calibrated σ to back a meaningful value out of.
 - `freeze_epochs`: If true, fix Gaia observation epochs for faster sampling (default: false)
 - `variables`: Optional custom priors (defaults are set from catalog values)
 
@@ -617,7 +622,9 @@ function G23HObs(;
             catalog.pmdec_dr32,
             catalog.pmra_dr3,
             catalog.pmdec_dr3,
-            ueva_mode == :RUWE ? catalog.ruwe_dr3 : catalog.astrometric_excess_noise_dr3
+            ueva_mode == :EAN  ? catalog.astrometric_excess_noise_dr3 :
+            ueva_mode == :RUWE ? catalog.ruwe_dr3                     :
+                                 NaN
         ],
         σ_pm = [
             NaN,
@@ -1857,13 +1864,14 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         if isnothing(iend_dr3); iend_dr3 = length(gaia_table.epoch); end
 
         (;astrometric_chi2_al_dr3, astrometric_n_good_obs_al_dr3,
-           astrometric_matched_transits_dr3, astrometric_excess_noise_dr3, ruwe_dr3) = like.catalog
+           astrometric_matched_transits_dr3) = like.catalog
         N = astrometric_n_good_obs_al_dr3
         N_FoV = astrometric_matched_transits_dr3
         N_AL = N / N_FoV
         if like.ueva_mode == :EAN
-            UEVA_Gaia = astrometric_excess_noise_dr3^2 + σ_att^2 + σ_AL^2
+            UEVA_Gaia = like.catalog.astrometric_excess_noise_dr3^2 + σ_att^2 + σ_AL^2
         elseif like.ueva_mode == :RUWE
+            ruwe_dr3 = like.catalog.ruwe_dr3
             u0 = 1/ruwe_dr3 * sqrt(astrometric_chi2_al_dr3/(N - gaia_n_dof))
             UEVA_Gaia = (ruwe_dr3 * u0)^2 * σ_formal^2
         elseif like.ueva_mode == :none
@@ -1873,7 +1881,7 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
             # sees a NaN.
             UEVA_Gaia = σ_formal^2
         else
-            error("Unsupported mode (should be :EAN, :RUWE or :none, was $(like.ueva_mode)")
+            error("Unsupported mode (should be :EAN, :RUWE or :none, was $(like.ueva_mode))")
         end
         μ_UEVA_single = (N_AL / (N - gaia_n_dof)) *
                     ((N_FoV - gaia_n_dof) * σ_calib^2 + N_FoV * σ_AL^2)
@@ -2336,11 +2344,9 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
     # DR3 UEVA calculation and uncertainty deflation
     # From Gaia catalog:
     (;
-        astrometric_chi2_al_dr3,         
-        astrometric_n_good_obs_al_dr3,   
+        astrometric_chi2_al_dr3,
+        astrometric_n_good_obs_al_dr3,
         astrometric_matched_transits_dr3,
-        astrometric_excess_noise_dr3,
-        ruwe_dr3,
     ) = like.catalog
 
     N = astrometric_n_good_obs_al_dr3
@@ -2349,8 +2355,9 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
 
     # Calculate Gaia's published UEVA (what they measured)
     if like.ueva_mode == :EAN
-        UEVA_Gaia = astrometric_excess_noise_dr3^2 + σ_att^2 + σ_AL^2
+        UEVA_Gaia = like.catalog.astrometric_excess_noise_dr3^2 + σ_att^2 + σ_AL^2
     elseif like.ueva_mode == :RUWE
+        ruwe_dr3 = like.catalog.ruwe_dr3
         u0 = 1/ruwe_dr3 * sqrt(astrometric_chi2_al_dr3/(N - gaia_n_dof))
         UEVA_Gaia = (ruwe_dr3 * u0)^2 * σ_formal^2
     elseif like.ueva_mode == :none
@@ -2358,7 +2365,7 @@ function simulate!(buffers, like::G23HObs, θ_system, θ_obs, orbits, orbit_solu
         # only, masked out of the likelihood, deflation pinned to 1 below.
         UEVA_Gaia = σ_formal^2
     else
-        error("Unsupported mode (should be :EAN, :RUWE or :none, was $(like.ueva_mode)")
+        error("Unsupported mode (should be :EAN, :RUWE or :none, was $(like.ueva_mode))")
     end
 
     # Calculate expected UEVA for a single star (Eq. D.8 from paper)
@@ -2650,8 +2657,12 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
     new_chi2_al = max(Float64(N - gaia_n_dof), new_UEVA * (N - gaia_n_dof) / σ_formal^2)
 
     # Preserve the u0 calibration: new_ruwe = old_ruwe * √(new_chi2/old_chi2)
-    old_chi2 = catalog.astrometric_chi2_al_dr3
-    new_ruwe = old_chi2 > 0 ? catalog.ruwe_dr3 * sqrt(new_chi2_al / old_chi2) : catalog.ruwe_dr3
+    new_ruwe = if like.ueva_mode == :none
+        missing
+    else
+        old_chi2 = catalog.astrometric_chi2_al_dr3
+        old_chi2 > 0 ? catalog.ruwe_dr3 * sqrt(new_chi2_al / old_chi2) : catalog.ruwe_dr3
+    end
 
     # Back-calculate EAN: UEVA_Gaia = ean² + σ_att² + σ_AL²
     new_ean = sqrt(max(0.0, new_UEVA - σ_att^2 - σ_AL^2))
@@ -2846,9 +2857,9 @@ function Octofitter.generate_from_params(like::G23HObs, ctx::SystemObservationCo
         pmra_dr3 = new_pm_dr3[1],
         pmdec_dr3 = new_pm_dr3[2],
         # UEVA-related fields
-        astrometric_chi2_al_dr3 = new_chi2_al,
+        astrometric_chi2_al_dr3 = like.ueva_mode == :none ? missing : new_chi2_al,
         ruwe_dr3 = new_ruwe,
-        astrometric_excess_noise_dr3 = new_ean,
+        astrometric_excess_noise_dr3 = like.ueva_mode == :none ? missing : new_ean,
         # Inflated DR3 uncertainties (as Gaia would report with companion present)
         pmra_dr3_error = new_pmra_dr3_error,
         pmdec_dr3_error = new_pmdec_dr3_error,
