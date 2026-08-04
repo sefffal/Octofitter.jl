@@ -1,9 +1,18 @@
 name: Documentation
 
 on:
+  # Push builds main and tags only; every other branch is covered by the
+  # pull_request trigger below. Building on both events queued *two* ~4 h builds
+  # of the same commit on the single self-hosted runner for every push to a
+  # branch with an open PR (#143). A shared concurrency group does not fix that:
+  # push and pull_request see different `github.ref`, and forcing them into one
+  # group would let the push run cancel the pull_request run -- which is the
+  # only one that publishes a `previews/PR<n>` preview. A branch with no open PR
+  # no longer builds docs; it never deployed anything either, and
+  # workflow_dispatch is still there if you want one.
   push:
-    branches-ignore:
-      - 'dependabot/**'  # Optional: ignore dependabot branches
+    branches:
+      - main
     tags: '*'
   pull_request:
   workflow_dispatch:
@@ -18,6 +27,15 @@ concurrency:
 
 jobs:
   build:
+    # Public repo + self-hosted runner: a pull_request from a fork would execute
+    # that fork's code on the maintainer's machine, and this job runs the 273
+    # example blocks in docs/src, so a docs-only PR is arbitrary code execution
+    # by construction. Fork PRs therefore skip the build (#143, @sefffal chose
+    # this over dropping previews entirely). Same-repo PRs, main, tags and
+    # workflow_dispatch are unaffected -- nothing that gates a release changes.
+    # The `github.event_name` guard matters: `github.event.pull_request` is null
+    # on a push, so the second clause on its own would skip every push build.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, X64]
     # deploydocs pushes to gh-pages with GITHUB_TOKEN (DOCUMENTER_KEY is unset),
     # so the job needs contents: write. TagBot.yml and doc-cleanup.yml already
