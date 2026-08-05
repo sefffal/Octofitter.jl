@@ -1,34 +1,27 @@
 # ---------------------------------------------------
-# Chain and model serialization   (agent H)
+# Chain and model serialization
 #
 # `savechain` / `loadchain`.
 #
 # Chains are stored as a FITS binary table so that the samples and the run's
 # metadata travel in one file. Unicode parameter names (`b_Ω`, `c_ω`) are not
 # legal FITS column names, so they are latexified on the way out and restored
-# on the way back in — that part is unchanged from v1 and deliberately so:
-# people have saved chains with it.
+# on the way back in.
 #
-# What *is* new is that the file says which model surface produced it. v1
-# stored no structural metadata at all — only `chain.info` verbatim — so a
-# chain's shape lived entirely in its column names, and those changed with the
-# flattening: v1 wrote a planet-owned observation's variable as
-# `<planet>_<obs>_<var>` (`b_GPI_jitter`), v2 writes `<obs>_<var>`
-# (`GPI_jitter`), because observations are no longer owned by a body. Loading
-# is not where that bites — a chain is just named columns, and they round-trip
-# either way. It bites when a v1 chain meets a v2 *model*:
-# `mcmcchain2result` looks each parameter up by name and substitutes `missing`
-# for anything it cannot find, so the mismatch is silent. Hence two additions:
+# Two things exist here to stop a silent failure, and should not be dropped:
 #
-#   - a format stamp (`OCTOFMT`), so `loadchain` can say plainly that a file
-#     predates the flattening rather than leaving the user to discover it;
-#   - `checkchain(model, chain)`, which is where the actual model↔chain
-#     agreement is asserted, and which `loadchain(fname; model)` calls for you.
+#   - **The format stamp (`OCTOFMT`).** A chain is just named columns, so a
+#     file written against a different model surface loads perfectly happily.
+#     The mismatch only bites later: `mcmcchain2result` looks each parameter up
+#     by name and substitutes `missing` for anything it cannot find. The stamp
+#     is what lets `loadchain` say so plainly.
+#   - **`checkchain(model, chain)`**, which asserts the actual model↔chain
+#     agreement and is what `loadchain(fname; model)` calls for you.
 #
-# The section map (`:parameters` vs `:internals`) is now saved too. v1 dropped
-# it, so every reloaded chain came back with `tree_depth` and `numerical_error`
-# masquerading as model parameters — visible in `describe`, in corner plots,
-# and in anything that iterates `keys(chain)`.
+# The section map (`:parameters` vs `:internals`) is saved too — without it a
+# reloaded chain comes back with `tree_depth` and `numerical_error`
+# masquerading as model parameters, in `describe`, in corner plots, and in
+# anything that iterates `keys(chain)`.
 # ---------------------------------------------------
 
 using Latexify, MathTeXEngine
@@ -38,13 +31,13 @@ using FITSIO
 """
 Version of the Octofitter FITS chain layout written by [`savechain`](@ref).
 
-  - **1** — v1 (implicit; those files carry no stamp at all). Two HDUs: an
+  - **1** — v8 (implicit; those files carry no stamp at all). Two HDUs: an
     empty primary carrying `chain-info` cards, and the sample table. Column
-    names follow v1's three-level naming for planet-owned observations.
+    names follow v8's three-level naming for planet-owned observations.
   - **2** — v2. Adds `OCTOFMT`/`OCTOVER` cards to the primary header and a
     third HDU holding the chain's section map.
 
-A v2 reader loads a v1 file (with a warning); a v1 reader loads a v2 file,
+A v9 reader loads a v8 file (with a warning); a v8 reader loads a v9 file,
 since the extra HDU and cards are additive.
 """
 const CHAIN_FORMAT_VERSION = 2
@@ -193,9 +186,9 @@ list ([`checkchain`](@ref)) before it is returned. That is the check worth
 doing: a chain and a model that disagree about a parameter's name do not
 error, they silently produce `missing`.
 
-Files written by Octofitter v1 load, with a warning — their column names use
-v1's `<planet>_<observation>_<variable>` spelling for observations that hung
-off a companion, which no v2 model will match.
+Files written by Octofitter v8 load, with a warning — their column names use
+v8's `<planet>_<observation>_<variable>` spelling for observations that hung
+off a companion, which no v9 model will match.
 """
 function loadchain(fname; model=nothing)
     chn = FITS(fname) do fits
@@ -270,14 +263,14 @@ function loadchain(fname; model=nothing)
         meta[:chainformat] = fmt
         if fmt < CHAIN_FORMAT_VERSION
             @warn """
-            $fname was written by Octofitter v1 (no chain-format stamp).
+            $fname was written by Octofitter v8 (no chain-format stamp).
 
-            Its samples load unchanged, but its column names follow the v1 model
+            Its samples load unchanged, but its column names follow the v8 model
             surface: an observation attached to a companion was named
-            `<planet>_<observation>_<variable>` (`b_GPI_jitter`), where v2 names it
+            `<planet>_<observation>_<variable>` (`b_GPI_jitter`), where v9 names it
             `<observation>_<variable>` (`GPI_jitter`) because observations are no
             longer owned by a body. Rebuilding parameters from this chain against a
-            v2 model will silently yield `missing` for every such column — pass
+            v9 model will silently yield `missing` for every such column — pass
             `model=` to `loadchain`, or call `Octofitter.checkchain(model, chain)`,
             to have that checked.
             """
@@ -316,7 +309,7 @@ the mismatch if it does not.
 
 Worth doing explicitly because the failure it catches is quiet:
 `mcmcchain2result` looks each parameter up by name and yields `missing` for
-anything absent, so a chain from a *different* model — or from Octofitter v1,
+anything absent, so a chain from a *different* model — or from Octofitter v8,
 whose planet-owned observations were named `<planet>_<obs>_<var>` — flows
 through plotting and post-prediction producing nonsense rather than an error.
 

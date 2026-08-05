@@ -1,18 +1,14 @@
 # ---------------------------------------------------
 # Radial velocity
 #
-# One likelihood covers what v1 split between the stellar-reflex path (a
-# hand-summed superposition over companions) and the relative-RV path: both
-# are `radvel(sol, target, ref)`, differing only in which references they
-# name.
+# One likelihood covers both kinds of radial velocity. Both are
+# `radvel(sol, target, ref)`, differing only in which references they name:
 #   star vs the system barycentre → the classic reflex signal
 #   companion vs the host star    → relative RV
 #
-# The nuisance machinery v1 attached only to `StarAbsoluteRVObs` — the
-# correlated-noise model, the trend function, the held-out-data path — lives
-# on the merged type. Nothing about a Gaussian process cared which pair of
-# bodies was being differenced; it was on the absolute type because that is
-# where the stellar activity people were.
+# The nuisance machinery — the correlated-noise model, the trend function, the
+# held-out-data path — is shared, because none of it depends on which pair of
+# bodies is being differenced.
 # ---------------------------------------------------
 
 """
@@ -35,8 +31,8 @@ instrument, and that is exactly the granularity this object carries.
 
 # Variables
   - `offset` [m/s] — instrument zero point, added to the model. **Optional**,
-    for both absolute and relative RV. v1's `StarAbsoluteRVObs` injected
-    `offset ~ Uniform(-1000, 1000)` when no variables block was given; v2
+    for both absolute and relative RV. v8's `StarAbsoluteRVObs` injected
+    `offset ~ Uniform(-1000, 1000)` when no variables block was given; v9
     never invents a prior, so a model that relied on that now has *no*
     offset unless it declares one.
   - `jitter` [m/s] — added in quadrature to `σ_rv`. Optional, same reasoning.
@@ -354,7 +350,7 @@ Posterior predictive mean and variance at `epochs`, given `residuals` at the
 conditioning epochs. Used only on the cross-validation path.
 
 Implemented for Celerite by `OctofitterRadialVelocity`. The AbstractGPs case
-throws — it did in v1 too, and closing that hole is a separate job from this
+throws — it did in v8 too, and closing that hole is a separate job from this
 port.
 """
 gp_predict(fx, residuals, epochs) = error("""

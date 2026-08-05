@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Detection-completeness / sensitivity maps   (agent G)
+# Detection-completeness / sensitivity maps
 #
 # Injection-recovery on a grid, in three phases so the expensive middle one
 # can be a cluster array job:
@@ -73,7 +73,7 @@ export CompletenessResult
 Assembled completeness results on a 2D grid of mass × separation.
 
 # Fields
-- `masses::Vector{Float64}` — mass grid values [M⊙] (v2 has one mass unit;
+- `masses::Vector{Float64}` — mass grid values [M⊙] (v9 has one mass unit;
   write `5mjup` for a Jupiter-mass grid point)
 - `separations::Vector{Float64}` — separation grid values [AU]
 - `completeness::Matrix{Float64}` — fraction of trials detected (mass × sep)
@@ -103,7 +103,7 @@ Each job specifies a (mass, separation) grid point and a trial index. Jobs are
 independent and can be dispatched to separate processes or cluster nodes.
 
 # Arguments
-- `masses` — iterable of companion masses [M⊙] (v2 has one mass unit; write `5mjup` for a Jupiter-mass grid point)
+- `masses` — iterable of companion masses [M⊙] (v9 has one mass unit; write `5mjup` for a Jupiter-mass grid point)
 - `separations` — iterable of semi-major axes [AU]
 - `n_trials::Int=5` — number of independent trials per grid cell
 
@@ -421,7 +421,7 @@ Where every free variable lives in the flat parameter vector, in the order
 observation's. `group` is `:system`, `:bodies` or `:observations`; `range`
 spans one index for a scalar prior and several for a vector-valued one.
 
-v1 located an override's index by *sentinel matching* — searching the flat
+v8 located an override's index by *sentinel matching* — searching the flat
 vector for a value equal to the one the nested NamedTuple showed. That is
 wrong whenever two parameters happen to draw the same number (constants,
 discrete variables, a Dirac prior), and it cannot address one element of a
@@ -467,7 +467,7 @@ error instead.
 function _apply_overrides!(θ_flat, sys::System, overrides::NamedTuple)
     if hasproperty(overrides, :planets)
         error("""
-        Parameter overrides are nested under `bodies`, not `planets`, in v2:
+        Parameter overrides are nested under `bodies`, not `planets`, in v9:
 
             inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep)))
 

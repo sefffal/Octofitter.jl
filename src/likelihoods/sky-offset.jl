@@ -71,8 +71,8 @@ formed in the model frame is the data-frame residual rotated and scaled,
 which reweights it against an untransformed σ — so do not "unify" them
 without deciding which frame the σ belongs to.
 
-!!! note "v1 discrepancy, deliberately not reproduced"
-    v1's `OctofitterInterferometry` **multiplied** its offsets by
+!!! note "v8 discrepancy, deliberately not reproduced"
+    v8's `OctofitterInterferometry` **multiplied** its offsets by
     `platescale` rather than dividing, i.e. it used the reciprocal of the
     convention above, while `OctofitterImages` (which divides the model
     position by the image's mas/pixel scale times the multiplier) and
@@ -94,7 +94,7 @@ Fill `Δα✱` and `Δδ` with the sky-plane offset [mas] of `target` from
 the instrument calibration applied. Returns `(Δα✱, Δδ)`.
 
 The buffers are **overwritten**, not accumulated into — unlike
-[`accumulate_offsets!`](@ref), whose callers lay down a reference-point
+`accumulate_offsets!`, whose callers lay down a reference-point
 linear motion first. One entry is written per row of the observation's
 table; pass `@alloc`'d storage from `ctx.buf` rather than fresh vectors.
 

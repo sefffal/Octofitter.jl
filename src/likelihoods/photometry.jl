@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Photometry — `PhotometryObs`   (agent B)
+# Photometry — `PhotometryObs`
 #
 # Compares a body's own `flux_<band>` variable against photometric
 # measurements: `PhotometryObs(tab; target=b, band=:H, name="NIRC2")`. It
@@ -7,9 +7,6 @@
 # block would express the same comparison — but only an *observation* can be
 # held out by cross-validation or simulated from a fitted model, which is why
 # it stays a type. See `design/observation-types-migration.md` §3.4.
-#
-# Replaces v1's `PhotometryObs`, which had a per-planet and a per-system
-# implementation and read positionally-indexed flux variables.
 # ---------------------------------------------------
 
 const phot_cols = (:phot, :σ_phot)
@@ -34,7 +31,7 @@ photometry and photocentres cannot disagree about what a body's brightness is.
 
 # When to reach for this, and when not to
 
-v2's `@variables` blocks take `~` over derived quantities, so the comparison
+v9's `@variables` blocks take `~` over derived quantities, so the comparison
 itself is a one-liner in `target`'s own block:
 
     flux_H ~ Normal(15.0, 3.0)      # an ad-hoc constraint, not data
@@ -47,7 +44,7 @@ sorts every borderline case by:
 > observation. If it only reshapes the prior, it is a `~` line or an
 > `_isprior` term.
 
-A `~` line becomes a [`UserLikelihood`](@ref) with `_isprior = true`: it is
+A `~` line becomes a `UserLikelihood` with `_isprior = true`: it is
 excluded from likelihood counts, has no table to subset, and has no
 `generate_from_params`. So it can never be held out by cross-validation and
 you can never simulate photometry from a fitted model — both of which people
@@ -57,7 +54,7 @@ routinely do with real photometry.
 
 None are required. The forward model *is* the body's flux variable, which
 lives in the body's block rather than here — that is the flux/band
-unification: v1 declared `flux` inside the `PhotometryObs`'s own `variables`
+unification: v8 declared `flux` inside the `PhotometryObs`'s own `variables`
 block, so two instruments observing the same body in the same band each
 carried their own independent flux parameter.
 """

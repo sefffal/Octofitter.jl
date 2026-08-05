@@ -7,7 +7,12 @@
 
         System(..., variables=@variables begin ... end, method=:AHL21)   # wrong
 
-    Parenthesize the macro call so the keyword stays with the constructor:
+    Put `variables=` last, so there is nothing after it for the macro to
+    swallow:
+
+        System(..., method=:AHL21, variables=@variables begin ... end)
+
+    Parenthesizing works too, and is robust wherever it sits:
 
         System(..., variables=(@variables begin ... end), method=:AHL21)
 

@@ -41,7 +41,7 @@ not support.
     has no pointwise likelihoods and `likeobj_from_epoch_subset` errors. See
     that method's message.
 
-# Renamed from v1
+# Renamed from v8
 `MarginalizedStarAbsoluteRVObs` — "Star" and "Absolute" were both just ref
 choices, and are now spelled as ones.
 """

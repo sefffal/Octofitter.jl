@@ -68,7 +68,7 @@ indexed**. Both take `Body` model nodes or `Symbol`s.
 
 `host`/`companions` is not a single `Photocentre` spec, and cannot be: the
 Hipparcos branch is a grating response rather than a linear reduction (see
-[`_hippacentre!`](@ref)), and *which* bodies could ever blend is a structural,
+`_hippacentre!`), and *which* bodies could ever blend is a structural,
 build-time statement while *how much* each one blends is a per-draw one.
 
 # Flux ratios
@@ -119,7 +119,7 @@ The Gaia scan geometry comes from one of:
   - neither — the GOST web service is queried for `ra`/`dec`.
 
 `hipparcos` supplies the Hipparcos IAD as `(; table, hip_sol)` (see
-[`hipparcos_iad`](@ref)); by default it is loaded from the `Hipparcos_IAD`
+`hipparcos_iad`); by default it is loaded from the `Hipparcos_IAD`
 data dependency using the catalog's `hip_id`. A catalog row with
 `hip_id = NaN` drops every Hipparcos channel.
 
@@ -1088,7 +1088,7 @@ and the offset from the system barycentre, projected on scan, is
     Δν_B = (s/2π)·φ + host_along
 
 where `host_along` is the host's reflex about the reference point. That
-reflex is **one** query — `raoff(sol, host, reference)` — where v1 summed
+reflex is **one** query — `raoff(sol, host, reference)` — where v8 summed
 `raoff(sol_k, m_k)` over companions; the single query is exact for any
 hierarchy, and the sum was only ever right for a flat astrocentric set whose
 per-row gravitating masses summed to the system's.
@@ -1973,7 +1973,7 @@ its epistemic term.
 
 It gets them by running `ln_like` with the diagnostic hook above armed, rather
 than by re-deriving any of it. Reassembling ~60 lines of covariance algebra
-plot-side is the drift the v2 plotting protocol exists to prevent — v1's
+plot-side is the drift the v9 plotting protocol exists to prevent — v8's
 `absastromplot` did exactly that, with line-number citations into this file —
 and the hook was already here to ask whether the simulator and the likelihood
 agree, which is the same question a residual plot asks.

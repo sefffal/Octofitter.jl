@@ -18,6 +18,8 @@ A single body, by name. Written as the `Body` model node itself
 """
 struct BodyRefSpec{Name} end
 
+struct BarycentreSpec{Names} end
+
 """
     Barycentre
     Barycentre(A, b, …)
@@ -27,8 +29,9 @@ spanned by the given bodies. Use as an observation's `target` or `ref`:
 
     RadialVelocityObs(rvdata; target=A, ref=Barycentre, …)
 """
-struct BarycentreSpec{Names} end
 const Barycentre = BarycentreSpec{()}()
+
+struct PhotocentreSpec{Band,Names} end
 
 """
     Photocentre
@@ -59,7 +62,6 @@ Membership that varies *per draw* (a sampled resolved-flag) or *per epoch*
 which reads `PlanetOrbits.fluxes(sys, band)` and builds its own
 `WeightedPoint`. See the PlanetOrbits "Blended sources & photocentres" docs.
 """
-struct PhotocentreSpec{Band,Names} end
 const Photocentre = PhotocentreSpec{nothing,()}()
 
 const AbstractRefSpec = Union{BodyRefSpec,BarycentreSpec,PhotocentreSpec}

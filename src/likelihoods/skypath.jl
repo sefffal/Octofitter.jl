@@ -358,11 +358,11 @@ The buffers are **accumulated into**, not overwritten, so a caller can lay
 down a reference-point linear motion first (as `GaiaDR4AstromObs` does) and
 add the orbital excursion on top.
 
-This is the v2 replacement for `_simulate_skypath_perturbations!`. It is
+This is the v9 replacement for `_simulate_skypath_perturbations!`. It is
 deliberately one call for the whole source rather than one per companion:
 the photocentre of several luminous bodies is the flux-weighted mean of
 their *apparent positions*, which is not the superposition of per-companion
-photocentres — the point BINARYS makes, and the thing v1's positional
+photocentres — the point BINARYS makes, and the thing v8's positional
 `fluxratio` vector could not represent.
 """
 function accumulate_offsets!(Δα, Δδ, ctx::ObsContext, target, reference)

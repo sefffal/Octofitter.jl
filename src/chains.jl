@@ -146,7 +146,7 @@ end
 The `PlanetOrbits.System` for posterior sample `i` — every body, every
 hierarchy row, and the frame, exactly as the likelihood saw them.
 
-This replaces v1's `construct_elements(chain, :b, i)`. There is no
+This replaces v8's `construct_elements(chain, :b, i)`. There is no
 per-planet orbit object to hand back any more: a companion's motion is a
 property of the *system*, which is the whole point of the change. Query it
 the same way a likelihood does:

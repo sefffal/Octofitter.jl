@@ -214,7 +214,7 @@ Apply the Brandt, Michalik & Brandt recalibration of the van Leeuwen IAD:
 mitigates the overfitting their statistical study documents.
 
 Mutates `table` and recomputes `proj_meas_alongscan`, which is derived from
-`res` — the v1 code path baked that column *before* the recalibration, so the
+`res` — the v8 code path baked that column *before* the recalibration, so the
 shift never reached the abscissa channel (audit 2026-07-02).
 """
 function hipparcos_recalibrate!(table)

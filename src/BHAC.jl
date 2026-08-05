@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# BHAC15 isochrone tables   (agent H)
+# BHAC15 isochrone tables
 #
 # The second flux-table source behind `flux_<band>` body variables. Same shape
 # as `sonora.jl`, same two v2 accommodations: masses in are M⊙ by default, and
@@ -53,12 +53,12 @@ function _load_bhac15_models(fname)
     return records
 end
 
-# The mass column is spelled `M/Ms` in the file. Whether that survives to a
-# property name depends on CSV.jl's `normalizenames`, which differs across
-# versions, so look it up by any of its plausible spellings rather than
-# hard-coding one and failing at the last line of a two-minute load.
+# The mass column is spelled `M/Ms` in the file, and `normalizenames` turns it
+# into `:M_Ms`. Which spelling actually arrives has varied across CSV.jl
+# versions, so accept the handful it has used rather than hard-coding one and
+# failing at the last line of a slow load.
 function _bhac_masscol(tbl)
-    for nm in (Symbol("M/Ms"), :M_Ms, :MMs, :M_Ms_)
+    for nm in (:M_Ms, Symbol("M/Ms"), :MMs, :M_Ms_)
         hasproperty(tbl, nm) && return getproperty(tbl, nm)
     end
     error("Could not find the BHAC15 mass column in the loaded table; its columns are " *
@@ -74,11 +74,11 @@ column named by `key`, using the BHAC15 model grids. With no filename the
 `BHAC15_GAIA` DataDep is used (and downloaded on first use).
 
     itp = Octofitter.bhac15_mass_age_interpolator(key=:G)
-    itp(15.0, 0.08)               # mass in M⊙, like every mass in v2
+    itp(15.0, 0.08)               # mass in M⊙, like every mass in v9
 
 `key` names a column of the isochrone file (`:Teff`, `:G`, `:G_BP`, … for the
 GAIA tables). Out-of-grid inputs give `NaN` rather than an extrapolation.
-`mass_unit` selects the input unit: `:Msol` (default), `:Mjup` (the v1
+`mass_unit` selects the input unit: `:Msol` (default), `:Mjup` (the v8
 convention), or `:Mearth`.
 
 Like the Sonora interpolators, this returns an **absolute magnitude**. A body's

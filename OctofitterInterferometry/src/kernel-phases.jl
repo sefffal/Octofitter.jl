@@ -111,7 +111,7 @@ the whole matrix. Returns `-Inf` (in the residuals' number type) if any block
 is not positive definite, which is what a sampler needs from an invalid draw.
 
 The blocks are the `n_blocks` kernel phases, each spanning all `Λ` spectral
-channels — the same partition `CKP` populates. v1 sized them by
+channels — the same partition `CKP` populates. v8 sized them by
 `length(table.eff_wave)`, which is the number of *exposures* in the table, not
 the number of channels in this one; the two coincide only by accident, and
 when they do not, the `Cholesky` handed to `PDMat` is not a factorization of

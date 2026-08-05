@@ -86,21 +86,21 @@ collection of point sources.
 
 `targets` names the bodies in the sum, `ref` is the phase centre the offsets
 are measured from, and `f_j` is each body's `flux_<band>` variable — the
-**host included**, so a model reproducing v1's contrast-ratio convention gives
+**host included**, so a model reproducing v8's contrast-ratio convention gives
 the host `flux_K = 1.0` and the companions their ratios.
 
 Shifting the phase centre multiplies `V` by a global phase, which every
 supported observable (|V|², closure phases, kernel phases) is invariant to, so
-`ref` is a free choice; `Barycentre` is the default and `A` matches v1's
+`ref` is a free choice; `Barycentre` is the default and `A` matches v8's
 spelling exactly.
 
 !!! warning "…invariant modulo 360°"
-    [`closurephase!`](@ref) folds each *baseline* phase into (−180°, 180°] and
+    `closurephase!` folds each *baseline* phase into (−180°, 180°] and
     then sums the triangle, without folding the sum. So a phase centre far from
     the sources — far enough that the individual baseline phases wrap — shifts a
     modelled closure phase by a multiple of 360° relative to a nearby one, and
     the residual against data that live in (−180°, 180°] changes with it. This
-    is v1's behaviour, kept deliberately (v1 has the folding line commented out
+    is v8's behaviour, kept deliberately (v8 has the folding line commented out
     in the source), but it means `ref` should be somewhere near the flux
     centroid in practice. `Barycentre` is that for a faint companion, and
     `Photocentre(band)` is that in general.
@@ -113,7 +113,7 @@ go to zero" are different models, and you must be able to say the first.
 # Data
 
 Each row is one exposure. Give either a `filename` column pointing at an
-OI-FITS file (read by [`_prepare_input_row`](@ref), with optional
+OI-FITS file (read by `_prepare_input_row`, with optional
 `wavelength_min_meters` / `wavelength_max_meters` cuts) or the prepared
 columns directly: `epoch` [MJD], `u`, `v` [inverse wavelengths, baseline ×
 channel], `cps_data`, `dcps` [degrees, triangle × channel], `index_cps1`,
@@ -143,15 +143,15 @@ true `use_vis2` to include squared visibilities. Rows are sorted by epoch.
   - `platescale`, `northangle` [rad] — the instrument calibration, applied as
     in [`Octofitter.sky_offset`](@ref).
 
-!!! warning "Two v1 behaviours this does not reproduce"
-    **`platescale` is now a divisor.** v1's interferometry likelihood
+!!! warning "Two v8 behaviours this does not reproduce"
+    **`platescale` is now a divisor.** v8's interferometry likelihood
     *multiplied* the modelled offsets by `platescale`, the reciprocal of the
     convention used by relative astrometry and by images. The shared
     `sky_offset` front-end uses the majority convention, so a non-unity
     `platescale` now means the opposite of what it did. `platescale = 1`
     (the default) is unaffected.
 
-    **Fibre coupling is computed differently.** v1 evaluated the throughput of
+    **Fibre coupling is computed differently.** v8 evaluated the throughput of
     *every* companion at the host-to-photocentre distance `f·ρ/(1+f)` and left
     the host at 1.0. Each source's throughput is now evaluated at its own
     offset from `fiber_pointing`, which is the quantity the injection
@@ -281,7 +281,7 @@ end
 GRAVITY-WIDE preset: [`InterferometryObs`](@ref) with `kernel_phases=true` and
 `fiber_coupling=true`.
 
-This is a *preset*, not the v1 type — v1's `GRAVITYWideKPObs` took its
+This is a *preset*, not the v8 type — v8's `GRAVITYWideKPObs` took its
 companion fluxes from a positionally-indexed `flux` vector on the observation
 and had no notion of which bodies it was modelling. `targets` and `band` are
 required, and the fluxes come from the bodies' `flux_<band>` variables.
@@ -360,10 +360,10 @@ end
 
 @noinline _err_legacy_flux() = error("""
     This model gives the interferometry observation a `flux` variable. That was
-    v1's spelling: a vector of companion contrast ratios, indexed by planet
+    v8's spelling: a vector of companion contrast ratios, indexed by planet
     order, against a host whose flux was hard-coded to 1.
 
-    In v2 each body carries its own `flux_<band>` variable and the observation
+    In v9 each body carries its own `flux_<band>` variable and the observation
     names the bodies it models:
 
         A = Body(name="A", variables=@variables begin
@@ -628,7 +628,7 @@ end
 Replace this observation's closure phases (and squared visibilities, where
 present) with the model's, optionally perturbed by their own uncertainties.
 
-v1 accepted `add_noise` and ignored it, which made simulation-based
+v8 accepted `add_noise` and ignored it, which made simulation-based
 calibration on this type meaningless; the noise is drawn here.
 """
 function Octofitter.generate_from_params(obs::InterferometryObs, ctx::Octofitter.ObsContext;

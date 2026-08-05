@@ -537,7 +537,7 @@ function extract_fixed_params(model, partial_nt)
         val = getproperty(partial_nt, name)
         if name === :planets
             error("""
-            Parameters are nested under `bodies`, not `planets`, in v2:
+            Parameters are nested under `bodies`, not `planets`, in v9:
 
                 initialize!(model, (; plx=24.4, bodies=(; b=(; a=1.5, e=0.1))))
 

@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# `HGCAObs` — a helper constructor over `G23HObs`   (agent E)
+# `HGCAObs` — a helper constructor over `G23HObs`
 #
 # The HGCA family is retired as a set of types: `HGCAObs`,
 # `HGCAInstantaneousObs` and `GaiaCatalogFitObs` are all subsumed by

@@ -190,8 +190,8 @@ The truncation at ±10σ is deliberate and inherited: it keeps a sampler from
 walking into the negative-parallax tail, where the AU→mas conversion is
 undefined.
 
-!!! note "Source changed in v2"
-    v1 read this out of the HGCA `HGCA_vEDR3.fits` data dependency, since the
+!!! note "Source changed in v9"
+    v8 read this out of the HGCA `HGCA_vEDR3.fits` data dependency, since the
     only caller was `HGCAObs`. The HGCA modelling stack is retired
     ([`HGCAObs`](@ref) is now a helper over [`G23HObs`](@ref)), so this reads
     the DR3 catalog directly instead. For a source in both, `parallax_gaia`
@@ -238,7 +238,7 @@ end)
 right-hand sides are quoted and evaluated later inside the model, and is
 rejected on `~` lines, which already see the enclosing scope.)
 
-!!! note "v1 → v2"
+!!! note "v8 → v9"
     `GaiaDR4AstromObs` used to carry the published solution as `obs.gaia_sol`,
     and took a `gaia_id=`. It no longer does either — the observation models a
     sky path and no longer needs the catalog row — so this is the supported way

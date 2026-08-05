@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Sonora Bobcat evolutionary/photometry tables   (agent H)
+# Sonora Bobcat evolutionary/photometry tables
 #
 # One of the two flux-table sources that feed `PhotometryObs` and the
 # `flux_<band>` body variables. Under the flux/band unification a body's
@@ -48,7 +48,7 @@ return a function of temperature (K) and mass that gives the **absolute
 magnitude** of the object in that bandpass.
 
     absmag_L = sonora_photometry_interpolator(:Keck_L′)
-    absmag_L(1200.0, 12mjup)      # mass in M⊙, like every mass in v2
+    absmag_L(1200.0, 12mjup)      # mass in M⊙, like every mass in v9
 
 Out-of-grid inputs give `NaN` rather than an extrapolation.
 
@@ -63,7 +63,7 @@ ratios, take the magnitude difference to the host first.
 
 # Mass units
 `mass_unit` selects how the second argument is interpreted: `:Msol` (default,
-matching v2 body `mass` variables), `:Mjup` (what v1 passed), or `:Mearth`.
+matching v9 body `mass` variables), `:Mjup` (what v8 passed), or `:Mearth`.
 
 Supported bands:
 :MKO_Y, :MKO_Z, :MKO_J, :MKO_H, :MKO_K, :MKO_L′, :MKO_M′, :TwoMASS_J, :TwoMASS_H, :TwoMASS_Ks, :Keck_Ks, :Keck_L′, :Keck_Ms, :SDSS_g′, :SDSS_r′, :SDSS_i′, :SDSS_z′, :IRAC_36, :IRAC_45, :IRAC_57, :IRAC_79, :WISE_W1, :WISE_W2, :WISE_W3, :WISE_W4
@@ -128,10 +128,10 @@ Create a function mapping (age_Myr, mass) -> temp_K using Sonora Bobcat
 cooling model grids.
 
     cooling = sonora_cooling_interpolator()
-    cooling(15.0, 12mjup)         # mass in M⊙, like every mass in v2
+    cooling(15.0, 12mjup)         # mass in M⊙, like every mass in v9
 
 Out-of-grid inputs give `NaN` rather than an extrapolation. `mass_unit`
-selects the input unit: `:Msol` (default), `:Mjup` (the v1 convention), or
+selects the input unit: `:Msol` (default), `:Mjup` (the v8 convention), or
 `:Mearth`.
 """
 function sonora_cooling_interpolator(metalicity="+0.0";

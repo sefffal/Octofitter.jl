@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# `HipparcosIADObs` — standalone Hipparcos IAD likelihood   (agent E)
+# `HipparcosIADObs` — standalone Hipparcos IAD likelihood
 #
 # The reader and sky-path reconstruction already crossed to v2 in
 # `hipparcos-iad.jl`; this is the likelihood that fits the per-transit
@@ -86,7 +86,7 @@ parallax a nuisance too, exactly as `G23HObs` treats it.
 
 # Data
 
-Give `hip_id` and the IAD is loaded through [`hipparcos_iad`](@ref) from the
+Give `hip_id` and the IAD is loaded through `hipparcos_iad` from the
 `Hipparcos_IAD` data dependency, or pass an already-loaded `iad=(; table,
 hip_sol)` (which is how the test suite runs offline). `renormalize`,
 `attempt_correction` and `is_van_leeuwen` are forwarded to the loader.
@@ -200,7 +200,7 @@ Fill `resid` with the signed along-scan residual `measured − model` [mas] per
 transit, and `σ_infl` with the BINARYS first-harmonic σ-inflation factor.
 `Δα`/`Δδ` receive the source's own sky excursion, which is the Hipparcos
 grating response of the host and its companions — *not* a photocentre, see
-[`_hippacentre!`](@ref).
+`_hippacentre!`.
 
 Buffers must arrive zeroed (`Δα`, `Δδ`) and at one (`σ_infl`); they are
 accumulated into, as `_hippacentre!` requires.

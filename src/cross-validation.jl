@@ -1,17 +1,13 @@
 # ---------------------------------------------------
-# Cross-validation and PSIS-LOO   (agent G)
+# Cross-validation and PSIS-LOO
 #
 # Requires `likeobj_from_epoch_subset` on every observation type it is asked
 # to hold out; types that structurally cannot provide pointwise likelihoods
 # (`MarginalizedRVObs`, whose analytic offset marginalization couples every
 # point in the instrument) must fail loudly rather than silently.
 #
-# What went away with the v1 model: every function here used to walk
-# `system.observations` *and* `planet.observations` for each planet, keep two
-# parallel accumulator lists, and rebuild both a `Planet` and a `System` from
-# them. With one flat observation list there is one loop, and "which planet
-# does this likelihood belong to" is not a question the machinery has to
-# answer any more.
+# Observations are a flat list on the system, so every walk here is one loop
+# and no function has to ask which body a likelihood belongs to.
 # ---------------------------------------------------
 
 # ---------------------------------------------------
@@ -72,7 +68,7 @@ sampling it samples the prior. Used for prior-predictive checks, for
 tempering, and — with `exclude_all=true` — for the reference `log_Z0` that
 turns a Pigeons log evidence *ratio* into a log evidence.
 
-Each real observation is replaced by a [`BlankLikelihood`](@ref) carrying the
+Each real observation is replaced by a `BlankLikelihood` carrying the
 same name and the same `@variables` block, so the parameter vector keeps its
 shape and a chain from the prior-only model lines up column for column with
 one from the full model.
@@ -242,7 +238,7 @@ end
 
 A copy of `system` keeping only the observations for which
 `predicate(obs)` is true. Prior-shaped terms are always kept: they carry no
-data, so filtering them changes the prior rather than the data set. (v1
+data, so filtering them changes the prior rather than the data set. (v8
 applied the predicate to them too, which silently dropped the
 `UnitLengthPrior` behind every `UniformCircular` unless the user's predicate
 happened to allow for it.)
@@ -283,8 +279,8 @@ tables-less types) are included in all of them.
 Returns `(systems, epochs)`, where `epochs[i]` lists the epochs actually
 included in `systems[i]`.
 
-!!! warning "Changed from v1"
-    v1 passed the *complement* of the wanted rows to
+!!! warning "Changed from v8"
+    v8 passed the *complement* of the wanted rows to
     `likeobj_from_epoch_subset`, on the strength of a comment claiming that
     function drops the indices it is given. It does not — every
     implementation of it returns `table[inds]`, i.e. it *keeps* them. So a
@@ -407,16 +403,16 @@ result = psis_loo(collect(likelihood_mat'), chain_index=ones(Int, size(chain, 1)
 ```
 
 # Implementation
-v1 built one whole `System` per data point and compiled a fresh
+v8 built one whole `System` per data point and compiled a fresh
 `RuntimeGeneratedFunction` likelihood for each — `N_data` model builds before
-the first number came out. v2 needs one: the per-row observations are
+the first number came out. v9 needs one: the per-row observations are
 evaluated directly against a single trajectory solved over the union of
 their epochs, exactly as `make_ln_like` does it, so the cost is one solve per
 sample rather than one model compile per data point.
 
 The consequence worth knowing about is that the columns sum to the model's
 total log-likelihood *minus* its prior-shaped terms. That is the quantity
-PSIS-LOO wants; v1's columns did not have that property.
+PSIS-LOO wants; v8's columns did not have that property.
 """
 function pointwise_like(model, chain; verbosity::Int=1)
     sys = model.system

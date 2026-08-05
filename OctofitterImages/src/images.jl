@@ -46,16 +46,16 @@ selects among them and may be omitted when the bodies declare exactly one.
 
 # Contrast
 Pass a `contrast` column (a callable mapping separation in *pixels* to the 1σ
-flux uncertainty there, e.g. [`contrast_interp`](@ref)) or a `contrastmap`
+flux uncertainty there, e.g. `contrast_interp`) or a `contrastmap`
 column (an image of the same geometry). With neither, a contrast curve is
-measured from each image by [`contrast`](@ref).
+measured from each image by `contrast`.
 
 # Variables
   - `platescale` — multiplier on the plate scale of every image [default 1].
   - `northangle` [rad] — rotation of the images relative to true north
     [default 0].
 
-Neither is a flux: `flux` on an `ImageObs` is a v1 spelling and is rejected.
+Neither is a flux: `flux` on an `ImageObs` is a v8 spelling and is rejected.
 
 # Example
 ```julia
@@ -167,7 +167,7 @@ function _reject_obs_flux_variable(priors, derived, name)
     isempty(bad) && return nothing
     error("""
     `$(join(bad, "`, `"))` was declared on ImageObs "$name", but an image's
-    fluxes are per-body variables in v2, not per-observation ones: one image
+    fluxes are per-body variables in v9, not per-observation ones: one image
     holds every companion, so one flux on the observation cannot describe it.
 
     Move each one to the body it belongs to and give it the image's band:
@@ -285,7 +285,7 @@ collapses to a sum of independent per-companion terms
 
     ll_i = −1/(2σₓ²) (f² − 2 f f̃ₓ)
 
-which is exactly what v1 computed for its one companion. **The independence
+which is exactly what v8 computed for its one companion. **The independence
 comes from the estimator, not from the images**: a joint reduction (T-LOCI,
 a forward-modelled matched filter) keeps `A` full, and its off-diagonal
 entries are precisely the PSF-overlap coupling between companions. That case
@@ -439,7 +439,7 @@ end
 """
     contrast_interp(image; step=2)
 
-Linear interpolation over the results of [`contrast`](@ref), flat outside the
+Linear interpolation over the results of `contrast`, flat outside the
 measured range. This is the callable an `ImageObs` `contrast` column holds:
 separation in pixels → 1σ flux uncertainty.
 """

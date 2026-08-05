@@ -9,24 +9,24 @@
 #
 # These deliberately *error*: none of them can be aliased to a v2 equivalent,
 # because in every case the replacement takes different arguments or lives
-# somewhere else in the model. See `docs/src/v2-migration.md` for the full
+# somewhere else in the model. See `docs/src/v9-migration.md` for the full
 # mapping table.
 #
 # (The HGCA family has its own stubs in `likelihoods/hgca-compat.jl`, next to
 # the helper that replaces it.)
 # ---------------------------------------------------
 
-const _V2_GUIDE = "See `docs/src/v2-migration.md` (\"Migrating to v2\")."
+const _V2_GUIDE = "See `docs/src/v9-migration.md` (\"Migrating to Octofitter v9\")."
 
 @noinline θ_at_epoch_to_tperi(args...; kwargs...) = error("""
 `θ_at_epoch_to_tperi` no longer exists, and nothing needs it: `θ` (position
 angle at a reference epoch) and `epoch` are orbital-element keywords now, so
 the conversion happens inside the orbit constructor.
 
-    # v1
+    # v8
     tp = θ_at_epoch_to_tperi(θ, 58849; M=system.M, e, a, i, ω, Ω)
 
-    # v2 — declare θ and epoch as elements and drop tp entirely
+    # v9 — declare θ and epoch as elements and drop tp entirely
     θ ~ UniformCircular()
     epoch = 58849.0
 
@@ -34,19 +34,19 @@ $(_V2_GUIDE)""")
 export θ_at_epoch_to_tperi
 
 @noinline Planet(args...; kwargs...) = error("""
-`Planet` no longer exists — v2 has one node type, `Body`, and observations do
+`Planet` no longer exists — v9 has one node type, `Body`, and observations do
 not live on a companion.
 
-    # v1
+    # v8
     b = Planet(name="b", basis=Visual{KepOrbit}, observations=[astrom],
                variables=@variables begin a ~ ...; M = system.M end)
 
-    # v2
+    # v9
     b = Body(name="b", about=A, variables=@variables begin a ~ ...; end)
     sys = System(name="sys", bodies=[A, b], observations=[astrom], variables=...)
 
 `about=` names the body (or bodies) the orbit is around, which is what the
-v1 `basis=`/`M =` pair was standing in for; the frame is chosen by which
+v8 `basis=`/`M =` pair was standing in for; the frame is chosen by which
 frame variables the `System` block declares. $(_V2_GUIDE)""")
 export Planet
 
@@ -67,9 +67,9 @@ OctofitterRadialVelocity:
 
     RadialVelocityObs(tab; target=A, ref=Barycentre, name="HARPS", variables=...)
 
-Note that v2 never invents a prior: v1 auto-injected `offset ~ Uniform(-1000,
+Note that v9 never invents a prior: v8 auto-injected `offset ~ Uniform(-1000,
 1000)` and `jitter ~ LogUniform(0.001, 100)` when you gave no `variables=`
-block, and v2 does not. Declare both explicitly or the fit has no zero point
+block, and v9 does not. Declare both explicitly or the fit has no zero point
 and no jitter. $(_V2_GUIDE)""")
 export StarAbsoluteRVObs
 
@@ -90,7 +90,7 @@ export PlanetRelativeRVObs
     using OctofitterRadialVelocity
     MarginalizedRVObs(tab; target=A, ref=Barycentre, name="HARPS", variables=...)
 
-It also errors now if you declare an `offset` variable, which v1 silently
+It also errors now if you declare an `offset` variable, which v8 silently
 added on top of the marginalization. $(_V2_GUIDE)""")
 export MarginalizedStarAbsoluteRVObs
 

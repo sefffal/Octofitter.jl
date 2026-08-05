@@ -30,7 +30,7 @@ pixel coordinates. `sol` is a per-epoch solution (`Octofitter.solutionat`),
 position angle by `−northangle` and dividing by the plate scale — so its
 output is already in pixels. The only thing left is the axis flip: right
 ascension increases to the east, which is to the left in a north-up
-east-left image, so the image's x axis runs opposite to Δα✱. (v1 wrote this
+east-left image, so the image's x axis runs opposite to Δα✱. (v8 wrote this
 as `x = -ra_rotated`, `y = +dec_rotated`, and it means the same thing.)
 
 The image's coordinates are pixel *offsets from the star* — every image is

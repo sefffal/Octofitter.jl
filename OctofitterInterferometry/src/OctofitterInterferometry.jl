@@ -17,7 +17,7 @@ using Bumper
     AbstractInterferometryObs <: Octofitter.AbstractObs
 
 Supertype for the interferometric observation types in this package. There is
-currently one, [`InterferometryObs`](@ref); the v1 `GRAVITYWideKPObs` is now a
+currently one, [`InterferometryObs`](@ref); the v8 `GRAVITYWideKPObs` is now a
 preset of it (see [`GRAVITYWideKPObs`](@ref)).
 """
 abstract type AbstractInterferometryObs <: Octofitter.AbstractObs end

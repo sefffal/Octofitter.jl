@@ -115,7 +115,7 @@ include("deprecations.jl")
 # to-do. Some of it will never be ported by design — `orbit-models.jl` and
 # `parameterizations.jl` are retired, the HGCA modelling stack
 # (`hgca.jl`, `hgca-linfit.jl`) is subsumed by `G23HObs`, and
-# `LightCurveObs`/TTV is out of scope here. See `docs/src/v2-migration.md`
+# `LightCurveObs`/TTV is out of scope here. See `docs/src/v9-migration.md`
 # for the user-facing v1 → v2 mapping.
 
 """

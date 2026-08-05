@@ -1,17 +1,14 @@
 # ---------------------------------------------------
-# `ObsPriorONeil2019` — the observable-based prior   (agent B)
+# `ObsPriorONeil2019` — the observable-based prior
 #
 # Wraps another likelihood (`ObsPriorONeil2019(astrom_like)`) and contributes
 # O'Neil et al. 2019's Jacobian over that likelihood's epochs. It wraps data,
-# so it stays an observation with `_isprior = false`, exactly as in v1.
+# so it is an observation with `_isprior = false`.
 #
-# Two changes from v1: the orbit is now named explicitly (there is no
-# per-planet attachment to make it implicit), and epoch lookup goes through
-# `ctx.epoch_index` instead of a linear scan matching `sol.t == epoch` — which
-# was O(N) and silently wrong for `AbsoluteVisual` orbits, where light-travel
-# time makes the equality fail. v1's separate RV dispatch
-# (`prior-observable-rv.jl`) collapses into one method now that there is one
-# RV type.
+# The orbit is named explicitly, and epoch lookup goes through
+# `ctx.epoch_index` rather than by matching `sol.t == epoch`: that equality
+# does not hold once light-travel time is modelled, so a scan would silently
+# find the wrong solution. One method covers astrometry and RV alike.
 #
 # Included after relative-astrometry.jl and radial-velocity.jl: it wraps them.
 # See `design/observation-types-migration.md` §3.7.
@@ -39,8 +36,8 @@ was published with the paper.
 # The orbit
 
 The Jacobian is a property of one orbit evaluated at the wrapped likelihood's
-epochs. In v1 that orbit was implicit — the likelihood was attached to a
-planet — and in v2 nothing attaches, so it is named:
+epochs. In v8 that orbit was implicit — the likelihood was attached to a
+planet — and in v9 nothing attaches, so it is named:
 
   - `orbit=nothing` (the default) takes the wrapped observation's own
     `target`, which is right for relative astrometry (`target=b, ref=A` → `b`'s
@@ -49,7 +46,7 @@ planet — and in v2 nothing attaches, so it is named:
     this**: a `RadialVelocityObs(…; target=A, ref=Barycentre)` measures the
     host, whose motion is caused by the companion whose orbit the prior is
     about, and `A` has no orbit of its own.
-  - `orbit=(b, c)` sums the term over several orbits, which is what v1's
+  - `orbit=(b, c)` sums the term over several orbits, which is what v8's
     system-attached method did over every planet.
 
 The orbit meant by a body is the hierarchy row that *places* it, so any
@@ -57,11 +54,11 @@ hierarchy convention may be named.
 
 # What changed inside
 
-v1 recovered each epoch's solution by scanning the planet's solution vector
+v8 recovered each epoch's solution by scanning the planet's solution vector
 for `sol.t == epoch`, falling back to re-solving the orbit when no match was
 found — O(N) per epoch, and a silent fallback for `AbsoluteVisual` orbits,
 whose stored solution times are light-travel corrected and so never compare
-equal. v2 reads the row's own elements and the trajectory's emission epoch,
+equal. v9 reads the row's own elements and the trajectory's emission epoch,
 which is exactly what the propagator's Kepler solve used, at O(1).
 
 Note the anomalies come from the row's Keplerian elements rather than from an
@@ -88,7 +85,7 @@ export ObsPriorONeil2019
 """
     ObsPriorAstromONeil2019
 
-Deprecated alias for [`ObsPriorONeil2019`](@ref). The "Astrom" in the v1 name
+Deprecated alias for [`ObsPriorONeil2019`](@ref). The "Astrom" in the v8 name
 distinguished it from the separate radial-velocity dispatch that lived in
 `OctofitterRadialVelocity`; there is one radial-velocity type now, so there is
 one method and the qualifier says nothing.
@@ -185,13 +182,13 @@ end
 
 Mean and eccentric anomaly [rad] of hierarchy `row` at the epoch of `sol`.
 
-`M` is the *wrapped* mean anomaly `E - e sin E`, which is what v1's
+`M` is the *wrapped* mean anomaly `E - e sin E`, which is what v8's
 `meananom(sol)` returned (it reconstructed it from the solved `E` rather than
 from `n·(t − tp)`), so the Jacobian sees the same value it always did.
 
 The epoch is the trajectory's emission epoch, not the observation epoch: that
 is the time the propagator's own Kepler solve used, and taking it from there
-is what fixes v1's `AbsoluteVisual` hole — v1 matched solutions by
+is what fixes v8's `AbsoluteVisual` hole — v8 matched solutions by
 `sol.t == epoch`, which light-travel time makes false, and silently re-solved
 at the *uncorrected* epoch instead. For every other frame the two are the same
 number.

@@ -1,24 +1,19 @@
 # ---------------------------------------------------
-# Dynamical configuration priors   (agent B)
+# Dynamical configuration priors
 #
-# `OrbitOrderPrior`, `NonCrossingPrior` (v1: `LimitClosestApproachAUPrior`)
-# and `HillStabilityPrior`. All three carry no data — they only reshape the
-# prior — so they are `_isprior = true` terms that read `ctx.system` and
-# nothing else. See `design/observation-types-migration.md` §3.7.
-#
-# All three are rewritten over explicit body refs and fixed-width rows: v1
-# reached for per-planet orbits by `findfirst` over
-# `keys(θ_system.planets)`, and `LimitClosestApproachAUPrior` allocated a
-# `sort(collect(orbits))` on every evaluation.
+# `OrbitOrderPrior`, `NonCrossingPrior`, `LimitClosestApproachAUPrior` and
+# `HillStabilityPrior`. All carry no data — they only reshape the prior — so
+# they are `_isprior = true` terms that read `ctx.system` and nothing else.
+# All are written over explicit body refs and fixed-width rows, and allocate
+# nothing per evaluation.
 # ---------------------------------------------------
 
 # ---------------------------------------------------
 # Shared row plumbing
 #
-# v1 could say "planet b's orbit" because a planet *was* an orbit. In v2 the
-# dynamics live in the system's hierarchy rows, and a body names a row only
-# indirectly — through the row that places it. These three helpers are that
-# indirection, plus the non-allocating replacement for v1's `sort(collect(…))`.
+# The dynamics live in the system's hierarchy rows, and a body names a row
+# only indirectly — through the row that places it. These three helpers are
+# that indirection, plus a non-allocating ordered walk over the rows.
 # ---------------------------------------------------
 
 """
@@ -68,10 +63,10 @@ end
     _selected_rows(ctx, specs::Tuple) -> NTuple{N,Int}
 
 The hierarchy rows a dynamical prior applies to: the rows placing the named
-bodies, or — given no names — every row in the system, which is what v1 always
+bodies, or — given no names — every row in the system, which is what v8 always
 did (it looped over `orbits`).
 
-Restricting matters in v2 in a way it could not in v1: a system's rows now
+Restricting matters in v9 in a way it could not in v8: a system's rows now
 include things like the wide orbit of a 2+2 quadruple, and "does the inner
 pair's orbit cross the wide binary's" is not a question the apsidal test
 answers meaningfully.
@@ -99,7 +94,7 @@ Next row of `ks` in ascending semi-major axis after `(a_prev, k_prev)`, or
 semi-major axes are broken by row index and the walk is a total order (and
 therefore terminates) even for a system with degenerate rows.
 
-This is the non-allocating replacement for v1's
+This is the non-allocating replacement for v8's
 `sort(collect(orbits), by=semimajoraxis)`, which built a `Vector` on **every**
 likelihood evaluation and carried a `# TODO: would be nice to make this
 non-allocating` for it. Rows are fixed-width and few, so the O(n²) walk is
@@ -154,7 +149,7 @@ useless to summarize.
 
 Each argument is a `Body` model node or a `Symbol` naming one; the orbit meant
 is the row that *places* that body (see `_placing_row`), so a body may be
-named whatever hierarchy convention the model uses. v1's `PlanetOrderPrior`
+named whatever hierarchy convention the model uses. v8's `PlanetOrderPrior`
 took `Planet`s and looked their orbits up positionally with `findfirst` over
 `keys(θ_system.planets)`.
 
@@ -225,7 +220,7 @@ repulsive term) below `soft_closest_approach_au`.
 usual thing to reach for.
 
 `bodies=` restricts the prior to the rows placing those bodies; with no list,
-every hierarchy row in the system is included, which is what v1 did. Name the
+every hierarchy row in the system is included, which is what v8 did. Name the
 bodies in any system where the rows are not all planetary orbits of one star —
 comparing an inner pair's apsides with a wide binary's is not a meaningful
 test.
@@ -327,18 +322,18 @@ where `m_in`/`m_out` are the total masses of the two rows' exterior bodies and
 `bodies=` restricts the prior as for [`NonCrossingPrior`](@ref). Carries no
 data: a prior term (`_isprior = true`), not an observation.
 
-!!! warning "Not bit-identical to v1"
-    v1's `HillStabilityPrior` had a copy-paste bug — it assigned
+!!! warning "Not bit-identical to v8"
+    v8's `HillStabilityPrior` had a copy-paste bug — it assigned
     `θ_planet_b = θ_system.planets[idx_a]` immediately after assigning it from
     `idx_b`, so *both* masses in `R_H` and in `M★` were the inner planet's, and
     the outer planet's mass never entered the criterion at all. This port
-    implements the intended formula, so it will reject configurations v1
+    implements the intended formula, so it will reject configurations v8
     accepted (and vice versa) whenever the two masses differ.
 
-    The definition of `M★` also had to change: v1 read `θ_planet.M`, the
-    per-planet total mass v2 has no equivalent of. Reading the mass interior to
+    The definition of `M★` also had to change: v8 read `θ_planet.M`, the
+    per-planet total mass v9 has no equivalent of. Reading the mass interior to
     the outer row instead gives `M★ = M_A` for both the Jacobi and the
-    astrocentric spelling of the same physical system, which v1's expression
+    astrocentric spelling of the same physical system, which v8's expression
     did not.
 """
 struct HillStabilityPrior{TB<:Tuple} <: AbstractObs
