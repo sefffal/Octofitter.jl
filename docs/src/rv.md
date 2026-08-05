@@ -188,9 +188,9 @@ octoplot(model, results)
 ```
 
 [`rvpostplot`](@ref) is the complementary view. Where `octoplot` draws many
-draws from the posterior — one RV curve per draw, and one panel per instrument —
-`rvpostplot` renders a **single** draw in much greater detail, with every
-instrument on a shared panel, phase-folded per planet, and residuals below:
+draws from the posterior — one RV curve per draw, with the data calibrated
+using the MAP draw's offsets — `rvpostplot` renders a **single** draw, so the
+curve, the calibration and the phase folds are all that same draw's:
 ```@example 1
 rvpostplot(model, results)
 ```

@@ -1055,9 +1055,10 @@ the star.
 
 A calibrated RV series is only defined per draw — offsets, jitter, and the
 other rows' subtracted signals all move between samples — so this figure shows
-one. For the many-draws view, with one panel per instrument, call
-[`octoplot`](@ref) restricted to the RV channels:
-`octoplot(model, chain; show_sky=false, channels=PlanetOrbits.radvel)`.
+one, and everything in it belongs to that draw. [`octoplot`](@ref) restricted
+to the RV channels
+(`octoplot(model, chain; show_sky=false, channels=PlanetOrbits.radvel)`) draws
+the same panels over many draws, with the data calibrated by the MAP sample.
 
 Requires a Makie backend. `rvpostplot_animated` records the same figure over
 successive single-draw slices of the chain.

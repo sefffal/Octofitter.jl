@@ -315,8 +315,6 @@ end
         smoke_eval(smoke_system([astrom, prior], bodies))
     end
 
-    # Deprecated v1 spellings still resolve.
-    @test PlanetOrderPrior === OrbitOrderPrior
 end
 
 @testset "ObsPriorONeil2019" begin
@@ -350,7 +348,6 @@ end
         end)
     smoke_eval(smoke_system([ObsPriorONeil2019(rvs2; orbit=(b2, c2))], (A2, b2, c2)))
 
-    @test ObsPriorAstromONeil2019 === ObsPriorONeil2019
 end
 
 # ---------------------------------------------------------------------------

@@ -218,8 +218,7 @@ reweights the orbit prior by the Jacobian of the observables.
     observation's `target`, which is correct here and for relative RVs. A stellar-reflex
     `RadialVelocityObs(…; target=A, ref=Barycentre)` has no orbit of its own, so wrapping
     one requires `ObsPriorONeil2019(rvs; orbit=planet_b)` explicitly (`orbit=(b, c)` sums
-    over several orbits). `ObsPriorAstromONeil2019` is a deprecated alias for the same
-    thing.
+    over several orbits).
 
 ```@example 1
 sys_astrom = System(

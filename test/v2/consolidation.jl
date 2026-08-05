@@ -63,21 +63,25 @@ function cons_system(; obs, sysvars=@variables begin plx ~ truncated(Normal(25.0
 end
 
 # ---------------------------------------------------------------------------
-@testset "retired v1 names error, naming the replacement" begin
-    # Every one of these is a name a working v1 script contains. Left undefined
-    # they are bare `UndefVarError`s; the point of the stub is the message.
+@testset "retired names error, naming the replacement" begin
+    # `Planet` and `θ_at_epoch_to_tperi` are the two an old script hits first.
+    # Left undefined they are bare `UndefVarError`s; the point of the stub is
+    # the message. Every other retired name is simply gone — the name is free
+    # again — so there is nothing to assert about it here.
     @test_throws r"`Body`" Planet(name="b")
     @test_throws r"`θ` \(position" θ_at_epoch_to_tperi(0.1, 58849.0; M=1.0, e=0.1, a=5.0)
-    @test_throws r"RelAstromObs\(tab; target=b, ref=A" PlanetRelAstromObs(nothing)
-    @test_throws r"target=A, ref=Barycentre" StarAbsoluteRVObs(nothing)
-    @test_throws r"target=b, ref=A" PlanetRelativeRVObs(nothing)
-    @test_throws r"MarginalizedRVObs" MarginalizedStarAbsoluteRVObs(nothing)
-    # `masspostplot` is the one plotting name that is retired rather than
-    # ported: it drew a histogram of a chain column.
-    @test_throws r"octocorner" masspostplot(nothing, nothing)
-    # `rvpostplot`/`rvpostplot_animated` are *not* retired — they came back as
-    # sugar over `octoplot`'s panels — so without a Makie backend loaded they
-    # give the "load a backend" error every plotting entry point gives.
+    @test !isdefined(Octofitter, :PlanetRelAstromObs)
+    @test !isdefined(Octofitter, :StarAbsoluteRVObs)
+    @test !isdefined(Octofitter, :PlanetRelativeRVObs)
+    @test !isdefined(Octofitter, :MarginalizedStarAbsoluteRVObs)
+    @test !isdefined(Octofitter, :masspostplot)
+    # The retired *aliases* are gone too, so those names are free for reuse.
+    @test !isdefined(Octofitter, :PhotometryLikelihood)
+    @test !isdefined(Octofitter, :PlanetOrderPrior)
+    @test !isdefined(Octofitter, :ObsPriorAstromONeil2019)
+    # `rvpostplot`/`rvpostplot_animated` are *not* retired — so without a Makie
+    # backend loaded they give the "load a backend" error every plotting entry
+    # point gives.
     @test_throws r"requires a Makie backend" rvpostplot(nothing, nothing)
     @test_throws r"requires a Makie backend" rvpostplot_animated(nothing, nothing)
     for f in (dotplot, gaiastarplot, gaiatimeplot, skytrackplot, hipparcosplot)
@@ -87,9 +91,6 @@ end
     @test_throws r"HGCAObs" HGCAInstantaneousObs(gaia_id=1)
     @test_throws r"G23HObs" GaiaCatalogFitObs()
 
-    # The offset/jitter trap is the single most likely way a ported v1 RV model
-    # silently changes answers, so the stub says so.
-    @test occursin("auto-injected", try; StarAbsoluteRVObs(nothing); catch e; sprint(showerror, e); end)
 end
 
 # ---------------------------------------------------------------------------

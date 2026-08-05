@@ -1,16 +1,15 @@
 # ---------------------------------------------------
-# Names retired by the v2 model surface.
+# The two retired names worth catching.
 #
-# Every entry here is a name that a working v1 script contains and that v2
-# does not define. Left undefined, each of them fails as a bare
-# `UndefVarError` from inside a `@variables` block or a `System(...)` call —
-# accurate, and useless. A stub that names the replacement costs one method
-# and saves the reader a search through the migration guide.
+# `Planet` and `θ_at_epoch_to_tperi` are the first things an old script hits,
+# and left undefined each fails as a bare `UndefVarError` from inside a
+# `@variables` block or a `System(...)` call — accurate, and useless. A stub
+# that names the replacement costs one method.
 #
-# These deliberately *error*: none of them can be aliased to a v2 equivalent,
-# because in every case the replacement takes different arguments or lives
-# somewhere else in the model. See `docs/src/v9-migration.md` for the full
-# mapping table.
+# They deliberately *error* rather than aliasing: in both cases the
+# replacement takes different arguments, so an alias would not have helped.
+# Every other retired name is simply gone, so that the name itself is free
+# again; `docs/src/v9-migration.md` carries the full mapping table.
 #
 # (The HGCA family has its own stubs in `likelihoods/hgca-compat.jl`, next to
 # the helper that replaces it.)
@@ -50,56 +49,3 @@ v8 `basis=`/`M =` pair was standing in for; the frame is chosen by which
 frame variables the `System` block declares. $(_V2_GUIDE)""")
 export Planet
 
-@noinline PlanetRelAstromObs(args...; kwargs...) = error("""
-`PlanetRelAstromObs` is now `RelAstromObs`, and it names both ends of the
-measurement explicitly instead of inheriting one from the planet it was
-attached to:
-
-    RelAstromObs(tab; target=b, ref=A, name="GPI")
-
-It goes in the `System`'s `observations=` list. $(_V2_GUIDE)""")
-export PlanetRelAstromObs
-
-@noinline StarAbsoluteRVObs(args...; kwargs...) = error("""
-`StarAbsoluteRVObs` is now `RadialVelocityObs` with the reflex pair named
-explicitly, and it lives in core Octofitter rather than in
-OctofitterRadialVelocity:
-
-    RadialVelocityObs(tab; target=A, ref=Barycentre, name="HARPS", variables=...)
-
-Note that v9 never invents a prior: v8 auto-injected `offset ~ Uniform(-1000,
-1000)` and `jitter ~ LogUniform(0.001, 100)` when you gave no `variables=`
-block, and v9 does not. Declare both explicitly or the fit has no zero point
-and no jitter. $(_V2_GUIDE)""")
-export StarAbsoluteRVObs
-
-@noinline PlanetRelativeRVObs(args...; kwargs...) = error("""
-`PlanetRelativeRVObs` is now `RadialVelocityObs` with the pair named
-explicitly — the same type as the former `StarAbsoluteRVObs`, differing only
-in its refs:
-
-    RadialVelocityObs(tab; target=b, ref=A, name="relative RV", variables=...)
-
-$(_V2_GUIDE)""")
-export PlanetRelativeRVObs
-
-@noinline MarginalizedStarAbsoluteRVObs(args...; kwargs...) = error("""
-`MarginalizedStarAbsoluteRVObs` is now `OctofitterRadialVelocity.MarginalizedRVObs`
-("Star" and "Absolute" were only ever ref choices), and it requires `target=`:
-
-    using OctofitterRadialVelocity
-    MarginalizedRVObs(tab; target=A, ref=Barycentre, name="HARPS", variables=...)
-
-It also errors now if you declare an `offset` variable, which v8 silently
-added on top of the marginalization. $(_V2_GUIDE)""")
-export MarginalizedStarAbsoluteRVObs
-
-@noinline masspostplot(args...; kwargs...) = error("""
-`masspostplot` has been removed deliberately, with no replacement. It drew a
-one-panel histogram of each body's mass posterior — which is one column of
-`octocorner(model, chain)`, or one line of Julia:
-
-    hist(vec(chain[:b_mass]))
-
-$(_V2_GUIDE)""")
-export masspostplot

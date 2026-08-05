@@ -173,16 +173,6 @@ end
 
 export OrbitOrderPrior
 
-# v1 name, kept so existing scripts keep parsing. The v1 constructor took
-# `Planet` objects, which no longer exist; the replacement takes `Body` nodes.
-"""
-    PlanetOrderPrior
-
-Deprecated alias for [`OrbitOrderPrior`](@ref).
-"""
-const PlanetOrderPrior = OrbitOrderPrior
-export PlanetOrderPrior
-
 _isprior(::OrbitOrderPrior) = true
 likeobj_from_epoch_subset(p::OrbitOrderPrior, _) = p
 TypedTables.Table(::OrbitOrderPrior) = nothing

@@ -106,7 +106,10 @@ function GaiaDR4AstromObs(observations;
                           detrend::Bool=false,
                           variables::Tuple{Priors,Derived}=(Priors(), Derived()))
     (priors, derived) = variables
-    table = Table(observations)
+    # Collect every column up front: a multithreaded `CSV.read` hands back
+    # `ChainedVector`s, and the per-transit indexing below asserts on them.
+    # See `materialize_cols`.
+    table = materialize_cols(Table(observations))
     if hasproperty(table, :obs_time_tcb) && !hasproperty(table, :epoch)
         table = Table(table; epoch=jd2mjd.(table.obs_time_tcb))
     end

@@ -179,11 +179,6 @@ end
 
 export InterferometryObs
 
-# v1 spelling. Kept as an alias so old scripts fail on the keyword arguments
-# (which really did change) rather than on the name.
-const InterferometryLikelihood = InterferometryObs
-export InterferometryLikelihood
-
 function InterferometryObs(
     observations...;
     targets,
@@ -290,8 +285,7 @@ GRAVITYWideKPObs(observations...; name="GRAVITY-WIDE", kernel_phases=true,
                  fiber_coupling=true, kwargs...) =
     InterferometryObs(observations...; name, kernel_phases, fiber_coupling, kwargs...)
 
-const GRAVITYWideKPLikelihood = GRAVITYWideKPObs
-export GRAVITYWideKPObs, GRAVITYWideKPLikelihood
+export GRAVITYWideKPObs
 
 # --- the reference declarations -----------------------------------------------
 

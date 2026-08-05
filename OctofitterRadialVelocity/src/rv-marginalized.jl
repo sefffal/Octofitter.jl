@@ -11,7 +11,7 @@
 
 using Bumper
 using Octofitter: ObsContext, Priors, Derived, solutionat, refspec,
-    likelihoodname, equal_length_cols, rv_cols, _system_number_type
+    likelihoodname, equal_length_cols, materialize_cols, rv_cols, _system_number_type
 
 """
     MarginalizedRVObs(data; target, ref=Barycentre, name, variables=…,
@@ -61,7 +61,9 @@ function MarginalizedRVObs(observations;
                            trend_function=Octofitter._rv_no_trend,
                            variables::Tuple{Priors,Derived}=(Priors(), Derived()))
     (priors, derived) = variables
-    table = Table(observations)
+    # Collect the columns: a multithreaded `CSV.read` returns `ChainedVector`s,
+    # which the per-epoch indexing in the likelihood cannot take a row view of.
+    table = materialize_cols(Table(observations))
     equal_length_cols(table) ||
         error("The columns in the input data do not all have the same length")
     issubset(rv_cols, Tables.columnnames(table)) ||

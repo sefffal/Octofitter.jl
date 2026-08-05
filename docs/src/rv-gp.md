@@ -192,6 +192,18 @@ For real data, we would want to increase the adaptation and iterations to about 
 Plot the fit: the RV time series, the residual strip, and a phase-folded panel
 for the planet. [`octoplot`](@ref) draws everything the model has;
 [`rvpostplot`](@ref) is the radial-velocity slice of the same panels.
+
+!!! warning "The Gaussian process is not drawn yet"
+    The RV panels draw the Keplerian model only. A fitted GP component is *not*
+    added to the model curve, is *not* subtracted from the data before phase
+    folding, and its variance is *not* folded into the plotted uncertainties —
+    so on a model like this one the correlated noise shows up as a large,
+    structured residual rather than as a band the data follow. The **fit** is
+    unaffected; this is a gap in the plotting layer only.
+
+    Until it is closed, read the residual strip as "orbit only" and use
+    [`Octofitter.gp_predict`](@ref) directly (Celerite backend) if you need the
+    conditioned mean for a figure.
 ```@example 1
 octoplot(model, chain)
 ```

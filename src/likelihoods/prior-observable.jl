@@ -82,17 +82,6 @@ end
 
 export ObsPriorONeil2019
 
-"""
-    ObsPriorAstromONeil2019
-
-Deprecated alias for [`ObsPriorONeil2019`](@ref). The "Astrom" in the v8 name
-distinguished it from the separate radial-velocity dispatch that lived in
-`OctofitterRadialVelocity`; there is one radial-velocity type now, so there is
-one method and the qualifier says nothing.
-"""
-const ObsPriorAstromONeil2019 = ObsPriorONeil2019
-export ObsPriorAstromONeil2019
-
 # Default: the wrapped observation's own target. It is a real default rather
 # than a guess for the astrometric case — "the orbit of the body whose position
 # this measures" is what v1's per-planet attachment meant — but it is wrong for

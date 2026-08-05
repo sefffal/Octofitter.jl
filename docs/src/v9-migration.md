@@ -102,14 +102,14 @@ likelihoods is gone.
 Angles are radians and epochs MJD, as before. Element keywords are the Unicode
 ones (`ω`, `Ω`) with no ASCII aliases.
 
-### Retired names tell you what replaced them
+### Retired names
 
-The names below are still defined and exported, and every one of them raises an
-error naming its v9 spelling. They are not aliases: in each case the replacement
-takes different arguments or lives somewhere else in the model, so an alias would
-have failed one line later with a worse message.
+This is a breaking major release, so old names are **not** aliased to their
+replacements — a name that resolves to something with different arguments fails
+one line later with a worse message, and holding a name hostage stops it being
+reused. Rename them:
 
-| v8 name | error points you at |
+| v8 name | v9 |
 |---|---|
 | `Planet` | [`Body`](@ref), and the observation moves to `System`'s `observations=` |
 | `θ_at_epoch_to_tperi` | declare `θ` and `epoch` as orbital elements |
@@ -118,10 +118,17 @@ have failed one line later with a worse message.
 | `PlanetRelativeRVObs` | [`RadialVelocityObs`](@ref)`(tab; target=b, ref=A)` |
 | `MarginalizedStarAbsoluteRVObs` | [`MarginalizedRVObs`](@ref)`(tab; target, ref)` |
 | `masspostplot` | [`octocorner`](@ref), or `hist(vec(chain[:b_mass]))` |
+| `PhotometryLikelihood` | [`PhotometryObs`](@ref) |
+| `PlanetOrderPrior` | [`OrbitOrderPrior`](@ref), taking `Body` nodes or `Symbol`s |
+| `ObsPriorAstromONeil2019` | [`ObsPriorONeil2019`](@ref) |
+| `InterferometryLikelihood` | [`InterferometryObs`](@ref) |
+| `GRAVITYWideKPLikelihood` | [`GRAVITYWideKPObs`](@ref) |
 | `HGCAInstantaneousObs`, `GaiaCatalogFitObs` | [`HGCAObs`](@ref) / [`G23HObs`](@ref) |
 
-Genuine aliases, which do resolve: `PhotometryLikelihood`, `PlanetOrderPrior`,
-`ObsPriorAstromONeil2019`, `InterferometryLikelihood`, `GRAVITYWideKPLikelihood`.
+Four of them are still *defined*, purely so the error message names the
+replacement rather than being a bare `UndefVarError`: `Planet`,
+`θ_at_epoch_to_tperi`, and the HGCA pair. They are the ones an old script hits
+first.
 
 ### Two spellings that catch nearly everyone
 
@@ -482,7 +489,7 @@ that shared frame is what constrains a wide orbit.
 
 | v8 | v9 |
 |---|---|
-| `ObsPriorAstromONeil2019(obs)` | [`ObsPriorONeil2019`](@ref)`(obs)` (old name aliased) |
+| `ObsPriorAstromONeil2019(obs)` | [`ObsPriorONeil2019`](@ref)`(obs)` |
 | `PlanetOrderPrior(b, c)` | [`OrbitOrderPrior`](@ref)`(b, c)`, taking `Body` nodes or `Symbol`s |
 | `NonCrossingPrior()` | same, plus an optional `bodies=` |
 | `LimitClosestApproachAUPrior(…)` | same, plus an optional `bodies=` |

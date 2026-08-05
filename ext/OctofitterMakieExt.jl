@@ -943,9 +943,9 @@ through many of them.
 The single draw is the point of this figure rather than an economy: a
 calibrated RV time series is only defined *per draw* — the instrument offsets,
 the jitter and the other planets' signals that are subtracted before folding
-all move from sample to sample — so several draws cannot share one panel
-without lying about at least one of them. For the many-draws view, where each
-instrument gets its own panel, ask [`octoplot`](@ref) directly:
+all move from sample to sample — so a figure showing several draws has to
+calibrate its data with one of them. [`octoplot`](@ref) does exactly that, with
+the MAP sample, and is the right call when you want the spread:
 
     octoplot(model, chain; show_sky=false, channels=PlanetOrbits.radvel)
 

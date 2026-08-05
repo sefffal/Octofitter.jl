@@ -14,12 +14,18 @@ defined *per draw* — each instrument's offset, its jitter, and the other plane
 that are subtracted before folding all move from sample to sample — so several draws
 cannot share one panel without misrepresenting at least one of them.
 
-For the many-draws view, ask [`octoplot`](@ref) for the RV channels directly. There each
-instrument gets its own panel, which is what lets a spread of draws be drawn honestly:
+For the many-draws view, ask [`octoplot`](@ref) for the RV channels directly:
 
 ```julia
 octoplot(model, chain; show_sky=false, channels=PlanetOrbits.radvel)
 ```
+
+It groups panels by *observable*, not by instrument, so several instruments measuring
+`radvel(A, Barycentre)` still share one panel, coloured per instrument. The difference is
+what the panel is consistent with: the curves span every draw, while the data on them can
+only be calibrated once, so they are calibrated with the **MAP** draw's offsets and trend.
+For a fit where the offsets are well determined that is a distinction without much
+difference; where they are not, `rvpostplot`'s single draw is the honest picture.
 
 `rvpostplot` is built out of the same panel functions as the rest of the figure set, so
 the error-bar conventions and the returned axes match everywhere else.

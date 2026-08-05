@@ -96,7 +96,9 @@ function RadialVelocityObs(observations;
                            held_out=nothing,
                            variables::Tuple{Priors,Derived}=(Priors(), Derived()))
     (priors, derived) = variables
-    table = Table(observations)
+    # Collect the columns: a multithreaded `CSV.read` returns `ChainedVector`s,
+    # which the per-epoch indexing in the likelihood cannot take a row view of.
+    table = materialize_cols(Table(observations))
     equal_length_cols(table) ||
         error("The columns in the input data do not all have the same length")
     issubset(rv_cols, Tables.columnnames(table)) ||

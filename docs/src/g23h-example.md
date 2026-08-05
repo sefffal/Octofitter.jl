@@ -9,7 +9,7 @@ This page provides a complete, production-ready script for fitting orbital model
       (`mjup` is a plain multiplicative constant).
     * RV is `RadialVelocityObs(…; target=A, ref=Barycentre)`, with `offset` and `jitter`
       declared explicitly.
-    * `PlanetOrderPrior` is renamed [`OrbitOrderPrior`](@ref) and takes `Body` nodes or
+    * [`OrbitOrderPrior`](@ref) takes `Body` nodes or
       `Symbol`s.
     * The incremental parallel-tempering loop this script is built around
       ([`octofit_pigeons`](@ref) + `increment_n_rounds!` + `Pigeons.stepping_stone_pair`)
@@ -557,7 +557,7 @@ push!(observations, absastrom)
 append!(observations, rvlikes)
 
 if num_planets > 1
-    # `PlanetOrderPrior` is renamed `OrbitOrderPrior` and takes `Body` nodes (or
+    # `OrbitOrderPrior` takes `Body` nodes (or
     # `Symbol`s). Both terms go in the system's `observations=` list, not on a planet.
     push!(observations, OrbitOrderPrior(planets...))
     # With no `bodies=` list this covers *every* hierarchy row. Naming the bodies

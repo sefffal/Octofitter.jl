@@ -68,6 +68,29 @@ include("model/codegen.jl")
 # Helper for checking tables are well-formed
 equal_length_cols(tab) = allequal(length(getproperty(tab, col)) for col in Tables.columnnames(tab))
 
+"""
+    materialize_cols(tab) -> Table
+
+A `Table` whose every column is a plain `Vector`.
+
+`CSV.read` returns `SentinelArrays.ChainedVector` columns when Julia is
+started with multiple threads — the file is parsed in chunks and the chunks
+are chained rather than copied. Those are perfectly good `AbstractVector`s
+until something takes a row view and indexes into it per epoch, which is what
+every likelihood's inner loop does, and which trips
+`AssertionError: wrong ChainedVectorIndex`.
+
+Collecting once at construction is cheap (it is the data you were going to
+hold anyway) and makes an observation independent of how many threads the
+user happened to start Julia with. `collect` on a `Vector` is a copy, not a
+no-op, but these tables are small and the copy happens once per model build.
+"""
+function materialize_cols(tab)
+    cols = Tables.columnnames(tab)
+    return Table(NamedTuple{Tuple(cols)}(
+        Tuple(collect(Tables.getcolumn(tab, c)) for c in cols)))
+end
+
 include("gaia-utils.jl")
 
 # Shared front-ends first: `skypath.jl` (five-parameter LSQ + offset

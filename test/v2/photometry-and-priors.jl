@@ -219,8 +219,6 @@ end
     @test Octofitter.epochs(prior) == Float64[]
     @test Octofitter.likeobj_from_epoch_subset(prior, 1:1) === prior
     @test occursin("b < c", sprint(show, MIME"text/plain"(), prior))
-    @test PlanetOrderPrior === OrbitOrderPrior      # v1 name still resolves
-
     @test_throws r"at least two bodies" OrbitOrderPrior(:b)
     @test_throws r"must be a `Body`" OrbitOrderPrior(:b, Barycentre)
 
@@ -427,11 +425,9 @@ end
     @test prior.wrapped_like === astrom
     @test prior.orbit === (Octofitter.BodyRefSpec{:b}(),)      # inherited target
     @test Octofitter.likelihoodname(prior) == "obspri_astrom"
-    # It wraps data, so it is a likelihood, not a prior term — v1 had this too.
+    # It wraps data, so it is a likelihood, not a prior term.
     @test Octofitter._isprior(prior) == false
     @test Octofitter.epochs(prior) == PP_EPOCHS
-    @test ObsPriorAstromONeil2019 === ObsPriorONeil2019          # v1 name
-
     sub = Octofitter.likeobj_from_epoch_subset(prior, 1:2)
     @test sub isa ObsPriorONeil2019
     @test sub.wrapped_like.table.epoch == PP_EPOCHS[1:2]

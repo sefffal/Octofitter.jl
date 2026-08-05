@@ -176,32 +176,30 @@ Octofitter.gp_predict
 
 ## Retired names
 
-**Aliases.** These resolve to their current replacements and exist only so older
-scripts keep parsing: `PhotometryLikelihood` → [`PhotometryObs`](@ref),
-`PlanetOrderPrior` → [`OrbitOrderPrior`](@ref),
-`ObsPriorAstromONeil2019` → [`ObsPriorONeil2019`](@ref),
-`InterferometryLikelihood` → [`InterferometryObs`](@ref),
-`GRAVITYWideKPLikelihood` → [`GRAVITYWideKPObs`](@ref).
-
-**Error stubs.** These are defined, exported, and raise an error naming the
-replacement, because in each case the current spelling takes different arguments
-or lives somewhere else in the model — an alias would not have helped, and a
-bare `UndefVarError` says nothing:
+**Error stubs.** Two names are still defined, and raise an error naming the
+replacement rather than a bare `UndefVarError`. They are the two an old script
+hits first, and in both cases the replacement takes different arguments, so an
+alias would not have helped:
 
 | Retired name | Use instead |
 |---|---|
 | `Planet` | [`Body`](@ref) + the observation moves to [`System`](@ref)'s `observations=` |
 | `θ_at_epoch_to_tperi` | declare `θ` and `epoch` as orbital elements |
-| `PlanetRelAstromObs` | [`RelAstromObs`](@ref)`(tab; target, ref)` |
-| `StarAbsoluteRVObs` | [`RadialVelocityObs`](@ref)`(tab; target=A, ref=Barycentre)` |
-| `PlanetRelativeRVObs` | [`RadialVelocityObs`](@ref)`(tab; target=b, ref=A)` |
-| `MarginalizedStarAbsoluteRVObs` | [`MarginalizedRVObs`](@ref)`(tab; target, ref)` |
-| `masspostplot` | [`octocorner`](@ref), or `hist(vec(chain[:b_mass]))` |
 | `HGCAInstantaneousObs`, `GaiaCatalogFitObs` | [`HGCAObs`](@ref) / [`G23HObs`](@ref) |
 
 The HGCA pair is the only case where the *modelling code* was not ported at
-all — it was subsumed by [`G23HObs`](@ref). The rest are pure renames whose
-call signature changed.
+all — it was subsumed by [`G23HObs`](@ref).
+
+**Everything else is simply gone**, so the name is free again:
+`PlanetRelAstromObs` → [`RelAstromObs`](@ref), `StarAbsoluteRVObs` and
+`PlanetRelativeRVObs` → [`RadialVelocityObs`](@ref),
+`MarginalizedStarAbsoluteRVObs` → [`MarginalizedRVObs`](@ref),
+`masspostplot` → [`octocorner`](@ref), `PhotometryLikelihood` →
+[`PhotometryObs`](@ref), `PlanetOrderPrior` → [`OrbitOrderPrior`](@ref),
+`ObsPriorAstromONeil2019` → [`ObsPriorONeil2019`](@ref),
+`InterferometryLikelihood` → [`InterferometryObs`](@ref),
+`GRAVITYWideKPLikelihood` → [`GRAVITYWideKPObs`](@ref). See
+[Migrating to Octofitter v9](@ref v9-migration) for the call signatures.
 
 Orbit element types, observables (`raoff`, `decoff`, `radvel`, `posx`,
 `projectedseparation`, …), `orbitsolve`, `Trajectory`, `WeightedPoint`,

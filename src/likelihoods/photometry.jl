@@ -72,7 +72,9 @@ function PhotometryObs(observations;
                        name,
                        variables::Tuple{Priors,Derived}=(Priors(), Derived()))
     (priors, derived) = variables
-    table = Table(observations)
+    # Collect the columns: a multithreaded `CSV.read` returns `ChainedVector`s,
+    # which the per-epoch indexing in the likelihood cannot take a row view of.
+    table = materialize_cols(Table(observations))
     equal_length_cols(table) ||
         error("The columns in the input data do not all have the same length")
     issubset(phot_cols, Tables.columnnames(table)) ||
@@ -95,10 +97,7 @@ function PhotometryObs(observations;
         table, priors, derived, t, String(name))
 end
 
-# Backwards-compatibility alias for v1 code. Deprecated: use `PhotometryObs`.
-const PhotometryLikelihood = PhotometryObs
-
-export PhotometryObs, PhotometryLikelihood
+export PhotometryObs
 
 # Inverse of `_flux_band` in model/nodes.jl, which maps a body's variable name
 # to the band it declares. Keeping the two adjacent in meaning is what lets a
