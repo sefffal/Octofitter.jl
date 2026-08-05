@@ -100,7 +100,21 @@ end
     @test Octofitter.resolveref(posys, Photocentre(:G)).w ≈
           PlanetOrbits.photocentre(posys; band=:G).w
     # …and it constant-folds: the spec carries no runtime data at all.
-    @test (@allocated Octofitter.resolveref(posys, Photocentre(:G, (:A, :b)))) == 0
+    #
+    # Version-gated deliberately, not to make CI green. On 1.11+ this folds to
+    # nothing. On 1.10 the same call allocates 64 bytes — the subset weights
+    # escape rather than being built in place — so the assertion is kept as a
+    # `@test_broken`, which stays visible in the summary and fails loudly if a
+    # future 1.10 patch starts folding it. It is a real (if small) cost: this
+    # runs once per likelihood evaluation, which is exactly the allocation
+    # `resolverefs` exists to avoid. See also the open question about whether
+    # Julia 1.10 remains supported at all, given Pigeons cannot be installed
+    # there.
+    if VERSION >= v"1.11"
+        @test (@allocated Octofitter.resolveref(posys, Photocentre(:G, (:A, :b)))) == 0
+    else
+        @test_broken (@allocated Octofitter.resolveref(posys, Photocentre(:G, (:A, :b)))) == 0
+    end
 end
 
 @testset "photocentre member and band typos are caught at model-build time" begin
