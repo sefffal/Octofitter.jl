@@ -81,17 +81,33 @@ function _octocorner(model, chains...;
         phase_owners = Set(o for c in colnames
                            for (o, v, k) in (_colsplit(sys, c),)
                            if k === :body && (v === :θ || v === :M0))
+        dropped = Pair{Symbol,String}[]
         for col in colnames
             dat = vec(params[col])
             owner, var, kind = _colsplit(sys, col)
             keep = col in includecols
             if !keep
                 col in excludecols && continue
-                col in helpers && continue
-                length(unique(dat)) == 1 && continue
-                kind === :body && var === :tp && owner in phase_owners && continue
+                if col in helpers
+                    push!(dropped, col => "sampling helper"); continue
+                end
+                # `unique` compares with `isequal`, under which every NaN is the
+                # same value — so an all-NaN column would otherwise look
+                # constant and be dropped silently. A column of NaNs means the
+                # fit went wrong, which is worth saying out loud.
+                if all(isnan, dat)
+                    push!(dropped, col => "all NaN"); continue
+                end
+                if length(unique(dat)) == 1
+                    push!(dropped, col => "constant at $(first(dat))"); continue
+                end
+                if kind === :body && var === :tp && owner in phase_owners
+                    push!(dropped, col => "duplicates a sampled phase"); continue
+                end
                 if small
-                    (kind === :body && var in (:a, :e, :i, :mass)) || continue
+                    if !(kind === :body && var in (:a, :e, :i, :mass))
+                        push!(dropped, col => "not in the `small=true` set"); continue
+                    end
                 end
             end
             info = paraminfo(var)
@@ -101,7 +117,17 @@ function _octocorner(model, chains...;
             labels_gen[col] = _label(owner, var, kind, col)
             push!(cols, col => collect(float.(dat)))
         end
-        isempty(cols) && error("no plottable columns left after filtering")
+        if isempty(cols)
+            isempty(dropped) && error(
+                "octocorner: this chain has no parameter columns at all. " *
+                "(Sampler diagnostics live in the chain's `:internals` section, " *
+                "which corner plots deliberately skip.)")
+            error("octocorner: every column was filtered out. What was dropped, and why:\n" *
+                  join(("    $c — $why" for (c, why) in dropped), '\n') *
+                  "\nPass `includecols=[…]` to force a column back in. A chain whose " *
+                  "sampled parameters are all constant or all NaN means the fit itself " *
+                  "did not move — check the sampler report before the plot.")
+        end
         return (; cols...)
     end
 
