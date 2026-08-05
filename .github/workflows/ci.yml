@@ -35,11 +35,24 @@ jobs:
             threads: '4,1'
     steps:
       - uses: actions/checkout@v7
+      # PlanetOrbits v2 is an unregistered prerelease (2.0.0-DEV) that this
+      # branch depends on. Without this the resolver silently takes the newest
+      # *registered* PlanetOrbits (0.11.4, the v1 line) and Octofitter fails to
+      # precompile with `UndefVarError: mjup not defined in PlanetOrbits` --
+      # which is what reddened every CI run on this branch. Drop this step and
+      # the develop below once PlanetOrbits 2 is registered.
+      - uses: actions/checkout@v7
+        with:
+          repository: sefffal/PlanetOrbits.jl
+          ref: v2
+          path: .planetorbits-v2
       - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v3
+      - name: Use the PlanetOrbits v2 checkout
+        run: julia --project=. --color=yes -e 'using Pkg; Pkg.develop(PackageSpec(path=joinpath(pwd(), ".planetorbits-v2")))'
       - uses: julia-actions/julia-buildpkg@v1
       # Fetch the network-backed DataDeps before the tests run, retrying with
       # backoff. Without this, a single connect timeout to naif.jpl.nasa.gov
