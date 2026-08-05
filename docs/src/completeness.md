@@ -20,12 +20,100 @@ a three-phase workflow:
 
 For convenience, [`completeness_map`](@ref) runs all three phases locally.
 
+!!! warning "Masses are in solar masses"
+    v2 has a single mass unit, M⊙, throughout — `CompletenessJob.mass`, the `masses`
+    grid, and `CompletenessMap.masses` are all M⊙, and so is a body's `mass`
+    variable. `mjup` and `mearth` are plain multiplicative constants, so a
+    Jupiter-mass grid is written `10 .^ range(-1, 2, length=12) .* mjup`. A v1 grid
+    copied across unchanged asks about companions between 0.1 and 100 **solar**
+    masses.
+
 !!! note "Initialization shortcut"
     For efficiency, each trial initializes the sampler at the true injected
     parameters rather than running blind initialization. This dramatically
     reduces sampling cost but means the completeness estimate is optimistic
     about convergence. The results reflect the *statistical* detectability
     of a signal, not the ability to blindly discover it.
+
+## A runnable miniature
+
+Before the cluster-scale recipe, here is the whole workflow at a size that finishes
+in about a minute: a two-body model with stellar reflex radial velocity, a 2 × 2 grid,
+and one trial per cell.
+
+```@example 1
+using Octofitter
+using Distributions
+using Statistics
+using CairoMakie
+
+# The template model. Its data are placeholders -- `run_completeness_trial`
+# replaces them with a simulation from the injected parameters, so only the
+# epochs and the uncertainties matter here.
+epochs = range(56000.0, 58000.0, length=30)
+
+A = Body(name="A", variables=@variables begin
+    mass ~ truncated(Normal(1.0, 0.05), lower=0.1)      # M⊙
+end)
+
+b = Body(name="b", about=A, variables=@variables begin
+    mass ~ LogUniform(0.1mjup, 30mjup)                  # M⊙
+    a ~ LogUniform(0.5, 30.0)                           # AU
+    e ~ Uniform(0.0, 0.5)
+    i ~ Sine()
+    ω ~ Uniform(0, 2pi)
+    Ω ~ Uniform(0, 2pi)
+    tp ~ Uniform(55000, 59000)
+end)
+
+rvs = RadialVelocityObs(
+    Table(
+        epoch = collect(epochs),
+        rv    = zeros(length(epochs)),
+        σ_rv  = fill(10.0, length(epochs)),   # m/s
+    );
+    target = A, ref = Barycentre, name = "HARPS",
+    variables=@variables begin
+        offset ~ Normal(0, 100)          # m/s -- NOT auto-injected in v2
+        jitter ~ LogUniform(0.1, 30.0)   # m/s
+    end)
+
+template = System(name="completeness-demo", bodies=[A, b], observations=[rvs],
+    variables=@variables begin
+        plx = 25.0
+    end)
+nothing # hide
+```
+
+```@example 1
+masses = [0.3mjup, 10mjup]    # M⊙
+seps   = [1.0, 20.0]          # AU
+
+cmap, results = completeness_map(
+    template,
+    model -> octofit(model, iterations=500, adaptation=1000, verbosity=0),
+    (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 1mjup;
+    inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep))),
+    masses = masses,
+    separations = seps,
+    n_trials = 1,
+    verbosity = 0,
+)
+cmap.completeness
+```
+
+Only the massive, close companion is recovered — a 0.3 M_Jup companion produces a
+few m/s of reflex motion against a 10 m/s noise floor, and a 20 AU orbit is four
+times longer than the 2000-day baseline.
+
+```@example 1
+completenessplot(cmap, nothing; show_counts=true)
+```
+
+Two things about `inject` that changed in v2 and will bite a copied v1 script:
+
+* Overrides nest under **`bodies=`**, not `planets=` — observations no longer live under a companion, and the host star is a body like any other. Passing `planets=` raises an explicit error pointing at the new spelling.
+* The values are in the model's own units, so a mass override is in **M⊙**.
 
 ## Quick example (local)
 
@@ -38,9 +126,9 @@ using Octofitter, Distributions
 cmap, results = completeness_map(
     sys,
     model -> octofit(model, iterations=5000, verbosity=0),   # your sampler
-    (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 0.1; # your detection criterion
-    inject = (mass, sep) -> (; planets=(; b=(; mass=mass, a=sep))),
-    masses = 10 .^ range(-1, 2, length=12),       # 0.1 to 100 Mjup
+    (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 1mjup; # your detection criterion
+    inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep))),
+    masses = 10 .^ range(-1, 2, length=12) .* mjup,  # 0.1 to 100 Mjup, expressed in M⊙
     separations = 10 .^ range(-0.3, 1.7, length=12), # 0.5 to 50 AU
     n_trials = 5, # trials per mass/separation combination
 )
@@ -49,6 +137,8 @@ cmap, results = completeness_map(
 using CairoMakie
 completenessplot(cmap)
 ```
+
+`completeness_map` returns **both** the assembled map and the full results vector, so you can re-apply a different detection criterion without re-sampling.
 
 ## Choosing a sampler
 
@@ -60,12 +150,28 @@ and the number of iterations. Some options:
 # HMC (fast, good for unimodal posteriors)
 sampler = model -> octofit(model, iterations=5000, verbosity=0)
 
+# Lower target acceptance, for bumpier posteriors (e.g. image data)
+sampler = model -> octofit(model, 0.6, iterations=5000, adaptation=2000, verbosity=0)
+
 # Pigeons (slower, better for multimodal posteriors)
+using Pigeons
 sampler = model -> begin
     chain, pt = octofit_pigeons(model, n_rounds=8)
     chain
 end
 ```
+
+!!! note "Which sampler to run per trial"
+    For strongly multi-modal data (images, interferometry) a completeness map built on
+    single-chain HMC will be optimistic: a trial where the sampler simply never visited
+    the injected mode is scored as a non-recovery for the wrong reason.
+    [`octofit_pigeons`](@ref) removes that failure mode, at a cost of far more compute per
+    cell — a real trade against grid resolution, and the usual reason to run phase 2 on a
+    cluster. Note the `.chain` unwrap above: `octofit_pigeons` returns `(;chain, pt)`,
+    while `run_completeness_trial` wants a bare `Chains`.
+
+    Whichever you pick, the initialization shortcut described above already makes this a
+    *statistical detectability* estimate rather than a blind-discovery simulation.
 
 ## Choosing a detection criterion
 
@@ -74,20 +180,23 @@ provide to [`assemble_completeness`](@ref). Because it is only applied in the
 assembly phase, you can experiment with different criteria on the same set of
 results.
 
+The `θ_true` argument is the model's own nested parameter structure, so a body's
+variables live under `θ.bodies.<name>`. (In v1 this was `θ.planets.<name>`.)
+
 Here are some example criteria:
 
 **Mass recovery** — recovered mass within a factor of 3 of the true value:
 ```julia
 detection = (chain, θ) -> begin
     med = median(vec(chain["b_mass"]))
-    true_mass = θ.planets.b.mass
+    true_mass = θ.bodies.b.mass
     return med > true_mass / 3 && med < true_mass * 3
 end
 ```
 
 **Credible interval excludes zero** — 95% lower bound on mass exceeds a threshold:
 ```julia
-detection = (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 0.1
+detection = (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 1mjup
 ```
 
 **Spike-and-slab Bayes factor** — if your model includes a `planet_present ~ Bernoulli(0.5)` indicator variable:
@@ -126,15 +235,24 @@ completenessplot(cmap_bf10, "completeness_bf10.png")
 
 The `inject` argument maps grid values to parameter overrides. It must return
 a nested `NamedTuple` that sets *free* (prior) parameters only — not derived
-parameters.
+parameters. Overriding a derived variable is an error listing the model's free
+variables, where v1 silently discarded it.
 
 ```julia
 # Simple case: mass and semi-major axis are free parameters
-inject = (mass, sep) -> (; planets=(; b=(; mass=mass, a=sep)))
+inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep)))
 
 # Spike-and-slab case: also force planet_present=1 during injection
-inject = (mass, sep) -> (; planets=(; b=(; planet_present=1.0, mass_prime=mass, a=sep)))
+inject = (mass, sep) -> (; bodies=(; b=(; planet_present=1.0, mass_prime=mass, a=sep)))
+
+# System-level variables sit at the top level; observation variables under `observations`
+inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep)),
+                           observations=(; GPI=(; jitter=1.0)))
 ```
+
+Overrides are located by exact slot lookup in the flat parameter vector, not by
+searching for a matching value as v1 did — so two parameters that happen to draw
+the same number, or one element of a vector-valued prior, are addressed correctly.
 
 ## Gaia DR4 example
 
@@ -161,7 +279,7 @@ For large grids or many trials, use the three-phase API with SLURM array jobs.
 
 ```julia
 jobs = completeness_jobs(
-    masses = 10 .^ range(-1, 2, length=15),
+    masses = 10 .^ range(-1, 2, length=15) .* mjup,   # M⊙
     separations = 10 .^ range(-0.3, 1.7, length=15),
     n_trials = 10,
 )
@@ -182,7 +300,7 @@ job = jobs[parse(Int, ENV["SLURM_ARRAY_TASK_ID"])]
 result = run_completeness_trial(
     job, sys,
     model -> octofit(model, iterations=5000, verbosity=0);
-    inject = (mass, sep) -> (; planets=(; b=(; mass=mass, a=sep))),
+    inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep))),
 )
 
 serialize("results/trial_\$(lpad(ENV["SLURM_ARRAY_TASK_ID"], 4, '0')).jls", result)
@@ -210,7 +328,7 @@ results = [deserialize(f) for f in readdir("results", join=true) if endswith(f, 
 
 # Apply detection criterion — try different thresholds!
 cmap = assemble_completeness(results,
-    (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 0.1;
+    (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 1mjup;
     masses=MASSES, separations=SEPARATIONS,
 )
 
@@ -223,6 +341,12 @@ completenessplot(cmap, "completeness_map.png")
     absent from the results — `assemble_completeness` handles incomplete grids
     gracefully.
 
+!!! note "Empty cells"
+    `assemble_completeness` reports `completeness = 0.0` for cells with zero trials,
+    which is indistinguishable from a cell where nothing was recovered. `n_total`
+    carries the distinction; mask on `n_total == 0` rather than trusting the
+    completeness value there.
+
 ## Visualization
 
 ```julia
@@ -234,6 +358,9 @@ completenessplot(cmap, "map.png")
 # With detection counts overlaid
 completenessplot(cmap, "map_counts.png"; show_counts=true)
 
+# Pass `nothing` as the filename to skip saving and just return the figure
+fig = completenessplot(cmap, nothing)
+
 # Customized
 fig = Figure(size=(700, 500))
 completenessplot!(fig.layout, cmap;
@@ -242,3 +369,5 @@ completenessplot!(fig.layout, cmap;
 )
 Makie.save("map_custom.png", fig, px_per_unit=3)
 ```
+
+The default y-axis label is `mass [M⊙]`, matching v2's single mass unit.

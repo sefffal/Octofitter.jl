@@ -2,6 +2,13 @@
 
 This tutorial demonstrates how to simultaneously model both circular and eccentric orbit possibilities in a single fit, allowing you to rigorously evaluate whether eccentricity is necessary to explain your data.
 
+!!! note "This tutorial needs the Pigeons sampler"
+    The spike-and-slab prior below introduces a **discrete** parameter, and the
+    default HMC sampler (`octofit`) cannot move a discrete variable — so this page
+    needs [`octofit_pigeons`](@ref), which lives in a package extension. Run
+    `pkg> add Pigeons` and `using Pigeons` before the sampling blocks, or they will
+    fail with a `MethodError`.
+
 ## Motivation
 
 When fitting orbits, a common question arises: **Is the orbit circular, or is eccentricity required by the data?**
@@ -67,19 +74,25 @@ astrom_dat = Table(;
     σ_dec = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0,], # mas
     cor   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,]
 )
-astrom_obs = PlanetRelAstromObs(astrom_dat, name="relastrom")
+astrom_obs = RelAstromObs(astrom_dat; target=:b, ref=:A, name="relastrom")
+nothing # hide
 ```
 
-Now we define our planet model with the spike-and-slab prior on eccentricity:
+Now we define our bodies. The spike-and-slab prior goes in the companion's own
+`@variables` block:
 
 ```@example 1
-planet_b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
-    observations=[astrom_obs],
+A = Body(
+    name="A",
     variables=@variables begin
-        M = system.M
-        plx = system.plx
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1) # M⊙
+    end
+)
+
+b = Body(
+    name="b",
+    about=A,
+    variables=@variables begin
         a ~ Uniform(0, 100)
 
         # Spike-and-slab prior for eccentricity
@@ -95,7 +108,7 @@ planet_b = Planet(
         i ~ Sine()
         Ω ~ UniformCircular()
         θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, 50420; M, e, a, i, ω, Ω)
+        epoch = 50420.0
     end
 )
 nothing # hide
@@ -104,15 +117,16 @@ nothing # hide
 !!! note "Why multiply ω by the indicator variable?"
     When an orbit is circular (`e = 0`), the argument of periastron `ω` becomes undefined—there is no periastron! By multiplying `ω` by the `eccentric` indicator, we ensure that when the model is circular, `ω` is automatically set to zero and doesn't waste computational effort exploring meaningless values. 
 
-Now we complete the system definition:
+Now we complete the system definition. Note that the relative astrometry is
+listed in the *system's* `observations=`: in v2 an observation names the bodies
+it refers to (`target=:b, ref=:A`) instead of being attached to one of them.
 
 ```@example 1
 sys = System(
     name="CircularOrEccentric",
-    companions=[planet_b],
-    observations=[],
+    bodies=[A, b],
+    observations=[astrom_obs],
     variables=@variables begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
     end
 )
@@ -130,6 +144,9 @@ model = Octofitter.LogDensityModel(sys)
     using Pkg
     Pkg.add("Pigeons")
     ```
+
+    `octofit_pigeons`'s methods live in a package extension, so the `using Pigeons`
+    line is not optional: without it the function exists but has no methods.
 
 Let's sample from our model using Pigeons:
 
@@ -246,9 +263,10 @@ You can also compare the eccentric and circular subsets:
 octocorner(model, chain_eccentric, chain_circular, small=true)
 ```
 
-## Generallization
+## Generalization
 
-5. **Generalization**: This technique can be extended to other discrete model choices, such as:
-   - Coplanar vs non-coplanar multi-planet systems
-   - Including vs excluding a Gaussian process for stellar activity
-   - Different numbers of planets
+This technique can be extended to other discrete model choices, such as:
+
+- Coplanar vs non-coplanar multi-planet systems
+- Including vs excluding a Gaussian process for stellar activity
+- Different numbers of planets

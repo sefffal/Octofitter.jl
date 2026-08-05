@@ -23,6 +23,8 @@ using Distributions
 using OctofitterImages
 using Pigeons
 using AstroImages
+using PlanetOrbits
+using CairoMakie
 ```
 
 Typically one would load your likelihood maps from eg. FITS files like so:
@@ -52,16 +54,24 @@ If you're using a FITS file, make sure to store your data in 64-bit floating poi
 
 
 For this demonstration, however, we will construct two synthetic likelihood maps using a template orbit. We will create three peaks in two epochs.
+
+The template is a PlanetOrbits.jl system built directly, rather than an Octofitter model — we only want somewhere to evaluate a position, not a fit. Note that `Body`, `Orbit` and `System` have to be qualified with `PlanetOrbits.` here, because Octofitter exports model-building types of the same names.
+
 ```@example 1
 
-orbit_template = orbit(
-    a = 1.0,
-    e = 0.1,
-    i = 0.0,
-    ω = 0.0,
-    Ω = 0.5,
-    plx = 50.0,
-    M = 1
+star_template = PlanetOrbits.Body(mass=1.0, name=:A)
+planet_template = PlanetOrbits.Body(mass=0.0, name=:b)
+orbit_template = PlanetOrbits.System(
+    (star_template, planet_template),
+    (PlanetOrbits.Orbit(planet_template; about=star_template,
+        a = 1.0,
+        e = 0.1,
+        i = 0.0,
+        ω = 0.0,
+        Ω = 0.5,
+        tp = 0.0,
+    ),);
+    plx = 50.0
 )
 epochs = [
     mjd("2024-01-30"),
@@ -69,7 +79,8 @@ epochs = [
 ]
 
 ## Create simulated data with three likelihood peaks at both epochs
-x1,y1 = raoff(orbit_template,epochs[1]), decoff(orbit_template,epochs[1])
+sol1 = orbitsolve(orbit_template, epochs[1])
+x1, y1 = raoff(sol1, :b, :A), decoff(sol1, :b, :A)
 # The three peaks in our likelihood map
 d1 = MvNormal([x1, y1], [
     5.0 0.2
@@ -110,7 +121,8 @@ imview(10 .^ image1_offset)
 That was the first epoch. We now generate data for the second epoch:
 ```@example 1
 
-x2,y2 = raoff(orbit_template,epochs[2]), decoff(orbit_template,epochs[2])
+sol2 = orbitsolve(orbit_template, epochs[2])
+x2, y2 = raoff(sol2, :b, :A), decoff(sol2, :b, :A)
 # The three peaks in our likelihood map
 d1 = MvNormal([x2, y2], [
     5.0 0.2
@@ -161,50 +173,84 @@ likemap_dat = Table(;
 
 loglikemap = LogLikelihoodMapObs(
     likemap_dat,
-    name="GRAVITY",
+    target = :b,       # the companion the map describes
+    ref    = :A,       # the point index [0,0] of the map sits on
+    name   = "GRAVITY",
     variables=@variables begin
         platescale = 1.0               # Platescale multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
         northangle = 0.0               # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
     end
 );
+nothing # hide
 ```
+
+`target` and `ref` take the full v2 reference grammar: a `Body` model node, a `Symbol` naming one, or `Barycentre`. `ref` is the point each map is centred on (index `[0,0]`), which need not be the star.
+
+!!! note "This type is deliberately single-target"
+    Unlike [`ImageObs`](@ref fit-images), which takes `targets=(b, c)` because one
+    image contains every companion at once, a `LogLikelihoodMapObs` takes a single
+    `target`. A precomputed log-likelihood surface is one-companion-by-construction:
+    whoever produced it already marginalized or profiled everything else away, and
+    its normalization, jitter and correlated-noise treatment are baked in. To model
+    two companions this way, add two `LogLikelihoodMapObs` — one per surface.
+
+    No flux is involved either, for the same reason: the surface already carries
+    whatever brightness model produced it.
 
 !!! note
     The likelihood maps will be interpolated using a simple bi-linear interpolation. 
 
-We now create a one-planet model and run the fit using `octofit_pigeons`. This parallel-tempered sampler is slower than the regular `octofit`, but is recommended over the default Hamiltonian Monte Carlo sampler due to the multi-modal nature of the data. 
+We now create a one-planet model and run the fit using `octofit_pigeons`. This parallel-tempered sampler is slower than the regular `octofit`, but is recommended over the default Hamiltonian Monte Carlo sampler due to the multi-modal nature of the data. Observations live on the system in v2, and each names its own `target`/`ref` — there is nothing left for per-companion attachment to express.
+
 ```@example 1
 
-planet_b = Planet(
+A = Body(
+    name="A",
+    variables=@variables begin
+        mass ~ truncated(Normal(1.0, 0.1), lower=0.1)   # M⊙
+    end
+)
+
+b = Body(
     name="b",
-    basis=Visual{KepOrbit},
-    observations=[loglikemap],
+    about=A,
     variables=@variables begin
         a ~ Uniform(0, 10)
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
-        M = system.M
         ω ~ UniformCircular()
         Ω ~ UniformCircular()
         θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, 60339.0; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+        epoch = 60339.0    # reference epoch for θ. Choose an MJD date near your data.
     end
 )
 
 sys = System(
     name="Tutoria",
-    companions=[planet_b],
-    observations=[],
+    bodies=[A, b],
+    observations=[loglikemap],
     variables=@variables begin
-        M ~ truncated(Normal(1.0, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
     end
 )
 
 model = Octofitter.LogDensityModel(sys)
+init_chain = initialize!(model)
 chain, pt = octofit_pigeons(model, n_rounds=10) # increase n_rounds until log(Z₁/Z₀) converges.
 display(chain)
 ```
+
+!!! warning "The data here have three modes on purpose"
+    Likelihood maps are the archetypal multi-modal data set — the synthetic maps above
+    have three peaks deliberately — and that is exactly why this page samples with
+    [`octofit_pigeons`](@ref). Its tempered chains run all the way down to the prior,
+    where the three peaks merge into one broad surface, so replicas can migrate between
+    modes and every peak stays represented in the posterior.
+
+    A single HMC chain from [`octofit`](@ref) will instead find one peak and stay in it,
+    giving a posterior narrower than the data justify. If you do choose HMC here, run
+    several chains from different starting points ([`initialize!`](@ref) before each) and
+    compare them, rather than trusting a single run.
 
 !!! note
     `octofit_pigeons` scales very well across multiple cores. Start julia with `julia --threads=auto` to make sure you have multiple threads available for sampling.
@@ -221,11 +267,12 @@ using CairoMakie, PairPlots
 octocorner(model,chain,small=true,)
 ```
 
-And finally let's look at the posterior predictive distributions at both epochs:
+And finally let's look at the posterior predictive distributions at both epochs. `construct_system(model, chain)` rebuilds one PlanetOrbits system per posterior draw — it replaces v1's `construct_elements(chain, :b, i)`, since there is no per-planet orbit object any more:
 ```@example 1
-els = Octofitter.construct_elements(model, chain,:b, :)
-x = raoff.(els, loglikemap.table.epoch[1])
-y = decoff.(els, loglikemap.table.epoch[1])
+posteriors = construct_system(model, chain)
+
+x = [raoff(orbitsolve(p, loglikemap.table.epoch[1]), :b, :A) for p in posteriors]
+y = [decoff(orbitsolve(p, loglikemap.table.epoch[1]), :b, :A) for p in posteriors]
 pairplot(
     (;x,y),
     axis=(
@@ -240,8 +287,8 @@ pairplot(
 ```
 
 ```@example 1
-x = raoff.(els, loglikemap.table.epoch[2])
-y = decoff.(els, loglikemap.table.epoch[2])
+x = [raoff(orbitsolve(p, loglikemap.table.epoch[2]), :b, :A) for p in posteriors]
+y = [decoff(orbitsolve(p, loglikemap.table.epoch[2]), :b, :A) for p in posteriors]
 pairplot(
     (;x,y),
     axis=(
@@ -263,6 +310,9 @@ If you would like to add additional rounds of sampling, you may do the following
 pt = increment_n_rounds!(pt, 2)
 chain, pt = octofit_pigeons(pt)
 ```
+
+This picks up where the previous run left off — no need to start over — which is the
+usual way to keep adding rounds until `log(Z₁/Z₀)` stops drifting.
 
 Updated corner plot:
 ```@example 1

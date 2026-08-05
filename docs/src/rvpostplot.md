@@ -1,103 +1,173 @@
-# RV Visualization with `rvpostplot`
+# RV Posterior Plots
 
-While `octoplot` provides a broad overview of all your data and orbital fits, `rvpostplot` specializes in detailed visualization of radial velocity data. It creates a multi-panel figure showing:
-- The full RV time series with model fits
-- Residuals from the model
-- Phase-folded curves for each planet
+[`rvpostplot`](@ref) is the radial-velocity summary figure: an RV time series with a
+residual strip and a marginal histogram, then one phase-folded panel per planet. It is the
+same anatomy v1 shipped, but it is no longer a separate implementation — it is
+[`octoplot`](@ref) restricted to the model's radial-velocity channels, so the panels,
+the error-bar conventions and the returned axes are identical to the rest of the figure
+set.
 
-Two versions are available:
-- `rvpostplot(model, chain)`: Shows a single posterior sample
-- `rvpostplot_animated(model, chain)`: Creates an animation cycling through different posterior samples
+```julia
+res = rvpostplot(model, chain)          # == octoplot(model, chain; show_sky=false,
+                                        #             channels=PlanetOrbits.radvel)
+```
 
-Here is an example:
+While [`octoplot`](@ref) gives a broad overview of *all* the data in a fit, this
+page covers the parts of that figure that concern radial velocity: which panels
+you get, what the error bars mean, and how to build a custom RV figure out of
+the same pieces.
+
+The panel anatomy is unchanged from v1 — a time series with a residual strip,
+then one phase-folded panel per planet:
 
 ![](assets/rv-postplot-1.png)
 
-## Basic Usage
-```julia
-# Plot a single sample (by default, the maximum posterior sample)
-fig = rvpostplot(model, chain)
+## Basic usage
 
-# Create an animation
-fig = rvpostplot_animated(model, chain)
+```julia
+using Octofitter, CairoMakie
+
+# After running your fit...
+res = octoplot(model, chain)
+res.figure     # the Makie Figure
+res.axes       # named axes, for annotating with ordinary Makie calls
+res.series     # the underlying PosteriorSeries
 ```
 
+`octoplot` returns an [`OctoPlotResult`](@ref), which displays as its figure. The
+`axes` field is a nested NamedTuple keyed by panel: for a model with one
+`RadialVelocityObs` and one planet `b` you get `res.axes.rv.main`,
+`res.axes.rv.resid`, and `res.axes.rv_phase_b.main`. Pass `fname="rv.png"` to
+write the figure out.
 
-## Understanding the Plot Panels
-### Time Series Panel
-The top panel shows:
+## Which panels appear, and why
 
-* RV measurements from each instrument (different colors)
-* Model fits including any Gaussian Process stellar activity model
-* Error bars:
-    * Colored bars: Raw measurement uncertainty
-    * Grey bars: Measurement + instrument jitter
-    * Colored bands: uncertainty from the GP model (if used)
-* Optional perspective aka. secular acceleration line for models based on `AbsoluteVisual{...}` orbit
+Panels are derived from the model, not requested by flag. Each observation type
+declares its plot channels (`Octofitter.plotchannels`) and how to compute
+residuals (`Octofitter.residuals`), and `octoplot` assembles the stack:
 
-##  Residuals Panel
-Shows the difference between the data and model.
-Note that in the residuals and phase-folded plots, the grey bars included the GP uncertainty too.
+* **Sky panel** — drawn when the system has angular observables (i.e. it defines
+  `plx`). A pure RV model has none, so an RV-only fit gets no sky panel. Override
+  with `show_sky=true/false`.
+* **One time-series panel per channel group.** Channels are grouped by the
+  *observable query* behind them, so every instrument measuring
+  `radvel(star, barycentre)` shares one panel, with a different colour per
+  instrument, while a relative-RV observation (`radvel(b, A)`) gets its own
+  panel. This is what makes reflex and relative RV coexist in one figure.
+* **One phase-folded panel per (RV channel group × foldable hierarchy row)**,
+  under the default Keplerian propagator. In a two-planet fit you get a panel
+  folded on `b` and a panel folded on `c`; each subtracts the other rows' signals
+  from the data before folding. Override with `show_phase=true/false`.
+* Any bespoke panels an observation declares through
+  `Octofitter.defaultpanels`.
 
-## Phase-Folded Panels
-For each planet in your model, a phase-folded panel shows:
-* Data folded at the planet's orbital period
-* Other planet signals subtracted from the data
-* Binned data points (red) with uncertainties
-* Model curve in blue
+All epoch axes are linked, so panning one time-series panel pans them all.
 
-Optional text summary showing orbital parameters and uncertainties (pass `show_summary = true`)
+## Reading the panels
 
+### Time series panel
+* RV measurements from each instrument, in different colours.
+* One model curve per posterior draw, including any Gaussian process stellar
+  activity model.
+* Error bars: the coloured bar is the raw measurement uncertainty; the grey
+  extension is measurement plus that instrument's jitter.
+* The data are *calibrated* before plotting — the fitted `offset` and the
+  `trend_function` contribution are subtracted from both the data and the model,
+  so the points lie on the curve that `radvel` predicts.
 
-## Detailed Options and Customization
+### Residual strip
+Directly under each time-series panel, with a marginal histogram of the
+residuals beside it. When more than one draw is plotted, residuals are whitened
+(divided by their effective uncertainty) by default, so a heteroscedastic
+dataset still reads as a single scatter; pass `whiten=false` for residuals in
+m/s.
 
-### Panel Selection
+### Phase-folded panels
+For each planet: the data folded on that planet's orbital period with the other
+planets' signals removed, noise-weighted binned means, and the isolated
+single-planet model curve per draw, plus its own residual strip.
+
+## Options
+
 ```julia
-# Plot the maximum posterior sample with options
-rvpostplot(model, chain;
-    show_perspective=true,   # Show perspective acceleration line
-    show_summary=true,      # Show orbital parameter summary text
+octoplot(model, chain;
+    N = 250,            # posterior draws to take from the chain (default 250)
+    seed = 0,           # RNG seed for choosing those draws
+    ndraws = 50,        # how many of them to actually draw as curves
+    show_sky = nothing, # nothing = automatic; true/false to force
+    show_phase = nothing,
+    whiten = nothing,   # nothing = automatic; false for un-whitened residuals
+    figscale = 1.0,     # scale the whole figure
+    fname = nothing,    # write the figure to this path
 )
 ```
 
-### Orbit Sample Selection
-By default, `rvpostplot` shows the maximum posterior sample. You can specify a different sample:
-```julia
-# Plot a specific sample
-i_sample = 42
-fig = rvpostplot(model, chain, i_sample)
+### Plotting a single posterior draw
 
-# Plot the first sample
-fig = rvpostplot(model, chain, 1)
+v1's `rvpostplot(model, chain, i)` showed one sample. In v2 you slice the chain
+instead, which works for every plotting function rather than just this one:
+
+```julia
+# The maximum a-posteriori draw in the chain
+i_map = argmax(vec(chain[:logpost]))
+rvpostplot(model, chain[i_map:i_map, :, :])
+
+# An arbitrary draw
+rvpostplot(model, chain[42:42, :, :])
 ```
 
-### Animation Options
-The `rvpostplot_animated` function creates an animation that cycles through different posterior samples, helping visualize the range of orbits consistent with your data.
+### Animations
+
+[`rvpostplot_animated`](@ref) sweeps through the posterior: it rebuilds the figure for `N`
+single-draw slices and records them, so the phase folds move with each draw's own period.
 
 ```julia
-# Basic animation with default settings
-anim = rvpostplot_animated(model, chain)
-
-# Customize animation parameters
-anim = rvpostplot_animated(model, chain;
-    N = 50,            # Number of frames (default)
-    framerate = 4,     # Frames per second
-    compression = 1,   # Video compression level
-    fname = "rv-posterior.mp4"  # Output filename
-)
+Octofitter.rvpostplot_animated(model, chain; N=50, framerate=4, fname="rv-posterior.mp4")
 ```
-!!! note
-    The default of 50 frames usually provides a good balance between smooth animation and reasonable processing time.
 
-### Advanced Animation Control
-For fine-grained control over each frame, you can provide a callback function:
+Any extension Makie can write from a `VideoStream` works (`.mp4`, `.gif`, `.mkv`). For a
+different figure per frame, loop over single-draw slices yourself:
+
 ```julia
-# Example: Customize axis limits for each frame
-function adjust_frame(fig)
-    ax = fig.content[1]  # Get first axis
-    ylims!(ax, -100, 100)  # Set y limits
-    return fig
+draws = rand(1:size(chain, 1), 50)
+for (k, i) in enumerate(draws)
+    octoplot(model, chain[i:i, :, :]; fname="frame-$(lpad(k, 3, '0')).png")
 end
-
-anim = rvpostplot_animated(model, chain, callback=adjust_frame)
 ```
+
+## Building a custom RV figure
+
+The panels are public functions, so you can assemble your own layout from a
+[`PosteriorSeries`](@ref):
+
+```julia
+using Octofitter, CairoMakie
+
+series = Octofitter.PosteriorSeries(model, chain; N=200)
+
+# `entries` is the (observation, channel) list for the panel you want.
+entries = [(rvlike, ch) for ch in Octofitter.plotchannels(rvlike)]
+
+fig = Figure(size=(700, 700))
+timeseriespanel!(fig[1, 1], series, entries)         # data vs model + residuals
+phasefoldpanel!(fig[2, 1], series, entries; row=1)   # folded on hierarchy row 1
+fig
+```
+
+Listing several observations' channels in one `entries` vector is what puts
+several instruments in one panel. See [`timeseriespanel!`](@ref),
+[`phasefoldpanel!`](@ref) and [`skypanel!`](@ref).
+
+`octoplot`'s `channels=` keyword does the same restriction declaratively — it is exactly
+what `rvpostplot` is — and takes an observable function, a channel or observable name, or
+a collection of either:
+
+```julia
+octoplot(model, chain; channels=radvel)              # RV panels only
+octoplot(model, chain; channels=(:sep, :pa))         # relative astrometry only
+```
+
+For the underlying data rather than a figure, `Octofitter.residuals(obs, ctx)`
+returns, per channel, the epochs, the calibrated data, the model, the residual
+and the effective uncertainty; [`obscontext`](@ref) builds the `ctx` from a
+`PosteriorSeries`. Both `RadialVelocityObs` and `MarginalizedRVObs` implement it.

@@ -21,15 +21,63 @@ From AstroLib.jl:
 On my laptop, this solves for a single eccentric anomaly in just 47 ns.
 Since it is implemented in pure Julia, there is no overhead from calling into a C or Cython compiled function and no need for vectorization.
 
-## Choosing an Orbit Type in Octofitter
+## Choosing a Parameterization
 
-When defining a `Planet` in Octofitter, specify the orbit type via the `basis` parameter:
+There is no `basis=` keyword in Octofitter any more, and no orbit *types* to choose
+between. Two independent choices replace it.
 
-| Basis | Use Case |
-|-------|----------|
-| `Visual{KepOrbit}` | Relative astrometry only |
-| `AbsoluteVisual{KepOrbit}` | Astrometry + proper motion anomaly (HGCA, Hipparcos) |
-| `ThieleInnesOrbit` | Low-eccentricity or face-on orbits with astrometry |
-| `RadialVelocityOrbit` | RV-only fitting |
+**The frame** is chosen by which frame variables the `System` block defines:
+
+| System block defines | Frame | Observables available |
+|---|---|---|
+| nothing | none | physical units only (AU, AU/yr, m/s) |
+| `plx` | parallax | angular observables in mas — the usual choice for relative astrometry |
+| `plx, ra, dec, pmra, pmdec, rv, ref_epoch` | absolute | rigorously propagated space motion — needed for Gaia/Hipparcos absolute astrometry |
+
+A *partial* absolute frame (some of those variables but not all) is an error rather than
+a silent downgrade. For an RV-only fit, omit `plx` and fix `i = π/2`, `Ω = 0` — radial
+velocities constrain only m·sin i.
+
+**The parameterization** is chosen by which orbital elements a `Body` block declares.
+Supply exactly one alternative from each group; supplying two, or none, is a mechanical
+error from the constructor rather than a silently ignored keyword.
+
+| Group | Alternatives |
+|---|---|
+| size | `a` [AU] or `P` [**days**] |
+| shape | (`e`, `ω`) or (`secosω`, `sesinω`) or (`ecosω`, `esinω`) |
+| phase | `tp` or `M0` + `epoch` or `θ` + `epoch` |
+| orientation | `i` [rad], `Ω` [rad] |
+| joint | `x, y, z, vx, vy, vz` + `epoch` replaces every group above |
+
+`secosω` = √e·cosω and `ecosω` = e·cosω sample the eccentricity disc rather than the
+half-plane, which removes the ω degeneracy as e → 0. `θ` is the planet's sky-plane
+position angle at `epoch` and is usually far better constrained by imaging than `tp`.
+
+!!! warning "`P` is in days"
+    `P` matches `period(sys)` so the two round-trip. If you think in years, multiply:
+    `P = P_years * 365.25`.
+
+!!! note "`τ` is gone"
+    v1's `τ ~ UniformCircular(1.0)` needed hidden period and reference-epoch state and has
+    no clean meaning under N-body integration. Use `tp`, or `M0` + `epoch`, or
+    `θ` + `epoch`.
+
+A Thiele-Innes fit is written as a derived line rather than an orbit type — see
+[Fit with a Thiele-Innes Basis](@ref).
+
+## Choosing a Propagator
+
+By default, orbits are superposed Keplerians (`PlanetOrbits.KeplerianApprox()`), which is
+what every version of Octofitter did. You can instead integrate the bodies' mutual
+gravity, without changing anything else in the model:
+
+```julia
+System(...; method=PlanetOrbits.AHL21(h=40.0, t0=57388.0))
+```
+
+Note that the elements mean different things under the two propagators — constant versus
+osculating at `t0` — so a chain fitted with one is not element-for-element comparable
+with the other.
 
 For generating synthetic data using PlanetOrbits functions, see the [Data Simulation](@ref data-simulation) tutorial.

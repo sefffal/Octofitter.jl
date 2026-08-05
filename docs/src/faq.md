@@ -8,100 +8,117 @@
 
 ## How do we calculate the position of a planet at a future epoch?
 
-After fitting an orbit, there are two ways to calculate its projected position in the sky at a future epoch.
+After fitting an orbit, rebuild the whole system for one or more draws from the chain and
+query it at whatever epochs you like. `construct_system` replaces v1's
+`construct_elements`: a draw is now one `PlanetOrbits.System` containing every body and
+every orbit, rather than a per-planet orbit object.
 
-**Option 1**
+```julia
+posys = construct_system(model, chain, 1)   # draw #1; pass `:` for all draws
+sols = orbitsolve(posys, [mjd("2028-01-01"), mjd("2029-01-01")])
+```
 
-The easiest way to get a report on the planet's future position is via `octoplot`
-```
-octoplot(model, chain, mark_epochs_mjd=[
-    mjd("2028-01-01"),
-    mjd("2029-01-01"),
-    # etc
-])
-```
-This will add a scatter point at the dates you requested and output a summary to the terminal. You can also control the alpha and number of orbits plotted. Something like this:
-`octoplot(model, chain, mark_epochs_mjd=[mjd("2025-01-01"), mjd("2027-01-01")], N=100, alpha=1.0)`
+Then read off whatever you need. Every observable takes `(solution, target, reference)`:
 
-**Option 2**
-
-The other is to calculate the positions yourself and plot them however you like.
-```
-els = Octofitter.construct_elements(model, chain, :b, :)
-```
-Where `:b` is the name of the planet you chose, and `:` means all draws from the chain (you can also pass a particular iteration number of range of numbers).
-Then, you can solve keplers equation and plot whatever you want:
-```
-sols = orbitsolve.(els, mjd("2025-01-01"))
+```julia
+sol = sols[1]
 
 # projected position in mas
-X = raoff.(sols)
-Y = decoff.(sols)
+X = raoff(sol, :b, :A)
+Y = decoff(sol, :b, :A)
 
-Proj_sep_mas = projectedseparation.(sols)
-PA_rad = posangle.(sols)
+Proj_sep_mas = projectedseparation(sol, :b, :A)
+PA_rad = posangle(sol, :b, :A)
 
 # 3D position in AU
-Z_au = posz.(sols)
-X_au = posx.(sols)
+Z_au = posz(sol, :b, :A)
+X_au = posx(sol, :b, :A)
 
 # relative RV between star and companion
-Rel_rv = radvel.(sols)
+Rel_rv = radvel(sol, :b, :A)
+
+# the star's reflex RV, relative to the system barycentre.
+# Note the lowercase `barycentre`: it resolves the reference point against THIS
+# sample's masses. The capitalized `Barycentre` is the declaration spec you write
+# in an observation's `ref=`, and is not accepted by the observable functions.
+Star_rv = radvel(sol, :A, PlanetOrbits.barycentre(posys))
 ```
 
-And so on. You can also query these values for the star.
-Then, you can plot them however you like,
-Eg.
+Because the reference is explicit, the same call works for a companion measured against
+another companion (`raoff(sol, :c, :b)`), against the barycentre, or against a
+photocentre.
+
+To build a predicted distribution rather than a single number, loop over draws:
+
+```julia
+ep = mjd("2028-01-01")
+X = map(1:size(chain,1)) do i
+    sol = orbitsolve(construct_system(model, chain, i), [ep])[1]
+    raoff(sol, :b, :A)
+end
+scatter(X, axis=(;xlabel="draw", ylabel="ΔRA [mas]"))
 ```
-scatter(X, Y, axis=(;xlabel="delta ra mas", autolimitaspect=1.0, xreversed = true))
-```
+
+!!! note "`mark_epochs_mjd` is gone"
+    v1's `octoplot(model, chain, mark_epochs_mjd=[...])` has no v2 equivalent yet. Compute
+    the predicted positions as above and add them to the figure yourself — `octoplot`
+    returns named axes (`res.axes`) precisely so that you can.
 
 
 ## Can slope/GP parameters be shared between RV instruments?
 
-You can share instrument parameters such as linear our quadratic terms between instruments by defining the variables at the system level, and forwarding them to each instrument's `@variables` block (see `<---` arrows):
+You can share instrument parameters such as linear or quadratic terms between instruments by defining the variables at the system level, and forwarding them to each instrument's `@variables` block (see `<---` arrows):
 
-```
-# Instrument 1 likelihood
-rvlike_apf = StarAbsoluteRVObs(
+```julia
+# Instrument 1
+rvlike_apf = RadialVelocityObs(
     rv_dat_apf,
-    name="APF",
+    target = A,
+    ref = Barycentre,
+    name = "APF",
 
     # Linear trend
     trend_function = (θ_obs, epoch) -> θ_obs.trend_slope * (epoch - 57000),
-    
+
     variables=@variables begin
-        offset = 0
+        offset ~ Normal(0, 100)     # m/s
         jitter ~ LogUniform(0.1,30) # m/s
-        trend_slope = system.trend_slope  # <-----  
+        trend_slope = system.trend_slope  # <-----
     end
 )
-# Instrument 2 likelihood
-rvlike_hires = StarAbsoluteRVObs(
+# Instrument 2
+rvlike_hires = RadialVelocityObs(
     rv_dat_hires,
-    name="HIRES",
-    
+    target = A,
+    ref = Barycentre,
+    name = "HIRES",
+
     # Linear trend:
-    trend_function = (θ_obs, epoch) -> θ_obs.trend_slope * (epoch - 57000), 
-    
+    trend_function = (θ_obs, epoch) -> θ_obs.trend_slope * (epoch - 57000),
+
     variables=@variables begin
-        offset = 0
+        offset ~ Normal(0, 100)     # m/s
         jitter ~ LogUniform(0.1,30) # m/s
-        trend_slope = system.trend_slope  # <-----  
+        trend_slope = system.trend_slope  # <-----
     end
 )
 sys = System(
     name = "Star1",
-    companions=[planet_1],
+    bodies=[A, planet_1],
     observations=[rvlike_apf, rvlike_hires],
     variables=@variables begin
-        M ~ truncated(Normal(1.5, 0.06),lower=0.1, upper=10)
+        plx ~ truncated(Normal(50, 1), lower=1)
 
-        trend_slope ~ Uniform(-1,1)  # <-----  
+        trend_slope ~ Uniform(-1,1)  # <-----
     end
 )
 ```
 
+!!! warning "`offset` and `jitter` are no longer added for you"
+    v1's `StarAbsoluteRVObs` silently injected `offset ~ Uniform(-1000, 1000)` and
+    `jitter ~ LogUniform(0.001, 100)` when you gave it no `variables=` block. v2 never
+    invents a prior. A v1 RV model copied across without those two lines fits with **no
+    zero point and no jitter**, which will change your answers rather than error.
 
 ## What conventions does Octofitter use for orbital elements?
 
@@ -181,10 +198,10 @@ The `$` interpolation only works for **simple references** to external variables
 
 ```julia
 # ❌ This FAILS - nested $ or complex expressions don't work
-flux = $mass_to_L_contrast(planet.mass, system.age, $HOST_L_MAG)
+flux_L = $mass_to_L_contrast(mass, system.age, $HOST_L_MAG)
 
 # ✅ This WORKS - simple function reference, model variables without $
-flux = $mass_to_L_contrast(planet.mass, system.age, planet.temp)
+flux_L = $mass_to_L_contrast(mass, system.age, tempK)
 ```
 
 **Solution**: Create a wrapper function that captures your constants:
@@ -198,44 +215,41 @@ function mass_to_L_contrast_wrapper(mass)
 end
 
 # Then use the simple wrapper
-flux = $mass_to_L_contrast_wrapper(mass)
+flux_L = $mass_to_L_contrast_wrapper(mass)
 ```
 
 See [Derived Variables - Interpolation Syntax](@ref derived) for more details.
 
 ## Should I use `planet.X` or `system.X` in observation variables?
 
-It depends on **where the observation is attached** and **where the variable is defined**:
+Always `system.X`. Observations are no longer attached to a planet — every observation
+lives on the `System` and names its own `target` and `ref` — so an observation's
+`@variables` block sees exactly one namespace, `system.`.
 
-- **Observation attached to a Planet** (e.g., `PhotometryObs`, `PlanetRelAstromObs`):
-  - Use `planet.X` for variables defined on the Planet
-  - Use `system.X` for variables defined on the System
-
-- **Observation attached to a System** (e.g., `StarAbsoluteRVObs`):
-  - Use `system.X` for variables defined on the System
+If an observation needs a *body's* variable, expose it through the system block first. A
+system line that mentions a body by name is deferred until after every body block has
+run, so it is already available by the time observation blocks are evaluated:
 
 ```julia
-# PhotometryObs attached to a planet:
-H_band_data = PhotometryObs(
-    data_table,
-    name="H_band",
+sys = System(
+    name="HD12345",
+    bodies=[A, planet_b],
+    observations=[my_obs],
     variables=@variables begin
-        # mass is on planet, age is on system
-        flux = $H_band_contrast_interp(planet.mass, system.age)
-    end
-)
-
-planet_b = Planet(
-    name="b",
-    observations=[H_band_data],  # Attached to planet
-    variables=@variables begin
-        mass ~ Uniform(0, 10)  # Access via planet.mass
-        # ...
+        age ~ Normal(15, 1)
+        b_mass = b.mass        # deferred: mentions a body
     end
 )
 ```
 
-See [Derived Variables - Variable Scoping in Observations](@ref derived) for more details.
+Then write `system.age` and `system.b_mass` inside `my_obs`'s variables block.
+
+Note that per-band fluxes and contrast ratios are no longer observation variables at all:
+they are declared on the body as `flux` or `flux_<band>`. Several observation types raise
+an explicit error if you declare a `flux` variable on the observation. See
+[Migrating to Octofitter v2](@ref v2-migration).
+
+See [Derived Variables](@ref derived) for more details.
 
 ## What does the warning "Too many steps without any function evaluations" mean?
 

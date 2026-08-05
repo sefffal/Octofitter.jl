@@ -22,9 +22,10 @@ Gaia's sensitivity is far from uniform! If you're not sure what star to use, jus
 ## Setup
 
 ```@example 1
-using Octofitter, OctofitterRadialVelocity, Distributions
+using Octofitter, Distributions
 using CairoMakie, PairPlots, Pigeons
 using CSV, DataFrames
+using Statistics
 ```
 
 ## Prepare Star Info and Noise
@@ -136,7 +137,7 @@ N_epochs = size(gost,1)
 df = DataFrame(
     # Epoch of measurements in MJD
     epoch = jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_),
-    # Scan angle in degrees
+    # Scan angle in radians
     scan_pos_angle = gost.scanAngle_rad_,
     # In theory you could just populate this vector with whatever measurements you want,
     # BUT we can also leave it blank, and leverage Octofitter's built in data simulation 
@@ -170,18 +171,15 @@ df.parallax_factor_al = @. (
 ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 
 gaiaIADobs = GaiaDR4AstromObs(df;
-    gaia_id=gaia_id,
+    target = Photocentre,
+    ref = Barycentre,
+    name = "GaiaDR4",
     variables=@variables begin
         astrometric_jitter ~ LogUniform(0.00001, 10) # mas
         ra_offset_mas  ~ Normal(0, 10000)
         dec_offset_mas ~ Normal(0, 10000)
         pmra ~ Uniform(-1000, 1000) # mas/yr
         pmdec ~  Uniform(-1000, 1000) # mas/yr
-        # ra_offset_mas = -0.00154
-        # dec_offset_mas = 0.0019354
-        # pmra = 5.421
-        # pmdec = -24.121
-        plx = system.plx
         ref_epoch = $ref_epoch_mjd
     end
 )
@@ -189,43 +187,60 @@ gaiaIADobs = GaiaDR4AstromObs(df;
 nothing # hide
 ```
 
+!!! note "What changed from v1 here"
+    `GaiaDR4AstromObs` no longer takes `gaia_id=` — it carries data, references and
+    variables and nothing else. Instead it declares `target=Photocentre` (the system's
+    flux-weighted point, the default) and `ref=Barycentre`, which is what replaces v1's
+    positional `fluxratio` vector. The observation's parallax is read from the system's
+    `plx`, so the old `plx = system.plx` line in this block is redundant.
 
 ## Define the Model
 
+Now, we define a model that incorporates this data. Bodies are model nodes in their own
+right — the host star included — and every mass is in **solar masses**:
 
-Now, we define a model that incorporates this data:
 ```@example 1
-
-mjup2msol = Octofitter.mjup2msol
 orbit_ref_epoch = mean(gaiaIADobs.table.epoch)
 
-b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
-    observations=[],
+A = Body(
+    name="A",
     variables=@variables begin
+        mass = 1.0     # Msol
+        flux = 1.0     # sets the flux scale the photocentre is weighted by
+    end
+)
+
+b = Body(
+    name="b",
+    about=A,
+    variables=@variables begin
+        mass ~ LogUniform(0.01mjup, 1000mjup)   # Msol
+        flux = 0.0                              # dark companion
         a ~ LogUniform(0.01, 100)
         e ~ Uniform(0, 0.99)
         ω ~ Uniform(0,2pi)
         i ~ Sine()
         Ω ~ Uniform(0,2pi)
         θ ~ Uniform(0,2pi)
-        tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=system.M, e, a, i, ω, Ω)
-        mass ~ LogUniform(0.01, 1000)
+        epoch = $orbit_ref_epoch
     end
 )
+
 sys = System(
     name="target_1",
-    companions=[b],
-    observations=[gaiaIADobs,],
+    bodies=[A, b],
+    observations=[gaiaIADobs],
     variables=@variables begin
-        M = 1.0
         # Note: keep these physically plausible to prevent numerical errors
         plx ~ Uniform(0.01,100) # mas
     end
 )
 model = Octofitter.LogDensityModel(sys, verbosity=4)
 ```
+
+A `Photocentre` target needs at least one body to declare a flux, so `A` carries
+`flux = 1.0`; every other body's `flux` is then a contrast ratio against it. With
+`b.flux = 0.0` the photocentre is exactly the host, which is what v1 modelled by default.
 
 ## Simulating a Planet
 
@@ -257,35 +272,41 @@ We can also specify all values for the simulation manually. This process is a bi
 !!! warning
     Note that the output below is just an example, you must generate your own template from your model and modify it as needed. The exact structure is not garuanteed to be stable between versions of Octofitter.
 
+Note the shape: system variables at the top level, **`bodies`** (v1 called this `planets`,
+and the star was not in it), and `observations`.
 
 ```@example 1
 params_to_simulate = (
     plx = 16.138978209522527,
-    M = 1.0,
-    observations = (
-        GaiaDR4 = (
-            pmdec = -24.188882826919325,
-            plx = 16.138978209522527,
-            ra_offset_mas = 0.05413791355838311,
-            pmra = 5.301074192615374,
-            astrometric_jitter = 0.015590772157762368,
-            ref_epoch = 57936.375,
-            dec_offset_mas = 0.0889816167388366
+    bodies = (
+        A = (
+            mass = 1.0,
+            flux = 1.0,
         ),
-    ),
-    planets = (
         b = (
+            mass = 10.0 * Octofitter.mjup,
             a = 2.0,
-            Ω = 0.6,
             e = 0.01,
             ω = 0.01,
-            tp = 51710.01947449644,
-            mass = 10.0,
             i = 0.01,
-            θ = 3.5226970272017826
+            Ω = 0.6,
+            θ = 3.5226970272017826,
+            epoch = orbit_ref_epoch,
+            flux = 0.0,
         ),
-    )
+    ),
+    observations = (
+        GaiaDR4 = (
+            astrometric_jitter = 0.015590772157762368,
+            ra_offset_mas = 0.05413791355838311,
+            dec_offset_mas = 0.0889816167388366,
+            pmra = 5.301074192615374,
+            pmdec = -24.188882826919325,
+            ref_epoch = 57936.375,
+        ),
+    ),
 )
+nothing # hide
 ```
 
 
@@ -314,37 +335,74 @@ octoplot(sim_model, init_chain)
 
 Fit:
 ```@example 1
-using Pigeons
 chain, pt = octofit_pigeons(sim_model, n_rounds=9)
 ```
+
+!!! note "Why parallel tempering here"
+    A single epoch-astrometry time series constrains the orbit only through the
+    along-scan abscissa, and that leaves genuinely separated solutions — most
+    conspicuously the ±180° ambiguity in Ω and the degeneracy between period and
+    the fraction of an orbit the scan window covers. [`octofit_pigeons`](@ref) runs
+    a ladder of tempered chains down to the prior, where those solutions merge, so
+    replicas can move between them and each stays represented in the posterior.
+
+    [`octofit`](@ref) will sample this model too and is considerably cheaper. If you
+    use it, seed it with [`initialize!`](@ref) as above and run a few chains from
+    different starting points, so a mode one chain missed shows up as disagreement
+    rather than as false confidence.
 
 
 ```@example 1
 octoplot(sim_model, chain)
 ```
 
+`GaiaDR4AstromObs` declares one plot channel (the along-scan abscissa), so `octoplot` draws
+the data, the modelled abscissae, a residual strip and a residual histogram automatically.
+Restrict the [`PosteriorSeries`](@ref) to get the "one particular draw" version:
 
 ```@example 1
-# Picks MAP sample
-Octofitter.gaiastarplot(sim_model, chain,)
+octoplot(Octofitter.PosteriorSeries(sim_model, chain; ii=[1]))
 ```
 
-
+[`gaiastarplot`](@ref) shows that single draw in the sky plane instead — the reflex track
+with each transit's along-scan residual re-projected along its own scan angle, which is
+where the one-dimensional nature of a Gaia measurement becomes visible:
 
 ```@example 1
-# Create astrometry plot showing both posterior and true orbit
-fig = Octofitter.astromplot(sim_model, chain, use_arcsec=false, ts=1:2)
-ax = fig.content[1]
+Octofitter.gaiastarplot(sim_model, chain, 1)
+```
 
-# Add true orbit in red
-true_chain = Octofitter.result2mcmcchain([params_to_simulate])
-Octofitter.astromplot!(ax, sim_model, true_chain, use_arcsec=false, ts=1:2, colormap=Makie.cgrad([:red]))
+Finally, compare the recovered orbit against the truth. v1 did this with
+`Octofitter.astromplot!`, which has not been ported; the v2 way is to rebuild the
+`PlanetOrbits.System` for each draw with `construct_system` and plot the tracks directly —
+the same thing the sky panel does internally:
 
-# Make true orbit line more visible
-# ax.scene.plots[5].linewidth = 6
+```@example 1
+ts = range(minimum(df.epoch), minimum(df.epoch) + 4000, length=300)
 
+fig = Figure(size=(500,500))
+ax = Axis(fig[1,1], xlabel="Δα⋆ [mas]", ylabel="Δδ [mas]",
+          aspect=DataAspect(), xreversed=true)
+
+for i in rand(1:size(chain,1), 50)
+    posys = construct_system(sim_model, chain, i)
+    traj = orbitsolve(posys, ts)
+    lines!(ax, [raoff(traj[k], :b, :A) for k in eachindex(ts)],
+               [decoff(traj[k], :b, :A) for k in eachindex(ts)],
+           color=(:black, 0.1))
+end
+
+# the true orbit, in red
+true_sys = construct_system(sim_model, params_to_simulate)
+true_traj = orbitsolve(true_sys, ts)
+lines!(ax, [raoff(true_traj[k], :b, :A) for k in eachindex(ts)],
+           [decoff(true_traj[k], :b, :A) for k in eachindex(ts)],
+       color=:red, linewidth=3, label="truth")
+scatter!(ax, [0], [0], color=:orange, markersize=12)
+axislegend(ax)
 fig
 ```
 
-
-
+```@example 1
+octocorner(sim_model, chain, small=true)
+```

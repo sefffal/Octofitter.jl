@@ -1,4 +1,4 @@
-# Hierarchical Co-Planar, Near-Resonant Model
+# [Hierarchical Co-Planar, Near-Resonant Model](@id fit-coplanar)
 
 This example shows how you can fit a two planet model to relative astrometry data. This functionality would work equally well with RV, images, etc.
 
@@ -16,6 +16,7 @@ using CairoMakie
 using PairPlots
 using Distributions
 using PlanetOrbits
+using Pigeons
 ```
 
 ```@example 1
@@ -36,109 +37,113 @@ astrom_dat_c = Table(;
     σ_dec = [6.0, 4.0, 7.0, 3.0, 4.0, 9.0, 4.0, 12.0, 4.0, 5.0, 3.0, 22.0, 12.0],
     cor   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 )
-
-astrom_b = PlanetRelAstromObs(
-    astrom_dat_b,
-    name = "GPI",
-    variables = @variables begin
-        # Fixed values for this example - could be free variables:
-        jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
-        northangle = 0    # radians [could use: northangle ~ Normal(0, deg2rad(1))]
-        platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
-    end
-)
-
-astrom_c = PlanetRelAstromObs(
-    astrom_dat_c,
-    name = "GPI",
-    variables = @variables begin
-        # Fixed values for this example - could be free variables:
-        jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
-        northangle = 0    # radians [could use: northangle ~ Normal(0, deg2rad(1))]
-        platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
-    end
-)
-
-fig = scatter(astrom_b.table.ra, astrom_b.table.dec, axis=(;autolimitaspect=1))
-scatter!(astrom_c.table.ra, astrom_c.table.dec)
-scatter!([0], [0], marker='⋆', markersize=50, color=:black)
-fig
+nothing # hide
 ```
 
+## The bodies
+
+HR 8799 b is the outer of the two planets and c the inner one, so we write the hierarchy
+as a **Jacobi chain**: c orbits the star, and b orbits the *barycentre* of the star and c
+(`about=(A, c)`). That choice is now explicit — v1 guessed it at runtime by comparing
+semi-major axes.
+
+Because the mass of every orbit is computed from the bodies it binds, there is no `M`
+variable to get wrong: the c row's mass is `A.mass + c.mass` and the b row's is
+`A.mass + c.mass + b.mass`, automatically.
+
+```@example 1
+A = Body(
+    name="A",
+    variables=@variables begin
+        mass ~ truncated(Normal(1.5, 0.02), lower=0.1)   # [M⊙]
+    end
+)
+nothing # hide
+```
 
 ## Exact Co-Planar Model
 
-This model will use a single pair of `i` and `Ω` variables for both planets to enforce exact co-planarity.
+This model will use a single pair of `i` and `Ω` variables for both planets to enforce exact co-planarity. Sharing a parameter between two bodies is done by *hoisting* it to the system block; a body block cannot see its siblings.
+
+Note that we do not need to convert period to semi-major axis by hand any more: `P` is
+an orbital element in its own right (in **days**), and PlanetOrbits derives `a` from it
+using the row's own gravitating mass.
 
 ```@example 1
-planet_b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
-    observations=[astrom_b],
+planet_c = Body(
+    name="c",
+    about=A,
     variables=@variables begin
+        mass_jup ~ Uniform(0, 12)          # [Mjup]
+        mass = mass_jup * mjup             # [M⊙]
         e = 0.0
         ω = 0.0
-        M_pri = system.M_pri
-        M_b = system.M_b
-        M_c = system.M_c
-        M = M_pri + M_b*Octofitter.mjup2msol + M_c*Octofitter.mjup2msol
-        mass = M_b
 
-        # Use the system inclination and longitude of ascending node
-        # variables
+        # Use the system inclination and longitude of ascending node variables
         i = system.i
         Ω = system.Ω
 
-        # Specify the period as ~ 1% around 2X the P_nominal variable
-        P_mul ~ Normal(1, 0.1)
-        P_nominal = system.P_nominal
-        P = 2*P_nominal * P_mul
+        # Specify the period as ~ 10% around the P_nominal variable
+        P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
+        P = system.P_nominal * P_mul * 365.25   # [days]
 
-        a = cbrt(M * P^2)
         θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, 59454.231; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+        epoch = 59454.231   # reference epoch for θ. Choose an MJD date near your data.
     end
 )
 
-planet_c = Planet(
-    name="c",
-    basis=Visual{KepOrbit},
-    observations=[astrom_c],
+planet_b = Body(
+    name="b",
+    about=(A, planet_c),                   # Jacobi: b orbits the A+c barycentre
     variables=@variables begin
+        mass_jup ~ Uniform(0, 12)          # [Mjup]
+        mass = mass_jup * mjup             # [M⊙]
         e = 0.0
         ω = 0.0
-        M_pri = system.M_pri
-        M_b = system.M_b
-        M_c = system.M_c
-        M = M_pri + M_b*Octofitter.mjup2msol
-        mass = M_c
 
-        # Use the system inclination and longitude of ascending node
-        # variables
         i = system.i
         Ω = system.Ω
 
-        # Specify the period as ~ 1% the P_nominal variable
-        P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
-        P_nominal = system.P_nominal
-        P = P_nominal * P_mul
-
-        a = cbrt(M * P^2)
+        # Specify the period as ~ 10% around 2X the P_nominal variable
+        P_mul ~ Normal(1, 0.1)
+        P = 2 * system.P_nominal * P_mul * 365.25   # [days]
 
         θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, 59454.231; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+        epoch = 59454.231
+    end
+)
+
+astrom_b = RelAstromObs(
+    astrom_dat_b;
+    target = planet_b,
+    ref = A,
+    name = "GPI_b",
+    variables = @variables begin
+        # Fixed values for this example - could be free variables:
+        jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
+        northangle = 0    # radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+    end
+)
+
+astrom_c = RelAstromObs(
+    astrom_dat_c;
+    target = planet_c,
+    ref = A,
+    name = "GPI_c",
+    variables = @variables begin
+        jitter = 0        # mas
+        northangle = 0    # radians
+        platescale = 1    # relative
     end
 )
 
 sys = System(
     name="HR8799_res_co",
-    companions=[planet_b, planet_c],
-    observations=[],
+    bodies=[A, planet_c, planet_b],
+    observations=[astrom_b, astrom_c],
     variables=@variables begin
         plx ~ gaia_plx(;gaia_id=2832463659640297472)
-        M_pri ~ truncated(Normal(1.5, 0.02), lower=0.1)
-        M_b ~ Uniform(0, 12)
-        M_c ~ Uniform(0, 12)
         # We create inclination and longitude of ascending node variables at the
         # system level.
         i ~ Sine()
@@ -151,15 +156,31 @@ sys = System(
 model = Octofitter.LogDensityModel(sys)
 ```
 
+!!! note "Astrometry is measured against the star"
+    Both astrometry tables are `target=<planet>, ref=A` — positions relative to the host
+    star — regardless of the hierarchy we chose. The hierarchy says how the orbits are
+    parametrized; `raoff(sol, target, ref)` handles the difference between "b relative to
+    A" and "b relative to the A+c barycentre" exactly. v1 approximated this by summing the
+    reflex motion of every companion it decided was interior at runtime.
+
+Let's plot our data before we start:
+```@example 1
+fig = scatter(astrom_b.table.ra, astrom_b.table.dec, axis=(;autolimitaspect=1))
+scatter!(astrom_c.table.ra, astrom_c.table.dec)
+scatter!([0], [0], marker='⋆', markersize=50, color=:black)
+fig
+```
 
 Initialize the starting points, and confirm the data are entered correcly:
 ```@example 1
 init_chain = initialize!(model, (;
-    plx =24.4549,
-  M_pri = 1.48,
-    M_b = 5.73,
-    M_c = 5.14,
+    plx = 24.4549,
     P_nominal = 230,
+    bodies = (;
+        A = (; mass = 1.48),
+        b = (; mass_jup = 5.73),
+        c = (; mass_jup = 5.14),
+    )
 ))
 octoplot(model, init_chain)
 ```
@@ -167,10 +188,23 @@ octoplot(model, init_chain)
 
 Now sample from the model using Pigeons parallel tempering:
 ```@example 1
-using Pigeons
-results,pt = octofit_pigeons(model, n_rounds=10);
+results, pt = octofit_pigeons(model, n_rounds=10);
 nothing # hide
 ```
+
+!!! tip "Parallel tempering samples this model better"
+    A near-resonant two planet model like this one has a genuinely multimodal posterior:
+    the period ratio can settle into more than one commensurability, and the two planets'
+    mutual inclination admits mirrored solutions. [`octofit_pigeons`](@ref) runs a ladder
+    of chains between the prior and the posterior, so a replica that finds one mode can
+    still swap into another, which is why this page tempers rather than running a single
+    HMC chain.
+
+    [`octofit`](@ref) is much cheaper per sample and is fine for a first look. If you use
+    it here, treat one chain as a local exploration rather than the full posterior: seed
+    it deliberately with [`initialize!`](@ref) and run several chains from different
+    starting points, so a mode you missed shows up as disagreement between chains. See
+    [Samplers](@ref samplers).
 
 Plots the orbits:
 ```@example 1
@@ -198,76 +232,59 @@ hist(
 
 We now set up two planets with their own separate `i` and `Ω` variables, calculate the mutual inclination, and add a prior that this mutual inclination is $0 \pm 10 \degree$.
 
+Any `expression ~ distribution` line in a `@variables` block is a prior term, so the
+mutual-inclination constraint is written directly.
 
 ```@example 1
-planet_b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
-    observations=[astrom_b],
-    variables=@variables begin
-        e = 0.0
-        ω = 0.0
-        M_pri = system.M_pri
-        M_b = system.M_b
-        M_c = system.M_c
-        M = M_pri + M_b*Octofitter.mjup2msol + M_c*Octofitter.mjup2msol
-        mass = M_b
-
-        # Use the system inclination and longitude of ascending node
-        # variables
-        i = system.i_b
-        Ω = system.Ω_b
-
-        # Specify the period as ~ 1% around 2X the P_nominal variable
-        P_mul ~ Normal(1, 0.1)
-        P_nominal = system.P_nominal
-        P = 2*P_nominal * P_mul
-
-        a = cbrt(M * P^2)
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, 59454.231; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
-    end
-)
-
-planet_c = Planet(
+planet_c = Body(
     name="c",
-    basis=Visual{KepOrbit},
-    observations=[astrom_c],
+    about=A,
     variables=@variables begin
+        mass_jup ~ Uniform(0, 12)
+        mass = mass_jup * mjup
         e = 0.0
         ω = 0.0
-        M_pri = system.M_pri
-        M_b = system.M_b
-        M_c = system.M_c
-        M = M_pri + M_b*Octofitter.mjup2msol
-        mass = M_c
 
-        # Use the system inclination and longitude of ascending node
-        # variables
         i = system.i_c
         Ω = system.Ω_c
 
-        # Specify the period as ~ 1% the P_nominal variable
         P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
-        P_nominal = system.P_nominal
-        P = P_nominal * P_mul
-
-        a = cbrt(M * P^2)
+        P = system.P_nominal * P_mul * 365.25
 
         θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, 59454.231; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+        epoch = 59454.231
     end
 )
 
+planet_b = Body(
+    name="b",
+    about=(A, planet_c),
+    variables=@variables begin
+        mass_jup ~ Uniform(0, 12)
+        mass = mass_jup * mjup
+        e = 0.0
+        ω = 0.0
+
+        i = system.i_b
+        Ω = system.Ω_b
+
+        P_mul ~ Normal(1, 0.1)
+        P = 2 * system.P_nominal * P_mul * 365.25
+
+        θ ~ UniformCircular()
+        epoch = 59454.231
+    end
+)
+
+astrom_b = RelAstromObs(astrom_dat_b; target=planet_b, ref=A, name="GPI_b")
+astrom_c = RelAstromObs(astrom_dat_c; target=planet_c, ref=A, name="GPI_c")
+
 sys = System(
     name="HR8799_approx_res_co",
-    companions=[planet_b, planet_c],
-    observations=[],
+    bodies=[A, planet_c, planet_b],
+    observations=[astrom_b, astrom_c],
     variables=@variables begin
         plx ~ gaia_plx(;gaia_id=2832463659640297472)
-        M_pri ~ truncated(Normal(1.5, 0.02), lower=0.1)
-        M_b ~ Uniform(0, 12)
-        M_c ~ Uniform(0, 12)
         # We create inclination and longitude of ascending node variables at the
         # system level.
         i_b ~ Sine()
@@ -282,8 +299,8 @@ sys = System(
             cos(i_b) * cos(i_c) +
             sin(i_b) * sin(i_c) * cos(Ω_b - Ω_c)
         )
-        # Add a prior on the mutual inclination
-        mut_inc_b_c ~ truncated(Normal(0, 10), lower=0)
+        # Add a prior on the mutual inclination: 0 ± 10 degrees
+        mut_inc_b_c ~ truncated(Normal(0, deg2rad(10)), lower=0)
 
         # We create a nominal period of planet c variable. 
         P_nominal ~ Uniform(50, 300) # years
@@ -297,11 +314,13 @@ model = Octofitter.LogDensityModel(sys)
 Initialize the starting points, and confirm the data are entered correcly:
 ```@example 1
 init_chain = initialize!(model, (;
-    plx =24.4549,
-    M_pri = 1.48,
-    M_b = 5.73,
-    M_c = 5.14,
+    plx = 24.4549,
     P_nominal = 230,
+    bodies = (;
+        A = (; mass = 1.48),
+        b = (; mass_jup = 5.73),
+        c = (; mass_jup = 5.14),
+    )
 ))
 octoplot(model, init_chain)
 ```
@@ -309,10 +328,23 @@ octoplot(model, init_chain)
 
 Now sample from the model using Pigeons parallel tempering:
 ```@example 1
-using Pigeons
-results,pt = octofit_pigeons(model, n_rounds=10);
+results, pt = octofit_pigeons(model, n_rounds=10);
 nothing # hide
 ```
+
+!!! tip "Parallel tempering samples this model better"
+    A near-resonant two planet model like this one has a genuinely multimodal posterior:
+    the period ratio can settle into more than one commensurability, and the two planets'
+    mutual inclination admits mirrored solutions. [`octofit_pigeons`](@ref) runs a ladder
+    of chains between the prior and the posterior, so a replica that finds one mode can
+    still swap into another, which is why this page tempers rather than running a single
+    HMC chain.
+
+    [`octofit`](@ref) is much cheaper per sample and is fine for a first look. If you use
+    it here, treat one chain as a local exploration rather than the full posterior: seed
+    it deliberately with [`initialize!`](@ref) and run several chains from different
+    starting points, so a mode you missed shows up as disagreement between chains. See
+    [Samplers](@ref samplers).
 
 Plots the orbits:
 ```@example 1
@@ -334,3 +366,30 @@ hist(
     )
 )
 ```
+
+## Dynamical stability priors
+
+For a multi-planet model you will often want to add one or more of the dynamical priors.
+They are prior-shaped terms and go in the system's `observations=` list:
+
+```julia
+observations = [
+    astrom_b, astrom_c,
+    OrbitOrderPrior(planet_c, planet_b),                     # keeps c interior to b
+    NonCrossingPrior(bodies=(planet_b, planet_c)),           # apsides may not cross
+    LimitClosestApproachAUPrior(5.0, 15.0; bodies=(planet_b, planet_c)),
+    HillStabilityPrior(bodies=(planet_b, planet_c)),
+]
+```
+
+Each takes an optional `bodies=` list restricting it to the hierarchy rows that place
+those bodies. With no list, every row in the system is included — v1's behaviour, and the
+right default for a star with planets, but not for a hierarchical system where some rows
+(a wide binary orbit, say) have no meaningful apsidal comparison with the others.
+
+!!! warning "`HillStabilityPrior` results differ from v1"
+    v1 overwrote the outer planet's parameters with the inner planet's when evaluating the
+    criterion, so the outer companion's mass never entered it. The v2 implementation
+    applies the intended Gladman criterion, and rejects configurations v1 accepted (and
+    vice versa) whenever the two companion masses differ. See the docstring for the exact
+    definition of `M★` used.

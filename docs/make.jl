@@ -3,7 +3,12 @@ cd(@__DIR__)
 Pkg.activate(".")
 
 
-using Documenter, Octofitter, OctofitterRadialVelocity
+# The subpackages are loaded so that `api.md` can `@docs` their observation
+# types (`ImageObs`, `LogLikelihoodMapObs`, `InterferometryObs`,
+# `GRAVITYWideKPObs`) — Documenter can only resolve a docstring for a module
+# that is in scope here.
+using Documenter, Octofitter, OctofitterRadialVelocity,
+      OctofitterImages, OctofitterInterferometry
 
 # Increase resolution of figures
 using CairoMakie
@@ -71,7 +76,7 @@ makedocs(
             "Using Python" => "python.md",
             "Chains" => "chains.md",
             "Orbit plots with `octoplot`"=>"octoplot.md",
-            "RV plots with `rvpostplot`"=>"rvpostplot.md",
+            "RV posterior plots"=>"rvpostplot.md",
             "Loading and Saving Data" => "loading-saving.md",
             "Sampler" => "samplers.md",
             "Distributed Sampling" => "parallel-sampling.md",

@@ -1,4 +1,4 @@
-# Migrating to Octofitter v2
+# [Migrating to Octofitter v2](@id v2-migration)
 
 Octofitter v2 is built on PlanetOrbits v2. The change is not cosmetic: a model
 is now a **flat list of bodies plus a flat list of observations**, and the
@@ -91,13 +91,65 @@ likelihoods is gone.
 | `tp = θ_at_epoch_to_tperi(θ, ep; M, e, a, i, ω, Ω)` | `θ ~ …` and `epoch = ep` |
 | `τ ~ UniformCircular(1.0)` | `tp`, `M0`+`epoch`, or `θ`+`epoch` |
 | `Planet(…, observations=[astrom])` | `System(…, observations=[astrom])` with `target=`/`ref=` |
-| `fluxratio` on the observation | `flux` / `flux_<band>` on the body (but see G23H below) |
+| `fluxratio` / `flux` on the observation | `flux` / `flux_<band>` on the body |
 | `G23HObs(gaia_id=…)` | `G23HObs(gaia_id=…, host=A, companions=(b, c))` |
 | `construct_elements(chain, :b, i)` | `construct_system(model, chain, i)` |
+| `θ_at_epoch_to_tperi(θ, ep; …)` | *(removed)* — declare `θ` and `epoch` as elements |
 | chain column `b_a` | chain column `b_a` (unchanged) |
+| chain column `b_GPI_jitter` | chain column `GPI_jitter` |
+| chain column `b_SPHERE_flux` | chain column `b_flux_H` |
 
 Angles are radians and epochs MJD, as before. Element keywords are the Unicode
 ones (`ω`, `Ω`) with no ASCII aliases.
+
+### Retired names tell you what replaced them
+
+The names below are still defined and exported, and every one of them raises an
+error naming its v2 spelling. They are not aliases: in each case the replacement
+takes different arguments or lives somewhere else in the model, so an alias would
+have failed one line later with a worse message.
+
+| v1 name | error points you at |
+|---|---|
+| `Planet` | [`Body`](@ref), and the observation moves to `System`'s `observations=` |
+| `θ_at_epoch_to_tperi` | declare `θ` and `epoch` as orbital elements |
+| `PlanetRelAstromObs` | [`RelAstromObs`](@ref)`(tab; target, ref)` |
+| `StarAbsoluteRVObs` | [`RadialVelocityObs`](@ref)`(tab; target=A, ref=Barycentre)` |
+| `PlanetRelativeRVObs` | [`RadialVelocityObs`](@ref)`(tab; target=b, ref=A)` |
+| `MarginalizedStarAbsoluteRVObs` | [`MarginalizedRVObs`](@ref)`(tab; target, ref)` |
+| `masspostplot` | [`octocorner`](@ref), or `hist(vec(chain[:b_mass]))` |
+| `HGCAInstantaneousObs`, `GaiaCatalogFitObs` | [`HGCAObs`](@ref) / [`G23HObs`](@ref) |
+
+Genuine aliases, which do resolve: `PhotometryLikelihood`, `PlanetOrderPrior`,
+`ObsPriorAstromONeil2019`, `InterferometryLikelihood`, `GRAVITYWideKPLikelihood`.
+
+### Two spellings that catch nearly everyone
+
+**`Barycentre` and `Photocentre` are declarations, not queries.** They are
+singleton *specs*, valid in `target=`, `ref=` and [`ObservableQuery`](@ref).
+They are not points, because their weights come from the bodies' masses or
+fluxes — so resolving one needs a solved system:
+
+```julia
+radvel(sol, :A, Barycentre)                                # error, with this advice
+radvel(sol, :A, Octofitter.resolveref(posys, Barycentre))  # correct
+radvel(sol, :A, PlanetOrbits.barycentre(posys))            # equivalent
+```
+
+**`$` interpolation works on `=` lines and is rejected on `~` lines.** A derived
+expression is quoted and evaluated later, inside the model, where your local
+variables are gone — hence the `$`. A prior's right-hand side is evaluated where
+you wrote it, so it already sees them:
+
+```julia
+@variables begin
+    ra    = $(cat.ra)               # derived: interpolate
+    pmra  ~ Normal(cat.pmra, 10)    # prior: no `$`, `cat` is already in scope
+end
+```
+
+Both mistakes used to surface as errors pointing into Octofitter's internals
+rather than at the line you wrote.
 
 ## Parametrizations are constructor groups
 
@@ -225,15 +277,19 @@ indexed them by position in `system.planets`, which was implicit and easy to
 get wrong. The names are validated against the system's bodies at model-build
 time.
 
-**The flux ratios stay on the observation.** Unlike other v2 observations,
-G23H does *not* read `flux_G` off the bodies: `fluxratio` (Gaia G) and
-`fluxratio_hip` (Hipparcos Hp) are per-instrument contrast ratios against
-*this source's* host, computed per draw, and are usually derived from system
-variables — including deferred ones, so a sampled resolved-flag latent can
-gate a companion out of the Gaia photocentre without the blending state ever
-round-tripping through a body's own flux variable. They must now be
-length-`length(companions)` containers; a bare scalar is accepted only when
-there is exactly one companion.
+**Flux ratios come from the bodies, with a per-draw override.** By default
+G23H reads each companion's `flux_G` (Gaia G) and `flux_Hp` (Hipparcos Hp)
+body variables, like every other v2 observation — give the host `flux_G = 1.0`
+and each companion its contrast ratio. A model that declares neither leaves the
+companions dark (ratio 0), which is the right answer for a dark companion but
+*is* a change from v1, where the vector was mandatory.
+
+The observation-level `fluxratio` / `fluxratio_hip` variables still exist as an
+override tier, and they are the only tier that can read deferred system
+variables — so a sampled resolved-flag latent can gate a companion out of the
+Gaia photocentre without the blending state round-tripping through a body's
+flux. When supplied they must be length-`length(companions)` containers; a bare
+scalar is accepted only when there is exactly one companion.
 
 **Multiple luminous companions give different numbers, on purpose.** v1
 normalized each companion's photocentre term by its own `(1 + f_k)` and
@@ -271,32 +327,280 @@ covariance deflation and leaves every other channel untouched.
     now warns once. Use a derivative-free sampler (the production driver uses
     Pigeons), or `include_rv=false`.
 
+## Observation types, one by one
+
+Every v1 observation type has now crossed to the new surface (or been
+deliberately retired). The recurring pattern is the same in each case: the
+observation moves from a `Planet` to the `System`, names its `target` and `ref`,
+and reads brightness from the bodies rather than from a positionally-indexed
+vector of its own.
+
+### Relative astrometry
+
+```julia
+PlanetRelAstromObs(dat, name="GPI")                       # v1, attached to a planet
+RelAstromObs(dat; target=b, ref=A, name="GPI")            # v2
+```
+
+`ref` is a real reference: `ref=Barycentre` and `ref=b` (one companion measured
+against another) are now expressible. The observation variables `jitter`,
+`platescale` and `northangle` are unchanged.
+
+### Radial velocity
+
+`StarAbsoluteRVObs` and `PlanetRelativeRVObs` are gone; there is one type,
+distinguished by its references, and it lives in **core Octofitter** (no
+`using OctofitterRadialVelocity` needed):
+
+```julia
+RadialVelocityObs(dat; target=A, ref=Barycentre, name="HARPS")  # stellar reflex
+RadialVelocityObs(dat; target=b, ref=A,          name="CRIRES") # relative RV
+```
+
+!!! warning "`offset` and `jitter` are no longer injected for you"
+    v1's `StarAbsoluteRVObs` silently added `offset ~ Uniform(-1000, 1000)` and
+    `jitter ~ LogUniform(0.001, 100)` when constructed with no `variables=`
+    block. v2 never invents a prior. **A v1 RV model copied across without those
+    two lines fits with no zero point and no jitter** — it will not error, it
+    will change your answers. This is the single most likely way a v1 RV fit
+    changes on migration.
+
+`gaussian_process=` and `trend_function=` are now available on relative RV as
+well as absolute. With a Gaussian process, epochs must be strictly increasing:
+duplicated epochs are a construction-time error instead of a silent `-Inf`.
+
+`MarginalizedStarAbsoluteRVObs` is renamed [`MarginalizedRVObs`](@ref)
+(OctofitterRadialVelocity), now *requires* `target=`, and errors if you declare
+an `offset` — the zero point is integrated out analytically, so declaring one
+was always a mistake.
+
+The RV-specific Makie extension is gone: [`rvpostplot`](@ref) lives in core now and is
+[`octoplot`](@ref) restricted to the model's radial-velocity channels
+(`channels=radvel`, no sky panel). [`rvpostplot_animated`](@ref) works the same way.
+
+### Photometry
+
+The flux parameter moved from the observation to the body:
+
+```julia
+# v1
+PhotometryObs(dat, name="NIRC2", variables=@variables begin flux ~ Uniform(0, 10) end)
+# v2
+PhotometryObs(dat; target=b, band=:H, name="NIRC2")   # reads b's `flux_H`
+```
+
+Consequence worth planning for: two instruments observing the same body in the
+same band now share **one** parameter, where v1 gave each its own. The
+per-point arithmetic is bit-for-bit unchanged. `target` must be a single body;
+`epoch` columns are ignored (photometry forces no orbit solves).
+
+### Images and likelihood maps
+
+```julia
+# v1: one ImageObs per planet, attached to that planet
+ImageObs(dat, name="SPHERE", variables=@variables begin flux ~ Normal(3.8, 0.5) end)
+# v2: ONE observation naming every source in the image
+ImageObs(dat; targets=(b, c), ref=A, band=:H, name="SPHERE")
+```
+
+with `flux_H` declared on `b` and on `c`. A `flux` variable on the observation
+is now a hard error naming the fix. v1's per-planet spelling counted the same
+image's background once per companion.
+
+`LogLikelihoodMapObs(dat; target=b, ref=A, name="GRAVITY")` is the same edit
+with a single `target`: a precomputed logL surface is one-companion by
+construction.
+
+Both types are recentred on `ref`, which need not be the star. Multi-planet
+image fits are **not** bit-identical to v1, because the epicyclic superposition
+is gone; single-planet fits are (pinned to 1e-12 in the test suite).
+
+### Interferometry
+
+```julia
+InterferometryObs(dat; targets=(A, b), ref=A, band=:K, name="NIRISS-AMI")
+```
+
+`targets` names every source in the visibility sum, **including the host**,
+which is now an ordinary source with its own `flux_K`. Giving the host
+`flux_K = 1.0` and the companions their old v1 contrast ratios reproduces v1's
+likelihood bit-for-bit. Two gotchas:
+
+* `platescale` is now a **divisor**, matching relative astrometry and images.
+  v1's interferometry likelihood multiplied by it. `platescale = 1` is
+  unaffected; any other fitted value from v1 must be inverted.
+* Fibre coupling changed: each source's throughput is evaluated at its own
+  offset from `fiber_pointing` (default `Photocentre(band)`), where v1 applied
+  the host-to-photocentre throughput to the companion and left the host at 1.0.
+  Numbers move. `fiber_pointing=A` is "fibre on the host".
+
+`GRAVITYWideKPObs` is no longer a type but a preset function returning an
+`InterferometryObs`, so `obs isa GRAVITYWideKPObs` no longer compiles.
+
+### Absolute astrometry
+
+[`G23HObs`](@ref) is the joint Gaia + Hipparcos model, and is now the way HGCA
+data is fit: [`HGCAObs`](@ref) is a **helper function** returning a `G23HObs`
+restricted to the six HGCA channels, with `ueva_mode=:none` and
+`include_rv=false`.
+
+```julia
+pma = HGCAObs(; gaia_id=…, host=A, companions=(b,), ref=Barycentre)
+pma isa G23HObs    # true
+```
+
+!!! warning "HGCA fits are not bit-identical to v1"
+    Those six channels are now modelled by G23H's epoch-selection model, its
+    five-parameter refits and its exact flux-weighted photocentre, rather than by
+    the HGCA's own cross-calibration.
+
+`HGCAInstantaneousObs` and `GaiaCatalogFitObs` are **gone** — calling them
+raises an error naming the replacement, because the modelling code behind them
+was subsumed rather than ported. There is no `N_ave` equivalent; the
+instantaneous approximation is what G23H replaced by modelling the actual scan
+epochs.
+
+[`HipparcosIADObs`](@ref) is a standalone Hipparcos fit:
+
+```julia
+hip = HipparcosIADObs(; hip_id=1475, host=A, companions=(b,), ref=Barycentre)
+```
+
+By default `iad_Δplx = 0`, so the system's own `plx` sets the abscissa's
+parallax signature — that is what makes a Hipparcos-only fit *measure* the
+parallax. Write `iad_Δplx ~ Uniform(-10, 10)` to make it a nuisance instead.
+Results are not bit-identical to v1, which compared a compensated absolute-frame
+position against data reconstructed with the tangent-plane model; v2 uses the
+tangent-plane forward model on both halves.
+
+The `iad_Δ*` block is a general five-parameter frame offset, for astrometry
+taken on a frame other than Gaia's. There are deliberately **no** per-source
+offsets for Gaia channels: several `G23HObs` in one system share one frame, and
+that shared frame is what constrains a wide orbit.
+
+### Prior terms
+
+| v1 | v2 |
+|---|---|
+| `ObsPriorAstromONeil2019(obs)` | [`ObsPriorONeil2019`](@ref)`(obs)` (old name aliased) |
+| `PlanetOrderPrior(b, c)` | [`OrbitOrderPrior`](@ref)`(b, c)`, taking `Body` nodes or `Symbol`s |
+| `NonCrossingPrior()` | same, plus an optional `bodies=` |
+| `LimitClosestApproachAUPrior(…)` | same, plus an optional `bodies=` |
+| `HillStabilityPrior()` | same, plus an optional `bodies=` |
+
+All of them go in the **System**'s `observations=` list.
+
+`ObsPriorONeil2019` now needs to know which orbit it applies to. It defaults to
+the wrapped observation's `target`, which is right for relative astrometry and
+relative RV; a stellar-reflex `RadialVelocityObs(…; target=A, ref=Barycentre)`
+must pass `orbit=b` explicitly. `orbit=(b, c)` sums over several orbits. It also
+now covers RV data, not just astrometry.
+
+!!! warning "`HillStabilityPrior` is not bit-compatible with v1"
+    v1 overwrote the outer planet's parameters with the inner planet's, so the
+    outer companion's mass never entered the criterion, and `M★` was a per-planet
+    total mass that v2 has no equivalent of. The port implements the intended
+    Gladman criterion. `NonCrossingPrior` and `LimitClosestApproachAUPrior` are
+    numerically identical to v1.
+
+## Analysis, IO, and other behaviour changes
+
+* **`Octofitter.pointwise_like` results change, and v1's were wrong.** v1 passed
+  the *complement* of the wanted rows to `likeobj_from_epoch_subset`, so each v1
+  "pointwise" column actually held the likelihood of all the data except that
+  point. Any published PSIS-LOO number produced with v1 is affected. Columns for
+  prior-shaped terms are also no longer emitted, so the columns now sum exactly
+  to the model log-likelihood minus those terms — which is what PSIS-LOO wants.
+* **SBC data are now noisy by default.** `Octofitter.calibrationhmc` defaults to
+  `add_noise=true`; v1 simulated noiseless data, so its rank histograms were not
+  the SBC statistic. Pass `add_noise=false` to reproduce the old behaviour.
+* **Completeness `inject` overrides nest under `bodies=`**, not `planets=`
+  (which raises an explicit error), and masses are in **M⊙**.
+* **Flux-table interpolators take solar masses by default.**
+  `sonora_photometry_interpolator`, `sonora_cooling_interpolator` and
+  `Octofitter.bhac15_mass_age_interpolator` now default to `mass_unit=:Msol`;
+  pass `mass_unit=:Mjup` to keep v1 call sites verbatim. This is silent — a v1
+  call passing `12.0` now means 12 M⊙, lands off-grid, and returns `NaN` rather
+  than erroring. They return **absolute magnitudes**, so the
+  `flux_<band> = 10^(-0.4 * mag)` step is mandatory.
+* **`Octofitter.savehdf5(fname, model, chain)` takes three positional
+  arguments**, and now writes the `parameter_labels` attribute its own reader
+  wants. `loadhdf5` gained `host=` / `bodynames=`, imports companion masses in
+  M⊙, no longer synthesises a `<planet>_M` column, and finally works with
+  `numchains > 1`.
+* **`Octofitter.loadchain(fname; model)`** is the recommended spelling: without
+  the model, a chain saved against a different model (or by v1) loads silently
+  and yields `missing` downstream. `Octofitter.checkchain(model, chain)` does the
+  check on its own. v1 chains still load, with a warning about the
+  `<planet>_<obs>_<var>` → `<obs>_<var>` rename.
+* **`Octofitter.Whereistheplanet_astrom` now returns its vector** of
+  `RelAstromObs` — in v1 the `return` was commented out, so the documented
+  destructuring silently unpacked `nothing`. It gained `target=`/`ref=`.
+* **`gaia_plx(; gaia_id)`** reads the Gaia DR3 catalog directly instead of the
+  retired HGCA data dependency. The numbers agree for any source in both.
+* **`getplotdata` and `calibrationplots` are removed.** Both were dead code in v1
+  that could not have run.
+* **`octofit_pigeons` needs `using Pigeons`.** Its methods live in a package
+  extension, so without that import the function exists with no methods and a
+  call raises a `MethodError`. This is unchanged from v1 in principle, but worth
+  restating because the extension was briefly unported during the v2 work.
+* **`GaiaDR4AstromObs` no longer takes `gaia_id=` and no longer carries
+  `obs.gaia_sol`.** The observation models a sky path and does not need the
+  catalog row. Read it with [`gaia_dr3_solution`](@ref)`(; gaia_id)`, which is
+  the same query [`gaia_plx`](@ref) uses and caches to
+  `_gaia_dr3_final/source-<id>.csv`.
+* **`generate_from_params(::RelAstromObs, …)` now carries the `:cor` column
+  through and draws correlated noise.** v1 (and the first v2 port) dropped the
+  column and drew independent `randn()` per component, so a replicate of
+  correlated astrometry was drawn from the wrong distribution *and* was fitted
+  with a diagonal covariance. Simulated data, posterior-predictive checks, SBC
+  and completeness on correlated astrometry all change.
+* **`generate_from_params` on an `ObsPriorONeil2019` returns the wrapper**, not
+  the bare inner likelihood. Unwrapping produced a different model — no Jacobian,
+  and `obspri_<name>` renamed to `<name>` — so a chain fitted to the replicate
+  did not line up with one fitted to the original.
+* **`initialize!` / `startingpoints!` locate parameters by layout.** They used to
+  find an override's index by searching the flat parameter vector for a matching
+  *value*, which picks the wrong slot when two variables draw the same number and
+  cannot address one element of a vector-valued prior at all. Overrides also nest
+  under `bodies=`; `planets=` raises an explicit error.
+* **`Octofitter.savehdf5` derives `tp` when the model did not sample it.** The
+  recommended `θ` + `epoch` phase spelling produces no `b_tp` column, and `tp` is
+  determined by the elements, so the export rebuilds it per draw rather than
+  refusing.
+* **A GOST forecast with no scans is an error, not a cache entry.** A transient
+  header-only response used to be written to `GOST-<ra>-<dec>-<baseline>.csv` and
+  then reused forever, failing far downstream as a `DimensionMismatch`.
+
 ## What is not ported yet
 
 `src/legacy/` holds the v1 code that has not moved to the new surface, kept
-unmodified so each port is a diff rather than a rewrite. Its tests are beside
-it in `test/legacy/`.
+unmodified so each port is a diff rather than a rewrite.
 
-- Likelihoods: HGCA and its linear-fit variant, a standalone Hipparcos IAD
-  observation, images, interferometry, likelihood maps, photometry, and the
-  observable / planet order / non-crossing priors.
-- Analysis and IO: cross-validation, SBC, completeness, the NSS catalogue
-  reader, orbitize!/HDF5 IO, and the plotting-facing helpers in `analysis.jl`.
-- The v1 package extensions (the old Makie recipe set, PairPlots, Pigeons,
-  Dynesty), parked in `src/legacy/ext/`. Every v1 plot recipe reaches into
-  `system.planets`; they are not declared in `Project.toml` while unported.
+- **The Dynesty extension**, and the v1 Makie recipe set parked in
+  `src/legacy/ext/`. (The **Pigeons** extension *is* ported —
+  [`octofit_pigeons`](@ref) works as it did in v1 once you `using Pigeons` — but
+  its MPI/cluster path has not been re-verified on a real cluster.)
+- **`octoplot`'s `mark_epochs_mjd`.** Every shipped observation type now declares
+  `plotchannels`, so `octoplot` overlays all of their data, and the named v1
+  figures are back: [`rvpostplot`](@ref)/[`rvpostplot_animated`](@ref),
+  [`dotplot`](@ref), [`gaiastarplot`](@ref), [`gaiatimeplot`](@ref),
+  [`skytrackplot`](@ref) and [`hipparcosplot`](@ref). `hgcaplot`, `pmaplot`,
+  `absastromplot`, `astromplot`, `physorbplot` and `rvtimeplot` are not separate
+  functions any more — they are `octoplot`'s generic sky, time-series and
+  phase-folded panels, which now carry the data those recipes drew. `masspostplot`
+  is deliberately dropped. The one v1 view with no v2 equivalent is `hgcaplot`'s
+  and `pmaplot`'s proper-motion *vector* panels (μα⋆ against μδ with 1σ crosses);
+  the same information is in the `pmra`/`pmdec` panels and their whitened residual
+  strips.
+- **`gp_predict` for the AbstractGPs backend**, so GP cross-validation works with
+  the Celerite backend only (a pre-existing v1 hole, now a clear error).
 
-Plotting itself is **not** on that list any more: `ext/OctofitterMakieExt.jl`
-is the new v2 plotting layer, built on the backend-agnostic API in
-`src/plotting-api.jl` (`octoplot`, `PosteriorSeries`, `ObservableQuery`,
-`plotchannels`/`Octofitter.residuals`, `timeseriespanel!`, `skypanel!`).
-v1 plot names not yet reproduced (`hgcaplot`, `pmaplot`, `rvpostplot`'s
-phase-folding, `octocorner`, …) return with their observation types' ports.
-
-Porting a likelihood is mostly deletion: replace the per-companion
-superposition loop with one `raoff(sol, target, ref)`, take the references as
-constructor keywords, and drop the `PlanetObservationContext` /
-`SystemObservationContext` distinction for the single `ObsContext`.
+Plotting in general is **not** on that list: `ext/OctofitterMakieExt.jl` is the
+new v2 plotting layer, built on the backend-agnostic API in
+`src/plotting-api.jl` ([`octoplot`](@ref), [`PosteriorSeries`](@ref),
+[`ObservableQuery`](@ref), [`plotchannels`](@ref)/`Octofitter.residuals`,
+[`timeseriespanel!`](@ref), [`skypanel!`](@ref)), and [`octocorner`](@ref) works.
 
 Until PlanetOrbits v2 is registered, Octofitter declares no `[compat]` bound
 on it and both packages must be `Pkg.develop`ed together.

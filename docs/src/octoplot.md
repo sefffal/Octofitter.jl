@@ -1,238 +1,168 @@
 # Orbit Visualization with `octoplot`
-octoplot is a versatile visualization function that creates publication-quality figures showing orbit fits and data. It can generate multi-panel figures combining:
 
-* Projected orbits in the plane of the sky (astrometry)
-* Physical orbits in AU
-* Time series of separations and position angles
-* Radial velocity curves
-* Proper motion anomaly
-* Mass posteriors
-* And more
+`octoplot` is a versatile visualization function that creates publication-quality figures showing orbit fits and data. It assembles a single figure containing:
+
+* Projected orbits in the plane of the sky (or in AU, if the model has no parallax)
+* One time-series panel per data channel, each with a residual strip and a marginal residual histogram
+* Phase-folded panels for radial velocity channels
+* Any bespoke panels an observation type provides
 
 Here's a basic example showing how to create a plot from your MCMC chain:
 ```julia
 using Octofitter
+using CairoMakie      # a Makie backend must be loaded
 # After running your MCMC fit...
-fig = octoplot(model, chain)
+res = octoplot(model, chain)
 ```
 
-By default, `octoplot` will automatically detect what kinds of data are present in your model and create appropriate panels. For example, if you have both astrometry and radial velocity data, it will show both an orbit plot and an RV curve.
-You can control which panels appear using boolean flags:
+`octoplot` returns an [`OctoPlotResult`](@ref), which displays as its figure and also
+carries the pieces you need to customize it:
+
 ```julia
-fig = octoplot(model, chain;
-    show_astrom=true,         # Show orbit in sky plane (mas)
-    show_physical_orbit=true, # Show orbit in physical units (AU)
-    show_astrom_time=true,    # Show sep/PA vs time
-    show_rv=true,             # Show stellar RV
-    show_relative_rv=true,    # Show planet-star relative RV
-    show_pma=true,            # Show proper motion anomaly (HGCA)
-    show_absastrom=true,      # Show absolute astrometry / proper motion (G23H)
-    show_mass=true            # Show mass posterior
+res.figure     # the Makie Figure
+res.axes       # a nested NamedTuple of the axes, e.g. res.axes.sky.sky, res.axes.rv.main
+res.series     # the underlying PosteriorSeries — the solved orbits behind every panel
+```
+
+## What gets drawn
+
+`octoplot` derives its panels from the model, not from a list of flags. Every observation
+declares its *plot channels* (`plotchannels(obs)`), each of which is one measured
+quantity with an associated [`ObservableQuery`](@ref) — for example
+`radvel(:A, Barycentre)` for a stellar reflex RV instrument, or `raoff(:b, :A)` and
+`decoff(:b, :A)` for relative astrometry. Channels measuring the same quantity share a
+panel, so two RV instruments overlay on one axis, with each instrument's own offset and
+jitter applied.
+
+The sky panel is drawn whenever the model has angular observables (i.e. the system block
+defines `plx`) and at least one orbit. It shows one phase-coloured track per **hierarchy
+row** — each row plotted as its exterior side relative to its interior side, which is
+exactly the relationship that row parametrizes. For a star with planets that is each
+planet about the star; for a hierarchical system it generalizes with no special cases (a
+moon about its planet, an inner pair's barycentre about the outer body).
+
+The two panel families can be turned off explicitly:
+
+```julia
+octoplot(model, chain;
+    show_sky = false,     # skip the sky-plane panel
+    show_phase = false,   # skip phase-folded RV panels
 )
 ```
 
-By default, `octoplot` draws 250 orbits randomly from your posterior samples. You can adjust this using the `N` parameter:
+!!! note "Not every observation type has plot channels yet"
+    `RelAstromObs`, `RadialVelocityObs`, `MarginalizedRVObs` and `GaiaDR4AstromObs`
+    declare plot channels and appear in `octoplot`. `ImageObs`, `InterferometryObs`,
+    `PhotometryObs`, `G23HObs` and `HipparcosIADObs` do not yet: `octoplot` still draws
+    the orbits, but those observations' data are not overlaid. This is a gap in the v2
+    plotting layer rather than a deliberate omission.
+
+## Controlling the draws
+
+By default, `octoplot` draws 250 orbits selected without replacement from your posterior,
+with a fixed seed so that reruns and separate panels agree:
 ```julia
 # Plot fewer orbits for faster rendering
-fig = octoplot(model, chain, N=50)
+octoplot(model, chain, N=50)
 
-# Plot specific posterior samples
-fig = octoplot(model, chain, ii=[1,2,3])  # Plot first three samples
-idx_MAP = argmax(chain[:logpost])
-fig = octoplot(model, chain, ii=[idx_MAP])  # Plot maximum posterior sample
+# A different (but still reproducible) subset
+octoplot(model, chain, N=250, seed=42)
 ```
 
-
-# Panel Types
-
-`octoplot` creates a vertical stack of panels based on the data present in your model and the display options you select. The panels share consistent formatting - all time-based plots share aligned time axes, orbits for each planet use consistent colors, and epoch markers (if specified) appear consistently across all applicable panels.
-
-## Astrometry Panels
-
-### Sky-Projected Orbits (`show_astrom=true`)
-Shows orbits projected onto the plane of the sky, with ΔRA and ΔDec measured in milliarcseconds (mas). The central star is marked with a star symbol at (0,0). If you have relative astrometry data, it will be plotted with error bars. The color of each orbit indicates the mean anomaly (orbit phase), progressing from periastron.
-
-### Physical Orbits (`show_physical_orbit=true`) 
-Similar to the sky-projected plot, but shows orbits in their true physical scale measured in astronomical units (AU). This can be helpful for understanding the true geometry of the system, especially for orbits viewed at high inclination.
-
-## Time Series Panels
-
-### Astrometry vs Time (`show_astrom_time=true`)
-Two linked panels showing:
-- Projected separation vs time (top)
-- Position angle vs time (bottom)
-
-If you specified `mark_epochs_mjd`, the predicted separation and position angle at those epochs will be marked. 
-
-### Radial Velocity (`show_rv=true`)
-Shows the stellar radial velocity curve(s). If you have data from multiple instruments, each will be plotted in its own panel. The model includes:
-- Raw RV measurements with error bars
-- lines showing individual orbit draws from the posterior
-- Colored bands showing uncertainty including jitter and GP model (if present)
-
-If you specified `mark_epochs_mjd`, the predicted RV at those epochs will be marked. See `rvpostplot` for another way to plot RV data.
-
-### Relative Radial Velocity (`show_relative_rv=true`)
-Shows the relative radial velocity between the planet and star. This panel appears when you have `PlanetRelativeRVObs` data in your model.
-
-### Proper Motion Anomaly (`show_hgca=true`)
-Multiple panels showing proper motion data from the Hipparcos-Gaia Catalogue of Accelerations (HGCA):
-- Proper motion in RA vs time
-- Proper motion in Dec vs time
-- 2D Proper motion residual plots at the Hipparcos, Gaia, and Hipparcos-Gaia epochs.
-
-### Mass Posterior (`show_mass=true`)
-A mini corner plot showing the mass posterior(s) for your planet(s). This panel appears at the bottom of the figure when mass is a parameter in your model.
-
-Each of these panels will only appear if:
-1. The relevant display option is set to `true`
-2. Your model includes the appropriate type of data/likelihood
-3. Your model parameterization supports that type of visualization (e.g., `show_physical_orbit` requires a full 3D orbit parameterization)
-
-
-# Customizing Appearance
-
-## Colormaps
-The default colormap ("plasma") is used to indicate orbital phase in most panels, varying smoothly from periastron through the orbit. You can customize this in several ways:
-
+`ndraws` limits how many of the selected draws each *panel* actually renders, which is
+useful when you want a dense set of orbits computed but a light plot:
 ```julia
-# Use a different colormap from the ColorSchemes package
-octoplot(model, chain, colormap=Makie.cgrad(:viridis))
-
-# Use a gradient from light grey to a specific color
-octoplot(model, chain, colormap="#0072b2")  # Blue to grey
+octoplot(model, chain, N=250, ndraws=25)
 ```
 
-For models with multiple planets, `octoplot` automatically assigns a different base color to each planet's orbit in the astrometry and astrometry-time panels. The other panels continue to use the default colormap to show orbital phase.
-
-!!! tip
-    When choosing a colormap, avoid categorical colormaps in favor of those that vary smoothly. If you don't need to mark the exact location of periastron, you can also use a cyclical colormap.
-
-
-## Transparency
-The `alpha` parameter controls the transparency of orbit lines. By default, it is automatically scaled based on the number of orbits being plotted to prevent overplotting:
+To choose the draws yourself — for example to plot only the maximum-posterior sample —
+build the [`PosteriorSeries`](@ref) explicitly and pass it in:
 ```julia
-# Override the default transparency
-octoplot(model, chain, alpha=0.1)  # More transparent
+idx_MAP = argmax(chain[:logpost][:])
+series = Octofitter.PosteriorSeries(model, chain; ii=[idx_MAP])
+octoplot(series)
 ```
 
+## Other keywords
 
-## Figure Scale
-The overall size of the figure can be adjusted using the `figscale` parameter:
+| Keyword | Meaning |
+|---|---|
+| `N=250` | Number of posterior draws to solve |
+| `seed=0` | Seed for the draw selection |
+| `ndraws=nothing` | Cap on the draws each panel renders |
+| `show_sky=nothing` | Force the sky panel on or off (default: on when the model is angular) |
+| `show_phase=nothing` | Force phase-folded panels on or off (default: on under a Keplerian propagator) |
+| `whiten=nothing` | Divide residuals by their uncertainty (default: on when several draws are shown) |
+| `figscale=1.0` | Scale the whole figure |
+| `fname=nothing` | If set, save the figure to this path |
+
+Nothing is written to disk unless you pass `fname`.
+
+## Building your own figure
+
+The panels `octoplot` assembles are public, so you can lay out your own figure. They all
+take a Makie grid position and a `PosteriorSeries`:
+
 ```julia
-# Make the figure 50% larger
-octoplot(model, chain, figscale=1.5)
-```
+using CairoMakie
+series = Octofitter.PosteriorSeries(model, chain; N=100)
 
-## Time Range
-You can control the time span of the orbital plots using the ts parameter:
-```julia
-# Custom time range in Modified Julian Days
-ts = range(50000, 55000, length=200)  # 200 points between MJD 50000 and 55000
-octoplot(model, chain, ts=ts)
-```
-
-!!! note
-    The number of points should be roughly 150 per orbital period displayed to ensure smooth curves. For highly eccentric orbits, you may need more points to capture the rapid motion near periastron.
-
-## Marking Specific Epochs
-You can highlight specific epochs across all applicable panels using mark_epochs_mjd:
-```julia
-# Mark three specific dates
-epochs = [
-    mjd("2024-01-01"),
-    mjd("2025-01-01"),
-    mjd("2026-01-01")
-]
-octoplot(model, chain, mark_epochs_mjd=epochs)
-```
-These markers appear consistently across all panels, using the same color and style to show model predictions at those specific times.
-
-## Post-Creation Customization
-Since octoplot returns a Makie figure object, you can further customize the plot after creation:
-```julia
-# Create the plot
-fig = octoplot(model, chain)
-
-# Access and modify specific axes
-ax_orbit = fig.content[1]  # First axis (usually the orbit plot)
-xlims!(ax_orbit, -100, 100)  # Set x-axis limits in mas
-ylims!(ax_orbit, -100, 100)  # Set y-axis limits in mas
-
-# Add a title
-ax_orbit.title = "HD 12345 Orbital Fit"
+fig = Figure(size=(700, 900))
+skypanel!(fig[1,1], series)
+timeseriespanel!(fig[2,1], series, entries)   # entries: (observation, channel) pairs
+phasefoldpanel!(fig[3,1], series, entries; row=1)
 fig
 ```
 
-# Time Range Control
-
-The time span shown in orbit plots can be controlled using the `ts` parameter. By default, `octoplot` automatically determines an appropriate range based on:
-- Your data epochs
-- The median orbital period from your posterior
-- A small padding factor for visual clarity
-
-You can override this behavior by providing your own time range:
+To get the model curves as plain numbers rather than a plot, evaluate an
+[`ObservableQuery`](@ref) over the series:
 
 ```julia
-# Custom time range
-ts = range(mjd("2020-01-01"), mjd("2025-01-01"), length=200)
-octoplot(model, chain, ts=ts)
+q = ObservableQuery(radvel, :A, Barycentre)
+curves = modelcurves(series, q)   # one vector per draw, over series.ts
+best   = mapcurve(series, q)      # the maximum-posterior draw
 ```
 
-!!! note
-    The `ts` parameter only affects time-based panels (RV curves, proper motion, etc). The sky-projected orbit plots (`show_astrom`) and physical orbit plots (`show_physical_orbit`) use a separate internal algorithm to ensure smooth curves.
+## Predicting positions at future epochs
+
+Solve the system for a draw and query it at whatever epochs you like:
+
+```julia
+posys = construct_system(model, chain, 1)
+sols  = orbitsolve(posys, [mjd("2028-01-01"), mjd("2029-01-01")])
+
+raoff(sols[1], :b, :A)                 # ΔRA  [mas]
+decoff(sols[1], :b, :A)                # ΔDec [mas]
+projectedseparation(sols[1], :b, :A)   # [mas]
+posangle(sols[1], :b, :A)              # [rad]
+```
+
+Loop over draws to build a predicted distribution, and plot it however you like.
+
+# Customizing Appearance
+
+## Post-Creation Customization
+Since `octoplot` returns a result carrying named axes, you can customize any panel after
+creation using ordinary Makie calls:
+```julia
+res = octoplot(model, chain)
+
+# Named access, rather than guessing an index
+ax = res.axes.sky.sky
+xlims!(ax, -100, 100)
+ylims!(ax, -100, 100)
+ax.title = "HD 12345 Orbital Fit"
+
+res.figure
+```
+
+The keys of `res.axes` name the panels: `sky` for the sky panel, and one entry per
+channel group (e.g. `raoff`, `decoff`, `rv`, `rv_phase_b`), each of which is itself a NamedTuple of
+`main`, `resid` and `hist` axes. `println(keys(res.axes))` lists them for your model.
 
 !!! tip
-    If you have widely separated data epochs, you might want to zoom in on specific time ranges to better see the detail in your data. For example:
-
-```julia
-# Zoom in on first epoch
-ts = range(mjd("2020-01-01"), mjd("2021-01-01"), length=200)
-fig1 = octoplot(model, chain, ts=ts)
-```
-
-
-# Post-Creation Customization
-
-Since `octoplot` returns a Makie figure object, you can further customize any aspect of the plot after creation. The figure contains a vertical layout of different plot panels depending on which elements you chose to display.
-
-## Accessing Plot Elements
-```julia
-# Create the plot
-fig = octoplot(model, chain)
-
-# Access the axes
-axes = fig.content    # Get all axes
-
-# Common panel indices
-orbit_ax = fig.content[1]     # Sky-projected orbit plot (if show_astrom=true)
-rv_ax = fig.content[2]        # RV plot (if show_rv=true)
-# etc.
-```
-
-
-## Common Adjustments
-```julia
-# Adjust axis limits
-xlims!(orbit_ax, -100, 100)   # Set x-axis limits in mas
-ylims!(orbit_ax, -100, 100)   # Set y-axis limits in mas
-
-# Change axis labels
-orbit_ax.xlabel = "ΔRA [mas]"
-orbit_ax.ylabel = "ΔDec [mas]"
-
-# Add a title
-orbit_ax.title = "HD 12345 Orbital Fit"
-
-# Adjust legend
-Legend(fig[1,2], orbit_ax, "Posterior Draws")
-
-# Save the modified figure
-save("orbit_plot.pdf", fig)
-```
-
-!!! tip
-    Take care when modifying time-based panels (RV, proper motion, etc) as they share synchronized x-axes. Modifying the time limits of one panel will affect all others.
+    Take care when modifying time-based panels as they share synchronized x-axes.
+    Modifying the time limits of one panel will affect all others.
 
 
 # Saving Figures
@@ -240,22 +170,33 @@ save("orbit_plot.pdf", fig)
 When using CairoMakie (recommended for publication-quality outputs), you can save figures in several formats:
 
 ```julia
-fig = octoplot(model, chain)
+res = octoplot(model, chain)
 
-# Save as PNG (default)
-save("orbit_plot.png", fig)
-
-# Save as PDF (great for publications)
-save("orbit_plot.pdf", fig)
-
-# Save as SVG (good for further editing)
-save("orbit_plot.svg", fig)
+# Or pass fname= to octoplot and skip this step
+save("orbit_plot.png", res.figure)
+save("orbit_plot.pdf", res.figure)   # great for publications
+save("orbit_plot.svg", res.figure)   # good for further editing
 
 # Increase PNG resolution
-save("orbit_plot.png", fig, px_per_unit=5)  # 5x default resolution
+save("orbit_plot.png", res.figure, px_per_unit=5)
 ```
 
 !!! note
-    Many plot elements are internally rasterized to 4 points per pixel for performance, so extremely high px_per_unit values may not improve quality.
+    Many plot elements are internally rasterized for performance, so extremely high
+    `px_per_unit` values may not improve quality.
 
 If using GLMakie instead of CairoMakie, you get interactive figures that can be zoomed and panned before saving. However, only PNG output is supported. GLMakie is great for exploration, while CairoMakie is preferred for final publication figures.
+
+# Corner Plots
+
+[`octocorner`](@ref) draws the posterior pair plot, using PairPlots.jl:
+
+```julia
+using CairoMakie, PairPlots
+octocorner(model, chain, small=true)
+```
+
+`small=true` keeps only each body's `a`, `e`, `i` and `mass`; `includecols` and
+`excludecols` add or remove columns by name. `UniformCircular` helper pairs and fixed
+values are dropped automatically. Passing several chains overlays them, which is a
+convenient way to compare a prior draw with a posterior, or two models with each other.

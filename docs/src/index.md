@@ -10,8 +10,13 @@ Octofitter is a Julia package for performing Bayesian inference
 against a wide variety of exoplanet / binary star data.
 You can also use Octofitter from Python using the [Python guide](@ref python).
 
-!!! warning "Upgrading from v6 or v7?"
-    **If you're upgrading from Octofitter v7 or below, please see our [Migration Guide](@ref migration)**
+!!! warning "Upgrading from Octofitter v8 or below?"
+    Octofitter v9 ("v2") is a substantial redesign: a model is now a flat list of bodies
+    plus a flat list of observations, there is no `basis=` keyword, and observations name
+    the references they measure. **Please read [Migrating to Octofitter v2](@ref v2-migration).**
+
+    The older [Migration Guide](@ref migration) covers the v6 → v7 → v8 changes and is
+    kept for historical reference.
 
 
 ![](assets/gallery.png)
@@ -30,6 +35,8 @@ You can freely combine any of the above data types.  Any and all combinations wo
 
 **Modelling features:**
 * multiple planets (zero or more)
+* arbitrary hierarchies: moons, circumbinary planets, 2+2 quadruples — the topology is
+  declared, never inferred
 * gaussian processes (AbstractGPs or Celerite)
 * hyperbolic orbits
 * co-planar, and non-coplanar systems
@@ -38,6 +45,8 @@ You can freely combine any of the above data types.  Any and all combinations wo
 * link mass to photometry via atmosphere models
 * hierarchical models (with a bit of work from the user)
 * Model stellar activity with Gaussian processes
+* optional N-body propagation (`method=PlanetOrbits.AHL21()`) in place of superposed
+  Keplerians, with no other change to the model
 
 **Speed:**
 

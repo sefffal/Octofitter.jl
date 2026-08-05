@@ -1,6 +1,6 @@
 # Fit with a Thiele-Innes Basis
 
-This example shows how to fit relative astrometry using a Thiele-Innes orbital basis instead of the traditional Campbell basis used in other tutorials. The Thiele-Innes basis is an alternative parameterization that replaces the angular elements (inclination `i`, longitude of ascending node `Ω`, and argument of periastron `ω`) with the Thiele-Innes constants (A, B, F, G). This avoids the coordinate singularities where `ω`, `Ω`, and `tp` become poorly defined as eccentricity and/or inclination approach zero.
+This example shows how to fit relative astrometry using a Thiele-Innes orbital parameterization instead of the traditional Campbell parameterization used in other tutorials. Thiele-Innes replaces the semi-major axis `a` and the angular elements (inclination `i`, longitude of ascending node `Ω`, and argument of periastron `ω`) with the four Thiele-Innes constants (A, B, F, G). This avoids the coordinate singularities where `ω`, `Ω`, and `tp` become poorly defined as eccentricity and/or inclination approach zero.
 
 !!! tip "When to consider Thiele-Innes"
     The Thiele-Innes parameterization may be useful when:
@@ -9,13 +9,20 @@ This example shows how to fit relative astrometry using a Thiele-Innes orbital b
 
     Both parameterizations should give consistent results for the physical orbital parameters. Choose based on your preference or specific analysis needs.
 
-At the end, we will convert our results back into the Campbell basis to compare.
+In v2 there is no `ThieleInnesOrbit` type, and no `basis=` keyword. Thiele-Innes is
+written as what it is: four sampled constants plus one derived line converting them into
+the elements PlanetOrbits uses. [`PlanetOrbits.ThieleInnes`](https://sefffal.github.io/PlanetOrbits.jl/dev/api/)
+returns a NamedTuple `(; a, i, ω, Ω)`; you still supply the shape (`e`) and phase
+elements yourself.
+
+At the end, we will convert our results back into the Campbell parameterization to compare.
 
 ```@example 1
 using Octofitter
 using CairoMakie
 using PairPlots
 using Distributions
+using PlanetOrbits
 
 astrom_dat = Table(;
     epoch = [50000, 50120, 50240, 50360, 50480, 50600, 50720, 50840],
@@ -26,8 +33,44 @@ astrom_dat = Table(;
     cor   = [0, 0, 0, 0, 0, 0, 0, 0]
 )
 
-astrom_obs = PlanetRelAstromObs(
-    astrom_dat,
+A = Body(
+    name="A",
+    variables=@variables begin
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    end
+)
+
+planet_b = Body(
+    name="b",
+    about=A,
+    variables=@variables begin
+        mass = 0.0
+        e ~ Uniform(0.0, 0.5)
+        # Thiele-Innes constants A, B, F, G are in milliarcseconds (not AU like semi-major axis).
+        # Set the prior width to encompass the expected angular separation of your target.
+        # A rough guide: if your astrometry spans ~500 mas, use Normal(0, 1000) or similar.
+        TI_A ~ Normal(0, 1000) # milliarcseconds
+        TI_B ~ Normal(0, 1000) # milliarcseconds
+        TI_F ~ Normal(0, 1000) # milliarcseconds
+        TI_G ~ Normal(0, 1000) # milliarcseconds
+
+        # Convert to the size and orientation elements. `plx` is needed because
+        # the constants are in angular units.
+        ti = $(PlanetOrbits.ThieleInnes)(A=TI_A, B=TI_B, F=TI_F, G=TI_G, plx=system.plx)
+        a = ti.a
+        i = ti.i
+        ω = ti.ω
+        Ω = ti.Ω
+
+        θ ~ UniformCircular()
+        epoch = 50000.0   # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
+
+astrom_obs = RelAstromObs(
+    astrom_dat;
+    target = planet_b,
+    ref = A,
     name = "GPI",
     variables = @variables begin
         # Fixed values for this example - could be free variables:
@@ -37,32 +80,11 @@ astrom_obs = PlanetRelAstromObs(
     end
 )
 
-planet_b = Planet(
-    name="b",
-    basis=ThieleInnesOrbit,
-    observations=[astrom_obs],
-    variables=@variables begin
-        e ~ Uniform(0.0, 0.5)
-        # Thiele-Innes constants A, B, F, G are in milliarcseconds (not AU like semi-major axis).
-        # Set the prior width to encompass the expected angular separation of your target.
-        # A rough guide: if your astrometry spans ~500 mas, use Normal(0, 1000) or similar.
-        A ~ Normal(0, 1000) # milliarcseconds
-        B ~ Normal(0, 1000) # milliarcseconds
-        F ~ Normal(0, 1000) # milliarcseconds
-        G ~ Normal(0, 1000) # milliarcseconds
-
-        M = system.M
-        θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, 50000.0; system.plx, M, e, A, B, F, G)  # reference epoch for θ. Choose an MJD date near your data.
-    end
-)
-
 sys = System(
     name="TutoriaPrime",
-    companions=[planet_b],
-    observations=[],
+    bodies=[A, planet_b],
+    observations=[astrom_obs],
     variables=@variables begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
     end
 )
@@ -70,16 +92,12 @@ sys = System(
 model = Octofitter.LogDensityModel(sys)
 ```
 
-!!! warning "Different syntax for `θ_at_epoch_to_tperi`"
-    When using `ThieleInnesOrbit`, the `θ_at_epoch_to_tperi` function requires the Thiele-Innes constants `A`, `B`, `F`, `G` as keyword arguments instead of the Campbell angular elements `i`, `Ω`, `ω`:
-    ```julia
-    # Campbell (Visual{KepOrbit}):
-    tp = θ_at_epoch_to_tperi(θ, epoch; M, e, a, i, Ω, ω)
-
-    # Thiele-Innes:
-    tp = θ_at_epoch_to_tperi(θ, epoch; system.plx, M, e, A, B, F, G)
-    ```
-    Note that `system.plx` (parallax) is also required for Thiele-Innes since the constants are in angular units.
+!!! note "The node is ambiguous by ±180°"
+    `(ω, Ω)` and `(ω+π, Ω+π)` give *identical* Thiele-Innes constants, so the inverse is
+    genuinely two-valued: astrometry alone cannot distinguish the ascending node from the
+    descending one. `PlanetOrbits.ThieleInnes` returns the branch with `Ω ∈ [0, π)`. Radial
+    velocities break the tie; if you have them and they prefer the other node, use
+    `ω + π` and `Ω + π`.
 
 Initialize the starting points, and confirm the data are entered correcly:
 ```@example 1
@@ -104,30 +122,30 @@ octoplot(model,results)
 octocorner(model, results, small=false)
 ```
 
-## Conversion back to Campbell Elements
-To convert our chain into the more familiar Campbell parameterization, we have to do a few steps. We start by turning the chain table into a an array of orbit objects, and then convert their type:
+## Working in Campbell Elements
 
-```@example 1
-orbits_ti = Octofitter.construct_elements(model, results, :b, :) # colon means all rows
-```
+Because the Campbell elements are ordinary derived variables of this model, they are
+already in the chain — there is no conversion step:
 
-Here is one of those entries:
-```@example 1
-display(orbits_ti[1])
-```
-
-We can now make a table of results (and visualize them in a corner plot) by querying properties of these objects:
 ```@example 1
 table = (;
-    B_a = semimajoraxis.(orbits_ti),
-    B_e = eccentricity.(orbits_ti),
-    B_i = rad2deg.(inclination.(orbits_ti)),
+    B_a = results[:b_a][:],
+    B_e = results[:b_e][:],
+    B_i = rad2deg.(results[:b_i][:]),
 )
 pairplot(table)
 ```
 
-We can also convert the orbit objects into Campbell parameters:
+If you want the solved orbits themselves — for example to query them at new epochs, or to
+read off elements a model did not name — rebuild the `PlanetOrbits.System` for a draw:
+
 ```@example 1
-orbits_campbell = Visual{KepOrbit}.(orbits_ti)
-orbits_campbell[1]
+posys = construct_system(model, results, 1)
+(; a = semimajoraxis(posys, 1),
+   e = eccentricity(posys, 1),
+   i = rad2deg(inclination(posys, 1)),
+   P_days = period(posys, 1))
 ```
+
+The inverse conversion is also available: `PlanetOrbits.thieleinnes(posys, 1; plx=50.0)`
+returns the `(A, B, F, G)` constants of hierarchy row 1 in milliarcseconds.

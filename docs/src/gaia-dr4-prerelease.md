@@ -27,7 +27,14 @@ using Distributions
 using CairoMakie
 using CSV, DataFrames
 using Statistics
+using Pigeons
 ```
+
+!!! note "What changed in v2"
+    Three things on this page: the likelihood is now `GaiaDR4AstromObs` and **no longer
+    takes `gaia_id=`** (so there is no `obs.gaia_sol` — query the DR3 solution yourself),
+    the model is written with `Body`/`System` nodes instead of `Planet`/`companions=`, and
+    every mass is in **solar masses**.
 
 ## Loading the data
 
@@ -59,16 +66,16 @@ The columns are:
 | `ipd_error_al` | mas | Image parameter determination uncertainty |
 | `parallax_factor_al` | — | Along-scan parallax factor (one value per transit) |
 | `used_by_agis_al` | bool | Whether this CCD observation was used in the astrometric solution |
-| `outlier_flag` | 0/1 | `0` where `used_by_agis_al` is true; `GaiaDR4Astrom` skips rows with `outlier_flag > 0` |
+| `outlier_flag` | 0/1 | `0` where `used_by_agis_al` is true; `GaiaDR4AstromObs` skips rows with `outlier_flag > 0` |
 
 !!! warning "Scan angles must be in radians"
-    `GaiaDR4Astrom` takes `sincos(scan_pos_angle)` directly, so this column **must be in
+    `GaiaDR4AstromObs` takes `sincos(scan_pos_angle)` directly, so this column **must be in
     radians**. The raw VOTABLE ships degrees; the conversion has already been applied in
     the CSV above. If you prepare your own table, remember `deg2rad`.
 
 !!! note "`mapcols(collect, df)`"
     When Julia is started with multiple threads, `CSV.read` can return
-    `SentinelArrays.ChainedVector` columns. These currently break `GaiaDR4Astrom`'s
+    `SentinelArrays.ChainedVector` columns. These currently break `GaiaDR4AstromObs`'s
     per-epoch indexing (`AssertionError: wrong ChainedVectorIndex`). Materializing each
     column with `mapcols(collect, df)` makes the tutorial independent of thread count.
 
@@ -133,9 +140,10 @@ the DR3 catalogue position and the DR4 frame, and `pmra`/`pmdec` are the barycen
 proper motion.
 
 ```julia
-gaia_obs = GaiaDR4Astrom(
+gaia_obs = GaiaDR4AstromObs(
     transit_level_data,
-    gaia_id=GAIA4_SOURCE_ID,
+    target = Photocentre,   # what the catalogue source is: the blended, flux-weighted point
+    ref    = Barycentre,    # ...measured against the system barycentre
     name="GaiaDR4",
     variables=@variables begin
         astrometric_jitter ~ LogUniform(0.00001, 10)   # mas
@@ -143,44 +151,56 @@ gaia_obs = GaiaDR4Astrom(
         dec_offset_mas ~ Normal(0, 1000)
         pmra  ~ Uniform(-1000, 1000)                   # mas/yr
         pmdec ~ Uniform(-1000, 1000)
-        plx = system.plx
         ref_epoch = $REF_EPOCH_MJD
     end
 )
 
-sol = gaia_obs.gaia_sol   # the DR3 solution, queried automatically from the Gaia ID
+# v1's likelihood queried the DR3 solution for you and stashed it in `gaia_obs.gaia_sol`.
+# v2's observation carries data, references and variables only, so query it explicitly:
+sol = Octofitter._query_gaia_dr3(gaia_id=GAIA4_SOURCE_ID)
 println("DR3 solution: plx=$(sol.parallax)  pmra=$(sol.pmra)  pmdec=$(sol.pmdec)")
 ```
+
+The parallax the likelihood uses comes from the system's own `plx`, so the
+`plx = system.plx` line v1 needed in this block is gone.
 
 ## The model
 
 ```julia
 orbit_ref_epoch = mean(gaia_obs.table.epoch)
 
-b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
-    observations=[],
+A = Body(
+    name="A",
     variables=@variables begin
-        a ~ Uniform(0, 10)                # AU  (Gaia-4b is at ~1.17 AU)
+        mass ~ truncated(Normal(0.644, 0.02), lower=0.1)   # host mass [Msol] (Stefansson et al. 2025)
+        flux = 1.0                           # the host sets the photocentre's flux scale
+    end
+)
+
+b = Body(
+    name="b",
+    about=A,
+    variables=@variables begin
+        mass ~ LogUniform(0.3mjup, 100mjup)  # companion mass [Msol]; `mjup` is a constant
+        flux = 0.0                           # dark companion => the photocentre is the host
+        a ~ Uniform(0, 10)                   # AU  (Gaia-4b is at ~1.17 AU)
         e ~ Uniform(0, 0.99)
         ω ~ UniformCircular()
         i ~ Sine()
         Ω ~ UniformCircular()
-        θ ~ UniformCircular()             # position angle at orbit_ref_epoch
-        tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=system.M, e, a, i, ω, Ω)
-        mass = system.mass_b              # Mjup
+        θ ~ UniformCircular()                # position angle at `epoch`
+        # `θ` + `epoch` is a phase parametrization the orbit constructor accepts
+        # directly, and an orbit's total mass comes from the hierarchy, so v1's
+        # `tp = θ_at_epoch_to_tperi(θ, ...; M=system.M, ...)` line is gone.
+        epoch = $orbit_ref_epoch
     end
 )
 
 sys = System(
     name="Gaia4",
-    companions=[b],
+    bodies=[A, b],
     observations=[gaia_obs],
     variables=@variables begin
-        M_pri ~ truncated(Normal(0.644, 0.02), lower=0.1)   # host mass [Msol] (Stefansson et al. 2025)
-        mass_b ~ LogUniform(0.3, 100)                       # companion mass [Mjup]
-        M = M_pri + mass_b * Octofitter.mjup2msol           # total mass [Msol]
         plx ~ truncated(Normal(sol.parallax, sol.parallax_error), lower=1)
     end
 )
@@ -188,13 +208,20 @@ sys = System(
 model = Octofitter.LogDensityModel(sys; verbosity=4)
 ```
 
+There is no system-level `M` any more: each body carries its own `mass`, and an orbit's
+total mass comes from the hierarchy. A `Photocentre` target needs at least one body to
+declare a flux, which is what `flux = 1.0` on `A` is for; `flux = 0.0` on `b` makes the
+photocentre exactly the host, which is what v1 modelled.
+
 ## Initializing and sampling
 
 ```julia
 init_chain = initialize!(model, (;
-    M_pri = 0.644,
-    mass_b = 11.8,
     plx = sol.parallax,
+    bodies = (
+        A = (; mass = 0.644),
+        b = (; mass = 11.8mjup, a = 1.17, e = 0.1, i = 1.0),
+    ),
     observations = (GaiaDR4 = (
         astrometric_jitter = 0.1,
         ra_offset_mas = 0.0,
@@ -202,20 +229,17 @@ init_chain = initialize!(model, (;
         pmra = sol.pmra,
         pmdec = sol.pmdec,
     ),),
-    planets = (b = (
-        a = 1.17,
-        e = 0.1,
-        i = 1.0,
-    ),),
 ))
 octoplot(model, init_chain)
 ```
+
+Starting values nest under `bodies=` now, not `planets=`, and the host star is a body like
+any other, so its mass is initialized in the same place.
 
 Astrometry-only orbit fits are strongly multi-modal, so parallel tempering is the safer
 choice here:
 
 ```julia
-using Pigeons
 chain, pt = octofit_pigeons(
     model,
     n_chains=16,
@@ -225,6 +249,13 @@ chain, pt = octofit_pigeons(
 )
 ```
 
+!!! tip "An astrometry-only fit wants parallel tempering"
+    This fit runs under [`octofit_pigeons`](@ref) with a non-variational reference
+    (`n_chains_variational=0`, `variational=nothing`), which is what an astrometry-only
+    posterior wants. Dropping to HMC here is a real downgrade: seed it well
+    ([`initialize!`](@ref) / [`startingpoints!`](@ref)) and check carefully for missed
+    modes if you do.
+
 ## Results
 
 ```julia
@@ -233,8 +264,8 @@ q(v) = round.(quantile(v, (0.16, 0.5, 0.84)), sigdigits=5)
 a    = vec(chain["b_a"])
 e    = vec(chain["b_e"])
 inc  = vec(chain["b_i"])
-mb   = vec(chain["mass_b"])
-Mtot = vec(chain["M"])
+mb   = vec(chain["b_mass"]) ./ mjup           # Msol -> Mjup, for comparison with the paper
+Mtot = vec(chain["A_mass"]) .+ vec(chain["b_mass"])
 Pday = sqrt.(a.^3 ./ Mtot) .* 365.25
 
 println("period  [day] : ", q(Pday), "   (Stefansson et al. 2025: 571.3 ± 1.4)")
@@ -243,6 +274,9 @@ println("e             : ", q(e))
 println("i       [deg] : ", round.(rad2deg.(quantile(inc, (0.16, 0.5, 0.84))), digits=1))
 println("mass_b  [Mjup]: ", q(mb),   "   (Stefansson et al. 2025: 11.8 ± 0.7)")
 ```
+
+The chain columns follow the bodies now: `b_mass` (in solar masses) and `A_mass` replace
+v1's system-level `mass_b` and `M`.
 
 And the usual plots:
 
@@ -254,7 +288,14 @@ octoplot(model, chain)
 # A single posterior draw, plotted against the Gaia along-scan data.
 # As with RV, this only works for individual draws: the Gaia points are "detrended"
 # using the parameters of that particular draw.
+#
+# `GaiaDR4AstromObs` declares an `:along_scan` plot channel, so the generic panel covers
+# the abscissa-vs-time view — restrict the PosteriorSeries to the draw you want:
 idx = rand(1:size(chain, 1))
+octoplot(Octofitter.PosteriorSeries(model, chain; ii=[idx]))
+
+# `gaiastarplot` is the sky-plane version of the same draw: the reflex track with each
+# transit's residual re-projected along its own scan angle.
 Octofitter.gaiastarplot(model, chain, idx)
 ```
 

@@ -1,5 +1,13 @@
 # [Migration Guide] (@id migration)
 
+!!! warning "This page is historical"
+    This guide covers the v6 → v7 → v8 changes. **It does not describe the current API.**
+    Octofitter v9 ("v2") replaced `Planet`/`companions=`/`basis=` with a flat list of
+    `Body` nodes and observations that name their own references, and several of the type
+    names below no longer exist. If you are upgrading a script written for v8 or earlier,
+    read [Migrating to Octofitter v2](@ref v2-migration) — start there, and use this page
+    only to understand intermediate versions you may be reading code from.
+
 ## Table of Contents
 - [Migrating to v8](#migrating-to-v8)
 - [Migrating to v7](#migrating-to-v7)
@@ -130,7 +138,7 @@ gaia_obs = GaiaDR4AstromObs(
 )
 ```
 
-New plotting functions `gaiatimeplot` and `gaiastarplot` are available for visualizing DR4 fits.
+New plotting functions [`gaiatimeplot`](@ref) and [`gaiastarplot`](@ref) are available for visualizing DR4 fits.
 
 #### Stability Priors
 
