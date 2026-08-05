@@ -402,10 +402,16 @@ function residuals(obs::RadialVelocityObs, ctx::ObsContext)
     θ_obs = ctx.θ_obs
     offset = hasproperty(θ_obs, :offset) ? θ_obs.offset : zero(T)
     jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero(T)
-    sim = simulate(obs, ctx)               # includes the offset
+    sim = simulate(obs, ctx)               # includes the offset and the trend
     ep = collect(Float64, obs.table.epoch)
-    model_pure = sim.rv_model .- offset    # matches the radvel query curve
-    data_cal = obs.table.rv .- offset
+    # Subtract the trend as well as the offset. The `radvel` query the panel
+    # draws its curve from knows nothing about either, so a trended model
+    # whose points kept the trend would not overlay its own curve. v1's
+    # `rvpostplot` subtracted both; `trend_function` now lives on the core
+    # type, so both belong here.
+    trend = obs.trend_function.(Ref(θ_obs), obs.table.epoch)
+    model_pure = sim.rv_model .- offset .- trend
+    data_cal = obs.table.rv .- offset .- trend
     return (;
         rv=(; epoch=ep, data=collect(data_cal), model=collect(model_pure),
             resid=collect(obs.table.rv .- sim.rv_model),
@@ -440,6 +446,184 @@ function residuals(obs::GaiaDR4AstromObs, ctx::ObsContext)
             σ_eff=collect(hypot.(tab.centroid_pos_error_al, jitter)), use),
     )
 end
+
+# --- HipparcosIADObs -----------------------------------------------------------
+# The same shape as the DR4 channel: one along-scan abscissa per transit, with
+# no meaning off the data epochs (the scan angle is per transit), so no query.
+
+plotchannels(::HipparcosIADObs) = (
+    PlotChannel(:along_scan, "Hipparcos abscissa residual", "mas"),
+)
+
+# The along-scan channel of a Hipparcos IAD table, shared by `HipparcosIADObs`
+# and `G23HObs` (they read the same transits).
+#
+# The datum plotted is `res`, the catalog's own abscissa residual, not the
+# absolute abscissa `proj_meas_alongscan` the likelihood compares against.
+# They differ by the catalog five-parameter path projected on scan, which for
+# a high-proper-motion star is *arcseconds* — it would set the axis range and
+# bury the milliarcsecond signal the fit is about. Subtracting it from the
+# data and the model alike is the same calibration an RV instrument offset
+# gets, and it leaves the residual (and therefore the likelihood) untouched.
+function _hip_alongscan(tab, resid, σ_infl, jitter)
+    res = collect(Float64, tab.res)
+    r = collect(Float64, resid)
+    # The per-transit σ `ln_like` uses: the renormalized formal error scaled by
+    # the BINARYS first-harmonic inflation factor, which grows where the binary
+    # modulation reduces the signal amplitude.
+    σ = collect(Float64, tab.sres_renorm .* σ_infl)
+    return (; epoch=collect(Float64, tab.epoch), data=res, model=res .- r, resid=r,
+        σ, σ_eff=collect(hypot.(σ, jitter)),
+        # `reject` is van Leeuwen's own per-transit rejection flag, and
+        # `ln_like` skips those rows.
+        use=collect(Bool, .!tab.reject))
+end
+
+function residuals(obs::HipparcosIADObs, ctx::ObsContext)
+    T = _system_number_type(ctx.θ_system)
+    jitter = hasproperty(ctx.θ_obs, :hip_iad_jitter) ? ctx.θ_obs.hip_iad_jitter : zero(T)
+    sim = simulate(obs, ctx)                        # `resid` is measured − model
+    return (; along_scan=_hip_alongscan(obs.table, sim.resid, sim.σ_inflation, jitter))
+end
+
+# --- G23HObs -------------------------------------------------------------------
+#
+# A composite catalog observation (design §5.1): five *time-averaged* proper
+# motions per axis rather than an epoch series, plus a UEVA datum and — when
+# `:iad_hip` is kept — the Hipparcos per-transit abscissae.
+#
+# What it exposes, and why that shape:
+#
+#   * `:pmra` / `:pmdec`. Each catalog channel is a proper motion of the same
+#     source over a different window, so all five belong on one axis against
+#     one curve — which is what v1's `hgcaplot`, `pmaplot` and `absastromplot`
+#     all drew in their top two panels. The curve is the *reflex* proper
+#     motion `pmra(host, ref)`, and the data are calibrated onto it by
+#     removing the reference frame's own proper motion, exactly as an RV
+#     instrument offset is removed. Each point carries `epoch_lo`/`epoch_hi`:
+#     a PM is an average over its mission window, and the generic panel draws
+#     that window as a horizontal bar (v1 `absastromplot`'s one genuinely
+#     load-bearing idiom).
+#   * `:along_scan_hip`, when the Hipparcos abscissae are included — the same
+#     channel `HipparcosIADObs` exposes, from the same transits.
+#
+# Deliberately *not* exposed as channels: `:ueva_dr3` (an astrometric
+# excess-noise variance, not a proper motion — it shares no axis with anything
+# and a one-point panel says less than the corner plot does) and `:rv_dr3` (a
+# radial-velocity *variability* statistic, likewise). Both still enter
+# `ln_like`; they simply have no data-vs-model series to draw.
+
+const _G23H_PM_KINDS = (
+    pmra=(:ra_hip, :ra_hg, :ra_dr2, :ra_dr32, :ra_dr3),
+    pmdec=(:dec_hip, :dec_hg, :dec_dr2, :dec_dr32, :dec_dr3),
+)
+
+function plotchannels(obs::G23HObs)
+    kinds = obs.table.kind
+    chs = Any[]
+    if any(k -> k ∈ kinds, _G23H_PM_KINDS.pmra)
+        push!(chs, PlotChannel(:pmra, "μα*", "mas/yr";
+            query=ObservableQuery(PlanetOrbits.pmra, obs.host, obs.ref)))
+    end
+    if any(k -> k ∈ kinds, _G23H_PM_KINDS.pmdec)
+        push!(chs, PlotChannel(:pmdec, "μδ", "mas/yr";
+            query=ObservableQuery(PlanetOrbits.pmdec, obs.host, obs.ref)))
+    end
+    :iad_hip ∈ kinds &&
+        push!(chs, PlotChannel(:along_scan_hip, "Hipparcos abscissa residual", "mas"))
+    return Tuple(chs)
+end
+
+# One axis' worth of catalog proper motions, in table (i.e. epoch) order.
+function _g23h_pmseries(obs::G23HObs, mom, kinds, offset)
+    lut = Dict{Symbol,Int}(l => k for (k, l) in enumerate(mom.labels))
+    ep = Float64[]; lo = Float64[]; hi = Float64[]
+    data = Float64[]; model = Float64[]; σ = Float64[]
+    for k in kinds
+        j = get(lut, k, 0)
+        j == 0 && continue
+        row = findfirst(==(k), obs.table.kind)
+        row === nothing && continue
+        push!(ep, obs.table.epoch[row])
+        push!(lo, obs.table.start_epoch[row])
+        push!(hi, obs.table.stop_epoch[row])
+        push!(data, mom.catalog[j] - offset)
+        push!(model, mom.model[j] - offset)
+        push!(σ, mom.sigma[j])
+    end
+    # σ is the *marginal* σ of the coupled block. The likelihood scores the
+    # whole 11-vector against its full covariance (the DR2/DR3 proper motions
+    # are correlated through `rho_dr2_dr3`), so a per-point residual over σ is
+    # a per-channel diagnostic, not the quantity that enters `ln_like`. It is
+    # the same convention v1 used, and the per-channel jitter and the DR3
+    # deflation are already in it — so there is no second, looser σ to report:
+    # `σ_eff == σ`.
+    return (; epoch=ep, epoch_lo=lo, epoch_hi=hi, data, model,
+        resid=data .- model, σ, σ_eff=copy(σ), use=trues(length(ep)))
+end
+
+function residuals(obs::G23HObs, ctx::ObsContext)
+    T = _system_number_type(ctx.θ_system)
+    kinds = obs.table.kind
+    out = NamedTuple()
+
+    if any(k -> k ∈ kinds, (_G23H_PM_KINDS.pmra..., _G23H_PM_KINDS.pmdec...))
+        mom = _g23h_catalog_moments(obs, ctx)
+        sim = simulate(obs, ctx)
+        pmra_sys, pmdec_sys = _g23h_pm(ctx.θ_system, ctx.θ_obs, T)
+        # The likelihood expresses every channel against the *reference point's*
+        # proper motion and then shifts the whole frame by −Δpm_dr3 so that the
+        # frame refers to the primary rather than the barycentre (see
+        # `_g23h_simulate!`'s closing comment). Removing that constant from both
+        # the catalog and the model values is what puts them on the pure
+        # `pmra(host, ref)` curve the panel draws — the proper-motion analogue
+        # of subtracting an RV instrument's zero point.
+        off_ra = Float64(pmra_sys - sim.Δpmra_dr3)
+        off_dec = Float64(pmdec_sys - sim.Δpmdec_dr3)
+        any(k -> k ∈ kinds, _G23H_PM_KINDS.pmra) && (out = merge(out,
+            (; pmra=_g23h_pmseries(obs, mom, _G23H_PM_KINDS.pmra, off_ra))))
+        any(k -> k ∈ kinds, _G23H_PM_KINDS.pmdec) && (out = merge(out,
+            (; pmdec=_g23h_pmseries(obs, mom, _G23H_PM_KINDS.pmdec, off_dec))))
+    end
+
+    if :iad_hip ∈ kinds
+        sim = simulate(obs, ctx)
+        jitter = hasproperty(ctx.θ_obs, :hip_iad_jitter) ? ctx.θ_obs.hip_iad_jitter : zero(T)
+        out = merge(out, (; along_scan_hip=_hip_alongscan(
+            obs.hip_table, sim.iad_resid_signed, sim.σ_inflation_hip, jitter)))
+    end
+    return out
+end
+
+# --- PhotometryObs -------------------------------------------------------------
+#
+# Photometry has no epoch axis at all (`epochs(obs)` is empty by design) and no
+# `PlanetOrbits` observable behind it — the forward model is one body variable,
+# constant across the table. A time-series panel is therefore the wrong shape,
+# so the type declares its channel (which is what makes `Octofitter.residuals`,
+# goodness-of-fit tables and the "no plot channels" audit work) and opts out of
+# the generic panels with a small bespoke one.
+
+plotchannels(obs::PhotometryObs) = (
+    PlotChannel(:phot, "flux (" * string(_photvar(obs)) * ")", ""),
+)
+
+function residuals(obs::PhotometryObs, ctx::ObsContext)
+    flux = Float64(simulate(obs, ctx).phot_model)
+    n = length(obs.table.phot)
+    data = collect(Float64, obs.table.phot)
+    σ = collect(Float64, obs.table.σ_phot)
+    return (;
+        # There is no epoch: the row index stands in, and the bespoke panel
+        # puts it on the x axis. (A table may carry an `:epoch` column for the
+        # user's own bookkeeping, but the model ignores it — see `epochs`.)
+        phot=(; epoch=collect(1.0:n), data, model=fill(flux, n),
+            resid=data .- flux, σ, σ_eff=copy(σ), use=trues(n)),
+    )
+end
+
+defaultpanels(obs::PhotometryObs) =
+    (:phot => (gp, series) -> photometrypanel!(gp, series, obs),)
 
 # ---------------------------------------------------
 # PosteriorSeries
@@ -634,10 +818,37 @@ end
     plottable_observations(sys)
 
 The observations with at least one declared plot channel, in declaration
-order (prior-shaped terms and unported types drop out naturally).
+order (prior-shaped terms and types with no channels yet drop out naturally).
 """
 plottable_observations(sys::System) =
     [obs for obs in sys.observations if !isempty(plotchannels(obs)) && !_isprior(obs)]
+
+"""
+    unplottable_observations(sys) -> Vector{String}
+
+Observations that carry data but declare no [`plotchannels`](@ref), described
+for a log message.
+
+Worth announcing rather than dropping silently: a proper-motion-anomaly or
+Hipparcos-only figure with no data on it looks like a *result* — a model with
+nothing to constrain it — rather than like a missing feature.
+
+Every observation type Octofitter ships now declares channels, so this is
+normally empty; it fires for user-defined observation types that have not
+implemented the protocol yet.
+"""
+unplottable_observations(sys::System) =
+    String["$(likelihoodname(o)) ($(nameof(typeof(o))))"
+           for o in sys.observations if !_isprior(o) && isempty(plotchannels(o))]
+
+function _warn_unplottable(sys::System)
+    missing_ = unplottable_observations(sys)
+    isempty(missing_) && return nothing
+    @info("Some observations declare no plot channels, so their data are not overlaid " *
+          "— only the modelled orbits are drawn: $(join(missing_, ", ")). " *
+          "See `Octofitter.plotchannels`.")
+    return nothing
+end
 
 # ---------------------------------------------------
 # Result type
@@ -684,7 +895,10 @@ Requires a Makie backend to be loaded (e.g. `using CairoMakie`).
 Returns a result whose fields are the `figure`, the named `axes` (for direct
 annotation: `text!(res.axes.sky, ...)`), and the underlying
 [`PosteriorSeries`](@ref). Keywords are documented in the extension method;
-`fname="..."` saves the figure (nothing is written by default).
+`fname="..."` saves the figure (nothing is written by default), and
+`channels=` restricts it to some of the data — an observable function, a
+channel or observable name, or a collection of either. [`rvpostplot`](@ref)
+is `channels=radvel` with the sky panel off.
 """
 function octoplot end
 octoplot(args...; kwargs...) = _require_makie("octoplot")
@@ -728,6 +942,125 @@ Requires both a Makie backend and PairPlots to be loaded.
 function octocorner end
 octocorner(args...; kwargs...) = _require_makie("octocorner (also load PairPlots)")
 export octocorner
+
+"""
+    dotplot(model, chain; mode=:separation, epoch=nothing, kwargs...)
+
+Mass against separation (or period) for every body in the fit, coloured by
+eccentricity, with marginal histograms. A posterior summary — no data, no
+observations — so it works for any model whose bodies have a sampled `mass`
+and `e`.
+
+`mode=:separation` uses each draw's semi-major axis, or the instantaneous
+3-D separation at `epoch=` when one is given; `mode=:period` uses the orbital
+period. Masses are M⊙ (v1 plotted Mⱼᵤₚ; v2 has one mass unit throughout).
+Requires a Makie backend.
+"""
+function dotplot end
+dotplot(args...; kwargs...) = _require_makie("dotplot")
+export dotplot
+
+"""
+    gaiastarplot(model, chain, sample_idx=MAP; kwargs...)
+
+The host's reflex orbit in the Gaia frame for one posterior draw, with each
+transit's along-scan residual re-projected into the sky plane along its own
+scan angle and drawn as a segment through the modelled track. This is the
+"is there a wobble, and does the orbit fit it?" picture for a
+[`GaiaDR4AstromObs`](@ref); the along-scan-versus-time half of it is the
+generic panel [`octoplot`](@ref) already draws. Requires a Makie backend.
+"""
+function gaiastarplot end
+gaiastarplot(args...; kwargs...) = _require_makie("gaiastarplot")
+export gaiastarplot
+
+"""
+    gaiatimeplot(model, chain; kwargs...)
+
+Along-scan abscissa against time for a [`GaiaDR4AstromObs`](@ref): the
+posterior cloud of modelled abscissae over the measurements, with a per-epoch
+boxplot of the residuals against the quoted formal errors below.
+
+This is the same data as `octoplot`'s generic `:along_scan` panel, drawn in
+v1's per-epoch-boxplot idiom, which answers a different question: not "are
+the residuals normal" but "at which epochs is the posterior spread larger
+than the measurement error". Requires a Makie backend.
+"""
+function gaiatimeplot end
+gaiatimeplot(args...; kwargs...) = _require_makie("gaiatimeplot")
+export gaiatimeplot
+
+"""
+    skytrackplot(model, chain, sample_idx=MAP; ra=nothing, dec=nothing,
+                 gaia_id=nothing, ts=nothing, keplerian_mult=1, kwargs...)
+
+The star's whole path on the sky for one draw: parallactic loops, proper
+motion, and the orbital wobble superimposed — the picture of *why* the wobble
+is hard to extract. `keplerian_mult` exaggerates the orbital term.
+
+The parallax ellipse needs a sky direction to project onto. It is taken from
+the system's own `ra`/`dec` frame variables when the model declares an
+absolute frame; otherwise give `ra=`/`dec=` in degrees, or `gaia_id=`, which
+reads them from the published solution via
+[`gaia_dr3_solution`](@ref). Requires a Makie backend, and the DE440
+ephemeris data dependency for the Earth's position.
+"""
+function skytrackplot end
+skytrackplot(args...; kwargs...) = _require_makie("skytrackplot")
+export skytrackplot
+
+"""
+    hipparcosplot(model, chain, sample_idx=MAP; kwargs...)
+
+Hipparcos intermediate astrometry for one draw, in its own geometry: the
+catalog's five-parameter sky path, the modelled path with the companion's
+perturbation, each transit's abscissa line, and the perpendicular residual
+and formal error drawn against it — plus a residual-versus-time strip.
+
+Works with a [`HipparcosIADObs`](@ref) or with a [`G23HObs`](@ref) that keeps
+its `:iad_hip` channel. Requires a Makie backend.
+"""
+function hipparcosplot end
+hipparcosplot(args...; kwargs...) = _require_makie("hipparcosplot")
+export hipparcosplot
+
+"""
+    photometrypanel!(gridposition, series, obs; kwargs...)
+
+Bespoke panel for a [`PhotometryObs`](@ref): the posterior of the modelled
+flux as a band, and the measurements with their errorbars. Photometry has no
+epoch axis, so the x axis is the measurement index. Requires Makie.
+"""
+function photometrypanel! end
+export photometrypanel!
+
+"""
+    likemappanel!(gridposition, series, obs; kwargs...)
+
+Bespoke panel for a `LogLikelihoodMapObs`: per epoch, how far below that
+epoch's map maximum the modelled position falls, over the posterior draws.
+Requires Makie (and OctofitterImages). See [`defaultpanels`](@ref).
+"""
+function likemappanel! end
+export likemappanel!
+
+"""
+    rvpostplot(model, chain; kwargs...) -> OctoPlotResult
+
+The radial-velocity summary figure: one time-series panel with a residual
+strip and marginal histogram, plus one phase-folded panel per hierarchy row
+that moves the star. Sugar over [`octoplot`](@ref) restricted to the model's
+radial-velocity channels — the same panels, without the sky panel and without
+any non-RV data.
+
+Requires a Makie backend. `rvpostplot_animated` records the same figure over
+successive single-draw slices of the chain.
+"""
+function rvpostplot end
+rvpostplot(args...; kwargs...) = _require_makie("rvpostplot")
+function rvpostplot_animated end
+rvpostplot_animated(args...; kwargs...) = _require_makie("rvpostplot_animated")
+export rvpostplot, rvpostplot_animated
 
 """
     phasefoldpanel!(gridposition, series, entries; row, kwargs...)

@@ -60,6 +60,12 @@ v1's sky geometry exactly.
 
 `fluxratios`/`masses` are per-companion tuples, so the same builder covers
 the multi-companion divergence measurement.
+
+`body_fluxes=true` moves the flux ratios out of the observation and onto the
+bodies as `flux_G`/`flux_Hp` variables (the host at 1.0, so every other body's
+flux *is* its contrast ratio). The two spellings must give the same numbers;
+that equivalence is what the "flux ratios default to the bodies' own fluxes"
+testset checks.
 """
 function g23h_model(; n_companions=1,
                     masses=(EVAL[:M_comp],),
@@ -68,37 +74,64 @@ function g23h_model(; n_companions=1,
                     elements=((a=EVAL[:a], e=EVAL[:e], i=EVAL[:i],
                                ω=EVAL[:omega], Ω=EVAL[:Omega], tp=EVAL[:tp]),),
                     observing_geometry=false,
+                    body_fluxes=false, obs_ratios=nothing, channels=nothing,
+                    body_fluxratios=nothing, body_fluxratios_hip=nothing,
                     ueva_mode=:RUWE, include_rv=true)
+    # `body_fluxes` puts the ratios on the bodies; `obs_ratios` puts them on the
+    # observation. Setting both is the override case (an explicit vector wins).
+    obs_ratios = isnothing(obs_ratios) ? !body_fluxes : obs_ratios
+    body_fluxratios = isnothing(body_fluxratios) ? fluxratios : body_fluxratios
+    body_fluxratios_hip = isnothing(body_fluxratios_hip) ? fluxratios_hip : body_fluxratios_hip
     cat = g23h_catalog_row()
     M_tot = EVAL[:M_tot]
-    host = Octofitter.Body(name="A", variables=@variables begin
+    hostvars = @variables begin
         mass = $(M_tot - sum(masses))
-    end)
+    end
+    if body_fluxes
+        hostvars = vcat(hostvars, @variables begin
+            flux_G = 1.0
+            flux_Hp = 1.0
+        end)
+    end
+    host = Octofitter.Body(name="A", variables=hostvars)
     comps = map(1:n_companions) do k
         el = elements[k]
         nm = ("b", "c", "d")[k]
-        Octofitter.Body(name=nm, about=host, variables=@variables begin
+        cvars = @variables begin
             mass = $(masses[k])
             # v1 drove Kepler's third law from the total system mass for every
             # companion; `M=` is the compatibility override for exactly that.
             M = $M_tot
             a = $(el.a); e = $(el.e); i = $(el.i)
             ω = $(el.ω); Ω = $(el.Ω); tp = $(el.tp)
-        end)
+        end
+        if body_fluxes
+            cvars = vcat(cvars, @variables begin
+                flux_G = $(body_fluxratios[k])
+                flux_Hp = $(body_fluxratios_hip[k])
+            end)
+        end
+        Octofitter.Body(name=nm, about=host, variables=cvars)
     end
 
+    obsvars = @variables begin
+        σ_AL = $(EVAL[:sigma_AL])
+        σ_att = $(EVAL[:sigma_att])
+        σ_calib = $(EVAL[:sigma_calib])
+    end
+    if obs_ratios
+        obsvars = vcat(obsvars, @variables begin
+            fluxratio = $(Tuple(fluxratios))
+            fluxratio_hip = $(Tuple(fluxratios_hip))
+        end)
+    end
     obs = G23HObs(;
         host=host, companions=Tuple(comps),
         gaia_id=cat.gaia_source_id, catalog=cat,
         forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
         dr2_transits_catalog=g23h_dr2_sidecar(),
-        ueva_mode, include_rv,
-        variables=@variables begin
-            σ_AL = $(EVAL[:sigma_AL])
-            σ_att = $(EVAL[:sigma_att])
-            σ_calib = $(EVAL[:sigma_calib])
-            fluxratio = $(Tuple(fluxratios))
-            fluxratio_hip = $(Tuple(fluxratios_hip))
+        ueva_mode, include_rv, channels,
+        variables=vcat(obsvars, @variables begin
             hip_iad_jitter = $(EVAL[:hip_iad_jitter])
             iad_Δra = $(EVAL[:iad_dra])
             iad_Δdec = $(EVAL[:iad_ddec])
@@ -117,7 +150,7 @@ function g23h_model(; n_companions=1,
             transits = $TRANSITS
             transits_dr2 = $TRANSITS_DR2
             transits_rv = $TRANSITS_RV
-        end)
+        end))
 
     sys = Octofitter.System(name="g23h", bodies=[host, comps...], observations=[obs],
         variables=(@variables begin
@@ -344,22 +377,199 @@ end
     @test Δpm > 0
 end
 
+# Two-companion elements reused by several of the testsets below.
+const TWO_EL = ((a=4.7, e=0.23, i=0.94, ω=1.31, Ω=2.44, tp=52000.0),
+                (a=1.9, e=0.05, i=1.7, ω=0.4, Ω=5.1, tp=53100.0))
+
 @testset "the flux-ratio contract" begin
     T = Float64
-    # correct length: accepted, in `companions=` order
-    @test Octofitter._g23h_fluxratios((; fluxratio=(0.1, 0.2)), :fluxratio, (true, true), T) == (0.1, 0.2)
-    @test Octofitter._g23h_fluxratios((; fluxratio=SVector(0.1, 0.2)), :fluxratio, (true, true), T) == (0.1, 0.2)
-    @test Octofitter._g23h_fluxratios((; fluxratio=[0.1, 0.2]), :fluxratio, (true, true), T) == (0.1, 0.2)
+    # A solved system to resolve fluxes against. Its bodies carry `flux_G` and
+    # `flux_Hp` (host 1.0), so the body-flux tier has something to find.
+    m = g23h_model(n_companions=2, masses=(0.03, 0.012),
+        fluxratios=(0.037, 0.011), fluxratios_hip=(0.021, 0.008),
+        elements=TWO_EL, body_fluxes=true)
+    c = g23h_context(m.sys, m.obs)
+    sys = c.ctx.system
+    hostidx = Octofitter.ref(c.ctx, m.obs.host).idx
+    cidx = map(x -> Octofitter.ref(c.ctx, x).idx, m.obs.companions)
+    f(θ_obs, θ_sys, key, band, active) =
+        Octofitter._g23h_fluxratios(θ_obs, θ_sys, key, Val(band), sys, hostidx, cidx, active, T)
+
+    # Tier 1 — the observation's own vector, in `companions=` order.
+    @test f((; fluxratio=(0.1, 0.2)), (;), :fluxratio, :G, (true, true)) == (0.1, 0.2)
+    @test f((; fluxratio=SVector(0.1, 0.2)), (;), :fluxratio, :G, (true, true)) == (0.1, 0.2)
+    @test f((; fluxratio=[0.1, 0.2]), (;), :fluxratio, :G, (true, true)) == (0.1, 0.2)
     # an inactive companion is dark, whatever the variable says
-    @test Octofitter._g23h_fluxratios((; fluxratio=(0.1, 0.2)), :fluxratio, (true, false), T) == (0.1, 0.0)
-    # absent entirely: all dark
-    @test Octofitter._g23h_fluxratios((;), :fluxratio, (true, true), T) == (0.0, 0.0)
+    @test f((; fluxratio=(0.1, 0.2)), (;), :fluxratio, :G, (true, false)) == (0.1, 0.0)
     # a scalar is unambiguous only for one companion
-    @test Octofitter._g23h_fluxratios((; fluxratio=0.3), :fluxratio, (true,), T) == (0.3,)
-    @test_throws r"declares 2 companions" Octofitter._g23h_fluxratios(
-        (; fluxratio=0.3), :fluxratio, (true, true), T)
-    @test_throws r"received 3 flux ratios" Octofitter._g23h_fluxratios(
-        (; fluxratio=(0.1, 0.2, 0.3)), :fluxratio, (true, true), T)
+    @test Octofitter._g23h_fluxratios((; fluxratio=0.3), (;), :fluxratio, Val(:G),
+        sys, hostidx, (cidx[1],), (true,), T) == (0.3,)
+    @test_throws r"declares 2 companions" f((; fluxratio=0.3), (;), :fluxratio, :G, (true, true))
+    @test_throws r"received 3 flux ratios" f((; fluxratio=(0.1, 0.2, 0.3)), (;),
+        :fluxratio, :G, (true, true))
+
+    # Tier 2 — a system-level vector of the same name, which is what the old
+    # default-variables block forwarded.
+    @test f((;), (; fluxratio=(0.3, 0.4)), :fluxratio, :G, (true, true)) == (0.3, 0.4)
+    # …and tier 1 wins over it.
+    @test f((; fluxratio=(0.1, 0.2)), (; fluxratio=(0.3, 0.4)), :fluxratio, :G, (true, true)) == (0.1, 0.2)
+
+    # Tier 3 — the bodies' own fluxes, as companion/host.
+    @test f((;), (;), :fluxratio, :G, (true, true)) == (0.037, 0.011)
+    @test f((;), (;), :fluxratio_hip, :Hp, (true, true)) == (0.021, 0.008)
+    @test f((;), (;), :fluxratio, :G, (true, false)) == (0.037, 0.0)
+    # A band no body declares, while other bands exist, is a name mismatch —
+    # `flux_H` for `flux_Hp` silently modelling a dark companion is exactly the
+    # failure mode this refuses.
+    @test_throws r"declare" f((;), (;), :fluxratio, :H, (true, true))
+
+    # A model with no photometry at all: every companion dark, as v1 was when
+    # the flux-ratio vector was omitted.
+    m0 = g23h_model(n_companions=2, masses=(0.03, 0.012), elements=TWO_EL,
+        fluxratios=(0.0, 0.0), fluxratios_hip=(0.0, 0.0))
+    c0 = g23h_context(m0.sys, m0.obs)
+    @test Octofitter._g23h_fluxratios((;), (;), :fluxratio, Val(:G), c0.ctx.system,
+        1, (2, 3), (true, true), T) == (0.0, 0.0)
+end
+
+@testset "flux ratios default to the bodies' own fluxes" begin
+    # The §3.5 refinement: the positional vectors stop being mandatory. A model
+    # that declares `flux_G`/`flux_Hp` on its bodies must produce *exactly* the
+    # numbers the equivalent explicit vectors produce — same arithmetic, one
+    # fewer thing to keep in the right order.
+    kw = (; n_companions=2, masses=(0.03, 0.012), fluxratios=(0.037, 0.011),
+        fluxratios_hip=(0.021, 0.008), elements=TWO_EL)
+    m_vec = g23h_model(; kw...)
+    m_flx = g23h_model(; kw..., body_fluxes=true)
+    # The observation really does declare no flux variables in the second case
+    @test :fluxratio ∈ keys(m_vec.obs.derived.variables)
+    @test :fluxratio ∉ keys(m_flx.obs.derived.variables)
+    @test :fluxratio_hip ∉ keys(m_flx.obs.derived.variables)
+
+    c_vec = g23h_context(m_vec.sys, m_vec.obs)
+    c_flx = g23h_context(m_flx.sys, m_flx.obs)
+    s_vec = Octofitter.simulate(m_vec.obs, c_vec.ctx)
+    s_flx = Octofitter.simulate(m_flx.obs, c_flx.ctx)
+    for k in (:μ_h, :μ_hg, :μ_dr2, :μ_dr32, :μ_dr3)
+        @test getproperty(s_flx, k) == getproperty(s_vec, k)
+    end
+    @test s_flx.UEVA_model == s_vec.UEVA_model
+    @test s_flx.σ_inflation_hip == s_vec.σ_inflation_hip
+    @test s_flx.Δpmra_dr3 == s_vec.Δpmra_dr3
+    @test c_flx.lnl(m_flx.sys, c_flx.nt) == c_vec.lnl(m_vec.sys, c_vec.nt)
+    # …and it is not a trivial agreement between two all-dark models
+    @test maximum(s_flx.σ_inflation_hip) > 1.0
+
+    # An explicit vector still overrides the bodies' fluxes, which is what
+    # per-draw resolved-flag gating needs: the bodies keep their `flux_G` /
+    # `flux_Hp`, and this draw's vector gates both companions dark.
+    m_gate = g23h_model(; kw..., body_fluxes=true, obs_ratios=true,
+        fluxratios=(0.0, 0.0), fluxratios_hip=(0.0, 0.0),
+        body_fluxratios=(0.037, 0.011), body_fluxratios_hip=(0.021, 0.008))
+    c_gate = g23h_context(m_gate.sys, m_gate.obs)
+    s_gate = Octofitter.simulate(m_gate.obs, c_gate.ctx)
+    @test all(≈(1.0), s_gate.σ_inflation_hip)
+    @test s_gate.Δpmra_dr3 != s_flx.Δpmra_dr3
+    # …and it matches the model that never declared body fluxes at all
+    m_none = g23h_model(; kw..., fluxratios=(0.0, 0.0), fluxratios_hip=(0.0, 0.0))
+    c_none = g23h_context(m_none.sys, m_none.obs)
+    @test Octofitter.simulate(m_none.obs, c_none.ctx).Δpmra_dr3 == s_gate.Δpmra_dr3
+end
+
+@testset "the channels= keyword is the subset path" begin
+    full = g23h_model().obs
+    chans = (:ra_hip, :dec_hip, :ra_hg, :dec_hg, :ra_dr3, :dec_dr3)
+    ctor = g23h_model(channels=chans).obs
+    # Constructing with `channels=` must land on the same place as subsetting
+    # after the fact — that is the whole reason it filters `table.kind`.
+    post = Octofitter.likeobj_from_epoch_subset(full, findall(k -> k ∈ chans, collect(full.table.kind)))
+    @test collect(ctor.table.kind) == collect(chans)
+    @test collect(post.table.kind) == collect(chans)
+    @test Octofitter.Tables.columntable(ctor.table) == Octofitter.Tables.columntable(post.table)
+    # …including the two consequences: the abscissa nuisance block is gone,
+    # and the Hipparcos catalog distributions survive (Hipparcos channels stay)
+    for k in (:hip_iad_jitter, :iad_Δra, :iad_Δdec, :iad_Δplx, :iad_Δpmra, :iad_Δpmdec)
+        @test k ∉ keys(ctor.priors.priors)
+        @test k ∉ keys(ctor.derived.variables)
+    end
+    @test !isnothing(ctor.catalog.dist_hip)
+    @test !isnothing(ctor.catalog.dist_hg)
+
+    # Dropping every Hipparcos channel drops the distributions, via the same
+    # helper the post-hoc subset uses.
+    gaia_only = g23h_model(channels=(:ra_dr3, :dec_dr3, :ra_dr2, :dec_dr2)).obs
+    @test isnothing(gaia_only.catalog.dist_hip)
+    @test isnothing(gaia_only.catalog.dist_hg)
+
+    # A dropped :rv_dr3 must not leave σ_rv_per_transit sampled but unused: the
+    # defaults are built against the restricted table.
+    defaults = G23HObs(; host=:A, companions=(:b,),
+        gaia_id=g23h_catalog_row().gaia_source_id, catalog=g23h_catalog_row(),
+        forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
+        dr2_transits_catalog=g23h_dr2_sidecar(), channels=chans)
+    @test :σ_rv_per_transit ∉ keys(defaults.priors.priors)
+    @test :transits_rv ∉ keys(defaults.derived.variables)
+    @test :hip_iad_jitter ∉ keys(defaults.priors.priors)
+
+    @test_throws r"is not a G23HObs channel" g23h_model(channels=(:ra_dr3, :nope))
+    @test_throws r"selects no channels" g23h_model(channels=())
+    @test_throws r"selected none of this source" g23h_model(channels=(:rv_dr3,), include_rv=false)
+end
+
+@testset "HGCAObs is a G23HObs over the HGCA's channels" begin
+    cat = g23h_catalog_row()
+    m = g23h_model()
+    obs = Octofitter.HGCAObs(; host=m.host, companions=(m.comps[1],),
+        gaia_id=cat.gaia_source_id, catalog=cat,
+        forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
+        dr2_transits_catalog=g23h_dr2_sidecar(),
+        variables=@variables begin
+            σ_AL = $(EVAL[:sigma_AL])
+            σ_att = $(EVAL[:sigma_att])
+            σ_calib = $(EVAL[:sigma_calib])
+            fluxratio = $((EVAL[:fluxratio_G],))
+            fluxratio_hip = $((EVAL[:fluxratio_Hp],))
+            # The Hipparcos abscissa nuisances are declared and must be
+            # stripped anyway: `channels=` drops the `:iad_hip` row.
+            hip_iad_jitter = $(EVAL[:hip_iad_jitter])
+            iad_Δra = 0.0
+            iad_Δdec = 0.0
+            iad_Δplx = 0.0
+            iad_pmra = $(EVAL[:iad_pmra])
+            iad_pmdec = $(EVAL[:iad_pmdec])
+            pmra = $(cat.pmra_dr3)
+            pmdec = $(cat.pmdec_dr3)
+            transit_priorities = $PRIORITIES
+            transits = $TRANSITS
+            transits_dr2 = $TRANSITS_DR2
+        end)
+    @test obs isa G23HObs
+    for k in (:hip_iad_jitter, :iad_Δra, :iad_Δdec, :iad_Δplx, :iad_pmra, :iad_pmdec)
+        @test k ∉ keys(obs.derived.variables)
+    end
+    # Hipparcos, Hipparcos-Gaia and DR3 — no DR2, no DR32, no UEVA, no RV, no
+    # abscissae.
+    @test collect(obs.table.kind) == [:ra_hip, :dec_hip, :ra_hg, :dec_hg, :ra_dr3, :dec_dr3]
+    # :none, not false: the datum AND the UEVA-driven DR3 deflation both go.
+    @test obs.ueva_mode === :none
+    @test obs.include_iad == false
+    @test Octofitter.likelihoodname(obs) == "HGCA"
+
+    sys = Octofitter.System(name="hgca", bodies=[m.host, m.comps...], observations=[obs],
+        variables=(@variables begin
+            plx = $(cat.parallax)
+        end), observing_geometry=false)
+    nt = Octofitter.make_arr2nt(sys)(Float64[])
+    @test isfinite(Octofitter.make_ln_like(sys, nt)(sys, nt))
+
+    c = g23h_context(sys, obs)
+    sim = Octofitter.simulate(obs, c.ctx)
+    @test sim.deflation_factor_dr3 == 1.0     # :none ⇒ no deflation
+    @test all(isfinite, sim.μ_hg)
+
+    # The retired types name themselves rather than failing as undefined.
+    @test_throws r"no longer exists" Octofitter.HGCAInstantaneousObs()
+    @test_throws r"no longer exists" Octofitter.GaiaCatalogFitObs()
 end
 
 @testset "the all-inactive fast path" begin
@@ -697,6 +907,154 @@ end
     @test haskey(chain, :b_a)
     @test haskey(chain, :G23H_pmra)
     @test all(isfinite, chain[:b_a])
+end
+
+# ── several catalog sources in one system ─────────────────────────────────
+#
+# Two Gaia/Hipparcos sources 2.8″ apart, each with its own inner companion,
+# modelled off ONE trajectory against ONE shared frame. Nothing here is new
+# machinery — `refspecs` has always been variadic and the epoch union has
+# always been shared — so these tests exist to pin that it stays true.
+function g23h_two_source_model(; a_wide=12.0, observing_geometry=false)
+    cat = g23h_catalog_row()
+    Aa = Octofitter.Body(name="Aa", variables=@variables begin
+        mass = 0.40
+        flux_G = 1.0
+        flux_Hp = 1.0
+    end)
+    Ab = Octofitter.Body(name="Ab", about=Aa, variables=@variables begin
+        mass = 0.05
+        flux_G = 0.04
+        flux_Hp = 0.02
+        a = 1.0; e = 0.1; i = 0.9; ω = 1.2; Ω = 2.0; tp = 52000.0
+    end)
+    Ba = Octofitter.Body(name="Ba", about=Aa, variables=@variables begin
+        mass = 0.30
+        flux_G = 0.5
+        flux_Hp = 0.4
+        a = $a_wide; e = 0.2; i = 1.1; ω = 0.3; Ω = 1.0; tp = 40000.0
+    end)
+    Bb = Octofitter.Body(name="Bb", about=Ba, variables=@variables begin
+        mass = 0.03
+        flux_G = 0.01
+        flux_Hp = 0.005
+        a = 1.5; e = 0.05; i = 0.6; ω = 2.2; Ω = 4.0; tp = 51000.0
+    end)
+
+    # Both sources declare exactly the same variables, and NONE of them is a
+    # per-source offset on a Gaia channel: the two sources share the system's
+    # frame, and that shared frame is what makes the wide orbit identifiable.
+    srcvars() = @variables begin
+        σ_AL = $(EVAL[:sigma_AL])
+        σ_att = $(EVAL[:sigma_att])
+        σ_calib = $(EVAL[:sigma_calib])
+        hip_iad_jitter = $(EVAL[:hip_iad_jitter])
+        iad_Δra = 0.0
+        iad_Δdec = 0.0
+        iad_Δplx = 0.0
+        iad_pmra = $(EVAL[:iad_pmra])
+        iad_pmdec = $(EVAL[:iad_pmdec])
+        σ_rv_per_transit = $(EVAL[:sigma_rv_per_transit])
+        transit_priorities = $PRIORITIES
+        transits = $TRANSITS
+        transits_dr2 = $TRANSITS_DR2
+        transits_rv = $TRANSITS_RV
+    end
+    src(host, comps, nm) = G23HObs(;
+        host, companions=comps, ref=Barycentre, name=nm,
+        gaia_id=cat.gaia_source_id, catalog=cat,
+        forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
+        dr2_transits_catalog=g23h_dr2_sidecar(), variables=srcvars())
+    obsA = src(Aa, (Ab,), "srcA")
+    obsB = src(Ba, (Bb,), "srcB")
+
+    sys = Octofitter.System(name="ABquad", bodies=[Aa, Ab, Ba, Bb],
+        observations=[obsA, obsB],
+        variables=(@variables begin
+            plx = $(cat.parallax)
+            ra = $(cat.ra)
+            dec = $(cat.dec)
+            pmra = $(cat.pmra_dr3)
+            pmdec = $(cat.pmdec_dr3)
+            rv = 0.0
+            ref_epoch = $(Octofitter.meta_gaia_DR3.ref_epoch_mjd)
+        end), observing_geometry=observing_geometry)
+    return (; sys, obsA, obsB, Aa, Ab, Ba, Bb)
+end
+
+@testset "several catalog sources in one system" begin
+    m = g23h_two_source_model()
+    @test Octofitter._refnames.(Octofitter.refspecs(m.obsA)) == ((:Aa,), (:Ab,), ())
+    @test Octofitter._refnames.(Octofitter.refspecs(m.obsB)) == ((:Ba,), (:Bb,), ())
+    @test sprint(show, MIME"text/plain"(), m.obsB) |>
+          s -> occursin("Ba (blended with Bb) vs Barycentre", s)
+
+    # One trajectory: the two sources' epochs are solved as a single union.
+    eps, maps = Octofitter.epoch_plan(m.sys)
+    @test eps == sort(unique(vcat(Octofitter.epochs(m.obsA), Octofitter.epochs(m.obsB))))
+    @test length(maps[m.obsA]) == length(Octofitter.epochs(m.obsA))
+    @test length(maps[m.obsB]) == length(Octofitter.epochs(m.obsB))
+
+    nt = Octofitter.make_arr2nt(m.sys)(Float64[])
+    lnl = Octofitter.make_ln_like(m.sys, nt)
+    @test isfinite(lnl(m.sys, nt))
+
+    # One shared frame: neither source declares its own reference proper
+    # motion, and both read the system's. Per-source Gaia offsets are exactly
+    # what would dilute the constraint that binds the two pairs together, so
+    # their absence is the assertion.
+    for nm in (:srcA, :srcB)
+        θ_obs = getproperty(nt.observations, nm)
+        @test !hasproperty(θ_obs, :pmra)
+        @test !hasproperty(θ_obs, :pmdec)
+        @test Octofitter._g23h_pm(nt, θ_obs, Float64) ==
+              (Float64(nt.pmra), Float64(nt.pmdec))
+    end
+
+    # …and the wide orbit really is constrained by both sources at once: move
+    # it and *both* sources' modelled proper motions move, without either
+    # source knowing anything about the other.
+    cA = g23h_context(m.sys, m.obsA); cB = g23h_context(m.sys, m.obsB)
+    sA = Octofitter.simulate(m.obsA, cA.ctx); sB = Octofitter.simulate(m.obsB, cB.ctx)
+    m2 = g23h_two_source_model(a_wide=18.0)
+    c2A = g23h_context(m2.sys, m2.obsA); c2B = g23h_context(m2.sys, m2.obsB)
+    s2A = Octofitter.simulate(m2.obsA, c2A.ctx); s2B = Octofitter.simulate(m2.obsB, c2B.ctx)
+    # `Δpmra_dr3` is the perturbation the DR3 refit sees; `μ_dr3` is that same
+    # perturbation minus the frame shift, i.e. constant by construction.
+    @test sA.Δpmra_dr3 != s2A.Δpmra_dr3
+    @test sB.Δpmra_dr3 != s2B.Δpmra_dr3
+    @test sA.μ_hg != s2A.μ_hg
+    @test sB.μ_hg != s2B.μ_hg
+    # The two sources are genuinely different sources, not two copies
+    @test sA.Δpmra_dr3 != sB.Δpmra_dr3
+    @test sA.μ_hg != sB.μ_hg
+end
+
+@testset "differential parallax is per body, already" begin
+    # `_observe_pass!` writes `cart2angle[k, j] = rad2mas / (d_au + pz)` — per
+    # epoch AND per body, using that body's own retarded line-of-sight depth.
+    # So each component's AU→mas scale is its own, and nothing extra is needed
+    # for a wide pair whose components sit at measurably different distances.
+    # (The parallax *factors* are per-source by a different route: they arrive
+    # as data columns from each source's own forecast/IAD.)
+    m = g23h_two_source_model(observing_geometry=true)
+    c = g23h_context(m.sys, m.obsA)
+    traj = c.ctx.traj
+    c2a = traj.cart2angle
+    @test size(c2a, 2) == 4
+    k = firstindex(traj.epochs)
+    for j in 1:4
+        @test c2a[k, j] ≈ PlanetOrbits.rad2mas / (traj.d_au[k] + traj.z[k, j])
+    end
+    # It is a real per-body spread, not four copies of one number.
+    @test !all(≈(c2a[k, 1]), @view c2a[k, :])
+
+    # …and it collapses to one shared scale when the geometry is skipped,
+    # which is what `observing_geometry=false` means.
+    mflat = g23h_two_source_model(observing_geometry=false)
+    cflat = g23h_context(mflat.sys, mflat.obsA)
+    c2aflat = cflat.ctx.traj.cart2angle
+    @test all(≈(c2aflat[k, 1]), @view c2aflat[k, :])
 end
 
 @testset "the Hipparcos IAD loader reproduces v1" begin

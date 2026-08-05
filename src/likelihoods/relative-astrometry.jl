@@ -97,15 +97,14 @@ likeobj_from_epoch_subset(obs::RelAstromObs, inds) = RelAstromObs(
 
 Model astrometry at this observation's epochs, allocating. `simulate!` fills
 caller storage instead; both share one implementation with `ln_like`.
+
+The values are on the **true sky**: `platescale`/`northangle` are not applied
+here, because this observation corrects its *data* onto the sky rather than
+its model onto the detector (see `sky_offset`). `ln_like` and
+`generate_from_params` each apply the calibration in their own direction.
 """
 function simulate!(ra_model, dec_model, obs::RelAstromObs, ctx::ObsContext)
-    target = ref(ctx, obs.target)
-    reference = ref(ctx, obs.ref)
-    @inbounds for i in eachindex(obs.table.epoch)
-        sol = solutionat(ctx, i)
-        ra_model[i] = raoff(sol, target, reference)
-        dec_model[i] = decoff(sol, target, reference)
-    end
+    sky_offset!(ra_model, dec_model, ctx, obs.target, obs.ref)
     return (; ra_model, dec_model, epochs=obs.table.epoch)
 end
 function simulate(obs::RelAstromObs, ctx::ObsContext)
@@ -118,8 +117,9 @@ function ln_like(obs::RelAstromObs, ctx::ObsContext)
     T = _system_number_type(ctx.θ_system)
     θ_obs = ctx.θ_obs
     jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero(T)
-    platescale = hasproperty(θ_obs, :platescale) ? θ_obs.platescale : one(T)
-    northangle = hasproperty(θ_obs, :northangle) ? θ_obs.northangle : zero(T)
+    # Applied to the *data* below, not to the model — the residual and its σ
+    # live in the data's own frame. See `sky_offset`'s docstring.
+    platescale, northangle = sky_calibration(ctx)
     seppa = hasproperty(obs.table, :pa) && hasproperty(obs.table, :sep)
 
     ll = zero(T)
@@ -134,13 +134,21 @@ function ln_like(obs::RelAstromObs, ctx::ObsContext)
             if seppa
                 ρ = hypot(ram, decm)
                 pa = atan(ram, decm)
+                # Sign convention for `northangle`: the corrected position angle
+                # is the reported position angle *plus* northangle, where
+                # position angle is measured North through East.
                 pa_diff = (obs.table.pa[i] + northangle - pa + π) % 2π - π
                 pa_diff = pa_diff < -π ? pa_diff + 2π : pa_diff
                 resid1 = pa_diff
                 resid2 = obs.table.sep[i] * platescale - ρ
                 σ₁, σ₂ = obs.table.σ_pa[i], obs.table.σ_sep[i]
             else
-                pa_dat = atan(obs.table.dec[i], obs.table.ra[i]) + northangle
+                # Note this angle is measured East through North, i.e. it runs in
+                # the opposite direction to the position angle used above -- hence
+                # `northangle` is *subtracted* here so that both branches rotate
+                # the data the same way on the sky. (#141/#142, ported from main:
+                # v2 forked before that fix landed and reintroduced the bug.)
+                pa_dat = atan(obs.table.dec[i], obs.table.ra[i]) - northangle
                 sep_dat = hypot(obs.table.dec[i], obs.table.ra[i]) * platescale
                 resid1 = sep_dat * cos(pa_dat) - ram
                 resid2 = sep_dat * sin(pa_dat) - decm
@@ -165,6 +173,32 @@ function ln_like(obs::RelAstromObs, ctx::ObsContext)
     return ll
 end
 
+"""
+    _astrom_noise!(c1, c2, σ₁, σ₂, cor, jitter)
+
+Add one draw from the same 2-D Gaussian `ln_like` scores against — `jitter`
+in quadrature on both components, `cor` off the diagonal — to the two model
+component vectors in place.
+
+Written as a helper because both the (ra, dec) and the (sep, pa) branch need
+it and because getting it wrong is silent: independent `randn()` per
+component draws from a *different* distribution than the one being fitted
+whenever the data carry correlations, which is exactly the case the `:cor`
+column exists for.
+"""
+function _astrom_noise!(c1, c2, σ₁, σ₂, cor, jitter)
+    for i in eachindex(c1)
+        s₁ = hypot(σ₁[i], jitter)
+        s₂ = hypot(σ₂[i], jitter)
+        c = isnothing(cor) ? zero(s₁) : cor[i]
+        Σ = @SArray[s₁^2 c*s₁*s₂; c*s₁*s₂ s₂^2]
+        δ = rand(MvNormal(Σ))
+        c1[i] += δ[1]
+        c2[i] += δ[2]
+    end
+    return nothing
+end
+
 function generate_from_params(obs::RelAstromObs, ctx::ObsContext; add_noise)
     sim = simulate(obs, ctx)
     epoch = obs.table.epoch
@@ -172,25 +206,29 @@ function generate_from_params(obs::RelAstromObs, ctx::ObsContext; add_noise)
     platescale = hasproperty(θ_obs, :platescale) ? θ_obs.platescale : 1.0
     northangle = hasproperty(θ_obs, :northangle) ? θ_obs.northangle : 0.0
     jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : 0.0
+    # The `:cor` column is part of the noise model, so it has to survive into
+    # the simulated table — a replicate whose covariances silently went
+    # diagonal is not a replicate of this observation.
+    cor = hasproperty(obs.table, :cor) ? obs.table.cor : nothing
 
     sep_model = hypot.(sim.ra_model, sim.dec_model)
     pa_model = atan.(sim.ra_model, sim.dec_model)
     if hasproperty(obs.table, :pa) && hasproperty(obs.table, :sep)
-        sep = sep_model ./ platescale
-        pa = pa_model .- northangle
-        if add_noise
-            sep = sep .+ randn.() .* obs.table.σ_sep
-            pa = pa .+ randn.() .* obs.table.σ_pa
-        end
-        tab = Table(; epoch, sep, pa, σ_sep=obs.table.σ_sep, σ_pa=obs.table.σ_pa)
+        sep = collect(sep_model ./ platescale)
+        pa = collect(pa_model .- northangle)
+        # `ln_like` orders this pair (pa, sep) — resid1 is the position angle
+        # — so the correlation and the noise draw must be ordered the same way.
+        add_noise && _astrom_noise!(pa, sep, obs.table.σ_pa, obs.table.σ_sep, cor, jitter)
+        tab = isnothing(cor) ?
+            Table(; epoch, sep, pa, σ_sep=obs.table.σ_sep, σ_pa=obs.table.σ_pa) :
+            Table(; epoch, sep, pa, σ_sep=obs.table.σ_sep, σ_pa=obs.table.σ_pa, cor)
     else
-        ra = (sep_model ./ platescale) .* sin.(pa_model .- northangle)
-        dec = (sep_model ./ platescale) .* cos.(pa_model .- northangle)
-        if add_noise
-            ra = ra .+ randn.() .* hypot.(obs.table.σ_ra, jitter)
-            dec = dec .+ randn.() .* hypot.(obs.table.σ_dec, jitter)
-        end
-        tab = Table(; epoch, ra, dec, σ_ra=obs.table.σ_ra, σ_dec=obs.table.σ_dec)
+        ra = collect((sep_model ./ platescale) .* sin.(pa_model .- northangle))
+        dec = collect((sep_model ./ platescale) .* cos.(pa_model .- northangle))
+        add_noise && _astrom_noise!(ra, dec, obs.table.σ_ra, obs.table.σ_dec, cor, jitter)
+        tab = isnothing(cor) ?
+            Table(; epoch, ra, dec, σ_ra=obs.table.σ_ra, σ_dec=obs.table.σ_dec) :
+            Table(; epoch, ra, dec, σ_ra=obs.table.σ_ra, σ_dec=obs.table.σ_dec, cor)
     end
     return RelAstromObs(tab; target=obs.target, ref=obs.ref, obs.name,
         variables=(obs.priors, obs.derived))

@@ -229,10 +229,162 @@ end
     @test !Octofitter.rowsignal(posys, qsep, 1).scaled
 end
 
+@testset "RV residuals subtract the trend as well as the offset" begin
+    # The `radvel` query the panel draws its curve from knows about neither the
+    # instrument offset nor the long-term trend, so `residuals` must remove
+    # both or the points will not lie on their own curve. `trend_function`
+    # only arrived on the core RV type in v2, so this is the case that was
+    # missing.
+    A = Octofitter.Body(name="A", variables=@variables begin mass = 1.0 end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass = 5mjup
+        a = 3.0; e = 0.1; i = 0.6; ω = 1.0; Ω = 0.4; tp = 56000.0
+    end)
+    ep = collect(range(56000.0, 58000.0, length=6))
+    rv = RadialVelocityObs(
+        Table(epoch=ep, rv=zeros(length(ep)), σ_rv=fill(5.0, length(ep)));
+        target=A, ref=Barycentre, name="rvs",
+        trend_function=(θ_obs, epoch) -> θ_obs.slope * (epoch - 57000),
+        variables=@variables begin
+            offset = 30.0
+            slope = 0.05          # m/s/day — 50 m/s across this baseline
+            jitter = 1.0
+        end)
+    sys = Octofitter.System(name="trend", bodies=[A, b], observations=[rv],
+        variables=@variables begin plx = 25.0 end)
+
+    nt = Octofitter.make_arr2nt(sys)(Float64[])
+    posys = Octofitter.make_ln_like(sys).build(nt)
+    eps, maps = Octofitter.epoch_plan(sys)
+    traj = orbitsolve(posys, eps)
+    ctx = Octofitter.ObsContext(nt, nt.observations.rvs, posys, traj, maps[rv])
+
+    r = Octofitter.residuals(rv, ctx)
+    tgt = Octofitter.resolveref(posys, rv.target)
+    rf = Octofitter.resolveref(posys, rv.ref)
+    query = [PlanetOrbits.radvel(traj[k], tgt, rf) for k in maps[rv]]
+    @test r.rv.model ≈ query rtol = 1e-12
+    # The residual itself is against the *full* model and is unaffected.
+    sim = Octofitter.simulate(rv, ctx)
+    @test r.rv.resid ≈ rv.table.rv .- sim.rv_model rtol = 1e-12
+    @test r.rv.data .- r.rv.model ≈ r.rv.resid rtol = 1e-12
+end
+
 @testset "octoplot without Makie errors helpfully" begin
     # (Makie is not loaded in the test env, so the stub must fire.)
     if !haskey(Base.loaded_modules_array() |> ms -> Dict(nameof(m) => m for m in ms), :Makie)
         model, _ = _plotting_test_model()
         @test_throws ErrorException octoplot(model)
     end
+end
+
+# ---------------------------------------------------------------------------
+# The protocol for the observation types that are not simple epoch series.
+#
+# These reuse the offline fixtures and model builders from `v2/g23h.jl` and
+# `v2/hipparcos.jl`, which `runtests.jl` includes first.
+# ---------------------------------------------------------------------------
+
+@testset "every shipped observation type declares plot channels" begin
+    # The audit helper is the contract: an observation that carries data and
+    # declares no channels is drawn as an empty panel, which reads as a fit
+    # with nothing constraining it rather than as a gap in the plotting layer.
+    m = hip_model()
+    @test isempty(Octofitter.unplottable_observations(m.sys))
+    g = g23h_model()
+    @test isempty(Octofitter.unplottable_observations(g.sys))
+end
+
+@testset "HipparcosIADObs channel agrees with ln_like" begin
+    m = hip_model()
+    c = hip_context(m.sys, m.obs)
+    r = Octofitter.residuals(m.obs, c.ctx).along_scan
+    n = length(m.obs.table.epoch)
+    @test length(r.resid) == n
+    @test r.use == .!collect(m.obs.table.reject)
+    # The datum is the catalog abscissa residual, and the residual is still
+    # exactly `measured − model` from the likelihood's own simulate.
+    sim = Octofitter.simulate(m.obs, c.ctx)
+    @test r.data ≈ collect(Float64, m.obs.table.res)
+    @test r.resid ≈ collect(Float64, sim.resid)
+    @test r.data .- r.model ≈ r.resid
+    # σ carries the BINARYS inflation, σ_eff adds the fitted jitter.
+    @test r.σ ≈ collect(m.obs.table.sres_renorm .* sim.σ_inflation)
+    @test all(r.σ_eff .>= r.σ)
+    u = r.use
+    ll = -0.5 * sum(@. r.resid[u]^2 / r.σ_eff[u]^2 + log(2π * r.σ_eff[u]^2))
+    @test ll ≈ Octofitter.ln_like(m.obs, c.ctx) rtol = 1e-12
+end
+
+@testset "G23HObs exposes proper motions and the Hipparcos abscissae" begin
+    m = g23h_model()
+    c = g23h_context(m.sys, m.obs)
+    chs = Octofitter.plotchannels(m.obs)
+    @test [ch.name for ch in chs] == [:pmra, :pmdec, :along_scan_hip]
+    # The proper-motion channels carry a smooth curve (the host's reflex);
+    # the abscissa channel cannot, since the scan angle is per transit.
+    @test chs[1].query isa ObservableQuery && chs[1].query.func === PlanetOrbits.pmra
+    @test chs[2].query.func === PlanetOrbits.pmdec
+    @test chs[3].query === nothing
+
+    r = Octofitter.residuals(m.obs, c.ctx)
+    @test keys(r) == (:pmra, :pmdec, :along_scan_hip)
+    # Five catalog proper motions per axis: Hip, H−G, DR2, DR3−DR2, DR3.
+    @test length(r.pmra.data) == 5
+    @test length(r.pmdec.data) == 5
+    @test r.pmra.resid ≈ r.pmra.data .- r.pmra.model
+    @test all(isfinite, r.pmra.σ) && all(>(0), r.pmra.σ)
+    # Each point is an average over a mission window, and says which one.
+    @test all(r.pmra.epoch_lo .<= r.pmra.epoch .<= r.pmra.epoch_hi)
+    @test r.pmra.epoch_hi[1] - r.pmra.epoch_lo[1] > 365    # the Hipparcos mission
+
+    # The residual is the likelihood's own catalog-minus-model difference: the
+    # display calibration is one constant per axis and cancels out of it.
+    mom = Octofitter._g23h_catalog_moments(m.obs, c.ctx)
+    lut = Dict(l => k for (k, l) in enumerate(mom.labels))
+    for (j, k) in enumerate((:ra_hip, :ra_hg, :ra_dr2, :ra_dr32, :ra_dr3))
+        @test r.pmra.resid[j] ≈ mom.catalog[lut[k]] - mom.model[lut[k]]
+        @test r.pmra.σ[j] ≈ mom.sigma[lut[k]]
+    end
+
+    # The Hipparcos channel is the same one `HipparcosIADObs` exposes, from the
+    # same transits — and the signed residual squares to the unsigned distance
+    # `simulate` publishes.
+    sim = Octofitter.simulate(m.obs, c.ctx)
+    @test abs.(sim.iad_resid_signed) == sim.iad_resid
+    @test r.along_scan_hip.resid ≈ collect(Float64, sim.iad_resid_signed)
+    @test length(r.along_scan_hip.data) == m.obs.n_hip
+end
+
+@testset "PhotometryObs opts out of the generic time-series panel" begin
+    A = Octofitter.Body(name="A", variables=@variables begin mass = 1.0 end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass = 0.005
+        a = 3.0; e = 0.2; i = 0.6; ω = 1.0; Ω = 2.0; tp = 59200.0
+        flux_H = 3.8
+    end)
+    phot = PhotometryObs(Table(phot=[3.9, 3.6, 4.1], σ_phot=[0.3, 0.4, 0.35]);
+        target=b, band=:H, name="NIRC2")
+    astrom = RelAstromObs(Table(epoch=[59100.0, 59400.0],
+            ra=[100.0, 90.0], dec=[80.0, 95.0], σ_ra=[4.0, 4.0], σ_dec=[4.0, 4.0]);
+        target=b, ref=A, name="GPI")
+    sys = Octofitter.System(name="photplot", bodies=[A, b], observations=[phot, astrom],
+        variables=@variables begin plx = 50.0 end)
+    @test isempty(Octofitter.unplottable_observations(sys))
+    @test [ch.name for ch in Octofitter.plotchannels(phot)] == [:phot]
+    # Photometry has no epoch axis, so it declares its own panel rather than
+    # being drawn against a meaningless time axis.
+    @test !isempty(defaultpanels(phot))
+    @test first(first(defaultpanels(phot))) === :phot
+
+    nt = Octofitter.make_arr2nt(sys)(Float64[])
+    posys = Octofitter.make_ln_like(sys).build(nt)
+    eps, maps = Octofitter.epoch_plan(sys)
+    ctx = Octofitter.ObsContext(nt, (;), posys, orbitsolve(posys, eps), maps[phot])
+    r = Octofitter.residuals(phot, ctx).phot
+    @test r.model == fill(3.8, 3)
+    @test r.epoch == [1.0, 2.0, 3.0]          # row index: there is no epoch
+    @test r.resid ≈ collect(phot.table.phot) .- 3.8
+    ll = sum(@. -0.5 * r.resid^2 / r.σ^2 - log(sqrt(2π * r.σ^2)))
+    @test ll ≈ Octofitter.ln_like(phot, ctx) rtol = 1e-12
 end

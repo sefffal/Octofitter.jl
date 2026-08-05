@@ -17,21 +17,38 @@ end
 """
     octofit(
         [rng::Random.AbstractRNG],
-        model::Octofitter.LogDensityModel
-        target_accept::Number=0.8,
-        ensemble::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
-        adaptation,
-        iterations,
-        drop_warmup=true,
-        max_depth=12,
-        initial_samples= pathfinder ? 500 : 250_000,  # deprecated
-        initial_parameters=nothing, # deprecated
-        step_size=nothing,
-        verbosity=2,
+        model::Octofitter.LogDensityModel,
+        target_accept::Number = 0.8,
+        ensemble::AbstractMCMC.AbstractMCMCEnsemble = MCMCSerial();
+        adaptation = 1000,
+        iterations = 1000,
+        drop_warmup = true,
+        max_depth = 12,
+        initial_samples = pathfinder ? 500 : 250_000,  # deprecated
+        initial_parameters = nothing,                  # deprecated
+        step_size = nothing,
+        verbosity = 2,
     )
 
-Sample from the posterior defined by `model` using Hamiltonian Monte Carlo with 
+Sample from the posterior defined by `model` using Hamiltonian Monte Carlo with
 the No U-Turn Sampler from AdvancedHMC.jl.
+
+!!! warning "`target_accept` is positional, not a keyword"
+    It is the third **positional** argument, so
+
+        octofit(model, 0.6, iterations=2000, adaptation=2000)   # correct
+        octofit(model, iterations=2000, target_accept=0.6)      # MethodError
+
+    Lower it (towards ~0.5) when the sampler is taking very small steps or
+    reporting many divergences on a difficult posterior; raise it (towards
+    ~0.95) when divergences persist at the default.
+
+For posteriors with widely separated modes, or with a discrete variable, reach
+for [`octofit_pigeons`](@ref) instead — NUTS cannot cross a low-density gap and
+cannot move a discrete parameter at all.
+
+See also [`initialize!`](@ref), [`octofit_rejection`](@ref),
+[`octofit_pigeons`](@ref).
 """
 Base.@nospecializeinfer function octofit(args...; kwargs...)
     return advancedhmc(args...; kwargs...)

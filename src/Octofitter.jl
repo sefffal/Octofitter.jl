@@ -69,12 +69,26 @@ include("model/codegen.jl")
 equal_length_cols(tab) = allequal(length(getproperty(tab, col)) for col in Tables.columnnames(tab))
 
 include("gaia-utils.jl")
+
+# Shared front-ends first: `skypath.jl` (five-parameter LSQ + offset
+# accumulation) and `sky-offset.jl` (the rotate-and-scale block, §2.A of
+# `design/observation-types-migration.md`) are used by the likelihoods that
+# follow, so nothing downstream has to grow a private copy.
 include("likelihoods/skypath.jl")
+include("likelihoods/sky-offset.jl")
+
 include("likelihoods/relative-astrometry.jl")
 include("likelihoods/radial-velocity.jl")
+include("likelihoods/photometry.jl")
+include("likelihoods/priors-dynamical.jl")
+# Wraps the likelihoods above, so it comes after both.
+include("likelihoods/prior-observable.jl")
 include("likelihoods/gaia-dr4.jl")
 include("likelihoods/hipparcos-iad.jl")
+include("likelihoods/hipparcos-obs.jl")
 include("likelihoods/g23h.jl")
+# `HGCAObs` is a helper constructor over `G23HObs`; it must see it.
+include("likelihoods/hgca-compat.jl")
 
 include("logdensitymodel.jl")
 include("chains.jl")
@@ -82,25 +96,55 @@ include("plotting-api.jl")
 include("initialization.jl")
 include("sampling.jl")
 
-# `src/legacy/` holds the v1 likelihoods and analysis code that has not been
-# ported to the v2 model surface yet (HGCA, Hipparcos, G23H, images,
-# interferometry, photometry, cross-validation, SBC, completeness, the
-# orbitize!/HDF5 IO, and the plotting-facing analysis helpers). They are kept
-# in the tree, unmodified, so the port is a diff rather than a rewrite; they
-# are deliberately not included here. See `docs/src/v2-migration.md`.
+# Machinery over a fitted model rather than observation types of its own.
+include("cross-validation.jl")
+include("sbc.jl")
+include("completeness.jl")
+include("io.jl")
+include("io-orbitize.jl")
+include("sonora.jl")
+include("BHAC.jl")
+include("deprecations.jl")
+
+# `src/legacy/` holds the v1 sources, unmodified and deliberately not
+# included, so that each port is a diff rather than a rewrite. It is being
+# emptied out: the observation types listed in
+# `design/observation-types-migration.md` §1.2 now have homes in
+# `src/likelihoods/` and in the top-level files included above, and a legacy
+# file whose replacement has landed is dead reference material rather than a
+# to-do. Some of it will never be ported by design — `orbit-models.jl` and
+# `parameterizations.jl` are retired, the HGCA modelling stack
+# (`hgca.jl`, `hgca-linfit.jl`) is subsumed by `G23HObs`, and
+# `LightCurveObs`/TTV is out of scope here. See `docs/src/v2-migration.md`
+# for the user-facing v1 → v2 mapping.
 
 """
     using Pigeons
-    octofit_pigeons(model; nrounds, n_chains=16, n_chains_variational=16)
+    chain, pt = octofit_pigeons(model; n_rounds, n_chains=16, n_chains_variational=16)
 
-Use Pigeons.jl to sample from intractable posterior distributions.
-`Pigeons` must be loaded by the user.
+Sample with parallel tempering (Pigeons.jl), for posteriors that are
+multimodal or that HMC explores badly — widely separated orbit families,
+detection-limit and completeness models, and anything with a discrete
+variable. `Pigeons` must be loaded by the user; the methods live in a package
+extension.
+
+`n_rounds` is required: Pigeons runs `2^n_rounds` scans, doubling each round.
 
 ```julia
-using Pigeons
-model = Octofitter.LogDensityModel(System, autodiff=:ForwardDiff, verbosity=4)
-chain, pt = octofit_pigeons(model)
+using Octofitter, Pigeons
+model = Octofitter.LogDensityModel(sys)
+chain, pt = octofit_pigeons(model, n_rounds=10)
 ```
+
+`pt` is the Pigeons `PT` object, so `Pigeons.stepping_stone(pt)` gives the log
+evidence *ratio* against the reference (the prior-only model built by
+[`prior_only_model`](@ref)). For a log evidence, add the reference's own
+normalization — see `prior_only_model`'s `exclude_all=true` note.
+
+Also accepts a `Pigeons.Inputs` or an existing `Pigeons.PT` (to continue a run
+after `Pigeons.increment_n_rounds!`).
+
+See also [`octofit`](@ref).
 """
 function octofit_pigeons end
 

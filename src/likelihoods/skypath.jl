@@ -235,6 +235,104 @@ function fit_4param_prepared(A_factored, cosϕ, sinϕ, Δα_mas, Δδ_mas, σ_fo
 end
 
 # ---------------------------------------------------
+# Frame offsets for non-Gaia astrometry
+#
+# Astrometry taken on a *different* frame from the one the model's reference
+# point lives on needs its own five-parameter astrometric solution: the
+# instrument's own zero point, parallax and proper motion, which are nuisance
+# parameters rather than physics. Hipparcos is the case in the tree today
+# (`G23HObs`'s `:iad_hip` channel and `HipparcosIADObs`); HST FGS is the next
+# one, and it wants this rather than a second copy of it.
+#
+# What is emphatically *not* wanted is a frame offset per Gaia source. Several
+# `G23HObs` in one system share one frame, and that shared frame is what binds
+# the system together — the wide pair's relative astrometry constrains the
+# wide orbit for free. Inventing per-source offsets would dilute exactly the
+# constraint the joint fit exists to exploit. So: offsets for other frames,
+# never between sources on the same one.
+# ---------------------------------------------------
+
+"""
+    FrameOffset(Δra, Δdec, plx, pmra, pmdec)
+
+The five-parameter astrometric solution of an instrument's own frame, in the
+tangent plane about that instrument's catalog position: a position offset
+[mas], a parallax [mas], and a proper motion [mas/yr].
+
+Built by [`frame_offset`](@ref) from an observation's variables and consumed
+by [`frame_offset_alongscan`](@ref). `isbits`, so building one per evaluation
+is free.
+"""
+struct FrameOffset{T<:Number}
+    Δra::T
+    Δdec::T
+    plx::T
+    pmra::T
+    pmdec::T
+end
+FrameOffset(Δra, Δdec, plx, pmra, pmdec) =
+    FrameOffset(promote(Δra, Δdec, plx, pmra, pmdec)...)
+
+"""
+    frame_offset(θ_obs, plx_anchor, ::Type{T}) -> FrameOffset{T}
+
+Read an observation's frame-offset block from its own variables. The names
+are fixed, and are the ones `G23HObs` has used since the port:
+
+| variable     | meaning                                                    |
+|--------------|------------------------------------------------------------|
+| `iad_Δra`    | position offset in α✱ at the instrument's reference epoch  |
+| `iad_Δdec`   | position offset in δ                                       |
+| `iad_Δplx`   | parallax offset from `plx_anchor`                          |
+| `iad_pmra`   | proper motion in α✱ *(absolute, not an offset)*            |
+| `iad_pmdec`  | proper motion in δ                                         |
+
+Each is optional and defaults to zero, so an instrument that fits only some
+of the five declares only those. The proper motions are absolute because
+their natural anchor is the instrument catalog's own solution, which a
+`@variables` block expresses directly (`iad_pmra = 4.53 + iad_Δpmra`).
+
+`plx_anchor` is supplied by the caller rather than looked up, because whose
+parallax it is, is a modelling decision: `G23HObs` anchors on the Hipparcos
+catalog value (its abscissa channel exists for the companion curvature, and
+the frame is pure nuisance), while a Hipparcos-only fit anchors on the
+system's own `plx` so that the data actually constrain it.
+"""
+@inline function frame_offset(θ_obs, plx_anchor, ::Type{T}) where {T}
+    return FrameOffset{T}(
+        _frame_var(θ_obs, :iad_Δra, T),
+        _frame_var(θ_obs, :iad_Δdec, T),
+        T(plx_anchor) + _frame_var(θ_obs, :iad_Δplx, T),
+        _frame_var(θ_obs, :iad_pmra, T),
+        _frame_var(θ_obs, :iad_pmdec, T))
+end
+
+@inline _frame_var(θ_obs, name::Symbol, ::Type{T}) where {T} =
+    hasproperty(θ_obs, name) ? T(getproperty(θ_obs, name)) : zero(T)
+
+"""
+    frame_offset_alongscan(off, Δt_yr, cosϕ, sinϕ, parallax_factor_al,
+                           Δα=0, Δδ=0)
+
+Project a [`FrameOffset`](@ref) onto one scan: the along-scan coordinate the
+instrument would have measured for a source at `Δα`/`Δδ` [mas] off the
+frame's own path, `Δt_yr` Julian years after the frame's reference epoch.
+
+    b = (Δra + Δt·pmra + Δα)·cosϕ + (Δdec + Δt·pmdec + Δδ)·sinϕ + ϖ·f_AL
+
+`Δα`/`Δδ` carry whatever the source itself is doing — an orbital reflex, a
+photocentre wobble, the Hipparcos grating response. Compare `b` against the
+measured abscissa (`proj_meas_alongscan` in a Hipparcos IAD table).
+"""
+@inline frame_offset_alongscan(off::FrameOffset, Δt_yr, cosϕ, sinϕ, parf,
+                               Δα=zero(off.Δra), Δδ=zero(off.Δdec)) =
+    (off.Δra + Δt_yr * off.pmra + Δα) * cosϕ +
+    (off.Δdec + Δt_yr * off.pmdec + Δδ) * sinϕ +
+    off.plx * parf
+
+export FrameOffset, frame_offset, frame_offset_alongscan
+
+# ---------------------------------------------------
 # Per-epoch offset accumulation
 # ---------------------------------------------------
 

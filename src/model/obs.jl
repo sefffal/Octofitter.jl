@@ -157,7 +157,33 @@ Resolve a reference spec against this sample's system. Constant-folds to a
 """
 @inline ref(ctx::ObsContext, spec) = resolveref(ctx.system, spec)
 
-export ObsContext, solutionat
+"""
+    resolverefs(ctx, specs::Tuple)
+
+Resolve a *tuple* of reference specs in one go, returning a tuple of
+`BodyRef`/`WeightedPoint` values in the same order. For observations that
+name several targets (`ImageObs`, `InterferometryObs`, `G23HObs`), call it
+once outside the epoch loop and index the result.
+
+It accepts only a `Tuple`, deliberately. The obvious spelling —
+
+    refs = [ref(ctx, s) for s in obs.targets]     # don't
+
+builds a `Vector` whose element type is the *join* of the resolved types, so
+a mixed `(BodyRef, WeightedPoint)` list widens to `Vector{Any}`; it
+allocates once per likelihood evaluation, and the widening propagates into
+every `raoff` call downstream. `map` over a tuple keeps each element's
+concrete type, constant-folds (the specs carry their content in type
+parameters), and allocates nothing. Restricting the signature to `Tuple`
+makes the fast path the easy path rather than a thing to remember.
+"""
+@inline resolverefs(ctx::ObsContext, specs::Tuple) = map(s -> ref(ctx, s), specs)
+@noinline resolverefs(::ObsContext, @nospecialize specs) = error(
+    "`resolverefs` takes a `Tuple` of reference specs, not a $(typeof(specs)). " *
+    "Store an observation's target list as a tuple — a vector of specs allocates " *
+    "and loses inference on every likelihood evaluation.")
+
+export ObsContext, solutionat, resolverefs
 
 # ---------------------------------------------------
 # Prior-shaped terms emitted by `@variables`
@@ -266,11 +292,41 @@ likeobj_from_epoch_subset(l::BlankLikelihood, _) = l
 
 # ---------------------------------------------------
 
+"""
+    _refdesc(obs) -> String
+    _refdesc(targets::Tuple, reference) -> String
+
+One-line description of what an observation observes, for `show`: its
+target(s), then the reference they are measured against.
+
+The default reads `refspecs(obs)` as "everything but the last entry is a
+target". That is right for the pair types and for the variadic ones as they
+are written, but it is a guess — a type whose refspec tuple is ordered
+differently, or which wants to say something more specific about the roles
+(`G23HObs` distinguishes its `host` from the companions blended into it),
+should define its own method.
+
+`show` used to `join(map(_refstr, refspecs(obs)), " vs ")`, which reads as a
+chain of differences: `G23HObs` printed `A vs Ab vs Barycentre`, as though
+three things were being subtracted from one another rather than one blended
+source being measured against a reference point.
+"""
+_refdesc(@nospecialize obs::AbstractObs) = _refdesc_default(refspecs(obs))
+
+_refdesc_default(::Tuple{}) = ""
+_refdesc_default(specs::Tuple{Any}) = _refstr(specs[1])
+_refdesc_default(specs::Tuple) = _refdesc(Base.front(specs), last(specs))
+
+_refdesc(targets::Tuple{Any}, reference) = _refstr(targets[1]) * " vs " * _refstr(reference)
+_refdesc(targets::Tuple, reference) =
+    "(" * join(map(_refstr, targets), ", ") * ") vs " * _refstr(reference)
+
 function Base.show(io::IO, mime::MIME"text/plain", @nospecialize obs::AbstractObs)
     nm = string(typeof(obs).name.name)
     print(io, nm, " \"", likelihoodname(obs), "\"")
-    if !isempty(refspecs(obs))
-        print(io, "  ", join(map(_refstr, refspecs(obs)), " vs "))
+    desc = _refdesc(obs)
+    if !isempty(desc)
+        print(io, "  ", desc)
     end
     println(io)
     if hasproperty(obs, :table)

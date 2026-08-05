@@ -359,3 +359,60 @@ end
     allsys, allA, _ = quad_system(target_A=Photocentre(:G), target_B=Photocentre(:G))
     @test maximum(abs, quad_simulate(allsys, allA)[1] .- raA) > 1.0
 end
+
+@testset "northangle sign convention (issues #141/#142)" begin
+    # `northangle` must rotate the data the same way on the sky whether the
+    # astrometry is given as (sep, pa) or as (ra, dec). Ported from main's
+    # regression test for sefffal/Octofitter.jl#141: the v2 branch forked before
+    # that fix landed, so the rewritten `ln_like` reintroduced the sign error in
+    # the radec branch. The two formats disagreeing is the whole bug.
+
+    posys = reference_system()
+    tr = orbitsolve(posys, EPOCHS_A)
+    ra_m = [raoff(tr[k], :b, :A) for k in eachindex(EPOCHS_A)]
+    dec_m = [decoff(tr[k], :b, :A) for k in eachindex(EPOCHS_A)]
+
+    # Position angle measured North through East, as the `:pa` column uses.
+    pa_m = atan.(ra_m, dec_m)
+    sep_m = hypot.(ra_m, dec_m)
+
+    # Synthetic data: the model rotated by a known offset, written out both ways.
+    ε = 0.05 # radians
+    pa_d = pa_m .+ ε
+    ra_d = sep_m .* sin.(pa_d)
+    dec_d = sep_m .* cos.(pa_d)
+
+    n = length(EPOCHS_A)
+    tab_seppa = (epoch=EPOCHS_A, sep=sep_m, pa=pa_d,
+                 σ_sep=fill(1.0, n), σ_pa=fill(0.001, n))
+    tab_radec = (epoch=EPOCHS_A, ra=ra_d, dec=dec_d,
+                 σ_ra=fill(1.0, n), σ_dec=fill(1.0, n))
+
+    # Log-likelihood as a function of the northangle value alone.
+    function northangle_ll(tab)
+        obs = RelAstromObs(tab; target=:b, ref=:A, name="inst",
+            variables=@variables begin
+                northangle ~ Normal(0, deg2rad(30))
+            end)
+        sys = model_system(obs=[obs])
+        arr2nt = Octofitter.make_arr2nt(sys)
+        lnlike = Octofitter.make_ln_like(sys)
+        return δ -> lnlike(sys, arr2nt([δ]))
+    end
+
+    ll_seppa = northangle_ll(tab_seppa)
+    ll_radec = northangle_ll(tab_radec)
+
+    grid = range(-0.1, 0.1, length=2001)
+    best_seppa = grid[argmax(ll_seppa.(grid))]
+    best_radec = grid[argmax(ll_radec.(grid))]
+
+    # Data rotated by +ε must be undone by a northangle of -ε, in both formats.
+    @test best_seppa ≈ -ε atol = 1e-3
+    @test best_radec ≈ -ε atol = 1e-3
+    @test sign(best_radec) == sign(best_seppa)
+
+    # A zero northangle is a no-op regardless of format.
+    @test ll_seppa(0.0) == ll_seppa(-0.0)
+    @test ll_radec(0.0) == ll_radec(-0.0)
+end

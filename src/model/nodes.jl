@@ -321,6 +321,22 @@ function System(; name::Union{Symbol,AbstractString},
                 "system block.")
         end
     end
+    # A node block sees only `system.*` — never a sibling. Writing a mass ratio
+    # the natural way (`mass = q * A.mass` inside b's block) is the commonest
+    # way to discover that, and without this check it surfaces as
+    # `UndefVarError: A not defined in Octofitter`, thrown out of a
+    # `RuntimeGeneratedFunction` at `LogDensityModel` construction time — which
+    # names neither the block nor the rule.
+    for n in nodes, (k, expr) in n.derived.variables
+        siblings = Tuple(m for m in allnames if m !== n.name)
+        _mentions_node(expr, siblings) && error(
+            "System $name: $(n.name)'s `$k` refers to another node by name, but a node " *
+            "block cannot see a sibling — each one is evaluated with only `system.*` in " *
+            "scope, so that the evaluation order is well defined. Either hoist the " *
+            "shared quantity into the system block and read it as `system.…`, or, if it " *
+            "is a dynamical mass, express it through the hierarchy with `about=` rather " *
+            "than by arithmetic. (Nodes here: $(join(allnames, ", ")).)")
+    end
 
     sysnames = Symbol[collect(keys(priors.priors))...; collect(keys(derived.variables))...]
     framevars = Symbol[v for v in FRAME_VARIABLES if v in sysnames]
@@ -347,6 +363,29 @@ function System(; name::Union{Symbol,AbstractString},
             (isempty(declaredbands) ? " (no body declares any flux)." :
              " (the bands declared here are $(join(declaredbands, ", "))).") *
             " Photocentre weights come from the bodies' fluxes.")
+    end
+    # A photocentre with no band named picks the system's sole band, so it
+    # needs exactly one to exist. `_refbands` returns `()` for that spec (it
+    # names no band to check), which left the commonest spelling of all —
+    # `GaiaDR4AstromObs`'s default `target=Photocentre` — falling through to a
+    # PlanetOrbits error on the first likelihood evaluation, from inside the
+    # `LogDensityModel` constructor, phrased in PlanetOrbits' own
+    # `Body(…, flux=(G=1.0,))` spelling rather than the `@variables` one.
+    for o in obs, s in refspecs(o)
+        s isa PhotocentreSpec{nothing} || continue
+        if isempty(declaredbands)
+            error("System $name: observation \"$(likelihoodname(o))\" observes a " *
+                  "`Photocentre`, but no body declares a flux. Photocentre weights " *
+                  "come from the bodies' fluxes, so give at least one body a `flux` " *
+                  "variable in its `@variables` block — e.g. `flux = 1.0` on the host " *
+                  "and `flux = 0.0` on a dark companion, or `flux_G`/`flux_H` etc. for " *
+                  "a named band.")
+        elseif length(declaredbands) > 1
+            error("System $name: observation \"$(likelihoodname(o))\" observes a " *
+                  "`Photocentre` with no band, but this system declares several " *
+                  "($(join(declaredbands, ", "))). Name one, e.g. " *
+                  "`Photocentre(:$(first(declaredbands)))`.")
+        end
     end
     obsnames = String[likelihoodname(o) for o in obs]
     length(unique(obsnames)) == length(obsnames) || error(
@@ -469,8 +508,12 @@ function Base.show(io::IO, ::MIME"text/plain", @nospecialize sys::System)
         show(io, MIME"text/plain"(), n)
     end
     for o in sys.observations
+        # `_refdesc`, not a flat "a vs b vs c": a type that overrides it says
+        # something true about its references (`b < c` for an ordering prior,
+        # `b.flux_H` for photometry), and the flat join says something false.
+        desc = _refdesc(o)
         println(io, "  ", typeof(o).name.name, " \"", likelihoodname(o), "\"",
-            isempty(refspecs(o)) ? "" : "  " * join(map(_refstr, refspecs(o)), " vs "))
+            isempty(desc) ? "" : "  " * desc)
     end
     for (owner, t) in sys.priorterms
         println(io, "  ", typeof(t).name.name, " [", owner, "]")

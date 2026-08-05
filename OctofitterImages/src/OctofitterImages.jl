@@ -4,14 +4,13 @@ using Octofitter
 using PlanetOrbits
 using Tables, TypedTables
 
-
 using ImageTransformations
 using CoordinateTransformations
 using Interpolations
 using AstroImages
 using Statistics
 
-
+include("pixels.jl")
 include("images.jl")
 include("likelihood-maps.jl")
 

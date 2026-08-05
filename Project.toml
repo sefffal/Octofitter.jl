@@ -56,20 +56,22 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 
-# The v1 package extensions (the old Makie recipe set, PairPlots, Pigeons,
-# Dynesty) are part of the v1 model surface's long tail — every v1 plot
-# recipe reaches into `system.planets` — and are not declared while they are
-# unported. Their sources are parked unmodified in `src/legacy/ext/`; see
-# `docs/src/v2-migration.md`. The Makie extension declared below is the new
-# v2 plotting layer (`ext/OctofitterMakieExt.jl`).
+# The v1 Makie recipe set and the Dynesty extension are part of the v1 model
+# surface's long tail — every v1 plot recipe reaches into `system.planets` —
+# and are not declared while they are unported. Their sources are parked
+# unmodified in `src/legacy/ext/`; see `docs/src/v2-migration.md`. The Makie
+# extension declared below is the new v2 plotting layer
+# (`ext/OctofitterMakieExt.jl`).
 
 [weakdeps]
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
+Pigeons = "0eb8d820-af6a-4919-95ae-11206f830c31"
 
 [extensions]
 OctofitterMakieExt = "Makie"
 OctofitterPairPlotsExt = "PairPlots"
+OctofitterPigeonsExt = "Pigeons"
 
 [compat]
 AbstractMCMC = "4,5"
@@ -101,6 +103,7 @@ Logging = "1"
 MCMCChains = "7"
 Makie = "0.24"
 PairPlots = "3"
+Pigeons = "0.4.11"
 MathTeXEngine = "0.6"
 NamedTupleTools = "0.13, 0.14"
 Optimization = "4, 5"
@@ -130,7 +133,12 @@ julia = "1.10"
 
 [extras]
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
+# Pigeons is a weakdep, so `octofit_pigeons` has no methods unless it is
+# loaded. It is in the test target because the extension was silently
+# unported for a while and nothing caught it — `test/v2/pigeons.jl` is the
+# thing that would have.
+Pigeons = "0eb8d820-af6a-4919-95ae-11206f830c31"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "FiniteDiff"]
+test = ["Test", "FiniteDiff", "Pigeons"]

@@ -180,6 +180,73 @@ end
 # Gaia archive queries
 # ──────────────────────────────────────────────────────────────────────
 
+"""
+    gaia_plx(; gaia_id)
+
+A truncated Normal prior on parallax [mas] read from that source's Gaia DR3
+astrometric solution, for use as `plx ~ gaia_plx(gaia_id=…)`.
+
+The truncation at ±10σ is deliberate and inherited: it keeps a sampler from
+walking into the negative-parallax tail, where the AU→mas conversion is
+undefined.
+
+!!! note "Source changed in v2"
+    v1 read this out of the HGCA `HGCA_vEDR3.fits` data dependency, since the
+    only caller was `HGCAObs`. The HGCA modelling stack is retired
+    ([`HGCAObs`](@ref) is now a helper over [`G23HObs`](@ref)), so this reads
+    the DR3 catalog directly instead. For a source in both, `parallax_gaia`
+    in the HGCA *is* the DR3 parallax, so the numbers agree; the difference
+    is that this no longer downloads the 30 MB HGCA catalog to read one row,
+    and it works for sources the HGCA does not contain.
+"""
+function gaia_plx(; gaia_id)
+    dr3 = _query_gaia_dr3(; gaia_id)
+    μ = Float64(dr3.parallax)
+    σ = Float64(dr3.parallax_error)
+    return truncated(Normal(μ, σ), lower=μ - 10σ, upper=μ + 10σ)
+end
+export gaia_plx
+
+"""
+    gaia_dr3_solution(; gaia_id) -> NamedTuple
+
+That source's row of the Gaia DR3 `gaia_source` catalog, as a NamedTuple keyed
+by the catalog's own column names (`parallax`, `pmra`, `pmdec`, `ra`, `dec`,
+`ref_epoch`, `phot_g_mean_mag`, `ruwe`, …).
+
+Queried from the ESA TAP service and cached at
+`_gaia_dr3_final/source-<gaia_id>.csv` in the working directory, so a repeated
+call — or a re-run on a cluster node with the directory copied across — is
+offline.
+
+Useful for seeding an absolute-frame system block from the published solution:
+
+```julia
+cat = gaia_dr3_solution(gaia_id=756291174721509376)
+sys = System(name="s", bodies=(A, b), observations=(pma,), variables=@variables begin
+    plx   ~ truncated(Normal(cat.parallax, cat.parallax_error), lower=0)
+    ra    = \$(cat.ra)
+    dec   = \$(cat.dec)
+    pmra  ~ Normal(cat.pmra, 10)
+    pmdec ~ Normal(cat.pmdec, 10)
+    rv    = 0.0
+    ref_epoch = Octofitter.jd2mjd(2457388.5)
+end)
+```
+
+(Note the asymmetry: `\$` interpolation is needed on `=` lines, whose
+right-hand sides are quoted and evaluated later inside the model, and is
+rejected on `~` lines, which already see the enclosing scope.)
+
+!!! note "v1 → v2"
+    `GaiaDR4AstromObs` used to carry the published solution as `obs.gaia_sol`,
+    and took a `gaia_id=`. It no longer does either — the observation models a
+    sky path and no longer needs the catalog row — so this is the supported way
+    to get at it. It is the same function [`gaia_plx`](@ref) reads.
+"""
+gaia_dr3_solution(; gaia_id) = _query_gaia_dr3(; gaia_id)
+export gaia_dr3_solution
+
 function _query_gaia_dr3(;gaia_id)
     fname = "_gaia_dr3_final/source-$gaia_id.csv"
     if !isfile(fname)
@@ -337,6 +404,8 @@ function GOST_forecast(ra_deg,dec_deg;baseline=:dr3)
     if isfile(fname)
         @info "Using cached Gaia scan forecast $fname"
         forecast_table = CSV.read(fname, Table, normalizenames=true)
+        _check_gost_nonempty(forecast_table, ra_deg, dec_deg, baseline,
+            "cached file $(abspath(fname))"; cached=true)
         return _sort_dedup_gost(forecast_table)
     end
 
@@ -385,16 +454,43 @@ function GOST_forecast(ra_deg,dec_deg;baseline=:dr3)
     @info "done"
     body = collect(resp_dat.body)
 
-    # Save for offline use eg on clusters
-    write(fname, body)
-
     io = IOBuffer(body)
     if bytesavailable(io) == 0
         error("Empty response from GOST service. Rate limited?")
     end
     forecast_table = CSV.read(io, Table, normalizenames=true)
 
+    # Validate BEFORE writing the cache. GOST has been observed to return a
+    # header-only body on a transient failure — with a 200 status and no error
+    # string, so nothing above catches it. Caching that poisons every
+    # subsequent run for this target: the file exists, so the branch above
+    # reads it and the zero-row table fails far downstream in
+    # `_g23h_forecast_pool` as a `DimensionMismatch`, with nothing pointing at
+    # the cache. Write the file only once it is known to be worth keeping.
+    _check_gost_nonempty(forecast_table, ra_deg, dec_deg, baseline,
+        "the GOST service (https://gaia.esac.esa.int/gost/)")
+
+    # Save for offline use eg on clusters
+    write(fname, body)
+
     return _sort_dedup_gost(forecast_table)
+end
+
+"""
+    _check_gost_nonempty(tbl, ra_deg, dec_deg, baseline, source; cached=false)
+
+Fail with a message naming the target and the source when a GOST forecast has
+no scans, rather than letting a zero-row table propagate into the likelihood.
+"""
+function _check_gost_nonempty(tbl, ra_deg, dec_deg, baseline, source; cached=false)
+    n = hasproperty(tbl, :ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_) ?
+        length(vec(collect(tbl.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_))) : 0
+    n > 0 && return nothing
+    hint = cached ?
+        "Delete that file and retry; it was cached from a failed request." :
+        "This is usually transient — retry. If it persists, check the coordinates."
+    error("GOST returned no scans for ra=$ra_deg, dec=$dec_deg (baseline=$baseline) " *
+          "from $source. $hint")
 end
 
 # Defensively sort and deduplicate a GOST forecast table.  User-supplied

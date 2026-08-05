@@ -49,6 +49,7 @@ using Arrow
 # residuals and their marginal σ for the coupled PM/UEVA block — used to check
 # that the simulator and the likelihood agree (pulls ~ N(0,1) at truth).
 const _G23H_DEBUG_PULLS = Ref{Any}(nothing)
+const _G23H_DEBUG_PULLS_LOCK = ReentrantLock()
 
 """
     G23HObs(; gaia_id, host, companions, …)
@@ -65,20 +66,38 @@ optionally the Hipparcos per-transit abscissae.
 bodies that may blend into it, **in the order the flux-ratio variables are
 indexed**. Both take `Body` model nodes or `Symbol`s.
 
-Two flux-ratio vectors enter as this observation's own variables, because
-they are per-instrument contrast ratios against *this* source's host rather
-than intrinsic body fluxes:
+`host`/`companions` is not a single `Photocentre` spec, and cannot be: the
+Hipparcos branch is a grating response rather than a linear reduction (see
+[`_hippacentre!`](@ref)), and *which* bodies could ever blend is a structural,
+build-time statement while *how much* each one blends is a per-draw one.
 
-  - `fluxratio` — G-band, for the Gaia DR2/DR3 photocentre;
-  - `fluxratio_hip` — Hp-band, for the Hipparcos abscissa branch.
+# Flux ratios
 
-Each must be a length-`length(companions)` container (a tuple, `SVector`, or
-vector), matching `companions` element for element; a bare scalar is accepted
-only when there is exactly one companion. Both may be *derived* from system
-variables, including deferred ones — a resolved-flag latent that gates a
-companion out of the Gaia photocentre lives at system level and is read here,
-which is why blending state never has to round-trip through a body's flux
-variable. Omitting a vector entirely means "all companions dark in that band".
+Each companion contributes light in proportion to its flux ratio against the
+host, in two bands: `fluxratio` (G, for the Gaia DR2/DR3 photocentre) and
+`fluxratio_hip` (Hp, for the Hipparcos abscissa). They are looked up in this
+order, and the first hit wins:
+
+ 1. **this observation's own variables** — `fluxratio = (f_b, f_c)`. Use this
+    when the ratios are *dynamic*: derived from system variables, including
+    deferred ones, so a resolved-flag latent at system level can gate a
+    companion out of the photocentre for that draw. That is the escape hatch
+    the three-tier design needs, and it is why blending state never has to
+    round-trip through a body's own flux variable (which would be the
+    body→deferred-system cycle codegen rejects).
+ 2. **a system-level vector of the same name** — `system.fluxratio`.
+ 3. **the bodies' own fluxes** — `flux_G` / `flux_Hp` declared in each body's
+    variables block, as `f_k = flux_<band>(companion_k) / flux_<band>(host)`.
+    This is the common, *static* case, and it needs no vector at all: the
+    ratios stop being positional and the same flux variable feeds every
+    observation in that band.
+
+A vector given under (1) or (2) must be a length-`length(companions)`
+container (a tuple, `SVector`, or vector) matching `companions` element for
+element; a bare scalar is accepted only when there is exactly one companion.
+A model that declares no fluxes at all leaves every companion dark in every
+band, which is the right answer for a fit with no photometry; a model that
+declares *some* band but not the one asked for is a name mismatch and errors.
 
 # Data
 `catalog` is the G23H catalog: a path to the Arrow file, or an already-loaded
@@ -110,6 +129,15 @@ data dependency using the catalog's `hip_id`. A catalog row with
 `:dec_dr32`, `:ra_dr3`, `:dec_dr3`, `:ueva_dr3`, `:rv_dr3`.
 `likeobj_from_epoch_subset` selects on those rows, so a caller can exclude a
 channel by dropping its row.
+
+`channels=` restricts the set at construction, and does it by filtering the
+same `table.kind` rows — one code path, so the two spellings cannot diverge:
+
+    channels = (:ra_hip, :dec_hip, :ra_hg, :dec_hg, :ra_dr3, :dec_dr3)
+
+is what [`HGCAObs`](@ref) is. Dropping the last Hipparcos channel drops the
+Hipparcos catalog distributions with it, and dropping `:iad_hip` drops the
+six abscissa nuisance parameters, exactly as a post-hoc subset would.
 
 `ueva_mode` is `:RUWE` (default), `:EAN`, or `:none`. `:none` drops the
 `:ueva_dr3` datum and the UEVA-driven DR3 covariance deflation — for stars
@@ -173,9 +201,91 @@ likelihoodname(obs::G23HObs) = obs.name
 epochs(obs::G23HObs) = obs.all_epochs
 refspecs(obs::G23HObs) = (obs.host, obs.companions..., obs.ref)
 
+# The generic `targets… vs ref` reading would print `(A, Ab) vs Barycentre`,
+# which loses the asymmetry that matters here: the catalog source is centred
+# on `host`, and the companions are bodies that *blend into* it (with their
+# own per-band flux ratios) rather than co-equal targets. Shared with
+# `HipparcosIADObs`, which names its refs the same way.
+_blend_refdesc(host, companions, reference) = isempty(companions) ?
+    _refstr(host) * " vs " * _refstr(reference) :
+    _refstr(host) * " (blended with " *
+    join(map(_refstr, companions), ", ") * ") vs " * _refstr(reference)
+
+_refdesc(obs::G23HObs) = _blend_refdesc(obs.host, obs.companions, obs.ref)
+
+# The channels that enter the coupled catalog MvNormal, in its component
+# order. `:iad_hip` and `:rv_dr3` are deliberately absent: they are separate,
+# uncorrelated terms.
 const _g23h_channel_kinds = (
     :ra_hip, :dec_hip, :ra_hg, :dec_hg, :ra_dr2, :dec_dr2,
     :ra_dr32, :dec_dr32, :ra_dr3, :dec_dr3, :ueva_dr3)
+
+# Every channel a G23HObs can carry — what `channels=` is validated against.
+const _g23h_all_kinds = (
+    :iad_hip, :ra_hip, :dec_hip, :ra_hg, :dec_hg, :ra_dr2, :dec_dr2,
+    :ra_dr32, :dec_dr32, :ra_dr3, :dec_dr3, :ueva_dr3, :rv_dr3)
+
+"""
+    _g23h_channel_rows(table, channels) -> row indices
+
+Rows of the channel table the constructor's `channels=` keyword keeps.
+`nothing` keeps everything.
+
+A requested channel this source does not have is a warning rather than an
+error: a `channels=` list is written for a *family* of sources (every HGCA
+fit asks for the Hipparcos channels), and one member of that family having no
+Hipparcos entry is data, not a mistake. A channel name that is not a channel
+at all is a typo, and errors.
+"""
+function _g23h_channel_rows(table, channels)
+    isnothing(channels) && return 1:length(table.kind)
+    chans = Tuple(channels)
+    isempty(chans) && error(
+        "`channels=()` selects no channels at all. Pass `channels=nothing` (the " *
+        "default) to keep every channel this source has.")
+    for k in chans
+        k ∈ _g23h_all_kinds || error(
+            "`:$k` is not a G23HObs channel. The channels are $(_g23h_all_kinds).")
+    end
+    absent = filter(k -> k ∉ table.kind, collect(chans))
+    isempty(absent) || @warn(
+        "`channels=` asked for channels this source does not have; they are skipped.",
+        absent, available = Tuple(table.kind))
+    keep = findall(k -> k ∈ chans, table.kind)
+    isempty(keep) && error(
+        "`channels=$(chans)` selected none of this source's channels " *
+        "($(Tuple(table.kind))); the observation would constrain nothing.")
+    return keep
+end
+
+# The two consequences of a channel table losing rows, in one place so that
+# `channels=` (construction) and `likeobj_from_epoch_subset` (cross-validation)
+# cannot drift apart. Both are idempotent, so applying this to an unrestricted
+# table is a no-op.
+function _g23h_restrict(table, catalog, priors, derived)
+    # The Hipparcos catalog proper-motion distributions exist only to be
+    # compared against; with every Hipparcos channel gone there is nothing to
+    # compare, and `_g23h_simulate!` reads `isnothing(dist_hip)` as "this
+    # source has no Hipparcos".
+    if all(k -> k ∉ table.kind, (:iad_hip, :ra_hip, :dec_hip, :ra_hg, :dec_hg))
+        catalog = (; catalog..., dist_hip=nothing, dist_hg=nothing)
+    end
+    if :iad_hip ∉ table.kind
+        # Six nuisance parameters and two derived quantities that no longer
+        # touch the likelihood anywhere; sampled, they would inflate the model
+        # dimension by 6 for nothing.
+        iad_keys = (:hip_iad_jitter, :iad_Δra, :iad_Δdec, :iad_Δplx,
+                    :iad_Δpmra, :iad_Δpmdec, :iad_pmra, :iad_pmdec)
+        if any(k -> k ∈ iad_keys, keys(priors.priors)) ||
+           any(k -> k ∈ iad_keys, keys(derived.variables))
+            priors = Priors(OrderedDict(k => v for (k, v) in priors.priors if k ∉ iad_keys))
+            derived = Derived(
+                OrderedDict(k => v for (k, v) in derived.variables if k ∉ iad_keys),
+                derived.captured_names, derived.captured_vals)
+        end
+    end
+    return (table, catalog, priors, derived)
+end
 
 # ──────────────────────────────────────────────────────────────────────
 # DR2/DR3 matched-transit sidecar plumbing
@@ -299,6 +409,7 @@ function G23HObs(;
         scanlaw_table=nothing,
         hipparcos=nothing,
         variables::Union{Nothing,Tuple{Priors,Derived}}=nothing,
+        channels=nothing,
         include_rv=true,
         include_iad::Bool=false,
         rv_ln_uncert_err_floor::Union{Nothing,Real}=0.30,
@@ -375,7 +486,11 @@ function G23HObs(;
     else
         loaded = isnothing(hipparcos) ?
                  hipparcos_iad(; hip_id=Int(catalog.hip_id)) : hipparcos
-        hip_table = FlexTable(loaded.table)
+        # Copy the columns: `FlexTable(::Table)` wraps the *same* vectors, and
+        # the recalibration below mutates them. Without this, a caller who
+        # passes a preloaded `hipparcos=` table gets it shifted underneath
+        # them, and a second observation built from it is shifted twice.
+        hip_table = FlexTable(map(copy, Tables.columntable(loaded.table)))
         hip_sol = loaded.hip_sol
         # Brandt, Michalik & Brandt: +0.140 mas on the residuals and 2.25 mas
         # of extra dispersion, which mitigates overfitting. This also
@@ -413,14 +528,20 @@ function G23HObs(;
              !ismissing(catalog.rv_ln_uncert_dr3) && !ismissing(catalog.rv_ln_uncert_err_dr3) &&
              isfinite(catalog.rv_ln_uncert_dr3) && isfinite(catalog.rv_ln_uncert_err_dr3)
     table = _g23h_channel_table(catalog, hip_table, gaia_table, has_hip, has_rv, ueva_mode)
+    # `channels=` and `likeobj_from_epoch_subset` are the same operation on the
+    # same rows, so they share the row selection *and* its two consequences.
+    table = table[_g23h_channel_rows(table, channels)]
 
     # --- default variables ---------------------------------------------------
     if isnothing(variables)
+        # Defaults follow the *restricted* table: a dropped `:rv_dr3` must not
+        # leave `σ_rv_per_transit` sampled but unused.
         variables = _g23h_default_variables(catalog, gaia_table, dr2_ok_mask, dr3_ok_mask,
-            has_hip, has_rv, hip_sol, table, freeze_epochs, dr2_dup_gmag_threshold,
-            length(compspecs))
+            has_hip, :rv_dr3 ∈ table.kind, hip_sol, table, freeze_epochs,
+            dr2_dup_gmag_threshold)
     end
     (priors, derived) = variables
+    table, catalog, priors, derived = _g23h_restrict(table, catalog, priors, derived)
 
     pinv_5_hip = _g23h_pinv_hip(A_prepared_5_hip, hip_table)
     hip_x_const = _g23h_hip_x_const(pinv_5_hip, hip_table, include_iad, has_hip)
@@ -638,20 +759,20 @@ end
 
 function _g23h_default_variables(catalog, gaia_table, dr2_ok_mask, dr3_ok_mask,
                                  has_hip, has_rv, hip_sol, table, freeze_epochs,
-                                 dr2_dup_gmag_threshold, n_companions)
+                                 dr2_dup_gmag_threshold)
     len_epochs = length(gaia_table.epoch)   # union pool; transit_priorities spans it
     astrometric_matched_transits_dr3 = catalog.astrometric_matched_transits_dr3
-    zeros_n = ntuple(_ -> 0.0, n_companions)
 
+    # No `fluxratio`/`fluxratio_hip` here, deliberately. They used to be
+    # emitted as derived variables defaulting to a vector of zeros, which meant
+    # the *default* variable set always shadowed the bodies' own `flux_G` /
+    # `flux_Hp` and silently made every companion dark. The lookup now falls
+    # through to the system-level vector and then to the body fluxes (see
+    # `_g23h_fluxratios`), which is only possible if nothing is declared here.
     variables = @variables begin
         σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
         σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
         σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
-        # Per-companion G-band contrast ratios for the Gaia DR2/DR3
-        # photocentre, and Hp-band for the Hipparcos abscissa. Both may be
-        # derived at system level (including from deferred lines).
-        fluxratio = hasproperty(system, :fluxratio) ? system.fluxratio : $zeros_n
-        fluxratio_hip = hasproperty(system, :fluxratio_hip) ? system.fluxratio_hip : $zeros_n
     end
 
     # Per-release selection pools. The table is already trimmed to the common
@@ -796,24 +917,14 @@ end
 # ──────────────────────────────────────────────────────────────────────
 
 function likeobj_from_epoch_subset(obs::G23HObs, obs_inds)
-    table = obs.table[obs_inds, :]
-    catalog = obs.catalog
-    # Test the POST-subset table, not `obs.table`: the whole point is to react
-    # to rows the subset removed.
-    if all(k -> k ∉ table.kind, (:iad_hip, :ra_hip, :dec_hip, :ra_hg, :dec_hg))
-        catalog = (; catalog..., dist_hip=nothing, dist_hg=nothing)
-    end
-    priors, derived = obs.priors, obs.derived
-    if :iad_hip ∉ table.kind
-        # Six nuisance parameters and two derived quantities that no longer
-        # touch the likelihood anywhere; sampled, they would inflate the model
-        # dimension by 6 for nothing.
-        iad_keys = (:hip_iad_jitter, :iad_Δra, :iad_Δdec, :iad_Δplx,
-                    :iad_Δpmra, :iad_Δpmdec, :iad_pmra, :iad_pmdec)
-        priors = Priors(OrderedDict(k => v for (k, v) in priors.priors if k ∉ iad_keys))
-        derived = Derived(OrderedDict(k => v for (k, v) in derived.variables if k ∉ iad_keys),
-            derived.captured_names, derived.captured_vals)
-    end
+    # Restrict on the POST-subset table, not `obs.table`: the whole point is to
+    # react to the rows the subset removed. Same call the `channels=` keyword
+    # makes at construction.
+    # `table[inds]`, not `table[inds, :]`: the latter returns a 2-D table, and
+    # the constructor's `channels=` path produces a 1-D one. Both spellings
+    # work downstream, but "the two paths cannot diverge" should be literal.
+    table, catalog, priors, derived =
+        _g23h_restrict(obs.table[obs_inds], obs.catalog, obs.priors, obs.derived)
     return G23HObs{typeof(table),typeof(obs.hip_table),typeof(obs.gaia_table),typeof(catalog),
         typeof(obs.hip_sol),typeof(obs.host),typeof(obs.companions),typeof(obs.ref)}(
         table, priors, derived, obs.hip_table, obs.gaia_table, catalog, obs.hip_sol,
@@ -838,17 +949,72 @@ end
 # see `_hippacentre!`.
 # ──────────────────────────────────────────────────────────────────────
 
-# Effective per-companion flux ratios: the observation's variable, zeroed
-# wherever the companion is massless (an absent companion contributes no
-# reflex, so it must contribute no light either). Tuple recursion, never a
-# loop — a loop with a growing accumulator infers as `Tuple` and that
-# instability propagates into everything downstream.
-@inline function _g23h_fluxratios(θ_obs, key::Symbol, active::NTuple{N,Bool}, ::Type{T}) where {N,T}
-    hasproperty(θ_obs, key) || return ntuple(_ -> zero(T), Val(N))
-    v = getproperty(θ_obs, key)
-    f = _g23h_asratios(v, Val(N), T)
+# Effective per-companion flux ratios, zeroed wherever the companion is
+# massless (an absent companion contributes no reflex, so it must contribute
+# no light either). Tuple recursion, never a loop — a loop with a growing
+# accumulator infers as `Tuple` and that instability propagates into
+# everything downstream.
+#
+# Three sources, first hit wins:
+#
+#   1. `θ_obs.<key>` — the per-draw override. Only this tier can express
+#      marginalized resolvedness, because it may read *deferred* system
+#      variables, and a resolved-flag latent gating a companion's light to
+#      zero for one draw is exactly that.
+#   2. `θ_system.<key>` — a system-level vector of the same name. This is what
+#      the old default-variables block forwarded, kept so models written
+#      against it keep working.
+#   3. the bodies' own `flux_<band>` variables, as F_k / F_host. The static
+#      case, and the one that makes the common model non-positional.
+#
+# Every branch is resolved statically: `hasproperty` on a NamedTuple with a
+# constant-propagated key folds away, so the hot loop sees one of the three.
+@inline function _g23h_fluxratios(θ_obs, θ_system, key::Symbol, ::Val{Band}, sys,
+                                  hostidx::Int, cidx::NTuple{N,Int},
+                                  active::NTuple{N,Bool}, ::Type{T}) where {Band,N,T}
+    f = if hasproperty(θ_obs, key)
+        _g23h_asratios(getproperty(θ_obs, key), Val(N), T)
+    elseif hasproperty(θ_system, key)
+        _g23h_asratios(getproperty(θ_system, key), Val(N), T)
+    else
+        _g23h_bandratios(sys, Val(Band), hostidx, cidx, T)
+    end
     return ntuple(k -> active[k] ? f[k] : zero(T), Val(N))
 end
+
+# Flux ratios read straight off the bodies: f_k = flux_<Band>(companion_k) /
+# flux_<Band>(host). The ratio, not the flux, because that is what both
+# instrument responses consume — the Hipparcos grating phase is defined
+# against the host's own signal (`Re` starts at 1), and the Gaia photocentre
+# weights are normalized anyway.
+@inline function _g23h_bandratios(sys, ::Val{Band}, hostidx::Int,
+                                  cidx::NTuple{N,Int}, ::Type{T}) where {Band,N,T}
+    bands = keys(PlanetOrbits.fluxes(sys))
+    if !(Band in bands)
+        # A model with no photometry at all: every companion dark, which is
+        # what v1 did when the flux-ratio vector was omitted. A model that
+        # declares *some* band but not this one is a name mismatch
+        # (`flux_H` for `flux_Hp`, say) and is worth failing on rather than
+        # silently modelling a dark companion.
+        isempty(bands) || _g23h_err_band(Band, bands)
+        return ntuple(_ -> zero(T), Val(N))
+    end
+    fl = PlanetOrbits.fluxes(sys, Band)
+    f_host = @inbounds fl[hostidx]
+    # Test the primal: a differentiated zero flux is a Dual whose value is
+    # zero but whose partials are not, and `iszero` on that is false.
+    iszero(PlanetOrbits._primal(f_host)) && _g23h_err_darkhost(Band)
+    return ntuple(k -> T((@inbounds fl[cidx[k]]) / f_host), Val(N))
+end
+
+@noinline _g23h_err_band(band, bands) = error(
+    "G23HObs needs each body's flux in band :$band to form its flux ratios, but " *
+    "this system's bodies declare $(bands). Either rename the body variable to " *
+    "`flux_$band`, or give the observation an explicit `$(band === :Hp ? "fluxratio_hip" : "fluxratio")` vector.")
+@noinline _g23h_err_darkhost(band) = error(
+    "G23HObs's host body has zero flux in band :$band, so the companions' flux " *
+    "ratios against it are undefined. Give the host a flux (1.0 makes every " *
+    "other body's flux a contrast ratio), or pass an explicit flux-ratio vector.")
 
 @inline function _g23h_asratios(v::Union{Tuple,AbstractVector,StaticVector}, ::Val{N}, ::Type{T}) where {N,T}
     length(v) == N || _g23h_err_ratios(length(v), N)
@@ -1013,10 +1179,33 @@ end
         _g23h_err_pm()
     end
 end
-@noinline _g23h_err_pm() = error(
-    "G23HObs needs the reference point's proper motion. Define `pmra`/`pmdec` in the " *
-    "system block (as part of a full absolute frame: plx, ra, dec, pmra, pmdec, rv, " *
-    "ref_epoch), or in this observation's own `variables` block.")
+@noinline _g23h_err_iad_pm() = error(
+    "G23HObs's Hipparcos abscissa channel needs `iad_pmra` and `iad_pmdec` — the " *
+    "proper motion of the Hipparcos frame, which the measured abscissae carry. " *
+    "They are generated automatically unless custom `variables` are supplied; a " *
+    "custom set must define them (e.g. `iad_pmra = hip_sol.pm_ra + iad_Δpmra`), or " *
+    "drop the `:iad_hip` channel.")
+
+@noinline _g23h_err_pm() = error("""
+    G23HObs needs the reference point's proper motion, and this system does not define it.
+
+    Declare the full absolute frame in the **system** block — it is all-or-nothing:
+
+        variables = @variables begin
+            plx  ~ truncated(Normal(cat.plx, cat.plx_error), lower=0)
+            ra   = cat.ra;   dec  = cat.dec           # degrees, at ref_epoch
+            pmra ~ Normal(cat.pmra, 10); pmdec ~ Normal(cat.pmdec, 10)   # mas/yr
+            rv   = 0.0                                # km/s
+            ref_epoch = 57388.0                       # MJD
+        end
+
+    (`pmra`/`pmdec` could also be defined in this observation's own `variables=`
+    block, but note that supplying `variables=` **replaces** G23HObs's default block
+    outright — you would lose `σ_AL`, `σ_att`, `σ_calib`, the `transit_priorities` /
+    `transits` / `transits_dr2` machinery, the `iad_*` frame-offset nuisances and
+    `σ_rv_per_transit`, and would have to write all of them yourself. The system
+    block is almost always what you want.)
+    """)
 
 # ──────────────────────────────────────────────────────────────────────
 # Epoch selection
@@ -1135,7 +1324,7 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
     sys = ctx.system
     hostref = ref(ctx, obs.host)
     reference = ref(ctx, obs.ref)
-    comps = map(c -> ref(ctx, c), obs.companions)
+    comps = resolverefs(ctx, obs.companions)
     cidx = map(c -> c.idx, comps)
     masses = sys.masses
     # `iszero` on a Dual is false when the value is zero but the partials are
@@ -1153,7 +1342,8 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
     Δα_h = Δδ_h = Δpmra_h = Δpmdec_h = zero(T)
     if has_hip
         if any_active
-            f_hip = _g23h_fluxratios(θ_obs, :fluxratio_hip, active, T)
+            f_hip = _g23h_fluxratios(θ_obs, θ_system, :fluxratio_hip, Val(:Hp), sys,
+                hostref.idx, cidx, active, T)
             _hippacentre!(Δα_hip, Δδ_hip, σ_infl_hip, ctx, 1:obs.n_hip,
                 obs.hip_table.cosϕ, obs.hip_table.sinϕ, hostref, reference,
                 comps, f_hip, active, HIPPARCOS_GRID_STEP_ARCSEC)
@@ -1184,13 +1374,26 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
 
     # ---- Hipparcos abscissa residuals --------------------------------------
     if has_hip && has_iad
-        (; iad_Δra, iad_Δdec, iad_pmra, iad_pmdec, iad_Δplx) = θ_obs
-        plx_at_epoch = obs.hip_sol.plx + iad_Δplx
+        # The five-parameter Hipparcos frame offset — the general facility of
+        # `skypath.jl`, not something Hipparcos-specific. The parallax anchors
+        # on the *Hipparcos catalog* value rather than the system's: this
+        # channel is here for the companion curvature, and the frame is pure
+        # nuisance. (`HipparcosIADObs`, where the abscissae are the only data,
+        # anchors on the system `plx` instead so that they constrain it.)
+        # `frame_offset` defaults a missing component to zero, which is right
+        # for a position or parallax offset and catastrophic for a proper
+        # motion: the measured abscissa carries the catalog's full sky path,
+        # so a zero `iad_pmra` silently models a star that does not move.
+        # Keep the loud failure the destructuring form used to give.
+        (hasproperty(θ_obs, :iad_pmra) && hasproperty(θ_obs, :iad_pmdec)) ||
+            _g23h_err_iad_pm()
+        off0 = frame_offset(θ_obs, obs.hip_sol.plx, T)
+        # The published five-parameter solution already absorbed the
+        # companion's apparent position and proper motion, so subtract that
+        # bias back out before comparing against the residuals it left.
+        off = FrameOffset(off0.Δra - Δα_h, off0.Δdec - Δδ_h, off0.plx,
+            off0.pmra - Δpmra_h, off0.pmdec - Δpmdec_h)
         inv_jy = inv(julian_year)
-        pmra_eff = iad_pmra - Δpmra_h
-        pmdec_eff = iad_pmdec - Δpmdec_h
-        Δra_eff = iad_Δra - Δα_h
-        Δdec_eff = iad_Δdec - Δδ_h
         ep = obs.hip_table.epoch
         cϕ = obs.hip_table.cosϕ
         sϕ = obs.hip_table.sinϕ
@@ -1200,12 +1403,19 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
         # the measured abscissa line; because the line's direction is
         # (−sinϕ, cosϕ) that distance reduces exactly to the scalar
         # scan projection, which is what `proj_meas_alongscan` precomputes.
+        #
+        # Stored *signed* (`measured − model`). The only consumer,
+        # `_g23h_ln_like`, squares it, so the likelihood is bit-identical to
+        # the `abs` this used to hold; the sign is what a residual plot needs
+        # (an unsigned residual has a half-normal marginal, which reads as a
+        # bias rather than as noise). `simulate` still reports the magnitude
+        # under the `iad_resid` name and the signed vector as
+        # `iad_resid_signed`, so nothing outside this file changes.
         @inbounds @simd for i in eachindex(ep, iad_resid)
             Δt = (ep[i] - hipparcos_catalog_epoch_mjd) * inv_jy
-            α_off = Δra_eff + Δt * pmra_eff + Δα_hip[i]
-            δ_off = Δdec_eff + Δt * pmdec_eff + Δδ_hip[i]
-            proj = α_off * cϕ[i] + δ_off * sϕ[i] + plx_at_epoch * pf[i]
-            iad_resid[i] = abs(meas[i] - proj)
+            proj = frame_offset_alongscan(off, Δt, cϕ[i], sϕ[i], pf[i],
+                Δα_hip[i], Δδ_hip[i])
+            iad_resid[i] = meas[i] - proj
         end
     end
 
@@ -1217,7 +1427,8 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
     # mean of apparent positions, which is *not* the superposition of
     # per-companion photocentres v1 computed.
     if any_active
-        f_G = _g23h_fluxratios(θ_obs, :fluxratio, active, T)
+        f_G = _g23h_fluxratios(θ_obs, θ_system, :fluxratio, Val(:G), sys,
+            hostref.idx, cidx, active, T)
         photo = _g23h_photocentre(sys, hostref.idx, cidx, f_G)
         @inbounds for i in istart:iend
             sol = solutionat(ctx, _g23h_gaia_row(obs, ii[i]))
@@ -1397,6 +1608,10 @@ end
 Model values for every channel of this observation at the sample in `ctx`,
 plus the per-transit Hipparcos abscissa residuals and σ inflation. Allocates
 ordinary arrays; `ln_like` runs the same code against bump-allocated ones.
+
+`iad_resid` is the unsigned perpendicular distance from the model to each
+measured abscissa line; `iad_resid_signed` is the same residual as
+`measured − model`.
 """
 function simulate(obs::G23HObs, ctx::ObsContext)
     T = _system_number_type(ctx.θ_system)
@@ -1413,7 +1628,11 @@ function simulate(obs::G23HObs, ctx::ObsContext)
         out = merge(sim, (; μ=@SVector([sim.μ_h[1], sim.μ_h[2], sim.μ_hg[1], sim.μ_hg[2],
                 sim.μ_dr2[1], sim.μ_dr2[2], sim.μ_dr32[1], sim.μ_dr32[2],
                 sim.μ_dr3[1], sim.μ_dr3[2], sim.UEVA_model, sim.sample_variance]),
-            iad_resid=bufs.iad_resid, σ_inflation_hip=bufs.σ_infl_hip,
+            # `iad_resid` keeps its published meaning (the perpendicular
+            # distance, unsigned); `iad_resid_signed` is the same quantity with
+            # the sign the plotting protocol needs.
+            iad_resid=abs.(bufs.iad_resid), iad_resid_signed=bufs.iad_resid,
+            σ_inflation_hip=bufs.σ_infl_hip,
             Δα_mas_hip=bufs.Δα_hip, Δδ_mas_hip=bufs.Δδ_hip))
     end
     return out
@@ -1722,6 +1941,39 @@ function _g23h_ln_like(obs::G23HObs, ctx::ObsContext, sim, iad_resid, σ_infl_hi
         end
     end
     return ll
+end
+
+"""
+    _g23h_catalog_moments(obs, ctx) -> (; labels, catalog, model, sigma, pull, Σ)
+
+The coupled catalog block as the likelihood actually assembles it, at one
+sample: the selected channel names, the catalog values, the model values, and
+the marginal σ — after the per-channel proper-motion jitter, the UEVA-driven
+DR3 deflation and its DR3−DR2 cross term, the BINARYS f_σ inflation of Σ_h and
+its epistemic term.
+
+It gets them by running `ln_like` with the diagnostic hook above armed, rather
+than by re-deriving any of it. Reassembling ~60 lines of covariance algebra
+plot-side is the drift the v2 plotting protocol exists to prevent — v1's
+`absastromplot` did exactly that, with line-number citations into this file —
+and the hook was already here to ask whether the simulator and the likelihood
+agree, which is the same question a residual plot asks.
+"""
+function _g23h_catalog_moments(obs::G23HObs, ctx::ObsContext)
+    return lock(_G23H_DEBUG_PULLS_LOCK) do
+        sink = Any[]
+        old = _G23H_DEBUG_PULLS[]
+        _G23H_DEBUG_PULLS[] = sink
+        try
+            ln_like(obs, ctx)
+        finally
+            _G23H_DEBUG_PULLS[] = old
+        end
+        isempty(sink) && error(
+            "G23HObs: the catalog block was not evaluated at this sample — the sampled " *
+            "transit selection was rejected — so there are no residuals to report.")
+        return last(sink)
+    end
 end
 
 # Rebuild a channel's catalog MvNormal with extra proper-motion jitter, when

@@ -145,3 +145,47 @@ _refnames(::PhotocentreSpec{Band,Names}) where {Band,Names} = Names
 _refbands(::AbstractRefSpec) = ()
 _refbands(::PhotocentreSpec{nothing}) = ()
 _refbands(::PhotocentreSpec{B}) where {B} = (B,)
+
+# ---------------------------------------------------
+# Declaration specs are not queries
+#
+# `Barycentre` and `Photocentre` are *declaration* specs: singletons whose
+# content lives in type parameters so that `resolveref` constant-folds. They
+# are valid wherever a model says what an observation looks at (`target=`,
+# `ref=`, `ObservableQuery`), and they mean nothing on their own — resolving
+# one needs a solved system, because the weights come from the bodies' masses
+# or fluxes.
+#
+# The natural thing to write after reading any tutorial is
+# `radvel(sol, :A, Barycentre)`, which without these methods is a MethodError
+# with a page of candidate signatures and no hint. Say what to do instead.
+# ---------------------------------------------------
+for fn in (:posx, :posy, :posz, :velx, :vely, :velz, :radvel,
+           :raoff, :decoff, :pmra, :pmdec, :projectedseparation, :posangle)
+    @eval begin
+        @noinline PlanetOrbits.$fn(sol::PlanetOrbits.TrajectorySolution, t, r::Union{BarycentreSpec,PhotocentreSpec}) =
+            _spec_is_not_a_ref($(QuoteNode(fn)), r)
+        @noinline PlanetOrbits.$fn(sol::PlanetOrbits.TrajectorySolution, t::Union{BarycentreSpec,PhotocentreSpec}, r) =
+            _spec_is_not_a_ref($(QuoteNode(fn)), t)
+        @noinline PlanetOrbits.$fn(sol::PlanetOrbits.TrajectorySolution, t::Union{BarycentreSpec,PhotocentreSpec}, r::Union{BarycentreSpec,PhotocentreSpec}) =
+            _spec_is_not_a_ref($(QuoteNode(fn)), t)
+    end
+end
+
+@noinline function _spec_is_not_a_ref(fn::Symbol, spec)
+    s = _refstr(spec)
+    resolver = spec isa BarycentreSpec ? "PlanetOrbits.barycentre(posys)" :
+                                         "PlanetOrbits.photocentre(posys; band=:H)"
+    error("""
+    `$s` is a declaration spec, not a resolved reference, so it cannot be passed
+    directly to `$fn`. It says *what* an observation looks at (in `target=`, `ref=`
+    or an `ObservableQuery`); turning it into a point needs the solved system,
+    because its weights come from the bodies' masses or fluxes.
+
+    Given a `PlanetOrbits.System` `posys` and a solution `sol`:
+
+        $fn(sol, :A, Octofitter.resolveref(posys, $s))
+
+    or equivalently `$fn(sol, :A, $resolver)`.
+    """)
+end
