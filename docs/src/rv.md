@@ -187,12 +187,12 @@ phase-folded panel all appear without being asked for:
 octoplot(model, results)
 ```
 
-[`rvpostplot`](@ref) is the complementary view. Where `octoplot` draws many
-draws from the posterior — one RV curve per draw, with the data calibrated
-using the MAP draw's offsets — `rvpostplot` renders a **single** draw, so the
-curve, the calibration and the phase folds are all that same draw's:
+[`rvplot`](@ref) is the complementary view. Where `octoplot` draws many samples
+from the posterior — one RV curve per draw, each carrying its own instrument
+offsets, with the measurements left exactly as reported — `rvplot` renders a
+**single** draw, which is what lets it put every instrument back on one axis:
 ```@example 1
-rvpostplot(model, results)
+rvplot(model, results)
 ```
 
 We can see what the orbit looks like for the maximum a-posteriori sample (note, we would need to run an optimizer to get the true MAP value; this is just the MCMC sample with highest posterior density). Slicing the chain is how you plot a single draw:

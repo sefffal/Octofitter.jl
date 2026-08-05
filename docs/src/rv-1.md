@@ -197,11 +197,11 @@ residual strip, and a phase-folded panel for each orbit in the model:
 octoplot(model, chain)
 ```
 
-[`rvpostplot`](@ref) is the same figure restricted to the radial-velocity channels — no
-sky panel, and no non-RV data — which is what you want once a model carries more than
-RVs:
+[`rvplot`](@ref) is the radial-velocity summary for a single posterior draw — no sky
+panel, no non-RV data, and every instrument on one axis. It is what you want once a model
+carries more than RVs, and it is the figure to put in a paper:
 ```@example 1
-rvpostplot(model, chain)
+rvplot(model, chain)
 ```
 
 And create a corner plot:

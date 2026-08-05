@@ -20,10 +20,12 @@ module OctofitterMakieExt
 
 using Octofitter
 using Octofitter: PosteriorSeries, ObservableQuery, PlotChannel, OctoPlotResult,
-    plotchannels, obscontext, modelcurves, default_sky_queries,
+    plotchannels, obscontext, modelcurves, default_sky_queries, default_queries,
     plottable_observations, likelihoodname, refspecs, defaultpanels,
     rowsignal, evalsignal, foldablerows, foldephemeris, foldphase,
-    _query, _querystr, _refstr, _solvekw, _isprior
+    sharepanel, datacalibration, noisemodel, predictedchannels,
+    _query, _querystr, _refstr, _solvekw, _isprior, _calibration,
+    _requestedobservables
 using PlanetOrbits
 using PlanetOrbits: plotinfo, plotlabel, _names, _setnames
 using Makie
@@ -35,6 +37,17 @@ using MCMCChains: Chains
 
 const WONG = Makie.wong_colors()
 _rowcolor(k) = WONG[mod1(k, length(WONG))]
+# Instrument accent colours start at Wong 2: Wong 1 is the model curve, and a
+# dataset drawn in the model's own colour reads as part of the model.
+_instcolor(j) = WONG[mod1(j + 1, length(WONG))]
+
+# Per-instrument marker shapes, so that overlapping datasets stay separable in
+# print and for readers who cannot rely on the colour alone (v1's rvpostplot
+# idiom, which the first v2 port dropped).
+const MARKERS = (:circle, :rect, :diamond, :utriangle, :dtriangle, :pentagon,
+    :cross, :xcross, :hexagon, :star5, :ltriangle, :rtriangle, :star4, :star8)
+_instmarker(j) = MARKERS[mod1(j, length(MARKERS))]
+
 # The draw-ramp: row accent colour fading toward near-white with orbital
 # phase; the light endpoint is the one v1 used in octoplot.
 _phaseramp(c) = Makie.cgrad([Makie.to_color(c), Makie.to_color("#FAFAFA")])
@@ -114,17 +127,21 @@ end
 # ---------------------------------------------------
 
 """
-    skypanel!(gp, series; tracks=nothing, ntrack=150, colorbar=true, ndraws=nothing)
+    skypanel!(gp, series; tracks=nothing, ntrack=150, colorbar=true,
+              legend=true, ndraws=nothing)
 
 Sky-plane orbit tracks. By default one track per hierarchy row — the
 exterior side relative to the interior side, i.e. exactly the relationship
 the row parametrizes — sampled uniformly in eccentric anomaly per draw and
 coloured by orbital phase in the row's accent colour. Relative-astrometry
-data overlay automatically. Returns `(; sky=ax)`.
+data overlay automatically, one colour and marker shape per observation, with
+a legend naming them (`legend=false` to drop it).
+
+Right ascension increases to the **left**, as on the sky. Returns `(; sky=ax)`.
 """
 function Octofitter.skypanel!(gp, series::PosteriorSeries;
                               tracks=nothing, ntrack=150, colorbar=true,
-                              ndraws=nothing)
+                              legend=true, ndraws=nothing)
     sys = series.model.system
     gs = _layout(gp)
     angular = _isangular(sys)
@@ -168,21 +185,20 @@ function Octofitter.skypanel!(gp, series::PosteriorSeries;
     end
 
     # Data overlay coordinates (gathered before drawing so limits cover them).
+    # Both parametrizations reach the sky panel through the same two channels:
+    # `residuals` publishes (Δα*, Δδ) whatever the table holds, with the
+    # platescale and north-angle calibration already applied — a sep/pa
+    # instrument and a ra/dec one therefore land in one another's frame with no
+    # plot-side trigonometry, and no second implementation of it to drift.
     datasets = NTuple{4,Vector{Float64}}[]
+    datanames = String[]
     for obs in plottable_observations(sys)
         obs isa Octofitter.RelAstromObs || continue
-        tab = obs.table
-        if hasproperty(tab, :sep)
-            x = tab.sep .* sin.(tab.pa)
-            y = tab.sep .* cos.(tab.pa)
-            σx = hypot.(tab.σ_sep .* abs.(sin.(tab.pa)), tab.sep .* tab.σ_pa .* abs.(cos.(tab.pa)))
-            σy = hypot.(tab.σ_sep .* abs.(cos.(tab.pa)), tab.sep .* tab.σ_pa .* abs.(sin.(tab.pa)))
-        else
-            x, y = tab.ra, tab.dec
-            σx, σy = tab.σ_ra, tab.σ_dec
-        end
-        push!(datasets, (collect(float.(x)), collect(float.(y)),
-                         collect(float.(σx)), collect(float.(σy))))
+        r = Octofitter.residuals(obs, obscontext(series, obs))
+        u = r.raoff.use
+        push!(datasets, (r.raoff.data[u], r.decoff.data[u],
+            r.raoff.σ[u], r.decoff.σ[u]))
+        push!(datanames, likelihoodname(obs))
     end
 
     # mas → arcsec switch, v1 threshold.
@@ -216,9 +232,13 @@ function Octofitter.skypanel!(gp, series::PosteriorSeries;
         xlabel="$(info_x.label) [$unit]",
         ylabel="$(info_y.label) [$unit]",
         aspect=Makie.DataAspect(), halign=:right,
-        xreversed=info_x.flip,
         xgridvisible=false, ygridvisible=false)
-    Makie.xlims!(ax, (cx - half) * unitscale, (cx + half) * unitscale)
+    # `xlims!` *sets* `xreversed` from the order of its arguments — passing
+    # low-then-high silently clears an `xreversed=true` given to the
+    # constructor, which is how the sky panel lost its east-left convention.
+    # Handing it the limits already reversed is the spelling that survives.
+    lo, hi = (cx - half) * unitscale, (cx + half) * unitscale
+    Makie.xlims!(ax, info_x.flip ? (hi, lo) : (lo, hi))
     Makie.ylims!(ax, (cy - half) * unitscale, (cy + half) * unitscale)
 
     α = _alpha(nshow)
@@ -228,19 +248,28 @@ function Octofitter.skypanel!(gp, series::PosteriorSeries;
             alpha=α, linewidth=0.6)
     end
 
-    # Data overlay: uncertainty crosses; ellipses come later.
-    for (x, y, σx, σy) in datasets
+    # Data overlay: uncertainty crosses; ellipses come later. One instrument
+    # is drawn in white — there is nothing to tell it apart from — and several
+    # take an accent colour and a marker shape each.
+    single = length(datasets) == 1
+    for (j, (x, y, σx, σy)) in enumerate(datasets)
         Makie.errorbars!(ax, x .* unitscale, y .* unitscale, σy .* unitscale;
             direction=:y, color=:black, linewidth=1)
         Makie.errorbars!(ax, x .* unitscale, y .* unitscale, σx .* unitscale;
             direction=:x, color=:black, linewidth=1)
         Makie.scatter!(ax, x .* unitscale, y .* unitscale;
-            color=:white, strokecolor=:black, strokewidth=2, markersize=8)
+            color=single ? :white : _instcolor(j), marker=_instmarker(j),
+            strokecolor=:black, strokewidth=2, markersize=8,
+            label=datanames[j])
     end
 
     # The reference point of every track sits at the origin.
     Makie.scatter!(ax, [0.0], [0.0];
         marker='★', markersize=20, color=:white, strokecolor=:black, strokewidth=1.5)
+
+    legend && !isempty(datasets) &&
+        Makie.axislegend(ax, "Instrument"; position=:rb, framevisible=false,
+            labelsize=9, titlesize=10, padding=(4, 4, 2, 2), patchlabelgap=3)
 
     if colorbar
         cb = Makie.Colorbar(gs[1, 2];
@@ -264,17 +293,58 @@ end
 # Residual strip + marginal histogram (shared by time and phase panels)
 # ---------------------------------------------------
 
+# The residual a draw is actually left with, and the uncertainty it should be
+# judged against. Without a correlated-noise model that is `data − model` over
+# `σ_eff`; with one, the GP's predicted mean comes off the residual and its
+# predictive variance goes into the uncertainty — otherwise the strip shows
+# precisely the correlated structure the GP was fitted to absorb, and no fit,
+# however good, produces standard-normal z-scores.
+function _netresid(r)
+    haskey(r, :gp_mean) || return (r.resid, r.σ_eff)
+    return (r.resid .- r.gp_mean, sqrt.(r.σ_eff .^ 2 .+ r.gp_var))
+end
+
 # Whitened residuals per posterior draw: (resid / σ_eff) with each draw's
 # own parameters (jitters vary by draw), from the likelihood's residuals.
 function _zscores(series, obs, ch, nshow)
-    r1 = Octofitter.residuals(obs, obscontext(series, obs; draw=1))[ch.name]
-    zs = Matrix{Float64}(undef, length(r1.resid), nshow)
-    zs[:, 1] = r1.resid ./ r1.σ_eff
-    for d in 2:nshow
+    zs = nothing
+    for d in 1:nshow
         r = Octofitter.residuals(obs, obscontext(series, obs; draw=d))[ch.name]
-        zs[:, d] = r.resid ./ r.σ_eff
+        resid, σ = _netresid(r)
+        zs === nothing && (zs = Matrix{Float64}(undef, length(resid), nshow))
+        zs[:, d] = resid ./ σ
     end
     return zs
+end
+
+# Whitened or raw? Raw residuals cannot be shown for several draws at once:
+# the jitter, the offsets and the other rows' subtracted signals all move
+# between draws, so the same measurement has a different residual — and a
+# different meaningful *size* — in every one of them. Dividing by that draw's
+# own σ_eff is what makes them commensurable, which is why the strip
+# summarizes the z-scores per point rather than plotting residuals per draw.
+function _whitenmode(whiten, nshow::Integer, hasdata::Bool)
+    hasdata || return false
+    whiten === nothing && return nshow > 1
+    whiten && return true
+    nshow > 1 && error("""
+    `whiten=false` asks for residuals in data units, but $nshow draws are being
+    shown, and a raw residual is not comparable between draws: each carries its
+    own jitter, its own instrument offsets, and its own subtracted signals from
+    the other bodies. The same point is a different number of σ from the model
+    in each — so a strip of raw residuals over many draws is not a plot of
+    anything.
+
+    Either show one draw, which pins every nuisance parameter and makes a raw
+    residual well defined:
+
+        octoplot(model, chain; ndraws=1, whiten=false)
+        rvplot(model, chain)                 # the single-draw RV figure
+
+    or keep the whitened strip, which is the many-draw form of the same thing:
+    per point, the median and 16-84 % interval of (data - model)/σ_eff over the
+    draws, against a unit normal.""")
+    return false
 end
 
 # Draw the residual strip and marginal histogram for `entries` into
@@ -289,29 +359,32 @@ function _residstrip!(ax_resid, ax_hist, series, entries, xmap, nshow, whiten)
     whiten && Makie.hlines!(ax_resid, [-1.0, 1.0]; color=(:black, 0.3), linewidth=0.5)
 
     histdata = Tuple{Any,Vector{Float64}}[]   # (colour, values)
+    single = count(e -> e[1] !== nothing, entries) == 1
     for (j, (obs, ch)) in enumerate(entries)
         obs === nothing && continue
         r = Octofitter.residuals(obs, obscontext(series, obs))[ch.name]
         u = r.use
         x = xmap(r.epoch)
-        color = length(entries) == 1 ? :black : WONG[mod1(j + 1, length(WONG))]
-        mcolor = length(entries) == 1 ? :white : color
+        color = single ? :black : _instcolor(j)
+        mcolor = single ? :white : color
+        marker = single ? :circle : _instmarker(j)
         if whiten
             zs = _zscores(series, obs, ch, nshow)
             med = [median(view(zs, i, :)) for i in axes(zs, 1)]
             lo = [quantile(view(zs, i, :), 0.16) for i in axes(zs, 1)]
             hi = [quantile(view(zs, i, :), 0.84) for i in axes(zs, 1)]
             Makie.rangebars!(ax_resid, x[u], lo[u], hi[u];
-                color=length(entries) == 1 ? "#AAAAAA" : color, linewidth=1)
+                color=single ? "#AAAAAA" : color, linewidth=1)
             Makie.scatter!(ax_resid, x[u], med[u];
-                color=mcolor, strokecolor=:black, strokewidth=1.5, markersize=6)
+                color=mcolor, marker, strokecolor=:black, strokewidth=1.5, markersize=6)
             append!(histdata, ((color isa Symbol ? :black : color, vec(zs[u, :])),))
         else
-            Makie.errorbars!(ax_resid, x[u], r.resid[u], r.σ_eff[u]; color="#CCCCCC", linewidth=1)
-            Makie.errorbars!(ax_resid, x[u], r.resid[u], r.σ[u]; color=:black, linewidth=2)
-            Makie.scatter!(ax_resid, x[u], r.resid[u];
-                color=mcolor, strokecolor=:black, strokewidth=1.5, markersize=6)
-            append!(histdata, ((color isa Symbol ? :black : color, r.resid[u]),))
+            resid, σ_eff = _netresid(r)
+            Makie.errorbars!(ax_resid, x[u], resid[u], σ_eff[u]; color="#CCCCCC", linewidth=1)
+            Makie.errorbars!(ax_resid, x[u], resid[u], r.σ[u]; color=:black, linewidth=2)
+            Makie.scatter!(ax_resid, x[u], resid[u];
+                color=mcolor, marker, strokecolor=:black, strokewidth=1.5, markersize=6)
+            append!(histdata, ((color isa Symbol ? :black : color, resid[u]),))
         end
     end
 
@@ -341,6 +414,18 @@ end
 
 _stripylabel(whiten) = whiten ? "resid / σ" : "residuals"
 
+# A residual strip is glued to its main axis with no gap, so the two share a
+# spine — and whenever the data run close to it, the main axis' bottom-most
+# tick label and the strip's top-most one print on the same line. Blank the
+# main axis' lowest label: at that boundary the strip's scale is the one being
+# read, and the alternative (a visible gap) breaks the glued look the whole
+# figure set uses. Formatting for the rest is Makie's own, so the labels stay
+# identical to every other axis.
+function _blanklowesttick(vals)
+    labels = Makie.get_ticklabels(Makie.automatic, vals)
+    return Any[i == 1 ? "" : l for (i, l) in enumerate(labels)]
+end
+
 # ---------------------------------------------------
 # Time-series panel
 # ---------------------------------------------------
@@ -349,37 +434,78 @@ _stripylabel(whiten) = whiten ? "resid / σ" : "residuals"
     timeseriespanel!(gp, series, entries; kwargs...)
 
 Generic data-vs-model panel for one channel group. `entries` is a vector of
-`(obs, channel)` pairs sharing one quantity (e.g. several RV instruments);
-pass `(nothing, channel)` for a pure model panel with no data.
+`(obs, channel)` pairs sharing one quantity; pass `(nothing, channel)` for a
+pure model panel with no data at all — which is how a fit predicts a quantity
+it was never given (see [`predictedchannels`](@ref)).
 
-Layout: main axis (posterior model curves + calibrated data), residual
-strip glued below, marginal residual histogram at right with bins shared
-across instruments. `whiten=true` replaces the strip and histogram with
-whitened residuals — `(data − model)/σ_eff` per posterior draw, summarized
-per point as median and 16–84 % interval, histogram against a unit normal;
-the default whitens whenever more than one draw is shown. The epoch axis is
-calendar-dated via `MJDConversion` and stays correct under zoom; annotate
-with `Date`/`DateTime` or MJD alike. The time axes clip exactly to the
-model grid (no gap after the last segment); wrapped quantities (position
-angle) get the v8 treatment — lines exit one axis edge and re-enter at the
-other, with limits pinned to the wrap range.
+Layout: main axis (posterior model curves + data), residual strip glued
+below, marginal residual histogram at right with bins shared across
+instruments. Calendar dates label the top axis via `MJDConversion` and stay
+correct under zoom (annotate with `Date`/`DateTime` or MJD alike); the bottom
+axis carries the raw MJD numbers you would type back into a script. The time
+axes clip exactly to the model grid (no gap after the last segment); wrapped
+quantities (position angle) get the v8 treatment — lines exit one axis edge
+and re-enter at the other, with limits pinned to the wrap range.
+
+## Which side gets calibrated
+
+`calibrate=:model` leaves the measurements exactly as reported and gives
+**each draw's model curve that draw's own instrument offset and trend**
+([`datacalibration`](@ref)). This is the only arrangement in which many draws
+and one dataset are simultaneously honest, so it is what a per-instrument
+panel uses.
+
+`calibrate=:data` instead moves the data onto a single pure-observable curve,
+using the maximum-posterior draw's calibration. That is defensible when one
+draw is being shown (there is then nothing to be inconsistent with), or when
+the calibration is so tightly constrained that every draw agrees — which is
+exactly the [`sharepanel`](@ref) question. [`rvplot`](@ref) uses it.
+
+`calibrate=:auto` (the default) reads that decision off the observations:
+`:data` when they all share panels, `:model` otherwise. The two coincide for
+observations that declare no `datacalibration` at all, except that `:data`
+draws one curve family rather than an identical one per instrument.
+
+## Residuals
+
+`whiten=true` shows `(data − model)/σ_eff` per posterior draw, summarized per
+point as a median and a 16–84 % interval, with the histogram against a unit
+normal. The default whitens whenever more than one draw is shown, and
+`whiten=false` with several draws is an error rather than a plot — see
+`Octofitter` issue text in `_whitenmode`. Where an observation has a
+correlated-noise model ([`noisemodel`](@ref)), its prediction is drawn as a
+band around the model curve, subtracted from the residuals, and added into
+`σ_eff`.
 
 Returns `(; main, resid, hist)` (the latter two `nothing` when no data).
 """
 function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
                                      top_time_axis=true, bottom_time_axis=true,
                                      show_hist=true, ndraws=nothing, whiten=nothing,
+                                     calibrate::Symbol=:auto, show_legend=nothing,
+                                     gpband::Bool=true,
                                      curvecolor=nothing, linewidth=nothing)
     gs = _layout(gp)
     entries = [(obs, ch) for (obs, ch) in entries]
     isempty(entries) && error("timeseriespanel! needs at least one (obs, channel) entry")
+    calibrate in (:auto, :model, :data) ||
+        error("`calibrate` must be :auto, :model or :data, got :$calibrate")
+    if calibrate === :auto
+        # Sharing a panel and calibrating the data are the same decision: an
+        # observation only shares when its calibration is pinned tightly enough
+        # that one draw's version of it stands for all of them.
+        calibrate = all(e -> e[1] === nothing || sharepanel(e[1]), entries) ? :data : :model
+    end
     ch1 = entries[1][2]
     ylabel = isempty(ch1.unit) ? String(ch1.label) : "$(ch1.label) [$(ch1.unit)]"
-    hasdata = any(obs !== nothing for (obs, _) in entries)
+    ndata = count(e -> e[1] !== nothing, entries)
+    hasdata = ndata > 0
     nshow = ndraws === nothing ? length(series) : min(ndraws, length(series))
-    whiten = something(whiten, nshow > 1) & hasdata
+    whiten = _whitenmode(whiten, nshow, hasdata)
     curvecolor = something(curvecolor, _querycolor(series.model.system, ch1.query))
     linewidth = something(linewidth, nshow == 1 ? 1.3 : 0.4)
+    show_legend = something(show_legend, true)
+    single = ndata == 1
 
     conv() = PlanetOrbits.MJDConversion()
     ax = Makie.Axis(gs[1, 1];
@@ -390,26 +516,51 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
 
     ax_resid = ax_hist = nothing
     if hasdata
+        # No `dim1_conversion` here: the top axis already says *when*, and the
+        # bottom of the figure is where the MJD numbers belong — dates on both
+        # edges is the same information printed twice.
         ax_resid = Makie.Axis(gs[2, 1];
-            ylabel=_stripylabel(whiten), dim1_conversion=conv(),
-            xlabel=bottom_time_axis ? "epoch" : "",
+            ylabel=_stripylabel(whiten),
+            xlabel=bottom_time_axis ? "epoch [MJD]" : "",
             xticklabelsvisible=bottom_time_axis, xticksvisible=bottom_time_axis,
             xgridvisible=false, ygridvisible=false)
         Makie.linkxaxes!(ax, ax_resid)
+        ax.ytickformat = _blanklowesttick
         Makie.rowgap!(gs, 1, 0)
         Makie.rowsize!(gs, 1, Makie.Auto(2.4))
+    elseif bottom_time_axis
+        # A data-free (predictive) panel has no residual strip to carry the
+        # MJD axis, so it gets a decoration-only companion instead.
+        PlanetOrbits.add_mjd_axis!(gs[1, 1], ax; label="epoch [MJD]", ticklabelscale=1.0)
     end
 
-    # Posterior model curves (one NaN-joined lines! call for all draws).
+    # Posterior model curves. In `:model` mode the curve belongs to an
+    # instrument — it carries that instrument's zero point and trend — so
+    # there is one family per entry; in `:data` mode one family serves them
+    # all, because the data have been moved onto it instead.
     q = ch1.query
-    if q !== nothing
-        curves = modelcurves(series, q)
+    curves = q === nothing ? nothing : modelcurves(series, q)
+    families = if q === nothing
+        Tuple{Any,PlotChannel,Any}[]
+    elseif calibrate === :data || !hasdata
+        Tuple{Any,PlotChannel,Any}[(nothing, ch1, curvecolor)]
+    else
+        [(obs, ch, single ? curvecolor : _instcolor(j))
+         for (j, (obs, ch)) in enumerate(entries)]
+    end
+
+    anywrapped = false
+    for (obs, ch, color) in families
         xs = Float64[]; ys = Float64[]
         sizehint!(xs, (length(series.ts) + 1) * nshow)
         sizehint!(ys, (length(series.ts) + 1) * nshow)
-        anywrapped = false
         for d in 1:nshow
-            v = curves[d] .* ch1.scale
+            v = curves[d]
+            if obs !== nothing
+                cal = datacalibration(obs, ch, obscontext(series, obs; draw=d), series.ts)
+                cal === nothing || (v = v .+ cal)
+            end
+            v = v .* ch1.scale
             if ch1.wrap !== nothing
                 xw, yw, wrapped = _wrap_series(series.ts, v, ch1.wrap)
                 anywrapped |= wrapped
@@ -419,35 +570,91 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
             end
             push!(xs, NaN); push!(ys, NaN)
         end
-        Makie.lines!(ax, xs, ys; color=(curvecolor, _alpha(nshow)), linewidth)
-        anywrapped && Makie.ylims!(ax, 0.0, ch1.wrap)
+        Makie.lines!(ax, xs, ys; color=(color, _alpha(nshow)), linewidth)
+    end
+    anywrapped && Makie.ylims!(ax, 0.0, ch1.wrap)
+
+    # Correlated-noise bands, per instrument and per draw, clipped to that
+    # instrument's own baseline: a GP reverts to its prior outside the data,
+    # and a band ballooning across the rest of the figure says nothing about
+    # the fit.
+    if gpband && curves !== nothing
+        for (j, (obs, ch)) in enumerate(entries)
+            obs === nothing && continue
+            ep = Octofitter.epochs(obs)
+            isempty(ep) && continue
+            t0, t1 = extrema(ep)
+            m = findall(t -> t0 <= t <= t1, series.ts)
+            isempty(m) && continue
+            tsub = series.ts[m]
+            color = single ? curvecolor : _instcolor(j)
+            α = min(0.35, 3.5 / max(nshow, 1))
+            for d in 1:nshow
+                ctx = obscontext(series, obs; draw=d)
+                nm = noisemodel(obs, ctx, tsub)
+                nm === nothing && break     # this observation has no noise model
+                base = curves[d][m]
+                if calibrate === :model
+                    cal = datacalibration(obs, ch, ctx, tsub)
+                    cal === nothing || (base = base .+ cal)
+                end
+                mid = (base .+ nm.mean) .* ch1.scale
+                sd = sqrt.(nm.var) .* ch1.scale
+                b = Makie.band!(ax, tsub, mid .- sd, mid .+ sd; color=(color, α))
+                Makie.translate!(b, 0, 0, -10)     # behind the data
+                Makie.lines!(ax, tsub, mid; color=(color, _alpha(nshow)), linewidth)
+            end
+        end
     end
 
-    # Data on the main axis, per instrument, MAP-calibrated.
+    # Data on the main axis, per instrument.
     for (j, (obs, ch)) in enumerate(entries)
         obs === nothing && continue
-        r = Octofitter.residuals(obs, obscontext(series, obs))[ch.name]
+        ctx = obscontext(series, obs)
+        r = Octofitter.residuals(obs, ctx)[ch.name]
         u = r.use
-        color = length(entries) == 1 ? :black : WONG[mod1(j + 1, length(WONG))]
+        y = r.data
+        if calibrate === :model
+            cal = datacalibration(obs, ch, ctx, r.epoch)
+            cal === nothing || (y = y .+ cal .* ch.scale)
+        end
+        _, σ_eff = _netresid(r)
+        color = single ? :black : _instcolor(j)
         # Averaging windows, when the channel declares them. A catalog proper
         # motion is not measured *at* an epoch, it is averaged over a mission
         # span, and the bar is the only thing that says which span — it is why
         # a Hipparcos point may sit far from a curve the Gaia points hug. (v1
         # `absastromplot`'s one genuinely load-bearing idiom.)
         if haskey(r, :epoch_lo) && haskey(r, :epoch_hi)
-            Makie.errorbars!(ax, r.epoch[u], r.data[u],
+            Makie.errorbars!(ax, r.epoch[u], y[u],
                 (r.epoch .- r.epoch_lo)[u], (r.epoch_hi .- r.epoch)[u];
                 direction=:x, color=:black, linewidth=0.7, whiskerwidth=4)
         end
-        Makie.errorbars!(ax, r.epoch[u], r.data[u], r.σ_eff[u]; color="#CCCCCC", linewidth=1)
-        Makie.errorbars!(ax, r.epoch[u], r.data[u], r.σ[u]; color=:black, linewidth=2)
-        Makie.scatter!(ax, r.epoch[u], r.data[u];
-            color=length(entries) == 1 ? :white : color,
+        Makie.errorbars!(ax, r.epoch[u], y[u], σ_eff[u]; color="#CCCCCC", linewidth=1)
+        Makie.errorbars!(ax, r.epoch[u], y[u], r.σ[u]; color=:black, linewidth=2)
+        Makie.scatter!(ax, r.epoch[u], y[u];
+            color=single ? :white : color, marker=single ? :circle : _instmarker(j),
             strokecolor=:black, strokewidth=1.5, markersize=7,
             label=likelihoodname(obs))
     end
-    count(e -> e[1] !== nothing, entries) > 1 &&
-        Makie.axislegend(ax; framevisible=false, labelsize=9, padding=(4, 4, 2, 2))
+    # Say whose data these are. With one instrument a legend is four times the
+    # ink of the answer, so the panel takes the corner label `phasefoldpanel!`
+    # already uses for its row name — and a per-instrument panel *needs* it,
+    # since nothing else on the panel distinguishes HARPS from HIRES.
+    if hasdata && show_legend
+        if single
+            j = findfirst(e -> e[1] !== nothing, entries)
+            Makie.Label(gs[1, 1], likelihoodname(entries[j][1]);
+                font=:bold, fontsize=11, color=:grey30,
+                halign=:right, valign=:top, padding=(0, 8, 0, 4),
+                tellwidth=false, tellheight=false)
+        else
+            # Translucent backing rather than a frame: the legend sits inside
+            # the axis and the model curves run underneath it.
+            Makie.axislegend(ax, "Instrument"; framevisible=false, labelsize=9,
+                titlesize=10, padding=(4, 4, 2, 2), backgroundcolor=(:white, 0.75))
+        end
+    end
 
     if ax_resid !== nothing && show_hist
         ax_hist = Makie.Axis(gs[2, 2]; xgridvisible=false, ygridvisible=false)
@@ -534,8 +741,10 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
     rowname = sys.rows[k][1]
 
     nshow = ndraws === nothing ? length(series) : min(ndraws, length(series))
-    hasdata = any(obs !== nothing for (obs, _) in entries)
-    whiten = something(whiten, nshow > 1) & hasdata
+    ndata = count(e -> e[1] !== nothing, entries)
+    hasdata = ndata > 0
+    single = ndata == 1
+    whiten = _whitenmode(whiten, nshow, hasdata)
     show_binned = something(show_binned, ch1.wrap === nothing)
     curvecolor = something(curvecolor, _rowcolor(k))
     linewidth = something(linewidth, nshow == 1 ? 1.3 : 0.4)
@@ -549,9 +758,14 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
     P0, t00 = foldephemeris(sig, series.sys_map, tmid; solvekw=kw)
 
     ylabel = isempty(ch1.unit) ? String(ch1.label) : "$(ch1.label) [$(ch1.unit)]"
+    # The phase axis normally lives on the residual strip glued underneath.
+    # With no data there is no strip, so the main axis has to carry it or the
+    # panel ends up with no x axis at all.
     ax = Makie.Axis(gs[1, 1];
         ylabel, xticks=-0.5:0.25:0.5,
-        xticklabelsvisible=false, xticksvisible=false,
+        xlabel=(!hasdata && bottom_axis) ? "orbital phase" : "",
+        xticklabelsvisible=(!hasdata && bottom_axis),
+        xticksvisible=(!hasdata && bottom_axis),
         xgridvisible=false, ygridvisible=false)
 
     ax_resid = ax_hist = nothing
@@ -563,6 +777,7 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
             xticklabelsvisible=bottom_axis, xticksvisible=bottom_axis,
             xgridvisible=false, ygridvisible=false)
         Makie.linkxaxes!(ax, ax_resid)
+        ax.ytickformat = _blanklowesttick
         Makie.rowgap!(gs, 1, 0)
         Makie.rowsize!(gs, 1, Makie.Auto(2.4))
     end
@@ -603,18 +818,23 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
             obs === nothing && continue
             r = Octofitter.residuals(obs, obscontext(series, obs))[ch.name]
             u = r.use
+            # What is folded is the residual *after* every nuisance term the
+            # fit models — including the correlated-noise prediction, which is
+            # stellar activity, not orbit, and would otherwise scatter the
+            # folded points around a curve it has nothing to do with.
+            resid, σ_eff = _netresid(r)
             s = sig_at_data[series.data_maps[obs]] .* ch.scale
-            y = r.resid .+ s
+            y = resid .+ s
             ch.wrap !== nothing && (y = mod.(y, ch.wrap))
             x = xmap(r.epoch)
-            color = length(entries) == 1 ? :black : WONG[mod1(j + 1, length(WONG))]
-            Makie.errorbars!(ax, x[u], y[u], r.σ_eff[u]; color="#CCCCCC", linewidth=1)
+            color = single ? :black : _instcolor(j)
+            Makie.errorbars!(ax, x[u], y[u], σ_eff[u]; color="#CCCCCC", linewidth=1)
             Makie.errorbars!(ax, x[u], y[u], r.σ[u]; color=:black, linewidth=2)
             Makie.scatter!(ax, x[u], y[u];
-                color=length(entries) == 1 ? :white : color,
+                color=single ? :white : color, marker=single ? :circle : _instmarker(j),
                 strokecolor=:black, strokewidth=1.5, markersize=5)
             append!(pooled_x, x[u]); append!(pooled_y, y[u])
-            append!(pooled_w, 1 ./ r.σ_eff[u] .^ 2)
+            append!(pooled_w, 1 ./ σ_eff[u] .^ 2)
         end
 
         # Noise-weighted binned means (the rvpostplot idiom, with the bin
@@ -672,24 +892,70 @@ _channelmatch(ch::PlotChannel, s::Symbol) =
     ch.name === s || (ch.query !== nothing && nameof(ch.query.func) === s)
 _channelmatch(ch::PlotChannel, cs) = any(c -> _channelmatch(ch, c), cs)
 
+# The quantity a channel measures, independent of who measured it: two
+# instruments' `sep` channels share this key, and so does the `sep` a ra/dec
+# table exposes by projection.
+_quantitykey(obs, ch) = ch.query === nothing ?
+                        Symbol(nameof(typeof(obs)), :_, ch.name) :
+                        Symbol(nameof(ch.query.func), :_,
+                            _refstr(ch.query.target), :_, _refstr(ch.query.ref))
+
 function _channelgroups(sys, channels=nothing)
+    obss = [obs for obs in plottable_observations(sys) if isempty(defaultpanels(obs))]
+    # Which quantities some observation measures *natively*. A derived channel
+    # joins one of those panels rather than opening one of its own: a fit given
+    # only ra/dec should not sprout separation and position-angle panels it was
+    # never asked for, but the moment one instrument reports sep/pa, every
+    # other instrument's points belong on that panel too.
+    native = Set{Symbol}()
+    for obs in obss, ch in plotchannels(obs)
+        ch.derived || push!(native, _quantitykey(obs, ch))
+    end
+
     groups = Vector{Pair{Symbol,Vector{Tuple{Any,PlotChannel}}}}()
-    for obs in plottable_observations(sys)
-        isempty(defaultpanels(obs)) || continue
+    for obs in obss
         for ch in plotchannels(obs)
             _channelmatch(ch, channels) || continue
-            key = ch.query === nothing ?
-                  Symbol(nameof(typeof(obs)), :_, ch.name) :
-                  Symbol(nameof(ch.query.func), :_, _refstr(ch.query.target), :_, _refstr(ch.query.ref))
-            i = findfirst(g -> g.first === key, groups)
+            key = _quantitykey(obs, ch)
+            # An explicit `channels=` naming a derived channel is a request for
+            # it; otherwise it only rides along with a native panel.
+            (ch.derived && channels === nothing && !(key in native)) && continue
+            # Only observation types that say so share a panel — see
+            # `Octofitter.sharepanel`. Everything else is keyed by identity and
+            # gets its own, with its data left uncalibrated.
+            gkey = sharepanel(obs) ? key : Symbol(key, :_, likelihoodname(obs))
+            i = findfirst(g -> g.first === gkey, groups)
             if i === nothing
-                push!(groups, key => [(obs, ch)])
+                push!(groups, gkey => [(obs, ch)])
             else
                 push!(groups[i].second, (obs, ch))
             end
         end
     end
     return groups
+end
+
+# Model-only groups for observables the model has no data for, so that
+# `channels=radvel` on an astrometry-only fit predicts the RV curve instead of
+# drawing an empty figure. Only an observable *function or its name* triggers
+# this: `channels=:sep` names the separation **data**, and asking for data a
+# fit does not have is not a request to invent it.
+function _predictivegroups(sys, channels, groups)
+    reqs = _requestedobservables(channels)
+    isempty(reqs) && return Pair{Symbol,Vector{Tuple{Any,PlotChannel}}}[]
+    have = Set{Any}()
+    for (_, entries) in groups
+        q = entries[1][2].query
+        q === nothing || push!(have, q.func)
+    end
+    out = Pair{Symbol,Vector{Tuple{Any,PlotChannel}}}[]
+    for f in reqs
+        f in have && continue
+        for (_, ch) in predictedchannels(sys, f)
+            push!(out, _quantitykey(nothing, ch) => Tuple{Any,PlotChannel}[(nothing, ch)])
+        end
+    end
+    return out
 end
 
 # Short, unique axis-group names for the result NamedTuple.
@@ -704,8 +970,22 @@ function _uniquename!(names, base)
     return nm
 end
 
-_panelnames(groups) =
-    (names = Symbol[]; [_uniquename!(names, entries[1][2].name) for (_, entries) in groups])
+# `res.axes.rv` for a single RV instrument, `res.axes.rv_HARPS` /
+# `res.axes.rv_HIRES` when there are several — the channel name alone stops
+# identifying a panel as soon as each instrument has its own.
+function _panelnames(groups)
+    base = [entries[1][2].name for (_, entries) in groups]
+    names = Symbol[]
+    out = Symbol[]
+    for (i, (_, entries)) in enumerate(groups)
+        b = base[i]
+        if count(==(b), base) > 1 && entries[1][1] !== nothing
+            b = Symbol(b, :_, Octofitter.normalizename(likelihoodname(entries[1][1])))
+        end
+        push!(out, _uniquename!(names, b))
+    end
+    return out
+end
 
 """
     octoplot(model, chain; N=250, seed=0, show_sky=nothing, show_phase=nothing,
@@ -714,16 +994,39 @@ _panelnames(groups) =
 
 See the core docstring (`?octoplot` without Makie loaded). Panels: a sky
 panel when the system has angular observables; one time-series panel per
-channel group; one phase-folded panel per (radial-velocity channel group ×
-foldable hierarchy row) under `KeplerianApprox` (`show_phase` overrides);
-then any bespoke `defaultpanels`. All epoch axes are linked; residual
-strips are whitened by default when more than one draw is shown
-(`whiten=false` for plain residuals).
+channel group; phase-folded panels; then any bespoke `defaultpanels`. All
+epoch axes are linked — calendar dates along the top of the figure, MJD along
+the bottom.
 
-`channels=` restricts the figure to some of the data: an observable function
-(`channels=radvel` — what [`rvpostplot`](@ref) is), a channel or observable
-name as a `Symbol`, or a collection of either. Bespoke panels are dropped
-along with everything else not asked for.
+**One panel per instrument.** Channels group by the quantity they measure
+*and* by which observation reported it, unless the observation type opts into
+sharing ([`sharepanel`](@ref)). Relative astrometry does — `platescale` and
+`northangle` are pinned tightly enough that every instrument's points land in
+the same place, so they merge onto one separation, position-angle, Δα* and Δδ
+panel apiece. Radial velocity does not: a zero point is a free parameter of
+order the data range, so each spectrograph gets its own panel, its data are
+drawn exactly as reported, and each draw's model curve carries that draw's own
+offset and trend. [`rvplot`](@ref) is the single-draw figure that puts them
+back on one axis.
+
+**Every measurement on every panel it belongs on.** (sep, pa) and (Δα*, Δδ)
+are the same measurement in two bases, so a fit mixing the two conventions
+shows all of its astrometry on all four panels, projected deterministically.
+
+**Residuals** are whitened by default when more than one draw is shown, and
+that is not optional: `whiten=false` needs `ndraws=1`, because a raw residual
+is not comparable between draws.
+
+`channels=` restricts the figure: an observable function (`channels=radvel`),
+a channel or observable name as a `Symbol`, or a collection of either.
+Naming an *observable* the model has no data for draws it as a **prediction** —
+model curves alone, over the queries [`default_queries`](@ref) picks — which
+is how you ask a fit what RV signal it implies before taking a spectrum.
+Bespoke panels are dropped along with everything else not asked for.
+
+`show_phase=true` folds every channel that can fold, not just radial
+velocity; left at `nothing` it adds the RV phase panels alone, which is the
+conventional figure.
 """
 function Octofitter.octoplot(model::Octofitter.LogDensityModel, chain::Chains;
                              N=250, seed=0, kwargs...)
@@ -733,27 +1036,40 @@ end
 
 function Octofitter.octoplot(series::PosteriorSeries;
                              show_sky=nothing, show_phase=nothing, whiten=nothing,
-                             channels=nothing, figure=nothing,
+                             channels=nothing, figure=nothing, legend=true,
                              fname=nothing, figscale=1.0, ndraws=nothing)
     sys = series.model.system
     # Say so when an observation's data cannot be drawn, so that an empty panel
     # reads as a gap in the plotting layer rather than as a fit with no data.
     Octofitter._warn_unplottable(sys)
     groups = _channelgroups(sys, channels)
+    predictive = _predictivegroups(sys, channels, groups)
+    if !isempty(predictive)
+        @info("Nothing in this model measures " *
+              join(unique(String(e[1][2].name) for (_, e) in predictive), ", ") *
+              ": drawing what the fitted orbits predict, with no data to compare against.")
+        append!(groups, predictive)
+    end
     pnames = _panelnames(groups)
     do_sky = show_sky === nothing ?
              (_isangular(sys) && !isempty(sys.rows)) : show_sky
 
-    # Phase panels: RV lore — every RV channel group, folded on each row
-    # whose signal is isolable; only meaningful under a periodic propagator.
+    # Phase panels. Left automatic these are the RV idiom and nothing else —
+    # folding every channel would double the height of a typical astrometry
+    # figure — but `show_phase=true` means what it says and folds anything
+    # foldable, i.e. any channel whose query one hierarchy row's signal can be
+    # isolated from. Only meaningful under a periodic propagator, hence the
+    # default.
     do_phase = show_phase === nothing ?
                sys.method isa PlanetOrbits.KeplerianApprox : show_phase
+    foldall = show_phase === true
     phasepanels = Tuple{Symbol,Int,Any}[]   # (name, row, entries)
     if do_phase
         names = copy(pnames)
         for ((key, entries), nm) in zip(groups, pnames)
             q = entries[1][2].query
-            (q !== nothing && q.func === PlanetOrbits.radvel) || continue
+            q === nothing && continue
+            (foldall || q.func === PlanetOrbits.radvel) || continue
             for k in foldablerows(series.sys_map, q)
                 push!(phasepanels,
                     (_uniquename!(names, Symbol(nm, :_phase_, sys.rows[k][1])), k, entries))
@@ -782,14 +1098,22 @@ function Octofitter.octoplot(series::PosteriorSeries;
     timeaxes = Makie.Axis[]
     row = 1
     if do_sky
-        skyaxes = Octofitter.skypanel!(fig[row, 1], series; ndraws)
+        skyaxes = Octofitter.skypanel!(fig[row, 1], series; ndraws, legend)
         push!(axpairs, :sky => skyaxes)
         Makie.rowsize!(fig.layout, row, Makie.Fixed(figscale * skyH))
         row += 1
     end
+    # A shared panel's instrument legend repeats verbatim on every panel the
+    # same instruments appear on — four identical legends over a sep/pa/Δα*/Δδ
+    # stack. Draw it on the first, and let the rest inherit it by eye.
+    legendseen = Set{Any}()
     for (i, ((key, entries), nm)) in enumerate(zip(groups, pnames))
+        insts = Tuple(likelihoodname(o) for (o, _) in entries if o !== nothing)
+        showleg = legend && (length(insts) <= 1 || !(insts in legendseen))
+        push!(legendseen, insts)
         axs = Octofitter.timeseriespanel!(fig[row, 1], series, entries;
-            top_time_axis=(i == 1), bottom_time_axis=(i == npanels), ndraws, whiten)
+            top_time_axis=(i == 1), bottom_time_axis=(i == npanels), ndraws, whiten,
+            show_legend=showleg)
         push!(axpairs, nm => axs)
         push!(timeaxes, axs.main)
         axs.resid !== nothing && push!(timeaxes, axs.resid)
@@ -925,40 +1249,67 @@ function Octofitter.likemappanel!(gp, series::PosteriorSeries, obs; ndraws=nothi
 end
 
 # ---------------------------------------------------
-# rvpostplot — the RV slice of octoplot
+# rvplot — the single-draw radial-velocity figure
+#
+# The one figure that deliberately breaks octoplot's one-panel-per-instrument
+# rule, and the single draw is what pays for it: with every nuisance parameter
+# pinned, a calibrated RV series is a well-defined quantity and every
+# instrument can be drawn on one axis in the same frame. Assembled from the
+# same generic panels as everything else — `timeseriespanel!` in `:data`
+# calibration mode, then one `phasefoldpanel!` per hierarchy row that moves
+# the star — so the error-bar conventions, the binned means, the GP band and
+# the returned axes all match the rest of the figure set.
 # ---------------------------------------------------
 
 """
-    rvpostplot(model, chain, [sample_idx]; kwargs...)
-    rvpostplot(series::PosteriorSeries; kwargs...)
+    rvplot(model, chain, [sample_idx]; kwargs...)
+    rvplot(series::PosteriorSeries; kwargs...)
 
 The radial-velocity summary figure for a **single** posterior draw: one time
 series panel carrying every instrument at once, with a residual strip and a
-marginal histogram, then one phase-folded panel per planet.
+marginal histogram, then one phase-folded panel per hierarchy row that moves
+the star, each with noise-weighted binned means.
 
-`sample_idx` defaults to the highest-posterior-density sample in the chain.
-Pass an index to render a different draw, and `rvpostplot_animated` to sweep
-through many of them.
+`sample_idx` defaults to the highest-posterior-density sample. Pass an index
+to render a different draw, and `rvplot_animated` to sweep through many.
 
-The single draw is the point of this figure rather than an economy: a
-calibrated RV time series is only defined *per draw* — the instrument offsets,
-the jitter and the other planets' signals that are subtracted before folding
-all move from sample to sample — so a figure showing several draws has to
-calibrate its data with one of them. [`octoplot`](@ref) does exactly that, with
-the MAP sample, and is the right call when you want the spread:
+The single draw is the point of this figure, not an economy. A calibrated RV
+series is only defined *per draw* — the instrument zero points, the jitters,
+the trend and the other bodies' signals that are subtracted before folding all
+move from sample to sample — so it is exactly by fixing one draw that several
+instruments can honestly share an axis. [`octoplot`](@ref) is the many-draw
+view and gives each instrument a panel of its own instead:
 
-    octoplot(model, chain; show_sky=false, channels=PlanetOrbits.radvel)
+    octoplot(model, chain; show_sky=false, channels=radvel)
 
-Every keyword `octoplot` takes works here (`whiten`, `show_phase`, `figscale`,
-`fname`), and the return value is the same [`OctoPlotResult`](@ref), so
-`res.axes.rv.main` and `res.axes.rv_phase_b.main` name the panels.
+## Keywords
+
+| Keyword | Meaning |
+|---|---|
+| `show_phase=true` | phase-folded panels |
+| `show_hist=true` | marginal residual histograms |
+| `show_legend=true` | the instrument + symbol legend below the figure |
+| `show_perspective=false` | the frame's own radial-velocity drift (see below) |
+| `gpband=true` | the correlated-noise band, where a `gaussian_process` was fitted |
+| `whiten=nothing` | `false` (raw residuals) by default — one draw makes them well defined |
+| `figscale`, `fname`, `figure` | as `octoplot` |
+
+`show_perspective=true` overlays the secular drift of the system barycentre's
+own radial velocity, `PlanetOrbits.frame_rv`, for a model with an absolute
+frame. It is **off** by default and drawn dashed because v9's `radvel` is a
+strictly relative observable: `RadialVelocityObs` does not currently include
+this term in its forward model, so the line is a diagnostic — "here is how
+much secular drift this geometry implies" — and not part of the fitted curve.
+
+Returns an [`OctoPlotResult`](@ref); `res.axes.rv.main` and
+`res.axes.rv_phase_b.main` name the panels.
 """
-function Octofitter.rvpostplot(model::Octofitter.LogDensityModel, chain::Chains,
-                               sample_idx::Integer=_max_logpost_index(chain); kwargs...)
+function Octofitter.rvplot(model::Octofitter.LogDensityModel, chain::Chains,
+                           sample_idx::Integer=_max_logpost_index(chain); kwargs...)
     nsamples = size(chain, 1) * size(chain, 3)
     1 <= sample_idx <= nsamples || throw(ArgumentError(
         "sample_idx=$sample_idx is outside the chain's 1:$nsamples samples."))
-    return Octofitter.rvpostplot(PosteriorSeries(model, chain; ii=[sample_idx]); kwargs...)
+    return Octofitter.rvplot(PosteriorSeries(model, chain; ii=[sample_idx]); kwargs...)
 end
 
 # v1 selected the draw with `argmax(results["logpost"][:])`. Chains that were
@@ -970,20 +1321,169 @@ function _max_logpost_index(chain::Chains)
     return argmax(vec(chain[:logpost]))
 end
 
-function Octofitter.rvpostplot(series::PosteriorSeries; kwargs...)
-    res = Octofitter.octoplot(series; show_sky=false,
-        channels=PlanetOrbits.radvel, kwargs...)
-    isempty(keys(res.axes)) && error(
-        "rvpostplot: this model has no radial-velocity observations. " *
+# Every radial-velocity channel in the model, grouped by *quantity* — a
+# stellar reflex `radvel(A, Barycentre)` and a relative `radvel(b, A)` are
+# different measurements and never share an axis, however many instruments
+# report each.
+function _rvgroups(sys)
+    groups = Vector{Pair{Symbol,Vector{Tuple{Any,PlotChannel}}}}()
+    for obs in plottable_observations(sys)
+        isempty(defaultpanels(obs)) || continue
+        for ch in plotchannels(obs)
+            (ch.query !== nothing && ch.query.func === PlanetOrbits.radvel) || continue
+            key = _quantitykey(obs, ch)
+            i = findfirst(g -> g.first === key, groups)
+            i === nothing ? push!(groups, key => Tuple{Any,PlotChannel}[(obs, ch)]) :
+            push!(groups[i].second, (obs, ch))
+        end
+    end
+    return groups
+end
+
+_hasgp(obs) = hasproperty(obs, :gaussian_process) && obs.gaussian_process !== nothing
+
+function Octofitter.rvplot(series::PosteriorSeries;
+                           show_phase=true, show_hist=true, show_legend=true,
+                           show_perspective=false, whiten=nothing, gpband=true,
+                           figure=nothing, fname=nothing, figscale=1.0)
+    sys = series.model.system
+    length(series) == 1 || error("""
+    `rvplot` draws one posterior sample, and this series carries $(length(series)).
+    Sharing one axis between instruments is only honest when every offset,
+    jitter and trend is pinned, which is what a single draw does.
+
+        rvplot(model, chain)          # the highest-posterior-density sample
+        rvplot(model, chain, 42)      # a sample you pick
+        rvplot(PosteriorSeries(model, chain; ii=[42]))
+
+    For the posterior spread, `octoplot(model, chain; channels=radvel)` gives
+    each instrument its own panel and every draw its own calibrated curve.""")
+
+    groups = _rvgroups(sys)
+    isempty(groups) && error(
+        "`rvplot`: this model has no radial-velocity observations. " *
         "(`octoplot` draws whatever it does have.)")
-    return res
+
+    allobs = [obs for (_, entries) in groups for (obs, _) in entries]
+    anygp = any(_hasgp, allobs)
+    absframe = series.sys_map.frame isa PlanetOrbits.AbsoluteFrame
+    show_perspective &= absframe
+
+    nphase = show_phase ?
+             sum(length(foldablerows(series.sys_map, e[1][2].query)) for (_, e) in groups) : 0
+    W = round(Int, figscale * 620)
+    # Phase panels get the same height as the time panel rather than octoplot's
+    # squatter ones: a single draw labels its strip "residuals" rather than
+    # "resid / σ", and the longer label needs the room or it runs into the
+    # main axis' own label.
+    H = round(Int, figscale * (40 + (length(groups) + nphase) * 280 +
+                               show_legend * 70))
+    fig = figure === nothing ? Makie.Figure(size=(W, max(H, 300))) : figure
+
+    axpairs = Pair{Symbol,Any}[]
+    timeaxes = Makie.Axis[]
+    pnames = _panelnames(groups)
+    names = copy(pnames)
+    row = 1
+    for ((_, entries), nm) in zip(groups, pnames)
+        # The epoch axis belongs to the time panel whether or not phase panels
+        # follow it: the phase panels have their own x axis, so deferring the
+        # MJD labels to "the bottom of the figure" would lose them entirely.
+        axs = Octofitter.timeseriespanel!(fig[row, 1], series, entries;
+            top_time_axis=true, bottom_time_axis=(row == length(groups)),
+            show_hist, whiten, gpband, calibrate=:data, show_legend=false)
+        push!(axpairs, nm => axs)
+        push!(timeaxes, axs.main)
+        axs.resid === nothing || push!(timeaxes, axs.resid)
+        Makie.rowsize!(fig.layout, row, Makie.Auto(1.0))
+        row += 1
+
+        # The barycentre's own radial velocity, as a drift about its value at
+        # the first plotted epoch (the constant is degenerate with every
+        # instrument offset and would only shift the line off the panel).
+        if show_perspective
+            fr = [PlanetOrbits.frame_rv(sol) for sol in series.trajs[1]]
+            Makie.lines!(axs.main, series.ts, fr .- first(fr);
+                color=:darkorange, linewidth=1.5, linestyle=:dash)
+        end
+    end
+
+    if show_phase
+        phasepanels = Tuple{Symbol,Int,Any}[]
+        for ((_, entries), nm) in zip(groups, pnames)
+            for k in foldablerows(series.sys_map, entries[1][2].query)
+                push!(phasepanels,
+                    (_uniquename!(names, Symbol(nm, :_phase_, sys.rows[k][1])), k, entries))
+            end
+        end
+        for (i, (nm, k, entries)) in enumerate(phasepanels)
+            # No marginal histogram down here: folding rearranges the residuals
+            # along x and leaves their distribution alone, so it would be the
+            # time panel's histogram redrawn once per planet.
+            axs = Octofitter.phasefoldpanel!(fig[row, 1], series, entries;
+                row=k, whiten, show_hist=false, bottom_axis=(i == length(phasepanels)))
+            push!(axpairs, nm => axs)
+            Makie.rowsize!(fig.layout, row, Makie.Auto(1.0))
+            row += 1
+        end
+    end
+    length(timeaxes) > 1 && Makie.linkxaxes!(timeaxes...)
+
+    if show_legend
+        _rvlegend!(fig[row, 1], allobs, anygp, show_perspective,
+            _querycolor(sys, groups[1][2][1][2].query))
+        Makie.rowsize!(fig.layout, row, Makie.Auto(70 / 280))
+    end
+
+    axes = (; axpairs...)
+    fname !== nothing && Makie.save(fname, fig, px_per_unit=3)
+    return OctoPlotResult(fig, axes, series)
+end
+
+# v1's two-group rvpostplot legend: which symbol is which spectrograph, and
+# what each of the figure's other marks means. Both halves earn their space —
+# the error bars are two nested segments whose meanings differ, and nothing
+# else on the figure says which is which.
+function _rvlegend!(gp, allobs, anygp, show_perspective, curvecolor)
+    n = length(allobs)
+    single = n == 1
+    instruments = [Makie.MarkerElement(
+        color=single ? :white : _instcolor(j), marker=single ? :circle : _instmarker(j),
+        strokecolor=:black, strokewidth=1.5, markersize=12) for j in 1:n]
+    marks = Any[
+        Makie.LineElement(color=:black, linewidth=3),
+        Makie.LineElement(color="#CCCCCC", linewidth=3),
+        Makie.LineElement(color=curvecolor, linewidth=3),
+        Makie.MarkerElement(color=:red, marker=:circle, markersize=11,
+            strokecolor=:black, strokewidth=1.5),
+    ]
+    labels = Any[
+        "measurement σ",
+        anygp ? "σ + jitter + GP" : "σ + jitter",
+        "orbit model",
+        "binned",
+    ]
+    if anygp
+        push!(marks, Makie.PolyElement(color=(curvecolor, 0.35)))
+        push!(labels, "activity model")
+    end
+    if show_perspective
+        push!(marks, Makie.LineElement(color=:darkorange, linewidth=3, linestyle=:dash))
+        push!(labels, "frame RV drift\n(not in the fit)")
+    end
+    return Makie.Legend(gp, [instruments, marks],
+        [[likelihoodname(o) for o in allobs], labels],
+        ["Instrument", ""];
+        orientation=:horizontal, nbanks=2, framevisible=false,
+        labelsize=9, titlesize=10, titleposition=:left,
+        tellheight=false, tellwidth=false, valign=:top)
 end
 
 """
-    rvpostplot_animated(model, chain; N=50, seed=0, framerate=4,
-                        fname="rv-posterior.mp4", kwargs...)
+    rvplot_animated(model, chain; N=50, seed=0, framerate=4,
+                    fname="rv-posterior.mp4", kwargs...)
 
-[`rvpostplot`](@ref) recorded over `N` single-draw slices of the chain — v8's
+[`rvplot`](@ref) recorded over `N` single-draw slices of the chain — v8's
 "sweep through the posterior" animation. Each frame is the whole figure
 rebuilt for one draw, so every panel (including the phase folds, which move
 with the drawn period) is that draw's own. Returns `fname`.
@@ -991,24 +1491,22 @@ with the drawn period) is that draw's own. Returns `fname`.
 The extension is anything Makie can write from a `VideoStream`: `.mp4`,
 `.gif`, `.mkv`.
 """
-function Octofitter.rvpostplot_animated(model::Octofitter.LogDensityModel, chain::Chains;
-                                        N::Integer=50, seed::Integer=0, framerate=4,
-                                        fname::AbstractString="rv-posterior.mp4",
-                                        kwargs...)
+function Octofitter.rvplot_animated(model::Octofitter.LogDensityModel, chain::Chains;
+                                    N::Integer=50, seed::Integer=0, framerate=4,
+                                    fname::AbstractString="rv-posterior.mp4",
+                                    kwargs...)
     nsamples = size(chain, 1) * size(chain, 3)
     ii = sort!(StatsBase.sample(Xoshiro(seed), 1:nsamples, min(N, nsamples); replace=false))
     # One figure, reused: a `VideoStream` records a single scene, so each frame
     # empties the layout and rebuilds the panels into the same figure rather
-    # than making a new one (which the stream would never see). The y limits
-    # are pinned to the first frame's so the data do not jitter between draws.
-    res = Octofitter.rvpostplot(PosteriorSeries(model, chain; ii=[first(ii)]); kwargs...)
+    # than making a new one (which the stream would never see).
+    res = Octofitter.rvplot(PosteriorSeries(model, chain; ii=[first(ii)]); kwargs...)
     fig = res.figure
     stream = Makie.VideoStream(fig; framerate)
     Makie.recordframe!(stream)
     for i in ii[2:end]
         empty!(fig)
-        Octofitter.rvpostplot(PosteriorSeries(model, chain; ii=[i]);
-            figure=fig, kwargs...)
+        Octofitter.rvplot(PosteriorSeries(model, chain; ii=[i]); figure=fig, kwargs...)
         Makie.recordframe!(stream)
     end
     Makie.save(fname, stream)

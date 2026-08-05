@@ -186,7 +186,7 @@ octoplot(model, results)
 ```
 
 For the radial-velocity panels on their own, without the sky panel or the relative
-astrometry, use [`rvpostplot`](@ref):
+astrometry, use [`rvplot`](@ref):
 ```@example 1
-rvpostplot(model, results)
+rvplot(model, results)
 ```

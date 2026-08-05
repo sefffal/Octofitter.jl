@@ -96,8 +96,8 @@ CompletenessMap
 ```@docs
 octoplot
 octocorner
-rvpostplot
-rvpostplot_animated
+rvplot
+rvplot_animated
 dotplot
 gaiastarplot
 gaiatimeplot
@@ -108,6 +108,11 @@ completenessplot!
 PlotChannel
 plotchannels
 defaultpanels
+sharepanel
+datacalibration
+noisemodel
+default_queries
+predictedchannels
 ObservableQuery
 PosteriorSeries
 OctoPlotResult
@@ -120,6 +125,13 @@ phasefoldpanel!
 photometrypanel!
 likemappanel!
 Octofitter.residuals
+```
+
+The pre-v9 names still work and forward with a deprecation warning:
+
+```@docs
+rvpostplot
+rvpostplot_animated
 ```
 
 `orbitlines!`, `plot_epochs`, `orbit_track_epochs`, `orbit_theme`,

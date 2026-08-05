@@ -349,16 +349,25 @@ gp_ln_like(fx, residuals) = logpdf(fx, residuals)
     gp_predict(fx, residuals, epochs) -> (mean, var)
 
 Posterior predictive mean and variance at `epochs`, given `residuals` at the
-conditioning epochs. Used only on the cross-validation path.
+conditioning epochs. Two callers: cross-validation scores held-out points
+against it, and [`noisemodel`](@ref) turns it into the correlated-noise band a
+plot draws.
 
-Implemented for Celerite by `OctofitterRadialVelocity`. The AbstractGPs case
-throws — it did in v8 too, and closing that hole is a separate job from this
-port.
+`OctofitterRadialVelocity` implements both shipped backends — Celerite, and
+AbstractGPs via `posterior`/`mean_and_var`. (v8 had the Celerite case only, so
+cross-validating an AbstractGPs-correlated fit threw; that hole is closed.)
+There is no default, because there is no way to guess it: a backend that
+implements [`gp_condition`](@ref) and [`gp_ln_like`](@ref) must implement this
+too if its fits are to be cross-validated or plotted.
 """
 gp_predict(fx, residuals, epochs) = error("""
 Posterior prediction is not implemented for GP backend $(typeof(fx)).
 
-Cross-validation of a GP-correlated `RadialVelocityObs` needs the GP's
-predictive distribution at the held-out epochs. Octofitter implements that
-for the Celerite backend only; this hole is inherited from v1.
+Cross-validating a GP-correlated `RadialVelocityObs` needs the GP's predictive
+distribution at the held-out epochs, and plotting its noise band needs the same
+thing on the plot grid. Add a method:
+
+    Octofitter.gp_predict(fx::$(typeof(fx)), residuals, epochs) = (mean, variance)
+
+`OctofitterRadialVelocity` does this for Celerite and for AbstractGPs.
 """)

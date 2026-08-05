@@ -15,9 +15,10 @@ This page provides a complete, production-ready script for fitting orbital model
       ([`octofit_pigeons`](@ref) + `increment_n_rounds!` + `Pigeons.stepping_stone_pair`)
       is unchanged: `octofit_pigeons` lives in a package extension, so `using Pigeons`
       must be in scope, and it returns `(;chain, pt)` as before.
-    * `Octofitter.dotplot` and `Octofitter.rvpostplot` both work, with the same
-      arguments; `rvpostplot` is now sugar over [`octoplot`](@ref)'s panels and lives in
-      core rather than in an RV-specific Makie extension.
+    * `Octofitter.dotplot` still works with the same arguments, and so does the RV
+      summary figure — renamed [`rvplot`](@ref), since it draws one posterior draw
+      rather than the posterior. It is assembled from [`octoplot`](@ref)'s generic
+      panels and lives in core rather than in an RV-specific Makie extension.
 
 - Single or multi-planet systems
 - Optional Gaussian Process modeling of stellar activity in RV data
@@ -708,9 +709,9 @@ save(joinpath(output_dir, "$(sysname)-mass-sma.png"), mass_fig, px_per_unit=2)
 
 # RV panels come from `octoplot` now: `RadialVelocityObs` declares its plot channels, so
 # the orbit figure above already carries the RV time series, its residual strip, and a
-# phase-folded panel per hierarchy row. `rvpostplot` is the RV-only slice of that same
-# figure -- `octoplot` with `channels=radvel` and no sky panel.
-rv_res = rvpostplot(model, chain; fname=joinpath(output_dir, "$(sysname)-rvpostplot.png"))
+# phase-folded panel per hierarchy row -- one panel per instrument. `rvplot` is the
+# single-draw summary that puts every instrument back on one axis.
+rv_res = rvplot(model, chain; fname=joinpath(output_dir, "$(sysname)-rvplot.png"))
 
 println("\nResults saved to: $output_dir")
 ```

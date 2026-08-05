@@ -30,3 +30,13 @@ Octofitter.gp_ln_like(gp::Celerite.CeleriteGP, residuals) =
 # path threw `UndefVarError` for everyone else. Same call, correct module.
 Octofitter.gp_predict(gp::Celerite.CeleriteGP, residuals, epochs) =
     Celerite.predict(gp, collect(residuals), collect(epochs); return_var=true)
+
+# AbstractGPs prediction, which core declares but cannot implement (it does not
+# depend on AbstractGPs) and v1 never implemented at all — its cross-validation
+# path errored for every non-Celerite GP, and its plots reached for
+# `Main.AbstractGPs` and silently drew nothing if the user had not imported it.
+# It is two lines through the package's own API, and both `gp_predict` callers
+# want it: cross-validating a GP-correlated `RadialVelocityObs`, and the
+# correlated-noise band `Octofitter.noisemodel` hands the plot layer.
+Octofitter.gp_predict(fx::AbstractGPs.FiniteGP, residuals, epochs) =
+    AbstractGPs.mean_and_var(AbstractGPs.posterior(fx, collect(residuals)), collect(epochs))

@@ -381,9 +381,16 @@ duplicated epochs are a construction-time error instead of a silent `-Inf`.
 an `offset` — the zero point is integrated out analytically, so declaring one
 was always a mistake.
 
-The RV-specific Makie extension is gone: [`rvpostplot`](@ref) lives in core now and is
-[`octoplot`](@ref) restricted to the model's radial-velocity channels
-(`channels=radvel`, no sky panel). [`rvpostplot_animated`](@ref) works the same way.
+The RV-specific Makie extension is gone: the single-draw RV summary lives in core now,
+built from [`octoplot`](@ref)'s own generic panels. It is also **renamed** — it draws one
+posterior draw, not the posterior, so `rvpostplot` is now [`rvplot`](@ref) and
+`rvpostplot_animated` is [`rvplot_animated`](@ref). The old names still work and forward
+to the new ones with a deprecation warning.
+
+`octoplot` no longer puts several RV instruments on one panel: each gets its own, with
+its data uncalibrated and each draw's model curve carrying that draw's own offset and
+trend. `rvplot` is where they share an axis, which its single draw is what makes
+legitimate. See [`sharepanel`](@ref).
 
 ### Photometry
 
@@ -590,7 +597,7 @@ unmodified so each port is a diff rather than a rewrite.
   its MPI/cluster path has not been re-verified on a real cluster.)
 - **`octoplot`'s `mark_epochs_mjd`.** Every shipped observation type now declares
   `plotchannels`, so `octoplot` overlays all of their data, and the named v8
-  figures are back: [`rvpostplot`](@ref)/[`rvpostplot_animated`](@ref),
+  figures are back: [`rvplot`](@ref)/[`rvplot_animated`](@ref),
   [`dotplot`](@ref), [`gaiastarplot`](@ref), [`gaiatimeplot`](@ref),
   [`skytrackplot`](@ref) and [`hipparcosplot`](@ref). `hgcaplot`, `pmaplot`,
   `absastromplot`, `astromplot`, `physorbplot` and `rvtimeplot` are not separate

@@ -191,7 +191,8 @@ results_2p, pt_2p = octofit_pigeons(model_2p, n_rounds=10)
 ```
 
 Plot the RV curve, the residuals, and a phase-folded panel per planet — one call to
-[`octoplot`](@ref), or to [`rvpostplot`](@ref) for the radial-velocity panels alone:
+[`octoplot`](@ref) for the posterior spread, or [`rvplot`](@ref) for the single-draw
+summary with every instrument on one axis:
 ```@example 1
 octoplot(model_2p, results_2p)
 ```
@@ -357,12 +358,12 @@ i_map = argmax(vec(results_2p_v2[:logpost]))
 octoplot(model_2p_v2, results_2p_v2[i_map:i_map, :, :])
 ```
 
-[`rvpostplot_animated`](@ref) automates exactly that sweep: it rebuilds the RV figure for
+[`rvplot_animated`](@ref) automates exactly that sweep: it rebuilds the RV figure for
 `N` single-draw slices of the chain and records them as a video, so every panel — including
 the phase folds, which move with the drawn period — is that draw's own.
 
 ```julia
-Octofitter.rvpostplot_animated(model_2p_v2, results_2p_v2; N=50, fname="rv-posterior.mp4")
+Octofitter.rvplot_animated(model_2p_v2, results_2p_v2; N=50, fname="rv-posterior.mp4")
 ```
 
 The slicing above is still the building block if you want a different figure per frame:

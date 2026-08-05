@@ -66,12 +66,22 @@ end
 @testset "plotting protocol" begin
     model, obs = _plotting_test_model()
 
+    # Relative astrometry declares all four channels whatever the table holds:
+    # (sep, pa) and (Δα*, Δδ) are one measurement in two bases, so a mixed
+    # dataset can show every point on every panel. The two the table does not
+    # carry are marked `derived`, and the natives come first.
     chs = plotchannels(obs.seppa)
-    @test length(chs) == 2
-    @test chs[1].name === :sep && chs[1].query isa ObservableQuery
+    @test [ch.name for ch in chs] == [:sep, :pa, :raoff, :decoff]
+    @test [ch.derived for ch in chs] == [false, false, true, true]
+    @test chs[1].query isa ObservableQuery
     @test chs[2].name === :pa && chs[2].wrap == 360.0 && chs[2].scale ≈ rad2deg(1.0)
-    @test plotchannels(obs.radec)[1].name === :raoff
+    @test [ch.derived for ch in plotchannels(obs.radec)] == [true, true, false, false]
     @test plotchannels(obs.rvs)[1].name === :rv
+    @test !plotchannels(obs.rvs)[1].derived
+
+    # Sharing a panel is a per-type policy, not a plot-side guess.
+    @test Octofitter.sharepanel(obs.seppa)
+    @test !Octofitter.sharepanel(obs.rvs)
 
     # prior-shaped terms and unknown types are not plottable
     @test isempty(plotchannels(Octofitter.UserLikelihood(:x, :y, "u")))
@@ -103,7 +113,7 @@ end
     # sep/pa: residuals in the likelihood's own space
     ctx2 = obscontext(series, obs.seppa)
     r2 = Octofitter.residuals(obs.seppa, ctx2)
-    @test haskey(r2, :sep) && haskey(r2, :pa)
+    @test keys(r2) == (:sep, :pa, :raoff, :decoff)
     @test r2.sep.data ≈ obs.seppa.table.sep .* 1.01          # platescale applied
     @test all(abs.(r2.pa.resid) .<= 180.0)                    # wrapped, degrees
     @test r2.pa.σ[1] ≈ rad2deg(0.01)
@@ -111,6 +121,7 @@ end
     # ra/dec: no nuisance variables → data pass through
     ctx3 = obscontext(series, obs.radec)
     r3 = Octofitter.residuals(obs.radec, ctx3)
+    @test keys(r3) == (:sep, :pa, :raoff, :decoff)
     @test r3.raoff.data ≈ collect(obs.radec.table.ra) rtol = 1e-12
     @test r3.raoff.σ_eff ≈ r3.raoff.σ                        # no jitter
 
@@ -132,6 +143,101 @@ end
     @test qs[1][2] === :b
     @test Octofitter._refstr(qs[1][1].target) == "b"
     @test Octofitter._refstr(qs[1][1].ref) == "A"
+end
+
+@testset "relative astrometry projects between its two bases" begin
+    # (sep, pa) and (Δα*, Δδ) are the same measurement rotated, with no free
+    # parameter in between, so a fit mixing the two conventions can put every
+    # point on every panel. What must hold is that the projection is exact and
+    # that it does not touch the residual the likelihood scores.
+    model, obs = _plotting_test_model()
+    rng = Xoshiro(11)
+    nts = [model.arr2nt(collect(model.sample_priors(rng))) for _ in 1:10]
+    series = PosteriorSeries(model, Octofitter.result2mcmcchain(nts); N=4)
+
+    r = Octofitter.residuals(obs.seppa, obscontext(series, obs.seppa))
+    @test r.sep.data ≈ hypot.(r.raoff.data, r.decoff.data) rtol = 1e-12
+    @test r.raoff.data ≈ r.sep.data .* sin.(deg2rad.(r.pa.data)) rtol = 1e-12
+    @test r.decoff.data ≈ r.sep.data .* cos.(deg2rad.(r.pa.data)) rtol = 1e-12
+    # The model side projects the same way, so a derived residual is the
+    # derived data minus the derived model and nothing else.
+    @test r.raoff.resid ≈ r.raoff.data .- r.raoff.model rtol = 1e-12
+    # Derived σ is positive and finite; the jitter still widens σ_eff.
+    @test all(>(0), r.raoff.σ) && all(isfinite, r.raoff.σ)
+    @test all(r.raoff.σ_eff .>= r.raoff.σ)
+
+    # …and the other way round, from a ra/dec table.
+    r2 = Octofitter.residuals(obs.radec, obscontext(series, obs.radec))
+    @test r2.sep.data ≈ hypot.(r2.raoff.data, r2.decoff.data) rtol = 1e-12
+    @test r2.pa.data ≈ rad2deg.(rem2pi.(atan.(r2.raoff.data, r2.decoff.data), RoundDown)) rtol = 1e-10
+
+    # The native channels are untouched by any of this: `ln_like` still agrees.
+    ctx = obscontext(series, obs.radec)
+    ll = -0.5 * sum(@. r2.raoff.resid^2 / r2.raoff.σ^2 + log(2π * r2.raoff.σ^2)) +
+         -0.5 * sum(@. r2.decoff.resid^2 / r2.decoff.σ^2 + log(2π * r2.decoff.σ^2))
+    @test ll ≈ Octofitter.ln_like(obs.radec, ctx) rtol = 1e-12
+end
+
+@testset "datacalibration is the exact inverse of what residuals removes" begin
+    # A panel that draws raw measurements adds this back to the model curve;
+    # `residuals` subtracts it from the data. If the two ever disagreed, the
+    # points would sit off their own curve — so they come from one function.
+    model, obs = _plotting_test_model()
+    rng = Xoshiro(12)
+    nts = [model.arr2nt(collect(model.sample_priors(rng))) for _ in 1:10]
+    series = PosteriorSeries(model, Octofitter.result2mcmcchain(nts); N=3)
+
+    ctx = obscontext(series, obs.rvs)
+    ch = first(plotchannels(obs.rvs))
+    r = Octofitter.residuals(obs.rvs, ctx).rv
+    cal = Octofitter.datacalibration(obs.rvs, ch, ctx, r.epoch)
+    @test cal ≈ fill(12.0, length(r.epoch))          # the declared offset, no trend
+    @test r.data .+ cal ≈ collect(obs.rvs.table.rv) rtol = 1e-12
+    @test r.model .+ cal ≈ Octofitter.simulate(obs.rvs, ctx).rv_model rtol = 1e-12
+
+    # Observations with nothing to calibrate say so, rather than returning zeros
+    # a caller would have to recognise.
+    @test Octofitter.datacalibration(obs.seppa, first(plotchannels(obs.seppa)),
+        obscontext(series, obs.seppa), [59000.0]) === nothing
+    # No correlated-noise model here, and none invented.
+    @test Octofitter.noisemodel(obs.rvs, ctx, [59000.0]) === nothing
+    @test !haskey(r, :gp_mean)
+end
+
+@testset "predicted channels for observables the model has no data for" begin
+    model, _ = _plotting_test_model()
+    sys = model.system
+
+    # Separations are per hierarchy row, exterior about interior.
+    qs = Octofitter.default_queries(sys, PlanetOrbits.projectedseparation)
+    @test length(qs) == 1
+    @test Octofitter._refstr(qs[1][1].target) == "b"
+    @test Octofitter._refstr(qs[1][1].ref) == "A"
+
+    # Reflex signals are the host against the barycentre — not the planet's
+    # velocity relative to its star, which is what a per-row rule would give.
+    qv = Octofitter.default_queries(sys, radvel)
+    @test length(qv) == 1
+    @test Octofitter._refstr(qv[1][1].target) == "A"
+    @test qv[1][1].ref === Octofitter.refspec(Barycentre)
+
+    # The channel carries display metadata from `plotinfo`, with radians
+    # converted to degrees the way every other angular channel is.
+    chs = Octofitter.predictedchannels(sys, posangle)
+    @test length(chs) == 1
+    obs_, ch = chs[1]
+    @test obs_ === nothing                       # a model-only channel
+    @test ch.name === :posangle
+    @test ch.unit == "°" && ch.scale ≈ rad2deg(1.0) && ch.wrap ≈ 360.0
+    @test Octofitter.predictedchannels(sys, radvel)[1][2].unit == "m/s"
+
+    # Only an observable's function or name asks for a prediction; a channel
+    # name asks for data, and missing data is not a request to invent it.
+    @test Octofitter._requestedobservables(radvel) == [radvel]
+    @test Octofitter._requestedobservables(:radvel) == [radvel]
+    @test isempty(Octofitter._requestedobservables(:sep))
+    @test Octofitter._requestedobservables((radvel, :posangle)) == [radvel, posangle]
+    @test isempty(Octofitter._requestedobservables(nothing))
 end
 
 @testset "row signals and phase folding" begin

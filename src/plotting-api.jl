@@ -252,6 +252,14 @@ One 1-D data channel of an observation, as declared by
     smooth model prediction, or `nothing` when the channel has no meaning
     off the data epochs (e.g. Gaia along-scan abscissae, which depend on
     per-transit scan angles).
+  - `derived` — this channel is a deterministic re-expression of the
+    observation's *native* measurement rather than a measurement in its own
+    right: a sep/pa table's (ra, dec), say. The likelihood scores the native
+    channels; a derived one exists so that a mixed dataset can put every
+    point on every panel. `octoplot` only draws one when some other
+    observation declares the same channel natively, or when `channels=` asks
+    for it by name, and a consumer that wants the measurements themselves
+    (a goodness-of-fit table) should filter these out.
 """
 struct PlotChannel{TQ}
     name::Symbol
@@ -260,9 +268,10 @@ struct PlotChannel{TQ}
     scale::Float64
     wrap::Union{Nothing,Float64}
     query::TQ
+    derived::Bool
 end
-PlotChannel(name, label, unit; scale=1.0, wrap=nothing, query=nothing) =
-    PlotChannel{typeof(query)}(name, label, unit, scale, wrap, query)
+PlotChannel(name, label, unit; scale=1.0, wrap=nothing, query=nothing, derived=false) =
+    PlotChannel{typeof(query)}(name, label, unit, scale, wrap, query, derived)
 export PlotChannel
 
 """
@@ -293,6 +302,13 @@ model curve), `resid` is `data - model` in the same (display-scaled) units,
 `σ` is the measurement uncertainty and `σ_eff` includes fitted jitter.
 `use` is a Bool vector; `false` marks points the likelihood excluded.
 
+Two optional keys carry per-channel extras when the observation has them:
+`epoch_lo`/`epoch_hi` bound an averaging window (a catalog proper motion is
+not measured *at* an epoch), and `gp_mean`/`gp_var` are this draw's
+correlated-noise prediction at the data epochs — see [`noisemodel`](@ref).
+`resid` is always the plain `data − model`; a consumer that wants the
+residual the fit is left with subtracts `gp_mean` itself.
+
 Not exported to avoid clashing with `StatsBase.residuals`; call it as
 `Octofitter.residuals`.
 """
@@ -318,24 +334,118 @@ panel) and should source its residuals/whitening from
 defaultpanels(::AbstractObs) = ()
 export defaultpanels
 
+"""
+    sharepanel(obs) -> Bool
+
+May this observation's data share a panel with another observation measuring
+the same quantity?
+
+Only one draw's parameters can calibrate a panel, so several instruments on
+one axis means every instrument but that draw's is drawn slightly wrong. The
+question is whether "slightly" is small enough to be worth the far more
+readable figure, and the answer is a property of the observation type:
+
+  - **`false` (the default).** Radial velocity: an instrument zero point is
+    an unconstrained free parameter of order the data range, so the
+    calibrated series moves visibly from draw to draw. Each instrument gets
+    its own panel, its data are drawn *uncalibrated*, and each draw's model
+    curve carries that draw's own offset and trend
+    ([`datacalibration`](@ref)) — which is the only way many draws and one
+    dataset can appear together without misrepresenting either.
+  - **`true`.** Relative astrometry: `platescale` and `northangle` are
+    calibration constants pinned to within a fraction of a percent, so every
+    instrument's points land in the same place under any draw. Merging them
+    onto one sky, separation and position-angle panel — calibrated by the
+    maximum-posterior draw — is what makes the figure legible, and it is what
+    Octofitter has always done.
+
+[`rvplot`](@ref) is the deliberate exception on the other side: it puts every
+RV instrument on one panel *because* it shows a single draw, so there is no
+inconsistency to hide.
+"""
+sharepanel(::AbstractObs) = false
+export sharepanel
+
+"""
+    datacalibration(obs, ch::PlotChannel, ctx::ObsContext, epochs) -> Vector | nothing
+
+The additive term that carries channel `ch`'s pure-observable model curve
+into this observation's *raw measured* frame under the parameters in `ctx` —
+an RV instrument's zero point plus its trend, evaluated at `epochs`.
+`nothing` (the default) means the channel needs no additive calibration.
+
+This is the inverse of what [`residuals`](@ref) applies to the data, and the
+two must agree: `residuals` subtracts it so the points lie on a pure model
+curve, and a panel drawing uncalibrated data adds it to the curve instead.
+Both spellings come from here, so they cannot drift apart.
+"""
+datacalibration(::AbstractObs, ::PlotChannel, ::ObsContext, epochs) = nothing
+export datacalibration
+
+# The calibration as a plain vector, zeros when the observation declares none.
+_calibration(obs, ch, ctx, epochs) =
+    something(datacalibration(obs, ch, ctx, epochs), zeros(length(epochs)))
+
+"""
+    noisemodel(obs, ctx::ObsContext, epochs) -> (; mean, var) | nothing
+
+The observation's correlated-noise model — a Gaussian process fitted to the
+residuals — conditioned on this draw's residuals and evaluated at `epochs`;
+`nothing` (the default) when the observation has none.
+
+Plots use it twice: the band it predicts is drawn around the model curve, and
+the residual strip subtracts its mean and adds its variance to `σ_eff`. That
+second use is what makes a whitened residual meaningful for a GP fit at all —
+without it the strip shows exactly the correlated structure the GP was fitted
+to explain, and the z-scores are not standard normal even for a perfect fit.
+"""
+noisemodel(::AbstractObs, ::ObsContext, epochs) = nothing
+export noisemodel
+
 # --- RelAstromObs -------------------------------------------------------------
 
-function plotchannels(obs::RelAstromObs)
-    if hasproperty(obs.table, :sep)
-        return (
-            PlotChannel(:sep, "separation", "mas";
-                query=ObservableQuery(PlanetOrbits.projectedseparation, obs.target, obs.ref)),
-            PlotChannel(:pa, "position angle", "°"; scale=rad2deg(1.0), wrap=360.0,
-                query=ObservableQuery(PlanetOrbits.posangle, obs.target, obs.ref)),
-        )
-    else
-        return (
-            PlotChannel(:raoff, "Δα*", "mas";
-                query=ObservableQuery(PlanetOrbits.raoff, obs.target, obs.ref)),
-            PlotChannel(:decoff, "Δδ", "mas";
-                query=ObservableQuery(PlanetOrbits.decoff, obs.target, obs.ref)),
-        )
-    end
+# Relative astrometry is measured in one of two parametrizations and is
+# meaningful in both: (sep, pa) and (Δα*, Δδ) are related by a rotation, with
+# no free parameter and no model in between. A survey that switched
+# conventions mid-campaign is one dataset, so all four channels are declared
+# whatever the table holds, and the two the table does not carry are marked
+# `derived` — the likelihood still scores only the native pair.
+_relastrom_channels(obs, native_seppa::Bool) = (
+    PlotChannel(:sep, "separation", "mas"; derived=!native_seppa,
+        query=ObservableQuery(PlanetOrbits.projectedseparation, obs.target, obs.ref)),
+    PlotChannel(:pa, "position angle", "°"; scale=rad2deg(1.0), wrap=360.0,
+        derived=!native_seppa,
+        query=ObservableQuery(PlanetOrbits.posangle, obs.target, obs.ref)),
+    PlotChannel(:raoff, "Δα*", "mas"; derived=native_seppa,
+        query=ObservableQuery(PlanetOrbits.raoff, obs.target, obs.ref)),
+    PlotChannel(:decoff, "Δδ", "mas"; derived=native_seppa,
+        query=ObservableQuery(PlanetOrbits.decoff, obs.target, obs.ref)),
+)
+
+plotchannels(obs::RelAstromObs) = _relastrom_channels(obs, hasproperty(obs.table, :sep))
+
+sharepanel(::RelAstromObs) = true
+
+# (sep, pa) → (Δα*, Δδ) and back, with first-order error propagation. The
+# rotation is exact and parameter-free, so a point's *position* is the same
+# measurement either way; only the uncertainty needs care, and the
+# uncorrelated-in-the-native-basis assumption below is the same one the
+# likelihood makes.
+function _seppa_to_radec(sep, pa, σ_sep, σ_pa)
+    s, c = sin.(pa), cos.(pa)
+    return (ra=sep .* s, dec=sep .* c,
+        σ_ra=hypot.(σ_sep .* s, sep .* σ_pa .* c),
+        σ_dec=hypot.(σ_sep .* c, sep .* σ_pa .* s))
+end
+
+function _radec_to_seppa(ra, dec, σ_ra, σ_dec)
+    sep = hypot.(ra, dec)
+    # A point at the origin has no defined position angle; guard the
+    # denominators rather than emit a NaN into an axis limit.
+    d = max.(sep, eps(one(eltype(sep))))
+    return (sep=sep, pa=atan.(ra, dec),
+        σ_sep=hypot.(ra .* σ_ra, dec .* σ_dec) ./ d,
+        σ_pa=hypot.(dec .* σ_ra, ra .* σ_dec) ./ d .^ 2)
 end
 
 function residuals(obs::RelAstromObs, ctx::ObsContext)
@@ -350,44 +460,59 @@ function residuals(obs::RelAstromObs, ctx::ObsContext)
     n = length(ep)
     use = trues(n)
 
+    r2d = rad2deg(1.0)
+    sep_model = hypot.(sim.ra_model, sim.dec_model)
+    pa_model = atan.(sim.ra_model, sim.dec_model)
+
     if hasproperty(obs.table, :sep)
-        sep_model = hypot.(sim.ra_model, sim.dec_model)
-        pa_model = atan.(sim.ra_model, sim.dec_model)
-        sep_data = obs.table.sep .* platescale
-        pa_data = obs.table.pa .+ northangle
-        # Wrapped PA difference, exactly as ln_like computes it.
-        pa_resid = @. mod(pa_data - pa_model + π, 2π) - π
-        r2d = rad2deg(1.0)
-        return (;
-            sep=(; epoch=ep, data=collect(sep_data), model=sep_model,
-                resid=collect(sep_data .- sep_model),
-                σ=collect(float.(obs.table.σ_sep)),
-                σ_eff=collect(hypot.(obs.table.σ_sep, jitter)), use),
-            pa=(; epoch=ep, data=collect(rem2pi.(pa_data, RoundDown) .* r2d),
-                model=rem2pi.(pa_model, RoundDown) .* r2d,
-                resid=collect(pa_resid .* r2d),
-                σ=collect(float.(obs.table.σ_pa) .* r2d),
-                σ_eff=collect(hypot.(obs.table.σ_pa, jitter ./ max.(sep_model, one(T))) .* r2d), use),
-        )
+        sep_data = collect(float.(obs.table.sep .* platescale))
+        pa_data = collect(float.(obs.table.pa .+ northangle))
+        σ_sep = collect(float.(obs.table.σ_sep))
+        σ_pa = collect(float.(obs.table.σ_pa))
+        σe_sep = collect(hypot.(σ_sep, jitter))
+        # The jitter is an angular scatter in mas; on the position-angle axis
+        # it is that scatter divided by the separation, exactly as `ln_like`
+        # spells it.
+        σe_pa = collect(hypot.(σ_pa, jitter ./ max.(sep_model, one(T))))
+        p = _seppa_to_radec(sep_data, pa_data, σ_sep, σ_pa)
+        pe = _seppa_to_radec(sep_data, pa_data, σe_sep, σe_pa)
+        ra_data, dec_data = p.ra, p.dec
+        σ_ra, σ_dec, σe_ra, σe_dec = p.σ_ra, p.σ_dec, pe.σ_ra, pe.σ_dec
     else
         # Mirrors ln_like's ra/dec branch exactly: its pa_dat is measured from
         # the RA axis (atan(dec, ra), *not* the position-angle convention), so
         # cos pairs with RA and sin with Dec.
         pa_dat = atan.(obs.table.dec, obs.table.ra) .+ northangle
         sep_dat = hypot.(obs.table.dec, obs.table.ra) .* platescale
-        ra_data = sep_dat .* cos.(pa_dat)
-        dec_data = sep_dat .* sin.(pa_dat)
-        return (;
-            raoff=(; epoch=ep, data=collect(ra_data), model=collect(sim.ra_model),
-                resid=collect(ra_data .- sim.ra_model),
-                σ=collect(float.(obs.table.σ_ra)),
-                σ_eff=collect(hypot.(obs.table.σ_ra, jitter)), use),
-            decoff=(; epoch=ep, data=collect(dec_data), model=collect(sim.dec_model),
-                resid=collect(dec_data .- sim.dec_model),
-                σ=collect(float.(obs.table.σ_dec)),
-                σ_eff=collect(hypot.(obs.table.σ_dec, jitter)), use),
-        )
+        ra_data = collect(float.(sep_dat .* cos.(pa_dat)))
+        dec_data = collect(float.(sep_dat .* sin.(pa_dat)))
+        σ_ra = collect(float.(obs.table.σ_ra))
+        σ_dec = collect(float.(obs.table.σ_dec))
+        σe_ra = collect(hypot.(σ_ra, jitter))
+        σe_dec = collect(hypot.(σ_dec, jitter))
+        p = _radec_to_seppa(ra_data, dec_data, σ_ra, σ_dec)
+        pe = _radec_to_seppa(ra_data, dec_data, σe_ra, σe_dec)
+        sep_data, pa_data = p.sep, p.pa
+        σ_sep, σ_pa, σe_sep, σe_pa = p.σ_sep, p.σ_pa, pe.σ_sep, pe.σ_pa
     end
+
+    # Wrapped PA difference, exactly as ln_like computes it.
+    pa_resid = @. mod(pa_data - pa_model + π, 2π) - π
+    return (;
+        sep=(; epoch=ep, data=sep_data, model=collect(sep_model),
+            resid=collect(sep_data .- sep_model),
+            σ=σ_sep, σ_eff=σe_sep, use),
+        pa=(; epoch=ep, data=collect(rem2pi.(pa_data, RoundDown) .* r2d),
+            model=collect(rem2pi.(pa_model, RoundDown) .* r2d),
+            resid=collect(pa_resid .* r2d),
+            σ=σ_pa .* r2d, σ_eff=σe_pa .* r2d, use),
+        raoff=(; epoch=ep, data=collect(ra_data), model=collect(sim.ra_model),
+            resid=collect(ra_data .- sim.ra_model),
+            σ=σ_ra, σ_eff=σe_ra, use),
+        decoff=(; epoch=ep, data=collect(dec_data), model=collect(sim.dec_model),
+            resid=collect(dec_data .- sim.dec_model),
+            σ=σ_dec, σ_eff=σe_dec, use),
+    )
 end
 
 # --- RadialVelocityObs ---------------------------------------------------------
@@ -397,28 +522,54 @@ plotchannels(obs::RadialVelocityObs) = (
         query=ObservableQuery(PlanetOrbits.radvel, obs.target, obs.ref)),
 )
 
-function residuals(obs::RadialVelocityObs, ctx::ObsContext)
+# The zero point and the trend, which is everything standing between the
+# `radvel` query and the number the spectrograph reported.
+function datacalibration(obs::RadialVelocityObs, ch::PlotChannel, ctx::ObsContext, epochs)
+    ch.name === :rv || return nothing
     T = _system_number_type(ctx.θ_system)
     θ_obs = ctx.θ_obs
     offset = hasproperty(θ_obs, :offset) ? θ_obs.offset : zero(T)
+    return [Float64(offset + obs.trend_function(θ_obs, t)) for t in epochs]
+end
+
+function noisemodel(obs::RadialVelocityObs, ctx::ObsContext, epochs)
+    isnothing(obs.gaussian_process) && return nothing
+    T = _system_number_type(ctx.θ_system)
+    jitter = hasproperty(ctx.θ_obs, :jitter) ? ctx.θ_obs.jitter : zero(T)
+    sim = simulate(obs, ctx)
+    resid = collect(Float64, obs.table.rv .- sim.rv_model)
+    σ² = collect(Float64, obs.table.σ_rv .^ 2 .+ jitter^2)
+    ep = collect(Float64, obs.table.epoch)
+    # The same three hooks `ln_like` goes through, so the band a plot draws is
+    # the noise model the fit actually used.
+    fx = gp_condition(obs.gaussian_process(ctx.θ_obs), ep, σ²)
+    m, v = gp_predict(fx, resid, collect(Float64, epochs))
+    return (; mean=collect(Float64, m), var=max.(collect(Float64, v), 0.0))
+end
+
+function residuals(obs::RadialVelocityObs, ctx::ObsContext)
+    T = _system_number_type(ctx.θ_system)
+    θ_obs = ctx.θ_obs
     jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero(T)
     sim = simulate(obs, ctx)               # includes the offset and the trend
     ep = collect(Float64, obs.table.epoch)
+    ch = first(plotchannels(obs))
     # Subtract the trend as well as the offset. The `radvel` query the panel
     # draws its curve from knows nothing about either, so a trended model
     # whose points kept the trend would not overlay its own curve. v1's
     # `rvpostplot` subtracted both; `trend_function` now lives on the core
-    # type, so both belong here.
-    trend = obs.trend_function.(Ref(θ_obs), obs.table.epoch)
-    model_pure = sim.rv_model .- offset .- trend
-    data_cal = obs.table.rv .- offset .- trend
-    return (;
-        rv=(; epoch=ep, data=collect(data_cal), model=collect(model_pure),
-            resid=collect(obs.table.rv .- sim.rv_model),
-            σ=collect(float.(obs.table.σ_rv)),
-            σ_eff=collect(hypot.(obs.table.σ_rv, jitter)),
-            use=trues(length(ep))),
-    )
+    # type, so both belong here — and `datacalibration` is the one place that
+    # spells the sum, so an uncalibrated panel adds back exactly this.
+    cal = _calibration(obs, ch, ctx, ep)
+    out = (; epoch=ep, data=collect(obs.table.rv .- cal),
+        model=collect(sim.rv_model .- cal),
+        resid=collect(obs.table.rv .- sim.rv_model),
+        σ=collect(float.(obs.table.σ_rv)),
+        σ_eff=collect(hypot.(obs.table.σ_rv, jitter)),
+        use=trues(length(ep)))
+    gp = noisemodel(obs, ctx, ep)
+    gp === nothing || (out = merge(out, (; gp_mean=gp.mean, gp_var=gp.var)))
+    return (; rv=out)
 end
 
 # --- GaiaDR4AstromObs ----------------------------------------------------------
@@ -804,15 +955,104 @@ star + planets system this is each planet about the star (matching v8's
 octoplot); for hierarchies it generalizes with no special cases (a moon
 about its planet, an inner pair's barycentre about the outer body, …).
 """
-function default_sky_queries(sys::System)
+default_sky_queries(sys::System) = default_queries(sys, PlanetOrbits.raoff)
+
+# Observables describing how a body *reflexes* about the system barycentre,
+# rather than how two bodies are separated from each other. Asked for one of
+# these with no observation to hang it on, the panel a user means is the
+# host's own signal — nobody predicting "the RV of this system" wants the
+# planet's velocity relative to its star.
+const _REFLEX_OBSERVABLES = (
+    PlanetOrbits.radvel, PlanetOrbits.velx, PlanetOrbits.vely, PlanetOrbits.velz,
+    PlanetOrbits.pmra, PlanetOrbits.pmdec,
+)
+
+"""
+    default_queries(sys, f) -> Vector{(ObservableQuery, Symbol)}
+
+The natural queries of observable `f` for a system that has no observation
+declaring them — what [`octoplot`](@ref) draws when `channels=` names a
+quantity the model was not fitted to, so that a fit can predict a
+not-yet-observed signal.
+
+Two conventions, by the kind of observable:
+
+  - **separations** (`raoff`, `projectedseparation`, `posx`, …): one query per
+    hierarchy row, the exterior side about the interior side — exactly the
+    relationship that row parametrizes, and the same set the sky panel draws.
+  - **reflex signals** (`radvel`, `pmra`, the velocities): one query per root
+    body — the bodies no row places — against the whole-system barycentre.
+
+The second element of each pair names the row (or body) the query belongs to,
+which is what the panel labels and colours itself by.
+"""
+function default_queries(sys::System, f)
+    fn = _obsfunc(f)
+    if fn in _REFLEX_OBSERVABLES
+        return [(ObservableQuery(fn, refspec(h), Barycentre), h) for h in _rootbodies(sys)]
+    end
     out = Tuple{ObservableQuery,Symbol}[]
     for (owner, ext, int) in sys.rows
         t = length(ext) == 1 ? refspec(ext[1]) : BarycentreSpec{ext}()
         r = length(int) == 1 ? refspec(int[1]) : BarycentreSpec{int}()
-        push!(out, (ObservableQuery(PlanetOrbits.raoff, t, r), owner))
+        push!(out, (ObservableQuery(fn, t, r), owner))
     end
     return out
 end
+export default_queries
+
+# The bodies no hierarchy row places: the host(s) everything else orbits. A
+# system whose every body is placed by a row has no root (it is described
+# entirely relatively), and then the first body stands in.
+function _rootbodies(sys::System)
+    placed = Set{Symbol}()
+    for (_, ext, _) in sys.rows, n in ext
+        push!(placed, n)
+    end
+    roots = Symbol[n for n in sys.bodynames if !(n in placed)]
+    return isempty(roots) ? Symbol[first(sys.bodynames)] : roots
+end
+
+"""
+    predictedchannels(sys, f) -> Vector{Tuple{Nothing,PlotChannel}}
+
+Model-only channels for observable `f` — one per query
+[`default_queries`](@ref) picks, labelled from `PlanetOrbits.plotinfo`, with
+no observation behind them.
+
+This is how a fit draws a quantity it has no data for: `channels=radvel` on a
+relative-astrometry fit predicts the reflex RV curve the orbit implies, which
+is the figure you want when deciding whether a target is worth spectroscopic
+time. Every observable is plottable this way whether or not it was observed;
+what makes a panel is the model, not the dataset.
+"""
+function predictedchannels(sys::System, f)
+    fn = _obsfunc(f)
+    info = PlanetOrbits.plotinfo(fn)
+    # `plotinfo` reports angles in radians. Every Octofitter panel shows
+    # degrees, which is exactly what a channel's `scale`/`wrap` are for.
+    isangle = info.unit == "rad"
+    scale = isangle ? rad2deg(1.0) : 1.0
+    return Tuple{Nothing,PlotChannel}[
+        (nothing, PlotChannel(nameof(fn), info.label, isangle ? "°" : info.unit;
+            scale, wrap=(info.wrap === nothing ? nothing : info.wrap * scale), query=q))
+        for (q, _) in default_queries(sys, fn)]
+end
+export predictedchannels
+
+# The observables a `channels=` restriction names outright. Only these can
+# raise a predicted panel: a *channel* name (`:sep`) says "the separation data",
+# and asking for data a model does not have is not a request to invent it.
+_requestedobservables(::Nothing) = Any[]
+_requestedobservables(f::Function) = f in _OBSERVABLE_FUNCS ? Any[f] : Any[]
+function _requestedobservables(s::Symbol)
+    for f in _OBSERVABLE_FUNCS
+        nameof(f) === s && return Any[f]
+    end
+    return Any[]
+end
+_requestedobservables(cs) =
+    reduce(vcat, (_requestedobservables(c) for c in cs); init=Any[])
 
 """
     plottable_observations(sys)
@@ -897,8 +1137,9 @@ annotation: `text!(res.axes.sky, ...)`), and the underlying
 [`PosteriorSeries`](@ref). Keywords are documented in the extension method;
 `fname="..."` saves the figure (nothing is written by default), and
 `channels=` restricts it to some of the data — an observable function, a
-channel or observable name, or a collection of either. [`rvpostplot`](@ref)
-is `channels=radvel` with the sky panel off.
+channel or observable name, or a collection of either. A `channels=` the
+model has no data for is drawn as a **prediction**: the model curves alone,
+over the queries [`default_queries`](@ref) picks.
 """
 function octoplot end
 octoplot(args...; kwargs...) = _require_makie("octoplot")
@@ -1045,29 +1286,34 @@ function likemappanel! end
 export likemappanel!
 
 """
-    rvpostplot(model, chain, [sample_idx]; kwargs...) -> OctoPlotResult
+    rvplot(model, chain, [sample_idx]; kwargs...) -> OctoPlotResult
 
 The radial-velocity summary figure for a single posterior draw
 (`sample_idx`, by default the highest-posterior-density sample): one
-time-series panel carrying every instrument at once, with a residual strip and
-marginal histogram, plus one phase-folded panel per hierarchy row that moves
-the star.
+time-series panel carrying **every instrument at once**, with a residual strip
+and marginal histogram, plus one phase-folded panel per hierarchy row that
+moves the star.
 
-A calibrated RV series is only defined per draw — offsets, jitter, and the
-other rows' subtracted signals all move between samples — so this figure shows
-one, and everything in it belongs to that draw. [`octoplot`](@ref) restricted
-to the RV channels
-(`octoplot(model, chain; show_sky=false, channels=PlanetOrbits.radvel)`) draws
-the same panels over many draws, with the data calibrated by the MAP sample.
+This is the one figure allowed to put several RV instruments on one axis (see
+[`sharepanel`](@ref)), and showing a single draw is what buys that. A
+calibrated RV series is only defined per draw — the zero points, the jitters,
+the trend and the other rows' subtracted signals all move between samples — so
+everything here belongs to one sample and nothing is misrepresented.
+[`octoplot`](@ref) is the many-draws view and gives each instrument its own
+panel instead, with the data left uncalibrated and each draw's own offset and
+trend carried by its model curve.
 
-Requires a Makie backend. `rvpostplot_animated` records the same figure over
+Requires a Makie backend. `rvplot_animated` records the same figure over
 successive single-draw slices of the chain.
+
+Called `rvpostplot` before v9. The old name still works and forwards here:
+what the figure shows is one draw, not the posterior.
 """
-function rvpostplot end
-rvpostplot(args...; kwargs...) = _require_makie("rvpostplot")
-function rvpostplot_animated end
-rvpostplot_animated(args...; kwargs...) = _require_makie("rvpostplot_animated")
-export rvpostplot, rvpostplot_animated
+function rvplot end
+rvplot(args...; kwargs...) = _require_makie("rvplot")
+function rvplot_animated end
+rvplot_animated(args...; kwargs...) = _require_makie("rvplot_animated")
+export rvplot, rvplot_animated
 
 """
     phasefoldpanel!(gridposition, series, entries; row, kwargs...)

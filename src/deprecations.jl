@@ -49,3 +49,31 @@ v8 `basis=`/`M =` pair was standing in for; the frame is chosen by which
 frame variables the `System` block declares. $(_V2_GUIDE)""")
 export Planet
 
+
+# `rvpostplot` is a working alias rather than an error: the figure still
+# exists, it just has an honest name now. It never plotted a posterior — it
+# plots one draw against every instrument's data, which is exactly why it can
+# share a panel between instruments at all.
+"""
+    rvpostplot(model, chain, [sample_idx]; kwargs...)
+
+Deprecated alias for [`rvplot`](@ref), which is the same figure under a name
+that does not claim to show the posterior. $(_V2_GUIDE)
+"""
+function rvpostplot(args...; kwargs...)
+    Base.depwarn("`rvpostplot` is now `rvplot`: the figure shows a single " *
+                 "posterior draw, not the posterior.", :rvpostplot)
+    return rvplot(args...; kwargs...)
+end
+
+"""
+    rvpostplot_animated(model, chain; kwargs...)
+
+Deprecated alias for [`rvplot_animated`](@ref). $(_V2_GUIDE)
+"""
+function rvpostplot_animated(args...; kwargs...)
+    Base.depwarn("`rvpostplot_animated` is now `rvplot_animated`.", :rvpostplot_animated)
+    return rvplot_animated(args...; kwargs...)
+end
+
+export rvpostplot, rvpostplot_animated

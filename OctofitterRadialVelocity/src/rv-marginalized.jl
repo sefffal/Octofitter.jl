@@ -221,21 +221,33 @@ Octofitter.plotchannels(obs::MarginalizedRVObs) = (
         query=Octofitter.ObservableQuery(PlanetOrbits.radvel, obs.target, obs.ref)),
 )
 
+# Remove the trend as well as the zero point: the `radvel` query a panel draws
+# its curve from knows about neither, so points that kept either would not lie
+# on their own curve. Same rule as `RadialVelocityObs` — the only difference is
+# that the zero point is recovered from the data rather than read off a
+# variable, which is exactly what this type is for. `residuals` subtracts what
+# this returns and an uncalibrated panel adds it back, so both spellings come
+# from here and cannot drift apart.
+function Octofitter.datacalibration(obs::MarginalizedRVObs, ch::Octofitter.PlotChannel,
+                                    ctx::ObsContext, epochs)
+    ch.name === :rv || return nothing
+    offset = marginalized_offset(obs, ctx)
+    return [Float64(offset + obs.trend_function(ctx.θ_obs, t)) for t in epochs]
+end
+
 function Octofitter.residuals(obs::MarginalizedRVObs, ctx::ObsContext)
     T = _system_number_type(ctx.θ_system)
     jitter = hasproperty(ctx.θ_obs, :jitter) ? ctx.θ_obs.jitter : zero(T)
     sim = Octofitter.simulate(obs, ctx)          # no offset in the model
     offset = marginalized_offset(obs, ctx)
     ep = collect(Float64, obs.table.epoch)
-    # Remove the trend as well as the marginalized zero point, on both sides:
-    # the `radvel` query the panel draws its curve from knows about neither, so
-    # points that kept the trend would not lie on their own curve. (Same rule
-    # as `RadialVelocityObs`; `simulate` puts the trend into `rv_model`.)
-    trend = obs.trend_function.(Ref(ctx.θ_obs), obs.table.epoch)
-    model_pure = sim.rv_model .- trend
-    data_cal = obs.table.rv .- offset .- trend
+    cal = Octofitter._calibration(obs, first(Octofitter.plotchannels(obs)), ctx, ep)
+    # `simulate` already carries the trend, so the model only needs the trend
+    # taken back off; the data need the zero point too, which is what `cal` adds.
+    trend = cal .- offset
     return (;
-        rv=(; epoch=ep, data=collect(data_cal), model=collect(model_pure),
+        rv=(; epoch=ep, data=collect(obs.table.rv .- cal),
+            model=collect(sim.rv_model .- trend),
             resid=collect(obs.table.rv .- offset .- sim.rv_model),
             σ=collect(float.(obs.table.σ_rv)),
             σ_eff=collect(hypot.(obs.table.σ_rv, jitter)),

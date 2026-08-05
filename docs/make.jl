@@ -76,7 +76,7 @@ makedocs(
             "Using Python" => "python.md",
             "Chains" => "chains.md",
             "Orbit plots with `octoplot`"=>"octoplot.md",
-            "RV posterior plots"=>"rvpostplot.md",
+            "Radial velocity figures"=>"rvplot.md",
             "Loading and Saving Data" => "loading-saving.md",
             "Sampler" => "samplers.md",
             "Distributed Sampling" => "parallel-sampling.md",
