@@ -27,11 +27,12 @@ using Arrow, DataFrames, CSV # hide
 ```
 
 !!! note "About the data on this page"
-    So that this page builds offline, it uses the one-row Hipparcos–Gaia catalog
-    subset and cached scan-law forecast that ship with Octofitter's tests, for
-    Gaia DR3 source `2738776816458107136` (HIP 384), together with a **simulated**
-    contrast image. For a real target you simply drop the `catalog=` and
-    `forecast_table=` keywords and Octofitter fetches everything itself.
+    So that this page builds offline, it uses the Hipparcos–Gaia catalog subset and
+    cached scan-law forecast that ship with Octofitter's tests, together with the
+    example L′ contrast image from [Fitting Images](@ref fit-images) — which is a stand-in,
+    not a real observation of this star. For a real target you simply drop the
+    `catalog=` and `forecast_table=` keywords and Octofitter fetches everything
+    itself.
 
 ## Photometry Model
 
@@ -42,19 +43,18 @@ const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)
 ```
 
 !!! warning "Masses are in solar masses"
-    v2 has a single mass unit, M⊙, and these interpolators now take M⊙ by default
-    (v1 took Jupiter masses). `mjup` is a plain multiplicative constant, so a
-    Jupiter-mass threshold is written `10mjup`, **not** `10` — a bare `10` now means
-    ten solar masses, which lands off the end of the grid and quietly returns `NaN`.
-    Pass `mass_unit=:Mjup` to the constructors if you would rather keep a script in
-    Jupiter masses.
+    There is a single mass unit throughout, M⊙, and these interpolators take M⊙ by
+    default. `mjup` is a plain multiplicative constant, so a Jupiter-mass threshold is
+    written `10mjup`, **not** `10` — a bare `10` means ten solar masses, which lands off
+    the end of the grid and quietly returns `NaN`. Pass `mass_unit=:Mjup` to the
+    constructors if you would rather keep a script in Jupiter masses.
 
 ## Catalog data
 
 ```@example 1
-gaia_id = 2738776816458107136
+gaia_id = 756291174721509376
 catalog = DataFrame(Arrow.Table(joinpath(@__DIR__, "..", "..", "test", "G23H-test-subset.feather"))) # hide
-gost = CSV.read(joinpath(@__DIR__, "GOST-1.1927097109938027-1.5368044203832403-dr3.csv"), Table, normalizenames=true) # hide
+gost = CSV.read(joinpath(@__DIR__, "GOST-158.30707896392835-40.42555422701387-dr3.csv"), Table, normalizenames=true) # hide
 forecast = Table( # hide
     epoch = Octofitter.jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_), # hide
     scanAngle_rad = gost.scanAngle_rad_, # hide
@@ -67,7 +67,7 @@ nothing # hide
 
 We start by defining and sampling from a model that only includes the Hipparcos-Gaia proper motion anomaly.
 
-In v1 this was `HGCAInstantaneousObs(gaia_id=...)`, an approximation that treated each catalog's proper motion as an instantaneous measurement. That type is retired: `HGCAObs` is now a helper over the joint Gaia-Hipparcos likelihood [`G23HObs`](@ref), restricted to the six HGCA channels, and it models the actual scan epochs rather than approximating them. There is no `N_ave` equivalent, because there is nothing left to average.
+`HGCAObs` is a helper over the joint Gaia-Hipparcos likelihood [`G23HObs`](@ref), restricted to the six HGCA channels. It models the actual Gaia and Hipparcos scan epochs; `freeze_epochs=true` below fixes the epoch selection, which is much faster and is what makes a detection-limit sweep practical.
 
 ```@example 1
 A = Body(
@@ -108,7 +108,7 @@ pma = HGCAObs(;
 nothing # hide
 ```
 
-The system block supplies the frame. `G23HObs` (and therefore `HGCAObs`) needs the reference point's proper motion, which means a **full** absolute frame: `plx, ra, dec, pmra, pmdec, rv, ref_epoch`. Declaring only some of them is a build-time error — v2 will not guess at half a frame.
+The system block supplies the frame. `G23HObs` (and therefore `HGCAObs`) needs the reference point's proper motion, which means a **full** absolute frame: `plx, ra, dec, pmra, pmdec, rv, ref_epoch`. Declaring only some of them is a build-time error: Octofitter will not guess at half a frame.
 
 ```@example 1
 cat = pma.catalog
@@ -118,7 +118,7 @@ HD_pma = System(
     bodies=[A, B],
     observations=[pma],
     variables=@variables begin
-        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1)   # M⊙
+        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)    # M⊙
         M_sec ~ LogUniform(0.2mjup, 65mjup)                # M⊙ -- note the units!
 
         plx ~ truncated(Normal(cat.parallax, cat.parallax_error), lower=0.1)
@@ -134,10 +134,10 @@ HD_pma = System(
 model_pma = Octofitter.LogDensityModel(HD_pma)
 ```
 
-!!! warning "`pmra` and `pmdec` are frame variables now"
-    v1's advice to use wide priors on `pmra`/`pmdec` still applies, but the names are
-    now reserved for the system's absolute frame, and they must be declared *together*
-    with the rest of it.
+!!! warning "`pmra` and `pmdec` are frame variables"
+    Use wide priors on `pmra`/`pmdec` — the data are what constrain them. The names are
+    reserved for the system's absolute frame, and must be declared *together* with the
+    rest of it.
 
 Sample:
 ```@example 1
@@ -177,7 +177,7 @@ pairplot(
 
 ## Image Data
 
-Now the same star, with a simulated L′-band contrast image instead. This is where the flux/band unification pays off: the companion's brightness is a **body** variable, `flux_L`, derived from its mass — so the image constrains the mass directly.
+Now the same star, with an L′-band contrast image instead. This is where the flux/band unification pays off: the companion's brightness is a **body** variable, `flux_L`, derived from its mass — so the image constrains the mass directly.
 
 ```@example 1
 download(
@@ -244,11 +244,9 @@ image_data = ImageObs(
 nothing # hide
 ```
 
-!!! note "The flux moved, and changed owner"
-    In v1 the image likelihood carried a `flux` variable that reached across into the
-    planet's block (`flux = planet.L`). That cross-reference is gone: the brightness
-    is `flux_L` in the body's own block, and the observation just says
-    `targets=(B,), band=:L`. One image is one likelihood, however many companions
+!!! note "The flux belongs to the body"
+    The companion's brightness is `flux_L` in its own block, and the observation just
+    says `targets=(B,), band=:L`. One image is one likelihood, however many companions
     are modelled in it.
 
 ```@example 1
@@ -266,7 +264,7 @@ HD_img = System(
     variables=@variables begin
         # age ~ truncated(Normal(40, 15),lower=0, upper=200)
         age = 10                                           # Myr
-        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1)   # M⊙
+        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)    # M⊙
         # Mass of the secondary.
         # Make sure to pick only a mass range that is covered by your models.
         M_sec ~ LogUniform(0.55mjup, 65mjup)               # M⊙
@@ -316,7 +314,7 @@ pairplot(
 
 ## Image and PMA data
 
-Combining the two is now just a matter of listing both observations on the system. Observations are a flat list in v2 and each names its own references, so there is nothing else to wire up.
+Combining the two is just a matter of listing both observations on the system. Observations are a flat list and each names its own references, so there is nothing else to wire up.
 
 ```@example 1
 pma_joint = HGCAObs(;
@@ -335,7 +333,7 @@ HD_both = System(
     observations=[image_data, pma_joint],
     variables=@variables begin
         age = 10
-        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1)
+        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
         M_sec ~ LogUniform(0.55mjup, 65mjup)
         rel_mag = 5.65
 

@@ -12,17 +12,7 @@ In this example, we will fit an orbit model to a combination of radial velocity 
     HGCA constrains (Hipparcos, Hipparcos–Gaia, and Gaia DR3 proper motions), with
     `ueva_mode=:none` and no RV channel. Everything `G23HObs` documents applies —
     in particular the source membership keywords `host=` and `companions=`, which
-    replace v1's implicit "every planet in the system".
-
-    Two consequences worth knowing before you use this page as a template:
-
-    * `HGCAInstantaneousObs` and `GaiaCatalogFitObs` are **gone**, not deprecated.
-      The instantaneous approximation was the thing `G23HObs` replaces by
-      modelling the actual scan epochs, so there is no `N_ave` equivalent; calling
-      either now raises an error naming `HGCAObs`.
-    * HGCA fits are **not** bit-identical to v1. Those six channels are now
-      modelled by G23H's epoch-selection model and five-parameter refits rather
-      than by the HGCA's own cross-calibration.
+    say which bodies this catalog source is made of.
 
 Datasets from radial velocity instruments are modelled together with separate jitters and instrumental offsets.
 
@@ -35,8 +25,8 @@ gaia_id = 5164707970261890560
 ```
 
 We build the bodies first, since the observations name them. The host is an
-ordinary body in v2, with a mass and — because Gaia and Hipparcos see a
-*photocentre* — a flux in each of their bands. Setting the host's flux to 1 makes
+ordinary body, with a mass and — because Gaia and Hipparcos see a *photocentre* —
+a flux in each of their bands. Setting the host's flux to 1 makes
 every other body's flux a contrast ratio; a dark companion gets 0.
 
 ```@example 1
@@ -58,15 +48,12 @@ b = Body(
         # For speed of example, we are fitting a circular orbit only.
         e = 0
         ω = 0.0
-        # Masses are solar masses in v2; `mjup` is a plain multiplicative constant.
-        mass_jup ~ Uniform(0, 3)      # Mjup
-        mass = mass_jup * mjup        # M⊙
+        # Masses are solar masses; `mjup` is a plain multiplicative constant.
+        mass ~ Uniform(0, 3mjup)      # M⊙
         a ~ Uniform(3, 10)            # AU
         i ~ Sine()
         Ω ~ Uniform(0, 2pi)
-        # Phase: the mean anomaly at a reference epoch. This replaces v1's
-        # `τ ~ Uniform(0,1)` + `P = √(a^3/M)` + `tp = τ*P*365.25 + …` chain, and
-        # needs no hand-computed total mass.
+        # Phase: the mean anomaly at a reference epoch.
         M0 ~ Uniform(0, 2pi)
         epoch = 58849.0
         flux_G  = 0.0   # dark to Gaia and Hipparcos
@@ -77,7 +64,7 @@ nothing # hide
 ```
 
 We load in data from one RV instrument.
-We use `MarginalizedRVObs` (v1's `MarginalizedStarAbsoluteRVObs`) instead of
+We use `MarginalizedRVObs` instead of
 [`RadialVelocityObs`](@ref) to analytically marginalize out
 the radial velocity zero point of each instrument, saving one parameter.
 ```@example 1
@@ -94,17 +81,22 @@ nothing # hide
 ```
 
 !!! warning "No offset or jitter is added for you"
-    v1 injected a default `offset` and `jitter` prior into an RV likelihood
-    constructed with no `variables=` block. v2 never invents a prior. With
-    `MarginalizedRVObs` the offset is integrated out analytically (and declaring
-    one is an error), but the `jitter` line above is required — without it the
-    model fits with no white-noise term at all.
+    Octofitter never invents a prior. With `MarginalizedRVObs` the offset is
+    integrated out analytically (and declaring one is an error), but the `jitter`
+    line above is required — without it the model fits with no white-noise term
+    at all.
 
 We load the HGCA data for this target. `host=` and `companions=` declare which
 bodies this source is made of, and `ref=Barycentre` says the astrometry is
 referred to the system barycentre:
 ```@example 1
-pma = HGCAObs(; gaia_id, host=A, companions=(b,), ref=Barycentre, freeze_epochs=true)
+using Arrow, DataFrames # hide
+# The docs build substitutes a catalog subset for the 14 GB G23H DataDep; drop # hide
+# the `catalog=` keyword to fetch it for real. # hide
+catalog = DataFrame(Arrow.Table(joinpath(@__DIR__, "..", "..", "test", "G23H-test-subset.feather"))) # hide
+pma = HGCAObs(; gaia_id, host=A, companions=(b,), ref=Barycentre, freeze_epochs=true,
+    catalog = catalog, # hide
+)
 nothing # hide
 ```
 
@@ -151,9 +143,9 @@ model = Octofitter.LogDensityModel(sys)
 !!! warning "Use wide priors for `pmra`/`pmdec` with absolute astrometry"
     The catalog proper motions already contain the companion's signal, so pinning
     the frame's proper motion tightly to a catalog value double-counts it. Give
-    `pmra` and `pmdec` room to move, as above — and note that in v2 they are
-    *frame* variables: they must be declared together with the rest of the
-    absolute frame, and they cannot be declared alone.
+    `pmra` and `pmdec` room to move, as above — and note that they are *frame*
+    variables: they must be declared together with the rest of the absolute
+    frame, and they cannot be declared alone.
 
 !!! tip "Interpolating fitted values into a model"
     `ra = $(cat.ra)` uses `$` interpolation, which splices a value computed
@@ -195,7 +187,15 @@ phase-folded panel all appear without being asked for:
 octoplot(model, results)
 ```
 
-We can see what the orbit looks like for the maximum a-posteriori sample (note, we would need to run an optimizer to get the true MAP value; this is just the MCMC sample with highest posterior density). Slicing the chain is how you plot a single draw in v2:
+[`rvpostplot`](@ref) is the complementary view. Where `octoplot` draws many
+draws from the posterior — one RV curve per draw, and one panel per instrument —
+`rvpostplot` renders a **single** draw in much greater detail, with every
+instrument on a shared panel, phase-folded per planet, and residuals below:
+```@example 1
+rvpostplot(model, results)
+```
+
+We can see what the orbit looks like for the maximum a-posteriori sample (note, we would need to run an optimizer to get the true MAP value; this is just the MCMC sample with highest posterior density). Slicing the chain is how you plot a single draw:
 ```@example 1
 i_max = argmax(vec(results[:logpost]))
 res = octoplot(model, results[i_max:i_max, :, :])

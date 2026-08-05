@@ -9,12 +9,10 @@ For this tutorial, we will examine the star and companion [HD 91312 A & B](https
 
 The first step is to find the GAIA source ID for your object. For HD 91312, SIMBAD tells us the GAIA DR3 ID is `756291174721509376`.
 
-## [`HGCAObs`](@ref) is now a helper, not a type
+## [`HGCAObs`](@ref) is a helper over [`G23HObs`](@ref)
 
-This is the biggest change on this page. In v1 `HGCAObs` was a likelihood type of its own,
-with its own modelling code and its own cross-calibration. In v2 it is a **helper
-constructor** that builds a [`G23HObs`](@ref) restricted to the six channels the HGCA
-actually constrains:
+`HGCAObs` is a constructor that builds a [`G23HObs`](@ref) restricted to the six channels
+the HGCA constrains:
 
 ```julia
 HGCAObs(; gaia_id, host, companions=(), ref=Barycentre, kwargs...) =
@@ -26,20 +24,11 @@ HGCAObs(; gaia_id, host, companions=(), ref=Barycentre, kwargs...) =
               kwargs...)
 ```
 
-`obs isa HGCAObs` no longer compiles — the returned object *is* a `G23HObs`. Everything
-[`G23HObs`](@ref) documents applies unchanged: source membership through
-`host`/`companions`, flux ratios defaulting to the bodies' own `flux_G` / `flux_Hp`,
-`variables=`, the offline `catalog=` / `forecast_table=` / `hipparcos=` inputs. In exchange,
-`likeobj_from_epoch_subset`, `generate_from_params` and cross-validation all work on HGCA
-data for the first time.
-
-Three parts of the mapping are load-bearing:
-
-!!! warning "HGCA fits are NOT bit-identical to v1"
-    Those six channels are now modelled by G23H's treatment — its epoch-selection model, its
-    five-parameter refits, its exact flux-weighted photocentre — rather than by the HGCA's
-    own cross-calibration. The numbers move. Do not expect to reproduce a published v1 fit
-    to the last digit.
+The object you get back *is* a `G23HObs`, so everything [`G23HObs`](@ref) documents applies:
+source membership through `host`/`companions`, flux ratios defaulting to the bodies' own
+`flux_G` / `flux_Hp`, `variables=`, the offline `catalog=` / `forecast_table=` /
+`hipparcos=` inputs, and `likeobj_from_epoch_subset` / `generate_from_params` /
+cross-validation.
 
 !!! note "`ueva_mode = :none`, and no DR2 channels"
     `ueva_mode` is a three-valued symbol (`:RUWE` / `:EAN` / `:none`), not a boolean;
@@ -48,19 +37,12 @@ Three parts of the mapping are load-bearing:
     are dropped too: the HGCA is Hipparcos + Hipparcos–Gaia + DR3. Reach for `G23HObs`
     directly if you want the extra channels.
 
-!!! warning "The fast instantaneous approximation is gone"
-    v1 offered `HGCAInstantaneousObs(gaia_id=…, N_ave=…)`, which approximated the Gaia and
-    Hipparcos measurements as instantaneous. Calling it now raises an error naming
-    `HGCAObs`. There is no `N_ave` equivalent, and deliberately so: modelling the actual
-    scan epochs is exactly what `G23HObs` replaced the approximation with. For faster,
-    approximate exploration use `HGCAObs(; …, freeze_epochs=true)` instead, which fixes the
-    epoch selection rather than the epochs.
-
-!!! warning "This page now needs the G23H catalog"
-    Because `HGCAObs` builds a `G23HObs`, it reads the **G23H catalog** (~14 GB, plus its
-    DR2 matched-transit sidecar) rather than v1's 30 MB `HGCA_vEDR3.fits`. On first use
-    DataDeps will offer to download it. If you have the row for your target already, pass it
-    as `catalog=` (a table or a `NamedTuple` row) and nothing is fetched.
+!!! tip "`freeze_epochs=true` for fast exploration"
+    The Gaia and Hipparcos epoch *selections* are sampled parameters by default, which is
+    what lets the model account for transits the catalogs matched but the scan-law forecast
+    cannot pin down. Passing `freeze_epochs=true` fixes that selection and makes fitting
+    dramatically faster, at the cost of an approximation. It is the right setting for
+    exploring a model and the wrong one for a published fit.
 
 ## Fitting Astrometric Motion Only
 
@@ -74,12 +56,12 @@ add in relative astrometry to the fit from direct imaging to further constrain t
 orbit and mass — see [Astrometry, PMA, and RV](@ref astrom-pma-rv).
 
 Compared to previous tutorials, we now add a prior on the mass of the companion, called
-`mass`. **In v2 every mass is in solar masses**; `mjup` is a plain multiplicative constant,
-so a Jupiter-mass prior is written `LogUniform(0.5mjup, 1000mjup)`.
+`mass`. **Every mass is in solar masses**; `mjup` is a plain multiplicative constant, so a
+Jupiter-mass prior is written `LogUniform(0.5mjup, 1000mjup)`.
 
 For this model we also want to place a prior on the host star mass rather than the system
-total mass. In v2 there is nothing to do: each body carries its own `mass`, and the total
-mass of an orbit comes from the hierarchy.
+total mass. There is nothing to do: each body carries its own `mass`, and the total mass of
+an orbit comes from the hierarchy.
 
 ### The bodies
 
@@ -111,22 +93,34 @@ planet_b = Body(
 nothing # hide
 ```
 
-The `flux_G` / `flux_Hp` lines replace v1's `F = 0.0` planet variable and its `fluxratio ~
-Product([...])` observation variable. They are the *contrast ratios against the host*
-(hence `flux_G = 1.0` on `A`), and they are what the model uses to place the Gaia
-photocentre and to modulate the Hipparcos abscissa. A luminous, unresolved companion gets a
-real prior here — `flux_G ~ Uniform(0, 1)` — instead of a positional vector on the
-observation. Omitting all four lines is also legal and means the same thing as `0.0`: no
+`flux_G` and `flux_Hp` are the *contrast ratios against the host* (hence `flux_G = 1.0` on
+`A`), and they are what the model uses to place the Gaia photocentre and to modulate the
+Hipparcos abscissa. A luminous, unresolved companion gets a real prior here — `flux_G ~
+Uniform(0, 1)`. Omitting all four lines is also legal and means the same thing as `0.0`: no
 fluxes anywhere leaves every companion dark.
 
 ### Retrieving the HGCA
 
 ```@example 1
+using Arrow, DataFrames, CSV # hide
+# The docs build must touch neither the 14 GB G23H catalog nor the network, so it # hide
+# substitutes a one-row catalog subset and a cached GOST scan forecast. Drop the # hide
+# `catalog=`/`forecast_table=` keywords below to fetch both for real. # hide
+catalog = DataFrame(Arrow.Table(joinpath(@__DIR__, "..", "..", "test", "G23H-test-subset.feather"))) # hide
+gost = CSV.read(joinpath(@__DIR__, "GOST-158.30707896392835-40.42555422701387-dr3.csv"), Table, normalizenames=true) # hide
+forecast = Table( # hide
+    epoch = Octofitter.jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_), # hide
+    scanAngle_rad = gost.scanAngle_rad_, # hide
+    parallaxFactorAlongScan = gost.parallaxFactorAlongScan, # hide
+) # hide
 hgca_obs = HGCAObs(
     gaia_id = 756291174721509376,
     host = A,
     companions = (planet_b,),
     ref = Barycentre,
+    freeze_epochs = true,       # fast but approximate; drop for a production fit
+    catalog = catalog,          # hide
+    forecast_table = forecast,  # hide
 )
 hgca_obs.table.kind
 ```
@@ -142,9 +136,7 @@ Now that we have our bodies, we create a system model to contain them. Observati
 longer attached to a planet; they are a flat list on the system.
 
 We specify priors on `plx` as usual, using the `gaia_plx` helper to read the parallax and
-uncertainty from the Gaia DR3 catalog by source ID. (v1's `gaia_plx` read the same number
-out of the HGCA file; the HGCA's `parallax_gaia` *is* the DR3 parallax, so the value is
-unchanged.)
+uncertainty from the Gaia DR3 catalog by source ID.
 
 We also add parameters for the star's long term proper motion. This is usually close to the
 long term trend between the Hipparcos and GAIA measurements.
@@ -155,10 +147,10 @@ long term trend between the Hipparcos and GAIA measurements.
     The example below uses a ±100 mas/yr window around the known value only because we have independent prior knowledge of this system's proper motion from other sources—for a typical analysis, you should use wide priors.
 
 !!! warning "An absolute frame is all-or-nothing"
-    v2 reserves the system-level names `plx, ra, dec, pmra, pmdec, rv, ref_epoch` for the
-    absolute reference frame, and rejects a *partial* set at model-build time — declaring
-    `pmra` without `pmdec`, or either without `ra`/`dec`/`rv`/`ref_epoch`, is an error. Give
-    all seven, or `plx` alone.
+    `plx, ra, dec, pmra, pmdec, rv, ref_epoch` are reserved system-level names for the
+    absolute reference frame, and a *partial* set is rejected at model-build time —
+    declaring `pmra` without `pmdec`, or either without `ra`/`dec`/`rv`/`ref_epoch`, is an
+    error. Give all seven, or `plx` alone.
 
 ```@example 1
 sys = System(
@@ -231,8 +223,7 @@ octocorner(model_pma, chain_pma, small=true)
 
 `G23HObs` declares `pmra` and `pmdec` plot channels, so [`octoplot`](@ref) draws the five
 catalog proper motions — Hipparcos, Hipparcos–Gaia, DR2, DR3−DR2 and DR3 — against the
-model's reflex proper-motion curve, with a residual strip below each. This is what v1's
-separate `hgcaplot` and `pmaplot` recipes drew:
+model's reflex proper-motion curve, with a residual strip below each:
 
 ```@example 1
 octoplot(model_pma, chain_pma)
@@ -253,9 +244,8 @@ eccentricity, with marginal histograms:
 Octofitter.dotplot(model_pma, chain_pma)
 ```
 
-Masses are in solar masses: v2 has one mass unit throughout, where v1 plotted planet
-masses in Mⱼᵤₚ. For a fully custom version, `PairPlots.pairplot` over the chain columns
-works too:
+Masses are in solar masses throughout. For a fully custom version,
+`PairPlots.pairplot` over the chain columns works too:
 
 ```@example 1
 using PairPlots

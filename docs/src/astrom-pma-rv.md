@@ -17,9 +17,8 @@ Depth = 5
 ```
 
 !!! note "Read [Proper Motion Anomaly](@ref fit-pma) first"
-    That page covers the two v2 changes this one leans on hardest: `HGCAObs` is now a helper
-    over [`G23HObs`](@ref) (so HGCA fits are **not** bit-identical to v1, and the G23H
-    catalog is required).
+    That page covers what this one leans on hardest: `HGCAObs` is a helper over
+    [`G23HObs`](@ref), and the G23H catalog it reads.
 
 ## Model: PMA Only
 
@@ -34,10 +33,10 @@ using Pigeons
 We begin by finding orbits that are consistent with the astrometric motion. Later, we will add in relative astrometry to the fit from direct imaging to further constrain the planet's orbit and mass.
 
 Compared to previous tutorials, we now add a prior on the mass of the companion, called
-`mass`. **All masses are in solar masses in v2** — `mjup` is a plain multiplicative
-constant, so a Jupiter-mass prior reads `LogUniform(0.5mjup, 1000mjup)`. There is also
-nothing left to do to "place a prior on the host mass rather than the system total mass":
-every body carries its own `mass`, and an orbit's total mass comes from the hierarchy.
+`mass`. **All masses are in solar masses** — `mjup` is a plain multiplicative constant, so
+a Jupiter-mass prior reads `LogUniform(0.5mjup, 1000mjup)`. There is also nothing to do to
+"place a prior on the host mass rather than the system total mass": every body carries its
+own `mass`, and an orbit's total mass comes from the hierarchy.
 
 ### The bodies
 
@@ -62,8 +61,7 @@ planet_b = Body(
         i ~ Sine()                             # the Sine() distribution is defined by Octofitter
         Ω ~ Uniform(0, 2pi)
         # `θ` (position angle) + `epoch` is a phase parametrization the orbit
-        # constructor understands directly. v1 wrote
-        # `tp = θ_at_epoch_to_tperi(θ, 57423.0; M, e, a, i, ω, Ω)`.
+        # constructor understands directly.
         θ ~ Uniform(0, 2pi)
         epoch = 57423.0                        # epoch of the GAIA measurement
         flux_G  = 0.0                          # dark to Gaia…
@@ -73,21 +71,33 @@ planet_b = Body(
 nothing # hide
 ```
 
-The two `flux_*` lines replace v1's `F = 0.0` planet variable *and* the observation's
-`fluxratio ~ Product([...])`. They are contrast ratios against the host — set the host to
-`1.0` and every other body's flux is a ratio — and they are how the model places the Gaia
-photocentre and modulates the Hipparcos abscissa. Give a luminous, unresolved companion a
-real prior here (`flux_G ~ Uniform(0, 1)`); omitting all four lines is legal and equivalent
-to `0.0`.
+The two `flux_*` lines are contrast ratios against the host — set the host to `1.0` and
+every other body's flux is a ratio — and they are how the model places the Gaia photocentre
+and modulates the Hipparcos abscissa. Give a luminous, unresolved companion a real prior
+here (`flux_G ~ Uniform(0, 1)`); omitting all four lines is legal and equivalent to `0.0`.
 
 ### Retrieving the HGCA
 
 ```@example 1
+using Arrow, DataFrames, CSV # hide
+# The docs build must touch neither the 14 GB G23H catalog nor the network, so it # hide
+# substitutes a one-row catalog subset and a cached GOST scan forecast. Drop the # hide
+# `catalog=`/`forecast_table=` keywords below to fetch both for real. # hide
+catalog = DataFrame(Arrow.Table(joinpath(@__DIR__, "..", "..", "test", "G23H-test-subset.feather"))) # hide
+gost = CSV.read(joinpath(@__DIR__, "GOST-158.30707896392835-40.42555422701387-dr3.csv"), Table, normalizenames=true) # hide
+forecast = Table( # hide
+    epoch = Octofitter.jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_), # hide
+    scanAngle_rad = gost.scanAngle_rad_, # hide
+    parallaxFactorAlongScan = gost.parallaxFactorAlongScan, # hide
+) # hide
 hgca_obs = HGCAObs(
     gaia_id = 756291174721509376,
     host = A,
     companions = (planet_b,),
     ref = Barycentre,
+    freeze_epochs = true,       # fast but approximate; drop for a production fit
+    catalog = catalog,          # hide
+    forecast_table = forecast,  # hide
 )
 hgca_obs.table.kind
 ```
@@ -109,7 +119,7 @@ We also add parameters for the star's long term proper motion. This is usually c
     The example below uses `Normal(-137, 10)` only because we have independent prior knowledge of this system's proper motion from other sources—for a typical analysis, you should use wide priors like `Normal(0, 1000)`.
 
 !!! warning "An absolute frame is all-or-nothing"
-    `plx, ra, dec, pmra, pmdec, rv, ref_epoch` are reserved system-level names in v2, and a
+    `plx, ra, dec, pmra, pmdec, rv, ref_epoch` are reserved system-level names, and a
     *partial* set is rejected at model-build time. Declare all seven, or `plx` alone. Every
     model on this page that carries the HGCA declares all seven; the final RV + astrometry
     model, which has no absolute astrometry, declares only `plx`.
@@ -209,8 +219,7 @@ reweights the orbit prior by the Jacobian of the observables.
     `RadialVelocityObs(…; target=A, ref=Barycentre)` has no orbit of its own, so wrapping
     one requires `ObsPriorONeil2019(rvs; orbit=planet_b)` explicitly (`orbit=(b, c)` sums
     over several orbits). `ObsPriorAstromONeil2019` is a deprecated alias for the same
-    thing, and v1's caveat that only relative astrometry is supported no longer applies —
-    there is one method now.
+    thing.
 
 ```@example 1
 sys_astrom = System(
@@ -243,18 +252,15 @@ octoplot(model_pma_astrom, chain_pma_astrom)
 `octoplot` draws one time-series panel per plottable data channel: `RelAstromObs`
 contributes separation and position angle (or Δα⋆/Δδ), and `G23HObs` contributes `pmra`
 and `pmdec` — the five catalog proper motions against the model's reflex curve, with each
-point's mission averaging window drawn as a horizontal bar. That pair of panels is what
-v1's dedicated `hgcaplot` drew.
+point's mission averaging window drawn as a horizontal bar.
 
 ## Model: PMA & Relative Astrometry & RVs
 
 We now add in three additional epochs of stellar RVs.
 
-!!! warning "`offset` and `jitter` are no longer auto-injected"
-    v1's `StarAbsoluteRVObs` silently added `offset ~ Uniform(-1000, 1000)` and
-    `jitter ~ LogUniform(0.001, 100)` when you gave no `variables=` block. v2 never invents
-    a prior. A v1 RV model copied across without those two lines fits with **no zero point
-    and no jitter** — declare them explicitly, as below.
+!!! warning "Declare `offset` and `jitter` yourself"
+    Octofitter never invents a prior for you. An RV observation with no `variables=` block
+    fits with **no zero point and no jitter** — declare both explicitly, as below.
 
 ```@example 1
 rv_dat_abs = Table(;
@@ -276,11 +282,11 @@ rvlike = RadialVelocityObs(
 nothing # hide
 ```
 
-`RadialVelocityObs` lives in core Octofitter now and covers both cases that used to be two
-types: `target=A, ref=Barycentre` is v1's `StarAbsoluteRVObs`, and `target=b, ref=A` is
-v1's `PlanetRelativeRVObs`. Neither old name exists, and no `using OctofitterRadialVelocity`
-is needed for either — that package is now only for Celerite, `MarginalizedRVObs`, and the
-archive loaders.
+`RadialVelocityObs` lives in core Octofitter and covers both cases: `target=A,
+ref=Barycentre` is the star's reflex motion against the barycentre, and `target=b, ref=A`
+is a companion's velocity relative to its host. No `using OctofitterRadialVelocity` is
+needed for either — that package is for Celerite, `MarginalizedRVObs`, and the archive
+loaders.
 
 ```@example 1
 sys_rv_astrom = System(
