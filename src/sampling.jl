@@ -92,7 +92,15 @@ function octofit_rejection(
 
     # Build the likelihood function
     θ_test = model.arr2nt(first(prior_samples))
+    # Priors included, deliberately: the proposal is `sample_priors`, which
+    # draws only from the declared distributions. A prior-shaped term (a `~`
+    # line in a `@variables` block, `UnitLengthPrior`, a stability prior) is not
+    # in the proposal, so dropping it from the acceptance weight would drop the
+    # constraint entirely.
     ln_like = make_ln_like(model.system, θ_test)
+    # …but the reported `loglike` column is the data terms only, matching every
+    # other sampler. The rest is reported as `logprior`.
+    ln_like_data = make_ln_like(model.system, θ_test; include_priors=false)
 
     # Evaluate log-likelihood for each prior sample.
     # Use a function barrier so the compiler can specialize on the concrete
@@ -138,14 +146,15 @@ function octofit_rejection(
     # Build the chain results in the same format as octofit.
     # Again use a function barrier for the hot path.
     chain_res = _rejection_build_chain(
-        model.arr2nt, model.link, model.ℓπcallback,
-        prior_samples, log_likes, accepted_indices,
+        model.arr2nt, model.link, model.ℓπcallback, ln_like_data, model.system,
+        prior_samples, accepted_indices,
     )
 
     mcmcchains = Octofitter.result2mcmcchain(
         chain_res,
         Dict(:internals => [
             :loglike,
+            :logprior,
             :logpost,
         ])
     )
@@ -180,14 +189,16 @@ function _rejection_evaluate_likelihoods(arr2nt, ln_like, system, prior_samples)
     return log_likes
 end
 
-function _rejection_build_chain(arr2nt, link, ℓπcallback, prior_samples, log_likes, accepted_indices)
+function _rejection_build_chain(arr2nt, link, ℓπcallback, ln_like_data, system,
+                               prior_samples, accepted_indices)
     return map(accepted_indices) do i
         θ = prior_samples[i]
         resolved_namedtuple = arr2nt(θ)
-        loglike = log_likes[i]
+        loglike = ln_like_data(system, resolved_namedtuple)
         θ_t = link(θ)
         logpost = ℓπcallback(θ_t)
-        return merge((;loglike, logpost), resolved_namedtuple)
+        logprior = logpost - loglike
+        return merge((;loglike, logprior, logpost), resolved_namedtuple)
     end
 end
 
@@ -344,8 +355,13 @@ Base.@nospecializeinfer function advancedhmc(
     
     verbosity >= 1 && @info "Sampling compete. Building chains."
 
-    # Rebuild just the likelihood function (should already be compiled anyways)
-    ln_like = make_ln_like(model.system, model.arr2nt(initial_θ))
+    # Rebuild just the likelihood function (should already be compiled anyways).
+    # `include_priors=false`: the chain's `loglike` column is the *data* terms
+    # only. Prior-shaped observations (a `~` line in a `@variables` block, the
+    # `UnitLengthPrior` behind a `UniformCircular`, the dynamical stability
+    # priors) reshape the prior, and are reported under `logprior` with the
+    # parameter priors where they belong.
+    ln_like_data = make_ln_like(model.system, model.arr2nt(initial_θ); include_priors=false)
 
     # Go through chain and repackage results
     numerical_error = getproperty.(stats, :numerical_error)
@@ -389,7 +405,12 @@ Base.@nospecializeinfer function advancedhmc(
         # Add log posterior, tree depth, and numerical error reported by
         # the sampler.
         # Also recompute the log-likelihood and add that too.
-        loglike = ln_like(model.system, resolved_namedtuple)
+        loglike = ln_like_data(model.system, resolved_namedtuple)
+        # Everything in the log posterior that is not data: the parameter
+        # priors plus the prior-shaped terms `ln_like_data` skipped. Computed
+        # as a difference so the two columns always reconstruct `logpost`
+        # exactly, including the link's log-Jacobian.
+        logprior = stat.log_density - loglike
         return merge((;
             stat.n_steps,
             stat.is_accept,
@@ -403,6 +424,7 @@ Base.@nospecializeinfer function advancedhmc(
             stat.nom_step_size,
             stat.is_adapt,
             loglike = loglike,
+            logprior = logprior,
             logpost = stat.log_density,
         ), resolved_namedtuple)
     end
@@ -423,6 +445,7 @@ Base.@nospecializeinfer function advancedhmc(
             :nom_step_size
             :is_adapt
             :loglike
+            :logprior
             :logpost
             :tree_depth
             :numerical_error

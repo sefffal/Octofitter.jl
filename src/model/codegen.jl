@@ -308,11 +308,31 @@ end
 
 """
     drawfrompriors(system)
+    drawfrompriors(system; overrides, rng=Random.default_rng())
 
-One draw from the model's priors, already expanded into the nested
-NamedTuple structure.
+One draw from the model's priors, already expanded into the nested NamedTuple
+structure — system variables at the top level, then `bodies`, then
+`observations`.
+
+`overrides` pins chosen **free** (`~`) variables to values you supply, in the
+same nested shape, and is the right way to build a parameter set for
+[`generate_from_params`](@ref):
+
+    θ = drawfrompriors(sys; overrides=(;
+        plx = 24.5,
+        bodies = (; b = (; mass = 85mjup, a = 45.0, e = 0.15)),
+    ))
+
+The values are written into the *flat* parameter vector before it is expanded,
+so every derived (`=`) variable is recomputed from them. That is what
+`merge`ing into a template cannot do: `merge` replaces an entry in the
+already-expanded structure, leaving any derived variable that was computed from
+it stale — and `generate_from_params` reads the derived elements, not the
+sampled ones they came from. Overriding a derived variable is an error naming
+the model's free variables, rather than a silent no-op.
 """
-drawfrompriors(sys::System) = make_arr2nt(sys)(collect(make_prior_sampler(sys)(Random.default_rng())))
+drawfrompriors(sys::System; overrides=(;), rng::Random.AbstractRNG=Random.default_rng()) =
+    make_arr2nt(sys)(_apply_overrides!(collect(make_prior_sampler(sys)(rng)), sys, overrides))
 export drawfrompriors
 
 # --- the likelihood -----------------------------------------------------------
@@ -510,18 +530,25 @@ function _build_system_expr(sys::System)
 end
 
 """
-    make_ln_like(system, θ_example)
+    make_ln_like(system, θ_example; include_priors=true)
 
 Build the model's log-likelihood: one `PlanetOrbits.System` per sample, one
 `orbitsolve!` over the whole epoch union into Bumper-allocated storage, then
 every observation evaluated against index views into that one trajectory.
 
-This is where v1's six duplicated epicyclic-superposition loops went. A
-likelihood now asks for `raoff(sol, b, A)` and gets the exact relative offset
-for whatever hierarchy the model describes, under whichever propagator is
-configured — there is nothing left for it to reconstruct by hand.
+A likelihood asks for `raoff(sol, b, A)` and gets the exact relative offset for
+whatever hierarchy the model describes, under whichever propagator is
+configured — there is nothing for it to reconstruct by hand.
+
+`include_priors=false` builds the same function over the **data** terms only,
+skipping every `_isprior` observation (`UserLikelihood` from a `~` line in a
+`@variables` block, `UnitLengthPrior`, the dynamical stability priors) and the
+`@variables`-emitted prior terms. That is what belongs in a chain's `loglike`
+column; the terms it skips reshape the prior and are reported as `logprior`.
+The full version — priors included — is what the sampler's log posterior needs,
+and is unchanged.
 """
-function make_ln_like(sys::System, θ_example=nothing)
+function make_ln_like(sys::System, θ_example=nothing; include_priors::Bool=true)
     unique_ep, maps = epoch_plan(sys)
 
     build = @RuntimeGeneratedFunction(:(function (θ)
@@ -535,6 +562,7 @@ function make_ln_like(sys::System, θ_example=nothing)
     calls = Expr[]
     j = 0
     for (k, o) in enumerate(sys.observations)
+        !include_priors && _isprior(o) && continue
         nm = normalizename(likelihoodname(o))
         θ_obs = :(hasproperty(θ.observations, $(QuoteNode(nm))) ? θ.observations.$nm : (;))
         push!(calls, :($(Symbol(:ll, j + 1)) = $(Symbol(:ll, j)) + ln_like(
@@ -542,12 +570,14 @@ function make_ln_like(sys::System, θ_example=nothing)
             ObsContext(θ, $θ_obs, posys, traj, $(maps[o]), buf))))
         j += 1
     end
-    for (k, (owner, _)) in enumerate(sys.priorterms)
-        θ_obs = owner === :system ? :(θ) : :(θ.bodies.$owner)
-        push!(calls, :($(Symbol(:ll, j + 1)) = $(Symbol(:ll, j)) + ln_like(
-            system.priorterms[$k][2],
-            ObsContext(θ, $θ_obs, posys, traj, $(Int[]), buf))))
-        j += 1
+    if include_priors
+        for (k, (owner, _)) in enumerate(sys.priorterms)
+            θ_obs = owner === :system ? :(θ) : :(θ.bodies.$owner)
+            push!(calls, :($(Symbol(:ll, j + 1)) = $(Symbol(:ll, j)) + ln_like(
+                system.priorterms[$k][2],
+                ObsContext(θ, $θ_obs, posys, traj, $(Int[]), buf))))
+            j += 1
+        end
     end
 
     method = sys.method

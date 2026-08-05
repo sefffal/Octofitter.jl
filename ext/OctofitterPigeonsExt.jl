@@ -61,7 +61,7 @@ end
 
 Whether the reference model still carries terms that reshape the prior, so
 that drawing from the declared distributions is *not* a draw from the
-reference. Two sources in v2: prior-shaped observations in the system's flat
+reference. Two sources in v9: prior-shaped observations in the system's flat
 observation list, and the terms `@variables` emitted for `lhs ~ dist` /
 `LL +=` lines and for the `UnitLengthPrior` behind each `UniformCircular`
 (`sys.priorterms`, which is a tuple of `owner => term` pairs).
@@ -70,7 +70,7 @@ observation list, and the terms `@variables` emitted for `lhs ~ dist` /
 `false`; the default `exclude_all=false` keeps those terms deliberately.
 
 `BlankLikelihood` is excluded even though `_isprior` is true for it: it
-contributes exactly zero, so it does not reshape the prior. (v1 got this by
+contributes exactly zero, so it does not reshape the prior. (v8 got this by
 accident — it never defined `_isprior` for `BlankLikelihood`, so it fell
 through to the `false` fallback. Counting it here would send every
 `prior_only_model` reference down the explorer path instead of drawing IID.)
@@ -208,7 +208,12 @@ Base.@nospecializeinfer function MCMCChains.Chains(
     chain_num::Union{Nothing,Int}=nothing
 )
     ln_prior = Octofitter.make_ln_prior_transformed(model.system)
-    ln_like = Octofitter.make_ln_like(model.system, model.arr2nt(model.sample_priors(Random.default_rng())))
+    # `loglike` is the data terms only; the prior-shaped observations it skips
+    # are reported with the parameter priors under `logprior`, matching the
+    # other samplers.
+    θ_example = model.arr2nt(model.sample_priors(Random.default_rng()))
+    ln_like = Octofitter.make_ln_like(model.system, θ_example)
+    ln_like_data = Octofitter.make_ln_like(model.system, θ_example; include_priors=false)
 
     # Resolve the array back into the nested named tuple structure used
     # internally, augmented with the sampler's own diagnostics.
@@ -223,11 +228,13 @@ Base.@nospecializeinfer function MCMCChains.Chains(
         θ = model.invlink(θ_t)
         resolved_namedtuple = model.arr2nt(θ)
         ll = ln_like(model.system, resolved_namedtuple)
+        ll_data = ln_like_data(model.system, resolved_namedtuple)
         lp = ln_prior(θ, true)
         # `logpot` is the tempered log potential and does not equal ll + lp.
+        # `ll - ll_data` is the prior-shaped part of the likelihood sum.
         return merge((;
-            loglike=ll,
-            logprior=lp,
+            loglike=ll_data,
+            logprior=lp + (ll - ll_data),
             logpost=ll+lp,
             pigeons_logpotential = logpot
         ), resolved_namedtuple)

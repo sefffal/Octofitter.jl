@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Simulation-based calibration   (agent G)
+# Simulation-based calibration
 #
 # Draws from the prior, simulates data with `generate_from_params`, refits,
 # and checks rank uniformity.
@@ -42,7 +42,7 @@ injection-recovery.
 
 `θ` is a nested parameter NamedTuple, as produced by
 [`drawfrompriors`](@ref), `model.arr2nt(θ_flat)`, or
-[`mcmcchain2result`](@ref).
+`mcmcchain2result`.
 
 With `add_noise=true` each observation adds a draw from its own noise model
 (including any jitter `θ` specifies); with `add_noise=false` the data are the
@@ -119,8 +119,8 @@ a flat histogram of ranks for every parameter.
   - `target_accept`, `verbosity` and anything else are forwarded to
     [`octofit`](@ref).
 
-!!! warning "Changed from v1"
-    `add_noise` now defaults to `true`. v1 simulated *noiseless* data here
+!!! warning "Changed from v8"
+    `add_noise` now defaults to `true`. v8 simulated *noiseless* data here
     (it took `generate_from_params`'s `add_noise=false` default), which is not
     a draw from the likelihood: ranks computed against it are not the SBC
     statistic and the histograms it produces are not the diagnostic they look
@@ -151,15 +151,18 @@ function calibrationhmc(
     # The log posterior and log likelihood *at the truth*, which Modrák et al.
     # (2022) use as a summary statistic alongside the per-parameter ranks: it
     # catches miscalibration that no single marginal shows.
-    loglike = make_ln_like(newsystem, θ_nt)(newsystem, θ_nt)
+    # `loglike` is the data terms only, matching the chain column it is compared
+    # against; the prior-shaped observations go into `logprior` alongside the
+    # parameter priors.
+    loglike = make_ln_like(newsystem, θ_nt; include_priors=false)(newsystem, θ_nt)
+    loglike_all = make_ln_like(newsystem, θ_nt)(newsystem, θ_nt)
     # `sampled=false` asks for the plain prior density rather than the
     # transformed one — no change-of-variables Jacobian, because θ_flat is in
-    # the natural domain. (v1 called `make_ln_prior`, which v2 folded into
-    # `make_ln_prior_transformed`'s second argument.)
-    logprior = make_ln_prior_transformed(newsystem)(θ_flat, false)
+    # the natural domain.
+    logprior = make_ln_prior_transformed(newsystem)(θ_flat, false) + (loglike_all - loglike)
     logpost = logprior + loglike
 
-    θ_array = result2mcmcchain([(; loglike, logpost, θ_nt...)])
+    θ_array = result2mcmcchain([(; loglike, logprior, logpost, θ_nt...)])
 
     # Rank of the true value within the posterior, for every parameter the
     # chain and the truth have in common.
