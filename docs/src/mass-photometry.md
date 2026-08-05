@@ -1,4 +1,4 @@
-#  [Connecting Mass with Photometry] (@id mass-photometry)
+#  [Connecting Mass with Photometry](@id mass-photometry)
 
 A body's brightness in a given band is an ordinary model variable, named `flux_<band>` and declared in that body's own `@variables` block. Because it is an ordinary variable, it can be **derived** from other variables — and the most useful thing to derive it from is the body's mass, through an evolutionary model.
 

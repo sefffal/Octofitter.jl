@@ -1,4 +1,4 @@
-# [Migration Guide] (@id migration)
+# [Migration Guide](@id migration)
 
 !!! warning "This page is historical"
     This guide covers the v6 → v7 → v8 changes. **It does not describe the current API.**
