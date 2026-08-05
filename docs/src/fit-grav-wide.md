@@ -17,8 +17,8 @@ V(u,v) = \frac{\sum_j f_j \, e^{-2\pi i (u\,\Delta\alpha^*_j + v\,\Delta\delta_j
 over the bodies named in `targets`, at whatever offsets the trajectory puts them. There is no primary — the host is one source among the others, with its own `flux_<band>` variable — and a source may orbit any body, so a moon or a wide component of a hierarchical system is expressible.
 
 !!! note "`GRAVITYWideKPObs` is a preset, not a type"
-    In v1 this was a separate likelihood type. The kernel-phase machinery is now an
-    option on [Fitting Interferometric Observables](@ref)'s `InterferometryObs`, and
+    The kernel-phase machinery is an option on
+    [Fitting Interferometric Observables](@ref)'s `InterferometryObs`, and
     `GRAVITYWideKPObs(...)` is a *function* that returns one with
     `kernel_phases=true, fiber_coupling=true` set. The equivalent spelling on the
     merged type is
@@ -67,13 +67,13 @@ b = Body(
     name="b",
     about=A,
     variables=@variables begin
-        flux_K ~ Uniform(0, 1)   # contrast ratio; what v1's `flux[1]` was
+        flux_K ~ Uniform(0, 1)   # contrast ratio against the host
 
         sep ~ Uniform(0, 10)     # mas
         pa ~ Uniform(0, 2pi)     # radians
 
         # A face-on circular orbit placed at (sep, pa) at the epoch of the
-        # exposure — the v2 spelling of v1's `FixedPosition` parameterization.
+        # exposure: a fixed position, written as a degenerate orbit.
         a = sep / system.plx
         e = 0.0
         i = 0.0
@@ -124,27 +124,18 @@ model = Octofitter.LogDensityModel(sys, verbosity=4)
 The **fluxes are body variables**, not a `flux` vector on the observation. A second companion is a third entry in `targets` plus its own `flux_K` on its own body.
 
 !!! note "OI-FITS files are read directly"
-    v2 reads OI-FITS through FITSIO rather than through OIFITS.jl: OIFITS 2.0 moved
-    to AstroFITS and dropped the `read(OIDataBlock, ::FITSIO.HDU)` method Octofitter
-    used, so with the OIFITS version this package resolves to today, *every* file
-    failed to load. v1's data-block selection is preserved (prefer `EXTVER = 10`,
-    GRAVITY's science-combiner convention, falling back to the first block of each
-    kind) and is now exposed as an optional `oi_extver` field on the input row.
+    OI-FITS is read through FITSIO rather than through OIFITS.jl, whose 2.0 release moved
+    to AstroFITS and dropped the `read(OIDataBlock, ::FITSIO.HDU)` method Octofitter used.
+    Data-block selection prefers `EXTVER = 10` — GRAVITY's science-combiner convention —
+    falling back to the first block of each kind, and is exposed as an optional
+    `oi_extver` field on the input row.
 
-## Two behaviour changes to be aware of
+## Two things to be aware of
 
-!!! warning "`platescale` changed sense"
-    v1's interferometry likelihood *multiplied* the modelled offsets by
-    `platescale`; v2 divides, matching relative astrometry and images. `platescale = 1`
-    (the default) is unaffected, but a fitted `platescale` posterior carried across
-    from v1 must be inverted. `northangle` is unchanged.
-
-!!! warning "Fibre coupling is computed differently, and the numbers move"
-    `GRAVITYWideKPObs` sets `fiber_coupling=true`. v1 evaluated the throughput of
-    *every* companion at the host-to-photocentre distance `f·ρ/(1+f)` and left the
-    host at 1.0 — a closed-form two-body photocentre with no meaning for three
-    bodies. Each source's throughput is now evaluated at its own offset from
-    `fiber_pointing`, which is the quantity injection efficiency actually depends on.
+!!! note "How fibre coupling is computed"
+    `GRAVITYWideKPObs` sets `fiber_coupling=true`. Each source's throughput is evaluated
+    at its own offset from `fiber_pointing`, which is the quantity injection efficiency
+    actually depends on.
 
     `fiber_pointing` defaults to `Photocentre(band)`. For most GRAVITY-WIDE
     observations the fibre is actually on the host, which is spelled
@@ -161,9 +152,9 @@ The **fluxes are body variables**, not a `flux` vector on the observation. A sec
 !!! note "Choosing `ref`"
     Closure phases, kernel phases and squared visibilities are invariant to the phase
     centre, so `ref` is a free choice — but only modulo 360°: baseline phases are
-    folded into (−180°, 180°] and the triangle sum is not (v1 behaviour, kept). Keep
-    `ref` near the flux centroid: `Barycentre` for a faint companion, or
-    `Photocentre(:K)` in general. `ref=A` matches v1's spelling.
+    folded into (−180°, 180°] and the triangle sum is not. Keep `ref` near the flux
+    centroid: `Barycentre` for a faint companion, or `Photocentre(:K)` in general.
+    `ref=A` puts the phase centre on the host.
 
 ## Sampling
 
@@ -268,7 +259,7 @@ fig
 
 
 
-This single-epoch model can then be extended by replacing the fixed-position parameterization with a real Keplerian orbit — which in v2 just means declaring a different set of variables on the same body:
+This single-epoch model can then be extended by replacing the fixed-position parameterization with a real Keplerian orbit — which just means declaring a different set of variables on the same body:
 ```julia
 b_orbit = Body(
     name="b",

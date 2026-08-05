@@ -27,13 +27,12 @@ chain["b_a"]
 ```
 This returns an array of semi-major axis values (`a`) for the planet `b` sampled from the posterior.
 
-!!! note "Column names changed in v2"
-    Observations are no longer owned by a planet, so an observation variable that used to
-    be called `b_GPI_jitter` is now `GPI_jitter`. Chains saved by v1 still load, with a
-    warning explaining the rename. Body variables (`b_a`, `b_e`, …) are unchanged.
-
-    Note also that per-band fluxes moved from observations onto bodies, so e.g.
-    `b_SPHERE_flux` became `b_flux_H`. See [Migrating to Octofitter v2](@ref v2-migration).
+!!! note "How columns are named"
+    Body variables are prefixed with the body's name (`b_a`, `b_e`, `b_flux_H`);
+    observation variables are prefixed with the observation's name (`GPI_jitter`);
+    system variables have no prefix (`plx`). Chains written by older versions still
+    load, with a warning explaining any renames — see
+    [Migrating to Octofitter v9](@ref v9-migration).
 
 ## Reconstructing orbits from a chain
 
@@ -59,8 +58,8 @@ radvel(traj[1], :A, bc)                           # [m/s] stellar reflex
     `PlanetOrbits.photocentre(posys; band=:H)`. Passing the capitalized spec straight to
     `radvel` is a `MethodError`.
 
-This replaces v1's `construct_elements(chain, :b, i)`. There is no longer a per-planet
-orbit object: a draw is one `PlanetOrbits.System` containing every body and every orbit.
+There is no per-planet orbit object: a draw is one `PlanetOrbits.System` containing
+every body and every orbit.
 
 ## Diagnostics
 Printing the chains will display a number of useful summaries for each quantity, like the mean, 0.25, 0.5, and 0.75 quantiles, and convergence metrics. See MCMCChains documentation for more details.

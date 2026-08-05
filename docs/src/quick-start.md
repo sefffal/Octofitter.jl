@@ -9,8 +9,8 @@ This guide introduces the key concepts in Octofitter:
 
 For installation instructions, see [Installation](@ref install).
 
-If you are porting a script written for Octofitter v1 (v8 or earlier), read
-[Migrating to Octofitter v2](@ref v2-migration) first — the model syntax changed.
+If you are porting a script written for Octofitter v8 or earlier, read
+[Migrating to Octofitter v9](@ref v9-migration) first — the model syntax changed.
 
 ## Example: Fit a Single Planet Orbit to Relative Astrometry
 
@@ -53,7 +53,7 @@ b = Body(
     name="b",
     about=A,
     variables=@variables begin
-        mass = 0.0                 # [M⊙] relative astrometry alone can't measure it
+        mass = 0.0                 # [M⊙] see the note below
         a ~ Uniform(0, 100)        # Semi-major axis [AU]
         e ~ Uniform(0.0, 0.5)      # Eccentricity
         i ~ Sine()                 # Inclination [rad]
@@ -71,11 +71,15 @@ nothing # hide
     epoch. `θ` and `epoch` together fix where the planet is on its orbit; you could
     equally supply `tp` (epoch of periastron passage) or `M0` and `epoch`.
 
-!!! note "Where did `M` go?"
-    There is no `M` variable any more. The gravitating mass of an orbit is the total mass
-    of the bodies it binds, computed from the model rather than declared. Here that is
-    `A.mass + b.mass`, so fixing `b.mass = 0.0` makes `A.mass` play exactly the role
-    v1's `M` did.
+!!! note "Why the planet's mass is fixed at zero"
+    An orbit's gravitating mass is the total mass of the bodies it binds, computed from
+    the model rather than declared — here `A.mass + b.mass`. Relative astrometry
+    constrains only that *sum*, never the split between the two, so setting `b.mass = 0.0`
+    hands the whole of it to `A.mass` and keeps the model identified. `A.mass` is then
+    the total mass of the orbit, which is what the astrometry actually measures.
+
+    Give the planet a real mass prior once you add data that can separate the two:
+    radial velocity, absolute astrometry, or a second planet.
 
 Now build the observation, saying what it observes (`target`) and what it is measured
 against (`ref`), and assemble the system:

@@ -41,19 +41,19 @@ end)
 nothing # hide
 ```
 
-Under the hood that becomes an `Octofitter.UserLikelihood` with `_isprior = true`, which means it is deliberately excluded from likelihood counts, has no table to subset, and has no `generate_from_params`. It can never be held out by cross-validation, and you can never simulate data from it.
+Under the hood that becomes an `Octofitter.UserLikelihood` with `_isprior = true`: it reshapes the prior rather than adding data, so it is reported under the chain's `logprior` rather than its `loglike`, has no table to subset, and has no `generate_from_params`. It is not held out by cross-validation, and it cannot be used to simulate data.
 
-That is exactly the trade. Write a real observation type when:
+That is the trade. Write a real observation type when:
 
 * the numbers are **measurements**, so you want [Cross-Validation](@ref cross-validation) to be able to hold rows out; or
 * you want [`generate_from_params`](@ref) to replicate them, for [Posterior Predictive Checks](@ref), [Simulation Based Calibration](@ref sbc), or completeness mapping; or
-* the comparison needs the *solved trajectory* — a position, a velocity, an epoch — rather than parameters alone.
+* the comparison needs the *solved trajectory* — a position, a velocity, an epoch — rather than the parameters alone.
 
 `PhotometryObs` is the borderline case that was decided this way on purpose: `flux_H ~ Normal(15.0, 3.0)` in a body's block expresses exactly the same arithmetic, but only `PhotometryObs(phot_data; target=b, band=:H, name="NIRC2")` can be cross-validated or simulated.
 
 ## The interface
 
-An observation in v2 is **data + a `target` reference + a `ref` reference + its own variables**. There is one context type; the v1 `PlanetObservationContext` / `SystemObservationContext` split is gone, because observations are no longer owned by a companion.
+An observation is **data + a `target` reference + a `ref` reference + its own variables**. There is one context type, [`ObsContext`](@ref).
 
 | method | required? | what it does |
 |---|---|---|
@@ -127,13 +127,10 @@ The observation type carries:
 
 Try to follow the advice in the Julia Manual's performance tips section to ensure you've created a fully "concrete" type. This won't affect correctness, but will be important for performance down the road.
 
-!!! note "Changed from v1"
-    v1 observations had no `target`/`ref`: which bodies a likelihood referred to was implied
-    by whether you attached it to a `Planet` or to the `System`, and the position of a
-    companion was rebuilt by summing the reflex motion of every body the likelihood decided
-    at runtime was "inner" (by comparing semi-major axes). That superposition loop is gone.
-    `raoff(sol, target, ref)` is the whole model, and it is defined for references a v1
-    likelihood could not express: another companion, a barycentre, a photocentre.
+!!! note "References do all the work"
+    `raoff(sol, target, ref)` is the whole positional model, and it is defined for every
+    reference the grammar can express: a body, another companion, a barycentre, a
+    photocentre. A likelihood never reconstructs a companion's position by hand.
 
 ## Declaring the references and the epochs
 
@@ -221,7 +218,7 @@ sep_obs = SepObs(
 )
 ```
 
-Note that references take the full v2 grammar — `ref=Barycentre`, `ref=c`, `target=Photocentre(:H, (b, c))` are all legal, and are checked against the model's body list when the `System` is built.
+Note that references take the full grammar — `ref=Barycentre`, `ref=c`, `target=Photocentre(:H, (b, c))` are all legal, and are checked against the model's body list when the `System` is built.
 
 Observations go in the `System`'s `observations=` list; they are never attached to a body:
 
@@ -246,12 +243,11 @@ chain = octofit(model, verbosity=0, iterations=1000, adaptation=1000)
 chain[:MY_INSTRUMENT_jitter][1:3]
 ```
 
-!!! note "Changed from v1"
-    v1 named a companion-owned observation's variables `<planet>_<observation>_<variable>`
-    (`b_MY_INSTRUMENT_jitter`). Since observations are no longer owned by a body, the
-    planet prefix is gone. This is the naming change that
-    [`Octofitter.checkchain`](@ref) exists to catch when loading a v1 chain against a
-    v2 model.
+!!! note "How the columns are named"
+    An observation's variables are named `<observation>_<variable>`, with no body prefix —
+    an observation belongs to the system, not to a body.
+    [`Octofitter.checkchain`](@ref) reports the mismatch if you load a chain written
+    against a differently-named model.
 
 ## Bonus: the generative model
 
@@ -299,12 +295,6 @@ sim_sys = generate_from_params(sys; add_noise=true)
 sim_sys.observations[1].table.sep
 ```
 
-!!! warning
-    There is no silent fallback. An observation that carries data but does not implement
-    `generate_from_params` raises an error rather than passing itself through unchanged —
-    otherwise a "simulated" system would quietly keep the real measurements and every
-    downstream diagnostic would be measuring the wrong thing.
-
 ## Bonus: cross-validation
 
 Implement `likeobj_from_epoch_subset` and your type can be held out row by row, which is what [`Octofitter.pointwise_like`](@ref) and PSIS-LOO need:
@@ -326,8 +316,7 @@ size(likelihood_mat)
 
 !!! note
     `likeobj_from_epoch_subset(obs, inds)` **keeps** the rows in `inds`; it does not drop
-    them. (A comment in v1 claimed the opposite and its cross-validation code was written
-    against that claim — see the warning in [Cross-Validation](@ref cross-validation).)
+    them.
 
     Make sure every keyword survives the round trip. If you drop `name` or `variables`
     here, every derived model gets a differently-named observation and its chain will not

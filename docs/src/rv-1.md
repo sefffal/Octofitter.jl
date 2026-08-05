@@ -4,10 +4,9 @@ You can use Octofitter to fit radial velocity data, either alone or in combinati
 Multiple instruments (any number) are supported, as are arbitrary trends, and gaussian processes to model stellar activity.
 
 !!! note "One likelihood, two kinds of RV"
-    In Octofitter v2 there is a single radial velocity observation type,
-    [`RadialVelocityObs`](@ref). What used to be `StarAbsoluteRVObs` and
-    `PlanetRelativeRVObs` are now the *same* likelihood pointed at different
-    references:
+    There is a single radial velocity observation type,
+    [`RadialVelocityObs`](@ref), and it covers both cases — the difference is
+    only what you point it at:
 
     ```julia
     RadialVelocityObs(tab; target=A, ref=Barycentre)   # stellar reflex ("absolute" RV)
@@ -15,18 +14,15 @@ Multiple instruments (any number) are supported, as are arbitrary trends, and ga
     ```
 
     `target` is the body whose velocity was measured and `ref` is what it was
-    measured against. Nothing else about the model changes. `RadialVelocityObs`
-    lives in core Octofitter, so a plain RV fit no longer needs
-    `using OctofitterRadialVelocity` at all — that package now supplies only the
-    Celerite kernels, `MarginalizedRVObs`, and the public archive loaders.
+    measured against. `RadialVelocityObs` lives in core Octofitter, so a plain RV
+    fit does not need `using OctofitterRadialVelocity` — that package supplies
+    the Celerite kernels, `MarginalizedRVObs`, and the public archive loaders.
 
-!!! warning "`offset` and `jitter` are no longer added for you"
-    Octofitter v1 silently injected `offset ~ Uniform(-1000, 1000)` and
-    `jitter ~ LogUniform(0.001, 100)` into a `StarAbsoluteRVObs` that was
-    constructed without a `variables=` block. **v2 never invents a prior.**
-    A v1 model copied across without those two lines will sample happily and fit
-    badly — with no instrument zero point and no jitter. Declare them explicitly
-    in every instrument's `@variables` block, as every example on this page does.
+!!! warning "Declare `offset` and `jitter` yourself"
+    Octofitter never invents a prior. An RV observation constructed without a
+    `variables=` block will sample happily and fit badly — with no instrument
+    zero point and no jitter. Declare both explicitly in every instrument's
+    `@variables` block, as every example on this page does.
 
 For this example, we will fit the orbit of the planet K2-131, and reproduce this [RadVel tutorial](https://radvel.readthedocs.io/en/latest/tutorials/GaussianProcess-tutorial.html).
 
@@ -94,9 +90,9 @@ nothing # hide
 ```
 
 We build the model bodies first, because each observation names the bodies it
-refers to. The star is an ordinary body in v2 — it has a mass like everything
-else, and the gravitating mass of each orbit is worked out from the hierarchy
-rather than declared by hand:
+refers to. The star is an ordinary body — it has a mass like everything else,
+and the gravitating mass of each orbit is worked out from the hierarchy rather
+than declared by hand:
 
 ```@example 1
 A = Body(
@@ -111,17 +107,15 @@ b = Body(
     about=A,
     variables=@variables begin
         # A radial-velocity-only fit: RVs cannot constrain the inclination or the
-        # ascending node, so we fix them. (This is what v1 spelled
-        # `basis=RadialVelocityOrbit`. With i = π/2, the fitted `mass` is really
-        # m·sin(i), i.e. a minimum mass.)
+        # ascending node, so we fix them. With i = π/2 the fitted `mass` is really
+        # m·sin(i), i.e. a minimum mass.
         i = pi/2
         Ω = 0.0
         e = 0.0
         ω = 0.0
 
-        # `P` is an orbital element in v2 and is given in DAYS. There is no need
-        # to convert a period into a semi-major axis by hand any more --- v1's
-        # `a = cbrt(M * P^2)` line is gone, along with the total mass `M` it needed.
+        # `P` is an orbital element, given in DAYS. There is no need to convert a
+        # period into a semi-major axis by hand.
         P ~ truncated(Normal(0.3693038, 0.0000091), lower=0.0001) # days
 
         # Phase. `τ` is a dimensionless orbital phase in [0,1); pick a reference
@@ -129,10 +123,9 @@ b = Body(
         τ ~ UniformCircular(1.0)
         tp = τ * P + 57782
 
-        # Masses are in SOLAR masses everywhere in v2. `mjup` is a plain
-        # multiplicative constant, so a Jupiter-mass prior is one extra line.
-        mass_jup ~ LogUniform(0.001, 10) # Mjup
-        mass = mass_jup * mjup           # M⊙
+        # Masses are in SOLAR masses everywhere. `mjup` is a plain multiplicative
+        # constant, so a Jupiter-mass prior is written straight into the prior.
+        mass ~ LogUniform(0.001mjup, 10mjup)   # M⊙
     end
 )
 nothing # hide
@@ -163,9 +156,9 @@ rvlike_pfs = RadialVelocityObs(
 nothing # hide
 ```
 
-Finally we assemble the system. Observations are a flat list on the system in
-v2 — they are never attached to a planet, because each one already says what it
-observes (`target`) and what it is measured against (`ref`):
+Finally we assemble the system. Observations are a flat list on the system:
+each one already says what it observes (`target`) and what it is measured
+against (`ref`):
 
 ```@example 1
 sys = System(
@@ -176,8 +169,7 @@ sys = System(
 ```
 
 Note that this system declares no `plx`: an RV-only model needs no parallax,
-and without one Octofitter simply does not offer angular observables (rather
-than silently computing them from a made-up distance).
+and without one Octofitter does not offer angular observables.
 
 We can now prepare our model for sampling.
 ```@example 1
@@ -223,7 +215,7 @@ This example continues in [Fit Gaussian Process](@ref fit-rv-gp).
 
 To generate synthetic radial velocity data for testing, the recommended approach is to use Octofitter's built-in simulation capabilities. See the [Generating and Fitting Simulated Data](@ref data-simulation) tutorial for a complete guide on simulating data from models.
 
-Alternatively, you can generate RV data directly with [PlanetOrbits.jl](https://sefffal.github.io/PlanetOrbits.jl/dev/api/). In v2 you build a
+Alternatively, you can generate RV data directly with [PlanetOrbits.jl](https://sefffal.github.io/PlanetOrbits.jl/dev/api/). You build a
 `PlanetOrbits.System` whose companion carries a real mass, solve it once over
 your epochs, and then ask for whichever velocity difference you want:
 
@@ -250,7 +242,7 @@ extrema(rv_star)
 ```
 
 !!! note "Masses are solar masses"
-    Every mass in Octofitter v2 and PlanetOrbits v2 is in solar masses, including
+    Every mass in Octofitter and PlanetOrbits is in solar masses, including
     `PlanetOrbits.Body(mass=…)`. `mjup` and `mearth` are plain multiplicative
     constants (`mass = 5.3mjup`), and `Octofitter.mjup2msol` is the same number
     as `mjup` if you prefer the explicit spelling.

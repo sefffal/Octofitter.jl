@@ -187,12 +187,11 @@ gaiaIADobs = GaiaDR4AstromObs(df;
 nothing # hide
 ```
 
-!!! note "What changed from v1 here"
-    `GaiaDR4AstromObs` no longer takes `gaia_id=` — it carries data, references and
-    variables and nothing else. Instead it declares `target=Photocentre` (the system's
-    flux-weighted point, the default) and `ref=Barycentre`, which is what replaces v1's
-    positional `fluxratio` vector. The observation's parallax is read from the system's
-    `plx`, so the old `plx = system.plx` line in this block is redundant.
+!!! note "What the observation carries"
+    `GaiaDR4AstromObs` takes data, references and variables and nothing else — no
+    `gaia_id=`, and no archive query. It declares `target=Photocentre` (the system's
+    flux-weighted point, the default) measured against `ref=Barycentre`, and reads its
+    parallax from the system's own `plx`.
 
 ## Define the Model
 
@@ -240,7 +239,8 @@ model = Octofitter.LogDensityModel(sys, verbosity=4)
 
 A `Photocentre` target needs at least one body to declare a flux, so `A` carries
 `flux = 1.0`; every other body's `flux` is then a contrast ratio against it. With
-`b.flux = 0.0` the photocentre is exactly the host, which is what v1 modelled by default.
+`b.flux = 0.0` the photocentre is exactly the host, which is the right model for a dark
+companion.
 
 ## Simulating a Planet
 
@@ -272,8 +272,8 @@ We can also specify all values for the simulation manually. This process is a bi
 !!! warning
     Note that the output below is just an example, you must generate your own template from your model and modify it as needed. The exact structure is not garuanteed to be stable between versions of Octofitter.
 
-Note the shape: system variables at the top level, **`bodies`** (v1 called this `planets`,
-and the star was not in it), and `observations`.
+Note the shape: system variables at the top level, then **`bodies`** — the host star
+included — then `observations`.
 
 ```@example 1
 params_to_simulate = (
@@ -372,10 +372,9 @@ where the one-dimensional nature of a Gaia measurement becomes visible:
 Octofitter.gaiastarplot(sim_model, chain, 1)
 ```
 
-Finally, compare the recovered orbit against the truth. v1 did this with
-`Octofitter.astromplot!`, which has not been ported; the v2 way is to rebuild the
-`PlanetOrbits.System` for each draw with `construct_system` and plot the tracks directly —
-the same thing the sky panel does internally:
+Finally, compare the recovered orbit against the truth: rebuild the
+`PlanetOrbits.System` for each draw with `construct_system` and plot the tracks directly,
+which is what the sky panel does internally:
 
 ```@example 1
 ts = range(minimum(df.epoch), minimum(df.epoch) + 4000, length=300)

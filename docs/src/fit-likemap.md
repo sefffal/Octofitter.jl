@@ -184,7 +184,7 @@ loglikemap = LogLikelihoodMapObs(
 nothing # hide
 ```
 
-`target` and `ref` take the full v2 reference grammar: a `Body` model node, a `Symbol` naming one, or `Barycentre`. `ref` is the point each map is centred on (index `[0,0]`), which need not be the star.
+`target` and `ref` take the full reference grammar: a `Body` model node, a `Symbol` naming one, or `Barycentre`. `ref` is the point each map is centred on (index `[0,0]`), which need not be the star.
 
 !!! note "This type is deliberately single-target"
     Unlike [`ImageObs`](@ref fit-images), which takes `targets=(b, c)` because one
@@ -200,7 +200,7 @@ nothing # hide
 !!! note
     The likelihood maps will be interpolated using a simple bi-linear interpolation. 
 
-We now create a one-planet model and run the fit using `octofit_pigeons`. This parallel-tempered sampler is slower than the regular `octofit`, but is recommended over the default Hamiltonian Monte Carlo sampler due to the multi-modal nature of the data. Observations live on the system in v2, and each names its own `target`/`ref` — there is nothing left for per-companion attachment to express.
+We now create a one-planet model and run the fit using `octofit_pigeons`. This parallel-tempered sampler is slower than the regular `octofit`, but is recommended over the default Hamiltonian Monte Carlo sampler due to the multi-modal nature of the data. Observations live on the system, and each names its own `target`/`ref`.
 
 ```@example 1
 
@@ -267,7 +267,7 @@ using CairoMakie, PairPlots
 octocorner(model,chain,small=true,)
 ```
 
-And finally let's look at the posterior predictive distributions at both epochs. `construct_system(model, chain)` rebuilds one PlanetOrbits system per posterior draw — it replaces v1's `construct_elements(chain, :b, i)`, since there is no per-planet orbit object any more:
+And finally let's look at the posterior predictive distributions at both epochs. `construct_system(model, chain)` rebuilds one PlanetOrbits system per posterior draw:
 ```@example 1
 posteriors = construct_system(model, chain)
 

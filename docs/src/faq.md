@@ -9,9 +9,8 @@
 ## How do we calculate the position of a planet at a future epoch?
 
 After fitting an orbit, rebuild the whole system for one or more draws from the chain and
-query it at whatever epochs you like. `construct_system` replaces v1's
-`construct_elements`: a draw is now one `PlanetOrbits.System` containing every body and
-every orbit, rather than a per-planet orbit object.
+query it at whatever epochs you like. A draw is one `PlanetOrbits.System` containing
+every body and every orbit, rather than a per-planet orbit object.
 
 ```julia
 posys = construct_system(model, chain, 1)   # draw #1; pass `:` for all draws
@@ -59,10 +58,10 @@ end
 scatter(X, axis=(;xlabel="draw", ylabel="ΔRA [mas]"))
 ```
 
-!!! note "`mark_epochs_mjd` is gone"
-    v1's `octoplot(model, chain, mark_epochs_mjd=[...])` has no v2 equivalent yet. Compute
-    the predicted positions as above and add them to the figure yourself — `octoplot`
-    returns named axes (`res.axes`) precisely so that you can.
+!!! note "Marking specific epochs on a plot"
+    `octoplot` has no `mark_epochs_mjd` keyword. Compute the predicted positions as above
+    and add them to the figure yourself — `octoplot` returns named axes (`res.axes`)
+    precisely so that you can.
 
 
 ## Can slope/GP parameters be shared between RV instruments?
@@ -113,12 +112,6 @@ sys = System(
     end
 )
 ```
-
-!!! warning "`offset` and `jitter` are no longer added for you"
-    v1's `StarAbsoluteRVObs` silently injected `offset ~ Uniform(-1000, 1000)` and
-    `jitter ~ LogUniform(0.001, 100)` when you gave it no `variables=` block. v2 never
-    invents a prior. A v1 RV model copied across without those two lines fits with **no
-    zero point and no jitter**, which will change your answers rather than error.
 
 ## What conventions does Octofitter use for orbital elements?
 
@@ -247,7 +240,7 @@ Then write `system.age` and `system.b_mass` inside `my_obs`'s variables block.
 Note that per-band fluxes and contrast ratios are no longer observation variables at all:
 they are declared on the body as `flux` or `flux_<band>`. Several observation types raise
 an explicit error if you declare a `flux` variable on the observation. See
-[Migrating to Octofitter v2](@ref v2-migration).
+[Migrating to Octofitter v9](@ref v9-migration).
 
 See [Derived Variables](@ref derived) for more details.
 

@@ -128,8 +128,8 @@ observations = [
 ```
 
 Naming `bodies=` restricts each prior to the hierarchy rows that place those bodies. The
-default — no list — covers *every* row, which is v1's behaviour but is worth thinking
-about in a hierarchical system: a 2+2 quadruple's rows include the wide binary orbit, and
+default — no list — covers *every* row, which is worth thinking about in a hierarchical
+system: a 2+2 quadruple's rows include the wide binary orbit, and
 comparing an inner pair's apsides against it is not a meaningful test. See
 [Resonant Co-Planar Model](@ref fit-coplanar) for a worked example.
 
@@ -184,5 +184,5 @@ sys = System(
 )
 ```
 
-See [Observable-Based Priors](@ref) for a complete worked example, including the case of
+See [Observable-Based Priors](@ref obs-priors) for a complete worked example, including the case of
 wrapping a radial velocity observation, where you must name the orbit explicitly.

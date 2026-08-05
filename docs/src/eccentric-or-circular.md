@@ -118,8 +118,8 @@ nothing # hide
     When an orbit is circular (`e = 0`), the argument of periastron `ω` becomes undefined—there is no periastron! By multiplying `ω` by the `eccentric` indicator, we ensure that when the model is circular, `ω` is automatically set to zero and doesn't waste computational effort exploring meaningless values. 
 
 Now we complete the system definition. Note that the relative astrometry is
-listed in the *system's* `observations=`: in v2 an observation names the bodies
-it refers to (`target=:b, ref=:A`) instead of being attached to one of them.
+listed in the *system's* `observations=`: an observation names the bodies it
+refers to (`target=:b, ref=:A`) rather than being attached to one of them.
 
 ```@example 1
 sys = System(

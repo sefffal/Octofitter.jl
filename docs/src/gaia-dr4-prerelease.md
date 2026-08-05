@@ -30,11 +30,11 @@ using Statistics
 using Pigeons
 ```
 
-!!! note "What changed in v2"
-    Three things on this page: the likelihood is now `GaiaDR4AstromObs` and **no longer
-    takes `gaia_id=`** (so there is no `obs.gaia_sol` — query the DR3 solution yourself),
-    the model is written with `Body`/`System` nodes instead of `Planet`/`companions=`, and
-    every mass is in **solar masses**.
+!!! note "Two things to know before you start"
+    [`GaiaDR4AstromObs`](@ref) takes epoch astrometry, references and variables only —
+    it does **not** take `gaia_id=` and does not query the archive, so where you need the
+    DR3 solution you query it yourself (shown below). And every mass is in **solar
+    masses**.
 
 ## Loading the data
 
@@ -72,6 +72,10 @@ The columns are:
     `GaiaDR4AstromObs` takes `sincos(scan_pos_angle)` directly, so this column **must be in
     radians**. The raw VOTABLE ships degrees; the conversion has already been applied in
     the CSV above. If you prepare your own table, remember `deg2rad`.
+
+    A degree-valued column does not error — it produces a wrong, quietly plausible fit —
+    so this is on the list to make safe by construction rather than by warning once the
+    DR4 column conventions are final.
 
 !!! note "`mapcols(collect, df)`"
     When Julia is started with multiple threads, `CSV.read` can return
@@ -155,14 +159,29 @@ gaia_obs = GaiaDR4AstromObs(
     end
 )
 
-# v1's likelihood queried the DR3 solution for you and stashed it in `gaia_obs.gaia_sol`.
-# v2's observation carries data, references and variables only, so query it explicitly:
+# The observation carries data, references and variables only, so query the DR3
+# solution explicitly when you need it:
 sol = Octofitter._query_gaia_dr3(gaia_id=GAIA4_SOURCE_ID)
 println("DR3 solution: plx=$(sol.parallax)  pmra=$(sol.pmra)  pmdec=$(sol.pmdec)")
 ```
 
-The parallax the likelihood uses comes from the system's own `plx`, so the
-`plx = system.plx` line v1 needed in this block is gone.
+The parallax the likelihood uses comes from the system's own `plx`; there is nothing to
+forward into the observation's block.
+
+!!! warning "`plx` is the barycentre's parallax, not the photocentre's"
+    The frame's `plx` places the system's *barycentre*, while what the epoch astrometry
+    actually constrains is the parallax of the **photocentre**. For a compact orbit the
+    two are the same to well within the errors. For a wide one they are not, and a model
+    that pins `plx` tightly to a catalog value — which was itself fitted as a single-star
+    photocentre solution — can produce a posterior with a long curved ridge that samplers
+    struggle to explore. If your orbit is wide compared to the mission baseline, give
+    `plx` room and check the `plx`–`a`–`mass` corner for that ridge.
+
+!!! note "`_query_gaia_dr3` is internal for now"
+    The leading underscore is deliberate: the archive query layer will be replaced once
+    the DR4 TAP endpoints are published, at which point the intent is that you pass a
+    `gaia_id` and Octofitter fetches everything it needs. Until then, treat this call as
+    a convenience whose signature may change.
 
 ## The model
 
@@ -190,8 +209,7 @@ b = Body(
         Ω ~ UniformCircular()
         θ ~ UniformCircular()                # position angle at `epoch`
         # `θ` + `epoch` is a phase parametrization the orbit constructor accepts
-        # directly, and an orbit's total mass comes from the hierarchy, so v1's
-        # `tp = θ_at_epoch_to_tperi(θ, ...; M=system.M, ...)` line is gone.
+        # directly, and an orbit's total mass comes from the hierarchy.
         epoch = $orbit_ref_epoch
     end
 )
@@ -211,7 +229,7 @@ model = Octofitter.LogDensityModel(sys; verbosity=4)
 There is no system-level `M` any more: each body carries its own `mass`, and an orbit's
 total mass comes from the hierarchy. A `Photocentre` target needs at least one body to
 declare a flux, which is what `flux = 1.0` on `A` is for; `flux = 0.0` on `b` makes the
-photocentre exactly the host, which is what v1 modelled.
+photocentre exactly the host, which is the right model for a dark companion.
 
 ## Initializing and sampling
 
@@ -275,8 +293,7 @@ println("i       [deg] : ", round.(rad2deg.(quantile(inc, (0.16, 0.5, 0.84))), d
 println("mass_b  [Mjup]: ", q(mb),   "   (Stefansson et al. 2025: 11.8 ± 0.7)")
 ```
 
-The chain columns follow the bodies now: `b_mass` (in solar masses) and `A_mass` replace
-v1's system-level `mass_b` and `M`.
+The chain columns follow the bodies: `b_mass` and `A_mass`, both in solar masses.
 
 And the usual plots:
 

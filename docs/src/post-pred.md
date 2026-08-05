@@ -58,7 +58,7 @@ chain = octofit(model)
 
 ## Where the model puts the planet
 
-We now have our posterior as approximated by the MCMC chain. In v2 a posterior sample is a whole *system*, not a per-planet orbit object, so we rebuild one system per draw with [`construct_system`](@ref) and then query it with the usual PlanetOrbits functions:
+We now have our posterior as approximated by the MCMC chain. A posterior sample is a whole *system*, not a per-planet orbit object, so we rebuild one system per draw with [`construct_system`](@ref) and then query it with the usual PlanetOrbits functions:
 
 ```@example 1
 # Instead of building a system for all rows in the chain, just pick
@@ -67,12 +67,10 @@ ii = 1:20:1000
 systems = [construct_system(model, chain, i) for i in ii]
 ```
 
-!!! note "Changed from v1"
-    This replaces `Octofitter.construct_elements(model, chain, :b, ii)`. There is no
-    per-planet orbit object any more: `construct_system` returns a
-    `PlanetOrbits.System` carrying every body, and each observable takes an explicit
-    `(target, ref)` pair — `raoff(sol, :b, :A)` rather than `raoff(sol)`. That is what
-    lets the same call express a companion measured against the host, against the
+!!! note "Every observable names its references"
+    `construct_system` returns a `PlanetOrbits.System` carrying every body, and each
+    observable takes an explicit `(target, ref)` pair — `raoff(sol, :b, :A)`. That is
+    what lets the same call express a companion measured against the host, against the
     barycentre, or against another companion.
 
 Calculate and plot the location the planet would be at each observation epoch:
@@ -145,9 +143,9 @@ fig
 
 The replicated points should scatter around the real ones with roughly the measurement uncertainty. If the real data sit systematically outside the replicated cloud, the model cannot reproduce them — that is the check.
 
-!!! note "Changed from v1"
-    Observations are no longer owned by a companion, so the replicated data live at
-    `rep.observations[i]` in the same order they were listed in `System(...; observations=[...])`,
-    rather than under `rep.planets.b.observations`.
+!!! note "Where the replicated data live"
+    Observations belong to the system, so the replicated data are at
+    `rep.observations[i]`, in the same order they were listed in
+    `System(...; observations=[...])`.
 
 You can follow this same procedure for any kind of data modelled with Octofitter. For a quantitative version of the same idea — how much each *individual* data point is influencing the fit — see [Cross-Validation](@ref cross-validation).

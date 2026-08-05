@@ -30,18 +30,15 @@ nothing # hide
 
 We can now construct a likelihood object for this data.
 
-!!! note "`GaiaDR4AstromObs` no longer takes `gaia_id`"
-    In v1 the likelihood queried the Gaia DR3 solution for you and stashed it in
-    `obs.gaia_sol`, purely so that the plotting recipes could reconstruct an absolute sky
-    position. v2's observation carries data, references, and variables — nothing else — so
-    `gaia_id=` and `gaia_sol` are gone. Query the solution yourself if you want it:
+!!! note "`GaiaDR4AstromObs` does not take `gaia_id`"
+    The observation carries data, references, and variables — nothing else — and never
+    touches the archive. Query the DR3 solution yourself where you need it:
     `Octofitter._query_gaia_dr3(; gaia_id=…)`.
 
-    The observation also names *what it is a measurement of*: `target=Photocentre` (the
-    whole system's flux-weighted point, the default) measured against `ref=Barycentre`.
-    That replaces v1's positional `fluxratio` vector, and it is what makes blended and
-    multi-source models expressible — see [`GaiaDR4AstromObs`](@ref) for a two-source 2+2
-    quadruple.
+    It also names *what it is a measurement of*: `target=Photocentre` (the whole system's
+    flux-weighted point, the default) measured against `ref=Barycentre`. That is what
+    makes blended and multi-source models expressible — see [`GaiaDR4AstromObs`](@ref)
+    for a two-source 2+2 quadruple.
 
 ```@example 1
 ref_epoch_mjd = 57936.375
@@ -62,17 +59,16 @@ gaia_dr4_obs = GaiaDR4AstromObs(
 )
 ```
 
-The observation's parallax comes from the system's own `plx`, so v1's `plx = system.plx`
-line in this block is no longer needed (it is harmless if you leave it in).
+The observation's parallax comes from the system's own `plx`; there is nothing to
+forward into this block.
 
 !!! note "A `Photocentre` target needs at least one body to declare a flux"
-    v1 carried an optional `fluxratio` vector on the observation and defaulted it to zero.
-    v2 reads the fluxes off the bodies themselves, so **a model in which no body declares a
-    `flux` variable errors on the first likelihood evaluation** with
-    `no fluxes defined: give at least one body a flux`. Give the host `flux = 1.0` and every
-    other body's flux is then a contrast ratio against it — `flux = 0.0` for a dark
-    companion (so the photocentre is just the host, exactly what v1 modelled), or a real
-    prior such as `flux ~ Uniform(0, 1)` for a luminous one. Use `flux_G` and
+    The fluxes are read off the bodies themselves, so **a model in which no body declares
+    a `flux` variable errors on the first likelihood evaluation** with
+    `no fluxes defined: give at least one body a flux`. Give the host `flux = 1.0` and
+    every other body's flux is then a contrast ratio against it — `flux = 0.0` for a dark
+    companion (so the photocentre is just the host), or a real prior such as
+    `flux ~ Uniform(0, 1)` for a luminous one. Use `flux_G` and
     `target=Photocentre(:G)` if you carry more than one band.
 
 ```@example 1
@@ -97,7 +93,7 @@ b = Body(
         i ~ Sine()
         Ω ~ Uniform(0,2pi)
         # `θ` (position angle at `epoch`) is a phase parametrization the orbit
-        # constructor accepts directly; v1 called `θ_at_epoch_to_tperi` by hand.
+        # constructor accepts directly.
         θ ~ Uniform(0,2pi)
         epoch = $orbit_ref_epoch
         mass ~ LogUniform(0.01mjup, 1000mjup)   # Msol
@@ -207,9 +203,9 @@ motion, and the orbital wobble superimposed — which is the picture of why the 
 hard to extract. `keplerian_mult` exaggerates the orbital term so you can see it against
 the parallax.
 
-The parallax ellipse has to be projected onto a sky direction. v1 read it from
-`obs.gaia_sol`, which the v2 observation no longer carries; give it explicitly, or let
-[`gaia_dr3_solution`](@ref) fetch the published solution:
+The parallax ellipse has to be projected onto a sky direction. The observation does not
+carry a catalog solution, so give the direction explicitly, or let
+[`gaia_dr3_solution`](@ref) fetch the published one:
 
 ```julia
 Octofitter.skytrackplot(model, chain; gaia_id=4318465066420528000, keplerian_mult=20)
@@ -242,14 +238,6 @@ result = psis_loo(
 )
 ```
 
-!!! warning "`pointwise_like` results changed, and v1's were wrong"
-    v1 passed the `setdiff` *complement* of the wanted rows to
-    `likeobj_from_epoch_subset`, believing it dropped the indices given; it keeps them. Each
-    v1 "pointwise" column therefore held the likelihood of all the data *except* that point.
-    Any published PSIS-LOO number produced with v1 is affected. v2 also excludes
-    prior-shaped terms from the columns, so they now sum exactly to the model
-    log-likelihood minus those terms — which is what PSIS-LOO wants.
-
 ### Simulate data from a posterior draw, and re-fit with or without noise
 Optional consistency checks---could be used in a loop as part of e.g. simulation based calibration.
 ```julia
@@ -267,12 +255,10 @@ octoplot(sim_model, sim_chain)
 
 ## Using NSS Catalog Solutions as Starting Points
 
-!!! warning "Not ported to v2"
-    v1 shipped `initialize_from_nss!`, `query_nss`, `nss_to_starting_point` and
-    `nss_to_model_chain` for seeding a fit from a published Gaia Non-Single Star solution
-    (and for overlaying that solution on a posterior). None of them has been ported to the
-    v2 model surface — the source is parked in `src/legacy/nss.jl` — so the section that
-    used to be here has been removed rather than left as a stub. If you have an NSS
+!!! warning "Not available yet"
+    The Gaia Non-Single Star helpers (`initialize_from_nss!`, `query_nss`,
+    `nss_to_starting_point`, `nss_to_model_chain`) have not been brought onto the current
+    model surface; the source is parked in `src/legacy/nss.jl`. If you have an NSS
     solution, convert it to orbital elements yourself and pass them to
     [`initialize!`](@ref) or `startingpoints!`:
 
@@ -338,8 +324,7 @@ gaia_bh3_astrom_obs = GaiaDR4AstromObs(
 )
 ```
 
-Next, the two bodies. Note that both masses are in solar masses — v1's
-`mass = system.M_sec / mjup2msol` line is gone, because there is one mass unit:
+Next, the two bodies. Note that both masses are in solar masses:
 ```julia
 orbit_ref_epoch = mean(gaia_bh3_astrom_obs.table.epoch)
 
@@ -370,13 +355,12 @@ BH = Body(
 
 This object also has published RV data from Gaia, which we can load and use as normal.
 
-!!! warning "`StarAbsoluteRVObs` is gone, and `offset`/`jitter` are no longer auto-injected"
-    v1's `StarAbsoluteRVObs` and `PlanetRelativeRVObs` are one type now:
-    `RadialVelocityObs`, with `target=A, ref=Barycentre` for stellar reflex and
-    `target=b, ref=A` for relative RV. It lives in core Octofitter, so a plain RV model no
-    longer needs `using OctofitterRadialVelocity` at all. And v1 silently added
-    `offset ~ Uniform(-1000, 1000)` and `jitter ~ LogUniform(0.001, 100)` when you gave no
-    `variables=` block — v2 never invents a prior, so declare them yourself.
+!!! warning "Declare `offset` and `jitter` yourself"
+    One type covers both kinds of RV: `RadialVelocityObs`, with `target=A, ref=Barycentre`
+    for stellar reflex and `target=b, ref=A` for relative RV. It lives in core Octofitter,
+    so a plain RV model does not need `using OctofitterRadialVelocity`. Nothing is
+    auto-injected — an observation with no `variables=` block fits with no zero point and
+    no jitter.
 
 ```julia
 headers_rv = [
@@ -449,8 +433,8 @@ init_chain = initialize!(model, (;
 octoplot(model, init_chain)
 ```
 
-Note that starting values now nest under `bodies=` rather than v1's `planets=`, and that the
-host star is a body like any other, so its mass is initialized in the same place.
+Note that starting values nest under `bodies=`, and that the host star is a body like
+any other, so its mass is initialized in the same place.
 
 !!! note
     If you don't pick the starting point, you can also just run Pigeons for 8-10 rounds,
@@ -469,8 +453,8 @@ chain, pt = octofit_pigeons(pt)
 ```
 
 Finally, we can visualize the results. `octoplot` produces the along-scan panel from the
-astrometry and a radial-velocity panel (plus a phase-folded one) from the RVs, so one call
-covers what v1 needed several for:
+astrometry and a radial-velocity panel (plus a phase-folded one) from the RVs, so one
+call covers the whole fit:
 ```julia
 octoplot(model, chain)
 ```

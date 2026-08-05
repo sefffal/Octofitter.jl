@@ -12,11 +12,9 @@ using CairoMakie
 
 ## Where the flux variable lives
 
-!!! warning "This moved in v2"
-    In Octofitter v1, the flux was a variable of the *observation*: you wrote
-    `PhotometryObs(table, name="H_band", variables=@variables begin flux = ... end)`
-    and attached it to a `Planet`. In v2 the flux belongs to the **body**, and the
-    observation just says which body and which band it measured:
+!!! note "The flux belongs to the body"
+    The flux is a variable of the **body**, and the observation just says which body
+    and which band it measured:
 
     ```julia
     b = Body(name="b", about=A, variables=@variables begin
@@ -30,8 +28,7 @@ using CairoMakie
     The observation goes in the **system**'s `observations=` list, not on a body.
 
     The practical consequence is that two instruments observing the same body in the
-    same band now share **one** parameter, where v1 gave each observation its own
-    independent one. If you actually want them to be independent — because you do not
+    same band share **one** parameter. If you want them to be independent — because you do not
     trust the cross-calibration — put them in different bands (`flux_H_nirc2`,
     `flux_H_sphere`) and give each `PhotometryObs` the matching `band=`.
 
@@ -86,13 +83,11 @@ absmag_H(cooling_tracks(40.0, 12mjup), 12mjup)
 ```
 
 !!! warning "Masses are in solar masses"
-    Every mass in Octofitter v2 is in M⊙, and these interpolators follow suit.
-    `mjup`, `mearth` and `msun` are plain multiplicative constants, so `12mjup`
-    reads naturally and means the right thing. v1 passed Jupiter masses to these
-    same functions; if you are porting a script, either multiply by `mjup` or
-    construct the interpolator with `mass_unit=:Mjup` to keep the old call sites
-    verbatim. This change is *silent* — a bare `12.0` is now 12 M⊙, which lands off
-    the end of the grid and returns `NaN` rather than raising an error.
+    Every mass is in M⊙, and these interpolators follow suit. `mjup`, `mearth` and
+    `msun` are plain multiplicative constants, so `12mjup` reads naturally and means
+    the right thing. A bare `12.0` means 12 M⊙, which lands off the end of the grid
+    and returns `NaN` rather than raising an error — construct the interpolator with
+    `mass_unit=:Mjup` if you would rather work in Jupiter masses.
 
 !!! warning "Magnitudes are not fluxes"
     The interpolators return **absolute magnitudes**. A `flux_<band>` variable is a
@@ -210,6 +205,8 @@ The interpolators return `NaN` outside their grids rather than extrapolating, an
 1. Choose a prior range covered by the grid, as above (`LogUniform(2mjup, 25mjup)` at 40 Myr is comfortably inside Sonora Bobcat).
 2. Clamp explicitly, which is what you want when the prior *should* extend past the grid — the point of a detection-limit fit is often that very massive companions are ruled out:
 
+    (Returning `-Inf` instead of a clamped magnitude also works and reads more honestly, but it puts a hard wall in the log density at the grid edge: the sampler sees a discontinuity rather than a gradient, and the resulting prior boundary is harder to inspect after the fact. Clamping to an absurd-but-finite value keeps the surface differentiable and makes the excluded region show up in the posterior instead of being invisible.)
+
 ```julia
 abs_mag_H = $absmag_H(tempK, mass)
 abs_mag_H′ = if isfinite(abs_mag_H)
@@ -221,7 +218,7 @@ else
 end
 ```
 
-Note the threshold is written `20mjup`, not `20`. Under v2's single mass unit, a bare `20` means twenty solar masses.
+Note the threshold is written `20mjup`, not `20`: a bare `20` means twenty solar masses.
 
 ## More than one input variable
 

@@ -19,7 +19,7 @@ chain = Octofitter.loadhdf5("fname.h5")
 
 Both tools use the same orbital-element conventions, so the import is a rename plus one change of phase variable: orbitize!'s `tau` — a fraction of a period past a reference epoch — becomes Octofitter's `tp`, which is added as an extra column alongside the original `tau`.
 
-Column names are derived from **v2 body names**, which you can choose:
+Column names are derived from the **body names** in your model, which you can choose:
 
 ```julia
 # m0 -> A_mass, sma1 -> b_a, ecc1 -> b_e, …   (the defaults)
@@ -44,18 +44,14 @@ A file holding several concatenated chains can be split back apart:
 chain = Octofitter.loadhdf5("fname.h5", 4)   # 4 chains
 ```
 
-!!! note "Changed from v1"
-    * **Masses are solar masses.** v1 divided imported companion masses by
-      `mjup2msol` on the way in, because a v1 `Planet.mass` was in Jupiter masses.
-      v2 has one mass unit throughout. Anything in your analysis that compares a
-      mass against a literal threshold needs updating (`mass > 10` meaning
-      10 M_jup becomes `mass > 10mjup`).
-    * **There is no synthesised `<planet>_M` column.** v1 built a per-planet total
-      mass by summing every body with a smaller semi-major axis — the epicyclic
-      superposition selection this release removes. A body's dynamical mass now
-      comes from the hierarchy.
-    * `numchains > 1` works. In v1 it always errored, because the derived `tp`
-      columns were `hcat`ed onto an already-3-D array.
+!!! note "Masses come back in solar masses"
+    There is one mass unit throughout, M⊙, so imported companion masses are *not*
+    rescaled to Jupiter masses. Anything in your analysis that compares a mass
+    against a literal threshold should be written with `mjup`: `mass > 10mjup`,
+    not `mass > 10`.
+
+    No per-companion total-mass column is synthesised: a body's dynamical mass
+    comes from the hierarchy you declare.
 
 ## Save a posterior in Orbitize! format
 
@@ -73,19 +69,21 @@ Only the eight columns of orbitize!'s standard basis are written — `sma`, `ecc
 
 A few constraints follow from that basis:
 
-* The chain needs a `<body>_tp` column, since `tau` is derived from it. A model
-  parametrized on `θ` + `epoch` does not have one.
-* The chain needs `<host>_mass` and `<body>_mass`, whose sum becomes `mtot`.
-* A companion that orbits a **barycentre** rather than a single body is rejected
-  rather than guessed at — orbitize!'s two-body standard basis cannot express it.
+* `tau` is derived from the epoch of periastron. If the chain has no `<body>_tp`
+  column — a model parametrized on `θ` + `epoch` never produces one — it is
+  recovered by rebuilding each draw's orbit, at the cost of one system build per
+  draw.
+* The chain needs a mass column for the companion and for every body its orbit is
+  about; their sum becomes `mtot`. A Jacobi companion (`about=(A, b)`) exports
+  fine — orbitize! parametrizes its own multi-planet fits in Jacobi coordinates,
+  so the interior total is exactly what its `mtot` means.
 
 `savehdf5` accepts either a `LogDensityModel` or a bare `System`.
 
 !!! note
-    v2 also writes the `parameter_labels` HDF5 attribute, not just `col_names`.
-    v1 wrote only the latter while its own `loadhdf5` read the former, so
-    Octofitter could not round-trip its own export without falling through to a
-    guess plus a warning.
+    Both the `col_names` dataset and the `parameter_labels` HDF5 attribute are
+    written. orbitize! reads the latter, and so does `loadhdf5`, so an export
+    round-trips without falling back to a guess.
 
 ## Loading an Orbitize! posterior saved to Whereistheplanet.com
 
@@ -104,15 +102,11 @@ astrom_obs_seppa, astrom_obs_radec = Octofitter.Whereistheplanet_astrom(
 
 Two different astrometry likelihood objects are returned since orbitize supports both PA/sep and RA/DEC formats. Octofitter also supports both formats, but they must be placed into separate likelihood objects. Simply add both to your `System`'s `observations=` list to include all the data.
 
-`target` and `ref` say which model references the astrometry measures — the companion and the host in the usual case. They take the full v2 reference grammar, so a `Body` model node, a `Symbol`, `Barycentre(...)` or `Photocentre(...)` all work; whereistheplanet's "object 1" is a companion only by convention.
+`target` and `ref` say which model references the astrometry measures — the companion and the host in the usual case. They take the full reference grammar, so a `Body` model node, a `Symbol`, `Barycentre(...)` or `Photocentre(...)` all work; whereistheplanet's "object 1" is a companion only by convention.
 
 The two objects are named `"<name>_seppa"` and `"<name>_radec"` (default `name="whereistheplanet"`), which is what lets both go into one `System` — observation names must be unique.
 
-!!! note "Changed from v1"
-    v1's `return out` was commented out, so the documented
-    `astrom1, astrom2 = Whereistheplanet_astrom(...)` actually destructured `nothing`.
-    It returns its vector now.
-
-    Note also that only formats *present in the file* come back: a target with only
-    sep/PA data yields a one-element vector, and destructuring it into two names
-    will error. Assign the result and check its length if you are not sure.
+!!! note "Check the length before destructuring"
+    Only the formats *present in the file* come back: a target with only sep/PA data
+    yields a one-element vector, and destructuring it into two names will error.
+    Assign the result and check its length if you are not sure.

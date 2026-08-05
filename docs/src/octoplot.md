@@ -54,7 +54,7 @@ octoplot(model, chain;
     `RelAstromObs`, `RadialVelocityObs`, `MarginalizedRVObs` and `GaiaDR4AstromObs`
     declare plot channels and appear in `octoplot`. `ImageObs`, `InterferometryObs`,
     `PhotometryObs`, `G23HObs` and `HipparcosIADObs` do not yet: `octoplot` still draws
-    the orbits, but those observations' data are not overlaid. This is a gap in the v2
+    the orbits, but those observations' data are not overlaid. This is a gap in the
     plotting layer rather than a deliberate omission.
 
 ## Controlling the draws

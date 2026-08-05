@@ -29,11 +29,11 @@ This pattern also allows you to load data directly from remote databases using a
 
 Once loaded, you can access the underlying table using e.g. `astrom.table`.
 
-!!! note "Changed from v1"
-    v1's one-liner `CSV.read("astrom.csv", PlanetRelAstromObs)` no longer works. Every v2
-    observation requires keyword arguments — at minimum `target`, `ref` and `name` — and
-    the `CSV.read(source, sink)` form has no way to supply them. Read into a `Table`
-    first, as above.
+!!! note "Read into a `Table` first"
+    `CSV.read("astrom.csv", RelAstromObs)` does not work: every observation requires
+    keyword arguments — at minimum `target`, `ref` and `name` — and the
+    `CSV.read(source, sink)` form has no way to supply them. Read into a `Table` first,
+    as above.
 
     `PropMotionAnom` is gone as well: proper-motion anomaly is now modelled by
     [`HGCAObs`](@ref) / [`G23HObs`](@ref), which fetch their own catalog data by
@@ -59,21 +59,16 @@ Octofitter.checkchain(model, chain)              # errors on a mismatch
 Octofitter.checkchain(model, chain; strict=false) # warns instead
 ```
 
-!!! note "Loading chains saved by Octofitter v1"
-    v1 files load, with a warning. Their samples are unchanged, but their **column names**
-    follow the v1 model surface: an observation attached to a companion was named
-    `<planet>_<observation>_<variable>` (`b_GPI_jitter`), where v2 names it
-    `<observation>_<variable>` (`GPI_jitter`), because observations are no longer owned by
-    a body. The host star's mass also moves from the system-level `M` to `A_mass`.
+!!! note "Loading chains written by Octofitter v8 or earlier"
+    They load, with a warning. Their samples are unchanged, but their **column names**
+    follow the older model surface: an observation attached to a companion was named
+    `<planet>_<observation>_<variable>` (`b_GPI_jitter`), where it is now
+    `<observation>_<variable>` (`GPI_jitter`), and the host star's mass moves from the
+    system-level `M` to `A_mass`.
 
-    `checkchain` recognizes that pattern and prints the suggested renames rather than
-    leaving you to discover the mismatch downstream.
-
-    Two other differences you will notice on a reloaded v2 file: chains keep their
-    `:parameters` / `:internals` split (so `tree_depth` and `numerical_error` no longer
-    masquerade as model parameters in `describe` and corner plots), and a chain that was
-    sliced or thinned before saving — `chain[501:end]` — now round-trips, where v1 threw
-    a `BoundsError` on load.
+    [`Octofitter.checkchain`](@ref) recognizes that pattern and prints the suggested
+    renames rather than leaving you to discover the mismatch downstream. See
+    [Migrating to Octofitter v9](@ref v9-migration).
 
 #### Example: Saving chains to Orbitize format
 For compatbility purposes, orbit posteriors can be exported and loaded from the Orbitize! HDF5 format. This only works for basic two-object orbits. FITS format (above) should be preferred.
@@ -151,10 +146,9 @@ traj  = orbitsolve(posys, [59000.0, 59100.0])
 raoff(traj[1], :b, :A)
 ```
 
-!!! note "Changed from v1"
-    This replaces `construct_elements(chain, :b, i)`. There is no per-planet orbit object
-    in v2 — a sample is a whole system — and every observable takes an explicit
-    `(target, ref)` pair.
+!!! note "One system per draw"
+    There is no per-planet orbit object — a sample is a whole system — and every
+    observable takes an explicit `(target, ref)` pair.
 
     Note also that `construct_system` takes the **`LogDensityModel`**, not the bare
     `System`.

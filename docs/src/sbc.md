@@ -12,16 +12,13 @@ Actually, this reveals that these models are not all that reasonable: usually we
 
 We split this example in three parts: a model definition, a trial script that we run many times, and an analysis script that summarizes the results.
 
-!!! warning "Changed from v1: simulated data are now noisy by default"
+!!! warning "Simulated data are noisy, and must be"
     A trial draws parameters `θ` from the prior, simulates a data set at `θ`, and refits.
     For the ranks to be the SBC statistic, the simulated data must be a draw from the
     *likelihood* — the model prediction **plus** a draw from the noise model.
-
-    v1 simulated noiseless data (it took `generate_from_params`'s `add_noise=false`
-    default), so v1's rank histograms were not the diagnostic they appeared to be.
-    [`Octofitter.calibrationhmc`](@ref) now defaults to `add_noise=true`. Pass
-    `add_noise=false` in `settings` if you deliberately want the old behaviour — but
-    expect the histograms to look different from any you produced with v1.
+    [`Octofitter.calibrationhmc`](@ref) therefore defaults to `add_noise=true`. Passing
+    `add_noise=false` gives noiseless simulations, whose rank histograms are not the
+    diagnostic they appear to be.
 
 
 ## Octofitter Model Template Script
@@ -77,11 +74,11 @@ SBC = System(
 model = Octofitter.LogDensityModel(SBC)
 ```
 
-!!! note "Changed from v1"
-    * `Planet(...)` + `basis=Visual{KepOrbit}` becomes [`Body`](@ref); the frame is chosen by which of `plx`, `ra`, `dec`, `pmra`, `pmdec`, `rv`, `ref_epoch` the *system* block declares, so there is no `basis=` keyword. Here only `plx` is declared, which gives angular observables in mas — v1's `Visual{KepOrbit}`.
-    * The observation is listed on the `System`, not on the companion, and names its references explicitly with `target=b, ref=A`.
-    * v1's `τ ~ UniformCircular(1.0)` / `P = √(a^3/M)` / `tp = τ*P*365.25 + 50420` recipe no longer works, because `a` and `P` are *both* orbital-element keywords in v2 and declaring both in one body errors. Use `θ` (position angle at a reference `epoch`) instead, as above. The rank statistic you histogram is then `b_θ` rather than `b_τ`.
-    * `RelAstromObs` takes a single table, so the eight rows go into one `Table(...)` rather than eight positional `NamedTuple` arguments.
+!!! note "Worth noticing in the model above"
+    * The frame is chosen by which of `plx`, `ra`, `dec`, `pmra`, `pmdec`, `rv`, `ref_epoch` the *system* block declares. Here only `plx` is declared, which gives angular observables in mas.
+    * The observation is listed on the `System` and names its references explicitly with `target=b, ref=A`.
+    * `a` and `P` are *both* orbital-element keywords, so declaring both in one body errors. Phase is given as `θ` (position angle at a reference `epoch`), which is what the rank histograms below are computed on (`b_θ`).
+    * `RelAstromObs` takes a single table, so the eight rows go into one `Table(...)`.
 
 
 ## SBC Trial Script
@@ -117,7 +114,7 @@ settings = (;
     # tree_depth = 13,
     # verbosity = 2,
 
-    # Set to false to reproduce v1's (incorrect) noiseless simulation:
+    # Set to false to simulate without noise (not the SBC statistic -- see above):
     # add_noise = false,
 
     # Model parameter values
@@ -233,13 +230,12 @@ fig
 ```
 ![](assets/sbc-summary.svg)
 
-!!! note "Chain column names changed in v2"
-    The host star's mass is now an ordinary body variable, so it appears as `A_mass`
-    rather than `M`; an observation's own variables are named `<observation>_<variable>`
-    (`relastrom_jitter`) rather than v1's `<planet>_<observation>_<variable>`. If you
-    are loading chains produced by v1, `include("sbc-model.jl")` in the analysis script
-    too and pass the model, so the mismatch is reported rather than silently producing
-    `missing`:
+!!! note "Chain column names"
+    The host star's mass is an ordinary body variable, so it appears as `A_mass`; an
+    observation's own variables are named `<observation>_<variable>`
+    (`relastrom_jitter`). If you are loading chains written against a differently-named
+    model, `include("sbc-model.jl")` in the analysis script too and pass the model, so
+    the mismatch is reported rather than silently producing `missing`:
 
     ```julia
     chn = Octofitter.loadchain(chainfname; model)

@@ -7,7 +7,7 @@ velocity of the host itself.
 The convention we adopt is that positive relative radial velocity is the velocity of the companion (exoplanets) minus the velocity of the host (star).
 
 !!! note "Relative RV is the same likelihood as reflex RV"
-    In v2 there is one radial velocity observation, [`RadialVelocityObs`](@ref).
+    There is one radial velocity observation, [`RadialVelocityObs`](@ref).
     What distinguishes relative RV from the stellar reflex signal is *which
     references you name*:
 
@@ -16,10 +16,8 @@ The convention we adopt is that positive relative radial velocity is the velocit
     RadialVelocityObs(tab; target=b, ref=A)            # the companion, relative to the star
     ```
 
-    That is the whole difference — v1's separate `PlanetRelativeRVObs` type is
-    gone, and with it its own copy of the reflex-superposition bookkeeping.
-    `ref` is a real reference, so `target=c, ref=b` (one companion measured
-    against another) is expressible too.
+    That is the whole difference. `ref` is a real reference, so `target=c, ref=b`
+    (one companion measured against another) is expressible too.
 
 To fit relative RV data, start by building the bodies and then the observation:
 ```@example 1
@@ -67,7 +65,9 @@ See the [Basic RV Fit](@ref fit-rv) tutorial for examples on how this data can b
 A = Body(
     name="A",
     variables=@variables begin
-        mass = system.M_tot   # the companion is massless here, so the star carries it all
+        # The companion is a test particle here, so the star carries the whole
+        # gravitating mass of the orbit.
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1)   # M⊙
     end
 )
 
@@ -81,10 +81,8 @@ b = Body(
         i ~ Sine()
         ω ~ Uniform(0, 2pi)
         Ω ~ Uniform(0, 2pi)
-        # Kepler's third law, in years, from the total mass of this orbit.
-        P_yrs = √(a^3 / system.M_tot)
-        τ ~ Uniform(0, 1.0)
-        tp = τ * P_yrs * 365.25 + 60000 # reference epoch for τ. Choose an MJD date near your data.
+        M0 ~ Uniform(0, 2pi)  # mean anomaly at `epoch`
+        epoch = 60000.0       # choose an MJD date near your data
     end
 )
 
@@ -99,18 +97,19 @@ rel_rv_obs = RadialVelocityObs(
 nothing # hide
 ```
 
-!!! note "Why `M_tot` lives in the system block"
-    A body's `@variables` block can read `system.*` but never its siblings, so a
-    quantity two bodies share is *hoisted* to the system. Here `M_tot` gives the
-    star its mass and gives the orbit its period; had we instead sampled
-    `A.mass` directly, `b`'s block could not have seen it.
+!!! note "There is no total-mass variable"
+    The orbit's gravitating mass is `A.mass + b.mass`, computed from the model, and the
+    period follows from it and `a` — so there is no `M_tot` to declare and no Kepler's
+    third law to write out. If two *bodies* ever need to share a quantity, hoist it to
+    the system block: a body's `@variables` block can read `system.*` but never its
+    siblings. See [Resonant Co-Planar Model](@ref fit-coplanar) for that pattern.
 
 The relative RV likelihood does not need an instrument-specific zero point —
 the two stellar spectra are differenced against each other, so there is nothing
 to offset. You may still declare an `offset` variable if your reduction has one;
 as with reflex RV, nothing is added for you. A `jitter` parameter can be
 specified in the observation's `@variables` block, as can parameters for a
-Gaussian process model of correlated noise (new for relative RV in v2 — see
+Gaussian process model of correlated noise (see
 [Fit Gaussian Process](@ref fit-rv-gp)). Create one `RadialVelocityObs` per
 instrument if you have several, each with its own jitter.
 
@@ -122,9 +121,6 @@ sys = System(
     name="Example_System",
     bodies=[A, b],
     observations=[rel_rv_obs],
-    variables=@variables begin
-        M_tot ~ truncated(Normal(1.2, 0.1), lower=0.1) # total mass in solar masses
-    end
 )
 
 model = Octofitter.LogDensityModel(sys)

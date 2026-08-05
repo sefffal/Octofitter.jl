@@ -25,20 +25,53 @@ with a five-parameter frame offset, declared in the observation's own variables 
 
 Two things follow from that table and are worth stating plainly:
 
-!!! note "`iad_Δplx = 0` is what makes a Hipparcos-only fit *measure* the parallax"
+!!! note "`iad_Δplx = 0` is what keeps a Hipparcos-only fit identified"
     The parallax signature in the abscissae is anchored to the system's own `plx`, with no
-    offset. That is deliberate: leaving it free would marginalize away the one thing
-    Hipparcos alone is best at measuring. Write `iad_Δplx ~ Uniform(-10, 10)` in your own
-    `variables=` block to make the parallax a nuisance instead, which is how
-    [`G23HObs`](@ref) treats it when Gaia is also in the fit.
+    offset added on top. In a Hipparcos-only fit that is what lets the abscissae constrain
+    `plx` at all: the data see only the *sum* `plx + iad_Δplx`, so making both free leaves
+    a perfectly degenerate ridge and the parallax is measured by its prior instead of by
+    the data. Write `iad_Δplx ~ Uniform(-10, 10)` in your own `variables=` block when you
+    *want* the parallax marginalized — which is what [`G23HObs`](@ref) does, because there
+    Gaia constrains `plx` and the Hipparcos frame is pure nuisance.
 
-!!! note "This is a general facility, not a Hipparcos-specific one"
-    The `iad_Δ*` block is `Octofitter`'s five-parameter [`FrameOffset`](@ref) — the
-    mechanism for astrometry taken on a *different reference frame* from Gaia's.
-    Hipparcos is the case shipped today; HST FGS is the intended next user. Note the
-    counterpart: there are deliberately **no** per-source offsets for the Gaia channels,
-    because several `G23HObs` in one system share one frame and that shared frame is what
-    constrains a wide orbit.
+### The frame-offset block is a general facility
+
+The `iad_Δ*` variables are Octofitter's five-parameter [`FrameOffset`](@ref): the
+astrometric solution of *one instrument's own reference frame*, in the tangent plane
+about that instrument's catalog position. It exists because Hipparcos measured its
+abscissae against the Hipparcos frame, not against Gaia's, and the difference between the
+two is a nuisance the fit has to carry rather than a property of the star.
+
+Five names, all optional and all defaulting to zero, so an instrument that fits only some
+of them declares only those:
+
+| variable | meaning |
+|---|---|
+| `iad_Δra`, `iad_Δdec` | position offset at the instrument's reference epoch [mas] |
+| `iad_Δplx` | parallax offset from the anchor [mas] |
+| `iad_pmra`, `iad_pmdec` | proper motion **absolute**, not an offset [mas/yr] |
+
+The proper motions are absolute because their natural anchor is the instrument catalog's
+own solution, which a `@variables` block states directly:
+
+```julia
+variables = @variables begin
+    iad_Δpmra ~ Normal(0, 10)
+    iad_pmra  = 44.22 + iad_Δpmra    # catalog value plus the offset
+end
+```
+
+Each scan is then compared against that frame's path plus whatever the source itself is
+doing — orbital reflex, photocentre wobble — projected onto the scan direction ϕ:
+
+```
+b = (iad_Δra + Δt·iad_pmra + Δα)·cosϕ + (iad_Δdec + Δt·iad_pmdec + Δδ)·sinϕ + ϖ·f_AL
+```
+
+Hipparcos is the case shipped today; HST FGS is the intended next user, and any
+instrument with its own frame plugs in the same way. Note the counterpart: there are
+deliberately **no** per-source offsets for the Gaia channels, because several `G23HObs`
+in one system share one frame, and that shared frame is what ties a wide pair together.
 
 ## Reproduce Catalog Values
 
@@ -94,10 +127,9 @@ sys = System(
 model = Octofitter.LogDensityModel(sys)
 ```
 
-Notice how short the system block has become. In v1 this model carried `ra`, `dec`, `pmra`,
-`pmdec`, `rv` and `ref_epoch` at system level, plus two hand-rolled `ra_hip_offset_mas` /
-`dec_hip_offset_mas` nuisances that were added onto the catalog position. All of that is now
-the observation's own `iad_Δ*` block, and the system supplies only `plx`.
+Notice how short the system block is: the five-parameter solution the Hipparcos data
+constrain lives in the observation's own `iad_Δ*` block, and the system supplies only
+`plx`.
 
 Let's initialize the starting point for the chains to reasonable values. Observation
 variables are addressed by the observation's name with non-identifier characters replaced,
@@ -211,16 +243,8 @@ HIP 21547's published five-parameter solution to well within 1σ on all five:
 | `iad_pmra` [mas/yr] | 44.21 ± 0.33 | 44.22 ± 0.34 |
 | `iad_pmdec` [mas/yr] | −64.39 ± 0.26 | −64.39 ± 0.27 |
 
-!!! warning "Hipparcos IAD results are not bit-identical to v1"
-    v1 built the model position from an `AbsoluteVisual` orbit's compensated
-    (α, δ, ϖ(t)) and took the perpendicular distance to the two-point abscissa line, while
-    the data it compared against had been reconstructed with the *tangent-plane* model —
-    the two halves were on different conventions. v2 uses the tangent-plane forward model on
-    both halves. The scalar along-scan projection is algebraically the same distance (the
-    abscissa line's direction is `(-sinϕ, cosϕ)`), so what changed is the convention
-    mismatch, not the geometry.
-
-    Relatedly, `HipparcosIADObs` defaults to `recalibrate=false`, so it reproduces the
+!!! note "Recalibration is opt-in"
+    `HipparcosIADObs` defaults to `recalibrate=false`, so it reproduces the
     published catalog data as-is. `G23HObs` applies the Brandt, Michalik & Brandt shift
     (+0.140 mas on the residuals, 2.25 mas of extra dispersion) unconditionally; pass
     `recalibrate=true` here to match its `:iad_hip` channel exactly.
@@ -258,8 +282,8 @@ nothing # hide
 Observations are no longer attached to a planet: `target=` and `ref=` say what is being
 measured, and the observation goes in the system's flat `observations=` list.
 
-We specify our full model. Note that **all masses are in solar masses** — v2 has one mass
-unit, and `mjup` is a plain multiplicative constant, so a Jupiter-mass prior is written
+We specify our full model. Note that **all masses are in solar masses** — `mjup` is a
+plain multiplicative constant, so a Jupiter-mass prior is written
 `LogUniform(0.1mjup, 100mjup)`:
 
 ```@example 1
@@ -280,9 +304,8 @@ planet_b_mass = Body(
         ω ~ Uniform(0, 2pi)
         i ~ Sine()
         Ω ~ Uniform(0, 2pi)
-        # v1 wrote `tp = θ_at_epoch_to_tperi(θ, 58442.2; M, e, a, i, ω, Ω)`.
-        # `θ` + `epoch` is now a phase parametrization the orbit constructor
-        # understands directly, and the total mass comes from the hierarchy.
+        # `θ` + `epoch` is a phase parametrization the orbit constructor
+        # understands directly; the total mass comes from the hierarchy.
         θ ~ Uniform(0, 2pi)
         epoch = 58442.2
     end

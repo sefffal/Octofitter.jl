@@ -141,9 +141,9 @@ nothing # hide
 
 ### Where the planet's brightness lives
 
-The planet's brightness is `flux_H`, and it is a variable of the **body**, not of the observation. This is a change from Octofitter v1, where each `ImageObs` carried its own `flux` variable.
+The planet's brightness is `flux_H`, and it is a variable of the **body**, not of the observation.
 
-The reason is that one image contains every companion in the field at once. In v1 you had to create one `ImageObs` per planet and add the resulting likelihoods together, which counts the same image's background once per companion — defensible only when the companions are well separated. Now **one image set is one likelihood**, `targets` lists every source modelled in it, and each source reads its own brightness from its own body:
+The reason is that one image contains every companion in the field at once. **One image set is one likelihood**: `targets` lists every source modelled in it, and each source reads its own brightness from its own body. Adding one likelihood per companion instead would count the same image's background once per companion.
 
 ```julia
 c = Body(name="c", about=A, variables=@variables begin
@@ -154,6 +154,14 @@ end)
 
 image_obs = ImageObs(image_dat; targets=(b, c), ref=A, band=:H, name="SPHERE")
 ```
+
+!!! warning "Two companions can land on top of each other"
+    Nothing in the likelihood stops two `targets` from occupying the same pixels in the
+    same epoch: the model would then explain one real source twice and leave the other
+    unconstrained, and the posterior can genuinely go there. Multi-companion image
+    fitting is usable but not yet guarded. Add an [`OrbitOrderPrior`](@ref), a
+    [`NonCrossingPrior`](@ref), or explicit separation priors that keep the sources
+    apart, and check the posterior for the degenerate mode before believing it.
 
 A few consequences worth knowing:
 
@@ -289,7 +297,7 @@ Note that this time, we also show the recovered photometry in the corner plot.
 To assess a detection, we can treat all the orbital variables as nuisance parameters. 
 We start by plotting the marginal distribution of the flux parameter, `flux_H`:
 
-Body variables are named `<body>_<variable>` in the chain, so the planet's H-band flux is `b_flux_H`. (In v1 this was an observation variable and appeared as `b_SPHERE_flux`.)
+Body variables are named `<body>_<variable>` in the chain, so the planet's H-band flux is `b_flux_H`.
 
 ```@example 1
 hist(chain["b_flux_H"][:], axis=(xlabel="flux", ylabel="counts"))

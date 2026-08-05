@@ -2,13 +2,13 @@
 
 This page provides a complete, production-ready script for fitting orbital models using the G23H catalog. This script supports:
 
-!!! warning "v2 changes this script depends on"
-    * `G23HObs` now declares **source membership** — `host=`, `companions=`, `ref=` — and
+!!! note "What this script leans on"
+    * `G23HObs` declares **source membership** — `host=`, `companions=`, `ref=` — and
       reads companion flux ratios from the bodies' own `flux_G` / `flux_Hp` variables.
-    * `Planet` / `companions=` are replaced by `Body` / `bodies=`, and **all masses are in
-      solar masses** (`mjup` is a plain multiplicative constant).
-    * `StarAbsoluteRVObs` is gone: it is `RadialVelocityObs(…; target=A, ref=Barycentre)`,
-      and `offset`/`jitter` are no longer auto-injected.
+    * The model is a flat list of `Body` nodes, and **all masses are in solar masses**
+      (`mjup` is a plain multiplicative constant).
+    * RV is `RadialVelocityObs(…; target=A, ref=Barycentre)`, with `offset` and `jitter`
+      declared explicitly.
     * `PlanetOrderPrior` is renamed [`OrbitOrderPrior`](@ref) and takes `Body` nodes or
       `Symbol`s.
     * The incremental parallel-tempering loop this script is built around
@@ -309,9 +309,8 @@ function create_rv_likelihood(dat, name, mean_epoch, use_gp)
     # Combine variables based on whether GP is enabled
     vars = use_gp ? vcat(base_vars, gp_vars) : base_vars
 
-    # v1 had `StarAbsoluteRVObs`; v2 has one RV type, and `target`/`ref` say which
-    # kind of RV it is. `offset` and `jitter` are declared explicitly above because v2
-    # never invents a prior for you.
+    # One RV type; `target`/`ref` say which kind of RV it is. `offset` and `jitter`
+    # are declared explicitly above, because nothing is invented for you.
     return RadialVelocityObs(
         dat;
         target = :A,
@@ -485,17 +484,15 @@ has_rv_data = !isempty(rvlikes)
 # We should always use RUWE mode
 ueva_mode = :RUWE
 
-# There is no `basis=` in v2: which frame the model is in is decided by which frame
-# variables the *system* block supplies. Declaring the full set
-# `plx, ra, dec, pmra, pmdec, rv, ref_epoch` (below) is what v1 spelled
-# `AbsoluteVisual{KepOrbit}`.
+# Which frame the model is in is decided by which frame variables the *system* block
+# supplies. G23H wants the full absolute set,
+# `plx, ra, dec, pmra, pmdec, rv, ref_epoch` (below).
 
 ref_planet_pos = mean(absastrom.gaia_table.epoch)
 
 # The host star is a model node like any other. `flux_G` / `flux_Hp` = 1.0 make every
 # other body's flux a contrast ratio against it, which is how G23H forms the Gaia
-# photocentre and modulates the Hipparcos abscissa (v1 used a positional `fluxratio`
-# vector on the observation).
+# photocentre and modulates the Hipparcos abscissa.
 host = Body(
     name="A",
     variables=@variables begin
@@ -524,9 +521,8 @@ for planet_i in 1:num_planets
             ω ~ Uniform(0, 2pi)
             i = system.i         # coplanar: shared inclination…
             Ω = system.Ω         # …and node
-            # `M0` (mean anomaly at `epoch`) is the direct replacement for v1's
-            # `τ ~ Uniform(0,1)` plus a hand-written `tp = τ*P*365.25 + …`; the orbit's
-            # total mass comes from the hierarchy, so `M = …` is gone too.
+            # `M0` (mean anomaly at `epoch`) sets the phase; the orbit's total mass
+            # comes from the hierarchy.
             M0 ~ Uniform(0, 2pi)
             epoch = $ref_planet_pos
             flux_G  = 0.0        # dark companion
@@ -564,8 +560,8 @@ if num_planets > 1
     # `PlanetOrderPrior` is renamed `OrbitOrderPrior` and takes `Body` nodes (or
     # `Symbol`s). Both terms go in the system's `observations=` list, not on a planet.
     push!(observations, OrbitOrderPrior(planets...))
-    # With no `bodies=` list this covers *every* hierarchy row, which is v1's behaviour.
-    # Naming the bodies restricts it, which matters for hierarchical systems.
+    # With no `bodies=` list this covers *every* hierarchy row. Naming the bodies
+    # restricts it, which matters for hierarchical systems.
     push!(observations, NonCrossingPrior(bodies=Tuple(planets)))
 end
 

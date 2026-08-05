@@ -18,7 +18,7 @@ using Pigeons
 
 In order to simulate data from Octofitter, you start by defining a real model with data. The simulate step will use the provided epochs, data types, and uncertainties when simulating data. If you don't have real data, you can enter in arbitrary values for e.g. delta R.A., but use expected epochs and uncertainties.
 
-For this example we use relative astrometry and stellar radial velocities of a single companion. Every observation type in Octofitter that carries data implements the same generative interface, so the recipe below transfers unchanged to images, interferometry, or absolute astrometry (see [Simulating absolute astrometry](@ref) at the end).
+For this example we use relative astrometry and stellar radial velocities of a single companion. Every observation type in Octofitter that carries data implements the same generative interface, so the recipe below transfers unchanged to interferometry and to absolute astrometry (see [Simulating absolute astrometry](@ref data-simulation-absolute) at the end).
 
 ```@example 1
 #  relative astrometry data (from discovery paper)
@@ -87,12 +87,12 @@ model = Octofitter.LogDensityModel(sys)
 nothing # hide
 ```
 
-!!! note "Changed from v1"
-    * `Planet(...)` becomes [`Body`](@ref), and the host star is a `Body` too — its mass is `A_mass` in the chain, not the system-level `M`.
+!!! note "Worth noticing in the model above"
+    * The host star is an ordinary [`Body`](@ref); its mass is `A_mass` in the chain.
     * Masses are **solar masses** everywhere. `mjup` / `mearth` / `msun` are plain multiplicative constants, so `500mjup` is a mass in M⊙.
-    * Observations live on the `System`, not on a companion, and name their references: `target=b, ref=A` for the relative astrometry, `target=A, ref=Barycentre` for the stellar reflex RV.
-    * `StarAbsoluteRVObs` is now `RadialVelocityObs`, and it **no longer injects `offset` and `jitter` for you** — a v1 model copied across without a `variables=` block fits with no zero point and no jitter. Declare them, as above.
-    * The total mass driving Kepler's third law comes from the hierarchy (`about=A`), so there is no `M = M_pri + M_sec*mjup2msol` line to maintain.
+    * Observations live on the `System` and name their references: `target=b, ref=A` for the relative astrometry, `target=A, ref=Barycentre` for the stellar reflex RV.
+    * No `offset` or `jitter` is invented for you — declare them, as above, or the fit has no instrument zero point and no white-noise term.
+    * The total mass driving Kepler's third law comes from the hierarchy (`about=A`).
 
 ## Generate Synthetic Data
 
@@ -110,7 +110,7 @@ We can draw a value from the priors like so:
 params_to_simulate = Octofitter.drawfrompriors(model.system)
 ```
 
-Note the shape: system variables at the top level, then `bodies`, then `observations` — a nested `NamedTuple` keyed by the names you gave each node and observation. (In v1 this key was `planets`, and observation variables lived under the planet that owned them.)
+Note the shape: system variables at the top level, then `bodies`, then `observations` — a nested `NamedTuple` keyed by the names you gave each node and observation.
 
 ### 2. Use values from a fitted posterior 
 
@@ -128,43 +128,50 @@ params_to_simulate = Octofitter.mcmcchain2result(model, chain_real, draw_number)
 ### 3. Specifying values manually
 We can also specify all values for the simulation manually.
 
-Start by drawing parameters from the priors, then override the entries you care about. Building on a template with `merge` is much more robust than typing the whole structure out: models pick up extra nuisance variables as they grow (an absolute-astrometry likelihood contributes dozens), and anything you forget to list would silently be missing.
+Draw from the priors and pin the entries you care about with `overrides=`. Everything you
+do not name keeps its prior draw, which matters as models grow: an absolute-astrometry
+likelihood contributes dozens of nuisance variables, and anything you forget to list would
+otherwise be missing.
 
 ```@example 1
-template = Octofitter.drawfrompriors(model.system)
-
-# Our "true" parameter values for the simulation
-true_b = merge(template.bodies.b, (;
-    mass = 85mjup,   # M⊙
-    a = 45.0,
-    e = 0.15,
-    ω = 1.2,
-    i = 0.8,
-    Ω = 2.1,
-    θ = 1.5,
-))
-params_to_simulate = merge(template, (;
+params_to_simulate = Octofitter.drawfrompriors(model.system; overrides=(;
     plx = 29.15,
-    bodies = merge(template.bodies, (;
-        A = merge(template.bodies.A, (; mass = 1.61)),
-        b = true_b,
-    )),
-    observations = merge(template.observations, (;
-        SOPHIE = (jitter = 15.0, offset = 0.0),
-    )),
+    bodies = (;
+        A = (; mass = 1.61),        # M⊙
+        b = (;
+            mass = 85mjup,          # M⊙
+            a = 45.0,
+            e = 0.15,
+            ω = 1.2,
+            i = 0.8,
+            Ω = 2.1,
+            θ = 1.5,
+        ),
+    ),
+    observations = (;
+        SOPHIE = (; jitter = 15.0, offset = 0.0),
+    ),
 ))
 ```
+
+!!! warning "Override the sampled variables, and let `overrides=` do the deriving"
+    `overrides=` names **free** (`~`) variables only, and writes them into the flat
+    parameter vector *before* it is expanded — so every derived (`=`) variable is
+    recomputed from the values you gave. Naming a derived variable is an error listing the
+    model's free variables, rather than a silent no-op.
+
+    This is the reason not to build the structure by hand with `merge`.
+    `generate_from_params` reads the *derived* orbital elements, not the sampled variables
+    they came from, so a `merge` that sets a sampled variable leaves any element computed
+    from it stale. In a model with `a = sep / system.plx`, `merge(θ.bodies.b, (; sep=500))`
+    changes `sep` and leaves `a` at whatever the prior draw implied — and the simulated
+    data come out at the old `a`.
 
 !!! warning
     The structure of this NamedTuple mirrors your model, so it will change if your model
     changes. Always start from your own `drawfrompriors` output rather than copying
     someone else's. The exact structure is not guaranteed to be stable between versions
     of Octofitter.
-
-!!! note
-    Derived variables (anything written with `=` rather than `~`) are recomputed by the
-    model, so overriding one has no effect — override the sampled variables it is built
-    from. Sampled variables are exactly the ones that appear in a chain.
 
 
 ## Generate synthetic system with simulated data
@@ -228,7 +235,7 @@ octoplot(sim_model, chain)
 
 ## Overlay True and Recovered Parameters
 
-For a direct comparison, we can overlay the true orbit on the posterior draws. In v2 a chain row is turned back into a whole `PlanetOrbits.System` with [`construct_system`](@ref), which we can hand straight to Makie:
+For a direct comparison, we can overlay the true orbit on the posterior draws. A chain row is turned back into a whole `PlanetOrbits.System` with [`construct_system`](@ref), which we can hand straight to Makie:
 
 ```@example 1
 fig = Figure()
@@ -253,12 +260,11 @@ Makie.scatter!(ax, [0], [0], marker='⋆', color=:black, markersize=20)
 fig
 ```
 
-!!! note "Changed from v1"
-    v1's `Octofitter.astromplot` / `astromplot!` are gone. The generic
-    [`octoplot`](@ref) covers the same ground for a single model, and for a custom
-    overlay like the one above, `construct_system` plus `Makie.lines!(ax, posys, target, ref)`
-    is the replacement — it also works for references v1's per-planet plotting could not
-    express (a companion against another companion, against the barycentre, …).
+!!! tip "Custom overlays"
+    [`octoplot`](@ref) covers the standard figures. For a custom overlay like the one
+    above, `construct_system` plus `Makie.lines!(ax, posys, target, ref)` draws any pair
+    of references you like — a companion against another companion, against the
+    barycentre, and so on.
 
 ## Corner Plot Comparison
 
@@ -283,7 +289,7 @@ octocorner(
 )
 ```
 
-Note that the host star's mass is `A_mass`: in v2 it is an ordinary variable of the `A` body, not a system-level `M`.
+Note that the host star's mass is `A_mass`: it is an ordinary variable of the `A` body.
 
 ## [Simulating absolute astrometry](@id data-simulation-absolute)
 
@@ -291,7 +297,7 @@ The same three steps — build a model with real epochs, draw parameters, call `
 
 * Those likelihoods contribute a large block of their own nuisance variables (per-transit
   selection latents, calibration noise terms). Build your parameter NamedTuple with
-  `merge` on a `drawfrompriors` template, as above, rather than writing it out.
+  `drawfrompriors(sys; overrides=…)`, as above, rather than writing it out.
 * `G23HObs` and `HGCAObs` need the **full absolute frame** in the system block —
   `plx`, `ra`, `dec`, `pmra`, `pmdec`, `rv` and `ref_epoch`, all seven. A partial frame
   is an error, because the model has no way to place the source on the sky without it.
@@ -384,10 +390,10 @@ println("Period: $(round(period_days/365.25, digits=2)) years")
 display(first(astrom_data, 5))
 ```
 
-!!! note "Changed from v1"
-    Observables take an explicit `(target, ref)` pair: `raoff(sol, :b, :A)` rather than
-    `raoff(sol)`. The one-argument form still works for the trivial two-body systems
-    `orbit(...)` builds, but the three-argument form is what generalizes.
+!!! note "Observables name their references"
+    `raoff(sol, :b, :A)` takes an explicit `(target, ref)` pair. The one-argument form
+    still works for the trivial two-body systems `orbit(...)` builds, but the
+    three-argument form is what generalizes.
 
 You can now use this synthetic data with Octofitter:
 

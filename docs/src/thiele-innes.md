@@ -9,9 +9,9 @@ This example shows how to fit relative astrometry using a Thiele-Innes orbital p
 
     Both parameterizations should give consistent results for the physical orbital parameters. Choose based on your preference or specific analysis needs.
 
-In v2 there is no `ThieleInnesOrbit` type, and no `basis=` keyword. Thiele-Innes is
-written as what it is: four sampled constants plus one derived line converting them into
-the elements PlanetOrbits uses. [`PlanetOrbits.ThieleInnes`](https://sefffal.github.io/PlanetOrbits.jl/dev/api/)
+There is no separate orbit type for this: Thiele-Innes is written as what it is — four
+sampled constants plus one derived line converting them into the elements PlanetOrbits
+uses. [`PlanetOrbits.ThieleInnes`](https://sefffal.github.io/PlanetOrbits.jl/dev/api/)
 returns a NamedTuple `(; a, i, ω, Ω)`; you still supply the shape (`e`) and phase
 elements yourself.
 
@@ -49,14 +49,14 @@ planet_b = Body(
         # Thiele-Innes constants A, B, F, G are in milliarcseconds (not AU like semi-major axis).
         # Set the prior width to encompass the expected angular separation of your target.
         # A rough guide: if your astrometry spans ~500 mas, use Normal(0, 1000) or similar.
-        TI_A ~ Normal(0, 1000) # milliarcseconds
-        TI_B ~ Normal(0, 1000) # milliarcseconds
-        TI_F ~ Normal(0, 1000) # milliarcseconds
-        TI_G ~ Normal(0, 1000) # milliarcseconds
+        A ~ Normal(0, 1000) # milliarcseconds
+        B ~ Normal(0, 1000) # milliarcseconds
+        F ~ Normal(0, 1000) # milliarcseconds
+        G ~ Normal(0, 1000) # milliarcseconds
 
         # Convert to the size and orientation elements. `plx` is needed because
         # the constants are in angular units.
-        ti = $(PlanetOrbits.ThieleInnes)(A=TI_A, B=TI_B, F=TI_F, G=TI_G, plx=system.plx)
+        ti = PlanetOrbits.ThieleInnes(; A, B, F, G, plx=system.plx)
         a = ti.a
         i = ti.i
         ω = ti.ω
@@ -99,6 +99,14 @@ model = Octofitter.LogDensityModel(sys)
     velocities break the tie; if you have them and they prefer the other node, use
     `ω + π` and `Ω + π`.
 
+    If you do not know the branch in advance, the ±180° choice is *discrete* and HMC
+    cannot cross it, so do not try to sample it. Fit the two branches as two models —
+    identical but for the `+ π` — and compare them with
+    [Bayesian evidence](@ref bayesian-evidence). Note also that once radial velocities
+    are in the fit, the singularity that motivates Thiele-Innes in the first place is
+    usually no longer the binding constraint, so sampling Campbell elements directly is
+    often the simpler model.
+
 Initialize the starting points, and confirm the data are entered correcly:
 ```@example 1
 init_chain = initialize!(model)
@@ -111,7 +119,7 @@ results = octofit(model)
 ```
 
 !!! note
-    The Thiele-Innes parameterization may reveal more complex posterior structure (e.g., multimodality) that Campbell masks through its angular parameterization. If your corner plot shows unexpected bimodality in the A, B, F, G parameters, this may reflect genuine orbital ambiguities rather than sampling issues.
+    The Thiele-Innes parameterization may reveal more complex posterior structure (e.g., multimodality) that Campbell masks through its angular parameterization. If your corner plot shows unexpected bimodality in the `A`, `B`, `F`, `G` parameters, this may reflect genuine orbital ambiguities rather than sampling issues.
 
 We now display the results:
 ```@example 1

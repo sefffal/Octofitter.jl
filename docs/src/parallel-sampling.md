@@ -7,8 +7,8 @@
 !!! note "Requires Pigeons"
     Everything on this page depends on [`octofit_pigeons`](@ref), whose methods live in a
     package extension: `pkg> add Pigeons` and `using Pigeons`, or the function exists with
-    no methods. The MPI and cluster plumbing shown here has not been re-verified against
-    v2 on a real cluster — the model definition and the API calls are current, but treat
+    no methods. The MPI and cluster plumbing shown here has not been re-verified on a
+    real cluster recently — the model definition and the API calls are current, but treat
     the launcher scripts as a starting point. See [Samplers](@ref samplers).
 
 

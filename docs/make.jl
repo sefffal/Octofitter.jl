@@ -24,7 +24,7 @@ makedocs(
             "Quick Start" => "quick-start.md",
             "FAQ" => "faq.md",
             "Migration Guide" => "migration.md",
-            "Migrating to v2" => "v2-migration.md",
+            "Migrating to v9" => "v9-migration.md",
         ],
         "Tutorials" => [
             "Relative Astrometry" => [

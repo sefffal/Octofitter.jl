@@ -55,29 +55,78 @@ half-plane, which removes the ω degeneracy as e → 0. `θ` is the planet's sky
 position angle at `epoch` and is usually far better constrained by imaging than `tp`.
 
 !!! warning "`P` is in days"
-    `P` matches `period(sys)` so the two round-trip. If you think in years, multiply:
-    `P = P_years * 365.25`.
+    `P` matches `period(sys)` so the two round-trip. If you think in years, multiply by
+    the exported `year2day_julian` (365.25 exactly, the IAU Julian year):
+    `P = P_years * year2day_julian`. Do **not** use the 365.2568983840419-day Kepler
+    year here — that constant belongs inside `√(a³/M)`, which PlanetOrbits applies for
+    you, and mixing the two drifts a well-measured short period.
 
-!!! note "`τ` is gone"
-    v1's `τ ~ UniformCircular(1.0)` needed hidden period and reference-epoch state and has
-    no clean meaning under N-body integration. Use `tp`, or `M0` + `epoch`, or
-    `θ` + `epoch`.
+### Orbitize!'s `tau`, written out
+
+There is no `τ` element, because a bare `τ` carries hidden period and reference-epoch
+state and has no clean meaning under N-body integration. But orbitize!'s
+`tau` — the fraction of a period elapsed since a reference epoch — is two ordinary
+lines, and it keeps its usual `Uniform(0, 1)` prior:
+
+```julia
+b = Body(name="b", about=A, variables=@variables begin
+    P ~ LogUniform(365.0, 365_000.0)      # days
+    τ ~ Uniform(0, 1)                     # orbitize!'s tau
+    tp = τ * P + 58849                    # orbitize!'s default tau_ref_epoch, MJD
+    # …e, i, ω, Ω as usual
+end)
+```
+
+`58849` is orbitize!'s default `tau_ref_epoch`; use whatever your file records, and note
+that [`Octofitter.loadhdf5`](@ref) reads it out of the file's attributes for you when
+importing an orbitize! chain (see [Orbitize! Compatibility](@ref)). `τ` stays in the
+chain as a sampled column, so posteriors remain directly comparable with orbitize!'s.
+
+Sampling `τ` with [`UniformCircular`](@ref)`(1.0)` instead of `Uniform(0, 1)` avoids the
+hard boundary at the wrap point, at the cost of one extra dimension.
 
 A Thiele-Innes fit is written as a derived line rather than an orbit type — see
 [Fit with a Thiele-Innes Basis](@ref).
 
 ## Choosing a Propagator
 
-By default, orbits are superposed Keplerians (`PlanetOrbits.KeplerianApprox()`), which is
-what every version of Octofitter did. You can instead integrate the bodies' mutual
-gravity, without changing anything else in the model:
+By default, orbits are superposed Keplerians (`PlanetOrbits.KeplerianApprox()`). You can
+instead integrate the bodies' mutual gravity, without changing anything else in the
+model:
 
 ```julia
 System(...; method=PlanetOrbits.AHL21(h=40.0, t0=57388.0))
 ```
 
-Note that the elements mean different things under the two propagators — constant versus
-osculating at `t0` — so a chain fitted with one is not element-for-element comparable
-with the other.
+`h` is the integrator timestep in days and `t0` is the epoch at which the declared
+elements are the *osculating* ones. Pick `h` well below the shortest period in the
+system, and `t0` near the middle of your data. The elements mean different things under
+the two propagators — constant versus osculating at `t0` — so a chain fitted with one is
+not element-for-element comparable with the other. This is the machinery a transit-timing
+fit needs; see the
+[N-body integration](https://sefffal.github.io/PlanetOrbits.jl/dev/nbody/) page in the
+PlanetOrbits manual for the details, and expect a worked TTV tutorial here later.
+
+## Precision opt-outs
+
+Two corrections are applied on every solve and can each be turned off independently.
+They gate different physics, so they are separate switches rather than one "fast mode":
+
+| keyword | what it does | when it matters |
+|---|---|---|
+| `observing_geometry=false` | skips the observing-geometry pass | every term scales with the system's angular extent ρ, so it is negligible for a compact system and is not for a wide one |
+| `barycentric_lighttime=false` | skips the barycentric light-travel solve | a whole-system *timing* correction that scales with proximity and proper motion, not with ρ |
+
+They are keywords on `orbitsolve`:
+
+```julia
+sols = orbitsolve(posys, epochs; observing_geometry=false, barycentric_lighttime=false)
+```
+
+Turning both off recovers the older, cheaper sky path exactly, and is what the
+performance comparisons in the migration guide are measured against. Read
+[Precision opt-outs](https://sefffal.github.io/PlanetOrbits.jl/dev/precision/) before
+setting either in a fit you intend to publish: these change *results*, not just runtime,
+and a system whose frame declares no `plx` skips the angular corrections anyway.
 
 For generating synthetic data using PlanetOrbits functions, see the [Data Simulation](@ref data-simulation) tutorial.

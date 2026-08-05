@@ -21,12 +21,12 @@ a three-phase workflow:
 For convenience, [`completeness_map`](@ref) runs all three phases locally.
 
 !!! warning "Masses are in solar masses"
-    v2 has a single mass unit, M⊙, throughout — `CompletenessJob.mass`, the `masses`
+    There is a single mass unit, M⊙, throughout — `CompletenessJob.mass`, the `masses`
     grid, and `CompletenessMap.masses` are all M⊙, and so is a body's `mass`
     variable. `mjup` and `mearth` are plain multiplicative constants, so a
-    Jupiter-mass grid is written `10 .^ range(-1, 2, length=12) .* mjup`. A v1 grid
-    copied across unchanged asks about companions between 0.1 and 100 **solar**
-    masses.
+    Jupiter-mass grid is written `10 .^ range(-1, 2, length=12) .* mjup`. A bare
+    `10 .^ range(-1, 2, length=12)` asks about companions between 0.1 and 100
+    **solar** masses.
 
 !!! note "Initialization shortcut"
     For efficiency, each trial initializes the sampler at the true injected
@@ -74,7 +74,7 @@ rvs = RadialVelocityObs(
     );
     target = A, ref = Barycentre, name = "HARPS",
     variables=@variables begin
-        offset ~ Normal(0, 100)          # m/s -- NOT auto-injected in v2
+        offset ~ Normal(0, 100)          # m/s -- declare it; nothing is auto-injected
         jitter ~ LogUniform(0.1, 30.0)   # m/s
     end)
 
@@ -110,9 +110,9 @@ times longer than the 2000-day baseline.
 completenessplot(cmap, nothing; show_counts=true)
 ```
 
-Two things about `inject` that changed in v2 and will bite a copied v1 script:
+Two things to know about `inject`:
 
-* Overrides nest under **`bodies=`**, not `planets=` — observations no longer live under a companion, and the host star is a body like any other. Passing `planets=` raises an explicit error pointing at the new spelling.
+* Overrides nest under **`bodies=`**, matching the shape of the model.
 * The values are in the model's own units, so a mass override is in **M⊙**.
 
 ## Quick example (local)
@@ -181,7 +181,7 @@ assembly phase, you can experiment with different criteria on the same set of
 results.
 
 The `θ_true` argument is the model's own nested parameter structure, so a body's
-variables live under `θ.bodies.<name>`. (In v1 this was `θ.planets.<name>`.)
+variables live under `θ.bodies.<name>`.
 
 Here are some example criteria:
 
@@ -236,7 +236,7 @@ completenessplot(cmap_bf10, "completeness_bf10.png")
 The `inject` argument maps grid values to parameter overrides. It must return
 a nested `NamedTuple` that sets *free* (prior) parameters only — not derived
 parameters. Overriding a derived variable is an error listing the model's free
-variables, where v1 silently discarded it.
+variables.
 
 ```julia
 # Simple case: mass and semi-major axis are free parameters
@@ -250,9 +250,9 @@ inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep)),
                            observations=(; GPI=(; jitter=1.0)))
 ```
 
-Overrides are located by exact slot lookup in the flat parameter vector, not by
-searching for a matching value as v1 did — so two parameters that happen to draw
-the same number, or one element of a vector-valued prior, are addressed correctly.
+Overrides are located by exact slot lookup in the flat parameter vector rather than by
+searching for a matching value, so two parameters that happen to draw the same number,
+or one element of a vector-valued prior, are addressed correctly.
 
 ## Gaia DR4 example
 
@@ -370,4 +370,4 @@ completenessplot!(fig.layout, cmap;
 Makie.save("map_custom.png", fig, px_per_unit=3)
 ```
 
-The default y-axis label is `mass [M⊙]`, matching v2's single mass unit.
+The default y-axis label is `mass [M⊙]`, matching the single mass unit used throughout.

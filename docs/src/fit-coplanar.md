@@ -44,8 +44,9 @@ nothing # hide
 
 HR 8799 b is the outer of the two planets and c the inner one, so we write the hierarchy
 as a **Jacobi chain**: c orbits the star, and b orbits the *barycentre* of the star and c
-(`about=(A, c)`). That choice is now explicit — v1 guessed it at runtime by comparing
-semi-major axes.
+(`about=(A, c)`). The convention is stated in the model, never inferred; see
+[Jacobi vs. astrocentric](https://sefffal.github.io/PlanetOrbits.jl/dev/hierarchies/#Jacobi-vs.-astrocentric)
+for what the choice means physically.
 
 Because the mass of every orbit is computed from the bodies it binds, there is no `M`
 variable to get wrong: the c row's mass is `A.mass + c.mass` and the b row's is
@@ -74,8 +75,7 @@ planet_c = Body(
     name="c",
     about=A,
     variables=@variables begin
-        mass_jup ~ Uniform(0, 12)          # [Mjup]
-        mass = mass_jup * mjup             # [M⊙]
+        mass ~ Uniform(0, 12mjup)          # [M⊙]
         e = 0.0
         ω = 0.0
 
@@ -85,7 +85,7 @@ planet_c = Body(
 
         # Specify the period as ~ 10% around the P_nominal variable
         P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
-        P = system.P_nominal * P_mul * 365.25   # [days]
+        P = system.P_nominal * P_mul * year2day_julian   # [days]
 
         θ ~ UniformCircular()
         epoch = 59454.231   # reference epoch for θ. Choose an MJD date near your data.
@@ -96,8 +96,7 @@ planet_b = Body(
     name="b",
     about=(A, planet_c),                   # Jacobi: b orbits the A+c barycentre
     variables=@variables begin
-        mass_jup ~ Uniform(0, 12)          # [Mjup]
-        mass = mass_jup * mjup             # [M⊙]
+        mass ~ Uniform(0, 12mjup)          # [M⊙]
         e = 0.0
         ω = 0.0
 
@@ -106,7 +105,7 @@ planet_b = Body(
 
         # Specify the period as ~ 10% around 2X the P_nominal variable
         P_mul ~ Normal(1, 0.1)
-        P = 2 * system.P_nominal * P_mul * 365.25   # [days]
+        P = 2 * system.P_nominal * P_mul * year2day_julian   # [days]
 
         θ ~ UniformCircular()
         epoch = 59454.231
@@ -149,7 +148,7 @@ sys = System(
         i ~ Sine()
         Ω ~ UniformCircular()
         # We create a nominal period of planet c variable. 
-        P_nominal ~ Uniform(50, 300) # years
+        P_nominal ~ Uniform(50, 300) # Julian years
     end
 )
 
@@ -160,8 +159,7 @@ model = Octofitter.LogDensityModel(sys)
     Both astrometry tables are `target=<planet>, ref=A` — positions relative to the host
     star — regardless of the hierarchy we chose. The hierarchy says how the orbits are
     parametrized; `raoff(sol, target, ref)` handles the difference between "b relative to
-    A" and "b relative to the A+c barycentre" exactly. v1 approximated this by summing the
-    reflex motion of every companion it decided was interior at runtime.
+    A" and "b relative to the A+c barycentre" exactly, with no approximation.
 
 Let's plot our data before we start:
 ```@example 1
@@ -178,8 +176,8 @@ init_chain = initialize!(model, (;
     P_nominal = 230,
     bodies = (;
         A = (; mass = 1.48),
-        b = (; mass_jup = 5.73),
-        c = (; mass_jup = 5.14),
+        b = (; mass = 5.73mjup),
+        c = (; mass = 5.14mjup),
     )
 ))
 octoplot(model, init_chain)
@@ -240,8 +238,7 @@ planet_c = Body(
     name="c",
     about=A,
     variables=@variables begin
-        mass_jup ~ Uniform(0, 12)
-        mass = mass_jup * mjup
+        mass ~ Uniform(0, 12mjup)
         e = 0.0
         ω = 0.0
 
@@ -249,7 +246,7 @@ planet_c = Body(
         Ω = system.Ω_c
 
         P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
-        P = system.P_nominal * P_mul * 365.25
+        P = system.P_nominal * P_mul * year2day_julian
 
         θ ~ UniformCircular()
         epoch = 59454.231
@@ -260,8 +257,7 @@ planet_b = Body(
     name="b",
     about=(A, planet_c),
     variables=@variables begin
-        mass_jup ~ Uniform(0, 12)
-        mass = mass_jup * mjup
+        mass ~ Uniform(0, 12mjup)
         e = 0.0
         ω = 0.0
 
@@ -269,7 +265,7 @@ planet_b = Body(
         Ω = system.Ω_b
 
         P_mul ~ Normal(1, 0.1)
-        P = 2 * system.P_nominal * P_mul * 365.25
+        P = 2 * system.P_nominal * P_mul * year2day_julian
 
         θ ~ UniformCircular()
         epoch = 59454.231
@@ -303,7 +299,7 @@ sys = System(
         mut_inc_b_c ~ truncated(Normal(0, deg2rad(10)), lower=0)
 
         # We create a nominal period of planet c variable. 
-        P_nominal ~ Uniform(50, 300) # years
+        P_nominal ~ Uniform(50, 300) # Julian years
     end
 )
 
@@ -318,8 +314,8 @@ init_chain = initialize!(model, (;
     P_nominal = 230,
     bodies = (;
         A = (; mass = 1.48),
-        b = (; mass_jup = 5.73),
-        c = (; mass_jup = 5.14),
+        b = (; mass = 5.73mjup),
+        c = (; mass = 5.14mjup),
     )
 ))
 octoplot(model, init_chain)
@@ -383,13 +379,9 @@ observations = [
 ```
 
 Each takes an optional `bodies=` list restricting it to the hierarchy rows that place
-those bodies. With no list, every row in the system is included — v1's behaviour, and the
-right default for a star with planets, but not for a hierarchical system where some rows
-(a wide binary orbit, say) have no meaningful apsidal comparison with the others.
+those bodies. With no list, every row in the system is included — the right default for a
+star with planets, but not for a hierarchical system where some rows (a wide binary orbit,
+say) have no meaningful apsidal comparison with the others.
 
-!!! warning "`HillStabilityPrior` results differ from v1"
-    v1 overwrote the outer planet's parameters with the inner planet's when evaluating the
-    criterion, so the outer companion's mass never entered it. The v2 implementation
-    applies the intended Gladman criterion, and rejects configurations v1 accepted (and
-    vice versa) whenever the two companion masses differ. See the docstring for the exact
-    definition of `M★` used.
+[`HillStabilityPrior`](@ref)'s docstring gives the exact Gladman criterion and the
+definition of `M★` it uses.

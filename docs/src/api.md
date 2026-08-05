@@ -1,13 +1,8 @@
 # API Documentation
 
 <!--
-Coverage list only — the prose belongs on the topic pages. Every name below
-resolves and carries a docstring against the v2 surface (checked during the
-port integration pass). Names retired with v1 (`Planet`, `PlanetRelAstromObs`,
-`StarAbsoluteRVObs`, `PlanetRelativeRVObs`, `Visual{KepOrbit}`,
-`AbsoluteVisual{KepOrbit}`, `RadialVelocityOrbit`, the `*_nss` helpers) were
-removed rather than aliased; see `v2-migration.md`. Orbit and system *element*
-types now live in PlanetOrbits and are documented there.
+Coverage list only — the prose belongs on the topic pages. Orbit and system
+*element* types live in PlanetOrbits and are documented there.
 -->
 
 ## The model
@@ -17,13 +12,16 @@ types now live in PlanetOrbits and are documented there.
 System
 Body
 Orbit
+Barycentre
+Photocentre
 UniformCircular
 Sine
 KDEDist
 ```
 
-`Barycentre` and `Photocentre` are the reference grammar's two derived points;
-they are singletons and are described in [`System`](@ref)'s docstring.
+[`Barycentre`](@ref) and [`Photocentre`](@ref) are the reference grammar's two
+derived points. They are singletons, and both are also callable to name a
+subsystem or a blended subset.
 
 ## Observations
 
@@ -46,6 +44,8 @@ ImageObs
 LogLikelihoodMapObs
 InterferometryObs
 GRAVITYWideKPObs
+ClosurePhases
+KernelPhases
 ```
 
 ## Prior terms
@@ -176,7 +176,7 @@ Octofitter.gp_predict
 
 ## Retired names
 
-**Aliases.** These resolve to their v2 replacements and exist only so v1
+**Aliases.** These resolve to their current replacements and exist only so older
 scripts keep parsing: `PhotometryLikelihood` → [`PhotometryObs`](@ref),
 `PlanetOrderPrior` → [`OrbitOrderPrior`](@ref),
 `ObsPriorAstromONeil2019` → [`ObsPriorONeil2019`](@ref),
@@ -184,11 +184,11 @@ scripts keep parsing: `PhotometryLikelihood` → [`PhotometryObs`](@ref),
 `GRAVITYWideKPLikelihood` → [`GRAVITYWideKPObs`](@ref).
 
 **Error stubs.** These are defined, exported, and raise an error naming the
-replacement, because in each case the v2 spelling takes different arguments
+replacement, because in each case the current spelling takes different arguments
 or lives somewhere else in the model — an alias would not have helped, and a
 bare `UndefVarError` says nothing:
 
-| v1 name | v2 |
+| Retired name | Use instead |
 |---|---|
 | `Planet` | [`Body`](@ref) + the observation moves to [`System`](@ref)'s `observations=` |
 | `θ_at_epoch_to_tperi` | declare `θ` and `epoch` as orbital elements |

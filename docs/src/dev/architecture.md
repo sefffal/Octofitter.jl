@@ -2,9 +2,10 @@
 
 This document provides an overview of Octofitter's internal architecture, focusing on how user model specifications are transformed into efficient log prior and log likelihood functions for Bayesian inference.
 
-It describes the **v2** internals. The v1 architecture — `Planet` objects owning their
-own observations, `basis=` orbit types, and a per-likelihood epicyclic superposition loop
-— is gone; see [Migrating to Octofitter v2](@ref v2-migration) for the user-facing map.
+It describes the internals as of Octofitter v9. The v8 architecture — `Planet` objects
+owning their own observations, `basis=` orbit types, and a per-likelihood epicyclic
+superposition loop — is gone; see [Migrating to Octofitter v9](@ref v9-migration) for the
+user-facing map.
 
 ## High-Level Flow
 
@@ -267,7 +268,7 @@ excludes them from `pointwise_like`'s columns and from cross-validation's data c
 
 **Location**: `src/model/codegen.jl` (`make_ln_like`), `src/model/obs.jl` (`ObsContext`)
 
-This is where the largest v1→v2 change lives. `make_ln_like` returns a `GeneratedLnLike`
+This is where the largest v8→v9 change lives. `make_ln_like` returns a `GeneratedLnLike`
 with **two** compiled halves:
 
 ```julia
@@ -314,7 +315,7 @@ and many observations share epochs, so the whole model is solved exactly once pe
 
 ### The likelihood interface
 
-There is one context type — the v1 `PlanetObservationContext`/`SystemObservationContext`
+There is one context type — the v8 `PlanetObservationContext`/`SystemObservationContext`
 split collapsed when references became explicit:
 
 ```julia
@@ -335,7 +336,7 @@ end
 variables), `system` (the sample's `PlanetOrbits.System`), `traj`, the `epoch_index` map,
 and `buf`, the scratch arena.
 
-**This is where v1's six duplicated epicyclic-superposition loops went.** v1 rebuilt a
+**This is where v8's six duplicated epicyclic-superposition loops went.** v8 rebuilt a
 companion's apparent position by summing the reflex motion of every body it decided at
 runtime was "inner" (`semimajoraxis(other) < semimajoraxis(this)`) — which had no answer
 for crossing orbits, equal semi-major axes, or anything that is not a planet orbiting a
@@ -471,7 +472,7 @@ Code generation moves work from runtime to compile time: no loops over variable 
 - **Orbital physics** (PlanetOrbits): hierarchy solving, propagation, observables
 - **Evaluation** (`ℓπcallback`): simple, fast, differentiation-ready
 
-The third line is the one v2 drew that v1 did not. Likelihoods no longer contain any
+The third line is the one v9 drew that v8 did not. Likelihoods no longer contain any
 orbital mechanics — they ask PlanetOrbits a question about a solved system.
 
 ### 4. Composability

@@ -92,9 +92,8 @@ Two properties are worth knowing about, because they are what makes the matrix u
 !!! note "Prior-shaped terms are excluded"
     A `~` line written inside a `@variables` block, an `LL += ...` line, and the
     `UnitLengthPrior` that sits behind every `UniformCircular` are all *prior* terms:
-    they reshape the prior rather than adding data. They get no column, because a
-    column for one would both invent a data point and add the same constant to every
-    other column.
+    they reshape the prior rather than adding data, so they do not participate in this
+    machinery and get no column.
 
     `ObsPriorONeil2019` is *not* a prior-shaped term in this sense — it wraps a real
     likelihood — so it still contributes one column per row of the observation it wraps.
@@ -112,18 +111,6 @@ The difference is exactly the three `UnitLengthPrior` terms this model's three `
 !!! note "Observations with no epochs get one column, labelled `NaN`"
     [`PhotometryObs`](@ref) carries data but has no epoch column; it contributes one
     column per photometry row, and those columns are labelled `NaN` in `epochs`.
-
-!!! warning "Changed from v1 — published numbers are affected"
-    v1's `pointwise_like` passed the *complement* of the wanted rows to the subsetting
-    routine, in the belief that it dropped the indices it was given. It keeps them. So
-    each v1 "pointwise" column actually held the likelihood of all the data **except**
-    that point. Any PSIS-LOO or cross-validation number produced with Octofitter v1 is
-    affected, as are `generate_system_per_epoch` and
-    `generate_cumulative_system_per_epoch`.
-
-    v2 also computes this far more cheaply: v1 built one whole `System` per data point
-    and compiled a fresh likelihood function for each, where v2 evaluates the per-row
-    observations against a single trajectory per sample.
 
 ## Pareto-Smoothed Importance Sampling
 
@@ -153,7 +140,7 @@ Results of PSIS-LOO-CV with 1000 Monte Carlo samples and 8 data points.
 
 `chain_index` tells ParetoSmooth which chain each row of the matrix came from. `pointwise_like` flattens all chains into the sample dimension in order, so for a single chain `ones(Int, size(chain,1))` is right; for several chains use `repeat(1:size(chain,3), inner=size(chain,1))`.
 
-The diagnostic to look at is the Pareto shape parameter `k` for each point. Values above about 0.7 mean the importance-sampling approximation is unreliable for that point — usually because it is highly influential — and that point deserves a genuine refit with the row held out (see [Holding out whole observations](@ref) below).
+The diagnostic to look at is the Pareto shape parameter `k` for each point. Values above about 0.7 mean the importance-sampling approximation is unreliable for that point — usually because it is highly influential — and that point deserves a genuine refit with the row held out (see [Holding out whole observations](@ref cv-holdout) below).
 
 Plot like so:
 ```julia
@@ -228,6 +215,37 @@ gpi_only_chain = octofit(gpi_only_model, verbosity=0)
 nothing # hide
 ```
 
+### Scoring the held-out dataset
+
+Refitting without a dataset is only half the exercise; the other half is asking how well
+the *reduced* posterior predicts the data you removed. Evaluate the full model's
+per-row likelihoods at the reduced model's draws, and keep the columns belonging to the
+held-out observation:
+
+```@example 1
+# Which global row indices belong to each observation, in listing order
+bounds = cumsum(Octofitter.likeobj_rowcount.(sys.observations))
+starts = [1; bounds[1:end-1] .+ 1]
+heldout = [i for (o, s, e) in zip(sys.observations, starts, bounds)
+             if Octofitter.likelihoodname(o) != "GPI" for i in s:e]
+
+# Per-row likelihoods of *all* the data, under the GPI-only posterior
+mat_heldout = Octofitter.pointwise_like(model, gpi_only_chain).likelihood_mat[:, heldout]
+
+# Log pointwise predictive density of the held-out rows: log mean exp over draws,
+# summed over rows.
+using StatsBase: mean
+lppd = sum(log(mean(exp, col)) for col in eachcol(mat_heldout))
+```
+
+`lppd` is on the same scale as a log Bayes factor per held-out dataset: larger is better,
+and comparing it across folds says which instruments the model is and is not able to
+predict from the others. It is not as directly interpretable as PSIS-LOO — there is no
+importance-sampling diagnostic to warn you when it is unreliable — but it needs no
+approximation either, because each fold is a genuine refit. Note that an instrument
+carrying its own `offset`/`jitter` variables is being predicted *with those nuisances free*,
+so a poor score there can mean a bad calibration rather than a bad orbit.
+
 ## Epoch-level folds
 
 Data rows are numbered globally — observation by observation, then table row by table row — so row 5 means "the fifth data row in the model" regardless of which observation it lives in.
@@ -268,10 +286,10 @@ Octofitter.pointwise_like(model_with_marginalized_rv, chain)
 
 Use a plain `RadialVelocityObs` with an explicit `offset` variable if you need to cross-validate radial velocities.
 
-A second, narrower limit: with a Gaussian process attached to a `RadialVelocityObs`, holding rows out works only with the **Celerite** backend. The AbstractGPs path raises a clear error, because the predictive distribution needed to score a held-out point is not implemented for it. This is a pre-existing limitation carried over from v1.
+A second, narrower limit: with a Gaussian process attached to a `RadialVelocityObs`, holding rows out works only with the **Celerite** backend. The AbstractGPs path raises a clear error, because the predictive distribution needed to score a held-out point is not implemented for it.
 
 ## See also
 
 * [Posterior Predictive Checks](@ref) — the qualitative counterpart: does the fitted model reproduce the data at all?
-* [Bayesian Evidence](@ref) — comparing whole models rather than individual points.
+* [Bayesian evidence](@ref bayesian-evidence) — comparing whole models rather than individual points.
 * [`prior_only_model`](@ref) — a copy of the model with its data likelihoods replaced by no-ops.

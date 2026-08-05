@@ -88,8 +88,10 @@ nothing # hide
 
 **`about`**: which body (or barycentre) this one orbits. Leave it off for the root of the
 hierarchy — exactly one body, normally the host star, must be unplaced. `about=(A, b)`
-would place a third body about the *barycentre* of A and b (a Jacobi chain) instead. The
-convention is never guessed from semi-major axis.
+would place a third body about the *barycentre* of A and b — a **Jacobi** chain — instead
+of about A alone. The two are different models, not two spellings of one; see
+[Jacobi vs. astrocentric](https://sefffal.github.io/PlanetOrbits.jl/dev/hierarchies/#Jacobi-vs.-astrocentric)
+in the PlanetOrbits manual for which to pick.
 
 **`variables`**: this body's variables. Three names are read specially — `mass` [M⊙],
 `flux`/`flux_<band>`, and any orbital element keyword — and everything else is an
@@ -106,12 +108,13 @@ groups; supply exactly one alternative from each:
 Here we used `θ` (the planet's position angle on the sky at `epoch`) to fix the phase,
 which is usually much better constrained by imaging data than the epoch of periastron.
 
-!!! note "There is no `M` variable"
+!!! note "Where the orbit's mass comes from"
     The gravitating mass of an orbit is the total mass of the bodies it binds, computed
-    from the model. For this two-body system that is `A.mass + b.mass`, so fixing
-    `b.mass = 0.0` makes `A.mass` play exactly the role v1's `M` did. Give the planet a
-    real mass prior instead when your data can constrain it (radial velocity, absolute
-    astrometry, or a second planet).
+    from the model rather than declared. For this two-body system that is
+    `A.mass + b.mass`; fixing `b.mass = 0.0` makes `A.mass` the whole of it, which is
+    what relative astrometry alone can constrain. Give the planet a real mass prior when
+    your data can constrain it (radial velocity, absolute astrometry, or a second
+    planet).
 
 Priors can be any continuous univariate distribution from the Distributions.jl package.
 Many are supported, including `Uniform`, `LogNormal`, `LogUniform`, `Sine`, and `Beta`.
@@ -144,9 +147,10 @@ nothing # hide
 Each observation must be given a `name`, which is used to label its own variables in the
 output chain.
 
-`ref` is a real reference, not an implied host: `ref=Barycentre` (astrometry measured
-against the system barycentre) and `ref=planet_b` (one companion measured against
-another) are both expressible.
+`ref` names what the measurement is *relative to*, and it can be anything in the model:
+`ref=A` (the usual case, a companion measured against its host), `ref=Barycentre`
+(measured against the system barycentre), or `ref=planet_b` (one companion measured
+against another).
 
 #### Advanced Options
 You can group your data in different observation objects, each with their own instrument name. Each group can have its own `platescale`, `northangle`, and astrometric `jitter` variables for modelling instrument-specific systematics.
@@ -199,7 +203,7 @@ nothing #hide
 ```
 
 !!! note 
-    The name of your system will be used for various output file names by default -- we suggest naming it something like `"PDS70-astrom-model-v1"`.
+    The name of your system will be used for various output file names by default -- we suggest naming it something like `"PDS70-astrom-model"`.
 
 The variables block works just like it does for bodies. Here, we provided the parallax
 distance to the system:

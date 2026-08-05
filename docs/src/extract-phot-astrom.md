@@ -80,13 +80,12 @@ b = Body(
 nothing # hide
 ```
 
-!!! note "Where `FixedPosition` went"
-    v1 had a dedicated `Visual{Octofitter.FixedPosition}` basis for exactly this
-    job. v2 has no orbit *types* at all — which parametrization you are using is
-    decided by which variables you declare — so a fixed position is expressed as
-    the degenerate orbit above: face-on (`i = 0`), circular (`e = 0`), with a
-    radius chosen so that it subtends `sep` milliarcseconds, and phased so that
-    its position angle equals `pa` at the epoch of the image.
+!!! note "How a fixed position is expressed"
+    There are no orbit *types* — which parametrization you are using is decided by
+    which variables you declare — so a fixed position is written as the degenerate
+    orbit above: face-on (`i = 0`), circular (`e = 0`), with a radius chosen so that
+    it subtends `sep` milliarcseconds, and phased so that its position angle equals
+    `pa` at the epoch of the image.
 
     At the single epoch of this image, that is *exactly* a fixed position: the
     body sits at (`sep`, `pa`) by construction. It is only a fixed position at
@@ -146,7 +145,7 @@ initialize!(model, (;
 chain = octofit(model, iterations=10000)
 ```
 
-Note the nesting: guesses for body variables go under `bodies=`, matching the shape of the model. (In v1 this was `planets=`.)
+Note the nesting: guesses for body variables go under `bodies=`, matching the shape of the model.
 
 ## Sample from the model (globally)
 
@@ -175,7 +174,7 @@ println("The flux is ", mean(flux), " ± ", std(flux))
 println("The \"SNR\" is ", mean(flux)/std(flux))
 ```
 
-The flux is now a **body** variable, so it is named `b_flux_H` in the chain. In v1 it was a variable of the observation and appeared as `b_images_flux`.
+The flux is a **body** variable, so it is named `b_flux_H` in the chain.
 
 ## Visualize
 ```@example 1

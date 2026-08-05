@@ -38,19 +38,13 @@ V(u,v) = \frac{\sum_j f_j \, e^{-2\pi i (u\,\Delta\alpha^*_j + v\,\Delta\delta_j
 
 `targets` names the bodies in that sum, `ref` is the phase centre the offsets are measured from, and each `f_j` is that body's `flux_<band>` variable — **the host included**. There is no privileged primary: a source may orbit any body, so a moon or the wide component of a hierarchical system is expressible.
 
-!!! warning "This is the big change from v1"
-    In v1, the host's flux was hard-coded to 1 inside the likelihood
-    (`cvis_model .+= 1.0`) and the companions were a `flux` *vector* on the
-    observation, indexed by the order the planets happened to be declared in. In v2
-    every source, host included, reads its own `flux_<band>` body variable, and the
-    observation declares which bodies it models.
+!!! note "Every source carries its own flux"
+    Each source, the host included, reads its own `flux_<band>` body variable, and the
+    observation declares which bodies it models. Give the host `flux_K = 1.0` and every
+    companion's flux is a contrast ratio against it.
 
-    **Migration recipe:** give the host `flux_K = 1.0` and each companion its old
-    contrast ratio, and the likelihood reproduces v1 bit-for-bit. The test suite
-    asserts exactly that, with `===`, on both synthetic and real AMI data.
-
-    A `flux` variable declared on the observation is now a hard error with a message
-    naming the fix, rather than silently meaning something else.
+    A `flux` variable declared on the *observation* is a hard error, with a message
+    naming the fix.
 
 ## Build the model
 
@@ -68,7 +62,7 @@ b = Body(
     about=A,
     variables=@variables begin
         mass = 0.0
-        flux_K ~ truncated(Normal(0, 0.1), lower=0)   # what v1's `flux[1]` was
+        flux_K ~ truncated(Normal(0, 0.1), lower=0)   # contrast ratio against the host
 
         a ~ truncated(Normal(2,0.1), lower=0.1)
         e ~ truncated(Normal(0, 0.05),lower=0, upper=0.90)
@@ -122,20 +116,12 @@ A second companion is a third entry in `targets` plus its own `flux_K` on its ow
     with different instrument names (i.e. include the band in the name for the sake of bookkeeping),
     and give the bodies one `flux_<band>` variable per band.
 
-!!! warning "`platescale` changed sense"
-    v1's interferometry likelihood *multiplied* the modelled offsets by
-    `platescale` — the reciprocal of the convention used by relative astrometry and
-    by images. v2 routes every sky offset through one shared front-end, which
-    divides. `platescale = 1` (the default) is unaffected, but if you are carrying a
-    fitted `platescale` posterior across from a v1 fit you must invert it.
-    `northangle` is unchanged.
-
 !!! note "Choosing `ref`"
     Closure phases, kernel phases and squared visibilities are all invariant to the
     phase centre, so `ref` is a free choice — but only modulo 360°: baseline phases
-    are folded into (−180°, 180°] and the triangle sum is not, which is v1's
-    behaviour and is kept. Keep `ref` near the flux centroid. `Barycentre` (the
-    default) is fine for a faint companion; `A` matches v1's spelling exactly.
+    are folded into (−180°, 180°] and the triangle sum is not. Keep `ref` near the flux
+    centroid; `Barycentre` (the default) is fine for a faint companion, and `A` is the
+    conventional choice for a bright one.
 
 Plot the closure phases:
 ```@example 1
@@ -179,7 +165,7 @@ nothing # hide
     one mode: run several chains from different starting points and compare them before
     believing a single-peaked posterior.
 
-Examine the recovered photometry posterior. The contrast is a body variable now, so its chain key is `b_flux_K` — in v1 it was an observation variable and appeared as `NIRISS_AMI_flux`:
+Examine the recovered photometry posterior. The contrast is a body variable, so its chain key is `b_flux_K`:
 ```@example 1
 hist(results[:b_flux_K][:], axis=(;xlabel="flux (K band, relative to host)"))
 ```
@@ -196,7 +182,7 @@ octoplot(model, results)
 ```
 
 
-Plot only the position at each epoch. `construct_system(model, chain)` rebuilds one PlanetOrbits system per posterior draw, replacing v1's `construct_elements`:
+Plot only the position at each epoch. `construct_system(model, chain)` rebuilds one PlanetOrbits system per posterior draw:
 ```@example 1
 using PlanetOrbits
 posteriors = construct_system(model, results)

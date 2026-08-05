@@ -22,10 +22,10 @@ using PlanetOrbits
 
 To begin, we create simulated data. We imagine that we have two different instruments.
 
-In v2 a synthetic system is a real `PlanetOrbits.System`: the star and both
-planets have masses, and the hierarchy says what orbits what. Solving it once
-gives the star's reflex velocity directly — v1 had to sum `radvel` over each
-planet by hand, which is exactly the epicyclic superposition v2 removes.
+A synthetic system is a real `PlanetOrbits.System`: the star and both planets
+have masses, and the hierarchy says what orbits what. Solving it once gives the
+star's reflex velocity directly, with no need to sum `radvel` over each planet
+by hand.
 
 ```@example 1
 using Random
@@ -84,11 +84,11 @@ Makie.errorbars!(ax, rvlike2.table.epoch, rvlike2.table.rv, rvlike2.table.σ_rv)
 fig
 ```
 
-!!! note "`MarginalizedRVObs` replaces `MarginalizedStarAbsoluteRVObs`"
+!!! note "`MarginalizedRVObs`"
     It analytically marginalizes out each instrument's radial velocity zero
-    point. In v2 it requires `target=` (with `ref=` defaulting to `Barycentre`),
-    and it *errors* if you declare an `offset` variable — the point of the type
-    is that there is no offset parameter left to fit.
+    point. It requires `target=` (with `ref=` defaulting to `Barycentre`), and it
+    *errors* if you declare an `offset` variable — the point of the type is that
+    there is no offset parameter left to fit.
 
 ## Two Planet Model
 
@@ -100,37 +100,43 @@ fig
     - **Time of periastron (`tp`)**: MJD (days)
     - **Epochs**: MJD (days)
 
-    In this tutorial we sample a period in Julian *years* (via the custom
-    variable `P_kep_yrs`) because that is what the literature quotes, and then
-    convert to the days that the `P` element wants:
+    In this tutorial we sample a period in *years*, because that is what the
+    literature quotes, and convert to the days that the `P` element wants:
     ```julia
-    P_kep_yrs ~ Uniform(0, 100)
-    P = P_kep_yrs * 365.25
+    P_yrs ~ Uniform(0, 100)
+    P = P_yrs * year2day_julian
     ```
-    Note that you supply *either* `a` or `P`, never both — Octofitter v2 derives
-    one from the other using the orbit's own gravitating mass, so v1's
-    `a = ∛(M * P^2)` line (and the hand-assembled `M` it needed) is gone.
+    Note that you supply *either* `a` or `P`, never both — Octofitter derives one
+    from the other using the orbit's own gravitating mass.
+
+!!! warning "Two different \"years\", and they are not interchangeable"
+    A **Julian year** is 365.25 days exactly, by IAU definition, and is the one a
+    published period in years means. The period of a 1 M⊙ / 1 AU orbit under the
+    IAU nominal constants is **365.2568983840419** days — a different number,
+    exported as `PlanetOrbits.kepler_year_to_julian_day_conversion_factor`, and
+    the one Kepler's third law works in.
+
+    They differ by 1.9 × 10⁻⁵, which is invisible on a loosely constrained orbit
+    and badly wrong on a short, well-measured one. Convert a quoted period with
+    the exported `year2day_julian`; the Kepler year only belongs inside `√(a³/M)`,
+    where Octofitter already applies it for you.
 
 !!! note "Which mass does each planet orbit? You declare it, not compute it"
-    v1 asked you to write out each planet's total interior mass by hand
-    (`M = M_pri + M_b * mjup2msol`, and so on) and picked the pairing at runtime
-    by comparing semi-major axes. In v2 you state the hierarchy with `about=`,
-    and the gravitating mass of each orbit is the total mass of the bodies it
-    binds:
+    You state the hierarchy with `about=`, and the gravitating mass of each orbit
+    is the total mass of the bodies it binds:
 
     - `about=A` — the planet orbits the star alone (astrocentric).
     - `about=(A, b)` — the planet orbits the *barycentre* of the star and the
       inner planet (Jacobi), so its orbit's mass is `M_A + M_b + M_c`.
 
     Below, `b` is the inner planet and `c` the outer one, so `c` is placed about
-    `(A, b)`. This is what the v1 tutorial's "epicycle" note described, now
-    written down in the model rather than reconstructed from the parameters.
+    `(A, b)`.
 
 ```@example 1
 A = Body(
     name="A",
     variables=@variables begin
-        mass = system.M_pri # M⊙
+        mass = 1.0                  # M⊙
     end
 )
 
@@ -143,12 +149,12 @@ planet_b = Body(
         Ω = 0.0
         e ~ Uniform(0,0.999999)
         ω ~ Uniform(0,2pi)
-        mass = system.M_b * mjup    # M_b is sampled in Jupiter masses
+        mass ~ Uniform(0, 10mjup)   # M⊙
 
-        P_kep_yrs ~ Uniform(0, 100)
-        P = P_kep_yrs * 365.25      # the `P` element is in days
+        P_yrs ~ Uniform(0, 100)
+        P = P_yrs * year2day_julian      # the `P` element is in days
         τ ~ Uniform(0,1.0)
-        tp = τ*P_kep_yrs*365.25 + 58400
+        tp = τ*P_yrs*year2day_julian + 58400
     end
 )
 
@@ -160,12 +166,12 @@ planet_c = Body(
         Ω = 0.0
         e ~ Uniform(0,0.999999)
         ω ~ Uniform(0,2pi)
-        mass = system.M_c * mjup
+        mass ~ Uniform(0, 10mjup)   # M⊙
 
-        P_kep_yrs ~ Uniform(0, 100)
-        P = P_kep_yrs * 365.25
+        P_yrs ~ Uniform(0, 100)
+        P = P_yrs * year2day_julian
         τ ~ Uniform(0,1.0)
-        tp = τ*P_kep_yrs*365.25 + 58400
+        tp = τ*P_yrs*year2day_julian + 58400
     end
 )
 
@@ -173,11 +179,6 @@ sim_2p = System(
     name="sim_2p",
     bodies=[A, planet_b, planet_c],
     observations=[rvlike1, rvlike2],
-    variables=@variables begin
-        M_pri = 1.0                 # M⊙
-        M_b ~ Uniform(0, 10)        # Mjup
-        M_c ~ Uniform(0, 10)        # Mjup
-    end
 )
 
 model_2p = Octofitter.LogDensityModel(sim_2p)
@@ -206,10 +207,6 @@ sim_1p = System(
     name="sim_1p",
     bodies=[A, planet_b],
     observations=[rvlike1, rvlike2],
-    variables=@variables begin
-        M_pri = 1.0
-        M_b ~ Uniform(0, 10)
-    end
 )
 
 model_1p = Octofitter.LogDensityModel(sim_1p)
@@ -226,7 +223,7 @@ Plot RV curve, phase folded curve, and binned residuals:
 octoplot(model_1p, results_1p)
 ```
 
-## Model Comparison: Bayesian Evidence
+## [Model Comparison: Bayesian Evidence](@id bayesian-evidence)
 
 Octofitter with Pigeons directly calculates the (natural) log Bayesian evidence using the "stepping stone" method. This should be more reliable than even nested sampling, and certainly more reliable than approximate methods like the BIC/WAIC etc.
 
@@ -264,7 +261,7 @@ In our two planet model above, we made two exactly equivalent planets. If you in
 
 For example, here is a histogram of the period of planet b:
 ```@example 1
-hist(vec(results_2p[:b_P_kep_yrs]), bins=100)
+hist(vec(results_2p[:b_P_yrs]), bins=100)
 ```
 
 We can refine the two planet model a bit by adjusting the priors such that planet `c` always has a longer period than planet `b`.
@@ -274,8 +271,7 @@ This will make analysis a little more straightforward, but crucially it will als
 There are several ways we could do this. Here, we add a "nominal period" variable and reparameterize the two planets as ratios of this nominal period.
 
 !!! tip "Ordering priors"
-    Octofitter also ships an [`OrbitOrderPrior`](@ref) (v1's `PlanetOrderPrior`),
-    which enforces `a_b < a_c` directly by rejecting draws where the ordering is
+    Octofitter also ships an [`OrbitOrderPrior`](@ref), which enforces `a_b < a_c` directly by rejecting draws where the ordering is
     violated. It goes in the system's `observations=` list:
     `observations=[rvlike1, rvlike2, OrbitOrderPrior(planet_b, planet_c)]`.
     The reparameterization below is usually the better-conditioned choice for
@@ -291,12 +287,12 @@ planet_b_v2 = Body(
         Ω = 0.0
         e ~ Uniform(0,0.999999)
         ω ~ Uniform(0,2pi)
-        mass = system.M_b * mjup
+        mass ~ Uniform(0, 10mjup)   # M⊙
 
-        P_kep_yrs = system.P_yrs_nom * system.P_ratio_b
-        P = P_kep_yrs * 365.25
+        P_yrs = system.P_yrs_nom * system.P_ratio_b
+        P = P_yrs * year2day_julian
         τ ~ Uniform(0,1.0)
-        tp = τ*P_kep_yrs*365.25 + 58400
+        tp = τ*P_yrs*year2day_julian + 58400
     end
 )
 
@@ -308,12 +304,12 @@ planet_c_v2 = Body(
         Ω = 0.0
         e ~ Uniform(0,0.999999)
         ω ~ Uniform(0,2pi)
-        mass = system.M_c * mjup
+        mass ~ Uniform(0, 10mjup)   # M⊙
 
-        P_kep_yrs = system.P_yrs_nom * system.P_ratio_c
-        P = P_kep_yrs * 365.25
+        P_yrs = system.P_yrs_nom * system.P_ratio_c
+        P = P_yrs * year2day_julian
         τ ~ Uniform(0,1.0)
-        tp = τ*P_kep_yrs*365.25 + 58400
+        tp = τ*P_yrs*year2day_julian + 58400
     end
 )
 
@@ -323,10 +319,6 @@ sim_2p_v2 = System(
     bodies=[A, planet_b_v2, planet_c_v2],
     observations=[rvlike1, rvlike2],
     variables=@variables begin
-        M_pri = 1.0
-        M_b ~ Uniform(0, 10)
-        M_c ~ Uniform(0, 10)
-
         P_yrs_nom ~ Uniform(0, 100)
         P_ratio_b ~ Uniform(0, 0.5)
         P_ratio_c ~ Uniform(0.5, 1)
@@ -384,8 +376,8 @@ For studies of mean motion resonances, it's useful to examine the posterior dist
 
 ```@example 1
 # Extract period samples for each planet
-P_b_samples = vec(results_2p_v2[:b_P_kep_yrs])
-P_c_samples = vec(results_2p_v2[:c_P_kep_yrs])
+P_b_samples = vec(results_2p_v2[:b_P_yrs])
+P_c_samples = vec(results_2p_v2[:c_P_yrs])
 
 # Compute period ratio (outer/inner)
 period_ratios = P_c_samples ./ P_b_samples

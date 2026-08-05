@@ -16,15 +16,14 @@ There are two different GP packages supported by OctofitterRadialVelocity: Abstr
 !!! warning "GP models need strictly increasing epochs"
     A Gaussian process is fit to the residuals *at this observation's own epochs,
     in table order*, and two rows at the same epoch make the covariance singular
-    for any stationary kernel. v2 checks this in the constructor and raises a
+    for any stationary kernel. This is checked in the constructor and raises a
     clear error; merge duplicated rows, or nudge them apart by the exposure time.
     Observations without a `gaussian_process` still accept duplicated epochs.
 
 !!! note "Correlated noise is available for relative RV too"
-    In v1 the Gaussian process lived only on the "absolute" RV type. v2 has one
-    [`RadialVelocityObs`](@ref), so `gaussian_process=` and `trend_function=`
-    work whether you point it at the star (`target=A, ref=Barycentre`) or at a
-    companion (`target=b, ref=A`).
+    There is one [`RadialVelocityObs`](@ref), so `gaussian_process=` and
+    `trend_function=` work whether you point it at the star
+    (`target=A, ref=Barycentre`) or at a companion (`target=b, ref=A`).
 
 
 For this example, we will fit the orbit of the planet K2-131 to perform the same fit as in the RadVel [Gaussian Process Fitting](https://radvel.readthedocs.io/en/latest/tutorials/GaussianProcess-tutorial.html) tutorial.
@@ -75,14 +74,13 @@ b = Body(
         e = 0.0
         ω = 0.0
         # To match RadVel we put the prior on the period directly. `P` is an
-        # orbital element in v2, in days.
+        # orbital element, in days.
         P ~ truncated(Normal(0.3693038, 0.0000091), lower=0.0001)
         τ ~ UniformCircular(1.0)
         tp = τ * P + 57782 # reference epoch for τ. Choose an MJD date near your data.
-        # Minimum planet mass (really m·sin i), sampled in Jupiter masses and
-        # converted to the solar masses v2 uses everywhere.
-        mass_jup ~ LogUniform(0.001, 10)
-        mass = mass_jup * mjup
+        # Minimum planet mass (really m·sin i). Masses are solar masses, and
+        # `mjup` is a plain multiplicative constant.
+        mass ~ LogUniform(0.001mjup, 10mjup)
     end
 )
 nothing # hide
@@ -325,5 +323,4 @@ octoplot(model_cel, chain_cel)
     remaining rows are silently retained as the conditioning set, which is what a
     correlated model needs in order to score a point at all. Prediction is
     implemented for the Celerite backend only — the AbstractGPs case raises a
-    clear error naming the missing `gp_predict` method, a limitation inherited
-    from v1.
+    clear error naming the missing `gp_predict` method.

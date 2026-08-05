@@ -56,7 +56,7 @@ nothing #hide
 ```
 
 !!! note
-    `θ` is the planet's position angle at the reference `epoch`, so `θ` + `epoch` fixes the orbital phase. This replaces v1's `tp = θ_at_epoch_to_tperi(θ, 50420; ...)` line: `θ` and `epoch` are now orbital-element keywords in their own right, and `PlanetOrbits` does the conversion.
+    `θ` is the planet's position angle at the reference `epoch`, so `θ` + `epoch` fixes the orbital phase. Both are orbital-element keywords in their own right, and `PlanetOrbits` does the conversion to periastron passage for you.
 
 We can now draw one sample from the prior. `generate_from_params` returns a **whole new system** whose observations hold simulated data — one entry per observation in the original system, in the same order:
 
@@ -65,11 +65,9 @@ prior_draw_system = generate_from_params(sys)
 prior_draw_astrometry = prior_draw_system.observations[1]
 ```
 
-!!! note "Changed from v1"
-    Observations are no longer owned by a companion, so the simulated
-    astrometry is at `prior_draw_system.observations[1]` rather than
-    `prior_draw_system.planets.b.observations[1]`. If you have several
-    observations and would rather look one up by name than by position:
+!!! tip "Looking an observation up by name"
+    The simulated observations come back in the order they were listed. If you have
+    several and would rather look one up by name than by position:
 
     ```julia
     only(filter(o -> Octofitter.likelihoodname(o) == "relastrom",
@@ -152,4 +150,4 @@ octocorner(prior_model, prior_chain, small=true)
 ```
 
 !!! note
-    `prior_only_model` keeps prior-shaped terms — the `~` lines in a `@variables` block, and the `UnitLengthPrior` behind each `UniformCircular`. That is deliberate: they reshape the prior rather than adding data, so a "prior only" model is the one that still has them. `prior_only_model(sys; exclude_all=true)` drops those as well, which is for evidence bookkeeping (see [Bayesian Evidence](@ref)) and not for inference — without that term a `UniformCircular` variable's (x, y) pair is free to wander onto the origin, where the angle is undefined.
+    `prior_only_model` keeps prior-shaped terms — the `~` lines in a `@variables` block, and the `UnitLengthPrior` behind each `UniformCircular`. That is deliberate: they reshape the prior rather than adding data, so a "prior only" model is the one that still has them. `prior_only_model(sys; exclude_all=true)` drops those as well, which is for evidence bookkeeping (see [Bayesian evidence](@ref bayesian-evidence)) and not for inference — without that term a `UniformCircular` variable's (x, y) pair is free to wander onto the origin, where the angle is undefined.

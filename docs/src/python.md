@@ -9,10 +9,10 @@ Besides the model definition, most functions can be used the same in Python as i
 
 See the [octofitterpy](https://github.com/sefffal/octofitterpy) site for installation instructions.
 
-!!! warning "octofitterpy has not yet been updated for Octofitter v2"
-    The v2 model surface is a breaking change: `Planet`/`companions=`/`basis=` were
+!!! warning "octofitterpy has not yet been updated for Octofitter v9"
+    The v9 model surface is a breaking change: `Planet`/`companions=`/`basis=` were
     replaced by a flat list of `Body` nodes and observations that name their own
-    `target` and `ref` (see [Migrating to Octofitter v2](@ref v2-migration)). Examples
+    `target` and `ref` (see [Migrating to Octofitter v9](@ref v9-migration)). Examples
     written against octofitterpy's current model-definition helpers will not work
     unchanged. Analysis functions that take a model and a chain — `octoplot`,
     `octocorner`, `construct_system`, the chain IO — are unaffected in shape.
