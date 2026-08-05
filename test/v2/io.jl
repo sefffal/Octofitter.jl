@@ -309,9 +309,10 @@ end
     rm(fname)
 end
 
-@testset "savehdf5: what it refuses to guess at" begin
-    # A companion orbiting a barycentre has no single host mass, so orbitize!'s
-    # two-body basis cannot express it.
+@testset "savehdf5: which bodies an orbit is about" begin
+    # A Jacobi companion exports too: orbitize! parametrizes its own
+    # multi-planet fits in Jacobi coordinates, so the total of the interior is
+    # exactly what its `mtot` means.
     Aa = Octofitter.Body(name="Aa", variables=@variables begin mass = 1.0 end)
     Ab = Octofitter.Body(name="Ab", about=Aa, variables=@variables begin
         mass = 0.5
@@ -323,8 +324,9 @@ end
     end)
     sys = Octofitter.System(name="binary", bodies=[Aa, Ab, c], observations=(),
         variables=@variables begin plx = 20.0 end)
-    @test_throws r"barycentre" Octofitter._host_of(sys, :c)
-    @test Octofitter._host_of(sys, :Ab) === :Aa
+    @test Octofitter._interior_of(sys, :c) === (:Aa, :Ab)
+    @test Octofitter._interior_of(sys, :Ab) === (:Aa,)
+    @test_throws r"no orbit placing body" Octofitter._interior_of(sys, :Aa)
     @test Octofitter._first_companion(sys) === :Ab
 end
 

@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# orbitize! / HDF5 interoperability   (agent H)
+# orbitize! / HDF5 interoperability
 #
 # Reading and writing posteriors in the HDF5 layout used by orbitize! and by
 # whereistheplanet.com, plus the whereistheplanet astrometry loader.
@@ -9,24 +9,16 @@
 # mtot) with the same angle definitions Octofitter uses, which is why the
 # conversion is a rename plus a τ↔tp change of phase variable.
 #
-# Two things did have to change, and both come from the v2 model surface
-# rather than from anything about orbitize!:
+# Two conventions on the Octofitter side that the conversion has to respect:
 #
-#   - **Masses are M⊙ throughout.** v1 divided the companion mass columns by
-#     `mjup2msol` on import, because a v1 `Planet`'s `mass` was in Jupiter
-#     masses. In v2 there is one mass unit, so `m0`/`m1` land in `A_mass` /
-#     `b_mass` as the solar masses orbitize! stored.
+#   - **Masses are M⊙ throughout**, which is also what orbitize! stores, so
+#     `m0`/`m1` land in `A_mass` / `b_mass` unscaled.
 #
-#   - **There is no per-planet total mass.** v1 synthesised a `<planet>_M`
-#     column by summing the mass of every body whose semi-major axis was
-#     smaller than the planet's — the same runtime `semimajoraxis(other) <
-#     semimajoraxis(this)` selection this refactor is removing everywhere
-#     else. v2 gets a body's dynamical mass from the hierarchy, so the column
-#     is gone. The total mass needed to turn orbitize!'s `tau` into a `tp` is
-#     taken as `mtot` when the file supplies it, and `m0 + m_i` otherwise —
-#     which is orbitize!'s own standard-basis definition for the i-th
-#     companion, and is identical to what v1's loop produced for the
-#     single-companion case the docs describe as supported.
+#   - **A body's dynamical mass comes from the hierarchy**, so there is no
+#     per-companion total-mass column to synthesise. The total needed to turn
+#     orbitize!'s `tau` into a `tp` is taken as `mtot` when the file supplies
+#     it, and `m0 + m_i` otherwise — orbitize!'s own standard-basis definition
+#     for the i-th companion.
 # ---------------------------------------------------
 
 using HDF5
@@ -76,7 +68,7 @@ Octofitter needs one likelihood object per format, so up to two are returned:
     seppa, radec = Octofitter.Whereistheplanet_astrom("51erib"; target=b, ref=A)
 
 `target` and `ref` are the model references the astrometry measures — the
-companion and the host in the usual case. They take the full v2 grammar
+companion and the host in the usual case. They take the full v9 grammar
 (a `Body`, a `Symbol`, `Barycentre(…)`, `Photocentre(…)`), because
 whereistheplanet's "object 1" is only a companion by convention.
 
@@ -150,10 +142,10 @@ whereistheplanet.com.
 `numchains` interprets the stored array as that many chains concatenated
 together.
 
-`host` and `bodynames` give the v2 body names the columns are written under —
+`host` and `bodynames` give the v9 body names the columns are written under —
 `m0` becomes `<host>_mass` and `sma1, ecc1, …` become `<bodynames[1]>_a,
 <bodynames[1]>_e, …`. Masses are solar masses, as orbitize! stores them and as
-v2 uses throughout.
+v9 uses throughout.
 """
 function loadhdf5(fname_or_targetname, numchains=1; colnames=nothing,
                   host::Union{Symbol,AbstractString}=:A,
@@ -271,15 +263,17 @@ Only the eight columns of orbitize!'s standard basis are written — `sma`,
 `ecc`, `inc`, `aop`, `pan`, `tau`, `plx`, `mtot` — so this exports **one
 companion's** visual orbit and nothing else. No data are exported.
 
-The companion defaults to the model's first non-root body. Its total mass is
-read as `<host>_mass + <body>_mass`, where the host is whatever the model's
-hierarchy places the companion about; a companion orbiting a *barycentre* has
-no single host and is rejected rather than guessed at.
+The companion defaults to the model's first non-root body. `mtot` is the total
+mass of the bodies its orbit binds — `<body>_mass` plus the mass of everything
+the model places it about. For the usual `about=A` companion that is
+`A_mass + b_mass`; for a Jacobi chain (`about=(A, b)`) it is the sum over the
+whole interior, which is the same convention orbitize! uses for its own
+multi-planet fits.
 """
 function savehdf5(fname::AbstractString, model, chain::Chains,
                   body::Symbol=_first_companion(_system_of(model)))
     sys = _system_of(model)
-    host = _host_of(sys, body)
+    interior = _interior_of(sys, body)
 
     tau_ref_epoch = 58849
 
@@ -292,9 +286,13 @@ function savehdf5(fname::AbstractString, model, chain::Chains,
         v
     end
 
-    m_host = require(Symbol(host, "_mass"), "the host mass")
+    # The gravitating mass of the row: the companion plus everything its orbit is
+    # about. With a single host that is `A_mass + b_mass`; with a Jacobi chain
+    # (`about=(A, b)`) it is the sum over the interior, which is what orbitize!'s
+    # own multi-planet basis means by `mtot`.
     m_body = require(Symbol(body, "_mass"), "the companion mass")
-    mtot = m_host .+ m_body
+    mtot = m_body .+ sum(require(Symbol(h, "_mass"), "the mass of interior body :$h")
+                         for h in interior)
 
     sma = let a = get3(Symbol(body, "_a"))
         if !isnothing(a)
@@ -302,16 +300,16 @@ function savehdf5(fname::AbstractString, model, chain::Chains,
         else
             P = require(Symbol(body, "_P"),
                         "the semi-major axis (neither `$(body)_a` nor `$(body)_P` is present)")
-            # v2 periods are days, matching `PlanetOrbits.period`.
+            # Periods are days, matching `PlanetOrbits.period`.
             @. cbrt((P / PlanetOrbits.kepler_year_to_julian_day_conversion_factor)^2 * mtot)
         end
     end
     period_days = @. √(sma^3 / mtot) * PlanetOrbits.kepler_year_to_julian_day_conversion_factor
-    # `tp` is only a chain column when the model sampled it. The v2 phase
-    # spelling the docs recommend is `θ` + `epoch`, which produces neither —
-    # so rather than refusing, rebuild each draw's orbit and read `tp` off the
-    # row, which is where the conversion already lives. Costs one system build
-    # per draw and only happens on the fallback path.
+    # `tp` is only a chain column when the model sampled it. The phase spelling
+    # the docs recommend is `θ` + `epoch`, which produces no `tp` — so rather
+    # than refusing, rebuild each draw's orbit and read `tp` off the row, which
+    # is where the conversion already lives. Costs one system build per draw and
+    # only happens on the fallback path.
     tp = let t = get3(Symbol(body, "_tp"))
         isnothing(t) ? _tp_from_chain(model, chain, body) : t
     end
@@ -328,10 +326,9 @@ function savehdf5(fname::AbstractString, model, chain::Chains,
 
         labels = ["sma1", "ecc1", "inc1", "aop1", "pan1", "tau1", "plx", "mtot"]
         f["col_names"] = labels
-        # v1 wrote `col_names` only, while `loadhdf5` reads the
-        # `parameter_labels` *attribute* — so Octofitter could not read back its
-        # own export without falling through to the guess, with a warning.
-        # orbitize! writes `parameter_labels`; write it too.
+        # `loadhdf5` reads the `parameter_labels` *attribute*, and so does
+        # orbitize!; writing only `col_names` means the export cannot be read
+        # back without falling through to a guess, with a warning.
         attrs(f)["parameter_labels"] = labels
         attrs(f)["tau_ref_epoch"] = tau_ref_epoch
         attrs(f)["sampler_name"] = "Octofitter"
@@ -344,7 +341,7 @@ end
 
 _system_of(model) = hasproperty(model, :system) ? model.system : model
 
-"""First body placed by a single-body-exterior row — the "planet" of a v1 model."""
+"""First body placed by a single-body-exterior row: the "planet" of a simple model."""
 function _first_companion(sys::System)
     for (_, ext, _) in sys.rows
         length(ext) == 1 && return ext[1]
@@ -359,7 +356,7 @@ end
 Epoch of periastron [MJD] for `body`, one entry per draw, rebuilt from the
 chain when it carries no `<body>_tp` column.
 
-A model that parametrizes phase as `θ` + `epoch` (the v2 spelling that
+A model that parametrizes phase as `θ` + `epoch` (the v9 spelling that
 replaced `θ_at_epoch_to_tperi`) never produces a `tp` column, but `tp` is
 determined by the elements — `PlanetOrbits.Row` computes it in its
 constructor — so it is recoverable rather than missing.
@@ -373,13 +370,17 @@ function _tp_from_chain(model, chain::Chains, body::Symbol)
     return Float64[PlanetOrbits.periastron(s, k) for s in systems]
 end
 
-function _host_of(sys::System, body::Symbol)
+"""
+    _interior_of(sys, body) -> Tuple{Vararg{Symbol}}
+
+The bodies whose barycentre `body`'s own orbit is about — one name for an
+astrocentric companion (`about=A`), several for a Jacobi chain
+(`about=(A, b)`). Both export: orbitize! parametrizes its multi-planet fits in
+Jacobi coordinates too, so the interior total is exactly what its `mtot` means.
+"""
+function _interior_of(sys::System, body::Symbol)
     for (_, ext, int) in sys.rows
-        ext == (body,) || continue
-        length(int) == 1 || error(
-            "Body $body orbits the barycentre of $(join(int, ", ")), which orbitize!'s " *
-            "two-body standard basis cannot express. Export a companion of a single host.")
-        return int[1]
+        ext == (body,) && return int
     end
     error("System $(sys.name) has no orbit placing body :$body on its own. Its bodies are " *
           "$(join(sys.bodynames, ", ")).")
