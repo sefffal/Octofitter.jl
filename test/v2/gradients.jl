@@ -54,9 +54,16 @@ end
     nt = model.arr2nt(θ)
 
     model.arr2nt(θ); lnlike(sys, nt); model.ℓπcallback(θt)
-    @test (@allocated model.arr2nt(θ)) == 0
-    @test (@allocated lnlike(sys, nt)) == 0
-    @test (@allocated model.ℓπcallback(θt)) == 0
+    # `broken` below 1.12, measured rather than guessed. The escape analysis
+    # that folds these away landed in 1.12, not 1.11: on 1.11 *every* absolute
+    # allocation gate in the suite still allocates, and by the same amounts
+    # 1.10 did — 752 B here, 352 B at the subset model, 128 B for `arr2nt`,
+    # 64/48/32/16 B for the sky-offset and prior gates. Marked rather than
+    # skipped, so the summary keeps reporting them and an unexpected pass
+    # fails loudly if a 1.11 patch starts folding them.
+    @test (@allocated model.arr2nt(θ)) == 0 broken=(VERSION < v"1.12")
+    @test (@allocated lnlike(sys, nt)) == 0 broken=(VERSION < v"1.12")
+    @test (@allocated model.ℓπcallback(θt)) == 0 broken=(VERSION < v"1.12")
 end
 
 @testset "type stability through the whole path" begin
@@ -145,7 +152,7 @@ end
     θt = m.link(Octofitter.sample_priors(Random.Xoshiro(11), big))
     lp = m.ℓπcallback(θt)
     @test isfinite(lp)
-    @test (@allocated m.ℓπcallback(θt)) == 0
+    @test (@allocated m.ℓπcallback(θt)) == 0 broken=(VERSION < v"1.12")
     v, g = m.∇ℓπcallback(θt)
     @test v ≈ lp
     @test all(isfinite, g)

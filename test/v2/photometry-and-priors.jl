@@ -334,7 +334,7 @@ end
     sys = pp_system(obs=[prior])
     ctx = pp_ctx(sys, prior)
     Octofitter.ln_like(prior, ctx)         # compile
-    @test (@allocated Octofitter.ln_like(prior, ctx)) == 0
+    @test (@allocated Octofitter.ln_like(prior, ctx)) == 0 broken=(VERSION < v"1.12")
 end
 
 # ---------------------------------------------------------------------------
@@ -382,7 +382,7 @@ end
 
     ctx = pp_ctx(loose, prior)
     Octofitter.ln_like(prior, ctx)
-    @test (@allocated Octofitter.ln_like(prior, ctx)) == 0
+    @test (@allocated Octofitter.ln_like(prior, ctx)) == 0 broken=(VERSION < v"1.12")
 end
 
 # ---------------------------------------------------------------------------
@@ -523,7 +523,7 @@ end
         ctx = Octofitter.ObsContext(nt, θ_obs, posys, traj, maps[o])
         @test only(Base.return_types(Octofitter.ln_like, (typeof(o), typeof(ctx)))) === Float64
         Octofitter.ln_like(o, ctx)
-        @test (@allocated Octofitter.ln_like(o, ctx)) == 0
+        @test (@allocated Octofitter.ln_like(o, ctx)) == 0 broken=(VERSION < v"1.12")
         @test !isempty(sprint(show, MIME"text/plain"(), o))
     end
 end
