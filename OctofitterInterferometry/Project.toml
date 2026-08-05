@@ -29,7 +29,7 @@ TypedTables = "1.4"
 # unregistered prerelease — both are dev-linked and Pkg cannot express a
 # `9.0.0-DEV` lower bound. Restore `Octofitter = "9"`, `PlanetOrbits = "2"`
 # when they are registered.
-julia = "1.10"
+julia = "1.11"
 
 [extras]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"

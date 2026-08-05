@@ -4,7 +4,9 @@ The first step to using Octofitter.jl is to install Julia. If you're used to Pyt
 
 
 ## Installing Julia
-Visit the [julialang.org](https://julialang.org/downloads/) Downloads page, and select the latest stable version for your operating system. Click the `[help]` links next to your operating system if you require more detailed instructions. Octofitter requires Julia 1.10 or newer.
+Visit the [julialang.org](https://julialang.org/downloads/) Downloads page, and select the latest stable version for your operating system. Click the `[help]` links next to your operating system if you require more detailed instructions.
+
+Octofitter requires Julia **1.11 or newer**, and **1.12 is recommended** — it is what the test suite and the documentation build track, and several of the allocation-free code paths depend on escape analysis that older versions do not perform.
 
 ## Installing Octofitter
 
@@ -32,9 +34,9 @@ pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterInterferometry
 These aren't included by default since they may include a number of heavier dependencies that aren't needed by all users.
 They are described further in relevant sections of the documentation.
 
-!!! note "Basic radial velocity no longer needs a separate package"
+!!! note "Basic radial velocity does not need a separate package"
     `RadialVelocityObs` — which covers both stellar reflex RV (`target=A, ref=Barycentre`)
-    and relative RV of a companion (`target=b, ref=A`) — now lives in core Octofitter.
+    and relative RV of a companion (`target=b, ref=A`) — lives in core Octofitter.
     You only need `OctofitterRadialVelocity` for the Celerite Gaussian-process backend,
     [`MarginalizedRVObs`](@ref), and the archive loaders (HARPS, HIRES, Lick, CES).
 

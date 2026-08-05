@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.10'
+          - '1.11'
           - '1'
           - 'pre'
         os:
@@ -79,12 +79,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }} # required
           verbose: true # optional (default = false)
 
-  # The Pigeons extension, on its own, because it cannot be part of the matrix
-  # above. Pigeons is not in `[targets] test`: Pathfinder 0.10 needs
-  # DifferentiationInterface >= 0.7.13 while the newest Pigeons installable on
-  # Julia 1.10 is 0.4.10, which caps it at <= 0.6.54, so listing it there makes
-  # the whole test environment unresolvable on 1.10 and that matrix entry runs
-  # nothing at all. Here it is added explicitly on Julia 1, and runtests.jl
+  # The Pigeons extension, on its own. Pigeons is not in `[targets] test`: it
+  # pulls in MPI and a large dependency tree, and making every matrix entry —
+  # the `pre` one included — resolve against it would let an unrelated bound red
+  # the whole matrix. Here it is added explicitly on Julia 1, and runtests.jl
   # picks the extension testset up because the package is now present.
   #
   # This is coverage the matrix cannot give, not a relaxation of it: without

@@ -38,13 +38,7 @@ end
     @test isconcretetype(typeof(refs))
     f(ctx, specs) = Octofitter.resolverefs(ctx, specs)
     f(ctx, specs)
-    # Julia 1.10 does not perform the escape analysis 1.11+ does, so every
-    # absolute allocation gate in the suite fails there (measured: 16-752 B per
-    # call). Marked `broken` rather than skipped, so it stays in the summary and
-    # fails loudly if a 1.10 patch starts folding it. That the allocation-free
-    # hot path simply does not hold on 1.10 is itself evidence for the open
-    # question of whether 1.10 stays supported — see the RESULT document.
-    @test (@allocated f(ctx, specs)) == 0 broken=(VERSION < v"1.11")
+    @test (@allocated f(ctx, specs)) == 0
 
     # A vector of specs is rejected rather than silently deoptimized.
     @test_throws r"takes a `Tuple`" Octofitter.resolverefs(ctx, collect(specs))
@@ -118,7 +112,7 @@ end
     h(Δα, Δδ, ctx, obs) = Octofitter.sky_offset!(Δα, Δδ, ctx, obs.target, obs.ref;
                                                  platescale=1.07, northangle=0.13)
     h(Δα, Δδ, ctx, obs)
-    @test (@allocated h(Δα, Δδ, ctx, obs)) == 0 broken=(VERSION < v"1.11")
+    @test (@allocated h(Δα, Δδ, ctx, obs)) == 0
 end
 
 @testset "sky_calibration defaults to the identity" begin

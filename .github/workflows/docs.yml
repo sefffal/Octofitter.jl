@@ -60,14 +60,10 @@ jobs:
           path: .planetorbits-v2
       - uses: julia-actions/setup-julia@v3
         with:
-          # Not 1.10: docs/ lists Pigeons as a direct dependency (Octofitter
-          # itself only has it as a weakdep, which is why ci.yml stays green on
-          # 1.10). On 1.10 the newest allowed Pigeons is 0.4.10 -- 0.4.11
-          # requires >=1.11 -- and 0.4.10 caps DifferentiationInterface at
-          # <=0.6.54, while Pathfinder 0.10 -> OptimizationBase 5 needs
-          # >=0.7.13. The docs environment has therefore been unresolvable on
-          # 1.10 since the Pathfinder 0.10 migration (#121) landed. Track '1',
-          # which ci.yml already tests, rather than pinning and rotting again.
+          # Track '1' (the current stable release), which ci.yml already tests,
+          # rather than pinning a version and letting it rot. docs/ lists
+          # Pigeons as a direct dependency, so the docs environment is the one
+          # most sensitive to a stale pin.
           version: '1'
       # No julia-actions/cache here on purpose. The self-hosted runner has a
       # persistent depot at ~/.julia, so the restore is a no-op ("depot

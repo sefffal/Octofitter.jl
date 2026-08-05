@@ -54,15 +54,9 @@ end
     nt = model.arr2nt(θ)
 
     model.arr2nt(θ); lnlike(sys, nt); model.ℓπcallback(θt)
-    # Julia 1.10 does not perform the escape analysis 1.11+ does, so every
-    # absolute allocation gate in the suite fails there (measured: 16-752 B per
-    # call). Marked `broken` rather than skipped, so it stays in the summary and
-    # fails loudly if a 1.10 patch starts folding it. That the allocation-free
-    # hot path simply does not hold on 1.10 is itself evidence for the open
-    # question of whether 1.10 stays supported — see the RESULT document.
-    @test (@allocated model.arr2nt(θ)) == 0 broken=(VERSION < v"1.11")
-    @test (@allocated lnlike(sys, nt)) == 0 broken=(VERSION < v"1.11")
-    @test (@allocated model.ℓπcallback(θt)) == 0 broken=(VERSION < v"1.11")
+    @test (@allocated model.arr2nt(θ)) == 0
+    @test (@allocated lnlike(sys, nt)) == 0
+    @test (@allocated model.ℓπcallback(θt)) == 0
 end
 
 @testset "type stability through the whole path" begin
@@ -151,7 +145,7 @@ end
     θt = m.link(Octofitter.sample_priors(Random.Xoshiro(11), big))
     lp = m.ℓπcallback(θt)
     @test isfinite(lp)
-    @test (@allocated m.ℓπcallback(θt)) == 0 broken=(VERSION < v"1.11")
+    @test (@allocated m.ℓπcallback(θt)) == 0
     v, g = m.∇ℓπcallback(θt)
     @test v ≈ lp
     @test all(isfinite, g)

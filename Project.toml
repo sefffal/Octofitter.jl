@@ -129,7 +129,7 @@ StringDistances = "0.11, 1"
 TOML = "1"
 Tables = "1.6"
 TypedTables = "1.4"
-julia = "1.10"
+julia = "1.11"
 
 [extras]
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
@@ -137,12 +137,11 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 # Pigeons is a weakdep, so `octofit_pigeons` has no methods unless it is loaded,
 # and the extension was silently unported for a while with nothing to catch it —
-# `test/v2/pigeons.jl` is that check. It is still deliberately absent from the
-# test target: Pathfinder 0.10 needs DifferentiationInterface >= 0.7.13, while
-# the newest Pigeons installable on Julia 1.10 is 0.4.10, which caps it at
-# <= 0.6.54. Listing Pigeons here therefore made the *entire* test environment
-# unresolvable on 1.10, so that matrix entry never ran a single test. The
-# `pigeons` CI job adds it on Julia 1 instead, and runtests.jl runs the block
+# `test/v2/pigeons.jl` is that check. It is deliberately absent from the test
+# target anyway: Pigeons pulls in MPI and a large dependency tree, and pinning
+# the whole matrix (including the `pre` entry) to whatever Pigeons can resolve
+# would let an unrelated bound red every job. The `pigeons` CI job adds it on
+# Julia 1 instead, and runtests.jl runs the block
 # when it is present.
 [targets]
 test = ["Test", "FiniteDiff"]
