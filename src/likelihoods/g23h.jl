@@ -538,7 +538,7 @@ function G23HObs(;
         # leave `σ_rv_per_transit` sampled but unused.
         variables = _g23h_default_variables(catalog, gaia_table, dr2_ok_mask, dr3_ok_mask,
             has_hip, :rv_dr3 ∈ table.kind, hip_sol, table, freeze_epochs,
-            dr2_dup_gmag_threshold)
+            dr2_dup_gmag_threshold, ueva_mode)
     end
     (priors, derived) = variables
     table, catalog, priors, derived = _g23h_restrict(table, catalog, priors, derived)
@@ -759,7 +759,7 @@ end
 
 function _g23h_default_variables(catalog, gaia_table, dr2_ok_mask, dr3_ok_mask,
                                  has_hip, has_rv, hip_sol, table, freeze_epochs,
-                                 dr2_dup_gmag_threshold)
+                                 dr2_dup_gmag_threshold, ueva_mode)
     len_epochs = length(gaia_table.epoch)   # union pool; transit_priorities spans it
     astrometric_matched_transits_dr3 = catalog.astrometric_matched_transits_dr3
 
@@ -769,10 +769,29 @@ function _g23h_default_variables(catalog, gaia_table, dr2_ok_mask, dr3_ok_mask,
     # `flux_Hp` and silently made every companion dark. The lookup now falls
     # through to the system-level vector and then to the body fluxes (see
     # `_g23h_fluxratios`), which is only possible if nothing is declared here.
-    variables = @variables begin
-        σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
-        σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
-        σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
+    # `:none` fixes the three σ nuisances rather than sampling them. They enter
+    # the likelihood only through the UEVA channel, which `:none` switches off
+    # entirely, so sampling them would add three dimensions the data cannot
+    # constrain. More importantly it would make the observation *unconstructable*
+    # for exactly the sources `:none` exists to serve: the G23H
+    # sig_AL/sig_att_radec/sig_cal calibration is absent (NaN) for the very
+    # brightest stars, where it was not extrapolated, and
+    # `truncated(Normal(NaN, NaN), …)` cannot be built. The values below are
+    # representative catalog medians, present only so that
+    # `σ_formal = √(σ_att² + σ_AL²)` stays finite. (Ported from main's 531db2c,
+    # which the v2 port had implemented only halfway — the deflation half.)
+    variables = if ueva_mode === :none
+        @variables begin
+            σ_AL = 0.132
+            σ_att = 0.0779
+            σ_calib = 0.0795
+        end
+    else
+        @variables begin
+            σ_AL ~ truncated(Normal(catalog.sig_AL, catalog.sig_AL_sigma), lower=eps(), upper=10.0)
+            σ_att ~ truncated(Normal(catalog.sig_att_radec, catalog.sig_att_radec_sigma), lower=eps(), upper=10.0)
+            σ_calib ~ truncated(Normal(catalog.sig_cal, catalog.sig_cal_sigma), lower=eps(), upper=10.0)
+        end
     end
 
     # Per-release selection pools. The table is already trimmed to the common

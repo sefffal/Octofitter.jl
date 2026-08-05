@@ -172,6 +172,15 @@ function g23h_context(sys, obs, θ=Float64[])
     return (; nt, lnl, ctx=Octofitter.ObsContext(nt, θ_obs, posys, traj, maps[obs]))
 end
 
+# Override the three UEVA σ nuisances inside this observation's own namespace,
+# leaving the rest of the parameter tree untouched. Used to show they are inert
+# under `ueva_mode = :none`.
+function _g23h_with_sigmas(nt, obs, v)
+    key = Symbol(Octofitter.normalizename(Octofitter.likelihoodname(obs)))
+    θ_obs = merge(getproperty(nt.observations, key), (; σ_AL=v, σ_att=v, σ_calib=v))
+    return merge(nt, (; observations=merge(nt.observations, NamedTuple{(key,)}((θ_obs,)))))
+end
+
 @testset "construction and the epoch layout" begin
     m = g23h_model()
     obs = m.obs
@@ -628,13 +637,51 @@ end
 
 @testset "ueva_mode = :none" begin
     m = g23h_model(ueva_mode=:none)
+    ruwe = g23h_model(ueva_mode=:RUWE)
+    @test :ueva_dr3 ∈ ruwe.obs.table.kind
     @test :ueva_dr3 ∉ m.obs.table.kind
+    @test length(m.obs.table.kind) == length(ruwe.obs.table.kind) - 1
     c = g23h_context(m.sys, m.obs)
     sim = Octofitter.simulate(m.obs, c.ctx)
     # No UEVA datum means no UEVA-driven deflation of the DR3 block.
     @test sim.deflation_factor_dr3 == 1.0
     @test isfinite(c.lnl(m.sys, c.nt))
     @test_throws r"must be :RUWE, :EAN or :none" g23h_model(ueva_mode=:bogus)
+
+    # The three σ nuisances are *fixed*, not sampled, under `:none` — in the
+    # **default** variable set, which is what a user who does not pass
+    # `variables=` gets. (`g23h_model` always passes one, so it cannot show
+    # this.) They reach the likelihood only through the UEVA channel, which
+    # `:none` switches off, so sampling them would add three unconstrained
+    # dimensions; worse, it makes the observation unconstructable for the very
+    # sources `:none` exists to serve — the brightest stars, whose
+    # sig_AL/sig_att_radec/sig_cal calibration is NaN, and
+    # `truncated(Normal(NaN, NaN), …)` cannot be built. Ported from main's
+    # test_g23h_ueva_none.jl, which was written against the v1 API.
+    cat = g23h_catalog_row()
+    defaults(mode) = G23HObs(; host=m.host, companions=Tuple(m.comps),
+        gaia_id=cat.gaia_source_id, catalog=cat,
+        forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
+        dr2_transits_catalog=g23h_dr2_sidecar(),
+        ueva_mode=mode, include_rv=false)
+    d_none, d_ruwe = defaults(:none), defaults(:RUWE)
+    for σ in (:σ_AL, :σ_att, :σ_calib)
+        @test !haskey(d_none.priors.priors, σ)      # fixed…
+        @test haskey(d_none.derived.variables, σ)
+        @test haskey(d_ruwe.priors.priors, σ)       # …and control: :RUWE samples them
+    end
+
+    # …and they are genuinely inert: perturbing them cannot move the likelihood
+    # under `:none`, while `:RUWE` responds. This is the assertion that would
+    # catch a future channel quietly starting to read σ_formal.
+    ll_base = c.lnl(m.sys, c.nt)
+    for probe in (0.05, 0.5, 2.0)
+        nt_p = _g23h_with_sigmas(c.nt, m.obs, probe)
+        @test c.lnl(m.sys, nt_p) == ll_base              # bit-identical
+    end
+    c_r = g23h_context(ruwe.sys, ruwe.obs)
+    ll_r = c_r.lnl(ruwe.sys, c_r.nt)
+    @test c_r.lnl(ruwe.sys, _g23h_with_sigmas(c_r.nt, ruwe.obs, 2.0)) != ll_r
 end
 
 @testset "generate_from_params round-trips" begin
