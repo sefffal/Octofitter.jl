@@ -1,28 +1,81 @@
 name: Documentation
 
 on:
+  # Push builds main and tags only; every other branch is covered by the
+  # pull_request trigger below. Building on both events queued *two* ~4 h builds
+  # of the same commit on the single self-hosted runner for every push to a
+  # branch with an open PR (#143). A shared concurrency group does not fix that:
+  # push and pull_request see different `github.ref`, and forcing them into one
+  # group would let the push run cancel the pull_request run -- which is the
+  # only one that publishes a `previews/PR<n>` preview. A branch with no open PR
+  # no longer builds docs; it never deployed anything either, and
+  # workflow_dispatch is still there if you want one.
   push:
-    branches-ignore:
-      - 'dependabot/**'  # Optional: ignore dependabot branches
+    branches:
+      - main
     tags: '*'
   pull_request:
   workflow_dispatch:
 
+# Group by ref, not run_id. The old `github.head_ref || github.run_id` fallback
+# gave every push its own group (head_ref is empty for pushes), so pushes never
+# superseded each other -- they all queued. With a single self-hosted runner and
+# a multi-hour docs build, a handful of pushes to main meant days of backlog.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: [self-hosted, macOS, ARM64]
+    # Public repo + self-hosted runner: a pull_request from a fork would execute
+    # that fork's code on the maintainer's machine, and this job runs the 273
+    # example blocks in docs/src, so a docs-only PR is arbitrary code execution
+    # by construction. Fork PRs therefore skip the build (#143, @sefffal chose
+    # this over dropping previews entirely). Same-repo PRs, main, tags and
+    # workflow_dispatch are unaffected -- nothing that gates a release changes.
+    # The `github.event_name` guard matters: `github.event.pull_request` is null
+    # on a push, so the second clause on its own would skip every push build.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, X64]
+    # deploydocs pushes to gh-pages with GITHUB_TOKEN (DOCUMENTER_KEY is unset),
+    # so the job needs contents: write. TagBot.yml and doc-cleanup.yml already
+    # declare this; docs.yml was the only write-capable workflow relying on
+    # whatever the repository default happens to be.
+    permissions:
+      contents: write
+    # The default job timeout is 360 min, which is shorter than a full docs
+    # build. Without this the job is killed partway through and nothing deploys.
+    timeout-minutes: 1440
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@latest
+      - uses: actions/checkout@v7
+      # PlanetOrbits v2 is an unregistered prerelease (2.0.0-DEV) that this
+      # branch depends on, so the docs environment cannot resolve from the
+      # registry alone -- it has to be dev'd from a checkout. Pinned to the
+      # matching `v2` branch; drop this step and the PackageSpec below once
+      # PlanetOrbits 2 is registered.
+      - uses: actions/checkout@v7
         with:
-          version: '1.10'
+          repository: sefffal/PlanetOrbits.jl
+          ref: v2
+          path: .planetorbits-v2
+      - uses: julia-actions/setup-julia@v3
+        with:
+          # Not 1.10: docs/ lists Pigeons as a direct dependency (Octofitter
+          # itself only has it as a weakdep, which is why ci.yml stays green on
+          # 1.10). On 1.10 the newest allowed Pigeons is 0.4.10 -- 0.4.11
+          # requires >=1.11 -- and 0.4.10 caps DifferentiationInterface at
+          # <=0.6.54, while Pathfinder 0.10 -> OptimizationBase 5 needs
+          # >=0.7.13. The docs environment has therefore been unresolvable on
+          # 1.10 since the Pathfinder 0.10 migration (#121) landed. Track '1',
+          # which ci.yml already tests, rather than pinning and rotting again.
+          version: '1'
+      # No julia-actions/cache here on purpose. The self-hosted runner has a
+      # persistent depot at ~/.julia, so the restore is a no-op ("depot
+      # registries already exist ... skipping") while the save spent 65 minutes
+      # tarring a multi-GB depot and then failed. Restore this step if the docs
+      # build ever moves back to an ephemeral runner.
       - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; Pkg.develop([PackageSpec(path=pwd()), PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")), PackageSpec(path=joinpath(pwd(),"OctofitterImages")), PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))]);'
-      - uses: julia-actions/cache@v1
+        run: julia --project=docs/ --color=yes -e 'using Pkg; Pkg.develop([PackageSpec(path=joinpath(pwd(),".planetorbits-v2")), PackageSpec(path=pwd()), PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")), PackageSpec(path=joinpath(pwd(),"OctofitterImages")), PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))]);'
       - uses: julia-actions/julia-buildpkg@v1
       - name: Build and deploy
         env:
@@ -30,4 +83,4 @@ jobs:
           GKSwstype: 100 # use software renderer for Plots.jl since headless
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
           # DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key
-        run: julia --project=docs/ docs/make.jl
+        run: julia --project=docs/ --color=yes docs/make.jl
