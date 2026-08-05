@@ -1,4 +1,4 @@
-# Compatibility with Orbitize!
+# [Compatibility with Orbitize!](@id compat-orbitize)
 
 The [Orbitize!](https://orbitize.readthedocs.io/en/latest/) python library is a popular package for fitting astrometric and radial velocity orbits.
 

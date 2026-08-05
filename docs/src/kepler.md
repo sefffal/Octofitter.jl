@@ -79,7 +79,7 @@ end)
 
 `58849` is orbitize!'s default `tau_ref_epoch`; use whatever your file records, and note
 that [`Octofitter.loadhdf5`](@ref) reads it out of the file's attributes for you when
-importing an orbitize! chain (see [Orbitize! Compatibility](@ref)). `τ` stays in the
+importing an orbitize! chain (see [Compatibility with Orbitize!](@ref compat-orbitize)). `τ` stays in the
 chain as a sampled column, so posteriors remain directly comparable with orbitize!'s.
 
 Sampling `τ` with [`UniformCircular`](@ref)`(1.0)` instead of `Uniform(0, 1)` avoids the
