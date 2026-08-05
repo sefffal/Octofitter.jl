@@ -110,11 +110,7 @@ end
     # `resolverefs` exists to avoid. See also the open question about whether
     # Julia 1.10 remains supported at all, given Pigeons cannot be installed
     # there.
-    if VERSION >= v"1.11"
-        @test (@allocated Octofitter.resolveref(posys, Photocentre(:G, (:A, :b)))) == 0
-    else
-        @test_broken (@allocated Octofitter.resolveref(posys, Photocentre(:G, (:A, :b)))) == 0
-    end
+    @test (@allocated Octofitter.resolveref(posys, Photocentre(:G, (:A, :b)))) == 0 broken=(VERSION < v"1.11")
 end
 
 @testset "photocentre member and band typos are caught at model-build time" begin
