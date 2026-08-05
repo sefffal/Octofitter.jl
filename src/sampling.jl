@@ -334,6 +334,15 @@ Base.@nospecializeinfer function advancedhmc(
     #
     # See `_kepsolve_use_threads` in model/codegen.jl. If inner threading is ever
     # reintroduced, this is where it gets switched on.
+    #
+    # It should be. The per-epoch passes are all epoch-local, so blocking the
+    # trajectory and threading over epoch ranges is structurally available on
+    # top of the SIMD solve, and it is what a thousands-of-epochs job needs: the
+    # intended shape is MPI across chains and threads within a rank, which the
+    # current "one chain per thread" arrangement cannot express. Wanted by
+    # @sefffal; see design §10.5 for the measurement that motivates it
+    # (`rv-8000` sits at ~6.0 ms per gradient with nothing else to spend cores
+    # on).
 
     initial_parameters = initial_θ_t
 
