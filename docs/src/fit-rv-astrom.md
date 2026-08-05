@@ -15,9 +15,9 @@ using PlanetOrbits
 ```
 
 
-We now use PlanetOrbits.jl to create sample data. In v2 a "template orbit" is a
-whole little system: a star, a companion with a real mass, and the orbit that
-places one about the other. That means one object generates both the relative
+We now use PlanetOrbits.jl to create sample data. A "template orbit" is a whole
+little system: a star, a companion with a real mass, and the orbit that places
+one about the other. That means one object generates both the relative
 astrometry *and* the star's reflex radial velocity, self-consistently.
 ```@example 1
 star_template = PlanetOrbits.Body(mass=1.0 - 0.001, name=:A)   # M⊙
@@ -35,7 +35,7 @@ Makie.lines(orb_template, axis=(;autolimitaspect=1))
 
 
 Sample position and store as relative astrometry measurements. Every observable
-in v2 is a difference between two named references, so we ask for the companion
+is a difference between two named references, so we ask for the companion
 relative to the star explicitly:
 ```@example 1
 epochs = [58849,58852,58858,58890]
@@ -118,9 +118,9 @@ Makie.scatter!(rvlike2.table.epoch[:], rvlike2.table.rv[:])
 fap
 ```
 
-!!! note "`MarginalizedRVObs` replaces `MarginalizedStarAbsoluteRVObs`"
+!!! note "`MarginalizedRVObs`"
     It analytically marginalizes out the instrument's radial velocity zero
-    point, saving one parameter per instrument. In v2 it lives in
+    point, saving one parameter per instrument. It lives in
     `OctofitterRadialVelocity`, requires `target=` (with `ref=` defaulting to
     `Barycentre`), and **errors if you declare an `offset` variable** — the whole
     point is that there is no offset parameter to fit. Note also that it cannot
@@ -129,8 +129,8 @@ fap
     `offset` if you need that.
 
 
-Now specify model and fit it. The observations are a flat list on the system —
-including the relative astrometry, which in v1 was attached to the planet:
+Now specify model and fit it. The observations are a flat list on the system,
+relative astrometry included:
 ```@example 1
 A = Body(
     name="A",
@@ -145,16 +145,13 @@ planet_b = Body(
     variables=@variables begin
         e ~ Uniform(0,0.999999)
         a ~ truncated(Normal(1, 1),lower=0.1)
-        # Masses are solar masses in v2; `mjup` is a plain constant.
-        mass_jup ~ truncated(Normal(1, 1), lower=0.)
-        mass = mass_jup * mjup
+        # Masses are solar masses; `mjup` is a plain constant.
+        mass ~ truncated(Normal(1mjup, 1mjup), lower=0.)
         i ~ Sine()
         Ω ~ UniformCircular()
         ω ~ UniformCircular()
-        # `θ` (position angle at a reference epoch) is now an orbital element in
-        # its own right: give `θ` and `epoch` and PlanetOrbits does what v1's
-        # `θ_at_epoch_to_tperi` helper did, without needing M, e, a, i, ω and Ω
-        # spelled out again.
+        # `θ` (position angle at a reference epoch) is an orbital element in its
+        # own right: give `θ` and `epoch` and PlanetOrbits works out the phase.
         θ ~ UniformCircular()
         epoch = 58849.0
     end

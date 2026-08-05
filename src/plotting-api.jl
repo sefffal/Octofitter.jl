@@ -138,7 +138,7 @@ end
     RowSignal
 
 The component of an [`ObservableQuery`](@ref) attributable to one hierarchy
-row: built by [`rowsignal`](@ref), evaluated by [`evalsignal`](@ref).
+row: built by `rowsignal`, evaluated by `evalsignal`.
 Because the signal is referenced within the row itself, frame effects
 (perspective acceleration, proper motion) drop out — it is purely orbital.
 """
@@ -192,7 +192,7 @@ end
     foldablerows(posys, query) -> Vector{Int}
 
 The hierarchy rows a phase-fold panel of `query` can be made for (those
-with an isolable [`rowsignal`](@ref)).
+with an isolable `rowsignal`).
 """
 foldablerows(posys::PlanetOrbits.System{NB,NR}, q) where {NB,NR} =
     [k for k in 1:NR if rowsignal(posys, _query(q), k) !== nothing]
@@ -202,7 +202,7 @@ foldablerows(posys::PlanetOrbits.System{NB,NR}, q) where {NB,NR} =
 
 The fold ephemeris of a [`RowSignal`](@ref) under one posterior draw: the
 row period and the epoch of phase zero, chosen in the cycle containing
-`tmid`. Radial velocity keeps the v1 rvpostplot convention — phase 0 at the
+`tmid`. Radial velocity keeps the v8 rvpostplot convention — phase 0 at the
 signal's upward zero crossing; everything else puts periastron at phase 0.
 Under the N-body propagator these are the drawn (osculating) elements — see
 `phasefoldpanel!` for what a fold means there.
@@ -800,7 +800,7 @@ export mapcurve
 
 One (query, rowname) pair per hierarchy row: the exterior side relative to
 the interior side — exactly the relationship each row parametrizes. For a
-star + planets system this is each planet about the star (matching v1's
+star + planets system this is each planet about the star (matching v8's
 octoplot); for hierarchies it generalizes with no special cases (a moon
 about its planet, an inner pair's barycentre about the outer body, …).
 """
@@ -953,7 +953,7 @@ and `e`.
 
 `mode=:separation` uses each draw's semi-major axis, or the instantaneous
 3-D separation at `epoch=` when one is given; `mode=:period` uses the orbital
-period. Masses are M⊙ (v1 plotted Mⱼᵤₚ; v2 has one mass unit throughout).
+period. Masses are M⊙ (v8 plotted Mⱼᵤₚ; v9 has one mass unit throughout).
 Requires a Makie backend.
 """
 function dotplot end
@@ -982,7 +982,7 @@ posterior cloud of modelled abscissae over the measurements, with a per-epoch
 boxplot of the residuals against the quoted formal errors below.
 
 This is the same data as `octoplot`'s generic `:along_scan` panel, drawn in
-v1's per-epoch-boxplot idiom, which answers a different question: not "are
+v8's per-epoch-boxplot idiom, which answers a different question: not "are
 the residuals normal" but "at which epochs is the posterior spread larger
 than the measurement error". Requires a Makie backend.
 """
@@ -1045,13 +1045,19 @@ function likemappanel! end
 export likemappanel!
 
 """
-    rvpostplot(model, chain; kwargs...) -> OctoPlotResult
+    rvpostplot(model, chain, [sample_idx]; kwargs...) -> OctoPlotResult
 
-The radial-velocity summary figure: one time-series panel with a residual
-strip and marginal histogram, plus one phase-folded panel per hierarchy row
-that moves the star. Sugar over [`octoplot`](@ref) restricted to the model's
-radial-velocity channels — the same panels, without the sky panel and without
-any non-RV data.
+The radial-velocity summary figure for a single posterior draw
+(`sample_idx`, by default the highest-posterior-density sample): one
+time-series panel carrying every instrument at once, with a residual strip and
+marginal histogram, plus one phase-folded panel per hierarchy row that moves
+the star.
+
+A calibrated RV series is only defined per draw — offsets, jitter, and the
+other rows' subtracted signals all move between samples — so this figure shows
+one. For the many-draws view, with one panel per instrument, call
+[`octoplot`](@ref) restricted to the RV channels:
+`octoplot(model, chain; show_sky=false, channels=PlanetOrbits.radvel)`.
 
 Requires a Makie backend. `rvpostplot_animated` records the same figure over
 successive single-draw slices of the chain.
@@ -1066,7 +1072,7 @@ export rvpostplot, rvpostplot_animated
     phasefoldpanel!(gridposition, series, entries; row, kwargs...)
 
 Data-vs-model panel folded on hierarchy row `row`'s orbital phase: the
-row's isolated signal ([`rowsignal`](@ref)) per posterior draw, calibrated
+row's isolated signal (`rowsignal`) per posterior draw, calibrated
 data with the other rows' signals removed, noise-weighted binned means, and
 a phase-folded residual strip. Requires Makie. See [`octoplot`](@ref).
 """

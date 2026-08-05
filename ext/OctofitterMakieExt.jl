@@ -361,7 +361,7 @@ the default whitens whenever more than one draw is shown. The epoch axis is
 calendar-dated via `MJDConversion` and stays correct under zoom; annotate
 with `Date`/`DateTime` or MJD alike. The time axes clip exactly to the
 model grid (no gap after the last segment); wrapped quantities (position
-angle) get the v1 treatment — lines exit one axis edge and re-enter at the
+angle) get the v8 treatment — lines exit one axis edge and re-enter at the
 other, with limits pinned to the wrap range.
 
 Returns `(; main, resid, hist)` (the latter two `nothing` when no data).
@@ -490,7 +490,7 @@ Fold conventions: each draw's model curve is folded on **its own** period
 and phase zero, so every curve is a clean single cycle and the family's
 spread shows the fold uncertainty honestly; the data (MAP residuals plus
 the row's MAP signal) folds once, on the MAP ephemeris. Phase zero is the
-signal's upward zero crossing for radial velocity (the v1 rvpostplot
+signal's upward zero crossing for radial velocity (the v8 rvpostplot
 convention), periastron otherwise. Under the N-body propagator the curve is
 the actual model over one osculating period anchored at the data midpoint —
 periodicity is then an approximation, which is why `octoplot` only adds
@@ -929,23 +929,46 @@ end
 # ---------------------------------------------------
 
 """
-    rvpostplot(model, chain; kwargs...)
+    rvpostplot(model, chain, [sample_idx]; kwargs...)
     rvpostplot(series::PosteriorSeries; kwargs...)
 
-The v1 radial-velocity summary figure, as a restriction of [`octoplot`](@ref)
-rather than a separate implementation: `channels=radvel` keeps the RV channel
-groups and drops everything else, `show_sky=false` drops the sky panel, and
-what is left is exactly v1's anatomy — one time-series panel with a residual
-strip and marginal histogram, then one phase-folded panel per planet.
+The radial-velocity summary figure for a **single** posterior draw: one time
+series panel carrying every instrument at once, with a residual strip and a
+marginal histogram, then one phase-folded panel per planet.
 
-Every keyword `octoplot` takes works here (`N`, `seed`, `ndraws`, `whiten`,
-`show_phase`, `figscale`, `fname`), and the return value is the same
-[`OctoPlotResult`](@ref), so `res.axes.rv.main` and `res.axes.rv_phase_b.main`
-name the panels.
+`sample_idx` defaults to the highest-posterior-density sample in the chain.
+Pass an index to render a different draw, and `rvpostplot_animated` to sweep
+through many of them.
+
+The single draw is the point of this figure rather than an economy: a
+calibrated RV time series is only defined *per draw* — the instrument offsets,
+the jitter and the other planets' signals that are subtracted before folding
+all move from sample to sample — so several draws cannot share one panel
+without lying about at least one of them. For the many-draws view, where each
+instrument gets its own panel, ask [`octoplot`](@ref) directly:
+
+    octoplot(model, chain; show_sky=false, channels=PlanetOrbits.radvel)
+
+Every keyword `octoplot` takes works here (`whiten`, `show_phase`, `figscale`,
+`fname`), and the return value is the same [`OctoPlotResult`](@ref), so
+`res.axes.rv.main` and `res.axes.rv_phase_b.main` name the panels.
 """
-Octofitter.rvpostplot(model::Octofitter.LogDensityModel, chain::Chains;
-                      N=250, seed=0, kwargs...) =
-    Octofitter.rvpostplot(PosteriorSeries(model, chain; N, seed); kwargs...)
+function Octofitter.rvpostplot(model::Octofitter.LogDensityModel, chain::Chains,
+                               sample_idx::Integer=_max_logpost_index(chain); kwargs...)
+    nsamples = size(chain, 1) * size(chain, 3)
+    1 <= sample_idx <= nsamples || throw(ArgumentError(
+        "sample_idx=$sample_idx is outside the chain's 1:$nsamples samples."))
+    return Octofitter.rvpostplot(PosteriorSeries(model, chain; ii=[sample_idx]); kwargs...)
+end
+
+# v1 selected the draw with `argmax(results["logpost"][:])`. Chains that were
+# not produced by a sampler carrying a log posterior (a prior draw assembled by
+# hand, say) have no such column, and falling back to the first sample is
+# better than failing to plot at all.
+function _max_logpost_index(chain::Chains)
+    :logpost in keys(chain) || return 1
+    return argmax(vec(chain[:logpost]))
+end
 
 function Octofitter.rvpostplot(series::PosteriorSeries; kwargs...)
     res = Octofitter.octoplot(series; show_sky=false,
@@ -960,7 +983,7 @@ end
     rvpostplot_animated(model, chain; N=50, seed=0, framerate=4,
                         fname="rv-posterior.mp4", kwargs...)
 
-[`rvpostplot`](@ref) recorded over `N` single-draw slices of the chain — v1's
+[`rvpostplot`](@ref) recorded over `N` single-draw slices of the chain — v8's
 "sweep through the posterior" animation. Each frame is the whole figure
 rebuilt for one draw, so every panel (including the phase folds, which move
 with the drawn period) is that draw's own. Returns `fname`.
@@ -1005,7 +1028,7 @@ See the core docstring. A posterior summary with no data in it: one point per
 draw per hierarchy row, mass against separation (or period), coloured by
 eccentricity, with step-histogram marginals on both axes.
 
-Masses are **M⊙**: v2 has one mass unit throughout, where v1 plotted each
+Masses are **M⊙**: v9 has one mass unit throughout, where v8 plotted each
 planet's mass in Mⱼᵤₚ.
 """
 function Octofitter.dotplot(model::Octofitter.LogDensityModel, chain::Chains;
@@ -1155,7 +1178,7 @@ scan angle. Gaia constrains one direction per transit, so a measurement is a
 by `(data − model)` along `(sin ψ, cos ψ)`, with its 1σ tick along the same
 direction and a dotted connector back to the track.
 
-(v1 displaced by `model − data`, mirroring each point across the track. The
+(v8 displaced by `model − data`, mirroring each point across the track. The
 sign here is the one that makes a point sit where the abscissa says the source
 was.)
 """
@@ -1291,8 +1314,8 @@ motion and the orbital wobble superimposed.
 The parallax ellipse has to be projected onto a sky direction. It is taken
 from the system's `ra`/`dec` frame variables when the model declares an
 absolute frame; otherwise pass `ra=`/`dec=` in degrees, or `gaia_id=`, which
-reads the published solution through `Octofitter.gaia_dr3_solution`. (v1 read
-it from `obs.gaia_sol`, which the v2 observation no longer carries — it models
+reads the published solution through `Octofitter.gaia_dr3_solution`. (v8 read
+it from `obs.gaia_sol`, which the v9 observation no longer carries — it models
 a sky path and does not need the catalog row.)
 
 Needs the Earth's position, i.e. the DE440 ephemeris data dependency.
@@ -1407,7 +1430,7 @@ abscissa line, and the residual segment from the model to that line with its
 
 Every part of the geometry is reconstructed so that the residual segment lands
 *on* the abscissa line by construction, from the same `FrameOffset` the
-likelihood uses. (v1 recovered the sign of an unsigned residual by trying both
+likelihood uses. (v8 recovered the sign of an unsigned residual by trying both
 perpendicular directions and keeping the one nearer the line, and then divided
 the offsets by 3.6e6 — an arcsec→degree conversion in a figure whose units are
 milliarcseconds.)

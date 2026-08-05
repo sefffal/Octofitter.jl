@@ -1,24 +1,36 @@
 # RV Posterior Plots
 
-[`rvpostplot`](@ref) is the radial-velocity summary figure: an RV time series with a
-residual strip and a marginal histogram, then one phase-folded panel per planet. It is the
-same anatomy v1 shipped, but it is no longer a separate implementation — it is
-[`octoplot`](@ref) restricted to the model's radial-velocity channels, so the panels,
-the error-bar conventions and the returned axes are identical to the rest of the figure
-set.
+[`rvpostplot`](@ref) is the radial-velocity summary figure for a **single** posterior
+draw: an RV time series carrying every instrument at once, with a residual strip and a
+marginal histogram, then one phase-folded panel per planet.
 
 ```julia
-res = rvpostplot(model, chain)          # == octoplot(model, chain; show_sky=false,
-                                        #             channels=PlanetOrbits.radvel)
+res = rvpostplot(model, chain)          # the highest-posterior-density draw
+res = rvpostplot(model, chain, 42)      # a draw you pick
 ```
+
+The single draw is what makes the shared panel possible. A calibrated RV series is only
+defined *per draw* — each instrument's offset, its jitter, and the other planets' signals
+that are subtracted before folding all move from sample to sample — so several draws
+cannot share one panel without misrepresenting at least one of them.
+
+For the many-draws view, ask [`octoplot`](@ref) for the RV channels directly. There each
+instrument gets its own panel, which is what lets a spread of draws be drawn honestly:
+
+```julia
+octoplot(model, chain; show_sky=false, channels=PlanetOrbits.radvel)
+```
+
+`rvpostplot` is built out of the same panel functions as the rest of the figure set, so
+the error-bar conventions and the returned axes match everywhere else.
 
 While [`octoplot`](@ref) gives a broad overview of *all* the data in a fit, this
 page covers the parts of that figure that concern radial velocity: which panels
 you get, what the error bars mean, and how to build a custom RV figure out of
 the same pieces.
 
-The panel anatomy is unchanged from v1 — a time series with a residual strip,
-then one phase-folded panel per planet:
+The panel anatomy — a time series with a residual strip, then one phase-folded panel per
+planet:
 
 ![](assets/rv-postplot-1.png)
 
@@ -102,18 +114,15 @@ octoplot(model, chain;
 )
 ```
 
-### Plotting a single posterior draw
+### Choosing which draw
 
-v1's `rvpostplot(model, chain, i)` showed one sample. In v2 you slice the chain
-instead, which works for every plotting function rather than just this one:
+`rvpostplot(model, chain, i)` renders sample `i`; with no index it picks the
+highest-posterior-density sample. Slicing the chain works too, and works for every
+plotting function rather than just this one:
 
 ```julia
-# The maximum a-posteriori draw in the chain
-i_map = argmax(vec(chain[:logpost]))
-rvpostplot(model, chain[i_map:i_map, :, :])
-
-# An arbitrary draw
-rvpostplot(model, chain[42:42, :, :])
+rvpostplot(model, chain, 42)            # an arbitrary draw
+rvpostplot(model, chain[42:42, :, :])   # the same thing, by slicing
 ```
 
 ### Animations
