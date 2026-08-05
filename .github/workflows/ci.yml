@@ -78,3 +78,45 @@ jobs:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }} # required
           verbose: true # optional (default = false)
+
+  # The Pigeons extension, on its own, because it cannot be part of the matrix
+  # above. Pigeons is not in `[targets] test`: Pathfinder 0.10 needs
+  # DifferentiationInterface >= 0.7.13 while the newest Pigeons installable on
+  # Julia 1.10 is 0.4.10, which caps it at <= 0.6.54, so listing it there makes
+  # the whole test environment unresolvable on 1.10 and that matrix entry runs
+  # nothing at all. Here it is added explicitly on Julia 1, and runtests.jl
+  # picks the extension testset up because the package is now present.
+  #
+  # This is coverage the matrix cannot give, not a relaxation of it: without
+  # this job `octofit_pigeons` would again be untested, which is how it came to
+  # be silently unported once already.
+  pigeons:
+    name: Pigeons extension - Julia 1 - ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: sefffal/PlanetOrbits.jl
+          ref: v2
+          path: .planetorbits-v2
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+          arch: x64
+      - uses: julia-actions/cache@v3
+      # Add the test-only dependencies to the project itself, so that running
+      # runtests.jl directly sees them. `Pkg.test()` would rebuild the
+      # environment from `[targets] test` and drop Pigeons again.
+      - name: Install with Pigeons
+        run: |
+          julia --project=. --color=yes -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=joinpath(pwd(), ".planetorbits-v2")))
+            Pkg.add(["Pigeons", "FiniteDiff", "Test"])
+            Pkg.instantiate()'
+      - name: Run the test suite, extension included
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true
+          GKSwstype: 100
+        run: julia --project=. --color=yes test/runtests.jl

@@ -68,8 +68,21 @@ if TEST_MODE in ("all", "unit")
         include("v2/consolidation.jl")
     end
     # Loads Pigeons, so `octofit_pigeons`'s package extension is exercised.
-    @testset "Parallel tempering (Pigeons extension)" begin
-        include("v2/pigeons.jl")
+    #
+    # Pigeons is deliberately *not* in the test target: it cannot be installed
+    # alongside Octofitter on Julia 1.10 at all. Pathfinder 0.10 needs
+    # DifferentiationInterface >= 0.7.13, while the newest Pigeons allowed on
+    # 1.10 is 0.4.10, which caps it at <= 0.6.54 — the same conflict that forced
+    # the docs environment off 1.10. Listing it in `[targets] test` made the
+    # whole test environment unresolvable there, so the 1.10 job never ran a
+    # single test. The `pigeons` CI job installs it on Julia 1 and this block
+    # then runs; locally, `testenv/` has it too.
+    if Base.identify_package("Pigeons") !== nothing
+        @testset "Parallel tempering (Pigeons extension)" begin
+            include("v2/pigeons.jl")
+        end
+    else
+        @info "Pigeons is not installed in this environment; skipping the extension tests. This is expected on Julia 1.10 (see the comment above) and in `Pkg.test()` on core."
     end
     # One worked model per observation type and public entry point. The
     # subpackage sections skip here — `Pkg.test()` on core resolves only
