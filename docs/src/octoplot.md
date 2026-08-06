@@ -41,12 +41,12 @@ moon about its planet, an inner pair's barycentre about the outer body). Right a
 increases to the left, and the overlaid astrometry is labelled by instrument
 (`legend=false` to drop the key).
 
-The two panel families can be turned off explicitly:
+The two panel families can be turned on or off explicitly:
 
 ```julia
 octoplot(model, chain;
-    show_sky = false,     # skip the sky-plane panel
-    show_phase = false,   # skip phase-folded panels
+    show_sky = false,    # skip the sky-plane panel
+    show_phase = true,   # add phase-folded panels (off by default — see below)
 )
 ```
 
@@ -88,12 +88,21 @@ instrument declared natively.
 Under each time-series panel, with a marginal histogram beside it.
 
 When more than one draw is shown the residuals are **whitened**, and this is not
-optional: per point, the median and 16–84 % interval of `(data − model)/σ_eff` over the
-draws, against a unit normal. A raw residual is not comparable between draws — the jitter,
-the offsets and the other bodies' subtracted signals all move — so `whiten=false` throws
-unless you also pass `ndraws=1`. `σ_eff` includes fitted jitter and, where an observation
-has a Gaussian-process noise model, that model's predictive variance; its mean is
-subtracted from the residual too, so the strip shows what the fit is actually left with.
+optional: a raw residual is not comparable between draws — the jitter, the offsets and the
+other bodies' subtracted signals all move — so `whiten=false` throws unless you also pass
+`ndraws=1`. `σ_eff` includes fitted jitter and, where an observation has a
+Gaussian-process noise model, that model's predictive variance; its mean is subtracted
+from the residual too, so the strip shows what the fit is actually left with.
+
+The same argument applies once more inside the strip: those nuisance terms move from draw
+to draw, so a measurement's z-score is not one number but a distribution, and a single
+mark per point cannot say how much of the scatter is the fit's own uncertainty. Each point
+is therefore drawn as a **boxplot** of `(data − model)/σ_eff` over the draws — median,
+quartiles, 1.5 IQR whiskers — with the marginal histogram pooling every draw against a
+unit normal. Boxes are sized automatically from the spacing of the epochs and are narrow
+by design; `boxwidth=` (in x units — days on a time panel, cycles on a phase panel) sets
+them by hand when a dataset defeats that. With `ndraws=1` there is one z-score per point
+and it is drawn as a marker instead.
 
 !!! note "Not every observation type has plot channels yet"
     `RelAstromObs`, `RadialVelocityObs`, `MarginalizedRVObs` and `GaiaDR4AstromObs`
@@ -136,8 +145,10 @@ octoplot(series)
 | `seed=0` | Seed for the draw selection |
 | `ndraws=nothing` | Cap on the draws each panel renders |
 | `show_sky=nothing` | Force the sky panel on or off (default: on when the model is angular) |
-| `show_phase=nothing` | `nothing` folds radial velocity only; `true` folds every foldable channel; `false` folds nothing |
+| `show_phase=nothing` | `nothing` folds only when a single draw is shown; `true` folds every foldable channel; `false` folds nothing |
 | `whiten=nothing` | Divide residuals by their uncertainty (default: on when several draws are shown, and required then) |
+| `boxwidth=nothing` | Width of the residual boxes in x units (default: from the epoch spacing) |
+| `gpband=nothing` | Correlated-noise bands (default: on only for a single draw) |
 | `channels=nothing` | Restrict the figure — see below |
 | `legend=true` | Instrument keys on the sky and shared data panels |
 | `figscale=1.0` | Scale the whole figure |
@@ -172,6 +183,26 @@ for data a fit does not have is not a request to invent it.
 
 ## Phase folding
 
+Phase panels are **off by default** in `octoplot`, and on by default in [`rvplot`](@ref).
+The difference between the two figures is the number of draws, and that is exactly what a
+fold depends on.
+
+Folding collapses the epoch axis through one ephemeris. For a single draw that is
+its own period and its own phase zero, and the fold is exact. For many draws the data can
+still only be folded once — on the maximum-posterior period — so a chain whose period is
+broad, or multi-modal, has its measurements placed at phases most of the drawn orbits
+disagree with, and the panel reads as scatter about a curve instead of as the ambiguity it
+actually is. Plenty of posteriors are tight enough for it to look fine, which is the trap:
+whether the picture is honest is a property of the fit, not of the figure.
+
+So ask for it when you know the fit supports it:
+
+```julia
+octoplot(model, chain; show_phase=true)                  # fold anyway, all draws
+octoplot(model, chain; ndraws=1)                         # one draw: folded by default
+rvplot(model, chain)                                     # the single-draw RV figure
+```
+
 `show_phase=true` folds every channel that can be folded, not just radial velocity — a
 phase-folded separation or position-angle panel is often the clearest view of a
 well-sampled astrometric orbit:
@@ -180,10 +211,11 @@ well-sampled astrometric orbit:
 octoplot(model, chain; channels=posangle, show_sky=false, show_phase=true)
 ```
 
-Left at its default it adds the RV phase panels alone, which is the conventional figure
-and keeps an astrometry figure from doubling in height. A channel is foldable when one
-hierarchy row's contribution to it can be isolated exactly — always true when a single row
-moves the quantity, and true for observables linear in the separation otherwise.
+A channel is foldable when one hierarchy row's contribution to it can be isolated exactly
+— always true when a single row moves the quantity, and true for observables linear in the
+separation otherwise. Each draw's *curve* is folded on its own period even in the
+many-draw case, so the spread of the curves is the fold uncertainty drawn honestly; it is
+the single folding of the data underneath them that the default is cautious about.
 
 ## Building your own figure
 

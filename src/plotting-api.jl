@@ -1158,6 +1158,14 @@ annotation: `text!(res.axes.sky, ...)`), and the underlying
 channel or observable name, or a collection of either. A `channels=` the
 model has no data for is drawn as a **prediction**: the model curves alone,
 over the queries [`default_queries`](@ref) picks.
+
+This is the **many-draw** figure, and three of its defaults follow from that:
+residuals are whitened and each point carries the boxplot of its z-score over
+the draws, phase-folded panels are off (a fold needs one ephemeris, and a
+posterior need not have one), and correlated-noise bands are off (they would
+double every curve). Each turns back on for `ndraws=1`, or explicitly via
+`show_phase=`/`gpband=`. [`rvplot`](@ref) is the single-draw figure where all
+three are the point.
 """
 function octoplot end
 octoplot(args...; kwargs...) = _require_makie("octoplot")

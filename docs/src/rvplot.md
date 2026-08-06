@@ -66,8 +66,9 @@ With **one draw** the residuals are in m/s, and each is the measurement minus
 everything the model accounts for — orbit, offset, trend, and the
 Gaussian-process activity prediction where one was fitted.
 
-With **several draws** they are whitened: per point, the median and 16–84 %
-interval of `(data − model)/σ_eff` across the draws, with the histogram drawn
+With **several draws** — which means [`octoplot`](@ref), since `rvplot` shows
+one — they are whitened, and each point becomes a boxplot of its own
+`(data − model)/σ_eff` distribution across the draws, with the histogram drawn
 against a unit normal. This is not a display preference. A raw residual is not
 comparable between draws — each draw has its own jitter, so the same point sits
 a different number of σ from the model in each — which is why
@@ -84,7 +85,9 @@ means in red. Phase zero is the signal's upward zero crossing, as before.
 ### Correlated noise
 Where a `gaussian_process` was fitted, its prediction is drawn as a band around
 the model curve, subtracted from the residuals, and folded into `σ_eff`. See
-[Fit Gaussian Process](@ref fit-rv-gp).
+[Fit Gaussian Process](@ref fit-rv-gp). The band is a single-draw mark: drawing
+it for 250 draws puts each draw's plain orbit curve and its activity-added twin
+on one axis, so `octoplot` leaves it off unless you pass `gpband=true`.
 
 ## Options
 

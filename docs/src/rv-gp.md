@@ -194,11 +194,13 @@ for the planet. [`octoplot`](@ref) draws everything the model has;
 [`rvplot`](@ref) is the single-draw radial-velocity figure.
 
 The fitted Gaussian process is part of the picture. Its conditioned prediction
-is drawn as a band around the model curve, subtracted from the residuals before
-they are plotted or folded, and its predictive variance is added into `σ_eff` —
-so the residual strip shows what the fit is *left with* rather than the
-correlated structure the GP was fitted to absorb, and the whitened z-scores are
-standard normal for a model that is working. `gpband=false` turns the band off.
+is subtracted from the residuals before they are plotted or folded, and its
+predictive variance is added into `σ_eff` — so the residual strip shows what the
+fit is *left with* rather than the correlated structure the GP was fitted to
+absorb, and the whitened z-scores are standard normal for a model that is
+working. On the single-draw [`rvplot`](@ref) the prediction is also drawn as a
+band around the model curve; `octoplot` shows many draws and leaves that off
+(`gpband=true` forces it, `gpband=false` on `rvplot` drops it).
 
 Conditioning a GP once per posterior draw is not free; `ndraws=` is the lever if
 a figure is taking too long.

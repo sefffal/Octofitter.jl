@@ -383,23 +383,73 @@ function _whitenmode(whiten, nshow::Integer, hasdata::Bool)
     return false
 end
 
+# How wide a per-point box may be, in x units, on an axis spanning `xspan`.
+#
+# Two constraints pull opposite ways — boxes should not swallow the epoch
+# structure, and they have to be visible — and at real sampling densities the
+# second wins outright. A spectroscopic campaign takes exposures half an hour
+# apart within a night on a baseline of months: K2-131's HARPS-N series has a
+# median gap of 0.025 d on a 66 d axis, which is 4·10⁻⁴ of the width, a fifth
+# of a pixel. Nothing can be drawn there. So the sampling sets the width only
+# where the data are sparse enough for that to be possible, and the clamp —
+# roughly two pixels to a twenty-fifth of the axis — decides the rest.
+#
+# The bounds are relative to the **axis**, not to the entry's own extent: RV
+# panels share one linked time axis, so an instrument that observed for three
+# weeks of a two-month campaign would otherwise size its boxes against a span
+# a third of the one they are drawn on, and come out invisible while its
+# neighbour's read fine.
+#
+# Where a night's exposures do overlap they overlap: at that x resolution the
+# measurements are already on top of each other (they are on the panel above
+# too), and a column of overlapping translucent boxes reads as the cluster it
+# is. `boxwidth=` overrides the lot. The gap statistic is a low quantile
+# rather than the minimum so that one pair of back-to-back exposures does not
+# shrink every box on a sparse panel.
+function _autoboxwidth(xs, xspan)
+    xspan > 0 || return nothing
+    lo, hi = xspan / 200, xspan / 25
+    v = sort!(unique(x for x in xs if isfinite(x)))
+    length(v) > 1 || return lo
+    return clamp(0.8 * quantile(diff(v), 0.1), lo, hi)
+end
+
 # Draw the residual strip and marginal histogram for `entries` into
 # pre-created axes. `xmap(epochs) -> x` positions points (identity for time
-# panels, the fold phase for phase panels). In whitened mode each point is
-# the median z-score over draws with a 16–84 % bar, ±1σ guides, and the
-# histogram is density-normalized with a unit normal overlaid; in raw mode
-# it is the MAP residual with measurement/jitter errorbars and a count
-# histogram. Histogram bins are shared across instruments either way.
+# panels, the fold phase for phase panels). In whitened mode each point
+# carries the distribution of its z-score over the draws — a boxplot when
+# there are several draws to distribute, otherwise the single value — against
+# ±1σ guides, and the histogram is density-normalized with a unit normal
+# overlaid; in raw mode it is the MAP residual with measurement/jitter
+# errorbars and a count histogram. Histogram bins are shared across
+# instruments either way.
 function _residstrip!(ax_resid, ax_hist, series, entries, xmap, nshow, whiten,
-                      st=DATASTYLE)
+                      st=DATASTYLE; xspan, boxwidth=nothing)
     Makie.hlines!(ax_resid, 0.0; color=:black, linewidth=1)
     whiten && Makie.hlines!(ax_resid, [-1.0, 1.0]; color=(:black, 0.3), linewidth=0.5)
 
+    # `residuals` conditions the noise model, so it is called once per entry
+    # here and reused for the boxes, the marks and the histogram.
+    data = [(j, obs, ch, Octofitter.residuals(obs, obscontext(series, obs))[ch.name])
+            for (j, (obs, ch)) in enumerate(entries) if obs !== nothing]
+
+    # A box needs a distribution behind it; one draw gives one z-score per
+    # point, which is the marker form. One width serves every instrument on
+    # the panel — differing widths would read as meaning something.
+    boxes = whiten && nshow > 1
+    bw = nothing
+    if boxes
+        bw = boxwidth === nothing ?
+             _autoboxwidth(Iterators.flatten(xmap(r.epoch)[r.use] for (_, _, _, r) in data),
+                 xspan) : boxwidth
+        # A degenerate axis leaves no width to draw at: fall back to the marker
+        # form rather than draw a box of undefined width.
+        boxes = bw !== nothing && bw > 0
+    end
+
     histdata = Tuple{Any,Vector{Float64}}[]   # (colour, values)
-    single = count(e -> e[1] !== nothing, entries) == 1
-    for (j, (obs, ch)) in enumerate(entries)
-        obs === nothing && continue
-        r = Octofitter.residuals(obs, obscontext(series, obs))[ch.name]
+    single = length(data) == 1
+    for (j, obs, ch, r) in data
         u = r.use
         x = xmap(r.epoch)
         color = single ? :black : _instcolor(j)
@@ -407,14 +457,50 @@ function _residstrip!(ax_resid, ax_hist, series, entries, xmap, nshow, whiten,
         marker = single ? :circle : _instmarker(j)
         if whiten
             zs = _zscores(series, obs, ch, nshow)
-            med = [median(view(zs, i, :)) for i in axes(zs, 1)]
-            lo = [quantile(view(zs, i, :), 0.16) for i in axes(zs, 1)]
-            hi = [quantile(view(zs, i, :), 0.84) for i in axes(zs, 1)]
-            Makie.rangebars!(ax_resid, x[u], lo[u], hi[u];
-                color=single ? "#AAAAAA" : color, linewidth=st.σeff_linewidth)
-            Makie.scatter!(ax_resid, x[u], med[u];
-                color=mcolor, marker, strokecolor=:black,
-                strokewidth=st.strokewidth, markersize=st.resid_markersize)
+            if boxes
+                # The point's z-score *distribution* over the draws, not a
+                # summary of it. Every nuisance parameter that sets a residual's
+                # size — the jitter, the instrument offset, the trend, the other
+                # rows' subtracted signals — moves from sample to sample, so the
+                # measurement has a different z-score in each draw and a single
+                # mark per point cannot say how much of the scatter is the fit's
+                # own uncertainty. (v8 drew exactly this for `G23HObs`' catalog
+                # channels, on a categorical axis; it is the right mark for any
+                # whitened strip, and an epoch axis only adds the width problem
+                # `_autoboxwidth` solves.)
+                bx = Float64[]; by = Float64[]
+                n = count(u)
+                sizehint!(bx, n * nshow); sizehint!(by, n * nshow)
+                for i in axes(zs, 1)
+                    u[i] || continue
+                    for d in axes(zs, 2)
+                        push!(bx, x[i]); push!(by, zs[i, d])
+                    end
+                end
+                # A box only two or three pixels wide is mostly stroke, so the
+                # marks are weighted for that end: a near-solid fill that
+                # carries the instrument's colour, a hairline outline, thinner
+                # whiskers so the box still reads as the wider mark, and the
+                # median in black against both. Outliers are off — 250 draws
+                # per point would scatter more dots than there are data.
+                boxfill = single ? Makie.to_color("#B4B4B4") : Makie.to_color((color, 0.7))
+                boxedge = single ? Makie.to_color(:grey25) : Makie.to_color(color)
+                Makie.boxplot!(ax_resid, bx, by;
+                    width=bw, gap=0, color=boxfill,
+                    strokecolor=boxedge, strokewidth=0.5,
+                    whiskercolor=boxedge, whiskerlinewidth=0.8,
+                    mediancolor=:black, medianlinewidth=1.0,
+                    show_outliers=false)
+            else
+                med = [median(view(zs, i, :)) for i in axes(zs, 1)]
+                lo = [quantile(view(zs, i, :), 0.16) for i in axes(zs, 1)]
+                hi = [quantile(view(zs, i, :), 0.84) for i in axes(zs, 1)]
+                Makie.rangebars!(ax_resid, x[u], lo[u], hi[u];
+                    color=single ? "#AAAAAA" : color, linewidth=st.σeff_linewidth)
+                Makie.scatter!(ax_resid, x[u], med[u];
+                    color=mcolor, marker, strokecolor=:black,
+                    strokewidth=st.strokewidth, markersize=st.resid_markersize)
+            end
             append!(histdata, ((color isa Symbol ? :black : color, vec(zs[u, :])),))
         else
             resid, σ_eff = _netresid(r)
@@ -509,14 +595,25 @@ draws one curve family rather than an identical one per instrument.
 
 ## Residuals
 
-`whiten=true` shows `(data − model)/σ_eff` per posterior draw, summarized per
-point as a median and a 16–84 % interval, with the histogram against a unit
-normal. The default whitens whenever more than one draw is shown, and
-`whiten=false` with several draws is an error rather than a plot — see
-`Octofitter` issue text in `_whitenmode`. Where an observation has a
-correlated-noise model ([`noisemodel`](@ref)), its prediction is drawn as a
-band around the model curve, subtracted from the residuals, and added into
-`σ_eff`.
+`whiten=true` shows `(data − model)/σ_eff` per posterior draw. With several
+draws each point becomes a **boxplot of its own z-score distribution** —
+median, quartiles and 1.5 IQR whiskers over the draws — because every term
+that sets a residual's size (jitter, offset, trend, the other rows' signals)
+moves from sample to sample, so one mark per measurement cannot say how much
+of the scatter is the fit's own uncertainty. `boxwidth=` overrides the
+automatic width (`_autoboxwidth`), which is chosen from the spacing of the
+epochs; with one draw the points are drawn as markers instead. The histogram
+pools every draw against a unit normal.
+
+The default whitens whenever more than one draw is shown, and `whiten=false`
+with several draws is an error rather than a plot — see the `Octofitter` issue
+text in `_whitenmode`.
+
+Where an observation has a correlated-noise model ([`noisemodel`](@ref)), its
+prediction is subtracted from the residuals and added into `σ_eff`, and — for
+a **single** draw — drawn as a band around the model curve. `gpband=nothing`
+follows the draw count; `gpband=true` forces the band on for many draws too,
+which puts each draw's plain orbit curve and its GP-added twin on one axis.
 
 ## Marks
 
@@ -532,7 +629,7 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
                                      top_time_axis=true, bottom_time_axis=true,
                                      show_hist=true, ndraws=nothing, whiten=nothing,
                                      calibrate::Symbol=:auto, show_legend=nothing,
-                                     gpband::Bool=true, datastyle=nothing,
+                                     gpband=nothing, boxwidth=nothing, datastyle=nothing,
                                      side_w=SIDE_W, colgap=COLGAP, hist_aspect=nothing,
                                      curvecolor=nothing, linewidth=nothing)
     gs = _layout(gp)
@@ -556,6 +653,13 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
     curvecolor = something(curvecolor, _querycolor(series.model.system, ch1.query))
     linewidth = something(linewidth, nshow == 1 ? 1.3 : 0.4)
     show_legend = something(show_legend, true)
+    # The correlated-noise band, by default, only where it can be read. One
+    # draw gets a band and the curve it belongs to, which is the picture of
+    # what the GP absorbed. Many draws put the same panel's plain orbit curves
+    # *and* their GP-added twins on one axis — twice the ink for a band whose
+    # envelope no longer means anything, because it is a different draw's
+    # activity model everywhere you look.
+    gpband = something(gpband, nshow == 1)
     single = ndata == 1
 
     conv() = PlanetOrbits.MJDConversion()
@@ -728,7 +832,11 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
         Makie.colsize!(gs, 2, Makie.Fixed(side_w))
         Makie.colgap!(gs, 1, colgap)
     end
-    hasdata && _residstrip!(ax_resid, ax_hist, series, entries, identity, nshow, whiten, st)
+    # The strip's x axis is linked to the main one, which clips to the model
+    # grid below — and that grid is shared by every panel in the figure, so
+    # this is the span the boxes are actually drawn on.
+    hasdata && _residstrip!(ax_resid, ax_hist, series, entries, identity, nshow, whiten, st;
+        xspan=last(series.ts) - first(series.ts), boxwidth)
 
     # Clip exactly to the model grid: no gap between the last line segment
     # and the axis (the v1 rule).
@@ -763,7 +871,8 @@ phase panels automatically under `KeplerianApprox`.
 
 Noise-weighted binned means (grey-to-red points) pool all instruments;
 the residual strip below shows the same residuals as the time panel against
-phase (whitened by default when more than one draw is shown). `show_resid=false`
+phase (whitened by default when more than one draw is shown, and then as a
+per-point boxplot — see [`timeseriespanel!`](@ref)). `show_resid=false`
 drops it — folding does not change a residual's value, so where a time panel
 is already on the figure the strip is that panel's redrawn once per row; the
 main axis then carries the phase ticks itself. `xticks` sets their spacing and
@@ -775,7 +884,7 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
                                     row=nothing, ndraws=nothing, whiten=nothing,
                                     show_binned=nothing, nbins=20, nphase=201,
                                     bottom_axis=true, show_hist=true, show_resid=true,
-                                    xticks=-0.5:0.25:0.5, datastyle=nothing,
+                                    xticks=-0.5:0.25:0.5, boxwidth=nothing, datastyle=nothing,
                                     side_w=SIDE_W, colgap=COLGAP, hist_aspect=nothing,
                                     labelposition::Symbol=:inside, labelcolor=nothing,
                                     curvecolor=nothing, linewidth=nothing)
@@ -955,7 +1064,8 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
         Makie.colsize!(gs, 2, Makie.Fixed(side_w))
         Makie.colgap!(gs, 1, colgap)
     end
-    strip && _residstrip!(ax_resid, ax_hist, series, entries, xmap, nshow, whiten, st)
+    strip && _residstrip!(ax_resid, ax_hist, series, entries, xmap, nshow, whiten, st;
+        xspan=1.0, boxwidth)      # a fold axis is always one full cycle
 
     Makie.xlims!(ax, -0.5, 0.5)
     ax_resid !== nothing && Makie.xlims!(ax_resid, -0.5, 0.5)
@@ -1079,8 +1189,8 @@ end
 
 """
     octoplot(model, chain; N=250, seed=0, show_sky=nothing, show_phase=nothing,
-             whiten=nothing, channels=nothing, fname=nothing, figscale=1,
-             ndraws=nothing)
+             whiten=nothing, channels=nothing, gpband=nothing, boxwidth=nothing,
+             fname=nothing, figscale=1, ndraws=nothing)
 
 See the core docstring (`?octoplot` without Makie loaded). Panels: a sky
 panel when the system has angular observables; one time-series panel per
@@ -1105,7 +1215,16 @@ shows all of its astrometry on all four panels, projected deterministically.
 
 **Residuals** are whitened by default when more than one draw is shown, and
 that is not optional: `whiten=false` needs `ndraws=1`, because a raw residual
-is not comparable between draws.
+is not comparable between draws. Each point's z-score varies from draw to draw
+as well, so a whitened strip over many draws draws the *distribution* per
+point as a boxplot rather than a single mark; `boxwidth=` sets the box width
+in x units when the automatic choice is wrong for a dataset.
+
+**Correlated-noise bands** ([`noisemodel`](@ref)) are drawn only when a single
+draw is shown: 250 draws of "orbit" and 250 of "orbit + activity" on one axis
+is twice the ink for an envelope that is a different draw's activity model at
+every epoch. `gpband=true` overrides that; `rvplot` is the single-draw figure
+where the band is the point.
 
 `channels=` restricts the figure: an observable function (`channels=radvel`),
 a channel or observable name as a `Symbol`, or a collection of either.
@@ -1114,9 +1233,12 @@ model curves alone, over the queries [`default_queries`](@ref) picks — which
 is how you ask a fit what RV signal it implies before taking a spectrum.
 Bespoke panels are dropped along with everything else not asked for.
 
-`show_phase=true` folds every channel that can fold, not just radial
-velocity; left at `nothing` it adds the RV phase panels alone, which is the
-conventional figure.
+**Phase folds are off** unless a single draw is being shown. A fold puts the
+data on one ephemeris — the MAP's — and a posterior with a broad or
+multi-modal period does not have one; see the `do_phase` comment below.
+`show_phase=true` asks for them anyway and then folds *every* channel that can
+fold, not just radial velocity. [`rvplot`](@ref) shows one draw and folds by
+default, which is the conventional figure.
 """
 function Octofitter.octoplot(model::Octofitter.LogDensityModel, chain::Chains;
                              N=250, seed=0, kwargs...)
@@ -1127,8 +1249,10 @@ end
 function Octofitter.octoplot(series::PosteriorSeries;
                              show_sky=nothing, show_phase=nothing, whiten=nothing,
                              channels=nothing, figure=nothing, legend=true,
+                             gpband=nothing, boxwidth=nothing,
                              fname=nothing, figscale=1.0, ndraws=nothing)
     sys = series.model.system
+    nshow = ndraws === nothing ? length(series) : min(ndraws, length(series))
     # Say so when an observation's data cannot be drawn, so that an empty panel
     # reads as a gap in the plotting layer rather than as a fit with no data.
     Octofitter._warn_unplottable(sys)
@@ -1144,14 +1268,22 @@ function Octofitter.octoplot(series::PosteriorSeries;
     do_sky = show_sky === nothing ?
              (_isangular(sys) && !isempty(sys.rows)) : show_sky
 
-    # Phase panels. Left automatic these are the RV idiom and nothing else —
-    # folding every channel would double the height of a typical astrometry
-    # figure — but `show_phase=true` means what it says and folds anything
-    # foldable, i.e. any channel whose query one hierarchy row's signal can be
-    # isolated from. Only meaningful under a periodic propagator, hence the
-    # default.
+    # Phase panels, and by default only for a single draw.
+    #
+    # A fold collapses the epoch axis through *one* ephemeris. That is exact
+    # for one draw, and for many draws it is a claim about the posterior that
+    # the posterior need not support: the data can only be folded on one
+    # period (here the MAP's), so a chain with two period modes — or simply a
+    # period whose spread is a fair fraction of the baseline — has its points
+    # placed at phases most of the drawn orbits disagree with, and the panel
+    # reads as scatter about a curve rather than as the ambiguity it is. Some
+    # posteriors are tight enough for it to look fine, which is the trap.
+    # `rvplot` is the single-draw figure and folds by default; `show_phase=true`
+    # asks for it here regardless, and then folds anything foldable, i.e. any
+    # channel whose query one hierarchy row's signal can be isolated from.
+    # Only meaningful under a periodic propagator either way.
     do_phase = show_phase === nothing ?
-               sys.method isa PlanetOrbits.KeplerianApprox : show_phase
+               (nshow == 1 && sys.method isa PlanetOrbits.KeplerianApprox) : show_phase
     foldall = show_phase === true
     phasepanels = Tuple{Symbol,Int,Any}[]   # (name, row, entries)
     if do_phase
@@ -1203,7 +1335,7 @@ function Octofitter.octoplot(series::PosteriorSeries;
         push!(legendseen, insts)
         axs = Octofitter.timeseriespanel!(fig[row, 1], series, entries;
             top_time_axis=(i == 1), bottom_time_axis=(i == npanels), ndraws, whiten,
-            show_legend=showleg)
+            gpband, boxwidth, show_legend=showleg)
         push!(axpairs, nm => axs)
         push!(timeaxes, axs.main)
         axs.resid !== nothing && push!(timeaxes, axs.resid)
@@ -1212,7 +1344,7 @@ function Octofitter.octoplot(series::PosteriorSeries;
     end
     for (i, (nm, k, entries)) in enumerate(phasepanels)
         axs = Octofitter.phasefoldpanel!(fig[row, 1], series, entries;
-            row=k, ndraws, whiten, bottom_axis=(i == length(phasepanels)))
+            row=k, ndraws, whiten, boxwidth, bottom_axis=(i == length(phasepanels)))
         push!(axpairs, nm => axs)
         Makie.rowsize!(fig.layout, row, Makie.Auto(230 / 260))
         row += 1
