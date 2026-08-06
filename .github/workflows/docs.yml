@@ -79,4 +79,16 @@ jobs:
           GKSwstype: 100 # use software renderer for Plots.jl since headless
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
           # DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key
+          # The runner's own environment exports JULIA_NUM_THREADS=1, so every docs
+          # build so far has run single-threaded against this container's 16-CPU
+          # quota (`cpu.max` = 1600000/100000; `nproc` reports 1 only because GNU
+          # nproc honours OMP_NUM_THREADS). That matters most for `octofit_pigeons`,
+          # which parallelises exploration across chains -- `rv.md` alone asks for
+          # `n_chains=10` and was getting one. Set here rather than in the runner's
+          # environment so it is visible in the diff and scoped to this build.
+          #
+          # OPENBLAS_NUM_THREADS is deliberately left at the runner's 1: with Julia
+          # threads doing the parallelism, a threaded BLAS underneath oversubscribes
+          # the quota and typically costs more than it saves.
+          JULIA_NUM_THREADS: 8
         run: julia --project=docs/ --color=yes docs/make.jl
