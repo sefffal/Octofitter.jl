@@ -256,34 +256,51 @@ Base.@nospecializeinfer function advancedhmc(
     # inialize if not already done or set by user
     get_starting_point!!(model)
 
+    # Precondition warmup with the spread of the starting points, when they have
+    # one. Often they do not: `initialize!` sets every starting point to a single
+    # value whenever it falls back to the optimizer's result — pathfinder erroring
+    # out, or its draws being rejected as far worse than the mode — so `cov` comes
+    # back exactly zero.
+    #
+    # There is no information to conditionon in that case, so use a plain identity
+    # and let warmup adapt from scratch. The old code reached the same place by a
+    # more confusing route: it regularised the zero matrix up a ladder until
+    # `1e-8*I` was positive definite, which reads as if it preserved something but
+    # is only an identity metric scaled by 1e-8 — and a uniform rescaling of M⁻¹ is
+    # absorbed exactly by the step size (for M⁻¹ = c*I the position step goes as
+    # ε√c), so it was identity with a misleading constant attached.
+    # Identical points do NOT give an exactly zero covariance: `cov` subtracts
+    # `mean = sum/n`, and summing n copies of x then dividing does not round back
+    # to exactly x, so the deviations come out at the 1e-16 level rather than 0.
+    # Testing `iszero` here silently never fires. Ask instead whether the spread
+    # is large enough to mean anything: starting points live in the unconstrained
+    # space, where O(1) is the natural scale, so a variance below `1e-12` is
+    # numerical noise about a single point.
+    S = cov(SimpleCovariance(), stack(model.starting_points)')
     local metric = nothing
-    for diag_eps in [0; 10.0 .^ range(-8, 0)]
-        try
-            # This can fail, triggering an exception
-            S =  (cov(SimpleCovariance(), stack(model.starting_points)'))
-            metric = DenseEuclideanMetric(S .+ Diagonal(diag_eps .* ones(model.D)))
-            break
-        catch err
-            continue
+    if all(isfinite, S) && maximum(diag(S)) > 1e-12
+        # There is real spread here. A single rank-deficient direction should not
+        # discard what the other directions know, so regularise by the smallest
+        # amount that makes the matrix positive definite rather than giving up.
+        for diag_eps in [0; 10.0 .^ range(-8, 0)]
+            try
+                metric = DenseEuclideanMetric(S .+ Diagonal(diag_eps .* ones(model.D)))
+                break
+            catch err
+                continue
+            end
         end
     end
     if isnothing(metric)
-        verbosity > 1 && @warn("Falling back to initializing the diagonals with the prior interquartile ranges.")
-        # We already sampled from the priors earlier to get the starting positon.
-        # Use those variance estimates and transform them into the unconstrainted space.
-        # variances_t = (model.link(initial_θ .+ sqrt.(variances)/2) .- model.link(initial_θ .- sqrt.(variances)/2)).^2
-        # p = _list_priors(model.system)
-        samples = eachrow(stack(Octofitter.sample_priors(model, 1000)))
-        variances_t = (model.link(quantile.(samples, 0.85)) .- model.link(quantile.(samples, 0.15))).^2
-        # metric = DenseEuclideanMetric(model.D)
-        metric = DenseEuclideanMetric(collect(Diagonal(variances_t)))
-        if verbosity >= 3
-            print("Initial mass matrix M⁻¹ from priors\n")
-            display(metric.M⁻¹)
-        end
-        if any(v->!isfinite(v)||v==0, variances_t)
-            error("failed to initialize mass matrix")
-        end
+        verbosity > 1 && @info(
+            "Starting points carry no usable covariance (identical points, or a " *
+            "non-finite estimate); starting from an identity mass matrix and " *
+            "letting warmup adapt it.")
+        metric = DenseEuclideanMetric(model.D)
+    end
+    if verbosity >= 3
+        print("Initial mass matrix M⁻¹\n")
+        display(metric.M⁻¹)
     end
 
     initial_θ_t = rand(rng, model.starting_points)

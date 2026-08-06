@@ -142,11 +142,20 @@ initialize!(model, (;
         b=(;
             sep=1704,
             pa=deg2rad(70.63),
+            flux_H=1e-4,     # order of magnitude only; a starting point, not a constraint
         )
     )
 ))
 chain = octofit(model, iterations=10000)
 ```
+
+!!! tip "Give `initialize!` a value for every free variable, if you have one"
+    Leaving one variable out is not free: `initialize!` then has to *find* it,
+    and it screens the guess against the priors first. `flux_H ~ Uniform(0, 1)`
+    is four orders of magnitude wider than the source actually is, so a starting
+    flux near the truth sits far out in that prior's tail — which is enough for
+    `initialize!` to skip its global search and report the guess back unchanged.
+    Naming all three keeps the fit on the path this section is describing.
 
 Note the nesting: guesses for body variables go under `bodies=`, matching the shape of the model.
 
