@@ -48,6 +48,40 @@ const MARKERS = (:circle, :rect, :diamond, :utriangle, :dtriangle, :pentagon,
     :cross, :xcross, :hexagon, :star5, :ltriangle, :rtriangle, :star4, :star8)
 _instmarker(j) = MARKERS[mod1(j, length(MARKERS))]
 
+# How much ink a data point costs, shared by the time-series and phase-folded
+# panels. The defaults are octoplot's: one instrument per panel, a handful of
+# epochs, so a heavy black measurement bar reads as precision.
+#
+# `rvplot` overrides them with v8 `rvpostplot`'s conventions, because it packs
+# every instrument and every epoch onto one axis — at a few hundred points the
+# same bars become a wall of black, and the instrument colours (which are the
+# only thing saying *whose* point it is) are what gets buried. `σ_color =
+# :instrument` draws the measurement bar in the point's own colour instead,
+# which is also v8's answer to "which of these two nested bars is which".
+const DATASTYLE = (; markersize=7, resid_markersize=6, strokewidth=1.5,
+    σ_linewidth=2.0, σ_color=:black,
+    σeff_linewidth=1.0, σeff_color="#CCCCCC")
+function _datastyle(s, extra=(;))
+    base = merge(DATASTYLE, extra)
+    s === nothing && return base
+    # A misspelled key would otherwise merge in as a field nothing ever reads,
+    # so the override would silently do nothing.
+    bad = setdiff(keys(s), keys(DATASTYLE))
+    isempty(bad) || error("`datastyle`: unknown $(length(bad) == 1 ? "key" : "keys") " *
+                          "$(join(bad, ", ")). Known: $(join(keys(DATASTYLE), ", ")).")
+    return merge(base, s)
+end
+# `:instrument` resolves per entry; anything else is a literal colour.
+_σcolor(st, color) = st.σ_color === :instrument ? color : st.σ_color
+
+# The pale jitter-inflated bar goes *behind* the model curve and the residual
+# strip's zero line. Drawn in order it would land on top of both, and a light
+# grey vertical stroke across a dark line does not read as an error bar — it
+# reads as a gap in the line, which is what made v8's curves look dashed
+# wherever the data were dense. Still in front of the correlated-noise band
+# (that sits at -10).
+_behind!(p) = (Makie.translate!(p, 0, 0, -5); p)
+
 # The draw-ramp: row accent colour fading toward near-white with orbital
 # phase; the light endpoint is the one v1 used in octoplot.
 _phaseramp(c) = Makie.cgrad([Makie.to_color(c), Makie.to_color("#FAFAFA")])
@@ -57,6 +91,8 @@ _phaseramp(c) = Makie.cgrad([Makie.to_color(c), Makie.to_color("#FAFAFA")])
 # across panels.
 const SIDE_W = 80.0
 const COLGAP = 8.0
+# `rvplot`'s legend column, down the right of every panel (v8's layout).
+const LEGEND_W = 150.0
 
 _layout(gl::Makie.GridLayout) = gl
 _layout(gp::Union{Makie.GridPosition,Makie.GridSubposition}) = Makie.GridLayout(gp)
@@ -354,7 +390,8 @@ end
 # histogram is density-normalized with a unit normal overlaid; in raw mode
 # it is the MAP residual with measurement/jitter errorbars and a count
 # histogram. Histogram bins are shared across instruments either way.
-function _residstrip!(ax_resid, ax_hist, series, entries, xmap, nshow, whiten)
+function _residstrip!(ax_resid, ax_hist, series, entries, xmap, nshow, whiten,
+                      st=DATASTYLE)
     Makie.hlines!(ax_resid, 0.0; color=:black, linewidth=1)
     whiten && Makie.hlines!(ax_resid, [-1.0, 1.0]; color=(:black, 0.3), linewidth=0.5)
 
@@ -374,16 +411,20 @@ function _residstrip!(ax_resid, ax_hist, series, entries, xmap, nshow, whiten)
             lo = [quantile(view(zs, i, :), 0.16) for i in axes(zs, 1)]
             hi = [quantile(view(zs, i, :), 0.84) for i in axes(zs, 1)]
             Makie.rangebars!(ax_resid, x[u], lo[u], hi[u];
-                color=single ? "#AAAAAA" : color, linewidth=1)
+                color=single ? "#AAAAAA" : color, linewidth=st.σeff_linewidth)
             Makie.scatter!(ax_resid, x[u], med[u];
-                color=mcolor, marker, strokecolor=:black, strokewidth=1.5, markersize=6)
+                color=mcolor, marker, strokecolor=:black,
+                strokewidth=st.strokewidth, markersize=st.resid_markersize)
             append!(histdata, ((color isa Symbol ? :black : color, vec(zs[u, :])),))
         else
             resid, σ_eff = _netresid(r)
-            Makie.errorbars!(ax_resid, x[u], resid[u], σ_eff[u]; color="#CCCCCC", linewidth=1)
-            Makie.errorbars!(ax_resid, x[u], resid[u], r.σ[u]; color=:black, linewidth=2)
+            _behind!(Makie.errorbars!(ax_resid, x[u], resid[u], σ_eff[u];
+                color=st.σeff_color, linewidth=st.σeff_linewidth))
+            Makie.errorbars!(ax_resid, x[u], resid[u], r.σ[u];
+                color=_σcolor(st, color), linewidth=st.σ_linewidth)
             Makie.scatter!(ax_resid, x[u], resid[u];
-                color=mcolor, marker, strokecolor=:black, strokewidth=1.5, markersize=6)
+                color=mcolor, marker, strokecolor=:black,
+                strokewidth=st.strokewidth, markersize=st.resid_markersize)
             append!(histdata, ((color isa Symbol ? :black : color, resid[u]),))
         end
     end
@@ -477,15 +518,25 @@ correlated-noise model ([`noisemodel`](@ref)), its prediction is drawn as a
 band around the model curve, subtracted from the residuals, and added into
 `σ_eff`.
 
+## Marks
+
+`datastyle` is a `NamedTuple` merged over the panel's defaults, carrying
+`markersize`, `resid_markersize`, `strokewidth`, `σ_linewidth`, `σ_color`,
+`σeff_linewidth` and `σeff_color`. `σ_color = :instrument` draws the inner
+measurement bar in each point's own colour rather than black, which is what
+lets several instruments share one axis legibly; [`rvplot`](@ref) uses it.
+
 Returns `(; main, resid, hist)` (the latter two `nothing` when no data).
 """
 function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
                                      top_time_axis=true, bottom_time_axis=true,
                                      show_hist=true, ndraws=nothing, whiten=nothing,
                                      calibrate::Symbol=:auto, show_legend=nothing,
-                                     gpband::Bool=true,
+                                     gpband::Bool=true, datastyle=nothing,
+                                     side_w=SIDE_W, colgap=COLGAP, hist_aspect=nothing,
                                      curvecolor=nothing, linewidth=nothing)
     gs = _layout(gp)
+    st = _datastyle(datastyle)
     entries = [(obs, ch) for (obs, ch) in entries]
     isempty(entries) && error("timeseriespanel! needs at least one (obs, channel) entry")
     calibrate in (:auto, :model, :data) ||
@@ -630,11 +681,13 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
                 (r.epoch .- r.epoch_lo)[u], (r.epoch_hi .- r.epoch)[u];
                 direction=:x, color=:black, linewidth=0.7, whiskerwidth=4)
         end
-        Makie.errorbars!(ax, r.epoch[u], y[u], σ_eff[u]; color="#CCCCCC", linewidth=1)
-        Makie.errorbars!(ax, r.epoch[u], y[u], r.σ[u]; color=:black, linewidth=2)
+        _behind!(Makie.errorbars!(ax, r.epoch[u], y[u], σ_eff[u];
+            color=st.σeff_color, linewidth=st.σeff_linewidth))
+        Makie.errorbars!(ax, r.epoch[u], y[u], r.σ[u];
+            color=_σcolor(st, color), linewidth=st.σ_linewidth)
         Makie.scatter!(ax, r.epoch[u], y[u];
             color=single ? :white : color, marker=single ? :circle : _instmarker(j),
-            strokecolor=:black, strokewidth=1.5, markersize=7,
+            strokecolor=:black, strokewidth=st.strokewidth, markersize=st.markersize,
             label=likelihoodname(obs))
     end
     # Say whose data these are. With one instrument a legend is four times the
@@ -657,20 +710,25 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
     end
 
     if ax_resid !== nothing && show_hist
-        ax_hist = Makie.Axis(gs[2, 2]; xgridvisible=false, ygridvisible=false)
+        # `hist_aspect=1` makes the histogram box square whatever the strip's
+        # height works out to, and `halign=:left` keeps it glued to the strip
+        # rather than floating in the middle of the side column (v8's look;
+        # `rvplot` pairs it with `colgap=0`).
+        ax_hist = Makie.Axis(gs[2, 2]; xgridvisible=false, ygridvisible=false,
+            aspect=hist_aspect, halign=hist_aspect === nothing ? :center : :left)
         Makie.hidedecorations!(ax_hist)
-        Makie.colsize!(gs, 2, Makie.Fixed(SIDE_W))
-        Makie.colgap!(gs, 1, COLGAP)
+        Makie.colsize!(gs, 2, Makie.Fixed(side_w))
+        Makie.colgap!(gs, 1, colgap)
     elseif hasdata
         Makie.Box(gs[2, 2]; visible=false)
-        Makie.colsize!(gs, 2, Makie.Fixed(SIDE_W))
-        Makie.colgap!(gs, 1, COLGAP)
+        Makie.colsize!(gs, 2, Makie.Fixed(side_w))
+        Makie.colgap!(gs, 1, colgap)
     else
         Makie.Box(gs[1, 2]; visible=false)
-        Makie.colsize!(gs, 2, Makie.Fixed(SIDE_W))
-        Makie.colgap!(gs, 1, COLGAP)
+        Makie.colsize!(gs, 2, Makie.Fixed(side_w))
+        Makie.colgap!(gs, 1, colgap)
     end
-    hasdata && _residstrip!(ax_resid, ax_hist, series, entries, identity, nshow, whiten)
+    hasdata && _residstrip!(ax_resid, ax_hist, series, entries, identity, nshow, whiten, st)
 
     # Clip exactly to the model grid: no gap between the last line segment
     # and the axis (the v1 rule).
@@ -705,17 +763,25 @@ phase panels automatically under `KeplerianApprox`.
 
 Noise-weighted binned means (grey-to-red points) pool all instruments;
 the residual strip below shows the same residuals as the time panel against
-phase (whitened by default when more than one draw is shown).
+phase (whitened by default when more than one draw is shown). `show_resid=false`
+drops it — folding does not change a residual's value, so where a time panel
+is already on the figure the strip is that panel's redrawn once per row; the
+main axis then carries the phase ticks itself. `xticks` sets their spacing and
+`datastyle` the marks (see [`timeseriespanel!`](@ref)).
 
 Returns `(; main, resid, hist)`.
 """
 function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
                                     row=nothing, ndraws=nothing, whiten=nothing,
                                     show_binned=nothing, nbins=20, nphase=201,
-                                    bottom_axis=true, show_hist=true,
+                                    bottom_axis=true, show_hist=true, show_resid=true,
+                                    xticks=-0.5:0.25:0.5, datastyle=nothing,
+                                    side_w=SIDE_W, colgap=COLGAP, hist_aspect=nothing,
+                                    labelposition::Symbol=:inside, labelcolor=nothing,
                                     curvecolor=nothing, linewidth=nothing)
     sys = series.model.system
     gs = _layout(gp)
+    st = _datastyle(datastyle, (; markersize=5))
     entries = [(obs, ch) for (obs, ch) in entries]
     isempty(entries) && error("phasefoldpanel! needs at least one (obs, channel) entry")
     ch1 = entries[1][2]
@@ -759,21 +825,22 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
 
     ylabel = isempty(ch1.unit) ? String(ch1.label) : "$(ch1.label) [$(ch1.unit)]"
     # The phase axis normally lives on the residual strip glued underneath.
-    # With no data there is no strip, so the main axis has to carry it or the
-    # panel ends up with no x axis at all.
+    # Without one — no data, or `show_resid=false` — the main axis has to carry
+    # it or the panel ends up with no x axis at all.
+    strip = hasdata && show_resid
     ax = Makie.Axis(gs[1, 1];
-        ylabel, xticks=-0.5:0.25:0.5,
-        xlabel=(!hasdata && bottom_axis) ? "orbital phase" : "",
-        xticklabelsvisible=(!hasdata && bottom_axis),
-        xticksvisible=(!hasdata && bottom_axis),
+        ylabel, xticks,
+        xlabel=(!strip && bottom_axis) ? "orbital phase" : "",
+        xticklabelsvisible=(!strip && bottom_axis),
+        xticksvisible=(!strip && bottom_axis),
         xgridvisible=false, ygridvisible=false)
 
     ax_resid = ax_hist = nothing
-    if hasdata
+    if strip
         ax_resid = Makie.Axis(gs[2, 1];
             ylabel=_stripylabel(whiten),
             xlabel=bottom_axis ? "orbital phase" : "",
-            xticks=-0.5:0.25:0.5,
+            xticks,
             xticklabelsvisible=bottom_axis, xticksvisible=bottom_axis,
             xgridvisible=false, ygridvisible=false)
         Makie.linkxaxes!(ax, ax_resid)
@@ -781,12 +848,28 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
         Makie.rowgap!(gs, 1, 0)
         Makie.rowsize!(gs, 1, Makie.Auto(2.4))
     end
-    # The row this panel folds on, in its accent colour (the v1 rvpostplot
-    # per-planet label).
-    Makie.Label(gs[1, 1], String(rowname);
-        font=:bold, fontsize=14, color=curvecolor,
-        halign=:right, valign=:top, padding=(0, 8, 0, 4),
-        tellwidth=false, tellheight=false)
+    # The row this panel folds on. `:inside` puts it in the axis' top-right
+    # corner in the row's accent colour, which is what a stacked octoplot
+    # wants — the panels there have no spare column. `:side` is v8's
+    # `rvpostplot` placement: hanging off the top right *outside* the axis, in
+    # the side column, plain black. Colour defaults to the row's own rather
+    # than `curvecolor`, so a caller drawing every curve in one colour
+    # (`rvplot` does) still has the labels telling the planets apart.
+    labelcolor = something(labelcolor,
+        labelposition === :side ? Makie.to_color(:black) : _rowcolor(k))
+    labelposition in (:inside, :side) ||
+        error("`labelposition` must be :inside or :side, got :$labelposition")
+    if labelposition === :side
+        Makie.Label(gs[1, 2], String(rowname);
+            font=:bold, fontsize=16, color=labelcolor,
+            halign=:left, valign=:top, padding=(5, 0, 0, 0),
+            tellwidth=false, tellheight=false)
+    else
+        Makie.Label(gs[1, 1], String(rowname);
+            font=:bold, fontsize=14, color=labelcolor,
+            halign=:right, valign=:top, padding=(0, 8, 0, 4),
+            tellwidth=false, tellheight=false)
+    end
 
     # Per-draw model curves, each on its own fold ephemeris.
     phases = collect(range(-0.5, 0.5, length=nphase))
@@ -828,11 +911,13 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
             ch.wrap !== nothing && (y = mod.(y, ch.wrap))
             x = xmap(r.epoch)
             color = single ? :black : _instcolor(j)
-            Makie.errorbars!(ax, x[u], y[u], σ_eff[u]; color="#CCCCCC", linewidth=1)
-            Makie.errorbars!(ax, x[u], y[u], r.σ[u]; color=:black, linewidth=2)
+            _behind!(Makie.errorbars!(ax, x[u], y[u], σ_eff[u];
+                color=st.σeff_color, linewidth=st.σeff_linewidth))
+            Makie.errorbars!(ax, x[u], y[u], r.σ[u];
+                color=_σcolor(st, color), linewidth=st.σ_linewidth)
             Makie.scatter!(ax, x[u], y[u];
                 color=single ? :white : color, marker=single ? :circle : _instmarker(j),
-                strokecolor=:black, strokewidth=1.5, markersize=5)
+                strokecolor=:black, strokewidth=st.strokewidth, markersize=st.markersize)
             append!(pooled_x, x[u]); append!(pooled_y, y[u])
             append!(pooled_w, 1 ./ σ_eff[u] .^ 2)
         end
@@ -856,16 +941,21 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
     end
 
     if ax_resid !== nothing && show_hist
-        ax_hist = Makie.Axis(gs[2, 2]; xgridvisible=false, ygridvisible=false)
+        ax_hist = Makie.Axis(gs[2, 2]; xgridvisible=false, ygridvisible=false,
+            aspect=hist_aspect, halign=hist_aspect === nothing ? :center : :left)
         Makie.hidedecorations!(ax_hist)
-        Makie.colsize!(gs, 2, Makie.Fixed(SIDE_W))
-        Makie.colgap!(gs, 1, COLGAP)
+        Makie.colsize!(gs, 2, Makie.Fixed(side_w))
+        Makie.colgap!(gs, 1, colgap)
     else
-        Makie.Box(gs[hasdata ? 2 : 1, 2]; visible=false)
-        Makie.colsize!(gs, 2, Makie.Fixed(SIDE_W))
-        Makie.colgap!(gs, 1, COLGAP)
+        # Reserve the side column even when nothing is drawn in it, so this
+        # panel's main axis lines up with every other panel's. A `:side` row
+        # label lives in the same cell; it declares no size, so it neither
+        # widens the column nor replaces this.
+        Makie.Box(gs[strip ? 2 : 1, 2]; visible=false)
+        Makie.colsize!(gs, 2, Makie.Fixed(side_w))
+        Makie.colgap!(gs, 1, colgap)
     end
-    hasdata && _residstrip!(ax_resid, ax_hist, series, entries, xmap, nshow, whiten)
+    strip && _residstrip!(ax_resid, ax_hist, series, entries, xmap, nshow, whiten, st)
 
     Makie.xlims!(ax, -0.5, 0.5)
     ax_resid !== nothing && Makie.xlims!(ax_resid, -0.5, 0.5)
@@ -1288,11 +1378,20 @@ view and gives each instrument a panel of its own instead:
 |---|---|
 | `show_phase=true` | phase-folded panels |
 | `show_hist=true` | marginal residual histograms |
-| `show_legend=true` | the instrument + symbol legend below the figure |
+| `show_legend=true` | the instrument + symbol legend, in a column down the right |
+| `show_phase_resid=false` | a residual strip under each phase panel too |
 | `show_perspective=false` | the frame's own radial-velocity drift (see below) |
 | `gpband=true` | the correlated-noise band, where a `gaussian_process` was fitted |
 | `whiten=nothing` | `false` (raw residuals) by default — one draw makes them well defined |
+| `curvecolor=:blue` | one colour for every panel's model curve; `nothing` gives each row its own |
+| `datastyle=nothing` | marker and error-bar overrides, merged over `_rvdatastyle` |
 | `figscale`, `fname`, `figure` | as `octoplot` |
+
+The figure follows v8 `rvpostplot`'s layout: landscape, legend in a column at
+the right, and the phase panels showing the fold on its own. Folding
+rearranges the residuals along x but leaves their values alone, so a strip
+under each phase panel is the time panel's residuals redrawn once per planet
+— `show_phase_resid=true` if you want them regardless.
 
 `show_perspective=true` overlays the secular drift of the system barycentre's
 own radial velocity, `PlanetOrbits.frame_rv`, for a model with an absolute
@@ -1342,9 +1441,18 @@ end
 
 _hasgp(obs) = hasproperty(obs, :gaussian_process) && obs.gaussian_process !== nothing
 
+# v8 `rvpostplot`'s marks: small filled points, hairline strokes, and the
+# measurement bar in the instrument's own colour inside the grey
+# jitter-inflated one. See `DATASTYLE` for why this figure needs its own.
+_rvdatastyle(user) = merge((; markersize=5, resid_markersize=5, strokewidth=0.4,
+        σ_linewidth=0.7, σ_color=:instrument, σeff_linewidth=0.7),
+    something(user, (;)))
+
 function Octofitter.rvplot(series::PosteriorSeries;
                            show_phase=true, show_hist=true, show_legend=true,
+                           show_phase_resid=false,
                            show_perspective=false, whiten=nothing, gpband=true,
+                           curvecolor=:blue, datastyle=nothing,
                            figure=nothing, fname=nothing, figscale=1.0)
     sys = series.model.system
     length(series) == 1 || error("""
@@ -1371,13 +1479,29 @@ function Octofitter.rvplot(series::PosteriorSeries;
 
     nphase = show_phase ?
              sum(length(foldablerows(series.sys_map, e[1][2].query)) for (_, e) in groups) : 0
-    W = round(Int, figscale * 620)
-    # Phase panels get the same height as the time panel rather than octoplot's
-    # squatter ones: a single draw labels its strip "residuals" rather than
-    # "resid / σ", and the longer label needs the room or it runs into the
-    # main axis' own label.
-    H = round(Int, figscale * (40 + (length(groups) + nphase) * 280 +
-                               show_legend * 70))
+
+    # v8 `rvpostplot`'s proportions: a wide figure with the legend in a column
+    # down the right, a tall time panel over its glued residual strip (3.4 row
+    # units between them), and squatter phase panels below (2 each).
+    #
+    # The row unit is v8's `305 + 135·n_planets` solved for one row, plus ~11%:
+    # v8's y label was "RV [m/s]" and v9's is the resolver's "radial velocity
+    # [m/s]", which at v8's exact heights is long enough to run into the
+    # residual strip's own label on a one-planet figure.
+    #
+    # A phase panel showing the fold alone is squat; one that has been given a
+    # residual strip is the same two-axis stack as the time panel, and needs
+    # the same room for the same reason.
+    phaseunits = show_phase_resid ? 3.4 : 2.0
+    rowunits = 3.4 * length(groups) + phaseunits * nphase
+    W = round(Int, figscale * (480 + (show_legend ? LEGEND_W + 10 : 0)))
+    H = round(Int, figscale * (75 + 75.0 * rowunits))
+    # The side column holds a square marginal histogram glued to the residual
+    # strip, and the phase panels' row labels. One row unit is the strip's
+    # nominal height, less what the axis decorations take off it — sized so the
+    # square is limited by the strip's height rather than by this width, and
+    # so little is left over that the histogram reads as flush.
+    sidew = figscale * 64.0
     fig = figure === nothing ? Makie.Figure(size=(W, max(H, 300))) : figure
 
     axpairs = Pair{Symbol,Any}[]
@@ -1391,11 +1515,13 @@ function Octofitter.rvplot(series::PosteriorSeries;
         # MJD labels to "the bottom of the figure" would lose them entirely.
         axs = Octofitter.timeseriespanel!(fig[row, 1], series, entries;
             top_time_axis=true, bottom_time_axis=(row == length(groups)),
-            show_hist, whiten, gpband, calibrate=:data, show_legend=false)
+            show_hist, whiten, gpband, calibrate=:data, show_legend=false,
+            curvecolor, linewidth=1.0, datastyle=_rvdatastyle(datastyle),
+            side_w=sidew, colgap=0, hist_aspect=1)
         push!(axpairs, nm => axs)
         push!(timeaxes, axs.main)
         axs.resid === nothing || push!(timeaxes, axs.resid)
-        Makie.rowsize!(fig.layout, row, Makie.Auto(1.0))
+        Makie.rowsize!(fig.layout, row, Makie.Auto(3.4))
         row += 1
 
         # The barycentre's own radial velocity, as a drift about its value at
@@ -1417,22 +1543,34 @@ function Octofitter.rvplot(series::PosteriorSeries;
             end
         end
         for (i, (nm, k, entries)) in enumerate(phasepanels)
-            # No marginal histogram down here: folding rearranges the residuals
-            # along x and leaves their distribution alone, so it would be the
-            # time panel's histogram redrawn once per planet.
+            # No marginal histogram down here, and by default no residual strip
+            # either: folding rearranges the residuals along x and leaves their
+            # distribution — and, point for point, their values — alone, so
+            # both would be the time panel's residuals redrawn once per planet.
+            # v8 showed the fold on its own for exactly that reason.
             axs = Octofitter.phasefoldpanel!(fig[row, 1], series, entries;
-                row=k, whiten, show_hist=false, bottom_axis=(i == length(phasepanels)))
+                row=k, whiten, show_hist=false, show_resid=show_phase_resid,
+                bottom_axis=(i == length(phasepanels)),
+                xticks=-0.5:0.1:0.5, curvecolor, linewidth=4.0,
+                datastyle=_rvdatastyle(datastyle),
+                side_w=sidew, colgap=0, labelposition=:side)
             push!(axpairs, nm => axs)
-            Makie.rowsize!(fig.layout, row, Makie.Auto(1.0))
+            Makie.rowsize!(fig.layout, row, Makie.Auto(phaseunits))
             row += 1
         end
     end
     length(timeaxes) > 1 && Makie.linkxaxes!(timeaxes...)
 
+    # The legend is a column down the right of every panel, not a band under
+    # them: it is what lets the figure keep v8's landscape proportions instead
+    # of growing a row nobody reads first.
     if show_legend
-        _rvlegend!(fig[row, 1], allobs, anygp, show_perspective,
-            _querycolor(sys, groups[1][2][1][2].query))
-        Makie.rowsize!(fig.layout, row, Makie.Auto(70 / 280))
+        # `curvecolor=nothing` hands each panel back its own accent colour, so
+        # there is no single "orbit model" colour to swatch; the time panel's
+        # is the representative one, as it carries the whole signal.
+        lc = something(curvecolor, _querycolor(sys, groups[1][2][1][2].query))
+        _rvlegend!(fig[1:row-1, 2], allobs, anygp, show_perspective, lc)
+        Makie.colsize!(fig.layout, 2, Makie.Fixed(figscale * LEGEND_W))
     end
 
     axes = (; axpairs...)
@@ -1449,17 +1587,26 @@ function _rvlegend!(gp, allobs, anygp, show_perspective, curvecolor)
     single = n == 1
     instruments = [Makie.MarkerElement(
         color=single ? :white : _instcolor(j), marker=single ? :circle : _instmarker(j),
-        strokecolor=:black, strokewidth=1.5, markersize=12) for j in 1:n]
+        strokecolor=:black, strokewidth=1, markersize=11) for j in 1:n]
+    # The measurement bar carries the instrument's colour on this figure, so
+    # its legend entry has to be all of them at once: v8's composite element,
+    # one short stroke per instrument side by side in a single legend slot.
+    σelem = single ? Makie.LineElement(color=:black, linewidth=3) :
+            [Makie.LineElement(color=_instcolor(j), linewidth=2,
+                points=Makie.Point2f[((j - 0.5) / n, 0), ((j - 0.5) / n, 1)]) for j in 1:n]
     marks = Any[
-        Makie.LineElement(color=:black, linewidth=3),
-        Makie.LineElement(color="#CCCCCC", linewidth=3),
-        Makie.LineElement(color=curvecolor, linewidth=3),
+        σelem,
+        # Vertical, like the bar it stands for and like the entry above it —
+        # a horizontal grey rule reads as a line style, not an error bar.
+        Makie.LineElement(color="#CCCCCC", linewidth=2,
+            points=Makie.Point2f[(0.5, 0), (0.5, 1)]),
+        Makie.LineElement(color=curvecolor, linewidth=4),
         Makie.MarkerElement(color=:red, marker=:circle, markersize=11,
             strokecolor=:black, strokewidth=1.5),
     ]
     labels = Any[
         "measurement σ",
-        anygp ? "σ + jitter + GP" : "σ + jitter",
+        anygp ? "σ + jitter\nand GP" : "σ + jitter",
         "orbit model",
         "binned",
     ]
@@ -1473,10 +1620,10 @@ function _rvlegend!(gp, allobs, anygp, show_perspective, curvecolor)
     end
     return Makie.Legend(gp, [instruments, marks],
         [[likelihoodname(o) for o in allobs], labels],
-        ["Instrument", ""];
-        orientation=:horizontal, nbanks=2, framevisible=false,
-        labelsize=9, titlesize=10, titleposition=:left,
-        tellheight=false, tellwidth=false, valign=:top)
+        ["instrument", "legend"];
+        framevisible=false, labelsize=10, titlesize=11,
+        rowgap=4, groupgap=18, patchsize=(20.0f0, 14.0f0),
+        tellheight=false, tellwidth=false, valign=:top, halign=:left)
 end
 
 """

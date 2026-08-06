@@ -92,13 +92,29 @@ the model curve, subtracted from the residuals, and folded into `σ_eff`. See
 rvplot(model, chain;
     show_phase = true,          # phase-folded panels
     show_hist = true,           # marginal residual histogram
-    show_legend = true,         # instrument + symbol legend below the figure
+    show_legend = true,         # instrument + symbol legend, in a column at the right
+    show_phase_resid = false,   # a residual strip under each phase panel too
     show_perspective = false,   # the frame's own RV drift; see below
     gpband = true,              # the correlated-noise band
+    curvecolor = :blue,         # `nothing` gives each planet its own accent colour
+    datastyle = nothing,        # marker/error-bar overrides; see below
     figscale = 1.0,
     fname = nothing,            # write the figure here
 )
 ```
+
+The phase panels show the fold alone by default. Folding rearranges the
+residuals along x but leaves their values alone, so a strip under each one is
+the time panel's residuals redrawn once per planet — `show_phase_resid=true`
+if you want them anyway.
+
+`datastyle` overrides how a data point is drawn, as a `NamedTuple` merged over
+the defaults — `markersize`, `resid_markersize`, `strokewidth`, `σ_linewidth`,
+`σ_color`, `σeff_linewidth`, `σeff_color`. `σ_color = :instrument` (this
+figure's default) draws the inner measurement bar in the point's own colour,
+which is what keeps several instruments separable on one axis; `:black` is
+the per-instrument-panel convention [`octoplot`](@ref) uses. The same keyword
+is accepted by [`timeseriespanel!`](@ref) and [`phasefoldpanel!`](@ref).
 
 !!! warning "`show_perspective` is a diagnostic, not part of the fit"
     v9's `radvel` is a strictly relative observable, and `RadialVelocityObs`

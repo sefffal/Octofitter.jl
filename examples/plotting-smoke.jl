@@ -214,6 +214,25 @@ end
 rvpostplot(model, chain; fname=joinpath(OUT, "04-rvpostplot-alias.png"))
 ok("the deprecated `rvpostplot` alias still works")
 
+# The v8 layout is the default; every piece of it is also switchable, and the
+# off-by-default residual strip under each phase panel has no other coverage.
+res_rvopt = rvplot(model, chain; show_phase_resid=true, curvecolor=nothing,
+    datastyle=(; markersize=8, σ_color=:black),
+    fname=joinpath(OUT, "04b-rvplot-options.png"))
+check(res_rvopt.axes.rv_phase_b.resid !== nothing,
+    "show_phase_resid=true gives the phase panel a strip")
+check(res_rv.axes.rv_phase_b.resid === nothing,
+    "and it is off by default")
+rvplot(model, chain; show_legend=false, show_phase=false, show_hist=false,
+    fname=joinpath(OUT, "04c-rvplot-bare.png"))
+ok("show_legend/show_phase/show_hist all off still draws")
+try
+    rvplot(model, chain; datastyle=(; markersizes=8))
+    bad("a misspelled datastyle key was silently ignored")
+catch e
+    check(occursin("markersizes", sprint(showerror, e)), "a misspelled datastyle key errors")
+end
+
 step("channels=: every instrument on the requested panel")
 res_sep = octoplot(model, chain; N=40, channels=projectedseparation, show_sky=false,
     fname=joinpath(OUT, "05-separation.png"))
