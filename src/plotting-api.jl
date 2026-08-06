@@ -1110,16 +1110,24 @@ end
 Base.display(res::OctoPlotResult) = display(res.figure)
 Base.show(io::IO, mime::MIME"image/png", res::OctoPlotResult) = show(io, mime, res.figure)
 Base.show(io::IO, mime::MIME"image/svg+xml", res::OctoPlotResult) = show(io, mime, res.figure)
-# Defer *whether* a format is offered to the figure, not just how it is written.
-# Makie gates a bare `Figure` on the active backend (`showable(mime, ::FigureLike)`
-# → `_backend_showable`), which is how `CairoMakie.activate!(type="png")` — the
-# default — suppresses SVG. A wrapper type gets Julia's fallback instead, where
-# `showable` is true for any MIME that has a `show` method, so the two methods
-# above would advertise SVG unconditionally and defeat that gate. Documenter
-# prefers SVG when it is offered, which turned every orbit plot in the manual
-# into a ~28 MB vector file (main's PNGs are ~100-300 KB) and made the render
-# stage of the docs build take hours.
-Base.showable(mime::MIME, res::OctoPlotResult) = showable(mime, res.figure)
+# Defer *whether* an image format is offered to the figure, not just how it is
+# written. Makie gates a bare `Figure` on the active backend
+# (`showable(mime, ::FigureLike)` → `_backend_showable`), which is how
+# `CairoMakie.activate!(type="png")` — the default — suppresses SVG. A wrapper
+# type gets Julia's fallback instead, where `showable` is true for any MIME that
+# has a `show` method, so the two methods above would advertise SVG
+# unconditionally and defeat that gate. Documenter prefers SVG when it is
+# offered, which turned every orbit plot in the manual into a ~28 MB vector file
+# (main's PNGs are ~100-300 KB) and made the render stage take hours.
+#
+# Strictly these two MIMEs, matching the `show` methods above. Delegating *every*
+# MIME is wrong: CairoMakie's supported set also contains `Makie.WEB_MIMES`, and
+# `type="png"` disables only svg and pdf, so a blanket rule would claim
+# `text/html` — which this type cannot render, and which Documenter probes first
+# (`Documenter/src/utilities/utilities.jl:617`). That is a `MethodError` on the
+# first plot in the manual, not a fallback.
+Base.showable(mime::Union{MIME"image/png",MIME"image/svg+xml"}, res::OctoPlotResult) =
+    showable(mime, res.figure)
 function Base.show(io::IO, ::MIME"text/plain", res::OctoPlotResult)
     println(io, "OctoPlotResult with axes: ", keys(res.axes))
     show(io, MIME"text/plain"(), res.figure)
