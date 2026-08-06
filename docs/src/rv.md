@@ -90,12 +90,20 @@ We load the HGCA data for this target. `host=` and `companions=` declare which
 bodies this source is made of, and `ref=Barycentre` says the astrometry is
 referred to the system barycentre:
 ```@example 1
-using Arrow, DataFrames # hide
-# The docs build substitutes a catalog subset for the 14 GB G23H DataDep; drop # hide
-# the `catalog=` keyword to fetch it for real. # hide
+using Arrow, DataFrames, CSV # hide
+# The docs build must touch neither the 14 GB G23H DataDep nor the network, so it # hide
+# substitutes a catalog subset and a cached GOST scan forecast. Drop the # hide
+# `catalog=`/`forecast_table=` keywords to fetch both for real. # hide
 catalog = DataFrame(Arrow.Table(joinpath(@__DIR__, "..", "..", "test", "G23H-test-subset.feather"))) # hide
+gost = CSV.read(joinpath(@__DIR__, "GOST-53.22829341517546--9.458168216292322-dr3.csv"), Table, normalizenames=true) # hide
+forecast = Table( # hide
+    epoch = Octofitter.jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_), # hide
+    scanAngle_rad = gost.scanAngle_rad_, # hide
+    parallaxFactorAlongScan = gost.parallaxFactorAlongScan, # hide
+) # hide
 pma = HGCAObs(; gaia_id, host=A, companions=(b,), ref=Barycentre, freeze_epochs=true,
     catalog = catalog, # hide
+    forecast_table = forecast, # hide
 )
 nothing # hide
 ```
@@ -104,8 +112,8 @@ nothing # hide
 instead of marginalizing over that selection. It is the fast-but-approximate
 setting (the same one the [G23H tutorial](@ref fit-g23h) recommends for
 exploration). Without it, the model gains one free parameter per forecast scan —
-around 45 in total for this target, most of them a nearly-flat nuisance
-dimension that HMC struggles with. Drop it for production fits, and reach for a
+31 for this target, most of them a nearly-flat nuisance dimension that HMC
+struggles with. Drop it for production fits, and reach for a
 tempered sampler when you do.
 
 The catalog row it fetched is available as `pma.catalog`, which is convenient for

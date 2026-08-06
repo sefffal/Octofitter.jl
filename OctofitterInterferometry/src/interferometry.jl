@@ -42,8 +42,9 @@ struct ClosurePhases end
 """
     KernelPhases(; correlated=true)
 
-Project the closure-phase residuals onto the kernel-phase basis (see
-[`kernel_phase_basis`](@ref)) and evaluate them under the block-structured
+Project the closure-phase residuals onto the kernel-phase basis (the orthonormal
+basis of the closure design's row space built by the internal
+`OctofitterInterferometry.kernel_phase_basis`) and evaluate them under the block-structured
 correlation model of `CKP`. `correlated=false` keeps the projection but
 assumes independent spectral channels.
 

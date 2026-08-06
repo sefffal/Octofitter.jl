@@ -134,6 +134,9 @@ To measure a *second* source in the same image, add a second body with its own `
 
 If you already know where the planet is and you only want to extract astrometry from that known location, you can specify a starting point and use hamiltonian monte carlo as follows. This will be very very fast.
 ```@example 1
+using Random
+Random.seed!(1)   # the manual is built in one process; seed so this page is reproducible
+
 initialize!(model, (;
     bodies=(;
         b=(;

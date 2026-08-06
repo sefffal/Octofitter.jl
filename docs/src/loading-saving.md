@@ -78,7 +78,7 @@ Octofitter.savehdf5("mychain.h5", model, chain)
 chain = Octofitter.loadhdf5("mychain.h5")
 ```
 
-Note the **three** positional arguments to `savehdf5`: it needs the model in order to know which body is the companion and which is its host. See [Compatibility with Orbitize!](@ref) for the details and for the additional keywords.
+Note the **three** positional arguments to `savehdf5`: it needs the model in order to know which body is the companion and which is its host. See [Compatibility with Orbitize!](@ref compat-orbitize) for the details and for the additional keywords.
 
 !!! note
     orbitize!'s standard basis stores the epoch of periastron, so `savehdf5` requires a

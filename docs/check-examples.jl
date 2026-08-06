@@ -190,6 +190,35 @@ refs_in(page) = [(m.captures[1], m.captures[2]) for m in
 filelinks_in(page) = [m.captures[1] for m in
     eachmatch(r"\]\(([^)\s#]+\.md)(?:#[^)]*)?\)", read(joinpath(SRC, page), String))]
 
+"""
+Headers of a page, as `(title, anchor)`. `anchor` is the explicit `(@id …)` if
+the header carries one, and `nothing` otherwise.
+
+This distinction is the whole point: Documenter registers a header under its
+explicit `@id` *instead of* its title, so `# [Some Title](@id x)` cannot be
+reached by a bare `[Some Title](@ref)` — that is a hard `:cross_references`
+error, and one a bare title ref gives no hint about.
+"""
+function headers_in(page)
+    out = Tuple{String,Union{Nothing,String}}[]
+    for l in readlines(joinpath(SRC, page))
+        m = match(r"^#+\s+(.*?)\s*$", l)
+        isnothing(m) && continue
+        title = m.captures[1]
+        mid = match(r"^\[(.*)\]\(@id\s+([^)\s]+)\s*\)$", title)
+        if isnothing(mid)
+            push!(out, (title, nothing))
+        else
+            push!(out, (mid.captures[1], mid.captures[2]))
+        end
+    end
+    return out
+end
+
+"""Compare ref text and header title the way a reader would: ignore backticks
+and runs of whitespace, which Documenter's slug does not distinguish either."""
+normtitle(s) = replace(replace(strip(s), '`' => ""), r"\s+" => " ")
+
 """Names inside `@docs` / `@autodocs` fences, one per line."""
 function docs_entries(page)
     out = Tuple{Int,String}[]
@@ -272,6 +301,39 @@ for p in listed
 end
 println("Checked $(length(anchor_owner)) `@id` anchors.")
 
+# 3b. bare title refs — `[Some Header Title](@ref)` with no anchor and no
+# backticked name. Documenter resolves these against header *titles*, and only
+# for headers that do not carry an explicit `(@id …)`.
+title_owner = Dict{String,String}()      # normalised title => page
+id_titled = Dict{String,Tuple{String,String}}()  # normalised title => (page, anchor)
+for p in listed
+    for (title, anchor) in headers_in(p)
+        key = normtitle(title)
+        if isnothing(anchor)
+            get!(title_owner, key, p)
+        else
+            get!(id_titled, key, (p, anchor))
+        end
+    end
+end
+for p in listed
+    for (text, target) in refs_in(p)
+        isempty(target) || continue                     # anchored, checked above
+        key = normtitle(text)
+        (isempty(key) || !occursin(' ', key)) && continue  # single name, checked below
+        haskey(title_owner, key) && continue
+        if haskey(id_titled, key)
+            owner, anchor = id_titled[key]
+            fail!("$p: `[$text](@ref)` — `$owner`'s header carries `(@id $anchor)`, " *
+                  "so the title no longer resolves. Write `(@ref $anchor)`.")
+        else
+            fail!("$p: `[$text](@ref)` — no built page has a header with that title, " *
+                  "and no `(@id …)` was given.")
+        end
+    end
+end
+println("Checked bare title `@ref`s against $(length(title_owner)) plain headers.")
+
 # 5. inter-page links
 for p in listed
     for l in filelinks_in(p)
@@ -331,7 +393,69 @@ if CHECK_NAMES
             resolves(nm) || warn!("$p: `[$text](@ref)` — `$nm` does not resolve as a name.")
         end
     end
-    println("Checked `@docs` entries and name `@ref`s against the loaded packages.")
+    # 6. `@ref`s written inside docstrings. These are rendered into the manual
+    # exactly like a page's own links and fail the build the same way, but they
+    # live in `src/`, so nothing above looks at them — this is how a `@ref` to
+    # an undocumented internal helper survives review and costs a whole build.
+    documented = Set{String}()
+    for p in listed, (_, e) in docs_entries(p)
+        n = strip(split(e, '(')[1])
+        push!(documented, n)
+        push!(documented, String(last(split(n, '.'))))   # `Mod.f` is reachable as `f`
+    end
+
+    """The rendered text of `entry`'s docstring, or `nothing` if it has none."""
+    function docstring_text(entry)
+        e = strip(split(entry, '(')[1])
+        ex = try Meta.parse(e) catch; return nothing end
+        for m in mods
+            s = try
+                string(Core.eval(m, :(@doc $ex)))
+            catch
+                continue
+            end
+            occursin("No documentation found", s) && continue
+            return s
+        end
+        return nothing
+    end
+
+    ndoc = Ref(0)
+    for p in listed, (ln, e) in docs_entries(p)
+        txt = docstring_text(e)
+        isnothing(txt) && continue
+        ndoc[] += 1
+        for m in eachmatch(r"\[([^\]]*)\]\(@ref\s*([^)\s]*)\s*\)", txt)
+            text, target = m.captures[1], m.captures[2]
+            if !isempty(target)
+                haskey(anchor_owner, target) && anchor_owner[target] in listed && continue
+                fail!("docstring of `$e` (listed in $p:$ln): `[$text](@ref $target)` — " *
+                      "no built page defines `(@id $target)`.")
+                continue
+            end
+            nm = strip(text, ['`', ' '])
+            isempty(nm) && continue
+            if occursin(' ', nm)
+                key = normtitle(nm)
+                haskey(title_owner, key) && continue
+                if haskey(id_titled, key)
+                    _, anchor = id_titled[key]
+                    fail!("docstring of `$e` (listed in $p:$ln): `[$text](@ref)` — that " *
+                          "header carries `(@id $anchor)`; write `(@ref $anchor)`.")
+                else
+                    fail!("docstring of `$e` (listed in $p:$ln): `[$text](@ref)` — " *
+                          "no built page has a header with that title.")
+                end
+            elseif !(nm in documented || String(last(split(nm, '.'))) in documented)
+                fail!("docstring of `$e` (listed in $p:$ln): `[$text](@ref)` — `$nm` is " *
+                      "not in any `@docs` block, so Documenter cannot resolve it. " *
+                      "Document it, or drop the `@ref`.")
+            end
+        end
+    end
+
+    println("Checked `@docs` entries and name `@ref`s against the loaded packages, " *
+            "and the `@ref`s inside $(ndoc[]) rendered docstrings.")
 else
     println("Name resolution skipped (pass --names to enable).")
 end

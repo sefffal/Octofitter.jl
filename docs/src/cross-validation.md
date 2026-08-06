@@ -223,14 +223,19 @@ per-row likelihoods at the reduced model's draws, and keep the columns belonging
 held-out observation:
 
 ```@example 1
-# Which global row indices belong to each observation, in listing order
-bounds = cumsum(Octofitter.likeobj_rowcount.(sys.observations))
+# Which columns belong to each observation, in the order described above:
+# observation by observation, prior-shaped terms skipped, and one column per
+# table row (or a single column for an observation that carries no table).
+data_obs = filter(!Octofitter._isprior, sys.observations)
+widths = [max(Octofitter._nrows(o), 1) for o in data_obs]
+bounds = cumsum(widths)
 starts = [1; bounds[1:end-1] .+ 1]
-heldout = [i for (o, s, e) in zip(sys.observations, starts, bounds)
+heldout = [i for (o, s, e) in zip(data_obs, starts, bounds)
              if Octofitter.likelihoodname(o) != "GPI" for i in s:e]
 
 # Per-row likelihoods of *all* the data, under the GPI-only posterior
-mat_heldout = Octofitter.pointwise_like(model, gpi_only_chain).likelihood_mat[:, heldout]
+mat_all, _ = Octofitter.pointwise_like(model, gpi_only_chain)
+mat_heldout = mat_all[:, heldout]
 
 # Log pointwise predictive density of the held-out rows: log mean exp over draws,
 # summed over rows.
