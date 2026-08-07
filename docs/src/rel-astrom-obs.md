@@ -100,14 +100,13 @@ planet_b_uniform = Planet( # hide
     observations=[astrom_obs_uniform], # hide
     variables=@variables begin # hide
         M = system.M # hide
-        a ~ Uniform(0, 100) # hide
         e ~ Uniform(0.0, 0.5) # hide
         i ~ Sine() # hide
         ω_x ~ Normal() # hide
         ω_y ~ Normal() # hide
         ω = atan(ω_y, ω_x) # hide
         Ω ~ Uniform(0,2pi) # hide
-        P = √(a^3/M) # hide
+ P ~  LogUniform(0.1, 150) # hide
         θ ~ Uniform(0,2pi) # hide
         tp = θ_at_epoch_to_tperi(θ, 50420; M, e, a, i, ω, Ω) # hide
     end # hide
