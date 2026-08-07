@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Multiple Planets · Octofitter.jl</title><meta name="title" content="Multiple Planets · Octofitter.jl"/><meta property="og:title" content="Multiple Planets · Octofitter.jl"/><meta property="twitter:title" content="Multiple Planets · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox" checked/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li class="is-active"><a class="tocitem" href>Multiple Planets</a><ul class="internal"><li><a class="tocitem" href="#Two-Planet-Model"><span>Two Planet Model</span></a></li><li><a class="tocitem" href="#One-Planet-Model"><span>One Planet Model</span></a></li><li><a class="tocitem" href="#Model-Comparison:-Bayesian-Evidence"><span>Model Comparison: Bayesian Evidence</span></a></li><li><a class="tocitem" href="#Parameterizations"><span>Parameterizations</span></a></li><li><a class="tocitem" href="#Note-about-the-evidence-ratio"><span>Note about the evidence ratio</span></a></li></ul></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 Epoch Astrometry</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Radial Velocity</a></li><li class="is-active"><a href>Multiple Planets</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Multiple Planets</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/rv-multi-planet.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="fit-rv-multi"><a class="docs-heading-anchor" href="#fit-rv-multi">Multi-Planet RV Fits</a><a id="fit-rv-multi-1"></a><a class="docs-heading-anchor-permalink" href="#fit-rv-multi" title="Permalink"></a></h1><p>This tutorial shows how to perform a multi-planet RV fit, and compare the bayesian evidence between the two models.</p><pre><code class="language-julia hljs">using Octofitter
+using OctofitterRadialVelocity
+using CairoMakie
+using PairPlots
+using Distributions
+using PlanetOrbits</code></pre><p>To begin, we create simulated data. We imagine that we have two different instruments.</p><pre><code class="language-julia hljs">using Random
+Random.seed!(1)
+
+orb_template_1 = orbit(a = 1.0,e = 0.05,ω = 1π/4,M = 1.0,tp =58800)
+mass_1 = 0.25*1e-3
+orb_template_2 = orbit(a = 5.0,e = 0.4,ω = 1π/4,M = 1.0,tp =59800)
+mass_2 = 1.0*1e-3
+
+epochs = (58400:150:69400) .+ 10 .* randn.()
+rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
+rvlike1 = MarginalizedStarAbsoluteRVObs(
+    Table(epoch=epochs, rv=rv .+ 4 .* randn.(), σ_rv=[4 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
+    name=&quot;DATA 1&quot;,
+    variables=@variables begin
+        jitter ~ LogUniform(0.1, 100) # m/s
+    end
+)
+
+epochs = (65400:100:71400) .+ 10 .* randn.()
+rv = radvel.(orb_template_1, epochs, mass_1) .+ radvel.(orb_template_2, epochs, mass_2)
+rvlike2 = MarginalizedStarAbsoluteRVObs(
+    Table(epoch=epochs, rv=rv .+ 2 .* randn.() .+ 7, σ_rv=[2 .* abs.(randn.()) .+ 1 for _ in 1:length(epochs)]),
+    name=&quot;DATA 2&quot;,
+    variables=@variables begin
+        jitter ~ LogUniform(0.1, 100) # m/s
+    end
+)
+
+fig = Figure()
+ax = Axis(
+    fig[1,1],
+    xlabel=&quot;epoch [mjd]&quot;,
+    ylabel=&quot;rv [m/s]&quot;
+)
+Makie.scatter!(ax, rvlike1.table.epoch, rvlike1.table.rv)
+Makie.errorbars!(ax, rvlike1.table.epoch, rvlike1.table.rv, rvlike1.table.σ_rv)
+Makie.scatter!(ax, rvlike2.table.epoch, rvlike2.table.rv)
+Makie.errorbars!(ax, rvlike2.table.epoch, rvlike2.table.rv, rvlike2.table.σ_rv)
+fig</code></pre><img src="1732dd8f.png" alt="Example block output"/><h2 id="Two-Planet-Model"><a class="docs-heading-anchor" href="#Two-Planet-Model">Two Planet Model</a><a id="Two-Planet-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Two-Planet-Model" title="Permalink"></a></h2><pre><code class="language-julia hljs">planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=RadialVelocityOrbit,
+    observations=[],
+    variables=@variables begin
+        M_pri = system.M_pri
+        M_b = system.M_b
+        M_c = system.M_c
+        M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_b
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
+
+        P_kep_yrs ~ Uniform(0, 100)
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
+
+planet_c = Planet(
+    name=&quot;c&quot;,
+    basis=RadialVelocityOrbit,
+    observations=[],
+    variables=@variables begin
+        M_pri = system.M_pri
+        M_c = system.M_c
+        M = M_pri + M_c * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_c
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
+
+        P_kep_yrs ~ Uniform(0, 100)
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
+
+sim_2p = System(
+    name=&quot;sim_2p&quot;,
+    companions=[planet_b, planet_c],
+    observations=[rvlike1, rvlike2],
+    variables=@variables begin
+        M_pri = 1.0
+        M_b ~ Uniform(0, 10)
+        M_c ~ Uniform(0, 10)
+    end
+)
+
+model_2p = Octofitter.LogDensityModel(sim_2p)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System sim_2p of dimension 12 and 135 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>Sample from the posterior</p><pre><code class="language-julia hljs">using Pigeons
+results_2p, pt_2p = octofit_pigeons(model_2p, n_rounds=10)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (1024×30×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Plot RV curve, phase folded curve, and binned residuals:</p><pre><code class="language-julia hljs">Octofitter.rvpostplot(model_2p, results_2p)</code></pre><img src="45880c6e.png" alt="Example block output"/><h2 id="One-Planet-Model"><a class="docs-heading-anchor" href="#One-Planet-Model">One Planet Model</a><a id="One-Planet-Model-1"></a><a class="docs-heading-anchor-permalink" href="#One-Planet-Model" title="Permalink"></a></h2><p>We now create a new system object that only includes one planet (we dropped c, in this case).</p><pre><code class="language-julia hljs">sim_1p = System(
+    name=&quot;sim_1p&quot;,
+    companions=[planet_b],
+    observations=[rvlike1, rvlike2],
+    variables=@variables begin
+        M_pri = 1.0
+        M_b ~ Uniform(0, 10)
+        M_c = 0.0
+    end
+)
+
+model_1p = Octofitter.LogDensityModel(sim_1p)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System sim_1p of dimension 7 and 135 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>Sample from the posterior</p><pre><code class="language-julia hljs">using Pigeons
+results_1p, pt_1p = octofit_pigeons(model_1p, n_rounds=10)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (1024×20×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Plot RV curve, phase folded curve, and binned residuals:</p><pre><code class="language-julia hljs">Octofitter.rvpostplot(model_1p, results_1p)</code></pre><img src="56f6b411.png" alt="Example block output"/><h2 id="Model-Comparison:-Bayesian-Evidence"><a class="docs-heading-anchor" href="#Model-Comparison:-Bayesian-Evidence">Model Comparison: Bayesian Evidence</a><a id="Model-Comparison:-Bayesian-Evidence-1"></a><a class="docs-heading-anchor-permalink" href="#Model-Comparison:-Bayesian-Evidence" title="Permalink"></a></h2><p>Octofitter with Pigeons directly calculates the (natural) log Bayesian evidence using the &quot;stepping stone&quot; method. This should be more reliable than even nested sampling, and certainly more reliable than approximate methods like the BIC/WAIC etc.</p><pre><code class="language-julia hljs">Z1 = stepping_stone(pt_1p)
+Z2 = stepping_stone(pt_2p)
+
+ln_BF₁₀ = Z2-Z1</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">122.58727059101955</code></pre><p>Here is a standard guideline you can use to interpret the evidence:</p><table><tr><th style="text-align: right">Log Bayes Factor ln(BF₁₀)</th><th style="text-align: right">Interpretation</th></tr><tr><td style="text-align: right">&gt; 3.00</td><td style="text-align: right">Extreme evidence for <span>$H_A$</span></td></tr><tr><td style="text-align: right">1.61 - 3.00</td><td style="text-align: right">Very strong evidence for <span>$H_A$</span></td></tr><tr><td style="text-align: right">1.10 - 1.61</td><td style="text-align: right">Strong evidence for <span>$H_A$</span></td></tr><tr><td style="text-align: right">0.69 - 1.10</td><td style="text-align: right">Moderate evidence for <span>$H_A$</span></td></tr><tr><td style="text-align: right">0 - 0.69</td><td style="text-align: right">Anecdotal evidence for <span>$H_A$</span></td></tr><tr><td style="text-align: right">0</td><td style="text-align: right">No evidence</td></tr><tr><td style="text-align: right">-0.69 - 0</td><td style="text-align: right">Anecdotal evidence for <span>$H_B$</span></td></tr><tr><td style="text-align: right">-1.10 - -0.69</td><td style="text-align: right">Moderate evidence for <span>$H_B$</span></td></tr><tr><td style="text-align: right">-1.61 - -1.10</td><td style="text-align: right">Strong evidence for <span>$H_B$</span></td></tr><tr><td style="text-align: right">-3.00 - -1.61</td><td style="text-align: right">Very strong evidence for <span>$H_B$</span></td></tr><tr><td style="text-align: right">&lt; -3.00</td><td style="text-align: right">Extreme evidence for <span>$H_B$</span></td></tr></table><p>As you can see, the evidence for there being two planets is &quot;extreme&quot; in this case. Try adjusting the masses of the two planets and see how this changes!</p><h2 id="Parameterizations"><a class="docs-heading-anchor" href="#Parameterizations">Parameterizations</a><a id="Parameterizations-1"></a><a class="docs-heading-anchor-permalink" href="#Parameterizations" title="Permalink"></a></h2><p>When using the evidence for model comparisons, a model with more specific priors will have more evidence than an quivalent model with broad priors.</p><p>In our two planet model above, we made two exactly equivalent planets. If you inspect the chains, you may notice that the two planets often flip back and forth – sometimes <code>b</code> has the longer period, and sometimes <code>c</code> does. </p><p>For example, here is a histogram of the period of planet b:</p><pre><code class="language-julia hljs">hist(vec(results_2p[:b_P_kep_yrs]), bins=100)</code></pre><img src="1ab48fa3.png" alt="Example block output"/><p>We can refine the two planet model a bit by adjusting the priors such that planet <code>c</code> always has a longer period than planet <code>b</code>.</p><p>This will make analysis a little more straightforward, but crucially it will also increase the evidence of this model, by approximately halving the prior volume–-thus making a more specific prediction.</p><p>There are several ways we could do this. Here, we add a &quot;nominal period&quot; variable and reparameterize the two planets as ratios of this nominal period.</p><pre><code class="language-julia hljs">planet_b_v2 = Planet(
+    name=&quot;b&quot;,
+    basis=RadialVelocityOrbit,
+    observations=[],
+    variables=@variables begin
+        M_pri = system.M_pri
+        M_b = system.M_b
+        M_c = system.M_c
+        M = M_pri + (M_b + M_c) * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_b
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
+
+        P_yrs_nom = system.P_yrs_nom
+        P_ratio_b = system.P_ratio_b
+        P_kep_yrs = P_yrs_nom * P_ratio_b
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
+
+planet_c_v2 = Planet(
+    name=&quot;c&quot;,
+    basis=RadialVelocityOrbit,
+    observations=[],
+    variables=@variables begin
+        M_pri = system.M_pri
+        M_c = system.M_c
+        M = M_pri + M_c * Octofitter.mjup2msol
+        e ~ Uniform(0,0.999999)
+        mass = M_c
+        ω ~ Uniform(0,2pi)
+        τ ~ Uniform(0,1.0)
+
+        P_yrs_nom = system.P_yrs_nom
+        P_ratio_c = system.P_ratio_c
+        P_kep_yrs = P_yrs_nom * P_ratio_c
+        a = ∛(M * P_kep_yrs^2)
+        tp = τ*P_kep_yrs*365.25 + 58400
+    end
+)
+
+
+sim_2p_v2 = System(
+    name=&quot;sim_2p_v2&quot;,
+    companions=[planet_b_v2, planet_c_v2],
+    observations=[rvlike1, rvlike2],
+    variables=@variables begin
+        M_pri = 1.0
+        M_b ~ Uniform(0, 10)
+        M_c ~ Uniform(0, 10)
+
+        P_yrs_nom ~ Uniform(0, 100)
+        P_ratio_b ~ Uniform(0, 0.5)
+        P_ratio_c ~ Uniform(0.5, 1)
+    end
+)
+
+model_2p_v2 = Octofitter.LogDensityModel(sim_2p_v2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System sim_2p_v2 of dimension 13 and 135 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>Sample from the posterior</p><pre><code class="language-julia hljs">using Pigeons
+results_2p_v2, pt_2p_v2 = octofit_pigeons(model_2p_v2, n_rounds=10)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (1024×37×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>The planet with the wider orbit is now consistently plotted in the bottom panel (meaning that planet b and c are no longer trading back and forth):</p><pre><code class="language-julia hljs">Octofitter.rvpostplot(model_2p_v2, results_2p_v2)</code></pre><img src="166d2491.png" alt="Example block output"/><p>If we look again at the log-evidence, we see that this parameterization (Z3) is even more favoured. This is because this small change in parameterization makes considerably </p><pre><code class="language-julia hljs">Z1 = stepping_stone(pt_1p)
+Z2 = stepping_stone(pt_2p)
+Z3 = stepping_stone(pt_2p_v2)
+
+Z1, Z2, Z3</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(-904.659960585306, -782.0726899942864, -780.56357065781)</code></pre><p>As a final treat, let&#39;s animate the orbit plots. All the previous images were visualizing a single posterior draw. In this animation, we&#39;ll loop over many different samples:</p><pre><code class="language-julia hljs">Octofitter.rvpostplot_animated(model_2p_v2, results_2p_v2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;rv-posterior.mp4&quot;</code></pre><video src="rv-posterior.mp4" autoplay loop width=300 height=300><h2 id="Note-about-the-evidence-ratio"><a class="docs-heading-anchor" href="#Note-about-the-evidence-ratio">Note about the evidence ratio</a><a id="Note-about-the-evidence-ratio-1"></a><a class="docs-heading-anchor-permalink" href="#Note-about-the-evidence-ratio" title="Permalink"></a></h2><p>The pigeons method returns the log evidence ratio. If the priors are properly normalized, this is equal to the log evidence.</p><p>In other cases (e.g. if using <code>ObsPriorAstromONeil2019</code> or <code>UniformCircular</code>) you may need to calculate the log_Z0 term yourself. This can be done as follows:</p><pre><code class="language-julia hljs">prior_model = Octofitter.LogDensityModel(Octofitter.prior_only_model(model_1p.system, exclude_all=true))
+_, pt_prior = octofit_pigeons(prior_model, n_rounds=10) # should be very quick!
+log_Z0 = stepping_stone(pt_prior)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.00011747656419203167</code></pre><p>Subtract this from the stepping stone value to get the true evidence:</p><pre><code class="language-julia hljs">log_Z1_over_Z0 = stepping_stone(pt_1p)
+log_Z1 = log_Z1_over_Z0 - log_Z0</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-904.6600780618702</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-gp/">« Gaussian Process</a><a class="docs-footer-nextpage" href="../fit-rv-rel/">Relative RV Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Friday 30 January 2026 17:48">Friday 30 January 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

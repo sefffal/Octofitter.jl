@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Interferometer Data · Octofitter.jl</title><meta name="title" content="Interferometer Data · Octofitter.jl"/><meta property="og:title" content="Interferometer Data · Octofitter.jl"/><meta property="twitter:title" content="Interferometer Data · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 IAD</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox" checked/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li class="is-active"><a class="tocitem" href>Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Images and More</a></li><li class="is-active"><a href>Interferometer Data</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Interferometer Data</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/fit-interfere.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Fitting-Interferometric-Observables"><a class="docs-heading-anchor" href="#Fitting-Interferometric-Observables">Fitting Interferometric Observables</a><a id="Fitting-Interferometric-Observables-1"></a><a class="docs-heading-anchor-permalink" href="#Fitting-Interferometric-Observables" title="Permalink"></a></h1><p>In this tutorial, we fit a planet &amp; orbit model to a sequence of interferometric observations. Closure phases and squared visibilities are supported.</p><p>We load the observations in <a href="https://github.com/emmt/OIFITS.jl">OI-FITS format</a> and model them as a point source orbiting a star.</p><div class="admonition is-info" id="Note-f20ee894e1f113c2"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-f20ee894e1f113c2" title="Permalink"></a></header><div class="admonition-body"><p>Interferometer modelling is supported in Octofitter via the extension package OctofitterInterferometry. To install it, run  <code>pkg&gt; add http://github.com/sefffal/Octofitter.jl:OctofitterInterferometry</code></p></div></div><pre><code class="language-julia hljs">using Octofitter
+using OctofitterInterferometry
+using Distributions
+using CairoMakie
+using PairPlots</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Module Octofitter with build ID fafbfcfd-8b8a-cb54-5b4a-804a6ae67581 is missing from the cache.
+│ This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
+└ @ Base loading.jl:2018</code></pre><p>Download simulated JWST AMI observations from our examples folder on GitHub:</p><pre><code class="language- hljs">download(&quot;https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Sim_data_2023_1_.oifits&quot;, &quot;Sim_data_2023_1_.oifits&quot;)
+download(&quot;https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Sim_data_2023_2_.oifits&quot;, &quot;Sim_data_2023_2_.oifits&quot;)
+download(&quot;https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Sim_data_2024_1_.oifits&quot;, &quot;Sim_data_2024_1_.oifits&quot;)</code></pre><p>Create the likelihood object:</p><pre><code class="language- hljs">data = Table([
+    (; filename=&quot;Sim_data_2023_1_.oifits&quot;, epoch=mjd(&quot;2023-06-01&quot;), use_vis2=false),
+    (; filename=&quot;Sim_data_2023_2_.oifits&quot;, epoch=mjd(&quot;2023-08-15&quot;), use_vis2=false),
+    (; filename=&quot;Sim_data_2024_1_.oifits&quot;, epoch=mjd(&quot;2024-06-01&quot;), use_vis2=false),
+])
+vis_obs = InterferometryObs(
+    data,
+    name=&quot;NIRISS-AMI&quot;,
+    variables=@variables begin
+        # For single planet:
+        flux ~ truncated(Normal(0, 0.1), lower=0)  # Planet flux/contrast (array with one element)
+        
+        # For multiple planets (array - one per planet):
+        # flux ~ Product([truncated(Normal(0, 0.1), lower=0), truncated(Normal(0, 0.1), lower=0)])
+        
+        # Optional calibration parameters:
+        platescale = 1.0               # Platescale multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        northangle = 0.0               # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        σ_cp_jitter = 0.0  # closure phase jitter [could use ~ LogUniform(0.1, 100))
+    end
+)</code></pre><div class="admonition is-info" id="Note-e74a4e92659552c5"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-e74a4e92659552c5" title="Permalink"></a></header><div class="admonition-body"><p>If you want to include multiple bands, group these into different <code>InterferometryObs</code> objects with different instrument names (i.e. include the band in the name for the sake of bookkeeping)</p></div></div><p>Plot the closure phases:</p><pre><code class="language- hljs">fig = Makie.Figure()
+ax = Axis(
+    fig[1,1],
+    xlabel=&quot;index&quot;,
+    ylabel=&quot;closure phase&quot;,
+)
+Makie.stem!(
+    vis_obs.table.cps_data[1][:],
+    label=&quot;epoch 1&quot;,
+)
+Makie.stem!(
+    vis_obs.table.cps_data[2][:],
+    label=&quot;epoch 2&quot;
+)
+Makie.stem!(
+    vis_obs.table.cps_data[3][:],
+    label=&quot;epoch 3&quot;
+)
+Makie.Legend(fig[1,2], ax)
+fig</code></pre><pre><code class="language- hljs">planet_b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    observations=[],
+    variables=@variables begin
+        M = system.M
+        a ~ truncated(Normal(2,0.1), lower=0.1)
+        e ~ truncated(Normal(0, 0.05),lower=0, upper=0.90)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+
+        θ ~ UniformCircular()
+        tp = θ_at_epoch_to_tperi(θ, 60171; M, e, a, i, ω, Ω)  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
+
+sys = System(
+    name=&quot;Tutoria&quot;,
+    companions=[planet_b],
+    observations=[vis_obs],
+    variables=@variables begin
+        M ~ truncated(Normal(1.5, 0.01), lower=0.1)
+        plx ~ truncated(Normal(100., 0.1), lower=0.1)
+    end
+)</code></pre><p>Create the model object and run <code>octofit_pigeons</code>:</p><pre><code class="language- hljs">model = Octofitter.LogDensityModel(sys)
+
+using Pigeons
+results,pt = octofit_pigeons(model, n_rounds=10);
+nothing # hide</code></pre><p>Note that we use Pigeons paralell tempered sampling (<code>octofit_pigeons</code>) instead of HMC (<code>octofit</code>) because interferometry data is almost always multi-modal (or more precisely non-convex, there is often still a single mode that dominates).</p><p>Examine the recovered photometry posterior:</p><pre><code class="language- hljs">hist(results[:NIRISS_AMI_flux][:], axis=(;xlabel=&quot;flux&quot;))</code></pre><p>Determine the significance of the detection:</p><pre><code class="language- hljs">using Statistics
+phot = results[:NIRISS_AMI_flux][:]
+snr = mean(phot)/std(phot)</code></pre><p>Plot the resulting orbit:</p><pre><code class="language- hljs">octoplot(model, results)</code></pre><p>Plot only the position at each epoch:</p><pre><code class="language- hljs">using PlanetOrbits
+els = Octofitter.construct_elements(model, results,:b,:);
+fig = Makie.Figure()
+ax = Makie.Axis(
+    fig[1,1],
+    autolimitaspect = 1,
+    xreversed=true,
+    xlabel=&quot;ΔR.A. (mas)&quot;,
+    ylabel=&quot;ΔDec. (mas)&quot;,
+)
+for epoch in vis_obs.table.epoch
+    Makie.scatter!(
+        ax,
+        raoff.(els, epoch)[:],
+        decoff.(els, epoch)[:],
+        label=string(mjd2date(epoch)),
+        markersize=1.5,
+    )
+end
+Makie.Legend(fig[1,2], ax, &quot;date&quot;)
+fig</code></pre><p>Finally we can examine the joint photometry and orbit posterior as a corner plot:</p><pre><code class="language- hljs">using PairPlots
+using CairoMakie: Makie
+octocorner(model, results)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../mass-photometry/">« Connect Mass and Photometry</a><a class="docs-footer-nextpage" href="../fit-likemap/">Likelihood Map »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.0 on <span class="colophon-date" title="Thursday 20 November 2025 19:00">Thursday 20 November 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
