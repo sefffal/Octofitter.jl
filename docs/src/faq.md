@@ -47,21 +47,14 @@ Because the reference is explicit, the same call works for a companion measured 
 another companion (`raoff(sol, :c, :b)`), against the barycentre, or against a
 photocentre.
 
-To build a predicted distribution rather than a single number, loop over draws:
+To build a predicted distribution rather than a single number, loop or broadcast over draws:
 
 ```julia
 ep = mjd("2028-01-01")
-X = map(1:size(chain,1)) do i
-    sol = orbitsolve(construct_system(model, chain, i), [ep])[1]
-    raoff(sol, :b, :A)
-end
+trajectories = orbitsolve.(construct_system(model, chain, :), ep)
+X = raoff.(sol, :b, :A) # <- broadcast
 scatter(X, axis=(;xlabel="draw", ylabel="ΔRA [mas]"))
 ```
-
-!!! note "Marking specific epochs on a plot"
-    `octoplot` has no `mark_epochs_mjd` keyword. Compute the predicted positions as above
-    and add them to the figure yourself — `octoplot` returns named axes (`res.axes`)
-    precisely so that you can.
 
 
 ## Can slope/GP parameters be shared between RV instruments?
