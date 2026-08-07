@@ -35,6 +35,20 @@ observation's `ra_offset_mas`, `dec_offset_mas`, `pmra`, `pmdec`,
 `ref_epoch` variables) plus the offset of `target` from `ref` — normally the
 photocentre relative to the system barycentre.
 
+# Parallax factors
+`f_al` is Gaia's own `parallax_factor_al`, taken at face value: this
+observation consumes SSB observables plus explicit parallax factors, and
+never observer-aware observables. Every absolute-astrometry observation type
+does one or the other, never both, and which one is literal code in the type
+so that it can be reviewed per type.
+
+What Gaia's factors omit is the annual–orbital (Kopeikin) coupling — the
+dependence of the parallax factor on the *companion's* line-of-sight depth,
+which is `≈ 4.85 · z[AU] / d[pc]²` µas per AU of observer displacement. For
+any DR4 target that is sub-µas, well below the per-transit precision, so the
+face-value factors are exact enough. PlanetOrbits' observer-aware
+observables exist for the cases where it is not.
+
 # `detrend`
 With `detrend=true` the linear (constant + slope) part of the
 target-versus-reference excursion is removed before it enters the model, so
@@ -241,3 +255,10 @@ function generate_from_params(obs::GaiaDR4AstromObs, ctx::ObsContext; add_noise)
     return GaiaDR4AstromObs(newtab; target=obs.target, ref=obs.ref, obs.name, obs.detrend,
         variables=(obs.priors, obs.derived))
 end
+
+# Gaia measures one number per transit — the along-scan abscissa — so that is
+# what the `:auto` correction test compares.
+has_correction_impact(::Type{<:GaiaDR4AstromObs}) = true
+correction_impact(obs::GaiaDR4AstromObs, a::ObsContext, b::ObsContext) =
+    _simulate_impact(simulate(obs, a), simulate(obs, b), (:along_scan,),
+                     _tightest(obs.table.centroid_pos_error_al))

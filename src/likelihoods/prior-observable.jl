@@ -188,3 +188,12 @@ number.
     E = PlanetOrbits.kepler_solver(MA, row.e)
     return (E - row.e * sin(E), E)
 end
+
+# The O'Neil prior reweights another observation; the corrections reach it
+# only through that one.
+has_correction_impact(::Type{<:ObsPriorONeil2019{TL}}) where {TL} =
+    has_correction_impact(TL)
+correction_impact(obs::ObsPriorONeil2019, a::ObsContext, b::ObsContext) =
+    correction_impact(obs.wrapped_like, a, b)
+correction_advisories(obs::ObsPriorONeil2019, ctx::ObsContext) =
+    correction_advisories(obs.wrapped_like, ctx)

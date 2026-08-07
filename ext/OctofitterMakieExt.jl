@@ -1047,6 +1047,32 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
                     color=:red, markersize=9, strokecolor=:black, strokewidth=1.5)
             end
         end
+
+        # The one thing on this panel that belongs to no row.
+        #
+        # A multi-row fold decomposes the *kinematic* signal, because `radvel`'s
+        # Einstein term is quadratic in velocity and 1/r in separation and does
+        # not telescope through A⁻¹ (see `_rowfunc`). It is therefore in the
+        # plotted points but not in the plotted curve. That is bounded and
+        # correct — the term is common-mode, like an instrument offset — but it
+        # must not be *silent*, because a reader is entitled to assume the
+        # scatter about the curve is noise. So when it rises above a tenth of
+        # the residual scatter, the panel says how big it is.
+        if sig.scaled && sig.query.func === Octofitter._kinrv && length(pooled_y) > 1
+            kinq = Octofitter.ObservableQuery(Octofitter._kinrv, q.target, q.ref)
+            ein = (Octofitter.evalquery(q, series.sys_map, series.data_traj_map) .-
+                   Octofitter.evalquery(kinq, series.sys_map, series.data_traj_map)) .* ch1.scale
+            span = isempty(ein) ? 0.0 : maximum(ein) - minimum(ein)
+            scatter = std(pooled_y)
+            if isfinite(span) && isfinite(scatter) && span > 0.1 * scatter
+                unit = isempty(ch1.unit) ? "" : " " * ch1.unit
+                Makie.Label(gs[1, 1],
+                    "+ Einstein term, $(round(span; sigdigits=2))$unit peak-to-peak (not folded)";
+                    fontsize=10, color=Makie.to_color(:grey35),
+                    halign=:left, valign=:bottom, padding=(8, 0, 0, 4),
+                    tellwidth=false, tellheight=false)
+            end
+        end
     end
 
     if ax_resid !== nothing && show_hist

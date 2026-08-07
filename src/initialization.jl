@@ -281,6 +281,9 @@ function initialize!(rng::Random.AbstractRNG,
             start_time,
             stop_time,
             model_name=Symbol("$(model.system.name)-init"),
+            corrections=model.system.corrections,
+            observing_geometry=model.system.observing_geometry,
+            barycentric_lighttime=model.system.barycentric_lighttime,
             sampler="pathfinder"
         )
     )
@@ -385,6 +388,9 @@ function startingpoints!(
             start_time,
             stop_time,
             model_name=Symbol("$(model.system.name)-init"),
+            corrections=model.system.corrections,
+            observing_geometry=model.system.observing_geometry,
+            barycentric_lighttime=model.system.barycentric_lighttime,
             sampler="manual"
         )
     )

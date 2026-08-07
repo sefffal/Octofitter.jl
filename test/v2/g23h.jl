@@ -220,20 +220,30 @@ end
         (:mu_dr32_ra, sim.μ_dr32[1]), (:mu_dr32_dec, sim.μ_dr32[2]),
         (:mu_dr3_ra, sim.μ_dr3[1]), (:mu_dr3_dec, sim.μ_dr3[2]),
         (:UEVA_model, sim.UEVA_model), (:UEVA_unc, sim.UEVA_unc),
-        (:mu_1_3, sim.μ_1_3), (:sample_variance, sim.sample_variance),
+        (:mu_1_3, sim.μ_1_3),
         (:deflation_factor_dr3, sim.deflation_factor_dr3),
         (:hip_bias_pm_sq, sim.hip_bias_pm_sq),
         (:delta_alpha_dr3, sim.Δα_dr3), (:delta_delta_dr3, sim.Δδ_dr3),
         (:delta_pmra_dr3, sim.Δpmra_dr3), (:delta_pmdec_dr3, sim.Δpmdec_dr3),
     ]
-    # Measured worst relative residual over these channels: 7.5e-16, and the
-    # total log-likelihood is bit-identical. The gate is set an order of
-    # magnitude above that, not at "close enough".
+    # Measured worst relative residual over these channels: 7.5e-16. The gate
+    # is set an order of magnitude above that, not at "close enough".
     for (k, got) in pairs
         want = V1_REF[k]
         @test abs(got - want) <= 1e-14 * max(abs(want), 1e-12)
     end
-    @test c.lnl(m.sys, c.nt) ≈ V1_REF[:ll] rtol = 1e-14
+
+    # The two RV-derived quantities are the exception, and deliberately so.
+    # The Gaia RVS channel is a *spectroscopic* measurement, so v2 predicts it
+    # with `radvel`, which now carries the Einstein (second-order Doppler plus
+    # gravitational-redshift) term that v1 had no notion of. The term varies
+    # over the orbit, so it moves the epoch-RV sample variance — by 4.5e-6
+    # relative here — and the total log-likelihood with it, by 2.9e-11. Both
+    # gates are an order of magnitude above the measured departure: this is a
+    # bounded, understood difference from v1, not a free tolerance.
+    @test sim.sample_variance ≈ V1_REF[:sample_variance] rtol = 1e-5
+    @test !isapprox(sim.sample_variance, V1_REF[:sample_variance]; rtol=1e-14)
+    @test c.lnl(m.sys, c.nt) ≈ V1_REF[:ll] rtol = 1e-9
 end
 
 # ── the Hipparcos instrument response, against the legacy math ────────────

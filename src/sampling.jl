@@ -167,6 +167,9 @@ function octofit_rejection(
             start_time,
             stop_time,
             model_name=model.system.name,
+            corrections=model.system.corrections,
+            observing_geometry=model.system.observing_geometry,
+            barycentric_lighttime=model.system.barycentric_lighttime,
             sampler="rejection",
             draws,
             n_accepted,
@@ -489,6 +492,9 @@ Base.@nospecializeinfer function advancedhmc(
             adaptor,
             initial_metric=metric,
             model_name=model.system.name,
+            corrections=model.system.corrections,
+            observing_geometry=model.system.observing_geometry,
+            barycentric_lighttime=model.system.barycentric_lighttime,
             sampler="nuts"
         )
     )

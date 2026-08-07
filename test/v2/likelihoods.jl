@@ -29,8 +29,14 @@ function model_system(; obs)
         mass = 4mjup
         a = 9.0; e = 0.05; i = 1.1; ω = 0.3; Ω = 1.0; tp = 56000.0
     end)
+    # The corrections are pinned on, and `reference_system` is solved with
+    # PlanetOrbits' own defaults, so the two agree exactly. These files test
+    # the likelihoods' arithmetic; the `:auto` resolver has its own file
+    # (`v2/corrections.jl`), and letting it decide here would silently make
+    # every expectation depend on a measurement of this fixture's σ.
     return Octofitter.System(name="ref", bodies=[A, b, c], observations=obs,
-        variables=@variables begin plx = 25.0 end)
+        variables=@variables(begin plx = 25.0 end),
+        observing_geometry=:on, barycentric_lighttime=:on, verbosity=0)
 end
 
 @testset "reference grammar" begin

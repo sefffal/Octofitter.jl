@@ -445,7 +445,7 @@ function pointwise_like(model, chain; verbosity::Int=1)
         obsns = hasproperty(θ, :observations) ? θ.observations : (;)
         for (j, t) in enumerate(terms)
             θ_obs = hasproperty(obsns, t.key) ? getproperty(obsns, t.key) : (;)
-            LL_out[i_sample, j] = ln_like(t.obs, ObsContext(θ, θ_obs, posys, traj, maps[j]))
+            LL_out[i_sample, j] = ln_like(t.obs, _obsctx(sys, θ, θ_obs, posys, traj, maps[j]))
         end
     end
 

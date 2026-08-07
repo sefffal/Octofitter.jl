@@ -44,6 +44,39 @@ instrument, and that is exactly the granularity this object carries.
 Evaluated per epoch and added to the model alongside `offset`. Its
 parameters are ordinary variables of this observation.
 
+# Corrections and data provenance
+
+Two keywords declare what your reduction already did, and one is an
+experimentation hook. See the "Corrections and data provenance" manual page.
+
+    secular_acceleration = :model | :data_corrected     # default :model
+
+The perspective-acceleration drift — the barycentre's line-of-sight velocity
+changing as its 3D motion swings the line of sight. `:model` adds it to the
+prediction (its constant part washes into `offset`; the drift and curvature
+are the payload: ~4.5 m/s/yr for a Barnard-class star, ~3 cm/s/yr for a
+generic 30 km/s star at 30 pc). `:data_corrected` says your pipeline already
+removed it, using frozen catalog values, so the model adds nothing.
+
+Why this one is model-side by default while the barycentric correction is
+not: the Earth-side terms depend only on the Earth ephemeris and the catalog
+direction — zero fit parameters — so a pipeline removes them once, perfectly.
+Perspective acceleration depends only on **μ, ϖ and rv, which are sampled
+parameters here**, and its signature (a smooth trend with slight curvature) is
+degenerate with a long-period companion. `:model` is also what makes a joint
+RV + absolute-astrometry fit self-consistent: the same sampled (μ, ϖ) predict
+both data types.
+
+It requires an `AbsoluteFrame` to be non-zero; with `plx` alone the term is
+definitionally zero and no error is raised. It is rejected at construction for
+a **relative** series, with an explanation — a blanket "it cancels" is false,
+and the half that does not cancel is large.
+
+`secular_acceleration` is this observation's **only** provenance dimension.
+Whether the Einstein term is modelled is a property of the whole fit, not of
+one instrument — no pipeline can have removed the part of it that varies with
+the orbit — so it lives on the system as `System(…; einstein_rv=:on|:off)`.
+
 # Correlated noise
 
     gaussian_process = θ_obs -> GP(θ_obs.gp_η₁^2 * SqExponentialKernel() ∘
@@ -80,6 +113,12 @@ struct RadialVelocityObs{TTable<:Table,THeld<:Table,TT,TR,GP,TF} <: AbstractObs
     gaussian_process::GP
     trend_function::TF
     name::String
+    # `:model`, `:data_corrected`, or `:not_applicable` for a relative-RV
+    # series, where the term this governs cancels. Resolved at construction.
+    # The *only* provenance dimension an RV series has: whether the Einstein
+    # term is modelled is a property of the whole fit, not of one instrument,
+    # and lives on `System` as `einstein_rv`.
+    secular_acceleration::Symbol
 end
 
 const rv_cols = (:epoch, :rv, :σ_rv)
@@ -94,6 +133,7 @@ function RadialVelocityObs(observations;
                            gaussian_process=nothing,
                            trend_function=_rv_no_trend,
                            held_out=nothing,
+                           secular_acceleration=nothing,
                            variables::Tuple{Priors,Derived}=(Priors(), Derived()))
     (priors, derived) = variables
     # Collect the columns: a multithreaded `CSV.read` returns `ChainedVector`s,
@@ -130,11 +170,56 @@ function RadialVelocityObs(observations;
     end
 
     t, r = refspec(target), refspec(ref)
+    sec = _resolve_secular_acceleration(secular_acceleration, r, String(name))
     return RadialVelocityObs{typeof(table),typeof(held_out_table),typeof(t),typeof(r),
                              typeof(gaussian_process),typeof(trend_function)}(
         table, held_out_table, priors, derived, t, r,
-        gaussian_process, trend_function, String(name))
+        gaussian_process, trend_function, String(name), sec)
 end
+
+# Whole-system barycentre only: that is what makes a series *absolute*, and
+# the perspective-acceleration drift is a property of the frame, not of any
+# pair inside it.
+_is_absolute_rv(::BarycentreSpec{()}) = true
+_is_absolute_rv(@nospecialize(_)) = false
+
+function _resolve_secular_acceleration(spec, r, name)
+    if isnothing(spec)
+        return _is_absolute_rv(r) ? :model : :not_applicable
+    end
+    spec in (:model, :data_corrected) || error(
+        "`secular_acceleration` takes `:model` (the default for an absolute " *
+        "series — Octofitter adds the propagated perspective-acceleration " *
+        "drift to the prediction) or `:data_corrected` (your pipeline already " *
+        "removed it, so the model adds nothing); got $(repr(spec)).")
+    _is_absolute_rv(r) || _err_relative_secular(name)
+    return spec
+end
+
+@noinline _err_relative_secular(name) = error("""
+`secular_acceleration` is only meaningful for an absolute series (`ref=Barycentre`),
+but "$name" measures one body against another.
+
+Not because "it cancels" — half of it does and half of it does not, and the half
+that does not is large:
+
+  * What cancels is the **common-mode** barycentre drift: both bodies share the
+    barycentre's line-of-sight velocity, so it drops out of the difference. That
+    is the only part this keyword governs, which is why there is nothing here for
+    it to declare.
+
+  * What does **not** cancel is the **differential** term. Two bodies sit at
+    different sky positions, so the barycentre's transverse space velocity
+    projects differently onto each: ≈ 0.023 · μ["/yr] · a[AU] m/s — 24 cm/s for a
+    Barnard-like host with a 1 AU companion, and ~239 m/s at 1000 AU. That term is
+    already modelled, as correction #4 of PlanetOrbits' observing-geometry pass,
+    computed from the sampled frame velocity and each body's fitted direction —
+    which is also why no pipeline can have removed it for you.
+
+So: drop the keyword. If this is a high-proper-motion system, make sure
+`observing_geometry` is on for the differential term (`:auto` will keep it on for
+data like this, since Δprediction ≫ σ).
+""")
 
 _rv_strictly_increasing(x) = all(k -> x[k] < x[k+1], 1:length(x)-1)
 
@@ -182,6 +267,8 @@ _rv_rowinds(table, rows) = collect(rows)
 _rv_rebuild(obs::RadialVelocityObs, table, held_out) = RadialVelocityObs(
     table; target=obs.target, ref=obs.ref, obs.name, held_out,
     gaussian_process=obs.gaussian_process, trend_function=obs.trend_function,
+    secular_acceleration=(obs.secular_acceleration === :not_applicable ? nothing :
+                          obs.secular_acceleration),
     variables=(obs.priors, obs.derived))
 
 # ---------------------------------------------------
@@ -193,12 +280,40 @@ _rv_rebuild(obs::RadialVelocityObs, table, held_out) = RadialVelocityObs(
 # outside any epoch loop.
 @inline function _rv_model!(out, obs::RadialVelocityObs, ctx::ObsContext,
                             target, reference, offset, epochvec, i0)
+    T = _system_number_type(ctx.θ_system)
+    # Both loop-invariant, so the branches hoist out of the loop. One is a
+    # whole-model setting (`System(…; einstein_rv=…)`, reaching us through the
+    # context) and one is this series' own provenance declaration.
+    spectroscopic = ctx.einstein_rv
+    secular = obs.secular_acceleration === :model
     @inbounds for i in eachindex(epochvec)
-        out[i] = radvel(solutionat(ctx, i0 + i), target, reference) + offset +
-                 obs.trend_function(ctx.θ_obs, epochvec[i])
+        sol = solutionat(ctx, i0 + i)
+        v = spectroscopic ? radvel(sol, target, reference) :
+            velz(sol, target, reference) * _AU_PER_YEAR_TO_M_PER_S
+        if secular
+            v += _frame_drift_rv(sol, T)
+        end
+        out[i] = v + offset + obs.trend_function(ctx.θ_obs, epochvec[i])
     end
     return out
 end
+
+const _AU_PER_YEAR_TO_M_PER_S = PlanetOrbits.au2m / PlanetOrbits.year2sec_julian
+
+# The frame's own propagated radial velocity relative to `ref_epoch` — the
+# perspective-acceleration drift. Its constant part washes into `offset`; the
+# drift and curvature are the payload (~4.5 m/s/yr for a Barnard-class star,
+# ~3 cm/s/yr for a generic 30 km/s star at 30 pc).
+#
+# Definitionally zero without an absolute frame, and that is not an error: the
+# frame level chooses the physics, exactly as it does everywhere else in
+# PlanetOrbits. The `:auto` correction report is the safety net that tells a
+# user their high-pm star wants one.
+@inline _frame_drift_rv(sol, ::Type{T}) where {T} =
+    _frame_drift_rv(sol, PlanetOrbits.frame(sol), T)
+@inline _frame_drift_rv(sol, fr::PlanetOrbits.AbsoluteFrame, ::Type{T}) where {T} =
+    convert(T, PlanetOrbits.frame_rv(sol) - fr.rv)
+@inline _frame_drift_rv(_, ::PlanetOrbits.AbstractFrame, ::Type{T}) where {T} = zero(T)
 
 function simulate!(rv_model, obs::RadialVelocityObs, ctx::ObsContext)
     T = _system_number_type(ctx.θ_system)
@@ -371,3 +486,35 @@ thing on the plot grid. Add a method:
 
 `OctofitterRadialVelocity` does this for Celerite and for AbstractGPs.
 """)
+
+# --- the `:auto` correction report -------------------------------------------
+
+has_correction_impact(::Type{<:RadialVelocityObs}) = true
+correction_impact(obs::RadialVelocityObs, a::ObsContext, b::ObsContext) =
+    _simulate_impact(simulate(obs, a), simulate(obs, b), (:rv_model,),
+                     _tightest(obs.table.σ_rv))
+
+# Two magnitudes worth reporting for every RV series, neither of which any
+# flag governs: the Einstein term (always modelled — no pipeline can have
+# removed the part of it that varies) and the perspective-acceleration drift
+# (declared per series, and zero without an absolute frame). Both as
+# peak-to-peak over the series, which is the part an offset cannot absorb.
+function correction_advisories(obs::RadialVelocityObs, ctx::ObsContext)
+    T = _system_number_type(ctx.θ_system)
+    target = ref(ctx, obs.target)
+    reference = ref(ctx, obs.ref)
+    σ = _tightest(obs.table.σ_rv)
+    lo_e = Inf; hi_e = -Inf
+    lo_s = Inf; hi_s = -Inf
+    @inbounds for i in eachindex(obs.table.epoch)
+        sol = solutionat(ctx, i)
+        e = float(radvel(sol, target, reference) -
+                  velz(sol, target, reference) * _AU_PER_YEAR_TO_M_PER_S)
+        lo_e = min(lo_e, e); hi_e = max(hi_e, e)
+        s = float(_frame_drift_rv(sol, T))
+        lo_s = min(lo_s, s); hi_s = max(hi_s, s)
+    end
+    adv = (("Einstein term, peak-to-peak [m/s]", hi_e - lo_e, σ),)
+    obs.secular_acceleration === :model || return adv
+    return (adv..., ("secular-acceleration drift, peak-to-peak [m/s]", hi_s - lo_s, σ))
+end

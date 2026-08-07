@@ -63,7 +63,7 @@ function generate_from_params(sys::System, θ=drawfrompriors(sys); add_noise::Bo
     newobs = map(sys.observations) do obs
         key = normalizename(likelihoodname(obs))
         θ_obs = hasproperty(obsns, key) ? getproperty(obsns, key) : (;)
-        return generate_from_params(obs, ObsContext(θ, θ_obs, posys, traj, maps[obs]);
+        return generate_from_params(obs, _obsctx(sys, θ, θ_obs, posys, traj, maps[obs]);
             add_noise)
     end
 

@@ -30,6 +30,9 @@ if TEST_MODE in ("all", "unit")
     @testset "Radial velocity" begin
         include("v2/radial-velocity.jl")
     end
+    @testset "Corrections and data provenance" begin
+        include("v2/corrections.jl")
+    end
     @testset "Photometry and configuration priors" begin
         include("v2/photometry-and-priors.jl")
     end

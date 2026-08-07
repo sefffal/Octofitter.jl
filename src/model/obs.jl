@@ -137,9 +137,21 @@ struct ObsContext{Tθ,TO,TS,TT,TE,TB}
     # sized to the model at build time — covers the whole evaluation. See
     # `_slab_size` in codegen.jl for why the size matters.
     buf::TB
+    # Solve configuration a likelihood needs to see. `observing_geometry` and
+    # `barycentric_lighttime` are consumed by `orbitsolve!` before any
+    # likelihood runs, so they never appear here; `einstein_rv` is consumed by
+    # the radial-velocity forward model itself, so it does. Interpolated as a
+    # literal by codegen, exactly like the other two.
+    einstein_rv::Bool
 end
+# The convenience forms default `einstein_rv` to `true`, the accurate setting.
+# Anything that evaluates a likelihood on a *built model* must instead forward
+# `sys.einstein_rv`, or a fit run with `einstein_rv=:off` would silently be
+# scored against a different physics than it sampled — see `_obsctx`.
 ObsContext(θ_system, θ_obs, system, traj, epoch_index) =
-    ObsContext(θ_system, θ_obs, system, traj, epoch_index, Bumper.default_buffer())
+    ObsContext(θ_system, θ_obs, system, traj, epoch_index, Bumper.default_buffer(), true)
+ObsContext(θ_system, θ_obs, system, traj, epoch_index, buf) =
+    ObsContext(θ_system, θ_obs, system, traj, epoch_index, buf, true)
 
 """
     solutionat(ctx, i)

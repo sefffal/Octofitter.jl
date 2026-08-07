@@ -240,9 +240,41 @@ The propagator, and the two precision opt-outs, are `System` keywords:
 
 ```julia
 System(…; method=PlanetOrbits.AHL21(h=40.0, t0=57388.0),
-          observing_geometry=true,        # per-body LTT, depth scale, LOS projection
-          barycentric_lighttime=true)     # whole-system light-travel timing
+          observing_geometry=:auto,       # per-body LTT, depth scale, LOS projection
+          barycentric_lighttime=:auto,    # whole-system light-travel timing
+          einstein_rv=:on)                # spectroscopic vs kinematic RV
 ```
+
+The two opt-outs are **tri-state** and default to `:auto`, which measures
+whether each correction moves *your* predictions by anything comparable to
+your uncertainties and decides once, at build, printing what it decided.
+`:on`/`:off` — and `true`/`false` — still set them by hand. See
+[Corrections and data provenance](@ref) for how the decision is made and how
+to re-check it after sampling.
+
+!!! warning "Two radial-velocity changes to know about"
+    `radvel` is now the *spectroscopic* velocity: it includes the Einstein
+    (second-order Doppler plus gravitational-redshift) term. And an absolute
+    RV series now models the perspective-acceleration drift by default —
+    `secular_acceleration=:model`. If your pipeline already removed secular
+    acceleration, you must say so with `secular_acceleration=:data_corrected`,
+    or it will be counted twice. Both are covered, with magnitudes, on the
+    corrections page.
+
+!!! note "Catalog priors describe the primary, not the barycentre"
+    The frame's `ra/dec/plx/pmra/pmdec/rv` are the **system barycentre's**.
+    A catalog measured the *primary body* (or, for an unresolved pair, the
+    photocentre). For a planet host the difference is negligible. For a
+    stellar binary it is the full reflex velocity — potentially mas/yr — so a
+    tight `pmra ~ Normal(catalog…)` on the frame applies a measurement of body
+    A to the barycentre and can actively bias the orbit.
+
+    There is no anchoring option yet. Until there is: for stellar binaries,
+    either widen those priors, or fit the catalog's underlying data (DR4
+    epochs, Hipparcos IAD) rather than its 5-parameter summary. Note the
+    summary is an epoch-average with the orbit aliased into it whichever way
+    you parametrize, so a tight catalog prior on an accelerating source is
+    doubly suspect.
 
 `AHL21` integrates every body's mutual gravity instead of superposing
 Keplerians. Nothing else in the model changes. Note that the elements mean

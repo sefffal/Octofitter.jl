@@ -330,3 +330,10 @@ function generate_from_params(obs::HipparcosIADObs, ctx::ObsContext; add_noise)
         table, obs.priors, obs.derived, obs.hip_sol, obs.name,
         obs.host, obs.companions, obs.ref)
 end
+
+# Along-scan residuals are `measured − model`, so a change in the model shows
+# up in them one-for-one.
+has_correction_impact(::Type{<:HipparcosIADObs}) = true
+correction_impact(obs::HipparcosIADObs, a::ObsContext, b::ObsContext) =
+    _simulate_impact(simulate(obs, a), simulate(obs, b), (:resid,),
+                     _tightest(obs.table.sres_renorm))

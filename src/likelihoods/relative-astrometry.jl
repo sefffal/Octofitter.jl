@@ -235,3 +235,20 @@ function generate_from_params(obs::RelAstromObs, ctx::ObsContext; add_noise)
     return RelAstromObs(tab; target=obs.target, ref=obs.ref, obs.name,
         variables=(obs.priors, obs.derived))
 end
+
+# The `:auto` correction test compares what this observation actually fits —
+# modelled RA/Dec on the true sky — against its tightest per-point σ. The
+# constructor has already asserted that one of the two column sets is present,
+# so this reads them directly rather than searching for them. For a sep/PA
+# table the position angle's σ becomes a transverse distance, so both
+# components are in mas.
+has_correction_impact(::Type{<:RelAstromObs}) = true
+correction_impact(obs::RelAstromObs, a::ObsContext, b::ObsContext) =
+    _simulate_impact(simulate(obs, a), simulate(obs, b),
+                     (:ra_model, :dec_model), _relastrom_sigma(obs))
+
+function _relastrom_sigma(obs::RelAstromObs)
+    t = obs.table
+    hasproperty(t, :sep) && hasproperty(t, :pa) || return _tightest(t.σ_ra, t.σ_dec)
+    return _tightest(t.σ_sep, t.σ_pa .* t.sep)
+end

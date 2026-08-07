@@ -107,6 +107,25 @@ const _LINEAR_OBSERVABLES = (
     PlanetOrbits.pmra, PlanetOrbits.pmdec,
 )
 
+# The kinematic half of `radvel`, in m/s.
+#
+# `radvel` is the *spectroscopic* velocity: it adds the Einstein term, which is
+# quadratic in velocity and 1/r in separation, and therefore does **not**
+# telescope into per-row contributions the way the kinematic part does. A
+# multi-row fold decomposes the kinematic signal; the Einstein term stays
+# common-mode and lands in the residual beside the instrument offset, which is
+# where a term no single row owns belongs. (For planetary companions its
+# *varying* part is sub-cm/s; see PlanetOrbits' "Precision opt-outs" page for
+# the cases where it is not, all of which are single-row.)
+#
+# The single-row case is untouched: there the signal is the query itself, so
+# it keeps `radvel` and stays exact.
+_kinrv(sol, t, r) = PlanetOrbits.velz(sol, t, r) *
+                    PlanetOrbits.au2m / PlanetOrbits.year2sec_julian
+
+_rowfunc(f) = f
+_rowfunc(::typeof(PlanetOrbits.radvel)) = _kinrv
+
 # A leaf-name view of a spec, used only for colour matching in the Makie
 # extension (a planet's panels take its sky-track accent colour).
 _leafnames(sys::System, ::BodyRefSpec{Name}) where {Name} = (Name,)
@@ -182,7 +201,7 @@ function rowsignal(posys::PlanetOrbits.System{NB,NR}, q::ObservableQuery, k::Int
     names = PlanetOrbits._names(posys)
     ext = PlanetOrbits._setnames(names, posys.specs[k].ext)
     int = PlanetOrbits._setnames(names, posys.specs[k].int)
-    rowq = ObservableQuery(q.func,
+    rowq = ObservableQuery(_rowfunc(q.func),
         length(ext) == 1 ? refspec(ext[1]) : BarycentreSpec{ext}(),
         length(int) == 1 ? refspec(int[1]) : BarycentreSpec{int}())
     return RowSignal(rowq, k, true, q.target, q.ref)
@@ -211,7 +230,7 @@ function foldephemeris(sig::RowSignal, posys, tmid::Real; solvekw=(;))
     P = PlanetOrbits.period(posys, sig.k)
     tp = posys.rows[sig.k].tp
     t0 = tp + floor((tmid - tp) / P) * P
-    if sig.query.func === PlanetOrbits.radvel
+    if sig.query.func === PlanetOrbits.radvel || sig.query.func === _kinrv
         ts = collect(range(t0, t0 + P, length=201))
         traj = orbitsolve(posys, ts; solvekw...)
         v = evalsignal(sig, posys, traj)
@@ -915,7 +934,7 @@ function obscontext(series::PosteriorSeries, obs; draw=nothing)
     key = normalizename(likelihoodname(obs))
     obsns = hasproperty(θ, :observations) ? θ.observations : (;)
     θ_obs = hasproperty(obsns, key) ? getproperty(obsns, key) : (;)
-    return ObsContext(θ, θ_obs, posys, traj, series.data_maps[obs])
+    return _obsctx(series.model.system, θ, θ_obs, posys, traj, series.data_maps[obs])
 end
 export obscontext
 

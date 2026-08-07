@@ -324,9 +324,22 @@ end
     s1 = Octofitter.rowsignal(posys, q, 1)
     s2 = Octofitter.rowsignal(posys, q, 2)
     @test s1.scaled && s2.scaled
+    # The decomposition is of the *kinematic* signal: `radvel`'s Einstein term
+    # is quadratic in velocity and 1/r in separation, so it does not telescope
+    # into per-row contributions, and a multi-row fold leaves it common-mode
+    # (see `_rowfunc`). So the parts reproduce the kinematic total exactly...
+    kin = ObservableQuery(Octofitter._kinrv, :A, Barycentre)
     full = Octofitter.evalquery(q, posys, traj)
+    fullkin = Octofitter.evalquery(kin, posys, traj)
     parts = Octofitter.evalsignal(s1, posys, traj) .+ Octofitter.evalsignal(s2, posys, traj)
-    @test full ≈ parts rtol = 1e-10
+    @test fullkin ≈ parts rtol = 1e-10
+    # ...and what they leave behind is precisely the Einstein term, not a
+    # decomposition error.
+    ein = [radvel(sol, PlanetOrbits.BodyRef(1), PlanetOrbits.barycentre(posys)) -
+           Octofitter._kinrv(sol, PlanetOrbits.BodyRef(1), PlanetOrbits.barycentre(posys))
+           for sol in traj]
+    @test full .- parts ≈ ein rtol = 1e-10
+    @test maximum(abs, ein) > 0
 
     # sep(b, A) is moved only by row 1 under astrocentric rows — exact fold —
     # and row 2's contribution to it cannot be isolated (nonlinear)

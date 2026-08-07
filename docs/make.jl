@@ -81,6 +81,7 @@ makedocs(
             "Sampler" => "samplers.md",
             "Distributed Sampling" => "parallel-sampling.md",
             "Priors" => "priors.md",
+            "Corrections & Data Provenance" => "corrections.md",
             "Derived Variables" => "derived.md",
             "Custom Likelihoods" => "custom-likelihood.md",
             "Kepler Solver" => "kepler.md",

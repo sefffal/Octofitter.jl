@@ -182,3 +182,11 @@ end
     "for the photometry to constrain. Add it to :$name's `@variables` block " *
     "(`$var ~ Uniform(0, 10)`, or a derived expression from an evolutionary " *
     "model), or point the observation at a different `target=`/`band=`.")
+
+# Photometry is a flux, read from the model namespace: no observing geometry
+# and no light-travel time can move it. Saying so explicitly keeps a
+# photometry-only model from being pushed to the conservative "cannot say"
+# branch of the `:auto` test.
+has_correction_impact(::Type{<:PhotometryObs}) = true
+correction_impact(obs::PhotometryObs, ::ObsContext, ::ObsContext) =
+    (; delta=0.0, sigma=_tightest(obs.table.σ_phot), n=length(obs.table.phot))

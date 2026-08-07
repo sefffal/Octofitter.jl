@@ -346,6 +346,21 @@ export drawfrompriors
 const _kepsolve_use_threads = Ref(false)
 
 """
+    _obsctx(sys, θ, θ_obs, posys, traj, map)
+
+`ObsContext` for one observation of a **built** `System`, carrying that
+system's solve configuration.
+
+Every path that evaluates a likelihood outside the generated function —
+cross-validation, `generate_from_params`, the plotting API — goes through this
+rather than calling `ObsContext` directly, so that a setting like
+`einstein_rv=:off` cannot be honoured by the sampler and quietly ignored by
+everything that reads the result back.
+"""
+@inline _obsctx(sys::System, θ, θ_obs, posys, traj, map) =
+    ObsContext(θ, θ_obs, posys, traj, map, Bumper.default_buffer(), sys.einstein_rv)
+
+"""
     epoch_plan(system)
 
 The sorted, deduplicated union of every observation's epochs, plus a per
@@ -559,6 +574,7 @@ function make_ln_like(sys::System, θ_example=nothing; include_priors::Bool=true
     # Observation calls, in order: real observations first, then the
     # prior-shaped terms `@variables` emitted (which read their owner's
     # namespace rather than one of their own).
+    ein = sys.einstein_rv
     calls = Expr[]
     j = 0
     for (k, o) in enumerate(sys.observations)
@@ -567,7 +583,7 @@ function make_ln_like(sys::System, θ_example=nothing; include_priors::Bool=true
         θ_obs = :(hasproperty(θ.observations, $(QuoteNode(nm))) ? θ.observations.$nm : (;))
         push!(calls, :($(Symbol(:ll, j + 1)) = $(Symbol(:ll, j)) + ln_like(
             system.observations[$k],
-            ObsContext(θ, $θ_obs, posys, traj, $(maps[o]), buf))))
+            ObsContext(θ, $θ_obs, posys, traj, $(maps[o]), buf, $ein))))
         j += 1
     end
     if include_priors
@@ -575,7 +591,7 @@ function make_ln_like(sys::System, θ_example=nothing; include_priors::Bool=true
             θ_obs = owner === :system ? :(θ) : :(θ.bodies.$owner)
             push!(calls, :($(Symbol(:ll, j + 1)) = $(Symbol(:ll, j)) + ln_like(
                 system.priorterms[$k][2],
-                ObsContext(θ, $θ_obs, posys, traj, $(Int[]), buf))))
+                ObsContext(θ, $θ_obs, posys, traj, $(Int[]), buf, $ein))))
             j += 1
         end
     end

@@ -188,6 +188,37 @@ other.
 All observations live here. Each one names its own references
 (`target=`, `ref=`), so there is nothing left for per-companion attachment
 to express.
+
+# Corrections
+`observing_geometry` and `barycentric_lighttime` gate PlanetOrbits' two
+source-side precision corrections. Each takes `:auto` (the default), `:on` or
+`:off` — `true`/`false` are accepted as aliases for the latter two.
+
+`:auto` measures rather than guesses: at build, it draws ~300 parameter sets
+from the priors, solves each with the correction on and off, and compares
+**each observation's own model predictions** against that observation's own
+tightest uncertainty. The correction is declined only if the resulting
+*accumulated* bias — per-point impact × √(number of data points), since these
+corrections are common-mode and so grow as √n rather than averaging down —
+stays under 0.1σ for every observation. Needs are OR'd, so one µas dataset
+keeps it on for the whole model. A model in which no observation type can
+report comparable predictions resolves `:on` without taking a single draw.
+
+The decision is taken once, here — never per draw, which would make the log
+density discontinuous — and recorded on the built system as `sys.corrections`,
+from where it travels into chain metadata. Tune with `correction_draws`,
+`correction_seed`, `correction_threshold`, and silence the build log with
+`verbosity=0`.
+
+`einstein_rv` (`:on` by default, or `:off`) is the third and is *not*
+tri-state: it chooses whether radial velocities are predicted from the
+spectroscopic `radvel` or the kinematic `velz`. That is a counterfactual, for
+measuring what the Einstein term does to a posterior — not something the data
+can rule out, and not a provenance declaration, since no pipeline can have
+removed the part of the term that varies with the orbit.
+
+See the "Corrections and data provenance" manual page, and
+[`recheck_corrections`](@ref) for the after-sampling check.
 """
 struct System{TN<:Tuple,TO<:Tuple,TT<:Tuple,TP<:Priors,TD<:Derived,TM}
     name::Symbol
@@ -201,8 +232,21 @@ struct System{TN<:Tuple,TO<:Tuple,TT<:Tuple,TP<:Priors,TD<:Derived,TM}
     derived::TD
     # --- solve configuration (see PlanetOrbits' `orbitsolve!`) ---
     method::TM
+    # The *resolved* booleans, whatever the user wrote. `:auto` is decided
+    # once, here, by the prior-predictive impact test in `corrections.jl`;
+    # everything downstream (codegen's literal interpolation, cross-validation,
+    # the plotting API) keeps reading a plain `Bool`.
     observing_geometry::Bool
     barycentric_lighttime::Bool
+    # Whether radial velocities are predicted from the spectroscopic `radvel`
+    # (the default) or the kinematic `velz`. A counterfactual physics switch,
+    # not a provenance declaration: no pipeline can have removed the
+    # orbit-varying part of the Einstein term, so there is nothing per-series
+    # to declare and it belongs here beside the other two solve settings.
+    einstein_rv::Bool
+    # How those booleans came to be what they are, kept with the model so a
+    # posterior is never separable from the corrections that produced it.
+    corrections::CorrectionReport
     # --- derived at construction, all of it structural (no sample data) ---
     bodynames::Vector{Symbol}       # PlanetOrbits body order
     rows::Vector{Tuple{Symbol,Tuple{Vararg{Symbol}},Tuple{Vararg{Symbol}}}}
@@ -216,8 +260,13 @@ function System(; name::Union{Symbol,AbstractString},
                 observations=(),
                 variables::Tuple=(Priors(), Derived()),
                 method=PlanetOrbits.KeplerianApprox(),
-                observing_geometry::Bool=true,
-                barycentric_lighttime::Bool=true)
+                observing_geometry=:auto,
+                barycentric_lighttime=:auto,
+                einstein_rv=:on,
+                correction_draws::Int=CORRECTION_DRAWS,
+                correction_seed::UInt64=CORRECTION_SEED,
+                correction_threshold::Float64=CORRECTION_BIAS_THRESHOLD,
+                verbosity::Int=1)
     (priors, derived, extra...) = variables
     priors::Priors
     derived::Derived
@@ -392,8 +441,35 @@ function System(; name::Union{Symbol,AbstractString},
         "System $name: duplicate observation name(s). Each observation needs a unique " *
         "`name=`, since it labels the observation's own variables in the chain.")
 
+    og = _normalize_flag(observing_geometry, "observing_geometry")
+    blt = _normalize_flag(barycentric_lighttime, "barycentric_lighttime")
+    # No `:auto` here: the Einstein term is not a precision tier that data can
+    # rule out — it is what `radvel` *means*. `:off` exists to measure what it
+    # does to a posterior, which is a question only the user can be asking.
+    ein = _normalize_flag(einstein_rv, "einstein_rv")
+    ein === :auto && error(
+        "`einstein_rv` takes `:on` (the default) or `:off`, not `:auto`. The " *
+        "Einstein term cannot be ruled out by the data the way a geometry " *
+        "correction can: no reduction pipeline can have removed the part of it " *
+        "that varies with the orbit, and the constant part is absorbed by each " *
+        "series' offset either way. `:off` is an experiment — it predicts from " *
+        "the kinematic `velz` — not a declaration about your data. The " *
+        "correction report prices the term for every RV series regardless.")
+
+    # The impact test needs a fully-built `System` to draw from and solve, so
+    # build one at the accurate setting first, measure, and rebuild with the
+    # verdict. Both are cheap immutable values; nothing is mutated in place.
+    proto = System(Symbol(name), nodes, obs, priorterms, priors, derived,
+        method, true, true, ein === :on, CorrectionReport(),
+        bodynames, rows, deferred, framevars)
+    report = _impact_report(proto, og, blt;
+        ndraws=correction_draws, minsuccess=CORRECTION_MIN_SUCCESS,
+        threshold=correction_threshold, seed=correction_seed, verbosity)
+    _log_corrections(name, report, verbosity)
+
     return System(Symbol(name), nodes, obs, priorterms, priors, derived,
-        method, observing_geometry, barycentric_lighttime,
+        method, _resolved_flag(report, :observing_geometry),
+        _resolved_flag(report, :barycentric_lighttime), ein === :on, report,
         bodynames, rows, deferred, framevars)
 end
 
