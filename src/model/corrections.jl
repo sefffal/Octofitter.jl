@@ -449,15 +449,19 @@ function _correction_logline(d::CorrectionDecision)
     base = "$(d.flag) = $(d.resolved) ($tag)"
     d.source === :user && return base
     draws = d.ndraws == 0 ? "no draws needed" :
-            "$(d.ndraws) prior draws" * (d.nfailed > 0 ? " ($(d.nfailed) rejected)" : "")
-    return base * ": " * d.note * " — over " * draws *
+            "over $(d.ndraws) prior draws" *
+            (d.nfailed > 0 ? " ($(d.nfailed) rejected)" : "")
+    return base * ": " * d.note * " — " * draws *
            " (seed 0x$(string(d.seed, base=16)))"
 end
 
 function _log_corrections(sysname, r::CorrectionReport, verbosity::Int)
     verbosity >= 1 || return
+    # Explicit settings are logged too, not just measured ones. The build log
+    # is where a reader finds out what physics this posterior was produced
+    # under, and "the user asked for it" is an answer to that question — a
+    # silent flag is exactly as hard to reconstruct later as a silent default.
     for d in r.decisions
-        d.source === :user && continue
         @info "[$sysname] " * _correction_logline(d)
     end
     for a in r.advisories
