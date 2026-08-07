@@ -11,11 +11,9 @@ against a wide variety of exoplanet / binary star data.
 You can also use Octofitter from Python using the [Python guide](@ref python).
 
 !!! warning "Upgrading from Octofitter v8 or below?"
-    Octofitter v9 is a substantial redesign of the model syntax. **Please read
-    [Migrating to Octofitter v9](@ref v9-migration).**
+    Octofitter v9 includes is a substantial change to how models are defined. Please read
+    [Migrating to Octofitter v9](@ref v9-migration).
 
-    The older [Migration Guide](@ref migration) covers the v6 → v7 → v8 changes and is
-    kept for historical reference.
 
 
 ![](assets/gallery.png)
