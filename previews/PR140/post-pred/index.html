@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Posterior Predictive Checks · Octofitter.jl</title><meta name="title" content="Posterior Predictive Checks · Octofitter.jl"/><meta property="og:title" content="Posterior Predictive Checks · Octofitter.jl"/><meta property="twitter:title" content="Posterior Predictive Checks · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li><li><a class="tocitem" href="../v9-migration/">Migrating to v9</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 Epoch Astrometry</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li><li><a class="tocitem" href="../gaia-dr4-prerelease/">Gaia DR4 Pre-Release Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li><li><a class="tocitem" href="../completeness/">Detection Completeness Mapping</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox" checked/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li class="is-active"><a class="tocitem" href>Posterior Predictive Checks</a><ul class="internal"><li><a class="tocitem" href="#Where-the-model-puts-the-planet"><span>Where the model puts the planet</span></a></li><li><a class="tocitem" href="#Replicating-the-data,-not-just-the-orbit"><span>Replicating the data, not just the orbit</span></a></li></ul></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvplot/">Radial velocity figures</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Bayesian Workflows</a></li><li class="is-active"><a href>Posterior Predictive Checks</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Posterior Predictive Checks</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/post-pred.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Posterior-Predictive-Checks"><a class="docs-heading-anchor" href="#Posterior-Predictive-Checks">Posterior Predictive Checks</a><a id="Posterior-Predictive-Checks-1"></a><a class="docs-heading-anchor-permalink" href="#Posterior-Predictive-Checks" title="Permalink"></a></h1><p>A posterior predictive check compares our true data with simulated data drawn from the posterior. This allows us to evaluate if the model is able to reproduce our observations appropriately. Samples drawn from the posterior predictive distribution should match the locations of the original data.</p><p>To demonstrate, we will fit a model to relative astrometry data:</p><pre><code class="language-julia hljs">using Octofitter
+using Distributions
+
+astrom_dat = Table(
+    epoch= [50000.,50120,50240,50360,50480,50600,50720,50840,],
+    ra = [-505.764,-502.57,-498.209,-492.678,-485.977,-478.11,-469.08,-458.896,],
+    dec = [-66.9298,-37.4722,-7.92755,21.6356, 51.1472, 80.5359, 109.729, 138.651,],
+    σ_ra = fill(10.0, 8),
+    σ_dec = fill(10.0, 8),
+    cor = fill(0.0, 8)
+)
+
+A = Body(
+    name=&quot;A&quot;,
+    variables=@variables begin
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1)  # M⊙
+    end
+)
+
+b = Body(
+    name=&quot;b&quot;,
+    about=A,
+    variables=@variables begin
+        a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        epoch = 50420.0  # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
+
+astrom_obs = RelAstromObs(astrom_dat; target=b, ref=A, name=&quot;simulated astrom&quot;)
+
+sys = System(
+    name=&quot;Tutoria&quot;,
+    bodies=[A, b],
+    observations=[astrom_obs],
+    variables=@variables begin
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
+
+using Random
+Random.seed!(0)
+chain = octofit(model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×29×1 Array{Float64, 3}):
+
+Iterations        = 1:1:1000
+Number of chains  = 1
+Samples per chain = 1000
+Wall duration     = 3.34 seconds
+Compute duration  = 3.34 seconds
+parameters        = plx, A_mass, b_a, b_e, b_i, b_ωx, b_ωy, b_Ωx, b_Ωy, b_θx, b_θy, b_ω, b_Ω, b_θ, b_epoch
+internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logprior, logpost, tree_depth, numerical_error
+
+Use `describe(chains)` for summary statistics and quantiles.
+</code></pre><h2 id="Where-the-model-puts-the-planet"><a class="docs-heading-anchor" href="#Where-the-model-puts-the-planet">Where the model puts the planet</a><a id="Where-the-model-puts-the-planet-1"></a><a class="docs-heading-anchor-permalink" href="#Where-the-model-puts-the-planet" title="Permalink"></a></h2><p>We now have our posterior as approximated by the MCMC chain. A posterior sample is a whole <em>system</em>, not a per-planet orbit object, so we rebuild one system per draw with <a href="../api/#Octofitter.construct_system"><code>construct_system</code></a> and then query it with the usual PlanetOrbits functions:</p><pre><code class="language-julia hljs"># Instead of building a system for all rows in the chain, just pick
+# every twentieth row.
+ii = 1:20:1000
+systems = [construct_system(model, chain, i) for i in ii]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">50-element Vector{PlanetOrbits.System{2, 1, Float64, PlanetOrbits.Parallax{Float64}, (:A, :b), @NamedTuple{}, 2}}:
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ ⋮
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}
+ System{2 bodies, 1 orbits, Float64}</code></pre><div class="admonition is-info" id="Every-observable-names-its-references-2d63316b572a5288"><header class="admonition-header">Every observable names its references<a class="admonition-anchor" href="#Every-observable-names-its-references-2d63316b572a5288" title="Permalink"></a></header><div class="admonition-body"><p><code>construct_system</code> returns a <code>PlanetOrbits.System</code> carrying every body, and each observable takes an explicit <code>(target, ref)</code> pair — <code>raoff(sol, :b, :A)</code>. That is what lets the same call express a companion measured against the host, against the barycentre, or against another companion.</p></div></div><p>Calculate and plot the location the planet would be at each observation epoch:</p><pre><code class="language-julia hljs">using CairoMakie
+
+epochs = astrom_obs.table.epoch
+
+x = Float64[]
+y = Float64[]
+for posys in systems
+    traj = orbitsolve(posys, epochs)
+    append!(x, raoff.(traj, :b, :A))
+    append!(y, decoff.(traj, :b, :A))
+end
+
+fig = Figure()
+ax = Axis(
+    fig[1,1], xlabel=&quot;ra offset [mas]&quot;, ylabel=&quot;dec offset [mas]&quot;,
+    xreversed=true,
+    aspect=1
+)
+for posys in systems
+    Makie.lines!(ax, posys, :b, :A, color=:lightgrey)
+end
+
+Makie.scatter!(
+    ax,
+    x, y,
+    markersize=3,
+)
+
+Makie.scatter!(ax, astrom_obs.table.ra, astrom_obs.table.dec,color=:black, label=&quot;observed&quot;)
+Makie.scatter!(ax, [0],[0], marker=&#39;⋆&#39;, color=:black, markersize=20,label=&quot;&quot;)
+Makie.xlims!(400,-700)
+Makie.ylims!(-200,200)
+fig</code></pre><img src="d001f82f.png" alt="Example block output"/><p>Looks like a great match to the data! Notice how the uncertainty around the middle point is lower than the ends. That&#39;s because the orbit&#39;s posterior location at that epoch is also constrained by the surrounding data points. We can know the location of the planet in hindsight better than we could measure it!</p><h2 id="Replicating-the-data,-not-just-the-orbit"><a class="docs-heading-anchor" href="#Replicating-the-data,-not-just-the-orbit">Replicating the data, not just the orbit</a><a id="Replicating-the-data,-not-just-the-orbit-1"></a><a class="docs-heading-anchor-permalink" href="#Replicating-the-data,-not-just-the-orbit" title="Permalink"></a></h2><p>The plot above shows the posterior over the <em>model prediction</em>. The posterior predictive distribution proper is the distribution over <em>replicated data</em> — model prediction plus measurement noise, <code>p(ỹ | y) = ∫ p(ỹ | θ) p(θ | y) dθ</code>. Octofitter can draw from it directly: take a posterior sample, hand it to <a href="../api/#Octofitter.generate_from_params"><code>generate_from_params</code></a> with <code>add_noise=true</code>, and read the simulated table back off the returned system.</p><p>This works for <strong>any</strong> observation type in the model, not just astrometry, which is the reason to prefer it over hand-rolling the replication per data type:</p><pre><code class="language-julia hljs">Random.seed!(1)
+
+fig = Figure()
+ax = Axis(
+    fig[1,1], xlabel=&quot;ra offset [mas]&quot;, ylabel=&quot;dec offset [mas]&quot;,
+    xreversed=true, aspect=1
+)
+
+for i in 1:20:1000
+    θ = Octofitter.mcmcchain2result(model, chain, i)
+    rep = generate_from_params(sys, θ; add_noise=true)
+    tbl = rep.observations[1].table
+    Makie.scatter!(ax, tbl.ra, tbl.dec, color=(:steelblue, 0.4), markersize=5)
+end
+
+Makie.scatter!(ax, astrom_obs.table.ra, astrom_obs.table.dec, color=:black,
+    label=&quot;observed&quot;, markersize=10)
+Makie.xlims!(400,-700)
+Makie.ylims!(-200,200)
+fig</code></pre><img src="717aadd1.png" alt="Example block output"/><p>The replicated points should scatter around the real ones with roughly the measurement uncertainty. If the real data sit systematically outside the replicated cloud, the model cannot reproduce them — that is the check.</p><div class="admonition is-info" id="Where-the-replicated-data-live-f15f527fe2d18bc4"><header class="admonition-header">Where the replicated data live<a class="admonition-anchor" href="#Where-the-replicated-data-live-f15f527fe2d18bc4" title="Permalink"></a></header><div class="admonition-body"><p>Observations belong to the system, so the replicated data are at <code>rep.observations[i]</code>, in the same order they were listed in <code>System(...; observations=[...])</code>.</p></div></div><p>You can follow this same procedure for any kind of data modelled with Octofitter. For a quantitative version of the same idea — how much each <em>individual</em> data point is influencing the fit — see <a href="../cross-validation/#cross-validation">Cross-Validation</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../prior-pred/">« Prior Predictive Checks</a><a class="docs-footer-nextpage" href="../cross-validation/">Cross Validation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 7 August 2026 12:53">Friday 7 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
