@@ -155,11 +155,6 @@ sys = System(
 model = Octofitter.LogDensityModel(sys)
 ```
 
-!!! note "Astrometry is measured against the star"
-    Both astrometry tables are `target=<planet>, ref=A` — positions relative to the host
-    star — regardless of the hierarchy we chose. The hierarchy says how the orbits are
-    parametrized; `raoff(sol, target, ref)` handles the difference between "b relative to
-    A" and "b relative to the A+c barycentre" exactly, with no approximation.
 
 Let's plot our data before we start:
 ```@example 1
@@ -242,8 +237,8 @@ planet_c = Body(
         e = 0.0
         ω = 0.0
 
-        i = system.i_c
-        Ω = system.Ω_c
+        i ~ Sine()
+        Ω ~ UniformCircular()
 
         P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
         P = system.P_nominal * P_mul * year2day_julian
@@ -261,8 +256,8 @@ planet_b = Body(
         e = 0.0
         ω = 0.0
 
-        i = system.i_b
-        Ω = system.Ω_b
+        i~ Sine()
+        Ω ~=~ UniformCircular()
 
         P_mul ~ Normal(1, 0.1)
         P = 2 * system.P_nominal * P_mul * year2day_julian
@@ -281,19 +276,11 @@ sys = System(
     observations=[astrom_b, astrom_c],
     variables=@variables begin
         plx ~ gaia_plx(;gaia_id=2832463659640297472)
-        # We create inclination and longitude of ascending node variables at the
-        # system level.
-        i_b ~ Sine()
-        Ω_b ~ UniformCircular()
-
-        i_c ~ Sine()
-        Ω_c ~ UniformCircular()
-
 
         # Calculate the mutual inclination
         mut_inc_b_c = acos(
-            cos(i_b) * cos(i_c) +
-            sin(i_b) * sin(i_c) * cos(Ω_b - Ω_c)
+            cos(b.i) * cos(c.i) +
+            sin(b.i) * sin(c.i) * cos(b.Ω - c.Ω)
         )
         # Add a prior on the mutual inclination: 0 ± 10 degrees
         mut_inc_b_c ~ truncated(Normal(0, deg2rad(10)), lower=0)

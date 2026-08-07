@@ -30,9 +30,7 @@ This returns an array of semi-major axis values (`a`) for the planet `b` sampled
 !!! note "How columns are named"
     Body variables are prefixed with the body's name (`b_a`, `b_e`, `b_flux_H`);
     observation variables are prefixed with the observation's name (`GPI_jitter`);
-    system variables have no prefix (`plx`). Chains written by older versions still
-    load, with a warning explaining any renames — see
-    [Migrating to Octofitter v9](@ref v9-migration).
+    system variables have no prefix (`plx`). 
 
 ## Reconstructing orbits from a chain
 
@@ -62,7 +60,7 @@ There is no per-planet orbit object: a draw is one `PlanetOrbits.System` contain
 every body and every orbit.
 
 ## Diagnostics
-Printing the chains will display a number of useful summaries for each quantity, like the mean, 0.25, 0.5, and 0.75 quantiles, and convergence metrics. See MCMCChains documentation for more details.
+Printing the chains will display a summary of the chains size and columns. Running `describe(chain)` will output a number of useful summaries for each quantity, like the mean, 0.25, 0.5, and 0.75 quantiles, and convergence metrics. See MCMCChains documentation for more details.
 
 Sampler diagnostics (`tree_depth`, `numerical_error`, `step_size`, …) are stored in the
 chain's `:internals` section rather than as model parameters, so they do not show up in

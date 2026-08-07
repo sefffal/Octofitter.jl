@@ -44,14 +44,6 @@ A file holding several concatenated chains can be split back apart:
 chain = Octofitter.loadhdf5("fname.h5", 4)   # 4 chains
 ```
 
-!!! note "Masses come back in solar masses"
-    There is one mass unit throughout, M⊙, so imported companion masses are *not*
-    rescaled to Jupiter masses. Anything in your analysis that compares a mass
-    against a literal threshold should be written with `mjup`: `mass > 10mjup`,
-    not `mass > 10`.
-
-    No per-companion total-mass column is synthesised: a body's dynamical mass
-    comes from the hierarchy you declare.
 
 ## Save a posterior in Orbitize! format
 

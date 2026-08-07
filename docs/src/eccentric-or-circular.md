@@ -202,6 +202,38 @@ println("Bayes factor (eccentric vs circular): ", round(bayes_factor, digits=2))
 println("Bayes factor (circular vs eccentric): ", round(1/bayes_factor, digits=2))
 ```
 
+
+The above gives an intuition for how a Bayes Factor can be calculated, but it neglects our uncertainty on that value from a finite-length MCMC run. 
+This function  `oddsci`  calculates an interval you can quote that accounts for Monte Carlo noise and effective sample size.
+```@example 1
+using Distributions, Statistics
+
+  """
+      oddsci(z; q=0.68) -> (lo, med, hi)
+
+  Credible interval on the odds `p/(1-p)` of a Bernoulli indicator trace `z`,
+  corrected for autocorrelation.
+
+  Jeffreys' `Beta(k+½, n-k+½)` posterior on `p`, but with the raw counts replaced
+  by *effective* counts `S·p`, `S·(1-p)`, where `S` is the batch-means effective
+  sample size — an MCMC trace carries less information than `n` independent
+  draws, and at `p → 1` the odds are dominated by the handful of minority draws.
+  Quantiles are then pushed through `p ↦ p/(1-p)`..
+  """
+  function oddsci(z; q=0.68)
+      n, p = length(z), mean(z)
+      b = max(1, isqrt(n))                                    # batch length ≈ √n
+      m = [mean(@view z[(i-1)*b+1:i*b]) for i in 1:n÷b]       # batch means
+      v = length(m) > 1 ? b*sum(abs2, m .- mean(m))/((length(m)-1)*n) : 0.0
+      S = 0 < p < 1 && v > 0 ? clamp(p*(1-p)/v, 1, n) : float(n)   # ESS
+      B = Beta(S*p + 0.5, S*(1-p) + 0.5)
+      Ω(x) = x/(1-x)
+      Ω.(quantile.(B, ((1-q)/2, 0.5, (1+q)/2)))
+  end
+
+println("Bayes factor (eccentric vs circular): ", oddsci(chain[:b_eccentric][:]))
+```
+
 **Interpreting Bayes Factors:**
 - BF > 10: Strong evidence for eccentric orbit
 - BF = 3-10: Moderate evidence for eccentric orbit
