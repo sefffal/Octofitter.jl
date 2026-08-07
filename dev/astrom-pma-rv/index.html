@@ -69,21 +69,21 @@ model_pma = Octofitter.LogDensityModel(sys)</code></pre><pre class="documenter-e
 chain_pma, pt = octofit_pigeons(model_pma, n_rounds=8, explorer=SliceSampler())
 display(chain_pma)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
 <span class="sgr36"><span class="sgr1">Info</span></span> Given OctofitterPigeonsExt was explicitly requested, output will be shown live 
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module Octofitter with build ID fafbfcfd-4801-2bf5-08e1-18cc22724488 is missing from the cache.
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module Octofitter with build ID fafbfcfd-18b6-a9c8-8f98-639c10431b17 is missing from the cache.
 <span class="sgr33"><span class="sgr1">│ </span></span>This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base loading.jl:2643</span>
-   1616.7 ms<span class="sgr33">  ? </span>Octofitter → OctofitterPigeonsExt
-   4796.3 ms<span class="sgr33">  ? </span>Pigeons → PigeonsForwardDiffExt
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module Octofitter with build ID fafbfcfd-4801-2bf5-08e1-18cc22724488 is missing from the cache.
+   1972.0 ms<span class="sgr33">  ? </span>Octofitter → OctofitterPigeonsExt
+   4704.8 ms<span class="sgr33">  ? </span>Pigeons → PigeonsForwardDiffExt
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module Octofitter with build ID fafbfcfd-18b6-a9c8-8f98-639c10431b17 is missing from the cache.
 <span class="sgr33"><span class="sgr1">│ </span></span>This may mean Octofitter [daf3887e-d01a-44a1-9d7e-98f15c5d69c9] does not support precompilation but is imported by a module that does.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base loading.jl:2643</span>
 <span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
 <span class="sgr36"><span class="sgr1">Info</span></span> Given PigeonsForwardDiffExt was explicitly requested, output will be shown live 
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module ForwardDiff with build ID fafbfcfd-8739-de32-c1b8-a55705b32e22 is missing from the cache.
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module ForwardDiff with build ID fafbfcfd-67df-0408-1e83-85dc6648a6e9 is missing from the cache.
 <span class="sgr33"><span class="sgr1">│ </span></span>This may mean ForwardDiff [f6369f11-7733-5829-9624-2563aa707210] does not support precompilation but is imported by a module that does.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base loading.jl:2643</span>
-   3347.0 ms<span class="sgr33">  ? </span>Pigeons → PigeonsForwardDiffExt
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module ForwardDiff with build ID fafbfcfd-8739-de32-c1b8-a55705b32e22 is missing from the cache.
+   3454.6 ms<span class="sgr33">  ? </span>Pigeons → PigeonsForwardDiffExt
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Module ForwardDiff with build ID fafbfcfd-67df-0408-1e83-85dc6648a6e9 is missing from the cache.
 <span class="sgr33"><span class="sgr1">│ </span></span>This may mean ForwardDiff [f6369f11-7733-5829-9624-2563aa707210] does not support precompilation but is imported by a module that does.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Base loading.jl:2643</span>
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
@@ -94,29 +94,29 @@ display(chain_pma)</code></pre><pre class="documenter-example-output"><code clas
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Verbosity toggle: unrecognized_stop_reason
 <span class="sgr33"><span class="sgr1">│ </span></span> Unrecognized stop reason: Too many steps (101) without any function evaluations (probably search has converged). Defaulting to ReturnCode.Default.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ OptimizationBase ~/.julia/packages/OptimizationBase/y1GZt/src/utils.jl:170</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Pathfinder error: MethodError(copy, (SplittableRandoms.SplittableRandom(0x204834c0d026bff6, 0xaabf13ae126f9159),), 0x0000000000009e47)
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Pathfinder error: MethodError(copy, (SplittableRandoms.SplittableRandom(0x204834c0d026bff6, 0xaabf13ae126f9159),), 0x0000000000009e48)
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:956</span>
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Using BBO result as fallback
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:957</span>
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Found sample of initial positions
-<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-7.582163677102972, -7.582163677102972)
-<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -7.582163677102981
+<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-7.582163677102976, -7.582163677102976)
+<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -7.582163677102985
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.95       2.34       4.24   2.19e+09  -7.97e+03          0      0.797          1          1
-        4          0       4.92       4.13       2.92   3.96e+09       -272          0      0.708          1          1
-        8          0       5.57       5.26       5.31   7.26e+09       -421          0       0.65          1          1
-       16          0       5.42       6.11       9.62   1.32e+10      -11.6   2.55e-17      0.628          1          1
-       32          0       6.91       5.97       18.8   2.54e+10      -20.9   3.79e-08      0.585      0.999          1
-       64          1       7.65       4.78       40.2   5.48e+10      -30.8     0.0625      0.599          1          1
-      128          2       7.37       5.42       81.2   1.11e+11      -28.3     0.0422      0.587          1          1
-      256          2       7.81       6.86        152   2.05e+11      -20.7        0.1      0.527          1          1
+        2          0       3.95       2.34       3.36   2.19e+09  -7.97e+03          0      0.797          1          1
+        4          0       4.92       4.13        2.8   3.96e+09       -272          0      0.708          1          1
+        8          0       5.57       5.26       5.08   7.26e+09       -421          0       0.65          1          1
+       16          0       5.42       6.11       9.21   1.32e+10      -11.6   2.55e-17      0.628          1          1
+       32          0       6.91       5.97       17.8   2.54e+10      -20.9   3.79e-08      0.585      0.999          1
+       64          1       7.65       4.78       39.5   5.48e+10      -30.8     0.0625      0.599          1          1
+      128          2       7.37       5.42       77.8   1.11e+11      -28.3     0.0422      0.587          1          1
+      256          3       7.84       6.87        145   2.05e+11      -21.4      0.111      0.525          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Note that <code>octofit_pigeons</code> took somewhat longer to run than <code>octofit</code> typically does; however, as we will see, it sampled successfully from severally completely disconnected modes in the posterior. That makes it a good fit for sampling from proper motion anomaly and relative astrometry with limited orbital coverage.</p><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>If we wish to examine the covariance between parameters in more detail, we can construct a pair-plot (aka. corner plot).</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 # We can access any property from the chain specified in Variables
 using CairoMakie
 using PairPlots
-octocorner(model_pma, chain_pma, small=true)</code></pre><img src="b5540acd.png" alt="Example block output"/><p>Notice how there are completely separated peaks? The default Octofitter sample (Hamiltonian Monte Carlo) is capabale of jumping 2-3σ gaps between modes, but such widely separated peaks can cause issues (hence why we used Pigeons in this example).</p><h2 id="Model:-PMA-and-Relative-Astrometry"><a class="docs-heading-anchor" href="#Model:-PMA-and-Relative-Astrometry">Model: PMA &amp; Relative Astrometry</a><a id="Model:-PMA-and-Relative-Astrometry-1"></a><a class="docs-heading-anchor-permalink" href="#Model:-PMA-and-Relative-Astrometry" title="Permalink"></a></h2><p>The first orbit fit to only Hipparcos/GAIA data was very unconstrained. We will now add six epochs of relative astrometry (measured from direct images) gathered from the <a href="https://arxiv.org/abs/2109.12124">discovery paper</a>.</p><pre><code class="language-julia hljs">astrom_dat = Table(;
+octocorner(model_pma, chain_pma, small=true)</code></pre><img src="1ef32c56.png" alt="Example block output"/><p>Notice how there are completely separated peaks? The default Octofitter sample (Hamiltonian Monte Carlo) is capabale of jumping 2-3σ gaps between modes, but such widely separated peaks can cause issues (hence why we used Pigeons in this example).</p><h2 id="Model:-PMA-and-Relative-Astrometry"><a class="docs-heading-anchor" href="#Model:-PMA-and-Relative-Astrometry">Model: PMA &amp; Relative Astrometry</a><a id="Model:-PMA-and-Relative-Astrometry-1"></a><a class="docs-heading-anchor-permalink" href="#Model:-PMA-and-Relative-Astrometry" title="Permalink"></a></h2><p>The first orbit fit to only Hipparcos/GAIA data was very unconstrained. We will now add six epochs of relative astrometry (measured from direct images) gathered from the <a href="https://arxiv.org/abs/2109.12124">discovery paper</a>.</p><pre><code class="language-julia hljs">astrom_dat = Table(;
     epoch = [mjd(&quot;2016-12-15&quot;), mjd(&quot;2017-03-12&quot;), mjd(&quot;2017-03-13&quot;), mjd(&quot;2018-02-08&quot;), mjd(&quot;2018-11-28&quot;), mjd(&quot;2018-12-15&quot;)],
     ra    = [133., 126., 127., 083., 058., 056.],
     dec   = [-174., -176., -172., -133., -122., -104.],
@@ -197,31 +197,31 @@ chain_pma_astrom, pt = octofit_pigeons(model_pma_astrom, n_rounds=7, explorer=Sl
 <span class="sgr36"><span class="sgr1">└ </span></span>  D = 11
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
 <span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
-ℓπcallback(θ): 0.000200 seconds (44 allocations: 81.344 KiB)
-∇ℓπcallback(θ): 0.000328 seconds (37 allocations: 130.875 KiB)
+ℓπcallback(θ): 0.000095 seconds (44 allocations: 81.344 KiB)
+∇ℓπcallback(θ): 0.000335 seconds (37 allocations: 130.875 KiB)
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
 <span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
 <span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Pathfinder error: MethodError(copy, (SplittableRandoms.SplittableRandom(0x204834c0d026bff6, 0xaabf13ae126f9159),), 0x0000000000009ec0)
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Pathfinder error: MethodError(copy, (SplittableRandoms.SplittableRandom(0x204834c0d026bff6, 0xaabf13ae126f9159),), 0x0000000000009ec1)
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:956</span>
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Using BBO result as fallback
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:957</span>
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Found sample of initial positions
-<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-40.707894328154374, -40.707894328154374)
+<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-40.70789432815439, -40.70789432815439)
 <span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -40.7078943281544
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.07       2.84       4.04   2.33e+09  -2.03e+04          0      0.809          1          1
-        4          0       4.18       5.67        3.3   4.25e+09      -57.2          0      0.682          1          1
-        8          0       5.45        7.6       5.72   7.47e+09      -60.4          0      0.579          1          1
-       16          0       6.58        8.2       10.6   1.39e+10      -54.5   5.71e-28      0.523          1          1
-       32          0       7.74       8.65       20.7    2.7e+10      -56.2    0.00974      0.471          1          1
-       64          0       7.95       4.25         46   5.86e+10      -96.2    0.00353      0.606          1          1
-      128          4       8.81       4.62       91.7    1.2e+11      -70.3     0.0195      0.567          1          1
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><pre><code class="language-julia hljs">octoplot(model_pma_astrom, chain_pma_astrom)</code></pre><img src="97c53ddb.png" alt="Example block output"/><h2 id="Model:-PMA-and-Relative-Astrometry-and-RVs"><a class="docs-heading-anchor" href="#Model:-PMA-and-Relative-Astrometry-and-RVs">Model: PMA &amp; Relative Astrometry &amp; RVs</a><a id="Model:-PMA-and-Relative-Astrometry-and-RVs-1"></a><a class="docs-heading-anchor-permalink" href="#Model:-PMA-and-Relative-Astrometry-and-RVs" title="Permalink"></a></h2><p>We now add in three additional epochs of stellar RVs.</p><pre><code class="language-julia hljs">using OctofitterRadialVelocity
+        2          0       3.07       2.84       3.23   2.33e+09  -2.03e+04          0      0.809          1          1
+        4          0       4.18       5.67       3.11   4.25e+09      -57.2          0      0.682          1          1
+        8          0       5.45        7.6       5.46   7.47e+09      -60.4          0      0.579          1          1
+       16          0       6.58        8.2       10.1   1.39e+10      -54.5   5.71e-28      0.523          1          1
+       32          0       7.74       8.65       19.7    2.7e+10      -56.2    0.00974      0.471          1          1
+       64          0       7.95       4.25       43.2   5.86e+10      -96.2    0.00353      0.606          1          1
+      128          4       8.81       4.62       87.4    1.2e+11      -70.3     0.0195      0.567          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><pre><code class="language-julia hljs">octoplot(model_pma_astrom, chain_pma_astrom)</code></pre><img src="c948cf2b.png" alt="Example block output"/><h2 id="Model:-PMA-and-Relative-Astrometry-and-RVs"><a class="docs-heading-anchor" href="#Model:-PMA-and-Relative-Astrometry-and-RVs">Model: PMA &amp; Relative Astrometry &amp; RVs</a><a id="Model:-PMA-and-Relative-Astrometry-and-RVs-1"></a><a class="docs-heading-anchor-permalink" href="#Model:-PMA-and-Relative-Astrometry-and-RVs" title="Permalink"></a></h2><p>We now add in three additional epochs of stellar RVs.</p><pre><code class="language-julia hljs">using OctofitterRadialVelocity
 
 rv_dat_abs = Table(;
     epoch = [mjd(&quot;2008-05-01&quot;), mjd(&quot;2010-02-15&quot;), mjd(&quot;2016-03-01&quot;)],
@@ -292,30 +292,30 @@ display(chain_pma_rv_astrom)</code></pre><pre class="documenter-example-output">
 <span class="sgr36"><span class="sgr1">└ </span></span>  D = 13
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
 <span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
-ℓπcallback(θ): 0.000229 seconds (44 allocations: 81.344 KiB)
-∇ℓπcallback(θ): 0.000754 seconds (37 allocations: 152.531 KiB)
+ℓπcallback(θ): 0.000149 seconds (44 allocations: 81.344 KiB)
+∇ℓπcallback(θ): 0.000709 seconds (37 allocations: 152.531 KiB)
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
 <span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 13
 <span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Pathfinder error: MethodError(copy, (SplittableRandoms.SplittableRandom(0x05f3bf9f17fb011a, 0xaabf13ae126f9159),), 0x0000000000009efd)
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Pathfinder error: MethodError(copy, (SplittableRandoms.SplittableRandom(0x05f3bf9f17fb011a, 0xaabf13ae126f9159),), 0x0000000000009efe)
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:956</span>
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Using BBO result as fallback
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:957</span>
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Found sample of initial positions
-<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-164.12893178777355, -164.12893178777355)
-<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -164.12893178777333
+<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-164.1289317802055, -164.1289317802055)
+<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -164.12893178020556
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       4.14       1.98       8.66   3.62e+09  -5.23e+03          0      0.803          1          1
-        4          0       4.96       5.18       11.1   6.67e+09  -1.34e+03          0      0.673          1          1
-        8          0       6.08       5.73       20.2   1.23e+10  -1.09e+03          0      0.619          1          1
-       16          0       8.67        7.9       34.3   2.09e+10       -172   1.47e-11      0.466          1          1
-       32          0       9.03       8.64       64.4   3.86e+10       -206    9.7e-36       0.43          1          1
-       64          0       9.32       4.25        148   8.83e+10   1.89e+04      0.159      0.562          1          1
-      128          0       10.2       8.32        262   1.59e+11       -156   2.83e-10      0.403      0.999          1
+        2          0       4.14       1.98       6.58   3.62e+09  -5.23e+03          0      0.803          1          1
+        4          0       4.96       5.18       8.93   6.67e+09  -1.34e+03          0      0.673          1          1
+        8          0       6.08       5.73       16.5   1.23e+10  -1.09e+03          0      0.619          1          1
+       16          0       8.11       7.88       27.9   2.09e+10       -172   1.47e-11      0.484          1          1
+       32          0       8.31       8.63       52.8   3.96e+10       -205   1.16e-35      0.454          1          1
+       64          0        9.3       4.04        117   8.75e+10   3.23e+04        0.1       0.57          1          1
+      128          0       9.81       8.04        213    1.6e+11       -178     0.0378      0.424          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>The mass vs. semi-major axis posterior is now much more constrained:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
 pairplot(
     (; a=chain_pma_rv_astrom[&quot;b_a&quot;][:], mass=chain_pma_rv_astrom[&quot;b_mass&quot;][:]) =&gt;
@@ -325,7 +325,7 @@ pairplot(
             PairPlots.MarginQuantileText()
         ),
     labels=Dict(:mass=&gt;&quot;mass [Mⱼᵤₚ]&quot;, :a=&gt;&quot;sma. [au]&quot;),
-)</code></pre><img src="6ac48d7d.png" alt="Example block output"/><p>It is now useful to display the orbits projected onto the plane of the sky using <code>octoplot</code>. This function produces a nine-panel figure showing posterior predictive distributions for velocity (in three dimensions), projected positions vs. time in the plane of the sky,  and various other two and three-dimensional views.</p><pre><code class="language-julia hljs">octoplot(model_pma_rv_astrom, chain_pma_rv_astrom, show_mass=true)</code></pre><img src="00e4f90f.png" alt="Example block output"/><h2 id="Model:-Relative-Astrometry-and-RVs-(no-PMA)"><a class="docs-heading-anchor" href="#Model:-Relative-Astrometry-and-RVs-(no-PMA)">Model:  Relative Astrometry &amp; RVs (no PMA)</a><a id="Model:-Relative-Astrometry-and-RVs-(no-PMA)-1"></a><a class="docs-heading-anchor-permalink" href="#Model:-Relative-Astrometry-and-RVs-(no-PMA)" title="Permalink"></a></h2><p>There is a final model we should consider: one using the RV and astrometry data, but not the proper motion anomaly:</p><pre><code class="language-julia hljs">using OctofitterRadialVelocity
+)</code></pre><img src="ca0dd585.png" alt="Example block output"/><p>It is now useful to display the orbits projected onto the plane of the sky using <code>octoplot</code>. This function produces a nine-panel figure showing posterior predictive distributions for velocity (in three dimensions), projected positions vs. time in the plane of the sky,  and various other two and three-dimensional views.</p><pre><code class="language-julia hljs">octoplot(model_pma_rv_astrom, chain_pma_rv_astrom, show_mass=true)</code></pre><img src="2baea14e.png" alt="Example block output"/><h2 id="Model:-Relative-Astrometry-and-RVs-(no-PMA)"><a class="docs-heading-anchor" href="#Model:-Relative-Astrometry-and-RVs-(no-PMA)">Model:  Relative Astrometry &amp; RVs (no PMA)</a><a id="Model:-Relative-Astrometry-and-RVs-(no-PMA)-1"></a><a class="docs-heading-anchor-permalink" href="#Model:-Relative-Astrometry-and-RVs-(no-PMA)" title="Permalink"></a></h2><p>There is a final model we should consider: one using the RV and astrometry data, but not the proper motion anomaly:</p><pre><code class="language-julia hljs">using OctofitterRadialVelocity
 
 planet_b_final = Planet(
     name=&quot;b&quot;,
@@ -366,14 +366,14 @@ chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)</code></pre>
 <span class="sgr36"><span class="sgr1">└ </span></span>  D = 11
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
 <span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
-ℓπcallback(θ): 0.000034 seconds
-∇ℓπcallback(θ): 0.000044 seconds (1 allocation: 32 bytes)
+ℓπcallback(θ): 0.000014 seconds
+∇ℓπcallback(θ): 0.000038 seconds (1 allocation: 32 bytes)
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
 <span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
 <span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Pathfinder error: MethodError(copy, (SplittableRandoms.SplittableRandom(0xeeaaa56113651bb6, 0xaabf13ae126f9159),), 0x0000000000009f25)
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Pathfinder error: MethodError(copy, (SplittableRandoms.SplittableRandom(0xeeaaa56113651bb6, 0xaabf13ae126f9159),), 0x0000000000009f26)
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:956</span>
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Using BBO result as fallback
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:957</span>
@@ -383,18 +383,18 @@ chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)</code></pre>
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0        2.9       2.74      0.682   5.47e+06       -220          0      0.818          1          1
-        4          0       3.51       4.52      0.164   1.49e+05      -78.7   8.39e-35      0.741          1          1
-        8          0       6.31       5.96      0.311   2.33e+05      -72.8   1.45e-05      0.604          1          1
-       16          0       6.82       7.05      0.616   4.16e+05        -71     0.0105      0.553          1          1
-       32          0       7.04       7.87       1.22   6.24e+05      -74.6      0.199      0.519          1          1
-       64          3       7.93       3.37       2.79   5.46e+07      -73.5      0.296      0.635          1          1
-      128         15       7.53       2.97       4.93   8.96e+07      -75.2      0.364      0.661          1          1
-      256         17       7.65        3.3         10   1.79e+08      -75.4      0.399      0.647          1          1
-      512         58       7.62       3.11       19.9   3.57e+08        -75      0.425      0.654          1          1
- 1.02e+03         57       7.54       4.34       39.6    7.1e+08      -75.4      0.314      0.617          1          1
- 2.05e+03        235       7.51        3.1       78.5   1.41e+09      -75.2      0.478      0.658          1          1
-  4.1e+03        450       7.58       3.09        158   2.84e+09      -75.2       0.47      0.656          1          1
+        2          0        2.9       2.74      0.496   5.47e+06       -220          0      0.818          1          1
+        4          0       3.51       4.52      0.138   1.49e+05      -78.7   8.39e-35      0.741          1          1
+        8          0       6.31       5.96      0.262   2.33e+05      -72.8   1.45e-05      0.604          1          1
+       16          0       6.82       7.05      0.521   4.16e+05        -71     0.0105      0.553          1          1
+       32          0       7.04       7.87       1.04   6.24e+05      -74.6      0.199      0.519          1          1
+       64          3       7.93       3.37        2.3   5.46e+07      -73.5      0.296      0.635          1          1
+      128         15       7.53       2.97        4.1   8.96e+07      -75.2      0.364      0.661          1          1
+      256         17       7.65        3.3       8.26   1.79e+08      -75.4      0.399      0.647          1          1
+      512         58       7.62       3.11       16.4   3.57e+08        -75      0.425      0.654          1          1
+ 1.02e+03         57       7.54       4.34       32.7    7.1e+08      -75.4      0.314      0.617          1          1
+ 2.05e+03        235       7.51        3.1       64.9   1.41e+09      -75.2      0.478      0.658          1          1
+  4.1e+03        450       7.58       3.09        131   2.84e+09      -75.2       0.47      0.656          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><pre><code class="language-julia hljs">octoplot(model_rv_astrom, chain_rv_astrom)</code></pre><img src="2989693d.png" alt="Example block output"/><h2 id="Model-Comparison"><a class="docs-heading-anchor" href="#Model-Comparison">Model Comparison</a><a id="Model-Comparison-1"></a><a class="docs-heading-anchor-permalink" href="#Model-Comparison" title="Permalink"></a></h2><p>Let&#39;s now display the constraints provided by each data set in a single corner plot</p><pre><code class="language-julia hljs"># Create a corner plot / pair plot.
 using CairoMakie: Makie
 using PairPlots
@@ -412,4 +412,4 @@ octocorner(
         PairPlots.MarginDensity(),
         PairPlots.Scatter()
     )
-)</code></pre><img src="18c79757.png" alt="Example block output"/><p>We see that the constraints provided by the PMA, the astrometry, and the radial velocity data all individually overlap, and agree with the joint model constraint.  This is means that none of the datasets are in tension with each other, which might suggest an issue with the data or with the modelling assumptions (e.g. single planet). </p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-grav-wide/">« GRAVITY Wide Data</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 4 August 2026 22:11">Tuesday 4 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="7201c03a.png" alt="Example block output"/><p>We see that the constraints provided by the PMA, the astrometry, and the radial velocity data all individually overlap, and agree with the joint model constraint.  This is means that none of the datasets are in tension with each other, which might suggest an issue with the data or with the modelling assumptions (e.g. single planet). </p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../fit-grav-wide/">« GRAVITY Wide Data</a><a class="docs-footer-nextpage" href="../fit-rv-astrom/">RV and Relative Astrometry »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 7 August 2026 06:36">Friday 7 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

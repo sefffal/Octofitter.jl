@@ -44,7 +44,7 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
 <span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
 <span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Pathfinder error: MethodError(copy, (SplittableRandoms.SplittableRandom(0x204834c0d026bff6, 0xaabf13ae126f9159),), 0x000000000000a935)
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Pathfinder error: MethodError(copy, (SplittableRandoms.SplittableRandom(0x204834c0d026bff6, 0xaabf13ae126f9159),), 0x000000000000a8d2)
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:956</span>
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Using BBO result as fallback
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:957</span>
@@ -54,18 +54,18 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0        2.5       2.65      0.348   5.48e+06  -4.88e+07          0      0.834          1          1
-        4          0        5.4       5.24     0.0643   1.48e+05  -1.41e+05          0      0.657          1          1
-        8          0       5.87       6.11      0.125    2.4e+05  -1.28e+05          0      0.614          1          1
-       16          0       6.34       7.09      0.248   3.94e+05      -14.6          0      0.567          1          1
-       32          0       7.88       6.93      0.496    6.6e+05  -2.46e+03          0      0.522          1          1
-       64          3       7.87       3.03       1.15    4.6e+07      -15.3   1.29e-43      0.648          1          1
-      128          9       8.63       3.17       1.95   7.35e+07        -17   5.92e-08      0.619          1          1
-      256         24       8.72       2.71       4.05   1.46e+08      -17.1   8.92e-09      0.631          1          1
-      512         39       9.04       3.31       8.07   2.93e+08      -17.1     0.0022      0.602          1          1
- 1.02e+03        120       9.34       2.97       16.2   5.82e+08      -17.3     0.0262      0.603          1          1
- 2.05e+03        226       9.56       3.25       32.2   1.16e+09      -17.2     0.0561      0.587          1          1
-  4.1e+03        406       9.87       3.56       64.6   2.32e+09      -17.2      0.147      0.567          1          1
+        2          0        2.5       2.65      0.334   5.47e+06  -4.88e+07          0      0.834          1          1
+        4          0        5.4       5.24      0.062   1.48e+05  -1.41e+05          0      0.657          1          1
+        8          0       5.87       6.11      0.122    2.4e+05  -1.28e+05          0      0.614          1          1
+       16          0       6.34       7.09      0.244   3.94e+05      -14.6          0      0.567          1          1
+       32          0       7.88       6.93      0.485    6.6e+05  -2.46e+03          0      0.522          1          1
+       64          3       7.87       3.03       1.12    4.6e+07      -15.3   1.29e-43      0.648          1          1
+      128          9       8.63       3.17       1.91   7.35e+07        -17   5.92e-08      0.619          1          1
+      256         24       8.72       2.71       3.95   1.46e+08      -17.1   8.92e-09      0.631          1          1
+      512         39       9.04       3.31       7.85   2.93e+08      -17.1     0.0022      0.602          1          1
+ 1.02e+03        120       9.34       2.97       15.6   5.82e+08      -17.3     0.0262      0.603          1          1
+ 2.05e+03        226       9.56       3.25       31.4   1.16e+09      -17.2     0.0561      0.587          1          1
+  4.1e+03        406       9.87       3.56       62.8   2.32e+09      -17.2      0.147      0.567          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl:</p><pre><code class="language-julia hljs">pairplot(
     PairPlots.Series(
         (;
@@ -108,9 +108,9 @@ image_data = ImageObs(
         northangle = 0.0
     end
 )</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">OctofitterImages.ImageObs Table with 5 columns and 1 row:
-     image                                                 platescale  epoch    contrast                                              imageinterp
-   ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
- 1 │ [-6.80461e-8 -6.24798e-8 -6.04753e-8 -5.63586e-8 -5…  4.0         57423.6  65-element extrapolate(scale(interpolate(::Vector{F…  201×201 extrapolate(interpolate((::Sampled{Float64,…</code></pre><pre><code class="language-julia hljs">B = Planet(
+     image                                         platescale  epoch    contrast                                      imageinterp
+   ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ 1 │ [-6.80461e-8 -6.24798e-8 -6.04753e-8 -5.635…  4.0         57423.6  65-element extrapolate(scale(interpolate(::…  201×201 extrapolate(interpolate((::Sampled{…</code></pre><pre><code class="language-julia hljs">B = Planet(
     name=&quot;B&quot;,
     basis=Visual{KepOrbit},
     observations=[image_data],
@@ -190,7 +190,7 @@ pairplot(
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="49f8ef10.png" alt="Example block output"/><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">B = Planet(
+)</code></pre><img src="585834da.png" alt="Example block output"/><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">B = Planet(
     name=&quot;B&quot;,
     basis=Visual{KepOrbit},
     observations=[image_data],
@@ -281,4 +281,4 @@ pairplot(
         :sma=&gt;&quot;log₂ Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log₂ Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="30f60904.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../completeness/">Detection Completeness Mapping »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 4 August 2026 22:11">Tuesday 4 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="41622e7e.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../completeness/">Detection Completeness Mapping »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 7 August 2026 06:36">Friday 7 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

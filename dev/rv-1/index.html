@@ -168,9 +168,7 @@ StarAbsoluteRVObs Table with 3 columns and 39 rows:
  34 │ 57844.0  -6700.62  4.24
  35 │ 57844.0  -6697.37  4.55
  36 │ 57844.0  -6701.16  5.18
- 37 │ 57844.0  -6699.62  6.26
- 38 │ 57844.1  -6695.05  6.64
- 39 │ 57844.1  -6688.51  8.83StarAbsoluteRVObs Table with 3 columns and 31 rows:
+ ⋮  │    ⋮        ⋮        ⋮StarAbsoluteRVObs Table with 3 columns and 31 rows:
       epoch    rv      σ_rv
     ┌──────────────────────
  1  │ 57828.4  -45.17  3.88
@@ -209,7 +207,7 @@ StarAbsoluteRVObs Table with 3 columns and 39 rows:
 </code></pre><p>Initialize the starting points, and confirm the data are entered correcly:</p><pre><code class="language-julia hljs">init_chain = initialize!(model)
 
 using CairoMakie
-fig = Octofitter.rvpostplot(model, init_chain)</code></pre><img src="32040aff.png" alt="Example block output"/><p>Sample:</p><pre><code class="language-julia hljs">using Random
+fig = Octofitter.rvpostplot(model, init_chain)</code></pre><img src="4c7878ae.png" alt="Example block output"/><p>Sample:</p><pre><code class="language-julia hljs">using Random
 rng = Random.Xoshiro(0)
 
 chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×28×1 Array{Float64, 3}):
@@ -217,16 +215,16 @@ chain = octofit(rng, model)</code></pre><pre class="documenter-example-output"><
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 19.56 seconds
-Compute duration  = 19.56 seconds
+Wall duration     = 20.64 seconds
+Compute duration  = 20.64 seconds
 parameters        = M, harps_n_offset, harps_n_jitter, pfs_offset, pfs_jitter, b_P, b_τx, b_τy, b_mass, b_τ, b_e, b_ω, b_M, b_a, b_tp
 internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
 
 Use `describe(chains)` for summary statistics and quantiles.
 </code></pre><p>Excellent! Let&#39;s plot an orbit sampled from the posterior:</p><pre><code class="language-julia hljs">using CairoMakie
-fig = Octofitter.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="a9494fd1.png" alt="Example block output"/><p>We can also plot a sample of draws from the posterior:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
-octoplot(model, chain)</code></pre><img src="d7b2b1e5.png" alt="Example block output"/><p>And create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots, CairoMakie
-octocorner(model, chain)</code></pre><img src="5c906a07.png" alt="Example block output"/><p>This example continues in <a href="../rv-gp/#fit-rv-gp">Fit Gaussian Process</a>.</p><h2 id="Simulating-RV-Data"><a class="docs-heading-anchor" href="#Simulating-RV-Data">Simulating RV Data</a><a id="Simulating-RV-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Simulating-RV-Data" title="Permalink"></a></h2><p>To generate synthetic radial velocity data for testing, the recommended approach is to use Octofitter&#39;s built-in simulation capabilities. See the <a href="../data-simulation/#data-simulation">Generating and Fitting Simulated Data</a> tutorial for a complete guide on simulating data from models.</p><p>Alternatively, you can generate RV data directly using the <code>radvel</code> function from <a href="https://sefffal.github.io/PlanetOrbits.jl/dev/api/">PlanetOrbits.jl</a>:</p><pre><code class="language-julia hljs">using PlanetOrbits
+fig = Octofitter.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="f5790b47.png" alt="Example block output"/><p>We can also plot a sample of draws from the posterior:</p><pre><code class="language-julia hljs">using CairoMakie: Makie
+octoplot(model, chain)</code></pre><img src="1dbf8bd4.png" alt="Example block output"/><p>And create a corner plot:</p><pre><code class="language-julia hljs">using PairPlots, CairoMakie
+octocorner(model, chain)</code></pre><img src="4ca87a00.png" alt="Example block output"/><p>This example continues in <a href="../rv-gp/#fit-rv-gp">Fit Gaussian Process</a>.</p><h2 id="Simulating-RV-Data"><a class="docs-heading-anchor" href="#Simulating-RV-Data">Simulating RV Data</a><a id="Simulating-RV-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Simulating-RV-Data" title="Permalink"></a></h2><p>To generate synthetic radial velocity data for testing, the recommended approach is to use Octofitter&#39;s built-in simulation capabilities. See the <a href="../data-simulation/#data-simulation">Generating and Fitting Simulated Data</a> tutorial for a complete guide on simulating data from models.</p><p>Alternatively, you can generate RV data directly using the <code>radvel</code> function from <a href="https://sefffal.github.io/PlanetOrbits.jl/dev/api/">PlanetOrbits.jl</a>:</p><pre><code class="language-julia hljs">using PlanetOrbits
 
 # Create an orbit
 orb = orbit(a=1.0, e=0.1, ω=0.5, M=1.0, tp=58000.0)
@@ -235,4 +233,4 @@ orb = orbit(a=1.0, e=0.1, ω=0.5, M=1.0, tp=58000.0)
 # Units: epoch in MJD, mass in solar masses (not Jupiter masses!)
 epoch = 58100.0
 companion_mass_msol = 0.001  # ~1 Jupiter mass in solar masses
-rv = radvel(orb, epoch, companion_mass_msol)  # returns m/s</code></pre><div class="admonition is-warning" id="Warning-dfd708f7ebe99ef6"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-dfd708f7ebe99ef6" title="Permalink"></a></header><div class="admonition-body"><p>The <code>radvel</code> function takes companion mass in <strong>solar masses</strong>, unlike most places in Octofitter which use Jupiter masses. Use <code>Octofitter.mjup2msol</code> to convert if needed.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../thiele-innes/">« Thiele-Innes Parameters</a><a class="docs-footer-nextpage" href="../rv-gp/">Gaussian Process »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 4 August 2026 22:11">Tuesday 4 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+rv = radvel(orb, epoch, companion_mass_msol)  # returns m/s</code></pre><div class="admonition is-warning" id="Warning-dfd708f7ebe99ef6"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-dfd708f7ebe99ef6" title="Permalink"></a></header><div class="admonition-body"><p>The <code>radvel</code> function takes companion mass in <strong>solar masses</strong>, unlike most places in Octofitter which use Jupiter masses. Use <code>Octofitter.mjup2msol</code> to convert if needed.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../thiele-innes/">« Thiele-Innes Parameters</a><a class="docs-footer-nextpage" href="../rv-gp/">Gaussian Process »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 7 August 2026 06:36">Friday 7 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
