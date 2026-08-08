@@ -123,6 +123,13 @@ Sample using parallel tempering (could also use HMC for these unimodal distribut
 chain, pt = octofit_pigeons(model, n_rounds=10)
 ```
 
+!!! tip "Sampling faster on a multi-core machine"
+    For a long fit on a machine with many cores, add `cores=8` (or however many
+    you have free) to any `octofit_pigeons` call on this page to run the
+    sampler in separate worker processes — often about twice as fast as
+    threads for expensive models, at the cost of a minute or two of worker
+    startup per run. See [`octofit_pigeons`](@ref).
+
 !!! note "Sampler"
     Every fit on this page uses [`octofit_pigeons`](@ref). Epoch astrometry constrains
     an orbit only through the one-dimensional along-scan abscissa, so the posterior is

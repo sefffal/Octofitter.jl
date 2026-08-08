@@ -190,6 +190,17 @@ using Pigeons
 results_2p, pt_2p = octofit_pigeons(model_2p, n_rounds=10)
 ```
 
+!!! tip "Sampling faster on a multi-core machine"
+    For expensive models — many RV epochs, several planets — `octofit_pigeons`
+    can run the sampler in separate worker processes, which is often about
+    twice as fast as the default threads:
+    ```julia
+    results_2p, pt_2p = octofit_pigeons(model_2p, n_rounds=10, cores=8)
+    ```
+    Set `cores` to the number of CPU cores you want to use. Each run spends a
+    minute or two starting workers before sampling begins, so this pays off
+    for long fits, not quick tests. See [`octofit_pigeons`](@ref).
+
 Plot the RV curve, the residuals, and a phase-folded panel per planet — one call to
 [`octoplot`](@ref) for the posterior spread, or [`rvplot`](@ref) for the single-draw
 summary with every instrument on one axis:

@@ -118,3 +118,38 @@ jobs:
           DATADEPS_ALWAYS_ACCEPT: true
           GKSwstype: 100
         run: julia --project=. --color=yes test/runtests.jl
+
+  # The Pigeons extension on Windows, scoped to just its own test file. The
+  # point is the `cores=` worker-process path: on Windows MPI.jl launches
+  # through MicrosoftMPI_jll rather than MPICH_jll, and this job is the cheap
+  # way to find out whether that works before recommending `cores=` to
+  # Windows users. Deliberately not the full test suite: unrelated Windows
+  # failures would drown the one signal this job exists to produce.
+  pigeons-windows:
+    name: Pigeons extension (worker processes) - Julia 1 - windows-latest
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: sefffal/PlanetOrbits.jl
+          ref: v2
+          path: .planetorbits-v2
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+          arch: x64
+      - uses: julia-actions/cache@v3
+      - name: Install with Pigeons
+        shell: bash
+        run: |
+          julia --project=. --color=yes -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=joinpath(pwd(), ".planetorbits-v2")))
+            Pkg.add(["Pigeons", "Test"])
+            Pkg.instantiate()'
+      - name: Run the Pigeons extension tests only
+        shell: bash
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true
+        run: julia --project=. --color=yes test/v2/pigeons.jl

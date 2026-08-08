@@ -341,28 +341,23 @@ Base.@nospecializeinfer function advancedhmc(
     # end
 
 
-    # v1 threaded the per-epoch Kepler solve inside the likelihood, and set this
-    # flag here to turn it on for any model with more data than orchestration
-    # overhead. v2 batches the solve across epochs with SIMD inside PlanetOrbits
-    # instead and threads nothing, so there is no inner parallelism for the flag
-    # to enable — and leaving the assignment in was actively harmful: the flag's
-    # only remaining reader is `guess_starting_position`, which uses it to avoid
-    # nesting threads inside a threaded solve. Setting it true therefore sent
-    # initialization down its *serial* path, so `octofit` on any model with more
-    # than 15 epochs ran 500k single-threaded prior evaluations for a solve that
-    # was never threaded in the first place.
-    #
-    # See `_kepsolve_use_threads` in model/codegen.jl. If inner threading is ever
-    # reintroduced, this is where it gets switched on.
-    #
-    # It should be. The per-epoch passes are all epoch-local, so blocking the
-    # trajectory and threading over epoch ranges is structurally available on
-    # top of the SIMD solve, and it is what a thousands-of-epochs job needs: the
-    # intended shape is MPI across chains and threads within a rank, which the
-    # current "one chain per thread" arrangement cannot express. Wanted by
-    # @sefffal; see design §10.5 for the measurement that motivates it
-    # (`rv-8000` sits at ~6.0 ms per gradient with nothing else to spend cores
-    # on).
+    # Thread the trajectory solve inside the likelihood (see
+    # `_kepsolve_use_threads` in model/codegen.jl): HMC runs one chain, so for
+    # a many-epoch model spare threads have nothing better to do — design
+    # §10.5's `rv-8000` sits at ~6.0 ms per gradient with the other cores
+    # idle. Switched on *here*, after initialization, deliberately:
+    # `guess_starting_position` reads the flag to keep its own outer-loop
+    # threading from nesting inside a threaded solve, and its 500k prior
+    # evaluations parallelize better over draws than within one solve (v1 set
+    # the flag before initialization and paid for exactly that). The threshold
+    # is 2 chunks' worth of epochs, below which `orbitsolve!` would run serial
+    # regardless.
+    Octofitter._kepsolve_use_threads[] =
+        Threads.nthreads() > 1 &&
+        _count_epochs(model.system) >= 2 * PlanetOrbits.MIN_EPOCHS_PER_TASK
+    if verbosity >= 2 && Octofitter._kepsolve_use_threads[]
+        @info "Likelihood trajectory solve will use $(Threads.nthreads()) threads"
+    end
 
     initial_parameters = initial_θ_t
 

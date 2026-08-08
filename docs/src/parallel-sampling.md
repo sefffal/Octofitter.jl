@@ -12,10 +12,37 @@
     the launcher scripts as a starting point. See [Samplers](@ref samplers).
 
 
-This guide shows how you can sample from Octofitter models using a cluster.
-If you just want to sample across multiple cores on the same computer, start julia with multiple threads (`julia --threads=auto`).
+This guide shows how you can sample from Octofitter models using many cores, or a cluster.
 
-If your problem is challenging enough to benefit from parallel sampling across multiple nodes in a cluster, you might consider using Pigeons with MPI by following this guide. 
+## Multiple cores on your own computer
+
+The easiest way to use every core of your own machine is the `cores` keyword of
+[`octofit_pigeons`](@ref):
+
+```julia
+using Octofitter, Pigeons
+model = Octofitter.LogDensityModel(sys)
+chain, pt = octofit_pigeons(model; n_rounds=12, cores=8)
+```
+
+This runs the sampler in `cores` separate worker processes, which for expensive
+models (many RV epochs, absolute astrometry, images) is often about twice as
+fast as sampling with threads. Each run spends a minute or two launching the
+workers and compiling the model in them before sampling begins, so it pays off
+for long fits rather than quick tests — `octofit_pigeons` prints a hint when
+one path or the other looks clearly better. Progress appears in your session as
+usual, results checkpoint each round under `results/` in the current directory,
+and the same `(chain, pt)` comes back.
+
+For models with thousands of epochs, `threads_per_process=2` (or 4) splits the
+same core budget into fewer workers that each also thread their Kepler /
+trajectory solve: `cores=16, threads_per_process=2` runs 8 workers × 2 threads.
+
+Alternatively, start Julia with multiple threads (`julia --threads=auto`) and
+`octofit_pigeons` will sample one chain per thread with no startup cost — the
+better choice for quick runs and cheap models.
+
+If your problem is challenging enough to benefit from parallel sampling across multiple nodes in a cluster, you might consider using Pigeons with MPI by following the rest of this guide.
 
 ## MPI Launcher Script
 

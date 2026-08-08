@@ -337,12 +337,20 @@ export drawfrompriors
 
 # --- the likelihood -----------------------------------------------------------
 
-# v1 threaded the per-planet Kepler solve from here; v2 batches it inside
-# PlanetOrbits (SIMD across epochs, and across the Dual chunk), so Octofitter
-# owns no inner threading at all. The flag survives only as the guard that
-# stops the initializer's outer loops from nesting threads inside a threaded
-# solve — it is now always false, and the outer loops are always free to
-# thread.
+# Whether the generated likelihood threads its trajectory solve, on top of
+# the SIMD batching PlanetOrbits always does. When true, `orbitsolve!` splits
+# the epoch union into contiguous chunks solved on concurrent tasks — see
+# `PlanetOrbits.orbitsolve!(...; threads=)`, which makes it a no-op below
+# `PlanetOrbits.MIN_EPOCHS_PER_TASK` epochs and for non-epoch-local
+# propagators (AHL21), and whose chunked result is bit-identical to serial.
+#
+# Off by default because whoever runs the sampler knows better than the
+# likelihood whether the threads are already spoken for: Pigeons running one
+# chain per thread turns this off (`OctofitterPigeonsExt`); single-chain HMC
+# on a many-epoch model turns it on (`octofit`, after initialization); MPI
+# worker processes launched with `octofit_pigeons(...; threads_per_process>1)`
+# turn it on at startup. The initializer's outer loops also read it, to avoid
+# nesting their own threading inside a threaded solve.
 const _kepsolve_use_threads = Ref(false)
 
 """
@@ -615,7 +623,8 @@ function make_ln_like(sys::System, θ_example=nothing; include_priors::Bool=true
             # would otherwise have to be tracked in two places.
             traj = PlanetOrbits.Trajectory(BumpAlloc(buf), T, posys, $unique_ep)
             PlanetOrbits.orbitsolve!(traj, posys; method=$method,
-                observing_geometry=$og, barycentric_lighttime=$blt)
+                observing_geometry=$og, barycentric_lighttime=$blt,
+                threads=(_kepsolve_use_threads[] ? Threads.nthreads() : 1))
             ll0 = zero(T)
             $(calls...)
             $(Symbol(:ll, j))

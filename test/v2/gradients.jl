@@ -200,3 +200,58 @@ end
         sys; verbosity=0, chunk_sizes=[0, D + 50]))
     @test m_bad.∇ℓπcallback(θt)[1] ≈ v1
 end
+
+@testset "threaded trajectory solve is bit-identical to serial" begin
+    # `orbitsolve!(...; threads=n)` splits the epoch union into contiguous
+    # chunks solved on concurrent tasks. Every pass is epoch-local and each
+    # chunk writes a disjoint range of the same storage, so this is not an
+    # approximately-equal comparison: the likelihood and every gradient
+    # component must come out bit-for-bit identical, or the chunking touched
+    # something it must not. Meaningful on the multithreaded CI job; with one
+    # thread the solve runs serial and the comparison is trivially true.
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass ~ truncated(Normal(1.0, 0.1), lower=0.2)
+    end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass = 0.0
+        a ~ LogUniform(1, 30)
+        e ~ Uniform(0, 0.9)
+        ω ~ Uniform(0, 2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
+        dtp ~ Uniform(-500, 500)
+        tp = 56000.0 + dtp
+    end)
+    # Enough epochs that the solve actually chunks (2 × MIN_EPOCHS_PER_TASK).
+    epochs = collect(range(56000.0, 59000.0, length=2*PlanetOrbits.MIN_EPOCHS_PER_TASK + 100))
+    rv = RadialVelocityObs((epoch=epochs, rv=10 .* sin.(epochs ./ 700),
+            σ_rv=fill(2.0, length(epochs)));
+        target=A, ref=Barycentre, name="rv",
+        variables=@variables begin
+            offset ~ Normal(0, 50)
+            jitter ~ LogUniform(0.5, 20)
+        end)
+    sys = Octofitter.System(name="threadgate", bodies=[A, b], observations=[rv],
+        variables=@variables begin plx ~ Uniform(5, 60) end)
+    model = Octofitter.LogDensityModel(sys; verbosity=0)
+
+    was = Octofitter._kepsolve_use_threads[]
+    try
+        rng = Random.Xoshiro(4)
+        for _ in 1:5
+            θt = model.link(Octofitter.sample_priors(rng, sys))
+            Octofitter._kepsolve_use_threads[] = false
+            lp_s = model.ℓπcallback(θt)
+            v_s, g_s = model.∇ℓπcallback(θt)
+            g_s = copy(g_s)
+            Octofitter._kepsolve_use_threads[] = true
+            lp_t = model.ℓπcallback(θt)
+            v_t, g_t = model.∇ℓπcallback(θt)
+            @test lp_s === lp_t
+            @test v_s === v_t
+            @test all(g_s .=== g_t)
+        end
+    finally
+        Octofitter._kepsolve_use_threads[] = was
+    end
+end

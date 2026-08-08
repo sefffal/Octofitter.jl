@@ -622,9 +622,6 @@ model = Octofitter.LogDensityModel(sys; verbosity=4, autodiff=AutoFiniteDiff())
 ## INITIALIZE AND SAMPLE
 ## ============================================================================
 
-# Enable threaded Kepler solving for performance
-Octofitter._kepsolve_use_threads[] = true
-
 # Find good starting positions
 initial_θ = collect(Octofitter.guess_starting_position(model, 10000)[1])
 model.starting_points = fill(collect(model.link(initial_θ)), 100)
@@ -637,6 +634,11 @@ model.starting_points = fill(collect(model.link(initial_θ)), 100)
 # posteriors, and dropping it makes the ladder's behaviour easier to read off `Λ`.
 explorer = SliceSampler()
 
+# On a multi-core workstation, a one-shot fit of a model this expensive is
+# often about twice as fast in separate worker processes: pass `cores=16`
+# (say) and a full n_rounds, and see `octofit_pigeons`. This script instead
+# uses the incremental checkpoint loop below, which continues a run in the
+# current session — so it samples with threads here.
 chain, pt = octofit_pigeons(
     model,
     n_chains=32,

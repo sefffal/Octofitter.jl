@@ -316,6 +316,13 @@ chain_cel, pt = octofit_pigeons(model_cel, n_rounds=7)
 octoplot(model_cel, chain_cel)
 ```
 
+!!! tip "Sampling faster on a multi-core machine"
+    A GP-per-evaluation model like this is exactly where running the sampler
+    in separate worker processes pays: add `cores=8` (or however many you have
+    free) to the call above — often about twice as fast as threads, at the
+    cost of a minute or two of worker startup per run. See
+    [`octofit_pigeons`](@ref).
+
 !!! tip "Why this fit is tempered and the AbstractGPs one above is not"
     [`octofit_pigeons`](@ref) explores with a slice sampler, which needs only log-density
     *evaluations* — no gradient. That is exactly what the Celerite backend can supply
