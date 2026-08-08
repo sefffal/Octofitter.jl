@@ -127,7 +127,7 @@ Fixed parameters will be held constant during optimization and sampling.
 
 The `fixed_params` can include:
 - System-level variables: `(; plx=24.4, pmra=10.2, ...)`
-- Planet variables: `(; planets=(; b=(; a=1.5, e=0.1, ...), ...))`
+- Body variables: `(; bodies=(; b=(; a=1.5, e=0.1, ...), ...))`
 - Observation variables: `(; observations=(; ObsName=(; var1=val1, var2=val2, ...), ...))`
 
 Available keyword arguments include:
@@ -163,7 +163,7 @@ Example:
 init_chain = initialize!(model, (;
     plx=24.4,
     pmra=10.2,
-    planets=(;
+    bodies=(;
         b=(;
             a=1.5,
             e=0.1,
@@ -281,6 +281,9 @@ function initialize!(rng::Random.AbstractRNG,
             start_time,
             stop_time,
             model_name=Symbol("$(model.system.name)-init"),
+            corrections=model.system.corrections,
+            observing_geometry=model.system.observing_geometry,
+            barycentric_lighttime=model.system.barycentric_lighttime,
             sampler="pathfinder"
         )
     )
@@ -324,7 +327,7 @@ Example:
 startingpoints!(model, (;
     M=1.05,
     plx=50.0,
-    planets=(;
+    bodies=(;
         b=(;
             a=5.0,
             e=0.3,
@@ -348,7 +351,7 @@ function startingpoints!(
     verbosity::Int=1,
 )
     if isempty(points)
-        error("Provide at least one starting point, e.g. `startingpoints!(model, (; M=1.05, plx=50.0, planets=(; b=(; a=5.0, ...))))`.")
+        error("Provide at least one starting point, e.g. `startingpoints!(model, (; M_tot=1.05, plx=50.0, bodies=(; b=(; a=5.0, ...))))`.")
     end
     if ndraws < 2
         error("`ndraws` must be at least 2; the initial mass matrix is estimated from the spread of the starting points.")
@@ -385,6 +388,9 @@ function startingpoints!(
             start_time,
             stop_time,
             model_name=Symbol("$(model.system.name)-init"),
+            corrections=model.system.corrections,
+            observing_geometry=model.system.observing_geometry,
+            barycentric_lighttime=model.system.barycentric_lighttime,
             sampler="manual"
         )
     )
@@ -433,175 +439,140 @@ function _complete_point_from_nt(model::LogDensityModel, point::NamedTuple)
 end
 
 """
-Map each index of the flat parameter vector back to a dotted name like `planets.b.a`, for
-error messages. Uses the same sentinel-matching approach as `extract_fixed_params`; indices
-that cannot be named are left as `nothing`.
+Map each index of the flat parameter vector back to a dotted name like `bodies.b.a`, for
+error messages. Reads the layout from [`_prior_slots`](@ref) rather than matching sentinel
+values, for the same reason `extract_fixed_params` does; indices that cannot be named are
+left as `nothing`.
 """
 function _flat_param_names(model::LogDensityModel)
-    dummy_params = model.sample_priors(Random.default_rng())
-    full_nt = model.arr2nt(dummy_params)
     names = Vector{Union{Nothing,String}}(nothing, model.D)
-
-    function walk!(current, path)
-        for name in propertynames(current)
-            val = getproperty(current, name)
-            subpath = isempty(path) ? String(name) : path * "." * String(name)
-            if val isa NamedTuple
-                walk!(val, subpath)
-                continue
-            end
-            sentinel = if val isa Number
-                val
-            elseif val isa AbstractArray && !isempty(val)
-                first(val)
-            else
-                continue
-            end
-            idx = findfirst(==(sentinel), dummy_params)
-            if !isnothing(idx) && isnothing(names[idx])
-                names[idx] = subpath
-            end
+    for (group, owner, key, span) in _prior_slots(model.system)
+        base = group === :system ? String(key) : "$group.$owner.$key"
+        for (k, i) in enumerate(span)
+            checkbounds(Bool, names, i) || continue
+            names[i] = length(span) == 1 ? base : "$base[$k]"
         end
     end
-    walk!(full_nt, "")
-
     return names
 end
 
 
 """
-Extract fixed parameters from a partial named tuple and return their values and indices.
-Supports system variables, planet variables, and observation variables.
+    extract_fixed_params(model, partial_nt) -> (values, indices)
+
+Resolve a partial, nested override named tuple into flat parameter-vector
+indices and the values to write there. Supports system variables at the top
+level, node variables under `bodies=`, and observation variables under
+`observations=`.
+
+The layout comes from [`_prior_slots`](@ref), which computes it exactly, in
+the order `make_arr2nt` consumes it. It used to be recovered by *sentinel
+matching* — drawing from the priors, reading the value the nested named tuple
+showed for a variable, and searching the flat vector for an entry equal to it.
+That picks the wrong index whenever two free variables happen to draw the same
+number, and it cannot address one element of a vector-valued prior at all. The
+same fix was already made for the completeness-mapping overrides; this is the
+`initialize!` / `startingpoints!` half of it.
 """
 function extract_fixed_params(model, partial_nt)
-    # Create dummy parameter array to construct full named tuple
-    dummy_params = model.sample_priors(Random.default_rng())
-    full_nt = model.arr2nt(dummy_params)
-    
-    fixed_values = []
+    fixed_values = Any[]
     fixed_indices = Int[]
-    
-    function process_tuple!(current_partial, current_full, path="")
-        for name in propertynames(current_partial)
-            val = getproperty(current_partial, name)
-            # Special handling for observations
-            if name == :observations && val isa NamedTuple
-                process_observations!(val, current_full, path * ".observations")
-                continue
-            end
-            
-            if !hasproperty(current_full, name)
-                error("Could not find parameter $name in model. You can only provide free parameters (e.g `x ~ ...`) and not derived parameters (e.g. `x = `). You also cannot provide values for variables that are e.g. `Ω ~ UniformCircular()`. You can instead supply `Ωx` and `Ωy`, or replace the distribution with `Uniform(0,2pi)`.")
-                continue
-            end
-            
-            full_val = getproperty(current_full, name)
-            
-            if val isa NamedTuple
-                # Recursive case: nested named tuple
-                process_tuple!(val, full_val, path * "." * String(name))
-            else
-                # Find index in the flat array using sentinel values
-                sentinel_value = full_val[1]
-                sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
-                
-                if sentinal_idx !== nothing
-                    push!(fixed_values, val)
-                    push!(fixed_indices, sentinal_idx)
-                else
-                    error("Could not find parameter $name in model. You can only provide free parameters (e.g `x ~ ...`) and not derived parameters (e.g. `x = `). You also cannot provide values for variables that are e.g. `Ω ~ UniformCircular()`. You can instead supply `Ωx` and `Ωy`, or replace the distribution with `Uniform(0,2pi)`.")
-                end
+    isnothing(partial_nt) && return fixed_values, fixed_indices
+
+    sys = model.system
+    slots = _prior_slots(sys)
+
+    function slotnames()
+        join(map(slots) do (group, owner, key, _)
+            group === :system ? String(key) : "$group.$owner.$key"
+        end, ", ")
+    end
+
+    function push_slot!(group::Symbol, owner::Symbol, key::Symbol, val)
+        idx = findfirst(s -> s[1] === group && s[2] === owner && s[3] === key, slots)
+        if isnothing(idx)
+            path = group === :system ? String(key) : "$group.$owner.$key"
+            error("Could not find free parameter `$path` in this model. Only variables " *
+                  "declared with `~` can be fixed or used as a starting point — a " *
+                  "derived variable (declared with `=`) is computed from them, and a " *
+                  "composite prior such as `Ω ~ UniformCircular()` is addressed through " *
+                  "its components (`Ωx`, `Ωy`). Free variables of this model: $(slotnames()).")
+        end
+        span = slots[idx][4]
+        if val isa Number
+            length(span) == 1 || error(
+                "`$key` is a vector-valued prior of length $(length(span)); supply a " *
+                "collection of that length, not a scalar.")
+            push!(fixed_values, val)
+            push!(fixed_indices, first(span))
+        else
+            length(val) == length(span) || error(
+                "`$key` occupies $(length(span)) parameter slots but $(length(val)) " *
+                "values were supplied.")
+            for (k, i) in enumerate(span)
+                push!(fixed_values, val[k])
+                push!(fixed_indices, i)
             end
         end
+        return nothing
     end
-    
-    function process_observations!(obs_partial, current_full, path)
-        # Process observation variables: observations=(; ObsName=(; var1=val1, var2=val2, ...), ...)
-        for obs_name in propertynames(obs_partial)
-            obs_vars = getproperty(obs_partial, obs_name)
-            
-            if !(obs_vars isa NamedTuple)
-                error("Expected observation variables for $obs_name to be a NamedTuple, got $(typeof(obs_vars))")
-            end
-            
-            # Normalize the observation name to match how it's stored in the model
-            normalized_obs_name = Octofitter.normalizename(string(obs_name))
-            
-            # For observation variables, we need to look them up in the full_nt.observations
-            for var_name in propertynames(obs_vars)
-                var_value = getproperty(obs_vars, var_name)
-                
-                # Try to find the variable in observations
-                found = false
-                if hasproperty(current_full, :observations)
-                    # Look for the normalized observation name first
-                    if hasproperty(current_full.observations, normalized_obs_name)
-                        full_obs_vars = getproperty(current_full.observations, normalized_obs_name)
-                        
-                        # Look for the exact variable name
-                        if hasproperty(full_obs_vars, var_name)
-                            sentinel_value = getproperty(full_obs_vars, var_name)[1]
-                            sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
-                            
-                            if sentinal_idx !== nothing
-                                push!(fixed_values, var_value)
-                                push!(fixed_indices, sentinal_idx)
-                                found = true
-                            end
-                        end
-                        
-                        # Also try prefixed versions (e.g., likelihoodname_varname)
-                        if !found
-                            var_name_str = string(var_name)
-                            prefixed_name = Symbol(string(normalized_obs_name) * "_" * var_name_str)
-                            
-                            if hasproperty(full_obs_vars, prefixed_name)
-                                sentinel_value = getproperty(full_obs_vars, prefixed_name)[1]
-                                sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
-                                
-                                if sentinal_idx !== nothing
-                                    push!(fixed_values, var_value)
-                                    push!(fixed_indices, sentinal_idx)
-                                    found = true
-                                end
-                            end
-                        end
-                    end
-                    
-                    # If not found with normalized name, try all observation names
-                    if !found
-                        for full_obs_name in propertynames(current_full.observations)
-                            full_obs_vars = getproperty(current_full.observations, full_obs_name)
-                            # Look for the exact variable name
-                            if hasproperty(full_obs_vars, var_name)
-                                sentinel_value = getproperty(full_obs_vars, var_name)[1]
-                                sentinal_idx = findfirst(x -> x == sentinel_value, dummy_params)
-                                if sentinal_idx !== nothing
-                                    push!(fixed_values, var_value)
-                                    push!(fixed_indices, sentinal_idx)
-                                    found = true
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
-                
-                if !found
-                    available_obs = if hasproperty(current_full, :observations)
-                        [(obs_name, propertynames(getproperty(current_full.observations, obs_name))) for obs_name in propertynames(current_full.observations)]
-                    else
-                        "none"
-                    end
-                    error("Could not find observation variable $var_name for observation $obs_name (normalized: $normalized_obs_name) in model. Available observations and their variables: $available_obs")
-                end
+
+    # Observation names are normalized (`"NIRISS-AMI"` -> `:NIRISS_AMI`) in the
+    # model, so accept either spelling from the caller. Also accept the
+    # `<obsname>_<var>` chain-column spelling, which is what people read off a
+    # `describe(chain)` listing.
+    function push_obs_slot!(obs_name::Symbol, var_name::Symbol, val)
+        normalized = Symbol(normalizename(string(obs_name)))
+        candidates = (
+            (normalized, var_name),
+            (obs_name, var_name),
+            (normalized, Symbol(string(normalized), "_", var_name)),
+        )
+        for (owner, key) in candidates
+            if any(s -> s[1] === :observations && s[2] === owner && s[3] === key, slots)
+                return push_slot!(:observations, owner, key, val)
             end
         end
+        avail = join([("$(s[2]).$(s[3])") for s in slots if s[1] === :observations], ", ")
+        error("Could not find observation variable `$var_name` for observation " *
+              "`$obs_name` (normalized: `$normalized`). Free observation variables in " *
+              "this model: $(isempty(avail) ? "none" : avail).")
     end
-    
-    # Start processing
-    process_tuple!(partial_nt, full_nt)
-    
+
+    for name in propertynames(partial_nt)
+        val = getproperty(partial_nt, name)
+        if name === :planets
+            error("""
+            Parameters are nested under `bodies`, not `planets`, in v9:
+
+                initialize!(model, (; plx=24.4, bodies=(; b=(; a=1.5, e=0.1))))
+
+            (`planets` became `bodies` when observations stopped living under a
+            companion; the host star is a body like any other.)
+            """)
+        elseif name === :bodies
+            val isa NamedTuple || error("`bodies` must be a NamedTuple of per-body NamedTuples, got $(typeof(val)).")
+            for owner in propertynames(val)
+                sub = getproperty(val, owner)
+                sub isa NamedTuple || error("Expected variables for body `$owner` to be a NamedTuple, got $(typeof(sub)).")
+                for key in propertynames(sub)
+                    push_slot!(:bodies, owner, key, getproperty(sub, key))
+                end
+            end
+        elseif name === :observations
+            val isa NamedTuple || error("`observations` must be a NamedTuple of per-observation NamedTuples, got $(typeof(val)).")
+            for obs_name in propertynames(val)
+                sub = getproperty(val, obs_name)
+                sub isa NamedTuple || error("Expected observation variables for `$obs_name` to be a NamedTuple, got $(typeof(sub)).")
+                for key in propertynames(sub)
+                    push_obs_slot!(obs_name, key, getproperty(sub, key))
+                end
+            end
+        else
+            push_slot!(:system, :system, name, val)
+        end
+    end
+
     return fixed_values, fixed_indices
 end
 
@@ -869,8 +840,14 @@ function optimization_and_pathfinder_with_fixed(
                 verbosity >= 3 && @info "Starting multipathfinder run with only discrete parameters fixed" free_params=length(pathfinder_variable_indices) fixed_params=length(pathfinder_fixed_indices)
                 
                 errlogger = ConsoleLogger(stderr, verbosity >=3 ? Logging.Debug : Logging.Error)
+                # v1 turned the inner threaded Kepler solve on here whenever the
+                # outer pathfinder loop was serial (`nruns == 1`), so exactly one
+                # level was threaded. v2 has no inner threading to hand back to,
+                # so this now only costs: it would take `guess_starting_position`
+                # down its serial path. Left as a no-op assignment rather than
+                # deleted so the save/restore pairing stays visible if inner
+                # threading returns. See model/codegen.jl.
                 initial_mt = _kepsolve_use_threads[]
-                _kepsolve_use_threads[] = nruns == 1
 
                 # Generate initial values for pathfinder
                 initial_vals = map(1:nruns) do _

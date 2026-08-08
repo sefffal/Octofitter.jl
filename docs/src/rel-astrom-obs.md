@@ -1,9 +1,13 @@
-# Observable-Based Priors
+# [Observable-Based Priors](@id obs-priors)
 
-This tutorial shows how to fit an orbit to relative astrometry using the observable-based priors of[O'Neil et al. 2019](https://ui.adsabs.harvard.edu/abs/2019AJ....158....4O). Please cite that paper if you use this functionality.
+This tutorial shows how to fit an orbit to relative astrometry using the observable-based priors of [O'Neil et al. 2019](https://ui.adsabs.harvard.edu/abs/2019AJ....158....4O). Please cite that paper if you use this functionality.
 
 We will fit the same astrometry as in the [previous tutorial](@ref fit-astrometry), and just change our priors.
 
+Observable-based priors are applied by *wrapping* an existing observation in
+[`ObsPriorONeil2019`](@ref). The wrapper contributes both the data likelihood and the
+prior term, so you list **only the wrapper** in `observations=` — listing the wrapped
+observation as well would count the data twice.
 
 ```@example 1
 using Octofitter
@@ -20,8 +24,35 @@ astrom_dat = Table(;
     cor   = [0.2, 0.5, 0.1, -0.8, 0.3, -0.0, 0.1, -0.2]
 )
 
-astrom_obs = PlanetRelAstromObs(
-    astrom_dat,
+A = Body(
+    name="A",
+    variables=@variables begin
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1)   # [M⊙]
+    end
+)
+
+planet_b = Body(
+    name="b",
+    about=A,
+    variables=@variables begin
+        mass = 0.0
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        # Results will be sensitive to the prior on period
+        P ~ LogUniform(35, 55_000)           # period, days
+        θ_x ~ Normal()
+        θ_y ~ Normal()
+        θ = atan(θ_y, θ_x)
+        epoch = 50420.0                      # reference epoch for θ [MJD]
+    end
+)
+
+astrom_obs = RelAstromObs(
+    astrom_dat;
+    target = planet_b,
+    ref = A,
     name = "obs_prior_example",
     variables = @variables begin
         # Fixed values for this example - could be free variables:
@@ -30,42 +61,34 @@ astrom_obs = PlanetRelAstromObs(
         platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
     end
 )
-# We wrap the likelihood in this prior
-obs_pri_astrom_obs = ObsPriorAstromONeil2019(astrom_obs)
-
-planet_b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
-    # NOTE! We only provide the wrapped obs_pri_astrom_obs
-    observations=[obs_pri_astrom_obs],
-    variables=@variables begin
-        M = system.M
-        e ~ Uniform(0.0, 0.5)
-        i ~ Sine()
-        ω ~ UniformCircular()
-        Ω ~ UniformCircular()
-        # Results will be sensitive to the prior on period
-        P ~  LogUniform(0.1, 150) # Period, years
-        a = ∛(M * P^2)
-        θ_x ~ Normal()
-        θ_y ~ Normal()
-        θ = atan(θ_y, θ_x)
-        tp = θ_at_epoch_to_tperi(θ, 50420; M, e, a, i, ω, Ω)
-    end
-)
+# We wrap the observation in this prior
+obs_pri_astrom_obs = ObsPriorONeil2019(astrom_obs)
 
 sys = System(
     name="TutoriaPrime",
-    companions=[planet_b],
-    observations=[],
+    bodies=[A, planet_b],
+    # NOTE! We only provide the wrapped obs_pri_astrom_obs
+    observations=[obs_pri_astrom_obs],
     variables=@variables begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
     end
 )
 
 model = Octofitter.LogDensityModel(sys)
 ```
+
+!!! note "Which orbit does the prior apply to?"
+    `ObsPriorONeil2019` needs to know which orbit the observables belong to. By default it
+    uses the wrapped observation's `target`, which is correct for relative astrometry and
+    relative radial velocities. When wrapping a *stellar reflex* radial velocity
+    observation (`RadialVelocityObs(...; target=A, ref=Barycentre)`) the host star has no
+    orbit of its own, so you must say which one: `ObsPriorONeil2019(rvs; orbit=planet_b)`.
+    Pass a tuple, `orbit=(b, c)`, to sum the term over several orbits.
+
+!!! warning "`a` and `P` are both orbit elements"
+    You cannot declare both `a` and `P` in one body block — that is two answers for the
+    same element group, and it raises an error. Sample whichever one your prior is
+    naturally expressed in. `P` is in **days**.
 
 Initialize the model starting points and confirm the data are entered correctly:
 ```@example 1
@@ -85,8 +108,32 @@ octoplot(model, results_obspri)
 
 Compare this with the previous fit using uniform priors:
 ```@example 1
-astrom_obs_uniform = PlanetRelAstromObs( # hide
-    astrom_dat, # hide
+A_uniform = Body( # hide
+    name="A", # hide
+    variables=@variables begin # hide
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1) # hide
+    end # hide
+) # hide
+planet_b_uniform = Body( # hide
+    name="b", # hide
+    about=A_uniform, # hide
+    variables=@variables begin # hide
+        mass = 0.0 # hide
+        a ~ Uniform(0, 100) # hide
+        e ~ Uniform(0.0, 0.5) # hide
+        i ~ Sine() # hide
+        ω_x ~ Normal() # hide
+        ω_y ~ Normal() # hide
+        ω = atan(ω_y, ω_x) # hide
+        Ω ~ Uniform(0,2pi) # hide
+        θ ~ Uniform(0,2pi) # hide
+        epoch = 50420.0 # hide
+    end # hide
+) # hide
+astrom_obs_uniform = RelAstromObs( # hide
+    astrom_dat; # hide
+    target = planet_b_uniform, # hide
+    ref = A_uniform, # hide
     name = "uniform_prior_example", # hide
     variables = @variables begin # hide
         jitter = 0        # mas # hide
@@ -94,33 +141,16 @@ astrom_obs_uniform = PlanetRelAstromObs( # hide
         platescale = 1    # relative # hide
     end # hide
 ) # hide
-planet_b_uniform = Planet( # hide
-    name="b", # hide
-    basis=Visual{KepOrbit}, # hide
-    observations=[astrom_obs_uniform], # hide
-    variables=@variables begin # hide
-        M = system.M # hide
-        e ~ Uniform(0.0, 0.5) # hide
-        i ~ Sine() # hide
-        ω_x ~ Normal() # hide
-        ω_y ~ Normal() # hide
-        ω = atan(ω_y, ω_x) # hide
-        Ω ~ Uniform(0,2pi) # hide
- P ~  LogUniform(0.1, 150) # hide
-        θ ~ Uniform(0,2pi) # hide
-        tp = θ_at_epoch_to_tperi(θ, 50420; M, e, a, i, ω, Ω) # hide
-    end # hide
-) # hide
 sys_uniform = System( # hide
     name="Tutoria", # hide
-    companions=[planet_b_uniform], # hide
-    observations=[], # hide
+    bodies=[A_uniform, planet_b_uniform], # hide
+    observations=[astrom_obs_uniform], # hide
     variables=@variables begin # hide
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1) # hide
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1) # hide
     end # hide
 ) # hide
 model_with_uniform_priors = Octofitter.LogDensityModel(sys_uniform) # hide
+initialize!(model_with_uniform_priors, verbosity=0) # hide
 results_unif_pri = octofit(model_with_uniform_priors,iterations=5000,verbosity=0) # hide
 octoplot(model_with_uniform_priors, results_unif_pri)
 ```

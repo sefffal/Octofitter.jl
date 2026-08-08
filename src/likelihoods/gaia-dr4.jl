@@ -1,295 +1,264 @@
-# const DR4_REFERENCE_EPOCH = 2457936.875 # J2017.5 
+# ---------------------------------------------------
+# Gaia DR4 epoch astrometry (along-scan)
+#
+# The v1 version carried three things that no longer exist here:
+#   - a hand-summed loop over companions with `raoff(sol, mass)` scaling,
+#     which only worked because every companion orbited the same star;
+#   - a branch on the orbit *type* (`OrbitSolutionAbsoluteVisual`) to pick
+#     between two barycentre-position models;
+#   - a `fluxratio` vector indexed positionally by companion.
+#
+# All three are now one line: the photocentre's offset from whatever
+# reference the observation declares. Blended photocentres of several
+# luminous bodies are correct by construction, because the weights are
+# recomputed from the bodies' fluxes every sample.
+# ---------------------------------------------------
 
 """
-    GaiaDR4Astrom(
-        observations_table,
-        gaia_id=1234567890,
-        variables=@variables begin
-            astrometric_jitter ~ LogUniform(0.00001, 10)  # mas
-        end,
-        name="GaiaDR4",
-        primary_star_perturbation=false
-    )
+    GaiaDR4AstromObs(data; target=Photocentre, ref=Barycentre, name="GaiaDR4",
+                     detrend=false, variables=…)
 
-A likelihood for fitting Gaia DR4 Individual Astronomical Data (IAD).
-This includes along-scan astrometric measurements from Gaia.
+Gaia DR4 individual (epoch) astrometry: one along-scan abscissa per
+transit.
 
-The `astrometric_jitter` variable should be defined in the variables block
-to account for systematic astrometric uncertainties.
+`data` needs `:epoch` [MJD], `:scan_pos_angle` ψ [rad],
+`:parallax_factor_al`, `:centroid_pos_al` [mas] and
+`:centroid_pos_error_al` [mas]; an `:outlier_flag` column is honoured if
+present.
 
-If `primary_star_perturbation=true`, the observation variables (`ra_offset_mas`,
-`pmra`, `pmdec`) are interpreted as the primary star's motion rather than the
-barycentre's. The linear component of the companion perturbation is analytically
-removed so that only the non-linear residual (acceleration/curvature) enters the
-model. This breaks the degeneracy between proper motion and companion parameters
-for wide-orbit companions.
+The model for each transit is
+
+    η = Δα* sin ψ + Δδ cos ψ + ϖ · f_al
+
+where `Δα*, Δδ` are the barycentre's own linear motion (from this
+observation's `ra_offset_mas`, `dec_offset_mas`, `pmra`, `pmdec`,
+`ref_epoch` variables) plus the offset of `target` from `ref` — normally the
+photocentre relative to the system barycentre.
+
+# Parallax factors
+`f_al` is Gaia's own `parallax_factor_al`, taken at face value: this
+observation consumes SSB observables plus explicit parallax factors, and
+never observer-aware observables. Every absolute-astrometry observation type
+does one or the other, never both, and which one is literal code in the type
+so that it can be reviewed per type.
+
+What Gaia's factors omit is the annual–orbital (Kopeikin) coupling — the
+dependence of the parallax factor on the *companion's* line-of-sight depth,
+which is `≈ 4.85 · z[AU] / d[pc]²` µas per AU of observer displacement. For
+any DR4 target that is sub-µas, well below the per-transit precision, so the
+face-value factors are exact enough. PlanetOrbits' observer-aware
+observables exist for the cases where it is not.
+
+# `detrend`
+With `detrend=true` the linear (constant + slope) part of the
+target-versus-reference excursion is removed before it enters the model, so
+only the curvature does. That breaks the degeneracy between the fitted
+proper motion and a wide companion, and makes the observation's position and
+proper-motion variables describe the *photocentre* rather than the
+barycentre.
+
+# Variables
+`astrometric_jitter` [mas] adds in quadrature to the per-transit formal
+error; `ra_offset_mas`, `dec_offset_mas`, `pmra`, `pmdec`, `ref_epoch`
+define the reference-point motion. The parallax comes from the system block.
+
+# Blended sources
+
+`target` is what the *catalog source* is, and a catalog source is not
+generally a body: it is whatever flux the pipeline blended into one
+centroid. `Photocentre` (the default) is the whole system's flux-weighted
+point; `Photocentre(:G, (Aa, Ab))` is the point over a named subset.
+
+Two sources in a 2+2 quadruple — two tight pairs several arcseconds apart,
+so that only intra-pair blending is possible — are two instances of this
+observation, each with its own nuisance parameters, sharing the system's
+`plx` and frame:
+
+    System(name=:quad, bodies=(Aa, Ab, Ba, Bb, wide), observations=(
+        GaiaDR4AstromObs(scans_A; target=Photocentre(:G, (Aa, Ab)),
+                         ref=Barycentre, name="srcA", variables=@variables begin
+                             ra_offset_mas ~ Normal(0, 100); dec_offset_mas ~ Normal(0, 100)
+                             pmra ~ Normal(0, 100); pmdec ~ Normal(0, 100); ref_epoch = 57388.5
+                         end),
+        GaiaDR4AstromObs(scans_B; target=Photocentre(:G, (Ba, Bb)),
+                         ref=Barycentre, name="srcB", variables=…),
+    ), variables=…)
+
+Each source's modelled signal then carries *both* its pair's wide-orbit
+motion and the intra-pair photocentric wobble, because a photocentre is one
+dot product over absolute body states — there is no per-level bookkeeping to
+get wrong. Bodies declare `flux_G` in their own blocks; setting the host's
+to 1.0 makes the others contrast ratios.
+
+Membership that is not structurally fixed — a sampled resolved-flag, a
+scan-angle-dependent window — is not expressible as a static spec, and is
+not meant to be: an observation of that kind reads
+`PlanetOrbits.fluxes(sys, band)` and builds its own `WeightedPoint` per draw
+or per epoch.
 """
-struct GaiaDR4AstromObs{TTable<:Table,TSol<:NamedTuple} <: Octofitter.AbstractObs
+struct GaiaDR4AstromObs{TTable<:Table,TT,TR} <: AbstractObs
     table::TTable
-    gaia_id::Int
-    gaia_sol::TSol
-    priors::Octofitter.Priors
-    derived::Octofitter.Derived
+    priors::Priors
+    derived::Derived
+    target::TT
+    ref::TR
     name::String
-    primary_star_perturbation::Bool
+    detrend::Bool
+    # Precomputed detrending coefficients: with the epochs fixed, the
+    # least-squares constant and slope of any excursion are two dot products.
     detrend_Δt::Vector{Float64}
     detrend_inv_N::Float64
     detrend_inv_sum_Δt²::Float64
 end
-const GaiaDR4Astrom = GaiaDR4AstromObs
-export GaiaDR4AstromObs, GaiaDR4Astrom
 
-function GaiaDR4AstromObs(
-    observations_table;
-    gaia_id,
-    variables::Tuple{Octofitter.Priors,Octofitter.Derived}=(Octofitter.@variables begin end),
-    name="GaiaDR4",
-    primary_star_perturbation::Bool=false
-)
+const dr4_cols = (:epoch, :scan_pos_angle, :parallax_factor_al,
+                  :centroid_pos_al, :centroid_pos_error_al)
+
+function GaiaDR4AstromObs(observations;
+                          target=Photocentre, ref=Barycentre,
+                          name="GaiaDR4",
+                          detrend::Bool=false,
+                          variables::Tuple{Priors,Derived}=(Priors(), Derived()))
     (priors, derived) = variables
-    table = Table(observations_table)
+    # Collect every column up front: a multithreaded `CSV.read` hands back
+    # `ChainedVector`s, and the per-transit indexing below asserts on them.
+    # See `materialize_cols`.
+    table = materialize_cols(Table(observations))
     if hasproperty(table, :obs_time_tcb) && !hasproperty(table, :epoch)
         table = Table(table; epoch=jd2mjd.(table.obs_time_tcb))
     end
-    xyz = Table(Octofitter.geocentre_position_query.(table.epoch))
-    table = Table(table; xyz)
-    gaia_sol = Octofitter._query_gaia_dr3(; gaia_id=gaia_id)
+    equal_length_cols(table) ||
+        error("The columns in the input data do not all have the same length")
+    issubset(dr4_cols, Tables.columnnames(table)) ||
+        error("Expected columns $dr4_cols")
+    table = table[sortperm(vec(table.epoch))]
 
-    # Precompute detrending coefficients for primary_star_perturbation mode.
-    # These allow O(N) linear detrending of the companion perturbation at each
-    # MCMC step, removing the constant+slope components that are degenerate with
-    # the fitted position and proper motion.
-    epochs = table.epoch
-    mean_epoch = sum(epochs) / length(epochs)
-    Δt = collect((epochs .- mean_epoch) ./ 365.25)
-    inv_N = 1.0 / length(epochs)
-    inv_sum_Δt² = 1.0 / sum(Δt .^ 2)
-
-    return GaiaDR4AstromObs{typeof(table),typeof(gaia_sol)}(
-        table, gaia_id, gaia_sol, priors, derived, name,
-        primary_star_perturbation, Δt, inv_N, inv_sum_Δt²
-    )
+    ep = table.epoch
+    Δt = collect((ep .- sum(ep) / length(ep)) ./ PlanetOrbits.year2day_julian)
+    t, r = refspec(target), refspec(ref)
+    return GaiaDR4AstromObs{typeof(table),typeof(t),typeof(r)}(
+        table, priors, derived, t, r, String(name), detrend,
+        Δt, 1.0 / length(ep), 1.0 / sum(Δt .^ 2))
 end
-function Octofitter.likeobj_from_epoch_subset(obs::GaiaDR4AstromObs, obs_inds)
-    
-    # Due to TypedTables bug, the line below creates a "matrix" table that isn't the same type as the input.
-    # table = typeof(obs.table)(obs.table[setdiff(1:size(obs.table,1), obs_inds),:,1])
-    # table = Table(collect(eachrow(obs.table))[setdiff(1:size(obs.table,1), obs_inds)]...)
-    table = Table(first(eachcol(obs.table[setdiff(1:size(obs.table,1), obs_inds)])))
-    return GaiaDR4AstromObs(
-        table;
-        gaia_id=obs.gaia_id,
-        variables=(obs.priors, obs.derived),
-        name=obs.name,
-        primary_star_perturbation=obs.primary_star_perturbation
-    )
 
+export GaiaDR4AstromObs
+
+refspecs(obs::GaiaDR4AstromObs) = (obs.target, obs.ref)
+
+function likeobj_from_epoch_subset(obs::GaiaDR4AstromObs, inds)
+    return GaiaDR4AstromObs(obs.table[inds, :, 1];
+        target=obs.target, ref=obs.ref, obs.name, obs.detrend,
+        variables=(obs.priors, obs.derived))
 end
-#  likelihood function
-function Octofitter.ln_like(
-    likeobj::GaiaDR4AstromObs,
-    ctx::SystemObservationContext
-)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
-    T = Octofitter._system_number_type(θ_system)
-    ll = zero(T)
 
+"""
+    simulate!(along_scan, ra_offset, dec_offset, obs, ctx)
 
-    # We separate out the the likelihood function into a `simulate` phase, 
-    # and then use the results here to compute the lieklihood.
-    # This way we can re-use the simulator for plots, generating fake data,
-    # etc.
+Fill the modelled along-scan abscissae (and the RA/Dec offsets they were
+projected from) for every transit.
+"""
+function simulate!(along_scan, ra_offset, dec_offset, obs::GaiaDR4AstromObs, ctx::ObsContext)
+    T = _system_number_type(ctx.θ_system)
+    θ_obs = ctx.θ_obs
+    tab = obs.table
 
-    # Get astrometric jitter from observation variables
-    astrometric_jitter = hasproperty(θ_obs, :astrometric_jitter) ? θ_obs.astrometric_jitter : zero(T)
-    astrometric_var = astrometric_jitter^2
+    ref_epoch = hasproperty(θ_obs, :ref_epoch) ? θ_obs.ref_epoch : zero(T)
+    ra0 = hasproperty(θ_obs, :ra_offset_mas) ? θ_obs.ra_offset_mas : zero(T)
+    dec0 = hasproperty(θ_obs, :dec_offset_mas) ? θ_obs.dec_offset_mas : zero(T)
+    pmra_ = hasproperty(θ_obs, :pmra) ? θ_obs.pmra : zero(T)
+    pmdec_ = hasproperty(θ_obs, :pmdec) ? θ_obs.pmdec : zero(T)
 
-    # Use Bumper.jl to avoid memory allocation overhead
-    @no_escape begin
-        N = size(likeobj.table,1)
-        # Allocate memory to simulate the along scan residuals
-        ra_offset_buffer = @alloc(T, N)
-        dec_offset_buffer = @alloc(T, N)
-        centroid_pos_al_model_buffer = @alloc(T, N)
-        # Extra buffers for primary_star_perturbation detrending
-        pert_ra_buffer = likeobj.primary_star_perturbation ? @alloc(T, N) : nothing
-        pert_dec_buffer = likeobj.primary_star_perturbation ? @alloc(T, N) : nothing
-        centroid_pos_al_model = Octofitter.simulate(
-            likeobj,
-            θ_system,
-            θ_obs,
-            orbits,
-            orbit_solutions,
-            orbit_solutions_i_epoch_start,
-            ra_offset_buffer,
-            dec_offset_buffer,
-            centroid_pos_al_model_buffer,
-            pert_ra_buffer,
-            pert_dec_buffer,
-        )
-        # TODO: do we want to fit for a correlation parameter within each visibility window?
-        # Extract the along-scan residuals from the NamedTuple returned by simulate
-        along_scan_model = centroid_pos_al_model.along_scan_residuals_buffer
-        for i in eachindex(likeobj.table.centroid_pos_al, along_scan_model)
-            # There's an "outlier flag" -- I assume we should ignore ones that are flagged?
-            if hasproperty(likeobj.table, :outlier_flag) && likeobj.table.outlier_flag[i] > 0
-                continue
-            end
-            σ = sqrt(astrometric_var + likeobj.table.centroid_pos_error_al[i]^2)
-            ll += logpdf(Normal(likeobj.table.centroid_pos_al[i], σ), along_scan_model[i])
-        end
+    # The reference point's own linear motion.
+    @inbounds for i in eachindex(tab.epoch)
+        Δt = (tab.epoch[i] - ref_epoch) / PlanetOrbits.year2day_julian
+        ra_offset[i] = ra0 + pmra_ * Δt
+        dec_offset[i] = dec0 + pmdec_ * Δt
     end
 
+    # The excursion of the observed point about that reference. One call —
+    # for a blended photocentre this is the flux-weighted mean of *apparent*
+    # positions, not a superposition of per-companion terms, which is the
+    # case v1's positional `fluxratio` vector could not represent.
+    target = ref(ctx, obs.target)
+    reference = ref(ctx, obs.ref)
+    if obs.detrend
+        sum_ra = zero(T); dot_ra = zero(T)
+        sum_dec = zero(T); dot_dec = zero(T)
+        @no_escape ctx.buf begin
+            pra = @alloc(T, length(tab.epoch))
+            pdec = @alloc(T, length(tab.epoch))
+            @inbounds for i in eachindex(tab.epoch)
+                sol = solutionat(ctx, i)
+                pra[i] = raoff(sol, target, reference)
+                pdec[i] = decoff(sol, target, reference)
+                sum_ra += pra[i]; dot_ra += obs.detrend_Δt[i] * pra[i]
+                sum_dec += pdec[i]; dot_dec += obs.detrend_Δt[i] * pdec[i]
+            end
+            mean_ra = sum_ra * obs.detrend_inv_N
+            slope_ra = dot_ra * obs.detrend_inv_sum_Δt²
+            mean_dec = sum_dec * obs.detrend_inv_N
+            slope_dec = dot_dec * obs.detrend_inv_sum_Δt²
+            @inbounds for i in eachindex(tab.epoch)
+                ra_offset[i] += pra[i] - mean_ra - slope_ra * obs.detrend_Δt[i]
+                dec_offset[i] += pdec[i] - mean_dec - slope_dec * obs.detrend_Δt[i]
+            end
+        end
+    else
+        accumulate_offsets!(ra_offset, dec_offset, ctx, target, reference)
+    end
+
+    plx = ctx.θ_system.plx
+    @inbounds for i in eachindex(tab.epoch)
+        s, c = sincos(tab.scan_pos_angle[i])
+        along_scan[i] = ra_offset[i] * s + dec_offset[i] * c + plx * tab.parallax_factor_al[i]
+    end
+    return (; along_scan, ra_offset, dec_offset, epochs=tab.epoch)
+end
+
+function simulate(obs::GaiaDR4AstromObs, ctx::ObsContext)
+    T = _system_number_type(ctx.θ_system)
+    L = length(obs.table.epoch)
+    return simulate!(Vector{T}(undef, L), Vector{T}(undef, L), Vector{T}(undef, L), obs, ctx)
+end
+
+function ln_like(obs::GaiaDR4AstromObs, ctx::ObsContext)
+    T = _system_number_type(ctx.θ_system)
+    jitter = hasproperty(ctx.θ_obs, :astrometric_jitter) ? ctx.θ_obs.astrometric_jitter : zero(T)
+    jitter² = jitter^2
+    tab = obs.table
+    has_flag = hasproperty(tab, :outlier_flag)
+    ll = zero(T)
+    L = length(tab.epoch)
+    @no_escape ctx.buf begin
+        along_scan = @alloc(T, L)
+        ra_offset = @alloc(T, L)
+        dec_offset = @alloc(T, L)
+        simulate!(along_scan, ra_offset, dec_offset, obs, ctx)
+        for i in eachindex(tab.centroid_pos_al)
+            has_flag && tab.outlier_flag[i] > 0 && continue
+            σ² = jitter² + tab.centroid_pos_error_al[i]^2
+            resid = tab.centroid_pos_al[i] - along_scan[i]
+            ll -= (resid^2 / σ² + log(2π * σ²)) / 2
+        end
+    end
     return ll
 end
 
-function Octofitter.simulate(
-    likeobj::GaiaDR4AstromObs,
-    θ_system,
-    θ_obs,
-    orbits,
-    orbit_solutions,
-    orbit_solutions_i_epoch_start,
-    ra_offset_buffer=zeros(size(likeobj.table.epoch)),
-    dec_offset_buffer=zeros(size(likeobj.table.epoch)),
-    along_scan_residuals_buffer=zeros(size(likeobj.table.epoch)),
-    pert_ra_buffer=likeobj.primary_star_perturbation ? zeros(size(likeobj.table.epoch)) : nothing,
-    pert_dec_buffer=likeobj.primary_star_perturbation ? zeros(size(likeobj.table.epoch)) : nothing,
-)
-
-    T = Octofitter._system_number_type(θ_system)
-
-    # All planets in the system have orbits defined with the same ra, dec, and proper motion,
-    # since these are properties of the system.
-    if length(orbits) > 1 && first(orbits) isa AbsoluteVisual
-        orbit = first(orbits)
-        for i in eachindex(orbits)[2:end]
-            if orbits[i].ra != orbit.ra ||
-               orbits[i].dec != orbit.dec ||
-               orbits[i].pmra != orbit.pmra ||
-               orbits[i].pmdec != orbit.pmdec
-                error("Planet orbits do not have matching ra, dec, pmra, and pmdec.")
-            end
-        end
-    end
-
-    # Compute position + proper motion at each epoch
-    if length(orbits) > 0
-        for i in eachindex(likeobj.table.epoch)
-
-            orbitsol = first(orbit_solutions)[i+orbit_solutions_i_epoch_start]
-
-            # fast path, not accounting for higher order effects
-            if !(orbitsol isa PlanetOrbits.OrbitSolutionAbsoluteVisual)
-                # Careful of units: proper motion is defined in mas per *Julian year*
-                ra_offset_buffer[i] = (θ_obs.ra_offset_mas + θ_obs.pmra*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)
-                dec_offset_buffer[i] = (θ_obs.dec_offset_mas + θ_obs.pmdec*(likeobj.table.epoch[i]-θ_obs.ref_epoch)/365.25)
-
-            else
-                # Our orbit solutions calculate an updated Ra and Dec for the system's barycentre
-                # with various non-linear corrections (see PlanetOrbits.jl for more details)
-                α = orbitsol.compensated.ra2
-                δ = orbitsol.compensated.dec2
-                plx_at_epoch = orbitsol.compensated.parallax2 # Parallax distance may be changing
-
-                ra_offset_buffer[i] = (α - likeobj.gaia_sol.ra)*60*60*1000*cosd(δ)
-                dec_offset_buffer[i] = (δ - likeobj.gaia_sol.dec)*60*60*1000
-
-            end
-        end
-    end
-
-    # Add perturbations from all planets.
-    # In primary_star_perturbation mode, we remove the linear trend (constant + slope)
-    # of the perturbation so that only the non-linear residual (curvature/acceleration)
-    # enters the model. This breaks the degeneracy between proper motion and companion
-    # parameters for wide orbits.
-    if likeobj.primary_star_perturbation
-        # Pass 1: accumulate raw perturbations and running sums for linear fit
-        sum_pert_ra = zero(T);  dot_pert_ra = zero(T)
-        sum_pert_dec = zero(T); dot_pert_dec = zero(T)
-        for i in eachindex(likeobj.table.epoch)
-            pert_ra = zero(T)
-            pert_dec = zero(T)
-            for planet_i in eachindex(orbits)
-                sol = orbit_solutions[planet_i][i+orbit_solutions_i_epoch_start]
-                pert_ra += raoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
-                pert_dec += decoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
-            end
-            pert_ra_buffer[i] = pert_ra
-            pert_dec_buffer[i] = pert_dec
-            sum_pert_ra += pert_ra;   dot_pert_ra += likeobj.detrend_Δt[i] * pert_ra
-            sum_pert_dec += pert_dec; dot_pert_dec += likeobj.detrend_Δt[i] * pert_dec
-        end
-
-        # Best-fit linear coefficients: pert ≈ mean + slope * Δt
-        mean_pert_ra  = sum_pert_ra * likeobj.detrend_inv_N
-        slope_pert_ra = dot_pert_ra * likeobj.detrend_inv_sum_Δt²
-        mean_pert_dec  = sum_pert_dec * likeobj.detrend_inv_N
-        slope_pert_dec = dot_pert_dec * likeobj.detrend_inv_sum_Δt²
-
-        # Pass 2: add only the non-linear residual
-        for i in eachindex(likeobj.table.epoch)
-            ra_offset_buffer[i] += pert_ra_buffer[i] - mean_pert_ra - slope_pert_ra * likeobj.detrend_Δt[i]
-            dec_offset_buffer[i] += pert_dec_buffer[i] - mean_pert_dec - slope_pert_dec * likeobj.detrend_Δt[i]
-        end
-    else
-        # Original mode: add full perturbation (barycentric parameterization)
-        for i in eachindex(likeobj.table.epoch)
-            for planet_i in eachindex(orbits)
-                sol = orbit_solutions[planet_i][i+orbit_solutions_i_epoch_start]
-                ra_offset_buffer[i] += raoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
-                dec_offset_buffer[i] += decoff(sol, θ_system.planets[planet_i].mass * mjup2msol)
-            end
-        end
-    end
-
-    # Project onto along-scan direction and add parallax
-    for i in eachindex(likeobj.table.epoch)
-        s, c = sincos(likeobj.table.scan_pos_angle[i])
-        along_scan_residuals_buffer[i] =
-            ra_offset_buffer[i]*s +
-            dec_offset_buffer[i]*c +
-            θ_system.plx*likeobj.table.parallax_factor_al[i]
-    end
-
-    return (;
-        along_scan_residuals_buffer,      # η = Δα* sin(ψ) + Δδ cos(ψ) — what we currently return
-        ra_offset_buffer,       # Δα* in mas (total: PM + parallax + planets)
-        dec_offset_buffer,      # Δδ in mas (total: PM + parallax + planets)
-    )
-end
-
-
-
-# Generate new astrometry observations
-function Octofitter.generate_from_params(obs::GaiaDR4AstromObs, ctx::SystemObservationContext; add_noise)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
-    sim_result = simulate(obs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
-    # Extract the along-scan residuals from the NamedTuple returned by simulate
-    along_scan_residuals = sim_result.along_scan_residuals_buffer
-
-    new_table = deepcopy(obs.table)
+function generate_from_params(obs::GaiaDR4AstromObs, ctx::ObsContext; add_noise)
+    sim = simulate(obs, ctx)
+    tab = Table(obs.table)
+    al = copy(sim.along_scan)
     if add_noise
-        for i in eachindex(new_table.centroid_pos_al)
-            σ = new_table.centroid_pos_error_al[i]
-            new_table.centroid_pos_al[i] = along_scan_residuals[i] + randn() * σ
-        end
-    else
-        new_table.centroid_pos_al .= along_scan_residuals
+        al .+= randn.() .* tab.centroid_pos_error_al
     end
-
-    # Use inner constructor to preserve gaia_sol and avoid network query
-    return GaiaDR4AstromObs{typeof(new_table), typeof(obs.gaia_sol)}(
-        new_table,
-        obs.gaia_id,
-        obs.gaia_sol,
-        obs.priors,
-        obs.derived,
-        obs.name,
-        obs.primary_star_perturbation,
-        obs.detrend_Δt,
-        obs.detrend_inv_N,
-        obs.detrend_inv_sum_Δt²,
-    )
+    newtab = Table(tab; centroid_pos_al=al)
+    return GaiaDR4AstromObs(newtab; target=obs.target, ref=obs.ref, obs.name, obs.detrend,
+        variables=(obs.priors, obs.derived))
 end
+
+# Gaia measures one number per transit — the along-scan abscissa — so that is
+# what the `:auto` correction test compares.
+has_correction_impact(::Type{<:GaiaDR4AstromObs}) = true
+correction_impact(obs::GaiaDR4AstromObs, a::ObsContext, b::ObsContext) =
+    _simulate_impact(simulate(obs, a), simulate(obs, b), (:along_scan,),
+                     _tightest(obs.table.centroid_pos_error_al))

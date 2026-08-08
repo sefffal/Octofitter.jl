@@ -1,3 +1,25 @@
+@noinline function _variables_not_a_block(got)
+    error("""
+    `@variables` takes a single `begin ... end` block, but received a `$got`.
+
+    This usually means an unparenthesized `@variables` swallowed a following
+    keyword argument — a macro call extends to the end of the expression:
+
+        System(..., variables=@variables begin ... end, method=:AHL21)   # wrong
+
+    Put `variables=` last, so there is nothing after it for the macro to
+    swallow:
+
+        System(..., method=:AHL21, variables=@variables begin ... end)
+
+    Parenthesizing works too, and is robust wherever it sits:
+
+        System(..., variables=(@variables begin ... end), method=:AHL21)
+
+    or bind the block to a name first and pass `variables=vars`.
+    """)
+end
+
 """
     @variables begin
         [prior_1] ~ [UnivariateDistribution]
@@ -6,10 +28,19 @@
     end
 """
 macro variables(variables_block_input)
+    # An unparenthesized macro call extends to the end of the expression, so
+    # `System(..., variables=@variables begin … end, method=:x)` hands the macro
+    # the whole `variables=… , method=…` fragment rather than the block. Left to
+    # run, that reached the statement loop below and produced "invalid statement
+    # encountered =" — which points at nothing the user wrote.
+    if !(variables_block_input isa Expr) || variables_block_input.head !== :block
+        got = variables_block_input isa Expr ? variables_block_input.head : typeof(variables_block_input)
+        _variables_not_a_block(got)
+    end
     variables_block = filter(variables_block_input.args) do expr
         !(expr isa LineNumberNode)
     end
-    
+
     # Global captured variables for all derived expressions
     all_quote_vars = Symbol[]
     all_quote_vals = Any[]
@@ -97,8 +128,29 @@ macro variables(variables_block_input)
                 #     error("Variable '$varname' is already defined as a derived variable (=). Each variable can only be defined once.")
                 # end
                 push!(seen_prior_vars, varname)
-                
-                push!(priors, :( 
+
+                # `$` is supported on `=` lines (their right-hand sides are
+                # quoted and evaluated later, inside the model) but is neither
+                # needed nor legal on a `~` line, whose right-hand side is
+                # `esc`d and so already sees the caller's scope. Without this
+                # check the failure is `syntax: "$" expression outside quote`
+                # pointing into this file, naming neither `@variables` nor the
+                # line that caused it.
+                if _has_interpolation(expression)
+                    error("""
+                    `\$` interpolation is not supported on a `~` line, and is not needed:
+                    the right-hand side of a prior is evaluated in the scope where you
+                    wrote `@variables`, so a local variable is already visible.
+
+                        $varname ~ $(_strip_interpolation_str(expression))
+
+                    (`\$` *is* supported on `=` lines, because a derived expression is
+                    quoted and evaluated later, inside the model, where your locals are
+                    no longer in scope.)
+                    """)
+                end
+
+                push!(priors, :(
                     distribution = try
                         $(esc(expression))
                     catch err
@@ -199,7 +251,7 @@ macro variables(variables_block_input)
         local captured_names = $captured_names_tuple
         priors_out = []
         derived_out = []
-        likelihoods_out = AbstractLikelihood[]
+        likelihoods_out = AbstractObs[]
         priors_evaled = [$(priors...)]
         for (varname, prior) in zip($priors_varnames, priors_evaled)
             out = expandparam(varname, prior)
@@ -248,6 +300,22 @@ export @variables
 # access when using constants etc. in their models.
 # This only applies to deterministic variables, sampled variables already
 # resolve any variables at model-creation time.
+# Does this expression contain a `$` interpolation anywhere? Used to reject it
+# on `~` lines with a message, rather than letting lowering fail.
+_has_interpolation(ex) = false
+_has_interpolation(ex::Expr) =
+    ex.head === :($) || (ex.head !== :quote && any(_has_interpolation, ex.args))
+
+# The same expression with its `$`s removed, so the error can show the spelling
+# that would have worked.
+_strip_interpolation(ex) = ex
+function _strip_interpolation(ex::Expr)
+    ex.head === :($) && return _strip_interpolation(ex.args[1])
+    ex.head === :quote && return ex
+    return Expr(ex.head, map(_strip_interpolation, ex.args)...)
+end
+_strip_interpolation_str(ex) = string(_strip_interpolation(ex))
+
 function quasiquote!(ex, vars::Vector{Symbol}, vals::Vector)
     ex
 end
@@ -267,6 +335,12 @@ function quasiquote!(ex::Expr, vars::Vector{Symbol}, vals::Vector)
         end
     end
     return ex
+end
+
+# Same trap, arriving with the keyword as a separate argument (which is how it
+# parses once someone adds the parentheses but leaves the keyword inside them).
+macro variables(variables_block_input, extra, more...)
+    _variables_not_a_block("list of $(2 + length(more)) arguments")
 end
 
 # Helper function to create human-readable names for user likelihoods

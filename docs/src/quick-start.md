@@ -1,124 +1,169 @@
-# Quick Start (@id quick-start)
+# [Quick Start](@id quick-start)
 
 This guide introduces the key concepts in Octofitter:
 * Observation objects to hold your data
-* `Planet` and `System` models to specify variables, priors, and system architecture
+* `Body` and `System` models to specify variables, priors, and system architecture
 * Sampling from the posterior using MCMC
 * Plotting the results
 * Saving the chain
 
 For installation instructions, see [Installation](@ref install).
 
+If you are porting a script written for Octofitter v8 or earlier, read
+[Migrating to Octofitter v9](@ref v9-migration) first — the model syntax changed.
 
 ## Example: Fit a Single Planet Orbit to Relative Astrometry
 
 Load the required packages:
-```julia
+```@example 1
 using Octofitter, Distributions, CairoMakie, PairPlots
 ```
 
-Create a [`PlanetRelAstromObs`](@ref) object containing your observational data. In this case its the position of the planet relative to the star, but many other kinds of data are supported:
-```julia
+Create a [`RelAstromObs`](@ref) object containing your observational data. In this case
+it is the position of the planet relative to the star, but many other kinds of data are
+supported:
+```@example 1
 astrom_dat = Table(
-    epoch = [50000, 50120, 50240],      # Dates in MJD
-    ra = [-505.7, -502.5, -498.2],      # [mas] East positive
-    dec = [-66.9, -37.4, -7.9],         # [mas] North positive
-    σ_ra = [10.0, 10.0, 10.0],          # [mas] Uncertainties
-    σ_dec = [10.0, 10.0, 10.0],         # [mas] Uncertainties
-    cor = [0.0, 0.0, 0.0]               # RA/Dec correlations
+    epoch = [50000.0, 50120.0, 50240.0],  # Dates in MJD
+    ra    = [-505.7, -502.5, -498.2],     # [mas] East positive
+    dec   = [-66.9, -37.4, -7.9],         # [mas] North positive
+    σ_ra  = [10.0, 10.0, 10.0],           # [mas] Uncertainties
+    σ_dec = [10.0, 10.0, 10.0],           # [mas] Uncertainties
+    cor   = [0.0, 0.0, 0.0]               # RA/Dec correlations
 )
-astrom = PlanetRelAstromObs(astrom_dat, name="GPI astrom") # must give a name for each group of observations
+nothing # hide
 ```
 
-Define a planet model with orbital elements and their [prior distributions](@ref priors):
-```julia
-planet_b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
-    observations=[astrom],
+A model is a flat list of **bodies** and a flat list of **observations**. The host star is
+a body like any other, so define it first:
+```@example 1
+A = Body(
+    name="A",
     variables=@variables begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)  # Total mass (solar masses) for this orbit
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1)  # [M⊙]
+    end
+)
+nothing # hide
+```
+
+Now the planet. `about=A` says the planet orbits the star; its orbital elements and their
+[prior distributions](@ref priors) go in its own variables block:
+```@example 1
+b = Body(
+    name="b",
+    about=A,
+    variables=@variables begin
+        mass = 0.0                 # [M⊙] see the note below
         a ~ Uniform(0, 100)        # Semi-major axis [AU]
-        e ~ Uniform(0.0, 0.5)      # Eccentricity  
+        e ~ Uniform(0.0, 0.5)      # Eccentricity
         i ~ Sine()                 # Inclination [rad]
         ω ~ UniformCircular()      # Argument of periastron [rad]
         Ω ~ UniformCircular()      # Longitude of ascending node [rad]
-        θ ~ UniformCircular()      # Position angle at reference epoch [rad]
-        # Epoch of periastron passage
-        # We calculate it from the position angle above
-        tp = θ_at_epoch_to_tperi(θ, 50000; M, e, a, i, ω, Ω)  
+        θ ~ UniformCircular()      # Position angle at the reference epoch [rad]
+        epoch = 50000.0            # The reference epoch for θ [MJD]
     end
 )
+nothing # hide
 ```
 
 !!! note
-    Make sure to adjust the epoch `50000` above to match your most constraining data epoch.
+    Make sure to adjust the epoch `50000.0` above to match your most constraining data
+    epoch. `θ` and `epoch` together fix where the planet is on its orbit; you could
+    equally supply `tp` (epoch of periastron passage) or `M0` and `epoch`.
 
-Define the system with its mass and distance - see [System Construction](@ref derived) for more options:
-```julia
+!!! note "Why the planet's mass is fixed at zero"
+    An orbit's gravitating mass is the total mass of the bodies it binds, computed from
+    the model rather than declared — here `A.mass + b.mass`. Relative astrometry
+    constrains only that *sum*, never the split between the two, so setting `b.mass = 0.0`
+    hands the whole of it to `A.mass` and keeps the model identified. `A.mass` is then
+    the total mass of the orbit, which is what the astrometry actually measures.
+
+    Give the planet a real mass prior once you add data that can separate the two:
+    radial velocity, absolute astrometry, or a second planet.
+
+Now build the observation, saying what it observes (`target`) and what it is measured
+against (`ref`), and assemble the system:
+```@example 1
+astrom = RelAstromObs(astrom_dat; target=b, ref=A, name="GPI astrom")
+
 sys = System(
     name="HD1234",
-    companions=[planet_b],
-    observations=[],
+    bodies=[A, b],
+    observations=[astrom],
     variables=@variables begin
-        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)  # Parallax (mas)
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)  # Parallax [mas]
     end
 )
 ```
 
-That there are many different orbit parameterizations, each requiring different of parameters names. The `KepOrbit` is a full 3D keplerian orbit with Campbell parameters. `Visual` means that we have a defined parallax distance `plx` that can map separations in AU to arcseconds.
+Which frame variables the system block defines chooses the frame: `plx` alone gives
+angular observables in milliarcseconds, which is what relative astrometry needs. See
+[System Construction](@ref derived) for more options.
 
 Compile the model into efficient sampling code:
-```julia
+```@example 1
 model = Octofitter.LogDensityModel(sys)
 ```
 
-Initialize the starting points for the chains. You can optionally provide starting values directly for certain variables (UniformCircular priors are a special case, see docs for details).
-```julia
+Initialize the starting points for the chains. You can optionally provide starting values
+for particular variables (`UniformCircular` priors are a special case — see
+[Priors](@ref priors)). Body variables are nested under `bodies`:
+```@example 1
 init_chain = initialize!(model, (;
     plx = 50.001,
-    planets = (;
-        b=(;
-            M = 1.18,
+    bodies = (;
+        A = (; mass = 1.18),
+        b = (;
             a = 10.0,
             e = 0.01,
         )
     )
-)) 
+))
+nothing # hide
 ```
 
-Visualize the starting point. You can use this plot to make absolutely sure your data is entered in correctly:
-```julia
+Visualize the starting point. You can use this plot to make absolutely sure your data was
+entered correctly:
+```@example 1
 octoplot(model, init_chain)
 ```
 
-Sample from the posterior using Hamiltonian Monte Carlo (see [Samplers](@ref samplers) for other options):
-```julia
+Sample from the posterior using Hamiltonian Monte Carlo (see [Samplers](@ref samplers) for
+other options):
+```@example 1
+octofit(model, verbosity=0, iterations=2, adaptation=2); # hide
 chain = octofit(model, iterations=1000)
 ```
 
 Visualize the results with orbit plots and a corner plot:
-```julia
+```@example 1
 octoplot(model, chain)     # Plot orbits and data
 ```
 
-```julia
-octocorner(model, chain)   # Corner plot of posterior
+```@example 1
+octocorner(model, chain, small=true)   # Corner plot of posterior
 ```
 
-Save the results to a FITS file (see [Loading and Saving Data](@ref loading-saving) for other formats):
+Save the results to a FITS file (see [Loading and Saving Data](@ref loading-saving) for
+other formats):
 ```julia
 Octofitter.savechain("output.fits", chain)
+chain = Octofitter.loadchain("output.fits"; model)
 ```
+
+Passing `model` to `loadchain` is recommended: it checks that the chain's columns match
+the model you are about to use it with, instead of silently returning `missing` for any
+that don't.
 
 ## Working with Dates
 
-These functions may help you convert dates to and from Modified Julian Days using these helper functions:
-```julia
+These helper functions convert dates to and from Modified Julian Days:
+```@example 1
 mjd("2020-01-01")     # Date string to MJD
 years2mjd(2020.0)     # Decimal year to MJD
 mjd2date(50000)       # MJD to date
 ```
 
 ## Next Steps
-See the Tutorials section for complete examples.
+See the Tutorials section for complete examples, starting with the
+[Basic Astrometry Fit](@ref fit-astrometry).

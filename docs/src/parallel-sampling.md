@@ -4,9 +4,16 @@
 !!! note
     Octofitter's default sampler (Hamiltonian Monte Carlo) is not easily parallelizable; however, it performs excellently on a single core. Give it a try before assuming you need to sample with multiple cores or nodes.
 
+!!! note "Requires Pigeons"
+    Everything on this page depends on [`octofit_pigeons`](@ref), whose methods live in a
+    package extension: `pkg> add Pigeons` and `using Pigeons`, or the function exists with
+    no methods. The MPI and cluster plumbing shown here has not been re-verified on a
+    real cluster recently — the model definition and the API calls are current, but treat
+    the launcher scripts as a starting point. See [Samplers](@ref samplers).
+
 
 This guide shows how you can sample from Octofitter models using a cluster.
-If you just want to sample across multiple cores on the same computer, start julia with multiple threads (`julia --threads=auto`) and use `octofit_pigeons`.
+If you just want to sample across multiple cores on the same computer, start julia with multiple threads (`julia --threads=auto`).
 
 If your problem is challenging enough to benefit from parallel sampling across multiple nodes in a cluster, you might consider using Pigeons with MPI by following this guide. 
 
@@ -14,10 +21,9 @@ If your problem is challenging enough to benefit from parallel sampling across m
 
 We will use a Julia script to submit the batch job to the cluster. The script will define the model and start the sampling process. The sampler can then run in the background, and you can periodically load the results in from the checkpoint file to examine them after each round of sampling.
 
-Here is an example:
+Here is an example (save it as `distributed-model.jl`):
 ```julia
 using Octofitter
-using OctofitterRadialVelocity
 using PlanetOrbits
 using CairoMakie
 using PairPlots
@@ -25,33 +31,52 @@ using DataFrames
 using Distributions
 
 # Specify your data as usual
-astrom_obs = PlanetRelAstromObs(
-    # Your data here:
-    (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50360, ra = -492.67768482682357, dec = 21.63557115669823, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50480, ra = -485.9770335870402, dec = 51.147204404903704, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50600, ra = -478.1095526888573, dec = 80.53589069730698, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
+astrom_dat = Table(
+    epoch = [50000.0, 50120.0, 50240.0, 50360.0, 50480.0, 50600.0, 50720.0, 50840.0],
+    ra    = [-505.7637580573554, -502.570356287689, -498.2089148883798, -492.67768482682357,
+             -485.9770335870402, -478.1095526888573, -469.0801731788123, -458.89628893460525],
+    dec   = [-66.92982418533026, -37.47217527025044, -7.927548139010479, 21.63557115669823,
+             51.147204404903704, 80.53589069730698, 109.72870493064629, 138.65128697876773],
+    σ_ra  = fill(10.0, 8),
+    σ_dec = fill(10.0, 8),
+    cor   = zeros(8),
 )
 
 # build your model as usual
-@planet b Visual{KepOrbit} begin
-    a ~ Uniform(0, 100) # AU
-    e ~ Uniform(0.0, 0.99)
-    i ~ Sine() # radians
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,50000) # use MJD epoch of your data here!!
-end astrom_obs
-@system Tutoria begin # replace Tutoria with the name of your planetary system
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-end b
-model = Octofitter.LogDensityModel(Tutoria)
+A = Body(
+    name="A",
+    variables=@variables begin
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1)   # [M⊙]
+    end
+)
+
+b = Body(
+    name="b",
+    about=A,
+    variables=@variables begin
+        mass = 0.0
+        a ~ Uniform(0, 100)     # AU
+        e ~ Uniform(0.0, 0.99)
+        i ~ Sine()              # radians
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        epoch = 50000.0         # use an MJD epoch near your data here!!
+    end
+)
+
+astrom_obs = RelAstromObs(astrom_dat; target=b, ref=A, name="astrom")
+
+sys = System(   # replace Tutoria with the name of your planetary system
+    name="Tutoria",
+    bodies=[A, b],
+    observations=[astrom_obs],
+    variables=@variables begin
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
 ```
 
 
@@ -77,7 +102,7 @@ pt = pigeons(
         "#SBATCH --time=24:00:00",
     ],
      # HPC modules to load on each worker
-    environment_modules: ["StdEnv/2023", "intel", "openmpi", "julia/1.10", "hdf5"]
+    environment_modules = ["StdEnv/2023", "intel", "openmpi", "julia/1.10", "hdf5"]
 )
 ```
 

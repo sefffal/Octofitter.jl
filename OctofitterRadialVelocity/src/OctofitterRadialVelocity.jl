@@ -1,7 +1,6 @@
 module OctofitterRadialVelocity
 
 using Octofitter
-using Octofitter: SystemObservationContext, PlanetObservationContext
 using PlanetOrbits
 using Tables, TypedTables
 using Distributions
@@ -24,10 +23,16 @@ using Bumper
 include("celerite/Celerite.jl")
 using .Celerite: Celerite
 
-include("rv-absolute.jl")
-include("rv-absolute-margin.jl")
-include("rv-relative.jl")
-include("prior-observable-rv.jl")
+# `StarAbsoluteRVObs` and `PlanetRelativeRVObs` are gone: both are
+# `Octofitter.RadialVelocityObs` with different `target`/`ref`, and their
+# nuisance machinery (GP, trend, held-out data) went with them into core.
+# `prior-observable-rv.jl` is gone too — with one RV type, O'Neil's
+# observable-based prior needs one dispatch, which lives in core beside the
+# astrometry one. What is left here is what genuinely belongs to RV as an
+# instrument: the GP backends, the marginalized estimator, the archive
+# loaders, and the RadVel interop.
+include("gp-backends.jl")
+include("rv-marginalized.jl")
 
 include("data-sources/harps_rvbank.jl")
 include("data-sources/harps_dr1.jl")
@@ -36,8 +41,13 @@ include("data-sources/lick.jl")
 include("data-sources/ces.jl")
 include("compat/radvel.jl")
 
-
-rvpostplot = Octofitter.rvpostplot
+# `rvpostplot` and its 900-line Makie extension are retired, not ported.
+# v2's plotting is generic: an observation implements `plotchannels` and
+# `Octofitter.residuals`, and core's Makie extension draws the time-series,
+# residual and phase-folded panels from those. `RadialVelocityObs` and
+# `MarginalizedRVObs` both do, so `octoplot` covers what `rvpostplot` covered
+# without a second implementation of the same panels. The v1 source is parked
+# in `src/legacy/` for reference, exactly as core parks its own.
 
 
 

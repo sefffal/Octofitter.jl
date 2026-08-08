@@ -7,37 +7,39 @@
 
 
 Octofitter is a Julia package for performing Bayesian inference 
-against a wide variety of exoplanet / binary star data.
-You can also use Octofitter from Python using the [Python guide](@ref python).
+against a wide variety of exoplanet and binary star data.
 
-!!! warning "Upgrading from v6 or v7?"
-    **If you're upgrading from Octofitter v7 or below, please see our [Migration Guide](@ref migration)**
+!!! warning "Upgrading from Octofitter v8 or below?"
+    Octofitter v9 includes is a substantial change to how models are defined. Please read
+    [Migrating to Octofitter v9](@ref v9-migration).
+
 
 
 ![](assets/gallery.png)
 
 
 **Supported data:**
-Fit exoplanet orbits to
+Fit exoplanet orbits to:
 * relative astrometry
 * absolute astrometry (Gaia or Hipparcos)
 * absolute radial velocity data (of a star)
-* relative radial velocity data (of a planet relative to a star)
+* relative radial velocity data (of a planet relative to a star, or planet relative to another planet)
 * sample directly from images (also known as "deorbiting")
-* sample directly from interferometric visibilities (NIRISS-AMI, or GRAVITY)
+* sample directly from interferometric visibilities (NIRISS-AMI or GRAVITY)
 
 You can freely combine any of the above data types.  Any and all combinations work together.
 
 **Modelling features:**
-* multiple planets (zero or more)
+* multiple planets (zero or more); marginalize over the number of planets (transdimensional models)
+* optional drop-in N-body integration
+* arbitrary hierarchies: moons, circumbinary planets, 2+2 quadruples
+* pulsar-timing grade kinematics (perspective acceleration, viewing angle changes, Rømer delay, differential light travel time between planets) opted in automatically 
 * gaussian processes (AbstractGPs or Celerite)
 * hyperbolic orbits
-* co-planar, and non-coplanar systems
 * arbitrary priors and parameterizations
 * optional O'Neil "observable based priors"
-* link mass to photometry via atmosphere models
-* hierarchical models (with a bit of work from the user)
-* Model stellar activity with Gaussian processes
+* link mass to photometry and images via atmosphere models
+* hierarchical models - e.g. link planets' orbital planes through a system-level hyperprior
 
 **Speed:**
 
@@ -45,8 +47,7 @@ Fit astrometry on your laptop in seconds!
 
 * Highly optimized code and derivatives are generated from your model
 * Higher order sampler (No U-Turn sampler) which explores the parameter space very efficiently 
-* The sampler is automatically warmed up using a variational approximation from the Pathfinder algorithm (Pathfinder.jl) 
-
+* Samplers warmed up automatically using a variational approximation from the Pathfinder algorithm (Pathfinder.jl) 
 
 See also: the python libraries [Orbitize!](https://orbitize.readthedocs.io/en/latest/), [orvara](https://github.com/t-brandt/orvara), and [exoplanet](https://docs.exoplanet.codes/en/latest/).
 

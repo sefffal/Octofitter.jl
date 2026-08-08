@@ -2,6 +2,24 @@
 
 This page provides a complete, production-ready script for fitting orbital models using the G23H catalog. This script supports:
 
+!!! note "What this script leans on"
+    * `G23HObs` declares **source membership** — `host=`, `companions=`, `ref=` — and
+      reads companion flux ratios from the bodies' own `flux_G` / `flux_Hp` variables.
+    * The model is a flat list of `Body` nodes, and **all masses are in solar masses**
+      (`mjup` is a plain multiplicative constant).
+    * RV is `RadialVelocityObs(…; target=A, ref=Barycentre)`, with `offset` and `jitter`
+      declared explicitly.
+    * [`OrbitOrderPrior`](@ref) takes `Body` nodes or
+      `Symbol`s.
+    * The incremental parallel-tempering loop this script is built around
+      ([`octofit_pigeons`](@ref) + `increment_n_rounds!` + `Pigeons.stepping_stone_pair`)
+      is unchanged: `octofit_pigeons` lives in a package extension, so `using Pigeons`
+      must be in scope, and it returns `(;chain, pt)` as before.
+    * `Octofitter.dotplot` still works with the same arguments, and so does the RV
+      summary figure — renamed [`rvplot`](@ref), since it draws one posterior draw
+      rather than the posterior. It is assembled from [`octoplot`](@ref)'s generic
+      panels and lives in core rather than in an RV-specific Makie extension.
+
 - Single or multi-planet systems
 - Optional Gaussian Process modeling of stellar activity in RV data
 - RV data from DACE or custom RDB files
@@ -18,12 +36,13 @@ Before running this script, ensure you have installed the necessary packages:
    Pkg.add([
        "Octofitter",
        "OctofitterRadialVelocity",
+       "Pigeons",
        "Arrow",
+       "CSV",
        "DataFrames",
        "Distributions",
        "CairoMakie",
        "PairPlots",
-       "Pigeons",
        "MCMCChains",
        "ArgParse",
        "DelimitedFiles",
@@ -46,7 +65,7 @@ The script is organized into several sections:
 2. **Observation Setup** - Create G23H astrometry likelihood object (catalog downloaded automatically)
 3. **RV Data Loading** - Load RV data from DACE or RDB files
 4. **Model Definition** - Define planet and system models with optional GP
-5. **Sampling** - Run MCMC with Pigeons
+5. **Sampling** - Run MCMC
 6. **Analysis** - Generate plots and save results
 
 ## Complete Script
@@ -71,14 +90,15 @@ Usage:
 
 using ArgParse
 using Arrow
+using CSV
 using CairoMakie
 using DataFrames
 using Dates
 using Distributions
 using Octofitter, OctofitterRadialVelocity
+using Pigeons
 using LinearAlgebra
 using PairPlots
-using Pigeons
 using Printf
 using Statistics
 using StatsBase
@@ -167,17 +187,27 @@ mkpath(output_dir)
 
 # G23HObs accepts either gaia_id or hip_id directly.
 # The G23H catalog is automatically downloaded on first use via DataDeps.
+# `host` / `companions` name the bodies this catalog source is a measurement of. They
+# accept `Body` model nodes or `Symbol`s; we use Symbols here because the bodies are
+# built further down. `ref=Barycentre` says the host's reflex is measured against the
+# system barycentre, which is what a catalog proper motion is.
 if !isnothing(args["hip"])
     hip_id = args["hip"]
     sysname′ = "HIP$hip_id"
     absastrom = Octofitter.G23HObs(;
         hip_id=hip_id,
+        host=:A,
+        companions=Tuple(planet_names),
+        ref=Barycentre,
         include_rv=use_gaia_rv,
     )
 else
     gaia_id = args["gaia"]
     absastrom = Octofitter.G23HObs(;
         gaia_id=gaia_id,
+        host=:A,
+        companions=Tuple(planet_names),
+        ref=Barycentre,
         include_rv=use_gaia_rv,
     )
     # Determine system name from catalog
@@ -217,6 +247,9 @@ else
     end
 end
 
+# `channels=` on the constructor does the same thing, filtering the same `table.kind`
+# rows; the post-hoc route below is kept because the channel list is built from
+# command-line arguments.
 indices = findall([
     available_obs_kind ∈ obs_to_include
     for available_obs_kind in absastrom.table.kind
@@ -277,9 +310,12 @@ function create_rv_likelihood(dat, name, mean_epoch, use_gp)
     # Combine variables based on whether GP is enabled
     vars = use_gp ? vcat(base_vars, gp_vars) : base_vars
 
-    # Create likelihood with appropriate configuration
-    return StarAbsoluteRVObs(
+    # One RV type; `target`/`ref` say which kind of RV it is. `offset` and `jitter`
+    # are declared explicitly above, because nothing is invented for you.
+    return RadialVelocityObs(
         dat;
+        target = :A,
+        ref = Barycentre,
         name,
         gaussian_process = use_gp ? gauss_proc_approx_quasi_periodic : nothing,
         variables = vars,
@@ -448,45 +484,66 @@ has_rv_data = !isempty(rvlikes)
 
 # We should always use RUWE mode
 ueva_mode = :RUWE
-OrbitType = AbsoluteVisual{KepOrbit}
+
+# Which frame the model is in is decided by which frame variables the *system* block
+# supplies. G23H wants the full absolute set,
+# `plx, ra, dec, pmra, pmdec, rv, ref_epoch` (below).
 
 ref_planet_pos = mean(absastrom.gaia_table.epoch)
 
-planets = Planet[]
+# The host star is a model node like any other. `flux_G` / `flux_Hp` = 1.0 make every
+# other body's flux a contrast ratio against it, which is how G23H forms the Gaia
+# photocentre and modulates the Hipparcos abscissa.
+host = Body(
+    name="A",
+    variables=@variables begin
+        mass = $host_mass    # Msol
+        flux_G  = 1.0
+        flux_Hp = 1.0
+    end
+)
+
+planets = Body[]
 for planet_i in 1:num_planets
-    planet = Planet(
+    planet = Body(
         name=planet_names[planet_i],
-        basis=OrbitType,
-        observations=[],
+        about=host,
         variables=@variables begin
             planet_i = $planet_i
             a ~ LogUniform(0.001, 1024)
             planet_present = system.n_planets >= planet_i
-            mass′ ~ LogUniform(0.01, host_mass / Octofitter.mjup2msol)
+            # Masses are M⊙ throughout; `mjup` is a plain multiplicative constant.
+            # NB: `$`-interpolation works on the right of `=` (derived) but NOT on
+            # the right of `~` — a prior expression closes over the enclosing scope
+            # directly, so write `host_mass`, not `$host_mass`.
+            mass′ ~ LogUniform(0.01mjup, host_mass)
             mass = mass′ * planet_present
             e ~ Uniform(0, 0.9)
-            M = system.M_pri + mass * Octofitter.mjup2msol
             ω ~ Uniform(0, 2pi)
-            i = system.i
-            Ω = system.Ω
-            τ ~ Uniform(0.0, 1.0)
-            P = √(a^3 / M)
-            tp = τ * P * 365.25 + $ref_planet_pos
+            i = system.i         # coplanar: shared inclination…
+            Ω = system.Ω         # …and node
+            # `M0` (mean anomaly at `epoch`) sets the phase; the orbit's total mass
+            # comes from the hierarchy.
+            M0 ~ Uniform(0, 2pi)
+            epoch = $ref_planet_pos
+            flux_G  = 0.0        # dark companion
+            flux_Hp = 0.0
         end
     )
     push!(planets, planet)
 end
 
 if num_planets == 0
-    planets = [Planet(name=:b, basis=OrbitType, variables=@variables begin
+    planets = [Body(name=:b, about=host, variables=@variables begin
         a = 1.0
         mass = 0.0
         e = 0.0
-        M = system.M_pri
         ω = 0.0
         i = 0.0
         Ω = 0.0
         tp = 0.0
+        flux_G  = 0.0
+        flux_Hp = 0.0
     end)]
 end
 
@@ -501,16 +558,18 @@ push!(observations, absastrom)
 append!(observations, rvlikes)
 
 if num_planets > 1
-    push!(observations, PlanetOrderPrior(planets...))
-    push!(observations, NonCrossingPrior())
+    # `OrbitOrderPrior` takes `Body` nodes (or
+    # `Symbol`s). Both terms go in the system's `observations=` list, not on a planet.
+    push!(observations, OrbitOrderPrior(planets...))
+    # With no `bodies=` list this covers *every* hierarchy row. Naming the bodies
+    # restricts it, which matters for hierarchical systems.
+    push!(observations, NonCrossingPrior(bodies=Tuple(planets)))
 end
 
 ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd
 
-# Base system variables
+# Base system variables. The host mass now lives on the host body, not here.
 base_system_vars = @variables begin
-    M_pri = $host_mass
-
     n_planets ~ truncated(NegativeBinomial(), upper=num_planets)
 
     ref_epoch = $ref_epoch
@@ -552,7 +611,7 @@ end
 
 sys = System(;
     name=sysname,
-    companions=planets,
+    bodies=[host; planets],
     observations,
     variables=system_vars
 )
@@ -571,7 +630,11 @@ initial_θ = collect(Octofitter.guess_starting_position(model, 10000)[1])
 model.starting_points = fill(collect(model.link(initial_θ)), 100)
 @time model.ℓπcallback(model.starting_points[1])
 
-# Run initial sampling
+# Run initial sampling. G23H posteriors are frequently multi-modal, which is why this
+# is tempered rather than HMC; seed the sampler well (above) regardless.
+#
+# The variational leg is switched off here: a Gaussian reference is a poor fit to these
+# posteriors, and dropping it makes the ladder's behaviour easier to read off `Λ`.
 explorer = SliceSampler()
 
 chain, pt = octofit_pigeons(
@@ -587,6 +650,10 @@ chain, pt = octofit_pigeons(
 ## ============================================================================
 ## INCREMENTAL SAMPLING WITH CHECKPOINTS
 ## ============================================================================
+#
+# Pigeons can resume an existing run, so rather than one long call we add a round at a
+# time and write a checkpoint after each. A long G23H fit can then be inspected (and
+# survive an interruption) without starting over.
 
 while length(pt.shared.reports.summary.last_round_max_time) < n_rounds
     global chain, pt
@@ -594,19 +661,18 @@ while length(pt.shared.reports.summary.last_round_max_time) < n_rounds
     chain, pt = octofit_pigeons(pt)
     display(chain)
 
-    # Save checkpoint
+    # Save checkpoint, tagged with the log evidence ratio for this round
     chain = MCMCChains.setinfo(chain, (; chain.info...,
         logevidence_ratio=Pigeons.stepping_stone_pair(pt)[2]))
     chain_file = joinpath(output_dir, "$sysname-post-round$(pt.inputs.n_rounds).fits")
     Octofitter.savechain(chain_file, chain)
 
-    # generate dotplot
-    Octofitter.dotplot(model, chain)
-
-    # Save sampling summary
+    # Save sampling summary -- watch `Λ` and the log evidence ratio settle across rounds
     CSV.write(joinpath(output_dir, "$(sysname)-pigeons-summary.csv"),
               pt.shared.reports.summary)
 end
+
+Octofitter.savechain(joinpath(output_dir, "$sysname-post.fits"), chain)
 
 ## ============================================================================
 ## ANALYSIS AND VISUALIZATION
@@ -622,17 +688,30 @@ display(chain)
 corner_fig = octocorner(model, chain, small=true)
 save(joinpath(output_dir, "$(sysname)-corner.png"), corner_fig, px_per_unit=2)
 
-# Orbit plot
-orbit_fig = octoplot(model, chain)
-save(joinpath(output_dir, "$(sysname)-orbits.png"), orbit_fig, px_per_unit=2)
+# Orbit plot. `octoplot` returns an `OctoPlotResult` (figure + named axes + the shared
+# PosteriorSeries), so save via its `fname=` keyword or its `.figure` field.
+orbit_res = octoplot(model, chain; fname=joinpath(output_dir, "$(sysname)-orbits.png"))
 
-# RV plot (if we have RV data)
-if has_rv_data
-    chain_pl = chain[chain["b_planet_present"][:] .> 0]
-    fig = Octofitter.rvpostplot(model, chain_pl, rand(1:size(chain_pl, 1)),
-                                 show_summary=true,
-                                 fname="$sysname-rvpostplot.png")
-end
+# Mass vs. semi-major axis summary, coloured by eccentricity.
+dot_fig = Octofitter.dotplot(model, chain)
+save(joinpath(output_dir, "$(sysname)-mass-sep.png"), dot_fig, px_per_unit=2)
+
+# The same two columns, fully custom.
+mass_fig = pairplot(
+    (; a = chain["b_a"][:], mass = chain["b_mass"][:] ./ mjup) => (
+        PairPlots.Scatter(markersize=4),
+        PairPlots.MarginHist(),
+        PairPlots.MarginQuantileText(),
+    ),
+    labels = Dict(:a => "semi-major axis [au]", :mass => "mass [Mⱼᵤₚ]"),
+)
+save(joinpath(output_dir, "$(sysname)-mass-sma.png"), mass_fig, px_per_unit=2)
+
+# RV panels come from `octoplot` now: `RadialVelocityObs` declares its plot channels, so
+# the orbit figure above already carries the RV time series, its residual strip, and a
+# phase-folded panel per hierarchy row -- one panel per instrument. `rvplot` is the
+# single-draw summary that puts every instrument back on one axis.
+rv_res = rvplot(model, chain; fname=joinpath(output_dir, "$(sysname)-rvplot.png"))
 
 println("\nResults saved to: $output_dir")
 ```
@@ -699,6 +778,7 @@ julia script.jl --hip 12345 --host-mass 1.0 --obs-types "ra_hip,dec_hip,ra_hg,de
    ```julia
    absastrom = G23HObs(;
        gaia_id=gaia_id,
+       host=:A, companions=(:b,), ref=Barycentre,
        freeze_epochs=true,  # Faster but approximate
    )
    ```
