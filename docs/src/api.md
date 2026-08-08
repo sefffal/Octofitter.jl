@@ -67,6 +67,8 @@ initialize!
 startingpoints!
 Octofitter.advancedhmc
 octofit_pigeons
+Octofitter.CorrectionReport
+Octofitter.recheck_corrections
 ```
 
 `octofit_pigeons` needs `using Pigeons`: its methods live in a package
