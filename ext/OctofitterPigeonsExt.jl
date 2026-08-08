@@ -292,12 +292,18 @@ Base.@nospecializeinfer function _octofit_pigeons_childprocess(
     worker — progress will appear below once sampling begins. Results are checkpointed
     every round under `$(joinpath(pwd(), "results"))`."""
 
+    # MPICH's default binding pins each rank to one core, which is right for
+    # single-threaded ranks and disastrous for threaded ones: a rank's
+    # threads timeshare its one core (measured ~4x slower end to end).
+    mpiexec_args = threads_per_process > 1 ? `-bind-to none` : ``
+
     start_time = time()
     result = try
         pigeons(inputs, Pigeons.ChildProcess(;
             n_local_mpi_processes = n_processes,
             n_threads = threads_per_process,
             dependencies = worker_dependencies,
+            mpiexec_args,
         ))
     catch err
         @error """Sampling in worker processes failed. If the error below points to loading or
