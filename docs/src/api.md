@@ -68,6 +68,8 @@ startingpoints!
 Octofitter.advancedhmc
 octofit_pigeons
 Octofitter.CorrectionReport
+Octofitter.CorrectionDecision
+Octofitter.ObsImpact
 Octofitter.recheck_corrections
 ```
 

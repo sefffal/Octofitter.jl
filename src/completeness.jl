@@ -35,7 +35,7 @@ to reproduce the trial deterministically.
 - `i_sep::Int` — index into the separation grid
 - `i_trial::Int` — trial number within this grid cell
 - `mass::Float64` — companion mass [M⊙]
-- `separation::Float64` — semi-major axis [AU] (or period, depending on usage)
+- `separation::Float64` — semi-major axis in AU (or period, depending on usage)
 - `seed::UInt64` — RNG seed for reproducibility
 """
 struct CompletenessJob
@@ -73,7 +73,7 @@ export CompletenessResult
 Assembled completeness results on a 2D grid of mass × separation.
 
 # Fields
-- `masses::Vector{Float64}` — mass grid values [M⊙] (v9 has one mass unit;
+- `masses::Vector{Float64}` — mass grid values in M⊙ (v9 has one mass unit;
   write `5mjup` for a Jupiter-mass grid point)
 - `separations::Vector{Float64}` — separation grid values [AU]
 - `completeness::Matrix{Float64}` — fraction of trials detected (mass × sep)
@@ -103,7 +103,7 @@ Each job specifies a (mass, separation) grid point and a trial index. Jobs are
 independent and can be dispatched to separate processes or cluster nodes.
 
 # Arguments
-- `masses` — iterable of companion masses [M⊙] (v9 has one mass unit; write `5mjup` for a Jupiter-mass grid point)
+- `masses` — iterable of companion masses in M⊙ (v9 has one mass unit; write `5mjup` for a Jupiter-mass grid point)
 - `separations` — iterable of semi-major axes [AU]
 - `n_trials::Int=5` — number of independent trials per grid cell
 
