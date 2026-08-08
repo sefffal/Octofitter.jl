@@ -180,9 +180,11 @@ listed with `dependencies=[SomePackage]`.
 `cores` is a total budget. By default each worker process uses one core; for
 models with thousands of epochs, `threads_per_process=2` (or 4) splits the
 budget into fewer workers that each also thread the trajectory solve —
-`cores=16, threads_per_process=2` runs 8 workers × 2 threads. Prefer more
-processes over more threads until the chain count no longer divides evenly
-into the process count.
+`cores=16, threads_per_process=2` runs 8 workers × 2 threads. Chains within
+a worker sample one after another, so only reach for this once there is
+already one worker per chain: trading workers for threads on a
+chain-starved budget loses more parallelism than the threaded solve wins
+back.
 
 `pt` is the Pigeons `PT` object, so `Pigeons.stepping_stone(pt)` gives the log
 evidence *ratio* against the reference (the prior-only model built by

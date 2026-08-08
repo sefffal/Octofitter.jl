@@ -37,10 +37,21 @@ and the same `(chain, pt)` comes back.
 For models with thousands of epochs, `threads_per_process=2` (or 4) splits the
 same core budget into fewer workers that each also thread their Kepler /
 trajectory solve: `cores=16, threads_per_process=2` runs 8 workers × 2 threads.
+Chains within a worker sample one after another, so only reach for this once
+there is already one worker per chain (e.g. `cores=32,
+threads_per_process=2` with the default 16 chains).
 
 Alternatively, start Julia with multiple threads (`julia --threads=auto`) and
 `octofit_pigeons` will sample one chain per thread with no startup cost — the
 better choice for quick runs and cheap models.
+
+!!! note "cores= inside a cluster job"
+    `cores=` targets your own machine. It also works inside a single-node
+    cluster allocation (`salloc` / `sbatch`), with one caveat: the bundled
+    MPI may try to launch the workers through the cluster's own job
+    launcher and fail silently. Set `ENV["HYDRA_BOOTSTRAP"] = "fork"`
+    (or `export HYDRA_BOOTSTRAP=fork`) first. For sampling *across* nodes,
+    use the MPI launcher below instead.
 
 If your problem is challenging enough to benefit from parallel sampling across multiple nodes in a cluster, you might consider using Pigeons with MPI by following the rest of this guide.
 
