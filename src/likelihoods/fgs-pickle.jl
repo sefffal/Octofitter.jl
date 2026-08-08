@@ -20,11 +20,32 @@ const FGS_PICKLE_FORMAT = "PICKLEFGS-EPOCHASTROM"
 const FGS_PICKLE_FVERS = 3  # the format version this reader implements
 
 """
-    FGSEpochAstromObs(filename; name="FGS", marginalize=true, variables=nothing)
+    FGSEpochAstromObs(filename; host, companions=(), ref=Barycentre,
+                      name="FGS", marginalize=true, variables=nothing)
 
 Likelihood over HST Fine Guidance Sensor epoch astrometry produced by the
 pickle-fgs pipeline (`PICKLEFGS-EPOCHASTROM` format; see pickle-fgs
 `spec/09_octofitter_export.md`).
+
+# Source membership
+
+    host=A, companions=(b, c, d)
+
+`host` is the star the FGS normal points are centred on, `companions` are the
+bodies whose light may blend into that source, and `ref` is what the host's
+reflex is measured against — `Barycentre` by default.
+
+Companion flux ratios come from the same three-tier lookup [`G23HObs`](@ref)
+documents, in the `:FGS` band: this observation's own `fluxratio` vector,
+then a system-level vector of that name, then the bodies' own `flux_FGS`
+variables as `flux_FGS(companion) / flux_FGS(host)`. With none of those the
+companions are dark and the source tracks the host's reflex alone, which is
+the right answer for FGS planet astrometry and the case this type was
+written for.
+
+Note this is a genuine flux-weighted photocentre over the whole source, not
+v8's superposition of per-companion photocentres — the two differ once more
+than one companion is luminous.
 
 Per epoch i the forward model of the exported tangent-plane offset is (mas;
 `τᵢ = JYEAR_TDBᵢ − EPOCH_JYEAR` of the reference solution)
@@ -81,19 +102,18 @@ given — pass your own to override, keeping the same names):
 conditional covariance `COV_COND`; the science posterior is identical
 (linear-Gaussian; the producing pipeline locks the two modes to 1e-6 mas)
 but the offset posteriors become inspectable — does the orbit fit drag any
-reference star's correction? (cf. `MarginalizedStarAbsoluteRVObs` for the
-same pattern in RV.)
-
-Planets are treated as dark companions (photocentre = host reflex motion)
-unless the observation variables provide `fluxratio` (scalar or one entry
-per planet).
+reference star's correction? (cf. `MarginalizedRVObs` for the same pattern
+in RV.)
 """
-struct FGSEpochAstromObs{TTable<:Table} <: AbstractObs
+struct FGSEpochAstromObs{TTable<:Table,THost,TComp,TRef} <: AbstractObs
     table::TTable
     priors::Priors
     derived::Derived
     name::String
     marginalize::Bool
+    host::THost
+    companions::TComp
+    ref::TRef
     # REFSOL: the exported offsets' coordinate origin
     refsol::@NamedTuple{source_id::Int64, ra::Float64, dec::Float64, parallax::Float64,
         pmra::Float64, pmdec::Float64, rv_kms::Float64, epoch_jyear::Float64}
@@ -132,6 +152,8 @@ struct FGSEpochAstromObs{TTable<:Table} <: AbstractObs
 end
 
 likelihoodname(obs::FGSEpochAstromObs) = obs.name
+refspecs(obs::FGSEpochAstromObs) = (obs.host, obs.companions..., obs.ref)
+_refdesc(obs::FGSEpochAstromObs) = _blend_refdesc(obs.host, obs.companions, obs.ref)
 
 function likeobj_from_epoch_subset(obs::FGSEpochAstromObs, obs_inds)
     error("""
@@ -144,16 +166,18 @@ function likeobj_from_epoch_subset(obs::FGSEpochAstromObs, obs_inds)
     """)
 end
 
-# ln_like skips planets whose sampled mass is exactly zero without touching
-# their orbit solutions, so zero-mass Kepler solves may be elided.
-requires_solutions_for_zero_mass(::FGSEpochAstromObs) = false
-
 function FGSEpochAstromObs(
     filename::AbstractString;
+    host,
+    companions=(),
+    ref=Barycentre,
     name::String="FGS",
     marginalize::Bool=true,
     variables::Union{Nothing,Tuple{Priors,Derived}}=nothing,
 )
+    hostspec = refspec(host)
+    compspecs = map(refspec, Tuple(companions))
+    refspec_ = refspec(ref)
     FITS(filename, "r") do f
         hdr = read_header(f[1])
         fmt = get(hdr, "FORMAT", nothing)
@@ -328,8 +352,10 @@ function FGSEpochAstromObs(
             end
         end
 
-        obs = FGSEpochAstromObs{typeof(table)}(
+        obs = FGSEpochAstromObs{typeof(table),typeof(hostspec),typeof(compspecs),
+            typeof(refspec_)}(
             table, priors, derived, name, marginalize || !has_offsets,
+            hostspec, compspecs, refspec_,
             refsol, ref_epoch_mjd,
             L_noise, ldet_half,
             offset_design, offset_Ld, offset_mean, offset_source_id,
@@ -358,34 +384,34 @@ export FGSEpochAstromObs
 # --- forward model ----------------------------------------------------------------
 
 # Fill `model_x`, `model_y` (length m, mas) with the model offsets vs REFSOL.
-# Shared by ln_like and simulate. Perturbation buffers must be zeroed by the
-# caller before entry.
+# Shared by ln_like and simulate. Buffers must be zeroed by the caller before
+# entry — the source's sky excursion is accumulated into them.
 function _fgs_model!(
     model_x::AbstractVector, model_y::AbstractVector,
-    obs::FGSEpochAstromObs, θ_system, θ_obs,
-    orbits::Tuple, orbit_solutions, orbit_solutions_i_epoch_start::Int,
-)
-    T = promote_type(_system_number_type(θ_system), eltype(model_x))
+    obs::FGSEpochAstromObs, ctx::ObsContext, ::Type{T},
+) where {T}
     tbl = obs.table
     rs = obs.refsol
+    θ_system = ctx.θ_system
+    θ_obs = ctx.θ_obs
+    sys = ctx.system
 
-    # planet photocentre perturbations (dark companions unless θ_obs.fluxratio)
-    for i_planet in eachindex(orbits)
-        θ_planet = θ_system.planets[i_planet]
-        planet_mass_msol = θ_planet.mass * mjup2msol
-        fluxratio = if hasproperty(θ_obs, :fluxratio)
-            θ_obs.fluxratio isa Number ? θ_obs.fluxratio : θ_obs.fluxratio[i_planet]
-        else
-            zero(T)
-        end
-        if iszero(planet_mass_msol) && iszero(fluxratio)
-            continue
-        end
-        _simulate_skypath_perturbations!(
-            model_x, model_y, tbl, orbits[i_planet],
-            planet_mass_msol, fluxratio,
-            orbit_solutions[i_planet], orbit_solutions_i_epoch_start, T,
-        )
+    # The source's own excursion: one flux-weighted photocentre over the host
+    # and its companions, one `raoff`/`decoff` per epoch. Resolve every
+    # reference once, outside the epoch loop.
+    hostref = ref(ctx, obs.host)
+    reference = ref(ctx, obs.ref)
+    comps = resolverefs(ctx, obs.companions)
+    cidx = map(c -> c.idx, comps)
+    masses = sys.masses
+    # Test the primal: a differentiated zero mass is a Dual whose value is
+    # zero but whose partials are not, so `iszero` on it is false.
+    active = map(c -> !iszero(PlanetOrbits._primal(masses[c.idx])), comps)
+    if any(active)
+        f = _g23h_fluxratios(θ_obs, θ_system, :fluxratio, Val(:FGS), sys,
+            hostref.idx, cidx, active, T)
+        photo = _g23h_photocentre(sys, hostref.idx, cidx, f)
+        accumulate_offsets!(model_x, model_y, ctx, photo, reference)
     end
 
     # Δ 5-parameter terms about REFSOL (all mas / mas yr⁻¹; spec/09 §2).
@@ -450,8 +476,9 @@ function _fgs_model!(
     return nothing
 end
 
-function ln_like(obs::FGSEpochAstromObs, ctx::SystemObservationContext)
-    (; θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start) = ctx
+function ln_like(obs::FGSEpochAstromObs, ctx::ObsContext)
+    θ_system = ctx.θ_system
+    θ_obs = ctx.θ_obs
     T = _system_number_type(θ_system)
     tbl = obs.table
     m = length(tbl.epoch)
@@ -465,12 +492,12 @@ function ln_like(obs::FGSEpochAstromObs, ctx::SystemObservationContext)
     end
 
     ll = zero(T)
-    @no_escape begin
+    @no_escape ctx.buf begin
         model_x = @alloc(T, m)
         model_y = @alloc(T, m)
         fill!(model_x, zero(T))
         fill!(model_y, zero(T))
-        _fgs_model!(model_x, model_y, obs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+        _fgs_model!(model_x, model_y, obs, ctx, T)
 
         resid = @alloc(T, n)
         @inbounds for i in 1:m
@@ -520,12 +547,12 @@ end
 
 # Model offsets at the data epochs for a given parameter draw (plotting /
 # diagnostics; standard Octofitter simulate signature).
-function simulate(obs::FGSEpochAstromObs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
-    T = _system_number_type(θ_system)
+function simulate(obs::FGSEpochAstromObs, ctx::ObsContext)
+    T = _system_number_type(ctx.θ_system)
     m = length(obs.table.epoch)
     model_x = zeros(T, m)
     model_y = zeros(T, m)
-    _fgs_model!(model_x, model_y, obs, θ_system, θ_obs, orbits, orbit_solutions, orbit_solutions_i_epoch_start)
+    _fgs_model!(model_x, model_y, obs, ctx, T)
     return (; model_x, model_y, epoch=obs.table.epoch, resid_x=obs.table.dx .- model_x, resid_y=obs.table.dy .- model_y)
 end
 
