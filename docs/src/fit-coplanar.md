@@ -257,7 +257,7 @@ planet_b = Body(
         ω = 0.0
 
         i~ Sine()
-        Ω ~=~ UniformCircular()
+        Ω ~ UniformCircular()
 
         P_mul ~ Normal(1, 0.1)
         P = 2 * system.P_nominal * P_mul * year2day_julian
