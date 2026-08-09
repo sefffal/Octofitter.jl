@@ -109,6 +109,26 @@ struct GaiaDR4AstromObs{TTable<:Table,TT,TR} <: AbstractObs
     detrend_Δt::Vector{Float64}
     detrend_inv_N::Float64
     detrend_inv_sum_Δt²::Float64
+    # Per-transit constants of the data, hoisted out of the per-sample loops.
+    # The scan geometry and formal errors are fixed at construction, so the
+    # projection's sincos and the Gaussian normalization's inputs are data,
+    # not per-sample work (the sincos alone was 10% of the DR4 primal).
+    sinψ::Vector{Float64}
+    cosψ::Vector{Float64}
+    # Outlier handling as arithmetic rather than a branch: `w` is 1 for kept
+    # transits and 0 for flagged ones, so the residual loop stays branch-free
+    # and vectorizes. Flagged rows may carry NaN centroids/errors in real DR4
+    # tables, and NaN·0 = NaN — so `b_al` and `σ²` are *sanitized* copies
+    # (flagged rows read 0 and 1), while `table` keeps the data verbatim.
+    w::Vector{Float64}
+    b_al::Vector{Float64}
+    σ²::Vector{Float64}
+    invσ²::Vector{Float64}    # w/σ², i.e. already zero on flagged rows
+    n_eff::Float64            # Σw
+    # -½ Σ w·log(2π σ²): the whole normalization term when no jitter is
+    # sampled, which is the production fast path (per-transit noise estimated
+    # robustly up front rather than fit).
+    lognorm0::Float64
 end
 
 const dr4_cols = (:epoch, :scan_pos_angle, :parallax_factor_al,
@@ -136,9 +156,23 @@ function GaiaDR4AstromObs(observations;
     ep = table.epoch
     Δt = collect((ep .- sum(ep) / length(ep)) ./ PlanetOrbits.year2day_julian)
     t, r = refspec(target), refspec(ref)
+
+    sinψ = collect(Float64, sin.(table.scan_pos_angle))
+    cosψ = collect(Float64, cos.(table.scan_pos_angle))
+    w = hasproperty(table, :outlier_flag) ?
+        collect(Float64, table.outlier_flag .== 0) : ones(Float64, length(ep))
+    b_al = collect(Float64, table.centroid_pos_al)
+    σ² = collect(Float64, table.centroid_pos_error_al) .^ 2
+    # Sanitize flagged rows (see the field comment): their values are never
+    # *used* — every read is multiplied by w = 0 — but they must be finite.
+    @. b_al = ifelse(w == 0, 0.0, b_al)
+    @. σ² = ifelse(w == 0, 1.0, σ²)
+    invσ² = w ./ σ²
+    lognorm0 = -sum(w .* log.(2π .* σ²)) / 2
     return GaiaDR4AstromObs{typeof(table),typeof(t),typeof(r)}(
         table, priors, derived, t, r, String(name), detrend,
-        Δt, 1.0 / length(ep), 1.0 / sum(Δt .^ 2))
+        Δt, 1.0 / length(ep), 1.0 / sum(Δt .^ 2),
+        sinψ, cosψ, w, b_al, σ², invσ², sum(w), lognorm0)
 end
 
 export GaiaDR4AstromObs
@@ -208,9 +242,9 @@ function simulate!(along_scan, ra_offset, dec_offset, obs::GaiaDR4AstromObs, ctx
     end
 
     plx = ctx.θ_system.plx
-    @inbounds for i in eachindex(tab.epoch)
-        s, c = sincos(tab.scan_pos_angle[i])
-        along_scan[i] = ra_offset[i] * s + dec_offset[i] * c + plx * tab.parallax_factor_al[i]
+    @inbounds @simd for i in eachindex(tab.epoch)
+        along_scan[i] = ra_offset[i] * obs.sinψ[i] + dec_offset[i] * obs.cosψ[i] +
+                        plx * tab.parallax_factor_al[i]
     end
     return (; along_scan, ra_offset, dec_offset, epochs=tab.epoch)
 end
@@ -223,22 +257,36 @@ end
 
 function ln_like(obs::GaiaDR4AstromObs, ctx::ObsContext)
     T = _system_number_type(ctx.θ_system)
-    jitter = hasproperty(ctx.θ_obs, :astrometric_jitter) ? ctx.θ_obs.astrometric_jitter : zero(T)
-    jitter² = jitter^2
-    tab = obs.table
-    has_flag = hasproperty(tab, :outlier_flag)
     ll = zero(T)
-    L = length(tab.epoch)
+    L = length(obs.table.epoch)
     @no_escape ctx.buf begin
         along_scan = @alloc(T, L)
         ra_offset = @alloc(T, L)
         dec_offset = @alloc(T, L)
         simulate!(along_scan, ra_offset, dec_offset, obs, ctx)
-        for i in eachindex(tab.centroid_pos_al)
-            has_flag && tab.outlier_flag[i] > 0 && continue
-            σ² = jitter² + tab.centroid_pos_error_al[i]^2
-            resid = tab.centroid_pos_al[i] - along_scan[i]
-            ll -= (resid^2 / σ² + log(2π * σ²)) / 2
+        # `hasproperty` on the θ NamedTuple is a compile-time constant, so
+        # this branch folds and each model compiles only its own loop.
+        if hasproperty(ctx.θ_obs, :astrometric_jitter)
+            jitter² = ctx.θ_obs.astrometric_jitter^2
+            # log(2πσ²) = log2π + log(σ²), with the constant hoisted across
+            # the loop and the remaining log through the branch-free kernel
+            # (Float64 only — Duals fall back to Base.log inside `vlog`).
+            ll -= T(obs.n_eff * log(2π) / 2)
+            @inbounds @simd for i in 1:L
+                σ² = jitter² + obs.σ²[i]
+                resid = obs.b_al[i] - along_scan[i]
+                ll -= obs.w[i] * (resid^2 / σ² + PlanetOrbits.vlog(σ²)) / 2
+            end
+        else
+            # No jitter sampled: the whole normalization is data, computed at
+            # construction, and the loop is two flops and a muladd per
+            # transit. This is the production fast path for pipelines that
+            # estimate per-transit noise robustly instead of fitting it.
+            ll += T(obs.lognorm0)
+            @inbounds @simd for i in 1:L
+                resid = obs.b_al[i] - along_scan[i]
+                ll -= resid^2 * obs.invσ²[i] / 2
+            end
         end
     end
     return ll

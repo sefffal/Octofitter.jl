@@ -353,6 +353,19 @@ export drawfrompriors
 # nesting their own threading inside a threaded solve.
 const _kepsolve_use_threads = Ref(false)
 
+# Whether the generated likelihood passes PlanetOrbits' per-row solve cache
+# into `orbitsolve!`. Coordinate-wise samplers (Pigeons' SliceSampler) call
+# the log density many times with all but one parameter bit-identical, and a
+# hierarchy row whose elements and epochs are unchanged since the previous
+# solve into the same storage would recompute exactly the bytes already
+# sitting in its columns — so a hit skips the Markley batch, bit-exactly.
+# The cache is per task and applies only to the primal Float64 path (Duals
+# take the plain solve); see the caching block in
+# PlanetOrbits/src/keplerian-approx.jl for the validity argument. On by
+# default; this switch exists for benchmarking the raw solve and as an
+# emergency exit.
+const _kepsolve_row_cache = Ref(true)
+
 """
     _obsctx(sys, θ, θ_obs, posys, traj, map)
 
@@ -622,9 +635,18 @@ function make_ln_like(sys::System, θ_example=nothing; include_priors::Bool=true
             # it has already grown once (the observing-geometry pass) and
             # would otherwise have to be tracked in two places.
             traj = PlanetOrbits.Trajectory(BumpAlloc(buf), T, posys, $unique_ep)
+            # Fetched here, outside PlanetOrbits' statically-checked solve:
+            # the task-local lookup's first touch on a task allocates, which
+            # is fine in the generated function (warm after one evaluation)
+            # but not inside `orbitsolve!`'s own zero-alloc contract. `T`
+            # folds per specialization, so the Dual path passes `nothing`
+            # with no runtime branch.
+            row_cache = (T === Float64 && _kepsolve_row_cache[]) ?
+                        PlanetOrbits._rowcache(traj) : nothing
             PlanetOrbits.orbitsolve!(traj, posys; method=$method,
                 observing_geometry=$og, barycentric_lighttime=$blt,
-                threads=(_kepsolve_use_threads[] ? Threads.nthreads() : 1))
+                threads=(_kepsolve_use_threads[] ? Threads.nthreads() : 1),
+                row_cache)
             ll0 = zero(T)
             $(calls...)
             $(Symbol(:ll, j))
