@@ -159,23 +159,53 @@ end
 end
 
 @testset "ForwardDiff chunk width" begin
-    # The balanced-split rule, checked against the widths that actually
-    # measured fastest on the N-companion models (see the table above
-    # `_chunk_heuristic` in src/logdensitymodel.jl).
-    @test Octofitter._chunk_heuristic(23) == 23     # measured: 23 beats 12/16/20
-    @test Octofitter._chunk_heuristic(30) == 15     # measured: 15 beats 10/12/18/20/24/30
-    @test Octofitter._chunk_heuristic(37) == 19     # measured: 19 beats 13/16/22/25/30/37
+    # The rule, checked against the widths that actually measured fastest on
+    # the N-companion models (see the table above `_chunk_heuristic` in
+    # src/logdensitymodel.jl). Both sets of numbers are hardware-specific, so
+    # each is asserted against the constants that produced it rather than
+    # against whatever host happens to run CI.
+    let single = Octofitter.CHUNK_SINGLE_MAX[], width = Octofitter.CHUNK_WIDTH_MAX[]
+        try
+            # AVX2 measurements: single==width==24.
+            Octofitter.CHUNK_SINGLE_MAX[] = 24
+            Octofitter.CHUNK_WIDTH_MAX[]  = 24
+            @test Octofitter._chunk_heuristic(23) == 23   # 23 beats 12/16/20
+            @test Octofitter._chunk_heuristic(30) == 15   # 15 beats 10/12/18/20/24/30
+            @test Octofitter._chunk_heuristic(37) == 19   # 19 beats 13/16/22/25/30/37
 
-    # Single chunk right up to the knee, never past it, and always balanced.
+            # AVX-512 (Zen 5) measurements: the single chunk keeps winning to
+            # 59, then falls off a 5x cliff at 60, after which narrow splits
+            # win. See the second table in src/logdensitymodel.jl.
+            Octofitter.CHUNK_SINGLE_MAX[] = 59
+            Octofitter.CHUNK_WIDTH_MAX[]  = 24
+            @test Octofitter._chunk_heuristic(27) == 27   # 27 beats 14/16/20/24
+            @test Octofitter._chunk_heuristic(37) == 37   # 37 beats 16/19/24/32
+            @test Octofitter._chunk_heuristic(47) == 47   # 47 beats 16/24/32
+            @test Octofitter._chunk_heuristic(57) == 57   # 57 beats 20/29/40
+            @test Octofitter._chunk_heuristic(59) == 59   # last width before the cliff
+            @test Octofitter._chunk_heuristic(60) != 60   # 60 is past it (5.1x)
+            @test Octofitter._chunk_heuristic(67) == 23   # 23 beats 34/45/67
+        finally
+            Octofitter.CHUNK_SINGLE_MAX[] = single
+            Octofitter.CHUNK_WIDTH_MAX[]  = width
+        end
+    end
+
+    # Single chunk right up to the bound, never past it, and always balanced.
     for D in 1:200
         c = Octofitter._chunk_heuristic(D)
         @test 1 <= c <= D
-        @test c <= max(D, Octofitter.CHUNK_WIDTH_MAX[])
-        # Balanced: dropping to one fewer chunk would exceed the width cap.
+        @test c <= max(D, Octofitter.CHUNK_SINGLE_MAX[], Octofitter.CHUNK_WIDTH_MAX[])
         n = cld(D, c)
-        @test n == 1 || cld(D, n - 1) > Octofitter.CHUNK_WIDTH_MAX[]
+        if n > 1
+            # Split: balanced, and dropping to one fewer chunk would exceed the
+            # width cap. (A single chunk is exempt -- that branch is governed by
+            # CHUNK_SINGLE_MAX, which may exceed CHUNK_WIDTH_MAX.)
+            @test c <= Octofitter.CHUNK_WIDTH_MAX[]
+            @test cld(D, n - 1) > Octofitter.CHUNK_WIDTH_MAX[]
+        end
     end
-    @test Octofitter._chunk_heuristic(Octofitter.CHUNK_WIDTH_MAX[]) == Octofitter.CHUNK_WIDTH_MAX[]
+    @test Octofitter._chunk_heuristic(Octofitter.CHUNK_SINGLE_MAX[]) == Octofitter.CHUNK_SINGLE_MAX[]
 
     # The measured probe is opt-in and must agree with the default's answer.
     sys = gradient_testmodel()

@@ -10,6 +10,9 @@ using AdvancedHMC
 using NamedTupleTools
 using ForwardDiff
 using DifferentiationInterface
+# Only for `register_size()`, which sets the ForwardDiff chunk-width ceiling
+# in `__init__` (see logdensitymodel.jl).
+import HostCPUFeatures
 using Logging
 using Statistics
 using StatsBase
@@ -208,7 +211,14 @@ const OCTO_VERSION_STR = "v$(string(OCTO_VERSION))"
 
 function __init__()
 
-    if isinteractive() && get(ENV, "CI", "") != "true" 
+    # The single-chunk bound follows the host's SIMD register size. Set here,
+    # not at precompile time, so a depot shared across heterogeneous cluster
+    # nodes gets the right value on each of them. `CHUNK_WIDTH_MAX` — the width
+    # used once we must split — stays at its AVX2-calibrated 24 on every
+    # machine measured so far; see logdensitymodel.jl.
+    CHUNK_SINGLE_MAX[] = _default_chunk_single_max()
+
+    if isinteractive() && get(ENV, "CI", "") != "true"
         @info """\
 Welcome to Octofitter $(OCTO_VERSION_STR) 🐙
 Check for new releases: https://github.com/sefffal/Octofitter.jl/releases/
