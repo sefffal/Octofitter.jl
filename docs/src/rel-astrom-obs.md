@@ -4,10 +4,6 @@ This tutorial shows how to fit an orbit to relative astrometry using the observa
 
 We will fit the same astrometry as in the [previous tutorial](@ref fit-astrometry), and just change our priors.
 
-Observable-based priors are applied by *wrapping* an existing observation in
-[`ObsPriorONeil2019`](@ref). The wrapper contributes both the data likelihood and the
-prior term, so you list **only the wrapper** in `observations=` — listing the wrapped
-observation as well would count the data twice.
 
 ```@example 1
 using Octofitter
@@ -77,18 +73,6 @@ sys = System(
 model = Octofitter.LogDensityModel(sys)
 ```
 
-!!! note "Which orbit does the prior apply to?"
-    `ObsPriorONeil2019` needs to know which orbit the observables belong to. By default it
-    uses the wrapped observation's `target`, which is correct for relative astrometry and
-    relative radial velocities. When wrapping a *stellar reflex* radial velocity
-    observation (`RadialVelocityObs(...; target=A, ref=Barycentre)`) the host star has no
-    orbit of its own, so you must say which one: `ObsPriorONeil2019(rvs; orbit=planet_b)`.
-    Pass a tuple, `orbit=(b, c)`, to sum the term over several orbits.
-
-!!! warning "`a` and `P` are both orbit elements"
-    You cannot declare both `a` and `P` in one body block — that is two answers for the
-    same element group, and it raises an error. Sample whichever one your prior is
-    naturally expressed in. `P` is in **days**.
 
 Initialize the model starting points and confirm the data are entered correctly:
 ```@example 1
@@ -119,7 +103,7 @@ planet_b_uniform = Body( # hide
     about=A_uniform, # hide
     variables=@variables begin # hide
         mass = 0.0 # hide
-        a ~ Uniform(0, 100) # hide
+        P ~ LogUniform(35, 55_000) # hide
         e ~ Uniform(0.0, 0.5) # hide
         i ~ Sine() # hide
         ω_x ~ Normal() # hide
@@ -159,3 +143,14 @@ We can compare the results in a corner plot:
 ```@example 1
 octocorner(model,results_unif_pri,results_obspri,small=true)
 ```
+
+
+List **only the ObsPriorONeil2019 wrapper** in `observations=`.
+
+!!! note "Which orbit does the prior apply to?"
+    `ObsPriorONeil2019` needs to know which orbit the observables belong to. By default it
+    uses the wrapped observation's `target`, which is correct for relative astrometry and
+    relative radial velocities. When wrapping a *stellar reflex* radial velocity
+    observation (`RadialVelocityObs(...; target=A, ref=Barycentre)`) the host star has no
+    orbit of its own, so you must say which one: `ObsPriorONeil2019(rvs; orbit=planet_b)`.
+    Pass a tuple, `orbit=(b, c)`, to sum the term over several orbits.

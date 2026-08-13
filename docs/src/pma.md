@@ -9,40 +9,9 @@ For this tutorial, we will examine the star and companion [HD 91312 A & B](https
 
 The first step is to find the GAIA source ID for your object. For HD 91312, SIMBAD tells us the GAIA DR3 ID is `756291174721509376`.
 
-## [`HGCAObs`](@ref) is a helper over [`G23HObs`](@ref)
-
-`HGCAObs` is a constructor that builds a [`G23HObs`](@ref) restricted to the six channels
-the HGCA constrains:
-
-```julia
-HGCAObs(; gaia_id, host, companions=(), ref=Barycentre, kwargs...) =
-    G23HObs(; gaia_id, host, companions, ref,
-              channels    = (:ra_hip, :dec_hip, :ra_hg, :dec_hg, :ra_dr3, :dec_dr3),
-              ueva_mode   = :none,
-              include_iad = false,
-              include_rv  = false,
-              kwargs...)
-```
-
-The object you get back *is* a `G23HObs`, so everything [`G23HObs`](@ref) documents applies:
-source membership through `host`/`companions`, flux ratios defaulting to the bodies' own
-`flux_G` / `flux_Hp`, `variables=`, the offline `catalog=` / `forecast_table=` /
-`hipparcos=` inputs, and `likeobj_from_epoch_subset` / `generate_from_params` /
-cross-validation.
-
-!!! note "`ueva_mode = :none`, and no DR2 channels"
-    `ueva_mode` is a three-valued symbol (`:RUWE` / `:EAN` / `:none`), not a boolean;
-    `:none` drops both the `:ueva_dr3` datum and the UEVA-driven deflation of the DR3
-    covariance, because the HGCA has no excess-noise channel. The DR2 and DR3−DR2 channels
-    are dropped too: the HGCA is Hipparcos + Hipparcos–Gaia + DR3. Reach for `G23HObs`
-    directly if you want the extra channels.
-
-!!! tip "`freeze_epochs=true` for fast exploration"
-    The Gaia and Hipparcos epoch *selections* are sampled parameters by default, which is
-    what lets the model account for transits the catalogs matched but the scan-law forecast
-    cannot pin down. Passing `freeze_epochs=true` fixes that selection and makes fitting
-    dramatically faster, at the cost of an approximation. It is the right setting for
-    exploring a model and the wrong one for a published fit.
+!!! tip "`freeze_epochs=true` for a quick approximation"
+    The Gaia epoch *selections* are sampled parameters by default. We know what epochs and scan angles Gaia could possibly observe the target, and we know how many observations were ultimately included by the DR3 AGIS solution, but we don't know which subset of observations were actually used. When `freeze_epochs=false` (the default), we add a bunch of nuisance variables that let us marginalize over this uncertainty. Passing `freeze_epochs=true` fixes that selection and makes fitting
+    dramatically faster, at the cost of an approximation---good for quick docs examples. 
 
 ## Fitting Astrometric Motion Only
 
@@ -55,13 +24,6 @@ We begin by finding orbits that are consistent with the astrometric motion. Late
 add in relative astrometry to the fit from direct imaging to further constrain the planet's
 orbit and mass — see [Astrometry, PMA, and RV](@ref astrom-pma-rv).
 
-Compared to previous tutorials, we now add a prior on the mass of the companion, called
-`mass`. **Every mass is in solar masses**; `mjup` is a plain multiplicative constant, so a
-Jupiter-mass prior is written `LogUniform(0.5mjup, 1000mjup)`.
-
-For this model we also want to place a prior on the host star mass rather than the system
-total mass. There is nothing to do: each body carries its own `mass`, and the total mass of
-an orbit comes from the hierarchy.
 
 ### The bodies
 
@@ -94,10 +56,9 @@ nothing # hide
 ```
 
 `flux_G` and `flux_Hp` are the *contrast ratios against the host* (hence `flux_G = 1.0` on
-`A`), and they are what the model uses to place the Gaia photocentre and to modulate the
+`A`), and they are what the code uses to model the Gaia photocentre and to modulate the
 Hipparcos abscissa. A luminous, unresolved companion gets a real prior here — `flux_G ~
-Uniform(0, 1)`. Omitting all four lines is also legal and means the same thing as `0.0`: no
-fluxes anywhere leaves every companion dark.
+Uniform(0, 1)`. If you ommit them, the companion is assumed to be dark.
 
 ### Retrieving the HGCA
 
@@ -122,35 +83,18 @@ hgca_obs = HGCAObs(
     catalog = catalog,          # hide
     forecast_table = forecast,  # hide
 )
-hgca_obs.table.kind
 ```
 
-`ref=Barycentre` says that the host's reflex motion is measured against the system
-barycentre — which is what a catalog proper motion is. `host`/`companions` is the source
-membership: `host` is the body the catalog entry is centred on, and `companions` names the
-bodies that could blend into it.
 
 ### System Model & Specifying Proper Motion Anomaly
 
-Now that we have our bodies, we create a system model to contain them. Observations are no
-longer attached to a planet; they are a flat list on the system.
 
 We specify priors on `plx` as usual, using the `gaia_plx` helper to read the parallax and
 uncertainty from the Gaia DR3 catalog by source ID.
 
 We also add parameters for the star's long term proper motion. This is usually close to the
-long term trend between the Hipparcos and GAIA measurements.
+long term trend between the Hipparcos and GAIA measurements. Use wide priors on `pmra` and `pmdec` because the data are going to constrain them.
 
-!!! warning "Use wide priors for pmra/pmdec with HGCA data"
-    When fitting HGCA data, use **wide, uninformative priors** for `pmra` and `pmdec`, such as `Normal(0, 1000)` (0 ± 1000 mas/yr). **Do not** use Gaia DR3 proper motion values as informative priors—this would double-count the information since the HGCA already incorporates Gaia astrometry and will constrain the system's proper motion through the likelihood. The pmra/pmdec parameters represent the center-of-mass proper motion, which the HGCA measurements help determine.
-
-    The example below uses a ±100 mas/yr window around the known value only because we have independent prior knowledge of this system's proper motion from other sources—for a typical analysis, you should use wide priors.
-
-!!! warning "An absolute frame is all-or-nothing"
-    `plx, ra, dec, pmra, pmdec, rv, ref_epoch` are reserved system-level names for the
-    absolute reference frame, and a *partial* set is rejected at model-build time —
-    declaring `pmra` without `pmdec`, or either without `ra`/`dec`/`rv`/`ref_epoch`, is an
-    error. Give all seven, or `plx` alone.
 
 ```@example 1
 sys = System(
@@ -165,9 +109,9 @@ sys = System(
         pmdec ~ Uniform(2 - 100, 2 + 100)
 
         # The rest of the absolute frame
-        ra = $(hgca_obs.catalog.ra)
-        dec = $(hgca_obs.catalog.dec)
-        rv = 0.0                       # m/s
+        ra = $hgca_obs.catalog.ra
+        dec = $hgca_obs.catalog.dec
+        rv = 0.0   # barycentre's RV in [m/s] used perspective acceleration correction etc.
         ref_epoch = $(Octofitter.meta_gaia_DR3.ref_epoch_mjd)
     end
 )
@@ -181,17 +125,7 @@ Because proper motion anomaly data is quite sparse, it can often produce multi-m
 posteriors. If your orbit already has several relative astrometry or RV data points, this is
 less of an issue.
 
-!!! warning "A PMA-only posterior really wants parallel tempering"
-    Hamiltonian Monte Carlo can only jump 2–3σ gaps between modes, and a PMA-only
-    posterior can have modes far wider apart than that — which is why this page samples
-    with Pigeons.jl's parallel tempering via [`octofit_pigeons`](@ref).
-
-    Even so, a PMA-only fit is weakly constrained by construction. Prefer to add relative
-    astrometry or RVs where you have them, as the next tutorial does.
-
 ```@example 1
-# Modest settings so that this page builds in a few minutes; a real PMA fit
-# wants the defaults (1000/1000) at least, and really wants parallel tempering.
 chain_pma, pt = octofit_pigeons(model_pma, n_rounds=10)
 display(chain_pma)
 ```
@@ -229,9 +163,8 @@ model's reflex proper-motion curve, with a residual strip below each:
 octoplot(model_pma, chain_pma)
 ```
 
-The horizontal bar on each point is its *averaging window*, not an uncertainty: a catalog
-proper motion is a mean over a mission span, which is why a Hipparcos point can sit far
-from a curve the Gaia points hug.
+The horizontal bar on each point is its *averaging window*, not an epoch uncertainty: a catalog
+proper motion is a value computed over a full mission span.
 
 ### Posterior Mass vs. Semi-Major Axis
 
@@ -244,20 +177,6 @@ eccentricity, with marginal histograms:
 Octofitter.dotplot(model_pma, chain_pma)
 ```
 
-Masses are in solar masses throughout. For a fully custom version,
-`PairPlots.pairplot` over the chain columns works too:
-
-```@example 1
-using PairPlots
-pairplot(
-    (; a = chain_pma["b_a"][:], mass = chain_pma["b_mass"][:] ./ mjup) => (
-        PairPlots.Scatter(color=:red, markersize=5),
-        PairPlots.MarginHist(),
-        PairPlots.MarginQuantileText(),
-    ),
-    labels = Dict(:a => "sma. [au]", :mass => "mass [Mⱼᵤₚ]"),
-)
-```
 
 ## See Also
 

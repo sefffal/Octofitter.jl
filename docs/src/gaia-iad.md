@@ -30,22 +30,12 @@ nothing # hide
 
 We can now construct a likelihood object for this data.
 
-!!! note "`GaiaDR4AstromObs` does not take `gaia_id`"
-    The observation carries data, references, and variables — nothing else — and never
-    touches the archive. Query the DR3 solution yourself where you need it:
-    `Octofitter._query_gaia_dr3(; gaia_id=…)`.
-
-    It also names *what it is a measurement of*: `target=Photocentre` (the whole system's
-    flux-weighted point, the default) measured against `ref=Barycentre`. That is what
-    makes blended and multi-source models expressible — see [`GaiaDR4AstromObs`](@ref)
-    for a two-source 2+2 quadruple.
-
 ```@example 1
 ref_epoch_mjd = 57936.375
 
 gaia_dr4_obs = GaiaDR4AstromObs(
     df,
-    target = Photocentre,
+    target = Photocentre, # <-- this is how we handle blended sources
     ref = Barycentre,
     name = "GaiaDR4",
     variables=@variables begin
@@ -59,17 +49,8 @@ gaia_dr4_obs = GaiaDR4AstromObs(
 )
 ```
 
-The observation's parallax comes from the system's own `plx`; there is nothing to
-forward into this block.
-
-!!! note "A `Photocentre` target needs at least one body to declare a flux"
-    The fluxes are read off the bodies themselves, so **a model in which no body declares
-    a `flux` variable errors on the first likelihood evaluation** with
-    `no fluxes defined: give at least one body a flux`. Give the host `flux = 1.0` and
-    every other body's flux is then a contrast ratio against it — `flux = 0.0` for a dark
-    companion (so the photocentre is just the host), or a real prior such as
-    `flux ~ Uniform(0, 1)` for a luminous one. Use `flux_G` and
-    `target=Photocentre(:G)` if you carry more than one band.
+You will need to add a flux variable to at least the primary star. The units are up to you. You can just put `flux = 1.0` for `A`, and `flux = 0.0` for `b` (or leave it off) for a dark companion.
+Use `flux_G` and `target=Photocentre(:G)` if your has more than one band.
 
 ```@example 1
 orbit_ref_epoch = mean(gaia_dr4_obs.table.epoch)
@@ -92,8 +73,6 @@ b = Body(
         ω ~ Uniform(0,2pi)
         i ~ Sine()
         Ω ~ Uniform(0,2pi)
-        # `θ` (position angle at `epoch`) is a phase parametrization the orbit
-        # constructor accepts directly.
         θ ~ Uniform(0,2pi)
         epoch = $orbit_ref_epoch
         mass ~ LogUniform(0.01mjup, 1000mjup)   # Msol
@@ -115,7 +94,8 @@ model = Octofitter.LogDensityModel(sys, verbosity=4)
 Find a starting point via global optimization and variational approximation, and plot the initial points against the data:
 ```@example 1
 init_chain = initialize!(model)
-octoplot(model, init_chain)
+# optionally plot it
+# octoplot(model, init_chain)
 ```
 
 Sample using parallel tempering (could also use HMC for these unimodal distributions):
@@ -123,50 +103,35 @@ Sample using parallel tempering (could also use HMC for these unimodal distribut
 chain, pt = octofit_pigeons(model, n_rounds=10)
 ```
 
-!!! tip "Sampling faster on a multi-core machine"
+!!! note "Sampling faster on a multi-core machine"
     For a long fit on a machine with many cores, add `cores=8` (or however many
     you have free) to any `octofit_pigeons` call on this page to run the
-    sampler in separate worker processes — often about twice as fast as
-    threads for expensive models, at the cost of a minute or two of worker
-    startup per run. See [`octofit_pigeons`](@ref).
+    sampler in separate worker processes. Costs a minute or two to startup per run, then goes faster.
+    See [`octofit_pigeons`](@ref).
 
-!!! note "Sampler"
-    Every fit on this page uses [`octofit_pigeons`](@ref). Epoch astrometry constrains
-    an orbit only through the one-dimensional along-scan abscissa, so the posterior is
-    prone to widely-separated solutions — and tempering is what lets a replica escape
-    one of them. It is also the sampler that scales across cores, which matters here
-    because the last example carries many hundreds of data points.
-
-    These particular posteriors happen to be close to unimodal, so [`octofit`](@ref)
-    (HMC/NUTS) is a perfectly reasonable substitute and is much cheaper per sample.
-    Seed it with [`initialize!`](@ref) as above, and run a few chains from different
-    starting points before trusting a narrow result.
 
 Plot the results:
 ```@example 1
 octoplot(model, chain)
 ```
 
-`octoplot` draws the along-scan abscissa panel automatically: `GaiaDR4AstromObs` declares
-one plot channel (`:along_scan`), so the generic time-series panel shows the calibrated
-data, the modelled abscissae, a residual strip, and a marginal residual histogram. There is
-no smooth model *curve* for this channel and there cannot be — the abscissa depends on the
-per-transit scan angle, so it is only defined at the data epochs.
+This shows a sample of posterior draws. Lines show the locations in the sky plane of the companion relative to the primary. 
+It's not valid to show Gaia DR4 datapoints on this plot, since they are 1D only and would move around with every draw. 
 
-If we pick an individual draw, we can plot the orbit against the Gaia data more directly.
+
+Gaia constrains one direction per transit, so a measurement is a *line*, not a point. That means any 2D view has to use our assumed model and a particular posterior draw to decide where to draw the datapoint, and the result varies per draw.
+If we do pick an individual draw, we can plot the star's orbit against the Gaia data more directly.
 Like RV, this only works with individual draws, because the Gaia points are "detrended" in a
 sense from the values of a particular draw (they move around the plot depending on the
-draw). Build a [`PosteriorSeries`](@ref) restricted to the draws you want and hand it to
-`octoplot`:
+draw).
+
 
 ```@example 1
-idx = rand(1:size(chain,1))  # pick an integer randomly
-series = Octofitter.PosteriorSeries(model, chain; ii=[idx])
-octoplot(series)
+Octofitter.gaiastarplot(model, chain) # plots one draw only
 ```
 
-A good practice is to plot a few different values from the posterior, or e.g. plot draws from 5th, 50th, and 95th percentile in a key orbit parameter like
 
+A good practice is to plot a few different values from the posterior, or e.g. plot draws from 5th, 50th, and 95th percentile in a key orbit parameter like
 *  semi-major axis
 *  eccentricity 
 *  inclination 
@@ -178,37 +143,16 @@ indices = [partialsortperm(chain["b_a"][:], k) for k in percentile_positions]
 
 # hint! Try `"b_e", "b_a", and "b_i"
 
-entries = [(gaia_dr4_obs, ch) for ch in Octofitter.plotchannels(gaia_dr4_obs)]
-
 fig = Figure(size=(920,345))
-for (col, (idx, title)) in enumerate(zip(indices,
-        ("5th percentile period", "50th percentile period", "95th percentile period")))
-    s = Octofitter.PosteriorSeries(model, chain; ii=[idx])
-    axs = timeseriespanel!(fig[1,col], s, entries; show_hist=false)
-    axs.main.title = title
+for (col, idx) in enumerate(indices)
+    fig = Octofitter.gaiastarplot(model, chain, idx)
+    display(fig)
 end
 fig
 ```
 
-`timeseriespanel!` is the same generic panel `octoplot` assembles: you hand it a
-[`PosteriorSeries`](@ref) and a list of `(observation, channel)` pairs, and it draws model,
-data, and a residual strip.
-
-### The wobble in the sky plane
-
-Gaia constrains one direction per transit, so a measurement is a *line*, not a point.
-[`gaiastarplot`](@ref) shows that geometry for a single draw: the modelled reflex track,
-and each transit's along-scan residual re-projected into the sky plane along its own scan
-angle, with a 1σ tick in the same direction and a dotted connector back to the track.
-
-```@example 1
-Octofitter.gaiastarplot(model, chain)
-```
-
-[`skytrackplot`](@ref) zooms out to the source's *whole* path — parallactic loops, proper
-motion, and the orbital wobble superimposed — which is the picture of why the wobble is
-hard to extract. `keplerian_mult` exaggerates the orbital term so you can see it against
-the parallax.
+[`skytrackplot`](@ref) zooms out to the source's *whole* path: parallactic loops, proper
+motion, and the orbital wobble superimposed. If you want, pass `keplerian_mult` to exaggerate the orbital motion term so you can see it against the parallax.
 
 The parallax ellipse has to be projected onto a sky direction. The observation does not
 carry a catalog solution, so give the direction explicitly, or let
@@ -260,35 +204,13 @@ sim_chain, pt = octofit_pigeons(sim_model, n_rounds=5)
 octoplot(sim_model, sim_chain)
 ```
 
-## Using NSS Catalog Solutions as Starting Points
-
-!!! warning "Not available yet"
-    The Gaia Non-Single Star helpers (`initialize_from_nss!`, `query_nss`,
-    `nss_to_starting_point`, `nss_to_model_chain`) have not been brought onto the current
-    model surface; the source is parked in `src/legacy/nss.jl`. If you have an NSS
-    solution, convert it to orbital elements yourself and pass them to
-    [`initialize!`](@ref) or `startingpoints!`:
-
-    ```julia
-    startingpoints!(model, (;
-        plx = 1.67,
-        bodies = (; b = (; a = 18.9, e = 0.76, i = 1.92, ω = 1.1, Ω = 2.4, θ = 0.8)),
-        observations = (; GaiaDR4 = (; astrometric_jitter = 0.03,
-                                       ra_offset_mas = 0.0, dec_offset_mas = 0.0,
-                                       pmra = -28.3, pmdec = -155.0)),
-    ))
-    ```
-
-    NSS solutions should be used as **starting points only**, not as priors — that would be
-    using the data twice.
-
 ## Gaia BH 3
 
 The following tutorial reproduces the fit to Gaia BH3. This one can take longer to run
 since the orbit is ultra well constrained. For that reason, we don't run it automatically when building the docs. Please go ahead and run the code on your own computer; ETA=approx 20 minutes.
 
 As a first step, we will load the astrometry data for Gaia-BH3 and plot it:
-```julia
+```@example 1
 headers = [
     :transit_id
     :ccd_id
@@ -305,15 +227,11 @@ df.epoch = jd2mjd.(df.obs_time_tcb)
 # The table published with the BH3 paper gives scan_pos_angle in DEGREES, but
 # GaiaDR4AstromObs takes sincos(scan_pos_angle) directly and so expects RADIANS.
 df.scan_pos_angle = deg2rad.(df.scan_pos_angle)
-
-scatter(
-    df.obs_time_tcb,
-    df.centroid_pos_al,
-)
+nothing # hide
 ```
 
 We can now construct a likelihood object for this data:
-```julia
+```@example 1
 ref_epoch_mjd = 57936.375
 gaia_bh3_astrom_obs = GaiaDR4AstromObs(
     df,
@@ -332,7 +250,7 @@ gaia_bh3_astrom_obs = GaiaDR4AstromObs(
 ```
 
 Next, the two bodies. Note that both masses are in solar masses:
-```julia
+```@example 1
 orbit_ref_epoch = mean(gaia_bh3_astrom_obs.table.epoch)
 
 A_bh3 = Body(
@@ -362,14 +280,8 @@ BH = Body(
 
 This object also has published RV data from Gaia, which we can load and use as normal.
 
-!!! warning "Declare `offset` and `jitter` yourself"
-    One type covers both kinds of RV: `RadialVelocityObs`, with `target=A, ref=Barycentre`
-    for stellar reflex and `target=b, ref=A` for relative RV. It lives in core Octofitter,
-    so a plain RV model does not need `using OctofitterRadialVelocity`. Nothing is
-    auto-injected — an observation with no `variables=` block fits with no zero point and
-    no jitter.
 
-```julia
+```@example 1
 headers_rv = [
     :transit_id,
     :obs_time_tcb,
@@ -403,7 +315,7 @@ errorbars(
 
 Now, we assemble the system. Both observations are listed on the system; neither is attached
 to a body:
-```julia
+```@example 1
 sys = System(
     name="gaiadr4test",
     bodies=[A_bh3, BH],
@@ -416,8 +328,8 @@ sys = System(
 model = Octofitter.LogDensityModel(sys, verbosity=4)
 ```
 
-We will initialize the model starting positions and visualize them:
-```julia
+We will initialize the model starting positions:
+```@example 1
 # Note: you can see the required format for parameter initialization by running:
 # nt = Octofitter.drawfrompriors(model.system);
 # println(nt)
@@ -437,43 +349,49 @@ init_chain = initialize!(model, (;
         GaiaRV  = (; offset = -359481.6706770764, jitter = 2143.4793485877644),
     ),
 ))
-octoplot(model, init_chain)
 ```
 
-Note that starting values nest under `bodies=`, and that the host star is a body like
-any other, so its mass is initialized in the same place.
-
-!!! note
-    If you don't pick the starting point, you can also just run Pigeons for 8-10 rounds,
-    which is recommended anyway for convergence, and the sampler will find this result.
+If you don't pick the starting point, you can also just run Pigeons for 8-10 rounds,
+which is recommended anyway for convergence, and the sampler will find this result.
 
 Now, we can perform the fit. It is a little slow since we have many hundreds of RV and astrometry data points.
-```julia
+```@example 1
 chain, pt = octofit_pigeons(model, n_rounds=6) # might need more rounds to converge
 ```
 
 Pigeons can resume an existing run, so you can add rounds until the reported
 `log(Z₁/Z₀)` and `Λ` settle instead of starting over:
-```julia
+```@example 1
 increment_n_rounds!(pt, 1)
 chain, pt = octofit_pigeons(pt)
 ```
 
 Finally, we can visualize the results. `octoplot` produces the along-scan panel from the
-astrometry and a radial-velocity panel (plus a phase-folded one) from the RVs, so one
+astrometry and a radial-velocity panel from the RVs, so one
 call covers the whole fit:
-```julia
+```@example 1
 octoplot(model, chain)
 ```
 
-[`rvpostplot`](@ref) is the RV-only slice of that same figure, and
-[`gaiastarplot`](@ref) / [`skytrackplot`](@ref) add the sky-plane views of the astrometry:
-```julia
-rvpostplot(model, chain)
-Octofitter.gaiastarplot(model, chain)
-Octofitter.skytrackplot(model, chain; gaia_id=4318465066420528000, keplerian_mult=5)
+```@example 1
+rvplot(model, chain)
 ```
 
-```julia
+
+[`rvpostplot`](@ref) is the RV-only slice of that same figure, and
+[`gaiastarplot`](@ref) / [`skytrackplot`](@ref) add the sky-plane views of the astrometry:
+```@example 1
+rvpostplot(model, chain)
+```
+
+```@example 1
+Octofitter.gaiastarplot(model, chain)
+```
+
+```@example 1
+Octofitter.skytrackplot(model, chain; gaia_id=4318465066420528000)
+```
+
+```@example 1
 octocorner(model, chain, small=true)
 ```

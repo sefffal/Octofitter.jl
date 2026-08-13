@@ -6,10 +6,6 @@ This example shows how you can fit a two planet model to relative astrometry dat
 We will demonstrate two models: the first, where the planets are exactly co-planar (using a single set of variables for the inlination and position angle of ascending node for both planets), and a second, where the planets are approximately co-planar according to a custom prior.
 
 
-For this example, we will use astrometry from the HR8799 system collated by Jason Wang and retrieved from the website [Whereistheplanet.com](http://whereistheplanet.com).
-
-## Data
-
 ```@example 1
 using Octofitter
 using CairoMakie
@@ -19,6 +15,14 @@ using PlanetOrbits
 using Pigeons
 ```
 
+## Data
+
+
+
+For this example, we will use astrometry from the HR8799 system collated by Jason Wang and retrieved from the website [Whereistheplanet.com](http://whereistheplanet.com).
+
+
+Specify the data here. We'll wrap it in observation objects below.
 ```@example 1
 astrom_dat_b = Table(;
     epoch = [53200.0, 54314.0, 54398.0, 54727.0, 55042.0, 55044.0, 55136.0, 55390.0, 55499.0, 55763.0, 56130.0, 56226.0, 56581.0, 56855.0, 58798.03906, 59453.245, 59454.231],
@@ -44,13 +48,7 @@ nothing # hide
 
 HR 8799 b is the outer of the two planets and c the inner one, so we write the hierarchy
 as a **Jacobi chain**: c orbits the star, and b orbits the *barycentre* of the star and c
-(`about=(A, c)`). The convention is stated in the model, never inferred; see
-[Jacobi vs. astrocentric](https://sefffal.github.io/PlanetOrbits.jl/dev/hierarchies/#Jacobi-vs.-astrocentric)
-for what the choice means physically.
-
-Because the mass of every orbit is computed from the bodies it binds, there is no `M`
-variable to get wrong: the c row's mass is `A.mass + c.mass` and the b row's is
-`A.mass + c.mass + b.mass`, automatically.
+(`about=(A, c)`). 
 
 ```@example 1
 A = Body(
@@ -64,11 +62,7 @@ nothing # hide
 
 ## Exact Co-Planar Model
 
-This model will use a single pair of `i` and `Ω` variables for both planets to enforce exact co-planarity. Sharing a parameter between two bodies is done by *hoisting* it to the system block; a body block cannot see its siblings.
-
-Note that we do not need to convert period to semi-major axis by hand any more: `P` is
-an orbital element in its own right (in **days**), and PlanetOrbits derives `a` from it
-using the row's own gravitating mass.
+This model will use a single pair of `i` and `Ω` variables for both planets to enforce exact co-planarity. Sharing a parameter between two bodies is done by hoisting it to the system block.
 
 ```@example 1
 planet_c = Body(
@@ -112,6 +106,7 @@ planet_b = Body(
     end
 )
 
+# Show how the data connects with the model
 astrom_b = RelAstromObs(
     astrom_dat_b;
     target = planet_b,
@@ -158,8 +153,8 @@ model = Octofitter.LogDensityModel(sys)
 
 Let's plot our data before we start:
 ```@example 1
-fig = scatter(astrom_b.table.ra, astrom_b.table.dec, axis=(;autolimitaspect=1))
-scatter!(astrom_c.table.ra, astrom_c.table.dec)
+fig = scatter(astrom_dat_b.ra, astrom_dat_b.dec, axis=(;autolimitaspect=1))
+scatter!(astrom_dat_c.ra, astrom_dat_c.dec)
 scatter!([0], [0], marker='⋆', markersize=50, color=:black)
 fig
 ```
@@ -185,20 +180,6 @@ results, pt = octofit_pigeons(model, n_rounds=10);
 nothing # hide
 ```
 
-!!! tip "Parallel tempering samples this model better"
-    A near-resonant two planet model like this one has a genuinely multimodal posterior:
-    the period ratio can settle into more than one commensurability, and the two planets'
-    mutual inclination admits mirrored solutions. [`octofit_pigeons`](@ref) runs a ladder
-    of chains between the prior and the posterior, so a replica that finds one mode can
-    still swap into another, which is why this page tempers rather than running a single
-    HMC chain.
-
-    [`octofit`](@ref) is much cheaper per sample and is fine for a first look. If you use
-    it here, treat one chain as a local exploration rather than the full posterior: seed
-    it deliberately with [`initialize!`](@ref) and run several chains from different
-    starting points, so a mode you missed shows up as disagreement between chains. See
-    [Samplers](@ref samplers).
-
 Plots the orbits:
 ```@example 1
 octoplot(model, results)
@@ -223,7 +204,7 @@ hist(
 
 ## Approximately Co-Planar Model
 
-We now set up two planets with their own separate `i` and `Ω` variables, calculate the mutual inclination, and add a prior that this mutual inclination is $0 \pm 10 \degree$.
+We now set up two planets with their own separate `i` and `Ω` variables, calculate the mutual inclination, and add a prior that this mutual inclination is $0 \pm 10 \degree$. An oftern overlooked point is that that a half normal distribution on mutual inclination isn't going to actually peak at 0, more like $10 \degree$ because of how the priors on each planet's orbital plane interact. 
 
 Any `expression ~ distribution` line in a `@variables` block is a prior term, so the
 mutual-inclination constraint is written directly.
@@ -308,26 +289,11 @@ init_chain = initialize!(model, (;
 octoplot(model, init_chain)
 ```
 
-
 Now sample from the model using Pigeons parallel tempering:
 ```@example 1
 results, pt = octofit_pigeons(model, n_rounds=10);
 nothing # hide
 ```
-
-!!! tip "Parallel tempering samples this model better"
-    A near-resonant two planet model like this one has a genuinely multimodal posterior:
-    the period ratio can settle into more than one commensurability, and the two planets'
-    mutual inclination admits mirrored solutions. [`octofit_pigeons`](@ref) runs a ladder
-    of chains between the prior and the posterior, so a replica that finds one mode can
-    still swap into another, which is why this page tempers rather than running a single
-    HMC chain.
-
-    [`octofit`](@ref) is much cheaper per sample and is fine for a first look. If you use
-    it here, treat one chain as a local exploration rather than the full posterior: seed
-    it deliberately with [`initialize!`](@ref) and run several chains from different
-    starting points, so a mode you missed shows up as disagreement between chains. See
-    [Samplers](@ref samplers).
 
 Plots the orbits:
 ```@example 1
@@ -352,23 +318,16 @@ hist(
 
 ## Dynamical stability priors
 
-For a multi-planet model you will often want to add one or more of the dynamical priors.
-They are prior-shaped terms and go in the system's `observations=` list:
+For a multi-planet model you will often want to add one or more of the dynamical priors:
 
 ```julia
 observations = [
     astrom_b, astrom_c,
     OrbitOrderPrior(planet_c, planet_b),                     # keeps c interior to b
     NonCrossingPrior(bodies=(planet_b, planet_c)),           # apsides may not cross
-    LimitClosestApproachAUPrior(5.0, 15.0; bodies=(planet_b, planet_c)),
-    HillStabilityPrior(bodies=(planet_b, planet_c)),
+    HillStabilityPrior(bodies=(planet_b, planet_c)),         # very basic stability constraint
 ]
 ```
-
-Each takes an optional `bodies=` list restricting it to the hierarchy rows that place
-those bodies. With no list, every row in the system is included — the right default for a
-star with planets, but not for a hierarchical system where some rows (a wide binary orbit,
-say) have no meaningful apsidal comparison with the others.
 
 [`HillStabilityPrior`](@ref)'s docstring gives the exact Gladman criterion and the
 definition of `M★` it uses.

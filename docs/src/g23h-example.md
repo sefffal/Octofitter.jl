@@ -1,25 +1,6 @@
 # [Full G23H Example Script](@id g23h-example)
 
 This page provides a complete, production-ready script for fitting orbital models using the G23H catalog. This script supports:
-
-!!! note "What this script leans on"
-    * `G23HObs` declares **source membership** — `host=`, `companions=`, `ref=` — and
-      reads companion flux ratios from the bodies' own `flux_G` / `flux_Hp` variables.
-    * The model is a flat list of `Body` nodes, and **all masses are in solar masses**
-      (`mjup` is a plain multiplicative constant).
-    * RV is `RadialVelocityObs(…; target=A, ref=Barycentre)`, with `offset` and `jitter`
-      declared explicitly.
-    * [`OrbitOrderPrior`](@ref) takes `Body` nodes or
-      `Symbol`s.
-    * The incremental parallel-tempering loop this script is built around
-      ([`octofit_pigeons`](@ref) + `increment_n_rounds!` + `Pigeons.stepping_stone_pair`)
-      is unchanged: `octofit_pigeons` lives in a package extension, so `using Pigeons`
-      must be in scope, and it returns `(;chain, pt)` as before.
-    * `Octofitter.dotplot` still works with the same arguments, and so does the RV
-      summary figure — renamed [`rvplot`](@ref), since it draws one posterior draw
-      rather than the posterior. It is assembled from [`octoplot`](@ref)'s generic
-      panels and lives in core rather than in an RV-specific Makie extension.
-
 - Single or multi-planet systems
 - Optional Gaussian Process modeling of stellar activity in RV data
 - RV data from DACE or custom RDB files

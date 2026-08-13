@@ -10,7 +10,7 @@ This guide introduces the key concepts in Octofitter:
 For installation instructions, see [Installation](@ref install).
 
 If you are porting a script written for Octofitter v8 or earlier, read
-[Migrating to Octofitter v9](@ref v9-migration) first — the model syntax changed.
+[Migrating to Octofitter v9](@ref v9-migration) first — the model syntax changed significantly.
 
 ## Example: Fit a Single Planet Orbit to Relative Astrometry
 
@@ -19,23 +19,8 @@ Load the required packages:
 using Octofitter, Distributions, CairoMakie, PairPlots
 ```
 
-Create a [`RelAstromObs`](@ref) object containing your observational data. In this case
-it is the position of the planet relative to the star, but many other kinds of data are
-supported:
-```@example 1
-astrom_dat = Table(
-    epoch = [50000.0, 50120.0, 50240.0],  # Dates in MJD
-    ra    = [-505.7, -502.5, -498.2],     # [mas] East positive
-    dec   = [-66.9, -37.4, -7.9],         # [mas] North positive
-    σ_ra  = [10.0, 10.0, 10.0],           # [mas] Uncertainties
-    σ_dec = [10.0, 10.0, 10.0],           # [mas] Uncertainties
-    cor   = [0.0, 0.0, 0.0]               # RA/Dec correlations
-)
-nothing # hide
-```
-
-A model is a flat list of **bodies** and a flat list of **observations**. The host star is
-a body like any other, so define it first:
+An Octofitter model consists of a list of 0 or more **bodies** and a list of 0 or more **observations**.
+The host star is a body like any other, so define it first:
 ```@example 1
 A = Body(
     name="A",
@@ -46,8 +31,8 @@ A = Body(
 nothing # hide
 ```
 
-Now the planet. `about=A` says the planet orbits the star; its orbital elements and their
-[prior distributions](@ref priors) go in its own variables block:
+Now the planet. `about=A` says the planet orbits the star and the orbital parameters are defined relative to it. The orbital elements and their
+[prior distributions](@ref priors) go in their own variables block:
 ```@example 1
 b = Body(
     name="b",
@@ -71,21 +56,29 @@ nothing # hide
     epoch. `θ` and `epoch` together fix where the planet is on its orbit; you could
     equally supply `tp` (epoch of periastron passage) or `M0` and `epoch`.
 
-!!! note "Why the planet's mass is fixed at zero"
-    An orbit's gravitating mass is the total mass of the bodies it binds, computed from
-    the model rather than declared — here `A.mass + b.mass`. Relative astrometry
-    constrains only that *sum*, never the split between the two, so setting `b.mass = 0.0`
-    hands the whole of it to `A.mass` and keeps the model identified. `A.mass` is then
-    the total mass of the orbit, which is what the astrometry actually measures.
+We are using relative astrometry data here that typically can't constrain the mass of the companion. For this tutorial, we will assume the mass is small compared to the primary and fix it to zero.
 
-    Give the planet a real mass prior once you add data that can separate the two:
-    radial velocity, absolute astrometry, or a second planet.
 
-Now build the observation, saying what it observes (`target`) and what it is measured
-against (`ref`), and assemble the system:
+Create a [`RelAstromObs`](@ref) object containing your observational data. In this case
+it is the position of the planet relative to the star, but many other kinds of data are
+supported:
 ```@example 1
-astrom = RelAstromObs(astrom_dat; target=b, ref=A, name="GPI astrom")
+astrom_dat = Table(
+    epoch = [50000.0, 50120.0, 50240.0],  # Dates in MJD
+    ra    = [-505.7, -502.5, -498.2],     # [mas] East positive
+    dec   = [-66.9, -37.4, -7.9],         # [mas] North positive
+    σ_ra  = [10.0, 10.0, 10.0],           # [mas] Uncertainties
+    σ_dec = [10.0, 10.0, 10.0],           # [mas] Uncertainties
+    cor   = [0.0, 0.0, 0.0]               # RA/Dec correlations
+)
 
+# Now build the observation, saying what it observes (`target`) and what body it is measured
+# against  (`ref`), and assemble the system:
+astrom = RelAstromObs(astrom_dat; target=b, ref=A, name="GPI astrom")
+```
+
+Now assemble the system: bodies + observations. 
+```@example 1
 sys = System(
     name="HD1234",
     bodies=[A, b],
@@ -95,12 +88,10 @@ sys = System(
     end
 )
 ```
+Variables at the System level can be used to define the reference frame. `plx` is required for relative astrometry. You can also add `pmra`, `pmdec`, `ra`, `dec`, `rv` and `ref_epoch` to specify the full 3D motion of the system's barycentre through space, relative to our solar system.
+See [System Construction](@ref derived) for more info.
 
-Which frame variables the system block defines chooses the frame: `plx` alone gives
-angular observables in milliarcseconds, which is what relative astrometry needs. See
-[System Construction](@ref derived) for more options.
-
-Compile the model into efficient sampling code:
+Now compile the model into efficient sampling code:
 ```@example 1
 model = Octofitter.LogDensityModel(sys)
 ```
@@ -122,7 +113,7 @@ init_chain = initialize!(model, (;
 nothing # hide
 ```
 
-Visualize the starting point. You can use this plot to make absolutely sure your data was
+Visualize the starting point (this is a "variational approximation"). You can use this plot to make absolutely sure your data was
 entered correctly:
 ```@example 1
 octoplot(model, init_chain)
