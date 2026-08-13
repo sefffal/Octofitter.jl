@@ -26,13 +26,6 @@ using Pigeons
 using Arrow, DataFrames, CSV # hide
 ```
 
-!!! note "About the data on this page"
-    So that this page builds offline, it uses the Hipparcos–Gaia catalog subset and
-    cached scan-law forecast that ship with Octofitter's tests, together with the
-    example L′ contrast image from [Fitting Images](@ref fit-images) — which is a stand-in,
-    not a real observation of this star. For a real target you simply drop the
-    `catalog=` and `forecast_table=` keywords and Octofitter fetches everything
-    itself.
 
 ## Photometry Model
 
@@ -49,18 +42,8 @@ const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)
     the end of the grid and quietly returns `NaN`. Pass `mass_unit=:Mjup` to the
     constructors if you would rather keep a script in Jupiter masses.
 
-## Catalog data
-
 ```@example 1
-gaia_id = 756291174721509376
-catalog = DataFrame(Arrow.Table(joinpath(@__DIR__, "..", "..", "test", "G23H-test-subset.feather"))) # hide
-gost = CSV.read(joinpath(@__DIR__, "GOST-158.30707896392835-40.42555422701387-dr3.csv"), Table, normalizenames=true) # hide
-forecast = Table( # hide
-    epoch = Octofitter.jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_), # hide
-    scanAngle_rad = gost.scanAngle_rad_, # hide
-    parallaxFactorAlongScan = gost.parallaxFactorAlongScan, # hide
-) # hide
-nothing # hide
+
 ```
 
 ## Proper Motion Anomaly Data
@@ -95,6 +78,16 @@ B = Body(
         flux_Hp = 0.0             # ...and to Hipparcos
     end
 )
+
+gaia_id = 756291174721509376
+catalog = DataFrame(Arrow.Table(joinpath(@__DIR__, "..", "..", "test", "G23H-test-subset.feather"))) # hide
+gost = CSV.read(joinpath(@__DIR__, "GOST-158.30707896392835-40.42555422701387-dr3.csv"), Table, normalizenames=true) # hide
+forecast = Table( # hide
+    epoch = Octofitter.jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_), # hide
+    scanAngle_rad = gost.scanAngle_rad_, # hide
+    parallaxFactorAlongScan = gost.parallaxFactorAlongScan, # hide
+) # hide
+nothing # hide
 
 pma = HGCAObs(;
     gaia_id = gaia_id,
@@ -135,9 +128,7 @@ model_pma = Octofitter.LogDensityModel(HD_pma)
 ```
 
 !!! warning "`pmra` and `pmdec` are frame variables"
-    Use wide priors on `pmra`/`pmdec` — the data are what constrain them. The names are
-    reserved for the system's absolute frame, and must be declared *together* with the
-    rest of it.
+    Use wide priors on `pmra`/`pmdec`. the data will constrain them.
 
 Sample:
 ```@example 1
@@ -145,12 +136,6 @@ init_pma = initialize!(model_pma)
 chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16, n_rounds=12)
 nothing # hide
 ```
-
-!!! tip "Detection limits want parallel tempering"
-    Every model on this page is sampled with [`octofit_pigeons`](@ref), which is much
-    better suited than HMC to the broad, banana-shaped mass–separation posteriors a
-    non-detection produces — the tails are exactly what a detection limit reads off,
-    and they are where a single HMC chain is least trustworthy.
 
 Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl. Note that `B_mass` is in solar masses, so we convert for the plot:
 ```@example 1
@@ -244,10 +229,7 @@ image_data = ImageObs(
 nothing # hide
 ```
 
-!!! note "The flux belongs to the body"
-    The companion's brightness is `flux_L` in its own block, and the observation just
-    says `targets=(B,), band=:L`. One image is one likelihood, however many companions
-    are modelled in it.
+
 
 ```@example 1
 A_img = Body(

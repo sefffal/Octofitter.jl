@@ -30,11 +30,6 @@ using Statistics
 using Pigeons
 ```
 
-!!! note "Two things to know before you start"
-    [`GaiaDR4AstromObs`](@ref) takes epoch astrometry, references and variables only —
-    it does **not** take `gaia_id=` and does not query the archive, so where you need the
-    DR3 solution you query it yourself (shown below). And every mass is in **solar
-    masses**.
 
 ## Loading the data
 
@@ -42,7 +37,7 @@ The pre-release ships as a VOTABLE, which needs a little massaging before it can
 used (see [Where this file came from](@ref dr4-prerelease-votable) at the bottom of this
 page if you're curious). To keep this tutorial focused on the modelling, we ship a
 ready-to-use CSV of the Gaia-4 measurements with the documentation:
-[`gaia4_epoch_astrometry.csv`](https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/gaia4_epoch_astrometry.csv).
+[`gaia4_epoch_astrometry.csv`](https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/gaia4_epoch_astrometry.csv). Follow those instructions to load any of the other example systems.
 
 ```julia
 const GAIA4_SOURCE_ID = 1457486023639239296
@@ -69,13 +64,9 @@ The columns are:
 | `outlier_flag` | 0/1 | `0` where `used_by_agis_al` is true; `GaiaDR4AstromObs` skips rows with `outlier_flag > 0` |
 
 !!! warning "Scan angles must be in radians"
-    `GaiaDR4AstromObs` takes `sincos(scan_pos_angle)` directly, so this column **must be in
-    radians**. The raw VOTABLE ships degrees; the conversion has already been applied in
+    scan_pos_angle must be in **radians**. The raw VOTABLE ships degrees; the conversion has already been applied in
     the CSV above. If you prepare your own table, remember `deg2rad`.
 
-    A degree-valued column does not error — it produces a wrong, quietly plausible fit —
-    so this is on the list to make safe by construction rather than by warning once the
-    DR4 column conventions are final.
 
 !!! note "`mapcols(collect, df)`"
     When Julia is started with multiple threads, `CSV.read` can return

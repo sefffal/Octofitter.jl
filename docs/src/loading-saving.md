@@ -29,15 +29,6 @@ This pattern also allows you to load data directly from remote databases using a
 
 Once loaded, you can access the underlying table using e.g. `astrom.table`.
 
-!!! note "Read into a `Table` first"
-    `CSV.read("astrom.csv", RelAstromObs)` does not work: every observation requires
-    keyword arguments — at minimum `target`, `ref` and `name` — and the
-    `CSV.read(source, sink)` form has no way to supply them. Read into a `Table` first,
-    as above.
-
-    `PropMotionAnom` is gone as well: proper-motion anomaly is now modelled by
-    [`HGCAObs`](@ref) / [`G23HObs`](@ref), which fetch their own catalog data by
-    `gaia_id` rather than taking a table.
 
 ## Saving Chains
 
@@ -146,9 +137,3 @@ traj  = orbitsolve(posys, [59000.0, 59100.0])
 raoff(traj[1], :b, :A)
 ```
 
-!!! note "One system per draw"
-    There is no per-planet orbit object — a sample is a whole system — and every
-    observable takes an explicit `(target, ref)` pair.
-
-    Note also that `construct_system` takes the **`LogDensityModel`**, not the bare
-    `System`.

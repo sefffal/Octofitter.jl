@@ -1,8 +1,7 @@
 #  [Connecting Mass with Photometry](@id mass-photometry)
 
-A body's brightness in a given band is an ordinary model variable, named `flux_<band>` and declared in that body's own `@variables` block. Because it is an ordinary variable, it can be **derived** from other variables — and the most useful thing to derive it from is the body's mass, through an evolutionary model.
+A body's brightness in a given band is an ordinary model variable, named `flux_<band>` and declared in that body's own `@variables` block. Because it is an ordinary variable, it can be **derived** from other variables — and the most useful thing to derive it from is the body's mass, through an evolutionary model. This let's you connect imaging and interferometry data with dynamical constraints from RVs, TTVs, you name it.
 
-That is what this page is about: closing the loop between the dynamical mass a fit measures from orbital motion and the photometry the same fit measures from images or spectra.
 
 ```@example 1
 using Octofitter
@@ -10,29 +9,6 @@ using Distributions
 using CairoMakie
 ```
 
-## Where the flux variable lives
-
-!!! note "The flux belongs to the body"
-    The flux is a variable of the **body**, and the observation just says which body
-    and which band it measured:
-
-    ```julia
-    b = Body(name="b", about=A, variables=@variables begin
-        flux_H ~ Uniform(0, 1)      # the parameter
-        # ...
-    end)
-
-    phot = PhotometryObs(H_band_table; target=b, band=:H, name="NIRC2")
-    ```
-
-    The observation goes in the **system**'s `observations=` list, not on a body.
-
-    The practical consequence is that two instruments observing the same body in the
-    same band share **one** parameter. If you want them to be independent — because you do not
-    trust the cross-calibration — put them in different bands (`flux_H_nirc2`,
-    `flux_H_sphere`) and give each `PhotometryObs` the matching `band=`.
-
-`band=:H` reads the variable `flux_H`; `band=:default` (the default) reads a bare `flux`. This is the same variable-name → band mapping that `Photocentre` weights are built from, and that `ImageObs` and `InterferometryObs` read, so photometry and photocentres cannot disagree about how bright a body is.
 
 ## A simple derived flux
 
@@ -82,22 +58,13 @@ cooling_tracks(40.0, 12mjup)
 absmag_H(cooling_tracks(40.0, 12mjup), 12mjup)
 ```
 
-!!! warning "Masses are in solar masses"
-    Every mass is in M⊙, and these interpolators follow suit. `mjup`, `mearth` and
-    `msun` are plain multiplicative constants, so `12mjup` reads naturally and means
-    the right thing. A bare `12.0` means 12 M⊙, which lands off the end of the grid
-    and returns `NaN` rather than raising an error — construct the interpolator with
-    `mass_unit=:Mjup` if you would rather work in Jupiter masses.
 
-!!! warning "Magnitudes are not fluxes"
-    The interpolators return **absolute magnitudes**. A `flux_<band>` variable is a
+!!! warning "Magnitudes vs Fluxes"
+    Those Sonora interpolators return **absolute magnitudes**. A `flux_<band>` variable is a
     **linear flux** — photocentres weight bodies by it directly, and the image and
-    interferometry likelihoods sum it — so the conversion
+    interferometry likelihoods sum it — so convert using the usual formula:
 
         flux_H = 10^(-0.4 * abs_mag_H)
-
-    is *not* optional. Feeding a magnitude straight into `flux_H` weights bodies by
-    a logarithm and silently produces a wrong photocentre and a wrong contrast.
 
     If you pin the host's flux to `1.0` so that companion fluxes are contrast
     ratios, take the magnitude *difference* to the host first, as below.
@@ -132,7 +99,7 @@ b = Body(
         flux_H = 10^(-0.4 * (abs_mag_H - system.host_abs_mag_H))
         flux_L = 10^(-0.4 * (abs_mag_L - system.host_abs_mag_L))
 
-        a ~ Normal(16, 3)
+        a ~ truncated(Normal(16, 3),lower=0)
         e ~ truncated(Normal(0.2, 0.2), lower=0, upper=0.99)
         ω ~ Normal(0.6, 0.2)
         i ~ Normal(0.5, 0.2)
@@ -243,16 +210,3 @@ K_band_data = PhotometryObs(
 
 Everything a body's block can see is available to such a function: the body's own variables by bare name, and system-level variables through `system.X`.
 
-## `PhotometryObs`, or a `~` line?
-
-A `@variables` block accepts `~` over derived quantities, so a photometric constraint can also be written as a one-liner in the body's own block:
-
-```julia
-flux_H ~ Normal(2.4e-4, 4.0e-5)     # an ad-hoc constraint, not data
-```
-
-That is the right spelling for an *ad-hoc constraint* — a literature value you want to nudge the fit with. Reach for [`PhotometryObs`](@ref) when the numbers are **data**, by the general criterion this part of the model surface sorts every borderline case by:
-
-> If it carries data you might want to hold out or simulate, it is an observation. If it only reshapes the prior, it is a `~` line.
-
-A `~` line is a prior-shaped term: it is excluded from likelihood counts, it has no table to subset, and it has no `generate_from_params`. So it can never be held out by [cross-validation](@ref cross-validation) and you can never simulate photometry from a fitted model — both of which people routinely do with real photometry.

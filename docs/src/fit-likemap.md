@@ -186,21 +186,12 @@ nothing # hide
 
 `target` and `ref` take the full reference grammar: a `Body` model node, a `Symbol` naming one, or `Barycentre`. `ref` is the point each map is centred on (index `[0,0]`), which need not be the star.
 
-!!! note "This type is deliberately single-target"
-    Unlike [`ImageObs`](@ref fit-images), which takes `targets=(b, c)` because one
-    image contains every companion at once, a `LogLikelihoodMapObs` takes a single
-    `target`. A precomputed log-likelihood surface is one-companion-by-construction:
-    whoever produced it already marginalized or profiled everything else away, and
-    its normalization, jitter and correlated-noise treatment are baked in. To model
-    two companions this way, add two `LogLikelihoodMapObs` — one per surface.
-
-    No flux is involved either, for the same reason: the surface already carries
-    whatever brightness model produced it.
+Only a single `target` body is accepted per observation object.
 
 !!! note
     The likelihood maps will be interpolated using a simple bi-linear interpolation. 
 
-We now create a one-planet model and run the fit using `octofit_pigeons`. This parallel-tempered sampler is slower than the regular `octofit`, but is recommended over the default Hamiltonian Monte Carlo sampler due to the multi-modal nature of the data. Observations live on the system, and each names its own `target`/`ref`.
+We now create a one-planet model and run the fit using `octofit_pigeons`. This parallel-tempered sampler is slower than the regular `octofit`, but is recommended over the default Hamiltonian Monte Carlo sampler due to the multi-modal nature of the data.
 
 ```@example 1
 
@@ -239,21 +230,6 @@ init_chain = initialize!(model)
 chain, pt = octofit_pigeons(model, n_rounds=10) # increase n_rounds until log(Z₁/Z₀) converges.
 display(chain)
 ```
-
-!!! warning "The data here have three modes on purpose"
-    Likelihood maps are the archetypal multi-modal data set — the synthetic maps above
-    have three peaks deliberately — and that is exactly why this page samples with
-    [`octofit_pigeons`](@ref). Its tempered chains run all the way down to the prior,
-    where the three peaks merge into one broad surface, so replicas can migrate between
-    modes and every peak stays represented in the posterior.
-
-    A single HMC chain from [`octofit`](@ref) will instead find one peak and stay in it,
-    giving a posterior narrower than the data justify. If you do choose HMC here, run
-    several chains from different starting points ([`initialize!`](@ref) before each) and
-    compare them, rather than trusting a single run.
-
-!!! note
-    `octofit_pigeons` scales very well across multiple cores. Start julia with `julia --threads=auto` to make sure you have multiple threads available for sampling.
 
 Display the results:
 ```@example 1

@@ -5,11 +5,7 @@ This tutorial demonstrates how to use Octofitter to simulate Gaia DR4 data for a
 **Before reading this, take a look at the general [Generating and Fitting Simulated Data](@ref data-simulation) tutorial.**
 
 
-!!! note
-    Key concept: Octofitter can take a model with existing observations, a parameter vector, and then generate a new model with simulated observations, ready for-refitting. The input existing observations are used to set the epochs, scan angles, and uncertainties. You actual values are ignored and can be faked if you like.
-
 ----
-
 
 To be as realistic as possible, we will select a particular star as the basis of our simulation. This will allow us to give reasonable estimates of
 * the measurement epochs and scan angles (retrieved from GOST)
@@ -30,11 +26,7 @@ using Statistics
 
 ## Prepare Star Info and Noise
 
-We now query the Gaia positions etc. from DR3, the scan law from GOST, and the uncertainties from
-Kiefer et al (2025) / Thompeon et al (in-prep.).
-
-
-Key question: do you want to simulate on the level of individual CCD measurements, or bin the data by scan? We will assume the latter, but there is code below for the per/scan option.
+We now query the Gaia positions etc. from DR3, the scan law from GOST, and the uncertainties from Thompson et al (2026).
 
 ```@example 1
 gaia_id = 5064625130502952704

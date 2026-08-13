@@ -88,18 +88,18 @@ using LinearAlgebra, StatsBase
 hip_sol = hip_obs.hip_sol
 
 comparisons = (
-    (; chain=:plx,                      μ=hip_sol.plx,    σ=hip_sol.e_plx,  label="plx [mas]"),
-    (; chain=:Hipparcos_IAD_iad_Δra,    μ=0.0,            σ=hip_sol.e_ra,   label="Δα⋆ [mas]"),
-    (; chain=:Hipparcos_IAD_iad_Δdec,   μ=0.0,            σ=hip_sol.e_de,   label="Δδ [mas]"),
-    (; chain=:Hipparcos_IAD_iad_pmra,   μ=hip_sol.pm_ra,  σ=hip_sol.e_pmra, label="μα⋆ [mas/yr]"),
-    (; chain=:Hipparcos_IAD_iad_pmdec,  μ=hip_sol.pm_de,  σ=hip_sol.e_pmde, label="μδ [mas/yr]"),
+    (; prop=:plx,                      μ=hip_sol.plx,    σ=hip_sol.e_plx,  label="plx [mas]"),
+    (; prop=:Hipparcos_IAD_iad_Δra,    μ=0.0,            σ=hip_sol.e_ra,   label="Δα⋆ [mas]"),
+    (; prop=:Hipparcos_IAD_iad_Δdec,   μ=0.0,            σ=hip_sol.e_de,   label="Δδ [mas]"),
+    (; prop=:Hipparcos_IAD_iad_pmra,   μ=hip_sol.pm_ra,  σ=hip_sol.e_pmra, label="μα⋆ [mas/yr]"),
+    (; prop=:Hipparcos_IAD_iad_pmdec,  μ=hip_sol.pm_de,  σ=hip_sol.e_pmde, label="μδ [mas/yr]"),
 )
 
 fig = Figure(size=(1080, 720))
 ax = nothing
 j = i = 1
 for prop in comparisons
-    global i, j, ax
+    global i, j, ax, chain
     ax = Axis(fig[j, i], xlabel=prop.label)
     i += 1
     if i > 3
@@ -109,7 +109,7 @@ for prop in comparisons
     n = Normal(prop.μ, prop.σ)
     n0, n1 = quantile.(n, (1e-4, 1 - 1e-4))
     nxs = range(n0, n1, length=200)
-    h = fit(Histogram, chain[prop.chain][:], nbins=55)
+    h = fit(Histogram, chain[prop.prop][:], nbins=55)
     h = normalize(h, mode=:pdf)
     barplot!(ax, (h.edges[1][1:end-1] .+ h.edges[1][2:end]) ./ 2, h.weights,
              gap=0, color=:red, label="posterior")

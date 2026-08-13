@@ -54,12 +54,6 @@ error from the constructor rather than a silently ignored keyword.
 half-plane, which removes the ω degeneracy as e → 0. `θ` is the planet's sky-plane
 position angle at `epoch` and is usually far better constrained by imaging than `tp`.
 
-!!! warning "`P` is in days"
-    `P` matches `period(sys)` so the two round-trip. If you think in years, multiply by
-    the exported `year2day_julian` (365.25 exactly, the IAU Julian year):
-    `P = P_years * year2day_julian`. Do **not** use the 365.2568983840419-day Kepler
-    year here — that constant belongs inside `√(a³/M)`, which PlanetOrbits applies for
-    you, and mixing the two drifts a well-measured short period.
 
 ### Orbitize!'s `tau`, written out
 

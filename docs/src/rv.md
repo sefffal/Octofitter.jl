@@ -6,14 +6,6 @@ In this example, we will fit an orbit model to a combination of radial velocity 
     The public RV archive loaders and the marginalized RV likelihood are supplied by the extension package OctofitterRadialVelocity. To install it, run 
     `pkg> add OctofitterRadialVelocity`
 
-!!! note "`HGCAObs` is now a helper over `G23HObs`"
-    The HGCA family is no longer a set of observation types. `HGCAObs` is a thin
-    constructor that builds a [`G23HObs`](@ref) restricted to the six channels the
-    HGCA constrains (Hipparcos, Hipparcos–Gaia, and Gaia DR3 proper motions), with
-    `ueva_mode=:none` and no RV channel. Everything `G23HObs` documents applies —
-    in particular the source membership keywords `host=` and `companions=`, which
-    say which bodies this catalog source is made of.
-
 Datasets from radial velocity instruments are modelled together with separate jitters and instrumental offsets.
 
 
@@ -24,10 +16,10 @@ using Pigeons
 gaia_id = 5164707970261890560
 ```
 
-We build the bodies first, since the observations name them. The host is an
-ordinary body, with a mass and — because Gaia and Hipparcos see a *photocentre* —
+We build the bodies first. The host is an
+ordinary body, with a mass and-0-because Gaia and Hipparcos see a *photocentre*---
 a flux in each of their bands. Setting the host's flux to 1 makes
-every other body's flux a contrast ratio; a dark companion gets 0.
+every other body's flux a contrast ratio. Set dark companions to 0.
 
 ```@example 1
 A = Body(
@@ -86,9 +78,8 @@ nothing # hide
     line above is required — without it the model fits with no white-noise term
     at all.
 
-We load the HGCA data for this target. `host=` and `companions=` declare which
-bodies this source is made of, and `ref=Barycentre` says the astrometry is
-referred to the system barycentre:
+We load the G23H data for this target. `host=` and `companions=` declare which
+bodies this source is modelled from:
 ```@example 1
 using Arrow, DataFrames, CSV # hide
 # The docs build must touch neither the 14 GB G23H DataDep nor the network, so it # hide
@@ -101,7 +92,7 @@ forecast = Table( # hide
     scanAngle_rad = gost.scanAngle_rad_, # hide
     parallaxFactorAlongScan = gost.parallaxFactorAlongScan, # hide
 ) # hide
-pma = HGCAObs(; gaia_id, host=A, companions=(b,), ref=Barycentre, freeze_epochs=true,
+pma = G23HObs(; gaia_id, host=A, companions=(b,), ref=Barycentre, freeze_epochs=true,
     catalog = catalog, # hide
     forecast_table = forecast, # hide
 )
@@ -112,9 +103,7 @@ nothing # hide
 instead of marginalizing over that selection. It is the fast-but-approximate
 setting (the same one the [G23H tutorial](@ref fit-g23h) recommends for
 exploration). Without it, the model gains one free parameter per forecast scan —
-31 for this target, most of them a nearly-flat nuisance dimension that HMC
-struggles with. Drop it for production fits, and reach for a
-tempered sampler when you do.
+31 for this target. Set `freeze_epochs=false` (the default) for production fits.
 
 The catalog row it fetched is available as `pma.catalog`, which is convenient for
 centring the frame priors below:
@@ -169,24 +158,11 @@ octoplot(model, init_chain)
 ```
 
 
-Now sample. You could use HMC via [`octofit`](@ref) or tempered sampling via
-[`octofit_pigeons`](@ref). Absolute astrometry fits are frequently multi-modal, so the
-tempered sampler is usually the safer choice, and it is what this page uses. When using
-tempered sampling, make sure to start julia with `julia --threads=auto`. Each additional
-round doubles the number of posterior samples, so `n_rounds=10` gives 1024 samples. You
-should adjust `n_chains` to be roughly double the `Λ` value printed out during sampling,
-and `n_chains_variational` to be roughly double the `Λ_var` column.
 ```@example 1
+using Pigeons
 results, pt = octofit_pigeons(model, n_rounds=10, n_chains=10, n_chains_variational=0, explorer=SliceSampler());
 nothing # hide
 ```
-
-!!! tip "If you reach for `octofit` instead"
-    HMC is much cheaper per sample and will run this model fine once you know the
-    posterior is unimodal. Seed it deliberately with [`initialize!`](@ref) as above, and
-    run several chains from different starting points: a single chain can only jump 2–3σ
-    gaps between modes, so agreement between independent chains is the check that you
-    have not silently landed in one of several solutions.
 
 We can now plot the results with a multi-panel plot. [`octoplot`](@ref) derives
 its panels from the model, so the sky orbit, the RV time series and its

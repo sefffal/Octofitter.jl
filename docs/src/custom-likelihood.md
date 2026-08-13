@@ -127,10 +127,6 @@ The observation type carries:
 
 Try to follow the advice in the Julia Manual's performance tips section to ensure you've created a fully "concrete" type. This won't affect correctness, but will be important for performance down the road.
 
-!!! note "References do all the work"
-    `raoff(sol, target, ref)` is the whole positional model, and it is defined for every
-    reference the grammar can express: a body, another companion, a barycentre, a
-    photocentre. A likelihood never reconstructs a companion's position by hand.
 
 ## Declaring the references and the epochs
 
@@ -243,11 +239,6 @@ chain = octofit(model, verbosity=0, iterations=1000, adaptation=1000)
 chain[:MY_INSTRUMENT_jitter][1:3]
 ```
 
-!!! note "How the columns are named"
-    An observation's variables are named `<observation>_<variable>`, with no body prefix —
-    an observation belongs to the system, not to a body.
-    [`Octofitter.checkchain`](@ref) reports the mismatch if you load a chain written
-    against a differently-named model.
 
 ## Bonus: the generative model
 
@@ -313,14 +304,6 @@ end
 likelihood_mat, epochs_out = Octofitter.pointwise_like(model, chain, verbosity=0)
 size(likelihood_mat)
 ```
-
-!!! note
-    `likeobj_from_epoch_subset(obs, inds)` **keeps** the rows in `inds`; it does not drop
-    them.
-
-    Make sure every keyword survives the round trip. If you drop `name` or `variables`
-    here, every derived model gets a differently-named observation and its chain will not
-    line up with the original.
 
 If your likelihood genuinely does not decompose into independent per-row terms — as with `MarginalizedRVObs`, whose analytic marginalization couples every point in the instrument — do **not** implement this method. The default raises an informative error, and Octofitter's cross-validation machinery turns that into a message naming your observation and the analysis that wanted it.
 

@@ -74,11 +74,6 @@ SBC = System(
 model = Octofitter.LogDensityModel(SBC)
 ```
 
-!!! note "Worth noticing in the model above"
-    * The frame is chosen by which of `plx`, `ra`, `dec`, `pmra`, `pmdec`, `rv`, `ref_epoch` the *system* block declares. Here only `plx` is declared, which gives angular observables in mas.
-    * The observation is listed on the `System` and names its references explicitly with `target=b, ref=A`.
-    * `a` and `P` are *both* orbital-element keywords, so declaring both in one body errors. Phase is given as `θ` (position angle at a reference `epoch`), which is what the rank histograms below are computed on (`b_θ`).
-    * `RelAstromObs` takes a single table, so the eight rows go into one `Table(...)`.
 
 
 ## SBC Trial Script
@@ -230,20 +225,8 @@ fig
 ```
 ![](assets/sbc-summary.svg)
 
-!!! note "Chain column names"
-    The host star's mass is an ordinary body variable, so it appears as `A_mass`; an
-    observation's own variables are named `<observation>_<variable>`
-    (`relastrom_jitter`). If you are loading chains written against a differently-named
-    model, `include("sbc-model.jl")` in the analysis script too and pass the model, so
-    the mismatch is reported rather than silently producing `missing`:
 
-    ```julia
-    chn = Octofitter.loadchain(chainfname; model)
-    ```
-
-    See [Loading and Saving Data](@ref loading-saving).
-
-For a perfectly unbiased model & sampling algorith, the histogram bins should be flat to within about the ±1σ shaded expected region.
+For a perfectly unbiased model & sampling algorith, the histogram bins should be flat to within about the ±1σ shaded expected region. It's possible to write this down as a simple hypothesis test, but remember to account for multiple comparisons (each variable) e.g. with Bonferroni.
 
 In this example and model, see that the inclination parameter estimates are *under confident*. That is, on average the computed marginal posterior of the inclination parameter is slightly too wide and the true uncertainty is lower.
 

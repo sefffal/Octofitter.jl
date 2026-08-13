@@ -118,19 +118,7 @@ Makie.scatter!(rvlike2.table.epoch[:], rvlike2.table.rv[:])
 fap
 ```
 
-!!! note "`MarginalizedRVObs`"
-    It analytically marginalizes out the instrument's radial velocity zero
-    point, saving one parameter per instrument. It lives in
-    `OctofitterRadialVelocity`, requires `target=` (with `ref=` defaulting to
-    `Barycentre`), and **errors if you declare an `offset` variable** — the whole
-    point is that there is no offset parameter to fit. Note also that it cannot
-    supply pointwise likelihoods, so an instrument modelled this way cannot take
-    part in cross-validation / PSIS-LOO; use `RadialVelocityObs` with an explicit
-    `offset` if you need that.
-
-
-Now specify model and fit it. The observations are a flat list on the system,
-relative astrometry included:
+Now specify model and fit:
 ```@example 1
 A = Body(
     name="A",

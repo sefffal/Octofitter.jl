@@ -17,11 +17,6 @@ res = rvplot(model, chain, 42)      # a draw you pick
 
 ![](assets/rv-postplot-1.png)
 
-!!! note "Renamed in v9"
-    This figure was called `rvpostplot` before v9. It never plotted a
-    posterior — it plots one draw — so it is now `rvplot`, and
-    `rvpostplot_animated` is `rvplot_animated`. The old names still work and
-    forward to the new ones with a deprecation warning.
 
 ## Why one draw, and why that lets instruments share an axis
 

@@ -67,6 +67,7 @@ sys = System(
 model = Octofitter.LogDensityModel(sys)
 Random.seed!(0)
 chain = octofit(model)
+display(chain)
 nothing # hide
 ```
 
@@ -75,7 +76,7 @@ nothing # hide
 After you have defined a model and sampled from its posterior (e.g. via `octofit`), you can see how each datapoint is influencing the posterior:
 
 ```@example 1
-likelihood_mat, epochs = Octofitter.pointwise_like(model, chain)
+@time likelihood_mat, epochs = Octofitter.pointwise_like(model, chain)
 size(likelihood_mat)
 ```
 
@@ -87,7 +88,6 @@ The columns are ordered exactly as the data are defined in the model: observatio
 epochs
 ```
 
-Two properties are worth knowing about, because they are what makes the matrix usable as a PSIS-LOO input:
 
 !!! note "Prior-shaped terms are excluded"
     A `~` line written inside a `@variables` block, an `LL += ...` line, and the
@@ -98,7 +98,7 @@ Two properties are worth knowing about, because they are what makes the matrix u
     `ObsPriorONeil2019` is *not* a prior-shaped term in this sense — it wraps a real
     likelihood — so it still contributes one column per row of the observation it wraps.
 
-The consequence is that the columns sum to the model's log-likelihood **minus** those prior terms — which is the quantity PSIS-LOO wants:
+The consequence is that the columns sum to the model's log-likelihood **minus** those prior terms — which is the quantity used by PSIS-LOO:
 
 ```@example 1
 θ = Octofitter.mcmcchain2result(model, chain, 1)
@@ -108,9 +108,9 @@ lnlike = Octofitter.make_ln_like(model.system)
 
 The difference is exactly the three `UnitLengthPrior` terms this model's three `UniformCircular` variables contribute.
 
-!!! note "Observations with no epochs get one column, labelled `NaN`"
-    [`PhotometryObs`](@ref) carries data but has no epoch column; it contributes one
-    column per photometry row, and those columns are labelled `NaN` in `epochs`.
+Observations with no epochs get one column, labelled `NaN`.
+[`PhotometryObs`](@ref) carries data but has no epoch column; it contributes one
+column per photometry row, and those columns are labelled `NaN` in `epochs`.
 
 ## Pareto-Smoothed Importance Sampling
 

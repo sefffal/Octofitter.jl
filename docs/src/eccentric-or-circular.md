@@ -2,13 +2,6 @@
 
 This tutorial demonstrates how to simultaneously model both circular and eccentric orbit possibilities in a single fit, allowing you to rigorously evaluate whether eccentricity is necessary to explain your data.
 
-!!! note "This tutorial needs the Pigeons sampler"
-    The spike-and-slab prior below introduces a **discrete** parameter, and the
-    default HMC sampler (`octofit`) cannot move a discrete variable — so this page
-    needs [`octofit_pigeons`](@ref), which lives in a package extension. Run
-    `pkg> add Pigeons` and `using Pigeons` before the sampling blocks, or they will
-    fail with a `MethodError`.
-
 ## Motivation
 
 When fitting orbits, a common question arises: **Is the orbit circular, or is eccentricity required by the data?**
@@ -135,18 +128,6 @@ model = Octofitter.LogDensityModel(sys)
 ```
 
 ## Sampling with Pigeons
-
-!!! warning "Important: Use Pigeons for Discrete Variables"
-    The default HMC sampler (`octofit`) is **not compatible** with discrete variables like our `eccentric` indicator. You **must** use the Pigeons sampler via `octofit_pigeons` for models with discrete parameters.
-
-    Make sure you have Pigeons installed:
-    ```julia
-    using Pkg
-    Pkg.add("Pigeons")
-    ```
-
-    `octofit_pigeons`'s methods live in a package extension, so the `using Pigeons`
-    line is not optional: without it the function exists but has no methods.
 
 Let's sample from our model using Pigeons:
 
