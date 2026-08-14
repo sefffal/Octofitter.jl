@@ -62,20 +62,24 @@ Octofitter.checkchain(model, chain; strict=false) # warns instead
     [Migrating to Octofitter v9](@ref v9-migration).
 
 #### Example: Saving chains to Orbitize format
-For compatbility purposes, orbit posteriors can be exported and loaded from the Orbitize! HDF5 format. This only works for basic two-object orbits. FITS format (above) should be preferred.
+For compatbility purposes, orbit posteriors can be exported and loaded from the Orbitize! HDF5 format. Only visual orbits travel: an export writes **one companion's** orbit in orbitize!'s eight-column standard basis, and no data. FITS format (above) should be preferred.
 ```julia
 Octofitter.savehdf5("mychain.h5", model, chain)
 
 chain = Octofitter.loadhdf5("mychain.h5")
 ```
 
-Note the **three** positional arguments to `savehdf5`: it needs the model in order to know which body is the companion and which is its host. See [Compatibility with Orbitize!](@ref compat-orbitize) for the details and for the additional keywords.
+Note the **three** positional arguments to `savehdf5`: it needs the model in order to know which body is the companion and which bodies that companion's orbit is about. See [Compatibility with Orbitize!](@ref compat-orbitize) for the details and for the additional keywords.
 
 !!! note
-    orbitize!'s standard basis stores the epoch of periastron, so `savehdf5` requires a
-    `<body>_tp` column in the chain. A model parametrized on `θ` + `epoch` (position angle
-    at a reference epoch) does not have one — either add `tp` explicitly, or export from a
-    model that samples `tp`.
+    orbitize!'s standard basis stores the phase as `tau`, a fraction of a period past a
+    reference epoch, which is derived from the epoch of periastron. A chain that samples
+    `tp` supplies that directly. A model parametrized on `θ` + `epoch` (position angle at a
+    reference epoch) has no `tp` column, but it does not need one: `tp` is determined by the
+    elements, so it is recovered by rebuilding each draw's orbit — at the cost of one system
+    build per draw. The recovered value is the periastron passage within half a period of
+    the model's reference `epoch`; which passage that is makes no difference to the file,
+    since `tau` is a phase modulo the period.
 
 
 #### Example: Saving to CSV
