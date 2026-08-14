@@ -288,15 +288,12 @@ likelihood's error bar are set to.
 
 ![Gaia DR4 Completeness Map](assets/dr4_completeness_map_clean.png)
 
-!!! warning "This figure predates the calibrated noise model"
-    The map above was computed with the example's earlier, *invented* noise
-    budget — σ_att = σ_AL = σ_cal = 0.04 mas, so 0.069 mas per transit — which is
-    2.2× more precise than this star's measured 0.153 mas. It therefore
-    **overstates** the sensitivity, and its mass axis is in M_Jup rather than the
-    M⊙ that v9 plots. Read it for the shape, not for a threshold; rerun
-    `examples/completeness_dr4/` to get a map you can quote.
+The map above was computed with the full 12 × 12 × 5-trial grid in
+`examples/completeness_dr4/`, using this star's calibrated per-transit noise
+(σ_transit_true = 0.153 mas). With five injection trials per cell, individual
+cells carry ±1-trial noise; smooth contours need more trials per cell.
 
-The shape is the part that does not depend on the noise scale:
+The shape follows the physics:
 
 - **Peak sensitivity at 1–5 AU** for massive companions, where the astrometric
   signal is largest relative to the DR4 time baseline (~5.3 years for this star)
