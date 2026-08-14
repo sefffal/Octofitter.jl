@@ -145,6 +145,30 @@ whose `sig_AL`/`sig_att_radec`/`sig_cal` calibration is absent and which
 therefore cannot form the priors that channel needs — and leaves every other
 channel untouched.
 
+# `frame_shift`
+Default `true`, and single-source behaviour is unchanged. Every channel —
+DR3's own included — is expressed relative to the model's DR3-epoch proper
+motion of the *host body* rather than of the barycentre, so the frame `pmra`
+stops meaning "the barycentre's" and starts meaning "the host's, as DR3
+measured it". The Hipparcos–Gaia channel keeps its acceleration content
+because the shift is common-mode across epochs, and the reparameterization
+pays for itself: the frame proper motion is otherwise degenerate with the
+reflex, and this points the sampled direction at what the data pin hardest.
+
+It is a *reparameterization* only under a wide prior on `pmra`/`pmdec`. Put
+an informative prior on either and `frame_shift=true` silently changes the
+posterior, because the prior is then a prior on a different quantity than it
+reads as. Nothing checks that for you.
+
+**With more than one `G23HObs` on the same system frame it is an error**, not
+a warning. Each observation would subtract its own `Δpm` while redefining the
+one shared `pmra`, so every source's DR3 channel would predict the same
+number — for a wide pair like ups And, tens of σ from two catalogue values
+that genuinely differ. The relative proper motion is not merely uninformative
+under that shift; it is removed from the likelihood, and it is the entire
+wide-orbit signal. Use [`AnchoredFrame`](@ref), which reconditions the same
+degeneracy in the model rather than inside one observation, and composes.
+
 # Variables
 Defaults are derived from the catalog row unless `variables` is given:
 `σ_AL`, `σ_att`, `σ_calib` (mas, from the catalog's calibration), the epoch
@@ -157,6 +181,39 @@ the `pmdec` counterparts) add per-channel proper-motion jitter in quadrature.
 The system's `pmra`/`pmdec` (or this observation's, if the system has no
 absolute frame) define the reference-point proper motion every modelled
 channel is expressed against.
+
+# Several sources in one system
+Two Gaia sources belonging to one physical system are two `G23HObs` on one
+`System`, sharing one absolute frame. That shared frame is the whole point —
+it is what makes the wide pair's relative astrometry constrain the wide orbit
+— so give each observation its own `host=`/`companions=` and let the frame do
+the binding. Set `frame_shift=false` on all of them and parameterize the frame
+with [`AnchoredFrame`](@ref).
+
+**Every nuisance parameter here stays per source, deliberately.**
+`transit_priorities`, `σ_AL`, `σ_att`, `σ_calib` and `u_dup_dr2` are declared
+in each observation's own namespace and are not shared, even for two sources a
+few arcseconds apart whose forecast pools are near-identical:
+
+  - the losses genuinely common to both (dead time, decontamination, the OBMT
+    gap lists) are *already* removed by `dr2_ok_mask`/`dr3_ok_mask` before
+    priorities are applied. What `transit_priorities` marginalizes is the
+    residual, source-specific loss: gating, window class, saturation,
+    per-source AGIS outlier rejection. For a pair 8.5 magnitudes apart these
+    differ a lot, and not monotonically — the *brighter* star can have fewer
+    usable transits, because bright-star handling discards them.
+  - sharing one priorities vector would force the smaller selection to be the
+    top-k subset of the larger, which asserts a nesting the two selection
+    mechanisms do not produce.
+  - `σ_AL`, `σ_att` and `σ_calib` are magnitude-dependent calibration terms
+    and must not be shared under any scheme.
+
+If you are tempted to share anyway, note the silent failure mode:
+`transit_priorities` indexes each observation's *own* forecast pool, built by
+a per-source GOST query. Two queries at different sky positions need not
+return the same number of rows, and if they differ by one, index `i` denotes a
+different transit in each — with no error, no warning, and a likelihood that
+is merely wrong.
 """
 struct G23HObs{TTable,TTableH,TTableG,TCat,THip,THost,TComp,TRef} <: AbstractObs
     table::TTable                       # one row per likelihood channel
@@ -178,6 +235,10 @@ struct G23HObs{TTable,TTableH,TTableG,TCat,THip,THost,TComp,TRef} <: AbstractObs
     hip_x_const::NTuple{4,Float64}
     include_iad::Bool
     ueva_mode::Symbol
+    # Whether every channel is expressed relative to the *host body's* DR3
+    # proper motion rather than the barycentre's. See the `frame_shift`
+    # keyword on the constructor.
+    frame_shift::Bool
     name::String
     host::THost
     companions::TComp
@@ -213,12 +274,75 @@ _blend_refdesc(host, companions, reference) = isempty(companions) ?
 
 _refdesc(obs::G23HObs) = _blend_refdesc(obs.host, obs.companions, obs.ref)
 
+# ──────────────────────────────────────────────────────────────────────
+# Layout of the coupled catalog block
+#
+# The block is a list of *sub-blocks*, each naming the channel kinds it
+# contributes in component order. Its width, each sub-block's offset, the
+# `channels=` mask and the debug labels are all derived from this list, so
+# adding a channel is an edit here plus a value in the `blockvals` tuple in
+# `_g23h_ln_like` — never an index-arithmetic change to the covariance
+# assembly, which is the most numerically delicate code in this file. (It
+# used to be literal `1:2`/`3:4`/`Val(11)` arithmetic in five places, and a
+# new channel meant editing all of them in step.)
+#
+# A sub-block is the unit *within which* the catalog quotes correlations: the
+# five-parameter fits correlate α with δ, so those go together. Correlations
+# *between* sub-blocks are declared separately (see `_g23h_place_cross!`) —
+# today just DR2↔DR3 via `rho_dr2_dr3`.
+const _g23h_blocks = (
+    (name=:hip,  kinds=(:ra_hip, :dec_hip)),
+    (name=:hg,   kinds=(:ra_hg, :dec_hg)),
+    (name=:dr2,  kinds=(:ra_dr2, :dec_dr2)),
+    (name=:dr32, kinds=(:ra_dr32, :dec_dr32)),
+    (name=:dr3,  kinds=(:ra_dr3, :dec_dr3)),
+    (name=:ueva, kinds=(:ueva_dr3,)),
+)
+
 # The channels that enter the coupled catalog MvNormal, in its component
 # order. `:iad_hip` and `:rv_dr3` are deliberately absent: they are separate,
 # uncorrelated terms.
-const _g23h_channel_kinds = (
-    :ra_hip, :dec_hip, :ra_hg, :dec_hg, :ra_dr2, :dec_dr2,
-    :ra_dr32, :dec_dr32, :ra_dr3, :dec_dr3, :ueva_dr3)
+const _g23h_channel_kinds =
+    reduce((acc, b) -> (acc..., b.kinds...), _g23h_blocks; init=())
+const _g23h_nchan = length(_g23h_channel_kinds)
+
+# Zero-based offset of each sub-block into the assembled vector/matrix.
+# Written as an independent sum per entry rather than a running accumulator:
+# it does not depend on the iteration order of whatever builds it.
+const _g23h_block_offset = ntuple(length(_g23h_blocks)) do bi
+    sum(length(_g23h_blocks[k].kinds) for k in 1:(bi-1); init=0)
+end
+
+# Position of a sub-block in `_g23h_blocks`, by name — so a cross-covariance
+# is declared as `_g23h_offsetof(:dr2)` rather than a literal `5`.
+@inline _g23h_offsetof(name::Symbol) =
+    _g23h_block_offset[findfirst(b -> b.name === name, _g23h_blocks)]
+
+# Place a sub-block's covariance on the diagonal at the offset its position in
+# `_g23h_blocks` implies. Unrolled through `ntuple(Val(…))` so that `bi` is a
+# literal at each step: `blockvals` is a heterogeneous tuple (the UEVA
+# sub-block is 1×1 where the rest are 2×2), and a runtime loop over it would
+# be type-unstable and send the whole assembly to the heap.
+@inline function _g23h_place_diag!(Σ_full, blockvals::Tuple)
+    ntuple(Val(length(_g23h_blocks))) do bi
+        o = _g23h_block_offset[bi]
+        Σb = blockvals[bi].Σ
+        @inbounds for j in axes(Σb, 2), i in axes(Σb, 1)
+            Σ_full[o+i, o+j] = Σb[i, j]
+        end
+        nothing
+    end
+    return nothing
+end
+
+# Cross-covariance between two sub-blocks, written symmetrically.
+@inline function _g23h_place_cross!(Σ_full, oa::Int, ob::Int, K)
+    @inbounds for j in axes(K, 2), i in axes(K, 1)
+        Σ_full[oa+i, ob+j] = K[i, j]
+        Σ_full[ob+j, oa+i] = K[i, j]
+    end
+    return nothing
+end
 
 # Every channel a G23HObs can carry — what `channels=` is validated against.
 const _g23h_all_kinds = (
@@ -414,6 +538,7 @@ function G23HObs(;
         include_iad::Bool=false,
         rv_ln_uncert_err_floor::Union{Nothing,Real}=0.30,
         ueva_mode::Symbol=:RUWE,
+        frame_shift::Bool=true,
         freeze_epochs::Bool=false,
         dr2_transits_catalog=nothing,
         # G-band threshold below which the DR2 duplicate-transit count is
@@ -543,6 +668,25 @@ function G23HObs(;
     (priors, derived) = variables
     table, catalog, priors, derived = _g23h_restrict(table, catalog, priors, derived)
 
+    # §11: a row with a Hipparcos entry but null perspective-acceleration terms
+    # would have silently NaN'd the likelihood under an absolute frame. Caught
+    # here, where the catalogue row can be named, rather than as a NaN log
+    # density inside the sampler.
+    _nl(k) = hasproperty(catalog, k) ? getproperty(catalog, k) : missing
+    if has_hip && any(k -> k in (:ra_hg, :dec_hg, :ra_hip, :dec_hip), table.kind) &&
+       !all(v -> v isa Real && isfinite(v), (_nl(:nonlinear_dpmra), _nl(:nonlinear_dpmdec)))
+        error("G23HObs \"$name\": Gaia DR3 $(gaia_id) has Hipparcos data, so its " *
+              "Hipparcos and Hipparcos–Gaia proper-motion channels carry the HGCA " *
+              "perspective-acceleration correction — but the catalog row's " *
+              "`nonlinear_dpmra`/`nonlinear_dpmdec` are " *
+              "$(_nl(:nonlinear_dpmra))/$(_nl(:nonlinear_dpmdec)), not finite " *
+              "numbers. Under an absolute frame that correction would be added to the " *
+              "model proper motions. Supply the terms in the catalog row, or drop the " *
+              "affected channels with " *
+              "`channels=(:ra_dr2, :dec_dr2, :ra_dr32, :dec_dr32, :ra_dr3, :dec_dr3, " *
+              ":ueva_dr3)`.")
+    end
+
     pinv_5_hip = _g23h_pinv_hip(A_prepared_5_hip, hip_table)
     hip_x_const = _g23h_hip_x_const(pinv_5_hip, hip_table, include_iad, has_hip)
 
@@ -566,10 +710,215 @@ function G23HObs(;
         typeof(hip_sol),typeof(hostspec),typeof(compspecs),typeof(refspec_)}(
         table, priors, derived, hip_table, gaia_table, catalog, hip_sol,
         A_prepared_5_hip, A_prepared_5_dr2, A_prepared_5_dr3,
-        pinv_5_hip, hip_x_const, include_iad, ueva_mode, String(name),
+        pinv_5_hip, hip_x_const, include_iad, ueva_mode, frame_shift, String(name),
         hostspec, compspecs, refspec_,
         n_hip, n_gaia, i_ra_hip, i_dec_hip, i_ra_dr2, i_dec_dr2, i_ra_dr3, i_dec_dr3,
         all_ep)
+end
+
+# The multi-source guard. `frame_shift` redefines the system's `pmra`/`pmdec`
+# to mean "this observation's host body, at DR3", which two observations
+# cannot both do — they would each subtract their own Δpm from the one shared
+# parameter and predict identical DR3 proper motions for two sources the
+# catalogue separates by many σ. That is not a degradation, it is the deletion
+# of the wide-orbit signal, so it errors.
+#
+# Keyed on `isempty(framevars)`, not on the observation count alone: with no
+# system frame each `G23HObs` supplies its own `pmra`/`pmdec` in its own
+# namespace, nothing is shared, and the shift is per-observation in fact as
+# well as in name.
+function check_siblings(obs::G23HObs, @nospecialize(all_obs), ctx)
+    others = G23HObs[o for o in all_obs if o isa G23HObs && o !== obs]
+    isempty(others) && return nothing
+    _g23h_check_frame_shift(obs, others, ctx)
+    _g23h_check_shared_fluxratios(obs, others, ctx)
+    return nothing
+end
+
+function _g23h_check_frame_shift(obs::G23HObs, others::Vector{G23HObs}, ctx)
+    obs.frame_shift || return nothing
+    isempty(ctx.framevars) && return nothing
+    error("""
+    System $(ctx.name): "$(obs.name)" has `frame_shift=true`, but it shares the \
+    system's frame with $(length(others)) other G23HObs \
+    ($(join(('"' * o.name * '"' for o in others), ", "))).
+
+    `frame_shift` expresses every channel relative to *this* observation's host body \
+    at the DR3 epoch, which redefines the system-level `pmra`/`pmdec`. Two \
+    observations cannot both redefine the same parameter: each would subtract its own \
+    Δpm, so both sources' DR3 channels would predict one and the same proper motion, \
+    and the relative proper motion — the entire wide-orbit signal — would be removed \
+    from the likelihood rather than merely weakened.
+
+    Pass `frame_shift=false` to every G23HObs in this system, and recover the sampling \
+    efficiency it was buying with `AnchoredFrame`, which reconditions the same \
+    degeneracy in the model instead of inside one observation.
+    """)
+end
+
+# §10: the tier-2 flux-ratio fallthrough is keyed by the bare name, so a
+# system-level `fluxratio` is read by *every* G23HObs, each validating it
+# against its own companion count. Two observations with different counts can
+# therefore never both be right — and the runtime failure ("received 3 flux
+# ratios but the observation declares 1 companion") names neither of them.
+#
+# Statically decidable: which tier an observation lands on is a question about
+# variable *names*, and the counts are structural.
+function _g23h_check_shared_fluxratios(obs::G23HObs, others::Vector{G23HObs}, ctx)
+    for key in (:fluxratio, :fluxratio_hip)
+        _g23h_tier2(obs, key, ctx) || continue
+        clash = [o for o in others if _g23h_tier2(o, key, ctx) &&
+                                      length(o.companions) != length(obs.companions)]
+        isempty(clash) && continue
+        error("""
+        System $(ctx.name): "$(obs.name)" declares $(length(obs.companions)) \
+        companion(s) and "$(clash[1].name)" declares $(length(clash[1].companions)) \
+        companion(s), but both fall through to the system-level `$key` vector — which is keyed by name \
+        alone, so both read the same values and each checks them against its own count. \
+        At most one can be right.
+
+        Give each observation its own `$key` in its `variables=` block, or drop the \
+        system-level one and let the flux ratios come from the bodies' own \
+        `flux_<band>` variables (tier 3), which is per-body and so cannot be \
+        ambiguous.
+        """)
+    end
+    return nothing
+end
+
+# Tier 1 is the observation's own namespace; tier 2 is the system's. An
+# observation that declares the key itself never reaches tier 2.
+_g23h_tier2(obs::G23HObs, key::Symbol, ctx) =
+    !(key in keys(obs.priors.priors)) && !(key in keys(obs.derived.variables)) &&
+    key in ctx.sysnames
+
+# ──────────────────────────────────────────────────────────────────────
+# The full 5×5, fetched per source (§7)
+# ──────────────────────────────────────────────────────────────────────
+
+"""
+    _g23h_solution_5x5(catalog, gaia_id; release) -> SMatrix{5,5} or nothing
+
+That source's Gaia astrometric covariance, in (α*, δ, ϖ, μα*, μδ) order at the
+release's reference epoch, fetched from the archive and cached per source.
+Returns `nothing` if the fetch is unavailable — position/parallax/mean-RV
+channels then refuse to build, with a message saying so; the proper-motion
+channels need none of this and are unaffected.
+
+**The fetch is checked against the catalog, not merely against HTTP 200.**
+The catalog's own columns are reconstructible from this matrix:
+
+  - `epoch_ra_dr3` is the central epoch, `ref − cov(α*,μα*)/var(μα*)`;
+  - `ra_error_central_dr3` is σ(α*) propagated to that epoch, times
+    [`G23H_ERROR_INFLATION`](@ref);
+  - `pmra_dr3_error` is σ(μα*) times the same factor;
+  - `ra_dec_corr_central_dr3` and `pmra_pmdec_dr3` are the raw correlations.
+
+so we rebuild them and compare. A mismatch means the catalog row and the
+archive row describe *different solutions* — a wrong source id, a re-reduction,
+DR3 vs DR3-lite — and mixing the two would produce a covariance that is
+internally inconsistent in a way nothing downstream could detect. Verified on
+both ups And sources: central epochs to 2e-8 yr, every error ratio exactly
+1.370000.
+"""
+function _g23h_solution_5x5(catalog, gaia_id; release::Symbol=:dr3, verbose::Bool=true)
+    isnothing(gaia_id) && return nothing
+    sol = try
+        release === :dr3 ? _query_gaia_dr3(; gaia_id) : _query_gaia_dr2(; gaia_id)
+    catch err
+        err isa InterruptException && rethrow()
+        verbose && @warn "Could not fetch the Gaia $(uppercase(String(release))) astrometric solution for $gaia_id; position, parallax and mean-RV channels are unavailable for this source." exception = err
+        return nothing
+    end
+    C = try
+        _gaia_5x5(sol)
+    catch err
+        err isa InterruptException && rethrow()
+        verbose && @warn "Gaia $(uppercase(String(release))) solution for $gaia_id has no usable 5×5 covariance." exception = err
+        return nothing
+    end
+    isposdef(C) || error(
+        "the Gaia $(uppercase(String(release))) 5×5 covariance for source $gaia_id is not " *
+        "positive definite (minimum eigenvalue $(minimum(eigvals(C)))). The archive's " *
+        "errors and correlations disagree; refusing to build a likelihood on it.")
+    release === :dr3 && _g23h_check_5x5(C, catalog, gaia_id)
+    return C
+end
+
+# The reconstruction gate described above. Tolerances are loose next to the
+# agreement actually measured (1e-8 yr, exactly 1.370000) and tight next to any
+# real mismatch, which would be tens of percent.
+function _g23h_check_5x5(C, catalog, gaia_id)
+    ref_yr = 2000 + (meta_gaia_DR3.ref_epoch_mjd - 51544.5) / julian_year
+    for (coord, epochkey, σkey, pmσkey) in (
+            (1, :epoch_ra_dr3, :ra_error_central_dr3, :pmra_dr3_error),
+            (2, :epoch_dec_dr3, :dec_error_central_dr3, :pmdec_dr3_error))
+        hasproperty(catalog, epochkey) || continue
+        t_c = _central_epoch(C, coord)
+        # `epoch_*_dr3` is stored as Float32 in the catalog, so ~1e-5 yr of
+        # representation error is expected and is not a mismatch.
+        Δ = ref_yr + t_c - Float64(getproperty(catalog, epochkey))
+        abs(Δ) < 1e-3 || _err_5x5_mismatch(gaia_id, "central epoch $epochkey",
+            ref_yr + t_c, Float64(getproperty(catalog, epochkey)))
+        Cc = _propagate_5x5(C, t_c)
+        _check_ratio(gaia_id, σkey, sqrt(Cc[coord, coord]),
+            Float64(getproperty(catalog, σkey)))
+        _check_ratio(gaia_id, pmσkey, sqrt(C[coord+3, coord+3]),
+            Float64(getproperty(catalog, pmσkey)))
+    end
+    # Parallax carries no inflation — the asymmetry this whole check exists to
+    # pin down, since it is the one a position/parallax channel gets wrong by
+    # analogy.
+    hasproperty(catalog, :parallax_error) &&
+        _check_ratio(gaia_id, :parallax_error, sqrt(C[3, 3]),
+            Float64(catalog.parallax_error), 1.0)
+    return nothing
+end
+
+function _check_ratio(gaia_id, key, raw, stored, expect=G23H_ERROR_INFLATION)
+    (isfinite(raw) && isfinite(stored) && raw > 0) || return nothing
+    r = stored / raw
+    isapprox(r, expect; rtol=1e-3) ||
+        _err_5x5_mismatch(gaia_id, "$key (expected $(expect)× the archive value, got $(r)×)",
+            raw * expect, stored)
+    return nothing
+end
+
+@noinline _err_5x5_mismatch(gaia_id, what, rebuilt, stored) = error("""
+G23HObs: the Gaia archive solution fetched for source $gaia_id does not reproduce \
+the G23H catalog row's $what — rebuilt $rebuilt, catalog has $stored.
+
+The catalog's columns are derived from the archive's five-parameter solution \
+(central epochs from the position/proper-motion covariance, errors inflated by \
+$(G23H_ERROR_INFLATION)), so they must agree. That they do not means the two rows \
+describe different solutions: a wrong source id, a re-reduction, or a DR3 vs \
+DR3-lite mismatch. Combining them would give a covariance that is internally \
+inconsistent in a way no downstream check could catch, so this refuses rather \
+than proceeding.
+
+If you do not need the position, parallax or mean-RV channels, drop them from \
+`channels=` — the proper-motion channels use only the catalog row and are \
+unaffected by this.
+""")
+
+# HGCA's nonlinear (perspective-acceleration) correction, as the pair of
+# additive proper-motion offsets (HG epoch, Hipparcos epoch). The factor of
+# two on the Hipparcos epoch is because `nonlinear_dpm*` is defined to the HG
+# epoch.
+#
+# The `isfinite` test is the point of the helper (§11). The guard used to be
+# `absolute && !isnothing(dist_hip)`, and the two catalogue rows anyone had
+# checked happened to have finite `nonlinear_dpm*` exactly where they had
+# Hipparcos — so a source with a Hipparcos entry but null nonlinear terms
+# would have added `NaN` to `μ_hg` and NaN'd the whole log-likelihood, with
+# nothing in the message to say why. `G23HObs`'s constructor rejects that row
+# outright; this stays as the defence for a struct assembled by other means.
+@inline function _g23h_nonlinear(cat, absolute::Bool, has_hip::Bool)
+    z = zero(SVector{2,Float64})
+    (absolute && has_hip) || return (z, z)
+    (isfinite(cat.nonlinear_dpmra) && isfinite(cat.nonlinear_dpmdec)) || return (z, z)
+    d = SVector{2,Float64}(cat.nonlinear_dpmra, cat.nonlinear_dpmdec)
+    return (d, 2d)
 end
 
 function _g23h_pm_dist(μ_ra, μ_dec, σ_ra, σ_dec, ρ)
@@ -682,7 +1031,20 @@ end
 # selects on, and what the plotting layer reads; the actual reductions run
 # against the prepared design matrices.
 function _g23h_channel_table(catalog, hip_table, gaia_table, has_hip, has_rv, ueva_mode)
-    _e(y) = years2mjd(y)
+    # The Hipparcos and Hipparcos–Gaia rows are built unconditionally and
+    # dropped at the end (`has_hip || append!(drop, 1:5)`), so for a Gaia-only
+    # source these conversions run on the catalog's `NaN` epoch fields — and
+    # `years2mjd(NaN)` throws `InexactError: Int64(NaN)` from `Dates.Date`,
+    # long before the drop. v8 guarded each conversion individually; folding
+    # all eleven into one `_e` helper during the v9 port dropped the guard,
+    # which made `G23HObs` unconstructible for *any* source with no Hipparcos
+    # entry (ups And B, and every faint secondary like it).
+    #
+    # Keyed on the value rather than on `has_hip`: that also covers a source
+    # that has a `hip_id` but non-finite Hipparcos–Gaia epochs, where the row
+    # is kept and a NaN epoch is a loud downstream failure rather than a
+    # construction-time crash naming the wrong thing.
+    _e(y) = isfinite(y) ? years2mjd(y) : oftype(float(y), NaN)
     hipmean = has_hip ? mean(hip_table.epoch) : NaN
     hipmin = has_hip ? minimum(hip_table.epoch) : 0.0
     hipmax = has_hip ? maximum(hip_table.epoch) : 0.0
@@ -948,7 +1310,8 @@ function likeobj_from_epoch_subset(obs::G23HObs, obs_inds)
         typeof(obs.hip_sol),typeof(obs.host),typeof(obs.companions),typeof(obs.ref)}(
         table, priors, derived, obs.hip_table, obs.gaia_table, catalog, obs.hip_sol,
         obs.A_prepared_5_hip, obs.A_prepared_5_dr2, obs.A_prepared_5_dr3,
-        obs.pinv_5_hip, obs.hip_x_const, obs.include_iad, obs.ueva_mode, obs.name,
+        obs.pinv_5_hip, obs.hip_x_const, obs.include_iad, obs.ueva_mode, obs.frame_shift,
+        obs.name,
         obs.host, obs.companions, obs.ref,
         obs.n_hip, obs.n_gaia, obs.i_ra_hip, obs.i_dec_hip,
         obs.i_ra_dr2, obs.i_dec_dr2, obs.i_ra_dr3, obs.i_dec_dr3, obs.all_epochs)
@@ -1604,7 +1967,13 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
     # primary rather than the barycentre. This vastly improves sampling
     # efficiency, and is why Δpmra_dr3 is subtracted from *every* channel
     # including DR3's own.
-    shift = @SVector [Δpmra_dr3, Δpmdec_dr3]
+    #
+    # It is also a redefinition of a *system*-level parameter made inside one
+    # observation, which is why it is switchable and why more than one
+    # `G23HObs` on a shared frame with it on is an error — see the keyword's
+    # docstring, and `AnchoredFrame` for the parameterization that gets the
+    # same conditioning without the redefinition.
+    shift = obs.frame_shift ? SVector{2,T}(Δpmra_dr3, Δpmdec_dr3) : zero(SVector{2,T})
     return (;
         UEVA_model, UEVA_unc, μ_1_3,
         μ_h=μ_h .- shift,
@@ -1711,17 +2080,12 @@ function _g23h_ln_like(obs::G23HObs, ctx::ObsContext, sim, iad_resid, σ_infl_hi
     dist_dr3 = _g23h_jittered(cat.dist_dr3, θ_obs, :σ_dr3_pmra, :σ_dr3_pmdec,
         cat.pmra_dr3_error, cat.pmdec_dr3_error, cat.pmra_pmdec_dr3, T0)
 
-    μ_h = sim.μ_h
-    μ_hg = sim.μ_hg
     absolute = _g23h_isabs(ctx.system.frame)
-    if absolute && !isnothing(dist_hip)
-        # HGCA's nonlinear (perspective-acceleration) correction. The factor of
-        # two on the Hipparcos epoch is because dpmra is defined to the HG epoch.
-        μ_hg = μ_hg + @SVector [cat.nonlinear_dpmra, cat.nonlinear_dpmdec]
-        μ_h = μ_h + @SVector [2cat.nonlinear_dpmra, 2cat.nonlinear_dpmdec]
-    end
+    Δ_hg, Δ_h = _g23h_nonlinear(cat, absolute, !isnothing(dist_hip))
+    μ_h = sim.μ_h + Δ_h
+    μ_hg = sim.μ_hg + Δ_hg
 
-    mask = ntuple(i -> _g23h_channel_kinds[i] ∈ kinds, Val(11))
+    mask = ntuple(i -> _g23h_channel_kinds[i] ∈ kinds, Val(_g23h_nchan))
     n_components = count(mask)
 
     # Change-of-variables Jacobian for the UEVA component. The MvNormal below
@@ -1732,7 +2096,7 @@ function _g23h_ln_like(obs::G23HObs, ctx::ObsContext, sim, iad_resid, σ_infl_hi
     # A proper density in the raw datum needs log|dt/d(datum)|; the
     # parameter-dependent part is what appears here. (Same class of bug as the
     # rv_dr3 ξ² term below; caught by SBC 2026-07-04.)
-    if mask[11]
+    if :ueva_dr3 ∈ kinds
         if obs.ueva_mode === :EAN
             # EAN == 0 is a boundary atom of the Gaia reduction (the
             # excess-noise fit pinned at zero); the continuous
@@ -1881,29 +2245,31 @@ function _g23h_ln_like(obs::G23HObs, ctx::ObsContext, sim, iad_resid, σ_infl_hi
     Σ_dr32 = SMatrix{2,2,T,4}(Σ_dr32 .+ ΔΣ_dr32)
     Σ_dr3 = SMatrix{2,2,T,4}(Σ_dr3 .* d^2)
 
-    μ_catalog_full = @SVector [μ_h_cat[1], μ_h_cat[2], μ_hg_cat[1], μ_hg_cat[2],
-        μ_dr2_cat[1], μ_dr2_cat[2], μ_dr32_cat[1], μ_dr32_cat[2],
-        μ_dr3_cat[1], μ_dr3_cat[2], sim.μ_1_3]
-    μ_model_full = @SVector [μ_h[1], μ_h[2], μ_hg[1], μ_hg[2],
-        sim.μ_dr2[1], sim.μ_dr2[2], sim.μ_dr32[1], sim.μ_dr32[2],
-        sim.μ_dr3[1], sim.μ_dr3[2], sim.UEVA_model]
+    # The one place the sub-block list is paired with values, in its order.
+    # Widths and offsets come from the list itself, so a new channel is added
+    # here and in `_g23h_blocks` and nowhere else.
+    blockvals = (
+        (μc=μ_h_cat,    μm=μ_h,        Σ=Σ_h),
+        (μc=μ_hg_cat,   μm=μ_hg,       Σ=Σ_hg),
+        (μc=μ_dr2_cat,  μm=sim.μ_dr2,  Σ=Σ_dr2),
+        (μc=μ_dr32_cat, μm=sim.μ_dr32, Σ=Σ_dr32),
+        (μc=μ_dr3_cat,  μm=sim.μ_dr3,  Σ=Σ_dr3),
+        (μc=SVector(sim.μ_1_3), μm=SVector(sim.UEVA_model),
+         Σ=SMatrix{1,1,T,1}(sim.UEVA_unc^2)),
+    )
+    μ_catalog_full = vcat(map(b -> b.μc, blockvals)...)
+    μ_model_full = vcat(map(b -> b.μm, blockvals)...)
 
     @no_escape ctx.buf begin
-        Σ_full = @alloc(T, 11, 11); fill!(Σ_full, zero(T))
-        Σ_full[1:2, 1:2] .= Σ_h
-        Σ_full[3:4, 3:4] .= Σ_hg
-        Σ_full[5:6, 5:6] .= Σ_dr2
-        Σ_full[7:8, 7:8] .= Σ_dr32
-        Σ_full[9:10, 9:10] .= Σ_dr3
-        Σ_full[11, 11] = sim.UEVA_unc^2
+        Σ_full = @alloc(T, _g23h_nchan, _g23h_nchan); fill!(Σ_full, zero(T))
+        _g23h_place_diag!(Σ_full, blockvals)
         # Cross-epoch correlation between the DR2 and DR3 proper motions.
         K = ρ_dr3_dr2 * sqrt(Σ_dr2) * sqrt(Σ_dr3)'
-        Σ_full[5:6, 9:10] .= K
-        Σ_full[9:10, 5:6] .= K'
+        _g23h_place_cross!(Σ_full, _g23h_offsetof(:dr2), _g23h_offsetof(:dr3), K)
 
         idx = @alloc(Int, n_components)
         let k = 0
-            @inbounds for i in 1:11
+            @inbounds for i in 1:_g23h_nchan
                 mask[i] && (idx[k+=1] = i)
             end
         end
@@ -2030,13 +2396,14 @@ function generate_from_params(obs::G23HObs, ctx::ObsContext; add_noise)
     θ_obs = ctx.θ_obs
     has_hip = !isnothing(cat.dist_hip)
 
-    if _g23h_isabs(ctx.system.frame) && has_hip
-        # `ln_like` adds the HGCA nonlinear correction to the model μ for an
-        # absolute frame; without mirroring it here the synthetic data would
-        # sit on a different convention than the likelihood's model — a
-        # phantom proper-motion anomaly at the true parameters.
-        μ_hg = μ_hg + @SVector [cat.nonlinear_dpmra, cat.nonlinear_dpmdec]
-        μ_h = μ_h + @SVector [2cat.nonlinear_dpmra, 2cat.nonlinear_dpmdec]
+    # `ln_like` adds the HGCA nonlinear correction to the model μ for an
+    # absolute frame; without mirroring it here the synthetic data would sit
+    # on a different convention than the likelihood's model — a phantom
+    # proper-motion anomaly at the true parameters. Same helper, so the two
+    # cannot come to disagree about when it applies.
+    let (Δ_hg, Δ_h) = _g23h_nonlinear(cat, _g23h_isabs(ctx.system.frame), has_hip)
+        μ_hg = μ_hg + Δ_hg
+        μ_h = μ_h + Δ_h
     end
 
     (; σ_att, σ_AL, σ_calib) = θ_obs
@@ -2247,7 +2614,7 @@ function generate_from_params(obs::G23HObs, ctx::ObsContext; add_noise)
         typeof(obs.ref)}(
         new_table, obs.priors, obs.derived, new_hip_table, obs.gaia_table, new_cat, obs.hip_sol,
         obs.A_prepared_5_hip, obs.A_prepared_5_dr2, obs.A_prepared_5_dr3,
-        pinv_5_hip, hip_x_const, obs.include_iad, obs.ueva_mode, obs.name,
+        pinv_5_hip, hip_x_const, obs.include_iad, obs.ueva_mode, obs.frame_shift, obs.name,
         obs.host, obs.companions, obs.ref,
         obs.n_hip, obs.n_gaia, obs.i_ra_hip, obs.i_dec_hip,
         obs.i_ra_dr2, obs.i_dec_dr2, obs.i_ra_dr3, obs.i_dec_dr3, obs.all_epochs)

@@ -247,8 +247,30 @@ rejected on `~` lines, which already see the enclosing scope.)
 gaia_dr3_solution(; gaia_id) = _query_gaia_dr3(; gaia_id)
 export gaia_dr3_solution
 
+"""
+    _gaia_cache_path(dir, name)
+
+Where a per-source TAP response is cached.
+
+Historically this was `<cwd>/<dir>/<name>`, which means a 70-second query
+repeats every time you run from a different directory — and the first thing a
+new source costs is that minute. New responses go to a depot scratchspace
+instead, which is per-user and stable.
+
+The legacy path still *wins if it exists*, so a working directory that already
+holds a cache keeps using it and nothing has to be re-fetched or moved.
+"""
+function _gaia_cache_path(dir::AbstractString, name::AbstractString)
+    legacy = joinpath(dir, name)
+    isfile(legacy) && return legacy
+    # Same layout Scratch.jl uses, without taking the dependency.
+    root = joinpath(DEPOT_PATH[1], "scratchspaces",
+        "daf3887e-d01a-44a1-9d7e-98f15c5d69c9", dir)
+    return joinpath(root, name)
+end
+
 function _query_gaia_dr3(;gaia_id)
-    fname = "_gaia_dr3_final/source-$gaia_id.csv"
+    fname = _gaia_cache_path("_gaia_dr3_final", "source-$gaia_id.csv")
     if !isfile(fname)
         @info "Querying gea.esac.esa.int/tap-server" source_id=gaia_id
         resp = HTTP.get(
@@ -264,9 +286,7 @@ function _query_gaia_dr3(;gaia_id)
         if resp.status != 200
             error("Error with GAIA query: $(resp.status)")
         end
-        if !isdir("_gaia_dr3_final")
-            mkdir("_gaia_dr3_final")
-        end
+        mkpath(dirname(fname))
         open(fname, write=true) do f
             write(f, resp.body)
         end
@@ -284,7 +304,7 @@ function _query_gaia_dr3(;gaia_id)
 end
 
 function _query_gaia_dr2(;gaia_id)
-    fname = "_gaia_dr2/source-$gaia_id.csv"
+    fname = _gaia_cache_path("_gaia_dr2", "source-$gaia_id.csv")
     if !isfile(fname)
         @info "Querying gea.esac.esa.int/tap-server" source_id=gaia_id
         resp = HTTP.get(
@@ -300,9 +320,7 @@ function _query_gaia_dr2(;gaia_id)
         if resp.status != 200
             error("Error with GAIA query: $(resp.status)")
         end
-        if !isdir("_gaia_dr2")
-            mkdir("_gaia_dr2")
-        end
+        mkpath(dirname(fname))
         open(fname, write=true) do f
             write(f, resp.body)
         end
@@ -320,7 +338,7 @@ function _query_gaia_dr2(;gaia_id)
 end
 
 function _query_gaia_dr1(;gaia_id)
-    fname = "_gaia_dr1/source-$gaia_id.csv"
+    fname = _gaia_cache_path("_gaia_dr1", "source-$gaia_id.csv")
     if !isfile(fname)
         @info "Querying gea.esac.esa.int/tap-server" source_id=gaia_id
         resp = HTTP.get(
@@ -336,9 +354,7 @@ function _query_gaia_dr1(;gaia_id)
         if resp.status != 200
             error("Error with GAIA query: $(resp.status)")
         end
-        if !isdir("_gaia_dr1")
-            mkdir("_gaia_dr1")
-        end
+        mkpath(dirname(fname))
         open(fname, write=true) do f
             write(f, resp.body)
         end
@@ -521,4 +537,103 @@ function _sort_dedup_gost(tbl)
     out = Table(NamedTuple{names}(map(p -> vec(getproperty(tbl, p))[keep], names)))
     @assert issorted(vec(out.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_))
     return out
+end
+
+# ──────────────────────────────────────────────────────────────────────
+# The full 5×5 astrometric covariance, per source
+#
+# A Gaia five-parameter solution is (α*, δ, ϖ, μα*, μδ) with a 5×5 covariance:
+# five errors and ten correlations, all jointly fitted by AGIS. The G23H
+# catalog carries the errors and exactly *two* of the correlations
+# (`ra_dec_corr_central`, `pmra_pmdec`), because until now every channel it
+# fed was a proper motion and the rest were not needed. A position, parallax
+# or mean-RV channel does need them, and treating position as independent of
+# the proper motion it was fitted with would be plainly wrong.
+#
+# They are fetched per source and cached rather than added to the catalog: the
+# catalog is a 14 GB versioned artifact shared with other projects, and only a
+# handful of its 18 million rows are ever modelled.
+# ──────────────────────────────────────────────────────────────────────
+
+"""
+External calibration factor the G23H catalog applies to Gaia's formal
+position and proper-motion uncertainties.
+
+Not a guess — *measured*, by reconstructing the catalog's own columns from the
+raw archive solution. On both ups And sources the ratio comes out at exactly
+1.370000 for `ra_error_central`, `dec_error_central`, `pmra_error` and
+`pmdec_error`.
+
+`parallax_error` is carried through with **no** inflation (ratio exactly
+1.000000), which is the trap: a parallax channel built by analogy with the
+position one would be 37% too wide for no reason. See
+[`_g23h_solution_5x5`](@ref).
+"""
+const G23H_ERROR_INFLATION = 1.37
+
+const _GAIA_5X5_ORDER = (:ra, :dec, :parallax, :pmra, :pmdec)
+
+# The ten off-diagonal correlation column names, in the archive's own spelling,
+# indexed by the (i, j) pair they belong to.
+const _GAIA_5X5_CORR = (
+    (1, 2, :ra_dec_corr), (1, 3, :ra_parallax_corr),
+    (1, 4, :ra_pmra_corr), (1, 5, :ra_pmdec_corr),
+    (2, 3, :dec_parallax_corr), (2, 4, :dec_pmra_corr), (2, 5, :dec_pmdec_corr),
+    (3, 4, :parallax_pmra_corr), (3, 5, :parallax_pmdec_corr),
+    (4, 5, :pmra_pmdec_corr),
+)
+
+"""
+    _gaia_5x5(sol) -> SMatrix{5,5}
+
+The astrometric covariance of an archive `gaia_source` row, in
+(α\\*, δ, ϖ, μα\\*, μδ) order and **at that release's reference epoch**, with
+no calibration inflation applied. Units mas and mas/yr.
+"""
+function _gaia_5x5(sol)
+    σ = SVector{5,Float64}(sol.ra_error, sol.dec_error, sol.parallax_error,
+        sol.pmra_error, sol.pmdec_error)
+    all(isfinite, σ) || error(
+        "the archive solution for this source has a non-finite astrometric " *
+        "uncertainty $(Tuple(σ)); it has no usable five-parameter covariance.")
+    R = MMatrix{5,5,Float64,25}(I)
+    for (i, j, key) in _GAIA_5X5_CORR
+        ρ = Float64(getproperty(sol, key))
+        R[i, j] = ρ
+        R[j, i] = ρ
+    end
+    return SMatrix{5,5,Float64,25}((σ * σ') .* R)
+end
+
+"""
+    _propagate_5x5(C, Δt) -> SMatrix{5,5}
+
+`C` propagated by `Δt` julian years: α\\* += μα\\*·Δt, δ += μδ·Δt, everything
+else unchanged. Exact — the model is linear, so this is `J C Jᵀ` with a
+constant `J`.
+"""
+function _propagate_5x5(C::SMatrix{5,5,Float64,25}, Δt::Real)
+    J = SMatrix{5,5,Float64,25}(
+        1, 0, 0, 0, 0,
+        0, 1, 0, 0, 0,
+        0, 0, 1, 0, 0,
+        Δt, 0, 0, 1, 0,
+        0, Δt, 0, 0, 1)
+    return J * C * J'
+end
+
+"""
+    _central_epoch(C, coord) -> Δt
+
+Offset from the reference epoch, in julian years, at which coordinate `coord`
+(1 = α\\*, 2 = δ) has minimum variance — i.e. where it decorrelates from its own
+proper motion. `Δt = −cov(x, μx) / var(μx)`.
+
+This is what the G23H catalog stores as `epoch_ra_dr3` / `epoch_dec_dr3`, and
+reconstructing it from a freshly fetched 5×5 is one of the two checks in
+[`_g23h_solution_5x5`](@ref).
+"""
+@inline function _central_epoch(C::SMatrix{5,5,Float64,25}, coord::Int)
+    μ = coord + 3            # 1 → 4 (μα*), 2 → 5 (μδ)
+    return -C[coord, μ] / C[μ, μ]
 end
