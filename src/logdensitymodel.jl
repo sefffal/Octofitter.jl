@@ -265,6 +265,22 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # Test out model likelihood and prior computations. This way, if they throw
         # an error, we'll see it right away instead of burried in some deep stack
         # trace from the sampler, autodiff, etc.
+        #
+        # Build the orbital system *uncaught* first. `ln_like_generated` swallows
+        # construction failures and returns -Inf — which is right during sampling,
+        # where a bad proposal is just a rejected proposal, but wrong here: a
+        # malformed hierarchy is a property of the model, not of one draw, and it
+        # would otherwise reach the user as a warning from inside the sampler
+        # instead of an error at the line that defined the model. A *domain*
+        # failure is exempt: the priors are entitled to admit a draw the elements
+        # do not, and the sampler will handle it.
+        if ln_like_generated isa GeneratedLnLike
+            try
+                ln_like_generated.build(arr2nt(initial_θ_0))
+            catch err
+                _is_domain_failure(err) || rethrow()
+            end
+        end
         ln_like_generated(system, arr2nt(initial_θ_0))
 
         ln_prior_transformed(initial_θ_0,false)

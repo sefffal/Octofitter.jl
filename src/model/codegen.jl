@@ -730,13 +730,46 @@ struct GeneratedLnLike{B,E}
     evaluate::E
 end
 
+"""
+    _is_domain_failure(err) -> Bool
+
+Whether a failure to build the orbital system is a property of *this* proposal
+rather than of the model.
+
+The distinction matters because the two want opposite handling. A domain
+failure is routine and expected: a sampler that explores the whole prior — and
+a parallel-tempering scheme's hot chains most of all — will reach parameters
+that are simply not orbits. `e == 1` exactly; a mass that overflows to `Inf`
+because the inverse of a bounded-below transform is `lower + exp(y)` and `y`
+got large; a derived `a` that came out negative. The density there is zero, the
+proposal is rejected, and that is the sampler working, not misbehaving. Warning
+about it produces a page of stack trace in the middle of an otherwise healthy
+run — the thing users see in the tutorials — and warns about nothing they can
+act on.
+
+Anything else is a model or code defect, is true of *every* draw rather than
+this one, and stays loud.
+
+`PlanetOrbits.OrbitDomainError` is thrown deliberately for exactly this class;
+`DomainError` is included because it is Base's name for the same thing (`√` of
+a negative derived quantity, `acos` outside [-1, 1]).
+"""
+_is_domain_failure(err) = err isa PlanetOrbits.OrbitDomainError || err isa DomainError
+
 function (f::GeneratedLnLike)(system::System, θ)
     T = _system_number_type(θ)
     posys = try
         f.build(θ)
     catch err
         err isa InterruptException && rethrow()
-        @warn "Failed to construct the orbital system from these parameters" exception = (err, catch_backtrace()) maxlog = 1
+        if _is_domain_failure(err)
+            # Zero density, quietly. `@debug` keeps it reachable with
+            # `ENV["JULIA_DEBUG"] = "Octofitter"` when a model returns -Inf
+            # everywhere and you need to know why.
+            @debug "Parameters outside the domain where the orbits are defined; scoring -Inf" exception = (err, catch_backtrace())
+        else
+            @warn "Failed to construct the orbital system from these parameters" exception = (err, catch_backtrace()) maxlog = 1
+        end
         return convert(T, -Inf)
     end
     return f.evaluate(system, θ, posys)::T
