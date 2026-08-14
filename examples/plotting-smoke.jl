@@ -188,6 +188,36 @@ check(:rv_HARPS in keys(res.axes) && :rv_HIRES in keys(res.axes),
 check(count(k -> k in (:sep, :pa, :raoff, :decoff), collect(keys(res.axes))) == 4,
     "one shared panel per relative-astrometry channel")
 check(res.axes.sky.sky.xreversed[], "sky panel: RA increases to the left")
+check(!any(k -> occursin("_phase_", String(k)), keys(res.axes)),
+    "no phase panels: many draws cannot share one ephemeris")
+
+step("a single draw folds by default")
+res_1 = octoplot(model, chain; N=40, ndraws=1,
+    fname=joinpath(OUT, "01b-octoplot-one-draw-phase.png"))
+check(any(k -> occursin("_phase_", String(k)), keys(res_1.axes)),
+    "ndraws=1 brings the phase panels back")
+
+step("residual boxes: width against the axis, not the entry's own extent")
+# K2-131's HARPS-N cadence — several exposures a night, on a two-month
+# baseline, with one instrument covering only part of it. This is the case
+# that decides whether a box is visible at all, so it is checked in numbers
+# rather than by eye.
+let axspan = 66.0, night = [0.0, 0.021, 0.043, 0.064]
+    dense = vec([b + o for o in night, b in 0.0:7.0:61.0])
+    sparse_ = collect(0.0:20.0:400.0)
+    wd = MExt._autoboxwidth(dense, axspan)
+    check(wd ≈ axspan / 200, "a nightly cluster falls back to the visibility floor")
+    # A short-baseline instrument on the shared axis must not shrink itself:
+    # same width whether its own data span 20 days of the axis or all 66.
+    check(MExt._autoboxwidth(dense[dense.<20], axspan) ≈ wd,
+        "a partial-baseline instrument gets the same width")
+    ws = MExt._autoboxwidth(sparse_, 400.0)
+    check(ws ≈ 16.0, "sparse sampling is set by the spacing, capped at span/25")
+    check(MExt._autoboxwidth([5.0], 66.0) ≈ axspan / 200, "a lone point still gets a box")
+end
+octoplot(model, chain; N=40, boxwidth=200.0, show_sky=false, channels=radvel,
+    fname=joinpath(OUT, "01c-octoplot-boxwidth.png"))
+ok("`boxwidth=` overrides the automatic width")
 
 step("raw residuals need a single draw")
 try
