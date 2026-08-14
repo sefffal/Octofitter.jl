@@ -86,10 +86,9 @@ makedocs(
             "Sampler" => "samplers.md",
             "Distributed Sampling" => "parallel-sampling.md",
             "Priors" => "priors.md",
-            "Corrections & Data Provenance" => "corrections.md",
+            "How Orbits Are Computed" => "orbit-computation.md",
             "Derived Variables" => "derived.md",
             "Custom Likelihoods" => "custom-likelihood.md",
-            "Kepler Solver" => "kepler.md",
             "Orbitize! Compatibility" => "compat-orbitize.md",
             "Full API Documentation" => "api.md"
         ],

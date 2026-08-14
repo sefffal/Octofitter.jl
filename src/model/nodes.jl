@@ -266,7 +266,7 @@ measuring what the Einstein term does to a posterior — not something the data
 can rule out, and not a provenance declaration, since no pipeline can have
 removed the part of the term that varies with the orbit.
 
-See the "Corrections and data provenance" manual page, and
+See the "How Octofitter Computes Orbits" manual page, and
 [`recheck_corrections`](@ref) for the after-sampling check.
 """
 struct System{TN<:Tuple,TO<:Tuple,TT<:Tuple,TP<:Priors,TD<:Derived,TM}

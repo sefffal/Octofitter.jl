@@ -249,8 +249,8 @@ The two opt-outs are **tri-state** and default to `:auto`, which measures
 whether each correction moves *your* predictions by anything comparable to
 your uncertainties and decides once, at build, printing what it decided.
 `:on`/`:off` — and `true`/`false` — still set them by hand. See
-[Corrections and data provenance](@ref) for how the decision is made and how
-to re-check it after sampling.
+[Letting Octofitter decide: `:auto`](@ref corrections) for how the decision is
+made and how to re-check it after sampling.
 
 !!! warning "Two radial-velocity changes to know about"
     `radvel` is now the *spectroscopic* velocity: it includes the Einstein
@@ -258,8 +258,8 @@ to re-check it after sampling.
     RV series now models the perspective-acceleration drift by default —
     `secular_acceleration=:model`. If your pipeline already removed secular
     acceleration, you must say so with `secular_acceleration=:data_corrected`,
-    or it will be counted twice. Both are covered, with magnitudes, on the
-    corrections page.
+    or it will be counted twice. Both are covered, with magnitudes, in
+    [How Octofitter Computes Orbits](@ref orbit-computation).
 
 !!! note "Catalog priors describe the primary, not the barycentre"
     The frame's `ra/dec/plx/pmra/pmdec/rv` are the **system barycentre's**.

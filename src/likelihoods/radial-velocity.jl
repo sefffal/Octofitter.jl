@@ -47,7 +47,7 @@ parameters are ordinary variables of this observation.
 # Corrections and data provenance
 
 Two keywords declare what your reduction already did, and one is an
-experimentation hook. See the "Corrections and data provenance" manual page.
+experimentation hook. See the "How Octofitter Computes Orbits" manual page.
 
     secular_acceleration = :model | :data_corrected     # default :model
 
