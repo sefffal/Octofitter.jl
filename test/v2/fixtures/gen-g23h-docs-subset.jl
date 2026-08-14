@@ -9,13 +9,21 @@
 #   G23H_CATALOG      the G23H catalog (Arrow, ~14 GB)
 #   G23H_DR2_SIDECAR  the DR2 matched-transit sidecar (Arrow, ~300 MB)
 #
-# The output is a three-row Arrow file of about 20 kB, and it is committed.
+# The output is a four-row Arrow file of about 30 kB, and it is committed.
 #
 # Rows:
 #   Gaia DR3 2738776816458107136 (HIP 384)     — `g23h.md`
 #   Gaia DR3 756291174721509376  (HD 91312)    — `pma.md`, `astrom-pma-rv.md`,
-#                                                `limits.md`, `data-simulation.md`
+#                                                `data-simulation.md`
 #   Gaia DR3 5164707970261890560 (eps Eridani) — `rv.md`
+#   Gaia DR3 6166183842771027328 (HIP 65808)   — `limits.md`
+#
+# `limits.md` is deliberately *not* on HD 91312: a detection-limits page needs a
+# proper-motion **non-detection**, and HD 91312 has a 16σ Hipparcos-Gaia anomaly
+# from its real ~0.3 M⊙ companion. HIP 65808 is the target the published page has
+# always used — 32 pc, HGCA χ² = 17.8, every channel within ~3σ of the long-term
+# trend — so the PMA posterior there is the broad upper-limit envelope the page
+# is about. See the comment at the top of `docs/src/limits.md`.
 #
 # The DR2 matched-transit count is folded in as a column, so a page reading this
 # file needs neither the catalog DataDep nor the sidecar DataDep. `G23HObs`
@@ -38,6 +46,7 @@ const IDS = [
     2738776816458107136,   # HIP 384
     756291174721509376,    # HD 91312
     5164707970261890560,   # eps Eridani
+    6166183842771027328,   # HIP 65808
 ]
 
 # The columns the previous subset carried. Regenerating must not change the
