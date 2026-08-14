@@ -191,6 +191,14 @@ filelinks_in(page) = [m.captures[1] for m in
     eachmatch(r"\]\(([^)\s#]+\.md)(?:#[^)]*)?\)", read(joinpath(SRC, page), String))]
 
 """
+Could `target` be a Julia binding — `f`, `Mod.f`, `Mod.@m` — rather than a page
+anchor? Only the *shape* is decided here; whether it resolves is a `--names`
+question. Anything with a `-`, a space or a `(` in it is an anchor slug and
+nothing else.
+"""
+isnamelike(target) = occursin(r"^@?[A-Za-z_][A-Za-z0-9_!]*(\.@?[A-Za-z_][A-Za-z0-9_!]*)*$", target)
+
+"""
 Headers of a page, as `(title, anchor)`. `anchor` is the explicit `(@id …)` if
 the header carries one, and `nothing` otherwise.
 
@@ -289,14 +297,25 @@ for p in all_pages
         end
     end
 end
+# An explicit `@ref` target is not necessarily an anchor: Documenter resolves
+# `[text](@ref Mod.f)` against the *docstring* index, which is how a link can
+# carry prose text and still point at an entry in an `@docs` block. Anchors win
+# when the name is one (an `@id` may legitimately look like an identifier), so
+# these are only the targets no page claims — checked with the other name refs
+# under `--names`, where the bindings can actually be resolved.
+name_refs = Tuple{String,String,String}[]      # (page, text, target)
 for p in listed
     for (text, target) in refs_in(p)
         isempty(target) && continue           # name ref, handled below
         startswith(target, "@") && continue
-        haskey(anchor_owner, target) ||
+        if haskey(anchor_owner, target)
+            anchor_owner[target] in listed ||
+                fail!("$p: `[$text](@ref $target)` resolves to `$(anchor_owner[target])`, which is not built.")
+        elseif isnamelike(target)
+            push!(name_refs, (p, text, target))
+        else
             fail!("$p: `[$text](@ref $target)` — no page defines `(@id $target)`.")
-        get(anchor_owner, target, "") in listed ||
-            fail!("$p: `[$text](@ref $target)` resolves to `$(anchor_owner[target])`, which is not built.")
+        end
     end
 end
 println("Checked $(length(anchor_owner)) `@id` anchors.")
@@ -390,6 +409,10 @@ if CHECK_NAMES
             isempty(target) || continue
             nm = strip(text, ['`', ' ', '[', ']'])
             (isempty(nm) || occursin(' ', nm)) && continue   # prose ref, resolved by anchor text
+            # A one-word ref is ambiguous: `[Troubleshooting](@ref)` is a
+            # header title, not a binding. A header with that exact title
+            # settles it — Documenter resolves it there.
+            haskey(title_owner, normtitle(nm)) && continue
             resolves(nm) || warn!("$p: `[$text](@ref)` — `$nm` does not resolve as a name.")
         end
     end
@@ -402,6 +425,20 @@ if CHECK_NAMES
         n = strip(split(e, '(')[1])
         push!(documented, n)
         push!(documented, String(last(split(n, '.'))))   # `Mod.f` is reachable as `f`
+    end
+
+    # The explicit-target refs section 3 could not place on a page (above).
+    # Documenter needs the binding to exist *and* to be in an `@docs` block —
+    # a docstring that is never rendered is not a link target.
+    isdocumented(nm) = nm in documented || String(last(split(nm, '.'))) in documented
+    for (p, text, target) in name_refs
+        if !resolves(target)
+            fail!("$p: `[$text](@ref $target)` — `$target` is neither a page `(@id …)` " *
+                  "anchor nor a name that resolves.")
+        elseif !isdocumented(target)
+            fail!("$p: `[$text](@ref $target)` — `$target` resolves, but is in no `@docs` " *
+                  "block, so Documenter has nothing to link to.")
+        end
     end
 
     """The rendered text of `entry`'s docstring, or `nothing` if it has none."""
@@ -429,6 +466,14 @@ if CHECK_NAMES
             text, target = m.captures[1], m.captures[2]
             if !isempty(target)
                 haskey(anchor_owner, target) && anchor_owner[target] in listed && continue
+                # As on a page: an explicit target that is a binding is a
+                # docstring link, not an anchor.
+                if isnamelike(target) && resolves(target)
+                    isdocumented(target) && continue
+                    fail!("docstring of `$e` (listed in $p:$ln): `[$text](@ref $target)` — " *
+                          "`$target` resolves, but is in no `@docs` block.")
+                    continue
+                end
                 fail!("docstring of `$e` (listed in $p:$ln): `[$text](@ref $target)` — " *
                       "no built page defines `(@id $target)`.")
                 continue
@@ -457,7 +502,8 @@ if CHECK_NAMES
     println("Checked `@docs` entries and name `@ref`s against the loaded packages, " *
             "and the `@ref`s inside $(ndoc[]) rendered docstrings.")
 else
-    println("Name resolution skipped (pass --names to enable).")
+    println("Name resolution skipped (pass --names to enable); " *
+            "$(length(name_refs)) explicit-target `@ref`s naming a binding went unchecked.")
 end
 
 # ---------------------------------------------------------------------------
