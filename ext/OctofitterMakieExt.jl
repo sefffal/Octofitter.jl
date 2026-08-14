@@ -238,7 +238,11 @@ function Octofitter.skypanel!(gp, series::PosteriorSeries;
     datasets = NTuple{4,Vector{Float64}}[]
     datanames = String[]
     for obs in plottable_observations(sys)
-        obs isa Octofitter.RelAstromObs || continue
+        # `plotobs`, not `obs`: an observation wrapped in `ObsPriorONeil2019`
+        # is still relative astrometry and its points still belong on the sky.
+        # The wrapper itself is what `obscontext` must be given, though — the
+        # calibration parameters are registered under *its* name.
+        Octofitter.plotobs(obs) isa Octofitter.RelAstromObs || continue
         r = Octofitter.residuals(obs, obscontext(series, obs))
         u = r.raoff.use
         push!(datasets, (r.raoff.data[u], r.decoff.data[u],
@@ -1131,9 +1135,14 @@ _channelmatch(ch::PlotChannel, cs) = any(c -> _channelmatch(ch, c), cs)
 # instruments' `sep` channels share this key, and so does the `sep` a ra/dec
 # table exposes by projection.
 _quantitykey(obs, ch) = ch.query === nothing ?
-                        Symbol(nameof(typeof(obs)), :_, ch.name) :
+                        Symbol(nameof(typeof(Octofitter.plotobs(obs))), :_, ch.name) :
                         Symbol(nameof(ch.query.func), :_,
                             _refstr(ch.query.target), :_, _refstr(ch.query.ref))
+# (The query-less branch keys by the observation *type*, so it has to be the
+# type that measured it — `plotobs` — or a wrapped and an unwrapped Gaia
+# observation would put the same `:along_scan` on two different axes. The
+# `nothing` observation `_predictivegroups` passes only ever reaches the other
+# branch: a predicted channel always carries a query.)
 
 function _channelgroups(sys, channels=nothing)
     obss = [obs for obs in plottable_observations(sys) if isempty(defaultpanels(obs))]
@@ -1610,7 +1619,12 @@ function _rvgroups(sys)
     return groups
 end
 
-_hasgp(obs) = hasproperty(obs, :gaussian_process) && obs.gaussian_process !== nothing
+# Through `plotobs`: a wrapper carries the wrapped table but not its
+# `gaussian_process` field, and this only decides a legend entry for a band
+# `noisemodel` (which *is* delegated) would draw anyway.
+_hasgp(obs) = let o = Octofitter.plotobs(obs)
+    hasproperty(o, :gaussian_process) && o.gaussian_process !== nothing
+end
 
 # v8 `rvpostplot`'s marks: small filled points, hairline strokes, and the
 # measurement bar in the instrument's own colour inside the grey
@@ -1787,7 +1801,7 @@ function _rvlegend!(gp, allobs, anygp, show_perspective, curvecolor)
     end
     if show_perspective
         push!(marks, Makie.LineElement(color=:darkorange, linewidth=3, linestyle=:dash))
-        push!(labels, "frame RV drift\n(not in the fit)")
+        push!(labels, "frame RV drift\n(not in the curve)")
     end
     return Makie.Legend(gp, [instruments, marks],
         [[likelihoodname(o) for o in allobs], labels],
@@ -1965,8 +1979,12 @@ end
 
 # The (single) observation of a given type in a model, with a message that
 # says what to do when there is none or more than one.
+#
+# Selected by `plotobs`, so a wrapped observation is still found, but the
+# *wrapper* is returned: it is what `obscontext` and `series.data_maps` are
+# keyed by. Same rule as the sky panel's overlay.
 function _theobs(sys, T, what)
-    os = [o for o in sys.observations if o isa T]
+    os = [o for o in sys.observations if Octofitter.plotobs(o) isa T]
     isempty(os) && error("$what needs a $(nameof(T)) in the model; this one has none.")
     length(os) > 1 && error(
         "$what draws one $(nameof(T)) and this model has $(length(os)). " *
@@ -2285,8 +2303,8 @@ function Octofitter.hipparcosplot(model::Octofitter.LogDensityModel, chain::Chai
                                   fname=nothing, figure=(;), axis=(;))
     sys = model.system
     cands = [o for o in sys.observations
-             if o isa Octofitter.HipparcosIADObs ||
-                (o isa Octofitter.G23HObs && :iad_hip ∈ o.table.kind)]
+             if Octofitter.plotobs(o) isa Octofitter.HipparcosIADObs ||
+                (Octofitter.plotobs(o) isa Octofitter.G23HObs && :iad_hip ∈ o.table.kind)]
     isempty(cands) && error(
         "hipparcosplot needs a HipparcosIADObs, or a G23HObs keeping its " *
         ":iad_hip channel; this model has neither.")
@@ -2297,7 +2315,7 @@ function Octofitter.hipparcosplot(model::Octofitter.LogDensityModel, chain::Chai
     ctx = obscontext(series, obs; draw=1)
     sim = Octofitter.simulate(obs, ctx)
 
-    if obs isa Octofitter.HipparcosIADObs
+    if Octofitter.plotobs(obs) isa Octofitter.HipparcosIADObs
         tab = obs.table
         chname = :along_scan
         Δα_src, Δδ_src = sim.Δα_mas, sim.Δδ_mas

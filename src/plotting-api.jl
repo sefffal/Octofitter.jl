@@ -307,6 +307,31 @@ plotchannels(::AbstractObs) = ()
 export plotchannels
 
 """
+    plotobs(obs) -> AbstractObs
+
+The observation whose *measurements* a plot draws for `obs` — itself for
+every observation that carries its own data, and the wrapped observation for
+a wrapper like [`ObsPriorONeil2019`](@ref).
+
+A wrapper delegates the whole plotting protocol ([`plotchannels`](@ref),
+[`residuals`](@ref), [`sharepanel`](@ref), [`datacalibration`](@ref),
+[`noisemodel`](@ref)) to what it wraps, so the generic panels need no
+unwrapping. This exists for the few places that still ask *what kind of
+observation is this* — the sky panel's relative-astrometry overlay, the
+bespoke `hipparcosplot`/`gaiastarplot` selectors — where a `isa` test on the
+wrapper would silently drop the dataset. Test `plotobs(obs) isa …`, never
+`obs isa …`.
+
+The wrapper itself, not the result of this, stays the object handed to
+[`obscontext`](@ref) and looked up in a series' `data_maps`: the fitted
+`jitter`/`platescale`/`northangle` are registered under the *wrapper's*
+`likelihoodname`, so unwrapping before building a context would silently
+fall back to the defaults.
+"""
+plotobs(obs::AbstractObs) = obs
+export plotobs
+
+"""
     residuals(obs, ctx::ObsContext) -> NamedTuple
 
 Calibrated data, model predictions, residuals and uncertainties for each
@@ -794,6 +819,51 @@ end
 
 defaultpanels(obs::PhotometryObs) =
     (:phot => (gp, series) -> photometrypanel!(gp, series, obs),)
+
+# --- ObsPriorONeil2019 ---------------------------------------------------------
+#
+# The wrapper delegates the whole protocol to what it wraps, exactly as it
+# already delegates `simulate`, `epochs` and the correction hooks. The
+# Jacobian reweights the prior; it does not change what the instrument
+# measured, so every plotting question about the wrapper is a question about
+# the wrapped observation.
+#
+# Without these it answered the `AbstractObs` defaults — `plotchannels` is
+# `()` — and `plottable_observations` dropped it: `octoplot` on a model whose
+# relative astrometry was wrapped drew the orbit tracks with no data points on
+# them and no separation/position-angle panels at all. (`_warn_unplottable`
+# did say so, but an @info is not what a missing dataset should look like.)
+#
+# The *wrapper* stays the object the plot layer passes around: it is the one
+# in `sys.observations`, so it is what `epoch_plan` keys its row maps by and
+# what `θ.observations` registers the fitted jitter/platescale/northangle
+# under. Every method here takes a context built for the wrapper and hands it
+# to the wrapped observation's math, which is sound because the two share
+# `table`, `priors`, `derived` and therefore `epochs`. Substituting the inner
+# observation into `obscontext` instead would rediscover the v8.3.0 bug from
+# the other side: `θ_obs` silently `(;)`, calibration silently back to its
+# defaults. That is what `plotobs` is for — `isa` tests, and nothing else.
+plotobs(obs::ObsPriorONeil2019) = plotobs(obs.wrapped_like)
+plotchannels(obs::ObsPriorONeil2019) = plotchannels(obs.wrapped_like)
+residuals(obs::ObsPriorONeil2019, ctx::ObsContext) = residuals(obs.wrapped_like, ctx)
+sharepanel(obs::ObsPriorONeil2019) = sharepanel(obs.wrapped_like)
+datacalibration(obs::ObsPriorONeil2019, ch::PlotChannel, ctx::ObsContext, epochs) =
+    datacalibration(obs.wrapped_like, ch, ctx, epochs)
+noisemodel(obs::ObsPriorONeil2019, ctx::ObsContext, epochs) =
+    noisemodel(obs.wrapped_like, ctx, epochs)
+
+# `defaultpanels` is deliberately *not* delegated. Its contract is a tuple of
+# `build(gridposition, series)` closures, and every implementation closes over
+# the observation it was asked about — `PhotometryObs`' panel over that
+# `PhotometryObs`, `LogLikelihoodMapObs`' over that map. Forwarding the call
+# would hand back closures holding the *inner* observation, which the panel
+# then looks up in `series.data_maps` (keyed by the wrapper): a `KeyError`, or
+# a context built under the wrong name. A wrapped observation with a bespoke
+# panel therefore falls back to the generic time-series panels its own
+# `plotchannels`/`residuals` already support — a legible figure rather than a
+# wrong one. Nothing Octofitter ships reaches that: the two types with bespoke
+# panels are photometry (no epochs at all, so the Jacobian has nothing to sum
+# over) and likelihood maps.
 
 # ---------------------------------------------------
 # PosteriorSeries

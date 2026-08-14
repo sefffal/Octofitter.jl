@@ -132,6 +132,7 @@ completenessplot
 completenessplot!
 PlotChannel
 plotchannels
+plotobs
 defaultpanels
 sharepanel
 datacalibration

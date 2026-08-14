@@ -397,6 +397,70 @@ end
     end
 end
 
+@testset "a wrapped observation is still plotted as its data" begin
+    # `ObsPriorONeil2019` reweights the prior; it does not change what the
+    # instrument measured. Before the delegation below it answered the
+    # `AbstractObs` defaults — no channels — so `plottable_observations`
+    # dropped it and `octoplot` drew the orbit tracks of a wrapped relative
+    # astrometry fit with none of its data points on them.
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.0
+    end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass = 0.005
+        a ~ Uniform(2.0, 4.0)
+        e = 0.25; i = 0.6; ω = 1.0; Ω = 2.0; tp = 59200.0
+    end)
+    tab = Table(epoch=[59000.0, 59300.0, 59600.0],
+        ra=[200.0, 180.0, 160.0], dec=[150.0, 170.0, 165.0],
+        σ_ra=[4.0, 4.0, 4.0], σ_dec=[4.0, 4.0, 4.0])
+    mkastrom() = RelAstromObs(tab; target=b, ref=A, name="INST",
+        variables=@variables begin
+            jitter = 1.5
+            platescale = 1.02
+            northangle = 0.03
+        end)
+    astrom = mkastrom()
+    wrapped = ObsPriorONeil2019(mkastrom())
+
+    # The protocol delegates, so a wrapper answers exactly what it wraps.
+    @test Octofitter.plotobs(wrapped) === wrapped.wrapped_like
+    @test Octofitter.plotobs(astrom) === astrom
+    @test [ch.name for ch in Octofitter.plotchannels(wrapped)] ==
+          [ch.name for ch in Octofitter.plotchannels(astrom)]
+    @test Octofitter.sharepanel(wrapped) == Octofitter.sharepanel(astrom)
+
+    function series_of(o)
+        sys = Octofitter.System(name="w", bodies=[A, b], observations=[o],
+            variables=@variables begin
+                plx = 50.0
+            end)
+        model = Octofitter.LogDensityModel(sys, verbosity=0)
+        rng = Xoshiro(7)
+        nts = [model.arr2nt(collect(model.sample_priors(rng))) for _ in 1:20]
+        return model, PosteriorSeries(model, Octofitter.result2mcmcchain(nts); N=5)
+    end
+
+    mw, sw = series_of(wrapped)
+    mp, sp = series_of(astrom)
+    @test length(Octofitter.plottable_observations(mw.system)) == 1
+    @test isempty(Octofitter.unplottable_observations(mw.system))
+
+    # The *wrapper* is what carries a context: the fitted platescale/northangle
+    # /jitter are registered under `obspri_INST`, so unwrapping before building
+    # one would silently fall back to the defaults (the v8.3.0 bug, from the
+    # other side). The calibrated data must therefore match the unwrapped fit's
+    # exactly, not the uncalibrated table.
+    rw = Octofitter.residuals(wrapped, obscontext(sw, wrapped))
+    rp = Octofitter.residuals(astrom, obscontext(sp, astrom))
+    @test keys(rw) == (:sep, :pa, :raoff, :decoff)
+    @test rw.raoff.data ≈ rp.raoff.data
+    @test rw.decoff.data ≈ rp.decoff.data
+    @test rw.sep.data ≈ rp.sep.data
+    @test all(rw.raoff.σ_eff .≈ hypot.(tab.σ_ra, 1.5))     # the jitter is live
+    @test !(rw.sep.data ≈ collect(hypot.(tab.ra, tab.dec)))  # …and the platescale
+end
+
 # ---------------------------------------------------------------------------
 # The protocol for the observation types that are not simple epoch series.
 #

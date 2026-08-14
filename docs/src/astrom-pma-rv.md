@@ -238,6 +238,13 @@ contributes separation and position angle (or Δα⋆/Δδ), and `G23HObs` contr
 and `pmdec` — the five catalog proper motions against the model's reflex curve, with each
 point's mission averaging window drawn as a horizontal bar.
 
+Wrapping an observation changes nothing about how it is drawn: `ObsPriorONeil2019`
+reweights the prior, and the astrometry inside it still contributes its points to the sky
+panel and its own time-series panels, calibrated by the fitted `platescale`/`northangle`
+exactly as an unwrapped dataset is. The panels are labelled with the wrapper's name
+(`obspri_SCExAO` rather than `SCExAO`), which is also the name its calibration parameters
+take in the chain.
+
 ## Model: PMA & Relative Astrometry & RVs
 
 We now add in three additional epochs of stellar RVs.
