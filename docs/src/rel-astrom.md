@@ -309,6 +309,30 @@ This function draws orbits from the posterior and displays them in a plot. Any a
 
 You can control how many orbits are drawn, the figure scale, and which panels appear. See [`octoplot`](@ref) for more details.
 
+#### Predicting quantities you did not observe
+
+`octoplot` is not restricted to the data in the model. Ask `channels=` for an
+**observable** the fit has no data for at all, and it draws the posterior's
+prediction for that quantity instead — the curves alone, with nothing to overlay:
+
+```julia
+# What radial velocity would a spectrograph see, given this astrometry?
+octoplot(model, merged_chains; channels=radvel, show_sky=false)
+
+# The star's reflex proper motion, likewise.
+octoplot(model, merged_chains; channels=pmra, show_sky=false)
+```
+
+This is the figure to make when deciding whether a target is worth
+spectroscopic or absolute-astrometry time. Note that it needs the companion to
+have mass: with `mass = 0.0`, as in the model above, the host's reflex signal is
+identically zero. Give `planet_b` a `mass` prior first.
+
+The natural follow-up is to take the observation, keep it *out* of the fit, and
+check the prediction against it — see
+[Predicting data the model never saw](@ref heldout-prediction), which also shows
+how to score the result numerically.
+
 ### Pair Plot
 A very useful visualization of our results is a pair-plot, or corner plot. We can use the `octocorner` function and our PairPlots.jl package for this purpose:
 ```@example 1

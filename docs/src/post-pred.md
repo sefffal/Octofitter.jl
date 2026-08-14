@@ -149,3 +149,198 @@ The replicated points should scatter around the real ones with roughly the measu
     `System(...; observations=[...])`.
 
 You can follow this same procedure for any kind of data modelled with Octofitter. For a quantitative version of the same idea — how much each *individual* data point is influencing the fit — see [Cross-Validation](@ref cross-validation).
+
+## [Predicting data the model never saw](@id heldout-prediction)
+
+Everything above compares the model against the data it was *fitted to*. A stronger check — and the one closest to how the model will actually be used — is to predict something the fit never saw, and then go and look.
+
+Two features of Octofitter make this straightforward:
+
+* **Every observable is plottable, whether or not you observed it.** What makes a panel is the model, not the dataset, so a fit to relative astrometry alone can draw the radial-velocity curve that orbit implies.
+* **An observation is just an object.** You can build one, keep it out of the system you fit, and put it into a second system afterwards purely so that plots and residuals can see it. That second system is never sampled — it exists so the plotting layer has something to compare against.
+
+We will do all three things in turn: predict a quantity with no data behind it, overlay held-out data on that prediction, and score the result. This is a good habit to build even when you have no data to hold out: "what does this fit predict for the observation I *could* take next?" is the same question.
+
+### A worked example
+
+We will simulate a nearby binary — a 1.2 M⊙ star with a 0.35 M⊙ companion at 5 AU — measured with twelve epochs of relative astrometry and ten radial velocities. Both datasets come from the same truth, so we know what the answer should be. See [Generating and Fitting Simulated Data](@ref data-simulation) for more on this machinery.
+
+```@example heldout
+using Octofitter, Distributions, CairoMakie, Random
+
+A = Body(name="A", variables=@variables begin
+    mass ~ truncated(Normal(1.20, 0.05), lower=0.1)   # M⊙
+end)
+
+B = Body(name="B", about=A, variables=@variables begin
+    mass ~ Uniform(0.01, 1.0)     # M⊙
+    a ~ Uniform(1.0, 20.0)        # AU
+    e ~ Uniform(0.0, 0.9)
+    i ~ Sine()                    # rad
+    ω ~ Uniform(0, 2pi)           # rad
+    Ω ~ Uniform(0, 2pi)           # rad
+    θ ~ Uniform(0, 2pi)           # rad, position angle at `epoch`
+    epoch = 57000.0               # MJD
+end)
+
+# Empty tables with the epochs and uncertainties we want simulated.
+astrom_template = RelAstromObs(
+    Table(; epoch=range(mjd("2012-01-01"), mjd("2022-01-01"), length=12),
+        ra=zeros(12), dec=zeros(12),
+        σ_ra=fill(2.0, 12), σ_dec=fill(2.0, 12), cor=zeros(12));
+    target=B, ref=A, name="astrom")
+
+rv_template = RadialVelocityObs(
+    Table(; epoch=range(mjd("2013-06-01"), mjd("2021-06-01"), length=10),
+        rv=zeros(10), σ_rv=fill(30.0, 10));
+    target=A, ref=Barycentre, name="HARPS")
+
+sys_truth = System(name="Tutoria2", bodies=[A, B],
+    observations=[astrom_template, rv_template],
+    variables=@variables begin
+        plx ~ truncated(Normal(25.0, 0.05), lower=0.1)   # mas
+    end)
+
+Random.seed!(42)
+θ_true = Octofitter.drawfrompriors(sys_truth; overrides=(;
+    plx = 25.0,
+    bodies = (;
+        A = (; mass = 1.20),
+        B = (; mass = 0.35, a = 5.0, e = 0.30, i = deg2rad(60),
+               ω = 0.6, Ω = 2.1, θ = 1.5),
+    ),
+))
+sim = generate_from_params(sys_truth, θ_true; add_noise=true)
+
+astrom_obs = sim.observations[1]   # this goes into the fit
+rv_obs = sim.observations[2]       # this we hold back
+nothing # hide
+```
+
+Now fit **only** the astrometry. The radial velocities exist as an object in our session, but the system we sample knows nothing about them:
+
+```@example heldout
+sys = System(name="Tutoria2", bodies=[A, B], observations=[astrom_obs],
+    variables=@variables begin
+        plx ~ truncated(Normal(25.0, 0.05), lower=0.1)
+    end)
+model = Octofitter.LogDensityModel(sys)
+
+Random.seed!(0)
+initialize!(model, (; plx=25.0,
+    bodies=(; A=(; mass=1.2), B=(; mass=0.3, a=5.0, e=0.3))))
+chain = octofit(model, iterations=1000)
+```
+
+### 1. Plotting a quantity the model has no data for
+
+`octoplot`'s `channels=` keyword normally picks among the data channels a model *has*. Give it the name of an **observable** the model has no data for at all and it switches to prediction mode: the posterior model curves alone, with no points to overlay.
+
+```@example heldout
+octoplot(model, chain; channels=radvel, show_sky=false)
+```
+
+That is the radial velocity of the host star about the system barycentre — the signal a spectrograph would measure — predicted by a fit that only ever saw sky positions. Nothing was added to the model to get it.
+
+The observable name is enough because Octofitter knows which query a bare observable means (see [`default_queries`](@ref) and [`predictedchannels`](@ref)): "reflex" quantities like `radvel`, `pmra` and `pmdec` are drawn for each host body against the whole-system barycentre, while separation-like quantities (`raoff`, `projectedseparation`, ...) are drawn once per orbit, exterior side about interior side. So `channels=pmdec` on the same fit would predict the star's reflex proper motion instead.
+
+!!! note "Why the band is wide"
+    Relative astrometry plus a parallax pins the *total* mass through Kepler's third law, but the radial-velocity amplitude depends on the companion's share of it. Here that share is the difference between a well-measured total (≈1.55 M⊙) and a primary mass known only from its 0.05 M⊙ prior — so the predicted amplitude carries a much larger fractional uncertainty than the orbit does. That is a real statement about the fit, not a plotting artefact, and it is exactly the sort of thing this figure is for: it tells you how much a single spectrum would buy you.
+
+!!! warning "A prediction is only as good as the physics in the model"
+    A body with `mass = 0.0` (a common shortcut in astrometry-only tutorials) produces a reflex radial velocity of *exactly zero*. If you want to predict a reflex signal, give the companion a `mass` prior.
+
+### 2. Overlaying data you held out
+
+We have RVs in `rv_obs` that the fit never saw. To draw them against the prediction, build a second system that contains them and hand it the **same chain**:
+
+```@example heldout
+sys_pred = System(name="Tutoria2", bodies=[A, B],
+    observations=[astrom_obs, rv_obs],   # RVs added for plotting only
+    variables=@variables begin
+        plx ~ truncated(Normal(25.0, 0.05), lower=0.1)
+    end)
+model_pred = Octofitter.LogDensityModel(sys_pred)
+
+octoplot(model_pred, chain; channels=radvel, show_sky=false)
+```
+
+`model_pred` is never sampled. It exists so that the plotting layer — and `Octofitter.residuals` below — can evaluate the held-out observation under each posterior draw, using the *likelihood's* own arithmetic rather than a hand-rolled reimplementation. The draws are still the astrometry-only posterior; all that changed is that there is now something to compare them to.
+
+The strip underneath shows, per epoch, the distribution of `(data − model)/σ` over the draws. It is many tens of σ wide because the prediction is much coarser than a 30 m/s measurement — see the score below for that number — but it is centred on zero, which is the thing to check.
+
+!!! warning "Keep the held-out observation free of fitted variables"
+    The chain has one column per free variable of the model that produced it. If the held-out observation declares its own `@variables` (an RV `offset`, a `jitter`), `model_pred` has free variables the chain cannot supply, and you will get a `MethodError: no method matching Float64(::Missing)` when the plot tries to rebuild a draw.
+
+    So either leave the held-out observation's variables off, as here — the zero point is then fixed at 0, which is what our simulated data were generated with — or, if the real dataset has an unknown zero point, fit *that one nuisance parameter* separately rather than pretending the prediction covers it. A prediction of an RV curve whose offset you have not measured is a prediction of its *shape*, not of its absolute values.
+
+### 3. Residuals, by eye and by number
+
+For residuals in physical units, look at a single draw. Raw residuals are only well defined per draw — each carries its own jitters, offsets and trends — so [`rvplot`](@ref) is the right figure, and it also folds the signal on the orbit's period:
+
+```@example heldout
+rvplot(model_pred, chain)
+```
+
+The residual strip is now in m/s. The points sit a few hundred m/s from the highest-posterior-density draw, in a coherent pattern rather than as scatter: the predicted *shape* is right and the predicted *amplitude* is slightly off, which is the mass-ratio uncertainty from before showing up in data space. Nothing here was fitted to these points.
+
+To put a number on it, compute the log predictive density of each held-out point under the posterior — the standard "how surprised is the model by data it never saw" score. [`obscontext`](@ref) gives the evaluation context of an observation under one draw, and `Octofitter.residuals` returns the calibrated data, model, residual and effective uncertainty for each of its channels:
+
+```@example heldout
+using Statistics
+
+series = PosteriorSeries(model_pred, chain; N=200)
+S = length(series)
+
+# The likelihood's own residuals for the held-out RVs, under every draw.
+res = [Octofitter.residuals(rv_obs, obscontext(series, rv_obs; draw=s)).rv for s in 1:S]
+
+logmeanexp(x) = (m = maximum(x); m + log(mean(exp, x .- m)))
+
+# log p(yₖ | y_astrom) ≈ log (1/S) Σₛ N(yₖ | modelₖₛ, σ_effₖₛ)
+lpd = map(eachindex(rv_obs.table.epoch)) do k
+    logmeanexp([-0.5*(r.resid[k]/r.σ_eff[k])^2 - log(r.σ_eff[k]) - 0.5log(2π)
+                for r in res])
+end
+elpd = sum(lpd)
+```
+
+A single number means little on its own, so quote it against two references you can write down in one line each: the score a model that hit every point exactly would get, and the score of the "no companion at all" null.
+
+```@example heldout
+y, σ = rv_obs.table.rv, rv_obs.table.σ_rv
+n = length(y)
+
+best = sum(@. -log(σ) - 0.5log(2π))                            # perfect prediction
+null = sum(@. -0.5*(y/σ)^2 - log(σ) - 0.5log(2π))              # no companion
+
+(; elpd, best, null,
+   per_point = elpd/n,
+   coarseness = exp((best - elpd)/n))
+```
+
+Read that as: the astrometry-only fit predicts these radial velocities enormously better than "no companion" (tens of thousands of nats), and falls short of a perfect prediction by about 2.3 nats per point. When the residuals are small compared with the predictive width, that shortfall is just `log(predictive σ / measurement σ)` — so `coarseness` says the prediction is roughly ten times coarser than the measurements. The fit really does predict these data; it simply cannot predict them to 30 m/s, and now you know by how much.
+
+Finally, the by-eye version of the same thing: each held-out point standardized by the *total* predictive spread (model spread across draws, plus measurement noise).
+
+```@example heldout
+zs = map(eachindex(y)) do k
+    μ = mean(r.model[k] for r in res)
+    sd = sqrt(var(r.model[k] for r in res) + mean(r.σ_eff[k]^2 for r in res))
+    (y[k] - μ) / sd
+end
+
+fig = Figure(size=(680, 260))
+ax = Axis(fig[1,1], xlabel="epoch [MJD]",
+    ylabel="(held-out − predicted) / predictive σ")
+hspan!(ax, -2, 2, color=(:grey, 0.15))
+hspan!(ax, -1, 1, color=(:grey, 0.2))
+hlines!(ax, [0.0], color=:black)
+scatter!(ax, collect(rv_obs.table.epoch), zs, markersize=10)
+ylims!(ax, -3, 3)
+fig
+```
+
+Every point lands inside 1σ of the prediction: the model passed. Do read this plot with its correlations in mind — these ten points are not ten independent tests, because a single error in the companion's mass moves all of them the same way, so a run of same-sign z-values is expected and a tight cluster near zero is not evidence that the predictive band is too wide.
+
+The same three steps work for any pair of observation types, in either direction: predict astrometry from an RV fit, predict a Gaia along-scan signal from a fit to imaging, or hold out the last season of a long RV campaign and check that the rest of it saw the turnover coming. If instead you want to leave out each point in turn without refitting, that is [Cross-Validation](@ref cross-validation).
