@@ -1031,6 +1031,42 @@ function mapcurve(series::PosteriorSeries, query)
 end
 export mapcurve
 
+"""
+    phasebinmeans(x, y, w, nbins) -> (; centre, mean, sigma)
+
+Noise-weighted means of `y` in `nbins` equal bins of phase across `[-0.5,
+0.5)`, with `w` the weights a phase-folded panel pools over its instruments
+(`1/σ_eff²`, so jitter and any fitted correlated-noise term are in them).
+`sigma` is the weighted scatter of the points that went into the bin — the
+v8 `rvpostplot` convention.
+
+**Bins holding fewer than two points are not returned at all.** A mean of one
+point is that point: drawing it as a binned mean moves it from its own phase
+to the bin centre, and gives it the scatter of a single value — zero — in
+place of the error bar it already has on the axis. That is invisible when the
+bins are full and is the entire plot when they are not, so a fold with fewer
+points than bins yields no binned series rather than a red copy of its own
+data, one mark per measurement, each shouldered sideways and each claiming
+perfect precision.
+
+Returns three same-length vectors, one entry per drawn bin.
+"""
+function phasebinmeans(x, y, w, nbins::Integer)
+    edges = range(-0.5, 0.5, length=nbins + 1)
+    centre = Float64[]
+    means = Float64[]
+    sigma = Float64[]
+    for i in 1:nbins
+        m = (edges[i] .<= x) .& (x .< edges[i+1])
+        count(m) > 1 || continue
+        pw = ProbabilityWeights(w[m])
+        push!(centre, (edges[i] + edges[i+1]) / 2)
+        push!(means, mean(y[m], pw))
+        push!(sigma, std(y[m], pw))
+    end
+    return (; centre, mean=means, sigma)
+end
+
 # ---------------------------------------------------
 # Default panel derivation
 # ---------------------------------------------------

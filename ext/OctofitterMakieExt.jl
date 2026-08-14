@@ -22,7 +22,7 @@ using Octofitter
 using Octofitter: PosteriorSeries, ObservableQuery, PlotChannel, OctoPlotResult,
     plotchannels, obscontext, modelcurves, default_sky_queries, default_queries,
     plottable_observations, likelihoodname, refspecs, defaultpanels,
-    rowsignal, evalsignal, foldablerows, foldephemeris, foldphase,
+    rowsignal, evalsignal, foldablerows, foldephemeris, foldphase, phasebinmeans,
     sharepanel, datacalibration, noisemodel, predictedchannels,
     _query, _querystr, _refstr, _solvekw, _isprior, _calibration,
     _requestedobservables
@@ -882,8 +882,12 @@ the actual model over one osculating period anchored at the data midpoint —
 periodicity is then an approximation, which is why `octoplot` only adds
 phase panels automatically under `KeplerianApprox`.
 
-Noise-weighted binned means (grey-to-red points) pool all instruments;
-the residual strip below shows the same residuals as the time panel against
+Noise-weighted binned means (grey-to-red points) pool all instruments, over
+`nbins` bins of phase; a bin has to hold at least two points to be drawn,
+since a "mean" of one is the measurement itself, already on the axis with its
+own error bar. A fold with fewer points than bins therefore shows no binned
+series at all, and `show_binned=false` turns them off outright.
+The residual strip below shows the same residuals as the time panel against
 phase (whitened by default when more than one draw is shown, and then as a
 per-point boxplot — see [`timeseriespanel!`](@ref)). `show_resid=false`
 drops it — folding does not change a residual's value, so where a time panel
@@ -1046,15 +1050,23 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
 
         # Noise-weighted binned means (the rvpostplot idiom, with the bin
         # mask half-width fixed).
+        #
+        # A bin holding a single point is not a mean of anything, and drawing
+        # it as one says three false things at once: the mark lands on the bin
+        # *centre* rather than on the measurement's own phase, it is bigger
+        # and redder than the measurement, and its error bar is the scatter of
+        # one value — zero — where the measurement's own is several m/s. In
+        # the sparse limit every bin is that bin (ten points against twenty
+        # bins gave ten zero-width red marks, each shouldered off its own
+        # datum), so the binned series buried exactly the data it was made
+        # from. Skip them: the points are already drawn, with their real
+        # error bars, and a fold with fewer points than bins simply gets no
+        # binned series — which is the honest answer. Bins with two or more
+        # points are untouched, so a well-sampled figure is unchanged.
         if show_binned && !isempty(pooled_x)
-            edges = range(-0.5, 0.5, length=nbins + 1)
-            for i in 1:nbins
-                m = (edges[i] .<= pooled_x) .& (pooled_x .< edges[i+1])
-                count(m) == 0 && continue
-                w = ProbabilityWeights(pooled_w[m])
-                μ = mean(pooled_y[m], w)
-                σ = count(m) > 1 ? std(pooled_y[m], w) : 0.0
-                c = (edges[i] + edges[i+1]) / 2
+            b = phasebinmeans(pooled_x, pooled_y, pooled_w, nbins)
+            for i in eachindex(b.centre)
+                c, μ, σ = b.centre[i], b.mean[i], b.sigma[i]
                 Makie.errorbars!(ax, [c], [μ], [σ]; color=:black, linewidth=2)
                 Makie.scatter!(ax, [c], [μ];
                     color=:red, markersize=9, strokecolor=:black, strokewidth=1.5)

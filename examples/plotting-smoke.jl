@@ -294,6 +294,71 @@ rvplot(m3, c3; fname=joinpath(OUT, "09-rvplot-gp.png"))
 octoplot(m3, c3; N=20, ndraws=6, fname=joinpath(OUT, "10-octoplot-gp.png"))
 ok("GP figures draw")
 
+step("the sparse limit: fewer measurements than phase bins")
+# One RV instrument with n points, folded onto 20 bins. What used to happen
+# below n≈2·nbins is that every bin held one point, so the "binned means" were
+# a red copy of the data — each mark shifted to its bin centre and given the
+# scatter of a single value, which is zero. The marks are found on the drawn
+# figure rather than recomputed: the errorbar of a binned mean is the only one
+# on a phase panel with linewidth 2, and it carries (x, y, err).
+function sparse_rv_model(n; seed=5)
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.0
+    end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass ~ Uniform(0.0049, 0.0051)
+        a ~ Uniform(0.999, 1.001)
+        e = 0.05; i = 1.2; ω = 0.4; Ω = 1.0; tp = 59000.0
+    end)
+    ep = n == 1 ? [59100.0] : collect(range(59000.0, 59360.0, length=n))
+    rng = Xoshiro(seed)
+    rv = 30 .* sin.(2π .* (ep .- 59000) ./ 365) .+ 100 .+ 3 .* randn(rng, length(ep))
+    obs = RadialVelocityObs(Table(epoch=ep, rv=rv, σ_rv=fill(4.0, length(ep)));
+        target=A, ref=Barycentre, name="HARPS",
+        variables=@variables begin
+            offset = 100.0
+            jitter = 1.0
+        end)
+    sys = Octofitter.System(name=Symbol("sparse", n), bodies=[A, b], observations=[obs],
+        variables=@variables begin
+            plx = 25.0
+        end)
+    return Octofitter.LogDensityModel(sys, verbosity=0)
+end
+
+function binmarks(ax)
+    out = NTuple{3,Float64}[]
+    for p in ax.scene.plots
+        (hasproperty(p, :linewidth) && p.linewidth[] == 2) || continue
+        vals = try
+            p[1][]
+        catch
+            continue
+        end
+        for v in vals
+            length(v) == 4 && push!(out, (v[1], v[2], v[3]))
+        end
+    end
+    return out
+end
+
+for n in (1, 2, 3, 5, 10)
+    m = sparse_rv_model(n)
+    c = fakechain(m, 20; seed=13)
+    r = rvplot(m, c; fname=joinpath(OUT, "11-sparse-n$(lpad(n, 2, '0')).png"))
+    marks = binmarks(r.axes.rv_phase_b.main)
+    check(all(isfinite(x) && isfinite(y) && isfinite(e) for (x, y, e) in marks),
+        "n=$n: every binned mark drawn is finite")
+    check(all(e > 0 for (_, _, e) in marks),
+        "n=$n: no binned mark claims zero uncertainty ($(length(marks)) drawn)")
+end
+
+let m = sparse_rv_model(60), c = fakechain(m, 20; seed=13)
+    marks = binmarks(rvplot(m, c; fname=joinpath(OUT, "11d-dense-n60.png")).axes.rv_phase_b.main)
+    check(length(marks) == 20, "60 points over 20 bins still bins into all 20")
+    check(all(e > 0 for (_, _, e) in marks), "and every one has a real error bar")
+end
+
 step("animation")
 mktempdir() do d
     f = Octofitter.rvplot_animated(model, chain; N=3, fname=joinpath(d, "rv.gif"))

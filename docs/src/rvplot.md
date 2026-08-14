@@ -77,6 +77,13 @@ signals removed exactly (through the reference grammar, not plot-side
 subtraction), the isolated single-planet model curve, and noise-weighted binned
 means in red. Phase zero is the signal's upward zero crossing, as before.
 
+A bin has to hold at least two points to be drawn: the "mean" of a single
+measurement is that measurement, and drawing it as one would move it from its
+own phase to the bin centre and replace its error bar with the scatter of one
+value, which is zero. A fold with fewer points than bins (`nbins=20` by
+default) therefore shows its measurements and no binned series — lower `nbins`
+if you want binning on a short series, or `show_binned=false` to turn it off.
+
 ### Correlated noise
 Where a `gaussian_process` was fitted, its prediction is drawn as a band around
 the model curve, subtracted from the residuals, and folded into `σ_eff`. See

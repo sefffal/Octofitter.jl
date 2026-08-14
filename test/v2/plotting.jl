@@ -281,6 +281,81 @@ end
     @test defaultpanels(obs.rvs) === ()
 end
 
+@testset "phase-fold binned means, down to one measurement" begin
+    pbm = Octofitter.phasebinmeans
+    σ = 4.0
+    wof(n) = fill(1 / σ^2, n)
+
+    # A bin is [lo, hi): 20 bins put the edges on multiples of 0.05.
+    b = pbm([-0.05, -0.04], [10.0, 20.0], wof(2), 20)
+    @test b.centre ≈ [-0.025]
+    @test b.mean ≈ [15.0]
+    @test length(b.sigma) == 1 && isfinite(b.sigma[1]) && b.sigma[1] > 0
+    # Equal weights: the weighted mean is the plain one, and `sigma` is the
+    # *uncorrected* weighted rms deviation — StatsBase's default for weighted
+    # `std`, and what v8 `rvpostplot` drew: √(Σw(y−μ)²/Σw) = 5, not the
+    # (n−1)-corrected 7.07.
+    @test b.sigma ≈ [sqrt(sum((([10.0, 20.0] .- 15.0) .^ 2)) / 2)]
+    @test b.sigma ≈ [Octofitter.std([10.0, 20.0], Octofitter.ProbabilityWeights(wof(2)))]
+
+    # Unequal weights pull the mean, exactly as Σwy/Σw.
+    let w = [1 / 1.0^2, 1 / 3.0^2]
+        bb = pbm([0.01, 0.02], [0.0, 12.0], w, 20)
+        @test bb.mean[1] ≈ sum(w .* [0.0, 12.0]) / sum(w)
+    end
+
+    # The sparse limit. One point is not a mean of itself: it is already on
+    # the axis at its own phase with its own error bar, and binning it would
+    # move it to the bin centre and give it a scatter of zero. So nothing is
+    # returned — no marks, no NaN, no zero-length error bars.
+    @test isempty(pbm([0.0966], [29.7], wof(1), 20).centre)
+    for n in (1, 2, 3, 5, 10)
+        x = n == 1 ? [0.0] : collect(range(-0.45, 0.45, length=n))  # ≤1 per bin
+        y = 30 .* sin.(2π .* x)
+        r = pbm(x, y, wof(n), 20)
+        @test isempty(r.centre) && isempty(r.mean) && isempty(r.sigma)
+    end
+
+    # Bins that hold a real average still draw, however few there are: three
+    # points, two of them sharing a bin.
+    let r = pbm([-0.44, -0.43, 0.31], [1.0, 3.0, 9.0], wof(3), 20)
+        @test length(r.centre) == 1
+        @test r.centre ≈ [-0.425]
+        @test r.mean ≈ [2.0]
+    end
+
+    # Dense data is untouched: 60 points over 20 bins is three per bin, and
+    # every bin comes back with the weighted mean and scatter of its own
+    # three points — the pre-existing v8 `rvpostplot` numbers.
+    let n = 60
+        x = collect(range(-0.5, 0.5, length=n + 1))[1:n]
+        y = 30 .* sin.(2π .* x) .+ 0.5 .* (-1) .^ (1:n)
+        w = wof(n)
+        r = pbm(x, y, w, 20)
+        @test length(r.centre) == 20
+        @test all(isfinite, r.mean) && all(isfinite, r.sigma)
+        @test all(>=(0), r.sigma)
+        edges = range(-0.5, 0.5, length=21)
+        for k in eachindex(r.centre)
+            @test r.centre[k] ≈ (edges[k] + edges[k+1]) / 2
+            m = (edges[k] .<= x) .& (x .< edges[k+1])
+            @test count(m) == 3
+            pw = Octofitter.ProbabilityWeights(w[m])
+            @test r.mean[k] ≈ Octofitter.mean(y[m], pw)
+            @test r.sigma[k] ≈ Octofitter.std(y[m], pw)
+        end
+    end
+
+    # Empty bins are skipped rather than drawn at zero: a fold with a gap has
+    # no mark in the gap, and the marks it does have are finite.
+    let x = vcat(fill(-0.44, 3), fill(0.31, 4)), y = vcat(fill(2.0, 3), fill(-5.0, 4))
+        r = pbm(x, y, wof(7), 20)
+        @test r.centre ≈ [-0.425, 0.325]
+        @test r.mean ≈ [2.0, -5.0]
+        @test all(isfinite, r.sigma)
+    end
+end
+
 @testset "multi-row signal decomposition" begin
     # Two planets about one star (astrocentric rows): the row signals of a
     # linear observable must sum to the full query.
