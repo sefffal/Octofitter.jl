@@ -239,10 +239,39 @@ only happens for an *observable* (`radvel`, `pmra`); naming a *channel*
 (`channels=:rv`) means "the RV data", and asking for data a fit does not have is
 not a request to invent it.
 
-## Zoom the time axis
+## Set the time range
 
-Every time panel shares one x axis, so set the limits on any of them and the whole
-stack follows. Epochs are MJD numbers; [`mjd`](@ref) converts a date string:
+The model curves are drawn over an epoch grid `octoplot` chooses: your data, padded
+slightly and widened to at least one orbital period. You can see it:
+
+```@example 1
+res = octoplot(model, chain; N=50)
+mjd2date.(extrema(res.series.ts))
+```
+
+`tmin=` and `tmax=` move either end of it. Each takes an MJD number, a date string,
+or a `Date` — so this is how you ask what the orbit does after your last
+measurement:
+
+```@example 1
+octoplot(model, chain; N=50, tmax="2035-01-01")
+```
+
+The point density is unchanged (the grid is still sized per orbital period), and
+only the end you name moves; the other one is still derived from the data. `ts=`
+replaces the grid outright with epochs of your own:
+
+```@example 1
+octoplot(model, chain; N=50, ts=mjd("2015-01-01"):30.0:mjd("2025-01-01"))
+nothing # hide
+```
+
+These belong to the [`PosteriorSeries`](@ref), so if you build one yourself, pass
+them there instead — `PosteriorSeries(model, chain; tmax="2035-01-01")` — and
+`rvplot` takes them too.
+
+To *zoom in* on a range the grid already covers, every time panel shares one x axis,
+so setting the limits on any of them moves the whole stack:
 
 ```@example 1
 res = octoplot(model, chain; N=50)
@@ -250,20 +279,17 @@ xlims!(res.axes.raoff.main, mjd("2012-01-01"), mjd("2018-01-01"))
 res.figure
 ```
 
-The model curves exist over the epoch grid `octoplot` chose, which you can inspect:
-
-```@example 1
-mjd2date.(extrema(res.series.ts))
-```
-
-That grid covers your data, padded slightly and widened to at least one orbital
-period, so zooming out past it will show empty axes rather than more curve. There
-is no keyword to extend it — to evaluate the orbit at epochs of your own choosing,
-see [Positions at future epochs](@ref octoplot-future-epochs).
+`xlims!` cannot show you anything *outside* the grid, though: there is no curve out
+there to draw, so zooming out past it gives empty axes. Use `tmin`/`tmax` for that.
 
 !!! tip
     `ylims!` is *not* linked, so you can set a vertical range on one panel without
     touching the others.
+
+!!! note "Epochs of your own, without a figure"
+    To evaluate the orbit at particular epochs and get numbers back rather than a
+    plot, solve the system directly — see
+    [Positions at future epochs](@ref octoplot-future-epochs).
 
 ## Change titles, labels and limits
 
@@ -401,13 +427,42 @@ Slicing works for every plotting function, not just this one.
 
 ## Colours and marker styles
 
-`octoplot` picks its colours itself and has no colour keywords: each orbit row gets
-an accent colour that its sky track and its panels share, and each instrument on a
-shared panel gets its own colour *and* its own marker shape (so datasets stay
-separable in greyscale print). `legend=false` drops the instrument key.
+By default each orbit gets an accent colour that its sky track and its panels share,
+and each instrument on a shared panel gets its own colour *and* its own marker shape
+(so datasets stay separable in greyscale print). `legend=false` drops the instrument
+key.
 
-To choose the colours, build the panel yourself — [`timeseriespanel!`](@ref) and
-[`phasefoldpanel!`](@ref) accept `curvecolor=` and a `datastyle=` NamedTuple:
+`curvecolor=` sets the model curves' colour. One colour applies to the whole figure:
+
+```@example 1
+octoplot(model, chain; N=50, curvecolor=:firebrick)
+```
+
+The sky panel builds its phase ramp from that colour rather than replacing it, so
+the tracks still fade with orbital phase. To recolour one orbit at a time in a
+multi-planet fit, pass a `NamedTuple` or `Dict` keyed by **body name**; a body you
+do not name keeps its default:
+
+```@example 1
+octoplot(model, chain; N=50, curvecolor=(; b=:firebrick))
+nothing # hide
+```
+
+The key is a body because that is what a colour means here: `:b` recolours planet
+`b`'s sky track, its astrometry panels and its phase folds together, and `:A` would
+recolour the star's own signal (the radial-velocity panels). Instrument colours and
+marker shapes stay automatic — on a shared panel they are the only thing saying
+whose point is whose.
+
+`datastyle=` is a NamedTuple of mark overrides, applied to every panel:
+
+```@example 1
+octoplot(model, chain; N=50, datastyle=(; markersize=10, σ_color=:instrument))
+nothing # hide
+```
+
+The same two keywords are accepted by the individual panels, where `curvecolor=` is
+a single colour for that panel:
 
 ```@example 1
 fig = Figure(size=(600, 320))
@@ -416,6 +471,9 @@ timeseriespanel!(fig[1, 1], series, entries;
     datastyle  = (; markersize=10, σ_color=:instrument))
 fig
 ```
+
+[`skypanel!`](@ref) takes `curvecolor=` as well — there it is the colour the phase
+ramp is built from.
 
 `datastyle` accepts `markersize`, `resid_markersize`, `strokewidth`, `σ_linewidth`,
 `σ_color`, `σeff_linewidth` and `σeff_color`; an unrecognised key is an error rather
@@ -436,13 +494,18 @@ the panels and are not read from the theme.
 | `whiten=nothing` | Divide residuals by their uncertainty (default: on when several draws are shown, and required then) |
 | `boxwidth=nothing` | Width of the residual boxes in x units (default: from the epoch spacing) |
 | `gpband=nothing` | Correlated-noise bands (default: on only for a single draw) |
+| `tmin=nothing`, `tmax=nothing` | Ends of the epoch grid — MJD, a date string, or a `Date` (default: from the data and the period) |
+| `ts=nothing` | The epoch grid itself, replacing the automatic one |
+| `curvecolor=nothing` | Model-curve colour: one colour, or a `Dict`/`NamedTuple` keyed by body name |
+| `datastyle=nothing` | Marker and error-bar overrides for every panel |
 | `legend=true` | Instrument keys on the sky and shared data panels |
 | `figscale=1.0` | Scale the whole figure |
 | `figure=nothing` | Draw into an existing (emptied) `Figure` rather than a new one |
 | `fname=nothing` | If set, save the figure to this path |
 
-`N` and `seed` belong to the `octoplot(model, chain; ...)` form; if you build a
-[`PosteriorSeries`](@ref) yourself, they are its keywords instead.
+`N`, `seed`, `tmin`, `tmax` and `ts` belong to the `octoplot(model, chain; ...)`
+form; if you build a [`PosteriorSeries`](@ref) yourself, they are its keywords
+instead.
 
 ## Related figures
 

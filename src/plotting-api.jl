@@ -871,7 +871,8 @@ noisemodel(obs::ObsPriorONeil2019, ctx::ObsContext, epochs) =
 
 """
     PosteriorSeries(model, chain; N=250, seed=0, ii=nothing,
-                    points_per_period=30, max_points=1000)
+                    points_per_period=30, max_points=1000,
+                    tmin=nothing, tmax=nothing, ts=nothing)
 
 Everything the plot layer needs from a fit, computed once and shared by
 every panel:
@@ -889,6 +890,26 @@ every panel:
 
 Accepts a chain from `octofit` or any `MCMCChains.Chains` with matching
 parameter names.
+
+## The epoch grid
+
+By default the grid spans the data, padded 1.5 %, widened to at least the
+35th-percentile orbital period over the draws, and clamped to 1900–2100. Since
+every panel draws its curves over exactly this grid — and clips its axis to it
+— it is also what sets how far past your data the figure extends.
+
+  - `tmin=` / `tmax=` replace one end of that span, keeping the automatic
+    point density (`points_per_period`, `max_points`). Each is an MJD number,
+    a date string (`tmax="2035-01-01"`), or a `Date`/`DateTime`; see
+    [`mjd`](@ref). `tmin >= tmax` is an error.
+  - `ts=` replaces the grid outright with the epochs you give (sorted, and
+    duplicates dropped). The data epochs are *not* merged in as they are for
+    the automatic grid, so a coarse `ts=` can step over fine structure — pass
+    the epochs you want the curve evaluated at, and nothing else.
+
+Give either `ts=` or `tmin=`/`tmax=`, not both. Data outside an explicitly
+requested window is still drawn as points (its residuals do not depend on this
+grid); only the model curves stop at the window's edge.
 """
 struct PosteriorSeries{TM,TC,TTh,TSys,TTr,TTrd,TThm,TSysm,TTrdm}
     model::TM
@@ -912,9 +933,16 @@ _solvekw(sys::System) = (; method=sys.method,
     observing_geometry=sys.observing_geometry,
     barycentric_lighttime=sys.barycentric_lighttime)
 
+# An epoch the user typed, as MJD: a number is already one, and anything else
+# (a date string, a `Date`, a `DateTime`) goes through `mjd`, which is the
+# conversion the rest of the package documents.
+_asmjd(t::Real) = Float64(t)
+_asmjd(t) = Float64(mjd(t))
+
 function PosteriorSeries(model::LogDensityModel, chain::MCMCChains.Chains;
                          N::Integer=250, seed::Integer=0, ii=nothing,
-                         points_per_period::Integer=30, max_points::Integer=1000)
+                         points_per_period::Integer=30, max_points::Integer=1000,
+                         tmin=nothing, tmax=nothing, ts=nothing)
     sys = model.system
     nsamples = size(chain, 1) * size(chain, 3)
     if ii === nothing
@@ -933,6 +961,10 @@ function PosteriorSeries(model::LogDensityModel, chain::MCMCChains.Chains;
     sys_map = construct_system(model, θ_map)
 
     data_epochs, data_maps = epoch_plan(sys)
+
+    ts === nothing || (tmin === nothing && tmax === nothing) || error(
+        "give either `ts=` (the whole plotting grid) or `tmin=`/`tmax=` " *
+        "(the ends of the automatic one), not both")
 
     # Dense grid: data span padded 1.5 %, widened to at least the
     # 35th-percentile period over draws and rows, then per-row point
@@ -966,10 +998,28 @@ function PosteriorSeries(model::LogDensityModel, chain::MCMCChains.Chains;
     if t_stop <= t_start
         t_stop = t_start + 1.0
     end
-    ts = PlanetOrbits.plot_epochs(sys_map, t_start, t_stop; points_per_period, max_points)
-    # Model curves must hit the data epochs exactly (fine structure between
-    # grid points otherwise slips through — the rvpostplot lesson).
-    ts = sort!(unique!(vcat(ts, data_epochs)))
+    # An explicit end wins over the derivation above, including over the
+    # 1900–2100 clamp: a user asking to see the orbit in 2150 is asking for it.
+    tmin === nothing || (t_start = _asmjd(tmin))
+    tmax === nothing || (t_stop = _asmjd(tmax))
+    t_start < t_stop || error(
+        "the plotting epoch range is empty: tmin=$t_start is not before tmax=$t_stop")
+
+    if ts === nothing
+        ts = PlanetOrbits.plot_epochs(sys_map, t_start, t_stop; points_per_period, max_points)
+        # Model curves must hit the data epochs exactly (fine structure between
+        # grid points otherwise slips through — the rvpostplot lesson). A
+        # requested window is a window, though: a data epoch outside it would
+        # be merged back in and stretch every panel's axis past what was asked
+        # for, so there it is the window that wins.
+        extra = (tmin === nothing && tmax === nothing) ? data_epochs :
+                filter(t -> t_start <= t <= t_stop, data_epochs)
+        ts = sort!(unique!(vcat(ts, extra)))
+    else
+        ts = sort!(unique!(collect(Float64, ts)))
+        isempty(ts) && error("`ts=` is empty: give at least one epoch to solve at")
+        all(isfinite, ts) || error("`ts=` contains a non-finite epoch")
+    end
 
     kw = _solvekw(sys)
     trajs = map(s -> orbitsolve(s, ts; kw...), systems)
@@ -1283,6 +1333,11 @@ annotation: `text!(res.axes.sky, ...)`), and the underlying
 channel or observable name, or a collection of either. A `channels=` the
 model has no data for is drawn as a **prediction**: the model curves alone,
 over the queries [`default_queries`](@ref) picks.
+
+`tmin=`/`tmax=`/`ts=` set the epoch grid the curves are drawn over (see
+[`PosteriorSeries`](@ref)) — that, not `xlims!`, is how a figure is extended
+past the data — and `curvecolor=`/`datastyle=` override the model-curve
+colours and the data marks.
 
 This is the **many-draw** figure, and three of its defaults follow from that:
 residuals are whitened and each point carries the boxplot of its z-score over

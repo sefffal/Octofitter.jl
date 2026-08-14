@@ -197,6 +197,96 @@ res_1 = octoplot(model, chain; N=40, ndraws=1,
 check(any(k -> occursin("_phase_", String(k)), keys(res_1.axes)),
     "ndraws=1 brings the phase panels back")
 
+step("the epoch grid: tmin/tmax/ts")
+# Every panel clips its axis to `series.ts`, so extending the grid is the only
+# way to see the orbit past the data — and the curves have to actually reach
+# the new edge, not stop where the data did.
+let tlast = maximum(series.data_epochs)
+    res_ext = octoplot(model, chain; N=40, tmax=tlast + 3650, show_sky=false,
+        fname=joinpath(OUT, "01d-octoplot-extended.png"))
+    ax = res_ext.axes.rv_HARPS.main
+    check(res_ext.series.ts[end] ≈ tlast + 3650, "tmax moves the grid's far end")
+    # The drawn curve's own extent, from the plot object rather than the axis.
+    xhi = -Inf
+    for p in ax.scene.plots
+        p isa Makie.Lines || continue
+        for pt in p[1][]
+            v = pt isa Number ? pt : pt[1]
+            isfinite(v) && (xhi = max(xhi, v))
+        end
+    end
+    check(xhi ≈ tlast + 3650, "and the model curves reach it ($(round(xhi)))")
+    res_grid = octoplot(model, chain; N=40, show_sky=false,
+        ts=range(59000.0, 59700.0, length=71),
+        fname=joinpath(OUT, "01e-octoplot-explicit-grid.png"))
+    check(res_grid.series.ts == collect(range(59000.0, 59700.0, length=71)),
+        "`ts=` is the grid, verbatim")
+    octoplot(model, chain; N=40, ndraws=1, tmax=tlast + 3650,
+        fname=joinpath(OUT, "01f-octoplot-extended-one-draw.png"))
+    ok("phase folds and residual strips draw over an extended grid")
+end
+
+step("curvecolor= and datastyle= reach every panel")
+# The colour a panel draws its model curves in, read back off the figure: a
+# `Lines` with a scalar colour is a model curve (the sky panel's tracks carry a
+# per-vertex colour array and a colormap instead).
+function curvecolours(ax)
+    out = Makie.RGBAf[]
+    for p in ax.scene.plots
+        p isa Makie.Lines || continue
+        c = p.color[]
+        c isa AbstractArray && continue
+        push!(out, Makie.to_color(c))
+    end
+    return out
+end
+function rampbase(ax)
+    for p in ax.scene.plots
+        (p isa Makie.Lines && hasproperty(p, :colormap)) || continue
+        p.colormap[] === Makie.automatic && continue
+        return first(Makie.to_colormap(p.colormap[]))
+    end
+    return nothing
+end
+_rgb(c) = (c.r, c.g, c.b)
+let r_def = octoplot(model, chain; N=20),
+    r_one = octoplot(model, chain; N=20, curvecolor=:firebrick,
+        datastyle=(; markersize=12),
+        fname=joinpath(OUT, "12-curvecolor.png")),
+    fire = Makie.to_color(:firebrick)
+
+    check(all(c -> _rgb(c) == _rgb(fire), curvecolours(r_one.axes.rv_HARPS.main)) &&
+          all(c -> _rgb(c) == _rgb(fire), curvecolours(r_one.axes.sep.main)),
+        "one colour recolours every time panel's curves")
+    check(_rgb(rampbase(r_one.axes.sky.sky)) == _rgb(fire),
+        "…and the colour the sky panel's phase ramp is built from")
+    check(_rgb(rampbase(r_def.axes.sky.sky)) == _rgb(MExt._rowcolor(1)),
+        "the default is still the row's accent colour")
+    sizes = [p.markersize[] for p in r_one.axes.rv_HARPS.main.scene.plots if p isa Makie.Scatter]
+    check(all(s -> all(≈(12), s), sizes), "datastyle= reaches the marks ($(length(sizes)) series)")
+end
+let r_body = octoplot(model, chain; N=20, curvecolor=(; b=:purple),
+        fname=joinpath(OUT, "12b-curvecolor-per-body.png")),
+    r_def = octoplot(model, chain; N=20),
+    purple = Makie.to_color(:purple)
+
+    check(_rgb(rampbase(r_body.axes.sky.sky)) == _rgb(purple) &&
+          all(c -> _rgb(c) == _rgb(purple), curvecolours(r_body.axes.sep.main)),
+        "a body-keyed mapping recolours that body's orbit everywhere")
+    # `radvel(:A, Barycentre)` is the *star's* signal, so `(; b=…)` leaves it
+    # alone — the mapping is keyed by the body whose motion is drawn.
+    check(_rgb.(curvecolours(r_body.axes.rv_HARPS.main)) ==
+          _rgb.(curvecolours(r_def.axes.rv_HARPS.main)),
+        "a body the mapping does not name keeps its default")
+end
+try
+    octoplot(model, chain; N=20, datastyle=(; markersizes=8))
+    bad("a misspelled datastyle key was silently ignored by octoplot")
+catch e
+    check(occursin("markersizes", sprint(showerror, e)),
+        "octoplot's datastyle= validates its keys too")
+end
+
 step("residual boxes: width against the axis, not the entry's own extent")
 # K2-131's HARPS-N cadence — several exposures a night, on a two-month
 # baseline, with one instrument covering only part of it. This is the case

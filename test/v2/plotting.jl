@@ -145,6 +145,50 @@ end
     @test Octofitter._refstr(qs[1][1].ref) == "A"
 end
 
+@testset "the plotting epoch grid can be set" begin
+    # Every panel draws over `series.ts` and clips its axis to it, so this is
+    # the only way to see the orbit outside the data — `xlims!` past the grid
+    # gives an empty axis, not more curve.
+    model, obs = _plotting_test_model()
+    rng = Xoshiro(21)
+    nts = [model.arr2nt(collect(model.sample_priors(rng))) for _ in 1:10]
+    chain = Octofitter.result2mcmcchain(nts)
+    auto = PosteriorSeries(model, chain; N=3)
+    tlast = maximum(auto.data_epochs)
+
+    # One end at a time: the other stays exactly where the derivation put it.
+    ext = PosteriorSeries(model, chain; N=3, tmax=tlast + 3650)
+    @test last(ext.ts) ≈ tlast + 3650
+    @test first(ext.ts) ≈ first(auto.ts)
+    @test issorted(ext.ts) && allunique(ext.ts)
+    # The grid is still allocated per orbital period rather than stretched over
+    # a fixed number of points, so a longer span gets more of them.
+    @test length(ext.ts) > length(auto.ts)
+    @test length(modelcurves(ext, (radvel, :A, Barycentre))[1]) == length(ext.ts)
+
+    # An epoch is an MJD number, or anything `mjd` understands.
+    @test last(PosteriorSeries(model, chain; N=2, tmax="2035-01-01").ts) ≈ mjd("2035-01-01")
+
+    # A window is a window: a data epoch outside it is not merged back in,
+    # which would stretch every panel's axis past what was asked for.
+    win = PosteriorSeries(model, chain; N=3, tmin=59300.0)
+    @test first(win.ts) ≈ 59300.0
+    @test all(>=(59300.0), win.ts)
+    @test 59000.0 in auto.ts          # …and it is there by default
+
+    # `ts=` replaces the grid outright.
+    grid = collect(59000.0:25.0:59700.0)
+    exact = PosteriorSeries(model, chain; N=3, ts=grid)
+    @test exact.ts == grid
+    @test length(modelcurves(exact, (radvel, :A, Barycentre))[1]) == length(grid)
+    @test exact.ts == PosteriorSeries(model, chain; N=3, ts=reverse(grid)).ts
+
+    @test_throws ErrorException PosteriorSeries(model, chain; N=2, tmin=60000.0, tmax=59000.0)
+    @test_throws ErrorException PosteriorSeries(model, chain; N=2, tmin=60000.0, tmax=60000.0)
+    @test_throws ErrorException PosteriorSeries(model, chain; N=2, ts=grid, tmax=60000.0)
+    @test_throws ErrorException PosteriorSeries(model, chain; N=2, ts=Float64[])
+end
+
 @testset "relative astrometry projects between its two bases" begin
     # (sep, pa) and (Δα*, Δδ) are the same measurement rotated, with no free
     # parameter in between, so a fit mixing the two conventions can put every
