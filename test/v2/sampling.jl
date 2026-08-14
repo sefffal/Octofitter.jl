@@ -137,6 +137,65 @@ end
     @test isempty(filter(r -> r.level >= Logging.Warn, logger2.logs))
 end
 
+@testset "a = 0 from the prior's own transform is -Inf, not NaN" begin
+    # The other end of the same story, and the one that was silent rather than
+    # loud. `a ~ Uniform(0, 100)` is a support *with* zero in it: the inverse
+    # of the bounded transform is `lo + (hi-lo)·logistic(y)`, and logistic
+    # underflows to exactly `0.0` at y ≲ -745. The prior density at the
+    # boundary is finite, so nothing rejects the draw — and downstream
+    # n = √(GM/a³) was `Inf`, J was `NaN`, every observable was `NaN`, and the
+    # log-density came back `NaN`. HMC reads a NaN as a divergence: no error,
+    # no warning, just wasted proposals. PlanetOrbits now rejects a ≤ 0 at
+    # construction, which routes it through the same quiet -Inf as above.
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.2
+    end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass = 0.0
+        a ~ Uniform(0, 100)          # note the 0: the support includes it
+        e = 0.1
+        i = 0.5
+        ω = 0.1
+        Ω = 0.2
+        tp = 50000.0
+    end)
+    obs = RelAstromObs((epoch=[57000.0, 57500.0], ra=[100.0, 110.0], dec=[50.0, 40.0],
+            σ_ra=[2.0, 2.0], σ_dec=[2.0, 2.0]); target=b, ref=A, name="astrom")
+    sys = Octofitter.System(name="underflow", bodies=[A, b], observations=[obs],
+        variables=@variables begin plx = 30.0 end)
+    model = Octofitter.LogDensityModel(sys; verbosity=0)
+
+    # Reproduce the *route*, not the destination: go in through the model's own
+    # transform from an unconstrained coordinate a sampler can propose, and let
+    # it underflow. Nothing here asserts a = 0 directly.
+    @test isfinite(model.ℓπcallback(model.link([3.0])))
+    θ_underflow = [-800.0]
+    @test model.invlink(θ_underflow)[1] === 0.0     # exactly, by underflow
+
+    logger = Test.TestLogger(min_level=Logging.Debug)
+    val = Logging.with_logger(logger) do
+        model.ℓπcallback(θ_underflow)
+    end
+    @test val == -Inf
+    @test !isnan(val)                               # the actual regression
+    @test isempty(filter(r -> r.level >= Logging.Warn, logger.logs))
+    @test any(r -> r.level == Logging.Debug &&
+                   occursin("outside the domain", r.message), logger.logs)
+
+    # And on the gradient path, which is the one that matters for HMC and the
+    # one a naive guard would miss: ForwardDiff orders `Dual`s
+    # lexicographically, so `0 < Dual(0.0, 1.0)` is `true` and a guard written
+    # against the `Dual` rather than its primal would pass here while
+    # rejecting the value call above. (PlanetOrbits guards on `_primal`.)
+    if model.∇ℓπcallback !== nothing
+        gval, _ = Logging.with_logger(Logging.NullLogger()) do
+            model.∇ℓπcallback(θ_underflow)
+        end
+        @test gval == -Inf
+        @test !isnan(gval)
+    end
+end
+
 @testset "construction failures that are *not* domain failures stay loud" begin
     # The classifier is the whole distinction: a bad proposal is the sampler
     # working, anything else is a defect that must not be swallowed.
