@@ -26,6 +26,18 @@ parameters rather than running blind initialization. This
 reduces sampling cost for this tutorial but means the completeness estimate is optimistic
 about convergence. Consider letting them initialize without that hint.
 
+!!! warning "A completeness map measures your sampler too"
+    A chain too short to converge gives a wrong answer in *either* direction,
+    and neither is distinguishable in the map from a real statement about the
+    data. On one trial of the Gaia DR4 example below — a 30 M_Jup companion at
+    20 AU, same seed and same simulated data throughout — 500 warmup + 500
+    sampling steps returned a mass posterior with median 38 M_Jup and a 5th
+    percentile of 3.9, a confident "detection"; 1000 + 1000 returned median
+    10 M_Jup with a 5th percentile of 0.1, essentially unconstrained, which is
+    the honest answer for an 89-year period observed over 5.3 years. Shrink the
+    *grid* when you want a cheaper map, not the chains — and read a few
+    posteriors by hand before trusting a whole map.
+
 ## A runnable miniature
 
 Before the cluster-scale recipe, here is the whole workflow at a size that finishes
@@ -152,8 +164,9 @@ sampler = model -> begin
 end
 ```
 
-Note the `.chain` unwrap above: `octofit_pigeons` returns `(;chain, pt)`,
-while `run_completeness_trial` wants a bare `Chains`.
+Note the destructuring in the last one: `octofit_pigeons` returns `(; chain, pt)`,
+while `run_completeness_trial` wants a bare `Chains`, so the sampler function has
+to return `chain` and drop `pt`.
 
 
 ## Choosing a detection criterion
@@ -239,24 +252,65 @@ or one element of a vector-valued prior, are addressed correctly.
 
 ## Gaia DR4 example
 
-Below is a pre-computed completeness map for Gaia DR4 epoch astrometry of a
-representative target (Gaia DR3 source 5064625130502952704, G=11.5 mag).
-The grid spans 0.1–100 M_Jup in mass and 0.5–50 AU in separation, with 5
-trials per cell (720 total), run as a SLURM array job.
+`examples/completeness_dr4/` is this workflow at cluster scale, against
+*simulated* Gaia DR4 epoch astrometry of a real star: Gaia DR3 source
+5064625130502952704, at **G = 6.94**, whose DR4 scan window holds 191 forecast
+field-of-view transits over 5.3 years.
+
+| file | role |
+|------|------|
+| `common.jl` | the target, the grid, the template model, `inject`, and the detection criterion — everything the entry points share |
+| `setup.jl` | queries DR3, GOST and the G23H noise calibration once and caches them to CSV |
+| `run_local.jl` | the whole workflow in one process; `OCTO_COMPLETENESS_QUICK=1` cuts it to a 2 × 2 smoke test |
+| `completeness_trial.jl` | one SLURM array element |
+| `assemble_results.jl` | phase 3 — apply the criterion, draw the map, re-threshold |
+| `setup_env.sh`, `submit.sh` | the cluster wiring |
+
+Neither the scan geometry nor the noise is invented. The transits come from
+GOST and the per-transit uncertainty from this source's *measured* G23H
+calibration, via [`gaia_dr4_transit_template`](@ref) and
+[`g23h_scan_uncertainty`](@ref); see
+[Simulating and Fitting Gaia DR4 Data](@ref data-simulation-dr4) for what each
+term means. For this star:
+
+| quantity | value |
+|---|---|
+| `σ_AL`, `σ_att` — per CCD observation, independent | 0.058, 0.078 mas |
+| `σ_formal` = √(σ_AL² + σ_att²) — per CCD | 0.097 mas |
+| `n_ccd` — CCD observations per transit | 8.82 |
+| `σ_transit_formal` = `σ_formal`/√`n_ccd` | 0.033 mas |
+| `σ_calib` — per transit, shared, not in Gaia's formal errors | 0.149 mas |
+| **`σ_transit_true`** — the actual per-transit scatter | **0.153 mas** |
+
+Gaia publishes one abscissa per *transit*, so the simulation is at transit
+level and `σ_transit_true` is what both the simulated scatter and the
+likelihood's error bar are set to.
 
 ![Gaia DR4 Completeness Map](assets/dr4_completeness_map_clean.png)
 
-Key features:
+!!! warning "This figure predates the calibrated noise model"
+    The map above was computed with the example's earlier, *invented* noise
+    budget — σ_att = σ_AL = σ_cal = 0.04 mas, so 0.069 mas per transit — which is
+    2.2× more precise than this star's measured 0.153 mas. It therefore
+    **overstates** the sensitivity, and its mass axis is in M_Jup rather than the
+    M⊙ that v9 plots. Read it for the shape, not for a threshold; rerun
+    `examples/completeness_dr4/` to get a map you can quote.
+
+The shape is the part that does not depend on the noise scale:
+
 - **Peak sensitivity at 1–5 AU** for massive companions, where the astrometric
-  signal is strongest relative to the DR4 time baseline (~5.5 years)
+  signal is largest relative to the DR4 time baseline (~5.3 years for this star)
 - **Sensitivity drops beyond ~10 AU** — orbital periods exceed the DR4 baseline,
-  so only partial orbits are observed
-- **Detection threshold ~5–10 M_Jup** at optimal separations for this noise level
-  (σ_true ≈ 0.069 mas per scan)
+  so only a partial arc is observed, and mass trades off against period
+- **A mass threshold that scales with the noise**: the detection floor moves
+  roughly in proportion to σ per transit, so quote it only from a map generated
+  with the σ of the star you care about
 
 ## Cluster-scale workflow
 
 For large grids or many trials, use the three-phase API with SLURM array jobs.
+The sketch below is the shape of it; `examples/completeness_dr4/` is a complete,
+runnable version of the same thing.
 
 ### Phase 1: Generate jobs (head node)
 
@@ -286,7 +340,7 @@ result = run_completeness_trial(
     inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep))),
 )
 
-serialize("results/trial_\$(lpad(ENV["SLURM_ARRAY_TASK_ID"], 4, '0')).jls", result)
+serialize("results/trial_$(lpad(ENV["SLURM_ARRAY_TASK_ID"], 4, '0')).jls", result)
 ```
 
 ### SLURM submission script
