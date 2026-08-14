@@ -1087,8 +1087,38 @@ export mapcurve
 Noise-weighted means of `y` in `nbins` equal bins of phase across `[-0.5,
 0.5)`, with `w` the weights a phase-folded panel pools over its instruments
 (`1/σ_eff²`, so jitter and any fitted correlated-noise term are in them).
-`sigma` is the weighted scatter of the points that went into the bin — the
-v8 `rvpostplot` convention.
+
+`sigma` is the error bar drawn on the binned mean: the larger of two
+estimates of the *same* quantity, the uncertainty of the mean itself.
+
+    σ_bin = max( 1/√(Σᵢ wᵢ),  s_w/√n )
+
+The first term is the analytic error on a weighted mean of independent
+measurements with `wᵢ = 1/σᵢ²` — the RadVel/juliet convention, and exactly
+right in the white-noise limit. The second is the bin's own weighted sample
+standard deviation over `√n`: what the points in the bin actually do, rather
+than what the noise model says they should. The two agree when the noise
+model is honest and the residuals are white; the empirical term takes over
+when the residuals inside a bin are correlated (a fitted Gaussian process
+doing real work will do exactly this) or the quoted uncertainties are too
+small. Taking the maximum keeps the analytic value as a **floor** — a mean of
+`n` measurements cannot be more precise than that — while still letting real
+unmodelled structure inflate the bar.
+
+`s_w` carries the frequency-weights bias correction,
+
+    s_w² = (Σᵢ wᵢ (yᵢ − μ)² / Σᵢ wᵢ) · n/(n−1)
+
+which is what StatsBase's `ProbabilityWeights` correction (`corrected=true`)
+computes, and is identical to StatsBase's `FrequencyWeights` `1/(Σw − 1)`
+correction applied to weights renormalised to sum to `n`. Renormalising is
+the whole point: `w` here is `1/σ²`, whose absolute scale is an inverse
+variance and not a sample size, so `FrequencyWeights(w)` reads `Σw` (≈ 0.19
+for three 4 m/s points) as the number of measurements and returns a
+*negative* variance. Only the *relative* weights carry information; only `n`
+counts points. Before v9 this term used StatsBase's uncorrected default — the
+plain weighted rms, biased low, and drawn as though it were the error on the
+mean rather than the spread about it.
 
 **Bins holding fewer than two points are not returned at all.** A mean of one
 point is that point: drawing it as a binned mean moves it from its own phase
@@ -1108,11 +1138,22 @@ function phasebinmeans(x, y, w, nbins::Integer)
     sigma = Float64[]
     for i in 1:nbins
         m = (edges[i] .<= x) .& (x .< edges[i+1])
-        count(m) > 1 || continue
-        pw = ProbabilityWeights(w[m])
+        n = count(m)
+        n > 1 || continue
+        wi = w[m]
+        pw = ProbabilityWeights(wi)
+        μ = mean(y[m], pw)
+        # The analytic error on the weighted mean, and the bin's own scatter
+        # about that mean. Neither alone is the error bar: the first believes
+        # the noise model, the second measures it. Their max is a floor of
+        # the one and a licence for the other. `corrected=true` is Bessel's
+        # n/(n−1) on the weighted rms — see the docstring for why the weights
+        # have to be read as relative rather than as counts.
+        analytic = 1 / sqrt(sum(wi))
+        empirical = std(y[m], pw; mean=μ, corrected=true) / sqrt(n)
         push!(centre, (edges[i] + edges[i+1]) / 2)
-        push!(means, mean(y[m], pw))
-        push!(sigma, std(y[m], pw))
+        push!(means, μ)
+        push!(sigma, max(analytic, empirical))
     end
     return (; centre, mean=means, sigma)
 end
@@ -1523,6 +1564,12 @@ everything here belongs to one sample and nothing is misrepresented.
 [`octoplot`](@ref) is the many-draws view and gives each instrument its own
 panel instead, with the data left uncalibrated and each draw's own offset and
 trend carried by its model curve.
+
+The red binned points on a phase panel carry the uncertainty *of the binned
+mean*, `max(1/√Σw, s_w/√n)`: the analytic weighted-mean error as a floor, and
+the bin's own bias-corrected weighted scatter over `√n` where the points
+disagree by more than the noise model allows. It is not the scatter of the
+points, which is what v8 drew. See [`phasebinmeans`](@ref).
 
 Requires a Makie backend. `rvplot_animated` records the same figure over
 successive single-draw slices of the chain.

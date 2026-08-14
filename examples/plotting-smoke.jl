@@ -445,8 +445,20 @@ end
 
 let m = sparse_rv_model(60), c = fakechain(m, 20; seed=13)
     marks = binmarks(rvplot(m, c; fname=joinpath(OUT, "11d-dense-n60.png")).axes.rv_phase_b.main)
+    errs = [e for (_, _, e) in marks]
     check(length(marks) == 20, "60 points over 20 bins still bins into all 20")
-    check(all(e > 0 for (_, _, e) in marks), "and every one has a real error bar")
+    check(all(e > 0 for e in errs), "and every one has a real error bar")
+    # A binned bar is the uncertainty of the *mean*, `max(1/√Σw, s_w/√n)`, so
+    # it can never fall below the analytic error on a mean of three points at
+    # σ_eff = √(4² + 1²): 2.381 m/s. Under the pre-v9 scatter convention seven
+    # of these twenty did, the smallest at 0.44 m/s.
+    floor60 = sqrt(4.0^2 + 1.0^2) / sqrt(3)
+    check(all(e >= floor60 - 1e-9 for e in errs),
+        "…none below the analytic floor of $(round(floor60; digits=3)) m/s " *
+        "(min $(round(minimum(errs); digits=3)))")
+    check(count(>(floor60 + 1e-9), errs) > 0,
+        "…and bins whose points disagree still inflate above it " *
+        "($(count(>(floor60 + 1e-9), errs)) of 20, max $(round(maximum(errs); digits=3)))")
 end
 
 step("animation")

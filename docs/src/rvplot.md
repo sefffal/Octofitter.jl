@@ -84,6 +84,22 @@ value, which is zero. A fold with fewer points than bins (`nbins=20` by
 default) therefore shows its measurements and no binned series — lower `nbins`
 if you want binning on a short series, or `show_binned=false` to turn it off.
 
+A binned point's error bar is the uncertainty of the *mean*, not the spread of
+the points that went into it. It is the larger of two numbers: `1/√(Σw)`, the
+textbook error on a noise-weighted mean (`w = 1/σ_eff²`), which is what RadVel
+and juliet draw and is exactly right when the residuals are white; and
+`s_w/√n`, the bin's own bias-corrected weighted scatter over the number of
+points in it. The second is bigger precisely when the points in a bin disagree
+by more than the noise model says they should — correlated residuals, or
+uncertainties that are too small — so taking the maximum keeps the analytic
+value as a floor no mean can beat while still letting the data speak when it
+contradicts the model. Before v9 the bar was the raw weighted scatter, so
+existing phase-fold figures will show different bars.
+
+With a Gaussian process in the model, read any binned bar as a heuristic: the
+GP is what makes neighbouring residuals correlated in the first place, and the
+whitened residual strip is the rigorous view of whether the fit is working.
+
 ### Correlated noise
 Where a `gaussian_process` was fitted, its prediction is drawn as a band around
 the model curve, subtracted from the residuals, and folded into `σ_eff`. See

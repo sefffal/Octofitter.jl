@@ -150,6 +150,7 @@ skypanel!
 phasefoldpanel!
 photometrypanel!
 likemappanel!
+Octofitter.phasebinmeans
 Octofitter.residuals
 ```
 

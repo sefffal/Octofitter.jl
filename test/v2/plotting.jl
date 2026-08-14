@@ -325,27 +325,70 @@ end
     @test defaultpanels(obs.rvs) === ()
 end
 
-@testset "phase-fold binned means, down to one measurement" begin
+@testset "phase-fold binned means and their error bars" begin
     pbm = Octofitter.phasebinmeans
     σ = 4.0
     wof(n) = fill(1 / σ^2, n)
+    PW = Octofitter.ProbabilityWeights
+
+    # The two halves of the bar, written out here independently of the
+    # implementation: the analytic error on a weighted mean, and the bin's own
+    # weighted scatter over √n. `sigma` is their max.
+    analytic(w) = 1 / sqrt(sum(w))
+    empirical(y, w) = Octofitter.std(y, PW(w); mean=Octofitter.mean(y, PW(w)),
+                                    corrected=true) / sqrt(length(y))
+    bar(y, w) = max(analytic(w), empirical(y, w))
 
     # A bin is [lo, hi): 20 bins put the edges on multiples of 0.05.
     b = pbm([-0.05, -0.04], [10.0, 20.0], wof(2), 20)
     @test b.centre ≈ [-0.025]
     @test b.mean ≈ [15.0]
     @test length(b.sigma) == 1 && isfinite(b.sigma[1]) && b.sigma[1] > 0
-    # Equal weights: the weighted mean is the plain one, and `sigma` is the
-    # *uncorrected* weighted rms deviation — StatsBase's default for weighted
-    # `std`, and what v8 `rvpostplot` drew: √(Σw(y−μ)²/Σw) = 5, not the
-    # (n−1)-corrected 7.07.
-    @test b.sigma ≈ [sqrt(sum((([10.0, 20.0] .- 15.0) .^ 2)) / 2)]
-    @test b.sigma ≈ [Octofitter.std([10.0, 20.0], Octofitter.ProbabilityWeights(wof(2)))]
 
-    # Unequal weights pull the mean, exactly as Σwy/Σw.
+    # Two 4 m/s measurements 10 m/s apart: the data disagrees with the noise
+    # model, so the empirical term wins — 7.071/√2 = 5.0 against a floor of
+    # 1/√(2/16) = 2.83. `s_w` is the frequency-weights-corrected weighted
+    # scatter, which for weights that are 1/σ² (a variance scale, not a count)
+    # means StatsBase's `ProbabilityWeights` correction: Bessel's n/(n−1) on
+    # the weighted rms, equivalently `FrequencyWeights` on weights
+    # renormalised to sum to n.
+    @test analytic(wof(2)) ≈ 4 / sqrt(2)
+    @test empirical([10.0, 20.0], wof(2)) ≈ 5.0
+    @test b.sigma ≈ [5.0]
+    @test b.sigma ≈ [bar([10.0, 20.0], wof(2))]
+    # It coincides with the pre-v9 bar here only through the n = 2 accident
+    # that √(n/(n−1))/√n = 1: v8 drew the *uncorrected* weighted scatter
+    # √(Σw(y−μ)²/Σw), which is a spread of points and not an error on a mean.
+    @test Octofitter.std([10.0, 20.0], PW(wof(2))) ≈ 5.0
+
+    # The floor binds when the points agree: two 4 m/s measurements half a m/s
+    # apart still cannot make a mean better than 4/√2, however tightly they
+    # happen to land. v8 drew 0.25 m/s here — below the mathematical floor.
+    let y = [10.0, 10.5], r = pbm([-0.05, -0.04], y, wof(2), 20)
+        @test empirical(y, wof(2)) ≈ 0.25
+        @test Octofitter.std(y, PW(wof(2))) ≈ 0.25          # the old bar
+        @test r.sigma ≈ [4 / sqrt(2)]
+        @test r.sigma ≈ [analytic(wof(2))]
+        @test r.sigma[1] > Octofitter.std(y, PW(wof(2)))
+    end
+
+    # The exact crossover, in the white-noise limit the analytic term is built
+    # for: three 4 m/s points whose corrected scatter comes out at exactly
+    # 4 m/s (deviations −4, 0, +4 → √(32/2) = 4). Both terms are then σ/√n,
+    # so the bar is the plain RadVel/juliet error on the weighted mean.
+    let y = [16.0, 20.0, 24.0], w = wof(3), r = pbm([0.01, 0.02, 0.03], y, w, 20)
+        @test Octofitter.std(y, PW(w); corrected=true) ≈ σ
+        @test empirical(y, w) ≈ σ / sqrt(3)
+        @test analytic(w) ≈ σ / sqrt(3)
+        @test r.sigma ≈ [σ / sqrt(3)]
+    end
+
+    # Unequal weights pull the mean, exactly as Σwy/Σw, and the bar follows
+    # the same two-term rule with Σw over the bin's own weights.
     let w = [1 / 1.0^2, 1 / 3.0^2]
         bb = pbm([0.01, 0.02], [0.0, 12.0], w, 20)
         @test bb.mean[1] ≈ sum(w .* [0.0, 12.0]) / sum(w)
+        @test bb.sigma ≈ [bar([0.0, 12.0], w)]
     end
 
     # The sparse limit. One point is not a mean of itself: it is already on
@@ -368,9 +411,11 @@ end
         @test r.mean ≈ [2.0]
     end
 
-    # Dense data is untouched: 60 points over 20 bins is three per bin, and
-    # every bin comes back with the weighted mean and scatter of its own
-    # three points — the pre-existing v8 `rvpostplot` numbers.
+    # Dense data: 60 points over 20 bins is three per bin. Means are as they
+    # were; the bars are the hybrid, and — the point of the change — not one
+    # of the twenty now sits below 1/√(3/16) = 2.31 m/s, where under the old
+    # convention fourteen of them did (on the rendered 60-point figure it was
+    # seven, with the smallest bar at 0.44 m/s).
     let n = 60
         x = collect(range(-0.5, 0.5, length=n + 1))[1:n]
         y = 30 .* sin.(2π .* x) .+ 0.5 .* (-1) .^ (1:n)
@@ -378,25 +423,53 @@ end
         r = pbm(x, y, w, 20)
         @test length(r.centre) == 20
         @test all(isfinite, r.mean) && all(isfinite, r.sigma)
-        @test all(>=(0), r.sigma)
+        floor3 = 1 / sqrt(3 / σ^2)
+        @test floor3 ≈ σ / sqrt(3)
+        @test all(>=(floor3 - 1e-12), r.sigma)
+        # …and the old convention really did undershoot it, so this is a
+        # change and not a no-op assertion.
         edges = range(-0.5, 0.5, length=21)
+        old = [Octofitter.std(y[(edges[k].<=x).&(x.<edges[k+1])],
+                              PW(w[(edges[k].<=x).&(x.<edges[k+1])])) for k in 1:20]
+        @test count(<(floor3), old) == 14
+        @test minimum(old) < 0.5
         for k in eachindex(r.centre)
             @test r.centre[k] ≈ (edges[k] + edges[k+1]) / 2
             m = (edges[k] .<= x) .& (x .< edges[k+1])
             @test count(m) == 3
-            pw = Octofitter.ProbabilityWeights(w[m])
-            @test r.mean[k] ≈ Octofitter.mean(y[m], pw)
-            @test r.sigma[k] ≈ Octofitter.std(y[m], pw)
+            @test r.mean[k] ≈ Octofitter.mean(y[m], PW(w[m]))
+            @test r.sigma[k] ≈ bar(y[m], w[m])
         end
     end
 
-    # Empty bins are skipped rather than drawn at zero: a fold with a gap has
-    # no mark in the gap, and the marks it does have are finite.
+    # Many points and a scatter far wider than the noise model: the empirical
+    # term takes over, by the ratio of the true spread to the quoted σ. Twenty
+    # 4 m/s points spread evenly over ±20 m/s have a floor of 4/√20 = 0.894
+    # and a corrected scatter of 12.45, so the bar is 2.785 — 3.1× the floor.
+    let n = 20
+        x = fill(0.31, n)
+        y = collect(range(-20.0, 20.0, length=n))
+        w = wof(n)
+        r = pbm(x, y, w, 20)
+        @test length(r.sigma) == 1
+        @test r.sigma ≈ [empirical(y, w)]
+        @test analytic(w) ≈ σ / sqrt(n)
+        @test r.sigma[1] > 3 * analytic(w)
+        @test r.sigma[1] ≈ 2.78500138006799
+    end
+
+    # Empty bins are skipped rather than drawn at zero — and a bin whose
+    # points happen to agree exactly is no longer drawn at zero either: its
+    # empirical term is 0 and the analytic floor is the whole bar. Under the
+    # old convention both of these marks had error bars of length zero.
     let x = vcat(fill(-0.44, 3), fill(0.31, 4)), y = vcat(fill(2.0, 3), fill(-5.0, 4))
         r = pbm(x, y, wof(7), 20)
         @test r.centre ≈ [-0.425, 0.325]
         @test r.mean ≈ [2.0, -5.0]
         @test all(isfinite, r.sigma)
+        @test all(>(0), r.sigma)
+        @test r.sigma ≈ [σ / sqrt(3), σ / sqrt(4)]
+        @test Octofitter.std(fill(2.0, 3), PW(wof(3))) == 0.0   # the old bar
     end
 end
 

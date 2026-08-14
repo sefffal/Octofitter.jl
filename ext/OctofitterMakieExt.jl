@@ -928,7 +928,11 @@ Noise-weighted binned means (grey-to-red points) pool all instruments, over
 `nbins` bins of phase; a bin has to hold at least two points to be drawn,
 since a "mean" of one is the measurement itself, already on the axis with its
 own error bar. A fold with fewer points than bins therefore shows no binned
-series at all, and `show_binned=false` turns them off outright.
+series at all, and `show_binned=false` turns them off outright. Their error
+bars are the uncertainty *of the mean*, `max(1/√Σw, s_w/√n)` — the analytic
+weighted-mean error as a floor, the bin's own corrected weighted scatter over
+√n when the points disagree by more than the noise model allows. See
+[`phasebinmeans`](@ref).
 The residual strip below shows the same residuals as the time panel against
 phase (whitened by default when more than one draw is shown, and then as a
 per-point boxplot — see [`timeseriespanel!`](@ref)). `show_resid=false`
@@ -1645,6 +1649,31 @@ the right, and the phase panels showing the fold on its own. Folding
 rearranges the residuals along x but leaves their values alone, so a strip
 under each phase panel is the time panel's residuals redrawn once per planet
 — `show_phase_resid=true` if you want them regardless.
+
+## What a binned point's error bar means
+
+The red marks on a phase panel are noise-weighted means of the points in
+`nbins=20` equal bins of phase, pooled across instruments, and their bars are
+the uncertainty **of that mean** — not the spread of the points that made it.
+The bar is
+
+    max( 1/√(Σw),  s_w/√n )
+
+over the points in the bin, with `w = 1/σ_eff²` (measurement error, jitter
+and any fitted correlated-noise term). The first term is the textbook error
+on a weighted mean and is what RadVel and juliet draw; the second is the
+bin's own bias-corrected weighted scatter over `√n`, and it is larger exactly
+when the points in a bin disagree by more than the noise model allows —
+correlated residuals, or underestimated uncertainties. The bar is therefore
+never below the analytic floor, and never smaller than what the data itself
+shows. Before v9 this bar was the raw weighted *scatter*, uncorrected, which
+is a different quantity and could fall below the floor; every phase-fold
+figure's bars change. Bins holding a single point are not drawn at all — see
+[`phasebinmeans`](@ref).
+
+Where a `gaussian_process` was fitted, treat any binned bar as a heuristic:
+the GP makes neighbouring residuals correlated, and no per-bin formula is a
+substitute for the whitened residual strip, which is the rigorous view.
 
 `show_perspective=true` overlays the secular drift of the system barycentre's
 own radial velocity, `PlanetOrbits.frame_rv`, for a model with an absolute
