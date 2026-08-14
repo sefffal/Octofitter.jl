@@ -181,6 +181,9 @@ sonora_cooling_interpolator
 Octofitter.bhac15_mass_age_interpolator
 gaia_plx
 gaia_dr3_solution
+g23h_scan_uncertainty
+gaia_dr4_transit_template
+Octofitter.GOST_forecast
 mjd
 years2mjd
 mjd2date

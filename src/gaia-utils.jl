@@ -540,6 +540,223 @@ function _sort_dedup_gost(tbl)
 end
 
 # ──────────────────────────────────────────────────────────────────────
+# Simulated Gaia DR4 epoch astrometry
+#
+# Two pieces: the measured per-source along-scan noise budget (from the G23H
+# catalog, which is where Octofitter's only *measured* Gaia noise model lives),
+# and the scan geometry (from GOST). Kept apart deliberately — the first needs
+# the 14 GB catalog and the second needs the network, and a caller who has
+# neither can still supply both by hand.
+# ──────────────────────────────────────────────────────────────────────
+
+"""
+    g23h_scan_uncertainty(; gaia_id=nothing, hip_id=nothing, catalog=nothing)
+        -> (; gaia_id, phot_g_mean_mag, σ_AL, σ_att, σ_calib,
+              σ_formal, n_ccd, σ_transit_formal, σ_transit_true)
+
+The measured Gaia along-scan noise budget for one source, read from the G23H
+catalog (Thompson et al. 2026) — the same three numbers [`G23HObs`](@ref)
+builds its `σ_AL`/`σ_att`/`σ_calib` priors from, so a simulation based on
+these is consistent with what G23H assumes for that star.
+
+Unlike a hand-picked "0.04 mas per scan", these are calibrated per source
+against real Gaia performance, and they vary by a factor of a few from star to
+star with magnitude, colour and scan geometry.
+
+`catalog` is anything [`G23HObs`](@ref) accepts: `nothing` for the ~14 GB
+`G23H_Catalog` DataDep, a path to an Arrow file, a Tables.jl table, or a
+`NamedTuple` standing in for a single row.
+
+# The three terms, and where each applies
+
+| field     | catalog column   | applies |
+|-----------|------------------|---------|
+| `σ_AL`    | `sig_AL`         | per CCD observation, independent |
+| `σ_att`   | `sig_att_radec`  | per CCD observation, independent |
+| `σ_calib` | `sig_cal`        | per **transit**, shared by that transit's CCD observations, and *not* part of Gaia's formal errors |
+
+Gaia measures a source ~9 times per field-of-view transit (SM, AF1–AF9), and
+`n_ccd` is that number for this source: `astrometric_n_good_obs_al_dr3 /
+astrometric_matched_transits_dr3`. So
+
+  * `σ_formal = √(σ_att² + σ_AL²)` is the **per-CCD** formal uncertainty;
+  * `σ_transit_formal = σ_formal / √n_ccd` is the formal uncertainty of one
+    **transit-level** abscissa;
+  * `σ_transit_true = √(σ_transit_formal² + σ_calib²)` is its *actual* scatter,
+    including the calibration term Gaia's formal errors omit — for most sources
+    `σ_calib` dominates it.
+
+# Consistency with `G23HObs`
+
+`G23HObs` weights each *transit* of its GOST pool by `σ_formal`
+(`fit_5param_prepared(…, σ_formal)`) and then multiplies the resulting χ² by
+`N_AL = astrometric_n_good_obs_al_dr3 / astrometric_matched_transits_dr3`
+before comparing it to the catalog's CCD-level statistics. The effective
+per-transit variance in that likelihood is therefore `σ_formal² / n_ccd`
+exactly, which is what `σ_transit_formal` is.
+
+The same identification holds against the real data: for the three Gaia DR4
+pre-release sources shipped with the documentation, `σ_formal` reproduces the
+median *published per-CCD* `centroid_pos_error_al` to 4–13%
+(Gaia-4 0.085 vs 0.082 mas, Gaia BH3 0.090 vs 0.083 mas, HD 114762 0.108 vs
+0.124 mas).
+
+See also [`gaia_dr4_transit_template`](@ref), which turns these into a
+simulated DR4 table.
+"""
+function g23h_scan_uncertainty(; gaia_id=nothing, hip_id=nothing, catalog=nothing)
+    isnothing(gaia_id) && isnothing(hip_id) &&
+        error("Either `gaia_id` or `hip_id` must be specified")
+    row = _g23h_catalog_row(catalog, gaia_id, hip_id)
+    for c in (:sig_AL, :sig_att_radec, :sig_cal,
+              :astrometric_n_good_obs_al_dr3, :astrometric_matched_transits_dr3)
+        hasproperty(row, c) || error(
+            "The catalog row for this source has no `$c` column, so its scan " *
+            "uncertainty model is not available. Columns present: " *
+            "$(propertynames(row))")
+    end
+    σ_AL = Float64(row.sig_AL)
+    σ_att = Float64(row.sig_att_radec)
+    σ_calib = Float64(row.sig_cal)
+    all(isfinite, (σ_AL, σ_att, σ_calib)) || error(
+        "The G23H calibration (`sig_AL` = $σ_AL, `sig_att_radec` = $σ_att, " *
+        "`sig_cal` = $σ_calib) is missing for this source. It is absent for the " *
+        "very brightest stars and for sources outside the calibration's " *
+        "footprint; supply the three σ yourself for those.")
+    n_ccd = Float64(row.astrometric_n_good_obs_al_dr3) /
+            Float64(row.astrometric_matched_transits_dr3)
+    isfinite(n_ccd) && n_ccd > 0 || error(
+        "Cannot form the CCD-observations-per-transit ratio for this source: " *
+        "astrometric_n_good_obs_al_dr3 = $(row.astrometric_n_good_obs_al_dr3), " *
+        "astrometric_matched_transits_dr3 = $(row.astrometric_matched_transits_dr3)")
+    σ_formal = sqrt(σ_att^2 + σ_AL^2)
+    σ_transit_formal = σ_formal / sqrt(n_ccd)
+    σ_transit_true = sqrt(σ_transit_formal^2 + σ_calib^2)
+    return (;
+        gaia_id=hasproperty(row, :gaia_source_id) ? row.gaia_source_id : gaia_id,
+        phot_g_mean_mag=hasproperty(row, :phot_g_mean_mag_dr3) ?
+                        Float64(row.phot_g_mean_mag_dr3) : NaN,
+        σ_AL, σ_att, σ_calib, σ_formal, n_ccd, σ_transit_formal, σ_transit_true)
+end
+export g23h_scan_uncertainty
+
+"""
+    gaia_dr4_transit_template(; σ_al, gaia_id=nothing, ra=nothing, dec=nothing,
+                              forecast_table=nothing, baseline=:dr4)
+
+A **transit-level** table in Gaia DR4 epoch-astrometry format for any star, to
+hand to [`GaiaDR4AstromObs`](@ref) and fill in with
+[`generate_from_params`](@ref).
+
+One row per forecast field-of-view transit, with the columns that observation
+needs: `epoch` [MJD], `scan_pos_angle` ψ [**degrees**, the archive's own unit],
+`parallax_factor_al`, `centroid_pos_al` [mas] and `centroid_pos_error_al`
+[mas], plus `outlier_flag`. The measurements themselves are zero — this is a
+template, and `generate_from_params(system, θ; add_noise=true)` replaces them
+with the modelled abscissae plus a draw of `centroid_pos_error_al`.
+
+# Where the scan geometry comes from
+
+Either GOST (queried and cached by [`GOST_forecast`](@ref), the same service
+[`G23HObs`](@ref) uses) or a `forecast_table` you supply. A supplied table may
+be in either of the two forms already in circulation:
+
+  * GOST's own columns, i.e. what `GOST_forecast` returns; or
+  * `G23HObs`'s `forecast_table` contract — `epoch` [MJD], `scanAngle_rad`,
+    `parallaxFactorAlongScan` — so **the same table can drive a `G23HObs` and
+    this template**, which is the cleanest way to keep a DR2/DR3+Hipparcos fit
+    and a simulated DR4 fit on identical scan geometry.
+
+`ra`/`dec` (degrees) are needed only to query GOST; pass `gaia_id` instead and
+the DR3 solution is looked up (and cached) for them.
+
+The parallax factors are GOST's own, *not* recomputed from an Earth ephemeris.
+Against the Gaia-4 DR4 pre-release, GOST's forecast reproduces the published
+per-transit `parallax_factor_al` to 5e-5 rms and `scan_pos_angle` to 0.004°
+rms; computing the parallax factor from an Earth ephemeris instead is a 0.005
+rms error, a hundred times larger, because Gaia observes from L2, ~0.01 AU from
+the geocentre. That is 0.07 mas at ϖ = 13 mas — around twice the per-transit
+precision.
+
+# `σ_al`
+
+The per-transit along-scan uncertainty [mas], scalar or one value per transit.
+For a star with a G23H calibration, [`g23h_scan_uncertainty`](@ref) gives the
+measured value:
+
+```julia
+σ = g23h_scan_uncertainty(; gaia_id)
+transits = gaia_dr4_transit_template(; gaia_id, σ_al=σ.σ_transit_true)
+```
+
+`σ_transit_true` (the actual scatter, calibration term included) is the right
+choice when you are both simulating and fitting these data, since it is then
+also the uncertainty the likelihood is told about. `σ_transit_formal` is what a
+real DR4 table would quote — smaller, with the difference left for the
+observation's `astrometric_jitter` to absorb.
+
+# What this does not model
+
+GOST forecasts every scheduled transit; real DR4 loses some to dead time, and
+more to AGIS's own outlier rejection, which is harshest for bright stars. For
+Gaia-4 the chain is 122 forecast → 109 in the pre-release → 93 used by AGIS;
+HD 114762 (G = 7.2) keeps 63 of 89. Nor is any noise correlated between
+transits here. Drop rows and inflate `σ_al` if you want either.
+"""
+function gaia_dr4_transit_template(; σ_al, gaia_id=nothing, ra=nothing, dec=nothing,
+                                   forecast_table=nothing, baseline::Symbol=:dr4)
+    ep, ψ, f_al = _dr4_scan_geometry(forecast_table, gaia_id, ra, dec, baseline)
+    n = length(ep)
+    n > 0 || error("The scan forecast contains no transits.")
+    σ = σ_al isa Number ? fill(Float64(σ_al), n) : collect(Float64, σ_al)
+    length(σ) == n || error(
+        "`σ_al` has $(length(σ)) entries but the scan forecast has $n transits.")
+    all(s -> isfinite(s) && s > 0, σ) ||
+        error("`σ_al` must be finite and positive [mas].")
+    perm = sortperm(ep)
+    return Table(
+        epoch=ep[perm],
+        scan_pos_angle=rad2deg.(ψ[perm]),
+        parallax_factor_al=f_al[perm],
+        centroid_pos_al=zeros(n),
+        centroid_pos_error_al=σ[perm],
+        outlier_flag=zeros(Int, n),
+    )
+end
+export gaia_dr4_transit_template
+
+# Epochs [MJD], scan angles [rad] and along-scan parallax factors, from
+# whichever of the three input forms the caller used.
+function _dr4_scan_geometry(forecast_table, gaia_id, ra, dec, baseline)
+    _f64(x) = collect(Float64, vec(collect(x)))
+    if isnothing(forecast_table)
+        if isnothing(ra) || isnothing(dec)
+            isnothing(gaia_id) && error(
+                "Supply a `forecast_table`, or `ra`/`dec` [degrees], or a `gaia_id` " *
+                "to look the coordinates up with.")
+            dr3 = _query_gaia_dr3(; gaia_id)
+            ra = dr3.ra
+            dec = dr3.dec
+        end
+        forecast_table = GOST_forecast(ra, dec; baseline)
+    end
+    t = forecast_table
+    if hasproperty(t, :ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_)
+        # GOST's own columns, as `GOST_forecast` returns them.
+        return (jd2mjd.(_f64(t.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_)),
+            _f64(t.scanAngle_rad_), _f64(t.parallaxFactorAlongScan))
+    elseif hasproperty(t, :epoch) && hasproperty(t, :scanAngle_rad) &&
+           hasproperty(t, :parallaxFactorAlongScan)
+        # `G23HObs`'s `forecast_table` contract.
+        return (_f64(t.epoch), _f64(t.scanAngle_rad), _f64(t.parallaxFactorAlongScan))
+    end
+    error("`forecast_table` must either be a GOST forecast (as `GOST_forecast` " *
+          "returns it) or carry `epoch` [MJD], `scanAngle_rad` and " *
+          "`parallaxFactorAlongScan`, as `G23HObs` takes. It has " *
+          "$(propertynames(t)).")
+end
+
+# ──────────────────────────────────────────────────────────────────────
 # The full 5×5 astrometric covariance, per source
 #
 # A Gaia five-parameter solution is (α*, δ, ϖ, μα*, μδ) with a 5×5 covariance:

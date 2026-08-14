@@ -9,7 +9,7 @@ This tutorial demonstrates how to use Octofitter to simulate Gaia DR4 data for a
 
 To be as realistic as possible, we will select a particular star as the basis of our simulation. This will allow us to give reasonable estimates of
 * the measurement epochs and scan angles (retrieved from GOST)
-* the measurement noise, representative of that coordinate and target photometry/colour
+* the measurement noise, from that source's *measured* Gaia performance
 
 > *"But wait, I just want to simulate a hypothetical planet, why do I have to pick a real star?"*
 
@@ -20,152 +20,137 @@ Gaia's sensitivity is far from uniform! If you're not sure what star to use, jus
 ```@example 1
 using Octofitter, Distributions
 using CairoMakie, PairPlots, Pigeons
-using CSV, DataFrames
 using Statistics
 ```
 
 ## Prepare Star Info and Noise
 
-We now query the Gaia positions etc. from DR3, the scan law from GOST, and the uncertainties from Thompson et al (2026).
+A realistic simulation needs three things: **when** Gaia looked at the star and at what
+scan angle, the **parallax factor** of each of those looks, and **how precisely** each one
+was measured. The first two come from GOST, Gaia's scan-law forecast service; the third
+comes from the G23H catalog (Thompson et al. 2026), which carries a per-source, measured
+along-scan noise calibration — the same one [`G23HObs`](@ref) uses.
 
 ```@example 1
 gaia_id = 5064625130502952704
-# We will use the σ_att and σ_AL for this target's position, photometry, and colour as the 
-# formal uncertainty on each scan. They can be retrieved or guessed from Keifer et al 2025,
-# or Thompson et al in-prep.
-
-# look these up, or download the tables and interpolate
-σ_att = 0.04
-σ_AL = 0.04
-σ_cal = 0.04
-σ_formal = sqrt(σ_att^2 + σ_AL^2)
-σ_true = sqrt(σ_att^2 + σ_AL^2 + σ_cal^2)
-
-
-
-dr3 = Octofitter._query_gaia_dr3(;gaia_id)
-# TODO: we have on average ~8 scans per epoch
-gost = DataFrame(Octofitter.GOST_forecast(dr3.ra,dr3.dec;baseline=:dr4))
-
-nothing # hide
+dr3 = gaia_dr3_solution(; gaia_id)   # α, δ, ϖ, G … from the DR3 archive (cached)
+(; dr3.ra, dr3.dec, dr3.parallax, dr3.phot_g_mean_mag)
 ```
 
+### The noise model
 
-**If you want to simulate per CCD measurement (10x slower), run the following:**
-
-```julia
-"""
-    expand_scanlaw_to_scans(scanlaw_table::DataFrame, star_row::DataFrameRow, 
-                           avg_scans_per_window::Float64=9.0)
-
-Expand visibility window-level scanlaw to individual CCD scans.
-
-# Arguments
-- `scanlaw_table`: DataFrame with columns `times` (OBMT) and `angles` (degrees)
-- `star_row`: Row from star catalog containing stellar parameters
-- `avg_scans_per_window`: Average number of CCD scans per visibility window
-
-# Returns
-- DataFrame with expanded scan-level data
-"""
-function expand_scanlaw_to_scans(scanlaw_table, dr3, avg_scans_per_window=9.0)
-    # Calculate actual average if available
-    if hasproperty(dr3, :astrometric_n_good_obs_al_dr3) && 
-       hasproperty(dr3, :astrometric_matched_transits_dr3) &&
-       dr3.astrometric_matched_transits_dr3 > 0
-        avg_scans_per_window = dr3.astrometric_n_good_obs_al_dr3 / 
-                              dr3.astrometric_matched_transits_dr3
-    end
-    
-    expanded_data = []
-    
-    for (i, row) in enumerate(eachrow(scanlaw_table))
-        # Number of CCDs for this window (randomize around average)
-        n_ccds = rand(Poisson(avg_scans_per_window))
-        n_ccds = max(1, min(n_ccds, 12))  # Gaia has max 9 CCDs in practice
-        
-        # Time spread within window (typically ~40 seconds total)
-        window_duration_seconds = 40.0
-        dt_seconds = window_duration_seconds / max(n_ccds - 1, 1)
-        
-        # Small angle variation within window
-        angle_variation = 0.1  # degrees
-        
-        for j in 1:n_ccds
-            # Time offset from window center
-            time_offset_days = (j - (n_ccds + 1) / 2) * dt_seconds / 86400
-            obs_time_obmt = row.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_ + time_offset_days * 1461.0 / 365.25  # Convert days to OBMT
-            
-            # Small angle perturbation
-            angle_perturbation = angle_variation * (j - (n_ccds + 1) / 2) / n_ccds
-            scan_angle = row.scanAngle_rad_ + deg2rad(angle_perturbation)
-            
-            push!(expanded_data, (
-                transit_id = i,
-                ccd_id = j,
-                ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_ = obs_time_obmt,
-                scanAngle_rad_ = scan_angle,
-            ))
-        end
-    end
-    
-    return DataFrame(expanded_data)
-end
-
-gost_ex = expand_scanlaw_to_scans(gost, dr3)
-r = size(gost_ex,1)/size(gost,1)
-σ_formal /= r
-σ_true /= r
-gost = gost_ex
-```
+[`g23h_scan_uncertainty`](@ref) reads this source's calibrated along-scan uncertainties
+out of the catalog:
 
 ```@example 1
-N_epochs = size(gost,1)
-
-
-# σ_cal is *not* part of the Gaia formal uncertainties, it's noise above and beyond the stated uncertainties.
-# For an accurate simulation, we should randomize by the true uncertainty (both sigma_formal + sigma_cal) but report to the downstream fitter that the uncertainty is just σ_formal.
-
-df = DataFrame(
-    # Epoch of measurements in MJD
-    epoch = jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_),
-    # Scan angle in DEGREES. GOST reports radians (`scanAngle_rad_`), while
-    # `GaiaDR4AstromObs` ingests degrees — the unit the Gaia archive publishes
-    # the DR4 scan angle in — and converts to radians internally.
-    scan_pos_angle = rad2deg.(gost.scanAngle_rad_),
-    # In theory you could just populate this vector with whatever measurements you want,
-    # BUT we can also leave it blank, and leverage Octofitter's built in data simulation 
-    # capabilities below...
-    centroid_pos_al       = fill(0.0, N_epochs), 
-    centroid_pos_error_al = fill(σ_true, N_epochs), 
-    outlier_flag          = fill(false, N_epochs), 
+# The docs build must not touch the 14 GB G23H catalog, so it substitutes the # hide
+# handful of columns of this source's row that the uncertainty model reads. # hide
+# Drop the `catalog=` keyword to read the real catalog (downloaded on first use). # hide
+catalog = (; # hide
+    gaia_source_id = gaia_id, # hide
+    phot_g_mean_mag_dr3 = 6.941057, # hide
+    sig_AL = 0.05813228279803717, # hide
+    sig_att_radec = 0.07765105456802447, # hide
+    sig_cal = 0.14901214069992602, # hide
+    astrometric_n_good_obs_al_dr3 = 882, # hide
+    astrometric_matched_transits_dr3 = 100, # hide
+) # hide
+σ = g23h_scan_uncertainty(;
+    gaia_id,
+    catalog, # hide
 )
+```
 
+Gaia measures a source about nine times per field-of-view transit — the sky-mapper sample,
+then AF1 through AF9 — and it is the **transit**, not the individual CCD observation, that
+DR4 publishes an abscissa for. The three calibrated terms split along exactly that line:
 
-# The trickiest part: we have to calculate the parllax factors for each epoch
-earth_pos_vel = DataFrame(Octofitter.geocentre_position_query.(df.epoch))
-df = [df earth_pos_vel]
-# we now have columns x, y, z of the earth in AU, and can calculate the parallax factor
-# for each row
+* `σ_AL` and `σ_att` are per-CCD-observation and independent, so they *do* average down
+  within a transit. Their quadrature sum `σ_formal` = 0.097 mas is the per-CCD formal
+  error, and `σ_transit_formal` = `σ_formal/√n_ccd` = 0.0327 mas is the formal error of one
+  transit-level abscissa (`n_ccd` = 8.82 for this source, from its own DR3 counts).
+* `σ_calib` = 0.149 mas is a calibration error shared by all the CCD observations of a
+  transit, so it does **not** average down — and it is not included in Gaia's formal
+  uncertainties. For most sources it dominates the *actual* per-transit scatter,
+  `σ_transit_true` = 0.153 mas.
 
-# Calculate parallax factors for each epoch
+!!! note "Why not just pick a number"
+    These are calibrated per source against real Gaia performance and vary by a factor of a
+    few from star to star. As a check on the scale: `σ_formal` reproduces the median
+    *published per-CCD* `centroid_pos_error_al` of the three
+    [Gaia DR4 pre-release](@ref dr4-prerelease-others) sources to 4–13%, and
+    `σ_transit_formal` lands 20–35% below the per-transit error bars that the recommended
+    bootstrap-median reduction assigns to those same real transits — about what the
+    inefficiency of a median of nine CCD samples, relative to an optimal combination of
+    them, predicts.
 
-# For each epoch, calculate the parallax factor in along-scan direction
-# The parallax displacement has components in RA and Dec:
-# Δα* = plx * (x*sin(α) - y*cos(α))
-# Δδ  = plx * (x*cos(α)*sin(δ) + y*sin(α)*sin(δ) - z*cos(δ))
+    If your target has no G23H calibration — the catalog does not cover everything — pass
+    the three σ yourself and say where they came from.
 
-# Then project onto the scan direction using the scan angle. `scan_pos_angle`
-# is in degrees (see above), so this uses `sind`/`cosd` like the α/δ terms.
-df.parallax_factor_al = @. (
-    (df.x * sind(dr3.ra) - df.y * cosd(dr3.ra)) * cosd(df.scan_pos_angle) +
-    (df.x * cosd(dr3.ra) * sind(dr3.dec) + df.y * sind(dr3.ra) * sind(dr3.dec) - df.z * cosd(dr3.dec)) * sind(df.scan_pos_angle)
+### The scan geometry, and the table
+
+[`gaia_dr4_transit_template`](@ref) queries GOST for the transits Gaia is forecast to make
+of this position over the DR4 baseline and returns them in the format
+[`GaiaDR4AstromObs`](@ref) reads:
+
+```@example 1
+transits = gaia_dr4_transit_template(;
+    ra = dr3.ra,
+    dec = dr3.dec,
+    # We *simulate* the true scatter; see the note below on what a real DR4
+    # table would instead quote.
+    σ_al = σ.σ_transit_true,
+    baseline = :dr4,
 )
+```
 
-# now construct the observation template
-ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+One row per transit, with `epoch` in MJD, `scan_pos_angle` ψ in **degrees** (the unit the
+Gaia archive publishes it in, and the unit `GaiaDR4AstromObs` ingests), GOST's own
+`parallax_factor_al`, and `centroid_pos_al` left at zero — Octofitter's data simulation
+fills those in below. You can of course put your own measurements there instead.
 
-gaiaIADobs = GaiaDR4AstromObs(df;
+A forecast is optimistic about *how many* transits you get: it lists every scheduled one,
+while real DR4 loses some to dead time and more to AGIS's outlier rejection, which is
+harshest for bright stars. Gaia-4 goes 122 forecast → 109 in the pre-release → 93 used by
+AGIS. If that matters for your question, drop rows.
+
+!!! note "Transit level, not CCD level"
+    An earlier version of this tutorial expanded each visibility window into ~9 synthetic
+    CCD observations and shrank the error bars to match. Don't do that: the CCD
+    observations within one transit are taken seconds apart and share their attitude and
+    calibration errors, so treating them as independent measurements overstates the
+    astrometric information by up to √9. DR4 publishes one abscissa per transit, so
+    simulating at transit level is both simpler and closer to the data you will actually
+    fit. The [pre-release tutorial](@ref dr4-prerelease-reduction) shows the matching
+    reduction for real CCD-level tables.
+
+!!! note "The parallax factors are GOST's, not the Earth's"
+    How good is a forecast? For Gaia-4, whose real DR4 transits we have, GOST's forecast
+    covers the same MJD 56890–58843 span, matches 108 of the 109 real transits, and
+    reproduces their published `scan_pos_angle` to 0.004° rms and their published
+    `parallax_factor_al` to 5 × 10⁻⁵ rms.
+
+    That last number is why `gaia_dr4_transit_template` carries GOST's own parallax factors
+    through instead of recomputing them from an Earth ephemeris, as an earlier version of
+    this tutorial did: Gaia observes from L2, about 0.01 AU from the geocentre, so an
+    Earth-centred factor is off by 0.005 rms — a hundred times worse, and 0.07 mas at
+    ϖ = 13 mas, about twice the per-transit precision.
+
+!!! note "What a real DR4 table would quote"
+    We put the *true* per-transit scatter in `centroid_pos_error_al`, so the data are
+    scattered by exactly the uncertainty the likelihood is told about — the simplest
+    self-consistent simulation. A real DR4 table instead quotes the formal error
+    (`σ_transit_formal`), leaving the calibration term for the observation's
+    `astrometric_jitter` to absorb. To simulate *that*, generate the data as below with
+    `σ_al = σ.σ_transit_true`, then rebuild the observation from the simulated table with
+    `centroid_pos_error_al` overwritten by `σ.σ_transit_formal`, and keep
+    `astrometric_jitter` free — it should come back at ≈ `σ.σ_calib`.
+
+```@example 1
+# The Gaia DR4 reference epoch, J2017.5.
+ref_epoch_mjd = 57936.375
+
+gaiaIADobs = GaiaDR4AstromObs(transits;
     target = Photocentre,
     ref = Barycentre,
     name = "GaiaDR4",
@@ -246,9 +231,9 @@ Here, we will hook into Octofitter's simulation capabilities to generate a new m
 
 ## Generate Synthetic Data
 
-We have three choices for generating simulated data:
+We have two choices for generating simulated data:
 1. Draw values from the priors
-3. Specifying values manually
+2. Specifying values manually
 
 We will look at each.
 
@@ -260,7 +245,7 @@ params_to_simulate = Octofitter.drawfrompriors(model.system)
 ```
 
 
-### 3. Specifying values manually
+### 2. Specifying values manually
 We can also specify all values for the simulation manually. This process is a bit more involved. 
 
 
@@ -372,7 +357,7 @@ Finally, compare the recovered orbit against the truth: rebuild the
 which is what the sky panel does internally:
 
 ```@example 1
-ts = range(minimum(df.epoch), minimum(df.epoch) + 4000, length=300)
+ts = range(minimum(transits.epoch), minimum(transits.epoch) + 4000, length=300)
 
 fig = Figure(size=(500,500))
 ax = Axis(fig[1,1], xlabel="Δα⋆ [mas]", ylabel="Δδ [mas]",
