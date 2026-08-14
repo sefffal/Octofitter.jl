@@ -1553,10 +1553,14 @@ under each phase panel is the time panel's residuals redrawn once per planet
 
 `show_perspective=true` overlays the secular drift of the system barycentre's
 own radial velocity, `PlanetOrbits.frame_rv`, for a model with an absolute
-frame. It is **off** by default and drawn dashed because v9's `radvel` is a
-strictly relative observable: `RadialVelocityObs` does not currently include
-this term in its forward model, so the line is a diagnostic — "here is how
-much secular drift this geometry implies" — and not part of the fitted curve.
+frame. Whether that drift is part of the *fit* is each dataset's own
+declaration (`secular_acceleration=:model`, the default for an absolute
+`RadialVelocityObs`, or `:data_corrected`) — but either way it is not in this
+figure's model curve, which is the pure `radvel` query, while the plotted
+points are calibrated only by `offset` and `trend_function`. The overlay is
+off by default and drawn dashed for that reason: it shows the size of a term
+the curve leaves out. Residuals and phase folds go through the full forward
+model and are unaffected.
 
 Returns an [`OctoPlotResult`](@ref); `res.axes.rv.main` and
 `res.axes.rv_phase_b.main` name the panels.

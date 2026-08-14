@@ -114,13 +114,22 @@ which is what keeps several instruments separable on one axis; `:black` is
 the per-instrument-panel convention [`octoplot`](@ref) uses. The same keyword
 is accepted by [`timeseriespanel!`](@ref) and [`phasefoldpanel!`](@ref).
 
-!!! warning "`show_perspective` is a diagnostic, not part of the fit"
-    v9's `radvel` is a strictly relative observable, and `RadialVelocityObs`
-    does not currently add the system barycentre's own secular radial-velocity
-    drift (`PlanetOrbits.frame_rv`) to its forward model. `show_perspective=true`
-    overlays that drift as a dashed orange line for a model with an absolute
-    frame, so you can see how large it is — but it is not in the fitted curve,
-    which is why it is off by default. v8 included the term in the model.
+!!! note "`show_perspective` draws a term the model curve leaves out"
+    Whether the system barycentre's own secular (perspective) radial-velocity
+    drift is part of the fit is declared **per dataset**: an absolute
+    `RadialVelocityObs` carries `secular_acceleration=:model` (the default —
+    Octofitter adds the drift to the prediction) or `:data_corrected` (your
+    pipeline already removed it, so the model adds nothing). See
+    [How Octofitter Computes Orbits](@ref orbit-computation).
+
+    Either way the drift is not in *this figure's* model curve, which comes
+    from the pure `radvel` query, and the data are calibrated only by each
+    instrument's `offset` and `trend_function`. So with `:model` and an
+    absolute frame the plotted points carry the drift while the curve does not.
+    The residual strip and the phase folds are unaffected — they go through the
+    full forward model, drift included. `show_perspective=true` overlays that
+    drift (`PlanetOrbits.frame_rv`, relative to its value at the first plotted
+    epoch) as a dashed orange line so you can see how large it is.
 
 ### Choosing a draw
 

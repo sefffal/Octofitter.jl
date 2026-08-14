@@ -54,6 +54,9 @@ rv_obs = RadialVelocityObs(rv_data;
     target=A,            # the body whose velocity was measured: the star
     ref=Barycentre,      # measured against the system barycentre
     name="insert name here",
+    # Secular (perspective) acceleration is modelled per dataset: an absolute
+    # series defaults to `secular_acceleration=:model`. Pass
+    # `secular_acceleration=:data_corrected` if your pipeline already removed it.
     variables=@variables begin
         offset ~ Uniform(-1000, 1000) # m/s
         jitter ~ LogUniform(0.01, 10) # m/s
@@ -151,7 +154,7 @@ sys = System(
 )
 ```
 
-We didn't bother specifying the system's reference frame parallax, position, proper motion, or barycentric RV. Adding those in would enable second order corrections like light travel time correction and allow you to turn on secular acceleration correction.
+We didn't bother specifying the system's reference frame parallax, position, proper motion, or barycentric RV. Adding those in would enable second order corrections like light travel time correction, and make the secular (perspective) acceleration term non-zero — it is definitionally zero without a full absolute frame. That term is declared per dataset: an absolute RV series models it by default (`secular_acceleration=:model`), and you pass `secular_acceleration=:data_corrected` for a dataset whose pipeline already removed it. See [How Octofitter Computes Orbits](@ref orbit-computation).
 
 We can now prepare our model for sampling.
 ```@example 1

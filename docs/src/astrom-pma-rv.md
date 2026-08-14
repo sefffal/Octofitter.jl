@@ -255,6 +255,10 @@ rvlike = RadialVelocityObs(
     target = A,            # the star's own reflex motion…
     ref = Barycentre,      # …against the system barycentre
     name = "SOPHIE",
+    # Per dataset, and the default: with a full absolute frame like this one,
+    # the secular (perspective) acceleration term is non-zero and modelled.
+    # Pass `:data_corrected` for a series whose pipeline already removed it.
+    secular_acceleration = :model,
     variables = @variables begin
         jitter ~ truncated(Normal(10, 5), lower=0)  # m/s
         offset ~ Normal(0, 1000)                    # m/s
