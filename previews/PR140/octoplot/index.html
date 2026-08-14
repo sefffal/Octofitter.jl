@@ -1,52 +1,640 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Orbit plots with octoplot · Octofitter.jl</title><meta name="title" content="Orbit plots with octoplot · Octofitter.jl"/><meta property="og:title" content="Orbit plots with octoplot · Octofitter.jl"/><meta property="twitter:title" content="Orbit plots with octoplot · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li><li><a class="tocitem" href="../v9-migration/">Migrating to v9</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 Epoch Astrometry</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li><li><a class="tocitem" href="../gaia-dr4-prerelease/">Gaia DR4 Pre-Release Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li><li><a class="tocitem" href="../completeness/">Detection Completeness Mapping</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li class="is-active"><a class="tocitem" href>Orbit plots with <code>octoplot</code></a><ul class="internal"><li><a class="tocitem" href="#What-gets-drawn"><span>What gets drawn</span></a></li><li><a class="tocitem" href="#One-panel-per-instrument-—-except-where-sharing-is-honest"><span>One panel per instrument — except where sharing is honest</span></a></li><li><a class="tocitem" href="#Every-measurement-on-every-panel-it-belongs-on"><span>Every measurement on every panel it belongs on</span></a></li><li><a class="tocitem" href="#Residuals"><span>Residuals</span></a></li><li><a class="tocitem" href="#Controlling-the-draws"><span>Controlling the draws</span></a></li><li><a class="tocitem" href="#Other-keywords"><span>Other keywords</span></a></li><li><a class="tocitem" href="#Restricting-and-predicting:-channels"><span>Restricting and predicting: <code>channels=</code></span></a></li><li><a class="tocitem" href="#Phase-folding"><span>Phase folding</span></a></li><li><a class="tocitem" href="#Building-your-own-figure"><span>Building your own figure</span></a></li><li><a class="tocitem" href="#Predicting-positions-at-future-epochs"><span>Predicting positions at future epochs</span></a></li><li class="toplevel"><a class="tocitem" href="#Customizing-Appearance"><span>Customizing Appearance</span></a></li><li><a class="tocitem" href="#Post-Creation-Customization"><span>Post-Creation Customization</span></a></li><li class="toplevel"><a class="tocitem" href="#Saving-Figures"><span>Saving Figures</span></a></li><li class="toplevel"><a class="tocitem" href="#Corner-Plots"><span>Corner Plots</span></a></li></ul></li><li><a class="tocitem" href="../rvplot/">Radial velocity figures</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../corrections/">Corrections &amp; Data Provenance</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Documentation</a></li><li class="is-active"><a href>Orbit plots with <code>octoplot</code></a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Orbit plots with <code>octoplot</code></a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/octoplot.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Orbit-Visualization-with-octoplot"><a class="docs-heading-anchor" href="#Orbit-Visualization-with-octoplot">Orbit Visualization with <code>octoplot</code></a><a id="Orbit-Visualization-with-octoplot-1"></a><a class="docs-heading-anchor-permalink" href="#Orbit-Visualization-with-octoplot" title="Permalink"></a></h1><p><code>octoplot</code> is a versatile visualization function that creates publication-quality figures showing orbit fits and data. It assembles a single figure containing:</p><ul><li>Projected orbits in the plane of the sky (or in AU, if the model has no parallax)</li><li>One time-series panel per data channel, each with a residual strip and a marginal residual histogram</li><li>Phase-folded panels for radial velocity channels</li><li>Any bespoke panels an observation type provides</li></ul><p>Here&#39;s a basic example showing how to create a plot from your MCMC chain:</p><pre><code class="language-julia hljs">using Octofitter
-using CairoMakie      # a Makie backend must be loaded
-# After running your MCMC fit...
-res = octoplot(model, chain)</code></pre><p><code>octoplot</code> returns an <a href="../api/#Octofitter.OctoPlotResult"><code>OctoPlotResult</code></a>, which displays as its figure and also carries the pieces you need to customize it:</p><pre><code class="language-julia hljs">res.figure     # the Makie Figure
-res.axes       # a nested NamedTuple of the axes, e.g. res.axes.sky.sky, res.axes.rv.main
-res.series     # the underlying PosteriorSeries — the solved orbits behind every panel</code></pre><h2 id="What-gets-drawn"><a class="docs-heading-anchor" href="#What-gets-drawn">What gets drawn</a><a id="What-gets-drawn-1"></a><a class="docs-heading-anchor-permalink" href="#What-gets-drawn" title="Permalink"></a></h2><p><code>octoplot</code> derives its panels from the model, not from a list of flags. Every observation declares its <em>plot channels</em> (<code>plotchannels(obs)</code>), each of which is one measured quantity with an associated <a href="../api/#Octofitter.ObservableQuery"><code>ObservableQuery</code></a> — for example <code>radvel(:A, Barycentre)</code> for a stellar reflex RV instrument, or <code>raoff(:b, :A)</code> and <code>decoff(:b, :A)</code> for relative astrometry.</p><p>The sky panel is drawn whenever the model has angular observables (i.e. the system block defines <code>plx</code>) and at least one orbit. It shows one phase-coloured track per <strong>hierarchy row</strong> — each row plotted as its exterior side relative to its interior side, which is exactly the relationship that row parametrizes. For a star with planets that is each planet about the star; for a hierarchical system it generalizes with no special cases (a moon about its planet, an inner pair&#39;s barycentre about the outer body). Right ascension increases to the left, and the overlaid astrometry is labelled by instrument (<code>legend=false</code> to drop the key).</p><p>The two panel families can be turned on or off explicitly:</p><pre><code class="language-julia hljs">octoplot(model, chain;
-    show_sky = false,    # skip the sky-plane panel
-    show_phase = true,   # add phase-folded panels (off by default — see below)
-)</code></pre><h2 id="One-panel-per-instrument-—-except-where-sharing-is-honest"><a class="docs-heading-anchor" href="#One-panel-per-instrument-—-except-where-sharing-is-honest">One panel per instrument — except where sharing is honest</a><a id="One-panel-per-instrument-—-except-where-sharing-is-honest-1"></a><a class="docs-heading-anchor-permalink" href="#One-panel-per-instrument-—-except-where-sharing-is-honest" title="Permalink"></a></h2><p>Channels group by the quantity they measure <strong>and</strong> by which observation reported it, unless the observation type opts into sharing via <a href="../api/#Octofitter.sharepanel"><code>sharepanel</code></a>. The question that setting answers is whether one draw&#39;s calibration can stand in for all of them:</p><ul><li><strong>Relative astrometry shares.</strong> <code>platescale</code> and <code>northangle</code> are calibration constants pinned to a fraction of a percent, so every instrument&#39;s points land in the same place under any draw. All of them merge onto one separation panel, one position-angle panel, one Δα* panel and one Δδ panel, calibrated by the maximum-posterior draw — the same behaviour Octofitter has always had.</li><li><strong>Radial velocity does not.</strong> An instrument zero point is a free parameter of order the data range and moves visibly between draws. Each spectrograph gets its own panel, its measurements are drawn <strong>exactly as reported</strong>, and each draw&#39;s model curve carries that draw&#39;s own offset and trend. The data stay put; the curves move. That is the only way a posterior cloud and a dataset can share a panel without misrepresenting one of them.</li></ul><p><a href="../api/#Octofitter.rvplot"><code>rvplot</code></a> is the deliberate exception on the other side: it puts every RV instrument back on one axis precisely because it shows a single draw.</p><h2 id="Every-measurement-on-every-panel-it-belongs-on"><a class="docs-heading-anchor" href="#Every-measurement-on-every-panel-it-belongs-on">Every measurement on every panel it belongs on</a><a id="Every-measurement-on-every-panel-it-belongs-on-1"></a><a class="docs-heading-anchor-permalink" href="#Every-measurement-on-every-panel-it-belongs-on" title="Permalink"></a></h2><p><code>(sep, pa)</code> and <code>(Δα*, Δδ)</code> are the same measurement in two bases, related by a rotation with no free parameter in between. A campaign that switched conventions partway through is still one dataset, so <strong>all</strong> of its astrometry appears on all four panels — the non-native pair projected deterministically, with first-order error propagation. The likelihood still scores only the pair the table actually carries; the projected channels are marked <code>derived</code> and exist for the figure.</p><p>A derived channel only opens a panel of its own if you ask for it by name (<code>channels=projectedseparation</code>); otherwise it rides along with a panel some other instrument declared natively.</p><h2 id="Residuals"><a class="docs-heading-anchor" href="#Residuals">Residuals</a><a id="Residuals-1"></a><a class="docs-heading-anchor-permalink" href="#Residuals" title="Permalink"></a></h2><p>Under each time-series panel, with a marginal histogram beside it.</p><p>When more than one draw is shown the residuals are <strong>whitened</strong>, and this is not optional: a raw residual is not comparable between draws — the jitter, the offsets and the other bodies&#39; subtracted signals all move — so <code>whiten=false</code> throws unless you also pass <code>ndraws=1</code>. <code>σ_eff</code> includes fitted jitter and, where an observation has a Gaussian-process noise model, that model&#39;s predictive variance; its mean is subtracted from the residual too, so the strip shows what the fit is actually left with.</p><p>The same argument applies once more inside the strip: those nuisance terms move from draw to draw, so a measurement&#39;s z-score is not one number but a distribution, and a single mark per point cannot say how much of the scatter is the fit&#39;s own uncertainty. Each point is therefore drawn as a <strong>boxplot</strong> of <code>(data − model)/σ_eff</code> over the draws — median, quartiles, 1.5 IQR whiskers — with the marginal histogram pooling every draw against a unit normal. Boxes are sized automatically from the spacing of the epochs and are narrow by design; <code>boxwidth=</code> (in x units — days on a time panel, cycles on a phase panel) sets them by hand when a dataset defeats that. With <code>ndraws=1</code> there is one z-score per point and it is drawn as a marker instead.</p><div class="admonition is-info" id="Not-every-observation-type-has-plot-channels-yet-8f9ba7198c7fd26a"><header class="admonition-header">Not every observation type has plot channels yet<a class="admonition-anchor" href="#Not-every-observation-type-has-plot-channels-yet-8f9ba7198c7fd26a" title="Permalink"></a></header><div class="admonition-body"><p><code>RelAstromObs</code>, <code>RadialVelocityObs</code>, <code>MarginalizedRVObs</code> and <code>GaiaDR4AstromObs</code> declare plot channels and appear in <code>octoplot</code>. <code>ImageObs</code>, <code>InterferometryObs</code>, <code>PhotometryObs</code>, <code>G23HObs</code> and <code>HipparcosIADObs</code> do not yet: <code>octoplot</code> still draws the orbits, but those observations&#39; data are not overlaid. This is a gap in the plotting layer rather than a deliberate omission.</p></div></div><h2 id="Controlling-the-draws"><a class="docs-heading-anchor" href="#Controlling-the-draws">Controlling the draws</a><a id="Controlling-the-draws-1"></a><a class="docs-heading-anchor-permalink" href="#Controlling-the-draws" title="Permalink"></a></h2><p>By default, <code>octoplot</code> draws 250 orbits selected without replacement from your posterior, with a fixed seed so that reruns and separate panels agree:</p><pre><code class="language-julia hljs"># Plot fewer orbits for faster rendering
-octoplot(model, chain, N=50)
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Orbit plots with octoplot · Octofitter.jl</title><meta name="title" content="Orbit plots with octoplot · Octofitter.jl"/><meta property="og:title" content="Orbit plots with octoplot · Octofitter.jl"/><meta property="twitter:title" content="Orbit plots with octoplot · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li><li><a class="tocitem" href="../v9-migration/">Migrating to v9</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../gaia-dr4-prerelease/">Gaia DR4</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li><li><a class="tocitem" href="../completeness/">Detection Completeness Mapping</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li class="is-active"><a class="tocitem" href>Orbit plots with <code>octoplot</code></a><ul class="internal"><li><a class="tocitem" href="#The-example-fit"><span>The example fit</span></a></li><li><a class="tocitem" href="#The-default-figure"><span>The default figure</span></a></li><li><a class="tocitem" href="#What-you-get-back"><span>What you get back</span></a></li><li><a class="tocitem" href="#Draw-fewer-orbits"><span>Draw fewer orbits</span></a></li><li><a class="tocitem" href="#Choose-which-panels-appear"><span>Choose which panels appear</span></a></li><li><a class="tocitem" href="#Plot-a-quantity-you-didn&#39;t-measure"><span>Plot a quantity you didn&#39;t measure</span></a></li><li><a class="tocitem" href="#Set-the-time-range"><span>Set the time range</span></a></li><li><a class="tocitem" href="#Change-titles,-labels-and-limits"><span>Change titles, labels and limits</span></a></li><li><a class="tocitem" href="#Save-the-figure"><span>Save the figure</span></a></li><li><a class="tocitem" href="#One-panel-on-its-own"><span>One panel on its own</span></a></li><li><a class="tocitem" href="#Lay-out-your-own-figure"><span>Lay out your own figure</span></a></li><li><a class="tocitem" href="#Phase-folded-panels"><span>Phase-folded panels</span></a></li><li><a class="tocitem" href="#Show-a-single-orbit"><span>Show a single orbit</span></a></li><li><a class="tocitem" href="#Colours-and-marker-styles"><span>Colours and marker styles</span></a></li><li><a class="tocitem" href="#All-keywords"><span>All keywords</span></a></li><li><a class="tocitem" href="#Related-figures"><span>Related figures</span></a></li><li><a class="tocitem" href="#Corner-plots"><span>Corner plots</span></a></li><li class="toplevel"><a class="tocitem" href="#octoplot-advanced"><span>Advanced topics</span></a></li><li><a class="tocitem" href="#How-the-panels-are-chosen"><span>How the panels are chosen</span></a></li><li><a class="tocitem" href="#One-panel-per-instrument-—-except-where-sharing-is-honest"><span>One panel per instrument — except where sharing is honest</span></a></li><li><a class="tocitem" href="#Every-measurement-on-every-panel-it-belongs-on"><span>Every measurement on every panel it belongs on</span></a></li><li><a class="tocitem" href="#Why-residuals-are-whitened,-and-why-they-are-boxplots"><span>Why residuals are whitened, and why they are boxplots</span></a></li><li><a class="tocitem" href="#Why-phase-folds-are-off-by-default"><span>Why phase folds are off by default</span></a></li><li><a class="tocitem" href="#Model-curves-as-numbers"><span>Model curves as numbers</span></a></li><li><a class="tocitem" href="#octoplot-future-epochs"><span>Positions at future epochs</span></a></li></ul></li><li><a class="tocitem" href="../rvplot/">Radial velocity figures</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../orbit-computation/">How Orbits Are Computed</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Documentation</a></li><li class="is-active"><a href>Orbit plots with <code>octoplot</code></a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Orbit plots with <code>octoplot</code></a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/octoplot.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="octoplot-page"><a class="docs-heading-anchor" href="#octoplot-page">Orbit plots with <code>octoplot</code></a><a id="octoplot-page-1"></a><a class="docs-heading-anchor-permalink" href="#octoplot-page" title="Permalink"></a></h1><p><code>octoplot(model, chain)</code> is the one-call summary of a fit: the orbits on the sky, your data with the model drawn through it, and residuals underneath. This page starts from that figure and then works through the changes people most often want to make to it — different panels, a different time range, fewer orbits, one panel on its own for a paper.</p><p>You do not need to know anything about Makie to follow it. Everything up to <a href="#octoplot-advanced">Advanced topics</a> is a short recipe you can paste next to your own <code>octoplot</code> call.</p><h2 id="The-example-fit"><a class="docs-heading-anchor" href="#The-example-fit">The example fit</a><a id="The-example-fit-1"></a><a class="docs-heading-anchor-permalink" href="#The-example-fit" title="Permalink"></a></h2><p>Every example below uses the fit built here — one planet, relative astrometry from one instrument, and radial velocities from two spectrographs. <strong>If you already have your own <code>model</code> and <code>chain</code>, skip this block</strong>; everything on the page applies unchanged.</p><pre><code class="language-julia hljs">using Octofitter, Distributions, CairoMakie, PairPlots
 
-# A different (but still reproducible) subset
-octoplot(model, chain, N=250, seed=42)</code></pre><p><code>ndraws</code> limits how many of the selected draws each <em>panel</em> actually renders, which is useful when you want a dense set of orbits computed but a light plot:</p><pre><code class="language-julia hljs">octoplot(model, chain, N=250, ndraws=25)</code></pre><p>To choose the draws yourself — for example to plot only the maximum-posterior sample — build the <a href="../api/#Octofitter.PosteriorSeries"><code>PosteriorSeries</code></a> explicitly and pass it in:</p><pre><code class="language-julia hljs">idx_MAP = argmax(chain[:logpost][:])
-series = Octofitter.PosteriorSeries(model, chain; ii=[idx_MAP])
-octoplot(series)</code></pre><h2 id="Other-keywords"><a class="docs-heading-anchor" href="#Other-keywords">Other keywords</a><a id="Other-keywords-1"></a><a class="docs-heading-anchor-permalink" href="#Other-keywords" title="Permalink"></a></h2><table><tr><th style="text-align: right">Keyword</th><th style="text-align: right">Meaning</th></tr><tr><td style="text-align: right"><code>N=250</code></td><td style="text-align: right">Number of posterior draws to solve</td></tr><tr><td style="text-align: right"><code>seed=0</code></td><td style="text-align: right">Seed for the draw selection</td></tr><tr><td style="text-align: right"><code>ndraws=nothing</code></td><td style="text-align: right">Cap on the draws each panel renders</td></tr><tr><td style="text-align: right"><code>show_sky=nothing</code></td><td style="text-align: right">Force the sky panel on or off (default: on when the model is angular)</td></tr><tr><td style="text-align: right"><code>show_phase=nothing</code></td><td style="text-align: right"><code>nothing</code> folds only when a single draw is shown; <code>true</code> folds every foldable channel; <code>false</code> folds nothing</td></tr><tr><td style="text-align: right"><code>whiten=nothing</code></td><td style="text-align: right">Divide residuals by their uncertainty (default: on when several draws are shown, and required then)</td></tr><tr><td style="text-align: right"><code>boxwidth=nothing</code></td><td style="text-align: right">Width of the residual boxes in x units (default: from the epoch spacing)</td></tr><tr><td style="text-align: right"><code>gpband=nothing</code></td><td style="text-align: right">Correlated-noise bands (default: on only for a single draw)</td></tr><tr><td style="text-align: right"><code>channels=nothing</code></td><td style="text-align: right">Restrict the figure — see below</td></tr><tr><td style="text-align: right"><code>legend=true</code></td><td style="text-align: right">Instrument keys on the sky and shared data panels</td></tr><tr><td style="text-align: right"><code>figscale=1.0</code></td><td style="text-align: right">Scale the whole figure</td></tr><tr><td style="text-align: right"><code>fname=nothing</code></td><td style="text-align: right">If set, save the figure to this path</td></tr></table><p>Nothing is written to disk unless you pass <code>fname</code>.</p><h2 id="Restricting-and-predicting:-channels"><a class="docs-heading-anchor" href="#Restricting-and-predicting:-channels">Restricting and predicting: <code>channels=</code></a><a id="Restricting-and-predicting:-channels-1"></a><a class="docs-heading-anchor-permalink" href="#Restricting-and-predicting:-channels" title="Permalink"></a></h2><p><code>channels=</code> takes an observable function, a channel or observable name as a <code>Symbol</code>, or a collection of either:</p><pre><code class="language-julia hljs">octoplot(model, chain; channels=radvel)          # RV panels only
-octoplot(model, chain; channels=(:sep, :pa))     # relative astrometry only</code></pre><p>Naming an <strong>observable the model has no data for</strong> draws it as a <em>prediction</em> — the model curves alone, with nothing to compare them to:</p><pre><code class="language-julia hljs"># An astrometry-only fit: what RV signal does this orbit imply?
-octoplot(model, chain; channels=radvel, show_sky=false)</code></pre><p>Every observable is plottable this way whether or not it was observed; what makes a panel is the model, not the dataset. The queries are chosen by <a href="../api/#Octofitter.default_queries"><code>default_queries</code></a>: one per hierarchy row for separations and angles, and the host body against the system barycentre for reflex quantities like <code>radvel</code> and <code>pmra</code>. Naming a <em>channel</em> (<code>channels=:sep</code>) does not trigger this — that names the separation <strong>data</strong>, and asking for data a fit does not have is not a request to invent it.</p><h2 id="Phase-folding"><a class="docs-heading-anchor" href="#Phase-folding">Phase folding</a><a id="Phase-folding-1"></a><a class="docs-heading-anchor-permalink" href="#Phase-folding" title="Permalink"></a></h2><p>Phase panels are <strong>off by default</strong> in <code>octoplot</code>, and on by default in <a href="../api/#Octofitter.rvplot"><code>rvplot</code></a>. The difference between the two figures is the number of draws, and that is exactly what a fold depends on.</p><p>Folding collapses the epoch axis through one ephemeris. For a single draw that is its own period and its own phase zero, and the fold is exact. For many draws the data can still only be folded once — on the maximum-posterior period — so a chain whose period is broad, or multi-modal, has its measurements placed at phases most of the drawn orbits disagree with, and the panel reads as scatter about a curve instead of as the ambiguity it actually is. Plenty of posteriors are tight enough for it to look fine, which is the trap: whether the picture is honest is a property of the fit, not of the figure.</p><p>So ask for it when you know the fit supports it:</p><pre><code class="language-julia hljs">octoplot(model, chain; show_phase=true)                  # fold anyway, all draws
-octoplot(model, chain; ndraws=1)                         # one draw: folded by default
-rvplot(model, chain)                                     # the single-draw RV figure</code></pre><p><code>show_phase=true</code> folds every channel that can be folded, not just radial velocity — a phase-folded separation or position-angle panel is often the clearest view of a well-sampled astrometric orbit:</p><pre><code class="language-julia hljs">octoplot(model, chain; channels=posangle, show_sky=false, show_phase=true)</code></pre><p>A channel is foldable when one hierarchy row&#39;s contribution to it can be isolated exactly — always true when a single row moves the quantity, and true for observables linear in the separation otherwise. Each draw&#39;s <em>curve</em> is folded on its own period even in the many-draw case, so the spread of the curves is the fold uncertainty drawn honestly; it is the single folding of the data underneath them that the default is cautious about.</p><h2 id="Building-your-own-figure"><a class="docs-heading-anchor" href="#Building-your-own-figure">Building your own figure</a><a id="Building-your-own-figure-1"></a><a class="docs-heading-anchor-permalink" href="#Building-your-own-figure" title="Permalink"></a></h2><p>The panels <code>octoplot</code> assembles are public, so you can lay out your own figure. They all take a Makie grid position and a <code>PosteriorSeries</code>:</p><pre><code class="language-julia hljs">using CairoMakie
-series = Octofitter.PosteriorSeries(model, chain; N=100)
+A = Body(
+    name=&quot;A&quot;,
+    variables=@variables begin
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1)   # [M⊙]
+    end
+)
 
-fig = Figure(size=(700, 900))
-skypanel!(fig[1,1], series)
-timeseriespanel!(fig[2,1], series, entries)   # entries: (observation, channel) pairs
-phasefoldpanel!(fig[3,1], series, entries; row=1)
-fig</code></pre><p>To get the model curves as plain numbers rather than a plot, evaluate an <a href="../api/#Octofitter.ObservableQuery"><code>ObservableQuery</code></a> over the series:</p><pre><code class="language-julia hljs">q = ObservableQuery(radvel, :A, Barycentre)
+b = Body(
+    name=&quot;b&quot;,
+    about=A,
+    variables=@variables begin
+        mass ~ LogUniform(1mjup, 100mjup)   # [M⊙]
+        a ~ Uniform(0.5, 20)                # [AU]
+        e ~ Uniform(0.0, 0.6)
+        i ~ Sine()                          # [rad]
+        ω ~ Uniform(0, 2pi)                 # [rad]
+        Ω ~ Uniform(0, 2pi)                 # [rad]
+        θ ~ Uniform(0, 2pi)                 # [rad]
+        epoch = 57000.0                     # [MJD]
+    end
+)
+
+astrom = RelAstromObs(
+    Table(
+        epoch = [55927.0, 56444.0, 57023.0, 57754.0, 58484.0, 59366.0],
+        ra    = [-102.40, -36.35, 137.31, -101.39, 22.67, 23.57],
+        dec   = [29.74, 165.11, 12.63, 9.38, 152.21, -99.09],
+        σ_ra  = fill(5.0, 6),
+        σ_dec = fill(5.0, 6),
+        cor   = fill(0.0, 6),
+    );
+    target=b, ref=A, name=&quot;GPI&quot;
+)
+
+harps = RadialVelocityObs(
+    Table(
+        epoch = [55927.0, 56191.5, 56456.1, 56720.6, 56985.2, 57249.7, 57514.2,
+                 57778.8, 58043.3, 58307.8, 58572.4, 58836.9, 59101.5, 59366.0],
+        rv    = [411.6, 595.4, 427.9, 108.1, -304.2, -707.8, -523.4,
+                 379.2, 600.0, 419.4, 134.6, -289.9, -693.1, -562.2],
+        σ_rv  = fill(6.0, 14),
+    );
+    target=A, ref=Barycentre, name=&quot;HARPS&quot;,
+    variables=@variables begin
+        offset ~ Uniform(-500, 500)
+        jitter ~ LogUniform(0.1, 30)
+    end
+)
+
+hires = RadialVelocityObs(
+    Table(
+        epoch = [56809.0, 57076.3, 57343.7, 57611.0, 57878.3,
+                 58145.7, 58413.0, 58680.3, 58947.7, 59215.0],
+        rv    = [84.4, -339.0, -653.4, -50.1, 660.3, 684.6, 426.0, 74.1, -355.1, -641.2],
+        σ_rv  = fill(9.0, 10),
+    );
+    target=A, ref=Barycentre, name=&quot;HIRES&quot;,
+    variables=@variables begin
+        offset ~ Uniform(-500, 500)
+        jitter ~ LogUniform(0.1, 30)
+    end
+)
+
+sys = System(
+    name=&quot;HD12345&quot;,
+    bodies=[A, b],
+    observations=[astrom, harps, hires],
+    variables=@variables begin
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
+init_chain = initialize!(model, (; bodies=(; b=(; a=3.2, e=0.25),),))
+chain = octofit(model, iterations=1000)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>[HD12345] observing_geometry = true (auto): would bias &quot;HARPS&quot; by 0.126σ (0.0338σ per point × √14) — over 300 prior draws (seed 0xc70f177e5000001)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HD12345] barycentric_lighttime = false (auto): changes no prediction at all — over 300 prior draws (seed 0xc70f177e5000001)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HD12345] &quot;HARPS&quot;: Einstein term, peak-to-peak [m/s] ≈ 0.00111 (0.000185× its tightest σ = 6.0)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HD12345] &quot;HARPS&quot;: secular-acceleration drift, peak-to-peak [m/s] ≈ 0.0 (0.0× its tightest σ = 6.0)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HD12345] &quot;HIRES&quot;: Einstein term, peak-to-peak [m/s] ≈ 0.000934 (0.000104× its tightest σ = 9.0)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HD12345] &quot;HIRES&quot;: secular-acceleration drift, peak-to-peak [m/s] ≈ 0.0 (0.0× its tightest σ = 9.0)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Preparing model
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number of free variables
+<span class="sgr36"><span class="sgr1">└ </span></span>  D = 13
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
+<span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
+ℓπcallback(θ): 0.000014 seconds
+∇ℓπcallback(θ): 0.000116 seconds (1 allocation: 32 bytes)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Initializing with 2 fixed parameters
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
+<span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
+<span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 2
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Found sample of initial positions
+<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-141.73603289038965, -129.11849302174878)
+<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -133.42532655725185
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampling, beginning with adaptation phase...
+<span class="sgr32">Sampling  10%|███▏                           |  ETA: 0:00:03</span>
+<span class="sgr34">                                    iterations: 198</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.1</span>
+<span class="sgr34">                                       n_steps: 63</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9157229669680916</span>
+<span class="sgr34">                                   log_density: -140.4797827413255</span>
+<span class="sgr34">                            hamiltonian_energy: 144.5912966597926</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.029109778992932434</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.20081922068393965</span>
+<span class="sgr34">                                    tree_depth: 6</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.03868582918499676</span>
+<span class="sgr34">                                 nom_step_size: 0.03868582918499676</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([9.09814e-5, 0.00342302, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  13%|████                           |  ETA: 0:00:03</span>
+<span class="sgr34">                                    iterations: 257</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.09</span>
+<span class="sgr34">                                       n_steps: 255</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9865420921517145</span>
+<span class="sgr34">                                   log_density: -134.09598212155387</span>
+<span class="sgr34">                            hamiltonian_energy: 139.65048542438873</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.005995590578976362</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.03360709184241273</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.0266265109002968</span>
+<span class="sgr34">                                 nom_step_size: 0.0266265109002968</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([4.77355e-5, 0.00306897, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  15%|████▊                          |  ETA: 0:00:03</span>
+<span class="sgr34">                                    iterations: 309</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.09</span>
+<span class="sgr34">                                       n_steps: 63</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9981049254660375</span>
+<span class="sgr34">                                   log_density: -137.30805975388165</span>
+<span class="sgr34">                            hamiltonian_energy: 143.730645664055</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.010620794276746892</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.031600689035059304</span>
+<span class="sgr34">                                    tree_depth: 6</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.03421699342623837</span>
+<span class="sgr34">                                 nom_step_size: 0.03421699342623837</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([4.77355e-5, 0.00306897, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  19%|██████                         |  ETA: 0:00:03</span>
+<span class="sgr34">                                    iterations: 386</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.08</span>
+<span class="sgr34">                                       n_steps: 63</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9382487971215577</span>
+<span class="sgr34">                                   log_density: -134.36185622392313</span>
+<span class="sgr34">                            hamiltonian_energy: 142.59727086601757</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.11463921660168808</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.1836197419212624</span>
+<span class="sgr34">                                    tree_depth: 6</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.057092188265327914</span>
+<span class="sgr34">                                 nom_step_size: 0.057092188265327914</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([4.77355e-5, 0.00306897, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  24%|███████▌                       |  ETA: 0:00:03</span>
+<span class="sgr34">                                    iterations: 481</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.08</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9986545525338941</span>
+<span class="sgr34">                                   log_density: -134.2205175784956</span>
+<span class="sgr34">                            hamiltonian_energy: 137.87116454705335</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.001661668834771035</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.009404958561958665</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.020110162692391638</span>
+<span class="sgr34">                                 nom_step_size: 0.020110162692391638</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([2.45386e-5, 0.00286175, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  30%|█████████▎                     |  ETA: 0:00:02</span>
+<span class="sgr34">                                    iterations: 594</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.07</span>
+<span class="sgr34">                                       n_steps: 31</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 1.0</span>
+<span class="sgr34">                                   log_density: -135.07038553369546</span>
+<span class="sgr34">                            hamiltonian_energy: 143.9739799234196</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.13795448179919845</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.19397654817709054</span>
+<span class="sgr34">                                    tree_depth: 5</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.11640759691120375</span>
+<span class="sgr34">                                 nom_step_size: 0.11640759691120375</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([2.45386e-5, 0.00286175, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  36%|███████████▎                   |  ETA: 0:00:02</span>
+<span class="sgr34">                                    iterations: 724</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 31</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9452727862058666</span>
+<span class="sgr34">                                   log_density: -132.46701192943365</span>
+<span class="sgr34">                            hamiltonian_energy: 140.29359461473317</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.07226685585692394</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.2534456198104067</span>
+<span class="sgr34">                                    tree_depth: 4</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.0983238037557394</span>
+<span class="sgr34">                                 nom_step_size: 0.0983238037557394</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([2.45386e-5, 0.00286175, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  44%|█████████████▌                 |  ETA: 0:00:01</span>
+<span class="sgr34">                                    iterations: 873</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 31</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.8548404151352635</span>
+<span class="sgr34">                                   log_density: -132.94756912405836</span>
+<span class="sgr34">                            hamiltonian_energy: 139.11945839168388</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.08793764285616135</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.3597198076498671</span>
+<span class="sgr34">                                    tree_depth: 5</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.10643087086314766</span>
+<span class="sgr34">                                 nom_step_size: 0.10643087086314766</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([2.45386e-5, 0.00286175, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  51%|███████████████▉               |  ETA: 0:00:01</span>
+<span class="sgr34">                                    iterations: 1022</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 31</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9765056500252919</span>
+<span class="sgr34">                                   log_density: -134.1068614688654</span>
+<span class="sgr34">                            hamiltonian_energy: 140.6714678310477</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.058735337487007655</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.3470393294589371</span>
+<span class="sgr34">                                    tree_depth: 5</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.1284267808437846</span>
+<span class="sgr34">                                 nom_step_size: 0.1284267808437846</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00887e-5, 0.00301932, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  60%|██████████████████▌            |  ETA: 0:00:01</span>
+<span class="sgr34">                                    iterations: 1190</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 31</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9690673800732461</span>
+<span class="sgr34">                                   log_density: -138.09568197648824</span>
+<span class="sgr34">                            hamiltonian_energy: 142.4981117526834</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.05356461441732563</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.26572587728838926</span>
+<span class="sgr34">                                    tree_depth: 5</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.1284267808437846</span>
+<span class="sgr34">                                 nom_step_size: 0.1284267808437846</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00887e-5, 0.00301932, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  68%|█████████████████████          |  ETA: 0:00:01</span>
+<span class="sgr34">                                    iterations: 1357</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 15</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.98882043373867</span>
+<span class="sgr34">                                   log_density: -135.29472043272082</span>
+<span class="sgr34">                            hamiltonian_energy: 140.9238157970666</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.2021049440153888</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.6463493839818</span>
+<span class="sgr34">                                    tree_depth: 4</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.1284267808437846</span>
+<span class="sgr34">                                 nom_step_size: 0.1284267808437846</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00887e-5, 0.00301932, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  76%|███████████████████████▊       |  ETA: 0:00:00</span>
+<span class="sgr34">                                    iterations: 1530</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 31</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.8890755551233672</span>
+<span class="sgr34">                                   log_density: -133.38274328035152</span>
+<span class="sgr34">                            hamiltonian_energy: 143.09752430056778</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.33187354590361906</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.38201330908097475</span>
+<span class="sgr34">                                    tree_depth: 5</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.1284267808437846</span>
+<span class="sgr34">                                 nom_step_size: 0.1284267808437846</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00887e-5, 0.00301932, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  85%|██████████████████████████▎    |  ETA: 0:00:00</span>
+<span class="sgr34">                                    iterations: 1697</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 31</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9124305041949551</span>
+<span class="sgr34">                                   log_density: -135.8389253103181</span>
+<span class="sgr34">                            hamiltonian_energy: 147.16292048870645</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.7438824169795737</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -1.2606981500899224</span>
+<span class="sgr34">                                    tree_depth: 5</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.1284267808437846</span>
+<span class="sgr34">                                 nom_step_size: 0.1284267808437846</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00887e-5, 0.00301932, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  93%|████████████████████████████▉  |  ETA: 0:00:00</span>
+<span class="sgr34">                                    iterations: 1862</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 31</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9998253447366591</span>
+<span class="sgr34">                                   log_density: -136.0997115919807</span>
+<span class="sgr34">                            hamiltonian_energy: 140.24509249040995</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.12436612027985916</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.8395595545422907</span>
+<span class="sgr34">                                    tree_depth: 4</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.1284267808437846</span>
+<span class="sgr34">                                 nom_step_size: 0.1284267808437846</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00887e-5, 0.00301932, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling 100%|███████████████████████████████| Time: 0:00:01</span>
+<span class="sgr34">                                    iterations: 2000</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 31</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9599735266324516</span>
+<span class="sgr34">                                   log_density: -137.16468251738314</span>
+<span class="sgr34">                            hamiltonian_energy: 144.71402940200335</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.0005383525021613877</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.18492662616759503</span>
+<span class="sgr34">                                    tree_depth: 5</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.1284267808437846</span>
+<span class="sgr34">                                 nom_step_size: 0.1284267808437846</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00887e-5, 0.00301932, 0. ...])</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampling compete. Building chains.
+Sampling report for chain:
+mean_accept                 = 0.9187960736111571
+ratio_divergent_transitions = 0.0
+mean_tree_depth             = 4.779
+max_tree_depth_frac         = 0.0
+total_steps                 = 58152
+μs/step (approx.)           = 36.2</code></pre><h2 id="The-default-figure"><a class="docs-heading-anchor" href="#The-default-figure">The default figure</a><a id="The-default-figure-1"></a><a class="docs-heading-anchor-permalink" href="#The-default-figure" title="Permalink"></a></h2><pre><code class="language-julia hljs">using CairoMakie      # a Makie backend must be loaded before plotting
+
+octoplot(model, chain)</code></pre><img src="ebe4c70e.png" alt="Example block output"/><p>Reading it from the top:</p><ul><li><strong>The sky panel.</strong> One orbit track per planet, drawn once for each posterior sample, coloured by orbital phase. The star sits at the origin, and right ascension increases to the <strong>left</strong>, as it does on the sky. Your relative astrometry is overlaid, labelled by instrument.</li><li><strong>One panel per measured quantity, per instrument.</strong> Here that is Δα* and Δδ from the GPI astrometry, then radial velocity from HARPS and from HIRES on separate panels. All of these share one horizontal axis: calendar dates along the top of the figure, MJD numbers along the bottom.</li><li><strong>A residual strip under each panel</strong>, with a marginal histogram at its right.</li></ul><p>A few words are used throughout the rest of the page, and they all mean something small and concrete:</p><table><tr><th style="text-align: right">Word</th><th style="text-align: right">What it means</th></tr><tr><td style="text-align: right"><strong>panel</strong></td><td style="text-align: right">One of the stacked plots — the sky panel, the HARPS panel, and so on.</td></tr><tr><td style="text-align: right"><strong>draw</strong></td><td style="text-align: right">One sample from your chain. <code>octoplot</code> overplots many, which is why each panel shows a bundle of curves rather than a single line.</td></tr><tr><td style="text-align: right"><strong>channel</strong></td><td style="text-align: right">One measured quantity from one observation: <code>sep</code>, <code>pa</code>, <code>raoff</code>, <code>decoff</code>, <code>rv</code>, … Panels are built one per channel.</td></tr><tr><td style="text-align: right"><strong>row</strong></td><td style="text-align: right">One orbit in your model — one <code>Body(..., about=...)</code>. This model has a single row, planet <code>b</code> about star <code>A</code>. Rows only matter for phase folds and for building your own figure.</td></tr></table><h2 id="What-you-get-back"><a class="docs-heading-anchor" href="#What-you-get-back">What you get back</a><a id="What-you-get-back-1"></a><a class="docs-heading-anchor-permalink" href="#What-you-get-back" title="Permalink"></a></h2><p><code>octoplot</code> returns an <a href="../api/#Octofitter.OctoPlotResult"><code>OctoPlotResult</code></a>. It displays as the figure, and it also carries the pieces you need in order to change anything:</p><pre><code class="language-julia hljs">res = octoplot(model, chain)
+
+res.figure     # the Makie Figure — pass this to `save`
+res.axes       # the panels, by name
+res.series     # the solved orbits behind every panel</code></pre><p><code>res.axes</code> names every panel. Print the keys to see what your own model produced:</p><pre><code class="language-julia hljs">keys(res.axes)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(:sky, :raoff, :decoff, :rv_HARPS, :rv_HIRES)</code></pre><p><code>sky</code> is the sky panel; the rest are named after the channel they show. Where several instruments measure the same quantity, the instrument name is appended — <code>rv_HARPS</code>, <code>rv_HIRES</code> — because <code>rv</code> alone would no longer identify one panel. Each entry is itself a small named group:</p><pre><code class="language-julia hljs">keys(res.axes.rv_HARPS)      # main plot, residual strip, marginal histogram</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(:main, :resid, :hist)</code></pre><p>So <code>res.axes.rv_HARPS.main</code> is an ordinary Makie <code>Axis</code> that you can set a title or limits on. The sky panel&#39;s axis is <code>res.axes.sky.sky</code>.</p><h2 id="Draw-fewer-orbits"><a class="docs-heading-anchor" href="#Draw-fewer-orbits">Draw fewer orbits</a><a id="Draw-fewer-orbits-1"></a><a class="docs-heading-anchor-permalink" href="#Draw-fewer-orbits" title="Permalink"></a></h2><p>By default <code>octoplot</code> solves 250 draws from your posterior, chosen without replacement with a fixed seed so that reruns and separate panels agree.</p><pre><code class="language-julia hljs">octoplot(model, chain, N=50)     # faster, lighter figure</code></pre><pre><code class="language-julia hljs">octoplot(model, chain, N=250, seed=42)   # a different, still reproducible subset</code></pre><p><code>N</code> sets how many draws are <em>computed</em>. <code>ndraws</code> caps how many each panel actually <em>renders</em>, which is what you want if a light-looking plot should still be backed by a well-sampled posterior:</p><pre><code class="language-julia hljs">octoplot(model, chain, N=250, ndraws=25)</code></pre><p><code>ndraws=1</code> is a special case worth knowing: with a single draw the residuals are shown in data units rather than whitened, phase-folded panels appear, and correlated-noise bands are drawn. See <a href="#Show-a-single-orbit">Show a single orbit</a>.</p><h2 id="Choose-which-panels-appear"><a class="docs-heading-anchor" href="#Choose-which-panels-appear">Choose which panels appear</a><a id="Choose-which-panels-appear-1"></a><a class="docs-heading-anchor-permalink" href="#Choose-which-panels-appear" title="Permalink"></a></h2><p>Two keywords do almost all of this.</p><p><code>show_sky=false</code> drops the sky panel:</p><pre><code class="language-julia hljs">octoplot(model, chain; show_sky=false)</code></pre><p><code>channels=</code> restricts the figure to some of the measurements. It takes a channel name as a <code>Symbol</code> (<code>:sep</code>, <code>:pa</code>, <code>:raoff</code>, <code>:decoff</code>, <code>:rv</code>), an observable function (<code>radvel</code>, <code>pmra</code>, <code>projectedseparation</code>, …), or a collection of either:</p><pre><code class="language-julia hljs">octoplot(model, chain; channels=radvel, show_sky=false)</code></pre><img src="b8a475fa.png" alt="Example block output"/><pre><code class="language-julia hljs">octoplot(model, chain; channels=(:raoff, :decoff))   # astrometry only, sky kept</code></pre><p>Relative astrometry is special in a useful way: whether your table holds <code>ra</code>/<code>dec</code> or <code>sep</code>/<code>pa</code>, <strong>both</strong> parametrizations are available, because one is a parameter-free rotation of the other. The figure above was fitted to <code>ra</code>/<code>dec</code>, and asking for separation works anyway:</p><pre><code class="language-julia hljs">octoplot(model, chain; channels=:sep, show_sky=false)</code></pre><img src="cc7fb058.png" alt="Example block output"/><p>Nothing is written to disk by any of these calls unless you pass <code>fname=</code>.</p><h2 id="Plot-a-quantity-you-didn&#39;t-measure"><a class="docs-heading-anchor" href="#Plot-a-quantity-you-didn&#39;t-measure">Plot a quantity you didn&#39;t measure</a><a id="Plot-a-quantity-you-didn&#39;t-measure-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-a-quantity-you-didn&#39;t-measure" title="Permalink"></a></h2><p>Naming an <strong>observable</strong> that your model has no data for draws it as a <em>prediction</em>: the model curves alone, with nothing to compare them to. This fit contains no proper-motion data, but the orbit implies a reflex proper motion:</p><pre><code class="language-julia hljs">octoplot(model, chain; channels=pmra, show_sky=false)</code></pre><img src="3ff6b032.png" alt="Example block output"/><p>This is how you ask a fit what signal it implies before spending telescope time on it — <code>channels=radvel</code> on an astrometry-only fit is the common case. Note that this only happens for an <em>observable</em> (<code>radvel</code>, <code>pmra</code>); naming a <em>channel</em> (<code>channels=:rv</code>) means &quot;the RV data&quot;, and asking for data a fit does not have is not a request to invent it.</p><h2 id="Set-the-time-range"><a class="docs-heading-anchor" href="#Set-the-time-range">Set the time range</a><a id="Set-the-time-range-1"></a><a class="docs-heading-anchor-permalink" href="#Set-the-time-range" title="Permalink"></a></h2><p>The model curves are drawn over an epoch grid <code>octoplot</code> chooses: your data, padded slightly and widened to at least one orbital period. You can see it:</p><pre><code class="language-julia hljs">res = octoplot(model, chain; N=50)
+mjd2date.(extrema(res.series.ts))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(Dates.DateTime(&quot;2011-11-10T09:57:36&quot;), Dates.DateTime(&quot;2021-07-22T14:02:24&quot;))</code></pre><p><code>tmin=</code> and <code>tmax=</code> move either end of it. Each takes an MJD number, a date string, or a <code>Date</code> — so this is how you ask what the orbit does after your last measurement:</p><pre><code class="language-julia hljs">octoplot(model, chain; N=50, tmax=&quot;2035-01-01&quot;)</code></pre><img src="fd98aab9.png" alt="Example block output"/><p>The point density is unchanged (the grid is still sized per orbital period), and only the end you name moves; the other one is still derived from the data. <code>ts=</code> replaces the grid outright with epochs of your own:</p><pre><code class="language-julia hljs">octoplot(model, chain; N=50, ts=mjd(&quot;2015-01-01&quot;):30.0:mjd(&quot;2025-01-01&quot;))</code></pre><p>These belong to the <a href="../api/#Octofitter.PosteriorSeries"><code>PosteriorSeries</code></a>, so if you build one yourself, pass them there instead — <code>PosteriorSeries(model, chain; tmax=&quot;2035-01-01&quot;)</code> — and <code>rvplot</code> takes them too.</p><p>To <em>zoom in</em> on a range the grid already covers, every time panel shares one x axis, so setting the limits on any of them moves the whole stack:</p><pre><code class="language-julia hljs">res = octoplot(model, chain; N=50)
+xlims!(res.axes.raoff.main, mjd(&quot;2012-01-01&quot;), mjd(&quot;2018-01-01&quot;))
+res.figure</code></pre><img src="6bdb52cd.png" alt="Example block output"/><p><code>xlims!</code> cannot show you anything <em>outside</em> the grid, though: there is no curve out there to draw, so zooming out past it gives empty axes. Use <code>tmin</code>/<code>tmax</code> for that.</p><div class="admonition is-success" id="Tip-6928f26b0b53b52c"><header class="admonition-header">Tip<a class="admonition-anchor" href="#Tip-6928f26b0b53b52c" title="Permalink"></a></header><div class="admonition-body"><p><code>ylims!</code> is <em>not</em> linked, so you can set a vertical range on one panel without touching the others.</p></div></div><div class="admonition is-info" id="Epochs-of-your-own,-without-a-figure-af7710abb7272d29"><header class="admonition-header">Epochs of your own, without a figure<a class="admonition-anchor" href="#Epochs-of-your-own,-without-a-figure-af7710abb7272d29" title="Permalink"></a></header><div class="admonition-body"><p>To evaluate the orbit at particular epochs and get numbers back rather than a plot, solve the system directly — see <a href="#octoplot-future-epochs">Positions at future epochs</a>.</p></div></div><h2 id="Change-titles,-labels-and-limits"><a class="docs-heading-anchor" href="#Change-titles,-labels-and-limits">Change titles, labels and limits</a><a id="Change-titles,-labels-and-limits-1"></a><a class="docs-heading-anchor-permalink" href="#Change-titles,-labels-and-limits" title="Permalink"></a></h2><p><code>res.axes</code> gives you the panels by name, so anything Makie can do to an <code>Axis</code>, you can do here:</p><pre><code class="language-julia hljs">res = octoplot(model, chain; N=50)
+
+res.axes.sky.sky.title = &quot;HD 12345 b&quot;
+res.axes.rv_HARPS.main.ylabel = &quot;RV [m/s]&quot;
+ylims!(res.axes.rv_HIRES.main, -900, 900)
+
+res.figure</code></pre><img src="d3a5d4e9.png" alt="Example block output"/><p><code>legend=false</code> removes the instrument key from the sky and shared data panels, and <code>figscale=</code> scales the whole figure at once.</p><h2 id="Save-the-figure"><a class="docs-heading-anchor" href="#Save-the-figure">Save the figure</a><a id="Save-the-figure-1"></a><a class="docs-heading-anchor-permalink" href="#Save-the-figure" title="Permalink"></a></h2><p>Either pass <code>fname=</code> and let <code>octoplot</code> write it, or save <code>res.figure</code> yourself:</p><pre><code class="language-julia hljs">octoplot(model, chain; fname=&quot;orbit.png&quot;)
+
+res = octoplot(model, chain)
+save(&quot;orbit.png&quot;, res.figure)
+save(&quot;orbit.pdf&quot;, res.figure)   # vector output, good for a journal
+save(&quot;orbit.svg&quot;, res.figure)   # vector output, good for further editing
+
+save(&quot;orbit.png&quot;, res.figure, px_per_unit=4)   # higher-resolution raster</code></pre><p>With CairoMakie (the usual choice for publication figures) all three formats work. GLMakie gives you an interactive window you can zoom and pan before saving, but only writes PNG.</p><div class="admonition is-info" id="Note-7db5bae04752df14"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-7db5bae04752df14" title="Permalink"></a></header><div class="admonition-body"><p>Some plot elements are rasterized internally for performance, so very large <code>px_per_unit</code> values stop improving quality. If you need a truly resolution-free figure, save PDF or SVG.</p></div></div><h2 id="One-panel-on-its-own"><a class="docs-heading-anchor" href="#One-panel-on-its-own">One panel on its own</a><a id="One-panel-on-its-own-1"></a><a class="docs-heading-anchor-permalink" href="#One-panel-on-its-own" title="Permalink"></a></h2><p>For a paper you often want one panel by itself, at your own size and aspect ratio. Build a <a href="../api/#Octofitter.PosteriorSeries"><code>PosteriorSeries</code></a> — the solved orbits, computed once — and hand it to the panel function directly.</p><p><code>entries</code> says which observation and which channel the panel should draw. <a href="../api/#Octofitter.plotchannels"><code>plotchannels</code></a> lists the channels an observation exposes:</p><pre><code class="language-julia hljs">series = Octofitter.PosteriorSeries(model, chain; N=100)
+
+entries = [(astrom, ch) for ch in Octofitter.plotchannels(astrom) if ch.name === :raoff]
+
+fig = Figure(size=(600, 320))
+timeseriespanel!(fig[1, 1], series, entries)
+fig</code></pre><img src="ae77eabb.png" alt="Example block output"/><p>The panel brings its own residual strip and marginal histogram, as it does inside <code>octoplot</code>; <code>show_hist=false</code> drops the histogram. The sky panel needs no entries at all:</p><pre><code class="language-julia hljs">fig = Figure(size=(500, 500))
+skypanel!(fig[1, 1], series)
+fig</code></pre><img src="9afe798d.png" alt="Example block output"/><h2 id="Lay-out-your-own-figure"><a class="docs-heading-anchor" href="#Lay-out-your-own-figure">Lay out your own figure</a><a id="Lay-out-your-own-figure-1"></a><a class="docs-heading-anchor-permalink" href="#Lay-out-your-own-figure" title="Permalink"></a></h2><p>The panels are ordinary Makie recipes taking a grid position, so you can arrange them however you like — side by side, for instance:</p><pre><code class="language-julia hljs">fig = Figure(size=(1100, 480))
+skypanel!(fig[1, 1], series; colorbar=false)
+timeseriespanel!(fig[1, 2], series, entries)
+colsize!(fig.layout, 1, Aspect(1, 1.0))
+fig</code></pre><img src="b906afa8.png" alt="Example block output"/><p>The three panel builders are <a href="../api/#Octofitter.skypanel!"><code>skypanel!</code></a>, <a href="../api/#Octofitter.timeseriespanel!"><code>timeseriespanel!</code></a> and <a href="../api/#Octofitter.phasefoldpanel!"><code>phasefoldpanel!</code></a>. They all take a grid position first and the same <code>PosteriorSeries</code> second, so every panel in your figure shows the same draws.</p><h2 id="Phase-folded-panels"><a class="docs-heading-anchor" href="#Phase-folded-panels">Phase-folded panels</a><a id="Phase-folded-panels-1"></a><a class="docs-heading-anchor-permalink" href="#Phase-folded-panels" title="Permalink"></a></h2><p>A phase fold collapses the epoch axis onto one orbital period. <code>octoplot</code> leaves these <strong>off by default</strong> — see <a href="#Why-phase-folds-are-off-by-default">Why phase folds are off by default</a> — and <code>show_phase=true</code> asks for them:</p><pre><code class="language-julia hljs">octoplot(model, chain; channels=radvel, show_sky=false, show_phase=true, N=100)</code></pre><img src="b439878d.png" alt="Example block output"/><p>Each fold gets its own panel, named after the channel and the row it was folded on (<code>rv_HARPS_phase_b</code>). <code>show_phase=true</code> folds <em>every</em> channel that can be folded, not only radial velocity, so a well-sampled astrometric orbit can be folded too:</p><pre><code class="language-julia hljs">octoplot(model, chain; channels=posangle, show_sky=false, show_phase=true)</code></pre><p>For the conventional single-draw radial-velocity figure with phase folds and binned means, use <a href="../api/#Octofitter.rvplot"><code>rvplot</code></a> instead — see <a href="../rvplot/#Radial-Velocity-Figures">Radial Velocity Figures</a>.</p><h2 id="Show-a-single-orbit"><a class="docs-heading-anchor" href="#Show-a-single-orbit">Show a single orbit</a><a id="Show-a-single-orbit-1"></a><a class="docs-heading-anchor-permalink" href="#Show-a-single-orbit" title="Permalink"></a></h2><p>Passing <code>ndraws=1</code> renders one draw. Because there is then a single set of parameters, residuals are shown in data units, phase folds appear, and any correlated-noise band is drawn:</p><pre><code class="language-julia hljs">octoplot(model, chain; ndraws=1)</code></pre><p>To choose <em>which</em> draw, either slice the chain or build the series yourself:</p><pre><code class="language-julia hljs">i_map = argmax(chain[:logpost][:])          # the maximum-posterior sample
+
+octoplot(model, chain[i_map:i_map, :, :])   # by slicing
+
+series_map = Octofitter.PosteriorSeries(model, chain; ii=[i_map])
+octoplot(series_map)                        # by building the series</code></pre><p>Slicing works for every plotting function, not just this one.</p><h2 id="Colours-and-marker-styles"><a class="docs-heading-anchor" href="#Colours-and-marker-styles">Colours and marker styles</a><a id="Colours-and-marker-styles-1"></a><a class="docs-heading-anchor-permalink" href="#Colours-and-marker-styles" title="Permalink"></a></h2><p>By default each orbit gets an accent colour that its sky track and its panels share, and each instrument on a shared panel gets its own colour <em>and</em> its own marker shape (so datasets stay separable in greyscale print). <code>legend=false</code> drops the instrument key.</p><p><code>curvecolor=</code> sets the model curves&#39; colour. One colour applies to the whole figure:</p><pre><code class="language-julia hljs">octoplot(model, chain; N=50, curvecolor=:firebrick)</code></pre><img src="6750a578.png" alt="Example block output"/><p>The sky panel builds its phase ramp from that colour rather than replacing it, so the tracks still fade with orbital phase. To recolour one orbit at a time in a multi-planet fit, pass a <code>NamedTuple</code> or <code>Dict</code> keyed by <strong>body name</strong>; a body you do not name keeps its default:</p><pre><code class="language-julia hljs">octoplot(model, chain; N=50, curvecolor=(; b=:firebrick))</code></pre><p>The key is a body because that is what a colour means here: <code>:b</code> recolours planet <code>b</code>&#39;s sky track, its astrometry panels and its phase folds together, and <code>:A</code> would recolour the star&#39;s own signal (the radial-velocity panels). Instrument colours and marker shapes stay automatic — on a shared panel they are the only thing saying whose point is whose.</p><p><code>datastyle=</code> is a NamedTuple of mark overrides, applied to every panel:</p><pre><code class="language-julia hljs">octoplot(model, chain; N=50, datastyle=(; markersize=10, σ_color=:instrument))</code></pre><p>The same two keywords are accepted by the individual panels, where <code>curvecolor=</code> is a single colour for that panel:</p><pre><code class="language-julia hljs">fig = Figure(size=(600, 320))
+timeseriespanel!(fig[1, 1], series, entries;
+    curvecolor = :firebrick,
+    datastyle  = (; markersize=10, σ_color=:instrument))
+fig</code></pre><img src="fe222b66.png" alt="Example block output"/><p><a href="../api/#Octofitter.skypanel!"><code>skypanel!</code></a> takes <code>curvecolor=</code> as well — there it is the colour the phase ramp is built from.</p><p><code>datastyle</code> accepts <code>markersize</code>, <code>resid_markersize</code>, <code>strokewidth</code>, <code>σ_linewidth</code>, <code>σ_color</code>, <code>σeff_linewidth</code> and <code>σeff_color</code>; an unrecognised key is an error rather than a silent no-op. A Makie theme (<code>set_theme!</code>, <code>with_theme</code>) still governs fonts, sizes and axis decorations, but the curve and marker colours are set explicitly by the panels and are not read from the theme.</p><h2 id="All-keywords"><a class="docs-heading-anchor" href="#All-keywords">All keywords</a><a id="All-keywords-1"></a><a class="docs-heading-anchor-permalink" href="#All-keywords" title="Permalink"></a></h2><table><tr><th style="text-align: right">Keyword</th><th style="text-align: right">Meaning</th></tr><tr><td style="text-align: right"><code>N=250</code></td><td style="text-align: right">Number of posterior draws to solve</td></tr><tr><td style="text-align: right"><code>seed=0</code></td><td style="text-align: right">Seed for the draw selection</td></tr><tr><td style="text-align: right"><code>ndraws=nothing</code></td><td style="text-align: right">Cap on the draws each panel renders</td></tr><tr><td style="text-align: right"><code>show_sky=nothing</code></td><td style="text-align: right">Force the sky panel on or off (default: on when the model has angular observables and at least one orbit)</td></tr><tr><td style="text-align: right"><code>show_phase=nothing</code></td><td style="text-align: right"><code>nothing</code> folds only when a single draw is shown; <code>true</code> folds every foldable channel; <code>false</code> folds nothing</td></tr><tr><td style="text-align: right"><code>channels=nothing</code></td><td style="text-align: right">Restrict the figure to some channels or observables</td></tr><tr><td style="text-align: right"><code>whiten=nothing</code></td><td style="text-align: right">Divide residuals by their uncertainty (default: on when several draws are shown, and required then)</td></tr><tr><td style="text-align: right"><code>boxwidth=nothing</code></td><td style="text-align: right">Width of the residual boxes in x units (default: from the epoch spacing)</td></tr><tr><td style="text-align: right"><code>gpband=nothing</code></td><td style="text-align: right">Correlated-noise bands (default: on only for a single draw)</td></tr><tr><td style="text-align: right"><code>tmin=nothing</code>, <code>tmax=nothing</code></td><td style="text-align: right">Ends of the epoch grid — MJD, a date string, or a <code>Date</code> (default: from the data and the period)</td></tr><tr><td style="text-align: right"><code>ts=nothing</code></td><td style="text-align: right">The epoch grid itself, replacing the automatic one</td></tr><tr><td style="text-align: right"><code>curvecolor=nothing</code></td><td style="text-align: right">Model-curve colour: one colour, or a <code>Dict</code>/<code>NamedTuple</code> keyed by body name</td></tr><tr><td style="text-align: right"><code>datastyle=nothing</code></td><td style="text-align: right">Marker and error-bar overrides for every panel</td></tr><tr><td style="text-align: right"><code>legend=true</code></td><td style="text-align: right">Instrument keys on the sky and shared data panels</td></tr><tr><td style="text-align: right"><code>figscale=1.0</code></td><td style="text-align: right">Scale the whole figure</td></tr><tr><td style="text-align: right"><code>figure=nothing</code></td><td style="text-align: right">Draw into an existing (emptied) <code>Figure</code> rather than a new one</td></tr><tr><td style="text-align: right"><code>fname=nothing</code></td><td style="text-align: right">If set, save the figure to this path</td></tr></table><p><code>N</code>, <code>seed</code>, <code>tmin</code>, <code>tmax</code> and <code>ts</code> belong to the <code>octoplot(model, chain; ...)</code> form; if you build a <a href="../api/#Octofitter.PosteriorSeries"><code>PosteriorSeries</code></a> yourself, they are its keywords instead.</p><h2 id="Related-figures"><a class="docs-heading-anchor" href="#Related-figures">Related figures</a><a id="Related-figures-1"></a><a class="docs-heading-anchor-permalink" href="#Related-figures" title="Permalink"></a></h2><ul><li><a href="../api/#Octofitter.rvplot"><code>rvplot</code></a> — the single-draw radial-velocity figure, with every instrument on one axis and phase folds by default. See <a href="../rvplot/#Radial-Velocity-Figures">Radial Velocity Figures</a>.</li><li><a href="../api/#Octofitter.octocorner"><code>octocorner</code></a> — the posterior corner plot, below.</li><li><a href="../api/#Octofitter.dotplot"><code>dotplot</code></a> — mass against separation or period for every body, coloured by eccentricity.</li><li><a href="../api/#Octofitter.gaiastarplot"><code>gaiastarplot</code></a>, <a href="../api/#Octofitter.gaiatimeplot"><code>gaiatimeplot</code></a>, <a href="../api/#Octofitter.hipparcosplot"><code>hipparcosplot</code></a>, <a href="../api/#Octofitter.skytrackplot"><code>skytrackplot</code></a> — absolute-astrometry figures in their own geometry.</li></ul><h2 id="Corner-plots"><a class="docs-heading-anchor" href="#Corner-plots">Corner plots</a><a id="Corner-plots-1"></a><a class="docs-heading-anchor-permalink" href="#Corner-plots" title="Permalink"></a></h2><p><a href="../api/#Octofitter.octocorner"><code>octocorner</code></a> draws the posterior pair plot, using PairPlots.jl:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
+octocorner(model, chain, small=true)</code></pre><img src="34248ea0.png" alt="Example block output"/><p><code>small=true</code> keeps only each body&#39;s <code>a</code>, <code>e</code>, <code>i</code> and <code>mass</code>; <code>includecols</code> and <code>excludecols</code> add or remove columns by name. <code>UniformCircular</code> helper pairs and fixed values are dropped automatically. Passing several chains overlays them, which is a convenient way to compare a prior draw with a posterior, or two models with each other.</p><hr/><h1 id="octoplot-advanced"><a class="docs-heading-anchor" href="#octoplot-advanced">Advanced topics</a><a id="octoplot-advanced-1"></a><a class="docs-heading-anchor-permalink" href="#octoplot-advanced" title="Permalink"></a></h1><p>Everything below explains <em>why</em> the default figure looks the way it does, and how to reach the machinery underneath it. None of it is needed to make a plot.</p><h2 id="How-the-panels-are-chosen"><a class="docs-heading-anchor" href="#How-the-panels-are-chosen">How the panels are chosen</a><a id="How-the-panels-are-chosen-1"></a><a class="docs-heading-anchor-permalink" href="#How-the-panels-are-chosen" title="Permalink"></a></h2><p><code>octoplot</code> derives its panels from the model, not from a list of flags. Every observation declares its plot channels (<a href="../api/#Octofitter.plotchannels"><code>plotchannels</code></a>), each of which is one measured quantity with an associated <a href="../api/#Octofitter.ObservableQuery"><code>ObservableQuery</code></a> — for example <code>radvel(:A, Barycentre)</code> for a stellar reflex RV instrument, or <code>raoff(:b, :A)</code> and <code>decoff(:b, :A)</code> for relative astrometry.</p><p>The sky panel is drawn whenever the model has angular observables (i.e. the system block defines <code>plx</code>) and at least one orbit. It shows one phase-coloured track per <strong>hierarchy row</strong> — each row plotted as its exterior side relative to its interior side, which is exactly the relationship that row parametrizes. For a star with planets that is each planet about the star; for a hierarchical system it generalizes with no special cases (a moon about its planet, an inner pair&#39;s barycentre about the outer body).</p><p>The queries used for a <em>predicted</em> channel are chosen by <a href="../api/#Octofitter.default_queries"><code>default_queries</code></a>: one per hierarchy row for separations and angles, and the host body against the system barycentre for reflex quantities like <code>radvel</code> and <code>pmra</code>.</p><div class="admonition is-info" id="Not-every-observation-type-has-plot-channels-yet-8f9ba7198c7fd26a"><header class="admonition-header">Not every observation type has plot channels yet<a class="admonition-anchor" href="#Not-every-observation-type-has-plot-channels-yet-8f9ba7198c7fd26a" title="Permalink"></a></header><div class="admonition-body"><p><code>RelAstromObs</code>, <code>RadialVelocityObs</code>, <code>MarginalizedRVObs</code> and <code>GaiaDR4AstromObs</code> declare plot channels and appear in <code>octoplot</code>. <code>ImageObs</code>, <code>InterferometryObs</code>, <code>PhotometryObs</code>, <code>G23HObs</code> and <code>HipparcosIADObs</code> do not yet: <code>octoplot</code> still draws the orbits, but those observations&#39; data are not overlaid. This is a gap in the plotting layer rather than a deliberate omission.</p></div></div><h2 id="One-panel-per-instrument-—-except-where-sharing-is-honest"><a class="docs-heading-anchor" href="#One-panel-per-instrument-—-except-where-sharing-is-honest">One panel per instrument — except where sharing is honest</a><a id="One-panel-per-instrument-—-except-where-sharing-is-honest-1"></a><a class="docs-heading-anchor-permalink" href="#One-panel-per-instrument-—-except-where-sharing-is-honest" title="Permalink"></a></h2><p>Channels group by the quantity they measure <strong>and</strong> by which observation reported it, unless the observation type opts into sharing via <a href="../api/#Octofitter.sharepanel"><code>sharepanel</code></a>. The question that setting answers is whether one draw&#39;s calibration can stand in for all of them:</p><ul><li><strong>Relative astrometry shares.</strong> <code>platescale</code> and <code>northangle</code> are calibration constants pinned to a fraction of a percent, so every instrument&#39;s points land in the same place under any draw. All of them merge onto one separation panel, one position-angle panel, one Δα* panel and one Δδ panel, calibrated by the maximum-posterior draw — the same behaviour Octofitter has always had.</li><li><strong>Radial velocity does not.</strong> An instrument zero point is a free parameter of order the data range and moves visibly between draws. Each spectrograph gets its own panel, its measurements are drawn <strong>exactly as reported</strong>, and each draw&#39;s model curve carries that draw&#39;s own offset and trend. The data stay put; the curves move. That is the only way a posterior cloud and a dataset can share a panel without misrepresenting one of them.</li></ul><p><a href="../api/#Octofitter.rvplot"><code>rvplot</code></a> is the deliberate exception on the other side: it puts every RV instrument back on one axis precisely because it shows a single draw.</p><h2 id="Every-measurement-on-every-panel-it-belongs-on"><a class="docs-heading-anchor" href="#Every-measurement-on-every-panel-it-belongs-on">Every measurement on every panel it belongs on</a><a id="Every-measurement-on-every-panel-it-belongs-on-1"></a><a class="docs-heading-anchor-permalink" href="#Every-measurement-on-every-panel-it-belongs-on" title="Permalink"></a></h2><p><code>(sep, pa)</code> and <code>(Δα*, Δδ)</code> are the same measurement in two bases, related by a rotation with no free parameter in between. A campaign that switched conventions partway through is still one dataset, so <strong>all</strong> of its astrometry appears on all four panels — the non-native pair projected deterministically, with first-order error propagation. The likelihood still scores only the pair the table actually carries; the projected channels are marked <code>derived</code> and exist for the figure.</p><p>A derived channel only opens a panel of its own if you ask for it by name (<code>channels=:sep</code>, as above); otherwise it rides along with a panel some other instrument declared natively.</p><h2 id="Why-residuals-are-whitened,-and-why-they-are-boxplots"><a class="docs-heading-anchor" href="#Why-residuals-are-whitened,-and-why-they-are-boxplots">Why residuals are whitened, and why they are boxplots</a><a id="Why-residuals-are-whitened,-and-why-they-are-boxplots-1"></a><a class="docs-heading-anchor-permalink" href="#Why-residuals-are-whitened,-and-why-they-are-boxplots" title="Permalink"></a></h2><p>When more than one draw is shown the residuals are <strong>whitened</strong>, and this is not optional: a raw residual is not comparable between draws — the jitter, the offsets and the other bodies&#39; subtracted signals all move — so <code>whiten=false</code> throws unless you also pass <code>ndraws=1</code>. <code>σ_eff</code> includes fitted jitter and, where an observation has a Gaussian-process noise model, that model&#39;s predictive variance; its mean is subtracted from the residual too, so the strip shows what the fit is actually left with.</p><p>The same argument applies once more inside the strip: those nuisance terms move from draw to draw, so a measurement&#39;s z-score is not one number but a distribution, and a single mark per point cannot say how much of the scatter is the fit&#39;s own uncertainty. Each point is therefore drawn as a <strong>boxplot</strong> of <code>(data − model)/σ_eff</code> over the draws — median, quartiles, 1.5 IQR whiskers — with the marginal histogram pooling every draw against a unit normal. Boxes are sized automatically from the spacing of the epochs and are narrow by design; <code>boxwidth=</code> (in x units — days on a time panel, cycles on a phase panel) sets them by hand when a dataset defeats that. With <code>ndraws=1</code> there is one z-score per point and it is drawn as a marker instead.</p><p>Correlated-noise bands (<a href="../api/#Octofitter.noisemodel"><code>noisemodel</code></a>) are likewise off unless a single draw is shown: 250 draws of &quot;orbit&quot; and 250 of &quot;orbit + activity&quot; on one axis is twice the ink for an envelope that is a different draw&#39;s activity model at every epoch. <code>gpband=true</code> overrides that.</p><h2 id="Why-phase-folds-are-off-by-default"><a class="docs-heading-anchor" href="#Why-phase-folds-are-off-by-default">Why phase folds are off by default</a><a id="Why-phase-folds-are-off-by-default-1"></a><a class="docs-heading-anchor-permalink" href="#Why-phase-folds-are-off-by-default" title="Permalink"></a></h2><p>Folding collapses the epoch axis through one ephemeris. For a single draw that is its own period and its own phase zero, and the fold is exact. For many draws the data can still only be folded once — on the maximum-posterior period — so a chain whose period is broad, or multi-modal, has its measurements placed at phases most of the drawn orbits disagree with, and the panel reads as scatter about a curve instead of as the ambiguity it actually is. Plenty of posteriors are tight enough for it to look fine, which is the trap: whether the picture is honest is a property of the fit, not of the figure.</p><p>A channel is foldable when one hierarchy row&#39;s contribution to it can be isolated exactly — always true when a single row moves the quantity, and true for observables linear in the separation otherwise. Each draw&#39;s <em>curve</em> is folded on its own period even in the many-draw case, so the spread of the curves is the fold uncertainty drawn honestly; it is the single folding of the data underneath them that the default is cautious about.</p><h2 id="Model-curves-as-numbers"><a class="docs-heading-anchor" href="#Model-curves-as-numbers">Model curves as numbers</a><a id="Model-curves-as-numbers-1"></a><a class="docs-heading-anchor-permalink" href="#Model-curves-as-numbers" title="Permalink"></a></h2><p>To get the model curves as plain numbers rather than a plot, evaluate an <a href="../api/#Octofitter.ObservableQuery"><code>ObservableQuery</code></a> over the series:</p><pre><code class="language-julia hljs">q = ObservableQuery(radvel, :A, Barycentre)
+
 curves = modelcurves(series, q)   # one vector per draw, over series.ts
-best   = mapcurve(series, q)      # the maximum-posterior draw</code></pre><h2 id="Predicting-positions-at-future-epochs"><a class="docs-heading-anchor" href="#Predicting-positions-at-future-epochs">Predicting positions at future epochs</a><a id="Predicting-positions-at-future-epochs-1"></a><a class="docs-heading-anchor-permalink" href="#Predicting-positions-at-future-epochs" title="Permalink"></a></h2><p>Solve the system for a draw and query it at whatever epochs you like:</p><pre><code class="language-julia hljs">posys = construct_system(model, chain, 1)
+best   = mapcurve(series, q)      # the maximum-posterior draw
+
+length(curves), length(best)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(100, 284)</code></pre><p>For the data rather than the curves, <code>Octofitter.residuals(obs, ctx)</code> returns, per channel, the epochs, the calibrated data, the model, the residual and the effective uncertainty; <a href="../api/#Octofitter.obscontext"><code>obscontext</code></a> builds the <code>ctx</code> from a <code>PosteriorSeries</code>.</p><h2 id="octoplot-future-epochs"><a class="docs-heading-anchor" href="#octoplot-future-epochs">Positions at future epochs</a><a id="octoplot-future-epochs-1"></a><a class="docs-heading-anchor-permalink" href="#octoplot-future-epochs" title="Permalink"></a></h2><p>Solve the system for a draw and query it at whatever epochs you like — this is the route to any epoch outside the figure&#39;s own grid:</p><pre><code class="language-julia hljs">posys = construct_system(model, chain, 1)
 sols  = orbitsolve(posys, [mjd(&quot;2028-01-01&quot;), mjd(&quot;2029-01-01&quot;)])
 
 raoff(sols[1], :b, :A)                 # ΔRA  [mas]
 decoff(sols[1], :b, :A)                # ΔDec [mas]
 projectedseparation(sols[1], :b, :A)   # [mas]
-posangle(sols[1], :b, :A)              # [rad]</code></pre><p>Loop over draws to build a predicted distribution, and plot it however you like.</p><h1 id="Customizing-Appearance"><a class="docs-heading-anchor" href="#Customizing-Appearance">Customizing Appearance</a><a id="Customizing-Appearance-1"></a><a class="docs-heading-anchor-permalink" href="#Customizing-Appearance" title="Permalink"></a></h1><h2 id="Post-Creation-Customization"><a class="docs-heading-anchor" href="#Post-Creation-Customization">Post-Creation Customization</a><a id="Post-Creation-Customization-1"></a><a class="docs-heading-anchor-permalink" href="#Post-Creation-Customization" title="Permalink"></a></h2><p>Since <code>octoplot</code> returns a result carrying named axes, you can customize any panel after creation using ordinary Makie calls:</p><pre><code class="language-julia hljs">res = octoplot(model, chain)
-
-# Named access, rather than guessing an index
-ax = res.axes.sky.sky
-xlims!(ax, -100, 100)
-ylims!(ax, -100, 100)
-ax.title = &quot;HD 12345 Orbital Fit&quot;
-
-res.figure</code></pre><p>The keys of <code>res.axes</code> name the panels: <code>sky</code> for the sky panel, and one entry per channel group (e.g. <code>sep</code>, <code>pa</code>, <code>raoff</code>, <code>decoff</code>, <code>rv</code>, <code>rv_phase_b</code>), each of which is itself a NamedTuple of <code>main</code>, <code>resid</code> and <code>hist</code> axes. Where several instruments each have their own panel, the key carries the instrument name too — <code>rv_HARPS</code>, <code>rv_HIRES</code>. <code>println(keys(res.axes))</code> lists them for your model.</p><div class="admonition is-success" id="Tip-e06ee9b9041bd95a"><header class="admonition-header">Tip<a class="admonition-anchor" href="#Tip-e06ee9b9041bd95a" title="Permalink"></a></header><div class="admonition-body"><p>Take care when modifying time-based panels as they share synchronized x-axes. Modifying the time limits of one panel will affect all others.</p></div></div><h1 id="Saving-Figures"><a class="docs-heading-anchor" href="#Saving-Figures">Saving Figures</a><a id="Saving-Figures-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-Figures" title="Permalink"></a></h1><p>When using CairoMakie (recommended for publication-quality outputs), you can save figures in several formats:</p><pre><code class="language-julia hljs">res = octoplot(model, chain)
-
-# Or pass fname= to octoplot and skip this step
-save(&quot;orbit_plot.png&quot;, res.figure)
-save(&quot;orbit_plot.pdf&quot;, res.figure)   # great for publications
-save(&quot;orbit_plot.svg&quot;, res.figure)   # good for further editing
-
-# Increase PNG resolution
-save(&quot;orbit_plot.png&quot;, res.figure, px_per_unit=5)</code></pre><div class="admonition is-info" id="Note-a356a4dd581efc3d"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-a356a4dd581efc3d" title="Permalink"></a></header><div class="admonition-body"><p>Many plot elements are internally rasterized for performance, so extremely high <code>px_per_unit</code> values may not improve quality.</p></div></div><p>If using GLMakie instead of CairoMakie, you get interactive figures that can be zoomed and panned before saving. However, only PNG output is supported. GLMakie is great for exploration, while CairoMakie is preferred for final publication figures.</p><h1 id="Corner-Plots"><a class="docs-heading-anchor" href="#Corner-Plots">Corner Plots</a><a id="Corner-Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Corner-Plots" title="Permalink"></a></h1><p><a href="../api/#Octofitter.octocorner"><code>octocorner</code></a> draws the posterior pair plot, using PairPlots.jl:</p><pre><code class="language-julia hljs">using CairoMakie, PairPlots
-octocorner(model, chain, small=true)</code></pre><p><code>small=true</code> keeps only each body&#39;s <code>a</code>, <code>e</code>, <code>i</code> and <code>mass</code>; <code>includecols</code> and <code>excludecols</code> add or remove columns by name. <code>UniformCircular</code> helper pairs and fixed values are dropped automatically. Passing several chains overlays them, which is a convenient way to compare a prior draw with a posterior, or two models with each other.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../chains/">« Chains</a><a class="docs-footer-nextpage" href="../rvplot/">Radial velocity figures »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Sunday 9 August 2026 07:05">Sunday 9 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+posangle(sols[1], :b, :A)              # [rad]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-0.6696013139961597</code></pre><p>Loop over draws to build a predicted distribution, and plot it however you like.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../chains/">« Chains</a><a class="docs-footer-nextpage" href="../rvplot/">Radial velocity figures »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 14 August 2026 18:28">Friday 14 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
