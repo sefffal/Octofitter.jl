@@ -15,7 +15,7 @@
 # `setup.jl` prints the number to use.
 
 # Octofitter v9 requires Julia >= 1.11.
-module load julia/1.11.5
+module load julia/1.12.5
 export JULIA_DEPOT_PATH="/scratch/$USER/julia_depot"
 export JULIA_NUM_THREADS=4
 export DATADEPS_ALWAYS_ACCEPT=true

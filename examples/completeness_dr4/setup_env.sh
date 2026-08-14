@@ -5,7 +5,7 @@
 set -e
 
 # Octofitter v9 requires Julia >= 1.11.
-module load julia/1.11.5
+module load julia/1.12.5
 export JULIA_DEPOT_PATH="/scratch/$USER/julia_depot"
 export DATADEPS_ALWAYS_ACCEPT=true
 
