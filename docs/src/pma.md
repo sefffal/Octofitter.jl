@@ -85,6 +85,17 @@ hgca_obs = HGCAObs(
 )
 ```
 
+!!! note "`ref = Barycentre` on absolute data"
+    These are absolute measurements, so `ref = Barycentre` can look like it is claiming
+    the barycentre stands still. It isn't. `ref` says which point the modelled *offsets*
+    are measured from — here, the photocentre's wobble about the system's centre of mass.
+    The barycentre's own motion across the sky is modelled separately, by the absolute
+    frame in the system block just below (`ra`, `dec`, `plx`, `pmra`, `pmdec`, `rv` at
+    `ref_epoch`). Those six are the barycentre's catalog quantities, and they are
+    propagated rigorously in 3D, so the track carries perspective acceleration rather than
+    being a straight line. The prediction is the sum: barycentre track + offset from the
+    barycentre, with the annual parallax coming from the observation's parallax factors.
+
 
 ### System Model & Specifying Proper Motion Anomaly
 
