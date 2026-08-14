@@ -14,9 +14,17 @@
 # down and inward, after the fact; siblings never see each other.
 #     1. system block, non-deferred lines        → `system.*`
 #     2. every node's block, in declaration order (sees `system.*`)
-#     3. system block, deferred lines            (sees `system.*` and `b.*`)
+#     2½. the interim PlanetOrbits.System, if any deferred line reads it
+#     3. system block, deferred lines            (sees `system.*`, `b.*`,
+#                                                 and `system_interim`)
 #     4. observation blocks                      (sees `system.*`)
 #     5. build the PlanetOrbits.System, solve once, evaluate likelihoods
+#
+# Step 2½ is what lets a model's *frame* be a function of its own bodies —
+# the anchored-frame parameterization, where `pmra` means "the barycentre's",
+# derived by subtracting the anchor body's reflex from a sampled catalog
+# proper motion. It is frame-free (or `Parallax`-level) by construction, so it
+# never depends on the frame it is helping to build.
 #
 # Note what is *not* here: no `M` injection into user blocks. Both of its uses
 # in v1 — `a = cbrt(M*P^2)` and the `θ`-to-`tp` conversion — moved into
@@ -131,10 +139,14 @@ function arr2nt_expr(sys::System)
         push!(node_blocks, :($(n.name) = $(_namespace_block(tag, p, s))))
     end
 
+    # 2.5. the interim system, if any deferred line reads it.
+    interim_block = _uses_interim(sys) ? Expr[_interim_expr(sys, sysvar, :_bodies)] : Expr[]
+
     # 3. system block, deferred lines — node namespaces bound by name.
     # No priors are consumed here (they were all taken in step 1), so the
     # index counter is a throwaway.
     node_bindings = Any[:($(n.name) = _bodies.$(n.name)) for n in sys.nodes]
+    isempty(interim_block) || push!(node_bindings, :($INTERIM_SYSTEM_VAR = _interim))
     _, def_steps = _emit_namespace(:_sysd, Priors(), sys.derived, Ref(0), node_bindings;
         derived_keys=sys.deferred,
         preexisting=Symbol[collect(keys(sys.priors.priors))..., nondef...])
@@ -160,6 +172,7 @@ function arr2nt_expr(sys::System)
         _sys0 = (; $(sys_priors...))
         $(sys_steps...)
         _bodies = (; $(node_blocks...))
+        $(interim_block...)
         $(deferred_block...)
         return (; $sysfull..., bodies=_bodies, observations=(; $(obs_blocks...)))
     end)
@@ -527,19 +540,32 @@ function _example_posys(sys::System, θ_example=nothing, build=nothing)
     return f(θ)
 end
 
-# Expression building the PlanetOrbits.Body / Orbit / System for one sample.
-function _build_system_expr(sys::System)
+# Statements building the PlanetOrbits.Body / Orbit / System for one sample,
+# ending in the `System(…)` call itself (no `return`, so the block is equally
+# usable as the value of a `let`).
+#
+# `access(name)` gives the expression for node `name`'s variable namespace, and
+# `framekws` the frame keyword arguments. Everything else is structural.
+#
+# Two callers, deliberately sharing one generator: `build(θ)`, which makes the
+# system the likelihoods are evaluated against, and `arr2nt`, which makes the
+# *interim* system deferred lines read (see `_interim_expr`). The consistency
+# guarantee for the anchored parameterization — that the frame is derived from
+# the same bodies the frame is then installed on — is exactly this sharing. A
+# second hand-written builder would be free to drift.
+function _build_system_stmts(sys::System, access, framekws::Vector{Expr})
     stmts = Expr[]
     bodyvar = Dict{Symbol,Symbol}()
     for n in bodynodes(sys)
         v = Symbol("_pob_", n.name)
         bodyvar[n.name] = v
         names = varnames(n)
-        massex = :mass in names ? :(θ.bodies.$(n.name).mass) : :(zero(T))
+        ns = access(n.name)
+        massex = :mass in names ? :($ns.mass) : :(zero(T))
         fluxvars = _flux_vars(n)
         fluxex = isempty(fluxvars) ? :((;)) :
                  Expr(:tuple, Expr(:parameters,
-                     (Expr(:kw, _flux_band(fv), :(θ.bodies.$(n.name).$fv)) for fv in fluxvars)...))
+                     (Expr(:kw, _flux_band(fv), :($ns.$fv)) for fv in fluxvars)...))
         push!(stmts, :($v = PlanetOrbits.Body(mass=$massex, flux=$fluxex,
             name=$(QuoteNode(n.name)))))
     end
@@ -552,17 +578,43 @@ function _build_system_expr(sys::System)
         node = _node(sys, owner)
         v = Symbol("_poo_", k)
         push!(orbvars, v)
-        kws = [Expr(:kw, e, :(θ.bodies.$(owner).$e)) for e in _element_vars(node)]
+        kws = [Expr(:kw, e, :($(access(owner)).$e)) for e in _element_vars(node)]
         push!(stmts, :($v = PlanetOrbits.Orbit($(_spec(ext));
             about=$(_spec(int)), $(kws...))))
     end
 
-    framekws = [Expr(:kw, f, :(θ.$f)) for f in sys.framevars]
-    push!(stmts, :(return PlanetOrbits.System(
+    push!(stmts, :(PlanetOrbits.System(
         $(Expr(:tuple, (bodyvar[nm] for nm in sys.bodynames)...)),
         $(Expr(:tuple, orbvars...));
         $(framekws...))))
     return stmts
+end
+
+# Expression building the PlanetOrbits.Body / Orbit / System for one sample.
+function _build_system_expr(sys::System)
+    stmts = _build_system_stmts(sys, nm -> :(θ.bodies.$nm),
+        Expr[Expr(:kw, f, :(θ.$f)) for f in sys.framevars])
+    stmts[end] = Expr(:return, stmts[end])
+    return stmts
+end
+
+# The interim system (§2.1 of the multi-source plan), as one `let` block
+# bound to `_interim` inside `arr2nt`. Emitted only when a deferred line asks
+# for it, so a model that never mentions `system_interim` pays nothing — not
+# an extra build, not an extra branch.
+#
+# `sysvar` names the non-deferred system namespace, `bodiesvar` the resolved
+# node namespaces. The scalar type is taken from both, exactly as
+# `GeneratedLnLike` takes it from the finished θ: a body carrying Duals must
+# not have its mass silently rounded by a `zero(T)` computed from the system
+# variables alone.
+function _interim_expr(sys::System, sysvar::Symbol, bodiesvar::Symbol)
+    pvar = _interim_plx(sys)
+    framekws = isnothing(pvar) ? Expr[] : Expr[Expr(:kw, :plx, :($sysvar.$pvar))]
+    stmts = _build_system_stmts(sys, nm -> :($bodiesvar.$nm), framekws)
+    return :(_interim = let T = $_system_number_type((; $sysvar..., bodies=$bodiesvar))
+        $(stmts...)
+    end)
 end
 
 """

@@ -23,6 +23,26 @@ KDEDist
 derived points. They are singletons, and both are also callable to name a
 subsystem or a blended subset.
 
+### The anchored frame
+
+A `variables=` block whose absolute frame is parameterized by an anchor
+source's catalogue solution rather than by the barycentre's — the
+parameterization several Gaia sources on one frame need. See
+[Anchoring the frame to a source](@ref g23h-anchored).
+
+```@docs
+AnchoredFrame
+anchored_frame
+anchor_offsets
+barycentre_parallax
+```
+
+### Sampling-coordinate Jacobians
+
+```@docs
+logjac_cartesian_to_campbell
+```
+
 ## Observations
 
 ```@docs

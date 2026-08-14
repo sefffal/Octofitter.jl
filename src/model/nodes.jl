@@ -148,6 +148,36 @@ const ORBIT_ELEMENT_KEYWORDS = (
 # nothing left to say.
 const FRAME_VARIABLES = (:plx, :ra, :dec, :pmra, :pmdec, :rv, :ref_epoch)
 
+# --- the interim system -------------------------------------------------------
+#
+# A deferred system line can reach a `PlanetOrbits.System` built from this
+# model's own bodies *before* the frame those lines are computing exists. The
+# enabling fact is that body-vs-barycentre kinematics need a distance, not a
+# sky position: they are fully defined at `Parallax` level, so the interim
+# solve never depends on the frame it is helping to construct.
+#
+# Built by codegen from the same body declarations as the final system, so the
+# two cannot drift apart — which is the reason this lives in the code
+# generator rather than being documented as a user-space pattern.
+
+"""
+Name a **deferred** system line uses to reach the frame-free interim system.
+See the "Deferred lines" section of [`System`](@ref) and [`AnchoredFrame`](@ref).
+"""
+const INTERIM_SYSTEM_VAR = :system_interim
+
+"""
+Optional system variable designating the parallax the interim system is built
+at. Needed only for *angular* interim observables (`raoff`, `pmra`, …); the
+physical-unit ones (`posx`, `velx`, …) are frame-free.
+
+Falls back to `plx` when that is itself non-deferred. In the anchored
+parameterization `plx` is derived *from* the interim and so cannot be, which
+is exactly why this second name exists: write `plx_interim = plx_A` beside the
+anchor's sampled parallax.
+"""
+const INTERIM_PARALLAX_VAR = :plx_interim
+
 _element_vars(n::ModelNode) = filter(in(ORBIT_ELEMENT_KEYWORDS), varnames(n))
 _flux_vars(n::Body) = filter(v -> v === :flux || startswith(string(v), "flux_"), varnames(n))
 _flux_band(v::Symbol) = v === :flux ? :default : Symbol(string(v)[6:end])
@@ -183,6 +213,25 @@ evaluated *after* every body block, so couplings, period ratios and global
 `LL +=` constraints need no new syntax. Bodies look up and outward; the
 system block looks down and inward, after the fact; siblings never see each
 other.
+
+Deferred lines also see `system_interim`: a `PlanetOrbits.System` built from
+this model's own bodies, which they may solve. It carries no absolute frame —
+which is the point, since what deferred lines most usefully compute *is* the
+frame:
+
+    plx_interim = plx_A                                          # not deferred
+    Δ    = anchor_offsets(system_interim, :A, 57388.0)           # deferred
+    pmra = pmra_A - Δ.pmra                                       # …and so is this
+
+Body–barycentre kinematics need a distance, not a sky position, so the interim
+is complete at `Parallax` level and there is no circularity. Give it that
+distance with a non-deferred `plx_interim` (or `plx`); without one it is
+frame-free and only the physical-unit observables (`posx`, `velx`, …) work.
+[`AnchoredFrame`](@ref) is the packaged form of this pattern. `system_interim`
+is visible *only* in deferred system lines: a body block cannot see it (it is
+built from the bodies), and an observation block must not, because
+observations are evaluated against the final system rather than this one.
+Reading it anywhere else is an error naming the block.
 
 # Observations
 All observations live here. Each one names its own references
@@ -343,13 +392,17 @@ function System(; name::Union{Symbol,AbstractString},
     # where `g = u < b.a` is evaluated in step 1 while `g` only exists after
     # step 3, and the failure is an `UndefVarError` naming a variable the user
     # did write — at evaluation time, inside the sampler.
+    #
+    # Reading `system_interim` defers a line for the same reason: the interim
+    # system is built from the bodies, so it does not exist until they do.
     deferred = Symbol[]
     let changed = true
         while changed
             changed = false
             for (k, expr) in derived.variables
                 k in deferred && continue
-                if _mentions_node(expr, allnames) || _mentions_symbol(expr, deferred)
+                if _mentions_node(expr, allnames) || _mentions_symbol(expr, deferred) ||
+                   _mentions_symbol(expr, (INTERIM_SYSTEM_VAR,))
                     push!(deferred, k)
                     changed = true
                 end
@@ -385,6 +438,41 @@ function System(; name::Union{Symbol,AbstractString},
             "shared quantity into the system block and read it as `system.…`, or, if it " *
             "is a dynamical mass, express it through the hierarchy with `about=` rather " *
             "than by arithmetic. (Nodes here: $(join(allnames, ", ")).)")
+    end
+
+    # `system_interim` is a *deferred system line* scope only. It is built from
+    # the bodies, so a body block asking for it is the same cycle the check
+    # above catches; and an observation block asking for it would be reading a
+    # system that has since been reframed, which is a different object from the
+    # one the observation is actually evaluated against.
+    for n in nodes, (k, expr) in n.derived.variables
+        _mentions_symbol(expr, (INTERIM_SYSTEM_VAR,)) && error(
+            "System $name: $(n.name)'s `$k` reads `$INTERIM_SYSTEM_VAR`, which only " *
+            "exists in *deferred system lines*. The interim system is built from the " *
+            "bodies, so it cannot be visible inside a body block. Move the calculation " *
+            "to the system block, where it will be deferred automatically, and read it " *
+            "back here as `system.…` — unless that is itself circular, in which case " *
+            "what you want is a hierarchy row (`about=`), not arithmetic.")
+    end
+    for o in obs
+        hasproperty(o, :derived) || continue
+        for (k, expr) in o.derived.variables
+            _mentions_symbol(expr, (INTERIM_SYSTEM_VAR,)) && error(
+                "System $name: observation \"$(likelihoodname(o))\"'s `$k` reads " *
+                "`$INTERIM_SYSTEM_VAR`, which only exists in deferred system lines. " *
+                "Observations are evaluated against the *final* system — the one the " *
+                "deferred lines finished building — so the interim is never the right " *
+                "object here. Hoist the quantity into a system line and read it as " *
+                "`system.…`.")
+        end
+    end
+    if any(k -> _mentions_symbol(derived.variables[k], (INTERIM_SYSTEM_VAR,)), deferred)
+        INTERIM_PARALLAX_VAR in deferred && error(
+            "System $name: `$INTERIM_PARALLAX_VAR` is deferred (it mentions a body, or " *
+            "reads `$INTERIM_SYSTEM_VAR`), but it is what the interim system is *built " *
+            "at* — so it must be known before the bodies are. Define it from sampled " *
+            "quantities only; in the anchored parameterization that is the anchor " *
+            "source's own catalog parallax, e.g. `$INTERIM_PARALLAX_VAR = plx_A`.")
     end
 
     sysnames = Symbol[collect(keys(priors.priors))...; collect(keys(derived.variables))...]
@@ -434,6 +522,12 @@ function System(; name::Union{Symbol,AbstractString},
                   "`Photocentre` with no band, but this system declares several " *
                   "($(join(declaredbands, ", "))). Name one, e.g. " *
                   "`Photocentre(:$(first(declaredbands)))`.")
+        end
+    end
+    # Settings that are only wrong in company — see `check_siblings`.
+    let ctx = (; name=Symbol(name), framevars, sysnames)
+        for o in obs
+            check_siblings(o, obs, ctx)
         end
     end
     obsnames = String[likelihoodname(o) for o in obs]
@@ -511,6 +605,25 @@ end
 
 nbodies(sys::System) = length(sys.bodynames)
 nrows(sys::System) = length(sys.rows)
+
+"""Whether any deferred system line reads the interim system."""
+_uses_interim(sys::System) = any(sys.deferred) do k
+    _mentions_symbol(sys.derived.variables[k], (INTERIM_SYSTEM_VAR,))
+end
+
+"""
+Non-deferred system variable the interim system takes its parallax from, or
+`nothing` for a frame-free (`NoFrame`) interim. See [`INTERIM_PARALLAX_VAR`](@ref).
+"""
+function _interim_plx(sys::System)
+    # Priors are all consumed before any derived line, so a prior name is
+    # never deferred and needs no check of its own.
+    have = k -> (k in keys(sys.priors.priors)) ||
+                (k in keys(sys.derived.variables) && !(k in sys.deferred))
+    have(INTERIM_PARALLAX_VAR) && return INTERIM_PARALLAX_VAR
+    have(:plx) && return :plx
+    return nothing
+end
 bodynodes(sys::System) = filter(n -> n isa Body, sys.nodes)
 _node(sys::System, name::Symbol) = sys.nodes[findfirst(n -> n.name === name, sys.nodes)]
 

@@ -36,6 +36,12 @@ if TEST_MODE in ("all", "unit")
     @testset "Photometry and configuration priors" begin
         include("v2/photometry-and-priors.jl")
     end
+    @testset "Interim solve and the anchored frame" begin
+        include("v2/anchored-frame.jl")
+    end
+    @testset "Sampling-coordinate Jacobians" begin
+        include("v2/sampling-jacobians.jl")
+    end
     @testset "Sky-path helpers" begin
         include("v2/skypath.jl")
     end

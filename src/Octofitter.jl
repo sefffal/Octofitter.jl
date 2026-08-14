@@ -68,6 +68,9 @@ include("model/corrections.jl")
 include("model/nodes.jl")
 include("macros.jl")
 include("model/codegen.jl")
+# After codegen: reuses its `BumpAlloc`, and the names it emits are the ones
+# the code generator agrees to expose (`INTERIM_SYSTEM_VAR`).
+include("model/anchored-frame.jl")
 
 # Helper for checking tables are well-formed
 equal_length_cols(tab) = allequal(length(getproperty(tab, col)) for col in Tables.columnnames(tab))
