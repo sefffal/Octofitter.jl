@@ -124,6 +124,7 @@ rvplot
 rvplot_animated
 dotplot
 gaiastarplot
+gaiastarplot!
 gaiatimeplot
 skytrackplot
 hipparcosplot

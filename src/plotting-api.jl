@@ -1255,10 +1255,25 @@ scan angle and drawn as a segment through the modelled track. This is the
 "is there a wobble, and does the orbit fit it?" picture for a
 [`GaiaDR4AstromObs`](@ref); the along-scan-versus-time half of it is the
 generic panel [`octoplot`](@ref) already draws. Requires a Makie backend.
+
+Draw several draws side by side with [`gaiastarplot!`](@ref), which takes a
+grid cell instead of making its own figure.
 """
 function gaiastarplot end
 gaiastarplot(args...; kwargs...) = _require_makie("gaiastarplot")
 export gaiastarplot
+
+"""
+    gaiastarplot!(gridposition_or_axis, model, chain, sample_idx=MAP; kwargs...)
+
+[`gaiastarplot`](@ref) into a cell of a figure you already have —
+`gaiastarplot!(fig[i, j], model, chain, idx)` — or into an axis you made
+yourself. Returns the `Axis`, so a grid of draws can be linked and have its
+interior decorations hidden in the usual Makie way. Requires a Makie backend.
+"""
+function gaiastarplot! end
+gaiastarplot!(args...; kwargs...) = _require_makie("gaiastarplot!")
+export gaiastarplot!
 
 """
     gaiatimeplot(model, chain; kwargs...)

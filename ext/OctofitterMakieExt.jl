@@ -97,6 +97,15 @@ const LEGEND_W = 150.0
 _layout(gl::Makie.GridLayout) = gl
 _layout(gp::Union{Makie.GridPosition,Makie.GridSubposition}) = Makie.GridLayout(gp)
 
+# Where a single-axis panel draws. A grid cell (`fig[i, j]`) is the usual
+# case; a bare figure or layout means "the only axis in it"; and an `Axis`
+# means the caller has already made and styled one, so the panel's own axis
+# attributes are theirs to have set — it draws into it and does not restyle.
+_panelaxis(ax::Makie.Axis; kwargs...) = ax
+_panelaxis(gp::Union{Makie.GridPosition,Makie.GridSubposition}; kwargs...) = Makie.Axis(gp; kwargs...)
+_panelaxis(gl::Makie.GridLayout; kwargs...) = Makie.Axis(gl[1, 1]; kwargs...)
+_panelaxis(fig::Makie.Figure; kwargs...) = Makie.Axis(fig[1, 1]; kwargs...)
+
 _alpha(n) = min(1.0, 100 / max(n, 1))
 
 # NaN-joined concatenation: one lines! call per row instead of one per draw.
@@ -1988,11 +1997,36 @@ direction and a dotted connector back to the track.
 (v8 displaced by `model − data`, mirroring each point across the track. The
 sign here is the one that makes a point sit where the abscissa says the source
 was.)
+
+`sample_idx` selects the draw — the maximum-posterior one by default, any row
+index otherwise. Comparing draws is the point of [`gaiastarplot!`](@ref),
+which draws into a cell of a figure you already have.
 """
 function Octofitter.gaiastarplot(model::Octofitter.LogDensityModel, chain::Chains,
                                  sample_idx=nothing;
-                                 keplerian_mult=1.0, ntrack::Integer=200,
-                                 fname=nothing, figure=(;), axis=(;))
+                                 fname=nothing, figure=(;), kwargs...)
+    fig = Makie.Figure(; size=(600, 600), figure...)
+    Octofitter.gaiastarplot!(fig[1, 1], model, chain, sample_idx; kwargs...)
+    fname !== nothing && Makie.save(fname, fig, px_per_unit=3)
+    return fig
+end
+
+"""
+    gaiastarplot!(gp, model, chain, sample_idx=MAP; keplerian_mult=1,
+                  ntrack=200, axis=(;))
+
+[`gaiastarplot`](@ref) into `gp`: a grid cell (`fig[i, j]`), a whole figure or
+layout — one axis at `[1, 1]` — or an `Axis` the caller has already made and
+styled. Returns the `Axis`.
+
+A grid of cells each showing a different `sample_idx` is the honest picture of
+an astrometric posterior: several quite different orbits, each passing through
+the same transits.
+"""
+function Octofitter.gaiastarplot!(gp, model::Octofitter.LogDensityModel, chain::Chains,
+                                  sample_idx=nothing;
+                                  keplerian_mult=1.0, ntrack::Integer=200,
+                                  axis=(;))
     sys = model.system
     obs = _theobs(sys, Octofitter.GaiaDR4AstromObs, "gaiastarplot")
     series, _ = _onedraw(model, chain, sample_idx)
@@ -2023,8 +2057,7 @@ function Octofitter.gaiastarplot(model::Octofitter.LogDensityModel, chain::Chain
     dx = mx .+ r.resid .* s
     dy = my .+ r.resid .* c
 
-    fig = Makie.Figure(; size=(600, 600), figure...)
-    ax = Makie.Axis(fig[1, 1];
+    ax = _panelaxis(gp;
         xlabel="Δα* [mas]", ylabel="Δδ [mas]",
         xreversed=true, aspect=Makie.DataAspect(),
         xgridvisible=false, ygridvisible=false, axis...)
@@ -2049,8 +2082,7 @@ function Octofitter.gaiastarplot(model::Octofitter.LogDensityModel, chain::Chain
         color=WONG[2], strokecolor=:black, strokewidth=1.5, markersize=8)
     Makie.scatter!(ax, [0.0], [0.0];
         marker='★', markersize=20, color=:white, strokecolor=:black, strokewidth=1.5)
-    fname !== nothing && Makie.save(fname, fig, px_per_unit=3)
-    return fig
+    return ax
 end
 
 """

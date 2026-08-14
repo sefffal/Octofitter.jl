@@ -373,6 +373,87 @@ using PairPlots
 octocorner(model, chain, small=true)
 ```
 
+## [Showing the degeneracy: one panel per period quantile](@id dr4-prerelease-degeneracy)
+
+A single `gaiastarplot` shows one orbit passing through the transits, and it is very
+easy to read that picture as *the* answer. It is not: it is one draw out of a posterior
+that, for an astrometry-only fit, can be broad and is often multi-modal. The honest
+version of the figure is a **grid** — the same data, several times, each panel a
+different draw taken from across the period marginal.
+
+[`gaiastarplot!`](@ref) draws into a cell of a figure you already have, so this is a
+loop over grid positions. Its third argument is the row index of the draw, which is what
+turns a set of quantiles into a set of panels:
+
+```julia
+# The period marginal. `a` is sampled and the total mass comes from the hierarchy,
+# so the period is derived per draw rather than being a chain column.
+Pday = sqrt.(vec(chain["b_a"]).^3 ./
+             (vec(chain["A_mass"]) .+ vec(chain["b_mass"]))) .* 365.25
+
+# Nine draws spread over the marginal: for each quantile, the draw whose period
+# is nearest to it. (`argmin` on |P - quantile| — the quantile itself is not a
+# draw, and we want a real posterior sample, orbit and nuisance parameters and
+# all, not an interpolation between two of them.)
+probs = range(0.05, 0.95, length=9)     # 5th to 95th percentile, nine panels
+idxs  = [argmin(abs.(Pday .- quantile(Pday, p))) for p in probs]
+
+fig = Figure(size=(620, 1000))   # each panel is DataAspect: size the figure to match
+axes = Axis[]
+for (k, idx) in enumerate(idxs)
+    i, j = fldmod1(k, 3)
+    ax = Octofitter.gaiastarplot!(fig[i, j], model, chain, idx;
+        axis=(; title="P = $(round(Pday[idx], digits=1)) d", titlesize=13,
+                xlabel="", ylabel=""))
+    push!(axes, ax)
+end
+
+# Shared scale, and decorations only on the outside edges.
+linkaxes!(axes...)
+for (k, ax) in enumerate(axes)
+    i, j = fldmod1(k, 3)
+    hidexdecorations!(ax; ticks=false, grid=false)
+    hideydecorations!(ax; ticks=false, grid=false)
+    i == 3 && (ax.xticklabelsvisible = true)
+    j == 1 && (ax.yticklabelsvisible = true)
+end
+Label(fig[4, 1:3], "Δα* [mas]")
+Label(fig[1:3, 0], "Δδ [mas]", rotation=pi/2)
+colgap!(fig.layout, 8)
+rowgap!(fig.layout, 8)
+fig
+```
+
+![3x3 grid of gaiastarplot panels, one per period quantile](assets/gaia4-period-quantile-grid.png)
+
+**Read it as a caption.** Every panel shows the same 93 transits; only the orbit differs.
+Ellipses of visibly different shape, size and orientation all thread the same scan lines
+about equally well, because each transit constrains the source's position along **one**
+direction — the measurement is a line, not a point — and the frame zero-point, proper
+motion and jitter parameters absorb a good deal of what is left over. The differences
+between panels *are* the posterior width, drawn in the space where you can judge them,
+and a single best-fit track cannot show you any of it.
+
+Because the panels share a scale, they are directly comparable. Read both what changes
+and what does not: for Gaia-4 the period is pinned to about ±1% across the whole 5th-to-95th
+percentile range, so all nine titles are nearly the same number, while the eccentricity and
+the orientation of the ellipse wander noticeably. That is the useful, publishable statement
+— *this* is tight, *that* is not — and it is exactly what the grid makes visible. On a
+system with only half an orbit of coverage — Gaia BH3, below — expect the tracks themselves
+to disagree far more.
+
+!!! tip "Please put this figure in your paper"
+    We would encourage showing a grid like this alongside the usual single best-fit
+    track. It costs one extra figure and it tells the reader what the posterior actually
+    supports, which a MAP orbit drawn on its own quietly overstates. The same loop works
+    for any parameter you are worried about — take the quantiles of `b_mass` or
+    `b_e` instead of the period, or of `b_i` if the inclination is what your mass
+    depends on.
+
+    The grid is a *visual* check, not a replacement for the corner plot: it shows how
+    different the orbits look, while `octocorner` shows how the parameters covary. They
+    answer different questions and it is worth showing both.
+
 ## [Other pre-released sources](@id dr4-prerelease-others)
 
 Two more of the twelve pre-released sources are shipped with the documentation as CSVs
