@@ -2,11 +2,9 @@
 
 One of the key features of Octofitter.jl is the ability to search for planets directly from images of the system. Sampling from images is much more computationally demanding than sampling from astrometry, but it allows for a few very powerful results:
 
-1. You can search for a planet that is not well detected in a single image
-By this, we mean you can feed in images of a system with no clear detections, and see if a planet is hiding in the noise based off of its Kepelerian motion.
+1. You can search for a planet that is not well detected in a single image. By this, we mean you can feed in images of a system with no clear detections, and see if a planet is hiding in the noise based off of its Kepelerian motion.
 
-2. Not detecting a planet in a given image can be almost as useful as a detection for constraining its orbit. 
-If you have a clear detection in one epoch, but no detection in another, Octofitter can use the image from the second epoch to rule out large swathes of possible orbits.
+2. Not detecting a planet in a given image can be almost as useful as a detection for constraining its orbit.  If you have a clear detection in one epoch, but no detection in another, Octofitter can use the image from the second epoch to rule out large swathes of possible orbits.
 
 Sampling from images can be freely combined with any known astrometry points, as well as astrometric acceleration. See advanced models for more details.
 
@@ -139,11 +137,9 @@ sys = System(
 nothing # hide
 ```
 
-### Where the planet's brightness lives
+### Planet Flux Variables
 
-The planet's brightness is `flux_H`, and it is a variable of the **body**, not of the observation.
-
-The reason is that one image contains every companion in the field at once. **One image set is one likelihood**: `targets` lists every source modelled in it, and each source reads its own brightness from its own body. Adding one likelihood per companion instead would count the same image's background once per companion.
+Each body you want to model should have a `flux_<band>` variable, e.g. `flux_H`.
 
 ```julia
 c = Body(name="c", about=A, variables=@variables begin
@@ -167,9 +163,8 @@ A few consequences worth knowing:
 
 * `band=:H` selects which `flux_<band>` variable each target is read from. You may omit `band=` only when the bodies declare exactly one band (a bare `flux = ...`); with several bands defined and no `band=`, you get an error listing them.
 * The units of `flux_H` are the units of your image pixels — contrast, magnitudes, Jy, or arbitrary, as long as they are consistent. Setting the host's `flux_H = 1.0` makes every other body's flux a contrast ratio, but for images the host is usually not in `targets` at all (it is behind the coronagraph), so it needs no flux variable.
-* `targets` is a *structural* statement about which sources the forward model contains. It is deliberately not inferred from "every body with a flux in this band": leaving `c` out is a different model from including `c` with a flux prior pushed near zero, and you have to be able to say the first.
-* `ref` is a genuine reference, not an implicit host. `ref=Barycentre` and `ref=b` (one companion measured against another) are both legal.
-* A `flux` or `flux_H` variable declared inside the `ImageObs`'s own `variables` block is now a hard error, with a message pointing at the body.
+* `targets` is a *structural* statement about which sources the forward model contains. It is deliberately not inferred from "every body with a flux in this band": leaving `c` out is a different model from including `c` with a flux prior pushed near zero.
+* `ref` is what the image is centred against. `ref=Barycentre` and `ref=b` (one companion measured against another) are both legal, and useful for hierarchical stellar systems.
 
 By default, the contrast of the images is calculated automatically, but you can supply your own contrast curve as well by also passing a `contrast` column: `contrast=OctofitterImages.contrast_interp(AstroImages.recenter(my_image))`. That callable maps separation **in pixels** to the 1σ flux uncertainty there. A 2-D `contrastmap` column is honoured too.
 

@@ -1,18 +1,9 @@
 # Distributed Sampling
 
 
-!!! note
-    Octofitter's default sampler (Hamiltonian Monte Carlo) is not easily parallelizable; however, it performs excellently on a single core. Give it a try before assuming you need to sample with multiple cores or nodes.
+Octofitter's default sampler (Hamiltonian Monte Carlo) is not easily parallelizable (only a single chain sampled at a time); however, it performs excellently on a single core. Give it a try before assuming you need to sample with multiple cores or nodes. If you have a lot of data (e.g. RV models with 1000 epochs) you can start julia with multiple threads, and `octofit` will multi-thread the kepler solve giving a moderate speedup. 
 
-!!! note "Requires Pigeons"
-    Everything on this page depends on [`octofit_pigeons`](@ref), whose methods live in a
-    package extension: `pkg> add Pigeons` and `using Pigeons`, or the function exists with
-    no methods. The MPI and cluster plumbing shown here has not been re-verified on a
-    real cluster recently — the model definition and the API calls are current, but treat
-    the launcher scripts as a starting point. See [Samplers](@ref samplers).
-
-
-This guide shows how you can sample from Octofitter models using many cores, or a cluster.
+This guide shows how you can sample from Octofitter models with the Pigeons parallel tempered sampler using many cores, or a cluster.
 
 ## Multiple cores on your own computer
 
@@ -26,8 +17,8 @@ chain, pt = octofit_pigeons(model; n_rounds=12, cores=8)
 ```
 
 This runs the sampler in `cores` separate worker processes, which for expensive
-models (many RV epochs, absolute astrometry, images) is often about twice as
-fast as sampling with threads. Each run spends a minute or two launching the
+models (many RV epochs, absolute astrometry, images) is often faster than sampling with threads
+Each run spends a minute or two launching the
 workers and compiling the model in them before sampling begins, so it pays off
 for long fits rather than quick tests — `octofit_pigeons` prints a hint when
 one path or the other looks clearly better. Progress appears in your session as
@@ -69,6 +60,7 @@ using DataFrames
 using Distributions
 
 # Specify your data as usual
+# In practice, this model is way to fast to benefit from MPI -- but we show it as a quick example.
 astrom_dat = Table(
     epoch = [50000.0, 50120.0, 50240.0, 50360.0, 50480.0, 50600.0, 50720.0, 50840.0],
     ra    = [-505.7637580573554, -502.570356287689, -498.2089148883798, -492.67768482682357,

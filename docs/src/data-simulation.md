@@ -87,12 +87,9 @@ model = Octofitter.LogDensityModel(sys)
 nothing # hide
 ```
 
-!!! note "Worth noticing in the model above"
+!!! note 
     * The host star is an ordinary [`Body`](@ref); its mass is `A_mass` in the chain.
     * Masses are **solar masses** everywhere. `mjup` / `mearth` / `msun` are plain multiplicative constants, so `500mjup` is a mass in M⊙.
-    * Observations live on the `System` and name their references: `target=b, ref=A` for the relative astrometry, `target=A, ref=Barycentre` for the stellar reflex RV.
-    * No `offset` or `jitter` is invented for you — declare them, as above, or the fit has no instrument zero point and no white-noise term.
-    * The total mass driving Kepler's third law comes from the hierarchy (`about=A`).
 
 ## Generate Synthetic Data
 
@@ -389,11 +386,6 @@ println("Generated $(length(epochs)) synthetic astrometry points")
 println("Period: $(round(period_days/365.25, digits=2)) years")
 display(first(astrom_data, 5))
 ```
-
-!!! note "Observables name their references"
-    `raoff(sol, :b, :A)` takes an explicit `(target, ref)` pair. The one-argument form
-    still works for the trivial two-body systems `orbit(...)` builds, but the
-    three-argument form is what generalizes.
 
 You can now use this synthetic data with Octofitter:
 

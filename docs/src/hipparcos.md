@@ -5,15 +5,12 @@ This tutorial explains how to model Hipparcos intermediate astrometric data (IAD
 parallax, and proper motion. The second uses Hipparcos to constrain the mass of a directly
 imaged planet.
 
-[`G23HObs`](@ref) carries the same abscissae as its `:iad_hip` channel alongside the Gaia
-catalog proper motions — reach for `HipparcosIADObs` when Hipparcos is all you have, or
-when you want the abscissae without the catalog proper motions.
+You can also model Hipparcos IAD jointly with Gaia and HGCA proper motion anomaly with 
+[`G23HObs`](@ref).
 
 ## The frame offset block
 
-The measured abscissa carries the Hipparcos catalog's *whole* sky path, not just the
-companion's reflex, so the model has to reproduce all of it. `HipparcosIADObs` does that
-with a five-parameter frame offset, declared in the observation's own variables block:
+Hipparcos IAD fits allow you to specify variables for the 5 parameter solutions. This lets you marginalize over Hipparcos IAD reference frame systematics if you're combining this data with other absolute astrometry. If you only have Hipparcos IAD absolute astrometry, you can just set these to zero or forward the system reference frame ones (like `plx`):
 
 | Variable | Meaning | Default |
 |---|---|---|
@@ -23,59 +20,10 @@ with a five-parameter frame offset, declared in the observation's own variables 
 | `iad_pmra`, `iad_pmdec` | catalog proper motion **plus** the offset | derived |
 | `hip_iad_jitter` | excess per-transit dispersion, added in quadrature | `~ LogUniform(0.001, 100)` |
 
-Two things follow from that table and are worth stating plainly:
-
-!!! note "`iad_Δplx = 0` is what keeps a Hipparcos-only fit identified"
-    The parallax signature in the abscissae is anchored to the system's own `plx`, with no
-    offset added on top. In a Hipparcos-only fit that is what lets the abscissae constrain
-    `plx` at all: the data see only the *sum* `plx + iad_Δplx`, so making both free leaves
-    a perfectly degenerate ridge and the parallax is measured by its prior instead of by
-    the data. Write `iad_Δplx ~ Uniform(-10, 10)` in your own `variables=` block when you
-    *want* the parallax marginalized — which is what [`G23HObs`](@ref) does, because there
-    Gaia constrains `plx` and the Hipparcos frame is pure nuisance.
-
-### The frame-offset block is a general facility
-
-The `iad_Δ*` variables are Octofitter's five-parameter [`FrameOffset`](@ref): the
-astrometric solution of *one instrument's own reference frame*, in the tangent plane
-about that instrument's catalog position. It exists because Hipparcos measured its
-abscissae against the Hipparcos frame, not against Gaia's, and the difference between the
-two is a nuisance the fit has to carry rather than a property of the star.
-
-Five names, all optional and all defaulting to zero, so an instrument that fits only some
-of them declares only those:
-
-| variable | meaning |
-|---|---|
-| `iad_Δra`, `iad_Δdec` | position offset at the instrument's reference epoch [mas] |
-| `iad_Δplx` | parallax offset from the anchor [mas] |
-| `iad_pmra`, `iad_pmdec` | proper motion **absolute**, not an offset [mas/yr] |
-
-The proper motions are absolute because their natural anchor is the instrument catalog's
-own solution, which a `@variables` block states directly:
-
-```julia
-variables = @variables begin
-    iad_Δpmra ~ Normal(0, 10)
-    iad_pmra  = 44.22 + iad_Δpmra    # catalog value plus the offset
-end
-```
-
-Each scan is then compared against that frame's path plus whatever the source itself is
-doing — orbital reflex, photocentre wobble — projected onto the scan direction ϕ:
-
-```
-b = (iad_Δra + Δt·iad_pmra + Δα)·cosϕ + (iad_Δdec + Δt·iad_pmdec + Δδ)·sinϕ + ϖ·f_AL
-```
-
-Hipparcos is the case shipped today; HST FGS is the intended next user, and any
-instrument with its own frame plugs in the same way. Note the counterpart: there are
-deliberately **no** per-source offsets for the Gaia channels, because several `G23HObs`
-in one system share one frame, and that shared frame is what ties a wide pair together.
 
 ## Reproduce Catalog Values
 
-This is the so-called "Nielsen" test from Nielsen et al (2020) and available in Orbitize!.
+This is the so-called "Nielsen" test from Nielsen et al (2020) and shown in the Orbitize! docs. It re-fits the IAD to get back the original Hipparcos 5-parameter solution as a test.
 
 We start by using a system with a zero-mass companion, so that the only thing the model can
 do is fit the straight-line motion of the star.
@@ -93,31 +41,18 @@ A = Body(
     end
 )
 
-planet_b = Body(
-    name="b",
-    about=A,
-    variables=@variables begin
-        mass = 0.0
-        e = 0.0
-        ω = 0.0
-        a = 1.0
-        i = 0.0
-        Ω = 0.0
-        tp = 0.0
-    end
-)
 
 hip_obs = Octofitter.HipparcosIADObs(
     hip_id=21547,
     host=A,
-    companions=(planet_b,),
+    companions=(),
     ref=Barycentre,
     renormalize=true, # default: true
 )
 
 sys = System(
     name="c_Eri_straight_line",
-    bodies=[A, planet_b],
+    bodies=[A,],
     observations=[hip_obs],
     variables=@variables begin
         plx ~ Uniform(10, 100)
@@ -127,65 +62,17 @@ sys = System(
 model = Octofitter.LogDensityModel(sys)
 ```
 
-Notice how short the system block is: the five-parameter solution the Hipparcos data
-constrain lives in the observation's own `iad_Δ*` block, and the system supplies only
-`plx`.
 
-Let's initialize the starting point for the chains to reasonable values. Observation
-variables are addressed by the observation's name with non-identifier characters replaced,
-so `"Hipparcos IAD"` becomes `Hipparcos_IAD`:
 
-```@example 1
-init_chain = initialize!(model, (;
-    plx = 34.0,
-    observations = (;
-        Hipparcos_IAD = (;
-            iad_Δra = 0.0,
-            iad_Δdec = 0.0,
-            iad_Δpmra = 0.0,
-            iad_Δpmdec = 0.0,
-        ),
-    ),
-))
-nothing # hide
-```
 
 We can now sample from the model using parallel tempering. This should only take about 15 seconds.
 ```@example 1
-chain, pt = octofit_pigeons(model, n_rounds=6)
+init_chain = initialize!(model)
+chain, pt = octofit_pigeons(model, n_rounds=7)
+chain
 ```
 
-!!! note "Sampler"
-    Every example on this page samples with [`octofit_pigeons`](@ref). The Hipparcos
-    abscissae are one-dimensional measurements along each scan direction, which leaves
-    the sky-plane solution only weakly pinned down; tempering runs a ladder of chains
-    down to the prior so that separated solutions stay reachable, and it reports `Λ`
-    and `log(Z₁/Z₀)` as a check that the ladder actually mixed.
-
-    [`octofit`](@ref) (Hamiltonian Monte Carlo) is a fine substitute for the unimodal
-    posteriors on this page and is much cheaper per sample; seed it with
-    [`initialize!`](@ref) as above. It is *not* a substitute for the widely separated
-    modes you get from proper motion anomaly with little orbital coverage (see
-    [Proper Motion Anomaly](@ref fit-pma)).
-
-Plot the posterior values:
-```@example 1
-using PairPlots
-octocorner(model, chain, small=false)
-```
-
-`HipparcosIADObs` declares an `along_scan` plot channel — the per-transit abscissa
-residual against the catalog's own five-parameter solution — so [`octoplot`](@ref) draws
-it with a residual strip and a marginal histogram:
-
-```@example 1
-octoplot(model, chain)
-```
-
-[`hipparcosplot`](@ref) shows the same fit in the instrument's own geometry instead: the
-catalog sky path, the modelled path including the companion's perturbation, each transit's
-abscissa line, and the perpendicular residual and formal error drawn against it.
-
+Plot the a sample from the posterior:
 ```@example 1
 Octofitter.hipparcosplot(model, chain)
 ```
@@ -201,18 +88,18 @@ using LinearAlgebra, StatsBase
 hip_sol = hip_obs.hip_sol
 
 comparisons = (
-    (; chain=:plx,                      μ=hip_sol.plx,    σ=hip_sol.e_plx,  label="plx [mas]"),
-    (; chain=:Hipparcos_IAD_iad_Δra,    μ=0.0,            σ=hip_sol.e_ra,   label="Δα⋆ [mas]"),
-    (; chain=:Hipparcos_IAD_iad_Δdec,   μ=0.0,            σ=hip_sol.e_de,   label="Δδ [mas]"),
-    (; chain=:Hipparcos_IAD_iad_pmra,   μ=hip_sol.pm_ra,  σ=hip_sol.e_pmra, label="μα⋆ [mas/yr]"),
-    (; chain=:Hipparcos_IAD_iad_pmdec,  μ=hip_sol.pm_de,  σ=hip_sol.e_pmde, label="μδ [mas/yr]"),
+    (; prop=:plx,                      μ=hip_sol.plx,    σ=hip_sol.e_plx,  label="plx [mas]"),
+    (; prop=:Hipparcos_IAD_iad_Δra,    μ=0.0,            σ=hip_sol.e_ra,   label="Δα⋆ [mas]"),
+    (; prop=:Hipparcos_IAD_iad_Δdec,   μ=0.0,            σ=hip_sol.e_de,   label="Δδ [mas]"),
+    (; prop=:Hipparcos_IAD_iad_pmra,   μ=hip_sol.pm_ra,  σ=hip_sol.e_pmra, label="μα⋆ [mas/yr]"),
+    (; prop=:Hipparcos_IAD_iad_pmdec,  μ=hip_sol.pm_de,  σ=hip_sol.e_pmde, label="μδ [mas/yr]"),
 )
 
 fig = Figure(size=(1080, 720))
 ax = nothing
 j = i = 1
 for prop in comparisons
-    global i, j, ax
+    global i, j, ax, chain
     ax = Axis(fig[j, i], xlabel=prop.label)
     i += 1
     if i > 3
@@ -222,7 +109,7 @@ for prop in comparisons
     n = Normal(prop.μ, prop.σ)
     n0, n1 = quantile.(n, (1e-4, 1 - 1e-4))
     nxs = range(n0, n1, length=200)
-    h = fit(Histogram, chain[prop.chain][:], nbins=55)
+    h = fit(Histogram, chain[prop.prop][:], nbins=55)
     h = normalize(h, mode=:pdf)
     barplot!(ax, (h.edges[1][1:end-1] .+ h.edges[1][2:end]) ./ 2, h.weights,
              gap=0, color=:red, label="posterior")
@@ -243,7 +130,7 @@ HIP 21547's published five-parameter solution to well within 1σ on all five:
 | `iad_pmra` [mas/yr] | 44.21 ± 0.33 | 44.22 ± 0.34 |
 | `iad_pmdec` [mas/yr] | −64.39 ± 0.26 | −64.39 ± 0.27 |
 
-!!! note "Recalibration is opt-in"
+!!! note 
     `HipparcosIADObs` defaults to `recalibrate=false`, so it reproduces the
     published catalog data as-is. `G23HObs` applies the Brandt, Michalik & Brandt shift
     (+0.140 mas on the residuals, 2.25 mas of extra dispersion) unconditionally; pass
@@ -279,12 +166,7 @@ astrom_obs = RelAstromObs(
 nothing # hide
 ```
 
-Observations are no longer attached to a planet: `target=` and `ref=` say what is being
-measured, and the observation goes in the system's flat `observations=` list.
-
-We specify our full model. Note that **all masses are in solar masses** — `mjup` is a
-plain multiplicative constant, so a Jupiter-mass prior is written
-`LogUniform(0.1mjup, 100mjup)`:
+We specify our full model.
 
 ```@example 1
 A_mass = Body(
@@ -304,8 +186,6 @@ planet_b_mass = Body(
         ω ~ Uniform(0, 2pi)
         i ~ Sine()
         Ω ~ Uniform(0, 2pi)
-        # `θ` + `epoch` is a phase parametrization the orbit constructor
-        # understands directly; the total mass comes from the hierarchy.
         θ ~ Uniform(0, 2pi)
         epoch = 58442.2
     end
@@ -343,7 +223,6 @@ init_chain = initialize!(model, (;
         ),
     ),
 ))
-octoplot(model, init_chain)
 ```
 
 Now we sample:

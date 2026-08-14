@@ -20,20 +20,11 @@ a three-phase workflow:
 
 For convenience, [`completeness_map`](@ref) runs all three phases locally.
 
-!!! warning "Masses are in solar masses"
-    There is a single mass unit, M⊙, throughout — `CompletenessJob.mass`, the `masses`
-    grid, and `CompletenessMap.masses` are all M⊙, and so is a body's `mass`
-    variable. `mjup` and `mearth` are plain multiplicative constants, so a
-    Jupiter-mass grid is written `10 .^ range(-1, 2, length=12) .* mjup`. A bare
-    `10 .^ range(-1, 2, length=12)` asks about companions between 0.1 and 100
-    **solar** masses.
 
-!!! note "Initialization shortcut"
-    For efficiency, each trial initializes the sampler at the true injected
-    parameters rather than running blind initialization. This dramatically
-    reduces sampling cost but means the completeness estimate is optimistic
-    about convergence. The results reflect the *statistical* detectability
-    of a signal, not the ability to blindly discover it.
+For efficiency, each trial initializes the sampler at the true injected
+parameters rather than running blind initialization. This 
+reduces sampling cost for this tutorial but means the completeness estimate is optimistic
+about convergence. Consider letting them initialize without that hint.
 
 ## A runnable miniature
 
@@ -89,7 +80,7 @@ nothing # hide
 masses = [0.3mjup, 10mjup]    # M⊙
 seps   = [1.0, 20.0]          # AU
 
-cmap, results = completeness_map(
+@time cmap, results = completeness_map(
     template,
     model -> octofit(model, iterations=500, adaptation=1000, verbosity=0),
     (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 1mjup;
@@ -161,17 +152,9 @@ sampler = model -> begin
 end
 ```
 
-!!! note "Which sampler to run per trial"
-    For strongly multi-modal data (images, interferometry) a completeness map built on
-    single-chain HMC will be optimistic: a trial where the sampler simply never visited
-    the injected mode is scored as a non-recovery for the wrong reason.
-    [`octofit_pigeons`](@ref) removes that failure mode, at a cost of far more compute per
-    cell — a real trade against grid resolution, and the usual reason to run phase 2 on a
-    cluster. Note the `.chain` unwrap above: `octofit_pigeons` returns `(;chain, pt)`,
-    while `run_completeness_trial` wants a bare `Chains`.
+Note the `.chain` unwrap above: `octofit_pigeons` returns `(;chain, pt)`,
+while `run_completeness_trial` wants a bare `Chains`.
 
-    Whichever you pick, the initialization shortcut described above already makes this a
-    *statistical detectability* estimate rather than a blind-discovery simulation.
 
 ## Choosing a detection criterion
 
@@ -334,18 +317,13 @@ cmap = assemble_completeness(results,
 
 completenessplot(cmap, "completeness_map.png")
 ```
+ Missing (e.g. timed out) trials are simply absent from the results — `assemble_completeness` handles incomplete grids
+gracefully, but beware these trials may not be missing at random.
 
-!!! tip "Timeout handling"
-    Some trials may time out on the cluster, particularly at very low masses
-    where NUTS explores large, flat parameter spaces. Missing trials are simply
-    absent from the results — `assemble_completeness` handles incomplete grids
-    gracefully.
-
-!!! note "Empty cells"
-    `assemble_completeness` reports `completeness = 0.0` for cells with zero trials,
-    which is indistinguishable from a cell where nothing was recovered. `n_total`
-    carries the distinction; mask on `n_total == 0` rather than trusting the
-    completeness value there.
+`assemble_completeness` reports `completeness = 0.0` for cells with zero trials,
+which is indistinguishable from a cell where nothing was recovered. `n_total`
+carries the distinction; mask on `n_total == 0` rather than trusting the
+completeness value there.
 
 ## Visualization
 

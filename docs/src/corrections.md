@@ -292,5 +292,3 @@ construction rather than degrading at solve time.
   migration guide — an ordinary reflex-RV planet fit will not notice, a
   relative-RV fit of an eccentric companion may.
 - `observing_geometry=true` / `false` still work, and are recorded as `(user)`.
-- The Einstein switch moved: it is `System(…; einstein_rv=:off)`, not a
-  keyword on `RadialVelocityObs`.

@@ -309,22 +309,8 @@ Sorting the selected orbits by semi-major axis, each adjacent pair
 where `m_in`/`m_out` are the total masses of the two rows' exterior bodies and
 `M★` is the mass interior to the outer row, excluding the inner row's bodies.
 
-`bodies=` restricts the prior as for [`NonCrossingPrior`](@ref). Carries no
-data: a prior term (`_isprior = true`), not an observation.
+`bodies=` restricts which bodies the constraint applies to.
 
-!!! warning "Not bit-identical to v8"
-    v8's `HillStabilityPrior` had a copy-paste bug — it assigned
-    `θ_planet_b = θ_system.planets[idx_a]` immediately after assigning it from
-    `idx_b`, so *both* masses in `R_H` and in `M★` were the inner planet's, and
-    the outer planet's mass never entered the criterion at all. This port
-    implements the intended formula, so it will reject configurations v8
-    accepted (and vice versa) whenever the two masses differ.
-
-    The definition of `M★` also had to change: v8 read `θ_planet.M`, the
-    per-planet total mass v9 has no equivalent of. Reading the mass interior to
-    the outer row instead gives `M★ = M_A` for both the Jacobi and the
-    astrocentric spelling of the same physical system, which v8's expression
-    did not.
 """
 struct HillStabilityPrior{TB<:Tuple} <: AbstractObs
     bodies::TB

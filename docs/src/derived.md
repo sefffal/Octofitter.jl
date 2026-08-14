@@ -293,10 +293,3 @@ end
 
 Then read `system.b_mass` in the observation's block.
 
-!!! note "Fluxes are body variables now"
-    A per-band flux or contrast ratio is declared on the *body* as `flux_<band>`, not on
-    the observation. Setting the host's `flux_H = 1.0` makes every other body's `flux_H` a
-    contrast ratio against it. Observation types that used to own a `flux`, `fluxratio` or
-    `flux` vector variable now read the bodies', and several of them raise an explicit
-    error if you declare one on the observation. See
-    [Migrating to Octofitter v9](@ref v9-migration).
