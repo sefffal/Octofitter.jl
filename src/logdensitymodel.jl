@@ -26,25 +26,95 @@ using LogDensityProblems
 # traversal for a quarter of the partials.
 #
 # `CHUNK_WIDTH_MAX` is a machine property (register file, vector width), not a
-# mathematical one, and 24 is where it sits on the AVX2 hardware this was
-# measured on. Users on very different hardware, or with a model whose shape
-# moves the knee, can measure instead: `LogDensityModel(sys; chunk_sizes=[…])`
-# times each candidate and picks the best.
+# mathematical one, and 24 is where it sits on the AVX2 hardware the numbers
+# above were measured on. Users on very different hardware, or with a model
+# whose shape moves the knee, can measure instead:
+# `LogDensityModel(sys; chunk_sizes=[…])` times each candidate and picks the
+# best.
+#
+# Being a machine property, it is detected at load rather than fixed at 24.
+# Re-measured on AMD EPYC 9655 (Zen 5, AVX-512, 64-byte registers), same
+# codebase, Gaia DR4 epoch astrometry with N companions (∇ℓπ, µs):
+#
+#   D=27 | chunk  14:139.4   16:102.7   20:121.1   24:134.2    27:72.8  <- single
+#   D=37 | chunk  16:303.0   19:226.1   24:202.6   32:257.2    37:150.1 <- single
+#   D=47 | chunk  16:456.5   24:333.3   32:483.2               47:303.0 <- single
+#   D=57 | chunk  20:692.1   29:570.8   40:700.1               57:476.0 <- single
+#   D=67 | chunk  23:2322 <- best       34:2910.2  45:4482     67:6101.9
+#
+# Two separate things fall out of this, and conflating them is what makes a
+# single constant unable to fit the data.
+#
+# 1. The single chunk keeps winning far past 24 on AVX-512. At D=37 this
+#    *inverts* the AVX2 row above (there 19 beat 37, 569 vs 809; here 37 beats
+#    19, 150.1 vs 226.1). Through D=57 one chunk is always fastest.
+#
+# 2. There is a hard cliff just past that, and it is razor sharp. Holding the
+#    body count fixed and padding D with free scalars (one job, one node, so
+#    these four are directly comparable):
+#
+#      D=57 752.0   D=58 750.1   D=59 803.9   D=60 4072.9   <- 5.1x in one step
+#
+#    Past the cliff the *narrow* splits win outright: at D=67, 23 (2322) beats
+#    34 (2910) beats 45 (4482) beats 67 (6101.9).
+#
+#    Note the cost of misplacing this bound is very asymmetric: one partial too
+#    permissive costs ~5x, one too strict costs ~1.2-1.45x (the split cost at
+#    D=57). 59 is the last width measured good on THIS model; the cliff is a
+#    codegen/register-pressure property of the generated log-density, so a very
+#    differently shaped model could move it. Anything relying on the last few
+#    partials should confirm with `chunk_sizes=[...]` rather than trust 59.
+#
+# So "how large may D be and still take ONE chunk" and "how wide should the
+# chunks be once we must split" are different questions with different answers,
+# and `CHUNK_SINGLE_MAX` / `CHUNK_WIDTH_MAX` answer them separately. That pair
+# reproduces the measured optimum at every D above — including D=67, where
+# raising a single shared ceiling to 64 would have picked 34 and been 1.25x off
+# the 23 that the old value of 24 already found.
+#
+# On AVX2 both default to 24, which reduces exactly to the previous one-constant
+# rule and still reproduces its three measured optima (23 -> 23, 30 -> 15,
+# 37 -> 19). Only the single-chunk bound moves on wide-register hardware.
+#
+# The sub-optimal widths do NOT order cleanly (16 beats 20 and 24 at D=27; 24
+# beats 16, 19, 20 and 32 at D=37), so only the single-chunk boundary and the
+# post-cliff narrow-split preference are treated as established.
 # ---------------------------------------------------
 
+"""
+    _default_chunk_single_max() -> Int
+
+Largest `D` that still gets a single chunk, from the host's SIMD register size.
+
+59 where the registers are 64 bytes wide (AVX-512), 24 otherwise (the
+AVX2-calibrated value). The AVX-512 figure is bounded by measurement, not by
+theory: 59 is the last width measured fast, and 60 costs 5.1x more.
+"""
+function _default_chunk_single_max()
+    return Int(HostCPUFeatures.register_size()) >= 64 ? 59 : 24
+end
+
+# Both set from `__init__` so they follow the machine that RUNS the code, not
+# the one that precompiled it — which differ whenever a depot is shared across
+# heterogeneous cluster nodes, as it is on the systems this is used from.
+const CHUNK_SINGLE_MAX = Ref(24)
 const CHUNK_WIDTH_MAX = Ref(24)
 
 """
     _chunk_heuristic(D) -> Int
 
-Chunk width for `D` free parameters: the balanced split into the fewest chunks
-whose width does not exceed `CHUNK_WIDTH_MAX[]`. Reduces to a single chunk of
-width `D` for the great majority of models.
+Chunk width for `D` free parameters: a single chunk of width `D` while `D` fits
+under `CHUNK_SINGLE_MAX[]`, otherwise the balanced split into the fewest chunks
+whose width does not exceed `CHUNK_WIDTH_MAX[]`.
+
+Reduces to a single chunk for the great majority of models. When the two
+constants are equal — which is the default on anything but wide-register
+hardware — this is the plain "balanced split under one ceiling" rule.
 """
 function _chunk_heuristic(D::Int)
     D <= 0 && return 1
+    D <= max(1, CHUNK_SINGLE_MAX[]) && return D
     nmax = max(1, CHUNK_WIDTH_MAX[])
-    D <= nmax && return D
     return cld(D, cld(D, nmax))
 end
 
@@ -195,6 +265,22 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # Test out model likelihood and prior computations. This way, if they throw
         # an error, we'll see it right away instead of burried in some deep stack
         # trace from the sampler, autodiff, etc.
+        #
+        # Build the orbital system *uncaught* first. `ln_like_generated` swallows
+        # construction failures and returns -Inf — which is right during sampling,
+        # where a bad proposal is just a rejected proposal, but wrong here: a
+        # malformed hierarchy is a property of the model, not of one draw, and it
+        # would otherwise reach the user as a warning from inside the sampler
+        # instead of an error at the line that defined the model. A *domain*
+        # failure is exempt: the priors are entitled to admit a draw the elements
+        # do not, and the sampler will handle it.
+        if ln_like_generated isa GeneratedLnLike
+            try
+                ln_like_generated.build(arr2nt(initial_θ_0))
+            catch err
+                _is_domain_failure(err) || rethrow()
+            end
+        end
         ln_like_generated(system, arr2nt(initial_θ_0))
 
         ln_prior_transformed(initial_θ_0,false)

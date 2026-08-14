@@ -14,6 +14,24 @@ There are a few use cases for this:
 
 The recipe is the same in every case: build a model in which the companion's *brightness* is derived from its **mass** through an evolutionary model, fit the data, and read off which masses survive.
 
+!!! note "About the target and the data on this page"
+    The star is Gaia DR3 `6166183842771027328` (HIP 65808), a ~32 pc solar-type
+    dwarf. It is chosen because its proper motion is a **non-detection**: the HGCA
+    χ² is 17.8 and every Hipparcos/Hipparcos–Gaia/DR3 channel sits within ~3σ of
+    the long-term trend, so the PMA posterior below is a genuine *upper limit* —
+    the broad envelope the other data sets are compared against. Do not retarget
+    this page onto a star with a real astrometric companion (HD 91312, used by
+    [Fit Proper Motion Anomaly](@ref fit-pma), has a 16σ anomaly): the PMA
+    posterior then pins itself to the top of the mass prior and the page stops
+    demonstrating anything.
+
+    So that the page builds offline it reads the Hipparcos–Gaia catalog subset and
+    the cached scan-law forecast that ship with Octofitter's tests, together with
+    the example L′ contrast image from [Fitting Images](@ref fit-images) — which is
+    a stand-in, not a real observation of this star. For a real target you simply
+    drop the `catalog=` and `forecast_table=` keywords and Octofitter fetches both
+    itself.
+
 ```@example 1
 using Octofitter
 using OctofitterImages
@@ -26,13 +44,6 @@ using Pigeons
 using Arrow, DataFrames, CSV # hide
 ```
 
-!!! note "About the data on this page"
-    So that this page builds offline, it uses the Hipparcos–Gaia catalog subset and
-    cached scan-law forecast that ship with Octofitter's tests, together with the
-    example L′ contrast image from [Fitting Images](@ref fit-images) — which is a stand-in,
-    not a real observation of this star. For a real target you simply drop the
-    `catalog=` and `forecast_table=` keywords and Octofitter fetches everything
-    itself.
 
 ## Photometry Model
 
@@ -48,20 +59,6 @@ const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)
     written `10mjup`, **not** `10` — a bare `10` means ten solar masses, which lands off
     the end of the grid and quietly returns `NaN`. Pass `mass_unit=:Mjup` to the
     constructors if you would rather keep a script in Jupiter masses.
-
-## Catalog data
-
-```@example 1
-gaia_id = 756291174721509376
-catalog = DataFrame(Arrow.Table(joinpath(@__DIR__, "..", "..", "test", "G23H-test-subset.feather"))) # hide
-gost = CSV.read(joinpath(@__DIR__, "GOST-158.30707896392835-40.42555422701387-dr3.csv"), Table, normalizenames=true) # hide
-forecast = Table( # hide
-    epoch = Octofitter.jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_), # hide
-    scanAngle_rad = gost.scanAngle_rad_, # hide
-    parallaxFactorAlongScan = gost.parallaxFactorAlongScan, # hide
-) # hide
-nothing # hide
-```
 
 ## Proper Motion Anomaly Data
 
@@ -96,6 +93,16 @@ B = Body(
     end
 )
 
+gaia_id = 6166183842771027328   # HIP 65808 -- see the note above
+catalog = DataFrame(Arrow.Table(joinpath(@__DIR__, "..", "..", "test", "G23H-test-subset.feather"))) # hide
+gost = CSV.read(joinpath(@__DIR__, "GOST-202.33684537818345--35.571314001279916-dr3.csv"), Table, normalizenames=true) # hide
+forecast = Table( # hide
+    epoch = Octofitter.jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_), # hide
+    scanAngle_rad = gost.scanAngle_rad_, # hide
+    parallaxFactorAlongScan = gost.parallaxFactorAlongScan, # hide
+) # hide
+nothing # hide
+
 pma = HGCAObs(;
     gaia_id = gaia_id,
     host = A,
@@ -118,7 +125,7 @@ HD_pma = System(
     bodies=[A, B],
     observations=[pma],
     variables=@variables begin
-        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)    # M⊙
+        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1)    # M⊙
         M_sec ~ LogUniform(0.2mjup, 65mjup)                # M⊙ -- note the units!
 
         plx ~ truncated(Normal(cat.parallax, cat.parallax_error), lower=0.1)
@@ -135,9 +142,7 @@ model_pma = Octofitter.LogDensityModel(HD_pma)
 ```
 
 !!! warning "`pmra` and `pmdec` are frame variables"
-    Use wide priors on `pmra`/`pmdec` — the data are what constrain them. The names are
-    reserved for the system's absolute frame, and must be declared *together* with the
-    rest of it.
+    Use wide priors on `pmra`/`pmdec`. the data will constrain them.
 
 Sample:
 ```@example 1
@@ -145,12 +150,6 @@ init_pma = initialize!(model_pma)
 chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16, n_rounds=12)
 nothing # hide
 ```
-
-!!! tip "Detection limits want parallel tempering"
-    Every model on this page is sampled with [`octofit_pigeons`](@ref), which is much
-    better suited than HMC to the broad, banana-shaped mass–separation posteriors a
-    non-detection produces — the tails are exactly what a detection limit reads off,
-    and they are where a single HMC chain is least trustworthy.
 
 Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl. Note that `B_mass` is in solar masses, so we convert for the plot:
 ```@example 1
@@ -244,10 +243,7 @@ image_data = ImageObs(
 nothing # hide
 ```
 
-!!! note "The flux belongs to the body"
-    The companion's brightness is `flux_L` in its own block, and the observation just
-    says `targets=(B,), band=:L`. One image is one likelihood, however many companions
-    are modelled in it.
+
 
 ```@example 1
 A_img = Body(
@@ -264,7 +260,7 @@ HD_img = System(
     variables=@variables begin
         # age ~ truncated(Normal(40, 15),lower=0, upper=200)
         age = 10                                           # Myr
-        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)    # M⊙
+        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1)    # M⊙
         # Mass of the secondary.
         # Make sure to pick only a mass range that is covered by your models.
         M_sec ~ LogUniform(0.55mjup, 65mjup)               # M⊙
@@ -333,7 +329,7 @@ HD_both = System(
     observations=[image_data, pma_joint],
     variables=@variables begin
         age = 10
-        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
+        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1)
         M_sec ~ LogUniform(0.55mjup, 65mjup)
         rel_mag = 5.65
 

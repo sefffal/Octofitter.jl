@@ -4,27 +4,8 @@
 This example shows how to fit a Gaussian process to model stellar activity in RV data. It continues from [Basic RV Fit](@ref fit-rv).
 
 
-!!! note
-    The Celerite backend and the public RV archive loaders live in the extension package OctofitterRadialVelocity. To install it, run 
-    `pkg> add OctofitterRadialVelocity`. The AbstractGPs backend needs only core Octofitter plus AbstractGPs.
-
-There are two different GP packages supported by OctofitterRadialVelocity: AbstractGPs, and Celerite. Important note: Celerite.jl does not support Julia 1.0+, so we currently bundle a fork that has been patched to work. When / if Celerite.jl is updated we will switch back to the public package.
-
-!!! note "Computational cost"
-    GP models are significantly more computationally expensive than non-GP models. Plan for longer sampling times when using Gaussian processes.
-
-!!! warning "GP models need strictly increasing epochs"
-    A Gaussian process is fit to the residuals *at this observation's own epochs,
-    in table order*, and two rows at the same epoch make the covariance singular
-    for any stationary kernel. This is checked in the constructor and raises a
-    clear error; merge duplicated rows, or nudge them apart by the exposure time.
-    Observations without a `gaussian_process` still accept duplicated epochs.
-
-!!! note "Correlated noise is available for relative RV too"
-    There is one [`RadialVelocityObs`](@ref), so `gaussian_process=` and
-    `trend_function=` work whether you point it at the star
-    (`target=A, ref=Barycentre`) or at a companion (`target=b, ref=A`).
-
+There are two different GP packages supported by OctofitterRadialVelocity: AbstractGPs, and Celerite. 
+GP models are significantly more computationally expensive than non-GP models. Plan for longer sampling times when using Gaussian processes.
 
 For this example, we will fit the orbit of the planet K2-131 to perform the same fit as in the RadVel [Gaussian Process Fitting](https://radvel.readthedocs.io/en/latest/tutorials/GaussianProcess-tutorial.html) tutorial.
 
@@ -55,7 +36,7 @@ nothing # hide
 ```
 
 The bodies are the same as in the basic fit, so we define them once here and
-reuse them for both backends:
+reuse them for both examples:
 ```@example 1
 A = Body(
     name="A",
@@ -88,7 +69,7 @@ nothing # hide
 
 
 ## Gaussian Process Fit with AbstractGPs
-Let us now add a Gaussian process to model stellar activity. This should improve the fit.
+Let us now add a Gaussian process to model stellar activity. This should improve the residuals.
 
 We start by writing a function that creates a Gaussian process kernel from a set of observation parameters.
 We will create a quasi-periodic kernel. We provide this function as an argument `gaussian_process` to the likelihood constructor:
@@ -157,54 +138,31 @@ Note that the two instruments do not need to use the same Gaussian process kerne
 !!! note
     Tip: If you want the instruments to *share* the Gaussian process kernel hyper parameters, move the variables up to the system's `@variables` block, and forward them to the observation variables block e.g. `η_1 = system.η_1`, `η_2 = system.η_2`.
 
-!!! note "Three hooks, if you want a different GP library"
-    The AbstractGPs path above works by duck typing through three functions you
-    can add methods to for any backend: `Octofitter.gp_condition(gp, epochs, σ²)`,
-    `Octofitter.gp_ln_like(fx, residuals)`, and
-    `Octofitter.gp_predict(fx, residuals, epochs) -> (mean, var)` (which must
-    return the *latent* predictive variance — the held-out point's own white
-    noise is added by the caller). `OctofitterRadialVelocity` plugs Celerite in
-    exactly this way.
-
-
 Initialize the starting points, and confirm the data are entered correcly:
 ```@example 1
 init_chain = initialize!(model)
 octoplot(model, init_chain)
 ```
 
-
 Sample from the model using MCMC (the no U-turn sampler)
 ```@example 1
-# Seed the random number generator
-using Random
-rng = Random.Xoshiro(0)
-
-chain = octofit(
-    rng, model,
-    adaptation = 100,
-    iterations = 100,
-)
+using Pigeons
+chain, pt = octofit_pigeons(model, n_rounds=7)
+chain
 ```
-For real data, we would want to increase the adaptation and iterations to about 1000 each.
+For real data, we would want to increase the number of rounds.
 
 
 Plot the fit: the RV time series, the residual strip, and a phase-folded panel
-for the planet. [`octoplot`](@ref) draws everything the model has;
-[`rvplot`](@ref) is the single-draw radial-velocity figure.
+for the planet. 
 
-The fitted Gaussian process is part of the picture. Its conditioned prediction
-is subtracted from the residuals before they are plotted or folded, and its
-predictive variance is added into `σ_eff` — so the residual strip shows what the
-fit is *left with* rather than the correlated structure the GP was fitted to
-absorb, and the whitened z-scores are standard normal for a model that is
-working. On the single-draw [`rvplot`](@ref) the prediction is also drawn as a
-band around the model curve; `octoplot` shows many draws and leaves that off
-(`gpband=true` forces it, `gpband=false` on `rvplot` drops it).
 
-Conditioning a GP once per posterior draw is not free; `ndraws=` is the lever if
-a figure is taking too long.
+Plot one draw:
+```@example 1
+rvplot(model, chain)
+```
 
+Plot a sample of many draws:
 ```@example 1
 octoplot(model, chain)
 ```
@@ -234,9 +192,7 @@ much better with the number of data points. This makes it a good choice
 for modelling large RV datasets.
 
 !!! warning
-    Make sure that you type `using OctofitterRadialVelocity.Celerite` and not `using Celerite`. 
-    Celerite.jl does not support Julia 1.0+, so we currently bundle a fork that has been patched to work. When / if Celerite.jl is updated we will switch back to the public package.
-
+    Make sure that you type `using OctofitterRadialVelocity.Celerite` and not `using Celerite`. We vendor a version that works well with Octofitter.
 
 
 ```@example 1
@@ -292,8 +248,7 @@ sys_cel = System(
     observations=[rvlike_harps_cel, rvlike_pfs_cel],
 )
 
-using DifferentiationInterface
-using FiniteDiff
+using DifferentiationInterface, FiniteDiff
 model_cel = Octofitter.LogDensityModel(sys_cel, autodiff=AutoFiniteDiff())
 ```
 
@@ -312,28 +267,24 @@ octoplot(model_cel, init_chain_cel)
 
 
 ```@example 1
+using Pigeons
 chain_cel, pt = octofit_pigeons(model_cel, n_rounds=7)
+chain_cel
+```
+
+
+Plot one draw:
+```@example 1
+rvplot(model_cel, chain_cel)
+```
+
+Plot a sample of many draws:
+```@example 1
 octoplot(model_cel, chain_cel)
 ```
 
-!!! tip "Why this fit is tempered and the AbstractGPs one above is not"
-    [`octofit_pigeons`](@ref) explores with a slice sampler, which needs only log-density
-    *evaluations* — no gradient. That is exactly what the Celerite backend can supply
-    cheaply and ForwardDiff cannot supply at all, so tempering sidesteps the autodiff
-    problem instead of working around it with finite differences. It also handles the
-    multi-modality a quasi-periodic GP kernel introduces: the rotation-period
-    hyperparameter has real posterior mass at harmonics and aliases of the true period,
-    and those are separated modes.
 
-    The AbstractGPs model earlier on the page differentiates cleanly, so [`octofit`](@ref)
-    (HMC) is the cheaper choice there. If you prefer HMC here too, keep the
-    `AutoFiniteDiff()` backend, seed it with [`initialize!`](@ref), and run several chains
-    from different starting points so a missed period harmonic shows up as disagreement.
 
 !!! note "Cross-validating a GP model"
-    `Octofitter.likeobj_from_epoch_subset` works on a GP-backed
-    `RadialVelocityObs`: the requested rows become the held-out set and the
-    remaining rows are silently retained as the conditioning set, which is what a
-    correlated model needs in order to score a point at all. Prediction is
-    implemented for the Celerite backend only — the AbstractGPs case raises a
-    clear error naming the missing `gp_predict` method.
+    Leave-one-out (or many out) cross validation is supported for GP models with the Celerite backend.
+    The code works to do the right thing behind the scenes, which is a bit more complicated in models with GPs.

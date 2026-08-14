@@ -309,22 +309,8 @@ Sorting the selected orbits by semi-major axis, each adjacent pair
 where `m_in`/`m_out` are the total masses of the two rows' exterior bodies and
 `M★` is the mass interior to the outer row, excluding the inner row's bodies.
 
-`bodies=` restricts the prior as for [`NonCrossingPrior`](@ref). Carries no
-data: a prior term (`_isprior = true`), not an observation.
+`bodies=` restricts which bodies the constraint applies to.
 
-!!! warning "Not bit-identical to v8"
-    v8's `HillStabilityPrior` had a copy-paste bug — it assigned
-    `θ_planet_b = θ_system.planets[idx_a]` immediately after assigning it from
-    `idx_b`, so *both* masses in `R_H` and in `M★` were the inner planet's, and
-    the outer planet's mass never entered the criterion at all. This port
-    implements the intended formula, so it will reject configurations v8
-    accepted (and vice versa) whenever the two masses differ.
-
-    The definition of `M★` also had to change: v8 read `θ_planet.M`, the
-    per-planet total mass v9 has no equivalent of. Reading the mass interior to
-    the outer row instead gives `M★ = M_A` for both the Jacobi and the
-    astrocentric spelling of the same physical system, which v8's expression
-    did not.
 """
 struct HillStabilityPrior{TB<:Tuple} <: AbstractObs
     bodies::TB
@@ -386,3 +372,171 @@ end
 
 _rowsetdesc(::Tuple{}) = "every orbit"
 _rowsetdesc(specs::Tuple) = "orbits of " * join(map(_refstr, specs), ", ")
+
+# ---------------------------------------------------
+# Sampling-coordinate Jacobians
+#
+# Sampling coordinates and prior coordinates are decoupled by potential terms:
+# sample in whichever coordinates the geometry likes, then add the log-Jacobian
+# with `LL += …` and declare the priors you actually want with `expr ~ Dist`
+# lines on the derived elements. These are the closed forms for that.
+# ---------------------------------------------------
+
+"""
+    logjac_cartesian_to_campbell(a, e, Mtot)
+
+Log-Jacobian converting a **flat prior in Cartesian relative phase space**
+(x, y, z, vx, vy, vz at a reference epoch) into a **flat prior in Campbell
+elements** (a, e, cos i, M, ω, Ω). Add it as a potential term next to a
+Cartesian-parameterized orbit:
+
+    LL += logjac_cartesian_to_campbell(a, e, Mtot)
+
+`a` is in AU and `Mtot` in solar masses — the row's total gravitating mass,
+the same one `Orbit` uses. Only the parameter-dependent part is returned;
+additive constants are dropped, which is exactly right for MCMC.
+
+# What flat-Cartesian sampling actually implies
+
+**Sampling Cartesian phase space with no potential term is not an
+uninformative prior on the elements.** It is the Jeans/Ambartsumian
+phase-space prior, and it is a specific, opinionated one.
+
+Delaunay variables are canonical, so phase-space volume is preserved:
+
+    d³x d³v = dL dG dH dl dg dh
+
+with `L = √(μ a)`, `G = L√(1−e²)`, `H = G cos i`, and `(l, g, h) = (M, ω, Ω)`
+already the angles wanted. Transforming `(L, G, H) → (a, e, cos i)` is
+triangular in that order — `L` depends only on `a`, `G` on `a` and `e`, `H` on
+all three — so the determinant is the product of the diagonal:
+
+    ∂L/∂a      = ½√(μ/a)
+    ∂G/∂e      = −√(μ a)·e/√(1−e²)
+    ∂H/∂cos i  = √(μ a)·√(1−e²)
+
+    |det| = ½ · μ^{3/2} · √a · e
+
+Hence
+
+    p(a, e, cos i, M, ω, Ω) ∝ μ^{3/2} · e · √a
+
+i.e. a **thermal eccentricity distribution** p(e) ∝ e, **isotropic
+orientation** (flat in cos i), **p(a) ∝ √a**, and a time-uniform phase.
+
+That is the **joint density**, and the distinction matters in practice: what
+you sample is a *bounded region* of phase space (a box on x…vz, say), and its
+image in element space is not a product. A velocity bound cuts off small-`r`
+states, and it does so harder at large `a` — so the observed **marginal** in
+`a` is `√a` times the region's own `a`-dependent volume, and it is not `√a`.
+`e` and `cos i` are far less sensitive to that truncation, so they show the
+predicted shapes directly. Reweighting by this term fixes the density
+pointwise; it cannot undo the region's boundary.
+
+**The surprise is the mass tilt.** `μ = G·Mtot`, so flat-Cartesian sampling
+also multiplies whatever prior you declared on the total mass by
+**Mtot^{3/2}**. That factor is invisible in the model text — nothing in a
+`@variables` block mentions it — and it is the one people are caught by,
+because the other three consequences are familiar and defensible while this
+one is a silent reweighting of a quantity the user thought they had set. If
+you sample Cartesian and want your declared mass prior to be the mass prior,
+you need this term.
+
+# Uniform-in-Campbell
+
+Adding this potential cancels the whole tilt, leaving a flat prior in
+(a, e, cos i, M, ω, Ω) over the sampled support. Declare the priors you want
+on top of it as ordinary constraints on the derived elements:
+
+    sys = System(name="…", bodies=[A, B], observations=[…],
+        variables=@variables begin
+            plx ~ Uniform(1, 100)
+            M_A ~ truncated(Normal(1.29, 0.016), lower=0)   # the primary's mass
+        end)
+
+    A = Body(name="A", variables=@variables begin
+        mass = system.M_A
+    end)
+
+    B = Body(name="B", about=A, variables=@variables begin
+        mass ~ Uniform(0.05, 1.0)
+        # sampled in Cartesian phase space ...
+        x ~ Uniform(-2000, 2000); y ~ Uniform(-2000, 2000); z ~ Uniform(-2000, 2000)
+        vx ~ Uniform(-5, 5);      vy ~ Uniform(-5, 5);      vz ~ Uniform(-5, 5)
+        epoch = 57388.0
+        # ... with the tilt removed, leaving flat (a, e, cos i)
+        LL += logjac_cartesian_to_campbell(x, y, z, vx, vy, vz, mass + system.M_A)
+    end)
+
+Two scoping points that bite here, both consequences of the evaluation order
+at the top of `model/codegen.jl`:
+
+  - The seven-argument call is required. With `x`…`vz` sampled, `a` and `e`
+    are **not** in scope in the block — they are derived inside
+    `PlanetOrbits.Orbit`, downstream of the parameter map. The three-argument
+    form is for models whose elements are variables.
+  - The row's total mass has to come through a **system** variable (`M_A`
+    above), not `system.bodies.A.mass`. A body block looks up and outward: it
+    sees `system.*`, and siblings never see each other.
+
+# Edge cases
+
+`e → 0` and `a → 0` are genuine poles, not numerical accidents: the
+flat-Cartesian density vanishes there, so reweighting it to uniform needs
+unbounded weight. The term returns `-Inf`-ward values approaching them, which
+a sampler reads as a rejection. If your model genuinely needs `e = 0`, a
+uniform-in-Campbell prior is not what you want at that point — sample the
+elements directly instead.
+
+See also [`Orbit`](@ref)'s Cartesian initial conditions, which is the
+parameterization this exists to serve.
+"""
+function logjac_cartesian_to_campbell(a, e, Mtot)
+    # Minus the log of |det| = ½ μ^{3/2} √a e, constants dropped. μ ∝ Mtot, so
+    # μ^{3/2} contributes −(3/2)·log(Mtot).
+    return -(3 // 2) * log(Mtot) - log(e) - log(a) / 2
+end
+
+"""
+    logjac_cartesian_to_campbell(x, y, z, vx, vy, vz, Mtot)
+
+The same potential term, written in the coordinates actually being sampled.
+State in AU and AU/julian-year, `Mtot` in solar masses.
+
+**This is the method to use with a Cartesian-parameterized body**, and the
+reason it exists is a scoping fact that is easy to trip over: when `x`…`vz`
+are the sampled variables, `a` and `e` are *not* in scope in the model block.
+They are derived inside `PlanetOrbits.Orbit`, downstream of the parameter map,
+so the three-argument form has nothing to read there. This method extracts the
+two it needs — `a` from vis-viva, `e` from the eccentricity vector — from the
+state itself:
+
+    B = Body(name="B", about=A, variables=@variables begin
+        mass = 0.2256
+        x ~ Uniform(-2000, 2000); y ~ Uniform(-2000, 2000); z ~ Uniform(-2000, 2000)
+        vx ~ Uniform(-5, 5);      vy ~ Uniform(-5, 5);      vz ~ Uniform(-5, 5)
+        epoch = 57388.0
+        LL += logjac_cartesian_to_campbell(x, y, z, vx, vy, vz, mass + system.M_A)
+    end)
+
+`Mtot` has to reach the block through a *system* variable (`system.M_A`), not
+`system.bodies.A.mass`: a body block sees `system.*` but never a sibling.
+
+Unbound and near-parabolic states have no `a` to speak of; the term runs to
+`±Inf` there, which a sampler reads as a rejection. Bound the state box, or
+add an explicit `e ~ Uniform(0, 0.95)`-style constraint, if that matters.
+"""
+function logjac_cartesian_to_campbell(x, y, z, vx, vy, vz, Mtot)
+    μ = PlanetOrbits.GM_sun_au3_julianyr2 * Mtot
+    r = SVector(x, y, z)
+    v = SVector(vx, vy, vz)
+    rn = sqrt(r ⋅ r)
+    # Same two extractions `_elements_from_state` makes, and only those two:
+    # the orientation angles and the phase drop out of the determinant.
+    a = inv(2 / rn - (v ⋅ v) / μ)
+    evec = (v × (r × v)) ./ μ .- r ./ rn
+    e = sqrt(evec ⋅ evec)
+    return logjac_cartesian_to_campbell(a, e, Mtot)
+end
+
+export logjac_cartesian_to_campbell

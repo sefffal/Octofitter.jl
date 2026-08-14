@@ -307,6 +307,31 @@ plotchannels(::AbstractObs) = ()
 export plotchannels
 
 """
+    plotobs(obs) -> AbstractObs
+
+The observation whose *measurements* a plot draws for `obs` — itself for
+every observation that carries its own data, and the wrapped observation for
+a wrapper like [`ObsPriorONeil2019`](@ref).
+
+A wrapper delegates the whole plotting protocol ([`plotchannels`](@ref),
+[`residuals`](@ref), [`sharepanel`](@ref), [`datacalibration`](@ref),
+[`noisemodel`](@ref)) to what it wraps, so the generic panels need no
+unwrapping. This exists for the few places that still ask *what kind of
+observation is this* — the sky panel's relative-astrometry overlay, the
+bespoke `hipparcosplot`/`gaiastarplot` selectors — where a `isa` test on the
+wrapper would silently drop the dataset. Test `plotobs(obs) isa …`, never
+`obs isa …`.
+
+The wrapper itself, not the result of this, stays the object handed to
+[`obscontext`](@ref) and looked up in a series' `data_maps`: the fitted
+`jitter`/`platescale`/`northangle` are registered under the *wrapper's*
+`likelihoodname`, so unwrapping before building a context would silently
+fall back to the defaults.
+"""
+plotobs(obs::AbstractObs) = obs
+export plotobs
+
+"""
     residuals(obs, ctx::ObsContext) -> NamedTuple
 
 Calibrated data, model predictions, residuals and uncertainties for each
@@ -795,13 +820,59 @@ end
 defaultpanels(obs::PhotometryObs) =
     (:phot => (gp, series) -> photometrypanel!(gp, series, obs),)
 
+# --- ObsPriorONeil2019 ---------------------------------------------------------
+#
+# The wrapper delegates the whole protocol to what it wraps, exactly as it
+# already delegates `simulate`, `epochs` and the correction hooks. The
+# Jacobian reweights the prior; it does not change what the instrument
+# measured, so every plotting question about the wrapper is a question about
+# the wrapped observation.
+#
+# Without these it answered the `AbstractObs` defaults — `plotchannels` is
+# `()` — and `plottable_observations` dropped it: `octoplot` on a model whose
+# relative astrometry was wrapped drew the orbit tracks with no data points on
+# them and no separation/position-angle panels at all. (`_warn_unplottable`
+# did say so, but an @info is not what a missing dataset should look like.)
+#
+# The *wrapper* stays the object the plot layer passes around: it is the one
+# in `sys.observations`, so it is what `epoch_plan` keys its row maps by and
+# what `θ.observations` registers the fitted jitter/platescale/northangle
+# under. Every method here takes a context built for the wrapper and hands it
+# to the wrapped observation's math, which is sound because the two share
+# `table`, `priors`, `derived` and therefore `epochs`. Substituting the inner
+# observation into `obscontext` instead would rediscover the v8.3.0 bug from
+# the other side: `θ_obs` silently `(;)`, calibration silently back to its
+# defaults. That is what `plotobs` is for — `isa` tests, and nothing else.
+plotobs(obs::ObsPriorONeil2019) = plotobs(obs.wrapped_like)
+plotchannels(obs::ObsPriorONeil2019) = plotchannels(obs.wrapped_like)
+residuals(obs::ObsPriorONeil2019, ctx::ObsContext) = residuals(obs.wrapped_like, ctx)
+sharepanel(obs::ObsPriorONeil2019) = sharepanel(obs.wrapped_like)
+datacalibration(obs::ObsPriorONeil2019, ch::PlotChannel, ctx::ObsContext, epochs) =
+    datacalibration(obs.wrapped_like, ch, ctx, epochs)
+noisemodel(obs::ObsPriorONeil2019, ctx::ObsContext, epochs) =
+    noisemodel(obs.wrapped_like, ctx, epochs)
+
+# `defaultpanels` is deliberately *not* delegated. Its contract is a tuple of
+# `build(gridposition, series)` closures, and every implementation closes over
+# the observation it was asked about — `PhotometryObs`' panel over that
+# `PhotometryObs`, `LogLikelihoodMapObs`' over that map. Forwarding the call
+# would hand back closures holding the *inner* observation, which the panel
+# then looks up in `series.data_maps` (keyed by the wrapper): a `KeyError`, or
+# a context built under the wrong name. A wrapped observation with a bespoke
+# panel therefore falls back to the generic time-series panels its own
+# `plotchannels`/`residuals` already support — a legible figure rather than a
+# wrong one. Nothing Octofitter ships reaches that: the two types with bespoke
+# panels are photometry (no epochs at all, so the Jacobian has nothing to sum
+# over) and likelihood maps.
+
 # ---------------------------------------------------
 # PosteriorSeries
 # ---------------------------------------------------
 
 """
     PosteriorSeries(model, chain; N=250, seed=0, ii=nothing,
-                    points_per_period=30, max_points=1000)
+                    points_per_period=30, max_points=1000,
+                    tmin=nothing, tmax=nothing, ts=nothing)
 
 Everything the plot layer needs from a fit, computed once and shared by
 every panel:
@@ -819,6 +890,26 @@ every panel:
 
 Accepts a chain from `octofit` or any `MCMCChains.Chains` with matching
 parameter names.
+
+## The epoch grid
+
+By default the grid spans the data, padded 1.5 %, widened to at least the
+35th-percentile orbital period over the draws, and clamped to 1900–2100. Since
+every panel draws its curves over exactly this grid — and clips its axis to it
+— it is also what sets how far past your data the figure extends.
+
+  - `tmin=` / `tmax=` replace one end of that span, keeping the automatic
+    point density (`points_per_period`, `max_points`). Each is an MJD number,
+    a date string (`tmax="2035-01-01"`), or a `Date`/`DateTime`; see
+    [`mjd`](@ref). `tmin >= tmax` is an error.
+  - `ts=` replaces the grid outright with the epochs you give (sorted, and
+    duplicates dropped). The data epochs are *not* merged in as they are for
+    the automatic grid, so a coarse `ts=` can step over fine structure — pass
+    the epochs you want the curve evaluated at, and nothing else.
+
+Give either `ts=` or `tmin=`/`tmax=`, not both. Data outside an explicitly
+requested window is still drawn as points (its residuals do not depend on this
+grid); only the model curves stop at the window's edge.
 """
 struct PosteriorSeries{TM,TC,TTh,TSys,TTr,TTrd,TThm,TSysm,TTrdm}
     model::TM
@@ -842,9 +933,16 @@ _solvekw(sys::System) = (; method=sys.method,
     observing_geometry=sys.observing_geometry,
     barycentric_lighttime=sys.barycentric_lighttime)
 
+# An epoch the user typed, as MJD: a number is already one, and anything else
+# (a date string, a `Date`, a `DateTime`) goes through `mjd`, which is the
+# conversion the rest of the package documents.
+_asmjd(t::Real) = Float64(t)
+_asmjd(t) = Float64(mjd(t))
+
 function PosteriorSeries(model::LogDensityModel, chain::MCMCChains.Chains;
                          N::Integer=250, seed::Integer=0, ii=nothing,
-                         points_per_period::Integer=30, max_points::Integer=1000)
+                         points_per_period::Integer=30, max_points::Integer=1000,
+                         tmin=nothing, tmax=nothing, ts=nothing)
     sys = model.system
     nsamples = size(chain, 1) * size(chain, 3)
     if ii === nothing
@@ -863,6 +961,10 @@ function PosteriorSeries(model::LogDensityModel, chain::MCMCChains.Chains;
     sys_map = construct_system(model, θ_map)
 
     data_epochs, data_maps = epoch_plan(sys)
+
+    ts === nothing || (tmin === nothing && tmax === nothing) || error(
+        "give either `ts=` (the whole plotting grid) or `tmin=`/`tmax=` " *
+        "(the ends of the automatic one), not both")
 
     # Dense grid: data span padded 1.5 %, widened to at least the
     # 35th-percentile period over draws and rows, then per-row point
@@ -896,10 +998,28 @@ function PosteriorSeries(model::LogDensityModel, chain::MCMCChains.Chains;
     if t_stop <= t_start
         t_stop = t_start + 1.0
     end
-    ts = PlanetOrbits.plot_epochs(sys_map, t_start, t_stop; points_per_period, max_points)
-    # Model curves must hit the data epochs exactly (fine structure between
-    # grid points otherwise slips through — the rvpostplot lesson).
-    ts = sort!(unique!(vcat(ts, data_epochs)))
+    # An explicit end wins over the derivation above, including over the
+    # 1900–2100 clamp: a user asking to see the orbit in 2150 is asking for it.
+    tmin === nothing || (t_start = _asmjd(tmin))
+    tmax === nothing || (t_stop = _asmjd(tmax))
+    t_start < t_stop || error(
+        "the plotting epoch range is empty: tmin=$t_start is not before tmax=$t_stop")
+
+    if ts === nothing
+        ts = PlanetOrbits.plot_epochs(sys_map, t_start, t_stop; points_per_period, max_points)
+        # Model curves must hit the data epochs exactly (fine structure between
+        # grid points otherwise slips through — the rvpostplot lesson). A
+        # requested window is a window, though: a data epoch outside it would
+        # be merged back in and stretch every panel's axis past what was asked
+        # for, so there it is the window that wins.
+        extra = (tmin === nothing && tmax === nothing) ? data_epochs :
+                filter(t -> t_start <= t <= t_stop, data_epochs)
+        ts = sort!(unique!(vcat(ts, extra)))
+    else
+        ts = sort!(unique!(collect(Float64, ts)))
+        isempty(ts) && error("`ts=` is empty: give at least one epoch to solve at")
+        all(isfinite, ts) || error("`ts=` contains a non-finite epoch")
+    end
 
     kw = _solvekw(sys)
     trajs = map(s -> orbitsolve(s, ts; kw...), systems)
@@ -960,6 +1080,83 @@ function mapcurve(series::PosteriorSeries, query)
     return evalquery(_query(query), series.sys_map, traj)
 end
 export mapcurve
+
+"""
+    phasebinmeans(x, y, w, nbins) -> (; centre, mean, sigma)
+
+Noise-weighted means of `y` in `nbins` equal bins of phase across `[-0.5,
+0.5)`, with `w` the weights a phase-folded panel pools over its instruments
+(`1/σ_eff²`, so jitter and any fitted correlated-noise term are in them).
+
+`sigma` is the error bar drawn on the binned mean: the larger of two
+estimates of the *same* quantity, the uncertainty of the mean itself.
+
+    σ_bin = max( 1/√(Σᵢ wᵢ),  s_w/√n )
+
+The first term is the analytic error on a weighted mean of independent
+measurements with `wᵢ = 1/σᵢ²` — the RadVel/juliet convention, and exactly
+right in the white-noise limit. The second is the bin's own weighted sample
+standard deviation over `√n`: what the points in the bin actually do, rather
+than what the noise model says they should. The two agree when the noise
+model is honest and the residuals are white; the empirical term takes over
+when the residuals inside a bin are correlated (a fitted Gaussian process
+doing real work will do exactly this) or the quoted uncertainties are too
+small. Taking the maximum keeps the analytic value as a **floor** — a mean of
+`n` measurements cannot be more precise than that — while still letting real
+unmodelled structure inflate the bar.
+
+`s_w` carries the frequency-weights bias correction,
+
+    s_w² = (Σᵢ wᵢ (yᵢ − μ)² / Σᵢ wᵢ) · n/(n−1)
+
+which is what StatsBase's `ProbabilityWeights` correction (`corrected=true`)
+computes, and is identical to StatsBase's `FrequencyWeights` `1/(Σw − 1)`
+correction applied to weights renormalised to sum to `n`. Renormalising is
+the whole point: `w` here is `1/σ²`, whose absolute scale is an inverse
+variance and not a sample size, so `FrequencyWeights(w)` reads `Σw` (≈ 0.19
+for three 4 m/s points) as the number of measurements and returns a
+*negative* variance. Only the *relative* weights carry information; only `n`
+counts points. Before v9 this term used StatsBase's uncorrected default — the
+plain weighted rms, biased low, and drawn as though it were the error on the
+mean rather than the spread about it.
+
+**Bins holding fewer than two points are not returned at all.** A mean of one
+point is that point: drawing it as a binned mean moves it from its own phase
+to the bin centre, and gives it the scatter of a single value — zero — in
+place of the error bar it already has on the axis. That is invisible when the
+bins are full and is the entire plot when they are not, so a fold with fewer
+points than bins yields no binned series rather than a red copy of its own
+data, one mark per measurement, each shouldered sideways and each claiming
+perfect precision.
+
+Returns three same-length vectors, one entry per drawn bin.
+"""
+function phasebinmeans(x, y, w, nbins::Integer)
+    edges = range(-0.5, 0.5, length=nbins + 1)
+    centre = Float64[]
+    means = Float64[]
+    sigma = Float64[]
+    for i in 1:nbins
+        m = (edges[i] .<= x) .& (x .< edges[i+1])
+        n = count(m)
+        n > 1 || continue
+        wi = w[m]
+        pw = ProbabilityWeights(wi)
+        μ = mean(y[m], pw)
+        # The analytic error on the weighted mean, and the bin's own scatter
+        # about that mean. Neither alone is the error bar: the first believes
+        # the noise model, the second measures it. Their max is a floor of
+        # the one and a licence for the other. `corrected=true` is Bessel's
+        # n/(n−1) on the weighted rms — see the docstring for why the weights
+        # have to be read as relative rather than as counts.
+        analytic = 1 / sqrt(sum(wi))
+        empirical = std(y[m], pw; mean=μ, corrected=true) / sqrt(n)
+        push!(centre, (edges[i] + edges[i+1]) / 2)
+        push!(means, μ)
+        push!(sigma, max(analytic, empirical))
+    end
+    return (; centre, mean=means, sigma)
+end
 
 # ---------------------------------------------------
 # Default panel derivation
@@ -1178,6 +1375,11 @@ channel or observable name, or a collection of either. A `channels=` the
 model has no data for is drawn as a **prediction**: the model curves alone,
 over the queries [`default_queries`](@ref) picks.
 
+`tmin=`/`tmax=`/`ts=` set the epoch grid the curves are drawn over (see
+[`PosteriorSeries`](@ref)) — that, not `xlims!`, is how a figure is extended
+past the data — and `curvecolor=`/`datastyle=` override the model-curve
+colours and the data marks.
+
 This is the **many-draw** figure, and three of its defaults follow from that:
 residuals are whitened and each point carries the boxplot of its z-score over
 the draws, phase-folded panels are off (a fold needs one ephemeris, and a
@@ -1255,10 +1457,25 @@ scan angle and drawn as a segment through the modelled track. This is the
 "is there a wobble, and does the orbit fit it?" picture for a
 [`GaiaDR4AstromObs`](@ref); the along-scan-versus-time half of it is the
 generic panel [`octoplot`](@ref) already draws. Requires a Makie backend.
+
+Draw several draws side by side with [`gaiastarplot!`](@ref), which takes a
+grid cell instead of making its own figure.
 """
 function gaiastarplot end
 gaiastarplot(args...; kwargs...) = _require_makie("gaiastarplot")
 export gaiastarplot
+
+"""
+    gaiastarplot!(gridposition_or_axis, model, chain, sample_idx=MAP; kwargs...)
+
+[`gaiastarplot`](@ref) into a cell of a figure you already have —
+`gaiastarplot!(fig[i, j], model, chain, idx)` — or into an axis you made
+yourself. Returns the `Axis`, so a grid of draws can be linked and have its
+interior decorations hidden in the usual Makie way. Requires a Makie backend.
+"""
+function gaiastarplot! end
+gaiastarplot!(args...; kwargs...) = _require_makie("gaiastarplot!")
+export gaiastarplot!
 
 """
     gaiatimeplot(model, chain; kwargs...)
@@ -1347,6 +1564,12 @@ everything here belongs to one sample and nothing is misrepresented.
 [`octoplot`](@ref) is the many-draws view and gives each instrument its own
 panel instead, with the data left uncalibrated and each draw's own offset and
 trend carried by its model curve.
+
+The red binned points on a phase panel carry the uncertainty *of the binned
+mean*, `max(1/√Σw, s_w/√n)`: the analytic weighted-mean error as a floor, and
+the bin's own bias-corrected weighted scatter over `√n` where the points
+disagree by more than the noise model allows. It is not the scatter of the
+points, which is what v8 drew. See [`phasebinmeans`](@ref).
 
 Requires a Makie backend. `rvplot_animated` records the same figure over
 successive single-draw slices of the chain.

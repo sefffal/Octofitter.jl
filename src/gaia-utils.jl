@@ -247,8 +247,30 @@ rejected on `~` lines, which already see the enclosing scope.)
 gaia_dr3_solution(; gaia_id) = _query_gaia_dr3(; gaia_id)
 export gaia_dr3_solution
 
+"""
+    _gaia_cache_path(dir, name)
+
+Where a per-source TAP response is cached.
+
+Historically this was `<cwd>/<dir>/<name>`, which means a 70-second query
+repeats every time you run from a different directory — and the first thing a
+new source costs is that minute. New responses go to a depot scratchspace
+instead, which is per-user and stable.
+
+The legacy path still *wins if it exists*, so a working directory that already
+holds a cache keeps using it and nothing has to be re-fetched or moved.
+"""
+function _gaia_cache_path(dir::AbstractString, name::AbstractString)
+    legacy = joinpath(dir, name)
+    isfile(legacy) && return legacy
+    # Same layout Scratch.jl uses, without taking the dependency.
+    root = joinpath(DEPOT_PATH[1], "scratchspaces",
+        "daf3887e-d01a-44a1-9d7e-98f15c5d69c9", dir)
+    return joinpath(root, name)
+end
+
 function _query_gaia_dr3(;gaia_id)
-    fname = "_gaia_dr3_final/source-$gaia_id.csv"
+    fname = _gaia_cache_path("_gaia_dr3_final", "source-$gaia_id.csv")
     if !isfile(fname)
         @info "Querying gea.esac.esa.int/tap-server" source_id=gaia_id
         resp = HTTP.get(
@@ -264,9 +286,7 @@ function _query_gaia_dr3(;gaia_id)
         if resp.status != 200
             error("Error with GAIA query: $(resp.status)")
         end
-        if !isdir("_gaia_dr3_final")
-            mkdir("_gaia_dr3_final")
-        end
+        mkpath(dirname(fname))
         open(fname, write=true) do f
             write(f, resp.body)
         end
@@ -284,7 +304,7 @@ function _query_gaia_dr3(;gaia_id)
 end
 
 function _query_gaia_dr2(;gaia_id)
-    fname = "_gaia_dr2/source-$gaia_id.csv"
+    fname = _gaia_cache_path("_gaia_dr2", "source-$gaia_id.csv")
     if !isfile(fname)
         @info "Querying gea.esac.esa.int/tap-server" source_id=gaia_id
         resp = HTTP.get(
@@ -300,9 +320,7 @@ function _query_gaia_dr2(;gaia_id)
         if resp.status != 200
             error("Error with GAIA query: $(resp.status)")
         end
-        if !isdir("_gaia_dr2")
-            mkdir("_gaia_dr2")
-        end
+        mkpath(dirname(fname))
         open(fname, write=true) do f
             write(f, resp.body)
         end
@@ -320,7 +338,7 @@ function _query_gaia_dr2(;gaia_id)
 end
 
 function _query_gaia_dr1(;gaia_id)
-    fname = "_gaia_dr1/source-$gaia_id.csv"
+    fname = _gaia_cache_path("_gaia_dr1", "source-$gaia_id.csv")
     if !isfile(fname)
         @info "Querying gea.esac.esa.int/tap-server" source_id=gaia_id
         resp = HTTP.get(
@@ -336,9 +354,7 @@ function _query_gaia_dr1(;gaia_id)
         if resp.status != 200
             error("Error with GAIA query: $(resp.status)")
         end
-        if !isdir("_gaia_dr1")
-            mkdir("_gaia_dr1")
-        end
+        mkpath(dirname(fname))
         open(fname, write=true) do f
             write(f, resp.body)
         end
@@ -521,4 +537,320 @@ function _sort_dedup_gost(tbl)
     out = Table(NamedTuple{names}(map(p -> vec(getproperty(tbl, p))[keep], names)))
     @assert issorted(vec(out.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_))
     return out
+end
+
+# ──────────────────────────────────────────────────────────────────────
+# Simulated Gaia DR4 epoch astrometry
+#
+# Two pieces: the measured per-source along-scan noise budget (from the G23H
+# catalog, which is where Octofitter's only *measured* Gaia noise model lives),
+# and the scan geometry (from GOST). Kept apart deliberately — the first needs
+# the 14 GB catalog and the second needs the network, and a caller who has
+# neither can still supply both by hand.
+# ──────────────────────────────────────────────────────────────────────
+
+"""
+    g23h_scan_uncertainty(; gaia_id=nothing, hip_id=nothing, catalog=nothing)
+        -> (; gaia_id, phot_g_mean_mag, σ_AL, σ_att, σ_calib,
+              σ_formal, n_ccd, σ_transit_formal, σ_transit_true)
+
+The measured Gaia along-scan noise budget for one source, read from the G23H
+catalog (Thompson et al. 2026) — the same three numbers [`G23HObs`](@ref)
+builds its `σ_AL`/`σ_att`/`σ_calib` priors from, so a simulation based on
+these is consistent with what G23H assumes for that star.
+
+Unlike a hand-picked "0.04 mas per scan", these are calibrated per source
+against real Gaia performance, and they vary by a factor of a few from star to
+star with magnitude, colour and scan geometry.
+
+`catalog` is anything [`G23HObs`](@ref) accepts: `nothing` for the ~14 GB
+`G23H_Catalog` DataDep, a path to an Arrow file, a Tables.jl table, or a
+`NamedTuple` standing in for a single row.
+
+# The three terms, and where each applies
+
+| field     | catalog column   | applies |
+|-----------|------------------|---------|
+| `σ_AL`    | `sig_AL`         | per CCD observation, independent |
+| `σ_att`   | `sig_att_radec`  | per CCD observation, independent |
+| `σ_calib` | `sig_cal`        | per **transit**, shared by that transit's CCD observations, and *not* part of Gaia's formal errors |
+
+Gaia measures a source ~9 times per field-of-view transit (SM, AF1–AF9), and
+`n_ccd` is that number for this source: `astrometric_n_good_obs_al_dr3 /
+astrometric_matched_transits_dr3`. So
+
+  * `σ_formal = √(σ_att² + σ_AL²)` is the **per-CCD** formal uncertainty;
+  * `σ_transit_formal = σ_formal / √n_ccd` is the formal uncertainty of one
+    **transit-level** abscissa;
+  * `σ_transit_true = √(σ_transit_formal² + σ_calib²)` is its *actual* scatter,
+    including the calibration term Gaia's formal errors omit — for most sources
+    `σ_calib` dominates it.
+
+# Consistency with `G23HObs`
+
+`G23HObs` weights each *transit* of its GOST pool by `σ_formal`
+(`fit_5param_prepared(…, σ_formal)`) and then multiplies the resulting χ² by
+`N_AL = astrometric_n_good_obs_al_dr3 / astrometric_matched_transits_dr3`
+before comparing it to the catalog's CCD-level statistics. The effective
+per-transit variance in that likelihood is therefore `σ_formal² / n_ccd`
+exactly, which is what `σ_transit_formal` is.
+
+The same identification holds against the real data: for the three Gaia DR4
+pre-release sources shipped with the documentation, `σ_formal` reproduces the
+median *published per-CCD* `centroid_pos_error_al` to 4–13%
+(Gaia-4 0.085 vs 0.082 mas, Gaia BH3 0.090 vs 0.083 mas, HD 114762 0.108 vs
+0.124 mas).
+
+See also [`gaia_dr4_transit_template`](@ref), which turns these into a
+simulated DR4 table.
+"""
+function g23h_scan_uncertainty(; gaia_id=nothing, hip_id=nothing, catalog=nothing)
+    isnothing(gaia_id) && isnothing(hip_id) &&
+        error("Either `gaia_id` or `hip_id` must be specified")
+    row = _g23h_catalog_row(catalog, gaia_id, hip_id)
+    for c in (:sig_AL, :sig_att_radec, :sig_cal,
+              :astrometric_n_good_obs_al_dr3, :astrometric_matched_transits_dr3)
+        hasproperty(row, c) || error(
+            "The catalog row for this source has no `$c` column, so its scan " *
+            "uncertainty model is not available. Columns present: " *
+            "$(propertynames(row))")
+    end
+    σ_AL = Float64(row.sig_AL)
+    σ_att = Float64(row.sig_att_radec)
+    σ_calib = Float64(row.sig_cal)
+    all(isfinite, (σ_AL, σ_att, σ_calib)) || error(
+        "The G23H calibration (`sig_AL` = $σ_AL, `sig_att_radec` = $σ_att, " *
+        "`sig_cal` = $σ_calib) is missing for this source. It is absent for the " *
+        "very brightest stars and for sources outside the calibration's " *
+        "footprint; supply the three σ yourself for those.")
+    n_ccd = Float64(row.astrometric_n_good_obs_al_dr3) /
+            Float64(row.astrometric_matched_transits_dr3)
+    isfinite(n_ccd) && n_ccd > 0 || error(
+        "Cannot form the CCD-observations-per-transit ratio for this source: " *
+        "astrometric_n_good_obs_al_dr3 = $(row.astrometric_n_good_obs_al_dr3), " *
+        "astrometric_matched_transits_dr3 = $(row.astrometric_matched_transits_dr3)")
+    σ_formal = sqrt(σ_att^2 + σ_AL^2)
+    σ_transit_formal = σ_formal / sqrt(n_ccd)
+    σ_transit_true = sqrt(σ_transit_formal^2 + σ_calib^2)
+    return (;
+        gaia_id=hasproperty(row, :gaia_source_id) ? row.gaia_source_id : gaia_id,
+        phot_g_mean_mag=hasproperty(row, :phot_g_mean_mag_dr3) ?
+                        Float64(row.phot_g_mean_mag_dr3) : NaN,
+        σ_AL, σ_att, σ_calib, σ_formal, n_ccd, σ_transit_formal, σ_transit_true)
+end
+export g23h_scan_uncertainty
+
+"""
+    gaia_dr4_transit_template(; σ_al, gaia_id=nothing, ra=nothing, dec=nothing,
+                              forecast_table=nothing, baseline=:dr4)
+
+A **transit-level** table in Gaia DR4 epoch-astrometry format for any star, to
+hand to [`GaiaDR4AstromObs`](@ref) and fill in with
+[`generate_from_params`](@ref).
+
+One row per forecast field-of-view transit, with the columns that observation
+needs: `epoch` [MJD], `scan_pos_angle` ψ [**degrees**, the archive's own unit],
+`parallax_factor_al`, `centroid_pos_al` [mas] and `centroid_pos_error_al`
+[mas], plus `outlier_flag`. The measurements themselves are zero — this is a
+template, and `generate_from_params(system, θ; add_noise=true)` replaces them
+with the modelled abscissae plus a draw of `centroid_pos_error_al`.
+
+# Where the scan geometry comes from
+
+Either GOST (queried and cached by [`GOST_forecast`](@ref), the same service
+[`G23HObs`](@ref) uses) or a `forecast_table` you supply. A supplied table may
+be in either of the two forms already in circulation:
+
+  * GOST's own columns, i.e. what `GOST_forecast` returns; or
+  * `G23HObs`'s `forecast_table` contract — `epoch` [MJD], `scanAngle_rad`,
+    `parallaxFactorAlongScan` — so **the same table can drive a `G23HObs` and
+    this template**, which is the cleanest way to keep a DR2/DR3+Hipparcos fit
+    and a simulated DR4 fit on identical scan geometry.
+
+`ra`/`dec` (degrees) are needed only to query GOST; pass `gaia_id` instead and
+the DR3 solution is looked up (and cached) for them.
+
+The parallax factors are GOST's own, *not* recomputed from an Earth ephemeris.
+Against the Gaia-4 DR4 pre-release, GOST's forecast reproduces the published
+per-transit `parallax_factor_al` to 5e-5 rms and `scan_pos_angle` to 0.004°
+rms; computing the parallax factor from an Earth ephemeris instead is a 0.005
+rms error, a hundred times larger, because Gaia observes from L2, ~0.01 AU from
+the geocentre. That is 0.07 mas at ϖ = 13 mas — around twice the per-transit
+precision.
+
+# `σ_al`
+
+The per-transit along-scan uncertainty [mas], scalar or one value per transit.
+For a star with a G23H calibration, [`g23h_scan_uncertainty`](@ref) gives the
+measured value:
+
+```julia
+σ = g23h_scan_uncertainty(; gaia_id)
+transits = gaia_dr4_transit_template(; gaia_id, σ_al=σ.σ_transit_true)
+```
+
+`σ_transit_true` (the actual scatter, calibration term included) is the right
+choice when you are both simulating and fitting these data, since it is then
+also the uncertainty the likelihood is told about. `σ_transit_formal` is what a
+real DR4 table would quote — smaller, with the difference left for the
+observation's `astrometric_jitter` to absorb.
+
+# What this does not model
+
+GOST forecasts every scheduled transit; real DR4 loses some to dead time, and
+more to AGIS's own outlier rejection, which is harshest for bright stars. For
+Gaia-4 the chain is 122 forecast → 109 in the pre-release → 93 used by AGIS;
+HD 114762 (G = 7.2) keeps 63 of 89. Nor is any noise correlated between
+transits here. Drop rows and inflate `σ_al` if you want either.
+"""
+function gaia_dr4_transit_template(; σ_al, gaia_id=nothing, ra=nothing, dec=nothing,
+                                   forecast_table=nothing, baseline::Symbol=:dr4)
+    ep, ψ, f_al = _dr4_scan_geometry(forecast_table, gaia_id, ra, dec, baseline)
+    n = length(ep)
+    n > 0 || error("The scan forecast contains no transits.")
+    σ = σ_al isa Number ? fill(Float64(σ_al), n) : collect(Float64, σ_al)
+    length(σ) == n || error(
+        "`σ_al` has $(length(σ)) entries but the scan forecast has $n transits.")
+    all(s -> isfinite(s) && s > 0, σ) ||
+        error("`σ_al` must be finite and positive [mas].")
+    perm = sortperm(ep)
+    return Table(
+        epoch=ep[perm],
+        scan_pos_angle=rad2deg.(ψ[perm]),
+        parallax_factor_al=f_al[perm],
+        centroid_pos_al=zeros(n),
+        centroid_pos_error_al=σ[perm],
+        outlier_flag=zeros(Int, n),
+    )
+end
+export gaia_dr4_transit_template
+
+# Epochs [MJD], scan angles [rad] and along-scan parallax factors, from
+# whichever of the three input forms the caller used.
+function _dr4_scan_geometry(forecast_table, gaia_id, ra, dec, baseline)
+    _f64(x) = collect(Float64, vec(collect(x)))
+    if isnothing(forecast_table)
+        if isnothing(ra) || isnothing(dec)
+            isnothing(gaia_id) && error(
+                "Supply a `forecast_table`, or `ra`/`dec` [degrees], or a `gaia_id` " *
+                "to look the coordinates up with.")
+            dr3 = _query_gaia_dr3(; gaia_id)
+            ra = dr3.ra
+            dec = dr3.dec
+        end
+        forecast_table = GOST_forecast(ra, dec; baseline)
+    end
+    t = forecast_table
+    if hasproperty(t, :ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_)
+        # GOST's own columns, as `GOST_forecast` returns them.
+        return (jd2mjd.(_f64(t.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_)),
+            _f64(t.scanAngle_rad_), _f64(t.parallaxFactorAlongScan))
+    elseif hasproperty(t, :epoch) && hasproperty(t, :scanAngle_rad) &&
+           hasproperty(t, :parallaxFactorAlongScan)
+        # `G23HObs`'s `forecast_table` contract.
+        return (_f64(t.epoch), _f64(t.scanAngle_rad), _f64(t.parallaxFactorAlongScan))
+    end
+    error("`forecast_table` must either be a GOST forecast (as `GOST_forecast` " *
+          "returns it) or carry `epoch` [MJD], `scanAngle_rad` and " *
+          "`parallaxFactorAlongScan`, as `G23HObs` takes. It has " *
+          "$(propertynames(t)).")
+end
+
+# ──────────────────────────────────────────────────────────────────────
+# The full 5×5 astrometric covariance, per source
+#
+# A Gaia five-parameter solution is (α*, δ, ϖ, μα*, μδ) with a 5×5 covariance:
+# five errors and ten correlations, all jointly fitted by AGIS. The G23H
+# catalog carries the errors and exactly *two* of the correlations
+# (`ra_dec_corr_central`, `pmra_pmdec`), because until now every channel it
+# fed was a proper motion and the rest were not needed. A position, parallax
+# or mean-RV channel does need them, and treating position as independent of
+# the proper motion it was fitted with would be plainly wrong.
+#
+# They are fetched per source and cached rather than added to the catalog: the
+# catalog is a 14 GB versioned artifact shared with other projects, and only a
+# handful of its 18 million rows are ever modelled.
+# ──────────────────────────────────────────────────────────────────────
+
+"""
+External calibration factor the G23H catalog applies to Gaia's formal
+position and proper-motion uncertainties.
+
+Not a guess — *measured*, by reconstructing the catalog's own columns from the
+raw archive solution. On both ups And sources the ratio comes out at exactly
+1.370000 for `ra_error_central`, `dec_error_central`, `pmra_error` and
+`pmdec_error`.
+
+`parallax_error` is carried through with **no** inflation (ratio exactly
+1.000000), which is the trap: a parallax channel built by analogy with the
+position one would be 37% too wide for no reason. See
+[`_g23h_solution_5x5`](@ref).
+"""
+const G23H_ERROR_INFLATION = 1.37
+
+const _GAIA_5X5_ORDER = (:ra, :dec, :parallax, :pmra, :pmdec)
+
+# The ten off-diagonal correlation column names, in the archive's own spelling,
+# indexed by the (i, j) pair they belong to.
+const _GAIA_5X5_CORR = (
+    (1, 2, :ra_dec_corr), (1, 3, :ra_parallax_corr),
+    (1, 4, :ra_pmra_corr), (1, 5, :ra_pmdec_corr),
+    (2, 3, :dec_parallax_corr), (2, 4, :dec_pmra_corr), (2, 5, :dec_pmdec_corr),
+    (3, 4, :parallax_pmra_corr), (3, 5, :parallax_pmdec_corr),
+    (4, 5, :pmra_pmdec_corr),
+)
+
+"""
+    _gaia_5x5(sol) -> SMatrix{5,5}
+
+The astrometric covariance of an archive `gaia_source` row, in
+(α\\*, δ, ϖ, μα\\*, μδ) order and **at that release's reference epoch**, with
+no calibration inflation applied. Units mas and mas/yr.
+"""
+function _gaia_5x5(sol)
+    σ = SVector{5,Float64}(sol.ra_error, sol.dec_error, sol.parallax_error,
+        sol.pmra_error, sol.pmdec_error)
+    all(isfinite, σ) || error(
+        "the archive solution for this source has a non-finite astrometric " *
+        "uncertainty $(Tuple(σ)); it has no usable five-parameter covariance.")
+    R = MMatrix{5,5,Float64,25}(I)
+    for (i, j, key) in _GAIA_5X5_CORR
+        ρ = Float64(getproperty(sol, key))
+        R[i, j] = ρ
+        R[j, i] = ρ
+    end
+    return SMatrix{5,5,Float64,25}((σ * σ') .* R)
+end
+
+"""
+    _propagate_5x5(C, Δt) -> SMatrix{5,5}
+
+`C` propagated by `Δt` julian years: α\\* += μα\\*·Δt, δ += μδ·Δt, everything
+else unchanged. Exact — the model is linear, so this is `J C Jᵀ` with a
+constant `J`.
+"""
+function _propagate_5x5(C::SMatrix{5,5,Float64,25}, Δt::Real)
+    J = SMatrix{5,5,Float64,25}(
+        1, 0, 0, 0, 0,
+        0, 1, 0, 0, 0,
+        0, 0, 1, 0, 0,
+        Δt, 0, 0, 1, 0,
+        0, Δt, 0, 0, 1)
+    return J * C * J'
+end
+
+"""
+    _central_epoch(C, coord) -> Δt
+
+Offset from the reference epoch, in julian years, at which coordinate `coord`
+(1 = α\\*, 2 = δ) has minimum variance — i.e. where it decorrelates from its own
+proper motion. `Δt = −cov(x, μx) / var(μx)`.
+
+This is what the G23H catalog stores as `epoch_ra_dr3` / `epoch_dec_dr3`, and
+reconstructing it from a freshly fetched 5×5 is one of the two checks in
+[`_g23h_solution_5x5`](@ref).
+"""
+@inline function _central_epoch(C::SMatrix{5,5,Float64,25}, coord::Int)
+    μ = coord + 3            # 1 → 4 (μα*), 2 → 5 (μδ)
+    return -C[coord, μ] / C[μ, μ]
 end

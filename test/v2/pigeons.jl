@@ -82,6 +82,36 @@ end
     @test chain.info.sampler == "pigeons"
 end
 
+@testset "cores= runs the same fit in worker processes" begin
+    # The `cores` path serializes the whole `LogDensityModel` into freshly
+    # launched worker processes (Pigeons `ChildProcess`, local MPI) and reads
+    # the chain back from the round checkpoints. What is being checked is the
+    # full round trip — serialize, launch, deserialize (RuntimeGeneratedFunctions
+    # included), sample, load, convert — on every OS in CI, notably Windows,
+    # where the MPI runtime is a different vendor (MicrosoftMPI_jll).
+    sys = pg_system()
+    model = Octofitter.LogDensityModel(sys; verbosity=0)
+
+    @test_throws ArgumentError octofit_pigeons(model; n_rounds=3, cores=0)
+    @test_throws ArgumentError octofit_pigeons(model; n_rounds=3, cores=2, threads_per_process=0)
+    @test_throws ArgumentError octofit_pigeons(model; n_rounds=3, cores=2, threads_per_process=4)
+
+    # ChildProcess checkpoints under `results/` in the working directory;
+    # run from a scratch directory so the repo stays clean.
+    chain = cd(mktempdir()) do
+        chain, pt = octofit_pigeons(model; n_rounds=4, n_chains=4,
+            n_chains_variational=0, variational=nothing, cores=2)
+        chain
+    end
+    @test chain isa Octofitter.MCMCChains.Chains
+    @test size(chain, 1) == 2^4
+    for k in (:plx, :A_mass, :b_a, :b_e, :b_i)
+        @test k in keys(chain)
+    end
+    @test all(isfinite, chain[:loglike])
+    @test chain.info.sampler == "pigeons"
+end
+
 @testset "the reference model is sampled IID when it can be" begin
     sys = pg_system()
 

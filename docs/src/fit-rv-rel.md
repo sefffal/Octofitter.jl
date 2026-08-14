@@ -6,18 +6,13 @@ velocity of the host itself.
 
 The convention we adopt is that positive relative radial velocity is the velocity of the companion (exoplanets) minus the velocity of the host (star).
 
-!!! note "Relative RV is the same likelihood as reflex RV"
-    There is one radial velocity observation, [`RadialVelocityObs`](@ref).
-    What distinguishes relative RV from the stellar reflex signal is *which
-    references you name*:
+For both stellar reflex RV and relative RVs, you use the same `RadialVelocityObs` type and just change which `ref` points to (Barycentre for stellar reflex, another body for relative).
 
-    ```julia
-    RadialVelocityObs(tab; target=A, ref=Barycentre)   # the star's reflex motion
-    RadialVelocityObs(tab; target=b, ref=A)            # the companion, relative to the star
-    ```
+```julia
+RadialVelocityObs(tab; target=A, ref=Barycentre)   # the star's reflex motion
+RadialVelocityObs(tab; target=b, ref=A)            # the companion, relative to the star
+```
 
-    That is the whole difference. `ref` is a real reference, so `target=c, ref=b`
-    (one companion measured against another) is expressible too.
 
 To fit relative RV data, start by building the bodies and then the observation:
 ```@example 1
@@ -97,25 +92,17 @@ rel_rv_obs = RadialVelocityObs(
 nothing # hide
 ```
 
-!!! note "There is no total-mass variable"
-    The orbit's gravitating mass is `A.mass + b.mass`, computed from the model, and the
-    period follows from it and `a` — so there is no `M_tot` to declare and no Kepler's
-    third law to write out. If two *bodies* ever need to share a quantity, hoist it to
-    the system block: a body's `@variables` block can read `system.*` but never its
-    siblings. See [Resonant Co-Planar Model](@ref fit-coplanar) for that pattern.
 
 The relative RV likelihood does not need an instrument-specific zero point —
 the two stellar spectra are differenced against each other, so there is nothing
-to offset. You may still declare an `offset` variable if your reduction has one;
-as with reflex RV, nothing is added for you. A `jitter` parameter can be
+to offset. You may still declare an `offset` variable if your reduction has one.
+ A `jitter` parameter can be
 specified in the observation's `@variables` block, as can parameters for a
 Gaussian process model of correlated noise (see
 [Fit Gaussian Process](@ref fit-rv-gp)). Create one `RadialVelocityObs` per
 instrument if you have several, each with its own jitter.
 
-Next, assemble the system. Observations are a flat list on the system; they are
-never attached to a body, because each one names its own `target` and `ref`.
-
+Next, assemble the system:
 ```@example 1
 sys = System(
     name="Example_System",

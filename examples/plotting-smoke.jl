@@ -188,6 +188,126 @@ check(:rv_HARPS in keys(res.axes) && :rv_HIRES in keys(res.axes),
 check(count(k -> k in (:sep, :pa, :raoff, :decoff), collect(keys(res.axes))) == 4,
     "one shared panel per relative-astrometry channel")
 check(res.axes.sky.sky.xreversed[], "sky panel: RA increases to the left")
+check(!any(k -> occursin("_phase_", String(k)), keys(res.axes)),
+    "no phase panels: many draws cannot share one ephemeris")
+
+step("a single draw folds by default")
+res_1 = octoplot(model, chain; N=40, ndraws=1,
+    fname=joinpath(OUT, "01b-octoplot-one-draw-phase.png"))
+check(any(k -> occursin("_phase_", String(k)), keys(res_1.axes)),
+    "ndraws=1 brings the phase panels back")
+
+step("the epoch grid: tmin/tmax/ts")
+# Every panel clips its axis to `series.ts`, so extending the grid is the only
+# way to see the orbit past the data — and the curves have to actually reach
+# the new edge, not stop where the data did.
+let tlast = maximum(series.data_epochs)
+    res_ext = octoplot(model, chain; N=40, tmax=tlast + 3650, show_sky=false,
+        fname=joinpath(OUT, "01d-octoplot-extended.png"))
+    ax = res_ext.axes.rv_HARPS.main
+    check(res_ext.series.ts[end] ≈ tlast + 3650, "tmax moves the grid's far end")
+    # The drawn curve's own extent, from the plot object rather than the axis.
+    xhi = -Inf
+    for p in ax.scene.plots
+        p isa Makie.Lines || continue
+        for pt in p[1][]
+            v = pt isa Number ? pt : pt[1]
+            isfinite(v) && (xhi = max(xhi, v))
+        end
+    end
+    check(xhi ≈ tlast + 3650, "and the model curves reach it ($(round(xhi)))")
+    res_grid = octoplot(model, chain; N=40, show_sky=false,
+        ts=range(59000.0, 59700.0, length=71),
+        fname=joinpath(OUT, "01e-octoplot-explicit-grid.png"))
+    check(res_grid.series.ts == collect(range(59000.0, 59700.0, length=71)),
+        "`ts=` is the grid, verbatim")
+    octoplot(model, chain; N=40, ndraws=1, tmax=tlast + 3650,
+        fname=joinpath(OUT, "01f-octoplot-extended-one-draw.png"))
+    ok("phase folds and residual strips draw over an extended grid")
+end
+
+step("curvecolor= and datastyle= reach every panel")
+# The colour a panel draws its model curves in, read back off the figure: a
+# `Lines` with a scalar colour is a model curve (the sky panel's tracks carry a
+# per-vertex colour array and a colormap instead).
+function curvecolours(ax)
+    out = Makie.RGBAf[]
+    for p in ax.scene.plots
+        p isa Makie.Lines || continue
+        c = p.color[]
+        c isa AbstractArray && continue
+        push!(out, Makie.to_color(c))
+    end
+    return out
+end
+function rampbase(ax)
+    for p in ax.scene.plots
+        (p isa Makie.Lines && hasproperty(p, :colormap)) || continue
+        p.colormap[] === Makie.automatic && continue
+        return first(Makie.to_colormap(p.colormap[]))
+    end
+    return nothing
+end
+_rgb(c) = (c.r, c.g, c.b)
+let r_def = octoplot(model, chain; N=20),
+    r_one = octoplot(model, chain; N=20, curvecolor=:firebrick,
+        datastyle=(; markersize=12),
+        fname=joinpath(OUT, "12-curvecolor.png")),
+    fire = Makie.to_color(:firebrick)
+
+    check(all(c -> _rgb(c) == _rgb(fire), curvecolours(r_one.axes.rv_HARPS.main)) &&
+          all(c -> _rgb(c) == _rgb(fire), curvecolours(r_one.axes.sep.main)),
+        "one colour recolours every time panel's curves")
+    check(_rgb(rampbase(r_one.axes.sky.sky)) == _rgb(fire),
+        "…and the colour the sky panel's phase ramp is built from")
+    check(_rgb(rampbase(r_def.axes.sky.sky)) == _rgb(MExt._rowcolor(1)),
+        "the default is still the row's accent colour")
+    sizes = [p.markersize[] for p in r_one.axes.rv_HARPS.main.scene.plots if p isa Makie.Scatter]
+    check(all(s -> all(≈(12), s), sizes), "datastyle= reaches the marks ($(length(sizes)) series)")
+end
+let r_body = octoplot(model, chain; N=20, curvecolor=(; b=:purple),
+        fname=joinpath(OUT, "12b-curvecolor-per-body.png")),
+    r_def = octoplot(model, chain; N=20),
+    purple = Makie.to_color(:purple)
+
+    check(_rgb(rampbase(r_body.axes.sky.sky)) == _rgb(purple) &&
+          all(c -> _rgb(c) == _rgb(purple), curvecolours(r_body.axes.sep.main)),
+        "a body-keyed mapping recolours that body's orbit everywhere")
+    # `radvel(:A, Barycentre)` is the *star's* signal, so `(; b=…)` leaves it
+    # alone — the mapping is keyed by the body whose motion is drawn.
+    check(_rgb.(curvecolours(r_body.axes.rv_HARPS.main)) ==
+          _rgb.(curvecolours(r_def.axes.rv_HARPS.main)),
+        "a body the mapping does not name keeps its default")
+end
+try
+    octoplot(model, chain; N=20, datastyle=(; markersizes=8))
+    bad("a misspelled datastyle key was silently ignored by octoplot")
+catch e
+    check(occursin("markersizes", sprint(showerror, e)),
+        "octoplot's datastyle= validates its keys too")
+end
+
+step("residual boxes: width against the axis, not the entry's own extent")
+# K2-131's HARPS-N cadence — several exposures a night, on a two-month
+# baseline, with one instrument covering only part of it. This is the case
+# that decides whether a box is visible at all, so it is checked in numbers
+# rather than by eye.
+let axspan = 66.0, night = [0.0, 0.021, 0.043, 0.064]
+    dense = vec([b + o for o in night, b in 0.0:7.0:61.0])
+    sparse_ = collect(0.0:20.0:400.0)
+    wd = MExt._autoboxwidth(dense, axspan)
+    check(wd ≈ axspan / 200, "a nightly cluster falls back to the visibility floor")
+    # A short-baseline instrument on the shared axis must not shrink itself:
+    # same width whether its own data span 20 days of the axis or all 66.
+    check(MExt._autoboxwidth(dense[dense.<20], axspan) ≈ wd,
+        "a partial-baseline instrument gets the same width")
+    ws = MExt._autoboxwidth(sparse_, 400.0)
+    check(ws ≈ 16.0, "sparse sampling is set by the spacing, capped at span/25")
+    check(MExt._autoboxwidth([5.0], 66.0) ≈ axspan / 200, "a lone point still gets a box")
+end
+octoplot(model, chain; N=40, boxwidth=200.0, show_sky=false, channels=radvel,
+    fname=joinpath(OUT, "01c-octoplot-boxwidth.png"))
+ok("`boxwidth=` overrides the automatic width")
 
 step("raw residuals need a single draw")
 try
@@ -263,6 +383,83 @@ check(Octofitter.noisemodel(rvgp, Octofitter.obscontext(s3, rvgp), [59100.0, 592
 rvplot(m3, c3; fname=joinpath(OUT, "09-rvplot-gp.png"))
 octoplot(m3, c3; N=20, ndraws=6, fname=joinpath(OUT, "10-octoplot-gp.png"))
 ok("GP figures draw")
+
+step("the sparse limit: fewer measurements than phase bins")
+# One RV instrument with n points, folded onto 20 bins. What used to happen
+# below n≈2·nbins is that every bin held one point, so the "binned means" were
+# a red copy of the data — each mark shifted to its bin centre and given the
+# scatter of a single value, which is zero. The marks are found on the drawn
+# figure rather than recomputed: the errorbar of a binned mean is the only one
+# on a phase panel with linewidth 2, and it carries (x, y, err).
+function sparse_rv_model(n; seed=5)
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.0
+    end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass ~ Uniform(0.0049, 0.0051)
+        a ~ Uniform(0.999, 1.001)
+        e = 0.05; i = 1.2; ω = 0.4; Ω = 1.0; tp = 59000.0
+    end)
+    ep = n == 1 ? [59100.0] : collect(range(59000.0, 59360.0, length=n))
+    rng = Xoshiro(seed)
+    rv = 30 .* sin.(2π .* (ep .- 59000) ./ 365) .+ 100 .+ 3 .* randn(rng, length(ep))
+    obs = RadialVelocityObs(Table(epoch=ep, rv=rv, σ_rv=fill(4.0, length(ep)));
+        target=A, ref=Barycentre, name="HARPS",
+        variables=@variables begin
+            offset = 100.0
+            jitter = 1.0
+        end)
+    sys = Octofitter.System(name=Symbol("sparse", n), bodies=[A, b], observations=[obs],
+        variables=@variables begin
+            plx = 25.0
+        end)
+    return Octofitter.LogDensityModel(sys, verbosity=0)
+end
+
+function binmarks(ax)
+    out = NTuple{3,Float64}[]
+    for p in ax.scene.plots
+        (hasproperty(p, :linewidth) && p.linewidth[] == 2) || continue
+        vals = try
+            p[1][]
+        catch
+            continue
+        end
+        for v in vals
+            length(v) == 4 && push!(out, (v[1], v[2], v[3]))
+        end
+    end
+    return out
+end
+
+for n in (1, 2, 3, 5, 10)
+    m = sparse_rv_model(n)
+    c = fakechain(m, 20; seed=13)
+    r = rvplot(m, c; fname=joinpath(OUT, "11-sparse-n$(lpad(n, 2, '0')).png"))
+    marks = binmarks(r.axes.rv_phase_b.main)
+    check(all(isfinite(x) && isfinite(y) && isfinite(e) for (x, y, e) in marks),
+        "n=$n: every binned mark drawn is finite")
+    check(all(e > 0 for (_, _, e) in marks),
+        "n=$n: no binned mark claims zero uncertainty ($(length(marks)) drawn)")
+end
+
+let m = sparse_rv_model(60), c = fakechain(m, 20; seed=13)
+    marks = binmarks(rvplot(m, c; fname=joinpath(OUT, "11d-dense-n60.png")).axes.rv_phase_b.main)
+    errs = [e for (_, _, e) in marks]
+    check(length(marks) == 20, "60 points over 20 bins still bins into all 20")
+    check(all(e > 0 for e in errs), "and every one has a real error bar")
+    # A binned bar is the uncertainty of the *mean*, `max(1/√Σw, s_w/√n)`, so
+    # it can never fall below the analytic error on a mean of three points at
+    # σ_eff = √(4² + 1²): 2.381 m/s. Under the pre-v9 scatter convention seven
+    # of these twenty did, the smallest at 0.44 m/s.
+    floor60 = sqrt(4.0^2 + 1.0^2) / sqrt(3)
+    check(all(e >= floor60 - 1e-9 for e in errs),
+        "…none below the analytic floor of $(round(floor60; digits=3)) m/s " *
+        "(min $(round(minimum(errs); digits=3)))")
+    check(count(>(floor60 + 1e-9), errs) > 0,
+        "…and bins whose points disagree still inflate above it " *
+        "($(count(>(floor60 + 1e-9), errs)) of 20, max $(round(maximum(errs); digits=3)))")
+end
 
 step("animation")
 mktempdir() do d

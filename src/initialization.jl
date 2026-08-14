@@ -122,10 +122,21 @@ end
 """
     initialize!(model::LogDensityModel, fixed_params=nothing; kwargs...)
 
-Initialize the model with optional fixed parameters provided as a named tuple.
-Fixed parameters will be held constant during optimization and sampling.
+Find starting points for sampling, optionally guided by values you supply as a named
+tuple.
 
-The `fixed_params` can include:
+The values you give are a **starting guess**, not a constraint. They pin the parameters
+they name during the global optimization stage that looks for the posterior mode, and a
+guess covering *every* free variable skips that stage altogether and goes straight to the
+pathfinder variational approximation, using your values as its starting point. Nothing is
+held fixed after that: pathfinder varies every parameter, and sampling then proceeds
+normally over all of them. To fix a variable for real, give it a value in the model itself
+(`a = 3.2` rather than `a ~ …` in a `@variables` block).
+
+See [`startingpoints!`](@ref) to set the starting points outright, with no optimization or
+pathfinder at all.
+
+The `fixed_params` guess can include:
 - System-level variables: `(; plx=24.4, pmra=10.2, ...)`
 - Body variables: `(; bodies=(; b=(; a=1.5, e=0.1, ...), ...))`
 - Observation variables: `(; observations=(; ObsName=(; var1=val1, var2=val2, ...), ...))`
@@ -301,11 +312,11 @@ Set the model's starting points to exactly the values you provide, instead of ha
 
 Each `point` is a named tuple in the *natural* (constrained) parameter space, with the same
 shape as the optional second argument of `initialize!` — system variables at the top level,
-planet variables under `planets`, and observation variables under `observations`. Unlike
-`initialize!`, which accepts a partial named tuple and fits the rest, `startingpoints!`
-needs a value for **every** free variable in the model, since it is setting a complete
-starting point rather than pinning a few of them. Each point is transformed into the
-unconstrained space the sampler works in (via `model.link`) before being stored.
+body variables under `bodies`, and observation variables under `observations`. Unlike
+`initialize!`, which takes a partial named tuple as a guess and searches for the rest,
+`startingpoints!` needs a value for **every** free variable in the model, since it is
+setting a complete starting point rather than seeding a search. Each point is transformed
+into the unconstrained space the sampler works in (via `model.link`) before being stored.
 
 Given a single point — the common case — every starting point is set to that same value:
 `model.starting_points = fill(mapped_point, ndraws)`. Given several points, one starting

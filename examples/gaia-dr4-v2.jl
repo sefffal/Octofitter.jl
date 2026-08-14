@@ -36,7 +36,9 @@ const REF_EPOCH = 57388.0        # J2016.0
 rows, _ = readdlm(SCANS_CSV, ',', Float64, '\n'; header=true)
 scans = Table(
     epoch=rows[:, 1],                    # MJD
-    scan_pos_angle=rows[:, 2],           # rad
+    # The fixture stores ψ in radians (v1's convention); `GaiaDR4AstromObs`
+    # ingests degrees, the unit the Gaia archive publishes.
+    scan_pos_angle=rad2deg.(rows[:, 2]),  # deg
     parallax_factor_al=rows[:, 3],
     centroid_pos_al=rows[:, 4],          # mas
     centroid_pos_error_al=rows[:, 5],    # mas

@@ -360,7 +360,8 @@ end
     ep = collect(range(57389.0, 59000.0, length=n))
     ψ = range(0, 6pi, length=n)
     scans = Table(epoch=ep,
-        scan_pos_angle=collect(ψ),
+        # `GaiaDR4AstromObs` ingests the scan angle in degrees.
+        scan_pos_angle=rad2deg.(ψ),
         parallax_factor_al=cos.(ψ),
         centroid_pos_al=zeros(n),
         centroid_pos_error_al=fill(0.2, n))

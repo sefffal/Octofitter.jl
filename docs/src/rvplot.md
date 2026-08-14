@@ -17,11 +17,6 @@ res = rvplot(model, chain, 42)      # a draw you pick
 
 ![](assets/rv-postplot-1.png)
 
-!!! note "Renamed in v9"
-    This figure was called `rvpostplot` before v9. It never plotted a
-    posterior — it plots one draw — so it is now `rvplot`, and
-    `rvpostplot_animated` is `rvplot_animated`. The old names still work and
-    forward to the new ones with a deprecation warning.
 
 ## Why one draw, and why that lets instruments share an axis
 
@@ -82,6 +77,29 @@ signals removed exactly (through the reference grammar, not plot-side
 subtraction), the isolated single-planet model curve, and noise-weighted binned
 means in red. Phase zero is the signal's upward zero crossing, as before.
 
+A bin has to hold at least two points to be drawn: the "mean" of a single
+measurement is that measurement, and drawing it as one would move it from its
+own phase to the bin centre and replace its error bar with the scatter of one
+value, which is zero. A fold with fewer points than bins (`nbins=20` by
+default) therefore shows its measurements and no binned series — lower `nbins`
+if you want binning on a short series, or `show_binned=false` to turn it off.
+
+A binned point's error bar is the uncertainty of the *mean*, not the spread of
+the points that went into it. It is the larger of two numbers: `1/√(Σw)`, the
+textbook error on a noise-weighted mean (`w = 1/σ_eff²`), which is what RadVel
+and juliet draw and is exactly right when the residuals are white; and
+`s_w/√n`, the bin's own bias-corrected weighted scatter over the number of
+points in it. The second is bigger precisely when the points in a bin disagree
+by more than the noise model says they should — correlated residuals, or
+uncertainties that are too small — so taking the maximum keeps the analytic
+value as a floor no mean can beat while still letting the data speak when it
+contradicts the model. Before v9 the bar was the raw weighted scatter, so
+existing phase-fold figures will show different bars.
+
+With a Gaussian process in the model, read any binned bar as a heuristic: the
+GP is what makes neighbouring residuals correlated in the first place, and the
+whitened residual strip is the rigorous view of whether the fit is working.
+
 ### Correlated noise
 Where a `gaussian_process` was fitted, its prediction is drawn as a band around
 the model curve, subtracted from the residuals, and folded into `σ_eff`. See
@@ -119,13 +137,22 @@ which is what keeps several instruments separable on one axis; `:black` is
 the per-instrument-panel convention [`octoplot`](@ref) uses. The same keyword
 is accepted by [`timeseriespanel!`](@ref) and [`phasefoldpanel!`](@ref).
 
-!!! warning "`show_perspective` is a diagnostic, not part of the fit"
-    v9's `radvel` is a strictly relative observable, and `RadialVelocityObs`
-    does not currently add the system barycentre's own secular radial-velocity
-    drift (`PlanetOrbits.frame_rv`) to its forward model. `show_perspective=true`
-    overlays that drift as a dashed orange line for a model with an absolute
-    frame, so you can see how large it is — but it is not in the fitted curve,
-    which is why it is off by default. v8 included the term in the model.
+!!! note "`show_perspective` draws a term the model curve leaves out"
+    Whether the system barycentre's own secular (perspective) radial-velocity
+    drift is part of the fit is declared **per dataset**: an absolute
+    `RadialVelocityObs` carries `secular_acceleration=:model` (the default —
+    Octofitter adds the drift to the prediction) or `:data_corrected` (your
+    pipeline already removed it, so the model adds nothing). See
+    [How Octofitter Computes Orbits](@ref orbit-computation).
+
+    Either way the drift is not in *this figure's* model curve, which comes
+    from the pure `radvel` query, and the data are calibrated only by each
+    instrument's `offset` and `trend_function`. So with `:model` and an
+    absolute frame the plotted points carry the drift while the curve does not.
+    The residual strip and the phase folds are unaffected — they go through the
+    full forward model, drift included. `show_perspective=true` overlays that
+    drift (`PlanetOrbits.frame_rv`, relative to its value at the first plotted
+    epoch) as a dashed orange line so you can see how large it is.
 
 ### Choosing a draw
 

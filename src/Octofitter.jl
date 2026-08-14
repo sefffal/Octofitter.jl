@@ -10,6 +10,9 @@ using AdvancedHMC
 using NamedTupleTools
 using ForwardDiff
 using DifferentiationInterface
+# Only for `register_size()`, which sets the ForwardDiff chunk-width ceiling
+# in `__init__` (see logdensitymodel.jl).
+import HostCPUFeatures
 using Logging
 using Statistics
 using StatsBase
@@ -65,6 +68,9 @@ include("model/corrections.jl")
 include("model/nodes.jl")
 include("macros.jl")
 include("model/codegen.jl")
+# After codegen: reuses its `BumpAlloc`, and the names it emits are the ones
+# the code generator agrees to expose (`INTERIM_SYSTEM_VAR`).
+include("model/anchored-frame.jl")
 
 # Helper for checking tables are well-formed
 equal_length_cols(tab) = allequal(length(getproperty(tab, col)) for col in Tables.columnnames(tab))
@@ -163,6 +169,32 @@ model = Octofitter.LogDensityModel(sys)
 chain, pt = octofit_pigeons(model, n_rounds=10)
 ```
 
+For expensive models on a multi-core machine, pass `cores=N` to run the
+sampler in `N` separate worker processes instead of threads:
+
+```julia
+chain, pt = octofit_pigeons(model, n_rounds=10, cores=8)
+```
+
+This is often about twice as fast for models that are slow to evaluate (many
+RV epochs, Gaia-Hipparcos absolute astrometry, images), at the cost of a
+minute or two of startup per run while the workers load packages and compile
+the model — so it is not worth it for small models, and a hint is printed
+when one path or the other looks clearly better. Results checkpoint each
+round under `results/` in the current directory, and the same
+`(chain, pt)` is returned. Packages beyond Octofitter and its companion
+packages that are needed to reconstruct the model in a worker (rare) can be
+listed with `dependencies=[SomePackage]`.
+
+`cores` is a total budget. By default each worker process uses one core; for
+models with thousands of epochs, `threads_per_process=2` (or 4) splits the
+budget into fewer workers that each also thread the trajectory solve —
+`cores=16, threads_per_process=2` runs 8 workers × 2 threads. Chains within
+a worker sample one after another, so only reach for this once there is
+already one worker per chain: trading workers for threads on a
+chain-starved budget loses more parallelism than the threaded solve wins
+back.
+
 `pt` is the Pigeons `PT` object, so `Pigeons.stepping_stone(pt)` gives the log
 evidence *ratio* against the reference (the prior-only model built by
 [`prior_only_model`](@ref)). For a log evidence, add the reference's own
@@ -185,7 +217,14 @@ const OCTO_VERSION_STR = "v$(string(OCTO_VERSION))"
 
 function __init__()
 
-    if isinteractive() && get(ENV, "CI", "") != "true" 
+    # The single-chunk bound follows the host's SIMD register size. Set here,
+    # not at precompile time, so a depot shared across heterogeneous cluster
+    # nodes gets the right value on each of them. `CHUNK_WIDTH_MAX` — the width
+    # used once we must split — stays at its AVX2-calibrated 24 on every
+    # machine measured so far; see logdensitymodel.jl.
+    CHUNK_SINGLE_MAX[] = _default_chunk_single_max()
+
+    if isinteractive() && get(ENV, "CI", "") != "true"
         @info """\
 Welcome to Octofitter $(OCTO_VERSION_STR) 🐙
 Check for new releases: https://github.com/sefffal/Octofitter.jl/releases/

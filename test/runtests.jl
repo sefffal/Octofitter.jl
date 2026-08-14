@@ -36,11 +36,22 @@ if TEST_MODE in ("all", "unit")
     @testset "Photometry and configuration priors" begin
         include("v2/photometry-and-priors.jl")
     end
+    @testset "Interim solve and the anchored frame" begin
+        include("v2/anchored-frame.jl")
+    end
+    @testset "Sampling-coordinate Jacobians" begin
+        include("v2/sampling-jacobians.jl")
+    end
     @testset "Sky-path helpers" begin
         include("v2/skypath.jl")
     end
     @testset "G23H joint Gaia/Hipparcos astrometry" begin
         include("v2/g23h.jl")
+    end
+    # Reuses the G23H fixtures (catalog row + cached scan forecast), so after
+    # g23h.jl.
+    @testset "Simulated Gaia DR4 epoch astrometry" begin
+        include("v2/gaia-dr4-sim.jl")
     end
     @testset "Hipparcos IAD" begin
         include("v2/hipparcos.jl")

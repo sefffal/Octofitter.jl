@@ -84,7 +84,7 @@ end
     # point gives.
     @test_throws r"requires a Makie backend" rvpostplot(nothing, nothing)
     @test_throws r"requires a Makie backend" rvpostplot_animated(nothing, nothing)
-    for f in (dotplot, gaiastarplot, gaiatimeplot, skytrackplot, hipparcosplot)
+    for f in (dotplot, gaiastarplot, gaiastarplot!, gaiatimeplot, skytrackplot, hipparcosplot)
         @test_throws r"requires a Makie backend" f(nothing, nothing)
     end
     # The HGCA pair predates this file but belongs to the same contract.

@@ -38,14 +38,6 @@ V(u,v) = \frac{\sum_j f_j \, e^{-2\pi i (u\,\Delta\alpha^*_j + v\,\Delta\delta_j
 
 `targets` names the bodies in that sum, `ref` is the phase centre the offsets are measured from, and each `f_j` is that body's `flux_<band>` variable — **the host included**. There is no privileged primary: a source may orbit any body, so a moon or the wide component of a hierarchical system is expressible.
 
-!!! note "Every source carries its own flux"
-    Each source, the host included, reads its own `flux_<band>` body variable, and the
-    observation declares which bodies it models. Give the host `flux_K = 1.0` and every
-    companion's flux is a contrast ratio against it.
-
-    A `flux` variable declared on the *observation* is a hard error, with a message
-    naming the fix.
-
 ## Build the model
 
 ```@example 1

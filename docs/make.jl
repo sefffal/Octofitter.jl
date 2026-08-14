@@ -2,6 +2,11 @@ using Pkg
 cd(@__DIR__)
 Pkg.activate(".")
 
+# Draft mode (`julia --project=docs docs/make.jl draft`, or OCTOFITTER_DOCS_DRAFT=true)
+# skips `@example` execution so the build finishes in minutes instead of hours,
+# while still failing on unresolved cross-references. Used by the pre-commit
+# hook in .githooks/ to catch bad `@ref`s before they reach CI.
+const DRAFT = "draft" in ARGS || get(ENV, "OCTOFITTER_DOCS_DRAFT", "false") == "true"
 
 # The subpackages are loaded so that `api.md` can `@docs` their observation
 # types (`ImageObs`, `LogLikelihoodMapObs`, `InterferometryObs`,
@@ -10,7 +15,9 @@ Pkg.activate(".")
 using Documenter, Octofitter, OctofitterRadialVelocity,
       OctofitterImages, OctofitterInterferometry
 
-# Increase resolution of figures
+# CairoMakie is loaded even in draft mode: the Makie package extension
+# provides some docstrings (e.g. `rvplot_animated`), and without it their
+# `@docs` entries and `@ref`s fail to resolve.
 using CairoMakie
 CairoMakie.activate!(px_per_unit=2)
 
@@ -43,14 +50,12 @@ makedocs(
                 "Proper Motion Anomaly" => "pma.md",
                 "Hipparcos IAD" => "hipparcos.md",
                 "Joint Gaia-Hipparcos (G23H)" => "g23h.md",
-                "G23H Full Example" => "g23h-example.md",
-                "Gaia DR4 Epoch Astrometry" => "gaia-iad.md",
+                "Gaia DR4" => "gaia-dr4-prerelease.md",
                 "Gaia DR4 Simulation" => "gaia-dr4-simulation.md",
-                "Gaia DR4 Pre-Release Data" => "gaia-dr4-prerelease.md",
+                "G23H Full Example" => "g23h-example.md",
             ],
             "Images and More" => [
                 "Image Data (de-orbiting)" => "images.md",
-                "Extract Astrom. and Photometry" => "extract-phot-astrom.md",
                 "Connect Mass and Photometry" => "mass-photometry.md",
                 "Interferometer Data" => "fit-interfere.md",
                 "Likelihood Map" => "fit-likemap.md",
@@ -81,10 +86,9 @@ makedocs(
             "Sampler" => "samplers.md",
             "Distributed Sampling" => "parallel-sampling.md",
             "Priors" => "priors.md",
-            "Corrections & Data Provenance" => "corrections.md",
+            "How Orbits Are Computed" => "orbit-computation.md",
             "Derived Variables" => "derived.md",
             "Custom Likelihoods" => "custom-likelihood.md",
-            "Kepler Solver" => "kepler.md",
             "Orbitize! Compatibility" => "compat-orbitize.md",
             "Full API Documentation" => "api.md"
         ],
@@ -97,12 +101,15 @@ makedocs(
         size_threshold=nothing
     ),
     pagesonly=true,
-    warnonly=:example_block
+    warnonly=:example_block,
+    draft=DRAFT,
 )
 
 
-deploydocs(
-    repo = "github.com/sefffal/Octofitter.jl.git",
-    devbranch = "main",
-    push_preview = true
-)
+if !DRAFT
+    deploydocs(
+        repo = "github.com/sefffal/Octofitter.jl.git",
+        devbranch = "main",
+        push_preview = true
+    )
+end

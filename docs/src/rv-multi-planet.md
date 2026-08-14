@@ -84,53 +84,21 @@ Makie.errorbars!(ax, rvlike2.table.epoch, rvlike2.table.rv, rvlike2.table.σ_rv)
 fig
 ```
 
-!!! note "`MarginalizedRVObs`"
-    It analytically marginalizes out each instrument's radial velocity zero
-    point. It requires `target=` (with `ref=` defaulting to `Barycentre`), and it
-    *errors* if you declare an `offset` variable — the point of the type is that
-    there is no offset parameter left to fit.
+`MarginalizedRVObs` analytically marginalizes out each instrument's radial velocity zero
+point. It requires `target=` (with `ref=` defaulting to `Barycentre`), and it
+errors if you declare an `offset` variable.
 
 ## Two Planet Model
 
-!!! note "Unit Conventions"
-    Octofitter uses the following unit conventions:
-    - **Mass**: solar masses everywhere (`mjup` and `mearth` are plain constants: `mass = 5.3mjup`)
-    - **Semi-major axis (`a`)**: AU
-    - **Period (`P`)**: days, when given as an orbital element
-    - **Time of periastron (`tp`)**: MJD (days)
-    - **Epochs**: MJD (days)
+We will set up a Jacobi chain---that means the outer planet will orbit the barycentre of the star and inner planet together, and see both of their masses as the "central body". If you use the N-Body integrator, this is just a convention about what the orbit parameters refer to. If you use the default plain Kepler solver, it will make a big difference if the inner companion mass is not $\ll$ the host mass.
 
-    In this tutorial we sample a period in *years*, because that is what the
-    literature quotes, and convert to the days that the `P` element wants:
-    ```julia
-    P_yrs ~ Uniform(0, 100)
-    P = P_yrs * year2day_julian
-    ```
-    Note that you supply *either* `a` or `P`, never both — Octofitter derives one
-    from the other using the orbit's own gravitating mass.
 
-!!! warning "Two different \"years\", and they are not interchangeable"
-    A **Julian year** is 365.25 days exactly, by IAU definition, and is the one a
-    published period in years means. The period of a 1 M⊙ / 1 AU orbit under the
-    IAU nominal constants is **365.2568983840419** days — a different number,
-    exported as `PlanetOrbits.kepler_year_to_julian_day_conversion_factor`, and
-    the one Kepler's third law works in.
-
-    They differ by 1.9 × 10⁻⁵, which is invisible on a loosely constrained orbit
-    and badly wrong on a short, well-measured one. Convert a quoted period with
-    the exported `year2day_julian`; the Kepler year only belongs inside `√(a³/M)`,
-    where Octofitter already applies it for you.
-
-!!! note "Which mass does each planet orbit? You declare it, not compute it"
-    You state the hierarchy with `about=`, and the gravitating mass of each orbit
-    is the total mass of the bodies it binds:
-
+Concretely:
     - `about=A` — the planet orbits the star alone (astrocentric).
     - `about=(A, b)` — the planet orbits the *barycentre* of the star and the
       inner planet (Jacobi), so its orbit's mass is `M_A + M_b + M_c`.
 
-    Below, `b` is the inner planet and `c` the outer one, so `c` is placed about
-    `(A, b)`.
+Below, `b` is the inner planet and `c` the outer one, so `c` is placed about `(A, b)`.
 
 ```@example 1
 A = Body(
@@ -151,10 +119,9 @@ planet_b = Body(
         ω ~ Uniform(0,2pi)
         mass ~ Uniform(0, 10mjup)   # M⊙
 
-        P_yrs ~ Uniform(0, 100)
-        P = P_yrs * year2day_julian      # the `P` element is in days
+        P ~ Uniform(0, 100year2day_julian)
         τ ~ Uniform(0,1.0)
-        tp = τ*P_yrs*year2day_julian + 58400
+        tp = τ*P + 58400
     end
 )
 
@@ -168,10 +135,9 @@ planet_c = Body(
         ω ~ Uniform(0,2pi)
         mass ~ Uniform(0, 10mjup)   # M⊙
 
-        P_yrs ~ Uniform(0, 100)
-        P = P_yrs * year2day_julian
+        P ~ Uniform(0, 100year2day_julian)
         τ ~ Uniform(0,1.0)
-        tp = τ*P_yrs*year2day_julian + 58400
+        tp = τ*P + 58400
     end
 )
 
@@ -190,9 +156,24 @@ using Pigeons
 results_2p, pt_2p = octofit_pigeons(model_2p, n_rounds=10)
 ```
 
-Plot the RV curve, the residuals, and a phase-folded panel per planet — one call to
-[`octoplot`](@ref) for the posterior spread, or [`rvplot`](@ref) for the single-draw
-summary with every instrument on one axis:
+!!! tip "Using multiple cores"
+    If you have an expensive model -- say, lots of companions, or a thousand RV data points --
+    consider using multiple cores or submiting to a cluster with MPI. 
+    Run:
+    ```julia
+    results_2p, pt_2p = octofit_pigeons(model_2p, n_rounds=10, cores=8)
+    ```
+    Set `cores` to the number of CPU cores you want to use. Each run spends a
+    minute or two starting workers before sampling begins, so this pays off
+    for longer fits. See [`octofit_pigeons`](@ref).
+
+
+Now plot the posterior compared to the data for one draw:
+```@example 1
+rvplot(model_2p, results_2p)
+```
+
+...and a sample of many draws:
 ```@example 1
 octoplot(model_2p, results_2p)
 ```
@@ -201,8 +182,7 @@ octoplot(model_2p, results_2p)
 ## One Planet Model
 
 We now create a new system object that only includes one planet (we dropped c, in this case).
-Because each body's `@variables` block only reads variables it names, `planet_b`
-can be reused as-is:
+`planet_b` can be reused as-is:
 ```@example 1
 sim_1p = System(
     name="sim_1p",
@@ -219,7 +199,14 @@ using Pigeons
 results_1p, pt_1p = octofit_pigeons(model_1p, n_rounds=10)
 ```
 
-Plot RV curve, phase folded curve, and binned residuals:
+Plot RV curve, phase folded curve, and binned residuals.
+
+For one draw at a time:
+```@example 1
+rvplot(model_1p, results_1p)
+```
+
+For a sample of draws:
 ```@example 1
 octoplot(model_1p, results_1p)
 ```
@@ -267,17 +254,11 @@ hist(vec(results_2p[:b_P_yrs]), bins=100)
 
 We can refine the two planet model a bit by adjusting the priors such that planet `c` always has a longer period than planet `b`.
 
-This will make analysis a little more straightforward, but crucially it will also increase the evidence of this model, by approximately halving the prior volume---thus making a more specific prediction.
+This will make analysis a little more straightforward, but it will also increase the evidence of this model by approximately halving the prior volume---thus making a more specific prediction.
 
 There are several ways we could do this. Here, we add a "nominal period" variable and reparameterize the two planets as ratios of this nominal period.
 
-!!! tip "Ordering priors"
-    Octofitter also ships an [`OrbitOrderPrior`](@ref), which enforces `a_b < a_c` directly by rejecting draws where the ordering is
-    violated. It goes in the system's `observations=` list:
-    `observations=[rvlike1, rvlike2, OrbitOrderPrior(planet_b, planet_c)]`.
-    The reparameterization below is usually the better-conditioned choice for
-    evidence work, because it shrinks the prior volume instead of truncating it.
-
+Octofitter also ships an [`OrbitOrderPrior`](@ref), which enforces `a_b < a_c` directly by rejecting draws where the ordering is violated. 
 
 ```@example 1
 planet_b_v2 = Body(
@@ -290,10 +271,9 @@ planet_b_v2 = Body(
         ω ~ Uniform(0,2pi)
         mass ~ Uniform(0, 10mjup)   # M⊙
 
-        P_yrs = system.P_yrs_nom * system.P_ratio_b
-        P = P_yrs * year2day_julian
+        P = system.P_nom * system.P_ratio_b
         τ ~ Uniform(0,1.0)
-        tp = τ*P_yrs*year2day_julian + 58400
+        tp = τ*P + 58400
     end
 )
 
@@ -307,10 +287,9 @@ planet_c_v2 = Body(
         ω ~ Uniform(0,2pi)
         mass ~ Uniform(0, 10mjup)   # M⊙
 
-        P_yrs = system.P_yrs_nom * system.P_ratio_c
-        P = P_yrs * year2day_julian
+        P = system.P * system.P_ratio_c
         τ ~ Uniform(0,1.0)
-        tp = τ*P_yrs*year2day_julian + 58400
+        tp = τ*P + 58400
     end
 )
 
@@ -320,7 +299,7 @@ sim_2p_v2 = System(
     bodies=[A, planet_b_v2, planet_c_v2],
     observations=[rvlike1, rvlike2],
     variables=@variables begin
-        P_yrs_nom ~ Uniform(0, 100)
+        P_nom ~ Uniform(0, 100year2day_julian)
         P_ratio_b ~ Uniform(0, 0.5)
         P_ratio_c ~ Uniform(0.5, 1)
     end
@@ -349,26 +328,15 @@ Z3 = stepping_stone(pt_2p_v2)
 Z1, Z2, Z3
 ```
 
-
 All the plots above overlay many posterior draws. To inspect one draw at a time —
 for example the maximum a-posteriori sample — slice the chain:
 
 ```@example 1
-i_map = argmax(vec(results_2p_v2[:logpost]))
-octoplot(model_2p_v2, results_2p_v2[i_map:i_map, :, :])
+i_map = argmax(vec(results_2p_v2[:logpost])) # find index of highest posteriori sample *in the chain*
+rvplot(model_2p_v2, results_2p_v2, i_map) # plot this specific draw index
 ```
 
-[`rvplot_animated`](@ref) automates exactly that sweep: it rebuilds the RV figure for
-`N` single-draw slices of the chain and records them as a video, so every panel — including
-the phase folds, which move with the drawn period — is that draw's own.
-
-```julia
-Octofitter.rvplot_animated(model_2p_v2, results_2p_v2; N=50, fname="rv-posterior.mp4")
-```
-
-The slicing above is still the building block if you want a different figure per frame:
-loop over draws and save each one
-(`octoplot(model, chain[i:i, :, :]; fname="frame-$i.png")`).
+You should probably look at that plot for a good number of different draws, not just one.
 
 
 ## Analyzing Period Ratios
@@ -387,8 +355,6 @@ period_ratios = P_c_samples ./ P_b_samples
 fig = Figure()
 ax = Axis(fig[1,1], xlabel="Period Ratio (Pc/Pb)", ylabel="Density")
 hist!(ax, period_ratios, bins=50, normalization=:pdf)
-# Mark common resonances
-vlines!(ax, [2.0, 3/2, 5/3], color=:red, linestyle=:dash, label="Common MMRs")
 fig
 ```
 
@@ -403,12 +369,6 @@ prior_model = Octofitter.LogDensityModel(Octofitter.prior_only_model(model_1p.sy
 _, pt_prior = octofit_pigeons(prior_model, n_rounds=10) # should be very quick!
 log_Z0 = stepping_stone(pt_prior)
 ```
-
-!!! warning "`exclude_all=true` is for evidence bookkeeping only"
-    It drops every prior-shaped term, including the `UnitLengthPrior` that keeps
-    each `UniformCircular` variable's `(x, y)` pair off the origin. Such a model
-    is fine for computing a normalizing constant, but is not a model you should
-    do inference with.
 
 Subtract this from the stepping stone value to get the true evidence:
 ```@example 1

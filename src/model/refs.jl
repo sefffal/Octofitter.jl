@@ -28,6 +28,37 @@ The mass-weighted barycentre of the whole system, or of the subsystem
 spanned by the given bodies. Use as an observation's `target` or `ref`:
 
     RadialVelocityObs(rvdata; target=A, ref=Barycentre, …)
+
+# Why absolute astrometry also says `ref=Barycentre`
+
+`ref` names the point an observation's modelled **offsets** are measured
+from. It is not a claim that the point is at rest. The system barycentre
+does move across the sky in general — and that motion is exactly what the
+absolute frame in the **system** block describes: `ra`, `dec`, `plx`,
+`pmra`, `pmdec` and `rv` at `ref_epoch` are the barycentre's own catalogue
+quantities, which PlanetOrbits propagates rigorously in 3D, so its track
+carries perspective acceleration and light-travel curvature rather than
+being a straight line in (α, δ).
+
+An absolute-astrometry prediction is the sum of the two:
+
+    absolute position = the barycentre's propagated track   # from the frame
+                      + (target − ref) at this epoch        # from `target`/`ref`
+
+with the annual parallax supplied by the observation's own parallax factors.
+`G23HObs` composes them literally — `frame_pmra(sol) + Δpmra`, where `Δpmra`
+is the five-parameter refit of `raoff(sol, target, Barycentre)` over the
+transits. So `ref=Barycentre` says "this source's excursion is measured from
+the system's centre of mass"; the centre of mass moving is not an omission,
+it is the frame's job.
+
+Naming a **sub**-barycentre is legal and is usually *not* what you want for a
+catalogue source in a multi-source system: `ref=Barycentre(Aa, Ab)` measures
+the A pair's photocentre against its own centre of mass, which removes that
+pair's motion about the system barycentre from the prediction — and for a
+wide pair that motion is the signal. Both sources take the whole-system
+`ref=Barycentre`, because both are predicted from the one shared frame; see
+the [G23H tutorial](@ref fit-g23h).
 """
 const Barycentre = BarycentreSpec{()}()
 

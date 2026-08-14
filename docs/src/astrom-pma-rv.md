@@ -16,9 +16,8 @@ Pages = ["astrom-pma-rv.md"]
 Depth = 5
 ```
 
-!!! note "Read [Proper Motion Anomaly](@ref fit-pma) first"
-    That page covers what this one leans on hardest: `HGCAObs` is a helper over
-    [`G23HObs`](@ref), and the G23H catalog it reads.
+!!! note 
+    Work through the the [Proper Motion Anomaly](@ref fit-pma) tutorial before attempting a joint fit.
 
 ## Model: PMA Only
 
@@ -116,13 +115,6 @@ We also add parameters for the star's long term proper motion. This is usually c
 !!! warning "Use wide priors for pmra/pmdec with HGCA data"
     When fitting HGCA data, use **wide, uninformative priors** for `pmra` and `pmdec`, such as `Normal(0, 1000)` (0 ± 1000 mas/yr). **Do not** use Gaia DR3 proper motion values as informative priors—this would double-count the information since the HGCA already incorporates Gaia astrometry and will constrain the system's proper motion through the likelihood. The pmra/pmdec parameters represent the center-of-mass proper motion, which the HGCA measurements help determine.
 
-    The example below uses `Normal(-137, 10)` only because we have independent prior knowledge of this system's proper motion from other sources—for a typical analysis, you should use wide priors like `Normal(0, 1000)`.
-
-!!! warning "An absolute frame is all-or-nothing"
-    `plx, ra, dec, pmra, pmdec, rv, ref_epoch` are reserved system-level names, and a
-    *partial* set is rejected at model-build time. Declare all seven, or `plx` alone. Every
-    model on this page that carries the HGCA declares all seven; the final RV + astrometry
-    model, which has no absolute astrometry, declares only `plx`.
 
 ```@example 1
 ra_deg  = 158.30707896392835
@@ -154,15 +146,8 @@ model_pma = Octofitter.LogDensityModel(sys)
 
 Because proper motion anomaly data is quite sparse, it can often produce multi-modal posteriors. If your orbit already has several relative astrometry or RV data points, this is less of an issue.
 
-!!! tip "Parallel tempering is the sampler used here"
-    Every model on this page is sampled with Pigeons.jl's parallel tempering via
-    [`octofit_pigeons`](@ref), because HMC can only jump 2–3σ gaps between modes. The
-    PMA-only model is where this matters most; the joint models further down are much
-    better conditioned, and the `explorer=SliceSampler()` argument on the first three
-    is what handles their sharper ridges.
-
 ```@example 1
-chain_pma, pt = octofit_pigeons(model_pma, n_rounds=8, explorer=SliceSampler())
+chain_pma, pt = octofit_pigeons(model_pma, n_rounds=8)
 display(chain_pma)
 ```
 
@@ -253,13 +238,17 @@ contributes separation and position angle (or Δα⋆/Δδ), and `G23HObs` contr
 and `pmdec` — the five catalog proper motions against the model's reflex curve, with each
 point's mission averaging window drawn as a horizontal bar.
 
+Wrapping an observation changes nothing about how it is drawn: `ObsPriorONeil2019`
+reweights the prior, and the astrometry inside it still contributes its points to the sky
+panel and its own time-series panels, calibrated by the fitted `platescale`/`northangle`
+exactly as an unwrapped dataset is. The panels are labelled with the wrapper's name
+(`obspri_SCExAO` rather than `SCExAO`), which is also the name its calibration parameters
+take in the chain.
+
 ## Model: PMA & Relative Astrometry & RVs
 
 We now add in three additional epochs of stellar RVs.
 
-!!! warning "Declare `offset` and `jitter` yourself"
-    Octofitter never invents a prior for you. An RV observation with no `variables=` block
-    fits with **no zero point and no jitter** — declare both explicitly, as below.
 
 ```@example 1
 rv_dat_abs = Table(;
@@ -273,6 +262,10 @@ rvlike = RadialVelocityObs(
     target = A,            # the star's own reflex motion…
     ref = Barycentre,      # …against the system barycentre
     name = "SOPHIE",
+    # Per dataset, and the default: with a full absolute frame like this one,
+    # the secular (perspective) acceleration term is non-zero and modelled.
+    # Pass `:data_corrected` for a series whose pipeline already removed it.
+    secular_acceleration = :model,
     variables = @variables begin
         jitter ~ truncated(Normal(10, 5), lower=0)  # m/s
         offset ~ Normal(0, 1000)                    # m/s
@@ -307,7 +300,7 @@ sys_rv_astrom = System(
 )
 
 model_pma_rv_astrom = Octofitter.LogDensityModel(sys_rv_astrom, verbosity=4)
-chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=7, explorer=SliceSampler())
+chain_pma_rv_astrom, pt = octofit_pigeons(model_pma_rv_astrom, n_rounds=9, explorer=SliceSampler())
 display(chain_pma_rv_astrom)
 ```
 
@@ -349,7 +342,7 @@ sys_final = System(
 
 model_rv_astrom = Octofitter.LogDensityModel(sys_final, verbosity=4)
 
-chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=12)
+chain_rv_astrom, pt = octofit_pigeons(model_rv_astrom, n_rounds=11)
 nothing # hide
 ```
 

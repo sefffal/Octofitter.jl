@@ -29,15 +29,6 @@ This pattern also allows you to load data directly from remote databases using a
 
 Once loaded, you can access the underlying table using e.g. `astrom.table`.
 
-!!! note "Read into a `Table` first"
-    `CSV.read("astrom.csv", RelAstromObs)` does not work: every observation requires
-    keyword arguments — at minimum `target`, `ref` and `name` — and the
-    `CSV.read(source, sink)` form has no way to supply them. Read into a `Table` first,
-    as above.
-
-    `PropMotionAnom` is gone as well: proper-motion anomaly is now modelled by
-    [`HGCAObs`](@ref) / [`G23HObs`](@ref), which fetch their own catalog data by
-    `gaia_id` rather than taking a table.
 
 ## Saving Chains
 
@@ -71,20 +62,26 @@ Octofitter.checkchain(model, chain; strict=false) # warns instead
     [Migrating to Octofitter v9](@ref v9-migration).
 
 #### Example: Saving chains to Orbitize format
-For compatbility purposes, orbit posteriors can be exported and loaded from the Orbitize! HDF5 format. This only works for basic two-object orbits. FITS format (above) should be preferred.
+For compatbility purposes, orbit posteriors can be exported and loaded from the Orbitize! HDF5 format. Only visual orbits travel: an export writes **one companion's** orbit in orbitize!'s eight-column standard basis, and no data. FITS format (above) should be preferred.
 ```julia
 Octofitter.savehdf5("mychain.h5", model, chain)
 
 chain = Octofitter.loadhdf5("mychain.h5")
 ```
 
-Note the **three** positional arguments to `savehdf5`: it needs the model in order to know which body is the companion and which is its host. See [Compatibility with Orbitize!](@ref compat-orbitize) for the details and for the additional keywords.
+Note the **three** positional arguments to `savehdf5`: it needs the model in order to know which body is the companion and which bodies that companion's orbit is about. See [Compatibility with Orbitize!](@ref compat-orbitize) for the details and for the additional keywords.
 
 !!! note
-    orbitize!'s standard basis stores the epoch of periastron, so `savehdf5` requires a
-    `<body>_tp` column in the chain. A model parametrized on `θ` + `epoch` (position angle
-    at a reference epoch) does not have one — either add `tp` explicitly, or export from a
-    model that samples `tp`.
+    orbitize!'s standard basis stores the phase as `tau`, a fraction of a period past a
+    reference epoch, which is derived from the epoch of periastron. A chain that samples
+    `tp` supplies that directly. A model parametrized on `θ` + `epoch` (position angle at a
+    reference epoch — a sampling convenience mapped to `tp` geometrically, see
+    [Choosing a parameterization](@ref parameterization)) has no `tp` column, but it does
+    not need one: `tp` is determined by the
+    elements, so it is recovered by rebuilding each draw's orbit — at the cost of one system
+    build per draw. The recovered value is the periastron passage within half a period of
+    the model's reference `epoch`; which passage that is makes no difference to the file,
+    since `tau` is a phase modulo the period.
 
 
 #### Example: Saving to CSV
@@ -146,9 +143,3 @@ traj  = orbitsolve(posys, [59000.0, 59100.0])
 raoff(traj[1], :b, :A)
 ```
 
-!!! note "One system per draw"
-    There is no per-planet orbit object — a sample is a whole system — and every
-    observable takes an explicit `(target, ref)` pair.
-
-    Note also that `construct_system` takes the **`LogDensityModel`**, not the bare
-    `System`.

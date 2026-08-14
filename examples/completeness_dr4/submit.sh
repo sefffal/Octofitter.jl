@@ -8,15 +8,19 @@
 #SBATCH --error=logs/trial_%a_%j.err
 #SBATCH --account=def-cmarois-ab
 
-# Gaia DR4 Completeness Mapping — SLURM array job
-# Grid: 12 masses × 12 separations × 5 trials = 720 jobs
+# Gaia DR4 completeness mapping — SLURM array job.
+#
+# The array range must match the grid in common.jl:
+#   12 masses × 12 separations × 5 trials = 720 jobs.
+# `setup.jl` prints the number to use.
 
-module load julia/1.10.10
-export JULIA_DEPOT_PATH="/scratch/wthompso/julia_depot"
+# Octofitter v9 requires Julia >= 1.11.
+module load julia/1.12.5
+export JULIA_DEPOT_PATH="/scratch/$USER/julia_depot"
 export JULIA_NUM_THREADS=4
 export DATADEPS_ALWAYS_ACCEPT=true
 
-cd /scratch/wthompso/completeness_dr4
+cd /scratch/$USER/completeness_dr4
 
 julia --project=. --threads=4 completeness_trial.jl
 

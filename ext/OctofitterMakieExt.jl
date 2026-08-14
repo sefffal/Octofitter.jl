@@ -22,7 +22,7 @@ using Octofitter
 using Octofitter: PosteriorSeries, ObservableQuery, PlotChannel, OctoPlotResult,
     plotchannels, obscontext, modelcurves, default_sky_queries, default_queries,
     plottable_observations, likelihoodname, refspecs, defaultpanels,
-    rowsignal, evalsignal, foldablerows, foldephemeris, foldphase,
+    rowsignal, evalsignal, foldablerows, foldephemeris, foldphase, phasebinmeans,
     sharepanel, datacalibration, noisemodel, predictedchannels,
     _query, _querystr, _refstr, _solvekw, _isprior, _calibration,
     _requestedobservables
@@ -40,6 +40,38 @@ _rowcolor(k) = WONG[mod1(k, length(WONG))]
 # Instrument accent colours start at Wong 2: Wong 1 is the model curve, and a
 # dataset drawn in the model's own colour reads as part of the model.
 _instcolor(j) = WONG[mod1(j + 1, length(WONG))]
+
+# `curvecolor=` on an assembled figure (`octoplot`), resolved per panel. Three
+# spellings, in increasing specificity:
+#
+#   nothing            — every panel keeps its own accent colour (the default)
+#   a colour           — that colour everywhere
+#   a Dict/NamedTuple  — keyed by *body name*: `(; b=:firebrick)`, or
+#                        `Dict(:b => :firebrick, :A => :grey20)`
+#
+# The key is a body because that is what every panel's colour already means:
+# the sky track and the astrometry panels of planet `b` share row `b`'s accent
+# colour, and a stellar reflex RV panel is the host's — so `:b` recolours the
+# planet's orbit wherever it appears, and a body the mapping does not name
+# keeps its default. Anything that is not a mapping is treated as a colour, so
+# every Makie colour spelling — `(:red, 0.5)`, an `RGBf`, `"#AA3377"` — passes
+# through untouched.
+_panelcolor(::Nothing, name) = nothing
+_panelcolor(d::AbstractDict, name) =
+    name === nothing ? nothing : get(d, name, nothing)
+_panelcolor(nt::NamedTuple, name) =
+    name === nothing ? nothing : get(nt, name, nothing)
+_panelcolor(c, name) = c
+
+# The body a panel's curve belongs to: the query's target when that is a
+# single body (planet astrometry → `:b`, a stellar reflex RV → `:A`), and
+# `nothing` for a composite reference point, which no body name can select.
+function _curvebody(sys, q)
+    q === nothing && return nothing
+    n = Octofitter._leafnames(sys, q.target)
+    (n === nothing || length(n) != 1) && return nothing
+    return n[1]
+end
 
 # Per-instrument marker shapes, so that overlapping datasets stay separable in
 # print and for readers who cannot rely on the colour alone (v1's rvpostplot
@@ -96,6 +128,15 @@ const LEGEND_W = 150.0
 
 _layout(gl::Makie.GridLayout) = gl
 _layout(gp::Union{Makie.GridPosition,Makie.GridSubposition}) = Makie.GridLayout(gp)
+
+# Where a single-axis panel draws. A grid cell (`fig[i, j]`) is the usual
+# case; a bare figure or layout means "the only axis in it"; and an `Axis`
+# means the caller has already made and styled one, so the panel's own axis
+# attributes are theirs to have set — it draws into it and does not restyle.
+_panelaxis(ax::Makie.Axis; kwargs...) = ax
+_panelaxis(gp::Union{Makie.GridPosition,Makie.GridSubposition}; kwargs...) = Makie.Axis(gp; kwargs...)
+_panelaxis(gl::Makie.GridLayout; kwargs...) = Makie.Axis(gl[1, 1]; kwargs...)
+_panelaxis(fig::Makie.Figure; kwargs...) = Makie.Axis(fig[1, 1]; kwargs...)
 
 _alpha(n) = min(1.0, 100 / max(n, 1))
 
@@ -164,7 +205,7 @@ end
 
 """
     skypanel!(gp, series; tracks=nothing, ntrack=150, colorbar=true,
-              legend=true, ndraws=nothing)
+              legend=true, ndraws=nothing, curvecolor=nothing)
 
 Sky-plane orbit tracks. By default one track per hierarchy row — the
 exterior side relative to the interior side, i.e. exactly the relationship
@@ -173,11 +214,17 @@ coloured by orbital phase in the row's accent colour. Relative-astrometry
 data overlay automatically, one colour and marker shape per observation, with
 a legend naming them (`legend=false` to drop it).
 
+`curvecolor=` replaces the colour each phase ramp is built *from* — the ramp
+still runs from it to near-white with orbital phase, so the panel keeps saying
+where in its orbit each piece of track is. Give one colour for every row, or a
+`Dict`/`NamedTuple` keyed by body name (`(; b=:firebrick)`) to recolour some
+of them; the colorbar follows the first row's.
+
 Right ascension increases to the **left**, as on the sky. Returns `(; sky=ax)`.
 """
 function Octofitter.skypanel!(gp, series::PosteriorSeries;
                               tracks=nothing, ntrack=150, colorbar=true,
-                              legend=true, ndraws=nothing)
+                              legend=true, ndraws=nothing, curvecolor=nothing)
     sys = series.model.system
     gs = _layout(gp)
     angular = _isangular(sys)
@@ -229,7 +276,11 @@ function Octofitter.skypanel!(gp, series::PosteriorSeries;
     datasets = NTuple{4,Vector{Float64}}[]
     datanames = String[]
     for obs in plottable_observations(sys)
-        obs isa Octofitter.RelAstromObs || continue
+        # `plotobs`, not `obs`: an observation wrapped in `ObsPriorONeil2019`
+        # is still relative astrometry and its points still belong on the sky.
+        # The wrapper itself is what `obscontext` must be given, though — the
+        # calibration parameters are registered under *its* name.
+        Octofitter.plotobs(obs) isa Octofitter.RelAstromObs || continue
         r = Octofitter.residuals(obs, obscontext(series, obs))
         u = r.raoff.use
         push!(datasets, (r.raoff.data[u], r.decoff.data[u],
@@ -277,10 +328,14 @@ function Octofitter.skypanel!(gp, series::PosteriorSeries;
     Makie.xlims!(ax, info_x.flip ? (hi, lo) : (lo, hi))
     Makie.ylims!(ax, (cy - half) * unitscale, (cy + half) * unitscale)
 
+    # The colour each row's phase ramp starts from: its accent colour, unless
+    # the caller named one for that body.
+    rowbase(k) = something(_panelcolor(curvecolor, get(rownames, k, nothing)), _rowcolor(k))
+
     α = _alpha(nshow)
     for (k, (xs, ys, cs)) in enumerate(rowdata)
         Makie.lines!(ax, xs .* unitscale, ys .* unitscale;
-            color=cs, colormap=_phaseramp(_rowcolor(k)), colorrange=(0, 2π),
+            color=cs, colormap=_phaseramp(rowbase(k)), colorrange=(0, 2π),
             alpha=α, linewidth=0.6)
     end
 
@@ -309,7 +364,7 @@ function Octofitter.skypanel!(gp, series::PosteriorSeries;
 
     if colorbar
         cb = Makie.Colorbar(gs[1, 2];
-            colormap=_phaseramp(_rowcolor(1)), colorrange=(0, 2π),
+            colormap=_phaseramp(rowbase(1)), colorrange=(0, 2π),
             width=12, halign=:left,
             ticks=_PHASE_TICKS, label="orbital phase (mean anomaly) →")
         # Match the colorbar's height to the axis itself, not the cell —
@@ -869,8 +924,16 @@ the actual model over one osculating period anchored at the data midpoint —
 periodicity is then an approximation, which is why `octoplot` only adds
 phase panels automatically under `KeplerianApprox`.
 
-Noise-weighted binned means (grey-to-red points) pool all instruments;
-the residual strip below shows the same residuals as the time panel against
+Noise-weighted binned means (grey-to-red points) pool all instruments, over
+`nbins` bins of phase; a bin has to hold at least two points to be drawn,
+since a "mean" of one is the measurement itself, already on the axis with its
+own error bar. A fold with fewer points than bins therefore shows no binned
+series at all, and `show_binned=false` turns them off outright. Their error
+bars are the uncertainty *of the mean*, `max(1/√Σw, s_w/√n)` — the analytic
+weighted-mean error as a floor, the bin's own corrected weighted scatter over
+√n when the points disagree by more than the noise model allows. See
+[`phasebinmeans`](@ref).
+The residual strip below shows the same residuals as the time panel against
 phase (whitened by default when more than one draw is shown, and then as a
 per-point boxplot — see [`timeseriespanel!`](@ref)). `show_resid=false`
 drops it — folding does not change a residual's value, so where a time panel
@@ -1033,15 +1096,23 @@ function Octofitter.phasefoldpanel!(gp, series::PosteriorSeries, entries;
 
         # Noise-weighted binned means (the rvpostplot idiom, with the bin
         # mask half-width fixed).
+        #
+        # A bin holding a single point is not a mean of anything, and drawing
+        # it as one says three false things at once: the mark lands on the bin
+        # *centre* rather than on the measurement's own phase, it is bigger
+        # and redder than the measurement, and its error bar is the scatter of
+        # one value — zero — where the measurement's own is several m/s. In
+        # the sparse limit every bin is that bin (ten points against twenty
+        # bins gave ten zero-width red marks, each shouldered off its own
+        # datum), so the binned series buried exactly the data it was made
+        # from. Skip them: the points are already drawn, with their real
+        # error bars, and a fold with fewer points than bins simply gets no
+        # binned series — which is the honest answer. Bins with two or more
+        # points are untouched, so a well-sampled figure is unchanged.
         if show_binned && !isempty(pooled_x)
-            edges = range(-0.5, 0.5, length=nbins + 1)
-            for i in 1:nbins
-                m = (edges[i] .<= pooled_x) .& (pooled_x .< edges[i+1])
-                count(m) == 0 && continue
-                w = ProbabilityWeights(pooled_w[m])
-                μ = mean(pooled_y[m], w)
-                σ = count(m) > 1 ? std(pooled_y[m], w) : 0.0
-                c = (edges[i] + edges[i+1]) / 2
+            b = phasebinmeans(pooled_x, pooled_y, pooled_w, nbins)
+            for i in eachindex(b.centre)
+                c, μ, σ = b.centre[i], b.mean[i], b.sigma[i]
                 Makie.errorbars!(ax, [c], [μ], [σ]; color=:black, linewidth=2)
                 Makie.scatter!(ax, [c], [μ];
                     color=:red, markersize=9, strokecolor=:black, strokewidth=1.5)
@@ -1122,9 +1193,14 @@ _channelmatch(ch::PlotChannel, cs) = any(c -> _channelmatch(ch, c), cs)
 # instruments' `sep` channels share this key, and so does the `sep` a ra/dec
 # table exposes by projection.
 _quantitykey(obs, ch) = ch.query === nothing ?
-                        Symbol(nameof(typeof(obs)), :_, ch.name) :
+                        Symbol(nameof(typeof(Octofitter.plotobs(obs))), :_, ch.name) :
                         Symbol(nameof(ch.query.func), :_,
                             _refstr(ch.query.target), :_, _refstr(ch.query.ref))
+# (The query-less branch keys by the observation *type*, so it has to be the
+# type that measured it — `plotobs` — or a wrapped and an unwrapped Gaia
+# observation would put the same `:along_scan` on two different axes. The
+# `nothing` observation `_predictivegroups` passes only ever reaches the other
+# branch: a predicted channel always carries a query.)
 
 function _channelgroups(sys, channels=nothing)
     obss = [obs for obs in plottable_observations(sys) if isempty(defaultpanels(obs))]
@@ -1216,6 +1292,8 @@ end
 """
     octoplot(model, chain; N=250, seed=0, show_sky=nothing, show_phase=nothing,
              whiten=nothing, channels=nothing, gpband=nothing, boxwidth=nothing,
+             tmin=nothing, tmax=nothing, ts=nothing,
+             curvecolor=nothing, datastyle=nothing,
              fname=nothing, figscale=1, ndraws=nothing)
 
 See the core docstring (`?octoplot` without Makie loaded). Panels: a sky
@@ -1223,6 +1301,22 @@ panel when the system has angular observables; one time-series panel per
 channel group; phase-folded panels; then any bespoke `defaultpanels`. All
 epoch axes are linked — calendar dates along the top of the figure, MJD along
 the bottom.
+
+**The time axis** is the [`PosteriorSeries`](@ref) epoch grid, which every
+panel clips to. `tmax="2035-01-01"` (an MJD number, a date string, or a
+`Date`) extends it past the data — `xlims!` alone cannot, since there is no
+curve out there to show — `tmin=` moves the other end, and `ts=` replaces the
+grid with epochs of your own. They belong to the series, so pass them to
+`octoplot(model, chain; …)` or to the `PosteriorSeries` constructor, not to
+`octoplot(series)`.
+
+**Colours.** `curvecolor=` sets the model curves': one colour for the whole
+figure, or a `Dict`/`NamedTuple` keyed by body name (`(; b=:firebrick)`) for
+one orbit at a time — the sky panel builds its phase ramp from it, and every
+panel of that body's signal follows. `datastyle=` overrides the marks (see
+[`timeseriespanel!`](@ref)). Instrument colours and marker shapes stay
+automatic: on a shared panel they are the only thing saying whose point is
+whose.
 
 **One panel per instrument.** Channels group by the quantity they measure
 *and* by which observation reported it, unless the observation type opts into
@@ -1267,8 +1361,9 @@ fold, not just radial velocity. [`rvplot`](@ref) shows one draw and folds by
 default, which is the conventional figure.
 """
 function Octofitter.octoplot(model::Octofitter.LogDensityModel, chain::Chains;
-                             N=250, seed=0, kwargs...)
-    series = PosteriorSeries(model, chain; N, seed)
+                             N=250, seed=0, tmin=nothing, tmax=nothing, ts=nothing,
+                             kwargs...)
+    series = PosteriorSeries(model, chain; N, seed, tmin, tmax, ts)
     return Octofitter.octoplot(series; kwargs...)
 end
 
@@ -1276,6 +1371,7 @@ function Octofitter.octoplot(series::PosteriorSeries;
                              show_sky=nothing, show_phase=nothing, whiten=nothing,
                              channels=nothing, figure=nothing, legend=true,
                              gpband=nothing, boxwidth=nothing,
+                             curvecolor=nothing, datastyle=nothing,
                              fname=nothing, figscale=1.0, ndraws=nothing)
     sys = series.model.system
     nshow = ndraws === nothing ? length(series) : min(ndraws, length(series))
@@ -1346,7 +1442,7 @@ function Octofitter.octoplot(series::PosteriorSeries;
     timeaxes = Makie.Axis[]
     row = 1
     if do_sky
-        skyaxes = Octofitter.skypanel!(fig[row, 1], series; ndraws, legend)
+        skyaxes = Octofitter.skypanel!(fig[row, 1], series; ndraws, legend, curvecolor)
         push!(axpairs, :sky => skyaxes)
         Makie.rowsize!(fig.layout, row, Makie.Fixed(figscale * skyH))
         row += 1
@@ -1361,7 +1457,8 @@ function Octofitter.octoplot(series::PosteriorSeries;
         push!(legendseen, insts)
         axs = Octofitter.timeseriespanel!(fig[row, 1], series, entries;
             top_time_axis=(i == 1), bottom_time_axis=(i == npanels), ndraws, whiten,
-            gpband, boxwidth, show_legend=showleg)
+            gpband, boxwidth, show_legend=showleg, datastyle,
+            curvecolor=_panelcolor(curvecolor, _curvebody(sys, entries[1][2].query)))
         push!(axpairs, nm => axs)
         push!(timeaxes, axs.main)
         axs.resid !== nothing && push!(timeaxes, axs.resid)
@@ -1370,7 +1467,8 @@ function Octofitter.octoplot(series::PosteriorSeries;
     end
     for (i, (nm, k, entries)) in enumerate(phasepanels)
         axs = Octofitter.phasefoldpanel!(fig[row, 1], series, entries;
-            row=k, ndraws, whiten, boxwidth, bottom_axis=(i == length(phasepanels)))
+            row=k, ndraws, whiten, boxwidth, bottom_axis=(i == length(phasepanels)),
+            datastyle, curvecolor=_panelcolor(curvecolor, sys.rows[k][1]))
         push!(axpairs, nm => axs)
         Makie.rowsize!(fig.layout, row, Makie.Auto(230 / 260))
         row += 1
@@ -1543,6 +1641,7 @@ view and gives each instrument a panel of its own instead:
 | `whiten=nothing` | `false` (raw residuals) by default — one draw makes them well defined |
 | `curvecolor=:blue` | one colour for every panel's model curve; `nothing` gives each row its own |
 | `datastyle=nothing` | marker and error-bar overrides, merged over `_rvdatastyle` |
+| `tmin`, `tmax`, `ts` | the epoch grid the curve is drawn over, as `octoplot` (the `model, chain` form only) |
 | `figscale`, `fname`, `figure` | as `octoplot` |
 
 The figure follows v8 `rvpostplot`'s layout: landscape, legend in a column at
@@ -1551,22 +1650,53 @@ rearranges the residuals along x but leaves their values alone, so a strip
 under each phase panel is the time panel's residuals redrawn once per planet
 — `show_phase_resid=true` if you want them regardless.
 
+## What a binned point's error bar means
+
+The red marks on a phase panel are noise-weighted means of the points in
+`nbins=20` equal bins of phase, pooled across instruments, and their bars are
+the uncertainty **of that mean** — not the spread of the points that made it.
+The bar is
+
+    max( 1/√(Σw),  s_w/√n )
+
+over the points in the bin, with `w = 1/σ_eff²` (measurement error, jitter
+and any fitted correlated-noise term). The first term is the textbook error
+on a weighted mean and is what RadVel and juliet draw; the second is the
+bin's own bias-corrected weighted scatter over `√n`, and it is larger exactly
+when the points in a bin disagree by more than the noise model allows —
+correlated residuals, or underestimated uncertainties. The bar is therefore
+never below the analytic floor, and never smaller than what the data itself
+shows. Before v9 this bar was the raw weighted *scatter*, uncorrected, which
+is a different quantity and could fall below the floor; every phase-fold
+figure's bars change. Bins holding a single point are not drawn at all — see
+[`phasebinmeans`](@ref).
+
+Where a `gaussian_process` was fitted, treat any binned bar as a heuristic:
+the GP makes neighbouring residuals correlated, and no per-bin formula is a
+substitute for the whitened residual strip, which is the rigorous view.
+
 `show_perspective=true` overlays the secular drift of the system barycentre's
 own radial velocity, `PlanetOrbits.frame_rv`, for a model with an absolute
-frame. It is **off** by default and drawn dashed because v9's `radvel` is a
-strictly relative observable: `RadialVelocityObs` does not currently include
-this term in its forward model, so the line is a diagnostic — "here is how
-much secular drift this geometry implies" — and not part of the fitted curve.
+frame. Whether that drift is part of the *fit* is each dataset's own
+declaration (`secular_acceleration=:model`, the default for an absolute
+`RadialVelocityObs`, or `:data_corrected`) — but either way it is not in this
+figure's model curve, which is the pure `radvel` query, while the plotted
+points are calibrated only by `offset` and `trend_function`. The overlay is
+off by default and drawn dashed for that reason: it shows the size of a term
+the curve leaves out. Residuals and phase folds go through the full forward
+model and are unaffected.
 
 Returns an [`OctoPlotResult`](@ref); `res.axes.rv.main` and
 `res.axes.rv_phase_b.main` name the panels.
 """
 function Octofitter.rvplot(model::Octofitter.LogDensityModel, chain::Chains,
-                           sample_idx::Integer=_max_logpost_index(chain); kwargs...)
+                           sample_idx::Integer=_max_logpost_index(chain);
+                           tmin=nothing, tmax=nothing, ts=nothing, kwargs...)
     nsamples = size(chain, 1) * size(chain, 3)
     1 <= sample_idx <= nsamples || throw(ArgumentError(
         "sample_idx=$sample_idx is outside the chain's 1:$nsamples samples."))
-    return Octofitter.rvplot(PosteriorSeries(model, chain; ii=[sample_idx]); kwargs...)
+    return Octofitter.rvplot(
+        PosteriorSeries(model, chain; ii=[sample_idx], tmin, tmax, ts); kwargs...)
 end
 
 # v1 selected the draw with `argmax(results["logpost"][:])`. Chains that were
@@ -1597,7 +1727,12 @@ function _rvgroups(sys)
     return groups
 end
 
-_hasgp(obs) = hasproperty(obs, :gaussian_process) && obs.gaussian_process !== nothing
+# Through `plotobs`: a wrapper carries the wrapped table but not its
+# `gaussian_process` field, and this only decides a legend entry for a band
+# `noisemodel` (which *is* delegated) would draw anyway.
+_hasgp(obs) = let o = Octofitter.plotobs(obs)
+    hasproperty(o, :gaussian_process) && o.gaussian_process !== nothing
+end
 
 # v8 `rvpostplot`'s marks: small filled points, hairline strokes, and the
 # measurement bar in the instrument's own colour inside the grey
@@ -1774,7 +1909,7 @@ function _rvlegend!(gp, allobs, anygp, show_perspective, curvecolor)
     end
     if show_perspective
         push!(marks, Makie.LineElement(color=:darkorange, linewidth=3, linestyle=:dash))
-        push!(labels, "frame RV drift\n(not in the fit)")
+        push!(labels, "frame RV drift\n(not in the curve)")
     end
     return Makie.Legend(gp, [instruments, marks],
         [[likelihoodname(o) for o in allobs], labels],
@@ -1799,19 +1934,22 @@ The extension is anything Makie can write from a `VideoStream`: `.mp4`,
 function Octofitter.rvplot_animated(model::Octofitter.LogDensityModel, chain::Chains;
                                     N::Integer=50, seed::Integer=0, framerate=4,
                                     fname::AbstractString="rv-posterior.mp4",
+                                    tmin=nothing, tmax=nothing, ts=nothing,
                                     kwargs...)
     nsamples = size(chain, 1) * size(chain, 3)
     ii = sort!(StatsBase.sample(Xoshiro(seed), 1:nsamples, min(N, nsamples); replace=false))
     # One figure, reused: a `VideoStream` records a single scene, so each frame
     # empties the layout and rebuilds the panels into the same figure rather
     # than making a new one (which the stream would never see).
-    res = Octofitter.rvplot(PosteriorSeries(model, chain; ii=[first(ii)]); kwargs...)
+    res = Octofitter.rvplot(
+        PosteriorSeries(model, chain; ii=[first(ii)], tmin, tmax, ts); kwargs...)
     fig = res.figure
     stream = Makie.VideoStream(fig; framerate)
     Makie.recordframe!(stream)
     for i in ii[2:end]
         empty!(fig)
-        Octofitter.rvplot(PosteriorSeries(model, chain; ii=[i]); figure=fig, kwargs...)
+        Octofitter.rvplot(PosteriorSeries(model, chain; ii=[i], tmin, tmax, ts);
+            figure=fig, kwargs...)
         Makie.recordframe!(stream)
     end
     Makie.save(fname, stream)
@@ -1952,8 +2090,12 @@ end
 
 # The (single) observation of a given type in a model, with a message that
 # says what to do when there is none or more than one.
+#
+# Selected by `plotobs`, so a wrapped observation is still found, but the
+# *wrapper* is returned: it is what `obscontext` and `series.data_maps` are
+# keyed by. Same rule as the sky panel's overlay.
 function _theobs(sys, T, what)
-    os = [o for o in sys.observations if o isa T]
+    os = [o for o in sys.observations if Octofitter.plotobs(o) isa T]
     isempty(os) && error("$what needs a $(nameof(T)) in the model; this one has none.")
     length(os) > 1 && error(
         "$what draws one $(nameof(T)) and this model has $(length(os)). " *
@@ -1984,11 +2126,36 @@ direction and a dotted connector back to the track.
 (v8 displaced by `model − data`, mirroring each point across the track. The
 sign here is the one that makes a point sit where the abscissa says the source
 was.)
+
+`sample_idx` selects the draw — the maximum-posterior one by default, any row
+index otherwise. Comparing draws is the point of [`gaiastarplot!`](@ref),
+which draws into a cell of a figure you already have.
 """
 function Octofitter.gaiastarplot(model::Octofitter.LogDensityModel, chain::Chains,
                                  sample_idx=nothing;
-                                 keplerian_mult=1.0, ntrack::Integer=200,
-                                 fname=nothing, figure=(;), axis=(;))
+                                 fname=nothing, figure=(;), kwargs...)
+    fig = Makie.Figure(; size=(600, 600), figure...)
+    Octofitter.gaiastarplot!(fig[1, 1], model, chain, sample_idx; kwargs...)
+    fname !== nothing && Makie.save(fname, fig, px_per_unit=3)
+    return fig
+end
+
+"""
+    gaiastarplot!(gp, model, chain, sample_idx=MAP; keplerian_mult=1,
+                  ntrack=200, axis=(;))
+
+[`gaiastarplot`](@ref) into `gp`: a grid cell (`fig[i, j]`), a whole figure or
+layout — one axis at `[1, 1]` — or an `Axis` the caller has already made and
+styled. Returns the `Axis`.
+
+A grid of cells each showing a different `sample_idx` is the honest picture of
+an astrometric posterior: several quite different orbits, each passing through
+the same transits.
+"""
+function Octofitter.gaiastarplot!(gp, model::Octofitter.LogDensityModel, chain::Chains,
+                                  sample_idx=nothing;
+                                  keplerian_mult=1.0, ntrack::Integer=200,
+                                  axis=(;))
     sys = model.system
     obs = _theobs(sys, Octofitter.GaiaDR4AstromObs, "gaiastarplot")
     series, _ = _onedraw(model, chain, sample_idx)
@@ -2011,14 +2178,15 @@ function Octofitter.gaiastarplot(model::Octofitter.LogDensityModel, chain::Chain
     mx = keplerian_mult .* Octofitter.evalquery(q, posys, dtraj)[rows]
     my = keplerian_mult .* Octofitter.evalquery(qd, posys, dtraj)[rows]
     r = Octofitter.residuals(obs, obscontext(series, obs; draw=1)).along_scan
-    s = sin.(obs.table.scan_pos_angle)
-    c = cos.(obs.table.scan_pos_angle)
+    # `obs.table.scan_pos_angle` is in degrees (the archive's unit); the
+    # radian projection is precomputed on the observation.
+    s = obs.sinψ
+    c = obs.cosψ
     u = r.use
     dx = mx .+ r.resid .* s
     dy = my .+ r.resid .* c
 
-    fig = Makie.Figure(; size=(600, 600), figure...)
-    ax = Makie.Axis(fig[1, 1];
+    ax = _panelaxis(gp;
         xlabel="Δα* [mas]", ylabel="Δδ [mas]",
         xreversed=true, aspect=Makie.DataAspect(),
         xgridvisible=false, ygridvisible=false, axis...)
@@ -2043,8 +2211,7 @@ function Octofitter.gaiastarplot(model::Octofitter.LogDensityModel, chain::Chain
         color=WONG[2], strokecolor=:black, strokewidth=1.5, markersize=8)
     Makie.scatter!(ax, [0.0], [0.0];
         marker='★', markersize=20, color=:white, strokecolor=:black, strokewidth=1.5)
-    fname !== nothing && Makie.save(fname, fig, px_per_unit=3)
-    return fig
+    return ax
 end
 
 """
@@ -2195,8 +2362,10 @@ function Octofitter.skytrackplot(model::Octofitter.LogDensityModel, chain::Chain
     dkx = keplerian_mult .* Octofitter.evalquery(q, posys, dtraj)[rows]
     dky = keplerian_mult .* Octofitter.evalquery(qd, posys, dtraj)[rows]
     r = Octofitter.residuals(obs, obscontext(series, obs; draw=1)).along_scan
-    s = sin.(obs.table.scan_pos_angle)
-    c = cos.(obs.table.scan_pos_angle)
+    # Degrees in the table, radians in the precomputed projection — see
+    # `GaiaDR4AstromObs`.
+    s = obs.sinψ
+    c = obs.cosψ
     dx = similar(epochs); dy = similar(epochs)
     for (i, t) in enumerate(epochs)
         fa, fd = pfactors(t)
@@ -2245,8 +2414,8 @@ function Octofitter.hipparcosplot(model::Octofitter.LogDensityModel, chain::Chai
                                   fname=nothing, figure=(;), axis=(;))
     sys = model.system
     cands = [o for o in sys.observations
-             if o isa Octofitter.HipparcosIADObs ||
-                (o isa Octofitter.G23HObs && :iad_hip ∈ o.table.kind)]
+             if Octofitter.plotobs(o) isa Octofitter.HipparcosIADObs ||
+                (Octofitter.plotobs(o) isa Octofitter.G23HObs && :iad_hip ∈ o.table.kind)]
     isempty(cands) && error(
         "hipparcosplot needs a HipparcosIADObs, or a G23HObs keeping its " *
         ":iad_hip channel; this model has neither.")
@@ -2257,7 +2426,7 @@ function Octofitter.hipparcosplot(model::Octofitter.LogDensityModel, chain::Chai
     ctx = obscontext(series, obs; draw=1)
     sim = Octofitter.simulate(obs, ctx)
 
-    if obs isa Octofitter.HipparcosIADObs
+    if Octofitter.plotobs(obs) isa Octofitter.HipparcosIADObs
         tab = obs.table
         chname = :along_scan
         Δα_src, Δδ_src = sim.Δα_mas, sim.Δδ_mas

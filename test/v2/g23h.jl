@@ -203,6 +203,176 @@ end
         variables=@variables begin plx = 278.0 end)
 end
 
+@testset "the coupled block's layout is derived, not hardcoded" begin
+    # The block used to be assembled with literal index arithmetic — `Val(11)`,
+    # `Σ_full[5:6, 9:10]`, `mask[11]` — in five places that had to be edited in
+    # step. It is now derived from `_g23h_blocks`. This pins the derivation to
+    # the layout that arithmetic encoded, so an edit to the block list that
+    # silently reorders or resizes a channel is caught here rather than as a
+    # wrong likelihood.
+    @test Octofitter._g23h_channel_kinds == (
+        :ra_hip, :dec_hip, :ra_hg, :dec_hg, :ra_dr2, :dec_dr2,
+        :ra_dr32, :dec_dr32, :ra_dr3, :dec_dr3, :ueva_dr3)
+    @test Octofitter._g23h_nchan == 11
+    @test Octofitter._g23h_block_offset == (0, 2, 4, 6, 8, 10)
+    @test Octofitter._g23h_offsetof(:dr2) == 4    # was the literal `5:6`
+    @test Octofitter._g23h_offsetof(:dr3) == 8    # was the literal `9:10`
+    # Offsets and widths agree: each sub-block starts where the previous ended.
+    let o = 0
+        for b in Octofitter._g23h_blocks
+            @test Octofitter._g23h_offsetof(b.name) == o
+            o += length(b.kinds)
+        end
+        @test o == Octofitter._g23h_nchan
+    end
+    # Every coupled channel is reachable through `channels=`, and the two
+    # separate (uncorrelated) terms are deliberately not in the block.
+    @test all(k -> k ∈ Octofitter._g23h_all_kinds, Octofitter._g23h_channel_kinds)
+    @test :iad_hip ∉ Octofitter._g23h_channel_kinds
+    @test :rv_dr3 ∉ Octofitter._g23h_channel_kinds
+end
+
+@testset "a Gaia-only source constructs (no Hipparcos row at all)" begin
+    # v8 guarded each Hipparcos epoch conversion individually; folding all
+    # eleven into one `_e(y) = years2mjd(y)` helper during the v9 port dropped
+    # the guard, and `years2mjd(NaN)` throws `InexactError: Int64(NaN)` from
+    # `Dates.Date` — before the Hipparcos rows are dropped. That made G23HObs
+    # unconstructible for *any* source with no Hipparcos entry, which is every
+    # faint secondary in a wide pair (ups And B, and the reason multi-source
+    # work needs this).
+    #
+    # `hip_id=NaN` alone does not reproduce it: the fixture row is a real
+    # Hipparcos star, so its epoch columns stay finite and never reach the
+    # throwing conversion. A genuinely Gaia-only catalog row has both.
+    cat = merge(g23h_catalog_row(), (; hip_id=NaN,
+        epoch_ra_hip=NaN, epoch_dec_hip=NaN, epoch_ra_hg=NaN, epoch_dec_hg=NaN))
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.29
+        flux_G = 1.0
+    end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass = 0.05
+        flux_G = 0.03
+        a = 5.0; e = 0.2; i = 1.0; ω = 1.3; Ω = 2.4; tp = 52000.0
+    end)
+    obs = G23HObs(; host=A, companions=(b,), ref=Barycentre,
+        gaia_id=cat.gaia_source_id, catalog=cat,
+        forecast_table=g23h_forecast(), hipparcos=nothing,
+        dr2_transits_catalog=g23h_dr2_sidecar(),
+        variables=@variables begin
+            σ_AL = $(EVAL[:sigma_AL])
+            σ_att = $(EVAL[:sigma_att])
+            σ_calib = $(EVAL[:sigma_calib])
+            σ_rv_per_transit = $(EVAL[:sigma_rv_per_transit])
+            transit_priorities = $PRIORITIES
+            transits = $TRANSITS
+            transits_dr2 = $TRANSITS_DR2
+            transits_rv = $TRANSITS_RV
+        end)
+
+    # Every Hipparcos and Hipparcos–Gaia channel is gone, the Gaia ones remain.
+    @test Tuple(obs.table.kind) ==
+          (:ra_dr2, :dec_dr2, :ra_dr32, :dec_dr32, :ra_dr3, :dec_dr3, :ueva_dr3, :rv_dr3)
+    # No NaN epoch survives into a *kept* row — the guard drops the value, and
+    # the row it belonged to is dropped too.
+    @test all(isfinite, obs.table.epoch)
+    @test all(isfinite, obs.table.start_epoch)
+    @test all(isfinite, obs.table.stop_epoch)
+    # `_g23h_restrict` reads "no Hipparcos channels" as "no Hipparcos", so the
+    # simulator's `isnothing(dist_hip)` branch is the one that runs.
+    @test isnothing(obs.catalog.dist_hip)
+    @test isnothing(obs.catalog.dist_hg)
+    @test obs.n_hip == 0
+
+    # ...and it evaluates, which is the part §2.1 stopped short of auditing.
+    sys = Octofitter.System(name="gaiaonly", bodies=[A, b], observations=[obs],
+        variables=(@variables begin
+            plx = $(cat.parallax)
+            ra = $(cat.ra)
+            dec = $(cat.dec)
+            pmra = $(cat.pmra_dr3)
+            pmdec = $(cat.pmdec_dr3)
+            rv = 0.0
+            ref_epoch = $(Octofitter.meta_gaia_DR3.ref_epoch_mjd)
+        end), observing_geometry=false)
+    nt = Octofitter.make_arr2nt(sys)(Float64[])
+    lnl = Octofitter.make_ln_like(sys, nt)
+    @test isfinite(lnl(sys, nt))
+
+    # The coupled block really is the Gaia-only subset, assembled at the
+    # offsets the *full* layout defines — the case the fixed-width assembly
+    # could only reach by masking rows it had already built from NaNs.
+    ctx = g23h_context(sys, obs).ctx
+    mom = Octofitter._g23h_catalog_moments(obs, ctx)
+    @test mom.labels == [:ra_dr2, :dec_dr2, :ra_dr32, :dec_dr32, :ra_dr3, :dec_dr3, :ueva_dr3]
+    @test all(isfinite, mom.sigma)
+    @test all(isfinite, mom.Σ)
+    # …and the mask bookkeeping agrees with the layout: seven of the eleven
+    # coupled channels, at the offsets the full block defines, with the four
+    # Hipparcos rows absent rather than present-and-zero.
+    @test length(mom.labels) == length(mom.sigma) == size(mom.Σ, 1) == 7
+    @test !any(k -> k in (:ra_hip, :dec_hip, :ra_hg, :dec_hg), mom.labels)
+
+    # §11: `generate_from_params` has its own `has_hip` branch, never
+    # exercised for a Gaia-only source. It must produce finite synthetic data
+    # for every remaining channel, and — the actual hazard — data the
+    # likelihood then scores at its maximum, i.e. the model and the generator
+    # must agree about which corrections apply.
+    gen = Octofitter.generate_from_params(obs, ctx; add_noise=false)
+    @test Tuple(gen.table.kind) == Tuple(obs.table.kind)
+    # `:ueva_dr3` and `:rv_dr3` carry NaN in `pm`/`σ_pm` by design — they are a
+    # scatter statistic and an RV-variability statistic, read from the catalog
+    # row rather than from these columns — so the assertion is that the
+    # generated table has NaN in exactly the places the original does, not
+    # that it is finite everywhere.
+    @test map(isfinite, gen.table.pm) == map(isfinite, obs.table.pm)
+    @test map(isfinite, gen.table.σ_pm) == map(isfinite, obs.table.σ_pm)
+    @test all(isfinite, gen.table.pm[map(k -> k ∉ (:ueva_dr3, :rv_dr3), gen.table.kind)])
+    sys_gen = Octofitter.System(name="gaiaonly-gen", bodies=[A, b], observations=[gen],
+        variables=(sys.priors, sys.derived), observing_geometry=false)
+    nt_gen = Octofitter.make_arr2nt(sys_gen)(Float64[])
+    lnl_gen = Octofitter.make_ln_like(sys_gen, nt_gen)
+    # Noiseless data generated at θ is scored at θ: every pull is zero, so the
+    # log-likelihood is the normalization alone and strictly beats the value
+    # at the same model against the *real* catalog row.
+    @test isfinite(lnl_gen(sys_gen, nt_gen))
+    @test lnl_gen(sys_gen, nt_gen) > lnl(sys, nt)
+end
+
+@testset "the perspective-acceleration guard is finiteness, not has_hip" begin
+    # §11. `μ_hg` used to pick up `cat.nonlinear_dpm*` under
+    # `absolute && !isnothing(dist_hip)`. The two rows anyone had checked
+    # happened to carry finite nonlinear terms exactly where they had
+    # Hipparcos, so a row with a Hipparcos entry and null nonlinear terms
+    # would have added NaN to the model proper motion and NaN'd the whole log
+    # density, with nothing in the message to say why.
+    cat = g23h_catalog_row()
+    @test Octofitter._g23h_nonlinear(cat, true, true) ==
+          (SVector(cat.nonlinear_dpmra, cat.nonlinear_dpmdec),
+           2 * SVector(cat.nonlinear_dpmra, cat.nonlinear_dpmdec))
+    # Not applied without an absolute frame, nor without Hipparcos…
+    @test all(iszero, Octofitter._g23h_nonlinear(cat, false, true))
+    @test all(iszero, Octofitter._g23h_nonlinear(cat, true, false))
+    # …and not applied — rather than propagated — when the terms are null.
+    bad = merge(cat, (; nonlinear_dpmra=NaN, nonlinear_dpmdec=NaN))
+    @test all(iszero, Octofitter._g23h_nonlinear(bad, true, true))
+    @test all(isfinite, Octofitter._g23h_nonlinear(bad, true, true)[1])
+
+    # A row like that is rejected at construction, where it can be named,
+    # rather than silently losing a correction the model is entitled to.
+    A = Octofitter.Body(name="A", variables=@variables begin mass = 1.0 end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass = 0.01
+        a = 5.0; e = 0.2; i = 1.0; ω = 1.3; Ω = 2.4; tp = 52000.0
+    end)
+    mk(c; kw...) = G23HObs(; host=A, companions=(b,), gaia_id=c.gaia_source_id,
+        catalog=c, forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
+        dr2_transits_catalog=g23h_dr2_sidecar(), kw...)
+    @test_throws r"nonlinear_dpmra" mk(bad)
+    # …unless the channels that would use it are not in the model at all.
+    @test mk(bad; channels=(:ra_dr3, :dec_dr3, :ueva_dr3)) isa G23HObs
+end
+
 @testset "single luminous companion: v1 agreement to roundoff" begin
     # The legacy per-companion coefficient (−m + f·m_host)/(M(1+f)) is
     # algebraically identical to the exact flux-weighted photocentre offset
@@ -972,7 +1142,7 @@ end
 # modelled off ONE trajectory against ONE shared frame. Nothing here is new
 # machinery — `refspecs` has always been variadic and the epoch union has
 # always been shared — so these tests exist to pin that it stays true.
-function g23h_two_source_model(; a_wide=12.0, observing_geometry=false)
+function g23h_two_source_model(; a_wide=12.0, observing_geometry=false, frame_shift=false)
     cat = g23h_catalog_row()
     Aa = Octofitter.Body(name="Aa", variables=@variables begin
         mass = 0.40
@@ -1017,8 +1187,12 @@ function g23h_two_source_model(; a_wide=12.0, observing_geometry=false)
         transits_dr2 = $TRANSITS_DR2
         transits_rv = $TRANSITS_RV
     end
+    # `frame_shift=false` is mandatory here and the model errors without it —
+    # see the guard's own testset. The shift redefines the system's `pmra` to
+    # mean one observation's host body, and two observations cannot both do
+    # that to the same parameter.
     src(host, comps, nm) = G23HObs(;
-        host, companions=comps, ref=Barycentre, name=nm,
+        host, companions=comps, ref=Barycentre, name=nm, frame_shift,
         gaia_id=cat.gaia_source_id, catalog=cat,
         forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
         dr2_transits_catalog=g23h_dr2_sidecar(), variables=srcvars())
@@ -1076,8 +1250,10 @@ end
     m2 = g23h_two_source_model(a_wide=18.0)
     c2A = g23h_context(m2.sys, m2.obsA); c2B = g23h_context(m2.sys, m2.obsB)
     s2A = Octofitter.simulate(m2.obsA, c2A.ctx); s2B = Octofitter.simulate(m2.obsB, c2B.ctx)
-    # `Δpmra_dr3` is the perturbation the DR3 refit sees; `μ_dr3` is that same
-    # perturbation minus the frame shift, i.e. constant by construction.
+    # `Δpmra_dr3` is the perturbation the DR3 refit sees. With `frame_shift`
+    # off it also reaches `μ_dr3`, which is the property the next testset is
+    # about; here all that is claimed is that moving the wide orbit moves both
+    # sources.
     @test sA.Δpmra_dr3 != s2A.Δpmra_dr3
     @test sB.Δpmra_dr3 != s2B.Δpmra_dr3
     @test sA.μ_hg != s2A.μ_hg
@@ -1085,6 +1261,127 @@ end
     # The two sources are genuinely different sources, not two copies
     @test sA.Δpmra_dr3 != sB.Δpmra_dr3
     @test sA.μ_hg != sB.μ_hg
+end
+
+@testset "frame_shift: what it does, and why two sources cannot share it" begin
+    # § What it does. The shift subtracts the model's own DR3-epoch reflex of
+    # the host from *every* channel, so `μ_dr3` becomes exactly the frame
+    # `pmra`/`pmdec` and every other channel is translated by the same
+    # constant. Both halves of that are asserted, because the first alone
+    # would also hold if the shift were applied to DR3 only.
+    on = g23h_model()
+    off = g23h_model()
+    # `g23h_model` is parallax-only, so build the shifted/unshifted pair by
+    # hand off the same catalog row rather than through the frame.
+    shifted = Octofitter.simulate(on.obs, g23h_context(on.sys, on.obs).ctx)
+    obs_off = G23HObs(; host=off.host, companions=(off.comps[1],), frame_shift=false,
+        gaia_id=g23h_catalog_row().gaia_source_id, catalog=g23h_catalog_row(),
+        forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
+        dr2_transits_catalog=g23h_dr2_sidecar(),
+        variables=(off.obs.priors, off.obs.derived))
+    sys_off = Octofitter.System(name="g23h", bodies=[off.host, off.comps...],
+        observations=[obs_off], variables=(@variables begin
+            plx = $(g23h_catalog_row().parallax)
+        end), observing_geometry=false)
+    plain = Octofitter.simulate(obs_off, g23h_context(sys_off, obs_off).ctx)
+
+    Δ = SVector(plain.Δpmra_dr3, plain.Δpmdec_dr3)
+    @test shifted.Δpmra_dr3 ≈ plain.Δpmra_dr3      # the shift itself is unchanged
+    @test shifted.μ_dr3 ≈ plain.μ_dr3 .- Δ
+    @test shifted.μ_dr2 ≈ plain.μ_dr2 .- Δ
+    @test shifted.μ_hg ≈ plain.μ_hg .- Δ
+    @test shifted.μ_h ≈ plain.μ_h .- Δ
+    @test shifted.μ_dr32 ≈ plain.μ_dr32 .- Δ
+    # It is a real difference, not a no-op on this configuration.
+    @test !(shifted.μ_dr3 ≈ plain.μ_dr3)
+    # …and the UEVA channel, which is a scatter statistic rather than a
+    # velocity, is untouched by a common-mode translation.
+    @test shifted.UEVA_model ≈ plain.UEVA_model
+
+    # § Why two sources cannot. Each observation would subtract its own Δpm
+    # from the one shared `pmra`, so both DR3 channels would predict the same
+    # number. Caught at model-build time, by name, rather than as a quietly
+    # wrong likelihood.
+    err = try
+        g23h_two_source_model(frame_shift=true); nothing
+    catch e
+        sprint(showerror, e)
+    end
+    @test !isnothing(err)
+    @test occursin("srcA", err) && occursin("srcB", err)
+    @test occursin("frame_shift", err) && occursin("AnchoredFrame", err)
+
+    # One source with the shift on is untouched — this is still the default,
+    # and `g23h_model` above exercises it throughout the file.
+    @test g23h_model().obs.frame_shift
+    # …and so is a *pair* that shares no frame: with no absolute frame each
+    # observation carries its own reference proper motion, so nothing is
+    # redefined out from under anyone.
+    @test Octofitter.check_siblings(on.obs, (on.obs, obs_off),
+        (; name=:x, framevars=Symbol[], sysnames=Symbol[])) === nothing
+end
+
+@testset "a shared system-level fluxratio names the observations that clash" begin
+    # §10. Tier 2 of `_g23h_fluxratios` is keyed by the bare name, so a
+    # system-level `fluxratio` is read by *every* G23HObs, each validating it
+    # against its own companion count. Two observations with different counts
+    # can never both be right, and the runtime failure ("received 3 flux
+    # ratios but the observation declares 1 companion") names neither of them
+    # nor says why they are competing.
+    cat = g23h_catalog_row()
+    Aa = Octofitter.Body(name="Aa", variables=@variables begin mass = 0.4 end)
+    Ab = Octofitter.Body(name="Ab", about=Aa, variables=@variables begin
+        mass = 0.05; a = 1.0; e = 0.1; i = 0.9; ω = 1.2; Ω = 2.0; tp = 52000.0
+    end)
+    Ac = Octofitter.Body(name="Ac", about=Aa, variables=@variables begin
+        mass = 0.02; a = 3.0; e = 0.1; i = 0.9; ω = 1.2; Ω = 2.0; tp = 52000.0
+    end)
+    Ba = Octofitter.Body(name="Ba", about=Aa, variables=@variables begin
+        mass = 0.3; a = 12.0; e = 0.2; i = 1.1; ω = 0.3; Ω = 1.0; tp = 40000.0
+    end)
+    srcvars() = @variables begin
+        σ_AL = $(EVAL[:sigma_AL]); σ_att = $(EVAL[:sigma_att])
+        σ_calib = $(EVAL[:sigma_calib])
+        hip_iad_jitter = $(EVAL[:hip_iad_jitter])
+        iad_Δra = 0.0; iad_Δdec = 0.0; iad_Δplx = 0.0
+        iad_pmra = $(EVAL[:iad_pmra]); iad_pmdec = $(EVAL[:iad_pmdec])
+        σ_rv_per_transit = $(EVAL[:sigma_rv_per_transit])
+        transit_priorities = $PRIORITIES
+        transits = $TRANSITS; transits_dr2 = $TRANSITS_DR2; transits_rv = $TRANSITS_RV
+    end
+    src(host, comps, nm; vars=srcvars()) = G23HObs(;
+        host, companions=comps, name=nm, frame_shift=false,
+        gaia_id=cat.gaia_source_id, catalog=cat, forecast_table=g23h_forecast(),
+        hipparcos=g23h_hipparcos(), dr2_transits_catalog=g23h_dr2_sidecar(),
+        variables=vars)
+    build(obsA, obsB; extra=()) = Octofitter.System(
+        name="clash", bodies=[Aa, Ab, Ac, Ba], observations=[obsA, obsB],
+        variables=(@variables begin
+            plx = $(cat.parallax); ra = $(cat.ra); dec = $(cat.dec)
+            pmra = $(cat.pmra_dr3); pmdec = $(cat.pmdec_dr3); rv = 0.0
+            ref_epoch = $(Octofitter.meta_gaia_DR3.ref_epoch_mjd)
+            fluxratio = (0.04, 0.01)
+        end), observing_geometry=false, verbosity=0)
+
+    twoc = src(Aa, (Ab, Ac), "srcA")
+    onec = src(Ba, (), "srcB")
+    err = try
+        build(twoc, onec); nothing
+    catch e
+        sprint(showerror, e)
+    end
+    @test !isnothing(err)
+    @test occursin("srcA", err) && occursin("srcB", err)
+    @test occursin("fluxratio", err)
+    # The counts are in the message, which is the part the runtime error had.
+    @test occursin("2 companion", err) && occursin("0 companion", err)
+
+    # Equal companion counts are fine — one vector, one meaning.
+    @test build(src(Aa, (Ab,), "srcA"), src(Ba, (Ab,), "srcB")) isa Octofitter.System
+    # …and so is a clash where one observation declares its own `fluxratio`,
+    # because tier 1 wins and it never reaches the system-level vector.
+    own = vcat(srcvars(), @variables begin fluxratio = (0.5,) end)
+    @test build(src(Aa, (Ab,), "srcA"; vars=own), onec) isa Octofitter.System
 end
 
 @testset "differential parallax is per body, already" begin

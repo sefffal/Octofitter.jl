@@ -249,8 +249,8 @@ The two opt-outs are **tri-state** and default to `:auto`, which measures
 whether each correction moves *your* predictions by anything comparable to
 your uncertainties and decides once, at build, printing what it decided.
 `:on`/`:off` — and `true`/`false` — still set them by hand. See
-[Corrections and data provenance](@ref) for how the decision is made and how
-to re-check it after sampling.
+[Letting Octofitter decide: `:auto`](@ref corrections) for how the decision is
+made and how to re-check it after sampling.
 
 !!! warning "Two radial-velocity changes to know about"
     `radvel` is now the *spectroscopic* velocity: it includes the Einstein
@@ -258,8 +258,8 @@ to re-check it after sampling.
     RV series now models the perspective-acceleration drift by default —
     `secular_acceleration=:model`. If your pipeline already removed secular
     acceleration, you must say so with `secular_acceleration=:data_corrected`,
-    or it will be counted twice. Both are covered, with magnitudes, on the
-    corrections page.
+    or it will be counted twice. Both are covered, with magnitudes, in
+    [How Octofitter Computes Orbits](@ref orbit-computation).
 
 !!! note "Catalog priors describe the primary, not the barycentre"
     The frame's `ra/dec/plx/pmra/pmdec/rv` are the **system barycentre's**.
@@ -595,6 +595,17 @@ now covers RV data, not just astrometry.
   catalog row. Read it with [`gaia_dr3_solution`](@ref)`(; gaia_id)`, which is
   the same query [`gaia_plx`](@ref) uses and caches to
   `_gaia_dr3_final/source-<id>.csv`.
+* **`GaiaDR4AstromObs` ingests `scan_pos_angle` in degrees, not radians.** The
+  Gaia archive publishes the DR4 scan angle in degrees (the VOTABLE declares
+  `unit="deg"`), so a table read straight out of the archive now needs no unit
+  conversion; the conversion to radians happens once, internally, at
+  construction. **Delete the `deg2rad.` you applied in v8** — nothing errors if
+  you leave it in, you just get a wrong posterior from scan angles compressed
+  into a ±3.14° wedge. `scan_pos_angle` is the only column whose unit changed:
+  epochs are still MJD, `centroid_pos_al` and `centroid_pos_error_al` still mas,
+  `parallax_factor_al` still dimensionless. `obs.table.scan_pos_angle` keeps
+  your degrees verbatim; the radian sin/cos the likelihood projects with are
+  precomputed as `obs.sinψ`/`obs.cosψ`.
 * **`generate_from_params(::RelAstromObs, …)` now carries the `:cor` column
   through and draws correlated noise.** v8 (and the first v9 port) dropped the
   column and drew independent `randn()` per component, so a replicate of

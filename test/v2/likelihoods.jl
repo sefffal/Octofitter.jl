@@ -197,7 +197,11 @@ end
     scans, _ = let
         rows, _ = readdlm(joinpath(@__DIR__, "fixtures", "dr4-like-scans.csv"),
             ',', Float64, '\n'; header=true)
-        Table(epoch=rows[:, 1], scan_pos_angle=rows[:, 2], parallax_factor_al=rows[:, 3],
+        # Column 2 of the fixture is in radians (v1's convention, kept so the
+        # v1 regression references stay valid); `GaiaDR4AstromObs` ingests
+        # degrees.
+        Table(epoch=rows[:, 1], scan_pos_angle=rad2deg.(rows[:, 2]),
+            parallax_factor_al=rows[:, 3],
             centroid_pos_al=rows[:, 4], centroid_pos_error_al=rows[:, 5],
             outlier_flag=Int.(rows[:, 6])), nothing
     end
@@ -279,7 +283,8 @@ function quad_system(; target_A, target_B, flux_Ab=0.6, flux_Bb=0.45)
             a = 50.0; e = 0.3; i = 0.5; ω = 0.4; Ω = 0.3; tp = 50000.0
         end)
     scans = (epoch=QUAD_EPOCHS,
-        scan_pos_angle=[0.7 * k for k in eachindex(QUAD_EPOCHS)],
+        # Degrees: `GaiaDR4AstromObs` ingests the archive's unit.
+        scan_pos_angle=[rad2deg(0.7 * k) for k in eachindex(QUAD_EPOCHS)],
         parallax_factor_al=[0.4 * sinpi(k / 7) for k in eachindex(QUAD_EPOCHS)],
         centroid_pos_al=zeros(length(QUAD_EPOCHS)),
         centroid_pos_error_al=fill(0.05, length(QUAD_EPOCHS)))

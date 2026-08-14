@@ -67,6 +67,7 @@ sys = System(
 model = Octofitter.LogDensityModel(sys)
 Random.seed!(0)
 chain = octofit(model)
+display(chain)
 nothing # hide
 ```
 
@@ -75,7 +76,7 @@ nothing # hide
 After you have defined a model and sampled from its posterior (e.g. via `octofit`), you can see how each datapoint is influencing the posterior:
 
 ```@example 1
-likelihood_mat, epochs = Octofitter.pointwise_like(model, chain)
+@time likelihood_mat, epochs = Octofitter.pointwise_like(model, chain)
 size(likelihood_mat)
 ```
 
@@ -87,7 +88,6 @@ The columns are ordered exactly as the data are defined in the model: observatio
 epochs
 ```
 
-Two properties are worth knowing about, because they are what makes the matrix usable as a PSIS-LOO input:
 
 !!! note "Prior-shaped terms are excluded"
     A `~` line written inside a `@variables` block, an `LL += ...` line, and the
@@ -98,7 +98,7 @@ Two properties are worth knowing about, because they are what makes the matrix u
     `ObsPriorONeil2019` is *not* a prior-shaped term in this sense — it wraps a real
     likelihood — so it still contributes one column per row of the observation it wraps.
 
-The consequence is that the columns sum to the model's log-likelihood **minus** those prior terms — which is the quantity PSIS-LOO wants:
+The consequence is that the columns sum to the model's log-likelihood **minus** those prior terms — which is the quantity used by PSIS-LOO:
 
 ```@example 1
 θ = Octofitter.mcmcchain2result(model, chain, 1)
@@ -108,9 +108,9 @@ lnlike = Octofitter.make_ln_like(model.system)
 
 The difference is exactly the three `UnitLengthPrior` terms this model's three `UniformCircular` variables contribute.
 
-!!! note "Observations with no epochs get one column, labelled `NaN`"
-    [`PhotometryObs`](@ref) carries data but has no epoch column; it contributes one
-    column per photometry row, and those columns are labelled `NaN` in `epochs`.
+Observations with no epochs get one column, labelled `NaN`.
+[`PhotometryObs`](@ref) carries data but has no epoch column; it contributes one
+column per photometry row, and those columns are labelled `NaN` in `epochs`.
 
 ## Pareto-Smoothed Importance Sampling
 
@@ -120,66 +120,192 @@ In broad terms, one might say that this test verifies that no individual datapoi
 
 `psis_loo` comes from ParetoSmooth.jl, not from Octofitter; Octofitter supplies the matrix it consumes. Note the transpose — ParetoSmooth wants `N_data × N_sample`:
 
-```julia
+```@example 1
 using ParetoSmooth
 result = psis_loo(
     collect(likelihood_mat'),
-    chain_index=ones(Int,size(chain,1))
+    chain_index=ones(Int, size(chain, 1))
 )
-```
-```
-Results of PSIS-LOO-CV with 1000 Monte Carlo samples and 8 data points.
-┌───────────┬────────┬──────────┬───────┬─────────┐
-│           │  total │ se_total │  mean │ se_mean │
-├───────────┼────────┼──────────┼───────┼─────────┤
-│   cv_elpd │ -53.92 │     0.44 │ -6.74 │    0.06 │
-│ naive_lpd │ -53.33 │     0.26 │ -6.67 │    0.03 │
-│     p_eff │   0.60 │     0.18 │  0.07 │    0.02 │
-└───────────┴────────┴──────────┴───────┴─────────┘
+display(result)
+nothing # hide
 ```
 
 `chain_index` tells ParetoSmooth which chain each row of the matrix came from. `pointwise_like` flattens all chains into the sample dimension in order, so for a single chain `ones(Int, size(chain,1))` is right; for several chains use `repeat(1:size(chain,3), inner=size(chain,1))`.
 
-The diagnostic to look at is the Pareto shape parameter `k` for each point. Values above about 0.7 mean the importance-sampling approximation is unreliable for that point — usually because it is highly influential — and that point deserves a genuine refit with the row held out (see [Holding out whole observations](@ref cv-holdout) below).
+`result.pointwise` is a `KeyedArray` of per-row diagnostics, indexed by name:
 
-Plot like so:
-```julia
+```@example 1
+result.pointwise(:pareto_k)
+```
+
+The available statistics are `:cv_elpd` (the leave-one-out expected log predictive
+density of that row), `:naive_lpd` (the same quantity without holding the row out),
+`:p_eff` (the difference between them — how much of that row the fit has effectively
+absorbed), `:mcse`, and `:pareto_k`.
+
+The diagnostic to look at is the Pareto shape parameter ``\hat{k}`` for each point. Values above about 0.7 mean the importance-sampling approximation is unreliable for that point — usually because it is highly influential — and that point deserves a genuine refit with the row held out (see [Holding out whole observations](@ref cv-holdout) below).
+
+```@example 1
 using CairoMakie
 
-fig = Figure()
+nrows = size(likelihood_mat, 2)
+fig = Figure(size=(650, 620))
 
 ax = Axis(
     fig[1,1],
-    xlabel="data #",
-    ylabel="Pareto K"
+    xlabel="data row",
+    ylabel="Pareto k̂",
+    xticks=1:nrows
 )
-scatter!(ax, result.pointwise(:pareto_k))
+scatter!(ax, collect(result.pointwise(:pareto_k)))
 hlines!(ax, [0.7], color=:red, linestyle=:dash)
+ylims!(ax, -0.1, 0.9)   # keep the threshold visible even when nothing is near it
 
 
 ax = Axis(
     fig[2,1],
-    xlabel="data #",
-    ylabel="MCSE"
+    xlabel="data row",
+    ylabel="MCSE",
+    xticks=1:nrows
 )
-scatter!(ax, result.pointwise(:mcse))
+scatter!(ax, collect(result.pointwise(:mcse)))
 
 
 ax = Axis(
     fig[3,1],
-    xlabel="data #",
-    ylabel="P_EFF"
+    xlabel="data row",
+    ylabel="p_eff",
+    xticks=1:nrows
 )
-scatter!(ax, result.pointwise(:p_eff))
+scatter!(ax, collect(result.pointwise(:p_eff)))
 
 
 fig
 ```
 
-!!! note
-    ParetoSmooth.jl is not a dependency of Octofitter, and is not installed as part of
-    the documentation build, which is why the two blocks above are not executed here.
-    Install it with `] add ParetoSmooth` to run them.
+Every ``\hat{k}`` here is comfortably below the line, which is what a healthy fit looks
+like: no single astrometric epoch is holding the posterior up on its own, so the
+LOO score above can be trusted as it stands.
+
+### [Finding an influential point](@id cv-influential)
+
+The diagnostic is only interesting when something *is* wrong, so here is the same model
+with one SPHERE measurement displaced by 60 mas — six times its quoted uncertainty —
+standing in for a mis-registered frame or a background object mistaken for the companion:
+
+```@example 1
+astrom_dat_sphere_bad = Table(;
+    epoch = astrom_dat_sphere.epoch,
+    ra    = astrom_dat_sphere.ra,
+    dec   = [51.1472, 80.5359 + 60.0, 109.729, 138.651],   # row 2 nudged
+    σ_ra  = fill(10.0, 4),
+    σ_dec = fill(10.0, 4),
+    cor   = fill(0.0, 4),
+)
+
+sys_bad = System(
+    name="Tutoria_outlier",
+    bodies=[A, b],
+    observations=[
+        gpi,
+        RelAstromObs(astrom_dat_sphere_bad; target=b, ref=A, name="SPHERE"),
+    ],
+    variables=@variables begin
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model_bad = Octofitter.LogDensityModel(sys_bad)
+Random.seed!(0)
+chain_bad = octofit(model_bad, verbosity=0)
+mat_bad, epochs_bad = Octofitter.pointwise_like(model_bad, chain_bad)
+result_bad = psis_loo(collect(mat_bad'), chain_index=ones(Int, size(chain_bad, 1)))
+display(result_bad)
+nothing # hide
+```
+
+Two things changed. `p_eff` — the number of parameters the data are effectively
+buying — has jumped, because one row is now doing work no smooth orbit can absorb; and
+ParetoSmooth has warned that some ``\hat{k}`` crossed 0.7, which it does on its own
+whenever the importance-sampling approximation has failed somewhere.
+
+To find *which* rows those are, threshold the vector — and, because the columns are in
+model order, map them back to the observation and epoch they came from with the same walk
+over the observations used above:
+
+```@example 1
+k̂ = collect(result_bad.pointwise(:pareto_k))
+flagged = findall(>(0.7), k̂)
+
+data_obs_bad = filter(!Octofitter._isprior, sys_bad.observations)
+rowinst = reduce(vcat, [fill(Octofitter.likelihoodname(o), max(Octofitter._nrows(o), 1))
+                        for o in data_obs_bad])
+
+[(row=i, instrument=rowinst[i], epoch=epochs_bad[i], k̂=round(k̂[i], digits=2))
+ for i in flagged]
+```
+
+Now plot it. The top panel is the diagnostic — one ``\hat{k}`` per data row, with the 0.7
+threshold drawn and the rows above it picked out and labelled by epoch. The bottom panel
+is a [`skypanel!`](@ref) of the same fit, zoomed to the data, so you can see *where* the
+flagged epochs sit relative to the posterior orbits:
+
+```@example 1
+fig = Figure(size=(700, 900))
+
+ax = Axis(fig[1,1], xlabel="data row", ylabel="Pareto k̂",
+          xticks=1:length(k̂), title="PSIS-LOO influence diagnostic")
+hlines!(ax, [0.7], color=:red, linestyle=:dash)
+hlines!(ax, [0.5], color=:gray, linestyle=:dot)
+fine = setdiff(eachindex(k̂), flagged)
+scatter!(ax, fine, k̂[fine], color=:black, markersize=12)
+scatter!(ax, flagged, k̂[flagged], color=:red, marker=:diamond, markersize=17)
+for i in flagged
+    right = i > length(k̂) / 2      # keep the label inside the axis
+    text!(ax, i, k̂[i];
+        text = "epoch $(round(Int, epochs_bad[i]))\n($(rowinst[i]))",
+        align = (right ? :right : :left, :center),
+        offset = (right ? -12 : 12, 0),
+        color = :red, fontsize = 12)
+end
+ylims!(ax, -0.1, 1.15)
+rowsize!(fig.layout, 1, Relative(0.3))
+
+# The same draws Octofitter's own figures use, restricted to the data region.
+series = PosteriorSeries(model_bad, chain_bad; N=50)
+skyax = skypanel!(fig[2,1], series; colorbar=false).sky
+ra_all  = vcat(astrom_dat_gpi.ra,  astrom_dat_sphere_bad.ra)
+dec_all = vcat(astrom_dat_gpi.dec, astrom_dat_sphere_bad.dec)
+scatter!(skyax, ra_all[flagged], dec_all[flagged],
+    marker=:circle, markersize=26, strokewidth=3, strokecolor=:red,
+    color=(:white, 0.0))
+# Equal spans, so the sky panel's DataAspect gives a square view.
+ra_lo, ra_hi = extrema(ra_all)
+dec_lo, dec_hi = extrema(dec_all)
+half = max(ra_hi - ra_lo, dec_hi - dec_lo) / 2 + 60
+cx, cy = (ra_lo + ra_hi) / 2, (dec_lo + dec_hi) / 2
+limits!(skyax, cx - half, cx + half, cy - half, cy + half)
+
+fig
+```
+
+The corrupted epoch is the one the top panel picks out, and the ring around it in the
+bottom panel shows why: it sits off the track that every posterior draw wants to follow,
+so the posterior is being pulled by that single row and holding it out would move the
+answer.
+
+It is not usually alone. The last epoch of the campaign crosses the line here too, and
+that is worth understanding, because nothing was done to it: the ends of a baseline are
+the rows an orbit fit leans on hardest, which is already visible in the `p_eff` panel of
+the healthy fit above — rows 1 and 8 are several times any interior row. Tilting the
+orbit to accommodate a displaced point therefore lands on whichever rows were carrying
+the fit anyway. Read ``\hat{k}`` as pointing at a *region* of the dataset that has become
+load-bearing, not as a list of bad measurements.
+
+What to do about a flagged row is a judgement call, not a rule. PSIS-LOO is telling you
+that its approximation failed there, not that the measurement is wrong. Refit with the
+row genuinely held out (below) and compare; if the posterior moves materially, the
+measurement deserves a look before the orbit does.
 
 ## [Holding out whole observations](@id cv-holdout)
 

@@ -23,6 +23,26 @@ KDEDist
 derived points. They are singletons, and both are also callable to name a
 subsystem or a blended subset.
 
+### The anchored frame
+
+A `variables=` block whose absolute frame is parameterized by an anchor
+source's catalogue solution rather than by the barycentre's — the
+parameterization several Gaia sources on one frame need. See
+[Anchoring the frame to a source](@ref g23h-anchored).
+
+```@docs
+AnchoredFrame
+anchored_frame
+anchor_offsets
+barycentre_parallax
+```
+
+### Sampling-coordinate Jacobians
+
+```@docs
+logjac_cartesian_to_campbell
+```
+
 ## Observations
 
 ```@docs
@@ -68,6 +88,10 @@ initialize!
 startingpoints!
 Octofitter.advancedhmc
 octofit_pigeons
+Octofitter.CorrectionReport
+Octofitter.CorrectionDecision
+Octofitter.ObsImpact
+Octofitter.recheck_corrections
 ```
 
 `octofit_pigeons` needs `using Pigeons`: its methods live in a package
@@ -101,6 +125,7 @@ rvplot
 rvplot_animated
 dotplot
 gaiastarplot
+gaiastarplot!
 gaiatimeplot
 skytrackplot
 hipparcosplot
@@ -108,6 +133,7 @@ completenessplot
 completenessplot!
 PlotChannel
 plotchannels
+plotobs
 defaultpanels
 sharepanel
 datacalibration
@@ -125,6 +151,7 @@ skypanel!
 phasefoldpanel!
 photometrypanel!
 likemappanel!
+Octofitter.phasebinmeans
 Octofitter.residuals
 ```
 
@@ -158,6 +185,9 @@ sonora_cooling_interpolator
 Octofitter.bhac15_mass_age_interpolator
 gaia_plx
 gaia_dr3_solution
+g23h_scan_uncertainty
+gaia_dr4_transit_template
+Octofitter.GOST_forecast
 mjd
 years2mjd
 mjd2date

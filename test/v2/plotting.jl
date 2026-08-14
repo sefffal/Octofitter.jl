@@ -145,6 +145,50 @@ end
     @test Octofitter._refstr(qs[1][1].ref) == "A"
 end
 
+@testset "the plotting epoch grid can be set" begin
+    # Every panel draws over `series.ts` and clips its axis to it, so this is
+    # the only way to see the orbit outside the data — `xlims!` past the grid
+    # gives an empty axis, not more curve.
+    model, obs = _plotting_test_model()
+    rng = Xoshiro(21)
+    nts = [model.arr2nt(collect(model.sample_priors(rng))) for _ in 1:10]
+    chain = Octofitter.result2mcmcchain(nts)
+    auto = PosteriorSeries(model, chain; N=3)
+    tlast = maximum(auto.data_epochs)
+
+    # One end at a time: the other stays exactly where the derivation put it.
+    ext = PosteriorSeries(model, chain; N=3, tmax=tlast + 3650)
+    @test last(ext.ts) ≈ tlast + 3650
+    @test first(ext.ts) ≈ first(auto.ts)
+    @test issorted(ext.ts) && allunique(ext.ts)
+    # The grid is still allocated per orbital period rather than stretched over
+    # a fixed number of points, so a longer span gets more of them.
+    @test length(ext.ts) > length(auto.ts)
+    @test length(modelcurves(ext, (radvel, :A, Barycentre))[1]) == length(ext.ts)
+
+    # An epoch is an MJD number, or anything `mjd` understands.
+    @test last(PosteriorSeries(model, chain; N=2, tmax="2035-01-01").ts) ≈ mjd("2035-01-01")
+
+    # A window is a window: a data epoch outside it is not merged back in,
+    # which would stretch every panel's axis past what was asked for.
+    win = PosteriorSeries(model, chain; N=3, tmin=59300.0)
+    @test first(win.ts) ≈ 59300.0
+    @test all(>=(59300.0), win.ts)
+    @test 59000.0 in auto.ts          # …and it is there by default
+
+    # `ts=` replaces the grid outright.
+    grid = collect(59000.0:25.0:59700.0)
+    exact = PosteriorSeries(model, chain; N=3, ts=grid)
+    @test exact.ts == grid
+    @test length(modelcurves(exact, (radvel, :A, Barycentre))[1]) == length(grid)
+    @test exact.ts == PosteriorSeries(model, chain; N=3, ts=reverse(grid)).ts
+
+    @test_throws ErrorException PosteriorSeries(model, chain; N=2, tmin=60000.0, tmax=59000.0)
+    @test_throws ErrorException PosteriorSeries(model, chain; N=2, tmin=60000.0, tmax=60000.0)
+    @test_throws ErrorException PosteriorSeries(model, chain; N=2, ts=grid, tmax=60000.0)
+    @test_throws ErrorException PosteriorSeries(model, chain; N=2, ts=Float64[])
+end
+
 @testset "relative astrometry projects between its two bases" begin
     # (sep, pa) and (Δα*, Δδ) are the same measurement rotated, with no free
     # parameter in between, so a fit mixing the two conventions can put every
@@ -281,6 +325,154 @@ end
     @test defaultpanels(obs.rvs) === ()
 end
 
+@testset "phase-fold binned means and their error bars" begin
+    pbm = Octofitter.phasebinmeans
+    σ = 4.0
+    wof(n) = fill(1 / σ^2, n)
+    PW = Octofitter.ProbabilityWeights
+
+    # The two halves of the bar, written out here independently of the
+    # implementation: the analytic error on a weighted mean, and the bin's own
+    # weighted scatter over √n. `sigma` is their max.
+    analytic(w) = 1 / sqrt(sum(w))
+    empirical(y, w) = Octofitter.std(y, PW(w); mean=Octofitter.mean(y, PW(w)),
+                                    corrected=true) / sqrt(length(y))
+    bar(y, w) = max(analytic(w), empirical(y, w))
+
+    # A bin is [lo, hi): 20 bins put the edges on multiples of 0.05.
+    b = pbm([-0.05, -0.04], [10.0, 20.0], wof(2), 20)
+    @test b.centre ≈ [-0.025]
+    @test b.mean ≈ [15.0]
+    @test length(b.sigma) == 1 && isfinite(b.sigma[1]) && b.sigma[1] > 0
+
+    # Two 4 m/s measurements 10 m/s apart: the data disagrees with the noise
+    # model, so the empirical term wins — 7.071/√2 = 5.0 against a floor of
+    # 1/√(2/16) = 2.83. `s_w` is the frequency-weights-corrected weighted
+    # scatter, which for weights that are 1/σ² (a variance scale, not a count)
+    # means StatsBase's `ProbabilityWeights` correction: Bessel's n/(n−1) on
+    # the weighted rms, equivalently `FrequencyWeights` on weights
+    # renormalised to sum to n.
+    @test analytic(wof(2)) ≈ 4 / sqrt(2)
+    @test empirical([10.0, 20.0], wof(2)) ≈ 5.0
+    @test b.sigma ≈ [5.0]
+    @test b.sigma ≈ [bar([10.0, 20.0], wof(2))]
+    # It coincides with the pre-v9 bar here only through the n = 2 accident
+    # that √(n/(n−1))/√n = 1: v8 drew the *uncorrected* weighted scatter
+    # √(Σw(y−μ)²/Σw), which is a spread of points and not an error on a mean.
+    @test Octofitter.std([10.0, 20.0], PW(wof(2))) ≈ 5.0
+
+    # The floor binds when the points agree: two 4 m/s measurements half a m/s
+    # apart still cannot make a mean better than 4/√2, however tightly they
+    # happen to land. v8 drew 0.25 m/s here — below the mathematical floor.
+    let y = [10.0, 10.5], r = pbm([-0.05, -0.04], y, wof(2), 20)
+        @test empirical(y, wof(2)) ≈ 0.25
+        @test Octofitter.std(y, PW(wof(2))) ≈ 0.25          # the old bar
+        @test r.sigma ≈ [4 / sqrt(2)]
+        @test r.sigma ≈ [analytic(wof(2))]
+        @test r.sigma[1] > Octofitter.std(y, PW(wof(2)))
+    end
+
+    # The exact crossover, in the white-noise limit the analytic term is built
+    # for: three 4 m/s points whose corrected scatter comes out at exactly
+    # 4 m/s (deviations −4, 0, +4 → √(32/2) = 4). Both terms are then σ/√n,
+    # so the bar is the plain RadVel/juliet error on the weighted mean.
+    let y = [16.0, 20.0, 24.0], w = wof(3), r = pbm([0.01, 0.02, 0.03], y, w, 20)
+        @test Octofitter.std(y, PW(w); corrected=true) ≈ σ
+        @test empirical(y, w) ≈ σ / sqrt(3)
+        @test analytic(w) ≈ σ / sqrt(3)
+        @test r.sigma ≈ [σ / sqrt(3)]
+    end
+
+    # Unequal weights pull the mean, exactly as Σwy/Σw, and the bar follows
+    # the same two-term rule with Σw over the bin's own weights.
+    let w = [1 / 1.0^2, 1 / 3.0^2]
+        bb = pbm([0.01, 0.02], [0.0, 12.0], w, 20)
+        @test bb.mean[1] ≈ sum(w .* [0.0, 12.0]) / sum(w)
+        @test bb.sigma ≈ [bar([0.0, 12.0], w)]
+    end
+
+    # The sparse limit. One point is not a mean of itself: it is already on
+    # the axis at its own phase with its own error bar, and binning it would
+    # move it to the bin centre and give it a scatter of zero. So nothing is
+    # returned — no marks, no NaN, no zero-length error bars.
+    @test isempty(pbm([0.0966], [29.7], wof(1), 20).centre)
+    for n in (1, 2, 3, 5, 10)
+        x = n == 1 ? [0.0] : collect(range(-0.45, 0.45, length=n))  # ≤1 per bin
+        y = 30 .* sin.(2π .* x)
+        r = pbm(x, y, wof(n), 20)
+        @test isempty(r.centre) && isempty(r.mean) && isempty(r.sigma)
+    end
+
+    # Bins that hold a real average still draw, however few there are: three
+    # points, two of them sharing a bin.
+    let r = pbm([-0.44, -0.43, 0.31], [1.0, 3.0, 9.0], wof(3), 20)
+        @test length(r.centre) == 1
+        @test r.centre ≈ [-0.425]
+        @test r.mean ≈ [2.0]
+    end
+
+    # Dense data: 60 points over 20 bins is three per bin. Means are as they
+    # were; the bars are the hybrid, and — the point of the change — not one
+    # of the twenty now sits below 1/√(3/16) = 2.31 m/s, where under the old
+    # convention fourteen of them did (on the rendered 60-point figure it was
+    # seven, with the smallest bar at 0.44 m/s).
+    let n = 60
+        x = collect(range(-0.5, 0.5, length=n + 1))[1:n]
+        y = 30 .* sin.(2π .* x) .+ 0.5 .* (-1) .^ (1:n)
+        w = wof(n)
+        r = pbm(x, y, w, 20)
+        @test length(r.centre) == 20
+        @test all(isfinite, r.mean) && all(isfinite, r.sigma)
+        floor3 = 1 / sqrt(3 / σ^2)
+        @test floor3 ≈ σ / sqrt(3)
+        @test all(>=(floor3 - 1e-12), r.sigma)
+        # …and the old convention really did undershoot it, so this is a
+        # change and not a no-op assertion.
+        edges = range(-0.5, 0.5, length=21)
+        old = [Octofitter.std(y[(edges[k].<=x).&(x.<edges[k+1])],
+                              PW(w[(edges[k].<=x).&(x.<edges[k+1])])) for k in 1:20]
+        @test count(<(floor3), old) == 14
+        @test minimum(old) < 0.5
+        for k in eachindex(r.centre)
+            @test r.centre[k] ≈ (edges[k] + edges[k+1]) / 2
+            m = (edges[k] .<= x) .& (x .< edges[k+1])
+            @test count(m) == 3
+            @test r.mean[k] ≈ Octofitter.mean(y[m], PW(w[m]))
+            @test r.sigma[k] ≈ bar(y[m], w[m])
+        end
+    end
+
+    # Many points and a scatter far wider than the noise model: the empirical
+    # term takes over, by the ratio of the true spread to the quoted σ. Twenty
+    # 4 m/s points spread evenly over ±20 m/s have a floor of 4/√20 = 0.894
+    # and a corrected scatter of 12.45, so the bar is 2.785 — 3.1× the floor.
+    let n = 20
+        x = fill(0.31, n)
+        y = collect(range(-20.0, 20.0, length=n))
+        w = wof(n)
+        r = pbm(x, y, w, 20)
+        @test length(r.sigma) == 1
+        @test r.sigma ≈ [empirical(y, w)]
+        @test analytic(w) ≈ σ / sqrt(n)
+        @test r.sigma[1] > 3 * analytic(w)
+        @test r.sigma[1] ≈ 2.78500138006799
+    end
+
+    # Empty bins are skipped rather than drawn at zero — and a bin whose
+    # points happen to agree exactly is no longer drawn at zero either: its
+    # empirical term is 0 and the analytic floor is the whole bar. Under the
+    # old convention both of these marks had error bars of length zero.
+    let x = vcat(fill(-0.44, 3), fill(0.31, 4)), y = vcat(fill(2.0, 3), fill(-5.0, 4))
+        r = pbm(x, y, wof(7), 20)
+        @test r.centre ≈ [-0.425, 0.325]
+        @test r.mean ≈ [2.0, -5.0]
+        @test all(isfinite, r.sigma)
+        @test all(>(0), r.sigma)
+        @test r.sigma ≈ [σ / sqrt(3), σ / sqrt(4)]
+        @test Octofitter.std(fill(2.0, 3), PW(wof(3))) == 0.0   # the old bar
+    end
+end
+
 @testset "multi-row signal decomposition" begin
     # Two planets about one star (astrocentric rows): the row signals of a
     # linear observable must sum to the full query.
@@ -395,6 +587,70 @@ end
         model, _ = _plotting_test_model()
         @test_throws ErrorException octoplot(model)
     end
+end
+
+@testset "a wrapped observation is still plotted as its data" begin
+    # `ObsPriorONeil2019` reweights the prior; it does not change what the
+    # instrument measured. Before the delegation below it answered the
+    # `AbstractObs` defaults — no channels — so `plottable_observations`
+    # dropped it and `octoplot` drew the orbit tracks of a wrapped relative
+    # astrometry fit with none of its data points on them.
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.0
+    end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass = 0.005
+        a ~ Uniform(2.0, 4.0)
+        e = 0.25; i = 0.6; ω = 1.0; Ω = 2.0; tp = 59200.0
+    end)
+    tab = Table(epoch=[59000.0, 59300.0, 59600.0],
+        ra=[200.0, 180.0, 160.0], dec=[150.0, 170.0, 165.0],
+        σ_ra=[4.0, 4.0, 4.0], σ_dec=[4.0, 4.0, 4.0])
+    mkastrom() = RelAstromObs(tab; target=b, ref=A, name="INST",
+        variables=@variables begin
+            jitter = 1.5
+            platescale = 1.02
+            northangle = 0.03
+        end)
+    astrom = mkastrom()
+    wrapped = ObsPriorONeil2019(mkastrom())
+
+    # The protocol delegates, so a wrapper answers exactly what it wraps.
+    @test Octofitter.plotobs(wrapped) === wrapped.wrapped_like
+    @test Octofitter.plotobs(astrom) === astrom
+    @test [ch.name for ch in Octofitter.plotchannels(wrapped)] ==
+          [ch.name for ch in Octofitter.plotchannels(astrom)]
+    @test Octofitter.sharepanel(wrapped) == Octofitter.sharepanel(astrom)
+
+    function series_of(o)
+        sys = Octofitter.System(name="w", bodies=[A, b], observations=[o],
+            variables=@variables begin
+                plx = 50.0
+            end)
+        model = Octofitter.LogDensityModel(sys, verbosity=0)
+        rng = Xoshiro(7)
+        nts = [model.arr2nt(collect(model.sample_priors(rng))) for _ in 1:20]
+        return model, PosteriorSeries(model, Octofitter.result2mcmcchain(nts); N=5)
+    end
+
+    mw, sw = series_of(wrapped)
+    mp, sp = series_of(astrom)
+    @test length(Octofitter.plottable_observations(mw.system)) == 1
+    @test isempty(Octofitter.unplottable_observations(mw.system))
+
+    # The *wrapper* is what carries a context: the fitted platescale/northangle
+    # /jitter are registered under `obspri_INST`, so unwrapping before building
+    # one would silently fall back to the defaults (the v8.3.0 bug, from the
+    # other side). The calibrated data must therefore match the unwrapped fit's
+    # exactly, not the uncalibrated table.
+    rw = Octofitter.residuals(wrapped, obscontext(sw, wrapped))
+    rp = Octofitter.residuals(astrom, obscontext(sp, astrom))
+    @test keys(rw) == (:sep, :pa, :raoff, :decoff)
+    @test rw.raoff.data ≈ rp.raoff.data
+    @test rw.decoff.data ≈ rp.decoff.data
+    @test rw.sep.data ≈ rp.sep.data
+    @test all(rw.raoff.σ_eff .≈ hypot.(tab.σ_ra, 1.5))     # the jitter is live
+    @test !(rw.sep.data ≈ collect(hypot.(tab.ra, tab.dec)))  # …and the platescale
 end
 
 # ---------------------------------------------------------------------------

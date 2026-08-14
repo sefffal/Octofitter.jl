@@ -20,20 +20,23 @@ a three-phase workflow:
 
 For convenience, [`completeness_map`](@ref) runs all three phases locally.
 
-!!! warning "Masses are in solar masses"
-    There is a single mass unit, M⊙, throughout — `CompletenessJob.mass`, the `masses`
-    grid, and `CompletenessMap.masses` are all M⊙, and so is a body's `mass`
-    variable. `mjup` and `mearth` are plain multiplicative constants, so a
-    Jupiter-mass grid is written `10 .^ range(-1, 2, length=12) .* mjup`. A bare
-    `10 .^ range(-1, 2, length=12)` asks about companions between 0.1 and 100
-    **solar** masses.
 
-!!! note "Initialization shortcut"
-    For efficiency, each trial initializes the sampler at the true injected
-    parameters rather than running blind initialization. This dramatically
-    reduces sampling cost but means the completeness estimate is optimistic
-    about convergence. The results reflect the *statistical* detectability
-    of a signal, not the ability to blindly discover it.
+For efficiency, each trial initializes the sampler at the true injected
+parameters rather than running blind initialization. This 
+reduces sampling cost for this tutorial but means the completeness estimate is optimistic
+about convergence. Consider letting them initialize without that hint.
+
+!!! warning "A completeness map measures your sampler too"
+    A chain too short to converge gives a wrong answer in *either* direction,
+    and neither is distinguishable in the map from a real statement about the
+    data. On one trial of the Gaia DR4 example below — a 30 M_Jup companion at
+    20 AU, same seed and same simulated data throughout — 500 warmup + 500
+    sampling steps returned a mass posterior with median 38 M_Jup and a 5th
+    percentile of 3.9, a confident "detection"; 1000 + 1000 returned median
+    10 M_Jup with a 5th percentile of 0.1, essentially unconstrained, which is
+    the honest answer for an 89-year period observed over 5.3 years. Shrink the
+    *grid* when you want a cheaper map, not the chains — and read a few
+    posteriors by hand before trusting a whole map.
 
 ## A runnable miniature
 
@@ -89,7 +92,7 @@ nothing # hide
 masses = [0.3mjup, 10mjup]    # M⊙
 seps   = [1.0, 20.0]          # AU
 
-cmap, results = completeness_map(
+@time cmap, results = completeness_map(
     template,
     model -> octofit(model, iterations=500, adaptation=1000, verbosity=0),
     (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 1mjup;
@@ -161,17 +164,10 @@ sampler = model -> begin
 end
 ```
 
-!!! note "Which sampler to run per trial"
-    For strongly multi-modal data (images, interferometry) a completeness map built on
-    single-chain HMC will be optimistic: a trial where the sampler simply never visited
-    the injected mode is scored as a non-recovery for the wrong reason.
-    [`octofit_pigeons`](@ref) removes that failure mode, at a cost of far more compute per
-    cell — a real trade against grid resolution, and the usual reason to run phase 2 on a
-    cluster. Note the `.chain` unwrap above: `octofit_pigeons` returns `(;chain, pt)`,
-    while `run_completeness_trial` wants a bare `Chains`.
+Note the destructuring in the last one: `octofit_pigeons` returns `(; chain, pt)`,
+while `run_completeness_trial` wants a bare `Chains`, so the sampler function has
+to return `chain` and drop `pt`.
 
-    Whichever you pick, the initialization shortcut described above already makes this a
-    *statistical detectability* estimate rather than a blind-discovery simulation.
 
 ## Choosing a detection criterion
 
@@ -256,24 +252,62 @@ or one element of a vector-valued prior, are addressed correctly.
 
 ## Gaia DR4 example
 
-Below is a pre-computed completeness map for Gaia DR4 epoch astrometry of a
-representative target (Gaia DR3 source 5064625130502952704, G=11.5 mag).
-The grid spans 0.1–100 M_Jup in mass and 0.5–50 AU in separation, with 5
-trials per cell (720 total), run as a SLURM array job.
+`examples/completeness_dr4/` is this workflow at cluster scale, against
+*simulated* Gaia DR4 epoch astrometry of a real star: Gaia DR3 source
+5064625130502952704, at **G = 6.94**, whose DR4 scan window holds 191 forecast
+field-of-view transits over 5.3 years.
+
+| file | role |
+|------|------|
+| `common.jl` | the target, the grid, the template model, `inject`, and the detection criterion — everything the entry points share |
+| `setup.jl` | queries DR3, GOST and the G23H noise calibration once and caches them to CSV |
+| `run_local.jl` | the whole workflow in one process; `OCTO_COMPLETENESS_QUICK=1` cuts it to a 2 × 2 smoke test |
+| `completeness_trial.jl` | one SLURM array element |
+| `assemble_results.jl` | phase 3 — apply the criterion, draw the map, re-threshold |
+| `setup_env.sh`, `submit.sh` | the cluster wiring |
+
+Neither the scan geometry nor the noise is invented. The transits come from
+GOST and the per-transit uncertainty from this source's *measured* G23H
+calibration, via [`gaia_dr4_transit_template`](@ref) and
+[`g23h_scan_uncertainty`](@ref); see
+[Simulating and Fitting Gaia DR4 Data](@ref data-simulation-dr4) for what each
+term means. For this star:
+
+| quantity | value |
+|---|---|
+| `σ_AL`, `σ_att` — per CCD observation, independent | 0.058, 0.078 mas |
+| `σ_formal` = √(σ_AL² + σ_att²) — per CCD | 0.097 mas |
+| `n_ccd` — CCD observations per transit | 8.82 |
+| `σ_transit_formal` = `σ_formal`/√`n_ccd` | 0.033 mas |
+| `σ_calib` — per transit, shared, not in Gaia's formal errors | 0.149 mas |
+| **`σ_transit_true`** — the actual per-transit scatter | **0.153 mas** |
+
+Gaia publishes one abscissa per *transit*, so the simulation is at transit
+level and `σ_transit_true` is what both the simulated scatter and the
+likelihood's error bar are set to.
 
 ![Gaia DR4 Completeness Map](assets/dr4_completeness_map_clean.png)
 
-Key features:
+The map above was computed with the full 12 × 12 × 5-trial grid in
+`examples/completeness_dr4/`, using this star's calibrated per-transit noise
+(σ_transit_true = 0.153 mas). With five injection trials per cell, individual
+cells carry ±1-trial noise; smooth contours need more trials per cell.
+
+The shape follows the physics:
+
 - **Peak sensitivity at 1–5 AU** for massive companions, where the astrometric
-  signal is strongest relative to the DR4 time baseline (~5.5 years)
+  signal is largest relative to the DR4 time baseline (~5.3 years for this star)
 - **Sensitivity drops beyond ~10 AU** — orbital periods exceed the DR4 baseline,
-  so only partial orbits are observed
-- **Detection threshold ~5–10 M_Jup** at optimal separations for this noise level
-  (σ_true ≈ 0.069 mas per scan)
+  so only a partial arc is observed, and mass trades off against period
+- **A mass threshold that scales with the noise**: the detection floor moves
+  roughly in proportion to σ per transit, so quote it only from a map generated
+  with the σ of the star you care about
 
 ## Cluster-scale workflow
 
 For large grids or many trials, use the three-phase API with SLURM array jobs.
+The sketch below is the shape of it; `examples/completeness_dr4/` is a complete,
+runnable version of the same thing.
 
 ### Phase 1: Generate jobs (head node)
 
@@ -303,7 +337,7 @@ result = run_completeness_trial(
     inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep))),
 )
 
-serialize("results/trial_\$(lpad(ENV["SLURM_ARRAY_TASK_ID"], 4, '0')).jls", result)
+serialize("results/trial_$(lpad(ENV["SLURM_ARRAY_TASK_ID"], 4, '0')).jls", result)
 ```
 
 ### SLURM submission script
@@ -334,18 +368,13 @@ cmap = assemble_completeness(results,
 
 completenessplot(cmap, "completeness_map.png")
 ```
+ Missing (e.g. timed out) trials are simply absent from the results — `assemble_completeness` handles incomplete grids
+gracefully, but beware these trials may not be missing at random.
 
-!!! tip "Timeout handling"
-    Some trials may time out on the cluster, particularly at very low masses
-    where NUTS explores large, flat parameter spaces. Missing trials are simply
-    absent from the results — `assemble_completeness` handles incomplete grids
-    gracefully.
-
-!!! note "Empty cells"
-    `assemble_completeness` reports `completeness = 0.0` for cells with zero trials,
-    which is indistinguishable from a cell where nothing was recovered. `n_total`
-    carries the distinction; mask on `n_total == 0` rather than trusting the
-    completeness value there.
+`assemble_completeness` reports `completeness = 0.0` for cells with zero trials,
+which is indistinguishable from a cell where nothing was recovered. `n_total`
+carries the distinction; mask on `n_total == 0` rather than trusting the
+completeness value there.
 
 ## Visualization
 

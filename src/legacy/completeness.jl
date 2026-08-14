@@ -39,7 +39,7 @@ to reproduce the trial deterministically.
 - `i_sep::Int` — index into the separation grid
 - `i_trial::Int` — trial number within this grid cell
 - `mass::Float64` — companion mass [Mjup]
-- `separation::Float64` — semi-major axis [AU] (or period, depending on usage)
+- `separation::Float64` — semi-major axis in AU (or period, depending on usage)
 - `seed::UInt64` — RNG seed for reproducibility
 """
 struct CompletenessJob

@@ -1,19 +1,6 @@
 # Fit with a Thiele-Innes Basis
 
-This example shows how to fit relative astrometry using a Thiele-Innes orbital parameterization instead of the traditional Campbell parameterization used in other tutorials. Thiele-Innes replaces the semi-major axis `a` and the angular elements (inclination `i`, longitude of ascending node `Ω`, and argument of periastron `ω`) with the four Thiele-Innes constants (A, B, F, G). This avoids the coordinate singularities where `ω`, `Ω`, and `tp` become poorly defined as eccentricity and/or inclination approach zero.
-
-!!! tip "When to consider Thiele-Innes"
-    The Thiele-Innes parameterization may be useful when:
-    - The orbit is nearly circular (e < 0.1) and/or nearly face-on (i near 0° or 180°)
-    - You want to avoid angular coordinate singularities
-
-    Both parameterizations should give consistent results for the physical orbital parameters. Choose based on your preference or specific analysis needs.
-
-There is no separate orbit type for this: Thiele-Innes is written as what it is — four
-sampled constants plus one derived line converting them into the elements PlanetOrbits
-uses. [`PlanetOrbits.ThieleInnes`](https://sefffal.github.io/PlanetOrbits.jl/dev/api/)
-returns a NamedTuple `(; a, i, ω, Ω)`; you still supply the shape (`e`) and phase
-elements yourself.
+This example shows how to fit relative astrometry using a Thiele-Innes orbital parameterization instead of the traditional Campbell parameterization used in other tutorials. Thiele-Innes replaces the semi-major axis `a` and the angular elements (inclination `i`, longitude of ascending node `Ω`, and argument of periastron `ω`) with the four Thiele-Innes constants (A, B, F, G). This avoids the coordinate singularities where `ω`, `Ω`, and `tp` become poorly defined as eccentricity and/or inclination approach zero. It implies quite a different prior than uniform-in-Campbell though, so choose thoughtfully.
 
 At the end, we will convert our results back into the Campbell parameterization to compare.
 
@@ -99,14 +86,6 @@ model = Octofitter.LogDensityModel(sys)
     velocities break the tie; if you have them and they prefer the other node, use
     `ω + π` and `Ω + π`.
 
-    If you do not know the branch in advance, the ±180° choice is *discrete* and HMC
-    cannot cross it, so do not try to sample it. Fit the two branches as two models —
-    identical but for the `+ π` — and compare them with
-    [Bayesian evidence](@ref bayesian-evidence). Note also that once radial velocities
-    are in the fit, the singularity that motivates Thiele-Innes in the first place is
-    usually no longer the binding constraint, so sampling Campbell elements directly is
-    often the simpler model.
-
 Initialize the starting points, and confirm the data are entered correcly:
 ```@example 1
 init_chain = initialize!(model)
@@ -117,9 +96,6 @@ We now sample from the model as usual:
 ```@example 1
 results = octofit(model)
 ```
-
-!!! note
-    The Thiele-Innes parameterization may reveal more complex posterior structure (e.g., multimodality) that Campbell masks through its angular parameterization. If your corner plot shows unexpected bimodality in the `A`, `B`, `F`, `G` parameters, this may reflect genuine orbital ambiguities rather than sampling issues.
 
 We now display the results:
 ```@example 1
@@ -144,9 +120,7 @@ table = (;
 pairplot(table)
 ```
 
-If you want the solved orbits themselves — for example to query them at new epochs, or to
-read off elements a model did not name — rebuild the `PlanetOrbits.System` for a draw:
-
+You can also just construct the concrete PlanetOrbits.System object for a given draw and query it directly: 
 ```@example 1
 posys = construct_system(model, results, 1)
 (; a = semimajoraxis(posys, 1),

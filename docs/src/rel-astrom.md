@@ -7,58 +7,15 @@ Start by loading the Octofitter and Distributions packages:
 using Octofitter, Distributions
 ```
 
-### Specifying the data
-
-We will create an observation object to contain our relative astrometry data. We can specify this data in several formats. It can be listed in the code or loaded from a file (eg. a CSV file, FITS table, or SQL database). You can use any Julia table object.
-
-```@example 1
-astrom_dat_1 = Table(;
-    epoch= [50000,  50120, 50240, 50360,50480, 50600, 50720, 50840,], # MJD (days)
-    ra   = [-505.764, -502.57, -498.209, -492.678,-485.977, -478.11, -469.08, -458.896,], # mas
-    dec  = [-66.9298, -37.4722, -7.92755, 21.6356, 51.1472,  80.5359,  109.729,  138.651, ], # mas
-    # Tip! Type this as \sigma + <TAB key>!
-    σ_ra = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, ],  # mas
-    σ_dec = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, ], # mas
-    cor =  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ]
-)
-nothing # hide
-```
-
-In Octofitter, `epoch` is always the modified Julian date (measured in days). If you're not sure what this is, you can get started by just putting in arbitrary time offsets measured in days.
-
-In this case, we specified `ra` and `dec` offsets in milliarcseconds. We could instead specify `sep` (projected separation) in milliarcseconds and `pa` in radians. You cannot mix the two formats in a single [`RelAstromObs`](@ref) but you can create two different observation objects, one for each format, and add them both to your model:
-
-```@example 1
-astrom_dat_2 = Table(
-    epoch = [42000, ], # MJD
-    sep = [505.7637580573554, ], # mas
-    pa = [deg2rad(24.1), ], # radians
-    # Tip! Type this as \sigma + <TAB key>!
-    σ_sep = [70, ],
-    σ_pa = [deg2rad(10.2), ],
-)
-nothing # hide
-```
-
-!!! note
-    Tip: You can load data from a CSV file:
-
-    ```julia
-    using CSV
-    astrom_dat = CSV.read("mydata.csv", Table)
-    ```
-
 ### Creating the bodies
 
-We now create our model. In Octofitter, we specify models using a "probabilistic
-programming language". Quantities with a `~` are random variables. The distributions on the right hand sides are **priors**. You must specify a 
-proper prior for any quantity which is allowed to vary. Quantities with an `=` are
-*derived*: constants, or fixed mathematical functions of the other variables.
+We start by specifying what bodies (stars, planets, etc) we want to model.
+In Octofitter, we specify models using a "probabilistic programming language"
+Quantities with a `~` are random variables. The distributions on the right hand sides are **priors**. You must specify a proper prior for any quantity which is allowed to vary.
+Quantities with an `=` are *derived*: constants, or fixed mathematical functions of the other variables.
+You can also apply priors to derived quantities.
 
-A model is a flat list of **bodies**. The host star is a body, and so is the planet; what
-makes the planet a companion is `about=A`, which says that its variables parameterize an
-orbit about the star.
-
+The host star is a body like any other --- start by creating it and specifying its mass in solar masses:
 ```@example 1
 A = Body(
     name="A",
@@ -66,12 +23,16 @@ A = Body(
         mass ~ truncated(Normal(1.2, 0.1), lower=0.1) # [M⊙]
     end
 )
+```
 
+Now we create another body to represent the planet. We indicate that the planet orbits the star with the `about=A` argument. Then, the orbit parameters in the `@variables` block are describe its orbit versus `A`.
+
+```@example 1
 planet_b = Body(
     name="b",
     about=A,
     variables=@variables begin
-        mass = 0.0             # [M⊙] relative astrometry alone cannot measure it
+        mass = 0.0             # [M⊙] fix to zero for this example
         a ~ Uniform(0, 100)    # [AU]
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()             # [rad]
@@ -86,18 +47,17 @@ nothing # hide
 
 **`name`**: Try to give each body a short name consisting only of letters and/or trailing numbers. It is used to name that body's columns in the output chain (`b_a`, `b_e`, ...).
 
-**`about`**: which body (or barycentre) this one orbits. Leave it off for the root of the
-hierarchy — exactly one body, normally the host star, must be unplaced. `about=(A, b)`
-would place a third body about the *barycentre* of A and b — a **Jacobi** chain — instead
-of about A alone. The two are different models, not two spellings of one; see
+**`about`**: which body (or barycentre) this one orbits. Exactly one body, normally the host star, must be unplaced (no `about` argument). 
+`about=(A, b)` would place a third body about the *barycentre* of A and b creating a **Jacobi** chain. This is what you usually want for outer planets. See 
 [Jacobi vs. astrocentric](https://sefffal.github.io/PlanetOrbits.jl/dev/hierarchies/#Jacobi-vs.-astrocentric)
 in the PlanetOrbits manual for which to pick.
 
-**`variables`**: this body's variables. Three names are read specially — `mass` [M⊙],
-`flux`/`flux_<band>`, and any orbital element keyword — and everything else is an
-ordinary local you can use in later lines of the same block. The orbital elements come in
-groups; supply exactly one alternative from each:
+**`variables`**: pass a block of variables: priors, derived quantities, and so on.
+You need to provide the `mass`, and a sufficient set of orbital parameters.
+Some models also want `flux` or `flux_<band>`.
 
+
+For orbital elements, you must supply exactly one of these options:
 | group | alternatives |
 |---|---|
 | size | `a` [AU] or `P` [**days**] |
@@ -106,15 +66,7 @@ groups; supply exactly one alternative from each:
 | orientation | `i`, `Ω` |
 
 Here we used `θ` (the planet's position angle on the sky at `epoch`) to fix the phase,
-which is usually much better constrained by imaging data than the epoch of periastron.
-
-!!! note "Where the orbit's mass comes from"
-    The gravitating mass of an orbit is the total mass of the bodies it binds, computed
-    from the model rather than declared. For this two-body system that is
-    `A.mass + b.mass`; fixing `b.mass = 0.0` makes `A.mass` the whole of it, which is
-    what relative astrometry alone can constrain. Give the planet a real mass prior when
-    your data can constrain it (radial velocity, absolute astrometry, or a second
-    planet).
+which is usually much better constrained by relative data than the epoch of periastron.
 
 Priors can be any continuous univariate distribution from the Distributions.jl package.
 Many are supported, including `Uniform`, `LogNormal`, `LogUniform`, `Sine`, and `Beta`.
@@ -134,23 +86,55 @@ The `=` syntax also works to access variables from the system level, e.g. `plx =
 
 ### Creating the observations
 
-Every observation says what it observes (`target`) and what it is measured against
-(`ref`). Relative astrometry of the planet with respect to the star is `target=planet_b,
-ref=A`:
+
+We will create an observation object to contain our relative astrometry data. We can specify this data in several formats. It can be listed in the code or loaded from a file (eg. a CSV file, FITS table, or SQL database). You can use any Julia table object.
 
 ```@example 1
+astrom_dat_1 = Table(;
+    epoch= [50000,  50120, 50240, 50360,50480, 50600, 50720, 50840,], # MJD (days)
+    ra   = [-505.764, -502.57, -498.209, -492.678,-485.977, -478.11, -469.08, -458.896,], # mas
+    dec  = [-66.9298, -37.4722, -7.92755, 21.6356, 51.1472,  80.5359,  109.729,  138.651, ], # mas
+    # Tip! Type this as \sigma + <TAB key>!
+    σ_ra = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, ],  # mas
+    σ_dec = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, ], # mas
+    cor =  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ]
+)
 astrom_obs_1 = RelAstromObs(astrom_dat_1; target=planet_b, ref=A, name="relastrom")
+nothing # hide
+```
+Each observation must be given a `name`, which is used to label it in plots and the chains.
+
+The arguments `target=planet_b` and  `ref=A` are required. They explain to Octofitter that the relative astrometry positions are measured *between planet b and the star A*. You could just as easily supply observations measured between one planet and a second planet, or an entirely different star.
+
+In Octofitter, `epoch` is always the modified Julian date (measured in days). If you're not sure what this is, you can get started by just putting in arbitrary time offsets measured in days.
+
+In this case, we specified `ra` and `dec` offsets in milliarcseconds. We could instead specify `sep` (projected separation) in milliarcseconds and `pa` in radians. You cannot mix the two formats in a single [`RelAstromObs`](@ref) but you can create two different observation objects, one for each format, and add them both to your model:
+
+```@example 1
+astrom_dat_2 = Table(
+    epoch = [42000, ], # MJD
+    sep = [505.7637580573554, ], # mas
+    pa = [deg2rad(24.1), ], # radians
+    # Tip! Type this as \sigma + <TAB key>!
+    σ_sep = [70, ],
+    σ_pa = [deg2rad(10.2), ],
+)
 astrom_obs_2 = RelAstromObs(astrom_dat_2; target=planet_b, ref=A, name="relastrom2")
 nothing # hide
 ```
 
-Each observation must be given a `name`, which is used to label its own variables in the
-output chain.
+!!! note
+    Tip: You can load data from a CSV file:
 
-`ref` names what the measurement is *relative to*, and it can be anything in the model:
-`ref=A` (the usual case, a companion measured against its host), `ref=Barycentre`
-(measured against the system barycentre), or `ref=planet_b` (one companion measured
-against another).
+```julia
+    using CSV
+    astrom_dat = CSV.read("mydata.csv", Table)
+```
+
+Every observation says what it observes (`target`) and what it is measured against
+(`ref`). Relative astrometry of the planet with respect to the star is `target=planet_b,
+ref=A`:
+
 
 #### Advanced Options
 You can group your data in different observation objects, each with their own instrument name. Each group can have its own `platescale`, `northangle`, and astrometric `jitter` variables for modelling instrument-specific systematics.
@@ -185,9 +169,8 @@ nothing # hide
 ### Creating a system
 
 Now we assemble the bodies and observations into a "system". Properties of the whole
-system are specified here, like parallax distance. For multi-planet systems, it makes
-sense to create shared variables here — for example a single inclination used by two
-planets.
+system or reference frame are specified here, like parallax distance.
+For multi-planet systems, it makes sense to create shared variables here — for example a single inclination used by two planets.
 
 ```@example 1
 sys = System(
@@ -202,29 +185,16 @@ sys = System(
 nothing #hide
 ```
 
-!!! note 
-    The name of your system will be used for various output file names by default -- we suggest naming it something like `"PDS70-astrom-model"`.
-
-The variables block works just like it does for bodies. Here, we provided the parallax
-distance to the system:
-* `plx`: Distance to the system expressed in milliarcseconds of parallax.
-
-Which of `plx, ra, dec, pmra, pmdec, rv, ref_epoch` you define here chooses the reference
-frame. `plx` alone is what turns AU into milliarcseconds on the sky, and is all that
-relative astrometry needs. There is no `basis=` keyword any more.
-
-Note that **all** observations live on the system, including ones about a single planet.
-They name their own references, so there is nothing left for per-planet attachment to
-express.
+The name of your system will be used for output file names by default. We suggest naming it something like `"PDS70-astrom-model"`.
 
 
 ### Prepare model
-We now convert our declarative model into efficient, compiled code:
+We now convert our model into efficient, compiled code:
 ```@example 1
 model = Octofitter.LogDensityModel(sys)
 ```
 
-This type implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.
+This object implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.
 
 
 ### Initialize starting points for chains
@@ -338,6 +308,30 @@ octoplot(model,merged_chains)
 This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. 
 
 You can control how many orbits are drawn, the figure scale, and which panels appear. See [`octoplot`](@ref) for more details.
+
+#### Predicting quantities you did not observe
+
+`octoplot` is not restricted to the data in the model. Ask `channels=` for an
+**observable** the fit has no data for at all, and it draws the posterior's
+prediction for that quantity instead — the curves alone, with nothing to overlay:
+
+```julia
+# What radial velocity would a spectrograph see, given this astrometry?
+octoplot(model, merged_chains; channels=radvel, show_sky=false)
+
+# The star's reflex proper motion, likewise.
+octoplot(model, merged_chains; channels=pmra, show_sky=false)
+```
+
+This is the figure to make when deciding whether a target is worth
+spectroscopic or absolute-astrometry time. Note that it needs the companion to
+have mass: with `mass = 0.0`, as in the model above, the host's reflex signal is
+identically zero. Give `planet_b` a `mass` prior first.
+
+The natural follow-up is to take the observation, keep it *out* of the fit, and
+check the prediction against it — see
+[Predicting data the model never saw](@ref heldout-prediction), which also shows
+how to score the result numerically.
 
 ### Pair Plot
 A very useful visualization of our results is a pair-plot, or corner plot. We can use the `octocorner` function and our PairPlots.jl package for this purpose:
