@@ -21,10 +21,20 @@
 Gaia DR4 individual (epoch) astrometry: one along-scan abscissa per
 transit.
 
-`data` needs `:epoch` [MJD], `:scan_pos_angle` ψ [rad],
-`:parallax_factor_al`, `:centroid_pos_al` [mas] and
+`data` needs `:epoch` [MJD], `:scan_pos_angle` ψ [**degrees**],
+`:parallax_factor_al` [dimensionless], `:centroid_pos_al` [mas] and
 `:centroid_pos_error_al` [mas]; an `:outlier_flag` column is honoured if
 present.
+
+# Units
+`scan_pos_angle` is the only angle-like column, and it is taken in
+**degrees** — the unit the Gaia archive publishes it in (the DR4 VOTABLE
+declares `unit="deg"`), so a table read straight out of the archive needs no
+conversion. The conversion to radians happens once here, at construction:
+`obs.table` keeps the data verbatim in degrees, while the `sinψ`/`cosψ` the
+likelihood projects with are radian-based derived quantities. Everything
+else is unchanged: epochs in MJD, along-scan positions and uncertainties in
+mas, parallax factors dimensionless.
 
 The model for each transit is
 
@@ -113,6 +123,12 @@ struct GaiaDR4AstromObs{TTable<:Table,TT,TR} <: AbstractObs
     # The scan geometry and formal errors are fixed at construction, so the
     # projection's sincos and the Gaussian normalization's inputs are data,
     # not per-sample work (the sincos alone was 10% of the DR4 primal).
+    #
+    # These are also the *only* place ψ is ever in radians: `table` keeps the
+    # user's degrees verbatim, so reconstructing an observation from its own
+    # table (`likeobj_from_epoch_subset`, `generate_from_params`) can never
+    # double-convert. Anything downstream that needs the projection — the
+    # plotting extension included — must read these, not `table.scan_pos_angle`.
     sinψ::Vector{Float64}
     cosψ::Vector{Float64}
     # Outlier handling as arithmetic rather than a branch: `w` is 1 for kept
@@ -157,8 +173,12 @@ function GaiaDR4AstromObs(observations;
     Δt = collect((ep .- sum(ep) / length(ep)) ./ PlanetOrbits.year2day_julian)
     t, r = refspec(target), refspec(ref)
 
-    sinψ = collect(Float64, sin.(table.scan_pos_angle))
-    cosψ = collect(Float64, cos.(table.scan_pos_angle))
+    # ψ is ingested in degrees (the archive's own unit) and converted here,
+    # once. `sind`/`cosd` rather than `sin(deg2rad(·))`: the argument
+    # reduction is exact on the degree scale, so a scan angle that is a whole
+    # number of degrees projects exactly.
+    sinψ = collect(Float64, sind.(table.scan_pos_angle))
+    cosψ = collect(Float64, cosd.(table.scan_pos_angle))
     w = hasproperty(table, :outlier_flag) ?
         collect(Float64, table.outlier_flag .== 0) : ones(Float64, length(ep))
     b_al = collect(Float64, table.centroid_pos_al)

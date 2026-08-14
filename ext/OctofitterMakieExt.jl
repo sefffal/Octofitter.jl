@@ -2011,8 +2011,10 @@ function Octofitter.gaiastarplot(model::Octofitter.LogDensityModel, chain::Chain
     mx = keplerian_mult .* Octofitter.evalquery(q, posys, dtraj)[rows]
     my = keplerian_mult .* Octofitter.evalquery(qd, posys, dtraj)[rows]
     r = Octofitter.residuals(obs, obscontext(series, obs; draw=1)).along_scan
-    s = sin.(obs.table.scan_pos_angle)
-    c = cos.(obs.table.scan_pos_angle)
+    # `obs.table.scan_pos_angle` is in degrees (the archive's unit); the
+    # radian projection is precomputed on the observation.
+    s = obs.sinψ
+    c = obs.cosψ
     u = r.use
     dx = mx .+ r.resid .* s
     dy = my .+ r.resid .* c
@@ -2195,8 +2197,10 @@ function Octofitter.skytrackplot(model::Octofitter.LogDensityModel, chain::Chain
     dkx = keplerian_mult .* Octofitter.evalquery(q, posys, dtraj)[rows]
     dky = keplerian_mult .* Octofitter.evalquery(qd, posys, dtraj)[rows]
     r = Octofitter.residuals(obs, obscontext(series, obs; draw=1)).along_scan
-    s = sin.(obs.table.scan_pos_angle)
-    c = cos.(obs.table.scan_pos_angle)
+    # Degrees in the table, radians in the precomputed projection — see
+    # `GaiaDR4AstromObs`.
+    s = obs.sinψ
+    c = obs.cosψ
     dx = similar(epochs); dy = similar(epochs)
     for (i, t) in enumerate(epochs)
         fa, fd = pfactors(t)

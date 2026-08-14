@@ -29,9 +29,13 @@
 #     b_i = Δα*_i · cosϕ_i + Δδ_i · sinϕ_i
 #
 # with ϕ the scan angle measured so that `cosϕ` multiplies the RA component.
-# `GaiaDR4AstromObs` stores ψ = π/2 − ϕ in `scan_pos_angle` and writes the
-# same projection as `Δα* sinψ + Δδ cosψ`; pass `cosϕ = sin.(ψ)`,
-# `sinϕ = cos.(ψ)` to reuse these routines on such a table.
+# `GaiaDR4AstromObs` stores ψ = π/2 − ϕ in `scan_pos_angle` — in **degrees**,
+# the archive's unit — and writes the same projection as
+# `Δα* sinψ + Δδ cosψ`. The radian sin/cos of ψ are precomputed on the
+# observation as `obs.sinψ`/`obs.cosψ`, so pass `cosϕ = obs.sinψ`,
+# `sinϕ = obs.cosψ` to reuse these routines on such a table; taking
+# `sin`/`cos` of the raw `scan_pos_angle` column would read degrees as
+# radians.
 # ---------------------------------------------------
 
 """

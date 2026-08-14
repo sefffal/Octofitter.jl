@@ -23,7 +23,13 @@ const V1_REF_EPOCH = 57388.0
 function dr4_scans()
     rows, _ = readdlm(joinpath(@__DIR__, "fixtures", "dr4-like-scans.csv"),
         ',', Float64, '\n'; header=true)
-    return Table(epoch=rows[:, 1], scan_pos_angle=rows[:, 2],
+    # The fixture is stored in v1's convention (scan angle in radians),
+    # unchanged, because the reference log-likelihoods below were generated
+    # from exactly these numbers. `GaiaDR4AstromObs` now ingests the scan
+    # angle in degrees — the Gaia archive's own unit — so convert on the way
+    # in. This is a unit relabelling only: `sind(rad2deg(ψ)) == sin(ψ)` to
+    # within rounding, far inside the `rtol` asserted below.
+    return Table(epoch=rows[:, 1], scan_pos_angle=rad2deg.(rows[:, 2]),
         parallax_factor_al=rows[:, 3], centroid_pos_al=rows[:, 4],
         centroid_pos_error_al=rows[:, 5], outlier_flag=Int.(rows[:, 6]))
 end
