@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.10'
+          - '1.11'
           - '1'
           - 'pre'
         os:
@@ -35,11 +35,24 @@ jobs:
             threads: '4,1'
     steps:
       - uses: actions/checkout@v7
+      # PlanetOrbits v2 is an unregistered prerelease (2.0.0-DEV) that this
+      # branch depends on. Without this the resolver silently takes the newest
+      # *registered* PlanetOrbits (0.11.4, the v1 line) and Octofitter fails to
+      # precompile with `UndefVarError: mjup not defined in PlanetOrbits` --
+      # which is what reddened every CI run on this branch. Drop this step and
+      # the develop below once PlanetOrbits 2 is registered.
+      - uses: actions/checkout@v7
+        with:
+          repository: sefffal/PlanetOrbits.jl
+          ref: v2
+          path: .planetorbits-v2
       - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v3
+      - name: Use the PlanetOrbits v2 checkout
+        run: julia --project=. --color=yes -e 'using Pkg; Pkg.develop(PackageSpec(path=joinpath(pwd(), ".planetorbits-v2")))'
       - uses: julia-actions/julia-buildpkg@v1
       # Fetch the network-backed DataDeps before the tests run, retrying with
       # backoff. Without this, a single connect timeout to naif.jpl.nasa.gov
@@ -65,3 +78,78 @@ jobs:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }} # required
           verbose: true # optional (default = false)
+
+  # The Pigeons extension, on its own. Pigeons is not in `[targets] test`: it
+  # pulls in MPI and a large dependency tree, and making every matrix entry —
+  # the `pre` one included — resolve against it would let an unrelated bound red
+  # the whole matrix. Here it is added explicitly on Julia 1, and runtests.jl
+  # picks the extension testset up because the package is now present.
+  #
+  # This is coverage the matrix cannot give, not a relaxation of it: without
+  # this job `octofit_pigeons` would again be untested, which is how it came to
+  # be silently unported once already.
+  pigeons:
+    name: Pigeons extension - Julia 1 - ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: sefffal/PlanetOrbits.jl
+          ref: v2
+          path: .planetorbits-v2
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+          arch: x64
+      - uses: julia-actions/cache@v3
+      # Add the test-only dependencies to the project itself, so that running
+      # runtests.jl directly sees them. `Pkg.test()` would rebuild the
+      # environment from `[targets] test` and drop Pigeons again.
+      - name: Install with Pigeons
+        run: |
+          julia --project=. --color=yes -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=joinpath(pwd(), ".planetorbits-v2")))
+            Pkg.add(["Pigeons", "FiniteDiff", "Test"])
+            Pkg.instantiate()'
+      - name: Run the test suite, extension included
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true
+          GKSwstype: 100
+        run: julia --project=. --color=yes test/runtests.jl
+
+  # The Pigeons extension on Windows, scoped to just its own test file. The
+  # point is the `cores=` worker-process path: on Windows MPI.jl launches
+  # through MicrosoftMPI_jll rather than MPICH_jll, and this job is the cheap
+  # way to find out whether that works before recommending `cores=` to
+  # Windows users. Deliberately not the full test suite: unrelated Windows
+  # failures would drown the one signal this job exists to produce.
+  pigeons-windows:
+    name: Pigeons extension (worker processes) - Julia 1 - windows-latest
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: sefffal/PlanetOrbits.jl
+          ref: v2
+          path: .planetorbits-v2
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+          arch: x64
+      - uses: julia-actions/cache@v3
+      - name: Install with Pigeons
+        shell: bash
+        run: |
+          julia --project=. --color=yes -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=joinpath(pwd(), ".planetorbits-v2")))
+            Pkg.add(["Pigeons", "Test"])
+            Pkg.instantiate()'
+      - name: Run the Pigeons extension tests only
+        shell: bash
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true
+        run: julia --project=. --color=yes test/v2/pigeons.jl

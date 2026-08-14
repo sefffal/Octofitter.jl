@@ -1,237 +1,151 @@
+# ---------------------------------------------------
+# OctofitterPairPlotsExt — corner plots for v2.
+#
+# The v1 extension kept a private suffix-matching label dictionary; here
+# every label, unit, and radian→degree conversion comes from PlanetOrbits'
+# `paraminfo` resolver table (the same one axis labels use), keyed by the
+# flat `<owner>_<var>` chain naming. Columns are classified against the
+# model — body names and observation names — not by string heuristics.
+# ---------------------------------------------------
 module OctofitterPairPlotsExt
+
 using Octofitter
+using Octofitter: LogDensityModel, normalizename, likelihoodname, UnitLengthPrior
+using PlanetOrbits: paraminfo
 using PairPlots
-using Tables, TypedTables
-using NamedTupleTools
 using MCMCChains
 
-unitlengthprior_vars(::Octofitter.UnitLengthPrior{VX,VY}) where {VX, VY} = (VX, VY)
-
-Octofitter.octocorner(
-    model::Octofitter.LogDensityModel,
-    chains::MCMCChains.Chains...; 
-    kwargs...
-) = octocorner(model.system, chains...; kwargs...)
-function Octofitter.octocorner(
-    system::System,
-    chains::MCMCChains.Chains...;
-    truth=(),
-    small=false,
-    labels=Dict{Symbol,Any}(),
-    fname=small ? "$(system.name)-pairplot-small.png" : "$(system.name)-pairplot.png" ,
-    viz=nothing,
-    # Optionally include additional columns
-    includecols=String[],
-    excludecols=String[],
-    bottomleft=true,
-    topright=false,
-    kwargs...
-)
-    labels_gen = Dict{Symbol,Any}(
-        :M => "M [M⊙]\ntotal mass ",
-        :plx => "plx [mas]\nparallax",
-    )
-    if length(chains) > 1
-        if isnothing(viz)
-            viz = PairPlots.multi_series_default_viz
-        end
-        colors = PairPlots.Makie.wong_colors()
-    else
-        if isnothing(viz)
-            viz = PairPlots.single_series_default_viz
-        end
-        colors = [PairPlots.single_series_color]
+# Split a flat chain column `<owner>_<var>` against the model's owners
+# (bodies and observations); system variables have no prefix.
+function _colsplit(sys, col::Symbol)
+    s = string(col)
+    for owner in sys.bodynames
+        pre = string(owner, '_')
+        startswith(s, pre) && return (owner, Symbol(chopprefix(s, pre)), :body)
     end
-    colori = 1
-    function preparechain((chain,viz)::Pair)
-        prepped = _preparechain(chain)
-        return prepped => viz
+    for obs in sys.observations
+        owner = normalizename(likelihoodname(obs))
+        pre = string(owner, '_')
+        startswith(s, pre) && return (owner, Symbol(chopprefix(s, pre)), :obs)
     end
-    function preparechain(chain)
-        prepped = _preparechain(chain)
-        name = hasproperty(chain.info, :model_name) ? string(chain.info.model_name) : string(system.name)
-        pair = PairPlots.Series(prepped,label=name,color=colors[mod1(colori,end)]; topright, bottomleft) => viz
-        colori += 1
-        return pair
+    return (:system, col, :system)
+end
+
+# The x/y helper pairs behind UniformCircular parametrizations: sampling
+# machinery, not parameters anyone reads.
+function _helper_columns(sys)
+    out = Symbol[]
+    for (owner, t) in sys.priorterms
+        t isa UnitLengthPrior || continue
+        for v in (t.varx, t.vary)
+            push!(out, owner === :system ? v : Symbol(owner, :_, v))
+        end
     end
-    function _preparechain(chain::Octofitter.MCMCChains.Chains)
-        chain_notinternal = MCMCChains.get_sections(chain, :parameters)
-        chain_keys = string.(keys(chain_notinternal))
-        table_cols = Pair{Symbol}[]
+    return out
+end
 
-        for colname in includecols
-            if colname==:iter
-                push!(table_cols, Symbol(:iter)=>repeat(1:size(chain,1),outer=size(chain,3)))
-            else
-                push!(table_cols, Symbol(colname)=>vec(chain[colname]))
+function _label(owner, var, kind, col)
+    info = paraminfo(var)
+    if info === nothing
+        return kind === :system ? string(col) : "$(col)\n($owner)"
+    end
+    head = isempty(info.unit) ? string(col) : "$(col) [$(info.unit)]"
+    return "$head\n$(info.label)"
+end
+
+Octofitter.octocorner(model::LogDensityModel, chains::MCMCChains.Chains...; kwargs...) =
+    _octocorner(model, chains...; kwargs...)
+
+function _octocorner(model, chains...;
+                     small=false,
+                     truth=(),
+                     labels=Dict{Symbol,Any}(),
+                     viz=nothing,
+                     includecols=Symbol[],
+                     excludecols=Symbol[],
+                     fname=nothing,
+                     bottomleft=true, topright=false,
+                     kwargs...)
+    sys = model.system
+    includecols = Symbol.(collect(includecols))
+    excludecols = Symbol.(collect(excludecols))
+    helpers = _helper_columns(sys)
+    labels_gen = Dict{Symbol,Any}()
+
+    function preparechain(chain::MCMCChains.Chains)
+        params = MCMCChains.get_sections(chain, :parameters)
+        cols = Pair{Symbol,Vector{Float64}}[]
+        colnames = keys(params)
+        # `tp` duplicates a `θ`/`M0` phase parametrization of the same body;
+        # keep the sampled one.
+        phase_owners = Set(o for c in colnames
+                           for (o, v, k) in (_colsplit(sys, c),)
+                           if k === :body && (v === :θ || v === :M0))
+        dropped = Pair{Symbol,String}[]
+        for col in colnames
+            dat = vec(params[col])
+            owner, var, kind = _colsplit(sys, col)
+            keep = col in includecols
+            if !keep
+                col in excludecols && continue
+                if col in helpers
+                    push!(dropped, col => "sampling helper"); continue
+                end
+                # `unique` compares with `isequal`, under which every NaN is the
+                # same value — so an all-NaN column would otherwise look
+                # constant and be dropped silently. A column of NaNs means the
+                # fit went wrong, which is worth saying out loud.
+                if all(isnan, dat)
+                    push!(dropped, col => "all NaN"); continue
+                end
+                if length(unique(dat)) == 1
+                    push!(dropped, col => "constant at $(first(dat))"); continue
+                end
+                if kind === :body && var === :tp && owner in phase_owners
+                    push!(dropped, col => "duplicates a sampled phase"); continue
+                end
+                if small
+                    if !(kind === :body && var in (:a, :e, :i, :mass))
+                        push!(dropped, col => "not in the `small=true` set"); continue
+                    end
+                end
             end
+            info = paraminfo(var)
+            if info !== nothing && info.angle
+                dat = rad2deg.(rem2pi.(dat, RoundDown))
+            end
+            labels_gen[col] = _label(owner, var, kind, col)
+            push!(cols, col => collect(float.(dat)))
         end
-
-        if small
-            if haskey(chain_notinternal, :M)
-                push!(table_cols, :M => vec(chain_notinternal["M"]))
-            end
-            planetkeys = string.(keys(system.planets))
-            for obs in system.observations
-                if hasproperty(obs,:table) && hasproperty(obs.table, :band)
-                    bands = unique(obs.table.band)
-                    for pk in planetkeys, band in bands
-                        k = Symbol("$(pk)_$band")
-                        if haskey(chain_notinternal, k)
-                            push!(table_cols, band => vec(chain_notinternal[k]))
-                        end
-                    end
-                end
-            end
-        else
-            planetkeys = string.(keys(system.planets))
-            ii = map(chain_keys) do k
-                for pk in planetkeys
-                    if startswith(k, pk*"_")
-                        return false
-                    end
-                end
-                return true
-            end
-            for chain_key in chain_keys[ii]
-                push!(table_cols, Symbol(chain_key)=>vec(chain_notinternal[chain_key]))
-            end
+        if isempty(cols)
+            isempty(dropped) && error(
+                "octocorner: this chain has no parameter columns at all. " *
+                "(Sampler diagnostics live in the chain's `:internals` section, " *
+                "which corner plots deliberately skip.)")
+            error("octocorner: every column was filtered out. What was dropped, and why:\n" *
+                  join(("    $c — $why" for (c, why) in dropped), '\n') *
+                  "\nPass `includecols=[…]` to force a column back in. A chain whose " *
+                  "sampled parameters are all constant or all NaN means the fit itself " *
+                  "did not move — check the sampler report before the plot.")
         end
-
-        for (planetkey, planet) in pairs(system.planets)
-            OrbitType = Octofitter.orbittype(planet)
-            # els = Octofitter.construct_elements(chain,:b,:)
-            
-            pk_ = "$(planetkey)_"
-            planet_var_keys = filter(startswith(pk_), chain_keys)
-            planet_var_keys_chopped = chopprefix.(planet_var_keys, pk_)
-
-            if small
-                keep_params_if_small = ["a", "e", "i", "mass", "A", "B", "F", "G"]
-                for obs in planet.observations
-                    if hasproperty(obs,:table) && hasproperty(obs.table, :band)
-                        append!(keep_params_if_small, string.(unique(obs.table.band)))
-                    end
-                end
-                ii_splice = findall(map(planet_var_keys_chopped) do k
-                    k ∉ keep_params_if_small
-                end)
-            else
-                # Remove x and y parameters used by UniformCircular
-                # Also remove tp if tau is used
-                ii_splice = findall(map(planet_var_keys_chopped) do k
-                    k = Symbol(k)
-                    if k == :tp && "τ" ∈ planet_var_keys_chopped
-                        return true
-                    end
-                    if k == :tp && "θ" ∈ planet_var_keys_chopped
-                        return true
-                    end
-                    for obs in planet.observations
-                        if obs isa Octofitter.UnitLengthPrior
-                            varx, vary = unitlengthprior_vars(obs)
-                            if k == varx || k == vary
-                                return true
-                            end
-                        end
-                    end
-                    return false
-                end)
-            end
-
-            # remove variables that are held fixed.
-            ii_splice_2 = findall(map(planet_var_keys) do k
-                vals = vec(chain[k])
-                all(==(first(vals)), vals)
-            end)
-            ii_splice = sort(union(ii_splice, ii_splice_2))
-
-            splice!(planet_var_keys, ii_splice)
-            splice!(planet_var_keys_chopped, ii_splice)
-
-
-            for (k, pk) in zip(planet_var_keys_chopped, planet_var_keys)
-                pks = Symbol(pk)
-
-                if k=="a"
-                    labels_gen[Symbol(pk_*"a")] = "$(planetkey)_a [au]\nsemi-major axis"
-                end
-                if k=="i"
-                    labels_gen[Symbol(pk_*"i")] = "$(planetkey)_i [°]\ninclination"
-                end
-                if k=="Ω"
-                    labels_gen[Symbol(pk_*"Ω")] = "$(planetkey)_Ω [°]\nposition angle of\nascending node"
-                end
-                if k=="ω"
-                    labels_gen[Symbol(pk_*"ω")] = "$(planetkey)_ω [°]\nargument of\nperiapsis"
-                end
-                if k=="e"
-                    labels_gen[Symbol(pk_*"e")] = "$(planetkey)_e\neccentricity"
-                end
-                if k=="mass"
-                    labels_gen[Symbol(pk_*"mass")] = "$(planetkey)_mass [Mⱼᵤₚ]\nmass"
-                end
-                if k=="tp"
-                    labels_gen[Symbol(pk_*"tp")] = "$(planetkey)_tp [mjd]\nepoch of periastron\npassage"
-                end
-                if k=="P"
-                    labels_gen[Symbol(pk_*"P")] = "$(planetkey)_P [yrs]\nperiod"
-                end
-                if k=="τ"
-                    labels_gen[Symbol(pk_*"τ")] = "$(planetkey)_τ\norbit fraction τ"
-                end
-                if k=="θ"
-                    labels_gen[Symbol(pk_*"θ")] = "$(planetkey)_θ [°]\nposition angle\nat ref. epoch"
-                end
-
-                # Add generic label if missing
-                if pks ∉ keys(labels_gen)
-                    labels_gen[pks] = "$planetkey:\n$k"
-                end
-
-                # Do any data conversions
-                dat = vec(chain_notinternal[pk])
-                if k == "i" || k == "Ω" || k == "ω" || k == "θ" || k == "pa"
-                    dat = rad2deg.(rem2pi.(dat, RoundDown))
-                end
-                push!(table_cols, pks => dat)
-            end
-        end
-        # Remove duplicates (eg. if a column is added by the user to includecols
-        # and would have been included anyways).
-        # Also remove series where the std is 0.
-        table_cols_unique = Pair{Symbol}[]
-        for (k,v) in table_cols
-            if k in excludecols
-                continue
-            end
-            if length(unique(v)) == 1
-                continue
-            end
-            found = false
-            for (k2,v2) in table_cols_unique
-                if k==k2
-                    found = true
-                    break
-                end
-            end
-            if !found
-                push!(table_cols_unique,(k=>v))
-            end
-        end
-        tbl = FlexTable(namedtuple(table_cols_unique))
+        return (; cols...)
     end
 
-    prepared = map(preparechain, chains)
+    multi = length(chains) > 1
+    vizn = viz === nothing ?
+           (multi ? PairPlots.multi_series_default_viz : PairPlots.single_series_default_viz) :
+           viz
+    colors = multi ? PairPlots.Makie.wong_colors() : [PairPlots.single_series_color]
+    prepared = map(enumerate(chains)) do (i, chain)
+        name = hasproperty(chain.info, :model_name) ? string(chain.info.model_name) :
+               string(sys.name)
+        PairPlots.Series(preparechain(chain); label=name,
+            color=colors[mod1(i, length(colors))], bottomleft, topright) => vizn
+    end
 
-    # Merge our generated labels with user labels
-    labels = merge(labels_gen, labels)
-    fig = pairplot(prepared..., truth...;labels, kwargs...)
-
-    PairPlots.Makie.save(fname, fig, px_per_unit=3)
-
+    fig = pairplot(prepared..., truth...; labels=merge(labels_gen, labels), kwargs...)
+    fname !== nothing && PairPlots.Makie.save(fname, fig, px_per_unit=3)
     return fig
 end
 
-
-end
+end # module

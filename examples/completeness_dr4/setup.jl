@@ -1,38 +1,51 @@
 #=
-Setup script for Gaia DR4 completeness mapping demo.
-Run this on the login node to pre-cache GOST scan law and precompile.
+Setup for the Gaia DR4 completeness study. Run this once, on a node that has
+network access, before submitting the array job.
+
+It queries the Gaia DR3 archive and GOST, reads the target's measured
+along-scan noise budget, and caches all of it to `dr4_target.csv` +
+`dr4_transits.csv` beside these scripts — so the array tasks need neither the
+network nor the ~14 GB G23H catalog. It then builds the template model once,
+which precompiles the code path every trial takes.
 
 Usage:
-    julia --project=/scratch/wthompso/completeness_dr4 setup.jl
+    julia --project=. setup.jl
+
+Set `OCTO_G23H_CATALOG=1` to read the real G23H catalog rather than the
+recorded row for this source (same numbers, ~70 s).
 =#
 
-using Octofitter, Distributions
-using DataFrames, CSV
+include(joinpath(@__DIR__, "common.jl"))
 
-# ── Target star ──
-# Use a bright nearby star with good Gaia DR3 solution.
-# This determines the scan law and noise properties.
-gaia_id = 5064625130502952704
+use_catalog = lowercase(get(ENV, "OCTO_G23H_CATALOG", "0")) ∉ ("0", "", "false", "no")
 
-# ── Query DR3 catalog and GOST scan law ──
-# These results are cached locally, so subsequent runs skip the HTTP queries.
-println("Querying Gaia DR3 catalog...")
-dr3 = Octofitter._query_gaia_dr3(; gaia_id)
-println("  ra=$(dr3.ra), dec=$(dr3.dec), plx=$(dr3.parallax)")
+println("Querying Gaia DR3, the G23H noise calibration, and the GOST scan forecast...")
+target = load_target(@__DIR__; refresh=true,
+    catalog=use_catalog ? nothing : CATALOG_STANDIN)
+describe_target(target)
 
-println("Querying GOST scan law (DR4 baseline)...")
-gost = DataFrame(Octofitter.GOST_forecast(dr3.ra, dr3.dec; baseline=:dr4))
-println("  $(size(gost, 1)) visibility windows")
+println()
+println("Forecast DR4 transits: $(target.n_transits) over MJD " *
+        "$(round(minimum(target.transits.epoch), digits=1))–" *
+        "$(round(maximum(target.transits.epoch), digits=1)) " *
+        "($(round((maximum(target.transits.epoch) - minimum(target.transits.epoch)) / 365.25, digits=2)) yr)")
+println("Cached to $(target_csv(@__DIR__)) and $(transits_csv(@__DIR__))")
+println()
+println("NOTE: GOST forecasts every *scheduled* transit. Real DR4 loses some to")
+println("dead time and more to AGIS's outlier rejection, which is harshest for")
+println("bright stars — Gaia-4 goes 122 forecast → 109 published → 93 used. Drop")
+println("rows from dr4_transits.csv if that matters for your question.")
 
-# ── Noise parameters ──
-# For a representative simulation, use UEVA_single approach:
-# Set centroid_pos_error_al = σ_true and astrometric_jitter ≈ 0.
-# See Kiefer et al 2025 / Thompson et al in-prep for details.
-σ_att = 0.04   # attitude noise [mas]
-σ_AL = 0.04    # along-scan CCD noise [mas]
-σ_cal = 0.04   # calibration noise [mas]
-σ_true = sqrt(σ_att^2 + σ_AL^2 + σ_cal^2)
-println("  σ_true = $(round(σ_true, sigdigits=3)) mas per scan")
+# Build the template model once: this precompiles the likelihood and gradient
+# code path, and fails here rather than in 720 array tasks if anything is off.
+println()
+println("Building the template model...")
+sys = build_system(target)
+model = Octofitter.LogDensityModel(sys; verbosity=1)
+println(model)
 
-println("\nSetup complete. GOST cache saved locally.")
-println("You can now submit the array job.")
+jobs = completeness_jobs(; masses=MASSES, separations=SEPARATIONS, n_trials=N_TRIALS)
+println()
+println("Grid: $(length(MASSES)) masses × $(length(SEPARATIONS)) separations × " *
+        "$(N_TRIALS) trials = $(length(jobs)) jobs" * (QUICK ? "  [OCTO_COMPLETENESS_QUICK]" : ""))
+println("Set `#SBATCH --array=1-$(length(jobs))` in submit.sh, then `sbatch submit.sh`.")

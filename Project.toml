@@ -1,6 +1,6 @@
 name = "Octofitter"
 uuid = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
-version = "8.3.0"
+version = "9.0.0-DEV"
 authors = ["William Thompson <will.thompson@outlook.com>", "Jensen Lawrence", "Dori Blakely", "Clarissa R. Do O"]
 
 [deps]
@@ -24,6 +24,7 @@ FITSIO = "525bcba6-941b-5504-bd06-fd0dc1a4d2eb"
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+HostCPUFeatures = "3e5b6fbb-0976-4d2c-9146-d79de83f2fb0"
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 KernelDensity = "5ab0869b-81aa-558d-bb23-cbf5423bbe9b"
@@ -56,15 +57,19 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 
+# The v1 Makie recipe set and the Dynesty extension are part of the v1 model
+# surface's long tail — every v1 plot recipe reaches into `system.planets` —
+# and are not declared while they are unported. Their sources are parked
+# unmodified in `src/legacy/ext/`; see `docs/src/v2-migration.md`. The Makie
+# extension declared below is the new v2 plotting layer
+# (`ext/OctofitterMakieExt.jl`).
+
 [weakdeps]
-Dynesty = "eb527566-0f3e-4aab-bb5f-9d2e403dba70"
-HypercubeTransform = "9ec9aee3-0fd3-44c2-8e61-a50acc66f3c8"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 Pigeons = "0eb8d820-af6a-4919-95ae-11206f830c31"
 
 [extensions]
-OctofitterDynestyHypercubeTransformExt = ["Dynesty", "HypercubeTransform"]
 OctofitterMakieExt = "Makie"
 OctofitterPairPlotsExt = "PairPlots"
 OctofitterPigeonsExt = "Pigeons"
@@ -86,30 +91,31 @@ DiffResults = "1"
 DifferentiationInterface = "0.6, 0.7"
 Distributions = "0.25"
 DistributionsAD = "0.6"
-Dynesty = "0.4.0"
 FITSIO = "0.16, 0.17"
 FiniteDiff = "2"
 ForwardDiff = "0.10, 1"
 HDF5 = "0.17"
+HostCPUFeatures = "0.1"
 HTTP = "1"
-HypercubeTransform = "0.4.3"
 Interpolations = "0.13, 0.14, 0.15, 0.16"
 KernelDensity = "0.6"
 Latexify = "0.15, 0.16"
 LogDensityProblems = "2"
 Logging = "1"
 MCMCChains = "7"
-Makie = "0.21,0.22,0.23,0.24"
+Makie = "0.24"
+PairPlots = "3"
+Pigeons = "0.4.11"
 MathTeXEngine = "0.6"
 NamedTupleTools = "0.13, 0.14"
 Optimization = "4, 5"
 OptimizationBBO = "0.4"
 OptimizationOptimJL = "0.4"
 OrderedCollections = "1.6"
-PairPlots = "3"
 Pathfinder = "0.10"
-Pigeons = "0.4.7, 0.5"
-PlanetOrbits = "0.11.1"
+# PlanetOrbits: no compat bound while v2 is an unregistered prerelease — the
+# branch is dev-linked, and Pkg cannot express a `2.0.0-DEV` lower bound.
+# Restore `PlanetOrbits = "2"` when v2 is registered.
 PrecompileTools = "1.1.2"
 Preferences = "1"
 Printf = "1"
@@ -125,14 +131,19 @@ StringDistances = "0.11, 1"
 TOML = "1"
 Tables = "1.6"
 TypedTables = "1.4"
-julia = "1.10"
+julia = "1.11"
 
 [extras]
-CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
-Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+# Pigeons is a weakdep, so `octofit_pigeons` has no methods unless it is loaded,
+# and the extension was silently unported for a while with nothing to catch it —
+# `test/v2/pigeons.jl` is that check. It is deliberately absent from the test
+# target anyway: Pigeons pulls in MPI and a large dependency tree, and pinning
+# the whole matrix (including the `pre` entry) to whatever Pigeons can resolve
+# would let an unrelated bound red every job. The `pigeons` CI job adds it on
+# Julia 1 instead, and runtests.jl runs the block
+# when it is present.
 [targets]
-test = ["Test", "FiniteDiff", "CairoMakie", "PairPlots"]
+test = ["Test", "FiniteDiff"]

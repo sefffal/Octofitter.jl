@@ -1,13 +1,22 @@
 # Fit Relative RV Data
 
-Octofitter includes support for fitting relative radial velocity data. Currently this is only tested with a single companion. Please open an issue if you would like to fit multiple companions simultaneously.
+Octofitter includes support for fitting relative radial velocity data — the
+velocity of a companion measured against its host, rather than the reflex
+velocity of the host itself.
 
 The convention we adopt is that positive relative radial velocity is the velocity of the companion (exoplanets) minus the velocity of the host (star).
 
-To fit relative RV data, start by creating a likelihood object:
+For both stellar reflex RV and relative RVs, you use the same `RadialVelocityObs` type and just change which `ref` points to (Barycentre for stellar reflex, another body for relative).
+
+```julia
+RadialVelocityObs(tab; target=A, ref=Barycentre)   # the star's reflex motion
+RadialVelocityObs(tab; target=b, ref=A)            # the companion, relative to the star
+```
+
+
+To fit relative RV data, start by building the bodies and then the observation:
 ```@example 1
 using Octofitter
-using OctofitterRadialVelocity
 using CairoMakie
 using Distributions
 
@@ -43,46 +52,62 @@ rv_dat_1 = Table(
     # Hint! Type as \sigma + <TAB>
     σ_rv= fill(15000.0, 25),
 )
-
-
-rel_rv_obs = PlanetRelativeRVObs(
-    rv_dat_1, 
-    name="simulated data",
-    variables = @variables begin
-        jitter ~ LogUniform(0.1, 1000) # m/s
-    end
-)
+nothing # hide
 ```
-See the standard radial velocity tutorial for examples on how this data can be loaded from a CSV file.
-
-The relative RV likelihood does not incorporate an instrument-specific RV offset. A jitter parameter can still be specified in the likelihood's `@variables` block, as can parameters for a gaussian process model of stellar noise. Currently only a single instrument jitter parameter is supported. If you need to model relative radial velocities from multiple instruments with different jitters, please open an issue on GitHub.
-
-Next, create a planet and system model, attaching the relative rv likelihood to the planet.
+See the [Basic RV Fit](@ref fit-rv) tutorial for examples on how this data can be loaded from a CSV file.
 
 ```@example 1
-planet_1 = Planet(
-    name="b",
-    basis=RadialVelocityOrbit,
-    observations=[rel_rv_obs],
+A = Body(
+    name="A",
     variables=@variables begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1) # total mass in solar masses
-        a ~ Uniform(0,10)
+        # The companion is a test particle here, so the star carries the whole
+        # gravitating mass of the orbit.
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1)   # M⊙
+    end
+)
+
+b = Body(
+    name="b",
+    about=A,
+    variables=@variables begin
+        mass = 0.0            # M⊙; a test particle
+        a ~ Uniform(0, 10)    # AU
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
         ω ~ Uniform(0, 2pi)
         Ω ~ Uniform(0, 2pi)
-        τ ~ Uniform(0, 1.0)
-        P = √(a^3/M)
-        tp = τ*P*365.25 + 60000 # reference epoch for τ. Choose an MJD date near your data.
-
+        M0 ~ Uniform(0, 2pi)  # mean anomaly at `epoch`
+        epoch = 60000.0       # choose an MJD date near your data
     end
 )
-sys = System(
-    name = "Example-System",
-    companions=[planet_1],
-    observations=[],
+
+rel_rv_obs = RadialVelocityObs(
+    rv_dat_1;
+    target=b, ref=A,           # <-- this is what makes it *relative* RV
+    name="simulated data",
     variables=@variables begin
+        jitter ~ LogUniform(0.1, 1000) # m/s
     end
+)
+nothing # hide
+```
+
+
+The relative RV likelihood does not need an instrument-specific zero point —
+the two stellar spectra are differenced against each other, so there is nothing
+to offset. You may still declare an `offset` variable if your reduction has one.
+ A `jitter` parameter can be
+specified in the observation's `@variables` block, as can parameters for a
+Gaussian process model of correlated noise (see
+[Fit Gaussian Process](@ref fit-rv-gp)). Create one `RadialVelocityObs` per
+instrument if you have several, each with its own jitter.
+
+Next, assemble the system:
+```@example 1
+sys = System(
+    name="Example_System",
+    bodies=[A, b],
+    observations=[rel_rv_obs],
 )
 
 model = Octofitter.LogDensityModel(sys)
@@ -106,5 +131,5 @@ chain = octofit(rng, model)
 
 
 ```@example 1
-octoplot(model, chain, show_physical_orbit=true, mark_epochs_mjd=[mjd("2015-07-15")])
+octoplot(model, chain)
 ```

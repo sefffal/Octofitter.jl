@@ -1,7 +1,185 @@
 
 using LogDensityProblems
 
-# Define the target distribution using the `LogDensityProblem` interface
+# ---------------------------------------------------
+# ForwardDiff chunk width
+#
+# Total gradient cost goes as ⌈D/N⌉ × c(N) for chunk width N. While c is
+# roughly linear in N — one Dual multiply is a product rule, 2N+1 flops
+# against 1 — fewer, wider chunks win, and a single chunk of width D wins
+# outright. That holds further than ForwardDiff's own default assumes
+# (`pickchunksize` caps at 12), but not forever: past ~24 partials the
+# `Partials{N}` tuple stops living in registers and c(N) turns superlinear.
+#
+# Measured on this codebase (∇ℓπ, µs, N-companion relative astrometry):
+#
+#   D=23 | chunk  12:178.7   16:217.2   20:250.5   23:149.0   <- single chunk
+#   D=30 | chunk  10:410.7   12:414.6   15:346.1   18:377.5   20:388.6
+#        |        24:459.8   30:443.7               ^ best, and 1.28x under D
+#   D=37 | chunk  10:782     13:672     19:569     37:809     ^ 1.42x under D
+#
+# The rule below — the *balanced* split into as few chunks as keeps every
+# chunk at or under `CHUNK_WIDTH_MAX` — reproduces the measured optimum at all
+# three: 23 -> 23, 30 -> 15, 37 -> 19. Balance matters as much as width; at
+# D=30, an unbalanced 24+6 (459.8) is worse than 15+15 (346.1) even though 24
+# is the more efficient width, because the 6-wide chunk pays nearly a full
+# traversal for a quarter of the partials.
+#
+# `CHUNK_WIDTH_MAX` is a machine property (register file, vector width), not a
+# mathematical one, and 24 is where it sits on the AVX2 hardware the numbers
+# above were measured on. Users on very different hardware, or with a model
+# whose shape moves the knee, can measure instead:
+# `LogDensityModel(sys; chunk_sizes=[…])` times each candidate and picks the
+# best.
+#
+# Being a machine property, it is detected at load rather than fixed at 24.
+# Re-measured on AMD EPYC 9655 (Zen 5, AVX-512, 64-byte registers), same
+# codebase, Gaia DR4 epoch astrometry with N companions (∇ℓπ, µs):
+#
+#   D=27 | chunk  14:139.4   16:102.7   20:121.1   24:134.2    27:72.8  <- single
+#   D=37 | chunk  16:303.0   19:226.1   24:202.6   32:257.2    37:150.1 <- single
+#   D=47 | chunk  16:456.5   24:333.3   32:483.2               47:303.0 <- single
+#   D=57 | chunk  20:692.1   29:570.8   40:700.1               57:476.0 <- single
+#   D=67 | chunk  23:2322 <- best       34:2910.2  45:4482     67:6101.9
+#
+# Two separate things fall out of this, and conflating them is what makes a
+# single constant unable to fit the data.
+#
+# 1. The single chunk keeps winning far past 24 on AVX-512. At D=37 this
+#    *inverts* the AVX2 row above (there 19 beat 37, 569 vs 809; here 37 beats
+#    19, 150.1 vs 226.1). Through D=57 one chunk is always fastest.
+#
+# 2. There is a hard cliff just past that, and it is razor sharp. Holding the
+#    body count fixed and padding D with free scalars (one job, one node, so
+#    these four are directly comparable):
+#
+#      D=57 752.0   D=58 750.1   D=59 803.9   D=60 4072.9   <- 5.1x in one step
+#
+#    Past the cliff the *narrow* splits win outright: at D=67, 23 (2322) beats
+#    34 (2910) beats 45 (4482) beats 67 (6101.9).
+#
+#    Note the cost of misplacing this bound is very asymmetric: one partial too
+#    permissive costs ~5x, one too strict costs ~1.2-1.45x (the split cost at
+#    D=57). 59 is the last width measured good on THIS model; the cliff is a
+#    codegen/register-pressure property of the generated log-density, so a very
+#    differently shaped model could move it. Anything relying on the last few
+#    partials should confirm with `chunk_sizes=[...]` rather than trust 59.
+#
+# So "how large may D be and still take ONE chunk" and "how wide should the
+# chunks be once we must split" are different questions with different answers,
+# and `CHUNK_SINGLE_MAX` / `CHUNK_WIDTH_MAX` answer them separately. That pair
+# reproduces the measured optimum at every D above — including D=67, where
+# raising a single shared ceiling to 64 would have picked 34 and been 1.25x off
+# the 23 that the old value of 24 already found.
+#
+# On AVX2 both default to 24, which reduces exactly to the previous one-constant
+# rule and still reproduces its three measured optima (23 -> 23, 30 -> 15,
+# 37 -> 19). Only the single-chunk bound moves on wide-register hardware.
+#
+# The sub-optimal widths do NOT order cleanly (16 beats 20 and 24 at D=27; 24
+# beats 16, 19, 20 and 32 at D=37), so only the single-chunk boundary and the
+# post-cliff narrow-split preference are treated as established.
+# ---------------------------------------------------
+
+"""
+    _default_chunk_single_max() -> Int
+
+Largest `D` that still gets a single chunk, from the host's SIMD register size.
+
+59 where the registers are 64 bytes wide (AVX-512), 24 otherwise (the
+AVX2-calibrated value). The AVX-512 figure is bounded by measurement, not by
+theory: 59 is the last width measured fast, and 60 costs 5.1x more.
+"""
+function _default_chunk_single_max()
+    return Int(HostCPUFeatures.register_size()) >= 64 ? 59 : 24
+end
+
+# Both set from `__init__` so they follow the machine that RUNS the code, not
+# the one that precompiled it — which differ whenever a depot is shared across
+# heterogeneous cluster nodes, as it is on the systems this is used from.
+const CHUNK_SINGLE_MAX = Ref(24)
+const CHUNK_WIDTH_MAX = Ref(24)
+
+"""
+    _chunk_heuristic(D) -> Int
+
+Chunk width for `D` free parameters: a single chunk of width `D` while `D` fits
+under `CHUNK_SINGLE_MAX[]`, otherwise the balanced split into the fewest chunks
+whose width does not exceed `CHUNK_WIDTH_MAX[]`.
+
+Reduces to a single chunk for the great majority of models. When the two
+constants are equal — which is the default on anything but wide-register
+hardware — this is the plain "balanced split under one ceiling" rule.
+"""
+function _chunk_heuristic(D::Int)
+    D <= 0 && return 1
+    D <= max(1, CHUNK_SINGLE_MAX[]) && return D
+    nmax = max(1, CHUNK_WIDTH_MAX[])
+    return cld(D, cld(D, nmax))
+end
+
+"""
+    _probe_chunk_size(ℓπ, θ, D, candidates, verbosity) -> Int
+
+Time a gradient at each candidate chunk width and return the fastest.
+
+Opt-in (`LogDensityModel(sys; chunk_sizes=[…])`) rather than the default,
+because each candidate compiles a fresh gradient at that `Dual` width — which
+for a wide chunk is by far the most expensive thing model construction does.
+The heuristic is free and matches the measured optimum on everything tried;
+this is for hardware or model shapes where it might not.
+"""
+function _probe_chunk_size(ℓπ, θ, D::Int, candidates, verbosity::Int)
+    cands = sort(unique(Int[c for c in candidates if 1 <= c <= D]))
+    if isempty(cands)
+        @warn "No candidate in `chunk_sizes` is between 1 and $D; using the default." candidates
+        return _chunk_heuristic(D)
+    end
+    verbosity >= 1 && @info "Timing ForwardDiff chunk widths (this compiles one gradient per candidate)" candidates=cands
+    best, best_t = first(cands), Inf
+    for c in cands
+        t = try
+            ad = AutoForwardDiff(chunksize=c)
+            prep = prepare_gradient(ℓπ, ad, zero(θ))
+            grad = similar(θ)
+            value_and_gradient!(ℓπ, grad, prep, ad, θ)   # warm up / compile
+            # Best of a few, not a mean: we are after the achievable cost, and
+            # a model build shares the machine with whatever else is running.
+            minimum(1:5) do _
+                t0 = time_ns()
+                value_and_gradient!(ℓπ, grad, prep, ad, θ)
+                time_ns() - t0
+            end
+        catch err
+            err isa InterruptException && rethrow()
+            @warn "Chunk width $c failed; skipping it." exception=err
+            continue
+        end
+        verbosity >= 2 && @info "  chunk $c: $(round(t/1e3, digits=2)) µs ($(cld(D, c)) chunks)"
+        if t < best_t
+            best, best_t = c, t
+        end
+    end
+    verbosity >= 1 && @info "Selected ForwardDiff chunk width" chunksize=best time_µs=round(best_t/1e3, digits=2)
+    return best
+end
+
+"""
+    LogDensityModel(system; autodiff=nothing, verbosity=2, chunk_sizes=nothing)
+
+Compile `system` into a log-posterior and its gradient, ready for a sampler.
+
+# Keywords
+  - `autodiff` — an ADType (e.g. `AutoForwardDiff(chunksize=8)`) to use
+    verbatim, or `false` for no gradient. Defaults to ForwardDiff at a chunk
+    width chosen by [`_chunk_heuristic`](@ref).
+  - `chunk_sizes` — candidate ForwardDiff chunk widths to **measure** rather
+    than assume, e.g. `chunk_sizes=[8, 12, 16, 24, D]`. Each candidate costs a
+    gradient compile, so this is worth it only for a long run on a large model,
+    or to check the default on unfamiliar hardware. Ignored if `autodiff` is
+    given.
+  - `verbosity` — 0 silences the timing and selection reports.
+"""
 mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TPriSamp,ADType}
     # Dimensionality
     const D::Int
@@ -40,9 +218,9 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             @info "Model contains discrete variables; model gradients not supported."
         end
 
-        if isnothing(autodiff)
-            autodiff = AutoForwardDiff(chunksize=D)
-        end
+        # Deferred: with `chunk_sizes` given we time each candidate, which needs
+        # `ℓπcallback` to exist first. See `_chunk_heuristic`.
+        autodiff_requested = autodiff
 
         ln_prior_transformed = make_ln_prior_transformed(system)
         # ln_prior = make_ln_prior(system)
@@ -87,6 +265,22 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
         # Test out model likelihood and prior computations. This way, if they throw
         # an error, we'll see it right away instead of burried in some deep stack
         # trace from the sampler, autodiff, etc.
+        #
+        # Build the orbital system *uncaught* first. `ln_like_generated` swallows
+        # construction failures and returns -Inf — which is right during sampling,
+        # where a bad proposal is just a rejected proposal, but wrong here: a
+        # malformed hierarchy is a property of the model, not of one draw, and it
+        # would otherwise reach the user as a warning from inside the sampler
+        # instead of an error at the line that defined the model. A *domain*
+        # failure is exempt: the priors are entitled to admit a draw the elements
+        # do not, and the sampler will handle it.
+        if ln_like_generated isa GeneratedLnLike
+            try
+                ln_like_generated.build(arr2nt(initial_θ_0))
+            catch err
+                _is_domain_failure(err) || rethrow()
+            end
+        end
         ln_like_generated(system, arr2nt(initial_θ_0))
 
         ln_prior_transformed(initial_θ_0,false)
@@ -94,7 +288,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
 
         # We use let blocks to prevent type instabilities from closures
         # A function barrier would also work.
-        ℓπcallback, ∇ℓπcallback = (function(
+        ℓπcallback, ∇ℓπcallback, autodiff = (function(
             arr2nt,
             system,
             Bijector_invlinkvec,
@@ -163,7 +357,20 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             end
 
             if contains_discrete_variables
-                return ℓπcallback, nothing
+                # No gradient, but `ADType` is still a type parameter of the
+                # model and `autodiff_type` reads it — keep what was asked for.
+                return ℓπcallback, nothing,
+                    isnothing(autodiff_requested) ?
+                        AutoForwardDiff(chunksize=_chunk_heuristic(D)) : autodiff_requested
+            end
+
+            autodiff = if !isnothing(autodiff_requested)
+                autodiff_requested
+            elseif isnothing(chunk_sizes)
+                AutoForwardDiff(chunksize=_chunk_heuristic(D))
+            else
+                AutoForwardDiff(chunksize=_probe_chunk_size(
+                    ℓπcallback, initial_θ_0_t, D, chunk_sizes, verbosity))
             end
 
             ∇ℓπcallback =
@@ -187,7 +394,7 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             end
 
 
-            ℓπcallback, ∇ℓπcallback
+            ℓπcallback, ∇ℓπcallback, autodiff
         end)(
             arr2nt,
             system,
@@ -196,6 +403,9 @@ mutable struct LogDensityModel{D,Tℓπ,T∇ℓπ,TSys,TLink,TInvLink,TArr2nt,TP
             ln_like_generated,
             D
         )
+        # `autodiff` is chosen inside the closure (the measured probe needs
+        # `ℓπcallback`), and it is a type parameter of the model, so it has to
+        # come back out. Discrete models return `nothing` for it.
         
         # Perform some quick diagnostic checks to warn users for performance-gtochas
         out_type_model = Core.Compiler.return_type(ℓπcallback, typeof((initial_θ_0_t,)))

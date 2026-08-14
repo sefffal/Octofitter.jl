@@ -1,27 +1,23 @@
-#=
-Completeness / sensitivity mapping via injection-recovery.
-
-This module provides a framework for computing detection completeness as a
-function of companion mass and separation (or any two parameters). The workflow
-supports both local execution and cluster-scale parallelism:
-
-  Phase 1: `completeness_jobs()`       — generate lightweight job descriptions
-  Phase 2: `run_completeness_trial()`  — inject, simulate, and sample (no detection decision)
-  Phase 3: `assemble_completeness()`   — apply detection criterion and build CompletenessMap
-
-Detection is *purely* a post-hoc step in Phase 3. Each trial stores the full
-posterior chain and true injected parameters, so you can iterate on detection
-thresholds, try different criteria, or inspect individual posteriors — all
-without re-running the sampler.
-
-For convenience, `completeness_map()` runs all three phases locally.
-
-NOTE: For efficiency, each trial initializes the sampler at the true injected
-parameters rather than running full blind initialization. This dramatically
-reduces sampling cost but means the completeness estimate is optimistic about
-convergence. The results reflect the *statistical* detectability of a signal,
-not the ability to blindly discover it.
-=#
+# ---------------------------------------------------
+# Detection-completeness / sensitivity maps
+#
+# Injection-recovery on a grid, in three phases so the expensive middle one
+# can be a cluster array job:
+#
+#   Phase 1: `completeness_jobs()`       — lightweight job descriptions
+#   Phase 2: `run_completeness_trial()`  — inject, simulate, sample
+#   Phase 3: `assemble_completeness()`   — apply a detection criterion
+#
+# Detection is *purely* phase 3. Each trial keeps the whole posterior chain and
+# the true injected parameters, so a threshold can be changed without
+# re-running the sampler. `completeness_map()` runs all three locally.
+#
+# NOTE: each trial initializes the sampler at the true injected parameters
+# rather than running blind initialization. That cuts the cost enormously but
+# makes the estimate optimistic about convergence: it measures the
+# *statistical* detectability of a signal, not the ability to discover it
+# blind.
+# ---------------------------------------------------
 
 # ──────────────────────────────────────────────────────────────────────
 # Data structures
@@ -38,8 +34,8 @@ to reproduce the trial deterministically.
 - `i_mass::Int` — index into the mass grid
 - `i_sep::Int` — index into the separation grid
 - `i_trial::Int` — trial number within this grid cell
-- `mass::Float64` — companion mass [Mjup]
-- `separation::Float64` — semi-major axis [AU] (or period, depending on usage)
+- `mass::Float64` — companion mass [M⊙]
+- `separation::Float64` — semi-major axis in AU (or period, depending on usage)
 - `seed::UInt64` — RNG seed for reproducibility
 """
 struct CompletenessJob
@@ -77,7 +73,8 @@ export CompletenessResult
 Assembled completeness results on a 2D grid of mass × separation.
 
 # Fields
-- `masses::Vector{Float64}` — mass grid values [Mjup]
+- `masses::Vector{Float64}` — mass grid values in M⊙ (v9 has one mass unit;
+  write `5mjup` for a Jupiter-mass grid point)
 - `separations::Vector{Float64}` — separation grid values [AU]
 - `completeness::Matrix{Float64}` — fraction of trials detected (mass × sep)
 - `n_detected::Matrix{Int}` — number of detections per cell
@@ -106,7 +103,7 @@ Each job specifies a (mass, separation) grid point and a trial index. Jobs are
 independent and can be dispatched to separate processes or cluster nodes.
 
 # Arguments
-- `masses` — iterable of companion masses [Mjup]
+- `masses` — iterable of companion masses in M⊙ (v9 has one mass unit; write `5mjup` for a Jupiter-mass grid point)
 - `separations` — iterable of semi-major axes [AU]
 - `n_trials::Int=5` — number of independent trials per grid cell
 
@@ -161,14 +158,14 @@ iterated on after the fact.
 
 # Arguments
 - `job::CompletenessJob` — job description (grid point + seed)
-- `system::System` — template system with priors, observations, and planets
+- `system::System` — template system with priors, observations, and bodies
 - `sampler` — callable `(model) -> chain`; e.g. `m -> octofit(m, iterations=5000)`
 
 # Keyword Arguments
 - `inject` — callable `(mass, separation) -> NamedTuple`; maps grid values to
   parameter overrides applied to the drawn prior sample. Must return overrides
   for *free* (prior) parameters only, not derived parameters.
-  Example: `(m, s) -> (; planets=(; b=(; mass=m, a=s)))`
+  Example: `(m, s) -> (; bodies=(; b=(; mass=m, a=s)))`
 - `add_noise::Bool=true` — whether to add measurement noise to simulated data
 - `verbosity::Int=0` — logging verbosity (0=silent, 1=info, 2=debug)
 
@@ -178,9 +175,10 @@ iterated on after the fact.
 # Details
 1. Draws parameters from `system`'s priors using a seeded RNG
 2. Overrides parameters using `inject(job.mass, job.separation)`
-3. Simulates observations via `generate_from_params`
+3. Simulates observations via [`generate_from_params`](@ref)
 4. Builds a `LogDensityModel` from the simulated system
-5. **Initializes the sampler at the true parameters** (see module note)
+5. **Initializes the sampler at the true parameters** (see the note at the top
+   of this file)
 6. Calls `sampler(model)` to obtain a posterior chain
 7. Returns the chain and true parameters for later analysis
 
@@ -188,7 +186,7 @@ iterated on after the fact.
 ```julia
 result = run_completeness_trial(job, system,
     model -> octofit(model, iterations=5000, verbosity=0);
-    inject = (mass, sep) -> (; planets=(; b=(; mass=mass, a=sep))),
+    inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep))),
 )
 
 # Inspect the posterior chain
@@ -204,31 +202,32 @@ function run_completeness_trial(
     add_noise::Bool=true,
     verbosity::Int=0,
 )
-    rng = Xoshiro(job.seed)
+    rng = Random.Xoshiro(job.seed)
 
     # 1. Draw parameters from priors
     θ_flat = sample_priors(rng, system)
-    arr2nt = make_arr2nt(system)
-    θ_nt = arr2nt(θ_flat)
 
-    # 2. Apply parameter overrides from inject function
-    overrides = inject(job.mass, job.separation)
-    θ_flat = _apply_overrides!(θ_flat, arr2nt, overrides)
-    θ_nt = arr2nt(θ_flat)
+    # 2. Apply parameter overrides from the inject function
+    θ_flat = _apply_overrides!(θ_flat, system, inject(job.mass, job.separation))
+    θ_nt = make_arr2nt(system)(θ_flat)
 
     verbosity >= 2 && @info "Trial $(job.i_trial) at mass=$(job.mass), sep=$(job.separation)" θ_nt
 
-    # 3. Simulate observations from true parameters
-    sim_system = generate_from_params(system, θ_nt; add_noise)
+    # 3. Simulate observations from the true parameters. Seeded separately from
+    #    the parameter draw (see `_with_seed`) so that re-running one array task
+    #    reproduces its data as well as its truth.
+    sim_system = _with_seed(hash((job.seed, :noise))) do
+        generate_from_params(system, θ_nt; add_noise)
+    end
 
-    # 4. Build model from simulated system
+    # 4. Build a model from the simulated system
     model = LogDensityModel(sim_system; verbosity=0)
 
-    # 5. Initialize at true parameters (the "cheat" for efficiency)
+    # 5. Initialize at the true parameters (the "cheat" for efficiency)
     _initialize_at_truth!(model, θ_flat)
 
-    # 6. Run sampler
-    verbosity >= 1 && @info "Sampling trial $(job.i_trial) at mass=$(round(job.mass, sigdigits=3)) Mjup, sep=$(round(job.separation, sigdigits=3)) AU"
+    # 6. Run the sampler
+    verbosity >= 1 && @info "Sampling trial $(job.i_trial) at mass=$(round(job.mass, sigdigits=3)) M⊙, sep=$(round(job.separation, sigdigits=3)) AU"
     chain = sampler(model)
 
     verbosity >= 1 && @info "Trial $(job.i_trial) complete"
@@ -334,7 +333,7 @@ For cluster-scale work, use the three-phase API directly.
 
 # Keyword Arguments
 - `inject` — callable `(mass, separation) -> NamedTuple` of parameter overrides
-- `masses` — grid of companion masses [Mjup]
+- `masses` — grid of companion masses [M⊙]
 - `separations` — grid of semi-major axes [AU]
 - `n_trials::Int=5` — trials per grid cell
 - `add_noise::Bool=true` — add measurement noise to simulated data
@@ -353,7 +352,7 @@ cmap, results = completeness_map(
     sys,
     model -> octofit(model, iterations=5000, verbosity=0),
     (chain, θ) -> quantile(vec(chain["b_mass"]), 0.05) > 0.1;
-    inject = (mass, sep) -> (; planets=(; b=(; mass=mass, a=sep))),
+    inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep))),
     masses = 10 .^ range(-1, 2, length=12),
     separations = 10 .^ range(-0.3, 1.7, length=12),
     n_trials = 5,
@@ -415,52 +414,158 @@ export completeness_map
 # ──────────────────────────────────────────────────────────────────────
 
 """
-Apply parameter overrides from a nested NamedTuple to a flat parameter vector.
-Uses sentinel-value matching to find parameter indices (same approach as
-`extract_fixed_params` in initialization.jl).
-"""
-function _apply_overrides!(θ_flat, arr2nt, overrides::NamedTuple)
-    θ_nt = arr2nt(θ_flat)
-    _apply_overrides_recursive!(θ_flat, θ_nt, overrides, "")
-    return θ_flat
-end
-_apply_overrides!(θ_flat, arr2nt, ::Nothing) = θ_flat
-_apply_overrides!(θ_flat, arr2nt, overrides::Tuple{}) = θ_flat
+    _prior_slots(system) -> Vector{(group, owner, key, range)}
 
-function _apply_overrides_recursive!(θ_flat, full_nt, partial_nt::NamedTuple, path)
-    for name in propertynames(partial_nt)
-        val = getproperty(partial_nt, name)
-        if !hasproperty(full_nt, name)
-            error("Cannot override parameter '$(path).$(name)': not found in model. " *
-                  "Only free (prior) parameters can be overridden, not derived parameters.")
-        end
-        full_val = getproperty(full_nt, name)
-        if val isa NamedTuple
-            _apply_overrides_recursive!(θ_flat, full_val, val, "$(path).$(name)")
-        else
-            # Find index in flat array via sentinel matching
-            sentinel = full_val
-            idx = findfirst(==(sentinel), θ_flat)
-            if isnothing(idx)
-                error("Cannot override parameter '$(path).$(name)': could not locate in " *
-                      "flat parameter vector. This parameter may be derived (not a free prior variable).")
-            end
-            θ_flat[idx] = Float64(val)
+Where every free variable lives in the flat parameter vector, in the order
+`make_arr2nt` consumes it: system priors, then each node's, then each
+observation's. `group` is `:system`, `:bodies` or `:observations`; `range`
+spans one index for a scalar prior and several for a vector-valued one.
+
+v8 located an override's index by *sentinel matching* — searching the flat
+vector for a value equal to the one the nested NamedTuple showed. That is
+wrong whenever two parameters happen to draw the same number (constants,
+discrete variables, a Dirac prior), and it cannot address one element of a
+vector-valued prior at all. The layout is known exactly, so look it up.
+"""
+function _prior_slots(sys::System)
+    out = Tuple{Symbol,Symbol,Symbol,UnitRange{Int}}[]
+    i = 0
+    for (k, d) in sys.priors.priors
+        n = length(d)
+        push!(out, (:system, :system, k, (i+1):(i+n)))
+        i += n
+    end
+    for node in sys.nodes, (k, d) in node.priors.priors
+        n = length(d)
+        push!(out, (:bodies, node.name, k, (i+1):(i+n)))
+        i += n
+    end
+    for o in sys.observations
+        hasproperty(o, :priors) || continue
+        nm = normalizename(likelihoodname(o))
+        for (k, d) in o.priors.priors
+            n = length(d)
+            push!(out, (:observations, nm, k, (i+1):(i+n)))
+            i += n
         end
     end
+    return out
 end
 
 """
-Initialize a model's starting points at the true (injected) parameter values.
-This is the "cheat" that avoids expensive blind initialization for completeness trials.
+    _apply_overrides!(θ_flat, system, overrides::NamedTuple)
+
+Write the values in a nested override NamedTuple into the flat parameter
+vector. The nesting matches the model's own parameter structure: system
+variables at the top level, node variables under `bodies`, observation
+variables under `observations`.
+
+Only *free* (prior) variables can be overridden — a derived variable is a
+function of them and setting it would be silently discarded, so it is an
+error instead.
 """
-function _initialize_at_truth!(model::LogDensityModel, θ_flat)
-    θ_transformed = model.link(θ_flat)
-    # Verify the true parameters have finite posterior density
+function _apply_overrides!(θ_flat, sys::System, overrides::NamedTuple)
+    if hasproperty(overrides, :planets)
+        error("""
+        Parameter overrides are nested under `bodies`, not `planets`, in v9:
+
+            inject = (mass, sep) -> (; bodies=(; b=(; mass=mass, a=sep)))
+
+        (`planets` became `bodies` when observations stopped living under a
+        companion; the host star is a body like any other.)
+        """)
+    end
+    slots = _prior_slots(sys)
+    for name in propertynames(overrides)
+        val = getproperty(overrides, name)
+        if name === :bodies || name === :observations
+            for owner in propertynames(val)
+                sub = getproperty(val, owner)
+                for key in propertynames(sub)
+                    _set_slot!(θ_flat, slots, sys, name, owner, key, getproperty(sub, key))
+                end
+            end
+        else
+            _set_slot!(θ_flat, slots, sys, :system, :system, name, val)
+        end
+    end
+    return θ_flat
+end
+_apply_overrides!(θ_flat, ::System, ::Nothing) = θ_flat
+_apply_overrides!(θ_flat, ::System, ::Tuple{}) = θ_flat
+
+function _set_slot!(θ_flat, slots, sys::System, group::Symbol, owner::Symbol, key::Symbol, val)
+    idx = findfirst(s -> s[1] === group && s[2] === owner && s[3] === key, slots)
+    if isnothing(idx)
+        path = group === :system ? string(key) : "$group.$owner.$key"
+        error("""
+        Cannot override parameter `$path`: it is not a free (prior) variable of this model.
+
+        Only variables declared with `~` can be overridden. Derived variables (declared
+        with `=`) are computed from them, so setting one would have no effect. The model's
+        free variables are:
+        $(join(("  " * (s[1] === :system ? string(s[3]) : "$(s[1]).$(s[2]).$(s[3])") for s in slots), '\n'))
+        """)
+    end
+    rng = slots[idx][4]
+    if length(rng) == 1
+        θ_flat[first(rng)] = _coerce(θ_flat[first(rng)], val)
+    else
+        length(val) == length(rng) || error(
+            "Override for `$owner.$key` has $(length(val)) elements, but that variable has " *
+            "$(length(rng)).")
+        for (j, i) in enumerate(rng)
+            θ_flat[i] = _coerce(θ_flat[i], val[j])
+        end
+    end
+    return θ_flat
+end
+
+# Keep the element type a prior draw produced: a discrete variable stays
+# discrete, so `model.link` still sees the type its Bijector expects.
+_coerce(old::Bool, v) = !iszero(v)
+_coerce(old, v) = convert(typeof(old), v)
+
+"""
+    _initialize_at_truth!(model, θ_flat; ndraws=8)
+
+Point the sampler's starting points at the true (injected) parameter values.
+This is the shortcut that lets a completeness grid skip blind initialization;
+see the note at the top of this file for what it costs.
+"""
+function _initialize_at_truth!(model::LogDensityModel, θ_flat; ndraws::Int=8)
+    # Preserve the element types of a prior draw, so a discrete variable is
+    # not promoted to Float64 — the same invariant `startingpoints!` keeps.
+    s = model.sample_priors(Random.default_rng())
+    θ_transformed = convert.(typeof.(s), model.link(θ_flat))
     lp = model.ℓπcallback(θ_transformed)
     if !isfinite(lp)
         @warn "True parameters have non-finite log-posterior ($lp); initialization may fail"
     end
-    model.starting_points = fill(θ_transformed, 8)
+    model.starting_points = fill(θ_transformed, ndraws)
     return nothing
 end
+
+# ──────────────────────────────────────────────────────────────────────
+# Makie-extension stubs (methods added by OctofitterMakieExt)
+# ──────────────────────────────────────────────────────────────────────
+
+"""
+    completenessplot(cmap::CompletenessMap; kwargs...)
+
+Heatmap of a completeness map over mass and separation. Requires a Makie
+backend to be loaded (e.g. `using CairoMakie`).
+"""
+function completenessplot end
+completenessplot(args...; kwargs...) = _require_makie("completenessplot")
+export completenessplot
+
+"""
+    completenessplot!(gridposition, cmap::CompletenessMap; kwargs...)
+
+Draw a completeness heatmap into an existing figure layout. Requires Makie.
+See [`completenessplot`](@ref).
+"""
+function completenessplot! end
+completenessplot!(args...; kwargs...) = _require_makie("completenessplot!")
+export completenessplot!
