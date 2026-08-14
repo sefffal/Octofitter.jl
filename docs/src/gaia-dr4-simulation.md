@@ -129,8 +129,10 @@ N_epochs = size(gost,1)
 df = DataFrame(
     # Epoch of measurements in MJD
     epoch = jd2mjd.(gost.ObservationTimeAtBarycentre_BarycentricJulianDateInTCB_),
-    # Scan angle in radians
-    scan_pos_angle = gost.scanAngle_rad_,
+    # Scan angle in DEGREES. GOST reports radians (`scanAngle_rad_`), while
+    # `GaiaDR4AstromObs` ingests degrees — the unit the Gaia archive publishes
+    # the DR4 scan angle in — and converts to radians internally.
+    scan_pos_angle = rad2deg.(gost.scanAngle_rad_),
     # In theory you could just populate this vector with whatever measurements you want,
     # BUT we can also leave it blank, and leverage Octofitter's built in data simulation 
     # capabilities below...
@@ -153,10 +155,11 @@ df = [df earth_pos_vel]
 # Δα* = plx * (x*sin(α) - y*cos(α))
 # Δδ  = plx * (x*cos(α)*sin(δ) + y*sin(α)*sin(δ) - z*cos(δ))
 
-# Then project onto the scan direction using the scan angle
+# Then project onto the scan direction using the scan angle. `scan_pos_angle`
+# is in degrees (see above), so this uses `sind`/`cosd` like the α/δ terms.
 df.parallax_factor_al = @. (
-    (df.x * sind(dr3.ra) - df.y * cosd(dr3.ra)) * cos(df.scan_pos_angle) +
-    (df.x * cosd(dr3.ra) * sind(dr3.dec) + df.y * sind(dr3.ra) * sind(dr3.dec) - df.z * cosd(dr3.dec)) * sin(df.scan_pos_angle)
+    (df.x * sind(dr3.ra) - df.y * cosd(dr3.ra)) * cosd(df.scan_pos_angle) +
+    (df.x * cosd(dr3.ra) * sind(dr3.dec) + df.y * sind(dr3.ra) * sind(dr3.dec) - df.z * cosd(dr3.dec)) * sind(df.scan_pos_angle)
 )
 
 # now construct the observation template

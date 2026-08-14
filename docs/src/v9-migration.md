@@ -595,6 +595,17 @@ now covers RV data, not just astrometry.
   catalog row. Read it with [`gaia_dr3_solution`](@ref)`(; gaia_id)`, which is
   the same query [`gaia_plx`](@ref) uses and caches to
   `_gaia_dr3_final/source-<id>.csv`.
+* **`GaiaDR4AstromObs` ingests `scan_pos_angle` in degrees, not radians.** The
+  Gaia archive publishes the DR4 scan angle in degrees (the VOTABLE declares
+  `unit="deg"`), so a table read straight out of the archive now needs no unit
+  conversion; the conversion to radians happens once, internally, at
+  construction. **Delete the `deg2rad.` you applied in v8** — nothing errors if
+  you leave it in, you just get a wrong posterior from scan angles compressed
+  into a ±3.14° wedge. `scan_pos_angle` is the only column whose unit changed:
+  epochs are still MJD, `centroid_pos_al` and `centroid_pos_error_al` still mas,
+  `parallax_factor_al` still dimensionless. `obs.table.scan_pos_angle` keeps
+  your degrees verbatim; the radian sin/cos the likelihood projects with are
+  precomputed as `obs.sinψ`/`obs.cosψ`.
 * **`generate_from_params(::RelAstromObs, …)` now carries the `:cor` column
   through and draws correlated noise.** v8 (and the first v9 port) dropped the
   column and drew independent `randn()` per component, so a replicate of
