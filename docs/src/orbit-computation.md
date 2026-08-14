@@ -105,6 +105,16 @@ than the half-plane, which removes the ω degeneracy as e → 0. `θ` is the
 planet's sky-plane position angle at `epoch` and is usually far better
 constrained by imaging than `tp`.
 
+`θ` is a sampling convenience: it is converted to `tp` in closed form, by
+deprojecting the direction (cos θ, sin θ) through the orientation angles alone.
+That conversion is purely geometric, so with the observing-geometry and
+light-time corrections on — the default — a sampled `θ` is not exactly the
+position angle an observer measures at `epoch`; the difference is of order
+4 × 10⁻⁴ rad for a source at 50 mas parallax. It is a reparametrization of the
+phase, not a prediction, and the likelihood still compares your measured
+position angles against the fully corrected model — so this affects how a `θ`
+posterior should be read, not what the fit is fitted to.
+
 ### Orbitize!'s `tau`, written out
 
 There is no `τ` element, because a bare `τ` carries hidden period and

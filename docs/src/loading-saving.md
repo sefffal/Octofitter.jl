@@ -75,7 +75,9 @@ Note the **three** positional arguments to `savehdf5`: it needs the model in ord
     orbitize!'s standard basis stores the phase as `tau`, a fraction of a period past a
     reference epoch, which is derived from the epoch of periastron. A chain that samples
     `tp` supplies that directly. A model parametrized on `θ` + `epoch` (position angle at a
-    reference epoch) has no `tp` column, but it does not need one: `tp` is determined by the
+    reference epoch — a sampling convenience mapped to `tp` geometrically, see
+    [Choosing a parameterization](@ref parameterization)) has no `tp` column, but it does
+    not need one: `tp` is determined by the
     elements, so it is recovered by rebuilding each draw's orbit — at the cost of one system
     build per draw. The recovered value is the periastron passage within half a period of
     the model's reference `epoch`; which passage that is makes no difference to the file,
