@@ -20,7 +20,7 @@
 # No angle unit conversion is applied: every angle in this file is in degrees.
 # Rows where any required quantity was masked in the VOTABLE were dropped (73 of 1150).
 #
-# 1077 CCD observations over 115 transits; 824 flagged used_by_agis_al.
+# 1077 CCD observations over 109 transits; 824 flagged used_by_agis_al.
 # Reference point for centroid_pos_al: ra0 = 209.506326888 deg, dec0 = 31.695499700 deg.
 # Gaia DR3 G = 11.91.
 #
