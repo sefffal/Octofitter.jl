@@ -32,7 +32,9 @@ function _jac_state(p, Mtot)
     B = PlanetOrbits.Body(mass=Mtot - mA, name=:B)
     o = PlanetOrbits.Orbit(B, about=A; a, e, i, ω, Ω, M0, epoch=JAC_EPOCH)
     sys = PlanetOrbits.System((A, B), (o,))
-    traj = Trajectory(sys, [JAC_EPOCH])
+    # Qualified: `Trajectory` is ambiguous in `Main` once AdvancedHMC is
+    # loaded, and it exports one of its own.
+    traj = PlanetOrbits.Trajectory(sys, [JAC_EPOCH])
     PlanetOrbits.frame_pass!(traj, sys.frame)
     PlanetOrbits.propagate!(traj, sys, KeplerianApprox())
     sol = traj[1]

@@ -30,22 +30,29 @@
 # written by hand.
 # ---------------------------------------------------
 
-# One-epoch solve of the interim system into the caller's arena. Not
+# Solve the interim system at a handful of epochs into the caller's arena. Not
 # `PlanetOrbits.orbitsolve(sys, t)`, which heap-allocates a whole `Trajectory`
 # — this runs once per sample inside `arr2nt`, on the sampler's hot path.
-@inline function _interim_solve(f::F, posys::PlanetOrbits.System{NB,NR,T}, epoch;
+#
+# `f` receives the whole `Trajectory`, so a secant window can read all three of
+# its epochs from one solve.
+@inline function _interim_solve(f::F, posys::PlanetOrbits.System{NB,NR,T},
+                                epochs::SVector{N};
                                 method, observing_geometry,
-                                barycentric_lighttime) where {F,NB,NR,T}
+                                barycentric_lighttime) where {F,N,NB,NR,T}
     buf = Bumper.default_buffer()
-    S = promote_type(T, typeof(epoch))
+    S = promote_type(T, eltype(epochs))
     @no_escape buf begin
-        traj = PlanetOrbits.Trajectory(BumpAlloc(buf), S, posys, SVector(epoch))
+        traj = PlanetOrbits.Trajectory(BumpAlloc(buf), S, posys, epochs)
         PlanetOrbits.orbitsolve!(traj, posys;
             method, observing_geometry, barycentric_lighttime)
         # `f` must return only scalars: everything the arena holds dies here.
-        f(traj[1])
+        f(traj)
     end
 end
+
+@inline _interim_solve(f::F, posys::PlanetOrbits.System, epoch::Real; kwargs...) where {F} =
+    _interim_solve(traj -> f(traj[1]), posys, SVector(float(epoch)); kwargs...)
 
 """
     anchor_offsets(system_interim, anchor, epoch)
@@ -96,14 +103,44 @@ nobody has to re-derive them:
     solution reports, having already removed the annual parallax, so this is
     the right quantity rather than an approximation to one.
 
+# `window`
+
+`window=(t1, t2)` [MJD] replaces the *instantaneous* reflex in `ra_cosdec`,
+`dec`, `pmra` and `pmdec` with the **secant** through the reflex offset at `t1`
+and `t2`, evaluated at `epoch`. `rv` and `dz` are unaffected: they are not part
+of the degeneracy the window exists to break, and their instantaneous values at
+`epoch` are what a catalogue solution means.
+
+The reason to want it is what the subtraction is *for*. The quantity the data's
+linear terms absorb — and therefore the thing that has to come out to
+decorrelate the sampler — is the average drift across the observing window, not
+the derivative at one instant. The two agree at long period. At short period
+they could hardly differ more: a 10 M_jup companion at P = 10 d has α ≈ 2 mas
+and an instantaneous reflex proper motion of ~475 mas/yr, so subtracting the
+instantaneous value pushes the anchored `pmra_A` far outside any sane prior box
+and clips the short-period, high-mass region the data actually allow. The
+secant → 0 there, exactly as the data's sensitivity to the wiggle-as-a-drift
+does.
+
+Choose `t1`, `t2` to bracket every dataset in the model. There is no default,
+deliberately: the right window is a statement about which observations the
+shear is meant to decorrelate, and a guessed one would be silently wrong.
+
+The map stays triangular with unit diagonal — the secant is still built from
+the body variables and the anchored parallax alone — so the Jacobian argument
+in [`AnchoredFrame`](@ref) is unchanged.
+
 See also [`AnchoredFrame`](@ref), `PlanetOrbits.reframe`.
 """
 function anchor_offsets(posys::PlanetOrbits.System, anchor, epoch;
+                        window=nothing,
                         method=PlanetOrbits.KeplerianApprox(),
                         observing_geometry::Bool=true,
                         barycentric_lighttime::Bool=true)
     a = _anchorname(anchor)
     ref = PlanetOrbits.barycentre(posys)
+    isnothing(window) || return _anchor_offsets_secant(posys, a, ref, epoch, window;
+        method, observing_geometry, barycentric_lighttime)
     return _interim_solve(posys, epoch; method, observing_geometry,
                           barycentric_lighttime) do sol
         (; ra_cosdec=PlanetOrbits.raoff(sol, a, ref),
@@ -113,6 +150,47 @@ function anchor_offsets(posys::PlanetOrbits.System, anchor, epoch;
            rv=PlanetOrbits.radvel(sol, a, ref),
            dz=PlanetOrbits.posz(sol, a, ref))
     end
+end
+
+# The secant form. One solve at (t1, epoch, t2): the window ends give the slope,
+# the middle epoch gives `rv`/`dz`, and the offsets are read off the secant LINE
+# at `epoch` rather than the curve — a line has one slope everywhere, so taking
+# the offset from the curve and the rate from the chord would describe no single
+# straight motion, and the shear would stop being a pure shear.
+@inline function _anchor_offsets_secant(posys, a::Symbol, ref, epoch, window;
+                                        method, observing_geometry,
+                                        barycentric_lighttime)
+    t1, t2 = _check_window(window)
+    Δt_yr = (t2 - t1) / julian_year
+    return _interim_solve(posys, SVector(float(t1), float(epoch), float(t2));
+                          method, observing_geometry,
+                          barycentric_lighttime) do traj
+        s1, s0, s2 = traj[1], traj[2], traj[3]
+        r1 = PlanetOrbits.raoff(s1, a, ref)
+        d1 = PlanetOrbits.decoff(s1, a, ref)
+        μα = (PlanetOrbits.raoff(s2, a, ref) - r1) / Δt_yr
+        μδ = (PlanetOrbits.decoff(s2, a, ref) - d1) / Δt_yr
+        τ = (epoch - t1) / julian_year
+        (; ra_cosdec=r1 + μα * τ,
+           dec=d1 + μδ * τ,
+           pmra=μα,
+           pmdec=μδ,
+           rv=PlanetOrbits.radvel(s0, a, ref),
+           dz=PlanetOrbits.posz(s0, a, ref))
+    end
+end
+
+function _check_window(window)
+    length(window) == 2 || error(
+        "the anchored frame's `window` is the two epochs [MJD] the secant is " *
+        "taken through, as `(t1, t2)`; got $(length(window)) value(s).")
+    t1, t2 = window
+    (isfinite(t1) && isfinite(t2)) || error(
+        "the anchored frame's `window` epochs must be finite; got ($t1, $t2).")
+    t2 > t1 || error(
+        "the anchored frame's `window` must satisfy t2 > t1; got ($t1, $t2). " *
+        "It is a time span in MJD, and its width divides the secant.")
+    return (t1, t2)
 end
 
 """
@@ -170,13 +248,14 @@ Jacobian".
 function anchored_frame(posys::PlanetOrbits.System, anchor, ref_epoch,
                         correct::NTuple{6,Bool}=ntuple(_ -> true, 6);
                         ra, dec, plx, pmra, pmdec, rv, refine::Bool=true,
+                        window=nothing,
                         method=PlanetOrbits.KeplerianApprox(),
                         observing_geometry::Bool=true,
                         barycentric_lighttime::Bool=true)
     a = _anchorname(anchor)
     cat = (; ra, dec, plx, pmra, pmdec, rv)
     solve = (p) -> _anchor_map(p, a, float(ref_epoch), correct, cat;
-        method, observing_geometry, barycentric_lighttime)
+        window, method, observing_geometry, barycentric_lighttime)
     f1 = solve(posys)
     refine || return f1
     f2 = PlanetOrbits.reframe(posys; f1.ra, f1.dec, f1.plx, f1.pmra, f1.pmdec, f1.rv,
@@ -229,7 +308,7 @@ at 13 pc, which is where it starts to matter.
 export anchor_offsets, anchored_frame, barycentre_parallax
 
 """
-    AnchoredFrame(anchor; ref_epoch, variables, ra=true, dec=true, plx=true, pmra=true, pmdec=true, rv=true)
+    AnchoredFrame(anchor; ref_epoch, variables, window=nothing, ra=true, dec=true, plx=true, pmra=true, pmdec=true, rv=true)
 
 A `variables=` block for [`System`](@ref) in which the absolute frame is
 parameterized by an **anchor source's observed catalogue solution** rather than
@@ -270,6 +349,15 @@ that epoch. Anchoring to *several* catalogue epochs is not a thing —
 one frame has one reference epoch, and a source's motion between catalogue
 epochs is what the observations are for.
 
+`window=(t1, t2)` [MJD] switches the position and proper-motion corrections
+from the anchor's *instantaneous* reflex at `ref_epoch` to the **secant**
+through its reflex offset at `t1` and `t2`. Bracket every dataset in the model.
+Prefer it whenever the prior admits periods shorter than the observing
+baseline: the instantaneous reflex proper motion diverges as 2πα/P while the
+data's sensitivity to a reflex-as-drift does not, so subtracting it clips the
+short-period, high-mass corner against the anchored prior box. See
+[`anchor_offsets`](@ref) for the full argument and the sizes.
+
 # What this expands to
 
 Ordinary system lines. Nothing here is privileged, `Base.show` on the system
@@ -281,6 +369,7 @@ them out rather than reach for another keyword:
                      (true, true, true, true, true, true);
                      ra=ra_A, dec=dec_A, plx=plx_A,
                      pmra=pmra_A, pmdec=pmdec_A, rv=rv_A)
+                     # ... plus `window=(t1, t2)` when one is given
     ra    = _frame.ra
     dec   = _frame.dec
     plx   = _frame.plx
@@ -350,7 +439,7 @@ function AnchoredFrame(anchor;
                        ref_epoch,
                        variables::Tuple=(Priors(), Derived()),
                        ra=true, dec=true, plx=true, pmra=true, pmdec=true, rv=true,
-                       refine::Bool=true)
+                       refine::Bool=true, window=nothing)
     a = _anchorname(anchor)
     (priors, derived, extra...) = variables
     priors::Priors
@@ -410,6 +499,10 @@ function AnchoredFrame(anchor;
     inputs = Expr(:parameters,
         (Expr(:kw, q, something(anchored[q], q)) for q in QS)...)
     push!(inputs.args, Expr(:kw, :refine, refine))
+    # Validate here, at model-build time, rather than letting a bad window
+    # surface from inside `arr2nt` on the sampler's first draw.
+    isnothing(window) ||
+        push!(inputs.args, Expr(:kw, :window, map(float, Tuple(_check_window(window)))))
     push!(out, :_frame => Expr(:call, :anchored_frame, inputs,
         INTERIM_SYSTEM_VAR, QuoteNode(a), float(ref_epoch), correct))
     for q in QS

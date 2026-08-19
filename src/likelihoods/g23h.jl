@@ -906,6 +906,20 @@ unaffected by this.
 # two on the Hipparcos epoch is because `nonlinear_dpm*` is defined to the HG
 # epoch.
 #
+# Catalog provenance, so nobody "fixes" this layer: the G23H catalog's DR2,
+# DR32 and DR3 columns carry NO baked-in perspective correction, while the
+# `_hip` and `_hg` columns come verbatim from HGCA v2, which DOES apply one —
+# and records how much in `nonlinear_dpmra`/`nonlinear_dpmdec`. Applying
+# these offsets undoes HGCA's correction, so all five channels flow through
+# the same uncorrected code path (the model propagates perspective itself).
+# This is NOT a double count, and the signs are right — verified numerically
+# at Barnard's star (audit 2026-08-14, FINDINGS.md layer 2): the model spread
+# (μ_h − μ_dr3) = (+2.529, −32.058) mas/yr plus the applied 2·dpm =
+# (−2.531, +32.079) cancels to 0.02 mas/yr, and the HG version to 5e-4.
+# Removing or re-signing this layer breaks that cancellation by ~32 mas/yr.
+# Side effect worth knowing: through this term the channel data pin the
+# system rv at ~0.29 mas/yr per km/s in pmdec.
+#
 # The `isfinite` test is the point of the helper (§11). The guard used to be
 # `absolute && !isnothing(dist_hip)`, and the two catalogue rows anyone had
 # checked happened to have finite `nonlinear_dpm*` exactly where they had
@@ -2024,6 +2038,73 @@ function simulate(obs::G23HObs, ctx::ObsContext)
             Δα_mas_hip=bufs.Δα_hip, Δδ_mas_hip=bufs.Δδ_hip))
     end
     return out
+end
+
+# ──────────────────────────────────────────────────────────────────────
+# Correction flags
+# ──────────────────────────────────────────────────────────────────────
+
+# G23HObs deliberately does NOT declare `reduced_lighttime_free`, though its
+# channels are built from catalog quantities that were reduced light-time-free.
+#
+# The trait says "this observation IS a reduction in that convention, so
+# propagate it in that convention". That reading is right for a single
+# reduction window: within one, the light-time-free model is the
+# parameterization the solution was expressed in. It is the wrong reading for
+# G23H's dominant channels, which are INTER-window — the Hipparcos–Gaia
+# position difference and DR3−DR2 connect two solutions decades apart, and no
+# reduction convention governs the path between them. Hipparcos reports the
+# apparent direction at J1991.25 and Gaia at J2016.0; both are statements about
+# the real apparent path, locally linearized. Connecting them is a propagation
+# question, and the rigorous apparent path is the right answer to it.
+#
+# The pin was added (2026-08-14) when it WAS load-bearing: PlanetOrbits then
+# double-counted the catalog Doppler factor, so `barycentric_lighttime=true`
+# contradicted the data by μ·|v_r|/c = 3.8 mas/yr at Barnard and manufactured a
+# 0.74 M_jup companion against a true ~0.13. That bug is fixed — `_dedoppler`
+# now propagates the true worldline and reads out apparent quantities — so the
+# flag no longer separates "true vs apparent" but "rigorous apparent vs the
+# catalogs' linear-in-3D approximation to it". Both are self-consistent, the
+# difference is a genuine second-order term, and `:auto` can therefore measure
+# it like any other correction rather than being told the answer.
+#
+# Measured, for scale: on Barnard's FGS product the two settings differ by
+# 0.082 mas in predicted position over a 23-year lever arm (the FGS reference
+# track is the pipeline's light-time-free propagation, so it isolates exactly
+# this term). That is ~8% of the FGS−Gaia proper-motion-anomaly σ — small, but
+# a systematic, and worth measuring rather than assuming.
+#
+# `reduced_lighttime_free` itself stays. It is still the right declaration for
+# an observation that is purely a single reduction; see its docstring.
+
+# What a correction does to this observation: the five proper-motion channel
+# pairs of the coupled catalog block, judged against the tightest catalog σ
+# among the channels present. UEVA and the RV-variance channel are deliberately
+# excluded — different units, and both derive from the same per-transit
+# Δα/Δδ the PM channels already probe.
+has_correction_impact(::Type{<:G23HObs}) = true
+function correction_impact(obs::G23HObs, a::ObsContext, b::ObsContext)
+    cat = obs.catalog
+    kinds = obs.table.kind
+    μa = simulate(obs, a).μ
+    μb = simulate(obs, b).μ
+    m = 0.0
+    n = 0
+    σs = Float64[]
+    for (bi, blk) in enumerate(_g23h_blocks)
+        blk.name === :ueva && continue
+        all(k -> k ∈ kinds, blk.kinds) || continue
+        off = _g23h_block_offset[bi]
+        for j in 1:2
+            d = abs(float(μa[off+j] - μb[off+j]))
+            isfinite(d) || return (; delta=NaN, sigma=_tightest(σs), n=0)
+            m = max(m, d)
+            n += 1
+        end
+        push!(σs, float(getproperty(cat, Symbol(:pmra_, blk.name, :_error))),
+              float(getproperty(cat, Symbol(:pmdec_, blk.name, :_error))))
+    end
+    return (; delta=m, sigma=_tightest(σs), n)
 end
 
 # ──────────────────────────────────────────────────────────────────────

@@ -189,6 +189,56 @@ correction_impact(::AbstractObs, ::ObsContext, ::ObsContext) =
     (; delta=NaN, sigma=NaN, n=0)
 
 """
+    reduced_lighttime_free(::Type{<:AbstractObs}) -> Bool
+
+Declare that this observation's data are *catalog* quantities, reduced with
+the light-time-free standard astrometric model (uniform space motion with
+light-time effects ignored: ESA 1997 Sect. 1.5.5 for Hipparcos; Lindegren et
+al. 2012/2021 for Gaia — whose proper motions are therefore *apparent*
+quantities, d/dt_obs).
+
+Butkevich & Lindegren (2014, Sects. 5.5, 6.1): data reduced with the
+light-time-free model must be propagated with the same model. When any data
+observation declares this, `barycentric_lighttime=:auto` resolves **off** by
+convention rather than by measurement.
+
+# What this is, and is not, for
+
+Declare it for an observation that **is one reduction, expressed in that
+reduction's own parameterization** — the light-time-free model is then the
+coordinate system the numbers live in, and propagating them any other way
+reads them wrong.
+
+Do **not** declare it merely because the inputs came from a catalog. An
+observation whose signal is a difference *between* two reduction windows —
+a Hipparcos−Gaia position difference, a DR3−DR2 difference — is asking a
+propagation question that no single reduction convention governs. Each
+endpoint is a statement about the real apparent path, locally linearized;
+connecting them is physics, not bookkeeping. `G23HObs` is exactly that case
+and deliberately does not declare this (see the comment beside its
+correction-flag section).
+
+# Why this cannot be an impact test
+
+A correction that *contradicts* the data's reduction convention looks
+identical to one the data desperately need: both show up as a large impact.
+When PlanetOrbits still double-counted the catalog Doppler factor, that
+contradiction was μ·|v_r|/c = 3.8 mas/yr at Barnard's star, and an `:auto`
+rule reading "large impact ⇒ keep on" would have kept it with maximal
+confidence — the companion it manufactured was 0.74 M_jup against a true
+~0.13. That is why the declaration is a pin and not a measurement.
+
+That bug is fixed, so a *correctly* propagated model now differs from the
+light-time-free one only by the genuine second-order term. The pin remains the
+right call where it applies: it says which parameterization the data are
+written in, which no amount of measurement can discover.
+
+Default `false`. Declare `true` beside the observation type.
+"""
+reduced_lighttime_free(::Type{<:AbstractObs}) = false
+reduced_lighttime_free(obs::AbstractObs) = reduced_lighttime_free(typeof(obs))
+
+"""
     has_correction_impact(::Type{<:AbstractObs}) -> Bool
 
 Whether this observation type implements [`correction_impact`](@ref).
@@ -275,12 +325,28 @@ function _impact_report(sys, og::Symbol, blt::Symbol;
 
     decisions = CorrectionDecision[]
     advisories = String[]
+    dataobs = [o for o in sys.observations if !_isprior(o)]
+    _catalog_kinds() = join(unique(string(nameof(typeof(o)))
+                                   for o in dataobs if reduced_lighttime_free(o)), ", ")
 
-    # Explicit settings are recorded, not measured.
+    # Explicit settings are recorded, not measured — but an explicit `:on`
+    # against catalog-convention data earns a written warning: the catalogs
+    # were reduced with the light-time-free model, and propagating them with
+    # the rigorous apparent model differs by the genuine second-order
+    # light-time terms (B&L 2014, Sects. 5.5, 6.1). Tiny, but the user asked
+    # for a convention the data was not reduced in, and the report is where
+    # that fact must live.
     for (flag, spec) in ((:observing_geometry, og), (:barycentric_lighttime, blt))
         spec === :auto && continue
         push!(decisions, CorrectionDecision(flag, spec === :on, :user,
             ObsImpact[], 0, 0, NaN, seed, "set explicitly"))
+    end
+    if blt === :on && any(reduced_lighttime_free, dataobs)
+        push!(advisories,
+            "barycentric_lighttime=:on, but $(_catalog_kinds()) carry catalog " *
+            "quantities reduced with the light-time-free standard model; the " *
+            "rigorous apparent propagation differs from that convention by the " *
+            "genuine second-order light-time terms (B&L 2014 Sects. 5.5, 6.1)")
     end
     isempty(flags) && return CorrectionReport(decisions, advisories)
 
@@ -289,10 +355,22 @@ function _impact_report(sys, og::Symbol, blt::Symbol;
                                             threshold, seed, note) for f in flags]),
         advisories)
 
-    dataobs = [o for o in sys.observations if !_isprior(o)]
     # Nothing to test against, so accuracy wins: a simulation-only model is
     # usually being used to *generate* the truth.
     isempty(dataobs) && return _resolve_on("no observations to test against")
+
+    # The reduction-convention pin, decided before any measurement: catalog
+    # astrometry forces the light-time-free propagation it was reduced with.
+    # See `reduced_lighttime_free` for why this cannot be an impact test.
+    if :barycentric_lighttime in flags && any(reduced_lighttime_free, dataobs)
+        push!(decisions, CorrectionDecision(:barycentric_lighttime, false, :data,
+            ObsImpact[], 0, 0, NaN, seed,
+            "$(_catalog_kinds()) are catalog data reduced with the " *
+            "light-time-free standard model, and are propagated with the same " *
+            "model (Butkevich & Lindegren 2014, Sects. 5.5, 6.1)"))
+        filter!(!=(:barycentric_lighttime), flags)
+        isempty(flags) && return CorrectionReport(decisions, advisories)
+    end
 
     # Static capability check, before a single solve. An observation type that
     # implements no `correction_impact` can only ever answer "cannot say",
@@ -335,13 +413,21 @@ function _impact_report(sys, og::Symbol, blt::Symbol;
             continue
         end
         try
+            # The baseline holds every flag NOT under measurement at its
+            # resolved value — `true` for a flag still being measured, its
+            # pinned value for one the user or the convention already decided
+            # — so each candidate is measured in the setting the model will
+            # actually run in, not in an environment it will never see.
+            og_base = og !== :off
+            blt_base = blt === :on ||
+                       (blt === :auto && :barycentric_lighttime in flags)
             base = PlanetOrbits.orbitsolve(posys, unique_ep; method=sys.method,
-                observing_geometry=true, barycentric_lighttime=true)
+                observing_geometry=og_base, barycentric_lighttime=blt_base)
             alt = Dict{Symbol,Any}()
             for f in flags
                 alt[f] = PlanetOrbits.orbitsolve(posys, unique_ep; method=sys.method,
-                    observing_geometry=(f !== :observing_geometry),
-                    barycentric_lighttime=(f !== :barycentric_lighttime))
+                    observing_geometry=(f === :observing_geometry ? !og_base : og_base),
+                    barycentric_lighttime=(f === :barycentric_lighttime ? !blt_base : blt_base))
             end
             for o in dataobs
                 nm = likelihoodname(o)
@@ -445,9 +531,11 @@ end
 _g(x) = isfinite(x) ? string(round(x; sigdigits=3)) : string(x)
 
 function _correction_logline(d::CorrectionDecision)
-    tag = d.source === :user ? "user" : "auto"
+    tag = d.source === :user ? "user" : d.source === :data ? "data" : "auto"
     base = "$(d.flag) = $(d.resolved) ($tag)"
     d.source === :user && return base
+    # Convention-pinned: decided from what the data *is*, with no draws taken.
+    d.source === :data && return base * ": " * d.note
     draws = d.ndraws == 0 ? "no draws needed" :
             "over $(d.ndraws) prior draws" *
             (d.nfailed > 0 ? " ($(d.nfailed) rejected)" : "")
@@ -571,6 +659,7 @@ function recheck_corrections(model, chain; ndraws::Int=CORRECTION_DRAWS,
     end
 
     decisions = CorrectionDecision[]
+    conv_pinned = any(reduced_lighttime_free, dataobs)
     for (f, built) in ((:observing_geometry, sys.observing_geometry),
                        (:barycentric_lighttime, sys.barycentric_lighttime))
         per_obs = [ObsImpact(nm, _p99(v), get(npoints, nm, 0)) for (nm, v) in ratios[f]]
@@ -579,6 +668,18 @@ function recheck_corrections(model, chain; ndraws::Int=CORRECTION_DRAWS,
         # The identical criterion the build-time test used, so the two verdicts
         # are comparable rather than merely similar.
         needed = isempty(per_obs) || isnan(worst.bias) || worst.bias >= threshold
+        # A convention-pinned flag is not up for re-decision: the pin came
+        # from what the data *is*, not from an impact that a posterior could
+        # overturn — "escalate to `:on`" would be exactly the wrong advice
+        # for catalog-convention astrometry (see `reduced_lighttime_free`).
+        if f === :barycentric_lighttime && conv_pinned
+            push!(decisions, CorrectionDecision(f, built, :data, per_obs,
+                nok, nfailed, threshold, seed,
+                "pinned by the data's reduction convention (B&L 2014); " *
+                "measured on/off impact " * _g(isnan(worst.bias) ? NaN : worst.bias) *
+                "σ, informational only"))
+            continue
+        end
         note = needed == built ? "unchanged under the posterior" :
                needed ? "**escalation**: needed under the posterior but the fit ran without it" :
                "de-escalation: not needed under the posterior"

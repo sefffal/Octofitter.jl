@@ -474,6 +474,43 @@ end
     @test off.dz ≈ PlanetOrbits.posz(sol, :A, bary)
     # A `Body` model node and its name are the same anchor.
     @test anchor_offsets(posys, A, REF_EP).pmra == off.pmra
+
+    # --- the secant window ---------------------------------------------------
+    t1, t2 = REF_EP - 9000.0, REF_EP + 500.0
+    sec = anchor_offsets(posys, :A, REF_EP; window=(t1, t2))
+    s1, s2 = orbitsolve(posys, t1), orbitsolve(posys, t2)
+    Δt = (t2 - t1) / Octofitter.julian_year
+    μα = (PlanetOrbits.raoff(s2, :A, bary) - PlanetOrbits.raoff(s1, :A, bary)) / Δt
+    μδ = (PlanetOrbits.decoff(s2, :A, bary) - PlanetOrbits.decoff(s1, :A, bary)) / Δt
+    @test sec.pmra ≈ μα
+    @test sec.pmdec ≈ μδ
+    # The offsets come off the secant LINE at `epoch`, not off the curve: a
+    # line has one slope everywhere, and mixing the curve's offset with the
+    # chord's rate would describe no single straight motion.
+    τ = (REF_EP - t1) / Octofitter.julian_year
+    @test sec.ra_cosdec ≈ PlanetOrbits.raoff(s1, :A, bary) + μα * τ
+    @test sec.dec ≈ PlanetOrbits.decoff(s1, :A, bary) + μδ * τ
+    # rv and dz are not part of the degeneracy the window addresses, so the
+    # window must not touch them.
+    @test sec.rv == off.rv
+    @test sec.dz == off.dz
+
+    # The point of the secant: at a period far shorter than the window, the
+    # instantaneous reflex PM diverges as 2πα/P while the secant goes to zero,
+    # which is what keeps the short-period corner inside an anchored prior box.
+    short = PlanetOrbits.System(
+        (PlanetOrbits.Body(mass=1.29, name=:A), PlanetOrbits.Body(mass=0.01, name=:b)),
+        (PlanetOrbits.Orbit(PlanetOrbits.Body(mass=0.01, name=:b);
+            about=PlanetOrbits.Body(mass=1.29, name=:A),
+            P=10.0, e=0.0, i=0.6, ω=0.2, Ω=1.0, tp=REF_EP),); plx=CATALOG.plx)
+    inst_s = anchor_offsets(short, :A, REF_EP)
+    sec_s = anchor_offsets(short, :A, REF_EP; window=(t1, t2))
+    @test abs(sec_s.pmra) < abs(inst_s.pmra) / 100
+
+    # A window is a time span, and the errors say which way it went wrong.
+    @test_throws r"t2 > t1" anchor_offsets(posys, :A, REF_EP; window=(t2, t1))
+    @test_throws r"must be finite" anchor_offsets(posys, :A, REF_EP; window=(t1, NaN))
+    @test_throws r"two epochs" anchor_offsets(posys, :A, REF_EP; window=(t1,))
     # The angular fields need a parallax, and the map says so by name rather
     # than by MethodError.
     nofr = PlanetOrbits.reframe(posys)

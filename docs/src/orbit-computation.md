@@ -477,9 +477,52 @@ log.
     Types declare their capability with `has_correction_impact`, which is checked
     *before* any draws are taken: if nothing in your model can answer, both flags
     resolve `:on` immediately and the log names the types responsible. Today
-    `RelAstromObs`, `RadialVelocityObs`, `GaiaDR4AstromObs`, `HipparcosIADObs`
-    and `PhotometryObs` answer (and an observable prior inherits the answer of
-    the likelihood it wraps); G23H, images and interferometry do not yet.
+    `RelAstromObs`, `RadialVelocityObs`, `GaiaDR4AstromObs`, `HipparcosIADObs`,
+    `G23HObs` and `PhotometryObs` answer (and an observable prior inherits the
+    answer of the likelihood it wraps); images and interferometry do not yet.
+
+### When the data's reduction convention decides instead
+
+`barycentric_lighttime` is the one flag that is not always a precision
+question. Hipparcos and Gaia catalog quantities — proper motions, scaled
+position differences, published abscissae — are *apparent* quantities produced
+by a reduction that uses the light-time-free standard astrometric model, and
+Butkevich & Lindegren (2014, Sects. 5.5 and 6.1) are explicit that data reduced
+with that model must be propagated with it.
+
+An impact test cannot make that call. A correction that **contradicts** the
+data's convention looks exactly like one the data desperately needs: it is
+large, and "large ⇒ keep it on" then picks the wrong branch with maximal
+confidence. So observation types whose data are catalog reductions declare it
+instead, with `Octofitter.reduced_lighttime_free`:
+
+```julia
+Octofitter.reduced_lighttime_free(::Type{<:MyCatalogObs}) = true
+```
+
+When any data observation in a model declares it, `barycentric_lighttime=:auto`
+resolves **off** by declaration rather than by measurement — recorded in the
+report with source `(data)` and no draws taken. `HipparcosIADObs` and
+`GaiaDR4AstromObs` declare it today. Setting the flag explicitly still wins,
+and an explicit `:on` against such data is recorded as an advisory rather than
+silently accepted.
+
+Declare it for an observation that **is one reduction, in that reduction's own
+parameterization**. Do not declare it merely because the inputs came from a
+catalogue: an observation whose signal is a difference *between* reduction
+windows asks a propagation question no single window's convention governs.
+`G23HObs` is that case — its dominant channels are the Hipparcos−Gaia and
+DR3−DR2 position differences — and it deliberately does not declare it, so the
+flag is measured like any other correction.
+
+This is about keeping the model's convention and the data's convention the
+same. PlanetOrbits propagates *both* conventions rigorously (its light-time
+path de-Dopplers the catalog proper motions before solving the emission epoch,
+so its readouts are true apparent quantities), and the two agree to the genuine
+second-order light-time terms — under 0.02 mas/yr over ±25 yr even at the most
+extreme catalog kinematics (Kapteyn's star, Barnard's star). Numbers are not
+riding on the pin; clarity about which convention a posterior was produced
+under is.
 
 ### What it tells you
 

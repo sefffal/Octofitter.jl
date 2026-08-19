@@ -17,7 +17,7 @@ using LinearAlgebra
 # (`PLXCHK ± PLXCHKS`).
 
 const FGS_PICKLE_FORMAT = "PICKLEFGS-EPOCHASTROM"
-const FGS_PICKLE_FVERS = 3  # the format version this reader implements
+const FGS_PICKLE_FVERS = 4  # the format version this reader implements
 
 """
     FGSEpochAstromObs(filename; host, companions=(), ref=Barycentre,
@@ -47,19 +47,37 @@ Note this is a genuine flux-weighted photocentre over the whole source, not
 v8's superposition of per-companion photocentres — the two differ once more
 than one companion is luminous.
 
-Per epoch i the forward model of the exported tangent-plane offset is (mas;
-`τᵢ = JYEAR_TDBᵢ − EPOCH_JYEAR` of the reference solution)
+# Forward model
 
-    model_x = Δα*₀ + Δμ_α* τᵢ + Δπ·PLXFAC_Xᵢ + Σ_planets pert_x + [Mᵢ w]_x·F5NDᵢ
-    model_y = Δδ₀  + Δμ_δ  τᵢ + Δπ·PLXFAC_Yᵢ + Σ_planets pert_y + [Mᵢ w]_y·F5NDᵢ
+Per epoch i (mas):
 
-where the Δ quantities are the sampled system parameters minus the file's
-`REFSOL` row, `PLXFAC` are the exported parallax-factor columns (they embed
-the producing pipeline's ephemeris conventions; the linear form closes
-against the pipeline's rigorous fit to 0.002 mas in π), planet photocentre
+    model_x = [frame_ra(tᵢ) − RA_REF_DEGᵢ]·cos δ_ref + Δπ·PLXFAC_Xᵢ
+              + Σ_planets pert_x + [Mᵢ w]_x·F5NDᵢ
+    model_y = [frame_dec(tᵢ) − DEC_REF_DEGᵢ]         + Δπ·PLXFAC_Yᵢ
+              + Σ_planets pert_y + [Mᵢ w]_y·F5NDᵢ
+
+`frame_ra`/`frame_dec` are the barycentre's rigorous apparent direction, and
+`RA_REF_DEG`/`DEC_REF_DEG` are the exported reference track — the pipeline's
+light-time-free propagation of `REFSOL`, i.e. the coordinate origin the
+exported offsets were differenced against. The mixture of conventions is
+deliberate: the track defines where zero is, so re-deriving it rigorously
+would move the origin rather than improve it. Solved at `JYEAR_TDB +
+ROEMER_YR`, the epoch the track itself was propagated to.
+
+Reading the frame rather than expanding about `REFSOL` is what makes the
+perspective acceleration a modelled quantity instead of one frozen at
+`REFSOL`'s `RV_KMS`. On a product whose epochs sit two decades from its
+reference epoch that is not a refinement: for Barnard it is worth 3.05 mas per
+km/s of `rv`, 0.62 mas per mas of Δπ and 0.03 mas per mas/yr of Δμ. It is also
+why FVERS 4 is required rather than merely preferred — see the loader's error.
+
+`Δπ` is the sampled parallax minus the file's `REFSOL` value, and stays
+differential because the reference track already carries `REFSOL`'s own
+parallax ellipse; `PLXFAC` are the exported parallax-factor columns, which
+embed the producing pipeline's ephemeris conventions. Planet photocentre
 perturbations use the standard Octofitter machinery, and `w = (wedge_x,
-wedge_y)` is the F5ND cross-filter wedge in the ideal (detector) frame with
-its per-epoch ideal→sky map `Mᵢ`.
+wedge_y)` is the F5ND cross-filter wedge in the ideal (detector) frame with its
+per-epoch ideal→sky map `Mᵢ`.
 
 The system must carry `ra`, `dec` [deg], `plx` [mas], `pmra`, `pmdec`
 [mas/yr] variables, with `ref_epoch` equal to the REFSOL epoch (Gaia DR3:
@@ -184,13 +202,25 @@ function FGSEpochAstromObs(
         fmt == FGS_PICKLE_FORMAT || error("$filename: FORMAT=$fmt, not a $FGS_PICKLE_FORMAT file")
         fvers = get(hdr, "FVERS", nothing)
         fvers == FGS_PICKLE_FVERS ||
-            error("$filename: FVERS=$fvers (this reader implements $FGS_PICKLE_FORMAT FVERS $FGS_PICKLE_FVERS)")
+            error("""
+            $filename: FVERS=$fvers (this reader implements $FGS_PICKLE_FORMAT FVERS $FGS_PICKLE_FVERS).
+
+            FVERS 4 added the reference track — RA_REF_DEG, DEC_REF_DEG, PLX_REF_MAS,
+            ROEMER_YR — which this likelihood's forward model differences against. An
+            earlier product cannot be read: without the track the only available model
+            is a first-order expansion about REFSOL, which freezes the perspective
+            acceleration at REFSOL's rv (worth 3 mas per km/s on a product whose epochs
+            are two decades from its reference epoch).
+
+            Regenerate with pickle-fgs `scripts/export_epoch_astrometry.py`. The columns
+            are a function of REFSOL and the epoch times alone, so the reduction is
+            unchanged — DX/DY and every covariance come back bit-identical.""")
 
         ep = f["EPOCHS"]
         col(nm) = read(ep, nm)
-        epoch = Vector{Float64}(col("TIME_MJD_UTC"))
+        epoch_utc = Vector{Float64}(col("TIME_MJD_UTC"))
         jyear_tdb = Vector{Float64}(col("JYEAR_TDB"))
-        m = length(epoch)
+        m = length(epoch_utc)
 
         rs_hdu = f["REFSOL"]
         refsol = (;
@@ -205,9 +235,26 @@ function FGSEpochAstromObs(
         )
         ref_epoch_mjd = 51544.5 + (refsol.epoch_jyear - 2000.0) * julian_year
 
+        # The reference track (spec/09 §2): the BARYCENTRIC half of the origin
+        # the exported offsets were differenced against.
+        ra_ref = Vector{Float64}(col("RA_REF_DEG"))
+        dec_ref = Vector{Float64}(col("DEC_REF_DEG"))
+        roemer_yr = Vector{Float64}(col("ROEMER_YR"))
+
+        # The epoch the trajectory is solved at, which is NOT the epoch the
+        # product reports. The model differences against a track the pipeline
+        # propagated to `JYEAR_TDB + ROEMER_YR`, so it has to be evaluated at
+        # that same instant or the two sides are read at different times. Both
+        # terms are small and both are real: the UTC/TDB gap that `TIME_MJD_UTC`
+        # would carry is 0.023 mas at Barnard's µ, and the Roemer shift (≤ 499 s)
+        # is 0.17 mas. `epoch_utc` is kept for display.
+        epoch = @. 51544.5 + (jyear_tdb + roemer_yr - 2000.0) * julian_year
+
         table = Table(;
-            epoch,                                  # MJD UTC (Octofitter convention)
+            epoch,                                  # MJD, TDB + Roemer: the solve epoch
+            epoch_utc,                              # MJD UTC, as exported
             tau=jyear_tdb .- refsol.epoch_jyear,    # Julian years from REFSOL epoch (TDB)
+            ra_ref, dec_ref, roemer_yr,             # reference track [deg, deg, jyear]
             dx=Vector{Float64}(col("DX_MAS")),      # mas, tangent plane vs REFSOL
             dy=Vector{Float64}(col("DY_MAS")),
             σ_x=Vector{Float64}(col("SIG_X_MAS")),  # √diag(COV_MARG); display only
@@ -383,6 +430,89 @@ export FGSEpochAstromObs
 
 # --- forward model ----------------------------------------------------------------
 
+# --- the frame path ----------------------------------------------------------------
+#
+# Rather than expand `Δα*₀ + Δμ_α* τ` about REFSOL, this reads straight off the
+# frame PlanetOrbits already propagated:
+#
+#     model = [frame_ra, frame_dec](t) − [RA_REF_DEG, DEC_REF_DEG](t)
+#
+# `frame_ra`/`frame_dec` are the system barycentre's rigorous **apparent**
+# direction, so perspective acceleration, the frame's own light-time terms and
+# every cross-derivative the Taylor expansion froze are modelled rather than
+# approximated. `rv` becomes a real lever: 3.05 mas per km/s at Barnard.
+#
+# The subtraction is deliberately MIXED-CONVENTION and must stay that way. The
+# exported track is the pipeline's light-time-free B&L14 propagation of REFSOL,
+# and it is what `DX/DY` were differenced against — a coordinate origin, not a
+# claim about the path. Re-deriving it rigorously here would silently move the
+# origin. The right form is `rigorous_apparent(t) − REFSOL_lighttime_free(t)`,
+# which is what this is.
+#
+# Two conventions come along with the track and are handled at load time: the
+# solve epoch is TDB rather than the product's native UTC, and it carries the
+# exported Roemer shift, because the track was propagated to
+# `JYEAR_TDB + ROEMER_YR`.
+#
+# Precision note: `frame_ra` and `ra_ref` are both ≈ 269.4° for Barnard and
+# differ by a few mas. The subtraction itself is exact (Sterbenz); the error is
+# one ulp of the larger, ≈ 2e-4 mas from `frame_ra`'s own `atan`, four orders
+# below a per-epoch σ. Under `Dual` the partials do not cancel at all.
+@inline _fgs_wrap180(Δ) = Δ - 360 * round(Δ / 360)
+
+function _fgs_frame!(model_x, model_y, obs::FGSEpochAstromObs,
+                     ctx::ObsContext, Δplx)
+    tbl = obs.table
+    @inbounds for i in eachindex(tbl.epoch)
+        sol = solutionat(ctx, i)
+        dec_ref = tbl.dec_ref[i]
+        model_x[i] += _fgs_wrap180(_fgs_frame_ra(sol) - tbl.ra_ref[i]) *
+                      3.6e6 * cosd(dec_ref) + Δplx * tbl.plxfac_x[i]
+        model_y[i] += (_fgs_frame_dec(sol) - dec_ref) * 3.6e6 +
+                      Δplx * tbl.plxfac_y[i]
+    end
+    return nothing
+end
+
+# Reading a direction needs an absolute frame. FGS always has one in practice —
+# the docstring requires ra/dec/plx/pmra/pmdec — but say so here rather than
+# surfacing a `MethodError` from inside the epoch loop.
+@inline _fgs_frame_ra(sol::PlanetOrbits._AbsSol) = frame_ra(sol)
+@inline _fgs_frame_dec(sol::PlanetOrbits._AbsSol) = frame_dec(sol)
+@noinline _fgs_frame_ra(@nospecialize sol) = _err_fgs_needs_absolute()
+@noinline _fgs_frame_dec(@nospecialize sol) = _err_fgs_needs_absolute()
+@noinline _err_fgs_needs_absolute() = error(
+    "FGSEpochAstromObs reads the system's apparent sky path directly, which " *
+    "needs an absolute frame: give the system " *
+    "`ra`, `dec`, `plx`, `pmra`, `pmdec` (and `rv`) variables with " *
+    "`ref_epoch` at the product's REFSOL epoch.")
+
+# --- correction flags --------------------------------------------------------------
+#
+# What a correction does to this observation: the largest per-epoch shift in the
+# predicted offset, against the tightest single-epoch σ in the product.
+#
+# The reference track is the pipeline's LIGHT-TIME-FREE propagation, so
+# differencing a rigorously propagated path against it isolates exactly the
+# barycentric light-time term — 0.082 mas over Barnard's 23-year lever arm,
+# against a 1.6 mas tightest per-epoch σ. That makes this a real measurement
+# rather than the "cannot say" that would default the flag on.
+has_correction_impact(::Type{<:FGSEpochAstromObs}) = true
+function correction_impact(obs::FGSEpochAstromObs, a::ObsContext, b::ObsContext)
+    σ = min(minimum(obs.table.σ_x), minimum(obs.table.σ_y))
+    sa = simulate(obs, a)
+    sb = simulate(obs, b)
+    d = 0.0
+    for (xa, xb) in ((sa.model_x, sb.model_x), (sa.model_y, sb.model_y))
+        for i in eachindex(xa)
+            δ = abs(float(xa[i] - xb[i]))
+            isfinite(δ) || return (; delta=NaN, sigma=σ, n=0)
+            d = max(d, δ)
+        end
+    end
+    return (; delta=d, sigma=σ, n=2 * length(obs.table.epoch))
+end
+
 # Fill `model_x`, `model_y` (length m, mas) with the model offsets vs REFSOL.
 # Shared by ln_like and simulate. Buffers must be zeroed by the caller before
 # entry — the source's sky excursion is accumulated into them.
@@ -414,25 +544,22 @@ function _fgs_model!(
         accumulate_offsets!(model_x, model_y, ctx, photo, reference)
     end
 
-    # Δ 5-parameter terms about REFSOL (all mas / mas yr⁻¹; spec/09 §2).
-    Δα0 = (θ_system.ra - rs.ra) * 60 * 60 * 1000 * cosd(rs.dec)
-    Δδ0 = (θ_system.dec - rs.dec) * 60 * 60 * 1000
+    # The parallax stays differential. `xi_ref` already carries REFSOL's full
+    # parallactic displacement and `PLXFAC` is the pipeline's own
+    # d(sky)/d(π at the REFSOL epoch) through the whole chain, so `Δπ · PLXFAC`
+    # is exactly the residual ellipse — and both Δπ and PLXFAC are referred to
+    # the same epoch, which is what makes that true.
     Δplx = θ_system.plx - rs.parallax
-    Δpmra = θ_system.pmra - rs.pmra
-    Δpmdec = θ_system.pmdec - rs.pmdec
     wx = θ_obs.wedge_x
     wy = θ_obs.wedge_y
 
+    _fgs_frame!(model_x, model_y, obs, ctx, Δplx)
+
     @inbounds for i in eachindex(tbl.epoch)
-        τ = tbl.tau[i]
-        mx = model_x[i] + Δα0 + Δpmra * τ + Δplx * tbl.plxfac_x[i]
-        my = model_y[i] + Δδ0 + Δpmdec * τ + Δplx * tbl.plxfac_y[i]
         if tbl.is_f5nd[i]
-            mx += tbl.M11[i] * wx + tbl.M12[i] * wy
-            my += tbl.M21[i] * wx + tbl.M22[i] * wy
+            model_x[i] += tbl.M11[i] * wx + tbl.M12[i] * wy
+            model_y[i] += tbl.M21[i] * wx + tbl.M22[i] * wy
         end
-        model_x[i] = mx
-        model_y[i] = my
     end
 
     # lock-state crossings: shared ideal-frame offset per LOCKSTATE
@@ -553,7 +680,11 @@ function simulate(obs::FGSEpochAstromObs, ctx::ObsContext)
     model_x = zeros(T, m)
     model_y = zeros(T, m)
     _fgs_model!(model_x, model_y, obs, ctx, T)
-    return (; model_x, model_y, epoch=obs.table.epoch, resid_x=obs.table.dx .- model_x, resid_y=obs.table.dy .- model_y)
+    # `epoch_utc`, not `epoch`: the latter is the retarded
+    # TDB instant the trajectory is solved at, which is right for the physics and
+    # wrong for an axis — a plot's x should be the epoch the product reports.
+    return (; model_x, model_y, epoch=obs.table.epoch_utc,
+        resid_x=obs.table.dx .- model_x, resid_y=obs.table.dy .- model_y)
 end
 
 # --- file-only GLS reference fit --------------------------------------------------

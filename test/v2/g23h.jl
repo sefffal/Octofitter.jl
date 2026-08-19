@@ -1442,3 +1442,43 @@ end
         end
     end
 end
+
+@testset "catalog convention and the correction impact" begin
+    # G23H does NOT declare `reduced_lighttime_free`, though its inputs are
+    # catalog reductions. Its dominant channels (Hipparcos−Gaia, DR3−DR2) are
+    # differences BETWEEN reduction windows, and the path between two windows is
+    # not governed by either one's parameterization — so the flag is measured
+    # like any other correction rather than pinned. See the comment beside
+    # `G23HObs`'s correction-flag section, and `reduced_lighttime_free`'s
+    # docstring for the distinction the trait actually draws.
+    @test !Octofitter.reduced_lighttime_free(G23HObs)
+    m = g23h_model()
+    d = only(filter(x -> x.flag === :barycentric_lighttime,
+                    m.sys.corrections.decisions))
+    # Decided by the impact test, not by a convention pin: whichever way it
+    # resolves, it got there by taking draws.
+    @test d.source !== :data
+    @test d.ndraws > 0
+
+    # ...and G23H can now answer the impact question for the *other* flag,
+    # instead of vetoing every model it appears in with "cannot say": the five
+    # PM channel pairs, against the tightest catalog σ.
+    @test Octofitter.has_correction_impact(G23HObs)
+    sys, obs = m.sys, m.obs
+    nt = Octofitter.make_arr2nt(sys)(Float64[])
+    lnl = Octofitter.make_ln_like(sys, nt)
+    posys = lnl.build(nt)
+    eps, maps = Octofitter.epoch_plan(sys)
+    θ_obs = getproperty(nt.observations,
+        Symbol(Octofitter.normalizename(Octofitter.likelihoodname(obs))))
+    mkctx(og) = Octofitter.ObsContext(nt, θ_obs, posys,
+        orbitsolve(posys, eps; method=sys.method, observing_geometry=og,
+                   barycentric_lighttime=false), maps[obs])
+    r = Octofitter.correction_impact(obs, mkctx(true), mkctx(false))
+    @test r.n == 10                       # five (ra, dec) channel pairs
+    @test isfinite(r.delta) && r.delta >= 0
+    @test isfinite(r.sigma) && r.sigma > 0
+    # Identical contexts must measure an identical model: zero impact.
+    r0 = Octofitter.correction_impact(obs, mkctx(true), mkctx(true))
+    @test r0.delta == 0
+end
