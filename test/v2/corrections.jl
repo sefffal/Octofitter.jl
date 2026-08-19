@@ -84,6 +84,57 @@ function corr_rv(σ; kwargs...)
         target=:A, ref=Barycentre, name="rvs", kwargs...)
 end
 
+# A mute observation that nonetheless declares its data catalog-reduced. The
+# convention pin must not depend on the observation being able to *measure*
+# anything: it is a statement about how the data were reduced, not about any
+# impact.
+struct _CatConvObs <: Octofitter.AbstractObs
+    priors::Octofitter.Priors
+    derived::Octofitter.Derived
+    name::String
+end
+_CatConvObs() = _CatConvObs(Octofitter.Priors(), Octofitter.Derived(), "catconv")
+Octofitter.epochs(::_CatConvObs) = CORR_EPOCHS
+Octofitter.refspecs(::_CatConvObs) = ()
+Octofitter.ln_like(::_CatConvObs, ::Octofitter.ObsContext) = 0.0
+Octofitter.reduced_lighttime_free(::Type{<:_CatConvObs}) = true
+
+@testset "catalog-convention data pin barycentric_lighttime off" begin
+    # B&L 2014, Sects. 5.5/6.1: data reduced with the light-time-free standard
+    # model are propagated with it. The pin is decided from what the data IS —
+    # no draws — and the other flag keeps its own measured decision.
+    sys = corr_model(obs=[corr_astrom(10.0), _CatConvObs()], absolute=true)
+    @test sys.barycentric_lighttime === false
+    d = _decision(sys, :barycentric_lighttime)
+    @test d.source === :data
+    @test d.ndraws == 0
+    @test isempty(d.impacts)
+    @test occursin("light-time-free", d.note)
+    @test occursin("_CatConvObs", d.note)
+    @test _decision(sys, :observing_geometry).source === :auto
+
+    # An explicit :on wins — the user's call — but the report records that the
+    # data's convention disagrees.
+    sys2 = corr_model(obs=[corr_astrom(10.0), _CatConvObs()], absolute=true, blt=:on)
+    @test sys2.barycentric_lighttime === true
+    @test _decision(sys2, :barycentric_lighttime).source === :user
+    @test any(a -> occursin("light-time-free", a), sys2.corrections.advisories)
+
+    # An explicit :off matches the convention: nothing to advise.
+    sys3 = corr_model(obs=[corr_astrom(10.0), _CatConvObs()], absolute=true, blt=:off)
+    @test !any(a -> occursin("light-time-free", a), sys3.corrections.advisories)
+
+    # Without catalog-convention data the pin does not fire, and nothing else
+    # changed: the flag is measured exactly as before.
+    sys4 = corr_model(obs=[corr_astrom(10.0)], absolute=true)
+    @test _decision(sys4, :barycentric_lighttime).source === :auto
+
+    # The one-line form still fits a FITS header card with the (data) tag.
+    one_line = sprint(show, sys.corrections)
+    @test occursin("barycentric_lighttime=false(data)", one_line)
+    @test length(one_line) <= 68
+end
+
 @testset "explicit settings bypass the test and say so" begin
     for (given, want) in ((:on, true), (:off, false), (true, true), (false, false))
         sys = corr_model(obs=[corr_astrom(1.0)], og=given, blt=given)
@@ -275,11 +326,28 @@ end
     @test (maximum(drift) - minimum(drift)) / yrs ≈ 4.5 rtol = 0.15
     # The sign is not hand-derived: it is whatever `_compensate_kinematics`
     # says the propagated frame RV does, differenced against `ref_epoch`.
-    fr = Octofitter.make_ln_like(modelled).build(
-        Octofitter.make_arr2nt(modelled)(Float64[])).frame
+    posys_d = Octofitter.make_ln_like(modelled).build(
+        Octofitter.make_arr2nt(modelled)(Float64[]))
+    fr = posys_d.frame
     direct = [PlanetOrbits._compensate_kinematics(fr, t).rv2 - fr.rv
               for t in CORR_EPOCHS]
     @test drift ≈ direct rtol = 1e-3
+
+    # ...and the drift does not depend on which way `barycentric_lighttime`
+    # went. PlanetOrbits leaves the radial readout in the spectroscopic
+    # convention (the coordinate rate at the emission event) rather than
+    # converting it to an apparent rate as it does the proper motions, so
+    # `frame_rv(ref_epoch) == rv` on both paths and the catalog `rv` is the
+    # right anchor either way. Were that not so, these kinematics would carry
+    # a constant −v_r²/c ≈ 40 m/s that switched with the flag.
+    drift_at(lt) = [Octofitter._frame_drift_rv(t, Float64) for t in
+                    orbitsolve(posys_d, CORR_EPOCHS; barycentric_lighttime=lt)]
+    @test maximum(abs, drift_at(true) .- drift_at(false)) < 0.01     # m/s
+    # Zero at ref_epoch under both, which is what "relative to ref_epoch" means.
+    for lt in (true, false)
+        sol0 = orbitsolve(posys_d, [fr.ref_epoch]; barycentric_lighttime=lt)[1]
+        @test abs(Octofitter._frame_drift_rv(sol0, Float64)) < 1e-6
+    end
 
     # `:data_corrected` is the old behaviour exactly: `radvel` and nothing else.
     posys = Octofitter.make_ln_like(corrected).build(

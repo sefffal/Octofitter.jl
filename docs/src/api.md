@@ -91,6 +91,9 @@ octofit_pigeons
 Octofitter.CorrectionReport
 Octofitter.CorrectionDecision
 Octofitter.ObsImpact
+Octofitter.correction_impact
+Octofitter.has_correction_impact
+Octofitter.reduced_lighttime_free
 Octofitter.recheck_corrections
 ```
 

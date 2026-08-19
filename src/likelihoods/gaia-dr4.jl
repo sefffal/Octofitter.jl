@@ -324,6 +324,15 @@ function generate_from_params(obs::GaiaDR4AstromObs, ctx::ObsContext; add_noise)
         variables=(obs.priors, obs.derived))
 end
 
+# Gaia astrometry is reduced against AGIS's light-time-free source model
+# (Lindegren et al. 2012/2021), and the catalog parameters that anchor the
+# frame share that convention — so the abscissae are propagated with the same
+# model. Within one Gaia window the two conventions differ by an absorbable
+# linear trend plus sub-nano-arcsecond curvature, so this is about convention
+# consistency with the frame anchors, not a numerically live choice. See
+# `reduced_lighttime_free` in model/corrections.jl.
+reduced_lighttime_free(::Type{<:GaiaDR4AstromObs}) = true
+
 # Gaia measures one number per transit — the along-scan abscissa — so that is
 # what the `:auto` correction test compares.
 has_correction_impact(::Type{<:GaiaDR4AstromObs}) = true

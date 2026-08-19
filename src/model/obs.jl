@@ -165,6 +165,12 @@ struct ObsContext{Tθ,TO,TS,TT,TE,TB}
     # likelihood runs, so they never appear here; `einstein_rv` is consumed by
     # the radial-velocity forward model itself, so it does. Interpolated as a
     # literal by codegen, exactly like the other two.
+    #
+    # `barycentric_lighttime` deliberately stays out even though it selects
+    # the convention of the *angular* frame readouts: the readouts a
+    # likelihood composes against catalog values — `frame_pmra`,
+    # `frame_pmdec`, `frame_rv` — all reproduce the catalog quantities at
+    # `ref_epoch` under either setting, so no consumer has to know.
     einstein_rv::Bool
 end
 # The convenience forms default `einstein_rv` to `true`, the accurate setting.

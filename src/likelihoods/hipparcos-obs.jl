@@ -331,6 +331,11 @@ function generate_from_params(obs::HipparcosIADObs, ctx::ObsContext; add_noise)
         obs.host, obs.companions, obs.ref)
 end
 
+# Hipparcos abscissae were reduced with the light-time-free standard model
+# (ESA 1997, Vol. 1, Sect. 1.5.5) — catalog-convention data, propagated with
+# the same model. See `reduced_lighttime_free` in model/corrections.jl.
+reduced_lighttime_free(::Type{<:HipparcosIADObs}) = true
+
 # Along-scan residuals are `measured − model`, so a change in the model shows
 # up in them one-for-one.
 has_correction_impact(::Type{<:HipparcosIADObs}) = true

@@ -305,6 +305,13 @@ const _AU_PER_YEAR_TO_M_PER_S = PlanetOrbits.au2m / PlanetOrbits.year2sec_julian
 # drift and curvature are the payload (~4.5 m/s/yr for a Barnard-class star,
 # ~3 cm/s/yr for a generic 30 km/s star at 30 pc).
 #
+# `fr.rv` is the right anchor under either setting of `barycentric_lighttime`:
+# PlanetOrbits leaves the radial readout as the coordinate rate ḋ at the
+# emission event (the spectroscopic convention) rather than converting it to
+# an apparent rate the way it does the proper motions, so
+# `frame_rv(ref_epoch) == rv` exactly on both paths and this difference is
+# zero there by construction.
+#
 # Definitionally zero without an absolute frame, and that is not an error: the
 # frame level chooses the physics, exactly as it does everywhere else in
 # PlanetOrbits. The `:auto` correction report is the safety net that tells a

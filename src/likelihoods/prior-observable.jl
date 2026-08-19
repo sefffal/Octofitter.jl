@@ -193,6 +193,8 @@ end
 # only through that one.
 has_correction_impact(::Type{<:ObsPriorONeil2019{TL}}) where {TL} =
     has_correction_impact(TL)
+reduced_lighttime_free(::Type{<:ObsPriorONeil2019{TL}}) where {TL} =
+    reduced_lighttime_free(TL)
 correction_impact(obs::ObsPriorONeil2019, a::ObsContext, b::ObsContext) =
     correction_impact(obs.wrapped_like, a, b)
 correction_advisories(obs::ObsPriorONeil2019, ctx::ObsContext) =
