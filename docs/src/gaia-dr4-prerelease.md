@@ -181,7 +181,7 @@ sys = System(
         M_pri ~ truncated(Normal(0.644, 0.02), lower=0.1)   # host mass [Msol] (Stefansson et al. 2025)
         mass_b ~ LogUniform(0.3, 100)                       # companion mass [Mjup]
         M = M_pri + mass_b * Octofitter.mjup2msol           # total mass [Msol]
-        plx ~ truncated(Normal(sol.parallax, sol.parallax_error), lower=1)
+        plx ~ Uniform(0, 100)
     end
 )
 
