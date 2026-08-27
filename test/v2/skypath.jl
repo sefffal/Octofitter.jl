@@ -218,7 +218,7 @@ end
         zeros(length(ep)), zeros(length(ep)), ctx, tgt, rf, rows)
 
     # a hand-built WeightedPoint goes in the same slot as a resolved spec —
-    # this is the tier-2/tier-3 entry point
+    # this is where a per-draw photocentre enters (see `G23HObs`)
     f = PlanetOrbits.fluxes(posys, :G)
     wp = PlanetOrbits.photocentre(f .* SVector(1.0, 1.0))
     ra3 = zeros(length(ep)); dec3 = zeros(length(ep))

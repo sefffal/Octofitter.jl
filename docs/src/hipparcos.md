@@ -44,8 +44,8 @@ A = Body(
 
 hip_obs = Octofitter.HipparcosIADObs(
     hip_id=21547,
-    host=A,
-    companions=(),
+    target=A,
+    blends=(),
     ref=Barycentre,
     renormalize=true, # default: true
 )
@@ -193,8 +193,8 @@ planet_b_mass = Body(
 
 hip_obs_mass = Octofitter.HipparcosIADObs(
     hip_id=21547,
-    host=A_mass,
-    companions=(planet_b_mass,),
+    target=A_mass,
+    blends=(planet_b_mass,),
     ref=Barycentre,
 )
 

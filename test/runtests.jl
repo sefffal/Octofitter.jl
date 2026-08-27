@@ -48,6 +48,11 @@ if TEST_MODE in ("all", "unit")
     @testset "G23H joint Gaia/Hipparcos astrometry" begin
         include("v2/g23h.jl")
     end
+    # A G23HObs whose target is a *companion*, not the primary — the source
+    # membership surface from the other side. Reuses the same fixtures.
+    @testset "G23H on a resolved companion's own source" begin
+        include("v2/g23h-companion.jl")
+    end
     # Reuses the G23H fixtures (catalog row + cached scan forecast), so after
     # g23h.jl.
     @testset "Simulated Gaia DR4 epoch astrometry" begin

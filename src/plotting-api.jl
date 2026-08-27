@@ -729,7 +729,7 @@ end
 #     source over a different window, so all five belong on one axis against
 #     one curve — which is what v1's `hgcaplot`, `pmaplot` and `absastromplot`
 #     all drew in their top two panels. The curve is the *reflex* proper
-#     motion `pmra(host, ref)`, and the data are calibrated onto it by
+#     motion `pmra(target, ref)`, and the data are calibrated onto it by
 #     removing the reference frame's own proper motion, exactly as an RV
 #     instrument offset is removed. Each point carries `epoch_lo`/`epoch_hi`:
 #     a PM is an average over its mission window, and the generic panel draws
@@ -754,11 +754,11 @@ function plotchannels(obs::G23HObs)
     chs = Any[]
     if any(k -> k ∈ kinds, _G23H_PM_KINDS.pmra)
         push!(chs, PlotChannel(:pmra, "μα*", "mas/yr";
-            query=ObservableQuery(PlanetOrbits.pmra, obs.host, obs.ref)))
+            query=ObservableQuery(PlanetOrbits.pmra, obs.target, obs.ref)))
     end
     if any(k -> k ∈ kinds, _G23H_PM_KINDS.pmdec)
         push!(chs, PlotChannel(:pmdec, "μδ", "mas/yr";
-            query=ObservableQuery(PlanetOrbits.pmdec, obs.host, obs.ref)))
+            query=ObservableQuery(PlanetOrbits.pmdec, obs.target, obs.ref)))
     end
     :iad_hip ∈ kinds &&
         push!(chs, PlotChannel(:along_scan_hip, "Hipparcos abscissa residual", "mas"))
@@ -807,7 +807,7 @@ function residuals(obs::G23HObs, ctx::ObsContext)
         # frame refers to the primary rather than the barycentre (see
         # `_g23h_simulate!`'s closing comment). Removing that constant from both
         # the catalog and the model values is what puts them on the pure
-        # `pmra(host, ref)` curve the panel draws — the proper-motion analogue
+        # `pmra(target, ref)` curve the panel draws — the proper-motion analogue
         # of subtracting an RV instrument's zero point.
         off_ra = Float64(pmra_sys - sim.Δpmra_dr3)
         off_dec = Float64(pmdec_sys - sim.Δpmdec_dr3)

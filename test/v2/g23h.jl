@@ -62,7 +62,7 @@ v1's sky geometry exactly.
 the multi-companion divergence measurement.
 
 `body_fluxes=true` moves the flux ratios out of the observation and onto the
-bodies as `flux_G`/`flux_Hp` variables (the host at 1.0, so every other body's
+bodies as `flux_G`/`flux_Hp` variables (the target at 1.0, so every other body's
 flux *is* its contrast ratio). The two spellings must give the same numbers;
 that equivalence is what the "flux ratios default to the bodies' own fluxes"
 testset checks.
@@ -84,16 +84,16 @@ function g23h_model(; n_companions=1,
     body_fluxratios_hip = isnothing(body_fluxratios_hip) ? fluxratios_hip : body_fluxratios_hip
     cat = g23h_catalog_row()
     M_tot = EVAL[:M_tot]
-    hostvars = @variables begin
+    targetvars = @variables begin
         mass = $(M_tot - sum(masses))
     end
     if body_fluxes
-        hostvars = vcat(hostvars, @variables begin
+        targetvars = vcat(targetvars, @variables begin
             flux_G = 1.0
             flux_Hp = 1.0
         end)
     end
-    host = Octofitter.Body(name="A", variables=hostvars)
+    target = Octofitter.Body(name="A", variables=targetvars)
     comps = map(1:n_companions) do k
         el = elements[k]
         nm = ("b", "c", "d")[k]
@@ -111,7 +111,7 @@ function g23h_model(; n_companions=1,
                 flux_Hp = $(body_fluxratios_hip[k])
             end)
         end
-        Octofitter.Body(name=nm, about=host, variables=cvars)
+        Octofitter.Body(name=nm, about=target, variables=cvars)
     end
 
     obsvars = @variables begin
@@ -126,7 +126,7 @@ function g23h_model(; n_companions=1,
         end)
     end
     obs = G23HObs(;
-        host=host, companions=Tuple(comps),
+        target=target, blends=Tuple(comps),
         gaia_id=cat.gaia_source_id, catalog=cat,
         forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
         dr2_transits_catalog=g23h_dr2_sidecar(),
@@ -152,11 +152,11 @@ function g23h_model(; n_companions=1,
             transits_rv = $TRANSITS_RV
         end))
 
-    sys = Octofitter.System(name="g23h", bodies=[host, comps...], observations=[obs],
+    sys = Octofitter.System(name="g23h", bodies=[target, comps...], observations=[obs],
         variables=(@variables begin
             plx = $(cat.parallax)
         end), observing_geometry=observing_geometry)
-    return (; sys, obs, host, comps)
+    return (; sys, obs, target, comps)
 end
 
 # One solved context, for calling `simulate` directly.
@@ -191,12 +191,12 @@ end
     @test obs.table.kind == [:iad_hip, :ra_hip, :dec_hip, :ra_hg, :dec_hg,
         :ra_dr2, :dec_dr2, :ra_dr32, :dec_dr32, :ra_dr3, :dec_dr3,
         :ueva_dr3, :rv_dr3]
-    # `host=`/`companions=` are declared, so they show up for name validation
+    # `target=`/`blends=` are declared, so they show up for name validation
     @test Octofitter._refnames.(Octofitter.refspecs(obs)) == ((:A,), (:b,), ())
     # A typo'd body name is caught at model-build time, not in the sampler
     @test_throws r"references :nope" Octofitter.System(
-        name="bad", bodies=[m.host, m.comps[1]],
-        observations=[G23HObs(; host=:nope, companions=(:b,),
+        name="bad", bodies=[m.target, m.comps[1]],
+        observations=[G23HObs(; target=:nope, blends=(:b,),
             gaia_id=g23h_catalog_row().gaia_source_id, catalog=g23h_catalog_row(),
             forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
             dr2_transits_catalog=g23h_dr2_sidecar(), variables=(obs.priors, obs.derived))],
@@ -255,7 +255,7 @@ end
         flux_G = 0.03
         a = 5.0; e = 0.2; i = 1.0; ω = 1.3; Ω = 2.4; tp = 52000.0
     end)
-    obs = G23HObs(; host=A, companions=(b,), ref=Barycentre,
+    obs = G23HObs(; target=A, blends=(b,), ref=Barycentre,
         gaia_id=cat.gaia_source_id, catalog=cat,
         forecast_table=g23h_forecast(), hipparcos=nothing,
         dr2_transits_catalog=g23h_dr2_sidecar(),
@@ -365,7 +365,7 @@ end
         mass = 0.01
         a = 5.0; e = 0.2; i = 1.0; ω = 1.3; Ω = 2.4; tp = 52000.0
     end)
-    mk(c; kw...) = G23HObs(; host=A, companions=(b,), gaia_id=c.gaia_source_id,
+    mk(c; kw...) = G23HObs(; target=A, blends=(b,), gaia_id=c.gaia_source_id,
         catalog=c, forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
         dr2_transits_catalog=g23h_dr2_sidecar(), kw...)
     @test_throws r"nonlinear_dpmra" mk(bad)
@@ -464,14 +464,14 @@ end
         c = g23h_context(m.sys, m.obs)
         obs = m.obs
         n = obs.n_hip
-        hostref = Octofitter.ref(c.ctx, obs.host)
+        targetref = Octofitter.ref(c.ctx, obs.target)
         reference = Octofitter.ref(c.ctx, obs.ref)
-        comps = map(x -> Octofitter.ref(c.ctx, x), obs.companions)
+        comps = map(x -> Octofitter.ref(c.ctx, x), obs.blends)
 
-        host_ra = [raoff(Octofitter.solutionat(c.ctx, i), hostref, reference) for i in 1:n]
-        host_dec = [decoff(Octofitter.solutionat(c.ctx, i), hostref, reference) for i in 1:n]
-        sep_ra = [[raoff(Octofitter.solutionat(c.ctx, i), ck, hostref) for i in 1:n] for ck in comps]
-        sep_dec = [[decoff(Octofitter.solutionat(c.ctx, i), ck, hostref) for i in 1:n] for ck in comps]
+        host_ra = [raoff(Octofitter.solutionat(c.ctx, i), targetref, reference) for i in 1:n]
+        host_dec = [decoff(Octofitter.solutionat(c.ctx, i), targetref, reference) for i in 1:n]
+        sep_ra = [[raoff(Octofitter.solutionat(c.ctx, i), ck, targetref) for i in 1:n] for ck in comps]
+        sep_dec = [[decoff(Octofitter.solutionat(c.ctx, i), ck, targetref) for i in 1:n] for ck in comps]
 
         Δα_l = zeros(n); Δδ_l = zeros(n); σ_l = ones(n)
         legacy_hippacentre!(Δα_l, Δδ_l, σ_l, obs.hip_table.cosϕ, obs.hip_table.sinϕ,
@@ -480,9 +480,9 @@ end
 
         Δα_n = zeros(n); Δδ_n = zeros(n); σ_n = ones(n)
         Octofitter._hippacentre!(Δα_n, Δδ_n, σ_n, c.ctx, 1:n,
-            obs.hip_table.cosϕ, obs.hip_table.sinϕ, hostref, reference,
+            obs.hip_table.cosϕ, obs.hip_table.sinϕ, targetref, reference,
             comps, ntuple(k -> f[k], nc), ntuple(_ -> true, nc),
-            Octofitter.HIPPARCOS_GRID_STEP_ARCSEC)
+            Octofitter.HIPPARCOS_GRID_STEP_ARCSEC, Float64)
 
         @test Δα_n ≈ Δα_l rtol = 1e-14
         @test Δδ_n ≈ Δδ_l rtol = 1e-14
@@ -498,14 +498,15 @@ end
     c = g23h_context(m.sys, m.obs)
     obs = m.obs
     n = obs.n_hip
-    hostref = Octofitter.ref(c.ctx, obs.host)
+    targetref = Octofitter.ref(c.ctx, obs.target)
     reference = Octofitter.ref(c.ctx, obs.ref)
-    comps = map(x -> Octofitter.ref(c.ctx, x), obs.companions)
+    comps = map(x -> Octofitter.ref(c.ctx, x), obs.blends)
     Δα = zeros(n); Δδ = zeros(n); σ = ones(n)
     Octofitter._hippacentre!(Δα, Δδ, σ, c.ctx, 1:n, obs.hip_table.cosϕ, obs.hip_table.sinϕ,
-        hostref, reference, comps, (0.3,), (true,), Octofitter.HIPPARCOS_GRID_STEP_ARCSEC)
-    host_only = [raoff(Octofitter.solutionat(c.ctx, i), hostref, reference) * obs.hip_table.cosϕ[i] +
-                 decoff(Octofitter.solutionat(c.ctx, i), hostref, reference) * obs.hip_table.sinϕ[i]
+        targetref, reference, comps, (0.3,), (true,),
+        Octofitter.HIPPARCOS_GRID_STEP_ARCSEC, Float64)
+    host_only = [raoff(Octofitter.solutionat(c.ctx, i), targetref, reference) * obs.hip_table.cosϕ[i] +
+                 decoff(Octofitter.solutionat(c.ctx, i), targetref, reference) * obs.hip_table.sinϕ[i]
                  for i in 1:n]
     @test Δα ≈ host_only .* obs.hip_table.cosϕ rtol = 1e-12
     @test all(≈(1.0), σ)
@@ -522,9 +523,9 @@ end
             (a=1.9, e=0.05, i=1.7, ω=0.4, Ω=5.1, tp=53100.0)))
     c = g23h_context(m.sys, m.obs)
     obs = m.obs
-    hostref = Octofitter.ref(c.ctx, obs.host)
+    targetref = Octofitter.ref(c.ctx, obs.target)
     reference = Octofitter.ref(c.ctx, obs.ref)
-    comps = map(x -> Octofitter.ref(c.ctx, x), obs.companions)
+    comps = map(x -> Octofitter.ref(c.ctx, x), obs.blends)
     M_tot = EVAL[:M_tot]
     masses = (0.03, 0.012)
     f = (0.037, 0.011)
@@ -540,8 +541,8 @@ end
         # v1: Σ_k raoff(sol_k) · (−m_k + f_k·(M − m_k)) / (M(1 + f_k))
         for k in 1:2
             coeff = (-masses[k] + f[k] * (M_tot - masses[k])) / (M_tot * (1 + f[k]))
-            legacy_ra[j] += raoff(sol, comps[k], hostref) * coeff
-            legacy_dec[j] += decoff(sol, comps[k], hostref) * coeff
+            legacy_ra[j] += raoff(sol, comps[k], targetref) * coeff
+            legacy_dec[j] += decoff(sol, comps[k], targetref) * coeff
         end
     end
     Δ = maximum(hypot.(exact_ra .- legacy_ra, exact_dec .- legacy_dec))
@@ -573,52 +574,60 @@ const TWO_EL = ((a=4.7, e=0.23, i=0.94, ω=1.31, Ω=2.44, tp=52000.0),
 @testset "the flux-ratio contract" begin
     T = Float64
     # A solved system to resolve fluxes against. Its bodies carry `flux_G` and
-    # `flux_Hp` (host 1.0), so the body-flux tier has something to find.
+    # `flux_Hp` (target 1.0), so the body-flux path has something to find.
     m = g23h_model(n_companions=2, masses=(0.03, 0.012),
         fluxratios=(0.037, 0.011), fluxratios_hip=(0.021, 0.008),
         elements=TWO_EL, body_fluxes=true)
     c = g23h_context(m.sys, m.obs)
     sys = c.ctx.system
-    hostidx = Octofitter.ref(c.ctx, m.obs.host).idx
-    cidx = map(x -> Octofitter.ref(c.ctx, x).idx, m.obs.companions)
-    f(θ_obs, θ_sys, key, band, active) =
-        Octofitter._g23h_fluxratios(θ_obs, θ_sys, key, Val(band), sys, hostidx, cidx, active, T)
+    targetidx = Octofitter.ref(c.ctx, m.obs.target).idx
+    bidx = map(x -> Octofitter.ref(c.ctx, x).idx, m.obs.blends)
+    f(θ_obs, key, band, active) =
+        Octofitter._g23h_fluxratios(θ_obs, key, Val(band), sys, targetidx, bidx, active, T)
 
-    # Tier 1 — the observation's own vector, in `companions=` order.
-    @test f((; fluxratio=(0.1, 0.2)), (;), :fluxratio, :G, (true, true)) == (0.1, 0.2)
-    @test f((; fluxratio=SVector(0.1, 0.2)), (;), :fluxratio, :G, (true, true)) == (0.1, 0.2)
-    @test f((; fluxratio=[0.1, 0.2]), (;), :fluxratio, :G, (true, true)) == (0.1, 0.2)
-    # an inactive companion is dark, whatever the variable says
-    @test f((; fluxratio=(0.1, 0.2)), (;), :fluxratio, :G, (true, false)) == (0.1, 0.0)
-    # a scalar is unambiguous only for one companion
-    @test Octofitter._g23h_fluxratios((; fluxratio=0.3), (;), :fluxratio, Val(:G),
-        sys, hostidx, (cidx[1],), (true,), T) == (0.3,)
-    @test_throws r"declares 2 companions" f((; fluxratio=0.3), (;), :fluxratio, :G, (true, true))
-    @test_throws r"received 3 flux ratios" f((; fluxratio=(0.1, 0.2, 0.3)), (;),
+    # The override — the observation's own vector, in `blends=` order.
+    @test f((; fluxratio=(0.1, 0.2)), :fluxratio, :G, (true, true)) == (0.1, 0.2)
+    @test f((; fluxratio=SVector(0.1, 0.2)), :fluxratio, :G, (true, true)) == (0.1, 0.2)
+    @test f((; fluxratio=[0.1, 0.2]), :fluxratio, :G, (true, true)) == (0.1, 0.2)
+    # an inactive blend is dark, whatever the variable says
+    @test f((; fluxratio=(0.1, 0.2)), :fluxratio, :G, (true, false)) == (0.1, 0.0)
+    # a scalar is unambiguous only for one blend
+    @test Octofitter._g23h_fluxratios((; fluxratio=0.3), :fluxratio, Val(:G),
+        sys, targetidx, (bidx[1],), (true,), T) == (0.3,)
+    @test_throws r"declares 2 blends" f((; fluxratio=0.3), :fluxratio, :G, (true, true))
+    @test_throws r"received 3 flux ratios" f((; fluxratio=(0.1, 0.2, 0.3)),
         :fluxratio, :G, (true, true))
 
-    # Tier 2 — a system-level vector of the same name, which is what the old
-    # default-variables block forwarded.
-    @test f((;), (; fluxratio=(0.3, 0.4)), :fluxratio, :G, (true, true)) == (0.3, 0.4)
-    # …and tier 1 wins over it.
-    @test f((; fluxratio=(0.1, 0.2)), (; fluxratio=(0.3, 0.4)), :fluxratio, :G, (true, true)) == (0.1, 0.2)
-
-    # Tier 3 — the bodies' own fluxes, as companion/host.
-    @test f((;), (;), :fluxratio, :G, (true, true)) == (0.037, 0.011)
-    @test f((;), (;), :fluxratio_hip, :Hp, (true, true)) == (0.021, 0.008)
-    @test f((;), (;), :fluxratio, :G, (true, false)) == (0.037, 0.0)
+    # The default — the bodies' own fluxes, as blend/target.
+    @test f((;), :fluxratio, :G, (true, true)) == (0.037, 0.011)
+    @test f((;), :fluxratio_hip, :Hp, (true, true)) == (0.021, 0.008)
+    @test f((;), :fluxratio, :G, (true, false)) == (0.037, 0.0)
     # A band no body declares, while other bands exist, is a name mismatch —
-    # `flux_H` for `flux_Hp` silently modelling a dark companion is exactly the
+    # `flux_H` for `flux_Hp` silently modelling a dark blend is exactly the
     # failure mode this refuses.
-    @test_throws r"declare" f((;), (;), :fluxratio, :H, (true, true))
+    @test_throws r"declare" f((;), :fluxratio, :H, (true, true))
 
-    # A model with no photometry at all: every companion dark, as v1 was when
-    # the flux-ratio vector was omitted.
+    # There is no system-level tier any more: a `fluxratio` in the *system*
+    # block is an ordinary system variable this observation never reads, so
+    # the body fluxes still win. (It used to shadow them, keyed by bare name,
+    # for every G23HObs in the system at once.)
+    @test f((;), :fluxratio, :G, (true, true)) == (0.037, 0.011)
+
+    # A model with no photometry at all: every blend dark, as v1 was when the
+    # flux-ratio vector was omitted.
     m0 = g23h_model(n_companions=2, masses=(0.03, 0.012), elements=TWO_EL,
         fluxratios=(0.0, 0.0), fluxratios_hip=(0.0, 0.0))
     c0 = g23h_context(m0.sys, m0.obs)
-    @test Octofitter._g23h_fluxratios((;), (;), :fluxratio, Val(:G), c0.ctx.system,
+    @test Octofitter._g23h_fluxratios((;), :fluxratio, Val(:G), c0.ctx.system,
         1, (2, 3), (true, true), T) == (0.0, 0.0)
+
+    # No blends at all: no ratios, and nothing to validate — so not even a
+    # dark target is an error, because there is nothing to take a ratio
+    # against. `blends=()` is a resolved source.
+    @test Octofitter._g23h_fluxratios((;), :fluxratio, Val(:G), sys,
+        targetidx, (), (), T) === ()
+    @test Octofitter._g23h_fluxratios((;), :fluxratio, Val(:H), sys,
+        targetidx, (), (), T) === ()
 end
 
 @testset "flux ratios default to the bodies' own fluxes" begin
@@ -692,7 +701,7 @@ end
 
     # A dropped :rv_dr3 must not leave σ_rv_per_transit sampled but unused: the
     # defaults are built against the restricted table.
-    defaults = G23HObs(; host=:A, companions=(:b,),
+    defaults = G23HObs(; target=:A, blends=(:b,),
         gaia_id=g23h_catalog_row().gaia_source_id, catalog=g23h_catalog_row(),
         forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
         dr2_transits_catalog=g23h_dr2_sidecar(), channels=chans)
@@ -708,7 +717,7 @@ end
 @testset "HGCAObs is a G23HObs over the HGCA's channels" begin
     cat = g23h_catalog_row()
     m = g23h_model()
-    obs = Octofitter.HGCAObs(; host=m.host, companions=(m.comps[1],),
+    obs = Octofitter.HGCAObs(; target=m.target, blends=(m.comps[1],),
         gaia_id=cat.gaia_source_id, catalog=cat,
         forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
         dr2_transits_catalog=g23h_dr2_sidecar(),
@@ -744,7 +753,7 @@ end
     @test obs.include_iad == false
     @test Octofitter.likelihoodname(obs) == "HGCA"
 
-    sys = Octofitter.System(name="hgca", bodies=[m.host, m.comps...], observations=[obs],
+    sys = Octofitter.System(name="hgca", bodies=[m.target, m.comps...], observations=[obs],
         variables=(@variables begin
             plx = $(cat.parallax)
         end), observing_geometry=false)
@@ -783,6 +792,31 @@ end
     m2 = g23h_model(masses=(1e-14,), fluxratios=(0.0,), fluxratios_hip=(0.0,))
     c2 = g23h_context(m2.sys, m2.obs)
     @test c2.lnl(m2.sys, c2.nt) ≈ ll rtol = 1e-6
+
+    # A body that is NOT declared as a blend still displaces the target, and
+    # the fast path has to see that. `blends=` is photometry; the barycentre
+    # moves off the primary for any mass in the system. Keyed on the declared
+    # blends alone, this model was orbit-independent — the same silent
+    # wrongness as `blends=()` on a companion, from the other side.
+    dark(a, mass) = Octofitter.Body(name="c", about=:A, variables=@variables begin
+        mass = $mass
+        a = $a; e = 0.2; i = 1.0; ω = 0.7; Ω = 2.1; tp = 51000.0
+    end)
+    function undeclared(a, mass)
+        base = g23h_model(masses=(0.0,), fluxratios=(0.0,), fluxratios_hip=(0.0,))
+        sys = Octofitter.System(name="g23h",
+            bodies=[base.target, base.comps..., dark(a, mass)],
+            observations=[base.obs], variables=(@variables begin
+                plx = $(g23h_catalog_row().parallax)
+            end), observing_geometry=false)
+        cc = g23h_context(sys, base.obs)
+        return cc.lnl(sys, cc.nt)
+    end
+    with_c = [undeclared(a, 0.05) for a in (2.0, 8.0, 30.0)]
+    @test allunique(with_c)
+    # …while a *massless* undeclared body displaces nothing, so the fast path
+    # is still taken and the orbit cannot matter.
+    @test allequal([undeclared(a, 0.0) for a in (2.0, 8.0, 30.0)])
 end
 
 @testset "kind-based epoch subsets" begin
@@ -807,7 +841,7 @@ end
     @test isnothing(sub2.catalog.dist_hg)
 
     # A Gaia-only subset still evaluates
-    sys2 = Octofitter.System(name="g23hsub", bodies=[m.host, m.comps...],
+    sys2 = Octofitter.System(name="g23hsub", bodies=[m.target, m.comps...],
         observations=[sub2], variables=(@variables begin
             plx = $(g23h_catalog_row().parallax)
         end), observing_geometry=false)
@@ -839,7 +873,7 @@ end
     # `truncated(Normal(NaN, NaN), …)` cannot be built. Ported from main's
     # test_g23h_ueva_none.jl, which was written against the v1 API.
     cat = g23h_catalog_row()
-    defaults(mode) = G23HObs(; host=m.host, companions=Tuple(m.comps),
+    defaults(mode) = G23HObs(; target=m.target, blends=Tuple(m.comps),
         gaia_id=cat.gaia_source_id, catalog=cat,
         forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
         dr2_transits_catalog=g23h_dr2_sidecar(),
@@ -870,7 +904,7 @@ end
     obs2 = Octofitter.generate_from_params(m.obs, c.ctx; add_noise=false)
     @test obs2 isa G23HObs
     @test obs2.table.kind == m.obs.table.kind
-    sys2 = Octofitter.System(name="g23h", bodies=[m.host, m.comps...], observations=[obs2],
+    sys2 = Octofitter.System(name="g23h", bodies=[m.target, m.comps...], observations=[obs2],
         variables=(@variables begin
             plx = $(g23h_catalog_row().parallax)
         end), observing_geometry=false)
@@ -951,10 +985,10 @@ end
     # finite — see the next testset, and the port notes. That is inherited
     # behaviour, not something this port introduced.
     cat = g23h_catalog_row()
-    host = Octofitter.Body(name="A", variables=@variables begin
+    target = Octofitter.Body(name="A", variables=@variables begin
         mass = system.M_tot - system.m_b
     end)
-    b = Octofitter.Body(name="b", about=host, variables=@variables begin
+    b = Octofitter.Body(name="b", about=target, variables=@variables begin
         mass = system.m_b
         M = system.M_tot
         a ~ LogUniform(1.0, 30.0)
@@ -964,7 +998,7 @@ end
         Ω = 2.44
         tp = 52000.0
     end)
-    obs = G23HObs(; host=host, companions=(b,),
+    obs = G23HObs(; target=target, blends=(b,),
         gaia_id=cat.gaia_source_id, catalog=cat,
         forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
         dr2_transits_catalog=g23h_dr2_sidecar(), include_rv=false,
@@ -988,7 +1022,7 @@ end
             transits_dr2 = $TRANSITS_DR2
             transits_rv = $TRANSITS_RV
         end)
-    sys = Octofitter.System(name="g23hgrad", bodies=[host, b], observations=[obs],
+    sys = Octofitter.System(name="g23hgrad", bodies=[target, b], observations=[obs],
         variables=(@variables begin
             M_tot = 0.486
             m_b ~ LogUniform(1e-4, 0.2)
@@ -1025,8 +1059,8 @@ end
 end
 
 @testset "end to end: a lumcomp-shaped model samples" begin
-    # A miniature of the production model this observation exists for: a host
-    # plus two companions, a *sampled* resolved-flag latent per companion at
+    # A miniature of the production model this observation exists for: a target
+    # plus two blends, a *sampled* resolved-flag latent per blend at
     # system level gating that companion out of the Gaia photocentre, and the
     # resulting effective flux ratios read by the observation.
     #
@@ -1036,10 +1070,10 @@ end
     # three-tier design turns on — the blending state never round-trips
     # through a body's own `flux_G`, which would be the cycle codegen rejects.
     cat = g23h_catalog_row()
-    host = Octofitter.Body(name="A", variables=@variables begin
+    target = Octofitter.Body(name="A", variables=@variables begin
         mass = system.M_tot - system.m_b - system.m_c
     end)
-    b = Octofitter.Body(name="b", about=host, variables=@variables begin
+    b = Octofitter.Body(name="b", about=target, variables=@variables begin
         mass = system.m_b
         M = system.M_tot
         a ~ LogUniform(0.5, 20.0)
@@ -1049,7 +1083,7 @@ end
         Ω = 0.5
         tp = 52000.0
     end)
-    c = Octofitter.Body(name="c", about=host, variables=@variables begin
+    c = Octofitter.Body(name="c", about=target, variables=@variables begin
         mass = system.m_c
         M = system.M_tot
         a ~ LogUniform(0.5, 20.0)
@@ -1060,7 +1094,7 @@ end
         tp = 51000.0
     end)
 
-    obs = G23HObs(; host=host, companions=(b, c),
+    obs = G23HObs(; target=target, blends=(b, c),
         gaia_id=cat.gaia_source_id, catalog=cat,
         forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
         dr2_transits_catalog=g23h_dr2_sidecar(),
@@ -1087,7 +1121,7 @@ end
             transits_dr2 = $TRANSITS_DR2
         end)
 
-    sys = Octofitter.System(name="lumcomp", bodies=[host, b, c], observations=[obs],
+    sys = Octofitter.System(name="lumcomp", bodies=[target, b, c], observations=[obs],
         variables=(@variables begin
             M_tot = 0.486
             m_b ~ LogUniform(1e-3, 0.1)
@@ -1119,7 +1153,7 @@ end
     # generate_from_params round-trips through a full model rebuild
     c_ = g23h_context(sys, obs, θ)
     obs_gen = Octofitter.generate_from_params(obs, c_.ctx; add_noise=true)
-    sys_gen = Octofitter.System(name="lumcomp", bodies=[host, b, c], observations=[obs_gen],
+    sys_gen = Octofitter.System(name="lumcomp", bodies=[target, b, c], observations=[obs_gen],
         variables=(sys.priors, sys.derived), observing_geometry=false)
     @test isfinite(Octofitter.make_ln_like(sys_gen, nt)(sys_gen, nt))
 
@@ -1189,10 +1223,10 @@ function g23h_two_source_model(; a_wide=12.0, observing_geometry=false, frame_sh
     end
     # `frame_shift=false` is mandatory here and the model errors without it —
     # see the guard's own testset. The shift redefines the system's `pmra` to
-    # mean one observation's host body, and two observations cannot both do
+    # mean one observation's target body, and two observations cannot both do
     # that to the same parameter.
-    src(host, comps, nm) = G23HObs(;
-        host, companions=comps, ref=Barycentre, name=nm, frame_shift,
+    src(target, comps, nm) = G23HObs(;
+        target, blends=comps, ref=Barycentre, name=nm, frame_shift,
         gaia_id=cat.gaia_source_id, catalog=cat,
         forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
         dr2_transits_catalog=g23h_dr2_sidecar(), variables=srcvars())
@@ -1265,7 +1299,7 @@ end
 
 @testset "frame_shift: what it does, and why two sources cannot share it" begin
     # § What it does. The shift subtracts the model's own DR3-epoch reflex of
-    # the host from *every* channel, so `μ_dr3` becomes exactly the frame
+    # the target from *every* channel, so `μ_dr3` becomes exactly the frame
     # `pmra`/`pmdec` and every other channel is translated by the same
     # constant. Both halves of that are asserted, because the first alone
     # would also hold if the shift were applied to DR3 only.
@@ -1274,12 +1308,12 @@ end
     # `g23h_model` is parallax-only, so build the shifted/unshifted pair by
     # hand off the same catalog row rather than through the frame.
     shifted = Octofitter.simulate(on.obs, g23h_context(on.sys, on.obs).ctx)
-    obs_off = G23HObs(; host=off.host, companions=(off.comps[1],), frame_shift=false,
+    obs_off = G23HObs(; target=off.target, blends=(off.comps[1],), frame_shift=false,
         gaia_id=g23h_catalog_row().gaia_source_id, catalog=g23h_catalog_row(),
         forecast_table=g23h_forecast(), hipparcos=g23h_hipparcos(),
         dr2_transits_catalog=g23h_dr2_sidecar(),
         variables=(off.obs.priors, off.obs.derived))
-    sys_off = Octofitter.System(name="g23h", bodies=[off.host, off.comps...],
+    sys_off = Octofitter.System(name="g23h", bodies=[off.target, off.comps...],
         observations=[obs_off], variables=(@variables begin
             plx = $(g23h_catalog_row().parallax)
         end), observing_geometry=false)
@@ -1321,67 +1355,73 @@ end
         (; name=:x, framevars=Symbol[], sysnames=Symbol[])) === nothing
 end
 
-@testset "a shared system-level fluxratio names the observations that clash" begin
-    # §10. Tier 2 of `_g23h_fluxratios` is keyed by the bare name, so a
-    # system-level `fluxratio` is read by *every* G23HObs, each validating it
-    # against its own companion count. Two observations with different counts
-    # can never both be right, and the runtime failure ("received 3 flux
-    # ratios but the observation declares 1 companion") names neither of them
-    # nor says why they are competing.
+@testset "the constant fluxratio= keyword appends to the defaults" begin
+    # A constant contrast used to cost a hand-written `variables=` block,
+    # because that *replaces* the defaults. The keyword appends instead, so
+    # `σ_AL`, `transit_priorities`, `transits`, `transits_dr2` and the rest are
+    # still the ones the catalog row implies.
     cat = g23h_catalog_row()
-    Aa = Octofitter.Body(name="Aa", variables=@variables begin mass = 0.4 end)
-    Ab = Octofitter.Body(name="Ab", about=Aa, variables=@variables begin
-        mass = 0.05; a = 1.0; e = 0.1; i = 0.9; ω = 1.2; Ω = 2.0; tp = 52000.0
-    end)
-    Ac = Octofitter.Body(name="Ac", about=Aa, variables=@variables begin
-        mass = 0.02; a = 3.0; e = 0.1; i = 0.9; ω = 1.2; Ω = 2.0; tp = 52000.0
-    end)
-    Ba = Octofitter.Body(name="Ba", about=Aa, variables=@variables begin
-        mass = 0.3; a = 12.0; e = 0.2; i = 1.1; ω = 0.3; Ω = 1.0; tp = 40000.0
-    end)
-    srcvars() = @variables begin
-        σ_AL = $(EVAL[:sigma_AL]); σ_att = $(EVAL[:sigma_att])
-        σ_calib = $(EVAL[:sigma_calib])
-        hip_iad_jitter = $(EVAL[:hip_iad_jitter])
-        iad_Δra = 0.0; iad_Δdec = 0.0; iad_Δplx = 0.0
-        iad_pmra = $(EVAL[:iad_pmra]); iad_pmdec = $(EVAL[:iad_pmdec])
-        σ_rv_per_transit = $(EVAL[:sigma_rv_per_transit])
-        transit_priorities = $PRIORITIES
-        transits = $TRANSITS; transits_dr2 = $TRANSITS_DR2; transits_rv = $TRANSITS_RV
-    end
-    src(host, comps, nm; vars=srcvars()) = G23HObs(;
-        host, companions=comps, name=nm, frame_shift=false,
+    mk(; kw...) = G23HObs(; target=:A, blends=(:b,),
         gaia_id=cat.gaia_source_id, catalog=cat, forecast_table=g23h_forecast(),
         hipparcos=g23h_hipparcos(), dr2_transits_catalog=g23h_dr2_sidecar(),
-        variables=vars)
-    build(obsA, obsB; extra=()) = Octofitter.System(
-        name="clash", bodies=[Aa, Ab, Ac, Ba], observations=[obsA, obsB],
+        freeze_epochs=true, kw...)
+
+    plain = mk()
+    withf = mk(fluxratio=0.0, fluxratio_hip=0.25)
+    @test :fluxratio ∉ keys(plain.derived.variables)
+    @test :fluxratio ∈ keys(withf.derived.variables)
+    @test :fluxratio_hip ∈ keys(withf.derived.variables)
+    # …and nothing else moved: same priors, same other derived names.
+    @test collect(keys(withf.priors.priors)) == collect(keys(plain.priors.priors))
+    @test setdiff(keys(withf.derived.variables), keys(plain.derived.variables)) ==
+          Set([:fluxratio, :fluxratio_hip])
+    @test :σ_AL ∈ keys(withf.priors.priors)
+    @test :transit_priorities ∈ keys(withf.derived.variables)   # frozen here
+    @test :transits_dr2 ∈ keys(withf.derived.variables)
+
+    # The values reach the sample, in `blends=` order, alongside the defaults.
+    b = Octofitter.Body(name="b", about=:A, variables=@variables begin
+        mass = 0.01; a = 4.0; e = 0.1; i = 0.9; ω = 1.0; Ω = 2.0; tp = 52000.0
+    end)
+    cc = Octofitter.Body(name="c", about=:A, variables=@variables begin
+        mass = 0.005; a = 9.0; e = 0.1; i = 0.9; ω = 1.0; Ω = 2.0; tp = 52000.0
+    end)
+    A = Octofitter.Body(name="A", variables=@variables begin mass = 1.0 end)
+    two = G23HObs(; target=:A, blends=(:b, :c), fluxratio=(0.04, 0.01),
+        gaia_id=cat.gaia_source_id, catalog=cat, forecast_table=g23h_forecast(),
+        hipparcos=g23h_hipparcos(), dr2_transits_catalog=g23h_dr2_sidecar(),
+        freeze_epochs=true)
+    sys2 = Octofitter.System(name="kw", bodies=[A, b, cc], observations=[two],
         variables=(@variables begin
-            plx = $(cat.parallax); ra = $(cat.ra); dec = $(cat.dec)
+            plx = $(cat.parallax)
+            ra = $(cat.ra); dec = $(cat.dec)
             pmra = $(cat.pmra_dr3); pmdec = $(cat.pmdec_dr3); rv = 0.0
             ref_epoch = $(Octofitter.meta_gaia_DR3.ref_epoch_mjd)
-            fluxratio = (0.04, 0.01)
-        end), observing_geometry=false, verbosity=0)
+        end), observing_geometry=false)
+    θ2 = Octofitter.make_arr2nt(sys2)(
+        collect(Octofitter.sample_priors(Random.Xoshiro(1), sys2)))
+    @test θ2.observations.G23H.fluxratio == (0.04, 0.01)
+    @test length(θ2.observations.G23H.transit_priorities) == N_POOL
 
-    twoc = src(Aa, (Ab, Ac), "srcA")
-    onec = src(Ba, (), "srcB")
-    err = try
-        build(twoc, onec); nothing
-    catch e
-        sprint(showerror, e)
-    end
-    @test !isnothing(err)
-    @test occursin("srcA", err) && occursin("srcB", err)
-    @test occursin("fluxratio", err)
-    # The counts are in the message, which is the part the runtime error had.
-    @test occursin("2 companion", err) && occursin("0 companion", err)
-
-    # Equal companion counts are fine — one vector, one meaning.
-    @test build(src(Aa, (Ab,), "srcA"), src(Ba, (Ab,), "srcB")) isa Octofitter.System
-    # …and so is a clash where one observation declares its own `fluxratio`,
-    # because tier 1 wins and it never reaches the system-level vector.
-    own = vcat(srcvars(), @variables begin fluxratio = (0.5,) end)
-    @test build(src(Aa, (Ab,), "srcA"; vars=own), onec) isa Octofitter.System
+    # Mis-shaped, and shadowing an explicit block, both fail at construction —
+    # not in the sampler, and not silently.
+    @test_throws r"1 entry but the observation declares 2 blend" G23HObs(;
+        target=:A, blends=(:b, :c), fluxratio=0.0,
+        gaia_id=cat.gaia_source_id, catalog=cat, forecast_table=g23h_forecast(),
+        hipparcos=g23h_hipparcos(), dr2_transits_catalog=g23h_dr2_sidecar(),
+        freeze_epochs=true)
+    @test_throws r"`blends=\(\)` is a resolved source" G23HObs(;
+        target=:A, blends=(), fluxratio=0.0,
+        gaia_id=cat.gaia_source_id, catalog=cat, forecast_table=g23h_forecast(),
+        hipparcos=g23h_hipparcos(), dr2_transits_catalog=g23h_dr2_sidecar(),
+        freeze_epochs=true)
+    @test_throws r"keyword \*and\* declared" mk(fluxratio=0.0,
+        variables=(@variables begin
+            σ_AL = 0.1; σ_att = 0.1; σ_calib = 0.1
+            fluxratio = (0.0,)
+            transit_priorities = $PRIORITIES
+            transits = $TRANSITS; transits_dr2 = $TRANSITS_DR2
+        end))
 end
 
 @testset "differential parallax is per body, already" begin

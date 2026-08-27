@@ -91,8 +91,8 @@ forecast = Table( # hide
 ) # hide
 hgca_obs = HGCAObs(
     gaia_id = 756291174721509376,
-    host = A,
-    companions = (planet_b,),
+    target = A,
+    blends = (planet_b,),
     ref = Barycentre,
     freeze_epochs = true,       # fast but approximate; drop for a production fit
     catalog = catalog,          # hide

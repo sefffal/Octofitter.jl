@@ -115,12 +115,10 @@ in its block. Default: nothing to check.
 
 This exists because some settings are only wrong *in company*. An
 observation's own constructor cannot see how many siblings it has, nor
-whether the system it is about to join defines an absolute frame or a
-variable it will fall through to — and the failure modes here (`G23HObs(...;
-frame_shift=true)` on two Gaia sources; two observations with different
-companion counts sharing one system-level flux-ratio vector) are a silently
-wrong likelihood and an error naming no observation. Raise from here rather
-than warning: a model that is wrong for a structural reason should not run.
+whether the system it is about to join defines an absolute frame — and the
+failure mode here (`G23HObs(...; frame_shift=true)` on two Gaia sources) is a
+silently wrong likelihood. Raise from here rather than warning: a model that
+is wrong for a structural reason should not run.
 """
 check_siblings(@nospecialize(obs::AbstractObs), @nospecialize(all_obs), ctx) = nothing
 

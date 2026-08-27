@@ -13,7 +13,7 @@
 # ---------------------------------------------------
 
 """
-    HGCAObs(; gaia_id, host, companions=(), ref=Barycentre, kwargs...)
+    HGCAObs(; gaia_id, target, blends=(), ref=Barycentre, kwargs...)
 
 Proper-motion-anomaly astrometry in the style of the Hipparcos–Gaia Catalog
 of Accelerations: the Hipparcos and Gaia DR3 catalog proper motions and the
@@ -22,8 +22,8 @@ long-baseline Hipparcos–Gaia scaled position difference.
 This is a **helper constructor**, not a type. It builds a [`G23HObs`](@ref)
 restricted to the six channels the HGCA constrains:
 
-    HGCAObs(; gaia_id, host, companions=(), ref=Barycentre, kwargs...) =
-        G23HObs(; gaia_id, host, companions, ref,
+    HGCAObs(; gaia_id, target, blends=(), ref=Barycentre, kwargs...) =
+        G23HObs(; gaia_id, target, blends, ref,
                   channels    = (:ra_hip, :dec_hip, :ra_hg, :dec_hg, :ra_dr3, :dec_dr3),
                   ueva_mode   = :none,
                   include_iad = false,
@@ -31,7 +31,7 @@ restricted to the six channels the HGCA constrains:
                   kwargs...)
 
 so everything `G23HObs` documents — source membership through
-`host`/`companions`, flux ratios defaulting to the bodies' own `flux_G` /
+`target`/`blends`, flux ratios defaulting to the bodies' own `flux_G` /
 `flux_Hp`, `variables=`, the offline `catalog=`/`forecast_table=`/
 `hipparcos=` inputs — applies unchanged, and `likeobj_from_epoch_subset`,
 `generate_from_params` and cross-validation come along for free.
@@ -55,7 +55,7 @@ Three parts of the mapping are load-bearing:
 ```julia
 A = Body(name=:A, variables=@variables begin
     mass ~ truncated(Normal(1.0, 0.1), lower=0.1)
-    flux_G = 1.0                 # the host defines the contrast scale
+    flux_G = 1.0                 # the target defines the contrast scale
 end)
 b = Body(name=:b, about=A, variables=@variables begin
     mass ~ Uniform(0, 100) * mjup2msol
@@ -66,7 +66,7 @@ b = Body(name=:b, about=A, variables=@variables begin
 end)
 
 sys = System(name=:HD1234, bodies=(A, b), observations=(
-    HGCAObs(; gaia_id=756291174721509376, host=A, companions=(b,), ref=Barycentre),
+    HGCAObs(; gaia_id=756291174721509376, target=A, blends=(b,), ref=Barycentre),
 ), variables=@variables begin
     plx ~ truncated(Normal(24.0, 0.1), lower=0)
 end)
@@ -75,8 +75,8 @@ end)
 See also [`G23HObs`](@ref), which is what you want if you have the full G23H
 catalog row and can afford its extra channels.
 """
-HGCAObs(; host, companions=(), ref=Barycentre, name::AbstractString="HGCA", kwargs...) =
-    G23HObs(; host, companions, ref, name,
+HGCAObs(; target, blends=(), ref=Barycentre, name::AbstractString="HGCA", kwargs...) =
+    G23HObs(; target, blends, ref, name,
         channels=(:ra_hip, :dec_hip, :ra_hg, :dec_hg, :ra_dr3, :dec_dr3),
         ueva_mode=:none,
         include_iad=false,
@@ -92,7 +92,7 @@ export HGCAObs
 @noinline HGCAInstantaneousObs(args...; kwargs...) = error(
     "`HGCAInstantaneousObs` no longer exists. The instantaneous proper-motion " *
     "treatment it implemented is what `G23HObs` does for every channel, so use " *
-    "`HGCAObs(; gaia_id, host, companions, ref)` — or `G23HObs` directly for the " *
+    "`HGCAObs(; gaia_id, target, blends, ref)` — or `G23HObs` directly for the " *
     "full channel set. See the v2 migration guide.")
 
 @noinline GaiaCatalogFitObs(args...; kwargs...) = error(

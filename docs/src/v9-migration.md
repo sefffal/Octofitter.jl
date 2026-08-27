@@ -92,7 +92,7 @@ likelihoods is gone.
 | `τ ~ UniformCircular(1.0)` | `tp`, `M0`+`epoch`, or `θ`+`epoch` |
 | `Planet(…, observations=[astrom])` | `System(…, observations=[astrom])` with `target=`/`ref=` |
 | `fluxratio` / `flux` on the observation | `flux` / `flux_<band>` on the body |
-| `G23HObs(gaia_id=…)` | `G23HObs(gaia_id=…, host=A, companions=(b, c))` |
+| `G23HObs(gaia_id=…)` | `G23HObs(gaia_id=…, target=A, blends=(b, c))` |
 | `construct_elements(chain, :b, i)` | `construct_system(model, chain, i)` |
 | `θ_at_epoch_to_tperi(θ, ep; …)` | *(removed)* — declare `θ` and `epoch` as elements |
 | chain column `b_a` | chain column `b_a` (unchanged) |
@@ -304,31 +304,38 @@ equivalent. Both are allocation-free.
 `G23HObs` is ported (`src/likelihoods/g23h.jl`). Four differences are
 user-visible.
 
-**Membership is declared.** The constructor takes `host=` and
-`companions=(…)`:
+**Membership is declared.** The constructor takes `target=` and `blends=(…)`:
 
 ```julia
-absastrom = G23HObs(; gaia_id=…, host=A, companions=(b, c, d), …)
+absastrom = G23HObs(; gaia_id=…, target=A, blends=(b, c, d), …)
 ```
 
-`companions=` fixes the order the flux-ratio vectors are indexed in — v8
-indexed them by position in `system.planets`, which was implicit and easy to
-get wrong. The names are validated against the system's bodies at model-build
-time.
+`target` is the body the catalog source is centred on; `blends` are the other
+bodies whose light falls into it, and their order fixes the order any
+flux-ratio vector is indexed in — v8 indexed by position in `system.planets`,
+which was implicit and easy to get wrong. The names are validated against the
+system's bodies at model-build time.
 
-**Flux ratios come from the bodies, with a per-draw override.** By default
-G23H reads each companion's `flux_G` (Gaia G) and `flux_Hp` (Hipparcos Hp)
-body variables, like every other v9 observation — give the host `flux_G = 1.0`
-and each companion its contrast ratio. A model that declares neither leaves the
-companions dark (ratio 0), which is the right answer for a dark companion but
-*is* a change from v8, where the vector was mandatory.
+`blends` is photometry, not dynamics. A body left out of it still moves the
+target; it just contributes no light. So `blends=()` is a **resolved** source —
+body `target` alone, with its full orbital motion — which is how you attach a
+resolved secondary's own Gaia entry to that secondary.
 
-The observation-level `fluxratio` / `fluxratio_hip` variables still exist as an
-override tier, and they are the only tier that can read deferred system
-variables — so a sampled resolved-flag latent can gate a companion out of the
-Gaia photocentre without the blending state round-tripping through a body's
-flux. When supplied they must be length-`length(companions)` containers; a bare
-scalar is accepted only when there is exactly one companion.
+**Flux ratios come from the bodies, with an override.** By default G23H reads
+each blend's `flux_G` (Gaia G) and `flux_Hp` (Hipparcos Hp) body variables,
+like every other v9 observation — give the target `flux_G = 1.0` and each
+blend its contrast ratio. A model that declares neither leaves the blends dark
+(ratio 0), which is the right answer for a dark companion but *is* a change
+from v8, where the vector was mandatory.
+
+Two overrides, both on the observation. A constant goes on the constructor —
+`G23HObs(…; target=B, blends=(:A,), fluxratio=0.0)` — and is *appended* to the
+default variables rather than replacing them. A ratio that varies per draw goes
+in an explicit `variables=` block under the same name; that is the only form
+that can read deferred system variables, so a sampled resolved-flag latent can
+gate a blend out of the Gaia photocentre without the blending state
+round-tripping through a body's flux. Either must be a length-`length(blends)`
+container; a bare scalar is accepted only when there is exactly one blend.
 
 **Multiple luminous companions give different numbers, on purpose.** v8
 normalized each companion's photocentre term by its own `(1 + f_k)` and
@@ -491,7 +498,7 @@ restricted to the six HGCA channels, with `ueva_mode=:none` and
 `include_rv=false`.
 
 ```julia
-pma = HGCAObs(; gaia_id=…, host=A, companions=(b,), ref=Barycentre)
+pma = HGCAObs(; gaia_id=…, target=A, blends=(b,), ref=Barycentre)
 pma isa G23HObs    # true
 ```
 
@@ -509,7 +516,7 @@ epochs.
 [`HipparcosIADObs`](@ref) is a standalone Hipparcos fit:
 
 ```julia
-hip = HipparcosIADObs(; hip_id=1475, host=A, companions=(b,), ref=Barycentre)
+hip = HipparcosIADObs(; hip_id=1475, target=A, blends=(b,), ref=Barycentre)
 ```
 
 By default `iad_Δplx = 0`, so the system's own `plx` sets the abscissa's

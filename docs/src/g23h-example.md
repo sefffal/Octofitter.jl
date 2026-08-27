@@ -180,8 +180,8 @@ if !isnothing(args["hip"])
     sysname′ = "HIP$hip_id"
     absastrom = Octofitter.G23HObs(;
         hip_id=hip_id,
-        host=:A,
-        companions=Tuple(planet_names),
+        target=:A,
+        blends=Tuple(planet_names),
         ref=Barycentre,
         include_rv=use_gaia_rv,
     )
@@ -189,8 +189,8 @@ else
     gaia_id = args["gaia"]
     absastrom = Octofitter.G23HObs(;
         gaia_id=gaia_id,
-        host=:A,
-        companions=Tuple(planet_names),
+        target=:A,
+        blends=Tuple(planet_names),
         ref=Barycentre,
         include_rv=use_gaia_rv,
     )
@@ -764,7 +764,7 @@ julia script.jl --hip 12345 --host-mass 1.0 --obs-types "ra_hip,dec_hip,ra_hg,de
    ```julia
    absastrom = G23HObs(;
        gaia_id=gaia_id,
-       host=:A, companions=(:b,), ref=Barycentre,
+       target=:A, blends=(:b,), ref=Barycentre,
        freeze_epochs=true,  # Faster but approximate
    )
    ```

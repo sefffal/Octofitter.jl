@@ -79,7 +79,7 @@ nothing # hide
     line above is required — without it the model fits with no white-noise term
     at all.
 
-We load the G23H data for this target. `host=` and `companions=` declare which
+We load the G23H data for this target. `target=` and `blends=` declare which
 bodies this source is modelled from:
 ```@example 1
 using Arrow, DataFrames, CSV # hide
@@ -93,7 +93,7 @@ forecast = Table( # hide
     scanAngle_rad = gost.scanAngle_rad_, # hide
     parallaxFactorAlongScan = gost.parallaxFactorAlongScan, # hide
 ) # hide
-pma = G23HObs(; gaia_id, host=A, companions=(b,), ref=Barycentre, freeze_epochs=true,
+pma = G23HObs(; gaia_id, target=A, blends=(b,), ref=Barycentre, freeze_epochs=true,
     catalog = catalog, # hide
     forecast_table = forecast, # hide
 )

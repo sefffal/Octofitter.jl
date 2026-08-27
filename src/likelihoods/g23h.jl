@@ -35,11 +35,12 @@
 #    declares the Hipparcos transits, the Gaia forecast pool and the six
 #    catalog reference epochs, and the model solves the union once.
 #
-# 4. `fluxratio`/`fluxratio_hip` remain *observation-consumed values* (they
-#    are instrument-band contrast ratios against this source's host, not
-#    intrinsic body fluxes), but the constructor now declares `host=` and
-#    `companions=(…)` explicitly, so tuple order ↔ body mapping is written
-#    down rather than implied by companion declaration order.
+# 4. Source membership is declared: `target=` names the body the catalog
+#    source is centred on and `blends=(…)` the bodies whose light may blend
+#    into it, so the tuple order ↔ body mapping is written down rather than
+#    implied by declaration order. The flux ratios themselves normally come
+#    from the bodies' own `flux_G`/`flux_Hp`; the observation's own
+#    `fluxratio`/`fluxratio_hip` variables override them per draw.
 # ---------------------------------------------------
 
 using Arrow
@@ -52,7 +53,7 @@ const _G23H_DEBUG_PULLS = Ref{Any}(nothing)
 const _G23H_DEBUG_PULLS_LOCK = ReentrantLock()
 
 """
-    G23HObs(; gaia_id, host, companions, …)
+    G23HObs(; gaia_id, target, blends=(), …)
 
 Joint Gaia DR2/DR3 + Hipparcos catalog astrometry from the G23H catalog:
 calibrated proper motions at five epochs, the Gaia DR3 astrometric
@@ -60,44 +61,53 @@ excess-noise (UEVA/RUWE) channel, the Gaia RV variability channel, and
 optionally the Hipparcos per-transit abscissae.
 
 # Source membership
-    host=A, companions=(b, c, d)
+    target=A, blends=(b, c, d)
 
-`host` is the body the catalog source is centred on; `companions` are the
-bodies that may blend into it, **in the order the flux-ratio variables are
-indexed**. Both take `Body` model nodes or `Symbol`s.
+`target` is the body the catalog source is centred on; `blends` are the other
+bodies whose light falls into the same source, **in the order the flux-ratio
+variables are indexed**. Both take `Body` model nodes or `Symbol`s.
 
-`host`/`companions` is not a single `Photocentre` spec, and cannot be: the
+`blends` is photometry, not dynamics. A body left out of it still moves the
+target — every mass in the system does — it simply contributes no light to
+this source. So `blends=()` is the *resolved* source: body `target` alone,
+with its full orbital motion. It is not "no companions".
+
+`target`/`blends` is not a single `Photocentre` spec, and cannot be: the
 Hipparcos branch is a grating response rather than a linear reduction (see
 `_hippacentre!`), and *which* bodies could ever blend is a structural,
 build-time statement while *how much* each one blends is a per-draw one.
 
 # Flux ratios
 
-Each companion contributes light in proportion to its flux ratio against the
-host, in two bands: `fluxratio` (G, for the Gaia DR2/DR3 photocentre) and
-`fluxratio_hip` (Hp, for the Hipparcos abscissa). They are looked up in this
-order, and the first hit wins:
+Each blend contributes light in proportion to its flux ratio against the
+target, in two bands: `fluxratio` (G, for the Gaia DR2/DR3 photocentre) and
+`fluxratio_hip` (Hp, for the Hipparcos abscissa).
 
- 1. **this observation's own variables** — `fluxratio = (f_b, f_c)`. Use this
-    when the ratios are *dynamic*: derived from system variables, including
-    deferred ones, so a resolved-flag latent at system level can gate a
-    companion out of the photocentre for that draw. That is the escape hatch
-    the three-tier design needs, and it is why blending state never has to
-    round-trip through a body's own flux variable (which would be the
-    body→deferred-system cycle codegen rejects).
- 2. **a system-level vector of the same name** — `system.fluxratio`.
- 3. **the bodies' own fluxes** — `flux_G` / `flux_Hp` declared in each body's
-    variables block, as `f_k = flux_<band>(companion_k) / flux_<band>(host)`.
-    This is the common, *static* case, and it needs no vector at all: the
-    ratios stop being positional and the same flux variable feeds every
-    observation in that band.
+**Normally they come from the bodies themselves**: a `flux_G` / `flux_Hp`
+variable in each body's block, read as
+`f_k = flux_<band>(blend_k) / flux_<band>(target)`. Nothing is positional,
+and the same flux variable feeds every observation in that band. A model that
+declares no fluxes at all leaves every blend dark in every band — the right
+answer for a fit with no photometry — while a model that declares *some* band
+but not the one asked for is a name mismatch and errors.
 
-A vector given under (1) or (2) must be a length-`length(companions)`
-container (a tuple, `SVector`, or vector) matching `companions` element for
-element; a bare scalar is accepted only when there is exactly one companion.
-A model that declares no fluxes at all leaves every companion dark in every
-band, which is the right answer for a fit with no photometry; a model that
-declares *some* band but not the one asked for is a name mismatch and errors.
+Two ways to override that, both on the observation:
+
+  - `fluxratio=` / `fluxratio_hip=` on the **constructor**, for a constant.
+    `G23HObs(target=:B, blends=(:A,), fluxratio=0.0)` says "A is resolved off
+    B's source". The value is appended to the default variables block, so the
+    defaults (`σ_AL`, `transit_priorities`, …) are kept.
+  - a `fluxratio` / `fluxratio_hip` entry in an explicit `variables=` block,
+    for a ratio that is *dynamic*: derived from system variables, including
+    deferred ones, so a resolved-flag latent at system level can gate a blend
+    out of the photocentre for that draw. That is why blending state never has
+    to round-trip through a body's own flux variable (which would be the
+    body→deferred-system cycle codegen rejects), and it also covers a
+    partial-blending weight that is not a physical flux ratio at all.
+
+Either override must be a length-`length(blends)` container (a tuple,
+`SVector`, or vector) matching `blends` element for element; a bare scalar is
+accepted only when there is exactly one blend.
 
 # Data
 `catalog` is the G23H catalog: a path to the Arrow file, or an already-loaded
@@ -148,8 +158,8 @@ channel untouched.
 # `frame_shift`
 Default `true`, and single-source behaviour is unchanged. Every channel —
 DR3's own included — is expressed relative to the model's DR3-epoch proper
-motion of the *host body* rather than of the barycentre, so the frame `pmra`
-stops meaning "the barycentre's" and starts meaning "the host's, as DR3
+motion of the *target body* rather than of the barycentre, so the frame `pmra`
+stops meaning "the barycentre's" and starts meaning "the target's, as DR3
 measured it". The Hipparcos–Gaia channel keeps its acceleration content
 because the shift is common-mode across epochs, and the reparameterization
 pays for itself: the frame proper motion is otherwise degenerate with the
@@ -186,7 +196,7 @@ channel is expressed against.
 Two Gaia sources belonging to one physical system are two `G23HObs` on one
 `System`, sharing one absolute frame. That shared frame is the whole point —
 it is what makes the wide pair's relative astrometry constrain the wide orbit
-— so give each observation its own `host=`/`companions=` and let the frame do
+— so give each observation its own `target=`/`blends=` and let the frame do
 the binding. Set `frame_shift=false` on all of them and parameterize the frame
 with [`AnchoredFrame`](@ref).
 
@@ -215,7 +225,7 @@ return the same number of rows, and if they differ by one, index `i` denotes a
 different transit in each — with no error, no warning, and a likelihood that
 is merely wrong.
 """
-struct G23HObs{TTable,TTableH,TTableG,TCat,THip,THost,TComp,TRef} <: AbstractObs
+struct G23HObs{TTable,TTableH,TTableG,TCat,THip,TTarget,TBlend,TRef} <: AbstractObs
     table::TTable                       # one row per likelihood channel
     priors::Priors
     derived::Derived
@@ -235,13 +245,13 @@ struct G23HObs{TTable,TTableH,TTableG,TCat,THip,THost,TComp,TRef} <: AbstractObs
     hip_x_const::NTuple{4,Float64}
     include_iad::Bool
     ueva_mode::Symbol
-    # Whether every channel is expressed relative to the *host body's* DR3
+    # Whether every channel is expressed relative to the *target body's* DR3
     # proper motion rather than the barycentre's. See the `frame_shift`
     # keyword on the constructor.
     frame_shift::Bool
     name::String
-    host::THost
-    companions::TComp
+    target::TTarget
+    blends::TBlend
     ref::TRef
     # Epoch layout of `epochs(obs)`: Hipparcos transits, then the Gaia
     # forecast pool, then the catalog reference epochs (0 = absent).
@@ -260,19 +270,19 @@ export G23HObs
 
 likelihoodname(obs::G23HObs) = obs.name
 epochs(obs::G23HObs) = obs.all_epochs
-refspecs(obs::G23HObs) = (obs.host, obs.companions..., obs.ref)
+refspecs(obs::G23HObs) = (obs.target, obs.blends..., obs.ref)
 
 # The generic `targets… vs ref` reading would print `(A, Ab) vs Barycentre`,
 # which loses the asymmetry that matters here: the catalog source is centred
-# on `host`, and the companions are bodies that *blend into* it (with their
-# own per-band flux ratios) rather than co-equal targets. Shared with
+# on `target`, and the blends are bodies whose light *falls into* it (with
+# their own per-band flux ratios) rather than co-equal targets. Shared with
 # `HipparcosIADObs`, which names its refs the same way.
-_blend_refdesc(host, companions, reference) = isempty(companions) ?
-    _refstr(host) * " vs " * _refstr(reference) :
-    _refstr(host) * " (blended with " *
-    join(map(_refstr, companions), ", ") * ") vs " * _refstr(reference)
+_blend_refdesc(target, blends, reference) = isempty(blends) ?
+    _refstr(target) * " vs " * _refstr(reference) :
+    _refstr(target) * " (blended with " *
+    join(map(_refstr, blends), ", ") * ") vs " * _refstr(reference)
 
-_refdesc(obs::G23HObs) = _blend_refdesc(obs.host, obs.companions, obs.ref)
+_refdesc(obs::G23HObs) = _blend_refdesc(obs.target, obs.blends, obs.ref)
 
 # ──────────────────────────────────────────────────────────────────────
 # Layout of the coupled catalog block
@@ -523,8 +533,8 @@ end
 # ──────────────────────────────────────────────────────────────────────
 
 function G23HObs(;
-        host,
-        companions=(),
+        target,
+        blends=(),
         ref=Barycentre,
         gaia_id=nothing,
         hip_id=nothing,
@@ -533,6 +543,10 @@ function G23HObs(;
         scanlaw_table=nothing,
         hipparcos=nothing,
         variables::Union{Nothing,Tuple{Priors,Derived}}=nothing,
+        # Constant flux ratios, *appended* to whichever variables block is in
+        # play rather than replacing it. See `_g23h_append_fluxratio`.
+        fluxratio=nothing,
+        fluxratio_hip=nothing,
         channels=nothing,
         include_rv=true,
         include_iad::Bool=false,
@@ -553,8 +567,8 @@ function G23HObs(;
     !isnothing(gaia_id) && !isnothing(hip_id) &&
         error("Specify either `gaia_id` or `hip_id`, not both")
 
-    hostspec = refspec(host)
-    compspecs = map(refspec, Tuple(companions))
+    targetspec = refspec(target)
+    blendspecs = map(refspec, Tuple(blends))
     refspec_ = refspec(ref)
 
     catalog = _g23h_catalog_row(catalog, gaia_id, hip_id)
@@ -665,6 +679,10 @@ function G23HObs(;
             has_hip, :rv_dr3 ∈ table.kind, hip_sol, table, freeze_epochs,
             dr2_dup_gmag_threshold, ueva_mode)
     end
+    variables = _g23h_append_fluxratio(variables, :fluxratio, fluxratio,
+        length(blendspecs), name)
+    variables = _g23h_append_fluxratio(variables, :fluxratio_hip, fluxratio_hip,
+        length(blendspecs), name)
     (priors, derived) = variables
     table, catalog, priors, derived = _g23h_restrict(table, catalog, priors, derived)
 
@@ -707,17 +725,17 @@ function G23HObs(;
     push!(all_ep, catalog.epoch_dec_dr3_mjd); i_dec_dr3 = (k += 1)
 
     return G23HObs{typeof(table),typeof(hip_table),typeof(gaia_table),typeof(catalog),
-        typeof(hip_sol),typeof(hostspec),typeof(compspecs),typeof(refspec_)}(
+        typeof(hip_sol),typeof(targetspec),typeof(blendspecs),typeof(refspec_)}(
         table, priors, derived, hip_table, gaia_table, catalog, hip_sol,
         A_prepared_5_hip, A_prepared_5_dr2, A_prepared_5_dr3,
         pinv_5_hip, hip_x_const, include_iad, ueva_mode, frame_shift, String(name),
-        hostspec, compspecs, refspec_,
+        targetspec, blendspecs, refspec_,
         n_hip, n_gaia, i_ra_hip, i_dec_hip, i_ra_dr2, i_dec_dr2, i_ra_dr3, i_dec_dr3,
         all_ep)
 end
 
 # The multi-source guard. `frame_shift` redefines the system's `pmra`/`pmdec`
-# to mean "this observation's host body, at DR3", which two observations
+# to mean "this observation's target body, at DR3", which two observations
 # cannot both do — they would each subtract their own Δpm from the one shared
 # parameter and predict identical DR3 proper motions for two sources the
 # catalogue separates by many σ. That is not a degradation, it is the deletion
@@ -731,7 +749,6 @@ function check_siblings(obs::G23HObs, @nospecialize(all_obs), ctx)
     others = G23HObs[o for o in all_obs if o isa G23HObs && o !== obs]
     isempty(others) && return nothing
     _g23h_check_frame_shift(obs, others, ctx)
-    _g23h_check_shared_fluxratios(obs, others, ctx)
     return nothing
 end
 
@@ -743,7 +760,7 @@ function _g23h_check_frame_shift(obs::G23HObs, others::Vector{G23HObs}, ctx)
     system's frame with $(length(others)) other G23HObs \
     ($(join(('"' * o.name * '"' for o in others), ", "))).
 
-    `frame_shift` expresses every channel relative to *this* observation's host body \
+    `frame_shift` expresses every channel relative to *this* observation's target body \
     at the DR3 epoch, which redefines the system-level `pmra`/`pmdec`. Two \
     observations cannot both redefine the same parameter: each would subtract its own \
     Δpm, so both sources' DR3 channels would predict one and the same proper motion, \
@@ -755,42 +772,6 @@ function _g23h_check_frame_shift(obs::G23HObs, others::Vector{G23HObs}, ctx)
     degeneracy in the model instead of inside one observation.
     """)
 end
-
-# §10: the tier-2 flux-ratio fallthrough is keyed by the bare name, so a
-# system-level `fluxratio` is read by *every* G23HObs, each validating it
-# against its own companion count. Two observations with different counts can
-# therefore never both be right — and the runtime failure ("received 3 flux
-# ratios but the observation declares 1 companion") names neither of them.
-#
-# Statically decidable: which tier an observation lands on is a question about
-# variable *names*, and the counts are structural.
-function _g23h_check_shared_fluxratios(obs::G23HObs, others::Vector{G23HObs}, ctx)
-    for key in (:fluxratio, :fluxratio_hip)
-        _g23h_tier2(obs, key, ctx) || continue
-        clash = [o for o in others if _g23h_tier2(o, key, ctx) &&
-                                      length(o.companions) != length(obs.companions)]
-        isempty(clash) && continue
-        error("""
-        System $(ctx.name): "$(obs.name)" declares $(length(obs.companions)) \
-        companion(s) and "$(clash[1].name)" declares $(length(clash[1].companions)) \
-        companion(s), but both fall through to the system-level `$key` vector — which is keyed by name \
-        alone, so both read the same values and each checks them against its own count. \
-        At most one can be right.
-
-        Give each observation its own `$key` in its `variables=` block, or drop the \
-        system-level one and let the flux ratios come from the bodies' own \
-        `flux_<band>` variables (tier 3), which is per-body and so cannot be \
-        ambiguous.
-        """)
-    end
-    return nothing
-end
-
-# Tier 1 is the observation's own namespace; tier 2 is the system's. An
-# observation that declares the key itself never reaches tier 2.
-_g23h_tier2(obs::G23HObs, key::Symbol, ctx) =
-    !(key in keys(obs.priors.priors)) && !(key in keys(obs.derived.variables)) &&
-    key in ctx.sysnames
 
 # ──────────────────────────────────────────────────────────────────────
 # The full 5×5, fetched per source (§7)
@@ -1116,6 +1097,47 @@ function _g23h_hip_x_const(Q, hip_table, include_iad, has_hip)
 end
 
 # ──────────────────────────────────────────────────────────────────────
+# The constant `fluxratio=` / `fluxratio_hip=` keywords
+#
+# A constant contrast is the commonest override there is — `fluxratio=0.0`
+# for a resolved pair, most of all — and before this it could only be written
+# in a `variables=` block, which *replaces* the defaults outright: you got to
+# say `fluxratio = 0.0` at the price of hand-writing `σ_AL`, `σ_att`,
+# `σ_calib`, `transit_priorities`, `transits`, `transits_dr2` and the
+# Hipparcos abscissa nuisances yourself, correctly, per source.
+#
+# So this *appends* to whichever block is in play and leaves everything else
+# alone. It stays out of `_g23h_default_variables` (see the note there): a
+# declared default would shadow the bodies' own `flux_<band>` for every model,
+# which is the failure the tiering exists to avoid. Only a value the caller
+# actually passed is injected.
+# ──────────────────────────────────────────────────────────────────────
+
+function _g23h_append_fluxratio(variables, key::Symbol, value, nblends::Int, name)
+    isnothing(value) && return variables
+    (priors, derived) = variables
+    (key in keys(priors.priors) || key in keys(derived.variables)) && error(
+        "G23HObs \"$name\": `$key=` was given as a keyword *and* declared in the " *
+        "`variables=` block. Keep one of them — the keyword is for a constant, the " *
+        "variables block for a ratio derived from other variables.")
+    n = value isa Number ? 1 : length(value)
+    (nblends == n || (value isa Number && nblends == 1)) || error(
+        "G23HObs \"$name\": `$key=` has $n entr$(n == 1 ? "y" : "ies") but the " *
+        "observation declares $nblends blend(s). Give one value per blend, in " *
+        "`blends=` order" * (iszero(nblends) ?
+            " — or drop the keyword: `blends=()` is a resolved source with nothing " *
+            "to blend." : "."))
+    add = key === :fluxratio ?
+        (@variables begin
+            fluxratio = $value
+        end) :
+        (@variables begin
+            fluxratio_hip = $value
+        end)
+    return vcat(variables, add)
+end
+
+# ──────────────────────────────────────────────────────────────────────
 # Default variables
 # ──────────────────────────────────────────────────────────────────────
 
@@ -1128,9 +1150,10 @@ function _g23h_default_variables(catalog, gaia_table, dr2_ok_mask, dr3_ok_mask,
     # No `fluxratio`/`fluxratio_hip` here, deliberately. They used to be
     # emitted as derived variables defaulting to a vector of zeros, which meant
     # the *default* variable set always shadowed the bodies' own `flux_G` /
-    # `flux_Hp` and silently made every companion dark. The lookup now falls
-    # through to the system-level vector and then to the body fluxes (see
-    # `_g23h_fluxratios`), which is only possible if nothing is declared here.
+    # `flux_Hp` and silently made every blend dark. The lookup falls through to
+    # the body fluxes (see `_g23h_fluxratios`), which is only possible if
+    # nothing is declared here. The `fluxratio=` keyword appends *after* this,
+    # so an explicit constant still wins without making one the default.
     # `:none` fixes the three σ nuisances rather than sampling them. They enter
     # the likelihood only through the UEVA channel, which `:none` switches off
     # entirely, so sampling them would add three dimensions the data cannot
@@ -1307,157 +1330,225 @@ function likeobj_from_epoch_subset(obs::G23HObs, obs_inds)
     table, catalog, priors, derived =
         _g23h_restrict(obs.table[obs_inds], obs.catalog, obs.priors, obs.derived)
     return G23HObs{typeof(table),typeof(obs.hip_table),typeof(obs.gaia_table),typeof(catalog),
-        typeof(obs.hip_sol),typeof(obs.host),typeof(obs.companions),typeof(obs.ref)}(
+        typeof(obs.hip_sol),typeof(obs.target),typeof(obs.blends),typeof(obs.ref)}(
         table, priors, derived, obs.hip_table, obs.gaia_table, catalog, obs.hip_sol,
         obs.A_prepared_5_hip, obs.A_prepared_5_dr2, obs.A_prepared_5_dr3,
         obs.pinv_5_hip, obs.hip_x_const, obs.include_iad, obs.ueva_mode, obs.frame_shift,
         obs.name,
-        obs.host, obs.companions, obs.ref,
+        obs.target, obs.blends, obs.ref,
         obs.n_hip, obs.n_gaia, obs.i_ra_hip, obs.i_dec_hip,
         obs.i_ra_dr2, obs.i_dec_dr2, obs.i_ra_dr3, obs.i_dec_dr3, obs.all_epochs)
 end
 
 # ──────────────────────────────────────────────────────────────────────
+# Is this source static, this draw?
+#
+# `_g23h_simulate!` and `_hipiad_model!` both have a zero-perturbation fast
+# path: skip the per-transit sky-path queries and the five-parameter refits,
+# and hand back zeros. It is worth keeping — in a model that marginalizes over
+# the companion count, roughly half the draws set every companion mass to zero
+# and the path costs nothing — but it is only *valid* when every offset it
+# skips computing is identically zero.
+#
+# The old test was `any(mass ≠ 0 for the declared blends)`. That is wrong in
+# both directions, and after the `companions=` → `blends=` rename it is wrong
+# by definition, because the blend list is photometry and displacement is
+# dynamics:
+#
+#   * a body that displaces the target but was not declared as a blend (it
+#     contributes no light) was invisible to it;
+#   * a target that is not the reference point moves whether or not anything
+#     blends into it, so `G23HObs(target=:B, blends=())` — the obvious
+#     spelling for a resolved secondary's own source — returned a likelihood
+#     that was bit-identical for every orbit.
+#
+# What the simulation actually computes is `raoff/decoff/radvel(sol, P, ref)`,
+# where `P` is the target (Hipparcos, RV) or the photocentre over the target
+# and its blends (Gaia). Every one of those is a *difference of the same
+# weighted sum over body states*, so all of them are identically zero exactly
+# when the two points carry the same body weights. Hence:
+#
+#   static  ⟺  `ref` resolves to the target body alone   (nothing displaces it)
+#              AND no blend is active                    (the photocentre is
+#                                                         the target itself)
+#
+# The first half is a per-draw question, not a structural one: `Barycentre`
+# resolves to `masses ./ sum(masses)`, so for the ordinary configuration —
+# target = the primary, `ref = Barycentre` — it is `(1, 0, …, 0)` exactly when
+# every other body is massless, which is the old fast path recovered verbatim.
+# Give the primary a massive undeclared sibling and the weights spread, and
+# the fast path correctly refuses. The second half is needed even when the
+# first holds: `ref=:A, target=:A` pins the target while an active luminous
+# blend still drags the photocentre off it.
+#
+# Weights are compared on the primal, for the same reason the mass test is: a
+# differentiated zero is a Dual whose value is zero and whose partials are
+# not.
+@inline _g23h_static_source(r::PlanetOrbits.BodyRef, t::PlanetOrbits.BodyRef) =
+    r.idx == t.idx
+@inline function _g23h_static_source(p::PlanetOrbits.WeightedPoint{NB},
+                                     t::PlanetOrbits.BodyRef) where {NB}
+    ok = true
+    @inbounds for j in 1:NB
+        w = PlanetOrbits._primal(p.w[j])
+        ok &= j == t.idx ? isone(w) : iszero(w)
+    end
+    return ok
+end
+@inline _g23h_static_source(@nospecialize(r), @nospecialize(t)) = false
+
+# ──────────────────────────────────────────────────────────────────────
 # Per-draw source membership
 #
-# Tier 2 (per draw): the Gaia DR2/DR3 photocentre. Weights are the host (1.0)
-# and each companion's effective G-band flux ratio, normalized — one
-# `WeightedPoint`, one `raoff` per epoch, exact for any number of luminous
-# companions.
+# The Gaia DR2/DR3 photocentre: weights are the target (1.0) and each blend's
+# effective G-band flux ratio, normalized — one `WeightedPoint`, one `raoff`
+# per epoch, exact for any number of luminous blends.
 #
-# Tier 3 (per epoch): the Hipparcos abscissa. The grating response makes
-# membership a function of the per-transit projected separation, so the
-# weighting happens inside the scan loop and is not a photocentre at all —
-# see `_hippacentre!`.
+# The Hipparcos abscissa is not that. The grating response makes membership a
+# function of the per-transit projected separation, so the weighting happens
+# inside the scan loop and is not a photocentre at all — see `_hippacentre!`.
 # ──────────────────────────────────────────────────────────────────────
 
-# Effective per-companion flux ratios, zeroed wherever the companion is
-# massless (an absent companion contributes no reflex, so it must contribute
-# no light either). Tuple recursion, never a loop — a loop with a growing
-# accumulator infers as `Tuple` and that instability propagates into
-# everything downstream.
+# Effective per-blend flux ratios, zeroed wherever the blend is massless (a
+# body with no mass is not in the model this draw, so it contributes no light
+# either). Tuple recursion, never a loop — a loop with a growing accumulator
+# infers as `Tuple` and that instability propagates into everything
+# downstream.
 #
-# Three sources, first hit wins:
+# One path and one override:
 #
-#   1. `θ_obs.<key>` — the per-draw override. Only this tier can express
-#      marginalized resolvedness, because it may read *deferred* system
-#      variables, and a resolved-flag latent gating a companion's light to
-#      zero for one draw is exactly that.
-#   2. `θ_system.<key>` — a system-level vector of the same name. This is what
-#      the old default-variables block forwarded, kept so models written
-#      against it keep working.
-#   3. the bodies' own `flux_<band>` variables, as F_k / F_host. The static
-#      case, and the one that makes the common model non-positional.
+#   * the bodies' own `flux_<band>` variables, as F_k / F_target. The common
+#     case, and the one that makes the model non-positional;
+#   * `θ_obs.<key>` — this observation's own variable, which wins. It is what
+#     a constant `fluxratio=` keyword lands in, and the only thing that can
+#     express marginalized resolvedness, because it may read *deferred*
+#     system variables and a resolved-flag latent gating a blend's light to
+#     zero for one draw is exactly that. It also covers a partial-blending
+#     weight that is not a physical flux ratio at all.
 #
-# Every branch is resolved statically: `hasproperty` on a NamedTuple with a
-# constant-propagated key folds away, so the hot loop sees one of the three.
-@inline function _g23h_fluxratios(θ_obs, θ_system, key::Symbol, ::Val{Band}, sys,
-                                  hostidx::Int, cidx::NTuple{N,Int},
+# There used to be a third, between the two: a *system*-level vector of the
+# same name. It was keyed by bare name, so every G23HObs in the system read
+# the same vector and each validated it against its own blend count — two
+# sources with different counts could never both be right, and the failure
+# named neither of them. Body fluxes cover the shared-value case properly,
+# being per body rather than per position, so it is gone.
+#
+# Both branches resolve statically: `hasproperty` on a NamedTuple with a
+# constant-propagated key folds away, so the hot loop sees one of the two.
+@inline function _g23h_fluxratios(θ_obs, key::Symbol, ::Val{Band}, sys,
+                                  targetidx::Int, bidx::NTuple{N,Int},
                                   active::NTuple{N,Bool}, ::Type{T}) where {Band,N,T}
+    # No blends, no ratios — and nothing to validate, so a dark target is not
+    # an error here. `blends=()` is a resolved source, not a broken one.
+    N == 0 && return ()
     f = if hasproperty(θ_obs, key)
         _g23h_asratios(getproperty(θ_obs, key), Val(N), T)
-    elseif hasproperty(θ_system, key)
-        _g23h_asratios(getproperty(θ_system, key), Val(N), T)
     else
-        _g23h_bandratios(sys, Val(Band), hostidx, cidx, T)
+        _g23h_bandratios(sys, Val(Band), targetidx, bidx, T)
     end
     return ntuple(k -> active[k] ? f[k] : zero(T), Val(N))
 end
 
-# Flux ratios read straight off the bodies: f_k = flux_<Band>(companion_k) /
-# flux_<Band>(host). The ratio, not the flux, because that is what both
+# Flux ratios read straight off the bodies: f_k = flux_<Band>(blend_k) /
+# flux_<Band>(target). The ratio, not the flux, because that is what both
 # instrument responses consume — the Hipparcos grating phase is defined
-# against the host's own signal (`Re` starts at 1), and the Gaia photocentre
+# against the target's own signal (`Re` starts at 1), and the Gaia photocentre
 # weights are normalized anyway.
-@inline function _g23h_bandratios(sys, ::Val{Band}, hostidx::Int,
-                                  cidx::NTuple{N,Int}, ::Type{T}) where {Band,N,T}
+@inline function _g23h_bandratios(sys, ::Val{Band}, targetidx::Int,
+                                  bidx::NTuple{N,Int}, ::Type{T}) where {Band,N,T}
     bands = keys(PlanetOrbits.fluxes(sys))
     if !(Band in bands)
-        # A model with no photometry at all: every companion dark, which is
-        # what v1 did when the flux-ratio vector was omitted. A model that
-        # declares *some* band but not this one is a name mismatch
-        # (`flux_H` for `flux_Hp`, say) and is worth failing on rather than
-        # silently modelling a dark companion.
+        # A model with no photometry at all: every blend dark, which is what
+        # v1 did when the flux-ratio vector was omitted. A model that declares
+        # *some* band but not this one is a name mismatch (`flux_H` for
+        # `flux_Hp`, say) and is worth failing on rather than silently
+        # modelling a dark blend.
         isempty(bands) || _g23h_err_band(Band, bands)
         return ntuple(_ -> zero(T), Val(N))
     end
     fl = PlanetOrbits.fluxes(sys, Band)
-    f_host = @inbounds fl[hostidx]
+    f_target = @inbounds fl[targetidx]
     # Test the primal: a differentiated zero flux is a Dual whose value is
     # zero but whose partials are not, and `iszero` on that is false.
-    iszero(PlanetOrbits._primal(f_host)) && _g23h_err_darkhost(Band)
-    return ntuple(k -> T((@inbounds fl[cidx[k]]) / f_host), Val(N))
+    iszero(PlanetOrbits._primal(f_target)) && _g23h_err_darktarget(Band)
+    return ntuple(k -> T((@inbounds fl[bidx[k]]) / f_target), Val(N))
 end
 
 @noinline _g23h_err_band(band, bands) = error(
     "G23HObs needs each body's flux in band :$band to form its flux ratios, but " *
     "this system's bodies declare $(bands). Either rename the body variable to " *
-    "`flux_$band`, or give the observation an explicit `$(band === :Hp ? "fluxratio_hip" : "fluxratio")` vector.")
-@noinline _g23h_err_darkhost(band) = error(
-    "G23HObs's host body has zero flux in band :$band, so the companions' flux " *
-    "ratios against it are undefined. Give the host a flux (1.0 makes every " *
+    "`flux_$band`, or pass `$(band === :Hp ? "fluxratio_hip" : "fluxratio")=` " *
+    "to the observation.")
+@noinline _g23h_err_darktarget(band) = error(
+    "G23HObs's target body has zero flux in band :$band, so the blends' flux " *
+    "ratios against it are undefined. Give the target a flux (1.0 makes every " *
     "other body's flux a contrast ratio), or pass an explicit flux-ratio vector.")
 
 @inline function _g23h_asratios(v::Union{Tuple,AbstractVector,StaticVector}, ::Val{N}, ::Type{T}) where {N,T}
     length(v) == N || _g23h_err_ratios(length(v), N)
     return ntuple(k -> T(v[k]), Val(N))
 end
-# A bare scalar is unambiguous only for a single companion. Legacy accepted it
-# for any count and silently applied it to every companion, which made a
+# A bare scalar is unambiguous only for a single blend. Legacy accepted it for
+# any count and silently applied it to every companion, which made a
 # mis-shaped flux vector invisible.
 @inline _g23h_asratios(v::Number, ::Val{1}, ::Type{T}) where {T} = (T(v),)
 @noinline _g23h_asratios(v::Number, ::Val{N}, ::Type{T}) where {N,T} = error(
-    "G23HObs received a scalar flux ratio but the observation declares $N companions. " *
-    "Give one value per companion, in `companions=` order, e.g. " *
+    "G23HObs received a scalar flux ratio but the observation declares $N blends. " *
+    "Give one value per blend, in `blends=` order, e.g. " *
     "`fluxratio = (f_b, f_c, f_d)`.")
 @noinline _g23h_err_ratios(got, want) = error(
-    "G23HObs received $got flux ratios but the observation declares $want companions. " *
-    "The flux-ratio vector is indexed by `companions=` order, so its length must match.")
+    "G23HObs received $got flux ratios but the observation declares $want blends. " *
+    "The flux-ratio vector is indexed by `blends=` order, so its length must match.")
 
-# w[host] = 1, w[companion k] = f_k, everything else 0 — then normalized by
-# `photocentre`, which is the tier-2 entry point.
-@inline function _g23h_photocentre(sys, hostidx::Int, cidx::NTuple{N,Int},
-                                   f::NTuple{N,T}) where {N,T}
-    w = SVector(ntuple(j -> _g23h_weight(j, hostidx, cidx, f, T),
+# w[target] = 1, w[blend k] = f_k, everything else 0 — then normalized by
+# `photocentre`.
+#
+# The element type is passed rather than read off `f`: with no blends `f` is
+# `Tuple{}`, and an `f::NTuple{N,T}` signature does not bind `T` at N = 0 —
+# it is simply undefined in the body, which is an `UndefVarError` at the
+# first use rather than a method error at the call.
+@inline function _g23h_photocentre(sys, targetidx::Int, bidx::NTuple{N,Int},
+                                   f::NTuple{N,Any}, ::Type{T}) where {N,T}
+    w = SVector(ntuple(j -> _g23h_weight(j, targetidx, bidx, f, T),
         Val(PlanetOrbits.nbodies(sys))))
     return PlanetOrbits.photocentre(w)
 end
-@inline _g23h_weight(j, hostidx, ::Tuple{}, ::Tuple{}, ::Type{T}) where {T} =
-    j == hostidx ? one(T) : zero(T)
-@inline _g23h_weight(j, hostidx, cidx::Tuple, f::Tuple, ::Type{T}) where {T} =
-    j == first(cidx) ? T(first(f)) : _g23h_weight(j, hostidx, Base.tail(cidx), Base.tail(f), T)
+@inline _g23h_weight(j, targetidx, ::Tuple{}, ::Tuple{}, ::Type{T}) where {T} =
+    j == targetidx ? one(T) : zero(T)
+@inline _g23h_weight(j, targetidx, bidx::Tuple, f::Tuple, ::Type{T}) where {T} =
+    j == first(bidx) ? T(first(f)) : _g23h_weight(j, targetidx, Base.tail(bidx), Base.tail(f), T)
 
 """
     _hippacentre!(Δα, Δδ, σ_inflation, ctx, rows, cosϕ, sinϕ,
-                  host, reference, comps, f_hip, active, s)
+                  target, reference, blends, f_hip, active, s, T)
 
 The Hipparcos instrument response: the BINARYS "Hippacentre" along-scan
-offset from the *combined* multi-companion modulated signal (Leclerc et al.
+offset from the *combined* multi-blend modulated signal (Leclerc et al.
 2023, A&A 672 A82, Eqs. 13 and 15), accumulated into `(Δα, Δδ)` so that the
 downstream scan projection `b = Δα·cosϕ + Δδ·sinϕ` recovers Δν_B exactly.
 Cross-scan components are zero, being unobservable from an abscissa.
 
 This is **not** a photocentre, which is why it lives here rather than in
 PlanetOrbits: the modulating grid makes the response a periodic function of
-the projected separation. For N companions at scan-projected separations
-ρ_p^(k) from the host, with Hp-band flux ratios f_k gated by a per-transit
+the projected separation. For N blends at scan-projected separations
+ρ_p^(k) from the target, with Hp-band flux ratios f_k gated by a per-transit
 resolution taper α_k = `α_resolve_hip(|ρ^(k)|)`, the combined phase in the
-host frame is
+target frame is
 
     φ = atan2( Σ_k f_k α_k sin ζ_k ,  1 + Σ_k f_k α_k cos ζ_k ),   ζ_k = 2π ρ_p^(k)/s
 
 and the offset from the system barycentre, projected on scan, is
 
-    Δν_B = (s/2π)·φ + host_along
+    Δν_B = (s/2π)·φ + target_along
 
-where `host_along` is the host's reflex about the reference point. That
-reflex is **one** query — `raoff(sol, host, reference)` — where v8 summed
+where `target_along` is the target's reflex about the reference point. That
+reflex is **one** query — `raoff(sol, target, reference)` — where v8 summed
 `raoff(sol_k, m_k)` over companions; the single query is exact for any
 hierarchy, and the sum was only ever right for a flat astrocentric set whose
 per-row gravitating masses summed to the system's.
 
 The σ-inflation factor is the combined first-harmonic amplitude reduction
-(Eq. 15, generalized to N companions):
+(Eq. 15, generalized to N blends):
 
     f_σ = (1 + Σ_k f_k α_k) / √( (1 + Σ_k f_k α_k cos ζ_k)² + (Σ_k f_k α_k sin ζ_k)² )
 
@@ -1467,15 +1558,20 @@ residuals, and must not be folded into the weighting of the LSQ that
 reproduces the published catalog five-parameter solution — that fit was
 performed by the Hipparcos pipeline with point-source σ.
 
-With every companion dark, or every one resolved (α → 0), this reduces to
-Δν_B = host_along and f_σ = 1: the "resolved binary, primary alone" answer.
+With every blend dark, or every one resolved (α → 0), this reduces to
+Δν_B = target_along and f_σ = 1: the "resolved binary, primary alone" answer —
+which is also the whole of the `blends=()` case, and is why there is **no**
+`any(active) || return` shortcut here. The target's own reflex about `ref` is
+not gated on anyone blending into it; the callers decide whether there is
+anything to compute at all (see `_g23h_static_source`).
 """
+# `T` is passed rather than read off `f_hip`: with no blends that is
+# `Tuple{}`, and an `f_hip::NTuple{N,T}` signature does not bind `T` at N = 0.
 function _hippacentre!(Δα, Δδ, σ_inflation, ctx::ObsContext, rows,
-                       cosϕ, sinϕ, host, reference,
-                       comps::NTuple{N,PlanetOrbits.BodyRef},
-                       f_hip::NTuple{N,T}, active::NTuple{N,Bool},
-                       s::Float64) where {N,T}
-    any(active) || return
+                       cosϕ, sinϕ, target, reference,
+                       blends::NTuple{N,PlanetOrbits.BodyRef},
+                       f_hip::NTuple{N}, active::NTuple{N,Bool},
+                       s::Float64, ::Type{T}) where {N,T}
     s_over_2π = s / (2π)
     two_π_over_s = (2π) / s
     # Squared resolution scale in mas⁻², saving a sqrt per transit per
@@ -1485,25 +1581,26 @@ function _hippacentre!(Δα, Δδ, σ_inflation, ctx::ObsContext, rows,
         sol = solutionat(ctx, rows[i])
         c = cosϕ[i]
         sn = sinϕ[i]
-        # The host's reflex about the reference point — one query, all levels
-        # of the hierarchy included, not gated by α (the host's barycentric
-        # motion is physical whether or not Hipparcos resolved the pair).
-        host_along = raoff(sol, host, reference) * c + decoff(sol, host, reference) * sn
+        # The target's reflex about the reference point — one query, all
+        # levels of the hierarchy included, not gated by α (the target's
+        # barycentric motion is physical whether or not Hipparcos resolved
+        # the pair).
+        target_along = raoff(sol, target, reference) * c + decoff(sol, target, reference) * sn
         Re = one(T)
         Im = zero(T)
         f_total = zero(T)
         for k in 1:N
             active[k] || continue
-            ck = comps[k]
-            ra_p = raoff(sol, ck, host)
-            dec_p = decoff(sol, ck, host)
+            ck = blends[k]
+            ra_p = raoff(sol, ck, target)
+            dec_p = decoff(sol, ck, target)
             ρ_pk = ra_p * c + dec_p * sn
             α_k = exp(-(ra_p * ra_p + dec_p * dec_p) * inv_res_mas2)
             ζ_k = two_π_over_s * ρ_pk
             f_k = f_hip[k] * α_k
             # A degenerate orbit proposal can make raoff/decoff — and hence
             # ζ_k — non-finite, and `sincos` throws a DomainError on ±Inf/NaN,
-            # which would take down the whole evaluation. The host-reflex term
+            # which would take down the whole evaluation. The target-reflex term
             # is already non-finite for such a proposal, so propagate NaN and
             # let the sample be cleanly rejected.
             if isfinite(ζ_k)
@@ -1515,7 +1612,7 @@ function _hippacentre!(Δα, Δδ, σ_inflation, ctx::ObsContext, rows,
             Im += f_k * sin_ζ
             f_total += f_k
         end
-        Δν = s_over_2π * atan(Im, Re) + host_along
+        Δν = s_over_2π * atan(Im, Re) + target_along
         Δα[i] += Δν * c
         Δδ[i] += Δν * sn
         if σ_inflation !== nothing
@@ -1704,16 +1801,16 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
     pmra_sys, pmdec_sys = _g23h_pm(θ_system, θ_obs, T)
 
     sys = ctx.system
-    hostref = ref(ctx, obs.host)
+    targetref = ref(ctx, obs.target)
     reference = ref(ctx, obs.ref)
-    comps = resolverefs(ctx, obs.companions)
-    cidx = map(c -> c.idx, comps)
+    blends = resolverefs(ctx, obs.blends)
+    bidx = map(c -> c.idx, blends)
     masses = sys.masses
     # `iszero` on a Dual is false when the value is zero but the partials are
     # not, so a differentiated zero mass would slip past this gate and land on
     # the very code paths it exists to skip. Test the primal.
-    active = map(c -> !iszero(PlanetOrbits._primal(masses[c.idx])), comps)
-    any_active = any(active)
+    active = map(c -> !iszero(PlanetOrbits._primal(masses[c.idx])), blends)
+    static = _g23h_static_source(reference, targetref) && !any(active)
 
     has_hip = !isnothing(obs.catalog.dist_hip)
     has_iad = :iad_hip ∈ obs.table.kind
@@ -1723,12 +1820,12 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
     hip_bias_pm_sq = zero(T)
     Δα_h = Δδ_h = Δpmra_h = Δpmdec_h = zero(T)
     if has_hip
-        if any_active
-            f_hip = _g23h_fluxratios(θ_obs, θ_system, :fluxratio_hip, Val(:Hp), sys,
-                hostref.idx, cidx, active, T)
+        if !static
+            f_hip = _g23h_fluxratios(θ_obs, :fluxratio_hip, Val(:Hp), sys,
+                targetref.idx, bidx, active, T)
             _hippacentre!(Δα_hip, Δδ_hip, σ_infl_hip, ctx, 1:obs.n_hip,
-                obs.hip_table.cosϕ, obs.hip_table.sinϕ, hostref, reference,
-                comps, f_hip, active, HIPPARCOS_GRID_STEP_ARCSEC)
+                obs.hip_table.cosϕ, obs.hip_table.sinϕ, targetref, reference,
+                blends, f_hip, active, HIPPARCOS_GRID_STEP_ARCSEC, T)
             # Extract the catalog five-parameter bias with the *uninflated* σ:
             # the pipeline that produced the catalog used point-source σ, so
             # to reproduce the bias it absorbed we must weight the LSQ the
@@ -1739,8 +1836,8 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
                 Δα_hip, Δδ_hip, resid; buf=ctx.buf)
             Δα_h, Δδ_h, Δpmra_h, Δpmdec_h = out.parameters
         else
-            # All companions inactive: every perturbation is zero and the LSQ
-            # collapses to the cached projection of the constant residuals.
+            # A static source: every perturbation is zero and the LSQ collapses
+            # to the cached projection of the constant residuals.
             Δα_h = T(obs.hip_x_const[1])
             Δδ_h = T(obs.hip_x_const[2])
             Δpmra_h = T(obs.hip_x_const[3])
@@ -1803,15 +1900,15 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
 
     # ---- Gaia DR2 and DR3 --------------------------------------------------
     #
-    # Tier 2: one `WeightedPoint` per draw over the host and its companions,
-    # weighted by their effective G-band flux ratios, and one `raoff` per
-    # transit. For several luminous companions this is the exact flux-weighted
-    # mean of apparent positions, which is *not* the superposition of
-    # per-companion photocentres v1 computed.
-    if any_active
-        f_G = _g23h_fluxratios(θ_obs, θ_system, :fluxratio, Val(:G), sys,
-            hostref.idx, cidx, active, T)
-        photo = _g23h_photocentre(sys, hostref.idx, cidx, f_G)
+    # One `WeightedPoint` per draw over the target and its blends, weighted by
+    # their effective G-band flux ratios, and one `raoff` per transit. For
+    # several luminous blends this is the exact flux-weighted mean of apparent
+    # positions, which is *not* the superposition of per-companion photocentres
+    # v1 computed.
+    if !static
+        f_G = _g23h_fluxratios(θ_obs, :fluxratio, Val(:G), sys,
+            targetref.idx, bidx, active, T)
+        photo = _g23h_photocentre(sys, targetref.idx, bidx, f_G, T)
         @inbounds for i in istart:iend
             sol = solutionat(ctx, _g23h_gaia_row(obs, ii[i]))
             Δα_dr3[i-istart+1] = raoff(sol, photo, reference)
@@ -1838,8 +1935,8 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
     else
         # Every per-transit perturbation is exactly zero, and a five-parameter
         # fit to zero data returns zero parameters and zero χ². Skipping both
-        # solves is what makes the all-inactive draws cheap — and in a model
-        # that marginalizes over the companion count they are roughly half of
+        # solves is what makes the static draws cheap — and in a model that
+        # marginalizes over the companion count they are roughly half of
         # them.
         z = zero(T)
         Δα_dr3_p = Δδ_dr3_p = Δpmra_dr3 = Δpmdec_dr3 = z
@@ -1934,10 +2031,10 @@ function _g23h_simulate!(bufs, sel, obs::G23HObs, ctx::ObsContext)
         n_rv_ep = length(jj)
         rv_model = Bumper.alloc!(ctx.buf, T, n_rv_ep)
         fill!(rv_model, zero(T))
-        if any_active
+        if !static
             @inbounds for i in 1:n_rv_ep
                 sol = solutionat(ctx, _g23h_gaia_row(obs, jj[i]))
-                rv_model[i] = radvel(sol, hostref, reference) / 1e3   # km/s
+                rv_model[i] = radvel(sol, targetref, reference) / 1e3   # km/s
             end
         end
         rv_sum = zero(T)
@@ -2614,12 +2711,12 @@ function generate_from_params(obs::G23HObs, ctx::ObsContext; add_noise)
     hip_x_const = _g23h_hip_x_const(pinv_5_hip, new_hip_table, obs.include_iad, has_hip)
 
     return G23HObs{typeof(new_table),typeof(new_hip_table),typeof(obs.gaia_table),
-        typeof(new_cat),typeof(obs.hip_sol),typeof(obs.host),typeof(obs.companions),
+        typeof(new_cat),typeof(obs.hip_sol),typeof(obs.target),typeof(obs.blends),
         typeof(obs.ref)}(
         new_table, obs.priors, obs.derived, new_hip_table, obs.gaia_table, new_cat, obs.hip_sol,
         obs.A_prepared_5_hip, obs.A_prepared_5_dr2, obs.A_prepared_5_dr3,
         pinv_5_hip, hip_x_const, obs.include_iad, obs.ueva_mode, obs.frame_shift, obs.name,
-        obs.host, obs.companions, obs.ref,
+        obs.target, obs.blends, obs.ref,
         obs.n_hip, obs.n_gaia, obs.i_ra_hip, obs.i_dec_hip,
         obs.i_ra_dr2, obs.i_dec_dr2, obs.i_ra_dr3, obs.i_dec_dr3, obs.all_epochs)
 end

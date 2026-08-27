@@ -105,8 +105,8 @@ nothing # hide
 
 pma = HGCAObs(;
     gaia_id = gaia_id,
-    host = A,
-    companions = (B,),
+    target = A,
+    blends = (B,),
     ref = Barycentre,
     freeze_epochs = true,       # faster but approximate; set false for real use
     catalog = catalog,          # hide
@@ -315,8 +315,8 @@ Combining the two is just a matter of listing both observations on the system. O
 ```@example 1
 pma_joint = HGCAObs(;
     gaia_id = gaia_id,
-    host = A,
-    companions = (B_img,),
+    target = A,
+    blends = (B_img,),
     ref = Barycentre,
     freeze_epochs = true,       # faster but approximate; set false for real use
     catalog = catalog,          # hide

@@ -486,7 +486,7 @@ System(
     observations=[
         RelAstromObs(dat; target=b, ref=A, name="GPI"),
         RadialVelocityObs(rvs; target=A, ref=Barycentre, name="HARPS"),
-        G23HObs(; host=A, companions=(b, c)),
+        G23HObs(; target=A, blends=(b, c)),
         HillStabilityPrior(bodies=(b, c)),
     ],
 )

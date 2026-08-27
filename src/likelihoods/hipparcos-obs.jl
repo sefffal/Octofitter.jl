@@ -16,10 +16,10 @@
 # ---------------------------------
 #
 # 1. `fluxratio_hip` is no longer a required positional `Product` indexed by
-#    planet declaration order. The observation names its `host` and its
-#    `companions`, and the Hp-band ratios default to the bodies' own
-#    `flux_Hp` variables (see `_g23h_fluxratios`). An explicit vector still
-#    overrides, which is what per-draw resolved-flag gating needs.
+#    planet declaration order. The observation names its `target` and its
+#    `blends`, and the Hp-band ratios default to the bodies' own `flux_Hp`
+#    variables (see `_g23h_fluxratios`). An explicit vector still overrides,
+#    which is what per-draw resolved-flag gating needs.
 #
 # 2. The forward model is the tangent-plane one `G23HObs`'s `:iad_hip`
 #    channel uses — a five-parameter frame solution plus the source's own
@@ -34,13 +34,13 @@
 #    Results are therefore NOT bit-identical to v1.
 #
 # 3. There is no per-planet superposition loop. The Hipparcos grating
-#    response is applied once over every companion (`_hippacentre!`), which
-#    is the whole point of BINARYS: the modulated response of several
-#    companions is not the sum of their individual responses.
+#    response is applied once over every blend (`_hippacentre!`), which is
+#    the whole point of BINARYS: the modulated response of several companions
+#    is not the sum of their individual responses.
 # ---------------------------------------------------
 
 """
-    HipparcosIADObs(; hip_id, host, companions=(), ref=Barycentre, …)
+    HipparcosIADObs(; hip_id, target, blends=(), ref=Barycentre, …)
 
 The Hipparcos per-transit abscissa residuals (van Leeuwen 2007 intermediate
 astrometric data) as a standalone likelihood.
@@ -51,19 +51,19 @@ have, or when you want the abscissae without the catalog proper motions.
 
 # Source membership
 
-    host=A, companions=(b, c)
+    target=A, blends=(b, c)
 
-`host` is the star the Hipparcos entry is centred on and `companions` are the
-bodies whose light may modulate its abscissa. `ref` is what the host's reflex
-is measured against — `Barycentre` by default.
+`target` is the star the Hipparcos entry is centred on and `blends` are the
+other bodies whose light modulates its abscissa. `ref` is what the target's
+reflex is measured against — `Barycentre` by default. As in [`G23HObs`](@ref),
+`blends` is photometry: a body left out of it still moves the target, so
+`blends=()` is a resolved source rather than a static one.
 
-Companion Hp-band flux ratios come from the same three-tier lookup
-[`G23HObs`](@ref) documents: this observation's own `fluxratio_hip` vector
-(the per-draw override, which is what marginalized resolvedness needs), then
-a system-level vector of that name, then the bodies' own `flux_Hp`
-variables as `flux_Hp(companion) / flux_Hp(host)`. A model with no `flux_Hp`
-anywhere and no vector leaves every companion dark, which is the right
-answer when the companions contribute no light.
+Hp-band flux ratios come from the same lookup [`G23HObs`](@ref) documents: the
+bodies' own `flux_Hp` variables as `flux_Hp(blend) / flux_Hp(target)`, unless
+this observation declares its own `fluxratio_hip`, which wins. A model with no
+`flux_Hp` anywhere and no vector leaves every blend dark, which is the right
+answer when the other bodies contribute no light.
 
 # The forward model, and what it constrains
 
@@ -102,26 +102,26 @@ quadrature), `iad_Δra`, `iad_Δdec`, `iad_Δpmra`, `iad_Δpmdec` and
 `iad_Δplx = 0`, with `iad_pmra`/`iad_pmdec` derived by adding the offsets to
 the Hipparcos catalog proper motion.
 """
-struct HipparcosIADObs{TTable,THipSol,THost,TComp,TRef} <: AbstractObs
+struct HipparcosIADObs{TTable,THipSol,TTarget,TBlend,TRef} <: AbstractObs
     table::TTable
     priors::Priors
     derived::Derived
     hip_sol::THipSol
     name::String
-    host::THost
-    companions::TComp
+    target::TTarget
+    blends::TBlend
     ref::TRef
 end
 
 export HipparcosIADObs
 
 likelihoodname(obs::HipparcosIADObs) = obs.name
-refspecs(obs::HipparcosIADObs) = (obs.host, obs.companions..., obs.ref)
-_refdesc(obs::HipparcosIADObs) = _blend_refdesc(obs.host, obs.companions, obs.ref)
+refspecs(obs::HipparcosIADObs) = (obs.target, obs.blends..., obs.ref)
+_refdesc(obs::HipparcosIADObs) = _blend_refdesc(obs.target, obs.blends, obs.ref)
 
 function HipparcosIADObs(;
-        host,
-        companions=(),
+        target,
+        blends=(),
         ref=Barycentre,
         hip_id=nothing,
         iad=nothing,
@@ -151,8 +151,8 @@ function HipparcosIADObs(;
         table = Table(ft)
     end
 
-    hostspec = refspec(host)
-    compspecs = map(refspec, Tuple(companions))
+    targetspec = refspec(target)
+    blendspecs = map(refspec, Tuple(blends))
     refspec_ = refspec(ref)
 
     if isnothing(variables)
@@ -172,9 +172,9 @@ function HipparcosIADObs(;
     end
     (priors, derived) = variables
 
-    return HipparcosIADObs{typeof(table),typeof(hip_sol),typeof(hostspec),
-        typeof(compspecs),typeof(refspec_)}(
-        table, priors, derived, hip_sol, String(name), hostspec, compspecs, refspec_)
+    return HipparcosIADObs{typeof(table),typeof(hip_sol),typeof(targetspec),
+        typeof(blendspecs),typeof(refspec_)}(
+        table, priors, derived, hip_sol, String(name), targetspec, blendspecs, refspec_)
 end
 
 # Row subsets are transits, so this is the plain table restriction — no
@@ -183,10 +183,10 @@ end
 # longer matches the field's type parameter.
 function likeobj_from_epoch_subset(obs::HipparcosIADObs, obs_inds)
     table = obs.table[obs_inds]
-    return HipparcosIADObs{typeof(table),typeof(obs.hip_sol),typeof(obs.host),
-        typeof(obs.companions),typeof(obs.ref)}(
+    return HipparcosIADObs{typeof(table),typeof(obs.hip_sol),typeof(obs.target),
+        typeof(obs.blends),typeof(obs.ref)}(
         table, obs.priors, obs.derived, obs.hip_sol, obs.name,
-        obs.host, obs.companions, obs.ref)
+        obs.target, obs.blends, obs.ref)
 end
 
 # ──────────────────────────────────────────────────────────────────────
@@ -199,7 +199,7 @@ end
 Fill `resid` with the signed along-scan residual `measured − model` [mas] per
 transit, and `σ_infl` with the BINARYS first-harmonic σ-inflation factor.
 `Δα`/`Δδ` receive the source's own sky excursion, which is the Hipparcos
-grating response of the host and its companions — *not* a photocentre, see
+grating response of the target and its blends — *not* a photocentre, see
 `_hippacentre!`.
 
 Buffers must arrive zeroed (`Δα`, `Δδ`) and at one (`σ_infl`); they are
@@ -212,19 +212,28 @@ function _hipiad_model!(resid, σ_infl, Δα, Δδ, obs::HipparcosIADObs,
     n = length(obs.table.epoch)
 
     # Resolve every reference once, outside the transit loop.
-    hostref = ref(ctx, obs.host)
+    targetref = ref(ctx, obs.target)
     reference = ref(ctx, obs.ref)
-    comps = resolverefs(ctx, obs.companions)
-    cidx = map(c -> c.idx, comps)
+    blends = resolverefs(ctx, obs.blends)
+    bidx = map(c -> c.idx, blends)
     masses = sys.masses
     # Test the primal: a differentiated zero mass is a Dual whose value is
     # zero but whose partials are not, so `iszero` on it is false.
-    active = map(c -> !iszero(PlanetOrbits._primal(masses[c.idx])), comps)
+    active = map(c -> !iszero(PlanetOrbits._primal(masses[c.idx])), blends)
 
-    f_hip = _g23h_fluxratios(θ_obs, ctx.θ_system, :fluxratio_hip, Val(:Hp), sys,
-        hostref.idx, cidx, active, T)
-    _hippacentre!(Δα, Δδ, σ_infl, ctx, 1:n, obs.table.cosϕ, obs.table.sinϕ,
-        hostref, reference, comps, f_hip, active, HIPPARCOS_GRID_STEP_ARCSEC)
+    # Resolved (and so able to fail) on every draw, static or not: a
+    # wrong-length flux vector should not be a draw-dependent error.
+    f_hip = _g23h_fluxratios(θ_obs, :fluxratio_hip, Val(:Hp), sys,
+        targetref.idx, bidx, active, T)
+    # `Δα`/`Δδ` arrive zeroed and `σ_infl` at one, which is already the answer
+    # when the source cannot move relative to `ref` — see
+    # `_g23h_static_source`. "No active blend" alone is *not* that condition:
+    # an unblended target that is not the reference point still carries its
+    # full reflex, and gating on the blends alone is what made
+    # `blends=()` silently orbit-independent.
+    _g23h_static_source(reference, targetref) && !any(active) ||
+        _hippacentre!(Δα, Δδ, σ_infl, ctx, 1:n, obs.table.cosϕ, obs.table.sinϕ,
+            targetref, reference, blends, f_hip, active, HIPPARCOS_GRID_STEP_ARCSEC, T)
 
     # The abscissae are on Hipparcos' frame, not the model's, so they get the
     # five-parameter frame offset of `skypath.jl`. The parallax anchors on the
@@ -325,10 +334,10 @@ function generate_from_params(obs::HipparcosIADObs, ctx::ObsContext; add_noise)
     cols = Tables.columntable(obs.table)
     proj = @. res + cols.Δα✱ * cols.cosϕ + cols.Δδ * cols.sinϕ
     table = Table(merge(cols, (; res, proj_meas_alongscan=proj)))
-    return HipparcosIADObs{typeof(table),typeof(obs.hip_sol),typeof(obs.host),
-        typeof(obs.companions),typeof(obs.ref)}(
+    return HipparcosIADObs{typeof(table),typeof(obs.hip_sol),typeof(obs.target),
+        typeof(obs.blends),typeof(obs.ref)}(
         table, obs.priors, obs.derived, obs.hip_sol, obs.name,
-        obs.host, obs.companions, obs.ref)
+        obs.target, obs.blends, obs.ref)
 end
 
 # Along-scan residuals are `measured − model`, so a change in the model shows

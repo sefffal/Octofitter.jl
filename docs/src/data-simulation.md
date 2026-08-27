@@ -300,7 +300,7 @@ The same three steps — build a model with real epochs, draw parameters, call `
   is an error, because the model has no way to place the source on the sky without it.
 
 ```julia
-pma_obs = HGCAObs(; gaia_id=756291174721509376, host=A, companions=(b,), ref=Barycentre)
+pma_obs = HGCAObs(; gaia_id=756291174721509376, target=A, blends=(b,), ref=Barycentre)
 
 sys = System(
     name="HD91312_pma_simulation",

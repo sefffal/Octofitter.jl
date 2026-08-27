@@ -38,13 +38,13 @@ end
 
 """
 A one-companion Hipparcos-only model. `f_hp` is the companion's Hp-band
-contrast against the host; `use_body_fluxes` decides whether it is spelled as
+contrast against the target; `use_body_fluxes` decides whether it is spelled as
 the bodies' own `flux_Hp` variables or as the observation's `fluxratio_hip`
 vector, which must give the same numbers.
 """
 function hip_model(; mass=0.03, f_hp=0.05, a=4.7, plx=HIP_SOL.plx,
                    use_body_fluxes=true, recalibrate=false, jitter=0.01)
-    hostvars = @variables begin
+    targetvars = @variables begin
         mass = $(0.486 - mass)
     end
     compvars = @variables begin
@@ -53,15 +53,15 @@ function hip_model(; mass=0.03, f_hp=0.05, a=4.7, plx=HIP_SOL.plx,
         a = $a; e = 0.23; i = 0.94; ω = 1.31; Ω = 2.44; tp = 52000.0
     end
     if use_body_fluxes
-        hostvars = vcat(hostvars, @variables begin
+        targetvars = vcat(targetvars, @variables begin
             flux_Hp = 1.0
         end)
         compvars = vcat(compvars, @variables begin
             flux_Hp = $f_hp
         end)
     end
-    host = Octofitter.Body(name="A", variables=hostvars)
-    b = Octofitter.Body(name="b", about=host, variables=compvars)
+    target = Octofitter.Body(name="A", variables=targetvars)
+    b = Octofitter.Body(name="b", about=target, variables=compvars)
 
     obsvars = @variables begin
         hip_iad_jitter = $jitter
@@ -76,13 +76,13 @@ function hip_model(; mass=0.03, f_hp=0.05, a=4.7, plx=HIP_SOL.plx,
             fluxratio_hip = ($f_hp,)
         end)
     end
-    obs = HipparcosIADObs(; host, companions=(b,), iad=HIP_IAD,
+    obs = HipparcosIADObs(; target, blends=(b,), iad=HIP_IAD,
         recalibrate, variables=obsvars)
-    sys = Octofitter.System(name="hiponly", bodies=[host, b], observations=[obs],
+    sys = Octofitter.System(name="hiponly", bodies=[target, b], observations=[obs],
         variables=(@variables begin
             plx = $plx
         end), observing_geometry=false)
-    return (; sys, obs, host, b)
+    return (; sys, obs, target, b)
 end
 
 function hip_context(sys, obs, θ=Float64[])
@@ -109,19 +109,19 @@ end
     @test obs.hip_sol.plx == HIP_SOL.plx
 
     # Either the data or an id, not neither.
-    @test_throws r"needs either `hip_id`" HipparcosIADObs(host=:A)
+    @test_throws r"needs either `hip_id`" HipparcosIADObs(target=:A)
 
     # A typo'd body name is caught at model-build time.
     @test_throws r"references :nope" Octofitter.System(
-        name="bad", bodies=[m.host, m.b],
-        observations=[HipparcosIADObs(; host=:nope, companions=(:b,), iad=HIP_IAD,
+        name="bad", bodies=[m.target, m.b],
+        observations=[HipparcosIADObs(; target=:nope, blends=(:b,), iad=HIP_IAD,
             variables=(obs.priors, obs.derived))],
         variables=@variables begin plx = 278.0 end)
 
     # The default variable set is the frame-offset block plus the jitter, and
     # `iad_Δplx` is fixed: the system's own `plx` is the anchor, so leaving it
     # free would turn the one thing these data measure best into a nuisance.
-    d = HipparcosIADObs(; host=:A, companions=(:b,), iad=HIP_IAD)
+    d = HipparcosIADObs(; target=:A, blends=(:b,), iad=HIP_IAD)
     for k in (:hip_iad_jitter, :iad_Δra, :iad_Δdec, :iad_Δpmra, :iad_Δpmdec)
         @test k ∈ keys(d.priors.priors)
     end
@@ -157,7 +157,7 @@ end
     s = Octofitter.simulate(m.obs, c.ctx)
 
     cat = HIP_CAT
-    gobs = G23HObs(; host=m.host, companions=(m.b,),
+    gobs = G23HObs(; target=m.target, blends=(m.b,),
         gaia_id=cat.gaia_source_id, catalog=cat,
         forecast_table=_hip_fixture("g23h-forecast.csv"), hipparcos=HIP_IAD,
         dr2_transits_catalog=_hip_fixture("g23h-dr2-transits.csv"),
@@ -181,7 +181,7 @@ end
             transits_dr2 = $(collect(1:Int(HIP_EVAL[:n_transits_dr2])))
             transits_rv = $(collect(1:Int(HIP_EVAL[:n_transits_rv])))
         end)
-    gsys = Octofitter.System(name="g23hhip", bodies=[m.host, m.b], observations=[gobs],
+    gsys = Octofitter.System(name="g23hhip", bodies=[m.target, m.b], observations=[gobs],
         variables=(@variables begin
             plx = $(HIP_SOL.plx)
         end), observing_geometry=false)
@@ -201,19 +201,19 @@ end
     @test maximum(abs, s.Δα_mas) > 0
 
     # … and beyond the resolution scale it tapers away entirely, leaving the
-    # host's reflex about the barycentre and nothing else. Same statement as
+    # target's reflex about the barycentre and nothing else. Same statement as
     # the G23H wide-separation test, made through the standalone type.
     wide = hip_model(a=4000.0, f_hp=0.3)
     cw = hip_context(wide.sys, wide.obs)
     sw = Octofitter.simulate(wide.obs, cw.ctx)
-    hostref = Octofitter.ref(cw.ctx, wide.obs.host)
+    targetref = Octofitter.ref(cw.ctx, wide.obs.target)
     reference = Octofitter.ref(cw.ctx, wide.obs.ref)
     n = length(wide.obs.table.epoch)
-    host_along = [raoff(Octofitter.solutionat(cw.ctx, i), hostref, reference) *
+    target_along = [raoff(Octofitter.solutionat(cw.ctx, i), targetref, reference) *
                   wide.obs.table.cosϕ[i] +
-                  decoff(Octofitter.solutionat(cw.ctx, i), hostref, reference) *
+                  decoff(Octofitter.solutionat(cw.ctx, i), targetref, reference) *
                   wide.obs.table.sinϕ[i] for i in 1:n]
-    @test sw.Δα_mas ≈ host_along .* wide.obs.table.cosϕ rtol = 1e-12
+    @test sw.Δα_mas ≈ target_along .* wide.obs.table.cosϕ rtol = 1e-12
     @test all(≈(1.0), sw.σ_inflation)
 
     # A massless companion contributes neither reflex nor light, whatever its
@@ -237,7 +237,7 @@ end
     keep = findall(!, collect(m.obs.table.reject))
     sub = Octofitter.likeobj_from_epoch_subset(m.obs, keep)
     @test length(sub.table.epoch) == n_used
-    subsys = Octofitter.System(name="hiponly", bodies=[m.host, m.b], observations=[sub],
+    subsys = Octofitter.System(name="hiponly", bodies=[m.target, m.b], observations=[sub],
         variables=(m.sys.priors, m.sys.derived), observing_geometry=false)
     ntsub = Octofitter.make_arr2nt(subsys)(Float64[])
     @test Octofitter.make_ln_like(subsys, ntsub)(subsys, ntsub) ≈ ll rtol = 1e-12
@@ -245,7 +245,7 @@ end
     # Noiseless generation puts the data on the model, so every residual is
     # zero and the regenerated likelihood beats the one it was drawn from.
     gen = Octofitter.generate_from_params(m.obs, c.ctx; add_noise=false)
-    gsys = Octofitter.System(name="hiponly", bodies=[m.host, m.b], observations=[gen],
+    gsys = Octofitter.System(name="hiponly", bodies=[m.target, m.b], observations=[gen],
         variables=(m.sys.priors, m.sys.derived), observing_geometry=false)
     gc = hip_context(gsys, gen)
     @test maximum(abs, Octofitter.simulate(gen, gc.ctx).resid) < 1e-9
@@ -254,7 +254,7 @@ end
     # With noise it still evaluates, and the residuals are the right size.
     Random.seed!(7)
     gn = Octofitter.generate_from_params(m.obs, c.ctx; add_noise=true)
-    gnsys = Octofitter.System(name="hiponly", bodies=[m.host, m.b], observations=[gn],
+    gnsys = Octofitter.System(name="hiponly", bodies=[m.target, m.b], observations=[gn],
         variables=(m.sys.priors, m.sys.derived), observing_geometry=false)
     gnc = hip_context(gnsys, gn)
     r = Octofitter.simulate(gn, gnc.ctx).resid
@@ -267,18 +267,18 @@ end
     # A Hipparcos-only fit: the parallax, the companion's mass and its
     # semi-major axis, with the frame's position and proper motion as
     # nuisances. This is the use case the type exists for.
-    host = Octofitter.Body(name="A", variables=@variables begin
+    target = Octofitter.Body(name="A", variables=@variables begin
         mass = 0.486 - system.m_b
         flux_Hp = 1.0
     end)
-    b = Octofitter.Body(name="b", about=host, variables=@variables begin
+    b = Octofitter.Body(name="b", about=target, variables=@variables begin
         mass = system.m_b
         M = 0.486
         flux_Hp = system.f_b
         a ~ LogUniform(1.0, 30.0)
         e = 0.23; i = 0.94; ω = 1.31; Ω = 2.44; tp = 52000.0
     end)
-    obs = HipparcosIADObs(; host, companions=(b,), iad=HIP_IAD,
+    obs = HipparcosIADObs(; target, blends=(b,), iad=HIP_IAD,
         variables=@variables begin
             hip_iad_jitter ~ LogUniform(0.01, 10.0)
             iad_Δra ~ Uniform(-50, 50)
@@ -289,7 +289,7 @@ end
             iad_pmra = $(HIP_SOL.pm_ra) + iad_Δpmra
             iad_pmdec = $(HIP_SOL.pm_de) + iad_Δpmdec
         end)
-    sys = Octofitter.System(name="hipgrad", bodies=[host, b], observations=[obs],
+    sys = Octofitter.System(name="hipgrad", bodies=[target, b], observations=[obs],
         variables=(@variables begin
             m_b ~ LogUniform(1e-4, 0.2)
             f_b ~ LogUniform(1e-4, 0.5)

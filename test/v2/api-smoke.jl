@@ -451,7 +451,7 @@ end
         # gradient pass collapses the whole model to -Inf. A gradient-based
         # sampler cannot move such a model. Drop the channel (here) or use a
         # derivative-free sampler; `ln_like` warns once if you hit it.
-        obs = G23HObs(; host=A, companions=(b,), ref=Barycentre,
+        obs = G23HObs(; target=A, blends=(b,), ref=Barycentre,
             gaia_id=cat.gaia_source_id, catalog=cat,
             forecast_table=_fix("g23h-forecast.csv"), hipparcos=hip,
             dr2_transits_catalog=_fix("g23h-dr2-transits.csv"),
@@ -481,7 +481,7 @@ end
 
         # `channels=` restricts the channel set at construction, through the
         # same row filter `likeobj_from_epoch_subset` uses.
-        restricted = G23HObs(; host=A, companions=(b,), ref=Barycentre,
+        restricted = G23HObs(; target=A, blends=(b,), ref=Barycentre,
             gaia_id=cat.gaia_source_id, catalog=cat,
             forecast_table=_fix("g23h-forecast.csv"), hipparcos=hip,
             dr2_transits_catalog=_fix("g23h-dr2-transits.csv"),
@@ -492,7 +492,7 @@ end
     @testset "HGCAObs" begin
         # A helper over G23HObs, not a type: the six HGCA channels, no UEVA,
         # no IAD, no RV.
-        obs = HGCAObs(; host=A, companions=(b,), ref=Barycentre,
+        obs = HGCAObs(; target=A, blends=(b,), ref=Barycentre,
             gaia_id=cat.gaia_source_id, catalog=cat,
             forecast_table=_fix("g23h-forecast.csv"), hipparcos=hip,
             dr2_transits_catalog=_fix("g23h-dr2-transits.csv"))
@@ -518,7 +518,7 @@ end
     end
 
     @testset "HipparcosIADObs" begin
-        obs = HipparcosIADObs(; host=A, companions=(b,), ref=Barycentre, iad=hip)
+        obs = HipparcosIADObs(; target=A, blends=(b,), ref=Barycentre, iad=hip)
         @test Octofitter.refspecs(obs) ==
               (Octofitter.refspec(A), Octofitter.refspec(b), Barycentre)
         sys = System(name="hip", bodies=[A, b], observations=[obs],
@@ -528,8 +528,8 @@ end
         smoke_eval(sys; seed=9)
 
         # Passing a preloaded IAD twice must not shift it twice.
-        obs2 = HipparcosIADObs(; host=A, companions=(b,), iad=hip, recalibrate=true)
-        obs3 = HipparcosIADObs(; host=A, companions=(b,), iad=hip, recalibrate=true)
+        obs2 = HipparcosIADObs(; target=A, blends=(b,), iad=hip, recalibrate=true)
+        obs3 = HipparcosIADObs(; target=A, blends=(b,), iad=hip, recalibrate=true)
         @test obs2.table.res == obs3.table.res
     end
 end
