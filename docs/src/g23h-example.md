@@ -11,12 +11,15 @@ This page provides a complete, production-ready script for fitting orbital model
 
 Before running this script, ensure you have installed the necessary packages:
 
-2. **Required packages**:
+2. **Required packages**. Octofitter v9 and OctofitterRadialVelocity v9 are
+   unregistered prereleases, so they come from the `v2` branches and must be
+   resolved together with PlanetOrbits v2 — see [Installation](@ref install):
    ```julia
    using Pkg
    Pkg.add([
-       "Octofitter",
-       "OctofitterRadialVelocity",
+       PackageSpec(url="https://github.com/sefffal/PlanetOrbits.jl", rev="v2"),
+       PackageSpec(url="https://github.com/sefffal/Octofitter.jl",   rev="v2"),
+       PackageSpec(url="https://github.com/sefffal/Octofitter.jl",   rev="v2", subdir="OctofitterRadialVelocity"),
        "Pigeons",
        "Arrow",
        "CSV",

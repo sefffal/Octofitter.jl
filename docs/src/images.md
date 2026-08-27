@@ -9,8 +9,9 @@ One of the key features of Octofitter.jl is the ability to search for planets di
 Sampling from images can be freely combined with any known astrometry points, as well as astrometric acceleration. See advanced models for more details.
 
 !!! note
-    Image modelling is supported in Octofitter via the extension package OctofitterImages. To install it, run 
-    `pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterImages`
+    Image modelling is supported in Octofitter via the extension package OctofitterImages.
+    While v9 is an unregistered prerelease it must be installed from the `v2` branch, in the same `Pkg.add` as Octofitter itself —
+    see [Installation](@ref install).
 
 ## Preparing images
 The first step will be to load your images. For this, we will use our AstroImages.jl package.

@@ -5,8 +5,9 @@ Octofitter has support for directly fitting GRAVITY-WIDE closure phase data, in 
 The closure phases are mapped to a set of non-redundant kernel phases. All spectral channels are modelled separately per exposure.
 
 !!! note
-    GRAVITY modelling is supported in Octofitter via the extension package OctofitterInterferometry. To install it, run 
-    `pkg> add http://github.com/sefffal/Octofitter.jl:OctofitterInterferometry`
+    GRAVITY modelling is supported in Octofitter via the extension package OctofitterInterferometry.
+    While v9 is an unregistered prerelease it must be installed from the `v2` branch, in the same `Pkg.add` as Octofitter itself —
+    see [Installation](@ref install).
 
 The astrophysical model is a sum of point sources:
 
