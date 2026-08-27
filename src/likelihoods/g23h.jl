@@ -2126,7 +2126,11 @@ function _g23h_ln_like(obs::G23HObs, ctx::ObsContext, sim, iad_resid, σ_infl_hi
             s = sres[i] * σ_infl_hip[i]
             σ² = s * s + jitter²
             r = iad_resid[i]
-            ll += -T0(0.5) * (r * r / σ² + log(σ²)) - half_log2π
+            # Same kernel the DR4 per-transit loop uses: branch-free log for
+            # Float64 (σ² is positive-normal here — catalog σ times the ≥ 1
+            # BINARYS inflation, plus jitter²), Base.log for Duals via the
+            # generic fallback.
+            ll += -T0(0.5) * (r * r / σ² + PlanetOrbits.vlog(σ²)) - half_log2π
         end
     end
 
