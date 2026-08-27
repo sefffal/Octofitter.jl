@@ -5,7 +5,9 @@
 
 using Octofitter
 using Distributions
+using LinearAlgebra
 using Random: Xoshiro
+using Statistics: mean, std, var
 
 @testset "ObservableQuery construction" begin
     q = ObservableQuery(radvel, :b, :A)
@@ -246,6 +248,173 @@ end
     # No correlated-noise model here, and none invented.
     @test Octofitter.noisemodel(obs.rvs, ctx, [59000.0]) === nothing
     @test !haskey(r, :gp_mean)
+end
+
+# ---------------------------------------------------------------------------
+# Correlated noise on the plot side.
+#
+# An exact dense squared-exponential GP, which core can carry with no GP
+# package at all: three methods, and the prediction in closed form so the test
+# can check the plotting hooks against the same arithmetic the likelihood runs.
+# (`test/v2/radial-velocity.jl` has a sibling of this for the likelihood; the
+# names differ because both files are included into one namespace.)
+# ---------------------------------------------------------------------------
+
+struct PlotGP
+    amp::Float64
+    len::Float64
+end
+_plotk(g::PlotGP, s, t) = g.amp^2 * exp(-(s - t)^2 / (2 * g.len^2))
+
+# Parametrized on the covariance element type, so the model's ForwardDiff
+# gradient goes through it like any other likelihood term.
+struct PlotGPFit{T}
+    gp::PlotGP
+    x::Vector{Float64}
+    Σ::Matrix{T}
+end
+
+function Octofitter.gp_condition(g::PlotGP, x, σ²)
+    xs = collect(Float64, x)
+    Σ = [_plotk(g, xs[i], xs[j]) + (i == j ? σ²[i] : zero(eltype(σ²)))
+         for i in eachindex(xs), j in eachindex(xs)]
+    return PlotGPFit(g, xs, Σ)
+end
+function Octofitter.gp_ln_like(f::PlotGPFit, r)
+    rr = collect(r)
+    C = cholesky(Symmetric(f.Σ))
+    return -(dot(rr, C \ rr) + logdet(C) + length(rr) * log(2π)) / 2
+end
+function Octofitter.gp_predict(f::PlotGPFit, r, xs)
+    Ks = [_plotk(f.gp, Float64(x), f.x[j]) for x in xs, j in eachindex(f.x)]
+    C = cholesky(Symmetric(f.Σ))
+    μ = Ks * (C \ collect(r))
+    # Latent predictive variance: a point's own white noise is added by
+    # whoever consumes this, not here.
+    v = [_plotk(f.gp, Float64(xs[i]), Float64(xs[i])) - dot(Ks[i, :], C \ Ks[i, :])
+         for i in eachindex(xs)]
+    return μ, v
+end
+
+# A backend that scores fits but cannot predict — the case a figure has to
+# survive rather than throw on.
+struct MutePlotGP end
+struct MutePlotGPFit end
+Octofitter.gp_condition(::MutePlotGP, x, σ²) = MutePlotGPFit()
+Octofitter.gp_ln_like(::MutePlotGPFit, r) = 0.0
+
+# …and one whose covariance will not factorize for this draw, which `ln_like`
+# already turns into `-Inf` rather than a crashed chain.
+struct SingularPlotGP end
+Octofitter.gp_condition(::SingularPlotGP, x, σ²) = throw(PosDefException(1))
+
+const _GP_EPOCHS = collect(range(59000.0, 59180.0, length=45))
+# Smooth stellar activity: two rotation-scale harmonics, the structure a GP is
+# for, plus white noise from a fixed seed. Deterministic, so the variance ratio
+# below is a number, not a draw.
+const _GP_ACTIVITY = @. 18.0 * sinpi(2 * (_GP_EPOCHS - 59000) / 23) +
+                        7.0 * sinpi(2 * (_GP_EPOCHS - 59000) / 9 + 0.3)
+const _GP_WHITE = 3.0 .* randn(Xoshiro(20250814), length(_GP_EPOCHS))
+
+function _gp_rv_model(rv, gp)
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.0
+    end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass ~ Uniform(0.004, 0.006)
+        a ~ Uniform(0.99, 1.01)
+        e = 0.05
+        i = 1.2
+        ω = 0.4
+        Ω = 1.0
+        tp = 59000.0
+    end)
+    rvs = RadialVelocityObs(
+        Table(epoch=_GP_EPOCHS, rv=rv, σ_rv=fill(3.0, length(_GP_EPOCHS)));
+        target=A, ref=Barycentre, name="HARPS", gaussian_process=θ_obs -> gp,
+        variables=@variables begin
+            offset = 120.0
+            jitter = 1.5
+        end)
+    sys = Octofitter.System(name="gpplot", bodies=[A, b], observations=[rvs],
+        variables=@variables begin
+            plx = 25.0
+        end)
+    return Octofitter.LogDensityModel(sys, verbosity=0), rvs
+end
+
+# One draw of a seeded prior "chain". The data never enter the forward model,
+# so the same seed gives the same draw for every dataset built below — which
+# is what lets the second pass plant activity on top of the first pass' own
+# model prediction.
+function _gp_series(model; seed=31)
+    rng = Xoshiro(seed)
+    nts = [model.arr2nt(collect(model.sample_priors(rng))) for _ in 1:6]
+    return PosteriorSeries(model, Octofitter.result2mcmcchain(nts); ii=[1])
+end
+
+@testset "a Gaussian process is conditioned on the draw's own residuals" begin
+    gp = PlotGP(20.0, 6.0)
+    # Pass one: what the model predicts at this draw, offset and all.
+    m0, o0 = _gp_rv_model(zeros(length(_GP_EPOCHS)), gp)
+    truth = collect(Float64,
+        Octofitter.simulate(o0, obscontext(_gp_series(m0), o0)).rv_model)
+    # Pass two: the same model, now with activity and white noise planted on
+    # its own prediction, so the residual is exactly activity + noise.
+    model, obs = _gp_rv_model(truth .+ _GP_ACTIVITY .+ _GP_WHITE, gp)
+    series = _gp_series(model)
+    ctx = obscontext(series, obs)
+    r = Octofitter.residuals(obs, ctx).rv
+
+    @test r.resid ≈ _GP_ACTIVITY .+ _GP_WHITE rtol = 1e-10
+    # `residuals` publishes the noise model alongside the plain residual, and
+    # `resid` itself stays `data − model`: subtracting the GP is the consumer's
+    # call, and a whitened strip and a phase fold both make it.
+    @test haskey(r, :gp_mean) && haskey(r, :gp_var)
+    @test length(r.gp_mean) == length(_GP_EPOCHS)
+    @test all(>=(0), r.gp_var)
+    # σ_eff is still measurement error and jitter; the GP variance is a
+    # separate key, added by whoever draws the bar.
+    @test r.σ_eff ≈ hypot.(collect(Float64, obs.table.σ_rv), 1.5) rtol = 1e-12
+
+    # The conditioning convention, pinned: on `data − model` with the offset
+    # and the trend already in the model, against σ_rv² + jitter². (v8
+    # conditioned on the same quantity; where the two could differ — what
+    # counts as "the model" — this follows v2's `residuals`.)
+    fx = Octofitter.gp_condition(gp, _GP_EPOCHS,
+        collect(Float64, obs.table.σ_rv .^ 2 .+ 1.5^2))
+    μ, v = Octofitter.gp_predict(fx, r.resid, _GP_EPOCHS)
+    @test r.gp_mean ≈ μ rtol = 1e-10
+    @test r.gp_var ≈ max.(v, 0.0) rtol = 1e-10
+
+    # And it does the job it is drawn for. Raw, these residuals are the
+    # activity: many σ from zero and visibly structured. With the GP's mean
+    # removed and its variance in the bar — what a whitened strip and a phase
+    # fold both use — they are a fraction of a σ.
+    @test var(r.resid .- r.gp_mean) < var(r.resid) / 5
+    σ_net = sqrt.(r.σ_eff .^ 2 .+ r.gp_var)
+    @test std(r.resid ./ r.σ_eff) > 3
+    @test std((r.resid .- r.gp_mean) ./ σ_net) < 1.5
+
+    # Off the data epochs too — the band a panel draws is on the model grid.
+    nm = Octofitter.noisemodel(obs, ctx, [59000.5, 59090.0, 59179.0])
+    @test nm !== nothing && length(nm.mean) == 3 && all(>=(0), nm.var)
+end
+
+@testset "a noise model that cannot be predicted degrades to the orbit alone" begin
+    # A figure is not a fit: a backend with no `gp_predict`, or a draw whose
+    # covariance will not factorize, costs the band and the GP-corrected
+    # residual — not the whole plot. (Both emit a warning; `gp_predict` itself
+    # still throws, so cross-validation fails loudly. See
+    # `test/v2/radial-velocity.jl`.)
+    for gp in (MutePlotGP(), SingularPlotGP())
+        model, obs = _gp_rv_model(_GP_ACTIVITY .+ _GP_WHITE .+ 120.0, gp)
+        ctx = obscontext(_gp_series(model), obs)
+        @test Octofitter.noisemodel(obs, ctx, [59000.0, 59100.0]) === nothing
+        r = Octofitter.residuals(obs, ctx).rv
+        @test !haskey(r, :gp_mean) && !haskey(r, :gp_var)
+        @test length(r.resid) == length(_GP_EPOCHS)
+    end
 end
 
 @testset "predicted channels for observables the model has no data for" begin

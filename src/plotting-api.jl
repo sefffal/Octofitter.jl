@@ -442,6 +442,14 @@ the residual strip subtracts its mean and adds its variance to `σ_eff`. That
 second use is what makes a whitened residual meaningful for a GP fit at all —
 without it the strip shows exactly the correlated structure the GP was fitted
 to explain, and the z-scores are not standard normal even for a perfect fit.
+
+A figure is not a fit, so this returns `nothing` — with a warning — rather
+than throwing where the noise model cannot be evaluated: a backend with no
+[`gp_predict`](@ref) method, or a draw whose covariance will not factorize
+(the same draw `ln_like` scores `-Inf`). The rest of the figure is still
+worth drawing, and it is then the Keplerian model alone. `gp_predict` itself
+still errors, so cross-validation — which has no partial answer to fall back
+on — fails loudly.
 """
 noisemodel(::AbstractObs, ::ObsContext, epochs) = nothing
 export noisemodel
@@ -581,15 +589,43 @@ function noisemodel(obs::RadialVelocityObs, ctx::ObsContext, epochs)
     T = _system_number_type(ctx.θ_system)
     jitter = hasproperty(ctx.θ_obs, :jitter) ? ctx.θ_obs.jitter : zero(T)
     sim = simulate(obs, ctx)
+    # `sim.rv_model` carries the offset and the trend, so this is the residual
+    # `ln_like` hands the GP: data minus everything the fit models but the
+    # correlated noise itself. The white-noise variance is the likelihood's
+    # too, measurement error and fitted jitter in quadrature.
     resid = collect(Float64, obs.table.rv .- sim.rv_model)
     σ² = collect(Float64, obs.table.σ_rv .^ 2 .+ jitter^2)
     ep = collect(Float64, obs.table.epoch)
+    xs = collect(Float64, epochs)
     # The same three hooks `ln_like` goes through, so the band a plot draws is
     # the noise model the fit actually used.
-    fx = gp_condition(obs.gaussian_process(ctx.θ_obs), ep, σ²)
-    m, v = gp_predict(fx, resid, collect(Float64, epochs))
+    fx = try
+        gp_condition(obs.gaussian_process(ctx.θ_obs), ep, σ²)
+    catch err
+        # `ln_like`'s own guards: a draw whose covariance will not factorize
+        # scores `-Inf` there, and has no noise model to draw here.
+        (err isa DomainError || err isa PosDefException || err isa ArgumentError) || rethrow()
+        @warn "$(likelihoodname(obs)): this draw's Gaussian process could not be " *
+              "conditioned, so the figure shows the orbit model alone." err maxlog = 1
+        return nothing
+    end
+    if !_can_gp_predict(fx, resid, xs)
+        @warn "$(likelihoodname(obs)): GP backend $(typeof(fx)) implements no " *
+              "`Octofitter.gp_predict` method, so its correlated noise cannot be " *
+              "predicted and the figure shows the orbit model alone." maxlog = 1
+        return nothing
+    end
+    m, v = gp_predict(fx, resid, xs)
     return (; mean=collect(Float64, m), var=max.(collect(Float64, v), 0.0))
 end
+
+# Does this backend actually predict, or would the call land on the fallback
+# that errors? Asked by dispatch rather than by `try`, so a genuine bug inside
+# a backend's own `gp_predict` still surfaces instead of being swallowed into a
+# figure that quietly drops the band.
+_can_gp_predict(fx, resid, epochs) =
+    which(gp_predict, Tuple{typeof(fx),typeof(resid),typeof(epochs)}) !==
+    which(gp_predict, Tuple{Any,Any,Any})
 
 function residuals(obs::RadialVelocityObs, ctx::ObsContext)
     T = _system_number_type(ctx.θ_system)

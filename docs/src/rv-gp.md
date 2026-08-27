@@ -157,12 +157,17 @@ Plot the fit: the RV time series, the residual strip, and a phase-folded panel
 for the planet. 
 
 
-Plot one draw:
+Plot one draw. [`rvplot`](@ref) conditions the Gaussian process on that draw's
+own residuals: the activity model is drawn as a band around the orbit, taken
+off the residuals and the phase-folded points, and its predictive variance
+added to the error bars.
 ```@example 1
 rvplot(model, chain)
 ```
 
-Plot a sample of many draws:
+Plot a sample of many draws. Here the panels show the orbit alone — an
+activity model is a property of a single draw, and a band per draw is not a
+picture of anything:
 ```@example 1
 octoplot(model, chain)
 ```
@@ -286,5 +291,6 @@ octoplot(model_cel, chain_cel)
 
 
 !!! note "Cross-validating a GP model"
-    Leave-one-out (or many out) cross validation is supported for GP models with the Celerite backend.
-    The code works to do the right thing behind the scenes, which is a bit more complicated in models with GPs.
+    Leave-one-out (or many out) cross validation is supported for both GP backends.
+    The code works to do the right thing behind the scenes, which is a bit more complicated in models with GPs:
+    the held-out points are scored against the GP conditioned on the rows that were kept.

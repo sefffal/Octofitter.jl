@@ -1734,6 +1734,18 @@ _hasgp(obs) = let o = Octofitter.plotobs(obs)
     hasproperty(o, :gaussian_process) && o.gaussian_process !== nothing
 end
 
+# What the legend may claim: not "a GP was fitted" but "this draw's GP is on
+# the figure". `noisemodel` declines a backend it cannot predict with, and a
+# legend promising an activity model the panels never drew — and a jitter bar
+# that never grew — is the kind of quiet wrongness a reader has no way to
+# catch. Asked at one epoch, so it costs the conditioning and nothing more.
+function _gpdrawn(series, obs)
+    _hasgp(obs) || return false
+    ep = Octofitter.epochs(obs)
+    isempty(ep) && return false
+    return noisemodel(obs, obscontext(series, obs), Float64[first(ep)]) !== nothing
+end
+
 # v8 `rvpostplot`'s marks: small filled points, hairline strokes, and the
 # measurement bar in the instrument's own colour inside the grey
 # jitter-inflated one. See `DATASTYLE` for why this figure needs its own.
@@ -1766,7 +1778,7 @@ function Octofitter.rvplot(series::PosteriorSeries;
         "(`octoplot` draws whatever it does have.)")
 
     allobs = [obs for (_, entries) in groups for (obs, _) in entries]
-    anygp = any(_hasgp, allobs)
+    anygp = any(o -> _gpdrawn(series, o), allobs)
     absframe = series.sys_map.frame isa PlanetOrbits.AbsoluteFrame
     show_perspective &= absframe
 

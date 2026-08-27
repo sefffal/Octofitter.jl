@@ -17,6 +17,7 @@
 
 using Octofitter, OctofitterRadialVelocity, Distributions, CairoMakie
 using Random: Xoshiro
+using Statistics: var
 using PlanetOrbits
 # Through OctofitterRadialVelocity rather than directly: AbstractGPs is its
 # dependency, not Octofitter's, so this runs under `--project=.` too.
@@ -118,7 +119,16 @@ end
 
 # An RV fit with a correlated-noise model, for the `noisemodel` band and the
 # GP-corrected residual strip.
-function gp_model()
+#
+# `gp=` swaps in a backend the plot layer cannot predict with: it scores fits
+# (three methods is all a backend is) but implements no `gp_predict`, which is
+# what a figure has to survive rather than throw on.
+struct MuteGP end
+struct MuteGPFit end
+Octofitter.gp_condition(::MuteGP, x, σ²) = MuteGPFit()
+Octofitter.gp_ln_like(::MuteGPFit, r) = 0.0
+
+function gp_model(; gp=nothing)
     A = Octofitter.Body(name="A", variables=@variables begin mass = 1.0 end)
     b = Octofitter.Body(name="b", about=A, variables=@variables begin
         mass ~ Uniform(0.001, 0.01)
@@ -131,8 +141,10 @@ function gp_model()
             rv=30 .* sin.(ep ./ 40) .+ 12 .* sin.(ep ./ 9) .+ 100,
             σ_rv=fill(4.0, length(ep)));
         target=A, ref=Barycentre, name="HARPS-N",
-        gaussian_process=θ_obs -> GP(θ_obs.gp_η₁^2 *
-                                     Matern52Kernel() ∘ ScaleTransform(1 / θ_obs.gp_η₂)),
+        gaussian_process=isnothing(gp) ?
+                         θ_obs -> GP(θ_obs.gp_η₁^2 *
+                                     Matern52Kernel() ∘ ScaleTransform(1 / θ_obs.gp_η₂)) :
+                         θ_obs -> gp,
         variables=@variables begin
             offset = 100.0
             jitter = 1.0
@@ -380,9 +392,21 @@ rgp = Octofitter.residuals(rvgp, Octofitter.obscontext(s3, rvgp)).rv
 check(haskey(rgp, :gp_mean) && haskey(rgp, :gp_var), "`residuals` publishes gp_mean/gp_var")
 check(Octofitter.noisemodel(rvgp, Octofitter.obscontext(s3, rvgp), [59100.0, 59200.0]) !== nothing,
     "`noisemodel` predicts off the data epochs (AbstractGPs backend)")
+check(var(rgp.resid .- rgp.gp_mean) < var(rgp.resid),
+    "the activity model comes off the residuals a phase fold and a strip use")
 rvplot(m3, c3; fname=joinpath(OUT, "09-rvplot-gp.png"))
 octoplot(m3, c3; N=20, ndraws=6, fname=joinpath(OUT, "10-octoplot-gp.png"))
 ok("GP figures draw")
+
+# A GP the plot layer cannot predict with costs the band, not the figure.
+m3b, rvgpb = gp_model(; gp=MuteGP())
+c3b = fakechain(m3b, 8; seed=11)
+check(Octofitter.noisemodel(rvgpb,
+        Octofitter.obscontext(Octofitter.PosteriorSeries(m3b, c3b; ii=[1]), rvgpb),
+        [59100.0]) === nothing,
+    "a backend with no `gp_predict` declines rather than throws")
+rvplot(m3b, c3b, 1; fname=joinpath(OUT, "09b-rvplot-gp-unsupported.png"))
+ok("an unsupported GP backend still draws, orbit only")
 
 step("the sparse limit: fewer measurements than phase bins")
 # One RV instrument with n points, folded onto 20 bins. What used to happen
