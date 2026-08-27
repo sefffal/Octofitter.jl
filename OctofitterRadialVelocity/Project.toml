@@ -39,10 +39,14 @@ Distances = "0.10"
 Distributions = "0.25"
 FITSIO = "0.16, 0.17"
 MCMCChains = "7.0"
-# Octofitter / PlanetOrbits: no compat bounds while the v2 branch is an
-# unregistered prerelease — both are dev-linked and Pkg cannot express a
-# `9.0.0-DEV` lower bound. Restore `Octofitter = "9"`, `PlanetOrbits = "2"`
-# when they are registered.
+# Octofitter / PlanetOrbits: these bounds are correct even though both v2
+# branches are unregistered `-DEV` prereleases — Pkg keeps a prerelease inside
+# its own major range, so a dev-linked or `rev="v2"` checkout satisfies them.
+# What they exclude is the *registered* v8/v1 line, which otherwise resolves
+# silently here (adding this subpackage alone pulls Octofitter 8.3.0 and fails
+# at precompile with `UndefVarError: gp_condition not defined in Octofitter`).
+Octofitter = "9"
+PlanetOrbits = "2"
 Polynomials = "4.0.19"
 Random = "1"
 StaticArrays = "1.6"

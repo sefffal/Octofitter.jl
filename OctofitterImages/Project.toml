@@ -17,10 +17,13 @@ TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 
 [compat]
 AstroImages = "0.5"
-# Octofitter / PlanetOrbits: no compat bounds while the v2 branch is an
-# unregistered prerelease — both are dev-linked and Pkg cannot express a
-# `9.0.0-DEV` lower bound. Restore `Octofitter = "9"`, `PlanetOrbits = "2"`
-# when they are registered.
+# Octofitter / PlanetOrbits: these bounds are correct even though both v2
+# branches are unregistered `-DEV` prereleases — Pkg keeps a prerelease inside
+# its own major range, so a dev-linked or `rev="v2"` checkout satisfies them.
+# What they exclude is the *registered* v8/v1 line, which otherwise resolves
+# silently here and only fails at precompile time.
+Octofitter = "9"
+PlanetOrbits = "2"
 julia = "1.11"
 
 [extras]
