@@ -67,6 +67,11 @@ if TEST_MODE in ("all", "unit")
     @testset "Analysis machinery" begin
         include("v2/analysis-machinery.jl")
     end
+    # Offline throughout: the one testset that calls `query_nss` pre-populates
+    # its on-disk cache inside a temporary working directory.
+    @testset "Gaia NSS solutions" begin
+        include("v2/nss.jl")
+    end
     @testset "Plotting API" begin
         include("v2/plotting.jl")
     end

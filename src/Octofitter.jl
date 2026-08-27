@@ -132,6 +132,9 @@ include("sbc.jl")
 include("completeness.jl")
 include("io.jl")
 include("io-orbitize.jl")
+# Needs `_query_gaia_dr3`/`_gaia_cache_path` (gaia-utils.jl), `result2mcmcchain`
+# (chains.jl) and `initialize!` (initialization.jl).
+include("nss.jl")
 include("sonora.jl")
 include("BHAC.jl")
 include("deprecations.jl")

@@ -85,6 +85,7 @@ octofit
 octofit_rejection
 initialize!
 startingpoints!
+initialize_from_nss!
 Octofitter.advancedhmc
 octofit_pigeons
 Octofitter.CorrectionReport
@@ -184,6 +185,9 @@ sonora_cooling_interpolator
 Octofitter.bhac15_mass_age_interpolator
 gaia_plx
 gaia_dr3_solution
+query_nss
+nss_to_starting_point
+nss_to_model_chain
 g23h_scan_uncertainty
 gaia_dr4_transit_template
 Octofitter.GOST_forecast

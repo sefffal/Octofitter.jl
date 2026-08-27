@@ -621,6 +621,13 @@ now covers RV data, not just astrometry.
   *value*, which picks the wrong slot when two variables draw the same number and
   cannot address one element of a vector-valued prior at all. Overrides also nest
   under `bodies=`; `planets=` raises an explicit error.
+* **The Gaia NSS helpers take `body=` instead of `planet_key=`.**
+  [`initialize_from_nss!`](@ref) and [`nss_to_starting_point`](@ref) name a
+  [`Body`](@ref) — either the node itself or its name — and the guess they return
+  nests under `bodies=`. Every conversion formula is unchanged, and
+  [`nss_to_model_chain`](@ref) now returns a two-body model (host `A`, companion
+  `b`) rather than a system-level `M` and one `Planet`, so its chain has an
+  `A_mass` column where v8 had `M`.
 * **`Octofitter.savehdf5` derives `tp` when the model did not sample it.** The
   recommended `θ` + `epoch` phase spelling produces no `b_tp` column, and `tp` is
   determined by the elements, so the export rebuilds it per draw rather than
@@ -652,11 +659,6 @@ unmodified so each port is a diff rather than a rewrite.
   strips.
 - **`gp_predict` for the AbstractGPs backend**, so GP cross-validation works with
   the Celerite backend only (a pre-existing v8 hole, now a clear error).
-- **The Gaia NSS helpers** — `initialize_from_nss!`, `query_nss`,
-  `nss_to_starting_point` and `nss_to_model_chain`, for seeding a fit from a
-  published Non-Single Star solution. Parked in `src/legacy/nss.jl`. Convert an
-  NSS solution to orbital elements yourself and pass them to [`initialize!`](@ref)
-  or `startingpoints!` in the meantime.
 
 Plotting in general is **not** on that list: `ext/OctofitterMakieExt.jl` is the
 new v9 plotting layer, built on the backend-agnostic API in

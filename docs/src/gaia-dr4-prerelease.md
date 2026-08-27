@@ -306,6 +306,35 @@ octoplot(model, init_chain)
 Starting values nest under `bodies=` now, not `planets=`, and the host star is a body like
 any other, so its mass is initialized in the same place.
 
+### [Seeding from a published NSS solution](@id nss-starting-points)
+
+If your source has a Gaia Non-Single Star two-body orbit, [`initialize_from_nss!`](@ref)
+fetches it and seeds the named body from it in one call:
+
+```julia
+init_chain = initialize_from_nss!(model; gaia_id=GAIA4_SOURCE_ID, body=b)
+```
+
+It maps whichever parameterization your body uses — Thiele-Innes constants directly, or
+Campbell elements (including the `Ωx`/`Ωy` pair of a `UniformCircular()`) converted from
+them — plus `e`, and `P` or `a`. Everything stays free during sampling; the solution only
+anchors the search. The pieces are also available separately:
+[`query_nss`](@ref) returns the catalogue row, [`nss_to_starting_point`](@ref) turns it
+into an `initialize!` guess, and [`nss_to_model_chain`](@ref) builds a throwaway
+model and chain from the published values and their error bars, to plot the NSS orbit
+beside your own posterior:
+
+```julia
+nss_model, nss_chain = nss_to_model_chain(query_nss(gaia_id=GAIA4_SOURCE_ID))
+octoplot(nss_model, nss_chain)
+pairplot("This fit" => chain, "NSS" => nss_chain)
+```
+
+!!! warning "Starting points, never priors"
+    Fitting the same astrometry the NSS solution was fitted to, with that solution as a
+    prior, uses the data twice — and NSS error bars can be optimistic on top of that. Use
+    these values to start the search and to compare against, not to constrain it.
+
 Astrometry-only orbit fits are strongly multi-modal, so parallel tempering is the safer
 choice here:
 
