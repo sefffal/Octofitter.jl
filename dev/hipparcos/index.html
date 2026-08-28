@@ -37,8 +37,8 @@ chain</code></pre><pre class="documenter-example-output"><code class="nohighligh
 Iterations        = 1:1:128
 Number of chains  = 1
 Samples per chain = 128
-Wall duration     = 9.98 seconds
-Compute duration  = 9.98 seconds
+Wall duration     = 8.76 seconds
+Compute duration  = 8.76 seconds
 parameters        = plx, A_mass, Hipparcos_IAD_hip_iad_jitter, Hipparcos_IAD_iad_Δra, Hipparcos_IAD_iad_Δdec, Hipparcos_IAD_iad_Δpmra, Hipparcos_IAD_iad_Δpmdec, Hipparcos_IAD_iad_Δplx, Hipparcos_IAD_iad_pmra, Hipparcos_IAD_iad_pmdec
 internals         = loglike, logpost, logprior, pigeons_logpotential
 
@@ -150,8 +150,8 @@ model = Octofitter.LogDensityModel(sys_mass)</code></pre><pre class="documenter-
 Iterations        = 1:1:1000
 Number of chains  = 1
 Samples per chain = 1000
-Wall duration     = 16.8 seconds
-Compute duration  = 16.8 seconds
+Wall duration     = 11.76 seconds
+Compute duration  = 11.76 seconds
 parameters        = plx, A_mass, b_mass, b_a, b_e, b_ω, b_i, b_Ω, b_θ, b_epoch, Hipparcos_IAD_hip_iad_jitter, Hipparcos_IAD_iad_Δra, Hipparcos_IAD_iad_Δdec, Hipparcos_IAD_iad_Δpmra, Hipparcos_IAD_iad_Δpmdec, Hipparcos_IAD_iad_Δplx, Hipparcos_IAD_iad_pmra, Hipparcos_IAD_iad_pmdec, VLT_SPHERE_jitter, VLT_SPHERE_northangle, VLT_SPHERE_platescale
 internals         = logpost
 
@@ -162,12 +162,12 @@ chain</code></pre><pre class="documenter-example-output"><code class="nohighligh
 Iterations        = 1:1:256
 Number of chains  = 1
 Samples per chain = 256
-Wall duration     = 41.58 seconds
-Compute duration  = 41.58 seconds
+Wall duration     = 40.62 seconds
+Compute duration  = 40.62 seconds
 parameters        = plx, A_mass, b_mass, b_a, b_e, b_ω, b_i, b_Ω, b_θ, b_epoch, Hipparcos_IAD_hip_iad_jitter, Hipparcos_IAD_iad_Δra, Hipparcos_IAD_iad_Δdec, Hipparcos_IAD_iad_Δpmra, Hipparcos_IAD_iad_Δpmdec, Hipparcos_IAD_iad_Δplx, Hipparcos_IAD_iad_pmra, Hipparcos_IAD_iad_pmdec, VLT_SPHERE_jitter, VLT_SPHERE_northangle, VLT_SPHERE_platescale
 internals         = loglike, logpost, logprior, pigeons_logpotential
 
 Use `describe(chains)` for summary statistics and quantiles.
 </code></pre><pre><code class="language-julia hljs">octoplot(model, chain)</code></pre><img src="00e99f2e.png" alt="Example block output"/><p>We see that we constrained both the orbit and the parallax. The mass is not strongly constrained by Hipparcos alone; <code>chain[&quot;b_mass&quot;]</code> is in solar masses, so divide by <code>mjup</code> to read it in Jupiter masses:</p><pre><code class="language-julia hljs">using StatsBase
 mass_mjup = chain[&quot;b_mass&quot;][:] ./ mjup
-println(&quot;b mass [Mjup]: &quot;, round.(quantile(mass_mjup, (0.16, 0.5, 0.84)), digits=2))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">b mass [Mjup]: (0.33, 4.22, 25.14)</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../g23h/#fit-g23h">Joint Gaia-Hipparcos (G23H)</a> — the same abscissae as one channel of a joint Gaia + Hipparcos fit.</li><li><a href="../pma/#fit-pma">Proper Motion Anomaly</a> — HGCA-style proper motion anomaly.</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../pma/">« Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../g23h/">Joint Gaia-Hipparcos (G23H) »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 28 August 2026 20:03">Friday 28 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+println(&quot;b mass [Mjup]: &quot;, round.(quantile(mass_mjup, (0.16, 0.5, 0.84)), digits=2))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">b mass [Mjup]: (0.33, 4.22, 25.14)</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../g23h/#fit-g23h">Joint Gaia-Hipparcos (G23H)</a> — the same abscissae as one channel of a joint Gaia + Hipparcos fit.</li><li><a href="../pma/#fit-pma">Proper Motion Anomaly</a> — HGCA-style proper motion anomaly.</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../pma/">« Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../g23h/">Joint Gaia-Hipparcos (G23H) »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 28 August 2026 23:38">Friday 28 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
