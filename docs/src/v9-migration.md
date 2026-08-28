@@ -678,7 +678,6 @@ new v9 plotting layer, built on the backend-agnostic API in
 [`ObservableQuery`](@ref), [`plotchannels`](@ref)/`Octofitter.residuals`,
 [`timeseriespanel!`](@ref), [`skypanel!`](@ref)), and [`octocorner`](@ref) works.
 
-Octofitter declares `PlanetOrbits = "2"` in its `[compat]` — the `2.0.0-DEV`
-prerelease satisfies that bound, so until v2 is registered, install both
-packages from their `v2` branches in a single `Pkg.add` (see
-[Installation](@ref install)).
+Octofitter declares `PlanetOrbits = "2"` in its `[compat]`, and both are
+registered — `pkg> add Octofitter` in a fresh environment gets the matched
+pair (see [Installation](@ref install)).
