@@ -47,6 +47,14 @@ end
     @test_throws r"duplicate node name" Octofitter.System(
         name="s", bodies=[A, b, Octofitter.Body(name="b", about=A, variables=vars())],
         variables=@variables begin end)
+
+    # A single body with no orbits is legal: the lone body is the system
+    # barycentre, and its motion is purely the frame's. (The two-root error
+    # above still fires for NB ≥ 2 — this does not loosen it.)
+    single = Octofitter.System(name="s", bodies=[A],
+        variables=@variables begin plx = 20.0 end)
+    @test Octofitter.nbodies(single) == 1
+    @test Octofitter.nrows(single) == 0
 end
 
 @testset "frame is chosen by which variables exist" begin

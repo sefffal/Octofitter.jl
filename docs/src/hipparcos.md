@@ -25,8 +25,9 @@ Hipparcos IAD fits allow you to specify variables for the 5 parameter solutions.
 
 This is the so-called "Nielsen" test from Nielsen et al (2020) and shown in the Orbitize! docs. It re-fits the IAD to get back the original Hipparcos 5-parameter solution as a test.
 
-We start by using a system with a zero-mass companion, so that the only thing the model can
-do is fit the straight-line motion of the star.
+We start with a model that contains only the star itself — a single body and no orbits.
+A lone body simply *is* the system barycentre, so the only thing the model can do is fit
+the star's parallax and proper motion (the "straight-line", five-parameter sky path).
 
 ```@example 1
 using Octofitter
