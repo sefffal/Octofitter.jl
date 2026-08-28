@@ -294,7 +294,7 @@ with a planetary companion — but reaches the m/s level, phase-locked to the
 orbit, for a stellar or brown-dwarf companion on an eccentric orbit. For a
 **relative** RV the roles swap, since the companion sits deep in the star's
 potential: a Jupiter at 1 AU with e = 0.4 varies by 5.6 m/s over its orbit. That
-last case is the one most likely to matter, and the one v1 results are most
+last case is the one most likely to matter, and the one v0.x results are most
 likely to shift on. The full tables are on PlanetOrbits'
 [Precision opt-outs](https://sefffal.github.io/PlanetOrbits.jl/dev/precision/)
 page, and the correction report prints the number for your own series.
@@ -419,7 +419,7 @@ data and decides.
 ### How `:auto` decides
 
 Not by a rule of thumb. The ρ-scaling formulas above were derived for
-star-plus-planet topologies, and v2's whole point is hierarchies — moons, 2+2
+star-plus-planet topologies, and the redesign's whole point is hierarchies — moons, 2+2
 quadruples, N-body — where "the" ρ is not well defined. So `:auto` mechanizes
 the honest recipe instead: solve both ways and compare against your own
 uncertainties.
@@ -626,13 +626,13 @@ now carries. Nothing here is a silent fallback: a likelihood that needs observer
 positions and has no source for them errors at construction rather than
 degrading at solve time.
 
-## Coming from v1
+## Coming from v0.x
 
-* If you followed v1's advice to *un-remove* secular acceleration from your RV
+* If you followed v0.x's advice to *un-remove* secular acceleration from your RV
   data, the new default `:model` gives you identical behaviour — that is what
   the advice was working around.
 * If your data **is** pipeline-corrected, you now need to say so:
-  `secular_acceleration=:data_corrected`. v1 modelled the term; v2's first
+  `secular_acceleration=:data_corrected`. v0.x modelled the term; the redesign's first
   drafts did not; the default now does again.
 * `radvel` gained the Einstein term. See the sizes above and PlanetOrbits'
   migration guide — an ordinary reflex-RV planet fit will not notice, a

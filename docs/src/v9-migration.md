@@ -1,6 +1,7 @@
 # [Migrating to Octofitter v9](@id v9-migration)
 
-Octofitter v9 is built on PlanetOrbits v2. The change is not cosmetic: a model
+Octofitter v9 is built on PlanetOrbits v1, the redesigned successor to the
+PlanetOrbits 0.x line. The change is not cosmetic: a model
 is now a **flat list of bodies plus a flat list of observations**, and the
 orbital physics lives entirely in PlanetOrbits. This page is the map from the
 old surface to the new one, and the reasoning where it is not obvious.
@@ -678,6 +679,6 @@ new v9 plotting layer, built on the backend-agnostic API in
 [`ObservableQuery`](@ref), [`plotchannels`](@ref)/`Octofitter.residuals`,
 [`timeseriespanel!`](@ref), [`skypanel!`](@ref)), and [`octocorner`](@ref) works.
 
-Octofitter declares `PlanetOrbits = "2"` in its `[compat]`, and both are
+Octofitter declares `PlanetOrbits = "1"` in its `[compat]`, and both are
 registered — `pkg> add Octofitter` in a fresh environment gets the matched
 pair (see [Installation](@ref install)).

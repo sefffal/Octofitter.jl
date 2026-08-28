@@ -13,7 +13,7 @@ Before running this script, ensure you have installed the necessary packages:
 
 2. **Required packages**. Octofitter v9 and OctofitterRadialVelocity v9 are
    unregistered prereleases, so they come from the `v2` branches and must be
-   resolved together with PlanetOrbits v2 — see [Installation](@ref install):
+   resolved together with PlanetOrbits v1 — see [Installation](@ref install):
    ```julia
    using Pkg
    Pkg.add([

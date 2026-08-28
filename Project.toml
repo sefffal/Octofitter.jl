@@ -113,14 +113,12 @@ OptimizationBBO = "0.4"
 OptimizationOptimJL = "0.4"
 OrderedCollections = "1.6"
 Pathfinder = "0.10"
-# PlanetOrbits: `"2"` is correct even though the v2 branch is an unregistered
-# `2.0.0-DEV` prerelease. Pkg's semver spec keeps the prerelease inside the
-# range (`v"2.0.0-DEV" in Pkg.Types.semver_spec("2")` is `true`), so a
-# dev-linked or `rev="v2"` checkout satisfies this bound; what it excludes is
-# the *registered* v1 line. Without the bound, `Pkg.add(url=..., rev="v2")`
-# silently resolves PlanetOrbits 0.11.4 and the user only finds out at
-# precompile time (`UndefVarError: mjup not defined in PlanetOrbits`).
-PlanetOrbits = "2"
+# PlanetOrbits: the redesigned line is v1 (1.0.0); the old registered releases
+# are the 0.x line (last 0.11.4). This bound excludes 0.x — without it the
+# resolver can silently fall back to PlanetOrbits 0.11.4 and the user only
+# finds out at precompile time
+# (`UndefVarError: mjup not defined in PlanetOrbits`).
+PlanetOrbits = "1"
 PrecompileTools = "1.1.2"
 Preferences = "1"
 Printf = "1"

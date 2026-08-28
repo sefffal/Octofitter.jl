@@ -46,7 +46,7 @@ RuntimeGeneratedFunctions.init(@__MODULE__)
 
 using Bumper
 
-# Masses are in solar masses throughout: PlanetOrbits v2 dropped the
+# Masses are in solar masses throughout: PlanetOrbits v1 dropped the
 # per-planet `M` bookkeeping, so there is one mass unit and `msun`, `mjup`,
 # `mearth` (re-exported above) are plain multiplicative constants —
 # `mass = 5.3mjup`.

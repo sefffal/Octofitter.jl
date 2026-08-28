@@ -118,9 +118,10 @@ ForwardDiff (a permutation vector would not be — the `by` values are Duals).
     return k_best, a_best
 end
 
-# v1's `periapsis`/`apoapsis`, which PlanetOrbits v2 does not carry: they are
+# PlanetOrbits v0.x's `periapsis`/`apoapsis`, which PlanetOrbits v1 does not
+# carry: they are
 # two lines of algebra over the row, and their hyperbolic branch (an "apoapsis"
-# for an unbound orbit) is a v1 convention rather than a physical quantity, so
+# for an unbound orbit) is a v0.x convention rather than a physical quantity, so
 # it belongs with the priors that consume it rather than in the orbit library.
 @inline _row_periapsis(row) = row.e < 1 ? row.a * (1 - row.e) : -row.a * (row.e - 1)
 @inline _row_apoapsis(row) = row.e < 1 ? row.a * (1 + row.e) : -row.a * (1 + row.e)

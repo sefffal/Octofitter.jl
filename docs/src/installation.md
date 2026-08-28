@@ -30,7 +30,7 @@ before `using Octofitter` --- otherwise you are back in your default environment
 
 If you have an **existing** environment from the v8 era (or from the v9
 prerelease branches), the cleanest upgrade is a fresh environment as above.
-`Pkg.status()` should then show `Octofitter v9.x` and `PlanetOrbits v2.x`; if
+`Pkg.status()` should then show `Octofitter v9.x` and `PlanetOrbits v1.x`; if
 it shows `Octofitter v8.x` or `PlanetOrbits v0.11.x`, something in that
 environment is holding the old line back --- start fresh.
 

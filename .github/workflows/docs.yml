@@ -48,15 +48,15 @@ jobs:
     timeout-minutes: 1440
     steps:
       - uses: actions/checkout@v7
-      # PlanetOrbits v2 is an unregistered prerelease (2.0.0-DEV) that this
-      # branch depends on, so the docs environment cannot resolve from the
-      # registry alone -- it has to be dev'd from a checkout. Pinned to the
-      # matching `v2` branch; drop this step and the PackageSpec below once
-      # PlanetOrbits 2 is registered.
+      # PlanetOrbits v1 (1.0.0) is not yet in the registry, and this branch
+      # depends on it, so the docs environment cannot resolve from the
+      # registry alone -- it has to be dev'd from a checkout. Pinned to
+      # `master`, where the release lives; drop this step and the PackageSpec
+      # below once PlanetOrbits 1 is registered.
       - uses: actions/checkout@v7
         with:
           repository: sefffal/PlanetOrbits.jl
-          ref: v2
+          ref: master
           path: .planetorbits-v2
       - uses: julia-actions/setup-julia@v3
         with:
@@ -73,9 +73,9 @@ jobs:
       - name: Install dependencies
         run: julia --project=docs/ --color=yes -e 'using Pkg; Pkg.develop([PackageSpec(path=joinpath(pwd(),".planetorbits-v2")), PackageSpec(path=pwd()), PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")), PackageSpec(path=joinpath(pwd(),"OctofitterImages")), PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))]);'
       # buildpkg instantiates the *root* project, which declares
-      # `PlanetOrbits = "2"` — unregistered, so the registry alone cannot
+      # `PlanetOrbits = "1"` — not yet registered, so the registry alone cannot
       # satisfy it. Dev the same checkout there first, exactly as ci.yml does;
-      # drop alongside the checkout step above once PlanetOrbits 2 is
+      # drop alongside the checkout step above once PlanetOrbits 1 is
       # registered.
       - name: Dev local PlanetOrbits into the root project
         run: julia --project=. --color=yes -e 'using Pkg; Pkg.develop(PackageSpec(path=joinpath(pwd(), ".planetorbits-v2")))'

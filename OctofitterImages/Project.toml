@@ -17,13 +17,11 @@ TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 
 [compat]
 AstroImages = "0.5"
-# Octofitter / PlanetOrbits: these bounds are correct even though both v2
-# branches are unregistered `-DEV` prereleases — Pkg keeps a prerelease inside
-# its own major range, so a dev-linked or `rev="v2"` checkout satisfies them.
-# What they exclude is the *registered* v8/v1 line, which otherwise resolves
-# silently here and only fails at precompile time.
+# Octofitter / PlanetOrbits: the redesigned lines are Octofitter v9 and
+# PlanetOrbits v1. These bounds exclude the old registered v8 / 0.x line,
+# which otherwise resolves silently here and only fails at precompile time.
 Octofitter = "9"
-PlanetOrbits = "2"
+PlanetOrbits = "1"
 julia = "1.11"
 
 [extras]
