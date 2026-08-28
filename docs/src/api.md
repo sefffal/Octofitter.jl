@@ -146,6 +146,7 @@ OctoPlotResult
 obscontext
 modelcurves
 mapcurve
+noisecurves
 timeseriespanel!
 skypanel!
 phasefoldpanel!

@@ -437,11 +437,13 @@ The observation's correlated-noise model — a Gaussian process fitted to the
 residuals — conditioned on this draw's residuals and evaluated at `epochs`;
 `nothing` (the default) when the observation has none.
 
-Plots use it twice: the band it predicts is drawn around the model curve, and
-the residual strip subtracts its mean and adds its variance to `σ_eff`. That
-second use is what makes a whitened residual meaningful for a GP fit at all —
-without it the strip shows exactly the correlated structure the GP was fitted
-to explain, and the z-scores are not standard normal even for a perfect fit.
+Plots use it twice: what it predicts joins the model curve — as a band around
+one draw's, or, over many draws, added into each draw's own curve
+([`noisecurves`](@ref)) — and the residual strip subtracts its mean and adds
+its variance to `σ_eff`. That second use is what makes a whitened residual
+meaningful for a GP fit at all: without it the strip shows exactly the
+correlated structure the GP was fitted to explain, and the z-scores are not
+standard normal even for a perfect fit.
 
 A figure is not a fit, so this returns `nothing` — with a warning — rather
 than throwing where the noise model cannot be evaluated: a backend with no
@@ -1118,6 +1120,40 @@ end
 export mapcurve
 
 """
+    noisecurves(series, obs, epochs; ndraws=length(series)) -> Vector | nothing
+
+`obs`' correlated-noise model ([`noisemodel`](@ref)) at `epochs`, once per
+posterior draw: a vector of `(; mean, var)`, the `d`-th conditioned on **draw
+`d`'s own** residuals — its offsets, its trend, its jitter, its kernel
+hyperparameters — never on the MAP draw's.
+
+This is what lets a many-draw figure draw the model each draw actually
+implies. A Gaussian process conditioned on one draw's residuals is part of
+that draw's model, so the honest ensemble is one `orbit + activity` curve per
+draw; the alternative is 250 Keplerian curves over residuals that visibly are
+not white.
+
+Returns `nothing` — for the whole family, not just the offending draw — when
+the observation declares no noise model, or when any draw's cannot be
+predicted (`noisemodel` says why, once). A panel then falls back to the orbit
+alone, which is what it drew before there was an activity model to add.
+"""
+function noisecurves(series::PosteriorSeries, obs, epochs; ndraws=length(series))
+    n = min(ndraws, length(series))
+    n >= 1 || return nothing
+    xs = collect(Float64, epochs)
+    isempty(xs) && return nothing
+    out = Vector{NamedTuple{(:mean, :var),Tuple{Vector{Float64},Vector{Float64}}}}(undef, n)
+    for d in 1:n
+        nm = noisemodel(obs, obscontext(series, obs; draw=d), xs)
+        nm === nothing && return nothing
+        out[d] = (; mean=collect(Float64, nm.mean), var=collect(Float64, nm.var))
+    end
+    return out
+end
+export noisecurves
+
+"""
     phasebinmeans(x, y, w, nbins) -> (; centre, mean, sigma)
 
 Noise-weighted means of `y` in `nbins` equal bins of phase across `[-0.5,
@@ -1418,11 +1454,13 @@ colours and the data marks.
 
 This is the **many-draw** figure, and three of its defaults follow from that:
 residuals are whitened and each point carries the boxplot of its z-score over
-the draws, phase-folded panels are off (a fold needs one ephemeris, and a
-posterior need not have one), and correlated-noise bands are off (they would
-double every curve). Each turns back on for `ndraws=1`, or explicitly via
-`show_phase=`/`gpband=`. [`rvplot`](@ref) is the single-draw figure where all
-three are the point.
+the draws; phase-folded panels are off (a fold needs one ephemeris, and a
+posterior need not have one); and a fitted correlated-noise model rides in the
+curves rather than in a band (`gpcurve`), each draw carrying the Gaussian
+process conditioned on its own residuals. The first two turn back on for
+`ndraws=1` or via `show_phase=`, and with one draw the noise model becomes the
+band `gpband=` draws instead. [`rvplot`](@ref) is the single-draw figure where
+all three are the point.
 """
 function octoplot end
 octoplot(args...; kwargs...) = _require_makie("octoplot")
@@ -1598,8 +1636,8 @@ calibrated RV series is only defined per draw — the zero points, the jitters,
 the trend and the other rows' subtracted signals all move between samples — so
 everything here belongs to one sample and nothing is misrepresented.
 [`octoplot`](@ref) is the many-draws view and gives each instrument its own
-panel instead, with the data left uncalibrated and each draw's own offset and
-trend carried by its model curve.
+panel instead, with the data left uncalibrated and each draw's own offset,
+trend and activity model carried by its model curve.
 
 The red binned points on a phase panel carry the uncertainty *of the binned
 mean*, `max(1/√Σw, s_w/√n)`: the analytic weighted-mean error as a floor, and

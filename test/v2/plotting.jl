@@ -7,7 +7,7 @@ using Octofitter
 using Distributions
 using LinearAlgebra
 using Random: Xoshiro
-using Statistics: mean, std, var
+using Statistics: cor, mean, std, var
 
 @testset "ObservableQuery construction" begin
     q = ObservableQuery(radvel, :b, :A)
@@ -347,21 +347,25 @@ end
 # so the same seed gives the same draw for every dataset built below — which
 # is what lets the second pass plant activity on top of the first pass' own
 # model prediction.
-function _gp_series(model; seed=31)
+function _gp_series(model; seed=31, ii=[1])
     rng = Xoshiro(seed)
     nts = [model.arr2nt(collect(model.sample_priors(rng))) for _ in 1:6]
-    return PosteriorSeries(model, Octofitter.result2mcmcchain(nts); ii=[1])
+    return PosteriorSeries(model, Octofitter.result2mcmcchain(nts); ii)
+end
+
+# The activity dataset both GP testsets below run on: the model's own
+# prediction under the first draw, plus the planted activity and white noise,
+# so that draw's residual is exactly `activity + noise`.
+function _gp_activity_model(gp)
+    m0, o0 = _gp_rv_model(zeros(length(_GP_EPOCHS)), gp)
+    truth = collect(Float64,
+        Octofitter.simulate(o0, obscontext(_gp_series(m0), o0)).rv_model)
+    return _gp_rv_model(truth .+ _GP_ACTIVITY .+ _GP_WHITE, gp)
 end
 
 @testset "a Gaussian process is conditioned on the draw's own residuals" begin
     gp = PlotGP(20.0, 6.0)
-    # Pass one: what the model predicts at this draw, offset and all.
-    m0, o0 = _gp_rv_model(zeros(length(_GP_EPOCHS)), gp)
-    truth = collect(Float64,
-        Octofitter.simulate(o0, obscontext(_gp_series(m0), o0)).rv_model)
-    # Pass two: the same model, now with activity and white noise planted on
-    # its own prediction, so the residual is exactly activity + noise.
-    model, obs = _gp_rv_model(truth .+ _GP_ACTIVITY .+ _GP_WHITE, gp)
+    model, obs = _gp_activity_model(gp)
     series = _gp_series(model)
     ctx = obscontext(series, obs)
     r = Octofitter.residuals(obs, ctx).rv
@@ -401,6 +405,64 @@ end
     @test nm !== nothing && length(nm.mean) == 3 && all(>=(0), nm.var)
 end
 
+@testset "many draws: every curve carries its own conditioned activity" begin
+    # What `octoplot` draws over a fitted noise model. Each draw's curve is its
+    # own orbit plus its own conditioned GP mean — not the MAP draw's, and not
+    # nothing, which is what a many-draw RV panel showed before: Keplerians
+    # over residuals the fit does not claim are white.
+    gp = PlotGP(20.0, 6.0)
+    model, obs = _gp_activity_model(gp)
+    series = _gp_series(model; ii=[1, 2, 3])
+    nc = Octofitter.noisecurves(series, obs, _GP_EPOCHS)
+
+    @test nc !== nothing
+    @test length(nc) == 3
+    @test all(length(c.mean) == length(_GP_EPOCHS) for c in nc)
+    @test all(all(>=(0), c.var) for c in nc)
+
+    # Per draw, and each one on its *own* residuals: the same quantity
+    # `residuals` publishes for that draw, which is what the residual strip and
+    # the phase fold subtract. Not one activity model shared by the ensemble.
+    for d in 1:3
+        rd = Octofitter.residuals(obs, obscontext(series, obs; draw=d)).rv
+        @test nc[d].mean ≈ rd.gp_mean rtol = 1e-12
+        @test nc[d].var ≈ rd.gp_var rtol = 1e-12
+    end
+    @test !(nc[1].mean ≈ nc[2].mean)
+
+    # Draw 1 is the draw the dataset was built on, so its residual is exactly
+    # the injected activity plus white noise — and the curve's activity term
+    # is that activity, not a fit to the noise.
+    @test cor(nc[1].mean, _GP_ACTIVITY) > 0.9
+    # The curve the panel draws (orbit + offset + trend + activity) sits an
+    # order of magnitude closer to the measurements than the Keplerian alone.
+    for d in 1:3
+        ctx = obscontext(series, obs; draw=d)
+        # `rv_model` carries the offset and the trend, so this is the Keplerian
+        # curve as a panel draws it.
+        orbit = collect(Float64, Octofitter.simulate(obs, ctx).rv_model)
+        data = collect(Float64, obs.table.rv)
+        @test std(data .- orbit .- nc[d].mean) < std(data .- orbit) / 2
+    end
+
+    # Off the data epochs — a curve is drawn on the whole plotting grid, and a
+    # stationary kernel's conditional mean has to decay back to the orbit
+    # rather than leave a step at the last measurement.
+    far = [first(_GP_EPOCHS) - 400.0, last(_GP_EPOCHS) + 400.0]
+    ncf = Octofitter.noisecurves(series, obs, far)
+    @test all(all(isfinite, c.mean) for c in ncf)
+    @test all(maximum(abs, c.mean) < 1e-6 * maximum(abs, nc[1].mean) for c in ncf)
+
+    # `ndraws=` truncates the family the way a panel's does, and an
+    # observation with no `gaussian_process` has no family at all.
+    @test length(Octofitter.noisecurves(series, obs, _GP_EPOCHS; ndraws=2)) == 2
+    model2, obs2 = _plotting_test_model()
+    rng2 = Xoshiro(7)
+    series2 = PosteriorSeries(model2, Octofitter.result2mcmcchain(
+        [model2.arr2nt(collect(model2.sample_priors(rng2))) for _ in 1:4]); N=3)
+    @test Octofitter.noisecurves(series2, obs2.rvs, [59000.0]) === nothing
+end
+
 @testset "a noise model that cannot be predicted degrades to the orbit alone" begin
     # A figure is not a fit: a backend with no `gp_predict`, or a draw whose
     # covariance will not factorize, costs the band and the GP-corrected
@@ -414,6 +476,11 @@ end
         r = Octofitter.residuals(obs, ctx).rv
         @test !haskey(r, :gp_mean) && !haskey(r, :gp_var)
         @test length(r.resid) == length(_GP_EPOCHS)
+        # And over many draws the whole curve family degrades together, so the
+        # panel is Keplerian-only rather than activity on some draws and not
+        # others — one warning, not one per draw.
+        multi = _gp_series(model; ii=[1, 2, 3])
+        @test Octofitter.noisecurves(multi, obs, [59000.0, 59100.0]) === nothing
     end
 end
 

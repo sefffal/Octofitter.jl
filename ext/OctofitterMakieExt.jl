@@ -23,7 +23,7 @@ using Octofitter: PosteriorSeries, ObservableQuery, PlotChannel, OctoPlotResult,
     plotchannels, obscontext, modelcurves, default_sky_queries, default_queries,
     plottable_observations, likelihoodname, refspecs, defaultpanels,
     rowsignal, evalsignal, foldablerows, foldephemeris, foldphase, phasebinmeans,
-    sharepanel, datacalibration, noisemodel, predictedchannels,
+    sharepanel, datacalibration, noisemodel, noisecurves, predictedchannels,
     _query, _querystr, _refstr, _solvekw, _isprior, _calibration,
     _requestedobservables
 using PlanetOrbits
@@ -664,11 +664,27 @@ The default whitens whenever more than one draw is shown, and `whiten=false`
 with several draws is an error rather than a plot — see the `Octofitter` issue
 text in `_whitenmode`.
 
-Where an observation has a correlated-noise model ([`noisemodel`](@ref)), its
-prediction is subtracted from the residuals and added into `σ_eff`, and — for
-a **single** draw — drawn as a band around the model curve. `gpband=nothing`
-follows the draw count; `gpband=true` forces the band on for many draws too,
-which puts each draw's plain orbit curve and its GP-added twin on one axis.
+## Correlated noise
+
+Where an observation has one ([`noisemodel`](@ref)), its prediction always
+comes off the residuals and goes into `σ_eff` — that is what makes the strip
+and the histogram mean anything for a fit whose noise is not white. On the
+main axis it appears one of two ways, by draw count:
+
+  - **`gpcurve`** (the default for **many** draws) folds it into the curves:
+    each draw's curve is its own orbit plus its own conditioned GP mean
+    ([`noisecurves`](@ref)), so the ensemble is one complete model per draw and
+    its spread is the uncertainty. No band — 250 of them would be an envelope
+    belonging to no draw.
+  - **`gpband`** (the default for a **single** draw) keeps the orbit curve and
+    adds its GP-added twin with a ±σ band between them: the picture of what
+    the activity model absorbed, which is [`rvplot`](@ref)'s figure.
+
+Either can be forced on or off. With both on, the band is drawn around the
+curve rather than beside a second copy of it. A shared-panel (`:data`) family
+can only carry a curve's worth of activity when one observation is drawing on
+it; with several, each gets a band instead. An observation whose GP cannot be
+predicted for some draw falls back — for that panel — to the orbit alone.
 
 ## Marks
 
@@ -684,7 +700,8 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
                                      top_time_axis=true, bottom_time_axis=true,
                                      show_hist=true, ndraws=nothing, whiten=nothing,
                                      calibrate::Symbol=:auto, show_legend=nothing,
-                                     gpband=nothing, boxwidth=nothing, datastyle=nothing,
+                                     gpband=nothing, gpcurve=nothing,
+                                     boxwidth=nothing, datastyle=nothing,
                                      side_w=SIDE_W, colgap=COLGAP, hist_aspect=nothing,
                                      curvecolor=nothing, linewidth=nothing)
     gs = _layout(gp)
@@ -708,13 +725,23 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
     curvecolor = something(curvecolor, _querycolor(series.model.system, ch1.query))
     linewidth = something(linewidth, nshow == 1 ? 1.3 : 0.4)
     show_legend = something(show_legend, true)
-    # The correlated-noise band, by default, only where it can be read. One
-    # draw gets a band and the curve it belongs to, which is the picture of
-    # what the GP absorbed. Many draws put the same panel's plain orbit curves
-    # *and* their GP-added twins on one axis — twice the ink for a band whose
-    # envelope no longer means anything, because it is a different draw's
-    # activity model everywhere you look.
+    # Two ways to put a correlated-noise model on a panel, and the draw count
+    # picks between them.
+    #
+    # One draw can afford both: the plain orbit curve *and* its GP-added twin
+    # with a ±σ band between them, which is the picture of what the activity
+    # model absorbed. Many draws cannot, and this is settled rather than
+    # arguable — v8 drew a band per draw and the figure is unreadable: 250
+    # envelopes, each a different draw's activity model, over 250 pairs of
+    # curves. What many draws *can* do is carry
+    # the activity in the curves themselves: each draw's curve becomes its own
+    # orbit plus its own conditioned GP mean, so the ensemble is 250 complete
+    # models rather than 250 Keplerians over residuals that are visibly not
+    # white. That needs no new statistical object — a conditioned GP is part of
+    # the draw it was conditioned on — and no band, because the spread between
+    # the curves is where a many-draw figure keeps its uncertainty.
     gpband = something(gpband, nshow == 1)
+    gpcurve = something(gpcurve, nshow > 1)
     single = ndata == 1
 
     conv() = PlanetOrbits.MJDConversion()
@@ -745,22 +772,52 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
     end
 
     # Posterior model curves. In `:model` mode the curve belongs to an
-    # instrument — it carries that instrument's zero point and trend — so
-    # there is one family per entry; in `:data` mode one family serves them
-    # all, because the data have been moved onto it instead.
+    # instrument — it carries that instrument's zero point, trend and (under
+    # `gpcurve`) activity model — so there is one family per entry; in `:data`
+    # mode one family serves them all, because the data have been moved onto
+    # it instead.
     q = ch1.query
     curves = q === nothing ? nothing : modelcurves(series, q)
-    families = if q === nothing
-        Tuple{Any,PlotChannel,Any}[]
-    elseif calibrate === :data || !hasdata
-        Tuple{Any,PlotChannel,Any}[(nothing, ch1, curvecolor)]
-    else
-        [(obs, ch, single ? curvecolor : _instcolor(j))
-         for (j, (obs, ch)) in enumerate(entries)]
+
+    # Each entry's noise model over the whole grid, per draw — computed once
+    # here and shared by the curves and the bands, since both want the same
+    # draw's conditioning. On the *whole* grid, not the data baseline: a
+    # stationary kernel's conditional mean decays back to the orbit off the
+    # ends of its own data, whereas a curve cut at the last measurement would
+    # jump by that measurement's residual. (The band still stops there — its
+    # width is the one that balloons.)
+    noise = Dict{Int,Any}()
+    if (gpcurve || gpband) && curves !== nothing
+        for (j, (obs, _)) in enumerate(entries)
+            obs === nothing && continue
+            nc = noisecurves(series, obs, series.ts; ndraws=nshow)
+            nc === nothing || (noise[j] = nc)
+        end
     end
 
+    # The fourth element is which entry's noise model this family carries, or
+    # 0 for none. In `:data` mode there is one family for the whole panel, so
+    # it can only take an activity model when exactly one observation is
+    # drawing on it — with several, no single one belongs on a shared curve,
+    # and they get bands (`gpband`) instead.
+    families = if q === nothing
+        Tuple{Any,PlotChannel,Any,Int}[]
+    elseif calibrate === :data || !hasdata
+        jj = findall(e -> e[1] !== nothing, entries)
+        Tuple{Any,PlotChannel,Any,Int}[(nothing, ch1, curvecolor,
+            length(jj) == 1 ? jj[1] : 0)]
+    else
+        [(obs, ch, single ? curvecolor : _instcolor(j), j)
+         for (j, (obs, ch)) in enumerate(entries)]
+    end
+    # The entries whose activity is already in a curve, so the band below does
+    # not draw the same line a second time.
+    incurve = Set{Int}(j for (_, _, _, j) in families
+                       if gpcurve && j != 0 && haskey(noise, j))
+
     anywrapped = false
-    for (obs, ch, color) in families
+    for (obs, ch, color, j) in families
+        nc = j in incurve ? noise[j] : nothing
         xs = Float64[]; ys = Float64[]
         sizehint!(xs, (length(series.ts) + 1) * nshow)
         sizehint!(ys, (length(series.ts) + 1) * nshow)
@@ -770,6 +827,8 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
                 cal = datacalibration(obs, ch, obscontext(series, obs; draw=d), series.ts)
                 cal === nothing || (v = v .+ cal)
             end
+            # This draw's own activity, on this draw's own orbit.
+            nc === nothing || (v = v .+ nc[d].mean)
             v = v .* ch1.scale
             if ch1.wrap !== nothing
                 xw, yw, wrapped = _wrap_series(series.ts, v, ch1.wrap)
@@ -790,7 +849,8 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
     # the fit.
     if gpband && curves !== nothing
         for (j, (obs, ch)) in enumerate(entries)
-            obs === nothing && continue
+            nc = get(noise, j, nothing)
+            nc === nothing && continue   # no noise model, or none predictable
             ep = Octofitter.epochs(obs)
             isempty(ep) && continue
             t0, t1 = extrema(ep)
@@ -800,19 +860,20 @@ function Octofitter.timeseriespanel!(gp, series::PosteriorSeries, entries;
             color = single ? curvecolor : _instcolor(j)
             α = min(0.35, 3.5 / max(nshow, 1))
             for d in 1:nshow
-                ctx = obscontext(series, obs; draw=d)
-                nm = noisemodel(obs, ctx, tsub)
-                nm === nothing && break     # this observation has no noise model
                 base = curves[d][m]
                 if calibrate === :model
-                    cal = datacalibration(obs, ch, ctx, tsub)
+                    cal = datacalibration(obs, ch, obscontext(series, obs; draw=d), tsub)
                     cal === nothing || (base = base .+ cal)
                 end
-                mid = (base .+ nm.mean) .* ch1.scale
-                sd = sqrt.(nm.var) .* ch1.scale
+                mid = (base .+ nc[d].mean[m]) .* ch1.scale
+                sd = sqrt.(nc[d].var[m]) .* ch1.scale
                 b = Makie.band!(ax, tsub, mid .- sd, mid .+ sd; color=(color, α))
                 Makie.translate!(b, 0, 0, -10)     # behind the data
-                Makie.lines!(ax, tsub, mid; color=(color, _alpha(nshow)), linewidth)
+                # The line down the middle of the band is orbit + activity,
+                # which is exactly the curve `gpcurve` has already drawn where
+                # it is on. Drawn here only when it has not been.
+                j in incurve ||
+                    Makie.lines!(ax, tsub, mid; color=(color, _alpha(nshow)), linewidth)
             end
         end
     end
@@ -1291,7 +1352,8 @@ end
 
 """
     octoplot(model, chain; N=250, seed=0, show_sky=nothing, show_phase=nothing,
-             whiten=nothing, channels=nothing, gpband=nothing, boxwidth=nothing,
+             whiten=nothing, channels=nothing, gpband=nothing, gpcurve=nothing,
+             boxwidth=nothing,
              tmin=nothing, tmax=nothing, ts=nothing,
              curvecolor=nothing, datastyle=nothing,
              fname=nothing, figscale=1, ndraws=nothing)
@@ -1340,11 +1402,14 @@ as well, so a whitened strip over many draws draws the *distribution* per
 point as a boxplot rather than a single mark; `boxwidth=` sets the box width
 in x units when the automatic choice is wrong for a dataset.
 
-**Correlated-noise bands** ([`noisemodel`](@ref)) are drawn only when a single
-draw is shown: 250 draws of "orbit" and 250 of "orbit + activity" on one axis
-is twice the ink for an envelope that is a different draw's activity model at
-every epoch. `gpband=true` overrides that; `rvplot` is the single-draw figure
-where the band is the point.
+**Correlated noise** ([`noisemodel`](@ref)) is in the curves: each draw's curve
+is its own orbit plus the Gaussian process conditioned on **that draw's own**
+residuals, so a many-draw panel shows 250 complete models rather than 250
+Keplerians over residuals the fit does not claim are white. There is no band —
+250 of them would be an envelope belonging to no draw, and the spread between
+the curves is where the uncertainty already is. With one draw it is the other
+way round (`gpband`): the orbit curve, its GP-added twin, and a ±σ band between
+them, which is `rvplot`'s figure. `gpcurve=`/`gpband=` force either.
 
 `channels=` restricts the figure: an observable function (`channels=radvel`),
 a channel or observable name as a `Symbol`, or a collection of either.
@@ -1370,7 +1435,7 @@ end
 function Octofitter.octoplot(series::PosteriorSeries;
                              show_sky=nothing, show_phase=nothing, whiten=nothing,
                              channels=nothing, figure=nothing, legend=true,
-                             gpband=nothing, boxwidth=nothing,
+                             gpband=nothing, gpcurve=nothing, boxwidth=nothing,
                              curvecolor=nothing, datastyle=nothing,
                              fname=nothing, figscale=1.0, ndraws=nothing)
     sys = series.model.system
@@ -1457,7 +1522,7 @@ function Octofitter.octoplot(series::PosteriorSeries;
         push!(legendseen, insts)
         axs = Octofitter.timeseriespanel!(fig[row, 1], series, entries;
             top_time_axis=(i == 1), bottom_time_axis=(i == npanels), ndraws, whiten,
-            gpband, boxwidth, show_legend=showleg, datastyle,
+            gpband, gpcurve, boxwidth, show_legend=showleg, datastyle,
             curvecolor=_panelcolor(curvecolor, _curvebody(sys, entries[1][2].query)))
         push!(axpairs, nm => axs)
         push!(timeaxes, axs.main)

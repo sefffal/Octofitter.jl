@@ -395,7 +395,26 @@ check(Octofitter.noisemodel(rvgp, Octofitter.obscontext(s3, rvgp), [59100.0, 592
 check(var(rgp.resid .- rgp.gp_mean) < var(rgp.resid),
     "the activity model comes off the residuals a phase fold and a strip use")
 rvplot(m3, c3; fname=joinpath(OUT, "09-rvplot-gp.png"))
-octoplot(m3, c3; N=20, ndraws=6, fname=joinpath(OUT, "10-octoplot-gp.png"))
+
+# The many-draw figure carries the activity in the curves instead of a band:
+# each draw's curve is its own orbit plus the GP conditioned on its own
+# residuals, so the ensemble tracks the structure the fit models rather than
+# running through the middle of it.
+res10 = octoplot(m3, c3; N=20, ndraws=6, fname=joinpath(OUT, "10-octoplot-gp.png"))
+s10 = res10.series
+nc10 = Octofitter.noisecurves(s10, rvgp, s10.ts; ndraws=6)
+check(nc10 !== nothing && length(nc10) == 6 && !(nc10[1].mean ≈ nc10[2].mean),
+    "one conditioned activity model per draw, not the MAP's for all of them")
+# What was drawn, read back off the axis: the first draw's segment of the
+# curve family, minus that draw's orbit and calibration, is that draw's GP.
+lns = [p for p in res10.axes.rv.main.scene.plots if p isa CairoMakie.Lines]
+ys = [p[2] for p in lns[1][1][]]
+seg = ys[1:findfirst(isnan, ys)-1]
+base1 = Octofitter.modelcurves(s10, ObservableQuery(radvel, :A, Barycentre))[1] .+
+        Octofitter.datacalibration(rvgp, first(Octofitter.plotchannels(rvgp)),
+            Octofitter.obscontext(s10, rvgp; draw=1), s10.ts)
+check(length(seg) == length(s10.ts) && isapprox(seg .- base1, nc10[1].mean; rtol=1e-8),
+    "the drawn curve is that draw's orbit + that draw's activity")
 ok("GP figures draw")
 
 # A GP the plot layer cannot predict with costs the band, not the figure.
@@ -406,6 +425,12 @@ check(Octofitter.noisemodel(rvgpb,
         [59100.0]) === nothing,
     "a backend with no `gp_predict` declines rather than throws")
 rvplot(m3b, c3b, 1; fname=joinpath(OUT, "09b-rvplot-gp-unsupported.png"))
+# And over many draws the family degrades together, so the panel is Keplerian
+# everywhere rather than activity on some draws and not others.
+s3b = Octofitter.PosteriorSeries(m3b, c3b; N=6)
+check(Octofitter.noisecurves(s3b, rvgpb, s3b.ts) === nothing,
+    "an unpredictable backend declines the whole curve family, not one draw")
+octoplot(m3b, c3b; N=8, ndraws=6, fname=joinpath(OUT, "10b-octoplot-gp-unsupported.png"))
 ok("an unsupported GP backend still draws, orbit only")
 
 step("the sparse limit: fewer measurements than phase bins")
