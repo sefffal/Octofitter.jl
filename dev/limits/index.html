@@ -1,76 +1,108 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Calculate Detection Limits · Octofitter.jl</title><meta name="title" content="Calculate Detection Limits · Octofitter.jl"/><meta property="og:title" content="Calculate Detection Limits · Octofitter.jl"/><meta property="twitter:title" content="Calculate Detection Limits · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li><li><a class="tocitem" href="../gaia-iad/">Gaia DR4 Epoch Astrometry</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li><li><a class="tocitem" href="../gaia-dr4-prerelease/">Gaia DR4 Pre-Release Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox" checked/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li class="is-active"><a class="tocitem" href>Calculate Detection Limits</a><ul class="internal"><li><a class="tocitem" href="#Detection-Limits"><span>Detection Limits</span></a></li><li><a class="tocitem" href="#Photometry-Model"><span>Photometry Model</span></a></li><li><a class="tocitem" href="#Proper-Motion-Anomaly-Data"><span>Proper Motion Anomaly Data</span></a></li><li><a class="tocitem" href="#Image-Data"><span>Image Data</span></a></li><li class="toplevel"><a class="tocitem" href="#Image-and-PMA-data"><span>Image and PMA data</span></a></li></ul></li><li><a class="tocitem" href="../completeness/">Detection Completeness Mapping</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Joint Models</a></li><li class="is-active"><a href>Calculate Detection Limits</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Calculate Detection Limits</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/limits.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h2 id="Detection-Limits"><a class="docs-heading-anchor" href="#Detection-Limits">Detection Limits</a><a id="Detection-Limits-1"></a><a class="docs-heading-anchor-permalink" href="#Detection-Limits" title="Permalink"></a></h2><div class="admonition is-warning" id="Warning-f61a97eb84fd82da"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-f61a97eb84fd82da" title="Permalink"></a></header><div class="admonition-body"><p>This tutorial is a work in progress.</p></div></div><p>This guide shows how to calculate detection limits, in mass, or in photometry, as a function of orbital parameters for different combinations of data.</p><p>There are a few use cases for this:</p><ul><li>Mass limit vs semi-major axis given one or more images and/or contrast curves</li><li>Mass limit vs semi-major axis given an RV non-detection</li><li>Mass limit vs semi-major axis given proper motion anomaly from the GAIA-Hipparcos Catalog of Accelerations</li><li>Any combination of the above</li></ul><p>We will once more use some sample data from the system <a href="https://arxiv.org/abs/2109.12124">HD 91312 A &amp; B</a> discovered by SCExAO. </p><pre><code class="language-julia hljs">using Octofitter
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Calculate Detection Limits · Octofitter.jl</title><meta name="title" content="Calculate Detection Limits · Octofitter.jl"/><meta property="og:title" content="Calculate Detection Limits · Octofitter.jl"/><meta property="twitter:title" content="Calculate Detection Limits · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li><li><a class="tocitem" href="../v9-migration/">Migrating to v9</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../gaia-dr4-prerelease/">Gaia DR4</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox" checked/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li class="is-active"><a class="tocitem" href>Calculate Detection Limits</a><ul class="internal"><li><a class="tocitem" href="#Photometry-Model"><span>Photometry Model</span></a></li><li><a class="tocitem" href="#Proper-Motion-Anomaly-Data"><span>Proper Motion Anomaly Data</span></a></li><li><a class="tocitem" href="#Image-Data"><span>Image Data</span></a></li><li><a class="tocitem" href="#Image-and-PMA-data"><span>Image and PMA data</span></a></li></ul></li><li><a class="tocitem" href="../completeness/">Detection Completeness Mapping</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvplot/">Radial velocity figures</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../orbit-computation/">How Orbits Are Computed</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Joint Models</a></li><li class="is-active"><a href>Calculate Detection Limits</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Calculate Detection Limits</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/limits.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="detection-limits"><a class="docs-heading-anchor" href="#detection-limits">Detection Limits</a><a id="detection-limits-1"></a><a class="docs-heading-anchor-permalink" href="#detection-limits" title="Permalink"></a></h1><div class="admonition is-warning" id="Warning-f61a97eb84fd82da"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-f61a97eb84fd82da" title="Permalink"></a></header><div class="admonition-body"><p>This tutorial is a work in progress.</p></div></div><p>This guide shows how to calculate detection limits, in mass, or in photometry, as a function of orbital parameters for different combinations of data.</p><p>There are a few use cases for this:</p><ul><li>Mass limit vs semi-major axis given one or more images and/or contrast curves</li><li>Mass limit vs semi-major axis given an RV non-detection</li><li>Mass limit vs semi-major axis given proper motion anomaly from the Hipparcos-Gaia astrometry</li><li>Any combination of the above</li></ul><p>The recipe is the same in every case: build a model in which the companion&#39;s <em>brightness</em> is derived from its <strong>mass</strong> through an evolutionary model, fit the data, and read off which masses survive.</p><div class="admonition is-info" id="About-the-target-and-the-data-on-this-page-47026cad37a32446"><header class="admonition-header">About the target and the data on this page<a class="admonition-anchor" href="#About-the-target-and-the-data-on-this-page-47026cad37a32446" title="Permalink"></a></header><div class="admonition-body"><p>The star is Gaia DR3 <code>6166183842771027328</code> (HIP 65808), a ~32 pc solar-type dwarf. It is chosen because its proper motion is a <strong>non-detection</strong>: the HGCA χ² is 17.8 and every Hipparcos/Hipparcos–Gaia/DR3 channel sits within ~3σ of the long-term trend, so the PMA posterior below is a genuine <em>upper limit</em> — the broad envelope the other data sets are compared against. Do not retarget this page onto a star with a real astrometric companion (HD 91312, used by <a href="../pma/#fit-pma">Fit Proper Motion Anomaly</a>, has a 16σ anomaly): the PMA posterior then pins itself to the top of the mass prior and the page stops demonstrating anything.</p><p>So that the page builds offline it reads the Hipparcos–Gaia catalog subset and the cached scan-law forecast that ship with Octofitter&#39;s tests, together with the example L′ contrast image from <a href="../images/#fit-images">Fitting Images</a> — which is a stand-in, not a real observation of this star. For a real target you simply drop the <code>catalog=</code> and <code>forecast_table=</code> keywords and Octofitter fetches both itself.</p></div></div><pre><code class="language-julia hljs">using Octofitter
 using OctofitterImages
-using OctofitterRadialVelocity
 using Distributions
-using Pigeons
+using AstroImages
 using CairoMakie
-using PairPlots</code></pre><h2 id="Photometry-Model"><a class="docs-heading-anchor" href="#Photometry-Model">Photometry Model</a><a id="Photometry-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Photometry-Model" title="Permalink"></a></h2><p>We will need to decide on an atmosphere model to map image intensities into mass. Here we use the Sonora Bobcat cooling and atmosphere models which will be auto-downloaded by Octofitter:</p><pre><code class="language-julia hljs">const cooling_tracks = Octofitter.sonora_cooling_interpolator()
-const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(::Octofitter.var&quot;#model_interpolator#517&quot;{Interpolations.FilledExtrapolation{Float64, 2, Interpolations.ScaledInterpolation{Float64, 2, Interpolations.BSplineInterpolation{Float64, 2, Matrix{Float64}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Float64}, Float64, Float64, Float64, Float64}) (generic function with 1 method)</code></pre><h2 id="Proper-Motion-Anomaly-Data"><a class="docs-heading-anchor" href="#Proper-Motion-Anomaly-Data">Proper Motion Anomaly Data</a><a id="Proper-Motion-Anomaly-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Proper-Motion-Anomaly-Data" title="Permalink"></a></h2><p>We start by defining and sampling from a model that only includes proper motion anomaly data from the HGCA:</p><pre><code class="language-julia hljs">B = Planet(
-    name=&quot;B&quot;,
-    basis=Visual{KepOrbit},
-    observations=[],
+using PairPlots
+using Statistics
+using Pigeons</code></pre><h2 id="Photometry-Model"><a class="docs-heading-anchor" href="#Photometry-Model">Photometry Model</a><a id="Photometry-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Photometry-Model" title="Permalink"></a></h2><p>We will need to decide on an atmosphere model to map image intensities into mass. Here we use the Sonora Bobcat cooling and atmosphere models which will be auto-downloaded by Octofitter:</p><pre><code class="language-julia hljs">const cooling_tracks = Octofitter.sonora_cooling_interpolator()
+const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(::Octofitter.var&quot;#model_interpolator#628&quot;{Interpolations.FilledExtrapolation{Float64, 2, Interpolations.ScaledInterpolation{Float64, 2, Interpolations.BSplineInterpolation{Float64, 2, Matrix{Float64}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Float64}, Float64, Float64, Float64, Float64, Float64}) (generic function with 1 method)</code></pre><div class="admonition is-warning" id="Masses-are-in-solar-masses-c4f87e3c9bb46ffc"><header class="admonition-header">Masses are in solar masses<a class="admonition-anchor" href="#Masses-are-in-solar-masses-c4f87e3c9bb46ffc" title="Permalink"></a></header><div class="admonition-body"><p>There is a single mass unit throughout, M⊙, and these interpolators take M⊙ by default. <code>mjup</code> is a plain multiplicative constant, so a Jupiter-mass threshold is written <code>10mjup</code>, <strong>not</strong> <code>10</code> — a bare <code>10</code> means ten solar masses, which lands off the end of the grid and quietly returns <code>NaN</code>. Pass <code>mass_unit=:Mjup</code> to the constructors if you would rather keep a script in Jupiter masses.</p></div></div><h2 id="Proper-Motion-Anomaly-Data"><a class="docs-heading-anchor" href="#Proper-Motion-Anomaly-Data">Proper Motion Anomaly Data</a><a id="Proper-Motion-Anomaly-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Proper-Motion-Anomaly-Data" title="Permalink"></a></h2><p>We start by defining and sampling from a model that only includes the Hipparcos-Gaia proper motion anomaly.</p><p><code>HGCAObs</code> is a helper over the joint Gaia-Hipparcos likelihood <a href="../api/#Octofitter.G23HObs"><code>G23HObs</code></a>, restricted to the six HGCA channels. It models the actual Gaia and Hipparcos scan epochs; <code>freeze_epochs=true</code> below fixes the epoch selection, which is much faster and is what makes a detection-limit sweep practical.</p><pre><code class="language-julia hljs">A = Body(
+    name=&quot;A&quot;,
     variables=@variables begin
+        mass = system.M_pri
+        flux_G  = 1.0     # the host defines the contrast scale in each band
+        flux_Hp = 1.0
+    end
+)
+
+B = Body(
+    name=&quot;B&quot;,
+    about=A,
+    variables=@variables begin
+        mass = system.M_sec       # M⊙
         a ~ LogUniform(1, 65)
         e ~ Uniform(0,0.9)
         ω ~ Uniform(0,2pi)
-        i ~ Sine() # The Sine() distribution is defined by Octofitter
+        i ~ Sine()                # The Sine() distribution is defined by Octofitter
         Ω ~ Uniform(0,pi)
-        mass = system.M_sec
         θ ~ Uniform(0,2pi)
-        tp = θ_at_epoch_to_tperi(θ, 57423.0; M=system.M, e, a, i, ω, Ω) # epoch of GAIA measurement
+        epoch = 57423.0           # epoch of the Gaia measurement
+        flux_G  = 0.0             # dark to Gaia...
+        flux_Hp = 0.0             # ...and to Hipparcos
     end
 )
-HD91312_pma = System(
-    name=&quot;HD91312_pma&quot;,
-    companions=[B],
-    observations=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
+
+gaia_id = 6166183842771027328   # HIP 65808 -- see the note above
+
+pma = HGCAObs(;
+    gaia_id = gaia_id,
+    target = A,
+    blends = (B,),
+    ref = Barycentre,
+    freeze_epochs = true,       # faster but approximate; set false for real use
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">┌ Info: </span></span>Removed forecast transits in data gaps of every applicable release.
+<span class="sgr36"><span class="sgr1">└ </span></span>  n_removed = 1
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Count of missed or rejected transits:
+<span class="sgr36"><span class="sgr1">└ </span></span>  dr3 = 3
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>DR2/DR3 epoch selection
+<span class="sgr36"><span class="sgr1">│ </span></span>  n2_win = 13
+<span class="sgr36"><span class="sgr1">│ </span></span>  n_tail = 14
+<span class="sgr36"><span class="sgr1">│ </span></span>  n_dr2_total = 13
+<span class="sgr36"><span class="sgr1">└ </span></span>  n_dr2_distinct_range = (13, 13)</code></pre><p>The system block supplies the frame. <code>G23HObs</code> (and therefore <code>HGCAObs</code>) needs the reference point&#39;s proper motion, which means a <strong>full</strong> absolute frame: <code>plx, ra, dec, pmra, pmdec, rv, ref_epoch</code>. Declaring only some of them is a build-time error: Octofitter will not guess at half a frame.</p><pre><code class="language-julia hljs">cat = pma.catalog
+
+HD_pma = System(
+    name=&quot;limits_pma&quot;,
+    bodies=[A, B],
+    observations=[pma],
     variables=@variables begin
-        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
-        M_sec ~ LogUniform(0.2, 65) # MJup
-        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
+        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1)    # M⊙
+        M_sec ~ LogUniform(0.2mjup, 65mjup)                # M⊙ -- note the units!
 
-        plx ~ gaia_plx(gaia_id=6166183842771027328)
-
-        # Priors on the center of mass proper motion
-        pmra ~ Normal(0, 1000)
-        pmdec ~ Normal(0,  1000)
+        plx ~ truncated(Normal(cat.parallax, cat.parallax_error), lower=0.1)
+        ra  = $(cat.ra)
+        dec = $(cat.dec)
+        # Wide priors on the centre-of-mass proper motion: the data constrain these.
+        pmra  ~ Uniform(cat.pmra_dr3 - 100, cat.pmra_dr3 + 100)
+        pmdec ~ Uniform(cat.pmdec_dr3 - 100, cat.pmdec_dr3 + 100)
+        rv = $(isnan(cat.radial_velocity) ? 0.0 : cat.radial_velocity * 1e3)   # m/s
+        ref_epoch = $(Octofitter.meta_gaia_DR3.ref_epoch_mjd)
     end
 )
-model_pma = Octofitter.LogDensityModel(HD91312_pma)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HD91312_pma of dimension 11 and 4 epochs with fields .ℓπcallback and .∇ℓπcallback
-</code></pre><p>Sample:</p><pre><code class="language-julia hljs">using Pigeons
-chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16, n_rounds=12);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
-<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
+model_pma = Octofitter.LogDensityModel(HD_pma)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System limits_pma of dimension 11 and 6 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><div class="admonition is-warning" id="pmra-and-pmdec-are-frame-variables-ee6a34a052a6fa2f"><header class="admonition-header">`pmra` and `pmdec` are frame variables<a class="admonition-anchor" href="#pmra-and-pmdec-are-frame-variables-ee6a34a052a6fa2f" title="Permalink"></a></header><div class="admonition-body"><p>Use wide priors on <code>pmra</code>/<code>pmdec</code>. the data will constrain them.</p></div></div><p>Sample:</p><pre><code class="language-julia hljs">init_pma = initialize!(model_pma)
+chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16, n_rounds=12)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
 <span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
 <span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Pathfinder error: MethodError(copy, (SplittableRandoms.SplittableRandom(0x204834c0d026bff6, 0xaabf13ae126f9159),), 0x000000000000a8d2)
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:956</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Using BBO result as fallback
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Octofitter ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/src/initialization.jl:957</span>
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Found sample of initial positions
-<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-14.247821410893579, -14.247821410893579)
-<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -14.2478214108936
+<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-7.799110919466683, 1.965947425909647)
+<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -0.5553473122308529
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_pma] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_pma] barycentric_lighttime = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_pma] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_pma] barycentric_lighttime = true (user)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0        2.5       2.65      0.334   5.47e+06  -4.88e+07          0      0.834          1          1
-        4          0        5.4       5.24      0.062   1.48e+05  -1.41e+05          0      0.657          1          1
-        8          0       5.87       6.11      0.122    2.4e+05  -1.28e+05          0      0.614          1          1
-       16          0       6.34       7.09      0.244   3.94e+05      -14.6          0      0.567          1          1
-       32          0       7.88       6.93      0.485    6.6e+05  -2.46e+03          0      0.522          1          1
-       64          3       7.87       3.03       1.12    4.6e+07      -15.3   1.29e-43      0.648          1          1
-      128          9       8.63       3.17       1.91   7.35e+07        -17   5.92e-08      0.619          1          1
-      256         24       8.72       2.71       3.95   1.46e+08      -17.1   8.92e-09      0.631          1          1
-      512         39       9.04       3.31       7.85   2.93e+08      -17.1     0.0022      0.602          1          1
- 1.02e+03        120       9.34       2.97       15.6   5.82e+08      -17.3     0.0262      0.603          1          1
- 2.05e+03        226       9.56       3.25       31.4   1.16e+09      -17.2     0.0561      0.587          1          1
-  4.1e+03        406       9.87       3.56       62.8   2.32e+09      -17.2      0.147      0.567          1          1
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl:</p><pre><code class="language-julia hljs">pairplot(
+        2          0        2.7       2.66       1.53   1.55e+09  -3.38e+05          0      0.827          1          1
+        4          0       3.15       4.81      0.779   2.95e+09  -1.97e+04          0      0.743          1          1
+        8          0       4.47       5.67       1.57   5.73e+09  -1.74e+03          0      0.673          1          1
+       16          0       5.95       6.09       2.87   1.14e+10       -151          0      0.612          1          1
+       32          0       6.01       6.66       5.98   2.24e+10      -28.8   5.87e-21      0.591          1          1
+       64          3       6.21        2.5       13.1   4.62e+10        -12   1.35e-14      0.719      0.999          1
+      128         16       6.94       2.65       27.6   9.27e+10      -12.4    0.00357      0.691          1          1
+      256         25       7.28       2.47       54.5   1.84e+11      -12.2     0.0152      0.685          1          1
+      512         71       8.01       2.45        105   3.66e+11        -12     0.0834      0.662          1          1
+ 1.02e+03        160       8.28       2.32        203    7.3e+11      -12.2      0.179      0.658          1          1
+ 2.05e+03        301       8.25       2.41        384   1.46e+12        -12      0.324      0.656          1          1
+  4.1e+03        630       8.18        2.4        795   2.91e+12      -12.1      0.434      0.659          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl. Note that <code>B_mass</code> is in solar masses, so we convert for the plot:</p><pre><code class="language-julia hljs">pairplot(
     PairPlots.Series(
         (;
             sma=log.(chain_pma[:B_a][:],),
-            mass=log.(chain_pma[:B_mass][:]),
+            mass=log.(chain_pma[:B_mass][:] ./ mjup),
         ),
         label=&quot;PMA&quot;,
         color=Makie.wong_colors()[1],
@@ -83,89 +115,108 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="f50f9b88.png" alt="Example block output"/><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><pre><code class="language-julia hljs">using AstroImages
-# download(
-#     &quot;https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits&quot;,
-#     &quot;image-examples-1.fits&quot;
-# )
-
-# Or multi-extension FITS (this example)
+)</code></pre><img src="ee01ecf9.png" alt="Example block output"/><h2 id="Image-Data"><a class="docs-heading-anchor" href="#Image-Data">Image Data</a><a id="Image-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-Data" title="Permalink"></a></h2><p>Now the same star, with an L′-band contrast image instead. This is where the flux/band unification pays off: the companion&#39;s brightness is a <strong>body</strong> variable, <code>flux_L</code>, derived from its mass — so the image constrains the mass directly.</p><pre><code class="language-julia hljs">download(
+    &quot;https://github.com/sefffal/Octofitter.jl/raw/main/docs/image-examples-1.fits&quot;,
+    &quot;image-examples-1.fits&quot;
+)
 image = AstroImages.load(&quot;image-examples-1.fits&quot;).*2e-7 # units of contrast
 img_dat_table = Table([
      (image=AstroImages.recenter(image), platescale=4.0, epoch=57423.6),
-])
-
-image_data = ImageObs(
-    img_dat_table,
-    name=&quot;imgdat-sim&quot;,
-    variables=@variables begin
-        # Planet flux in image units -- could be contrast, mags, Jy, or arb. as long as it&#39;s consistent with the units of the data you provide
-        flux = planet.L
-        # The following are optional parameters for marginalizing over instrument systematics:
-        # Platescale uncertainty multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
-        platescale = 1.0
-        # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
-        northangle = 0.0
-    end
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">OctofitterImages.ImageObs Table with 5 columns and 1 row:
-     image                                         platescale  epoch    contrast                                      imageinterp
-   ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
- 1 │ [-6.80461e-8 -6.24798e-8 -6.04753e-8 -5.635…  4.0         57423.6  65-element extrapolate(scale(interpolate(::…  201×201 extrapolate(interpolate((::Sampled{…</code></pre><pre><code class="language-julia hljs">B = Planet(
+])</code></pre><pre><code class="language-julia hljs">B_img = Body(
     name=&quot;B&quot;,
-    basis=Visual{KepOrbit},
-    observations=[image_data],
+    about=A,
     variables=@variables begin
-        a ~ LogUniform(1, 65)
-        e ~ Uniform(0,0.9)
-        ω ~ Uniform(0,2pi)
-        i ~ Sine() # The Sine() distribution is defined by Octofitter
-        Ω ~ Uniform(0,pi)
         mass = system.M_sec
 
-        # Calculate planet temperature from cooling track and planet mass variable
+        # Calculate companion temperature from the cooling track and its mass
         tempK = $cooling_tracks(system.age, mass)
         # Calculate absolute magnitude
         abs_mag_L = $sonora_temp_mass_L(tempK, mass)
-        # Deal with out-of-grid values by clamping to grid max and min
-        abs_mal_L′ = if isfinite(abs_mag_L)
+        # Deal with out-of-grid values by clamping to grid max and min.
+        # NB: the threshold is `10mjup`, not `10` -- masses are in M⊙.
+        abs_mag_L′ = if isfinite(abs_mag_L)
             abs_mag_L
-        elseif mass &gt; 10
+        elseif mass &gt; 10mjup
             8.2 # jump to absurdly bright
         else
             16.7 # jump to absurdly dim
         end
         # Calculate relative magnitude
-        rel_mag_L = abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
-        # Convert to contrast (same units as image)
-        L = 10.0^(rel_mag_L/-2.5)
+        rel_mag_L = abs_mag_L′ - system.rel_mag + 5log10(1000/system.plx)
+        # Convert to contrast -- the same units as the image. This
+        # 10^(-0.4 Δmag) step is what makes `flux_L` a *linear* flux.
+        flux_L = 10.0^(rel_mag_L/-2.5)
 
+        a ~ LogUniform(1, 65)
+        e ~ Uniform(0,0.9)
+        ω ~ Uniform(0,2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0,pi)
         θ ~ Uniform(0,2pi)
-        tp = θ_at_epoch_to_tperi(θ, 57423.6; M=system.M, e, a, i, ω, Ω)
+        epoch = 57423.6
     end
 )
 
-HD91312_img = System(
-    name=&quot;HD91312_img&quot;,
-    companions=[B],
-    observations=[],
+image_data = ImageObs(
+    img_dat_table,
+    targets = (B_img,),
+    ref     = A,
+    band    = :L,
+    name    = &quot;imgdat-sim&quot;,
+    variables=@variables begin
+        # Optional parameters for marginalizing over instrument systematics:
+        # Platescale uncertainty multiplier [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        platescale = 1.0
+        # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        northangle = 0.0
+    end
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>Measuring contrast from image</code></pre><pre><code class="language-julia hljs">A_img = Body(
+    name=&quot;A&quot;,
+    variables=@variables begin
+        mass = system.M_pri
+    end
+)
+
+HD_img = System(
+    name=&quot;limits_img&quot;,
+    bodies=[A_img, B_img],
+    observations=[image_data],
     variables=@variables begin
         # age ~ truncated(Normal(40, 15),lower=0, upper=200)
-        age = 10
-        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
-        # Mass of secondary
-        # Make sure to pick only a mass range that is covered by your models
-        M_sec ~ LogUniform(0.55, 65) # MJup
-        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
-        plx ~ gaia_plx(gaia_id=6166183842771027328)
-        # Priors on the center of mass proper motion
-        # pmra ~ Normal(0, 1000)
-        # pmdec ~ Normal(0,  1000)
+        age = 10                                           # Myr
+        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1)    # M⊙
+        # Mass of the secondary.
+        # Make sure to pick only a mass range that is covered by your models.
+        M_sec ~ LogUniform(0.55mjup, 65mjup)               # M⊙
+        plx ~ truncated(Normal(cat.parallax, cat.parallax_error), lower=0.1)
         rel_mag = 5.65
     end
 )
-model_img = Octofitter.LogDensityModel(HD91312_img)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HD91312_img of dimension 9 and 1 epochs with fields .ℓπcallback and .∇ℓπcallback
-</code></pre><pre><code class="language-julia hljs">using Pigeons
-chain_img, pt = octofit_pigeons(model_img, n_chains=5, n_chains_variational=5, n_rounds=7)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (128×26×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Plot mass vs. semi-major axis posterior:</p><pre><code class="language-julia hljs">vis_layers = (
+model_img = Octofitter.LogDensityModel(HD_img)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System limits_img of dimension 9 and 1 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><pre><code class="language-julia hljs">init_img = initialize!(model_img)
+chain_img, pt = octofit_pigeons(model_img, n_chains=5, n_chains_variational=5, n_rounds=7)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
+<span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 9
+<span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Found sample of initial positions
+<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-10.424966939147886, 18.619440213736848)
+<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -5.2424150442189115
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_img] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_img] barycentric_lighttime = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_img] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_img] barycentric_lighttime = true (user)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
+────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
+        2          0       1.09       1.44       1.02   1.02e+07       -282          0      0.719          1          1
+        4          0       1.53          2     0.0236   1.05e+05       -394          0      0.607          1          1
+        8          0       2.13       2.27     0.0404   1.84e+05       10.9      0.029      0.511          1          1
+       16          0       1.93       2.09     0.0877   3.36e+05       5.29   0.000227      0.553          1          1
+       32          0       2.17       2.26      0.183   6.18e+05       7.81   0.000296      0.507          1          1
+       64          2       2.04       1.74      0.873   2.01e+07         93     0.0337       0.58          1          1
+      128          3        2.2       2.36      0.631   1.82e+07       8.49     0.0159      0.494          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot mass vs. semi-major axis posterior:</p><pre><code class="language-julia hljs">vis_layers = (
     PairPlots.Contour(sigmas=[1,3]),
     PairPlots.MarginStepHist(),
 )
@@ -173,7 +224,7 @@ pairplot(
     PairPlots.Series(
         (;
             sma=log.(chain_pma[:B_a][:],),
-            mass=log.(chain_pma[:B_mass][:]),
+            mass=log.(chain_pma[:B_mass][:] ./ mjup),
         ),
         label=&quot;PMA&quot;,
         color=Makie.wong_colors()[1],
@@ -181,7 +232,7 @@ pairplot(
     PairPlots.Series(
         (;
             sma=log.(chain_img[:B_a][:],),
-            mass=log.(chain_img[:B_mass][:]),
+            mass=log.(chain_img[:B_mass][:] ./ mjup),
         ),
         label=&quot;IMG&quot;,
         color=Makie.wong_colors()[2],
@@ -190,65 +241,80 @@ pairplot(
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="585834da.png" alt="Example block output"/><h1 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h1><pre><code class="language-julia hljs">B = Planet(
-    name=&quot;B&quot;,
-    basis=Visual{KepOrbit},
-    observations=[image_data],
-    variables=@variables begin
-        a ~ LogUniform(1, 65)
-        e ~ Uniform(0,0.9)
-        ω ~ Uniform(0,2pi)
-        i ~ Sine() # The Sine() distribution is defined by Octofitter
-        Ω ~ Uniform(0,pi)
-        mass = system.M_sec
-
-        # Calculate planet temperature from cooling track and planet mass variable
-        tempK = $cooling_tracks(system.age, mass)
-        # Calculate absolute magnitude
-        abs_mag_L = $sonora_temp_mass_L(tempK, mass)
-        # Deal with out-of-grid values by clamping to grid max and min
-        abs_mal_L′ = if isfinite(abs_mag_L)
-            abs_mag_L
-        elseif mass &gt; 10
-            8.2 # jump to absurdly bright
-        else
-            16.7 # jump to absurdly dim
-        end
-        # Calculate relative magnitude
-        rel_mag_L = abs_mal_L′ - system.rel_mag + 5log10(1000/system.plx)
-        # Convert to contrast (same units as image)
-        L = 10.0^(rel_mag_L/-2.5)
-
-        # L ~ Uniform(0,1)
-
-        θ ~ Uniform(0,2pi)
-        tp = θ_at_epoch_to_tperi(θ, 57423.6; M=system.M, e, a, i, ω, Ω)
-    end
+)</code></pre><img src="7dc64c7c.png" alt="Example block output"/><h2 id="Image-and-PMA-data"><a class="docs-heading-anchor" href="#Image-and-PMA-data">Image and PMA data</a><a id="Image-and-PMA-data-1"></a><a class="docs-heading-anchor-permalink" href="#Image-and-PMA-data" title="Permalink"></a></h2><p>Combining the two is just a matter of listing both observations on the system. Observations are a flat list and each names its own references, so there is nothing else to wire up.</p><pre><code class="language-julia hljs">pma_joint = HGCAObs(;
+    gaia_id = gaia_id,
+    target = A,
+    blends = (B_img,),
+    ref = Barycentre,
+    freeze_epochs = true,       # faster but approximate; set false for real use
 )
 
-HD91312_both = System(
-    name=&quot;HD91312_both&quot;,
-    companions=[B],
-    observations=[HGCAInstantaneousObs(gaia_id=6166183842771027328)],
+HD_both = System(
+    name=&quot;limits_both&quot;,
+    bodies=[A, B_img],
+    observations=[image_data, pma_joint],
     variables=@variables begin
-        # age ~ truncated(Normal(40, 15),lower=0, upper=200)
         age = 10
-        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1) # Msol
-        # Mass of secondary
-        # Make sure to pick only a mass range that is covered by your models
-        M_sec ~ LogUniform(0.55, 65) # MJup
-        M = M_pri + M_sec*Octofitter.mjup2msol # Msol
-        plx ~ gaia_plx(gaia_id=6166183842771027328)
-        # Priors on the center of mass proper motion
-        pmra ~ Normal(0, 1000)
-        pmdec ~ Normal(0,  1000)
+        M_pri ~ truncated(Normal(0.95, 0.05), lower=0.1)
+        M_sec ~ LogUniform(0.55mjup, 65mjup)
         rel_mag = 5.65
+
+        plx ~ truncated(Normal(cat.parallax, cat.parallax_error), lower=0.1)
+        ra  = $(cat.ra)
+        dec = $(cat.dec)
+        pmra  ~ Uniform(cat.pmra_dr3 - 100, cat.pmra_dr3 + 100)
+        pmdec ~ Uniform(cat.pmdec_dr3 - 100, cat.pmdec_dr3 + 100)
+        rv = $(isnan(cat.radial_velocity) ? 0.0 : cat.radial_velocity * 1e3)
+        ref_epoch = $(Octofitter.meta_gaia_DR3.ref_epoch_mjd)
     end
 )
-model_both = Octofitter.LogDensityModel(HD91312_both)
+model_both = Octofitter.LogDensityModel(HD_both)
 
-using Pigeons
-chain_both, pt = octofit_pigeons(model_both,n_chains=5,n_chains_variational=5,n_rounds=10)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (1024×28×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><p>Compare all three posteriors to see limits:</p><pre><code class="language-julia hljs">vis_layers = (
+init_both = initialize!(model_both)
+chain_both, pt = octofit_pigeons(model_both, n_chains=5, n_chains_variational=5, n_rounds=10)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">┌ Info: </span></span>Removed forecast transits in data gaps of every applicable release.
+<span class="sgr36"><span class="sgr1">└ </span></span>  n_removed = 1
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Count of missed or rejected transits:
+<span class="sgr36"><span class="sgr1">└ </span></span>  dr3 = 3
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>DR2/DR3 epoch selection
+<span class="sgr36"><span class="sgr1">│ </span></span>  n2_win = 13
+<span class="sgr36"><span class="sgr1">│ </span></span>  n_tail = 14
+<span class="sgr36"><span class="sgr1">│ </span></span>  n_dr2_total = 13
+<span class="sgr36"><span class="sgr1">└ </span></span>  n_dr2_distinct_range = (13, 13)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_both] observing_geometry = true (auto): no observation can report comparable predictions (ImageObs, G23HObs); nothing to measure, so keeping the correction on — no draws needed (seed 0xc70f177e5000001)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_both] barycentric_lighttime = true (auto): no observation can report comparable predictions (ImageObs, G23HObs); nothing to measure, so keeping the correction on — no draws needed (seed 0xc70f177e5000001)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Preparing model
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number of free variables
+<span class="sgr36"><span class="sgr1">└ </span></span>  D = 11
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
+<span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
+ℓπcallback(θ): 0.000098 seconds (42 allocations: 72.547 KiB)
+∇ℓπcallback(θ): 11.825167 seconds (25.10 M allocations: 1.063 GiB, 1.68% gc time, 99.99% compilation time)
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
+<span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
+<span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Found sample of initial positions
+<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-6.171135183887338, 5.591735188162785)
+<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = 1.9068800102976986
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_both] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_both] barycentric_lighttime = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_both] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[limits_both] barycentric_lighttime = true (user)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
+────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
+        2          0       2.27       2.22       1.67   4.33e+08  -1.27e+06          0      0.501          1          1
+        4          0       2.37       2.23      0.392   8.08e+08  -2.75e+05          0      0.489          1          1
+        8          0        2.9       3.51      0.732   1.58e+09  -5.34e+04          0      0.287          1          1
+       16          0       3.11        3.5       1.44   3.21e+09  -1.06e+04          0      0.265          1          1
+       32          0       3.51       3.65       2.91   6.43e+09   -3.5e+03          0      0.204          1          1
+       64          0       3.61       2.47       6.47   1.34e+10      -8.22          0      0.325          1          1
+      128          1        3.7       3.19       12.6   2.83e+10      -5.57          0      0.235          1          1
+      256          8       3.67       2.78       24.9    5.7e+10      -4.34          0      0.283          1          1
+      512         23       3.73       2.58       48.2   1.13e+11      -4.16          0      0.299          1          1
+ 1.02e+03         54       3.78       2.63       95.5   2.24e+11      -4.06   7.12e-72      0.287          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Compare all three posteriors to see limits:</p><pre><code class="language-julia hljs">vis_layers = (
     PairPlots.Contour(sigmas=[1,3]),
     PairPlots.MarginStepHist(),
 )
@@ -256,7 +322,7 @@ pairplot(
     PairPlots.Series(
         (;
             sma=log.(chain_pma[:B_a][:],),
-            mass=log.(chain_pma[:B_mass][:]),
+            mass=log.(chain_pma[:B_mass][:] ./ mjup),
         ),
         label=&quot;PMA&quot;,
         color=Makie.wong_colors()[1],
@@ -264,7 +330,7 @@ pairplot(
     PairPlots.Series(
         (;
             sma=log.(chain_img[:B_a][:],),
-            mass=log.(chain_img[:B_mass][:]),
+            mass=log.(chain_img[:B_mass][:] ./ mjup),
         ),
         label=&quot;IMG&quot;,
         color=Makie.wong_colors()[2],
@@ -272,13 +338,13 @@ pairplot(
         PairPlots.Series(
         (;
             sma=log.(chain_both[:B_a][:],),
-            mass=log.(chain_both[:B_mass][:]),
+            mass=log.(chain_both[:B_mass][:] ./ mjup),
         ),
         label=&quot;IMG + PMA&quot;,
         color=Makie.wong_colors()[3],
     )=&gt;vis_layers,
     labels=Dict(
-        :sma=&gt;&quot;log₂ Semi-major axis [au]&quot;,
-        :mass=&gt;&quot;log₂ Mass [Mⱼᵤₚ]&quot;
+        :sma=&gt;&quot;log Semi-major axis [au]&quot;,
+        :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="41622e7e.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../completeness/">Detection Completeness Mapping »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 7 August 2026 06:36">Friday 7 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="15c7483e.png" alt="Example block output"/><p>For a systematic version of this analysis — injecting companions on a grid of mass and separation and measuring what fraction are recovered — see <a href="../completeness/#completeness">Detection Completeness Mapping</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../completeness/">Detection Completeness Mapping »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 28 August 2026 20:03">Friday 28 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
