@@ -32,7 +32,13 @@ function fixed_system(; obs)
         mass = 4mjup
         a = 9.0; e = 0.05; i = 1.1; ω = 0.3; Ω = 1.0; tp = 56000.0
     end)
+    # The closed-form references below solve with PlanetOrbits' defaults, which
+    # have the observing-geometry corrections ON — while `:auto` resolves them
+    # OFF for data like this (the corrections are ~2 mm/s against σ = 2 m/s).
+    # Pin the flags so the model and the references solve the same physics;
+    # left at `:auto`, every dense-covariance comparison is off by ~1e-5.
     return Octofitter.System(name="ref", bodies=[A, b, c], observations=obs,
+        observing_geometry=true, barycentric_lighttime=true,
         variables=@variables begin plx = 25.0 end)
 end
 
@@ -282,7 +288,9 @@ end
     ep, maps = Octofitter.epoch_plan(sys)
     ctx = Octofitter.ObsContext(nt, nt.observations.marg, posys,
         orbitsolve(posys, ep), maps[marg])
-    @test Octofitter.simulate(marg, ctx).rv_model == Octofitter.simulate(plain, ctx).rv_model
+    # Same trajectory through two summation orders — equal to the last ulp or
+    # two, not bitwise.
+    @test Octofitter.simulate(marg, ctx).rv_model ≈ Octofitter.simulate(plain, ctx).rv_model rtol = 1e-12
 
     # `generate_from_params` round-trips the type and its refs.
     gen = Octofitter.generate_from_params(marg, ctx; add_noise=false)
