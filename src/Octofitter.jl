@@ -10,6 +10,9 @@ using AdvancedHMC
 using NamedTupleTools
 using ForwardDiff
 using DifferentiationInterface
+# Only for `register_size()`, which sets the ForwardDiff chunk-width ceiling
+# in `__init__` (see logdensitymodel.jl).
+import HostCPUFeatures
 using Logging
 using Statistics
 using StatsBase
@@ -17,6 +20,7 @@ using NamedTupleTools
 using OrderedCollections
 using KernelDensity
 using LinearAlgebra
+using TOML
 
 # Many users are unfamiliar with Julia, and they want to load their data from CSV.
 # We export the CSV package to help them on their journey.
@@ -40,64 +44,166 @@ using DataDeps
 using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
-const mjup2msol = PlanetOrbits.mjup2msol_IAU
+using Bumper
+
+# Masses are in solar masses throughout: PlanetOrbits v2 dropped the
+# per-planet `M` bookkeeping, so there is one mass unit and `msun`, `mjup`,
+# `mearth` (re-exported above) are plain multiplicative constants —
+# `mass = 5.3mjup`.
+const mjup2msol = PlanetOrbits.mjup   # deprecated alias; masses are M⊙ now
 
 # Re-export the Chains constructor.
-export Chains 
+export Chains
 export describe
 include("units.jl")
-include("orbit-models.jl")
 include("distributions.jl")
-include("variables.jl")
-include("parameterizations.jl")
+
+# The model layer. Order matters only in that types must exist before the
+# constructors that assert on them; the `@variables` machinery and the
+# observation types refer to each other only inside function bodies.
+include("model/variables.jl")
+include("model/refs.jl")
+include("model/obs.jl")
+include("model/corrections.jl")
+include("model/nodes.jl")
 include("macros.jl")
+include("model/codegen.jl")
+# After codegen: reuses its `BumpAlloc`, and the names it emits are the ones
+# the code generator agrees to expose (`INTERIM_SYSTEM_VAR`).
+include("model/anchored-frame.jl")
 
 # Helper for checking tables are well-formed
 equal_length_cols(tab) = allequal(length(getproperty(tab, col)) for col in Tables.columnnames(tab))
 
-include("likelihoods/system.jl")
+"""
+    materialize_cols(tab) -> Table
+
+A `Table` whose every column is a plain `Vector`.
+
+`CSV.read` returns `SentinelArrays.ChainedVector` columns when Julia is
+started with multiple threads — the file is parsed in chunks and the chunks
+are chained rather than copied. Those are perfectly good `AbstractVector`s
+until something takes a row view and indexes into it per epoch, which is what
+every likelihood's inner loop does, and which trips
+`AssertionError: wrong ChainedVectorIndex`.
+
+Collecting once at construction is cheap (it is the data you were going to
+hold anyway) and makes an observation independent of how many threads the
+user happened to start Julia with. `collect` on a `Vector` is a copy, not a
+no-op, but these tables are small and the copy happens once per model build.
+"""
+function materialize_cols(tab)
+    cols = Tables.columnnames(tab)
+    return Table(NamedTuple{Tuple(cols)}(
+        Tuple(collect(Tables.getcolumn(tab, c)) for c in cols)))
+end
+
+include("gaia-utils.jl")
+
+# Shared front-ends first: `skypath.jl` (five-parameter LSQ + offset
+# accumulation) and `sky-offset.jl` (the rotate-and-scale block, §2.A of
+# `design/observation-types-migration.md`) are used by the likelihoods that
+# follow, so nothing downstream has to grow a private copy.
+include("likelihoods/skypath.jl")
+include("likelihoods/sky-offset.jl")
+
 include("likelihoods/relative-astrometry.jl")
+include("likelihoods/radial-velocity.jl")
 include("likelihoods/photometry.jl")
-include("likelihoods/hgca.jl")
-include("likelihoods/gaia-utils.jl")
-include("likelihoods/hipparcos.jl")
-include("likelihoods/hgca-linfit.jl")
-include("likelihoods/g23h.jl")
-include("likelihoods/gaia-dr4.jl")
-
+include("likelihoods/priors-dynamical.jl")
+# Wraps the likelihoods above, so it comes after both.
 include("likelihoods/prior-observable.jl")
-include("likelihoods/prior-planet-order.jl")
-include("likelihoods/prior-non-crossing.jl")
-
+include("likelihoods/gaia-dr4.jl")
+include("likelihoods/hipparcos-iad.jl")
+include("likelihoods/hipparcos-obs.jl")
+include("likelihoods/g23h.jl")
+# `HGCAObs` is a helper constructor over `G23HObs`; it must see it.
+include("likelihoods/hgca-compat.jl")
 
 include("logdensitymodel.jl")
+include("chains.jl")
+include("plotting-api.jl")
 include("initialization.jl")
 include("sampling.jl")
 
-include("analysis.jl")
-include("sonora.jl")
-include("BHAC.jl")
-
-include("nss.jl")
+# Machinery over a fitted model rather than observation types of its own.
+include("cross-validation.jl")
+include("sbc.jl")
+include("completeness.jl")
 include("io.jl")
 include("io-orbitize.jl")
+# Needs `_query_gaia_dr3`/`_gaia_cache_path` (gaia-utils.jl), `result2mcmcchain`
+# (chains.jl) and `initialize!` (initialization.jl).
+include("nss.jl")
+include("sonora.jl")
+include("BHAC.jl")
+include("deprecations.jl")
 
-include("sbc.jl")
-include("cross-validation.jl")
-include("completeness.jl")
+# `src/legacy/` holds the v1 sources, unmodified and deliberately not
+# included, so that each port is a diff rather than a rewrite. It is being
+# emptied out: the observation types listed in
+# `design/observation-types-migration.md` §1.2 now have homes in
+# `src/likelihoods/` and in the top-level files included above, and a legacy
+# file whose replacement has landed is dead reference material rather than a
+# to-do. Some of it will never be ported by design — `orbit-models.jl` and
+# `parameterizations.jl` are retired, the HGCA modelling stack
+# (`hgca.jl`, `hgca-linfit.jl`) is subsumed by `G23HObs`, and
+# `LightCurveObs`/TTV is out of scope here. See `docs/src/v9-migration.md`
+# for the user-facing v1 → v2 mapping.
 
 """
     using Pigeons
-    octofit_pigeons(model; nrounds, n_chains=16, n_chains_variational=16)
+    chain, pt = octofit_pigeons(model; n_rounds, n_chains=16, n_chains_variational=16)
 
-Use Pigeons.jl to sample from intractable posterior distributions.
-`Pigeons` must be loaded by the user.
+Sample with parallel tempering (Pigeons.jl), for posteriors that are
+multimodal or that HMC explores badly — widely separated orbit families,
+detection-limit and completeness models, and anything with a discrete
+variable. `Pigeons` must be loaded by the user; the methods live in a package
+extension.
+
+`n_rounds` is required: Pigeons runs `2^n_rounds` scans, doubling each round.
 
 ```julia
-using Pigeons
-model = Octofitter.LogDensityModel(System, autodiff=:ForwardDiff, verbosity=4)
-chain, pt = octofit_pigeons(model)
+using Octofitter, Pigeons
+model = Octofitter.LogDensityModel(sys)
+chain, pt = octofit_pigeons(model, n_rounds=10)
 ```
+
+For expensive models on a multi-core machine, pass `cores=N` to run the
+sampler in `N` separate worker processes instead of threads:
+
+```julia
+chain, pt = octofit_pigeons(model, n_rounds=10, cores=8)
+```
+
+This is often about twice as fast for models that are slow to evaluate (many
+RV epochs, Gaia-Hipparcos absolute astrometry, images), at the cost of a
+minute or two of startup per run while the workers load packages and compile
+the model — so it is not worth it for small models, and a hint is printed
+when one path or the other looks clearly better. Results checkpoint each
+round under `results/` in the current directory, and the same
+`(chain, pt)` is returned. Packages beyond Octofitter and its companion
+packages that are needed to reconstruct the model in a worker (rare) can be
+listed with `dependencies=[SomePackage]`.
+
+`cores` is a total budget. By default each worker process uses one core; for
+models with thousands of epochs, `threads_per_process=2` (or 4) splits the
+budget into fewer workers that each also thread the trajectory solve —
+`cores=16, threads_per_process=2` runs 8 workers × 2 threads. Chains within
+a worker sample one after another, so only reach for this once there is
+already one worker per chain: trading workers for threads on a
+chain-starved budget loses more parallelism than the threaded solve wins
+back.
+
+`pt` is the Pigeons `PT` object, so `Pigeons.stepping_stone(pt)` gives the log
+evidence *ratio* against the reference (the prior-only model built by
+[`prior_only_model`](@ref)). For a log evidence, add the reference's own
+normalization — see `prior_only_model`'s `exclude_all=true` note.
+
+Also accepts a `Pigeons.Inputs` or an existing `Pigeons.PT` (to continue a run
+after `Pigeons.increment_n_rounds!`).
+
+See also [`octofit`](@ref).
 """
 function octofit_pigeons end
 
@@ -111,7 +217,14 @@ const OCTO_VERSION_STR = "v$(string(OCTO_VERSION))"
 
 function __init__()
 
-    if isinteractive() && get(ENV, "CI", "") != "true" 
+    # The single-chunk bound follows the host's SIMD register size. Set here,
+    # not at precompile time, so a depot shared across heterogeneous cluster
+    # nodes gets the right value on each of them. `CHUNK_WIDTH_MAX` — the width
+    # used once we must split — stays at its AVX2-calibrated 24 on every
+    # machine measured so far; see logdensitymodel.jl.
+    CHUNK_SINGLE_MAX[] = _default_chunk_single_max()
+
+    if isinteractive() && get(ENV, "CI", "") != "true"
         @info """\
 Welcome to Octofitter $(OCTO_VERSION_STR) 🐙
 Check for new releases: https://github.com/sefffal/Octofitter.jl/releases/

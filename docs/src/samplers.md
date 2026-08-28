@@ -2,17 +2,17 @@
 
 Octofitter provides three built-in samplers:
 * No U-turn Hamiltonian Monte Carlo (via `octofit`)
-* Non-reversible parallel tempered Monte Carlo  (via `octofit_pigeons`)
+* Non-reversible parallel tempered Monte Carlo (via `octofit_pigeons`)
 * Rejection sampling (via `octofit_rejection`)
 
 Many additional samplers can be used through the LogDensityProblems.jl interface, but they are not tested.
 
 ## Workflow
-If the posterior is unimodal (even if it has a complicated shape), go ahead and use AdvancedHMC (`chains = octofit(model)`). This uses a single computer core and is in many cases very efficient.
+If the posterior is unimodal (even if it has a complicated shape), go ahead and use AdvancedHMC (`chain = octofit(model)`). This uses a single computer core and is in many cases very efficient.
 
-If the posterior is multimodal, and the modes are quite separated, then use Pigeons (`chains, pt = octofit_pigeons(model, n_rounds=12)`).
+If the posterior is multimodal, and the modes are quite separated, then use Pigeons (`chain, pt = octofit_pigeons(model, n_rounds=12)`).
 
-For very low-dimensional problems (1--3 parameters), or when you need independent samples, use rejection sampling (`chains = octofit_rejection(model, draws=1_000_000)`).
+For very low-dimensional problems (1--3 parameters), or when you need independent samples, use rejection sampling (`chain = octofit_rejection(model, draws=1_000_000)`).
 
 Read more about these samplers below.
 
@@ -39,15 +39,16 @@ One chain should be enough to cover the whole posterior, but you can run a few d
 
 Similarily, fewer samples are required. This is because unlike Affine Invariant MCMC, HMC produces samples that are much less correlated after each step (i.e. the autocorrelation time is much shorter).
 
-`octofit` will internally use Pathfinder to warm up the sampler, reducing convergence times signficantly. 
-
+Before sampling, run [`initialize!`](@ref) to find good starting points — `octofit` will
+do it for you if you haven't, using Pathfinder to warm up the sampler and reduce
+convergence times significantly.
 
 The method signature of `octofit` is as follows:
 ```julia
 octofit(
     [rng::Random.AbstractRNG],
     model::Octofitter.LogDensityModel,
-    target_accept::Number=0.8,
+    target_accept::Number=0.8;
     adaptation=1000,
     iterations=1000,
     drop_warmup=true,
@@ -55,18 +56,41 @@ octofit(
     verbosity=2,
 )
 ```
-The only required arguments are `model`, `adaptation`, and `iterations`.
-The two positional arguments are `model`, the model you wish to sample; and `target_accept`, the acceptance rate that should be targeted during windowed adaptation. During this time, the step size and mass matrix will be adapted (see AdvancedHMC.jl for more information). The number of steps taken during adaptation is controlled by `adaptation`. You can prevent these samples from being dropped by pasing `include_adaptation=false`. The total number of posterior samples produced are given by `iterations`. These include the adaptation steps that may be discarded.
+The only required argument is `model`.
+The two positional arguments are `model`, the model you wish to sample; and `target_accept`, the acceptance rate that should be targeted during windowed adaptation. During this time, the step size and mass matrix will be adapted (see AdvancedHMC.jl for more information). The number of steps taken during adaptation is controlled by `adaptation`, and by default these are dropped; pass `drop_warmup=false` to keep them. The total number of posterior samples produced is given by `iterations`.
 `max_depth` controls the maximum tree depth of the sampler. 
 
+!!! note
+    Fewer than 1000 adaptation steps will produce a warning. It is there for a reason —
+    short adaptation is the most common cause of a badly-scaled mass matrix and a chain
+    that looks converged but isn't.
+
 ## Pigeons Non-Reversible Parallel Tempering
+
 Pigeons implements non-reversible parallel tempering. You can read more about it here:
 [http://pigeons.run](https://pigeons.run/stable/). Pigeons is slower if you only run it on a single (or a few) computer cores, but can scale up very well over many cores or compute nodes. It can reliably sample from multimodal posteriors.
 
-!!! note
-   Pigeons must be installed as a separate package install it, run 
-    `pkg> add Pigeons`
+Rather than one chain on the posterior, Pigeons runs a ladder of chains interpolating
+between a reference distribution (the prior, or a fitted variational reference) and the
+posterior. The reference is easy to move around in, and replicas swap up and down the
+ladder, so a mode that HMC could never reach — it can only jump 2–3σ gaps — stays
+reachable. That is why the multimodal tutorials in this manual
+([likelihood maps](@ref fit-likemap), [proper motion anomaly](@ref fit-pma),
+[detection limits](@ref detection-limits), [G23H](@ref fit-g23h)) all sample this way.
 
+Two further reasons to reach for it:
+
+* Its local explorer is a **slice sampler**, which needs only log-density evaluations. So
+  it samples models that cannot be differentiated (see below), and models with discrete
+  variables, which HMC cannot move at all.
+* It estimates the **log evidence ratio** as a by-product, via `Pigeons.stepping_stone(pt)`
+  — see [Multi-Planet RV Fits](@ref fit-rv-multi), which uses it to compare a one-planet
+  model against a two-planet one.
+
+!!! note "Pigeons must be installed separately"
+    `octofit_pigeons`'s methods live in a **package extension**. Run `pkg> add Pigeons`,
+    and put `using Pigeons` in scope before calling it — otherwise the function exists
+    with no methods and you get a `MethodError`.
 
 Pigeons can be run locally with one or more Julia threads.
 !!! note
@@ -75,29 +99,47 @@ Pigeons can be run locally with one or more Julia threads.
 You can get started with Pigeons by running:
 ```julia
 using Pigeons
-model = Octofitter.LogDensityModel(System)
-chain, pt = octofit_pigeons(model)
+model = Octofitter.LogDensityModel(sys)
+chain, pt = octofit_pigeons(model, n_rounds=10)
 ```
+
+Note the two return values: unlike `octofit`, `octofit_pigeons` returns a named tuple
+`(;chain, pt)`. The `chain` is an ordinary `MCMCChains.Chains` you can pass to
+[`octoplot`](@ref) and `octocorner`; `pt` is the Pigeons state, which carries the
+diagnostics, the evidence estimate, and everything needed to resume.
 
 The method signature of `octofit_pigeons` is as follows:
 ```julia
 chain, pt = octofit_pigeons(
     target::Octofitter.LogDensityModel;
     n_rounds::Int,
+    n_chains::Int=16,
+    n_chains_variational::Int=16,
+    checkpoint::Bool=false,
+    multithreaded=true,
+    variational=GaussianReference(first_tuning_round=5),
     pigeons_kw... # forwarded to Pigeons.Inputs
 )
 ```
 
+`n_rounds` is the only required keyword. Each round doubles the number of samples, so
+`n_rounds=10` yields 1024 draws — increase it until `log(Z₁/Z₀)` in the report stops
+drifting.
+
 By default, this will use:
 * 16 chains between the posterior and the prior
 * 16 chains between the posterior and a variational reference
-* the SliceSampler local explorer
+* the `SliceSampler` local explorer
 
 The number of chains should ideally be set to twice the value of `Λ` in the resulting table.
 If you notice `Λ` is not approximately 8, you should adjust `n_chains` and `n_chains_variational` to be approximately twice the value of `Λ` and `Λ_var` respectively.
 
+Pass `explorer=SliceSampler()` (or another Pigeons explorer) to override the local move,
+and `n_chains_variational=0, variational=nothing` to drop the variational leg — worth
+doing when the posterior is too structured for a Gaussian reference to help. Models with
+discrete variables disable the variational reference automatically.
 
-A nice feature of Pigeons is that you can resume sampler for additional rounds without having to start over:
+A nice feature of Pigeons is that you can resume sampling for additional rounds without having to start over:
 ```julia
 pt = increment_n_rounds!(pt, 1)
 chain, pt = octofit_pigeons(pt)
@@ -129,139 +171,26 @@ octofit_rejection(
 
 The `draws` parameter controls how many prior samples are drawn. The number of accepted posterior samples depends on the acceptance rate, which is reported after sampling. If the acceptance rate is very low, consider using `octofit` (HMC) instead.
 
-## Distributed Sampling
+## Models that cannot be differentiated
 
+A few likelihood terms are not compatible with forward-mode automatic differentiation,
+and a gradient-based sampler cannot move a model containing one:
 
+* The Gaia RV variability channel of [`G23HObs`](@ref) (`Distributions.NoncentralChisq`
+  does not accept `ForwardDiff.Dual`). Pass `include_rv=false`, which is what
+  [`HGCAObs`](@ref) does for you.
+* Gaussian processes evaluated with the Celerite backend, which is `Float64`-only.
 
-This guide shows how you can sample from Octofitter models using a cluster.
-If you just want to sample across multiple cores on the same computer, start julia with multiple threads (`julia --threads=auto`) and use `octofit_pigeons`.
+The symptom is characteristic: the log density evaluates to a finite number while the
+gradient comes back `-Inf` with an all-zero gradient vector, so the sampler cannot take a
+step. Use a derivative-free sampler — `octofit_pigeons`, whose slice-sampler explorer only
+ever evaluates the log density, or `octofit_rejection` — or disable the offending term.
+The [RV + GP tutorial](@ref fit-rv-gp) takes the first route for its Celerite model.
 
-If your problem is challenging enough to benefit from parallel sampling across multiple nodes in a cluster, you might consider using Pigeons with MPI by following this guide. 
+## Sampling across a cluster
 
-## MPI Launcher Script
-
-We will use a Julia script to submit the batch job to the cluster. The script will define the model and start the sampling process. The sampler can then run in the background, and you can periodically load the results in from the checkpoint file to examine them after each round of sampling.
-
-Here is an example:
-```julia
-using Octofitter
-using OctofitterRadialVelocity
-using PlanetOrbits
-using CairoMakie
-using PairPlots
-using DataFrames
-using Distributions
-
-# Specify your data as usual
-astrom_obs = PlanetRelAstromObs(
-    # Your data here:
-    (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50360, ra = -492.67768482682357, dec = 21.63557115669823, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50480, ra = -485.9770335870402, dec = 51.147204404903704, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50600, ra = -478.1095526888573, dec = 80.53589069730698, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
-    (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
-)
-
-# build your model as usual
-@planet b Visual{KepOrbit} begin
-    a ~ Uniform(0, 100) # AU
-    e ~ Uniform(0.0, 0.99)
-    i ~ Sine() # radians
-    ω ~ UniformCircular()
-    Ω ~ UniformCircular()
-    θ ~ UniformCircular()
-    tp = θ_at_epoch_to_tperi(system,b,50000) # use MJD epoch of your data here!!
-end astrom_obs
-@system Tutoria begin # replace Tutoria with the name of your planetary system
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-end b
-model = Octofitter.LogDensityModel(Tutoria)
-```
-
-
-## Launcher Script
-Use this script to launch your MPI job.
-
-
-```julia
-include("distributed-model.jl")
-pt = pigeons(
-    target = Pigeons.LazyTarget(MyLazyTarget()),
-    record = [traces; round_trip; record_default()],
-    on = Pigeons.MPIProcesses(
-        n_mpi_processes = n_chains,
-        n_threads = 1,
-        dependencies = [abspath("distributed-model.jl")]
-    ),
-    # Pass additional flags to the HPC scheduler here
-    # See here for more details: https://pigeons.run/stable/reference/#Pigeons.MPIProcesses
-    # add_to_submission = ["#PBS -A my_user_allocation_code"] # pbs
-    add_to_submission = [ # slurm
-        "#SBATCH --account=my_user_name",
-        "#SBATCH --time=24:00:00",
-    ],
-     # HPC modules to load on each worker
-    environment_modules: ["StdEnv/2023", "intel", "openmpi", "julia/1.10", "hdf5"]
-)
-```
-
-
-!!! info 
-    Don't submit this script to your cluster. Run it on a login node and it will submit the job for you.
-
-## Troubleshooting
-
-If you run into library issues with MPI and/or HDF5, you may need to tell Julia
-to use the system provided versions. 
-
-Here is an example that works on AllianceCanada clusters, and may be adaptable to other slurm-based systems:
-```julia
-using Preferences, HDF5
-
-set_preferences!(
-    HDF5,
-    "libhdf5" => ENV["EBROOTHDF5"]*"/lib/libhdf5_hl.so",
-    "libhdf5_hl" => ENV["EBROOTHDF5"]*"/lib/libhdf5_hl.so",
-    force = true
-)
-
-modelfname = ARGS[1]
-n_proc = parse(Int, ARGS[2])
-
-Pigeons.setup_mpi(
-    submission_system = :slurm,
-    environment_modules = ["StdEnv/2023", "intel", "openmpi", "julia/1.10", "hdf5"],
-    library_name = ENV["EBROOTOPENMPI"]*"/lib/libmpi",
-    add_to_submission = [
-        "#SBATCH --time=24:00:00",
-        "#SBATCH --account=def-account-name",
-        "#SBATCH --mem-per-cpu=8g"
-    ]
-)
-println("Setup MPIProcesses")
-```
-
-## Examine Results
-After one or more sampling rounds have completed, you can run this command to load the results so far for analysis.
-
-```julia
-
-# If still in current session, just pass the `pt` object:
-results = Chains(model, pt)
-
-# Else, if the sampling has been running in the background, run:
-pt = PT(mpi_run)
-model = pt.inputs.target
-results = Chains(model, pt)
-
-
-octocorner(model, results, small=true)
-```
-
+See [Distributed Sampling](@ref) for guidance on running `octofit_pigeons` across multiple
+nodes of a cluster with MPI.
 
 ## Advanced Usage: Additional Samplers
 This section is for people interested in developing support for new samplers with Octofitter.
@@ -303,7 +232,7 @@ end
 ```
 
 ### AdvancedMH
-Here is an example of using a separate package to sample from a model---in this case, AdvancedHM. For other packages, see their documentation for full details.
+Here is an example of using a separate package to sample from a model---in this case, AdvancedMH. For other packages, see their documentation for full details.
 
 Note: this sampler does not work well and is just provided as a reference for how to use an arbitrary sampling package.
 
@@ -312,7 +241,7 @@ using AdvancedMH
 using MCMCChains: Chains
 
 # Construct model from a system (see elsewhere in docs)
-model = Octofitter.LogDensityModel(system)
+model = Octofitter.LogDensityModel(sys)
 
 # Set up a random walk sampler with a joint multivariate Normal proposal.
 using LinearAlgebra
@@ -346,7 +275,7 @@ using AdvancedMH
 using MCMCChains: MCMCChains, Chains, chainscat
 
 # Construct model from a system (see elsewhere in docs)
-model = Octofitter.LogDensityModel(system)
+model = Octofitter.LogDensityModel(sys)
 
 initial_θ = Octofitter.guess_starting_position(model,50_000)[1]
 initial_θ_t = model.link(initial_θ) # Map to unconstrainted parameterization
@@ -500,4 +429,3 @@ end
 chn = remapchain(chn_norm)
 
 ```
-

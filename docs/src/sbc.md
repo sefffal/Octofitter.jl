@@ -1,4 +1,4 @@
-# Simulation Based Calibration (@id sbc)
+# [Simulation Based Calibration](@id sbc)
 
 Simulation based calibration [Talts et al. 2020](https://ui.adsabs.harvard.edu/abs/2018arXiv180406788T) is a way to test the correctness and accuracy of a Bayesian model. 
 
@@ -12,6 +12,14 @@ Actually, this reveals that these models are not all that reasonable: usually we
 
 We split this example in three parts: a model definition, a trial script that we run many times, and an analysis script that summarizes the results.
 
+!!! warning "Simulated data are noisy, and must be"
+    A trial draws parameters `θ` from the prior, simulates a data set at `θ`, and refits.
+    For the ranks to be the SBC statistic, the simulated data must be a draw from the
+    *likelihood* — the model prediction **plus** a draw from the noise model.
+    [`Octofitter.calibrationhmc`](@ref) therefore defaults to `add_noise=true`. Passing
+    `add_noise=false` gives noiseless simulations, whose rank histograms are not the
+    diagnostic they appear to be.
+
 
 ## Octofitter Model Template Script
 This script defines the model we will be analyzing. The data likelihood we provide could be our real observations, or just arbitrary (even zero). The key parts are the epochs of the observations, number of observations, and uncertainties of the observations. The actual measured values will be repeatedly replaced by simulated values using Octofitter's generative models.
@@ -21,45 +29,52 @@ We will assume you have saved this as `sbc-model.jl`.
 ```julia
 using Octofitter, Distributions
 
-astrom_obs = PlanetRelAstromObs(
-    (epoch=50000, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
-    (epoch=50120, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
-    (epoch=50240, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
-    (epoch=50360, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
-    (epoch=50480, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
-    (epoch=50600, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
-    (epoch=50720, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
-    (epoch=50840, ra=0.0, dec=0.0, σ_ra=10., σ_dec=10., cor=0),
+astrom_dat = Table(;
+    epoch = [50000., 50120, 50240, 50360, 50480, 50600, 50720, 50840],
+    # The measured values are irrelevant — every trial overwrites them with
+    # simulated data. Only the epochs and uncertainties matter.
+    ra    = zeros(8),
+    dec   = zeros(8),
+    σ_ra  = fill(10.0, 8),
+    σ_dec = fill(10.0, 8),
+    cor   = zeros(8),
 )
 
-planet_b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
-    observations=[astrom_obs],
+A = Body(
+    name="A",
     variables=@variables begin
-        M = system.M
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1)  # M⊙
+    end
+)
+
+b = Body(
+    name="b",
+    about=A,
+    variables=@variables begin
         a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
         e ~ Uniform(0.0, 0.5)
         i ~ Sine()
         ω ~ UniformCircular()
         Ω ~ UniformCircular()
-        τ ~ UniformCircular(1.0)
-        P = √(a^3/M)
-        tp = τ*P*365.25 + 50420 # reference epoch for τ. Choose an MJD date near your data.
+        θ ~ UniformCircular()
+        epoch = 50420.0  # reference epoch for θ. Choose an MJD date near your data.
     end
 )
 
+astrom_obs = RelAstromObs(astrom_dat; target=b, ref=A, name="relastrom")
+
 SBC = System(
     name="SBC",
-    companions=[planet_b],
-    observations=[],
+    bodies=[A, b],
+    observations=[astrom_obs],
     variables=@variables begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
     end
 )
 model = Octofitter.LogDensityModel(SBC)
 ```
+
+
 
 ## SBC Trial Script
 This script runs a single SBC trial. If you name it `sbc-trial.jl`, 
@@ -88,11 +103,14 @@ rng = Random.Xoshiro(sbc_index)
 
 settings = (;
     # Sampler parameters if desired:
-    # :target_accept=>0.95,
-    # :adaptation=>5000,
-    # :iterations=>5000,
-    # :tree_depth=>13,
-    # :verbosity=>2,
+    # target_accept = 0.95,
+    # adaptation = 5000,
+    # iterations = 5000,
+    # tree_depth = 13,
+    # verbosity = 2,
+
+    # Set to false to simulate without noise (not the SBC statistic -- see above):
+    # add_noise = false,
 
     # Model parameter values
     θ = θ_system_flat
@@ -101,6 +119,17 @@ settings = (;
 Octofitter.sbctrial(model.system, settings, outname);
 println("done $sbc_index")
 ```
+
+[`Octofitter.sbctrial`](@ref) writes four files per trial:
+
+| file | contents |
+|---|---|
+| `<outname>_sampler_parameters.toml` | the sampler settings used |
+| `<outname>_parameters.toml` | the parameter values drawn from the prior |
+| `<outname>_rank_stats.toml` | the rank of each true value within the posterior, on a 0–100 scale |
+| `<outname>_chains.fits` | the full chain |
+
+The rank statistics file also carries `loglike` and `logpost` — the log likelihood and log posterior *evaluated at the truth*. Modrák et al. (2022) recommend histogramming those alongside the per-parameter ranks: they catch miscalibration that no single marginal shows.
 
 
 ## SBC Analysis Script
@@ -120,8 +149,8 @@ vars = [
     :b_e,
     :b_Ω,
     :b_ω,
-    :b_τ,
-    :M,
+    :b_θ,
+    :A_mass,
     :plx,
 ]
 
@@ -196,6 +225,20 @@ fig
 ```
 ![](assets/sbc-summary.svg)
 
-For a perfectly unbiased model & sampling algorith, the histogram bins should be flat to within about the ±1σ shaded expected region.
+
+For a perfectly unbiased model & sampling algorith, the histogram bins should be flat to within about the ±1σ shaded expected region. It's possible to write this down as a simple hypothesis test, but remember to account for multiple comparisons (each variable) e.g. with Bonferroni.
 
 In this example and model, see that the inclination parameter estimates are *under confident*. That is, on average the computed marginal posterior of the inclination parameter is slightly too wide and the true uncertainty is lower.
+
+## Running a single trial interactively
+
+`sbctrial` is a thin wrapper over [`Octofitter.calibrationhmc`](@ref), which you can call directly if you would rather keep everything in memory:
+
+```julia
+priorsampledict, rankdict, chain = Octofitter.calibrationhmc(
+    model.system;
+    rng = Random.Xoshiro(1),
+    verbosity = 1,
+)
+rankdict  # rank of each true value within the posterior, 0-100
+```

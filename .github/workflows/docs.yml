@@ -48,16 +48,22 @@ jobs:
     timeout-minutes: 1440
     steps:
       - uses: actions/checkout@v7
+      # PlanetOrbits v2 is an unregistered prerelease (2.0.0-DEV) that this
+      # branch depends on, so the docs environment cannot resolve from the
+      # registry alone -- it has to be dev'd from a checkout. Pinned to the
+      # matching `v2` branch; drop this step and the PackageSpec below once
+      # PlanetOrbits 2 is registered.
+      - uses: actions/checkout@v7
+        with:
+          repository: sefffal/PlanetOrbits.jl
+          ref: v2
+          path: .planetorbits-v2
       - uses: julia-actions/setup-julia@v3
         with:
-          # Not 1.10: docs/ lists Pigeons as a direct dependency (Octofitter
-          # itself only has it as a weakdep, which is why ci.yml stays green on
-          # 1.10). On 1.10 the newest allowed Pigeons is 0.4.10 -- 0.4.11
-          # requires >=1.11 -- and 0.4.10 caps DifferentiationInterface at
-          # <=0.6.54, while Pathfinder 0.10 -> OptimizationBase 5 needs
-          # >=0.7.13. The docs environment has therefore been unresolvable on
-          # 1.10 since the Pathfinder 0.10 migration (#121) landed. Track '1',
-          # which ci.yml already tests, rather than pinning and rotting again.
+          # Track '1' (the current stable release), which ci.yml already tests,
+          # rather than pinning a version and letting it rot. docs/ lists
+          # Pigeons as a direct dependency, so the docs environment is the one
+          # most sensitive to a stale pin.
           version: '1'
       # No julia-actions/cache here on purpose. The self-hosted runner has a
       # persistent depot at ~/.julia, so the restore is a no-op ("depot
@@ -65,7 +71,14 @@ jobs:
       # tarring a multi-GB depot and then failed. Restore this step if the docs
       # build ever moves back to an ephemeral runner.
       - name: Install dependencies
-        run: julia --project=docs/ --color=yes -e 'using Pkg; Pkg.develop([PackageSpec(path=pwd()), PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")), PackageSpec(path=joinpath(pwd(),"OctofitterImages")), PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))]);'
+        run: julia --project=docs/ --color=yes -e 'using Pkg; Pkg.develop([PackageSpec(path=joinpath(pwd(),".planetorbits-v2")), PackageSpec(path=pwd()), PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")), PackageSpec(path=joinpath(pwd(),"OctofitterImages")), PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))]);'
+      # buildpkg instantiates the *root* project, which declares
+      # `PlanetOrbits = "2"` — unregistered, so the registry alone cannot
+      # satisfy it. Dev the same checkout there first, exactly as ci.yml does;
+      # drop alongside the checkout step above once PlanetOrbits 2 is
+      # registered.
+      - name: Dev local PlanetOrbits into the root project
+        run: julia --project=. --color=yes -e 'using Pkg; Pkg.develop(PackageSpec(path=joinpath(pwd(), ".planetorbits-v2")))'
       - uses: julia-actions/julia-buildpkg@v1
       - name: Build and deploy
         env:
@@ -73,4 +86,16 @@ jobs:
           GKSwstype: 100 # use software renderer for Plots.jl since headless
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
           # DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key
+          # The runner's own environment exports JULIA_NUM_THREADS=1, so every docs
+          # build so far has run single-threaded against this container's 16-CPU
+          # quota (`cpu.max` = 1600000/100000; `nproc` reports 1 only because GNU
+          # nproc honours OMP_NUM_THREADS). That matters most for `octofit_pigeons`,
+          # which parallelises exploration across chains -- `rv.md` alone asks for
+          # `n_chains=10` and was getting one. Set here rather than in the runner's
+          # environment so it is visible in the diff and scoped to this build.
+          #
+          # OPENBLAS_NUM_THREADS is deliberately left at the runner's 1: with Julia
+          # threads doing the parallelism, a threaded BLAS underneath oversubscribes
+          # the quota and typically costs more than it saves.
+          JULIA_NUM_THREADS: 8
         run: julia --project=docs/ --color=yes docs/make.jl

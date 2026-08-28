@@ -2,20 +2,25 @@
 
 This document provides an overview of Octofitter's internal architecture, focusing on how user model specifications are transformed into efficient log prior and log likelihood functions for Bayesian inference.
 
+It describes the internals as of Octofitter v9. The v8 architecture — `Planet` objects
+owning their own observations, `basis=` orbit types, and a per-likelihood epicyclic
+superposition loop — is gone; see [Migrating to Octofitter v9](@ref v9-migration) for the
+user-facing map.
+
 ## High-Level Flow
 
 ```mermaid
 flowchart TD
     A[User Model Specification] --> B[@variables macro]
-    B --> C[Priors, Derived, UserLikelihoods]
-    C --> D[Planet & System Objects]
+    B --> C[Priors, Derived, prior-shaped terms]
+    C --> D[Body / Orbit / System nodes]
     D --> E[LogDensityModel Construction]
 
     E --> F[Generated Functions]
     F --> F1[sample_priors]
     F --> F2[arr2nt]
     F --> F3[ln_prior_transformed]
-    F --> F4[ln_like_generated]
+    F --> F4[GeneratedLnLike: build + evaluate]
     F --> F5[Bijector_invlinkvec/linkvec]
 
     F1 & F2 & F3 & F4 & F5 --> G[ℓπcallback & ∇ℓπcallback]
@@ -26,8 +31,10 @@ flowchart TD
     J --> K[θ_natural]
     K --> L[arr2nt]
     L --> M[θ_nested: NamedTuple]
-    M --> N[log_prior + log_likelihood]
-    N --> O[log_posterior]
+    M --> N1[build: PlanetOrbits.System]
+    N1 --> N2[orbitsolve! once, over the epoch union]
+    N2 --> N3[ln_like per observation]
+    N3 --> O[log_posterior]
 
     style E fill:#e1f5ff
     style F fill:#fff4e1
@@ -39,23 +46,26 @@ flowchart TD
 
 ### The `@variables` Macro
 
-**Location**: `src/macros.jl`, `src/variables.jl`
+**Location**: `src/macros.jl`, `src/model/variables.jl`
 
-The `@variables` macro is Octofitter's PPL interface. It parses variable definitions into prior distributions and derived variables:
+The `@variables` macro is Octofitter's PPL interface. It parses variable definitions into prior distributions, derived variables, and prior-shaped terms:
 
 ```julia
 @variables begin
     a ~ Uniform(0, 10)      # Prior distribution
     e ~ Beta(1, 2)          # Prior distribution
     mass = a^2 * e          # Derived variable
-    Normal(0,1) ~ a + e     # User likelihood constraint
+    Normal(0,1) ~ a + e     # Prior-shaped term on an expression
 end
 ```
 
-**Output**: A tuple `(Priors, Derived, [UserLikelihood...])` where:
-- `Priors`: Contains an `OrderedDict{Symbol,Distribution}` of random variables
-- `Derived`: Contains expressions for computed variables plus captured constants (via `$variable` interpolation)
-- `UserLikelihood`: Optional distribution constraints on expressions
+**Output**: A tuple `(Priors, Derived, terms...)` where:
+- `Priors`: an `OrderedDict{Symbol,Distribution}` of random variables
+- `Derived`: the stored (unevaluated) expressions for computed variables, plus any constants captured with `$` interpolation
+- the trailing terms are `AbstractObs` values with `_isprior(t) == true` — `UserLikelihood` for a `~` on an expression, and the `UnitLengthPrior` behind each `UniformCircular`
+
+Keeping the derived expressions *unevaluated* is what lets `System` decide, by a static
+walk, which system lines mention a body and therefore have to be deferred (§1.3).
 
 ### Special Parameterizations
 
@@ -70,117 +80,106 @@ Expands to:
 Ωx ~ Normal(0, 1)        # Priors
 Ωy ~ Normal(0, 1)        # Priors
 Ω = atan(Ωy, Ωx)         # Derived variable
-# Plus a UnitLengthPrior likelihood to prevent pinching at origin
+# Plus a UnitLengthPrior term to prevent pinching at the origin
 ```
 
 This ensures uniform sampling on the circle while avoiding the pinching problem at the origin that would occur with direct uniform angle sampling.
 
-### Model Hierarchy
+### Model Nodes
+
+**Location**: `src/model/nodes.jl`
 
 ```julia
+A = Body(name="A", variables=@variables begin mass ~ Normal(1.0, 0.1) end)
+b = Body(name="b", about=A, variables=@variables begin … end)
+
 System(
-    name=:HD82134,
-    variables=@variables begin
-        M ~ Normal(1.0, 0.1)
-        plx ~ Normal(50.0, 0.02)
-    end,
-    companions=[planet_b, planet_c],
-    likelihoods=[hgca_likelihood, gaia_likelihood]
+    name="HD82134",
+    bodies=[A, b],
+    observations=[astrom, rvs],
+    variables=@variables begin plx ~ Normal(50.0, 0.02) end
 )
 ```
 
-**Structure**:
-- `System`: System-level priors, derived variables, observations, and companion objects
-- `Planet`: Planet-level priors, derived variables, and observations
-- Each can have attached `AbstractLikelihood` objects representing observational data
+The correspondence with PlanetOrbits is the teaching device, and it is 1:1:
+
+| Octofitter node | PlanetOrbits object |
+|---|---|
+| `Body` | one `PlanetOrbits.Body`, plus one `PlanetOrbits.Orbit` if `about=` is given |
+| `Orbit` (a hierarchy row whose exterior is not a single body) | one `PlanetOrbits.Orbit` |
+| `System` | one `PlanetOrbits.System`, rebuilt every sample |
+
+`System`'s constructor is where the model's *structure* is resolved, once, at build time:
+
+- **`bodynames`** — the PlanetOrbits body order.
+- **`rows`** — `(owning node, exterior names, interior names)` for every hierarchy row.
+  A body is *placed* by whichever row has it on the exterior side, which is not the same
+  as "has an `about=`" (in a 2+2 quadruple a body can be placed by a set exterior). Exactly
+  one body must be unplaced, and there must be exactly `nbodies - 1` rows.
+- **`deferred`** — the system variables whose stored expression mentions a node by name
+  (`b.i`). These are evaluated *after* every body block. Deferral is transitive, computed
+  to a fixed point, because a system line reading a deferred variable must itself wait.
+- **`framevars`** — which of `plx, ra, dec, pmra, pmdec, rv, ref_epoch` the system block
+  defines. This, and nothing else, chooses the reference frame. A partial absolute frame
+  is an error.
+- **`priorterms`** — the prior-shaped terms the `@variables` blocks emitted, each paired
+  with the namespace it reads from (`:system`, or a node's name).
+
+Observations do not belong to a node. Each one names its own `target` and `ref` through
+the reference grammar in `src/model/refs.jl` (`BodyRefSpec`, `BarycentreSpec`,
+`PhotocentreSpec`), which is validated against `bodynames` here.
 
 ## 2. The `arr2nt` Transformation
 
-**Location**: `src/variables.jl`
+**Location**: `src/model/codegen.jl`
 
 ### Purpose
 
-The `make_arr2nt` function generates a specialized function that transforms flat parameter vectors (used by samplers) into nested named tuples (used for model evaluation):
+`make_arr2nt` generates a specialized function that transforms flat parameter vectors (used by samplers) into nested named tuples (used for model evaluation):
 
 ```julia
 arr2nt = make_arr2nt(system)
 
-θ_flat = [1.2, 50.0, 5.0, 0.1, ...]  # From sampler
+θ_flat = [50.0, 1.2, 5.0, 0.1, ...]  # From sampler
 θ_nested = arr2nt(θ_flat)
 
 # Returns structured data:
-# (M=1.2, plx=50.0,
-#  planets=(
-#    b=(a=5.0, e=0.1, tp=..., mass=...),
-#    c=(a=10.0, e=0.05, ...)
+# (plx = 50.0,
+#  bodies = (
+#    A = (mass = 1.2,),
+#    b = (a = 5.0, e = 0.1, tp = …, mass = …),
+#  ),
+#  observations = (
+#    GPI = (jitter = 1.3,),
 #  ))
 ```
 
+Note the three top-level groups: system variables at the top level, then `bodies`, then
+`observations`. This is also the shape `initialize!` and `startingpoints!` accept for
+partial starting guesses.
+
 ### Implementation Strategy
 
-The function uses **compile-time code generation** via `RuntimeGeneratedFunctions.jl` to create a fully type-stable, unrolled transformation:
+The function uses **compile-time code generation** via `RuntimeGeneratedFunctions.jl` to create a fully type-stable, unrolled transformation. It emits exactly four stages, in the model's resolution order:
 
-1. **Direct indexing**: All array accesses are unrolled to `arr[1]`, `arr[2]`, etc.
-2. **Dependency ordering**: Variables are processed in dependency order:
-   - System priors → System derived → Planet priors → Planet derived → Observation priors → Observation derived
-3. **Scope management**: Uses nested `let` blocks to provide proper scoping for derived variables
-
-### Generated Code Pattern
-
-For a simple two-planet system, the generated function looks like:
-
-```julia
-function (arr)
-    # System priors (direct indexing)
-    M = arr[1]
-    plx = arr[2]
-    sys0 = (M=M, plx=plx)
-
-    # System derived variables (can reference priors)
-    sys1 = let _prev=sys0
-        (; _prev..., distance = 1000/_prev.plx)
-    end
-    sys = sys1
-
-    # Planet B variables
-    planet_b = begin
-        # Planet priors
-        planet0 = (a=arr[3], e=arr[4], i=arr[5], ...)
-
-        # Planet derived (can reference system AND planet priors)
-        planet1 = let system=sys, _prev=planet0
-            (; _prev...,
-               tp = θ_at_epoch_to_tperi(_prev.θ, 50000;
-                                        M=system.M,
-                                        e=_prev.e,
-                                        a=_prev.a, ...))
-        end
-        planet1
-    end
-
-    # Planet C variables (similar structure)
-    planet_c = begin
-        planet0 = (a=arr[10], e=arr[11], ...)
-        planet1 = let system=sys, _prev=planet0
-            # ... derived variables
-        end
-        planet1
-    end
-
-    # Merge into final nested structure
-    return (;sys..., planets=(b=planet_b, c=planet_c))
-end
-```
+1. **System block, non-deferred lines.** Priors are read by direct index (`arr[1]`, …),
+   derived lines are chained through nested `let` blocks.
+2. **Every node's block, in declaration order**, each with `system` bound to the result of
+   stage 1. A node sees `system.*` and its own earlier lines; it does not see its siblings.
+3. **System block, deferred lines**, with every node's namespace bound by name so that
+   `b.i - c.i` resolves. No priors are consumed here — they were all taken in stage 1.
+4. **Observation blocks**, each with `system` bound to the *full* system namespace,
+   including the deferred variables.
 
 ### Key Design Decisions
 
 - **Type stability**: By unrolling everything, Julia can infer concrete types
 - **Zero runtime overhead**: All indexing and structure construction is known at compile time
-- **Named access in likelihoods**: Derived variable expressions can use descriptive names (e.g., `θ_system.distance`) rather than array indices
+- **Named access in likelihoods**: Derived variable expressions can use descriptive names (e.g. `system.age`) rather than array indices
 
 ## 3. Bijection Mechanisms
 
-**Location**: `src/logdensitymodel.jl
+**Location**: `src/logdensitymodel.jl`
 
 ### Purpose
 
@@ -232,11 +231,9 @@ When sampling in transformed space, we must account for the change of variables 
 
 ## 4. Log Prior Generation
 
-**Location**: `src/variables.jl`
+**Location**: `src/model/codegen.jl`
 
-### Purpose
-
-The `make_ln_prior_transformed` function generates an unrolled function to efficiently evaluate the log prior density across all parameters:
+`make_ln_prior_transformed` generates an unrolled function evaluating the log prior density across all parameters:
 
 ```julia
 ln_prior_transformed = make_ln_prior_transformed(system)
@@ -249,152 +246,116 @@ lp = ln_prior_transformed(θ_natural, sampled=true)
 function (arr, sampled)
     lp = zero(first(arr))  # Type-stable zero
 
-    # System priors
     lp += logpdf_with_trans(Uniform(0,10), arr[1], sampled)
     lp += logpdf_with_trans(Beta(1,2), arr[2], sampled)
-
-    # Planet priors
-    lp += logpdf_with_trans(Normal(0,1), arr[3], sampled)
-    lp += logpdf_with_trans(LogNormal(0,1), arr[4], sampled)
-    # ... continues for all priors
-
-    # User-defined likelihood constraints (from @variables)
-    lp += logpdf(Normal(0,1), arr[1] + arr[2])
+    # ... continues for every prior, in arr2nt order
 
     return lp
 end
 ```
+
+The prior-shaped terms emitted by `@variables` (`lhs ~ dist`, `LL +=`, `UnitLengthPrior`)
+are *not* evaluated here — they need the resolved nested namespace, so they are dispatched
+as `AbstractObs` values with `_isprior(t) == true` in stage 5 below. That flag is also what
+excludes them from `pointwise_like`'s columns and from cross-validation's data counts.
 
 ### The `sampled` Parameter
 
 - `sampled=true`: Includes Jacobian correction for transformed sampling (used during MCMC)
 - `sampled=false`: Raw log probability (used for prior predictive checks)
 
-### Performance Characteristics
-
-- **Fully unrolled**: No loops or dynamic dispatch
-- **Type stable**: Return type is known at compile time
-- **SIMD friendly**: Sequential memory access pattern
-- **Automatic differentiation ready**: Clean, differentiable code
-
 ## 5. Log Likelihood Generation
 
-**Location**: `src/likelihoods/system.jl`
+**Location**: `src/model/codegen.jl` (`make_ln_like`), `src/model/obs.jl` (`ObsContext`)
 
-### Purpose
-
-The `make_ln_like` function is the most complex generated function. It orchestrates:
-
-1. **Orbit element construction** from parameter values
-2. **Epoch collection** from all observations
-3. **Orbit solving** (Kepler's equation) at all epochs
-4. **Likelihood evaluation** for each observation
-
-### High-Level Structure
-
-```mermaid
-flowchart LR
-    A[θ_nested] --> B[Construct Orbit Elements]
-    B --> C[Collect All Epochs]
-    C --> D[Pre-solve Orbits]
-    D --> E1[System Likelihood 1]
-    D --> E2[System Likelihood 2]
-    D --> P1[Planet 1 Likelihoods]
-    D --> P2[Planet 2 Likelihoods]
-    E1 & E2 & P1 & P2 --> F[Sum log likelihoods]
-
-    style D fill:#e1f5ff
-    style F fill:#e8f5e9
-```
-
-### Generated Code Pattern
+This is where the largest v8→v9 change lives. `make_ln_like` returns a `GeneratedLnLike`
+with **two** compiled halves:
 
 ```julia
-function (system::System, θ_system)
-    T = _system_number_type(θ_system)
-    ll0 = zero(T)
+struct GeneratedLnLike
+    build     # θ_nested -> PlanetOrbits.System
+    evaluate  # (system, θ_nested, posys) -> log likelihood
+end
+```
 
-    # Construct orbit element objects for each planet
-    planet_1 = VisualOrbit(;merge(θ_system, θ_system.planets[1])...)
-    planet_2 = ThieleInnesOrbit(;merge(θ_system, θ_system.planets[2])...)
+They are separate for a concrete reason: orbit construction can fail on a proposal the
+priors admit but the elements do not (`e == 1` exactly, a non-positive `a` out of a derived
+expression), and Bumper's `@no_escape` is not exception-safe — a throw inside the arena
+would leak it. Catching around `build` only, outside the block, is also what keeps `posys`
+concretely typed.
 
-    ll_out = @no_escape begin  # Bumper.jl: stack allocation scope
-        elems = tuple(planet_1, planet_2)
+### `build`
 
-        # Collect all unique epochs from all observations
-        epochs = [50000.0, 50100.0, 50200.0, ...]
+Emits one `PlanetOrbits.Body` per body node (reading its `mass` and any `flux_<band>`
+variables), one `PlanetOrbits.Orbit` per hierarchy row (reading that node's element
+variables), and one `PlanetOrbits.System` with the frame keywords the system block defined.
 
-        # Pre-solve orbits at all epochs (Kepler equation solving)
-        sols_planet_1 = [orbitsolve(planet_1, epoch) for epoch in epochs]
-        sols_planet_2 = [orbitsolve(planet_2, epoch) for epoch in epochs]
+### `evaluate`
 
-        # Evaluate planet observation likelihoods
-        ll1 = ll0 + ln_like(
-            system.planets[1].observations[1],  # e.g., PlanetRelAstromLikelihood
-            θ_system,                            # System parameters
-            θ_system.planets[1],                 # Planet parameters
-            θ_obs,                               # Observation parameters
-            elems,                               # All orbit elements
-            (sols_planet_1, sols_planet_2),      # Pre-computed orbit solutions
-            1,                                   # Planet index
-            0                                    # Epoch start index
-        )
-
-        # Evaluate system observation likelihoods
-        ll2 = ll1 + ln_like(
-            system.observations[1],              # e.g., HGCALikelihood
-            θ_system,
-            θ_obs,
-            elems,
-            (sols_planet_1, sols_planet_2),
-            0                                    # System level (no specific planet)
-        )
-
-        ll2
+```julia
+function (system, θ, posys)
+    T = _system_number_type(θ)
+    buf = _scratch_buffer(Val(SLAB))
+    return @no_escape buf begin
+        traj = PlanetOrbits.Trajectory(BumpAlloc(buf), T, posys, UNIQUE_EPOCHS)
+        PlanetOrbits.orbitsolve!(traj, posys; method, observing_geometry, barycentric_lighttime)
+        ll0 = zero(T)
+        ll1 = ll0 + ln_like(system.observations[1], ObsContext(θ, θ.observations.GPI, posys, traj, MAP1, buf))
+        ll2 = ll1 + ln_like(system.observations[2], ObsContext(θ, θ.observations.HARPS, posys, traj, MAP2, buf))
+        ll3 = ll2 + ln_like(system.priorterms[1][2], ObsContext(θ, θ.bodies.b, posys, traj, Int[], buf))
+        ll3
     end
-
-    return ll_out
 end
 ```
 
-### Why Pre-solve Orbits?
+`UNIQUE_EPOCHS` is the deduplicated, sorted union of every observation's epochs, computed
+at build time by `epoch_plan`. Each observation gets its own `MAP` vector taking a row of
+*its* table to a column of the shared trajectory. Solving Kepler's equation is expensive
+and many observations share epochs, so the whole model is solved exactly once per sample.
 
-Solving Kepler's equation is expensive (iterative Newton-Raphson). Many observations may occur at the same epoch:
+### The likelihood interface
 
-- Relative astrometry: RA and Dec at same epoch → solve once, use twice
-- Multi-instrument: Different instruments observing simultaneously → solve once, use many times
-
-By pre-solving all orbits at all unique epochs, we minimize redundant computation.
-
-### Likelihood Interface
-
-Each likelihood type implements a common interface:
+There is one context type — the v8 `PlanetObservationContext`/`SystemObservationContext`
+split collapsed when references became explicit:
 
 ```julia
-function ln_like(
-    likeobj::AbstractLikelihood,    # The observation data
-    θ_system::NamedTuple,            # System parameters (M, plx, etc.)
-    θ_planet::NamedTuple,            # Planet parameters (a, e, i, etc.)
-    θ_obs::NamedTuple,               # Observation-specific parameters
-    elems::Tuple,                    # All orbit element objects
-    orbit_solutions::Tuple,          # Pre-computed orbit solutions
-    planet_index::Int,               # Which planet (0 for system-level)
-    epoch_start_index::Int           # Index into orbit_solutions
-)
-    # Calculate residuals: model predictions vs observations
-    # Return sum of log likelihoods
+function ln_like(obs::MyObs, ctx::ObsContext)
+    T = _system_number_type(ctx.θ_system)   # never assert Float64: ForwardDiff
+    tgt, rf = resolverefs(ctx, refspecs(obs))   # resolve ONCE, outside the loop
+    ll = zero(T)
+    for i in eachindex(obs.table)
+        sol = solutionat(ctx, i)
+        Δα = raoff(sol, tgt, rf)
+        ...
+    end
+    return ll
 end
 ```
 
-### Allocation Management
+`ctx` carries `θ_system` (the whole nested NamedTuple), `θ_obs` (this observation's own
+variables), `system` (the sample's `PlanetOrbits.System`), `traj`, the `epoch_index` map,
+and `buf`, the scratch arena.
+
+**This is where v8's six duplicated epicyclic-superposition loops went.** v8 rebuilt a
+companion's apparent position by summing the reflex motion of every body it decided at
+runtime was "inner" (`semimajoraxis(other) < semimajoraxis(this)`) — which had no answer
+for crossing orbits, equal semi-major axes, or anything that is not a planet orbiting a
+star. `raoff(sol, target, ref)` is exact for any hierarchy under either propagator, and
+there is nothing left for a likelihood to reconstruct by hand.
+
+### Allocation management
 
 The `@no_escape` macro (from Bumper.jl) creates a stack-allocated memory arena:
 
-- **Fast allocation**: Stack bump allocation instead of heap
-- **Automatic cleanup**: Memory freed when block exits
-- **Thread safe**: Each thread has its own buffer
+- **Fast allocation**: stack bump allocation instead of heap
+- **Automatic cleanup**: memory freed when the block exits
+- **Task safe**: the arena is task-local
 
-This is crucial for performance since likelihood evaluation happens millions of times during sampling.
+Its slab is *sized to the model at build time* (`_slab_size`), for the widest single
+ForwardDiff chunk the model can ask for — one `Dual` partial per free parameter — because
+a slab a hair too small costs the whole extra-slab penalty on every evaluation. A
+likelihood needing its own temporaries should `@no_escape ctx.buf` / `@alloc` rather than
+reach for `Bumper.default_buffer()`, so that one arena covers the whole evaluation.
 
 ## 6. The `LogDensityModel` Orchestrator
 
@@ -405,7 +366,7 @@ This is crucial for performance since likelihood evaluation happens millions of 
 `LogDensityModel` ties everything together into an object that samplers can use:
 
 ```julia
-model = LogDensityModel(system)
+model = Octofitter.LogDensityModel(system)
 ```
 
 ### Construction Process
@@ -440,9 +401,10 @@ arr2nt = make_arr2nt(system)
 Bijector_invlinkvec = make_Bijector_invlinkvec(_list_priors(system))
 ```
 
-#### Step 2: Generate Likelihood with Example
+#### Step 2: Generate the Likelihood with an Example
 
-To create the likelihood function, we need an example parameter vector to determine types and structure:
+`make_ln_like` needs an example parameter vector — not only for types, but to *price* the
+trajectory and choose the arena slab size:
 
 ```julia
 θ_example = arr2nt(sample_priors(rng))
@@ -451,182 +413,144 @@ ln_like_generated = make_ln_like(system, θ_example)
 
 #### Step 3: Create `ℓπcallback` (Log Posterior)
 
-The callback orchestrates the complete evaluation pipeline:
-
 ```julia
 function ℓπcallback(θ_transformed)
-    # Transform from unconstrained to natural space
     θ_natural = Bijector_invlinkvec(θ_transformed)
-
-    # Convert flat vector to nested named tuple
     θ_structured = arr2nt(θ_natural)
-
-    # Evaluate log prior (with Jacobian correction)
     lpost = ln_prior_transformed(θ_natural, sampled=true)
-
-    # Only evaluate likelihood if prior is finite
     if isfinite(lpost)
         lpost += ln_like_generated(system, θ_structured)
     end
-
     return lpost
 end
 ```
 
 #### Step 4: Create `∇ℓπcallback` (Gradient)
 
-Using DifferentiationInterface.jl with ForwardDiff backend:
+Using DifferentiationInterface.jl with a ForwardDiff backend:
 
 ```julia
 ∇ℓπcallback = DI.prepare_gradient(ℓπcallback, AutoForwardDiff(), θ_example)
 ```
 
-This enables efficient Hamiltonian Monte Carlo sampling.
+Everything downstream of `arr2nt` must therefore be `Dual`-clean. In particular, a
+likelihood must never assert `Float64` on a value that flows from a parameter — use
+`_system_number_type(ctx.θ_system)`.
 
 #### Step 5: Test and Diagnose
 
-The constructor runs test evaluations:
-
-- Checks type stability
-- Verifies gradient correctness (if AD is available)
-- Reports parameter count and compilation time
-
-### The Complete Model Object
-
-```julia
-struct LogDensityModel
-    ℓπcallback::Function              # Log posterior evaluation
-    ∇ℓπcallback::Function             # Log posterior + gradient
-    arr2nt::Function                  # Flat → Nested transformation
-    sample_priors::Function           # Prior sampling
-    link::Function                    # Constrained → Unconstrained
-    invlink::Function                 # Unconstrained → Constrained
-    # ... metadata fields
-end
-```
+The constructor runs test evaluations, reports the parameter count, timings and
+allocations, and warns when the log density or its gradient is non-finite at a prior draw.
 
 ### Usage in Sampling
 
 ```julia
-# Initialize
 θ_init = model.link(model.sample_priors(rng))
 
-# Evaluate (called millions of times)
 lp = model.ℓπcallback(θ_current)
 lp, ∇lp = model.∇ℓπcallback(θ_current)
 
-# Post-process results
 θ_natural = model.invlink(θ_chain[i])
 θ_named = model.arr2nt(θ_natural)
-# Access: θ_named.planets.b.a
+# Access: θ_named.bodies.b.a
 ```
 
 ## 7. Design Principles
 
 ### 1. Type Stability
 
-All generated functions are fully type-stable. Julia can infer concrete types for all intermediate values, enabling:
-
-- LLVM optimization
-- Efficient memory layout
-- Elimination of dynamic dispatch
+All generated functions are fully type-stable. Julia can infer concrete types for all intermediate values, enabling LLVM optimization, efficient memory layout, and elimination of dynamic dispatch.
 
 ### 2. Zero Runtime Overhead
 
-Code generation moves work from runtime to compile time:
-
-- No loops over variable names
-- No dictionary lookups
-- No type checking at runtime
+Code generation moves work from runtime to compile time: no loops over variable names, no dictionary lookups, no type checking at runtime. Reference specs carry their content in *type parameters*, so `resolverefs` constant-folds.
 
 ### 3. Separation of Concerns
 
-Clean separation between:
+- **Model specification** (`@variables`, `Body`, `System`): user-facing, flexible
+- **Code generation** (`make_*`): implementation detail, optimized
+- **Orbital physics** (PlanetOrbits): hierarchy solving, propagation, observables
+- **Evaluation** (`ℓπcallback`): simple, fast, differentiation-ready
 
-- **Model specification** (`@variables`, `Planet`, `System`): User-facing, flexible
-- **Code generation** (`make_*` functions): Implementation detail, optimized
-- **Evaluation** (`ℓπcallback`, etc.): Simple, fast, differentiation-ready
+The third line is the one v9 drew that v8 did not. Likelihoods no longer contain any
+orbital mechanics — they ask PlanetOrbits a question about a solved system.
 
 ### 4. Composability
 
-Likelihoods implement a common interface and compose freely:
+Observations implement a common interface and compose freely. Every one names its own
+references, so adding a data type does not touch the model layer:
 
 ```julia
 System(
-    likelihoods=[
-        HGCALikelihood(...),
-        GaiaDR4Likelihood(...),
-        CustomLikelihood(...)
-    ]
+    bodies=[A, b, c],
+    observations=[
+        RelAstromObs(dat; target=b, ref=A, name="GPI"),
+        RadialVelocityObs(rvs; target=A, ref=Barycentre, name="HARPS"),
+        G23HObs(; target=A, blends=(b, c)),
+        HillStabilityPrior(bodies=(b, c)),
+    ],
 )
 ```
 
-Each likelihood is independent and receives all information it needs via the standardized interface.
-
 ### 5. Allocation Efficiency
 
-Strategic use of allocation management:
-
-- `RuntimeGeneratedFunctions`: Generate functions once, reuse forever
-- `@no_escape`: Stack allocation for temporary arrays
-- Pre-allocation: Orbit solutions computed once per likelihood evaluation
+- `RuntimeGeneratedFunctions`: generate functions once, reuse forever
+- `@no_escape` with a model-sized slab: stack allocation for the trajectory and for every
+  likelihood's temporaries
+- One `orbitsolve!` per sample, over the epoch union, shared by every observation
 
 ## 8. Example: Complete Flow
-
-Here's a concrete example showing the complete transformation pipeline:
 
 ```julia
 # ========================================
 # 1. Model Definition
 # ========================================
 
-astrom_data = PlanetRelAstromLikelihood(
-    (epoch=50000.0, ra=100.0, dec=50.0, σ_ra=1.0, σ_dec=1.0),
-    (epoch=50100.0, ra=98.0, dec=52.0, σ_ra=1.0, σ_dec=1.0)
+astrom_dat = Table(
+    epoch = [50000.0, 50100.0],
+    ra    = [100.0, 98.0],
+    dec   = [50.0, 52.0],
+    σ_ra  = [1.0, 1.0],
+    σ_dec = [1.0, 1.0],
 )
 
-planet_vars = @variables begin
-    # Priors
+A = Body(name="A", variables=@variables begin
+    mass ~ truncated(Normal(1.2, 0.1), lower=0.1)
+end)
+
+b = Body(name="b", about=A, variables=@variables begin
+    mass = 0.0
     a ~ truncated(Normal(10, 4), lower=0.1)
     e ~ Uniform(0.0, 0.5)
     i ~ Sine()
-    ω ~ UniformCircular()  # Expands to ωx, ωy priors + ω derived
-    Ω ~ UniformCircular()  # Expands to Ωx, Ωy priors + Ω derived
-    θ ~ UniformCircular()  # Expands to θx, θy priors + θ derived
+    ω ~ UniformCircular()   # Expands to ωx, ωy priors + ω derived + UnitLengthPrior
+    Ω ~ UniformCircular()
+    θ ~ UniformCircular()
+    epoch = 50000.0
+end)
 
-    # Derived variable
-    tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
-end
-
-b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
-    variables=planet_vars,
-    observations=[astrom_data]
-)
-
-system_vars = @variables begin
-    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
-    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
-end
+astrom = RelAstromObs(astrom_dat; target=b, ref=A, name="GPI")
 
 system = System(
     name="HD82134",
-    variables=system_vars,
-    companions=[b]
+    bodies=[A, b],
+    observations=[astrom],
+    variables=@variables begin
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
 )
 
 # ========================================
 # 2. Create Log Density Model
 # ========================================
 
-model = LogDensityModel(system)
+model = Octofitter.LogDensityModel(system)
 
 # This generates:
-# - sample_priors:  () -> [random draws from all priors]
-# - arr2nt:         [θ₁, θ₂, ...] -> (M=θ₁, plx=θ₂, planets=(b=(a=θ₃, ...)))
-# - ln_prior:       [θ₁, θ₂, ...] -> Σ log p(θᵢ)
-# - ln_like:        nested_θ -> Σ log p(data | θ)
+# - sample_priors:  rng -> [random draws from all priors]
+# - arr2nt:         [θ₁, …] -> (plx=θ₁, bodies=(A=(mass=θ₂,), b=(a=θ₃, …)), observations=(…,))
+# - ln_prior:       [θ₁, …] -> Σ log p(θᵢ)
+# - ln_like:        (system, θ_nested) -> build a PlanetOrbits.System, solve once, sum ln_like
 # - ℓπcallback:     θ_unconstrained -> log p(θ, data)
 # - ∇ℓπcallback:    θ_unconstrained -> (log p(θ, data), ∇ log p(θ, data))
 
@@ -634,23 +558,15 @@ model = LogDensityModel(system)
 # 3. Sampling
 # ========================================
 
-# Initialize in unconstrained space
-θ_init = model.link(model.sample_priors(rng))  # e.g., [-0.5, 4.6, 2.3, ...]
+θ_init = model.link(model.sample_priors(rng))
 
-# Sample (simplified pseudocode)
 for iteration in 1:10000
-    # Evaluate log posterior and gradient (HMC/NUTS)
     lp, ∇lp = model.∇ℓπcallback(θ_current)
-
-    # The above call executes:
     # θ_current (unconstrained)
     #   → Bijector_invlinkvec → θ_natural (constrained)
     #   → arr2nt → θ_structured (nested named tuple)
     #   → ln_prior_transformed(θ_natural) → log prior
-    #   → ln_like_generated(system, θ_structured) → log likelihood
-    #   → return log prior + log likelihood
-
-    # HMC/NUTS update step
+    #   → build → PlanetOrbits.System → orbitsolve! → Σ ln_like → log likelihood
     θ_current = nuts_step(θ_current, lp, ∇lp)
 end
 
@@ -658,22 +574,17 @@ end
 # 4. Post-Processing
 # ========================================
 
-# Convert chain to named tuples for analysis
-chain_named = map(model.arr2nt ∘ model.invlink, eachrow(chain_array))
-
-# Access structured results
-for θ in chain_named
-    println("Planet b semi-major axis: ", θ.planets.b.a)
-    println("Planet b periastron time: ", θ.planets.b.tp)  # Derived variable!
-end
+posys = construct_system(model, chain, 1)   # the same `build` the likelihood uses
+traj  = orbitsolve(posys, [mjd("2030-01-01")])
+raoff(traj[1], :b, :A)
 ```
 
 ## Summary
 
 Octofitter's architecture achieves high performance through aggressive compile-time specialization:
 
-1. **User writes**: Declarative model specification (`@variables`, `Planet`, `System`)
-2. **Octofitter generates**: Specialized, type-stable functions for this specific model
-3. **Sampler uses**: Fast, allocation-efficient evaluation of log posterior and gradients
-4. **User receives**: Structured results with named parameters and derived quantities
-
+1. **User writes**: a declarative model specification (`@variables`, `Body`, `System`)
+2. **Octofitter generates**: specialized, type-stable functions for this specific model
+3. **PlanetOrbits solves**: one system, one trajectory over the epoch union, per sample
+4. **Sampler uses**: fast, allocation-efficient evaluation of log posterior and gradients
+5. **User receives**: structured results with named parameters and derived quantities

@@ -3,9 +3,13 @@
 You can use Octofitter to fit radial velocity data, either alone or in combination with other kinds of data.
 Multiple instruments (any number) are supported, as are arbitrary trends, and gaussian processes to model stellar activity.
 
-!!! note
-    Radial velocity modelling is supported in Octofitter via the extension package OctofitterRadialVelocity. To install it, run 
-    `pkg> add OctofitterRadialVelocity`
+You can specify either stellar reflex RVs (what most people mean when they say "RV") or *relative* RVs---that is, the radial velocity of one body relative to another.
+
+
+```julia
+RadialVelocityObs(data; target=A, ref=Barycentre)   # stellar reflex ("absolute" RV)
+RadialVelocityObs(data; target=b, ref=A)            # relative RV (see the relative RV tutorial)
+```
 
 For this example, we will fit the orbit of the planet K2-131, and reproduce this [RadVel tutorial](https://radvel.readthedocs.io/en/latest/tutorials/GaussianProcess-tutorial.html).
 
@@ -22,23 +26,23 @@ using DataFrames
 using Distributions
 ```
 
-We will start by downloading and preparing a table of radial velocity measurements, and create a [`StarAbsoluteRVObs`](@ref) object to hold them.
+We will start by downloading and preparing a table of radial velocity measurements, and create a [`RadialVelocityObs`](@ref) object to hold them.
 
 
-The following functions allow you to directly load data from various public RV databases:
-* `HARPS_DR1_rvs("star-name")`
-* `HARPS_RVBank_observations("star-name")`
-* `Lick_rvs("star-name")`
-* `HIRES_rvs("star-name")`
+The following functions from OctofitterRadialVelocity load data directly from various public RV databases:
+* `OctofitterRadialVelocity.HARPS_DR1_rvs("star-name")`
+* `OctofitterRadialVelocity.HARPS_RVBank_rvs("star-name")`
+* `OctofitterRadialVelocity.Lick_rvs("star-name")`
+* `OctofitterRadialVelocity.HIRES_rvs("star-name")`
 
 Make sure to credit the sources using the citation printed when you first access the catalog.
-Calling those functions with the name of a star will return a [`StarAbsoluteRVObs`](@ref) table. 
-
+Each returns a plain `Table` with `epoch`, `rv`, and `σ_rv` columns, ready to hand to
+`RadialVelocityObs`.
 
 If you would like to manually specify RV data, use the following format:
 ```julia
 rv_data = Table(
-     # epoch is in units of MJD. `jd2mjd` is a helper function to convert.
+    # epoch is in units of MJD. `jd2mjd` is a helper function to convert.
     # you can also put `years2mjd(2016.1231)`.
     # rv and σ_rv are in units of meters/second
     epoch=jd2mjd.([2455110.97985, 2455171.90825]),
@@ -46,8 +50,13 @@ rv_data = Table(
     σ_rv=[1.30, 1.09]
 )
 
-rv_obs = StarAbsoluteRVObs(rv_data, 
+rv_obs = RadialVelocityObs(rv_data;
+    target=A,            # the body whose velocity was measured: the star
+    ref=Barycentre,      # measured against the system barycentre
     name="insert name here",
+    # Secular (perspective) acceleration is modelled per dataset: an absolute
+    # series defaults to `secular_acceleration=:model`. Pass
+    # `secular_acceleration=:data_corrected` if your pipeline already removed it.
     variables=@variables begin
         offset ~ Uniform(-1000, 1000) # m/s
         jitter ~ LogUniform(0.01, 10) # m/s
@@ -67,83 +76,96 @@ rv_dat.epoch = jd2mjd.(rv_dat_raw.time)
 rv_dat.rv = rv_dat_raw.mnvel
 rv_dat.σ_rv = rv_dat_raw.errvel
 tels = sort(unique(rv_dat_raw.tel))
-
-# This table includes data from two insturments. We create a separate
-# likelihood object for each:
-rvlike_harps = StarAbsoluteRVObs(
-    rv_dat[rv_dat_raw.tel .== "harps-n",:],
-    name="harps-n",
-    variables=@variables begin
-        offset ~ Normal(-6693,100) # m/s
-        jitter ~ LogUniform(0.1,100) # m/s
-    end
-)
-rvlike_pfs = StarAbsoluteRVObs(
-    rv_dat[rv_dat_raw.tel .== "pfs",:],
-    name="pfs",
-    variables=@variables begin
-        offset ~ Normal(0,100) # m/s
-        jitter ~ LogUniform(0.1,100) # m/s
-    end
-)
+nothing # hide
 ```
 
-
-Now, create a planet. We can use the [`RadialVelocityOrbit`](https://sefffal.github.io/PlanetOrbits.jl/dev/api/#Required-Parameters) type from PlanetOrbits.jl that requires fewer parameters (eg no inclination or longitude of ascending node). We could instead use a `Visual{KepOrbit}` or similar
-if we wanted to include these parameters and visualize the orbit in the plane of the sky.
-
+Start by creating the bodies you want in the model:
 
 ```@example 1
-planet_1 = Planet(
+# Star
+A = Body(
+    name="A",
+    variables=@variables begin
+        mass ~ truncated(Normal(0.82, 0.02), lower=0.1) # M⊙ (Baines & Armstrong 2011)
+    end
+)
+
+# Planet
+b = Body(
     name="b",
-    basis=RadialVelocityOrbit,
-    observations=[],
+    about=A,
     variables=@variables begin
-        e = 0
+        # A radial-velocity-only fit: RVs cannot constrain the inclination or the
+        # ascending node, so we fix them. With i = π/2 the fitted `mass` is really
+        # m·sin(i), i.e. a minimum mass.
+        i = pi/2
+        Ω = 0.0
+        e = 0.0
         ω = 0.0
-        # To match RadVel, we set a prior on Period and calculate semi-major axis from it
-        P ~ truncated(
-            Normal(0.3693038/365.256360417, 0.0000091/365.256360417),
-            lower=0.0001
-        )
-        M = system.M
-        a = cbrt(M * P^2) # note the equals sign. 
+
+        # `P` is an orbital element, given in days.
+        P ~ truncated(Normal(0.3693038, 0.0000091), lower=0.0001) # days
+
+        # Phase. `τ` is a dimensionless orbital phase in [0,1); pick a reference
+        # epoch (MJD) near your data.
         τ ~ UniformCircular(1.0)
-        tp = τ*P*365.256360417 + 57782 # reference epoch for τ. Choose an MJD date near your data.
-        # minimum planet mass [jupiter masses]. really m*sin(i)
-        mass ~ LogUniform(0.001, 10)
+        tp = τ * P + 57782
+
+        # Masses are in solar masses everywhere.
+        # `mjup` is just a constant to convert jupiter masses to solar.
+        mass ~ LogUniform(0.001mjup, 10mjup)   # M⊙
     end
 )
-
-sys = System(
-    name = "k2_132",
-    companions=[planet_1],
-    observations=[rvlike_harps, rvlike_pfs],
-    variables=@variables begin
-        M ~ truncated(Normal(0.82, 0.02),lower=0.1) # (Baines & Armstrong 2011).
-    end
-)
-
+nothing # hide
 ```
 
-Note how the `rvlike` object was attached to the `k2_132` system instead of the planet. This is because
-the observed radial velocity is of the star, and is caused by any/all orbiting planets.
+This table includes data from two instruments. We create a separate observation
+for each, since the zero point and the jitter are per-instrument variables:
 
-The `rv0` and `jitter` parameters specify priors for the instrument-specific offset and white noise jitter standard deviation. The `_i` index matches the `inst_idx` used to create the observation table.
+```@example 1
+rvlike_harps = RadialVelocityObs(
+    rv_dat[rv_dat_raw.tel .== "harps-n", :];
+    target=A, ref=Barycentre,
+    name="harps-n",
+    variables=@variables begin
+        offset ~ Normal(-6693, 100) # m/s
+        jitter ~ LogUniform(0.1, 100) # m/s
+    end
+)
+rvlike_pfs = RadialVelocityObs(
+    rv_dat[rv_dat_raw.tel .== "pfs", :];
+    target=A, ref=Barycentre,
+    name="pfs",
+    variables=@variables begin
+        offset ~ Normal(0, 100) # m/s
+        jitter ~ LogUniform(0.1, 100) # m/s
+    end
+)
+nothing # hide
+```
 
-Note also here that the `mass` variable is really `msini`, or the minimum mass of the planet.
+Finally we assemble the system.
+
+```@example 1
+sys = System(
+    name="k2_131",
+    bodies=[A, b],
+    observations=[rvlike_harps, rvlike_pfs],
+)
+```
+
+We didn't bother specifying the system's reference frame parallax, position, proper motion, or barycentric RV. Adding those in would enable second order corrections like light travel time correction, and make the secular (perspective) acceleration term non-zero — it is definitionally zero without a full absolute frame. That term is declared per dataset: an absolute RV series models it by default (`secular_acceleration=:model`), and you pass `secular_acceleration=:data_corrected` for a dataset whose pipeline already removed it. See [How Octofitter Computes Orbits](@ref orbit-computation).
 
 We can now prepare our model for sampling.
 ```@example 1
 model = Octofitter.LogDensityModel(sys)
 ```
 
-Initialize the starting points, and confirm the data are entered correcly:
+Initialize the starting points, and confirm the data are entered correctly:
 ```@example 1
 init_chain = initialize!(model)
 
-using CairoMakie
-fig = Octofitter.rvpostplot(model, init_chain)
+octoplot(model, init_chain)
 ```
 
 Sample:
@@ -154,23 +176,21 @@ rng = Random.Xoshiro(0)
 chain = octofit(rng, model)
 ```
 
-Excellent! Let's plot an orbit sampled from the posterior:
+Excellent! Let's plot the results. [`rvplot`](@ref)  is a handy way to plot a *single draw* from the posterior with all instruments in one panel, and a phase folded curve. 
 ```@example 1
-using CairoMakie
-fig = Octofitter.rvpostplot(model, chain) # saved to "k2_132-rvpostplot.png"
+rvplot(model, chain)
 ```
 
-We can also plot a sample of draws from the posterior:
+
+It's a good idea to plot a sample of many draws from the posterior too. This is a great way to see if your posterior is multi-modal. Here, we can't in general put data from all instruments on the same panel. Instrument offests, trends, etc vary across draws so the data points would have to shift around. Instead, this function uses a separate panel for each instrument. We can't plot the phase folded data across multiple draws either, since the period varies. 
 ```@example 1
-using CairoMakie: Makie
 octoplot(model, chain)
 ```
 
 
 And create a corner plot:
 ```@example 1
-using PairPlots, CairoMakie
-octocorner(model, chain)
+octocorner(model, chain, small=true)
 ```
 
 This example continues in [Fit Gaussian Process](@ref fit-rv-gp).
@@ -179,20 +199,26 @@ This example continues in [Fit Gaussian Process](@ref fit-rv-gp).
 
 To generate synthetic radial velocity data for testing, the recommended approach is to use Octofitter's built-in simulation capabilities. See the [Generating and Fitting Simulated Data](@ref data-simulation) tutorial for a complete guide on simulating data from models.
 
-Alternatively, you can generate RV data directly using the `radvel` function from [PlanetOrbits.jl](https://sefffal.github.io/PlanetOrbits.jl/dev/api/):
+Alternatively, you can generate RV data directly with [PlanetOrbits.jl](https://sefffal.github.io/PlanetOrbits.jl/dev/api/):
 
-```julia
-using PlanetOrbits
+```@example 1
+# A one-planet system: 1 M⊙ star, 1 Mjup companion.
+star = PlanetOrbits.Body(mass=1.0,  name=:A)
+comp = PlanetOrbits.Body(mass=mjup, name=:b)
+posys = PlanetOrbits.System(
+    (star, comp),
+    (PlanetOrbits.Orbit(comp, about=star; a=1.0, e=0.1, ω=0.5, i=pi/2, Ω=0.0, tp=58000.0),)
+)
 
-# Create an orbit
-orb = orbit(a=1.0, e=0.1, ω=0.5, M=1.0, tp=58000.0)
+epochs = 58000.0:10.0:58400.0
+traj = orbitsolve(posys, epochs)
 
-# Calculate radial velocity at a given epoch
-# Units: epoch in MJD, mass in solar masses (not Jupiter masses!)
-epoch = 58100.0
-companion_mass_msol = 0.001  # ~1 Jupiter mass in solar masses
-rv = radvel(orb, epoch, companion_mass_msol)  # returns m/s
+# The star's reflex velocity against the system barycentre --- what a
+# spectrograph pointed at the star measures. [m/s]
+rv_star = [radvel(traj[i], :A, barycentre(posys)) for i in eachindex(epochs)]
+
+# The companion's velocity relative to the star --- what relative RV measures.
+rv_rel = [radvel(traj[i], :b, :A) for i in eachindex(epochs)]
+
+extrema(rv_star)
 ```
-
-!!! warning
-    The `radvel` function takes companion mass in **solar masses**, unlike most places in Octofitter which use Jupiter masses. Use `Octofitter.mjup2msol` to convert if needed.

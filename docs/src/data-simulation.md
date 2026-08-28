@@ -8,21 +8,19 @@ We'll simulate data from a known set of parameters, fit a model to recover those
 ## Setup
 
 ```@example 1
-using Octofitter, OctofitterRadialVelocity, Distributions
-using CairoMakie, PairPlots, Pigeons
-using CSV, DataFrames
+using Octofitter, Distributions
+using CairoMakie, PairPlots
+using Random
+using Pigeons
 ```
 
 ## Define the Model
 
 In order to simulate data from Octofitter, you start by defining a real model with data. The simulate step will use the provided epochs, data types, and uncertainties when simulating data. If you don't have real data, you can enter in arbitrary values for e.g. delta R.A., but use expected epochs and uncertainties.
 
-For this example, we'll use the combined astrometry, proper motion anomaly, and radial velocity model from the [Astrometry, PMA, and RV](@ref astrom-pma-rv) tutorial to define the epochs and uncertainties.
+For this example we use relative astrometry and stellar radial velocities of a single companion. Every observation type in Octofitter that carries data implements the same generative interface, so the recipe below transfers unchanged to interferometry and to absolute astrometry (see [Simulating absolute astrometry](@ref data-simulation-absolute) at the end).
 
 ```@example 1
-# HGCA likelihood for HD 91312
-hgca_obs = HGCAObs(gaia_id=756291174721509376)
-
 #  relative astrometry data (from discovery paper)
 astrom_dat = Table(;
     epoch = [mjd("2016-12-15"), mjd("2017-03-12"), mjd("2017-03-13"), mjd("2018-02-08"), mjd("2018-11-28"), mjd("2018-12-15")],
@@ -33,25 +31,42 @@ astrom_dat = Table(;
     cor   = [0.2, 0.3, 0.1, 0.4, 0.3, 0.2]
 )
 
-astrom_obs = PlanetRelAstromObs(
-    astrom_dat,
-    name = "SCExAO",
-    variables = @variables begin
-        jitter = 0
-        northangle = 0
-        platescale = 1
-    end
-)
-
 #  RV data
 rv_dat = Table(;
     epoch = [mjd("2008-05-01"), mjd("2010-02-15"), mjd("2016-03-01")],
-    rv    = [1300, 700, -2700],
-    σ_rv  = [150, 150, 150]
+    rv    = [1300., 700., -2700.],
+    σ_rv  = [150., 150., 150.]
 )
 
-rvlike = StarAbsoluteRVObs(
-    rv_dat,
+# Host star
+A = Body(
+    name="A",
+    variables=@variables begin
+        mass ~ truncated(Normal(1.61, 0.1), lower=0.1)   # M⊙
+    end
+)
+
+# Companion
+b = Body(
+    name="b",
+    about=A,
+    variables=@variables begin
+        mass ~ LogUniform(5mjup, 500mjup)   # M⊙ (mjup is a plain constant)
+        a ~ LogUniform(10.0, 200.0)
+        e ~ Uniform(0, 0.9)
+        ω ~ Uniform(0, 2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0, 2pi)
+        θ ~ Uniform(0, 2pi)
+        epoch = 57737.0   # reference epoch for θ
+    end
+)
+
+astrom_obs = RelAstromObs(astrom_dat; target=b, ref=A, name="SCExAO")
+
+rvlike = RadialVelocityObs(
+    rv_dat;
+    target=A, ref=Barycentre,
     name="SOPHIE",
     variables=@variables begin
         jitter ~ truncated(Normal(10, 5), lower=0)
@@ -59,50 +74,22 @@ rvlike = StarAbsoluteRVObs(
     end
 )
 
-# Planet model
-planet_b = Planet(
-    name="b",
-    basis=AbsoluteVisual{KepOrbit},
-    observations=[ObsPriorAstromONeil2019(astrom_obs)],
-    variables=@variables begin
-        a ~ LogUniform(0.1,400)
-        e ~ Uniform(0,0.999)
-        ω ~ Uniform(0, 2pi)
-        i ~ Sine()
-        Ω ~ Uniform(0, 2pi)
-        mass = system.M_sec
-        θ ~ Uniform(0, 2pi)
-        M = system.M
-        tp = θ_at_epoch_to_tperi(θ, 57737.0; M, e, a, i, ω, Ω)
-        F = 0.0
-    end
-)
-
-# System model
-ra = 158.30707896392835
-dec = 40.42555422701387
-
 sys = System(
     name="HD91312_simulation",
-    companions=[planet_b],
-    observations=[hgca_obs, rvlike],
+    bodies=[A, b],
+    observations=[astrom_obs, rvlike],
     variables=@variables begin
-        M_pri ~ truncated(Normal(1.61, 0.1), lower=0.1)
-        M_sec ~ LogUniform(0.5, 1000)
-        M = M_pri + M_sec*Octofitter.mjup2msol
-        plx ~ gaia_plx(gaia_id=756291174721509376)
-        pmra ~ Normal(-137, 10)
-        pmdec ~ Normal(2, 10)
-        ra = $ra
-        dec = $dec
-        rv = 0*1e3
-        ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+        plx ~ truncated(Normal(29.15, 0.14), lower=0.1)
     end
 )
 
 model = Octofitter.LogDensityModel(sys)
 nothing # hide
 ```
+
+!!! note 
+    * The host star is an ordinary [`Body`](@ref); its mass is `A_mass` in the chain.
+    * Masses are **solar masses** everywhere. `mjup` / `mearth` / `msun` are plain multiplicative constants, so `500mjup` is a mass in M⊙.
 
 ## Generate Synthetic Data
 
@@ -120,6 +107,7 @@ We can draw a value from the priors like so:
 params_to_simulate = Octofitter.drawfrompriors(model.system)
 ```
 
+Note the shape: system variables at the top level, then `bodies`, then `observations` — a nested `NamedTuple` keyed by the names you gave each node and observation.
 
 ### 2. Use values from a fitted posterior 
 
@@ -135,61 +123,68 @@ params_to_simulate = Octofitter.mcmcchain2result(model, chain_real, draw_number)
 ```
 
 ### 3. Specifying values manually
-We can also specify all values for the simulation manually. This process is a bit more involved. 
+We can also specify all values for the simulation manually.
 
-Start by drawing parameters from the priors:
-```@example 1
-template = Octofitter.drawfrompriors(model.system)
-```
-
-Copy this output as a template, and replace values as needed. Note that if some parameters are calculated based on others in your model, you will have to repeat those calculations here.
-
-!!! warning
-    Note that the output below is just an example, you must generate your own template from your model and modify it as needed. The exact structure is not garuanteed to be stable between versions of Octofitter.
+Draw from the priors and pin the entries you care about with `overrides=`. Everything you
+do not name keeps its prior draw, which matters as models grow: an absolute-astrometry
+likelihood contributes dozens of nuisance variables, and anything you forget to list would
+otherwise be missing.
 
 ```@example 1
-# Define our "true" parameter values for simulation
-M_pri = 1.61
-M_sec = 85.0
-M = M_pri + M_sec*Octofitter.mjup2msol
-params_to_simulate = (
-    M_pri = M_pri, 
-    M_sec = M_sec,  # Jupiter masses
-    M = M,
-    plx = 21.5,
-    pmra = -137.0,
-    pmdec = 2.0,
-    ra = ra,
-    dec = dec,
-    rv = 0.0,
-    ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd,
-    observations = (
-        SOPHIE = (jitter = 15.0, offset = 0.0),
-    ),
-    planets = (
-        b = (
+params_to_simulate = Octofitter.drawfrompriors(model.system; overrides=(;
+    plx = 29.15,
+    bodies = (;
+        A = (; mass = 1.61),        # M⊙
+        b = (;
+            mass = 85mjup,          # M⊙
             a = 45.0,
             e = 0.15,
             ω = 1.2,
-            mass = M_sec,
             i = 0.8,
             Ω = 2.1,
             θ = 1.5,
-            M = M,
-            tp = θ_at_epoch_to_tperi(1.5, 57737.0; M=M, e=0.15, a=45.0, i=0.8, ω=1.2, Ω=2.1),
-            F = 0.0,
-            observations = NamedTuple()
         ),
-    )
-)
+    ),
+    observations = (;
+        SOPHIE = (; jitter = 15.0, offset = 0.0),
+    ),
+))
 ```
+
+!!! warning "Override the sampled variables, and let `overrides=` do the deriving"
+    `overrides=` names **free** (`~`) variables only, and writes them into the flat
+    parameter vector *before* it is expanded — so every derived (`=`) variable is
+    recomputed from the values you gave. Naming a derived variable is an error listing the
+    model's free variables, rather than a silent no-op.
+
+    This is the reason not to build the structure by hand with `merge`.
+    `generate_from_params` reads the *derived* orbital elements, not the sampled variables
+    they came from, so a `merge` that sets a sampled variable leaves any element computed
+    from it stale. In a model with `a = sep / system.plx`, `merge(θ.bodies.b, (; sep=500))`
+    changes `sep` and leaves `a` at whatever the prior draw implied — and the simulated
+    data come out at the old `a`.
+
+!!! warning
+    The structure of this NamedTuple mirrors your model, so it will change if your model
+    changes. Always start from your own `drawfrompriors` output rather than copying
+    someone else's. The exact structure is not guaranteed to be stable between versions
+    of Octofitter.
 
 
 ## Generate synthetic system with simulated data
 
 ```@example 1
-sim_system = Octofitter.generate_from_params(model.system, params_to_simulate)
+Random.seed!(0)
+sim_system = Octofitter.generate_from_params(model.system, params_to_simulate; add_noise=true)
 sim_model = Octofitter.LogDensityModel(sim_system)
+```
+
+`generate_from_params` returns a whole new `System`, with each observation replaced by a copy of itself holding simulated data at the original epochs and with the original uncertainties. `add_noise=true` adds a draw from each observation's own noise model (including the jitter `params_to_simulate` specifies); `add_noise=false` gives the noiseless model prediction, which is what you want to check that a fit recovers a known truth exactly.
+
+The simulated data are right there if you want to inspect them:
+
+```@example 1
+sim_system.observations[1].table
 ```
 
 Let's plot the simulated orbit and data to see what we generated:
@@ -199,8 +194,7 @@ Let's plot the simulated orbit and data to see what we generated:
 true_chain = Octofitter.result2mcmcchain([params_to_simulate])
 
 # Plot the simulated system with true parameters
-fig = octoplot(sim_model, true_chain, colormap=:red)
-fig
+octoplot(sim_model, true_chain)
 ```
 
 ## Fit the Simulated Data
@@ -209,9 +203,23 @@ Now we'll sample from the posterior using the simulated data:
 
 ```@example 1
 # Sample from the simulated data
+Random.seed!(1)
 chain, pt = octofit_pigeons(sim_model, n_rounds=8, explorer=SliceSampler())
 display(chain)
 ```
+
+!!! tip "Why parallel tempering for a recovery test"
+    A simulation-and-recovery check is only meaningful if the sampler explored the
+    *whole* posterior: a mode you never visited looks exactly like a parameter you
+    failed to recover. [`octofit_pigeons`](@ref) runs a ladder of tempered chains
+    between the prior and the posterior, so isolated modes stay reachable, which is
+    why this page tempers rather than running a single HMC chain.
+
+    [`octofit`](@ref) is a reasonable alternative once you know the posterior is
+    unimodal — it is much cheaper per sample. If you go that route, seed it well
+    with [`initialize!`](@ref) and run several chains from different starting points
+    so a missed mode shows up as a disagreement between them rather than as a
+    confident wrong answer.
 
 ## Compare Results
 
@@ -219,27 +227,41 @@ Let's visualize how well our sampling recovered the true parameters:
 
 ```@example 1
 # Plot the posterior from fitting simulated data
-fig = octoplot(sim_model, chain)
-fig
+octoplot(sim_model, chain)
 ```
 
 ## Overlay True and Recovered Parameters
 
-For a direct comparison, we can overlay the true orbit with the posterior samples:
+For a direct comparison, we can overlay the true orbit on the posterior draws. A chain row is turned back into a whole `PlanetOrbits.System` with [`construct_system`](@ref), which we can hand straight to Makie:
 
 ```@example 1
-# Create astrometry plot showing both posterior and true orbit
-fig = Octofitter.astromplot(sim_model, chain, use_arcsec=false, ts=1:2)
-ax = fig.content[1]
+fig = Figure()
+ax = Axis(fig[1,1], xlabel="Δ R.A. [mas]", ylabel="Δ Dec. [mas]",
+          xreversed=true, aspect=1)
 
-# Add true orbit in red
-Octofitter.astromplot!(ax, sim_model, true_chain, use_arcsec=false, ts=1:2, colormap=Makie.cgrad([:red]))
+# Posterior draws in grey
+for i in rand(Random.Xoshiro(0), 1:size(chain,1), 100)
+    posys = construct_system(sim_model, chain, i)
+    Makie.lines!(ax, posys, :b, :A, color=(:grey, 0.2))
+end
 
-# Make true orbit line more visible
-ax.scene.plots[6].linewidth = 6
+# The true orbit, in red
+true_sys = construct_system(sim_model, true_chain, 1)
+Makie.lines!(ax, true_sys, :b, :A, color=:red, linewidth=4)
+
+# The simulated data
+sim_astrom = sim_system.observations[1].table
+Makie.scatter!(ax, sim_astrom.ra, sim_astrom.dec, color=:black, markersize=8)
+Makie.scatter!(ax, [0], [0], marker='⋆', color=:black, markersize=20)
 
 fig
 ```
+
+!!! tip "Custom overlays"
+    [`octoplot`](@ref) covers the standard figures. For a custom overlay like the one
+    above, `construct_system` plus `Makie.lines!(ax, posys, target, ref)` draws any pair
+    of references you like — a companion against another companion, against the
+    barycentre, and so on.
 
 ## Corner Plot Comparison
 
@@ -252,7 +274,7 @@ octocorner(
     chain,
     small=true,
     truth=(PairPlots.Truth((;
-        M=collect(true_chain[:M][:]),
+        A_mass=collect(true_chain[:A_mass][:]),
         b_a=collect(true_chain[:b_a][:]),
         b_e=collect(true_chain[:b_e][:]),
         b_i=collect(true_chain[:b_i][:]),
@@ -263,6 +285,42 @@ octocorner(
     ),)
 )
 ```
+
+Note that the host star's mass is `A_mass`: it is an ordinary variable of the `A` body.
+
+## [Simulating absolute astrometry](@id data-simulation-absolute)
+
+The same three steps — build a model with real epochs, draw parameters, call `generate_from_params` — work for Gaia and Hipparcos absolute astrometry. Two practical differences are worth knowing before you try:
+
+* Those likelihoods contribute a large block of their own nuisance variables (per-transit
+  selection latents, calibration noise terms). Build your parameter NamedTuple with
+  `drawfrompriors(sys; overrides=…)`, as above, rather than writing it out.
+* `G23HObs` and `HGCAObs` need the **full absolute frame** in the system block —
+  `plx`, `ra`, `dec`, `pmra`, `pmdec`, `rv` and `ref_epoch`, all seven. A partial frame
+  is an error, because the model has no way to place the source on the sky without it.
+
+```julia
+pma_obs = HGCAObs(; gaia_id=756291174721509376, target=A, blends=(b,), ref=Barycentre)
+
+sys = System(
+    name="HD91312_pma_simulation",
+    bodies=[A, b],
+    observations=[pma_obs, astrom_obs, rvlike],
+    variables=@variables begin
+        plx ~ gaia_plx(gaia_id=756291174721509376)
+        ra  = 158.30707896392835
+        dec = 40.42555422701387
+        pmra  ~ Normal(-137, 10)
+        pmdec ~ Normal(2, 10)
+        rv = 0.0
+        ref_epoch = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+    end
+)
+```
+
+`A` and `b` each need a `flux_G` and a `flux_Hp` variable for this — the companion's flux ratios are read from the bodies now rather than from a vector on the observation. Setting the host's to `1.0` and a dark companion's to `0.0` reproduces the usual case.
+
+For a fully worked absolute-astrometry simulation, including how to build a realistic scan law and noise model for a chosen target, see [Simulating and Fitting Gaia DR4 Data](@ref data-simulation-dr4).
 
 ## Using PlanetOrbits Directly for Synthetic Data
 
@@ -278,8 +336,10 @@ Octofitter uses [PlanetOrbits.jl](https://github.com/sefffal/PlanetOrbits.jl) fo
 Here's a complete example generating synthetic astrometry data for testing:
 
 ```@example 1
-using Random
 using PlanetOrbits
+# `orbit` is PlanetOrbits' two-body convenience constructor. It is deliberately
+# not exported — for anything hierarchical, build a `System` of `Orbit`s.
+using PlanetOrbits: orbit
 
 Random.seed!(42)
 
@@ -293,29 +353,24 @@ true_tp = 55000.0
 true_M = 1.05     # Solar masses (star + companion)
 true_plx = 50.0   # mas
 
-# Create the orbit
+# Create the orbit: a massless secondary named :b about a primary named :A
 true_orb = orbit(
     a = true_a, e = true_e, i = true_i,
     Ω = true_Ω, ω = true_ω, tp = true_tp, M = true_M,
-    plx=true_plx
+    plx = true_plx
 )
 
 # Generate observation epochs (25 epochs over 2 orbital periods)
-period_days = Octofitter.period(true_orb)
+period_days = period(true_orb)
 epochs = range(55000, 55000 + 2*period_days, length=25)
 
 # Measurement uncertainty
 σ_astrom = 5.0  # mas
 
 # Generate synthetic observations
-ra_obs = Float64[]
-dec_obs = Float64[]
-for ep in epochs
-    sol = orbitsolve(true_orb, ep)
-    # True position plus Gaussian noise
-    push!(ra_obs, raoff(sol) + σ_astrom * randn())
-    push!(dec_obs, decoff(sol) + σ_astrom * randn())
-end
+traj = orbitsolve(true_orb, collect(epochs))
+ra_obs  = [raoff(sol, :b, :A)  + σ_astrom * randn() for sol in traj]
+dec_obs = [decoff(sol, :b, :A) + σ_astrom * randn() for sol in traj]
 
 # Create an Octofitter-compatible data table
 astrom_data = Table(
@@ -335,12 +390,16 @@ display(first(astrom_data, 5))
 You can now use this synthetic data with Octofitter:
 
 ```@example 1
-astrom_obs = PlanetRelAstromObs(astrom_data, name="Synthetic")
+A2 = Body(
+    name="A",
+    variables=@variables begin
+        mass ~ truncated(Normal(1.05, 0.1), lower=0.1)
+    end
+)
 
-planet_b = Planet(
+b2 = Body(
     name="b",
-    basis=Visual{KepOrbit},
-    observations=[astrom_obs],
+    about=A2,
     variables=@variables begin
         a ~ LogUniform(1, 20)
         e ~ Uniform(0, 0.9)
@@ -348,24 +407,24 @@ planet_b = Planet(
         i ~ Sine()
         Ω ~ Uniform(0, 2π)
         θ ~ Uniform(0, 2π)
-        M = system.M
-        tp = θ_at_epoch_to_tperi(θ, 55000.0; M, e, a, i, ω, Ω)
+        epoch = 55000.0
     end
 )
 
-sys = System(
+astrom_obs2 = RelAstromObs(astrom_data; target=b2, ref=A2, name="Synthetic")
+
+sys2 = System(
     name="SyntheticTest",
-    companions=[planet_b],
-    observations=[],
+    bodies=[A2, b2],
+    observations=[astrom_obs2],
     variables=@variables begin
-        M ~ truncated(Normal(1.05, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.5), lower=0.1)
     end
 )
 
-model = Octofitter.LogDensityModel(sys)
-init_chain = initialize!(model, (; M=1.05, plx=50.0, planets=(; b=(; a=5.0, e=0.3))))
+model2 = Octofitter.LogDensityModel(sys2)
+init_chain = initialize!(model2, (; plx=50.0, bodies=(; A=(; mass=1.05), b=(; a=5.0, e=0.3))))
 
 # Visualize the initial fit
-octoplot(model, init_chain)
+octoplot(model2, init_chain)
 ```

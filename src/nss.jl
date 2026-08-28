@@ -1,14 +1,19 @@
 #=
-Gaia Non-Single Star (NSS) catalog integration for Octofitter.
+Gaia Non-Single Star (NSS) catalog integration.
 
-Provides functions to query NSS orbital solutions and convert them into
-starting points for Octofitter models via `initialize!`.
+Query published NSS orbital solutions and turn them into starting points for
+a v9 model via `initialize!`, or into a comparison chain for plotting.
 
 The NSS solutions are used as starting points only (not priors), because
-NSS uncertainties may be overly optimistic.
-=#
+NSS uncertainties may be overly optimistic — and because fitting the same
+astrometry the NSS solution was fitted to, with that solution as a prior,
+would be using the data twice.
 
-using HTTP, CSV
+Ported from the v8 `src/legacy/nss.jl`. Only the model surface moved:
+`planets`/`Planet`/`basis=` became `bodies`/`Body`/the hierarchy, so
+`planet_key=` is now `body=` and the returned named tuple nests under
+`bodies`. Every conversion formula below is the v8 one, unchanged.
+=#
 
 # ──────────────────────────────────────────────────────────────────────
 # NSS catalog query
@@ -20,7 +25,9 @@ using HTTP, CSV
 Query the Gaia Non-Single Star (NSS) two-body orbit table for a given source ID.
 Returns a named tuple of the NSS solution columns, or `nothing` if no solution is found.
 
-Results are cached locally in `_gaia_nss_{catalog}/` directories.
+Responses are cached per source, the same way [`gaia_dr3_solution`](@ref)'s are
+(see `Octofitter._gaia_cache_path`): a `_gaia_nss_dr3/` directory in the working
+directory wins if it already exists, otherwise a per-user depot scratchspace.
 
 # Arguments
 - `gaia_id`: Gaia source ID (integer)
@@ -37,7 +44,7 @@ function query_nss(; gaia_id, catalog=:dr3)
         error("Unsupported catalog: $catalog. Use :dr3 or :dr4.")
     end
 
-    fname = joinpath(cache_dir, "source-$gaia_id.csv")
+    fname = _gaia_cache_path(cache_dir, "source-$gaia_id.csv")
     if !isfile(fname)
         @info "Querying NSS catalog at gea.esac.esa.int/tap-server" source_id=gaia_id catalog
         resp = HTTP.get(
@@ -53,9 +60,7 @@ function query_nss(; gaia_id, catalog=:dr3)
         if resp.status != 200
             error("Error querying NSS catalog: HTTP $(resp.status)")
         end
-        if !isdir(cache_dir)
-            mkpath(cache_dir)
-        end
+        mkpath(dirname(fname))
         open(fname, write=true) do f
             write(f, resp.body)
         end
@@ -70,9 +75,7 @@ function query_nss(; gaia_id, catalog=:dr3)
         return nothing
     end
 
-    # Parse CSV header and first data row
-    header_line = lines[2]  # skip potential comment lines
-    # Use CSV to parse properly (handles quoted fields etc.)
+    # CSV.jl parses the header and handles quoted fields.
     tbl = CSV.read(IOBuffer(buf), Tables.columntable, normalizenames=true)
 
     if Tables.rowcount(tbl) == 0
@@ -101,59 +104,61 @@ export query_nss
 const _NSS_DR3_T_PERIASTRON_REF_JD = 2457389.0
 
 """
-    nss_to_starting_point(nss_sol, model; planet_key=:b)
+    nss_to_starting_point(nss_sol, model; body=:b)
 
 Convert an NSS orbital solution (as returned by [`query_nss`](@ref)) into a
-named tuple suitable for passing to [`initialize!`](@ref) as fixed starting parameters.
+named tuple suitable for passing to [`initialize!`](@ref) as a starting guess.
 
-This function inspects the model's planet parameters and maps NSS values to
-whichever parameterization the user has chosen (Thiele-Innes or Campbell).
+This function inspects the named body's *free* variables and maps NSS values to
+whichever parameterization you chose (Thiele-Innes or Campbell). Derived
+variables are skipped: they are computed from the free ones, so setting them
+would be silently discarded.
 
 # Mapped parameters
 
-For **Thiele-Innes** models (planet has `A`, `B`, `F`, `G`):
+For **Thiele-Innes** bodies (free variables `A`, `B`, `F`, `G`):
 - `A`, `B`, `F`, `G` from NSS `a_thiele_innes`, `b_thiele_innes`, etc.
 
-For **Campbell** models (planet has `a` or `P`, and `i`, `Ω`, `ω`):
+For **Campbell** bodies (free `a` or `P`, and `i`, `Ω`, `ω`):
 - Converts NSS Thiele-Innes constants to Campbell elements
 - Sets `a` (semi-major axis in AU) or `P` (period in days)
-- Sets `i`, `Ω`, `ω`
+- Sets `i`, `Ω`, `ω` — including the `Ωx`/`Ωy` pair a `UniformCircular()` uses
 
 Common parameters mapped in both cases:
 - `e` (eccentricity)
-- `tp` (periastron time in MJD, if the planet has `tp`)
+- `tp` (periastron time in MJD, if the body samples `tp`)
+
+!!! note "A `θ` phase is not seeded"
+    The recommended v9 phase spelling is `θ ~ UniformCircular()` plus an
+    `epoch`, and nothing here maps the NSS `t_periastron` onto it — as in v8,
+    the phase is left for the optimizer to find. Sample `tp` directly if you
+    want the NSS periastron used as the starting guess.
 
 # Arguments
 - `nss_sol`: Named tuple from [`query_nss`](@ref)
 - `model`: A `LogDensityModel`
-- `planet_key`: Symbol identifying which planet to set (default `:b`)
+- `body`: the [`Body`](@ref) to set, or its name (default `:b`)
 
 # Returns
-A named tuple like `(; planets=(; b=(; e=0.3, A=5.2, ...)))` ready for `initialize!`.
+A named tuple like `(; bodies=(; b=(; e=0.3, A=5.2, ...)))` ready for `initialize!`.
 """
-function nss_to_starting_point(nss_sol, model; planet_key=:b)
-    # Sample from the model to inspect the parameter structure
-    sample = model.sample_priors(Random.default_rng())
-    params_nt = model.arr2nt(sample)
+function nss_to_starting_point(nss_sol, model; body=:b)
+    body_name = _aboutspec1(body)
 
-    if !hasproperty(params_nt, :planets) || !hasproperty(params_nt.planets, planet_key)
-        error("Model does not have a planet named :$planet_key")
-    end
-
-    planet_params = params_nt.planets[planet_key]
-    # Only consider free (prior) parameters, not derived ones.
-    # Derived parameters cannot be set via initialize! and will cause errors.
-    planet_obj = nothing
-    for p in model.system.planets
-        if p.name == planet_key
-            planet_obj = p
+    node = nothing
+    for n in model.system.nodes
+        if n.name === body_name
+            node = n
             break
         end
     end
-    if isnothing(planet_obj)
-        error("Could not find planet :$planet_key in system")
+    if isnothing(node)
+        error("Model does not have a body named :$body_name. Its nodes are " *
+              "$(join((n.name for n in model.system.nodes), ", ")).")
     end
-    planet_param_names = Tuple(collect(keys(planet_obj.priors.priors)))
+    # Only consider free (prior) parameters, not derived ones.
+    # Derived parameters cannot be set via initialize! and will cause errors.
+    body_param_names = Tuple(priornames(node))
 
     mapped = Dict{Symbol, Any}()
     unmapped = String[]
@@ -162,14 +167,14 @@ function nss_to_starting_point(nss_sol, model; planet_key=:b)
     # If the model uses `Ω ~ UniformCircular()`, the free params are `Ωx` and `Ωy`,
     # not `Ω` itself. We detect this and set x=cos(angle), y=sin(angle).
     function _try_set_angle!(mapped, name::Symbol, value_rad)
-        if name in planet_param_names
+        if name in body_param_names
             # Direct free parameter (e.g. Ω ~ Uniform(0, 2π))
             mapped[name] = value_rad
             return true
         end
         namex = Symbol("$(name)x")
         namey = Symbol("$(name)y")
-        if namex in planet_param_names && namey in planet_param_names
+        if namex in body_param_names && namey in body_param_names
             # UniformCircular parameterization: set x,y components
             mapped[namex] = cos(value_rad)
             mapped[namey] = sin(value_rad)
@@ -179,7 +184,7 @@ function nss_to_starting_point(nss_sol, model; planet_key=:b)
     end
 
     # --- Eccentricity ---
-    if :e in planet_param_names && hasproperty(nss_sol, :eccentricity)
+    if :e in body_param_names && hasproperty(nss_sol, :eccentricity)
         e_val = nss_sol.eccentricity
         if !ismissing(e_val) && !isnothing(e_val) && isfinite(Float64(e_val))
             mapped[:e] = Float64(e_val)
@@ -202,18 +207,18 @@ function nss_to_starting_point(nss_sol, model; planet_key=:b)
         nss_tp_mjd = jd2mjd(nss_tp_jd)
     end
 
-    if :tp in planet_param_names && !isnothing(nss_tp_mjd)
+    if :tp in body_param_names && !isnothing(nss_tp_mjd)
         mapped[:tp] = nss_tp_mjd
     end
 
     # --- Check for Thiele-Innes parameterization ---
-    has_ti = all(s -> s in planet_param_names, (:A, :B, :F, :G))
+    has_ti = all(s -> s in body_param_names, (:A, :B, :F, :G))
 
     # --- Check for Campbell parameterization ---
     # Campbell angles may be free directly (i, Ω, ω) or via UniformCircular (Ωx/Ωy, ωx/ωy)
     function _has_angle(name::Symbol)
-        name in planet_param_names ||
-        (Symbol("$(name)x") in planet_param_names && Symbol("$(name)y") in planet_param_names)
+        name in body_param_names ||
+        (Symbol("$(name)x") in body_param_names && Symbol("$(name)y") in body_param_names)
     end
     has_campbell_angles = _has_angle(:i) && _has_angle(:Ω) && _has_angle(:ω)
 
@@ -247,23 +252,31 @@ function nss_to_starting_point(nss_sol, model; planet_key=:b)
     end
 
     # --- Semi-major axis or period ---
-    if :a in planet_param_names && !isnothing(nss_period)
+    # NOTE (carried over from v8, deliberately unchanged): Kepler's third law
+    # here is in *julian* years, where PlanetOrbits' own is in Kepler years
+    # (`PlanetOrbits.kepler_year_to_julian_day_conversion_factor`, 365.2568983840419
+    # days). The two differ by 1.9e-5, so the semi-major axis below is high by
+    # 1.3e-5 relative to the orbit the NSS row actually describes. That is far
+    # inside any NSS error bar and this value is only a starting point, so the
+    # formula is preserved rather than silently corrected — see `test/v2/nss.jl`,
+    # which pins the offset exactly.
+    if :a in body_param_names && !isnothing(nss_period)
         M_rough = _estimate_system_mass(model)
         P_years = nss_period / PlanetOrbits.year2day_julian
         a_au = ∛(M_rough * P_years^2)
         mapped[:a] = a_au
         @info "Mapped NSS period to semi-major axis" P_days=nss_period a_AU=a_au M_est=M_rough
-    elseif :P in planet_param_names && !isnothing(nss_period)
+    elseif :P in body_param_names && !isnothing(nss_period)
         mapped[:P] = nss_period
         @info "Mapped NSS period to model" P_days=nss_period
-    elseif !isnothing(nss_period) && (:a in planet_param_names || :P in planet_param_names)
+    elseif !isnothing(nss_period) && (:a in body_param_names || :P in body_param_names)
         # Already handled above
     elseif !isnothing(nss_period)
-        push!(unmapped, "period (model planet has neither free `a` nor `P`)")
+        push!(unmapped, "period (model body has neither free `a` nor `P`)")
     end
 
     if isempty(mapped)
-        @warn "Could not map any NSS parameters to model planet :$planet_key"
+        @warn "Could not map any NSS parameters to model body :$body_name"
         return (;)
     end
 
@@ -271,44 +284,44 @@ function nss_to_starting_point(nss_sol, model; planet_key=:b)
         @info "Some NSS parameters could not be mapped" unmapped
     end
 
-    planet_nt = NamedTuple{Tuple(collect(keys(mapped)))}(Tuple(collect(values(mapped))))
-    return (; planets=NamedTuple{(planet_key,)}((planet_nt,)))
+    body_nt = NamedTuple{Tuple(collect(keys(mapped)))}(Tuple(collect(values(mapped))))
+    return (; bodies=NamedTuple{(body_name,)}((body_nt,)))
 end
 export nss_to_starting_point
 
 
 """
-    initialize_from_nss!(model; gaia_id, planet_key=:b, catalog=:dr3, kwargs...)
+    initialize_from_nss!(model; gaia_id, body=:b, catalog=:dr3, kwargs...)
 
 Convenience function that queries the NSS catalog for `gaia_id`, converts the
-orbital solution to model parameters, and calls `initialize!` with those as
-starting points.
+orbital solution to model parameters, and calls [`initialize!`](@ref) with those
+as a starting guess.
 
-The NSS parameters are used to anchor the global optimization search, but are
-**not** used as priors. All model parameters remain free during sampling.
+The NSS parameters anchor the global optimization search, but are **not** used
+as priors. All model parameters remain free during sampling.
 
 # Example
 ```julia
 model = Octofitter.LogDensityModel(sys)
-chain = initialize_from_nss!(model; gaia_id=4295745059252873600, planet_key=:b)
+init_chain = initialize_from_nss!(model; gaia_id=4295745059252873600, body=b)
 ```
 
 Any additional keyword arguments are forwarded to `initialize!`.
 """
-function initialize_from_nss!(model; gaia_id, planet_key=:b, catalog=:dr3, kwargs...)
+function initialize_from_nss!(model; gaia_id, body=:b, catalog=:dr3, kwargs...)
     nss_sol = query_nss(; gaia_id, catalog)
     if isnothing(nss_sol)
         @warn "No NSS solution found; falling back to default initialization"
         return initialize!(model; kwargs...)
     end
 
-    fixed_params = nss_to_starting_point(nss_sol, model; planet_key)
+    fixed_params = nss_to_starting_point(nss_sol, model; body)
     if isempty(propertynames(fixed_params))
         @warn "Could not map any NSS parameters; falling back to default initialization"
         return initialize!(model; kwargs...)
     end
 
-    @info "Initializing from NSS solution" gaia_id catalog mapped_params=propertynames(fixed_params.planets[planet_key])
+    @info "Initializing from NSS solution" gaia_id catalog mapped_params=propertynames(fixed_params.bodies[_aboutspec1(body)])
     return initialize!(model, fixed_params; kwargs...)
 end
 export initialize_from_nss!
@@ -321,12 +334,16 @@ export initialize_from_nss!
 """
     nss_model, nss_chain = nss_to_model_chain(nss_sol; plx=nothing, gaia_id=nothing, N=10_000)
 
-Build a minimal Octofitter model and chain from an NSS orbital solution, suitable
-for comparison plotting with your own posterior (e.g. via PairPlots or `octoplot`).
+Build a minimal model and chain from an NSS orbital solution, suitable for
+comparison plotting against your own posterior (e.g. via PairPlots or
+[`octoplot`](@ref)).
 
 The returned `nss_chain` contains `N` draws from Normal distributions centred on the
 NSS best-fit values with the NSS-reported uncertainties. The returned `nss_model` is
-a one-planet `LogDensityModel` using a `ThieleInnesOrbit` parameterization.
+a two-body model — a host `A` and a companion `b` — whose companion is
+parameterized by the Thiele-Innes constants, exactly as the NSS table is. It
+therefore reproduces the NSS *photocentre* track, which is what the solution
+describes.
 
 The total system mass is derived automatically from the NSS period, Thiele-Innes
 constants, and parallax via Kepler's third law, so you do not need to provide it.
@@ -408,6 +425,9 @@ function nss_to_model_chain(nss_sol; plx=nothing, gaia_id=nothing, N=10_000)
 
     # Derive total system mass from NSS period + TI constants + parallax
     # via Kepler's third law: M = a³/P² (a in AU, P in years, M in Msol)
+    # Same julian-vs-Kepler year note as in `nss_to_starting_point`: the mass
+    # below comes out low by 3.8e-5, so the model's period is long by 1.9e-5
+    # relative to the row's own `period`. Preserved as v8 had it.
     if isnothing(P_val)
         error("NSS solution does not contain a period. Cannot derive system mass.")
     end
@@ -429,29 +449,51 @@ function nss_to_model_chain(nss_sol; plx=nothing, gaia_id=nothing, N=10_000)
     G_prior  = _make_prior(G_val, G_err)
     tp_prior = _make_prior(tp_mjd, isnothing(tp_err) ? nothing : tp_err)
 
-    planet_b = Planet(
-        name="b",
-        basis=ThieleInnesOrbit,
-        observations=[],
-        variables=@variables begin
-            e  ~ e_prior
-            A  ~ A_prior
-            B  ~ B_prior
-            F  ~ F_prior
-            G  ~ G_prior
-            tp ~ tp_prior
-        end
+    # Variable namespaces are built by hand rather than with `@variables`: this
+    # runs at call time on values that are not known at parse time, and the
+    # macro's `$` interpolation is not available inside a package function.
+    # `Derived` holds *unevaluated* expressions, so `ti`/`a`/`i`/`ω`/`Ω` below
+    # are literally what a user would write in a `@variables` block — see
+    # `docs/src/thiele-innes.md`.
+    host = Body(
+        name = :A,
+        variables = (
+            Priors(OrderedDict{Symbol,Distribution}()),
+            Derived(OrderedDict{Symbol,Any}(:mass => M), (), ()),
+        ),
+    )
+    companion = Body(
+        name = :b,
+        about = host,
+        variables = (
+            Priors(OrderedDict{Symbol,Distribution}(
+                :e  => e_prior,
+                :A  => A_prior,
+                :B  => B_prior,
+                :F  => F_prior,
+                :G  => G_prior,
+                :tp => tp_prior,
+            )),
+            Derived(OrderedDict{Symbol,Any}(
+                :mass => 0.0,
+                :ti => :(PlanetOrbits.ThieleInnes(A=A, B=B, F=F, G=G, plx=system.plx)),
+                :a  => :(ti.a),
+                :i  => :(ti.i),
+                :ω  => :(ti.ω),
+                :Ω  => :(ti.Ω),
+            ), (), ()),
+        ),
     )
 
-    # Build system variables directly (can't use @variables with $ for derived
-    # values inside a module-level function during precompilation)
-    sys_priors = Priors(OrderedDict{Symbol,Distribution}())
-    sys_derived = Derived(OrderedDict{Symbol,Any}(:M => M, :plx => plx), (), ())
     sys = System(
-        name="NSS",
-        companions=[planet_b],
-        observations=[],
-        variables=(sys_priors, sys_derived)
+        name = "NSS",
+        bodies = [host, companion],
+        observations = (),
+        variables = (
+            Priors(OrderedDict{Symbol,Distribution}()),
+            Derived(OrderedDict{Symbol,Any}(:plx => plx), (), ()),
+        ),
+        verbosity = 0,
     )
 
     nss_model = LogDensityModel(sys, verbosity=0)
@@ -498,6 +540,14 @@ Returns (i, Ω, ω, α_mas) where angles are in radians and α_mas is the angula
 semi-major axis in milliarcseconds.
 
 Uses the standard inversion formulas (e.g., Binnendijk 1960, Wright & Howard 2009).
+
+!!! note
+    `PlanetOrbits.ThieleInnes` is the same inversion, and is what a *model*
+    should use (see `docs/src/thiele-innes.md`). The two agree exactly except
+    for which of the two equivalent `(ω, Ω)` / `(ω+π, Ω+π)` representations
+    they return: this one leaves `Ω ∈ [0, 2π)`, PlanetOrbits folds it to
+    `Ω ∈ [0, π)`. Both describe the same orbit. This copy is kept so that a
+    seed produced by v8 is reproduced bit-for-bit by v9.
 """
 function _ti_to_campbell(A, B, F, G)
     # Intermediate quantities
@@ -539,7 +589,11 @@ function _ti_to_campbell(A, B, F, G)
 end
 
 """
-Estimate system mass from model priors by sampling and taking the median.
+Estimate total system mass from model priors by sampling and taking the median.
+
+v8 read the system-level `M`. There is no system-level mass in v9 — each body
+carries its own — so the total is the sum over the bodies, which is what `M`
+meant.
 """
 function _estimate_system_mass(model)
     rng = Random.Xoshiro(42)
@@ -547,12 +601,20 @@ function _estimate_system_mass(model)
     for _ in 1:1000
         sample = model.sample_priors(rng)
         nt = model.arr2nt(sample)
-        if hasproperty(nt, :M)
-            push!(masses, Float64(nt.M))
+        hasproperty(nt, :bodies) || continue
+        total = 0.0
+        found = false
+        for name in propertynames(nt.bodies)
+            b = getproperty(nt.bodies, name)
+            if hasproperty(b, :mass)
+                total += Float64(b.mass)
+                found = true
+            end
         end
+        found && push!(masses, total)
     end
     if isempty(masses)
-        @warn "No system mass parameter found; assuming 1.0 Msol"
+        @warn "No body mass parameter found; assuming 1.0 Msol"
         return 1.0
     end
     return median(masses)

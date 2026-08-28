@@ -67,19 +67,25 @@ astrom_dat = Table(;
     σ_dec = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0,], # mas
     cor   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,]
 )
-astrom_obs = PlanetRelAstromObs(astrom_dat, name="relastrom")
+astrom_obs = RelAstromObs(astrom_dat; target=:b, ref=:A, name="relastrom")
+nothing # hide
 ```
 
-Now we define our planet model with the spike-and-slab prior on eccentricity:
+Now we define our bodies. The spike-and-slab prior goes in the companion's own
+`@variables` block:
 
 ```@example 1
-planet_b = Planet(
-    name="b",
-    basis=Visual{KepOrbit},
-    observations=[astrom_obs],
+A = Body(
+    name="A",
     variables=@variables begin
-        M = system.M
-        plx = system.plx
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1) # M⊙
+    end
+)
+
+b = Body(
+    name="b",
+    about=A,
+    variables=@variables begin
         a ~ Uniform(0, 100)
 
         # Spike-and-slab prior for eccentricity
@@ -95,7 +101,7 @@ planet_b = Planet(
         i ~ Sine()
         Ω ~ UniformCircular()
         θ ~ UniformCircular()
-        tp = θ_at_epoch_to_tperi(θ, 50420; M, e, a, i, ω, Ω)
+        epoch = 50420.0
     end
 )
 nothing # hide
@@ -104,15 +110,16 @@ nothing # hide
 !!! note "Why multiply ω by the indicator variable?"
     When an orbit is circular (`e = 0`), the argument of periastron `ω` becomes undefined—there is no periastron! By multiplying `ω` by the `eccentric` indicator, we ensure that when the model is circular, `ω` is automatically set to zero and doesn't waste computational effort exploring meaningless values. 
 
-Now we complete the system definition:
+Now we complete the system definition. Note that the relative astrometry is
+listed in the *system's* `observations=`: an observation names the bodies it
+refers to (`target=:b, ref=:A`) rather than being attached to one of them.
 
 ```@example 1
 sys = System(
     name="CircularOrEccentric",
-    companions=[planet_b],
-    observations=[],
+    bodies=[A, b],
+    observations=[astrom_obs],
     variables=@variables begin
-        M ~ truncated(Normal(1.2, 0.1), lower=0.1)
         plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
     end
 )
@@ -121,15 +128,6 @@ model = Octofitter.LogDensityModel(sys)
 ```
 
 ## Sampling with Pigeons
-
-!!! warning "Important: Use Pigeons for Discrete Variables"
-    The default HMC sampler (`octofit`) is **not compatible** with discrete variables like our `eccentric` indicator. You **must** use the Pigeons sampler via `octofit_pigeons` for models with discrete parameters.
-
-    Make sure you have Pigeons installed:
-    ```julia
-    using Pkg
-    Pkg.add("Pigeons")
-    ```
 
 Let's sample from our model using Pigeons:
 
@@ -183,6 +181,38 @@ Let's calculate it:
 bayes_factor = mean_eccentric / (1 - mean_eccentric)
 println("Bayes factor (eccentric vs circular): ", round(bayes_factor, digits=2))
 println("Bayes factor (circular vs eccentric): ", round(1/bayes_factor, digits=2))
+```
+
+
+The above gives an intuition for how a Bayes Factor can be calculated, but it neglects our uncertainty on that value from a finite-length MCMC run. 
+This function  `oddsci`  calculates an interval you can quote that accounts for Monte Carlo noise and effective sample size.
+```@example 1
+using Distributions, Statistics
+
+  """
+      oddsci(z; q=0.68) -> (lo, med, hi)
+
+  Credible interval on the odds `p/(1-p)` of a Bernoulli indicator trace `z`,
+  corrected for autocorrelation.
+
+  Jeffreys' `Beta(k+½, n-k+½)` posterior on `p`, but with the raw counts replaced
+  by *effective* counts `S·p`, `S·(1-p)`, where `S` is the batch-means effective
+  sample size — an MCMC trace carries less information than `n` independent
+  draws, and at `p → 1` the odds are dominated by the handful of minority draws.
+  Quantiles are then pushed through `p ↦ p/(1-p)`..
+  """
+  function oddsci(z; q=0.68)
+      n, p = length(z), mean(z)
+      b = max(1, isqrt(n))                                    # batch length ≈ √n
+      m = [mean(@view z[(i-1)*b+1:i*b]) for i in 1:n÷b]       # batch means
+      v = length(m) > 1 ? b*sum(abs2, m .- mean(m))/((length(m)-1)*n) : 0.0
+      S = 0 < p < 1 && v > 0 ? clamp(p*(1-p)/v, 1, n) : float(n)   # ESS
+      B = Beta(S*p + 0.5, S*(1-p) + 0.5)
+      Ω(x) = x/(1-x)
+      Ω.(quantile.(B, ((1-q)/2, 0.5, (1+q)/2)))
+  end
+
+println("Bayes factor (eccentric vs circular): ", oddsci(chain[:b_eccentric][:]))
 ```
 
 **Interpreting Bayes Factors:**
@@ -246,9 +276,10 @@ You can also compare the eccentric and circular subsets:
 octocorner(model, chain_eccentric, chain_circular, small=true)
 ```
 
-## Generallization
+## Generalization
 
-5. **Generalization**: This technique can be extended to other discrete model choices, such as:
-   - Coplanar vs non-coplanar multi-planet systems
-   - Including vs excluding a Gaussian process for stellar activity
-   - Different numbers of planets
+This technique can be extended to other discrete model choices, such as:
+
+- Coplanar vs non-coplanar multi-planet systems
+- Including vs excluding a Gaussian process for stellar activity
+- Different numbers of planets
