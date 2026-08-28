@@ -334,3 +334,65 @@ end
     i_plx = findfirst(==(:plx), collect(keys(model.system.priors.priors)))
     @test !isnothing(i_plx)
 end
+
+@testset "single-body model: the tutorial's straight-line fit" begin
+    # The hipparcos.md tutorial's first example: one Body, no orbits. The lone
+    # body IS the system barycentre, so the model can only fit the frame — the
+    # five-parameter sky path. The oracle is equivalence: a zero-mass, zero-flux
+    # companion (the workaround this replaces) must give the same likelihood.
+    obsvars() = @variables begin
+        hip_iad_jitter ~ LogUniform(0.01, 10.0)
+        iad_Δra ~ Uniform(-50, 50)
+        iad_Δdec ~ Uniform(-50, 50)
+        iad_Δplx = 0.0
+        iad_Δpmra ~ Uniform(-50, 50)
+        iad_Δpmdec ~ Uniform(-50, 50)
+        iad_pmra = $(HIP_SOL.pm_ra) + iad_Δpmra
+        iad_pmdec = $(HIP_SOL.pm_de) + iad_Δpmdec
+    end
+    sysvars() = @variables begin
+        plx ~ truncated(Normal(HIP_PLX_CATALOG, 1.0), lower=1.0)
+    end
+
+    A1 = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.0
+    end)
+    obs1 = HipparcosIADObs(; target=A1, blends=(), iad=HIP_IAD, variables=obsvars())
+    sys1 = Octofitter.System(name="hipsingle", bodies=[A1], observations=[obs1],
+        variables=sysvars(), observing_geometry=false)
+    @test Octofitter.nbodies(sys1) == 1
+    @test Octofitter.nrows(sys1) == 0
+
+    model1 = Octofitter.LogDensityModel(sys1; verbosity=0)
+    # parameter order: plx, then the observation's (jitter, Δra, Δdec, Δpmra, Δpmdec)
+    θ = [HIP_SOL.plx, 0.5, 0.1, -0.1, 0.05, -0.05]
+    nt = model1.arr2nt(θ)
+    @test nt.plx == HIP_SOL.plx
+    @test nt.observations.Hipparcos_IAD.hip_iad_jitter == 0.5
+
+    θt = model1.link(θ)
+    v1 = model1.ℓπcallback(θt)
+    @test isfinite(v1)
+    v1g, g = model1.∇ℓπcallback(θt)
+    @test v1g ≈ v1
+    @test all(isfinite, g)
+    gfd = FiniteDiff.finite_difference_gradient(
+        model1.ℓπcallback, θt, Val{:central}; relstep=1e-8, absstep=1e-8)
+    @test norm(g .- gfd) / norm(g) < 1e-6
+
+    # Equivalence: same model with a zero-mass, zero-flux companion bolted on.
+    A2 = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.0
+    end)
+    b2 = Octofitter.Body(name="b", about=A2, variables=@variables begin
+        mass = 0.0
+        M = 1.0
+        a = 4.7; e = 0.23; i = 0.94; ω = 1.31; Ω = 2.44; tp = 52000.0
+    end)
+    obs2 = HipparcosIADObs(; target=A2, blends=(), iad=HIP_IAD, variables=obsvars())
+    sys2 = Octofitter.System(name="hipdummy", bodies=[A2, b2], observations=[obs2],
+        variables=sysvars(), observing_geometry=false)
+    model2 = Octofitter.LogDensityModel(sys2; verbosity=0)
+    @test model2.D == model1.D   # the companion adds no free parameters
+    @test model1.ℓπcallback(θt) ≈ model2.ℓπcallback(model2.link(θ)) rtol=1e-12
+end

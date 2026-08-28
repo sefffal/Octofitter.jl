@@ -207,6 +207,11 @@ block defines chooses the frame: none gives physical-unit observables only,
 `plx` alone gives angular observables in mas, and the full set gives a
 rigorously propagated absolute frame. There is no `basis=` keyword.
 
+A system may contain a single `Body` and no orbits: the lone body *is* the
+system barycentre, and its motion is purely the frame's. That is the natural
+model for fitting the absolute astrometry of an isolated star (e.g. the
+first [`HipparcosIADObs`](@ref) tutorial) — no zero-mass companion needed.
+
 # Deferred lines
 A system line that mentions a body by name (`mut_inc = b.i - c.i`) is
 evaluated *after* every body block, so couplings, period ratios and global
