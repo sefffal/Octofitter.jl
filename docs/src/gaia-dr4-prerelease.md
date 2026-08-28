@@ -226,8 +226,11 @@ forward into the observation's block.
     two are the same to well within the errors. For a wide one they are not, and a model
     that pins `plx` tightly to a catalog value — which was itself fitted as a single-star
     photocentre solution — can produce a posterior with a long curved ridge that samplers
-    struggle to explore. If your orbit is wide compared to the mission baseline, give
-    `plx` room and check the `plx`–`a`–`mass` corner for that ridge.
+    struggle to explore. The model below keeps `plx` wide, which is all a compact orbit
+    needs. If yours is wide compared to the mission baseline, sample the *star's*
+    quantities instead and let the model derive the barycentre's — see
+    [Anchoring the frame to the star](@ref dr4-prerelease-anchored) — and check the
+    `plx`–`a`–`mass` corner either way.
 
 !!! note "`_query_gaia_dr3` is internal for now"
     The leading underscore is deliberate: the archive query layer will be replaced once
@@ -282,6 +285,78 @@ There is no system-level `M` any more: each body carries its own `mass`, and an 
 total mass comes from the hierarchy. A `Photocentre` target needs at least one body to
 declare a flux, which is what `flux = 1.0` on `A` is for; `flux = 0.0` on `b` makes the
 photocentre exactly the host, which is the right model for a dark companion.
+
+### [Anchoring the frame to the star](@id dr4-prerelease-anchored)
+
+The model above samples the *barycentre's* parallax, proper motion and position offset.
+The data measure none of them: every transit is a position of the **photocentre** — here
+the host star, since `b` is dark. For Gaia-4 the difference is small and the wide priors
+absorb it. For a massive companion on a wide orbit (Gaia BH3, below), the star's motion
+about the barycentre is large and the orbit unclosed, so the barycentric frame becomes
+degenerate with the orbit and the sampler crawls along a ridge.
+
+The fix is to sample what the data measure and *derive* the barycentre. A **deferred
+system line** — one that names a body — can solve `system_interim`, a system built from
+this model's own bodies, and ask where the star sits relative to the barycentre in the
+current draw:
+
+```julia
+gaia_obs = GaiaDR4AstromObs(
+    transit_level_data,
+    target = Photocentre,
+    ref    = Barycentre,
+    name="GaiaDR4",
+    variables=@variables begin
+        astrometric_jitter ~ LogUniform(0.00001, 10)
+        # The reference-point motion now comes from the system block:
+        ra_offset_mas  = system.bary_ra_offset_mas
+        dec_offset_mas = system.bary_dec_offset_mas
+        pmra  = system.bary_pmra
+        pmdec = system.bary_pmdec
+        ref_epoch = $REF_EPOCH_MJD
+    end
+)
+
+sys = System(
+    name="Gaia4",
+    bodies=[A, b],
+    observations=[gaia_obs],
+    variables=@variables begin
+        # Sample the star's own solution — the quantities the data measure…
+        plx_A   ~ Uniform(0, 100)
+        pmra_A  ~ Uniform(-1000, 1000)
+        pmdec_A ~ Uniform(-1000, 1000)
+        ra_offset_A_mas  ~ Normal(0, 1000)
+        dec_offset_A_mas ~ Normal(0, 1000)
+        # …and derive the barycentre's by subtracting A's modelled motion about it.
+        plx_interim = plx_A                                    # distance for the solve below
+        Δ = anchor_offsets(system_interim, :A, $REF_EPOCH_MJD) # deferred: names a body
+        plx = barycentre_parallax(plx_A, Δ.dz)
+        bary_pmra  = pmra_A  - Δ.pmra
+        bary_pmdec = pmdec_A - Δ.pmdec
+        bary_ra_offset_mas  = ra_offset_A_mas  - Δ.ra_cosdec
+        bary_dec_offset_mas = dec_offset_A_mas - Δ.dec
+    end
+)
+```
+
+Nothing downstream changes — the frame still means the barycentre, and the likelihood
+reads the same variables. What changed is which direction the sampler moves: `pmra_A` is
+pinned by the data whatever the mass ratio does. The parallax is covered too:
+[`barycentre_parallax`](@ref) converts the star's parallax to the barycentre's exactly,
+using the star's line-of-sight offset `Δ.dz` — about `dz·plx²/2×10⁸` mas, negligible
+here but not for a nearby wide binary. Priors on the anchored variables transfer with
+volume factor 1 (see [`AnchoredFrame`](@ref)'s docstring for the Jacobian).
+
+Starting values follow the sampled names — `plx_A = sol.parallax, pmra_A = sol.pmra, …`
+instead of `plx`, and the observation block now needs only `astrometric_jitter`. What
+anchoring does *not* buy is a licence to pin: `sol.parallax` is still a single-star fit
+that the very orbit you are fitting can bias, so it makes a starting point, not a tight
+prior.
+
+[Anchoring the frame to a source](@ref g23h-anchored) explains the mechanism —
+`system_interim`, [`anchor_offsets`](@ref), the Jacobian — and [`AnchoredFrame`](@ref)
+packages these lines for observation types that keep the frame in the system block.
 
 ## Initializing and sampling
 
@@ -504,8 +579,10 @@ nearby dormant black hole of Gaia Collaboration et al. (2024): a ~33 M⊙ compan
 metal-poor giant on a ~11.6 yr orbit. The pre-release gives 631 usable CCD observations
 over 64 transits; after `reduce_transits` that is **63 transits** spanning MJD 56957.6 –
 58818.6 (5.10 yr), which is only about half an orbital period — a good example of a
-system where the orbit is *not* closed by the DR4 baseline alone and where the priors on
-`a` and `mass` matter. Its DR3 RUWE is 3.41.
+system where the orbit is *not* closed by the DR4 baseline alone, where the priors on
+`a` and `mass` matter, and where
+[anchoring the frame to the star](@ref dr4-prerelease-anchored) pays off. Its DR3 RUWE
+is 3.41.
 
 **HD 114762** (`3937211745905473024`, G = 7.15, ϖ = 26.2 mas) is the historically
 interesting one: the companion announced by Latham et al. (1989) as the first
