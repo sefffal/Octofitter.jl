@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Basic Astrom Fit · Octofitter.jl</title><meta name="title" content="Basic Astrom Fit · Octofitter.jl"/><meta property="og:title" content="Basic Astrom Fit · Octofitter.jl"/><meta property="twitter:title" content="Basic Astrom Fit · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox" checked/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li class="is-active"><a class="tocitem" href>Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Relative Astrometry</a></li><li class="is-active"><a href>Basic Astrom Fit</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Basic Astrom Fit</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/rel-astrom.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="fit-astrometry"><a class="docs-heading-anchor" href="#fit-astrometry">Basic Astrometry Fit</a><a id="fit-astrometry-1"></a><a class="docs-heading-anchor-permalink" href="#fit-astrometry" title="Permalink"></a></h1><p>Here is a worked example of a one-planet model fit to relative astrometry (positions measured between the planet and the host star). </p><p>Start by loading the Octofitter and Distributions packages:</p><pre><code class="language-julia hljs">using Octofitter, Distributions</code></pre><h3 id="Specifying-the-data"><a class="docs-heading-anchor" href="#Specifying-the-data">Specifying the data</a><a id="Specifying-the-data-1"></a><a class="docs-heading-anchor-permalink" href="#Specifying-the-data" title="Permalink"></a></h3><p>We will create a likelihood object to contain our relative astrometry data. We can specify this data in several formats. It can be listed in the code or loaded from a file (eg. a CSV file, FITS table, or SQL database).</p><pre><code class="language-julia hljs">astrom_like = PlanetRelAstromLikelihood(
+    #        MJD         mas                       mas                        mas         mas
+    (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50360, ra = -492.67768482682357, dec = 21.63557115669823, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50480, ra = -485.9770335870402, dec = 51.147204404903704, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50600, ra = -478.1095526888573, dec = 80.53589069730698, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
+    instrument_name = &quot;GPI&quot; # optional -- name for this group of data
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PlanetRelAstromLikelihood Table with 6 columns and 8 rows:
+     epoch  ra        dec       σ_ra  σ_dec  cor
+   ┌────────────────────────────────────────────
+ 1 │ 50000  -505.764  -66.9298  10    10     0
+ 2 │ 50120  -502.57   -37.4722  10    10     0
+ 3 │ 50240  -498.209  -7.92755  10    10     0
+ 4 │ 50360  -492.678  21.6356   10    10     0
+ 5 │ 50480  -485.977  51.1472   10    10     0
+ 6 │ 50600  -478.11   80.5359   10    10     0
+ 7 │ 50720  -469.08   109.729   10    10     0
+ 8 │ 50840  -458.896  138.651   10    10     0</code></pre><p>You can also specify it in separation (mas) and positon angle (rad):</p><pre><code class="language-julia hljs">astrom_like_2 = PlanetRelAstromLikelihood(
+    (epoch = 50000, sep = 505.7637580573554, pa = deg2rad(24.1), σ_sep = 10, σ_pa =deg2rad(1.2), cor=0),
+    # ...etc.
+    instrument_name = &quot;GPI&quot; # optional -- name for this group of data
+)</code></pre><p>Another way we could specify the data is by column:</p><pre><code class="language-julia hljs">astrom_like = PlanetRelAstromLikelihood(
+    Table(
+        epoch= [50000,  50120, 50240, 50360,50480, 50600, 50720, 50840,], # MJD
+        ra = [-505.764, -502.57, -498.209, -492.678,-485.977, -478.11, -469.08, -458.896,], # mas
+        dec = [-66.9298, -37.4722, -7.92755, 21.6356, 51.1472,  80.5359,  109.729,  138.651, ], # mas
+        σ_ra = fill(10.0, 8),
+        σ_dec = fill(10.0, 8),
+        cor = fill(0.0, 8),
+    ),
+    instrument_name = &quot;GPI&quot; # optional -- name for this group of data
+)</code></pre><p>Finally we could also load the data from a file somewhere. Here is an example  of loading a CSV:</p><pre><code class="language-julia hljs">using CSV # must install CSV.jl first
+astrom_data = CSV.read(&quot;mydata.csv&quot;, Table)
+astrom_like = PlanetRelAstromLikelihood(
+    astrom_data,
+    instrument_name=&quot;GPI&quot;
+)</code></pre><p>You can also pass a DataFrame or any other table format.</p><p>In Octofitter, <code>epoch</code> is always the modified Julian date (measured in days). If you&#39;re not sure what this is, you can get started by just putting in arbitrary time offsets measured in days.</p><p>In this case, we specified <code>ra</code> and <code>dec</code> offsets in milliarcseconds. We could instead specify <code>sep</code> (projected separation) in milliarcseconds and <code>pa</code> in radians. You cannot mix the two formats in a single <code>PlanetRelAstromLikelihood</code> but you can create two different likelihood objects, one for each format.</p><h3 id="Creating-a-planet"><a class="docs-heading-anchor" href="#Creating-a-planet">Creating a planet</a><a id="Creating-a-planet-1"></a><a class="docs-heading-anchor-permalink" href="#Creating-a-planet" title="Permalink"></a></h3><p>We now create our first planet model. Let&#39;s name it planet <code>b</code>.  The name of the planet will be used in the output results.</p><p>In Octofitter, we specify planet and system models using a &quot;probabilistic programming language&quot;. Quantities with a <code>~</code> are random variables. The distributions on the right hand sides are <strong>priors</strong>. You must specify a  proper prior for any quantity which is allowed to vary. </p><p>We now create our planet <code>b</code> model using the <code>@planet</code> macro.</p><pre><code class="language-julia hljs">@planet b Visual{KepOrbit} begin
+    a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
+    e ~ Uniform(0.0, 0.5)
+    i ~ Sine()
+    ω ~ UniformCircular()
+    Ω ~ UniformCircular()
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50420)
+end astrom_like</code></pre><p>In the model definition, <code>b</code> is the name of the planet (it can be anything), <code>Visual{KepOrbit}</code> is the type of orbit parameterization (<a href="https://sefffal.github.io/PlanetOrbits.jl/dev/api/">see the PlanetOrbits.jl documentation page</a>).</p><p>After the <code>begin</code> comes our variable specification. Quantities with a <code>~</code> are random variables aka. <strong>our priors</strong>. You must specify a proper prior for any quantity which is allowed to vary.  &quot;Uninformative&quot; priors like <code>1/x</code> must be given bounds, and can be specified with <code>LogUniform(lower, upper)</code>.</p><div class="admonition is-warning" id="Warning-9adc3c52ef040507"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-9adc3c52ef040507" title="Permalink"></a></header><div class="admonition-body"><p>Make sure that variables like mass and eccentricity can&#39;t be negative. You can pass a distribution to <code>truncated</code> to prevent this, e.g. <code>M ~ truncated(Normal(1, 0.1),lower=0)</code>.</p></div></div><p>Priors can be any univariate distribution from the Distributions.jl package.</p><p>For a <code>KepOrbit</code> you must specify the following parameters:</p><ul><li><code>a</code>: Semi-major axis, astronomical units (AU)</li><li><code>i</code>: Inclination, radians</li><li><code>e</code>: Eccentricity in the range [0, 1)</li><li><code>ω</code>: Argument of periastron, radius</li><li><code>Ω</code>: Longitude of the ascending node, radians.</li><li><code>tp</code>: Epoch of periastron passage</li></ul><p>Many different distributions are supported as priors, including <code>Uniform</code>, <code>LogNormal</code>, <code>LogUniform</code>, <code>Sine</code>, and <code>Beta</code>. See the section on <a href="../priors/#priors">Priors</a> for more information. The parameters can be specified in any order.</p><p>You can also hardcode a particular value for any parameter if you don&#39;t want it to vary. Simply replace eg. <code>e ~ Uniform(0, 0.999)</code> with <code>e = 0.1</code>. This <code>=</code> syntax works for arbitrary mathematical expressions and even functions. We use it here to reparameterize <code>tp</code>.</p><p><code>tp</code> is a date which sets the location of the planet around its orbit. It repeats every orbital period and the orbital period depends on the scale of the orbit. This makes it quite hard to sample from. We therefore reparameterize using <code>θ</code> parameter, representing the position angle of the planet at a given reference epoch. This parameterization speeds up sampling quite a bit!</p><p>After the variables block are zero or more <code>Likelihood</code> objects. These are observations specific to a given planet that you would like to include in the model. If you would like to sample from the priors only, don&#39;t pass in any observations.</p><p>For this example, we specify <code>PlanetRelAstromLikelihood</code> block. This is where you can list the position of a planet relative to the star at different epochs.</p><h3 id="Creating-a-system"><a class="docs-heading-anchor" href="#Creating-a-system">Creating a system</a><a id="Creating-a-system-1"></a><a class="docs-heading-anchor-permalink" href="#Creating-a-system" title="Permalink"></a></h3><p>A system represents a host star with one or more planets. Properties of the whole system are specified here, like parallax distance and mass of the star. This is also where you will supply data like images, astrometric acceleration, or stellar radial velocity since they don&#39;t belong to any planet in particular.</p><pre><code class="language-julia hljs">@system Tutoria begin
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+end b</code></pre><p><code>Tutoria</code> is the name we have given to the system. It could be eg <code>PDS70</code>, or anything that will help you keep track of the results.</p><p>The variables block works just like it does for planets. Here, the two parameters you must provide are:</p><ul><li><code>M</code>: Gravitational parameter for the total mass of the system, expressed in units of Solar mass.</li><li><code>plx</code>: Distance to the system expressed in milliarcseconds of parallax.</li></ul><p>Make sure to truncate the priors to prevent unphysical negative masses or parallaxes.</p><p>After that, just list any planets that you want orbiting the star. Here, we pass planet <code>b</code>. This is also where we could pass likelihood objects for system-wide data like stellar radial velocity.</p><h3 id="Prepare-model"><a class="docs-heading-anchor" href="#Prepare-model">Prepare model</a><a id="Prepare-model-1"></a><a class="docs-heading-anchor-permalink" href="#Prepare-model" title="Permalink"></a></h3><p>We now convert our declarative model into efficient, compiled code:</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(Tutoria)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System Tutoria of dimension 11 and 11 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>This type implements the julia LogDensityProblems.jl interface and can be passed to a wide variety of samplers.</p><h3 id="Initialize-starting-points-for-chains"><a class="docs-heading-anchor" href="#Initialize-starting-points-for-chains">Initialize starting points for chains</a><a id="Initialize-starting-points-for-chains-1"></a><a class="docs-heading-anchor-permalink" href="#Initialize-starting-points-for-chains" title="Permalink"></a></h3><p>Run the <code>initialize!</code> function to find good starting points for the chain. You can provide guesses for parameters if you want to.</p><pre><code class="language-julia hljs">init_chain = initialize!(model) # No guesses provided, slower global optimization will be used</code></pre><pre><code class="language-julia hljs">init_chain = initialize!(model, (;
+    plx = 50,
+    M = 1.21,
+    planets = (;
+        b=(;
+            a = 10.0,
+            e = 0.01,
+            # note! Never initialize a value on the bound, exactly 0 eccentricity is disallowed by the `Uniform(0,1)` prior
+        )
+    )
+))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×16×1 Array{Float64, 3}):
+
+Iterations        = 1:1:1000
+Number of chains  = 1
+Samples per chain = 1000
+Wall duration     = 1.21 seconds
+Compute duration  = 1.21 seconds
+parameters        = M, plx, b_a, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_θy, b_θx, b_ω, b_Ω, b_θ, b_tp
+internals         = logpost
+
+Summary Statistics
+ <span class="sgr1"> parameters         mean         std      mcse    ess_bulk    ess_tail      r ⋯
+ <span class="sgr90">     Symbol      Float64     Float64   Float64     Float64     Float64   Floa ⋯
+
+           M       1.2021      0.0771    0.0025    945.7619    904.5700    0.9 ⋯
+         plx      50.0001      0.0227    0.0007    947.5717    992.3671    0.9 ⋯
+         b_a      11.0798      1.0734    0.0308   1193.7284    998.9087    0.9 ⋯
+         b_e       0.1938      0.0805    0.0026    939.5029    876.3151    0.9 ⋯
+         b_i       0.6335      0.1209    0.0037   1043.4855   1004.6833    0.9 ⋯
+        b_ωy       0.5533      0.6286    0.0191   1112.6303    868.6575    0.9 ⋯
+        b_ωx       0.3457      0.4084    0.0124   1060.9354    927.7721    0.9 ⋯
+        b_Ωy       0.7399      0.3578    0.0114    967.9296    893.1140    0.9 ⋯
+        b_Ωx       0.3874      0.4217    0.0140    914.2489    985.6804    0.9 ⋯
+        b_θy       0.0741      0.0089    0.0003    922.0427    835.5932    1.0 ⋯
+        b_θx      -0.9773      0.0729    0.0024    893.1805    706.4381    0.9 ⋯
+         b_ω       0.6543      1.0287    0.0335   1107.7191    957.7191    1.0 ⋯
+         b_Ω       0.5075      0.5860    0.0191    927.0425    988.0099    1.0 ⋯
+         b_θ      -1.4951      0.0064    0.0002   1042.6948    867.5731    0.9 ⋯
+        b_tp   43102.2933   2620.5422   85.8354    894.2458    895.0928    0.9 ⋯
+</span><span class="sgr36">                                                               2 columns omitted
+
+Quantiles
+  parameters         2.5%        25.0%        50.0%        75.0%        97.5%
+ </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
+
+           M       1.0435       1.1688       1.2125       1.2395       1.3380
+         plx      49.9593      49.9878      49.9968      50.0166      50.0400
+         b_a       8.6875      10.9533      11.3261      11.7166      12.6266
+         b_e       0.0184       0.1476       0.1894       0.2333       0.3255
+         b_i       0.4170       0.5101       0.6658       0.7285       0.8288
+        b_ωy      -1.0241       0.6685       0.7894       0.9176       1.0410
+        b_ωx      -0.6057       0.2492       0.4384       0.6374       0.8444
+        b_Ωy      -0.0144       0.5071       0.9332       0.9785       1.1420
+        b_Ωx      -0.1255       0.0529       0.3258       0.8132       1.0610
+        b_θy       0.0596       0.0689       0.0742       0.0819       0.0883
+        b_θx      -1.1091      -1.0255      -0.9773      -0.9479      -0.8006
+         b_ω      -0.8341       0.2851       0.6069       0.7948       2.8935
+         b_Ω      -0.1247       0.0576       0.3249       1.0220       1.5855
+         b_θ      -1.5087      -1.4994      -1.4965      -1.4900      -1.4844
+        b_tp   40667.6779   41054.1065   42090.6675   44753.6968   49035.4725
+</span></span></code></pre><h3 id="Visualize-the-starting-points"><a class="docs-heading-anchor" href="#Visualize-the-starting-points">Visualize the starting points</a><a id="Visualize-the-starting-points-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize-the-starting-points" title="Permalink"></a></h3><p>Plot the inital values to make sure that they are reasonable, and match your data. This is a great time to confirm that your data were entered in correctly.</p><pre><code class="language-julia hljs">using CairoMakie
+octoplot(model, init_chain)</code></pre><img src="68fc581f.png" alt="Example block output"/><p>The starting points for sampling look reasonable!</p><div class="admonition is-info" id="Note-7d5125eabbc3aa02"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-7d5125eabbc3aa02" title="Permalink"></a></header><div class="admonition-body"><p>The return value from <code>initialize!</code> is a &quot;variational approximation&quot;. You can pass that chain to any function expecting a <code>chain</code> argument, like <code>Octofitter.savechain</code> or <code>octocorner</code>. It gives a rough approximation of the posterior we expect. The central values are probably close, but the uncertainties are unreliable.</p></div></div><h3 id="Sampling"><a class="docs-heading-anchor" href="#Sampling">Sampling</a><a id="Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Sampling" title="Permalink"></a></h3><p>Now we are ready to draw samples from the posterior:</p><pre><code class="language-julia hljs">chain = octofit(model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (1000×28×1 Array{Float64, 3}):
+
+Iterations        = 1:1:1000
+Number of chains  = 1
+Samples per chain = 1000
+Wall duration     = 3.1 seconds
+Compute duration  = 3.1 seconds
+parameters        = M, plx, b_a, b_e, b_i, b_ωy, b_ωx, b_Ωy, b_Ωx, b_θy, b_θx, b_ω, b_Ω, b_θ, b_tp
+internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
+
+Summary Statistics
+ <span class="sgr1"> parameters         mean         std       mcse   ess_bulk   ess_tail      rh ⋯
+ <span class="sgr90">     Symbol      Float64     Float64    Float64    Float64    Float64   Float ⋯
+
+           M       1.1811      0.0959     0.0036   704.2649   648.3496    1.00 ⋯
+         plx      49.9993      0.0187     0.0006   907.4223   593.8112    1.00 ⋯
+         b_a      11.7780      2.2752     0.1402   245.7569   313.0496    1.00 ⋯
+         b_e       0.1576      0.1138     0.0065   307.8376   419.0989    1.00 ⋯
+         b_i       0.6327      0.1540     0.0095   283.6325   261.1875    1.00 ⋯
+        b_ωy      -0.0431      0.7495     0.0579   200.0304   781.2544    1.00 ⋯
+        b_ωx      -0.0540      0.6751     0.0551   166.6325   757.9030    1.00 ⋯
+        b_Ωy       0.0608      0.7448     0.1102    55.1621   385.3888    1.00 ⋯
+        b_Ωx       0.0833      0.6773     0.0984    57.5994   241.0397    1.00 ⋯
+        b_θy       0.0749      0.0109     0.0004   759.6095   306.3232    0.99 ⋯
+        b_θx      -1.0052      0.0987     0.0035   836.8297   560.7032    0.99 ⋯
+         b_ω      -0.2901      1.8579     0.1386   231.8360   650.7426    1.00 ⋯
+         b_Ω      -0.2650      1.7502     0.2173    96.8815   317.6240    1.00 ⋯
+         b_θ      -1.4965      0.0074     0.0003   813.6123   641.3347    1.00 ⋯
+        b_tp   42629.5788   5214.0891   329.0673   246.9617   642.8424    1.00 ⋯
+</span><span class="sgr36">                                                               2 columns omitted
+
+Quantiles
+  parameters         2.5%        25.0%        50.0%        75.0%        97.5%
+ </span><span class="sgr90">     Symbol      Float64      Float64      Float64      Float64      Float64
+
+           M       1.0131       1.1128       1.1804       1.2451       1.3823
+         plx      49.9606      49.9869      49.9996      50.0108      50.0356
+         b_a       8.1027      10.0905      11.3544      13.2475      16.8267
+         b_e       0.0067       0.0627       0.1326       0.2429       0.4096
+         b_i       0.2797       0.5401       0.6487       0.7436       0.9009
+        b_ωy      -1.0628      -0.7656      -0.1987       0.7528       1.0796
+        b_ωx      -1.0546      -0.6855      -0.1096       0.5695       1.0296
+        b_Ωy      -1.0772      -0.7069       0.1283       0.8148       1.0964
+        b_Ωx      -1.0340      -0.5315       0.2036       0.6881       1.0733
+        b_θy       0.0560       0.0671       0.0744       0.0819       0.0980
+        b_θx      -1.2069      -1.0713      -0.9999      -0.9338      -0.8258
+         b_ω      -2.9793      -2.1048      -0.1922       1.0944       3.0030
+         b_Ω      -2.9719      -2.0871       0.2641       1.0562       2.9208
+         b_θ      -1.5111      -1.5015      -1.4963      -1.4914      -1.4825
+        b_tp   30235.5670   39389.3753   43629.4224   46367.4052   49877.5208
+</span></span></code></pre><p>You will get an output that looks something like this with a progress bar that updates every second or so. You can reduce or completely silence the output by reducing the <code>verbosity</code> value down to 0.</p><p>Once complete, the <code>chain</code> object will hold the sampler results. Displaying it prints out a summary table like the one shown above. For a basic model like this, sampling should take less than a minute on a typical laptop.</p><p>Sampling can take much longer when you have measurements with very small uncertainties.</p><h3 id="Diagnostics"><a class="docs-heading-anchor" href="#Diagnostics">Diagnostics</a><a id="Diagnostics-1"></a><a class="docs-heading-anchor-permalink" href="#Diagnostics" title="Permalink"></a></h3><p>The first thing you should do with your results is check a few diagnostics to make sure the sampler converged as intended.</p><p>A few things to watch out for: check that you aren&#39;t getting many numerical errors (<code>ratio_divergent_transitions</code>).  This likely indicates a problem with your model: either invalid values of one or more parameters are encountered (e.g. the prior on semi-major axis includes negative values) or that there is a region of very high curvature that is failing to sample properly. This latter issue can lead to a bias in your results.</p><p>One common mistake is to use a distribution like <code>Normal(10,3)</code> for semi-major axis. This left tail of this distribution includes negative values, and our orbit model is not defined for negative semi-major axes. A better choice is a <code>truncated(Normal(10,3), lower=0.1)</code> distribution (not including zero, since a=0 is not defined).</p><p>You may see some warnings during initial step-size adaptation. These are probably nothing to worry about if sampling proceeds normally afterwards.</p><p>You should also check the acceptance rate (<code>mean_accept</code>) is reasonably high and the mean tree depth (<code>mean_tree_depth</code>) is reasonable (~4-8).  Lower than this and the sampler is taking steps that are too large and encountering a U-turn very quicky. Much larger than this and it might be being too conservative. </p><p>Next, you can make a trace plot of different variabes to visually inspect the chain:</p><pre><code class="language-julia hljs">using CairoMakie
+lines(
+    chain[&quot;b_a&quot;][:],
+    axis=(;
+        xlabel=&quot;iteration&quot;,
+        ylabel=&quot;semi-major axis (AU)&quot;
+    )
+)</code></pre><img src="50761828.png" alt="Example block output"/><p>And an auto-correlation plot:</p><pre><code class="language-julia hljs">using StatsBase
+using CairoMakie
+lines(
+    autocor(chain[&quot;b_e&quot;][:], 1:500),
+    axis=(;
+        xlabel=&quot;lag&quot;,
+        ylabel=&quot;autocorrelation&quot;,
+    )
+)</code></pre><img src="6f77dbfa.png" alt="Example block output"/><p>This plot shows that these samples are not correlated after only about 5 iterations. No thinning is necessary.</p><p>To confirm convergence, you may also examine the <code>rhat</code> column from chains. This diagnostic approaches 1 as the chains converge and should at the very least equal <code>1.0</code> to one significant digit (3 recommended).</p><p>Finaly, you might consider running multiple chains. Simply run <code>octofit</code> multiple times, and store the result in different variables. Then you can combine the chains using <code>chainscat</code> and run additional inter-chain convergence diagnostics:</p><pre><code class="language-julia hljs">using MCMCChains
+chain1 = octofit(model)
+chain2 = octofit(model)
+chain3 = octofit(model)
+merged_chains = chainscat(chain1, chain2, chain3)
+gelmandiag(merged_chains)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Gelman, Rubin, and Brooks diagnostic
+ <span class="sgr1"> parameters      psrf    psrfci
+ <span class="sgr90">     Symbol   Float64   Float64
+
+           M    1.0005    1.0028
+         plx    1.0001    1.0005
+         b_a    1.0015    1.0061
+         b_e    1.0011    1.0046
+         b_i    1.0085    1.0137
+        b_ωy    1.0007    1.0032
+        b_ωx    1.0009    1.0031
+        b_Ωy    1.0002    1.0020
+        b_Ωx    1.0019    1.0064
+        b_θy    0.9998    1.0003
+        b_θx    1.0010    1.0042
+         b_ω    1.0016    1.0064
+         b_Ω    1.0010    1.0050
+         b_θ    1.0002    1.0018
+        b_tp    1.0007    1.0038
+</span></span></code></pre><p>This will check that the means and variances are similar between chains that were initialized at different starting points.</p><h3 id="Analysis"><a class="docs-heading-anchor" href="#Analysis">Analysis</a><a id="Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Analysis" title="Permalink"></a></h3><p>As a first pass, let&#39;s plot a sample of orbits drawn from the posterior. The function <code>octoplot</code> is a conveninient way to generate a 9-panel plot of velocities and position:</p><pre><code class="language-julia hljs">using CairoMakie
+octoplot(model,chain)</code></pre><img src="54fcf115.png" alt="Example block output"/><p>This function draws orbits from the posterior and displays them in a plot. Any astrometry points are overplotted. </p><p>You can control what panels are displayed, the time range, colourscheme, etc. See the documentation on <code>octoplot</code> for more details.</p><h3 id="Pair-Plot"><a class="docs-heading-anchor" href="#Pair-Plot">Pair Plot</a><a id="Pair-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Pair-Plot" title="Permalink"></a></h3><p>A very useful visualization of our results is a pair-plot, or corner plot. We can use the <code>octocorner</code> function and our PairPlots.jl package for this purpose:</p><pre><code class="language-julia hljs">using CairoMakie
+using PairPlots
+octocorner(model, chain, small=true)</code></pre><img src="50a2f1cd.png" alt="Example block output"/><p>Remove <code>small=true</code> to display all variables.</p><p>In this case, the sampler was able to resolve the complicated degeneracies between eccentricity, the longitude of the ascending node, and argument of periapsis.</p><h3 id="Saving-your-chain"><a class="docs-heading-anchor" href="#Saving-your-chain">Saving your chain</a><a id="Saving-your-chain-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-your-chain" title="Permalink"></a></h3><p>Variables can be retrieved from the chains using the following sytnax: <code>sma_planet_b = chain[&quot;b_a&quot;,:,:]</code>. The first index is a string or symbol giving the name of the variable in the model. Planet variables are prepended by the name of the planet and an underscore.</p><p>You can save your chain in FITS table format by running:</p><pre><code class="language-julia hljs">Octofitter.savechain(&quot;mychain.fits&quot;, chain)</code></pre><p>You can load it back via:</p><pre><code class="language-julia hljs">chain = Octofitter.loadchain(&quot;mychain.fits&quot;)</code></pre><h3 id="Saving-your-model"><a class="docs-heading-anchor" href="#Saving-your-model">Saving your model</a><a id="Saving-your-model-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-your-model" title="Permalink"></a></h3><p>You may choose to save your model so that you can reload it later to make plots, etc:</p><pre><code class="language-julia hljs">using Serialization
+serialize(&quot;model1.jls&quot;, model)</code></pre><p>Which can then be loaded at a later time using:</p><pre><code class="language-julia hljs">using Serialization
+using Octofitter # must include all the same imports as your original script
+model = deserialize(&quot;model1.jls&quot;)</code></pre><div class="admonition is-warning" id="Warning-874f90810b48b375"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-874f90810b48b375" title="Permalink"></a></header><div class="admonition-body"><p>Serialized models are only loadable/restorable on the same computer, version of Octofitter, and version of Julia. They are not intended for long-term archiving. For reproducibility, make sure to keep your original model definition script.</p></div></div><h3 id="Comparing-chains"><a class="docs-heading-anchor" href="#Comparing-chains">Comparing chains</a><a id="Comparing-chains-1"></a><a class="docs-heading-anchor-permalink" href="#Comparing-chains" title="Permalink"></a></h3><p>We can compare two different chains by passing them both to <code>octocorner</code>. Let&#39;s compare the <code>init_chain</code> with the full results from <code>octofit</code>:</p><pre><code class="language-julia hljs">octocorner(model, chain, init_chain, small=true)</code></pre><img src="a92c8cb5.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../quick-start/">« Quick Start</a><a class="docs-footer-nextpage" href="../rel-astrom-obs/">Observable Priors »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Monday 2 June 2025 16:19">Monday 2 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
