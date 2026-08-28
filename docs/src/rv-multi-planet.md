@@ -249,7 +249,7 @@ In our two planet model above, we made two exactly equivalent planets. If you in
 
 For example, here is a histogram of the period of planet b:
 ```@example 1
-hist(vec(results_2p[:b_P_yrs]), bins=100)
+hist(vec(results_2p[:b_P]) ./ year2day_julian, bins=100)
 ```
 
 We can refine the two planet model a bit by adjusting the priors such that planet `c` always has a longer period than planet `b`.
@@ -287,7 +287,7 @@ planet_c_v2 = Body(
         ω ~ Uniform(0,2pi)
         mass ~ Uniform(0, 10mjup)   # M⊙
 
-        P = system.P * system.P_ratio_c
+        P = system.P_nom * system.P_ratio_c
         τ ~ Uniform(0,1.0)
         tp = τ*P + 58400
     end
@@ -345,8 +345,8 @@ For studies of mean motion resonances, it's useful to examine the posterior dist
 
 ```@example 1
 # Extract period samples for each planet
-P_b_samples = vec(results_2p_v2[:b_P_yrs])
-P_c_samples = vec(results_2p_v2[:c_P_yrs])
+P_b_samples = vec(results_2p_v2[:b_P])
+P_c_samples = vec(results_2p_v2[:c_P])
 
 # Compute period ratio (outer/inner)
 period_ratios = P_c_samples ./ P_b_samples
