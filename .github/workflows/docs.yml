@@ -72,6 +72,13 @@ jobs:
       # build ever moves back to an ephemeral runner.
       - name: Install dependencies
         run: julia --project=docs/ --color=yes -e 'using Pkg; Pkg.develop([PackageSpec(path=joinpath(pwd(),".planetorbits-v2")), PackageSpec(path=pwd()), PackageSpec(path=joinpath(pwd(),"OctofitterRadialVelocity")), PackageSpec(path=joinpath(pwd(),"OctofitterImages")), PackageSpec(path=joinpath(pwd(),"OctofitterInterferometry"))]);'
+      # buildpkg instantiates the *root* project, which declares
+      # `PlanetOrbits = "2"` — unregistered, so the registry alone cannot
+      # satisfy it. Dev the same checkout there first, exactly as ci.yml does;
+      # drop alongside the checkout step above once PlanetOrbits 2 is
+      # registered.
+      - name: Dev local PlanetOrbits into the root project
+        run: julia --project=. --color=yes -e 'using Pkg; Pkg.develop(PackageSpec(path=joinpath(pwd(), ".planetorbits-v2")))'
       - uses: julia-actions/julia-buildpkg@v1
       - name: Build and deploy
         env:
