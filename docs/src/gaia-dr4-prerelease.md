@@ -271,7 +271,7 @@ sys = System(
     bodies=[A, b],
     observations=[gaia_obs],
     variables=@variables begin
-        plx ~ truncated(Normal(sol.parallax, sol.parallax_error), lower=1)
+        plx ~ Uniform(0, 100)
     end
 )
 
