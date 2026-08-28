@@ -493,6 +493,7 @@ the panels and are not read from the theme.
 | `channels=nothing` | Restrict the figure to some channels or observables |
 | `whiten=nothing` | Divide residuals by their uncertainty (default: on when several draws are shown, and required then) |
 | `boxwidth=nothing` | Width of the residual boxes in x units (default: from the epoch spacing) |
+| `gpcurve=nothing` | Add each draw's conditioned activity model to its own curve (default: on for several draws) |
 | `gpband=nothing` | Correlated-noise bands (default: on only for a single draw) |
 | `tmin=nothing`, `tmax=nothing` | Ends of the epoch grid — MJD, a date string, or a `Date` (default: from the data and the period) |
 | `ts=nothing` | The epoch grid itself, replacing the automatic one |
@@ -621,10 +622,20 @@ spacing of the epochs and are narrow by design; `boxwidth=` (in x units — days
 time panel, cycles on a phase panel) sets them by hand when a dataset defeats that.
 With `ndraws=1` there is one z-score per point and it is drawn as a marker instead.
 
-Correlated-noise bands ([`noisemodel`](@ref)) are likewise off unless a single draw
-is shown: 250 draws of "orbit" and 250 of "orbit + activity" on one axis is twice
-the ink for an envelope that is a different draw's activity model at every epoch.
-`gpband=true` overrides that.
+## Where a fitted noise model goes
+
+A Gaussian process ([`noisemodel`](@ref)) is conditioned on *one draw's* residuals,
+so it belongs to that draw and nothing else. With many draws the honest way to show
+it is therefore in the curves: each draw's curve is its own orbit plus its own
+conditioned GP mean ([`noisecurves`](@ref)), so the panel shows 250 complete models
+and the spread between them is the uncertainty. Bands are off there, and
+deliberately — v8 drew one per draw, and 250 envelopes, each a different draw's
+activity model, is not a readable figure.
+
+With a single draw it is the other way round: the plain orbit curve, its GP-added
+twin, and a ±σ band between them, which is the picture of what the activity model
+absorbed. `gpcurve=`/`gpband=` force either, and a model whose GP cannot be
+predicted falls back to the orbit alone with a warning.
 
 ## Why phase folds are off by default
 

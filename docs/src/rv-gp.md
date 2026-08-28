@@ -165,12 +165,20 @@ added to the error bars.
 rvplot(model, chain)
 ```
 
-Plot a sample of many draws. Here the panels show the orbit alone — an
-activity model is a property of a single draw, and a band per draw is not a
-picture of anything:
+Plot a sample of many draws. Each curve is that draw's orbit plus that draw's
+own conditioned Gaussian process, so the ensemble tracks the activity instead
+of running through the middle of it, and the spread between the curves is the
+uncertainty:
 ```@example 1
 octoplot(model, chain)
 ```
+
+!!! note "No band here, on purpose"
+    A band per draw was tried in v8 and is unreadable — 250 envelopes, each
+    belonging to a different activity model. The band is a single-draw device
+    and lives in `rvplot`. To see the Keplerian signal on its own, fold it:
+    `octoplot(model, chain; show_phase=true)`. `gpcurve=false` goes back to
+    plain orbit curves.
 
 Some optional tweaks to the appearance:
 ```@example 1
