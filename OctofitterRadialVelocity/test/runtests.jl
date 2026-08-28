@@ -90,10 +90,37 @@ end
     Σ = kernelmatrix(kern, EPOCHS) + Diagonal(σ .^ 2 .+ 1.0^2)
     @test ll_of(obs) ≈ logpdf(MvNormal(Symmetric(Σ)), resid) rtol = 1e-8
 
-    # Prediction is not implemented for AbstractGPs — a hole inherited from
-    # v1, and deliberately still a loud error rather than a wrong number.
-    sub = Octofitter.likeobj_from_epoch_subset(obs, 3)
-    @test_throws r"not implemented" ll_of(sub)
+    # Prediction *is* implemented for AbstractGPs — `gp_predict` on a
+    # `FiniteGP`, which closes the hole v1 left. Pin it against the textbook
+    # call rather than against itself, since both callers (cross-validation,
+    # and the correlated-noise curves the plots draw) trust these numbers.
+    σ² = σ .^ 2 .+ 1.0^2
+    fx = Octofitter.gp_condition(GP(kern), EPOCHS, σ²)
+    xs = collect(range(first(EPOCHS), last(EPOCHS), length=7))
+    m, v = Octofitter.gp_predict(fx, resid, xs)
+    post = AbstractGPs.posterior(GP(kern)(EPOCHS, σ²), resid)
+    @test m ≈ AbstractGPs.mean(post, xs) rtol = 1e-12
+    @test v ≈ AbstractGPs.var(post, xs) rtol = 1e-12
+
+    # And so cross-validation works, exactly as it does for Celerite:
+    # p(all) = p(train) · p(test | train) for one held-out point. The identity
+    # is internal to the likelihood — every term uses the same RV model — so
+    # it pins the GP conditioning without depending on the model's absolute
+    # value.
+    mk(rows) = RadialVelocityObs((epoch=EPOCHS[rows], rv=(reflex.+resid)[rows], σ_rv=σ[rows]);
+        target=:A, ref=Barycentre, name="rv",
+        gaussian_process=θ_obs -> GP(θ_obs.gp_η₁^2 * SqExponentialKernel() ∘
+                                     ScaleTransform(1 / θ_obs.gp_η₂)),
+        variables=@variables begin
+            jitter = 1.0
+            gp_η₁ = $η₁
+            gp_η₂ = $η₂
+        end)
+    k = 3
+    sub = Octofitter.likeobj_from_epoch_subset(mk(eachindex(EPOCHS)), k)
+    @test sub.held_out_table.epoch == [EPOCHS[k]]
+    @test ll_of(mk(setdiff(eachindex(EPOCHS), k))) + ll_of(sub) ≈
+          ll_of(mk(eachindex(EPOCHS))) rtol = 1e-8
 end
 
 @testset "Celerite backend" begin
