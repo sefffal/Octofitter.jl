@@ -12,8 +12,8 @@ If your likelihood map is not centered on the star, you can specify offset dimen
 
 !!! note
     Image modelling is supported in Octofitter via the extension package OctofitterImages.
-    While v9 is an unregistered prerelease it must be installed from the `v2` branch, in the same `Pkg.add` as Octofitter itself —
-    see [Installation](@ref install).
+    It is unregistered — install it with a `PackageSpec` pointing at the Octofitter
+    repository; see [Installation](@ref install).
 
 !!! note
     For simple models of interferometer data, OctofitterInterferometry.jl can already handle fitting point sources directly to visibilities.

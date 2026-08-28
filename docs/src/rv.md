@@ -4,8 +4,7 @@ In this example, we will fit an orbit model to a combination of radial velocity 
 
 !!! note
     The public RV archive loaders and the marginalized RV likelihood are supplied by the extension package OctofitterRadialVelocity.
-    While v9 is an unregistered prerelease it must be installed from the `v2` branch, in the same `Pkg.add` as Octofitter itself —
-    see [Installation](@ref install).
+    Install it with `pkg> add OctofitterRadialVelocity` — see [Installation](@ref install).
 
 Datasets from radial velocity instruments are modelled together with separate jitters and instrumental offsets.
 

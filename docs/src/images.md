@@ -10,8 +10,8 @@ Sampling from images can be freely combined with any known astrometry points, as
 
 !!! note
     Image modelling is supported in Octofitter via the extension package OctofitterImages.
-    While v9 is an unregistered prerelease it must be installed from the `v2` branch, in the same `Pkg.add` as Octofitter itself —
-    see [Installation](@ref install).
+    It is unregistered — install it with a `PackageSpec` pointing at the Octofitter
+    repository; see [Installation](@ref install).
 
 ## Preparing images
 The first step will be to load your images. For this, we will use our AstroImages.jl package.

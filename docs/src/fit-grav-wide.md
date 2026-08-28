@@ -6,8 +6,8 @@ The closure phases are mapped to a set of non-redundant kernel phases. All spect
 
 !!! note
     GRAVITY modelling is supported in Octofitter via the extension package OctofitterInterferometry.
-    While v9 is an unregistered prerelease it must be installed from the `v2` branch, in the same `Pkg.add` as Octofitter itself —
-    see [Installation](@ref install).
+    It is unregistered — install it with a `PackageSpec` pointing at the Octofitter
+    repository; see [Installation](@ref install).
 
 The astrophysical model is a sum of point sources:
 
