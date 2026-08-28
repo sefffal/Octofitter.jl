@@ -664,10 +664,15 @@ unmodified so each port is a diff rather than a rewrite.
   and `pmaplot`'s proper-motion *vector* panels (μα⋆ against μδ with 1σ crosses);
   the same information is in the `pmra`/`pmdec` panels and their whitened residual
   strips.
-- **`gp_predict` for the AbstractGPs backend**, so GP cross-validation works with
-  the Celerite backend only (a pre-existing v8 hole, now a clear error).
+Gaussian-process prediction is **not** on that list: `Octofitter.gp_predict` is
+implemented for *both* backends — Celerite, and AbstractGPs through
+`AbstractGPs.posterior` and `mean_and_var` — so GP cross-validation and the
+correlated-noise curves and bands [`rvplot`](@ref) and [`octoplot`](@ref) draw
+work with either. v8 had neither: its cross-validation path errored for every
+non-Celerite GP, and its plots reached for a `Main.AbstractGPs` binding and
+silently drew nothing when the user had not imported it.
 
-Plotting in general is **not** on that list: `ext/OctofitterMakieExt.jl` is the
+Plotting in general is **not** on that list either: `ext/OctofitterMakieExt.jl` is the
 new v9 plotting layer, built on the backend-agnostic API in
 `src/plotting-api.jl` ([`octoplot`](@ref), [`PosteriorSeries`](@ref),
 [`ObservableQuery`](@ref), [`plotchannels`](@ref)/`Octofitter.residuals`,

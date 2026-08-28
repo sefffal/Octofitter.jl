@@ -417,7 +417,7 @@ Octofitter.pointwise_like(model_with_marginalized_rv, chain)
 
 Use a plain `RadialVelocityObs` with an explicit `offset` variable if you need to cross-validate radial velocities.
 
-In addition, holding out rows from a `RadialVelocityObs` with an `AbstractGPs` based GP is not supported. It works correctly with the **Celerite** backend, and does all the behind the scenes work to do cross-validation correctly in the presence of a Gaussian process.
+Holding out rows from a `RadialVelocityObs` that carries a Gaussian process works with **both** GP backends — **Celerite** and **AbstractGPs** — and does all the behind the scenes work to do cross-validation correctly in the presence of a Gaussian process: the process is conditioned on the retained rows only, and each held-out point is then scored against the predictive mean and variance there, with that point's own measurement error and jitter added.
 
 ## See also
 
