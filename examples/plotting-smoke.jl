@@ -510,6 +510,115 @@ let m = sparse_rv_model(60), c = fakechain(m, 20; seed=13)
         "($(count(>(floor60 + 1e-9), errs)) of 20, max $(round(maximum(errs); digits=3)))")
 end
 
+step("gaiastarplot: the parallax ellipse in the corner")
+
+# A DR4 model built off the GOST forecast the docs already ship, so this needs
+# neither the network nor the DE440 ephemeris: `GaiaDR4AstromObs` takes the
+# parallax factor from the table, and the corner ellipse is closed-form.
+function dr4_model(; withframe::Bool)
+    gost = CSV.read(joinpath(@__DIR__, "..", "docs", "src",
+            "GOST-158.30707896392835-40.42555422701387-dr3.csv"),
+        Table, normalizenames=true)
+    tbl = gaia_dr4_transit_template(; σ_al=0.15, forecast_table=gost)
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass ~ truncated(Normal(1.0, 0.05), lower=0.5)
+    end)
+    b = Octofitter.Body(name="b", about=A, variables=@variables begin
+        mass ~ Uniform(0.002, 0.02)
+        a ~ Uniform(2.9, 3.1)
+        e = 0.2
+        i = 0.7
+        ω = 1.0
+        Ω = 2.0
+        tp = 57000.0
+    end)
+    gaia = GaiaDR4AstromObs(tbl; target=Photocentre, ref=Barycentre, name="GaiaDR4",
+        variables=@variables begin
+            astrometric_jitter = 0.0
+            ra_offset_mas = 0.0
+            dec_offset_mas = 0.0
+            pmra = 0.0
+            pmdec = 0.0
+            ref_epoch = 57388.5
+        end)
+    # The sky direction is what the ellipse is projected onto. `withframe=false`
+    # is the model that declares none, which must lose the ellipse and keep the
+    # panel rather than erroring.
+    sysvars = withframe ?
+        (@variables begin
+            plx ~ truncated(Normal(25.0, 0.5), lower=1.0)
+            ra = 158.30707896392835
+            dec = 40.42555422701387
+        end) :
+        (@variables begin
+            plx ~ truncated(Normal(25.0, 0.5), lower=1.0)
+        end)
+    return Octofitter.LogDensityModel(
+        Octofitter.System(name="dr4smoke", bodies=[A, b], observations=[gaia],
+            variables=sysvars), verbosity=0)
+end
+
+# `poly!` is the only one of its kind `gaiastarplot!` draws, so counting the
+# `Poly` plots on the axis counts ellipses without guessing at coordinates.
+npolys(ax) = count(p -> p isa Makie.Poly, ax.scene.plots)
+
+# The drawn ellipse's vertices. Makie may hand `poly!` back either the point
+# vector it was given or a converted `Polygon`, so accept both rather than
+# betting on one.
+function polypoints(ax)
+    pol = only(p for p in ax.scene.plots if p isa Makie.Poly)
+    v = pol[1][]
+    v isa AbstractVector{<:Makie.Point} && return collect(v)
+    v isa AbstractVector && return collect(Makie.GeometryBasics.coordinates(only(v)))
+    return collect(Makie.GeometryBasics.coordinates(v))
+end
+ellipse_extent(ax) = (pts = polypoints(ax);
+    max(maximum(p[1] for p in pts) - minimum(p[1] for p in pts),
+        maximum(p[2] for p in pts) - minimum(p[2] for p in pts)))
+
+# `gaiastarplot!` returns the `Axis` itself, so nothing here has to dig a block
+# out of a `Figure`.
+panel(m, c; kw...) = (f = Makie.Figure(); (f, gaiastarplot!(f[1, 1], m, c, 1; kw...)))
+
+let m = dr4_model(withframe=true), c = fakechain(m, 4; seed=7)
+    gaiastarplot(m, c, 1; fname=joinpath(OUT, "12-gaiastarplot.png"))
+    _, ax = panel(m, c)
+    check(npolys(ax) == 1, "the ellipse is drawn when the model declares ra/dec")
+
+    # Not to scale: doubling `ellipse_scale` must double the drawn ellipse.
+    _, ax2 = panel(m, c; ellipse_scale=0.32)
+    r = ellipse_extent(ax2) / ellipse_extent(ax)
+    check(isapprox(r, 2.0; rtol=1e-3),
+        "ellipse_scale=0.32 draws it exactly twice as big (ratio $(round(r, digits=4)))")
+
+    # Shape, not just size: the drawn ellipse must have the axis ratio the
+    # source's ecliptic latitude demands, |sin β|. This is the check that would
+    # catch the ellipse being squashed by a non-uniform scaling.
+    pts = polypoints(ax)
+    cx = sum(p[1] for p in pts) / length(pts)
+    cy = sum(p[2] for p in pts) / length(pts)
+    rr = [hypot(p[1] - cx, p[2] - cy) for p in pts]
+    β = asind(sind(40.42555422701387) * cosd(Octofitter.obliquity_J2000_deg) -
+              cosd(40.42555422701387) * sind(Octofitter.obliquity_J2000_deg) *
+              sind(158.30707896392835))
+    got = minimum(rr) / maximum(rr)
+    check(isapprox(got, abs(sind(β)); atol=2e-3),
+        "…with axis ratio |sin β| = $(round(abs(sind(β)), digits=4)) (drew $(round(got, digits=4)))")
+
+    _, ax3 = panel(m, c; parallax_ellipse=false)
+    check(npolys(ax3) == 0, "parallax_ellipse=false drops it")
+end
+
+let m = dr4_model(withframe=false), c = fakechain(m, 4; seed=7)
+    # The decoration is on by default, so a model that cannot supply a sky
+    # direction has to lose the ellipse silently — never the whole figure.
+    gaiastarplot(m, c, 1; fname=joinpath(OUT, "12b-gaiastarplot-noframe.png"))
+    _, ax = panel(m, c)
+    check(npolys(ax) == 0, "no ra/dec: no ellipse, and no error")
+    _, ax2 = panel(m, c; ra=158.30707896392835, dec=40.42555422701387)
+    check(npolys(ax2) == 1, "…and ra=/dec= supplies it explicitly")
+end
+
 step("animation")
 mktempdir() do d
     f = Octofitter.rvplot_animated(model, chain; N=3, fname=joinpath(d, "rv.gif"))

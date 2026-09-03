@@ -2189,9 +2189,70 @@ function _onedraw(model, chain, sample_idx)
     return PosteriorSeries(model, chain; ii=[i]), i
 end
 
+# The source's sky direction, which the parallax factors are projected onto.
+# Explicit `ra`/`dec` win, then a published DR3 solution, then the system's own
+# absolute-frame variables. `nothing` means the model simply does not say —
+# `skytrackplot` cannot draw at all without it and errors, while for
+# `gaiastarplot` it costs only a decoration, so that one skips quietly.
+function _skydirection(θ; ra=nothing, dec=nothing, gaia_id=nothing)
+    if ra !== nothing && dec !== nothing
+        return (Float64(ra), Float64(dec))
+    elseif gaia_id !== nothing
+        cat = Octofitter.gaia_dr3_solution(; gaia_id)
+        return (Float64(cat.ra), Float64(cat.dec))
+    elseif hasproperty(θ, :ra) && hasproperty(θ, :dec)
+        return (Float64(θ.ra), Float64(θ.dec))
+    else
+        return nothing
+    end
+end
+
+# The parallax ellipse as a corner annotation, in the manner of the beam
+# ellipse on a radio map: it declares which way — and how anisotropically —
+# parallax pushes the source, so a reader can see at a glance whether a
+# posterior draw's wobble runs along the parallax direction or across it.
+#
+# Deliberately *not* to scale. Its size is a fixed fraction of the panel, so
+# it never competes with the reflex track for the eye and never depends on the
+# parallax being fitted. Shape and orientation are the whole content, and
+# those come from `Octofitter.parallax_ellipse`, which is exact for a circular
+# Earth orbit and — unlike the ephemeris — needs no data dependency.
+#
+# `xs`/`ys` are the panel's data in data coordinates; the ellipse is placed
+# just *outside* their bounding box, in the lower corner that is on the left
+# once `xreversed` is accounted for, so it can never land on top of a datum.
+# Autolimits then take it in and Makie's own padding brings it inside the
+# frame. A caller who fixes the limits by hand may crop it; that is the price
+# of keeping this a plain data-space plot that links and reverses like the
+# rest of the panel.
+function _parallax_ellipse!(ax, α, δ, xs, ys; scale=0.16, color=(:grey30, 0.55))
+    e = Octofitter.parallax_ellipse(α, δ)
+    fx = [x for x in xs if isfinite(x)]
+    fy = [y for y in ys if isfinite(y)]
+    (isempty(fx) || isempty(fy)) && return nothing
+    xlo, xhi = extrema(fx)
+    ylo, yhi = extrema(fy)
+    # A DataAspect panel maps one data unit to one screen unit in *both*
+    # directions, so the ellipse must be scaled by a single number — scaling
+    # x and y separately would draw a shape that is not the parallax ellipse.
+    span = min(xhi - xlo, yhi - ylo)
+    span > 0 || (span = max(xhi - xlo, yhi - ylo))
+    span > 0 || return nothing
+    r = scale * span / 2
+    pad = 0.35 * r
+    # `xreversed` flips the screen sense of x, so "the left-hand corner" is the
+    # larger data x there and the smaller one otherwise.
+    cx = ax.xreversed[] ? xhi + pad + r : xlo - pad - r
+    cy = ylo - pad - r
+    pts = Makie.Point2f.(cx .+ r .* e.raoff, cy .+ r .* e.decoff)
+    return Makie.poly!(ax, pts; color=(:grey, 0.10),
+        strokecolor=color, strokewidth=1)
+end
+
 """
     gaiastarplot(model, chain, sample_idx=MAP; keplerian_mult=1, ntrack=200,
-                 fname=nothing, figure=(;), axis=(;))
+                 parallax_ellipse=true, ra=nothing, dec=nothing, gaia_id=nothing,
+                 ellipse_scale=0.16, fname=nothing, figure=(;), axis=(;))
 
 The source's reflex track in the Gaia frame for one draw, with each transit's
 along-scan residual re-projected into the sky plane along that transit's own
@@ -2207,6 +2268,9 @@ was.)
 `sample_idx` selects the draw — the maximum-posterior one by default, any row
 index otherwise. Comparing draws is the point of [`gaiastarplot!`](@ref),
 which draws into a cell of a figure you already have.
+
+A faint [`parallax_ellipse`](@ref) is annotated in the corner by default —
+see [`gaiastarplot!`](@ref) for what it is and how to turn it off.
 """
 function Octofitter.gaiastarplot(model::Octofitter.LogDensityModel, chain::Chains,
                                  sample_idx=nothing;
@@ -2219,7 +2283,8 @@ end
 
 """
     gaiastarplot!(gp, model, chain, sample_idx=MAP; keplerian_mult=1,
-                  ntrack=200, axis=(;))
+                  ntrack=200, parallax_ellipse=true, ra=nothing, dec=nothing,
+                  gaia_id=nothing, ellipse_scale=0.16, axis=(;))
 
 [`gaiastarplot`](@ref) into `gp`: a grid cell (`fig[i, j]`), a whole figure or
 layout — one axis at `[1, 1]` — or an `Axis` the caller has already made and
@@ -2228,10 +2293,38 @@ styled. Returns the `Axis`.
 A grid of cells each showing a different `sample_idx` is the honest picture of
 an astrometric posterior: several quite different orbits, each passing through
 the same transits.
+
+## The parallax ellipse
+
+`parallax_ellipse=true` (the default) annotates the lower corner with the
+source's annual [`parallax_ellipse`](@ref), drawn faintly and in the same data
+coordinates as the track — so it reverses with `xreversed` and reads against
+the panel the way the track does. Comparing a draw's reflex loop against it
+answers the question the DR4 geometry keeps raising: is this wobble running
+along the direction parallax already pushes the source, or across it?
+
+It is **not to scale**. Its size is `ellipse_scale` × the panel, the way a
+radio map's beam ellipse is a fixed size; only its *shape and orientation*
+carry information. Set `ellipse_scale` to resize it, or
+`parallax_ellipse=false` to drop it.
+
+The ellipse needs the source's sky direction. It is taken from the system's
+own `ra`/`dec` frame variables when the model declares an absolute frame;
+otherwise pass `ra=`/`dec=` in degrees, or `gaia_id=`, which reads them from
+the published solution via [`gaia_dr3_solution`](@ref). **A model that
+declares none of these simply gets no ellipse** — this is a decoration that is
+on by default, so it must never turn a working call into an error. If you
+expected one and do not see one, that is why.
+
+Unlike [`skytrackplot`](@ref), this needs no ephemeris: the annotation is
+computed in closed form, so it does not pull in the DE440 data dependency.
 """
 function Octofitter.gaiastarplot!(gp, model::Octofitter.LogDensityModel, chain::Chains,
                                   sample_idx=nothing;
                                   keplerian_mult=1.0, ntrack::Integer=200,
+                                  parallax_ellipse::Bool=true, ra=nothing,
+                                  dec=nothing, gaia_id=nothing,
+                                  ellipse_scale::Real=0.16,
                                   axis=(;))
     sys = model.system
     obs = _theobs(sys, Octofitter.GaiaDR4AstromObs, "gaiastarplot")
@@ -2288,6 +2381,17 @@ function Octofitter.gaiastarplot!(gp, model::Octofitter.LogDensityModel, chain::
         color=WONG[2], strokecolor=:black, strokewidth=1.5, markersize=8)
     Makie.scatter!(ax, [0.0], [0.0];
         marker='★', markersize=20, color=:white, strokecolor=:black, strokewidth=1.5)
+
+    # Last, so it is placed against the full extent of everything above it —
+    # and so a model that cannot supply a sky direction has still had its
+    # whole panel drawn by the time the decoration is skipped.
+    if parallax_ellipse
+        # (The keyword shadows the exported `parallax_ellipse` function inside
+        # this body, which is why `_parallax_ellipse!` calls it qualified.)
+        dir = _skydirection(series.thetas[1]; ra, dec, gaia_id)
+        dir !== nothing && _parallax_ellipse!(ax, dir[1], dir[2],
+            vcat(tx, dx[u], [0.0]), vcat(ty, dy[u], [0.0]); scale=ellipse_scale)
+    end
     return ax
 end
 
@@ -2381,20 +2485,13 @@ function Octofitter.skytrackplot(model::Octofitter.LogDensityModel, chain::Chain
     obsns = hasproperty(θ, :observations) ? θ.observations : (;)
     θ_obs = hasproperty(obsns, key) ? getproperty(obsns, key) : (;)
 
-    α, δ = if ra !== nothing && dec !== nothing
-        Float64(ra), Float64(dec)
-    elseif gaia_id !== nothing
-        cat = Octofitter.gaia_dr3_solution(; gaia_id)
-        Float64(cat.ra), Float64(cat.dec)
-    elseif hasproperty(θ, :ra) && hasproperty(θ, :dec)
-        Float64(θ.ra), Float64(θ.dec)
-    else
-        error("""
+    dir = _skydirection(θ; ra, dec, gaia_id)
+    dir === nothing && error("""
         skytrackplot needs the source's sky direction to project the parallax
         ellipse onto, and this model has no absolute frame to take it from.
         Pass `ra=`/`dec=` in degrees, or `gaia_id=` to read them from the
         published Gaia DR3 solution.""")
-    end
+    α, δ = dir
 
     epochs = collect(Float64, obs.table.epoch)
     tgrid = if ts !== nothing
