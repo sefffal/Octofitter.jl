@@ -2269,8 +2269,12 @@ was.)
 index otherwise. Comparing draws is the point of [`gaiastarplot!`](@ref),
 which draws into a cell of a figure you already have.
 
-A faint [`parallax_ellipse`](@ref) is annotated in the corner by default —
-see [`gaiastarplot!`](@ref) for what it is and how to turn it off.
+A faint [`parallax_ellipse`](@ref) is annotated in the corner by default. It
+needs the source's sky direction, and most DR4 models do not declare one — they
+sample `plx` at the system level and keep position and proper motion in the
+observation's variables as offsets — so pass `ra=`/`dec=` in degrees (or
+`gaia_id=`) if you want it. See [`gaiastarplot!`](@ref) for what it is, and how
+to resize or drop it.
 """
 function Octofitter.gaiastarplot(model::Octofitter.LogDensityModel, chain::Chains,
                                  sample_idx=nothing;
@@ -2315,6 +2319,14 @@ the published solution via [`gaia_dr3_solution`](@ref). **A model that
 declares none of these simply gets no ellipse** — this is a decoration that is
 on by default, so it must never turn a working call into an error. If you
 expected one and do not see one, that is why.
+
+Expect to pass it. A `GaiaDR4AstromObs` fit needs no absolute frame — the
+along-scan abscissae measure *offsets*, so the usual model samples `plx` as a
+system variable and leaves `ra_offset_mas`, `dec_offset_mas`, `pmra` and
+`pmdec` to the observation. Such a model carries no `ra`/`dec` for the ellipse
+to find. The auto-detected case is a model built with a full absolute frame
+(`plx, ra, dec, pmra, pmdec, rv, ref_epoch` as system variables), which is the
+less common shape here.
 
 Unlike [`skytrackplot`](@ref), this needs no ephemeris: the annotation is
 computed in closed form, so it does not pull in the DE440 data dependency.
