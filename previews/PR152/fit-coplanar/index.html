@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Resonant Co-Planar Model · Octofitter.jl</title><meta name="title" content="Resonant Co-Planar Model · Octofitter.jl"/><meta property="og:title" content="Resonant Co-Planar Model · Octofitter.jl"/><meta property="twitter:title" content="Resonant Co-Planar Model · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li><li><a class="tocitem" href="../v9-migration/">Migrating to v9</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox" checked/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li class="is-active"><a class="tocitem" href>Resonant Co-Planar Model</a><ul class="internal"><li><a class="tocitem" href="#Data"><span>Data</span></a></li><li><a class="tocitem" href="#The-bodies"><span>The bodies</span></a></li><li><a class="tocitem" href="#Exact-Co-Planar-Model"><span>Exact Co-Planar Model</span></a></li><li><a class="tocitem" href="#Approximately-Co-Planar-Model"><span>Approximately Co-Planar Model</span></a></li><li><a class="tocitem" href="#Dynamical-stability-priors"><span>Dynamical stability priors</span></a></li></ul></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../gaia-dr4-prerelease/">Gaia DR4</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li><li><a class="tocitem" href="../completeness/">Detection Completeness Mapping</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvplot/">Radial velocity figures</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../orbit-computation/">How Orbits Are Computed</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Relative Astrometry</a></li><li class="is-active"><a href>Resonant Co-Planar Model</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Resonant Co-Planar Model</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/fit-coplanar.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="fit-coplanar"><a class="docs-heading-anchor" href="#fit-coplanar">Hierarchical Co-Planar, Near-Resonant Model</a><a id="fit-coplanar-1"></a><a class="docs-heading-anchor-permalink" href="#fit-coplanar" title="Permalink"></a></h1><p>This example shows how you can fit a two planet model to relative astrometry data. This functionality would work equally well with RV, images, etc.</p><p>We will demonstrate two models: the first, where the planets are exactly co-planar (using a single set of variables for the inlination and position angle of ascending node for both planets), and a second, where the planets are approximately co-planar according to a custom prior.</p><pre><code class="language-julia hljs">using Octofitter
+using CairoMakie
+using PairPlots
+using Distributions
+using PlanetOrbits
+using Pigeons</code></pre><h2 id="Data"><a class="docs-heading-anchor" href="#Data">Data</a><a id="Data-1"></a><a class="docs-heading-anchor-permalink" href="#Data" title="Permalink"></a></h2><p>For this example, we will use astrometry from the HR8799 system collated by Jason Wang and retrieved from the website <a href="http://whereistheplanet.com">Whereistheplanet.com</a>.</p><p>Specify the data here. We&#39;ll wrap it in observation objects below.</p><pre><code class="language-julia hljs">astrom_dat_b = Table(;
+    epoch = [53200.0, 54314.0, 54398.0, 54727.0, 55042.0, 55044.0, 55136.0, 55390.0, 55499.0, 55763.0, 56130.0, 56226.0, 56581.0, 56855.0, 58798.03906, 59453.245, 59454.231],
+    ra    = [1471.0, 1504.0, 1500.0, 1516.0, 1526.0, 1531.0, 1524.0, 1532.0, 1535.0, 1541.0, 1545.0, 1549.0, 1545.0, 1560.0, 1611.002, 1622.924, 1622.872],
+    dec   = [887.0, 837.0, 836.0, 818.0, 797.0, 794.0, 795.0, 783.0, 766.0, 762.0, 747.0, 743.0, 724.0, 725.0, 604.893, 570.534, 571.296],
+    σ_ra  = [6.0, 3.0, 7.0, 4.0, 4.0, 7.0, 10.0, 5.0, 15.0, 5.0, 5.0, 4.0, 22.0, 13.0, 0.133, 0.32, 0.204],
+    σ_dec = [6.0, 3.0, 7.0, 4.0, 4.0, 7.0, 10.0, 5.0, 15.0, 5.0, 5.0, 4.0, 22.0, 13.0, 0.199, 0.296, 0.446],
+    cor   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.406, -0.905, -0.79]
+)
+
+astrom_dat_c = Table(;
+    epoch = [53200.0, 54314.0, 54398.0, 54727.0, 55042.0, 55136.0, 55390.0, 55499.0, 55763.0, 56130.0, 56226.0, 56581.0, 56855.0],
+    ra    = [-739.0, -683.0, -678.0, -663.0, -639.0, -636.0, -619.0, -607.0, -595.0, -578.0, -572.0, -542.0, -540.0],
+    dec   = [612.0, 671.0, 678.0, 693.0, 712.0, 720.0, 728.0, 744.0, 747.0, 761.0, 768.0, 784.0, 799.0],
+    σ_ra  = [6.0, 4.0, 7.0, 3.0, 4.0, 9.0, 4.0, 12.0, 4.0, 5.0, 3.0, 22.0, 12.0],
+    σ_dec = [6.0, 4.0, 7.0, 3.0, 4.0, 9.0, 4.0, 12.0, 4.0, 5.0, 3.0, 22.0, 12.0],
+    cor   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+)</code></pre><h2 id="The-bodies"><a class="docs-heading-anchor" href="#The-bodies">The bodies</a><a id="The-bodies-1"></a><a class="docs-heading-anchor-permalink" href="#The-bodies" title="Permalink"></a></h2><p>HR 8799 b is the outer of the two planets and c the inner one, so we write the hierarchy as a <strong>Jacobi chain</strong>: c orbits the star, and b orbits the <em>barycentre</em> of the star and c (<code>about=(A, c)</code>). </p><pre><code class="language-julia hljs">A = Body(
+    name=&quot;A&quot;,
+    variables=@variables begin
+        mass ~ truncated(Normal(1.5, 0.02), lower=0.1)   # [M⊙]
+    end
+)</code></pre><h2 id="Exact-Co-Planar-Model"><a class="docs-heading-anchor" href="#Exact-Co-Planar-Model">Exact Co-Planar Model</a><a id="Exact-Co-Planar-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Exact-Co-Planar-Model" title="Permalink"></a></h2><p>This model will use a single pair of <code>i</code> and <code>Ω</code> variables for both planets to enforce exact co-planarity. Sharing a parameter between two bodies is done by hoisting it to the system block.</p><pre><code class="language-julia hljs">planet_c = Body(
+    name=&quot;c&quot;,
+    about=A,
+    variables=@variables begin
+        mass ~ Uniform(0, 12mjup)          # [M⊙]
+        e = 0.0
+        ω = 0.0
+
+        # Use the system inclination and longitude of ascending node variables
+        i = system.i
+        Ω = system.Ω
+
+        # Specify the period as ~ 10% around the P_nominal variable
+        P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
+        P = system.P_nominal * P_mul * year2day_julian   # [days]
+
+        θ ~ UniformCircular()
+        epoch = 59454.231   # reference epoch for θ. Choose an MJD date near your data.
+    end
+)
+
+planet_b = Body(
+    name=&quot;b&quot;,
+    about=(A, planet_c),                   # Jacobi: b orbits the A+c barycentre
+    variables=@variables begin
+        mass ~ Uniform(0, 12mjup)          # [M⊙]
+        e = 0.0
+        ω = 0.0
+
+        i = system.i
+        Ω = system.Ω
+
+        # Specify the period as ~ 10% around 2X the P_nominal variable
+        P_mul ~ Normal(1, 0.1)
+        P = 2 * system.P_nominal * P_mul * year2day_julian   # [days]
+
+        θ ~ UniformCircular()
+        epoch = 59454.231
+    end
+)
+
+# Show how the data connects with the model
+astrom_b = RelAstromObs(
+    astrom_dat_b;
+    target = planet_b,
+    ref = A,
+    name = &quot;GPI_b&quot;,
+    variables = @variables begin
+        # Fixed values for this example - could be free variables:
+        jitter = 0        # mas [could use: jitter ~ Uniform(0, 10)]
+        northangle = 0    # radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        platescale = 1    # relative [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+    end
+)
+
+astrom_c = RelAstromObs(
+    astrom_dat_c;
+    target = planet_c,
+    ref = A,
+    name = &quot;GPI_c&quot;,
+    variables = @variables begin
+        jitter = 0        # mas
+        northangle = 0    # radians
+        platescale = 1    # relative
+    end
+)
+
+sys = System(
+    name=&quot;HR8799_res_co&quot;,
+    bodies=[A, planet_c, planet_b],
+    observations=[astrom_b, astrom_c],
+    variables=@variables begin
+        plx ~ gaia_plx(;gaia_id=2832463659640297472)
+        # We create inclination and longitude of ascending node variables at the
+        # system level.
+        i ~ Sine()
+        Ω ~ UniformCircular()
+        # We create a nominal period of planet c variable.
+        P_nominal ~ Uniform(50, 300) # Julian years
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HR8799_res_co of dimension 14 and 30 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>Let&#39;s plot our data before we start:</p><pre><code class="language-julia hljs">fig = scatter(astrom_dat_b.ra, astrom_dat_b.dec, axis=(;autolimitaspect=1))
+scatter!(astrom_dat_c.ra, astrom_dat_c.dec)
+scatter!([0], [0], marker=&#39;⋆&#39;, markersize=50, color=:black)
+fig</code></pre><img src="e0ff23d1.png" alt="Example block output"/><p>Initialize the starting points, and confirm the data are entered correcly:</p><pre><code class="language-julia hljs">init_chain = initialize!(model, (;
+    plx = 24.4549,
+    P_nominal = 230,
+    bodies = (;
+        A = (; mass = 1.48),
+        b = (; mass = 5.73mjup),
+        c = (; mass = 5.14mjup),
+    )
+))
+octoplot(model, init_chain)</code></pre><img src="e0ae0a7f.png" alt="Example block output"/><p>Now sample from the model using Pigeons parallel tempering:</p><pre><code class="language-julia hljs">results, pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>This model has priors that cannot be sampled IID.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ OctofitterPigeonsExt ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt.jl:192</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HR8799_res_co] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HR8799_res_co] barycentric_lighttime = false (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HR8799_res_co] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HR8799_res_co] barycentric_lighttime = false (user)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
+────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
+        2          0       3.18       1.87       1.64   1.06e+07  -1.03e+07          0      0.837          1          1
+        4          0       5.75       4.12      0.239   1.93e+06  -1.27e+06          0      0.681          1          1
+        8          0       5.41       5.71      0.478   3.92e+06  -4.19e+05          0      0.641          1          1
+       16          0       6.92       6.65      0.936   7.64e+06  -1.45e+05          0      0.562          1          1
+       32          0       6.61       7.68       1.89   1.53e+07  -2.05e+03          0      0.539          1          1
+       64          0       7.44       6.36       4.68   9.71e+07       -249          0      0.555          1          1
+      128          0       8.54       6.64       7.81   1.82e+08       -208          0      0.511          1          1
+      256          1       8.63       6.81       15.2   3.53e+08       -206   6.12e-62      0.502          1          1
+      512          7       9.18       7.92       30.3   7.01e+08       -204   5.15e-25      0.448          1          1
+ 1.02e+03         11       9.56       8.52       60.7   1.38e+09       -205   3.13e-20      0.417          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="c1b09453.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="e0e8dc43.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
+    results[:b_P][:] ./ results[:c_P][:],
+    axis=(;
+        xlabel=&quot;period ratio&quot;,
+        ylabel=&quot;counts&quot;,
+    )
+)</code></pre><img src="4911fc64.png" alt="Example block output"/><h2 id="Approximately-Co-Planar-Model"><a class="docs-heading-anchor" href="#Approximately-Co-Planar-Model">Approximately Co-Planar Model</a><a id="Approximately-Co-Planar-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Approximately-Co-Planar-Model" title="Permalink"></a></h2><p>We now set up two planets with their own separate <code>i</code> and <code>Ω</code> variables, calculate the mutual inclination, and add a prior that this mutual inclination is <span>$0 \pm 10 \degree$</span>. An oftern overlooked point is that that a half normal distribution on mutual inclination isn&#39;t going to actually peak at 0, more like <span>$10 \degree$</span> because of how the priors on each planet&#39;s orbital plane interact. </p><p>Any <code>expression ~ distribution</code> line in a <code>@variables</code> block is a prior term, so the mutual-inclination constraint is written directly.</p><pre><code class="language-julia hljs">planet_c = Body(
+    name=&quot;c&quot;,
+    about=A,
+    variables=@variables begin
+        mass ~ Uniform(0, 12mjup)
+        e = 0.0
+        ω = 0.0
+
+        i ~ Sine()
+        Ω ~ UniformCircular()
+
+        P_mul ~ truncated(Normal(1, 0.1), lower=0.1)
+        P = system.P_nominal * P_mul * year2day_julian
+
+        θ ~ UniformCircular()
+        epoch = 59454.231
+    end
+)
+
+planet_b = Body(
+    name=&quot;b&quot;,
+    about=(A, planet_c),
+    variables=@variables begin
+        mass ~ Uniform(0, 12mjup)
+        e = 0.0
+        ω = 0.0
+
+        i~ Sine()
+        Ω ~ UniformCircular()
+
+        P_mul ~ Normal(1, 0.1)
+        P = 2 * system.P_nominal * P_mul * year2day_julian
+
+        θ ~ UniformCircular()
+        epoch = 59454.231
+    end
+)
+
+astrom_b = RelAstromObs(astrom_dat_b; target=planet_b, ref=A, name=&quot;GPI_b&quot;)
+astrom_c = RelAstromObs(astrom_dat_c; target=planet_c, ref=A, name=&quot;GPI_c&quot;)
+
+sys = System(
+    name=&quot;HR8799_approx_res_co&quot;,
+    bodies=[A, planet_c, planet_b],
+    observations=[astrom_b, astrom_c],
+    variables=@variables begin
+        plx ~ gaia_plx(;gaia_id=2832463659640297472)
+
+        # Calculate the mutual inclination
+        mut_inc_b_c = acos(
+            cos(b.i) * cos(c.i) +
+            sin(b.i) * sin(c.i) * cos(b.Ω - c.Ω)
+        )
+        # Add a prior on the mutual inclination: 0 ± 10 degrees
+        mut_inc_b_c ~ truncated(Normal(0, deg2rad(10)), lower=0)
+
+        # We create a nominal period of planet c variable.
+        P_nominal ~ Uniform(50, 300) # Julian years
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System HR8799_approx_res_co of dimension 17 and 30 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>Initialize the starting points, and confirm the data are entered correcly:</p><pre><code class="language-julia hljs">init_chain = initialize!(model, (;
+    plx = 24.4549,
+    P_nominal = 230,
+    bodies = (;
+        A = (; mass = 1.48),
+        b = (; mass = 5.73mjup),
+        c = (; mass = 5.14mjup),
+    )
+))
+octoplot(model, init_chain)</code></pre><img src="572a6595.png" alt="Example block output"/><p>Now sample from the model using Pigeons parallel tempering:</p><pre><code class="language-julia hljs">results, pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>This model has priors that cannot be sampled IID.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ OctofitterPigeonsExt ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt.jl:192</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HR8799_approx_res_co] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HR8799_approx_res_co] barycentric_lighttime = false (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HR8799_approx_res_co] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[HR8799_approx_res_co] barycentric_lighttime = false (user)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
+────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
+        2          0       3.78       2.51       1.85   1.06e+07  -2.06e+07          0      0.797          1          1
+        4          0       6.27       6.44      0.313   1.96e+06   -4.5e+04          0       0.59          1          1
+        8          0       6.67        7.8      0.552   3.86e+06  -6.54e+03          0      0.533          1          1
+       16          0       8.12       8.75        1.1   7.75e+06  -1.04e+03          0      0.456          1          1
+       32          0       8.89       8.96       2.21   1.54e+07       -525  2.99e-291      0.424          1          1
+       64          0       9.82       6.85       5.37   1.05e+08       -235    3.3e-27      0.462          1          1
+      128          2       10.6       6.62       8.51   1.99e+08       -211   3.78e-06      0.444          1          1
+      256          7       10.6       6.98       17.1   3.95e+08       -211    0.00332      0.433          1          1
+      512          4       10.7        8.5       34.1   7.84e+08       -208    0.00752       0.38          1          1
+ 1.02e+03          9       11.1       8.68       68.1   1.57e+09       -206     0.0197      0.361          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="09080059.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="e349e36e.png" alt="Example block output"/><p>Now examine the mutual inclination:</p><pre><code class="language-julia hljs">hist(
+    rad2deg.( results[:mut_inc_b_c][:] ),
+    axis=(;
+        xlabel=&quot;mutual inclination [deg]&quot;,
+        ylabel=&quot;counts&quot;,
+    )
+)</code></pre><img src="6e1154ba.png" alt="Example block output"/><h2 id="Dynamical-stability-priors"><a class="docs-heading-anchor" href="#Dynamical-stability-priors">Dynamical stability priors</a><a id="Dynamical-stability-priors-1"></a><a class="docs-heading-anchor-permalink" href="#Dynamical-stability-priors" title="Permalink"></a></h2><p>For a multi-planet model you will often want to add one or more of the dynamical priors:</p><pre><code class="language-julia hljs">observations = [
+    astrom_b, astrom_c,
+    OrbitOrderPrior(planet_c, planet_b),                     # keeps c interior to b
+    NonCrossingPrior(bodies=(planet_b, planet_c)),           # apsides may not cross
+    HillStabilityPrior(bodies=(planet_b, planet_c)),         # very basic stability constraint
+]</code></pre><p><a href="../api/#Octofitter.HillStabilityPrior"><code>HillStabilityPrior</code></a>&#39;s docstring gives the exact Gladman criterion and the definition of <code>M★</code> it uses.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Observable Priors</a><a class="docs-footer-nextpage" href="../thiele-innes/">Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 4 September 2026 03:25">Friday 4 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
