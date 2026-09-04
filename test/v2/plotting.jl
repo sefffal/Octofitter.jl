@@ -8,6 +8,7 @@ using Distributions
 using LinearAlgebra
 using Random: Xoshiro
 using Statistics: cor, mean, std, var
+using DelimitedFiles: readdlm
 
 @testset "ObservableQuery construction" begin
     q = ObservableQuery(radvel, :b, :A)
@@ -998,4 +999,98 @@ end
     @test r.resid ≈ collect(phot.table.phot) .- 3.8
     ll = sum(@. -0.5 * r.resid^2 / r.σ^2 - log(sqrt(2π * r.σ^2)))
     @test ll ≈ Octofitter.ln_like(phot, ctx) rtol = 1e-12
+end
+
+# ---------------------------------------------------------------------------
+# The parallax ellipse `gaiastarplot` annotates the corner with. The drawing
+# lives in the Makie extension; the geometry lives in the package, so this is
+# the half of the feature CI can actually hold to account.
+# ---------------------------------------------------------------------------
+
+# Ecliptic latitude of an equatorial direction, in degrees.
+_eclat(α, δ) = asind(sind(δ) * cosd(Octofitter.obliquity_J2000_deg) -
+                     cosd(δ) * sind(Octofitter.obliquity_J2000_deg) * sind(α))
+
+@testset "parallax_ellipse has the semi-axes an ellipse of parallax must have" begin
+    # `Δα✶ = A cos λ + B sin λ`, `Δδ = C cos λ + D sin λ` maps the unit circle
+    # through `[A B; C D]`, so the semi-axes are that matrix's singular values.
+    # They must come out 1 and |sin β| — the whole geometric content of the
+    # annotation — and the check is on the matrix rather than on the sampled
+    # curve, so it is exact rather than limited by `n`.
+    function semiaxes(α, δ)
+        sinα, cosα = sincosd(α); sinδ, cosδ = sincosd(δ)
+        sinε, cosε = sincosd(Octofitter.obliquity_J2000_deg)
+        return svdvals([sinα (-cosε*cosα); (cosα*sinδ) (cosε*sinα*sinδ-sinε*cosδ)])
+    end
+    for (α, δ) in ((0.0, 0.0), (45.0, 20.0), (158.307, -40.4256),
+                   (300.0, -5.0), (12.0, 88.0), (270.0, 66.5607))
+        smaj, smin = semiaxes(α, δ)
+        @test smaj ≈ 1.0 atol = 1e-14
+        @test smin ≈ abs(sind(_eclat(α, δ))) atol = 1e-14
+        # …and the sampled curve agrees with the matrix it came from.
+        e = parallax_ellipse(α, δ; n=20001)
+        r = hypot.(e.raoff, e.decoff)
+        @test maximum(r) ≈ smaj rtol = 1e-7
+        @test minimum(r) ≈ smin atol = 1e-4
+    end
+
+    # The two degenerate cases the formula has to get right, since they are the
+    # ones a reader would notice instantly on a figure: a source at the
+    # ecliptic pole parallaxes in a circle, one on the ecliptic in a line.
+    pole = parallax_ellipse(270.0, 90 - Octofitter.obliquity_J2000_deg; n=2001)
+    @test all(≈(1.0; atol=1e-12), hypot.(pole.raoff, pole.decoff))
+    onecl = parallax_ellipse(90.0, Octofitter.obliquity_J2000_deg; n=2001)
+    @test minimum(hypot.(onecl.raoff, onecl.decoff)) < 1e-12
+
+    # Closed curve, so `lines!`/`poly!` get a loop and not an open arc.
+    e = parallax_ellipse(158.307, 40.4256; n=181)
+    @test length(e.raoff) == length(e.decoff) == 181
+    @test e.raoff[begin] ≈ e.raoff[end] && e.decoff[begin] ≈ e.decoff[end]
+    @test_throws ArgumentError parallax_ellipse(0.0, 0.0; n=2)
+end
+
+@testset "parallax_ellipse is the locus Gaia's own parallax factors lie on" begin
+    # The strong test, and the one that would catch a mirrored or rotated
+    # ellipse: a real GOST forecast carries `parallaxFactorAlongScan`, which is
+    # the archive's projection of the Earth's *ephemeris* position onto each
+    # transit's scan direction. If our ellipse is the right locus in the right
+    # frame, every one of those numbers is the projection of some point on it,
+    # so none may exceed the ellipse's support function in that direction.
+    #
+    # Note this is not a restatement of the formula: the numbers come from
+    # Gaia, the curve from a circular Earth orbit, and the two only agree if
+    # the α/δ convention, the ε rotation and the (sin ψ, cos ψ) scan
+    # projection are each right.
+    f = joinpath(@__DIR__, "..", "GOST-158.30707896392835-40.42555422701387-dr3.csv")
+    raw, hdr = readdlm(f, ',', String, header=true)
+    col(name) = findfirst(==(name), strip.(vec(hdr)))
+    # From the file's own columns, not its name: the name encodes the query,
+    # and a negative declination there is spelled with a second hyphen.
+    α = rad2deg(parse(Float64, raw[1, col("ra[rad]")]))
+    δ = rad2deg(parse(Float64, raw[1, col("dec[rad]")]))
+    ψ = parse.(Float64, raw[:, col("scanAngle[rad]")])
+    p = parse.(Float64, raw[:, col("parallaxFactorAlongScan")])
+    @test length(p) > 20
+
+    e = parallax_ellipse(α, δ; n=20001)
+    # Support function: the largest along-scan parallax factor geometrically
+    # available at scan angle ψ. The ellipse is centred, so the lower bound is
+    # its negative and |p| ≤ h(ψ) is the whole constraint.
+    h(a) = maximum(e.raoff .* sin(a) .+ e.decoff .* cos(a))
+    ratio = abs.(p) ./ h.(ψ)
+    # 2% of slack for the one thing the circular orbit gets wrong: Earth's
+    # eccentricity, 0.0167, which moves it 1.7% in and out over a year.
+    @test maximum(ratio) < 1.02
+    # …and the bound has to be *tight*, or an ellipse twice too big would pass.
+    @test maximum(ratio) > 0.95
+
+    # Teeth. Transposing the ellipse — the classic α/δ swap — keeps both
+    # semi-axes and breaks only the orientation, and it must fail.
+    ht(a) = maximum(e.decoff .* sin(a) .+ e.raoff .* cos(a))
+    @test maximum(abs.(p) ./ ht.(ψ)) > 1.02
+    # A source 90° away in RA has a differently-oriented ellipse; it need not
+    # violate the bound, but it must stop being tight.
+    e2 = parallax_ellipse(α + 90, δ; n=20001)
+    h2(a) = maximum(e2.raoff .* sin(a) .+ e2.decoff .* cos(a))
+    @test maximum(abs.(p) ./ h2.(ψ)) < 0.95
 end
