@@ -520,8 +520,11 @@ function dr4_model(; withframe::Bool)
             "GOST-158.30707896392835-40.42555422701387-dr3.csv"),
         Table, normalizenames=true)
     tbl = gaia_dr4_transit_template(; σ_al=0.15, forecast_table=gost)
+    # `target=Photocentre` weights by the bodies' fluxes, so both must declare
+    # one -- a dark companion is `flux = 0.0`, not a missing variable.
     A = Octofitter.Body(name="A", variables=@variables begin
         mass ~ truncated(Normal(1.0, 0.05), lower=0.5)
+        flux = 1.0
     end)
     b = Octofitter.Body(name="b", about=A, variables=@variables begin
         mass ~ Uniform(0.002, 0.02)
@@ -531,6 +534,7 @@ function dr4_model(; withframe::Bool)
         ω = 1.0
         Ω = 2.0
         tp = 57000.0
+        flux = 0.0
     end)
     gaia = GaiaDR4AstromObs(tbl; target=Photocentre, ref=Barycentre, name="GaiaDR4",
         variables=@variables begin
@@ -544,11 +548,19 @@ function dr4_model(; withframe::Bool)
     # The sky direction is what the ellipse is projected onto. `withframe=false`
     # is the model that declares none, which must lose the ellipse and keep the
     # panel rather than erroring.
+    # An absolute frame is all-or-nothing: declaring `ra`/`dec` alone is
+    # rejected with "an absolute frame needs all of plx, ra, dec, pmra, pmdec,
+    # rv, ref_epoch". So this is what a model the ellipse can auto-detect
+    # actually looks like.
     sysvars = withframe ?
         (@variables begin
             plx ~ truncated(Normal(25.0, 0.5), lower=1.0)
             ra = 158.30707896392835
             dec = 40.42555422701387
+            pmra = 0.0
+            pmdec = 0.0
+            rv = 0.0
+            ref_epoch = 57388.5
         end) :
         (@variables begin
             plx ~ truncated(Normal(25.0, 0.5), lower=1.0)
@@ -594,7 +606,11 @@ let m = dr4_model(withframe=true), c = fakechain(m, 4; seed=7)
     # Shape, not just size: the drawn ellipse must have the axis ratio the
     # source's ecliptic latitude demands, |sin β|. This is the check that would
     # catch the ellipse being squashed by a non-uniform scaling.
-    pts = polypoints(ax)
+    # `parallax_ellipse` repeats its first vertex last to close the polygon, so
+    # the centroid has to be taken over the *unique* vertices -- counting the
+    # duplicate pulls the centre off the ellipse's own centre by 1/181 of a
+    # radius and drags the measured axis ratio from 0.4830 to 0.4793.
+    pts = polypoints(ax)[1:end-1]
     cx = sum(p[1] for p in pts) / length(pts)
     cy = sum(p[2] for p in pts) / length(pts)
     rr = [hypot(p[1] - cx, p[2] - cy) for p in pts]
@@ -602,7 +618,7 @@ let m = dr4_model(withframe=true), c = fakechain(m, 4; seed=7)
               cosd(40.42555422701387) * sind(Octofitter.obliquity_J2000_deg) *
               sind(158.30707896392835))
     got = minimum(rr) / maximum(rr)
-    check(isapprox(got, abs(sind(β)); atol=2e-3),
+    check(isapprox(got, abs(sind(β)); atol=1e-3),
         "…with axis ratio |sin β| = $(round(abs(sind(β)), digits=4)) (drew $(round(got, digits=4)))")
 
     _, ax3 = panel(m, c; parallax_ellipse=false)
